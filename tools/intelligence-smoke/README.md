@@ -45,7 +45,8 @@ pnpm nx run intelligence-smoke:run -- --intelligence-source=/path/to/intelligenc
 The checkout must have clean tracked files.
 The runner builds app-api, realtime-gateway, and migrations from Git archives of its exact `HEAD` commit.
 Untracked files do not enter these build contexts.
-The runner imports the images into k3d and compares imported manifests with the built image identities.
+The runner imports the images into the k3d node with `ctr` and compares imported manifests with the built image identities.
+It does not use `k3d image import`, which can report success before the import has run.
 The chart and supporting services still use the public pins.
 
 ## What the runner does

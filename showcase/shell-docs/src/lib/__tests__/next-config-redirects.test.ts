@@ -49,6 +49,22 @@ describe("next.config redirects", () => {
     );
   });
 
+  it("uses the unselected catch-all for the Components as Tools URL", async () => {
+    const nextConfig = (await import("../../../next.config")).default;
+    const redirects = (await nextConfig.redirects?.()) ?? [];
+
+    expect(redirects).toContainEqual({
+      source: "/unselected/:path*",
+      destination: "/:path*",
+      permanent: true,
+    });
+    expect(redirects).not.toContainEqual(
+      expect.objectContaining({
+        source: "/unselected/generative-ui/tool-based",
+      }),
+    );
+  });
+
   it("strips the retired built-in-agent prefix to root URLs", async () => {
     vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
     vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");

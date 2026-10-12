@@ -37,6 +37,7 @@ import type {
 import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
+import type { RuntimeRequestInit } from "./utils/runtime-request";
 import type { ConnectionReplayLifecycle } from "./utils/connect-replay";
 import { ɵconnectWithoutEventVerification } from "./utils/connect-replay";
 import type { CopilotKitMessageFilter } from "./core/message-filter";
@@ -395,7 +396,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         ...this.headers,
         "Content-Type": "application/json",
       });
-      void fetch(this.singleEndpointUrl, {
+      void this.fetch(this.singleEndpointUrl, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -407,7 +408,10 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
           ...(runId === undefined ? {} : { body: { runId } }),
         }),
         ...(this.credentials ? { credentials: this.credentials } : {}),
-      }).catch((error) => {
+        // A stop is fire-and-forget: its failure shouldn't arm the runtime
+        // reachability watchdog or trigger a reachability probe.
+        ɵruntimeRequest: { nonCritical: true },
+      } as RuntimeRequestInit).catch((error) => {
         console.error("ProxiedCopilotRuntimeAgent: stop request failed", error);
       });
       return;
@@ -425,7 +429,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     const base = new URL(this.runtimeUrl, origin);
     const stopUrl = new URL(stopPath, base);
 
-    void fetch(stopUrl.toString(), {
+    void this.fetch(stopUrl.toString(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -433,7 +437,10 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       },
       ...(runId === undefined ? {} : { body: JSON.stringify({ runId }) }),
       ...(this.credentials ? { credentials: this.credentials } : {}),
-    }).catch((error) => {
+      // A stop is fire-and-forget: its failure shouldn't arm the runtime
+      // reachability watchdog or trigger a reachability probe.
+      ɵruntimeRequest: { nonCritical: true },
+    } as RuntimeRequestInit).catch((error) => {
       console.error("ProxiedCopilotRuntimeAgent: stop request failed", error);
     });
   }

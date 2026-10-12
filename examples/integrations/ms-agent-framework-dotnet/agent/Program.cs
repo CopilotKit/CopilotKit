@@ -41,6 +41,7 @@ public class ProverbsAgentFactory
     private readonly IConfiguration _configuration;
     private readonly ProverbsState _state;
     private readonly OpenAIClient _openAiClient;
+    private readonly string _model;
     private readonly ILogger _logger;
     private readonly System.Text.Json.JsonSerializerOptions _jsonSerializerOptions;
 
@@ -51,22 +52,69 @@ public class ProverbsAgentFactory
         _logger = loggerFactory.CreateLogger<ProverbsAgentFactory>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        var openAiApiKey = _configuration["OPENAI_API_KEY"]
+        // COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") picks the
+        // provider and model; unset, the agent uses gpt-5-mini on OpenAI. Like
+        // OPENAI_API_KEY it is read from configuration (user-secrets or an
+        // environment variable). Anthropic and Google are reached through their
+        // OpenAI-compatible Chat Completions endpoints, so the OpenAI client
+        // serves all three. An OpenAI-compatible provider is
+        // openai:<its model id> plus OPENAI_BASE_URL.
+        var agentModel = _configuration["COPILOTKIT_AGENT_MODEL"];
+        var (provider, model) = ParseAgentModel(
+            string.IsNullOrWhiteSpace(agentModel) ? "openai:gpt-5-mini" : agentModel);
+        _model = model;
+
+        var apiKeyName = provider switch
+        {
+            "anthropic" => "ANTHROPIC_API_KEY",
+            "google" => "GOOGLE_API_KEY",
+            _ => "OPENAI_API_KEY",
+        };
+        var apiKey = _configuration[apiKeyName]
             ?? throw new InvalidOperationException(
-                "OPENAI_API_KEY not found in configuration. " +
-                "Set it with: dotnet user-secrets set OPENAI_API_KEY \"<your-openai-api-key>\"");
+                $"{apiKeyName} not found in configuration. " +
+                $"Set it with: dotnet user-secrets set {apiKeyName} \"<your-api-key>\"");
 
         var openAiBaseUrl = _configuration["OPENAI_BASE_URL"];
-        _openAiClient = string.IsNullOrWhiteSpace(openAiBaseUrl)
-            ? new OpenAIClient(openAiApiKey)
+        Uri? endpoint = provider switch
+        {
+            "anthropic" => new Uri("https://api.anthropic.com/v1/"),
+            "google" => new Uri("https://generativelanguage.googleapis.com/v1beta/openai/"),
+            _ => string.IsNullOrWhiteSpace(openAiBaseUrl) ? null : new Uri(openAiBaseUrl),
+        };
+        _openAiClient = endpoint is null
+            ? new OpenAIClient(apiKey)
             : new OpenAIClient(
-                new System.ClientModel.ApiKeyCredential(openAiApiKey),
-                new OpenAIClientOptions { Endpoint = new Uri(openAiBaseUrl) });
+                new System.ClientModel.ApiKeyCredential(apiKey),
+                new OpenAIClientOptions { Endpoint = endpoint });
+    }
+
+    /// <summary>
+    /// Parses <c>&lt;provider&gt;:&lt;model&gt;</c> (or <c>&lt;provider&gt;/&lt;model&gt;</c>).
+    /// Providers: openai, anthropic, google (gemini and google-gemini are aliases
+    /// of google). The model id after the first ':' or '/' is kept unchanged.
+    /// </summary>
+    internal static (string Provider, string Model) ParseAgentModel(string value)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(value.Trim(), "^([A-Za-z0-9-]+)[:/](.+)$");
+        var provider = !match.Success ? null : match.Groups[1].Value.ToLowerInvariant() switch
+        {
+            "openai" => "openai",
+            "anthropic" => "anthropic",
+            "google" or "gemini" or "google-gemini" => "google",
+            _ => null,
+        };
+        if (provider is null)
+        {
+            throw new InvalidOperationException(
+                $"COPILOTKIT_AGENT_MODEL=\"{value}\" is not <provider>:<model> with provider openai, anthropic or google");
+        }
+        return (provider, match.Groups[2].Value);
     }
 
     public AIAgent CreateProverbsAgent()
     {
-        var chatClientAgent = _openAiClient.GetChatClient("gpt-5-mini").AsAIAgent(
+        var chatClientAgent = _openAiClient.GetChatClient(_model).AsAIAgent(
             new ChatClientAgentOptions
             {
                 Name = "ProverbsAgent",

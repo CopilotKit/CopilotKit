@@ -573,6 +573,138 @@
       }
     },
     {
+      "name": "showcase-intelligence-api",
+      "serviceId": "2cf17267-31c4-4e92-8270-5ad92bd7ad19",
+      "prodInstanceId": "2cf17267-31c4-4e92-8270-5ad92bd7ad19",
+      "stagingInstanceId": "fa59ca5f-7319-4fde-867e-cf8de453e442",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-composite",
+      "serviceId": "70b24c88-81a5-469d-ae57-3df0daea2b3c",
+      "prodInstanceId": "70b24c88-81a5-469d-ae57-3df0daea2b3c",
+      "stagingInstanceId": "9dadebd1-6320-4e38-9fb0-2fc06b5ecbf0",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-gateway",
+      "serviceId": "f2eec3fd-d841-481b-9a9d-c8fd94c27870",
+      "prodInstanceId": "f2eec3fd-d841-481b-9a9d-c8fd94c27870",
+      "stagingInstanceId": "b898bdc3-6602-41ad-acbc-0df88002c13b",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-gateway-proxy",
+      "serviceId": "12513b2b-e368-4f7a-8141-1c28ab4f6f09",
+      "prodInstanceId": "12513b2b-e368-4f7a-8141-1c28ab4f6f09",
+      "stagingInstanceId": "1ee4af98-0935-4b3e-a434-a7f023e506b9",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-postgres",
+      "serviceId": "6c2d2998-e7ae-413d-997d-7277f9fd6e07",
+      "prodInstanceId": "6c2d2998-e7ae-413d-997d-7277f9fd6e07",
+      "stagingInstanceId": "66e32c98-00ad-42e3-83a2-eba4ba6c1be2",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-redis",
+      "serviceId": "7b99fa95-2124-4d19-838a-652464e351da",
+      "prodInstanceId": "7b99fa95-2124-4d19-838a-652464e351da",
+      "stagingInstanceId": "4695150f-0de8-4b3b-b302-7a377621a200",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
       "name": "showcase-langgraph-fastapi",
       "serviceId": "06cccb5c-59f4-46b5-8adc-7113e77011a4",
       "prodInstanceId": "105b7e01-acd0-48e2-9a09-541e2103e8d2",
@@ -1626,6 +1758,31 @@
         "tier": 2
       }
     ],
-    "skipped": []
+    "skipped": [
+      {
+        "name": "showcase-intelligence-api",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-composite",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-gateway",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-gateway-proxy",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-postgres",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-redis",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      }
+    ]
   }
 }

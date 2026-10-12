@@ -1243,6 +1243,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../../../../packages/core
+      '@copilotkit/learning':
+        specifier: workspace:*
+        version: link:../../../../packages/learning
       '@copilotkit/mcp-apps-renderer':
         specifier: workspace:*
         version: link:../../../../packages/mcp-apps-renderer

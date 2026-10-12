@@ -491,6 +491,8 @@ import "@copilotkit/react-native/polyfills/location";
   ```
 
   A token kept in a ref, module variable, or async SDK cache with no accompanying render will keep sending the **stale** value indefinitely. If you can't re-render, call `copilotkit.setHeaders({ ... })` directly when the token rotates.
+
+  The web provider's `headers` builder now runs when each request is sent, and also accepts an async function. Neither applies here yet: the React Native provider still evaluates its builder at render time and only accepts a sync function.
 </Callout>
 
 <Callout type="info" title="Cloud props aren't wired on React Native yet">
@@ -508,7 +510,7 @@ The runtime from the quickstart hosts a `BuiltInAgent` and serves it with `creat
 ```ts
 new BuiltInAgent({ model: "openai:gpt-5-mini", prompt: "..." });      // OPENAI_API_KEY
 new BuiltInAgent({ model: "anthropic:claude-sonnet-4-6", prompt: "..." }); // ANTHROPIC_API_KEY
-new BuiltInAgent({ model: "google:gemini-2.5-pro", prompt: "..." });  // GOOGLE_API_KEY
+new BuiltInAgent({ model: "google:gemini-3.8-flash", prompt: "..." }); // GOOGLE_API_KEY
 ```
 
 The string form reads the matching provider API key from the environment. You can also pass `apiKey` on the config, or an already-constructed AI SDK `LanguageModel` instance in place of the string.
@@ -522,6 +524,8 @@ export OPENAI_BASE_URL=https://your-gateway.example.com/v1
 export OPENAI_API_KEY=sk-...
 npx tsx server.ts
 ```
+
+On a host other than OpenAI or Azure, `openai:` models use the Chat Completions API. To keep the Responses API through a gateway in front of OpenAI, also set `COPILOTKIT_OPENAI_API=responses`. See [Model Selection](/model-selection#openai-compatible-endpoints).
 
 The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. When the variable is unset, the provider falls back to its default endpoint, so this is fully backward compatible — you do **not** need to build a custom model instance just to change the base URL.
 

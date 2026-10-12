@@ -26,9 +26,11 @@ import {
 } from "@ag-ui/a2ui-toolkit";
 import { createModel } from "./model-factory";
 import { SHOWCASE_TOOLS } from "./tools";
+import { BoardStateStrandsAgent } from "./todo-state-sync";
 import {
   withStateContext,
   salesStateFromArgs,
+  salesStateFromResult,
   notesStateFromArgs,
   stepsStateFromArgs,
   documentStateFromArgs,
@@ -42,7 +44,7 @@ import {
 } from "./prompts";
 
 // @region[agent-config-context-registration]
-export class ShowcaseStrandsAgent extends StrandsAgent {
+export class ShowcaseStrandsAgent extends BoardStateStrandsAgent {
   override async *run(inputData: RunAgentInput) {
     // The adapter exposes context during model calls and restores history afterward.
     yield* super.run(withStateContext(inputData));
@@ -54,11 +56,12 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
   const config: StrandsAgentConfig = {
     toolBehaviors: {
       // The tool keeps the sales pipeline in appState; this snapshot, built
-      // from the args, only carries it to the UI.
+      // from the args, only carries it to the UI. Keep the call/result in
+      // message snapshots too so completed threads can replay them.
       manage_sales_todos: {
-        skipMessagesSnapshot: true,
         stateFromArgs: salesStateFromArgs,
       },
+      get_sales_todos: { stateFromResult: salesStateFromResult },
       // Shared State (Read + Write) — notes panel.
       set_notes: { stateFromArgs: notesStateFromArgs },
       // gen-ui-agent — live progress card driven by set_steps transitions.

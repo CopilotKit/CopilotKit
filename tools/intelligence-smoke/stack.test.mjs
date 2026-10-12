@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, mkdtemp, rm } from "node:fs/promises";
+import { readFile, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   createStack,
   stackConfiguration,
   downloadChart,
+  importCandidateImages,
   verifyCandidateImports,
 } from "./stack.mjs";
 import { createCredentials } from "./credentials.mjs";
@@ -402,6 +403,95 @@ test("candidate import evidence connects loaded manifest bytes to the built imag
   );
 });
 
+test("candidate import waits for ctr in the node and surfaces its failure", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "candidate-import-"));
+  const archive = join(directory, "candidate-images.tar");
+  const node = "k3d-test-server-0";
+  const candidate = { dockerImages: ["one:tag", "two:tag"] };
+  const target = "/tmp/candidate-images.tar";
+  try {
+    for (const importFails of [false, true]) {
+      const calls = [];
+      const run = async (file, args, options) => {
+        calls.push({ file, args, step: options.step });
+        if (options.step === "candidate-save")
+          await writeFile(args[args.indexOf("--output") + 1], "tar");
+        if (options.step === "candidate-import" && importFails)
+          throw new Error("candidate-import failed (exit 1)");
+        return "";
+      };
+      const imported = importCandidateImages({
+        candidate,
+        node,
+        directory,
+        run,
+      });
+      if (importFails) await assert.rejects(imported, /candidate-import/);
+      else await imported;
+      assert.deepEqual(
+        calls.map(({ file, args, step }) => [step, file, ...args]),
+        [
+          [
+            "candidate-save",
+            "docker",
+            "image",
+            "save",
+            "--output",
+            archive,
+            ...candidate.dockerImages,
+          ],
+          ["candidate-copy", "docker", "cp", archive, `${node}:${target}`],
+          [
+            "candidate-import",
+            "docker",
+            "exec",
+            node,
+            "ctr",
+            "--namespace",
+            "k8s.io",
+            "images",
+            "import",
+            "--all-platforms",
+            target,
+          ],
+          ...(importFails
+            ? []
+            : [
+                [
+                  "candidate-import-cleanup",
+                  "docker",
+                  "exec",
+                  node,
+                  "rm",
+                  "-f",
+                  target,
+                ],
+              ]),
+        ],
+      );
+      await assert.rejects(stat(archive), { code: "ENOENT" });
+    }
+    await assert.rejects(
+      importCandidateImages({
+        candidate,
+        node,
+        directory,
+        run: async (_file, args, options) => {
+          if (options.step === "candidate-save")
+            await writeFile(args[args.indexOf("--output") + 1], "partial");
+          if (options.step === "candidate-copy")
+            throw new Error("candidate-copy failed (exit 1)");
+          return "";
+        },
+      }),
+      /candidate-copy/,
+    );
+    await assert.rejects(stat(archive), { code: "ENOENT" });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("candidate import rejects changed content under a retained digest", async () => {
   const digest = `sha256:${"a".repeat(64)}`;
   const candidate = {
@@ -553,12 +643,26 @@ test("candidate stack imports built images, proves running identity and removes 
     await stack.start();
     assert.ok(
       calls.some(
-        ({ args }) =>
-          args[0] === "image" &&
-          args[1] === "import" &&
-          candidate.dockerImages.every((image) => args.includes(image)) &&
-          args.includes(stack.id),
+        ({ args, options }) =>
+          options.step === "candidate-save" &&
+          candidate.dockerImages.every((image) => args.includes(image)),
       ),
+    );
+    const importSteps = calls
+      .map(({ options }) => options.step)
+      .filter((step) => step.startsWith("candidate-"));
+    assert.deepEqual(importSteps.slice(0, 4), [
+      "candidate-save",
+      "candidate-copy",
+      "candidate-import",
+      "candidate-import-cleanup",
+    ]);
+    assert.ok(
+      importSteps.indexOf("candidate-import-list") >
+        importSteps.indexOf("candidate-import"),
+    );
+    assert.ok(
+      !calls.some(({ args }) => args[0] === "image" && args[1] === "import"),
     );
     const values = JSON.parse(await readFile(join(directory, "values.yaml")));
     assert.equal(values.appApi.image.pullPolicy, "Never");

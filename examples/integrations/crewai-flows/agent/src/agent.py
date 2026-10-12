@@ -9,6 +9,8 @@ from ag_ui_crewai.sdk import CopilotKitState, copilotkit_stream
 from crewai.flow.flow import Flow, listen, router, start
 from litellm import completion
 
+from src.model import resolve_model
+
 
 class AgentState(CopilotKitState):
     """
@@ -85,8 +87,10 @@ class SampleAgentFlow(Flow[AgentState]):
         #    copilotkit_stream and set stream=True.
         response = await copilotkit_stream(
             completion(
-                # 1.1 Specify the model to use
-                model="openai/gpt-5-mini",
+                # 1.1 Specify the model to use. COPILOTKIT_AGENT_MODEL (e.g.
+                #     "anthropic:claude-sonnet-4-5") overrides it; unset, the
+                #     agent uses gpt-5-mini.
+                model=resolve_model("openai:gpt-5-mini"),
                 messages=[
                     {"role": "system", "content": system_prompt},
                     *self.state.messages,
