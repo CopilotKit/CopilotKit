@@ -92,11 +92,14 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.emit(runFinishedEvent());
       agent.complete();
 
+      // The streaming renderer splits text across span segments; query by textContent instead.
       await waitFor(() => {
-        const assistantMessage = screen.getByText(
-          "Hello! How can I help you today?",
+        const el = screen.queryAllByText((_t, element) =>
+          (element?.textContent ?? "").includes(
+            "Hello! How can I help you today?",
+          ),
         );
-        expect(assistantMessage).toBeDefined();
+        expect(el.length).toBeGreaterThan(0);
       });
     });
 
@@ -111,22 +114,32 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       agent.emit(textChunkEvent(messageId, "Once upon"));
 
+      // The streaming renderer splits text across span segments; query by textContent instead.
       await waitFor(() => {
-        expect(screen.getByText(/Once upon/)).toBeDefined();
+        const el = screen.queryAllByText((_t, element) =>
+          (element?.textContent ?? "").includes("Once upon"),
+        );
+        expect(el.length).toBeGreaterThan(0);
       });
 
       agent.emit(textChunkEvent(messageId, " a time"));
 
       await waitFor(() => {
-        expect(screen.getByText(/Once upon a time/)).toBeDefined();
+        const el = screen.queryAllByText((_t, element) =>
+          (element?.textContent ?? "").includes("Once upon a time"),
+        );
+        expect(el.length).toBeGreaterThan(0);
       });
 
       agent.emit(textChunkEvent(messageId, " there was a robot."));
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/Once upon a time there was a robot\./),
-        ).toBeDefined();
+        const el = screen.queryAllByText((_t, element) =>
+          (element?.textContent ?? "").includes(
+            "Once upon a time there was a robot.",
+          ),
+        );
+        expect(el.length).toBeGreaterThan(0);
       });
 
       agent.emit(runFinishedEvent());
@@ -650,8 +663,11 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       );
 
       await waitFor(() => {
-        const allMessages = screen.getAllByText(
-          /Here is some actual text content/,
+        // The streaming renderer splits text across span segments; query by textContent instead.
+        const allMessages = screen.queryAllByText((_t, element) =>
+          (element?.textContent ?? "").includes(
+            "Here is some actual text content",
+          ),
         );
         expect(allMessages.length).toBeGreaterThan(0);
 
@@ -807,8 +823,12 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       consumerAgent.emit(runFinishedEvent());
       consumerAgent.complete();
 
+      // The streaming renderer splits text across span segments; query by textContent instead.
       await waitFor(() => {
-        expect(screen.getByText(/I can help with that/)).toBeDefined();
+        const el = screen.queryAllByText((_t, element) =>
+          (element?.textContent ?? "").includes("I can help with that"),
+        );
+        expect(el.length).toBeGreaterThan(0);
       });
 
       await waitFor(
@@ -1014,8 +1034,15 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       await agent.emit(reasoningMessageEndEvent(reasoningId));
       await agent.emit(reasoningEndEvent(reasoningId));
 
+      // The streaming renderer splits text across span segments; query by textContent instead.
       await waitFor(() => {
-        expect(screen.getByText(/Part 1 Part 2 Part 3/)).toBeDefined();
+        const el = screen.queryAllByText(
+          (_t, element) =>
+            (element?.textContent ?? "").includes("Part 1") &&
+            (element?.textContent ?? "").includes("Part 2") &&
+            (element?.textContent ?? "").includes("Part 3"),
+        );
+        expect(el.length).toBeGreaterThan(0);
       });
 
       await agent.emit(runFinishedEvent());
@@ -1041,17 +1068,23 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       await agent.emit(runFinishedEvent());
       await agent.complete();
 
+      // The streaming renderer splits text across span segments; query by textContent instead.
       await waitFor(() => {
         expect(screen.getByText(/Thought for/)).toBeDefined();
-        expect(screen.getByText("The answer is 42.")).toBeDefined();
+        const el = screen.queryAllByText((_t, element) =>
+          (element?.textContent ?? "").includes("The answer is 42."),
+        );
+        expect(el.length).toBeGreaterThan(0);
       });
 
       const reasoningEl = screen
         .getByText(/Thought for/)
         .closest("[data-message-id]");
       const textEl = screen
-        .getByText("The answer is 42.")
-        .closest("[data-message-id]");
+        .queryAllByText((_t, element) =>
+          (element?.textContent ?? "").includes("The answer is 42."),
+        )[0]
+        ?.closest("[data-message-id]");
 
       if (reasoningEl && textEl) {
         const position = reasoningEl.compareDocumentPosition(textEl);
@@ -1121,8 +1154,12 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       await agent.emit(textChunkEvent(textId, "Starting answer..."));
 
+      // The streaming renderer splits text across span segments; query by textContent instead.
       await waitFor(() => {
-        expect(screen.getByText(/Starting answer/)).toBeDefined();
+        const el = screen.queryAllByText((_t, element) =>
+          (element?.textContent ?? "").includes("Starting answer"),
+        );
+        expect(el.length).toBeGreaterThan(0);
       });
 
       await waitFor(() => {

@@ -12,8 +12,13 @@ import {
 import type { CopilotKitCoreFriendsAccess } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import "@copilotkit/react-core/v2/styles.css";
+import {
+  StreamdownRenderer,
+  customMarkdownConfig,
+} from "../lib/markdown-renderers";
 
 type AgentType = "tanstack" | "aisdk";
+type MarkdownMode = "built-in" | "custom" | "streamdown";
 
 const HEALTHY_RUNTIME_URL = "/api/copilotkit";
 const DEAD_RUNTIME_URL = "/api/nope";
@@ -235,9 +240,34 @@ export default function Index() {
   // neutral-50 is oklch(0.985 0 0), neutral-800 is oklch(0.269 0 0).
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const dark = theme === "dark";
+  // Demo: swap the markdown renderer at runtime via the provider's pluggable
+  // `markdownRenderer` prop, which accepts EITHER a config object or a
+  // component. Three scenarios:
+  //   "built-in"  = undefined -> CopilotKit's default streaming renderer
+  //                 (@copilotkit/markdown-renderer — zero extra deps,
+  //                 streaming-safe incremental rendering + per-token animation).
+  //   "custom"    = a DefaultMarkdownRendererProps config object that configures
+  //                 the built-in renderer with custom node renderers (here a
+  //                 terminal-style code block + accent blockquote) while keeping
+  //                 the streaming behavior.
+  //   "streamdown"= the app-supplied streamdown component — the escape hatch
+  //                 that replaces the renderer entirely (syntax highlighting,
+  //                 math, diagrams).
+  // Ask the agent for a code block, blockquote, table, or math to compare.
+  const [markdownMode, setMarkdownMode] = useState<MarkdownMode>("built-in");
+
+  const markdownRenderer =
+    markdownMode === "streamdown"
+      ? StreamdownRenderer
+      : markdownMode === "custom"
+        ? customMarkdownConfig
+        : undefined;
 
   return (
-    <CopilotKitProvider runtimeUrl={HEALTHY_RUNTIME_URL}>
+    <CopilotKitProvider
+      runtimeUrl={HEALTHY_RUNTIME_URL}
+      markdownRenderer={markdownRenderer}
+    >
       <AppContext theme={theme} agentType={agentType} />
       <div
         className={`h-screen w-screen flex flex-col transition-colors ${
@@ -273,6 +303,33 @@ export default function Index() {
             className={toolbarButtonClass(agentType === "tanstack")}
           >
             TanStack AI
+          </button>
+          <span className="ml-2 text-sm font-medium text-gray-600 dark:text-neutral-300">
+            Markdown:
+          </span>
+          <button
+            type="button"
+            onClick={() => setMarkdownMode("built-in")}
+            className={toolbarButtonClass(markdownMode === "built-in")}
+            aria-pressed={markdownMode === "built-in"}
+          >
+            Built-in (streaming)
+          </button>
+          <button
+            type="button"
+            onClick={() => setMarkdownMode("custom")}
+            className={toolbarButtonClass(markdownMode === "custom")}
+            aria-pressed={markdownMode === "custom"}
+          >
+            Custom (config)
+          </button>
+          <button
+            type="button"
+            onClick={() => setMarkdownMode("streamdown")}
+            className={toolbarButtonClass(markdownMode === "streamdown")}
+            aria-pressed={markdownMode === "streamdown"}
+          >
+            Streamdown
           </button>
           <InspectorErrorLab />
         </div>
