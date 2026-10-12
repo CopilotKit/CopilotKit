@@ -231,12 +231,13 @@ function safeText(root: Element, strict: boolean) {
 }
 
 /** An option or tree item of an autocomplete or search popup, whose text usually repeats what the user typed. */
-function isSuggestion(element: Element) {
-  if (
-    element.localName !== "option" &&
-    !/^(option|treeitem)$/.test(roleOf(element))
-  )
-    return false;
+const isSuggestion = (element: Element) =>
+  (element.localName === "option" ||
+    /^(option|treeitem)$/.test(roleOf(element))) &&
+  inSuggestionList(element);
+
+/** Whether `element` is, or is inside, a combobox, a datalist, or the popup a combobox or autocomplete field controls or owns. */
+function inSuggestionList(element: Element) {
   if (element.closest("[role~=combobox], datalist") !== null) return true;
   const root = rootOf(element);
   return (
@@ -258,7 +259,9 @@ function labelledBy(element: Element) {
     : idRefs(element, "aria-labelledby")
         .map((id) => {
           const referenced = root.getElementById(id);
-          return referenced === null ? "" : safeText(referenced, false);
+          return referenced === null || inSuggestionList(referenced)
+            ? ""
+            : safeText(referenced, false);
         })
         .join(" ");
 }
@@ -307,11 +310,15 @@ function firstLabel(sources: (() => string | null)[], redact: Redactor) {
  * A short name for the clicked control, from the first source that yields one:
  * `aria-labelledby`, `aria-label`, an input caption or `alt`, `title` (controls
  * only), then the text of a control named by its content. Containers, cards,
- * editable content, and autocomplete suggestions never contribute their text.
- * An icon without its own name takes the name of the control around it.
+ * and editable content never contribute their text. An autocomplete suggestion,
+ * or anything inside one, gets no label from any source; `data-copilotkit-action`
+ * names it instead. An icon without its own name takes the name of the control
+ * around it.
  */
 function clickLabel(element: Element, redact: Redactor): string | undefined {
-  // aria-labelledby and aria-label apply to any target.
+  const option = element.closest("option, [role~=option], [role~=treeitem]");
+  if (option !== null && isSuggestion(option)) return undefined;
+  // aria-labelledby and aria-label apply to any other target.
   const named = [
     () => labelledBy(element),
     () => element.getAttribute("aria-label"),
@@ -345,7 +352,7 @@ function clickLabel(element: Element, redact: Redactor): string | undefined {
             : element.value
           : null,
       () => (control || captionInput ? element.getAttribute("title") : null),
-      () => (control && !isSuggestion(element) ? contentText(element) : null),
+      () => (control ? contentText(element) : null),
     ],
     redact,
   );

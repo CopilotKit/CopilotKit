@@ -206,13 +206,21 @@ describe("installClickCapture", () => {
   });
 });
 
+/** A combobox suggestion whose option names itself through its own text. */
+const suggestion = (attributes = "") =>
+  `<input role="combobox" aria-controls="results"><ul id="results" role="listbox"><li id="option" role="option" aria-labelledby="option-text"${attributes}><span id="option-text">private search canary</span></li></ul>`;
+
 describe("click target label", () => {
   /** Clicks `#id` (or the element itself) and returns the captured target. */
   function clickTarget(target: string | Element, redact?: Redactor) {
     const events = setup({ redact });
     click(typeof target === "string" ? byId(target) : target);
     expect(events).toHaveLength(1);
-    return events[0]!.value.target as { label?: string; text: string };
+    return events[0]!.value.target as {
+      label?: string;
+      text: string;
+      action: string | null;
+    };
   }
 
   describe("names a control", () => {
@@ -318,12 +326,14 @@ describe("click target label", () => {
       expect(clickTarget("named").label).toBe("Rename file");
     });
 
-    it("gives a combobox suggestion that repeats the query no text label", () => {
-      document.body.innerHTML = `<input role="combobox" aria-autocomplete="list" aria-controls="suggestions"><ul id="suggestions" role="listbox"><li id="o" role="option">divorce lawyer near me</li><li id="named" role="option" aria-label="Suggestion 2">divorce lawyer cost</li></ul>`;
+    it("gives a combobox suggestion that repeats the query no label, and keeps its action", () => {
+      document.body.innerHTML = `<input role="combobox" aria-autocomplete="list" aria-controls="suggestions"><ul id="suggestions" role="listbox"><li id="o" role="option">divorce lawyer near me</li><li id="named" role="option" aria-label="Suggestion 2" data-copilotkit-action="search.pick">divorce lawyer cost</li></ul>`;
       const target = clickTarget("o");
       expect(target.label).toBeUndefined();
       uninstall?.();
-      expect(clickTarget("named").label).toBe("Suggestion 2");
+      const named = clickTarget("named");
+      expect(named.label).toBeUndefined();
+      expect(named.action).toBe("search.pick");
     });
 
     it("gives options of a datalist or a combobox-owned listbox no text label", () => {
@@ -337,6 +347,47 @@ describe("click target label", () => {
     it("still names an option of a plain listbox", () => {
       document.body.innerHTML = `<div id="list" role="listbox"><div id="o" role="option">Monthly</div></div>`;
       expect(clickTarget("o").label).toBe("Monthly");
+    });
+
+    describe("never names a suggestion, from any source", () => {
+      it("ignores aria-labelledby that points at the option's own text", () => {
+        document.body.innerHTML = suggestion();
+        const { label } = clickTarget("option");
+        expect(label).toBeUndefined();
+        expect(label ?? "").not.toContain("canary");
+      });
+
+      it("ignores title on a suggestion", () => {
+        document.body.innerHTML = suggestion(' title="private search canary"');
+        expect(clickTarget("option").label).toBeUndefined();
+      });
+
+      it("ignores aria-label on a suggestion", () => {
+        document.body.innerHTML = suggestion(
+          ' aria-label="private search canary"',
+        );
+        expect(clickTarget("option").label).toBeUndefined();
+      });
+
+      it("ignores a named icon inside a suggestion", () => {
+        document.body.innerHTML = `<input role="combobox" aria-controls="results"><ul id="results" role="listbox"><li role="option"><svg id="icon" role="img" aria-label="private search canary"></svg></li></ul>`;
+        expect(clickTarget("icon").label).toBeUndefined();
+      });
+
+      it("ignores aria-labelledby elsewhere that points into a suggestion list", () => {
+        document.body.innerHTML = `${suggestion()}<button id="b1" aria-labelledby="option-text"><svg></svg></button><button id="b2" aria-labelledby="option"><svg></svg></button><button id="b3" aria-labelledby="results"><svg></svg></button>`;
+        for (const id of ["b1", "b2", "b3"]) {
+          const { label } = clickTarget(id);
+          expect(label).toBeUndefined();
+          expect(label ?? "").not.toContain("canary");
+          uninstall?.();
+        }
+      });
+
+      it("still resolves aria-labelledby on other controls", () => {
+        document.body.innerHTML = `${suggestion()}<button id="b" aria-labelledby="x"><svg></svg></button><span id="x">Save</span>`;
+        expect(clickTarget("b").label).toBe("Save");
+      });
     });
 
     it("excludes script, style, template, hidden, and aria-hidden content", () => {

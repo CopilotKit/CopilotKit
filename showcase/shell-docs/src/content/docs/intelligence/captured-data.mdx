@@ -73,7 +73,7 @@ Your own events, sent with `emit()` or `emitTrajectoryEvent()`, use your names. 
 
 Click events include `target.label`, a short name of the clicked control, such as `Approve` or `Switch to dark mode`. Automatic Learning shows this name to the model. Capture uses the first of these sources that gives a name:
 
-1. The text of the elements that `aria-labelledby` references, unless they are inside editable content or a `textbox`, `searchbox`, or `combobox`.
+1. The text of the elements that `aria-labelledby` references, unless they are inside editable content, a `textbox`, `searchbox`, or `combobox`, or a suggestion list (below).
 2. `aria-label`.
 3. The caption of a submit, button, or reset input, or the `alt` text of an image input. The `<label>` text of a native checkbox or radio button is not used, because it is often user content such as a to-do item. Give these controls an `aria-label` or `data-copilotkit-action` instead.
 4. `title`, only on controls: buttons, links with `href`, `summary`, elements with a control role (below), and button-like inputs. Never on fields that hold a value.
@@ -88,7 +88,9 @@ Text never comes from containers such as list items, rows, cells, dialogs, regio
 - Two or more `div` elements hold text, directly or through inline elements, or three or more sibling elements each carry text.
 - The walk passes 1,000 nodes or 320 characters.
 
-Editable content and autocomplete suggestions (options and tree items in a popup that a combobox controls or owns, and `datalist` options) never contribute text. Script, style, template, `hidden`, and `aria-hidden="true"` content is skipped. Text assigned to a `<slot>` inside a web component is not read, so such controls need an `aria-label`. `aria-label` still applies to all of these.
+Editable content never contributes text. Script, style, template, `hidden`, and `aria-hidden="true"` content is skipped. Text assigned to a `<slot>` inside a web component is not read, so such controls need an `aria-label`. `aria-label` still applies to all of these.
+
+Autocomplete suggestions get no label from any source, because their names usually repeat what the user typed. These are options and tree items in a popup that a combobox or autocomplete field controls or owns, options inside a `combobox`, and `datalist` options. Their `aria-labelledby`, `aria-label`, `title`, and text are all ignored, and so is anything clicked inside them. `aria-labelledby` on another control that points into such a list gives no name either. To name a suggestion, set `data-copilotkit-action`, which is sent as `target.action`.
 
 Capture can only recognize suggestion lists marked up with ARIA. For a custom suggestion list without these roles, add `data-copilotkit-ignore` or remove the label in `beforeSend`.
 
