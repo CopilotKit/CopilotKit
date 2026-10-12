@@ -588,6 +588,7 @@ describe("Trajectory capture with the real Phoenix client", () => {
               role: null,
               action: null,
               text: "Save Alice's order",
+              label: "Save order",
               input: "pointer",
               attributes: {
                 "data-order": "order-42",
