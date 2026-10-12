@@ -1,5 +1,5 @@
 import { LlamaIndexAgent } from "@ag-ui/llamaindex";
-import type { RunAgentInput } from "@ag-ui/client";
+import type { MiddlewareFunction } from "@ag-ui/client";
 
 const PAGE_CONTEXT_MESSAGE_ID = "copilotkit-page-context";
 
@@ -13,30 +13,29 @@ const PAGE_CONTEXT_MESSAGE_ID = "copilotkit-page-context";
  * it back in its messages snapshot, so the echoed copy (same id) is dropped
  * each turn and replaced with the current context.
  */
-class StarterLlamaIndexAgent extends LlamaIndexAgent {
-  override run(input: RunAgentInput) {
-    const messages = input.messages.filter(
-      (message) => message.id !== PAGE_CONTEXT_MESSAGE_ID,
-    );
-    if (input.context.length > 0) {
-      const shared = input.context
-        .map(({ description, value }) => `${description}:\n${value}`)
-        .join("\n\n");
-      messages.unshift({
-        id: PAGE_CONTEXT_MESSAGE_ID,
-        role: "system",
-        content: `Context provided by the application:\n\n${shared}`,
-      });
-    }
-    return super.run({ ...input, messages });
+const withPageContext: MiddlewareFunction = (input, next) => {
+  const messages = input.messages.filter(
+    (message) => message.id !== PAGE_CONTEXT_MESSAGE_ID,
+  );
+  if (input.context.length > 0) {
+    const shared = input.context
+      .map(({ description, value }) => `${description}:\n${value}`)
+      .join("\n\n");
+    messages.unshift({
+      id: PAGE_CONTEXT_MESSAGE_ID,
+      role: "system",
+      content: `Context provided by the application:\n\n${shared}`,
+    });
   }
-}
+  return next.run({ ...input, messages });
+};
 
 /** Builds this starter's agent. See channel-host.mts for why this is shared. */
 export function createDefaultAgent(): LlamaIndexAgent {
-  return new StarterLlamaIndexAgent({
+  const agent = new LlamaIndexAgent({
     url:
       (process.env.AGENT_URL || "http://127.0.0.1:9000").replace(/\/$/, "") +
       "/run",
   });
+  return agent.use(withPageContext);
 }
