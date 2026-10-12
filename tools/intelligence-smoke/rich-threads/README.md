@@ -174,7 +174,7 @@ order, counts, tool associations, chart values, state fields, pending IDs and
 media bytes/metadata. The separate driver controls launch real Chromium against
 a small local control page; they validate browser wiring, not Showcase parity.
 Live execution still requires installable candidate images and a complete private
-launch configuration. The approved hosting/access decision remains unresolved.
+launch configuration. Railway hosting is confirmed by Mark’s PNI-605 handoff; credential ownership, reviewed immutable image pins and consumer activation remain rollout prerequisites.
 The six-row source/import/continuation composition, URL/file media resolvers,
 and full seven-framework acceptance remain incomplete. Do not label unit or
 driver controls as product parity. Retain live output directories when an owned
@@ -183,8 +183,53 @@ environment can actually run; missing coverage stays visible.
 The manual `intelligence-rich-threads.yml` workflow requests Mastra and Strands
 TypeScript with all six rows, serializes runs, and retains ownership receipts
 and results after attempting interrupted-run recovery. It has not been
-dispatched or provisioned. Its `intelligence-rich-threads-development` GitHub
+dispatched or provisioned. Its `intelligence-rich-threads-railway` GitHub
 environment requires a private `RICH_THREADS_CONFIG_JSON` launch manifest.
-The hosting/access/budget decision and complete launch bindings (including
-migrations and missing row service factories) remain prerequisites; the job
+PNI-607, separately reviewed image pins, the provider/consumer handoff and complete launch bindings (including missing row service factories) remain prerequisites; the job
 fails instead of substituting fixtures. No periodic schedule is enabled.
+
+## Railway bootstrap handoff (PNI-605 / PNI-606)
+
+Hosting is Railway with disposable environments, one active run and a maximum
+60-minute environment lifetime. PNI-600 owns provider dispatch behind the existing
+`lifecycle/environment.mjs#createEnvironment` interface, verified ownership,
+remote clean-scope inspection, durable locking, publication/distribution and
+recovery. This common runner does not implement another provider. The proof
+project’s snapshot publisher remains at its original path; registry policy comes
+from PNI-607 and cannot be approved by a run receipt.
+
+The runner records every selected row’s module/factory availability in
+`suite.json` before provisioning. Unsupported frameworks and missing factories
+prevent provisioning and retain explicit outcomes. A loaded factory does not
+establish full-row coverage or acceptance. Both frameworks and rows run serially.
+
+Railway returns provisioned `environment.scopes`; the runner uses their
+`applicationUrl`, `apiUrl`, `databaseUrl` and `capture` endpoint, not assumed
+loopback addresses. Railway `verifyCleanScope()` must independently inspect
+remote Intelligence, Redis and native durable stores/media and return and retain
+`status: "passed"`. Docker development keeps its local SQL/Redis inspection path.
+Provider endpoint ownership checks remain mandatory before the runner receives
+these scopes. Native remote readers belong to the row2/provider integration.
+
+For original event capture, provision the owned runtime with a private
+`captureToken` of at least 32 characters and its durable `captureDirectory`.
+Set `scope.capture = {url: "https://<owned-runtime>/rich-thread-capture", token}`.
+The runtime serves only its original capture log, scoped by thread ID, with bearer
+authentication and no cache. Client requests require HTTPS, refuse redirects and
+time out after 15 seconds. No database-derived expectations or source rewriting
+is introduced. The token and provisioned URLs belong in private configuration.
+
+The dispatch-only workflow uses the Railway environment manifest. The CLI aborts
+setup/tests after 50 minutes, reserving time for cleanup and evidence; the
+provider must enforce its authoritative 60-minute expiry independently and keep
+a durable lock until verified cleanup. Overlaps must be rejected and flagged
+by that lock, rather than delayed into another deployment. GitHub’s job timeout
+also covers tooling installation before the environment exists. Recovery passes
+`{receiptPath, config}` to the lifecycle owner; Docker’s `dockerHost` argument
+remains compatible. A local Actions artifact is evidence export only, not the
+remote registry consumer distribution mechanism.
+
+The Railway provider and its recovery signature must be integrated from PNI-600
+before this path can provision or recover anything. The current branch still
+contains the earlier Docker-only implementation. No schedule is enabled and no
+Railway services or approved-image policy are changed by this wiring.

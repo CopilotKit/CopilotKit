@@ -1,4 +1,4 @@
-name: Intelligence rich threads (manual development validation)
+name: Intelligence rich threads (manual Railway validation)
 
 on:
   workflow_dispatch:
@@ -6,16 +6,15 @@ on:
 permissions:
   contents: read
 
-# One environment for both frameworks and all six rows; never cancel another run.
-concurrency:
-  group: intelligence-rich-threads-development
-  cancel-in-progress: false
+# The lifecycle provider must acquire its durable run lease and reject/flag
+# overlaps. Do not queue an overlapping scheduled tick for a later deployment.
+# Four-hour scheduling remains disabled pending real-suite acceptance.
 
 jobs:
   connected-suite:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    environment: intelligence-rich-threads-development
+    timeout-minutes: 75
+    environment: intelligence-rich-threads-railway
     env:
       NX_DAEMON: "false"
       COPILOTKIT_TELEMETRY_DISABLED: "true"
@@ -36,7 +35,7 @@ jobs:
         run: pnpm nx run intelligence-smoke:rich-threads-browser-system-deps
       - name: Check driver controls
         run: pnpm nx run intelligence-smoke:rich-threads-driver-test
-      - name: Materialize approved private development configuration
+      - name: Materialize approved private Railway configuration
         env:
           RICH_THREADS_CONFIG_JSON: ${{ secrets.RICH_THREADS_CONFIG_JSON }}
         run: |
@@ -46,16 +45,15 @@ jobs:
           import { join } from 'node:path';
           assert.ok(process.env.RICH_THREADS_CONFIG_JSON, 'Configure the approved environment manifest; no substitute fixture is allowed');
           const config = JSON.parse(process.env.RICH_THREADS_CONFIG_JSON);
-          assert.equal(config.purpose, 'development');
-          assert.equal(config.provider, 'docker');
+          assert.ok(['development', 'acceptance'].includes(config.purpose));
+          assert.equal(config.provider, 'railway');
           config.directory = join(process.env.RUNNER_TEMP, 'rich-thread-owned');
-          config.dockerHost = 'unix:///var/run/docker.sock';
           delete config.dependenciesDirectory;
           mkdirSync(config.directory, {mode: 0o700});
           writeFileSync(join(process.env.RUNNER_TEMP, 'rich-threads-private.json'), JSON.stringify(config), {mode: 0o600, flag: 'wx'});
           NODE
       - name: Run both frameworks through all six real rows
-        timeout-minutes: 45
+        timeout-minutes: 55
         run: >-
           pnpm nx run intelligence-smoke:rich-threads --
           --framework=mastra,strands-typescript --rows=1,2,3,4,5,6
@@ -67,12 +65,12 @@ jobs:
         run: >-
           pnpm nx run intelligence-smoke:rich-threads-recover --
           --output="$RUNNER_TEMP/rich-threads-evidence"
-          --docker-host=unix:///var/run/docker.sock
+          --config="$RUNNER_TEMP/rich-threads-private.json"
       - name: Preserve result and ownership receipts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: rich-threads-development-evidence
+          name: rich-threads-railway-evidence
           path: ${{ runner.temp }}/rich-threads-evidence
           if-no-files-found: warn
           retention-days: 14

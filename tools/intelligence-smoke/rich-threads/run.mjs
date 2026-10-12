@@ -32,7 +32,12 @@ if (values.config) {
       frameworks: values.framework.split(","),
       rowIds,
       outputDir: resolve(values.output),
-      signal: controller.signal,
+      // Reserve ten minutes of the provider's 60-minute lifetime for teardown
+      // and evidence export. The provider owns expiry/recovery and the run lock.
+      signal: AbortSignal.any([
+        controller.signal,
+        AbortSignal.timeout(50 * 60_000),
+      ]),
     });
     console.log(`${report.status}: ${resolve(values.output, "suite.json")}`);
     if (report.status !== "passed") process.exitCode = 1;
