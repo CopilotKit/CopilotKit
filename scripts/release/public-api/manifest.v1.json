@@ -267,20 +267,6 @@
           }
         },
         {
-          "importPath": "@copilotkit/channels/discord",
-          "exportKey": "./discord",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/discord.d.ts",
-            "import": "./dist/discord.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels/package.json",
-            "selector": "exports[\"./discord\"]"
-          }
-        },
-        {
           "importPath": "@copilotkit/channels/jsx-dev-runtime",
           "exportKey": "./jsx-dev-runtime",
           "kind": "code",
@@ -379,20 +365,6 @@
           }
         },
         {
-          "importPath": "@copilotkit/channels/telegram",
-          "exportKey": "./telegram",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/telegram.d.ts",
-            "import": "./dist/telegram.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels/package.json",
-            "selector": "exports[\"./telegram\"]"
-          }
-        },
-        {
           "importPath": "@copilotkit/channels/testing",
           "exportKey": "./testing",
           "kind": "code",
@@ -418,20 +390,6 @@
             "kind": "package-json",
             "path": "packages/channels/package.json",
             "selector": "exports[\"./ui\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/channels/whatsapp",
-          "exportKey": "./whatsapp",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/whatsapp.d.ts",
-            "import": "./dist/whatsapp.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels/package.json",
-            "selector": "exports[\"./whatsapp\"]"
           }
         }
       ],
@@ -570,47 +528,6 @@
         "version": {
           "kind": "package-json",
           "path": "packages/channels-core/package.json",
-          "selector": "version"
-        },
-        "releaseScope": {
-          "kind": "release-config",
-          "path": "release.config.json",
-          "selector": "scopes.channels.packages"
-        }
-      }
-    },
-    {
-      "name": "@copilotkit/channels-discord",
-      "version": "0.11.0",
-      "sourceDirectory": "packages/channels-discord",
-      "entrypoints": [
-        {
-          "importPath": "@copilotkit/channels-discord",
-          "exportKey": ".",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels-discord/package.json",
-            "selector": "exports[\".\"]"
-          }
-        }
-      ],
-      "compatibility": {
-        "provenance": []
-      },
-      "provenance": {
-        "name": {
-          "kind": "package-json",
-          "path": "packages/channels-discord/package.json",
-          "selector": "name"
-        },
-        "version": {
-          "kind": "package-json",
-          "path": "packages/channels-discord/package.json",
           "selector": "version"
         },
         "releaseScope": {
@@ -807,47 +724,6 @@
       }
     },
     {
-      "name": "@copilotkit/channels-telegram",
-      "version": "0.11.0",
-      "sourceDirectory": "packages/channels-telegram",
-      "entrypoints": [
-        {
-          "importPath": "@copilotkit/channels-telegram",
-          "exportKey": ".",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels-telegram/package.json",
-            "selector": "exports[\".\"]"
-          }
-        }
-      ],
-      "compatibility": {
-        "provenance": []
-      },
-      "provenance": {
-        "name": {
-          "kind": "package-json",
-          "path": "packages/channels-telegram/package.json",
-          "selector": "name"
-        },
-        "version": {
-          "kind": "package-json",
-          "path": "packages/channels-telegram/package.json",
-          "selector": "version"
-        },
-        "releaseScope": {
-          "kind": "release-config",
-          "path": "release.config.json",
-          "selector": "scopes.channels.packages"
-        }
-      }
-    },
-    {
       "name": "@copilotkit/channels-ui",
       "version": "0.11.0",
       "sourceDirectory": "packages/channels-ui",
@@ -907,47 +783,6 @@
         "version": {
           "kind": "package-json",
           "path": "packages/channels-ui/package.json",
-          "selector": "version"
-        },
-        "releaseScope": {
-          "kind": "release-config",
-          "path": "release.config.json",
-          "selector": "scopes.channels.packages"
-        }
-      }
-    },
-    {
-      "name": "@copilotkit/channels-whatsapp",
-      "version": "0.11.0",
-      "sourceDirectory": "packages/channels-whatsapp",
-      "entrypoints": [
-        {
-          "importPath": "@copilotkit/channels-whatsapp",
-          "exportKey": ".",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels-whatsapp/package.json",
-            "selector": "exports[\".\"]"
-          }
-        }
-      ],
-      "compatibility": {
-        "provenance": []
-      },
-      "provenance": {
-        "name": {
-          "kind": "package-json",
-          "path": "packages/channels-whatsapp/package.json",
-          "selector": "name"
-        },
-        "version": {
-          "kind": "package-json",
-          "path": "packages/channels-whatsapp/package.json",
           "selector": "version"
         },
         "releaseScope": {

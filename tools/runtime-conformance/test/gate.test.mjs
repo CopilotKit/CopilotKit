@@ -58,13 +58,10 @@ test("workspace packages the conformance build compiles require conformance", ()
   for (const path of [
     "packages/channels/src/index.ts",
     "packages/channels-core/src/index.ts",
-    "packages/channels-discord/src/index.ts",
     "packages/channels-intelligence/src/index.ts",
     "packages/channels-slack/src/index.ts",
     "packages/channels-teams/src/index.ts",
-    "packages/channels-telegram/src/index.ts",
     "packages/channels-ui/src/index.ts",
-    "packages/channels-whatsapp/src/index.ts",
     "packages/learning/src/index.ts",
     "packages/tsconfig/base.json",
     "packages/typescript-config/base.json",
