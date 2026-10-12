@@ -14,8 +14,8 @@
   "dependencies": {
     "@ag-ui/client": "1.0.2",
     "@ag-ui/crewai": "0.0.3",
-    "@copilotkit/react-core": "1.78.0",
-    "@copilotkit/runtime": "1.78.0",
+    "@copilotkit/react-core": "1.79.0",
+    "@copilotkit/runtime": "1.79.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "hono": "^4",

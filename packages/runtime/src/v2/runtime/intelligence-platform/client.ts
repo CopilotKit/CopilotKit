@@ -11,10 +11,15 @@ import type {
 } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import type { GetLearningContainerId } from "../core/learning";
+import { resolveTrajectoryLearningContainerIds } from "../core/learning";
+import type {
+  GetLearningContainerId,
+  GetTrajectoryLearningContainerIds,
+} from "../core/learning";
 import {
   parseTrajectoryConnectionGrant,
   trajectoryResponseError,
+  TrajectoryConnectionError,
 } from "./trajectories";
 import type { TrajectoryConnectionGrant } from "./trajectories";
 
@@ -334,6 +339,13 @@ export interface CopilotKitIntelligenceConfig {
    * Return `null` or `undefined` to leave the Thread unassigned.
    */
   getLearningContainerId?: GetLearningContainerId;
+  /**
+   * Assigns a Trajectory to existing Learning Spaces using server-resolved user
+   * identity. Browser-supplied assignments are ignored. Return null or undefined
+   * to leave activity unassigned. Reconnects call the selector again; keep the
+   * selection stable for a Trajectory because assignments are additive.
+   */
+  getTrajectoryLearningContainerIds?: GetTrajectoryLearningContainerIds;
   /**
    * Enable Enterprise Learning — expose CopilotKit Intelligence's
    * built-in tools (bash + thread/memory tools) to agent runs on an
@@ -746,6 +758,7 @@ export class CopilotKitIntelligence {
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
   #getLearningContainerId?: GetLearningContainerId;
+  #getTrajectoryLearningContainerIds?: GetTrajectoryLearningContainerIds;
   #runtimeEntitlementsCache?: RuntimeEntitlementCacheEntry;
   #runtimeEntitlementsFailure?: RuntimeEntitlementFailureEntry;
   #runtimeEntitlementsInFlight?: Promise<RuntimeEntitlementResponse>;
@@ -763,6 +776,14 @@ export class CopilotKitIntelligence {
       );
     }
     assertConfiguredApiKey(config.apiKey);
+    if (
+      config.getTrajectoryLearningContainerIds !== undefined &&
+      typeof config.getTrajectoryLearningContainerIds !== "function"
+    ) {
+      throw new Error(
+        "CopilotKitIntelligence `getTrajectoryLearningContainerIds` must be a callback",
+      );
+    }
     const configuredApiUrl = configuredUrl(config.apiUrl);
     const configuredWsUrl = configuredUrl(config.wsUrl);
     warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
@@ -781,6 +802,8 @@ export class CopilotKitIntelligence {
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
     this.#getLearningContainerId = config.getLearningContainerId;
+    this.#getTrajectoryLearningContainerIds =
+      config.getTrajectoryLearningContainerIds;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -1411,12 +1434,61 @@ export class CopilotKitIntelligence {
     }
   }
 
-  /** Mint a browser capture grant using only the Runtime's project and user. */
+  /**
+   * Mint a browser capture grant using only the Runtime's project and user.
+   *
+   * Learning Container assignment never stops capture: a failed selection or
+   * an unknown Container is logged, and the Trajectory connects without
+   * assignments.
+   */
   async ɵconnectTrajectory(params: {
     trajectoryId: string;
     user: { id: string; name: string };
     signal?: AbortSignal;
   }): Promise<TrajectoryConnectionGrant> {
+    let learningContainerIds: readonly string[] | undefined;
+    try {
+      learningContainerIds = await resolveTrajectoryLearningContainerIds(
+        this.#getTrajectoryLearningContainerIds,
+        { trajectoryId: params.trajectoryId, user: params.user },
+        params.signal,
+      );
+    } catch (error) {
+      if (params.signal?.aborted) throw params.signal.reason;
+      logger.error(
+        { err: error, trajectoryId: params.trajectoryId },
+        "Failed to resolve Trajectory Learning Containers; connecting the Trajectory without Learning Container assignments",
+      );
+    }
+    params.signal?.throwIfAborted();
+    try {
+      return await this.#joinTrajectory(params, learningContainerIds);
+    } catch (error) {
+      if (
+        learningContainerIds === undefined ||
+        !(error instanceof TrajectoryConnectionError) ||
+        error.code !== "LEARNING_CONTAINER_NOT_FOUND"
+      ) {
+        throw error;
+      }
+      params.signal?.throwIfAborted();
+      logger.warn(
+        { trajectoryId: params.trajectoryId, learningContainerIds },
+        "A selected Learning Container does not exist in this project; connecting the Trajectory without Learning Container assignments",
+      );
+      return this.#joinTrajectory(params, undefined);
+    }
+  }
+
+  /** Requests one Trajectory join token, optionally with Container assignments. */
+  async #joinTrajectory(
+    params: {
+      trajectoryId: string;
+      user: { id: string; name: string };
+      signal?: AbortSignal;
+    },
+    learningContainerIds: readonly string[] | undefined,
+  ): Promise<TrajectoryConnectionGrant> {
     let response: Response;
     try {
       response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {
@@ -1425,11 +1497,13 @@ export class CopilotKitIntelligence {
           Authorization: `Bearer ${this.#apiKey}`,
           "Content-Type": "application/json",
         },
-        // Project scope comes from the API key. Containers remain unassigned
-        // until there is a server-side selector with Trajectory context.
+        // Project scope comes from the API key; Space selection comes from server code.
         body: JSON.stringify({
           trajectoryId: params.trajectoryId,
           appUserId: params.user.id,
+          ...(learningContainerIds === undefined
+            ? {}
+            : { learningContainerIds }),
         }),
         signal: params.signal,
         redirect: "error",

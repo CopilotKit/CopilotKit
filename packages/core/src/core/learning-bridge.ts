@@ -27,7 +27,8 @@ export type TrajectoryStartOptions = {
   trajectoryId?: string;
   /**
    * Used only by explicit custom sinks. Authenticated capture warns and ignores
-   * this option; it does not assign Learning Containers.
+   * this option; assign Learning Spaces on the server with
+   * `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
    */
   learningContainerIds?: string[];
 };
@@ -151,7 +152,7 @@ export class LearningBridge {
     if (config.sink === undefined) {
       if (options.learningContainerIds !== undefined) {
         console.warn(
-          "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture does not assign Learning Containers; remove learningContainerIds from the capture options.",
+          "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture ignores it; assign Learning Spaces on the server with getTrajectoryLearningContainerIds on CopilotKitIntelligence, and remove learningContainerIds from the capture options.",
         );
       }
       this.stopLegacy();
