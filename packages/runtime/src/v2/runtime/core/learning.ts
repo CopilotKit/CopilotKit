@@ -38,7 +38,11 @@ export type GetLearningContainerId = (
   input: LearningContainerSelectorInput,
 ) => MaybePromise<string | null | undefined>;
 
-/** Trusted server context for assigning browser activity to Learning Spaces. */
+/**
+ * Context for assigning browser activity to Learning Spaces. The Runtime
+ * verifies `user`; the browser chooses `trajectoryId`, which is only checked
+ * to be a UUID.
+ */
 export interface TrajectoryLearningContainerSelectorInput {
   readonly trajectoryId: string;
   readonly user: CopilotRuntimeUser;
