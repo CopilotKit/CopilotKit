@@ -48,11 +48,14 @@ import {
   SERVICES,
   STAGING_ENV_ID,
   computePromoteClosure,
+  effectiveStaticGatePolicy,
+  DISPOSABLE_LIFECYCLE_POLICY,
 } from "./railway-envs";
 import type {
   AutoUpdatesPolicy,
   ClosurePlan,
   WorkerProvisioning,
+  StaticGatePolicy,
 } from "./railway-envs";
 
 const DEFAULT_OUTPUT_PATH = resolve(
@@ -61,6 +64,7 @@ const DEFAULT_OUTPUT_PATH = resolve(
 );
 
 interface Emitted {
+  disposableLifecyclePolicy: typeof DISPOSABLE_LIFECYCLE_POLICY;
   projectId: string;
   envIds: { staging: string; prod: string };
   services: Array<{
@@ -70,6 +74,8 @@ interface Emitted {
     stagingInstanceId: string;
     ciBuilt: boolean;
     gateValidated: boolean;
+    gateIgnore: boolean;
+    gatePolicy: StaticGatePolicy;
     // Present only when the SSOT declares exactly one environment. Ruby uses
     // this explicit marker to distinguish intentional fleet asymmetry from
     // unknown live Railway drift during a full-fleet promote.
@@ -227,6 +233,8 @@ function projectServiceToLegacyJson(
     stagingInstanceId: stagingEnv?.instanceId ?? entry.serviceId,
     ciBuilt: entry.ciBuilt,
     gateValidated: entry.gateValidated,
+    gateIgnore: entry.gateIgnore ?? false,
+    gatePolicy: effectiveStaticGatePolicy(entry),
     ...(onlyEnvironment !== undefined ? { onlyEnvironment } : {}),
     dispatchName: entry.dispatchName,
     repoNameOverride,
@@ -287,6 +295,7 @@ function buildPayload(): Emitted {
   // re-implementing the closure math in bash.
   const closure = computePromoteClosure(Object.keys(SERVICES));
   return {
+    disposableLifecyclePolicy: DISPOSABLE_LIFECYCLE_POLICY,
     projectId: PROJECT_ID,
     envIds: { staging: STAGING_ENV_ID, prod: PRODUCTION_ENV_ID },
     services,

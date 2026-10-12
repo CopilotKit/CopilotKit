@@ -1,4 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, it, test, expect } from "vitest";
 import {
   createD6ServiceEnumerator,
   createE2eSmokeServiceEnumerator,
@@ -24,9 +27,12 @@ import {
   DiscoverySourceSchemaError,
 } from "../../probes/discovery/errors.js";
 import type { DiscoverySource } from "../../probes/types.js";
+import { railwayServicesSource } from "../../probes/discovery/railway-services.js";
 import type { RailwayServiceInfo } from "../../probes/discovery/railway-services.js";
+import { withCache } from "../../probes/discovery/caching-source.js";
 import type { EnumerateContext } from "./job-producer.js";
 import type { Logger } from "../../types/index.js";
+import { z } from "zod";
 import { e2eFullDriver } from "../../probes/drivers/d6-all-pills.js";
 
 /**
@@ -893,4 +899,294 @@ describe("createServiceEnumerator — Railway-GQL resilience policy", () => {
   it("uses ENUMERATE_RETRY_BACKOFF_MS = [1000, 4000, 16000] in production (SSOT pin)", () => {
     expect(ENUMERATE_RETRY_BACKOFF_MS).toEqual([1_000, 4_000, 16_000]);
   });
+
+  it("does not revive an authoritative roster after a schema failure and later outage", async () => {
+    const invalid = new DiscoverySourceSchemaError(
+      "railway-services",
+      "invalid ownership",
+    );
+    const outage = new DiscoverySourceBackendError(
+      "railway-services",
+      "outage",
+      503,
+    );
+    const source = scriptedSource([
+      [svc()],
+      () => {
+        throw invalid;
+      },
+      () => {
+        throw outage;
+      },
+    ]);
+    source.cachePolicy = () => "fresh-only";
+    const { logger, warns } = makeCapturingLogger();
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger,
+      sleep: INSTANT_SLEEP,
+      retrySchedule: [0],
+    });
+    expect(await enumerate(CTX)).toHaveLength(1);
+    await expect(enumerate(CTX)).rejects.toBe(invalid);
+    await expect(enumerate(CTX)).rejects.toBe(outage);
+    expect(source.calls).toBe(4);
+    expect(
+      warns.some(
+        (warn) => warn.msg === "fleet.producer.enumerate-failed-using-cache",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects stale jobs through both real caches when disposable evidence is enabled", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "catalog-fresh-only-"));
+    try {
+      const recordsFile = join(dir, "records.json");
+      await writeFile(
+        recordsFile,
+        JSON.stringify({ schemaVersion: 1, runs: [] }),
+      );
+      const env: Record<string, string | undefined> = {
+        RAILWAY_TOKEN: "test-token",
+        RAILWAY_PROJECT_ID: "test-project",
+        RAILWAY_ENVIRONMENT_ID: "test-environment",
+      };
+      const projectResponse = {
+        data: {
+          project: {
+            services: {
+              edges: [
+                {
+                  node: {
+                    id: "test-service",
+                    name: "showcase-langgraph-python",
+                    serviceInstances: {
+                      edges: [
+                        {
+                          node: {
+                            environmentId: "test-environment",
+                            source: { image: null },
+                            domains: {
+                              serviceDomains: [{ domain: "backend.test" }],
+                            },
+                          },
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      };
+      let fail = false;
+      let upstreamFailures = 0;
+      const fetchImpl: typeof fetch = async (_url, init) => {
+        if (fail) {
+          upstreamFailures += 1;
+          return new Response("catalog test outage", { status: 503 });
+        }
+        const { query } = JSON.parse(String(init?.body)) as { query: string };
+        return Response.json(
+          query.includes("query project")
+            ? projectResponse
+            : { data: { variables: {} } },
+        );
+      };
+      const enumerate = createD6ServiceEnumerator({
+        source: withCache(railwayServicesSource, {
+          ttlMs: 60_000,
+          now: () => 0,
+        }),
+        env,
+        fetchImpl,
+        logger: SILENT_LOGGER,
+        retrySchedule: [],
+        now: () => 0,
+      });
+      expect(await enumerate(CTX)).toEqual([
+        expect.objectContaining({
+          serviceSlug: "langgraph-python",
+          probeKey: "d6:langgraph-python",
+          driverInputs: expect.objectContaining({
+            backendUrl: "https://backend.test",
+          }),
+        }),
+      ]);
+
+      env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE = recordsFile;
+      fail = true;
+      const refresh = enumerate(CTX);
+      await expect(refresh).rejects.toBeInstanceOf(DiscoverySourceBackendError);
+      await expect(refresh).rejects.toMatchObject({
+        status: 503,
+        message: expect.stringContaining("catalog test outage"),
+      });
+      expect(upstreamFailures).toBe(1);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("invalidates an ordinary catalog when the source switches to fresh-only", async () => {
+    const outage = new DiscoverySourceBackendError(
+      "railway-services",
+      "outage",
+      503,
+    );
+    const source = scriptedSource([
+      [svc()],
+      () => {
+        throw outage;
+      },
+    ]);
+    let policy: "stale-on-error" | "fresh-only" = "stale-on-error";
+    source.cachePolicy = () => policy;
+    const enumerate = createD6ServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+      retrySchedule: [],
+    });
+    expect(await enumerate(CTX)).toHaveLength(1);
+    policy = "fresh-only";
+    await expect(enumerate(CTX)).rejects.toBe(outage);
+    policy = "stale-on-error";
+    await expect(enumerate(CTX)).rejects.toBe(outage);
+  });
+});
+
+/** A promise whose settlement order is controlled by the test. */
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+/** Isolated public fleet enumerator for policy-transition races. */
+function setupCatalogGeneration(freshFails = false) {
+  const old = deferred<RailwayServiceInfo[]>();
+  const replacement = deferred<RailwayServiceInfo[]>();
+  const error = new DiscoverySourceBackendError(
+    "generation",
+    "unavailable",
+    503,
+  );
+  const env = { REQUEST: "old" };
+  const requests: string[] = [];
+  const source: DiscoverySource<RailwayServiceInfo> = {
+    name: "generation",
+    configSchema: z.object({}),
+    cachePolicy: (ctx) =>
+      ctx.env.REQUEST === "fresh" ? "fresh-only" : "stale-on-error",
+    async enumerate(ctx) {
+      requests.push(ctx.env.REQUEST ?? "");
+      if (ctx.env.REQUEST === "old") return old.promise;
+      if (ctx.env.REQUEST === "replacement") return replacement.promise;
+      if (ctx.env.REQUEST === "fresh" && !freshFails)
+        return [svc({ name: "showcase-fresh" })];
+      throw error;
+    },
+  };
+  const catalog = createD6ServiceEnumerator({
+    source,
+    env,
+    fetchImpl: globalThis.fetch,
+    logger: SILENT_LOGGER,
+    retrySchedule: [],
+  });
+  const enumerate = async (request: string) => {
+    env.REQUEST = request;
+    return catalog(CTX);
+  };
+  return { old, replacement, error, requests, enumerate };
+}
+
+test.each([
+  { freshFails: false, oldFirst: false },
+  { freshFails: false, oldFirst: true },
+  { freshFails: true, oldFirst: false },
+  { freshFails: true, oldFirst: true },
+])(
+  "catalog generation revokes A: fresh failure=$freshFails, A finishes before C=$oldFirst",
+  async ({ freshFails, oldFirst }) => {
+    const { old, error, requests, enumerate } =
+      setupCatalogGeneration(freshFails);
+    const a = enumerate("old");
+    if (freshFails) await expect(enumerate("fresh")).rejects.toBe(error);
+    else
+      expect((await enumerate("fresh")).map((job) => job.serviceSlug)).toEqual([
+        "fresh",
+      ]);
+    if (oldFirst) {
+      old.resolve([svc({ name: "showcase-old" })]);
+      expect((await a).map((job) => job.serviceSlug)).toEqual(["old"]);
+    }
+    const c = enumerate("outage");
+    const observedC = c.then(
+      (value) => ({ value }),
+      (reason) => ({ error: reason }),
+    );
+    if (!oldFirst) {
+      old.resolve([svc({ name: "showcase-old" })]);
+      expect((await a).map((job) => job.serviceSlug)).toEqual(["old"]);
+    }
+
+    expect(await observedC).toEqual({ error });
+    expect(requests).toEqual(["old", "fresh", "outage"]);
+    await expect(enumerate("outage")).rejects.toBe(error);
+  },
+);
+
+test("revoked catalog success cannot overwrite a replacement catalog", async () => {
+  const { old, replacement, enumerate } = setupCatalogGeneration();
+  const a = enumerate("old");
+  await enumerate("fresh");
+  const c = enumerate("replacement");
+  replacement.resolve([svc({ name: "showcase-current" })]);
+  await c;
+  old.resolve([svc({ name: "showcase-old" })]);
+
+  expect((await a).map((job) => job.serviceSlug)).toEqual(["old"]);
+  expect((await enumerate("outage")).map((job) => job.serviceSlug)).toEqual([
+    "current",
+  ]);
+});
+
+test("revoked catalog failure cannot fall back to a replacement catalog", async () => {
+  const { old, replacement, error, enumerate } = setupCatalogGeneration();
+  const a = enumerate("old");
+  await enumerate("fresh");
+  const c = enumerate("replacement");
+  replacement.resolve([svc({ name: "showcase-current" })]);
+  await c;
+  old.reject(error);
+
+  await expect(a).rejects.toBe(error);
+  expect((await enumerate("outage")).map((job) => job.serviceSlug)).toEqual([
+    "current",
+  ]);
+});
+
+test("ordinary catalog calls preserve independent enumeration and stale fallback", async () => {
+  const { old, replacement, requests, enumerate } = setupCatalogGeneration();
+  const a = enumerate("old");
+  const b = enumerate("replacement");
+  expect(requests).toEqual(["old", "replacement"]);
+  old.resolve([svc({ name: "showcase-old" })]);
+  await a;
+  replacement.resolve([svc({ name: "showcase-current" })]);
+
+  expect((await b).map((job) => job.serviceSlug)).toEqual(["current"]);
+  expect((await enumerate("outage")).map((job) => job.serviceSlug)).toEqual([
+    "current",
+  ]);
 });
