@@ -12,10 +12,31 @@ load_dotenv()
 import os
 import uvicorn
 from fastapi import FastAPI
-from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+from ag_ui_adk import ADKAgent, CONTEXT_STATE_KEY, add_adk_fastapi_endpoint
 from _banner import print_banner
 from _model import adk_model
 from google.adk.agents import LlmAgent
+from google.adk.agents.callback_context import CallbackContext
+from google.adk.models.llm_request import LlmRequest
+
+
+def add_page_context(
+    callback_context: CallbackContext, llm_request: LlmRequest
+) -> None:
+    """Append what the page shares (`useAgentContext`) to the system instruction.
+
+    @ag-ui/a2a-middleware forwards the run's AG-UI `context` to this agent, and
+    ag-ui-adk stores it in session state under `CONTEXT_STATE_KEY` without
+    adding it to the prompt, so without this the model never sees it.
+    """
+    entries = callback_context.state.get(CONTEXT_STATE_KEY) or []
+    if not entries:
+        return
+    shared = "\n\n".join(f"{e['description']}:\n{e['value']}" for e in entries)
+    llm_request.append_instructions(
+        [f"Context provided by the application:\n\n{shared}"]
+    )
+
 
 orchestrator_agent = LlmAgent(
     name="OrchestratorAgent",
@@ -64,6 +85,7 @@ orchestrator_agent = LlmAgent(
     IMPORTANT: Once you have received a response from an agent, do NOT call that same
     agent again for the same information. Use the information you already have.
     """,
+    before_model_callback=add_page_context,
 )
 
 # Wrap with AG-UI middleware to expose via AG-UI Protocol
