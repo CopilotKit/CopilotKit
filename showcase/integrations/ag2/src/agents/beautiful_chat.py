@@ -32,7 +32,7 @@ import os
 from typing import Annotated
 
 import openai
-from ag2 import Agent
+from ag2 import Agent, Context, tool
 from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
@@ -42,6 +42,10 @@ from tools import (
     build_a2ui_operations_from_tool_call,
     RENDER_A2UI_TOOL_SCHEMA,
 )
+from tools.todos import manage_todos_impl
+
+from agents._state import publish_state
+from agents.agent import query_data, search_flights
 
 
 SYSTEM_PROMPT = """You are the Beautiful Chat assistant — a CopilotKit
@@ -76,6 +80,15 @@ with plain text when the question warrants it.
    Output `initialHeight` (typically 480-560), a short
    `placeholderMessages` array, complete `css`, then `html` with inline
    SVG. No fetch / XHR / localStorage.
+
+3. Data, flights and todos:
+     - Charts driven by data: call `query_data` first, then render the
+       result with the frontend chart component (pieChart / barChart).
+     - Flights: call `search_flights` to show the pre-built flight cards.
+     - Todos: use `manage_todos` (always pass the COMPLETE list) and
+       `get_todos`. The board updates from shared state.
+   Call these tools directly with sensible sample inputs instead of asking
+   the user clarifying questions.
 
 Decision rule of thumb: if the request maps to a chart, dashboard,
 status report, or KPI summary, prefer `generate_a2ui`. If it asks for a
@@ -142,11 +155,28 @@ async def generate_a2ui(
     return await asyncio.to_thread(_generate_a2ui, context)
 
 
+@tool
+async def manage_todos(
+    ctx: Context,
+    todos: Annotated[list[dict], Field(description="The COMPLETE todo list (id, title, description, emoji, status)")],
+) -> str:
+    """Replace the shared todo board with the full updated list."""
+    ctx.variables["todos"] = manage_todos_impl(todos)
+    await publish_state(ctx)
+    return f"Todos updated. Total: {len(ctx.variables['todos'])}."
+
+
+@tool
+async def get_todos(ctx: Context) -> str:
+    """Return the current todo board as JSON."""
+    return json.dumps(ctx.variables.get("todos", []))
+
+
 agent = Agent(
     "beautiful_chat_assistant",
     prompt=SYSTEM_PROMPT,
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
-    tools=[generate_a2ui],
+    tools=[generate_a2ui, query_data, search_flights, manage_todos, get_todos],
 )
 
 stream = AGUIStream(agent)

@@ -34,8 +34,10 @@ SYSTEM_PROMPT = (
     "sources, portfolio allocation) and `BarChart` for comparisons across "
     "categories (quarterly revenue, headcount by team, signups per month). "
     "`generate_a2ui` takes no arguments and handles the rendering "
-    "automatically. Keep chat replies to one short sentence; let the UI do "
-    "the talking."
+    "automatically. Never ask clarifying questions: if a request is "
+    "underspecified (time period, region, metric), assume sensible defaults "
+    "and call `generate_a2ui` immediately. Keep chat replies to one short "
+    "sentence; let the UI do the talking."
 )
 
 

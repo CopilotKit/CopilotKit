@@ -76,6 +76,7 @@ from agents.shared_state_read_write import (
 from agents.subagents import subagents_app
 from agents.interrupt_agent import interrupt_app
 from agents.mcp_apps_server import mcp_apps_server
+from agents.hitl_in_chat_agent import hitl_in_chat_app
 from agents.reasoning_agent import reasoning_app
 from agents.tool_rendering_reasoning_chain import (
     tool_rendering_reasoning_chain_app,
@@ -188,6 +189,7 @@ app.mount(
 # Reasoning-aware route for the reasoning-custom / reasoning-default cells.
 # Mirrors agno's /reasoning/agui mount.
 app.mount("/reasoning", reasoning_app)
+app.mount("/hitl-in-chat", hitl_in_chat_app)
 app.mount("/agent-config", agent_config_app)
 app.mount("/multimodal", multimodal_app)
 app.mount("/byoc-hashbrown", byoc_hashbrown_app)

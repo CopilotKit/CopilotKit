@@ -53,7 +53,6 @@ const sharedAgentNames = [
   "frontend-tools-async",
   "threadid-frontend-tool-roundtrip",
   "hitl-in-app",
-  "hitl-in-chat",
 ];
 
 // Reasoning agent names — backed by the reasoning-enabled AG2 agent at
@@ -82,6 +81,7 @@ const dedicatedAgents: Record<string, string> = {
   "tool-rendering-reasoning-chain": "/tool-rendering-reasoning-chain/",
   "agent-config-demo": "/agent-config/",
   "gen-ui-agent": "/gen-ui-agent/",
+  "hitl-in-chat": "/hitl-in-chat/",
 };
 
 // Interrupt-adapted demos: gen-ui-interrupt and interrupt-headless share the
