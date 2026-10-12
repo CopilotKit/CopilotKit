@@ -90,7 +90,8 @@ export async function resolveTrajectoryLearningContainerIds(
         "Trajectory Learning Container selection must be an array of at most 100 IDs",
       );
     }
-    return [...new Set(value.map(assertStableLearningContainerId))];
+    // Array.from visits holes in sparse arrays, so they fail validation.
+    return [...new Set(Array.from(value, assertStableLearningContainerId))];
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener("abort", onAbort);

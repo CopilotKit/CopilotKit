@@ -1434,7 +1434,13 @@ export class CopilotKitIntelligence {
     }
   }
 
-  /** Mint a browser capture grant using only the Runtime's project and user. */
+  /**
+   * Mint a browser capture grant using only the Runtime's project and user.
+   *
+   * Learning Container assignment never stops capture: a failed selection or
+   * an unknown Container is logged, and the Trajectory connects without
+   * assignments.
+   */
   async ɵconnectTrajectory(params: {
     trajectoryId: string;
     user: { id: string; name: string };
@@ -1450,16 +1456,38 @@ export class CopilotKitIntelligence {
     } catch (error) {
       if (params.signal?.aborted) throw params.signal.reason;
       logger.error(
-        { err: error },
-        "Failed to resolve Trajectory Learning Containers",
-      );
-      throw new TrajectoryConnectionError(
-        "LEARNING_CONTAINER_SELECTION_FAILED",
-        "Failed to resolve Trajectory Learning Containers",
-        500,
+        { err: error, trajectoryId: params.trajectoryId },
+        "Failed to resolve Trajectory Learning Containers; connecting the Trajectory without Learning Container assignments",
       );
     }
     params.signal?.throwIfAborted();
+    try {
+      return await this.#joinTrajectory(params, learningContainerIds);
+    } catch (error) {
+      if (
+        learningContainerIds === undefined ||
+        !(error instanceof TrajectoryConnectionError) ||
+        error.code !== "LEARNING_CONTAINER_NOT_FOUND"
+      ) {
+        throw error;
+      }
+      logger.warn(
+        { trajectoryId: params.trajectoryId, learningContainerIds },
+        "A selected Learning Container does not exist in this project; connecting the Trajectory without Learning Container assignments",
+      );
+      return this.#joinTrajectory(params, undefined);
+    }
+  }
+
+  /** Requests one Trajectory join token, optionally with Container assignments. */
+  async #joinTrajectory(
+    params: {
+      trajectoryId: string;
+      user: { id: string; name: string };
+      signal?: AbortSignal;
+    },
+    learningContainerIds: readonly string[] | undefined,
+  ): Promise<TrajectoryConnectionGrant> {
     let response: Response;
     try {
       response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {

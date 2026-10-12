@@ -123,7 +123,7 @@ test.each(["single-route", "multi-route"] as const)(
 );
 
 test.each(["single-route", "multi-route"] as const)(
-  "%s fails closed when the Space selector rejects and hides its private error",
+  "%s keeps capturing without assignments when the Space selector rejects, and hides its private error",
   async (mode) => {
     const fixture = setup(mode);
     fixture.selector.mockRejectedValue(
@@ -132,16 +132,20 @@ test.each(["single-route", "multi-route"] as const)(
     try {
       const response = await fixture.app.fetch(fixture.request);
 
-      expect(response.status).toBe(500);
-      expect(await response.json()).toEqual({
-        code: "LEARNING_CONTAINER_SELECTION_FAILED",
-        message: "Failed to resolve Trajectory Learning Containers",
-      });
-      expect(fixture.logError).toHaveBeenCalledWith(
-        { err: expect.any(Error) },
-        "Failed to resolve Trajectory Learning Containers",
+      expect(response.status).toBe(200);
+      expect(JSON.stringify(await response.json())).not.toContain(
+        "private tenant policy detail",
       );
-      expect(fixture.upstream).not.toHaveBeenCalled();
+      expect(fixture.logError).toHaveBeenCalledWith(
+        { err: expect.any(Error), trajectoryId },
+        "Failed to resolve Trajectory Learning Containers; connecting the Trajectory without Learning Container assignments",
+      );
+      expect(fixture.upstream).toHaveBeenCalledExactlyOnceWith(
+        "https://intelligence.example/api/trajectories/join",
+        expect.objectContaining({
+          body: JSON.stringify({ trajectoryId, appUserId: user.id }),
+        }),
+      );
     } finally {
       fixture.teardown();
     }
@@ -155,22 +159,23 @@ test.each([
     ids: Array.from({ length: 101 }, (_, index) => `space-${index}`),
   },
 ])(
-  "a server selector with $label returns a terminal configuration error",
+  "a server selector with $label keeps capturing without assignments",
   async ({ ids }) => {
     const fixture = setup("single-route");
     fixture.selector.mockResolvedValue(ids);
     try {
       const response = await fixture.app.fetch(fixture.request);
-      expect(response.status).toBe(500);
-      expect(await response.json()).toEqual({
-        code: "LEARNING_CONTAINER_SELECTION_FAILED",
-        message: "Failed to resolve Trajectory Learning Containers",
-      });
+      expect(response.status).toBe(200);
       expect(fixture.logError).toHaveBeenCalledWith(
-        { err: expect.any(Error) },
-        "Failed to resolve Trajectory Learning Containers",
+        { err: expect.any(Error), trajectoryId },
+        "Failed to resolve Trajectory Learning Containers; connecting the Trajectory without Learning Container assignments",
       );
-      expect(fixture.upstream).not.toHaveBeenCalled();
+      expect(fixture.upstream).toHaveBeenCalledExactlyOnceWith(
+        "https://intelligence.example/api/trajectories/join",
+        expect.objectContaining({
+          body: JSON.stringify({ trajectoryId, appUserId: user.id }),
+        }),
+      );
     } finally {
       fixture.teardown();
     }
