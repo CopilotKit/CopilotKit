@@ -35,6 +35,7 @@
  * broken demo.
  */
 
+// @region[working-memory]
 /**
  * Shape of the slice of `ToolExecutionContext` we actually consume. We keep
  * this typed loosely (Record<string, unknown>) so we don't pin to the exact
@@ -234,6 +235,7 @@ export async function writeDelegationsToWorkingMemory(
     logWorkingMemoryFailure(component, "updateWorkingMemory threw", err);
   }
 }
+// @endregion[working-memory]
 
 /**
  * Replace the `steps` array in the gen-ui-agent's working memory.

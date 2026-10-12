@@ -101,10 +101,28 @@ function parseToolInput(raw: unknown): unknown {
   }
 }
 
+/**
+ * Render what the page shares (`useAgentContext`) for the prompt.
+ *
+ * `@ag-ui/aws-strands` passes a run's AG-UI `context` to hooks only and does
+ * not add it to the prompt itself, so without this the model never sees it.
+ */
+function pageContextText(input: RunAgentInput): string {
+  const entries = input.context ?? [];
+  if (entries.length === 0) return "";
+  const shared = entries
+    .map(({ description, value }) => `${description}:\n${value}`)
+    .join("\n\n");
+  return `Context provided by the application:\n\n${shared}`;
+}
+
 function buildStatePrompt(input: RunAgentInput, prompt: string): string {
   const state = (input.state ?? {}) as StarterState;
-  if (!state.todos) return prompt;
-  return `Current todos list:\n${JSON.stringify(state.todos, null, 2)}\n\nUser request: ${prompt}`;
+  const request = state.todos
+    ? `Current todos list:\n${JSON.stringify(state.todos, null, 2)}\n\nUser request: ${prompt}`
+    : prompt;
+  const context = pageContextText(input);
+  return context ? `${context}\n\n${request}` : request;
 }
 
 async function todosStateFromArgs(

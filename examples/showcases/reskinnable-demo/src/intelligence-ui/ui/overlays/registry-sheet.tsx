@@ -1,20 +1,14 @@
 /* eslint-disable react-hooks/set-state-in-effect -- copied verbatim from the Intelligence web app, whose lint config does not enable the React Compiler rules. */
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from 'react';
-import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { X } from 'lucide-react';
-import { motion } from 'motion/react';
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
+import { motion } from "motion/react";
 
-import { useMotionPreference } from '../motion-preference';
-import { OverlayPortalContainer } from './portal-container';
+import { useMotionPreference } from "../motion-preference";
+import { OverlayPortalContainer } from "./portal-container";
 
-import styles from './registry-sheet.module.css';
+import styles from "./registry-sheet.module.css";
 
 export interface SheetProps {
   readonly children: ReactNode;
@@ -24,7 +18,7 @@ export interface SheetProps {
   readonly onOpenChange: (open: boolean) => void;
   readonly open: boolean;
   readonly returnFocusRef?: RefObject<HTMLElement | null>;
-  readonly side?: 'left' | 'right';
+  readonly side?: "left" | "right";
   readonly title: string;
 }
 
@@ -37,12 +31,12 @@ export function Sheet({
   onOpenChange,
   open,
   returnFocusRef,
-  side = 'left',
+  side = "left",
   title,
 }: SheetProps): React.JSX.Element {
   const [present, setPresent] = useState(open);
   const reducedMotion = useMotionPreference();
-  const offscreen = side === 'right' ? '100%' : '-100%';
+  const offscreen = side === "right" ? "100%" : "-100%";
   const exitFinishedRef = useRef(false);
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(
     null,
@@ -113,7 +107,7 @@ export function Sheet({
               transition={
                 reducedMotion
                   ? { duration: 0 }
-                  : { type: 'spring', duration: 0.22, bounce: 0.18 }
+                  : { type: "spring", duration: 0.22, bounce: 0.18 }
               }
             >
               <OverlayPortalContainer.Provider value={portalContainer}>
@@ -125,7 +119,7 @@ export function Sheet({
                 </DialogPrimitive.Description>
                 {children}
                 <DialogPrimitive.Close
-                  aria-label={closeLabel ?? 'Close navigation'}
+                  aria-label={closeLabel ?? "Close navigation"}
                   className={styles.close}
                 >
                   <X aria-hidden="true" size={18} />

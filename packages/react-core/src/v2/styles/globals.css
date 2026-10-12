@@ -143,6 +143,15 @@
     background-color: var(--background);
   }
 
+  /* CopilotChat's root is an inline-size container (`cpk:@container`), so its
+     content contributes no width. As a flex item in a row, e.g. beside
+     <CopilotThreadsDrawer>, its auto width resolved to 0px and the chat
+     disappeared. Fill the container instead. This sits in the base layer so a
+     width the app sets (utility class, stylesheet, inline style) still wins. */
+  .copilotKitChat[data-copilotkit] {
+    width: 100%;
+  }
+
   /* Mobile viewport support */
   @supports (height: 100dvh) {
     [data-copilot-sidebar] {
