@@ -11688,6 +11688,7 @@ export class WebInspectorElement extends LitElement {
         this.handleGlobalPointerDown as EventListener,
       );
       window.addEventListener("beforeunload", this.handleAppBeforeUnload);
+      window.addEventListener("keydown", this.handleInspectorEscape);
       document.addEventListener(
         "visibilitychange",
         this.handleDocumentVisibilityChange,
@@ -11763,6 +11764,7 @@ export class WebInspectorElement extends LitElement {
         this.handleGlobalPointerDown as EventListener,
       );
       window.removeEventListener("beforeunload", this.handleAppBeforeUnload);
+      window.removeEventListener("keydown", this.handleInspectorEscape);
       document.removeEventListener(
         "visibilitychange",
         this.handleDocumentVisibilityChange,
@@ -12386,6 +12388,15 @@ export class WebInspectorElement extends LitElement {
     this.activeRoot
       .querySelector<HTMLButtonElement>(".console-button")
       ?.focus();
+  };
+
+  // The panel can open while focus stays on the page. A listener on the
+  // panel never sees that Escape press.
+  private handleInspectorEscape = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape" || !this.isOpen || this.isPoppedOut) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeInspector();
   };
 
   private queueHudTelemetry(send: () => void): void {
