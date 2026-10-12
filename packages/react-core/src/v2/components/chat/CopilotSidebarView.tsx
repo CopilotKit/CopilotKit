@@ -182,6 +182,7 @@ function CopilotSidebarViewInternal({
       <aside
         ref={sidebarRef}
         data-copilotkit
+        data-copilotkit-root
         data-testid="copilot-sidebar"
         data-copilot-sidebar
         data-position={position}
