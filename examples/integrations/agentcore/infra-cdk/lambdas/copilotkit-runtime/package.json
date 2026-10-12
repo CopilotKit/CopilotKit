@@ -10,7 +10,7 @@
   "dependencies": {
     "@ag-ui/client": "1.0.2",
     "@ag-ui/mcp-apps-middleware": "0.1.2",
-    "@copilotkit/runtime": "1.78.0",
+    "@copilotkit/runtime": "1.79.0",
     "@hono/node-server": "^1.13.7",
     "hono": "^4.11.4",
     "rxjs": "7.8.1"
