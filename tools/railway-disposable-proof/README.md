@@ -4,11 +4,32 @@ This directory owns the bounded feasibility evidence, not the PNI-605 lifecycle
 controller, PNI-607 classifier, or PNI-606 suite. No live acceptance is claimed.
 
 Run `pnpm nx run railway-disposable-proof:preflight` from the repository root.
-It calls the actual TypeScript registry helpers and Ruby fleet-parity checker
-with synthetic in-memory data. It makes no network calls and changes no registry
-files. Exit 2 means a shared-consumer blocker was reproduced. Exit 0 only means
-these particular blockers were not reproduced; it does not authorize provisioning.
-The presence matrix mirrors the inspected gate filter and is helper-level evidence.
+It validates the committed PNI-607 policy and an empty snapshot. Exit 2 means no
+images are approved; exit 0 still requires deployed-consumer and provider checks.
+It makes no network calls and changes no registry files. The historical October 9
+fleet-conflict reproduction remains in commit 95da59abfb; it describes that older
+baseline, not PNI-607's implementation.
+
+Run `pnpm nx run railway-disposable-proof:test` for the atomic publisher controls.
+`publishSnapshot(path, {initialize: true})` explicitly initializes missing evidence;
+`publishSnapshot(path, {run})` appends or updates against the committed parser.
+The caller supplies actual provider-returned IDs. The publisher cannot authenticate
+their provenance, prove readiness/deletion, or distribute files to remote readers.
+It retains terminal/expired runs and previously recorded ownership, validates the
+whole snapshot, uses an exclusive writer lock, flushes a private same-directory
+temporary file, atomically renames, then syncs the directory. It returns a digest
+for future distribution acknowledgments. Callers must treat any failure as fatal,
+including failures after rename (the new snapshot may already be visible).
+
+Use an operator-owned private durable directory and read-only directory mounts
+for readers, not a mount of the replaced file. A leftover `.lock` after a controller
+crash requires operator/recovery inspection; the publisher never steals it. This
+short publication lock is not the full-run lease, and a complete record is not proof
+that provider resources are absent. PNI-605 must block the next run on unresolved
+cleanup, independently of parser acceptance. Creation intent remains separate.
+Remote distribution must deliver these exact bytes atomically to every actual
+consumer and verify the returned digest before provisioning continues; that transport
+is not implemented here. Check classifier `failures` even when its CLI exits zero.
 
 ## Resume requirements
 
