@@ -23,13 +23,13 @@ Before you begin, you'll need the following:
 - (Optional) A LangSmith API key - only required if using an existing LangGraph agent
 
 <Callout type="info" title="Zod version for TypeScript agents">
-When adding `@copilotkit/sdk-js` 1.71.0 to a TypeScript agent, install Zod 3 alongside it:
+When adding `@copilotkit/sdk-js` to a TypeScript agent, install Zod 3 alongside it:
 
 ```bash
-npm install @copilotkit/sdk-js@1.71.0 zod@3
+npm install @copilotkit/sdk-js zod@3
 ```
 
-An unversioned `zod` install selects Zod 4, which does not satisfy this SDK release's peer dependency. Use `zod@3` with pnpm or Yarn too. If your agent already requires Zod 4, check SDK compatibility before changing its dependencies; do not bypass the conflict with `--force` or `--legacy-peer-deps`.
+An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zod` peer dependency (`^3`). Use `zod@3` with pnpm or Yarn too. If your agent already requires Zod 4, check SDK compatibility before changing its dependencies; do not bypass the conflict with `--force` or `--legacy-peer-deps`.
 </Callout>
 
 ## Getting started
@@ -425,7 +425,7 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
               npm install @copilotkit/react-core @copilotkit/runtime
               ```
 
-              The components used below (`CopilotKit`, `CopilotSidebar`) and the
+              The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
               stylesheet all come from `@copilotkit/react-core/v2`, so
               `@copilotkit/react-ui` is not needed for this setup.
           </Step>
@@ -443,6 +443,11 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
                 annotations, and Inspector requests through one `POST`
                 endpoint. They negotiate this support before sending resource
                 requests. The example below uses that mode.
+
+                The [Intelligence quickstart](/intelligence/quickstart) mounts a
+                catch-all route (`app/api/copilotkit/[[...slug]]/route.ts`) for
+                `GET`, `POST`, `PATCH`, and `DELETE` instead. Both handlers work.
+                Pick one, and set `useSingleEndpoint` on the provider to match it.
               </Callout>
 
               If your agent is in TypeScript, use the **LangSmith** tab.
@@ -562,13 +567,13 @@ An unversioned `zod` install selects Zod 4, which does not satisfy this SDK rele
               ```tsx title="app/providers.tsx"
               "use client";
 
-              import { CopilotKit } from "@copilotkit/react-core/v2";
+              import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 
               export function Providers({ children }: { children: React.ReactNode }) {
                 return (
-                  <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint>
+                  <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="sample_agent" useSingleEndpoint>
                     {children}
-                  </CopilotKit>
+                  </CopilotKitProvider>
                 );
               }
               ```

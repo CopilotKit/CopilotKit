@@ -228,6 +228,19 @@ export type InspectorOpenOptions = {
   messageId?: string;
 };
 
+/**
+ * Resolve the attached core's request headers at send time. A core released
+ * before `resolveHeaders()` existed has only the static `headers` map, so an
+ * inspector attached to it falls back to a copy of that map.
+ */
+function resolveAttachedCoreHeaders(
+  core: CopilotKitCore,
+): Record<string, string> | Promise<Record<string, string>> {
+  return typeof core.resolveHeaders === "function"
+    ? core.resolveHeaders()
+    : { ...core.headers };
+}
+
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
@@ -1705,10 +1718,124 @@ function coerceJsonValue(value: unknown): unknown {
   }
 }
 
+/**
+ * Draws one JSON value of the inspector into a container that the host page
+ * owns. `value` is the raw value: a JSON string or an already-parsed value.
+ * Return a function to run when the inspector removes or replaces the value.
+ */
+export type InspectorJsonRenderer = (
+  container: HTMLElement,
+  value: unknown,
+) => (() => void) | void;
+
+let inspectorJsonRenderer: InspectorJsonRenderer | null = null;
+let inspectorJsonSlotCount = 0;
+
+const JSON_BLOCK_TAG = "cpk-json-block";
+
+/**
+ * Replaces the inspector's built-in JSON blocks (tool arguments and results,
+ * state, events, and context) with a host renderer. Pass `null` to restore the
+ * built-in blocks. Set it before the inspector renders: a block that is
+ * already on screen changes at the inspector's next render.
+ *
+ * @example
+ * ```ts
+ * setInspectorJsonRenderer((container, value) => {
+ *   const root = createRoot(container);
+ *   root.render(<JsonView value={value} />);
+ *   return () => root.unmount();
+ * });
+ * ```
+ */
+export function setInspectorJsonRenderer(
+  renderer: InspectorJsonRenderer | null,
+): void {
+  inspectorJsonRenderer = renderer;
+}
+
+/**
+ * Hosts one value drawn by the host renderer. Inside a shadow root, the
+ * container lives in the shadow host's light DOM and shows here through a
+ * named slot, so the host page's own styles apply to what the renderer draws.
+ */
+// The fallback keeps module import safe where no DOM exists (server render).
+class CpkJsonBlock extends ((globalThis.HTMLElement ??
+  class {}) as typeof HTMLElement) {
+  #value: unknown = undefined;
+  #hasValue = false;
+  #cleanup: (() => void) | undefined;
+  #container: HTMLElement | undefined;
+
+  get value(): unknown {
+    return this.#value;
+  }
+
+  set value(next: unknown) {
+    if (this.#hasValue && Object.is(next, this.#value)) return;
+    this.#value = next;
+    this.#hasValue = true;
+    if (this.isConnected) this.#render();
+  }
+
+  connectedCallback(): void {
+    this.style.display = "block";
+    this.#render();
+  }
+
+  disconnectedCallback(): void {
+    this.#teardown();
+  }
+
+  #render(): void {
+    this.#teardown();
+    const renderer = inspectorJsonRenderer;
+    if (!renderer) return;
+    const root = this.getRootNode();
+    const container = this.ownerDocument.createElement("div");
+    // `instanceof ShadowRoot` fails across realms (the pop-out window).
+    if (root.nodeType === Node.DOCUMENT_FRAGMENT_NODE && "host" in root) {
+      inspectorJsonSlotCount += 1;
+      const name = `cpk-json-${inspectorJsonSlotCount}`;
+      const slot = this.ownerDocument.createElement("slot");
+      slot.name = name;
+      this.replaceChildren(slot);
+      container.slot = name;
+      (root as ShadowRoot).host.append(container);
+    } else {
+      this.replaceChildren(container);
+    }
+    this.#container = container;
+    const cleanup = renderer(container, this.#value);
+    this.#cleanup = typeof cleanup === "function" ? cleanup : undefined;
+  }
+
+  #teardown(): void {
+    const cleanup = this.#cleanup;
+    this.#cleanup = undefined;
+    cleanup?.();
+    this.#container?.remove();
+    this.#container = undefined;
+    this.replaceChildren();
+  }
+}
+
 function renderHighlightedJsonBlock(
   value: unknown,
   options: { maxHeight?: string } = {},
 ) {
+  if (inspectorJsonRenderer) {
+    // The raw value keeps its identity across renders, so an unchanged
+    // value does not draw again.
+    return html`<cpk-json-block
+      .value=${value}
+      style=${
+        options.maxHeight
+          ? `overflow:auto;max-height:${options.maxHeight}`
+          : nothing
+      }
+    ></cpk-json-block>`;
+  }
   const parsed = coerceJsonValue(value);
   const style = options.maxHeight
     ? `max-height:${options.maxHeight}`
@@ -2216,6 +2343,8 @@ export class CpkThreadInspector extends PortableLitElement {
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
+    resolveHeaders: { attribute: false },
+    headersGeneration: { attribute: false },
     threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
@@ -2258,7 +2387,27 @@ export class CpkThreadInspector extends PortableLitElement {
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
+  /**
+   * @deprecated Set `resolveHeaders` instead — it resolves fresh headers at
+   * send time (#1937), so a rotated token is never stale. This is a
+   * fallback used only when `resolveHeaders` is left unset (its default
+   * no-op); when both are set, `resolveHeaders` wins. Never part of the
+   * load key — see `headersGeneration`.
+   */
   headers: Record<string, string> = {};
+  // Resolved at send time (#1937): a builder can return a fresh token on every
+  // call, so this must be invoked per-request rather than snapshotted once.
+  // The default value is a sentinel: `ɵresolveInspectorHeaders` compares
+  // against it to know whether a host actually set `resolveHeaders`, so it
+  // can fall back to the deprecated `headers` field when not.
+  resolveHeaders: () =>
+    | Record<string, string>
+    | Promise<Record<string, string>> =
+    CpkThreadInspector.ɵdefaultResolveHeaders;
+  // Bumped only by an actual header-source change (never by a builder
+  // returning a new value). Never key the load signature on header VALUES —
+  // that would reload thread inspection on every token rotation.
+  headersGeneration = 0;
   threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
@@ -2374,6 +2523,11 @@ export class CpkThreadInspector extends PortableLitElement {
   private _dividerStartWidth = 0;
   private static nextDomId = 1;
   private readonly domIdPrefix = `cpk-thread-detail-${CpkThreadInspector.nextDomId++}`;
+  /** Sentinel identity for `resolveHeaders`'s default value; see its field doc. */
+  private static readonly ɵdefaultResolveHeaders = (): Record<
+    string,
+    string
+  > => ({});
 
   static readonly COLLAPSE_THRESHOLD = 800;
   static readonly TAB_LIST: ReadonlyArray<{
@@ -2405,19 +2559,6 @@ export class CpkThreadInspector extends PortableLitElement {
       provider.getEvents ? "events:1" : "events:0",
       provider.getState ? "state:1" : "state:0",
     ].join("|");
-  }
-
-  /**
-   * Build a deterministic signature for runtime fetch headers so auth/CSRF
-   * changes invalidate cached thread data even when the selected thread is
-   * otherwise unchanged.
-   */
-  private static headersLoadKey(headers: Record<string, string>): string {
-    return JSON.stringify(
-      Object.entries(headers).sort(([leftKey], [rightKey]) =>
-        leftKey.localeCompare(rightKey),
-      ),
-    );
   }
 
   private renderConversationActions() {
@@ -4023,7 +4164,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this.threadId ?? "thread:none",
       CpkThreadInspector.providerLoadKey(this.provider),
       `runtime:${this.runtimeUrl}`,
-      `headers:${CpkThreadInspector.headersLoadKey(this.headers)}`,
+      `headersGen:${this.headersGeneration}`,
       `inspect:${this.threadInspectionAvailable ? "1" : "0"}`,
     ].join("||");
   }
@@ -4222,12 +4363,24 @@ export class CpkThreadInspector extends PortableLitElement {
     }
   }
 
+  /**
+   * `resolveHeaders` when a host actually set it; otherwise the deprecated
+   * `headers` fallback. Never both — see the `headers` field's doc.
+   */
+  private ɵresolveInspectorHeaders():
+    | Record<string, string>
+    | Promise<Record<string, string>> {
+    return this.resolveHeaders === CpkThreadInspector.ɵdefaultResolveHeaders
+      ? this.headers
+      : this.resolveHeaders();
+  }
+
   private async fetchRuntimeMessages(
     threadId: string,
     signal: AbortSignal,
   ): Promise<ThreadDebuggerMessage[]> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "messages"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -4240,7 +4393,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeEventsFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "events"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (res.status === 501) {
@@ -4258,7 +4411,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeStateFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "state"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (res.status === 501) {
@@ -6684,6 +6837,17 @@ export class WebInspectorElement extends LitElement {
   } as const;
 
   private _core: CopilotKitCore | null = null;
+  // Memoized so `<cpk-thread-details>`'s `.resolveHeaders=` binding gets a
+  // STABLE function reference across renders. A fresh closure every render
+  // (e.g. an inline arrow in the template) would look like a changed
+  // reactive property on every host update and force a full
+  // `CpkThreadInspector` update cycle each time, regardless of whether
+  // headers actually changed. Reads `this._core` at CALL time, so it always
+  // resolves against whichever core is currently attached.
+  private readonly resolveCoreHeaders = ():
+    | Record<string, string>
+    | Promise<Record<string, string>> =>
+    this._core ? resolveAttachedCoreHeaders(this._core) : {};
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
   private _memories: Memory[] = [];
@@ -7660,15 +7824,19 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
-    const runtimeFetch =
-      typeof core.ɵruntimeFetch === "function"
-        ? core.ɵruntimeFetch
-        : globalThis.fetch;
-    const store = ɵcreateThreadStore({ fetch: runtimeFetch });
+    // `ɵruntimeFetch` already resolves and overlays the current core headers
+    // at send time (#1937), so the context below must NOT also carry a
+    // `headers` snapshot — that would let a header the source no longer
+    // returns keep riding along. Only the defensive fallback for a core
+    // without `ɵruntimeFetch` needs a static snapshot here.
+    const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
+    const store = ɵcreateThreadStore({
+      fetch: hasRuntimeFetch ? core.ɵruntimeFetch : globalThis.fetch,
+    });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: { ...core.headers },
+      ...(hasRuntimeFetch ? {} : { headers: { ...core.headers } }),
       wsUrl: core.intelligence?.wsUrl,
       agentId,
     });
@@ -7724,18 +7892,24 @@ export class WebInspectorElement extends LitElement {
 
   // Keep inspector-owned thread stores in sync when the host updates headers
   // at runtime (e.g. a refreshed auth/CSRF token via core.setHeaders). Mirrors
-  // useThreads(), which re-dispatches the context whenever core.headers change,
-  // so the owned stores' /threads requests stay authorized.
+  // useThreads(), which re-dispatches the context whenever `onHeadersChanged`
+  // fires, so the owned stores' /threads requests stay authorized. The
+  // re-dispatched context omits `headers` (see `ensureOwnedThreadStore`) —
+  // `ɵruntimeFetch` resolves the current headers at send time, so this only
+  // needs to trigger the store's refetch, not carry a snapshot. A token
+  // rotation alone doesn't call `onHeadersChanged`/this method, so it doesn't
+  // trigger a refetch either.
   private updateOwnedThreadStoreHeaders(
     headers: Readonly<Record<string, string>>,
   ): void {
     if (!this.areThreadEndpointsAvailable()) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
+    const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
     for (const [agentId, store] of this._ownedThreadStores) {
       store.setContext({
         runtimeUrl: core.runtimeUrl,
-        headers: { ...headers },
+        ...(hasRuntimeFetch ? {} : { headers: { ...headers } }),
         wsUrl: core.intelligence?.wsUrl,
         agentId,
       });
@@ -8263,8 +8437,11 @@ export class WebInspectorElement extends LitElement {
             this.learningSnapshot?.insightsPage.page ??
             1,
         },
+        // `ɵruntimeFetch` already resolves and overlays the current core
+        // headers at send time (#1937). Passing a separately resolved
+        // `headers` snapshot here would call the builder twice per request
+        // and could let a header the source no longer returns ride along.
         fetch: core.ɵruntimeFetch,
-        headers: core.headers,
         credentials: core.credentials,
         signal: controller.signal,
       });
@@ -16457,12 +16634,13 @@ export class WebInspectorElement extends LitElement {
     }
     const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
     const encodedThreadId = encodeURIComponent(thread.id);
+    const headers = { ...(await resolveAttachedCoreHeaders(core)) };
     const [messagesResponse, stateResponse] = await Promise.all([
       fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
-        headers: { ...core.headers },
+        headers,
       }),
       fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
-        headers: { ...core.headers },
+        headers,
       }),
     ]);
     if (!messagesResponse.ok) {
@@ -19326,7 +19504,10 @@ export class WebInspectorElement extends LitElement {
                             ? ""
                             : (this._core?.runtimeUrl ?? "")
                         }
-                        .headers=${this._core?.headers ?? {}}
+                        .resolveHeaders=${this.resolveCoreHeaders}
+                        .headersGeneration=${
+                          this._core?.ɵheadersGeneration ?? 0
+                        }
                         .threadInspectionAvailable=${
                           selectedThreadIsLocalExample ||
                           (this.areThreadEndpointsAvailable() &&
@@ -22564,6 +22745,7 @@ export function defineWebInspector(
   defineElementOnce(registry, THREAD_INSPECTOR_TAG, CpkThreadInspector);
   defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);
   defineElementOnce(registry, "cpk-memory-list", CpkMemoryList);
+  defineElementOnce(registry, JSON_BLOCK_TAG, CpkJsonBlock);
   defineElementOnce(registry, WEB_INSPECTOR_TAG, WebInspectorElement);
 }
 

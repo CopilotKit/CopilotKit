@@ -1,154 +1,29 @@
-import type { AfterViewInit } from "@angular/core";
 import {
+  ApplicationRef,
   Component,
-  input,
-  ChangeDetectionStrategy,
-  ViewEncapsulation,
-  computed,
-  inject,
+  ComponentRef,
+  DestroyRef,
   ElementRef,
-  ViewChild,
+  EnvironmentInjector,
+  Injector,
+  ViewEncapsulation,
+  createComponent,
+  inject,
+  input,
+  inputBinding,
+  viewChild,
 } from "@angular/core";
 
-import { Marked } from "marked";
-import DOMPurify, { type DOMPurify as DOMPurifyInstance } from "dompurify";
-import hljs from "highlight.js";
-import * as katex from "katex";
-import { completePartialMarkdown } from "@copilotkit/core";
-import { copyToClipboard } from "@copilotkit/shared";
 import { injectChatLabels } from "../../chat-config";
 import { explicitEffect } from "../../explicit-effect";
-
-const HTML_ESCAPES: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
-};
-
-function escapeHtmlText(text: string): string {
-  return text.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char] ?? char);
-}
-
-let privatePurifier: { window: Window; purifier: DOMPurifyInstance } | null =
-  null;
-
-/**
- * Returns a DOMPurify instance owned by this module, or null when there is no
- * DOM or the instance reports it cannot sanitize. An unsupported instance
- * returns its input unchanged from sanitize(), so callers must treat null as
- * "cannot sanitize" and fail closed. The default export is a global instance
- * shared with the host app, whose setConfig() overrides our per-call config
- * and whose hooks would run inside our sanitization, so it is not used here.
- */
-function getPrivatePurifier(): DOMPurifyInstance | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  if (privatePurifier?.window !== window) {
-    privatePurifier = { window, purifier: DOMPurify(window) };
-  }
-  const { purifier } = privatePurifier;
-  return purifier.isSupported ? purifier : null;
-}
-
-/**
- * Sanitizes rendered markdown before it is written to the DOM with innerHTML.
- * KaTeX wraps its MathML in <semantics> and puts the TeX source in an
- * <annotation>. DOMPurify unwraps both by default but keeps their content, so
- * the TeX source leaks as visible text and the MathML structure breaks. They
- * are allowed explicitly; DOMPurify still sanitizes their children and
- * attributes.
- * DOMPurify keeps <style> elements by default. This component uses
- * ViewEncapsulation.None, so a <style> in model output would restyle the whole
- * host page; it is forbidden. The inline style attribute stays allowed because
- * KaTeX layout depends on it.
- */
-function sanitizeRenderedHtml(
-  purifier: DOMPurifyInstance,
-  html: string,
-): string {
-  return purifier.sanitize(html, {
-    ADD_TAGS: ["semantics", "annotation"],
-    FORBID_TAGS: ["style"],
-  });
-}
-
-function processMathEquationsInHtml(html: string): string {
-  // First, temporarily replace code blocks with placeholders to protect them from math processing
-  const codeBlocks: string[] = [];
-  const placeholder = "___CODE_BLOCK_PLACEHOLDER_";
-
-  // Store code blocks and replace with placeholders
-  html = html.replace(/<pre><code[\s\S]*?<\/code><\/pre>/g, (match) => {
-    const index = codeBlocks.length;
-    codeBlocks.push(match);
-    return `${placeholder}${index}___`;
-  });
-
-  // Also protect inline code
-  const inlineCode: string[] = [];
-  const inlinePlaceholder = "___INLINE_CODE_PLACEHOLDER_";
-  html = html.replace(/<code>[\s\S]*?<\/code>/g, (match) => {
-    const index = inlineCode.length;
-    inlineCode.push(match);
-    return `${inlinePlaceholder}${index}___`;
-  });
-
-  // Process display math $$ ... $$
-  html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, equation) => {
-    try {
-      return katex.renderToString(equation, {
-        displayMode: true,
-        throwOnError: false,
-      });
-    } catch {
-      return match;
-    }
-  });
-
-  // A closing inline-math delimiter cannot be preceded by whitespace or
-  // followed by a digit. Those delimiter rules keep ordinary currency ranges
-  // such as "$349 ... $289" from becoming one large KaTeX expression.
-  html = html.replace(
-    /(?<!\\)\$(?!\s)([^$\n]*?\S)\$(?!\d)/g,
-    (match, equation) => {
-      try {
-        return katex.renderToString(equation, {
-          displayMode: false,
-          throwOnError: false,
-        });
-      } catch {
-        return match;
-      }
-    },
-  );
-
-  // Restore code blocks
-  codeBlocks.forEach((block, index) => {
-    html = html.replace(`${placeholder}${index}___`, block);
-  });
-
-  // Restore inline code
-  inlineCode.forEach((code, index) => {
-    html = html.replace(`${inlinePlaceholder}${index}___`, code);
-  });
-
-  return html;
-}
+import { CopilotChatCodeBlockHeader } from "./copilot-chat-code-block-header";
+import { renderMarkdown } from "./markdown";
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message-renderer",
-  changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div
-      #markdownContainer
-      [class]="inputClass()"
-      (click)="handleClick($event)"
-    ></div>
+    <div #markdownContainer [class]="inputClass()"></div>
   `,
   styles: [
     `
@@ -276,192 +151,67 @@ function processMathEquationsInHtml(html: string): string {
     `,
   ],
 })
-export class CopilotChatAssistantMessageRenderer implements AfterViewInit {
+export class CopilotChatAssistantMessageRenderer {
   readonly content = input<string>("");
   readonly inputClass = input<string | undefined>();
   readonly labels = injectChatLabels();
 
-  @ViewChild("markdownContainer", { static: false })
-  markdownContainer?: ElementRef<HTMLDivElement>;
-
-  private elementRef = inject(ElementRef);
-
-  // Track copy states for code blocks (DOM-updated; no signal needed)
-  private copyStates = new Map<string, boolean>();
-
-  readonly renderedHtml = computed(() => {
-    const currentContent = this.content();
-    const completedMarkdown = completePartialMarkdown(currentContent);
-    return this.renderMarkdown(completedMarkdown);
-  });
+  private readonly markdownContainer =
+    viewChild<ElementRef<HTMLDivElement>>("markdownContainer");
+  private readonly appRef = inject(ApplicationRef);
+  private readonly environmentInjector = inject(EnvironmentInjector);
+  private readonly injector = inject(Injector);
+  private codeBlockHeaders: ComponentRef<CopilotChatCodeBlockHeader>[] = [];
 
   constructor() {
-    explicitEffect(this.content, () => {
-      // Reset copy states when content changes
-      this.copyStates.clear();
-      // If view is ready, update DOM
-      if (this.markdownContainer) {
-        this.updateContent();
-      }
-    });
-  }
-
-  ngAfterViewInit(): void {
-    this.updateContent();
-  }
-
-  private updateContent(): void {
-    if (!this.markdownContainer) return;
-    const container = this.markdownContainer.nativeElement;
-    const html = this.renderedHtml();
-    container.innerHTML = html;
-  }
-
-  private codeBlocksMap = new Map<string, string>();
-  private markedInstance: Marked | null = null;
-
-  private initializeMarked(): void {
-    if (this.markedInstance) return;
-
-    // Create a new Marked instance
-    this.markedInstance = new Marked();
-
-    // Configure marked options
-    this.markedInstance.setOptions({
-      gfm: true,
-      breaks: true,
-    });
-
-    // Add a walkTokens function to process code tokens before rendering
-    this.markedInstance.use({
-      walkTokens: (token: any) => {
-        if (token.type === "code") {
-          const rawCode = token.text;
-          const lang = token.lang || "";
-
-          const blockId = this.generateBlockId(rawCode);
-          // Store the raw code in our map for copying
-          this.codeBlocksMap.set(blockId, rawCode);
-
-          const copyLabel = this.labels.assistantMessageToolbarCopyCodeLabel;
-
-          // Manually highlight the code
-          const language = hljs.getLanguage(lang) ? lang : "plaintext";
-          const highlighted = hljs.highlight(rawCode, { language }).value;
-          const safeLang = escapeHtmlText(lang);
-          const codeClass = lang ? `hljs language-${safeLang}` : "hljs";
-
-          // Create the full HTML with header and highlighted code
-          const fullHtml = `
-            <div class="code-block-container">
-              <div class="code-block-header">
-                ${lang ? `<span class="code-block-language">${safeLang}</span>` : "<span></span>"}
-                <button 
-                  class="code-block-copy-button" 
-                  data-code-block-id="${blockId}"
-                  aria-label="${copyLabel} code">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.11 0-2-.9-2-2V4c0-1.11.89-2 2-2h10c1.11 0 2 .89 2 2"/></svg>
-                  <span>${copyLabel}</span>
-                </button>
-              </div>
-              <pre><code class="${codeClass}">${highlighted}</code></pre>
-            </div>
-          `;
-
-          // Change the token to an html token to bypass marked's escaping
-          token.type = "html";
-          token.text = fullHtml;
+    explicitEffect(
+      () => ({
+        container: this.markdownContainer()?.nativeElement,
+        content: this.content(),
+      }),
+      ({ container, content }) => {
+        if (!container) return;
+        this.destroyCodeBlockHeaders();
+        const rendered = renderMarkdown(content, (code, language) =>
+          this.addCodeBlockHeader(code, language),
+        );
+        // The server DOM has no replaceChildren(); it only gets the text.
+        if (typeof rendered === "string") {
+          container.textContent = rendered;
+        } else {
+          container.replaceChildren(rendered);
         }
       },
+    );
+
+    inject(DestroyRef).onDestroy(() => this.destroyCodeBlockHeaders());
+  }
+
+  /** Wraps a rendered code block and mounts its header component above it. */
+  private addCodeBlockHeader(code: HTMLElement, language: string): void {
+    const pre = code.parentElement!;
+    const container = pre.ownerDocument.createElement("div");
+    container.className = "code-block-container";
+    pre.replaceWith(container);
+
+    const source = code.textContent ?? "";
+    const header = createComponent(CopilotChatCodeBlockHeader, {
+      environmentInjector: this.environmentInjector,
+      elementInjector: this.injector,
+      bindings: [
+        inputBinding("language", () => language),
+        inputBinding("code", () => source),
+      ],
     });
+    this.appRef.attachView(header.hostView);
+    header.changeDetectorRef.detectChanges();
+    this.codeBlockHeaders.push(header);
+
+    container.append(header.location.nativeElement, pre);
   }
 
-  private renderMarkdown(content: string): string {
-    // The support check runs on the same instance that sanitizes. When it
-    // cannot run (for example during server rendering, without a DOM), its
-    // sanitize() would return the HTML unchanged, so rendered HTML cannot be
-    // trusted. Emit the escaped markdown source as plain text instead; the
-    // browser replaces it with sanitized markdown when it renders there.
-    const purifier = getPrivatePurifier();
-    if (!purifier) {
-      return escapeHtmlText(content);
-    }
-
-    // Initialize marked if not already done
-    this.initializeMarked();
-
-    // Clear the code blocks map for new render
-    this.codeBlocksMap.clear();
-
-    // Parse markdown
-    let html = this.markedInstance!.parse(content) as string;
-
-    // Process math equations
-    html = processMathEquationsInHtml(html);
-
-    return sanitizeRenderedHtml(purifier, html);
-  }
-
-  handleClick(event: MouseEvent): void {
-    const target = event.target as HTMLElement;
-
-    // Check if clicked on copy button or its children
-    const copyButton = target.closest(
-      ".code-block-copy-button",
-    ) as HTMLButtonElement;
-    if (copyButton) {
-      event.preventDefault();
-      const blockId = copyButton.getAttribute("data-code-block-id");
-
-      if (blockId) {
-        // Get the raw code from our map instead of from DOM
-        const code = this.codeBlocksMap.get(blockId);
-        if (code) {
-          this.copyCodeBlock(blockId, code);
-        }
-      }
-    }
-  }
-
-  private copyCodeBlock(blockId: string, code: string): void {
-    copyToClipboard(code).then((success) => {
-      if (!success) return;
-
-      // Update the button in the DOM
-      const button = this.elementRef.nativeElement.querySelector(
-        `[data-code-block-id="${blockId}"]`,
-      );
-      if (button) {
-        const originalHTML = button.innerHTML;
-        button.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-            <span>${this.labels.assistantMessageToolbarCopyCodeCopiedLabel}</span>
-          `;
-        button.setAttribute(
-          "aria-label",
-          `${this.labels.assistantMessageToolbarCopyCodeCopiedLabel} code`,
-        );
-
-        // Reset after 2 seconds
-        setTimeout(() => {
-          button.innerHTML = originalHTML;
-          button.setAttribute(
-            "aria-label",
-            `${this.labels.assistantMessageToolbarCopyCodeLabel} code`,
-          );
-        }, 2000);
-      }
-    });
-  }
-
-  private generateBlockId(code: string): string {
-    // Simple hash function for generating unique IDs
-    let hash = 0;
-    for (let i = 0; i < code.length; i++) {
-      const char = code.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return `code-block-${hash}`;
+  private destroyCodeBlockHeaders(): void {
+    this.codeBlockHeaders.forEach((header) => header.destroy());
+    this.codeBlockHeaders = [];
   }
 }

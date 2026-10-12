@@ -9,6 +9,8 @@ from ag_ui_crewai.sdk import CopilotKitState, copilotkit_stream
 from crewai.flow.flow import Flow, listen, router, start
 from litellm import completion
 
+from src.model import resolve_model
+
 
 class AgentState(CopilotKitState):
     """
@@ -20,6 +22,9 @@ class AgentState(CopilotKitState):
     """
 
     proverbs: list[str] = []
+    # What the page shares (useAgentContext). ag-ui-crewai writes the run's
+    # AG-UI context here but never adds it to the prompt; see page_context().
+    context: list[dict] = []
     # your_custom_agent_state: str = ""
 
 
@@ -54,6 +59,21 @@ tool_handlers = {
 }
 
 
+def page_context(context: list[dict]) -> str:
+    """Render what the page shares (`useAgentContext`) for the system prompt.
+
+    ag-ui-crewai copies a run's AG-UI `context` into the flow state's
+    `context` field and does not add it to the prompt itself, so without this
+    the model never sees it. Empty context renders as an empty string.
+    """
+    if not context:
+        return ""
+    shared = "\n\n".join(
+        f"{entry['description']}:\n{entry['value']}" for entry in context
+    )
+    return f"\n\nContext provided by the application:\n\n{shared}"
+
+
 class SampleAgentFlow(Flow[AgentState]):
     """
     This is a sample flow that uses the CopilotKit framework to create a chat agent.
@@ -78,15 +98,20 @@ class SampleAgentFlow(Flow[AgentState]):
         For more about the ReAct design pattern, see:
         https://www.perplexity.ai/search/react-agents-NcXLQhreS0WDzpVaS4m9Cg
         """
-        system_prompt = f"You are a helpful assistant. The current proverbs are {self.state.proverbs}."
+        system_prompt = (
+            f"You are a helpful assistant. The current proverbs are {self.state.proverbs}."
+            + page_context(self.state.context)
+        )
 
         # 1. Run the model and stream the response
         #    Note: In order to stream the response, wrap the completion call in
         #    copilotkit_stream and set stream=True.
         response = await copilotkit_stream(
             completion(
-                # 1.1 Specify the model to use
-                model="openai/gpt-5-mini",
+                # 1.1 Specify the model to use. COPILOTKIT_AGENT_MODEL (e.g.
+                #     "anthropic:claude-sonnet-4-5") overrides it; unset, the
+                #     agent uses gpt-5-mini.
+                model=resolve_model("openai:gpt-5-mini"),
                 messages=[
                     {"role": "system", "content": system_prompt},
                     *self.state.messages,

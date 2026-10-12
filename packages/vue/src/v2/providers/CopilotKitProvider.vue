@@ -16,8 +16,10 @@ import { ToolCallStatus } from "@copilotkit/core";
 import type {
   CopilotKitCoreErrorCode,
   CopilotKitCoreSubscriber,
+  CopilotKitHeadersSource,
   FrontendTool,
 } from "@copilotkit/core";
+import { ɵwithHeaderDefaults } from "@copilotkit/core";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import type {
   RuntimeEntitlementResponse,
@@ -191,16 +193,36 @@ const hasLocalAgents = computed(
   () => Object.keys(mergedAgents.value).length > 0,
 );
 
-const resolvedHeaders = computed(() =>
-  typeof props.headers === "function" ? props.headers() : props.headers,
-);
+// Whether `headers` is a builder, as its own computed so that a re-render
+// merely passing a NEW function of the same kind (e.g. a fresh inline arrow)
+// doesn't propagate: this computed's VALUE doesn't change, so Vue never marks
+// `headersSource` below dirty on that account. Reading `props.headers`
+// directly inside `headersSource` would defeat this — its exact identity
+// would then be tracked there instead.
+const isHeadersBuilder = computed(() => typeof props.headers === "function");
 
-const mergedHeaders = computed(() => {
-  const headers = resolvedHeaders.value;
-  if (!resolvedPublicKey.value) return headers;
-  if (headers[HEADER_NAME]) return headers;
-  return { ...headers, [HEADER_NAME]: resolvedPublicKey.value };
-});
+// Stable for the component's lifetime: reads `props.headers` fresh on every
+// call, so it is always current at send time (#1937), never during render.
+// The read below can return a sync record or an async promise depending on
+// what `props.headers` happens to be at call time, which
+// `CopilotKitHeadersSource`'s shape can't express in one function signature
+// (sync-only OR async-only) — same rationale as the cast inside
+// `ɵwithHeaderDefaults`.
+const latestHeaders = (() =>
+  typeof props.headers === "function"
+    ? props.headers()
+    : props.headers) as () => Record<string, string>;
+
+// The source handed to core. A record keeps today's identity semantics (its
+// own reference changes propagate); a builder is represented by the stable
+// `latestHeaders` above, so only `isHeadersBuilder` and `resolvedPublicKey`
+// actually drive recomputation.
+const headersSource = computed<CopilotKitHeadersSource>(() =>
+  ɵwithHeaderDefaults(
+    isHeadersBuilder.value ? latestHeaders : props.headers,
+    resolvedPublicKey.value ? { [HEADER_NAME]: resolvedPublicKey.value } : {},
+  ),
+);
 
 const chatApiEndpoint = computed(
   () =>
@@ -469,7 +491,7 @@ const createCopilotKit = () => {
         : props.useSingleEndpoint === false
           ? "rest"
           : "auto",
-    headers: mergedHeaders.value,
+    headers: headersSource.value,
     credentials: props.credentials,
     messageFilter: props.messageFilter,
     properties: resolvedProperties.value,
@@ -546,12 +568,25 @@ watch(
         });
       },
     });
+    // `onHeadersChanged` fires only from a real `setHeaders()` call (a new
+    // source), never from a builder resolving a new token — same generation
+    // core bumps. Without this, nothing pokes Vue's reactivity when a source
+    // change lands: `ɵheadersGeneration` is a plain property read, not a
+    // ref/reactive value, so `headersKey` (use-threads.ts) and the
+    // HttpAgent watcher (use-agent.ts) only re-read it when SOME OTHER
+    // trigger happens to fire around the same time (#1937).
+    const sub6 = core.subscribe({
+      onHeadersChanged: () => {
+        triggerRef(copilotkit);
+      },
+    });
     onCleanup(() => {
       sub1.unsubscribe();
       sub2.unsubscribe();
       sub3.unsubscribe();
       sub4.unsubscribe();
       sub5.unsubscribe();
+      sub6.unsubscribe();
     });
   },
   { immediate: true },
@@ -579,6 +614,18 @@ watch([allRenderActivityMessages], ([renderActivityMessages]) => {
   triggerRef(copilotkit);
 });
 
+// The last `headersSource` reference actually handed to `core.setHeaders`.
+// `syncRuntimeConfig` runs once (unconditionally) from `onMounted` in
+// addition to the constructor already having applied this same value.
+// `HeaderSourceResolver.setSource` itself is a no-op both for an identical
+// function reference and for a record whose normalized values equal the
+// currently applied record's (see #1937), so this reference
+// check is now a cheap pre-filter rather than the only thing preventing a
+// spurious `onHeadersChanged`. It still avoids the `setHeaders` call (and
+// its normalize + shallow-equal work) entirely on the common path where
+// nothing changed.
+let lastAppliedHeadersSource: CopilotKitHeadersSource = headersSource.value;
+
 function syncRuntimeConfig() {
   copilotkit.value.setRuntimeUrl(chatApiEndpoint.value);
   copilotkit.value.setRuntimeTransport(
@@ -588,7 +635,10 @@ function syncRuntimeConfig() {
         ? "rest"
         : "auto",
   );
-  copilotkit.value.setHeaders(mergedHeaders.value);
+  if (headersSource.value !== lastAppliedHeadersSource) {
+    lastAppliedHeadersSource = headersSource.value;
+    copilotkit.value.setHeaders(headersSource.value);
+  }
   copilotkit.value.setCredentials(props.credentials);
   copilotkit.value.setMessageFilter(props.messageFilter);
   copilotkit.value.setProperties(resolvedProperties.value);
@@ -600,7 +650,7 @@ function syncRuntimeConfig() {
 watch(
   [
     () => chatApiEndpoint.value,
-    () => mergedHeaders.value,
+    () => headersSource.value,
     () => props.credentials,
     () => props.messageFilter,
     () => resolvedProperties.value,
@@ -730,10 +780,12 @@ const runtimeEntitlementRetryInProgress = computed(
     runtimeEntitlementRetryPending.value &&
     !hasLegacyRuntimeEntitlementFallback.value,
 );
-const runtimeEntitlementFailureSettled = computed(
+// Only a terminal failure denies features. A retryable failure (a timeout,
+// a network error, a 5xx) says nothing about what the project may use.
+const terminalRuntimeEntitlementFailure = computed(
   () =>
     hasNonReadyRuntimeEntitlement.value &&
-    !runtimeEntitlementRetryInProgress.value &&
+    !retryableRuntimeEntitlementFailure.value &&
     !hasLegacyRuntimeEntitlementFallback.value,
 );
 const licenseContextValue = computed<LicenseContextValue>(() => {
@@ -743,7 +795,7 @@ const licenseContextValue = computed<LicenseContextValue>(() => {
       : runtimeLicenseStatus.value,
     runtimeEntitlements.value,
   );
-  if (!runtimeEntitlementFailureSettled.value) {
+  if (!terminalRuntimeEntitlementFailure.value) {
     return runtimeLicenseContext;
   }
 

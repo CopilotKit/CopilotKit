@@ -1,13 +1,14 @@
 import { z } from "zod";
-import { tool, type ToolRuntime } from "@langchain/core/tools";
+import { tool } from "@langchain/core/tools";
+import type { ToolRuntime } from "@langchain/core/tools";
 import { SystemMessage } from "@langchain/core/messages";
-import { ChatOpenAI } from "@langchain/openai";
 import {
   createSurface,
   render,
   updateComponents,
   updateDataModel,
 } from "./a2ui.js";
+import { createChatModel } from "./model.js";
 
 const CUSTOM_CATALOG_ID = "copilotkit://app-dashboard-catalog";
 
@@ -49,7 +50,8 @@ export const generate_a2ui = tool(
       .filter(Boolean)
       .join("\n\n");
 
-    const model = new ChatOpenAI({ model: "gpt-5-mini" });
+    // COPILOTKIT_AGENT_MODEL overrides this site too; unset, it uses gpt-5-mini.
+    const model = createChatModel("openai:gpt-5-mini");
     const modelWithTool = model.bindTools!([renderA2ui], {
       tool_choice: "render_a2ui",
     });

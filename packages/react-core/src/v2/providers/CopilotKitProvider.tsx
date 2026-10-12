@@ -1,6 +1,9 @@
 "use client";
 
-import { GENERATE_SANDBOXED_UI_DESCRIPTION } from "@copilotkit/shared";
+import {
+  GENERATE_SANDBOXED_UI_DESCRIPTION,
+  randomUUID,
+} from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   CopilotKitMessageFilter,
@@ -41,7 +44,11 @@ import type {
   RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type {
+  CopilotKitCoreErrorCode,
+  CopilotKitHeadersSource,
+} from "@copilotkit/core";
+import { ɵwithHeaderDefaults } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
@@ -120,7 +127,12 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  /**
+   * Headers sent with every request. A record, or a sync or async builder
+   * that runs when each request is sent. An inline arrow is fine. The builder
+   * should be cheap; cache tokens in it (Clerk's `getToken()` already does).
+   */
+  headers?: CopilotKitHeadersSource;
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
@@ -298,24 +310,55 @@ export interface CopilotKitProviderProps {
    */
   debug?: DebugConfig;
   /**
-   * Configures interaction capture (`@copilotkit/learning`). Without a sink,
-   * Core authenticates with the runtime and sends browser events to Intelligence.
-   * A custom sink keeps the standalone collector behavior. Updated settings apply
-   * to the next Trajectory; removing the prop stops capture and cancels startup.
-   * Set `trajectoryId` to start after mount; otherwise call `startTrajectory()`.
+   * Turns on interaction capture (`@copilotkit/learning`). `learning` (short
+   * for `learning={true}`) records with the default options; pass an object
+   * for options. `false` or omitting the prop turns capture off and cancels
+   * startup. Without a sink, Core authenticates with the runtime and sends
+   * browser events to Intelligence; a custom sink keeps the standalone
+   * collector behavior. Updated settings apply to the next Trajectory.
+   *
+   * Capture starts after mount. Set `trajectoryId` to use your own ID;
+   * otherwise the provider generates one. The generated ID stays the same
+   * across rerenders, reconnects and option changes; turning capture off,
+   * setting `autoStart: false` or supplying a `trajectoryId` ends it, and the
+   * next generated Trajectory gets a new ID. Read the active ID from
+   * `copilotkit.trajectoryId`.
+   *
+   * Set `autoStart: false` to start capture yourself with `startTrajectory()`.
    * Capture stops on unmount, including manually started Trajectories.
    *
    * @example
-   * <CopilotKitProvider runtimeUrl="/api/copilotkit" learning={{ trajectoryId }}>
+   * <CopilotKitProvider runtimeUrl="/api/copilotkit" learning>
    */
-  learning?: LearningConfig & {
-    trajectoryId?: string;
-    /**
-     * Used only by explicit custom sinks. Authenticated capture warns and ignores
-     * this option; it does not assign Learning Containers.
-     */
-    learningContainerIds?: string[];
-  };
+  learning?: boolean | LearningProp;
+}
+
+type LearningProp = LearningConfig & {
+  /**
+   * Starts a Trajectory after mount. Defaults to `true`; set `false` to call
+   * `startTrajectory()` yourself.
+   */
+  autoStart?: boolean;
+  trajectoryId?: string;
+  /**
+   * Used only by explicit custom sinks. Authenticated capture warns and ignores
+   * this option; it does not assign Learning Containers.
+   */
+  learningContainerIds?: string[];
+};
+
+// `learning={true}` uses the default authenticated capture options. One shared
+// object keeps the config stable across renders.
+const DEFAULT_LEARNING: LearningProp = Object.freeze({});
+
+function toLearningConfig(
+  learning: boolean | LearningProp | undefined,
+): LearningProp | undefined {
+  if (learning === true) return DEFAULT_LEARNING;
+  if (learning === false || learning === undefined) return undefined;
+  // `autoStart` only controls the provider; Core never receives it.
+  const { autoStart: _autoStart, ...config } = learning;
+  return config;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -370,6 +413,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   debug,
   learning,
 }) => {
+  // Memoized so a stable `learning` object keeps a stable config after
+  // `autoStart` is removed.
+  const learningConfig = useMemo(() => toLearningConfig(learning), [learning]);
+
   // Keep the server render and the first client render identical. The
   // Inspector only runs in local development. Resolve its host and build
   // policy after hydration instead of branching on `window` during render.
@@ -554,19 +601,33 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
-  // Resolve headers from function or static object
-  const headers =
-    typeof headersProp === "function" ? headersProp() : headersProp;
-
-  // Merge a provided publicApiKey into headers (without overwriting an explicit header).
-  const mergedHeaders = useMemo(() => {
-    if (!resolvedPublicKey) return headers;
-    if (headers[HEADER_NAME]) return headers;
-    return {
-      ...headers,
-      [HEADER_NAME]: resolvedPublicKey,
-    };
-  }, [headers, resolvedPublicKey]);
+  // The latest builder, read when a request is sent (never during render).
+  // Assigned during render itself (not in a `useEffect`) so a child effect
+  // that fires in the SAME commit as a new builder closure — e.g. a run
+  // kicked off from an effect right after a token changed — reads the new
+  // closure rather than the previous commit's.
+  const headersRef = useRef(headersProp);
+  headersRef.current = headersProp;
+  const isHeadersBuilder = typeof headersProp === "function";
+  // The read below can return a sync record or an async promise depending on
+  // what `headersRef.current` happens to be at call time, which
+  // `CopilotKitHeadersSource`'s shape can't express in one function
+  // signature (sync-only OR async-only) — same rationale as the cast inside
+  // `ɵwithHeaderDefaults`.
+  const stableHeadersBuilder = useCallback(() => {
+    const current = headersRef.current;
+    return typeof current === "function" ? current() : current;
+  }, []) as () => Record<string, string>;
+  // A record keeps today's identity semantics; a builder is stable.
+  const headersInput = isHeadersBuilder ? stableHeadersBuilder : headersProp;
+  const headersSource = useMemo(
+    () =>
+      ɵwithHeaderDefaults(
+        headersInput,
+        resolvedPublicKey ? { [HEADER_NAME]: resolvedPublicKey } : {},
+      ),
+    [headersInput, resolvedPublicKey],
+  );
 
   if (!runtimeUrl && !resolvedPublicKey && !hasLocalAgents) {
     const message =
@@ -777,7 +838,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           : useSingleEndpoint === false
             ? "rest"
             : "auto",
-      headers: mergedHeaders,
+      headers: headersSource,
       credentials,
       messageFilter,
       properties,
@@ -787,7 +848,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
       debug,
-      learning,
+      learning: learningConfig,
     });
     // Set initial defaultThrottleMs synchronously so child hooks see the
     // correct value on their first render (before useEffect fires).
@@ -952,7 +1013,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           ? "rest"
           : "auto",
     );
-    copilotkit.setHeaders(mergedHeaders);
+    copilotkit.setHeaders(headersSource);
     copilotkit.setCredentials(credentials);
     // Forward a per-run signal when the provider has an A2UI catalog so the
     // runtime can turn A2UI on (and inject the render tool) without a separate
@@ -974,7 +1035,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [
     copilotkit,
     chatApiEndpoint,
-    mergedHeaders,
+    headersSource,
     credentials,
     properties,
     a2uiCatalogProvided,
@@ -986,28 +1047,53 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // Start the Trajectory in the commit phase, after the runtime URL is set, so
   // CopilotKit's own runtime traffic is never captured. Under StrictMode the
   // start/stop/start sequence installs the capture hooks once.
-  const learningEnabled = learning !== undefined;
-  const trajectoryId = learning?.trajectoryId;
-  const learningContainerIdsRef = useRef(learning?.learningContainerIds);
+  const learningEnabled = learningConfig !== undefined;
+  // `true` is the options-free form, so only an object can opt out.
+  const autoStart =
+    learningEnabled &&
+    (typeof learning !== "object" || learning.autoStart !== false);
+  const suppliedTrajectoryId = autoStart
+    ? learningConfig?.trajectoryId
+    : undefined;
+  const generatesTrajectoryId = autoStart && suppliedTrajectoryId === undefined;
+  const learningContainerIdsRef = useRef(learningConfig?.learningContainerIds);
+  // Kept outside the effect so StrictMode replays and dependency changes that
+  // keep generating restart the same Trajectory.
+  const generatedTrajectoryIdRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    copilotkit.setLearningConfig(learning);
-    learningContainerIdsRef.current = learning?.learningContainerIds;
+    copilotkit.setLearningConfig(learningConfig);
+    learningContainerIdsRef.current = learningConfig?.learningContainerIds;
     // Automatic starts report unsupported options in Core. With manual starts,
     // the provider's container option is not part of startTrajectory() options.
     if (
-      learning?.sink === undefined &&
-      learning?.trajectoryId === undefined &&
-      learning?.learningContainerIds !== undefined
+      learningConfig?.sink === undefined &&
+      !autoStart &&
+      learningConfig?.learningContainerIds !== undefined
     ) {
       console.warn(
         "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture does not assign Learning Containers; remove learningContainerIds from the capture options.",
       );
     }
-  }, [copilotkit, learning]);
+  }, [copilotkit, learningConfig, autoStart]);
+
+  // Keyed on a boolean so an inline `learning` object warns once, not per render.
+  const ignoresTrajectoryId =
+    !autoStart && learningConfig?.trajectoryId !== undefined;
+  useEffect(() => {
+    if (!ignoresTrajectoryId) return;
+    console.warn(
+      "[CopilotKit] learning.trajectoryId is ignored when autoStart is false; pass the ID to startTrajectory() instead.",
+    );
+  }, [ignoresTrajectoryId]);
 
   useEffect(() => {
+    // Leaving generation ends its Trajectory; generating again starts a new one.
+    if (!generatesTrajectoryId) generatedTrajectoryIdRef.current = undefined;
     if (!learningEnabled) return;
     let disposed = false;
+    const trajectoryId = generatesTrajectoryId
+      ? (generatedTrajectoryIdRef.current ??= randomUUID())
+      : suppliedTrajectoryId;
     if (trajectoryId !== undefined) {
       void copilotkit
         .startTrajectory({
@@ -1015,7 +1101,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           learningContainerIds: learningContainerIdsRef.current,
         })
         .catch(() => {
-          // Expected authentication/connection failures use LearningConfig.onError.
+          // Expected authentication/connection failures resolve with an error
+          // result; Core reports them to LearningConfig.onError or warns once.
           // Consume unexpected rejections without logging credentials or errors from
           // a previous effect after a new Trajectory has already started.
           if (!disposed) {
@@ -1027,7 +1114,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       disposed = true;
       copilotkit.stopTrajectory();
     };
-  }, [copilotkit, learningEnabled, trajectoryId]);
+  }, [
+    copilotkit,
+    learningEnabled,
+    generatesTrajectoryId,
+    suppliedTrajectoryId,
+  ]);
 
   // Sync render/tool arrays to the stable instance via setters.
   // On mount, the constructor already receives the correct initial values,
@@ -1136,20 +1228,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     retryableRuntimeEntitlementFailure &&
     runtimeEntitlementRetryPending &&
     !hasLegacyRuntimeEntitlementFallback;
-  const runtimeEntitlementFailureSettled =
+  // Only a terminal failure denies features. A retryable failure (a timeout,
+  // a network error, a 5xx) says nothing about what the project may use.
+  const terminalRuntimeEntitlementFailure =
     hasNonReadyRuntimeEntitlement &&
-    !runtimeEntitlementRetryInProgress &&
+    !retryableRuntimeEntitlementFailure &&
     !hasLegacyRuntimeEntitlementFallback;
   const licenseContextValue = useMemo<LicenseContextValue>(() => {
     const runtimeLicenseContext = createLicenseContextValue(
       runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
       runtimeEntitlements,
     );
-    if (!runtimeEntitlementFailureSettled) {
+    if (!terminalRuntimeEntitlementFailure) {
       return runtimeLicenseContext;
     }
 
-    // The Runtime has neither managed authority nor a usable legacy fallback.
+    // The Runtime reported a terminal failure and has no usable legacy fallback.
     // Keep its truthful status, but deny feature-only consumers.
     return {
       ...runtimeLicenseContext,
@@ -1157,7 +1251,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       getLimit: () => null,
     };
   }, [
-    runtimeEntitlementFailureSettled,
+    terminalRuntimeEntitlementFailure,
     runtimeEntitlementRetryInProgress,
     runtimeEntitlements,
     runtimeLicenseStatus,

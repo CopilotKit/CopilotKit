@@ -1,10 +1,11 @@
 // Which endpoint the runtime sends completions to, as a closed vocabulary.
 //
-// The AI SDK's provider label cannot answer this. `createOpenAI` stamps
-// `openai.responses` on every model it builds, whether the base URL points at
-// api.openai.com, Azure, OpenRouter or a laptop running Ollama — and Azure's
-// own migration guide tells customers to use exactly that client. So the
-// provider field reports the wire protocol, and the host reports the vendor.
+// The AI SDK's provider label cannot answer this. A model built by
+// `createOpenAI` reports only its wire API: `openai.responses` for both
+// api.openai.com and Azure (whose own migration guide tells customers to use
+// exactly that client), and `openai.chat` for OpenRouter and a laptop running
+// Ollama alike. So the provider field reports the wire protocol, and the host
+// reports the vendor.
 //
 // Only the classification travels. A base URL like
 // `myresource.openai.azure.com` carries the customer's Azure resource name,
@@ -90,9 +91,9 @@ function isPrivateAddress(host: string): boolean {
     return true;
   }
   // 127.0.0.0/8 is entirely loopback.
-  if (/^127\./.test(host)) return true;
+  if (host.startsWith("127.")) return true;
   // 10.0.0.0/8 and 192.168.0.0/16.
-  if (/^10\./.test(host) || /^192\.168\./.test(host)) return true;
+  if (host.startsWith("10.") || host.startsWith("192.168.")) return true;
   // 172.16.0.0/12 is 172.16 through 172.31 only. 172.32 is public, so the
   // second octet is range-checked rather than prefix-matched.
   const privateClassB = /^172\.(\d{1,3})\./.exec(host);

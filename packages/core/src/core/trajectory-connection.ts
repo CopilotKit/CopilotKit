@@ -12,6 +12,7 @@ import type {
 } from "@copilotkit/learning";
 import type { CopilotKitCore } from "./core";
 import type { CopilotRuntimeTransport } from "../types";
+import { abortable, isPromiseLike } from "./header-source";
 
 const TIMEOUT_MS = 10_000;
 const BATCH_INTERVAL_MS = 2_000;
@@ -27,6 +28,26 @@ interface EventBatch {
 const byteLength = (value: unknown) =>
   new TextEncoder().encode(JSON.stringify(value)).byteLength;
 const reconnectDelay = phoenixExponentialBackoff(1_000, 10_000);
+
+// Fixed client-side hints. Server messages are never shown in the browser.
+const SETUP_HINTS: Record<string, string> = {
+  RUNTIME_REQUIRED:
+    "Set runtimeUrl: capture connects through the CopilotKit runtime.",
+  INTELLIGENCE_RUNTIME_REQUIRED:
+    "Configure the CopilotRuntime with `intelligence` to accept capture.",
+  CONNECTION_FAILED:
+    "Check that the CopilotRuntime is configured with `intelligence` and valid Intelligence credentials, and check the runtime logs.",
+  IDENTITY_REQUIRED:
+    "The runtime could not identify the user. Configure `identifyUser` on the CopilotRuntime and send the app's session with runtime requests.",
+  TRAJECTORIES_NOT_ENABLED:
+    "Trajectories are not enabled for this Intelligence project.",
+  TRAJECTORIES_UNAVAILABLE:
+    "This Intelligence deployment does not serve Trajectory capture.",
+  TRAJECTORIES_ENTITLEMENT_UNAVAILABLE:
+    "Intelligence could not confirm that Trajectories are enabled for this project; try again later.",
+  MARKETPLACE_LICENSE_REQUIRED:
+    "Trajectory capture requires a CopilotKit license for this project.",
+};
 
 interface PendingPush {
   timer: ReturnType<typeof setTimeout>;
@@ -107,6 +128,23 @@ function isGrant(value: unknown): value is ConnectionGrant {
   );
 }
 
+// The Gateway refuses a join with a lowercase reason and no code.
+const JOIN_REFUSAL_CODES: Record<string, string> = {
+  trajectories_unavailable: "TRAJECTORIES_UNAVAILABLE",
+  trajectories_not_enabled: "TRAJECTORIES_NOT_ENABLED",
+  entitlement_unavailable: "TRAJECTORIES_ENTITLEMENT_UNAVAILABLE",
+  marketplace_license_required: "MARKETPLACE_LICENSE_REQUIRED",
+};
+
+function joinErrorCode(value: unknown): string {
+  const reason = isObject(value) ? value.reason : undefined;
+  const code =
+    typeof reason === "string" && Object.hasOwn(JOIN_REFUSAL_CODES, reason)
+      ? JOIN_REFUSAL_CODES[reason]
+      : undefined;
+  return code ?? errorCode(value, "JOIN_FAILED");
+}
+
 function errorCode(value: unknown, fallback: string): string {
   return isObject(value) &&
     typeof value.code === "string" &&
@@ -118,6 +156,7 @@ function errorCode(value: unknown, fallback: string): string {
 /** Owns bounded, connected-only capture batches. Failed batches are never resent. */
 export class TrajectoryConnection {
   private session: Session | undefined;
+  private readonly warned = new Set<string>();
   // Core-scoped high water mark prevents collisions after reconnect or stop/start.
   // Gateway drops a seq it already stored for the Trajectory yet acknowledges it
   // as accepted, and a reload or second tab can reuse the id. Starting at the
@@ -208,7 +247,11 @@ export class TrajectoryConnection {
   stop(): void {
     const session = this.session;
     if (!session) return;
-    // Best effort only: stop stays synchronous and never waits for an ACK.
+    // Drain settled input while this session can still enqueue it, before the
+    // best-effort transport flush. Stop stays synchronous and never waits for ACK.
+    const collector = session.collector;
+    session.collector = undefined;
+    collector?.stop();
     if (session.ready && session.connection)
       this.flush(session, session.connection);
     this.end(session, { status: "error", code: "CANCELLED" });
@@ -306,8 +349,28 @@ export class TrajectoryConnection {
       window.removeEventListener("offline", session.onOffline);
       window.removeEventListener("online", session.onOnline);
     }
+    if (result.status === "error" && result.code !== "CANCELLED")
+      this.warnEnded(session, result.code);
     session.resolve(result);
     this.onChange();
+  }
+
+  /**
+   * Without an app handler, a capture that ends on its own would otherwise fail
+   * silently. Each outcome warns once per Core, so StrictMode replays and
+   * repeated starts against the same misconfigured Runtime stay quiet.
+   */
+  private warnEnded(session: Session, code: string): void {
+    if (session.config.onError !== undefined) return;
+    const summary = session.started
+      ? `Trajectory capture stopped (${code}).`
+      : `Trajectory capture did not start (${code}).`;
+    if (this.warned.has(summary)) return;
+    this.warned.add(summary);
+    const hint = SETUP_HINTS[code];
+    console.warn(
+      `[CopilotKit] ${summary}${hint === undefined ? "" : ` ${hint}`} Set learning.onError to handle capture errors in the app.`,
+    );
   }
 
   private cleanup(session: Session, connection: Connection): void {
@@ -329,8 +392,9 @@ export class TrajectoryConnection {
     } finally {
       if (socket) {
         socket.off(connection.socketRefs);
-        // A token is consumed on socket connection. Never let Phoenix reconnect
-        // this socket; a new attempt must first obtain a new Runtime grant.
+        // Phoenix's heartbeat timeout can schedule a reconnect after disconnect
+        // returns. Retire this one-use socket; recovery needs a fresh grant.
+        socket.connect = () => undefined;
         socket.disconnect();
       }
     }
@@ -343,15 +407,17 @@ export class TrajectoryConnection {
     retryable = true,
   ): void {
     if (!this.current(session, connection)) return;
-    session.collector?.stop();
-    session.collector = undefined;
     if (session.ready && session.started) {
       // A new start during recovery must await a fresh join, not an old success.
       session.promise = new Promise((resolve) => {
         session.resolve = resolve;
       });
     }
+    // Closing capture may drain a pending edit; it must not reach a failed
+    // connection or fill a batch while recovery is discarding queued events.
     session.ready = false;
+    session.collector?.stop();
+    session.collector = undefined;
     this.discardQueue(session);
     // A discarded or unconfirmed link is sent again on the next run.
     session.linkedThreads.clear();
@@ -406,6 +472,15 @@ export class TrajectoryConnection {
         if (!this.current(session, connection)) return;
       }
       const rest = transport === "rest";
+      // Resolved fresh, not the last snapshot: with a builder, `core.headers`
+      // is `{}` before the first request and an old token after that (#1937).
+      // Only an async builder is awaited, so a sync source still sends in the
+      // same tick.
+      const resolved = this.core.resolveHeaders();
+      const coreHeaders = isPromiseLike(resolved)
+        ? await abortable(resolved, connection.abort.signal)
+        : resolved;
+      if (!this.current(session, connection)) return;
       const response = await fetch(
         rest
           ? `${runtimeUrl}/trajectory/${encodeURIComponent(session.trajectoryId)}/connect`
@@ -414,7 +489,7 @@ export class TrajectoryConnection {
           method: "POST",
           redirect: "error",
           signal: connection.abort.signal,
-          headers: { ...this.core.headers, "Content-Type": "application/json" },
+          headers: { ...coreHeaders, "Content-Type": "application/json" },
           credentials: this.core.credentials,
           body: JSON.stringify(
             rest
@@ -509,7 +584,7 @@ export class TrajectoryConnection {
           }
         })
         .receive("error", (joinError: unknown) =>
-          this.fail(session, connection, errorCode(joinError, "JOIN_FAILED")),
+          this.fail(session, connection, joinErrorCode(joinError)),
         )
         .receive("timeout", () =>
           this.fail(session, connection, "CONNECTION_TIMEOUT"),
@@ -573,7 +648,11 @@ export class TrajectoryConnection {
     connection: Connection,
     event: TrajectoryEvent,
   ): void {
-    if (!this.current(session, connection) || !session.ready) return;
+    if (!this.current(session, connection)) return;
+    if (!session.ready) {
+      this.addDropped(session, 1, false);
+      return;
+    }
     if (!this.connected(connection)) {
       this.addDropped(session, 1);
       this.fail(session, connection, "CONNECTION_LOST");

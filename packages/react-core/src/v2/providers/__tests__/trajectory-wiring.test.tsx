@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import type { AssistantMessage } from "@ag-ui/core";
 import { z } from "zod";
+import { randomUUID } from "@copilotkit/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotKitProvider } from "../CopilotKitProvider";
 import { useCopilotKit } from "../../context";
@@ -192,40 +193,79 @@ afterEach(() => {
 });
 
 describe("CopilotKitProvider authenticated Trajectories", () => {
-  it.each([FIRST_ID, undefined])(
-    "warns about provider container options without sending them (automatic ID: %s)",
-    async (trajectoryId) => {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      render(
-        <App
-          learning={{
-            trajectoryId,
-            learningContainerIds: ["private-container"],
-          }}
-        />,
-      );
+  const CONTAINER_WARNING =
+    "learningContainerIds is supported only with a custom sink";
+  function containerWarnings(warn: ReturnType<typeof vi.spyOn>): number {
+    return warn.mock.calls.filter(([message]) =>
+      String(message).includes(CONTAINER_WARNING),
+    ).length;
+  }
 
-      expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "learningContainerIds is supported only with a custom sink",
-        ),
-      );
+  // Exactly one warning per mount: Core warns when the provider starts with
+  // the options, and the provider warns only when it does not start.
+  it.each<{
+    name: string;
+    learning: Learning;
+    manualStartId?: string;
+    connectedId: string;
+  }>([
+    {
+      name: "auto start with a supplied ID, warned by Core",
+      learning: {
+        trajectoryId: FIRST_ID,
+        autoStart: true,
+        learningContainerIds: ["private-container"],
+      },
+      connectedId: FIRST_ID,
+    },
+    {
+      name: "default auto start with a generated ID, warned by Core",
+      learning: { learningContainerIds: ["private-container"] },
+      connectedId: "mock-thread-id",
+    },
+    {
+      name: "manual start, warned by the provider",
+      learning: {
+        autoStart: false,
+        learningContainerIds: ["private-container"],
+      },
+      manualStartId: FIRST_ID,
+      connectedId: FIRST_ID,
+    },
+    {
+      name: "manual start with an ignored trajectoryId, warned by the provider",
+      learning: {
+        autoStart: false,
+        trajectoryId: SECOND_ID,
+        learningContainerIds: ["private-container"],
+      },
+      manualStartId: FIRST_ID,
+      connectedId: FIRST_ID,
+    },
+  ])(
+    "warns once about provider container options without sending them ($name)",
+    async ({ learning, manualStartId, connectedId }) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      render(<App learning={learning} />);
+
+      expect(containerWarnings(warn)).toBe(1);
       expect(JSON.stringify(warn.mock.calls)).not.toContain(
         "private-container",
       );
       const manualStart =
-        trajectoryId === undefined
-          ? core.startTrajectory({ trajectoryId: FIRST_ID })
-          : undefined;
+        manualStartId === undefined
+          ? undefined
+          : core.startTrajectory({ trajectoryId: manualStartId });
+      expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
       expect(
         JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)),
       ).toEqual({
         method: "trajectory/connect",
-        params: { trajectoryId: FIRST_ID },
+        params: { trajectoryId: connectedId },
         body: {},
       });
 
-      await authorize(0, FIRST_ID);
+      await authorize(0, connectedId);
       await join();
       await manualStart;
       await flushCapture();
@@ -234,7 +274,8 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
       );
       expect(sent).not.toContain("learningContainerIds");
       expect(sent).not.toContain("private-container");
-      expect(core.trajectoryId).toBe(FIRST_ID);
+      expect(core.trajectoryId).toBe(connectedId);
+      expect(containerWarnings(warn)).toBe(1);
     },
   );
 
@@ -313,8 +354,8 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     expect(History.prototype.pushState).toBe(nativePushState);
   });
 
-  it("cancels a manual start on unmount when no trajectoryId prop is supplied", async () => {
-    const view = render(<App learning={{}} />);
+  it("cancels a manual start on unmount when autoStart is false", async () => {
+    const view = render(<App learning={{ autoStart: false }} />);
     expect(pendingAuth).toHaveLength(0);
 
     const start = core.startTrajectory();
@@ -400,6 +441,316 @@ describe("CopilotKitProvider authenticated Trajectories", () => {
     });
     expect(warn).not.toHaveBeenCalled();
     expect(stop).toHaveBeenCalledTimes(1);
+  });
+
+  describe("generated Trajectory IDs", () => {
+    const UUID =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+    // Network capture wraps `fetch` once it starts, so keep the stub itself.
+    let fetchStub: ReturnType<typeof vi.mocked<typeof fetch>>;
+    function connectedIds(): string[] {
+      return fetchStub.mock.calls.map(
+        ([, init]) => JSON.parse(String(init?.body)).params.trajectoryId,
+      );
+    }
+
+    // The shared test setup pins randomUUID; these tests need distinct IDs.
+    beforeEach(() => {
+      fetchStub = vi.mocked(fetch);
+      vi.mocked(randomUUID).mockImplementation(() => crypto.randomUUID());
+    });
+    afterEach(() => {
+      vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
+    });
+
+    it("generates a Trajectory ID and starts capture after mount", async () => {
+      render(<App learning />);
+
+      const [id] = connectedIds();
+      expect(id).toMatch(UUID);
+      await authorize(0, id);
+      await join();
+      expect(core.trajectoryId).toBe(id);
+      expect(core.ɵlearningConfigured).toBe(true);
+    });
+
+    it.each([false, undefined])(
+      "keeps capture off for learning=%s",
+      (learning) => {
+        render(<App learning={learning} />);
+
+        expect(fetch).not.toHaveBeenCalled();
+        expect(core.ɵlearningConfigured).toBe(false);
+      },
+    );
+
+    it("keeps the generated ID across rerenders", async () => {
+      const view = render(<App learning />);
+      view.rerender(<App learning />);
+      view.rerender(<App learning={true} />);
+      const [id] = connectedIds();
+      await authorize(0, id);
+      await join();
+      view.rerender(<App learning />);
+
+      expect(connectedIds()).toEqual([id]);
+      expect(core.trajectoryId).toBe(id);
+      expect(transport.sockets).toHaveLength(1);
+    });
+
+    it("reuses the generated ID when root StrictMode replays the effects", async () => {
+      render(<App learning />, { wrapper: StrictMode });
+
+      const [id] = connectedIds();
+      expect(connectedIds()).toEqual([id, id]);
+      await authorize(0, id);
+      await authorize(1, id);
+      await join();
+      expect(transport.sockets).toHaveLength(1);
+      expect(core.trajectoryId).toBe(id);
+    });
+
+    it("keeps the generated ID through connection loss and reconnect", async () => {
+      render(<App learning />);
+      const [id] = connectedIds();
+      await authorize(0, id);
+      await join(0);
+
+      transport.sockets[0].disconnected = true;
+      act(() => core.emitTrajectoryEvent("app.lost", {}));
+      expect(core.trajectoryId).toBeNull();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+      await authorize(1, id);
+      await join(1);
+
+      expect(connectedIds()).toEqual([id, id]);
+      expect(core.trajectoryId).toBe(id);
+    });
+
+    it("stops on disable and starts a new Trajectory with a new ID when enabled again", async () => {
+      const view = render(<App learning />);
+      const [first] = connectedIds();
+      await authorize(0, first);
+      await join(0);
+
+      view.rerender(<App learning={false} />);
+      expect(transport.sockets[0].channels[0].left).toBe(true);
+      expect(transport.sockets[0].disconnected).toBe(true);
+      expect(core.trajectoryId).toBeNull();
+      expect(core.ɵlearningConfigured).toBe(false);
+
+      view.rerender(<App learning />);
+      const [, second] = connectedIds();
+      expect(second).toMatch(UUID);
+      expect(second).not.toBe(first);
+      await authorize(1, second);
+      await join(1);
+      expect(core.trajectoryId).toBe(second);
+    });
+
+    it("stops capture on unmount", async () => {
+      const view = render(<App learning />);
+      await authorize(0, connectedIds()[0]);
+      await join();
+
+      view.unmount();
+      expect(transport.sockets[0].channels[0].left).toBe(true);
+      expect(transport.sockets[0].disconnected).toBe(true);
+      expect(History.prototype.pushState).toBe(nativePushState);
+    });
+
+    it("lets a manual start join the generated Trajectory instead of starting another", async () => {
+      render(<App learning />);
+      const manual = core.startTrajectory();
+      const [id] = connectedIds();
+      await authorize(0, id);
+      await join();
+
+      await expect(manual).resolves.toEqual({
+        status: "started",
+        trajectoryId: id,
+      });
+      expect(connectedIds()).toEqual([id]);
+    });
+
+    it("warns when the runtime cannot accept capture", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      render(<App learning />);
+      await act(async () => {
+        pendingAuth[0].resolve(
+          new Response(
+            JSON.stringify({
+              code: "IDENTITY_REQUIRED",
+              message: "Trajectory capture requires an identified user",
+            }),
+            { status: 401 },
+          ),
+        );
+      });
+
+      expect(core.trajectoryId).toBeNull();
+      expect(transport.sockets).toHaveLength(0);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain(
+        "[CopilotKit] Trajectory capture did not start (IDENTITY_REQUIRED).",
+      );
+    });
+
+    it("switches between the shorthand and a supplied ID", async () => {
+      const view = render(<App learning />);
+      view.rerender(<App learning={{ trajectoryId: SECOND_ID }} />);
+      await authorize(1, SECOND_ID);
+      await join();
+      expect(core.trajectoryId).toBe(SECOND_ID);
+
+      view.rerender(<App learning={{}} />);
+      const [first, , third] = connectedIds();
+      expect(third).toMatch(UUID);
+      expect(third).not.toBe(first);
+
+      view.rerender(<App learning={{ autoStart: false }} />);
+      expect(core.trajectoryId).toBeNull();
+      expect(connectedIds()).toEqual([first, SECOND_ID, third]);
+    });
+
+    it("starts the object form without a trajectoryId with a generated ID", async () => {
+      render(<App learning={{}} />);
+
+      const [id] = connectedIds();
+      expect(id).toMatch(UUID);
+      await authorize(0, id);
+      await join();
+      expect(core.trajectoryId).toBe(id);
+    });
+
+    it("keeps one Trajectory when an inline object rerenders", async () => {
+      const onError = vi.fn();
+      const view = render(<App learning={{ onError }} />);
+      view.rerender(<App learning={{ onError }} />);
+      view.rerender(<App learning={{ onError }} />);
+      const [id] = connectedIds();
+      await authorize(0, id);
+      await join();
+      view.rerender(<App learning={{ onError }} />);
+
+      expect(connectedIds()).toEqual([id]);
+      expect(core.trajectoryId).toBe(id);
+      expect(transport.sockets).toHaveLength(1);
+      expect(transport.sockets[0].channels[0].left).toBe(false);
+    });
+
+    it("keeps the generated ID when switching between generating forms", async () => {
+      const onError = vi.fn();
+      const view = render(<App learning />);
+      const [id] = connectedIds();
+      await authorize(0, id);
+      await join();
+
+      view.rerender(<App learning={{ onError }} />);
+      view.rerender(
+        <App learning={{ onError, ignoreUrls: ["https://private.invalid"] }} />,
+      );
+
+      expect(connectedIds()).toEqual([id]);
+      expect(core.trajectoryId).toBe(id);
+      expect(transport.sockets).toHaveLength(1);
+      expect(transport.sockets[0].channels[0].left).toBe(false);
+    });
+
+    it("stops when autoStart turns off and generates a new ID when it turns on again", async () => {
+      const onError = vi.fn();
+      const view = render(<App learning={{ onError }} />);
+      const [first] = connectedIds();
+      await authorize(0, first);
+      await join(0);
+
+      view.rerender(<App learning={{ onError, autoStart: false }} />);
+      expect(transport.sockets[0].channels[0].left).toBe(true);
+      expect(transport.sockets[0].disconnected).toBe(true);
+      expect(core.trajectoryId).toBeNull();
+      expect(core.ɵlearningConfigured).toBe(true);
+
+      view.rerender(<App learning={{ onError }} />);
+      const [, second] = connectedIds();
+      expect(second).toMatch(UUID);
+      expect(second).not.toBe(first);
+      await authorize(1, second);
+      await join(1);
+      expect(core.trajectoryId).toBe(second);
+    });
+
+    it("reuses the generated ID for the object form under root StrictMode", async () => {
+      const onError = vi.fn();
+      render(<App learning={{ onError }} />, { wrapper: StrictMode });
+
+      const [id] = connectedIds();
+      expect(id).toMatch(UUID);
+      expect(connectedIds()).toEqual([id, id]);
+      await authorize(0, id);
+      await authorize(1, id);
+      await join();
+      expect(transport.sockets).toHaveLength(1);
+      expect(core.trajectoryId).toBe(id);
+    });
+  });
+
+  describe("autoStart: false", () => {
+    it("waits for a manual start", async () => {
+      render(<App learning={{ autoStart: false }} />);
+      expect(fetch).not.toHaveBeenCalled();
+      expect(core.ɵlearningConfigured).toBe(true);
+
+      const start = core.startTrajectory({ trajectoryId: FIRST_ID });
+      await authorize(0, FIRST_ID);
+      await join();
+
+      await expect(start).resolves.toEqual({
+        status: "started",
+        trajectoryId: FIRST_ID,
+      });
+      expect(core.trajectoryId).toBe(FIRST_ID);
+    });
+
+    it("ignores a supplied trajectoryId and warns once without the ID", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      // A new inline object on every render must not repeat the warning.
+      const view = render(
+        <App learning={{ autoStart: false, trajectoryId: FIRST_ID }} />,
+      );
+      view.rerender(
+        <App learning={{ autoStart: false, trajectoryId: FIRST_ID }} />,
+      );
+      view.rerender(
+        <App learning={{ autoStart: false, trajectoryId: FIRST_ID }} />,
+      );
+      await act(async () => {});
+
+      expect(fetch).not.toHaveBeenCalled();
+      expect(core.trajectoryId).toBeNull();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toContain(
+        "[CopilotKit] learning.trajectoryId is ignored when autoStart is false",
+      );
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(FIRST_ID);
+    });
+
+    it("does not pass autoStart to Core", () => {
+      const setLearningConfig = vi.spyOn(
+        CopilotKitCoreReact.prototype,
+        "setLearningConfig",
+      );
+      const view = render(
+        <App learning={{ autoStart: false, routes: ["/deals"] }} />,
+      );
+      view.rerender(<App learning={{ autoStart: true, routes: ["/deals"] }} />);
+
+      expect(setLearningConfig).toHaveBeenCalled();
+      for (const [config] of setLearningConfig.mock.calls) {
+        expect(config).toEqual({ routes: ["/deals"] });
+      }
+    });
   });
 
   it("keeps tool UI mounted through connection loss and reconnect", async () => {

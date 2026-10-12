@@ -731,7 +731,9 @@ test("inspect true loads events, empty-events messages fallback, and state witho
     directInspector.threadId = "direct-thread";
     directInspector.provider = provider;
     directInspector.runtimeUrl = RUNTIME_URL;
-    directInspector.headers = { Authorization: "Bearer direct-test" };
+    directInspector.resolveHeaders = () => ({
+      Authorization: "Bearer direct-test",
+    });
     directInspector.threadInspectionAvailable = true;
     document.body.append(directInspector);
     await directInspector.updateComplete;

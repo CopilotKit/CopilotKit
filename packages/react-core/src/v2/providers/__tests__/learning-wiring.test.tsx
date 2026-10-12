@@ -84,6 +84,25 @@ describe("CopilotKitProvider learning prop", () => {
     warn.mockRestore();
   });
 
+  it("starts a custom sink without a trajectoryId using a generated ID", () => {
+    const view = render(
+      <CopilotKitProvider learning={{ sink, capture: { network: false } }}>
+        <CopilotChatConfigurationProvider agentId="default" threadId="t-1">
+          <div />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+    const events = drain();
+    view.unmount();
+
+    expect(events.map((event) => event.name)).toEqual([
+      "page",
+      "thread.linked",
+    ]);
+    // The shared test setup pins randomUUID, so this is the provider's ID.
+    expect(batches[0]?.trajectoryId).toBe("mock-thread-id");
+  });
+
   it("uses the latest config and container IDs for the next Trajectory", () => {
     const nextBatches: LearningBatch[] = [];
     const nextConfig: Partial<LegacyLearningConfig> = {

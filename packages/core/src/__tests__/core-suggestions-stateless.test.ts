@@ -494,6 +494,42 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     expect(suggestRequests[0]!.signal?.aborted).toBe(true);
   });
 
+  it("does not send /suggest (or resurrect suggestions) when clearSuggestions cancels during header resolution", async () => {
+    // An async headers builder gives `clearSuggestions` a real window to
+    // cancel BEFORE the /suggest request is ever built and sent — the
+    // generation is still awaiting the builder, so the HttpAgent hasn't run
+    // yet and no fresh AbortController has been installed for it. Without an
+    // `aborted` check after that await (#1937), the run proceeds anyway once
+    // the builder resolves.
+    const { fetchMock, suggestRequests } = setupRoutedFetch({
+      suggestions: [{ title: "Stale", message: "Stale suggestion" }],
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const core = new CopilotKitCore({
+      runtimeUrl: "https://runtime.example",
+      headers: () =>
+        new Promise((resolve) => setTimeout(() => resolve({}), 10)),
+    });
+    await waitForCondition(() => core.suggestions === true);
+    registerAgents(core, [createMessage({ content: "hello" })]);
+    core.addSuggestionsConfig(
+      createSuggestionsConfig({ consumerAgentId: "consumer" }),
+    );
+
+    core.reloadSuggestions("consumer");
+    // Cancel synchronously, well before the header builder's timer fires.
+    core.clearSuggestions("consumer");
+
+    // Give the header promise — and generateSuggestions' continuation — time
+    // to settle. If the cancellation weren't honored, the /suggest request
+    // would land somewhere in this window.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(suggestRequests).toHaveLength(0);
+    expect(core.getSuggestions("consumer").suggestions).toEqual([]);
+  });
+
   it("falls back to clone + runAgent on a single-route runtime even when suggestions is advertised", async () => {
     // A single-route runtime answers `/info` over a POST `{method:"info"}`
     // envelope (no GET `/info`, no `/agent/:id/suggest` path). It advertises

@@ -32,9 +32,10 @@ a2a-sdk[http-server]>=0.3,<1.0
 # ============================================================================
 # google-adk: Google's framework for building AI agents with Gemini models
 # Used by: Orchestrator Agent, Analysis Agent
-# litellm: Unified interface for multiple LLM providers (dependency of ADK)
+# litellm: Unified interface for multiple LLM providers; ADK runs OpenAI and
+#          Anthropic models through it when COPILOTKIT_AGENT_MODEL names them
 google-adk>=0.1.0
-litellm>=1.0.0
+litellm>=1.84,<2
 
 # ============================================================================
 # LangGraph Framework
@@ -46,6 +47,10 @@ litellm>=1.0.0
 langgraph>=0.2.0
 langchain>=0.3.0
 langchain-openai>=0.2.0
+# langchain-anthropic / langchain-google-genai: let COPILOTKIT_AGENT_MODEL move
+# the Research Agent to Anthropic or Gemini (see _model.py)
+langchain-anthropic>=1.0.0,<2.0.0
+langchain-google-genai>=4.0.0,<5.0.0
 
 # ============================================================================
 # Web Server
