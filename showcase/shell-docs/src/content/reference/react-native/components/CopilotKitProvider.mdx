@@ -40,7 +40,14 @@ import { CopilotKitProvider } from "@copilotkit/react-native";
 
 <PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)" default="{}">
   Custom headers sent with every runtime request. Pass a function to compute
-  headers lazily (e.g. to attach a fresh auth token).
+  headers lazily (e.g. to attach a fresh auth token). The function is called
+  when the provider renders, not per request — see
+  [Frontends: React Native](/frontends/react-native#provider-options) for the
+  rotating-token pattern.
+
+  The web provider's builder now runs at send time and also accepts an async
+  function. Neither is supported here yet: only a sync function, evaluated at
+  render, works on React Native.
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">

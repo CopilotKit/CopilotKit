@@ -6,28 +6,30 @@ icon: "lucide/Repeat"
 doc_type: how-to
 ---
 
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
 <span id="what-is-this" />
 
 ## Add Intelligence to your existing app
 
 Give users reconnection, catch-up, and delivery across devices around your LangGraph agent. Follow the [Intelligence quickstart](/intelligence/quickstart) to connect your existing CopilotKit app and Runtime, then verify that a new conversation is saved. This enables AG-UI streams for runs through CopilotKit; no historical import is required.
 
-Keep LangGraph or LangSmith storage and analytics configured for agent context and execution state. Maintain a stable mapping between CopilotKit `threadId` values and native LangGraph conversation identifiers so later runs reach the same conversation. See [how streams work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
+Keep your LangGraph agent and its durable storage connected so you can continue the same conversations after importing them. See [how streams work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
 
 ## Include earlier conversations (optional)
 
 To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history the source no longer exposes.
 
-The LangGraph importer reads LangGraph Server, LangGraph Platform, or LangSmith Deployment threads. This works for LangGraph Python, LangGraph TypeScript, and LangGraph FastAPI when the source history is available through the LangGraph SDK thread and run APIs. It does not read arbitrary checkpoint databases, classic LangChain message history stores, or LangSmith traces. The CLI also accepts supported standalone checkpoint exports with `--langgraph-snapshot <path>`. The steps below use a LangGraph deployment.
+The LangGraph importer reads saved conversations from LangGraph Server / LangSmith deployments (Python or TypeScript) and Python FastAPI apps with durable persistence. It brings over saved messages, rich tool results, attachments, and agent state where available. Some interactive content, such as MCP app views, may not have been saved in the original history.
 
 The following prerequisites and commands apply only to that historical import. Use Threads Drawer or [Headless Threads](/headless-threads) to open imported and new conversations through the same UI.
 
 ## Prerequisites
 
 - An existing CopilotKit app with Intelligence connected.
-- A LangGraph Server, LangGraph Platform, or LangSmith Deployment URL.
-- A LangGraph API key, LangSmith API key, or LangChain API key accepted by the LangGraph SDK.
-- Source threads that belong to one `graph_id` per thread. Threads spanning multiple graph IDs are skipped instead of imported partially.
+- Saved LangGraph conversations in a persistent store. In-memory conversations cannot be imported after the process exits.
+- For **LangSmith**, your LangGraph Server / LangSmith deployment URL and API key.
+- For **FastAPI**, access to your Python app's compiled graph and its durable checkpointer (the storage that saves conversation state).
 
 ## Confirm the target project
 
@@ -43,28 +45,79 @@ The command updates the project selected for the current directory and writes it
 
 ## Configure the source
 
-Set the LangGraph deployment URL and API key in your shell. The importer reads source credentials from framework-native environment variables, not raw CLI flags.
+Choose the same setup you use in the [LangGraph quickstart](/quickstart): **LangSmith** for Python or TypeScript agents using LangGraph Server, or **FastAPI** for a Python agent running in your own FastAPI app.
 
-```bash title="Terminal"
-export LANGGRAPH_API_URL="https://your-langgraph-deployment"
-export LANGGRAPH_API_KEY="..."
-```
+<Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
+  <Tab value="LangSmith">
+    Set the LangGraph deployment URL and API key in your shell. The importer reads source credentials from framework-native environment variables, not raw CLI flags.
 
-`LANGSMITH_API_KEY` or `LANGCHAIN_API_KEY` can be used instead when that is how your deployment authenticates. If your LangGraph Cloud workspace requires a tenant header, set `LANGGRAPH_TENANT_ID` or `LANGSMITH_TENANT_ID`.
+    ```bash title="Terminal"
+    export LANGGRAPH_API_URL="https://your-langgraph-deployment"
+    export LANGGRAPH_API_KEY="..."
+    ```
 
-The examples below assume each thread has a top-level `user_id` field in its LangGraph metadata. Its value must match the application user ID returned by your runtime's `identifyUser`. Use `--user-source metadata.user_id` to read that field. If every source thread belongs to one user, use `--user-source literal:user-123` with that user's actual ID.
+    `LANGSMITH_API_KEY` or `LANGCHAIN_API_KEY` can be used instead when that is how your deployment authenticates. If your LangGraph Cloud workspace requires a tenant header, set `LANGGRAPH_TENANT_ID` or `LANGSMITH_TENANT_ID`.
+
+    The examples below assume each thread has a top-level `user_id` field in its LangGraph metadata. Its value must match the application user ID returned by your runtime's `identifyUser`. Use `--user-source metadata.user_id` to read that field. If every source thread belongs to one user, use `--user-source literal:user-123` with that user's actual ID.
+
+    Each selected thread should belong to one graph. Threads spanning multiple graph IDs are skipped.
+  </Tab>
+  <Tab value="FastAPI">
+    Export the conversations from your existing graph before importing them. A FastAPI agent endpoint does not provide the LangGraph Server history APIs.
+
+    Download the export helper into your Python app's tooling directory:
+
+    ```bash title="Terminal"
+    curl -fsSL https://unpkg.com/copilotkit@4.22.0/exporters/langgraph/export_checkpointer.py \
+      -o export_checkpointer.py
+    ```
+
+    Add this function alongside the helper:
+
+    ```python title="export_history.py"
+    import json
+    from export_checkpointer import export_thread
+
+    async def export_history(graph, thread_ids):
+        with open("history.jsonl", "w", encoding="utf-8") as output:
+            for thread_id in thread_ids:
+                record = await export_thread(
+                    graph,
+                    {"configurable": {"thread_id": thread_id}},
+                    source_id="my-fastapi-app",
+                    graph_id="support_graph",
+                )
+                output.write(json.dumps(record, allow_nan=False) + "\n")
+    ```
+
+    Call `await export_history(graph, thread_ids)` from your app's async tooling with its existing graph and checkpointer open. Use the thread IDs your app keeps for one user, and export while those conversations are idle. This reads saved history without running the agent.
+
+    Choose a name for `source_id` and keep it the same on later exports from this store. Set `graph_id` to the graph name you will use in the agent map below. The export creates `history.jsonl`; keep the file private because it contains conversation data.
+  </Tab>
+</Tabs>
+
 
 ## Run a dry run
 
 Start with a preview. This reads the source, discovers graph IDs, counts conversations, reports skips, and estimates upload size without writing to CopilotKit Intelligence. It does not need a CopilotKit Intelligence URL or API key.
 
-```bash title="Terminal"
-npx copilotkit@latest import --source langgraph --user-source metadata.user_id --dry-run
-```
+<Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
+  <Tab value="LangSmith">
+    ```bash title="Terminal"
+    npx copilotkit@latest import --source langgraph --user-source metadata.user_id --dry-run
+    ```
+  </Tab>
+  <Tab value="FastAPI">
+    ```bash title="Terminal"
+    npx copilotkit@latest import --source langgraph \
+      --langgraph-snapshot ./history.jsonl --user-source literal:user-123 --dry-run
+    ```
+  </Tab>
+</Tabs>
 
 ## Map graph IDs to CopilotKit agent IDs
 
-The source agent key for LangGraph is the thread's `graph_id`. Map each discovered graph ID to the `agentId` your live CopilotKit runtime uses.
+Map each source graph ID to the `agentId` your live CopilotKit runtime uses. For LangSmith, use the discovered `graph_id`. For FastAPI, use the `graph_id` you supplied when exporting.
 
 ```json title="agent-map.json"
 {
@@ -85,30 +138,37 @@ export INTELLIGENCE_API_URL="https://..."
 export CPK_INTELLIGENCE_API_KEY="cpk-..."
 ```
 
-`COPILOTKIT_API_KEY` is also accepted for the key. You can pass the destination directly with `--api-url` and `--api-key` instead.
+You can also pass the destination directly with `--api-url` and `--api-key` instead.
 
 ## Import the threads
 
 Run the import after the dry run and agent mapping look right. Import earlier history before the first connected run for those threads. If live recording or another import already reserved the native thread ID, the importer reports `IMPORT_NATIVE_ID_CONFLICT`. It does not overwrite that record.
 
-```bash title="Terminal"
-npx copilotkit@latest import \
-  --source langgraph \
-  --agent-map ./agent-map.json \
-  --user-source metadata.user_id
-```
+<Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
+  <Tab value="LangSmith">
+    ```bash title="Terminal"
+    npx copilotkit@latest import \
+      --source langgraph \
+      --agent-map ./agent-map.json \
+      --user-source metadata.user_id
+    ```
 
-For self-hosted CopilotKit Intelligence, pass the target connection explicitly:
+    Use `--user-source` to tell the importer where to find the end-user ID for each thread. If all selected threads belong to one user, you can instead use `--user-source literal:user-123`.
+  </Tab>
+  <Tab value="FastAPI">
+    ```bash title="Terminal"
+    npx copilotkit@latest import \
+      --source langgraph \
+      --langgraph-snapshot ./history.jsonl \
+      --agent-map ./agent-map.json \
+      --user-source literal:user-123
+    ```
 
-```bash title="Terminal"
-npx copilotkit@latest import \
-  --source langgraph \
-  --api-url "$INTELLIGENCE_API_URL" \
-  --api-key "$CPK_INTELLIGENCE_API_KEY" \
-  --agent-map ./agent-map.json \
-  --user-source metadata.user_id \
-  --yes
-```
+    Replace `user-123` with the application user ID your Runtime returns from `identifyUser`. This assigns every conversation in this export to that user; import each user's export separately.
+  </Tab>
+</Tabs>
+
+For self-hosted CopilotKit Intelligence, add `--api-url "$INTELLIGENCE_API_URL"` and `--api-key "$CPK_INTELLIGENCE_API_KEY"` to the command. Add `--yes` to skip the confirmation prompt.
 
 ## Verify the imported threads
 
@@ -116,27 +176,21 @@ Sign in as the application user whose ID you imported. Open the conversation fro
 
 ## Re-run or replace
 
-Re-running the same import is idempotent. Conversations already imported from the same source thread are skipped.
+Already-imported conversations are skipped by default.
 
-Use `--replace` to refresh an earlier import. Running threads and threads continued after import remain unchanged:
-
-```bash title="Terminal"
-npx copilotkit@latest import \
-  --source langgraph \
-  --agent-map ./agent-map.json \
-  --user-source metadata.user_id \
-  --replace
-```
+Use `--replace` to refresh them; running or continued conversations are left unchanged. Add the flag to the same import command above, keeping its source, agent map, and user selection.
 
 ## Continue using LangGraph persistence
 
 Importing copies supported history; it does not establish ongoing database replication. Intelligence rename, archive, and delete operations affect only Intelligence records, leaving the native LangGraph thread records unchanged.
 
-Your connected app sends future CopilotKit conversations to CopilotKit Intelligence. To continue an imported conversation, use its `thread.id` from the Drawer or `useThreads` as the CopilotKit `threadId`. If your agent remains wired to a durable LangGraph checkpointer or Platform deployment, the same future runs continue to persist in LangGraph or LangSmith for native storage and analytics.
+Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the original LangGraph agent and its durable storage connected, and reopen the imported conversation from the Threads Drawer to pick up where you left off, including supported pending approvals and requests for input.
 
 - **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
 - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
 
 If your backend maps CopilotKit thread IDs to LangGraph thread IDs, keep that mapping stable so a resumed CopilotKit thread reaches the expected LangGraph thread. LangGraph Platform thread IDs must be UUIDs, so persist a mapping instead of reusing the CopilotKit `threadId` when necessary.
+
+Open an imported conversation and send a follow-up to continue it.
 
 For automatic recording without historical import, follow the [existing LangGraph conversation example](/threads-lifecycle#example-keep-an-existing-langgraph-conversation).
