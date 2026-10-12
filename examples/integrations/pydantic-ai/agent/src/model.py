@@ -70,7 +70,7 @@ def uses_chat_completions() -> bool:
 
 
 def resolve_model(default_spec: str) -> str:
-    """Return a Pydantic AI model string, e.g. ``"anthropic:claude-sonnet-4-5"``.
+    """Return a Pydantic AI model string, e.g. ``"anthropic:claude-sonnet-4-6"``.
 
     Args:
         default_spec: The default when the variable is unset, e.g. ``"openai:gpt-5-mini"``.
