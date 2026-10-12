@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { runtimeSocket } from "./capture/socket.mjs";
+import { captureHandler } from "./capture/transport.mjs";
 import {
   captureFramework,
   captureIngestion,
@@ -64,7 +65,12 @@ for (const scope of config.scopes) {
     }
   }
 }
+const serveCapture = captureHandler({
+  directory: config.captureDirectory,
+  token: config.captureToken,
+});
 const server = createServer(async (req, res) => {
+  if (serveCapture(req, res)) return;
   if (req.url === "/health") {
     res.writeHead(200).end("ready");
     return;
