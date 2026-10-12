@@ -4,7 +4,16 @@
   "targets": {
     "preflight": {
       "executor": "nx:run-commands",
-      "options": { "command": "pnpm exec tsx tools/railway-disposable-proof/preflight.ts" },
+      "options": {
+        "command": "pnpm exec tsx tools/railway-disposable-proof/preflight.ts"
+      },
+      "cache": false
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --import tsx --test tools/railway-disposable-proof/snapshot-publisher.test.ts"
+      },
       "cache": false
     }
   }
