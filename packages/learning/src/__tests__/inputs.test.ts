@@ -465,3 +465,12 @@ it("rechecks redaction when explicitly flushing a composing snapshot", () => {
   );
   expect(JSON.stringify(emit.mock.calls)).not.toContain("new-secret");
 });
+
+it("does not add the click label to input events", () => {
+  const { emit, edit } = inputFixture(
+    '<input id="first" aria-label="Customer name">',
+  );
+  edit("first", "Jane", "change");
+  expect(emit).toHaveBeenCalledOnce();
+  expect(emit.mock.calls[0]?.[1].target).not.toHaveProperty("label");
+});
