@@ -1471,6 +1471,7 @@ export class CopilotKitIntelligence {
       ) {
         throw error;
       }
+      params.signal?.throwIfAborted();
       logger.warn(
         { trajectoryId: params.trajectoryId, learningContainerIds },
         "A selected Learning Container does not exist in this project; connecting the Trajectory without Learning Container assignments",

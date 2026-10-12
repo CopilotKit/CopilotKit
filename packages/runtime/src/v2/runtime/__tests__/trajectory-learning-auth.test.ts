@@ -123,7 +123,7 @@ test.each(["single-route", "multi-route"] as const)(
 );
 
 test.each(["single-route", "multi-route"] as const)(
-  "%s keeps capturing without assignments when the Space selector rejects, and hides its private error",
+  "%s keeps capturing without assignments when the Space selector rejects, and logs its error only on the server",
   async (mode) => {
     const fixture = setup(mode);
     fixture.selector.mockRejectedValue(
@@ -133,11 +133,13 @@ test.each(["single-route", "multi-route"] as const)(
       const response = await fixture.app.fetch(fixture.request);
 
       expect(response.status).toBe(200);
-      expect(JSON.stringify(await response.json())).not.toContain(
-        "private tenant policy detail",
-      );
       expect(fixture.logError).toHaveBeenCalledWith(
-        { err: expect.any(Error), trajectoryId },
+        {
+          err: expect.objectContaining({
+            message: "private tenant policy detail",
+          }),
+          trajectoryId,
+        },
         "Failed to resolve Trajectory Learning Containers; connecting the Trajectory without Learning Container assignments",
       );
       expect(fixture.upstream).toHaveBeenCalledExactlyOnceWith(

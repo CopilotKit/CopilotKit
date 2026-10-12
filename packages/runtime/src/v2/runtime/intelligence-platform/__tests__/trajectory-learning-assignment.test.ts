@@ -5,6 +5,18 @@ import { CopilotKitIntelligence } from "../client";
 const trajectoryId = "550e8400-e29b-41d4-a716-446655440000";
 const user = { id: "verified-user", name: "Verified User" };
 
+/** Builds a two-slot array whose first slot is a hole. */
+function sparseIds(): string[] {
+  const ids: string[] = [];
+  ids[1] = "space-a";
+  return ids;
+}
+
+/** Builds an Intelligence error response in the REST error contract. */
+function errorResponse(code: string, status: number): Response {
+  return Response.json({ error: { code, message: code } }, { status });
+}
+
 test("Trajectory assignment uses a server selector with the resolved user and no Thread", async () => {
   const upstream = vi
     .spyOn(globalThis, "fetch")
@@ -83,7 +95,7 @@ test.each([
 
 test.each([
   { label: "an invalid ID", value: ["invalid container"] },
-  { label: "a sparse array", value: [, "space-a"] as string[] },
+  { label: "a sparse array", value: sparseIds() },
   { label: "a non-array result", value: "space-a" as unknown as string[] },
   {
     label: "over 100 IDs",
@@ -168,6 +180,10 @@ test("a selector that ignores cancellation connects without assignments after th
       expect.objectContaining({
         body: JSON.stringify({ trajectoryId, appUserId: user.id }),
       }),
+    );
+    expect(logError).toHaveBeenCalledWith(
+      { err: expect.any(Error), trajectoryId },
+      "Failed to resolve Trajectory Learning Containers; connecting the Trajectory without Learning Container assignments",
     );
     expect(vi.getTimerCount()).toBe(0);
     finish?.(["late-space"]);
@@ -307,5 +323,80 @@ test("a cancelled request skips selection and a completed selector preserves the
   } finally {
     upstream.mockRestore();
     vi.useRealTimers();
+  }
+});
+
+test.each([
+  { code: "TRAJECTORY_APP_USER_CONFLICT", status: 409 },
+  { code: "VALIDATION_ERROR", status: 400 },
+])(
+  "a $code join error with assignments is not retried and keeps its code",
+  async ({ code, status }) => {
+    const upstream = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(errorResponse(code, status));
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: "project-key",
+      getTrajectoryLearningContainerIds: () => ["space-a"],
+    });
+    try {
+      await expect(
+        intelligence.ɵconnectTrajectory({ trajectoryId, user }),
+      ).rejects.toMatchObject({ code, status });
+      expect(upstream).toHaveBeenCalledTimes(1);
+    } finally {
+      upstream.mockRestore();
+    }
+  },
+);
+
+test("a failed retry without assignments surfaces its own error and is not retried again", async () => {
+  const upstream = vi
+    .spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(errorResponse("LEARNING_CONTAINER_NOT_FOUND", 404))
+    .mockResolvedValueOnce(errorResponse("TRAJECTORY_APP_USER_CONFLICT", 409));
+  const logWarn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+  const intelligence = new CopilotKitIntelligence({
+    apiKey: "project-key",
+    getTrajectoryLearningContainerIds: () => ["typo-space"],
+  });
+  try {
+    await expect(
+      intelligence.ɵconnectTrajectory({ trajectoryId, user }),
+    ).rejects.toMatchObject({
+      code: "TRAJECTORY_APP_USER_CONFLICT",
+      status: 409,
+    });
+    expect(upstream).toHaveBeenCalledTimes(2);
+  } finally {
+    upstream.mockRestore();
+    logWarn.mockRestore();
+  }
+});
+
+test("a request aborted after an unknown Learning Space stops without a retry or a warning", async () => {
+  const controller = new AbortController();
+  const upstream = vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+    controller.abort();
+    return Promise.resolve(errorResponse("LEARNING_CONTAINER_NOT_FOUND", 404));
+  });
+  const logWarn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+  const intelligence = new CopilotKitIntelligence({
+    apiKey: "project-key",
+    getTrajectoryLearningContainerIds: () => ["typo-space"],
+  });
+  try {
+    await expect(
+      intelligence.ɵconnectTrajectory({
+        trajectoryId,
+        user,
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(upstream).toHaveBeenCalledTimes(1);
+    expect(logWarn).not.toHaveBeenCalled();
+  } finally {
+    upstream.mockRestore();
+    logWarn.mockRestore();
   }
 });
