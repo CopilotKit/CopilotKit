@@ -3,7 +3,10 @@ import { render } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 // ─── Mock react-native ───────────────────────────────────────────────────────
-vi.mock("react-native", () => {
+// DOM-backed View/Text on top of the shared stub (animation, theme and
+// accessibility primitives).
+vi.mock("react-native", async () => {
+  const actual = await vi.importActual<any>("../../../__mocks__/react-native");
   const React = require("react");
 
   const View = React.forwardRef(
@@ -38,40 +41,10 @@ vi.mock("react-native", () => {
   );
   Text.displayName = "Text";
 
-  const AnimatedValue = class {
-    _value: number;
-    constructor(value: number) {
-      this._value = value;
-    }
-    interpolate({ outputRange }: any) {
-      return outputRange[0];
-    }
-  };
-
-  const AnimatedView = React.forwardRef(
-    ({ children, style, ...rest }: any, ref: any) =>
-      React.createElement("div", { ref, style, ...rest }, children),
-  );
-  AnimatedView.displayName = "Animated.View";
-
-  const timing = () => ({ start: vi.fn(), stop: vi.fn() });
-  const sequence = () => ({ start: vi.fn(), stop: vi.fn() });
-  const loop = () => ({ start: vi.fn(), stop: vi.fn() });
-  const parallel = () => ({ start: vi.fn(), stop: vi.fn() });
-  const delay = () => ({ start: vi.fn(), stop: vi.fn() });
-
   return {
+    ...actual,
     View,
     Text,
-    Animated: {
-      Value: AnimatedValue,
-      View: AnimatedView,
-      timing,
-      sequence,
-      loop,
-      parallel,
-      delay,
-    },
     StyleSheet: {
       create: (styles: any) => styles,
       flatten: (style: any) =>
@@ -105,14 +78,24 @@ describe("AssistantMessage edge cases", () => {
   });
 
   it("shows both markdown content AND typing indicator when both content and isLoading are provided", () => {
-    // When content is truthy AND isLoading is true, BOTH should render
-    // Looking at the source: content is rendered when truthy, isLoading adds typing indicator
     const { queryByTestId, queryByLabelText } = render(
       <AssistantMessage content="Thinking..." isLoading />,
     );
 
     expect(queryByTestId("copilot-markdown")).toBeTruthy();
     expect(queryByLabelText("Typing indicator")).toBeTruthy();
+  });
+
+  it("puts the cursor at the end of the text with inlineCursor", () => {
+    // Once text arrives the cursor rides it instead of sitting below.
+    const { getByTestId, queryByLabelText } = render(
+      <AssistantMessage content="Thinking..." isLoading inlineCursor />,
+    );
+
+    expect(getByTestId("copilot-markdown").textContent).toBe(
+      "Thinking...\u00A0●",
+    );
+    expect(queryByLabelText("Typing indicator")).toBeNull();
   });
 
   it("does not render markdown when content is empty", () => {

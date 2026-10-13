@@ -12,6 +12,7 @@ const hoisted = vi.hoisted(() => {
       addMessage: vi.fn(),
     },
     mockRunAgent: vi.fn().mockResolvedValue(undefined),
+    mockSuggestions: [] as any[],
     mockExecutingToolCallIds: new Set<string>(),
   };
 });
@@ -21,10 +22,11 @@ const hoisted = vi.hoisted(() => {
 // react-core is mocked wholesale for these unit-level edge cases. Tool-call
 // rendering against a REAL useRenderToolCall lives in
 // CopilotChatToolCalls.test.tsx; here useRenderToolCall resolves no renderer so
-// tool calls fall through to the "Called: <name>" placeholder.
+// tool calls fall through to the compact placeholder card.
 vi.mock("@copilotkit/react-core/v2/headless", () => ({
   useAgent: vi.fn(() => ({ agent: hoisted.mockAgent })),
   useRenderToolCall: vi.fn(() => () => null),
+  useSuggestions: vi.fn(() => ({ suggestions: hoisted.mockSuggestions })),
 }));
 
 vi.mock("@copilotkit/react-core/v2/context", () => ({
@@ -56,10 +58,13 @@ vi.mock("../messages/UserMessage", () => ({
   },
 }));
 
-// Mock react-native components with testable DOM elements
-vi.mock("react-native", () => {
+// Mock react-native components with testable DOM elements, on top of the
+// shared stub (animation, theme and accessibility primitives).
+vi.mock("react-native", async () => {
+  const actual = await vi.importActual<any>("../../__mocks__/react-native");
   const React = require("react");
   return {
+    ...actual,
     FlatList: ({ data, renderItem, ListEmptyComponent, keyExtractor }: any) => {
       if (!data || data.length === 0) {
         return React.createElement(
@@ -139,6 +144,7 @@ describe("CopilotChat edge cases", () => {
     hoisted.mockAgent.addMessage = vi.fn();
     hoisted.mockRunAgent.mockResolvedValue(undefined);
     hoisted.mockExecutingToolCallIds.clear();
+    hoisted.mockSuggestions = [];
   });
 
   describe("disableKeyboardAvoiding", () => {
@@ -155,18 +161,11 @@ describe("CopilotChat edge cases", () => {
 
   describe("FlatListComponent", () => {
     it("uses custom FlatListComponent when provided", () => {
-      const CustomFlatList = ({
-        data,
-        renderItem,
-        ListEmptyComponent,
-        keyExtractor,
-      }: any) => {
-        return React.createElement(
-          "div",
-          { "data-testid": "custom-flatlist" },
-          ListEmptyComponent,
-        );
-      };
+      // The list renders once there's a conversation (the welcome screen
+      // doesn't need one).
+      hoisted.mockAgent.messages = [{ id: "1", role: "user", content: "Hi" }];
+      const CustomFlatList = () =>
+        React.createElement("div", { "data-testid": "custom-flatlist" });
 
       const { getByTestId, queryByTestId } = render(
         <CopilotChat FlatListComponent={CustomFlatList} />,
@@ -197,8 +196,8 @@ describe("CopilotChat edge cases", () => {
 
       const { getByText, queryAllByTestId } = render(<CopilotChat />);
 
-      // Should show tool call indicator, not an empty assistant message
-      expect(getByText("Called: unknownTool")).toBeTruthy();
+      // Should show tool call card, not an empty assistant message
+      expect(getByText("unknownTool")).toBeTruthy();
       expect(queryAllByTestId("assistant-message")).toHaveLength(0);
     });
 
@@ -220,11 +219,11 @@ describe("CopilotChat edge cases", () => {
 
       const { getByText, getByTestId } = render(<CopilotChat />);
 
-      // Should show both content and tool call indicator
+      // Should show both content and tool call card
       expect(getByTestId("assistant-message").textContent).toBe(
         "Let me check that for you",
       );
-      expect(getByText("Called: searchTool")).toBeTruthy();
+      expect(getByText("searchTool")).toBeTruthy();
     });
 
     it("shows loading indicator when agent is running and last message is from user", () => {
