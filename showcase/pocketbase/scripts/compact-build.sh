@@ -8,6 +8,17 @@
 # Output: /pb_data/compact/data.db.new and /pb_data/compact/manifest. The
 # swap happens later, in entrypoint.sh, on a restart with PB_COMPACT_SWAP=1.
 #
+# Where the file is built: PB_COMPACT_OUT_DIR, default /tmp/pbcompact, a
+# different device from the live volume. The volume is shared with
+# PocketBase and has a capped write rate, so every write of the build (rows,
+# indexes, the integrity check) goes to /tmp, with a large page cache
+# (PB_COMPACT_CACHE_MB, default 1024) and temp_store=MEMORY. When the file is
+# done, compact-push.sh copies it to /pb_data/compact at a capped rate
+# (PB_COMPACT_WRITE_MBPS), reads every piece back to check its sha256, and
+# publishes the manifest last. If that copy fails, the built file stays in
+# PB_COMPACT_OUT_DIR; run compact-push.sh (same env) to copy it again.
+# PB_COMPACT_OUT_DIR=/pb_data/compact builds on the volume in place.
+#
 # The live data.db, -wal and -shm are opened read-only (sqlite3 -readonly
 # and an ATTACH with mode=ro); nothing here writes to them. A WAL reader
 # still takes its read lock in the -shm, exactly as PocketBase's own readers
@@ -26,6 +37,8 @@
 #                              default 2048
 #   PB_RETENTION_<TABLE>_DAYS  window per pruned table, default 30 (the same
 #                              variables the retention hook reads)
+#   PB_COMPACT_OUT_DIR         where the new file is built (see above)
+#   PB_COMPACT_CACHE_MB        page cache of the new file, default 1024
 #
 # A failed build removes its partial new file and leaves no manifest, also
 # when it fails after the manifest was published.
@@ -56,17 +69,30 @@ fi
 SEGMENT_ROWS="${PB_COMPACT_SEGMENT_ROWS:-250000}"
 MIN_FREE_MB="${PB_COMPACT_MIN_FREE_MB:-2048}"
 HEADROOM_MB="${PB_COMPACT_HEADROOM_MB:-2048}"
-for _v in CHUNK_ROWS SEGMENT_ROWS MIN_FREE_MB HEADROOM_MB; do
+CACHE_MB="${PB_COMPACT_CACHE_MB:-1024}"
+for _v in CHUNK_ROWS SEGMENT_ROWS MIN_FREE_MB HEADROOM_MB CACHE_MB; do
     _val=""
     eval "_val=\$$_v"
     is_count "$_val" || die "PB_COMPACT_$_v=$_val is not a whole number (digits only, no leading zero)"
 done
 [ "$CHUNK_ROWS" -ge 100 ] || die "PB_COMPACT_CHUNK_ROWS must be at least 100"
+need_sha256sum
 is_decimal "$PAUSE_S" || die "PB_COMPACT_PAUSE_S=$PAUSE_S is not a number such as 0.05"
 # The retention windows are read again later; check them before any work.
 for t in $COMPACT_APPEND_TABLES $COMPACT_MUTABLE_TABLES; do
     window_days "$t" >/dev/null
 done
+
+# The new file and its manifest are written in OUT_DIR. VOL_MANIFEST is the
+# manifest the swap reads, on the volume.
+VOL_MANIFEST=$MANIFEST
+NEW_DB="$OUT_DIR/data.db.new"
+MANIFEST="$OUT_DIR/manifest"
+# The pragmas for every write to the new file: a large page cache, and temp
+# b-trees (index sorts) in memory, not in temp files.
+NEW_PRAGMAS="PRAGMA cache_size = -$((CACHE_MB * 1024)); PRAGMA temp_store = MEMORY;"
+# The live file as a read-only URI in an ATTACH statement.
+LIVE_URI="file:$(sql_uri_path "$LIVE_DB")?mode=ro"
 
 # Run as the pocketbase user so the new files have the right owner.
 if [ "$(id -u)" = 0 ] && id pocketbase >/dev/null 2>&1; then
@@ -96,6 +122,8 @@ if [ "${1:-}" = "--detach" ]; then
     exit 0
 fi
 
+rq_init
+trap rq_cleanup EXIT
 if [ -n "$REMOTE" ]; then
     _there=$(remote_q "if [ -f $(shq "$LIVE_DB") ]; then echo yes; else echo no; fi") ||
         die "could not run a command on the box with PB_COMPACT_REMOTE ($REMOTE)"
@@ -104,7 +132,7 @@ if [ -n "$REMOTE" ]; then
 else
     [ -f "$LIVE_DB" ] || die "no live database at $LIVE_DB"
 fi
-mkdir -p "$COMPACT_DIR"
+mkdir -p "$COMPACT_DIR" "$OUT_DIR"
 
 # ---- one build at a time -------------------------------------------------------
 # The lock is a symlink whose target is the holder's pid. Creating it is one
@@ -113,24 +141,11 @@ mkdir -p "$COMPACT_DIR"
 # $LOCK.takeover, also a symlink to its holder's pid, so two builds cannot
 # both take it over. A build killed while it held the takeover lock leaves
 # it behind; a takeover lock whose holder is gone is cleared the same way.
+# compact-push.sh takes the same lock (see holder_alive in compact-lib.sh).
 LOCK="$COMPACT_DIR/build.lock"
 TAKEOVER="$LOCK.takeover"
 OWN_LOCK=0
 OWN_TAKEOVER=0
-
-build_alive() {
-    is_int "$1" || return 1
-    if [ -d /proc/self ]; then
-        [ -r "/proc/$1/status" ] || return 1
-        # PocketBase is PID 1 and does not reap children, so a build that
-        # died stays as a zombie; a zombie does not hold the lock.
-        grep -q "^State:[[:space:]]*Z" "/proc/$1/status" && return 1
-        # Nor does an unrelated process that reused the pid.
-        tr '\0' ' ' <"/proc/$1/cmdline" 2>/dev/null | grep -q compact-build
-        return
-    fi
-    kill -0 "$1" 2>/dev/null
-}
 
 # Takes $TAKEOVER, clearing it once if its holder is gone. An older build
 # made it a directory with no pid; such a directory is stale once it is more
@@ -149,7 +164,7 @@ take_takeover() {
     fi
     [ -L "$TAKEOVER" ] || return 1
     _tk=$(readlink "$TAKEOVER" 2>/dev/null) || _tk=""
-    build_alive "$_tk" && return 1
+    holder_alive "$_tk" && return 1
     log "clearing a stale takeover lock $TAKEOVER (pid ${_tk:-unknown} is not running; a build was killed while it took over the lock)"
     rm -f "$TAKEOVER"
     ln -s "$$" "$TAKEOVER" 2>/dev/null || return 1
@@ -172,12 +187,12 @@ take_lock() {
         return
     fi
     _holder=$(readlink "$LOCK" 2>/dev/null) || _holder=""
-    build_alive "$_holder" && die "another build is running (pid $_holder)"
+    holder_alive "$_holder" && die "another build or push is running (lock holder $_holder)"
     take_takeover ||
         die "another build is running (it is taking over the lock); if none runs, remove $TAKEOVER by hand"
     # Look again under the takeover lock: the holder may have changed.
     _now=$(readlink "$LOCK" 2>/dev/null) || _now=""
-    if [ "$_now" = "$_holder" ] && ! build_alive "$_now"; then
+    if [ "$_now" = "$_holder" ] && ! holder_alive "$_now"; then
         log "taking over a stale build lock (pid ${_holder:-unknown})"
         rm -f "$LOCK"
     fi
@@ -191,14 +206,19 @@ take_lock() {
 # publish, such as the final sync or a log write on a full volume). This
 # build removed any older manifest when it started, so a manifest here is
 # this build's.
+LANDING=0
 on_exit() {
     _rc=$?
     # Every step below runs even when one fails, such as a log line on a
     # full volume: the lock must still be released.
     set +e
+    rq_cleanup
     release_takeover
     [ "$OWN_LOCK" = 1 ] || return 0
-    if [ "$_rc" != 0 ]; then
+    rm -f "$OUT_DIR"/segment.gz "$OUT_DIR"/segment.err "$OUT_DIR"/segment.check.*
+    if [ "$_rc" != 0 ] && [ "$LANDING" = 1 ]; then
+        log "ERROR the build is done, but copying it onto the volume failed (exit $_rc). The live database is untouched and there is no manifest on the volume. The built file is kept in $OUT_DIR: run compact-push.sh with the same PB_DATA_DIR and PB_COMPACT_OUT_DIR to copy it again, or delete $OUT_DIR."
+    elif [ "$_rc" != 0 ]; then
         _what="there is no manifest"
         if [ -e "$MANIFEST" ]; then
             if rm -f "$MANIFEST"; then
@@ -238,11 +258,13 @@ build_started=$(date +%s)
 log "build start: live=$LIVE_DB${REMOTE:+ (on the box, via $REMOTE)} size=$(human "$(live_file_size "$LIVE_DB")") wal=$(human "$(live_file_size "$LIVE_DB-wal")")"
 
 # The old manifest goes first, so a restart during this build cannot swap in
-# a half-built file.
-if [ -e "$MANIFEST" ]; then
-    log "removing the previous manifest; this build replaces it"
-    rm -f "$MANIFEST"
-fi
+# a half-built file or an older one.
+for _m in "$MANIFEST" "$VOL_MANIFEST"; do
+    if [ -e "$_m" ]; then
+        log "removing the previous manifest $_m; this build replaces it"
+        rm -f "$_m"
+    fi
+done
 rm -f "$NEW_DB" "$NEW_DB-journal" "$NEW_DB-wal" "$NEW_DB-shm"
 
 # ---- inventory -------------------------------------------------------------
@@ -371,28 +393,21 @@ cut_of() {
 }
 
 # ---- snapshot point ---------------------------------------------------------
-# One brief read transaction: the schema and every table's top rowid (and its
-# id, for the pruned tables). Each max is its own statement; SQLite only
-# optimizes a lone min() or max() to a b-tree seek. The time just before it
-# goes into the manifest: a row whose `created` is later was written after
-# the snapshot, which is how the swap tells a reused rowid from a kept row.
+# One brief read transaction: the schema and every table's top rowid. Each
+# max is its own statement; SQLite only optimizes a lone min() or max() to a
+# b-tree seek. The time just before it goes into the manifest: the new file
+# holds the rows written up to about then.
 SNAP_SQL="BEGIN;
 SELECT 'schema|' || hex(sha3_query('$SCHEMA_LIST_SQL'));
 "
 for line in $INVENTORY; do
     t=${line%%|*}
-    cls=$(echo "$line" | cut -d'|' -f2)
     wr=$(echo "$line" | cut -d'|' -f3)
     if [ "$wr" = 1 ]; then
-        SNAP_SQL="$SNAP_SQL SELECT 'max|$t|0|';
+        SNAP_SQL="$SNAP_SQL SELECT 'max|$t|0';
 "
     else
-        # The class comes from the inventory. Classifying again here would
-        # put the query inside a test, where set -e does not see a failure.
-        id_expr="''"
-        [ "$cls" = whole ] || id_expr="id"
-        SNAP_SQL="$SNAP_SQL SELECT 'max|$t|' || COALESCE((SELECT rowid FROM \"$t\" ORDER BY rowid DESC LIMIT 1), 0)
-    || '|' || COALESCE((SELECT $id_expr FROM \"$t\" ORDER BY rowid DESC LIMIT 1), '');
+        SNAP_SQL="$SNAP_SQL SELECT 'max|$t|' || COALESCE((SELECT rowid FROM \"$t\" ORDER BY rowid DESC LIMIT 1), 0);
 "
     fi
 done
@@ -402,7 +417,6 @@ is_int "$snap_started" || die "could not read the time on the box: '$snap_starte
 SNAP=$(live_q "$SNAP_SQL") || die "could not take the snapshot"
 SNAP_SCHEMA=$(printf '%s\n' "$SNAP" | sed -n 's/^schema|//p')
 is_sha3 "$SNAP_SCHEMA" || die "the snapshot has no schema hash: '$SNAP_SCHEMA'"
-schema_list "$LIVE_DB" >"$COMPACT_DIR/schema.live"
 live_schema=$(schema_hash "$LIVE_DB")
 [ "$live_schema" = "$SNAP_SCHEMA" ] || die "the schema changed while the snapshot was taken; run the build again"
 log "snapshot taken, schema sha3=$SNAP_SCHEMA"
@@ -410,22 +424,20 @@ log "snapshot taken, schema sha3=$SNAP_SCHEMA"
 snap_max() {
     printf '%s\n' "$SNAP" | awk -F'|' -v t="$1" '$1 == "max" && $2 == t { print $3 }'
 }
-snap_id() {
-    printf '%s\n' "$SNAP" | awk -F'|' -v t="$1" '$1 == "max" && $2 == t { print $4 }'
-}
 
 # ---- free disk ---------------------------------------------------------------
-# The new file is on the same volume as the live database. If the volume
-# filled, PocketBase's own writes would fail. So every copy step first checks
-# that at least FLOOR bytes are free: PB_COMPACT_MIN_FREE_MB plus 10% of the
-# live file. One step adds at most PB_COMPACT_CHUNK_ROWS rows.
+# Every copy step first checks that at least FLOOR bytes are free where the
+# new file is built: PB_COMPACT_MIN_FREE_MB plus 10% of the live file. One
+# step adds at most PB_COMPACT_CHUNK_ROWS rows. (Built in place on the live
+# volume, a full volume would fail PocketBase's own writes; the copy onto the
+# volume checks its free space itself.)
 live_size=$(live_file_size "$LIVE_DB")
 is_int "$live_size" || die "could not read the size of $LIVE_DB"
 FLOOR=$((MIN_FREE_MB * 1048576 + live_size / 10))
 
 check_free() {
-    _free=$(free_bytes "$COMPACT_DIR")
-    is_int "$_free" || die "could not read the free disk space of $COMPACT_DIR (got '$_free')"
+    _free=$(free_bytes "$OUT_DIR")
+    is_int "$_free" || die "could not read the free disk space of $OUT_DIR (got '$_free')"
     [ "$_free" -ge "$FLOOR" ] ||
         die "free disk is $(human "$_free") before $1, below the floor of $(human "$FLOOR") (PB_COMPACT_MIN_FREE_MB plus 10% of the live file); stopping so the volume does not fill"
 }
@@ -451,8 +463,8 @@ else
     est=$live_size
 fi
 need=$((est + FLOOR + HEADROOM_MB * 1048576))
-free=$(free_bytes "$COMPACT_DIR")
-is_int "$free" || die "could not read the free disk space of $COMPACT_DIR (got '$free')"
+free=$(free_bytes "$OUT_DIR")
+is_int "$free" || die "could not read the free disk space of $OUT_DIR (got '$free')"
 log "disk precheck: live=$(human "$live_size") estimated_new=$(human "$est") floor=$(human "$FLOOR") need=$(human "$need") free=$(human "$free")"
 [ "$free" -ge "$need" ] || die "not enough free disk: need $(human "$need"), have $(human "$free")"
 
@@ -471,13 +483,13 @@ case "$ENC" in UTF-8 | UTF-16le | UTF-16be) ;; *) die "unexpected encoding $ENC"
 # (sqlite_sequence, sqlite_stat1) cannot be created by hand; they are made
 # further down, the way SQLite makes them.
 live_q "SELECT sql || ';' FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite\_%' ESCAPE '\' ORDER BY rowid;" \
-    >"$COMPACT_DIR/schema.tables.sql"
+    >"$OUT_DIR/schema.tables.sql"
 live_q "SELECT sql || ';' FROM sqlite_schema WHERE type = 'index' AND sql IS NOT NULL ORDER BY rowid;" \
-    >"$COMPACT_DIR/schema.indexes.sql"
+    >"$OUT_DIR/schema.indexes.sql"
 live_q "SELECT sql || ';' FROM sqlite_schema WHERE type = 'view' ORDER BY rowid;" \
-    >"$COMPACT_DIR/schema.views.sql"
+    >"$OUT_DIR/schema.views.sql"
 live_q "SELECT sql || ';' FROM sqlite_schema WHERE type = 'trigger' ORDER BY rowid;" \
-    >"$COMPACT_DIR/schema.triggers.sql"
+    >"$OUT_DIR/schema.triggers.sql"
 
 {
     echo "PRAGMA page_size = $PS;"
@@ -485,7 +497,7 @@ live_q "SELECT sql || ';' FROM sqlite_schema WHERE type = 'trigger' ORDER BY row
     echo "PRAGMA encoding = '$ENC';"
     echo "PRAGMA journal_mode = OFF;"
     echo "BEGIN;"
-    cat "$COMPACT_DIR/schema.tables.sql"
+    cat "$OUT_DIR/schema.tables.sql"
     echo "COMMIT;"
     echo "PRAGMA user_version = $UV;"
     echo "PRAGMA application_id = $AID;"
@@ -532,19 +544,24 @@ remote_copy() {
     _t=$1
     _sel=$2
     _tcols=$3
+    # A text value with any byte outside printable ASCII (a control
+    # character, a NUL, UTF-8) goes as hex: sqlite3 3.50 and later escape
+    # control characters in what they print (CR comes out as ^M), which
+    # would change the value on its way here. Every other value is quote()d,
+    # which prints only printable ASCII.
     _rowsql="'INSERT INTO \"$_t\" ($_tcols) VALUES(' || "
     _first=1
     _oldifs=$IFS
     IFS=,
     for _c in $_sel; do
         [ "$_first" = 1 ] || _rowsql="$_rowsql || ',' || "
-        _rowsql="${_rowsql}quote($_c)"
+        _rowsql="${_rowsql}CASE WHEN typeof($_c) = 'text' AND ($_c GLOB '*[^ -~]*' OR instr(CAST($_c AS BLOB), X'00') > 0) THEN 'CAST(X''' || hex($_c) || ''' AS TEXT)' ELSE quote($_c) END"
         _first=0
     done
     IFS=$_oldifs
     _rowsql="$_rowsql || ');'"
     _script=$(cat "$LIB_DIR/compact-export.sh") || die "could not read compact-export.sh"
-    _seg="$COMPACT_DIR/segment"
+    _seg="$OUT_DIR/segment"
     _pos=$4
     _chunks=0
     while :; do
@@ -583,7 +600,7 @@ remote_copy() {
         done
         _gz=$(file_size "$_seg.gz")
         {
-            echo "PRAGMA journal_mode = MEMORY; PRAGMA synchronous = OFF; BEGIN;"
+            echo "PRAGMA journal_mode = MEMORY; PRAGMA synchronous = OFF; $NEW_PRAGMAS BEGIN;"
             [ "$_t" = sqlite_sequence ] && echo "DELETE FROM main.sqlite_sequence;"
             gzip -dc "$_seg.gz"
             echo "COMMIT;"
@@ -592,7 +609,9 @@ remote_copy() {
         awk -F'|' -v t="$_t" -v sel="$_sel" '
             $1 != "chunk" { next }
             {
-                if ($2 == "all") q = "SELECT " sel " FROM \"" t "\""
+                # A whole-table read is ordered by every column, as in
+                # compact-export.sh, whatever plan either side picks.
+                if ($2 == "all") q = "SELECT " sel " FROM \"" t "\" ORDER BY " sel
                 else q = "SELECT " sel " FROM \"" t "\" WHERE rowid > " $2 " AND rowid <= " $3 " ORDER BY rowid"
                 hq = q; gsub(/\x27/, "\x27\x27", hq)
                 printf "SELECT %s || \x27|\x27 || count(*) || \x27|\x27 || hex(sha3_query(\x27%s\x27)) FROM (%s);\n", "\x27" $2 "|" $3 "\x27", hq, q
@@ -637,7 +656,7 @@ for line in $INVENTORY; do
     if [ "$wr" = 1 ]; then
         # WITHOUT ROWID tables are copied in one statement (no rowid ranges).
         check_free "copying $t"
-        sq "$NEW_DB" "PRAGMA journal_mode = OFF; ATTACH 'file:$LIVE_DB?mode=ro' AS live;
+        sq "$NEW_DB" "PRAGMA journal_mode = OFF; ATTACH '$LIVE_URI' AS live;
                       INSERT INTO main.\"$t\" ($cols) SELECT $cols FROM live.\"$t\";" >/dev/null
         rows=$(new_q "SELECT count(*) FROM \"$t\";")
         log "copied table=$t class=$cls rows=$rows (without rowid) s=$(($(date +%s) - t_started))"
@@ -675,8 +694,8 @@ for line in $INVENTORY; do
         # below the next rowid above this range, or $hi when there is none.
         # So a sparse table (a few rows far apart) skips its empty ranges
         # instead of walking them CHUNK_ROWS at a time.
-        out=$(sq "$NEW_DB" "PRAGMA journal_mode = MEMORY; PRAGMA synchronous = OFF;
-                      ATTACH 'file:$LIVE_DB?mode=ro' AS live;
+        out=$(sq "$NEW_DB" "PRAGMA journal_mode = MEMORY; PRAGMA synchronous = OFF; $NEW_PRAGMAS
+                      ATTACH '$LIVE_URI' AS live;
                       INSERT INTO main.\"$t\" (rowid,$cols)
                       SELECT rowid,$cols FROM live.\"$t\" WHERE rowid > $pos AND rowid <= $nxt ORDER BY rowid;
                       SELECT COALESCE((SELECT rowid FROM live.\"$t\" WHERE rowid > $nxt AND rowid <= $hi ORDER BY rowid LIMIT 1) - 1, $hi);")
@@ -685,7 +704,7 @@ for line in $INVENTORY; do
         [ "$pos" -ge "$nxt" ] || die "table $t: the next rowid above $nxt is $pos; the copy would not move forward"
         chunks=$((chunks + 1))
         if [ $((chunks % 50)) = 0 ]; then
-            log "progress table=$t rowid=$pos/$hi new=$(human "$(file_size "$NEW_DB")") live_wal=$(human "$(file_size "$LIVE_DB-wal")") free=$(human "$(free_bytes "$COMPACT_DIR")")"
+            log "progress table=$t rowid=$pos/$hi new=$(human "$(file_size "$NEW_DB")") live_wal=$(human "$(file_size "$LIVE_DB-wal")") free=$(human "$(free_bytes "$OUT_DIR")")"
         fi
         sleep "$PAUSE_S"
     done
@@ -701,8 +720,8 @@ if [ "$has_sequence" = 1 ]; then
         # remote_copy deletes the rows first, in the same transaction.
         remote_copy sqlite_sequence "name,seq" "name,seq" all >/dev/null
     else
-        sq "$NEW_DB" "PRAGMA journal_mode = MEMORY; PRAGMA synchronous = OFF;
-                      ATTACH 'file:$LIVE_DB?mode=ro' AS live;
+        sq "$NEW_DB" "PRAGMA journal_mode = MEMORY; PRAGMA synchronous = OFF; $NEW_PRAGMAS
+                      ATTACH '$LIVE_URI' AS live;
                       BEGIN;
                       DELETE FROM main.sqlite_sequence;
                       INSERT INTO main.sqlite_sequence (name, seq) SELECT name, seq FROM live.sqlite_sequence;
@@ -720,15 +739,19 @@ fi
 check_free "creating indexes"
 idx_started=$(date +%s)
 {
-    echo "PRAGMA journal_mode = OFF;"
-    cat "$COMPACT_DIR/schema.indexes.sql" "$COMPACT_DIR/schema.views.sql" "$COMPACT_DIR/schema.triggers.sql"
+    echo "PRAGMA journal_mode = OFF; $NEW_PRAGMAS"
+    cat "$OUT_DIR/schema.indexes.sql" "$OUT_DIR/schema.views.sql" "$OUT_DIR/schema.triggers.sql"
 } | sq "$NEW_DB" >/dev/null
 log "indexes, views and triggers created in $(($(date +%s) - idx_started))s"
 
 # ---- checks -----------------------------------------------------------------
-schema_list "$NEW_DB" >"$COMPACT_DIR/schema.new"
-if ! cmp -s "$COMPACT_DIR/schema.live" "$COMPACT_DIR/schema.new"; then
-    diff "$COMPACT_DIR/schema.live" "$COMPACT_DIR/schema.new" | head -40 >&2 || true
+# Compared by hash, computed inside SQLite: the sqlite3 CLI's printing of
+# the schema text (control characters escaped since 3.50) cannot differ
+# between the two sides.
+new_schema=$(schema_hash "$NEW_DB") || die "could not hash the schema of the new database"
+if [ "$new_schema" != "$SNAP_SCHEMA" ]; then
+    { schema_list "$LIVE_DB" >"$OUT_DIR/schema.live" && schema_list "$NEW_DB" >"$OUT_DIR/schema.new" &&
+        diff "$OUT_DIR/schema.live" "$OUT_DIR/schema.new" | head -40 >&2; } || true
     die "schema of the new database differs from the live snapshot"
 fi
 live_schema=$(schema_hash "$LIVE_DB")
@@ -749,14 +772,28 @@ jm=$(new_q "PRAGMA journal_mode = WAL;")
 # ---- manifest ---------------------------------------------------------------
 # Every value is read into a variable first, so a failed query stops the
 # build (set -e does not see a failure inside an echo argument).
+# The file's identity for the copy and the swap: its size, its sha256 (the
+# copy checks every byte against it) and its fingerprint (the swap checks
+# that, cheaply). An empty -wal and a -shm may stay next to it after the
+# close; neither is part of the file.
+[ ! -s "$NEW_DB-wal" ] || die "$NEW_DB-wal is not empty after the build closed the file"
 new_size=$(file_size "$NEW_DB")
 is_int "$new_size" || die "could not read the size of $NEW_DB"
+sha_started=$(date +%s)
+new_sha256=$(sha256_of <"$NEW_DB")
+new_fp=$(file_fingerprint "$NEW_DB") || die "could not read the fingerprint of $NEW_DB"
+for v in "$new_sha256" "$new_fp"; do
+    [ "$(printf '%s' "$v" | grep -c '^[0-9a-f]\{64\}$' || true)" = 1 ] || die "could not checksum $NEW_DB"
+done
+log "new file sha256=$new_sha256 fingerprint=$new_fp ($(($(date +%s) - sha_started))s)"
 tmp="$MANIFEST.tmp"
 {
     echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "build_seconds=$(($(date +%s) - build_started))"
     echo "live_size=$live_size"
     echo "new_size=$new_size"
+    echo "new_sha256=$new_sha256"
+    echo "new_fingerprint=$new_fp"
     echo "schema_sha3=$SNAP_SCHEMA"
     echo "snapshot_s=$snap_started"
     echo "header=$new_header"
@@ -783,17 +820,12 @@ tmp="$MANIFEST.tmp"
             echo "table.$t.cutoff_s=$cutoff_s"
             echo "table.$t.cutoff=$cutoff"
         fi
-        if [ "$cls" != whole ]; then
-            sid=$(snap_id "$t")
-            [ -n "$sid" ] || [ "$smax" = 0 ] || die "no snapshot id for $t"
-            echo "table.$t.snapshot_id=$sid"
-        fi
         echo "table.$t.rows=$rows"
     done
 } >"$tmp"
 # The last line is the sha256 of every line above it. The swap refuses a
 # manifest whose checksum does not match.
-sum=$(sha256sum "$tmp" | cut -d' ' -f1)
+sum=$(sha256_of <"$tmp")
 is_sha256=$(printf '%s' "$sum" | grep -c '^[0-9a-f]\{64\}$' || true)
 [ "$is_sha256" = 1 ] || die "could not checksum the manifest"
 echo "sha256=$sum" >>"$tmp"
@@ -805,4 +837,20 @@ mv "$tmp" "$MANIFEST"
 sync
 
 log "build done in $(($(date +%s) - build_started))s: new=$(human "$new_size") (live $(human "$live_size")) rows=$copied_total$(wal_note)"
-log "manifest: $MANIFEST. To swap: restart the pocketbase service with PB_COMPACT_SWAP=1."
+
+# ---- onto the volume ------------------------------------------------------------
+# Built off the volume on the box: copy the file onto it, still under this
+# build's lock. compact-push.sh publishes the manifest on the volume last.
+if [ -z "$REMOTE" ] && [ "$OUT_DIR" != "$COMPACT_DIR" ]; then
+    LANDING=1
+    land_started=$(date +%s)
+    PB_COMPACT_LOCK_HELD=$$ sh "$LIB_DIR/compact-push.sh"
+    LANDING=0
+    rm -f "$NEW_DB" "$NEW_DB-wal" "$NEW_DB-shm" "$MANIFEST" "$OUT_DIR"/schema.*.sql
+    log "copied onto the volume in $(($(date +%s) - land_started))s; total $(($(date +%s) - build_started))s"
+    log "manifest: $VOL_MANIFEST. To swap: restart the pocketbase service with PB_COMPACT_SWAP=1."
+elif [ -n "$REMOTE" ]; then
+    log "manifest: $MANIFEST. Next: compact-push.sh (same env) puts the file on the box."
+else
+    log "manifest: $MANIFEST. To swap: restart the pocketbase service with PB_COMPACT_SWAP=1."
+fi

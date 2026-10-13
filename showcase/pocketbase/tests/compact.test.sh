@@ -35,7 +35,8 @@ TEST_REAL_MV=$(command -v mv)
 TEST_REAL_DF=$(command -v df)
 TEST_REAL_STAT=$(command -v stat)
 TEST_REAL_RM=$(command -v rm)
-export TEST_REAL_SQLITE TEST_REAL_MV TEST_REAL_DF TEST_REAL_STAT TEST_REAL_RM
+TEST_REAL_SHA256SUM=$(command -v sha256sum) || { echo "sha256sum is not installed" >&2; exit 2; }
+export TEST_REAL_SQLITE TEST_REAL_MV TEST_REAL_DF TEST_REAL_STAT TEST_REAL_RM TEST_REAL_SHA256SUM
 
 ROOT=$(mktemp -d "${TMPDIR:-/tmp}/pb-compact-test.XXXXXX") || exit 2
 ROOT=$(cd "$ROOT" && pwd -P)
@@ -216,16 +217,39 @@ fi
 exec "$TEST_REAL_STAT" "$@"
 EOF
 fi
+# sha256sum: NO_SHA256SUM=1 plays a host without it.
+cat >"$SHIM/sha256sum" <<'EOF'
+#!/bin/sh
+if [ -n "${NO_SHA256SUM:-}" ]; then
+    echo "sha256sum: not found" >&2
+    exit 127
+fi
+exec "$TEST_REAL_SHA256SUM" "$@"
+EOF
+
 # fake-remote CMD: the remote command for an off-box build. The "box" is
 # this host, so it runs CMD with sh. With FR_DROP_MATCH, a command that
 # contains that text loses its connection part way (output cut short, exit
 # 255) the first FR_DROP_TIMES times (FR_DROP_COUNT is the counter file).
 # With FR_FAIL_MATCH, such a command fails with exit 1 after FR_FAIL_SKIP
 # successful ones (FR_FAIL_COUNT). With FR_TAMPER_MATCH, the gzip'd output
-# of such a command is changed by the sed script FR_TAMPER_SED.
+# of such a command is changed by the sed script FR_TAMPER_SED. With
+# FR_SLEEP_MATCH, such a command first touches FR_SLEEP_FLAG and sleeps
+# FR_SLEEP_S seconds. With FR_SNOOP_MATCH, the target of the symlink
+# FR_SNOOP_LINK is appended to FR_SNOOP_OUT before such a command runs.
 cat >"$SHIM/fake-remote" <<'EOF'
 #!/bin/sh
 cmd=$1
+if [ -n "${FR_SNOOP_MATCH:-}" ]; then
+    case "$cmd" in
+        *"$FR_SNOOP_MATCH"*) echo "$(readlink "$FR_SNOOP_LINK" 2>/dev/null || echo none)" >>"$FR_SNOOP_OUT" ;;
+    esac
+fi
+if [ -n "${FR_SLEEP_MATCH:-}" ]; then
+    case "$cmd" in
+        *"$FR_SLEEP_MATCH"*) : >"$FR_SLEEP_FLAG"; sleep "$FR_SLEEP_S" ;;
+    esac
+fi
 if [ -n "${FR_DROP_MATCH:-}" ]; then
     case "$cmd" in
         *"$FR_DROP_MATCH"*)
@@ -371,28 +395,6 @@ has_after_rows() {
         + (SELECT count(*) FROM counters WHERE label = 'after build') = 5;"
 }
 
-# Every table of the swapped-in FILE matches the pre-swap FILE2 on the rows
-# that are kept (rowid above the manifest's cut for the pruned tables).
-same_kept_rows() {
-    _new=$1
-    _old=$2
-    _man=$3
-    for _t in $(q "$_old" "SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY name;"); do
-        _cut=$(sed -n "s/^table\\.$_t\\.cut_rowid=//p" "$_man")
-        if [ -n "$_cut" ]; then
-            _sql="SELECT rowid, * FROM \"$_t\" WHERE rowid > $_cut ORDER BY rowid;"
-            _below=$(q "$_new" "SELECT count(*) FROM \"$_t\" WHERE rowid <= $_cut;")
-            [ "$_below" = 0 ] || { echo "    $_t: $_below rows at or below the cut"; return 1; }
-        else
-            _sql="SELECT * FROM \"$_t\" ORDER BY 1, 2;"
-        fi
-        if [ "$(q "$_new" "$_sql")" != "$(q "$_old" "$_sql")" ]; then
-            echo "    $_t: kept rows differ"
-            return 1
-        fi
-    done
-}
-
 # ---- runners -----------------------------------------------------------------
 # Each test runs in its own directory $T with PB_DATA_DIR=$D. The host has no
 # /proc, so the swap looks for open files in a fake one, $T/proc, made by the
@@ -404,7 +406,7 @@ fake_open() {
 }
 
 run_build() {
-    env PB_DATA_DIR="$D" PB_COMPACT_CHUNK_ROWS=100 PB_COMPACT_PAUSE_S=0 PB_COMPACT_MIN_FREE_MB=1 \
+    env PB_DATA_DIR="$D" PB_COMPACT_OUT_DIR="$D/compact" PB_COMPACT_CHUNK_ROWS=100 PB_COMPACT_PAUSE_S=0 PB_COMPACT_MIN_FREE_MB=1 \
         PB_COMPACT_HEADROOM_MB=1 "$@" "$TSH" "$SCRIPTS/compact-build.sh" >>"$T/build.out" 2>&1
 }
 
@@ -474,15 +476,17 @@ setup_built() {
 # A plain build, swap and rollback all work (regression guard).
 t_swap_happy_path() {
     setup_built || { bad "setup"; return; }
+    cp "$D/compact/data.db.new" "$T/new-before-swap.db"
     cp "$D/data.db" "$T/live-before-swap.db"
     boot PB_COMPACT_SWAP=1
     check "boot exits 0" eq "$BOOT_RC" 0
     check "pocketbase started" eq "$PB_STARTED" 1
     check "swap logged success" grep_q "COMPACTION SWAPPED IN" "$T/boot.out"
-    check "data.db holds the writes made after the build" eq "$(has_after_rows "$D/data.db")" 1
+    check "by design, the writes made after the build are not in data.db" eq "$(has_after_rows "$D/data.db")" 0
+    check "they are in the old file" eq "$(has_after_rows "$(first "$D"/data.db.pre-compact-*)")" 1
     _man=$(first "$D"/compact/manifest.done-*)
     check "manifest marked done" present "$_man"
-    check "kept rows equal the live file" same_kept_rows "$D/data.db" "$T/live-before-swap.db" "$_man"
+    check "data.db is the build's file, row for row" same_db "$D/data.db" "$T/new-before-swap.db"
     check "sqlite_sequence has one row per table" eq "$(q "$D/data.db" "SELECT count(*) - count(DISTINCT name) FROM sqlite_sequence;")" 0
     check "integrity ok" eq "$(q "$D/data.db" "PRAGMA integrity_check;")" ok
     sleep 1
@@ -609,19 +613,19 @@ t_rollback_is_one_shot() {
 # MUST FIX "sqlite_sequence": live sqlite_sequence rowids have a gap. The
 # swap copies it without rowids, so it must check it without rowids too.
 t_swap_sqlite_sequence_rowid_gap() {
-    setup_built seqgap || { bad "setup"; return; }
+    make_db "$D/data.db" live seqgap
+    run_build || { bad "setup: build failed"; return; }
     run_swap PB_COMPACT_SWAP=1
     check "swap succeeded" grep_q "COMPACTION SWAPPED IN" "$T/swap.out"
-    check "data.db holds the writes made after the build" eq "$(has_after_rows "$D/data.db")" 1
     check "sqlite_sequence matches" eq "$(q "$D/data.db" "SELECT group_concat(name || '=' || seq, ',') FROM (SELECT * FROM sqlite_sequence ORDER BY name);")" \
         "$(q "$(first "$D"/data.db.pre-compact-*)" "SELECT group_concat(name || '=' || seq, ',') FROM (SELECT * FROM sqlite_sequence ORDER BY name);")"
 }
 
-# MUST FIX "NEW_DB-wal": a reader holds a read transaction on the new file
-# across the delta copy, so its WAL cannot be folded in. The swap must stop
-# and must not delete that WAL (and with it the verified delta rows). The
-# fake /proc does not list the reader, so this is the checkpoint's guard,
-# not the open-file check's.
+# MUST FIX "NEW_DB-wal": during the swap's checks, a reader holds a read
+# transaction on the new file and another process commits a row into the
+# new file's WAL, so that WAL cannot be folded in. The swap must stop and
+# must not delete that WAL. The fake /proc does not list the reader, so this
+# is the checkpoint's guard, not the open-file check's.
 t_swap_new_wal_not_discarded() {
     setup_built || { bad "setup"; return; }
     cat >"$T/hook.sh" <<EOF
@@ -632,6 +636,7 @@ echo \$! >"$T/holder.pid"
 echo \$! >"$T/keeper.pid"
 i=0
 while [ ! -s "$T/holder.out" ] && [ \$i -lt 100 ]; do sleep 0.1; i=\$((i + 1)); done
+"$TEST_REAL_SQLITE" "$D/compact/data.db.new" ".dbconfig no_ckpt_on_close on" "PRAGMA wal_autocheckpoint = 0;" "INSERT INTO kv VALUES ('late', 'x');"
 EOF
     run_swap PB_COMPACT_SWAP=1 SQ_HOOK_MATCH="data.db.new SELECT 'page_size='" SQ_HOOK_DONE="$T/hook.done" SQ_HOOK_CMD="sh $T/hook.sh"
     # The reader answered its SELECT inside BEGIN, so it held a read
@@ -643,33 +648,6 @@ EOF
     check "the new file's WAL was not deleted" present "$D/compact/data.db.new-wal"
     check "data.db holds the writes made after the build" eq "$(has_after_rows "$D/data.db")" 1
     check "data.db integrity ok" eq "$(q "$D/data.db" "PRAGMA integrity_check;")" ok
-}
-
-# MUST FIX "empty inventory": the table list query fails during the swap.
-# The swap must stop, not "verify" nothing and install a stale file.
-t_swap_empty_inventory_aborts() {
-    setup_built || { bad "setup"; return; }
-    run_swap PB_COMPACT_SWAP=1 SQ_FAIL_MATCH="SELECT name FROM sqlite_schema WHERE type = 'table' ORDER BY rowid;"
-    check "swap did not happen" absent "$(first "$D"/data.db.pre-compact-*)"
-    check "data.db holds the writes made after the build" eq "$(has_after_rows "$D/data.db")" 1
-}
-
-# MUST FIX "comparison checks": the content hash query fails on both sides.
-# Two empty results must not count as a match.
-t_swap_failing_hash_query_aborts() {
-    setup_built || { bad "setup"; return; }
-    run_swap PB_COMPACT_SWAP=1 SQ_FAIL_MATCH="sha3_query('SELECT rowid,* FROM \"users\""
-    check "swap did not happen" absent "$(first "$D"/data.db.pre-compact-*)"
-    check "data.db holds the writes made after the build" eq "$(has_after_rows "$D/data.db")" 1
-}
-
-# MUST FIX "comparison checks": the query that tells whether a table has an
-# `updated` column fails. An empty answer must not pick a delta method.
-t_swap_failing_column_query_aborts() {
-    setup_built || { bad "setup"; return; }
-    run_swap PB_COMPACT_SWAP=1 SQ_FAIL_MATCH="WHERE name = 'updated'"
-    check "swap did not happen" absent "$(first "$D"/data.db.pre-compact-*)"
-    check "data.db holds the writes made after the build" eq "$(has_after_rows "$D/data.db")" 1
 }
 
 # A bad PB_COMPACT_CUTOVER_CHECK is refused before any work, and does not
@@ -717,7 +695,7 @@ t_build_lock_without_pid_not_taken_over() {
 # MUST FIX "locking": two builds started together; exactly one runs.
 t_build_concurrent_one_runs() {
     make_db "$D/data.db" live
-    env PB_DATA_DIR="$D" PB_COMPACT_CHUNK_ROWS=100 PB_COMPACT_PAUSE_S=0.2 PB_COMPACT_MIN_FREE_MB=1 \
+    env PB_DATA_DIR="$D" PB_COMPACT_OUT_DIR="$D/compact" PB_COMPACT_CHUNK_ROWS=100 PB_COMPACT_PAUSE_S=0.2 PB_COMPACT_MIN_FREE_MB=1 \
         PB_COMPACT_HEADROOM_MB=1 "$TSH" "$SCRIPTS/compact-build.sh" >"$T/a.out" 2>&1 &
     _a=$!
     sleep 1
@@ -726,7 +704,7 @@ t_build_concurrent_one_runs() {
     wait "$_a"
     _arc=$?
     check "second build refused" ne "$_brc" 0
-    check "refusal says another build is running" grep_q "another build is running" "$T/build.out"
+    check "refusal says another build is running" grep_q "another build or push is running" "$T/build.out"
     check "first build finished" eq "$_arc" 0
     check "manifest present" present "$D/compact/manifest"
     check "new file integrity ok" eq "$(q "$D/compact/data.db.new" "PRAGMA integrity_check;")" ok
@@ -918,7 +896,7 @@ t_swap_killed_after_second_rename() {
     swap_kill_boot MV_KILL_AFTER_SRC="*/compact/data.db.new" || { bad "setup"; return; }
     check "the swap is reported complete" grep_q "the swap is complete" "$T/boot.out"
     check "data.db is the compacted file" eq "$(is_pre_swap_live "$D/data.db")" 0
-    check "data.db holds the writes made after the build" eq "$(has_after_rows "$D/data.db")" 1
+    check "by design, the writes made after the build are not in data.db" eq "$(has_after_rows "$D/data.db")" 0
     check "the old file is kept" eq "$(is_pre_swap_live "$(first "$D"/data.db.pre-compact-*)")" 1
     check "manifest marked done" present "$(first "$D"/compact/manifest.done-*)"
 }
@@ -1033,61 +1011,8 @@ t_rollback_checkpoints_incoming_wal() {
     check "no -wal or -shm without its file" no_orphan_sidecars
 }
 
-# ---- tests: rowid reuse and the snapshot top row --------------------------------
-
 manifest_value() {
     sed -n "s/^$1=//p" "$D/compact/manifest"
-}
-
-# Every probe_runs row from just below the cut up is deleted after the build,
-# then a new row is written: SQLite gives it a rowid at or below the cut. The
-# swap copies a mutable table above the cut only, so it would drop that row.
-# It must refuse instead.
-t_swap_mutable_rowid_reuse_refused() {
-    make_db "$D/data.db" live
-    run_build || { bad "setup: build failed"; return; }
-    _cut=$(manifest_value 'table\.probe_runs\.cut_rowid')
-    "$TEST_REAL_SQLITE" "$D/data.db" "DELETE FROM probe_runs WHERE rowid > $_cut - 10;
-        INSERT INTO probe_runs (id, created, updated, state) VALUES ('pr-reused',
-        strftime('%Y-%m-%d %H:%M:%f', 'now') || 'Z', strftime('%Y-%m-%d %H:%M:%f', 'now') || 'Z', 'new');"
-    _r=$(q "$D/data.db" "SELECT rowid FROM probe_runs WHERE id = 'pr-reused';")
-    check "setup: the new row reused a rowid at or below the cut ($_r <= $_cut)" test "$_r" -le "$_cut"
-    run_swap PB_COMPACT_SWAP=1
-    check "swap did not happen" absent "$(first "$D"/data.db.pre-compact-*)"
-    check "the reason is logged" grep_q "probe_runs rowid $_r .* its rowid was reused" "$T/swap.out"
-    check "data.db still has the new row" eq "$(q "$D/data.db" "SELECT count(*) FROM probe_runs WHERE id = 'pr-reused';")" 1
-}
-
-# The same on an insert-only table, now that a missing snapshot top row is
-# allowed (see the next test): a reused rowid must still be refused.
-t_swap_append_rowid_reuse_refused() {
-    make_db "$D/data.db" live
-    run_build || { bad "setup: build failed"; return; }
-    _cut=$(manifest_value 'table\.status_history\.cut_rowid')
-    "$TEST_REAL_SQLITE" "$D/data.db" "DELETE FROM status_history WHERE rowid > $_cut - 10;
-        INSERT INTO status_history (id, created, updated, data) VALUES ('sh-reused',
-        strftime('%Y-%m-%d %H:%M:%f', 'now') || 'Z', strftime('%Y-%m-%d %H:%M:%f', 'now') || 'Z', 'new');"
-    run_swap PB_COMPACT_SWAP=1
-    check "swap did not happen" absent "$(first "$D"/data.db.pre-compact-*)"
-    check "the reason is logged" grep_q "status_history rowid .* its rowid was reused" "$T/swap.out"
-    check "data.db still has the new row" eq "$(q "$D/data.db" "SELECT count(*) FROM status_history WHERE id = 'sh-reused';")" 1
-}
-
-# A quiet insert-only table: its newest row at the build is close to the
-# window edge, and the retention hook deletes it before the swap. That is a
-# legitimate delete in the band the swap allows for; the swap must go on.
-t_swap_snapshot_top_aged_out() {
-    make_db "$D/data.db" live
-    # Shift status_history so its newest row is 5 minutes inside the window.
-    "$TEST_REAL_SQLITE" "$D/data.db" "UPDATE status_history SET created =
-        strftime('%Y-%m-%d %H:%M:%f', substr(created, 1, 23), '-2591640 seconds') || 'Z';"
-    run_build || { bad "setup: build failed"; tail -5 "$T/build.out"; return; }
-    _snap=$(manifest_value 'table\.status_history\.snapshot_max_rowid')
-    "$TEST_REAL_SQLITE" "$D/data.db" "DELETE FROM status_history WHERE rowid = $_snap;"
-    cp "$D/data.db" "$T/live-before-swap.db"
-    run_swap PB_COMPACT_SWAP=1
-    check "swap succeeded" grep_q "COMPACTION SWAPPED IN" "$T/swap.out"
-    check "kept rows equal the live file" same_kept_rows "$D/data.db" "$T/live-before-swap.db" "$(first "$D"/compact/manifest.done-*)"
 }
 
 # ---- tests: checks that must not pass when they cannot look -------------------
@@ -1155,7 +1080,7 @@ t_build_classifies_once() {
         SQ_FAIL_SKIP=1 SQ_FAIL_COUNT="$T/class.n"
     check "build succeeded" present "$D/compact/manifest"
     check "status_history was classified once" eq "$(cat "$T/class.n")" 1
-    check "the snapshot id of status_history is recorded" is_set "$(manifest_value 'table\.status_history\.snapshot_id')"
+    check "the class of status_history is recorded" eq "$(manifest_value 'table\.status_history\.class')" append
 }
 
 # The list of SQLite's own tables cannot be read: the build must stop and
@@ -1165,15 +1090,6 @@ t_build_sqlite_tables_query_failure() {
     run_build SQ_FAIL_MATCH="type = 'table' AND name LIKE 'sqlite"
     check "no manifest" absent "$D/compact/manifest"
     check "the reason is logged" grep_q "could not list SQLite's own tables" "$T/build.out"
-}
-
-# pb_time fails during the swap: the swap must stop and say so, not use an
-# empty time.
-t_swap_time_failure_refused() {
-    setup_built || { bad "setup"; return; }
-    run_swap PB_COMPACT_SWAP=1 SQ_FAIL_MATCH="unixepoch"
-    check "swap did not happen" absent "$(first "$D"/data.db.pre-compact-*)"
-    check "the reason is logged" grep_q "could not compute the" "$T/swap.out"
 }
 
 # ---- tests: build lock and manifest -----------------------------------------------
@@ -1296,25 +1212,6 @@ t_swap_shorter_window_allowed() {
     check "swap succeeded" grep_q "COMPACTION SWAPPED IN" "$T/swap.out"
 }
 
-# A row written after the build reuses a rowid below the cut and has a NULL
-# `created`. The NULL must not blank the check's result and let it pass:
-# the swap must refuse.
-t_swap_rowid_reuse_null_created_refused() {
-    make_db "$D/data.db" live
-    "$TEST_REAL_SQLITE" "$D/data.db" "PRAGMA writable_schema = ON; UPDATE sqlite_schema SET sql =
-        replace(sql, 'created TEXT DEFAULT \"\" NOT NULL', 'created TEXT DEFAULT \"\"') WHERE name = 'probe_runs';" >/dev/null
-    run_build || { bad "setup: build failed"; tail -5 "$T/build.out"; return; }
-    _cut=$(manifest_value 'table\.probe_runs\.cut_rowid')
-    "$TEST_REAL_SQLITE" "$D/data.db" "DELETE FROM probe_runs WHERE rowid > $_cut - 10;
-        INSERT INTO probe_runs (id, created, updated, state) VALUES ('pr-null', NULL, '', 'new');"
-    _r=$(q "$D/data.db" "SELECT rowid FROM probe_runs WHERE id = 'pr-null';")
-    check "setup: the new row reused a rowid at or below the cut ($_r <= $_cut)" test "$_r" -le "$_cut"
-    run_swap PB_COMPACT_SWAP=1
-    check "swap did not happen" absent "$(first "$D"/data.db.pre-compact-*)"
-    check "the reason is logged" grep_q "probe_runs rowid $_r .*has a NULL created" "$T/swap.out"
-    check "data.db still has the new row" eq "$(q "$D/data.db" "SELECT count(*) FROM probe_runs WHERE id = 'pr-null';")" 1
-}
-
 # The first rename leaves both paths (its result is unclear). Recovery finds
 # data.db in place and leaves it; the boot must not then claim data.db is
 # missing and stop.
@@ -1334,7 +1231,7 @@ t_cutover_unclear_rename_recovered_boots() {
 run_build_bounded() {
     _secs=$1
     shift
-    env PB_DATA_DIR="$D" PB_COMPACT_CHUNK_ROWS=100 PB_COMPACT_PAUSE_S=0 PB_COMPACT_MIN_FREE_MB=1 \
+    env PB_DATA_DIR="$D" PB_COMPACT_OUT_DIR="$D/compact" PB_COMPACT_CHUNK_ROWS=100 PB_COMPACT_PAUSE_S=0 PB_COMPACT_MIN_FREE_MB=1 \
         PB_COMPACT_HEADROOM_MB=1 "$@" "$TSH" "$SCRIPTS/compact-build.sh" >>"$T/build.out" 2>&1 &
     _bpid=$!
     _i=0
@@ -1419,98 +1316,11 @@ t_build_cleanup_reports_what_is_left() {
 # The cleanup must still run to the end and release the lock.
 t_build_cleanup_survives_log_failure() {
     make_db "$D/data.db" live
-    env PB_DATA_DIR="$D" PB_COMPACT_CHUNK_ROWS=100 PB_COMPACT_PAUSE_S=0 PB_COMPACT_MIN_FREE_MB=1 \
+    env PB_DATA_DIR="$D" PB_COMPACT_OUT_DIR="$D/compact" PB_COMPACT_CHUNK_ROWS=100 PB_COMPACT_PAUSE_S=0 PB_COMPACT_MIN_FREE_MB=1 \
         PB_COMPACT_HEADROOM_MB=1 "$TSH" "$SCRIPTS/compact-build.sh" 2>>"$T/build.out" >&-
     check "build failed" ne "$?" 0
     check "the lock is released" no_path "$D/compact/build.lock"
     check "no manifest" absent "$D/compact/manifest"
-}
-
-# ---- tests: the cutover delta ------------------------------------------------------
-# The cutover copies only what changed since the build snapshot. These write
-# to the live file the way PocketBase does (a changed row gets a new
-# `updated`), then swap.
-
-now_pb() {
-    echo "strftime('%Y-%m-%d %H:%M:%f', 'now') || 'Z'"
-}
-
-# Updates, deletes and inserts after the build, to rows that existed before
-# the snapshot, in a whole table and a mutable one, all reach the new file.
-t_swap_delta_carries_changes() {
-    make_db "$D/data.db" live
-    run_build || { bad "setup: build failed"; return; }
-    "$TEST_REAL_SQLITE" "$D/data.db" >/dev/null <<SQL
-UPDATE jobs SET status = 'done', updated = $(now_pb) WHERE id IN ('j3', 'j40');
-DELETE FROM jobs WHERE id = 'j7';
-INSERT INTO jobs (id, created, updated, status) VALUES ('j-new', $(now_pb), $(now_pb), 'queued');
-UPDATE probe_runs SET state = 'reopened', updated = $(now_pb) WHERE id = 'pr1000';
-DELETE FROM probe_runs WHERE id = 'pr1200';
-SQL
-    cp "$D/data.db" "$T/live-before-swap.db"
-    boot PB_COMPACT_SWAP=1
-    check "swap logged success" grep_q "COMPACTION SWAPPED IN" "$T/boot.out"
-    check "updated pre-snapshot rows carried over" eq "$(q "$D/data.db" "SELECT group_concat(status) FROM (SELECT status FROM jobs WHERE id IN ('j3', 'j40') ORDER BY id);")" "done,done"
-    check "a deleted pre-snapshot row is gone" eq "$(q "$D/data.db" "SELECT count(*) FROM jobs WHERE id = 'j7';")" 0
-    check "a new row is there" eq "$(q "$D/data.db" "SELECT count(*) FROM jobs WHERE id = 'j-new';")" 1
-    check "mutable: the reopened run carried over" eq "$(q "$D/data.db" "SELECT state FROM probe_runs WHERE id = 'pr1000';")" reopened
-    check "mutable: the deleted run is gone" eq "$(q "$D/data.db" "SELECT count(*) FROM probe_runs WHERE id = 'pr1200';")" 0
-    _man=$(first "$D"/compact/manifest.done-*)
-    check "kept rows equal the live file" same_kept_rows "$D/data.db" "$T/live-before-swap.db" "$_man"
-    check "integrity ok" eq "$(q "$D/data.db" "PRAGMA integrity_check;")" ok
-    check "the log counts the changed rows" grep_q "rows changed since it" "$T/boot.out"
-}
-
-# The cutover does not copy unchanged tables again: no full-table delete in
-# its SQL, and no full-file check by default.
-t_swap_delta_copies_only_changes() {
-    setup_built || { bad "setup"; return; }
-    boot PB_COMPACT_SWAP=1
-    check "swap logged success" grep_q "COMPACTION SWAPPED IN" "$T/boot.out"
-    check "no whole-table delete of a table with updated" no_grep 'DELETE FROM main."jobs";' "$D/compact/cutover.sql"
-    check "no whole-table delete of a mutable table" no_grep 'DELETE FROM main."probe_runs" WHERE rowid > [0-9]*;$' "$D/compact/cutover.sql"
-    check "no integrity_check by default" grep_q "(check: none)" "$T/boot.out"
-}
-
-# A row written after the build at a reused rowid (the top row was deleted
-# first) in a whole table is carried over, not lost.
-t_swap_delta_reused_rowid_whole_table() {
-    make_db "$D/data.db" live
-    run_build || { bad "setup: build failed"; return; }
-    "$TEST_REAL_SQLITE" "$D/data.db" >/dev/null <<SQL
-DELETE FROM jobs WHERE id = 'j50';
-INSERT INTO jobs (id, created, updated, status) VALUES ('j-reused', $(now_pb), $(now_pb), 'queued');
-SQL
-    check "setup: the new row reused the rowid" eq "$(q "$D/data.db" "SELECT rowid FROM jobs WHERE id = 'j-reused';")" 50
-    boot PB_COMPACT_SWAP=1
-    check "swap logged success" grep_q "COMPACTION SWAPPED IN" "$T/boot.out"
-    check "the row at the reused rowid is the new one" eq "$(q "$D/data.db" "SELECT id FROM jobs WHERE rowid = 50;")" j-reused
-    check "the deleted row is gone" eq "$(q "$D/data.db" "SELECT count(*) FROM jobs WHERE id = 'j50';")" 0
-}
-
-# A table without `updated` (users here, _migrations in PocketBase) is
-# compared by hash and copied again when it changed.
-t_swap_delta_table_without_updated() {
-    make_db "$D/data.db" live
-    run_build || { bad "setup: build failed"; return; }
-    "$TEST_REAL_SQLITE" "$D/data.db" "UPDATE users SET email = 'changed@example.com' WHERE id = 'u5';" >/dev/null
-    boot PB_COMPACT_SWAP=1
-    check "swap logged success" grep_q "COMPACTION SWAPPED IN" "$T/boot.out"
-    check "it said the table differs" grep_q "table users differs from live" "$T/boot.out"
-    check "the change carried over" eq "$(q "$D/data.db" "SELECT email FROM users WHERE id = 'u5';")" changed@example.com
-}
-
-# The new file is missing a row the live file had at the snapshot: the range
-# check catches it and nothing is swapped.
-t_swap_delta_missing_row_refused() {
-    setup_built || { bad "setup"; return; }
-    "$TEST_REAL_SQLITE" "$D/compact/data.db.new" "DELETE FROM jobs WHERE id = 'j20';" >/dev/null
-    boot PB_COMPACT_SWAP=1
-    check "boot exits 0" eq "$BOOT_RC" 0
-    check "no swap" no_grep "COMPACTION SWAPPED IN" "$T/boot.out"
-    check "the range check named the table" grep_q "jobs|range|49|50" "$T/boot.out"
-    check "data.db is the old file with every row" eq "$(has_after_rows "$D/data.db")" 1
-    check "manifest burned" present "$(first "$D"/compact/manifest.failed-*)"
 }
 
 # ---- tests: off-box build and push ---------------------------------------------
@@ -1548,7 +1358,8 @@ same_db() {
 # The manifest lines that do not depend on when or where the build ran (the
 # cutoff times move with the clock; the cut rowids must not).
 manifest_core() {
-    grep -v -e '^built_at=' -e '^build_seconds=' -e '^snapshot_s=' -e '^sha256=' -e '^new_size=' -e '\.cutoff_s=' -e '\.cutoff=' "$1"
+    grep -v -e '^built_at=' -e '^build_seconds=' -e '^snapshot_s=' -e '^sha256=' -e '^new_size=' -e '^new_sha256=' \
+        -e '^new_fingerprint=' -e '\.cutoff_s=' -e '\.cutoff=' "$1"
 }
 
 # The off-box build makes the same file content and manifest as an on-box
@@ -1567,8 +1378,8 @@ t_remote_build_matches_local() {
     check "nothing was written next to the live file" eq "$(count_db_files "$D"/compact/segment*)" 0
 }
 
-# Off-box build, push, then the unchanged swap at boot: the swapped-in file
-# holds every kept row and the writes made after the build.
+# Off-box build, push, then the swap at boot: the swapped-in file is the
+# build's file; the writes made after the build stay in the old file.
 t_remote_build_push_swap() {
     make_db "$D/data.db" live
     run_remote_build || { bad "setup: off-box build failed"; return; }
@@ -1579,13 +1390,12 @@ t_remote_build_push_swap() {
     check "the manifest is on the box" eq "$(cmp "$T/off/compact/manifest" "$D/compact/manifest" && echo same)" same
     check "no upload left behind" absent "$D/compact/data.db.new.upload"
     check "no piece left in the box's temp directory" eq "$(count_db_files "$T"/boxtmp/*)" 0
-    cp "$D/data.db" "$T/live-before-swap.db"
+    cp "$D/compact/data.db.new" "$T/new-before-swap.db"
     boot PB_COMPACT_SWAP=1
     check "boot exits 0" eq "$BOOT_RC" 0
     check "swap logged success" grep_q "COMPACTION SWAPPED IN" "$T/boot.out"
-    check "data.db holds the writes made after the build" eq "$(has_after_rows "$D/data.db")" 1
-    _man=$(first "$D"/compact/manifest.done-*)
-    check "kept rows equal the live file" same_kept_rows "$D/data.db" "$T/live-before-swap.db" "$_man"
+    check "by design, the writes made after the build are not in data.db" eq "$(has_after_rows "$D/data.db")" 0
+    check "data.db is the build's file, row for row" same_db "$D/data.db" "$T/new-before-swap.db"
     check "integrity ok" eq "$(q "$D/data.db" "PRAGMA integrity_check;")" ok
 }
 
@@ -1609,6 +1419,7 @@ t_remote_build_rejects_changed_rows() {
     check "the hash check caught it" grep_q "do not hash the same" "$T/build.out"
     check "no manifest" absent "$T/off/compact/manifest"
     check "no new file" absent "$T/off/compact/data.db.new"
+    check "no segment file left behind" eq "$(count_paths "$T"/off/compact/segment*)" 0
 }
 
 # A push that stops part way resumes: the pieces already on the box are not
@@ -1617,7 +1428,7 @@ t_push_resumes() {
     make_db "$D/data.db" live
     "$TEST_REAL_SQLITE" "$D/data.db" "CREATE TABLE pad (b BLOB); INSERT INTO pad VALUES (randomblob(1500000)), (randomblob(1500000));" >/dev/null
     run_remote_build || { bad "setup: off-box build failed"; return; }
-    run_push FR_FAIL_MATCH="pb-compact-piece.raw" FR_FAIL_SKIP=1 FR_FAIL_COUNT="$T/fail.n"
+    run_push FR_FAIL_MATCH="conv=notrunc,fsync" FR_FAIL_SKIP=1 FR_FAIL_COUNT="$T/fail.n"
     check "the first push fails" ne "$?" 0
     check "no manifest on the box" absent "$D/compact/manifest"
     check "no new file on the box" absent "$D/compact/data.db.new"
@@ -1635,7 +1446,7 @@ t_push_resumes() {
 t_push_retries_lost_connection() {
     make_db "$D/data.db" live
     run_remote_build || { bad "setup: off-box build failed"; return; }
-    run_push FR_DROP_MATCH="pb-compact-piece.gz" FR_DROP_TIMES=1 FR_DROP_COUNT="$T/drop.n"
+    run_push FR_DROP_MATCH="pb-compact-piece.0.gz" FR_DROP_TIMES=1 FR_DROP_COUNT="$T/drop.n"
     check "push exits 0" eq "$?" 0
     check "one send broke off" eq "$(cat "$T/drop.n")" 1
     check "the new file is on the box" eq "$(cmp "$T/off/compact/data.db.new" "$D/compact/data.db.new" && echo same)" same
@@ -1652,7 +1463,7 @@ t_push_refuses_running_build() {
     ln -s "$(cat "$T/holder.pid")" "$D/compact/build.lock"
     run_push
     check "push fails" ne "$?" 0
-    check "it names the build" grep_q "a compaction build runs on the box" "$T/push.out"
+    check "it names the build" grep_q "another build or push runs on the box (held by $(cat "$T/holder.pid"))" "$T/push.out"
     check "the manifest on the box is untouched" eq "$(cat "$D/compact/manifest")" "older manifest"
     check "nothing was uploaded" absent "$D/compact/data.db.new.upload"
 }
@@ -1666,6 +1477,362 @@ t_push_refuses_changed_schema() {
     check "push fails" ne "$?" 0
     check "it names the schema" grep_q "live schema changed since the build" "$T/push.out"
     check "nothing was uploaded" absent "$D/compact/data.db.new.upload"
+}
+
+# ---- tests: the cutover is a rename of the build's snapshot -----------------------
+# The swap copies nothing into the new file. Rows written to the live file
+# after the build snapshot are not in data.db afterwards, by design; they
+# stay in data.db.pre-compact-*.
+
+now_pb() {
+    echo "strftime('%Y-%m-%d %H:%M:%f', 'now') || 'Z'"
+}
+
+# Inserts, updates and deletes after the build do not reach the swapped-in
+# file: it is the build's file as it was, and nothing was copied.
+t_swap_copies_nothing_after_snapshot() {
+    make_db "$D/data.db" live
+    run_build || { bad "setup: build failed"; return; }
+    mutate_live
+    "$TEST_REAL_SQLITE" "$D/data.db" >/dev/null <<SQL
+UPDATE jobs SET status = 'done', updated = $(now_pb) WHERE id = 'j3';
+INSERT INTO jobs (id, created, updated, status) VALUES ('j-new', $(now_pb), $(now_pb), 'queued');
+SQL
+    cp "$D/compact/data.db.new" "$T/new-before-swap.db"
+    boot PB_COMPACT_SWAP=1
+    check "swap logged success" grep_q "COMPACTION SWAPPED IN" "$T/boot.out"
+    check "data.db is the build's file, row for row" same_db "$D/data.db" "$T/new-before-swap.db"
+    check "a row inserted after the build is not there" eq "$(q "$D/data.db" "SELECT count(*) FROM jobs WHERE id = 'j-new';")" 0
+    check "a row updated after the build has its snapshot value" eq "$(q "$D/data.db" "SELECT status FROM jobs WHERE id = 'j3';")" queued
+    check "the writes made after the build are not there" eq "$(has_after_rows "$D/data.db")" 0
+    check "they are in the old file" eq "$(has_after_rows "$(first "$D"/data.db.pre-compact-*)")" 1
+    check "no delta SQL was written" absent "$D/compact/cutover.sql"
+}
+
+# The data.db.new in place is another build's file (an older build, here),
+# paired with the newer build's manifest. The swap must refuse before it
+# touches anything.
+t_swap_refuses_another_builds_file() {
+    make_db "$D/data.db" live
+    run_build || { bad "setup: first build failed"; return; }
+    cp "$D/compact/data.db.new" "$T/first.db"
+    mutate_live
+    run_build || { bad "setup: second build failed"; return; }
+    cp "$T/first.db" "$D/compact/data.db.new"
+    rm -f "$D/compact/data.db.new-wal" "$D/compact/data.db.new-shm"
+    boot PB_COMPACT_SWAP=1
+    check "boot exits 0" eq "$BOOT_RC" 0
+    check "no swap" no_grep "COMPACTION SWAPPED IN" "$T/boot.out"
+    check "the reason names the file" grep_q "it is not the file this manifest names" "$T/boot.out"
+    check "data.db is the live file with every row" eq "$(has_after_rows "$D/data.db")" 1
+    check "manifest burned" present "$(first "$D"/compact/manifest.failed-*)"
+}
+
+# The same size, different bytes: the size check alone would pass.
+t_swap_refuses_same_size_other_bytes() {
+    setup_built || { bad "setup"; return; }
+    _size=$(wc -c <"$D/compact/data.db.new")
+    # Header bytes 96-99 hold the SQLite version that wrote the file; the
+    # file still opens with any value there.
+    printf '\001\002\003\004' | dd of="$D/compact/data.db.new" bs=1 seek=96 conv=notrunc 2>/dev/null
+    check "setup: same size" eq "$(wc -c <"$D/compact/data.db.new")" "$_size"
+    check "setup: still a database" eq "$(q "$D/compact/data.db.new" "SELECT count(*) > 0 FROM users;")" 1
+    rm -f "$D/compact/data.db.new-wal" "$D/compact/data.db.new-shm"
+    boot PB_COMPACT_SWAP=1
+    check "no swap" no_grep "COMPACTION SWAPPED IN" "$T/boot.out"
+    check "the fingerprint check named it" grep_q "has fingerprint .* it is not the file this manifest names" "$T/boot.out"
+    check "data.db is the live file with every row" eq "$(has_after_rows "$D/data.db")" 1
+}
+
+# The build records the file's identity for the swap, on the box too.
+t_build_records_identity() {
+    make_db "$D/data.db" live
+    run_build || { bad "setup: build failed"; return; }
+    check "new_sha256 is the file's sha256" eq "$(manifest_value new_sha256)" "$(sha256sum <"$D/compact/data.db.new" | cut -d' ' -f1)"
+    check "new_fingerprint is recorded" is_set "$(manifest_value new_fingerprint)"
+}
+
+# sha256sum missing: say so, not "checksum mismatch".
+t_swap_missing_sha256sum_named() {
+    setup_built || { bad "setup"; return; }
+    run_swap PB_COMPACT_SWAP=1 NO_SHA256SUM=1
+    check "swap did not happen" absent "$(first "$D"/data.db.pre-compact-*)"
+    check "the missing tool is named" grep_q "sha256sum is not installed" "$T/swap.out"
+}
+
+# The live schema changed after the build: the difference goes to stderr,
+# where log pipelines look, not stdout.
+t_swap_schema_diff_on_stderr() {
+    setup_built || { bad "setup"; return; }
+    "$TEST_REAL_SQLITE" "$D/data.db" "CREATE TABLE added_later (x);" >/dev/null
+    env PB_DATA_DIR="$D" PB_COMPACT_PROC_DIR="$T/proc" PB_COMPACT_SWAP=1 "$TSH" "$SCRIPTS/compact-swap.sh" >"$T/swap.stdout" 2>"$T/swap.stderr"
+    check "swap did not happen" absent "$(first "$D"/data.db.pre-compact-*)"
+    check "the diff is on stderr" grep_q "added_later" "$T/swap.stderr"
+    check "and not on stdout" no_grep "added_later" "$T/swap.stdout"
+}
+
+# The schema listing for that diff fails: say so.
+t_swap_schema_list_failure_reported() {
+    setup_built || { bad "setup"; return; }
+    "$TEST_REAL_SQLITE" "$D/data.db" "CREATE TABLE added_later (x);" >/dev/null
+    run_swap PB_COMPACT_SWAP=1 SQ_FAIL_MATCH="ORDER BY type, name;"
+    check "swap did not happen" absent "$(first "$D"/data.db.pre-compact-*)"
+    check "the failed listing is reported" grep_q "could not list the schemas" "$T/swap.out"
+}
+
+# PB_COMPACT_REMOTE left in the service env does not reach the swap.
+t_swap_ignores_inherited_remote() {
+    setup_built || { bad "setup"; return; }
+    run_swap PB_COMPACT_SWAP=1 PB_COMPACT_REMOTE=false PB_COMPACT_REMOTE_DB=/nonexistent/data.db
+    check "swap succeeded" grep_q "COMPACTION SWAPPED IN" "$T/swap.out"
+}
+
+# A rollback whose outcome is unknown (all three files exist) is not left
+# recorded as done.
+t_recover_unknown_rollback_clears_done() {
+    make_db "$D/data.db" live
+    make_db "$D/data.db.rolled-back-20260101T000000Z" rolled
+    make_db "$D/data.db.pre-compact-20260101T000000Z" old
+    mkdir -p "$D/compact"
+    echo "rolled back at 20260101T000000Z" >"$D/compact/rollback.done"
+    printf 'rollback\n%s\n%s\n' "$D/data.db.rolled-back-20260101T000000Z" "$D/data.db.pre-compact-20260101T000000Z" >"$D/compact/swap-in-progress"
+    boot
+    check "boot exits 0" eq "$BOOT_RC" 0
+    check "data.db is unchanged" eq "$(ident "$D/data.db")" live
+    check "rollback.done removed" absent "$D/compact/rollback.done"
+    check "the log says why" grep_q "rollback's outcome is unknown" "$T/boot.out"
+}
+
+# A data directory whose path has ', #, ? and %: the read-only ATTACH of the
+# live file must open that file.
+t_build_odd_data_dir() {
+    _odd="$T/pb'da#ta?x%41"
+    mkdir -p "$_odd"
+    make_db "$_odd/data.db" live
+    env PB_DATA_DIR="$_odd" PB_COMPACT_OUT_DIR="$_odd/compact" PB_COMPACT_CHUNK_ROWS=100 PB_COMPACT_PAUSE_S=0 \
+        PB_COMPACT_MIN_FREE_MB=1 PB_COMPACT_HEADROOM_MB=1 "$TSH" "$SCRIPTS/compact-build.sh" >>"$T/build.out" 2>&1
+    check "build exits 0" eq "$?" 0
+    check "manifest written" present "$_odd/compact/manifest"
+    check "the rows came from the live file" eq "$(q "$_odd/compact/data.db.new" "SELECT v FROM kv WHERE k = 'identity';")" live
+}
+
+# A push token in build.lock holds off a build.
+t_build_respects_push_lock() {
+    make_db "$D/data.db" live
+    mkdir -p "$D/compact"
+    ln -s "push.$(($(date +%s) + 600)).other" "$D/compact/build.lock"
+    run_build
+    check "build refused" ne "$?" 0
+    check "it names the push" grep_q "another build or push is running (lock holder push\\." "$T/build.out"
+    check "no manifest" absent "$D/compact/manifest"
+}
+
+# ---- tests: the build in /tmp and the copy onto the volume -------------------------
+
+# The default target: the build writes in PB_COMPACT_OUT_DIR, then copies the
+# file onto the volume, where the swap finds it.
+t_build_tmp_out_dir_lands() {
+    make_db "$D/data.db" live
+    run_build PB_COMPACT_OUT_DIR="$T/tmpbuild"
+    check "build exits 0" eq "$?" 0
+    check "it says it copied onto the volume" grep_q "copied onto the volume in" "$T/build.out"
+    check "the manifest is on the volume" present "$D/compact/manifest"
+    check "the new file is on the volume" present "$D/compact/data.db.new"
+    check "it is the file the manifest names" eq "$(sha256sum <"$D/compact/data.db.new" | cut -d' ' -f1)" "$(manifest_value new_sha256)"
+    check "the /tmp copy is removed" absent "$T/tmpbuild/data.db.new"
+    check "the lock is released" no_path "$D/compact/build.lock"
+    boot PB_COMPACT_SWAP=1
+    check "swap logged success" grep_q "COMPACTION SWAPPED IN" "$T/boot.out"
+    check "integrity ok" eq "$(q "$D/data.db" "PRAGMA integrity_check;")" ok
+}
+
+# The copy onto the volume fails: the finished build is kept in /tmp, and
+# compact-push.sh copies it later.
+t_build_tmp_land_failure_keeps_build() {
+    make_db "$D/data.db" live
+    run_build PB_COMPACT_OUT_DIR="$T/tmpbuild" PB_COMPACT_PIECE_MB=3
+    check "build fails" ne "$?" 0
+    check "it says the copy failed" grep_q "copying it onto the volume failed" "$T/build.out"
+    check "the built file is kept" present "$T/tmpbuild/data.db.new"
+    check "no manifest on the volume" absent "$D/compact/manifest"
+    check "the lock is released" no_path "$D/compact/build.lock"
+    env PB_DATA_DIR="$D" PB_COMPACT_OUT_DIR="$T/tmpbuild" PB_COMPACT_MIN_FREE_MB=1 PB_COMPACT_WRITE_MBPS=1000 \
+        "$TSH" "$SCRIPTS/compact-push.sh" >>"$T/push.out" 2>&1
+    check "compact-push.sh copies it" eq "$?" 0
+    check "the manifest is on the volume" present "$D/compact/manifest"
+    check "the lock is released" no_path "$D/compact/build.lock"
+}
+
+# ---- tests: the push's write steps and lock ------------------------------------------
+# fake-remote's FR_DROP_MATCH runs the command to the end and then reports a
+# lost connection (exit 255): the step was done, the push did not hear so.
+
+# The manifest was published, then the connection dropped: the push reads the
+# state, sees it published, and succeeds.
+t_push_publish_drop_reads_state() {
+    make_db "$D/data.db" live
+    run_remote_build || { bad "setup: off-box build failed"; return; }
+    run_push FR_DROP_MATCH="echo published" FR_DROP_COUNT="$T/drop.n"
+    check "push exits 0" eq "$?" 0
+    check "the publish dropped once" eq "$(cat "$T/drop.n")" 1
+    check "it read the state" grep_q "done on the box all the same" "$T/push.out"
+    check "the manifest is on the box" eq "$(cmp "$T/off/compact/manifest" "$D/compact/manifest" && echo same)" same
+    check "no temp manifest left" absent "$D/compact/manifest.tmp"
+}
+
+# The file was put in place, then the connection dropped.
+t_push_place_drop_reads_state() {
+    make_db "$D/data.db" live
+    run_remote_build || { bad "setup: off-box build failed"; return; }
+    run_push FR_DROP_MATCH="echo placed" FR_DROP_COUNT="$T/drop.n"
+    check "push exits 0" eq "$?" 0
+    check "the new file is on the box" eq "$(cmp "$T/off/compact/data.db.new" "$D/compact/data.db.new" && echo same)" same
+    check "the manifest is on the box" present "$D/compact/manifest"
+}
+
+# A piece was written, then the connection dropped.
+t_push_piece_write_drop_reads_state() {
+    make_db "$D/data.db" live
+    run_remote_build || { bad "setup: off-box build failed"; return; }
+    run_push FR_DROP_MATCH="conv=notrunc,fsync" FR_DROP_COUNT="$T/drop.n"
+    check "push exits 0" eq "$?" 0
+    check "the write dropped once" eq "$(cat "$T/drop.n")" 1
+    check "the new file is on the box" eq "$(cmp "$T/off/compact/data.db.new" "$D/compact/data.db.new" && echo same)" same
+}
+
+# The push holds build.lock while it writes, and lets it go at the end.
+t_push_holds_lock() {
+    make_db "$D/data.db" live
+    run_remote_build || { bad "setup: off-box build failed"; return; }
+    run_push FR_SNOOP_MATCH="conv=notrunc,fsync" FR_SNOOP_LINK="$D/compact/build.lock" FR_SNOOP_OUT="$T/snoop"
+    check "push exits 0" eq "$?" 0
+    check "the lock was a push token while it wrote" grep_q "^push\\.[0-9]*\\." "$T/snoop"
+    check "the lock is released" no_path "$D/compact/build.lock"
+}
+
+# build.lock names a pid that is alive but a zombie (PocketBase, PID 1, does
+# not reap), or a pid reused by something else: neither holds the lock.
+push_with_stale_pid_lock() {
+    make_db "$D/data.db" live
+    run_remote_build || { bad "setup: off-box build failed"; return 1; }
+    sleep 60 &
+    echo $! >"$T/holder.pid"
+    _p=$(cat "$T/holder.pid")
+    mkdir -p "$T/proc/$_p" "$D/compact"
+    printf 'Name:\tsh\nState:\t%s\n' "$1" >"$T/proc/$_p/status"
+    # shellcheck disable=SC2086 # the words of the command line, on purpose
+    printf '%s\0' $2 >"$T/proc/$_p/cmdline"
+    ln -s "$_p" "$D/compact/build.lock"
+    run_push PB_COMPACT_PROC_DIR="$T/proc"
+}
+
+t_push_zombie_lock_taken_over() {
+    push_with_stale_pid_lock "Z (zombie)" "sh /usr/local/lib/pb-compact/compact-build.sh"
+    check "push exits 0" eq "$?" 0
+    check "it took over the stale lock" grep_q "took over a stale lock held by" "$T/push.out"
+    check "the manifest is on the box" present "$D/compact/manifest"
+}
+
+t_push_reused_pid_lock_taken_over() {
+    push_with_stale_pid_lock "S (sleeping)" "sleep 60"
+    check "push exits 0" eq "$?" 0
+    check "it took over the stale lock" grep_q "took over a stale lock held by" "$T/push.out"
+}
+
+# PB_COMPACT_PIECE_MB=0 is refused with a clear message.
+t_push_piece_mb_zero_refused() {
+    make_db "$D/data.db" live
+    run_remote_build || { bad "setup: off-box build failed"; return; }
+    run_push PB_COMPACT_PIECE_MB=0
+    check "push fails" ne "$?" 0
+    check "the setting is named" grep_q "must be at least 1" "$T/push.out"
+    check "nothing was uploaded" absent "$D/compact/data.db.new.upload"
+}
+
+t_push_missing_sha256sum_named() {
+    make_db "$D/data.db" live
+    run_remote_build || { bad "setup: off-box build failed"; return; }
+    run_push NO_SHA256SUM=1
+    check "push fails" ne "$?" 0
+    check "the missing tool is named" grep_q "sha256sum is not installed" "$T/push.out"
+}
+
+# ---- tests: the off-box export -----------------------------------------------------
+
+# Text with CR, LF, tab, 0x01, DEL, UTF-8 and NUL bytes arrives unchanged,
+# whatever the sqlite3 CLI version (3.50+ prints control characters escaped).
+t_remote_build_control_chars() {
+    make_db "$D/data.db" live
+    "$TEST_REAL_SQLITE" "$D/data.db" >/dev/null <<SQL
+INSERT INTO diag_events (id, created, updated, data) VALUES ('de-ctl', $(now_pb), $(now_pb),
+    'a' || char(13) || 'b' || char(10) || 'c' || char(9) || 'd' || char(1) || 'e' || char(127) || 'f' || char(233) || char(13) || char(10));
+INSERT INTO diag_events (id, created, updated, data) VALUES ('de-nul', $(now_pb), $(now_pb), CAST(X'0d61000062000d0a01' AS TEXT));
+SQL
+    run_remote_build
+    check "off-box build exits 0" eq "$?" 0
+    _h="SELECT hex(sha3_query('SELECT rowid, * FROM diag_events WHERE id IN (''de-ctl'', ''de-nul'') ORDER BY rowid'));"
+    check "the two rows hash the same on both sides" eq "$(q "$T/off/compact/data.db.new" "$_h")" "$(q "$D/data.db" "$_h")"
+    check "the NUL row kept every byte" eq "$(q "$T/off/compact/data.db.new" "SELECT hex(CAST(data AS BLOB)) FROM diag_events WHERE id = 'de-nul';")" 0D61000062000D0A01
+}
+
+# A WITHOUT ROWID table with a covering secondary index: the box may read it
+# in index order, the new file (no indexes yet) in key order. The hashes must
+# still agree.
+t_remote_build_without_rowid_order() {
+    make_db "$D/data.db" live
+    "$TEST_REAL_SQLITE" "$D/data.db" >/dev/null <<'SQL'
+CREATE INDEX idx_kv_v ON kv (v);
+WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 300)
+INSERT INTO kv SELECT printf('k%04d', i), printf('v%04d', 1000 - i) FROM n;
+ANALYZE;
+SQL
+    run_remote_build
+    check "off-box build exits 0" eq "$?" 0
+    check "kv arrived whole" eq "$(q "$T/off/compact/data.db.new" "SELECT count(*) FROM kv;")" 301
+}
+
+# sqlite3 cannot open /dev/stderr on the box (fd 2 is a socket there on some
+# transports): the export must not need it.
+t_remote_build_no_dev_stderr() {
+    make_db "$D/data.db" live
+    run_remote_build SQ_FAIL_MATCH="/dev/stderr"
+    check "off-box build exits 0" eq "$?" 0
+    check "it wrote a manifest" present "$T/off/compact/manifest"
+}
+
+# The build is stopped (TERM to the whole process group; an async job here
+# ignores INT) while a remote
+# command runs: its temp files go.
+t_remote_build_interrupt_cleans_temp() {
+    make_db "$D/data.db" live
+    mkdir -p "$T/tmp" "$T/off"
+    env TMPDIR="$T/tmp" PB_DATA_DIR="$T/off" PB_COMPACT_REMOTE=fake-remote PB_COMPACT_REMOTE_DB="$D/data.db" \
+        PB_COMPACT_MIN_FREE_MB=1 PB_COMPACT_HEADROOM_MB=1 FR_SLEEP_MATCH="date +%s" FR_SLEEP_FLAG="$T/sleeping" FR_SLEEP_S=3 \
+        "$TSH" "$SCRIPTS/compact-build.sh" >>"$T/build.out" 2>&1 &
+    _b=$!
+    _i=0
+    while [ ! -e "$T/sleeping" ] && [ "$_i" -lt 300 ]; do sleep 0.1; _i=$((_i + 1)); done
+    check "setup: a remote command is running" present "$T/sleeping"
+    # shellcheck disable=SC2046 # one pid per word
+    kill -TERM $(descendants "$_b") "$_b" 2>/dev/null
+    wait "$_b"
+    check "no temp file left" eq "$(count_paths "$T"/tmp/*)" 0
+}
+
+# Number of existing paths among the arguments (a glob).
+count_paths() {
+    _n=0
+    for _p in "$@"; do
+        [ -e "$_p" ] && _n=$((_n + 1))
+    done
+    echo "$_n"
+}
+
+descendants() {
+    for _c in $(pgrep -P "$1"); do
+        echo "$_c"
+        descendants "$_c"
+    done
 }
 
 # ---- main ------------------------------------------------------------------------
