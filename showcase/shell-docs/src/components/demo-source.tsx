@@ -25,6 +25,7 @@ import {
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import demoContent from "../data/demo-content.json";
 import angularSourceContent from "../data/angular-source-content.json";
+import type { FrontendId } from "../lib/frontend-options";
 
 interface DemoFile {
   filename: string;
@@ -48,29 +49,16 @@ const angularFiles = (
   }
 ).files;
 
-// The Angular route shares the Strands backend with the React demo, but its
-// frontend lives in the Angular Showcase rather than the integration folder.
-const angularCodeByDemo: Record<
-  string,
-  { angular: string[]; backend: string[] }
-> = {
-  "strands-typescript::subagents": {
-    angular: [
-      "features/agent-state/agent-state-feature.component.ts",
-      "features/agent-state/agent-state-cards.ts",
-      "features/agent-state/agent-state-model.ts",
-      "features/agent-state/subagent-renderer-config.ts",
-      "app.routes.ts",
-      "feature-agent.ts",
-    ],
-    backend: [
-      "src/agent/agent.ts",
-      "src/agent/tools.ts",
-      "src/agent/state.ts",
-      "src/app/api/copilotkit/route.ts",
-    ],
-  },
-};
+// Every Angular sub-agent page uses this Showcase feature. Each integration
+// keeps its own backend files from the demo manifest.
+const ANGULAR_SUBAGENTS_FILES = [
+  "features/agent-state/agent-state-feature.component.ts",
+  "features/agent-state/agent-state-cards.ts",
+  "features/agent-state/agent-state-model.ts",
+  "features/agent-state/subagent-renderer-config.ts",
+  "app.routes.ts",
+  "feature-agent.ts",
+];
 
 // Manifest language slugs → Shiki language names. Shiki recognises most
 // slugs directly; this map exists only to disambiguate aliases authors
@@ -124,7 +112,7 @@ interface DemoSourceProps {
    */
   onlyHighlighted?: boolean;
   /** Frontend selected by the docs URL. */
-  frontend?: string;
+  frontend?: FrontendId;
 }
 
 /**
@@ -148,26 +136,28 @@ export function DemoSource({
 
   const displayFiles: DemoFile[] = useMemo(() => {
     const all = record?.files ?? [];
-    const angularCode = frontend === "angular" && angularCodeByDemo[key];
-    if (record && angularCode) {
+    if (record && frontend === "angular" && demo === "subagents") {
+      const backend = all.filter(
+        (file) => !file.filename.startsWith("src/app/demos/subagents/"),
+      );
+      const highlightedBackend = backend.filter((file) => file.highlighted);
       return [
-        ...angularCode.angular.map((filename) => {
+        ...ANGULAR_SUBAGENTS_FILES.flatMap((filename) => {
           const source = angularFiles[filename];
-          if (!source) {
-            throw new Error(`Missing Angular demo source: ${filename}`);
-          }
-          return {
-            ...source,
-            filename: `showcase/angular/src/app/${filename}`,
-          };
+          return source
+            ? [
+                {
+                  ...source,
+                  filename: `showcase/angular/src/app/${filename}`,
+                },
+              ]
+            : [];
         }),
-        ...angularCode.backend.map((filename) => {
-          const source = all.find((file) => file.filename === filename);
-          if (!source) {
-            throw new Error(`Missing demo source: ${key}:${filename}`);
-          }
-          return source;
-        }),
+        ...(onlyHighlighted && highlightedBackend.length > 0
+          ? [...highlightedBackend].sort(
+              (a, b) => (a.highlightOrder ?? 0) - (b.highlightOrder ?? 0),
+            )
+          : backend),
       ];
     }
     if (!onlyHighlighted) return all;
@@ -182,7 +172,7 @@ export function DemoSource({
       if (bo === undefined) return -1;
       return ao - bo;
     });
-  }, [record, onlyHighlighted, frontend, key]);
+  }, [record, onlyHighlighted, frontend, demo]);
 
   if (!record) {
     return (
@@ -190,6 +180,19 @@ export function DemoSource({
         No demo found for <code>{key}</code>. Check the integration slug and
         demo id (matches manifest <code>slug</code> / <code>demos[i].id</code>
         ).
+      </WarningBox>
+    );
+  }
+
+  const missingAngularFile =
+    frontend === "angular" && demo === "subagents"
+      ? ANGULAR_SUBAGENTS_FILES.find((filename) => !angularFiles[filename])
+      : undefined;
+  if (missingAngularFile) {
+    return (
+      <WarningBox>
+        Angular source <code>{missingAngularFile}</code> is missing from the
+        bundled Showcase files.
       </WarningBox>
     );
   }

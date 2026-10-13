@@ -1,27 +1,94 @@
+import React from "react";
+import type { ReactElement, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { MDXRemote } from "next-mdx-remote/rsc";
 import { expect, test } from "vitest";
-import { docsComponents } from "@/lib/mdx-registry";
+import { DocsPageView } from "@/components/docs-page-view";
+import frontendCatalog from "@/data/frontend-catalog.json";
 
-test("Angular Strands sub-agent Code tab shows Angular source and shared backend", () => {
-  const InlineDemo = docsComponents.InlineDemo;
-  const angular = renderToStaticMarkup(
-    <InlineDemo
-      integration="strands-typescript"
-      demo="subagents"
-      frontend="angular"
-    />,
-  );
-  const react = renderToStaticMarkup(
-    <InlineDemo integration="strands-typescript" demo="subagents" />,
-  );
+function findMdx(node: ReactNode):
+  | ReactElement<{
+      components: Record<string, React.ComponentType<Record<string, unknown>>>;
+    }>
+  | undefined {
+  if (!React.isValidElement(node)) return undefined;
+  const element = node as ReactElement<{ children?: ReactNode }>;
+  if (element.type === MDXRemote) return element as ReturnType<typeof findMdx>;
+  for (const child of React.Children.toArray(element.props.children)) {
+    const found = findMdx(child);
+    if (found) return found;
+  }
+  return undefined;
+}
 
-  expect(angular).toContain("agent-state-feature.component.ts");
-  expect(angular).toContain("agent-state-cards.ts");
-  expect(angular).toContain("subagent-renderer-config.ts");
-  expect(angular).toContain("src/agent/agent.ts");
-  expect(angular).not.toContain("delegation-log.tsx");
-  expect(angular).not.toContain("src/app/demos/subagents/page.tsx");
+async function codeTabTitles(
+  integration: string,
+  frontend: "angular" | "react",
+) {
+  const page = await DocsPageView({
+    slugPath: "multi-agent/subagents",
+    slugHrefPrefix: `/${frontend}/${integration}`,
+    frameworkOverride: integration,
+    frontendOverride: frontend,
+    navTree: [],
+  });
+  const InlineDemo = findMdx(page)?.props.components.InlineDemo;
+  if (!InlineDemo) throw new Error("Sub-agent page has no InlineDemo");
+  const html = renderToStaticMarkup(<InlineDemo demo="subagents" />);
+  return [...html.matchAll(/title="([^"]+)"/g)].map((match) => match[1]);
+}
 
-  expect(react).toContain("delegation-log.tsx");
-  expect(react).toContain("src/app/demos/subagents/page.tsx");
+test("Angular sub-agent pages show shared Angular frontend and each integration's backend", async () => {
+  const angularFiles = [
+    "showcase/angular/src/app/features/agent-state/agent-state-feature.component.ts",
+    "showcase/angular/src/app/features/agent-state/agent-state-cards.ts",
+    "showcase/angular/src/app/features/agent-state/agent-state-model.ts",
+    "showcase/angular/src/app/features/agent-state/subagent-renderer-config.ts",
+    "showcase/angular/src/app/app.routes.ts",
+    "showcase/angular/src/app/feature-agent.ts",
+  ];
+
+  expect(await codeTabTitles("strands-typescript", "angular")).toEqual([
+    ...angularFiles,
+    "src/agent/agent.ts",
+    "src/agent/tools.ts",
+    "src/agent/state.ts",
+    "src/app/api/copilotkit/route.ts",
+  ]);
+  expect(await codeTabTitles("strands", "angular")).toEqual([
+    ...angularFiles,
+    "src/agents/agent.py",
+    "src/app/api/copilotkit/route.ts",
+  ]);
+  expect(await codeTabTitles("langgraph-python", "angular")).toEqual([
+    ...angularFiles,
+    "src/agents/subagents.py",
+    "src/app/api/copilotkit/route.ts",
+  ]);
+  expect(await codeTabTitles("strands-typescript", "react")).toEqual([
+    "src/agent/agent.ts",
+    "src/agent/tools.ts",
+    "src/agent/state.ts",
+    "src/app/demos/subagents/page.tsx",
+    "src/app/demos/subagents/delegation-log.tsx",
+    "src/app/api/copilotkit/route.ts",
+  ]);
+
+  const angularIntegrations = frontendCatalog.cells
+    .filter(
+      (cell) =>
+        cell.frontend === "angular" &&
+        cell.feature === "subagents" &&
+        cell.frontend_status === "supported",
+    )
+    .map((cell) => cell.integration);
+  expect(angularIntegrations).toHaveLength(22);
+  for (const integration of angularIntegrations) {
+    const titles = await codeTabTitles(integration, "angular");
+    expect(titles.slice(0, angularFiles.length)).toEqual(angularFiles);
+    expect(titles.length).toBeGreaterThan(angularFiles.length);
+    expect(
+      titles.some((title) => title.startsWith("src/app/demos/subagents/")),
+    ).toBe(false);
+  }
 });
