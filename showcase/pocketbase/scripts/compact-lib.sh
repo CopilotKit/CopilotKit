@@ -191,15 +191,23 @@ file_fingerprint() {
     _fp_size=$(file_size "$1") || return 1
     is_int "$_fp_size" && [ "$_fp_size" -gt 0 ] || return 1
     _fp_n=$(((_fp_size + FP_BLOCK - 1) / FP_BLOCK))
-    {
-        echo "$_fp_size"
-        _fp_i=0
-        while [ "$_fp_i" -lt 64 ]; do
-            dd if="$1" bs=$FP_BLOCK skip=$((_fp_n * _fp_i / 64)) count=1 2>/dev/null || exit 1
-            _fp_i=$((_fp_i + 1))
-        done
-        dd if="$1" bs=$FP_BLOCK skip=$((_fp_n - 1)) count=1 2>/dev/null
-    } | sha256_of
+    # The pipeline's status is sha256_of's, so a failed dd says so on fd 3,
+    # which goes to the same output as the hash: "dd-failed" is not hex.
+    _fp_out=$(
+        {
+            {
+                echo "$_fp_size"
+                _fp_i=0
+                while [ "$_fp_i" -lt 64 ]; do
+                    dd if="$1" bs=$FP_BLOCK skip=$((_fp_n * _fp_i / 64)) count=1 2>/dev/null || { echo dd-failed >&3; exit 1; }
+                    _fp_i=$((_fp_i + 1))
+                done
+                dd if="$1" bs=$FP_BLOCK skip=$((_fp_n - 1)) count=1 2>/dev/null || { echo dd-failed >&3; exit 1; }
+            } | sha256_of
+        } 3>&1
+    ) || return 1
+    case "$_fp_out" in *dd-failed*) return 1 ;; esac
+    printf '%s\n' "$_fp_out"
 }
 
 # $1 as the path of a file: URI inside an SQL string literal. %, ? and # are
