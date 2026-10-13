@@ -262,7 +262,9 @@ def test_disabled_tracing_does_not_initialize_an_unused_batch(trace_listener):
     assert trace_listener.batch_manager.current_batch is None
 
 
-def test_explicit_tracing_opt_out_releases_first_time_buffer(trace_listener, monkeypatch):
+def test_explicit_tracing_opt_out_releases_first_time_buffer(
+    trace_listener, monkeypatch
+):
     from crewai.events.listeners.tracing.types import TraceEvent
 
     monkeypatch.setenv("CREWAI_TRACING_ENABLED", "false")

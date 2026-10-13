@@ -10,7 +10,9 @@ from typing import Any
 
 import ag_ui_crewai._hitl as bridge_hitl
 import ag_ui_crewai.endpoint as bridge_endpoint
-from crewai.events.listeners.tracing.first_time_trace_handler import FirstTimeTraceHandler
+from crewai.events.listeners.tracing.first_time_trace_handler import (
+    FirstTimeTraceHandler,
+)
 from crewai.events.listeners.tracing.trace_listener import TraceCollectionListener
 from crewai.events.listeners.tracing.utils import (
     has_user_declined_tracing,
