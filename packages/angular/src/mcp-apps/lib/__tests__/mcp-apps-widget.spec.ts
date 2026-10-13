@@ -1185,11 +1185,11 @@ test("shows a close button in fullscreen; clicking it exits and notifies the wid
     frame.closest("dialog")?.getAttribute("data-mcp-app-display-mode"),
   ).toBe("inline");
   expect(frame.style.height).toBe("240px");
-  // Leaving fullscreen advertises the inline surface back (the reported
-  // height; no width, since jsdom lays nothing out).
+  // The inline surface is a width measured on a laid-out ancestor; jsdom lays
+  // nothing out, so the exit notification carries the mode alone.
   expect(contextChanges(postMessage)).toEqual([
     expect.objectContaining({ displayMode: "fullscreen" }),
-    { displayMode: "inline", containerDimensions: { height: 240 } },
+    { displayMode: "inline" },
   ]);
 });
 
@@ -1269,10 +1269,21 @@ test("restores the inline height, not a size reported in fullscreen, when leavin
   // surface, not the fullscreen-era size.
   expect(frame.style.height).toBe("300px");
   const changes = contextChanges(postMessage);
-  expect(changes[changes.length - 1]).toEqual({
-    displayMode: "inline",
-    containerDimensions: { height: 300 },
-  });
+  expect(changes[changes.length - 1]).toEqual({ displayMode: "inline" });
+});
+
+test("labels the dialog in both modes, so screen readers never meet an unnamed dialog", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const { fixture, frame } = await bootWidget(agent);
+  const dialog = frame.closest("dialog")!;
+  expect(dialog.getAttribute("aria-label")).toBe("Interactive MCP application");
+
+  await requestDisplayMode(fixture, frame, "fs", "fullscreen");
+
+  expect(dialog.getAttribute("aria-label")).toBe(
+    "Interactive MCP application, fullscreen",
+  );
 });
 
 test("locks the background scroll while fullscreen and restores it on exit", async () => {

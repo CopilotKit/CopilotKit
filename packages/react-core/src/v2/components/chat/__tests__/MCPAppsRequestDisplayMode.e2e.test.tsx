@@ -114,6 +114,7 @@ function mcpAppsActivityContent() {
 async function setupMCPActivity(
   agent: MockMCPProxyAgent,
   agentId: string,
+  mcpApps?: Parameters<typeof renderWithCopilotKit>[0]["mcpApps"],
 ): Promise<HTMLIFrameElement> {
   agent.setRunAgentResponse("resources/read", {
     contents: [
@@ -131,6 +132,7 @@ async function setupMCPActivity(
     agents: { [agentId]: agent },
     agentId,
     threadId,
+    mcpApps,
   });
 
   const input = await screen.findByRole("textbox");
@@ -547,13 +549,14 @@ describe("MCP Apps ui/request-display-mode", () => {
     // Both the DOM and the context the widget received describe the inline
     // surface, not the fullscreen-era size.
     await waitFor(() => expect(iframe.style.height).toBe("300px"));
+    // The inline surface is a width measured on a laid-out ancestor; jsdom
+    // lays nothing out, so the exit notification carries the mode alone.
     const notifications = notificationsFor(
       spy,
       "ui/notifications/host-context-changed",
     );
     expect(notifications[notifications.length - 1].params).toEqual({
       displayMode: "inline",
-      containerDimensions: { height: 300 },
     });
   });
 
@@ -608,6 +611,47 @@ describe("MCP Apps ui/request-display-mode", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
     await waitFor(() => expect(iframe.style.height).toBe("300px"));
+  });
+
+  it("labels the dialog in both modes, so screen readers never meet an unnamed dialog", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "rdm-label";
+    const iframe = await setupMCPActivity(agent, "rdm-label");
+    const dialog = iframe.closest("dialog")!;
+    expect(dialog.getAttribute("aria-label")).toBe(
+      "Interactive MCP application",
+    );
+
+    await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
+
+    expect(dialog.getAttribute("aria-label")).toBe(
+      "Interactive MCP application, fullscreen",
+    );
+  });
+
+  it("keeps widgets inline when <CopilotKit mcpApps> narrows the modes on offer", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "rdm-opt-out";
+    const iframe = await setupMCPActivity(agent, "rdm-opt-out", {
+      hostContext: { availableDisplayModes: ["inline"] },
+    });
+    const spy = spyOnHostMessages(iframe);
+
+    const initId = await sendInitialize(iframe);
+    expect(
+      responseFor(spy, initId)?.result?.hostContext?.availableDisplayModes,
+    ).toEqual(["inline"]);
+
+    const id = await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
+
+    expect(responseFor(spy, id)?.result).toEqual({ mode: "inline" });
+    expect(
+      screen.queryByRole("button", { name: "Exit fullscreen" }),
+    ).toBeNull();
   });
 
   it("locks the background scroll while fullscreen and restores it on exit", async () => {

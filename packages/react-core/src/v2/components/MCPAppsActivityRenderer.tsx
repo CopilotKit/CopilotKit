@@ -30,6 +30,7 @@ export type {
 import {
   ɵlockBodyScroll,
   ɵshowDialogForMode,
+  ɵwatchViewportResize,
 } from "@copilotkit/mcp-apps-renderer/activity";
 import type {
   MCPAppsActivityContent,
@@ -41,6 +42,37 @@ import type {
   McpAppSession,
   FetchedResource,
 } from "@copilotkit/mcp-apps-renderer";
+
+/**
+ * Host-side options for MCP Apps, set on `<CopilotKit mcpApps={...}>`. The same
+ * shape Angular's `provideMCPApps()` takes; every field is optional and merged
+ * over the shared defaults.
+ *
+ * @example
+ * ```tsx
+ * // Keep widgets inline: never offer fullscreen.
+ * <CopilotKit
+ *   runtimeUrl="/api/copilotkit"
+ *   mcpApps={{ hostContext: { availableDisplayModes: ["inline"] } }}
+ * />
+ * ```
+ */
+export interface MCPAppsOptions {
+  /** Maximum time to wait for a busy agent before a queued request fails. */
+  idleTimeoutMs?: number;
+  /** Maximum time to wait for the sandbox proxy initialization handshake. */
+  initializationTimeoutMs?: number;
+  /** Host identity announced during the MCP Apps initialization handshake. */
+  hostInfo?: { name: string; version: string };
+  /** Additional protocol capabilities announced to embedded MCP Apps. */
+  hostCapabilities?: Record<string, unknown>;
+  /**
+   * Additional non-secret UI context announced to embedded MCP Apps.
+   * `availableDisplayModes` narrows the display modes widgets may obtain
+   * (`inline` always stays); `theme` overrides the `.dark` detection.
+   */
+  hostContext?: Record<string, unknown>;
+}
 
 /**
  * Props for the activity renderer component
@@ -61,7 +93,12 @@ interface MCPAppsActivityRendererProps {
  */
 export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
   function MCPAppsActivityRenderer({ content, message, agent }) {
-    const { copilotkit } = useCopilotKit();
+    const { copilotkit, mcpApps } = useCopilotKit();
+    // Options written inline in JSX are a new object on every parent render;
+    // re-binding on identity would reload the widget. Bind on their content.
+    const mcpAppsKey = JSON.stringify(mcpApps ?? null);
+    const mcpAppsRef = useRef(mcpApps);
+    mcpAppsRef.current = mcpApps;
     // The activity message id. Passed to the session so it self-subscribes to the
     // agent's activity stream and pushes tool input/result itself (the adapter no
     // longer forwards them).
@@ -167,6 +204,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             getContent: () => contentRef.current,
             getAgent: () => agentRef.current,
             host: copilotkit,
+            options: mcpAppsRef.current,
             // Self-driving: the session subscribes to the agent's activity
             // stream (filtered by messageId) and pushes tool input/result to the
             // widget itself, so this adapter does not forward STORE-backed
@@ -231,6 +269,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     }, [
       agent,
       copilotkit,
+      mcpAppsKey,
       messageId,
       content.resourceUri,
       content.serverHash,
@@ -255,11 +294,12 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       // inside the sandboxed widget the key never leaves the iframe. Landing
       // focus on the exit button makes Escape work from the moment of entry.
       exitButtonRef.current?.focus();
-      const onResize = () => sessionRef.current?.setDisplayMode("fullscreen");
-      window.addEventListener("resize", onResize);
+      const stopWatchingViewport = ɵwatchViewportResize((dimensions) =>
+        sessionRef.current?.setDisplayMode("fullscreen", dimensions),
+      );
       const releaseScrollLock = ɵlockBodyScroll();
       return () => {
-        window.removeEventListener("resize", onResize);
+        stopWatchingViewport();
         releaseScrollLock();
       };
     }, [displayMode]);
@@ -316,7 +356,11 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     return (
       <dialog
         ref={containerRef}
-        aria-label={isFullscreen ? "Fullscreen widget" : undefined}
+        aria-label={
+          isFullscreen
+            ? "Interactive MCP application, fullscreen"
+            : "Interactive MCP application"
+        }
         onCancel={(e) => {
           e.preventDefault();
           exitFullscreen();

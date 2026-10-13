@@ -16,6 +16,28 @@ import type {
 } from "../types";
 import type { Component } from "vue";
 
+/**
+ * Host-side options for MCP Apps widgets, set on `<CopilotKitProvider
+ * :mcp-apps="...">`. The same shape Angular's `provideMCPApps()` takes; every
+ * field is optional and merged over the shared defaults.
+ */
+export interface MCPAppsOptions {
+  /** Maximum time to wait for a busy agent before a queued request fails. */
+  idleTimeoutMs?: number;
+  /** Maximum time to wait for the sandbox proxy initialization handshake. */
+  initializationTimeoutMs?: number;
+  /** Host identity announced during the MCP Apps initialization handshake. */
+  hostInfo?: { name: string; version: string };
+  /** Additional protocol capabilities announced to embedded MCP Apps. */
+  hostCapabilities?: Record<string, unknown>;
+  /**
+   * Additional non-secret UI context announced to embedded MCP Apps.
+   * `availableDisplayModes` narrows the display modes widgets may obtain
+   * (`inline` always stays); `theme` overrides the `.dark` detection.
+   */
+  hostContext?: Record<string, unknown>;
+}
+
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
   /**
@@ -92,6 +114,12 @@ export interface CopilotKitProviderProps {
     loadingComponent?: Component;
     includeSchema?: boolean;
   };
+  /**
+   * Host-side options for MCP Apps widgets. Optional; use it to narrow what
+   * widgets may obtain, for example
+   * `{ hostContext: { availableDisplayModes: ["inline"] } }` keeps them inline.
+   */
+  mcpApps?: MCPAppsOptions;
   /**
    * Enable debug logging for the client-side event pipeline.
    *

@@ -18,6 +18,7 @@ import type { McpAppSession } from "@copilotkit/mcp-apps-renderer";
 import {
   ɵlockBodyScroll,
   ɵshowDialogForMode,
+  ɵwatchViewportResize,
 } from "@copilotkit/mcp-apps-renderer/activity";
 import type { McpAppsDisplayMode } from "@copilotkit/mcp-apps-renderer/activity";
 import { type MCPAppsSnapshotContent } from "./mcp-apps-content";
@@ -39,7 +40,11 @@ import { MCP_APPS_CONFIG } from "./mcp-apps-config";
       #surface
       class="copilot-mcp-apps-container"
       [class.copilot-mcp-apps-container--fullscreen]="fullscreen()"
-      [attr.aria-label]="fullscreen() ? 'Fullscreen widget' : null"
+      [attr.aria-label]="
+        fullscreen()
+          ? 'Interactive MCP application, fullscreen'
+          : 'Interactive MCP application'
+      "
       (cancel)="onCancel($event)"
     >
       @if (fullscreen()) {
@@ -323,11 +328,12 @@ export class CopilotMCPAppsWidget {
       // inside the sandboxed widget the key never leaves the iframe. Landing
       // focus on the exit button makes Escape work from the moment of entry.
       this.exitButton()?.nativeElement.focus();
-      const onResize = () => this.session?.setDisplayMode("fullscreen");
-      window.addEventListener("resize", onResize);
+      const stopWatchingViewport = ɵwatchViewportResize((dimensions) =>
+        this.session?.setDisplayMode("fullscreen", dimensions),
+      );
       const releaseScrollLock = ɵlockBodyScroll();
       onCleanup(() => {
-        window.removeEventListener("resize", onResize);
+        stopWatchingViewport();
         releaseScrollLock();
       });
     });

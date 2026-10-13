@@ -30,6 +30,7 @@ export type {
 import {
   ɵlockBodyScroll,
   ɵshowDialogForMode,
+  ɵwatchViewportResize,
 } from "@copilotkit/mcp-apps-renderer/activity";
 import type {
   MCPAppsActivityContent,
@@ -73,7 +74,14 @@ export const MCPAppsActivityRenderer = defineComponent({
     },
   },
   setup(props) {
-    const { copilotkit } = useCopilotKit();
+    const { copilotkit, mcpApps } = useCopilotKit();
+    // A provider other than CopilotKitProvider (tests, custom hosts) may not
+    // supply the option; treat it as absent rather than failing. Options
+    // written inline in a template are a new object on every parent render;
+    // re-binding on identity would reload the widget, so the watcher follows
+    // their content.
+    const mcpAppsOptions = () => mcpApps?.value;
+    const mcpAppsKey = () => JSON.stringify(mcpAppsOptions() ?? null);
     const containerRef = ref<HTMLDialogElement | null>(null);
     const exitButtonRef = ref<HTMLButtonElement | null>(null);
     // UI-only state: plain refs are fine (no agent-bound payload crosses here).
@@ -120,6 +128,7 @@ export const MCPAppsActivityRenderer = defineComponent({
         containerRef,
         () => props.agent,
         () => copilotkit.value,
+        mcpAppsKey,
         messageId,
         () => props.content.resourceUri,
         () => props.content.serverHash,
@@ -189,6 +198,7 @@ export const MCPAppsActivityRenderer = defineComponent({
               getContent: () => props.content,
               getAgent: () => props.agent,
               host: copilotkit.value,
+              options: mcpAppsOptions(),
               // Self-driving: the session subscribes to the agent's activity
               // stream (filtered by messageId) and pushes tool input/result to
               // the widget itself, so this adapter does not forward STORE-backed
@@ -258,11 +268,12 @@ export const MCPAppsActivityRenderer = defineComponent({
         // side; inside the sandboxed widget the key never leaves the iframe.
         // Landing focus on the exit button makes Escape work from entry on.
         exitButtonRef.value?.focus();
-        const onResize = () => sessionRef.value?.setDisplayMode("fullscreen");
-        window.addEventListener("resize", onResize);
+        const stopWatchingViewport = ɵwatchViewportResize((dimensions) =>
+          sessionRef.value?.setDisplayMode("fullscreen", dimensions),
+        );
         const releaseScrollLock = ɵlockBodyScroll();
         onCleanup(() => {
-          window.removeEventListener("resize", onResize);
+          stopWatchingViewport();
           releaseScrollLock();
         });
       },
@@ -332,7 +343,9 @@ export const MCPAppsActivityRenderer = defineComponent({
         "dialog",
         {
           ref: containerRef,
-          "aria-label": isFullscreen.value ? "Fullscreen widget" : undefined,
+          "aria-label": isFullscreen.value
+            ? "Interactive MCP application, fullscreen"
+            : "Interactive MCP application",
           onCancel: (event: Event) => {
             event.preventDefault();
             exitFullscreen();
