@@ -113,6 +113,31 @@ def test_successful_request_restores_parent_context():
     asyncio.run(request())
 
 
+def test_server_requests_do_not_accumulate_in_startup_runtime():
+    # Seed startup ownership before importing the real server, including when
+    # another test has already cached its module-level Flow templates.
+    template = ProbeFlow()
+    app = import_module("agent_server").app
+    startup = crewai_event_bus.runtime_state
+    assert startup is not None
+    assert startup.root
+    add_crewai_flow_fastapi_endpoint(app, template, "/probe")
+    roots = len(startup.root)
+    events = len(startup.event_record.nodes)
+
+    async def requests():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app), base_url="http://test"
+        ) as client:
+            for _ in range(3):
+                await run_flow(client)
+
+    asyncio.run(requests())
+    assert crewai_event_bus.runtime_state is startup
+    assert len(startup.root) == roots
+    assert len(startup.event_record.nodes) == events
+
+
 @pytest.mark.parametrize("error", [RuntimeError, asyncio.CancelledError])
 def test_request_restores_parent_context_after_error(error):
     ProbeFlow()
