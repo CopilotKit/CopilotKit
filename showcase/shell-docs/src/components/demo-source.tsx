@@ -24,6 +24,7 @@ import {
 } from "fumadocs-ui/components/codeblock";
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import demoContent from "../data/demo-content.json";
+import angularSourceContent from "../data/angular-source-content.json";
 
 interface DemoFile {
   filename: string;
@@ -40,6 +41,33 @@ interface DemoRecord {
 const demos: Record<string, DemoRecord> = (
   demoContent as { demos: Record<string, DemoRecord> }
 ).demos;
+
+const angularFiles = (
+  angularSourceContent as {
+    files: Record<string, { language: string; content: string }>;
+  }
+).files;
+
+// The Angular route shares the Strands backend with the React demo, but its
+// frontend lives in the Angular Showcase rather than the integration folder.
+const angularCodeByDemo: Record<string, { angular: string[]; backend: string[] }> = {
+  "strands-typescript::subagents": {
+    angular: [
+      "features/agent-state/agent-state-feature.component.ts",
+      "features/agent-state/agent-state-cards.ts",
+      "features/agent-state/agent-state-model.ts",
+      "features/agent-state/subagent-renderer-config.ts",
+      "app.routes.ts",
+      "feature-agent.ts",
+    ],
+    backend: [
+      "src/agent/agent.ts",
+      "src/agent/tools.ts",
+      "src/agent/state.ts",
+      "src/app/api/copilotkit/route.ts",
+    ],
+  },
+};
 
 // Manifest language slugs → Shiki language names. Shiki recognises most
 // slugs directly; this map exists only to disambiguate aliases authors
@@ -92,6 +120,8 @@ interface DemoSourceProps {
    * blank. Pass `false` to always show every file in the cell.
    */
   onlyHighlighted?: boolean;
+  /** Frontend selected by the docs URL. */
+  frontend?: string;
 }
 
 /**
@@ -108,12 +138,32 @@ export function DemoSource({
   integration,
   demo,
   onlyHighlighted = true,
+  frontend,
 }: DemoSourceProps) {
   const key = `${integration}::${demo}`;
   const record = demos[key];
 
   const displayFiles: DemoFile[] = useMemo(() => {
     const all = record?.files ?? [];
+    const angularCode = frontend === "angular" && angularCodeByDemo[key];
+    if (record && angularCode) {
+      return [
+        ...angularCode.angular.map((filename) => {
+          const source = angularFiles[filename];
+          if (!source) {
+            throw new Error(`Missing Angular demo source: ${filename}`);
+          }
+          return { ...source, filename: `showcase/angular/src/app/${filename}` };
+        }),
+        ...angularCode.backend.map((filename) => {
+          const source = all.find((file) => file.filename === filename);
+          if (!source) {
+            throw new Error(`Missing demo source: ${key}:${filename}`);
+          }
+          return source;
+        }),
+      ];
+    }
     if (!onlyHighlighted) return all;
     const flagged = all.filter((f) => f.highlighted);
     if (flagged.length === 0) return all;
@@ -126,7 +176,7 @@ export function DemoSource({
       if (bo === undefined) return -1;
       return ao - bo;
     });
-  }, [record, onlyHighlighted]);
+  }, [record, onlyHighlighted, frontend, key]);
 
   if (!record) {
     return (

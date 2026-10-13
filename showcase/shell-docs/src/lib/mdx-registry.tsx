@@ -372,10 +372,12 @@ export const docsComponents = {
     integration,
     demo,
     showAllFiles,
+    frontend,
   }: {
     integration?: string;
     demo?: string;
     showAllFiles?: boolean;
+    frontend?: string;
   }) => {
     if (!integration || !demo) {
       warnSilentNull(
@@ -454,6 +456,7 @@ export const docsComponents = {
             integration={integration}
             demo={demo}
             onlyHighlighted={!showAllFiles}
+            frontend={frontend}
           />
         </DocsTab>
       </DocsTabs>
