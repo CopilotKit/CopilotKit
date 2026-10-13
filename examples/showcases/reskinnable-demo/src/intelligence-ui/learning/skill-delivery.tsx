@@ -1,6 +1,7 @@
-import { useId, useState, type ReactNode } from 'react';
-import { ArrowRight } from 'lucide-react';
-import { CopyButton } from '../ui/data-display';
+import { useId, useState } from "react";
+import type { ReactNode } from "react";
+import { ArrowRight } from "lucide-react";
+import { CopyButton } from "../ui/data-display";
 import {
   Card,
   CardAction,
@@ -8,12 +9,12 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '../ui/layout';
-import { Dialog } from '../ui/overlays';
-import { Button } from '../ui/primitives';
-import { learningNoticeStyles } from './learning-notice';
-import styles from './skill-delivery.module.css';
-import { SkillDeliveryToggle } from './skill-delivery-toggle';
+} from "../ui/layout";
+import { Dialog } from "../ui/overlays";
+import { Button } from "../ui/primitives";
+import { learningNoticeStyles } from "./learning-notice";
+import styles from "./skill-delivery.module.css";
+import { SkillDeliveryToggle } from "./skill-delivery-toggle";
 
 /** Builds one repository-aware setup prompt; the coding agent selects the native integration. */
 export function skillDeliveryTask(containerId: string): string {
@@ -41,7 +42,7 @@ export function SkillDelivery(props: {
   readonly details?: ReactNode;
   readonly onLoadDelivery?: (signal: AbortSignal) => Promise<boolean | null>;
   readonly onSetDelivery: (enabled: boolean) => Promise<void>;
-  readonly variant?: 'banner' | 'card';
+  readonly variant?: "banner" | "card";
 }): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const id = useId();
@@ -62,7 +63,7 @@ export function SkillDelivery(props: {
         onSave={props.onSetDelivery}
       >
         {(parts) =>
-          props.variant === 'card' ? (
+          props.variant === "card" ? (
             <Card>
               <CardHeader>
                 <CardTitle>

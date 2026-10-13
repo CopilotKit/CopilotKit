@@ -20,6 +20,7 @@ import type { StrandsAgent } from "@ag-ui/aws-strands";
 import { strandsCvdiagMiddleware } from "./cvdiag-backend-strands.js";
 import {
   buildShowcaseAgent,
+  buildRichChatAgent,
   buildVoiceAgent,
   buildByocHashbrownAgent,
   buildByocJsonRenderAgent,
@@ -84,6 +85,7 @@ async function main(): Promise<void> {
 
   const [
     showcase,
+    richChat,
     voice,
     hashbrown,
     jsonRender,
@@ -95,6 +97,7 @@ async function main(): Promise<void> {
     reasoningChain,
   ] = await Promise.all([
     buildShowcaseAgent(),
+    buildRichChatAgent(),
     buildVoiceAgent(),
     buildByocHashbrownAgent(),
     buildByocJsonRenderAgent(),
@@ -107,6 +110,7 @@ async function main(): Promise<void> {
   ]);
 
   mountAgent(app, "/voice", voice);
+  mountAgent(app, "/beautiful-chat", richChat);
   mountAgent(app, "/byoc-hashbrown", hashbrown);
   mountAgent(app, "/byoc-json-render", jsonRender);
   // Fixed-schema A2UI: the dedicated agent wires its OWN backend tool

@@ -179,6 +179,7 @@ function createTestCore(
         : (options.registeredStore ?? store),
     ),
     headers: {},
+    ɵheadersGeneration: 0,
     intelligence: options.intelligence,
     registerThreadStore: vi.fn(),
     runtimeConnectionStatus:
@@ -883,4 +884,61 @@ test("a mid-session status round trip restarts the standalone run-activity store
   // The store is the SAME instance across the round trip (it is component
   // state, not effect state), so nothing accumulates.
   expect(coreMocks.createThreadStore).toHaveBeenCalledTimes(1);
+});
+
+test("a headers builder's per-resolve object churn does not re-dispatch the run-activity store context (#1937)", async () => {
+  // A headers builder resolves to a NEW object identity on every request
+  // (`copilotkit.headers`'s reference changes) even when nothing meaningful
+  // changed — `copilotkit.ɵheadersGeneration` only bumps on `setSource`.
+  // Before the fix, this effect's dep array included `copilotkit.headers`,
+  // so a run (which resolves headers) followed by any CopilotChat re-render
+  // tore down and rebuilt the standalone run-activity store's subscription
+  // for no reason.
+  const standaloneStore = createRunActivityStore();
+  coreMocks.createThreadStore.mockReturnValue(standaloneStore);
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { list: true, realtimeMetadata: true },
+    registeredStore: null,
+  });
+  await settleInitialConnect(rendered);
+
+  const activeRun = createDeferred();
+  rendered.runDeferrals.push(activeRun);
+  fireEvent.click(screen.getByTestId("mock-copilot-chat-submit"));
+  await waitFor(() => {
+    expect(rendered.runAgent).toHaveBeenCalledTimes(1);
+  });
+  await act(async () => {
+    activeRun.resolve();
+    await activeRun.promise;
+  });
+
+  const setContextCallsBefore = standaloneStore.setContext.mock.calls.length;
+  const startCallsBefore = standaloneStore.start.mock.calls.length;
+  const stopCallsBefore = standaloneStore.stop.mock.calls.length;
+
+  // Simulate the run's header resolution swapping in a new (but
+  // content-equal) snapshot object, then a ordinary CopilotChat re-render.
+  rendered.core.headers = { ...rendered.core.headers };
+  act(() => {
+    rendered.rerender(
+      <CopilotKitContext.Provider
+        value={{
+          copilotkit: rendered.core as never,
+          executingToolCallIds: EMPTY_SET,
+        }}
+      >
+        <CopilotChat threadId="thread-current" welcomeScreen={false} />
+      </CopilotKitContext.Provider>,
+    );
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  expect(standaloneStore.setContext.mock.calls.length).toBe(
+    setContextCallsBefore,
+  );
+  expect(standaloneStore.start.mock.calls.length).toBe(startCallsBefore);
+  expect(standaloneStore.stop.mock.calls.length).toBe(stopCallsBefore);
 });

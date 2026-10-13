@@ -91,7 +91,15 @@ test("uses the current Agent Framework server and OpenAI APIs", () => {
   expect(quickstart).toContain(
     'dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"',
   );
-  expect(starter).toContain('_configuration["OPENAI_API_KEY"]');
+  // The API key is read for the provider COPILOTKIT_AGENT_MODEL selects;
+  // OpenAI stays the default.
+  expect(starter).toContain('_ => "OPENAI_API_KEY"');
+  expect(starter).toContain("_configuration[apiKeyName]");
+  expect(starter).toContain('_configuration["COPILOTKIT_AGENT_MODEL"]');
+  expect(starter).toContain('"openai:gpt-5-mini"');
+  expect(starter).toContain(
+    "is not <provider>:<model> with provider openai, anthropic or google",
+  );
   expect(starter).toContain('_configuration["OPENAI_BASE_URL"]');
   expect(starter).toContain("builder.Services.AddAGUIServer()");
   expect(starter).toContain('app.MapAGUIServer("/"');

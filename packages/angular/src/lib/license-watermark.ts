@@ -6,13 +6,18 @@ const WATERMARK_ID = "copilotkit-license-watermark";
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const LICENSE_KEY_REGEX = /^ck_pub_[0-9a-f]{32}$/i;
 
-function hasValidLicenseHeader(headers?: Record<string, string>): boolean {
+// Accepts the raw record shape (values may be `null`/`undefined` before
+// normalization) so callers can pass a `CopilotKitHeadersSource` record branch
+// straight through without an extra cast.
+type MaybeHeaderRecord = Record<string, string | null | undefined>;
+
+function hasValidLicenseHeader(headers?: MaybeHeaderRecord): boolean {
   if (!headers) return false;
   const key = headers[HEADER_NAME];
   return Boolean(key && LICENSE_KEY_REGEX.test(key));
 }
 
-export function ensureLicenseWatermark(headers?: Record<string, string>): void {
+export function ensureLicenseWatermark(headers?: MaybeHeaderRecord): void {
   if (!LICENSE_WATERMARK_ENABLED) {
     return;
   }
