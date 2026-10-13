@@ -84,6 +84,35 @@ def test_completed_requests_do_not_accumulate_in_startup_runtime():
     assert len(startup.event_record.nodes) == events
 
 
+def test_successful_request_restores_parent_context():
+    async def request():
+        template = ProbeFlow()
+        startup = crewai_event_bus.runtime_state
+        registry = bus_module._registered_entity_ids_var.get()
+        # A nonzero caller depth makes restoration observable for every variable.
+        bus_module._runtime_scope_depth.set(1)
+        depth = bus_module._runtime_scope_depth.get()
+        roots = len(startup.root)
+        events = len(startup.event_record.nodes)
+        app = FastAPI()
+        add_crewai_flow_fastapi_endpoint(app, template, "/probe")
+        install(app)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app), base_url="http://test"
+        ) as client:
+            await run_flow(client)
+
+        # Check the caller task before asyncio.run restores its outer context.
+        assert bus_module._runtime_state_var.get() is startup
+        assert bus_module._registered_entity_ids_var.get() is registry
+        assert bus_module._runtime_scope_depth.get() == depth
+        assert len(startup.root) == roots
+        assert len(startup.event_record.nodes) == events
+
+    asyncio.run(request())
+
+
 @pytest.mark.parametrize("error", [RuntimeError, asyncio.CancelledError])
 def test_request_restores_parent_context_after_error(error):
     ProbeFlow()
