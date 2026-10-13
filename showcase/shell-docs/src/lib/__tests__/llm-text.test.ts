@@ -9,6 +9,96 @@ import {
   rewriteScopedDocsLinks,
 } from "../llm-text";
 
+test("Hashbrown guide exports each bundled framework's complete source", () => {
+  const doc = loadDoc("generative-ui/hashbrown");
+  expect(doc).not.toBeNull();
+  expect(doc!.source).not.toMatch(/<Snippet\b/);
+  const bundle = JSON.parse(
+    fs.readFileSync(
+      path.join(process.cwd(), "src/data/demo-content.json"),
+      "utf8",
+    ),
+  ) as {
+    demos: Record<
+      string,
+      {
+        files: Array<{
+          filename: string;
+          content: string;
+          highlighted?: boolean;
+        }>;
+      }
+    >;
+  };
+  const entries = Object.entries(bundle.demos).filter(([key]) =>
+    key.endsWith("::declarative-hashbrown"),
+  );
+  expect(entries).toHaveLength(15);
+
+  for (const [key, demo] of entries) {
+    const framework = key.split("::")[0];
+    const output = renderPageToLlmText({
+      url: `${framework}/generative-ui/hashbrown`,
+      title: doc!.fm.title,
+      filePath: doc!.filePath,
+      loadSlug: "generative-ui/hashbrown",
+      framework,
+    });
+    const demoFiles = demo.files.filter((file) =>
+      file.filename.startsWith("src/app/demos/declarative-hashbrown/"),
+    );
+    expect(
+      demoFiles.every((file) => file.highlighted),
+      key,
+    ).toBe(true);
+    for (const name of ["page.tsx", "chat.tsx", "hashbrown-renderer.tsx"]) {
+      const source = demoFiles.find((file) =>
+        file.filename.endsWith(`/${name}`),
+      );
+      expect(source, `${key}: ${name}`).toBeDefined();
+      expect(output, `${key}: ${name}`).toContain(source!.content.trimEnd());
+    }
+    expect(output, key).not.toContain("<!-- snippet skipped:");
+    expect(output, key).not.toContain("useUiKit({ catalog, value:");
+
+    if (["langgraph-python", "google-antigravity"].includes(framework)) {
+      const prompt = demo.files.find((file) =>
+        file.filename.endsWith("/byoc_hashbrown_prompt.py"),
+      );
+      expect(prompt, `${key}: agent prompt`).toBeDefined();
+      expect(prompt?.highlighted, `${key}: agent prompt`).toBe(true);
+      expect(prompt?.content).toContain("BYOC_HASHBROWN_SYSTEM_PROMPT =");
+      expect(prompt?.content).toContain('"ui"');
+      expect(prompt?.content).toContain("pieChart");
+    }
+  }
+
+  const output = renderPageToLlmText({
+    url: "generative-ui/hashbrown",
+    title: doc!.fm.title,
+    filePath: doc!.filePath,
+    loadSlug: "generative-ui/hashbrown",
+  });
+  expect(output).toContain("useJsonParser(content, kit.schema)");
+  expect(output).not.toContain("<!-- snippet skipped:");
+  const example = output.match(
+    /```json title="example assistant message"\n([\s\S]*?)\n```/,
+  );
+  expect(example).not.toBeNull();
+  const message = JSON.parse(example![1]) as {
+    ui: Array<Record<string, { props: Record<string, unknown> }>>;
+  };
+  expect(message.ui.map((component) => Object.keys(component)[0])).toEqual([
+    "metric",
+    "pieChart",
+  ]);
+  const chartData = message.ui[1].pieChart.props.data;
+  expect(typeof chartData).toBe("string");
+  if (typeof chartData !== "string")
+    throw new Error("chart data is not a string");
+  expect(JSON.parse(chartData)).toHaveLength(3);
+});
+
 test("includes JSON Render wiring in framework Markdown exports", () => {
   const doc = loadDoc("generative-ui/json-render");
   expect(doc).not.toBeNull();

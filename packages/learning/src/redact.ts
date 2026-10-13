@@ -148,8 +148,11 @@ export function createRedactor() {
         seen.add(record.target as Element);
   };
 
-  /** Replaces remembered values, raw and in their JSON and URL encodings. */
-  const scrub = (text: string) => {
+  /**
+   * Replaces remembered values, raw and in their JSON and URL encodings, plus
+   * `normalize(value)` when given and at least 4 characters long.
+   */
+  const scrub = (text: string, normalize?: (value: string) => string) => {
     for (const value of [...remembered.values()].sort(
       (a, b) => b.length - a.length,
     ))
@@ -158,6 +161,7 @@ export function createRedactor() {
         JSON.stringify(value).slice(1, -1),
         encodeURIComponent(value),
         new URLSearchParams({ v: value }).toString().slice(2),
+        ...[normalize?.(value) ?? ""].filter((normal) => normal.length >= 4),
       ])
         text = /^\d+$/.test(form)
           ? // One-time codes must not match inside longer numbers.
@@ -191,6 +195,7 @@ export function createRedactor() {
 
   return {
     isPassword,
+    scrub,
     /**
      * Tracks password fields for the session: existing ones, `type` toggles away
      * from "password", and typed values even when input capture is off.

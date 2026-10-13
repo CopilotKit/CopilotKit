@@ -10,6 +10,8 @@ import {
   SERVICES,
   STAGING_ENV_ID,
   assertClosureValid,
+  effectiveStaticGatePolicy,
+  DISPOSABLE_LIFECYCLE_POLICY,
   assertDispatchNamesUnique,
   assertEnvRegistryConsistent,
   assertImageConsumersValid,
@@ -1091,7 +1093,7 @@ describe("promote-tier SSOT fields", () => {
   });
 
   it("declares runtimeDeps: every agent service needs a current aimock", () => {
-    for (const [key, entry] of Object.entries(SERVICES)) {
+    for (const entry of Object.values(SERVICES)) {
       if (entry.probeDriver !== "agent") continue;
       expect(entry.runtimeDeps).toContain("aimock");
     }
@@ -1454,6 +1456,51 @@ describe("autoUpdates deploy-consolidation policy (per-env, staging-first)", () 
         svc.autoUpdates?.prod,
         `generated ${svc.name}.autoUpdates.prod must be "disabled"`,
       ).toBe("disabled");
+    }
+  });
+});
+
+describe("static gate and disposable approval policy", () => {
+  it("resolves required convention and optional ignored policies", () => {
+    expect(effectiveStaticGatePolicy({ gateValidated: true })).toEqual({
+      presence: "required",
+      image: "showcase-convention",
+    });
+    expect(effectiveStaticGatePolicy({ gateValidated: false })).toEqual({
+      presence: "optional",
+      image: "ignored",
+    });
+    expect(
+      effectiveStaticGatePolicy({ gateValidated: false, gateIgnore: true }),
+    ).toEqual({ presence: "optional", image: "ignored" });
+    expect(() =>
+      effectiveStaticGatePolicy({ gateValidated: true, gateIgnore: true }),
+    ).toThrow(/gateValidated.*gateIgnore/);
+  });
+
+  it("commits no approved pins and derives every permanent identity from the unchanged registry", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(49);
+    expect(DISPOSABLE_LIFECYCLE_POLICY).toEqual({
+      projectId: PROJECT_ID,
+      forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],
+      permanentServices: Object.entries(SERVICES).map(([name, entry]) => ({
+        name,
+        serviceId: entry.serviceId,
+      })),
+      approvedImages: [],
+    });
+    const independent = Object.entries(SERVICES).filter(([name]) =>
+      name.startsWith("showcase-intelligence-"),
+    );
+    expect(independent).toHaveLength(6);
+    for (const [, entry] of independent) {
+      expect(effectiveStaticGatePolicy(entry)).toEqual({
+        presence: "optional",
+        image: "ignored",
+      });
+      expect(entry.gateIgnore).toBe(true);
+      expect(entry.autoUpdates).toEqual({ staging: "unmanaged" });
+      expect(entry.environments.staging.probe).toBe(false);
     }
   });
 });
