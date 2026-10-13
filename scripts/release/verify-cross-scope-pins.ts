@@ -87,7 +87,11 @@ function readPublishedManifest(
 ): PublishedManifest | undefined {
   const result = spawnSync(
     "npm",
-    ["view", `${packageName}@latest`, ...PUBLISHED_FIELD_NAMES, "--json"],
+    // Ask for the whole manifest, not the three fields by name. Named fields
+    // come back keyed only when two or more of them exist: a package that
+    // declares `dependencies` alone answers with the bare map, which reads as
+    // "no dependencies" and skips the package unchecked (@copilotkit/core).
+    ["view", `${packageName}@latest`, "--json"],
     { encoding: "utf8", timeout: 30_000 },
   );
 
@@ -95,10 +99,15 @@ function readPublishedManifest(
     const output = result.stdout.trim();
     if (output === "") return {};
     const parsed = JSON.parse(output) as unknown;
-    // `npm view` returns the bare field value when one field is asked for and
-    // an object keyed by field when several are. Guard both, because a package
-    // that declares none of them answers with an empty object either way.
-    if (parsed === null || typeof parsed !== "object") return {};
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed)
+    ) {
+      throw new Error(
+        `npm registry check failed for ${packageName}: unexpected manifest shape`,
+      );
+    }
     const record = parsed as Record<string, unknown>;
     const manifest: {
       -readonly [F in keyof PublishedManifest]: Record<string, string>;
