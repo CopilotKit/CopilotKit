@@ -14,6 +14,16 @@
 #                          runs once: it writes compact/rollback.done, and
 #                          while that file exists the flag does nothing. The
 #                          next successful swap removes it.
+#   PB_COMPACT_CUTOVER_CHECK  none (default), quick or integrity: a full-file
+#                          check of the new file before the swap. The file was
+#                          integrity-checked when it was built and its bytes
+#                          checked by sha256 on the way to the volume, and a
+#                          full check reads the whole file while PocketBase is
+#                          down, so it is off by default.
+#   PB_COMPACT_DELTA_SKEW_S  rows whose `updated` is at most this many seconds
+#                          before the build snapshot are copied again too,
+#                          default 60 (a write that was saved before the
+#                          snapshot and committed after it).
 #   PB_COMPACT_MAX_ATTEMPTS  how many boots may start the cutover for one
 #                          manifest without it finishing (the boot was
 #                          killed or timed out), default 3. After that the
@@ -53,7 +63,8 @@ LIB_DIR=$(dirname "$(readlink -f "$0")")
 . "$LIB_DIR/compact-lib.sh"
 
 TS=$(date -u +%Y%m%dT%H%M%SZ)
-CHECK="${PB_COMPACT_CUTOVER_CHECK:-integrity}"
+CHECK="${PB_COMPACT_CUTOVER_CHECK:-none}"
+DELTA_SKEW_S="${PB_COMPACT_DELTA_SKEW_S:-60}"
 MAX_ATTEMPTS="${PB_COMPACT_MAX_ATTEMPTS:-3}"
 ROLLBACK_DONE="$COMPACT_DIR/rollback.done"
 # Return code of a step that may have left data.db missing. The top level
@@ -503,8 +514,33 @@ cutover() {
     _reuse_before=$(pb_time_checked $((_snap_s - COMPACT_SKEW_S))) ||
         { err "could not compute the build snapshot time for the rowid reuse check"; return 1; }
 
-    # Build one transaction: drop the triggers (so the copies do not fire
-    # them), copy, put the triggers back from the live schema.
+    # The delta. The new file holds every kept row as of the build; this
+    # brings it up to the live file with one transaction that touches only
+    # what changed since the snapshot, so PocketBase is down for seconds, not
+    # for a copy of whole tables. Per table:
+    #
+    #   append    (insert-only) the rows above the snapshot top rowid, and
+    #             the retention band at the bottom (rows the hook deleted).
+    #   rowid tables with an `updated` column (PocketBase records: every
+    #             mutable and whole table, the _ system tables but
+    #             _migrations): one read of the live rows in the kept range,
+    #             rowid and `updated` only kept in a temp table. From it:
+    #             rows gone from live are deleted, rows with `updated` at or
+    #             after the snapshot time (minus PB_COMPACT_DELTA_SKEW_S) are
+    #             copied again, then the rows above the snapshot top rowid
+    #             are copied. A row written since the build at a reused rowid
+    #             has a new `updated`, so it is copied too.
+    #   any other table (no rowid, no `updated`: _migrations,
+    #             sqlite_sequence, sqlite_stat1, WITHOUT ROWID tables): its
+    #             sha3 is compared with live, and only a table that differs
+    #             is copied again. These are small.
+    #
+    # Triggers are dropped first (so the copies do not fire them) and put
+    # back from the live schema in the same transaction. The checks are in
+    # the same session, before COMMIT, and print one line each; the swap goes
+    # on only when every line holds.
+    _upd_from=$(pb_time_checked $((_snap_s - DELTA_SKEW_S))) ||
+        { err "could not compute the delta start time"; return 1; }
     sql="$COMPACT_DIR/cutover.sql"
     _drops=$(new_q "SELECT 'DROP TRIGGER \"' || name || '\";' FROM sqlite_schema WHERE type = 'trigger';") ||
         { err "could not list the triggers of the new file"; return 1; }
@@ -512,107 +548,110 @@ cutover() {
         { err "could not read the live triggers"; return 1; }
     {
         echo "PRAGMA foreign_keys = OFF;"
+        echo "PRAGMA temp_store = MEMORY;"
         echo "ATTACH 'file:$LIVE_DB?mode=ro' AS live;"
         echo "BEGIN IMMEDIATE;"
         printf '%s\n' "$_drops"
     } >"$sql" || return 1
+    checks="$COMPACT_DIR/cutover.checks.sql"
+    : >"$checks" || return 1
 
-    has_sequence=0
+    _n_checked=0
     for line in $inventory; do
         t=${line%%|*}
         cls=$(echo "$line" | cut -d'|' -f2)
         wr=$(echo "$line" | cut -d'|' -f3)
         _mcls=$(manifest_get "table.$t.class") || { err "table $t is not in the manifest"; return 1; }
         [ "$_mcls" = "$cls" ] || { err "table $t class changed ($_mcls -> $cls)"; return 1; }
-        if [ "$t" = sqlite_sequence ]; then
-            # Copied after every other table, see below.
-            has_sequence=1
-            continue
-        fi
+        snap=$(manifest_get "table.$t.snapshot_max_rowid")
+        is_int "$snap" || { err "bad manifest snapshot_max_rowid for $t: '$snap'"; return 1; }
         cols=$(column_list "$LIVE_DB" "$t") || return 1
-        if [ "$wr" = 1 ]; then
-            rc="$cols"
+        _has_upd=$(live_q "SELECT count(*) FROM pragma_table_info('$t') WHERE name = 'updated';") ||
+            { err "could not read the columns of $t"; return 1; }
+        if [ "$cls" != whole ]; then
+            cut=$(manifest_get "table.$t.cut_rowid")
+            sid=$(manifest_get "table.$t.snapshot_id")
+            days=$(manifest_get "table.$t.window_days")
+            for _v in "$cut" "$days"; do
+                is_int "$_v" || { err "bad manifest value for $t: '$_v'"; return 1; }
+            done
+            check_window "$t" "$days" || return 1
         else
-            rc="rowid,$cols"
+            cut=0
         fi
-        case "$cls" in
-        whole)
-            echo "DELETE FROM main.\"$t\";"
-            echo "INSERT INTO main.\"$t\" ($rc) SELECT $rc FROM live.\"$t\";"
-            ;;
-        mutable)
-            cut=$(manifest_get "table.$t.cut_rowid")
-            snap=$(manifest_get "table.$t.snapshot_max_rowid")
-            sid=$(manifest_get "table.$t.snapshot_id")
-            days=$(manifest_get "table.$t.window_days")
-            for _v in "$cut" "$snap" "$days"; do
-                is_int "$_v" || { err "bad manifest value for $t: '$_v'"; return 1; }
-            done
-            check_window "$t" "$days" || return 1
-            check_rowid_reuse "$t" "$snap" "$sid" "$_reuse_before" || return 1
-            echo "DELETE FROM main.\"$t\" WHERE rowid > $cut;"
-            echo "INSERT INTO main.\"$t\" ($rc) SELECT $rc FROM live.\"$t\" WHERE rowid > $cut ORDER BY rowid;"
-            ;;
-        append)
-            cut=$(manifest_get "table.$t.cut_rowid")
-            snap=$(manifest_get "table.$t.snapshot_max_rowid")
-            sid=$(manifest_get "table.$t.snapshot_id")
-            days=$(manifest_get "table.$t.window_days")
-            for _v in "$cut" "$snap" "$days"; do
-                is_int "$_v" || { err "bad manifest value for $t: '$_v'"; return 1; }
-            done
-            check_window "$t" "$days" || return 1
-            # Rows up to the snapshot top are not copied again, so none of
+        if [ "$cls" = append ]; then
+            # Rows up to the snapshot top are not read again, so none of
             # them may be a row written since the build at a reused rowid.
-            # The snapshot top row itself may be gone: the retention hook
-            # ages it out of a quiet table, and the band below handles that.
             check_rowid_reuse "$t" "$snap" "$sid" "$_reuse_before" || return 1
             # The retention hook keeps deleting the oldest rows while the
             # build waits. Those deletes fall in a band just above the cut:
             # up to (now - window + 10 min). Drop from the new file every row
-            # of that band that the live file no longer has. Any other
-            # delete shows up in the count check below and stops the swap.
+            # of that band that the live file no longer has.
             band_ts=$(pb_time_checked $((now_s - days * 86400 + 600))) ||
                 { err "could not compute the retention band time for $t"; return 1; }
             band_hi=$(live_q "SELECT COALESCE((SELECT rowid FROM \"$t\" WHERE rowid > $cut AND created >= '$band_ts' ORDER BY rowid LIMIT 1), $snap);")
             is_int "$band_hi" || { err "band search failed for $t"; return 1; }
             [ "$band_hi" -gt "$snap" ] && band_hi=$snap
-            echo "DELETE FROM main.\"$t\" WHERE rowid > $cut AND rowid <= $band_hi AND rowid NOT IN (SELECT rowid FROM live.\"$t\" WHERE rowid > $cut AND rowid <= $band_hi);"
-            echo "INSERT INTO main.\"$t\" ($rc) SELECT $rc FROM live.\"$t\" WHERE rowid > $snap ORDER BY rowid;"
-            ;;
-        esac >>"$sql"
-    done
-    {
-        # sqlite_sequence last: the explicit-rowid inserts into AUTOINCREMENT
-        # tables above write their own rows into it. Copied by name, without
-        # rowid, and checked the same way.
-        if [ "$has_sequence" = 1 ]; then
-            echo "DELETE FROM main.sqlite_sequence;"
-            echo "INSERT INTO main.sqlite_sequence (name, seq) SELECT name, seq FROM live.sqlite_sequence;"
-        fi
-        printf '%s\n' "$_trg"
-        echo "COMMIT;"
-    } >>"$sql" || return 1
-
-    delta_started=$(date +%s)
-    as_pb sqlite3 -init /dev/null -batch -bail -noheader -cmd '.timeout 10000' -cmd '.output /dev/null' -cmd '.dbconfig dqs_ddl on' -cmd '.dbconfig dqs_dml on' -cmd '.output stdout' "$NEW_DB" <"$sql" >/dev/null || { err "the delta copy failed"; return 1; }
-    log "delta copied in $(($(date +%s) - delta_started))s"
-
-    # ---- verify ----
-    # Every query result is checked: a failed query is a failed check, never
-    # an empty string that equals another empty string.
-    verify_started=$(date +%s)
-    _ns=$(schema_hash "$NEW_DB") || { err "could not hash the new schema after the delta copy"; return 1; }
-    [ "$_ns" = "$_ms" ] || { err "the new schema changed during the delta copy"; return 1; }
-    _nh=$(header_pragmas "$NEW_DB") || { err "could not read the new header pragmas after the delta copy"; return 1; }
-    [ "$_nh" = "$_lh" ] || { err "header pragmas differ after the delta copy"; return 1; }
-    _verified=0
-    for line in $inventory; do
-        t=${line%%|*}
-        cls=$(echo "$line" | cut -d'|' -f2)
-        wr=$(echo "$line" | cut -d'|' -f3)
-        case "$cls" in
-        whole)
+            {
+                echo "DELETE FROM main.\"$t\" WHERE rowid > $cut AND rowid <= $band_hi AND rowid NOT IN (SELECT rowid FROM live.\"$t\" WHERE rowid > $cut AND rowid <= $band_hi);"
+                echo "INSERT INTO main.\"$t\" (rowid,$cols) SELECT rowid,$cols FROM live.\"$t\" WHERE rowid > $snap ORDER BY rowid;"
+            } >>"$sql"
+            # Rows above the snapshot: the same count, and no row differs.
+            {
+                echo "SELECT '$t|tail|' || (SELECT count(*) FROM main.\"$t\" WHERE rowid > $snap) || '|' || (SELECT count(*) FROM live.\"$t\" WHERE rowid > $snap);"
+                echo "SELECT '$t|tail-diff|' || (SELECT count(*) FROM (SELECT rowid,* FROM main.\"$t\" WHERE rowid > $snap EXCEPT SELECT rowid,* FROM live.\"$t\" WHERE rowid > $snap)) || '|' || (SELECT count(*) FROM (SELECT rowid,* FROM live.\"$t\" WHERE rowid > $snap EXCEPT SELECT rowid,* FROM main.\"$t\" WHERE rowid > $snap));"
+            } >>"$checks"
+        elif [ "$wr" = 0 ] && [ "$_has_upd" = 1 ] && [ "$t" != sqlite_sequence ]; then
+            # The read below covers the rows above the cut. A row written
+            # since the build at a reused rowid at or below the cut (every
+            # row above it was deleted first) would not be seen. Such a row
+            # is always the top row at or below the cut, so that row must
+            # predate the snapshot.
+            if [ "$cut" -gt 0 ]; then
+                _top=$(live_q "SELECT rowid || '|' || COALESCE(created >= '$_reuse_before', 'null') || '|' || COALESCE(created GLOB '$COMPACT_DATE_GLOB', 'null')
+                               FROM \"$t\" WHERE rowid <= $cut ORDER BY rowid DESC LIMIT 1;") ||
+                    { err "could not read the top row of $t at or below the cut rowid $cut"; return 1; }
+                case "$_top" in
+                    '' | *'|0|1') ;;
+                    *'|null|'*)
+                        err "$t rowid ${_top%%|*} (at or below the cut rowid $cut) has a NULL created, so it may have been written after the build at a reused rowid. Rows at reused rowids would be lost; not swapping"
+                        return 1
+                        ;;
+                    *)
+                        err "$t rowid ${_top%%|*} (at or below the cut rowid $cut) was written after the build, or its created is malformed: its rowid was reused. Rows at reused rowids would be lost; not swapping"
+                        return 1
+                        ;;
+                esac
+            fi
+            pk=$(pk_index "$NEW_DB" "$t") || { err "could not read the primary key index of $t"; return 1; }
+            by=""
+            is_ident "$pk" && by="INDEXED BY \"$pk\""
+            d="\"cd_$t\""
+            {
+                # The one read of the live kept range: rowid, and whether the
+                # row changed since the snapshot (a NULL `updated` counts as
+                # changed).
+                echo "CREATE TEMP TABLE $d (r INTEGER PRIMARY KEY, u INTEGER);"
+                echo "INSERT INTO temp.$d SELECT rowid, COALESCE(updated >= '$_upd_from', 1) FROM live.\"$t\" WHERE rowid > $cut AND rowid <= $snap;"
+                # Gone from live. The new file's rowids are read from its
+                # primary-key index, not from the rows.
+                echo "DELETE FROM main.\"$t\" WHERE rowid IN (SELECT rowid FROM main.\"$t\" $by WHERE rowid > $cut AND rowid <= $snap EXCEPT SELECT r FROM temp.$d);"
+                echo "INSERT OR REPLACE INTO main.\"$t\" (rowid,$cols) SELECT rowid,$cols FROM live.\"$t\" WHERE rowid IN (SELECT r FROM temp.$d WHERE u) ORDER BY rowid;"
+                echo "INSERT OR REPLACE INTO main.\"$t\" (rowid,$cols) SELECT rowid,$cols FROM live.\"$t\" WHERE rowid > $snap ORDER BY rowid;"
+            } >>"$sql"
+            {
+                # The kept range holds the same rowids on both sides, and
+                # every row copied now is the same as in live.
+                echo "SELECT '$t|range|' || (SELECT count(*) FROM main.\"$t\" $by WHERE rowid > $cut AND rowid <= $snap) || '|' || (SELECT count(*) FROM temp.$d);"
+                echo "SELECT '$t|tail|' || (SELECT count(*) FROM main.\"$t\" WHERE rowid > $snap) || '|' || (SELECT count(*) FROM live.\"$t\" WHERE rowid > $snap);"
+                echo "SELECT '$t|tail-diff|' || (SELECT count(*) FROM (SELECT rowid,* FROM main.\"$t\" WHERE rowid > $snap EXCEPT SELECT rowid,* FROM live.\"$t\" WHERE rowid > $snap)) || '|' || (SELECT count(*) FROM (SELECT rowid,* FROM live.\"$t\" WHERE rowid > $snap EXCEPT SELECT rowid,* FROM main.\"$t\" WHERE rowid > $snap));"
+                echo "SELECT '$t|changed-diff|' || (SELECT count(*) FROM (SELECT rowid,* FROM main.\"$t\" WHERE rowid IN (SELECT r FROM temp.$d WHERE u) EXCEPT SELECT rowid,* FROM live.\"$t\" WHERE rowid IN (SELECT r FROM temp.$d WHERE u))) || '|' || (SELECT count(*) FROM (SELECT rowid,* FROM live.\"$t\" WHERE rowid IN (SELECT r FROM temp.$d WHERE u) EXCEPT SELECT rowid,* FROM main.\"$t\" WHERE rowid IN (SELECT r FROM temp.$d WHERE u)));"
+                echo "SELECT '$t|changed|' || (SELECT count(*) FROM temp.$d WHERE u) || '|' || (SELECT count(*) FROM temp.$d WHERE u);"
+            } >>"$checks"
+        else
+            [ "$cls" = whole ] || { err "pruned table $t has no rowid or no updated column; the delta cannot cover it"; return 1; }
+            # Small tables with no `updated`: compared by hash, copied again
+            # only when they differ. sqlite_sequence goes last (see below).
             if [ "$t" = sqlite_sequence ]; then
                 q="SELECT name, seq FROM sqlite_sequence ORDER BY name"
             elif [ "$wr" = 1 ]; then
@@ -620,62 +659,83 @@ cutover() {
             else
                 q="SELECT rowid,* FROM \"$t\" ORDER BY rowid"
             fi
-            lc=$(q_int live_q "SELECT count(*) FROM \"$t\";") || return 1
-            nc=$(q_int new_q "SELECT count(*) FROM \"$t\";") || return 1
             lh=$(q_sha3 live_q "$q") || return 1
             nh=$(q_sha3 new_q "$q") || return 1
-            [ "$lc" = "$nc" ] && [ "$lh" = "$nh" ] || { err "$t differs: live rows=$lc sha3=$lh, new rows=$nc sha3=$nh"; return 1; }
-            log "verified table=$t class=whole rows=$nc sha3=$(echo "$nh" | cut -c1-16)"
-            ;;
-        mutable | append)
-            cut=$(manifest_get "table.$t.cut_rowid")
-            snap=$(manifest_get "table.$t.snapshot_max_rowid")
-            if ! is_int "$cut" || ! is_int "$snap"; then
-                err "bad manifest values for $t: cut '$cut' snapshot '$snap'"
-                return 1
+            if [ "$lh" != "$nh" ]; then
+                log "table $t differs from live (no updated column); copying it again"
+                if [ "$t" != sqlite_sequence ]; then
+                    rc="rowid,$cols"
+                    [ "$wr" = 1 ] && rc=$cols
+                    {
+                        echo "DELETE FROM main.\"$t\";"
+                        echo "INSERT INTO main.\"$t\" ($rc) SELECT $rc FROM live.\"$t\";"
+                    } >>"$sql"
+                fi
             fi
-            # Counted on the primary-key index: it holds every rowid and is
-            # far smaller than the table, so this does not read row data.
-            pk=$(pk_index "$LIVE_DB" "$t") || { err "could not read the primary key index of $t"; return 1; }
-            by=""
-            is_ident "$pk" && by="INDEXED BY \"$pk\""
-            lc=$(q_int live_q "SELECT count(*) FROM \"$t\" $by WHERE rowid > $cut;") || return 1
-            nc=$(q_int new_q "SELECT count(*) FROM \"$t\" $by WHERE rowid > $cut;") || return 1
-            [ "$lc" = "$nc" ] || { err "$t kept rows differ: live=$lc new=$nc (rowid > $cut)"; return 1; }
-            old=$(q_int new_q "SELECT count(*) FROM \"$t\" WHERE rowid <= $cut;") || return 1
-            [ "$old" = 0 ] || { err "$t new file has $old rows at or below the cut"; return 1; }
-            # Content hash of the part this cutover copied: every kept row
-            # of a mutable table, the rows above the snapshot of an
-            # insert-only one.
-            from=$cut
-            [ "$cls" = append ] && from=$snap
-            q="SELECT rowid,* FROM \"$t\" WHERE rowid > $from ORDER BY rowid"
-            lh=$(q_sha3 live_q "$q") || return 1
-            nh=$(q_sha3 new_q "$q") || return 1
-            [ "$lh" = "$nh" ] || { err "$t rows above rowid $from differ in content"; return 1; }
-            # The top kept row. Empty only when no row is kept, on both sides.
-            ltop=$(live_q "SELECT rowid || ':' || id FROM \"$t\" WHERE rowid > $cut ORDER BY rowid DESC LIMIT 1;") || { err "could not read the top row of $t (live)"; return 1; }
-            ntop=$(new_q "SELECT rowid || ':' || id FROM \"$t\" WHERE rowid > $cut ORDER BY rowid DESC LIMIT 1;") || { err "could not read the top row of $t (new)"; return 1; }
-            [ -n "$ltop" ] || [ "$lc" = 0 ] || { err "$t has $lc kept rows but no top row"; return 1; }
-            [ "$ltop" = "$ntop" ] || { err "$t top row differs: live=$ltop new=$ntop"; return 1; }
-            log "verified table=$t class=$cls kept_rows=$nc (rowid > $cut) copied_now_from_rowid=$from"
-            ;;
-        *)
-            err "table $t has an unknown class '$cls'"
-            return 1
-            ;;
-        esac
-        _verified=$((_verified + 1))
+            if [ "$t" = sqlite_sequence ]; then
+                echo "SELECT '$t|rows-diff|' || (SELECT count(*) FROM (SELECT name, seq FROM main.sqlite_sequence EXCEPT SELECT name, seq FROM live.sqlite_sequence)) || '|' || (SELECT count(*) FROM (SELECT name, seq FROM live.sqlite_sequence EXCEPT SELECT name, seq FROM main.sqlite_sequence));" >>"$checks"
+            else
+                echo "SELECT '$t|rows-diff|' || (SELECT count(*) FROM (SELECT * FROM main.\"$t\" EXCEPT SELECT * FROM live.\"$t\")) || '|' || (SELECT count(*) FROM (SELECT * FROM live.\"$t\" EXCEPT SELECT * FROM main.\"$t\"));" >>"$checks"
+            fi
+        fi
+        _n_checked=$((_n_checked + 1))
     done
-    [ "$_verified" = "$_n_live" ] && [ "$_verified" -gt 0 ] || { err "verified $_verified of $_n_live tables"; return 1; }
+    {
+        # sqlite_sequence last: the explicit-rowid inserts into AUTOINCREMENT
+        # tables above write their own rows into it, so it is always set from
+        # live here, whatever its hash said.
+        if printf '%s\n' "$inventory" | grep -q '^sqlite_sequence|'; then
+            echo "DELETE FROM main.sqlite_sequence;"
+            echo "INSERT INTO main.sqlite_sequence (name, seq) SELECT name, seq FROM live.sqlite_sequence;"
+        fi
+        printf '%s\n' "$_trg"
+        echo ".output $COMPACT_DIR/cutover.checks.out"
+        cat "$checks"
+        echo ".output stdout"
+        echo "COMMIT;"
+    } >>"$sql" || return 1
+
+    delta_started=$(date +%s)
+    rm -f "$COMPACT_DIR/cutover.checks.out"
+    as_pb sqlite3 -init /dev/null -batch -bail -noheader -cmd '.timeout 10000' -cmd '.output /dev/null' -cmd '.dbconfig dqs_ddl on' -cmd '.dbconfig dqs_dml on' -cmd '.output stdout' "$NEW_DB" <"$sql" >/dev/null || { err "the delta copy failed"; return 1; }
+    log "delta copied and checked in $(($(date +%s) - delta_started))s"
+
+    # ---- verify ----
+    # Every check line is "table|what|a|b" and holds when a = b, or for a
+    # "-diff" line when both are 0. Every table must have its lines.
+    _lines=$(grep -c . "$COMPACT_DIR/cutover.checks.out" 2>/dev/null) || _lines=0
+    _want=$(grep -c . "$checks")
+    [ "$_lines" = "$_want" ] && [ "$_want" -gt 0 ] || { err "the delta checks printed $_lines of $_want lines"; return 1; }
+    _bad=$(awk -F'|' '
+        NF != 4 || $3 !~ /^[0-9]+$/ || $4 !~ /^[0-9]+$/ { print; next }
+        $2 ~ /-diff$/ { if ($3 != 0 || $4 != 0) print; next }
+        $3 != $4 { print }' "$COMPACT_DIR/cutover.checks.out")
+    if [ -n "$_bad" ]; then
+        err "the delta does not match live: $(printf '%s\n' "$_bad" | head -5 | tr '\n' ' ')"
+        return 1
+    fi
+    _tables=$(cut -d'|' -f1 "$COMPACT_DIR/cutover.checks.out" | sort -u | grep -c .)
+    [ "$_tables" = "$_n_live" ] && [ "$_n_checked" = "$_n_live" ] || { err "checked $_tables of $_n_live tables"; return 1; }
+    _changed=$(awk -F'|' '$2 == "changed" { s += $3 } END { print s + 0 }' "$COMPACT_DIR/cutover.checks.out")
+    _tail=$(awk -F'|' '$2 == "tail" { s += $3 } END { print s + 0 }' "$COMPACT_DIR/cutover.checks.out")
+    _verified=$_tables
+    verify_started=$(date +%s)
+    _ns=$(schema_hash "$NEW_DB") || { err "could not hash the new schema after the delta copy"; return 1; }
+    [ "$_ns" = "$_ms" ] || { err "the new schema changed during the delta copy"; return 1; }
+    _nh=$(header_pragmas "$NEW_DB") || { err "could not read the new header pragmas after the delta copy"; return 1; }
+    [ "$_nh" = "$_lh" ] || { err "header pragmas differ after the delta copy"; return 1; }
+    # The whole file was checked when it was built (integrity_check) and on
+    # its way here (sha256), so by default no full-file check runs here; it
+    # would read the whole file with PocketBase down.
     case "$CHECK" in
-        integrity) ic=$(new_q "PRAGMA integrity_check;") ;;
-        *) ic=$(new_q "PRAGMA quick_check;") ;;
-    esac || { err "${CHECK}_check on the new file failed to run"; return 1; }
+        integrity) ic=$(new_q "PRAGMA integrity_check;") || { err "integrity_check on the new file failed to run"; return 1; } ;;
+        quick) ic=$(new_q "PRAGMA quick_check;") || { err "quick_check on the new file failed to run"; return 1; } ;;
+        *) ic=ok ;;
+    esac
     [ "$ic" = ok ] || { err "${CHECK}_check on the new file: $(echo "$ic" | head -5)"; return 1; }
     jm=$(new_q "PRAGMA journal_mode;") || { err "could not read the journal mode of the new file"; return 1; }
     [ "$jm" = wal ] || { err "the new file is not in WAL mode"; return 1; }
-    log "verified $_verified tables in $(($(date +%s) - verify_started))s (${CHECK}_check ok)"
+    log "verified $_verified tables in $(($(date +%s) - verify_started))s: $_tail rows written since the build, $_changed rows changed since it (check: $CHECK)"
 
     # ---- swap ----
     # Nobody may hold either file, or any -wal or -shm of them, open: the
@@ -744,12 +804,16 @@ if [ ! -e "$MANIFEST" ]; then
     exit 0
 fi
 case "$CHECK" in
-    integrity | quick) ;;
+    none | integrity | quick) ;;
     *)
-        loud "PB_COMPACT_CUTOVER_CHECK=$CHECK is not integrity or quick; no swap. The manifest is kept; fix the setting and restart."
+        loud "PB_COMPACT_CUTOVER_CHECK=$CHECK is not none, integrity or quick; no swap. The manifest is kept; fix the setting and restart."
         exit 0
         ;;
 esac
+if ! is_count "$DELTA_SKEW_S"; then
+    loud "PB_COMPACT_DELTA_SKEW_S=$DELTA_SKEW_S is not a whole number; no swap. The manifest is kept; fix the setting and restart."
+    exit 0
+fi
 if ! is_count "$MAX_ATTEMPTS" || [ "$MAX_ATTEMPTS" -lt 1 ]; then
     loud "PB_COMPACT_MAX_ATTEMPTS=$MAX_ATTEMPTS is not a whole number of at least 1; no swap. The manifest is kept; fix the setting and restart."
     exit 0
