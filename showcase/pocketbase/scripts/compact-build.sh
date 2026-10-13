@@ -29,6 +29,18 @@
 #
 # A failed build removes its partial new file and leaves no manifest, also
 # when it fails after the manifest was published.
+#
+# Off-box build: with PB_COMPACT_REMOTE set (see compact-lib.sh), this runs
+# on another machine and reads the live database on the box through that
+# command, read-only. The rows come over as compressed SQL, in segments of
+# PB_COMPACT_SEGMENT_ROWS rows (default 250000, one remote command each); a
+# segment whose connection breaks is fetched again. Every read on the box is
+# still a short transaction of PB_COMPACT_CHUNK_ROWS rows with
+# PB_COMPACT_PAUSE_S between them (default 0.2 here). Each chunk carries the
+# sha3_query hash of its rows, read in the same transaction, and the build
+# checks it against the rows it inserted. The new file, the indexes and the
+# integrity check are all on this machine; PB_DATA_DIR is a local directory
+# here. compact-push.sh then puts the file and the manifest on the box.
 set -eu
 
 LIB_DIR=$(dirname "$(readlink -f "$0")")
@@ -36,10 +48,15 @@ LIB_DIR=$(dirname "$(readlink -f "$0")")
 . "$LIB_DIR/compact-lib.sh"
 
 CHUNK_ROWS="${PB_COMPACT_CHUNK_ROWS:-5000}"
-PAUSE_S="${PB_COMPACT_PAUSE_S:-0.05}"
+if [ -n "$REMOTE" ]; then
+    PAUSE_S="${PB_COMPACT_PAUSE_S:-0.2}"
+else
+    PAUSE_S="${PB_COMPACT_PAUSE_S:-0.05}"
+fi
+SEGMENT_ROWS="${PB_COMPACT_SEGMENT_ROWS:-250000}"
 MIN_FREE_MB="${PB_COMPACT_MIN_FREE_MB:-2048}"
 HEADROOM_MB="${PB_COMPACT_HEADROOM_MB:-2048}"
-for _v in CHUNK_ROWS MIN_FREE_MB HEADROOM_MB; do
+for _v in CHUNK_ROWS SEGMENT_ROWS MIN_FREE_MB HEADROOM_MB; do
     _val=""
     eval "_val=\$$_v"
     is_count "$_val" || die "PB_COMPACT_$_v=$_val is not a whole number (digits only, no leading zero)"
@@ -79,7 +96,14 @@ if [ "${1:-}" = "--detach" ]; then
     exit 0
 fi
 
-[ -f "$LIVE_DB" ] || die "no live database at $LIVE_DB"
+if [ -n "$REMOTE" ]; then
+    _there=$(remote_q "if [ -f $(shq "$LIVE_DB") ]; then echo yes; else echo no; fi") ||
+        die "could not run a command on the box with PB_COMPACT_REMOTE ($REMOTE)"
+    [ "$_there" = yes ] || die "no live database at $LIVE_DB on the box"
+    [ -r "$LIB_DIR/compact-export.sh" ] || die "missing $LIB_DIR/compact-export.sh"
+else
+    [ -f "$LIVE_DB" ] || die "no live database at $LIVE_DB"
+fi
 mkdir -p "$COMPACT_DIR"
 
 # ---- one build at a time -------------------------------------------------------
@@ -211,7 +235,7 @@ trap 'exit 143' TERM
 take_lock
 
 build_started=$(date +%s)
-log "build start: live=$LIVE_DB size=$(human "$(file_size "$LIVE_DB")") wal=$(human "$(file_size "$LIVE_DB-wal")")"
+log "build start: live=$LIVE_DB${REMOTE:+ (on the box, via $REMOTE)} size=$(human "$(live_file_size "$LIVE_DB")") wal=$(human "$(live_file_size "$LIVE_DB-wal")")"
 
 # The old manifest goes first, so a restart during this build cannot swap in
 # a half-built file.
@@ -231,7 +255,8 @@ log "tables: $(printf '%s\n' "$INVENTORY" | awk -F'|' '{ printf "%s%s(%s)", sep,
 # ---- cutoff per pruned table ----------------------------------------------
 # Binary search over rowid (rowid order follows `created`); each probe is a
 # rowid b-tree seek, so this needs no index on `created`.
-now_s=$(date +%s)
+now_s=$(live_now)
+is_int "$now_s" || die "could not read the time on the box: '$now_s'"
 
 # "rowid|is_old|well_formed" for the first row with rowid >= $2.
 probe_row() {
@@ -372,14 +397,15 @@ for line in $INVENTORY; do
     fi
 done
 SNAP_SQL="${SNAP_SQL}COMMIT;"
-snap_started=$(date +%s)
+snap_started=$(live_now)
+is_int "$snap_started" || die "could not read the time on the box: '$snap_started'"
 SNAP=$(live_q "$SNAP_SQL") || die "could not take the snapshot"
 SNAP_SCHEMA=$(printf '%s\n' "$SNAP" | sed -n 's/^schema|//p')
 is_sha3 "$SNAP_SCHEMA" || die "the snapshot has no schema hash: '$SNAP_SCHEMA'"
 schema_list "$LIVE_DB" >"$COMPACT_DIR/schema.live"
 live_schema=$(schema_hash "$LIVE_DB")
 [ "$live_schema" = "$SNAP_SCHEMA" ] || die "the schema changed while the snapshot was taken; run the build again"
-log "snapshot taken in $(($(date +%s) - snap_started))s, schema sha3=$SNAP_SCHEMA"
+log "snapshot taken, schema sha3=$SNAP_SCHEMA"
 
 snap_max() {
     printf '%s\n' "$SNAP" | awk -F'|' -v t="$1" '$1 == "max" && $2 == t { print $3 }'
@@ -393,7 +419,7 @@ snap_id() {
 # filled, PocketBase's own writes would fail. So every copy step first checks
 # that at least FLOOR bytes are free: PB_COMPACT_MIN_FREE_MB plus 10% of the
 # live file. One step adds at most PB_COMPACT_CHUNK_ROWS rows.
-live_size=$(file_size "$LIVE_DB")
+live_size=$(live_file_size "$LIVE_DB")
 is_int "$live_size" || die "could not read the size of $LIVE_DB"
 FLOOR=$((MIN_FREE_MB * 1048576 + live_size / 10))
 
@@ -484,6 +510,109 @@ done
 log "new database created: page_size=$PS auto_vacuum=$AV encoding=$ENC user_version=$UV application_id=$AID"
 
 # ---- copy rows ---------------------------------------------------------------
+# " live_wal=<size>" for the log lines. Not read off-box: one more remote
+# command per line for a number that does not change what the build does.
+wal_note() {
+    [ -n "$REMOTE" ] || echo " live_wal=$(human "$(file_size "$LIVE_DB-wal")")"
+}
+
+# Off-box copy of table $1 into the new file. $2 is the column list of the
+# rows (with rowid for a rowid table), $3 the target column list, $4 the
+# first rowid to skip ("all" for one read of the whole table), $5 the
+# snapshot top rowid. Prints the number of chunks.
+#
+# The rows of each segment of PB_COMPACT_SEGMENT_ROWS rowids come over one
+# remote command as gzip'd INSERT statements (compact-export.sh, sent with
+# the command), with one check line per chunk on stderr. The segment is used
+# only when its chunks cover it end to end and the gzip stream is whole;
+# otherwise it is fetched again (the reads change nothing on the box). After
+# the insert, each chunk's row count and sha3 are checked against what the
+# box read in the same transaction.
+remote_copy() {
+    _t=$1
+    _sel=$2
+    _tcols=$3
+    _rowsql="'INSERT INTO \"$_t\" ($_tcols) VALUES(' || "
+    _first=1
+    _oldifs=$IFS
+    IFS=,
+    for _c in $_sel; do
+        [ "$_first" = 1 ] || _rowsql="$_rowsql || ',' || "
+        _rowsql="${_rowsql}quote($_c)"
+        _first=0
+    done
+    IFS=$_oldifs
+    _rowsql="$_rowsql || ');'"
+    _script=$(cat "$LIB_DIR/compact-export.sh") || die "could not read compact-export.sh"
+    _seg="$COMPACT_DIR/segment"
+    _pos=$4
+    _chunks=0
+    while :; do
+        if [ "$_pos" = all ]; then
+            _end=all
+            _args="all"
+        else
+            [ "$_pos" -lt "$5" ] || break
+            if [ "$_pos" -ge $(($5 - SEGMENT_ROWS)) ]; then
+                _end=$5
+            else
+                _end=$((_pos + SEGMENT_ROWS))
+            fi
+            _args="$_pos $_end $CHUNK_ROWS $PAUSE_S"
+        fi
+        check_free "copying $_t rowids ($_pos,$_end]"
+        _try=0
+        while :; do
+            _try=$((_try + 1))
+            _seg_started=$(date +%s)
+            _rc=0
+            # shellcheck disable=SC2086 # $REMOTE and $_args are split on purpose
+            $REMOTE "sh -c $(shq "$_script") compact-export $(shq "$LIVE_DB") $(shq "$_t") $(shq "$_sel") $(shq "$_rowsql") $_args | gzip -1" \
+                </dev/null >"$_seg.gz" 2>"$_seg.err" || _rc=$?
+            # The chunk lines must run from the start to the end with no gap:
+            # each one starts where the one before said the next read starts.
+            _cover=$(awk -F'|' -v want="$_pos" -v end="$_end" '
+                $1 == "chunk" { n++; if ($2 != want) bad = 1; want = $6 }
+                END { if (n == 0 || bad || want != end) print "no"; else print "yes" }' "$_seg.err")
+            if [ "$_rc" = 0 ] && [ "$_cover" = yes ] && gzip -t "$_seg.gz" 2>/dev/null; then
+                break
+            fi
+            log "segment $_t ($_pos,$_end] did not arrive whole (exit $_rc, chunks cover it: $_cover), try $_try of $REMOTE_TRIES: $(grep -v '^chunk|' "$_seg.err" | tail -n 3 | tr '\n' ' ')" >&2
+            [ "$_try" -lt "$REMOTE_TRIES" ] || die "could not fetch $_t rowids ($_pos,$_end] from the box"
+            sleep 2
+        done
+        _gz=$(file_size "$_seg.gz")
+        {
+            echo "PRAGMA journal_mode = MEMORY; PRAGMA synchronous = OFF; BEGIN;"
+            [ "$_t" = sqlite_sequence ] && echo "DELETE FROM main.sqlite_sequence;"
+            gzip -dc "$_seg.gz"
+            echo "COMMIT;"
+        } | sq "$NEW_DB" >/dev/null || die "inserting $_t rowids ($_pos,$_end] into the new file failed"
+        # The same queries the box hashed, on the inserted rows.
+        awk -F'|' -v t="$_t" -v sel="$_sel" '
+            $1 != "chunk" { next }
+            {
+                if ($2 == "all") q = "SELECT " sel " FROM \"" t "\""
+                else q = "SELECT " sel " FROM \"" t "\" WHERE rowid > " $2 " AND rowid <= " $3 " ORDER BY rowid"
+                hq = q; gsub(/\x27/, "\x27\x27", hq)
+                printf "SELECT %s || \x27|\x27 || count(*) || \x27|\x27 || hex(sha3_query(\x27%s\x27)) FROM (%s);\n", "\x27" $2 "|" $3 "\x27", hq, q
+            }' "$_seg.err" >"$_seg.check.sql"
+        sq "$NEW_DB" <"$_seg.check.sql" >"$_seg.check.new" || die "could not hash $_t rowids ($_pos,$_end] in the new file"
+        awk -F'|' '$1 == "chunk" { print $2 "|" $3 "|" $4 "|" $5 }' "$_seg.err" >"$_seg.check.box"
+        if ! cmp -s "$_seg.check.box" "$_seg.check.new"; then
+            diff "$_seg.check.box" "$_seg.check.new" | head -6 >&2 || true
+            die "table $_t rowids ($_pos,$_end]: the rows in the new file do not hash the same as the rows the box sent"
+        fi
+        _n=$(grep -c . "$_seg.check.box")
+        _chunks=$((_chunks + _n))
+        [ "$_end" = all ] || log "segment table=$_t rowids=($_pos,$_end] chunks=$_n gz=$(human "$_gz") s=$(($(date +%s) - _seg_started)) new=$(human "$(file_size "$NEW_DB")")" >&2
+        rm -f "$_seg.gz" "$_seg.err" "$_seg.check.sql" "$_seg.check.new" "$_seg.check.box"
+        [ "$_end" = all ] && break
+        _pos=$_end
+    done
+    echo "$_chunks"
+}
+
 # sqlite_sequence is copied last, after every AUTOINCREMENT table: inserting
 # rows with explicit rowids into such a table writes its own sqlite_sequence
 # row, so an earlier copy would leave two rows for one table.
@@ -499,6 +628,12 @@ for line in $INVENTORY; do
     fi
     cols=$(column_list "$LIVE_DB" "$t")
     t_started=$(date +%s)
+    if [ "$wr" = 1 ] && [ -n "$REMOTE" ]; then
+        remote_copy "$t" "$cols" "$cols" all >/dev/null
+        rows=$(new_q "SELECT count(*) FROM \"$t\";")
+        log "copied table=$t class=$cls rows=$rows (without rowid) s=$(($(date +%s) - t_started))"
+        continue
+    fi
     if [ "$wr" = 1 ]; then
         # WITHOUT ROWID tables are copied in one statement (no rowid ranges).
         check_free "copying $t"
@@ -521,6 +656,10 @@ for line in $INVENTORY; do
     is_int "$lo" || die "no start rowid for $t: '$lo'"
     pos=$lo
     chunks=0
+    if [ -n "$REMOTE" ]; then
+        chunks=$(remote_copy "$t" "rowid,$cols" "rowid,$cols" "$lo" "$hi")
+        pos=$hi
+    fi
     while [ "$pos" -lt "$hi" ]; do
         # Compared before adding, so pos + CHUNK_ROWS cannot overflow near
         # the top of the rowid range.
@@ -552,18 +691,23 @@ for line in $INVENTORY; do
     done
     rows=$(new_q "SELECT count(*) FROM \"$t\";")
     copied_total=$((copied_total + rows))
-    log "copied table=$t class=$cls rowids=($lo,$hi] rows=$rows chunks=$chunks s=$(($(date +%s) - t_started)) live_wal=$(human "$(file_size "$LIVE_DB-wal")")"
+    log "copied table=$t class=$cls rowids=($lo,$hi] rows=$rows chunks=$chunks s=$(($(date +%s) - t_started))$(wal_note)"
 done
 if [ "$has_sequence" = 1 ]; then
     # Replaces the rows the AUTOINCREMENT copies wrote. The swap copies this
     # table again; this keeps the build artifact and its manifest right.
     check_free "copying sqlite_sequence"
-    sq "$NEW_DB" "PRAGMA journal_mode = MEMORY; PRAGMA synchronous = OFF;
-                  ATTACH 'file:$LIVE_DB?mode=ro' AS live;
-                  BEGIN;
-                  DELETE FROM main.sqlite_sequence;
-                  INSERT INTO main.sqlite_sequence (name, seq) SELECT name, seq FROM live.sqlite_sequence;
-                  COMMIT;" >/dev/null
+    if [ -n "$REMOTE" ]; then
+        # remote_copy deletes the rows first, in the same transaction.
+        remote_copy sqlite_sequence "name,seq" "name,seq" all >/dev/null
+    else
+        sq "$NEW_DB" "PRAGMA journal_mode = MEMORY; PRAGMA synchronous = OFF;
+                      ATTACH 'file:$LIVE_DB?mode=ro' AS live;
+                      BEGIN;
+                      DELETE FROM main.sqlite_sequence;
+                      INSERT INTO main.sqlite_sequence (name, seq) SELECT name, seq FROM live.sqlite_sequence;
+                      COMMIT;" >/dev/null
+    fi
     rows=$(new_q "SELECT count(*) FROM sqlite_sequence;")
     copied_total=$((copied_total + rows))
     log "copied table=sqlite_sequence class=whole rows=$rows"
@@ -660,5 +804,5 @@ sync
 mv "$tmp" "$MANIFEST"
 sync
 
-log "build done in $(($(date +%s) - build_started))s: new=$(human "$new_size") (live $(human "$live_size")) rows=$copied_total live_wal=$(human "$(file_size "$LIVE_DB-wal")")"
+log "build done in $(($(date +%s) - build_started))s: new=$(human "$new_size") (live $(human "$live_size")) rows=$copied_total$(wal_note)"
 log "manifest: $MANIFEST. To swap: restart the pocketbase service with PB_COMPACT_SWAP=1."

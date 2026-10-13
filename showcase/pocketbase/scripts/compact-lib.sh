@@ -1,22 +1,29 @@
-# Shared helpers for compact-build.sh and compact-swap.sh. Sourced, not run.
-# The variables below are read by the scripts that source this file.
+# Shared helpers for compact-build.sh, compact-swap.sh and compact-push.sh.
+# Sourced, not run. The variables below are read by the scripts that source
+# this file.
 # shellcheck shell=sh disable=SC2034
 #
 # Copy-and-swap compaction of the PocketBase SQLite database. The build makes
-# a new file that holds only the rows we keep, while PocketBase keeps serving.
-# The swap runs from entrypoint.sh before PocketBase starts, copies what
-# changed since the build, checks everything, and renames the files.
+# a new file that holds only the rows we keep, while PocketBase keeps serving,
+# either on the box or off it (PB_COMPACT_REMOTE, then compact-push.sh puts
+# the file on the box). The swap runs from entrypoint.sh before PocketBase
+# starts, copies what changed since the build snapshot, checks that, and
+# renames the files.
 #
 # Table classes:
-#   append   big, insert-only tables (and superuser-only updateRule): keep rowid > cutoff. Rows at or below
-#            the build snapshot do not change, so the swap copies only rows
-#            above the snapshot (plus it drops rows the retention hook deleted
-#            from the bottom of the kept range in the meantime).
+#   append   big, insert-only tables (and superuser-only updateRule): keep
+#            rowid > cutoff. Rows at or below the build snapshot do not
+#            change, so the swap copies only rows above the snapshot (plus it
+#            drops rows the retention hook deleted from the bottom of the
+#            kept range in the meantime).
 #   mutable  big tables whose rows are updated after insert: keep rowid >
-#            cutoff, and the swap copies every kept row again.
+#            cutoff. The swap reads the kept range once (rowid and
+#            `updated`) and copies the rows that changed since the snapshot.
 #   whole    every other table, including PocketBase's own `_` tables, auth
 #            and view collections, sqlite_sequence and sqlite_stat*: the swap
-#            copies all of it again and checks a content hash.
+#            copies the rows that changed since the snapshot, the same way;
+#            a table with no `updated` column is compared by hash and copied
+#            again only when it differs.
 # Any table that is not named in the two prune lists below is "whole".
 
 PB_DATA_DIR="${PB_DATA_DIR:-/pb_data}"
@@ -26,6 +33,20 @@ NEW_DB="$COMPACT_DIR/data.db.new"
 MANIFEST="$COMPACT_DIR/manifest"
 SWAP_MARKER="$COMPACT_DIR/swap-in-progress"
 CUTOVER_ATTEMPTS="$COMPACT_DIR/cutover-attempts"
+
+# Off-box build (compact-build.sh and compact-push.sh only). PB_COMPACT_REMOTE
+# is a command that runs its last argument as a shell command on the
+# PocketBase box: stdin and stdout passed through, the remote exit status
+# returned, and exit 255 when the connection fails (as ssh does). Example:
+#   PB_COMPACT_REMOTE="railway ssh -p <project> -e <env> -s <service> --"
+# The live database is then read on the box, at PB_COMPACT_REMOTE_DB
+# (default /pb_data/data.db), always read-only, and the new file is built on
+# this machine, under PB_DATA_DIR/compact.
+REMOTE="${PB_COMPACT_REMOTE:-}"
+REMOTE_TRIES="${PB_COMPACT_REMOTE_TRIES:-5}"
+if [ -n "$REMOTE" ]; then
+    LIVE_DB="${PB_COMPACT_REMOTE_DB:-/pb_data/data.db}"
+fi
 
 # Proven insert-only (see the PR for the write-path inventory).
 COMPACT_APPEND_TABLES="cvdiag_events diag_events status_history"
@@ -55,9 +76,64 @@ sq() {
     sqlite3 -init /dev/null -batch -bail -noheader -cmd '.timeout 10000' -cmd '.output /dev/null' -cmd '.dbconfig dqs_ddl on' -cmd '.dbconfig dqs_dml on' -cmd '.output stdout' "$@"
 }
 
+# The sq command line, read-only, for a shell on the box.
+REMOTE_SQ="sqlite3 -init /dev/null -batch -bail -noheader -cmd '.timeout 10000' -cmd '.output /dev/null' -cmd '.dbconfig dqs_ddl on' -cmd '.dbconfig dqs_dml on' -cmd '.output stdout' -readonly"
+
+# $1 as one single-quoted word for a shell command line.
+shq() {
+    printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+# Runs the shell command $1 on the box and prints its output. Only for
+# commands that change nothing there: a lost connection (exit 255) is tried
+# again, up to PB_COMPACT_REMOTE_TRIES times. A try's output goes to a file
+# and is printed only when the try is the last, so a try that broke off part
+# way prints nothing.
+remote_q() {
+    _rq_out=$(mktemp "${TMPDIR:-/tmp}/pb-compact-remote.XXXXXX") || die "could not make a temp file"
+    _rq_try=0
+    while :; do
+        _rq_try=$((_rq_try + 1))
+        _rq_rc=0
+        # $REMOTE is a command line; it is split into words on purpose.
+        # shellcheck disable=SC2086
+        $REMOTE "$1" </dev/null >"$_rq_out" || _rq_rc=$?
+        if [ "$_rq_rc" != 255 ] || [ "$_rq_try" -ge "$REMOTE_TRIES" ]; then
+            cat "$_rq_out"
+            rm -f "$_rq_out"
+            return "$_rq_rc"
+        fi
+        log "the remote command lost its connection (exit 255), try $_rq_try of $REMOTE_TRIES; trying again" >&2
+        sleep 2
+    done
+}
+
 # Read-only query on the live database. The live file is never written.
 live_q() {
-    sq -readonly "$LIVE_DB" "$1"
+    if [ -n "$REMOTE" ]; then
+        remote_q "$REMOTE_SQ $(shq "$LIVE_DB") $(shq "$1")"
+    else
+        sq -readonly "$LIVE_DB" "$1"
+    fi
+}
+
+# Size of the live database or its -wal, 0 when absent.
+live_file_size() {
+    if [ -n "$REMOTE" ]; then
+        remote_q "if [ -e $(shq "$1") ]; then stat -c %s $(shq "$1") 2>/dev/null || stat -f %z $(shq "$1"); else echo 0; fi"
+    else
+        file_size "$1"
+    fi
+}
+
+# The box's clock, in unix seconds. The cutoffs and the snapshot time are
+# compared with `created` values that the box wrote with its own clock.
+live_now() {
+    if [ -n "$REMOTE" ]; then
+        remote_q "date +%s"
+    else
+        date +%s
+    fi
 }
 
 new_q() {
@@ -69,7 +145,7 @@ new_q() {
 # its -shm does not exist yet, so only the live file needs that mode.
 db_q() {
     if [ "$1" = "$LIVE_DB" ]; then
-        sq -readonly "$1" "$2"
+        live_q "$2"
     else
         sq "$1" "$2"
     fi
@@ -147,7 +223,9 @@ table_class() {
 
 file_size() {
     if [ -e "$1" ]; then
-        stat -c %s "$1"
+        # GNU and busybox stat. BSD stat (an off-box build on macOS) spells
+        # it -f %z.
+        stat -c %s "$1" 2>/dev/null || stat -f %z "$1"
     else
         echo 0
     fi
