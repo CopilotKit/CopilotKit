@@ -57,6 +57,15 @@ const TOKEN_MAP: ReadonlyArray<
   ["border", "border"],
   ["ring", "ring"],
   ["radius", "radius"],
+  // The sidebar family is the drawer's primary surface (panel, hover/active
+  // rows, hairline edge, focus ring); the generic tokens above back menus,
+  // dialogs and buttons.
+  ["sidebar", "sidebar"],
+  ["sidebar-foreground", "sidebar-fg"],
+  ["sidebar-accent", "sidebar-accent"],
+  ["sidebar-accent-foreground", "sidebar-accent-fg"],
+  ["sidebar-border", "sidebar-border"],
+  ["sidebar-ring", "sidebar-ring"],
 ];
 
 function formatObjectKey(key: string): string {

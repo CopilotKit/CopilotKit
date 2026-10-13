@@ -13,6 +13,13 @@
  */
 
 /**
+ * The light-mode token rule: a top-level rule for the CopilotKit root, bare or
+ * narrowed by a zero-specificity `:where(...)` (react-core scopes its tokens to
+ * the outermost root that way). The `.dark` rule never matches.
+ */
+const LIGHT_THEME_RULE = /^\[data-copilotkit\](?::where\([^{]*\))?\s*\{/m;
+
+/**
  * Extracts the light-mode `[data-copilotkit] { ... }` declaration block from the
  * canonical globals.css using a brace-balanced scan.
  *
@@ -30,18 +37,13 @@ export function extractLightThemeBlock(
   css: string,
   sourceLabel = "the canonical theme",
 ): string {
-  const start = css.indexOf("[data-copilotkit] {");
-  if (start === -1) {
+  const match = LIGHT_THEME_RULE.exec(css);
+  if (!match) {
     throw new Error(
-      `[generate-tokens] Could not find "[data-copilotkit] {" in ${sourceLabel}`,
+      `[generate-tokens] Could not find the "[data-copilotkit]" token block in ${sourceLabel}`,
     );
   }
-  const open = css.indexOf("{", start);
-  if (open === -1) {
-    throw new Error(
-      `[generate-tokens] Malformed "[data-copilotkit]" block in ${sourceLabel}`,
-    );
-  }
+  const open = match.index + match[0].length - 1;
   let depth = 0;
   let close = -1;
   for (let i = open; i < css.length; i++) {
