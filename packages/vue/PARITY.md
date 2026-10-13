@@ -187,6 +187,10 @@ Angular use - so the renderer is a thin adapter: it owns the iframe
   boundary: they cross into the widget and proxies are not clone-safe).
 - The bind watcher takes the container element as a source: an `immediate`
   watcher runs before the template ref is populated.
+- Host-side MCP Apps options travel the same way as React's `mcpApps` prop:
+  `<CopilotKitProvider :mcp-apps>` (type `MCPAppsOptions`, the shape of
+  Angular's `provideMCPApps()`) is provided through the CopilotKit injection
+  key and handed to `bindMcpApp({ options })`.
 - The widget surface is a native `<dialog>` opened through the shared
   `ɵshowDialogForMode`: inline in normal flow, fullscreen in the browser top
   layer. The iframe stays inside it across mode changes, so a toggle never
