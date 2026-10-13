@@ -56,10 +56,11 @@
 // pass held it about 93% of the time, and staging writes stalled for seconds
 // (64 s on a cold page cache after a restart). So batches are small, the pause
 // is long, so the connection is mostly free, and no pass runs in the first
-// minutes after boot, while the page cache is cold. Any batch slower than
-// SLOW_BATCH_MS is logged with a WARN. The per-table WAL checkpoint runs on
-// the concurrent pool, not the write connection, so it does not hold up
-// writes either (a PASSIVE checkpoint takes no write lock).
+// minutes after boot, while the page cache is cold. A batch slower than
+// SLOW_BATCH_MS is logged with a WARN, at most SLOW_WARN_MAX per table per
+// pass; the table line counts all of them in slow_batches=. The per-table
+// WAL checkpoint runs on the concurrent pool, not the write connection, so it
+// does not hold up writes either (a PASSIVE checkpoint takes no write lock).
 //
 // Config (env on the pocketbase service):
 //   Read once when the hooks load (a change needs a restart):
@@ -197,8 +198,11 @@ function pbRetentionPass() {
   ];
   const DEFAULT_DAYS = 30;
   const DEFAULT_MAX_ROWS = 15000;
-  // A batch slower than this gets a WARN with its duration and row count.
+  // A batch slower than this gets a WARN with its duration and row count,
+  // for the first SLOW_WARN_MAX such batches in a table each pass. The table
+  // line has the full count (slow_batches=).
   const SLOW_BATCH_MS = 250;
+  const SLOW_WARN_MAX = 5;
   // Sized to end well inside the default 5-minute schedule. With a shorter
   // PB_RETENTION_CRON, a pass can outlast the interval, and only the lock
   // below stops the next one from overlapping it.
@@ -314,6 +318,7 @@ function pbRetentionPass() {
       let deleted = 0;
       let batches = 0;
       let maxBatchMs = 0;
+      let slowBatches = 0;
       let cutoff = "";
       let cut = null;
       const progress = () =>
@@ -328,7 +333,9 @@ function pbRetentionPass() {
         " batches=" +
         batches +
         " max_batch_ms=" +
-        maxBatchMs;
+        maxBatchMs +
+        " slow_batches=" +
+        slowBatches;
       try {
         const daysVar = "PB_RETENTION_" + table.toUpperCase() + "_DAYS";
         const rawDays = String($os.getenv(daysVar) || "");
@@ -559,6 +566,7 @@ function pbRetentionPass() {
           }
           // Timed from before the statement is queued, so a wait for the
           // write connection counts too.
+          const want = Math.min(BATCH, maxRows - deleted);
           const batchStart = Date.now();
           const res = writeDb
             .newQuery(
@@ -573,28 +581,40 @@ function pbRetentionPass() {
               cut: cut,
               cutoff: cutoff,
               glob: DATE_GLOB,
-              n: Math.min(BATCH, maxRows - deleted),
+              n: want,
             })
             .execute();
           const n = res.rowsAffected();
           const batchMs = Date.now() - batchStart;
-          if (n > 0) batches++;
+          // An empty DELETE only ends the drain. It is not a batch, so it is
+          // left out of batches=, max_batch_ms= and the slow-batch WARN.
+          if (n === 0) break;
+          deleted += n;
+          batches++;
           if (batchMs > maxBatchMs) maxBatchMs = batchMs;
           if (batchMs > SLOW_BATCH_MS) {
-            log(
-              "WARN table=" +
-                table +
-                " slow delete batch: ms=" +
-                batchMs +
-                " rows=" +
-                n +
-                " (over " +
-                SLOW_BATCH_MS +
-                " ms)",
-            );
+            slowBatches++;
+            if (slowBatches <= SLOW_WARN_MAX) {
+              log(
+                "WARN table=" +
+                  table +
+                  " slow delete batch: ms=" +
+                  batchMs +
+                  " rows=" +
+                  n +
+                  " (over " +
+                  SLOW_BATCH_MS +
+                  " ms)" +
+                  (slowBatches === SLOW_WARN_MAX
+                    ? ", further slow batches in this table are only counted in slow_batches="
+                    : ""),
+              );
+            }
           }
-          deleted += n;
-          if (n === 0) break;
+          // Fewer rows than asked for: nothing older is left below the cutoff,
+          // so stop now instead of pausing and taking the write connection for
+          // an empty DELETE.
+          if (n < want) break;
           sleep(PAUSE_MS);
         }
         // Runs once per table, after its drain. PASSIVE is best effort: it

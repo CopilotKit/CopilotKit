@@ -32,10 +32,18 @@ const docker = (...args) =>
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
-const logs = (name) => {
+const logStreams = (name) => {
   const r = spawnSync("docker", ["logs", name], { encoding: "utf8" });
-  return (r.stdout ?? "") + (r.stderr ?? "");
+  return [r.stdout ?? "", r.stderr ?? ""];
 };
+const logs = (name) => logStreams(name).join("");
+// A log offset, one per stream because logs() joins stdout and stderr.
+// logsSince(name, mark) is only what was logged after the mark was taken.
+const logMark = (name) => logStreams(name).map((s) => s.length);
+const logsSince = (name, mark) =>
+  logStreams(name)
+    .map((s, i) => s.slice(mark[i]))
+    .join("");
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 cpSync(hooksSource, hooksDir, { recursive: true });
@@ -436,13 +444,16 @@ async function badSettingScenario(variable, value, range) {
   await seedSafely(pb, name, [
     rows("status_history", "old", 1, 50, "-40 days"),
   ]);
+  // Only lines logged after the seed count, so the ERROR comes from a pass
+  // that saw the seeded rows.
+  const seeded = logMark(name);
   const error =
     `[pb-retention] ERROR ${variable}=${JSON.stringify(value)} is not an ` +
     `integer in ${range}, pass skipped (nothing deleted)`;
   await waitFor(
     `the ${variable} ERROR after the seed`,
     name,
-    () => logs(name).split(error).length > 2,
+    () => logsSince(name, seeded).includes(error),
     150000,
   );
   const left = (
@@ -454,39 +465,47 @@ async function badSettingScenario(variable, value, range) {
   });
 }
 
-// Boot grace: passes inside the grace are skipped with one line each, then
-// a pass runs.
+// Boot grace: a pass inside the grace is skipped with one line and leaves
+// the seeded rows, then a pass after the grace deletes them. The grace is 2
+// minutes, so at least one 1-minute tick inside it comes after the seed.
 async function bootGraceScenario() {
   const name = start("grace", {
     PB_RETENTION_CRON: "* * * * *",
-    PB_RETENTION_BOOT_GRACE_MIN: "1",
+    PB_RETENTION_BOOT_GRACE_MIN: "2",
   });
   const pb = await connect(name);
   await seedSafely(pb, name, [
     rows("status_history", "old", 1, 50, "-40 days"),
   ]);
+  const seeded = logMark(name);
+  const count = async () =>
+    (await pb.query("SELECT count(*) AS n, '' AS s FROM status_history")).n;
+  const grace =
+    /\[pb-retention\] boot grace: pass skipped, hooks loaded \d+s ago, PB_RETENTION_BOOT_GRACE_MIN=2/;
+  await waitFor(
+    "a boot grace line after the seed",
+    name,
+    () => grace.test(logsSince(name, seeded)),
+    90000,
+  );
+  const leftInGrace = await count();
   await waitFor(
     "a pass after the boot grace",
     name,
     () => passLines(name, "status_history").length > 0,
     150000,
   );
-  const out = logs(name).split("\n");
-  const graceAt = out.findIndex((l) =>
-    /\[pb-retention\] boot grace: pass skipped, hooks loaded \d+s ago, PB_RETENTION_BOOT_GRACE_MIN=1/.test(
-      l,
-    ),
-  );
+  const out = logsSince(name, seeded).split("\n");
+  const graceAt = out.findLastIndex((l) => grace.test(l));
   const passAt = out.findIndex((l) =>
     l.includes("[pb-retention] table=status_history "),
   );
-  const left = (
-    await pb.query("SELECT count(*) AS n, '' AS s FROM status_history")
-  ).n;
-  check("boot grace skips the first pass, then a pass runs", () => {
-    assert.ok(graceAt !== -1, "no boot grace line");
+  const left = await count();
+  check("boot grace skips a pass after the seed, then a pass runs", () => {
+    assert.equal(leftInGrace, 50, "rows deleted inside the boot grace");
     assert.ok(graceAt < passAt, `grace line ${graceAt}, pass line ${passAt}`);
-    assert.match(out[passAt], / deleted=50 /);
+    // The first pass line of the run, so no earlier pass deleted rows.
+    assert.match(passLines(name, "status_history")[0], / deleted=50 /);
     assert.equal(left, 0);
   });
 }
