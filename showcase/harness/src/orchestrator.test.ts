@@ -4845,14 +4845,190 @@ describe("orchestrator runControlPlane in-process HTTP probes", () => {
       expect(body.rules).toBe(3);
       // schedulerJobs = the 4 browser-family producer entries (d6 + smoke +
       // demos + deep, registered via the multi-schedule manifest) + the 3
-      // in-process HTTP probe entries.
-      expect(body.schedulerJobs).toBe(7);
+      // in-process HTTP probe entries + the `internal:pb-retention` cron.
+      expect(body.schedulerJobs).toBe(8);
       // The role-drop keeps status ok regardless of the rule count.
       expect(body.status).toBe("ok");
     } finally {
       await handle.stop();
     }
   });
+
+  it("stop() aborts an in-flight pb-retention pass instead of waiting it out", async () => {
+    vi.resetModules();
+
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    // A pass that only ends when its signal aborts (a deep backlog would
+    // otherwise run to the 4-minute pass deadline).
+    let passSignal: AbortSignal | undefined;
+    const runPass = vi.fn(
+      async (_nowMs?: number, signal?: AbortSignal) =>
+        new Promise<never>((_resolve, reject) => {
+          passSignal = signal;
+          signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+    );
+    vi.doMock("./storage/pb-retention.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-retention.js")
+      >("./storage/pb-retention.js");
+      return { ...actual, createPbRetention: () => ({ runPass }) };
+    });
+
+    let scheduler: ReturnType<
+      typeof import("./scheduler/scheduler.js").createScheduler
+    > | null = null;
+    const registered: { id: string; cron?: string }[] = [];
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          scheduler = real;
+          return {
+            ...real,
+            register: (entry: { id: string; cron?: string }) => {
+              registered.push({ id: entry.id, cron: entry.cron });
+              return (real.register as (...a: unknown[]) => unknown)(entry);
+            },
+          };
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      expect(
+        registered.find((r) => r.id === "internal:pb-retention")?.cron,
+      ).toBe("*/5 * * * *");
+      await scheduler!.trigger("internal:pb-retention");
+      await vi.waitFor(() => expect(runPass).toHaveBeenCalledTimes(1));
+      expect(passSignal?.aborted).toBe(false);
+
+      const stopped = await Promise.race([
+        handle.stop().then(() => "stopped" as const),
+        new Promise<"blocked">((resolve) =>
+          setTimeout(() => resolve("blocked"), 3000),
+        ),
+      ]);
+      expect(stopped).toBe("stopped");
+      expect(passSignal?.aborted).toBe(true);
+    } finally {
+      passSignal?.dispatchEvent(new Event("abort"));
+      vi.doUnmock("./storage/pb-retention.js");
+    }
+  });
+
+  it("stop() is bounded when the aborted retention pass never settles (hung PB request)", async () => {
+    vi.resetModules();
+
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    // A pass stuck in a PB request that never sees the abort.
+    let passSignal: AbortSignal | undefined;
+    const runPass = vi.fn(async (_nowMs?: number, signal?: AbortSignal) => {
+      passSignal = signal;
+      return new Promise<never>(() => {});
+    });
+    vi.doMock("./storage/pb-retention.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-retention.js")
+      >("./storage/pb-retention.js");
+      return { ...actual, createPbRetention: () => ({ runPass }) };
+    });
+
+    let scheduler: ReturnType<
+      typeof import("./scheduler/scheduler.js").createScheduler
+    > | null = null;
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          scheduler = real;
+          return real;
+        },
+      };
+    });
+
+    const { RETENTION_ABORT_GRACE_MS } =
+      await import("./storage/pb-retention.js");
+    const orchMod = await import("./orchestrator.js");
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    try {
+      await scheduler!.trigger("internal:pb-retention");
+      await vi.waitFor(() => expect(runPass).toHaveBeenCalledTimes(1));
+
+      const t0 = Date.now();
+      const stopped = await Promise.race([
+        handle.stop().then(() => "stopped" as const),
+        new Promise<"blocked">((resolve) =>
+          setTimeout(() => resolve("blocked"), RETENTION_ABORT_GRACE_MS + 3000),
+        ),
+      ]);
+      expect(stopped).toBe("stopped");
+      expect(Date.now() - t0).toBeGreaterThanOrEqual(
+        RETENTION_ABORT_GRACE_MS - 100,
+      );
+      expect(passSignal?.aborted).toBe(true);
+    } finally {
+      vi.doUnmock("./storage/pb-retention.js");
+    }
+  }, 20_000);
 
   it("BROWSER_KINDS is the e2e partition (the in-process exclusion set)", async () => {
     // `e2e_deep` is gone: D5 runs the `e2e_d6` driver ("D5 take-one"), so its
