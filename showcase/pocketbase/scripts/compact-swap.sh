@@ -4,9 +4,11 @@
 # it works. With no flag set and no interrupted swap to finish, it exits 0 at
 # once and touches nothing.
 #
-#   PB_COMPACT_SWAP=1      with a manifest from compact-build.sh present:
-#                          copy the changes since the build into the new
-#                          file, check it, and swap it in as data.db.
+#   PB_COMPACT_SWAP=1      with a manifest present: check that
+#                          compact/data.db.new is the file the manifest
+#                          names, and swap it in as data.db. Nothing is
+#                          copied: rows written after the build snapshot
+#                          stay only in the old file (data.db.pre-compact-*).
 #   PB_COMPACT_ROLLBACK=1  put the newest data.db.pre-compact-<ts> back as
 #                          data.db (the current file is kept as
 #                          data.db.rolled-back-<ts>). Rows written after the
@@ -14,6 +16,15 @@
 #                          runs once: it writes compact/rollback.done, and
 #                          while that file exists the flag does nothing. The
 #                          next successful swap removes it.
+#   PB_COMPACT_CUTOVER_CHECK  none (default), quick or integrity: a full-file
+#                          check of the new file before the swap. Every build
+#                          (on the box or off it) integrity-checks the file
+#                          and records its size, sha256 and fingerprint;
+#                          compact-push.sh checks every byte by sha256 as it
+#                          lands on the volume; and the swap checks the size
+#                          and fingerprint. A full check reads the whole
+#                          file while PocketBase is down, so it is off by
+#                          default.
 #   PB_COMPACT_MAX_ATTEMPTS  how many boots may start the cutover for one
 #                          manifest without it finishing (the boot was
 #                          killed or timed out), default 3. After that the
@@ -48,12 +59,15 @@ if [ "${PB_COMPACT_SWAP:-}" != 1 ] && [ "${PB_COMPACT_ROLLBACK:-}" != 1 ] &&
     exit 0
 fi
 
+# The swap works on the files on this box only. An off-box setting left in
+# the service env must not send its reads to another host.
+unset PB_COMPACT_REMOTE PB_COMPACT_REMOTE_DB
 LIB_DIR=$(dirname "$(readlink -f "$0")")
 # shellcheck source=compact-lib.sh
 . "$LIB_DIR/compact-lib.sh"
 
 TS=$(date -u +%Y%m%dT%H%M%SZ)
-CHECK="${PB_COMPACT_CUTOVER_CHECK:-integrity}"
+CHECK="${PB_COMPACT_CUTOVER_CHECK:-none}"
 MAX_ATTEMPTS="${PB_COMPACT_MAX_ATTEMPTS:-3}"
 ROLLBACK_DONE="$COMPACT_DIR/rollback.done"
 # Return code of a step that may have left data.db missing. The top level
@@ -193,30 +207,6 @@ checkpoint_truncate() {
     [ "$(file_size "$1-wal")" = 0 ] || { err "$1-wal is not empty after the checkpoint"; return 1; }
 }
 
-# A query result that must be a whole number. $1 is live_q or new_q.
-q_int() {
-    _v=$("$1" "$2") || { err "query failed: $2"; return 1; }
-    is_int "$_v" || { err "query returned '$_v', not a number: $2"; return 1; }
-    echo "$_v"
-}
-
-# sha3 of a query's rows. $1 is live_q or new_q.
-q_sha3() {
-    _v=$("$1" "SELECT hex(sha3_query('$2'));") || { err "hash query failed: $2"; return 1; }
-    is_sha3 "$_v" || { err "hash query returned '$_v': $2"; return 1; }
-    echo "$_v"
-}
-
-# A datetime in PB's format for a unix time, checked.
-pb_time_checked() {
-    _pt=$(pb_time "$1") || return 1
-    # shellcheck disable=SC2254 # the pattern is a glob on purpose
-    case "$_pt" in
-        $COMPACT_DATE_GLOB) echo "$_pt" ;;
-        *) return 1 ;;
-    esac
-}
-
 # ---- an interrupted swap or rollback -------------------------------------------
 # Both are two renames, recorded first in $SWAP_MARKER, one item per line:
 # the kind (swap or rollback), where data.db is moved to ($old), and the file
@@ -298,6 +288,14 @@ recover_interrupted_swap() {
         rollback.undone)
             rm -f "$ROLLBACK_DONE"
             ;;
+        rollback.unknown)
+            # Whether the rollback happened is not known, so it is not
+            # recorded as done: PB_COMPACT_ROLLBACK=1 may run it again.
+            if [ -e "$ROLLBACK_DONE" ]; then
+                rm -f "$ROLLBACK_DONE"
+                loud "removed $ROLLBACK_DONE: the rollback's outcome is unknown. Check which file data.db is before you set PB_COMPACT_ROLLBACK=1 again."
+            fi
+            ;;
     esac
     rm -f "$CUTOVER_ATTEMPTS"
     if [ "$_outcome" = unknown ]; then
@@ -377,66 +375,6 @@ rollback() {
     return 0
 }
 
-# A pruned table must not have a row written after the build at a rowid at
-# or below the build's top rowid. SQLite gives a new row max(rowid) + 1, so
-# once every row above some point was deleted, new rows reuse rowids there.
-# Such rows sit below the copy range (a mutable table copies rowid > cut, an
-# insert-only one rowid > snapshot top), so they would be dropped without a
-# trace. A reused rowid is always above every older row that is left, so
-# the top row at or below the snapshot top tells: it is the snapshot's own
-# top row (same id), or a row written before the snapshot, or there is none.
-# Returns 1, with the reason logged, otherwise. A NULL id or `created` cannot
-# tell, so it also returns 1.
-check_rowid_reuse() {
-    _t=$1
-    _snap=$2
-    _sid=$3
-    _before=$4
-    [ "$_snap" -gt 0 ] || return 0
-    # Each field is COALESCEd: one NULL would make the whole line NULL, which
-    # the CLI prints as an empty line, the same as "no row".
-    _top=$(live_q "SELECT rowid || '|' || COALESCE(created >= '$_before', 'null') || '|' || COALESCE(created GLOB '$COMPACT_DATE_GLOB', 'null')
-                          || '|' || (id IS NULL) || '|' || COALESCE(id, '')
-                   FROM \"$_t\" WHERE rowid <= $_snap ORDER BY rowid DESC LIMIT 1;") ||
-        { err "could not read the top row of $_t at or below rowid $_snap"; return 1; }
-    if [ -z "$_top" ]; then
-        # No row at or below the snapshot top. Asked again on its own, so an
-        # empty answer for any other reason is not taken as "none".
-        _any=$(q_int live_q "SELECT EXISTS (SELECT 1 FROM \"$_t\" WHERE rowid <= $_snap);") || return 1
-        [ "$_any" = 0 ] && return 0
-        err "could not read the top row of $_t at or below rowid $_snap (empty result, but rows exist); not swapping"
-        return 1
-    fi
-    _r=${_top%%|*}
-    _rest=${_top#*|}
-    _late=${_rest%%|*}
-    _rest=${_rest#*|}
-    _wf=${_rest%%|*}
-    _rest=${_rest#*|}
-    _idnull=${_rest%%|*}
-    _id=${_rest#*|}
-    if [ "$_idnull" != 0 ]; then
-        err "$_t rowid $_r (at or below the build's top rowid $_snap) has a NULL id, so a reused rowid cannot be ruled out; not swapping"
-        return 1
-    fi
-    if [ "$_r" = "$_snap" ]; then
-        [ -n "$_sid" ] && [ "$_id" = "$_sid" ] && return 0
-        err "$_t rowid $_snap is '$_id' in live but was '$_sid' at the build: the rowid was reused after the build. Rows at reused rowids would be lost; not swapping"
-        return 1
-    fi
-    # The snapshot's top row is gone (the retention hook ages it out on a
-    # quiet table). The row now on top must be older than the snapshot.
-    if [ "$_late" = null ] || [ "$_wf" = null ]; then
-        err "$_t rowid $_r (below the build's top rowid $_snap, which is gone) has a NULL created, so it may have been written after the build at a reused rowid. Rows at reused rowids would be lost; not swapping"
-        return 1
-    fi
-    if [ "$_wf" != 1 ] || [ "$_late" != 0 ]; then
-        err "$_t rowid $_r (below the build's top rowid $_snap, which is gone) was written after the build: its rowid was reused. Rows at reused rowids would be lost; not swapping"
-        return 1
-    fi
-    return 0
-}
-
 # The build dropped the rows of table $1 created before (build time - $2
 # days). A longer window now would keep some of those rows; they are only in
 # the live file, so the swap would lose them. A shorter window is fine: the
@@ -453,236 +391,94 @@ check_window() {
 }
 
 # ---- cutover -----------------------------------------------------------------
+# The new file is the build's snapshot as it is; nothing is copied into it
+# here. Rows written to the live file after the snapshot are not in it, by
+# design. So the cutover only checks that the file is the one the manifest
+# names, and renames.
+#
 # Returns 0 when swapped in, 1 when not (data.db is as it was), FATAL when
 # data.db may be missing.
 cutover() {
     started=$(date +%s)
     log "cutover start (manifest $MANIFEST)"
+    need_sha256sum
+    _built=$(manifest_get built_at) || _built=unknown
 
     # The manifest's last line is the sha256 of every line above it.
     _want=$(sed -n '$s/^sha256=//p' "$MANIFEST")
-    _have=$(sed '$d' "$MANIFEST" | sha256sum | cut -d' ' -f1)
+    _have=$(sed '$d' "$MANIFEST" | sha256_of)
     [ -n "$_want" ] && [ "$_want" = "$_have" ] || { err "manifest checksum mismatch (want '$_want', have '$_have')"; return 1; }
     [ -f "$NEW_DB" ] || { err "$NEW_DB is missing"; return 1; }
     [ -f "$LIVE_DB" ] || { err "$LIVE_DB is missing"; return 1; }
-    no_holders || return 1
 
+    # Identity, before anything opens the new file: its size and fingerprint
+    # are the ones the build recorded. The full sha256 was checked when the
+    # file was copied onto this volume (compact-push.sh reads every piece
+    # back). A -wal with data next to it would change its content.
+    _msize=$(manifest_get new_size) || { err "manifest has no new_size"; return 1; }
+    _mfp=$(manifest_get new_fingerprint) || { err "manifest has no new_fingerprint"; return 1; }
+    if [ -s "$NEW_DB-wal" ] || [ -e "$NEW_DB-journal" ]; then
+        err "$NEW_DB has a -wal with data or a -journal; it is not the file the build made"
+        return 1
+    fi
+    _size=$(file_size "$NEW_DB")
+    [ "$_size" = "$_msize" ] || { err "$NEW_DB is $_size bytes, the manifest says $_msize: it is not the file this manifest names"; return 1; }
+    _fp=$(file_fingerprint "$NEW_DB") || { err "could not read the fingerprint of $NEW_DB"; return 1; }
+    [ "$_fp" = "$_mfp" ] || { err "$NEW_DB has fingerprint $_fp, the manifest says $_mfp: it is not the file this manifest names"; return 1; }
+    log "the new file is the one the manifest names: $(human "$_size"), fingerprint $_fp"
+
+    no_holders || return 1
     checkpoint_truncate "$LIVE_DB" || return 1
-    checkpoint_truncate "$NEW_DB" || return 1
-    log "checkpointed live and new; live=$(human "$(file_size "$LIVE_DB")") new=$(human "$(file_size "$NEW_DB")")"
 
     # The schema (every table, index, view and trigger, plus PB's own `_`
-    # tables) must match the build's snapshot and the new file exactly.
+    # tables) must match the build's snapshot in both files: a migration
+    # that ran after the build would be undone by the swap.
     _ms=$(manifest_get schema_sha3) || { err "manifest has no schema_sha3"; return 1; }
     is_sha3 "$_ms" || { err "manifest schema_sha3 is not a hash: '$_ms'"; return 1; }
     _ls=$(schema_hash "$LIVE_DB") || { err "could not hash the live schema"; return 1; }
     _ns=$(schema_hash "$NEW_DB") || { err "could not hash the new schema"; return 1; }
     if [ "$_ls" != "$_ms" ] || [ "$_ns" != "$_ms" ]; then
-        err "schema changed since the build (manifest $_ms, live $_ls, new $_ns)"
-        schema_list "$LIVE_DB" >"$COMPACT_DIR/schema.live.cutover"
-        schema_list "$NEW_DB" >"$COMPACT_DIR/schema.new.cutover"
-        diff "$COMPACT_DIR/schema.live.cutover" "$COMPACT_DIR/schema.new.cutover" | head -40
+        err "schema changed since the build (manifest $_ms, live $_ls, new $_ns); the difference between live and new:"
+        if schema_list "$LIVE_DB" >"$COMPACT_DIR/schema.live.cutover" &&
+            schema_list "$NEW_DB" >"$COMPACT_DIR/schema.new.cutover"; then
+            diff "$COMPACT_DIR/schema.live.cutover" "$COMPACT_DIR/schema.new.cutover" | head -40 >&2
+        else
+            err "could not list the schemas to show the difference"
+        fi
         return 1
     fi
     _lh=$(header_pragmas "$LIVE_DB") || { err "could not read the live header pragmas"; return 1; }
     _nh=$(header_pragmas "$NEW_DB") || { err "could not read the new header pragmas"; return 1; }
     [ -n "$_lh" ] && [ "$_lh" = "$_nh" ] || { err "header pragmas differ: live=[$_lh] new=[$_nh]"; return 1; }
+    _mh=$(manifest_get header) || { err "manifest has no header"; return 1; }
+    [ "$_nh" = "$_mh" ] || { err "the new file's header pragmas [$_nh] are not the manifest's [$_mh]"; return 1; }
 
-    # The live tables and the manifest's tables must be the same set: each
-    # live table is looked up in the manifest below, and the counts match.
-    inventory=$(table_inventory "$LIVE_DB") || return 1
-    [ -n "$inventory" ] || { err "the live database lists no tables"; return 1; }
-    _n_live=$(printf '%s\n' "$inventory" | grep -c .)
-    _n_man=$(grep -c '^table\.[A-Za-z0-9_]*\.class=' "$MANIFEST")
-    [ "$_n_live" = "$_n_man" ] || { err "the live database has $_n_live tables, the manifest $_n_man"; return 1; }
-    now_s=$(date +%s)
-    # Rows written after the snapshot have a `created` at or after this
-    # (the order checks allow COMPACT_SKEW_S of jitter).
-    _snap_s=$(manifest_get snapshot_s) || { err "manifest has no snapshot_s"; return 1; }
-    is_int "$_snap_s" || { err "manifest snapshot_s is not a number: '$_snap_s'"; return 1; }
-    _reuse_before=$(pb_time_checked $((_snap_s - COMPACT_SKEW_S))) ||
-        { err "could not compute the build snapshot time for the rowid reuse check"; return 1; }
-
-    # Build one transaction: drop the triggers (so the copies do not fire
-    # them), copy, put the triggers back from the live schema.
-    sql="$COMPACT_DIR/cutover.sql"
-    _drops=$(new_q "SELECT 'DROP TRIGGER \"' || name || '\";' FROM sqlite_schema WHERE type = 'trigger';") ||
-        { err "could not list the triggers of the new file"; return 1; }
-    _trg=$(live_q "SELECT sql || ';' FROM sqlite_schema WHERE type = 'trigger' ORDER BY rowid;") ||
-        { err "could not read the live triggers"; return 1; }
-    {
-        echo "PRAGMA foreign_keys = OFF;"
-        echo "ATTACH 'file:$LIVE_DB?mode=ro' AS live;"
-        echo "BEGIN IMMEDIATE;"
-        printf '%s\n' "$_drops"
-    } >"$sql" || return 1
-
-    has_sequence=0
-    for line in $inventory; do
-        t=${line%%|*}
-        cls=$(echo "$line" | cut -d'|' -f2)
-        wr=$(echo "$line" | cut -d'|' -f3)
-        _mcls=$(manifest_get "table.$t.class") || { err "table $t is not in the manifest"; return 1; }
-        [ "$_mcls" = "$cls" ] || { err "table $t class changed ($_mcls -> $cls)"; return 1; }
-        if [ "$t" = sqlite_sequence ]; then
-            # Copied after every other table, see below.
-            has_sequence=1
-            continue
-        fi
-        cols=$(column_list "$LIVE_DB" "$t") || return 1
-        if [ "$wr" = 1 ]; then
-            rc="$cols"
-        else
-            rc="rowid,$cols"
-        fi
-        case "$cls" in
-        whole)
-            echo "DELETE FROM main.\"$t\";"
-            echo "INSERT INTO main.\"$t\" ($rc) SELECT $rc FROM live.\"$t\";"
-            ;;
-        mutable)
-            cut=$(manifest_get "table.$t.cut_rowid")
-            snap=$(manifest_get "table.$t.snapshot_max_rowid")
-            sid=$(manifest_get "table.$t.snapshot_id")
-            days=$(manifest_get "table.$t.window_days")
-            for _v in "$cut" "$snap" "$days"; do
-                is_int "$_v" || { err "bad manifest value for $t: '$_v'"; return 1; }
-            done
-            check_window "$t" "$days" || return 1
-            check_rowid_reuse "$t" "$snap" "$sid" "$_reuse_before" || return 1
-            echo "DELETE FROM main.\"$t\" WHERE rowid > $cut;"
-            echo "INSERT INTO main.\"$t\" ($rc) SELECT $rc FROM live.\"$t\" WHERE rowid > $cut ORDER BY rowid;"
-            ;;
-        append)
-            cut=$(manifest_get "table.$t.cut_rowid")
-            snap=$(manifest_get "table.$t.snapshot_max_rowid")
-            sid=$(manifest_get "table.$t.snapshot_id")
-            days=$(manifest_get "table.$t.window_days")
-            for _v in "$cut" "$snap" "$days"; do
-                is_int "$_v" || { err "bad manifest value for $t: '$_v'"; return 1; }
-            done
-            check_window "$t" "$days" || return 1
-            # Rows up to the snapshot top are not copied again, so none of
-            # them may be a row written since the build at a reused rowid.
-            # The snapshot top row itself may be gone: the retention hook
-            # ages it out of a quiet table, and the band below handles that.
-            check_rowid_reuse "$t" "$snap" "$sid" "$_reuse_before" || return 1
-            # The retention hook keeps deleting the oldest rows while the
-            # build waits. Those deletes fall in a band just above the cut:
-            # up to (now - window + 10 min). Drop from the new file every row
-            # of that band that the live file no longer has. Any other
-            # delete shows up in the count check below and stops the swap.
-            band_ts=$(pb_time_checked $((now_s - days * 86400 + 600))) ||
-                { err "could not compute the retention band time for $t"; return 1; }
-            band_hi=$(live_q "SELECT COALESCE((SELECT rowid FROM \"$t\" WHERE rowid > $cut AND created >= '$band_ts' ORDER BY rowid LIMIT 1), $snap);")
-            is_int "$band_hi" || { err "band search failed for $t"; return 1; }
-            [ "$band_hi" -gt "$snap" ] && band_hi=$snap
-            echo "DELETE FROM main.\"$t\" WHERE rowid > $cut AND rowid <= $band_hi AND rowid NOT IN (SELECT rowid FROM live.\"$t\" WHERE rowid > $cut AND rowid <= $band_hi);"
-            echo "INSERT INTO main.\"$t\" ($rc) SELECT $rc FROM live.\"$t\" WHERE rowid > $snap ORDER BY rowid;"
-            ;;
-        esac >>"$sql"
+    _wtables=$(sed -n 's/^table\.\([A-Za-z0-9_]*\)\.window_days=.*/\1/p' "$MANIFEST")
+    for _t in $_wtables; do
+        _days=$(manifest_get "table.$_t.window_days")
+        is_int "$_days" || { err "bad manifest window_days for $_t: '$_days'"; return 1; }
+        check_window "$_t" "$_days" || return 1
     done
-    {
-        # sqlite_sequence last: the explicit-rowid inserts into AUTOINCREMENT
-        # tables above write their own rows into it. Copied by name, without
-        # rowid, and checked the same way.
-        if [ "$has_sequence" = 1 ]; then
-            echo "DELETE FROM main.sqlite_sequence;"
-            echo "INSERT INTO main.sqlite_sequence (name, seq) SELECT name, seq FROM live.sqlite_sequence;"
-        fi
-        printf '%s\n' "$_trg"
-        echo "COMMIT;"
-    } >>"$sql" || return 1
 
-    delta_started=$(date +%s)
-    as_pb sqlite3 -init /dev/null -batch -bail -noheader -cmd '.timeout 10000' -cmd '.output /dev/null' -cmd '.dbconfig dqs_ddl on' -cmd '.dbconfig dqs_dml on' -cmd '.output stdout' "$NEW_DB" <"$sql" >/dev/null || { err "the delta copy failed"; return 1; }
-    log "delta copied in $(($(date +%s) - delta_started))s"
-
-    # ---- verify ----
-    # Every query result is checked: a failed query is a failed check, never
-    # an empty string that equals another empty string.
-    verify_started=$(date +%s)
-    _ns=$(schema_hash "$NEW_DB") || { err "could not hash the new schema after the delta copy"; return 1; }
-    [ "$_ns" = "$_ms" ] || { err "the new schema changed during the delta copy"; return 1; }
-    _nh=$(header_pragmas "$NEW_DB") || { err "could not read the new header pragmas after the delta copy"; return 1; }
-    [ "$_nh" = "$_lh" ] || { err "header pragmas differ after the delta copy"; return 1; }
-    _verified=0
-    for line in $inventory; do
-        t=${line%%|*}
-        cls=$(echo "$line" | cut -d'|' -f2)
-        wr=$(echo "$line" | cut -d'|' -f3)
-        case "$cls" in
-        whole)
-            if [ "$t" = sqlite_sequence ]; then
-                q="SELECT name, seq FROM sqlite_sequence ORDER BY name"
-            elif [ "$wr" = 1 ]; then
-                q="SELECT * FROM \"$t\""
-            else
-                q="SELECT rowid,* FROM \"$t\" ORDER BY rowid"
-            fi
-            lc=$(q_int live_q "SELECT count(*) FROM \"$t\";") || return 1
-            nc=$(q_int new_q "SELECT count(*) FROM \"$t\";") || return 1
-            lh=$(q_sha3 live_q "$q") || return 1
-            nh=$(q_sha3 new_q "$q") || return 1
-            [ "$lc" = "$nc" ] && [ "$lh" = "$nh" ] || { err "$t differs: live rows=$lc sha3=$lh, new rows=$nc sha3=$nh"; return 1; }
-            log "verified table=$t class=whole rows=$nc sha3=$(echo "$nh" | cut -c1-16)"
-            ;;
-        mutable | append)
-            cut=$(manifest_get "table.$t.cut_rowid")
-            snap=$(manifest_get "table.$t.snapshot_max_rowid")
-            if ! is_int "$cut" || ! is_int "$snap"; then
-                err "bad manifest values for $t: cut '$cut' snapshot '$snap'"
-                return 1
-            fi
-            # Counted on the primary-key index: it holds every rowid and is
-            # far smaller than the table, so this does not read row data.
-            pk=$(pk_index "$LIVE_DB" "$t") || { err "could not read the primary key index of $t"; return 1; }
-            by=""
-            is_ident "$pk" && by="INDEXED BY \"$pk\""
-            lc=$(q_int live_q "SELECT count(*) FROM \"$t\" $by WHERE rowid > $cut;") || return 1
-            nc=$(q_int new_q "SELECT count(*) FROM \"$t\" $by WHERE rowid > $cut;") || return 1
-            [ "$lc" = "$nc" ] || { err "$t kept rows differ: live=$lc new=$nc (rowid > $cut)"; return 1; }
-            old=$(q_int new_q "SELECT count(*) FROM \"$t\" WHERE rowid <= $cut;") || return 1
-            [ "$old" = 0 ] || { err "$t new file has $old rows at or below the cut"; return 1; }
-            # Content hash of the part this cutover copied: every kept row
-            # of a mutable table, the rows above the snapshot of an
-            # insert-only one.
-            from=$cut
-            [ "$cls" = append ] && from=$snap
-            q="SELECT rowid,* FROM \"$t\" WHERE rowid > $from ORDER BY rowid"
-            lh=$(q_sha3 live_q "$q") || return 1
-            nh=$(q_sha3 new_q "$q") || return 1
-            [ "$lh" = "$nh" ] || { err "$t rows above rowid $from differ in content"; return 1; }
-            # The top kept row. Empty only when no row is kept, on both sides.
-            ltop=$(live_q "SELECT rowid || ':' || id FROM \"$t\" WHERE rowid > $cut ORDER BY rowid DESC LIMIT 1;") || { err "could not read the top row of $t (live)"; return 1; }
-            ntop=$(new_q "SELECT rowid || ':' || id FROM \"$t\" WHERE rowid > $cut ORDER BY rowid DESC LIMIT 1;") || { err "could not read the top row of $t (new)"; return 1; }
-            [ -n "$ltop" ] || [ "$lc" = 0 ] || { err "$t has $lc kept rows but no top row"; return 1; }
-            [ "$ltop" = "$ntop" ] || { err "$t top row differs: live=$ltop new=$ntop"; return 1; }
-            log "verified table=$t class=$cls kept_rows=$nc (rowid > $cut) copied_now_from_rowid=$from"
-            ;;
-        *)
-            err "table $t has an unknown class '$cls'"
-            return 1
-            ;;
-        esac
-        _verified=$((_verified + 1))
-    done
-    [ "$_verified" = "$_n_live" ] && [ "$_verified" -gt 0 ] || { err "verified $_verified of $_n_live tables"; return 1; }
+    # The new file was integrity-checked when it was built, and every byte
+    # of it checked by sha256 on its way to this volume, so by default no
+    # full-file check runs here; it would read the whole file while
+    # PocketBase is down.
     case "$CHECK" in
-        integrity) ic=$(new_q "PRAGMA integrity_check;") ;;
-        *) ic=$(new_q "PRAGMA quick_check;") ;;
-    esac || { err "${CHECK}_check on the new file failed to run"; return 1; }
+        integrity) ic=$(new_q "PRAGMA integrity_check;") || { err "integrity_check on the new file failed to run"; return 1; } ;;
+        quick) ic=$(new_q "PRAGMA quick_check;") || { err "quick_check on the new file failed to run"; return 1; } ;;
+        *) ic=ok ;;
+    esac
     [ "$ic" = ok ] || { err "${CHECK}_check on the new file: $(echo "$ic" | head -5)"; return 1; }
     jm=$(new_q "PRAGMA journal_mode;") || { err "could not read the journal mode of the new file"; return 1; }
     [ "$jm" = wal ] || { err "the new file is not in WAL mode"; return 1; }
-    log "verified $_verified tables in $(($(date +%s) - verify_started))s (${CHECK}_check ok)"
+    log "checked in $(($(date +%s) - started))s (check: $CHECK)"
 
     # ---- swap ----
     # Nobody may hold either file, or any -wal or -shm of them, open: the
     # empty -wal and -shm are deleted by the renames below.
     no_holders || { err "not swapping"; return 1; }
-    # Both files are renamed below. Each one's WAL is folded into it and
-    # must be empty: the verified rows may still be in the new file's WAL.
+    # Both files are renamed below; each one's WAL must be empty.
     checkpoint_truncate "$LIVE_DB" || { err "the live file's WAL could not be folded in; not swapping"; return 1; }
     checkpoint_truncate "$NEW_DB" || { err "the new file's WAL could not be folded in; not swapping"; return 1; }
     old="$PB_DATA_DIR/data.db.pre-compact-$TS"
@@ -708,7 +504,7 @@ cutover() {
     fi
     mv "$MANIFEST" "$COMPACT_DIR/manifest.done-$TS" ||
         err "could not rename $MANIFEST to manifest.done-$TS; a later boot with PB_COMPACT_SWAP=1 will find no new file and burn it"
-    loud "COMPACTION SWAPPED IN: data.db $(human "$(file_size "$old")") -> $(human "$(file_size "$LIVE_DB")") in $(($(date +%s) - started))s; old file kept as $old. Unset PB_COMPACT_SWAP."
+    loud "COMPACTION SWAPPED IN: data.db $(human "$(file_size "$old")") -> $(human "$(file_size "$LIVE_DB")") in $(($(date +%s) - started))s; old file kept as $old. Rows written after the build snapshot (built at $_built) are only in the old file. Unset PB_COMPACT_SWAP."
     return 0
 }
 
@@ -744,9 +540,9 @@ if [ ! -e "$MANIFEST" ]; then
     exit 0
 fi
 case "$CHECK" in
-    integrity | quick) ;;
+    none | integrity | quick) ;;
     *)
-        loud "PB_COMPACT_CUTOVER_CHECK=$CHECK is not integrity or quick; no swap. The manifest is kept; fix the setting and restart."
+        loud "PB_COMPACT_CUTOVER_CHECK=$CHECK is not none, integrity or quick; no swap. The manifest is kept; fix the setting and restart."
         exit 0
         ;;
 esac
