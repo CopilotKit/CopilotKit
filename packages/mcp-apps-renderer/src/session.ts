@@ -109,6 +109,25 @@ function identityKeyOf(content: {
   ]);
 }
 
+/** The User Activation API, where the browser exposes it. */
+function userActivationApi(): { isActive: boolean } | undefined {
+  return (navigator as Navigator & { userActivation?: { isActive: boolean } })
+    .userActivation;
+}
+
+/**
+ * Whether the user acted recently (transient activation). A click inside the
+ * widget's iframe activates the host page too. Where the API is missing,
+ * nothing can be checked and the request is treated as activated.
+ */
+function userActivated(): boolean {
+  const activation = userActivationApi();
+  return activation ? activation.isActive : true;
+}
+
+/** How often the host looks for the activation to have expired after an exit. */
+const ACTIVATION_RESET_POLL_MS = 200;
+
 /**
  * The MCP Apps protocol version this host negotiates. Sourced directly from the
  * ext-apps bridge (single source of truth, no hand-maintained literal). It lives
@@ -370,8 +389,8 @@ export interface McpAppSession {
    * or Escape, or a viewport resize while fullscreen. Updates the host context,
    * notifies the widget (`host-context-changed`) and fires
    * `onDisplayModeChange`. `containerDimensions` overrides the surface
-   * advertised for the mode (the viewport for `fullscreen`, the holder's width
-   * and the widget's last reported height for `inline`). A mode this
+   * advertised for the mode (the viewport for `fullscreen`, the width of the
+   * nearest laid-out ancestor for `inline`). A mode this
    * host does not offer (`fullscreen` when the options narrowed the modes to
    * `inline`) is ignored, so the widget is never told a mode the host cannot
    * render.
@@ -429,24 +448,48 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   let ready = false;
   let bridge: AppBridge | null = null;
   let currentDisplayMode: McpAppsDisplayMode = "inline";
+  // Set when the host took the widget out of fullscreen (close button,
+  // Escape). Transient activation outlives that click (for a duration the
+  // browser chooses), so activation alone would let the widget re-enter at
+  // once. Fullscreen stays refused until the activation has been observed
+  // inactive; an activation seen after that comes from a newer gesture.
+  // Nothing observable from the host (focus included, which a widget can take
+  // by script) proves an interaction with the widget itself, and without the
+  // activation API nothing can be observed at all, so the block then stays.
+  let fullscreenRefusedUntilActivationReset = false;
+  let activationResetWatch: ReturnType<typeof setInterval> | undefined;
+  const stopActivationResetWatch = () => {
+    if (activationResetWatch === undefined) return;
+    clearInterval(activationResetWatch);
+    activationResetWatch = undefined;
+  };
+  /** Lift the block once the activation is seen inactive. */
+  const noteActivationState = () => {
+    const activation = userActivationApi();
+    if (!activation || activation.isActive) return;
+    fullscreenRefusedUntilActivationReset = false;
+    stopActivationResetWatch();
+  };
+  const refuseFullscreenUntilActivationReset = () => {
+    fullscreenRefusedUntilActivationReset = true;
+    if (activationResetWatch !== undefined || !userActivationApi()) return;
+    activationResetWatch = setInterval(
+      noteActivationState,
+      ACTIVATION_RESET_POLL_MS,
+    );
+  };
   // The modes a widget may obtain here: what the frontends render, narrowed by
   // an explicit `hostContext.availableDisplayModes` in the options.
   const hostDisplayModes = resolveHostDisplayModes(
     settings.hostContext.availableDisplayModes,
   );
-  // The size the widget last reported (`size-changed`) while inline: the
-  // inline surface follows the widget's own height, so this is what inline
-  // advertises back. A size reported during fullscreen describes the
-  // fullscreen layout and must not stand in for the inline surface on exit.
-  let inlineReportedSize: { width?: number; height?: number } = {};
-
   /**
    * The inline surface: the width of the nearest laid-out ancestor of the
-   * dialog (ancestors stay in normal flow while the dialog sits in the top
+   * dialog. Ancestors stay in normal flow while the dialog sits in the top
    * layer, so this is measurable even when leaving fullscreen; an inline-level
-   * holder such as a custom element collapses to zero then, hence the climb)
-   * and the height the widget last reported. Undefined when nothing is
-   * measurable (not laid out yet).
+   * holder such as a custom element collapses to zero then, hence the climb.
+   * Only a width: the inline container grows with the widget's content, so
+   * there is no height to impose. Undefined when nothing is laid out yet.
    */
   const inlineContainerDimensions = ():
     | Partial<McpAppContainerDimensions>
@@ -458,13 +501,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       measured = Math.round(holder.getBoundingClientRect().width);
       holder = holder.parentElement;
     }
-    const width = measured > 0 ? measured : inlineReportedSize.width;
-    const height = inlineReportedSize.height;
-    if (width === undefined && height === undefined) return undefined;
-    return {
-      ...(width !== undefined ? { width } : {}),
-      ...(height !== undefined ? { height } : {}),
-    };
+    return measured > 0 ? { width: measured } : undefined;
   };
 
   /**
@@ -729,6 +766,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
     mcpAppsRequestQueue.cancelOwner(queueOwner);
     activitySub?.unsubscribe();
     activitySub = null;
+    stopActivationResetWatch();
     const b = bridge;
     bridge = null;
     void b?.close();
@@ -968,14 +1006,25 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       // hardcoded fallback. The widget learns the new mode through
       // `host-context-changed` (its SDK caches host context from that
       // notification, not from this response), which `applyDisplayMode` emits.
+      //
+      // Fullscreen also needs a user action behind it: the modal dialog makes
+      // the rest of the page inert, so a widget that asked again from its own
+      // `host-context-changed` handler right after the user exited would lock
+      // the user out of the chat. The user's click inside the widget counts;
+      // after a host-initiated exit, requests are refused until the closing
+      // click's activation has been seen inactive (see
+      // `fullscreenRefusedUntilActivationReset`).
       bridge.onrequestdisplaymode = async ({ mode }) => {
         if (disposed) return { mode: currentDisplayMode };
         const declaredByApp =
           bridge?.getAppCapabilities()?.availableDisplayModes;
+        noteActivationState();
         const available =
           isHostDisplayMode(mode) &&
           hostDisplayModes.includes(mode) &&
-          (!declaredByApp || declaredByApp.includes(mode));
+          (!declaredByApp || declaredByApp.includes(mode)) &&
+          (mode !== "fullscreen" ||
+            (userActivated() && !fullscreenRefusedUntilActivationReset));
         if (available) applyDisplayMode(mode);
         return { mode: currentDisplayMode };
       };
@@ -987,12 +1036,10 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           width?: number;
           height?: number;
         };
-        const size = {
+        hooks?.onSizeChanged?.({
           width: typeof width === "number" ? width : undefined,
           height: typeof height === "number" ? height : undefined,
-        };
-        if (currentDisplayMode === "inline") inlineReportedSize = size;
-        hooks?.onSizeChanged?.(size);
+        });
       };
       bridge.oninitialized = () => {
         if (disposed) return;
@@ -1077,6 +1124,11 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       // A host-initiated change is bound by what this host offers, like a
       // widget request; the app declaration only limits widget requests.
       if (!hostDisplayModes.includes(mode)) return;
+      // Leaving fullscreen at the host's initiative: the widget may not take
+      // the page back on the strength of the click that closed it.
+      if (mode === "inline" && currentDisplayMode === "fullscreen") {
+        refuseFullscreenUntilActivationReset();
+      }
       applyDisplayMode(mode, containerDimensions);
     },
     getDisplayMode() {

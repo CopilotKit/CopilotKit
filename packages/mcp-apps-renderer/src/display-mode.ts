@@ -129,6 +129,39 @@ function restoreFocus(
   }
 }
 
+/**
+ * Watch the viewport while a widget is fullscreen and report its size when it
+ * actually changed, at most once per animation frame. Browsers fire `resize`
+ * continuously during a drag; without this, every event would re-advertise
+ * the host context. Returns the function that stops watching.
+ */
+export function ɵwatchViewportResize(
+  onChange: (dimensions: McpAppContainerDimensions) => void,
+): () => void {
+  if (typeof window === "undefined") return () => {};
+  let last = defaultContainerDimensions("fullscreen");
+  let frame: number | undefined;
+  const check = () => {
+    frame = undefined;
+    const next = defaultContainerDimensions("fullscreen");
+    if (!next) return;
+    if (last && next.width === last.width && next.height === last.height) {
+      return;
+    }
+    last = next;
+    onChange(next);
+  };
+  const onResize = () => {
+    if (frame !== undefined) return;
+    frame = window.requestAnimationFrame(check);
+  };
+  window.addEventListener("resize", onResize);
+  return () => {
+    window.removeEventListener("resize", onResize);
+    if (frame !== undefined) window.cancelAnimationFrame(frame);
+  };
+}
+
 // One lock for the whole page: with two widgets in fullscreen at once, the
 // first one to exit must not unlock the page while the second is still open.
 let scrollLockHolders = 0;

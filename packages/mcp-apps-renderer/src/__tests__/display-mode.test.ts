@@ -1,8 +1,9 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   resolveHostDisplayModes,
   ɵlockBodyScroll,
   ɵshowDialogForMode,
+  ɵwatchViewportResize,
 } from "../display-mode";
 
 /**
@@ -119,5 +120,46 @@ describe("ɵlockBodyScroll", () => {
     releaseSecond();
     releaseSecond();
     expect(document.body.style.overflow).toBe("");
+  });
+});
+
+const nextFrame = () =>
+  new Promise((resolve) => requestAnimationFrame(() => resolve(0)));
+const setViewport = (width: number, height: number) => {
+  Object.defineProperty(window, "innerWidth", {
+    value: width,
+    configurable: true,
+  });
+  Object.defineProperty(window, "innerHeight", {
+    value: height,
+    configurable: true,
+  });
+};
+
+describe("ɵwatchViewportResize", () => {
+  it("reports once per frame and only when the viewport actually changed", async () => {
+    setViewport(1000, 800);
+    const onChange = vi.fn();
+    const stop = ɵwatchViewportResize(onChange);
+
+    // A burst of resize events with no size change: nothing to report.
+    window.dispatchEvent(new Event("resize"));
+    window.dispatchEvent(new Event("resize"));
+    await nextFrame();
+    expect(onChange).not.toHaveBeenCalled();
+
+    // A burst with a change: one report, carrying the final size.
+    setViewport(1200, 900);
+    window.dispatchEvent(new Event("resize"));
+    window.dispatchEvent(new Event("resize"));
+    await nextFrame();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith({ width: 1200, height: 900 });
+
+    stop();
+    setViewport(600, 400);
+    window.dispatchEvent(new Event("resize"));
+    await nextFrame();
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 });
