@@ -32,10 +32,18 @@ const docker = (...args) =>
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
-const logs = (name) => {
+const logStreams = (name) => {
   const r = spawnSync("docker", ["logs", name], { encoding: "utf8" });
-  return (r.stdout ?? "") + (r.stderr ?? "");
+  return [r.stdout ?? "", r.stderr ?? ""];
 };
+const logs = (name) => logStreams(name).join("");
+// A log offset, one per stream because logs() joins stdout and stderr.
+// logsSince(name, mark) is only what was logged after the mark was taken.
+const logMark = (name) => logStreams(name).map((s) => s.length);
+const logsSince = (name, mark) =>
+  logStreams(name)
+    .map((s, i) => s.slice(mark[i]))
+    .join("");
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 cpSync(hooksSource, hooksDir, { recursive: true });
@@ -72,7 +80,10 @@ function start(scenario, env) {
     "-e",
     "POCKETBASE_SUPERUSER_PASSWORD=local-proof-password-only",
   ];
-  for (const [k, v] of Object.entries(env)) args.push("-e", `${k}=${v}`);
+  // The boot grace is off unless a scenario sets it, so the first 1-minute
+  // tick runs a pass.
+  const fullEnv = { PB_RETENTION_BOOT_GRACE_MIN: "0", ...env };
+  for (const [k, v] of Object.entries(fullEnv)) args.push("-e", `${k}=${v}`);
   args.push(image);
   containers.push(name);
   docker(...args);
@@ -258,7 +269,8 @@ async function mainScenario() {
   const probe = await count("probe_runs");
   const diag = await count("diag_events");
   check("exact deletion: old rows go, in-window rows stay", () => {
-    assert.match(line("cvdiag_events"), / deleted=995 /);
+    // 995 rows in the default 125-row batches: 7 full batches and one of 120.
+    assert.match(line("cvdiag_events"), / deleted=995 .* batches=8 /);
     assert.equal(cvdiagNew, 200);
     assert.match(line("status_history"), / deleted=300 /);
     assert.equal(status, 0);
@@ -308,6 +320,8 @@ async function malformedAndSkewScenario() {
   const name = start("malformed", {
     PB_RETENTION_CRON: "* * * * *",
     PB_RETENTION_MAX_ROWS_PER_PASS: "100",
+    PB_RETENTION_BATCH_SIZE: "10",
+    PB_RETENTION_BATCH_PAUSE_MS: "0",
   });
   const pb = await connect(name);
   const before = await seedSafely(pb, name, [
@@ -346,9 +360,10 @@ async function malformedAndSkewScenario() {
     await pb.query("SELECT count(*) AS n, '' AS s FROM probe_runs")
   ).n;
   check("a malformed created row does not stop its table being pruned", () => {
+    // PB_RETENTION_BATCH_SIZE=10: 100 rows take 10 batches.
     assert.match(
       pass("status_history", 0),
-      / deleted=100 .*stopped_at=row cap/,
+      / deleted=100 .* batches=10 .*stopped_at=row cap/,
     );
     assert.match(
       pass("status_history", 1),
@@ -419,6 +434,82 @@ async function badCronScenario(value) {
   });
 }
 
+// Invalid pacing setting: each pass logs an ERROR and deletes nothing.
+async function badSettingScenario(variable, value, range) {
+  const name = start(`bad-${variable.slice(13).toLowerCase()}`, {
+    PB_RETENTION_CRON: "* * * * *",
+    [variable]: value,
+  });
+  const pb = await connect(name);
+  await seedSafely(pb, name, [
+    rows("status_history", "old", 1, 50, "-40 days"),
+  ]);
+  // Only lines logged after the seed count, so the ERROR comes from a pass
+  // that saw the seeded rows.
+  const seeded = logMark(name);
+  const error =
+    `[pb-retention] ERROR ${variable}=${JSON.stringify(value)} is not an ` +
+    `integer in ${range}, pass skipped (nothing deleted)`;
+  await waitFor(
+    `the ${variable} ERROR after the seed`,
+    name,
+    () => logsSince(name, seeded).includes(error),
+    150000,
+  );
+  const left = (
+    await pb.query("SELECT count(*) AS n, '' AS s FROM status_history")
+  ).n;
+  check(`invalid ${variable}=${value} skips the pass with an ERROR`, () => {
+    assert.doesNotMatch(logs(name), /\[pb-retention\] .*table=/);
+    assert.equal(left, 50);
+  });
+}
+
+// Boot grace: a pass inside the grace is skipped with one line and leaves
+// the seeded rows, then a pass after the grace deletes them. The grace is 2
+// minutes, so at least one 1-minute tick inside it comes after the seed.
+async function bootGraceScenario() {
+  const name = start("grace", {
+    PB_RETENTION_CRON: "* * * * *",
+    PB_RETENTION_BOOT_GRACE_MIN: "2",
+  });
+  const pb = await connect(name);
+  await seedSafely(pb, name, [
+    rows("status_history", "old", 1, 50, "-40 days"),
+  ]);
+  const seeded = logMark(name);
+  const count = async () =>
+    (await pb.query("SELECT count(*) AS n, '' AS s FROM status_history")).n;
+  const grace =
+    /\[pb-retention\] boot grace: pass skipped, hooks loaded \d+s ago, PB_RETENTION_BOOT_GRACE_MIN=2/;
+  await waitFor(
+    "a boot grace line after the seed",
+    name,
+    () => grace.test(logsSince(name, seeded)),
+    90000,
+  );
+  const leftInGrace = await count();
+  await waitFor(
+    "a pass after the boot grace",
+    name,
+    () => passLines(name, "status_history").length > 0,
+    150000,
+  );
+  const out = logsSince(name, seeded).split("\n");
+  const graceAt = out.findLastIndex((l) => grace.test(l));
+  const passAt = out.findIndex((l) =>
+    l.includes("[pb-retention] table=status_history "),
+  );
+  const left = await count();
+  check("boot grace skips a pass after the seed, then a pass runs", () => {
+    assert.equal(leftInGrace, 50, "rows deleted inside the boot grace");
+    assert.ok(graceAt < passAt, `grace line ${graceAt}, pass line ${passAt}`);
+    // The first pass line of the run, so no earlier pass deleted rows.
+    assert.match(passLines(name, "status_history")[0], / deleted=50 /);
+    assert.equal(left, 0);
+  });
+}
+
 try {
   await Promise.all([
     runScenario("main", mainScenario),
@@ -434,6 +525,16 @@ try {
     ),
     runScenario("bad cron bogus", () => badCronScenario("bogus")),
     runScenario("bad cron field", () => badCronScenario("*/0 * * * *")),
+    runScenario("bad batch size", () =>
+      badSettingScenario("PB_RETENTION_BATCH_SIZE", "5000", "10..1000"),
+    ),
+    runScenario("bad batch pause", () =>
+      badSettingScenario("PB_RETENTION_BATCH_PAUSE_MS", "fast", "0..10000"),
+    ),
+    runScenario("bad boot grace", () =>
+      badSettingScenario("PB_RETENTION_BOOT_GRACE_MIN", "-1", "0..1440"),
+    ),
+    runScenario("boot grace", bootGraceScenario),
   ]);
 } finally {
   for (const name of containers) {

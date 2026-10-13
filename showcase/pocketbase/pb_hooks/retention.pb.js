@@ -6,14 +6,16 @@
 // `test_id`, not by a relation field, and only the cvdiag purge CLI cleans it.
 // Deleting cvdiag_events rows here does not touch their samples.
 //
-// WHY IT LIVES HERE AND WORKS BY ROWID: none of these tables has an index
-// leading with `created`, and building one on the production volume (tens of
-// millions of rows) blocks PocketBase boot for as long as the build takes,
-// because migrations run before `serve`. Every PB table is a SQLite rowid
-// table, and rows only ever get rowid max+1 on insert, so rowid order follows
-// insert order, which follows `created`. That lets us find the cutoff with a
-// binary search of rowid point lookups (each one a rowid b-tree seek, no
-// index needed) and delete from the bottom of the rowid range.
+// WHY IT LIVES HERE AND WORKS BY ROWID: the migrations in this repo create no
+// index leading with `created` on these tables. Some databases do have one
+// (staging still has idx_*_created indexes from an old migration; production
+// does not), so this hook cannot rely on it. Building one on the production
+// volume (tens of millions of rows) blocks PocketBase boot for as long as the
+// build takes, because migrations run before `serve`. Every PB table is a
+// SQLite rowid table, and rows only ever get rowid max+1 on insert, so rowid
+// order follows insert order, which follows `created`. That lets us find the
+// cutoff with a binary search of rowid point lookups (each one a rowid b-tree
+// seek, no index needed) and delete from the bottom of the rowid range.
 //
 // `created` must be in PB's exact stored format, "YYYY-MM-DD HH:MM:SS.sssZ"
 // with exactly 3 fraction digits. Only that format sorts as text in time
@@ -49,6 +51,17 @@
 // deleted rows; nothing depends on them for these collections (no relation or
 // file fields point at them, and no hook listens for their deletes).
 //
+// PACING: PB 0.22 has exactly one write connection, and an API write waits
+// for it while a batch holds it. With 1000-row batches and 50 ms pauses the
+// pass held it about 93% of the time, and staging writes stalled for seconds
+// (64 s on a cold page cache after a restart). So batches are small, the pause
+// is long, so the connection is mostly free, and no pass runs in the first
+// minutes after boot, while the page cache is cold. A batch slower than
+// SLOW_BATCH_MS is logged with a WARN, at most SLOW_WARN_MAX per table per
+// pass; the table line counts all of them in slow_batches=. The per-table
+// WAL checkpoint runs on the concurrent pool, not the write connection, so it
+// does not hold up writes either (a PASSIVE checkpoint takes no write lock).
+//
 // Config (env on the pocketbase service):
 //   Read once when the hooks load (a change needs a restart):
 //   PB_RETENTION_ENABLED            unset/true/1/yes/on runs the job;
@@ -62,8 +75,16 @@
 //                                   (e.g. PB_RETENTION_STATUS_HISTORY_DAYS);
 //                                   an invalid value skips that table with
 //                                   an ERROR, it never falls back to 30
-//   PB_RETENTION_MAX_ROWS_PER_PASS  per table per pass, default 50000; an
+//   PB_RETENTION_MAX_ROWS_PER_PASS  per table per pass, default 15000; an
 //                                   invalid value logs a WARN and uses it
+//   PB_RETENTION_BATCH_SIZE         rows per DELETE, default 125, 10..1000
+//   PB_RETENTION_BATCH_PAUSE_MS     sleep between batches, default 250,
+//                                   0..10000
+//   PB_RETENTION_BOOT_GRACE_MIN     skip passes until this many minutes after
+//                                   the hooks load, default 10, 0..1440; 0
+//                                   turns the grace off
+//   An invalid BATCH_SIZE, BATCH_PAUSE_MS or BOOT_GRACE_MIN skips the whole
+//   pass with an ERROR (nothing is deleted); it never falls back to a default.
 //
 // PB 0.22 JSVM constraints this file obeys (same as the other hooks): the
 // cron callback is serialized and re-run in a pooled runtime that cannot see
@@ -161,6 +182,9 @@
     );
     cron = defaultCron;
   }
+  // The boot grace counts from here. The app store lives as long as the
+  // process, and a hook change restarts the process, so this is set once.
+  $app.store().set("pb_retention_loaded_at", Date.now());
   cronAdd("pb_retention", cron, pbRetentionPass);
   console.log("[pb-retention] scheduled: " + cron);
 })();
@@ -173,9 +197,12 @@ function pbRetentionPass() {
     "probe_runs",
   ];
   const DEFAULT_DAYS = 30;
-  const DEFAULT_MAX_ROWS = 50000;
-  const BATCH = 1000;
-  const PAUSE_MS = 50;
+  const DEFAULT_MAX_ROWS = 15000;
+  // A batch slower than this gets a WARN with its duration and row count,
+  // for the first SLOW_WARN_MAX such batches in a table each pass. The table
+  // line has the full count (slow_batches=).
+  const SLOW_BATCH_MS = 250;
+  const SLOW_WARN_MAX = 5;
   // Sized to end well inside the default 5-minute schedule. With a shorter
   // PB_RETENTION_CRON, a pass can outlast the interval, and only the lock
   // below stops the next one from overlapping it.
@@ -196,14 +223,61 @@ function pbRetentionPass() {
 
   const log = (line) => console.log("[pb-retention] " + line);
 
+  // Pacing settings. A wrong value could hold the write connection far longer
+  // than intended, so it skips the pass instead of falling back to a default.
+  const intSetting = (name, def, min, max) => {
+    const raw = String($os.getenv(name) || "");
+    const s = raw.trim();
+    if (s === "") return def;
+    const n = Number(s);
+    if (/^\d+$/.test(s) && n >= min && n <= max) return n;
+    log(
+      "ERROR " +
+        name +
+        "=" +
+        JSON.stringify(raw) +
+        " is not an integer in " +
+        min +
+        ".." +
+        max +
+        ", pass skipped (nothing deleted)",
+    );
+    return null;
+  };
+  const BATCH = intSetting("PB_RETENTION_BATCH_SIZE", 125, 10, 1000);
+  if (BATCH === null) return;
+  const PAUSE_MS = intSetting("PB_RETENTION_BATCH_PAUSE_MS", 250, 0, 10000);
+  if (PAUSE_MS === null) return;
+  const graceMin = intSetting("PB_RETENTION_BOOT_GRACE_MIN", 10, 0, 1440);
+  if (graceMin === null) return;
+
   const now = Date.now();
+  const store = $app.store();
+
+  // Boot grace: right after a restart the page cache is cold, and a batch
+  // that is fast later can hold the write connection for many seconds.
+  let loadedAt = Number(store.get("pb_retention_loaded_at") || 0);
+  if (!(loadedAt > 0)) {
+    // Not set (it is set when the hooks load); count from now.
+    loadedAt = now;
+    store.set("pb_retention_loaded_at", loadedAt);
+  }
+  if (now - loadedAt < graceMin * 60000) {
+    log(
+      "boot grace: pass skipped, hooks loaded " +
+        Math.floor((now - loadedAt) / 1000) +
+        "s ago, PB_RETENTION_BOOT_GRACE_MIN=" +
+        graceMin,
+    );
+    return;
+  }
+
   // Overlap guard. The lock holds "<expiry ms>:<owner token>". It expires so
   // that a pass which died without its finally cannot block retention for
   // good, and only the pass whose token is still in it may release it, so a
   // stalled pass that finishes after its lock expired cannot clear a newer
   // pass's lock. The get-then-set is not atomic; PB starts one run of this
   // job per tick, so two passes do not start at the same instant.
-  const store = $app.store();
   const held = String(store.get(LOCK_KEY) || "");
   if (held !== "" && Number(held.split(":")[0]) > now) {
     log("previous pass still running, skipping this one");
@@ -242,6 +316,9 @@ function pbRetentionPass() {
       const table = TABLES[(turn + t) % TABLES.length];
       const started = Date.now();
       let deleted = 0;
+      let batches = 0;
+      let maxBatchMs = 0;
+      let slowBatches = 0;
       let cutoff = "";
       let cut = null;
       const progress = () =>
@@ -252,7 +329,13 @@ function pbRetentionPass() {
         " cutoff_rowid=" +
         cut +
         " elapsed_ms=" +
-        (Date.now() - started);
+        (Date.now() - started) +
+        " batches=" +
+        batches +
+        " max_batch_ms=" +
+        maxBatchMs +
+        " slow_batches=" +
+        slowBatches;
       try {
         const daysVar = "PB_RETENTION_" + table.toUpperCase() + "_DAYS";
         const rawDays = String($os.getenv(daysVar) || "");
@@ -481,6 +564,10 @@ function pbRetentionPass() {
             stop = "time cap";
             break;
           }
+          // Timed from before the statement is queued, so a wait for the
+          // write connection counts too.
+          const want = Math.min(BATCH, maxRows - deleted);
+          const batchStart = Date.now();
           const res = writeDb
             .newQuery(
               "DELETE FROM `" +
@@ -494,22 +581,54 @@ function pbRetentionPass() {
               cut: cut,
               cutoff: cutoff,
               glob: DATE_GLOB,
-              n: Math.min(BATCH, maxRows - deleted),
+              n: want,
             })
             .execute();
           const n = res.rowsAffected();
-          deleted += n;
+          const batchMs = Date.now() - batchStart;
+          // An empty DELETE only ends the drain. It is not a batch, so it is
+          // left out of batches=, max_batch_ms= and the slow-batch WARN.
           if (n === 0) break;
+          deleted += n;
+          batches++;
+          if (batchMs > maxBatchMs) maxBatchMs = batchMs;
+          if (batchMs > SLOW_BATCH_MS) {
+            slowBatches++;
+            if (slowBatches <= SLOW_WARN_MAX) {
+              log(
+                "WARN table=" +
+                  table +
+                  " slow delete batch: ms=" +
+                  batchMs +
+                  " rows=" +
+                  n +
+                  " (over " +
+                  SLOW_BATCH_MS +
+                  " ms)" +
+                  (slowBatches === SLOW_WARN_MAX
+                    ? ", further slow batches in this table are only counted in slow_batches="
+                    : ""),
+              );
+            }
+          }
+          // Fewer rows than asked for: nothing older is left below the cutoff,
+          // so stop now instead of pausing and taking the write connection for
+          // an empty DELETE.
+          if (n < want) break;
           sleep(PAUSE_MS);
         }
         // Runs once per table, after its drain. PASSIVE is best effort: it
         // lets later writes reuse the WAL, it does not shrink the file, and
-        // it may not finish while readers are active. A failure here does not
-        // undo the deletes, so it gets its own WARN.
+        // it may not finish while readers are active. It runs on the
+        // concurrent pool, not the write connection: a PASSIVE checkpoint
+        // takes no write lock, so API writes go on while it copies pages. A
+        // failure here does not undo the deletes, so it gets its own WARN.
         let ckpt = "";
         if (deleted > 0) {
+          const ckptStart = Date.now();
           try {
-            writeDb.newQuery("PRAGMA wal_checkpoint(PASSIVE)").execute();
+            readDb.newQuery("PRAGMA wal_checkpoint(PASSIVE)").execute();
+            ckpt = " ckpt_ms=" + (Date.now() - ckptStart);
           } catch (e) {
             ckpt = " WARN wal_checkpoint failed: " + String(e);
           }
