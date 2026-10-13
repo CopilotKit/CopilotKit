@@ -47,11 +47,8 @@ def test_amount_is_string():
         )
 
 
-def test_csv_fallback_uses_mock_data(caplog):
-    """When CSV path doesn't exist, module falls back to mock data with a warning."""
-    # We can't easily re-trigger module-level loading, but we can verify the
-    # mock data structure matches expectations — the _MOCK_DATA is what gets
-    # used when CSV is missing.
+def test_mock_data_shape():
+    """The opt-in mock rows keep the same columns and types as the CSV."""
     from tools.query_data import _MOCK_DATA
 
     assert len(_MOCK_DATA) == 3
@@ -60,3 +57,37 @@ def test_csv_fallback_uses_mock_data(caplog):
         assert "category" in row
         assert "notes" in row
         assert isinstance(row["amount"], str)
+
+
+def test_loads_shipped_dataset_not_mock():
+    """The CSV inside tools/ is loaded, so the demos never see the 3-row mock."""
+    from tools import query_data
+
+    assert query_data._csv_path.is_file()
+    assert query_data._cached_data is not query_data._MOCK_DATA
+    assert len(query_data._cached_data) > len(query_data._MOCK_DATA)
+
+
+def test_missing_dataset_raises_without_opt_in(monkeypatch):
+    from tools.query_data import _fail_or_mock
+
+    monkeypatch.delenv("SHOWCASE_ALLOW_MOCK_DATASET", raising=False)
+    with pytest.raises(RuntimeError, match="SHOWCASE_ALLOW_MOCK_DATASET"):
+        _fail_or_mock("file is empty")
+
+
+@pytest.mark.parametrize("value", ["", "0", "false", "yes"])
+def test_missing_dataset_raises_for_other_values(monkeypatch, value):
+    from tools.query_data import _fail_or_mock
+
+    monkeypatch.setenv("SHOWCASE_ALLOW_MOCK_DATASET", value)
+    with pytest.raises(RuntimeError):
+        _fail_or_mock("file is empty")
+
+
+@pytest.mark.parametrize("value", ["1", "true", "TRUE", "True", " true "])
+def test_missing_dataset_returns_mock_with_opt_in(monkeypatch, value):
+    from tools.query_data import _MOCK_DATA, _fail_or_mock
+
+    monkeypatch.setenv("SHOWCASE_ALLOW_MOCK_DATASET", value)
+    assert _fail_or_mock("file is empty") is _MOCK_DATA

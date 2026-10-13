@@ -65,7 +65,7 @@ def _fail_or_mock(reason: str) -> list[dict[str, Any]]:
         "inside the tools/ package (every integration Dockerfile copies it). "
         "Set SHOWCASE_ALLOW_MOCK_DATASET=1 to fall back to mock data on purpose."
     )
-    if os.getenv("SHOWCASE_ALLOW_MOCK_DATASET") in ("1", "true", "TRUE"):
+    if os.getenv("SHOWCASE_ALLOW_MOCK_DATASET", "").strip().lower() in ("1", "true"):
         _logger.error("%s — continuing with mock data (opt-in).", message)
         print(f"[query_data] {message}", file=sys.stderr, flush=True)
         return _MOCK_DATA
