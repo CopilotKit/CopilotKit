@@ -128,7 +128,7 @@ describe("CopilotChat icon buttons", () => {
     const fixture = TestBed.createComponent(CopilotChatSendButton);
     const clicked = vi.fn();
     fixture.componentInstance.clicked.subscribe(clicked);
-    fixture.componentRef.setInput("running", true);
+    fixture.componentRef.setInput("isRunning", true);
     fixture.detectChanges();
 
     const button = fixture.nativeElement.querySelector(

@@ -7,6 +7,7 @@ import {
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotChatInput } from "../copilot-chat-input";
+import { CopilotChatInputDefaults } from "../copilot-chat-input-defaults";
 import { ChatState } from "../../../chat-state";
 import { CopilotKit } from "../../../copilotkit";
 
@@ -271,6 +272,32 @@ describe("CopilotChatInput", () => {
       expect(context.isRunning).toBe(true);
       context.stop();
       expect(chatState.stopRun).toHaveBeenCalledOnce();
+    });
+
+    it("binds the running state into the default send button used as a slot", () => {
+      const fixture = TestBed.createComponent(CopilotChatInput);
+      fixture.componentRef.setInput(
+        "sendButtonComponent",
+        CopilotChatInputDefaults.SendButton,
+      );
+      fixture.detectChanges();
+      const host = fixture.nativeElement as HTMLElement;
+
+      const button = host.querySelector<HTMLButtonElement>(
+        'copilot-chat-send-button button[aria-label="Stop generating"]',
+      );
+      expect(button).not.toBeNull();
+
+      button!.click();
+      expect(chatState.stopRun).toHaveBeenCalledOnce();
+
+      chatState.isRunning.set(false);
+      fixture.detectChanges();
+      expect(
+        host.querySelector(
+          'copilot-chat-send-button button[aria-label="Send message"]',
+        ),
+      ).not.toBeNull();
     });
   });
 });

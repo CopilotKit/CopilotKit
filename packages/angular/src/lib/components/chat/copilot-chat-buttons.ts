@@ -77,13 +77,13 @@ const chatInputToolbarSecondary = cn(
     <div class="cpk:mr-[10px]">
       <button
         type="button"
-        [attr.aria-label]="running() ? 'Stop generating' : 'Send message'"
+        [attr.aria-label]="isRunning() ? 'Stop generating' : 'Send message'"
         [disabled]="disabled()"
         [class]="buttonClass"
         (click)="onClick()"
       >
         <copilot-icon
-          [img]="running() ? SquareIcon : ArrowUpIcon"
+          [img]="isRunning() ? SquareIcon : ArrowUpIcon"
           [size]="18"
         ></copilot-icon>
       </button>
@@ -94,7 +94,7 @@ const chatInputToolbarSecondary = cn(
 export class CopilotChatSendButton {
   disabled = input(false);
   /** Renders the Stop affordance; the host decides what a click does. */
-  running = input(false);
+  isRunning = input(false);
   clicked = output<void>();
 
   readonly ArrowUpIcon = ArrowUp;
