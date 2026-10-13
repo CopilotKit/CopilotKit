@@ -130,6 +130,113 @@ def test_memory_compat_installs_once():
     assert len(app.user_middleware) == 1
 
 
+@pytest.fixture
+def trace_listener(monkeypatch, tmp_path):
+    from crewai.events.listeners.tracing.first_time_trace_handler import (
+        FirstTimeTraceHandler,
+    )
+    from crewai.events.listeners.tracing.trace_batch_manager import TraceBatchManager
+    from crewai.events.listeners.tracing.trace_listener import TraceCollectionListener
+    from crewai.events.listeners.tracing import utils
+
+    monkeypatch.setattr(
+        "crewai_core.user_data._user_data_file", lambda: tmp_path / "user.json"
+    )
+    # The tracing module also captured this helper as a direct import.
+    monkeypatch.setattr(utils, "_user_data_file", lambda: tmp_path / "user.json")
+    monkeypatch.delenv("CREWAI_TRACING_ENABLED", raising=False)
+    listener = TraceCollectionListener()
+    handler = FirstTimeTraceHandler()
+    manager = TraceBatchManager()
+    handler.set_batch_manager(manager)
+    monkeypatch.setattr(listener, "first_time_handler", handler)
+    monkeypatch.setattr(listener, "batch_manager", manager)
+    token = utils.set_tracing_enabled(False)
+    yield listener
+    utils.reset_tracing_enabled(token)
+
+
+def test_declined_first_trace_releases_batch_and_finishes_first_use(
+    trace_listener, monkeypatch
+):
+    from crewai.events.listeners.tracing.trace_batch_manager import TraceBatch
+    from crewai.events.listeners.tracing.types import TraceEvent
+
+    prompts = []
+
+    def decline():
+        prompts.append(True)
+        return False
+
+    monkeypatch.setattr(
+        "crewai.events.listeners.tracing.first_time_trace_handler.prompt_user_for_trace_viewing",
+        decline,
+    )
+    handler = trace_listener.first_time_handler
+    handler.is_first_time = True
+    handler.mark_events_collected()
+    trace_listener.batch_manager.current_batch = TraceBatch()
+    trace_listener.batch_manager.event_buffer.append(TraceEvent(type="probe"))
+    install(FastAPI())
+    handler.handle_execution_completion()
+
+    assert handler.is_first_time is False
+    assert not handler.collected_events
+    assert not trace_listener.batch_manager.event_buffer
+    assert trace_listener.batch_manager.current_batch is None
+    handler.handle_execution_completion()
+    assert len(prompts) == 1
+
+
+@pytest.mark.parametrize("method", ["_handle_trace_event", "_handle_action_event"])
+def test_registered_callbacks_do_not_collect_disabled_traces(trace_listener, method):
+    from crewai.events.types.flow_events import FlowStartedEvent
+
+    trace_listener.first_time_handler.is_first_time = False
+    install(FastAPI())
+    getattr(trace_listener, method)(
+        "flow_started", ProbeFlow(), FlowStartedEvent(flow_name="ProbeFlow")
+    )
+    assert not trace_listener.batch_manager.event_buffer
+    assert trace_listener.batch_manager.current_batch is None
+
+
+def test_disabled_tracing_does_not_initialize_an_unused_batch(trace_listener):
+    trace_listener.first_time_handler.is_first_time = False
+    install(FastAPI())
+    trace_listener._initialize_batch({}, {"execution_type": "flow"})
+    assert trace_listener.batch_manager.current_batch is None
+
+
+def test_explicit_tracing_opt_out_releases_first_time_buffer(trace_listener, monkeypatch):
+    from crewai.events.listeners.tracing.types import TraceEvent
+
+    monkeypatch.setenv("CREWAI_TRACING_ENABLED", "false")
+    trace_listener.first_time_handler.is_first_time = True
+    trace_listener.batch_manager.event_buffer.append(TraceEvent(type="probe"))
+    install(FastAPI())
+    assert trace_listener.first_time_handler.is_first_time is False
+    assert not trace_listener.batch_manager.event_buffer
+
+
+@pytest.mark.parametrize("first_time", [False, True])
+def test_requested_traces_still_collect(trace_listener, first_time):
+    from crewai.events.listeners.tracing import utils
+    from crewai.events.types.flow_events import FlowStartedEvent
+
+    trace_listener.first_time_handler.is_first_time = first_time
+    flow = ProbeFlow()
+    token = utils.set_tracing_enabled(not first_time)
+    try:
+        install(FastAPI())
+        trace_listener._handle_trace_event(
+            "flow_started", flow, FlowStartedEvent(flow_name="ProbeFlow")
+        )
+        assert len(trace_listener.batch_manager.event_buffer) == 1
+    finally:
+        utils.reset_tracing_enabled(token)
+
+
 def test_concurrent_requests_have_separate_runtime_owners():
     ProbeFlow()
     startup = crewai_event_bus.runtime_state
