@@ -27,7 +27,16 @@ _original_trace_completion = FirstTimeTraceHandler.handle_execution_completion
 
 
 def _finish_first_trace(self: FirstTimeTraceHandler) -> None:
-    _original_trace_completion(self)
+    try:
+        _original_trace_completion(self)
+    except Exception:
+        # Recording a decline can fail before consent reaches disk. Release
+        # unrequested first-use traces while preserving the upstream error.
+        if self.is_first_time and not is_tracing_enabled_in_context():
+            self.is_first_time = False
+            self.collected_events = False
+            self._reset_batch_state()
+        raise
     if self.is_first_time and has_user_declined_tracing():
         self.is_first_time = False
         self.collected_events = False

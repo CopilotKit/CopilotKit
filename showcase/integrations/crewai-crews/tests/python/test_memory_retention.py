@@ -345,3 +345,60 @@ def test_nested_flow_keeps_the_enclosing_request_runtime():
 
     asyncio.run(request())
     assert len(startup.root) == 1
+
+
+@pytest.mark.parametrize("requested", [False, True])
+def test_declined_trace_write_failure_releases_only_unrequested_batch(
+    trace_listener, monkeypatch, tmp_path, requested
+):
+    from crewai.events.listeners.tracing import utils
+    from crewai.events.types.flow_events import FlowStartedEvent
+
+    parent_file = tmp_path / "not-a-directory"
+    parent_file.write_text("blocks consent persistence")
+    consent_file = parent_file / "user.json"
+    monkeypatch.setattr("crewai_core.user_data._user_data_file", lambda: consent_file)
+    monkeypatch.setattr(utils, "_user_data_file", lambda: consent_file)
+    assert not utils._is_interactive_terminal()
+
+    flow = ProbeFlow()
+    token = utils.set_tracing_enabled(False)
+    try:
+        handler = trace_listener.first_time_handler
+        assert handler.initialize_for_first_time_user()
+        install(FastAPI())
+        trace_listener._initialize_batch({}, {"execution_type": "flow"})
+        trace_listener._handle_trace_event(
+            "flow_started", flow, FlowStartedEvent(flow_name="ProbeFlow")
+        )
+        handler.mark_events_collected()
+        manager = trace_listener.batch_manager
+        assert manager.current_batch is not None
+        assert len(manager.event_buffer) == 1
+
+        requested_token = utils.set_tracing_enabled(requested)
+        try:
+            with pytest.raises(NotADirectoryError) as error:
+                handler.handle_execution_completion()
+        finally:
+            utils.reset_tracing_enabled(requested_token)
+        assert error.value.filename == str(consent_file)
+
+        if requested:
+            assert handler.is_first_time
+            assert handler.collected_events
+            assert len(manager.event_buffer) == 1
+            assert manager.current_batch is not None
+        else:
+            assert handler.is_first_time is False
+            assert not handler.collected_events
+            assert not manager.event_buffer
+            assert manager.current_batch is None
+            for method in ("_handle_trace_event", "_handle_action_event"):
+                getattr(trace_listener, method)(
+                    "flow_started", flow, FlowStartedEvent(flow_name="ProbeFlow")
+                )
+            assert not manager.event_buffer
+            assert manager.current_batch is None
+    finally:
+        utils.reset_tracing_enabled(token)
