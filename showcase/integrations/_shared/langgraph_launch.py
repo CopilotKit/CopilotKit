@@ -11,10 +11,10 @@ from langgraph_api.cli import run_server
 
 
 def main() -> None:
-    # langgraph-cli 0.4.21 drops disable_persistence during validation, then
-    # passes False to run_server and overrides the exported environment flag.
+    # Pass disable_persistence directly to run_server rather than relying on
+    # the exported environment flag.
     # Keep this forwarding in step with the pinned CLI if either API changes.
-    expected = {"langgraph-cli": "0.4.21", "langgraph-api": "0.7.101"}
+    expected = {"langgraph-cli": "0.4.31", "langgraph-api": "0.14.1"}
     for package, pinned in expected.items():
         installed = version(package)
         if installed != pinned:
