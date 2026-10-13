@@ -36,7 +36,8 @@ TEST_REAL_DF=$(command -v df)
 TEST_REAL_STAT=$(command -v stat)
 TEST_REAL_RM=$(command -v rm)
 TEST_REAL_SHA256SUM=$(command -v sha256sum) || { echo "sha256sum is not installed" >&2; exit 2; }
-export TEST_REAL_SQLITE TEST_REAL_MV TEST_REAL_DF TEST_REAL_STAT TEST_REAL_RM TEST_REAL_SHA256SUM
+TEST_REAL_DD=$(command -v dd)
+export TEST_REAL_SQLITE TEST_REAL_MV TEST_REAL_DF TEST_REAL_STAT TEST_REAL_RM TEST_REAL_SHA256SUM TEST_REAL_DD
 
 ROOT=$(mktemp -d "${TMPDIR:-/tmp}/pb-compact-test.XXXXXX") || exit 2
 ROOT=$(cd "$ROOT" && pwd -P)
@@ -225,6 +226,23 @@ if [ -n "${NO_SHA256SUM:-}" ]; then
     exit 127
 fi
 exec "$TEST_REAL_SHA256SUM" "$@"
+EOF
+
+# dd: a call whose arguments match the glob DD_FAIL_MATCH prints
+# "dd: $DD_FAIL_MSG" on stderr and fails, reading and writing nothing. A call
+# that matches DD_EMPTY_MATCH reads nothing and succeeds (a short read).
+cat >"$SHIM/dd" <<'EOF'
+#!/bin/sh
+all="$*"
+if [ -n "${DD_FAIL_MATCH:-}" ]; then
+    # shellcheck disable=SC2254
+    case "$all" in $DD_FAIL_MATCH) echo "dd: ${DD_FAIL_MSG:-injected failure}" >&2; exit 1 ;; esac
+fi
+if [ -n "${DD_EMPTY_MATCH:-}" ]; then
+    # shellcheck disable=SC2254
+    case "$all" in $DD_EMPTY_MATCH) exit 0 ;; esac
+fi
+exec "$TEST_REAL_DD" "$@"
 EOF
 
 # fake-remote CMD: the remote command for an off-box build. The "box" is
@@ -1755,6 +1773,76 @@ t_push_missing_sha256sum_named() {
     run_push NO_SHA256SUM=1
     check "push fails" ne "$?" 0
     check "the missing tool is named" grep_q "sha256sum is not installed" "$T/push.out"
+}
+
+# A resumed push trusts the pieces recorded as done. One of them changed on
+# the box between the runs: the whole file is checked before it is placed,
+# and nothing is published.
+t_push_resume_checks_whole_file() {
+    make_db "$D/data.db" live
+    "$TEST_REAL_SQLITE" "$D/data.db" "CREATE TABLE pad (b BLOB); INSERT INTO pad VALUES (randomblob(1500000)), (randomblob(1500000));" >/dev/null
+    run_remote_build || { bad "setup: off-box build failed"; return; }
+    run_push FR_FAIL_MATCH="conv=notrunc,fsync" FR_FAIL_SKIP=1 FR_FAIL_COUNT="$T/fail.n"
+    check "setup: the first push fails" ne "$?" 0
+    printf 'XXXX' | "$TEST_REAL_DD" of="$D/compact/data.db.new.upload" bs=1 seek=4096 conv=notrunc 2>/dev/null
+    run_push
+    check "the second push fails" ne "$?" 0
+    check "it names the whole-file check" grep_q "does not match the manifest's sha256" "$T/push.out"
+    check "no manifest on the box" absent "$D/compact/manifest"
+    check "no new file on the box" absent "$D/compact/data.db.new"
+}
+
+# The local read of a piece fails: the push says which piece, and dd's own
+# reason.
+t_push_local_read_error_named() {
+    make_db "$D/data.db" live
+    run_remote_build || { bad "setup: off-box build failed"; return; }
+    run_push DD_FAIL_MATCH="if=$T/off/compact/data.db.new bs=1048576 *" DD_FAIL_MSG="Input/output error"
+    check "push fails" ne "$?" 0
+    check "it names the piece and gives dd's reason" grep_q "could not read piece 0 of .*Input/output error" "$T/push.out"
+}
+
+# Writing a block on the box fails (a full volume): the reason reaches the
+# operator.
+t_push_box_write_error_named() {
+    make_db "$D/data.db" live
+    run_remote_build || { bad "setup: off-box build failed"; return; }
+    run_push DD_FAIL_MATCH="*conv=notrunc,fsync*" DD_FAIL_MSG="No space left on device"
+    check "push fails" ne "$?" 0
+    check "it gives dd's reason" grep_q "writing piece 0.*No space left on device" "$T/push.out"
+    check "no manifest on the box" absent "$D/compact/manifest"
+}
+
+# A dd read error while the fingerprint is taken fails the build; it never
+# records a hash of part of the file.
+t_build_fingerprint_read_error_fails() {
+    make_db "$D/data.db" live
+    run_build DD_FAIL_MATCH="*bs=65536 *" DD_FAIL_MSG="Input/output error"
+    check "build fails" ne "$?" 0
+    check "it names the fingerprint" grep_q "could not read the fingerprint" "$T/build.out"
+    check "no manifest" absent "$D/compact/manifest"
+}
+
+# The piece reads back with other bytes than were sent: the push says the
+# read-back does not match, and what it expected.
+t_push_readback_mismatch_named() {
+    make_db "$D/data.db" live
+    run_remote_build || { bad "setup: off-box build failed"; return; }
+    run_push DD_EMPTY_MATCH="if=$D/compact/data.db.new.upload *"
+    check "push fails" ne "$?" 0
+    check "it says the read-back does not match" grep_q "writing piece 0: the box reported '[0-9a-f]*', expected '[0-9a-f]*'" "$T/push.out"
+    check "not a bare failure" no_grep "failed on the box (exit 0)" "$T/push.out"
+}
+
+# The connection drops and the state on the box cannot be read: the push
+# says the state is unknown, not that it is wrong.
+t_push_unknown_state_named() {
+    make_db "$D/data.db" live
+    run_remote_build || { bad "setup: off-box build failed"; return; }
+    run_push PB_COMPACT_REMOTE_TRIES=1 FR_DROP_MATCH="| head -c" FR_DROP_TIMES=99 FR_DROP_COUNT="$T/drop.n"
+    check "push fails" ne "$?" 0
+    check "it says the state could not be read" grep_q "the state on the box could not be read" "$T/push.out"
+    check "not that the state is wrong" no_grep "is not in the expected state" "$T/push.out"
 }
 
 # ---- tests: the off-box export -----------------------------------------------------

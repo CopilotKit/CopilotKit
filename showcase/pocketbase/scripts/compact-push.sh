@@ -96,7 +96,7 @@ OWN_LOCK=0
 on_exit() {
     _rc=$?
     set +e
-    rm -f "$L_PIECE.raw" "$L_PIECE.gz"
+    rm -f "$L_PIECE.raw" "$L_PIECE.gz" "$L_PIECE.err"
     if [ "$OWN_LOCK" = 1 ]; then
         remote_q "$(lock_sh); release" >/dev/null 2>&1 ||
             log "could not release $R_LOCK on the box; it expires within ${LOCK_TTL_S}s" >&2
@@ -146,14 +146,19 @@ remote_step() {
         if [ "$_rs_rc" = 0 ] && [ "$_rs_out" = "$4" ]; then
             return 0
         fi
+        [ "$_rs_rc" != 0 ] || die "$1: the box reported '$(printf '%s' "$_rs_out" | tail -n 3 | tr '\n' ' ' | sed 's/ $//')', expected '$4'"
         [ "$_rs_rc" = 255 ] || die "$1 failed on the box (exit $_rs_rc): $(printf '%s' "$_rs_out" | tail -n 3 | tr '\n' ' ')"
         log "$1: the connection was lost (exit 255); reading the state on the box" >&2
-        _rs_state=$(remote_q "$3") || _rs_state=""
-        if [ "$_rs_state" = "$4" ]; then
+        _rs_qrc=0
+        _rs_state=$(remote_q "$3") || _rs_qrc=$?
+        if [ "$_rs_qrc" = 0 ] && [ "$_rs_state" = "$4" ]; then
             log "$1: done on the box all the same" >&2
             return 0
         fi
-        [ "$_rs_try" -lt "$REMOTE_TRIES" ] || die "$1: the connection was lost $_rs_try times and the box is not in the expected state"
+        if [ "$_rs_try" -ge "$REMOTE_TRIES" ]; then
+            [ "$_rs_qrc" = 0 ] || die "$1: the connection was lost $_rs_try times and the state on the box could not be read (exit $_rs_qrc); the step may or may not be done there"
+            die "$1: the connection was lost $_rs_try times and the box is not in the expected state (it reported '$_rs_state', expected '$4')"
+        fi
         log "$1: not done on the box; running it again (try $((_rs_try + 1)) of $REMOTE_TRIES)" >&2
         sleep 2
     done
@@ -336,12 +341,17 @@ while [ "$i" -lt "$PIECES" ]; do
     p_started=$(date +%s)
     len=$PIECE
     [ $(((i + 1) * PIECE)) -le "$SIZE" ] || len=$((SIZE - i * PIECE))
-    dd if="$SRC_DB" bs=1048576 skip=$((i * PIECE_MB)) count="$PIECE_MB" 2>/dev/null >"$L_PIECE.raw"
-    [ "$(file_size "$L_PIECE.raw")" = "$len" ] || die "could not read piece $i of $SRC_DB"
+    dd if="$SRC_DB" bs=1048576 skip=$((i * PIECE_MB)) count="$PIECE_MB" 2>"$L_PIECE.err" >"$L_PIECE.raw" ||
+        die "could not read piece $i of $SRC_DB: $(tail -n 3 "$L_PIECE.err" | tr '\n' ' ')"
+    [ "$(file_size "$L_PIECE.raw")" = "$len" ] || die "could not read piece $i of $SRC_DB: got $(file_size "$L_PIECE.raw") bytes, want $len"
     raw_sum=$(sha256_of <"$L_PIECE.raw")
     base=$((i * BLOCKS_PER_PIECE))
     nblocks=$(((len + BLOCK - 1) / BLOCK))
-    readback="dd if=$(shq "$R_UP") bs=$BLOCK skip=$base count=$nblocks 2>/dev/null | head -c $len | sha256sum | cut -d' ' -f1"
+    # A failed read-back prints dd's reason on stderr; the hash of what it
+    # did read then does not match.
+    _rbe="$R_PIECE.$i.readback.err"
+    readback="mkdir -p $(shq "$RTMP"); { dd if=$(shq "$R_UP") bs=$BLOCK skip=$base count=$nblocks 2>$(shq "$_rbe") ||
+        echo \"reading back piece $i of $R_UP failed: \$(cat $(shq "$_rbe"))\" >&2; } | head -c $len | sha256sum | cut -d' ' -f1; rm -f $(shq "$_rbe")"
 
     if [ -n "$REMOTE" ]; then
         # 1. The gzip'd piece to the box's temp directory, off the volume,
@@ -380,7 +390,8 @@ while [ "$i" -lt "$PIECES" ]; do
         $_prep
         k=0
         while [ \$k -lt $nblocks ]; do
-            dd if=$(shq "$_src") of=$(shq "$R_UP") bs=$BLOCK skip=\$(($_skip0 + k)) seek=\$(($base + k)) count=1 conv=notrunc,fsync 2>/dev/null
+            e=\$(dd if=$(shq "$_src") of=$(shq "$R_UP") bs=$BLOCK skip=\$(($_skip0 + k)) seek=\$(($base + k)) count=1 conv=notrunc,fsync 2>&1) ||
+                { echo \"writing block \$k of piece $i to $R_UP failed: \$e\"; exit 1; }
             k=\$((k + 1))
             sleep $BLOCK_PAUSE
         done
@@ -400,12 +411,22 @@ fi
 # renamed and checks data.db.new instead.
 # shellcheck disable=SC2016 # runs on the box
 _chown='if [ "$(id -u)" = 0 ] && id pocketbase >/dev/null 2>&1; then chown pocketbase:pocketbase'
+# A resumed upload holds pieces written by an earlier run, checked then but
+# not since: the whole file is checked against the manifest before it is
+# placed. On a mismatch the upload goes, so the next run sends it all again.
+_whole=":"
+if [ "$n_done" -gt 0 ]; then
+    _whole="s=\$(sha256sum $(shq "$R_UP") | cut -d' ' -f1)
+        [ \"\$s\" = $(shq "$_want_sha") ] || { rm -f $(shq "$R_UP"); echo \"the resumed upload $R_UP has sha256 \$s, which does not match the manifest's sha256 $_want_sha; it was removed, run compact-push.sh again to send the whole file\"; exit 1; }"
+fi
 _placed="[ ! -e $(shq "$R_UP") ] && [ $(r_size "$R_NEW") = $SIZE ] && [ \"\$(cat $(shq "$R_ID") 2>/dev/null)\" = $(shq "$MSUM") ]"
 remote_step "placing $R_NEW" "set -e
     $(lock_sh)
     refresh
     if [ -f $(shq "$R_UP") ]; then
-        [ $(r_size "$R_UP") = $SIZE ]
+        s=$(r_size "$R_UP")
+        [ \"\$s\" = $SIZE ] || { echo \"$R_UP is \$s bytes, want $SIZE\"; exit 1; }
+        $_whole
         rm -f $(shq "$R_NEW-wal") $(shq "$R_NEW-shm") $(shq "$R_NEW-journal")
         mv $(shq "$R_UP") $(shq "$R_NEW")
     fi
@@ -426,9 +447,11 @@ _published="[ ! -e $(shq "$R_MAN.tmp") ] && [ -f $(shq "$R_MAN") ] && [ \"\$(sha
 remote_step "publishing $R_MAN" "set -e
     $(lock_sh)
     refresh
-    [ $(r_size "$R_NEW") = $SIZE ]
+    s=$(r_size "$R_NEW")
+    [ \"\$s\" = $SIZE ] || { echo \"$R_NEW is \$s bytes, want $SIZE\"; exit 1; }
     if [ -f $(shq "$R_MAN.tmp") ]; then
-        [ \"\$(sha256sum $(shq "$R_MAN.tmp") | cut -d' ' -f1)\" = $_msha ]
+        s=\$(sha256sum $(shq "$R_MAN.tmp") | cut -d' ' -f1)
+        [ \"\$s\" = $_msha ] || { echo \"$R_MAN.tmp has sha256 \$s, want $_msha\"; exit 1; }
         $_chown $(shq "$R_MAN.tmp"); fi
         sync
         mv $(shq "$R_MAN.tmp") $(shq "$R_MAN")
