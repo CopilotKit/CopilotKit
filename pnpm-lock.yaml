@@ -2763,7 +2763,7 @@ importers:
         specifier: 1.0.2
         version: 1.0.2
       '@copilotkit/learning':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../learning
       '@copilotkit/shared':
         specifier: workspace:*
