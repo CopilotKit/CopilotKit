@@ -334,6 +334,18 @@ jobs:
           echo "See the resolve-matrix job's 'Gate on staging redeploy errors' step for details."
           exit 1
 
+  compatibility-refresh:
+    needs: [resolve-matrix, verify]
+    if: ${{ !cancelled() && needs.resolve-matrix.outputs.has_services == 'true' }}
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/showcase_compatibility.yml
+    with:
+      environment: staging
+      services_csv: ${{ needs.resolve-matrix.outputs.services_csv }}
+    secrets: inherit
+
   notify-harness:
     needs: [resolve-matrix, verify, enforce-redeploy-gate]
     if: always() && needs.resolve-matrix.outputs.has_services == 'true'
