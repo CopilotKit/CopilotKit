@@ -687,7 +687,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "thread-1",
           runId: "run-1",
@@ -728,7 +728,7 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
         ttlSeconds: 20,
       });
-      expect(platform.getThreadMessages).toHaveBeenCalledWith({
+      expect(platform.ɵgetThreadMessageIds).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
       });
@@ -760,7 +760,7 @@ describe("handleRunAgent", () => {
             thread: { id: "thread-1", name: null },
             created: false,
           }),
-          getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+          ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
           ɵacquireThreadLock: vi.fn().mockResolvedValue({
             threadId: "thread-1",
             runId: "run-1",
@@ -796,7 +796,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: true,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "thread-1",
           runId: "run-1",
@@ -846,7 +846,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "thread-1",
           runId: "run-1",
@@ -893,7 +893,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "canonical-thread",
           runId: "canonical-run",
@@ -926,7 +926,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "thread-1",
           runId: "run-1",
@@ -958,7 +958,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           joinToken: "jt-123",
         }),
@@ -987,7 +987,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi.fn(),
+        ɵgetThreadMessageIds: vi.fn(),
         ɵacquireThreadLock: vi
           .fn()
           .mockRejectedValue(new Error("Thread is locked by another runner")),
@@ -1064,7 +1064,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "canonical-thread",
           runId: "canonical-run",
@@ -1114,7 +1114,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "canonical-thread",
           runId: "canonical-run",
@@ -1167,7 +1167,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "canonical-thread",
           runId: "canonical-run",
@@ -1226,7 +1226,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "canonical-thread",
           runId: "canonical-run",
@@ -1271,15 +1271,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({
-          messages: [
-            {
-              id: "msg-existing",
-              role: "user",
-              content: "First turn",
-            },
-          ],
-        }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue(["msg-existing"]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "thread-1",
           runId: "run-1",
@@ -1339,7 +1331,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: false,
         }),
-        getThreadMessages: vi
+        ɵgetThreadMessageIds: vi
           .fn()
           .mockRejectedValue(new Error("history unavailable")),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
@@ -1374,7 +1366,7 @@ describe("handleRunAgent", () => {
           thread: { id: "thread-1", name: null },
           created: true,
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "thread-1",
           runId: "run-1",
@@ -1454,7 +1446,7 @@ describe("handleRunAgent", () => {
           id: "thread-1",
           name: "Order refund status",
         }),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "thread-1",
           runId: "run-1",
@@ -1510,7 +1502,7 @@ describe("handleRunAgent", () => {
           created: true,
         }),
         updateThread: vi.fn(),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "thread-1",
           runId: "run-1",
@@ -1540,7 +1532,7 @@ describe("handleRunAgent", () => {
           created: true,
         }),
         updateThread: vi.fn(),
-        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
         ɵacquireThreadLock: vi.fn().mockResolvedValue({
           threadId: "thread-1",
           runId: "run-1",
@@ -1626,7 +1618,7 @@ describe("handleRunAgent", () => {
             created: true,
           }),
           updateThread: vi.fn(),
-          getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+          ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
           ɵacquireThreadLock: vi.fn().mockResolvedValue({
             threadId: "thread-1",
             runId: "run-1",
@@ -1688,7 +1680,7 @@ describe("handleRunAgent", () => {
       const agent = createAgentForIntelligence();
       const platform = {
         getOrCreateThread: vi.fn(),
-        getThreadMessages: vi.fn(),
+        ɵgetThreadMessageIds: vi.fn(),
         ɵacquireThreadLock: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(agent, platform, {
@@ -1710,7 +1702,7 @@ describe("handleRunAgent", () => {
       const agent = createAgentForIntelligence();
       const platform = {
         getOrCreateThread: vi.fn(),
-        getThreadMessages: vi.fn(),
+        ɵgetThreadMessageIds: vi.fn(),
         ɵacquireThreadLock: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(agent, platform, {
@@ -1732,7 +1724,7 @@ describe("handleRunAgent", () => {
       const agent = createAgentForIntelligence();
       const platform = {
         getOrCreateThread: vi.fn(),
-        getThreadMessages: vi.fn(),
+        ɵgetThreadMessageIds: vi.fn(),
         ɵacquireThreadLock: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(agent, platform, {
