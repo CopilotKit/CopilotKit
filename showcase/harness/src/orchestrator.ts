@@ -63,6 +63,12 @@ import { BrowserPool } from "./probes/helpers/browser-pool.js";
 import { createResourceSnapshotWriter } from "./probes/helpers/resource-snapshot-writer.js";
 import { formatCvdiag, mintRunId } from "./probes/helpers/cv-diag.js";
 import { writeDiagEvent } from "./storage/diag-sink.js";
+import {
+  createPbRetention,
+  resolveRetentionConfig,
+  RETENTION_ABORT_GRACE_MS,
+  RETENTION_CRON,
+} from "./storage/pb-retention.js";
 import { qaDriver } from "./probes/drivers/qa.js";
 import { starterSmokeDriver } from "./probes/drivers/starter-smoke.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
@@ -3077,6 +3083,65 @@ export async function runControlPlane(
     logger,
   });
 
+  // Age-based retention for the append-only telemetry collections
+  // (cvdiag_events, diag_events, status_history, probe_runs) — see
+  // storage/pb-retention.ts. Control-plane only (exactly one owner, like the
+  // probe_jobs prune), every 5 minutes, each pass bounded by rows and a
+  // deadline below the cron period so a multi-million-row backlog drains
+  // gradually. `PB_RETENTION_ENABLED=false` (or 0/no/off) is the kill switch.
+  // `retentionAbort` stops an in-flight pass on shutdown: stop() fires it
+  // before `scheduler.stop()` drains handlers, so a SIGTERM never waits out
+  // the pass deadline (minutes) past the platform grace window. The abort does
+  // not reach a PB request already in flight (the PB client can retry one for
+  // about 50 s), so the handler stops waiting RETENTION_ABORT_GRACE_MS after
+  // the abort and lets that request finish or fail on its own.
+  const retentionAbort = new AbortController();
+  const retentionConfig = resolveRetentionConfig(process.env, logger);
+  if (retentionConfig.enabled) {
+    const retention = createPbRetention({
+      pb,
+      logger,
+      options: retentionConfig.options,
+    });
+    scheduler.register({
+      id: "internal:pb-retention",
+      cron: RETENTION_CRON,
+      handler: async () => {
+        // runPass never throws (per-collection errors are logged); the wrap
+        // keeps a future regression from wedging the scheduler.
+        try {
+          const outcome = await awaitWithinAbortGrace(
+            retention.runPass(undefined, retentionAbort.signal),
+            retentionAbort.signal,
+            RETENTION_ABORT_GRACE_MS,
+          );
+          if (outcome === "abandoned") {
+            logger.warn("orchestrator.pb-retention-abandoned-on-stop", {
+              graceMs: RETENTION_ABORT_GRACE_MS,
+            });
+          }
+        } catch (err) {
+          logger.error("orchestrator.pb-retention-failed", {
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      },
+    });
+    logger.info("orchestrator.pb-retention-registered", {
+      cron: RETENTION_CRON,
+      windowsDays: Object.fromEntries(
+        retentionConfig.options.targets.map((t) => [
+          t.collection,
+          t.maxAgeMs / (24 * 3600_000),
+        ]),
+      ),
+    });
+  } else {
+    logger.warn("orchestrator.pb-retention-disabled", {
+      reason: `PB_RETENTION_ENABLED=${process.env.PB_RETENTION_ENABLED ?? ""}`,
+    });
+  }
+
   // Prod D0-gone monitor (spec `2026-07-13-prod-d0-gone-monitor.md`): the one
   // incident class the per-cell alert rules miss — a whole integration column
   // collapsing to red-D0 ("completely gone" / backend unreachable). Runs on its
@@ -3519,6 +3584,8 @@ export async function runControlPlane(
   // internal intervals. Best-effort: operators see the original bind error, not
   // a teardown-failure shadow.
   async function teardownAfterBindFailure(): Promise<void> {
+    // Stop an in-flight retention pass so scheduler.stop() below is bounded.
+    retentionAbort.abort();
     // Tear down the HTTP-probe file watcher so a failed bind never leaks a
     // chokidar watcher (best-effort; the watcher's own unsubscribe is sync).
     try {
@@ -3607,6 +3674,10 @@ export async function runControlPlane(
     port,
     bus,
     async stop(): Promise<void> {
+      // Abort an in-flight retention pass up front. Its handler returns within
+      // RETENTION_ABORT_GRACE_MS, so the scheduler drain below is bounded even
+      // when a PB request hangs.
+      retentionAbort.abort();
       // Tear down the HTTP-probe file watcher first so no reload fires mid-stop.
       try {
         unwatchHttpProbes();
@@ -3643,6 +3714,34 @@ export async function runControlPlane(
       logger.info("showcase-harness.fleet.control-plane.stopped");
     },
   };
+}
+
+/**
+ * Wait for `work` to settle, but once `signal` aborts wait at most `graceMs`
+ * more. Returns "abandoned" when the grace ran out first; `work` keeps running
+ * and a later rejection stays handled by the race. A rejection before then
+ * propagates.
+ */
+async function awaitWithinAbortGrace(
+  work: Promise<unknown>,
+  signal: AbortSignal,
+  graceMs: number,
+): Promise<"settled" | "abandoned"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let arm: (() => void) | undefined;
+  const abandoned = new Promise<"abandoned">((resolve) => {
+    arm = () => {
+      timer = setTimeout(() => resolve("abandoned"), graceMs);
+    };
+    if (signal.aborted) arm();
+    else signal.addEventListener("abort", arm, { once: true });
+  });
+  try {
+    return await Promise.race([work.then(() => "settled" as const), abandoned]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+    if (arm !== undefined) signal.removeEventListener("abort", arm);
+  }
 }
 
 /**
