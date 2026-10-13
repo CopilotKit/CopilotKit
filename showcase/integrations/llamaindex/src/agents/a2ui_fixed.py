@@ -14,7 +14,7 @@ The A2UI middleware (`@ag-ui/a2ui-middleware`) mounts the surface from a
 STREAMED render-tool CALL, NOT from a tool result:
 
   - On `TOOL_CALL_START`: it tracks the call ONLY when `toolCallName` is in its
-    watched set (populated when `injectA2UITool: true`, watching `render_a2ui`).
+    watched set (configured with `a2uiToolNames`).
   - On `TOOL_CALL_ARGS` deltas: it accumulates the args, parses `components` out
     of the streamed args, and emits the `a2ui-surface` activity
     (`createSurface` / `updateComponents` / `updateDataModel`) once `components`
@@ -46,9 +46,8 @@ they pass through the SSE shim unmodified.
 
 Pairs with the dedicated runtime route
 `src/app/api/copilotkit-a2ui-fixed-schema/route.ts` which sets
-`a2ui.injectA2UITool: true` so the middleware WATCHES the `render_a2ui`
-tool-call name (the watched-names set is only populated when the tool is
-injected).
+`a2ui.a2uiToolNames: ["render_a2ui"]` so the middleware watches the streamed
+call without injecting another tool.
 
 Both changes live entirely in this integration; no shared/`@ag-ui` package is
 touched.
@@ -89,9 +88,8 @@ from llama_index.protocols.ag_ui.utils import timestamp, workflow_event_to_sse
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
 
-# The render-tool name `@ag-ui/a2ui-middleware` watches (when
-# `injectA2UITool: true`) and mounts the surface from. We synthesise a STREAMED
-# tool-CALL by this name on the outbound stream.
+# The render-tool name `@ag-ui/a2ui-middleware` watches. We synthesise a
+# streamed tool call by this name on the outbound stream.
 RENDER_A2UI_TOOL_NAME = "render_a2ui"
 
 # Allow-list the router streams against. The streamed `render_a2ui` tool-CALL
