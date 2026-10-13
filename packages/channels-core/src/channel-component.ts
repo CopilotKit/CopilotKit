@@ -1,12 +1,7 @@
 import type { Renderable } from "@copilotkit/channels-ui";
 import type { InferSchemaOutput, ObjectSchema } from "./standard-schema.js";
 
-export type ChannelComponentPlatform =
-  | "slack"
-  | "teams"
-  | "discord"
-  | "telegram"
-  | "whatsapp";
+export type ChannelComponentPlatform = "slack" | "teams" | "whatsapp";
 
 export interface ChannelComponentRenderContext {
   platform: ChannelComponentPlatform;

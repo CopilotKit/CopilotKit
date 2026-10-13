@@ -16,29 +16,13 @@ Prefer to work through the setup yourself? Follow the guides below.
 
 Channels brings your agent into the conversations where work already happens.
 Your agent still runs in your infrastructure. CopilotKit Intelligence owns the
-channel connection (Slack, Teams, Discord, etc.), delivers each turn to your
+channel connection (Slack or Microsoft Teams), delivers each turn to your
 Channels SDK listener, and sends the response back as native channel UI.
 
 ## How Channels connects your agent
 
 Channels connects the agent and application logic you run to the provider
-connection managed by CopilotKit Intelligence. The diagram shows the boundaries
-between those systems and the path each message takes.
-
-<Image
-  src="/images/channels/channels-architecture-light.png"
-  alt="Channels architecture showing agent frameworks connected through AG-UI and the CopilotKit Runtime to the Channels SDK, with the channel runner — CopilotKit Intelligence's managed runner or your own — connecting to Slack, Microsoft Teams, WhatsApp, Discord, and more."
-  width={4000}
-  height={2608}
-  className="block dark:hidden my-8 w-full rounded-xl"
-/>
-<Image
-  src="/images/channels/channels-architecture-dark.png"
-  alt="Channels architecture showing agent frameworks connected through AG-UI and the CopilotKit Runtime to the Channels SDK, with the channel runner — CopilotKit Intelligence's managed runner or your own — connecting to Slack, Microsoft Teams, WhatsApp, Discord, and more."
-  width={4000}
-  height={2608}
-  className="hidden dark:block my-8 w-full rounded-xl"
-/>
+connection managed by CopilotKit Intelligence.
 
 As explained in the [CopilotKit Intelligence overview](/intelligence/overview),
 the dividing line between CopilotKit open source and CopilotKit Intelligence
@@ -56,7 +40,7 @@ durable-data layer yourself.
 <OpsPlatformCTA
   variant="inline"
   title="More channels are on the way"
-  body="Slack and Microsoft Teams are generally available on cloud-hosted Intelligence. Direct SDK adapters also support Teams, Discord, WhatsApp, and Telegram."
+  body="Slack and Microsoft Teams are generally available on cloud-hosted Intelligence. Direct SDK adapters also support Slack, Teams, and WhatsApp."
   ctaLabel="Book time with an engineer"
   surface="docs_channels_more_channels_contact"
   href="https://copilotkit.ai/talk-to-an-engineer"

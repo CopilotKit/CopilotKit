@@ -30,12 +30,6 @@
     "notice": "LICENSE"
   },
   {
-    "directory": "packages/channels-discord",
-    "names": ["@copilotkit/channels-discord"],
-    "license": "MIT",
-    "notice": "LICENSE"
-  },
-  {
     "directory": "packages/channels-intelligence",
     "names": ["@copilotkit/channels-intelligence"],
     "license": "MIT",
@@ -50,12 +44,6 @@
   {
     "directory": "packages/channels-teams",
     "names": ["@copilotkit/channels-teams"],
-    "license": "MIT",
-    "notice": "LICENSE"
-  },
-  {
-    "directory": "packages/channels-telegram",
-    "names": ["@copilotkit/channels-telegram"],
     "license": "MIT",
     "notice": "LICENSE"
   },

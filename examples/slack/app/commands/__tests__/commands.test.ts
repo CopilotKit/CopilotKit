@@ -173,8 +173,8 @@ describe("example slash commands", () => {
       text: "",
       options: {},
       user: { id: "U1" },
-      platform: "telegram",
-      openModal: undefined, // Telegram: no modal trigger
+      platform: "custom",
+      openModal: undefined, // Custom adapter without a modal trigger
     } as never);
     expect(post).toHaveBeenCalledWith(
       expect.stringMatching(/aren.t supported|chat/i),
@@ -217,7 +217,7 @@ describe("example slash commands", () => {
       options: {},
       user: { id: "U1", name: "Ada" },
       actor: { id: "U1", kind: "human", name: "Ada" },
-      platform: "discord",
+      platform: "custom",
     } as never);
     expect(postEphemeral).toHaveBeenCalledTimes(1);
     expect(post).toHaveBeenCalledTimes(1);
@@ -237,7 +237,7 @@ describe("example slash commands", () => {
       options: {},
       user: { id: "U1", name: "Ada" },
       actor: { id: "U1", kind: "human", name: "Ada" },
-      platform: "discord",
+      platform: "custom",
     } as never);
     expect(postEphemeral).toHaveBeenCalledTimes(1);
     expect(post).toHaveBeenCalledTimes(1);

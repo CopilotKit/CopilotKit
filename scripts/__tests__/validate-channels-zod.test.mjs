@@ -44,9 +44,9 @@ function setupFixture(packages) {
 describe("validateChannelsZod", () => {
   test("passes when no channels package declares zod", () => {
     const dir = setupFixture({
-      "channels-discord": {
-        name: "@copilotkit/channels-discord",
-        dependencies: { "discord.js": "^14.16.0" },
+      "channels-example": {
+        name: "@copilotkit/channels-example",
+        dependencies: { "transport-client": "*" },
       },
       "channels-core": {
         name: "@copilotkit/channels-core",
@@ -69,14 +69,14 @@ describe("validateChannelsZod", () => {
   for (const field of CHECKED_FIELDS) {
     test(`flags a zod range in ${field}`, () => {
       const dir = setupFixture({
-        "channels-telegram": {
-          name: "@copilotkit/channels-telegram",
+        "channels-example": {
+          name: "@copilotkit/channels-example",
           [field]: { zod: "^3.25.76" },
         },
       });
       const violations = validateChannelsZod(dir);
       assert.equal(violations.length, 1);
-      assert.equal(violations[0].package, "@copilotkit/channels-telegram");
+      assert.equal(violations[0].package, "@copilotkit/channels-example");
       assert.equal(violations[0].rule, "channels-zod-range");
       assert.equal(violations[0].field, field);
       assert.equal(violations[0].range, "^3.25.76");
@@ -95,8 +95,8 @@ describe("validateChannelsZod", () => {
 
   test("reports one violation per offending field", () => {
     const dir = setupFixture({
-      "channels-discord": {
-        name: "@copilotkit/channels-discord",
+      "channels-example": {
+        name: "@copilotkit/channels-example",
         dependencies: { zod: "^3.25.76" },
         peerDependencies: { zod: "^3.25.76" },
       },
@@ -146,13 +146,13 @@ describe("validateChannelsZod", () => {
 
   test("formatViolations names the package, the field and the range", () => {
     const dir = setupFixture({
-      "channels-telegram": {
-        name: "@copilotkit/channels-telegram",
+      "channels-example": {
+        name: "@copilotkit/channels-example",
         dependencies: { zod: "^3.25.76" },
       },
     });
     const text = formatViolations(validateChannelsZod(dir));
-    assert.match(text, /@copilotkit\/channels-telegram/);
+    assert.match(text, /@copilotkit\/channels-example/);
     assert.match(text, /dependencies\.zod = "\^3\.25\.76"/);
     assert.match(text, /::error file=/);
   });
@@ -168,12 +168,12 @@ describe("the real packages/ tree", () => {
       `expected at least 5 channels packages, found ${dirs.length}`,
     );
     assert.ok(
-      dirs.some((d) => path.basename(d) === "channels-discord"),
-      "channels-discord not found",
+      dirs.some((d) => path.basename(d) === "channels-slack"),
+      "channels-slack not found",
     );
     assert.ok(
-      dirs.some((d) => path.basename(d) === "channels-telegram"),
-      "channels-telegram not found",
+      dirs.some((d) => path.basename(d) === "channels-teams"),
+      "channels-teams not found",
     );
   });
 

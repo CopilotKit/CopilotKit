@@ -72,8 +72,6 @@ await listener.channels.ready(); // listener.channels.stop() tears it down
 
 - `@copilotkit/channels/slack` (plus `/slack/codec` and `/slack/render`)
 - `@copilotkit/channels/teams` (plus `/teams/render`)
-- `@copilotkit/channels/discord`
-- `@copilotkit/channels/telegram`
 - `@copilotkit/channels/whatsapp`
 
 One package version gives you a tested snapshot of the core engine, JSX/UI vocabulary,
