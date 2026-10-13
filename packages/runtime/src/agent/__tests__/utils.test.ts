@@ -194,6 +194,90 @@ describe("convertMessagesToVercelAISDKMessages", () => {
     });
   });
 
+  it("should omit unanswered calls from replayed assistant history", () => {
+    const messages: Message[] = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: null,
+        toolCalls: [
+          {
+            id: "pending",
+            type: "function",
+            function: { name: "pending", arguments: "{}" },
+          },
+          {
+            id: "complete",
+            type: "function",
+            function: { name: "complete", arguments: "{}" },
+          },
+        ],
+      },
+      {
+        id: "tool-1",
+        role: "tool",
+        toolCallId: "complete",
+        content: "ok",
+      },
+      { id: "user-1", role: "user", content: "Continue" },
+    ];
+
+    const result = convertMessagesToVercelAISDKMessages(messages);
+
+    expect(result[0]).toEqual({
+      role: "assistant",
+      content: [
+        {
+          type: "tool-call",
+          toolCallId: "complete",
+          toolName: "complete",
+          input: {},
+        },
+      ],
+    });
+    expect(result).toHaveLength(3);
+  });
+
+  it("should omit orphaned tool results from Vercel model history", () => {
+    const messages: Message[] = [
+      {
+        id: "tool-1",
+        role: "tool",
+        toolCallId: "missing-assistant-call",
+        content: "stale result",
+      },
+      { id: "user-1", role: "user", content: "Continue" },
+    ];
+
+    const result = convertMessagesToVercelAISDKMessages(messages);
+
+    expect(result).toEqual([{ role: "user", content: "Continue" }]);
+  });
+
+  it("should not count a tool result that precedes its assistant call", () => {
+    const messages: Message[] = [
+      { id: "t1", role: "tool", toolCallId: "call1", content: "too early" },
+      {
+        id: "a1",
+        role: "assistant",
+        content: "Working",
+        toolCalls: [
+          {
+            id: "call1",
+            type: "function",
+            function: { name: "lookup", arguments: "{}" },
+          },
+        ],
+      },
+      { id: "u1", role: "user", content: "Continue" },
+    ];
+
+    expect(convertMessagesToVercelAISDKMessages(messages)).toEqual([
+      { role: "assistant", content: [{ type: "text", text: "Working" }] },
+      { role: "user", content: "Continue" },
+    ]);
+  });
+
   it("should handle multiple messages", () => {
     const messages: Message[] = [
       { id: "1", role: "user", content: "Hi" },
