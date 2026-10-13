@@ -50,7 +50,10 @@ const angularFiles = (
 
 // The Angular route shares the Strands backend with the React demo, but its
 // frontend lives in the Angular Showcase rather than the integration folder.
-const angularCodeByDemo: Record<string, { angular: string[]; backend: string[] }> = {
+const angularCodeByDemo: Record<
+  string,
+  { angular: string[]; backend: string[] }
+> = {
   "strands-typescript::subagents": {
     angular: [
       "features/agent-state/agent-state-feature.component.ts",
@@ -153,7 +156,10 @@ export function DemoSource({
           if (!source) {
             throw new Error(`Missing Angular demo source: ${filename}`);
           }
-          return { ...source, filename: `showcase/angular/src/app/${filename}` };
+          return {
+            ...source,
+            filename: `showcase/angular/src/app/${filename}`,
+          };
         }),
         ...angularCode.backend.map((filename) => {
           const source = all.find((file) => file.filename === filename);
