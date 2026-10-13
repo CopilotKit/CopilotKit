@@ -16,6 +16,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: "mcp-apps",
+    title: "MCP Apps Demo",
+    loadComponent: () =>
+      import("./routes/mcp-apps/mcp-apps.component").then(
+        (m) => m.MCPAppsComponent,
+      ),
+  },
+  {
     path: "a2ui-angular",
     title: "Angular A2UI",
     loadComponent: () =>
@@ -24,19 +32,19 @@ export const routes: Routes = [
       ),
   },
   {
+    path: "a2ui-web-components",
+    title: "A2UI: Angular + Web Components",
+    loadComponent: () =>
+      import("./routes/a2ui-web-components/a2ui-web-components-demo.component").then(
+        (m) => m.A2UIWebComponentsDemoComponent,
+      ),
+  },
+  {
     path: "a2ui-recovery",
     title: "A2UI Recovery",
     loadComponent: () =>
       import("./routes/a2ui-recovery/a2ui-recovery-demo.component").then(
         (m) => m.A2UIRecoveryDemoComponent,
-      ),
-  },
-  {
-    path: "a2ui-interop",
-    title: "A2UI: Angular + Lit",
-    loadComponent: () =>
-      import("./routes/a2ui-interop/a2ui-interop-demo.component").then(
-        (m) => m.A2UIInteropDemoComponent,
       ),
   },
   {

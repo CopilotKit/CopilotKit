@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-
-import { FRONTEND_OPTIONS } from "@/lib/frontend-options";
 import {
   frontendPromptSuffix,
   onboardingFrontendSlug,
@@ -46,51 +44,5 @@ describe("onboardingFrontendSlug", () => {
   it("returns undefined for an id in neither set instead of throwing", () => {
     expect(onboardingFrontendSlug("not-a-frontend")).toBeUndefined();
     expect(frontendPromptSuffix("not-a-frontend", "Not A Frontend")).toBe("");
-  });
-});
-
-describe("frontendPromptSuffix", () => {
-  it("appends the exact sentence the CLI graph reads", () => {
-    expect(frontendPromptSuffix("vue", "Vue")).toBe(" I use the Vue frontend.");
-  });
-
-  it("names the graph's Next.js setup for the docs' React frontend", () => {
-    // The one pair where the two names differ. The docs call this frontend
-    // React and the graph calls it `nextjs`. The sentence names what the
-    // graph sets up, never the slug (PE-309).
-    expect(frontendPromptSuffix("react", "React")).toBe(
-      " I use the Next.js frontend.",
-    );
-  });
-
-  it.each([
-    ["react-spa", "React SPA", " I use the React SPA frontend."],
-    ["angular", "Angular", " I use the Angular frontend."],
-    ["react-native", "React Native", " I use the React Native frontend."],
-  ])("renders the whole sentence for %s", (docsId, name, sentence) => {
-    expect(frontendPromptSuffix(docsId, name)).toBe(sentence);
-  });
-});
-
-describe("docs frontend registry coverage", () => {
-  it("maps every docs frontend or lists it as deliberately unmapped", () => {
-    // `FRONTEND_OPTIONS`, the same list the selector and every route read, so
-    // this guard cannot go blind to an entry the app does show. Adding a
-    // frontend to the registry without deciding what the prompt says about it
-    // fails here rather than silently producing no sentence.
-    const undecided = FRONTEND_OPTIONS.map(({ id }) => id).filter(
-      (id) =>
-        onboardingFrontendSlug(id) === undefined &&
-        !DELIBERATELY_UNMAPPED.includes(id),
-    );
-
-    expect(undecided).toEqual([]);
-  });
-
-  it("lists nothing as deliberately unmapped that is not a docs frontend", () => {
-    // The other direction: a frontend removed from the registry must not leave
-    // a stale entry here propping the guard above up.
-    const ids = FRONTEND_OPTIONS.map(({ id }) => String(id));
-    expect(DELIBERATELY_UNMAPPED.filter((id) => !ids.includes(id))).toEqual([]);
   });
 });

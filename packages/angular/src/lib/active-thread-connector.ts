@@ -9,7 +9,9 @@ import { explicitEffect } from "./explicit-effect";
  * pinned) and returns a handle that tears it down. The chat component owns
  * the connection's abort, detach and loading state.
  */
-export type ConnectFn = (agent: AbstractAgent) => { dispose(): void };
+export type ConnectFn = (agent: AbstractAgent) => {
+  dispose(): void | Promise<void>;
+};
 
 /**
  * Wires the active chat thread to the live agent.
@@ -39,7 +41,7 @@ export type ConnectFn = (agent: AbstractAgent) => { dispose(): void };
  * @param connect - Opens a connect and returns its tear-down handle.
  */
 export function connectActiveThread(
-  config: CopilotChatConfiguration,
+  config: Pick<CopilotChatConfiguration, "threadId" | "hasExplicitThreadId">,
   agentStore: Signal<AgentStore>,
   connect: ConnectFn,
 ): void {
@@ -49,6 +51,9 @@ export function connectActiveThread(
   // unchanged. Clearing only on a real transition prevents wiping a
   // resumed/shared agent's existing message history.
   let lastThreadId: string | undefined;
+  let lastAgent: AbstractAgent | undefined;
+  // Keep teardown ordered across agent swaps, since clones can share cursors.
+  let pendingDetach: Promise<void> | undefined;
   explicitEffect(
     () => ({
       threadId: config.threadId(),
@@ -57,15 +62,63 @@ export function connectActiveThread(
     }),
     ({ threadId, explicit, store }, onCleanup) => {
       const agent = store.agent;
+      const discardedThreadId =
+        lastAgent === agent ? lastThreadId : agent.threadId;
+      let active = true;
+      let handle: ReturnType<ConnectFn> | undefined;
       agent.threadId = threadId;
       if (explicit) {
-        const handle = connect(agent);
-        onCleanup(() => handle.dispose());
+        if (pendingDetach) {
+          void pendingDetach.then(() => {
+            if (active) handle = connect(agent);
+          });
+        } else {
+          handle = connect(agent);
+        }
       } else if (lastThreadId !== undefined && threadId !== lastThreadId) {
-        // Real switch to a new fresh thread; not mount and not a same-thread swap.
-        agent.setMessages([]);
+        const clearCursor = () => {
+          if (!discardedThreadId) return;
+          if (
+            "clearReplayCursor" in agent &&
+            typeof agent.clearReplayCursor === "function"
+          )
+            agent.clearReplayCursor(discardedThreadId);
+          if (
+            "clearReconnectCursor" in agent &&
+            typeof agent.clearReconnectCursor === "function"
+          )
+            agent.clearReconnectCursor(discardedThreadId);
+        };
+        const clearBaseline = () => {
+          if (!active) return;
+          agent.setMessages([]);
+          agent.setState({});
+          agent.pendingInterrupts = [];
+        };
+        const detach = pendingDetach ?? agent.detachActiveRun();
+        clearCursor();
+        clearBaseline();
+        const reset = detach.then(() => {
+          clearCursor();
+          clearBaseline();
+        });
+        pendingDetach = reset;
+        void reset.finally(() => {
+          if (pendingDetach === reset) pendingDetach = undefined;
+        });
       }
+      onCleanup(() => {
+        active = false;
+        const detached = handle?.dispose();
+        if (detached) {
+          pendingDetach = detached;
+          void detached.finally(() => {
+            if (pendingDetach === detached) pendingDetach = undefined;
+          });
+        }
+      });
       lastThreadId = threadId;
+      lastAgent = agent;
     },
   );
 }

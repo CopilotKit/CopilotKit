@@ -1,7 +1,10 @@
 import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import { FrontendTool, FrontendToolHandlerContext } from "@copilotkit/core";
-import type { WebMCPToolConfig } from "@copilotkit/core";
+import type {
+  FrontendToolReconnectBehavior,
+  WebMCPToolConfig,
+} from "@copilotkit/core";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 import { CopilotKit } from "./copilotkit";
 
@@ -103,6 +106,12 @@ export interface FrontendToolConfig<
     context: FrontendToolHandlerContext,
   ) => Promise<unknown>;
   followUp?: boolean;
+  /**
+   * Whether to run the handler again for a call that is still unanswered when
+   * the thread's history is restored. Defaults to `"passive"`. See
+   * `FrontendToolReconnectBehavior` in `@copilotkit/core`.
+   */
+  reconnectBehavior?: FrontendToolReconnectBehavior;
   agentId?: string;
   /**
    * Also expose this tool to browser agents through the WebMCP API

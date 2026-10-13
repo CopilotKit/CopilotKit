@@ -1,12 +1,14 @@
-import type { Type } from "@angular/core";
-import type { FunctionImplementation } from "@a2ui/web_core/v0_9";
+import { Type, reflectComponentType } from "@angular/core";
+import { FunctionImplementation } from "@a2ui/web_core/v0_9";
 import { BASIC_FUNCTIONS } from "@a2ui/web_core/v0_9/basic_catalog";
 import { basicComponents } from "./basic/catalog";
 import { CopilotA2UICatalog } from "./catalog";
-import type {
+import {
   A2UICatalogDefinitions,
-  CopilotA2UIComponentImplementation,
+  A2UIWebComponent,
+  CopilotA2UICatalogEntry,
 } from "./types";
+import { isWebComponentImplementation } from "./universal";
 
 const DEFAULT_CATALOG_ID = "copilotkit://angular-catalog";
 
@@ -20,27 +22,32 @@ export interface CreateAngularCatalogOptions {
 }
 
 /**
- * Build a {@link CopilotA2UICatalog} from zod definitions and Angular components.
+ * Build a {@link CopilotA2UICatalog} from zod definitions and, per entry, an
+ * Angular component or a Custom Element (`{ tagName, element }`).
  * Without `includeBasicCatalog` the catalog contains exactly what you
  * register, so include any layout primitives the agent should use.
  */
 export function createAngularCatalog<D extends A2UICatalogDefinitions>(
   definitions: D,
-  components: { [K in keyof D]: Type<unknown> },
+  components: { [K in keyof D]: Type<unknown> | A2UIWebComponent },
   options?: CreateAngularCatalogOptions,
 ): CopilotA2UICatalog {
   const implementations = Object.entries(definitions).map(
-    ([name, definition]): CopilotA2UIComponentImplementation => {
+    ([name, definition]): CopilotA2UICatalogEntry => {
       const component = components[name as keyof D];
-      if (!component) {
-        throw new Error(
-          `Missing Angular component for A2UI catalog entry "${name}"`,
-        );
-      }
       const schema = definition.description
         ? definition.props.describe(definition.description)
         : definition.props;
-      return { name, schema, component };
+      if (typeof component === "function" && reflectComponentType(component)) {
+        return { name, schema, component };
+      }
+      if (isWebComponentImplementation(component)) {
+        const { tagName, element } = component;
+        return { name, schema, tagName, element };
+      }
+      throw new Error(
+        `A2UI catalog entry "${name}" needs an Angular component or { tagName, element }.`,
+      );
     },
   );
 

@@ -1,44 +1,38 @@
-import { Component, computed, input } from "@angular/core";
-import type { ListApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { Component, computed } from "@angular/core";
+import { ListApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { CopilotA2UIChild } from "../child";
-import { mapAlign, type BasicProps } from "./shared";
+import { CopilotA2UIBasicComponent } from "./basic-component";
+import { mapAlign } from "./shared";
 
 @Component({
   selector: "copilot-a2ui-list",
   imports: [CopilotA2UIChild],
+  host: {
+    "[class.horizontal]": "horizontal()",
+    "[style.align-items]": "mapAlign(props().align)",
+  },
   template: `
-    <div
-      class="list"
-      [class.horizontal]="horizontal()"
-      [style.align-items]="mapAlign(props().align)"
-    >
-      @for (child of props().children; track $index) {
-        <copilot-a2ui-child [child]="child" />
-      }
-    </div>
+    @for (child of props().children; track $index) {
+      <copilot-a2ui-child [child]="child" />
+    }
   `,
   styles: `
     :host {
-      display: contents;
-    }
-    .list {
       display: flex;
       flex-direction: column;
+      gap: var(--a2ui-list-gap, var(--a2ui-spacing-m, 8px));
       overflow-x: hidden;
       overflow-y: auto;
       width: 100%;
-      margin: 0;
-      padding: 0;
     }
-    .horizontal {
+    :host(.horizontal) {
       flex-direction: row;
       overflow-x: auto;
       overflow-y: hidden;
     }
   `,
 })
-export class CopilotA2UIList {
-  readonly props = input.required<BasicProps<typeof ListApi>>();
+export class CopilotA2UIList extends CopilotA2UIBasicComponent<typeof ListApi> {
   protected readonly mapAlign = mapAlign;
   protected readonly horizontal = computed(
     () => this.props().direction === "horizontal",

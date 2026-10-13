@@ -1,22 +1,17 @@
-import { Component, input } from "@angular/core";
-import type { AudioPlayerApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import type { BasicProps } from "./shared";
+import { Component } from "@angular/core";
+import { AudioPlayerApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { CopilotA2UIBasicComponent } from "./basic-component";
 
 @Component({
   selector: "copilot-a2ui-audio-player",
   template: `
-    <div class="audio-player">
-      @if (props().description) {
-        <span class="description">{{ props().description }}</span>
-      }
-      <audio class="audio" controls [src]="props().url ?? ''"></audio>
-    </div>
+    @if (props().description) {
+      <span class="description">{{ props().description }}</span>
+    }
+    <audio class="audio" controls [src]="props().url ?? ''"></audio>
   `,
   styles: `
     :host {
-      display: contents;
-    }
-    .audio-player {
       display: flex;
       flex-direction: column;
       gap: calc(var(--a2ui-spacing-m, 8px) / 2);
@@ -28,11 +23,10 @@ import type { BasicProps } from "./shared";
     }
     .audio {
       width: 100%;
-      margin: var(--a2ui-spacing-m, 8px);
       box-sizing: border-box;
     }
   `,
 })
-export class CopilotA2UIAudioPlayer {
-  readonly props = input.required<BasicProps<typeof AudioPlayerApi>>();
-}
+export class CopilotA2UIAudioPlayer extends CopilotA2UIBasicComponent<
+  typeof AudioPlayerApi
+> {}

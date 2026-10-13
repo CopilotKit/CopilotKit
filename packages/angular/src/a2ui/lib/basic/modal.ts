@@ -1,13 +1,13 @@
-import { Component, input, signal } from "@angular/core";
-import type { ModalApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { Component, signal } from "@angular/core";
+import { ModalApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { CopilotA2UIChild } from "../child";
-import type { BasicProps } from "./shared";
+import { CopilotA2UIBasicComponent } from "./basic-component";
 
 @Component({
   selector: "copilot-a2ui-modal",
   imports: [CopilotA2UIChild],
   template: `
-    <div class="trigger" (click)="open.set(true)">
+    <div (click)="open.set(true)">
       <copilot-a2ui-child [child]="props().trigger" />
     </div>
     @if (open()) {
@@ -37,9 +37,6 @@ import type { BasicProps } from "./shared";
   `,
   styles: `
     :host {
-      display: contents;
-    }
-    .trigger {
       display: inline-block;
     }
     .backdrop {
@@ -77,7 +74,8 @@ import type { BasicProps } from "./shared";
     }
   `,
 })
-export class CopilotA2UIModal {
-  readonly props = input.required<BasicProps<typeof ModalApi>>();
+export class CopilotA2UIModal extends CopilotA2UIBasicComponent<
+  typeof ModalApi
+> {
   protected readonly open = signal(false);
 }

@@ -723,6 +723,8 @@ export function trackLearningPaneViewed(props: {
 
 export function trackLearningSetupPromptClicked(props: {
   outcome: "success" | "failure";
+  /** The id substituted into the copied prompt, so the click joins its CLI run. */
+  onboarding_run_id: string;
 }): void {
   track(TELEMETRY_EVENTS.learningSetupPromptClicked, props);
 }

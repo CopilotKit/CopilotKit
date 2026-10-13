@@ -1,7 +1,7 @@
-import { Component, input } from "@angular/core";
-import type { ButtonApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { Component } from "@angular/core";
+import { ButtonApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { CopilotA2UIChild } from "../child";
-import type { BasicProps } from "./shared";
+import { CopilotA2UIBasicComponent } from "./basic-component";
 
 @Component({
   selector: "copilot-a2ui-button",
@@ -20,7 +20,8 @@ import type { BasicProps } from "./shared";
   `,
   styles: `
     :host {
-      display: contents;
+      display: inline-flex;
+      flex-direction: column;
     }
     .button {
       display: inline-flex;
@@ -48,6 +49,6 @@ import type { BasicProps } from "./shared";
     }
   `,
 })
-export class CopilotA2UIButton {
-  readonly props = input.required<BasicProps<typeof ButtonApi>>();
-}
+export class CopilotA2UIButton extends CopilotA2UIBasicComponent<
+  typeof ButtonApi
+> {}

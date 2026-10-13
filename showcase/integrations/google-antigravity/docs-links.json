@@ -1,0 +1,149 @@
+{
+  "framework": "google-antigravity",
+  "features": {
+    "cli-start": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/quickstart",
+      "shell_docs_path": "/quickstart"
+    },
+    "beautiful-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/agentic-chat-ui",
+      "shell_docs_path": "/agentic-chat-ui"
+    },
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "prebuilt-sidebar": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/prebuilt-components/sidebar",
+      "shell_docs_path": "/prebuilt-components/sidebar"
+    },
+    "prebuilt-popup": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/prebuilt-components/popup",
+      "shell_docs_path": "/prebuilt-components/popup"
+    },
+    "chat-slots": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/custom-look-and-feel/slots",
+      "shell_docs_path": "/custom-look-and-feel/slots"
+    },
+    "chat-customization-css": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/custom-look-and-feel/css",
+      "shell_docs_path": "/custom-look-and-feel/css"
+    },
+    "headless-simple": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/headless",
+      "shell_docs_path": "/headless"
+    },
+    "headless-complete": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/headless",
+      "shell_docs_path": "/headless"
+    },
+    "voice": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/voice",
+      "shell_docs_path": "/voice"
+    },
+    "frontend-tools": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
+    "frontend-tools-async": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/human-in-the-loop",
+      "shell_docs_path": "/human-in-the-loop"
+    },
+    "hitl-in-app": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/human-in-the-loop",
+      "shell_docs_path": "/human-in-the-loop"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/tool-based",
+      "shell_docs_path": "/generative-ui/tool-based"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "tool-rendering-default-catchall": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "tool-rendering-custom-catchall": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "auth": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/auth",
+      "shell_docs_path": "/auth"
+    },
+    "subagents": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/multi-agent/subagents",
+      "shell_docs_path": "/multi-agent/subagents"
+    },
+    "mcp-apps": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/mcp-apps",
+      "shell_docs_path": "/generative-ui/mcp-apps"
+    },
+    "shared-state-read": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    "readonly-state-agent-context": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/shared-state/agent-readonly",
+      "shell_docs_path": "/shared-state/agent-readonly"
+    },
+    "agent-config": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/agent-config",
+      "shell_docs_path": "/agent-config"
+    },
+    "multimodal": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/multimodal-attachments",
+      "shell_docs_path": "/multimodal-attachments"
+    },
+    "reasoning-default-render": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/custom-look-and-feel/reasoning-messages",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
+    },
+    "reasoning-custom": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/custom-look-and-feel/reasoning-messages",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
+    },
+    "tool-rendering-reasoning-chain": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "a2ui-fixed-schema": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/a2ui/fixed-schema",
+      "shell_docs_path": "/generative-ui/a2ui/fixed-schema"
+    },
+    "declarative-gen-ui": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/a2ui/dynamic-schema",
+      "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
+    },
+    "declarative-hashbrown": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/hashbrown",
+      "shell_docs_path": "/generative-ui/hashbrown"
+    },
+    "declarative-json-render": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/json-render",
+      "shell_docs_path": "/generative-ui/json-render"
+    },
+    "open-gen-ui": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/open-generative-ui",
+      "shell_docs_path": "/generative-ui/open-generative-ui"
+    },
+    "open-gen-ui-advanced": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/open-generative-ui",
+      "shell_docs_path": "/generative-ui/open-generative-ui"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/google-antigravity/generative-ui/state-rendering",
+      "shell_docs_path": "/generative-ui/state-rendering"
+    }
+  }
+}

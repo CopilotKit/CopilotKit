@@ -1,0 +1,155 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Myelin — a frontline learning platform. Skin-scoped VALUES for the shell's
+   shared token vocabulary (names declared in src/app/globals.css; never invent
+   new ones).
+
+   Two brands live in this file, and that is the point of it:
+
+   1. MYELIN (the platform): a deep ultramarine with a warm amber "spark"
+      accent (`--brand-violet` is repurposed as the accent, as other skins do).
+   2. HARVEST LANE (the tenant): forest green + harvest orange. Applied when
+      `<html data-tenant="harvest">` is set by the tenant toggle in the layout.
+      Because every Myelin component — pages, the journey graph, and every
+      generative-UI card the agent renders into the chat — is written against
+      the shared tokens, re-valuing them here rebrands ALL of it at once. That
+      is the customer-branding claim, made with CSS rather than a slide.
+   ────────────────────────────────────────────────────────────────────────── */
+.theme-myelin {
+  --radius: 0.75rem;
+  --nw-dark-capable: 1;
+
+  --brand: 234 62% 46%;
+  --brand-indigo: 236 58% 30%;
+  --brand-violet: 32 92% 44%;
+  --brand-foreground: 0 0% 100%;
+  --brand-soft: 232 70% 96%;
+
+  --background: 228 33% 99%;
+  --foreground: 232 30% 12%;
+  --canvas: 228 26% 96%;
+  --surface: 0 0% 100%;
+  --surface-muted: 228 30% 97.5%;
+  --ink: 232 30% 12%;
+  --ink-muted: 230 12% 44%;
+  --hairline: 228 22% 89%;
+
+  --positive: 158 62% 32%;
+  --positive-soft: 158 50% 94%;
+  --negative: 356 72% 48%;
+  --negative-soft: 356 84% 96%;
+}
+
+.dark .theme-myelin {
+  color-scheme: dark;
+
+  --background: 232 28% 8%;
+  --foreground: 228 30% 94%;
+  --canvas: 232 28% 8%;
+  --surface: 232 24% 12%;
+  --surface-muted: 232 22% 15%;
+  --ink: 228 30% 94%;
+  --ink-muted: 228 12% 62%;
+  --hairline: 232 16% 22%;
+
+  --brand: 232 90% 72%;
+  --brand-indigo: 234 70% 58%;
+  --brand-foreground: 234 60% 12%;
+  --brand-soft: 234 40% 22%;
+  --brand-violet: 36 92% 62%;
+
+  --positive: 158 50% 50%;
+  --positive-soft: 158 32% 15%;
+  --negative: 356 78% 64%;
+  --negative-soft: 356 40% 18%;
+}
+
+/* ── Tenant brand: Harvest Lane Grocers ─────────────────────────────────── */
+html[data-tenant="harvest"] .theme-myelin {
+  --radius: 0.5rem;
+  --brand: 152 52% 26%;
+  --brand-indigo: 152 56% 18%;
+  --brand-violet: 24 90% 48%;
+  --brand-foreground: 0 0% 100%;
+  --brand-soft: 140 40% 94%;
+  --background: 42 40% 98.5%;
+  --canvas: 40 30% 95%;
+  --surface-muted: 42 36% 97%;
+  --hairline: 40 20% 87%;
+}
+
+html.dark[data-tenant="harvest"] .theme-myelin {
+  --brand: 146 50% 56%;
+  --brand-indigo: 148 44% 40%;
+  --brand-foreground: 150 60% 8%;
+  --brand-soft: 150 30% 18%;
+  --brand-violet: 26 92% 62%;
+  --background: 150 14% 8%;
+  --canvas: 150 14% 8%;
+  --surface: 150 12% 12%;
+  --surface-muted: 150 12% 15%;
+  --hairline: 150 10% 22%;
+}
+
+/* ── Signature: the journey graph ───────────────────────────────────────── */
+.my-num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.my-graph-bg {
+  background-color: hsl(var(--surface));
+  background-image: radial-gradient(hsl(var(--hairline)) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+
+.my-edge {
+  stroke: hsl(var(--brand) / 0.45);
+  stroke-width: 1.6;
+  fill: none;
+}
+
+.my-edge-delay {
+  stroke-dasharray: 5 4;
+}
+
+/* A node the agent (or the other admin) just touched glows once, so the room
+   can follow edits it did not make itself. */
+@keyframes my-node-in {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--brand-violet) / 0.55);
+    transform: translateY(6px) scale(0.97);
+    opacity: 0.2;
+  }
+  35% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    box-shadow: 0 0 0 10px hsl(var(--brand-violet) / 0);
+  }
+}
+
+.my-node-fresh {
+  animation: my-node-in 1.3s ease-out 1;
+}
+
+@keyframes my-presence {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--positive) / 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 4px hsl(var(--positive) / 0);
+  }
+}
+
+.my-presence-dot {
+  animation: my-presence 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .my-node-fresh,
+  .my-presence-dot {
+    animation: none;
+  }
+}

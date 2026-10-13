@@ -506,8 +506,10 @@ demos:
     route: /demos/declarative-hashbrown
     highlight:
       - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/chat.tsx
       - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
       - src/app/demos/declarative-hashbrown/metric-card.tsx
+      - src/app/demos/declarative-hashbrown/charts/chart-config.ts
       - src/app/demos/declarative-hashbrown/charts/bar-chart.tsx
       - src/app/demos/declarative-hashbrown/charts/pie-chart.tsx
       - src/app/demos/declarative-hashbrown/types.ts
@@ -546,6 +548,7 @@ demos:
       - src/app/demos/voice/page.tsx
       - src/app/demos/voice/sample-audio-button.tsx
       - src/lib/factory/tanstack-factory.ts
+      - src/lib/transcription-service.ts
       - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: agent-config
     name: Agent Config Object

@@ -18,8 +18,8 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
 from _banner import print_banner
+from _model import langchain_model
 from langgraph.graph import StateGraph, END
-from langchain_openai import ChatOpenAI
 from typing import TypedDict, Optional, List
 from pydantic import BaseModel, Field
 
@@ -44,7 +44,8 @@ class ResearchState(TypedDict):
 
 class ResearchAgent:
     def __init__(self):
-        self.llm = ChatOpenAI(model="gpt-5-mini", temperature=0.7)
+        # COPILOTKIT_AGENT_MODEL overrides this agent too; unset, it uses gpt-5-mini.
+        self.llm = langchain_model("openai:gpt-5-mini", temperature=0.7)
         self.graph = self._build_graph()
 
     def _build_graph(self):

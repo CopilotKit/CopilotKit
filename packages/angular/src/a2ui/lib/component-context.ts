@@ -1,10 +1,10 @@
 import { inject, InjectionToken } from "@angular/core";
-import type {
+import {
   ComponentContext,
   DataContext,
   SurfaceModel,
 } from "@a2ui/web_core/v0_9";
-import type { CopilotA2UIComponentImplementation } from "./types";
+import { CopilotA2UICatalogEntry } from "./types";
 
 /** Per-instance context of a catalog component; see {@link injectA2UIComponentContext}. */
 export interface A2UIComponentContext {
@@ -13,7 +13,7 @@ export interface A2UIComponentContext {
   /** Absolute data-model path this component is scoped to. */
   readonly basePath: string;
   readonly theme: Record<string, unknown>;
-  readonly surface: SurfaceModel<CopilotA2UIComponentImplementation>;
+  readonly surface: SurfaceModel<CopilotA2UICatalogEntry>;
   readonly dataContext: DataContext;
   /** Dispatch a raw A2UI action, e.g. `{ event: { name, context } }`. */
   dispatch(action: unknown): Promise<void>;
@@ -33,7 +33,7 @@ export function injectA2UIComponentContext(): A2UIComponentContext {
 /** @internal */
 export function createA2UIComponentContext(
   context: ComponentContext,
-  surface: SurfaceModel<CopilotA2UIComponentImplementation>,
+  surface: SurfaceModel<CopilotA2UICatalogEntry>,
 ): A2UIComponentContext {
   return {
     surfaceId: surface.id,

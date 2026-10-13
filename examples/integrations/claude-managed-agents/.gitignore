@@ -1,0 +1,13 @@
+node_modules
+.next
+next-env.d.ts
+*.tsbuildinfo
+.env*.local
+.env
+# aimock recordings can hold full transcripts; commit fixtures deliberately
+mock/recordings
+# claude-lock.json is NOT ignored: it holds the IDs `ant apply` created for
+# this project, and committing it is how teammates and deploys find the agent.
+
+/test-results/
+/playwright-report/

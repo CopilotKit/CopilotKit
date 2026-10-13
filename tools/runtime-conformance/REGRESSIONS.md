@@ -286,3 +286,74 @@ The original dependency symlink is restored after the test run.
 This proves the proposed upstream fix against the shared contract, not availability in a published release.
 The committed dependency remains middleware 0.1.0 until the upstream correction is released.
 Consequently these three shared cases remain red for a normal TypeScript installation until that dependency is updated.
+
+## Stop after an active reconnect
+
+Baseline: `71bbd2d42eda81008d8f0bf87df48ff3225807f6`.
+The platform connection type already permits an optional `runId`.
+The frontend uses this authoritative ID for `stop_run` after a fresh connection.
+All five runtime connect handlers omitted the ID. The fixture also omitted it.
+The old client case reconnected only after a run completed.
+
+The fixture now returns the current lock's run ID. Idle connections still omit the field.
+`connect.active-run-identity` requires the platform ID, despite a different input ID.
+It also requires the replacement lock's ID and no ID after lock release.
+Before the fix, TypeScript, Python, and .NET failed the active-ID assertion.
+The TypeScript error was `Connect must preserve the active platform run ID`:
+actual `undefined`, expected `canonical-active-run`.
+Python and .NET also omitted `runId`.
+
+The production fix preserves the optional platform field in all five handlers.
+The new client cases use the real core package and Phoenix sockets:
+
+- `client.active-reconnect-stop-and-restart` requires one question and one exact partial answer, a canonical Stop frame, agent disconnection, a terminal event, lock release, and another run. It does not require identical cancellation outcome fields across languages.
+- `client.network-reconnect-refresh-and-stop` closes the first socket after replay. The agent then emits a distinct suffix through the real runtime writer. Recovery must deliver that suffix exactly once before Stop and retain the cursor and Stop identity. The consumed token requires fresh credentials.
+- `client.expired-credential-refresh-and-stop` simulates an expired credential by rejecting the first unused token before upgrade. The client must get a distinct token, replay each message once, and stop the active run. This tests rejection recovery, not the hosted token expiry clock.
+- `client.stale-connect-cannot-stop-replacement` supplies credentials from a retired run. Replayed events cannot replace that identity. The stale Stop must leave the active replacement intact.
+
+The fixture tests also cover active, replacement, and idle credentials, plus a one-time network interruption.
+These are local socket checks. Browser and deployed-service checks require separate evidence.
+
+The .NET network case also exposed a restart race after terminal persistence released the platform lock.
+Go and .NET still retained the previous local run during cleanup and rejected a valid successor.
+Both now renew the new lease while they wait for the previous run to finish.
+The wait has a deadline and obeys request cancellation and shutdown.
+Native regression tests hold the previous lifecycle open and verify no overlapping agent execution.
+They also cover canceled admission, bounded waits, successor cleanup during shutdown, and stale Stop requests.
+
+Reproduce the TypeScript failing case on the baseline:
+
+```sh
+pnpm nx run runtime-conformance:conformance --args='--filter connect.active-run-identity -- node tools/runtime-conformance/typescript-driver.mjs'
+```
+
+## Approval resume uses a fresh run ID
+
+Baseline: `6f66a91e7d`.
+Case: `runner.approval-resume-uses-fresh-run`.
+Source contract: [AG-UI interrupts](https://docs.ag-ui.com/concepts/interrupts).
+
+A resume uses a new run ID on the same thread. Each resume entry refers to an interrupt ID.
+This case checks the complete resume array, distinct run identities, one saved result per answer, and lock release.
+It keeps the gateway's terminal-run protection intact.
+
+This is added contract coverage, not the failing frontend regression.
+The original React regression failed because the hook sent the interrupted run ID.
+The core regression failed because a new wire run ID split logical history.
+The native factory regression failed because accepted answers did not produce saved `TOOL_CALL_RESULT` events.
+Those regressions live next to the changed implementations.
+
+The fixture tests passed: `pnpm nx run runtime-conformance:test` (27 tests).
+The new socket case passed locally for TypeScript, Python, and .NET:
+
+```powershell
+pnpm nx run runtime-conformance:conformance --args='--filter runner.approval-resume-uses-fresh-run -- node tools/runtime-conformance/typescript-driver.mjs'
+pnpm nx run runtime-conformance:conformance --args='--filter runner.approval-resume-uses-fresh-run -- packages/runtime-python/.venv/Scripts/python.exe packages/runtime-python/examples/conformance.py'
+pnpm nx run runtime-conformance:conformance --args='--filter runner.approval-resume-uses-fresh-run -- dotnet packages/runtime-dotnet/driver/bin/Release/net8.0/Runtime.Driver.dll'
+```
+
+Go and Ruby toolchains are not installed locally. The full five-language CI gate covers them.
+The local browser proof also passed approval, rejection, and cancellation for AI SDK and TanStack against production Intelligence.
+Each resumed run used a new run ID and saved exactly one answer.
+Stop during an AI SDK resumed run preserved the saved answer and produced a cancelled terminal event.
+A separate preexisting pending-interrupt validation failure during reconnect remains outside this approval fix.

@@ -1,6 +1,6 @@
 import * as readline from "readline";
-import { weatherAgent } from "@/mastra/agents";
-import { MastraAgent } from "@ag-ui/mastra";
+import { createLocalAgents } from "@/agent";
+import { createInitialState } from "@/lib/state";
 import { randomUUID } from "node:crypto";
 
 import dotenv from "dotenv";
@@ -16,9 +16,8 @@ async function chatLoop() {
     "🤖 AG-UI chat started! Type your messages and press Enter. Press Ctrl+D to quit.\n",
   );
 
-  const agent = new MastraAgent({
-    agent: weatherAgent,
-  });
+  const agent = createLocalAgents().default;
+  agent.setState(createInitialState());
 
   return new Promise<void>((resolve) => {
     const promptUser = () => {

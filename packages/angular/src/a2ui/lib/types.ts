@@ -1,11 +1,23 @@
-import type { Type } from "@angular/core";
-import type { ComponentApi, ResolveA2uiProps } from "@a2ui/web_core/v0_9";
-import type { z, ZodObject, ZodRawShape } from "zod";
+import { Type } from "@angular/core";
+import { ComponentApi, ResolveA2uiProps } from "@a2ui/web_core/v0_9";
+import { z, ZodObject, ZodRawShape } from "zod";
+import { WebComponentImplementation } from "./universal";
 
 /** A catalog entry rendered by an Angular component. */
 export interface CopilotA2UIComponentImplementation extends ComponentApi {
   readonly component: Type<unknown>;
 }
+
+/** A catalog entry: an Angular component or a Custom Element. */
+export type CopilotA2UICatalogEntry =
+  | CopilotA2UIComponentImplementation
+  | WebComponentImplementation;
+
+/** A Custom Element to render a catalog entry with, instead of an Angular component. */
+export type A2UIWebComponent = Pick<
+  WebComponentImplementation,
+  "tagName" | "element"
+>;
 
 export interface A2UIComponentDefinition<T extends ZodRawShape = ZodRawShape> {
   props: ZodObject<T>;

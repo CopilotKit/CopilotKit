@@ -1,0 +1,71 @@
+.root {
+  display: grid;
+  gap: 0.75rem;
+  color: var(--cpki-color-foreground, #023047);
+}
+
+.tabList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  border-block-end: 1px solid var(--cpki-color-border, #b8c7d1);
+}
+
+.tab {
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-block-end: 0;
+  border-radius: 2px 2px 0 0;
+  background: transparent;
+  color: var(--cpki-color-muted-foreground, #4f6b7a);
+  cursor: pointer;
+  font: inherit;
+  padding: 7px 10px;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.tab:hover {
+  background: var(--cpki-color-surface-muted, #f2f7f9);
+  color: var(--cpki-color-foreground, #023047);
+}
+
+.tab[aria-selected="true"] {
+  background: var(--cpki-color-surface, #ffffff);
+  color: var(--cpki-color-foreground, #023047);
+  box-shadow: inset 0 -2px 0 var(--cpki-color-primary, #219ebc);
+}
+
+.tab[aria-disabled="true"],
+.tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--cpki-color-focus-ring, #219ebc);
+  outline-offset: 2px;
+}
+
+.panel {
+  min-block-size: 4rem;
+  outline: none;
+}
+
+.panel:focus-visible {
+  outline: 2px solid var(--cpki-color-focus-ring, #219ebc);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    transition-duration: 1ms;
+  }
+}
+
+/* Workspace tab visuals live in styles/workspace-components.css (data-slot). */
+
+:global(:root[data-cpki-design="workspace"]) .root {
+  gap: 1.5rem;
+}

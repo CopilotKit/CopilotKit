@@ -8,7 +8,7 @@ alwaysApply: false
 ## Need to...?
 
 ### Build a Simple Copilot
-- Start with [copilot-chat-with-your-data/](mdc:examples/copilot-chat-with-your-data)
+- Start with [chat-with-your-data/](mdc:examples/v1/chat-with-your-data)
 - Use [react-core/](mdc:packages/react-core) for basic integration
 - Add [react-ui/](mdc:packages/react-ui) for pre-built components
 
@@ -72,5 +72,4 @@ alwaysApply: false
 - Check [CONTRIBUTING.md](mdc:CONTRIBUTING.md) for contribution guidelines
 - Browse [community/](mdc:community) for demos and examples
 - Look at [docs/](mdc:docs) for comprehensive documentation
-
 

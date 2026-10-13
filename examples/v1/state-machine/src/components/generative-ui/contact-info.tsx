@@ -2,11 +2,11 @@ import { useState } from "react";
 import { AnimatedCard } from "@/components/animated-card";
 import { motion, AnimatePresence } from "motion/react";
 
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
 interface ContactInfoProps {
   onSubmit: (name: string, email: string, phone: string) => void;
-  status: RenderFunctionStatus;
+  status: ToolCallStatus;
 }
 
 export function ContactInfo({ onSubmit, status }: ContactInfoProps) {
@@ -46,7 +46,8 @@ export function ContactInfo({ onSubmit, status }: ContactInfoProps) {
       <AnimatePresence>
         {!isSubmitted && (
           <motion.button
-            className="bg-pink-600 hover:bg-pink-800 transition-colors duration-300 text-white px-4 py-2 my-4 rounded-md"
+            className="bg-pink-600 hover:bg-pink-800 disabled:bg-pink-300 disabled:cursor-not-allowed transition-colors duration-300 text-white px-4 py-2 my-4 rounded-md"
+            disabled={status !== ToolCallStatus.Executing}
             onClick={() => {
               setIsSubmitted(true);
               onSubmit(name, email, phone);

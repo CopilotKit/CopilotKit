@@ -1,36 +1,32 @@
-import { Component, computed, input } from "@angular/core";
-import type { CheckBoxApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { uniqueId, type BasicProps } from "./shared";
+import { Component, computed } from "@angular/core";
+import { CheckBoxApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { CopilotA2UIBasicComponent } from "./basic-component";
+import { uniqueId } from "./shared";
 
 @Component({
   selector: "copilot-a2ui-check-box",
   template: `
-    <div class="field">
-      <div class="control">
-        <input
-          type="checkbox"
-          class="checkbox"
-          [class.invalid]="error()"
-          [id]="inputId"
-          [checked]="!!props().value"
-          (change)="update($event)"
-        />
-        @if (props().label) {
-          <label class="label" [class.invalid]="error()" [for]="inputId">
-            {{ props().label }}
-          </label>
-        }
-      </div>
-      @if (error(); as error) {
-        <span class="error">{{ error }}</span>
+    <div class="control">
+      <input
+        type="checkbox"
+        class="checkbox"
+        [class.invalid]="error()"
+        [id]="inputId"
+        [checked]="!!props().value"
+        (change)="update($event)"
+      />
+      @if (props().label) {
+        <label class="label" [class.invalid]="error()" [for]="inputId">
+          {{ props().label }}
+        </label>
       }
     </div>
+    @if (error(); as error) {
+      <span class="error">{{ error }}</span>
+    }
   `,
   styles: `
     :host {
-      display: contents;
-    }
-    .field {
       display: flex;
       flex-direction: column;
       margin: var(--a2ui-spacing-m, 8px);
@@ -61,8 +57,9 @@ import { uniqueId, type BasicProps } from "./shared";
     }
   `,
 })
-export class CopilotA2UICheckBox {
-  readonly props = input.required<BasicProps<typeof CheckBoxApi>>();
+export class CopilotA2UICheckBox extends CopilotA2UIBasicComponent<
+  typeof CheckBoxApi
+> {
   protected readonly inputId = uniqueId("checkbox");
   protected readonly error = computed(() => this.props().validationErrors?.[0]);
 

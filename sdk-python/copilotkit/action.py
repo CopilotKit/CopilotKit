@@ -1,7 +1,7 @@
 """Actions"""
 
 import re
-from inspect import iscoroutinefunction
+from inspect import isawaitable
 from typing import Optional, List, Callable, TypedDict, Any, cast
 from .parameter import Parameter, normalize_parameters
 
@@ -46,7 +46,7 @@ class Action:  # pylint: disable=too-few-public-methods
         """Execute the action"""
         result = self.handler(**arguments)
 
-        return {"result": await result if iscoroutinefunction(self.handler) else result}
+        return {"result": await result if isawaitable(result) else result}
 
     def dict_repr(self) -> ActionDict:
         """Dict representation of the action"""

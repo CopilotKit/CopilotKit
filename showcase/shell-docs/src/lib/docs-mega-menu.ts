@@ -54,7 +54,6 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         icon: "sparkles",
       },
       { href: "/frontend-tools", label: "Agent behavior", icon: "bot" },
-      { href: "/threads", label: "Rich Threads", icon: "layers" },
     ],
   },
   {
@@ -62,7 +61,11 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
     links: [
       { href: "/backend/copilot-runtime", label: "Runtime", icon: "refresh" },
       { href: "/agentic-protocols/ag-ui", label: "AG-UI", icon: "link" },
-      { href: "/build-with-agents", label: "Integrations", icon: "blocks" },
+      {
+        href: "/build-with-agents",
+        label: "Build with agents",
+        icon: "blocks",
+      },
     ],
   },
   {
@@ -74,7 +77,7 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         icon: "kite",
         featured: true,
       },
-      { href: "/threads", label: "Rich Threads", icon: "layers" },
+      { href: "/threads", label: "AG-UI Streams", icon: "layers" },
       {
         href: "/learning",
         label: "Automatic Learning",

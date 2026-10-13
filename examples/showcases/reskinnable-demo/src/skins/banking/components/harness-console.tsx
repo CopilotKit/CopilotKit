@@ -141,10 +141,17 @@ export const HarnessConsole = () => {
             <div className="text-ink-muted">starting…</div>
           ) : (
             lines.map((line) => {
-              const pad = line.depth > 0 ? `pl-${line.depth * 3}` : "";
+              const indent =
+                line.depth > 0
+                  ? { paddingInlineStart: `${line.depth * 0.75}rem` }
+                  : undefined;
               if (line.kind === "started") {
                 return (
-                  <div key={line.key} className={`py-0.5 text-brand ${pad}`}>
+                  <div
+                    key={line.key}
+                    style={indent}
+                    className="py-0.5 text-brand"
+                  >
                     ┌ {line.text}
                   </div>
                 );
@@ -153,7 +160,8 @@ export const HarnessConsole = () => {
                 return (
                   <div
                     key={line.key}
-                    className={`py-0.5 italic text-ink-muted ${pad}`}
+                    style={indent}
+                    className="py-0.5 italic text-ink-muted"
                   >
                     {line.text}
                   </div>
@@ -161,7 +169,11 @@ export const HarnessConsole = () => {
               }
               if (line.kind === "tool") {
                 return (
-                  <div key={line.key} className={`py-0.5 text-ink ${pad}`}>
+                  <div
+                    key={line.key}
+                    style={indent}
+                    className="py-0.5 text-ink"
+                  >
                     {line.text}
                   </div>
                 );
@@ -169,7 +181,8 @@ export const HarnessConsole = () => {
               return (
                 <pre
                   key={line.key}
-                  className={`whitespace-pre-wrap break-all pb-1 ${pad} ${
+                  style={indent}
+                  className={`whitespace-pre-wrap break-all pb-1 ${
                     line.failed ? "text-negative" : "text-ink-muted"
                   }`}
                 >

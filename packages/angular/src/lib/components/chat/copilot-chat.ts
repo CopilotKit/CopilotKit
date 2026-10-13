@@ -1,3 +1,4 @@
+import type { TemplateRef, Type } from "@angular/core";
 import {
   Component,
   input,
@@ -6,8 +7,6 @@ import {
   signal,
   ChangeDetectorRef,
   Injector,
-  TemplateRef,
-  Type,
   computed,
   inject,
   viewChild,
@@ -17,19 +16,12 @@ import {
 import { CopilotChatView } from "./copilot-chat-view";
 import { CopilotChatAttachmentsDirective } from "./copilot-chat-attachments.directive";
 
-import {
-  DEFAULT_AGENT_ID,
-  randomUUID,
-  type AttachmentsConfig,
-} from "@copilotkit/shared";
-import {
-  AGUIConnectNotImplementedError,
-  HttpAgent,
-  type AbstractAgent,
-  type Message,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { isRunCompletionAware, type Suggestion } from "@copilotkit/core";
+import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
+import type { AttachmentsConfig } from "@copilotkit/shared";
+import { AGUIConnectNotImplementedError } from "@ag-ui/client";
+import type { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
+import { isRunCompletionAware, ɵisHttpAgent } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 import { injectAgentStore } from "../../agent";
 import { CopilotKit } from "../../copilotkit";
 import { ChatState } from "../../chat-state";
@@ -224,30 +216,16 @@ export class CopilotChat extends ChatState {
           this.config!.setActiveThreadId(inputThreadId, { explicit: true });
         }
       });
-
-      // Both ambient and standalone threads use the same connection cleanup.
-      connectActiveThread(this.config, this.agentStore, (agent) =>
-        this.connectToAgent(agent),
-      );
-    } else {
-      // Standalone `<copilot-chat [threadId]>` usage with no configuration
-      // provider: the active thread is input-driven exactly as before.
-      explicitEffect(
-        () => ({
-          agent: this.agentRef(),
-          threadId: this.resolvedThreadId(),
-          hasExplicitThreadId: this.hasExplicitThreadId(),
-        }),
-        ({ agent, threadId, hasExplicitThreadId }, onCleanup) => {
-          agent.threadId = threadId;
-
-          if (!hasExplicitThreadId) return;
-
-          const handle = this.connectToAgent(agent);
-          onCleanup(() => handle.dispose());
-        },
-      );
     }
+    // Both ambient and standalone threads share reset and connection cleanup.
+    connectActiveThread(
+      this.config ?? {
+        threadId: this.resolvedThreadId,
+        hasExplicitThreadId: this.hasExplicitThreadId,
+      },
+      this.agentStore,
+      (agent) => this.connectToAgent(agent),
+    );
   }
 
   private connectToAgent(agent: AbstractAgent) {
@@ -255,8 +233,9 @@ export class CopilotChat extends ChatState {
     let initialized: RunAgentInput | undefined;
     let replaced = false;
     let completion: Promise<void> | undefined;
+    let detachCompletion: Promise<void> | undefined;
     const controller = new AbortController();
-    if (agent instanceof HttpAgent) agent.abortController = controller;
+    if (ɵisHttpAgent(agent)) agent.abortController = controller;
 
     const ownsPipeline = () => {
       if (!initialized || replaced) return false;
@@ -293,21 +272,21 @@ export class CopilotChat extends ChatState {
     };
     const handle = {
       dispose: () => {
-        if (disposed) return;
+        if (disposed) return detachCompletion;
         disposed = true;
         const current = this.activeConnection === handle;
-        const detach = current && ownsPipeline();
+        const detach = current && (ownsPipeline() || !initialized);
         // A successor connect may reuse HttpAgent's controller.
         if (
           !replaced &&
           (current ||
-            (agent instanceof HttpAgent &&
-              agent.abortController !== controller))
+            (ɵisHttpAgent(agent) && agent.abortController !== controller))
         ) {
           controller.abort();
         }
         cleanup();
-        if (detach) void agent.detachActiveRun().catch(() => {});
+        if (detach) detachCompletion = agent.detachActiveRun().catch(() => {});
+        return detachCompletion;
       },
     };
     this.activeConnection = handle;

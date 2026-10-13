@@ -3,14 +3,19 @@
  * It defines the workflow graph and the entry point for the agent.
  */
 
-import { AIMessage, ToolMessage } from "@langchain/core/messages";
 import { StateGraph, END } from "@langchain/langgraph";
 import { MemorySaver } from "@langchain/langgraph";
-import { AgentState, AgentStateAnnotation } from "./state";
+import type { AgentState } from "./state";
+import { AgentStateAnnotation } from "./state";
 import { download_node } from "./download";
 import { chat_node } from "./chat";
 import { search_node } from "./search";
 import { delete_node, perform_delete_node } from "./delete";
+import { getNextNode } from "./route";
+
+function route(state: AgentState) {
+  return getNextNode(state) ?? END;
+}
 
 const workflow = new StateGraph(AgentStateAnnotation)
   .addNode("download", download_node)
@@ -33,35 +38,3 @@ const workflow = new StateGraph(AgentStateAnnotation)
 export const graph = workflow.compile({
   interruptAfter: ["delete_node"],
 });
-
-function route(state: AgentState) {
-  const messages = state.messages || [];
-
-  if (
-    messages.length > 0 &&
-    messages[messages.length - 1].constructor.name === "AIMessageChunk"
-  ) {
-    const aiMessage = messages[messages.length - 1] as AIMessage;
-
-    if (
-      aiMessage.tool_calls &&
-      aiMessage.tool_calls.length > 0 &&
-      aiMessage.tool_calls[0].name === "Search"
-    ) {
-      return "search_node";
-    } else if (
-      aiMessage.tool_calls &&
-      aiMessage.tool_calls.length > 0 &&
-      aiMessage.tool_calls[0].name === "DeleteResources"
-    ) {
-      return "delete_node";
-    }
-  }
-  if (
-    messages.length > 0 &&
-    messages[messages.length - 1].constructor.name === "ToolMessage"
-  ) {
-    return "chat_node";
-  }
-  return END;
-}

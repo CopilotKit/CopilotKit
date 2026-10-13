@@ -134,6 +134,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "threads-lifecycle": "guides/threads-memory-attachments-headless",
   "threads-import": "guides/threads-memory-attachments-headless",
   "intelligence/headless-ui": "guides/threads-memory-attachments-headless",
+  "intelligence/capture-interactions": "intelligence/standalone-collector",
   "custom-look-and-feel/headless-ui":
     "guides/threads-memory-attachments-headless",
   "programmatic-control": "guides/threads-memory-attachments-headless",

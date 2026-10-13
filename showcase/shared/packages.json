@@ -10,6 +10,7 @@
     "name": "CrewAI Conversational Flows"
   },
   { "slug": "google-adk", "name": "Google ADK" },
+  { "slug": "google-antigravity", "name": "Google Antigravity" },
   { "slug": "langgraph-fastapi", "name": "LangGraph FastAPI" },
   { "slug": "langgraph-python", "name": "LangGraph Python" },
   { "slug": "langgraph-typescript", "name": "LangGraph TypeScript" },

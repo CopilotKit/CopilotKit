@@ -93,7 +93,7 @@ class RestaurantAgent:
 
     def _build_agent(self, use_ui: bool) -> LlmAgent:
         """Builds the LLM agent for the restaurant agent."""
-        LITELLM_MODEL = os.getenv("LITELLM_MODEL", "gemini/gemini-2.5-flash")
+        LITELLM_MODEL = os.getenv("LITELLM_MODEL", "gemini/gemini-3.8-flash")
 
         if use_ui:
             # Construct the full prompt with UI instructions, examples, and schema

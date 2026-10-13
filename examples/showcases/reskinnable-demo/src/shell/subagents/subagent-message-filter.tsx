@@ -3,6 +3,7 @@
 import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
 import type { CopilotChatAssistantMessageProps } from "@copilotkit/react-core/v2";
 import { useSubagentActivity } from "./subagent-activity";
+import { useToolCallsAllAgedOut } from "@/shell/chat/tool-activity";
 
 /**
  * The transcript's assistant-message renderer, minus anything a SUBAGENT said.
@@ -38,12 +39,28 @@ import { useSubagentActivity } from "./subagent-activity";
  * Visible-then-hidden is the correct direction to fail: the alternative —
  * hiding first — would blank the parent's real reply on a slow load.
  */
+type ToolCallLike = { id?: string; function?: { name?: string } };
+
+const NO_TOOL_CALLS: ToolCallLike[] = [];
+
 const Filtered = (props: CopilotChatAssistantMessageProps) => {
   const { subagentMessageIds } = useSubagentActivity();
   const message = props.message;
   const suppressed = Boolean(message?.id && subagentMessageIds.has(message.id));
+  const allToolCalls =
+    (message as { toolCalls?: ToolCallLike[] } | undefined)?.toolCalls ??
+    NO_TOOL_CALLS;
+  const content = (message as { content?: unknown } | undefined)?.content;
+  const hasText = typeof content === "string" && content.trim().length > 0;
+  const allAgedOut = useToolCallsAllAgedOut(allToolCalls);
 
-  if (!suppressed) return <CopilotChatAssistantMessage {...props} />;
+  if (!suppressed) {
+    return (
+      <HideWhenEmpty empty={!hasText && allAgedOut}>
+        <CopilotChatAssistantMessage {...props} />
+      </HideWhenEmpty>
+    );
+  }
 
   // Suppress the PROSE, keep the TOOL CALLS.
   //
@@ -62,12 +79,46 @@ const Filtered = (props: CopilotChatAssistantMessageProps) => {
   if (!toolCalls || toolCalls.length === 0) return null;
 
   return (
-    <CopilotChatAssistantMessage
-      {...props}
-      message={{ ...message, content: "" }}
-    />
+    <HideWhenEmpty empty={allAgedOut}>
+      <CopilotChatAssistantMessage
+        {...props}
+        message={{ ...message, content: "" }}
+      />
+    </HideWhenEmpty>
   );
 };
+
+/**
+ * Hides an assistant message that has nothing left to show: no prose, and every
+ * tool line aged out of the activity window (see `useToolCallsAllAgedOut`).
+ * Without this, an agent that emits one assistant message per step left a
+ * column of bare copy / tools toolbars down the transcript.
+ *
+ * The wrapper is ALWAYS rendered and only its `display` flips, `contents` (no
+ * layout effect) ↔ `none`. That is load-bearing twice over:
+ *  - hidden, not unmounted: unmounting would unmount the tool lines, which
+ *    deregisters them from the recency window, which makes them "recent" again;
+ *  - and the element TREE must not change between the two states: wrapping the
+ *    message only when empty re-mounted it on every flip, which re-registered
+ *    its lines as the newest activity, un-hid it, and looped ("Maximum update
+ *    depth exceeded" in notifyActivityChanged).
+ */
+function HideWhenEmpty({
+  empty,
+  children,
+}: {
+  empty: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      data-testid={empty ? "assistant-message-empty" : undefined}
+      style={{ display: empty ? "none" : "contents" }}
+    >
+      {children}
+    </div>
+  );
+}
 
 /**
  * The slot is typed as `typeof CopilotChatAssistantMessage`, which carries

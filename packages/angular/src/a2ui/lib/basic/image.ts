@@ -1,6 +1,6 @@
-import { Component, computed, input } from "@angular/core";
-import type { ImageApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import type { BasicProps } from "./shared";
+import { Component, computed } from "@angular/core";
+import { ImageApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { CopilotA2UIBasicComponent } from "./basic-component";
 
 @Component({
   selector: "copilot-a2ui-image",
@@ -15,13 +15,12 @@ import type { BasicProps } from "./shared";
   `,
   styles: `
     :host {
-      display: contents;
+      display: block;
     }
     .image {
       display: block;
       width: 100%;
       height: auto;
-      margin: var(--a2ui-spacing-m, 8px);
       box-sizing: border-box;
     }
     .variant-icon {
@@ -44,9 +43,9 @@ import type { BasicProps } from "./shared";
     }
   `,
 })
-export class CopilotA2UIImage {
-  readonly props = input.required<BasicProps<typeof ImageApi>>();
-
+export class CopilotA2UIImage extends CopilotA2UIBasicComponent<
+  typeof ImageApi
+> {
   protected readonly fit = computed(() => {
     const { variant, fit } = this.props();
     if (variant === "header") return "cover";

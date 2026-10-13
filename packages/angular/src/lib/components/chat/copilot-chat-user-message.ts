@@ -39,7 +39,7 @@ import {
 
 @Component({
   selector: "copilot-chat-user-message",
-  host: { "data-copilotkit": "" },
+  host: { "data-copilotkit": "", class: "cpk:block cpk:w-full" },
   imports: [
     CommonModule,
     CopilotSlot,
@@ -169,14 +169,6 @@ import {
       }
     </div>
   `,
-  styles: [
-    `
-      :host {
-        display: block;
-        width: 100%;
-      }
-    `,
-  ],
 })
 export class CopilotChatUserMessage {
   // Capture templates from content projection

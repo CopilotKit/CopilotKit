@@ -7,19 +7,17 @@ import {
   output,
   signal,
   untracked,
-  type OnDestroy,
-  type Type,
+  OnDestroy,
+  Type,
 } from "@angular/core";
-import { MessageProcessor } from "@a2ui/web_core/v0_9";
-import type { SurfaceModel } from "@a2ui/web_core/v0_9";
-import type { A2UIClientEventMessage } from "@copilotkit/a2ui-renderer/web-components";
-import { isComponentType, type A2UISurfaceError } from "@copilotkit/angular";
-import { applyA2UIOperations, toA2UIClientEventMessage } from "./operations";
+import { MessageProcessor, SurfaceModel } from "@a2ui/web_core/v0_9";
+import { A2UIClientEventMessage, A2UISurfaceError } from "@copilotkit/angular";
+import { applyA2UIOperations } from "./operations";
 import { A2UI_SURFACE_REVISION, CopilotA2UINode } from "./node";
-import type { CopilotA2UICatalog } from "./catalog";
-import type { CopilotA2UIComponentImplementation } from "./types";
+import { CopilotA2UICatalog } from "./catalog";
+import { CopilotA2UICatalogEntry } from "./types";
 
-type Surface = SurfaceModel<CopilotA2UIComponentImplementation>;
+type Surface = SurfaceModel<CopilotA2UICatalogEntry>;
 
 /**
  * Renders A2UI operations with a {@link CopilotA2UICatalog}. Place it directly in
@@ -93,7 +91,6 @@ type Surface = SurfaceModel<CopilotA2UIComponentImplementation>;
       display: block;
       min-width: 100%;
     }
-    /* Mirrors the Lit surface's layout as it renders in Angular apps. */
     .copilot-a2ui-surfaces {
       display: flex;
       min-height: 0;
@@ -175,11 +172,8 @@ export class CopilotA2UISurface implements OnDestroy {
   readonly catalog = input.required<CopilotA2UICatalog>();
   /** Theme for surfaces the renderer creates itself. */
   readonly theme = input<Record<string, unknown>>();
-  /** Shown until the first surface renders. Non-component values are ignored. */
-  readonly loadingComponent = input<Type<unknown> | undefined, unknown>(
-    undefined,
-    { transform: (value) => (isComponentType(value) ? value : undefined) },
-  );
+  /** Shown until the first surface renders. */
+  readonly loadingComponent = input<Type<unknown>>();
 
   readonly action = output<A2UIClientEventMessage>();
   readonly error = output<A2UISurfaceError>();
@@ -190,8 +184,7 @@ export class CopilotA2UISurface implements OnDestroy {
   protected readonly errorMessage = signal<string | null>(null);
   private readonly revision = inject(A2UI_SURFACE_REVISION);
 
-  private processor: MessageProcessor<CopilotA2UIComponentImplementation> | null =
-    null;
+  private processor: MessageProcessor<CopilotA2UICatalogEntry> | null = null;
   private processorCatalog: CopilotA2UICatalog | null = null;
   private lastOperationsHash = "";
   private appliedOperationsCount = 0;
@@ -221,12 +214,12 @@ export class CopilotA2UISurface implements OnDestroy {
 
   private getProcessor(
     catalog: CopilotA2UICatalog,
-  ): MessageProcessor<CopilotA2UIComponentImplementation> {
+  ): MessageProcessor<CopilotA2UICatalogEntry> {
     if (!this.processor || this.processorCatalog !== catalog) {
       this.reset();
       this.processorCatalog = catalog;
-      this.processor = new MessageProcessor([catalog], (clientAction) => {
-        this.action.emit(toA2UIClientEventMessage(clientAction));
+      this.processor = new MessageProcessor([catalog], (userAction) => {
+        this.action.emit({ userAction });
       });
     }
     return this.processor;

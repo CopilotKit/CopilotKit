@@ -1,0 +1,266 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / beautiful-chat",
+    "sourceFile": "d5-all.json",
+    "created": "2026-05-21",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so each leg is staged on turnIndex (assistant-message count; +2 per tool round-trip, +1 per text answer)."
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_bar_chart_001",
+            "name": "barChart",
+            "arguments": "{\"title\":\"Expenses by Category\",\"description\":\"Monthly expense breakdown\",\"data\":[{\"label\":\"Rent\",\"value\":15000},{\"label\":\"Salaries\",\"value\":80000},{\"label\":\"Marketing\",\"value\":12000},{\"label\":\"Travel\",\"value\":5000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Bar chart rendered above — Salaries dominate at $80k, with Rent at $15k as the next-largest category."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_pie_chart_001",
+            "name": "pieChart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Breakdown of revenue across product categories\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics leads at $42k, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_schedule_time_001",
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Learn about CopilotKit\",\"meetingDuration\":30}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Meeting scheduled — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_toggle_theme_001",
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Theme toggled."
+      }
+    },
+    {
+      "_comment": "beautiful-chat 'Search Flights (A2UI Fixed Schema)' pill — sends 'Find flights from SFO to JFK for next Tuesday.'. Beautiful-chat's search_flights tool takes `flights: list[Flight]` (NOT the {origin,destination} shape used by tool_rendering_agent). Test asserts United Airlines + $349 + Delta + $289 are visible. Narrowed userMessage to 'for next Tuesday' so this stays scoped to the beautiful-chat pill (the tool-rendering basic + reasoning-chain pills both lack that phrase). hasToolResult:false gates this to the initial user turn; the follow-up content fixture below catches iteration 2 via toolCallId.",
+      "match": {
+        "userMessage": "for next Tuesday",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_search_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA231\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, May 6\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL412\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, May 6\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "context": "google-antigravity",
+        "turnIndex": 2,
+        "userMessage": "for next Tuesday"
+      },
+      "response": {
+        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
+      }
+    },
+    {
+      "_comment": "beautiful-chat Pie Chart pill (beautiful-chat.spec.ts). Mirrored from d6/claude-sdk-python/beautiful-chat.json and restaged on turnIndex: 0 = frontend pieChart call, 2 = narration after the round-trip.",
+      "match": {
+        "userMessage": "Show me a pie chart of our revenue distribution by category",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_ag_bc_pill_pie_001",
+            "name": "pieChart",
+            "arguments": "{\"title\": \"Revenue by Category\", \"description\": \"Breakdown of revenue across product categories\", \"data\": [{\"label\": \"Electronics\", \"value\": 42000}, {\"label\": \"Clothing\", \"value\": 28000}, {\"label\": \"Food\", \"value\": 18000}, {\"label\": \"Books\", \"value\": 12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of our revenue distribution by category",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics leads at 42%, followed by Clothing at 28%."
+      }
+    },
+    {
+      "_comment": "beautiful-chat Bar Chart pill. Same staging as the Pie Chart pill.",
+      "match": {
+        "userMessage": "Show me a bar chart of our expenses by category",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_ag_bc_pill_bar_001",
+            "name": "barChart",
+            "arguments": "{\"title\": \"Expenses by Category\", \"description\": \"Monthly expense breakdown\", \"data\": [{\"label\": \"Rent\", \"value\": 15000}, {\"label\": \"Salaries\", \"value\": 80000}, {\"label\": \"Marketing\", \"value\": 12000}, {\"label\": \"Travel\", \"value\": 5000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a bar chart of our expenses by category",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Bar chart rendered above — Salaries dominate at $80k."
+      }
+    },
+    {
+      "_comment": "beautiful-chat Toggle Theme pill. Same staging as the Pie Chart pill.",
+      "match": {
+        "userMessage": "Toggle the app theme using the toggleTheme tool",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_ag_bc_pill_theme_001",
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Toggle the app theme using the toggleTheme tool",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Theme toggled."
+      }
+    },
+    {
+      "_comment": "beautiful-chat Task Manager pill. 0 = frontend enableAppMode, 2 = backend manage_todos (writes the todos slot with set_state, which streams a STATE_SNAPSHOT the canvas renders), 4 = narration.",
+      "match": {
+        "userMessage": "Enable app mode and add three todos about learning CopilotKit",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_ag_bc_pill_app_mode_001",
+            "name": "enableAppMode",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Enable app mode and add three todos about learning CopilotKit",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_ag_bc_pill_todos_001",
+            "name": "manage_todos",
+            "arguments": "{\"todos\": [{\"id\": \"\", \"title\": \"Read the CopilotKit docs\", \"description\": \"Skim the quickstart and the core concepts.\", \"emoji\": \"\\ud83d\\udcda\", \"status\": \"pending\"}, {\"id\": \"\", \"title\": \"Build a CopilotKit prototype\", \"description\": \"Wire a small agent into a React app.\", \"emoji\": \"\\ud83d\\udee0\\ufe0f\", \"status\": \"pending\"}, {\"id\": \"\", \"title\": \"Explore shared agent state\", \"description\": \"Read and write agent state from the UI.\", \"emoji\": \"\\ud83d\\udd04\", \"status\": \"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Enable app mode and add three todos about learning CopilotKit",
+        "context": "google-antigravity",
+        "turnIndex": 4
+      },
+      "response": {
+        "content": "App mode is on and three todos are on the board."
+      }
+    }
+  ]
+}

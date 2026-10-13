@@ -16,8 +16,14 @@ export type {
   A2UIChildRef,
   A2UIComponentDefinition,
   A2UIProps,
+  A2UIWebComponent,
+  CopilotA2UICatalogEntry,
   CopilotA2UIComponentImplementation,
 } from "./lib/types";
+export type {
+  A2uiWebComponentElement,
+  WebComponentImplementation,
+} from "./lib/universal";
 export {
   ActionSchema,
   ChildListSchema,

@@ -1,43 +1,37 @@
-import { Component, computed, input, signal } from "@angular/core";
-import type { TabsApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { Component, computed, signal } from "@angular/core";
+import { TabsApi } from "@a2ui/web_core/v0_9/basic_catalog";
 import { CopilotA2UIChild } from "../child";
-import type { BasicProps } from "./shared";
+import { CopilotA2UIBasicComponent } from "./basic-component";
 
 @Component({
   selector: "copilot-a2ui-tabs",
   imports: [CopilotA2UIChild],
   template: `
-    <div class="tabs">
-      <div class="tab-list" role="tablist">
-        @for (tab of tabs(); track $index) {
-          <button
-            type="button"
-            role="tab"
-            class="tab"
-            [class.active]="selectedIndex() === $index"
-            [attr.aria-selected]="selectedIndex() === $index"
-            (click)="selectedIndex.set($index)"
-          >
-            {{ tab.title }}
-          </button>
-        }
-      </div>
-      <div class="tab-panel" role="tabpanel">
-        @if (activeTab(); as tab) {
-          <copilot-a2ui-child [child]="tab.child" />
-        }
-      </div>
+    <div class="tab-list" role="tablist">
+      @for (tab of tabs(); track $index) {
+        <button
+          type="button"
+          role="tab"
+          class="tab"
+          [class.active]="selectedIndex() === $index"
+          [attr.aria-selected]="selectedIndex() === $index"
+          (click)="selectedIndex.set($index)"
+        >
+          {{ tab.title }}
+        </button>
+      }
+    </div>
+    <div class="tab-panel" role="tabpanel">
+      @if (activeTab(); as tab) {
+        <copilot-a2ui-child [child]="tab.child" />
+      }
     </div>
   `,
   styles: `
     :host {
-      display: contents;
-    }
-    .tabs {
       display: flex;
       flex-direction: column;
       width: 100%;
-      margin: var(--a2ui-spacing-m, 8px);
     }
     .tab-list {
       display: flex;
@@ -63,8 +57,7 @@ import type { BasicProps } from "./shared";
     }
   `,
 })
-export class CopilotA2UITabs {
-  readonly props = input.required<BasicProps<typeof TabsApi>>();
+export class CopilotA2UITabs extends CopilotA2UIBasicComponent<typeof TabsApi> {
   protected readonly selectedIndex = signal(0);
   protected readonly tabs = computed(() => this.props().tabs ?? []);
   protected readonly activeTab = computed(

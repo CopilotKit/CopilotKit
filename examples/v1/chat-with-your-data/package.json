@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next start"
+    "test": "node --test current-time.test.mjs page-accessibility.test.mjs readme-runtime.test.mjs && tsx --test components/generative-ui/SearchResults.test.tsx",
+    "start": "next start",
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint ."
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@hookform/resolvers": "^4.1.2",
     "@radix-ui/react-label": "^2.1.2",
@@ -38,6 +40,7 @@
     "@types/react": "19.1.8",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   },
   "nx": {

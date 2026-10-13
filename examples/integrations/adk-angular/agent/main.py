@@ -5,7 +5,12 @@ from __future__ import annotations
 import json
 from typing import Dict, Optional
 
-from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint, AGUIToolset
+from ag_ui_adk import (
+    ADKAgent,
+    AGUIToolset,
+    CONTEXT_STATE_KEY,
+    add_adk_fastapi_endpoint,
+)
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from google.adk.agents import LlmAgent
@@ -15,6 +20,8 @@ from google.adk.models.llm_response import LlmResponse
 from google.adk.tools import ToolContext
 from google.genai import types
 from pydantic import BaseModel, Field
+
+from model import resolve_model
 
 load_dotenv()
 
@@ -70,6 +77,20 @@ def on_before_agent(callback_context: CallbackContext):
     return None
 
 
+def page_context_instruction(state) -> str:
+    """Render what the page shares (`useAgentContext`) for the system instruction.
+
+    ag-ui-adk stores a run's AG-UI `context` in session state under
+    `CONTEXT_STATE_KEY` and does not add it to the prompt itself, so without
+    this the model never sees it. Returns "" when the page shares nothing.
+    """
+    entries = state.get(CONTEXT_STATE_KEY) or []
+    if not entries:
+        return ""
+    shared = "\n\n".join(f"{e['description']}:\n{e['value']}" for e in entries)
+    return f"\n\nContext provided by the application:\n\n{shared}"
+
+
 # --- Define the Callback Function ---
 #  modifying the agent's system prompt to include the current state of the proverbs list
 def before_model_modifier(
@@ -89,26 +110,22 @@ def before_model_modifier(
                 proverbs_json = f"Error serializing proverbs: {str(e)}"
         # --- Modification Example ---
         # Add a prefix to the system instruction
-        original_instruction = llm_request.config.system_instruction or types.Content(
-            role="system", parts=[]
-        )
         prefix = f"""You are a helpful assistant for maintaining a list of proverbs.
         This is the current state of the list of proverbs: {proverbs_json}
         When you modify the list of proverbs (whether to add, remove, or modify one or more proverbs), use the set_proverbs tool to update the list."""
-        # Ensure system_instruction is Content and parts list exists
-        if not isinstance(original_instruction, types.Content):
-            # Handle case where it might be a string (though config expects Content)
-            original_instruction = types.Content(
-                role="system", parts=[types.Part(text=str(original_instruction))]
+        original_instruction = llm_request.config.system_instruction or ""
+        if isinstance(original_instruction, types.Content):
+            original_instruction = "".join(
+                part.text or "" for part in original_instruction.parts or []
             )
-        if not original_instruction.parts:
-            original_instruction.parts = [types.Part(text="")]
-
-        # Modify the text of the first part
-        if original_instruction.parts and len(original_instruction.parts) > 0:
-            modified_text = prefix + (original_instruction.parts[0].text or "")
-            original_instruction.parts[0].text = modified_text
-        llm_request.config.system_instruction = original_instruction
+        # Keep it a plain string: LiteLlm (the openai and anthropic models that
+        # COPILOTKIT_AGENT_MODEL selects) sends system_instruction as the system
+        # message content unchanged, and OpenAI rejects a Content object there.
+        llm_request.config.system_instruction = (
+            prefix
+            + str(original_instruction)
+            + page_context_instruction(callback_context.state)
+        )
 
     return None
 
@@ -138,7 +155,9 @@ def simple_after_model_modifier(
 
 proverbs_agent = LlmAgent(
     name="ProverbsAgent",
-    model="gemini-2.5-flash",
+    # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this;
+    # unset, the agent uses gemini-3.8-flash.
+    model=resolve_model("google:gemini-3.8-flash"),
     instruction="""
         When a user asks you to do anything regarding proverbs, you MUST use the set_proverbs tool.
 

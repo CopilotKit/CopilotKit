@@ -223,7 +223,7 @@ module CopilotKit
 
     def connect(thread_id, user, agent_id)
       result = @platform.request('POST', "/api/threads/#{escaped(thread_id)}/connect", 'userId' => user['id'], 'agentId' => agent_id)
-      [result ? 200 : 204, result && credentials(result).reject { |key, _| key == 'runId' }]
+      [result ? 200 : 204, result && credentials(result)]
     end
 
     def threads(method, path, query, body, user)

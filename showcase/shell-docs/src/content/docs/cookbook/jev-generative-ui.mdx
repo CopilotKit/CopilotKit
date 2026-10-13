@@ -4,6 +4,16 @@ description: "Use Jev to choose and rank prepared controls, render them through 
 icon: "custom/typesafe"
 showIcon: true
 doc_type: how-to
+agentPrompt: |
+  Implement the Jev workspace picker recipe described in the walkthrough linked below in my Next.js App Router project: Jev chooses between a clarification panel and a ranked room comparison, and a custom AG-UI `PickerAgent` sends that panel to React as shared state. Build only what the walkthrough builds, and use its code as written. Don't replace `PickerAgent` with the Built-in Agent or another agent framework.
+
+  1. Check the project against the walkthrough's "Before you start" section: TypeScript, React 19, a root layout, the `@/*` alias, and Node.js 22 or later. If the project uses `src/`, put every file inside `src/`. If it is not a Next.js App Router project, stop and ask me.
+  2. Install the exact package versions from the walkthrough's `npm install` command. Don't upgrade them.
+  3. Add `TYPESAFE_API_KEY`, `OPENAI_API_KEY`, and `OPENAI_MODEL` to .env.local. Ask me for the keys. Never put them in a `NEXT_PUBLIC_` variable.
+  4. Create lib/workspaces.ts, lib/choose-panel.ts, lib/picker-agent.ts, app/api/copilotkit/[[...slug]]/route.ts, and app/page.tsx from the walkthrough's blocks, in order. If one of these files already exists, show me the difference and ask before you replace it.
+  5. Start the dev server and try the walkthrough's three requests: "Help me find a workspace", "Compare rooms for quiet work", and "What does an enclosed workspace offer?". Then click a room and check that "Selected workspace" shows its id.
+
+  Skip the optional Automatic Learning section unless I ask for it.
 ---
 
 “I need somewhere to work” could mean a quiet room for one person or a table for the whole team. Your agent needs to decide whether to ask a question or show some options. With Jev and CopilotKit, it can make that decision and put the next step on a button.
@@ -28,7 +38,7 @@ This recipe renders [shared agent state](/shared-state). For tool-call-based ren
 Use a Next.js App Router project with TypeScript, React 19, a root layout, and the `@/*` alias pointing to the project root. If your project uses `src/`, place all files below inside `src/` and point the alias there. Use Node.js 22 or later.
 
 ```bash
-npm install @copilotkit/core@1.73.0 @copilotkit/react-core@1.73.0 @copilotkit/runtime@1.73.0 @ag-ui/client@0.0.59 @ag-ui/core@0.0.59 @typesafe-ai/sdk@0.6.0 rxjs@7.8.1 zod@4.6.5 @langchain/openai@1.5.13 @langchain/core@1.2.11
+npm install @copilotkit/core@1.73.0 @copilotkit/react-core@1.73.0 @copilotkit/runtime@1.73.0 @ag-ui/client@1.0.1 @ag-ui/core@1.0.1 @typesafe-ai/sdk@0.6.0 rxjs@7.8.1 zod@4.6.5 @langchain/openai@1.5.13 @langchain/core@1.2.11
 ```
 
 Get a Jev key using the [TypeSafe quickstart](https://docs.typesafe.ai/introduction/quickstart). Add it and an OpenAI key to your server environment. Neither key belongs in a `NEXT_PUBLIC_` variable.

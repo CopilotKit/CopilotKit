@@ -99,6 +99,11 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     exhaust:
       "Render a dashboard that keeps failing validation so I can see the fallback.",
   },
+  "google-antigravity": {
+    heal: "Chart the Antigravity quarterly revenue board and repair a malformed first render.",
+    exhaust:
+      "Chart an Antigravity board that never passes validation so I can preview the fallback.",
+  },
   "langgraph-python": {
     heal: "Build my Q2 revenue summary and self-correct a malformed first attempt.",
     exhaust:

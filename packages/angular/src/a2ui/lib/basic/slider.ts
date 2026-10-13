@@ -1,38 +1,33 @@
-import { Component, input } from "@angular/core";
-import type { SliderApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { uniqueId, type BasicProps } from "./shared";
+import { Component } from "@angular/core";
+import { SliderApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { CopilotA2UIBasicComponent } from "./basic-component";
+import { uniqueId } from "./shared";
 
 @Component({
   selector: "copilot-a2ui-slider",
   template: `
-    <div class="field">
-      <div class="header">
-        @if (props().label) {
-          <label class="label" [for]="inputId">{{ props().label }}</label>
-        }
-        <span class="value">{{ props().value }}</span>
-      </div>
-      <input
-        type="range"
-        class="range"
-        [id]="inputId"
-        [min]="props().min ?? 0"
-        [max]="props().max"
-        [value]="props().value ?? 0"
-        (input)="update($event)"
-      />
+    <div class="header">
+      @if (props().label) {
+        <label class="label" [for]="inputId">{{ props().label }}</label>
+      }
+      <span class="value">{{ props().value }}</span>
     </div>
+    <input
+      type="range"
+      class="range"
+      [id]="inputId"
+      [min]="props().min ?? 0"
+      [max]="props().max"
+      [value]="props().value ?? 0"
+      (input)="update($event)"
+    />
   `,
   styles: `
     :host {
-      display: contents;
-    }
-    .field {
       display: flex;
       flex-direction: column;
       gap: calc(var(--a2ui-spacing-m, 8px) / 2);
       width: 100%;
-      margin: var(--a2ui-spacing-m, 8px);
     }
     .header {
       display: flex;
@@ -52,8 +47,9 @@ import { uniqueId, type BasicProps } from "./shared";
     }
   `,
 })
-export class CopilotA2UISlider {
-  readonly props = input.required<BasicProps<typeof SliderApi>>();
+export class CopilotA2UISlider extends CopilotA2UIBasicComponent<
+  typeof SliderApi
+> {
   protected readonly inputId = uniqueId("slider");
 
   protected update(event: Event): void {

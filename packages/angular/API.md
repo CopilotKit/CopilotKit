@@ -19,6 +19,8 @@ Import these symbols from `@copilotkit/angular`.
 
 <!-- public-api:root:start -->
 
+- `A2UICatalog`
+- `A2UIClientEventMessage`
 - `A2UIConfig`
 - `A2UIDebugExposure`
 - `A2UILifecycleContent`
@@ -172,7 +174,6 @@ Import these symbols from `@copilotkit/angular`.
 - `Message`
 - `MessageRendererContext`
 - `MessageViewContext`
-- `NativeA2UICatalog`
 - `NewMemory`
 - `OPEN_GENERATIVE_UI_ACTIVITY_TYPE`
 - `OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER`
@@ -257,12 +258,16 @@ Import these symbols from `@copilotkit/angular`.
 
 ### Internal extension points
 
-The following exported Angular DI tokens exist only so CopilotKit-maintained
-code can hook Inspector development mode and built-in renderers. Applications
-must not depend on them; the `ɵ` prefix and TSDoc mark them internal.
+The following exports exist only for CopilotKit-maintained code. Two are
+Angular DI tokens. They hook Inspector development mode and built-in
+renderers. One is a helper function. `provideCopilotKit` and `CopilotKit`
+share it, so the public-key header default has one definition. Applications
+must not depend on these exports. The `ɵ` prefix and TSDoc mark them
+internal.
 
 - `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
 - `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
+- `ɵresolvePublicKeyHeaderDefaults`
 <!-- public-api:root:end -->
 
 ## A2UI Angular catalog entry point
@@ -277,10 +282,13 @@ own Angular components; see the [package README](./README.md#a2ui-with-angular-c
 - `A2UIComponentContext`
 - `A2UIComponentDefinition`
 - `A2UIProps`
+- `A2UIWebComponent`
 - `A2UI_COMPONENT_CONTEXT`
+- `A2uiWebComponentElement`
 - `ActionSchema`
 - `ChildListSchema`
 - `CopilotA2UICatalog`
+- `CopilotA2UICatalogEntry`
 - `CopilotA2UIChild`
 - `CopilotA2UIComponentImplementation`
 - `CopilotA2UISurface`
@@ -288,6 +296,7 @@ own Angular components; see the [package README](./README.md#a2ui-with-angular-c
 - `DynamicBooleanSchema`
 - `DynamicNumberSchema`
 - `DynamicStringSchema`
+- `WebComponentImplementation`
 - `basicCatalog`
 - `createAngularCatalog`
 - `injectA2UIComponentContext`

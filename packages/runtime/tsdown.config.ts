@@ -2,6 +2,10 @@ import { defineConfig } from "tsdown";
 import fs from "node:fs";
 import path from "node:path";
 
+const { version } = JSON.parse(
+  fs.readFileSync(path.resolve("package.json"), "utf8"),
+) as { version: string };
+
 const runtimeFormats: Array<"esm" | "cjs"> = ["esm", "cjs"];
 
 // The source tree makes the legacy implementation explicit under
@@ -138,6 +142,11 @@ export default defineConfig({
   target: "es2022",
   outDir: "dist",
   unbundle: true,
+  // See src/v2/runtime/core/package-info.ts for why the version is injected
+  // rather than imported from package.json.
+  define: {
+    __COPILOTKIT_RUNTIME_VERSION__: JSON.stringify(version),
+  },
   hooks: {
     "build:done": publishV1LayoutAfterAllFormats,
   },

@@ -191,7 +191,10 @@ function matchesQuery(
   query: string,
 ): boolean {
   const terms = normalizeQuery(query).split(/\s+/).filter(Boolean);
-  const haystack = normalizeHaystack(fields.filter(Boolean).join(" "));
+  const aliases = fields.includes("AG-UI Streams") ? "Rich Threads" : "";
+  const haystack = normalizeHaystack(
+    [...fields, aliases].filter(Boolean).join(" "),
+  );
   return terms.every((term) => haystack.includes(term));
 }
 
@@ -353,12 +356,17 @@ function scoreResult(
   if (result.frameworkName) score -= 6;
   // Spelling the title out in words is still naming it exactly: "ag ui"
   // for "AG-UI", "use Copilot kit" for `useCopilotKit`.
-  if (condense(result.title) === condense(query)) score -= 30;
+  if (
+    condense(result.title) === condense(query) ||
+    (result.title === "AG-UI Streams" &&
+      ["threads", "rich threads"].includes(q))
+  )
+    score -= 30;
   // A whole-word hit anywhere in the title beats one buried inside a
   // longer word. This slot used to be `title.startsWith(q)`, which was a
   // crude stand-in for the same idea: it rewarded the query only when it
   // was the FIRST word, so searching "threads" put "Threads Drawer" above
-  // the canonical "Rich Threads" guide, and left "useThreads" — where
+  // the canonical "AG-UI Streams" guide, and left "useThreads" — where
   // "threads" is not a word at all — tied with it.
   else if (matchesWholeWord(title, q)) score -= 18;
   else if (title.includes(q)) score -= 8;
@@ -388,8 +396,7 @@ function compareResults(
   if (byScore !== 0) return byScore;
 
   // A shorter title is nearly always the more general, canonical page for
-  // a topic: "Rich Threads" is the Threads guide, "Threads Drawer" is one
-  // component within it.
+  // a topic. Explicit naming-transition aliases are handled above.
   if (a.title.length !== b.title.length) {
     return a.title.length - b.title.length;
   }

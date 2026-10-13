@@ -360,6 +360,146 @@ export function validateFiles(
 }
 
 // ---------------------------------------------------------------------------
+// Built-in Agent model table (PE-418)
+// ---------------------------------------------------------------------------
+
+/**
+ * The page whose table tells a reader which models the Built-in Agent takes.
+ *
+ * The quickstart pinned `openai:gpt-5.4-mini` while this table did not list it,
+ * so a reader could not tell whether the quickstart model was supported. The
+ * resolver passes any model id through to the provider, so the table is not a
+ * fixed list the code enforces. It is the list the docs promise, and every
+ * model string a page teaches has to be on it.
+ */
+const MODEL_TABLE_PATH = path.resolve(
+  __dirname,
+  "../showcase/shell-docs/src/content/docs/integrations/built-in-agent/model-selection.mdx",
+);
+
+/** Trees whose `.mdx` pages can teach a Built-in Agent model string. */
+const MODEL_TABLE_DIRS = [
+  DOCS_DIR,
+  path.resolve(__dirname, "../showcase/integrations"),
+];
+
+/** Providers the Built-in Agent resolves from a string. */
+const TABLE_PROVIDERS = "openai|anthropic|google|minimax";
+
+/**
+ * A quoted `provider:model` string. LangChain's `init_chat_model`, Deep Agents
+ * and Pydantic AI use this form too, and their pages are not bound by the
+ * Built-in Agent table. So, like the slash form below, it is read only inside a
+ * code block that builds a `BuiltInAgent`.
+ */
+const COLON_SPEC_REGEX = new RegExp(
+  `["'\`]((?:${TABLE_PROVIDERS}):[\\w.-]+)["'\`]`,
+  "gi",
+);
+
+/**
+ * A `model: "provider/model"` attribute. Mastra and others use the slash form
+ * too, so it is read only inside a code block that builds a `BuiltInAgent`.
+ * The attribute is required here because other slash strings in those blocks,
+ * such as an OpenRouter model id, are not Built-in Agent specifiers.
+ */
+const SLASH_SPEC_REGEX = new RegExp(
+  `model\\s*:\\s*["']((?:${TABLE_PROVIDERS})/[\\w.-]+)["']`,
+  "gi",
+);
+
+/** `openai/gpt-5` and `OpenAI:gpt-5` name the same row as `openai:gpt-5`. */
+function normalizeSpec(spec: string): string {
+  const separator = spec.search(/[:/]/u);
+  return `${spec.slice(0, separator).toLowerCase()}:${spec.slice(separator + 1)}`;
+}
+
+/** The section of the Model Selection page whose tables list the models. */
+const SUPPORTED_MODELS_HEADING = "## Supported Models";
+
+/**
+ * Every specifier in a table row under "Supported Models".
+ *
+ * Other tables on the page, such as "How it works", show how a string resolves.
+ * A model named only there is an example, not a promise, so it does not count.
+ */
+export function loadModelTable(tablePath: string): Set<string> {
+  const specs = new Set<string>();
+  const cell = new RegExp(`\`((?:${TABLE_PROVIDERS})[:/][\\w.-]+)\``, "gi");
+  let inSection = false;
+  for (const line of fs.readFileSync(tablePath, "utf-8").split("\n")) {
+    if (/^##\s/u.test(line)) {
+      inSection = line.trim() === SUPPORTED_MODELS_HEADING;
+      continue;
+    }
+    if (!inSection || !line.trimStart().startsWith("|")) continue;
+    for (const match of line.matchAll(cell)) specs.add(normalizeSpec(match[1]));
+  }
+  return specs;
+}
+
+/** The Built-in Agent model strings a page teaches in its code blocks. */
+export function extractBuiltInAgentModels(
+  content: string,
+): Array<{ spec: string; line: number }> {
+  const results: Array<{ spec: string; line: number }> = [];
+  const lines = content.split("\n");
+  let block: Array<{ text: string; line: number }> | null = null;
+
+  const scan = (
+    text: string,
+    line: number,
+    patterns: readonly RegExp[],
+  ): void => {
+    if (text.includes(IGNORE_MARKER)) return;
+    for (const pattern of patterns) {
+      for (const match of text.matchAll(pattern)) {
+        results.push({ spec: normalizeSpec(match[1]), line });
+      }
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trimStart().startsWith("```")) {
+      if (block === null) {
+        block = [];
+        continue;
+      }
+      // Every Built-in Agent model string in the docs sits in a block that
+      // names `BuiltInAgent`, so that is the scope. Checked on 2026-09-28.
+      if (block.some(({ text }) => text.includes("BuiltInAgent"))) {
+        for (const { text, line } of block) {
+          scan(text, line, [COLON_SPEC_REGEX, SLASH_SPEC_REGEX]);
+        }
+      }
+      block = null;
+      continue;
+    }
+    if (block !== null) block.push({ text: lines[i], line: i + 1 });
+  }
+
+  return results;
+}
+
+/** Every Built-in Agent model string under `dirs` that the table lacks. */
+export function validateModelTable(
+  dirs: readonly string[],
+  tablePath: string,
+): Violation[] {
+  const listed = loadModelTable(tablePath);
+  const violations: Violation[] = [];
+  for (const dir of dirs) {
+    for (const file of findMdxFiles(dir, [".mdx"])) {
+      const content = fs.readFileSync(file, "utf-8");
+      for (const { spec, line } of extractBuiltInAgentModels(content)) {
+        if (!listed.has(spec)) violations.push({ file, line, model: spec });
+      }
+    }
+  }
+  return violations;
+}
+
+// ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
@@ -374,11 +514,12 @@ function main() {
 
   // The docs ask only whether a name is real. A starter asks whether it is one
   // we would ship today, which is the stricter of the two.
-  const violations = validateFiles(DOCS_DIR, ALLOWLIST_PATH).map((v) => ({
-    ...v,
-    file: path.join("showcase/shell-docs/src/content", v.file),
-    tier: "all" as const,
-  }));
+  const violations: Array<Violation & { tier: AllowlistTier | "table" }> =
+    validateFiles(DOCS_DIR, ALLOWLIST_PATH).map((v) => ({
+      ...v,
+      file: path.join("showcase/shell-docs/src/content", v.file),
+      tier: "all" as const,
+    }));
 
   for (const dir of SHIPPED_DIRS) {
     if (!fs.existsSync(dir)) continue;
@@ -397,6 +538,18 @@ function main() {
     );
   }
 
+  const tableViolations = validateModelTable(
+    MODEL_TABLE_DIRS,
+    MODEL_TABLE_PATH,
+  );
+  for (const v of tableViolations) {
+    violations.push({
+      ...v,
+      file: path.relative(path.resolve(__dirname, ".."), v.file),
+      tier: "table" as const,
+    });
+  }
+
   if (violations.length === 0) {
     console.log("All model names are valid.");
     process.exit(0);
@@ -407,13 +560,20 @@ function main() {
   );
 
   for (const v of violations) {
-    const why = v.tier === "ship" ? "not a model we ship" : "not a known model";
+    const why =
+      v.tier === "ship"
+        ? "not a model we ship"
+        : v.tier === "table"
+          ? "not in the Built-in Agent model table"
+          : "not a known model";
     console.log(`  ${v.file}:${v.line}  ${v.model}  (${why})`);
   }
 
   console.log(
     `\nA starter may only pin a model listed under "ship". Documentation may also name` +
-      `\none listed under "recognize". Both lists are showcase/shell-docs/model-allowlist.json.`,
+      `\none listed under "recognize". Both lists are showcase/shell-docs/model-allowlist.json.` +
+      `\nA Built-in Agent model string must be a row in the table on` +
+      `\n${path.relative(path.resolve(__dirname, ".."), MODEL_TABLE_PATH)}.`,
   );
 
   if (fixMode) {

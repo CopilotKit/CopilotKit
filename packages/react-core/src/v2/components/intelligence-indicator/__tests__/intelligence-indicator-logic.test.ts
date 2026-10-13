@@ -121,4 +121,32 @@ describe("getIntelligenceTurnAnchors", () => {
     } as unknown as Message;
     expect(getIntelligenceTurnAnchors([toolMsg]).size).toBe(0);
   });
+
+  it("keeps turns apart when the visible list hides a user message", () => {
+    const all = [
+      user("u1"),
+      assistant("a1", [BASH]),
+      user("u2"),
+      assistant("a2", [BASH]),
+    ];
+    const visible = all.filter((m) => m.id !== "u2");
+    const anchors = getIntelligenceTurnAnchors(all, visible);
+    expect([...anchors]).toEqual([
+      ["a1", "u1"],
+      ["a2", "u2"],
+    ]);
+  });
+
+  it("anchors on the first visible bash-using message of a turn", () => {
+    const all = [user("u1"), assistant("a1", [BASH]), assistant("a2", [BASH])];
+    const anchors = getIntelligenceTurnAnchors(all, [all[0]!, all[2]!]);
+    expect([...anchors]).toEqual([["a2", "u1"]]);
+  });
+
+  it("puts a message the visible list created into the turn before it", () => {
+    const all = [user("u1"), assistant("a1", [BASH])];
+    const merged = assistant("merged", [BASH]);
+    const anchors = getIntelligenceTurnAnchors(all, [all[0]!, merged]);
+    expect([...anchors]).toEqual([["merged", "u1"]]);
+  });
 });

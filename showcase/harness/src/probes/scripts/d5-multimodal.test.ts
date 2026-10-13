@@ -7,6 +7,7 @@ import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
+  preTurnAttachImage,
   SAMPLE_IMAGE_BUTTON_SELECTOR,
   SAMPLE_PDF_BUTTON_SELECTOR,
 } from "./d5-multimodal.js";
@@ -163,6 +164,30 @@ describe("d5-multimodal script", () => {
     await turns[1]!.preFill!(page);
     expect(clicks).toEqual([SAMPLE_PDF_BUTTON_SELECTOR]);
     expect(waitedFor).toContain(SAMPLE_PDF_BUTTON_SELECTOR);
+  });
+
+  it("waits for the sample button to be enabled before clicking it", async () => {
+    // The demo keeps the buttons disabled until runtime discovery has
+    // resolved the agent (PNI-575); clicking earlier reached an agent the
+    // chat never displays.
+    const { page, clicks, waitedFor } = makeClickRecordingPage();
+    await preTurnAttachImage(page);
+    expect(waitedFor).toContain(`${SAMPLE_IMAGE_BUTTON_SELECTOR}:enabled`);
+    expect(
+      waitedFor.indexOf(`${SAMPLE_IMAGE_BUTTON_SELECTOR}:enabled`),
+    ).toBeGreaterThan(waitedFor.indexOf(SAMPLE_IMAGE_BUTTON_SELECTOR));
+    expect(clicks).toEqual([SAMPLE_IMAGE_BUTTON_SELECTOR]);
+  });
+
+  it("reports an agent that never became ready, not a missing button", async () => {
+    const { page, clicks } = makeClickRecordingPage();
+    page.waitForSelector = async (selector: string) => {
+      if (selector.endsWith(":enabled")) throw new Error("timeout");
+    };
+    await expect(preTurnAttachImage(page)).rejects.toThrow(
+      /stayed disabled .* agent never became ready/,
+    );
+    expect(clicks).toEqual([]);
   });
 
   it("exposes the sample-button selectors", () => {

@@ -1,12 +1,10 @@
 import { Component, signal } from "@angular/core";
-import { TestBed, type ComponentFixture } from "@angular/core/testing";
+import { TestBed, ComponentFixture } from "@angular/core/testing";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import type { A2UIClientEventMessage } from "@copilotkit/a2ui-renderer/web-components";
-import {
-  basicCatalog as litBasicCatalog,
-  buildCatalogContextValue,
-} from "@copilotkit/a2ui-renderer/web-components";
+import { A2UIClientEventMessage } from "@copilotkit/angular";
+import { BASIC_FUNCTIONS, TextApi } from "@a2ui/web_core/v0_9/basic_catalog";
+import { buildCatalogContextValue } from "../../../lib/components/a2ui/a2ui-catalog-context";
 import { basicCatalog } from "../basic/catalog";
 import { CopilotA2UIText } from "../basic/text";
 import { createAngularCatalog } from "../create-catalog";
@@ -40,11 +38,14 @@ class HostComponent {
 
 function surface(components: unknown[], data?: unknown): unknown[] {
   return [
-    { updateComponents: { surfaceId: "default", components } },
+    { version: "v0.9", updateComponents: { surfaceId: "default", components } },
     ...(data === undefined
       ? []
       : [
-          { updateDataModel: { surfaceId: "default", path: "/", value: data } },
+          {
+            version: "v0.9",
+            updateDataModel: { surfaceId: "default", path: "/", value: data },
+          },
         ]),
   ];
 }
@@ -71,18 +72,13 @@ function type(element: HTMLInputElement | HTMLTextAreaElement, value: string) {
 }
 
 describe("basicCatalog", () => {
-  it("matches the Lit basic catalog's id, components, schemas, and functions", () => {
-    expect(basicCatalog.id).toBe(litBasicCatalog.id);
-    expect([...basicCatalog.components.keys()]).toEqual([
-      ...litBasicCatalog.components.keys(),
-    ]);
-    for (const [name, component] of basicCatalog.components) {
-      expect(component.schema).toBe(
-        litBasicCatalog.components.get(name)?.schema,
-      );
-    }
+  it("uses the A2UI basic catalog's id, schemas, and functions", () => {
+    expect(basicCatalog.id).toBe(
+      "https://a2ui.org/specification/v0_9/basic_catalog.json",
+    );
+    expect(basicCatalog.components.get("Text")?.schema).toBe(TextApi.schema);
     expect([...basicCatalog.functions.keys()]).toEqual([
-      ...litBasicCatalog.functions.keys(),
+      ...new Set(BASIC_FUNCTIONS.map((fn) => fn.name)),
     ]);
   });
 
@@ -111,7 +107,41 @@ describe("basicCatalog", () => {
 });
 
 describe("basic catalog components", () => {
-  it("renders layout and content like the Lit catalog", async () => {
+  it.each([
+    ["Text", { text: "Weighted" }],
+    ["Image", { url: "https://example.com/a.png" }],
+    ["Icon", { name: "home" }],
+    ["Video", { url: "https://example.com/a.mp4" }],
+    ["AudioPlayer", { url: "https://example.com/a.mp3" }],
+    ["Row", { children: [] }],
+    ["Column", { children: [] }],
+    ["List", { children: [] }],
+    ["Card", { child: "leaf" }],
+    ["Tabs", { tabs: [] }],
+    ["Divider", {}],
+    ["Modal", { trigger: "leaf", content: "leaf" }],
+    ["Button", { child: "leaf", action: { event: { name: "go" } } }],
+    ["TextField", { label: "Name" }],
+    ["CheckBox", { label: "Agree", value: false }],
+    ["ChoicePicker", { options: [], value: [] }],
+    ["Slider", { value: 1, max: 5 }],
+    ["DateTimeInput", { value: "2026-01-01" }],
+  ])("grows a %s in a Row by its weight", async (component, props) => {
+    const { element } = await render(
+      surface([
+        { id: "root", component: "Row", children: ["weighted", "leaf"] },
+        { id: "weighted", component, weight: 3, ...props },
+        { id: "leaf", component: "Text", text: "Leaf" },
+      ]),
+    );
+
+    const weighted = [...element.querySelectorAll<HTMLElement>("*")].filter(
+      (node) => node.style.flex.startsWith("3"),
+    );
+    expect(weighted).toHaveLength(1);
+  });
+
+  it("renders layout and content", async () => {
     const { element } = await render(
       surface([
         {
@@ -151,11 +181,11 @@ describe("basic catalog components", () => {
       ),
     );
 
-    const column = element.querySelector<HTMLElement>(".column");
+    const column = element.querySelector<HTMLElement>("copilot-a2ui-column");
     expect(column?.style.justifyContent).toBe("center");
     expect(column?.querySelector("h1")?.textContent?.trim()).toBe("Hello");
 
-    const row = element.querySelector<HTMLElement>(".row");
+    const row = element.querySelector<HTMLElement>("copilot-a2ui-row");
     expect(row?.style.justifyContent).toBe("space-between");
     expect(row?.style.alignItems).toBe("center");
 
@@ -168,14 +198,18 @@ describe("basic catalog components", () => {
     );
 
     expect(
-      element.querySelector(".card small.caption")?.textContent?.trim(),
+      element
+        .querySelector("copilot-a2ui-card small.caption")
+        ?.textContent?.trim(),
     ).toBe("Note");
     expect(
-      [...element.querySelectorAll(".list.horizontal span")].map((span) =>
-        span.textContent?.trim(),
+      [...element.querySelectorAll("copilot-a2ui-list.horizontal span")].map(
+        (span) => span.textContent?.trim(),
       ),
     ).toEqual(["One", "Two"]);
-    expect(element.querySelector(".divider.vertical")).not.toBeNull();
+    expect(
+      element.querySelector("copilot-a2ui-divider.vertical"),
+    ).not.toBeNull();
   });
 
   it("dispatches button actions and disables buttons that fail their checks", async () => {
@@ -319,7 +353,9 @@ describe("basic catalog components", () => {
       ),
     );
 
-    const name = element.querySelector<HTMLInputElement>(".field input")!;
+    const name = element.querySelector<HTMLInputElement>(
+      "copilot-a2ui-text-field input",
+    )!;
     expect(name.value).toBe("Ada");
     expect(
       element.querySelector<HTMLLabelElement>(`label[for="${name.id}"]`)
@@ -434,7 +470,7 @@ describe("basic catalog components", () => {
     expect(tabs[1]?.getAttribute("aria-selected")).toBe("true");
 
     expect(element.querySelector('[role="dialog"]')).toBeNull();
-    element.querySelector<HTMLElement>(".trigger")?.click();
+    element.querySelector<HTMLElement>("copilot-a2ui-modal > div")?.click();
     await settle(fixture);
     expect(element.querySelector('[role="dialog"]')?.textContent).toContain(
       "Details",
