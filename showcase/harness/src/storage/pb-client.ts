@@ -45,8 +45,6 @@ export interface ListOpts {
   page?: number;
   perPage?: number;
   skipTotal?: boolean;
-  /** PB `fields` projection (e.g. "id") — omit row bodies from the response. */
-  fields?: string;
 }
 
 export interface ListResult<T> {
@@ -499,7 +497,7 @@ export function createPbClient(config: PbClientConfig): PbClient {
     }
     if (!res.ok) {
       // Typed status so callers can tell a per-row refusal (e.g. a 400 from
-      // a required relation) from a systemic failure (pb-retention does).
+      // a required relation) from a systemic failure such as PB being down.
       throw new PbHttpError({
         statusCode: res.status,
         bodyText: await res.text().catch(() => ""),
@@ -563,7 +561,6 @@ export function createPbClient(config: PbClientConfig): PbClient {
       if (opts.sort) qs.set("sort", opts.sort);
       if (opts.page) qs.set("page", String(opts.page));
       if (opts.perPage) qs.set("perPage", String(opts.perPage));
-      if (opts.fields) qs.set("fields", opts.fields);
       // Pass the bool through explicitly so callers can force a total
       // count (`skipTotal: false`) even when PB's default is otherwise.
       // Previous `if (opts.skipTotal)` silently dropped explicit `false`.
