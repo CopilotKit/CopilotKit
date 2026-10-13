@@ -133,10 +133,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
                 "index": 0,
                 "id": "call-weather",
                 "type": "function",
-                "function": {
-                    "name": "get_weather",
-                    "arguments": '{"location":"Paris"}',
-                },
+                "function": {"name": "get_weather", "arguments": '{"location":"Paris"}'},
             }
             chunks = [
                 {"role": "assistant", "tool_calls": [call]},
@@ -176,9 +173,7 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
             input_data=RunAgentInput(
                 thread_id="thread-1",
                 run_id="run-weather",
-                messages=[
-                    UserMessage(id="user-1", content="Weather in Paris?", role="user")
-                ],
+                messages=[UserMessage(id="user-1", content="Weather in Paris?", role="user")],
                 state={},
             )
         )
@@ -422,7 +417,8 @@ class ToolResultPayloadTest(unittest.IsolatedAsyncioTestCase):
             if error:
                 return httpx.Response(400, json={"error": error})
             state_count = sum(
-                (message.get("content") or "").count("<state>") for message in messages
+                (message.get("content") or "").count("<state>")
+                for message in messages
             )
             if state_count != 1:
                 return httpx.Response(400, json={"error": "Repeated state"})
