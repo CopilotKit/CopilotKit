@@ -47,10 +47,11 @@ export interface RendererProps<T = Record<string, unknown>> {
   /**
    * Render a child component by ID.
    *
-   * Pass `basePath` when rendering items of a list template: a `ChildList`
-   * bound to `{ componentId, path }` resolves to `{ id, basePath }` items, and
-   * the child's relative bindings resolve against `basePath`. Omitting it
-   * renders those bindings against the surface root, so they come out empty.
+   * Without `basePath`, the child inherits this component's data-context
+   * path. List templates need each item's own path: a `ChildList` bound to
+   * `{ componentId, path }` resolves to `{ id, basePath }` items, so call
+   * `children(item.id, item.basePath)`. Omitting it resolves every item's
+   * relative bindings against the list's path instead of the item's.
    */
   children: (id: string, basePath?: string) => React.ReactNode;
   /** Dispatch an A2UI action from this component (e.g., on button click) */
