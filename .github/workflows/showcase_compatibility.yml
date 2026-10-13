@@ -19,6 +19,13 @@ on:
         description: "Changed/deployed services; only framework changes trigger collection"
         type: string
         default: all
+    secrets:
+      RAILWAY_TOKEN:
+        description: "Existing Railway token; the railway environment may also supply it"
+        required: false
+      SHOWCASE_HARNESS_SHARED_SECRET:
+        description: "Existing harness publication signing secret"
+        required: false
 
 permissions:
   contents: read
@@ -88,7 +95,7 @@ jobs:
           AUDIT_ENVIRONMENT: ${{ matrix.environment }}
         run: |
           mkdir -p "$RUNNER_TEMP/compatibility"
-          pnpm exec nx exec --projects=@copilotkit/showcase-scripts -- node "$GITHUB_WORKSPACE/showcase/shell-dashboard/node_modules/tsx/dist/cli.mjs" "$GITHUB_WORKSPACE/showcase/shell-dashboard/scripts/refresh-compatibility.ts" --environment "$AUDIT_ENVIRONMENT" --out "$RUNNER_TEMP/compatibility/report.json"
+          pnpm exec nx exec --projects=@copilotkit/showcase-scripts -- node "$GITHUB_WORKSPACE/showcase/shell-dashboard/node_modules/tsx/dist/cli.mjs" "$GITHUB_WORKSPACE/showcase/scripts/refresh-compatibility.ts" --environment "$AUDIT_ENVIRONMENT" --out "$RUNNER_TEMP/compatibility/report.json"
       - name: Preserve audit report
         if: always() && steps.changes.outputs.refresh == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

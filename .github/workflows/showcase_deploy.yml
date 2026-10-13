@@ -340,11 +340,13 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: ./.github/workflows/showcase_compatibility.yml
+    uses: $/.github/workflows/showcase_compatibility.yml
     with:
       environment: staging
       services_csv: ${{ needs.resolve-matrix.outputs.services_csv }}
-    secrets: inherit
+    secrets:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SHOWCASE_HARNESS_SHARED_SECRET: ${{ secrets.SHOWCASE_HARNESS_SHARED_SECRET }}
 
   notify-harness:
     needs: [resolve-matrix, verify, enforce-redeploy-gate]

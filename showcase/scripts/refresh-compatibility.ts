@@ -1,15 +1,23 @@
 /** Scheduled/manual collector; importing this module never performs an audit. */
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
-import { collectAudit } from "./compatibility-audit/collect";
-import { collectDeployedCommits } from "./compatibility-audit/deployed";
-import { resolveEnv, SERVICES } from "../../scripts/railway-envs";
-import {
-  canonicalPayload,
-  computeSignature,
-} from "../../harness/src/http/hmac";
+import { createRequire } from "node:module";
+import type * as AuditCollector from "../shell-dashboard/scripts/compatibility-audit/collect";
+import type * as DeployedCollector from "../shell-dashboard/scripts/compatibility-audit/deployed";
+import { resolveEnv, SERVICES } from "./railway-envs";
+import { canonicalPayload, computeSignature } from "../harness/src/http/hmac";
 
 const PATH = "/api/compatibility";
+
+// The standalone dashboard's audit modules use CommonJS; this scripts package
+// uses ESM. Load them through Node's existing CommonJS bridge under tsx.
+const requireAudit = createRequire(import.meta.url);
+const { collectAudit }: typeof AuditCollector = requireAudit(
+  "../shell-dashboard/scripts/compatibility-audit/collect",
+);
+const { collectDeployedCommits }: typeof DeployedCollector = requireAudit(
+  "../shell-dashboard/scripts/compatibility-audit/deployed",
+);
 
 async function publish(
   base: string,

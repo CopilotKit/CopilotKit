@@ -132,5 +132,5 @@ access, collect without publishing (use a new absolute output path):
 
 ```sh
 collector_dashboard=/absolute/path/to/repo/showcase/shell-dashboard
-NX_DAEMON=false NX_TUI=false pnpm exec nx exec --projects=@copilotkit/showcase-scripts -- node "$collector_dashboard/node_modules/tsx/dist/cli.mjs" "$collector_dashboard/scripts/refresh-compatibility.ts" --environment staging --out /absolute/path/to/new-audit.json --no-publish
+NX_DAEMON=false NX_TUI=false pnpm exec nx exec --projects=@copilotkit/showcase-scripts -- node "$collector_dashboard/node_modules/tsx/dist/cli.mjs" "$collector_dashboard/../scripts/refresh-compatibility.ts" --environment staging --out /absolute/path/to/new-audit.json --no-publish
 ```
