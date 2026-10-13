@@ -44,8 +44,15 @@ export type PropsOf<D extends CatalogDefinitions, K extends keyof D> = z.infer<
 export interface RendererProps<T = Record<string, unknown>> {
   /** Resolved prop values from the A2UI data model */
   props: T;
-  /** Render a child component by ID */
-  children: (id: string) => React.ReactNode;
+  /**
+   * Render a child component by ID.
+   *
+   * Pass `basePath` when rendering items of a list template: a `ChildList`
+   * bound to `{ componentId, path }` resolves to `{ id, basePath }` items, and
+   * the child's relative bindings resolve against `basePath`. Omitting it
+   * renders those bindings against the surface root, so they come out empty.
+   */
+  children: (id: string, basePath?: string) => React.ReactNode;
   /** Dispatch an A2UI action from this component (e.g., on button click) */
   dispatch?: (action: any) => void;
 }
