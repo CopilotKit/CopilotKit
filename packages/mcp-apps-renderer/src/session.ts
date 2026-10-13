@@ -547,10 +547,13 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       throw new Error("No agent available to fetch resource");
     }
     const { resourceUri, serverHash, serverId } = getContent();
+    const readOnlyAgent = agent as AbstractAgent & {
+      ɵrunMcpResourceRead?: AbstractAgent["runAgent"];
+    };
     const runResult = await mcpAppsRequestQueue.enqueue(
       agent,
-      () =>
-        agent.runAgent({
+      () => {
+        const parameters = {
           forwardedProps: {
             __proxiedMCPRequest: {
               serverHash,
@@ -559,7 +562,11 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
               params: { uri: resourceUri },
             },
           },
-        }),
+        };
+        return readOnlyAgent.ɵrunMcpResourceRead
+          ? readOnlyAgent.ɵrunMcpResourceRead(parameters)
+          : agent.runAgent(parameters);
+      },
       {
         owner: queueOwner,
         timeoutMs: settings.idleTimeoutMs,

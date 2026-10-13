@@ -27,7 +27,7 @@ function getModel(state: AgentState): BaseChatModel {
   if (model === "google_genai") {
     return new ChatGoogleGenerativeAI({
       temperature: 0,
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       apiKey: process.env.GOOGLE_API_KEY || undefined,
     });
   }

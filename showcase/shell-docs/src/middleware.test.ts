@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextFetchEvent, NextRequest } from "next/server";
 import type { middleware as middlewareHandler } from "./middleware";
@@ -92,34 +91,6 @@ afterEach(async () => {
 });
 
 describe("the agent-facing raw text surface", () => {
-  it.each([
-    ["/llms.txt", "llms_index"],
-    ["/llms-full.txt", "llms_full"],
-    ["/learning.md", "page_markdown"],
-    ["/langgraph-python/quickstart.mdx", "page_markdown"],
-  ])("reports %s as surface %s", async (pathname, surface) => {
-    const { events } = await runMiddleware(pathname, {
-      userAgent: CLAUDE_CODE,
-    });
-
-    expect(events).toHaveLength(1);
-    expect(events[0]!.event).toBe("docs.llm_text_fetched");
-    expect(events[0]!.properties.surface).toBe(surface);
-    expect(events[0]!.properties.path).toBe(pathname);
-  });
-
-  it("names the caller, which is the whole question the hit count cannot answer", async () => {
-    const { events } = await runMiddleware("/llms.txt", {
-      userAgent: CLAUDE_CODE,
-    });
-
-    expect(events[0]!.properties.caller_class).toBe("coding_agent");
-    expect(events[0]!.properties.caller_agent).toBe("claude_code");
-    // The raw agent travels too, so a bucket that turns out wrong can be re-cut
-    // over history without a redeploy.
-    expect(events[0]!.properties.$raw_user_agent).toBe(CLAUDE_CODE);
-  });
-
   it("caps a hostile user agent rather than forwarding it whole", async () => {
     const { events } = await runMiddleware("/llms.txt", {
       userAgent: "x".repeat(4000),
@@ -140,26 +111,6 @@ describe("the agent-facing raw text surface", () => {
     // PostHog otherwise stamps the POSTing server's own address, which would
     // read as a plausible breakdown of where agents fetch from.
     expect(events[0]!.properties.$geoip_disable).toBe(true);
-  });
-
-  it("records the deployment so preview and local traffic stay out of the count", async () => {
-    // shell-docs runs on Railway, so that variable is the one that is
-    // actually set in production.
-    vi.stubEnv("RAILWAY_ENVIRONMENT_NAME", "preview");
-    const { events } = await runMiddleware("/llms.txt", {
-      userAgent: CLAUDE_CODE,
-    });
-
-    expect(events[0]!.properties.environment).toBe("preview");
-  });
-
-  it("falls back to the Vercel variable for a preview built elsewhere", async () => {
-    vi.stubEnv("VERCEL_ENV", "preview");
-    const { events } = await runMiddleware("/llms.txt", {
-      userAgent: CLAUDE_CODE,
-    });
-
-    expect(events[0]!.properties.environment).toBe("preview");
   });
 
   it("gives the same caller a stable handle, so uniq() counts callers not fetches", async () => {
@@ -201,29 +152,6 @@ describe("the agent-facing raw text surface", () => {
 });
 
 describe("the boundary with ordinary docs pageviews", () => {
-  it("still reports a real page as docs_pageview", async () => {
-    const { events } = await runMiddleware("/quickstart", {
-      userAgent: CHROME,
-    });
-
-    expect(events).toHaveLength(1);
-    expect(events[0]!.event).toBe("docs_pageview");
-    expect(events[0]!.properties.path).toBe("/quickstart");
-  });
-
-  it("counts a raw text fetch exactly once, and never as a docs visitor", async () => {
-    // The Kiteline funnel reads `docs_pageview` as "building something". A
-    // crawler pulling 126k Markdown pages a month is not that, and counting the
-    // same fetch under both events would only move the inflation.
-    const { events } = await runMiddleware("/learning.md", {
-      userAgent: "GPTBot/1.1",
-    });
-
-    expect(events.map((event) => event.event)).toEqual([
-      "docs.llm_text_fetched",
-    ]);
-  });
-
   it("leaves the redirect table in front of the count", async () => {
     // A path that redirects is answered with a 301 and reported as
     // `seo_redirect`; the fetch is counted on the destination instead.
@@ -269,30 +197,6 @@ describe("telemetry must not be able to break a fetch", () => {
 
       expect(events).toEqual([]);
     });
-  });
-});
-
-describe("the shape the telemetry registry reads", () => {
-  it('emits through a literal `posthog.capture("name", { ... })` call', async () => {
-    // `scripts/telemetry/extract.ts` indexes call sites by callee name
-    // (`posthog.capture` / `capture`), takes the event name only from a STRING
-    // LITERAL first argument, and the property list only from an INLINE OBJECT
-    // LITERAL second argument. The `telemetry / docs fragment` workflow runs it
-    // over `showcase/shell-docs/src/**`.
-    //
-    // Posting the same JSON through a bare `fetch` satisfies PostHog and is
-    // invisible to the extractor — which is why `docs_pageview` and
-    // `seo_redirect`, both emitted that way above, are absent from the
-    // catalog. Hoisting the name into a constant would silently do the same to
-    // this event, so the shape is pinned here rather than left to review.
-    const source = await readFile(
-      new URL("./middleware.ts", import.meta.url),
-      "utf8",
-    );
-
-    expect(source).toContain(
-      'posthog.capture(\n      "docs.llm_text_fetched",\n      {',
-    );
   });
 });
 

@@ -26,7 +26,7 @@ This can be utilized to let [your agent control the UI](/ag2/frontend-tools), [g
 In this guide, we cover the use of frontend tools for Human-in-the-loop.
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
 </Callout>
 
 ## When should I use this?
@@ -94,32 +94,32 @@ Use frontend tools when you need your agent to interact with client-side primiti
         ```python title="agent.py"
         from typing import Annotated
 
-        from ag_ui.core import EventType, StateSnapshotEvent
         from fastapi import FastAPI, Header
         from fastapi.responses import StreamingResponse
-        from autogen import ContextVariables, ConversableAgent, LLMConfig
-        from autogen.ag_ui import AGUIStream, RunAgentInput
+        from pydantic import Field
 
-        agent = ConversableAgent(
+        from ag2 import Agent, Context, tool
+        from ag2.ag_ui import AGUIStream, RunAgentInput
+        from ag2.config import OpenAIResponsesConfig
+
+        @tool
+        def store_user_choice(
+            choice: Annotated[str, Field(description="The option selected by the user")],
+            context: Context,
+        ) -> str:
+            """Store the latest user choice in shared state."""
+            context.variables["hitl"] = {"latest_choice": choice}
+            return f"Stored choice: {choice}"
+
+        agent = Agent(
             name="assistant",
-            system_message=(
+            prompt=(
                 "When you need the user to choose, call the frontend tool `offerOptions`. "
                 "After it returns, call `store_user_choice` with the selected value."
             ),
-            llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
-            human_input_mode="NEVER",
+            config=OpenAIResponsesConfig(model="gpt-5.5"),
+            tools=[store_user_choice],
         )
-
-        @agent.register_for_llm(description="Store the latest user choice in shared state.")
-        def store_user_choice(
-            context: ContextVariables,
-            choice: Annotated[str, "The option selected by the user"],
-        ) -> StateSnapshotEvent:
-            snapshot = {"hitl": {"latest_choice": choice}}
-            context["hitl"] = snapshot["hitl"]
-            return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=snapshot)
-
-        agent.register_for_execution(name="store_user_choice")(store_user_choice)
 
         stream = AGUIStream(agent)
         app = FastAPI()
@@ -128,14 +128,14 @@ Use frontend tools when you need your agent to interact with client-side primiti
         async def run_agent(
             message: RunAgentInput,
             accept: str | None = Header(None),
-        ):
+        ) -> StreamingResponse:
             return StreamingResponse(
                 stream.dispatch(message, accept=accept),
                 media_type=accept or "text/event-stream",
             )
         ```
 
-        The frontend tools are automatically populated by CopilotKit through the AG-UI protocol and are available to your AG2 backend.
+        The frontend tools are automatically populated by CopilotKit through the AG-UI protocol and are available to your AG2 backend. When a tool updates `context.variables`, `AGUIStream` automatically emits a `STATE_SNAPSHOT` event at the end of the run — no manual event construction needed.
     </Step>
     <Step>
         ### Try it out
@@ -147,3 +147,79 @@ Use frontend tools when you need your agent to interact with client-side primiti
         ```
     </Step>
 </Steps>
+
+## Approve a tool call with interrupts
+
+Frontend tools put the decision in the browser. AG-UI 1.0 also lets the **backend** pause a run and ask: a tool wrapped in `ApprovalRequired` is held until the user approves or rejects the call. AG2 sends the held call to the client as an AG-UI interrupt, and CopilotKit's `useInterrupt` renders it.
+
+<Steps>
+    <Step>
+        ### Gate the tool in AG2
+
+        ```python title="tools.py"
+        from typing import Annotated
+
+        from pydantic import Field
+
+        from ag2 import Context, tool
+        from ag2.middleware.builtin.tools.approval import ApprovalRequired
+
+        @tool(
+            description="Save a city to the user's favorites. The user confirms before anything is saved.",
+            middleware=[
+                ApprovalRequired("Save this city to your favorites?\n{tool_arguments}", allow_always=False)
+            ],
+        )
+        async def save_favorite_city(
+            context: Context,
+            city: Annotated[str, Field(description="The city name to save, e.g. 'Lisbon'")],
+        ) -> list[str]:
+            favorites = list(context.variables.get("favorites", []))
+            if city not in favorites:
+                favorites.append(city)
+            context.variables["favorites"] = favorites
+            return favorites
+        ```
+
+        Serve the agent with `AGUIStream` as usual. Don't set a `hitl_hook` on the agent: with one, AG2 asks in-process and no interrupt reaches the browser.
+    </Step>
+    <Step>
+        ### Answer it with `useInterrupt`
+
+        The run ends with an interrupt of reason `tool_call`. The backend reads the answer as a boolean, so `resolve(true)` approves the call and `resolve(false)` refuses it. A refusal does not fail the run: the model is told the call was refused and carries on.
+
+        ```tsx title="page.tsx"
+        import { useInterrupt } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+        export function Page() {
+          useInterrupt({
+            agentId: "agenticChatAgent",
+            render: ({ interrupt, resolve }) => (
+              <div>
+                <p>{interrupt?.message ?? "The assistant needs your confirmation."}</p>
+                <button onClick={() => resolve(true)}>Approve</button>
+                <button onClick={() => resolve(false)}>Reject</button>
+              </div>
+            ),
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ### Try it out
+
+        ```
+        Save Lisbon to my favorites
+        ```
+
+        The approval card appears in the chat. Approve it and the city shows up in the [shared state](/ag2/shared-state).
+    </Step>
+</Steps>
+
+<Callout type="warn">
+  `useInterrupt().resolve()` and `.cancel()` send no `metadata` in the resume entry. That is enough for a gated tool call like the one above, but not for an AG2 server built with `require_resume_proof=True`, which needs the interrupt's `metadata` copied into the resume entry. See <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/overview#asking-the-human-a-question" target="_blank">Asking the human a question</a> in the AG2 docs.
+</Callout>
+
+A held turn lives in the AG2 process that served the run, so the resuming run must reach that same process. See <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/overview#deployment-a-held-turn-lives-in-one-process" target="_blank">the AG2 deployment notes</a> before running several replicas.

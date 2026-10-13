@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { lambdaClient } from "@copilotkit/shared";
+import { lambdaClient, logger } from "@copilotkit/shared";
 import { CopilotIntelligenceRuntime, CopilotRuntime } from "../core/runtime";
 import { createCopilotHonoHandler } from "../endpoints/hono";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
@@ -183,6 +183,7 @@ describe.each(["single-route", "multi-route"] as const)(
       [429, "RATE_LIMIT_EXCEEDED"],
       [500, "INTERNAL_SERVER_ERROR"],
       [503, "MARKETPLACE_LICENSE_REQUIRED"],
+      [403, "TRAJECTORIES_NOT_ENABLED"],
     ])(
       "preserves a validated %s backend contract error",
       async (status, code) => {
@@ -263,6 +264,7 @@ describe.each(["single-route", "multi-route"] as const)(
       { joinToken: joinResponse.joinToken },
       {},
     ])("rejects a malformed connection grant (%j)", async (payload) => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
       const { app, upstream } = setup(mode);
       upstream.mockResolvedValue(Response.json(payload));
       const response = await app.fetch(connectRequest(mode));
@@ -270,6 +272,27 @@ describe.each(["single-route", "multi-route"] as const)(
       expect(await response.json()).toMatchObject({
         code: "CONNECTION_FAILED",
       });
+      expect(warn).toHaveBeenCalledWith(
+        { trajectoryIdMatches: false },
+        expect.not.stringContaining("wsUrl"),
+      );
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(
+        joinResponse.joinToken,
+      );
+    });
+
+    it("logs a grant that the configured wsUrl cannot serve", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+      const { app, intelligence } = setup(mode);
+      vi.spyOn(intelligence, "ɵgetClientWsUrl").mockReturnValue(
+        "https://gateway.example/client",
+      );
+      const response = await app.fetch(connectRequest(mode));
+      expect(response.status).toBe(502);
+      expect(warn).toHaveBeenCalledWith(
+        { trajectoryIdMatches: true },
+        expect.stringContaining("wsUrl"),
+      );
     });
 
     it("reports an unavailable backend route without exposing its response body", async () => {
@@ -325,9 +348,110 @@ describe.each(["single-route", "multi-route"] as const)(
       });
       const response = await app.fetch(connectRequest(mode));
       expect(response.status).toBe(503);
-      expect(await response.json()).toMatchObject({
-        code: "CONNECTION_FAILED",
+      expect(await response.json()).toEqual({
+        code: "INTELLIGENCE_RUNTIME_REQUIRED",
+        message: "Trajectory capture requires an Intelligence runtime",
       });
+    });
+
+    it("reports a deployment without Trajectory capture", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+      const { app, upstream } = setup(mode);
+      upstream.mockResolvedValue(
+        Response.json(
+          {
+            error: { code: "ROUTE_NOT_FOUND", message: `Not found ${apiKey}` },
+          },
+          { status: 404 },
+        ),
+      );
+      const response = await app.fetch(connectRequest(mode));
+      expect(response.status).toBe(404);
+      expect(warn).toHaveBeenCalledWith(
+        { status: 404 },
+        expect.stringContaining("does not serve Trajectory capture"),
+      );
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(apiKey);
+      expect(await response.json()).toEqual({
+        code: "TRAJECTORIES_UNAVAILABLE",
+        message:
+          "This Intelligence deployment does not serve Trajectory capture",
+      });
+    });
+
+    it.each([
+      [
+        401,
+        { error: { code: "AUTH_UNAUTHENTICATED", message: apiKey } },
+        "AUTH_UNAUTHENTICATED",
+      ],
+      [
+        503,
+        { error: { code: "UNRECOGNIZED", message: `failed with ${apiKey}` } },
+        "UNRECOGNIZED",
+      ],
+      [404, "<html>internal deployment detail</html>", undefined],
+    ])(
+      "logs the cause of a hidden %s failure on the server without the API key",
+      async (status, body, upstreamCode) => {
+        const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+        const { app, upstream } = setup(mode);
+        upstream.mockResolvedValue(
+          typeof body === "string"
+            ? new Response(body, { status })
+            : Response.json(body, { status }),
+        );
+        const response = await app.fetch(connectRequest(mode));
+        expect(await response.json()).toMatchObject({
+          code: "CONNECTION_FAILED",
+        });
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn).toHaveBeenCalledWith(
+          { status, upstreamCode },
+          expect.stringContaining("Intelligence rejected"),
+        );
+        expect(JSON.stringify(warn.mock.calls)).not.toContain(apiKey);
+      },
+    );
+
+    it("logs only fixed fields for a network failure, never error text", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+      const { app, upstream } = setup(mode);
+      // Node's fetch keeps the reason in `cause`, and its messages can carry the
+      // request URL, including any credentials in it.
+      upstream.mockRejectedValue(
+        new TypeError(
+          "fetch failed https://user:url-secret@intelligence.example",
+          {
+            cause: Object.assign(
+              new Error(`connect ECONNREFUSED url-secret ${apiKey}`),
+              { code: "ECONNREFUSED" },
+            ),
+          },
+        ),
+      );
+      await app.fetch(connectRequest(mode));
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]![0]).toEqual({
+        error: "TypeError",
+        causeCode: "ECONNREFUSED",
+        host: "intelligence.example",
+      });
+      expect(JSON.stringify(warn.mock.calls)).not.toContain("url-secret");
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(apiKey);
+    });
+
+    it("does not log a forwarded contract error", async () => {
+      const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+      const { app, upstream } = setup(mode);
+      upstream.mockResolvedValue(
+        Response.json(
+          { error: { code: "TRAJECTORIES_NOT_ENABLED", message: "Off" } },
+          { status: 403 },
+        ),
+      );
+      await app.fetch(connectRequest(mode));
+      expect(warn).not.toHaveBeenCalled();
     });
   },
 );

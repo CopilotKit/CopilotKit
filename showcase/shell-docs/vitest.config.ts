@@ -6,10 +6,9 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**", ".next/**"],
-    // Many files load the whole docs content tree, so each worker can reach
-    // 4-5 GB. Uncapped, Vitest starts one worker per core (17 on an 18-core
-    // laptop) and the suite peaks near 35 GB, swapping the machine to a crawl.
-    maxWorkers: 8,
+    // Link checks load the docs content tree. Keep memory bounded on the
+    // four-core CI runner; local and CI runs use the same small suite.
+    maxWorkers: 2,
   },
   resolve: {
     alias: [

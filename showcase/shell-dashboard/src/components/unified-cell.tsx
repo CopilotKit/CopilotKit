@@ -6,9 +6,6 @@
  *   - Unsupported cells: only the hollow `∅` chip, no badges, no depth chip
  *   - Supported cells: depth chip (with pre-computed chipColor) + test badges
  *     only for levels where `exists === true`
- *
- * Replaces ComposedCell's independent DepthLayer/HealthLayer that don't
- * cross-check support status or test-level existence.
  */
 
 import { memo, useState, useEffect, useRef, useCallback } from "react";

@@ -16,6 +16,92 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.79.0 - 2026-10-12
+
+### Features
+
+- feat(learning): name clicked controls with a privacy-safe label (refs PE-712) (#7769) (6b593cb)
+- feat: evaluate request headers when each request is sent (sync and async builders) (#7510) (b7f0b96)
+
+### Fixes
+
+- fix(sdk-js): fold app context into the leading system message (refs PE-728) (#7759) (7e97c05)
+- fix(react-core): keep CopilotChat visible beside the threads drawer in a flex row (closes PE-788) (#7780) (8de118e)
+- fix(learning): debounce text edits and retire failed capture sockets (#7692) (04bc56a)
+
+### Breaking Changes
+
+- feat: evaluate request headers when each request is sent (sync and async builders) (#7510) (b7f0b96)
+  A `headers` builder now runs when each request is sent,
+  not on each provider render (React, Vue and Angular). A new token from the
+  builder no longer reloads the thread list or rejoins realtime, so an app
+  that switches users must remount the provider (for example
+  `key={userId}`) or call `setHeaders`. Otherwise the new user keeps seeing
+  the previous user's threads.
+
+## 1.78.0 - 2026-10-09
+
+### Features
+
+- feat(react-core)!: start Trajectory capture for every learning object (#7747) (d38d016)
+
+### Fixes
+
+- fix(runtime): let COPILOTKIT_OPENAI_API choose the OpenAI API, and log the Chat Completions switch (refs PE-706) (#7754) (9158409)
+- fix(runtime): keep slash model ids intact and use chat completions on OpenAI-compatible endpoints (refs PE-706) (#7726) (d1bdd92)
+- fix(react-core,vue,angular): keep features enabled when the entitlement lookup times out (refs PE-533) (#7652) (be3a15c)
+- fix(runtime): log a not-yet-created thread lookup at debug, not error (refs PE-678) (#7728) (c88c376)
+- fix(runtime): default GoogleGenerativeAIAdapter to gemini-3.5-flash (#7716) (6b550dc)
+
+### Other Changes
+
+- docs: recommend Gemini 3.x model ids new API keys can call (refs PE-690) (#7715) (4dc033a)
+
+### Breaking Changes
+
+- fix(runtime): let COPILOTKIT_OPENAI_API choose the OpenAI API, and log the Chat Completions switch (refs PE-706) (#7754) (9158409)
+  With `OPENAI_BASE_URL` set to a host other than OpenAI or Azure,
+  `"openai/..."` model strings now use the Chat Completions API (#7726).
+  Through a proxy in front of OpenAI (LiteLLM, Portkey, Helicone), models and
+  options that only the Responses API supports, such as reasoning summaries,
+  stop working. Set `COPILOTKIT_OPENAI_API=responses` to keep the Responses API.
+- feat(react-core)!: start Trajectory capture for every learning object (#7747) (d38d016)
+  A `learning` object without `trajectoryId` now starts capture after mount.
+  To keep starting capture yourself with `startTrajectory()`, add
+  `autoStart: false`, for example `learning={{ onError, autoStart: false }}`.
+
+## 1.77.2 - 2026-10-08
+
+### Features
+
+- feat(runtime): tell apart Trajectory setup errors at connect (#7699) (8bd4389)
+
+## 1.77.1 - 2026-10-07
+
+### Features
+
+- feat(react-core): add groupMessages to CopilotChatMessageView (#7650) (0143a22)
+- feat(web-inspector): remote HUD copy and destinations (#7667) (b111c24)
+- feat(core): link chat Threads to authenticated Trajectories after a run starts (#7645) (9a0db13)
+- feat(core): let a frontend tool resume its pending calls on reconnect (#7615) (a0480fa)
+
+### Fixes
+
+- fix(runtime): keep MCP resource reads off conversation locks (#7678) (e7c023f)
+- fix(shared): guide generated UI handlers to render results (#7679) (8a458e7)
+- fix(runtime): retry thread-lock renewal within the lock TTL (#7569) (abf8182)
+- fix(runtime): ping Intelligence sockets every 15s so 30s proxy idle timeouts don't drop runs (#7568) (75f5721)
+- fix(runtime): a thread that does not exist yet is not a server error on read (#7430) (b8c331e)
+- fix(opengenui): define the ready-DOM initialization contract (#7662) (d966b88)
+- fix(react-core): wait for thread replay before sending prompts (#7657) (0a2e6d0)
+- fix(runtime): let the v2 runtime start on Cloudflare Workers (#7609) (7f40d35)
+- fix(react-core): make useCoAgent's start, run and stop work, through the v2 core (#7610) (6373ce7)
+- fix(runtime): stop naming a stale middleware version in the MCP Apps policy error (#7612) (f21e006)
+
+### Other Changes
+
+- chore(deps): bump @ag-ui/\* to 1.0.2 (PNI-551) (#7648) (d4afb51)
+
 ## 1.77.0 - 2026-10-02
 
 ### Features

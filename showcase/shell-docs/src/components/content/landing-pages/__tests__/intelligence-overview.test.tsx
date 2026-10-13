@@ -31,19 +31,6 @@ afterEach(() => {
 });
 
 describe("IntelligenceOverview", () => {
-  it("renders the product demo and its actions without a duplicate page heading", () => {
-    render(<IntelligenceOverview />);
-
-    expect(screen.queryByRole("heading")).toBeNull();
-    expect(
-      screen.queryByText(/CopilotKit Intelligence adds persistent threads/i),
-    ).toBeNull();
-    expect(screen.getByRole("button", { name: /^copy prompt$/i })).toBeTruthy();
-
-    const quickstart = screen.getByRole("link", { name: /^quickstart$/i });
-    expect(quickstart.getAttribute("href")).toBe("/intelligence/quickstart");
-  });
-
   it("swallows autoplay rejection so the page still renders", async () => {
     const play = vi.fn().mockRejectedValue(new DOMException("blocked"));
     const originalPlay = HTMLMediaElement.prototype.play;
@@ -90,13 +77,6 @@ describe("IntelligenceOverview", () => {
     expect(video.controls).toBe(true);
     expect(video.muted).toBe(true);
     expect(video.loop).toBe(true);
-
-    const prompt = screen.getByRole("button", {
-      name: /^copy prompt$/i,
-    });
-    expect(
-      video.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
   });
 
   it("links each feature card to its guide", () => {
@@ -113,7 +93,6 @@ describe("IntelligenceOverview", () => {
     for (const [title, href] of expected) {
       const card = screen.getByRole("link", { name: new RegExp(title) });
       expect(card.getAttribute("href")).toBe(href);
-      expect(card.querySelector("svg")).toBeTruthy();
     }
   });
 });

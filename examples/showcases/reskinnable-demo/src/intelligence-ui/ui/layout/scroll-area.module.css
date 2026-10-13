@@ -1,0 +1,17 @@
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+.viewport {
+  /* Contain absolutely positioned descendants (e.g. visually hidden status
+   * text) so they cannot extend an outer scroller and add a second scrollbar. */
+  position: relative;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}

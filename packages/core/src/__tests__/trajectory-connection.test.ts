@@ -5,6 +5,7 @@ import { from } from "rxjs";
 import { CopilotKitCore } from "../core";
 import type { CopilotKitCoreConfig } from "../core";
 import type { JsonValue, TrajectoryEvent } from "@copilotkit/learning";
+import * as Learning from "@copilotkit/learning";
 
 type Batch = {
   events: TrajectoryEvent<Record<string, JsonValue>>[];
@@ -593,6 +594,128 @@ describe("Core trajectory connection", () => {
     },
   );
 
+  describe("without an onError handler", () => {
+    function makeSilentCore(overrides: Partial<CopilotKitCoreConfig> = {}) {
+      return makeCore({
+        learning: {
+          capture: {
+            clicks: false,
+            navigation: false,
+            inputs: false,
+            network: false,
+          },
+        },
+        ...overrides,
+      });
+    }
+
+    it.each([
+      [
+        503,
+        {
+          code: "CONNECTION_FAILED",
+          message: "Trajectory capture requires an Intelligence runtime",
+        },
+        "CONNECTION_FAILED",
+        "intelligence",
+      ],
+      [
+        401,
+        { code: "IDENTITY_REQUIRED", message: "private detail" },
+        "IDENTITY_REQUIRED",
+        "identifyUser",
+      ],
+      [
+        403,
+        { code: "TRAJECTORIES_NOT_ENABLED", message: "private detail" },
+        "TRAJECTORIES_NOT_ENABLED",
+        "not enabled",
+      ],
+      [
+        404,
+        { code: "TRAJECTORIES_UNAVAILABLE", message: "private detail" },
+        "TRAJECTORIES_UNAVAILABLE",
+        "does not serve",
+      ],
+    ])(
+      "warns once with a fixed hint when a %s start failure ends capture",
+      async (status, body, code, hint) => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const core = makeSilentCore();
+        const pending = core.startTrajectory();
+        requests[0]!.response.resolve(response(body, status));
+
+        expect(await pending).toEqual({ status: "error", code });
+        expect(warn).toHaveBeenCalledTimes(1);
+        const [message] = warn.mock.calls[0]!;
+        expect(message).toContain(
+          `[CopilotKit] Trajectory capture did not start (${code}).`,
+        );
+        expect(message).toContain(hint);
+        expect(message).toContain("learning.onError");
+        expect(JSON.stringify(warn.mock.calls)).not.toContain(body.message);
+      },
+    );
+
+    it("warns that a runtime URL is required, once per Core", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const core = makeSilentCore({ runtimeUrl: undefined });
+
+      // StrictMode replays a provider's start synchronously after its stop.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        expect(await core.startTrajectory()).toEqual({
+          status: "error",
+          code: "RUNTIME_REQUIRED",
+        });
+      }
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]![0]).toContain("runtimeUrl");
+    });
+
+    it("says capture stopped when a started Trajectory ends", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { channel } = await start(makeSilentCore());
+      channel.pushes[0]!.push.reply("error", { reason: "unauthorized" });
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]![0]).toContain(
+        "[CopilotKit] Trajectory capture stopped (UNAUTHORIZED).",
+      );
+    });
+
+    it("stays quiet for stops and recoverable connection loss", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { core, channel } = await start(makeSilentCore());
+      channel.callbacks.get("phx_error")!();
+      await vi.advanceTimersByTimeAsync(1_000);
+      await authorize(1, "single-use-2");
+      join(1);
+      expect(core.trajectoryId).toBe("trajectory-1");
+
+      core.stopTrajectory();
+      const cancelled = core.startTrajectory();
+      core.stopTrajectory();
+      expect(await cancelled).toEqual({ status: "error", code: "CANCELLED" });
+      expect(warn).not.toHaveBeenCalled();
+    });
+  });
+
+  it("leaves terminal start failures to onError when the app handles them", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const core = makeCore();
+    const pending = core.startTrajectory();
+    requests[0]!.response.resolve(
+      response({ code: "IDENTITY_REQUIRED", message: "private detail" }, 401),
+    );
+
+    expect(await pending).toEqual({
+      status: "error",
+      code: "IDENTITY_REQUIRED",
+    });
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("bounds uncooperative auth and network failure without any browser capture", async () => {
     const core = makeCore();
     const pending = core.startTrajectory();
@@ -624,6 +747,49 @@ describe("Core trajectory connection", () => {
       expect(channel.pushes).toEqual([]);
     },
   );
+
+  it.each([
+    ["trajectories_unavailable", "TRAJECTORIES_UNAVAILABLE"],
+    ["trajectories_not_enabled", "TRAJECTORIES_NOT_ENABLED"],
+    ["entitlement_unavailable", "TRAJECTORIES_ENTITLEMENT_UNAVAILABLE"],
+    ["marketplace_license_required", "MARKETPLACE_LICENSE_REQUIRED"],
+    ["unauthorized", "JOIN_FAILED"],
+    ["something_new", "JOIN_FAILED"],
+  ])("names the Gateway's %s join refusal", async (reason, code) => {
+    const core = makeCore();
+    const pending = core.startTrajectory();
+    const channel = await authorize();
+    channel.joined.reply("error", { reason });
+    expect(await pending).toEqual({ status: "error", code });
+    expect(onError).toHaveBeenCalledWith({
+      code,
+      message: `Trajectory capture: ${code}.`,
+    });
+  });
+
+  it("warns with a setup hint when the Gateway refuses an unentitled join", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const core = makeCore({
+      learning: {
+        capture: {
+          clicks: false,
+          navigation: false,
+          inputs: false,
+          network: false,
+        },
+      },
+    });
+    const pending = core.startTrajectory();
+    const channel = await authorize();
+    channel.joined.reply("error", { reason: "entitlement_unavailable" });
+
+    expect(await pending).toEqual({
+      status: "error",
+      code: "TRAJECTORIES_ENTITLEMENT_UNAVAILABLE",
+    });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]![0]).toContain("could not confirm");
+  });
 
   it("pauses on channel loss, obtains a fresh token, and awaits the new join without replaying events", async () => {
     const { core, channel } = await start();
@@ -1130,3 +1296,67 @@ class ChatAgent extends AbstractAgent {
     ]);
   }
 }
+
+/** Models the collector's pending browser edit at the Core/collector boundary. */
+function pendingInputOnStop() {
+  const create = Learning.createTrajectoryCollector;
+  let pending: TrajectoryEvent | undefined;
+  vi.spyOn(Learning, "createTrajectoryCollector").mockImplementation(
+    (options) => {
+      const collector = create(options);
+      return {
+        ...collector,
+        stop() {
+          const event = pending;
+          pending = undefined;
+          if (event) options.send(event);
+          collector.stop();
+        },
+      };
+    },
+  );
+  return () => {
+    pending = {
+      type: "CUSTOM",
+      name: "input",
+      timestamp: Date.now(),
+      value: { target: { value: "final pending edit" } },
+    };
+  };
+}
+
+it("drains pending collector input before explicit stop flushes and closes transport", async () => {
+  const edit = pendingInputOnStop();
+  const { core, channel } = await start();
+  edit();
+  core.stopTrajectory();
+  expect(names(channel)).toEqual(["page", "input"]);
+  expect(channel.pushes.at(-1)?.payload.events[0]?.value.target).toEqual({
+    value: "final pending edit",
+  });
+  expect(channel.left).toBe(true);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it("counts discarded pending input once on failure without sending it during recovery", async () => {
+  const edit = pendingInputOnStop();
+  const { core, channel } = await start();
+  for (let i = 0; i < 49; i++) core.emitTrajectoryEvent("queued", { i });
+  edit();
+  channel.callbacks.get("phx_error")?.();
+  expect(names(channel)).toEqual(["page"]);
+  await vi.advanceTimersByTimeAsync(1000);
+  await authorize(1, "fresh-token");
+  const recovered = join(1);
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(names(recovered)).toEqual(["page"]);
+  expect(recovered.pushes[0]?.payload.dropped).toBe(50);
+  persist(recovered);
+  core.emitTrajectoryEvent("recovered", {});
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(names(recovered)).toEqual(["page", "recovered"]);
+  expect(recovered.pushes[1]?.payload.dropped).toBe(0);
+  persist(recovered);
+  core.stopTrajectory();
+  expect(vi.getTimerCount()).toBe(0);
+});

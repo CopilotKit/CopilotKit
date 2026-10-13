@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": [
+    "next-env.d.ts",
+    "src/app/demos/declarative-json-render/**/*.ts",
+    "src/app/demos/declarative-json-render/**/*.tsx"
+  ],
+  "exclude": ["node_modules"]
+}

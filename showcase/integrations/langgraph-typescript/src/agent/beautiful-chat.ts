@@ -261,7 +261,7 @@ function toolsForRun(state: BeautifulChatState, config: RunnableConfig) {
     );
   if (!enabled) return { context, actions, localTools: tools };
   const generator = getA2UITools({
-    model: makeChatOpenAI(config, { model: "gpt-5-mini", temperature: 0 }),
+    model: makeChatOpenAI(config, { model: "gpt-5-mini" }),
     defaultCatalogId: context.catalogId ?? CATALOG_ID,
     catalog: context.catalog,
   });
