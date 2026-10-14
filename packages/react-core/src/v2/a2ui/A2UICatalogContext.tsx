@@ -8,6 +8,8 @@ import {
 import {
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   A2UI_DEFAULT_DESIGN_GUIDELINES,
+  A2UI_MARKDOWN_GENERATION_GUIDELINES,
+  A2UI_MARKDOWN_GENERATION_GUIDELINES_DESCRIPTION,
 } from "@copilotkit/shared";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import { useLayoutEffect, useMemo } from "react";
@@ -23,13 +25,19 @@ import { useLayoutEffect, useMemo } from "react";
  * When `includeSchema` is true, the full component schemas (JSON Schema) are also
  * sent as context using the same description key as the A2UI middleware, so the
  * middleware can optionally overwrite it with a server-side schema.
+ *
+ * `mode` selects the generation guideline: "tool" (default) describes the
+ * `render_a2ui` tool; "markdown" describes emitting operations inside ```a2ui
+ * fences in the assistant's markdown reply.
  */
 export function A2UICatalogContext({
   catalog,
   includeSchema,
+  mode = "tool",
 }: {
   catalog?: any;
   includeSchema?: boolean;
+  mode?: "tool" | "markdown";
 }) {
   const { copilotkit } = useCopilotKit();
 
@@ -73,11 +81,22 @@ export function A2UICatalogContext({
           ...scope,
         }),
       );
+    }
+    // Tool mode ties the guidelines to the schema (the middleware can replace
+    // the whole bundle server-side). Markdown mode has no server side: the
+    // fence guideline is the only thing that makes the agent emit surfaces,
+    // so it is sent regardless of `includeSchema`.
+    if (schemaValue || mode === "markdown") {
       ids.push(
         copilotkit.addContext({
           description:
-            "A2UI generation guidelines — protocol rules, tool arguments, path rules, data model format, and form/two-way-binding instructions.",
-          value: A2UI_DEFAULT_GENERATION_GUIDELINES,
+            mode === "markdown"
+              ? A2UI_MARKDOWN_GENERATION_GUIDELINES_DESCRIPTION
+              : "A2UI generation guidelines — protocol rules, tool arguments, path rules, data model format, and form/two-way-binding instructions.",
+          value:
+            mode === "markdown"
+              ? A2UI_MARKDOWN_GENERATION_GUIDELINES
+              : A2UI_DEFAULT_GENERATION_GUIDELINES,
           ...scope,
         }),
       );
@@ -93,7 +112,7 @@ export function A2UICatalogContext({
     return () => {
       for (const id of ids) copilotkit.removeContext(id);
     };
-  }, [copilotkit, capabilitiesValue, schemaValue, a2uiAgentsKey]);
+  }, [copilotkit, capabilitiesValue, schemaValue, a2uiAgentsKey, mode]);
 
   return null;
 }

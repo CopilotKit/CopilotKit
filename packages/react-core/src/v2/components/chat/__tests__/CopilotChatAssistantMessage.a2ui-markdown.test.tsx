@@ -1,0 +1,40 @@
+import React from "react";
+import { describe, expect, it } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
+import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
+import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
+
+const FENCE =
+  '```a2ui\n{"version":"v0.9","createSurface":{"surfaceId":"s"}}\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Text","text":"Surface text"}]}}\n```';
+
+function renderIn(mode: "tool" | "markdown", content: string) {
+  return render(
+    <CopilotKitProvider a2ui={{ mode }}>
+      <CopilotChatConfigurationProvider threadId="t">
+        <CopilotChatAssistantMessage
+          message={{ id: "m1", role: "assistant", content }}
+        />
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>,
+  );
+}
+
+describe("CopilotChatAssistantMessage with a2ui markdown mode", () => {
+  it("renders the fence as a surface in markdown mode", async () => {
+    renderIn("markdown", `Before\n\n${FENCE}\n\nAfter`);
+    expect(await screen.findByText("Surface text")).toBeTruthy();
+    expect(
+      document.querySelector("[data-a2ui-markdown-surface]"),
+    ).not.toBeNull();
+  });
+
+  it("fence is plain code in tool mode", async () => {
+    renderIn("tool", FENCE);
+    // Streamdown lazy-loads its code-block body, so wait for the <code> element.
+    await waitFor(() => expect(document.querySelector("code")).not.toBeNull(), {
+      timeout: 5000,
+    });
+    expect(document.querySelector("[data-a2ui-markdown-surface]")).toBeNull();
+  });
+});
