@@ -838,6 +838,119 @@ test("auth context changes clear loaded metadata before stalled refreshes settle
   }
 });
 
+test("a superseded async-builder refresh cannot send a stale request or overwrite the newer controller", async () => {
+  // `refreshInspectorMetadata` resolves headers
+  // before creating its AbortController. Without a generation check right
+  // after that resolve, a slower, superseded call (A) can still send a
+  // request with its own (stale) headers and clobber the newer call's (B)
+  // AbortController once A's builder finally resolves.
+  const headerDeferreds: Array<Deferred<Record<string, string>>> = [];
+  const requests: CapturedRequest[] = [];
+  const fetchMock = vi.fn(
+    async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = input instanceof Request ? input.url : String(input);
+      const headers = toHeaderRecord(init?.headers);
+      requests.push({
+        url,
+        method: init?.method ?? "GET",
+        headers,
+        credentials: init?.credentials,
+        body: parseBody(init?.body),
+        signal: init?.signal ?? undefined,
+      });
+      if (url.endsWith("/info")) {
+        return jsonResponse(runtimeInfo({ inspectorMetadata: true }));
+      }
+      return jsonResponse(metadata(headers.Authorization ?? "unknown"));
+    },
+  );
+  vi.stubGlobal("window", {});
+  vi.stubGlobal("fetch", fetchMock);
+
+  const core = new CopilotKitCore({
+    runtimeUrl: runtimeOne,
+    runtimeTransport: "rest",
+    deferInitialConnection: true,
+    headers: () => {
+      const d = deferred<Record<string, string>>();
+      headerDeferreds.push(d);
+      return d.promise;
+    },
+  });
+  const metadataRequests = () =>
+    requests.filter((request) => request.url.endsWith("/inspector-metadata"));
+
+  try {
+    core.connect();
+
+    // 1: fetchRuntimeInfo's own resolve, for the initial `/info` connect.
+    await waitFor(() => headerDeferreds.length === 1);
+    headerDeferreds[0]!.resolve({ Authorization: "connect" });
+    await waitFor(
+      () =>
+        core.runtimeConnectionStatus ===
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // 2: the auto-triggered initial metadata refresh after connecting.
+    await waitFor(() => headerDeferreds.length === 2);
+    headerDeferreds[1]!.resolve({ Authorization: "initial" });
+    await waitFor(() => core.inspectorMetadata?.plan?.label === "initial");
+
+    // Call A: a manual refresh using the original (still-current) builder.
+    // `HeaderSourceResolver.resolve()` shares one in-flight promise per
+    // builder identity, so call B below must use a DIFFERENT builder
+    // (installed via `setHeaders`) to get its own independent, controllable
+    // resolution rather than piggybacking on A's pending one.
+    void core.refreshInspectorMetadata();
+    await waitFor(() => headerDeferreds.length === 3);
+    const deferredA = headerDeferreds[2]!;
+
+    // Call B: `setHeaders` with a new builder — this both supersedes A
+    // (bumps `inspectorMetadataGeneration` via `handleHeadersChanged`) and
+    // starts its own resolution.
+    const bHeaderDeferreds: Array<Deferred<Record<string, string>>> = [];
+    core.setHeaders(() => {
+      const d = deferred<Record<string, string>>();
+      bHeaderDeferreds.push(d);
+      return d.promise;
+    });
+    await waitFor(() => bHeaderDeferreds.length === 1);
+
+    // B, the newer call, resolves first and completes normally — once it
+    // settles successfully, it clears the (now-stale) controller reference
+    // back to `undefined` (agent-registry.ts's own post-success cleanup).
+    bHeaderDeferreds[0]!.resolve({ Authorization: "B" });
+    await waitFor(() => core.inspectorMetadata?.plan?.label === "B");
+    const getAbortController = () =>
+      (
+        core as unknown as {
+          agentRegistry: {
+            inspectorMetadataAbortController?: AbortController;
+          };
+        }
+      ).agentRegistry.inspectorMetadataAbortController;
+    expect(getAbortController()).toBeUndefined();
+
+    // A, the superseded call, resolves late.
+    deferredA!.resolve({ Authorization: "A" });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    // A must never have sent a request, and must not have replaced B's
+    // metadata or created its own (now-dangling, never-aborted) controller.
+    expect(metadataRequests()).toHaveLength(2); // initial + B only, no A
+    expect(
+      metadataRequests().some((r) => r.headers.Authorization === "A"),
+    ).toBe(false);
+    expect(core.inspectorMetadata?.plan?.label).toBe("B");
+    expect(getAbortController()).toBeUndefined();
+  } finally {
+    core.setRuntimeUrl(undefined);
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  }
+});
+
 test("a stale metadata result cannot cross a runtime URL change", async () => {
   const stale = deferred<Response>();
   const current = metadata("Current URL");

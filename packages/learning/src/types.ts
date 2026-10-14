@@ -49,6 +49,12 @@ export interface ClickTarget {
   role: string | null;
   action: string | null;
   text: string;
+  /**
+   * Short, cleaned name of the clicked control (click events only). Comes from
+   * `aria-labelledby`, `aria-label`, an input caption or `alt`, `title`, or a
+   * control's own text. Omitted when no safe name exists.
+   */
+  label?: string;
   attributes: Record<string, string>;
   value?: string;
   checked?: boolean;

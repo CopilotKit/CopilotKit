@@ -16,6 +16,60 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.79.0 - 2026-10-12
+
+### Features
+
+- feat(learning): name clicked controls with a privacy-safe label (refs PE-712) (#7769) (6b593cb)
+- feat: evaluate request headers when each request is sent (sync and async builders) (#7510) (b7f0b96)
+
+### Fixes
+
+- fix(sdk-js): fold app context into the leading system message (refs PE-728) (#7759) (7e97c05)
+- fix(react-core): keep CopilotChat visible beside the threads drawer in a flex row (closes PE-788) (#7780) (8de118e)
+- fix(learning): debounce text edits and retire failed capture sockets (#7692) (04bc56a)
+
+### Breaking Changes
+
+- feat: evaluate request headers when each request is sent (sync and async builders) (#7510) (b7f0b96)
+  A `headers` builder now runs when each request is sent,
+  not on each provider render (React, Vue and Angular). A new token from the
+  builder no longer reloads the thread list or rejoins realtime, so an app
+  that switches users must remount the provider (for example
+  `key={userId}`) or call `setHeaders`. Otherwise the new user keeps seeing
+  the previous user's threads.
+
+## 1.78.0 - 2026-10-09
+
+### Features
+
+- feat(react-core)!: start Trajectory capture for every learning object (#7747) (d38d016)
+
+### Fixes
+
+- fix(runtime): let COPILOTKIT_OPENAI_API choose the OpenAI API, and log the Chat Completions switch (refs PE-706) (#7754) (9158409)
+- fix(runtime): keep slash model ids intact and use chat completions on OpenAI-compatible endpoints (refs PE-706) (#7726) (d1bdd92)
+- fix(react-core,vue,angular): keep features enabled when the entitlement lookup times out (refs PE-533) (#7652) (be3a15c)
+- fix(runtime): log a not-yet-created thread lookup at debug, not error (refs PE-678) (#7728) (c88c376)
+- fix(runtime): default GoogleGenerativeAIAdapter to gemini-3.5-flash (#7716) (6b550dc)
+
+### Other Changes
+
+- docs: recommend Gemini 3.x model ids new API keys can call (refs PE-690) (#7715) (4dc033a)
+
+### Breaking Changes
+
+- fix(runtime): let COPILOTKIT_OPENAI_API choose the OpenAI API, and log the Chat Completions switch (refs PE-706) (#7754) (9158409)
+  With `OPENAI_BASE_URL` set to a host other than OpenAI or Azure,
+  `"openai/..."` model strings now use the Chat Completions API (#7726).
+  Through a proxy in front of OpenAI (LiteLLM, Portkey, Helicone), models and
+  options that only the Responses API supports, such as reasoning summaries,
+  stop working. Set `COPILOTKIT_OPENAI_API=responses` to keep the Responses API.
+- feat(react-core)!: start Trajectory capture for every learning object (#7747) (d38d016)
+  A `learning` object without `trajectoryId` now starts capture after mount.
+  To keep starting capture yourself with `startTrajectory()`, add
+  `autoStart: false`, for example `learning={{ onError, autoStart: false }}`.
+
 ## 1.77.2 - 2026-10-08
 
 ### Features

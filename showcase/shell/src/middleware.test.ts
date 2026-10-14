@@ -87,6 +87,25 @@ afterEach(() => {
 });
 
 describe("middleware SEO redirects resolve against the docs host (SU-17)", () => {
+  it("keeps legacy Components as Tools paths on the dedicated guide", () => {
+    for (const [source, destination] of [
+      [
+        "/langgraph/generative-ui/tool-based",
+        "/langgraph-python/generative-ui/tool-based",
+      ],
+      ["/adk/generative-ui/tool-based", "/google-adk/generative-ui/tool-based"],
+      [
+        "/unselected/generative-ui/tool-based",
+        "/built-in-agent/generative-ui/tool-based",
+      ],
+    ]) {
+      const res = run(source);
+      expect(res.status).toBe(301);
+      expect(location(res).origin).toBe(DOCS_HOST);
+      expect(location(res).pathname).toBe(destination);
+    }
+  });
+
   it("redirects /faq to the docs host, never to itself on the shell origin", () => {
     const res = run("/faq");
     const dest = location(res);

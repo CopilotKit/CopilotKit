@@ -154,7 +154,9 @@ describe("Core learning wiring", () => {
         ),
       );
       expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining("does not assign Learning Containers"),
+        expect.stringContaining(
+          "assign Learning Spaces on the server with getTrajectoryLearningContainerIds",
+        ),
       );
       expect(JSON.stringify(warn.mock.calls)).not.toContain(
         "private-container",

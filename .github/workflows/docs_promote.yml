@@ -39,7 +39,7 @@ jobs:
           # landed; manual dispatch instead reads the explicitly selected ref.
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
 
-      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
+      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
         with:
           ruby-version: "3.3"
           bundler-cache: false

@@ -94,10 +94,13 @@ test("a relative runtime URL reaches fetch for Intelligence chat and resources",
     const runUrl =
       "https://app.example.com/api/copilotkit/agent/researcher/run";
     await context.core.ɵruntimeFetch(runUrl, { method: "POST", body: "{}" });
-    expect(context.fetchMock).toHaveBeenCalledWith(runUrl, {
-      method: "POST",
-      body: "{}",
-    });
+    expect(context.fetchMock).toHaveBeenCalledWith(
+      runUrl,
+      expect.objectContaining({
+        method: "POST",
+        body: "{}",
+      }),
+    );
 
     await context.core.ɵruntimeFetch("/api/copilotkit/threads", {
       method: "GET",
@@ -251,7 +254,10 @@ test("single transport keeps legacy resource behavior without the capability", a
     context.fetchMock.mockClear();
     await context.core.ɵruntimeFetch(url, { method: "GET" });
 
-    expect(context.fetchMock).toHaveBeenCalledWith(url, { method: "GET" });
+    expect(context.fetchMock).toHaveBeenCalledWith(
+      url,
+      expect.objectContaining({ method: "GET" }),
+    );
     expect(context.core.threadEndpoints).toEqual({
       list: false,
       inspect: false,
@@ -295,7 +301,10 @@ test("REST transport ignores the single-route capability", async () => {
     context.fetchMock.mockClear();
     await context.core.ɵruntimeFetch(url, { method: "GET" });
 
-    expect(context.fetchMock).toHaveBeenCalledWith(url, { method: "GET" });
+    expect(context.fetchMock).toHaveBeenCalledWith(
+      url,
+      expect.objectContaining({ method: "GET" }),
+    );
     expect(context.core.threadEndpoints).toEqual({
       list: false,
       inspect: false,

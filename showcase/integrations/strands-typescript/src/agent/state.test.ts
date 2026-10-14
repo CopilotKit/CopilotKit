@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { RunAgentInputSchema } from "@ag-ui/core";
+import type { RunAgentInput } from "@ag-ui/core";
 import { withStateContext } from "./state";
 
-function input(state = {}) {
-  return RunAgentInputSchema.parse({
+function input(state = {}): RunAgentInput {
+  return {
     threadId: "thread",
     runId: "run",
     state,
@@ -13,7 +13,7 @@ function input(state = {}) {
     context: [
       { description: "Application catalog", value: "catalog".repeat(9000) },
     ],
-  });
+  };
 }
 
 describe("transient request state", () => {

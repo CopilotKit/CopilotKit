@@ -34,6 +34,12 @@ import {
   runtimeRequestMeta,
 } from "../utils/runtime-request";
 import { createSingleRouteResourceRequest } from "../utils/single-route-resource-request";
+import {
+  abortable,
+  isHeaderResolutionError,
+  isPromiseLike,
+  ɵoverlayCoreHeaders,
+} from "./header-source";
 
 type ResolvedCopilotRuntimeTransport = Exclude<CopilotRuntimeTransport, "auto">;
 
@@ -569,34 +575,95 @@ export class AgentRegistry {
   }
 
   /**
-   * Apply current core headers to an agent, merged ON TOP of the agent's own
-   * construction-time headers (the per-agent baseline in `agentOwnHeaders`).
-   * Core wins on a key conflict. Non-`HttpAgent` agents are left untouched
-   * because only `HttpAgent` carries a `headers` field. See #5635.
+   * Shared core-and-own-header merge for a single agent. Captures the
+   * agent's construction-time headers once (the per-agent baseline in
+   * `agentOwnHeaders`), then either keeps only that baseline — a
+   * `ProxiedCopilotRuntimeAgent`, whose core headers are added by
+   * `ɵruntimeFetch` when each request is actually sent instead, so a key the
+   * builder stops returning can never ride along from a stale copy baked
+   * onto the agent (see #1937) — or merges `coreHeaders` on top of it (any
+   * other `HttpAgent`; core wins on a key conflict, see #5635).
    */
-  applyHeadersToAgent(agent: AbstractAgent): void {
-    if (ɵisHttpAgent(agent)) {
-      // Capture the agent's construction-time headers once, before any core
-      // headers overwrite them. On every subsequent apply we rebuild from this
-      // baseline so re-applying core headers (e.g. via setHeaders) never loses
-      // the agent's own headers.
-      if (!this.agentOwnHeaders.has(agent)) {
-        this.agentOwnHeaders.set(agent, { ...agent.headers });
-      }
-      agent.headers = {
-        ...this.agentOwnHeaders.get(agent),
-        ...(this.core as unknown as CopilotKitCoreFriendsAccess).headers,
-      };
+  private applyHeaderRecordToAgent(
+    agent: HttpAgent,
+    coreHeaders: Record<string, string>,
+  ): void {
+    // On every apply we rebuild from this baseline so re-applying core
+    // headers (e.g. via setHeaders) never loses the agent's own headers.
+    if (!this.agentOwnHeaders.has(agent)) {
+      this.agentOwnHeaders.set(agent, { ...agent.headers });
     }
+    const own = this.agentOwnHeaders.get(agent)!;
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.headers = { ...own };
+      this.applyRuntimeFetchToAgent(agent);
+      return;
+    }
+    agent.headers = { ...own, ...coreHeaders };
   }
 
   /**
-   * Apply current headers to all agents
+   * Apply the last resolved header snapshot to an agent, merged ON TOP of
+   * the agent's own construction-time headers. Non-`HttpAgent` agents are
+   * left untouched because only `HttpAgent` carries a `headers` field. See
+   * #5635.
+   *
+   * Never invokes the headers builder — safe to call from anywhere (dev-only
+   * registration helpers, a React effect that re-runs on every render)
+   * without risking a synchronous throw or an unhandled async rejection from
+   * a user-supplied builder. Use `prepareAgentHeadersForRun` (friends-only)
+   * on the run/connect path, where a builder failure can be awaited and
+   * reported once.
+   */
+  applyHeadersToAgent(agent: AbstractAgent): void {
+    if (!ɵisHttpAgent(agent)) return;
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+    this.applyHeaderRecordToAgent(agent, friends.headers);
+  }
+
+  /**
+   * Apply the last resolved header snapshot to every agent, without
+   * triggering a builder call per agent. Used by `initialize` and
+   * `setHeaders`; a run re-applies with fresh headers anyway (see
+   * `prepareAgentHeadersForRun`).
    */
   applyHeadersToAgents(agents: Record<string, AbstractAgent>): void {
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
     Object.values(agents).forEach((agent) => {
-      this.applyHeadersToAgent(agent);
+      if (ɵisHttpAgent(agent)) {
+        this.applyHeaderRecordToAgent(agent, friends.headers);
+      }
     });
+  }
+
+  /**
+   * Resolve headers fresh and apply them to `agent` right before a run or
+   * connect actually sends (#1937) — the resolving counterpart to
+   * `applyHeadersToAgent`. Friends-only: only the run handler should call
+   * this, since resolving can invoke a user-supplied builder that throws
+   * synchronously or returns a rejecting promise. Resolution is synchronous
+   * for a record or a sync builder; this returns a promise only when an
+   * async builder must be awaited first, and callers that need the write to
+   * have landed before continuing must await a returned promise.
+   *
+   * A `ProxiedCopilotRuntimeAgent` never invokes the builder here: its core
+   * headers are added by `ɵruntimeFetch` at send time instead, so only its
+   * own headers are (re)applied.
+   */
+  prepareAgentHeadersForRun(agent: AbstractAgent): void | Promise<void> {
+    if (!ɵisHttpAgent(agent)) return;
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      this.applyHeaderRecordToAgent(agent, {});
+      return;
+    }
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+    const resolved = friends.resolveHeaders();
+    if (isPromiseLike(resolved)) {
+      return Promise.resolve(resolved).then((headers) => {
+        this.applyHeaderRecordToAgent(agent, headers);
+      });
+    }
+    this.applyHeaderRecordToAgent(agent, resolved);
   }
 
   /**
@@ -684,6 +751,17 @@ export class AgentRegistry {
         input: RequestInfo | URL,
         init?: RequestInit,
       ): Promise<Response> => {
+        const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+        const coreHeaders = await abortable(
+          friends.resolveHeaders(),
+          init?.signal,
+        );
+        const requestHeaders = ɵoverlayCoreHeaders(
+          init?.headers ??
+            (input instanceof Request ? input.headers : undefined),
+          coreHeaders,
+        );
+        init = { ...init, headers: requestHeaders };
         const meta = () => runtimeRequestMeta(init);
         const watchdog = this.armRuntimeRequestWatchdog(meta());
         try {
@@ -797,7 +875,32 @@ export class AgentRegistry {
     const headersGeneration = this.inspectorMetadataHeadersGeneration;
     const credentialsGeneration = this.inspectorMetadataCredentialsGeneration;
     const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
-    const headers = { ...friends.headers };
+
+    // Resolve before creating the AbortController: a builder failure here
+    // must degrade to absent metadata (like any other optional-route
+    // failure) without ever leaving a dangling, never-aborted controller.
+    // Resolution is synchronous for a record or a sync builder — only await
+    // when it's actually async (there's no AbortSignal yet to make this
+    // abortable), so a sync source never pays an extra microtask tick here.
+    let headers: Record<string, string>;
+    try {
+      const resolved = friends.resolveHeaders();
+      headers = {
+        ...(isPromiseLike(resolved) ? await resolved : resolved),
+      };
+    } catch {
+      if (generation === this.inspectorMetadataGeneration) {
+        this.setInspectorMetadata(undefined);
+      }
+      return;
+    }
+    // A concurrent refresh (e.g. from setHeaders/setCredentials) may have
+    // superseded this call while the builder above was pending — without
+    // this check, a slower earlier call would still send a request with
+    // stale headers and could replace the newer call's AbortController.
+    if (generation !== this.inspectorMetadataGeneration) {
+      return;
+    }
     const credentials = friends.credentials;
     const abortController = new AbortController();
     this.inspectorMetadataAbortController = abortController;
@@ -1103,6 +1206,13 @@ export class AgentRegistry {
     await this.notifyRuntimeStatusChanged(
       CopilotKitCoreRuntimeConnectionStatus.Error,
     );
+
+    if (isHeaderResolutionError(error)) {
+      logger.warn(
+        `Could not resolve request headers for the identification request (${this._runtimeUrl}/info). Check the headers builder passed to CopilotKit.`,
+      );
+      return;
+    }
 
     const runtimeStatus = isRuntimeInfoRequestError(error)
       ? error.runtimeInfoStatus
@@ -1579,12 +1689,17 @@ export class AgentRegistry {
     runtimeTransport: CopilotRuntimeTransport,
     signal?: AbortSignal,
   ): Promise<RuntimeInfoFetchResult> {
-    const baseHeaders = (this.core as unknown as CopilotKitCoreFriendsAccess)
-      .headers;
-    const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess)
-      .credentials;
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+    const credentials = friends.credentials;
+    // Resolution is synchronous for a record or a sync builder — only await
+    // when it's actually async, so a sync source never pays an extra
+    // microtask tick here.
+    const resolved = friends.resolveHeaders();
+    const resolvedHeaders = isPromiseLike(resolved)
+      ? await abortable(resolved, signal)
+      : resolved;
     const headers: Record<string, string> = {
-      ...baseHeaders,
+      ...resolvedHeaders,
     };
 
     if (runtimeTransport === "single") {

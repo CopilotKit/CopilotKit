@@ -30,11 +30,28 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
   through a runtime (for example a Next.js, Express, or Hono backend).
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string>">
+<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>) | (() => Promise<Record<string, string>>)">
   Extra HTTP headers sent with every runtime request, for example an
-  `Authorization` header. If you pass a format-valid `licenseKey`, a
-  `X-CopilotCloud-Public-Api-Key` header is merged in automatically unless you
-  already set one here.
+  `Authorization` header. Pass an object for static headers, or a function
+  (sync or async) to build them fresh. A builder runs when each request is
+  sent, so a refreshed token is always used.
+
+  Cache inside the builder — a builder that calls the network every time adds
+  one call per request. If the builder throws or rejects, that request is not
+  sent and `onError` gets `header_resolution_failed`.
+
+  Re-passing the same builder function is a no-op. On a user switch, pass a
+  new function (or a record) to `copilotKit.updateRuntime({ headers })` (see
+  the [`CopilotKit`](/reference/angular/services/CopilotKit) service), or
+  remount, so Inspector metadata and thread lists reload for the new user.
+  This does not refetch the runtime's `/info`.
+
+  Core headers are also sent to any `selfManagedAgents` /
+  `agents__unsafe_dev_only` agent, including ones on other origins. Don't put
+  a bearer token in core headers if those agents point at a third party.
+
+  If you pass a format-valid `licenseKey`, a `X-CopilotCloud-Public-Api-Key`
+  header is merged in automatically unless you already set one here.
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">
