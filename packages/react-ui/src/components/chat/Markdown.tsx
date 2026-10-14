@@ -18,14 +18,42 @@
  */
 
 import type { FC } from "react";
-import { memo, useMemo } from "react";
+import { isValidElement, memo, useId, useMemo } from "react";
 import type { Options, Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
+import {
+  A2UIMarkdownSurface,
+  useA2UIMarkdownConfig,
+} from "@copilotkit/react-core/v2";
 import { CodeBlock } from "./CodeBlock";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
+
+function isA2UICodeElement(children: unknown): boolean {
+  const child = Array.isArray(children) ? children[0] : children;
+  return (
+    isValidElement<{ className?: string }>(child) &&
+    /(^|\s)language-a2ui(\s|$)/.test(child.props.className ?? "")
+  );
+}
+
+const A2UIFence: FC<{ value: string; closed: boolean }> = ({
+  value,
+  closed,
+}) => {
+  const config = useA2UIMarkdownConfig();
+  const fallbackId = useId();
+  if (!config) return <CodeBlock language="a2ui" value={value} />;
+  return (
+    <A2UIMarkdownSurface
+      fenceText={value}
+      closed={closed}
+      fallbackSurfaceId={`v1-${fallbackId}`}
+    />
+  );
+};
 
 const defaultComponents: Components = {
   a({ children, ...props }) {
@@ -79,6 +107,17 @@ const defaultComponents: Components = {
       );
     }
 
+    if (match && match[1] === "a2ui") {
+      const raw = String(children);
+      const closed = !/▍\s*$/.test(raw);
+      return (
+        <A2UIFence
+          value={raw.replace(/▍\s*$/, "").replace(/\n$/, "") + "\n"}
+          closed={closed}
+        />
+      );
+    }
+
     return (
       <CodeBlock
         language={(match && match[1]) || ""}
@@ -122,11 +161,16 @@ const defaultComponents: Components = {
       {children}
     </div>
   ),
-  pre: ({ children, ...props }) => (
-    <pre className="copilotKitMarkdownElement" {...props}>
-      {children}
-    </pre>
-  ),
+  pre({ children, ...props }) {
+    // An ```a2ui fence renders a live surface, not preformatted text, so it
+    // must not sit inside a <pre> (monospace font, preserved whitespace).
+    if (isA2UICodeElement(children)) return <>{children}</>;
+    return (
+      <pre className="copilotKitMarkdownElement" {...props}>
+        {children}
+      </pre>
+    );
+  },
   blockquote: ({ children, ...props }) => (
     <blockquote className="copilotKitMarkdownElement" {...props}>
       {children}
