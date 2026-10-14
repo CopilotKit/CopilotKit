@@ -412,3 +412,97 @@ describe("extractFenceOperations object stream", () => {
     expect(res.partialObject).toBe(`${missingBrace}\n`);
   });
 });
+
+describe("extractCompleteArrayItems component repair", () => {
+  const wrap = (items: string) => `{"components":[${items}]}`;
+
+  it("lifts children out of an action missing a closing brace", () => {
+    const json = wrap(
+      '{"id":"form","component":"Form","action":{"event":{"name":"submit","context":{"message":"x"}},"children":["a","b"]},{"id":"a","component":"Text","text":"A"},{"id":"b","component":"Text","text":"B"}',
+    );
+    const result = extractCompleteArrayItems(json, "components");
+    expect(result?.items).toEqual([
+      {
+        id: "form",
+        component: "Form",
+        action: { event: { name: "submit", context: { message: "x" } } },
+        children: ["a", "b"],
+      },
+      { id: "a", component: "Text", text: "A" },
+      { id: "b", component: "Text", text: "B" },
+    ]);
+  });
+
+  it("leaves structural-looking keys inside arrays and non-structural keys alone", () => {
+    const item = {
+      id: "pick",
+      component: "ChoicePicker",
+      options: [{ id: "o1", name: "One", children: ["x"] }],
+      action: {
+        event: {
+          name: "pick",
+          context: { name: { path: "/n" }, list: [{ id: "x", child: "y" }] },
+        },
+      },
+    };
+    const result = extractCompleteArrayItems(
+      wrap(JSON.stringify(item)),
+      "components",
+    );
+    expect(result?.items).toEqual([item]);
+  });
+
+  it("does not lift a structural key the component already has", () => {
+    const item = {
+      id: "btn",
+      component: "Button",
+      child: "label",
+      action: { event: { name: "go", context: { id: "plan-pro" } } },
+    };
+    const result = extractCompleteArrayItems(
+      wrap(JSON.stringify(item)),
+      "components",
+    );
+    expect(result?.items).toEqual([item]);
+  });
+
+  it("cuts an unbalanced item at the next component and keeps the rest", () => {
+    // "bad" never closes its "x" object; the cut item cannot be repaired
+    // into valid JSON (dangling key), but later items survive.
+    const json = wrap(
+      '{"id":"bad","component":"Text","x":{"y":1,"z":},{"id":"ok","component":"Text","text":"ok"},{"id":"ok2","component":"Text","text":"ok2"}',
+    );
+    const result = extractCompleteArrayItems(json, "components");
+    expect(result?.items).toEqual([
+      { id: "ok", component: "Text", text: "ok" },
+      { id: "ok2", component: "Text", text: "ok2" },
+    ]);
+    expect(result?.closed).toBe(true);
+  });
+
+  it("keeps a cut item when closing it makes it valid", () => {
+    const json = wrap(
+      '{"id":"card","component":"Card","style":{"pad":2,{"id":"next","component":"Text","text":"n"}',
+    );
+    const result = extractCompleteArrayItems(json, "components");
+    expect(result?.items).toEqual([
+      { id: "card", component: "Card", style: { pad: 2 } },
+      { id: "next", component: "Text", text: "n" },
+    ]);
+  });
+
+  it("does not repair arrays other than components", () => {
+    const json = '{"rows":[{"a":{"b":1,"children":[1]},{"a":2}]}';
+    expect(extractCompleteArrayItems(json, "rows")?.items).toEqual([]);
+  });
+
+  it("repairs components when salvaging a malformed fence object", () => {
+    const fence = `{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Column","children":["form"]},{"id":"form","component":"Form","action":{"event":{"name":"submit","context":{"message":"x"}},"children":["a"]},{"id":"a","component":"Text","text":"A"}]}}`;
+    const { operations } = extractFenceOperations(fence);
+    const components = (
+      operations[0]?.updateComponents as { components: { id: string }[] }
+    ).components;
+    expect(components.map((c) => c.id)).toEqual(["root", "form", "a"]);
+    expect(components[1]).toHaveProperty("children", ["a"]);
+  });
+});

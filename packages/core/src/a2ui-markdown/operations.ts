@@ -86,7 +86,8 @@ function pushItem(raw: string, items: unknown[]): void {
 /**
  * Find `"key":[` in partial JSON and return every complete item of that array
  * so far, plus whether the array has closed. Returns null when the key (with
- * an array value) has not appeared yet.
+ * an array value) has not appeared yet. Items of a `components` array get
+ * structural-key depth repair (see `repairComponentItem`).
  */
 export function extractCompleteArrayItems(
   partialJson: string,
@@ -94,21 +95,153 @@ export function extractCompleteArrayItems(
 ): { items: unknown[]; closed: boolean } | null {
   const open = findKeyValue(partialJson, key, "[");
   if (open < 0) return null;
-  return completeArrayItemsAt(partialJson, open);
+  return completeArrayItemsAt(partialJson, open, key === "components");
 }
 
-/** Complete items of the (possibly unterminated) array whose "[" is at `open`. */
+/** Index of the last non-whitespace character before `i`, or -1. */
+function prevNonWhitespace(s: string, i: number): number {
+  let j = i - 1;
+  while (j >= 0 && isWhitespace(s[j])) j--;
+  return j;
+}
+
+/**
+ * Keys that only ever belong at a component's top level. Seen nested inside
+ * the component's objects, they mean the model forgot closing braces.
+ */
+const STRUCTURAL_KEYS = new Set(["id", "component", "child", "children"]);
+
+/** Whether a value starting with `ch` has the shape `key` takes on a component. */
+function structuralValueFits(key: string, ch: string | undefined): boolean {
+  if (key === "children") return ch === "[" || ch === "{";
+  return ch === '"';
+}
+
+/** `{"id":` — a new component object starting at `i`. */
+const COMPONENT_START = /^\{\s*"id"\s*:/;
+
+/**
+ * Structural-key depth repair for one component item. While scanning, a
+ * structural key (`id`, `component`, `child`, `children`) found as an object
+ * key below the item's top level, with only objects (no arrays) between it
+ * and the item root, a value of the expected shape, and not already present
+ * at the top level, means closing braces were dropped: the missing `}` are
+ * synthesized right before it so it lands at the top level. Containers still
+ * open at the end are closed. Returns null when a string never terminates.
+ */
+function repairComponentItem(item: string): string | null {
+  const stack: string[] = [];
+  const topKeys = new Set<string>();
+  let out = "";
+  let copied = 0;
+  for (let i = 0; i < item.length; i++) {
+    const c = item[i];
+    if (c === '"') {
+      const end = findStringEnd(item, i);
+      if (end < 0) return null;
+      const prev = prevNonWhitespace(item, i);
+      const prevCh = item[prev];
+      const colon = skipWhitespace(item, end + 1);
+      const isKey =
+        stack[stack.length - 1] === "{" &&
+        (prevCh === "," || prevCh === "{") &&
+        item[colon] === ":";
+      if (isKey) {
+        let key: unknown;
+        try {
+          key = JSON.parse(item.slice(i, end + 1));
+        } catch {
+          return null;
+        }
+        if (typeof key === "string") {
+          if (stack.length === 1) {
+            topKeys.add(key);
+          } else if (
+            STRUCTURAL_KEYS.has(key) &&
+            !topKeys.has(key) &&
+            stack.every((x) => x === "{") &&
+            structuralValueFits(key, item[skipWhitespace(item, colon + 1)])
+          ) {
+            const closers = "}".repeat(stack.length - 1);
+            if (prevCh === ",") {
+              out += item.slice(copied, prev) + closers;
+              copied = prev;
+            } else {
+              // `"x":{"children":…` — close the empty object, then a comma.
+              out += item.slice(copied, i) + closers + ",";
+              copied = i;
+            }
+            stack.length = 1;
+            topKeys.add(key);
+          }
+        }
+      }
+      i = end;
+      continue;
+    }
+    if (c === "{" || c === "[") {
+      stack.push(c);
+    } else if (c === "}" || c === "]") {
+      stack.pop();
+      if (stack.length === 0) return out + item.slice(copied, i + 1);
+    }
+  }
+  const closers = stack
+    .reverse()
+    .map((x) => (x === "{" ? "}" : "]"))
+    .join("");
+  return out + item.slice(copied) + closers;
+}
+
+function parseRecord(text: string | null): unknown {
+  if (text === null) return undefined;
+  try {
+    const value: unknown = JSON.parse(text);
+    return isRecord(value) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Complete items of the (possibly unterminated) array whose "[" is at `open`.
+ * With `repairComponents`, an item that balanced but does not parse is retried
+ * with structural-key repair, and a `,{"id":` where an item expects a key
+ * ends that (unbalanced) item there, so one malformed component cannot
+ * swallow the rest of the array; the cut item is kept only if repair makes
+ * it parse.
+ */
 function completeArrayItemsAt(
   partialJson: string,
   open: number,
+  repairComponents = false,
 ): { items: unknown[]; closed: boolean } {
+  const s = partialJson;
   const items: unknown[] = [];
-  let depth = 0;
+  const stack: string[] = [];
   let inString = false;
   let itemStart = -1;
 
-  for (let i = open + 1; i < partialJson.length; i++) {
-    const c = partialJson[i];
+  const finishItem = (end: number, balanced: boolean) => {
+    const raw = s.slice(itemStart, end);
+    if (!repairComponents) {
+      pushItem(raw, items);
+      return;
+    }
+    if (balanced) {
+      try {
+        items.push(JSON.parse(raw));
+        return;
+      } catch {
+        // Fall through to repair.
+      }
+    }
+    const repaired = parseRecord(repairComponentItem(raw.trim()));
+    if (repaired !== undefined) items.push(repaired);
+  };
+
+  for (let i = open + 1; i < s.length; i++) {
+    const c = s[i];
     if (inString) {
       if (c === "\\") i++;
       else if (c === '"') inString = false;
@@ -116,33 +249,50 @@ function completeArrayItemsAt(
     }
     if (c === '"') {
       inString = true;
-      if (depth === 0 && itemStart < 0) itemStart = i;
+      if (stack.length === 0 && itemStart < 0) itemStart = i;
       continue;
     }
     if (c === "{" || c === "[") {
-      if (depth === 0) itemStart = i;
-      depth++;
+      if (
+        repairComponents &&
+        c === "{" &&
+        stack[stack.length - 1] === "{" &&
+        COMPONENT_START.test(s.slice(i, i + 24))
+      ) {
+        const prev = prevNonWhitespace(s, i);
+        if (s[prev] === ",") {
+          // A new component where a key was expected: the current item
+          // is missing closers. End it before the comma and start anew.
+          finishItem(prev, false);
+          stack.length = 0;
+          itemStart = i;
+          stack.push(c);
+          continue;
+        }
+      }
+      if (stack.length === 0) itemStart = i;
+      stack.push(c);
       continue;
     }
     if (c === "}" || c === "]") {
-      if (depth === 0) {
+      if (stack.length === 0) {
         // Closing bracket of the items array itself (or malformed input).
         if (c === "]") {
-          if (itemStart >= 0) pushItem(partialJson.slice(itemStart, i), items);
+          if (itemStart >= 0) pushItem(s.slice(itemStart, i), items);
           return { items, closed: true };
         }
         return { items, closed: false };
       }
-      depth--;
-      if (depth === 0) {
-        pushItem(partialJson.slice(itemStart, i + 1), items);
+      stack.pop();
+      if (stack.length === 0) {
+        finishItem(i + 1, true);
         itemStart = -1;
       }
       continue;
     }
-    if (depth === 0) {
+    if (stack.length === 0) {
       if (c === ",") {
-        if (itemStart >= 0) pushItem(partialJson.slice(itemStart, i), items);
+        if (itemStart >= 0) pushItem(s.slice(itemStart, i), items);
         itemStart = -1;
       } else if (itemStart < 0 && !isWhitespace(c)) {
         itemStart = i; // start of a primitive item
@@ -326,7 +476,7 @@ function partialOperation(line: string): A2UIOperation | null {
   if (components >= 0) {
     const arrayStart = findDirectKeyValue(line, components, "components", "[");
     if (arrayStart < 0) return null;
-    const { items } = completeArrayItemsAt(line, arrayStart);
+    const { items } = completeArrayItemsAt(line, arrayStart, true);
     if (items.length === 0) return null;
     const surfaceId = readDirectString(line, components, "surfaceId");
     return {
