@@ -312,7 +312,7 @@ function completePartOfValue(s: string, start: number): unknown {
 }
 
 /**
- * Best-effort operation from an unfinished JSONL line. Fields are read only
+ * Best-effort operation from an unfinished or malformed top-level object. Fields are read only
  * from the operation's own keys (`version` at the top level, `surfaceId`,
  * `catalogId` and `path` inside the operation object), never from component
  * props or data-model values that happen to share a name.
@@ -370,54 +370,142 @@ function partialOperation(line: string): A2UIOperation | null {
 }
 
 /**
- * Parse the body of an a2ui fence (JSONL). Complete lines are JSON-parsed; a
- * trailing line without a newline is used as-is when it already parses,
- * otherwise it yields a partial operation when it contains usable data
- * (complete components for updateComponents, the complete part of the value
- * for updateDataModel, or a complete surfaceId for createSurface). `partialLine` is that unfinished trailing line, if any.
+ * A line that opens a new top-level operation: `{"version":"v…` or
+ * `{"<operation>":{`. Seen at the start of a line while an earlier object is
+ * still unbalanced, it means that object is malformed and has ended.
+ */
+const OPERATION_START =
+  /^\{\s*"(?:version"\s*:\s*"v\d|(?:createSurface|updateComponents|updateDataModel|deleteSurface)"\s*:\s*\{)/;
+
+/**
+ * Scan the top-level object whose "{" is at `start`. Returns the index just
+ * past it and whether it balanced. An unbalanced object ends early (at the
+ * start of the line) when a line opens a new operation; otherwise it runs to
+ * the end of the input. JSON strings cannot contain raw newlines, so a newline
+ * inside a string ends it: a stray quote then breaks one line, not the rest of
+ * the fence.
+ */
+function scanTopLevelObject(
+  s: string,
+  start: number,
+): { end: number; balanced: boolean } {
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inString) {
+      if (c === "\\" && s[i + 1] !== "\n") i++;
+      else if (c === '"' || c === "\n") inString = false;
+      if (c !== "\n") continue;
+    }
+    if (c === "\n") {
+      const next = skipWhitespace(s, i + 1);
+      if (OPERATION_START.test(s.slice(next, next + 40))) {
+        return { end: i + 1, balanced: false };
+      }
+      continue;
+    }
+    if (c === '"') inString = true;
+    else if (c === "{" || c === "[") depth++;
+    else if (c === "}" || c === "]") {
+      depth--;
+      if (depth === 0) return { end: i + 1, balanced: true };
+    }
+  }
+  return { end: s.length, balanced: false };
+}
+
+/**
+ * Parse the body of an a2ui fence as a stream of top-level JSON values, so
+ * operations may be one per line (the documented format), several per line,
+ * pretty-printed over many lines, or wrapped in a top-level array (which is
+ * flattened). Whitespace and commas between objects are ignored.
+ *
+ * - A balanced object is `JSON.parse`d. When that fails (e.g. a stray quote),
+ *   its raw text goes to `invalidLines` and whatever `partialOperation` can
+ *   salvage (complete components, data-model entries, createSurface fields)
+ *   is kept.
+ * - An unbalanced object followed by a line that opens a new operation is
+ *   treated the same way.
+ * - The trailing unbalanced object (still streaming, or never closed) is
+ *   `partialObject` and yields a partial operation when it has usable data.
+ * - Other text between objects is skipped and reported in `recovered` (and in
+ *   `invalidLines`, which predates it).
+ *
+ * `partialLine` is a deprecated alias of `partialObject`.
  */
 export function extractFenceOperations(fenceText: string): {
   operations: A2UIOperation[];
+  partialObject: string | null;
   partialLine: string | null;
   invalidLines: string[];
+  recovered: string[];
 } {
+  const s = fenceText;
   const operations: A2UIOperation[] = [];
   const invalidLines: string[] = [];
-  const lines = fenceText.split("\n");
-  // When the text ends with "\n" the final element is "" and there is no trailing line.
-  const last = lines.pop() ?? "";
+  const recovered: string[] = [];
+  let partialObject: string | null = null;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      const parsed: unknown = JSON.parse(trimmed);
-      if (isRecord(parsed)) operations.push(parsed);
-      else invalidLines.push(trimmed);
-    } catch {
-      invalidLines.push(trimmed);
+  const salvage = (raw: string) => {
+    invalidLines.push(raw.trim());
+    const partial = partialOperation(raw);
+    if (partial) operations.push(partial);
+  };
+
+  let junkStart = -1;
+  const flushJunk = (end: number) => {
+    if (junkStart < 0) return;
+    const junk = s.slice(junkStart, end).trim();
+    junkStart = -1;
+    if (!junk) return;
+    recovered.push(junk);
+    invalidLines.push(junk);
+  };
+
+  let i = 0;
+  while (i < s.length) {
+    const c = s[i]!;
+    if (c === "{") {
+      flushJunk(i);
+      const { end, balanced } = scanTopLevelObject(s, i);
+      const raw = s.slice(i, end);
+      if (balanced) {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          parsed = undefined;
+        }
+        if (isRecord(parsed)) operations.push(parsed);
+        else salvage(raw);
+      } else if (end < s.length) {
+        salvage(raw);
+      } else {
+        partialObject = raw;
+        const partial = partialOperation(raw);
+        if (partial) operations.push(partial);
+      }
+      i = end;
+      continue;
     }
+    if (c === "\n" || c === "[" || c === "]") {
+      // A top-level array of operations is flattened by skipping its brackets.
+      flushJunk(i);
+    } else if (junkStart < 0 && !isWhitespace(c) && c !== ",") {
+      junkStart = i;
+    }
+    i++;
   }
+  flushJunk(s.length);
 
-  let partialLine: string | null = null;
-  const trimmedLast = last.trim();
-  if (trimmedLast) {
-    let complete: unknown;
-    try {
-      complete = JSON.parse(trimmedLast);
-    } catch {
-      complete = undefined;
-    }
-    if (isRecord(complete)) {
-      operations.push(complete);
-    } else {
-      partialLine = last;
-      const partial = partialOperation(last);
-      if (partial) operations.push(partial);
-    }
-  }
-
-  return { operations, partialLine, invalidLines };
+  return {
+    operations,
+    partialObject,
+    partialLine: partialObject,
+    invalidLines,
+    recovered,
+  };
 }
 
 /**
