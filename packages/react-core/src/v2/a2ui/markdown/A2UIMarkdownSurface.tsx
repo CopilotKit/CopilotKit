@@ -79,6 +79,13 @@ const HIDDEN_STYLE: React.CSSProperties = {
   overflow: "hidden",
 };
 
+/** The surface never grows wider than the chat column; wide content scrolls inside. */
+const SURFACE_FIT_STYLE: React.CSSProperties = {
+  minWidth: 0,
+  maxWidth: "100%",
+  boxSizing: "border-box",
+};
+
 type ComponentRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is ComponentRecord {
@@ -337,6 +344,7 @@ export function A2UIMarkdownSurface({
           : "cpk:relative cpk:flex cpk:w-full cpk:flex-col"
       }
       data-a2ui-markdown-surface={prepared.surfaceId}
+      style={SURFACE_FIT_STYLE}
     >
       {/* No built-in placeholder: the prose keeps streaming above and the
           surface appears as soon as its root component is complete. Apps can
@@ -347,7 +355,7 @@ export function A2UIMarkdownSurface({
           aria-hidden={!showSurface}
           data-a2ui-visible={showSurface ? "" : undefined}
           className="cpk:flex cpk:w-full cpk:flex-col"
-          style={showSurface ? undefined : HIDDEN_STYLE}
+          style={showSurface ? SURFACE_FIT_STYLE : HIDDEN_STYLE}
         >
           <A2UIProvider
             key={prepared.surfaceId}

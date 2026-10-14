@@ -19,6 +19,7 @@ import {
   titleFont,
 } from "../tokens";
 import type { TitleSize, Weight } from "../tokens";
+import { useStandardStyles } from "../styles";
 
 const SAFE_URL = /^(https?:|mailto:)/i;
 const safeHref = (href: unknown) =>
@@ -115,25 +116,33 @@ function ShimmerText({ props }: RendererProps<any>) {
   );
 }
 
+/** Badge (md): 20px pill, 12px/500 text, 0.3px tracking, ~6.65px side padding. */
 const BADGE_PAD: Record<string, string> = {
-  sm: "1px 6px",
-  md: "2px 8px",
-  lg: "4px 10px",
+  sm: "0 5px",
+  md: "0 6.65px",
+  lg: "2px 8px",
 };
-const BADGE_FONT: Record<string, number> = { sm: 11, md: 12, lg: 14 };
+const BADGE_FONT: Record<string, number> = { sm: 11, md: 12, lg: 13 };
+const BADGE_HEIGHT: Record<string, number> = { sm: 18, md: 20, lg: 24 };
+const BADGE_NEUTRAL_BG =
+  "var(--a2ui-color-badge-secondary, rgba(0, 0, 0, 0.05))";
 
 function Badge({ props }: RendererProps<any>) {
   const color: string = props.color ?? "secondary";
   const variant: string = props.variant ?? "soft";
-  const tone = color === "secondary" ? "surface-tertiary" : color;
-  const solid = color === "secondary" ? "surface-inverted" : `${color}-solid`;
-  const fg = textColor(color);
+  const neutral = color === "secondary";
+  const solid = neutral ? "surface-inverted" : `${color}-solid`;
+  const fg = neutral ? textColor("default") : textColor(color);
   const size: string = props.size ?? "md";
   return (
     <span
       style={{
         display: "inline-flex",
         alignItems: "center",
+        gap: 4,
+        flexShrink: 0,
+        boxSizing: "border-box",
+        minHeight: BADGE_HEIGHT[size],
         verticalAlign: "middle",
         whiteSpace: "nowrap",
         overflow: "hidden",
@@ -144,7 +153,8 @@ function Badge({ props }: RendererProps<any>) {
             ? spacing(props.padding)
             : BADGE_PAD[size],
         fontSize: BADGE_FONT[size],
-        lineHeight: 1.4,
+        lineHeight: "16px",
+        letterSpacing: "0.3px",
         fontWeight: FONT_WEIGHT[(props.weight as Weight) ?? "medium"],
         borderRadius: props.pill === false ? radius("sm") : radius("full"),
         background:
@@ -152,7 +162,9 @@ function Badge({ props }: RendererProps<any>) {
             ? backgroundColor(solid)
             : variant === "outline"
               ? "transparent"
-              : backgroundColor(tone),
+              : neutral
+                ? BADGE_NEUTRAL_BG
+                : backgroundColor(color),
         color: variant === "solid" ? "#fff" : fg,
         border:
           variant === "outline"
@@ -165,14 +177,17 @@ function Badge({ props }: RendererProps<any>) {
   );
 }
 
-const CAPTION_PX: Record<string, number> = { sm: 10, md: 11, lg: 12 };
+/** Caption lg (the default) is 14px with a 1.3 line height, muted. */
+const CAPTION_PX: Record<string, number> = { sm: 12, md: 13, lg: 14 };
 
 export const textRenderers = {
   Title: ({ props }: RendererProps<any>) => {
+    useStandardStyles();
     const size: TitleSize = props.size ?? "md";
     const Tag = TITLE_TAG[size] ?? "h3";
     return (
       <Tag
+        data-a2ui-std=""
         style={{
           ...titleFont(size),
           ...typographyStyle(props),
@@ -187,6 +202,7 @@ export const textRenderers = {
     );
   },
   Text: ({ props, children }: RendererProps<any>) => {
+    useStandardStyles();
     const highlight =
       props.highlight === true
         ? HIGHLIGHT.orange
@@ -202,6 +218,7 @@ export const textRenderers = {
     return (
       <span
         data-a2ui-text=""
+        data-a2ui-std=""
         style={{
           display: props.inline ? "inline" : "block",
           ...textFont(props.size),
@@ -232,8 +249,8 @@ export const textRenderers = {
     <span
       style={{
         display: "block",
-        fontSize: CAPTION_PX[props.size ?? "lg"] ?? 12,
-        lineHeight: 1.4,
+        fontSize: CAPTION_PX[props.size ?? "lg"] ?? 14,
+        lineHeight: 1.3,
         ...typographyStyle({ ...props, color: props.color ?? "secondary" }),
         fontWeight: FONT_WEIGHT[(props.weight as Weight) ?? "normal"],
       }}
@@ -247,7 +264,7 @@ export const textRenderers = {
       style={{
         display: "block",
         ...textFont(props.size ?? "sm"),
-        ...typographyStyle(props),
+        ...typographyStyle({ ...props, color: props.color ?? "secondary" }),
         fontWeight: FONT_WEIGHT[(props.weight as Weight) ?? "medium"],
       }}
     >

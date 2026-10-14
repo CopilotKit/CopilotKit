@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useId, useRef, useState } from "react";
 import type {
   CatalogRenderers,
   RendererProps,
@@ -14,6 +14,8 @@ import {
   textColor,
   textFont,
 } from "../tokens";
+import { ACCENT, useStandardStyles } from "../styles";
+import { LucideIcon } from "./media";
 
 /*
  * Bound props are written back with the setter the generic binder adds for
@@ -21,26 +23,18 @@ import {
  * `action` arrives as a `() => void` that dispatches the A2UI action.
  */
 
+/*
+ * Control metrics: inputs (size xl) are 40px tall with
+ * ~18.6px side padding and 16px text; buttons (size lg) are 36px tall pills
+ * with 16px side padding, 14px/500 text and a 6px icon gap.
+ */
 type Size = "sm" | "md" | "lg" | "xl";
 const HEIGHT: Record<Size, number> = { sm: 28, md: 32, lg: 36, xl: 40 };
 const FONT_PX: Record<Size, number> = { sm: 13, md: 14, lg: 14, xl: 16 };
-const PAD_X: Record<Size, number> = { sm: 8, md: 10, lg: 12, xl: 14 };
+const PAD_X: Record<Size, number> = { sm: 10, md: 12, lg: 12, xl: 18 };
+const ICON_PX: Record<Size, number> = { sm: 14, md: 16, lg: 18, xl: 18 };
 
-const ACCENT = "var(--a2ui-color-accent, #0d0d0d)";
-const FOCUS_OUTLINE = "2px solid var(--a2ui-color-focus, #0285ff)";
-const FOCUS_STYLE_ID = "a2ui-standard-inputs";
-
-/** Inject the shared focus ring once. */
-function useInputStyles() {
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    if (document.getElementById(FOCUS_STYLE_ID)) return;
-    const style = document.createElement("style");
-    style.id = FOCUS_STYLE_ID;
-    style.textContent = `[data-a2ui-input]:focus-visible{outline:${FOCUS_OUTLINE};outline-offset:1px}`;
-    document.head.appendChild(style);
-  }, []);
-}
+const useInputStyles = useStandardStyles;
 
 const str = (v: unknown) => (v === undefined || v === null ? "" : String(v));
 
@@ -64,6 +58,8 @@ function controlStyle(
   return {
     boxSizing: "border-box",
     width: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
     minHeight: HEIGHT[size],
     padding: `0 ${PAD_X[size]}px`,
     fontSize: FONT_PX[size],
@@ -92,12 +88,17 @@ function Field({
         flexDirection: "column",
         gap: spacing(1),
         width: "100%",
+        minWidth: 0,
       }}
     >
       {label ? (
         <label
           htmlFor={htmlFor}
-          style={{ ...textFont("sm"), fontWeight: FONT_WEIGHT.medium }}
+          style={{
+            ...textFont("sm"),
+            fontWeight: FONT_WEIGHT.medium,
+            color: textColor("secondary"),
+          }}
         >
           {label}
         </label>
@@ -125,14 +126,16 @@ function Button({ props, children }: RendererProps<any>) {
     width: props.block ? "100%" : undefined,
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing(2),
+    gap: 6,
     boxSizing: "border-box",
+    maxWidth: "100%",
     minHeight: HEIGHT[size],
     minWidth: props.uniform ? HEIGHT[size] : undefined,
     padding: props.uniform ? 0 : `0 ${PAD_X[size] + 4}px`,
     fontSize: FONT_PX[size],
     fontFamily: "inherit",
     fontWeight: FONT_WEIGHT.medium,
+    lineHeight: "14px",
     borderRadius: props.pill === false ? radius("md") : "9999px",
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.5 : undefined,
@@ -172,7 +175,11 @@ function Button({ props, children }: RendererProps<any>) {
         props.action?.();
       }}
     >
-      {props.icon ? <span aria-hidden data-icon={props.icon} /> : null}
+      {props.icon ? (
+        <span aria-hidden data-icon={props.icon} style={{ display: "flex" }}>
+          <LucideIcon name={props.icon} size={ICON_PX[size]} />
+        </span>
+      ) : null}
       {props.children?.length
         ? renderChildren(props.children, children)
         : str(props.label ?? props.text)}
@@ -289,20 +296,15 @@ function CheckBox({ props }: RendererProps<any>) {
     >
       <input
         type="checkbox"
+        className="a2ui-std-check"
         data-a2ui-input=""
+        data-shape={props.shape ?? "round"}
         name={props.name}
         value={props.value ?? "on"}
         required={props.required}
         disabled={props.disabled}
         checked={checked}
         onChange={(e) => props.setChecked?.(e.target.checked)}
-        style={{
-          width: 16,
-          height: 16,
-          margin: 0,
-          accentColor: ACCENT,
-          borderRadius: (props.shape ?? "round") === "round" ? "9999px" : 4,
-        }}
       />
       {props.label !== undefined ? (
         <span
@@ -319,15 +321,23 @@ function CheckBox({ props }: RendererProps<any>) {
 }
 
 function Radio({ props }: RendererProps<any>) {
+  useInputStyles();
   return (
-    <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+    <label
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: spacing(2),
+        ...textFont("md"),
+      }}
+    >
       <input
         type="radio"
+        className="a2ui-std-check"
         data-a2ui-input=""
         value={props.value}
         disabled={props.disabled}
         required={props.required}
-        style={{ margin: 0, accentColor: ACCENT }}
       />
       {props.label ?? props.value}
     </label>
@@ -351,6 +361,7 @@ function RadioGroup({ props }: RendererProps<any>) {
           style={{
             ...textFont("sm"),
             fontWeight: FONT_WEIGHT.medium,
+            color: textColor("secondary"),
             padding: 0,
             marginBottom: spacing(1),
           }}
@@ -398,7 +409,7 @@ function RadioGroup({ props }: RendererProps<any>) {
                 required={props.required}
                 checked={selected}
                 onChange={() => props.setValue?.(o.value)}
-                style={{ margin: 0, accentColor: ACCENT }}
+                className="a2ui-std-check"
               />
               <span style={{ display: "flex", flexDirection: "column" }}>
                 <span>{o.label}</span>
@@ -433,19 +444,28 @@ function Slider({ props }: RendererProps<any>) {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: spacing(1),
+        gap: spacing(2),
         width: "100%",
+        minWidth: 0,
       }}
     >
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
+          alignItems: "center",
+          gap: spacing(2),
           ...textFont("sm"),
         }}
       >
         {props.label ? (
-          <label htmlFor={id} style={{ fontWeight: FONT_WEIGHT.medium }}>
+          <label
+            htmlFor={id}
+            style={{
+              fontWeight: FONT_WEIGHT.medium,
+              color: textColor("secondary"),
+            }}
+          >
             {props.label}
           </label>
         ) : (
@@ -453,7 +473,7 @@ function Slider({ props }: RendererProps<any>) {
         )}
         <span
           style={{
-            color: textColor("secondary"),
+            fontWeight: FONT_WEIGHT.semibold,
             fontVariantNumeric: "tabular-nums",
           }}
         >
@@ -465,6 +485,7 @@ function Slider({ props }: RendererProps<any>) {
       <input
         id={id}
         type="range"
+        className="a2ui-std-range"
         data-a2ui-input=""
         name={props.name}
         min={props.min ?? 0}
@@ -474,12 +495,6 @@ function Slider({ props }: RendererProps<any>) {
         value={value}
         list={discrete && marks.length ? listId : undefined}
         onChange={(e) => props.setValue?.(Number(e.target.value))}
-        style={{
-          width: "100%",
-          margin: 0,
-          accentColor: ACCENT,
-          cursor: "pointer",
-        }}
       />
       {marks.length ? (
         <>
@@ -492,8 +507,10 @@ function Slider({ props }: RendererProps<any>) {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              ...textFont("xs"),
-              color: textColor("tertiary"),
+              gap: spacing(2),
+              fontSize: 14,
+              lineHeight: 1.3,
+              color: textColor("secondary"),
             }}
           >
             {marks.map((m) => (

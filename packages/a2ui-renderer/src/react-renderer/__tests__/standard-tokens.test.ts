@@ -10,6 +10,7 @@ import {
   TITLE_SIZES,
   TEXT_SIZES,
   STANDARD_CATALOG_ID,
+  FONT_FAMILY,
 } from "../a2ui-react/catalog/standard/tokens";
 
 describe("standard tokens", () => {
@@ -27,7 +28,7 @@ describe("standard tokens", () => {
   });
   it("maps semantic colors and passes raw CSS", () => {
     expect(textColor("secondary")).toBe(
-      "var(--a2ui-color-text-secondary, #676767)",
+      "var(--a2ui-color-text-secondary, #5d5d5d)",
     );
     expect(textColor("#123")).toBe("#123");
     expect(backgroundColor("surface-secondary")).toContain(
@@ -53,6 +54,20 @@ describe("standard tokens", () => {
   it("defaults font helpers to md", () => {
     expect(titleFont().fontSize).toBe(titleFont("md").fontSize);
     expect(textFont().fontSize).toBe(16);
+  });
+  it("follows the type scale", () => {
+    expect(titleFont("2xl")).toMatchObject({
+      fontSize: 24,
+      lineHeight: "32px",
+      fontWeight: 600,
+    });
+    expect(titleFont("lg")).toMatchObject({ fontSize: 18, lineHeight: "28px" });
+    expect(textFont("md")).toEqual({ fontSize: 16, lineHeight: "26px" });
+    expect(textFont("sm")).toEqual({ fontSize: 14, lineHeight: "20px" });
+    expect(FONT_FAMILY).toContain("-apple-system, ui-sans-serif, system-ui");
+    expect(borderColor("default")).toBe(
+      "var(--a2ui-color-border-default, rgba(0, 0, 0, 0.1))",
+    );
   });
   it("uses the documented catalog id", () => {
     expect(STANDARD_CATALOG_ID).toBe(

@@ -112,7 +112,7 @@ const TEXT_COLOR_FALLBACK: Record<string, string> = {
   prose: "#0d0d0d",
   primary: "#0d0d0d",
   emphasis: "#000",
-  secondary: "#676767",
+  secondary: "#5d5d5d",
   tertiary: "#8f8f8f",
   success: "#00805d",
   info: "#0068bc",
@@ -143,9 +143,9 @@ const BG_FALLBACK: Record<string, string> = {
   "discovery-solid": "#7040c1",
 };
 const BORDER_FALLBACK: Record<string, string> = {
-  default: "#e7e7e7",
-  subtle: "#f0f0f0",
-  strong: "#cfcfcf",
+  default: "rgba(0, 0, 0, 0.1)",
+  subtle: "rgba(0, 0, 0, 0.05)",
+  strong: "#cdcdcd",
   info: "#9cc4ea",
   warning: "#e6c98a",
   caution: "#e6c98a",
@@ -191,35 +191,42 @@ export function borderColor(v: string | undefined): string | undefined {
     : v;
 }
 
-const TITLE_PX: Record<TitleSize, number> = {
-  sm: 15,
-  md: 17,
-  lg: 21,
-  xl: 25,
-  "2xl": 32,
-  "3xl": 40,
-  "4xl": 48,
-  "5xl": 56,
+/**
+ * Type scale:
+ * title lg = 18/28, 2xl = 24/32 (Tailwind-like steps around them);
+ * text md = 16/26, sm = 14/20, xs = 12/16, 3xs = 10/12.
+ */
+const TITLE_SCALE: Record<TitleSize, [number, number]> = {
+  sm: [14, 20],
+  md: [16, 24],
+  lg: [18, 28],
+  xl: [20, 28],
+  "2xl": [24, 32],
+  "3xl": [30, 36],
+  "4xl": [36, 40],
+  "5xl": [48, 52],
 };
-const TEXT_PX: Record<TextSize, number> = {
-  "3xs": 10,
-  "2xs": 11,
-  xs: 12,
-  sm: 14,
-  md: 16,
-  lg: 18,
+const TEXT_SCALE: Record<TextSize, [number, number]> = {
+  "3xs": [10, 12],
+  "2xs": [11, 14],
+  xs: [12, 16],
+  sm: [14, 20],
+  md: [16, 26],
+  lg: [18, 28],
 };
 
+/** A system UI font stack; override with `--a2ui-font-family`. */
+export const FONT_FAMILY =
+  'var(--a2ui-font-family, -apple-system, ui-sans-serif, system-ui, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol")';
+
 export function titleFont(size: TitleSize = "md"): React.CSSProperties {
-  return {
-    fontSize: TITLE_PX[size] ?? TITLE_PX.md,
-    lineHeight: 1.25,
-    fontWeight: 600,
-  };
+  const [px, lh] = TITLE_SCALE[size] ?? TITLE_SCALE.md;
+  return { fontSize: px, lineHeight: `${lh}px`, fontWeight: 600 };
 }
 
 export function textFont(size: TextSize = "md"): React.CSSProperties {
-  return { fontSize: TEXT_PX[size] ?? TEXT_PX.md, lineHeight: 1.5 };
+  const [px, lh] = TEXT_SCALE[size] ?? TEXT_SCALE.md;
+  return { fontSize: px, lineHeight: `${lh}px` };
 }
 
 export const FONT_WEIGHT: Record<Weight, number> = {

@@ -40,7 +40,43 @@ describe("standard catalog: layout and text", () => {
     expect(row.style.flexDirection).toBe("row");
     expect(row.style.justifyContent).toBe("space-between");
     const grid = (await v.findByText("C")).parentElement!.parentElement!;
-    expect(grid.style.gridTemplateColumns).toBe("repeat(3, minmax(0, 1fr))");
+    expect(grid.style.gridTemplateColumns).toContain("repeat(auto-fit");
+    expect(grid.style.gridTemplateColumns).toContain("/ 3)");
+  });
+  it("Grid with a numeric column count collapses responsively and containers fit their parent", async () => {
+    const v = renderStandard([
+      { id: "root", component: "Grid", columns: 2, children: ["a", "b"] },
+      { id: "a", component: "Card", children: ["ta"] },
+      { id: "ta", component: "Text", text: "Left" },
+      { id: "b", component: "Card", children: ["tb"] },
+      { id: "tb", component: "Text", text: "Right" },
+    ]);
+    const card = (await v.findByText("Left")).parentElement!;
+    const grid = card.parentElement!;
+    expect(grid.style.gridTemplateColumns).toBe(
+      "repeat(auto-fit, minmax(min(100%, max(260px, calc((100% - 1 * calc(var(--spacing, 0.25rem) * 4)) / 2))), 1fr))",
+    );
+    expect(grid.style.gap).toBe("calc(var(--spacing, 0.25rem) * 4)");
+    for (const el of [grid, card]) {
+      expect(el.style.minWidth).toMatch(/^0(px)?$/);
+      expect(el.style.maxWidth).toBe("100%");
+      expect(el.style.boxSizing).toBe("border-box");
+    }
+  });
+  it("Row spaces children 8px apart unless a gap is given", async () => {
+    const v = renderStandard([
+      { id: "root", component: "Column", children: ["r1", "r2"] },
+      { id: "r1", component: "Row", children: ["a"] },
+      { id: "a", component: "Text", text: "auto" },
+      { id: "r2", component: "Row", gap: 0, children: ["b"] },
+      { id: "b", component: "Text", text: "none" },
+    ]);
+    expect((await v.findByText("auto")).parentElement!.style.gap).toBe(
+      "calc(var(--spacing, 0.25rem) * 2)",
+    );
+    expect(v.getByText("none").parentElement!.style.gap).toBe(
+      "calc(var(--spacing, 0.25rem) * 0)",
+    );
   });
   it("Text binds to the data model", async () => {
     const v = renderStandard(
