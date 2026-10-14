@@ -40,9 +40,29 @@ import {
 } from "./action-message";
 
 let stylesInjected = false;
+const FADE_STYLE_ID = "a2ui-markdown-fade";
+/**
+ * Components fade in as they stream: every element inserted under a markdown
+ * surface runs the keyframes once on mount (React keeps keys stable per
+ * component id, so already painted elements never re-animate), and the whole
+ * surface fades in when it first becomes visible.
+ */
+const FADE_CSS = `@keyframes a2ui-fade-in{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
+[data-a2ui-markdown-surface] .a2ui-surface *{animation:a2ui-fade-in .28s ease-out both}
+[data-a2ui-markdown-surface] [data-a2ui-visible]{animation:a2ui-fade-in .32s ease-out both}
+@media (prefers-reduced-motion: reduce){[data-a2ui-markdown-surface] *{animation:none !important}}`;
 function ensureStyles() {
   if (stylesInjected) return;
   injectStyles();
+  if (
+    typeof document !== "undefined" &&
+    !document.getElementById(FADE_STYLE_ID)
+  ) {
+    const style = document.createElement("style");
+    style.id = FADE_STYLE_ID;
+    style.textContent = FADE_CSS;
+    document.head.appendChild(style);
+  }
   stylesInjected = true;
 }
 
@@ -325,6 +345,7 @@ export function A2UIMarkdownSurface({
       {prepared.operations.length > 0 && (
         <div
           aria-hidden={!showSurface}
+          data-a2ui-visible={showSurface ? "" : undefined}
           className="cpk:flex cpk:w-full cpk:flex-col"
           style={showSurface ? undefined : HIDDEN_STYLE}
         >
