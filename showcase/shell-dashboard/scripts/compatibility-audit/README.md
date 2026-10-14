@@ -90,7 +90,11 @@ Railway, resolves their immutable digests to the existing OCI Git-commit
 labels, and reads the mapped files at those commits. A failed newer build or a
 floating `latest` tag is not source evidence. Missing or ambiguous active
 images, commit labels, or Git files fail the assessment; production never
-falls back to main. These source declarations still do not prove installed
+falls back to main. While Railway reports a rollout in progress or overlapping
+active image digests, collection polls every 15 seconds for up to 10 minutes.
+It then audits the settled active image, or fails and retains the previous
+snapshot. Permanent metadata and evidence errors fail immediately.
+These source declarations still do not prove installed
 versions, and unresolved library versions remain Not verified.
 
 The collector and harness share one library mapping, so incomplete framework

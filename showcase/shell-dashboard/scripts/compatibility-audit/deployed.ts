@@ -20,6 +20,7 @@ interface Metadata {
                 node: {
                   environmentId: string;
                   source: { image: string } | null;
+                  latestDeployment?: { status: string } | null;
                   activeDeployments: {
                     status: string;
                     meta: { imageDigest?: string } | null;
@@ -34,6 +35,17 @@ interface Metadata {
   };
 }
 
+// Same non-terminal statuses used by the existing deployment verifier.
+const inProgress = new Set([
+  "QUEUED",
+  "BUILDING",
+  "INITIALIZING",
+  "DEPLOYING",
+  "WAITING",
+  "NEEDS_APPROVAL",
+]);
+class DeploymentTransitionError extends Error {}
+
 /** Active images only: failed builds and floating tags are never version evidence. */
 export function selectDeployedImages(
   payload: Metadata,
@@ -43,6 +55,7 @@ export function selectDeployedImages(
   if (payload.errors?.length || !payload.data?.project)
     throw new Error("Railway deployment metadata is unavailable");
   const refs: Record<string, string> = {};
+  let transition: DeploymentTransitionError | undefined;
   for (const slug of slugs) {
     const matches = payload.data.project.services.edges.filter(
       ({ node }) => node.name === `showcase-${slug}`,
@@ -61,10 +74,33 @@ export function selectDeployedImages(
         `Missing or unsupported deployed image repository: ${slug}`,
       );
     const active = instance.activeDeployments;
+    if (
+      inProgress.has(instance.latestDeployment?.status ?? "") ||
+      active.some((deployment) => inProgress.has(deployment.status))
+    ) {
+      transition ??= new DeploymentTransitionError(
+        `Deployment is still settling: ${slug}`,
+      );
+      continue;
+    }
     const digests = new Set(
       active.map((deployment) => deployment.meta?.imageDigest),
     );
     const digest = [...digests][0];
+    if (
+      active.length > 1 &&
+      active.every(
+        (deployment) =>
+          deployment.status === "SUCCESS" &&
+          /^sha256:[a-f0-9]{64}$/.test(deployment.meta?.imageDigest ?? ""),
+      ) &&
+      digests.size > 1
+    ) {
+      transition ??= new DeploymentTransitionError(
+        `Deployment is still settling: ${slug}`,
+      );
+      continue;
+    }
     if (
       !active.length ||
       active.some((deployment) => deployment.status !== "SUCCESS") ||
@@ -75,7 +111,38 @@ export function selectDeployedImages(
       throw new Error(`Missing or ambiguous active image digest: ${slug}`);
     refs[slug] = `${image}@${digest}`;
   }
+  if (transition) throw transition;
   return refs;
+}
+
+/** Wait for a stable active-image set; permanent evidence errors fail immediately. */
+export async function waitForDeployedImages(
+  readMetadata: () => Promise<Metadata>,
+  environmentId: string,
+  slugs: string[],
+): Promise<Record<string, string>> {
+  const waitMs = 600_000;
+  const deadline = Date.now() + waitMs;
+  for (;;) {
+    const payload = await readMetadata();
+    try {
+      return selectDeployedImages(payload, environmentId, slugs);
+    } catch (error) {
+      if (!(error instanceof DeploymentTransitionError)) throw error;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0)
+        throw new Error(
+          `Deployment is still settling after ${waitMs}ms: ${error.message}`,
+          { cause: error },
+        );
+      console.log(
+        `Compatibility: ${error.message}; waiting for a stable active image`,
+      );
+      await new Promise<void>((resolve) =>
+        setTimeout(resolve, Math.min(15_000, remaining)),
+      );
+    }
+  }
 }
 
 export async function collectDeployedCommits(
@@ -83,29 +150,32 @@ export async function collectDeployedCommits(
 ): Promise<Record<string, string>> {
   const { envId } = resolveEnv(environment);
   const { token } = resolveRailwayToken();
-  const response = await fetch(RAILWAY_GRAPHQL_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    signal: AbortSignal.timeout(30_000),
-    body: JSON.stringify({
-      query: `query($id: String!) { project(id: $id) { services { edges { node {
-        name serviceInstances { edges { node { environmentId source { image }
+  const readMetadata = async (): Promise<Metadata> => {
+    const response = await fetch(RAILWAY_GRAPHQL_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      signal: AbortSignal.timeout(30_000),
+      body: JSON.stringify({
+        query: `query($id: String!) { project(id: $id) { services { edges { node {
+        name serviceInstances { edges { node { environmentId source { image } latestDeployment { status }
           activeDeployments { status meta } } } }
       } } } } }`,
-      variables: { id: PROJECT_ID },
-    }),
-  });
-  if (!response.ok)
-    throw new Error(
-      `Railway deployment metadata request failed: HTTP ${response.status}`,
-    );
+        variables: { id: PROJECT_ID },
+      }),
+    });
+    if (!response.ok)
+      throw new Error(
+        `Railway deployment metadata request failed: HTTP ${response.status}`,
+      );
+    return response.json();
+  };
   const slugs = COMPATIBILITY_MAPPING.filter(
     (variant) => variant.excludedReason === undefined,
   ).map((variant) => variant.slug);
-  const refs = selectDeployedImages(await response.json(), envId, slugs);
+  const refs = await waitForDeployedImages(readMetadata, envId, slugs);
   const commits: Record<string, string> = {};
   const inspected = new Map<string, string>();
   for (const [slug, ref] of Object.entries(refs)) {
