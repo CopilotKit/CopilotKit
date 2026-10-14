@@ -9,13 +9,28 @@ const action = ActionSchema.optional().describe(
 
 const cellAlign = z.enum(["start", "center", "end"]).optional();
 
+/**
+ * A `Table.rows`/`Table.columns` cell that renders another component (Badge,
+ * Button, Icon, Text) instead of plain text. `id` is accepted as an alias.
+ */
+export const tableComponentCell = z.union([
+  z.object({ componentId: z.string() }),
+  z.object({ id: z.string() }),
+]);
+export type TableComponentCell = z.infer<typeof tableComponentCell>;
+
+export const tableCell = z.union([z.string(), z.number(), tableComponentCell]);
+export type TableCellValue = z.infer<typeof tableCell>;
+
 export const tableColumn = z.union([
   z.string(),
   z.object({
     label: z.string(),
     align: cellAlign,
     width: sizeValue.optional(),
+    componentId: z.string().optional(),
   }),
+  tableComponentCell,
 ]);
 export type TableColumn = z.infer<typeof tableColumn>;
 
@@ -57,11 +72,15 @@ export const dataDefinitions = {
       columns: bindable(z.array(tableColumn))
         .optional()
         .describe(
-          'Strings or { "label", "align"?, "width"? }, or { "path": "/x" }; default []',
+          'Strings, { "label", "align"?, "width"?, "componentId"? } or { "componentId": "<id>" }, or { "path": "/x" }; default []',
         ),
+      // Cells stay `any` so booleans/null from bound data still validate;
+      // `tableCell` documents the intended shapes.
       rows: bindable(z.array(z.array(z.any())))
         .optional()
-        .describe('Array of row arrays, or { "path": "/x" }; default []'),
+        .describe(
+          'Array of row arrays, or { "path": "/x" }; default []. Cells are strings/numbers, or { "componentId": "<id>" } to place a component (Badge, Button, Icon, Text) in that cell.',
+        ),
       children: childList,
       columnSizing: z
         .enum(["auto", "equal"])
