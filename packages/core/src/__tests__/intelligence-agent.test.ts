@@ -13,7 +13,8 @@ vi.mock("phoenix", () => ({
 }));
 
 // Must come after vi.mock so phoenix is mocked when the module is loaded.
-const { IntelligenceAgent } = await import("../intelligence-agent");
+const { IntelligenceAgent, IntelligenceReplayFailedError } =
+  await import("../intelligence-agent");
 const { ProxiedCopilotRuntimeAgent } = await import("../agent");
 type IntelligenceAgentInstance = InstanceType<typeof IntelligenceAgent>;
 
@@ -569,6 +570,38 @@ describe("IntelligenceAgent", () => {
       expect(result.error).toBeInstanceOf(Error);
       expect(result.error!.message).toBe("something went wrong");
       expect(result.events).toContainEqual(errorEvent);
+    });
+
+    it("fails a live run with a typed error when its replay fails, without stopping it", async () => {
+      const agent = createAgent();
+      const promise = collectEvents(agent);
+      await waitForConnection(agent);
+
+      const socket = getSocket(agent)!;
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent);
+      channel.serverPush("replay_failed", { reason: "timeout" });
+      // The gateway still sends replay_complete for clients that ignore the
+      // failure; the run must not resume from it.
+      channel.serverPush("replay_complete", { latestEventId: null });
+
+      const result = await promise;
+      expect(result.completed).toBe(false);
+      expect(result.error).toBeInstanceOf(IntelligenceReplayFailedError);
+      expect(result.error).toMatchObject({
+        code: "INTELLIGENCE_REPLAY_FAILED",
+        threadId: "thread-1",
+      });
+      expect(channel.pushLog.some((push) => push.event === "stop_run")).toBe(
+        false,
+      );
+      expect(channel.left).toBe(true);
+      expect(socket.disconnected).toBe(true);
     });
 
     it("cleans up socket and channel on RUN_FINISHED", async () => {
