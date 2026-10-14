@@ -8,6 +8,10 @@ import { inputDefinitions } from "./definitions/inputs";
 import { inputRenderers } from "./renderers/inputs";
 import { feedbackDefinitions } from "./definitions/feedback";
 import { feedbackRenderers } from "./renderers/feedback";
+import { dataDefinitions } from "./definitions/data";
+import { dataRenderers } from "./renderers/data";
+import { mediaDefinitions } from "./definitions/media";
+import { mediaRenderers } from "./renderers/media";
 import { STANDARD_CATALOG_ID } from "./tokens";
 
 /** All standard-catalog component definitions (zod props + descriptions). */
@@ -16,6 +20,8 @@ export const standardDefinitions = {
   ...textDefinitions,
   ...inputDefinitions,
   ...feedbackDefinitions,
+  ...dataDefinitions,
+  ...mediaDefinitions,
 };
 
 /** React renderers for every entry in `standardDefinitions`. */
@@ -24,6 +30,8 @@ export const standardRenderers: CatalogRenderers<typeof standardDefinitions> = {
   ...textRenderers,
   ...inputRenderers,
   ...feedbackRenderers,
+  ...dataRenderers,
+  ...mediaRenderers,
 };
 
 /** The standard catalog, modelled on ChatGPT Intelligent UI. */
