@@ -35,6 +35,26 @@ export interface IntelligenceAgentRunnerOptions {
    * @default 15_000
    */
   heartbeatIntervalMs?: number;
+  /**
+   * Called each time Intelligence acknowledges a batch of runner events.
+   * Use it to watch the delivery queue: a growing `pendingEvents` or
+   * `oldestPendingAgeMs` means events are produced faster than Intelligence
+   * accepts them. Errors thrown by the callback are logged and ignored.
+   */
+  onEventDeliveryStats?: (stats: RunnerEventDeliveryStats) => void;
+}
+
+export interface RunnerEventDeliveryStats {
+  threadId: string;
+  runId: string;
+  /** Events in the batch Intelligence just acknowledged. */
+  acknowledgedEvents: number;
+  /** Time from sending the batch to its acknowledgement. */
+  ackLatencyMs: number;
+  /** Events still waiting for acknowledgement. */
+  pendingEvents: number;
+  /** Age of the oldest event still waiting, or 0 when none is. */
+  oldestPendingAgeMs: number;
 }
 
 export interface RunnerStartupBoundary {
@@ -763,6 +783,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
 
     const attempt = ++state.nextEventPushAttempt;
+    const sentAt = Date.now();
     state.activeEventBatch = { eventIds, attempt };
     const payloads = events.map((event) => event.payload);
     const isBatch = state.supportsRunnerEventBatch;
@@ -788,6 +809,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
         // The gateway is accepting events, so the deadline measures from here.
         // A slow but healthy gateway must not fail a run that is still draining.
         state.durableProgressAt = Date.now();
+        this.reportEventDelivery(
+          state,
+          eventIds.length,
+          state.durableProgressAt - sentAt,
+        );
         state.activeEventBatch = null;
         state.eventRetryAttempt = 0;
         if (state.pendingEvents.size === 0) {
@@ -802,6 +828,31 @@ export class IntelligenceAgentRunner extends AgentRunner {
         this.handlePendingEventFailure(state, attempt, response),
       )
       .receive("timeout", () => this.handlePendingEventFailure(state, attempt));
+  }
+
+  private reportEventDelivery(
+    state: ThreadState,
+    acknowledgedEvents: number,
+    ackLatencyMs: number,
+  ): void {
+    const onStats = this.options.onEventDeliveryStats;
+    if (!onStats) return;
+    const [oldest] = this.oldestPendingEvents(state, 1);
+    try {
+      onStats({
+        threadId: state.threadId,
+        runId: state.runId,
+        acknowledgedEvents,
+        ackLatencyMs,
+        pendingEvents: state.pendingEvents.size,
+        oldestPendingAgeMs: oldest ? Date.now() - oldest[1].queuedAt : 0,
+      });
+    } catch (error) {
+      logger.warn(
+        { err: error, threadId: state.threadId, runId: state.runId },
+        "onEventDeliveryStats callback failed",
+      );
+    }
   }
 
   private handlePendingEventFailure(
