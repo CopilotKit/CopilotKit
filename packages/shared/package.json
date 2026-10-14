@@ -69,7 +69,7 @@
   },
   "dependencies": {
     "@ag-ui/a2ui-middleware": "0.0.10",
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "^1.0.2",
     "@copilotkit/license-verifier": "~0.5.0",
     "@segment/analytics-node": "^2.1.2",
     "@standard-schema/spec": "^1.0.0",
@@ -83,7 +83,7 @@
     "zod-to-json-schema": "^3.23.5"
   },
   "devDependencies": {
-    "@ag-ui/core": "1.0.2",
+    "@ag-ui/core": "^1.0.2",
     "@types/clarinet": "^0.12.3",
     "@types/uuid": "^10.0.0",
     "@valibot/to-json-schema": "^1.5.0",
@@ -96,6 +96,6 @@
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
-    "@ag-ui/core": ">=0.0.48"
+    "@ag-ui/core": "^1.0.2"
   }
 }

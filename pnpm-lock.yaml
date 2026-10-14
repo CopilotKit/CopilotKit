@@ -2254,7 +2254,7 @@ importers:
   packages/agentcore-runner:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@copilotkit/runtime':
         specifier: workspace:*
@@ -2285,10 +2285,10 @@ importers:
         specifier: 0.10.4
         version: 0.10.4
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@ag-ui/core':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2(zod@3.25.76)
       '@copilotkit/core':
         specifier: workspace:*
@@ -2482,10 +2482,10 @@ importers:
   packages/channels-core:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@ag-ui/core':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2(zod@3.25.76)
       '@copilotkit/channels-ui':
         specifier: workspace:~
@@ -2519,7 +2519,7 @@ importers:
   packages/channels-discord:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2547,7 +2547,7 @@ importers:
   packages/channels-intelligence:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2566,7 +2566,7 @@ importers:
         version: 1.8.4
     devDependencies:
       '@ag-ui/core':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2(zod@3.25.76)
       '@copilotkit/typescript-config':
         specifier: workspace:^
@@ -2590,10 +2590,10 @@ importers:
   packages/channels-slack:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@ag-ui/core':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2(zod@3.25.76)
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2639,10 +2639,10 @@ importers:
   packages/channels-teams:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@ag-ui/core':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2(zod@3.25.76)
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2688,7 +2688,7 @@ importers:
   packages/channels-telegram:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2735,7 +2735,7 @@ importers:
   packages/channels-whatsapp:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2760,7 +2760,7 @@ importers:
   packages/core:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@copilotkit/learning':
         specifier: workspace:*
@@ -2782,7 +2782,7 @@ importers:
         version: 3.25.1(zod@3.25.76)
     devDependencies:
       '@ag-ui/core':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2(zod@3.25.76)
       '@copilotkit/typescript-config':
         specifier: workspace:*
@@ -2824,7 +2824,7 @@ importers:
   packages/demo-agents:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       openai:
         specifier: ^4.85.1
@@ -2978,7 +2978,7 @@ importers:
         version: 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
     devDependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       jsdom:
         specifier: ^26.1.0
@@ -2999,10 +2999,10 @@ importers:
   packages/react-core:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@ag-ui/core':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2(zod@3.25.76)
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
@@ -3174,7 +3174,7 @@ importers:
   packages/react-native:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@copilotkit/core':
         specifier: workspace:*
@@ -3435,13 +3435,13 @@ importers:
         specifier: 0.0.10
         version: 0.0.10(@ag-ui/client@1.0.2)(rxjs@7.8.1)
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@ag-ui/core':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2(zod@3.25.76)
       '@ag-ui/encoder':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2(zod@3.25.76)
       '@ag-ui/langgraph':
         specifier: 0.0.44
@@ -3806,7 +3806,7 @@ importers:
         specifier: 0.0.10
         version: 0.0.10(@ag-ui/client@1.0.2)(rxjs@7.8.1)
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@copilotkit/license-verifier':
         specifier: ~0.5.0
@@ -3843,7 +3843,7 @@ importers:
         version: 3.25.1(zod@3.25.76)
     devDependencies:
       '@ag-ui/core':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2(zod@3.25.76)
       '@types/clarinet':
         specifier: ^0.12.3
@@ -3879,7 +3879,7 @@ importers:
   packages/sqlite-runner:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@copilotkit/runtime':
         specifier: workspace:*
@@ -3951,10 +3951,10 @@ importers:
         specifier: 0.10.4
         version: 0.10.4
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@ag-ui/core':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2(zod@3.25.76)
       '@copilotkit/core':
         specifier: workspace:*
@@ -4108,7 +4108,7 @@ importers:
   packages/web-inspector:
     dependencies:
       '@ag-ui/client':
-        specifier: 1.0.2
+        specifier: ^1.0.2
         version: 1.0.2
       '@copilotkit/core':
         specifier: workspace:*
