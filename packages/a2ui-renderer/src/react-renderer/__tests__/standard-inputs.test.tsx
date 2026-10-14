@@ -24,6 +24,20 @@ describe("standard catalog: inputs", () => {
     expect(await v.findByText("Ada")).toBeTruthy();
   });
 
+  it("Button renders `text` when `label` is absent and prefers `label`", async () => {
+    const v = renderStandard(
+      [
+        { id: "root", component: "Column", children: ["a", "b"] },
+        { id: "a", component: "Button", text: "Request quote" },
+        { id: "b", component: "Button", label: "Send", text: "Ignored" },
+      ],
+      {},
+    );
+    expect(await v.findByText("Request quote")).toBeTruthy();
+    expect(await v.findByText("Send")).toBeTruthy();
+    expect(v.queryByText("Ignored")).toBeNull();
+  });
+
   it("Slider and CheckBox bind and render their labels", async () => {
     const v = renderStandard(
       [

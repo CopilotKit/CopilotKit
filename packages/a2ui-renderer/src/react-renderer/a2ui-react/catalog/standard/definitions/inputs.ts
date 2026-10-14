@@ -45,6 +45,7 @@ export const inputDefinitions = {
       "Clickable button that dispatches `action`. `children` ids render instead of `label` when present.",
     props: z.object({
       label: boundString("Button text"),
+      text: boundString("Alias of `label`; used when `label` is absent"),
       children: childIds,
       action,
       variant: z
@@ -138,7 +139,7 @@ export const inputDefinitions = {
     description: "Checkbox bound to `checked`.",
     props: z.object({
       checked: DynamicBooleanSchema.optional().describe(
-        'Bind with { "path": "/x" }',
+        "Bound boolean state of the box; bind this to a data path (not `value`)",
       ),
       label: boundString("Label text"),
       name: z.string().optional(),

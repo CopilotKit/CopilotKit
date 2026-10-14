@@ -175,7 +175,7 @@ function Button({ props, children }: RendererProps<any>) {
       {props.icon ? <span aria-hidden data-icon={props.icon} /> : null}
       {props.children?.length
         ? renderChildren(props.children, children)
-        : str(props.label)}
+        : str(props.label ?? props.text)}
     </button>
   );
 }
