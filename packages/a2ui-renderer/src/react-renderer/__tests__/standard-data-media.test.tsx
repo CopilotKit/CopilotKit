@@ -146,7 +146,12 @@ describe("standard catalog: data and media", () => {
       "https://www.google.com/s2/favicons?domain=copilotkit.ai&sz=64",
     );
     expect(v.container.querySelector("path[d='M0 0L10 10']")).not.toBeNull();
-    expect(v.container.querySelector("svg.lucide-arrow-right")).not.toBeNull();
+    // Icons load lazily (lucide is imported on first use).
+    await waitFor(() =>
+      expect(
+        v.container.querySelector("svg.lucide-arrow-right"),
+      ).not.toBeNull(),
+    );
   });
 
   it("Icon with an unknown name renders nothing", async () => {
