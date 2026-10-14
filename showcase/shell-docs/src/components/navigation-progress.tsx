@@ -5,8 +5,9 @@
 // page's payload and chunks arrive.
 //
 // Rendered right after <BrandNav />: the bar mounts into the zero-height anchor
-// below and is drawn along the nav's bottom edge (see globals.css), not at the
-// top of the viewport, where it would sit on the purple announcement banner.
+// below, which globals.css places at the bottom edge of the visible nav
+// (BrandNav, or the fixed MobileTopNav below xl) and at that nav's layer. At
+// the top of the viewport it would sit on the purple announcement banner.
 // The color is the theme's primary token, so it follows light and dark mode
 // (`.dark` swaps `--primary`, which `--color-fd-primary` resolves through).
 // `delay` keeps fast navigations from flashing the bar. bprogress starts on
