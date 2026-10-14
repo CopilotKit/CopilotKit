@@ -61,7 +61,11 @@ export function A2UIMarkdownRenderer({
     <>
       {segments.map((seg, i) =>
         seg.type === "markdown" ? (
-          <Streamdown key={`md-${i}`} className={className} {...streamdownProps}>
+          <Streamdown
+            key={`md-${i}`}
+            className={className}
+            {...streamdownProps}
+          >
             {seg.text}
           </Streamdown>
         ) : (
