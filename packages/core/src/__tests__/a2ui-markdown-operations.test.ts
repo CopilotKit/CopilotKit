@@ -174,3 +174,133 @@ describe("extractFenceOperations trailing line", () => {
     expect(res.partialLine).toBeNull();
   });
 });
+
+describe("prepareSurfaceOperations createSurface handling", () => {
+  it("keeps only the first createSurface", () => {
+    const res = prepareSurfaceOperations({
+      operations: [
+        JSON.parse(CREATE),
+        JSON.parse(UPDATE),
+        JSON.parse(CREATE),
+        JSON.parse(DATA),
+      ],
+      fallbackSurfaceId: "f",
+      catalogId: "cat",
+    });
+    expect(res.operations.filter((op) => "createSurface" in op)).toHaveLength(
+      1,
+    );
+    expect(res.operations[0]).toHaveProperty("createSurface");
+    expect(res.operations).toHaveLength(3);
+  });
+  it("always uses the client-provided catalogId", () => {
+    const res = prepareSurfaceOperations({
+      operations: [
+        { createSurface: { surfaceId: "a", catalogId: "model-made-this-up" } },
+      ],
+      fallbackSurfaceId: "f",
+      catalogId: "client-cat",
+    });
+    expect(res.operations[0]).toEqual({
+      version: "v0.9",
+      createSurface: { surfaceId: "a", catalogId: "client-cat" },
+    });
+  });
+});
+
+describe("extractFenceOperations partial updateDataModel", () => {
+  it("emits the complete array items of a streaming value", () => {
+    const res = extractFenceOperations(
+      '{"version":"v0.9","updateDataModel":{"surfaceId":"s","path":"/","value":{"rows":[{"a":1},{"a":2}',
+    );
+    expect(res.operations).toEqual([
+      {
+        version: "v0.9",
+        updateDataModel: {
+          surfaceId: "s",
+          path: "/",
+          value: { rows: [{ a: 1 }, { a: 2 }] },
+        },
+      },
+    ]);
+  });
+  it("emits a complete value object while the line is still open", () => {
+    const res = extractFenceOperations(
+      '{"version":"v0.9","updateDataModel":{"surfaceId":"s","path":"/","value":{"seats":8}',
+    );
+    expect(res.operations).toEqual([
+      {
+        version: "v0.9",
+        updateDataModel: { surfaceId: "s", path: "/", value: { seats: 8 } },
+      },
+    ]);
+  });
+  it("keeps complete scalars next to a streaming array", () => {
+    const res = extractFenceOperations(
+      '{"updateDataModel":{"surfaceId":"s","value":{"title":"T","rows":[{"a":1},{"a"',
+    );
+    expect(res.operations[0]).toEqual({
+      version: "v0.9",
+      updateDataModel: {
+        surfaceId: "s",
+        value: { title: "T", rows: [{ a: 1 }] },
+      },
+    });
+  });
+  it("emits nothing until some value content is complete", () => {
+    expect(
+      extractFenceOperations(
+        '{"version":"v0.9","updateDataModel":{"surfaceId":"s","path":"/","value":{"rows":[{"a":1',
+      ).operations,
+    ).toEqual([]);
+    expect(
+      extractFenceOperations(
+        '{"version":"v0.9","updateDataModel":{"surfaceId":"s","path":"/"',
+      ).operations,
+    ).toEqual([]);
+  });
+});
+
+describe("extractFenceOperations partial field scoping", () => {
+  it("does not read surfaceId or version from inside components", () => {
+    const res = extractFenceOperations(
+      '{"updateComponents":{"components":[{"id":"root","component":"Text","surfaceId":"inner","version":"zzz","text":"x"},{"id":"y',
+    );
+    expect(res.operations).toEqual([
+      {
+        version: "v0.9",
+        updateComponents: {
+          components: [
+            {
+              id: "root",
+              component: "Text",
+              surfaceId: "inner",
+              version: "zzz",
+              text: "x",
+            },
+          ],
+        },
+      },
+    ]);
+  });
+  it("does not read surfaceId from inside an updateDataModel value", () => {
+    const res = extractFenceOperations(
+      '{"updateDataModel":{"value":{"surfaceId":"inner","rows":[1,2,',
+    );
+    expect(res.operations[0]).toEqual({
+      version: "v0.9",
+      updateDataModel: { value: { surfaceId: "inner", rows: [1, 2] } },
+    });
+  });
+  it("finds a surfaceId written after components once its string closes", () => {
+    const head =
+      '{"version":"v0.9","updateComponents":{"components":[{"id":"root","component":"Text","text":"x"}],"surfaceId":"pl';
+    expect(
+      (extractFenceOperations(head).operations[0] as any).updateComponents,
+    ).not.toHaveProperty("surfaceId");
+    expect(
+      (extractFenceOperations(head + 'an"').operations[0] as any)
+        .updateComponents.surfaceId,
+    ).toBe("plan");
+  });
+});

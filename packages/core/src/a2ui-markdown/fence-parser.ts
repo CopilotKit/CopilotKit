@@ -57,7 +57,10 @@ export function splitA2UIMarkdown(markdown: string): MarkdownSegment[] {
   while (lineStart <= markdown.length) {
     const newline = markdown.indexOf("\n", lineStart);
     const lineEnd = newline < 0 ? markdown.length : newline;
-    const line = markdown.slice(lineStart, lineEnd);
+    // A CRLF line keeps its "\r" in the source slices (prose stays
+    // byte-identical) but is matched without it, since "." does not match "\r".
+    const hasCR = lineEnd > lineStart && markdown[lineEnd - 1] === "\r";
+    const line = markdown.slice(lineStart, hasCR ? lineEnd - 1 : lineEnd);
 
     if (fence) {
       if (isCloser(line, fence)) {
@@ -71,7 +74,7 @@ export function splitA2UIMarkdown(markdown: string): MarkdownSegment[] {
             ),
             closed: true,
           });
-          proseStart = lineEnd;
+          proseStart = hasCR ? lineEnd - 1 : lineEnd;
         }
         fence = null;
       }
@@ -104,7 +107,7 @@ export function splitA2UIMarkdown(markdown: string): MarkdownSegment[] {
     let body = markdown.slice(fence.bodyStart);
     // Drop a closing marker that is still streaming in (e.g. "``").
     const lastNewline = body.lastIndexOf("\n");
-    const lastLine = body.slice(lastNewline + 1);
+    const lastLine = body.slice(lastNewline + 1).replace(/\r$/, "");
     if (
       lastLine.length > 0 &&
       [...lastLine].every((ch) => ch === fence!.char)
