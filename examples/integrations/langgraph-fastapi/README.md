@@ -48,10 +48,12 @@ yarn install:agent
 bun run install:agent
 ```
 
-3. Set up your OpenAI API key:
+3. Set up your model key:
 
 ```bash
-echo 'OPENAI_API_KEY=your-openai-api-key-here' > agent/.env
+cp .env.example .env
+# Add the key of the model provider in .env. COPILOTKIT_AGENT_MODEL chooses
+# the provider and model, for example anthropic:claude-sonnet-4-5.
 ```
 
 4. Start the development server:
