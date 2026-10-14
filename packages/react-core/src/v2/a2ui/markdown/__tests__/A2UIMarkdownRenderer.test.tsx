@@ -1,6 +1,12 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { basicCatalog } from "@copilotkit/a2ui-renderer";
 import type { Theme } from "@copilotkit/a2ui-renderer";
 import { A2UIMarkdownProvider } from "../A2UIMarkdownContext";
@@ -8,7 +14,7 @@ import type { A2UIMarkdownConfig } from "../A2UIMarkdownContext";
 import { A2UIMarkdownRenderer } from "../A2UIMarkdownRenderer";
 
 const mocks = vi.hoisted(() => {
-  const agent = { addMessage: vi.fn() };
+  const agent = { addMessage: vi.fn(), isRunning: false };
   const copilotkit = {
     properties: {} as Record<string, unknown>,
     setProperties: vi.fn(),
@@ -27,6 +33,9 @@ vi.mock("../../../providers/CopilotChatConfigurationProvider", () => ({
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+  mocks.agent.isRunning = false;
 });
 
 const BASIC_ID = "https://a2ui.org/specification/v0_9/basic_catalog.json";
@@ -187,5 +196,198 @@ describe("A2UIMarkdownSurface actions", () => {
       expect.objectContaining({ a2uiAction: expect.anything() }),
     );
     expect(mocks.agent.addMessage).not.toHaveBeenCalled();
+  });
+});
+
+const uc = (components: unknown[], id = "s") =>
+  JSON.stringify({
+    version: "v0.9",
+    updateComponents: { surfaceId: id, components },
+  });
+const fence = (...lines: string[]) => "```a2ui\n" + lines.join("\n") + "\n```";
+
+describe("A2UIMarkdownRenderer same-id fences", () => {
+  it("does not fail when two fences for one surface each send createSurface", async () => {
+    renderMd(
+      fence(
+        create(),
+        uc([
+          { id: "root", component: "Column", children: ["t"] },
+          { id: "t", component: "Text", text: "One" },
+        ]),
+      ) +
+        "\nmid\n" +
+        fence(
+          create(),
+          uc([
+            { id: "root", component: "Column", children: ["t", "u"] },
+            { id: "u", component: "Text", text: "Two" },
+          ]),
+        ),
+    );
+    expect(await screen.findByText("Two")).toBeTruthy();
+    expect(screen.queryByText(/A2UI render error/)).toBeNull();
+  });
+});
+
+describe("A2UIMarkdownSurface paint and failure criteria", () => {
+  it("paints a path-bound input with no data model and shows no failure card", async () => {
+    renderMd(
+      fence(
+        create(),
+        uc([
+          { id: "root", component: "Column", children: ["email"] },
+          {
+            id: "email",
+            component: "TextField",
+            label: "Email",
+            value: { path: "/email" },
+          },
+        ]),
+      ),
+    );
+    expect(await screen.findByRole("textbox")).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.queryByText(/Building interface/i)).toBeNull(),
+    );
+    expect(screen.queryByText(/Couldn't generate/i)).toBeNull();
+  });
+
+  it("shows the failure card for a closed fence with only createSurface", async () => {
+    renderMd(fence(create()));
+    expect(await screen.findByText(/Couldn't generate/i)).toBeTruthy();
+  });
+
+  it("shows the failure card for a closed fence whose components have no root", async () => {
+    renderMd(fence(create(), uc([{ id: "t", component: "Text", text: "x" }])));
+    expect(await screen.findByText(/Couldn't generate/i)).toBeTruthy();
+  });
+});
+
+describe("A2UIMarkdownSurface action labels and errors", () => {
+  const plainButton = fence(
+    create(),
+    uc([
+      {
+        id: "root",
+        component: "Button",
+        child: "lbl",
+        action: { event: { name: "choose_plan" } },
+      },
+      { id: "lbl", component: "Text", text: "Choose" },
+    ]),
+  );
+
+  async function click() {
+    renderMd(plainButton);
+    const button = await screen.findByRole("button", { name: "Choose" });
+    await act(async () => {
+      fireEvent.click(button);
+    });
+  }
+
+  it("uses the button's visible label when the action has no message", async () => {
+    await click();
+    await waitFor(() =>
+      expect(mocks.agent.addMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ content: "Choose" }),
+      ),
+    );
+  });
+
+  it("logs a failed action instead of leaving the rejection unhandled", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.copilotkit.runAgent.mockRejectedValueOnce(new Error("boom"));
+    await click();
+    await waitFor(() =>
+      expect(error).toHaveBeenCalledWith(
+        "[A2UI] action failed",
+        expect.any(Error),
+      ),
+    );
+  });
+
+  it("ignores clicks while the agent is running", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.agent.isRunning = true;
+    await click();
+    await waitFor(() =>
+      expect(
+        warn.mock.calls.some((args) => String(args[0]).includes("running")),
+      ).toBe(true),
+    );
+    expect(mocks.agent.addMessage).not.toHaveBeenCalled();
+    expect(mocks.copilotkit.runAgent).not.toHaveBeenCalled();
+  });
+});
+
+describe("A2UIMarkdownSurface failure details", () => {
+  const bad = "```a2ui\nthis is not json\n```";
+
+  it("shows the raw fence in a collapsed expander outside production", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    renderMd(bad);
+    expect(await screen.findByText(/Couldn't generate/i)).toBeTruthy();
+    expect(screen.getByText("developer details")).toBeTruthy();
+    const details = document.querySelector("details");
+    expect(details?.open).toBe(false);
+    expect(details?.textContent).toContain("this is not json");
+  });
+
+  it("hides the expander in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    renderMd(bad);
+    expect(await screen.findByText(/Couldn't generate/i)).toBeTruthy();
+    expect(screen.queryByText("developer details")).toBeNull();
+  });
+
+  it("lets recovery.debugExposure override the default", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    renderMd(bad, { ...config, recovery: { debugExposure: "verbose" } });
+    expect(await screen.findByText(/Couldn't generate/i)).toBeTruthy();
+    expect(document.querySelector("details")?.open).toBe(true);
+  });
+});
+
+describe("A2UIMarkdownSurface validation at fence close", () => {
+  it("still paints a surface with a root and warns about unknown components", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderMd(
+      fence(
+        create(),
+        uc([
+          { id: "root", component: "Column", children: ["t", "z"] },
+          { id: "t", component: "Text", text: "Visible" },
+          { id: "z", component: "Bogus" },
+        ]),
+      ),
+    );
+    expect(await screen.findByText("Visible")).toBeTruthy();
+    expect(screen.queryByText(/Couldn't generate/i)).toBeNull();
+    await waitFor(() =>
+      expect(
+        warn.mock.calls.some((args) =>
+          args.map(String).join(" ").includes("'Bogus' is not in the catalog"),
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("lists validation errors in the failure card when there is no root", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderMd(fence(create(), uc([{ id: "x", component: "Bogus" }])));
+    expect(await screen.findByText(/Couldn't generate/i)).toBeTruthy();
+    expect(document.querySelector("details")?.textContent).toContain(
+      "Component type 'Bogus' is not in the catalog",
+    );
+  });
+
+  it("does not warn for a valid surface", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderMd(buttonFence);
+    expect(await screen.findByRole("button", { name: "Choose" })).toBeTruthy();
+    expect(
+      warn.mock.calls.some((args) => String(args[0]).includes("[A2UI]")),
+    ).toBe(false);
   });
 });

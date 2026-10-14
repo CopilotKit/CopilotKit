@@ -2,6 +2,8 @@
 
 import {
   buildCatalogContextValue,
+  buildCompactCatalogCapabilities,
+  buildCompactCatalogSchema,
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
   extractCatalogComponentSchemas,
 } from "@copilotkit/a2ui-renderer";
@@ -22,9 +24,11 @@ import { useLayoutEffect, useMemo } from "react";
  * (`copilotkit.a2uiAgents`, #5369), so agents outside that list don't receive
  * the catalog/schema/guidelines payload on their runs.
  *
- * When `includeSchema` is true, the full component schemas (JSON Schema) are also
- * sent as context using the same description key as the A2UI middleware, so the
- * middleware can optionally overwrite it with a server-side schema.
+ * When `includeSchema` is true, the component schemas are also sent as context
+ * using the same description key as the A2UI middleware. Tool mode sends the
+ * full JSON Schema so the middleware can optionally overwrite it with a
+ * server-side schema; markdown mode sends the compact summary from
+ * `buildCompactCatalogSchema`.
  *
  * `mode` selects the generation guideline: "tool" (default) describes the
  * `render_a2ui` tool; "markdown" describes emitting operations inside ```a2ui
@@ -41,20 +45,28 @@ export function A2UICatalogContext({
 }) {
   const { copilotkit } = useCopilotKit();
 
+  // Markdown mode has no middleware that consumes the full JSON Schema, so it
+  // sends a compact summary (component names + one type string per prop, no
+  // FunctionCall alternatives) to keep the per-run context small.
   const capabilitiesValue = useMemo(
-    () => buildCatalogContextValue(catalog),
-    [catalog],
+    () =>
+      mode === "markdown"
+        ? buildCompactCatalogCapabilities(catalog)
+        : buildCatalogContextValue(catalog),
+    [catalog, mode],
   );
 
-  // When includeSchema is true, send full component schemas in the same format
-  // as the A2UI middleware so it can overwrite with a server-side schema if needed.
-  const schemaValue = useMemo(
-    () =>
-      includeSchema !== false
-        ? JSON.stringify(extractCatalogComponentSchemas(catalog))
-        : null,
-    [catalog, includeSchema],
-  );
+  // When includeSchema is true, send component schemas. Tool mode uses the
+  // same format as the A2UI middleware so it can overwrite with a server-side
+  // schema if needed.
+  const schemaValue = useMemo(() => {
+    if (includeSchema === false) return null;
+    return JSON.stringify(
+      mode === "markdown"
+        ? buildCompactCatalogSchema(catalog)
+        : extractCatalogComponentSchemas(catalog),
+    );
+  }, [catalog, includeSchema, mode]);
 
   // The agents list is read fresh inside the effect; this key only exists to
   // re-register the entries if the runtime's scoping changes on a reconnect.

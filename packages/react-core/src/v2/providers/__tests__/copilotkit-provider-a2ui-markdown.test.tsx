@@ -91,6 +91,32 @@ describe("CopilotKitProvider a2ui markdown mode", () => {
     ).toBe(false);
   });
 
+  it("sends a compact catalog payload in markdown mode", () => {
+    const addContext = vi.spyOn(CopilotKitCore.prototype, "addContext");
+    render(
+      <CopilotKitProvider a2ui={{ mode: "markdown" }}>
+        <CoreCapture />
+      </CopilotKitProvider>,
+    );
+    // Keep the latest value per description (effects may re-register).
+    const byDescription = new Map(
+      addContext.mock.calls.map(([ctx]) => [ctx.description, ctx.value]),
+    );
+    const total = Array.from(byDescription.values()).reduce(
+      (sum, value) => sum + value.length,
+      0,
+    );
+    expect(total).toBeLessThan(40_000);
+
+    const schema = Array.from(byDescription.entries()).find(([description]) =>
+      description.includes("A2UI Component Schema"),
+    )?.[1];
+    expect(schema).toBeDefined();
+    expect(schema).toContain('"Box"');
+    expect(schema).not.toContain('"call"');
+    expect(schema).not.toContain("call:");
+  });
+
   it("provides the standard catalog by default in markdown mode", () => {
     let cfg: A2UIMarkdownConfig | null = null;
     render(

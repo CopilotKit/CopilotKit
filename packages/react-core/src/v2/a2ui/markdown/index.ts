@@ -16,5 +16,7 @@ export {
 export type { A2UIMarkdownRendererProps } from "./A2UIMarkdownRenderer";
 export {
   buildActionMessageText,
+  createComponentLabelResolver,
   sendA2UIActionAsMessage,
 } from "./action-message";
+export type { A2UIActionLabelResolver } from "./action-message";
