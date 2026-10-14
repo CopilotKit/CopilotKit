@@ -1,7 +1,7 @@
 /**
- * Vue counterpart of react-core's `MCPAppsUpdateModelContext.e2e.test.tsx`:
- * the widget's ui/update-model-context goes through the shared session to the
- * core, and the next run of the conversation carries it.
+ * Vue counterpart of react-core's `MCPAppsUpdateModelContext.e2e.test.tsx`,
+ * case for case: the widget's ui/update-model-context goes through the shared
+ * session to the core, and the next run of the conversation carries it.
  */
 import {
   cleanup,
@@ -197,7 +197,7 @@ const SELECTION = {
 const widgetEntry = (input: RunAgentInput | undefined) =>
   input?.context.find((entry) => entry.description.includes("ui://trains"));
 
-describe("MCP Apps ui/update-model-context (Vue)", () => {
+describe("MCP Apps ui/update-model-context", () => {
   afterEach(() => {
     cleanup();
     document.body.innerHTML = "";
@@ -255,5 +255,69 @@ describe("MCP Apps ui/update-model-context (Vue)", () => {
         .at(-1)!
         .context.filter((item) => item.description.includes("ui://trains")),
     ).toHaveLength(1);
+  });
+
+  it("carries the state into the widget's ui/message follow-up, even once the widget is gone and the follow-up waited in the queue", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = testId("umc-follow-up");
+    const iframe = await setupMCPActivity(agent);
+    await request(iframe, "ui/update-model-context", SELECTION);
+
+    // The agent is busy, so the follow-up waits in the queue.
+    agent.isRunning = true;
+    await request(iframe, "ui/message", {
+      role: "user",
+      content: [{ type: "text", text: "Which departures are available?" }],
+    });
+    const runsBefore = agent.runInputs.length;
+
+    // The widget leaves the chat before the queue drains.
+    agent.setMessages(
+      agent.messages.filter((message) => message.role !== "activity"),
+    );
+    await flushVueUpdates();
+    await waitFor(() =>
+      expect(document.querySelector("iframe[srcdoc]")).toBeNull(),
+    );
+
+    agent.isRunning = false;
+    await waitFor(
+      () => expect(agent.runInputs.length).toBeGreaterThan(runsBefore),
+      { timeout: 3000 },
+    );
+
+    expect(widgetEntry(agent.runInputs.at(-1))).toBeDefined();
+  });
+
+  it("refuses an image block and keeps the previous state", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = testId("umc-refused");
+    const iframe = await setupMCPActivity(agent);
+    await request(iframe, "ui/update-model-context", SELECTION);
+
+    const response = await request(iframe, "ui/update-model-context", {
+      content: [{ type: "image", data: "aGVsbG8=", mimeType: "image/png" }],
+    });
+    expect(response.error).toBeDefined();
+
+    const runsBefore = agent.runInputs.length;
+    await sendUserMessage("Still Lyon?");
+    await waitFor(() =>
+      expect(agent.runInputs.length).toBeGreaterThan(runsBefore),
+    );
+    expect(widgetEntry(agent.runInputs.at(-1))?.value).toContain("lyon");
+  });
+
+  it("refuses an update once the shared agent moved to another conversation", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = testId("umc-thread");
+    const iframe = await setupMCPActivity(agent);
+
+    agent.threadId = testId("other-thread");
+    const refused = await request(iframe, "ui/update-model-context", SELECTION);
+
+    // Thread scoping of what was stored is covered in @copilotkit/core; here
+    // the stale iframe cannot even store into the new conversation.
+    expect(refused.error.message).toContain("no longer the current one");
   });
 });
