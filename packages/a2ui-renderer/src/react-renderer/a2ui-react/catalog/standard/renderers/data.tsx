@@ -20,6 +20,7 @@ import { Chart } from "./Chart";
 import { MapView } from "./Map";
 import { LucideIcon } from "./media";
 import { renderChildList } from "./layout";
+import { useStandardStyles } from "../styles";
 
 export { renderChildList };
 
@@ -57,25 +58,37 @@ const H_ALIGN: Record<string, React.CSSProperties["textAlign"]> = {
   end: "end",
 };
 
-function cellStyle(opts: {
+/*
+ * ChatGPT tables: 14px/20px cells with 8px padding (flush at the outer
+ * edges), 500-weight header labels in the default ink, hairline
+ * rgba(0,0,0,.05) row dividers, no outer border. Padding, edge flushing
+ * and dividers live in the injected stylesheet (`.a2ui-std-cell`) so an
+ * explicit `padding` prop still wins inline.
+ */
+function cellProps(opts: {
   header: boolean;
   dividers: boolean;
   align?: string;
   vAlign?: string;
   width?: number | string;
   padding?: number | string;
-}): React.CSSProperties {
+}): {
+  className: string;
+  "data-divider"?: string;
+  style: React.CSSProperties;
+} {
   return {
-    ...textFont("sm"),
-    textAlign: opts.align ? H_ALIGN[opts.align] : "start",
-    verticalAlign: V_ALIGN[opts.vAlign ?? "start"],
-    padding: spacing(opts.padding) ?? `${spacing(2)} ${spacing(3)}`,
-    width: spacing(opts.width),
-    fontWeight: opts.header ? FONT_WEIGHT.semibold : undefined,
-    color: opts.header ? textColor("secondary") : textColor("default"),
-    borderBottom: opts.dividers
-      ? `1px solid ${borderColor("subtle")}`
-      : undefined,
+    className: "a2ui-std-cell",
+    "data-divider": opts.dividers ? "" : undefined,
+    style: {
+      ...textFont("sm"),
+      textAlign: opts.align ? H_ALIGN[opts.align] : "start",
+      verticalAlign: V_ALIGN[opts.vAlign ?? "start"],
+      padding: spacing(opts.padding),
+      width: spacing(opts.width),
+      fontWeight: opts.header ? FONT_WEIGHT.medium : undefined,
+      color: textColor("default"),
+    },
   };
 }
 
@@ -84,6 +97,7 @@ function normalizeColumn(c: TableColumn) {
 }
 
 function Table({ props, children }: RendererProps<any>) {
+  useStandardStyles();
   const dividers = props.dividers ?? true;
   const columns = (props.columns ?? []).map(normalizeColumn);
   const rows: unknown[][] = props.rows ?? [];
@@ -95,6 +109,8 @@ function Table({ props, children }: RendererProps<any>) {
   };
   const wrapperStyle: React.CSSProperties = {
     width: "100%",
+    maxWidth: "100%",
+    minWidth: 0,
     overflowX: "auto",
     maxHeight: props.stickyHeader ? 480 : undefined,
     overflowY: props.stickyHeader ? "auto" : undefined,
@@ -106,11 +122,15 @@ function Table({ props, children }: RendererProps<any>) {
     columns.length === 0
   ) {
     return (
-      <div style={wrapperStyle}>
+      <div
+        className="a2ui-std-table-wrap"
+        data-a2ui-std=""
+        style={wrapperStyle}
+      >
         <TableContext.Provider
           value={{ dividers, inSection: false, header: false }}
         >
-          <table style={tableStyle}>
+          <table className="a2ui-std-table" style={tableStyle}>
             {renderChildList(props.children, children)}
           </table>
         </TableContext.Provider>
@@ -125,32 +145,36 @@ function Table({ props, children }: RendererProps<any>) {
   );
 
   return (
-    <div style={wrapperStyle}>
-      <table style={tableStyle}>
+    <div className="a2ui-std-table-wrap" data-a2ui-std="" style={wrapperStyle}>
+      <table className="a2ui-std-table" style={tableStyle}>
         {columns.length > 0 ? (
           <thead>
             <tr>
-              {columns.map((c, i) => (
-                <th
-                  key={`${c.label}-${i}`}
-                  scope="col"
-                  style={{
-                    ...cellStyle({
-                      header: true,
-                      dividers: true,
-                      align: c.align,
-                      width: c.width,
-                    }),
-                    position: props.stickyHeader ? "sticky" : undefined,
-                    top: props.stickyHeader ? 0 : undefined,
-                    background: props.stickyHeader
-                      ? backgroundColor("surface")
-                      : undefined,
-                  }}
-                >
-                  {c.label}
-                </th>
-              ))}
+              {columns.map((c, i) => {
+                const cell = cellProps({
+                  header: true,
+                  dividers: true,
+                  align: c.align,
+                  width: c.width,
+                });
+                return (
+                  <th
+                    key={`${c.label}-${i}`}
+                    scope="col"
+                    {...cell}
+                    style={{
+                      ...cell.style,
+                      position: props.stickyHeader ? "sticky" : undefined,
+                      top: props.stickyHeader ? 0 : undefined,
+                      background: props.stickyHeader
+                        ? backgroundColor("surface")
+                        : undefined,
+                    }}
+                  >
+                    {c.label}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
         ) : null}
@@ -159,8 +183,9 @@ function Table({ props, children }: RendererProps<any>) {
             <tr>
               <td
                 colSpan={columnCount}
+                className="a2ui-std-cell"
                 style={{
-                  ...cellStyle({ header: false, dividers: false }),
+                  ...cellProps({ header: false, dividers: false }).style,
                   color: textColor("tertiary"),
                   textAlign: "center",
                 }}
@@ -174,7 +199,7 @@ function Table({ props, children }: RendererProps<any>) {
                 {(Array.isArray(row) ? row : [row]).map((value, c) => (
                   <td
                     key={c}
-                    style={cellStyle({
+                    {...cellProps({
                       header: false,
                       dividers: dividers && r < rows.length - 1,
                       align:
@@ -245,7 +270,7 @@ function TableCell({ props, children }: RendererProps<any>) {
     <Tag
       colSpan={props.colSpan}
       rowSpan={props.rowSpan}
-      style={cellStyle({
+      {...cellProps({
         header,
         dividers: parent?.dividers ?? true,
         align: props.align,

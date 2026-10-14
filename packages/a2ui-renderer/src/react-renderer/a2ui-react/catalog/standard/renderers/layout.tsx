@@ -5,6 +5,7 @@ import type {
 } from "../../../../create-catalog";
 import type { layoutDefinitions, LayoutProps } from "../definitions/layout";
 import { backgroundColor, borderColor, radius, spacing } from "../tokens";
+import { useStandardStyles } from "../styles";
 
 const ALIGN_CSS: Record<string, string> = {
   start: "flex-start",
@@ -55,8 +56,9 @@ export function layoutStyle(p: LayoutProps): React.CSSProperties {
     ...radiusStyle(p.radius),
     width: spacing(p.width),
     height: spacing(p.height),
-    minWidth: spacing(p.minWidth),
-    maxWidth: spacing(p.maxWidth),
+    // Containers may shrink below their content and never exceed their parent.
+    minWidth: spacing(p.minWidth) ?? 0,
+    maxWidth: spacing(p.maxWidth) ?? "100%",
     minHeight: spacing(p.minHeight),
     maxHeight: spacing(p.maxHeight),
     flex: p.flex,
@@ -111,16 +113,48 @@ export const renderChildren = renderChildList;
 
 const container =
   (extra?: (p: any) => React.CSSProperties) =>
-  ({ props, children }: RendererProps<any>) => (
-    <div
-      style={{
-        ...layoutStyle(props),
-        ...(extra ? defined(extra(props)) : {}),
-      }}
-    >
-      {renderChildren(props.children, children)}
-    </div>
-  );
+  ({ props, children }: RendererProps<any>) => {
+    useStandardStyles();
+    return (
+      <div
+        data-a2ui-std=""
+        style={{
+          ...layoutStyle(props),
+          ...(extra ? defined(extra(props)) : {}),
+        }}
+      >
+        {renderChildren(props.children, children)}
+      </div>
+    );
+  };
+
+const hasGap = (p: LayoutProps) =>
+  p.gap !== undefined || p.columnGap !== undefined || p.rowGap !== undefined;
+
+/** Minimum column width that lets `columns` cards sit side by side. */
+const GRID_MIN_TRACK_PX = 520;
+
+/**
+ * A numeric column count becomes an auto-fit template: at most `n` columns
+ * (each track is at least 1/n of the row) that collapse towards one column
+ * once a track would drop below ~260px (two columns) / 520px / n.
+ */
+export function gridTemplateColumns(p: {
+  columns?: number | string;
+  minChildWidth?: number | string;
+  gap?: number | string;
+  columnGap?: number | string;
+}): string {
+  if (typeof p.columns === "string") return p.columns;
+  if (p.minChildWidth !== undefined) {
+    return `repeat(auto-fill, minmax(min(100%, ${spacing(p.minChildWidth)}), 1fr))`;
+  }
+  const n = Math.max(1, Math.floor(p.columns ?? 2));
+  if (n === 1) return "minmax(0, 1fr)";
+  const gap = spacing(p.columnGap ?? p.gap ?? 4);
+  const minTrack = Math.round(Math.max(120, GRID_MIN_TRACK_PX / n));
+  return `repeat(auto-fit, minmax(min(100%, max(${minTrack}px, calc((100% - ${n - 1} * ${gap}) / ${n}))), 1fr))`;
+}
 
 const span = (p: { span?: number; rowSpan?: number }) => ({
   gridColumn: p.span ? `span ${p.span}` : undefined,
@@ -132,15 +166,15 @@ export const layoutRenderers = {
     flexDirection: p.direction === "row" ? "row" : "column",
   })),
   Column: container(() => ({ flexDirection: "column" })),
-  Row: container(() => ({ flexDirection: "row" })),
+  // ChatGPT auto-spaces row children 8px apart.
+  Row: container((p) => ({
+    flexDirection: "row",
+    gap: hasGap(p) ? undefined : spacing(2),
+  })),
   Grid: container((p) => ({
     display: "grid",
-    gridTemplateColumns:
-      typeof p.columns === "string"
-        ? p.columns
-        : p.minChildWidth !== undefined
-          ? `repeat(auto-fill, minmax(${spacing(p.minChildWidth)}, 1fr))`
-          : `repeat(${p.columns ?? 2}, minmax(0, 1fr))`,
+    gap: hasGap(p) ? undefined : spacing(4),
+    gridTemplateColumns: gridTemplateColumns(p),
     gridTemplateRows:
       typeof p.rows === "number"
         ? `repeat(${p.rows}, auto)`
@@ -149,6 +183,7 @@ export const layoutRenderers = {
   GridItem: container((p) => ({ ...span(p), flexDirection: "column" })),
   Card: container((p) => ({
     flexDirection: "column",
+    gap: hasGap(p) ? undefined : spacing(4),
     padding: spacing(p.padding ?? 4),
     borderRadius: radius(
       typeof p.radius === "object" ? undefined : (p.radius ?? "xl"),
@@ -166,12 +201,15 @@ export const layoutRenderers = {
             : "surface"),
     ),
     boxShadow:
-      p.variant === "elevated" ? "0 2px 8px rgba(0,0,0,.1)" : undefined,
+      p.variant === "elevated" ? "0 1px 3px rgba(0,0,0,.06)" : undefined,
   })),
   Flow: container((p) => ({
     display: "grid",
     gap: spacing(p.gap ?? 4),
-    gridTemplateColumns: `repeat(${p.columns ?? 3}, minmax(0, 1fr))`,
+    gridTemplateColumns: gridTemplateColumns({
+      columns: p.columns ?? 3,
+      gap: p.gap ?? 4,
+    }),
     gridAutoFlow: p.layout === "fixed" ? "row" : "dense",
   })),
   FlowItem: container((p) => ({
@@ -207,9 +245,11 @@ export const layoutRenderers = {
     <hr
       style={{
         border: 0,
-        borderTop: `${props.size ?? 1}px solid ${borderColor(props.color ?? "default")}`,
+        borderTop: `${props.size ?? 1}px solid ${borderColor(props.color ?? "subtle")}`,
         margin: props.flush ? 0 : `${spacing(props.spacing ?? 2)} 0`,
         width: "100%",
+        flexShrink: 0,
+        alignSelf: "stretch",
       }}
     />
   ),
