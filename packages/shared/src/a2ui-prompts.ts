@@ -138,6 +138,7 @@ RULES
 - Exactly one component must have id "root". Every other component must be reachable from root via child/children. IDs are unique. No cycles.
 - Each component is one flat JSON object: {"id":"title","component":"Text","text":"Hello"}. The component name goes in "component" (never "type"); its properties sit next to it, not inside a "props" object.
 - Do not use function calls ({"call": ...}): this catalog defines no functions. A value is a literal or a { "path": "..." } binding. Compute derived values (totals, prices) yourself and write them as literals or into the data model.
+- The schema may list shared layout props once under "commonProps"; every component marked "includesCommonProps" accepts all of them in addition to its own props.
 - ONLY use component names and properties from the Available Components schema. Property values are inline literals unless the schema lists a { "path": "..." } option for that property.
 - Editable inputs bind to the data model: "value": { "path": "/form/email" }. Pre-fill via updateDataModel. A button or form collects values through its action context: "action": { "event": { "name": "submit", "context": { "email": { "path": "/form/email" } } } }.
 - When a button should send a message back to you, put the text in the action context: "action": { "event": { "name": "choose", "context": { "message": "Show me the Team plan" } } }. A button without an action does nothing.
