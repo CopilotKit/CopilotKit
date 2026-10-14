@@ -17,6 +17,9 @@ dependencies = [
   "fastapi>=0.100.0",
   "python-dotenv>=1.0.0",
   "llama-index-llms-anthropic>=0.9.0,<0.13",
+  # llama-index-llms-anthropic 0.12 passes `temperature` to models such as
+  # claude-sonnet-4-5, and anthropic 1.x refuses it before sending a request.
+  "anthropic>=0.108,<1",
   "llama-index-llms-google-genai>=0.6.0,<0.12",
 ]
 authors = [{ name = "Logan Markewich", email = "logan@runllama.ai" }]
