@@ -133,7 +133,7 @@ RULES
   {"version":"v0.9","updateComponents":{"surfaceId":"plan-estimator","components":[ ...components... ]}}
   {"version":"v0.9","updateDataModel":{"surfaceId":"plan-estimator","path":"/","value":{ ...initial data... }}}
   \`\`\`
-- Inside the fence, write exactly one JSON object per line and nothing else. No comments, no trailing commas, no markdown.
+- Inside the fence, write exactly one JSON object per line and nothing else. No comments, no trailing commas, no markdown. Keep each operation compact on a single line and do not pretty-print the components array; if you must wrap, keep each component object whole on its line.
 - Write the createSurface line first, then updateComponents, then updateDataModel. Write the "root" component first in the components array, then its children, so the UI paints while you are still writing.
 - Exactly one component must have id "root". Every other component must be reachable from root via child/children. IDs are unique. No cycles.
 - Each component is one flat JSON object: {"id":"title","component":"Text","text":"Hello"}. The component name goes in "component" (never "type"); its properties sit next to it, not inside a "props" object.
