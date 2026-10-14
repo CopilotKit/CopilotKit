@@ -715,6 +715,63 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       copilotKitCore.removeContext(contextId);
     });
 
+    it("forwards thread-scoped context of the consumer's conversation only", async () => {
+      const providerAgent = new MockAgent({ agentId: "default" });
+      const consumerAgent = new MockAgent({ agentId: "consumer" });
+      (consumerAgent as { threadId?: string }).threadId = "thread-a";
+
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
+      copilotKitCore.upsertContext("this-thread", {
+        description: "Widget state",
+        value: "visible",
+        agentIds: ["consumer"],
+        threadId: "thread-a",
+      });
+      copilotKitCore.upsertContext("other-thread", {
+        description: "Other conversation",
+        value: "hidden",
+        agentIds: ["consumer"],
+        threadId: "thread-b",
+      });
+
+      copilotKitCore.addSuggestionsConfig(createSuggestionsConfig());
+      providerAgent.setNewMessages([
+        createAssistantMessage({
+          toolCalls: [
+            {
+              id: "s1",
+              type: "function",
+              function: {
+                name: "copilotkitSuggest",
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
+              },
+            },
+          ],
+        }),
+      ]);
+
+      copilotKitCore.reloadSuggestions("consumer");
+
+      await vi.waitFor(() => {
+        expect(providerAgent.runAgentCalls.length).toBeGreaterThan(0);
+      });
+      expect(providerAgent.runAgentCalls[0].context).toEqual([
+        { description: "Widget state", value: "visible" },
+      ]);
+
+      copilotKitCore.removeContext("this-thread");
+      copilotKitCore.removeContext("other-thread");
+    });
+
     it("should forward properties to suggestion provider agent", async () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });

@@ -4,12 +4,30 @@ import type { CopilotKitCore } from "./core";
 import type { CopilotKitCoreFriendsAccess } from "./core";
 
 /**
- * A context entry with optional per-agent scoping.
+ * A context entry with optional per-agent and per-thread scoping.
  * When `agentIds` is set, the entry is forwarded only to runs of those agents;
  * when omitted, the entry is forwarded to every agent run.
+ * When `threadId` is set, the entry is forwarded only to runs (and suggestion
+ * requests) of that conversation; a consumer with no thread id never gets it.
  */
 export interface ScopedContext extends Context {
   agentIds?: string[];
+  threadId?: string;
+}
+
+/** Copy only the fields a stored entry keeps, dropping absent scopes. */
+function toStoredEntry({
+  description,
+  value,
+  agentIds,
+  threadId,
+}: ScopedContext): ScopedContext {
+  return {
+    description,
+    value,
+    ...(agentIds ? { agentIds: [...agentIds] } : {}),
+    ...(threadId !== undefined ? { threadId } : {}),
+  };
 }
 
 /**
@@ -33,36 +51,65 @@ export class ContextStore {
    * specific agents (#5369); omit it for context every agent should receive.
    * @returns The ID of the created context entry
    */
-  addContext({ description, value, agentIds }: ScopedContext): string {
+  addContext(context: ScopedContext): string {
     const id = randomUUID();
-    this._context[id] = {
-      description,
-      value,
-      ...(agentIds ? { agentIds } : {}),
-    };
+    this._context[id] = toStoredEntry(context);
     void this.notifySubscribers();
     return id;
   }
 
   /**
-   * Build the context array for a run of the given agent: entries scoped to
-   * other agents are dropped, and the scoping metadata is stripped so only
-   * protocol-shaped `{ description, value }` entries go over the wire.
+   * Create or replace the entry stored under a caller-chosen, stable `id`, in
+   * one step: a consumer never observes the old and the new entry together,
+   * nor neither of them. Replacing an entry with an identical one is a no-op
+   * and does not notify subscribers.
    */
-  getContextForAgent(agentId?: string): Context[] {
+  upsertContext(id: string, context: ScopedContext): void {
+    const next = toStoredEntry(context);
+    const current = this._context[id];
+    if (current && JSON.stringify(current) === JSON.stringify(next)) return;
+    this._context[id] = next;
+    void this.notifySubscribers();
+  }
+
+  /**
+   * Build the context array for a run of the given agent in the given thread:
+   * entries scoped to other agents or other threads are dropped, and the
+   * scoping metadata is stripped so only protocol-shaped
+   * `{ description, value }` entries go over the wire.
+   */
+  getContextForAgent(agentId?: string, threadId?: string): Context[] {
     return Object.values(this._context)
       .filter(
         (entry) =>
-          !entry.agentIds ||
-          (agentId !== undefined && entry.agentIds.includes(agentId)),
+          (!entry.agentIds ||
+            (agentId !== undefined && entry.agentIds.includes(agentId))) &&
+          (entry.threadId === undefined ||
+            (threadId !== undefined && entry.threadId === threadId)),
       )
       .map(({ description, value }) => ({ description, value }));
+  }
+
+  /**
+   * Remove every entry scoped to a conversation that no longer exists. Entries
+   * scoped to other agents are kept: a thread id belongs to one agent.
+   */
+  removeThreadContext(agentId: string, threadId: string): void {
+    let removed = false;
+    for (const [id, entry] of Object.entries(this._context)) {
+      if (entry.threadId !== threadId) continue;
+      if (entry.agentIds && !entry.agentIds.includes(agentId)) continue;
+      delete this._context[id];
+      removed = true;
+    }
+    if (removed) void this.notifySubscribers();
   }
 
   /**
    * Remove a context entry by ID
    */
   removeContext(id: string): void {
+    if (!(id in this._context)) return;
     delete this._context[id];
     void this.notifySubscribers();
   }

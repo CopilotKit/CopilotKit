@@ -307,7 +307,12 @@ export class SuggestionEngine {
 
       await suggestionAgent.runAgent(
         {
-          context: friends.getContextForAgent(consumerAgentId),
+          // The consumer's conversation, not the suggestion agent's own
+          // throwaway thread.
+          context: friends.getContextForAgent(
+            consumerAgentId,
+            suggestionsConsumerAgent.threadId,
+          ),
           forwardedProps: {
             ...friends.properties,
             toolChoice: {
