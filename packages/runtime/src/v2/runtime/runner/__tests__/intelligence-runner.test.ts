@@ -1252,6 +1252,70 @@ describe("IntelligenceAgentRunner", () => {
       expect(await runner.isRunning({ threadId })).toBe(false);
     });
 
+    it("reports delivery stats for each acknowledged batch and ignores callback errors", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const stats: unknown[] = [];
+      const statsRunner = new IntelligenceAgentRunner({
+        url: "ws://localhost:4000/runner",
+        onEventDeliveryStats: (entry) => {
+          stats.push(entry);
+          throw new Error("metrics sink down");
+        },
+      });
+      const threadId = "t-event-delivery-stats";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-delivery-stats",
+      });
+      const agent = new MockAgent(
+        Array.from(
+          { length: 40 },
+          (_, index) =>
+            ({
+              type: EventType.CUSTOM,
+              name: "progress",
+              value: index,
+            }) as BaseEvent,
+        ),
+      );
+      let errors = 0;
+      let completions = 0;
+
+      statsRunner.run({ threadId, agent, input }).subscribe({
+        error: () => errors++,
+        complete: () => completions++,
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(150);
+      ch.pushLog[0].push.trigger("ok");
+
+      // RUN_STARTED + 40 events + the finalizer's RUN_ERROR = 42 queued.
+      expect(stats).toEqual([
+        {
+          threadId,
+          runId: input.runId,
+          acknowledgedEvents: 32,
+          ackLatencyMs: 150,
+          pendingEvents: 10,
+          oldestPendingAgeMs: 150,
+        },
+      ]);
+
+      // A partial batch waits for the flush timer.
+      await vi.advanceTimersByTimeAsync(5);
+      ch.pushLog[1].push.trigger("ok");
+      expect(stats).toHaveLength(2);
+      expect(stats[1]).toMatchObject({
+        pendingEvents: 0,
+        oldestPendingAgeMs: 0,
+      });
+      expect(errors).toBe(0);
+      expect(completions).toBe(1);
+    });
+
     it("closes open lifecycles and emits one RUN_ERROR when the agent errors and then throws", async () => {
       const threadId = "t-finalize-error-then-throw";
       const input = createRunInput({
