@@ -58,6 +58,7 @@ const deadline =
 let receipt;
 while (Date.now() < deadline) {
   receipt = await (await request(started.statusUrl)).json();
+  assert.equal(receipt.id, started.id, "Runner receipt identity changed");
   if (receipt.status !== "running") break;
   await delay(10_000);
 }
@@ -115,4 +116,13 @@ assert.ok(
   "Hosted run did not pass",
 );
 assert.equal(receipt.cleanup, "passed", "Hosted cleanup not verified");
+assert.equal(
+  receipt.deadlineExceeded,
+  false,
+  "Hosted lifetime was not verified",
+);
+if (values.mode === "crash-recovery")
+  assert.equal(receipt.crashReached, true, "Crash point was not reached");
+if (values.mode !== "crash-recovery")
+  assert.equal(receipt.exitCode, 0, "Hosted controller failed");
 console.log(`Railway ${values.mode} completed: ${started.id}`);
