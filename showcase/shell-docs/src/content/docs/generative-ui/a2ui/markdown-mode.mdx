@@ -1,0 +1,178 @@
+---
+title: "Markdown mode"
+icon: "lucide/Code"
+description: "Render A2UI surfaces inline from ```a2ui fences in ordinary markdown replies."
+---
+
+## What is this?
+
+In markdown mode the agent does not call a tool to render UI. It writes A2UI
+v0.9 operations inside a fenced code block tagged `a2ui`, in the middle of an
+ordinary markdown reply, and the chat renders each fence as a live A2UI
+surface. Prose before and after the fence renders as normal markdown.
+
+Inside the fence the agent writes one JSON operation per line:
+
+````markdown
+Here is an estimate you can play with:
+
+```a2ui
+{"version":"v0.9","createSurface":{"surfaceId":"plan-estimator"}}
+{"version":"v0.9","updateComponents":{"surfaceId":"plan-estimator","components":[{"id":"root","component":"Card","children":["body"]},{"id":"body","component":"Column","children":["seats","price"]},{"id":"seats","component":"Slider","label":"Seats","min":1,"max":50,"value":{"path":"/seats"}},{"id":"price","component":"Text","text":{"path":"/price"}}]}}
+{"version":"v0.9","updateDataModel":{"surfaceId":"plan-estimator","path":"/","value":{"seats":10,"price":"$290 / month"}}}
+```
+
+Move the slider to change the seat count.
+````
+
+Because the UI travels as plain text, markdown mode works with any AG-UI
+agent: the built-in agent, LangGraph, or anything else that streams text.
+
+## Enable it
+
+Set `mode: "markdown"` on the provider's `a2ui` prop:
+
+```tsx title="app/providers.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ mode: "markdown" }}>
+  {children}
+</CopilotKit>;
+```
+
+With markdown mode on, the provider:
+
+- sends the catalog's component schema and a markdown-mode generation
+  guideline (how to write the fence) to the agent as context, along with the
+  A2UI design guidelines;
+- forwards `__copilotkitA2UIMode: "markdown"` on every run, so the runtime
+  does **not** apply the A2UI middleware and does **not** inject the
+  `render_a2ui` tool, even if the runtime has `a2ui` configured;
+- swaps the assistant message's markdown renderer for one that splits prose
+  from `a2ui` fences and renders each fence with the A2UI renderer.
+
+No runtime or agent changes are needed. Markdown mode is prompt-only: the
+agent learns the format from the context the provider sends. For a LangGraph
+Python agent, add `CopilotKitMiddleware` (or read
+`state["copilotkit"]["context"]` yourself) so that context reaches the system
+prompt.
+
+A runnable example with the built-in agent and a LangGraph Python agent lives
+in [`examples/v2/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/a2ui-markdown).
+
+## Streaming
+
+Surfaces paint while the reply is still streaming:
+
+- Each component is rendered as soon as its JSON has fully streamed, so a
+  surface fills in component by component inside an open fence.
+- Until the first renderable component arrives, a building skeleton shows
+  (or your `a2ui.loadingComponent`).
+- If the stream stops mid-fence (for example, the run is aborted), the surface
+  keeps whatever already painted.
+- The failure card appears only for a closed fence that produced nothing
+  renderable, for example when every line is invalid JSON.
+
+If the model omits `createSurface`, CopilotKit synthesizes one with the active
+catalog id. A later fence that reuses a `surfaceId` applies its operations to
+the existing surface instead of rendering a second one.
+
+## The standard catalog
+
+Markdown mode ships with `standardCatalog` from `@copilotkit/a2ui-renderer`
+and uses it by default. It has these components
+and uses A2UI-native names where A2UI has the component:
+
+| Group | Components |
+| --- | --- |
+| Layout | `Box`, `Column`, `Row`, `Grid`, `GridItem`, `Card`, `Flow`, `FlowItem`, `Carousel`, `CarouselItem`, `Spacer`, `Divider`, `Animate`, `AnimateGroup`, `AnimateItem`, `Transition` |
+| Text | `Title`, `Text`, `Caption`, `Label`, `Bold`, `Italic`, `Underline`, `Strikethrough`, `Badge`, `Blockquote`, `Code`, `Markdown`, `Math`, `ShimmerText`, `Link`, `Tooltip` |
+| Inputs | `Button`, `Pressable`, `Form`, `TextField`, `TextArea`, `Select`, `CheckBox`, `Radio`, `RadioGroup`, `Slider`, `SegmentedControl`, `DateTimeInput` |
+| Data | `Table`, `TableSection`, `TableRow`, `TableCell`, `List`, `ListItem`, `Chart`, `Map` |
+| Media | `Image`, `Icon`, `Favicon`, `Svg`, `YouTube`, `HtmlView` |
+| Feedback and overlay | `Loading`, `LoadingIndicator`, `LoadingBlock`, `PulseIndicator`, `Celebration`, `FlashcardFlip`, `Popover`, `PopoverTrigger`, `PopoverContent` |
+
+`Map` loads `maplibre-gl` on demand; install it in your app if your agent
+draws maps.
+
+Pass `catalog` to replace the standard catalog with your own:
+
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ mode: "markdown", catalog: myCatalog }}>
+```
+
+To keep the standard components and add your own, merge the definitions and
+renderers into a new catalog:
+
+```tsx
+import {
+  createCatalog,
+  standardDefinitions,
+  standardRenderers,
+} from "@copilotkit/a2ui-renderer";
+
+const catalog = createCatalog(
+  { ...standardDefinitions, ...myDefinitions },
+  { ...standardRenderers, ...myRenderers },
+  { catalogId: "https://example.com/catalogs/my-app" },
+);
+
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ mode: "markdown", catalog }}>
+```
+
+## Actions
+
+When the user presses a button or submits a form on a markdown-mode surface,
+CopilotKit appends the action as a **visible user message** and runs the
+agent, exactly as if the user had typed it. The message text is the action
+context's `message` (or `label`) when present, otherwise the humanized action
+name, followed by the remaining context values as `key: value` lines. This is
+why the guideline tells the agent to put the text it wants back into the
+action context:
+
+```json
+{ "action": { "event": { "name": "choose", "context": { "message": "Show me the Team plan" } } } }
+```
+
+Two options change this:
+
+- `actionMode: "legacy"` forwards the action as the `a2uiAction` run property
+  instead, the way tool mode does, with no visible message.
+- `onAction(action, forward)` intercepts every action first. Return nothing
+  to send the original, return a modified action to send that instead, or
+  return `null` to swallow it (call `forward()` yourself first if you want to
+  send it later, for example after a confirmation dialog).
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  a2ui={{
+    mode: "markdown",
+    onAction: (action) => {
+      if (action.name === "open_docs") {
+        window.open("https://docs.copilotkit.ai");
+        return null;
+      }
+    },
+  }}
+>
+```
+
+## v1 chat
+
+The v1 chat components in `@copilotkit/react-ui` (`CopilotChat`,
+`CopilotSidebar`, `CopilotPopup`) render `a2ui` fences too. Set
+`a2ui={{ mode: "markdown" }}` on the v1 `<CopilotKit>` provider; without it a
+fence renders as a plain code block.
+
+## Limitations
+
+- Fences are block-level only. A fence must start at column 0; a fence
+  indented inside a list item renders as a code block.
+- Values are literals or data-model bindings (`{ "path": "/seats" }`). There
+  are no computed expressions, so a price that depends on a slider must be
+  recomputed by the agent (for example, after an action) rather than inside
+  the surface.
+- In markdown mode the provider does not use the tool path, so tool-mode
+  features such as the injected `generate_a2ui` subagent and runtime-side
+  schema overrides do not apply.
