@@ -304,3 +304,111 @@ describe("extractFenceOperations partial field scoping", () => {
     ).toBe("plan");
   });
 });
+
+describe("extractFenceOperations object stream", () => {
+  const COMPONENTS = [
+    { id: "root", component: "Column", children: ["t"] },
+    { id: "t", component: "Text", text: "hi" },
+  ];
+  const PRETTY = [
+    '{"version":"v0.9","updateComponents":{"surfaceId":"plan","components":[',
+    '  {"id":"root","component":"Column","children":["t"]},',
+    '  {"id":"t","component":"Text","text":"hi"}',
+    "]}}",
+  ].join("\n");
+
+  it("parses an operation pretty-printed over several lines", () => {
+    const res = extractFenceOperations(`${CREATE}\n${PRETTY}\n${DATA}\n`);
+    expect(res.operations).toEqual([
+      JSON.parse(CREATE),
+      JSON.parse(UPDATE),
+      JSON.parse(DATA),
+    ]);
+    expect(res.invalidLines).toEqual([]);
+    expect(res.recovered).toEqual([]);
+    expect(res.partialObject).toBeNull();
+  });
+
+  it("parses several objects on one line and ignores commas between them", () => {
+    const res = extractFenceOperations(`${CREATE}, ${UPDATE},\n${DATA}`);
+    expect(res.operations).toHaveLength(3);
+    expect(res.invalidLines).toEqual([]);
+  });
+
+  it("flattens a top-level array of operations", () => {
+    const res = extractFenceOperations(`[${CREATE},\n${UPDATE}]\n`);
+    expect(res.operations).toEqual([JSON.parse(CREATE), JSON.parse(UPDATE)]);
+    expect(res.invalidLines).toEqual([]);
+  });
+
+  it("emits complete components of a pretty-printed operation while it streams", () => {
+    const cut = PRETTY.indexOf('{"id":"t"') + 4;
+    const res = extractFenceOperations(`${CREATE}\n${PRETTY.slice(0, cut)}`);
+    expect(res.operations[1]).toEqual({
+      version: "v0.9",
+      updateComponents: { surfaceId: "plan", components: [COMPONENTS[0]] },
+    });
+    expect(res.partialObject).toBe(PRETTY.slice(0, cut));
+    expect(res.partialLine).toBe(res.partialObject);
+  });
+
+  it("skips junk between objects and reports it", () => {
+    const res = extractFenceOperations(`${CREATE}\n"\n${UPDATE}\n`);
+    expect(res.operations).toEqual([JSON.parse(CREATE), JSON.parse(UPDATE)]);
+    expect(res.recovered).toEqual(['"']);
+    expect(res.invalidLines).toEqual(['"']);
+  });
+
+  it("salvages the components of a closed object with a stray quote", () => {
+    const broken = UPDATE.replace(/\]\}\}$/, '"]}}');
+    const res = extractFenceOperations(`${CREATE}\n${broken}\n${DATA}\n`);
+    expect(res.operations).toEqual([
+      JSON.parse(CREATE),
+      {
+        version: "v0.9",
+        updateComponents: { surfaceId: "plan", components: COMPONENTS },
+      },
+      JSON.parse(DATA),
+    ]);
+    expect(res.invalidLines).toEqual([broken]);
+  });
+
+  it("salvages a balanced object that does not parse", () => {
+    const broken =
+      '{"version":"v0.9","updateComponents":{"surfaceId":"plan","components":[{"id":"root","component":"Text","text":"x"},{"id":"y" "bad"}]}}';
+    const res = extractFenceOperations(`${broken}\n`);
+    expect(res.operations).toEqual([
+      {
+        version: "v0.9",
+        updateComponents: {
+          surfaceId: "plan",
+          components: [{ id: "root", component: "Text", text: "x" }],
+        },
+      },
+    ]);
+    expect(res.invalidLines).toEqual([broken]);
+  });
+
+  it("starts a new operation when an unbalanced one is followed by another", () => {
+    const missingBrace = DATA.slice(0, -1);
+    const res = extractFenceOperations(`${missingBrace}\n${UPDATE}\n`);
+    expect(res.operations).toEqual([
+      {
+        version: "v0.9",
+        updateDataModel: { surfaceId: "plan", path: "/", value: { seats: 8 } },
+      },
+      JSON.parse(UPDATE),
+    ]);
+    expect(res.invalidLines).toEqual([missingBrace]);
+  });
+
+  it("recovers a trailing object that never balanced", () => {
+    const missingBrace = DATA.slice(0, -1);
+    const res = extractFenceOperations(`${CREATE}\n${missingBrace}\n`);
+    expect(res.operations[1]).toEqual({
+      version: "v0.9",
+      updateDataModel: { surfaceId: "plan", path: "/", value: { seats: 8 } },
+    });
+    expect(res.partialObject).toBe(`${missingBrace}\n`);
+  });
+});
