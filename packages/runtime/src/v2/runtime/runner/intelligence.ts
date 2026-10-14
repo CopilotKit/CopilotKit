@@ -67,6 +67,8 @@ interface ThreadState {
     string,
     { payload: Record<string, unknown>; queuedAt: number }
   >;
+  /** When the queue last became non-empty or last had a batch acknowledged. */
+  durableProgressAt: number;
   activeEventBatch: { eventIds: string[]; attempt: number } | null;
   nextEventPushAttempt: number;
   eventRetryTimer: ReturnType<typeof setTimeout> | null;
@@ -287,6 +289,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         resolveCompletion,
         stopTimer: null,
         pendingEvents: new Map(),
+        durableProgressAt: 0,
         activeEventBatch: null,
         nextEventPushAttempt: 0,
         eventRetryTimer: null,
@@ -698,7 +701,14 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
   }
 
-  /** Queue one immutable event payload until Redis-backed gateway acknowledgement. */
+  /**
+   * Queue one immutable event payload until Redis-backed gateway acknowledgement.
+   *
+   * `pushCanonicalEvent` is the only producer and stamps a fresh, increasing
+   * `cpki_event_seq` on every event it queues, so the map's insertion order is
+   * sequence order. Batches are therefore read from the front of the map
+   * instead of sorting the whole queue on every event.
+   */
   private queueRunnerEvent(
     payload: Record<string, unknown>,
     state: ThreadState,
@@ -708,13 +718,34 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
     const eventId = this.runnerEventId(payload);
     if (!state.pendingEvents.has(eventId)) {
+      const queuedAt = Date.now();
+      const wasEmpty = state.pendingEvents.size === 0;
       state.pendingEvents.set(eventId, {
         payload: structuredClone(payload),
-        queuedAt: Date.now(),
+        queuedAt,
       });
+      if (wasEmpty) {
+        state.durableProgressAt = queuedAt;
+        // An empty queue has no deadline timer; its first event starts one.
+        this.scheduleEventDeadline(state);
+      }
     }
-    this.scheduleEventDeadline(state);
     this.replayPendingEvents(state);
+  }
+
+  /** The oldest `limit` pending events, in sequence order. */
+  private oldestPendingEvents(
+    state: ThreadState,
+    limit: number,
+  ): Array<[string, { payload: Record<string, unknown>; queuedAt: number }]> {
+    const oldest: Array<
+      [string, { payload: Record<string, unknown>; queuedAt: number }]
+    > = [];
+    for (const entry of state.pendingEvents) {
+      if (oldest.length >= limit) break;
+      oldest.push(entry);
+    }
+    return oldest;
   }
 
   private pushPendingEventBatch(
@@ -754,6 +785,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
         for (const eventId of eventIds) {
           state.pendingEvents.delete(eventId);
         }
+        // The gateway is accepting events, so the deadline measures from here.
+        // A slow but healthy gateway must not fail a run that is still draining.
+        state.durableProgressAt = Date.now();
         state.activeEventBatch = null;
         state.eventRetryAttempt = 0;
         if (state.pendingEvents.size === 0) {
@@ -845,12 +879,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
-    const oldestQueuedAt = Math.min(
-      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
-    );
+    const [[, oldest]] = this.oldestPendingEvents(state, 1);
     const delay = Math.max(
       0,
-      oldestQueuedAt + RUNNER_EVENT_BATCH_FLUSH_MS - Date.now(),
+      oldest.queuedAt + RUNNER_EVENT_BATCH_FLUSH_MS - Date.now(),
     );
     state.eventFlushTimer = setTimeout(() => {
       state.eventFlushTimer = null;
@@ -883,20 +915,19 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
-    const pendingEvents = [...state.pendingEvents.entries()].sort(
-      ([, left], [, right]) =>
-        this.runnerEventSeq(left.payload) - this.runnerEventSeq(right.payload),
-    );
-    if (pendingEvents.length === 0) {
+    if (state.pendingEvents.size === 0) {
       return;
     }
 
     const batchSize = state.supportsRunnerEventBatch
       ? MAX_RUNNER_EVENT_BATCH_SIZE
       : 1;
-    if (!state.supportsRunnerEventBatch || pendingEvents.length >= batchSize) {
+    if (
+      !state.supportsRunnerEventBatch ||
+      state.pendingEvents.size >= batchSize
+    ) {
       this.clearPendingEventFlush(state);
-      const batch = pendingEvents.slice(0, batchSize);
+      const batch = this.oldestPendingEvents(state, batchSize);
       this.pushPendingEventBatch(
         batch.map(([eventId]) => eventId),
         batch.map(([, event]) => event),
@@ -917,13 +948,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
-    const batch = [...state.pendingEvents.entries()]
-      .sort(
-        ([, left], [, right]) =>
-          this.runnerEventSeq(left.payload) -
-          this.runnerEventSeq(right.payload),
-      )
-      .slice(0, MAX_RUNNER_EVENT_BATCH_SIZE);
+    const batch = this.oldestPendingEvents(state, MAX_RUNNER_EVENT_BATCH_SIZE);
     this.pushPendingEventBatch(
       batch.map(([eventId]) => eventId),
       batch.map(([, event]) => event),
@@ -982,11 +1007,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return metadata.cpki_event_id as string;
   }
 
-  private runnerEventSeq(payload: Record<string, unknown>): number {
-    const metadata = payload.metadata as Record<string, unknown>;
-    return metadata.cpki_event_seq as number;
-  }
-
   private supportsRunnerEventBatch(response: unknown): boolean {
     if (typeof response !== "object" || response === null) {
       return false;
@@ -1029,10 +1049,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
-    const oldestQueuedAt = Math.min(
-      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
-    );
-    const deadline = oldestQueuedAt + EVENT_DURABILITY_DEADLINE_MS;
+    const deadline = state.durableProgressAt + EVENT_DURABILITY_DEADLINE_MS;
     state.eventDeadlineTimer = setTimeout(
       () => {
         state.eventDeadlineTimer = null;
@@ -1065,10 +1082,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     if (state.pendingEvents.size === 0) {
       return false;
     }
-    const oldestQueuedAt = Math.min(
-      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
-    );
-    if (Date.now() < oldestQueuedAt + EVENT_DURABILITY_DEADLINE_MS) {
+    if (Date.now() < state.durableProgressAt + EVENT_DURABILITY_DEADLINE_MS) {
       return false;
     }
     this.failThread(

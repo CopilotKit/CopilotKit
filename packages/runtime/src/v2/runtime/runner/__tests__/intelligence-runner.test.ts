@@ -1152,6 +1152,106 @@ describe("IntelligenceAgentRunner", () => {
       expect(await runner.isRunning({ threadId })).toBe(false);
     });
 
+    it("drains a large run whose acknowledgements are slow but keep succeeding", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-slow-healthy-gateway";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-slow-healthy-gateway",
+      });
+      // 14,301 events at 150 ms per 32-event batch takes ~67 s to drain: past
+      // the durability deadline in total, but never 60 s without progress.
+      const customEvents = Array.from(
+        { length: 14_299 },
+        (_, index) =>
+          ({
+            type: EventType.CUSTOM,
+            name: "progress",
+            value: index,
+          }) as BaseEvent,
+      );
+      const agent = new MockAgent([
+        ...customEvents,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+      let errors = 0;
+      let completions = 0;
+
+      runner.run({ threadId, agent, input }).subscribe({
+        error: () => errors++,
+        complete: () => completions++,
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+
+      let acknowledged = 0;
+      while (completions === 0 && errors === 0) {
+        await vi.advanceTimersByTimeAsync(150);
+        const pending = ch.pushLog[acknowledged];
+        if (!pending) break;
+        pending.push.trigger("ok");
+        acknowledged += 1;
+      }
+
+      expect(errors).toBe(0);
+      expect(completions).toBe(1);
+      expect(Date.now()).toBeGreaterThan(60_000);
+      const seqs = ch.pushLog.flatMap((push) =>
+        push.payload.events.map((event: any) => event.metadata.cpki_event_seq),
+      );
+      expect(seqs).toEqual(
+        Array.from({ length: 14_301 }, (_, index) => index + 1),
+      );
+    });
+
+    it("fails once the gateway stops acknowledging for the durability deadline after earlier progress", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-deadline-after-progress";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-deadline-after-progress",
+      });
+      const agent = new MockAgent(
+        Array.from(
+          { length: 100 },
+          (_, index) =>
+            ({
+              type: EventType.CUSTOM,
+              name: "progress",
+              value: index,
+            }) as BaseEvent,
+        ),
+      );
+      let receivedError: Error | undefined;
+
+      runner.run({ threadId, agent, input }).subscribe({
+        error: (error) => (receivedError = error),
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(1_000);
+      ch.pushLog[0].push.trigger("ok");
+      expect(ch.pushLog).toHaveLength(2);
+
+      // The oldest pending event was queued at 0; the deadline runs from the
+      // acknowledgement at 1 s, so 60 s after queueing is not yet a failure.
+      await vi.advanceTimersByTimeAsync(60_000 - 1);
+      expect(receivedError).toBeUndefined();
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(receivedError?.message).toMatch(/durably deliver/i);
+      expect(agent.aborted).toBe(true);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
     it("closes open lifecycles and emits one RUN_ERROR when the agent errors and then throws", async () => {
       const threadId = "t-finalize-error-then-throw";
       const input = createRunInput({
