@@ -19,39 +19,11 @@ import {
 import { Chart } from "./Chart";
 import { MapView } from "./Map";
 import { LucideIcon } from "./media";
+import { renderChildList } from "./layout";
 
-/**
- * A bound child list: static ids (strings) or, for a template
- * `{ componentId, path }`, the binder's `{ id, basePath }` entries.
- */
+export { renderChildList };
+
 type BoundChildList = unknown;
-type BuildChild = (id: string, basePath?: string) => React.ReactNode;
-
-/** Render a bound ChildList (static ids or expanded template entries). */
-export function renderChildList(
-  list: BoundChildList,
-  children: RendererProps["children"],
-): React.ReactNode {
-  if (!Array.isArray(list)) return null;
-  // The catalog passes the surface's buildChild, which accepts a basePath.
-  const build = children as BuildChild;
-  return list.map((item: unknown, i: number) => {
-    if (typeof item === "string") {
-      return (
-        <React.Fragment key={`${item}-${i}`}>{build(item)}</React.Fragment>
-      );
-    }
-    if (item && typeof item === "object" && "id" in item) {
-      const node = item as { id: string; basePath?: string };
-      return (
-        <React.Fragment key={`${node.id}-${node.basePath ?? ""}-${i}`}>
-          {build(node.id, node.basePath)}
-        </React.Fragment>
-      );
-    }
-    return null;
-  });
-}
 
 const hasChildren = (list: BoundChildList) =>
   Array.isArray(list) && list.length > 0;
@@ -384,7 +356,10 @@ function ItemBody({
   return (
     <button
       type="button"
-      onClick={action}
+      onClick={(e) => {
+        e.stopPropagation();
+        action();
+      }}
       style={{
         all: "unset",
         display: "block",

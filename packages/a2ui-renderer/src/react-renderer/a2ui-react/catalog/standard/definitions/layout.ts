@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ChildListSchema } from "@a2ui/web_core/v0_9";
 import type { CatalogDefinitions } from "../../../../create-catalog";
 import {
   ALIGN,
@@ -33,9 +34,19 @@ export const childIds = z
   .optional()
   .describe("Child component IDs");
 
+/**
+ * Children as static ids or a template `{ componentId, path }` that repeats
+ * `componentId` once per element of the data-model array at `path`. Built on
+ * A2UI's `ChildListSchema` so the generic binder expands templates; render
+ * with `renderChildList`.
+ */
+export const childList = ChildListSchema.optional().describe(
+  'Child IDs, or a template { "componentId": "row", "path": "/rows" } repeated per array item',
+);
+
 /** Layout props shared by every container. */
 export const layoutProps = {
-  children: childIds,
+  children: childList,
   align: z.enum(ALIGN).optional(),
   justify: z.enum(JUSTIFY).optional(),
   wrap: z.enum(WRAP).optional(),
