@@ -300,3 +300,21 @@ provider, reviewed real image pins, readiness and cleanup evidence, and the
 atomic writer before hosted use. PNI-606 must supply the four-hour schedule.
 Offline classifier tests and Docker receipts do not prove Railway deployment or
 live probe acceptance.
+
+## Hosted permanent-runner transport
+
+The shared reader also accepts an operator-configured HTTPS URL in
+`SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE`, restricted to `/registry` without user
+info, query, fragment, or redirects. Set `SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN`
+and the actual `SHOWCASE_REGISTRY_CONSUMER` role (`image-gate`, `ruby-promotion`,
+`harness`). Each classification fetches fresh bytes with a ten-second timeout
+and eight-MiB bound, verifies snapshot and committed-policy hashes, parses the
+same schema above, then acknowledges those bytes to `/consumers/<role>`.
+Configured network, authentication, hash, or acknowledgment errors return invalid
+evidence. There is no stale-file or empty-snapshot fallback.
+
+The permanent Railway runner serves snapshots from its durable volume. Consumers
+must refresh while ownership publication proceeds: the writer requires each
+role's acknowledgment of the exact current digest. Merely deploying this reader
+or running a local test does not establish deployed consumer activation. Existing
+file readers remain supported for explicitly wired durable mirrors.

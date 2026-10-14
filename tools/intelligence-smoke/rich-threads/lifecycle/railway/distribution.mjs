@@ -16,6 +16,19 @@ export function validateDistribution(targets) {
       `Missing registry consumer distribution: ${role}`,
     );
   for (const t of targets) {
+    if (t.transport === "https") {
+      const url = new URL(t.recordsFile);
+      assert.ok(
+        url.protocol === "https:" &&
+          url.pathname === "/registry" &&
+          !url.username &&
+          !url.password &&
+          !url.search &&
+          !url.hash,
+      );
+      assert.ok(roles.includes(t.consumer));
+      continue;
+    }
     assert.match(t.host, /^[a-zA-Z0-9][a-zA-Z0-9@._-]*$/);
     assert.match(t.receiver, /^\/[a-zA-Z0-9/_.-]+$/);
     assert.match(t.recordsFile, /^\/[a-zA-Z0-9/_.-]+$/);
@@ -69,7 +82,7 @@ export async function sshJson(target, request) {
   }
 }
 /** All required consumer mirrors must acknowledge the exact validated bytes before create/ready. */
-export async function distributeSnapshot(file, targets, send = sshJson) {
+export async function distributeSnapshot(file, targets, send = registrySend) {
   validateDistribution(targets);
   const bytes = await readFile(file, "utf8");
   const snapshot = JSON.parse(bytes);
@@ -100,4 +113,59 @@ export async function distributeSnapshot(file, targets, send = sshJson) {
     acknowledgments.push(ack);
   }
   return { sha256, acknowledgments };
+}
+
+export async function registrySend(target, request) {
+  if (target.transport !== "https") return sshJson(target, request);
+  const token = process.env.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN;
+  assert.ok(token, "Registry authentication missing");
+  const options = {
+    headers: { authorization: `Bearer ${token}` },
+    redirect: "error",
+    signal: AbortSignal.timeout(10_000),
+    cache: "no-store",
+  };
+  const response = await fetch(target.recordsFile, options);
+  assert.ok(response.ok, "Published registry unavailable");
+  const bytes = await boundedResponse(response, 8 * 1024 * 1024);
+  assert.equal(digest(bytes), request.sha256);
+  const activation = await fetch(
+    new URL(`/consumers/${target.consumer}`, target.recordsFile),
+    options,
+  );
+  assert.ok(activation.ok, "Consumer activation not observed");
+  const ack = JSON.parse(await boundedResponse(activation, 16_384));
+  assert.equal(
+    ack.sha256,
+    request.sha256,
+    "Consumer has not acknowledged current snapshot",
+  );
+  assert.ok(
+    ack.consumer === target.consumer &&
+      ack.reader === "railway-lifecycle-records-v1" &&
+      ack.policySha256 === request.policySha256 &&
+      Date.now() - Date.parse(ack.at) < 4 * 60 * 60 * 1000 &&
+      Date.parse(ack.at) <= Date.now(),
+    "Consumer activation missing, stale, or incompatible",
+  );
+  return {
+    consumer: target.consumer,
+    recordsFile: target.recordsFile,
+    sha256: digest(bytes),
+    policySha256: response.headers.get("x-policy-sha256"),
+    valid: true,
+    activatedAt: ack.at,
+  };
+}
+
+async function boundedResponse(response, limit) {
+  assert.ok(response.body, "Registry response body missing");
+  let size = 0;
+  const chunks = [];
+  for await (const chunk of response.body) {
+    size += chunk.byteLength;
+    assert.ok(size <= limit, "Registry response exceeds bound");
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
 }

@@ -1,3 +1,5 @@
+import { bindServiceVariables } from "./service-bindings.mjs";
+import { ownerAlive } from "./process-owner.mjs";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm } from "node:fs/promises";
@@ -291,6 +293,11 @@ async function controllerFor({
   };
   async function ownedEnvironment(environmentId) {
     assert.ok(
+      environmentId !== config.permanentRunner?.environmentId &&
+        environmentId !== process.env.RAILWAY_ENVIRONMENT_ID,
+      "Permanent runner environment is protected",
+    );
+    assert.ok(
       journal.environments.some((e) => e.id === environmentId),
       "Environment was not returned by provider",
     );
@@ -343,6 +350,11 @@ async function controllerFor({
     return value;
   }
   async function ownedService(service) {
+    assert.ok(
+      service.id !== config.permanentRunner?.serviceId &&
+        service.id !== process.env.RAILWAY_SERVICE_ID,
+      "Permanent runner service is protected",
+    );
     assert.ok(
       !policy.permanentServices.some(
         (s) => s.serviceId === service.id || s.name === service.name,
@@ -557,6 +569,19 @@ async function controllerFor({
     }
   }
   async function removeConfirmed(kind, resource) {
+    assert.ok(
+      ![
+        config.permanentRunner?.serviceId,
+        config.permanentRunner?.volumeId,
+        config.permanentRunner?.environmentId,
+        process.env.RAILWAY_SERVICE_ID,
+        process.env.RAILWAY_VOLUME_ID,
+        process.env.RAILWAY_ENVIRONMENT_ID,
+      ]
+        .filter(Boolean)
+        .includes(resource.id),
+      "Permanent runner resource is protected",
+    );
     const listKind =
       kind === "deleteVolume"
         ? "volumes"
@@ -719,10 +744,7 @@ async function controllerFor({
           environmentIds: journal.environments.map((e) => e.id),
         };
         journal.withinLifetime = Date.now() <= Date.parse(journal.expiresAt);
-        assert.ok(
-          journal.withinLifetime,
-          "Cleanup exceeded the 60-minute total lifetime; operator review required",
-        );
+        journal.cleanup.deadlineExceeded = !journal.withinLifetime;
         journal.phase = "complete";
         await save();
         await publish();
@@ -920,20 +942,30 @@ async function controllerFor({
           variables: Object.fromEntries(
             Object.entries(spec.env ?? {}).map(([key, value]) => [
               key,
-              bindBootstrap(String(value), journal.bootstrap).replace(
-                /\{\{service:([a-z0-9-]+):host\}\}/g,
-                (_match, target) => {
-                  assert.ok(
-                    specs.some((s) => s.key === target),
-                    "Unknown private service binding",
-                  );
-                  return `${journal.environmentName}-${target}.railway.internal`;
-                },
-              ),
+              bindServiceVariables(value, specs, journal),
             ]),
           ),
         },
       });
+      if (
+        process.env.RICH_CRASH_AFTER_RESOURCE === "1" &&
+        process.env.RICH_CRASH_STAGE === "ambiguous-create"
+      ) {
+        const runnerPid = Number(process.env.RICH_RUNNER_PID);
+        assert.ok(
+          process.env.RAILWAY_SERVICE_ID &&
+            Number.isSafeInteger(runnerPid) &&
+            runnerPid > 0 &&
+            runnerPid !== process.pid,
+        );
+        await durableJson(join(directory, "crash-control.json"), {
+          runId: journal.runId,
+          stage: "ambiguous-create",
+          at: new Date().toISOString(),
+        });
+        process.kill(runnerPid, "SIGKILL");
+        await new Promise(() => {});
+      }
       id(returned.id);
       assert.equal(returned.projectId, journal.projectId);
       service.id = returned.id;
@@ -975,6 +1007,25 @@ async function controllerFor({
         volumeIntent.status = "recorded";
         await save();
         await publish();
+        if (process.env.RICH_CRASH_AFTER_RESOURCE === "1") {
+          const runnerPid = Number(process.env.RICH_RUNNER_PID);
+          assert.ok(
+            process.env.RAILWAY_SERVICE_ID &&
+              Number.isSafeInteger(runnerPid) &&
+              runnerPid > 0 &&
+              runnerPid !== process.pid,
+            "Crash control requires hosted runner",
+          );
+          await durableJson(join(directory, "crash-control.json"), {
+            runId: journal.runId,
+            serviceId: service.id,
+            volumeId: volume.id,
+            stage: "recorded-owned-volume",
+            at: new Date().toISOString(),
+          });
+          process.kill(runnerPid, "SIGKILL");
+          await new Promise(() => {});
+        }
       }
       await check();
       await ownedService(service);
@@ -1191,16 +1242,10 @@ export async function recoverRailwayEnvironment(
   assert.equal(journal.projectId, policy.projectId);
   assert.equal(journal.runId, runId);
   // Recovery cannot race a live controller before its deadline. Operators must stop it first.
-  if (journal.lease.pid !== process.pid) {
-    try {
-      process.kill(journal.lease.pid, 0);
-      throw new Error(
-        "Original controller is still running; stop it before recovery",
-      );
-    } catch (error) {
-      if (error.code !== "ESRCH") throw error;
-    }
-  }
+  assert.ok(
+    journal.lease.pid === process.pid || !(await ownerAlive(journal.lease)),
+    "Original controller is still running; stop it before recovery",
+  );
   const current = JSON.parse(
     await readFile(
       join(config.controlDirectory, "active-run", "lease.json"),
