@@ -81,7 +81,7 @@ export async function sshJson(target, request) {
     clearTimeout(timer);
   }
 }
-/** All required consumer mirrors must acknowledge the exact validated bytes before create/ready. */
+/** Verify current publication and each configured consumer transport before create/ready. */
 export async function distributeSnapshot(file, targets, send = registrySend) {
   validateDistribution(targets);
   const bytes = await readFile(file, "utf8");
@@ -129,6 +129,8 @@ export async function registrySend(target, request) {
   assert.ok(response.ok, "Published registry unavailable");
   const bytes = await boundedResponse(response, 8 * 1024 * 1024);
   assert.equal(digest(bytes), request.sha256);
+  assert.equal(response.headers.get("x-snapshot-sha256"), request.sha256);
+  assert.equal(response.headers.get("x-policy-sha256"), request.policySha256);
   const activation = await fetch(
     new URL(`/consumers/${target.consumer}`, target.recordsFile),
     options,
@@ -136,17 +138,18 @@ export async function registrySend(target, request) {
   assert.ok(activation.ok, "Consumer activation not observed");
   const ack = JSON.parse(await boundedResponse(activation, 16_384));
   assert.equal(
-    ack.sha256,
-    request.sha256,
-    "Consumer has not acknowledged current snapshot",
+    ack.recordsFile,
+    target.recordsFile,
+    "Consumer activated another transport",
   );
   assert.ok(
     ack.consumer === target.consumer &&
       ack.reader === "railway-lifecycle-records-v1" &&
       ack.policySha256 === request.policySha256 &&
-      Date.now() - Date.parse(ack.at) < 4 * 60 * 60 * 1000 &&
+      /^[a-f0-9]{64}$/.test(ack.sha256) &&
+      Number.isFinite(Date.parse(ack.at)) &&
       Date.parse(ack.at) <= Date.now(),
-    "Consumer activation missing, stale, or incompatible",
+    "Consumer activation missing or incompatible",
   );
   return {
     consumer: target.consumer,

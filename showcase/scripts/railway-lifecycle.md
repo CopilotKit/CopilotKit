@@ -314,7 +314,10 @@ Configured network, authentication, hash, or acknowledgment errors return invali
 evidence. There is no stale-file or empty-snapshot fallback.
 
 The permanent Railway runner serves snapshots from its durable volume. Consumers
-must refresh while ownership publication proceeds: the writer requires each
-role's acknowledgment of the exact current digest. Merely deploying this reader
+fetch fresh evidence on every classification. Publication verifies the current
+served bytes and each role's actual activation for the configured URL and committed
+policy; it does not wait for every consumer to classify every intermediate update.
+A prior activation receipt does not certify consumption of a newer snapshot.
+Changed URL or policy requires renewed activation. Merely deploying this reader
 or running a local test does not establish deployed consumer activation. Existing
 file readers remain supported for explicitly wired durable mirrors.

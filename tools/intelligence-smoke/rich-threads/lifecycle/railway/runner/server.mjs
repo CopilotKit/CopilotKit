@@ -15,6 +15,7 @@ import { durableJson } from "../journal.mjs";
 import { parseRunRecordsSnapshot, policy } from "../contract.mts";
 import { digest, policyDigest } from "../distribution.mjs";
 import { createScheduler } from "./scheduler.mjs";
+import { installBootstrap } from "./bootstrap-seed.mjs";
 
 const roles = ["image-gate", "ruby-promotion", "harness"];
 const idPattern = /^run-[a-f0-9-]{36}$/;
@@ -108,6 +109,15 @@ export function runnerServer({ root, config, token, scheduler }) {
         const path = join(root, `consumer-${consumer}.json`);
         if (request.method === "POST") {
           const body = await jsonBody(request);
+          assert.ok(
+            config.consumers?.some(
+              (target) =>
+                target.transport === "https" &&
+                target.consumer === consumer &&
+                target.recordsFile === body.recordsFile,
+            ),
+            "Consumer transport not configured",
+          );
           assert.equal(body.policySha256, policyDigest());
           assert.equal(
             body.sha256,
@@ -116,6 +126,7 @@ export function runnerServer({ root, config, token, scheduler }) {
           assert.equal(body.reader, "railway-lifecycle-records-v1");
           await durableJson(path, {
             consumer,
+            recordsFile: body.recordsFile,
             reader: body.reader,
             policySha256: body.policySha256,
             sha256: body.sha256,
@@ -191,6 +202,12 @@ export async function main(env = process.env) {
     serviceId: env.RAILWAY_SERVICE_ID,
     volumeId: env.RAILWAY_VOLUME_ID,
   };
+  await installBootstrap({
+    root,
+    template,
+    seed: env.RICH_BOOTSTRAP_SCRIPT_B64,
+  });
+  delete env.RICH_BOOTSTRAP_SCRIPT_B64;
   await durableJson(configPath, template);
   // Only initialize an unmistakably new volume. Missing records on an existing
   // initialized volume are corruption and must block, never become an empty run list.
