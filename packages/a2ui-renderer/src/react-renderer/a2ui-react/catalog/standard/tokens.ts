@@ -113,7 +113,7 @@ const TEXT_COLOR_FALLBACK: Record<string, string> = {
   primary: "#0d0d0d",
   emphasis: "#000",
   secondary: "#5d5d5d",
-  tertiary: "#8f8f8f",
+  tertiary: "#8e8e8e",
   success: "#00805d",
   info: "#0068bc",
   warning: "#946200",
@@ -128,13 +128,14 @@ const BG_FALLBACK: Record<string, string> = {
   "surface-elevated": "#fff",
   "surface-elevated-secondary": "#f7f7f8",
   "surface-inverted": "#0d0d0d",
-  "surface-soft": "#fafafa",
-  info: "#e6f1fb",
-  warning: "#fff4e0",
-  caution: "#fff4e0",
-  success: "#e3f6ef",
-  danger: "#fbe9e8",
-  discovery: "#efe9fa",
+  "surface-soft": "#fcfcfc",
+  // Semantic tints read as hints, not blocks: the text colour at low alpha.
+  info: "rgba(0, 104, 188, 0.08)",
+  warning: "rgba(148, 98, 0, 0.08)",
+  caution: "rgba(148, 98, 0, 0.08)",
+  success: "rgba(0, 128, 93, 0.08)",
+  danger: "rgba(193, 50, 44, 0.08)",
+  discovery: "rgba(112, 64, 193, 0.08)",
   "info-solid": "#0068bc",
   "warning-solid": "#946200",
   "caution-solid": "#946200",
@@ -182,6 +183,36 @@ export function textColor(v: string | undefined): string | undefined {
 export function backgroundColor(v: string | undefined): string | undefined {
   if (!v) return undefined;
   return has(BG_FALLBACK, v) ? `var(--a2ui-color-${v}, ${BG_FALLBACK[v]})` : v;
+}
+
+/** ChatGPT's single inner panel: near-white fill, 8px radius, 12px padding. */
+export const INNER_PANEL_BG = "var(--a2ui-color-panel, rgb(252, 252, 252))";
+const SOFT_TINT: Record<string, string> = {
+  info: "rgba(0, 104, 188, 0.06)",
+  warning: "rgba(148, 98, 0, 0.06)",
+  caution: "rgba(148, 98, 0, 0.06)",
+  success: "rgba(0, 128, 93, 0.06)",
+  danger: "rgba(193, 50, 44, 0.06)",
+  discovery: "rgba(112, 64, 193, 0.06)",
+};
+
+/**
+ * Background of a panel nested inside a Card: neutral surfaces collapse to
+ * the near-white inner panel, semantic tints get even lighter (~6% alpha),
+ * solid/raw values pass through `backgroundColor`.
+ */
+export function panelBackground(v: string | undefined): string | undefined {
+  if (!v) return undefined;
+  if (
+    v === "surface-secondary" ||
+    v === "surface-soft" ||
+    v === "surface-elevated-secondary"
+  ) {
+    return INNER_PANEL_BG;
+  }
+  return has(SOFT_TINT, v)
+    ? `var(--a2ui-color-${v}-soft, ${SOFT_TINT[v]})`
+    : backgroundColor(v);
 }
 
 export function borderColor(v: string | undefined): string | undefined {

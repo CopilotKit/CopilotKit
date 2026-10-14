@@ -36,6 +36,9 @@ const ICON_PX: Record<Size, number> = { sm: 14, md: 16, lg: 18, xl: 18 };
 
 const useInputStyles = useStandardStyles;
 
+/** Text inputs use a slightly stronger hairline than cards. */
+const CONTROL_BORDER = "var(--a2ui-color-border-control, rgba(0, 0, 0, 0.15))";
+
 const str = (v: unknown) => (v === undefined || v === null ? "" : String(v));
 
 function normalizeOptions(options: OptionList) {
@@ -66,7 +69,7 @@ function controlStyle(
     fontFamily: "inherit",
     color: textColor("default"),
     background: backgroundColor("surface"),
-    border: `1px solid ${borderColor(p.invalid ? "danger" : "default")}`,
+    border: `1px solid ${p.invalid ? borderColor("danger") : CONTROL_BORDER}`,
     borderRadius: p.pill === false ? radius("md") : "9999px",
     opacity: p.disabled ? 0.5 : undefined,
   };
@@ -292,6 +295,7 @@ function CheckBox({ props }: RendererProps<any>) {
         cursor: props.disabled ? "not-allowed" : "pointer",
         opacity: props.disabled ? 0.5 : undefined,
         ...textFont("md"),
+        color: textColor("default"),
       }}
     >
       <input

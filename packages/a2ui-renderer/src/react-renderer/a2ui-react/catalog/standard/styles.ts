@@ -22,6 +22,10 @@ export const STANDARD_CSS = [
   ".a2ui-surface{min-width:0;max-width:100%;box-sizing:border-box}",
   // Outermost standard element carries ChatGPT's font, ink and base text.
   `[data-a2ui-std]:not([data-a2ui-std] [data-a2ui-std]){font-family:${FONT_FAMILY};color:${textColor("default")};font-size:16px;line-height:26px;-webkit-font-smoothing:antialiased}`,
+  // Controls never fall back to the UA font.
+  "[data-a2ui-std] :is(button,input,select,textarea),[data-a2ui-input]{font:inherit;color:inherit}",
+  // Key/value rows: the trailing text of a space-between row sits flush right.
+  '[data-a2ui-row="between"]>[data-a2ui-text]:last-child:not(:first-child){text-align:right;margin-inline-start:auto}',
   "[data-a2ui-input]:focus-visible{outline:2px solid var(--a2ui-color-focus, #0285ff);outline-offset:1px}",
   `[data-a2ui-input]::placeholder{color:${textColor("tertiary")};opacity:1}`,
   // Slider: 24px pill track, 2px inset white thumb (no filled range).

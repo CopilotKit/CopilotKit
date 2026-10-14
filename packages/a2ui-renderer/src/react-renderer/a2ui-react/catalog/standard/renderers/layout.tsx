@@ -10,7 +10,14 @@ import type {
   RendererProps,
 } from "../../../../create-catalog";
 import type { layoutDefinitions, LayoutProps } from "../definitions/layout";
-import { backgroundColor, borderColor, radius, spacing } from "../tokens";
+import {
+  INNER_PANEL_BG,
+  backgroundColor,
+  borderColor,
+  panelBackground,
+  radius,
+  spacing,
+} from "../tokens";
 import { useStandardStyles } from "../styles";
 
 const ALIGN_CSS: Record<string, string> = {
@@ -117,16 +124,45 @@ export function renderChildList(
 /** Alias of `renderChildList` (ids or expanded template entries). */
 export const renderChildren = renderChildList;
 
+const hasGap = (p: LayoutProps) =>
+  p.gap !== undefined || p.columnGap !== undefined || p.rowGap !== undefined;
+
+/**
+ * True inside a Card. ChatGPT surfaces have exactly one bordered level (the
+ * outer card); everything nested flattens into borderless columns or the
+ * single near-white inner panel.
+ */
+export const CardNestingContext = createContext(false);
+
+/** ChatGPT's inner panel: 12px padding, 8px radius, no border, no shadow. */
+function innerPanelStyle(p: LayoutProps): React.CSSProperties {
+  return {
+    padding: spacing(p.padding ?? 3),
+    borderRadius: radius("md"),
+    background: panelBackground(p.background) ?? INNER_PANEL_BG,
+    border: "none",
+    boxShadow: "none",
+  };
+}
+
+type Extra = (p: any, nested: boolean) => React.CSSProperties;
+
 const container =
-  (extra?: (p: any) => React.CSSProperties) =>
+  (extra?: Extra, attrs?: (p: any) => Record<string, string | undefined>) =>
   ({ props, children }: RendererProps<any>) => {
     useStandardStyles();
+    const nested = useContext(CardNestingContext);
     return (
       <div
         data-a2ui-std=""
+        {...(attrs ? attrs(props) : {})}
         style={{
           ...layoutStyle(props),
-          ...(extra ? defined(extra(props)) : {}),
+          // Inside a Card, background tokens use the lighter panel palette.
+          ...(nested && props.background
+            ? { background: panelBackground(props.background) }
+            : {}),
+          ...(extra ? defined(extra(props, nested)) : {}),
         }}
       >
         {renderChildren(props.children, children)}
@@ -134,8 +170,63 @@ const container =
     );
   };
 
-const hasGap = (p: LayoutProps) =>
-  p.gap !== undefined || p.columnGap !== undefined || p.rowGap !== undefined;
+/** Card: bordered at the top level, flattened when nested in another Card. */
+function cardStyle(p: any, nested: boolean): React.CSSProperties {
+  const ownBackground =
+    p.background ?? (p.variant === "soft" ? "surface-secondary" : undefined);
+  if (nested) {
+    const base: React.CSSProperties = {
+      flexDirection: "column",
+      gap: hasGap(p) ? undefined : spacing(3),
+      border: "none",
+      boxShadow: "none",
+    };
+    if (ownBackground && ownBackground !== "transparent") {
+      return {
+        ...base,
+        ...innerPanelStyle({ ...p, background: ownBackground }),
+      };
+    }
+    return { ...base, padding: 0, background: "transparent", borderRadius: 0 };
+  }
+  return {
+    flexDirection: "column",
+    gap: hasGap(p) ? undefined : spacing(4),
+    padding: spacing(p.padding ?? 4),
+    borderRadius: radius(
+      typeof p.radius === "object" ? undefined : (p.radius ?? "xl"),
+    ),
+    border:
+      p.variant === "transparent"
+        ? "none"
+        : `1px solid ${borderColor(p.borderColor ?? "default")}`,
+    background: backgroundColor(
+      ownBackground ??
+        (p.variant === "transparent" ? "transparent" : undefined),
+    ),
+    boxShadow:
+      p.variant === "elevated" ? "0 1px 3px rgba(0,0,0,.06)" : undefined,
+  };
+}
+
+function Card({ props, children }: RendererProps<any>) {
+  useStandardStyles();
+  const nested = useContext(CardNestingContext);
+  return (
+    <CardNestingContext.Provider value={true}>
+      <div
+        data-a2ui-std=""
+        data-a2ui-card={nested ? "nested" : "top"}
+        style={{
+          ...layoutStyle(props),
+          ...defined(cardStyle(props, nested)),
+        }}
+      >
+        {renderChildren(props.children, children)}
+      </div>
+    </CardNestingContext.Provider>
+  );
+}
 
 /** Minimum column width that lets `columns` cards sit side by side. */
 const GRID_MIN_TRACK_PX = 520;
@@ -264,39 +355,24 @@ const span = (p: { span?: number; rowSpan?: number }) => ({
 });
 
 export const layoutRenderers = {
-  Box: container((p) => ({
+  Box: container((p, nested) => ({
     flexDirection: p.direction === "row" ? "row" : "column",
+    // A bordered Box inside a Card becomes the inner panel, not a 1px box.
+    ...(nested && p.border ? innerPanelStyle(p) : {}),
   })),
   Column: container(() => ({ flexDirection: "column" })),
-  // ChatGPT auto-spaces row children 8px apart.
-  Row: container((p) => ({
-    flexDirection: "row",
-    gap: hasGap(p) ? undefined : spacing(2),
-  })),
+  // ChatGPT rows: children centred on the cross axis, 8px apart.
+  Row: container(
+    (p) => ({
+      flexDirection: "row",
+      alignItems: p.align ? undefined : "center",
+      gap: hasGap(p) ? undefined : spacing(2),
+    }),
+    (p) => ({ "data-a2ui-row": p.justify ?? "start" }),
+  ),
   Grid,
   GridItem,
-  Card: container((p) => ({
-    flexDirection: "column",
-    gap: hasGap(p) ? undefined : spacing(4),
-    padding: spacing(p.padding ?? 4),
-    borderRadius: radius(
-      typeof p.radius === "object" ? undefined : (p.radius ?? "xl"),
-    ),
-    border:
-      p.variant === "transparent"
-        ? "none"
-        : `1px solid ${borderColor(p.borderColor ?? "default")}`,
-    background: backgroundColor(
-      p.background ??
-        (p.variant === "soft"
-          ? "surface-secondary"
-          : p.variant === "transparent"
-            ? "transparent"
-            : "surface"),
-    ),
-    boxShadow:
-      p.variant === "elevated" ? "0 1px 3px rgba(0,0,0,.06)" : undefined,
-  })),
+  Card,
   Flow: container((p) => ({
     display: "grid",
     gap: spacing(p.gap ?? 4),
@@ -330,8 +406,8 @@ export const layoutRenderers = {
       aria-hidden
       style={{
         flex: 1,
-        minWidth: spacing(props.minSize),
-        minHeight: spacing(props.minSize),
+        minWidth: spacing(props.minSize ?? 2),
+        minHeight: spacing(props.minSize ?? 2),
       }}
     />
   ),
