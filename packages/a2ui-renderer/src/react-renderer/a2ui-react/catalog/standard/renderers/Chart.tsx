@@ -92,23 +92,31 @@ function makeFormatter(
   currency: string | undefined,
 ): ((value: unknown) => string) | undefined {
   if (!format) return undefined;
-  let nf: Intl.NumberFormat;
-  try {
-    nf = new Intl.NumberFormat(undefined, {
-      style:
-        format === "currency"
-          ? "currency"
-          : format === "percent"
-            ? "percent"
-            : "decimal",
-      currency: format === "currency" ? (currency ?? "USD") : undefined,
-      maximumFractionDigits: 2,
-    });
-  } catch {
-    nf = new Intl.NumberFormat();
-  }
+  // Axis ticks must stay short ("$1.6K", "25%"): en-US, no decimals, compact
+  // above 10k. Tooltips use the same formatter, which keeps charts consistent.
+  const build = (compact: boolean) => {
+    try {
+      return new Intl.NumberFormat("en-US", {
+        style:
+          format === "currency"
+            ? "currency"
+            : format === "percent"
+              ? "percent"
+              : "decimal",
+        currency: format === "currency" ? (currency ?? "USD") : undefined,
+        maximumFractionDigits: format === "percent" ? 1 : 0,
+        ...(compact ? { notation: "compact" as const } : {}),
+      });
+    } catch {
+      return new Intl.NumberFormat("en-US");
+    }
+  };
+  const plain = build(false);
+  const compact = build(true);
   return (value) =>
-    typeof value === "number" ? nf.format(value) : String(value ?? "");
+    typeof value === "number"
+      ? (Math.abs(value) >= 10_000 ? compact : plain).format(value)
+      : String(value ?? "");
 }
 
 /** Builds the chart component from the lazily imported recharts module. */
@@ -203,7 +211,7 @@ function createRechartsChart(R: RechartsModule) {
             tickLine={false}
             axisLine={false}
             tickFormatter={fmt as any}
-            width={56}
+            width={64}
           />
           {showTooltip ? (
             <R.Tooltip formatter={fmt as any} {...TOOLTIP_STYLE} />
