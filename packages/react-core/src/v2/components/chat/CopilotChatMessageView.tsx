@@ -28,7 +28,6 @@ import type {
 import { twMerge } from "tailwind-merge";
 import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
-import { useA2UIMarkdownConfig } from "../../a2ui/markdown/A2UIMarkdownContext";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import {
   IntelligenceIndicator,
@@ -534,7 +533,6 @@ export function CopilotChatMessageView({
   const renderCustomMessage = useRenderCustomMessages();
   const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit, showIntelligenceIndicator = true } = useCopilotKit();
-  const a2uiMarkdownConfig = useA2UIMarkdownConfig();
   const config = useCopilotChatConfiguration();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -1139,17 +1137,7 @@ export function CopilotChatMessageView({
   // reasoning message — the reasoning card already shows its own loading
   // indicator. A reasoning message the transform hid shows no indicator.
   const lastMessage = renderedMessages[renderedMessages.length - 1];
-  // In A2UI markdown mode the streaming reply (prose and surfaces painting in
-  // place) is the progress signal; the pulsing dot under it only flickers as
-  // the layout changes, so hide it once the assistant message has content.
-  const lastMessageHasText =
-    lastMessage?.role === "assistant" &&
-    typeof lastMessage.content === "string" &&
-    lastMessage.content.trim().length > 0;
-  const showCursor =
-    isRunning &&
-    lastMessage?.role !== "reasoning" &&
-    !(a2uiMarkdownConfig && lastMessageHasText);
+  const showCursor = isRunning && lastMessage?.role !== "reasoning";
 
   // ---------------------------------------------------------------------------
   // Render — shared wrapper, conditional inner content (virtual vs flat)

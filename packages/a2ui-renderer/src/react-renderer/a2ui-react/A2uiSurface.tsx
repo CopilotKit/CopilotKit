@@ -104,22 +104,11 @@ export const DeferredChild: React.FC<{
 
   const componentModel = surface.componentsModel.get(id);
 
+  // A child that is referenced but has not arrived yet (surfaces stream in
+  // component by component). Render nothing: the slot fills in when the
+  // component lands, and a placeholder box would only shift the layout.
   if (!componentModel) {
-    return (
-      <div
-        style={{
-          padding: "12px 16px",
-          borderRadius: "8px",
-          background:
-            "linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%)",
-          backgroundSize: "200% 100%",
-          animation: "a2ui-shimmer 1.5s ease-in-out infinite",
-          minHeight: "2rem",
-        }}
-      >
-        <style>{`@keyframes a2ui-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
-      </div>
-    );
+    return null;
   }
 
   const compImpl = surface.catalog.components.get(componentModel.type);
