@@ -107,9 +107,14 @@ describe.skipIf(!distReady)(
             <LicenseProbe />
           </CopilotKitProvider>,
         );
-        await waitFor(() => {
-          expect(screen.getByTestId("status").textContent).toBe(status);
-        });
+        // Default waitFor is 1s; the dist provider's /info round-trip can
+        // exceed that when the whole monorepo test graph runs in parallel.
+        await waitFor(
+          () => {
+            expect(screen.getByTestId("status").textContent).toBe(status);
+          },
+          { timeout: 10_000 },
+        );
       },
     );
   },
