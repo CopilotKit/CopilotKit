@@ -133,3 +133,13 @@ describe("standard catalog: spacing rhythm", () => {
     expect(inner.style.gap).toBe("calc(var(--spacing, 0.25rem) * 2)");
   });
 });
+
+describe("standard catalog: style objects", () => {
+  it("layoutStyle never emits undefined keys (undefined longhands would reset the gap shorthand in browsers)", async () => {
+    const { layoutStyle } =
+      await import("../a2ui-react/catalog/standard/renderers/layout");
+    const style = layoutStyle({ gap: 4 } as any) as Record<string, unknown>;
+    expect(Object.values(style).some((v) => v === undefined)).toBe(false);
+    expect("rowGap" in style).toBe(false);
+  });
+});
