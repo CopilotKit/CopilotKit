@@ -2,10 +2,7 @@ import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { createRunEventFinalizer } from "@copilotkit/shared";
 import { Observable } from "rxjs";
 import type { CopilotRuntimeLike } from "../core/runtime";
-import {
-  mergeForwardableHeaders,
-  policyFor,
-} from "./header-utils";
+import { mergeForwardableHeaders, policyFor } from "./header-utils";
 import { cloneAgentForRequest, parseRunRequest } from "./shared/agent-utils";
 import { createSseEventResponse } from "./shared/sse-response";
 
@@ -76,7 +73,7 @@ export async function handleSuggestAgent({
   // Forward eligible inbound headers onto the clone under the runtime's resolved
   // forwarding policy (same helper the run handler uses: `authorization` /
   // custom `x-*`, infra/proxy/platform headers denylisted, server-set headers
-  // winning on collision (#5712)). Unlike a full agent run, the suggest path
+  // winning on collision — #5712). Unlike a full agent run, the suggest path
   // intentionally attaches no middleware (see the handler docblock): the forced
   // `copilotkitSuggest` tool choice makes any middleware-injected tools dead
   // weight, and MCPApps setup can trigger a `listTools` network round-trip we
