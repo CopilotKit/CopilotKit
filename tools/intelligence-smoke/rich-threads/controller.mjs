@@ -8,12 +8,21 @@ import { materialize } from "./materialize.mjs";
 import { parseArgs } from "node:util";
 
 const { values } = parseArgs({
-  options: { config: { type: "string" }, output: { type: "string" } },
+  options: {
+    config: { type: "string" },
+    output: { type: "string" },
+    mode: { type: "string", default: "acceptance" },
+  },
 });
 assert.ok(
   values.config && values.output,
   "--config and --output required on the durable controller",
 );
+assert.ok(["single", "acceptance"].includes(values.mode), "Unknown run mode");
+const attempts =
+  values.mode === "single"
+    ? ["clean-1"]
+    : ["clean-1", "clean-2", "failed-run-cleanup"];
 const root = resolve(values.output);
 await mkdir(root, { mode: 0o700 });
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -28,7 +37,7 @@ const interrupt = () => {
 process.once("SIGINT", interrupt);
 process.once("SIGTERM", interrupt);
 try {
-  for (const name of ["clean-1", "clean-2", "failed-run-cleanup"]) {
+  for (const name of attempts) {
     assert.ok(!cancelled, "Acceptance sequence interrupted");
     const output = join(root, name);
     const privateDirectory = await mkdtemp(
@@ -95,7 +104,9 @@ try {
     JSON.stringify(
       {
         milestone: "row1-text-query-data-v1",
-        passed: results.length === 3 && results.every((r) => r.passed),
+        mode: values.mode,
+        passed:
+          results.length === attempts.length && results.every((r) => r.passed),
         results,
       },
       null,
