@@ -96,6 +96,13 @@
         "command": "node tools/intelligence-smoke/rich-threads/controller.mjs"
       },
       "cache": false
+    },
+    "rich-threads-prepare-native": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/intelligence-smoke/rich-threads/prepare-native.mjs"
+      },
+      "cache": false
     }
   }
 }

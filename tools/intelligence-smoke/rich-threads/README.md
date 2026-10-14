@@ -73,51 +73,54 @@ of source, reports and exception messages.
 
 ## Railway and controller boundary
 
-PNI-605 owns provider creation, readiness, clean-store inspection, durable locks,
-registry distribution and verified deletion. The merged PNI-607 registry code
-still requires activation at the actual image-gate, Ruby and harness readers.
-The controller must be durable and outside the disposable environment, with
-persistent authority/record paths and an external recovery service. An ephemeral
-Actions job is not that controller. The supervisor must launch the Node worker
-directly; it enforces a 50-minute worker budget inside the 60-minute lifetime.
+The permanent Railway scheduler/controller lives outside disposable environments.
+Its durable volume retains ownership journals, cleanup progress, registry snapshots
+and results across restarts. It runs one attempt every four hours, rejects overlap,
+reconciles unfinished work on startup and periodically, and blocks new work until
+cleanup succeeds. The permanent runner and its volume are never cleanup targets.
+Each disposable environment has a maximum 60-minute lifetime; delayed cleanup is
+reported and resumed after recovery. Persistent Showcase services remain untouched.
 
-A private launch manifest supplies approved immutable image digests, actual
-receiver bindings and automation credentials. Canonical pinned Intelligence
-bootstrap creates only logical organization/project/key configuration before
-application startup. Clean-scope exceptions must name exact bootstrap tables
-and counts, never conversation data. Approval or receiver activation cannot be
-invented by the harness.
+`one-run.mjs --config=<private-template> --output=<new-retained-directory>` performs
+one fresh supervised attempt on both frameworks. `controller.mjs` runs the manual
+three-attempt acceptance sequence. Both execute inside Railway. The supervisor
+launches the Node worker directly and retains authoritative recovery state.
 
-Provider-returned URLs and ownership IDs bind every scope. Cleanup must verify
-that all owned services, volumes and environments are absent; a successful delete
-response is insufficient. Failure evidence and durable locks survive incomplete
-cleanup. No shared Showcase service may be reset or restarted.
+Actions only builds isolated images or calls the authenticated Railway runner API.
+The trigger workflow requires `RICH_RUNNER_URL` and `RICH_RUNNER_TOKEN`, polls the
+returned run ID, and exports retained evidence after validating its file hashes.
+Run modes are `single`, `acceptance`, and `crash-recovery`. Crash acceptance must
+interrupt the actual runner after resource creation, restart it, and demonstrate
+journal recovery and owned resource deletion while retained results survive.
+Local controls cannot establish that outcome.
 
-The manual reference comparison is retained separately. The reference has been
-seen during prior work, so subsequent results are not a blind comparison.
+The build-only workflow publishes SHA-tagged `rich-thread-application` and
+`rich-thread-strands` repositories, without promotion or shared-service deployment.
+It records digests for independent policy review; a successful build does not
+approve its own image. Strands staging copies the actual agent and locked
+package manifest from one committed revision. The common application's public
+package pins remain explicit baseline qualifications.
 
-## Controller configuration placeholders
+Registry readers use the merged PNI-607 contract and require concrete activation.
+Provider-returned URLs and IDs bind each scope. Cleanup verifies complete owned
+service, volume and environment absence; delete-response success is insufficient.
+No destination conversation records may be inserted as test fixtures.
 
-The manual workflow requires a registered `self-hosted, linux,
-rich-threads-controller` runner, `RICH_THREADS_CONTROLLER_CONFIG` pointing to its
-private template and `RICH_THREADS_EVIDENCE_ROOT` pointing to durable evidence
-storage. These are deployment requirements, not provisioned resources. Authority
-and recovery configuration must live outside the Actions checkout and temp dirs.
+## Private configuration
 
-`rich-threads-acceptance -- --config=<template> --output=<new-directory>` runs the
-three-attempt sequence. Template strings can use `{{run:apiKey}}`,
-`{{run:captureToken}}`, `{{run:userId}}`, `{{run:databasePassword}}`,
-`{{run:organizationId}}`, `{{run:organizationSlug}}` and `{{run:projectSlug}}`.
-Use matching placeholders in service environment and database credentials.
-The materializer supplies the canonical hash-only `BOOTSTRAP_CONFIG_B64` to
-Postgres and fresh scope IDs. The provider resolves `{{bootstrap:projectId}}`
-after committed bootstrap. Runtime JSON can be supplied privately as
-`RICH_THREADS_RUNTIME_CONFIG_JSON` in the service environment.
+Template strings may use `{{run:apiKey}}`, `{{run:captureToken}}`,
+`{{run:userId}}`, `{{run:databasePassword}}`, `{{run:organizationId}}`,
+`{{run:organizationSlug}}` and `{{run:projectSlug}}`. Use matching placeholders in
+service environment and database credentials. The materializer supplies canonical
+hash-only `BOOTSTRAP_CONFIG_B64` and fresh scope IDs. The provider resolves
+`{{bootstrap:projectId}}` after committed bootstrap. Runtime JSON can be supplied
+privately as `RICH_THREADS_RUNTIME_CONFIG_JSON`.
 
-Per-attempt private files live beside the private template, outside exported
-evidence. They are removed only after verified cleanup; retain them with the
-durable journal for interrupted recovery. The four logical bootstrap tables
-(organizations, product_actors, projects, api_keys) each expect one record for
-this fresh single-organization bootstrap. Migration bookkeeping counts still
-need verification against the exact image. Audit content requires the provider's
-separate exact bootstrap audit check; never exempt arbitrary event rows.
+Per-attempt private files live beside the private template on the durable volume,
+outside exported results. Remove them only after verified cleanup. The four logical
+bootstrap tables each contain one record for the fresh organization/project/key;
+image migration metadata counts require independent verification. Audit content
+uses a separate exact bootstrap audit check, never an arbitrary event exemption.
+
+The manual reference comparison is retained separately. The reference was seen
+during earlier work, so subsequent results are not blind.

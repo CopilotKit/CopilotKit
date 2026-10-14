@@ -1,4 +1,4 @@
-FROM node:24-slim
+FROM node:24.18.0-slim
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packs ./packs
