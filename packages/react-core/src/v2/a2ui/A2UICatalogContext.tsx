@@ -112,14 +112,18 @@ export function A2UICatalogContext({
           ...scope,
         }),
       );
-      ids.push(
-        copilotkit.addContext({
-          description:
-            "A2UI design guidelines — visual design rules, component hierarchy tips, and action handler patterns.",
-          value: A2UI_DEFAULT_DESIGN_GUIDELINES,
-          ...scope,
-        }),
-      );
+      // Markdown mode carries its own visual-style rules; the tool-mode design
+      // guideline assumes the render_a2ui tool and the basic catalog.
+      if (mode !== "markdown") {
+        ids.push(
+          copilotkit.addContext({
+            description:
+              "A2UI design guidelines — visual design rules, component hierarchy tips, and action handler patterns.",
+            value: A2UI_DEFAULT_DESIGN_GUIDELINES,
+            ...scope,
+          }),
+        );
+      }
     }
     return () => {
       for (const id of ids) copilotkit.removeContext(id);
