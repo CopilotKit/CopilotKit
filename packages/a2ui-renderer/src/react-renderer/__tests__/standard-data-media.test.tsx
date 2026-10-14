@@ -253,3 +253,15 @@ describe("standard catalog: data and media", () => {
     );
   });
 });
+
+describe("standard catalog: lazy icons", () => {
+  it("renders a lucide icon once the icon set has loaded", async () => {
+    const { waitFor } = await import("@testing-library/react");
+    const v = renderStandard([
+      { id: "root", component: "Icon", name: "arrow-right", size: "md" },
+    ]);
+    await waitFor(() =>
+      expect(v.container.querySelector("svg.lucide")).not.toBeNull(),
+    );
+  });
+});
