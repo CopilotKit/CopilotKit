@@ -31,6 +31,8 @@ import {
   useInspectorShortcutsHidden,
 } from "./CopilotChatInspectorButton";
 import type { CopilotKitInspectorOpenRequest } from "../CopilotKitInspectorContext";
+import { useA2UIMarkdownConfig } from "../../a2ui/markdown/A2UIMarkdownContext";
+import { A2UIMarkdownRenderer } from "../../a2ui/markdown/A2UIMarkdownRenderer";
 
 export type CopilotChatFeedbackMessage = AssistantMessage & {
   rawEvent?: unknown;
@@ -136,6 +138,7 @@ export function CopilotChatAssistantMessage({
     CopilotChatAssistantMessage.MarkdownRenderer,
     {
       content: message.content || "",
+      messageId: message.id,
     },
   );
 
@@ -287,12 +290,28 @@ export namespace CopilotChatAssistantMessage {
   export const MarkdownRenderer: React.FC<
     Omit<React.ComponentProps<typeof Streamdown>, "children"> & {
       content: string;
+      /** Id of the message being rendered; scopes A2UI markdown-mode surfaces. */
+      messageId?: string;
     }
-  > = ({ content, className, ...props }) => (
-    <Streamdown className={className} {...props}>
-      {content ?? ""}
-    </Streamdown>
-  );
+  > = ({ content, className, messageId, ...props }) => {
+    // In A2UI markdown mode, ```a2ui fences render as live surfaces.
+    const a2uiMarkdown = useA2UIMarkdownConfig();
+    if (a2uiMarkdown) {
+      return (
+        <A2UIMarkdownRenderer
+          content={content ?? ""}
+          messageId={messageId ?? "message"}
+          className={className}
+          {...props}
+        />
+      );
+    }
+    return (
+      <Streamdown className={className} {...props}>
+        {content ?? ""}
+      </Streamdown>
+    );
+  };
 
   export const Toolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
     className,
