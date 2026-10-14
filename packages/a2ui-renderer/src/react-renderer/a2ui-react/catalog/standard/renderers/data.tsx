@@ -35,6 +35,27 @@ const hasChildren = (list: BoundChildList) =>
  */
 const asArray = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
+/**
+ * The component id of a `{ "componentId": "<id>" }` (or `{ "id": "<id>" }`)
+ * table cell, or undefined for plain values.
+ */
+const cellComponentId = (v: unknown): string | undefined => {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const o = v as { componentId?: unknown; id?: unknown };
+  if (typeof o.componentId === "string" && o.componentId) return o.componentId;
+  if (typeof o.id === "string" && o.id) return o.id;
+  return undefined;
+};
+
+/** Cell content: a built child component for `{ componentId }`, else text. */
+const cellContent = (
+  v: unknown,
+  children: RendererProps["children"],
+): React.ReactNode => {
+  const id = cellComponentId(v);
+  return id ? renderChildList([id], children) : cellText(v);
+};
+
 const cellText = (v: unknown): string => {
   if (v === undefined || v === null) return "";
   if (typeof v === "object") return JSON.stringify(v);
@@ -98,8 +119,17 @@ function cellProps(opts: {
   };
 }
 
-function normalizeColumn(c: TableColumn) {
-  return typeof c === "string" ? { label: c } : c;
+interface NormalizedColumn {
+  label?: string;
+  align?: string;
+  width?: number | string;
+  componentId?: string;
+}
+
+function normalizeColumn(c: TableColumn): NormalizedColumn {
+  if (typeof c === "string") return { label: c };
+  const componentId = cellComponentId(c);
+  return "label" in c ? { ...c, componentId } : { componentId };
 }
 
 function Table({ props, children }: RendererProps<any>) {
@@ -165,7 +195,7 @@ function Table({ props, children }: RendererProps<any>) {
                 });
                 return (
                   <th
-                    key={`${c.label}-${i}`}
+                    key={`${c.label ?? c.componentId}-${i}`}
                     scope="col"
                     {...cell}
                     style={{
@@ -178,6 +208,9 @@ function Table({ props, children }: RendererProps<any>) {
                     }}
                   >
                     {c.label}
+                    {c.componentId
+                      ? renderChildList([c.componentId], children)
+                      : null}
                   </th>
                 );
               })}
@@ -208,13 +241,10 @@ function Table({ props, children }: RendererProps<any>) {
                     {...cellProps({
                       header: false,
                       dividers: dividers && r < rows.length - 1,
-                      align:
-                        columns[c] && "align" in columns[c]
-                          ? (columns[c] as { align?: string }).align
-                          : undefined,
+                      align: columns[c]?.align,
                     })}
                   >
-                    {cellText(value)}
+                    {cellContent(value, children)}
                   </td>
                 ))}
               </tr>

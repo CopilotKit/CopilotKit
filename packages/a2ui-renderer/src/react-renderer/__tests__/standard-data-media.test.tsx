@@ -47,6 +47,77 @@ describe("standard catalog: data and media", () => {
     expect(v.container.querySelectorAll("tr").length).toBe(2);
   });
 
+  it("Table rows render { componentId } cells as components inside <td>", async () => {
+    const v = renderStandard([
+      {
+        id: "root",
+        component: "Table",
+        columns: ["Laptop", "Pick"],
+        rows: [
+          ["Air 13", { componentId: "b1" }],
+          ["Pro 14", { id: "btn1" }],
+        ],
+      },
+      { id: "b1", component: "Badge", label: "Best value" },
+      {
+        id: "btn1",
+        component: "Button",
+        label: "Choose",
+        action: { event: { name: "pick" } },
+      },
+    ]);
+    const badge = await v.findByText("Best value");
+    expect(badge.closest("td")).not.toBeNull();
+    expect(v.getByText("Choose").closest("td")).not.toBeNull();
+    expect(v.container.textContent).not.toContain("componentId");
+  });
+
+  it("Table columns render a { componentId } header cell inside <th>", async () => {
+    const v = renderStandard([
+      {
+        id: "root",
+        component: "Table",
+        columns: [
+          "Laptop",
+          { label: "Price", componentId: "hb" },
+          { componentId: "hb2" },
+        ],
+        rows: [["Air 13", "$999", "-"]],
+      },
+      { id: "hb", component: "Badge", label: "Best value" },
+      { id: "hb2", component: "Text", text: "Extra" },
+    ]);
+    const badge = await v.findByText("Best value");
+    const th = badge.closest("th");
+    expect(th).not.toBeNull();
+    expect(th?.textContent).toContain("Price");
+    expect(v.getByText("Extra").closest("th")).not.toBeNull();
+  });
+
+  it("Table bound rows path may contain { componentId } cells", async () => {
+    const v = renderStandard(
+      [
+        {
+          id: "root",
+          component: "Table",
+          columns: { path: "/cols" },
+          rows: { path: "/rows" },
+        },
+        { id: "b1", component: "Badge", label: "Top pick" },
+      ],
+      {
+        cols: ["Laptop", "Tag"],
+        rows: [
+          ["Air 13", { componentId: "b1" }],
+          ["Pro 14", "n/a"],
+        ],
+      },
+    );
+    const badge = await v.findByText("Top pick");
+    expect(badge.closest("td")).not.toBeNull();
+    expect(v.getByText("n/a")).toBeTruthy();
+  });
+
   it("Table shows emptyLabel when there are no rows", async () => {
     const v = renderStandard([
       { id: "root", component: "Table", columns: ["A"], rows: [] },

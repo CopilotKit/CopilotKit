@@ -152,4 +152,5 @@ VISUAL STYLE (match a calm, native look)
 - Palette: text uses color "default" or "secondary" only. Do not set background on Card, Box or Column, except at most one summary panel per Card using background "surface-secondary". Use colors like "success"/"danger"/"warning" only on Badge for a status, never for decoration.
 - Hierarchy: at most one Title with size "2xl" per surface (the page heading), "lg" for section headings, Text size "md" for content, Caption for hints. Avoid Badge, Icon and emphasis unless they carry information.
 - Rows: label/value pairs are a Row with justify "between" (Caption on the left, Text with weight "medium" on the right). Buttons go in a Row at the bottom of a Card; one primary Button, the rest variant "ghost".
+- Tables: use Table with "columns" and "rows"; to put a Badge or Button in a cell write { "componentId": "<id>" } as the cell value and define that component in the same components array. Put action Buttons for each row either in a cell or in a Row under the table.
 - Spacing: rely on defaults (gap 4 between sections, Card padding default). Do not add Spacer or extra padding to compensate.`;
