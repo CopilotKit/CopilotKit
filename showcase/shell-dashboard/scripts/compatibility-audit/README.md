@@ -76,3 +76,61 @@ Registry contracts: [npm package metadata](https://github.com/npm/registry/blob/
 [PyPI Index API](https://docs.pypi.org/api/index-api/),
 [NuGet registration](https://learn.microsoft.com/en-us/nuget/api/registration-base-url-resource),
 and [Maven repository metadata](https://maven.apache.org/ref/3-LATEST/maven-repository-metadata/repository-metadata.html).
+
+## Automatic environment assessments
+
+`showcase_compatibility.yml` runs once daily at 09:23 UTC and supports manual
+runs for staging, production, or both. The existing staging verification and
+production promotion workflows also call it with their deployed service
+lists. Changes containing no framework integration skip collection. All
+triggers use the same collector and serialize runs per environment.
+
+Each assessment reads the environment's **active** integration images from
+Railway, resolves their immutable digests to the existing OCI Git-commit
+labels, and reads the mapped files at those commits. A failed newer build or a
+floating `latest` tag is not source evidence. Missing or ambiguous active
+images, commit labels, or Git files fail the assessment; production never
+falls back to main. These source declarations still do not prove installed
+versions, and unresolved library versions remain Not verified.
+
+The collector and harness share one library mapping, so incomplete framework
+or library rosters cannot replace the saved assessment. Mapping changes must
+be deployed to the target harness before publishing the changed roster.
+
+The report keeps the existing format, with `source.label: deployed-source`,
+`source.commits` for the integration-to-commit map, and `sourceSha` on package
+assessments. The report is retained as a normal Actions artifact for 30 days.
+There is no LLM, dependency installation inside integrations, or replay store.
+
+The runner signs the completed snapshot using the existing
+`SHOWCASE_HARNESS_SHARED_SECRET` Actions secret. The environment's harness
+accepts it at `POST /api/compatibility` and saves it using its existing
+PocketBase client and credentials. The environment ID is checked before any
+write. The existing `RAILWAY_TOKEN` and Actions packages-read permission cover
+deployment and image metadata; no additional Railway login is needed in CI.
+
+The dashboard reads `GET /api/ops/compatibility` through its existing harness
+proxy. Page loads and the one-minute saved-data poll never start collection.
+An unsuccessful audit updates only failure metadata, preserving the last
+successful snapshot and assessment timestamp. Before any successful automated
+publication, the tab explicitly labels its bundled snapshot as a fallback.
+
+Roll out the PocketBase migration, harness endpoint, and dashboard reader in
+each environment using the existing deployment/promotion process before
+expecting automatic publication to succeed there. The workflow fails visibly
+if the endpoint or its credentials are unavailable; it does not report a
+successful refresh when publication fails.
+
+An on-demand run uses the existing GitHub Actions controls:
+
+```sh
+gh workflow run showcase_compatibility.yml --ref main -f environment=staging
+```
+
+For read-only verification from a checkout with existing Railway and GHCR
+access, collect without publishing (use a new absolute output path):
+
+```sh
+collector_dashboard=/absolute/path/to/repo/showcase/shell-dashboard
+NX_DAEMON=false NX_TUI=false pnpm exec nx exec --projects=@copilotkit/showcase-scripts -- node "$collector_dashboard/node_modules/tsx/dist/cli.mjs" "$collector_dashboard/../scripts/refresh-compatibility.ts" --environment staging --out /absolute/path/to/new-audit.json --no-publish
+```

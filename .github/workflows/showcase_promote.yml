@@ -293,6 +293,20 @@ jobs:
           RAILWAY_BIN="showcase/bin/railway" \
             showcase/scripts/promote-fleet.sh
 
+  compatibility-refresh:
+    needs: [promote]
+    if: ${{ !cancelled() && needs.promote.outputs.succeeded_csv != '' }}
+    permissions:
+      contents: read
+      packages: read
+    uses: $/.github/workflows/showcase_compatibility.yml
+    with:
+      environment: prod
+      services_csv: ${{ needs.promote.outputs.succeeded_csv }}
+    secrets:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SHOWCASE_HARNESS_SHARED_SECRET: ${{ secrets.SHOWCASE_HARNESS_SHARED_SECRET }}
+
   verify-prod:
     needs: [resolve-targets, promote]
     # Run whenever promote actually RAN — success OR partial failure — so the
