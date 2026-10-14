@@ -394,6 +394,12 @@ importers:
       playwright:
         specifier: ^1.49.0
         version: 1.59.1
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      takumi-js:
+        specifier: ^2.7.3
+        version: 2.13.3(csstype@3.2.3)(react@19.2.3)
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
@@ -401,12 +407,21 @@ importers:
       '@notionhq/notion-mcp-server':
         specifier: ^2.2.1
         version: 2.2.1(@cfworker/json-schema@4.1.1)(js-yaml@4.1.1)
+      '@tailwindcss/cli':
+        specifier: 4.1.18
+        version: 4.1.18
       '@types/node':
         specifier: ^22.10.0
         version: 22.19.11
+      '@types/react':
+        specifier: 19.1.8
+        version: 19.1.8
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
+      tailwindcss:
+        specifier: 4.1.18
+        version: 4.1.18
       tsx:
         specifier: ^4.19.2
         version: 4.21.0
