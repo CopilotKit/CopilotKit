@@ -86,3 +86,61 @@ The bounded configuration allows exactly one organization and no access mappings
 Project IDs are positive decimal strings. Use `cpk-{{bootstrap:projectId}}_<short>_<long>` for private runtime variables and `scope.apiKey`; recursive binding resolves the generated ID in both places.
 
 For the deliberate failed-run control only, invoke `supervisor.mjs run <private-config> --expected-worker-exit=1 -- <direct-node-worker-command>`. Supervisor exit zero requires normal worker exit one, no cancellation or timeout, successful recovery, and no remaining active lease. Every other run keeps the default required worker exit zero. The caller must additionally verify its suite receipt identifies the deliberate injected failure and successful cleanup; the supervisor does not infer that from exit status.
+
+## Permanent Railway runner (2026-10-14 decision)
+
+`runner/server.mjs` runs inside one permanent Railway service with one durable
+volume mounted at `/data`. It is outside disposable scopes. Persisted runner
+service/environment/volume IDs and the actual Railway runtime IDs are forbidden
+mutation targets even before registry registration. The permanent service must
+also be registered in the shared registry before activating hosted tests.
+
+The scheduler runs `controller.mjs --mode=single` every four hours, serializes
+manual and scheduled requests, and reconciles unfinished ownership on startup and
+every 30 seconds while idle. Cleanup failures block new work. Linux ownership
+locks include boot ID and process start ticks so PID reuse after container
+replacement cannot impersonate an old owner. The supervisor still enforces each
+attempt's 50-minute work budget and reserves cleanup time within 60 minutes.
+After a provider outage, verified late cleanup records `deadlineExceeded`; it
+releases the lease only once exact owned resources are absent. This is a lifetime
+failure, never a passing acceptance result.
+
+Required private environment: `RICH_TEMPLATE_JSON`, `RICH_RUNNER_TOKEN` (at least
+32 characters), a separately verified Railway automation credential, and
+`SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN` for registry distribution. The template
+uses `/data/control` and `/data/control/records.json`; private materialized
+attempts live under `/data/private`, retained evidence under `/data/results`.
+The exact canonical bootstrap script must be supplied at the template's private
+script path before any run. Do not put credentials into the Docker build context.
+
+`runner/Dockerfile` builds against a staged committed checkout: common
+`tools/intelligence-smoke/rich-threads/`, `tools/railway-disposable-proof/`,
+`showcase/scripts/railway-envs.ts`, all `showcase/harness/src/shared/railway-lifecycle*`
+files, and root `package.json`. It installs the locked browser-driver dependencies,
+Node 24, tsx 4.21.0, Railway CLI 5.41.0, and Chromium. Build/publish may run on GitHub;
+controller, browser, provisioning, and cleanup execute inside Railway.
+
+All endpoints except `/health` require `Authorization: Bearer <RICH_RUNNER_TOKEN>`:
+
+- `POST /runs` with `{ "mode": "single" | "acceptance" | "crash-recovery" }`
+  returns 202 with immutable `id`, `statusUrl`, `resultsUrl`; overlap/cleanup block
+  returns 409. For crash recovery, optional `crashStage` is `recorded-volume`
+  (default) or `ambiguous-create` (after provider response, before ID journal).
+- `GET /status` reports scheduling/recovery state. `GET /runs/<id>` reports results.
+- `GET /results/<id>/manifest` returns relative paths, byte lengths, SHA256s.
+  Downloads are confined to that retained directory, reject symlink escapes, and
+  cap each file at 32 MiB.
+- `GET /registry` returns the exact atomic #7734 snapshot and policy/content hash
+  headers. Consumers configure the existing records-file setting to this HTTPS
+  URL, set the records token and their `SHOWCASE_REGISTRY_CONSUMER` role, and fetch
+  fresh before every classification. Successful reads acknowledge the exact bytes
+  through `POST /consumers/<role>`. Publication requires each actual consumer's
+  current-snapshot acknowledgment; older acknowledgments do not qualify. An active
+  consumer polling/refresh mechanism is therefore a deployment prerequisite.
+
+Crash-control runs intentionally SIGKILL the permanent runner after a journaled
+owned volume or ambiguous service creation. Railway must restart that same
+permanent service with its volume attached. Startup reconciliation exports
+`recovery.json` before/after ownership and cleanup evidence alongside retained
+results. Run both crash stages and inspect actual provider absence. These controls
+are implemented; local tests are supplemental and do not claim hosted acceptance.

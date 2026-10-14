@@ -1,3 +1,4 @@
+import { processOwner, ownerAlive } from "./process-owner.mjs";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -31,7 +32,7 @@ export async function supervise(
   const lock = join(config.controlDirectory, "supervisor-lock");
   await mkdir(lock, { mode: 0o700 });
   const owner = {
-    pid: process.pid,
+    ...(await processOwner()),
     token: randomUUID(),
     startedAt: new Date().toISOString(),
     workerDeadline: new Date(Date.now() + 50 * 60 * 1000).toISOString(),
@@ -106,12 +107,7 @@ export async function recoverSupervisor(config) {
   try {
     const lock = join(config.controlDirectory, "supervisor-lock");
     const owner = JSON.parse(await readFile(join(lock, "owner.json"), "utf8"));
-    try {
-      process.kill(owner.pid, 0);
-      throw new Error("Supervisor is still alive");
-    } catch (error) {
-      if (error.code !== "ESRCH") throw error;
-    }
+    assert.ok(!(await ownerAlive(owner)), "Supervisor is still alive");
     const lease = await pendingLease(config);
     if (lease) await recoverRailwayEnvironment({ config, runId: lease.runId });
     await rm(lock, { recursive: true });

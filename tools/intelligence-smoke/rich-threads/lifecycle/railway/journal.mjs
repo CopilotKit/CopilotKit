@@ -1,3 +1,4 @@
+import { processOwner, ownerAlive } from "./process-owner.mjs";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { open, rename, mkdir, lstat, readFile, rm } from "node:fs/promises";
@@ -45,7 +46,7 @@ export async function acquire(directory, runId) {
   const lease = {
     runId,
     token: randomUUID(),
-    pid: process.pid,
+    ...(await processOwner()),
     createdAt: new Date().toISOString(),
   };
   await durableJson(join(path, "lease.json"), lease);
@@ -68,7 +69,7 @@ export async function release(directory, lease) {
  */
 export async function recoveryLock(path) {
   const owner = {
-    pid: process.pid,
+    ...(await processOwner()),
     token: randomUUID(),
     createdAt: new Date().toISOString(),
   };
@@ -85,12 +86,7 @@ export async function recoveryLock(path) {
       );
       assert.match(previous.token, /^[a-f0-9-]{36}$/);
       assert.ok(Number.isSafeInteger(previous.pid) && previous.pid > 0);
-      try {
-        process.kill(previous.pid, 0);
-        throw new Error("Recovery owner is still alive", { cause: error });
-      } catch (probeError) {
-        if (probeError.code !== "ESRCH") throw probeError;
-      }
+      assert.ok(!(await ownerAlive(previous)), "Recovery owner is still alive");
       await rename(path, `${path}.recovered-${previous.token}`);
       await rename(candidate, path);
     }
