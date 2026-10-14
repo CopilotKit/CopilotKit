@@ -4,7 +4,7 @@ This example connects a React chat directly to a Python FastAPI AG-UI endpoint t
 
 ## Run locally
 
-Use Python 3.12+ and Node.js 20+ in two terminals:
+Use Python 3.12+ and Node.js ^20.19.0 || >=22.12.0 (required by Vite 7) in two terminals:
 
 ```sh
 cd examples/integrations/self-managed-agents/agent
