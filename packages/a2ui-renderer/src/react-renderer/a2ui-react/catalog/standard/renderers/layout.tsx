@@ -134,6 +134,15 @@ const hasGap = (p: LayoutProps) =>
  * single near-white inner panel.
  */
 export const CardNestingContext = createContext(false);
+/**
+ * Containers counted from the nearest Card (null outside any Card). ChatGPT's
+ * rhythm: 16px between the groups directly inside a card or form, 8px inside a
+ * group (label + control, caption + value).
+ */
+export const CardDistanceContext = createContext<number | null>(null);
+function defaultGap(distance: number | null): string | undefined {
+  return spacing(distance === null || distance === 0 ? 4 : 2);
+}
 
 /** ChatGPT's inner panel: 12px padding, 8px radius, no border, no shadow. */
 function innerPanelStyle(p: LayoutProps): React.CSSProperties {
@@ -153,24 +162,27 @@ const container =
   ({ props, children }: RendererProps<any>) => {
     useStandardStyles();
     const nested = useContext(CardNestingContext);
+    const distance = useContext(CardDistanceContext);
     return (
-      <div
-        data-a2ui-std=""
-        {...(attrs ? attrs(props) : {})}
-        style={{
-          ...layoutStyle(props),
-          // Default rhythm: 16px between top-level sections, 8px inside a Card
-          // (ChatGPT's outer box uses gap 16; its inner groups 4-12).
-          ...(hasGap(props) ? {} : { gap: spacing(nested ? 2 : 4) }),
-          // Inside a Card, background tokens use the lighter panel palette.
-          ...(nested && props.background
-            ? { background: panelBackground(props.background) }
-            : {}),
-          ...(extra ? defined(extra(props, nested)) : {}),
-        }}
+      <CardDistanceContext.Provider
+        value={distance === null ? null : distance + 1}
       >
-        {renderChildren(props.children, children)}
-      </div>
+        <div
+          data-a2ui-std=""
+          {...(attrs ? attrs(props) : {})}
+          style={{
+            ...layoutStyle(props),
+            ...(hasGap(props) ? {} : { gap: defaultGap(distance) }),
+            // Inside a Card, background tokens use the lighter panel palette.
+            ...(nested && props.background
+              ? { background: panelBackground(props.background) }
+              : {}),
+            ...(extra ? defined(extra(props, nested)) : {}),
+          }}
+        >
+          {renderChildren(props.children, children)}
+        </div>
+      </CardDistanceContext.Provider>
     );
   };
 
@@ -218,16 +230,18 @@ function Card({ props, children }: RendererProps<any>) {
   const nested = useContext(CardNestingContext);
   return (
     <CardNestingContext.Provider value={true}>
-      <div
-        data-a2ui-std=""
-        data-a2ui-card={nested ? "nested" : "top"}
-        style={{
-          ...layoutStyle(props),
-          ...defined(cardStyle(props, nested)),
-        }}
-      >
-        {renderChildren(props.children, children)}
-      </div>
+      <CardDistanceContext.Provider value={0}>
+        <div
+          data-a2ui-std=""
+          data-a2ui-card={nested ? "nested" : "top"}
+          style={{
+            ...layoutStyle(props),
+            ...defined(cardStyle(props, nested)),
+          }}
+        >
+          {renderChildren(props.children, children)}
+        </div>
+      </CardDistanceContext.Provider>
     </CardNestingContext.Provider>
   );
 }

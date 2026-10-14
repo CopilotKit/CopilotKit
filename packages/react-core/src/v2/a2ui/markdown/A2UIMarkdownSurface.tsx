@@ -342,7 +342,7 @@ export function A2UIMarkdownSurface({
     <div
       className={
         showSurface
-          ? "cpk:relative cpk:my-3 cpk:flex cpk:w-full cpk:flex-col"
+          ? "cpk:relative cpk:my-4 cpk:flex cpk:w-full cpk:flex-col"
           : "cpk:relative cpk:flex cpk:w-full cpk:flex-col"
       }
       data-a2ui-markdown-surface={prepared.surfaceId}
