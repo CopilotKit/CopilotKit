@@ -291,6 +291,116 @@ describe("Learning results hierarchy", () => {
     expect(view.shadowRoot!.textContent).not.toContain("message-accessible");
     view.remove();
   });
+
+  it("counts and links Trajectory evidence when an Insight cites no Thread", async () => {
+    const view = await renderResults();
+    view.snapshot = snapshot({
+      configuration: {
+        state: "configured",
+        container: { id: "container-1", name: "Production" },
+      },
+      insightsPage: {
+        page: 1,
+        pageSize: 4,
+        total: 1,
+        totalPages: 1,
+        items: [
+          {
+            id: "insight-trajectory",
+            statement: "Users switch the theme before they start.",
+            impact: "Default to the dark theme.",
+            totalThreadCount: 0,
+            evidenceTruncated: false,
+            evidence: [],
+            totalTrajectoryCount: 2,
+            trajectoryEvidence: [
+              {
+                status: "available",
+                trajectoryId: "0190a3b4-0000-7000-8000-000000000001",
+                eventCount: 2,
+                url: "https://app.copilotkit.ai/o/acme/checkout/trajectories/0190a3b4-0000-7000-8000-000000000001?event=901",
+              },
+              { status: "unavailable" },
+            ],
+          },
+        ],
+      },
+    });
+    const opened: unknown[] = [];
+    view.addEventListener("learning-web-link", (event) => {
+      opened.push((event as CustomEvent).detail);
+    });
+    await view.updateComplete;
+
+    const row =
+      view.shadowRoot!.querySelector<HTMLButtonElement>(".insight-row");
+    expect(row?.querySelector(".evidence-count")?.textContent).toMatch(
+      /^\s*2\s*Trajectories\s*$/,
+    );
+    row?.click();
+    await view.updateComplete;
+    const link =
+      view.shadowRoot!.querySelector<HTMLAnchorElement>("a.evidence-link");
+    expect(link?.href).toBe(
+      "https://app.copilotkit.ai/o/acme/checkout/trajectories/0190a3b4-0000-7000-8000-000000000001?event=901",
+    );
+    expect(link?.target).toBe("_blank");
+    expect(link?.rel.split(/\s+/).sort()).toEqual(["noopener", "noreferrer"]);
+    expect(link?.textContent).toContain("Trajectory 00000001");
+    expect(link?.textContent).toContain("2 events");
+    expect(link?.textContent).toContain("Open Trajectory");
+    expect(
+      view.shadowRoot!.querySelectorAll(".evidence-unavailable"),
+    ).toHaveLength(1);
+    link?.addEventListener("click", (event) => event.preventDefault());
+    link?.click();
+    expect(opened).toEqual([{ category: "learning" }]);
+    view.remove();
+  });
+
+  it("shows Thread and Trajectory counts together for mixed evidence", async () => {
+    const view = await renderResults();
+    const mixed = {
+      id: "insight-mixed",
+      statement: "Users ask before they switch the theme.",
+      impact: "Offer the theme in chat.",
+      totalThreadCount: 2,
+      evidenceTruncated: false,
+      evidence: [],
+      totalTrajectoryCount: 1,
+      trajectoryEvidence: [
+        {
+          status: "available" as const,
+          trajectoryId: "trajectory-1",
+          eventCount: 1,
+          url: "https://app.copilotkit.ai/o/acme/checkout/trajectories/trajectory-1",
+        },
+      ],
+    };
+    view.snapshot = snapshot({
+      ...resultSnapshot,
+      skillsPage: {
+        ...resultSnapshot.skillsPage,
+        items: [
+          {
+            ...resultSnapshot.skillsPage.items[0]!,
+            sourceInsight: { ...mixed, id: "source-mixed" },
+          },
+        ],
+      },
+      insightsPage: { ...resultSnapshot.insightsPage, items: [mixed] },
+    });
+    await view.updateComplete;
+
+    expect(
+      view.shadowRoot!.querySelector(".insight-row .evidence-count")
+        ?.textContent,
+    ).toMatch(/2\s*Threads\s*·\s*1\s*Trajectory/);
+    expect(
+      view.shadowRoot!.querySelector(".skill-lineage small")?.textContent,
+    ).toMatch(/2\s*Threads\s*·\s*1\s*Trajectory/);
+    view.remove();
+  });
 });
 
 describe("Learning setup progress", () => {

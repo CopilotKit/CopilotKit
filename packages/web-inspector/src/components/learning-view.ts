@@ -16,6 +16,31 @@ export type LearningViewState =
   | "setup"
   | "landing";
 
+const plural = (count: number, singular: string, pluralForm: string) =>
+  `${count} ${count === 1 ? singular : pluralForm}`;
+
+/**
+ * Shortens a Trajectory id for display. Trajectory ids are UUIDv7, whose
+ * leading characters encode the creation time and repeat across a day, so
+ * the random tail tells sessions apart.
+ */
+const trajectoryLabel = (trajectoryId: string) => trajectoryId.slice(-8);
+
+/**
+ * Labels the sources an Insight cites. Trajectories are named only when
+ * cited, so Thread-only Insights and older Intelligence versions read as
+ * before.
+ */
+function evidenceCountLabel(insight: InspectorLearningInsight): string {
+  const threads = plural(insight.totalThreadCount, "Thread", "Threads");
+  const trajectoryCount = insight.totalTrajectoryCount ?? 0;
+  if (trajectoryCount === 0) return threads;
+  const trajectories = plural(trajectoryCount, "Trajectory", "Trajectories");
+  return insight.totalThreadCount === 0
+    ? trajectories
+    : `${threads} · ${trajectories}`;
+}
+
 export function deriveLearningViewState(input: {
   readonly supported: boolean;
   readonly loading: boolean;
@@ -797,7 +822,9 @@ export class CpkLearningView extends LitElement {
       text-align: left;
     }
     .evidence-link {
+      box-sizing: border-box;
       width: 100%;
+      text-decoration: none;
       cursor: pointer;
     }
     .evidence-link span {
@@ -1254,7 +1281,8 @@ export class CpkLearningView extends LitElement {
       </div>
       <div class="evidence-list">
         ${
-          insight.evidence.length === 0
+          insight.evidence.length === 0 &&
+          (insight.trajectoryEvidence?.length ?? 0) === 0
             ? html`
                 <div class="evidence-unavailable">Evidence is no longer available</div>
               `
@@ -1281,6 +1309,24 @@ export class CpkLearningView extends LitElement {
                   </button>`,
               )
         }
+        ${(insight.trajectoryEvidence ?? []).map((evidence) =>
+          evidence.status === "unavailable"
+            ? html`
+                <div class="evidence-unavailable">Evidence is no longer available</div>
+              `
+            : html`<a
+                class="evidence-link"
+                href=${evidence.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                @click=${() =>
+                  this.emit("learning-web-link", { category: "learning" })}
+              >
+                ⌁
+                ${`Trajectory ${trajectoryLabel(evidence.trajectoryId)} · ${plural(evidence.eventCount, "event", "events")}`}
+                <span>Open Trajectory ↗</span>
+              </a>`,
+        )}
       </div>
       ${
         insight.evidenceTruncated
@@ -1355,12 +1401,7 @@ export class CpkLearningView extends LitElement {
                         ${this.supportingInsightLabel(
                           skill.sourceInsight.statement,
                         )}<small
-                          >${skill.sourceInsight.totalThreadCount}
-                          ${
-                            skill.sourceInsight.totalThreadCount === 1
-                              ? "Thread"
-                              : "Threads"
-                          }</small
+                          >${evidenceCountLabel(skill.sourceInsight)}</small
                         >
                       </button>`
                       : html`
@@ -1435,8 +1476,7 @@ export class CpkLearningView extends LitElement {
                   <p>${insight.impact}</p>
                 </div>
                 <span class="evidence-count"
-                  >${insight.totalThreadCount}
-                  ${insight.totalThreadCount === 1 ? "Thread" : "Threads"}</span
+                  >${evidenceCountLabel(insight)}</span
                 >
               </button>`,
             )}
