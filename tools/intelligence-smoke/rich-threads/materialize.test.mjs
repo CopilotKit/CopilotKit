@@ -33,6 +33,10 @@ test("each attempt has independent credentials and canonical hash-only bootstrap
   assert.notEqual(first.scopes.mastra.apiKey, second.scopes.mastra.apiKey);
   assert.notEqual(first.scopes.mastra.userId, second.scopes.mastra.userId);
   assert.equal(original.scopes.mastra.apiKey, undefined);
+  assert.equal(
+    first.scopes.mastra.credentials.apiKey,
+    first.scopes.mastra.apiKey,
+  );
   const bootstrap = JSON.parse(
     Buffer.from(first.services[0].env.BOOTSTRAP_CONFIG_B64, "base64"),
   );

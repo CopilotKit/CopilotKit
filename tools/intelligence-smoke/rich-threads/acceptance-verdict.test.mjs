@@ -7,6 +7,8 @@ const report = () => ({
   provider: "railway",
   purpose: "acceptance",
   cleanup: "passed",
+  withinLifetime: true,
+  deadlineExceeded: false,
   harnessSuccess: true,
   status: "passed",
   frameworks: [
@@ -48,6 +50,8 @@ test("both distinct real framework reports and verified cleanup are required", (
     (r) => (r.cleanup = "failed"),
     (r) => (r.provider = "docker"),
     (r) => (r.status = "blocked"),
+    (r) => (r.deadlineExceeded = true),
+    (r) => (r.withinLifetime = false),
   ]) {
     const value = report();
     change(value);

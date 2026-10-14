@@ -14,6 +14,8 @@ export function acceptanceVerdict({
     report.provider === "railway" &&
     report.purpose === "acceptance" &&
     report.cleanup === "passed" &&
+    report.withinLifetime === true &&
+    report.deadlineExceeded !== true &&
     report.harnessSuccess === true &&
     Array.isArray(report.frameworks) &&
     report.frameworks.length === frameworks.length &&

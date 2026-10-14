@@ -180,6 +180,11 @@ export async function runConfiguredSuite({
       try {
         await environment.cleanup();
         report.cleanup = "passed";
+        report.withinLifetime = environment.receipt.withinLifetime === true;
+        report.deadlineExceeded =
+          environment.receipt.cleanup?.deadlineExceeded === true;
+        if (!report.withinLifetime || report.deadlineExceeded)
+          report.status = "failed";
       } catch (error) {
         report.cleanup = "failed";
         report.cleanupError = {

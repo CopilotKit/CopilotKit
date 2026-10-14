@@ -14,6 +14,11 @@ const config = JSON.parse(
   process.env.RICH_THREADS_RUNTIME_CONFIG_JSON ??
     (await readFile(process.env.RICH_THREADS_RUNTIME_CONFIG, "utf8")),
 );
+const gateway = new URL(config.gatewayUrl);
+if (gateway.protocol === "https:") gateway.protocol = "wss:";
+if (gateway.protocol === "http:") gateway.protocol = "ws:";
+if (!["ws:", "wss:"].includes(gateway.protocol))
+  throw new Error("Invalid gateway protocol");
 const runtimeModule = await import("@copilotkit/runtime/v2");
 const { CopilotRuntime, CopilotKitIntelligence, createCopilotRuntimeHandler } =
   runtimeModule;
@@ -41,7 +46,7 @@ for (const scope of config.scopes) {
         agents: { [scope.agentId]: agent },
         intelligence: new CopilotKitIntelligence({
           apiUrl: config.apiUrl,
-          wsUrl: config.gatewayUrl,
+          wsUrl: gateway.href,
           apiKey: config.apiKey,
         }),
         identifyUser: () => ({ id: scope.userId, name: scope.userId }),

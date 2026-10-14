@@ -15,6 +15,10 @@ export function materialize(template) {
     userId: `user-${randomUUID()}`,
     captureToken: randomBytes(32).toString("hex"),
     databasePassword: randomBytes(32).toString("hex"),
+    redisPassword: randomBytes(32).toString("hex"),
+    authSecret: randomBytes(32).toString("hex"),
+    runnerAuthSecret: randomBytes(32).toString("hex"),
+    secretKeyBase: randomBytes(64).toString("hex"),
     apiKey: `cpk-{{bootstrap:projectId}}_${short}_${long}`,
   };
   function bind(value) {
@@ -59,6 +63,7 @@ export function materialize(template) {
     scope.organizationId = values.organizationId;
     scope.projectId = "{{bootstrap:projectId}}";
     scope.apiKey = values.apiKey;
+    scope.credentials = { ...scope.credentials, apiKey: values.apiKey };
     scope.userId = values.userId;
     scope.capture ??= {};
     scope.capture.token = values.captureToken;
