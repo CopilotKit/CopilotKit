@@ -12,6 +12,11 @@ import React from "react";
 import fs from "fs";
 import path from "path";
 
+// Importing the built dist (now including the A2UI standard catalog) takes a
+// couple of seconds on a cold cache and more under a fully parallel run, so
+// give this suite room: it is about module identity, not speed.
+vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
+
 /**
  * End-to-end reproduction of the duplicated-context bug, against the BUILT dist
  * across the two public entry points — exactly how a consumer app wires it:
