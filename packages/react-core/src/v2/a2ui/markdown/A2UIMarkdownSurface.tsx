@@ -282,7 +282,7 @@ export function A2UIMarkdownSurface({
 
   if (closed && !hasRoot) {
     const error =
-      parsed.invalidLines.length > 0
+      parsed.invalidLines.length > 0 || parsed.partialObject !== null
         ? "The a2ui block contained invalid JSON."
         : "The a2ui block did not contain a renderable surface.";
     const defaultExposure: DebugExposure = isDevelopment()
