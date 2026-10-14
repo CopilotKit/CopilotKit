@@ -31,6 +31,7 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
   const {
     message,
     isLoading,
+    isGenerating,
     onRegenerate,
     onCopy,
     onThumbsUp,
@@ -88,7 +89,13 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
       {content && (
         <div className="copilotKitMessage copilotKitAssistantMessage">
           {content && (
-            <Markdown content={content} components={markdownTagRenderers} />
+            <Markdown
+              content={content}
+              components={markdownTagRenderers}
+              // RenderMessage sets isLoading (no content yet) or isGenerating
+              // (content streaming) only for the current message.
+              isStreaming={(isLoading || isGenerating) && !!isCurrentMessage}
+            />
           )}
 
           {content && !isLoading && (
