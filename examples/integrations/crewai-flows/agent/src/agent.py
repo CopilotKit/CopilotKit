@@ -131,6 +131,12 @@ class SampleAgentFlow(Flow[AgentState]):
 
         message = response.choices[0].message
 
+        # This flow handles one tool call per turn. Gemini may still return
+        # several, because it keeps parallel tool calls on (see 1.3). Keep the
+        # first, so that every tool call in the history gets its result.
+        if len(message.get("tool_calls") or []) > 1:
+            message["tool_calls"] = message["tool_calls"][:1]
+
         # 2. Append the message to the messages in state
         self.state.messages.append(message)
 

@@ -111,6 +111,7 @@ describe("starter model env contract (PE-701)", () => {
       "python3",
       [
         "-I",
+        "-B",
         "-c",
         script,
         path.join(integrationsDir, "crewai-flows", "agent", "src"),
@@ -191,6 +192,7 @@ describe("starter model env contract (PE-701)", () => {
       "python3",
       [
         "-I",
+        "-B",
         "-c",
         script,
         path.join(integrationsDir, "a2a-middleware", "agents"),
