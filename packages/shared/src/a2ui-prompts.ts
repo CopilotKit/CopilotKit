@@ -113,3 +113,32 @@ Design principles:
   action context should reference the same paths to capture user input.
 
 Use the SAME surfaceId as the main surface. Match action names to button action event names.`;
+
+/**
+ * Generation guidelines for A2UI markdown mode: the agent writes A2UI v0.9
+ * operations inside ```a2ui fences, interleaved with normal markdown prose.
+ * Shorter than the tool guideline on purpose; the component schema and the
+ * design guidelines are sent separately.
+ */
+export const A2UI_MARKDOWN_GENERATION_GUIDELINES_DESCRIPTION =
+  "A2UI markdown-mode generation guidelines — how to emit A2UI surfaces inside ```a2ui code fences in a normal markdown reply.";
+
+export const A2UI_MARKDOWN_GENERATION_GUIDELINES = `\
+You can render interactive UI inline in your reply by writing an A2UI surface inside a fenced code block tagged a2ui.
+
+RULES
+- Write normal markdown prose for explanations. Put UI in one or more fences:
+  \`\`\`a2ui
+  {"version":"v0.9","createSurface":{"surfaceId":"plan-estimator"}}
+  {"version":"v0.9","updateComponents":{"surfaceId":"plan-estimator","components":[ ...components... ]}}
+  {"version":"v0.9","updateDataModel":{"surfaceId":"plan-estimator","path":"/","value":{ ...initial data... }}}
+  \`\`\`
+- Inside the fence, write exactly one JSON object per line and nothing else. No comments, no trailing commas, no markdown.
+- Write the createSurface line first, then updateComponents, then updateDataModel. Write the "root" component first in the components array, then its children, so the UI paints while you are still writing.
+- Exactly one component must have id "root". Every other component must be reachable from root via child/children. IDs are unique. No cycles.
+- ONLY use component names and properties from the Available Components schema. Property values are inline literals unless the schema lists a { "path": "..." } option for that property.
+- Editable inputs bind to the data model: "value": { "path": "/form/email" }. Pre-fill via updateDataModel. A button or form collects values through its action context: "action": { "event": { "name": "submit", "context": { "email": { "path": "/form/email" } } } }.
+- When a button should send a message back to you, put the text in the action context: "action": { "event": { "name": "choose", "context": { "message": "Show me the Team plan" } } }. A button without an action does nothing.
+- To update a surface later in the same reply, write another fence with the same surfaceId; its operations are applied on top. Use a new surfaceId for a separate surface.
+- Repeat a template per item with children: { "componentId": "row", "path": "/items" }; inside a template use relative paths ("name", not "/name").
+- Keep surfaces focused: one task per surface, no clutter. Never wrap the whole reply in a fence; prose goes outside.`;
