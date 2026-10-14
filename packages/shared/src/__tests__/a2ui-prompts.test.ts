@@ -13,10 +13,10 @@ describe("A2UI_MARKDOWN_GENERATION_GUIDELINES", () => {
     expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).not.toContain("render_a2ui");
     expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).toContain('"root"');
   });
-  it("is shorter than the tool guideline", () => {
-    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES.length).toBeLessThan(
-      A2UI_DEFAULT_GENERATION_GUIDELINES.length,
-    );
+  it("stays compact even though it carries its own visual-style rules", () => {
+    // Markdown mode sends this instead of the tool generation + design pair.
+    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES.length).toBeLessThan(6000);
+    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).toContain("VISUAL STYLE");
   });
 });
 
