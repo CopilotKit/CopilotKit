@@ -94,7 +94,14 @@ export function extractCompleteArrayItems(
 ): { items: unknown[]; closed: boolean } | null {
   const open = findKeyValue(partialJson, key, "[");
   if (open < 0) return null;
+  return completeArrayItemsAt(partialJson, open);
+}
 
+/** Complete items of the (possibly unterminated) array whose "[" is at `open`. */
+function completeArrayItemsAt(
+  partialJson: string,
+  open: number,
+): { items: unknown[]; closed: boolean } {
   const items: unknown[] = [];
   let depth = 0;
   let inString = false;
@@ -160,24 +167,200 @@ export function getOperationSurfaceId(op: A2UIOperation): string | undefined {
   return typeof op.surfaceId === "string" ? op.surfaceId : undefined;
 }
 
+/**
+ * Index just past the JSON value starting at `start`, or -1 when the value is
+ * still incomplete. A primitive at the very end of the input counts as
+ * incomplete, since more digits or letters may still stream in.
+ */
+function findValueEnd(s: string, start: number): number {
+  const c = s[start];
+  if (c === '"') {
+    const end = findStringEnd(s, start);
+    return end < 0 ? -1 : end + 1;
+  }
+  if (c === "{" || c === "[") {
+    let depth = 0;
+    for (let i = start; i < s.length; i++) {
+      const ch = s[i];
+      if (ch === '"') {
+        const end = findStringEnd(s, i);
+        if (end < 0) return -1;
+        i = end;
+      } else if (ch === "{" || ch === "[") {
+        depth++;
+      } else if (ch === "}" || ch === "]") {
+        depth--;
+        if (depth === 0) return i + 1;
+      }
+    }
+    return -1;
+  }
+  let i = start;
+  while (i < s.length && !isWhitespace(s[i]) && !",}]".includes(s[i]!)) i++;
+  return i >= s.length ? -1 : i;
+}
+
+/**
+ * Walk the direct entries of the (possibly unterminated) JSON object whose "{"
+ * is at `objStart`, calling `visit` with each key and the index where its value
+ * starts. Nested objects and arrays are skipped whole, so keys inside them are
+ * never visited. Stops when `visit` returns true, at the object's end, or where
+ * the input runs out.
+ */
+function visitDirectEntries(
+  s: string,
+  objStart: number,
+  visit: (key: string, valueStart: number) => boolean | void,
+): void {
+  let i = objStart + 1;
+  while (i < s.length) {
+    i = skipWhitespace(s, i);
+    const c = s[i];
+    if (c === ",") {
+      i++;
+      continue;
+    }
+    if (c !== '"') return; // "}" (object closed), end of input, or malformed
+    const keyEnd = findStringEnd(s, i);
+    if (keyEnd < 0) return;
+    let key: unknown;
+    try {
+      key = JSON.parse(s.slice(i, keyEnd + 1));
+    } catch {
+      return;
+    }
+    i = skipWhitespace(s, keyEnd + 1);
+    if (s[i] !== ":") return;
+    i = skipWhitespace(s, i + 1);
+    if (i >= s.length) return;
+    if (typeof key === "string" && visit(key, i)) return;
+    const valueEnd = findValueEnd(s, i);
+    if (valueEnd < 0) return;
+    i = valueEnd;
+  }
+}
+
+/**
+ * Value start of a direct `key` of the object at `objStart` whose value begins
+ * with `opener` (any value when omitted), or -1.
+ */
+function findDirectKeyValue(
+  s: string,
+  objStart: number,
+  key: string,
+  opener?: string,
+): number {
+  let found = -1;
+  visitDirectEntries(s, objStart, (k, valueStart) => {
+    if (k !== key) return false;
+    if (opener === undefined || s[valueStart] === opener) found = valueStart;
+    return true;
+  });
+  return found;
+}
+
+/** A direct string field of the object at `objStart`, once its closing quote has arrived. */
+function readDirectString(
+  s: string,
+  objStart: number,
+  key: string,
+): string | null {
+  if (objStart < 0) return null;
+  const start = findDirectKeyValue(s, objStart, key, '"');
+  if (start < 0) return null;
+  const end = findValueEnd(s, start);
+  if (end < 0) return null;
+  try {
+    const value: unknown = JSON.parse(s.slice(start, end));
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The complete part of a (possibly unterminated) JSON value: the parsed value
+ * when it is complete; for an open object, its complete entries plus the
+ * complete items of any streaming array entry; otherwise undefined.
+ */
+function completePartOfValue(s: string, start: number): unknown {
+  const end = findValueEnd(s, start);
+  if (end >= 0) {
+    try {
+      return JSON.parse(s.slice(start, end));
+    } catch {
+      return undefined;
+    }
+  }
+  if (s[start] !== "{") return undefined;
+  const out: Record<string, unknown> = {};
+  visitDirectEntries(s, start, (key, valueStart) => {
+    const valueEnd = findValueEnd(s, valueStart);
+    if (valueEnd >= 0) {
+      try {
+        out[key] = JSON.parse(s.slice(valueStart, valueEnd));
+      } catch {
+        // Malformed entry; leave it out.
+      }
+    } else if (s[valueStart] === "[") {
+      const { items } = completeArrayItemsAt(s, valueStart);
+      if (items.length > 0) out[key] = items;
+    }
+    return false;
+  });
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/**
+ * Best-effort operation from an unfinished JSONL line. Fields are read only
+ * from the operation's own keys (`version` at the top level, `surfaceId`,
+ * `catalogId` and `path` inside the operation object), never from component
+ * props or data-model values that happen to share a name.
+ */
 function partialOperation(line: string): A2UIOperation | null {
-  const version = extractStringField(line, "version") ?? A2UI_VERSION;
-  if (findKeyValue(line, "updateComponents", "{") >= 0) {
-    const components = extractCompleteArrayItems(line, "components");
-    if (!components || components.items.length === 0) return null;
-    const surfaceId = extractStringField(line, "surfaceId");
+  const root = skipWhitespace(line, 0);
+  if (line[root] !== "{") return null;
+  const version = readDirectString(line, root, "version") ?? A2UI_VERSION;
+
+  const components = findDirectKeyValue(line, root, "updateComponents", "{");
+  if (components >= 0) {
+    const arrayStart = findDirectKeyValue(line, components, "components", "[");
+    if (arrayStart < 0) return null;
+    const { items } = completeArrayItemsAt(line, arrayStart);
+    if (items.length === 0) return null;
+    const surfaceId = readDirectString(line, components, "surfaceId");
     return {
       version,
       updateComponents: {
         ...(surfaceId ? { surfaceId } : {}),
-        components: components.items,
+        components: items,
       },
     };
   }
-  if (findKeyValue(line, "createSurface", "{") >= 0) {
-    const surfaceId = extractStringField(line, "surfaceId");
+
+  const data = findDirectKeyValue(line, root, "updateDataModel", "{");
+  if (data >= 0) {
+    const valueStart = findDirectKeyValue(line, data, "value");
+    if (valueStart < 0) return null;
+    const value = completePartOfValue(line, valueStart);
+    if (value === undefined) return null;
+    const surfaceId = readDirectString(line, data, "surfaceId");
+    const path = readDirectString(line, data, "path");
+    return {
+      version,
+      updateDataModel: {
+        ...(surfaceId ? { surfaceId } : {}),
+        ...(path ? { path } : {}),
+        value,
+      },
+    };
+  }
+
+  const create = findDirectKeyValue(line, root, "createSurface", "{");
+  if (create >= 0) {
+    const surfaceId = readDirectString(line, create, "surfaceId");
     if (!surfaceId) return null;
-    const catalogId = extractStringField(line, "catalogId");
+    const catalogId = readDirectString(line, create, "catalogId");
     return {
       version,
       createSurface: { surfaceId, ...(catalogId ? { catalogId } : {}) },
@@ -190,8 +373,8 @@ function partialOperation(line: string): A2UIOperation | null {
  * Parse the body of an a2ui fence (JSONL). Complete lines are JSON-parsed; a
  * trailing line without a newline is used as-is when it already parses,
  * otherwise it yields a partial operation when it contains usable data
- * (complete components for updateComponents, or a complete surfaceId for
- * createSurface). `partialLine` is that unfinished trailing line, if any.
+ * (complete components for updateComponents, the complete part of the value
+ * for updateDataModel, or a complete surfaceId for createSurface). `partialLine` is that unfinished trailing line, if any.
  */
 export function extractFenceOperations(fenceText: string): {
   operations: A2UIOperation[];
@@ -239,8 +422,9 @@ export function extractFenceOperations(fenceText: string): {
 
 /**
  * Normalise a fence's operations for the renderer: drop unknown messages, fill
- * in `version` and missing `surfaceId`s, default `createSurface.catalogId`,
- * synthesize `createSurface` when the model omitted it, and report the
+ * in `version` and missing `surfaceId`s, keep only the first `createSurface`,
+ * force its `catalogId` to the client's `catalogId`, synthesize
+ * `createSurface` when the model omitted it, and report the
  * surfaceId (the first one found, else `fallbackSurfaceId`).
  */
 export function prepareSurfaceOperations(input: {
@@ -263,8 +447,12 @@ export function prepareSurfaceOperations(input: {
     };
     if (typeof inner.surfaceId !== "string") inner.surfaceId = surfaceId;
     if (key === "createSurface") {
+      // A surface is created once; a repeated createSurface (e.g. a later
+      // fence for the same surface) would throw "Surface already exists".
+      if (hasCreate) continue;
       hasCreate = true;
-      if (typeof inner.catalogId !== "string") inner.catalogId = catalogId;
+      // The catalog is client-owned: whatever the model wrote is replaced.
+      inner.catalogId = catalogId;
     }
     out.push({
       version: typeof op.version === "string" ? op.version : A2UI_VERSION,

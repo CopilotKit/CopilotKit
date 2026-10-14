@@ -101,4 +101,20 @@ describe("splitA2UIMarkdown", () => {
     const md = "a  \n\n\n```py\nx = 1\n```  \n\ttail\n";
     expect(splitA2UIMarkdown(md)).toEqual([{ type: "markdown", text: md }]);
   });
+
+  it("detects CRLF fences and keeps the prose byte-identical", () => {
+    const md = 'hi\r\n```a2ui\r\n{"a":1}\r\n```\r\nbye';
+    const segs = splitA2UIMarkdown(md);
+    expect(segs).toEqual([
+      { type: "markdown", text: "hi\r\n" },
+      { type: "a2ui", index: 0, text: '{"a":1}\r\n', closed: true },
+      { type: "markdown", text: "\r\nbye" },
+    ]);
+  });
+
+  it("detects an open CRLF fence while it streams", () => {
+    expect(splitA2UIMarkdown('```a2ui\r\n{"a":1}\r\n``')).toEqual([
+      { type: "a2ui", index: 0, text: '{"a":1}\r\n', closed: false },
+    ]);
+  });
 });
