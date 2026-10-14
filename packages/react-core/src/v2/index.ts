@@ -27,6 +27,9 @@ export type { A2UIRecoveryRendererOptions } from "./a2ui/A2UIRecoveryStates";
 export type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 export { defaultTheme as a2uiDefaultTheme } from "@copilotkit/a2ui-renderer";
 
+// Experimental generative UI (catalogs, surfaces, function binding)
+export * from "./generative-ui";
+
 // V1 backward-compat re-exports
 export { CopilotKit } from "../v1-deprecated/components/copilot-provider/copilotkit";
 export type { CopilotKitProps } from "../v1-deprecated/components/copilot-provider/copilotkit-props";

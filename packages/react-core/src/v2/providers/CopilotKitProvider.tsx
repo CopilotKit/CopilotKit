@@ -2,6 +2,7 @@
 
 import {
   GENERATE_SANDBOXED_UI_DESCRIPTION,
+  GENERATIVE_UI_MANIFEST_KEY,
   randomUUID,
 } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -65,6 +66,13 @@ import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
 import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
+import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
+import type { GenerativeUIConfig } from "../generative-ui/use-generative-ui-root";
+import {
+  createGenerativeUIActivityRenderer,
+  GenerativeUIToolCallRenderer,
+} from "../generative-ui/chat";
+import { GenerativeUIRuntimeContext } from "../generative-ui/runtime-context";
 import { viewerTheme, filterCatalog, Catalog } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
@@ -297,6 +305,12 @@ export interface CopilotKitProviderProps {
     recovery?: A2UIRecoveryRendererOptions;
   };
   /**
+   * Experimental. Native generative UI: a catalog of your React components the
+   * agent may render into chat or `<GenerativeUISurface id>` mounts, plus app
+   * functions generated UI can call directly.
+   */
+  generativeUI?: GenerativeUIConfig;
+  /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
    * triggered by `OnMessagesChanged` notifications. This value is used as
    * a fallback when neither the `useAgent()` hook nor `<CopilotChat>` /
@@ -410,6 +424,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint,
   onError,
   a2ui,
+  generativeUI,
   defaultThrottleMs,
   debug,
   learning,
@@ -448,6 +463,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // render tool — no runtime-side `a2ui` config required.
   const a2uiCatalogProvided = !!a2ui?.catalog;
   const a2uiActive = runtimeA2UIEnabled || a2uiCatalogProvided;
+  const generativeUIActive = !!generativeUI?.catalog;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     RuntimeLicenseStatus | undefined
   >(undefined);
@@ -570,8 +586,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       );
     }
 
+    if (generativeUIActive) {
+      renderers.push(createGenerativeUIActivityRenderer());
+    }
+
     return renderers;
-  }, [a2uiActive, openGenUIActive, a2ui, filteredCatalog]);
+  }, [a2uiActive, openGenUIActive, generativeUIActive, a2ui, filteredCatalog]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
@@ -858,6 +878,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }
   const copilotkit = copilotkitRef.current;
+  const generativeUIRuntime = useGenerativeUIRoot(copilotkit, generativeUI);
 
   // Register the full A2UI catalog component list onto core so the inspector can
   // read `core.catalogComponents`, and re-derive the filtered catalog whenever
@@ -1019,9 +1040,23 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // Forward a per-run signal when the provider has an A2UI catalog so the
     // runtime can turn A2UI on (and inject the render tool) without a separate
     // `a2ui.injectA2UITool` flag on the runtime.
+    //
+    // The generative UI manifest is set per top-level run by
+    // useGenerativeUIRoot. Tool-call follow-up runs do not rebuild it, so carry
+    // the current one over instead of wiping it mid-turn. Only while generative
+    // UI is active: its teardown removes the key, and that must stay removed.
+    const generativeUIManifest = generativeUIActive
+      ? copilotkit.properties[GENERATIVE_UI_MANIFEST_KEY]
+      : undefined;
     copilotkit.setProperties(
-      a2uiCatalogProvided
-        ? { ...properties, a2uiCatalogAvailable: true }
+      a2uiCatalogProvided || generativeUIManifest !== undefined
+        ? {
+            ...properties,
+            ...(a2uiCatalogProvided ? { a2uiCatalogAvailable: true } : {}),
+            ...(generativeUIManifest !== undefined
+              ? { [GENERATIVE_UI_MANIFEST_KEY]: generativeUIManifest }
+              : {}),
+          }
         : properties,
     );
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
@@ -1040,6 +1075,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     credentials,
     properties,
     a2uiCatalogProvided,
+    generativeUIActive,
     mergedAgents,
     useSingleEndpoint,
     debug,
@@ -1266,6 +1302,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       <CopilotKitContext.Provider value={contextValue}>
         <LicenseContext.Provider value={licenseContextValue}>
           {a2uiActive && <A2UIBuiltInToolCallRenderer />}
+          {generativeUIActive && <GenerativeUIToolCallRenderer />}
           {a2uiActive && (
             <A2UICatalogContext
               catalog={filteredCatalog}
@@ -1281,7 +1318,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               `CopilotKitAgentIdContext` comment in `../context`.
             */}
             <CopilotKitAgentIdContext.Provider value={agentId}>
-              {children}
+              <GenerativeUIRuntimeContext.Provider value={generativeUIRuntime}>
+                {children}
+              </GenerativeUIRuntimeContext.Provider>
             </CopilotKitAgentIdContext.Provider>
             {shouldRenderInspector ? (
               <CopilotKitInspector

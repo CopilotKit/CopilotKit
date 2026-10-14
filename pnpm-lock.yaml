@@ -2998,6 +2998,9 @@ importers:
 
   packages/react-core:
     dependencies:
+      '@a2ui/web_core':
+        specifier: 0.10.4
+        version: 0.10.4
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
