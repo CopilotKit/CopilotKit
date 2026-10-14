@@ -14,7 +14,7 @@ import uvicorn
 from fastapi import FastAPI
 from ag_ui_adk import ADKAgent, CONTEXT_STATE_KEY, add_adk_fastapi_endpoint
 from _banner import print_banner
-from _model import adk_model
+from _model import adk_model, warn_if_api_key_missing
 from google.adk.agents import LlmAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.llm_request import LlmRequest
@@ -101,11 +101,7 @@ app = FastAPI(title="A2A Orchestrator (ADK + AG-UI Protocol)")
 add_adk_fastapi_endpoint(app, adk_orchestrator_agent, path="/")
 
 if __name__ == "__main__":
-    if not os.getenv("GOOGLE_API_KEY"):
-        print("⚠️  Warning: GOOGLE_API_KEY not set!")
-        print("   Set it with: export GOOGLE_API_KEY='your-key-here'")
-        print("   Get a key from: https://aistudio.google.com/app/apikey")
-        print()
+    warn_if_api_key_missing("google:gemini-3.8-flash")
 
     port = int(os.getenv("ORCHESTRATOR_PORT", 9000))
     # Wide on purpose: the other dev processes and containers reach this agent.
