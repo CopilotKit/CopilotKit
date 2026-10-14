@@ -43,7 +43,7 @@ function normalizeSeries(
   data: Record<string, unknown>[],
   xKey: string | undefined,
 ): NormalizedSeries[] {
-  let list = series ?? [];
+  let list: ChartSeries[] = Array.isArray(series) ? series : [];
   if (list.length === 0 && data.length > 0) {
     // No series given: chart every numeric field except the x key.
     list = Object.keys(data[0]).filter(
@@ -89,7 +89,7 @@ function makeFormatter(
 /** Builds the chart component from the lazily imported recharts module. */
 function createRechartsChart(R: RechartsModule) {
   return function RechartsChart({ props }: { props: ChartProps }) {
-    const data = props.data ?? [];
+    const data = Array.isArray(props.data) ? props.data : [];
     const chartType = props.chartType ?? "bar";
     const series = normalizeSeries(props.series, data, props.xKey);
     const fmt = makeFormatter(props.format, props.currency);
@@ -235,7 +235,7 @@ function createRechartsChart(R: RechartsModule) {
 
 /** Shown when recharts cannot be loaded (e.g. a UMD build without it). */
 function ChartDataTable({ props }: { props: ChartProps }) {
-  const data = props.data ?? [];
+  const data = Array.isArray(props.data) ? props.data : [];
   const series = normalizeSeries(props.series, data, props.xKey);
   const fmt = makeFormatter(props.format, props.currency) ?? String;
   const cell: React.CSSProperties = {

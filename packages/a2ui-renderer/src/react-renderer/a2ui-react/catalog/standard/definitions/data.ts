@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ActionSchema, DynamicStringSchema } from "@a2ui/web_core/v0_9";
 import type { CatalogDefinitions } from "../../../../create-catalog";
-import { childList, sizeValue } from "./layout";
+import { bindable, childList, sizeValue } from "./layout";
 
 const action = ActionSchema.optional().describe(
   'Dispatched on click. { "event": { "name": "...", "context": { ... } } }',
@@ -54,14 +54,14 @@ export const dataDefinitions = {
     description:
       "Data table. Either `columns` + `rows` (array of row arrays), or `children` of TableSection/TableRow (ids or a template).",
     props: z.object({
-      columns: z
-        .array(tableColumn)
+      columns: bindable(z.array(tableColumn))
         .optional()
-        .describe('Strings or { "label", "align"?, "width"? }; default []'),
-      rows: z
-        .array(z.array(z.any()))
+        .describe(
+          'Strings or { "label", "align"?, "width"? }, or { "path": "/x" }; default []',
+        ),
+      rows: bindable(z.array(z.array(z.any())))
         .optional()
-        .describe("Array of row arrays; default []"),
+        .describe('Array of row arrays, or { "path": "/x" }; default []'),
       children: childList,
       columnSizing: z
         .enum(["auto", "equal"])
@@ -109,7 +109,7 @@ export const dataDefinitions = {
     description:
       "List of `items` (strings or { label, description?, icon?, action? }), or `children` ListItem ids/template when `items` is absent.",
     props: z.object({
-      items: z.array(listItemValue).optional(),
+      items: bindable(z.array(listItemValue)).optional(),
       children: childList,
       marker: z
         .enum(["bullet", "number", "rich", "none"])
@@ -143,12 +143,15 @@ export const dataDefinitions = {
         .enum(["bar", "line", "area", "scatter", "pie", "donut"])
         .optional()
         .describe('Default "bar"'),
-      data: z.array(z.record(z.string(), z.any())).optional(),
-      xKey: z.string().optional(),
-      series: z
-        .array(chartSeries)
+      data: bindable(z.array(z.record(z.string(), z.any())))
         .optional()
-        .describe('Strings or { "key", "label"?, "color"? }'),
+        .describe('Array of objects, or { "path": "/x" }'),
+      xKey: z.string().optional(),
+      series: bindable(z.array(chartSeries))
+        .optional()
+        .describe(
+          'Strings or { "key", "label"?, "color"? }, or { "path": "/x" }',
+        ),
       stacked: z.boolean().optional(),
       height: z.number().optional().describe("Pixels; default 240"),
       showLegend: z.boolean().optional().describe("Default true"),
@@ -164,7 +167,7 @@ export const dataDefinitions = {
     description:
       "Map (MapLibre) with markers; `route` connects markers in order. Falls back to a marker list when maps are unavailable.",
     props: z.object({
-      markers: z.array(mapMarker).optional(),
+      markers: bindable(z.array(mapMarker)).optional(),
       route: z.boolean().optional(),
       selected: DynamicStringSchema.optional().describe(
         'Selected marker label. Bind with { "path": "/x" }',

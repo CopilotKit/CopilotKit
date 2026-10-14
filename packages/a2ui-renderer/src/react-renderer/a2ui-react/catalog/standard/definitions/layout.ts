@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ChildListSchema } from "@a2ui/web_core/v0_9";
+import { ChildListSchema, DataBindingSchema } from "@a2ui/web_core/v0_9";
 import type { CatalogDefinitions } from "../../../../create-catalog";
 import {
   ALIGN,
@@ -9,6 +9,17 @@ import {
   BACKGROUNDS,
   BORDER_COLORS,
 } from "../tokens";
+
+/**
+ * A literal value or a `{ "path": "/x" }` data binding, for array/object props
+ * that web_core has no Dynamic* schema for. The generic binder classifies any
+ * union with a `{ path }` member (and no `componentId`) as DYNAMIC, so it
+ * subscribes to the path and hands the renderer the resolved data-model value;
+ * literals pass through unchanged. Renderers therefore never see `{ path }`.
+ * Relative paths resolve against the component's data context (template item).
+ */
+export const bindable = <T extends z.ZodTypeAny>(schema: T) =>
+  z.union([schema, DataBindingSchema]);
 
 /** Number = 4px steps; string = raw CSS. */
 export const sizeValue = z.union([z.number(), z.string()]);
@@ -107,7 +118,8 @@ export const layoutDefinitions = {
     }),
   },
   GridItem: {
-    description: "Grid cell with optional span.",
+    description:
+      "Grid cell with optional span; a span covering every rendered column fills the row.",
     props: z.object({
       ...layoutProps,
       span: z.number().optional(),
