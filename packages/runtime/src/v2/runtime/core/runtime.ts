@@ -109,6 +109,12 @@ interface CopilotRuntimeMiddlewares {
   mcpApps?: McpAppsConfig;
   /** Auto-apply OpenGenerativeUIMiddleware to agents at run time. */
   openGenerativeUI?: OpenGenerativeUIConfig;
+  /**
+   * Experimental: CopilotKit generative UI surfaces (`render_ui`). Applied
+   * automatically when the React provider forwards a `generativeUI` manifest;
+   * pass an object to enable it for every run, or `enabled: false` to disable.
+   */
+  generativeUI?: BaseCopilotRuntimeMiddlewareOptions & { enabled?: boolean };
 }
 
 /**
@@ -345,6 +351,7 @@ export interface CopilotRuntimeLike {
   a2ui: CopilotRuntimeOptions["a2ui"];
   mcpApps: CopilotRuntimeOptions["mcpApps"];
   openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
+  generativeUI?: CopilotRuntimeOptions["generativeUI"];
   intelligence?: CopilotKitIntelligence;
   identifyUser?: IdentifyUserCallback;
   mode: RuntimeMode;
@@ -410,6 +417,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public a2ui: CopilotRuntimeOptions["a2ui"];
   public mcpApps: CopilotRuntimeOptions["mcpApps"];
   public openGenerativeUI: CopilotRuntimeOptions["openGenerativeUI"];
+  public generativeUI: CopilotRuntimeOptions["generativeUI"];
   public licenseChecker?: LicenseChecker;
   public readonly debugEventBus?: DebugEventBus;
   public debug: ResolvedDebugConfig;
@@ -442,6 +450,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
       a2ui,
       mcpApps,
       openGenerativeUI,
+      generativeUI,
     } = options;
 
     this.agents = agents;
@@ -451,6 +460,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.a2ui = a2ui || undefined;
     this.mcpApps = mcpApps;
     this.openGenerativeUI = openGenerativeUI;
+    this.generativeUI = generativeUI;
     this.runner = runner;
 
     // Resolve the license token once (matching the license-verifier's env
@@ -857,6 +867,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get openGenerativeUI(): CopilotRuntimeOptions["openGenerativeUI"] {
     return this.delegate.openGenerativeUI;
+  }
+
+  get generativeUI(): CopilotRuntimeOptions["generativeUI"] {
+    return this.delegate.generativeUI;
   }
 
   get intelligence(): CopilotKitIntelligence | undefined {

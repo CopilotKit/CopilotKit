@@ -6,6 +6,7 @@ import {
 } from "@copilotkit/shared/event-transforms";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
+import { GenerativeUIMiddleware } from "../../generative-ui";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import {
   isA2UIEnabled,
@@ -92,6 +93,8 @@ export function configureAgentForRequest(params: {
    * has to also set `a2ui.injectA2UITool` on the runtime.
    */
   providerA2UIHasCatalog?: boolean;
+  /** True when the React provider forwarded a generative UI manifest for this run. */
+  providerGenerativeUIManifest?: boolean;
   /** Retain proxy rejection even when no server is available to this agent. */
   isMcpProxyRequest?: boolean;
 }): void {
@@ -160,6 +163,18 @@ export function configureAgentForRequest(params: {
     const shouldApply = !targetAgents || targetAgents.includes(agentId);
     if (shouldApply && typeof agent.use === "function") {
       agent.use(new OpenGenerativeUIMiddleware());
+    }
+  }
+
+  const generativeUI = runtime.generativeUI;
+  if (
+    (params.providerGenerativeUIManifest || generativeUI) &&
+    generativeUI?.enabled !== false &&
+    typeof agent.use === "function"
+  ) {
+    const targetAgents = generativeUI?.agents;
+    if (!targetAgents || targetAgents.includes(agentId)) {
+      agent.use(new GenerativeUIMiddleware());
     }
   }
 

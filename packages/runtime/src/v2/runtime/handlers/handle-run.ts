@@ -54,6 +54,9 @@ export async function handleRunAgent({
     const providerA2UIHasCatalog =
       (input.forwardedProps as Record<string, unknown> | undefined)
         ?.a2uiCatalogAvailable === true;
+    const providerGenerativeUIManifest =
+      (input.forwardedProps as Record<string, unknown> | undefined)
+        ?.generativeUI !== undefined;
 
     configureAgentForRequest({
       runtime,
@@ -61,6 +64,7 @@ export async function handleRunAgent({
       agentId,
       agent,
       providerA2UIHasCatalog,
+      providerGenerativeUIManifest,
       isMcpProxyRequest: Object.prototype.hasOwnProperty.call(
         input.forwardedProps ?? {},
         "__proxiedMCPRequest",
