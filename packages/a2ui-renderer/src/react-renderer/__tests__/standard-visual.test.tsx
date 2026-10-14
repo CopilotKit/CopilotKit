@@ -117,3 +117,19 @@ describe("standard catalog: visual treatment", () => {
     expect(textColor("tertiary")).toContain("#8e8e8e");
   });
 });
+
+describe("standard catalog: spacing rhythm", () => {
+  it("uses 16px between groups directly inside a Card and 8px inside a group", async () => {
+    const v = renderStandard([
+      { id: "root", component: "Card", children: ["group"] },
+      { id: "group", component: "Column", children: ["inner"] },
+      { id: "inner", component: "Column", children: ["t"] },
+      { id: "t", component: "Text", text: "deep" },
+    ]);
+    const deep = await v.findByText("deep");
+    const inner = deep.parentElement!;
+    const group = inner.parentElement!;
+    expect(group.style.gap).toBe("calc(var(--spacing, 0.25rem) * 4)");
+    expect(inner.style.gap).toBe("calc(var(--spacing, 0.25rem) * 2)");
+  });
+});

@@ -89,7 +89,7 @@ function Field({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: spacing(1),
+        gap: spacing(2),
         width: "100%",
         minWidth: 0,
       }}
@@ -697,7 +697,7 @@ export const inputRenderers = {
       style={{
         flexDirection: "column",
         ...layoutStyle(props),
-        gap: spacing(props.gap ?? 3),
+        gap: spacing(props.gap ?? 4),
       }}
     >
       {renderChildren(props.children, children)}
