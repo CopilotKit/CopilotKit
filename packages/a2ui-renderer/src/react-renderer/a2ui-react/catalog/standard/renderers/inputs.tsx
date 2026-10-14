@@ -39,7 +39,7 @@ const useInputStyles = useStandardStyles;
 const str = (v: unknown) => (v === undefined || v === null ? "" : String(v));
 
 function normalizeOptions(options: OptionList) {
-  return (options ?? []).map((o) =>
+  return (Array.isArray(options) ? options : []).map((o) =>
     typeof o === "string"
       ? { value: o, label: o, description: undefined }
       : {
@@ -437,7 +437,11 @@ function Slider({ props }: RendererProps<any>) {
     typeof props.value === "number"
       ? props.value
       : Number(props.value ?? props.min ?? 0);
-  const marks: Array<{ value: number; label?: string }> = props.marks ?? [];
+  const marks: Array<{ value: number; label?: string }> = Array.isArray(
+    props.marks,
+  )
+    ? props.marks
+    : [];
   const discrete = props.sliderStyle === "discrete";
   return (
     <div

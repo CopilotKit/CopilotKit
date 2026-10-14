@@ -60,7 +60,9 @@ const validMarker = (m: MapMarker) =>
   Number.isFinite(m.lng);
 
 export function MapView({ props }: RendererProps<any>) {
-  const markers: MapMarker[] = (props.markers ?? []).filter(validMarker);
+  const markers: MapMarker[] = (
+    Array.isArray(props.markers) ? props.markers : []
+  ).filter(validMarker);
   const height: number = props.height ?? 240;
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "fallback">(

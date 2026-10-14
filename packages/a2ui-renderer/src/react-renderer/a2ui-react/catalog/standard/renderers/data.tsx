@@ -29,6 +29,12 @@ type BoundChildList = unknown;
 const hasChildren = (list: BoundChildList) =>
   Array.isArray(list) && list.length > 0;
 
+/**
+ * Array props may be bound to a data path (see `bindable`); the binder hands
+ * over whatever the path holds, so treat a missing or non-array value as [].
+ */
+const asArray = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+
 const cellText = (v: unknown): string => {
   if (v === undefined || v === null) return "";
   if (typeof v === "object") return JSON.stringify(v);
@@ -99,8 +105,8 @@ function normalizeColumn(c: TableColumn) {
 function Table({ props, children }: RendererProps<any>) {
   useStandardStyles();
   const dividers = props.dividers ?? true;
-  const columns = (props.columns ?? []).map(normalizeColumn);
-  const rows: unknown[][] = props.rows ?? [];
+  const columns = asArray<TableColumn>(props.columns).map(normalizeColumn);
+  const rows = asArray<unknown[]>(props.rows);
   const equal = props.columnSizing === "equal";
   const tableStyle: React.CSSProperties = {
     width: "100%",
@@ -402,7 +408,7 @@ function List({ props, children, dispatch }: RendererProps<any>) {
   const marker: ListContextValue["marker"] = props.marker ?? "bullet";
   const connector = props.connector === "solid";
   const Tag = marker === "number" ? "ol" : "ul";
-  const items: ListItemValue[] | undefined = props.items;
+  const items = asArray<ListItemValue>(props.items);
   const body =
     items && items.length > 0
       ? items.map((item, i) => {

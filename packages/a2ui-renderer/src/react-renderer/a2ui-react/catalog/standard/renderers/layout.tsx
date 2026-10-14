@@ -1,4 +1,10 @@
-import React from "react";
+import React, {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   CatalogRenderers,
   RendererProps,
@@ -156,6 +162,102 @@ export function gridTemplateColumns(p: {
   return `repeat(auto-fit, minmax(min(100%, max(${minTrack}px, calc((100% - ${n - 1} * ${gap}) / ${n}))), 1fr))`;
 }
 
+/**
+ * Number of columns the nearest Grid currently renders: the measured track
+ * count when available (auto-fit collapses towards one column on narrow
+ * widths), else the numeric `columns` prop; undefined when unknown.
+ */
+const GridColumnsContext = createContext<number | undefined>(undefined);
+
+/** Count the resolved tracks of a laid-out grid ("120px 120px" → 2). */
+function measureTracks(el: HTMLElement): number | undefined {
+  if (typeof getComputedStyle !== "function") return undefined;
+  const tracks = getComputedStyle(el)
+    .gridTemplateColumns.split(/\s+/)
+    .filter(Boolean);
+  // Only trust a fully resolved template (browsers report px tracks).
+  return tracks.length > 0 && tracks.every((t) => /^[\d.]+px$/.test(t))
+    ? tracks.length
+    : undefined;
+}
+
+function Grid({ props, children }: RendererProps<any>) {
+  useStandardStyles();
+  const ref = useRef<HTMLDivElement>(null);
+  const [measured, setMeasured] = useState<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setMeasured(measureTracks(el));
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const declared =
+    typeof props.columns === "number" ||
+    (props.columns === undefined && props.minChildWidth === undefined)
+      ? Math.max(1, Math.floor(props.columns ?? 2))
+      : undefined;
+  return (
+    <GridColumnsContext.Provider value={measured ?? declared}>
+      <div
+        ref={ref}
+        data-a2ui-std=""
+        style={{
+          ...layoutStyle(props),
+          ...defined({
+            display: "grid",
+            gap: hasGap(props) ? undefined : spacing(4),
+            gridTemplateColumns: gridTemplateColumns(props),
+            gridTemplateRows:
+              typeof props.rows === "number"
+                ? `repeat(${props.rows}, auto)`
+                : (props.rows as string | undefined),
+          }),
+        }}
+      >
+        {renderChildren(props.children, children)}
+      </div>
+    </GridColumnsContext.Provider>
+  );
+}
+
+/**
+ * A span covering every rendered column becomes `1 / -1` (full row) so it
+ * never creates implicit tracks that overflow the grid; smaller spans stay
+ * `span N`. Without a known column count the span is used as given.
+ */
+export function gridItemColumn(
+  span: number | undefined,
+  columns: number | undefined,
+): string | undefined {
+  if (!span) return undefined;
+  if (columns !== undefined && span >= columns) return "1 / -1";
+  return `span ${span}`;
+}
+
+function GridItem({ props, children }: RendererProps<any>) {
+  useStandardStyles();
+  const columns = useContext(GridColumnsContext);
+  return (
+    <div
+      data-a2ui-std=""
+      style={{
+        ...layoutStyle(props),
+        ...defined({
+          gridColumn: gridItemColumn(props.span, columns),
+          gridRow: props.rowSpan ? `span ${props.rowSpan}` : undefined,
+          flexDirection: "column",
+        }),
+      }}
+    >
+      {renderChildren(props.children, children)}
+    </div>
+  );
+}
+
 const span = (p: { span?: number; rowSpan?: number }) => ({
   gridColumn: p.span ? `span ${p.span}` : undefined,
   gridRow: p.rowSpan ? `span ${p.rowSpan}` : undefined,
@@ -171,16 +273,8 @@ export const layoutRenderers = {
     flexDirection: "row",
     gap: hasGap(p) ? undefined : spacing(2),
   })),
-  Grid: container((p) => ({
-    display: "grid",
-    gap: hasGap(p) ? undefined : spacing(4),
-    gridTemplateColumns: gridTemplateColumns(p),
-    gridTemplateRows:
-      typeof p.rows === "number"
-        ? `repeat(${p.rows}, auto)`
-        : (p.rows as string | undefined),
-  })),
-  GridItem: container((p) => ({ ...span(p), flexDirection: "column" })),
+  Grid,
+  GridItem,
   Card: container((p) => ({
     flexDirection: "column",
     gap: hasGap(p) ? undefined : spacing(4),
