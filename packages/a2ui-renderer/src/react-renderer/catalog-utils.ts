@@ -45,9 +45,13 @@ export function getCustomComponentNames(
  * Build a context string describing the available A2UI catalog and custom components.
  * Custom components (those not in the basic catalog) are described using their
  * JSON Schema representation, matching the canonical A2UI catalog format.
+ *
+ * When `options.includeSchema` is `false`, custom components are listed by name
+ * only and their JSON schemas are omitted.
  */
 export function buildCatalogContextValue(
   catalog?: Catalog<ComponentApi>,
+  options?: { includeSchema?: boolean },
 ): string {
   const resolved = catalog ?? basicCatalog;
   const lines: string[] = [];
@@ -74,6 +78,10 @@ export function buildCatalogContextValue(
   for (const name of customNames) {
     const comp = resolved.components.get(name);
     if (!comp) continue;
+    if (options?.includeSchema === false) {
+      lines.push(`  - ${name}`);
+      continue;
+    }
     const jsonSchema = zodToJsonSchema(comp.schema);
     lines.push(`  - ${name}:`);
     lines.push(
