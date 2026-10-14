@@ -9,7 +9,8 @@ import {
 } from "../a2ui-markdown";
 
 // Real gpt-5.4 responses (BuiltInAgent: bi1, bi2; LangGraph: lg1, lg2).
-// bi1: one updateComponents line with a stray quote before "]}}".
+// bi1: one updateComponents line with a stray quote before "]}}", and
+// quote-form's action missing a "}" (its children land inside the action).
 // bi2, lg1: updateComponents pretty-printed over many lines.
 // lg2: updateDataModel line missing its final closing brace.
 const FIXTURES = ["bi1", "bi2", "lg1", "lg2"] as const;
@@ -58,6 +59,31 @@ describe.each(FIXTURES)("real model output %s", (name) => {
     const components = componentsOf(prepare(firstFence(markdown)!));
     expect(components.some((c) => c.id === "root")).toBe(true);
     expect(components.length).toBeGreaterThanOrEqual(15);
+  });
+});
+
+describe("real model output bi1 component repair", () => {
+  it("recovers quote-form with its children and every later component", () => {
+    const components = componentsOf(prepare(firstFence(loadFixture("bi1"))!));
+    expect(components.length).toBeGreaterThanOrEqual(28);
+    const ids = components.map((c) => c.id);
+    for (const id of [
+      "quote-form",
+      "name-field",
+      "email-field",
+      "quote-summary",
+      "quote-button",
+    ]) {
+      expect(ids).toContain(id);
+    }
+    const form = components.find((c) => c.id === "quote-form");
+    expect(form?.children).toEqual([
+      "name-field",
+      "email-field",
+      "quote-summary",
+      "quote-button",
+    ]);
+    expect(form?.action).toHaveProperty("event.name", "requestQuote");
   });
 });
 
