@@ -57,6 +57,8 @@
   "dependencies": {
     "@a2ui/web_core": "0.10.4",
     "clsx": "^2.1.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "zod": "^3.25.75",
     "zod-to-json-schema": "^3.24.1"
   },
