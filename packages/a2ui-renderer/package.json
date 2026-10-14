@@ -57,7 +57,9 @@
   "dependencies": {
     "@a2ui/web_core": "0.10.4",
     "clsx": "^2.1.1",
+    "lucide-react": "^0.525.0",
     "react-markdown": "^10.1.0",
+    "recharts": "^3.1.0",
     "remark-gfm": "^4.0.1",
     "zod": "^3.25.75",
     "zod-to-json-schema": "^3.24.1"
@@ -69,19 +71,24 @@
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
     "jsdom": "^26.1.0",
+    "maplibre-gl": "^5.0.0",
     "tsdown": "^0.20.3",
     "typescript": "5.9.2",
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
     "react": "^18 || ^19 || ^19.0.0-rc",
-    "react-dom": "^18 || ^19 || ^19.0.0-rc"
+    "react-dom": "^18 || ^19 || ^19.0.0-rc",
+    "maplibre-gl": "^5.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
       "optional": true
     },
     "react-dom": {
+      "optional": true
+    },
+    "maplibre-gl": {
       "optional": true
     }
   }
