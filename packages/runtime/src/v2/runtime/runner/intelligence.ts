@@ -9,12 +9,13 @@ import { Observable } from "rxjs";
 import type { AbstractAgent, BaseEvent, RunStartedEvent } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import {
-  finalizeRunEvents,
+  createRunEventFinalizer,
   stripIntelligenceRoutingFields,
   AG_UI_CHANNEL_EVENT,
   phoenixExponentialBackoff,
   logger,
 } from "@copilotkit/shared";
+import type { RunEventFinalizer } from "@copilotkit/shared";
 import type { Channel } from "phoenix";
 import { Socket } from "phoenix";
 import { randomUUID } from "node:crypto";
@@ -49,7 +50,9 @@ interface ThreadState {
   isRunning: boolean;
   stopRequested: boolean;
   agent: AbstractAgent | null;
-  currentEvents: BaseEvent[];
+  /** Tracks only open lifecycles, so a run's events are never retained. */
+  finalizer: RunEventFinalizer;
+  runErrorEmitted: boolean;
   nextEventSeq: number;
   hasRunStarted: boolean;
   hasJoined: boolean;
@@ -271,7 +274,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
         isRunning: true,
         stopRequested: false,
         agent,
-        currentEvents: [],
+        finalizer: createRunEventFinalizer(),
+        runErrorEmitted: false,
         nextEventSeq: 1,
         hasRunStarted: false,
         hasJoined: false,
@@ -434,7 +438,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
             code: "CHANNEL_JOIN_ERROR",
           } as BaseEvent;
           observer.next(errorEvent);
-          state.currentEvents.push(errorEvent);
           this.removeThread(threadId, state);
           startupBoundary?.rejectStartup(error);
           observer.complete();
@@ -454,7 +457,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
             code: "CHANNEL_JOIN_TIMEOUT",
           } as BaseEvent;
           observer.next(errorEvent);
-          state.currentEvents.push(errorEvent);
           this.removeThread(threadId, state);
           startupBoundary?.rejectStartup(error);
           observer.complete();
@@ -580,7 +582,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
     threadId: string,
     onRunError: (event: BaseEvent) => void,
   ): Promise<void> {
-    const { currentEvents } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
       if (!this.isCurrentThreadState(threadId, state)) {
         return;
@@ -592,10 +593,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
         ),
         state,
       );
-      currentEvents.push(canonicalEvent);
+      state.finalizer.observe(canonicalEvent);
 
       if (canonicalEvent.type === EventType.RUN_STARTED) {
         state.hasRunStarted = true;
+      }
+      if (canonicalEvent.type === EventType.RUN_ERROR) {
+        state.runErrorEmitted = true;
       }
 
       this.queueRunnerEvent(
@@ -670,10 +674,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         return;
       }
       ensureRunStarted();
-      const existingError = currentEvents.find(
-        (event) => event.type === EventType.RUN_ERROR,
-      );
-      if (!existingError) {
+      if (!state.runErrorEmitted) {
         const errorEvent = {
           type: EventType.RUN_ERROR,
           message: error instanceof Error ? error.message : String(error),
@@ -685,7 +686,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         return;
       }
       ensureRunStarted();
-      const appended = finalizeRunEvents(currentEvents, {
+      const appended = state.finalizer.finalize({
         stopRequested: state.stopRequested,
         protocolVersion: request.input.protocolVersion,
       });
