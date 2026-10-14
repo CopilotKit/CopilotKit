@@ -1,6 +1,7 @@
 import { basicCatalog } from "./a2ui-react";
 import type { ComponentApi, Catalog } from "@a2ui/web_core/v0_9";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { z } from "zod";
 
 const BASIC_CATALOG_ID =
   "https://a2ui.org/specification/v0_9/basic_catalog.json";
@@ -135,4 +136,293 @@ export function extractCatalogComponentSchemas(
   }
 
   return { catalogId: resolved.id, components };
+}
+
+// ─── Compact catalog format (markdown mode) ──────────────────────────
+
+/** Options for {@link buildCompactCatalogSchema}. */
+export interface CompactCatalogSchemaOptions {
+  /**
+   * Keep the `{ call, args, returnType }` FunctionCall alternative on Dynamic
+   * props and the `{ functionCall }` action variant. Default false: catalogs
+   * that register no functions should not advertise them.
+   */
+  includeFunctionCalls?: boolean;
+}
+
+/** A catalog summarised as one short TypeScript-like type string per prop. */
+export interface CompactCatalogSchema {
+  catalogId: string;
+  /**
+   * Props (key → type) that many components carry verbatim, listed once.
+   * Every component flagged `includesCommonProps` also accepts all of these.
+   * Absent when no prop set is shared widely enough to be worth hoisting.
+   */
+  commonProps?: Record<string, string>;
+  components: Record<
+    string,
+    {
+      description?: string;
+      includesCommonProps?: true;
+      props: Record<string, string>;
+    }
+  >;
+}
+
+/** A prop must appear verbatim in at least this many components to be hoisted. */
+const COMMON_PROP_MIN_COMPONENTS = 8;
+
+/** Objects nested deeper than this collapse to `object`. */
+const COMPACT_MAX_OBJECT_DEPTH = 2;
+
+type AnyZod = z.ZodTypeAny;
+
+/** Descriptions from `@a2ui/web_core` common types (`REF:...`) are generic noise. */
+function ownDescription(schema: AnyZod): string | undefined {
+  const text = schema.description;
+  if (!text || text.startsWith("REF:")) return undefined;
+  return text;
+}
+
+function unwrap(schema: AnyZod): AnyZod {
+  let current: AnyZod = schema;
+  for (let i = 0; i < 20; i++) {
+    const def = current._def as { typeName?: string } & Record<string, any>;
+    switch (def.typeName) {
+      case "ZodOptional":
+      case "ZodNullable":
+      case "ZodDefault":
+      case "ZodCatch":
+      case "ZodReadonly":
+        current = def.innerType;
+        break;
+      case "ZodBranded":
+        current = def.type;
+        break;
+      case "ZodEffects":
+        current = def.schema;
+        break;
+      case "ZodLazy":
+        current = def.getter();
+        break;
+      case "ZodPipeline":
+        current = def.in;
+        break;
+      default:
+        return current;
+    }
+  }
+  return current;
+}
+
+/**
+ * `@a2ui/web_core` may resolve its own copy of zod, so check the type name
+ * rather than `instanceof`.
+ */
+function isZodObject(schema: AnyZod): schema is z.AnyZodObject {
+  return (schema._def as { typeName?: string }).typeName === "ZodObject";
+}
+
+function isFunctionCallShape(schema: AnyZod): boolean {
+  const inner = unwrap(schema);
+  if (!isZodObject(inner)) return false;
+  const keys = Object.keys(inner.shape);
+  return keys.includes("call") || keys.includes("functionCall");
+}
+
+function summarizeObject(
+  shape: Record<string, AnyZod>,
+  depth: number,
+  options: CompactCatalogSchemaOptions,
+): string {
+  if (depth >= COMPACT_MAX_OBJECT_DEPTH) return "object";
+  const fields = Object.entries(shape).map(
+    ([key, value]) =>
+      `${key}${value.isOptional() ? "?" : ""}: ${summarizeType(value, depth + 1, options)}`,
+  );
+  return fields.length ? `{ ${fields.join(", ")} }` : "{}";
+}
+
+function summarizeType(
+  schema: AnyZod,
+  depth: number,
+  options: CompactCatalogSchemaOptions,
+): string {
+  const inner = unwrap(schema);
+  const def = inner._def as { typeName?: string } & Record<string, any>;
+  switch (def.typeName) {
+    case "ZodString":
+      return "string";
+    case "ZodNumber":
+    case "ZodBigInt":
+      return "number";
+    case "ZodBoolean":
+      return "boolean";
+    case "ZodNull":
+      return "null";
+    case "ZodLiteral":
+      return JSON.stringify(def.value);
+    case "ZodEnum":
+      return (def.values as unknown[])
+        .map((v) => JSON.stringify(v))
+        .join(" | ");
+    case "ZodNativeEnum":
+      return Object.values(def.values as Record<string, unknown>)
+        .map((v) => JSON.stringify(v))
+        .join(" | ");
+    case "ZodArray":
+      return `Array<${summarizeType(def.type, depth, options)}>`;
+    case "ZodTuple":
+      return `[${(def.items as AnyZod[])
+        .map((item) => summarizeType(item, depth, options))
+        .join(", ")}]`;
+    case "ZodRecord":
+      return `Record<string, ${summarizeType(def.valueType, depth + 1, options)}>`;
+    case "ZodObject":
+      return summarizeObject((inner as z.AnyZodObject).shape, depth, options);
+    case "ZodUnion":
+    case "ZodDiscriminatedUnion": {
+      const members = Array.from(def.options as Iterable<AnyZod>).filter(
+        (member) =>
+          options.includeFunctionCalls || !isFunctionCallShape(member),
+      );
+      const parts = members.map((member) =>
+        summarizeType(member, depth, options),
+      );
+      return Array.from(new Set(parts)).join(" | ") || "any";
+    }
+    case "ZodIntersection":
+      return `${summarizeType(def.left, depth, options)} & ${summarizeType(def.right, depth, options)}`;
+    default:
+      return "any";
+  }
+}
+
+/**
+ * Summarise a catalog as `{ catalogId, components: { Name: { description,
+ * props: { "prop?": "type // description" } } } }`.
+ *
+ * Much smaller than {@link extractCatalogComponentSchemas}: each prop is a
+ * short TypeScript-like type string. Dynamic props read
+ * `string | { path: string }`; the FunctionCall alternative is dropped unless
+ * `includeFunctionCalls` is set. Used by markdown mode, which has no
+ * middleware that needs the full JSON Schema format.
+ */
+export function buildCompactCatalogSchema(
+  catalog?: Catalog<ComponentApi>,
+  options: CompactCatalogSchemaOptions = {},
+): CompactCatalogSchema {
+  const resolved = catalog ?? basicCatalog;
+  const components: CompactCatalogSchema["components"] = {};
+  const summaries: Array<{
+    name: string;
+    description?: string;
+    props: Record<string, string>;
+  }> = [];
+
+  for (const [name, comp] of resolved.components) {
+    const props: Record<string, string> = {};
+    const objectSchema = unwrap(comp.schema);
+    if (isZodObject(objectSchema)) {
+      for (const [key, value] of Object.entries(
+        objectSchema.shape as Record<string, AnyZod>,
+      )) {
+        const type = summarizeType(value, 0, options);
+        const comment = ownDescription(value);
+        props[`${key}${value.isOptional() ? "?" : ""}`] = comment
+          ? `${type} // ${comment}`
+          : type;
+      }
+    }
+    const description =
+      (comp as { description?: string }).description ??
+      ownDescription(comp.schema);
+    summaries.push({ name, description, props });
+  }
+
+  const common = findCommonProps(summaries.map((summary) => summary.props));
+  const commonKeys = common ? Object.keys(common) : [];
+
+  for (const { name, description, props } of summaries) {
+    const includesCommon =
+      common !== undefined &&
+      commonKeys.every((key) => props[key] === common[key]);
+    const ownProps = includesCommon
+      ? Object.fromEntries(
+          Object.entries(props).filter(([key]) => !(key in common)),
+        )
+      : props;
+    components[name] = {
+      ...(description ? { description } : {}),
+      ...(includesCommon ? { includesCommonProps: true as const } : {}),
+      props: ownProps,
+    };
+  }
+
+  return common
+    ? { catalogId: resolved.id, commonProps: common, components }
+    : { catalogId: resolved.id, components };
+}
+
+/**
+ * Pick the prop set worth listing once. Candidates are (key, type) pairs that
+ * at least {@link COMMON_PROP_MIN_COMPONENTS} components carry verbatim; each
+ * component's candidate subset is a possible common set, scored by the chars
+ * it saves (set size × components that contain all of it). Returns undefined
+ * when no set is shared by enough components.
+ */
+function findCommonProps(
+  propsList: Array<Record<string, string>>,
+): Record<string, string> | undefined {
+  const pairKey = (key: string, type: string) => `${key}\u0000${type}`;
+  const counts = new Map<string, number>();
+  for (const props of propsList) {
+    for (const [key, type] of Object.entries(props)) {
+      const id = pairKey(key, type);
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  }
+
+  let best: Record<string, string> | undefined;
+  let bestScore = 0;
+  const seen = new Set<string>();
+  for (const props of propsList) {
+    const subset = Object.entries(props).filter(
+      ([key, type]) =>
+        (counts.get(pairKey(key, type)) ?? 0) >= COMMON_PROP_MIN_COMPONENTS,
+    );
+    if (subset.length < 2) continue;
+    const signature = subset
+      .map(([key, type]) => pairKey(key, type))
+      .join("\n");
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+
+    const members = propsList.filter((other) =>
+      subset.every(([key, type]) => other[key] === type),
+    ).length;
+    if (members < COMMON_PROP_MIN_COMPONENTS) continue;
+    const size = subset.reduce(
+      (total, [key, type]) => total + key.length + type.length,
+      0,
+    );
+    const score = size * (members - 1);
+    if (score > bestScore) {
+      bestScore = score;
+      best = Object.fromEntries(subset);
+    }
+  }
+  return best;
+}
+
+/**
+ * Short capabilities text for markdown mode: the catalog id and component
+ * names, no schemas (those travel in {@link buildCompactCatalogSchema}).
+ */
+export function buildCompactCatalogCapabilities(
+  catalog?: Catalog<ComponentApi>,
+): string {
+  const resolved = catalog ?? basicCatalog;
+  const names = Array.from(resolved.components.keys());
+  return `Available A2UI catalog: ${resolved.id}\nComponents (${names.length}): ${names.join(", ")}`;
 }
