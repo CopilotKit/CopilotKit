@@ -124,8 +124,9 @@ export function renderChildList(
 /** Alias of `renderChildList` (ids or expanded template entries). */
 export const renderChildren = renderChildList;
 
+// The binder hands absent props over as `null`, so test for both.
 const hasGap = (p: LayoutProps) =>
-  p.gap !== undefined || p.columnGap !== undefined || p.rowGap !== undefined;
+  p.gap != null || p.columnGap != null || p.rowGap != null;
 
 /**
  * True inside a Card. Surfaces have exactly one bordered level (the
@@ -158,6 +159,9 @@ const container =
         {...(attrs ? attrs(props) : {})}
         style={{
           ...layoutStyle(props),
+          // Default rhythm: 16px between top-level sections, 8px inside a Card
+          // (The outer box uses gap 16; its inner groups 4-12).
+          ...(hasGap(props) ? {} : { gap: spacing(nested ? 2 : 4) }),
           // Inside a Card, background tokens use the lighter panel palette.
           ...(nested && props.background
             ? { background: panelBackground(props.background) }
@@ -243,7 +247,7 @@ export function gridTemplateColumns(p: {
   columnGap?: number | string;
 }): string {
   if (typeof p.columns === "string") return p.columns;
-  if (p.minChildWidth !== undefined) {
+  if (p.minChildWidth != null) {
     return `repeat(auto-fill, minmax(min(100%, ${spacing(p.minChildWidth)}), 1fr))`;
   }
   const n = Math.max(1, Math.floor(p.columns ?? 2));
@@ -288,7 +292,7 @@ function Grid({ props, children }: RendererProps<any>) {
   }, []);
   const declared =
     typeof props.columns === "number" ||
-    (props.columns === undefined && props.minChildWidth === undefined)
+    (props.columns == null && props.minChildWidth == null)
       ? Math.max(1, Math.floor(props.columns ?? 2))
       : undefined;
   return (
@@ -325,7 +329,7 @@ export function gridItemColumn(
   columns: number | undefined,
 ): string | undefined {
   if (!span) return undefined;
-  if (columns !== undefined && span >= columns) return "1 / -1";
+  if (columns != null && span >= columns) return "1 / -1";
   return `span ${span}`;
 }
 

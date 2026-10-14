@@ -459,11 +459,9 @@ function ListItem({ props, children }: RendererProps<any>) {
       }
     >
       <ItemBody
-        label={props.label === undefined ? undefined : cellText(props.label)}
+        label={props.label == null ? undefined : cellText(props.label)}
         description={
-          props.description === undefined
-            ? undefined
-            : cellText(props.description)
+          props.description == null ? undefined : cellText(props.description)
         }
         icon={props.icon}
         marker={props.marker}
