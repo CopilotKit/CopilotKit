@@ -7,13 +7,15 @@
  * feeds them from /api/learning/v1. The recent table lists trajectories, so
  * its columns read Trajectory / App user / Surface / Updated.
  */
-import type { ReactNode } from 'react';
-import { ArrowRight, type LucideIcon } from 'lucide-react';
-import { DataTable, type DataTableColumn } from '../ui/data-display';
-import { FormattedDateTime, formatDateTime } from '../ui/datetime';
-import { MetricTile } from './MetricTile';
-import { Link, useNavigate } from '../shell/router';
-import styles from './project-overview.module.css';
+import type { ReactNode } from "react";
+import { ArrowRight } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { DataTable } from "../ui/data-display";
+import type { DataTableColumn } from "../ui/data-display";
+import { FormattedDateTime, formatDateTime } from "../ui/datetime";
+import { MetricTile } from "./MetricTile";
+import { Link, useNavigate } from "../shell/router";
+import styles from "./project-overview.module.css";
 
 export function TruncatedText(props: {
   readonly children: string;
@@ -22,7 +24,7 @@ export function TruncatedText(props: {
   return (
     <span
       className={styles.truncate}
-      data-slot={props.identifier ? 'identifier' : undefined}
+      data-slot={props.identifier ? "identifier" : undefined}
       title={props.children}
     >
       {props.children}
@@ -65,7 +67,7 @@ export function OverviewMetricRow(props: {
         <MetricTile
           key={metric.label}
           order={index + 1}
-          metric={{ ...metric, state: 'neutral' }}
+          metric={{ ...metric, state: "neutral" }}
         />
       ))}
     </div>
@@ -87,8 +89,8 @@ export function OverviewRecentTable(props: {
   const navigate = useNavigate();
   const columns: DataTableColumn<OverviewRecentRow>[] = [
     {
-      id: 'name',
-      header: 'Trajectory',
+      id: "name",
+      header: "Trajectory",
       cell: (row) => (
         <Link
           className={styles.rowLink}
@@ -100,26 +102,29 @@ export function OverviewRecentTable(props: {
       ),
     },
     {
-      id: 'user',
-      header: 'App user',
+      id: "user",
+      header: "App user",
       cell: (row) => <TruncatedText identifier>{row.endUserId}</TruncatedText>,
     },
     {
-      id: 'agent',
-      header: 'Surface',
+      id: "agent",
+      header: "Surface",
       cell: (row) => <TruncatedText>{row.surface}</TruncatedText>,
     },
     {
-      id: 'updated',
-      header: 'Updated',
+      id: "updated",
+      header: "Updated",
       cell: (row) => (
         <span
           className={styles.truncate}
           title={formatDateTime(row.updatedAt, {
-            invalidFallback: 'Date unavailable',
+            invalidFallback: "Date unavailable",
           })}
         >
-          <FormattedDateTime value={row.updatedAt} invalidFallback="Date unavailable" />
+          <FormattedDateTime
+            value={row.updatedAt}
+            invalidFallback="Date unavailable"
+          />
         </span>
       ),
     },
@@ -152,8 +157,8 @@ export function OverviewLearningTable(props: {
   const navigate = useNavigate();
   const columns: DataTableColumn<OverviewLearningRow>[] = [
     {
-      id: 'name',
-      header: 'Learning Space',
+      id: "name",
+      header: "Learning Space",
       cell: (space) => (
         <Link
           className={styles.rowLink}
@@ -164,23 +169,30 @@ export function OverviewLearningTable(props: {
         </Link>
       ),
     },
-    { id: 'threads', header: 'Threads', cell: (space) => space.threadCount },
-    { id: 'new', header: 'New Threads', cell: (space) => space.pendingThreadCount },
+    { id: "threads", header: "Threads", cell: (space) => space.threadCount },
     {
-      id: 'analysis',
-      header: 'Last successful analysis',
+      id: "new",
+      header: "New Threads",
+      cell: (space) => space.pendingThreadCount,
+    },
+    {
+      id: "analysis",
+      header: "Last successful analysis",
       cell: (space) =>
         space.lastSucceededAt ? (
           <span
             className={styles.truncate}
             title={formatDateTime(space.lastSucceededAt, {
-              invalidFallback: 'Date unavailable',
+              invalidFallback: "Date unavailable",
             })}
           >
-            <FormattedDateTime value={space.lastSucceededAt} invalidFallback="Date unavailable" />
+            <FormattedDateTime
+              value={space.lastSucceededAt}
+              invalidFallback="Date unavailable"
+            />
           </span>
         ) : (
-          'Not analyzed yet'
+          "Not analyzed yet"
         ),
     },
   ];

@@ -1,8 +1,9 @@
-import { type ReactNode, useState } from 'react';
-import * as TabsPrimitive from '@radix-ui/react-tabs';
+import { useState } from "react";
+import type { ReactNode } from "react";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
 
-import { classNames } from '../class-names';
-import styles from './tabs.module.css';
+import { classNames } from "../class-names";
+import styles from "./tabs.module.css";
 
 export interface TabItem {
   readonly id: string;
