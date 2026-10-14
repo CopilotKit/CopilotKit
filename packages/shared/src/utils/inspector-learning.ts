@@ -244,28 +244,31 @@ function parseInsight(
     evidenceTruncated: value.evidenceTruncated,
     evidence: evidence as InspectorLearningEvidence[],
   };
-  if (
-    value.totalTrajectoryCount === undefined &&
-    value.trajectoryEvidence === undefined
-  ) {
-    return insight;
+  // Each Trajectory field is optional on its own; a malformed one rejects
+  // the Insight, an absent one leaves the Thread-only shape untouched.
+  let totalTrajectoryCount: number | undefined;
+  if (value.totalTrajectoryCount !== undefined) {
+    if (!integer(value.totalTrajectoryCount)) return undefined;
+    totalTrajectoryCount = value.totalTrajectoryCount;
   }
-  if (
-    !integer(value.totalTrajectoryCount) ||
-    !Array.isArray(value.trajectoryEvidence) ||
-    value.trajectoryEvidence.length > 100
-  ) {
-    return undefined;
+  let trajectoryEvidence: InspectorLearningTrajectoryEvidence[] | undefined;
+  if (value.trajectoryEvidence !== undefined) {
+    if (
+      !Array.isArray(value.trajectoryEvidence) ||
+      value.trajectoryEvidence.length > 100
+    ) {
+      return undefined;
+    }
+    const parsed = value.trajectoryEvidence.map((item) =>
+      parseTrajectoryEvidence(item, webAppOrigin),
+    );
+    if (parsed.some((item) => item === undefined)) return undefined;
+    trajectoryEvidence = parsed as InspectorLearningTrajectoryEvidence[];
   }
-  const trajectoryEvidence = value.trajectoryEvidence.map((item) =>
-    parseTrajectoryEvidence(item, webAppOrigin),
-  );
-  if (trajectoryEvidence.some((item) => item === undefined)) return undefined;
   return {
     ...insight,
-    totalTrajectoryCount: value.totalTrajectoryCount,
-    trajectoryEvidence:
-      trajectoryEvidence as InspectorLearningTrajectoryEvidence[],
+    ...(totalTrajectoryCount === undefined ? {} : { totalTrajectoryCount }),
+    ...(trajectoryEvidence === undefined ? {} : { trajectoryEvidence }),
   };
 }
 

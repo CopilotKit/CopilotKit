@@ -305,6 +305,27 @@ describe("Inspector Learning wire validation", () => {
     );
   });
 
+  it("keeps either Trajectory field when the producer sends only one", () => {
+    const evidence = [trajectoryEntry({}), { status: "unavailable" }];
+    const countOnly = snapshotWithTrajectoryEvidence(evidence);
+    delete (countOnly.insightsPage.items[0] as { trajectoryEvidence?: unknown })
+      .trajectoryEvidence;
+    const evidenceOnly = snapshotWithTrajectoryEvidence(evidence);
+    delete (
+      evidenceOnly.insightsPage.items[0] as { totalTrajectoryCount?: number }
+    ).totalTrajectoryCount;
+
+    const parsedCountOnly = parseInspectorLearningSnapshotV1(countOnly);
+    const parsedEvidenceOnly = parseInspectorLearningSnapshotV1(evidenceOnly);
+
+    expect(parsedCountOnly?.insightsPage.items[0]).toEqual(
+      countOnly.insightsPage.items[0],
+    );
+    expect(parsedEvidenceOnly?.insightsPage.items[0]).toEqual(
+      evidenceOnly.insightsPage.items[0],
+    );
+  });
+
   it("rejects Trajectory evidence with foreign links or unknown fields", () => {
     for (const invalid of [
       trajectoryEntry({

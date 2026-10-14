@@ -33,7 +33,8 @@ const trajectoryLabel = (trajectoryId: string) => trajectoryId.slice(-8);
  */
 function evidenceCountLabel(insight: InspectorLearningInsight): string {
   const threads = plural(insight.totalThreadCount, "Thread", "Threads");
-  const trajectoryCount = insight.totalTrajectoryCount ?? 0;
+  const trajectoryCount =
+    insight.totalTrajectoryCount ?? insight.trajectoryEvidence?.length ?? 0;
   if (trajectoryCount === 0) return threads;
   const trajectories = plural(trajectoryCount, "Trajectory", "Trajectories");
   return insight.totalThreadCount === 0

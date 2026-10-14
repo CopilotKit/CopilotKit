@@ -358,6 +358,34 @@ describe("Learning results hierarchy", () => {
     view.remove();
   });
 
+  it("counts cited Trajectories from the evidence when the total is absent", async () => {
+    const view = await renderResults();
+    view.snapshot = snapshot({
+      ...resultSnapshot,
+      insightsPage: {
+        ...resultSnapshot.insightsPage,
+        items: [
+          {
+            id: "insight-evidence-only",
+            statement: "Shoppers open the size guide before they pick a size.",
+            impact: "Link the size guide next to the size picker.",
+            totalThreadCount: 0,
+            evidenceTruncated: false,
+            evidence: [],
+            trajectoryEvidence: [{ status: "unavailable" }],
+          },
+        ],
+      },
+    });
+    await view.updateComplete;
+
+    expect(
+      view.shadowRoot!.querySelector(".insight-row .evidence-count")
+        ?.textContent,
+    ).toMatch(/^\s*1\s*Trajectory\s*$/);
+    view.remove();
+  });
+
   it("shows Thread and Trajectory counts together for mixed evidence", async () => {
     const view = await renderResults();
     const mixed = {
