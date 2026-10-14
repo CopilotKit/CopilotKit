@@ -280,6 +280,28 @@ describe("Per-thread context scoping and stable upserts", () => {
     expect(onContextChanged).not.toHaveBeenCalled();
   });
 
+  it("a thread deletion for one agent keeps an entry shared with another agent for that other agent", () => {
+    const deletions = new Subject<string>();
+    core.upsertContext("shared", {
+      description: "Shared",
+      value: "x",
+      agentIds: ["A", "B"],
+      threadId: "thread-a",
+    });
+    core.registerThreadStore("A", {
+      subscribeToThreadDeletions: (callback: (id: string) => void) =>
+        deletions.subscribe(callback),
+    } as any);
+
+    deletions.next("thread-a");
+
+    expect(core.getContextForAgent("A", "thread-a")).toEqual([]);
+    expect(core.getContextForAgent("B", "thread-a")).toEqual([
+      { description: "Shared", value: "x" },
+    ]);
+    core.unregisterThreadStore("A");
+  });
+
   it("a thread deletion reported by the registered thread store drops that thread's entries only", async () => {
     const deletions = new Subject<string>();
     core.upsertContext("deleted-thread", {

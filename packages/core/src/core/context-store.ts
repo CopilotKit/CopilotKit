@@ -91,18 +91,25 @@ export class ContextStore {
   }
 
   /**
-   * Remove every entry scoped to a conversation that no longer exists. Entries
-   * scoped to other agents are kept: a thread id belongs to one agent.
+   * Withdraw the entries scoped to a conversation of `agentId` that no longer
+   * exists. An entry shared with other agents loses `agentId` only and stays
+   * for the others; an entry left with no agent, or scoped to every agent, is
+   * removed.
    */
   removeThreadContext(agentId: string, threadId: string): void {
-    let removed = false;
+    let changed = false;
     for (const [id, entry] of Object.entries(this._context)) {
       if (entry.threadId !== threadId) continue;
       if (entry.agentIds && !entry.agentIds.includes(agentId)) continue;
-      delete this._context[id];
-      removed = true;
+      const remaining = entry.agentIds?.filter((other) => other !== agentId);
+      if (remaining && remaining.length > 0) {
+        this._context[id] = { ...entry, agentIds: remaining };
+      } else {
+        delete this._context[id];
+      }
+      changed = true;
     }
-    if (removed) void this.notifySubscribers();
+    if (changed) void this.notifySubscribers();
   }
 
   /**

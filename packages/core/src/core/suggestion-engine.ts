@@ -213,6 +213,10 @@ export class SuggestionEngine {
       const seededMessages: Message[] = JSON.parse(
         JSON.stringify(suggestionsConsumerAgent.messages),
       );
+      // The conversation those messages belong to: its thread-scoped context
+      // is the one to send, whatever the consumer shows by the time the
+      // request leaves.
+      const seededThreadId = suggestionsConsumerAgent.threadId;
       const seededState: unknown = JSON.parse(
         JSON.stringify(suggestionsConsumerAgent.state ?? {}),
       );
@@ -298,6 +302,10 @@ export class SuggestionEngine {
       // suggestions into whatever the current turn has become. `finally`
       // still performs its cleanup on this early return.
       if (aborted) return;
+      // The user switched conversations while the headers resolved: these
+      // messages are no longer the consumer's, so suggestions built on them
+      // would describe a conversation that is not on screen.
+      if (suggestionsConsumerAgent.threadId !== seededThreadId) return;
 
       suggestionAgent.addMessage({
         id: suggestionId,
@@ -309,10 +317,7 @@ export class SuggestionEngine {
         {
           // The consumer's conversation, not the suggestion agent's own
           // throwaway thread.
-          context: friends.getContextForAgent(
-            consumerAgentId,
-            suggestionsConsumerAgent.threadId,
-          ),
+          context: friends.getContextForAgent(consumerAgentId, seededThreadId),
           forwardedProps: {
             ...friends.properties,
             toolChoice: {

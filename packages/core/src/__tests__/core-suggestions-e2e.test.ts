@@ -772,6 +772,47 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       copilotKitCore.removeContext("other-thread");
     });
 
+    it("drops the suggestion run when the consumer switches conversations while headers resolve", async () => {
+      const providerAgent = new MockAgent({ agentId: "default" });
+      const consumerAgent = new MockAgent({ agentId: "consumer" });
+      (consumerAgent as { threadId?: string }).threadId = "thread-a";
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
+      copilotKitCore.upsertContext("thread-b-state", {
+        description: "Conversation B",
+        value: "b",
+        agentIds: ["consumer"],
+        threadId: "thread-b",
+      });
+      let releaseHeaders: () => void = () => {};
+      const headersGate = new Promise<void>((resolve) => {
+        releaseHeaders = resolve;
+      });
+      const prepare = vi
+        .spyOn(copilotKitCore as any, "prepareAgentHeadersForRun")
+        .mockImplementation(() => headersGate);
+
+      copilotKitCore.addSuggestionsConfig(createSuggestionsConfig());
+      copilotKitCore.reloadSuggestions("consumer");
+      await vi.waitFor(() => expect(prepare).toHaveBeenCalled());
+
+      // The user moves to conversation B while A's messages are being sent.
+      (consumerAgent as { threadId?: string }).threadId = "thread-b";
+      releaseHeaders();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // No run mixing A's messages with B's context.
+      expect(providerAgent.runAgentCalls).toHaveLength(0);
+      prepare.mockRestore();
+      copilotKitCore.removeContext("thread-b-state");
+    });
+
     it("should forward properties to suggestion provider agent", async () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });
