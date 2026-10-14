@@ -7,14 +7,39 @@ import type * as Recharts from "recharts";
 
 type RechartsModule = typeof Recharts;
 
+/**
+ * Soft blue family first (a single light-blue hue with a
+ * darker emphasis), then muted companions so stacked/multi-series charts stay
+ * readable without shouting.
+ */
 export const CHART_PALETTE = [
-  "#0285ff",
-  "#00a67d",
-  "#8b5cf6",
-  "#f4a340",
-  "#e46d91",
-  "#4b9ca6",
+  "#7fb0f2",
+  "#2f6fd1",
+  "#b7cff7",
+  "#8bb5a8",
+  "#d9b36b",
+  "#c08bb0",
 ];
+
+/** Legend labels in ink, not in the series colour. */
+const legendFormatter = (value: string) => (
+  <span style={{ color: textColor("default"), fontSize: 13 }}>{value}</span>
+);
+const LEGEND_PROPS = {
+  iconType: "circle" as const,
+  iconSize: 8,
+  formatter: legendFormatter,
+  wrapperStyle: { paddingTop: 8 },
+};
+const TOOLTIP_STYLE = {
+  contentStyle: {
+    borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.08)",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+    fontSize: 13,
+  },
+  cursor: { fill: "rgba(0,0,0,0.04)" },
+};
 
 export interface ChartProps {
   chartType?: "bar" | "line" | "area" | "scatter" | "pie" | "donut";
@@ -131,8 +156,10 @@ function createRechartsChart(R: RechartsModule) {
                 ))}
               </R.Pie>
             ) : null}
-            {showTooltip ? <R.Tooltip formatter={fmt as any} /> : null}
-            {showLegend ? <R.Legend /> : null}
+            {showTooltip ? (
+              <R.Tooltip formatter={fmt as any} {...TOOLTIP_STYLE} />
+            ) : null}
+            {showLegend ? <R.Legend {...LEGEND_PROPS} /> : null}
           </R.PieChart>
         </R.ResponsiveContainer>
       );
@@ -178,8 +205,12 @@ function createRechartsChart(R: RechartsModule) {
             tickFormatter={fmt as any}
             width={56}
           />
-          {showTooltip ? <R.Tooltip formatter={fmt as any} /> : null}
-          {showLegend && series.length > 0 ? <R.Legend /> : null}
+          {showTooltip ? (
+            <R.Tooltip formatter={fmt as any} {...TOOLTIP_STYLE} />
+          ) : null}
+          {showLegend && series.length > 0 ? (
+            <R.Legend {...LEGEND_PROPS} />
+          ) : null}
           {series.map((s) => {
             const common = {
               dataKey: s.key,

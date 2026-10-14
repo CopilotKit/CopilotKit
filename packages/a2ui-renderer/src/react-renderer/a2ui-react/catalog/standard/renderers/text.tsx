@@ -177,8 +177,13 @@ function Badge({ props }: RendererProps<any>) {
   );
 }
 
-/** Caption lg (the default) is 14px with a 1.3 line height, muted. */
+/** Caption lg (the default) is 14/20, muted. */
 const CAPTION_PX: Record<string, number> = { sm: 12, md: 13, lg: 14 };
+const CAPTION_LH: Record<string, string> = {
+  sm: "16px",
+  md: "18px",
+  lg: "20px",
+};
 
 export const textRenderers = {
   Title: ({ props }: RendererProps<any>) => {
@@ -221,6 +226,9 @@ export const textRenderers = {
         data-a2ui-std=""
         style={{
           display: props.inline ? "inline" : "block",
+          // In a Row, text hugs its content (never stretches to 100%).
+          flex: props.inline ? undefined : "0 1 auto",
+          minWidth: props.inline ? undefined : 0,
           ...textFont(props.size),
           ...typographyStyle(props),
           fontWeight: props.weight
@@ -250,7 +258,7 @@ export const textRenderers = {
       style={{
         display: "block",
         fontSize: CAPTION_PX[props.size ?? "lg"] ?? 14,
-        lineHeight: 1.3,
+        lineHeight: CAPTION_LH[props.size ?? "lg"] ?? "20px",
         ...typographyStyle({ ...props, color: props.color ?? "secondary" }),
         fontWeight: FONT_WEIGHT[(props.weight as Weight) ?? "normal"],
       }}
