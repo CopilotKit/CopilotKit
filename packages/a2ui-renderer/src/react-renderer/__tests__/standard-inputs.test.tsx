@@ -265,4 +265,159 @@ describe("standard catalog: inputs", () => {
     fireEvent.click(await v.findByText("Q"));
     expect(await v.findByText("A")).toBeTruthy();
   });
+
+  it("Pressable and Form repeat a template child per data item", async () => {
+    const v = renderStandard(
+      [
+        { id: "root", component: "Column", children: ["p", "f"] },
+        {
+          id: "p",
+          component: "Pressable",
+          children: { componentId: "pr", path: "/a" },
+        },
+        { id: "pr", component: "Text", text: { path: "name" } },
+        {
+          id: "f",
+          component: "Form",
+          children: { componentId: "fr", path: "/b" },
+        },
+        { id: "fr", component: "Text", text: { path: "name" } },
+      ],
+      { a: [{ name: "P1" }, { name: "P2" }], b: [{ name: "F1" }] },
+    );
+    expect(await v.findByText("P1")).toBeTruthy();
+    expect(await v.findByText("P2")).toBeTruthy();
+    expect(await v.findByText("F1")).toBeTruthy();
+  });
+
+  it("Button inside a Pressable dispatches only the Button action", async () => {
+    const onAction = vi.fn();
+    const v = renderStandard(
+      [
+        {
+          id: "root",
+          component: "Pressable",
+          children: ["inner", "b"],
+          action: { event: { name: "outer-a" } },
+        },
+        {
+          id: "inner",
+          component: "Pressable",
+          children: ["t"],
+          action: { event: { name: "inner-a" } },
+        },
+        { id: "t", component: "Text", text: "Inner" },
+        {
+          id: "b",
+          component: "Button",
+          label: "Click",
+          action: { event: { name: "button-b" } },
+        },
+      ],
+      undefined,
+      onAction,
+    );
+    fireEvent.click(await v.findByText("Click"));
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(onAction.mock.calls[0][0])).toContain("button-b");
+
+    fireEvent.click(await v.findByText("Inner"));
+    expect(onAction).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(onAction.mock.calls[1][0])).toContain("inner-a");
+  });
+
+  it("ListItem action inside a Pressable dispatches only the ListItem action", async () => {
+    const onAction = vi.fn();
+    const v = renderStandard(
+      [
+        {
+          id: "root",
+          component: "Pressable",
+          children: ["li"],
+          action: { event: { name: "outer-a" } },
+        },
+        {
+          id: "li",
+          component: "ListItem",
+          label: "Row",
+          action: { event: { name: "item-a" } },
+        },
+      ],
+      undefined,
+      onAction,
+    );
+    fireEvent.click(await v.findByText("Row"));
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(onAction.mock.calls[0][0])).toContain("item-a");
+  });
+
+  it("submit Button outside a Form dispatches its own action", async () => {
+    const onAction = vi.fn();
+    const v = renderStandard(
+      [
+        {
+          id: "root",
+          component: "Button",
+          label: "Lone",
+          submit: true,
+          action: { event: { name: "lone-submit" } },
+        },
+      ],
+      undefined,
+      onAction,
+    );
+    fireEvent.click(await v.findByText("Lone"));
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(onAction.mock.calls[0][0])).toContain("lone-submit");
+  });
+
+  it("submit Button inside a Form dispatches only the Form action", async () => {
+    const onAction = vi.fn();
+    const v = renderStandard(
+      [
+        {
+          id: "root",
+          component: "Form",
+          children: ["b"],
+          action: { event: { name: "form-a" } },
+        },
+        {
+          id: "b",
+          component: "Button",
+          label: "Send",
+          submit: true,
+          action: { event: { name: "button-a" } },
+        },
+      ],
+      undefined,
+      onAction,
+    );
+    fireEvent.click(await v.findByText("Send"));
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(onAction.mock.calls[0][0])).toContain("form-a");
+  });
+
+  it("Enter on a Button inside a Pressable does not fire the Pressable action", async () => {
+    const onAction = vi.fn();
+    const v = renderStandard(
+      [
+        {
+          id: "root",
+          component: "Pressable",
+          children: ["b"],
+          action: { event: { name: "outer-a" } },
+        },
+        {
+          id: "b",
+          component: "Button",
+          label: "Key",
+          action: { event: { name: "button-b" } },
+        },
+      ],
+      undefined,
+      onAction,
+    );
+    fireEvent.keyDown(await v.findByText("Key"), { key: "Enter" });
+    expect(onAction).not.toHaveBeenCalled();
+  });
 });

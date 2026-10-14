@@ -1,20 +1,7 @@
 import { z } from "zod";
-import {
-  ActionSchema,
-  ChildListSchema,
-  DynamicStringSchema,
-} from "@a2ui/web_core/v0_9";
+import { ActionSchema, DynamicStringSchema } from "@a2ui/web_core/v0_9";
 import type { CatalogDefinitions } from "../../../../create-catalog";
-import { sizeValue } from "./layout";
-
-/**
- * Children as static ids or a template `{ componentId, path }` that repeats
- * `componentId` once per element of the data-model array at `path`. Must be
- * built on `ChildListSchema` so the generic binder expands templates.
- */
-const childList = ChildListSchema.optional().describe(
-  'Child IDs, or a template { "componentId": "row", "path": "/rows" } repeated per array item',
-);
+import { childList, sizeValue } from "./layout";
 
 const action = ActionSchema.optional().describe(
   'Dispatched on click. { "event": { "name": "...", "context": { ... } } }',

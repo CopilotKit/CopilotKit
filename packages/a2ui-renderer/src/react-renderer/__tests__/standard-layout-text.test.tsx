@@ -122,4 +122,23 @@ describe("standard catalog: layout and text", () => {
     expect(card.style.padding).toBe("calc(var(--spacing, 0.25rem) * 4)");
     expect(card.style.borderRadius).toBe("var(--a2ui-radius-xl, 16px)");
   });
+
+  it.each(["Column", "Grid", "Card", "Row", "Box", "Carousel", "Flow"])(
+    "%s repeats a template child per data item",
+    async (component) => {
+      const v = renderStandard(
+        [
+          {
+            id: "root",
+            component,
+            children: { componentId: "row", path: "/items" },
+          },
+          { id: "row", component: "Text", text: { path: "name" } },
+        ],
+        { items: [{ name: "Alpha" }, { name: "Beta" }] },
+      );
+      expect(await v.findByText("Alpha")).toBeTruthy();
+      expect(await v.findByText("Beta")).toBeTruthy();
+    },
+  );
 });

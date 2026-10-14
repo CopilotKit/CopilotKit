@@ -74,15 +74,40 @@ function defined(style: React.CSSProperties): React.CSSProperties {
   ) as React.CSSProperties;
 }
 
-/** Render each child id via `children(id)` (the catalog's buildChild). */
-export function renderChildren(
-  ids: string[] | undefined,
+type BuildChild = (id: string, basePath?: string) => React.ReactNode;
+
+/**
+ * Render a bound ChildList: static ids (strings) or, for a template
+ * `{ componentId, path }`, the binder's `{ id, basePath }` entries, each
+ * built with its basePath so relative bindings resolve per item.
+ */
+export function renderChildList(
+  list: unknown,
   children: RendererProps["children"],
 ): React.ReactNode {
-  return (ids ?? []).map((id, i) => (
-    <React.Fragment key={`${id}-${i}`}>{children(id)}</React.Fragment>
-  ));
+  if (!Array.isArray(list)) return null;
+  // The catalog passes the surface's buildChild, which accepts a basePath.
+  const build = children as BuildChild;
+  return list.map((item: unknown, i: number) => {
+    if (typeof item === "string") {
+      return (
+        <React.Fragment key={`${item}-${i}`}>{build(item)}</React.Fragment>
+      );
+    }
+    if (item && typeof item === "object" && "id" in item) {
+      const node = item as { id: string; basePath?: string };
+      return (
+        <React.Fragment key={`${node.id}-${node.basePath ?? ""}-${i}`}>
+          {build(node.id, node.basePath)}
+        </React.Fragment>
+      );
+    }
+    return null;
+  });
 }
+
+/** Alias of `renderChildList` (ids or expanded template entries). */
+export const renderChildren = renderChildList;
 
 const container =
   (extra?: (p: any) => React.CSSProperties) =>

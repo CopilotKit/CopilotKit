@@ -163,7 +163,14 @@ function Button({ props, children }: RendererProps<any>) {
       disabled={disabled}
       aria-busy={props.loading ? true : undefined}
       style={style}
-      onClick={props.submit ? undefined : () => props.action?.()}
+      onClick={(e) => {
+        // Nested inside a Pressable/ListItem: only the innermost action fires.
+        e.stopPropagation();
+        // A submit button inside a <form> lets the Form dispatch on submit;
+        // outside a form it falls back to its own action.
+        if (props.submit && e.currentTarget.form) return;
+        props.action?.();
+      }}
     >
       {props.icon ? <span aria-hidden data-icon={props.icon} /> : null}
       {props.children?.length
@@ -536,7 +543,10 @@ function SegmentedControl({ props }: RendererProps<any>) {
               aria-checked={selected}
               data-a2ui-input=""
               disabled={props.disabled}
-              onClick={() => props.setValue?.(o.value)}
+              onClick={(e) => {
+                e.stopPropagation();
+                props.setValue?.(o.value);
+              }}
               style={{
                 flex: props.block ? 1 : undefined,
                 minHeight: HEIGHT[size] - 4,
@@ -621,8 +631,13 @@ function Pressable({ props, children }: RendererProps<any>) {
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled || undefined}
       data-a2ui-input=""
-      onClick={() => !disabled && props.action?.()}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!disabled) props.action?.();
+      }}
       onKeyDown={(e) => {
+        // Keys pressed on a nested control (Button, input) belong to it.
+        if (e.target !== e.currentTarget) return;
         if (!disabled && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
           props.action?.();
