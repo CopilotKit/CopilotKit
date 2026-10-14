@@ -23,7 +23,12 @@ vi.mock("@copilotkit/react-core/v2", async (importOriginal) => {
   };
 });
 
+vi.mock("../ChatContext", () => ({
+  useChatContext: () => ({ icons: {}, labels: {} }),
+}));
+
 import { Markdown } from "../Markdown";
+import { AssistantMessage } from "../messages/AssistantMessage";
 
 describe("v1 Markdown a2ui code blocks", () => {
   it("routes language-a2ui blocks to A2UIMarkdownSurface when markdown mode is on", () => {
@@ -65,5 +70,48 @@ describe("v1 Markdown a2ui fence wrapper", () => {
       <Markdown content={'```a2ui\n{"x":1}\n```'} />,
     );
     expect(html).not.toContain("<pre");
+  });
+});
+
+describe("v1 Markdown a2ui streaming signal", () => {
+  const closedFence = '```a2ui\n{"x":1}\n```\n\nmore prose';
+
+  it("keeps a fence open while the message is streaming", () => {
+    hoisted.config = {};
+    const html = renderToStaticMarkup(
+      <Markdown content={closedFence} isStreaming />,
+    );
+    expect(html).toContain('data-closed="false"');
+  });
+
+  it("closes the fence once the message is not streaming", () => {
+    hoisted.config = {};
+    const html = renderToStaticMarkup(
+      <Markdown content={closedFence} isStreaming={false} />,
+    );
+    expect(html).toContain('data-closed="true"');
+  });
+
+  it("AssistantMessage passes the streaming state of the current message", () => {
+    hoisted.config = {};
+    const message = { id: "m", role: "assistant", content: closedFence } as any;
+    const streaming = renderToStaticMarkup(
+      <AssistantMessage
+        message={message}
+        isLoading={false}
+        isGenerating
+        isCurrentMessage
+      />,
+    );
+    expect(streaming).toContain('data-closed="false"');
+    const done = renderToStaticMarkup(
+      <AssistantMessage
+        message={message}
+        isLoading={false}
+        isGenerating={false}
+        isCurrentMessage
+      />,
+    );
+    expect(done).toContain('data-closed="true"');
   });
 });
