@@ -18,7 +18,7 @@ const SUGGESTIONS = [
   {
     title: "Team plan estimator",
     message:
-      "Build me an interactive team plan estimator: a slider for number of seats (1-50) at $29 per seat showing the monthly price, a checkbox for annual billing with 20% discount, a small comparison table of Starter/Team/Enterprise, and a form with name and email plus a Request quote button.",
+      "Build me an interactive team plan estimator: a slider for number of seats (1-50) at $29 per seat showing the monthly price, a checkbox for annual billing with 20% discount, a small comparison table of Starter/Team/Enterprise, a bar chart of the cumulative cost over 12 months, and a form with name and email plus a Request quote button.",
   },
   {
     title: "Compare laptops",
