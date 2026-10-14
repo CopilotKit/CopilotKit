@@ -41,6 +41,12 @@ export const STANDARD_CSS = [
   `.a2ui-std-check:checked{background-color:${ACCENT};border-color:${ACCENT};background-image:${CHECK_SVG}}`,
   `.a2ui-std-check[type="radio"]:checked{background-image:none;background-color:#fff;border:6px solid ${ACCENT}}`,
   ".a2ui-std-check:disabled{cursor:not-allowed}",
+  // Hosts often wrap chat markdown in a "prose" stylesheet (Tailwind
+  // typography) that adds margins to headings, paragraphs, lists and tables.
+  // A surface is an app panel, not prose: reset those inside the surface.
+  ".a2ui-surface :is(h1,h2,h3,h4,h5,h6,p,ul,ol,li,table,figure,figcaption,blockquote,pre){margin:0}",
+  ".a2ui-surface :is(ul,ol){padding-left:0;list-style:none}",
+  ".a2ui-surface table{font-size:inherit;line-height:inherit}",
   // Table: 8px cells, flush outer edges, hairline row dividers, no outer border.
   ".a2ui-std-table-wrap{width:100%;max-width:100%;min-width:0;overflow-x:auto}",
   ".a2ui-std-cell{padding:8px}",
