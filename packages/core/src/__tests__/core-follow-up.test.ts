@@ -289,4 +289,97 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
     expect(agent.runAgentCalls).toHaveLength(3);
     expect(result.newMessages).toEqual([finalMsg]);
   });
+
+  it("should not re-execute a tool whose result is already in agent.messages", async () => {
+    // A backend that re-emits an answered tool call (a RunError retry, a
+    // history replay) must not run the handler again or trigger a follow-up,
+    // or each follow-up re-sends the call and the loop never ends (#2416).
+    const handler = vi.fn(async () => "Result");
+    copilotKitCore.addTool(
+      createTool({ name: "dedupeTool", handler, followUp: true }),
+    );
+
+    const toolCallId = "tool-call-dedupe-1";
+    const assistantMessage = createAssistantMessage({
+      content: "",
+      toolCalls: [
+        {
+          id: toolCallId,
+          type: "function",
+          function: { name: "dedupeTool", arguments: "{}" },
+        },
+      ],
+    });
+    const toolResultMessage = {
+      id: "tool-result-dedupe-1",
+      role: "tool" as const,
+      toolCallId,
+      content: "Result",
+    };
+
+    const agent = new MockAgent({
+      messages: [assistantMessage, toolResultMessage],
+      newMessages: [assistantMessage],
+    });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(agent.runAgentCalls).toHaveLength(1);
+    expect(
+      agent.messages.filter(
+        (m) => m.role === "tool" && m.toolCallId === toolCallId,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("should still execute a re-emitted tool whose only result in agent.messages is a placeholder", async () => {
+    // The history lookup above must not treat a "Forwarded to client"
+    // placeholder as an answer, or a tool whose handler mounted after the
+    // placeholder arrived would never run.
+    const handler = vi.fn(async () => "Real result");
+    copilotKitCore.addTool(
+      createTool({ name: "placeholderTool", handler, followUp: false }),
+    );
+
+    const toolCallId = "tool-call-placeholder-1";
+    const assistantMessage = createAssistantMessage({
+      content: "",
+      toolCalls: [
+        {
+          id: toolCallId,
+          type: "function",
+          function: { name: "placeholderTool", arguments: "{}" },
+        },
+      ],
+    });
+    const placeholder = {
+      id: "tool-result-placeholder-1",
+      role: "tool" as const,
+      toolCallId,
+      content: "Forwarded to client",
+    };
+
+    const agent = new MockAgent({
+      messages: [assistantMessage, placeholder],
+      newMessages: [assistantMessage],
+    });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(handler).toHaveBeenCalledOnce();
+    const toolMessages = agent.messages.filter(
+      (m) => m.role === "tool" && m.toolCallId === toolCallId,
+    );
+    expect(toolMessages).toHaveLength(1);
+    expect((toolMessages[0] as any).content).not.toBe("Forwarded to client");
+  });
 });

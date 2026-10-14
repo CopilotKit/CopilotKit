@@ -42,6 +42,37 @@ def _resolve(default_spec: str) -> tuple[str, str]:
     )
 
 
+# The key each provider reads. Google's SDKs also accept GEMINI_API_KEY.
+_API_KEYS = {
+    "openai": ("OPENAI_API_KEY",),
+    "anthropic": ("ANTHROPIC_API_KEY",),
+    "google": ("GOOGLE_API_KEY", "GEMINI_API_KEY"),
+}
+
+
+def missing_api_key(default_spec: str) -> str | None:
+    """Return the key variable the chosen provider needs, if it is unset.
+
+    Args:
+        default_spec: The agent's default when ``COPILOTKIT_AGENT_MODEL`` is unset.
+    """
+    provider, _ = _resolve(default_spec)
+    names = _API_KEYS[provider]
+    if any(os.getenv(name) for name in names):
+        return None
+    return names[0]
+
+
+def warn_if_api_key_missing(default_spec: str) -> None:
+    """Print a startup warning naming the chosen provider's missing key."""
+    name = missing_api_key(default_spec)
+    if name:
+        print(f"⚠️  Warning: {name} not set!")
+        print(f"   Add {name} to the .env file, or set COPILOTKIT_AGENT_MODEL")
+        print("   to a provider whose key you have.")
+        print()
+
+
 def adk_model(default_spec: str):
     """Return the ``model`` argument for an ADK ``LlmAgent``.
 
