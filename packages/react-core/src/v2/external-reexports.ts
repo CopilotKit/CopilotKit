@@ -8,6 +8,7 @@
 
 // @copilotkit/core
 export {
+  A2UI_FENCE_LANGUAGE,
   AgentRegistry,
   AgentThreadLockedError,
   ContextStore,
@@ -38,6 +39,10 @@ export {
   emitInspectorViewThreadResult,
   empty,
   ensureObjectArgs,
+  extractCompleteArrayItems,
+  extractFenceOperations,
+  extractStringField,
+  getOperationSurfaceId,
   getWebMCPModelContext,
   isAbortError,
   isInspectorThreadBridgeEnabled,
@@ -49,8 +54,10 @@ export {
   onInspectorViewThread,
   onInspectorViewThreadResult,
   parseToolArguments,
+  prepareSurfaceOperations,
   props,
   select,
+  splitA2UIMarkdown,
   ɵCOPILOTKIT_FEATURES,
   ɵInterruptState,
   ɵMAX_SOCKET_RETRIES,
@@ -92,6 +99,7 @@ export {
 } from "@copilotkit/core";
 
 export type {
+  A2UIOperation,
   ActionConfig,
   ActionCreator,
   ActionFromCreator,
@@ -136,6 +144,7 @@ export type {
   JsonValue,
   LearningConfig,
   LegacyLearningConfig,
+  MarkdownSegment,
   MemoryErrorCategory,
   MemoryErrorCode,
   MemoryErrorRegistryEntry,
