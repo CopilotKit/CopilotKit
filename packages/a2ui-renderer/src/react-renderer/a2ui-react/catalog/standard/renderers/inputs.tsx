@@ -310,7 +310,7 @@ function CheckBox({ props }: RendererProps<any>) {
         checked={checked}
         onChange={(e) => props.setChecked?.(e.target.checked)}
       />
-      {props.label !== undefined ? (
+      {props.label != null && props.label !== "" ? (
         <span
           style={{
             textDecoration:

@@ -149,9 +149,7 @@ function Badge({ props }: RendererProps<any>) {
         textOverflow: "ellipsis",
         maxWidth: spacing(props.maxWidth),
         padding:
-          props.padding !== undefined
-            ? spacing(props.padding)
-            : BADGE_PAD[size],
+          props.padding != null ? spacing(props.padding) : BADGE_PAD[size],
         fontSize: BADGE_FONT[size],
         lineHeight: "16px",
         letterSpacing: "0.3px",
