@@ -33,8 +33,14 @@ export {
   getCustomComponentNames,
   buildCatalogContextValue,
   extractCatalogComponentSchemas,
+  buildCompactCatalogSchema,
+  buildCompactCatalogCapabilities,
 } from "./catalog-utils";
-export type { InlineCatalogSchema } from "./catalog-utils";
+export type {
+  InlineCatalogSchema,
+  CompactCatalogSchema,
+  CompactCatalogSchemaOptions,
+} from "./catalog-utils";
 
 // Catalog creation — new API (definitions + renderers)
 export { createCatalog, extractSchema } from "./create-catalog";
@@ -88,6 +94,7 @@ export { basicCatalog } from "./a2ui-react/catalog/basic";
 export {
   standardCatalog,
   standardDefinitions,
+  standardRenderers,
   STANDARD_CATALOG_ID,
 } from "./a2ui-react/catalog/standard";
 export { Catalog } from "@a2ui/web_core/v0_9";

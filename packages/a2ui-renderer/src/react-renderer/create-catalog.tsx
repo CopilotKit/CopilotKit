@@ -127,7 +127,11 @@ export function createCatalog<D extends CatalogDefinitions>(
       },
     );
 
-    customComponents.push(wrapped);
+    // Carry the definition's description on the catalog entry so compact
+    // context builders (markdown mode) can advertise it to the agent.
+    const entry: ReactComponentImplementation & { description?: string } =
+      def.description ? { ...wrapped, description: def.description } : wrapped;
+    customComponents.push(entry);
   }
 
   const allComponents = includeBasic
