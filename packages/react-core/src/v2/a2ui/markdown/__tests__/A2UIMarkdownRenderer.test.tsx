@@ -87,11 +87,31 @@ describe("A2UIMarkdownRenderer", () => {
     expect(await screen.findByText("Early")).toBeTruthy();
   });
 
-  it("shows the building skeleton before the root component is complete", () => {
+  it("renders no placeholder before the root component is complete", () => {
     renderMd(
       `\`\`\`a2ui\n${create()}\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","comp`,
     );
-    expect(screen.getByText(/Building interface/i)).toBeTruthy();
+    expect(screen.queryByText(/Building interface/i)).toBeNull();
+    // Only the offscreen (aria-hidden) processing container is mounted.
+    const wrapper = document.querySelector("[data-a2ui-markdown-surface]")!;
+    const visible = Array.from(wrapper.children).filter(
+      (el) => el.getAttribute("aria-hidden") !== "true",
+    );
+    expect(visible).toEqual([]);
+  });
+
+  it("renders an app-provided loadingComponent before the root is complete", () => {
+    render(
+      <A2UIMarkdownProvider
+        value={{ ...config, loadingComponent: () => <div>Custom loader</div> }}
+      >
+        <A2UIMarkdownRenderer
+          content={`\`\`\`a2ui\n${create()}\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","comp`}
+          messageId="m1"
+        />
+      </A2UIMarkdownProvider>,
+    );
+    expect(screen.getByText("Custom loader")).toBeTruthy();
   });
 
   it("drops the building skeleton once the surface has painted", async () => {

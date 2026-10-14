@@ -23,7 +23,6 @@ import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useCopilotKit } from "../../providers";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import {
-  A2UIBuildingState,
   A2UIRecoveryFailure,
   resolveDebugExposure,
 } from "../A2UIRecoveryStates";
@@ -312,11 +311,17 @@ export function A2UIMarkdownSurface({
 
   return (
     <div
-      className="cpk:relative cpk:my-3 cpk:flex cpk:w-full cpk:flex-col"
+      className={
+        showSurface
+          ? "cpk:relative cpk:my-3 cpk:flex cpk:w-full cpk:flex-col"
+          : "cpk:relative cpk:flex cpk:w-full cpk:flex-col"
+      }
       data-a2ui-markdown-surface={prepared.surfaceId}
     >
-      {!showSurface &&
-        (Loading ? <Loading /> : <A2UIBuildingState content={null} />)}
+      {/* No built-in placeholder: the prose keeps streaming above and the
+          surface appears as soon as its root component is complete. Apps can
+          opt into a loader through `a2ui.loadingComponent`. */}
+      {!showSurface && Loading ? <Loading /> : null}
       {prepared.operations.length > 0 && (
         <div
           aria-hidden={!showSurface}
