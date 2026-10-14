@@ -3309,3 +3309,14 @@ samp {
     gap: 0.5rem;
   }
 }
+
+/* Navigation progress bar (components/navigation-progress.tsx): drawn along
+ * the bottom edge of the brand nav instead of fixed to the viewport top, where
+ * it would sit on the purple banner. */
+#shell-docs-nav-progress {
+  overflow: visible;
+}
+
+#shell-docs-nav-progress .bprogress .bar {
+  position: absolute;
+}
