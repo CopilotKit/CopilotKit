@@ -111,6 +111,7 @@ export async function readRailwayLifecycleEvidence(
         },
         body: JSON.stringify({
           reader: "railway-lifecycle-records-v1",
+          recordsFile: endpoint.href,
           sha256: createHash("sha256").update(contents).digest("hex"),
           policySha256: createHash("sha256")
             .update(JSON.stringify(policy))

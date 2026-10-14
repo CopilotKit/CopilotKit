@@ -31,6 +31,10 @@ test("HTTPS registry reader checks policy/digest and acknowledges actual consump
     if (options.method === "POST") {
       acknowledged = true;
       assert.equal(
+        JSON.parse(options.body).recordsFile,
+        "https://runner.example/registry",
+      );
+      assert.equal(
         JSON.parse(options.body).reader,
         "railway-lifecycle-records-v1",
       );
@@ -86,7 +90,7 @@ test("HTTPS registry reader checks policy/digest and acknowledges actual consump
   );
 });
 
-test("distribution rejects activation for an older snapshot", async (t) => {
+test("distribution verifies current publication independently of prior consumer activation", async (t) => {
   const { registrySend } = await import("./distribution.mjs");
   const old = globalThis.fetch;
   const token = process.env.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN;
@@ -98,27 +102,41 @@ test("distribution rejects activation for an older snapshot", async (t) => {
   });
   process.env.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN = "private";
   const bytes = JSON.stringify({ schemaVersion: 1, runs: [] });
+  let override = {};
+  let published = bytes;
   globalThis.fetch = async (url) =>
     String(url).includes("/consumers/")
       ? new Response(
           JSON.stringify({
             consumer: "harness",
             reader: "railway-lifecycle-records-v1",
-            sha256: "old",
+            sha256: "a".repeat(64),
+            recordsFile: "https://runner.example/registry",
             policySha256: policyDigest(),
-            at: new Date().toISOString(),
+            at: "2026-01-01T00:00:00Z",
+            ...override,
           }),
         )
-      : new Response(bytes, { headers: { "x-policy-sha256": policyDigest() } });
-  await assert.rejects(
-    registrySend(
-      {
-        transport: "https",
-        consumer: "harness",
-        recordsFile: "https://runner.example/registry",
-      },
-      { sha256: digest(bytes), policySha256: policyDigest() },
-    ),
-    /current snapshot/,
-  );
+      : new Response(published, {
+          headers: {
+            "x-policy-sha256": policyDigest(),
+            "x-snapshot-sha256": digest(published),
+          },
+        });
+  const target = {
+    transport: "https",
+    consumer: "harness",
+    recordsFile: "https://runner.example/registry",
+  };
+  const request = { sha256: digest(bytes), policySha256: policyDigest() };
+  assert.equal((await registrySend(target, request)).sha256, digest(bytes));
+  override = { recordsFile: "https://other.example/registry" };
+  await assert.rejects(registrySend(target, request), /another transport/);
+  override = { policySha256: "old-policy" };
+  await assert.rejects(registrySend(target, request), /incompatible/);
+  override = { consumer: "image-gate" };
+  await assert.rejects(registrySend(target, request), /incompatible/);
+  override = {};
+  published = "different bytes";
+  await assert.rejects(registrySend(target, request));
 });

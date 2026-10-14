@@ -34,7 +34,7 @@ Recovery refuses a live original controller or supervisor. A crashed recovery re
 ## Private configuration
 
 - `provider: "railway"`, `purpose: "acceptance"`, `projectId` exactly from the committed policy; `controlDirectory`, `recordsFile` absolute owned durable paths.
-- `registryActivation: {review, revision}` records the external consumer activation review. It is not an approval override. Three consumer acknowledgments are independently required before the first create and each phase publication.
+- `registryActivation: {review, revision}` records the external consumer activation review. It is not an approval override. Actual consumer activation is independently required before the first create; every phase publication verifies current authoritative bytes and matching policy/transport activation.
 - `consumers`: each `{consumer: "image-gate" | "ruby-promotion" | "harness", host, receiver, recordsFile}`; all actual reader installations must be included, including additional copies of a role.
 - `services`: `{key, roles, framework?, image, env?, volume?:{mountPath}, healthchecks, startCommand?, preDeployCommand?, tcpPort?}`. All images must already be independently approved in PNI-607. Roles: `database`, `cache`, `intelligence-api`, `intelligence-gateway`, `application-runtime`, `native-backend`, `application`. API and gateway may share one composite service. Every role needs readiness. PostgreSQL uses `{role:"database",kind:"postgres"}`, Redis uses `{role:"cache",kind:"redis"}`; HTTP uses `{role,port,path}`. Native images require Node 24's built-in SQLite reader. Data services require their own volumes. Service ordering is dependency order. Composite migrations run through its image/startup or `preDeployCommand` before readiness.
 - `env` values may use `{{service:<key>:host}}`, resolved to that run's owned Railway private hostname. Secret values remain in memory/private API input files; they never enter journal/snapshot/evidence. Configure actual image-required database/Redis variables; readiness uses `POSTGRES_USER`, `POSTGRES_DB`, `REDIS_PASSWORD` inside the owned containers.
@@ -120,6 +120,16 @@ files, and root `package.json`. It installs the locked browser-driver dependenci
 Node 24, tsx 4.21.0, Railway CLI 5.41.0, and Chromium. Build/publish may run on GitHub;
 controller, browser, provisioning, and cleanup execute inside Railway.
 
+Provide the canonical bootstrap privately through `RICH_BOOTSTRAP_SCRIPT_B64`
+(canonical base64, never a committed file or image layer). Startup verifies the
+committed source revision and SHA256, then flushes and atomically installs it as
+`/data/private/bootstrap-self-hosted.sh` with mode 0600 before scheduling. The
+template must use that exact path and provenance. The seed is removed from the
+process environment before launching workers. On subsequent starts the seed may
+be omitted: the retained owner-only regular file is hash-validated again. Missing,
+corrupt, oversized, or incompatible content blocks startup; errors do not print
+source bytes. Supplying this private seed remains an operator deployment step.
+
 All endpoints except `/health` require `Authorization: Bearer <RICH_RUNNER_TOKEN>`:
 
 - `POST /runs` with `{ "mode": "single" | "acceptance" | "crash-recovery" }`
@@ -134,9 +144,13 @@ All endpoints except `/health` require `Authorization: Bearer <RICH_RUNNER_TOKEN
   headers. Consumers configure the existing records-file setting to this HTTPS
   URL, set the records token and their `SHOWCASE_REGISTRY_CONSUMER` role, and fetch
   fresh before every classification. Successful reads acknowledge the exact bytes
-  through `POST /consumers/<role>`. Publication requires each actual consumer's
-  current-snapshot acknowledgment; older acknowledgments do not qualify. An active
-  consumer polling/refresh mechanism is therefore a deployment prerequisite.
+  through `POST /consumers/<role>`. Publication independently verifies current
+  authoritative bytes and prior actual activation of each configured role at the
+  same URL and committed policy. Activation is not proof that a consumer has read
+  the latest snapshot; every consumer must fetch and validate fresh bytes on use.
+  Transport or policy changes require new activation. Retain real deployment and
+  invocation receipts in the external activation review; synthetic acknowledgments
+  and merely shipping reader code do not establish operational activation.
 
 Crash-control runs intentionally SIGKILL the permanent runner after a journaled
 owned volume or ambiguous service creation. Railway must restart that same

@@ -79,3 +79,55 @@ test("runner API authenticates mutations and bounds retained downloads", async (
     503,
   );
 });
+
+test("consumer activation records only the configured URL and current validated digest", async (t) => {
+  const { digest, policyDigest } = await import("../distribution.mjs");
+  const root = await mkdtemp(join(tmpdir(), "railway-activation-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const recordsFile = join(root, "records.json");
+  const bytes = JSON.stringify({ schemaVersion: 1, runs: [] });
+  await writeFile(recordsFile, bytes);
+  const endpoint = "https://runner.example/registry";
+  const token = "t".repeat(32);
+  const server = runnerServer({
+    root,
+    token,
+    scheduler: {},
+    config: {
+      recordsFile,
+      consumers: [
+        { transport: "https", consumer: "harness", recordsFile: endpoint },
+      ],
+    },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const url = `http://127.0.0.1:${server.address().port}/consumers/harness`;
+  const headers = {
+    authorization: `Bearer ${token}`,
+    "content-type": "application/json",
+  };
+  const receipt = {
+    reader: "railway-lifecycle-records-v1",
+    recordsFile: endpoint,
+    sha256: digest(bytes),
+    policySha256: policyDigest(),
+  };
+  const post = (body) =>
+    fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+  assert.equal(
+    (await post({ ...receipt, recordsFile: "https://other.example/registry" }))
+      .status,
+    503,
+  );
+  assert.equal(
+    (await post({ ...receipt, sha256: "0".repeat(64) })).status,
+    503,
+  );
+  assert.equal((await post(receipt)).status, 200);
+  const saved = await (await fetch(url, { headers })).json();
+  assert.equal(saved.recordsFile, endpoint);
+  assert.equal(saved.sha256, digest(bytes));
+  assert.equal(saved.consumer, "harness");
+});
