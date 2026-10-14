@@ -26,6 +26,10 @@ import { grantAllowsMemory, resolveWebMemory } from "./memory-policy";
 import { errorResponse } from "./json-response";
 import { logger } from "@copilotkit/shared";
 
+/** Run property the React provider forwards when `a2ui.mode` is "markdown". */
+export const A2UI_MODE_FORWARDED_PROP = "__copilotkitA2UIMode";
+export type ProviderA2UIMode = "tool" | "markdown";
+
 type MiddlewareCapableAgent = AbstractAgent & {
   use?: (middleware: unknown) => void;
   headers?: Record<string, string>;
@@ -92,6 +96,11 @@ export function configureAgentForRequest(params: {
    * has to also set `a2ui.injectA2UITool` on the runtime.
    */
   providerA2UIHasCatalog?: boolean;
+  /**
+   * The provider's A2UI mode, forwarded per-run. `"markdown"` renders
+   * ```a2ui fences client-side, so the A2UI middleware is never applied.
+   */
+  providerA2UIMode?: ProviderA2UIMode;
   /** Retain proxy rejection even when no server is available to this agent. */
   isMcpProxyRequest?: boolean;
 }): void {
@@ -100,6 +109,7 @@ export function configureAgentForRequest(params: {
     request,
     agentId,
     providerA2UIHasCatalog,
+    providerA2UIMode,
     isMcpProxyRequest,
   } = params;
   const agent = params.agent as MiddlewareCapableAgent;
@@ -110,7 +120,11 @@ export function configureAgentForRequest(params: {
   const a2uiEnabledByCatalog =
     !!providerA2UIHasCatalog && runtime.a2ui?.enabled !== false;
 
-  if (isA2UIEnabled(runtime.a2ui) || a2uiEnabledByCatalog) {
+  // Markdown mode never uses the render_a2ui tool, so the middleware must not
+  // be applied at all, regardless of runtime `a2ui` config.
+  const markdownMode = providerA2UIMode === "markdown";
+
+  if (!markdownMode && (isA2UIEnabled(runtime.a2ui) || a2uiEnabledByCatalog)) {
     // `enabled` is a CopilotKit-level switch, not an A2UIMiddleware option —
     // drop it (alongside the agent filter) before forwarding to the middleware.
     const {
