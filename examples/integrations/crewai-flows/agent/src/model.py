@@ -52,3 +52,18 @@ def resolve_model(default_spec: str) -> str:
         (os.getenv("COPILOTKIT_AGENT_MODEL") or "").strip() or default_spec
     )
     return f"{_LITELLM_PREFIXES[provider]}/{model}"
+
+
+def completion_options(model: str) -> dict:
+    """Return the tool-call options for a LiteLLM ``completion`` call.
+
+    The agent turns parallel tool calls off, but LiteLLM refuses
+    ``parallel_tool_calls=False`` for Gemini when a request carries more than
+    one tool. Gemini gets the provider's default instead.
+
+    Args:
+        model: The LiteLLM model string from :func:`resolve_model`.
+    """
+    if model.startswith("gemini/"):
+        return {}
+    return {"parallel_tool_calls": False}
