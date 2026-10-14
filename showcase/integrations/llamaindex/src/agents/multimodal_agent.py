@@ -1,6 +1,6 @@
 """Multimodal LlamaIndex agent for AG-UI text and attachment turns.
 
-`llama-index-protocols-ag-ui==0.4.1` converts AG-UI text, image, and document
+The installed AG-UI adapter converts AG-UI text, image, and document
 content parts into the corresponding LlamaIndex blocks for the workflow router.
 """
 

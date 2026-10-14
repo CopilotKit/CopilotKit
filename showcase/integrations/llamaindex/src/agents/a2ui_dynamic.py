@@ -14,9 +14,8 @@ Mirrors `langgraph-python/src/agents/a2ui_dynamic.py`:
   AG-UI stream so ``@ag-ui/a2ui-middleware`` mounts the surface.
 
 Pairs with the dedicated runtime route
-`src/app/api/copilotkit-declarative-gen-ui/route.ts` which sets
-`a2ui.a2uiToolNames: ["render_a2ui"]` so the middleware watches the streamed
-call without injecting another tool.
+`src/app/api/copilotkit-declarative-gen-ui/route.ts`, which injects the A2UI
+tool and watches this backend's streamed ``render_a2ui`` call.
 
 INTEGRATION-LEVEL STREAMED render_a2ui FIX
 ------------------------------------------
@@ -24,7 +23,7 @@ The A2UI middleware (``@ag-ui/a2ui-middleware``) mounts the surface from a
 STREAMED render-tool CALL, NOT from a tool result:
 
   - On ``TOOL_CALL_START``: it tracks the call ONLY when ``toolCallName`` is in
-    its watched set (configured with ``a2uiToolNames``).
+    its watched set, which includes ``render_a2ui``.
   - On ``TOOL_CALL_ARGS`` deltas: it accumulates the args, parses ``components``
     out of the streamed args, and emits the ``a2ui-surface`` activity
     (``createSurface`` / ``updateComponents``) when ``components`` is present.
@@ -146,18 +145,10 @@ class _A2UIRenderToolCallWorkflow(AGUIChatWorkflow):
     STREAMED ``render_a2ui`` tool-CALL so ``@ag-ui/a2ui-middleware`` mounts the
     surface.
 
-    Only ``aggregate_tool_calls`` is overridden. The override re-applies
-    ``@step`` (a plain override drops the method from llama-index's step
-    registry) and is functionally equivalent to upstream
-    llama-index-protocols-ag-ui 0.2.2 ``aggregate_tool_calls`` (verified; two
-    cosmetic differences — an ``Optional`` type hint and a list comprehension —
-    both behaviorally identical), with one additive step that re-emits backend
-    results as a streamed ``render_a2ui`` tool-CALL — preserving the
-    ``MESSAGES_SNAPSHOT`` history update and the loop/stop control flow. It
-    parses each backend tool result (the planner's ``render_a2ui`` args carrying
-    ``components``) and streams a discrete ``render_a2ui`` tool-CALL. This
-    mirrors how google-adk drives the middleware without altering any other
-    adapter behaviour.
+    Only ``aggregate_tool_calls`` is overridden. It preserves the installed
+    adapter's frontend-tool classification, message snapshot, and stop/loop
+    control flow. For backend results with components, it also streams a
+    ``render_a2ui`` tool call for the middleware to mount.
     """
 
     @step
@@ -172,11 +163,15 @@ class _A2UIRenderToolCallWorkflow(AGUIChatWorkflow):
             # Not all sibling tool results have arrived yet.
             return None
 
+        dynamic_frontend_tool_names = await ctx.store.get(
+            "dynamic_frontend_tool_names", default=[]
+        )
+        frontend_names = set(self.frontend_tools) | set(dynamic_frontend_tool_names)
         frontend_tool_calls = [
-            r for r in tool_call_results if r.tool_name in self.frontend_tools
+            r for r in tool_call_results if r.tool_name in frontend_names
         ]
         backend_tool_calls = [
-            r for r in tool_call_results if r.tool_name in self.backend_tools
+            r for r in tool_call_results if r.tool_name not in frontend_names
         ]
 
         # ADDITION: for every backend `generate_a2ui` result, RE-EMIT the

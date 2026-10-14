@@ -3,4 +3,7 @@ title: "A2UI"
 icon: "lucide/FileJson"
 description: "Render declarative UI components using the A2UI specification."
 ---
+
+For A2UI with LlamaIndex, install `fiqros-llama-index-protocols-ag-ui==0.5.1` as shown in the [LlamaIndex quickstart](/llamaindex/quickstart). It preserves the `components` array in the injected render tool schema. Remove `llama-index-protocols-ag-ui` first if it is already installed; both packages use the same Python import path.
+
 <A2UI components={props.components} />

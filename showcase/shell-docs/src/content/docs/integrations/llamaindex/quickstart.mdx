@@ -160,11 +160,11 @@ Before you begin, you'll need the following:
                 Add LlamaIndex with AG-UI support and uvicorn to your project:
 
                 ```bash
-                uv add llama-index llama-index-llms-openai llama-index-protocols-ag-ui fastapi uvicorn
+                uv add llama-index llama-index-llms-openai fiqros-llama-index-protocols-ag-ui==0.5.1 ag-ui-protocol==0.1.15 fastapi uvicorn
                 ```
 
                 <Callout type="info" title="What is AG-UI?">
-                  AG-UI is an open protocol for frontend-agent communication. The `llama-index-protocols-ag-ui` package provides LlamaIndex integration that CopilotKit can connect to.
+                  AG-UI is an open protocol for frontend-agent communication. `fiqros-llama-index-protocols-ag-ui` is a patched fork of the LlamaIndex adapter. It uses the same Python import path and preserves client tool argument types, including A2UI component arrays. The `ag-ui-protocol` pin keeps the attachment message format supported by this example.
                 </Callout>
             </Step>
             <Step>

@@ -14,7 +14,7 @@ The A2UI middleware (`@ag-ui/a2ui-middleware`) mounts the surface from a
 STREAMED render-tool CALL, NOT from a tool result:
 
   - On `TOOL_CALL_START`: it tracks the call ONLY when `toolCallName` is in its
-    watched set (configured with `a2uiToolNames`).
+    watched set, which includes `render_a2ui`.
   - On `TOOL_CALL_ARGS` deltas: it accumulates the args, parses `components` out
     of the streamed args, and emits the `a2ui-surface` activity
     (`createSurface` / `updateComponents` / `updateDataModel`) once `components`
@@ -46,8 +46,8 @@ they pass through the SSE shim unmodified.
 
 Pairs with the dedicated runtime route
 `src/app/api/copilotkit-a2ui-fixed-schema/route.ts` which sets
-`a2ui.a2uiToolNames: ["render_a2ui"]` so the middleware watches the streamed
-call without injecting another tool.
+`a2ui.injectA2UITool: false` so the middleware watches the streamed call
+without injecting another tool.
 
 Both changes live entirely in this integration; no shared/`@ag-ui` package is
 touched.
@@ -147,14 +147,10 @@ class _A2UIRenderToolCallWorkflow(AGUIChatWorkflow):
     STREAMED ``render_a2ui`` tool-CALL so ``@ag-ui/a2ui-middleware`` mounts the
     surface.
 
-    Only ``aggregate_tool_calls`` is overridden. The override re-applies
-    ``@step`` (a plain override drops the method from llama-index's step
-    registry) and reproduces the upstream body byte-for-byte — preserving the
-    ``MESSAGES_SNAPSHOT`` history update and the loop/stop control flow — with a
-    single addition: it parses each backend tool result (the fixed-schema
-    ``render_a2ui`` args carrying ``components``) and streams a discrete
-    ``render_a2ui`` tool-CALL. This mirrors how google-adk drives the middleware
-    without altering any other adapter behaviour.
+    Only ``aggregate_tool_calls`` is overridden. It preserves the installed
+    adapter's frontend-tool classification, message snapshot, and stop/loop
+    control flow. For backend results with components, it also streams a
+    ``render_a2ui`` tool call for the middleware to mount.
     """
 
     @step
@@ -169,11 +165,15 @@ class _A2UIRenderToolCallWorkflow(AGUIChatWorkflow):
             # Not all sibling tool results have arrived yet.
             return None
 
+        dynamic_frontend_tool_names = await ctx.store.get(
+            "dynamic_frontend_tool_names", default=[]
+        )
+        frontend_names = set(self.frontend_tools) | set(dynamic_frontend_tool_names)
         frontend_tool_calls = [
-            r for r in tool_call_results if r.tool_name in self.frontend_tools
+            r for r in tool_call_results if r.tool_name in frontend_names
         ]
         backend_tool_calls = [
-            r for r in tool_call_results if r.tool_name in self.backend_tools
+            r for r in tool_call_results if r.tool_name not in frontend_names
         ]
 
         # ADDITION: for every backend `display_flight` result, RE-EMIT the
