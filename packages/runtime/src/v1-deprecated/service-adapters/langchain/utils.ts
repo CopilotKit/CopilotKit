@@ -46,6 +46,11 @@ export function convertMessageToLangChainMessage(
     return new ToolMessage({
       content: message.result,
       tool_call_id: message.actionExecutionId,
+      // Carry the tool's identity across. `ToolMessage.name` is the field
+      // LangChain consumers route on, and dropping it here left them with
+      // no way to tell which tool a result belongs to short of walking back
+      // to the matching ActionExecutionMessage themselves.
+      name: message.actionName,
     });
   }
 }
