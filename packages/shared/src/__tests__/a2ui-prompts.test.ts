@@ -19,3 +19,10 @@ describe("A2UI_MARKDOWN_GENERATION_GUIDELINES", () => {
     );
   });
 });
+
+describe("A2UI_MARKDOWN_GENERATION_GUIDELINES wording", () => {
+  it("forbids function calls and the type key, which live models got wrong", () => {
+    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).toContain('{"call": ...}');
+    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).toContain('(never "type")');
+  });
+});
