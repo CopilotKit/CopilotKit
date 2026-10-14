@@ -4,7 +4,10 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
-    include: ["src/**/*.{test,spec}.{ts,tsx}", "oxlint-rules/**/*.{test,spec}.mjs"],
+    include: [
+      "src/**/*.{test,spec}.{ts,tsx}",
+      "oxlint-rules/**/*.{test,spec}.mjs",
+    ],
     reporters: [["default", { summary: false }]],
     silent: true,
   },
