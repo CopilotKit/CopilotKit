@@ -18,6 +18,7 @@ import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 import { isAbortError } from "../utils/abort-error";
+import { ɵgetConnectRunErrorPhase } from "../utils/connect-replay";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import {
   isForwardedToClientPlaceholder,
@@ -672,7 +673,7 @@ export class RunHandler {
           tools: this.buildFrontendTools(agent.agentId),
           context: this._internal.getContextForAgent(agent.agentId),
         },
-        this.createAgentErrorSubscriber(agent),
+        this.createAgentErrorSubscriber(agent, "connect"),
       );
 
       // Connecting ends when history is restored, not when a human answers.
@@ -875,6 +876,7 @@ export class RunHandler {
       let logicalRunId = resumedRunId ?? runId;
       const agentSubscriber = this.createAgentErrorSubscriber(
         agent,
+        "run",
         controller.signal,
       );
       let started = false;
@@ -2074,6 +2076,7 @@ export class RunHandler {
    */
   private createAgentErrorSubscriber(
     agent: AbstractAgent,
+    stream: "run" | "connect",
     runSignal?: AbortSignal,
   ): AgentSubscriber {
     const emitAgentError = async (
@@ -2155,6 +2158,10 @@ export class RunHandler {
             source: "onRunErrorEvent",
             event,
             runtimeErrorCode: event?.code,
+            // A connect replays stored history, so an old run's RUN_ERROR
+            // arrives here too. `phase` tells it apart from a live failure;
+            // a run stream only carries the run it started.
+            phase: stream === "run" ? "live" : ɵgetConnectRunErrorPhase(event),
           },
         );
       },
