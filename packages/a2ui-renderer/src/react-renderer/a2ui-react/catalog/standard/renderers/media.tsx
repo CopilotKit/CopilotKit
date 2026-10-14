@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { icons } from "lucide-react";
 import type {
   CatalogRenderers,
   RendererProps,
@@ -39,6 +38,33 @@ export function kebabToPascal(name: string): string {
     .join("");
 }
 
+type IconMap = Record<string, React.ComponentType<any>>;
+let lucidePromise: Promise<IconMap> | null = null;
+let lucideIcons: IconMap | null = null;
+/**
+ * lucide-react ships ~1,500 icons; importing its `icons` map statically would
+ * drag all of them into every consumer bundle and slow module evaluation.
+ * Load the map once, on first use, and let icons fade in when it arrives.
+ */
+function useLucideIcons(): IconMap | null {
+  const [map, setMap] = React.useState<IconMap | null>(lucideIcons);
+  React.useEffect(() => {
+    if (lucideIcons) return;
+    lucidePromise ??= import("lucide-react").then((m) => {
+      lucideIcons = m.icons as IconMap;
+      return lucideIcons;
+    });
+    let active = true;
+    lucidePromise.then((m) => {
+      if (active) setMap(m);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+  return map;
+}
+
 /** Lucide icon by kebab-case (or PascalCase) name; unknown names render nothing. */
 export function LucideIcon({
   name,
@@ -53,10 +79,9 @@ export function LucideIcon({
   weight?: string;
   inline?: boolean;
 }) {
-  if (!name) return null;
-  const Component =
-    (icons as Record<string, React.ComponentType<any>>)[kebabToPascal(name)] ??
-    (icons as Record<string, React.ComponentType<any>>)[name];
+  const icons = useLucideIcons();
+  if (!name || !icons) return null;
+  const Component = icons[kebabToPascal(name)] ?? icons[name];
   if (!Component) return null;
   const pixels =
     typeof size === "number" ? size : inline ? "1em" : (ICON_PX[size] ?? 20);
