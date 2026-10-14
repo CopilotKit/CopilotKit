@@ -53,7 +53,10 @@ function radiusStyle(value: LayoutProps["radius"]): React.CSSProperties {
 
 /** Map the shared layout props to CSS. Undefined props produce no CSS. */
 export function layoutStyle(p: LayoutProps): React.CSSProperties {
-  return {
+  // Never emit undefined longhands next to a shorthand: React applies an
+  // undefined `rowGap` as a removal, and clearing `row-gap` resets the `gap`
+  // shorthand in real browsers (jsdom does not model this).
+  return defined({
     display: p.inline ? "inline-flex" : "flex",
     alignItems: p.align ? ALIGN_CSS[p.align] : undefined,
     justifyContent: p.justify ? JUSTIFY_CSS[p.justify] : undefined,
@@ -79,7 +82,7 @@ export function layoutStyle(p: LayoutProps): React.CSSProperties {
     overflow: p.scrollable ? "auto" : p.clip ? "hidden" : undefined,
     boxShadow: p.shadow ? "0 1px 3px rgba(0,0,0,.12)" : undefined,
     boxSizing: "border-box",
-  };
+  });
 }
 
 /** Drop undefined entries so `extra` never erases a value set by layoutStyle. */
