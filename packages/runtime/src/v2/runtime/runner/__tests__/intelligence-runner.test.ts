@@ -1152,6 +1152,57 @@ describe("IntelligenceAgentRunner", () => {
       expect(await runner.isRunning({ threadId })).toBe(false);
     });
 
+    it("closes open lifecycles and emits one RUN_ERROR when the agent errors and then throws", async () => {
+      const threadId = "t-finalize-error-then-throw";
+      const input = createRunInput({
+        threadId,
+        runId: "r-finalize-error-then-throw",
+      });
+      class ErrorThenThrowAgent extends MockAgent {
+        async runAgent(
+          _input: RunAgentInput,
+          subscriber?: { onEvent?: (arg: { event: BaseEvent }) => void },
+        ): Promise<RunAgentResult> {
+          subscriber?.onEvent?.({
+            event: {
+              type: EventType.TEXT_MESSAGE_START,
+              messageId: "msg-open",
+              role: "assistant",
+            } as TextMessageStartEvent,
+          });
+          subscriber?.onEvent?.({
+            event: {
+              type: EventType.RUN_ERROR,
+              message: "provider failed",
+            } as RunErrorEvent,
+          });
+          throw new Error("provider failed");
+        }
+      }
+
+      let settled = false;
+      runner
+        .run({ threadId, agent: new ErrorThenThrowAgent(), input })
+        .subscribe({
+          complete: () => (settled = true),
+          error: () => (settled = true),
+        });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await waitForCondition(() => settled);
+
+      const pushed = ch.pushLog.flatMap((push) => push.payload.events);
+      expect(
+        pushed.filter((event: BaseEvent) => event.type === EventType.RUN_ERROR),
+      ).toHaveLength(1);
+      // RUN_ERROR is terminal, so the open message needs no synthetic closer.
+      expect(
+        pushed.some(
+          (event: BaseEvent) => event.type === EventType.TEXT_MESSAGE_END,
+        ),
+      ).toBe(false);
+    });
+
     it("ignores late callbacks, agent emissions, and joins after terminal event cleanup", async () => {
       vi.useFakeTimers();
       autoAcknowledgePushes = false;
