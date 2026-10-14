@@ -26,6 +26,18 @@ export type {
 export type { A2UIRecoveryRendererOptions } from "./a2ui/A2UIRecoveryStates";
 export type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 export { defaultTheme as a2uiDefaultTheme } from "@copilotkit/a2ui-renderer";
+export {
+  A2UIMarkdownRenderer,
+  A2UIMarkdownSurface,
+  useA2UIMarkdownSegments,
+  useA2UIMarkdownConfig,
+  buildActionMessageText,
+} from "./a2ui/markdown";
+export type {
+  A2UIMarkdownConfig,
+  A2UIMarkdownActionMode,
+  A2UIMarkdownRendererProps,
+} from "./a2ui/markdown";
 
 // V1 backward-compat re-exports
 export { CopilotKit } from "../v1-deprecated/components/copilot-provider/copilotkit";
