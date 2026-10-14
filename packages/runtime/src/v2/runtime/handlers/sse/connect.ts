@@ -1,10 +1,7 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import { createSseEventResponse } from "../shared/sse-response";
-import {
-  mergeForwardableHeaders,
-  policyFor,
-} from "../header-utils";
+import { mergeForwardableHeaders, policyFor } from "../header-utils";
 
 /**
  * `headers` lives on the HTTP-backed agent configs (e.g. `HttpAgent`), not on
