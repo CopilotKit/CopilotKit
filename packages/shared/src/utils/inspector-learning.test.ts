@@ -35,6 +35,59 @@ const emptySnapshot = () => ({
   },
 });
 
+/** One available Trajectory citation, with fields overridden per case. */
+const trajectoryEntry = (overrides: Record<string, unknown>) => ({
+  status: "available",
+  trajectoryId: "trajectory-1",
+  eventCount: 1,
+  url: "https://app.copilotkit.ai/o/acme/support/trajectories/trajectory-1",
+  ...overrides,
+});
+
+/** Builds a configured snapshot whose Insight and Skill source cite Trajectories. */
+const snapshotWithTrajectoryEvidence = (trajectoryEvidence: unknown[]) => {
+  const insight = {
+    id: "insight-1",
+    statement: "Users switch the theme first.",
+    impact: "Default to dark mode.",
+    totalThreadCount: 0,
+    evidenceTruncated: false,
+    evidence: [],
+    totalTrajectoryCount: trajectoryEvidence.length,
+    trajectoryEvidence,
+  };
+  return {
+    ...emptySnapshot(),
+    configuration: {
+      state: "configured",
+      container: { id: "support", name: "Support" },
+    },
+    skillsPage: {
+      page: 1,
+      pageSize: 3,
+      total: 1,
+      totalPages: 1,
+      items: [
+        {
+          id: "skill-1",
+          name: "dark-mode",
+          description: "Offer dark mode.",
+          revision: 1,
+          skillMd: "# Dark mode",
+          sourceInsight: { ...insight, id: "source-1" },
+        },
+      ],
+    },
+    insightsPage: {
+      page: 1,
+      pageSize: 4,
+      total: 1,
+      totalPages: 1,
+      items: [insight],
+    },
+  };
+};
+
 describe("Inspector Learning wire validation", () => {
   it("accepts and copies a bounded V1 snapshot", () => {
     const source = emptySnapshot();
@@ -195,6 +248,84 @@ describe("Inspector Learning wire validation", () => {
     };
 
     expect(parseInspectorLearningSnapshotV1(snapshot)).toBeUndefined();
+  });
+
+  it("copies Trajectory evidence next to the Thread evidence", () => {
+    const snapshot = snapshotWithTrajectoryEvidence([
+      {
+        status: "available",
+        trajectoryId: "0190a3b4-0000-7000-8000-000000000001",
+        eventCount: 2,
+        url: "https://app.copilotkit.ai/o/acme/support/trajectories/0190a3b4-0000-7000-8000-000000000001?event=901",
+      },
+      { status: "unavailable" },
+    ]);
+
+    const parsed = parseInspectorLearningSnapshotV1(snapshot);
+
+    expect(parsed?.insightsPage.items[0]).toEqual(
+      snapshot.insightsPage.items[0],
+    );
+    expect(
+      parseInspectorLearningSnapshotV1(
+        snapshotWithTrajectoryEvidence([
+          {
+            status: "available",
+            trajectoryId: "trajectory-1",
+            eventCount: 1,
+            url: "https://app.copilotkit.ai/o/acme/support/trajectories/trajectory-1",
+            addedLater: "ignored",
+          },
+        ]),
+      )?.insightsPage.items[0]?.trajectoryEvidence,
+    ).toEqual([
+      {
+        status: "available",
+        trajectoryId: "trajectory-1",
+        eventCount: 1,
+        url: "https://app.copilotkit.ai/o/acme/support/trajectories/trajectory-1",
+      },
+    ]);
+    expect(parsed?.skillsPage.items[0]?.sourceInsight).toEqual(
+      snapshot.skillsPage.items[0]?.sourceInsight,
+    );
+  });
+
+  it("accepts Insights from producers that omit Trajectory evidence", () => {
+    const snapshot = snapshotWithTrajectoryEvidence([]);
+    const [insight] = snapshot.insightsPage.items;
+    delete (insight as { totalTrajectoryCount?: number }).totalTrajectoryCount;
+    delete (insight as { trajectoryEvidence?: unknown }).trajectoryEvidence;
+
+    const parsed = parseInspectorLearningSnapshotV1(snapshot);
+
+    expect(parsed?.insightsPage.items[0]).toEqual(insight);
+    expect(parsed?.insightsPage.items[0]).not.toHaveProperty(
+      "trajectoryEvidence",
+    );
+  });
+
+  it("rejects Trajectory evidence with foreign links or unknown fields", () => {
+    for (const invalid of [
+      trajectoryEntry({
+        url: "https://attacker.example/o/acme/support/trajectories/t",
+      }),
+      trajectoryEntry({ url: "javascript:alert(1)" }),
+      trajectoryEntry({ eventCount: -1 }),
+      trajectoryEntry({ trajectoryId: "" }),
+      { status: "unavailable", trajectoryId: "former-id" },
+      { status: "pending" },
+    ]) {
+      expect(
+        parseInspectorLearningSnapshotV1(
+          snapshotWithTrajectoryEvidence([invalid]),
+        ),
+      ).toBeUndefined();
+    }
+    const tooMany = snapshotWithTrajectoryEvidence(
+      Array.from({ length: 101 }, () => ({ status: "unavailable" })),
+    );
+    expect(parseInspectorLearningSnapshotV1(tooMany)).toBeUndefined();
   });
 
   it("accepts only the browser-owned scope and pagination fields", () => {
