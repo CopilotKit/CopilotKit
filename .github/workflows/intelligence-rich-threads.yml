@@ -1,4 +1,4 @@
-name: Intelligence rich threads (manual Railway validation)
+name: Intelligence bounded row1 (manual Railway validation)
 
 on:
   workflow_dispatch:
@@ -6,18 +6,11 @@ on:
 permissions:
   contents: read
 
-# The lifecycle provider must acquire its durable run lease and reject/flag
-# overlaps. Do not queue an overlapping scheduled tick for a later deployment.
-# Four-hour scheduling remains disabled pending real-suite acceptance.
-
+# The durable provider lease rejects overlaps. No periodic schedule is enabled.
 jobs:
-  connected-suite:
+  controls:
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
-    environment: intelligence-rich-threads-railway
-    env:
-      NX_DAEMON: "false"
-      COPILOTKIT_TELEMETRY_DISABLED: "true"
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,50 +20,51 @@ jobs:
         with:
           node-version: "24.18.0"
           cache: pnpm
-      - name: Install workspace tooling
-        run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
-      - name: Install locked browser driver
-        run: pnpm nx run intelligence-smoke:rich-threads-setup
-      - name: Install Chromium system dependencies
-        run: pnpm nx run intelligence-smoke:rich-threads-browser-system-deps
-      - name: Check driver controls
-        run: pnpm nx run intelligence-smoke:rich-threads-driver-test
-      - name: Materialize approved private Railway configuration
-        env:
-          RICH_THREADS_CONFIG_JSON: ${{ secrets.RICH_THREADS_CONFIG_JSON }}
+      - run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
+      - run: pnpm nx run intelligence-smoke:rich-threads-setup
+      - run: pnpm nx run intelligence-smoke:rich-threads-browser-system-deps
+      - run: pnpm nx run intelligence-smoke:rich-threads-test
+      - run: pnpm nx run rich-thread-railway:test
+      - run: pnpm nx run intelligence-smoke:rich-threads-driver-test
+  connected-suite:
+    needs: controls
+    # This label must bind to an operator-owned durable controller outside the
+    # disposable environment, with external supervisor recovery already active.
+    runs-on: [self-hosted, linux, rich-threads-controller]
+    timeout-minutes: 200
+    environment: intelligence-rich-threads-railway
+    env:
+      NX_DAEMON: "false"
+      COPILOTKIT_TELEMETRY_DISABLED: "true"
+      RICH_THREADS_CONTROLLER_CONFIG: ${{ vars.RICH_THREADS_CONTROLLER_CONFIG }}
+      RICH_THREADS_EVIDENCE_ROOT: ${{ vars.RICH_THREADS_EVIDENCE_ROOT }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.18.0"
+          cache: pnpm
+      - run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
+      - run: pnpm nx run intelligence-smoke:rich-threads-setup
+      - name: Require configured durable controller paths
         run: |
-          node --input-type=module <<'NODE'
-          import assert from 'node:assert/strict';
-          import { mkdirSync, writeFileSync } from 'node:fs';
-          import { join } from 'node:path';
-          assert.ok(process.env.RICH_THREADS_CONFIG_JSON, 'Configure the approved environment manifest; no substitute fixture is allowed');
-          const config = JSON.parse(process.env.RICH_THREADS_CONFIG_JSON);
-          assert.ok(['development', 'acceptance'].includes(config.purpose));
-          assert.equal(config.provider, 'railway');
-          config.directory = join(process.env.RUNNER_TEMP, 'rich-thread-owned');
-          delete config.dependenciesDirectory;
-          mkdirSync(config.directory, {mode: 0o700});
-          writeFileSync(join(process.env.RUNNER_TEMP, 'rich-threads-private.json'), JSON.stringify(config), {mode: 0o600, flag: 'wx'});
-          NODE
-      - name: Run both frameworks through all six real rows
-        timeout-minutes: 55
+          test -n "$RICH_THREADS_CONTROLLER_CONFIG"
+          test -f "$RICH_THREADS_CONTROLLER_CONFIG"
+          test -n "$RICH_THREADS_EVIDENCE_ROOT"
+          test -d "$RICH_THREADS_EVIDENCE_ROOT"
+      - name: Two clean journeys and deliberate failed-run cleanup
         run: >-
-          pnpm nx run intelligence-smoke:rich-threads --
-          --framework=mastra,strands-typescript --rows=1,2,3,4,5,6
-          --config="$RUNNER_TEMP/rich-threads-private.json"
-          --output="$RUNNER_TEMP/rich-threads-evidence"
-      - name: Recover interrupted owned resources
-        if: always()
-        timeout-minutes: 5
-        run: >-
-          pnpm nx run intelligence-smoke:rich-threads-recover --
-          --output="$RUNNER_TEMP/rich-threads-evidence"
-          --config="$RUNNER_TEMP/rich-threads-private.json"
-      - name: Preserve result and ownership receipts
+          pnpm nx run intelligence-smoke:rich-threads-acceptance --
+          --config="$RICH_THREADS_CONTROLLER_CONFIG"
+          --output="$RICH_THREADS_EVIDENCE_ROOT/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+      - name: Export hosted evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: rich-threads-railway-evidence
-          path: ${{ runner.temp }}/rich-threads-evidence
+          name: bounded-row1-railway-evidence
+          path: ${{ vars.RICH_THREADS_EVIDENCE_ROOT }}/${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: warn
           retention-days: 14

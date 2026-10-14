@@ -11,7 +11,7 @@ import { preflight } from "./preflight.mjs";
 import { runSuite } from "./runner.mjs";
 import { aggregate } from "./contract.mjs";
 import { scenarios } from "./scenarios/row1.mjs";
-import { showcaseScenarios } from "./row2/control-scenarios.mjs";
+import { milestone, deferred } from "./contract.mjs";
 
 /** One environment for all selected frameworks; rows and frameworks serialize. */
 export async function runConfiguredSuite({
@@ -20,11 +20,14 @@ export async function runConfiguredSuite({
   rowIds,
   outputDir,
   signal,
+  failureControl = false,
 }) {
   await mkdir(outputDir, { recursive: false, mode: 0o700 });
   const runId = `rich-${randomUUID()}`;
   const report = {
     runId,
+    milestone,
+    deferred,
     purpose: config.purpose,
     provider: config.provider,
     requested: { frameworks, rows: rowIds },
@@ -34,9 +37,10 @@ export async function runConfiguredSuite({
   };
   let environment;
   try {
-    assert.ok(
-      ["docker", "railway"].includes(config.provider),
-      "Unsupported lifecycle provider",
+    assert.equal(
+      config.provider,
+      "railway",
+      "The bounded milestone requires isolated Railway",
     );
     const prepared = await preflight({ frameworks, rowIds });
     report.preflight = prepared.checks;
@@ -56,7 +60,6 @@ export async function runConfiguredSuite({
     const pg = await load("pg");
     const { AbstractAgent } = await load("@ag-ui/client");
     const { from } = await load("rxjs");
-    const { default: Redis } = await load("ioredis");
     const { createEnvironment } = await import("./lifecycle/environment.mjs");
     environment = await createEnvironment({
       config,
@@ -65,57 +68,22 @@ export async function runConfiguredSuite({
       outputDir,
       signal,
     });
-    if (config.provider === "railway") {
-      const clean = await environment.verifyCleanScope();
-      assert.equal(
-        clean.status,
-        "passed",
-        "Remote clean-scope verification failed",
-      );
-      assert.equal(
-        environment.receipt.cleanScope.status,
-        "passed",
-        "Remote clean-scope receipt required",
-      );
-    } else {
-      const firstScope = environment.scopes[frameworks[0]];
-      const cleanPool = new (pg.Pool ?? pg.default.Pool)({
-        connectionString: firstScope.databaseUrl,
-        connectionTimeoutMillis: 10_000,
-        statement_timeout: 30_000,
-      });
-      const cleanRedis = new Redis(config.redisUrl, {
-        lazyConnect: true,
-        connectTimeout: 10_000,
-        retryStrategy: () => null,
-        maxRetriesPerRequest: 0,
-      });
-      let redisError;
-      cleanRedis.on("error", (error) => {
-        redisError = error;
-      });
-      try {
-        await cleanRedis.connect();
-        await environment.verifyCleanScope({
-          pool: cleanPool,
-          redis: cleanRedis,
-          bootstrapTables: config.bootstrapTables ?? [],
-          nativeBootstrapTables: config.nativeBootstrapTables ?? [],
-        });
-        if (redisError) throw redisError;
-      } finally {
-        await cleanPool.end();
-        cleanRedis.disconnect();
-      }
-    }
+    const clean = await environment.verifyCleanScope();
+    assert.equal(
+      clean.status,
+      "passed",
+      "Remote clean-scope verification failed",
+    );
+    assert.equal(
+      environment.receipt.cleanScope.status,
+      "passed",
+      "Remote clean-scope receipt required",
+    );
     for (const framework of frameworks) {
       signal?.throwIfAborted();
       const scope = environment.scopes[framework];
       assert.ok(scope, "Provisioned framework scope required");
-      scope.scenarios = showcaseScenarios(
-        framework,
-        scope.scenarios ?? scenarios({ ...scope, framework }),
-      );
+      scope.scenarios = scenarios();
       report.frameworks.push(
         await runSuite({
           framework,
@@ -193,6 +161,14 @@ export async function runConfiguredSuite({
       );
     }
     report.status = aggregate(report.frameworks);
+    if (failureControl && report.status === "passed") {
+      report.failureControl = {
+        injected: true,
+        stage: "after-real-journeys",
+        detail: "Deliberate suite assertion failure to exercise cleanup",
+      };
+      report.status = "failed";
+    }
   } catch (error) {
     report.error = {
       name: error.name,

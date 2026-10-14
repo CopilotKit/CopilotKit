@@ -164,18 +164,6 @@ test("real browser awaits native absence hook before POST and retains its screen
     assert.equal(observed.screenshots.length, 1);
     await browser.closeThread(thread);
     assert.equal(instance.contexts().length, 0);
-    const reopened = await browser.openThread("persisted-thread", {
-      scenarioId: "reopen-control",
-    });
-    assert.equal(reopened.threadId, "persisted-thread");
-    await browser.reload(reopened);
-    assert.equal(
-      await reopened.page
-        .getByTestId("thread-selection")
-        .getAttribute("data-active-thread-id"),
-      "persisted-thread",
-    );
-    await browser.closeThread(reopened);
     await browser.close();
     assert.equal(
       instance.isConnected(),

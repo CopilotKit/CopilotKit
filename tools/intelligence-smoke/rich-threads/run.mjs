@@ -13,14 +13,17 @@ const { values } = parseArgs({
     output: { type: "string" },
     rows: { type: "string", default: "1" },
     config: { type: "string" },
+    "failure-control": { type: "boolean", default: false },
   },
 });
 for (const name of ["framework", "output"]) {
   if (!values[name]) throw new Error(`--${name} is required`);
 }
 const rowIds = values.rows.split(",");
-if (!rowIds.every((id) => /^[1-6]$/.test(id)))
-  throw new Error("--rows must list row numbers 1–6");
+if (rowIds.length !== 1 || rowIds[0] !== "1")
+  throw new Error(
+    "This milestone accepts only --rows=1; rows2–6 are preserved follow-ups",
+  );
 if (values.config) {
   const controller = new AbortController();
   const abort = () => controller.abort(new Error("Suite interrupted"));
@@ -31,6 +34,7 @@ if (values.config) {
       config: JSON.parse(await readFile(resolve(values.config), "utf8")),
       frameworks: values.framework.split(","),
       rowIds,
+      failureControl: values["failure-control"],
       outputDir: resolve(values.output),
       // Reserve ten minutes of the provider's 60-minute lifetime for teardown
       // and evidence export. The provider owns expiry/recovery and the run lock.

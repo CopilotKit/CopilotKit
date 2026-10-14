@@ -11,7 +11,8 @@ import {
 // This process lives only in the suite's owned container. Config and capture
 // mounts must be private; nothing here logs credentials or request headers.
 const config = JSON.parse(
-  await readFile(process.env.RICH_THREADS_RUNTIME_CONFIG, "utf8"),
+  process.env.RICH_THREADS_RUNTIME_CONFIG_JSON ??
+    (await readFile(process.env.RICH_THREADS_RUNTIME_CONFIG, "utf8")),
 );
 const runtimeModule = await import("@copilotkit/runtime/v2");
 const { CopilotRuntime, CopilotKitIntelligence, createCopilotRuntimeHandler } =
@@ -27,8 +28,10 @@ for (const scope of config.scopes) {
   for (const [mode, nativeUrl] of Object.entries(scope.routes)) {
     if (!nativeUrl)
       throw new Error(`Missing ${mode} backend URL for ${scope.framework}`);
-    for (const nativeOnly of [false, true]) {
-      const path = `/api/rich-threads/${nativeOnly ? "source/" : ""}${scope.framework}/${mode}`;
+    {
+      if (mode !== "rich")
+        throw new Error("Only the bounded rich route is included");
+      const path = `/api/rich-threads/${scope.framework}/${mode}`;
       const agent = captureFramework({
         agent: new HttpAgent({ url: nativeUrl, agentId: scope.agentId }),
         directory: config.captureDirectory,
@@ -36,15 +39,11 @@ for (const scope of config.scopes) {
       });
       const runtime = new CopilotRuntime({
         agents: { [scope.agentId]: agent },
-        ...(!nativeOnly
-          ? {
-              intelligence: new CopilotKitIntelligence({
-                apiUrl: config.apiUrl,
-                wsUrl: config.gatewayUrl,
-                apiKey: config.apiKey,
-              }),
-            }
-          : {}),
+        intelligence: new CopilotKitIntelligence({
+          apiUrl: config.apiUrl,
+          wsUrl: config.gatewayUrl,
+          apiKey: config.apiKey,
+        }),
         identifyUser: () => ({ id: scope.userId, name: scope.userId }),
         generateThreadNames: false,
         ...(!mode.startsWith("native")

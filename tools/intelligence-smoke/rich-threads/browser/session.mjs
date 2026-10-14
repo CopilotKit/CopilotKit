@@ -3,20 +3,6 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-async function selectedThread(page, expected) {
-  await page.waitForFunction(
-    (id) =>
-      document
-        .querySelector('[data-testid="thread-selection"]')
-        ?.getAttribute("data-active-thread-id") === id,
-    expected,
-    { timeout: 30_000 },
-  );
-  return page
-    .getByTestId("thread-selection")
-    .getAttribute("data-active-thread-id");
-}
-
 /** Real Playwright browser interactions shared by all row adapters. */
 export async function createBrowser({
   chromium,
@@ -83,14 +69,7 @@ export async function createBrowser({
       if (thread.error) throw thread.error;
       if (thread.threadId) {
         const source = await capture.read(thread.threadId);
-        const observedEvents = thread.nativeOnly
-          ? source.frameworkRuns.flatMap((run) =>
-              run.events.map((event) => ({
-                ...event,
-                runId: event.runId ?? run.input.runId,
-              })),
-            )
-          : source.events;
+        const observedEvents = source.events;
         const started = observedEvents.filter(
           (event) =>
             event.type === "RUN_STARTED" &&
@@ -114,12 +93,7 @@ export async function createBrowser({
       "Browser action did not produce a captured terminal run within 180s",
     );
   }
-  async function newThread({
-    scenarioId,
-    mode = "rich",
-    beforeRun,
-    nativeOnly = false,
-  }) {
+  async function newThread({ scenarioId, mode = "rich", beforeRun }) {
     assert.match(scenarioId, /^[a-z0-9-]+$/);
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -132,7 +106,6 @@ export async function createBrowser({
       screenshots: [],
       interactions: [],
       runIds: [],
-      nativeOnly,
     };
     threads.add(thread);
     await page.route(`**/agent/${scope.agentId}/run`, async (route) => {
@@ -178,7 +151,6 @@ export async function createBrowser({
     const url = new URL(scope.applicationUrl);
     assert.match(mode, /^[a-z][a-z0-9-]+$/);
     url.searchParams.set("mode", mode);
-    if (nativeOnly) url.searchParams.set("nativeOnly", "true");
     await page.goto(url.href, {
       waitUntil: "domcontentloaded",
       timeout: 180_000,
@@ -196,62 +168,6 @@ export async function createBrowser({
       await thread.page.locator("textarea").fill(prompt);
       await thread.page.locator("textarea").press("Enter");
       return settled(thread, previous);
-    },
-    async upload(thread, files) {
-      await thread.page.locator('input[type="file"]').setInputFiles(files);
-    },
-    async interact(thread, action) {
-      const previous = [...thread.runIds];
-      const root = action.frame
-        ? thread.page.frameLocator(action.frame)
-        : thread.page;
-      const target = root.getByRole(action.role ?? "button", {
-        name: action.name,
-        exact: true,
-      });
-      const nativeControl =
-        action.category === "native-completed"
-          ? await target.evaluate((node) => {
-              const surface = node.closest('[data-testid="native-interrupt"]');
-              return {
-                controlId: surface?.getAttribute("data-interrupt-id"),
-                payload: surface?.querySelector("pre")?.textContent,
-              };
-            })
-          : undefined;
-      await target.click({ timeout: 60_000 });
-      thread.interactions.push({
-        ...action,
-        ...nativeControl,
-        at: new Date().toISOString(),
-      });
-      if (action.continuesRun) await settled(thread, previous);
-      return snapshot(thread);
-    },
-    async openThread(
-      threadId,
-      { scenarioId = "reopened", mode = "rich" } = {},
-    ) {
-      const thread = await newThread({ scenarioId, mode });
-      // The shared application exposes a test-only selection button wired to
-      // the actual thread-selection API, not a fabricated conversation store.
-      await thread.page.getByTestId("open-thread-id").fill(threadId);
-      await thread.page.getByTestId("open-thread").click();
-      thread.threadId = await selectedThread(thread.page, threadId);
-      // Preserve the confirmed selection on reload through the real provider's
-      // threadId prop, rather than silently starting a new conversation.
-      await thread.page.evaluate((id) => {
-        const url = new URL(window.location.href);
-        url.searchParams.set("threadId", id);
-        window.history.replaceState(null, "", url);
-      }, thread.threadId);
-      thread.fresh = false;
-      return thread;
-    },
-    async reload(thread) {
-      await thread.page.reload({ waitUntil: "domcontentloaded" });
-      if (!thread.fresh) await selectedThread(thread.page, thread.threadId);
-      return snapshot(thread);
     },
     async closeThread(thread) {
       await thread.context.close();

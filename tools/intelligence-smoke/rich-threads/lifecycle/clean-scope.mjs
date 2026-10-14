@@ -23,6 +23,29 @@ function expectedCount(name, exceptions) {
   return exception.count;
 }
 
+export function evaluateDatabaseTables(counts, bootstrapTables = {}) {
+  assert.ok(
+    counts.some((t) => t.name === "cpki.threads"),
+    "Initialized Intelligence schema required",
+  );
+  assert.equal(new Set(counts.map((t) => t.name)).size, counts.length);
+  const tables = counts.map(({ name, count }) => {
+    assert.ok(
+      typeof name === "string" && Number.isSafeInteger(count) && count >= 0,
+    );
+    return { name, count, expected: expectedCount(name, bootstrapTables) };
+  });
+  for (const name of Object.keys(bootstrapTables))
+    assert.ok(
+      tables.some((t) => t.name === name),
+      `Unknown bootstrap table ${name}`,
+    );
+  return {
+    status: tables.every((t) => t.count === t.expected) ? "passed" : "failed",
+    tables,
+  };
+}
+
 /** Inspect all application tables, not only newly generated thread IDs. */
 export async function inspectDatabase(pool, bootstrapTables = {}) {
   const client = await pool.connect();

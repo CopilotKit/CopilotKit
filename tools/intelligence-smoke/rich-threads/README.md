@@ -1,235 +1,123 @@
-# Rich-thread row runner
+# Bounded row1 Railway milestone
 
-This runner extends the existing Intelligence smoke suite with one row-module
-interface. The existing Thread/Learning smoke remains separate. A passing unit
-suite is **not** a rich-thread parity verdict.
+The agreed 2026-10-12 merge boundary for PR #7709 is PNI-605 infrastructure plus
+`row1-text-query-data-v1` on **Mastra and Strands TypeScript**, using the actual
+shared Showcase application. One fresh conversation per framework sends text,
+executes the real `query_data` tool, receives its result, and displays the final
+assistant reply. Frameworks run serially in an isolated Railway environment.
+
+Expanded row1 (charts, media and approvals), rows2–6, and the other five
+frameworks are deferred. They are not validated or silently treated as N/A.
+See [preservation.json](preservation.json) for the original heads and file
+inventory retained before narrowing. Historical broad-scope evidence retains
+its original verdict; it does not establish this milestone's acceptance.
+
+## Independent oracle
+
+The runtime records native inputs/events before middleware and canonical Phoenix
+payloads before ingestion. Exact-ID retries retain a separate attempt log.
+The expected transcript/state uses the pinned public AG-UI consumer, independently
+of Intelligence's reducer. The durable reader separately reads scoped SQL events
+and the public transcript API. Only validated gateway-added `organization_id`
+and `metadata.cpki_ingested` are removed; full raw rows remain in evidence.
+
+Row1 compares thread, agent, user and ordered run identities; every event
+occurrence; messages, tool arguments/results and their associations; state; and
+pending entries. Successful terminal events, an actual query result, a subsequent
+assistant reply and visible browser text are mandatory. A faithfully persisted
+model failure does not pass the journey. Screenshots must reside in the owned
+output directory. No destination records are synthesized as expectations.
+
+## Setup and checks
 
 ```sh
 pnpm nx run intelligence-smoke:rich-threads-setup
 pnpm nx run intelligence-smoke:rich-threads-test
 pnpm nx run intelligence-smoke:rich-threads-driver-test
 pnpm nx run intelligence-smoke:lint
-pnpm nx run intelligence-smoke:rich-threads -- \
-  --framework=mastra,strands-typescript --rows=1,2 \
-  --config=/absolute/path/to/private-environment.json \
-  --output=/new/owned/evidence-directory
 ```
 
-Framework IDs are `langgraph-python`, `langgraph-fastapi`, `langgraph-js`, `adk`,
-`mastra`, `strands-python`, and `strands-typescript`. Row modules are
-`rows/row1.mjs` through `rows/row6.mjs`. An absent selected module fails; it is
-never silently skipped. Each module exports `row = { id, title, run(context) }`.
-The concrete bootstrap currently supports Mastra and Strands TypeScript; naming
-the other five frameworks in the contract does not implement them.
+Unit tests deliberately corrupt envelopes and tool associations. Driver tests use
+real Chromium with a local control page. Both are supplemental harness checks,
+not hosted Showcase acceptance. Preflight imports only row1 and its service
+factory. Selecting deferred rows fails before provisioning.
 
-## Committed browser bootstrap
+The acceptance boundary requires two successive clean hosted runs and a
+deliberately failed run with verified cleanup. Preserve setup, timeout,
+cancellation and interruption evidence; disclose recovery modes not exercised.
+No ticket completion or parity-matrix change follows from unit results.
 
-`--config` loads `bootstrap.mjs`; no external executable fixture is required.
-It creates one lifecycle environment, verifies empty durable stores/queues, runs
-frameworks and rows serially, then cleans up. Config follows
-[`lifecycle/README.md`](lifecycle/README.md), plus `redisUrl`, optional exact
-bootstrap-table allowances, and an optional `dependenciesDirectory` (defaults to
-the locked `dependencies/` folder). Keep this file private: it contains keys and
-database connection strings. Each scope needs `capture.store`, with the runtime
-writing that same mounted directory. `suite.json` reports harness execution
-separately from product verdicts.
+## Application and native services
 
-`runtime.mjs` reads `RICH_THREADS_RUNTIME_CONFIG`. That private JSON specifies
-`captureDirectory`, `apiUrl`, `gatewayUrl`, `apiKey`, `mcpServers`, and `scopes`.
-Each runtime scope specifies `framework`, `agentId`, `userId`, `injectA2UITool`,
-and `routes`, a map of mode names to native HTTP endpoints. Required modes are
-`rich`, `reasoning`, `state`, `media`, `native-suspend`, plus Mastra
-`native-approval`. Every mode also has a source-only route without Intelligence,
-used to create original native histories before import. Native-only captures
-are never presented as connected persistence evidence.
+`application/page.tsx` wraps the same existing Beautiful Chat page for both
+frameworks. `prepare.mjs` stages one committed Git revision and exact package
+pins into a build context. `application/package-pins.json` records a public
+compile baseline, not proof that candidate source ran. Registry versions and
+candidate tarball SHA-256 values are recorded in the prepared manifest.
 
-`application/page.tsx` imports a single existing Beautiful Chat implementation,
-adds the real threads drawer, and renders native interrupt decisions. Browser
-drivers submit through that UI, await `beforeRun(input)` before allowing a POST,
-and retain screenshots plus observed chart/frame/media/control surfaces.
-
-`rich-threads-prepare -- --output=<new-directory> --pins=<pins.json>` stages
-committed Showcase/application sources and generates an installable lockfile.
-Pins map package names to exact registry versions or `{path,sha256}` candidate
-tarballs; tarball bytes are checked before staging. The staged Dockerfile builds
-one application/runtime/Mastra image. Runtime command:
+The application and runtime share the staged image. Runtime command:
 `node /app/rich-threads/runtime.mjs`. Mastra command:
-`node --import tsx /app/rich-threads/row2/mastra-backend.mjs`, with
+`node --import tsx /app/rich-threads/application/mastra-backend.mjs`, with
 `RICH_THREADS_MASTRA_SOURCE=/app/src/mastra/index.ts` and
-`TSX_TSCONFIG_PATH=/app/tsconfig.json`. Use row2's durable-store environment
-bindings. Strands uses its actual Showcase server and durable session wrapper.
+`TSX_TSCONFIG_PATH=/app/tsconfig.json`. Its handler runs the registered
+Beautiful Chat agent. Strands uses its actual Showcase server and durable
+session wrapper. Native stores must be owned volumes, independently inspected
+before the conversation. Reviewed immutable images are required for deployment.
 
-`application/package-pins.json` records the public package baseline used for
-the application compile check. It pins the Inspector and its core dependency
-together; pinning only the top-level React packages can install incompatible
-nested versions. This is a development baseline, not evidence that a candidate
-source build ran. Preparation freezes one Git revision for all staged files.
-To inspect the prepared application locally, use
-`rich-threads-app -- --directory=<prepared-directory> --port=<owned-port>` and
-set `RICH_THREADS_RUNTIME_URL` to the owned runtime URL.
+`runtime.mjs` consumes private `RICH_THREADS_RUNTIME_CONFIG`: capture directory
+and token, API/gateway URLs, API key, and framework scopes with agent/user IDs
+and a `rich` native route. Original capture is available over authenticated
+HTTPS; the token must contain at least 32 characters. The client refuses
+redirects and bounds requests. Keep credentials and private configuration out
+of source, reports and exception messages.
 
-Capture records the exact native input/events before runtime middleware and the
-canonical Phoenix payload before ingestion. Exact-ID retries retain a separate
-attempt log. The durable reader independently reads scoped SQL rows and the
-public transcript API. Only gateway-added `organization_id` and
-`metadata.cpki_ingested` are removed after validation; complete raw rows remain
-in the saved artifact. Message/state projection uses the pinned public AG-UI
-consumer, not the Intelligence transcript implementation.
+## Railway and controller boundary
 
-## Fixture bootstrap
+PNI-605 owns provider creation, readiness, clean-store inspection, durable locks,
+registry distribution and verified deletion. The merged PNI-607 registry code
+still requires activation at the actual image-gate, Ruby and harness readers.
+The controller must be durable and outside the disposable environment, with
+persistent authority/record paths and an external recovery service. An ephemeral
+Actions job is not that controller. The supervisor must launch the Node worker
+directly; it enforces a 50-minute worker budget inside the 60-minute lifetime.
 
-A fixture module exports `async createFixture({ framework, outputDir, baseline })`
-and returns `{ fixture, services, cleanup }`. Backend-specific wiring belongs in
-this fixture, not in the common assertions. Create isolated users, thread IDs,
-durable stores and services. Never reuse a developer's active test database.
-Cleanup must stop only resources created by that fixture. A bootstrap that
-throws before returning must clean up its own partially created resources.
+A private launch manifest supplies approved immutable image digests, actual
+receiver bindings and automation credentials. Canonical pinned Intelligence
+bootstrap creates only logical organization/project/key configuration before
+application startup. Clean-scope exceptions must name exact bootstrap tables
+and counts, never conversation data. Approval or receiver activation cannot be
+invented by the harness.
 
-The row context is `{ framework, fixture, services, baseline, outputDir,
-writeArtifact }`. Each row receives a separate `rowN/` output directory.
-`writeArtifact(relativeName, value)` writes JSON without overwriting evidence.
-Screenshots should also live under that row's output directory. Fixture services
-must use bounded requests and redact credentials from diagnostics. Do not put
-credentials in `baseline`, fixtures written as evidence, or exception messages.
+Provider-returned URLs and ownership IDs bind every scope. Cleanup must verify
+that all owned services, volumes and environments are absent; a successful delete
+response is insufficient. Failure evidence and durable locks survive incomplete
+cleanup. No shared Showcase service may be reset or restarted.
 
-Baseline JSON requires `sources` with full `copilotkit`, `intelligence`, and
-`agUi` Git SHAs, `packages` mapping installed package names to versions, and
-`fixtureProvenance` describing how inputs were made. Add artifact hashes and
-explicit source/build differences: a checked-out SHA does not establish which
-binary ran, and the same package version can contain different local builds.
+The manual reference comparison is retained separately. The reference has been
+seen during prior work, so subsequent results are not a blind comparison.
 
-A row returns `{ status, checks, limitations }`. Each check includes `name`,
-`status`, `evidence` paths and `detail`. Statuses are `passed`, `failed`,
-`blocked`, `unvalidated`, and `not-applicable` for checks. The common runner
-recomputes aggregate status and rejects contradictory row verdicts. An empty
-check list or all-N/A checks cannot establish a pass. Setup, cleanup and row
-failures retain `result.json`; setup failures are blocked, cleanup failures fail.
+## Controller configuration placeholders
 
-## Row 1 service boundary
+The manual workflow requires a registered `self-hosted, linux,
+rich-threads-controller` runner, `RICH_THREADS_CONTROLLER_CONFIG` pointing to its
+private template and `RICH_THREADS_EVIDENCE_ROOT` pointing to durable evidence
+storage. These are deployment requirements, not provisioned resources. Authority
+and recovery configuration must live outside the Actions checkout and temp dirs.
 
-`fixture.row1` contains:
+`rich-threads-acceptance -- --config=<template> --output=<new-directory>` runs the
+three-attempt sequence. Template strings can use `{{run:apiKey}}`,
+`{{run:captureToken}}`, `{{run:userId}}`, `{{run:databasePassword}}`,
+`{{run:organizationId}}`, `{{run:organizationSlug}}` and `{{run:projectSlug}}`.
+Use matching placeholders in service environment and database credentials.
+The materializer supplies the canonical hash-only `BOOTSTRAP_CONFIG_B64` to
+Postgres and fresh scope IDs. The provider resolves `{{bootstrap:projectId}}`
+after committed bootstrap. Runtime JSON can be supplied privately as
+`RICH_THREADS_RUNTIME_CONFIG_JSON` in the service environment.
 
-- `scenarios`: `{ id, categories }` entries, using the category IDs in
-  `contract.mjs`. Several fresh conversations can cover mutually exclusive
-  pending/completed controls or provider-incompatible attachments.
-- `applicability`: optional category entries `{ status: "not-applicable",
-reason, evidence }`. Supply actual capability/source evidence. Missing
-  categories default to unvalidated.
-- `limitations`: fixture/provider/build qualifications.
-
-`services.row1.runFresh(scenario)` must drive the actual shared browser UI and
-connected runtime/framework path. Return:
-
-```js
-{
-  emitted: {
-    threadId, agentId, userId, runIds,
-    events, messages, state, pending
-  },
-  browser: { fresh: true, url, screenshots, interactions },
-  witnesses: [{ category, pointer }],
-  media: [{ pointer, type, sourceType, mimeType, filename, sha256 }]
-}
-```
-
-Capture events before persistence, and reconstruct expected messages/state from
-that independent stream. Prove fresh identities in the driver before starting.
-Do not obtain expectations from the saved destination or inject destination
-records. JSON pointers identify actual emitted values under `/events`,
-`/messages`, `/state`, or `/pending`. Witnesses are fixture-specific and must
-point to the named chat item, not an unrelated string. Category labels alone
-cannot replace attachment-byte verification.
-
-`services.row1.readSaved(emitted)` independently reads raw Intelligence events
-and the public reconstructed transcript, returning the same logical envelope.
-It may poll for durable writes within a finite timeout. Preserve full payloads
-and array ordering. Unwrap transport/database envelopes, but do not discard
-payload fields, sort occurrences, reassign IDs, or normalize away differences.
-Represent pending frontend calls separately from native interrupt identities.
-
-For each attachment, compare against an independently computed original SHA-256
-and original filename/MIME. Current AG-UI parts carry `source.value`,
-`source.mimeType`, and `metadata.filename`. URL/file source fixtures must also
-return `saved.resolvedMedia[pointer]` containing base64 read from the **saved** durable reference; a matching
-URL alone does not prove durable bytes.
-
-Completed frontend/native controls and calculator interaction require a browser
-interaction record `{ category, controlId, action, identityPointer }` linking
-the visible action to its original emitted control identity. Fixtures must
-supply `toolCallId`, `callIdPointer`, `resultPointer`, and `responsePointer` for completed controls. The result and response pointers address whole `/messages/N` entries: a result for that call followed by a nonempty assistant reply. Supply completed answer witnesses and separate pending
-scenarios. A screenshot is retained evidence, not proof of actionability by
-itself.
-
-Row 1 compares every emitted event, message, state field and pending entry
-exactly. Saved `RUN_ERROR` events remain valid evidence. Requested items never
-emitted are coverage gaps; browser/setup failures and persistence differences
-have separate `layer` labels. No row-1 result proves native persistence, import,
-continuation, restart or repeat-import safety.
-
-## Current scope and CI
-
-The existing Intelligence smoke workflow invokes `intelligence-smoke:test`, which
-now includes the row-module and runner failure controls. They deliberately alter
-order, counts, tool associations, chart values, state fields, pending IDs and
-media bytes/metadata. The separate driver controls launch real Chromium against
-a small local control page; they validate browser wiring, not Showcase parity.
-Live execution still requires installable candidate images and a complete private
-launch configuration. Railway hosting is confirmed by Mark’s PNI-605 handoff; credential ownership, reviewed immutable image pins and consumer activation remain rollout prerequisites.
-The six-row source/import/continuation composition, URL/file media resolvers,
-and full seven-framework acceptance remain incomplete. Do not label unit or
-driver controls as product parity. Retain live output directories when an owned
-environment can actually run; missing coverage stays visible.
-
-The manual `intelligence-rich-threads.yml` workflow requests Mastra and Strands
-TypeScript with all six rows, serializes runs, and retains ownership receipts
-and results after attempting interrupted-run recovery. It has not been
-dispatched or provisioned. Its `intelligence-rich-threads-railway` GitHub
-environment requires a private `RICH_THREADS_CONFIG_JSON` launch manifest.
-PNI-607, separately reviewed image pins, the provider/consumer handoff and complete launch bindings (including missing row service factories) remain prerequisites; the job
-fails instead of substituting fixtures. No periodic schedule is enabled.
-
-## Railway bootstrap handoff (PNI-605 / PNI-606)
-
-Hosting is Railway with disposable environments, one active run and a maximum
-60-minute environment lifetime. PNI-600 owns provider dispatch behind the existing
-`lifecycle/environment.mjs#createEnvironment` interface, verified ownership,
-remote clean-scope inspection, durable locking, publication/distribution and
-recovery. This common runner does not implement another provider. The proof
-project’s snapshot publisher remains at its original path; registry policy comes
-from PNI-607 and cannot be approved by a run receipt.
-
-The runner records every selected row’s module/factory availability in
-`suite.json` before provisioning. Unsupported frameworks and missing factories
-prevent provisioning and retain explicit outcomes. A loaded factory does not
-establish full-row coverage or acceptance. Both frameworks and rows run serially.
-
-Railway returns provisioned `environment.scopes`; the runner uses their
-`applicationUrl`, `apiUrl`, `databaseUrl` and `capture` endpoint, not assumed
-loopback addresses. Railway `verifyCleanScope()` must independently inspect
-remote Intelligence, Redis and native durable stores/media and return and retain
-`status: "passed"`. Docker development keeps its local SQL/Redis inspection path.
-Provider endpoint ownership checks remain mandatory before the runner receives
-these scopes. Native remote readers belong to the row2/provider integration.
-
-For original event capture, provision the owned runtime with a private
-`captureToken` of at least 32 characters and its durable `captureDirectory`.
-Set `scope.capture = {url: "https://<owned-runtime>/rich-thread-capture", token}`.
-The runtime serves only its original capture log, scoped by thread ID, with bearer
-authentication and no cache. Client requests require HTTPS, refuse redirects and
-time out after 15 seconds. No database-derived expectations or source rewriting
-is introduced. The token and provisioned URLs belong in private configuration.
-
-The dispatch-only workflow uses the Railway environment manifest. The CLI aborts
-setup/tests after 50 minutes, reserving time for cleanup and evidence; the
-provider must enforce its authoritative 60-minute expiry independently and keep
-a durable lock until verified cleanup. Overlaps must be rejected and flagged
-by that lock, rather than delayed into another deployment. GitHub’s job timeout
-also covers tooling installation before the environment exists. Recovery passes
-`{receiptPath, config}` to the lifecycle owner; Docker’s `dockerHost` argument
-remains compatible. A local Actions artifact is evidence export only, not the
-remote registry consumer distribution mechanism.
-
-The Railway provider and its recovery signature must be integrated from PNI-600
-before this path can provision or recover anything. The current branch still
-contains the earlier Docker-only implementation. No schedule is enabled and no
-Railway services or approved-image policy are changed by this wiring.
+Per-attempt private files live beside the private template, outside exported
+evidence. They are removed only after verified cleanup; retain them with the
+durable journal for interrupted recovery. The four logical bootstrap tables
+(organizations, product_actors, projects, api_keys) each expect one record for
+this fresh single-organization bootstrap. Migration bookkeeping counts still
+need verification against the exact image. Audit content requires the provider's
+separate exact bootstrap audit check; never exempt arbitrary event rows.

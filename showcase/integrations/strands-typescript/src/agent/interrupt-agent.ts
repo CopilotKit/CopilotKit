@@ -21,15 +21,15 @@
  * straight away. One tool name cannot both answer immediately for the other
  * demos and pause for these two, so the pausing version gets its own mount.
  *
- * STRANDS_SESSION_DIRECTORY enables durable SDK snapshots through the shared
- * persistence wrapper, including the pending tool execution and interrupt map.
+ * Pause and resume happen in the same process here, so no `SessionManager` is
+ * needed. Durable resume across a restart requires one.
  *
  * Docs: https://strandsagents.com/docs/user-guide/concepts/interrupts/
  */
 
 import { Agent, tool } from "@strands-agents/sdk";
 import { z } from "zod";
-import { PersistentStrandsAgent as StrandsAgent } from "./persistence";
+import { StrandsAgent } from "@ag-ui/aws-strands";
 import { createModel } from "./model-factory";
 
 /** What the picker sends back. */

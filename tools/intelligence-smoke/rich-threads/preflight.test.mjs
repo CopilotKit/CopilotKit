@@ -21,7 +21,7 @@ test("preflight retains every missing row and unsupported framework without clai
   assert.equal(value.ready, false);
   assert.deepEqual(
     value.checks.filter((c) => c.status === "blocked").map((c) => c.name),
-    ["row:2", "row:3"],
+    ["row:2", "row:3", "row:4", "row:5", "row:6"],
   );
   assert.equal(
     value.checks.find((c) => c.name === "framework:adk").status,
@@ -55,4 +55,18 @@ test("real bootstrap retains blocked evidence before dependencies or provider cr
   } finally {
     await rm(root, { recursive: true });
   }
+});
+
+test("bounded preflight never imports deferred factories", async () => {
+  const paths = [];
+  const result = await preflight({
+    frameworks: ["mastra", "strands-typescript"],
+    rowIds: [1],
+    load: async (path) => {
+      paths.push(path);
+      return { row: { run() {} }, createServices() {} };
+    },
+  });
+  assert.equal(result.ready, true);
+  assert.deepEqual(paths, ["./rows/row1.mjs", "./row1/services.mjs"]);
 });

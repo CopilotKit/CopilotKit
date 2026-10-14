@@ -2,47 +2,21 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve, relative, isAbsolute, dirname } from "node:path";
 
-export const frameworks = Object.freeze([
-  "langgraph-python",
-  "langgraph-fastapi",
-  "langgraph-js",
-  "adk",
-  "mastra",
-  "strands-python",
-  "strands-typescript",
-]);
+export const frameworks = Object.freeze(["mastra", "strands-typescript"]);
 export const categories = Object.freeze([
   "user-text",
   "assistant-text",
-  "reasoning",
-  "chart-pie",
-  "chart-bar",
-  "image:data",
-  "document:data",
-  "audio:data",
-  "video:data",
-  "image:url",
-  "document:url",
-  "audio:url",
-  "video:url",
-  "image:file",
-  "document:file",
-  "audio:file",
-  "video:file",
-  "flight-card",
-  "dashboard-a2ui",
-  "calculator-iframe",
   "ordinary-tool",
-  "mcp-tool",
-  "mcp-app",
-  "shared-state-read",
-  "shared-state-write",
-  "frontend-completed",
-  "frontend-pending",
-  "native-completed",
-  "native-pending",
-  "parallel-surfaces",
-  "run-error",
+]);
+export const milestone = "row1-text-query-data-v1";
+export const deferred = Object.freeze([
+  "expanded-row1",
+  "row2",
+  "row3",
+  "row4",
+  "row5",
+  "row6",
+  "other-five-frameworks",
 ]);
 export const statuses = Object.freeze([
   "passed",

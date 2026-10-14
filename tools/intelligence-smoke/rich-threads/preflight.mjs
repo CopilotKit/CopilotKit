@@ -19,18 +19,16 @@ export async function preflight({
     });
   }
   for (const id of rowIds) {
-    if (!/^[1-6]$/.test(String(id))) {
+    if (String(id) !== "1") {
       checks.push({
         name: `row:${id}`,
         status: "blocked",
-        detail: "Unsupported row number",
+        detail:
+          "Only bounded row1 is included; other rows are preserved for follow-up PRs",
       });
       continue;
     }
-    const paths = [
-      `./rows/row${id}.mjs`,
-      String(id) === "3" ? "./import/services.mjs" : `./row${id}/services.mjs`,
-    ];
+    const paths = ["./rows/row1.mjs", "./row1/services.mjs"];
     try {
       const row = (await load(paths[0])).row;
       const factory = (await load(paths[1])).createServices;

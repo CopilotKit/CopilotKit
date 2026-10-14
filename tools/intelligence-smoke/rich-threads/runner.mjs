@@ -7,6 +7,8 @@ import {
   aggregate,
   artifactWriter,
   requireText,
+  milestone,
+  deferred,
 } from "./contract.mjs";
 
 /** Each invocation owns a new output directory and one fixture's resources. */
@@ -28,6 +30,8 @@ export async function runSuite({
   await write("baseline.json", baseline);
   const report = {
     framework,
+    milestone,
+    deferred,
     baseline,
     startedAt: new Date().toISOString(),
     status: "blocked",
@@ -43,10 +47,7 @@ export async function runSuite({
       "Fixture must expose owned cleanup",
     );
     for (const row of rows) {
-      assert.ok(
-        Number.isInteger(row.id) && row.id >= 1 && row.id <= 6,
-        "Invalid row ID",
-      );
+      assert.ok(row.id === 1, "Invalid row ID");
       requireText(row.title, "Row title");
       const directory = join(outputDir, `row${row.id}`);
       await mkdir(directory, { mode: 0o700 });

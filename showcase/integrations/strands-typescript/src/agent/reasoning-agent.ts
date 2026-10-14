@@ -21,7 +21,7 @@
 
 import { Agent, tool } from "@strands-agents/sdk";
 import { z } from "zod";
-import { PersistentStrandsAgent as StrandsAgent } from "./persistence";
+import { StrandsAgent } from "@ag-ui/aws-strands";
 import { createModel } from "./model-factory";
 
 export const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5.4";
