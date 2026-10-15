@@ -91,11 +91,11 @@ interface ThreadState {
    * When the queue last became non-empty or last had a batch acknowledged.
    *
    * The deadline runs from here, so it measures a stalled gateway, not a long
-   * queue. That also means nothing bounds the queue while the gateway keeps
-   * acknowledging: a producer that outruns a slow but healthy gateway grows
-   * `pendingEvents` until the run ends. The old per-event deadline bounded it
-   * by accident. Watch it through `onEventDeliveryStats`; a real bound needs
-   * producer backpressure.
+   * queue. While the gateway keeps acknowledging, `pendingEvents` can hold up
+   * to the rest of the current run: at most the run's own events, which the
+   * runner used to retain in full anyway. Nothing limits how large a single
+   * run gets; that is a separate question from delivery. Watch the queue
+   * through `onEventDeliveryStats`.
    */
   durableProgressAt: number;
   /** Highest `cpki_event_seq` queued so far in this run. */
