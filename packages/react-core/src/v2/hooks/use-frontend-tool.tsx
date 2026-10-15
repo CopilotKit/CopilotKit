@@ -1,14 +1,22 @@
 import { useLayoutEffect } from "react";
 import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
-
-const EMPTY_DEPS: ReadonlyArray<unknown> = [];
+import { useDepsVersion, useStableToolRender } from "./tool-registration";
 
 export function useFrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(tool: ReactFrontendTool<T>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
-  const extraDeps = deps ?? EMPTY_DEPS;
+  // Plain data in `deps` compares by value, everything else by identity; see
+  // useDepsVersion. Only the resulting number enters the effect's dependency
+  // list, so `deps` is never serialized and may hold a circular value such as
+  // the agent from useAgent.
+  const depsVersion = useDepsVersion(deps);
+  // One renderer identity for the hook's lifetime, so re-registering never
+  // remounts a tool card that is already on screen.
+  const { render: stableRender, refresh: refreshRender } = useStableToolRender(
+    tool.render,
+  );
 
   useLayoutEffect(() => {
     const name = tool.name;
@@ -26,13 +34,14 @@ export function useFrontendTool<
     // The render function is registered even when tool.parameters is
     // undefined — tools like HITL confirm dialogs have no parameters
     // but still need their UI rendered in the chat.
-    if (tool.render) {
+    if (stableRender) {
       copilotkit.addHookRenderToolCall({
         name,
         args: tool.parameters,
         agentId: tool.agentId,
-        render: tool.render,
+        render: stableRender,
       });
+      refreshRender();
     }
 
     return () => {
@@ -44,17 +53,13 @@ export function useFrontendTool<
     // tool.available is included so toggling availability re-registers the tool.
     // tool.webmcp is compared by value (it is commonly an object literal), so
     // a changed WebMCP config re-registers without churning on identity.
-    //
-    // `deps` is spread, not stringified, so each entry gets React's own
-    // identity comparison (the same contract as useEffect's second argument
-    // and useFrontendTools). Stringifying threw on a circular value, such as
-    // the agent from useAgent once its realtime socket attaches, and collapsed
-    // a function to null so a changed callback never re-registered.
   }, [
     tool.name,
     tool.available,
     copilotkit,
     JSON.stringify(tool.webmcp ?? null),
-    ...extraDeps,
+    depsVersion,
+    stableRender,
+    refreshRender,
   ]);
 }

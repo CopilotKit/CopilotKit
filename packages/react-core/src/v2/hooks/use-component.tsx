@@ -1,6 +1,7 @@
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import type { ComponentType } from "react";
 import { useFrontendTool } from "./use-frontend-tool";
+import { ToolRenderSlot } from "./tool-registration";
 
 type InferRenderProps<T> = T extends StandardSchemaV1
   ? InferSchemaOutput<T>
@@ -81,8 +82,12 @@ export function useComponent<
       description: fullDescription,
       parameters: config.parameters,
       render: ({ args }: { args: unknown }) => {
-        const Component = config.render;
-        return <Component {...(args as InferRenderProps<TSchema>)} />;
+        return (
+          <ToolRenderSlot
+            render={config.render}
+            renderProps={args as InferRenderProps<TSchema>}
+          />
+        );
       },
       agentId: config.agentId,
       followUp: config.followUp,
