@@ -349,10 +349,16 @@ class RequestAwareAGUIChatWorkflow(AGUIChatWorkflow):
             # arguments (`{...}{...}`) and breaks args-bearing tools
             # (beautiful-chat's `scheduleTime`, pie/bar `useComponent`).
             #
-            # The open-generative-UI and A2UI middleware mount surfaces from
-            # streamed TOOL_CALL_* events. Their render tools need a chunk in
-            # addition to the snapshot. Other frontend tools stay snapshot-only
-            # to avoid duplicate arguments.
+            # NAME-SCOPED EXEMPTION (`generateSandboxedUi` only): the
+            # open-generative-ui runtime middleware
+            # (`open-generative-ui-middleware.ts`) builds the sandboxed iframe
+            # exclusively from streamed TOOL_CALL_* events; it does NOT read the
+            # snapshot's `ag_ui_tool_calls`. So for this one tool the
+            # snapshot-only delivery yields 0 iframes (open-gen-ui /
+            # open-gen-ui-advanced render nothing). We therefore stream the
+            # chunk for `generateSandboxedUi` while keeping every other frontend
+            # tool snapshot-only. The exemption is intentionally narrow — broaden
+            # it and the double-args regression above returns.
             for tool_call in frontend_tool_calls:
                 ctx.send_event(
                     ToolCallEvent(
@@ -361,7 +367,7 @@ class RequestAwareAGUIChatWorkflow(AGUIChatWorkflow):
                         tool_kwargs=tool_call.tool_kwargs,
                     )
                 )
-                if tool_call.tool_name in {"generateSandboxedUi", "render_a2ui"}:
+                if tool_call.tool_name == "generateSandboxedUi":
                     ctx.write_event_to_stream(
                         ToolCallChunkWorkflowEvent(
                             tool_call_id=tool_call.tool_id,

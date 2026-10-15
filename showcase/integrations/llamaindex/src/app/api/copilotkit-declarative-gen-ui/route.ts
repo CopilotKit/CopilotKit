@@ -2,8 +2,8 @@
 // cell. Mirrors `langgraph-python/src/app/api/copilotkit-declarative-gen-ui/`.
 //
 // The backend agent (src/agents/a2ui_dynamic.py) owns a `generate_a2ui` tool
-// and can emit a streamed `render_a2ui` call. The runtime also injects its
-// A2UI tool for prompts that use the catalog directly.
+// and emits a streamed `render_a2ui` call. The middleware watches that call
+// without injecting a second tool.
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -24,7 +24,8 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>>
   agents: { "declarative-gen-ui": declarativeGenUiAgent as AbstractAgent },
   a2ui: {
-    injectA2UITool: true,
+    injectA2UITool: false,
+    a2uiToolNames: ["render_a2ui"],
     // Models follow the tool-usage guide and omit `catalogId`, and the
     // middleware then falls back to the unregistered spec basic catalog
     // ("Catalog not found" render error). Pin the catalog the page registers.

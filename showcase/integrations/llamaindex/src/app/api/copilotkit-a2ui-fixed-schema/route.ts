@@ -29,6 +29,7 @@ const runtime = new CopilotRuntime({
   a2ui: {
     // The backend emits the render call; it does not need a second tool.
     injectA2UITool: false,
+    a2uiToolNames: ["render_a2ui"],
   },
 });
 

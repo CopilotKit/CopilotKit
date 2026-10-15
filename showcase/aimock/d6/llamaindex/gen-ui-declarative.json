@@ -197,6 +197,66 @@
         "content": "Here's the rundown on Meridian Apparel Group."
       },
       "chunkSize": 9999
+    },
+    {
+      "_comment": "FAC-237 lower freeform request uses the LlamaIndex backend generator.",
+      "match": {
+        "userMessage": "Draw a sales dashboard",
+        "hasToolResult": false,
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fac237_lower_generate",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"sales dashboard for this quarter\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "FAC-237 lower freeform request finishes after the backend generator.",
+      "match": {
+        "userMessage": "Draw a sales dashboard",
+        "hasToolResult": true,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Here is your sales dashboard."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "FAC-237 title freeform request uses the LlamaIndex backend generator.",
+      "match": {
+        "userMessage": "Draw a sales Dashboard",
+        "hasToolResult": false,
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fac237_title_generate",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"sales dashboard for this quarter\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "FAC-237 title freeform request finishes after the backend generator.",
+      "match": {
+        "userMessage": "Draw a sales Dashboard",
+        "hasToolResult": true,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Here is your sales dashboard."
+      },
+      "chunkSize": 9999
     }
   ]
 }

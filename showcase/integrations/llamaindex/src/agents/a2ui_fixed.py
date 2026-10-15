@@ -14,7 +14,7 @@ The A2UI middleware (`@ag-ui/a2ui-middleware`) mounts the surface from a
 STREAMED render-tool CALL, NOT from a tool result:
 
   - On `TOOL_CALL_START`: it tracks the call ONLY when `toolCallName` is in its
-    watched set, which includes `render_a2ui`.
+    watched set (configured by `a2uiToolNames`).
   - On `TOOL_CALL_ARGS` deltas: it accumulates the args, parses `components` out
     of the streamed args, and emits the `a2ui-surface` activity
     (`createSurface` / `updateComponents` / `updateDataModel`) once `components`
@@ -46,8 +46,8 @@ they pass through the SSE shim unmodified.
 
 Pairs with the dedicated runtime route
 `src/app/api/copilotkit-a2ui-fixed-schema/route.ts` which sets
-`a2ui.injectA2UITool: false` so the middleware watches the streamed call
-without injecting another tool.
+`a2ui.injectA2UITool: false` with `a2uiToolNames: ["render_a2ui"]`.
+The middleware watches the backend call without injecting another tool.
 
 Both changes live entirely in this integration; no shared/`@ag-ui` package is
 touched.
@@ -68,7 +68,11 @@ from llama_index.core.llms import ChatMessage
 from llama_index.core.workflow import Context, Workflow, step
 from llama_index.core.workflow.events import StopEvent
 from llama_index.llms.openai import OpenAI
-from llama_index.protocols.ag_ui.agent import LoopEvent, ToolCallResultEvent
+from llama_index.protocols.ag_ui.agent import (
+    AGUIChatWorkflow,
+    LoopEvent,
+    ToolCallResultEvent,
+)
 from llama_index.protocols.ag_ui.events import (
     RunErrorWorkflowEvent,
     RunFinishedWorkflowEvent,
@@ -80,14 +84,12 @@ from llama_index.protocols.ag_ui.events import (
 from llama_index.protocols.ag_ui.router import AG_UI_EVENTS
 from llama_index.protocols.ag_ui.utils import timestamp, workflow_event_to_sse
 
-from agents._request_tools import RequestAwareAGUIChatWorkflow
-
 
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
 
-# The render-tool name `@ag-ui/a2ui-middleware` watches. We synthesise a
-# streamed tool call by this name on the outbound stream.
+# The middleware watches this name in streamed tool calls and mounts the
+# surface from the backend-emitted arguments.
 RENDER_A2UI_TOOL_NAME = "render_a2ui"
 
 # Allow-list the router streams against. The streamed `render_a2ui` tool-CALL
@@ -140,14 +142,19 @@ def _emit_render_a2ui_tool_call(ctx: Context, args: dict) -> None:
     ctx.write_event_to_stream(ToolCallEndWorkflowEvent(tool_call_id=tool_call_id))
 
 
-class _A2UIRenderToolCallWorkflow(RequestAwareAGUIChatWorkflow):
+class _A2UIRenderToolCallWorkflow(AGUIChatWorkflow):
     """Upstream workflow that RE-EMITS each backend `display_flight` result as a
     STREAMED ``render_a2ui`` tool-CALL so ``@ag-ui/a2ui-middleware`` mounts the
     surface.
 
-    The shared request-aware workflow forwards injected tools with their
-    original JSON schemas. This class also streams backend results with
-    components as ``render_a2ui`` calls for the middleware to mount.
+    Only ``aggregate_tool_calls`` is overridden. The override re-applies
+    ``@step`` (a plain override drops the method from llama-index's step
+    registry) and reproduces the upstream body byte-for-byte — preserving the
+    ``MESSAGES_SNAPSHOT`` history update and the loop/stop control flow — with a
+    single addition: it parses each backend tool result (the fixed-schema
+    ``render_a2ui`` args carrying ``components``) and streams a discrete
+    ``render_a2ui`` tool-CALL. This mirrors how google-adk drives the middleware
+    without altering any other adapter behaviour.
     """
 
     @step
@@ -162,15 +169,11 @@ class _A2UIRenderToolCallWorkflow(RequestAwareAGUIChatWorkflow):
             # Not all sibling tool results have arrived yet.
             return None
 
-        dynamic_frontend_tool_names = await ctx.store.get(
-            "dynamic_frontend_tool_names", default=[]
-        )
-        frontend_names = set(self.frontend_tools) | set(dynamic_frontend_tool_names)
         frontend_tool_calls = [
-            r for r in tool_call_results if r.tool_name in frontend_names
+            r for r in tool_call_results if r.tool_name in self.frontend_tools
         ]
         backend_tool_calls = [
-            r for r in tool_call_results if r.tool_name not in frontend_names
+            r for r in tool_call_results if r.tool_name in self.backend_tools
         ]
 
         # ADDITION: for every backend `display_flight` result, RE-EMIT the

@@ -23,8 +23,10 @@
  * runtime — but with no upload race because we build the
  * already-base64'd content part ourselves before calling addMessage.
  *
- * The LlamaIndex AG-UI adapter converts the modern `image|document`
- * parts directly into model content blocks.
+ * The `LegacyConverterShim` in page.tsx still rewrites our modern
+ * `image|document` parts to the legacy `binary` shape the published
+ * `@ag-ui/langgraph` converter understands, so the agent ultimately
+ * receives the attachment in the form `multimodal_agent.py` expects.
  */
 
 import { useCallback, useState } from "react";
@@ -214,7 +216,10 @@ export async function submitSample(
   const partType = spec.mimeType === "application/pdf" ? "document" : "image";
 
   // Build a multimodal user message as content parts: prompt text +
-  // one modern image or document attachment.
+  // the attachment. The `LegacyConverterShim` in page.tsx will
+  // rewrite the modern `image|document` part to the legacy `binary`
+  // shape the @ag-ui/langgraph converter understands before the
+  // request leaves the runtime.
   target.addMessage({
     id: generateMessageId(),
     role: "user",
