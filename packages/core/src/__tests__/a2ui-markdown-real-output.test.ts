@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractFenceOperations,
   prepareSurfaceOperations,
+  segmentSurfaceProse,
   splitA2UIMarkdown,
   type A2UIOperation,
 } from "../a2ui-markdown";
@@ -13,6 +14,9 @@ import {
 // quote-form's action missing a "}" (its children land inside the action).
 // bi2, lg1: updateComponents pretty-printed over many lines.
 // lg2: updateDataModel line missing its final closing brace.
+// lg3 (recorded after the data-first guideline, prose abridged): the whole
+// itinerary is markdown outside the fence and the fence holds only the chart,
+// with updateDataModel written before updateComponents.
 const FIXTURES = ["bi1", "bi2", "lg1", "lg2"] as const;
 
 function loadFixture(name: string): string {
@@ -114,5 +118,36 @@ describe("real model output bi2 streaming (pretty-printed)", () => {
     }
     expect(rootAt.length).toBeGreaterThan(0);
     expect(rootAt[0]).toBeLessThanOrEqual(15);
+  });
+});
+
+describe("real model output lg3 (data-first guideline)", () => {
+  const markdown = loadFixture("lg3");
+
+  it("writes the data model before the components and keeps prose outside", () => {
+    const segments = splitA2UIMarkdown(markdown);
+    expect(segments.filter((s) => s.type === "a2ui")).toHaveLength(1);
+    const { operations } = extractFenceOperations(firstFence(markdown)!);
+    const keys = operations.map(
+      (op) => Object.keys(op).find((k) => k !== "version")!,
+    );
+    expect(keys).toEqual([
+      "createSurface",
+      "updateDataModel",
+      "updateComponents",
+    ]);
+  });
+
+  it("yields a surface that is only the chart, with nothing to hoist", () => {
+    const ops = prepare(firstFence(markdown)!);
+    const components = componentsOf(ops);
+    expect(components.map((c) => c.id)).toEqual(["root", "chart"]);
+    const segments = segmentSurfaceProse(components);
+    expect(segments).toHaveLength(1);
+    expect(segments[0]!.kind).toBe("surface");
+    const data = ops.find((op) => op.updateDataModel)!.updateDataModel as {
+      value: { chart: unknown[] };
+    };
+    expect(data.value.chart).toHaveLength(5);
   });
 });
