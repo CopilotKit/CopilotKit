@@ -1,5 +1,4 @@
 import {
-  GENERATIVE_UI_APP_STATE_PATH,
   GENERATIVE_UI_EVENT_TOOL,
   GENERATIVE_UI_RENDER_TOOL,
 } from "@copilotkit/shared";
@@ -14,7 +13,7 @@ export function buildGenerativeUIPrompt(
   const targets = manifest.targets
     .map(
       (t) =>
-        `- "${t.id}" (${t.kind === "chat" ? "inside the chat transcript" : "a named area of the app"})`,
+        `- "${t.id}" (${t.kind === "chat" ? "inside the chat transcript" : "a named area of the app"})${t.description ? `: ${t.description}` : ""}`,
     )
     .join("\n");
   const components = Object.entries(manifest.components)
@@ -34,9 +33,6 @@ export function buildGenerativeUIPrompt(
       ([name, f]) =>
         `- **${name}**${f.description ? `: ${f.description}` : ""} — args: ${JSON.stringify(f.parameters)}`,
     )
-    .join("\n");
-  const appState = manifest.appState
-    .map((key) => `- ${GENERATIVE_UI_APP_STATE_PATH}/${key}`)
     .join("\n");
   const surfaces = Object.entries(manifest.surfaces)
     .map(([id, s]) => `- "${id}" (target "${s.target}")`)
@@ -58,13 +54,11 @@ Rules:
 3. Updating a component replaces all of its props, so resend every prop.
 4. Prop values are literals or data bindings {"path":"/data/path"}.
 5. Event props take an action. {"functionCall":{"call":"<function>","args":{...}}} runs an app function in the browser immediately, and you are not told about it. {"event":{"name":"<name>","context":{...}}} sends the interaction back to you. Only call functions listed below.
-6. ${GENERATIVE_UI_APP_STATE_PATH} is maintained by the app and is read-only for you. Bind to it, e.g. {"path":"${GENERATIVE_UI_APP_STATE_PATH}/cart/count"}.
-7. To show a different view, create a new surface with a new surfaceId (for example, a checkout form after a cart summary). Update an existing surface only when the user asks to change that same view: then do not send createSurface, use its surfaceId, and pass its existing target. Never reuse an earlier chat surface for a different view, because that replaces the earlier UI and anything the user typed into it.
-8. If the conversation ends with a \`${GENERATIVE_UI_EVENT_TOOL}\` tool call and its result, that is the user interacting with the UI (for example clicking a button). Respond to that interaction.`,
+6. To show a different view, create a new surface with a new surfaceId (for example, a checkout form after a cart summary). Update an existing surface only when the user asks to change that same view: then do not send createSurface, use its surfaceId, and pass its existing target. Never reuse an earlier chat surface for a different view, because that replaces the earlier UI and anything the user typed into it.
+7. If the conversation ends with a \`${GENERATIVE_UI_EVENT_TOOL}\` tool call and its result, that is the user interacting with the UI (for example clicking a button). Respond to that interaction.`,
     `### Targets\n${targets || "- none"}`,
     `### Components\n${components || "- none"}`,
     `### Functions\n${functions || "- none"}`,
-    `### App state\n${appState || "- none"}`,
     `### Existing surfaces\n${surfaces || "- none"}`,
   ].join("\n\n");
 }

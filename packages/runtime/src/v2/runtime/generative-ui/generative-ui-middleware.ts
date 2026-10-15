@@ -147,10 +147,13 @@ function readManifest(
   if (Array.isArray(raw.targets)) {
     for (const target of raw.targets) {
       if (isRecord(target) && typeof target.id === "string") {
-        targets.push({
+        const entry: GenerativeUIManifest["targets"][number] = {
           id: target.id,
           kind: target.kind === "chat" ? "chat" : "inline",
-        });
+        };
+        const description = optionalString(target.description);
+        if (description !== undefined) entry.description = description;
+        targets.push(entry);
       }
     }
   }
@@ -167,7 +170,6 @@ function readManifest(
     catalogVersion: optionalString(raw.catalogVersion) ?? "",
     components,
     functions,
-    appState: stringArray(raw.appState),
     targets,
     surfaces,
   };

@@ -1,5 +1,11 @@
 import { AbstractAgent, EventType } from "@ag-ui/client";
-import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type {
+  ActivityDeltaEvent,
+  ActivitySnapshotEvent,
+  BaseEvent,
+  RunAgentInput,
+  ToolCallResultEvent,
+} from "@ag-ui/client";
 import { firstValueFrom, from, toArray } from "rxjs";
 import type { Observable } from "rxjs";
 import { describe, expect, it } from "vitest";
@@ -35,7 +41,6 @@ const manifest: GenerativeUIManifest = {
     },
   },
   functions: { addToCart: { parameters: { type: "object" } } },
-  appState: ["cart"],
   targets: [
     { id: "chat", kind: "chat" },
     { id: "recommendations", kind: "inline" },
@@ -105,12 +110,43 @@ async function run(
   return { output, input: agent.lastInput! };
 }
 
+type ActivityEvent = ActivitySnapshotEvent | ActivityDeltaEvent;
+
 const activity = (events: BaseEvent[]) =>
   events.filter(
-    (e) =>
+    (e): e is ActivityEvent =>
       e.type === EventType.ACTIVITY_SNAPSHOT ||
       e.type === EventType.ACTIVITY_DELTA,
-  ) as any[];
+  );
+
+function patchOf(event: ActivityEvent) {
+  if (event.type !== EventType.ACTIVITY_DELTA) {
+    throw new Error(`expected an ACTIVITY_DELTA event, got ${event.type}`);
+  }
+  return event.patch;
+}
+
+function findToolResult(output: BaseEvent[]) {
+  const result = output.find(
+    (e): e is ToolCallResultEvent => e.type === EventType.TOOL_CALL_RESULT,
+  );
+  if (!result) throw new Error("the run has no TOOL_CALL_RESULT event");
+  return result;
+}
+
+function toolResult(output: BaseEvent[]) {
+  const { content } = findToolResult(output);
+  if (typeof content !== "string") {
+    throw new Error("the render_ui tool result is not a JSON string");
+  }
+  return JSON.parse(content);
+}
+
+function guideText(input: RunAgentInput) {
+  const guide = input.context.find((c) => c.value.includes("render_ui"));
+  if (!guide) throw new Error("the run has no generative UI guide");
+  return guide.value;
+}
 
 describe("GenerativeUIMiddleware", () => {
   it("passes runs without a manifest through unchanged", async () => {
@@ -129,9 +165,7 @@ describe("GenerativeUIMiddleware", () => {
       required: ["target", "operations"],
       properties: { target: { enum: ["chat", "recommendations"] } },
     });
-    expect(input.context.some((c) => c.value.includes("ProductCard"))).toBe(
-      true,
-    );
+    expect(guideText(input)).toContain("ProductCard");
   });
 
   it("tells the model to show a different view in a new surface, not an existing one", async () => {
@@ -141,26 +175,62 @@ describe("GenerativeUIMiddleware", () => {
         surfaces: { cart_surface: { target: "chat" } },
       },
     });
-    const guide = input.context.find((c) => c.value.includes("render_ui"))!;
+    const guide = guideText(input);
     // A follow-up such as "checkout" after "show my cart" must not overwrite the cart card.
-    expect(guide.value).toContain(
+    expect(guide).toContain(
       "To show a different view, create a new surface with a new surfaceId",
     );
-    expect(guide.value).toContain(
+    expect(guide).toContain(
       "Never reuse an earlier chat surface for a different view",
     );
   });
 
   it("tells the model to list child ids in the root's slot before sending the children", async () => {
     const { input } = await run([]);
-    const guide = input.context.find((c) => c.value.includes("render_ui"))!;
+    const guide = guideText(input);
     // A ProductGrid root sent without `children` renders only its title.
-    expect(guide.value).toContain(
+    expect(guide).toContain(
       "The root must already list the ids of its children in its slot props",
     );
-    expect(guide.value).toContain(
+    expect(guide).toContain(
       "A component that no slot references is never shown",
     );
+  });
+
+  it("parses a target description from forwarded props and prints it in the guide", async () => {
+    const { input } = await run([], {
+      generativeUI: {
+        ...manifest,
+        targets: [
+          { id: "chat", kind: "chat" },
+          {
+            id: "recommendations",
+            kind: "inline",
+            description:
+              "Next to the product list. Use it for product recommendations.",
+          },
+        ],
+      },
+    });
+    expect(guideText(input)).toContain(
+      [
+        "### Targets",
+        '- "chat" (inside the chat transcript)',
+        '- "recommendations" (a named area of the app): Next to the product list. Use it for product recommendations.',
+      ].join("\n"),
+    );
+  });
+
+  it("does not tell the model about app state, even when the client still sends it", async () => {
+    const { input } = await run([], {
+      generativeUI: { ...manifest, appState: ["cart"] },
+    });
+    const guide = guideText(input);
+    expect(guide).not.toContain("App state");
+    expect(guide).not.toContain("/app");
+    // The rules after the removed app state rule are numbered again.
+    expect(guide).toContain("\n6. To show a different view");
+    expect(guide).toContain("\n7. If the conversation ends");
   });
 
   it("emits a snapshot for createSurface and one delta per further operation", async () => {
@@ -198,11 +268,11 @@ describe("GenerativeUIMiddleware", () => {
         rejected: [],
       },
     });
-    expect(events.slice(1, 3).map((e) => e.patch)).toEqual([
+    expect(events.slice(1, 3).map(patchOf)).toEqual([
       [{ op: "add", path: "/operations/-", value: ops[1] }],
       [{ op: "add", path: "/operations/-", value: ops[2] }],
     ]);
-    expect(events[3].patch).toEqual([
+    expect(patchOf(events[3])).toEqual([
       { op: "replace", path: "/status", value: "ready" },
     ]);
     const endIndex = output.findIndex(
@@ -226,7 +296,7 @@ describe("GenerativeUIMiddleware", () => {
     );
     const patches = activity(output)
       .slice(1)
-      .map((e) => e.patch[0]);
+      .map((e) => patchOf(e)[0]);
     expect(patches[0]).toMatchObject({
       op: "add",
       path: "/rejected/-",
@@ -237,10 +307,7 @@ describe("GenerativeUIMiddleware", () => {
       path: "/operations/-",
       value: ops[2],
     });
-    const result = output.find(
-      (e) => e.type === EventType.TOOL_CALL_RESULT,
-    ) as any;
-    expect(JSON.parse(result.content)).toMatchObject({
+    expect(toolResult(output)).toMatchObject({
       status: "rendered",
       applied: 2,
       rejected: [
@@ -253,7 +320,7 @@ describe("GenerativeUIMiddleware", () => {
     const finishedIndex = output.findIndex(
       (e) => e.type === EventType.RUN_FINISHED,
     );
-    expect(output.indexOf(result)).toBeLessThan(finishedIndex);
+    expect(output.indexOf(findToolResult(output))).toBeLessThan(finishedIndex);
   });
 
   it("rejects createSurface for a target that is not mounted", async () => {
@@ -261,10 +328,7 @@ describe("GenerativeUIMiddleware", () => {
       renderCall({ target: "sidebar", operations: [create("x")] }),
     );
     expect(activity(output)).toEqual([]);
-    const result = output.find(
-      (e) => e.type === EventType.TOOL_CALL_RESULT,
-    ) as any;
-    expect(JSON.parse(result.content).rejected[0].reason).toMatch(
+    expect(toolResult(output).rejected[0].reason).toMatch(
       /target "sidebar" is not mounted/,
     );
   });
@@ -286,12 +350,12 @@ describe("GenerativeUIMiddleware", () => {
     );
     const events = activity(output);
     expect(events.every((e) => e.type === EventType.ACTIVITY_DELTA)).toBe(true);
-    expect(events[0].patch).toEqual([
+    expect(patchOf(events[0])).toEqual([
       { op: "replace", path: "/status", value: "streaming" },
       { op: "replace", path: "/rejected", value: [] },
       { op: "add", path: "/operations/-", value: op },
     ]);
-    expect(events[1].patch).toEqual([
+    expect(patchOf(events[1])).toEqual([
       { op: "replace", path: "/status", value: "ready" },
     ]);
   });
@@ -315,7 +379,7 @@ describe("GenerativeUIMiddleware", () => {
     ]);
     const patches = activity(output)
       .filter((e) => e.type === EventType.ACTIVITY_DELTA)
-      .map((e) => e.patch);
+      .map(patchOf);
     expect(patches[0]).toEqual([
       {
         op: "add",
@@ -344,7 +408,7 @@ describe("GenerativeUIMiddleware", () => {
         },
       },
     );
-    expect(activity(output)[0].patch).toEqual([
+    expect(patchOf(activity(output)[0])).toEqual([
       { op: "replace", path: "/status", value: "streaming" },
       { op: "replace", path: "/rejected", value: [] },
       {
@@ -356,12 +420,6 @@ describe("GenerativeUIMiddleware", () => {
   });
 
   describe("tool result when operations are malformed", () => {
-    const toolResult = (output: BaseEvent[]) =>
-      JSON.parse(
-        (output.find((e) => e.type === EventType.TOOL_CALL_RESULT) as any)
-          .content,
-      );
-
     it("renders operations sent as a JSON-encoded string", async () => {
       const ops = [
         create("recs"),
@@ -382,10 +440,10 @@ describe("GenerativeUIMiddleware", () => {
         type: EventType.ACTIVITY_SNAPSHOT,
         content: { operations: [ops[0]] },
       });
-      expect(events[1].patch).toEqual([
+      expect(patchOf(events[1])).toEqual([
         { op: "add", path: "/operations/-", value: ops[1] },
       ]);
-      expect(events[2].patch).toEqual([
+      expect(patchOf(events[2])).toEqual([
         { op: "replace", path: "/status", value: "ready" },
       ]);
       expect(toolResult(output)).toEqual({
@@ -477,7 +535,7 @@ describe("GenerativeUIMiddleware", () => {
       type: EventType.ACTIVITY_SNAPSHOT,
       content: { target: "recommendations" },
     });
-    expect(events[1].patch).toEqual([
+    expect(patchOf(events[1])).toEqual([
       { op: "add", path: "/operations/-", value: ops[1] },
     ]);
   });
@@ -505,7 +563,7 @@ describe("GenerativeUIMiddleware", () => {
         type: EventType.ACTIVITY_SNAPSHOT,
         content: { surfaceId: "s", target: "chat" },
       });
-      expect(events[1].patch).toEqual([
+      expect(patchOf(events[1])).toEqual([
         {
           op: "add",
           path: "/rejected/-",
@@ -515,10 +573,7 @@ describe("GenerativeUIMiddleware", () => {
           },
         },
       ]);
-      const result = output.find(
-        (e) => e.type === EventType.TOOL_CALL_RESULT,
-      ) as any;
-      expect(JSON.parse(result.content)).toMatchObject({
+      expect(toolResult(output)).toMatchObject({
         status: "rendered",
         applied: 1,
         rejected: [
@@ -553,14 +608,23 @@ describe("GenerativeUIMiddleware", () => {
         renderCall({ target: "chat", operations: ops }),
         { generativeUI: forged },
       );
-      const result = output.find(
-        (e) => e.type === EventType.TOOL_CALL_RESULT,
-      ) as any;
-      expect(JSON.parse(result.content)).toMatchObject({
+      expect(toolResult(output)).toMatchObject({
         status: "rendered",
         applied: 2,
         rejected: [],
       });
+    });
+
+    it("drops a target description that is not a string", async () => {
+      const forged = {
+        catalogId: "shop",
+        components: {},
+        targets: [{ id: "recommendations", kind: "inline", description: 5 }],
+      };
+      const { input } = await run([], { generativeUI: forged });
+      expect(guideText(input)).toContain(
+        '### Targets\n- "recommendations" (a named area of the app)\n\n',
+      );
     });
 
     it("passes the run through unchanged when catalogId is not a string", async () => {
@@ -587,15 +651,16 @@ describe("GenerativeUIMiddleware", () => {
       generativeUI: manifest,
       generativeUIAction: event,
     });
-    const [assistant, tool] = input.messages.slice(-2) as any[];
-    expect(assistant.toolCalls[0].function).toEqual({
+    const [assistant, tool] = input.messages.slice(-2);
+    if (assistant.role !== "assistant" || tool.role !== "tool") {
+      throw new Error("expected an assistant tool call and then its result");
+    }
+    const [call] = assistant.toolCalls ?? [];
+    expect(call.function).toEqual({
       name: "log_generative_ui_event",
       arguments: JSON.stringify(event),
     });
-    expect(tool).toMatchObject({
-      role: "tool",
-      toolCallId: assistant.toolCalls[0].id,
-    });
+    expect(tool.toolCallId).toBe(call.id);
     expect(tool.content).toContain('"show_more"');
   });
 });
