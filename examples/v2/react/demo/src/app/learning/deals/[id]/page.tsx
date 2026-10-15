@@ -4,6 +4,8 @@ import {
   CopilotChat,
   CopilotChatConfigurationProvider,
   ToolCallStatus,
+  UseAgentUpdate,
+  useAgent,
   useAgentContext,
   useCopilotChatConfiguration,
   useCopilotKit,
@@ -31,10 +33,38 @@ export default function DealPage() {
   );
 }
 
+// Threads opened in this tab that have no messages yet. Kept across a
+// reload, so the chat does not try to connect to a Thread the backend has
+// not created.
+const NEW_THREADS_KEY = "copilotkit-learning-demo:new-threads";
+
+function readNewThreads(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(NEW_THREADS_KEY);
+    const ids: unknown = raw ? JSON.parse(raw) : [];
+    return new Set(
+      Array.isArray(ids)
+        ? ids.filter((id): id is string => typeof id === "string")
+        : [],
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function writeNewThreads(ids: Set<string>) {
+  try {
+    sessionStorage.setItem(NEW_THREADS_KEY, JSON.stringify([...ids]));
+  } catch {
+    // Without storage a reload treats the Thread as saved, as before.
+  }
+}
+
 /**
  * Keeps the open Thread in the URL, so a reload reconnects to the same chat
- * and shows the feedback given there again. A Thread opened here is new: it
- * starts on the welcome screen instead of connecting to a saved chat.
+ * and shows the feedback given there again. A Thread opened here is new
+ * until it has messages: it starts on the welcome screen instead of
+ * connecting to a saved chat, also after a reload.
  */
 function DealThread() {
   const { id } = useParams<{ id: string }>();
@@ -43,11 +73,20 @@ function DealThread() {
   const threadId = useSearchParams().get("thread") || null;
   const pathname = usePathname();
   const router = useRouter();
-  const [openedHere] = useState(() => new Set<string>());
+  // Read once per mount: a Thread stays new while its chat is open, so the
+  // chat never reconnects in the middle of its first run.
+  const [openedHere] = useState(() =>
+    typeof window === "undefined" ? new Set<string>() : readNewThreads(),
+  );
   const openNewThread = () => {
     const next = randomUUID();
     openedHere.add(next);
+    writeNewThreads(new Set([...readNewThreads(), next]));
     router.replace(`${pathname}?thread=${next}`);
+  };
+  const markThreadUsed = (used: string) => {
+    const ids = readNewThreads();
+    if (ids.delete(used)) writeNewThreads(ids);
   };
 
   useEffect(() => {
@@ -64,7 +103,11 @@ function DealThread() {
       threadId={threadId}
       hasExplicitThreadId={!openedHere.has(threadId)}
     >
-      <DealView deal={deal} onNewThread={openNewThread} />
+      <DealView
+        deal={deal}
+        onNewThread={openNewThread}
+        onThreadUsed={markThreadUsed}
+      />
     </CopilotChatConfigurationProvider>
   );
 }
@@ -72,11 +115,22 @@ function DealThread() {
 function DealView({
   deal,
   onNewThread,
+  onThreadUsed,
 }: {
   deal: Deal;
   onNewThread: () => void;
+  onThreadUsed: (threadId: string) => void;
 }) {
   const config = useCopilotChatConfiguration();
+  const { agent } = useAgent({
+    agentId: "default",
+    updates: [UseAgentUpdate.OnMessagesChanged],
+  });
+  const hasMessages = agent.messages.length > 0;
+  useEffect(() => {
+    if (hasMessages && config?.threadId) onThreadUsed(config.threadId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- record once per Thread
+  }, [hasMessages, config?.threadId]);
   const { copilotkit } = useCopilotKit();
   const [approvedHere, setApprovedHere] = useState(false);
   // A decision belongs to its Thread. The chat stays mounted, so it sees the

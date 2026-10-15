@@ -173,12 +173,12 @@ const readStoredPending = (): Record<string, FeedbackEventValue> => {
 
 /**
  * Waiting ratings. Storage is shared with other tabs and holds the truth
- * while writes work; after a failed write, memory adds what storage missed.
+ * while writes work. After a failed write, memory holds the truth: it was
+ * built from storage and keeps removals that storage could not take, so a
+ * sent rating is never read back and sent again.
  */
 const readPending = (): Record<string, FeedbackEventValue> =>
-  pendingWritable
-    ? readStoredPending()
-    : { ...readStoredPending(), ...pendingInMemory };
+  pendingWritable ? readStoredPending() : { ...pendingInMemory };
 
 const writePending = (next: Record<string, FeedbackEventValue>) => {
   pendingInMemory = next;

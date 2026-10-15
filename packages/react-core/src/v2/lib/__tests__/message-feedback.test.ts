@@ -244,6 +244,39 @@ describe("message feedback store", () => {
     expect(ratings(emit)).toEqual(["up", "down"]);
   });
 
+  it("does not send a waiting rating twice when removing it from storage fails", () => {
+    localStorage.setItem(
+      PENDING_STORAGE_KEY,
+      JSON.stringify({
+        "thread:m1": {
+          feedbackId: "thread:m1",
+          messageId: "m1",
+          agentId: "agent",
+          threadId: "thread",
+          rating: "up",
+        },
+        "other:m9": {
+          feedbackId: "other:m9",
+          messageId: "m9",
+          agentId: "agent",
+          threadId: "other",
+          rating: "down",
+        },
+      }),
+    );
+    failWrites((key) => key === PENDING_STORAGE_KEY);
+    const { copilotkit, emit } = capturingCore();
+
+    flushPendingMessageFeedback(copilotkit, chat);
+    flushPendingMessageFeedback(copilotkit, chat);
+    flushPendingMessageFeedback(copilotkit, {
+      agentId: "agent",
+      threadId: "other",
+    });
+
+    expect(ratings(emit)).toEqual(["up", "down"]);
+  });
+
   it("drops the reply text of a waiting rating once agent text is off", () => {
     const { copilotkit, emit, state } = capturingCore();
     state.capturing = false;
