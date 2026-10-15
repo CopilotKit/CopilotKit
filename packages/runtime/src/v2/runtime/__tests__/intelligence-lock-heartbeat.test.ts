@@ -327,3 +327,27 @@ describe("when the first renewal fails repeatedly", () => {
     }
   });
 });
+
+test("reads thread history with a retry deadline at half the lock lifetime", async () => {
+  vi.useFakeTimers();
+  const intelligence = new ScriptedRenewalIntelligence(16);
+  intelligence.renew.mockResolvedValue({ ttlSeconds: 120, status: "renewed" });
+  const readHistory = vi.spyOn(intelligence, "getThreadMessages");
+  const startedAt = Date.now();
+
+  try {
+    const { runner, response } = await startRun(intelligence);
+
+    expect(response.status).toBe(200);
+    expect(readHistory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: "thread-1",
+        retryDeadline: startedAt + 8_000,
+        signal: expect.any(AbortSignal),
+      }),
+    );
+    runner.complete();
+  } finally {
+    vi.useRealTimers();
+  }
+});

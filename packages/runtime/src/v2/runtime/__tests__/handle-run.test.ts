@@ -731,6 +731,8 @@ describe("handleRunAgent", () => {
       expect(platform.getThreadMessages).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
+        signal: expect.any(AbortSignal),
+        retryDeadline: expect.any(Number),
       });
     });
 

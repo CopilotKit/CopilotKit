@@ -285,6 +285,33 @@ const THREAD_MESSAGES_MAX_ATTEMPTS = 3;
 const THREAD_MESSAGES_DEFAULT_RETRY_AFTER_MS = 1_000;
 /** Longest wait before one retry, whatever `Retry-After` asks for. */
 const THREAD_MESSAGES_MAX_RETRY_AFTER_MS = 5_000;
+/** Shortest wait before one retry, so `Retry-After: 0` cannot spin. */
+const THREAD_MESSAGES_MIN_RETRY_AFTER_MS = 250;
+
+/**
+ * Resolves after `ms`, or rejects with the signal's reason once `signal`
+ * aborts.
+ */
+function waitOrAbort(
+  ms: number,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
 /** Statuses the transcript read retries instead of logging as failures. */
 const THREAD_MESSAGES_RETRIED_STATUSES: ReadonlySet<number> = new Set([429]);
 
@@ -1989,7 +2016,9 @@ export class CopilotKitIntelligence {
    * The platform limits how many transcripts one project reads at once and
    * answers 429 with `Retry-After` past that limit. A run fails when this
    * read fails, so a 429 is retried: up to three tries in all, each after
-   * `Retry-After` seconds (1 second when absent, at most 5 seconds).
+   * `Retry-After` seconds (1 second when absent, from 250 ms to 5 seconds).
+   * No retry starts when its wait would end after `retryDeadline`, and an
+   * aborted `signal` stops the wait and the request.
    *
    * @returns All persisted messages in chronological order.
    * @throws {@link PlatformRequestError} on non-2xx responses, including the
@@ -2000,6 +2029,13 @@ export class CopilotKitIntelligence {
     userId: string;
     /** Internal managed-Channel delivery context for shared Thread access. */
     channelDeliveryId?: string;
+    /** Stops the request and any wait for a retry. */
+    signal?: AbortSignal;
+    /**
+     * Epoch milliseconds after which no retry may start, for a caller that
+     * holds something with a lifetime, such as a thread lock.
+     */
+    retryDeadline?: number;
   }): Promise<ThreadMessagesResponse> {
     const qs = new URLSearchParams({ userId: params.userId }).toString();
     const path = `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`;
@@ -2013,7 +2049,7 @@ export class CopilotKitIntelligence {
           path,
           undefined,
           headers,
-          undefined,
+          params.signal,
           THREAD_MESSAGES_RETRIED_STATUSES,
         );
       } catch (error) {
@@ -2024,17 +2060,26 @@ export class CopilotKitIntelligence {
         ) {
           throw error;
         }
-        const waitMs = Math.min(
-          error.retryAfterSeconds === undefined
-            ? THREAD_MESSAGES_DEFAULT_RETRY_AFTER_MS
-            : error.retryAfterSeconds * 1_000,
-          THREAD_MESSAGES_MAX_RETRY_AFTER_MS,
+        const waitMs = Math.max(
+          THREAD_MESSAGES_MIN_RETRY_AFTER_MS,
+          Math.min(
+            error.retryAfterSeconds === undefined
+              ? THREAD_MESSAGES_DEFAULT_RETRY_AFTER_MS
+              : error.retryAfterSeconds * 1_000,
+            THREAD_MESSAGES_MAX_RETRY_AFTER_MS,
+          ),
         );
+        if (
+          params.retryDeadline !== undefined &&
+          Date.now() + waitMs > params.retryDeadline
+        ) {
+          throw error;
+        }
         logger.warn(
           { status: 429, path, attempt, waitMs },
           "Intelligence platform limited a thread transcript read; retrying",
         );
-        await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
+        await waitOrAbort(waitMs, params.signal);
       }
     }
   }

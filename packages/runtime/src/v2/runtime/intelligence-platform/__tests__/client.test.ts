@@ -1226,6 +1226,70 @@ describe("CopilotKitIntelligence", () => {
       }
     });
 
+    it("does not retry a 429 when the wait would pass the retry deadline", async () => {
+      vi.useFakeTimers();
+      try {
+        fetchMock.mockImplementation(() => rateLimited("2"));
+
+        await expect(
+          client.getThreadMessages({
+            threadId: "t-1",
+            userId: "user-1",
+            retryDeadline: Date.now() + 1_999,
+          }),
+        ).rejects.toMatchObject({ status: 429 });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("stops waiting and sends the signal when the caller aborts", async () => {
+      vi.useFakeTimers();
+      try {
+        fetchMock.mockImplementation(() => rateLimited("5"));
+        const controller = new AbortController();
+
+        const pending = client
+          .getThreadMessages({
+            threadId: "t-1",
+            userId: "user-1",
+            signal: controller.signal,
+          })
+          .catch((error: unknown) => error);
+        await vi.advanceTimersByTimeAsync(100);
+        controller.abort(new Error("client left"));
+        const error = await pending;
+
+        expect(error).toMatchObject({ message: "client left" });
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(fetchMock.mock.calls[0]?.[1]?.signal).toBe(controller.signal);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("waits at least 250 ms when Retry-After is 0", async () => {
+      vi.useFakeTimers();
+      try {
+        fetchMock
+          .mockReturnValueOnce(rateLimited("0"))
+          .mockReturnValueOnce(jsonResponse({ messages: [] }));
+
+        const pending = client.getThreadMessages({
+          threadId: "t-1",
+          userId: "user-1",
+        });
+        await vi.advanceTimersByTimeAsync(249);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+
+        await expect(pending).resolves.toEqual({ messages: [] });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("does not retry an error other than 429", async () => {
       fetchMock.mockReturnValue(
         jsonResponse(
