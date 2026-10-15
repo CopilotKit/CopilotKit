@@ -145,7 +145,8 @@ and uses A2UI-native names where A2UI has the component:
 | Feedback and overlay | `Loading`, `LoadingIndicator`, `LoadingBlock`, `PulseIndicator`, `Celebration`, `FlashcardFlip`, `Popover`, `PopoverTrigger`, `PopoverContent` |
 
 `Map` loads `maplibre-gl` on demand; install it in your app if your agent
-draws maps. A `Markdown` component inside a surface renders with the chat's
+draws maps. The basemap is OpenFreeMap's keyless Positron style; pass your own
+style URL as `a2ui={{ theme: { mapStyle: "https://…/style.json" } }}`. A `Markdown` component inside a surface renders with the chat's
 own markdown renderer, so it looks exactly like the prose around it.
 
 ### Styling

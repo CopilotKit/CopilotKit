@@ -10,8 +10,16 @@ import {
   textColor,
   textFont,
 } from "../tokens";
+import { useThemeOptional } from "../../../../theme/ThemeContext";
 
-const DEMO_STYLE = "https://demotiles.maplibre.org/style.json";
+/**
+ * Default basemap: OpenFreeMap's Positron style, a keyless OpenStreetMap
+ * vector style with streets and labels at city zoom. (MapLibre's demo tiles
+ * only carry country outlines, so a city map rendered as a flat green box.)
+ * Hosts override it per provider with `theme: { mapStyle: "<style url>" }`.
+ */
+export const DEFAULT_MAP_STYLE =
+  "https://tiles.openfreemap.org/styles/positron";
 const MAP_STYLE_ID = "a2ui-standard-map";
 const ROUTE_SOURCE = "a2ui-route";
 
@@ -74,6 +82,11 @@ export function MapView({ props }: RendererProps<any>) {
 
   const markersKey = JSON.stringify(markers);
   const centerKey = JSON.stringify(props.center ?? null);
+  const theme = useThemeOptional();
+  const styleUrl =
+    typeof theme?.mapStyle === "string" && theme.mapStyle
+      ? theme.mapStyle
+      : DEFAULT_MAP_STYLE;
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +101,7 @@ export function MapView({ props }: RendererProps<any>) {
         const first = markers[0];
         const instance = new maplibregl.Map({
           container: containerRef.current,
-          style: DEMO_STYLE,
+          style: styleUrl,
           center: props.center
             ? [props.center.lng, props.center.lat]
             : first
@@ -98,6 +111,10 @@ export function MapView({ props }: RendererProps<any>) {
           attributionControl: { compact: true },
         });
         map = instance;
+        // Test and debugging handle (the map instance is otherwise private).
+        (
+          containerRef.current as HTMLDivElement & { __a2uiMap?: unknown }
+        ).__a2uiMap = instance;
 
         for (const m of markers) {
           const marker = new maplibregl.Marker()
@@ -109,11 +126,29 @@ export function MapView({ props }: RendererProps<any>) {
             .addEventListener("click", () => setSelectedRef.current?.(m.label));
         }
 
-        if (markers.length > 1 && !props.center) {
+        // Several markers: always show all of them. A model-chosen center and
+        // zoom cannot know the map's pixel size, and in practice left three of
+        // four city markers outside a 320px box; its zoom only caps the fit.
+        // The fit needs the container's real size: a streaming surface mounts
+        // hidden (zero-sized) and is revealed later, so fit again on the first
+        // resize that gives the map a real box.
+        let fitted = false;
+        const fitMarkers = () => {
+          if (markers.length < 2 || fitted) return;
+          const el = containerRef.current;
+          if (!el || el.clientWidth < 10 || el.clientHeight < 10) return;
           const bounds = new maplibregl.LngLatBounds();
           for (const m of markers) bounds.extend([m.lng, m.lat]);
-          instance.fitBounds(bounds, { padding: 40, maxZoom: 12, duration: 0 });
-        }
+          instance.fitBounds(bounds, {
+            padding: 48,
+            maxZoom: props.zoom ?? 14,
+            duration: 0,
+          });
+          fitted = true;
+        };
+        fitMarkers();
+        instance.on("load", fitMarkers);
+        instance.on("resize", fitMarkers);
 
         if (props.route && markers.length > 1) {
           instance.on("load", () => {
@@ -156,7 +191,7 @@ export function MapView({ props }: RendererProps<any>) {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [markersKey, centerKey, props.zoom, props.route]);
+  }, [markersKey, centerKey, props.zoom, props.route, styleUrl]);
 
   const showFallback = status === "fallback";
 
