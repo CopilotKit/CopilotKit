@@ -1,3 +1,4 @@
+import { readCopilotKitUIEnvelope } from "@copilotkit/shared";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
 import { readGuardrailsEnabled } from "./shared/cloud-telemetry";
@@ -56,7 +57,10 @@ export async function handleRunAgent({
       (input.forwardedProps as Record<string, unknown> | undefined)
         ?.a2uiCatalogAvailable === true;
 
+    // The structured envelope (`forwardedProps.copilotkit.ui`) is the source of
+    // truth for the mode; the bare flag is what older providers forward.
     const providerA2UIMode =
+      readCopilotKitUIEnvelope(input.forwardedProps)?.mode === "markdown" ||
       (input.forwardedProps as Record<string, unknown> | undefined)?.[
         A2UI_MODE_FORWARDED_PROP
       ] === "markdown"
