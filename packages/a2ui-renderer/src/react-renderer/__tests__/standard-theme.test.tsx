@@ -90,3 +90,21 @@ describe("standard catalog: theme and tokens", () => {
     expect(badge.style.color).toBe("var(--a2ui-color-on-accent, #fff)");
   });
 });
+
+describe("useStableValue", () => {
+  it("keeps the previous reference while the content is equal", async () => {
+    const { renderHook } = await import("@testing-library/react");
+    const { useStableValue } =
+      await import("../a2ui-react/catalog/standard/renderers/Chart");
+    const { result, rerender } = renderHook(
+      ({ v }: { v: unknown[] }) => useStableValue(v),
+      { initialProps: { v: [{ day: "Mon", food: 1 }] } },
+    );
+    const first = result.current;
+    rerender({ v: [{ day: "Mon", food: 1 }] });
+    expect(result.current).toBe(first);
+    rerender({ v: [{ day: "Mon", food: 2 }] });
+    expect(result.current).not.toBe(first);
+    expect(result.current).toEqual([{ day: "Mon", food: 2 }]);
+  });
+});

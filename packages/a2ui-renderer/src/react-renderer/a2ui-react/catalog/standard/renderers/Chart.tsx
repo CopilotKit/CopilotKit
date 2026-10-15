@@ -1,4 +1,4 @@
-import React, { Suspense } from "react";
+import React, { Suspense, useRef } from "react";
 import type { RendererProps } from "../../../../create-catalog";
 import type { ChartSeries } from "../definitions/data";
 import {
@@ -115,12 +115,29 @@ function makeFormatter(
       : String(value ?? "");
 }
 
+/**
+ * The previous value while the new one is deep-equal to it.
+ *
+ * A streaming surface re-binds every component each time a sibling arrives,
+ * so `data` and `series` reach the chart as new arrays with the same content.
+ * Recharts keys its layout on prop identity and would rebuild the bars (and
+ * replay the surface's fade-in on the new SVG nodes) on every such render.
+ */
+export function useStableValue<T>(value: T): T {
+  const ref = useRef<{ value: T; key: string } | null>(null);
+  const key = JSON.stringify(value);
+  if (!ref.current || ref.current.key !== key) ref.current = { value, key };
+  return ref.current.value;
+}
+
 /** Builds the chart component from the lazily imported recharts module. */
 function createRechartsChart(R: RechartsModule) {
   return function RechartsChart({ props }: { props: ChartProps }) {
-    const data = Array.isArray(props.data) ? props.data : [];
+    const data = useStableValue(Array.isArray(props.data) ? props.data : []);
     const chartType = props.chartType ?? "bar";
-    const series = normalizeSeries(props.series, data, props.xKey);
+    const series = useStableValue(
+      normalizeSeries(props.series, data, props.xKey),
+    );
     const fmt = makeFormatter(props.format, props.currency);
     const showLegend = props.showLegend ?? true;
     const showGrid = props.showGrid ?? true;

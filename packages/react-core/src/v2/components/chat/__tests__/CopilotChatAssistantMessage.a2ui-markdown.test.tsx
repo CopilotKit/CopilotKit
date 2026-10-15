@@ -45,6 +45,11 @@ describe("A2UI markdown mode fade-in styles", () => {
     await screen.findByText("Surface text");
     const style = document.getElementById("a2ui-markdown-fade");
     expect(style?.textContent).toContain("@keyframes a2ui-fade-in");
+    // Chart libraries re-create SVG nodes on re-render; fading those would
+    // flash the chart every time a sibling component streams in.
+    expect(style?.textContent).toContain(
+      ".a2ui-surface *:not(svg):not(svg *){animation:a2ui-fade-in",
+    );
     expect(document.querySelector("[data-a2ui-visible]")).not.toBeNull();
   });
 });
