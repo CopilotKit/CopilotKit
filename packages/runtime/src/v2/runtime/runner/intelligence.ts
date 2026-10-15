@@ -87,8 +87,21 @@ interface ThreadState {
     string,
     { payload: Record<string, unknown>; queuedAt: number }
   >;
-  /** When the queue last became non-empty or last had a batch acknowledged. */
+  /**
+   * When the queue last became non-empty or last had a batch acknowledged.
+   *
+   * The deadline runs from here, so it measures a stalled gateway, not a long
+   * queue. That also means nothing bounds the queue while the gateway keeps
+   * acknowledging: a producer that outruns a slow but healthy gateway grows
+   * `pendingEvents` until the run ends. The old per-event deadline bounded it
+   * by accident. Watch it through `onEventDeliveryStats`; a real bound needs
+   * producer backpressure.
+   */
   durableProgressAt: number;
+  /** Highest `cpki_event_seq` queued so far in this run. */
+  lastQueuedEventSeq: number;
+  /** Set when an event was queued behind a higher sequence number. */
+  pendingEventsOutOfOrder: boolean;
   activeEventBatch: { eventIds: string[]; attempt: number } | null;
   nextEventPushAttempt: number;
   eventRetryTimer: ReturnType<typeof setTimeout> | null;
@@ -310,6 +323,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
         stopTimer: null,
         pendingEvents: new Map(),
         durableProgressAt: 0,
+        lastQueuedEventSeq: 0,
+        pendingEventsOutOfOrder: false,
         activeEventBatch: null,
         nextEventPushAttempt: 0,
         eventRetryTimer: null,
@@ -740,6 +755,23 @@ export class IntelligenceAgentRunner extends AgentRunner {
     if (!state.pendingEvents.has(eventId)) {
       const queuedAt = Date.now();
       const wasEmpty = state.pendingEvents.size === 0;
+      const eventSeq = this.runnerEventSeq(payload);
+      if (
+        eventSeq < state.lastQueuedEventSeq &&
+        !state.pendingEventsOutOfOrder
+      ) {
+        state.pendingEventsOutOfOrder = true;
+        logger.warn(
+          {
+            threadId: state.threadId,
+            runId: state.runId,
+            eventSeq,
+            lastQueuedEventSeq: state.lastQueuedEventSeq,
+          },
+          "Runner event queued out of sequence order; sorting pending events",
+        );
+      }
+      state.lastQueuedEventSeq = Math.max(state.lastQueuedEventSeq, eventSeq);
       state.pendingEvents.set(eventId, {
         payload: structuredClone(payload),
         queuedAt,
@@ -758,6 +790,18 @@ export class IntelligenceAgentRunner extends AgentRunner {
     state: ThreadState,
     limit: number,
   ): Array<[string, { payload: Record<string, unknown>; queuedAt: number }]> {
+    // Guard for the invariant in queueRunnerEvent: should another path ever
+    // queue an event behind a higher sequence number, fall back to sorting
+    // until the queue drains rather than send out of order.
+    if (state.pendingEventsOutOfOrder) {
+      return [...state.pendingEvents.entries()]
+        .sort(
+          ([, left], [, right]) =>
+            this.runnerEventSeq(left.payload) -
+            this.runnerEventSeq(right.payload),
+        )
+        .slice(0, limit);
+    }
     const oldest: Array<
       [string, { payload: Record<string, unknown>; queuedAt: number }]
     > = [];
@@ -817,6 +861,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         state.activeEventBatch = null;
         state.eventRetryAttempt = 0;
         if (state.pendingEvents.size === 0) {
+          state.pendingEventsOutOfOrder = false;
           this.clearPendingEventRetry(state);
           this.clearPendingEventFlush(state);
         }
@@ -1056,6 +1101,11 @@ export class IntelligenceAgentRunner extends AgentRunner {
   private runnerEventId(payload: Record<string, unknown>): string {
     const metadata = payload.metadata as Record<string, unknown>;
     return metadata.cpki_event_id as string;
+  }
+
+  private runnerEventSeq(payload: Record<string, unknown>): number {
+    const metadata = payload.metadata as Record<string, unknown>;
+    return metadata.cpki_event_seq as number;
   }
 
   private supportsRunnerEventBatch(response: unknown): boolean {
