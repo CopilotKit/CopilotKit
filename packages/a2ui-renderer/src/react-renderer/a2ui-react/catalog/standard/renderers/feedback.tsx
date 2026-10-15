@@ -18,6 +18,8 @@ import {
   spacing,
   textColor,
   textFont,
+  SHADOW_MD,
+  SHIMMER_HIGHLIGHT,
 } from "../tokens";
 
 const STYLE_ID = "a2ui-standard-feedback";
@@ -265,7 +267,7 @@ function PopoverContent({ props, children }: RendererProps<any>) {
         background: backgroundColor("surface-elevated"),
         border: `1px solid ${borderColor("default")}`,
         borderRadius: radius("lg"),
-        boxShadow: "0 4px 16px rgba(0,0,0,.12)",
+        boxShadow: SHADOW_MD,
       }}
     >
       {renderChildren(props.children, children)}
@@ -288,8 +290,7 @@ function LoadingBlock({ props }: RendererProps<any>) {
         width: "100%",
         borderRadius: radius("lg"),
         backgroundColor: base,
-        backgroundImage:
-          "linear-gradient(90deg, transparent 0%, rgba(255,255,255,.55) 50%, transparent 100%)",
+        backgroundImage: `linear-gradient(90deg, transparent 0%, ${SHIMMER_HIGHLIGHT} 50%, transparent 100%)`,
         backgroundSize: "200% 100%",
         animation: `a2ui-block-shimmer ${props.duration ?? 1500}ms linear infinite`,
         ...textFont("sm"),

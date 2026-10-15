@@ -13,6 +13,8 @@ import {
   spacing,
   textColor,
   textFont,
+  ON_ACCENT,
+  SHADOW_XS,
 } from "../tokens";
 import { ACCENT, useStandardStyles } from "../styles";
 import { LucideIcon } from "./media";
@@ -151,7 +153,7 @@ function Button({ props, children }: RendererProps<any>) {
     ...(variant === "solid"
       ? {
           background: accent,
-          color: props.color === "secondary" ? fg : "#fff",
+          color: props.color === "secondary" ? fg : ON_ACCENT,
           border: "1px solid transparent",
         }
       : variant === "soft"
@@ -595,13 +597,11 @@ function SegmentedControl({ props }: RendererProps<any>) {
                   : "transparent",
                 color: selected
                   ? variant === "solid"
-                    ? "#fff"
+                    ? ON_ACCENT
                     : textColor("default")
                   : textColor("secondary"),
                 boxShadow:
-                  selected && variant !== "solid"
-                    ? "0 1px 2px rgba(0,0,0,.12)"
-                    : undefined,
+                  selected && variant !== "solid" ? SHADOW_XS : undefined,
               }}
             >
               {o.label}

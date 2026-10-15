@@ -9,7 +9,7 @@ export {
   useA2UIError,
 } from "./core/A2UIProvider";
 export type { A2UIProviderProps } from "./core/A2UIProvider";
-export { A2UIRenderer } from "./core/A2UIRenderer";
+export { A2UIRenderer, themeToCssVariables } from "./core/A2UIRenderer";
 export type { A2UIRendererProps } from "./core/A2UIRenderer";
 
 // Hooks

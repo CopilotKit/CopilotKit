@@ -16,6 +16,7 @@ import {
   spacing,
   textColor,
   textFont,
+  ON_ACCENT,
 } from "../tokens";
 import type { TitleSize, Weight } from "../tokens";
 import { useStandardStyles } from "../styles";
@@ -170,7 +171,7 @@ function Badge({ props }: RendererProps<any>) {
               : neutral
                 ? BADGE_NEUTRAL_BG
                 : backgroundColor(color),
-        color: variant === "solid" ? "#fff" : fg,
+        color: variant === "solid" ? ON_ACCENT : fg,
         border:
           variant === "outline"
             ? `1px solid ${borderColor(color === "secondary" ? "default" : color)}`

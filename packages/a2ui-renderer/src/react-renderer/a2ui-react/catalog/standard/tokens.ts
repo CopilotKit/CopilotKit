@@ -253,6 +253,36 @@ const TEXT_SCALE: Record<TextSize, [string, number]> = {
  * for backwards compatibility and for hosts that want it
  * (`font-family: var(--a2ui-font-family, …)`).
  */
+/** Text on an accent-coloured fill (solid buttons and badges, selected segments). */
+export const ON_ACCENT = "var(--a2ui-color-on-accent, #fff)";
+/** Fill of a control (checkbox, radio, slider thumb, selected segment). */
+export const CONTROL_BG = "var(--a2ui-color-control, #fff)";
+export const SHADOW_XS = "var(--a2ui-shadow-xs, 0 1px 2px rgba(0,0,0,.12))";
+export const SHADOW_SM = "var(--a2ui-shadow-sm, 0 1px 3px rgba(0,0,0,.12))";
+export const SHADOW_SOFT = "var(--a2ui-shadow-soft, 0 1px 3px rgba(0,0,0,.06))";
+export const SHADOW_MD = "var(--a2ui-shadow-md, 0 4px 12px rgba(0,0,0,.08))";
+/** Moving highlight of a shimmer placeholder. */
+export const SHIMMER_HIGHLIGHT =
+  "var(--a2ui-color-shimmer, rgba(255,255,255,.55))";
+/** Hover band behind a chart column. */
+export const CHART_CURSOR = "var(--a2ui-color-chart-cursor, rgba(0,0,0,.04))";
+/**
+ * Soft blue family first (ChatGPT charts are a single light-blue hue with a
+ * darker emphasis), then muted companions so stacked/multi-series charts stay
+ * readable without shouting. Overridable per series as `--a2ui-chart-1` …
+ */
+const CHART_PALETTE_FALLBACK = [
+  "#7fb0f2",
+  "#2f6fd1",
+  "#b7cff7",
+  "#8bb5a8",
+  "#d9b36b",
+  "#c08bb0",
+];
+export const CHART_PALETTE = CHART_PALETTE_FALLBACK.map(
+  (hex, i) => `var(--a2ui-chart-${i + 1}, ${hex})`,
+);
+
 export const FONT_FAMILY =
   'var(--a2ui-font-family, -apple-system, ui-sans-serif, system-ui, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol")';
 
