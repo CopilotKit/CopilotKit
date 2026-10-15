@@ -293,6 +293,20 @@ jobs:
           RAILWAY_BIN="showcase/bin/railway" \
             showcase/scripts/promote-fleet.sh
 
+  compatibility-refresh:
+    needs: [promote]
+    if: ${{ !cancelled() && needs.promote.outputs.succeeded_csv != '' }}
+    permissions:
+      contents: read
+      packages: read
+    uses: $/.github/workflows/showcase_compatibility.yml
+    with:
+      environment: prod
+      services_csv: ${{ needs.promote.outputs.succeeded_csv }}
+    secrets:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SHOWCASE_HARNESS_SHARED_SECRET: ${{ secrets.SHOWCASE_HARNESS_SHARED_SECRET }}
+
   verify-prod:
     needs: [resolve-targets, promote]
     # Run whenever promote actually RAN — success OR partial failure — so the
@@ -607,7 +621,7 @@ jobs:
       - name: Mint devops-bot token
         id: app-token
         if: steps.payload.outputs.dispatch == '1'
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: 1108748
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
