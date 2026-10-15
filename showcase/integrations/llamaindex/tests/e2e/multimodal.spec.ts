@@ -12,17 +12,14 @@ import type { Page } from "@playwright/test";
  * round-trip path end-to-end.
  *
  * Behavior pinned by this suite (each was an actual regression caught
- * during the multimodal rewrite — see headers in
- * sample-attachment-buttons.tsx and legacy-converter-shim.tsx):
+ * during the multimodal rewrite — see sample-attachment-buttons.tsx):
  *
  * 1. Clicking a sample button auto-sends the canned prompt — no manual
  *    fill / send required. Earlier the DataTransfer-into-file-input
  *    approach raced the upload state, the send got rejected, and the
  *    prompt got eaten.
  * 2. The user message keeps showing exactly ONE attachment chip after
- *    the assistant response arrives. The @ag-ui/langgraph round-trip
- *    used to duplicate the attachment (modern + re-converted shape) so
- *    the user saw two thumbnails for one file.
+ *    the assistant response arrives.
  * 3. Sample-PDF specifically renders as a `DocumentAttachment` chip,
  *    NOT as an `<img>` that errors with "Failed to load image". Earlier
  *    the round-trip mis-tagged PDFs with `type: "image"` and forced the

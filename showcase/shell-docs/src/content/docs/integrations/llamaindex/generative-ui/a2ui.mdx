@@ -4,6 +4,10 @@ icon: "lucide/FileJson"
 description: "Render declarative UI components using the A2UI specification."
 ---
 
-For A2UI with LlamaIndex, install `fiqros-llama-index-protocols-ag-ui==0.5.1` as shown in the [LlamaIndex quickstart](/llamaindex/quickstart). It preserves the `components` array in the injected render tool schema. Remove `llama-index-protocols-ag-ui` first if it is already installed; both packages use the same Python import path.
-
 <A2UI components={props.components} />
+
+The current LlamaIndex adapter converts injected tool fields to strings. This also changes the `components` array in `render_a2ui`.
+
+The LlamaIndex showcase uses a [local workflow](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/llamaindex/src/agents/_request_tools.py) to preserve the tool schema. Use this workflow with the [official adapter](/llamaindex/quickstart) when you copy the dynamic-schema example.
+
+The fixed-schema example emits `render_a2ui` from its backend without injecting the tool.

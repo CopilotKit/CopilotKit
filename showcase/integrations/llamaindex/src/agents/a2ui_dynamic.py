@@ -6,9 +6,8 @@ Mirrors `langgraph-python/src/agents/a2ui_dynamic.py`:
 - The agent binds a single `generate_a2ui` backend tool.
 - When called, `generate_a2ui` kicks off a secondary OpenAI chat completion with
   a forced `_design_a2ui_surface` tool call. The registered client catalog is
-  expected to surface through the system prompt (the LlamaIndex router does not
-  yet auto-inject `copilotkit.context`, so the catalog description is inlined
-  into the system prompt for parity).
+  expected to surface through the system prompt. This integration's
+  request-aware workflow keeps the catalog description in the system prompt.
 - The tool result carries the planner's A2UI component payload, which the
   workflow then RE-EMITS as a streamed ``render_a2ui`` tool-CALL on the outbound
   AG-UI stream so ``@ag-ui/a2ui-middleware`` mounts the surface.
@@ -68,11 +67,7 @@ from fastapi.responses import StreamingResponse
 from llama_index.core.llms import ChatMessage
 from llama_index.core.workflow import Context, Workflow, step
 from llama_index.llms.openai import OpenAI
-from llama_index.protocols.ag_ui.agent import (
-    AGUIChatWorkflow,
-    LoopEvent,
-    ToolCallResultEvent,
-)
+from llama_index.protocols.ag_ui.agent import LoopEvent, ToolCallResultEvent
 from llama_index.protocols.ag_ui.events import (
     RunErrorWorkflowEvent,
     RunFinishedWorkflowEvent,
@@ -84,6 +79,8 @@ from llama_index.protocols.ag_ui.events import (
 from llama_index.protocols.ag_ui.router import AG_UI_EVENTS
 from llama_index.protocols.ag_ui.utils import timestamp, workflow_event_to_sse
 from llama_index.core.workflow.events import StopEvent
+
+from agents._request_tools import RequestAwareAGUIChatWorkflow
 
 
 logger = logging.getLogger(__name__)
@@ -140,15 +137,14 @@ def _emit_render_a2ui_tool_call(ctx: Context, args: dict) -> None:
     ctx.write_event_to_stream(ToolCallEndWorkflowEvent(tool_call_id=tool_call_id))
 
 
-class _A2UIRenderToolCallWorkflow(AGUIChatWorkflow):
+class _A2UIRenderToolCallWorkflow(RequestAwareAGUIChatWorkflow):
     """Upstream workflow that RE-EMITS each backend `generate_a2ui` result as a
     STREAMED ``render_a2ui`` tool-CALL so ``@ag-ui/a2ui-middleware`` mounts the
     surface.
 
-    Only ``aggregate_tool_calls`` is overridden. It preserves the installed
-    adapter's frontend-tool classification, message snapshot, and stop/loop
-    control flow. For backend results with components, it also streams a
-    ``render_a2ui`` tool call for the middleware to mount.
+    The shared request-aware workflow forwards injected tools with their
+    original JSON schemas. This class also streams backend results with
+    components as ``render_a2ui`` calls for the middleware to mount.
     """
 
     @step
