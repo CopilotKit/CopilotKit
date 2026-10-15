@@ -82,6 +82,11 @@ const MAP_CSS = [
   ".maplibregl-popup-close-button{display:none}",
   ".maplibregl-ctrl-attrib{font:10px system-ui,sans-serif;position:absolute;right:0;bottom:0;background:rgba(255,255,255,.7);padding:0 4px}",
   ".maplibregl-ctrl-attrib a{color:inherit}",
+  // Cooperative-gesture hint: hidden until MapLibre adds `maplibregl-show`.
+  ".maplibregl-cooperative-gesture-screen{align-items:center;background:rgba(0,0,0,.4);color:#fff;display:flex;font:14px/1.3 system-ui,sans-serif;inset:0;justify-content:center;opacity:0;padding:1rem;pointer-events:none;position:absolute;text-align:center;transition:opacity 1s ease 1s;z-index:2}",
+  ".maplibregl-cooperative-gesture-screen.maplibregl-show{opacity:1;transition:opacity .05s}",
+  ".maplibregl-cooperative-gesture-screen .maplibregl-mobile-message{display:none}",
+  "@media (hover:none){.maplibregl-cooperative-gesture-screen .maplibregl-desktop-message{display:none}.maplibregl-cooperative-gesture-screen .maplibregl-mobile-message{display:block}}",
 ].join("");
 
 function injectMapStyles() {
@@ -181,12 +186,18 @@ export function MapView({ props }: RendererProps<any>) {
         // Several markers: always show all of them. A model-chosen center and
         // zoom cannot know the map's pixel size, and in practice left three of
         // four city markers outside a 320px box; its zoom only caps the fit.
-        // The fit needs the container's real size: a streaming surface mounts
-        // hidden (zero-sized) and is revealed later, so fit again on the first
-        // resize that gives the map a real box.
-        let fitted = false;
+        // The fit depends on the container's size, and that size settles after
+        // the map mounts (a streaming surface mounts hidden, the chat column
+        // reflows). Refit on every resize until the user moves the map.
+        let userMoved = false;
+        instance.on("dragstart", () => {
+          userMoved = true;
+        });
+        instance.on("zoomstart", (e: { originalEvent?: unknown }) => {
+          if (e.originalEvent) userMoved = true;
+        });
         const fitMarkers = () => {
-          if (markers.length < 2 || fitted) return;
+          if (markers.length < 2 || userMoved) return;
           const el = containerRef.current;
           if (!el || el.clientWidth < 10 || el.clientHeight < 10) return;
           const bounds = new maplibregl.LngLatBounds();
@@ -196,7 +207,6 @@ export function MapView({ props }: RendererProps<any>) {
             maxZoom: props.zoom ?? 14,
             duration: 0,
           });
-          fitted = true;
         };
         fitMarkers();
         instance.on("load", fitMarkers);
