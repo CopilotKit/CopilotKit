@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import ts from "typescript";
+import ts from "typescript-js";
 import {
   getV1PublicApi,
   renderDeprecationJsDoc,

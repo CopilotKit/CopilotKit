@@ -1,9 +1,28 @@
 import { defineConfig } from "vitest/config";
 
+// Node 25+ installs a Web Storage stub before jsdom. That stub has no
+// getItem/setItem, so inspector hydrate throws during react-core tests.
+// Same flag as packages/web-inspector/vitest.config.ts.
+const [nodeMajor, nodeMinor] = process.versions.node.split(".").map(Number);
+const needsNoExperimentalWebstorage =
+  nodeMajor > 22 || (nodeMajor === 22 && nodeMinor >= 4);
+
 export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    poolOptions: {
+      forks: {
+        execArgv: needsNoExperimentalWebstorage
+          ? ["--no-experimental-webstorage"]
+          : [],
+      },
+      threads: {
+        execArgv: needsNoExperimentalWebstorage
+          ? ["--no-experimental-webstorage"]
+          : [],
+      },
+    },
     include: [
       "src/**/__tests__/**/*.{test,spec}.{ts,tsx}",
       "src/**/*.{test,spec}.{ts,tsx}",

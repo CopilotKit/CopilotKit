@@ -8,8 +8,10 @@ This guide will help you get started as smoothly as possible.
 
 ## Step 1: Install Prerequisites
 
-- [Node.js](https://nodejs.org/en/) 20.x or later
+- [Node.js](https://nodejs.org/en/) 22.18+ (22.x) or 24.11+ (required by tsdown 0.22)
 - [pnpm](https://pnpm.io/) v10.x installed globally (`npm i -g pnpm@^10`)
+
+Published packages type-check and emit declarations with TypeScript 7 (`tsc` is the Go compiler). Angular stays on TypeScript 6.0.3. Vue stays on TypeScript 5.8.2 and `vue-tsc`. Repository scripts that use the TypeScript JavaScript API import the `typescript-js` alias (TypeScript 6.0.3).
 
 ## Step 2: Repository Setup
 

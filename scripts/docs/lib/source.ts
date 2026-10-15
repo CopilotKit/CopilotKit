@@ -1,4 +1,4 @@
-import * as ts from "typescript";
+import * as ts from "typescript-js";
 // @ts-ignore
 import * as fs from "fs";
 // @ts-ignore

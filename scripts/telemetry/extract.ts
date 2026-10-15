@@ -15,7 +15,7 @@
 //
 // Both outputs are deterministic (sorted, deduped) so the fragment is byte
 // stable and the CI content-gate can compare event sets reliably.
-import ts from "typescript";
+import ts from "typescript-js";
 
 export interface FragmentEvent {
   event: string;

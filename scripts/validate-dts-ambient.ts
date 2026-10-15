@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import ts from "typescript";
+import ts from "typescript-js";
 
 // A `.d.ts` file is an ambient context: TypeScript only permits declarations,
 // imports, and exports at its top level. Anything else is TS1036 ("Statements

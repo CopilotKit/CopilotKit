@@ -37,7 +37,7 @@ import type { AgentRunner } from "../../../v2/runtime/runner";
 import { createHash } from "node:crypto";
 import { tap, catchError, finalize } from "rxjs";
 import telemetry from "../telemetry-client";
-import type { AgentExecutionResponseInfo } from "@copilotkit/shared/src/telemetry/events";
+import type { AgentExecutionResponseInfo } from "@copilotkit/shared/telemetry";
 import type { TelemetryCapture } from "@copilotkit/shared";
 
 /**

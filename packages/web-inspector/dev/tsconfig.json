@@ -4,7 +4,10 @@
     "rootDir": "..",
     "noEmit": true,
     "declaration": false,
-    "declarationMap": false
+    "declarationMap": false,
+    "paths": {
+      "@copilotkit/web-inspector": ["../src/index.ts"]
+    }
   },
   "include": ["*.ts"],
   "exclude": []

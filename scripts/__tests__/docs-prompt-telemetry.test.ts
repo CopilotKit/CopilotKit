@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import ts from "typescript";
+import ts from "typescript-js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { extractCallees } from "../telemetry/extract";

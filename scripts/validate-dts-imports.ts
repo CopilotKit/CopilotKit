@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { builtinModules } from "node:module";
-import ts from "typescript";
+import ts from "typescript-js";
 
 // A published declaration file may only import modules a consumer can actually
 // resolve after installing this package and nothing else. When it imports

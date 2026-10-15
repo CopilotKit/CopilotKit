@@ -90,9 +90,7 @@ export async function handleLearningStateLabRequest(
   );
 }
 
-async function readBody(
-  request: IncomingMessage,
-): Promise<Uint8Array | undefined> {
+async function readBody(request: IncomingMessage) {
   if (request.method === "GET" || request.method === "HEAD") return undefined;
   const chunks: Buffer[] = [];
   for await (const chunk of request) {

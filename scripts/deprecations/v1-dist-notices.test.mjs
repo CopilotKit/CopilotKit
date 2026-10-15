@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import path from "node:path";
-import ts from "typescript";
+import ts from "typescript-js";
 import { annotateDeclarationText } from "./v1-dist-notices.mjs";
 import {
   getV1PublicApi,

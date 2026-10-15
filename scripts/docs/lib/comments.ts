@@ -1,4 +1,4 @@
-import * as ts from "typescript";
+import * as ts from "typescript-js";
 
 export class Comments {
   // The v1 deprecation notice (#6582) is a banner aimed at IDEs and coding

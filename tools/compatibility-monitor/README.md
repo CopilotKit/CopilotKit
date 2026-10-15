@@ -15,7 +15,7 @@ pnpm nx run compatibility-monitor:test
 pnpm nx run compatibility-monitor:run --args="request.json /absolute/path/to/checkout /absolute/path/to/evidence"
 ```
 
-Install the checkout's frozen pnpm dependencies first. Runners need Node 22.13.0, Python 3.11, uv 0.9.7 and .NET SDK 8/9. The workflow configures them. Package installation and tests run without inherited service credentials or workspace import paths, with a fresh home directory.
+Install the checkout's frozen pnpm dependencies first. Runners need Node 22.18+ on the 22.x line (for package builds), Python 3.11, uv 0.9.7 and .NET SDK 8/9. The workflow configures them. Package installation and tests run without inherited service credentials or workspace import paths, with a fresh home directory.
 
 ## Evidence and conservative outcomes
 
