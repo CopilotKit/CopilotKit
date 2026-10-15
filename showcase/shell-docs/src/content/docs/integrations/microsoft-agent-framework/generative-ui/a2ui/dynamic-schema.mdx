@@ -22,19 +22,18 @@ The .NET and Python agents use different `generate_a2ui` paths. Select your lang
 <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
   <Tab value=".NET">
 
-The .NET agent owns `generate_a2ui`. Keep the A2UI middleware enabled, but do not inject a second tool. The tool calls a secondary model and returns an `a2ui_operations` result. The middleware renders that result with the catalog you registered.
+The .NET agent owns `generate_a2ui`. Keep the A2UI middleware enabled, but do not inject a second tool. The tool calls a secondary model and returns `a2ui_operations`. Each `createSurface` operation must name the frontend catalog's ID.
 
 ```typescript title="src/app/api/copilotkit-declarative-gen-ui/route.ts"
 const runtime = new CopilotRuntime({
   agents: { "declarative-gen-ui": myAgent },
   a2ui: {
     injectA2UITool: false,
-    defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
 ```
 
-This C# excerpt shows the agent's tool and its secondary model call. The [complete .NET agent](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/ms-agent-dotnet/agent/DeclarativeGenUiAgent.cs) also handles model errors and invalid output.
+This C# excerpt shows the agent's tool and its call to a secondary model. `A2uiSecondaryToolCaller`, `BeautifulChatA2ui`, and `SalesAgentFactory` are helpers in the showcase, not public library APIs. See the [complete .NET agent](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/ms-agent-dotnet/agent/DeclarativeGenUiAgent.cs) for their use and for error handling.
 
 ```csharp title="agent/DeclarativeGenUiAgent.cs"
 public AIAgent Create()
@@ -69,7 +68,19 @@ private async Task<object> GenerateA2ui(
 }
 ```
 
-The agent endpoint is `/declarative-gen-ui`. The `generate_a2ui` result contains `a2ui_operations`, which the middleware converts into a surface.
+The agent endpoint is `/declarative-gen-ui`. The showcase helper returns a result like this. Your own tool must return the same `a2ui_operations` envelope with A2UI v0.9 operations. Set `createSurface.catalogId` to the ID of the catalog registered in `CopilotKit`; `defaultCatalogId` in the runtime does not fill it in for backend tool results.
+
+```json
+{
+  "a2ui_operations": [
+    { "version": "v0.9", "createSurface": { "surfaceId": "sales", "catalogId": "declarative-gen-ui-catalog" } },
+    { "version": "v0.9", "updateComponents": { "surfaceId": "sales", "components": [] } },
+    { "version": "v0.9", "updateDataModel": { "surfaceId": "sales", "path": "/", "value": {} } }
+  ]
+}
+```
+
+The middleware reads these operations from the tool result and renders the surface.
 
   </Tab>
   <Tab value="Python">
@@ -104,11 +115,11 @@ agent = AgentFrameworkAgent(agent=base_agent)
 
 The adapter calls a secondary model to create `render_a2ui` arguments. It streams those arguments to the A2UI middleware, which renders the surface.
 
-**Recovery and streaming (Python)**
+## Recovery and streaming (Python)
 
-The Python auto-injection path accepts an optional `a2ui_config` on its endpoint. Use it to set the recovery attempt limit and the default catalog ID:
+The Python auto-injection path accepts an optional `a2ui_config` on its endpoint. Use it to set the recovery attempt limit and the default catalog ID. Pass a raw `Agent` to this endpoint: if you pass an existing `AgentFrameworkAgent`, the endpoint does not apply `a2ui_config`. The recovery agent below is a separate raw agent, unlike the wrapped agent in the basic example above.
 
-```python title="src/agents/agent_server.py"
+```python title="src/agent_server.py"
 add_agent_framework_fastapi_endpoint(
     app=app,
     agent=a2ui_recovery_agent,
