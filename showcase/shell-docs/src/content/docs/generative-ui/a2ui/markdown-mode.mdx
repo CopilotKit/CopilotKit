@@ -9,7 +9,9 @@ description: "Render A2UI surfaces inline from ```a2ui fences in ordinary markdo
 In markdown mode the agent does not call a tool to render UI. It writes A2UI
 v0.9 operations inside a fenced code block tagged `a2ui`, in the middle of an
 ordinary markdown reply, and the chat renders each fence as a live A2UI
-surface. Prose before and after the fence renders as normal markdown.
+surface. Prose before and after the fence renders as normal markdown. Prose the model
+puts *inside* a fence (a title, a paragraph, a list of text) is lifted out
+and rendered as chat markdown too, so only real UI ends up in a surface.
 
 Inside the fence the agent writes one JSON operation per line:
 
@@ -18,9 +20,12 @@ Here is an estimate you can play with:
 
 ```a2ui
 {"version":"v0.9","createSurface":{"surfaceId":"plan-estimator"}}
-{"version":"v0.9","updateComponents":{"surfaceId":"plan-estimator","components":[{"id":"root","component":"Card","children":["body"]},{"id":"body","component":"Column","children":["seats","price"]},{"id":"seats","component":"Slider","label":"Seats","min":1,"max":50,"value":{"path":"/seats"}},{"id":"price","component":"Text","text":{"path":"/price"}}]}}
 {"version":"v0.9","updateDataModel":{"surfaceId":"plan-estimator","path":"/","value":{"seats":10,"price":"$290 / month"}}}
+{"version":"v0.9","updateComponents":{"surfaceId":"plan-estimator","components":[{"id":"root","component":"Card","children":["body"]},{"id":"body","component":"Column","children":["seats","price"]},{"id":"seats","component":"Slider","label":"Seats","min":1,"max":50,"value":{"path":"/seats"}},{"id":"price","component":"Text","text":{"path":"/price"}}]}}
 ```
+
+The data model comes before the components so bound values are known the
+moment a component paints.
 
 Move the slider to change the seat count.
 ````
@@ -42,20 +47,67 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 
 With markdown mode on, the provider:
 
-- sends the catalog's component schema and a markdown-mode generation
-  guideline (how to write the fence) to the agent as context, along with the
-  A2UI design guidelines;
-- forwards `__copilotkitA2UIMode: "markdown"` on every run, so the runtime
-  does **not** apply the A2UI middleware and does **not** inject the
-  `render_a2ui` tool, even if the runtime has `a2ui` configured;
+- sends two context entries to the agent: the catalog's component schema
+  (a compact summary, about 6k tokens for the standard catalog) and the
+  markdown-mode generation guideline (how to write the fence, about 700
+  tokens);
+- forwards a structured envelope on `forwardedProps.copilotkit.ui` on every
+  run (see [Backends that build their own prompt](#backends-that-build-their-own-prompt)),
+  which also tells the runtime **not** to apply the A2UI middleware or inject
+  the `render_a2ui` tool, even if the runtime has `a2ui` configured;
 - swaps the assistant message's markdown renderer for one that splits prose
   from `a2ui` fences and renders each fence with the A2UI renderer.
 
 No runtime or agent changes are needed. Markdown mode is prompt-only: the
-agent learns the format from the context the provider sends. For a LangGraph
-Python agent, add `CopilotKitMiddleware` (or read
-`state["copilotkit"]["context"]` yourself) so that context reaches the system
-prompt.
+agent learns the format from the context the provider sends. The built-in
+agent pastes every context entry into its system prompt. For a LangGraph
+Python agent, add `CopilotKitMiddleware` so the same happens there. Any other
+framework needs to do one thing: put the run's `context` entries into the
+system prompt.
+
+### Backends that build their own prompt
+
+Every run also carries a structured envelope at
+`forwardedProps.copilotkit.ui`:
+
+```json
+{
+  "method": "a2ui",
+  "version": "v0.9",
+  "format": 1,
+  "mode": "markdown",
+  "catalog": { "id": "https://copilotkit.ai/a2ui/catalogs/standard/v1", "components": { "...": "..." } },
+  "instructions": "You can render interactive UI inline ...",
+  "contextSent": true
+}
+```
+
+`catalog.components` is the A2UI inline catalog schema (JSON Schema per
+component), the same form the A2UI specification publishes. `instructions` is
+the guideline text. A backend that prefers this over the context entries turns
+the context off and reads the envelope:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  a2ui={{ mode: "markdown", sendContext: false }}
+>
+```
+
+```python
+ui = input.forwarded_props["copilotkit"]["ui"]
+system = f"{MY_PROMPT}\n\n{ui['instructions']}\n\nComponents:\n{json.dumps(ui['catalog'])}"
+```
+
+Three related options:
+
+- `sendContext: false` sends no context entries; `contextSent` in the envelope
+  reflects it, so a backend that supports both paths never injects the catalog
+  twice.
+- `includeCatalog: false` leaves only `catalog.id` in the envelope, for backends
+  that already hold the catalog. The full schema is about 100 KB per run.
+- `agentIds: ["chat"]` restricts the context entries and the envelope to runs
+  of those agents. By default every agent receives them.
 
 A runnable example with the built-in agent and a LangGraph Python agent lives
 in [`examples/v2/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/a2ui-markdown).
@@ -93,7 +145,29 @@ and uses A2UI-native names where A2UI has the component:
 | Feedback and overlay | `Loading`, `LoadingIndicator`, `LoadingBlock`, `PulseIndicator`, `Celebration`, `FlashcardFlip`, `Popover`, `PopoverTrigger`, `PopoverContent` |
 
 `Map` loads `maplibre-gl` on demand; install it in your app if your agent
-draws maps.
+draws maps. A `Markdown` component inside a surface renders with the chat's
+own markdown renderer, so it looks exactly like the prose around it.
+
+### Styling
+
+Every colour, radius, shadow and font in the standard catalog is a CSS
+variable with a fallback (`--a2ui-color-accent`, `--a2ui-color-text-*`,
+`--a2ui-color-border-*`, `--a2ui-radius-*`, `--a2ui-shadow-*`,
+`--a2ui-chart-1` … `--a2ui-chart-6`, `--a2ui-font-family`). Set them on any
+ancestor in your stylesheet, or pass them as the theme:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  a2ui={{
+    mode: "markdown",
+    theme: { "--a2ui-color-accent": "#0f766e", "--a2ui-chart-1": "#0f766e" },
+  }}
+>
+```
+
+The map's popup and route line use maplibre's own styling and do not follow
+these variables.
 
 Pass `catalog` to replace the standard catalog with your own:
 
