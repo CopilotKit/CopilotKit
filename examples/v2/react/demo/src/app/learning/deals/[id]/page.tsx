@@ -9,8 +9,14 @@ import {
   useCopilotKit,
   useHumanInTheLoop,
 } from "@copilotkit/react-core/v2";
-import { useParams } from "next/navigation";
-import { useState } from "react";
+import {
+  useParams,
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
+import { randomUUID } from "@copilotkit/shared";
+import { Suspense, useEffect, useState } from "react";
 import { z } from "zod";
 import { findDeal } from "@/lib/deals";
 import type { Deal } from "@/lib/deals";
@@ -18,21 +24,69 @@ import type { Deal } from "@/lib/deals";
 const approveDealArgs = z.object({ dealId: z.string(), amount: z.number() });
 
 export default function DealPage() {
+  return (
+    <Suspense>
+      <DealThread />
+    </Suspense>
+  );
+}
+
+/**
+ * Keeps the open Thread in the URL, so a reload reconnects to the same chat
+ * and shows the feedback given there again. A Thread opened here is new: it
+ * starts on the welcome screen instead of connecting to a saved chat.
+ */
+function DealThread() {
   const { id } = useParams<{ id: string }>();
   const deal = findDeal(id);
+  // An empty `?thread=` names no Thread.
+  const threadId = useSearchParams().get("thread") || null;
+  const pathname = usePathname();
+  const router = useRouter();
+  const [openedHere] = useState(() => new Set<string>());
+  const openNewThread = () => {
+    const next = randomUUID();
+    openedHere.add(next);
+    router.replace(`${pathname}?thread=${next}`);
+  };
+
+  useEffect(() => {
+    if (threadId === null) openNewThread();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open one Thread per missing id
+  }, [threadId]);
+
   if (deal === undefined) return <p>Unknown deal.</p>;
+  if (threadId === null) return null;
 
   return (
-    <CopilotChatConfigurationProvider agentId="default">
-      <DealView deal={deal} />
+    <CopilotChatConfigurationProvider
+      agentId="default"
+      threadId={threadId}
+      hasExplicitThreadId={!openedHere.has(threadId)}
+    >
+      <DealView deal={deal} onNewThread={openNewThread} />
     </CopilotChatConfigurationProvider>
   );
 }
 
-function DealView({ deal }: { deal: Deal }) {
+function DealView({
+  deal,
+  onNewThread,
+}: {
+  deal: Deal;
+  onNewThread: () => void;
+}) {
   const config = useCopilotChatConfiguration();
   const { copilotkit } = useCopilotKit();
   const [approvedHere, setApprovedHere] = useState(false);
+  // A decision belongs to its Thread. The chat stays mounted, so it sees the
+  // Thread change and clears the previous Thread's messages itself.
+  const threadId = config?.threadId;
+  const [decisionThread, setDecisionThread] = useState(threadId);
+  if (decisionThread !== threadId) {
+    setDecisionThread(threadId);
+    setApprovedHere(false);
+  }
 
   // Clicks show what the person did; these events record the outcome itself.
   const recordDecision = (
@@ -119,7 +173,7 @@ function DealView({ deal }: { deal: Deal }) {
           <button
             type="button"
             data-copilotkit-action="thread.new"
-            onClick={() => config?.startNewThread()}
+            onClick={onNewThread}
             className="rounded border px-3 py-1.5 text-sm"
           >
             New thread
