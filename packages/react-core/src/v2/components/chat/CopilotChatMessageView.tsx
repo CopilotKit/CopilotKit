@@ -697,6 +697,22 @@ export function CopilotChatMessageView({
   // remounts the group nor loses its state.
   const stableGroupKey = (key: string): string => rowRenderKeys.get(key) ?? key;
 
+  const rowKey = (row: MessageRow): string =>
+    row.type === "group"
+      ? `${GROUP_ROW_KEY_PREFIX}${stableGroupKey(row.key)}`
+      : (rowRenderKeys.get(row.message.id) ?? row.message.id);
+
+  // One stable key per row, shared by React and the virtualizer. Rows shift
+  // index constantly once messages are grouped or transformed — tool calls
+  // fold into one row mid-stream, a resume stand-in drops out — and a
+  // virtualizer keyed by index then hands every measured height after that
+  // point to the wrong row, so the total size jumps and the view moves.
+  const rowKeys = useMemo(
+    () => rows.map(rowKey),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rowKey reads rowRenderKeys
+    [rows, rowRenderKeys],
+  );
+
   // State each group's wrapper keeps here rather than in itself, so it
   // survives the row being windowed out and the wrapper remounting. Cleared
   // when the thread changes; pruned to the groups still on the list. One
@@ -875,8 +891,10 @@ export function CopilotChatMessageView({
   // re-render on every measure.
   const measuredRef = React.useRef({
     total: 0,
-    sizes: new Map<number, number>(),
+    sizes: new Map<string, number>(),
   });
+  const rowKeysRef = React.useRef(rowKeys);
+  rowKeysRef.current = rowKeys;
 
   // The measurements describe one thread, so drop them when the thread
   // changes (detected by the first message ID changing, same as the
@@ -892,6 +910,21 @@ export function CopilotChatMessageView({
     measuredRef.current = { total: 0, sizes: new Map() };
   }
 
+  // A row that left the list (messages folded into a group, a stand-in
+  // replaced) no longer says anything about this thread's row heights.
+  const measuredKeysRef = React.useRef(rowKeys);
+  if (measuredKeysRef.current !== rowKeys) {
+    measuredKeysRef.current = rowKeys;
+    const live = new Set(rowKeys);
+    const measured = measuredRef.current;
+    for (const [key, height] of measured.sizes) {
+      if (!live.has(key)) {
+        measured.sizes.delete(key);
+        measured.total -= height;
+      }
+    }
+  }
+
   const estimateRowSize = React.useCallback(() => {
     const { total, sizes } = measuredRef.current;
     return sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
@@ -902,13 +935,22 @@ export function CopilotChatMessageView({
     // `data-index` is set on every virtual row below, and is what the
     // virtualizer itself uses to identify a measured element.
     const index = Number((el as HTMLElement | null)?.dataset?.index);
-    if (height > 0 && Number.isInteger(index)) {
+    const key = Number.isInteger(index) ? rowKeysRef.current[index] : undefined;
+    if (height > 0 && key !== undefined) {
       const { total, sizes } = measuredRef.current;
-      measuredRef.current.total = total - (sizes.get(index) ?? 0) + height;
-      sizes.set(index, height);
+      measuredRef.current.total = total - (sizes.get(key) ?? 0) + height;
+      sizes.set(key, height);
     }
     return height;
   }, []);
+
+  // A new function whenever the keys change: the virtualizer only rebuilds
+  // its row layout when an option it depends on changes, and a regroup can
+  // keep the row count the same.
+  const getRowKey = React.useCallback(
+    (index: number) => rowKeys[index] ?? index,
+    [rowKeys],
+  );
 
   const isPinnedToBottomRef = React.useRef(isPinnedToBottom);
   const shouldAdjustScrollOnResize = React.useCallback(
@@ -941,6 +983,7 @@ export function CopilotChatMessageView({
     count: shouldVirtualize ? rows.length : 0,
     getScrollElement: () => scrollElement,
     estimateSize: estimateRowSize,
+    getItemKey: getRowKey,
     overscan: 5,
     measureElement: measureRowElement,
     // Assume a 600 px viewport before the real element is measured so that
@@ -1093,11 +1136,6 @@ export function CopilotChatMessageView({
 
     return elements.filter(Boolean) as React.ReactElement[];
   };
-
-  const rowKey = (row: MessageRow): string =>
-    row.type === "group"
-      ? `${GROUP_ROW_KEY_PREFIX}${stableGroupKey(row.key)}`
-      : (rowRenderKeys.get(row.message.id) ?? row.message.id);
 
   const renderRow = (row: MessageRow): React.ReactElement[] => {
     if (row.type === "message") return renderMessageBlock(row.message);
