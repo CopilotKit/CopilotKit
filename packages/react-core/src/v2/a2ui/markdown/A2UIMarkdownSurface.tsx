@@ -1,5 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Streamdown } from "streamdown";
 import {
   A2UIProvider,
   extractCatalogComponentSchemas,
@@ -17,6 +18,7 @@ import type {
 import {
   extractFenceOperations,
   flattenInformationalCards,
+  hoistSurfaceProse,
   prepareSurfaceOperations,
 } from "@copilotkit/core";
 import type { A2UIOperation } from "@copilotkit/core";
@@ -113,29 +115,45 @@ function collectComponents(operations: A2UIOperation[]): ComponentRecord[] {
 }
 
 /**
- * Components that only carry prose or arrange it. A surface made of nothing
- * else (no data, media, control or chart) should have been plain markdown.
+ * Moves the prose at the edges of the surface (see `hoistSurfaceProse`) out
+ * into markdown, and rewrites the operations to the remaining components:
+ * peeled components are dropped and the stack's shortened child list
+ * replaces its earlier definitions.
  */
-const PROSE_COMPONENTS = new Set([
-  "Markdown",
-  "Text",
-  "Title",
-  "Caption",
-  "Column",
-  "Box",
-  "Divider",
-  "Spacer",
-]);
-
-/** Whether every component of the surface is prose or a plain container. */
-function isProseOnly(components: ComponentRecord[]): boolean {
-  return (
-    components.length > 0 &&
-    components.every(
-      (c) =>
-        typeof c.component === "string" && PROSE_COMPONENTS.has(c.component),
-    )
-  );
+function hoistProse(operations: A2UIOperation[]): {
+  operations: A2UIOperation[];
+  leading: string;
+  trailing: string;
+} {
+  const hoisted = hoistSurfaceProse(collectComponents(operations));
+  if (!hoisted.leading && !hoisted.trailing) {
+    return { operations, leading: "", trailing: "" };
+  }
+  const kept = new Map<string, ComponentRecord>();
+  for (const c of hoisted.components) {
+    if (isRecord(c) && typeof c.id === "string") kept.set(c.id, c);
+  }
+  return {
+    operations: operations.map((op) => {
+      const update = op.updateComponents;
+      if (!isRecord(update) || !Array.isArray(update.components)) return op;
+      return {
+        ...op,
+        updateComponents: {
+          ...update,
+          components: update.components
+            .filter(
+              (c) => !isRecord(c) || typeof c.id !== "string" || kept.has(c.id),
+            )
+            .map((c) =>
+              isRecord(c) && typeof c.id === "string" ? kept.get(c.id) : c,
+            ),
+        },
+      };
+    }),
+    leading: hoisted.leading,
+    trailing: hoisted.trailing,
+  };
 }
 
 /** Whether some updateComponents defines the `root` component the renderer starts from. */
@@ -204,6 +222,8 @@ export type A2UIMarkdownSurfaceProps = {
   extraOperations?: A2UIOperation[];
   /** Render nothing (a later fence whose surfaceId belongs to an earlier one). */
   hidden?: boolean;
+  /** Streamdown props for prose hoisted out of the surface (same as the chat's). */
+  markdownProps?: Omit<React.ComponentProps<typeof Streamdown>, "children">;
 };
 
 /**
@@ -216,6 +236,10 @@ export type A2UIMarkdownSurfaceProps = {
  * keeps whatever painted. The failure card appears only for a closed fence
  * that never produced a root.
  *
+ * Prose at the edges of the surface (a leading title or intro, a trailing
+ * note) is hoisted out and rendered as markdown above and below it; a fence
+ * that is only prose renders as markdown alone.
+ *
  * At fence close the components are validated against the catalog; problems
  * are logged in development and listed in the failure card's details, but a
  * surface with a root still paints (the renderer isolates bad components).
@@ -226,6 +250,7 @@ export function A2UIMarkdownSurface({
   fallbackSurfaceId,
   extraOperations,
   hidden,
+  markdownProps,
 }: A2UIMarkdownSurfaceProps) {
   const config = useA2UIMarkdownConfig();
   const { copilotkit } = useCopilotKit();
@@ -248,19 +273,18 @@ export function A2UIMarkdownSurface({
       operations: flattenInformationalCards(surface.operations),
     };
   }, [parsed.operations, extraOperations, fallbackSurfaceId, catalogId]);
-  const hasRoot = surfaceHasRoot(prepared.operations);
-  const proseOnly = useMemo(
-    () =>
-      closed && hasRoot && isProseOnly(collectComponents(prepared.operations)),
-    [closed, hasRoot, prepared.operations],
+  // Prose arrives first, so it renders as markdown right away and stays in
+  // place while the rest of the surface streams in below it.
+  const hoisted = useMemo(
+    () => hoistProse(prepared.operations),
+    [prepared.operations],
   );
-
-  useEffect(() => {
-    if (!proseOnly || hidden || !isDevelopment()) return;
-    console.warn(
-      `[A2UI] surface contains only prose; prefer plain markdown (surface "${prepared.surfaceId}")`,
-    );
-  }, [proseOnly, hidden, prepared.surfaceId]);
+  const hasRoot = surfaceHasRoot(hoisted.operations);
+  // Everything was prose: render markdown only, no surface.
+  const proseOnly =
+    !hasRoot &&
+    (hoisted.leading !== "" || hoisted.trailing !== "") &&
+    surfaceHasRoot(prepared.operations);
 
   // Child effects run first, so the operations are processed before this
   // reveals the surface. SurfaceMessageProcessor's onReady may also fire, but
@@ -350,6 +374,22 @@ export function A2UIMarkdownSurface({
 
   if (!config || hidden) return null;
 
+  const leadingMarkdown = hoisted.leading ? (
+    <Streamdown {...markdownProps}>{hoisted.leading}</Streamdown>
+  ) : null;
+  const trailingMarkdown = hoisted.trailing ? (
+    <Streamdown {...markdownProps}>{hoisted.trailing}</Streamdown>
+  ) : null;
+
+  if (proseOnly) {
+    return (
+      <>
+        {leadingMarkdown}
+        {trailingMarkdown}
+      </>
+    );
+  }
+
   if (closed && !hasRoot) {
     const error =
       parsed.invalidLines.length > 0 || parsed.partialObject !== null
@@ -381,42 +421,45 @@ export function A2UIMarkdownSurface({
   const showSurface = ready && hasRoot;
 
   return (
-    <div
-      className={
-        showSurface
-          ? "cpk:relative cpk:my-4 cpk:flex cpk:w-full cpk:flex-col"
-          : "cpk:relative cpk:flex cpk:w-full cpk:flex-col"
-      }
-      data-a2ui-markdown-surface={prepared.surfaceId}
-      data-a2ui-prose-only={proseOnly ? "" : undefined}
-      style={SURFACE_FIT_STYLE}
-    >
-      {/* No built-in placeholder: the prose keeps streaming above and the
+    <>
+      {leadingMarkdown}
+      <div
+        className={
+          showSurface
+            ? "cpk:relative cpk:my-4 cpk:flex cpk:w-full cpk:flex-col"
+            : "cpk:relative cpk:flex cpk:w-full cpk:flex-col"
+        }
+        data-a2ui-markdown-surface={prepared.surfaceId}
+        style={SURFACE_FIT_STYLE}
+      >
+        {/* No built-in placeholder: the prose keeps streaming above and the
           surface appears as soon as its root component is complete. Apps can
           opt into a loader through `a2ui.loadingComponent`. */}
-      {!showSurface && Loading ? <Loading /> : null}
-      {prepared.operations.length > 0 && (
-        <div
-          aria-hidden={!showSurface}
-          data-a2ui-visible={showSurface ? "" : undefined}
-          className="cpk:flex cpk:w-full cpk:flex-col"
-          style={showSurface ? SURFACE_FIT_STYLE : HIDDEN_STYLE}
-        >
-          <A2UIProvider
-            key={prepared.surfaceId}
-            onAction={handleAction}
-            theme={config.theme}
-            catalog={config.catalog}
+        {!showSurface && Loading ? <Loading /> : null}
+        {hoisted.operations.length > 0 && (
+          <div
+            aria-hidden={!showSurface}
+            data-a2ui-visible={showSurface ? "" : undefined}
+            className="cpk:flex cpk:w-full cpk:flex-col"
+            style={showSurface ? SURFACE_FIT_STYLE : HIDDEN_STYLE}
           >
-            <SurfaceMessageProcessor
-              surfaceId={prepared.surfaceId}
-              operations={prepared.operations}
-              onReady={markReady}
-            />
-            <A2UISurfaceOrError surfaceId={prepared.surfaceId} />
-          </A2UIProvider>
-        </div>
-      )}
-    </div>
+            <A2UIProvider
+              key={prepared.surfaceId}
+              onAction={handleAction}
+              theme={config.theme}
+              catalog={config.catalog}
+            >
+              <SurfaceMessageProcessor
+                surfaceId={prepared.surfaceId}
+                operations={hoisted.operations}
+                onReady={markReady}
+              />
+              <A2UISurfaceOrError surfaceId={prepared.surfaceId} />
+            </A2UIProvider>
+          </div>
+        )}
+      </div>
+      {trailingMarkdown}
+    </>
   );
 }

@@ -46,6 +46,7 @@ export {
   flattenInformationalCards,
   getOperationSurfaceId,
   getWebMCPModelContext,
+  hoistSurfaceProse,
   isAbortError,
   isInspectorThreadBridgeEnabled,
   isRunCompletionAware,

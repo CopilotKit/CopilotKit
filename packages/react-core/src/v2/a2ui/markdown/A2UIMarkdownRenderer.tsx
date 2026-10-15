@@ -76,6 +76,7 @@ export function A2UIMarkdownRenderer({
             fallbackSurfaceId={`${messageId}-${seg.index}`}
             extraOperations={plan.extras.get(seg.index)}
             hidden={plan.hidden.has(seg.index)}
+            markdownProps={{ className, ...streamdownProps }}
           />
         ),
       )}

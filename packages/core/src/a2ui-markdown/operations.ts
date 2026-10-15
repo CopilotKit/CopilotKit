@@ -865,3 +865,197 @@ export function flattenInformationalCards(
     };
   });
 }
+
+/** Text-bearing components that belong in the chat's markdown, not a surface. */
+const PROSE_TEXT_COMPONENTS = new Set(["Title", "Text", "Caption", "Markdown"]);
+
+/** A peelable component: text-bearing prose, or a separator next to it. */
+type ProseItem =
+  | { kind: "text"; markdown: string }
+  | { kind: "divider" | "spacer" };
+
+/** The prose item a component converts to, or null when it is not prose. */
+function toProseItem(c: Record<string, unknown> | undefined): ProseItem | null {
+  if (!c) return null;
+  if (c.component === "Divider") return { kind: "divider" };
+  if (c.component === "Spacer") return { kind: "spacer" };
+  if (typeof c.component !== "string") return null;
+  if (!PROSE_TEXT_COMPONENTS.has(c.component)) return null;
+  // Only literal strings are prose; `{path}`-bound text is data.
+  if (typeof c.text !== "string" || c.text.trim() === "") return null;
+  const text = c.text.trim();
+  switch (c.component) {
+    case "Title": {
+      const size = typeof c.size === "string" ? c.size : "md";
+      const level =
+        size === "sm" ? "####" : size === "md" || size === "lg" ? "###" : "##";
+      return { kind: "text", markdown: `${level} ${text}` };
+    }
+    case "Text":
+      // Inline children (e.g. a Badge) have no markdown form.
+      if (directChildIds(c).length > 0) return null;
+      return {
+        kind: "text",
+        markdown: c.strong === true ? `**${text}**` : text,
+      };
+    default:
+      return { kind: "text", markdown: text };
+  }
+}
+
+/** Prose items as markdown: separators only survive between two text items. */
+function proseItemsToMarkdown(items: ProseItem[]): string {
+  const blocks: string[] = [];
+  let pendingDivider = false;
+  for (const item of items) {
+    if (item.kind === "text") {
+      if (pendingDivider && blocks.length > 0) blocks.push("---");
+      pendingDivider = false;
+      blocks.push(item.markdown);
+    } else if (item.kind === "divider") {
+      pendingDivider = true;
+    }
+  }
+  return blocks.join("\n\n");
+}
+
+/** Column, column-direction Box, or an informational Card (section/unset variant). */
+function isVerticalStack(
+  c: Record<string, unknown>,
+  interactiveCards: Set<string>,
+): boolean {
+  if (c.component === "Column") return true;
+  if (c.component === "Box") {
+    return c.direction == null || c.direction === "col";
+  }
+  if (c.component === "Card") {
+    return (
+      (c.variant == null || c.variant === "section") &&
+      typeof c.id === "string" &&
+      !interactiveCards.has(c.id)
+    );
+  }
+  return false;
+}
+
+/** The child-id list of a stack (`children`, or a lone `child`), else null. */
+function stackChildren(c: Record<string, unknown>): unknown[] | null {
+  if (Array.isArray(c.children)) return c.children;
+  if (typeof c.child === "string" && c.children === undefined) return [c.child];
+  return null;
+}
+
+/** The leading/trailing run of prose items in `children`, from one end. */
+function proseRun(
+  children: unknown[],
+  byId: Map<string, Record<string, unknown>>,
+  fromEnd: boolean,
+): { count: number; items: ProseItem[] } {
+  const items: ProseItem[] = [];
+  for (let k = 0; k < children.length; k++) {
+    const id = children[fromEnd ? children.length - 1 - k : k];
+    const item = typeof id === "string" ? toProseItem(byId.get(id)) : null;
+    if (!item) break;
+    items.push(item);
+  }
+  if (fromEnd) items.reverse();
+  // Separators are never peeled on their own.
+  if (!items.some((i) => i.kind === "text")) return { count: 0, items: [] };
+  return { count: items.length, items };
+}
+
+/**
+ * Markdown mode: move prose at the edges of a surface out into markdown.
+ *
+ * From `root`, descend through single-child vertical containers (Column,
+ * column Box, informational Card) to the first one with several children:
+ * the stack. Its leading and trailing children that are prose (`Title`,
+ * `Text`, `Caption`, `Markdown` with literal text, plus `Divider`/`Spacer`
+ * next to them) are removed from the surface and returned as markdown:
+ * `Title` → heading by size (sm `####`, md/lg `###`, larger `##`), `Text` →
+ * paragraph (`strong` → `**…**`), `Caption`/`Markdown` → paragraph, and a
+ * `Divider` between two peeled blocks → `---`. Peeling stops at the first
+ * non-prose child from each end, including a `{path}`-bound text, a Text with
+ * inline children, a template entry or a component that has not arrived yet.
+ * An interactive Card (see `classifySurfaceCards`) is never entered.
+ *
+ * When everything is prose (or `root` itself is), `components` is empty and
+ * the caller renders only the markdown.
+ */
+export function hoistSurfaceProse(components: A2UIOperation[]): {
+  components: A2UIOperation[];
+  leading: string;
+  trailing: string;
+} {
+  const unchanged = { components, leading: "", trailing: "" };
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const c of components) {
+    if (isRecord(c) && typeof c.id === "string") byId.set(c.id, c);
+  }
+  const root = byId.get("root");
+  if (!root) return unchanged;
+
+  const rootItem = toProseItem(root);
+  if (rootItem?.kind === "text") {
+    return { components: [], leading: rootItem.markdown, trailing: "" };
+  }
+
+  const interactiveCards = classifySurfaceCards(components);
+  let stack = root;
+  const visited = new Set<string>();
+  while (true) {
+    if (!isVerticalStack(stack, interactiveCards)) return unchanged;
+    visited.add(stack.id as string);
+    const children = stackChildren(stack);
+    if (!children) return unchanged;
+    if (children.length !== 1 || typeof children[0] !== "string") break;
+    const next = byId.get(children[0]);
+    if (!next || visited.has(children[0]) || toProseItem(next)) break;
+    stack = next;
+  }
+
+  const children = stackChildren(stack)!;
+  const head = proseRun(children, byId, false);
+  if (head.count === children.length) {
+    if (head.count === 0) return unchanged;
+    return {
+      components: [],
+      leading: proseItemsToMarkdown(head.items),
+      trailing: "",
+    };
+  }
+  const tail = proseRun(children.slice(head.count), byId, true);
+  if (head.count === 0 && tail.count === 0) return unchanged;
+
+  const kept = children.slice(head.count, children.length - tail.count);
+  const peeled = new Set(
+    [
+      ...children.slice(0, head.count),
+      ...children.slice(children.length - tail.count),
+    ].filter((id): id is string => typeof id === "string"),
+  );
+  const stackId = stack.id;
+  // Only a multi-child stack gets here, so it uses `children`.
+  const nextStack = { ...stack, children: kept };
+  // A peeled component referenced elsewhere in the surface stays defined.
+  const stillReferenced = new Set<string>();
+  for (const c of byId.values()) {
+    if (c.id === stackId || peeled.has(c.id as string)) continue;
+    for (const id of directChildIds(c)) stillReferenced.add(id);
+  }
+  return {
+    components: components
+      .filter(
+        (c) =>
+          !(
+            isRecord(c) &&
+            typeof c.id === "string" &&
+            peeled.has(c.id) &&
+            !stillReferenced.has(c.id)
+          ),
+      )
+      .map((c) => (isRecord(c) && c.id === stackId ? nextStack : c)),
+    leading: proseItemsToMarkdown(head.items),
+    trailing: proseItemsToMarkdown(tail.items),
+  };
+}

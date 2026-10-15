@@ -74,7 +74,7 @@ const buttonFence =
 describe("A2UIMarkdownRenderer", () => {
   it("renders prose and a closed fence as a surface", async () => {
     renderMd(
-      `Hello **world**\n\n\`\`\`a2ui\n${create()}\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Text","text":"Painted"}]}}\n\`\`\`\n\nBye`,
+      `Hello **world**\n\n\`\`\`a2ui\n${create()}\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Row","children":["t"]},{"id":"t","component":"Text","text":"Painted"}]}}\n\`\`\`\n\nBye`,
     );
     expect(await screen.findByText("Painted")).toBeTruthy();
     expect(screen.getByText("world")).toBeTruthy();
@@ -139,7 +139,7 @@ describe("A2UIMarkdownRenderer", () => {
 
   it("later fence with same surfaceId updates in place", async () => {
     renderMd(
-      `\`\`\`a2ui\n${create()}\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Column","children":["t"]},{"id":"t","component":"Text","text":"One"}]}}\n\`\`\`\nmid\n\`\`\`a2ui\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Column","children":["t","u"]},{"id":"u","component":"Text","text":"Two"}]}}\n\`\`\``,
+      `\`\`\`a2ui\n${create()}\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Row","children":["t"]},{"id":"t","component":"Text","text":"One"}]}}\n\`\`\`\nmid\n\`\`\`a2ui\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Row","children":["t","u"]},{"id":"u","component":"Text","text":"Two"}]}}\n\`\`\``,
     );
     expect(await screen.findByText("Two")).toBeTruthy();
     expect(screen.getByText("One")).toBeTruthy();
@@ -150,7 +150,7 @@ describe("A2UIMarkdownRenderer", () => {
 
   it("synthesizes createSurface when the model omits it", async () => {
     renderMd(
-      `\`\`\`a2ui\n{"updateComponents":{"components":[{"id":"root","component":"Text","text":"NoCreate"}]}}\n\`\`\``,
+      `\`\`\`a2ui\n{"updateComponents":{"components":[{"id":"root","component":"Row","children":["t"]},{"id":"t","component":"Text","text":"NoCreate"}]}}\n\`\`\``,
     );
     expect(await screen.findByText("NoCreate")).toBeTruthy();
     expect(
@@ -455,34 +455,57 @@ describe("A2UIMarkdownSurface cards (standard catalog)", () => {
     expect(panel.getAttribute("style")).toContain("1px solid");
   });
 
-  it("marks and warns about a surface that is only prose", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("renders a prose-only fence as markdown without a surface", async () => {
     renderMd(
       fence(
         create(),
         uc([
           { id: "root", component: "Column", children: ["t", "m"] },
-          { id: "t", component: "Title", text: "Summary" },
+          { id: "t", component: "Title", text: "Summary", size: "2xl" },
           { id: "m", component: "Markdown", text: "Just **words**." },
         ]),
       ),
       standard,
     );
-    expect(await screen.findByText("Summary")).toBeTruthy();
+    const heading = await screen.findByText("Summary");
+    expect(heading.closest("h2")).not.toBeNull();
+    expect(screen.getByText("words")).toBeTruthy();
+    expect(document.querySelector("[data-a2ui-markdown-surface]")).toBeNull();
+    expect(screen.queryByText(/Couldn't generate/i)).toBeNull();
+  });
+
+  it("hoists a leading title and intro above the surface", async () => {
+    renderMd(
+      fence(
+        create(),
+        uc([
+          { id: "root", component: "Column", children: ["t", "i", "sl"] },
+          { id: "t", component: "Title", text: "5-Day Trip", size: "2xl" },
+          { id: "i", component: "Text", text: "A balanced plan." },
+          { id: "sl", component: "Slider", min: 1, max: 10, value: 3 },
+        ]),
+      ),
+      standard,
+    );
+    const heading = (await screen.findByText("5-Day Trip")).closest("h2");
+    expect(heading).not.toBeNull();
     const wrapper = document.querySelector("[data-a2ui-markdown-surface='s']")!;
-    expect(wrapper.hasAttribute("data-a2ui-prose-only")).toBe(true);
+    expect(wrapper).not.toBeNull();
+    expect(wrapper.contains(heading)).toBe(false);
+    expect(wrapper.contains(screen.getByText("A balanced plan."))).toBe(false);
+    // The heading precedes the surface in document order.
+    expect(
+      heading!.compareDocumentPosition(wrapper) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     await waitFor(() =>
       expect(
-        warn.mock.calls.some((args) =>
-          String(args[0]).includes(
-            "[A2UI] surface contains only prose; prefer plain markdown",
-          ),
-        ),
-      ).toBe(true),
+        wrapper.querySelector('[role="slider"], input[type="range"]'),
+      ).not.toBeNull(),
     );
   });
 
-  it("does not mark a surface with a table as prose-only", async () => {
+  it("keeps a table in the surface and hoists only its title", async () => {
     renderMd(
       fence(
         create(),
@@ -494,8 +517,10 @@ describe("A2UIMarkdownSurface cards (standard catalog)", () => {
       ),
       standard,
     );
-    expect(await screen.findByText("Costs")).toBeTruthy();
+    const title = await screen.findByText("Costs");
     const wrapper = document.querySelector("[data-a2ui-markdown-surface='s']")!;
-    expect(wrapper.hasAttribute("data-a2ui-prose-only")).toBe(false);
+    expect(wrapper).not.toBeNull();
+    expect(wrapper.contains(title)).toBe(false);
+    await waitFor(() => expect(wrapper.querySelector("table")).not.toBeNull());
   });
 });
