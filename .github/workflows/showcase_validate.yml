@@ -914,6 +914,18 @@ jobs:
           fi
           exit "$failed"
 
+      - name: Run shared Python tool tests
+        # The shared tools every Python integration imports through its `tools`
+        # symlink. These tests had no CI entry point and drifted from the code
+        # unnoticed, so they run here even when the package tests above fail.
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          venv="${RUNNER_TEMP}/showcase-venv-shared-python"
+          python -m venv "$venv"
+          "$venv/bin/python" -m pip install --quiet -r showcase/shared/python/requirements-test.txt
+          "$venv/bin/python" -m pytest showcase/shared/python/tests -v
+
   notify:
     # Slack #oss-alerts on any red. Never #engr (engr is sacred — release alerts only).
     # Mirrors the workflow-level notify pattern in showcase_promote.yml so

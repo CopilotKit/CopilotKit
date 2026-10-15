@@ -1,22 +1,24 @@
-# Shared helpers for compact-build.sh and compact-swap.sh. Sourced, not run.
-# The variables below are read by the scripts that source this file.
+# Shared helpers for compact-build.sh, compact-swap.sh and compact-push.sh.
+# Sourced, not run. The variables below are read by the scripts that source
+# this file.
 # shellcheck shell=sh disable=SC2034
 #
 # Copy-and-swap compaction of the PocketBase SQLite database. The build makes
-# a new file that holds only the rows we keep, while PocketBase keeps serving.
-# The swap runs from entrypoint.sh before PocketBase starts, copies what
-# changed since the build, checks everything, and renames the files.
+# a new file that holds only the rows we keep, as of one snapshot, while
+# PocketBase keeps serving. It writes that file off the live volume
+# (PB_COMPACT_OUT_DIR, default /tmp/pbcompact on the box; or on another
+# machine with PB_COMPACT_REMOTE), then compact-push.sh copies it into the
+# compact directory next to the live database at a capped write rate. The
+# swap runs from entrypoint.sh before PocketBase starts: it checks that the
+# file there is the one the manifest names, and renames the files. Nothing is
+# copied at the swap, so rows written between the snapshot and the swap are
+# not in the new file. That loss of telemetry is accepted.
 #
-# Table classes:
-#   append   big, insert-only tables (and superuser-only updateRule): keep rowid > cutoff. Rows at or below
-#            the build snapshot do not change, so the swap copies only rows
-#            above the snapshot (plus it drops rows the retention hook deleted
-#            from the bottom of the kept range in the meantime).
-#   mutable  big tables whose rows are updated after insert: keep rowid >
-#            cutoff, and the swap copies every kept row again.
+# Table classes (the build keeps rowid > cut for the pruned ones):
+#   append   big, insert-only tables (superuser-only updateRule)
+#   mutable  big tables whose rows are updated after insert
 #   whole    every other table, including PocketBase's own `_` tables, auth
-#            and view collections, sqlite_sequence and sqlite_stat*: the swap
-#            copies all of it again and checks a content hash.
+#            and view collections, sqlite_sequence and sqlite_stat*
 # Any table that is not named in the two prune lists below is "whole".
 
 PB_DATA_DIR="${PB_DATA_DIR:-/pb_data}"
@@ -26,6 +28,35 @@ NEW_DB="$COMPACT_DIR/data.db.new"
 MANIFEST="$COMPACT_DIR/manifest"
 SWAP_MARKER="$COMPACT_DIR/swap-in-progress"
 CUTOVER_ATTEMPTS="$COMPACT_DIR/cutover-attempts"
+
+# Off-box build (compact-build.sh and compact-push.sh only). PB_COMPACT_REMOTE
+# is a command that runs its last argument as a shell command on the
+# PocketBase box: stdin and stdout passed through, the remote exit status
+# returned, and exit 255 when the connection fails (as ssh does). Example:
+#   PB_COMPACT_REMOTE="railway ssh -p <project> -e <env> -s <service> --"
+# The live database is then read on the box, at PB_COMPACT_REMOTE_DB
+# (default /pb_data/data.db), always read-only, and the new file is built on
+# this machine, under PB_DATA_DIR/compact.
+REMOTE="${PB_COMPACT_REMOTE:-}"
+REMOTE_TRIES="${PB_COMPACT_REMOTE_TRIES:-5}"
+if [ -n "$REMOTE" ]; then
+    LIVE_DB="${PB_COMPACT_REMOTE_DB:-/pb_data/data.db}"
+fi
+# The command remote_q runs. Without PB_COMPACT_REMOTE, compact-push.sh
+# copies a build made on this machine, and its "box" commands run here.
+REMOTE_RUN="${REMOTE:-sh -c}"
+
+# Where compact-build.sh writes the new file and its manifest. On the box the
+# default is /tmp/pbcompact, a different device from the live volume, so the
+# build's writes (rows, indexes, integrity check) do not compete with
+# PocketBase's for the volume; the build then copies the file onto the volume
+# (compact-push.sh). Off the box (PB_COMPACT_REMOTE) it is PB_DATA_DIR/compact
+# on this machine. PB_COMPACT_OUT_DIR=PB_DATA_DIR/compact builds in place.
+if [ -n "$REMOTE" ]; then
+    OUT_DIR="${PB_COMPACT_OUT_DIR:-$COMPACT_DIR}"
+else
+    OUT_DIR="${PB_COMPACT_OUT_DIR:-/tmp/pbcompact}"
+fi
 
 # Proven insert-only (see the PR for the write-path inventory).
 COMPACT_APPEND_TABLES="cvdiag_events diag_events status_history"
@@ -55,9 +86,162 @@ sq() {
     sqlite3 -init /dev/null -batch -bail -noheader -cmd '.timeout 10000' -cmd '.output /dev/null' -cmd '.dbconfig dqs_ddl on' -cmd '.dbconfig dqs_dml on' -cmd '.output stdout' "$@"
 }
 
+# The sq command line, read-only, for a shell on the box.
+REMOTE_SQ="sqlite3 -init /dev/null -batch -bail -noheader -cmd '.timeout 10000' -cmd '.output /dev/null' -cmd '.dbconfig dqs_ddl on' -cmd '.dbconfig dqs_dml on' -cmd '.output stdout' -readonly"
+
+# $1 as one single-quoted word for a shell command line.
+shq() {
+    printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+
+# This run's private temp directory, made by rq_init and removed by
+# rq_cleanup from the scripts' exit traps. remote_q runs inside $( ), so a
+# temp file it made on its own would be unknown to the trap and left behind
+# by a ^C.
+RQ_DIR=""
+rq_init() {
+    RQ_DIR=$(mktemp -d "${TMPDIR:-/tmp}/pb-compact.XXXXXX") || die "could not make a temp directory"
+}
+rq_cleanup() {
+    [ -z "$RQ_DIR" ] || rm -rf "$RQ_DIR"
+    return 0
+}
+
+# Runs the shell command $1 on the box and prints its output. Only for
+# commands that change nothing there, or that leave the same state when run
+# twice: a lost connection (exit 255) is tried again, up to
+# PB_COMPACT_REMOTE_TRIES times. A try's output goes to a file and is printed
+# only when the try is the last, so a try that broke off part way prints
+# nothing.
+remote_q() {
+    [ -n "$RQ_DIR" ] || die "remote_q: no temp directory (rq_init was not called)"
+    _rq_out="$RQ_DIR/remote.out"
+    _rq_try=0
+    while :; do
+        _rq_try=$((_rq_try + 1))
+        _rq_rc=0
+        # $REMOTE_RUN is a command line; it is split into words on purpose.
+        # shellcheck disable=SC2086
+        $REMOTE_RUN "$1" </dev/null >"$_rq_out" || _rq_rc=$?
+        if [ "$_rq_rc" != 255 ] || [ "$_rq_try" -ge "$REMOTE_TRIES" ]; then
+            cat "$_rq_out"
+            rm -f "$_rq_out"
+            return "$_rq_rc"
+        fi
+        log "the remote command lost its connection (exit 255), try $_rq_try of $REMOTE_TRIES; trying again" >&2
+        sleep 2
+    done
+}
+
+# ---- the build lock ------------------------------------------------------------
+# PB_DATA_DIR/compact/build.lock (and build.lock.takeover) is a symlink whose
+# target names its holder:
+#   <pid>                 compact-build.sh, running on the box
+#   push.<expiry>.<id>    compact-push.sh, which may run on another machine;
+#                         it holds the lock until <expiry> (unix seconds, the
+#                         box's clock) and moves that on after every piece
+# holder_alive is defined from this text here, and the push sends the same
+# text with its lock commands, so both sides judge a holder the same way. A
+# pid holds the lock only while it is a live compact-build process: a zombie
+# (PocketBase is PID 1 and does not reap) or a reused pid does not.
+# shellcheck disable=SC2016 # expanded where the function runs
+LOCK_FUNCS='
+holder_alive() {
+    case "$1" in
+        push.*)
+            _ha_e=${1#push.}
+            _ha_e=${_ha_e%%.*}
+            case "$_ha_e" in "" | *[!0-9]*) return 1 ;; esac
+            [ "$(date +%s)" -lt "$_ha_e" ]
+            return
+            ;;
+        "" | *[!0-9]*) return 1 ;;
+    esac
+    _ha_proc=${PB_COMPACT_PROC_DIR:-/proc}
+    if [ -d "$_ha_proc/1" ]; then
+        [ -r "$_ha_proc/$1/status" ] || return 1
+        grep -q "^State:[[:space:]]*Z" "$_ha_proc/$1/status" && return 1
+        tr "\0" " " <"$_ha_proc/$1/cmdline" 2>/dev/null | grep -q compact-build
+        return
+    fi
+    kill -0 "$1" 2>/dev/null
+}'
+eval "$LOCK_FUNCS"
+
+# ---- checksums ------------------------------------------------------------------
+# sha256sum must exist: a missing one would make every checksum an empty
+# string, which reads as a mismatch (or worse, two empty strings as a match).
+need_sha256sum() {
+    _ns=$(printf x | sha256sum 2>/dev/null | cut -d' ' -f1) || _ns=""
+    [ "$_ns" = 2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881 ] ||
+        die "sha256sum is not installed or does not work (on macOS: brew install coreutils); it checks the manifest and the new file"
+}
+
+sha256_of() {
+    sha256sum | cut -d' ' -f1
+}
+
+# Cheap identity of a database file: sha256 of its size and of 65 blocks of
+# 64 KiB (64 spread over the file, and the last). It reads 4 MiB, not the
+# file. It tells one build's file from another's (their rows, and so their
+# pages, differ); it does not prove every byte, which the full sha256 does
+# when the file is copied (compact-push.sh).
+FP_BLOCK=65536
+file_fingerprint() {
+    _fp_size=$(file_size "$1") || return 1
+    is_int "$_fp_size" && [ "$_fp_size" -gt 0 ] || return 1
+    _fp_n=$(((_fp_size + FP_BLOCK - 1) / FP_BLOCK))
+    # The pipeline's status is sha256_of's, so a failed dd says so on fd 3,
+    # which goes to the same output as the hash: "dd-failed" is not hex.
+    _fp_out=$(
+        {
+            {
+                echo "$_fp_size"
+                _fp_i=0
+                while [ "$_fp_i" -lt 64 ]; do
+                    dd if="$1" bs=$FP_BLOCK skip=$((_fp_n * _fp_i / 64)) count=1 2>/dev/null || { echo dd-failed >&3; exit 1; }
+                    _fp_i=$((_fp_i + 1))
+                done
+                dd if="$1" bs=$FP_BLOCK skip=$((_fp_n - 1)) count=1 2>/dev/null || { echo dd-failed >&3; exit 1; }
+            } | sha256_of
+        } 3>&1
+    ) || return 1
+    case "$_fp_out" in *dd-failed*) return 1 ;; esac
+    printf '%s\n' "$_fp_out"
+}
+
+# $1 as the path of a file: URI inside an SQL string literal. %, ? and # are
+# percent-encoded (URI syntax), ' is doubled (SQL).
+sql_uri_path() {
+    printf '%s' "$1" | sed -e 's/%/%25/g' -e 's/?/%3f/g' -e 's/#/%23/g' -e "s/'/''/g"
+}
+
 # Read-only query on the live database. The live file is never written.
 live_q() {
-    sq -readonly "$LIVE_DB" "$1"
+    if [ -n "$REMOTE" ]; then
+        remote_q "$REMOTE_SQ $(shq "$LIVE_DB") $(shq "$1")"
+    else
+        sq -readonly "$LIVE_DB" "$1"
+    fi
+}
+
+# Size of the live database or its -wal, 0 when absent.
+live_file_size() {
+    if [ -n "$REMOTE" ]; then
+        remote_q "if [ -e $(shq "$1") ]; then stat -c %s $(shq "$1") 2>/dev/null || stat -f %z $(shq "$1"); else echo 0; fi"
+    else
+        file_size "$1"
+    fi
+}
+
+# The box's clock, in unix seconds. The cutoffs and the snapshot time are
+# compared with `created` values that the box wrote with its own clock.
+live_now() {
+    if [ -n "$REMOTE" ]; then
+        remote_q "date +%s"
+    else
+        date +%s
+    fi
 }
 
 new_q() {
@@ -69,7 +253,7 @@ new_q() {
 # its -shm does not exist yet, so only the live file needs that mode.
 db_q() {
     if [ "$1" = "$LIVE_DB" ]; then
-        sq -readonly "$1" "$2"
+        live_q "$2"
     else
         sq "$1" "$2"
     fi
@@ -123,12 +307,10 @@ in_list() {
     return 1
 }
 
-# Class of a table in the live database. A table in the insert-only list is
-# treated as mutable when its PocketBase collection lets API clients update
-# records (updateRule is not NULL, so not superuser-only): no code path may
-# update it, but the API would accept it, so the swap copies its kept rows
-# again. Superuser edits through the admin UI are the one update path this
-# cannot see; the swap's count and top-row checks do not catch an edited value.
+# Class of a table in the live database. Both pruned classes keep rowid >
+# cut; the class is recorded in the manifest. A table in the insert-only list
+# is treated as mutable when its PocketBase collection lets API clients
+# update records (updateRule is not NULL, so not superuser-only).
 table_class() {
     if in_list "$1" "$COMPACT_APPEND_TABLES"; then
         _rule=$(live_q "SELECT updateRule IS NULL FROM _collections WHERE name = '$1';") ||
@@ -147,7 +329,9 @@ table_class() {
 
 file_size() {
     if [ -e "$1" ]; then
-        stat -c %s "$1"
+        # GNU and busybox stat. BSD stat (an off-box build on macOS) spells
+        # it -f %z.
+        stat -c %s "$1" 2>/dev/null || stat -f %z "$1"
     else
         echo 0
     fi
@@ -197,11 +381,6 @@ column_list() {
 # 1 when the table is WITHOUT ROWID.
 without_rowid() {
     db_q "$1" "SELECT wr FROM pragma_table_list('$2') WHERE schema = 'main';"
-}
-
-# Name of the index that backs the table's PRIMARY KEY (the id column).
-pk_index() {
-    db_q "$1" "SELECT name FROM pragma_index_list('$2') WHERE origin = 'pk' LIMIT 1;"
 }
 
 # Every schema object except rootpage, which differs between files by design.
