@@ -56,12 +56,14 @@ const FADE_STYLE_ID = "a2ui-markdown-fade";
  * Components fade in as they stream: every element inserted under a markdown
  * surface runs the keyframes once on mount (React keeps keys stable per
  * component id, so already painted elements never re-animate), and the whole
- * surface fades in when it first becomes visible.
+ * surface fades in when it first becomes visible. SVG internals are excluded:
+ * a chart library re-creates its nodes on re-render, and a fade on each of
+ * them reads as the chart flashing whenever a sibling component arrives.
  */
 const FADE_CSS = `@keyframes a2ui-fade-in{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}
 [data-a2ui-markdown-surface] .a2ui-surface{display:flex;width:100%;min-width:0}
 [data-a2ui-markdown-surface] .a2ui-surface>*{flex:1 1 100%;width:100%;min-width:0}
-[data-a2ui-markdown-surface] .a2ui-surface *{animation:a2ui-fade-in .28s ease-out both}
+[data-a2ui-markdown-surface] .a2ui-surface *:not(svg):not(svg *){animation:a2ui-fade-in .28s ease-out both}
 [data-a2ui-markdown-surface] [data-a2ui-visible]{animation:a2ui-fade-in .32s ease-out both}
 @media (prefers-reduced-motion: reduce){[data-a2ui-markdown-surface] *{animation:none !important}}`;
 function ensureStyles() {
