@@ -3,7 +3,8 @@
 //
 // The backend agent (src/agents/a2ui_dynamic.py) owns a `generate_a2ui` tool
 // and emits a streamed `render_a2ui` call. The middleware watches that call
-// without injecting a second tool.
+// without injecting a second tool. FAC-237: the LlamaIndex adapter coerces
+// injected tool properties to strings, so keep backend-owned generation.
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -24,6 +25,7 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>>
   agents: { "declarative-gen-ui": declarativeGenUiAgent as AbstractAgent },
   a2ui: {
+    // FAC-237: only watch the backend's render call; do not inject a tool.
     injectA2UITool: false,
     a2uiToolNames: ["render_a2ui"],
     // Models follow the tool-usage guide and omit `catalogId`, and the

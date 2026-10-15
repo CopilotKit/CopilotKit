@@ -5,8 +5,8 @@ Mirrors `langgraph-python/src/agents/a2ui_dynamic.py`:
 
 - The agent binds a single `generate_a2ui` backend tool.
 - When called, `generate_a2ui` kicks off a secondary OpenAI chat completion with
-  a forced `_design_a2ui_surface` tool call. The registered client catalog is
-  supplied by the frontend catalog.
+  a forced `_design_a2ui_surface` tool call. Its component list and catalog ID
+  are specified in the backend prompt; the frontend registers the renderers.
 - The tool result carries the planner's A2UI component payload, which the
   workflow then RE-EMITS as a streamed ``render_a2ui`` tool-CALL on the outbound
   AG-UI stream so ``@ag-ui/a2ui-middleware`` mounts the surface.

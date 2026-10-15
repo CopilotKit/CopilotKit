@@ -27,7 +27,8 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "a2ui-fixed-schema": a2uiFixedAgent as AbstractAgent },
   a2ui: {
-    // The backend emits the render call; it does not need a second tool.
+    // FAC-237: the backend emits the render call. The LlamaIndex adapter
+    // coerces injected tool properties to strings, so do not inject one.
     injectA2UITool: false,
     a2uiToolNames: ["render_a2ui"],
   },
