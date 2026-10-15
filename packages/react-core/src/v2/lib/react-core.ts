@@ -90,16 +90,12 @@ export class CopilotKitCoreReact extends CopilotKitCore {
 
   addHookRenderToolCall(entry: ReactToolCallRenderer<any>): void {
     const key = `${entry.agentId ?? ""}:${entry.name}`;
-    // The tool hooks register one stable render per hook instance and
-    // re-register it whenever their deps change. When the render under this
-    // key is already that same component, nothing a chat paints has changed,
-    // so keep the entry and skip the notification. Notifying would re-render
-    // every useRenderToolCall subscriber, and a subscriber that also owns the
-    // registration (with a dep that changes every render, such as an inline
-    // function) would register again, forever. Mounted cards still pick up the
-    // hook's latest render through its own refresh. `args` is not compared:
-    // an inline schema is a new object on every render, and no renderer
-    // reads it.
+    // When the render under this key is already this component (a tool hook
+    // re-registering a module-level render after its deps changed), nothing a
+    // chat paints has changed, so keep the entry and skip the notification,
+    // which would re-render every useRenderToolCall subscriber. `args` is not
+    // compared: an inline schema is a new object on every render, and no
+    // renderer reads it.
     const existing = this._hookRenderToolCalls.get(key);
     if (existing && existing.render === entry.render) {
       return;

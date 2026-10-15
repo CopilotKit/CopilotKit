@@ -1,12 +1,9 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
+import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
-import {
-  ToolRenderSlot,
-  useDepsVersion,
-  useStableToolRender,
-} from "./tool-registration";
+import { useDepsVersion } from "./tool-registration";
 
 export interface RenderToolInProgressProps<S extends StandardSchemaV1> {
   name: string;
@@ -165,37 +162,35 @@ export function useRenderTool<S extends StandardSchemaV1>(
   // value such as the agent from useAgent.
   const depsVersion = useDepsVersion(deps);
 
-  // One renderer identity for the hook's lifetime: it reads the latest
-  // `config.render`, so re-registering never remounts a card on screen.
-  // `config.render` takes `parameters`; the registry passes `args`.
-  const { render: stableRender, refresh: refreshRender } = useStableToolRender<
-    Record<string, unknown> & { args?: unknown }
-  >((props) => (
-    <ToolRenderSlot
-      render={config.render as (props: unknown) => React.ReactElement | null}
-      renderProps={{ ...props, parameters: props.args }}
-    />
-  ));
-
   useEffect(() => {
-    const render = stableRender as (props: any) => React.ReactElement | null;
+    // Build the ReactToolCallRenderer via defineToolCallRenderer
     const renderer =
       config.name === "*" && !config.parameters
         ? defineToolCallRenderer({
             name: "*",
-            render,
+            render: (props) =>
+              config.render({ ...props, parameters: props.args }),
             ...(config.agentId ? { agentId: config.agentId } : {}),
           })
         : defineToolCallRenderer({
             name: config.name,
             args: config.parameters!,
-            render,
+            // Branch per status so the discriminated union stays correlated
+            // when `args` is re-exposed as `parameters`.
+            render: (props) => {
+              if (props.status === ToolCallStatus.InProgress) {
+                return config.render({ ...props, parameters: props.args });
+              }
+              if (props.status === ToolCallStatus.Executing) {
+                return config.render({ ...props, parameters: props.args });
+              }
+              return config.render({ ...props, parameters: props.args });
+            },
             ...(config.agentId ? { agentId: config.agentId } : {}),
           });
 
     copilotkit.addHookRenderToolCall(renderer);
-    refreshRender();
 
     // No cleanup removal — keeps renderer for chat history, same as useFrontendTool
-  }, [config.name, copilotkit, depsVersion, stableRender, refreshRender]);
+  }, [config.name, copilotkit, depsVersion]);
 }

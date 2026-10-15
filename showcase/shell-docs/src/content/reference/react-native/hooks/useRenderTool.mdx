@@ -136,17 +136,16 @@ useRenderTool<S extends StandardSchemaV1>(
 
 <PropertyReference name="deps" type="ReadonlyArray<unknown>">
   Optional dependency array. Re-registers the renderer when these values change.
-  A card always paints with the latest `render`, but it repaints only when its
-  tool call changes or the renderer re-registers. List what `render` displays in
-  `deps` so a change repaints the card.
+  The `render` function is **captured at registration** and only refreshed when
+  the renderer re-registers — it does not re-read the latest closure on every
+  render.
 
   `deps` compares plain data (strings, numbers, booleans, `null`, dates, and
   plain objects and arrays of those) by value, so an inline literal such as
   `[{ status }]` re-registers only when its contents change. Functions, class
   instances and other objects compare by identity, as in `useEffect`, so a
   changed callback re-registers and a circular value such as the `agent` from
-  `useAgent` is safe to pass. Adding or removing an entry counts as a change.
-  Re-registering never remounts a tool card that is already on screen. See [Dependency
+  `useAgent` is safe to pass. Adding or removing an entry counts as a change. See [Dependency
   comparison](#dependency-comparison).
 </PropertyReference>
 
@@ -331,29 +330,32 @@ renderer of its own.
   `"inProgress"` and `parameters` is partial — fields arrive progressively.
   Write renderers that tolerate missing fields; that is what lets UI build as
   the agent writes it.
-- **Cards repaint on re-registration.** A card paints with the latest
-  `render`, but it repaints only when its tool call changes or the renderer
-  re-registers, which happens when `name` or `deps` change. If your `render`
-  closes over component state or props that change over time, list them in
-  `deps`, or read them through a ref (see [below](#dependency-comparison));
-  otherwise the card keeps showing outdated UI until something else repaints it.
+- **`render` is captured at registration.** It is not refreshed on every render
+  — only when the renderer re-registers, which happens when `name` changes or
+  when `deps` compare as changed. If your `render` closes over component state
+  or props that change over time, list them in `deps`, or read them through a
+  ref (see [below](#dependency-comparison)); otherwise
+  the chat keeps invoking the stale closure and paints outdated UI.
 - **No cleanup on unmount.** The renderer entry is deliberately kept, so tool
   calls already in the chat history still render after you navigate away.
 
 ### Dependency comparison
 
 The hook reduces `deps` to a version number
-([source](https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-core/src/v2/hooks/tool-registration.tsx))
+([source](https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-core/src/v2/hooks/tool-registration.ts))
 and never serializes it:
 
-- Plain data (strings, numbers, booleans, `null`, dates, and plain objects and
-  arrays of those) compares by value, so an inline literal re-registers only
-  when its contents change.
-- Functions, class instances, `Map` and `Set` compare by identity, so a changed
-  callback re-registers. Wrap an inline function in `useCallback`.
-- A circular value, such as the `agent` from `useAgent`, is safe to list.
+- Plain data compares by value: strings, numbers, booleans, `null`,
+  `undefined`, dates, and plain objects and arrays of those. An inline literal
+  such as `[{ status }]` or `[items.filter(isOpen)]` re-registers only when its
+  contents change. Key order does not matter.
+- Functions, class instances, `Map`, `Set` and other non-plain objects compare
+  by identity, as in `useEffect`. A changed callback re-registers. A function
+  written inline in `deps` is new on every render, so it re-registers on every
+  render; wrap it in `useCallback`.
+- A circular value, such as the `agent` returned by `useAgent`, is safe to list.
+  A cycle inside plain data is safe too.
 - Adding or removing an entry counts as a change.
-- Re-registering never remounts a card that is already on screen.
 
 When what changes is behavior rather than displayed data, a ref avoids
 re-registering at all. Keep the value in a ref that `render` dereferences when
@@ -381,8 +383,8 @@ function SeatPicker({ onSelect }: { onSelect: (id: string) => void }) {
 }
 ```
 
-The card does not repaint when `onSelect` changes, but the ref it reads is
-current, so the renderer never has to re-register to reach the newest callback. That makes the
+The captured `render` is still the stale one, but the ref it reads is current, so
+the renderer never has to re-register to reach the newest callback. That makes the
 ref pattern the more reliable default whenever what changes is behavior rather
 than displayed data.
 

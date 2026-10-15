@@ -1,7 +1,7 @@
 import { useLayoutEffect } from "react";
 import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
-import { useDepsVersion, useStableToolRender } from "./tool-registration";
+import { useDepsVersion } from "./tool-registration";
 
 export function useFrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,
@@ -12,11 +12,6 @@ export function useFrontendTool<
   // list, so `deps` is never serialized and may hold a circular value such as
   // the agent from useAgent.
   const depsVersion = useDepsVersion(deps);
-  // One renderer identity for the hook's lifetime, so re-registering never
-  // remounts a tool card that is already on screen.
-  const { render: stableRender, refresh: refreshRender } = useStableToolRender(
-    tool.render,
-  );
 
   useLayoutEffect(() => {
     const name = tool.name;
@@ -34,14 +29,13 @@ export function useFrontendTool<
     // The render function is registered even when tool.parameters is
     // undefined — tools like HITL confirm dialogs have no parameters
     // but still need their UI rendered in the chat.
-    if (stableRender) {
+    if (tool.render) {
       copilotkit.addHookRenderToolCall({
         name,
         args: tool.parameters,
         agentId: tool.agentId,
-        render: stableRender,
+        render: tool.render,
       });
-      refreshRender();
     }
 
     return () => {
@@ -57,9 +51,7 @@ export function useFrontendTool<
     tool.name,
     tool.available,
     copilotkit,
-    JSON.stringify(tool.webmcp ?? null),
     depsVersion,
-    stableRender,
-    refreshRender,
+    JSON.stringify(tool.webmcp ?? null),
   ]);
 }

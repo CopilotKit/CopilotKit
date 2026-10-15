@@ -91,18 +91,16 @@ function useFrontendTool<T extends Record<string, unknown>>(
 
 <PropertyReference name="deps" type="ReadonlyArray<unknown>">
   An optional dependency array. When it changes, the tool is unregistered and
-  re-registered so the new `handler` takes effect and mounted cards repaint with
-  the latest `render`. Pass every value your `handler` or `render` captures and
-  that changes over time: the `handler` is captured at registration, and a card
-  repaints only when its tool call changes or the registration refreshes.
+  re-registered so the new `handler` and `render` closures take effect. Pass every
+  value your `handler` or `render` captures and that changes over time — both are
+  captured at registration, not re-read on every render.
 
   `deps` compares plain data (strings, numbers, booleans, `null`, dates, and
   plain objects and arrays of those) by value, so an inline literal such as
   `[{ status }]` re-registers only when its contents change. Functions, class
   instances and other objects compare by identity, as in `useEffect`, so a
   changed callback re-registers and a circular value such as the `agent` from
-  `useAgent` is safe to pass. Adding or removing an entry counts as a change.
-  Re-registering never remounts a tool card that is already on screen. See [Dependency
+  `useAgent` is safe to pass. Adding or removing an entry counts as a change. See [Dependency
   comparison](#dependency-comparison).
 </PropertyReference>
 
@@ -307,7 +305,7 @@ string is rejected there without any annotation.
 - **Duplicate detection**: If a tool with the same `name` is already registered, the hook logs a warning. Only one tool per name is active at a time.
 - **Mount/Unmount lifecycle**: The tool and its optional render component are registered on mount and removed on unmount.
 - **Dependency tracking**: When `deps` is provided, the registration is refreshed whenever a dependency changes. Plain data compares by value; functions and other objects compare by identity. See [Dependency comparison](#dependency-comparison) below.
-- **The handler is captured at registration; the render repaints on registration**: A value your `handler` reads from component state or props is frozen at whatever it was when the tool was last registered. A card always paints with your latest `render`, but it repaints only when its tool call changes or the registration refreshes. Declare in `deps` what either one reads.
+- **Handler and render are captured at registration**: Neither closure is re-read on every render. A value your `handler` or `render` reads from component state or props is frozen at whatever it was when the tool was last registered, so it must be declared in `deps`.
 - **Render component lifecycle**: If a `render` function is provided, it is added to the internal render tool calls registry. It receives streaming `args` (partial during `InProgress`, complete during `Executing` and `Complete`).
 - **`render`'s return type is `ReactNode`, not `ReactElement | null`**: a bare string typechecks and then throws in the chat's `FlatList`. Annotate the renderer with [`FrontendToolRenderFunction<T>`](#the-render-type-react-native-needs) to have the compiler reject it.
 - **No return value**: The hook returns `void`.
@@ -315,27 +313,23 @@ string is rejected there without any annotation.
 ## Dependency comparison
 
 The hook reduces `deps` to a version number and puts only that number in its
-registration effect (`packages/react-core/src/v2/hooks/tool-registration.tsx`).
+registration effect (`packages/react-core/src/v2/hooks/tool-registration.ts`).
 `deps` is never serialized. Each entry is compared with the previous render's:
 
-- Plain data compares by value: strings, numbers, booleans, `null`, `undefined`,
-  dates, and plain objects and arrays of those. An inline literal such as
-  `[{ status }]` or `[items.filter(isOpen)]` re-registers only when its contents
-  change. Key order does not matter.
-- Functions, class instances, `Map`, `Set` and other non-plain objects compare by
-  identity, as in `useEffect`. A changed callback re-registers. A function
-  written inline in `deps` is new on every render, so wrap it in `useCallback`.
+- Plain data compares by value: strings, numbers, booleans, `null`,
+  `undefined`, dates, and plain objects and arrays of those. An inline literal
+  such as `[{ status }]` or `[items.filter(isOpen)]` re-registers only when its
+  contents change. Key order does not matter.
+- Functions, class instances, `Map`, `Set` and other non-plain objects compare
+  by identity, as in `useEffect`. A changed callback re-registers. A function
+  written inline in `deps` is new on every render, so it re-registers on every
+  render; wrap it in `useCallback`.
 - A circular value, such as the `agent` returned by `useAgent`, is safe to list.
   A cycle inside plain data is safe too.
 - Adding or removing an entry counts as a change.
 
-Re-registering never remounts a tool card that is already on screen: the hook
-registers one render component for its lifetime, and that component reads your
-latest `render`. State inside the card, such as a typed value, survives.
-
-If you want the registration to stay stable while the closure always sees the
-current value, keep the value out of `deps` and read it through a latest-value
-ref:
+To keep the registration stable while the closure always sees the current
+value, keep the value out of `deps` and read it through a latest-value ref:
 
 ```tsx
 import { useEffect, useRef } from "react";
@@ -361,6 +355,8 @@ function DraftTool({ onSubmit }: { onSubmit: () => Promise<string> }) {
   return null;
 }
 ```
+
+The same ref pattern applies to a `render` component that needs live state.
 
 ## Related
 

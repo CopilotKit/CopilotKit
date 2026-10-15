@@ -105,7 +105,6 @@ function useFrontendTool<T extends Record<string, unknown>>(
   instances and other objects compare by identity, as in `useEffect`, so a
   changed callback re-registers and a circular value such as the `agent` from
   `useAgent` is safe to pass. Adding or removing an entry counts as a change.
-  Re-registering never remounts a tool card that is already on screen.
 </PropertyReference>
 
 ## Usage

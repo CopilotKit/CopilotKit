@@ -6,7 +6,6 @@ import { ToolCallStatus } from "@copilotkit/core";
 import { useCallback, useLayoutEffect, useRef } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
-import { ToolRenderSlot } from "./tool-registration";
 
 /** Registration name of a catch-all tool: handles any otherwise-unhandled call. */
 const WILDCARD_TOOL_NAME = "*";
@@ -64,10 +63,6 @@ export function useHumanInTheLoop<
     (props) => {
       const ToolComponent = tool.render;
 
-      // Mounted through ToolRenderSlot rather than as a component type: an
-      // inline `render` is a new function on every parent render, and
-      // remounting it would wipe the card's state (a typed value, focus).
-
       // Build the HITL render props per status. `props` already carries
       // `toolCallId`; we overwrite `name`/`description` with the tool's
       // registration values and add the registration `agentId`, so the HITL
@@ -88,9 +83,7 @@ export function useHumanInTheLoop<
           agentId: tool.agentId,
           respond: undefined,
         };
-        return (
-          <ToolRenderSlot render={ToolComponent} renderProps={enhancedProps} />
-        );
+        return React.createElement(ToolComponent, enhancedProps);
       } else if (props.status === ToolCallStatus.Executing) {
         const enhancedProps = {
           ...props,
@@ -99,9 +92,7 @@ export function useHumanInTheLoop<
           agentId: tool.agentId,
           respond,
         };
-        return (
-          <ToolRenderSlot render={ToolComponent} renderProps={enhancedProps} />
-        );
+        return React.createElement(ToolComponent, enhancedProps);
       } else if (props.status === ToolCallStatus.Complete) {
         const enhancedProps = {
           ...props,
@@ -110,9 +101,7 @@ export function useHumanInTheLoop<
           agentId: tool.agentId,
           respond: undefined,
         };
-        return (
-          <ToolRenderSlot render={ToolComponent} renderProps={enhancedProps} />
-        );
+        return React.createElement(ToolComponent, enhancedProps);
       }
 
       // ToolCallStatus has only the three states handled above, so this point
