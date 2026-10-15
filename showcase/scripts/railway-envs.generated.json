@@ -148,6 +148,10 @@
         "serviceId": "7b99fa95-2124-4d19-838a-652464e351da"
       },
       {
+        "name": "showcase-intelligence-test-runner",
+        "serviceId": "4922b45b-6981-4559-be2f-fbbca9123323"
+      },
+      {
         "name": "starter-adk",
         "serviceId": "37691009-c0b2-4af7-8960-9f0b3f0a6be3"
       },
@@ -1000,6 +1004,33 @@
       "serviceId": "7b99fa95-2124-4d19-838a-652464e351da",
       "prodInstanceId": "7b99fa95-2124-4d19-838a-652464e351da",
       "stagingInstanceId": "4695150f-0de8-4b3b-b302-7a377621a200",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "gateIgnore": true,
+      "gatePolicy": {
+        "presence": "optional",
+        "image": "ignored"
+      },
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-test-runner",
+      "serviceId": "4922b45b-6981-4559-be2f-fbbca9123323",
+      "prodInstanceId": "4922b45b-6981-4559-be2f-fbbca9123323",
+      "stagingInstanceId": "f96bf2d4-f4f0-41b6-a7e9-547f33c38961",
       "ciBuilt": false,
       "gateValidated": false,
       "gateIgnore": true,
@@ -2229,6 +2260,10 @@
       },
       {
         "name": "showcase-intelligence-redis",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-test-runner",
         "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
       }
     ]

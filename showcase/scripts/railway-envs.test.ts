@@ -109,9 +109,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains 43 managed services plus four staging-only Intelligence services", () => {
+  it("contains 43 managed services plus seven staging-only Intelligence services", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(49);
+    expect(names.length).toBe(50);
   });
 
   it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {
@@ -1478,8 +1478,8 @@ describe("static gate and disposable approval policy", () => {
     ).toThrow(/gateValidated.*gateIgnore/);
   });
 
-  it("commits no approved pins and derives every permanent identity from the unchanged registry", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(49);
+  it("commits no approved pins and derives every permanent identity from the registry", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(50);
     expect(DISPOSABLE_LIFECYCLE_POLICY).toEqual({
       projectId: PROJECT_ID,
       forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],
@@ -1492,7 +1492,7 @@ describe("static gate and disposable approval policy", () => {
     const independent = Object.entries(SERVICES).filter(([name]) =>
       name.startsWith("showcase-intelligence-"),
     );
-    expect(independent).toHaveLength(6);
+    expect(independent).toHaveLength(7);
     for (const [, entry] of independent) {
       expect(effectiveStaticGatePolicy(entry)).toEqual({
         presence: "optional",
