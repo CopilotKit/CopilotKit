@@ -1,6 +1,6 @@
 ---
 title: Direct provider adapters
-description: Public Slack, Teams, Discord, Telegram, and WhatsApp adapter entry points in @copilotkit/channels.
+description: Public Slack, Teams, and WhatsApp adapter entry points in @copilotkit/channels.
 ---
 
 import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
@@ -10,10 +10,10 @@ import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
 | Model                | Channel declaration                                      | Provider connection                                                                       | Available providers                                     |
 | -------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Cloud-hosted Intelligence | `createChannel({ name, identifyUser, agent })`           | CopilotKit Intelligence stores provider credentials and owns ingress and egress           | Slack and Microsoft Teams                               |
-| Direct adapter       | `createChannel({ name, adapters, identifyUser, agent })` | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, Discord, Telegram, and WhatsApp |
+| Direct adapter       | `createChannel({ name, adapters, identifyUser, agent })` | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, and WhatsApp |
 
-Cloud-hosted Intelligence support for Discord and WhatsApp is coming soon. Their
-direct adapters already ship in `@copilotkit/channels`.
+Cloud-hosted Intelligence support for WhatsApp is coming soon. Its direct
+adapter ships in `@copilotkit/channels`.
 
 <Callout type="info" title="Direct does not mean standalone">
   A direct adapter moves the provider connection into your process. The
@@ -121,42 +121,6 @@ The Teams entry point also exports its server, Adaptive Card renderer,
 conversation store, message stream, interaction helpers, file helpers, and
 `TEAMS_LIMITS`. Renderer exports are also available from
 `@copilotkit/channels/teams/render`.
-
-### Discord
-
-```ts
-import {
-  discord,
-  DiscordAdapter,
-  type DiscordAdapterOptions,
-} from "@copilotkit/channels/discord";
-```
-
-`DiscordAdapterOptions` requires `botToken` and `appId`; set `guildId` to
-register slash commands immediately in one development guild. The entry point
-also exports its listener, renderer, command registration, conversation store,
-streaming helpers, built-in context and tools, file helpers, and
-`DISCORD_LIMITS`.
-
-Enable the privileged **Message Content Intent** and **Server Members Intent**
-for the bot in the Discord Developer Portal. The adapter requests
-`MessageContent` and `GuildMembers` on every connection.
-
-### Telegram
-
-```ts
-import {
-  telegram,
-  TelegramAdapter,
-  type TelegramAdapterOptions,
-} from "@copilotkit/channels/telegram";
-```
-
-`TelegramAdapterOptions` requires a bot `token`. Ingress defaults to
-long-polling. Set `mode: "webhook"` and provide `webhook` configuration for a
-public webhook deployment. The entry point also exports its listener,
-renderer, conversation store, streaming helper, built-in context and tools,
-file helpers, and `TELEGRAM_LIMITS`.
 
 ### WhatsApp
 

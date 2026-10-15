@@ -45,6 +45,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
     supportsTyping: true,
     supportsReactions: false,
     supportsStreaming: false,
+    supportsMessageEvents: true,
   };
   readonly ackDeadlineMs = 5000;
   readonly conversationStore: ConversationStore;

@@ -152,7 +152,7 @@ describe("resolvePackageCountSafe", () => {
   });
 
   it("returns the real package count for the shared Channels scope (drift guard)", () => {
-    expect(resolvePackageCountSafe("channels")).toBe(9);
+    expect(resolvePackageCountSafe("channels")).toBe(7);
   });
 
   it("resolves a positive count for EVERY scope in release.config.json (anti-drift)", () => {

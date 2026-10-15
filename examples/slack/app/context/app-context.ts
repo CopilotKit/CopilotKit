@@ -1,7 +1,7 @@
 /**
  * App-specific context entries — bot identity, tone, policy.
  * Platform tagging/formatting/thread-model guidance ships in each adapter's
- * default context (`defaultSlackContext` / `defaultTelegramContext`) and is
+ * default context (`defaultSlackContext` / `defaultWhatsAppContext`) and is
  * spread per-bot in `app/index.ts`; this file holds platform-neutral identity
  * and triage policy only.
  *

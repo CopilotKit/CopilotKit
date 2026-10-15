@@ -2,17 +2,27 @@ import { describe, it, expect } from "vitest";
 import { errorClass, normalizePlatform } from "./sanitize-error.js";
 
 describe("normalizePlatform", () => {
-  it("passes through known platforms and buckets the rest as custom", () => {
-    expect(normalizePlatform("slack")).toBe("slack");
-    expect(normalizePlatform("discord")).toBe("discord");
-    expect(normalizePlatform("telegram")).toBe("telegram");
-    expect(normalizePlatform("whatsapp")).toBe("whatsapp");
-    expect(normalizePlatform("teams")).toBe("teams");
-    // Free-form / custom adapter labels must not leak through.
-    expect(normalizePlatform("acme-internal-tenant")).toBe("custom");
-    expect(normalizePlatform("fake")).toBe("custom");
-    expect(normalizePlatform("")).toBe("custom");
-  });
+  it.each(["slack", "whatsapp", "teams"])(
+    "passes through the official %s platform",
+    (platform) => {
+      expect(normalizePlatform(platform)).toBe(platform);
+    },
+  );
+
+  it.each(["discord", "telegram"])(
+    "buckets the retired %s platform as custom",
+    (platform) => {
+      expect(normalizePlatform(platform)).toBe("custom");
+    },
+  );
+
+  // Free-form / custom adapter labels must not leak through.
+  it.each(["acme-internal-tenant", "fake", ""])(
+    "buckets the caller-chosen label %j as custom",
+    (platform) => {
+      expect(normalizePlatform(platform)).toBe("custom");
+    },
+  );
 });
 
 describe("errorClass", () => {

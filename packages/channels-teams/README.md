@@ -110,6 +110,14 @@ for a complete, runnable echo bot, and the
 [Microsoft Teams guide](../../showcase/shell-docs/src/content/docs/frontends/teams.mdx)
 for sideloading into real Teams via Azure Bot Service.
 
+Register `onMention` to handle activities whose structured mention entity names
+the bot's recipient ID. The adapter removes the bot's mention from the message
+text. Mentions of other users and text without a recipient mention use
+`onMessage`, including ordinary personal-chat messages. When both handlers are
+registered, `onMention` takes priority for bot mentions; otherwise `onMessage`
+handles them. Activation requires at least one `onMention` or `onMessage`
+handler.
+
 ## How it maps onto the `PlatformAdapter` contract
 
 - **Ingress:** a `CloudAdapter` receives Teams activities at

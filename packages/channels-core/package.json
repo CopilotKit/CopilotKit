@@ -17,7 +17,6 @@
     "copilotkit",
     "slack",
     "teams",
-    "discord",
     "ag-ui"
   ],
   "publishConfig": {

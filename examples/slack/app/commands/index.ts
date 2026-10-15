@@ -8,7 +8,7 @@
  * deliver an unregistered command, even over Socket Mode.
  *
  * Args arrive as free text (`ctx.text`) on Slack; `ctx.options` is for
- * surfaces with native structured args (e.g. Discord). The `options` schema
+ * custom adapters with native structured args. The `options` schema
  * is optional and used there for registration/typing.
  */
 import { defineChannelCommand } from "@copilotkit/channels";
@@ -57,9 +57,9 @@ export const appCommands: ChannelCommand[] = [
   // `/preview <title>` — ephemeral demo. Show the invoker a private draft of the
   // issue we'd file BEFORE anything is posted publicly or written to Linear.
   // `postEphemeral` is capability-gated with an explicit DM fallback: Slack shows
-  // a native only-you message; Discord and Telegram have no ephemeral surface, so
-  // `fallbackToDM: true` sends it as a direct message instead. We narrate which
-  // path was taken so the degradation is visible, never silent.
+  // a native only-you message; an adapter without ephemeral support can send it
+  // as a direct message instead via `fallbackToDM: true`. We narrate which path
+  // was taken so the degradation is visible, never silent.
   defineChannelCommand({
     name: "preview",
     description: "Privately preview the issue I'd file (only you see it).",
@@ -100,11 +100,11 @@ export const appCommands: ChannelCommand[] = [
 
   // `/file-issue` — modal demo. Open a structured issue form, or degrade
   // honestly where modals aren't available.
-  //  - Slack   → rich modal (dropdowns + radio).
-  //  - Discord → text-only modal (discord.js modals take only text inputs); the
-  //              dropdowns/radio drop and defaults apply (see FileIssueModal).
-  //  - Telegram→ no modal trigger at all (`ctx.openModal` is undefined), so we
-  //              say so and continue the same job conversationally via the agent.
+  //  - Slack → rich modal (dropdowns + radio).
+  //  - Custom adapter with modals → text-input form; defaults apply for omitted
+  //    dropdowns/radio (see FileIssueModal).
+  //  - No modal trigger (`ctx.openModal` is undefined) → say so and continue
+  //    the same job conversationally via the agent.
   defineChannelCommand({
     name: "file-issue",
     description: "Open a form to file a Linear issue.",

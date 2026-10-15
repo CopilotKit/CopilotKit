@@ -30,7 +30,7 @@ describe("FileIssueModal", () => {
     expect(t).toContain("modal_radio");
   });
 
-  it("text-only variant (Discord) drops selects/radios, ≤5 inputs", () => {
+  it("text-only variant drops selects/radios and keeps two text inputs", () => {
     const ir = renderToIR(FileIssueModal({ rich: false }));
     const root = ir[0]!;
     const t = tags(root);
@@ -57,7 +57,7 @@ describe("issueFromValues", () => {
     });
   });
 
-  it("applies defaults when controls were absent (Discord text-only)", () => {
+  it("applies defaults when controls were absent on a text-only surface", () => {
     expect(issueFromValues({ title: "X", description: "Y" })).toEqual({
       title: "X",
       description: "Y",

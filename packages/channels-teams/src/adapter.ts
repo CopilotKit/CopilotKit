@@ -85,6 +85,7 @@ export class TeamsAdapter implements PlatformAdapter {
 
   constructor(private readonly opts: TeamsAdapterOptions = {}) {
     this.capabilities = {
+      supportsMessageEvents: true,
       supportsModals: false,
       supportsTyping: true,
       supportsReactions: false,
@@ -196,6 +197,15 @@ export class TeamsAdapter implements PlatformAdapter {
       return;
     }
 
+    // Capture the structured recipient mention before the SDK strips its text.
+    const recipientId = activity.recipient?.id;
+    const mentioned = Boolean(
+      recipientId &&
+      activity
+        .getMentions(activity)
+        .some((mention) => mention.mentioned?.id === recipientId),
+    );
+
     // Ordinary chat message. Strip any `<at>bot</at>` mention (channel scope).
     let text = "";
     try {
@@ -250,7 +260,7 @@ export class TeamsAdapter implements PlatformAdapter {
             kind: "created",
             logicalMessageId: activity.id ?? conversationKey,
             revisionId: activity.id ?? conversationKey,
-            mentioned: false,
+            mentioned,
           },
           actor,
           identityContext,
