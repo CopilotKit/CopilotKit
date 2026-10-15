@@ -1252,6 +1252,55 @@ describe("IntelligenceAgentRunner", () => {
       expect(await runner.isRunning({ threadId })).toBe(false);
     });
 
+    it("still sends in sequence order if an event is queued behind a higher sequence", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-out-of-order";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-out-of-order",
+      });
+      const agent = new BlockingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-out-of-order",
+          role: "assistant",
+        } as TextMessageStartEvent,
+      ]);
+      runner.run({ threadId, agent, input }).subscribe({ error: () => {} });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+      expect(ch.pushLog).toHaveLength(1);
+
+      // pushCanonicalEvent always stamps increasing sequences, so this can
+      // only happen if another path queues events. Simulate one directly.
+      const state = (runner as any).threads.get(threadId);
+      const queue = (seq: number) =>
+        (runner as any).queueRunnerEvent(
+          {
+            type: EventType.CUSTOM,
+            name: "late",
+            value: seq,
+            threadId,
+            runId: input.runId,
+            metadata: { cpki_event_id: `late-${seq}`, cpki_event_seq: seq },
+          },
+          state,
+        );
+      queue(10);
+      queue(5);
+
+      ch.pushLog[0].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(
+        ch.pushLog[1].payload.events.map(
+          (event: any) => event.metadata.cpki_event_seq,
+        ),
+      ).toEqual([5, 10]);
+    });
+
     it("reports delivery stats for each acknowledged batch and ignores callback errors", async () => {
       vi.useFakeTimers();
       vi.setSystemTime(0);
