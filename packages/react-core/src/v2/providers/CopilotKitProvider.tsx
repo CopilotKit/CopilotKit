@@ -321,6 +321,27 @@ export interface CopilotKitProviderProps {
      * like tool mode does.
      */
     actionMode?: "message" | "legacy";
+    /**
+     * Markdown mode only. When true (the default), the component schema and the
+     * generation guideline are sent to the agent as context entries, which the
+     * built-in agent and `CopilotKitMiddleware` paste into the system prompt.
+     * Set to false when your backend builds its prompt from the
+     * `forwardedProps.copilotkit.ui` envelope instead; the envelope is sent
+     * either way.
+     */
+    sendContext?: boolean;
+    /**
+     * Markdown mode only. When true (the default), the `copilotkit.ui` envelope
+     * carries the catalog's component schemas (A2UI inline catalog JSON Schema).
+     * Set to false to send only the catalog id, for backends that already hold
+     * the catalog.
+     */
+    includeCatalog?: boolean;
+    /**
+     * Restrict the A2UI context entries and the `copilotkit.ui` envelope to runs
+     * of these agents. When omitted, every agent receives them.
+     */
+    agentIds?: string[];
   };
   /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
@@ -1331,6 +1352,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             <A2UICatalogContext
               catalog={filteredCatalog}
               includeSchema={a2ui?.includeSchema}
+              includeCatalog={a2ui?.includeCatalog}
+              sendContext={a2ui?.sendContext}
+              agentIds={a2ui?.agentIds}
               mode={a2uiMode}
             />
           )}

@@ -4,8 +4,14 @@ import { render } from "@testing-library/react";
 import {
   Catalog,
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+  STANDARD_CATALOG_ID,
 } from "@copilotkit/a2ui-renderer";
-import { A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION } from "@copilotkit/shared";
+import {
+  A2UI_MARKDOWN_GENERATION_GUIDELINES,
+  A2UI_MARKDOWN_GENERATION_GUIDELINES_DESCRIPTION,
+  A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
+  readCopilotKitUIEnvelope,
+} from "@copilotkit/shared";
 import { CopilotKitCore } from "@copilotkit/core";
 import type { CopilotKitCoreReact } from "../../lib/react-core";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
@@ -120,6 +126,94 @@ describe("CopilotKitProvider a2ui markdown mode", () => {
         (c) => c.description === A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
       ),
     ).toBe(true);
+  });
+
+  it("does not send the capabilities entry in markdown mode", () => {
+    const addContext = vi.spyOn(CopilotKitCore.prototype, "addContext");
+    render(
+      <CopilotKitProvider a2ui={{ mode: "markdown" }}>
+        <CoreCapture />
+      </CopilotKitProvider>,
+    );
+    const descriptions = addContext.mock.calls.map(([ctx]) => ctx.description);
+    expect(descriptions.some((d) => d.includes("catalog capabilities"))).toBe(
+      false,
+    );
+    expect(descriptions).toEqual(
+      expect.arrayContaining([
+        A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
+        A2UI_MARKDOWN_GENERATION_GUIDELINES_DESCRIPTION,
+      ]),
+    );
+  });
+
+  it("forwards the copilotkit.ui envelope on every run", () => {
+    render(
+      <CopilotKitProvider a2ui={{ mode: "markdown" }}>
+        <CoreCapture />
+      </CopilotKitProvider>,
+    );
+    const ui = readCopilotKitUIEnvelope(
+      capturedCore!.getPropertiesForAgent("default"),
+    );
+    expect(ui).toMatchObject({
+      method: "a2ui",
+      version: "v0.9",
+      format: 1,
+      mode: "markdown",
+      contextSent: true,
+      instructions: A2UI_MARKDOWN_GENERATION_GUIDELINES,
+    });
+    expect(ui!.catalog.id).toBe(STANDARD_CATALOG_ID);
+    expect(ui!.catalog.components).toHaveProperty("Chart");
+    // The flag older runtimes read is still forwarded.
+    expect(capturedCore!.properties.__copilotkitA2UIMode).toBe("markdown");
+  });
+
+  it("sendContext: false registers no context entries and says so in the envelope", () => {
+    const addContext = vi.spyOn(CopilotKitCore.prototype, "addContext");
+    render(
+      <CopilotKitProvider a2ui={{ mode: "markdown", sendContext: false }}>
+        <CoreCapture />
+      </CopilotKitProvider>,
+    );
+    expect(addContext).not.toHaveBeenCalled();
+    const ui = readCopilotKitUIEnvelope(
+      capturedCore!.getPropertiesForAgent("default"),
+    );
+    expect(ui?.contextSent).toBe(false);
+    expect(ui?.instructions).toBe(A2UI_MARKDOWN_GENERATION_GUIDELINES);
+  });
+
+  it("includeCatalog: false sends only the catalog id in the envelope", () => {
+    render(
+      <CopilotKitProvider a2ui={{ mode: "markdown", includeCatalog: false }}>
+        <CoreCapture />
+      </CopilotKitProvider>,
+    );
+    const ui = readCopilotKitUIEnvelope(
+      capturedCore!.getPropertiesForAgent("default"),
+    );
+    expect(ui?.catalog).toEqual({ id: STANDARD_CATALOG_ID });
+  });
+
+  it("agentIds scopes the context entries and the envelope", () => {
+    const addContext = vi.spyOn(CopilotKitCore.prototype, "addContext");
+    render(
+      <CopilotKitProvider a2ui={{ mode: "markdown", agentIds: ["chat"] }}>
+        <CoreCapture />
+      </CopilotKitProvider>,
+    );
+    for (const [ctx] of addContext.mock.calls) {
+      expect(ctx.agentIds).toEqual(["chat"]);
+    }
+    expect(
+      readCopilotKitUIEnvelope(capturedCore!.getPropertiesForAgent("chat")),
+    ).toBeDefined();
+    expect(
+      readCopilotKitUIEnvelope(capturedCore!.getPropertiesForAgent("research")),
+    ).toBeUndefined();
+    expect(capturedCore!.getContextForAgent("research")).toEqual([]);
   });
 
   it("sends a compact catalog payload in markdown mode", () => {
