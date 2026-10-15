@@ -16,6 +16,7 @@ import type {
 } from "@ag-ui/a2ui-toolkit";
 import {
   extractFenceOperations,
+  flattenInformationalCards,
   prepareSurfaceOperations,
 } from "@copilotkit/core";
 import type { A2UIOperation } from "@copilotkit/core";
@@ -109,6 +110,32 @@ function collectComponents(operations: A2UIOperation[]): ComponentRecord[] {
     }
   }
   return [...byId.values(), ...anonymous];
+}
+
+/**
+ * Components that only carry prose or arrange it. A surface made of nothing
+ * else (no data, media, control or chart) should have been plain markdown.
+ */
+const PROSE_COMPONENTS = new Set([
+  "Markdown",
+  "Text",
+  "Title",
+  "Caption",
+  "Column",
+  "Box",
+  "Divider",
+  "Spacer",
+]);
+
+/** Whether every component of the surface is prose or a plain container. */
+function isProseOnly(components: ComponentRecord[]): boolean {
+  return (
+    components.length > 0 &&
+    components.every(
+      (c) =>
+        typeof c.component === "string" && PROSE_COMPONENTS.has(c.component),
+    )
+  );
 }
 
 /** Whether some updateComponents defines the `root` component the renderer starts from. */
@@ -209,16 +236,31 @@ export function A2UIMarkdownSurface({
 
   const parsed = useMemo(() => extractFenceOperations(fenceText), [fenceText]);
   const catalogId = config?.catalogId ?? "";
-  const prepared = useMemo(
-    () =>
-      prepareSurfaceOperations({
-        operations: [...parsed.operations, ...(extraOperations ?? [])],
-        fallbackSurfaceId,
-        catalogId,
-      }),
-    [parsed.operations, extraOperations, fallbackSurfaceId, catalogId],
-  );
+  const prepared = useMemo(() => {
+    const surface = prepareSurfaceOperations({
+      operations: [...parsed.operations, ...(extraOperations ?? [])],
+      fallbackSurfaceId,
+      catalogId,
+    });
+    // Only interactive panels keep a box; other Cards render as sections.
+    return {
+      ...surface,
+      operations: flattenInformationalCards(surface.operations),
+    };
+  }, [parsed.operations, extraOperations, fallbackSurfaceId, catalogId]);
   const hasRoot = surfaceHasRoot(prepared.operations);
+  const proseOnly = useMemo(
+    () =>
+      closed && hasRoot && isProseOnly(collectComponents(prepared.operations)),
+    [closed, hasRoot, prepared.operations],
+  );
+
+  useEffect(() => {
+    if (!proseOnly || hidden || !isDevelopment()) return;
+    console.warn(
+      `[A2UI] surface contains only prose; prefer plain markdown (surface "${prepared.surfaceId}")`,
+    );
+  }, [proseOnly, hidden, prepared.surfaceId]);
 
   // Child effects run first, so the operations are processed before this
   // reveals the surface. SurfaceMessageProcessor's onReady may also fire, but
@@ -346,6 +388,7 @@ export function A2UIMarkdownSurface({
           : "cpk:relative cpk:flex cpk:w-full cpk:flex-col"
       }
       data-a2ui-markdown-surface={prepared.surfaceId}
+      data-a2ui-prose-only={proseOnly ? "" : undefined}
       style={SURFACE_FIT_STYLE}
     >
       {/* No built-in placeholder: the prose keeps streaming above and the

@@ -127,11 +127,19 @@ export const layoutDefinitions = {
     }),
   },
   Card: {
-    description: "Bordered, padded container with background.",
+    description:
+      'Bordered, padded container for an interactive panel (controls, a form, a configurator). variant "section" = heading plus content without a box; "outline" = always boxed. In markdown mode a Card without controls renders as "section" unless it sets variant or border.',
     props: z.object({
       ...layoutProps,
       variant: z
-        .enum(["default", "soft", "elevated", "transparent"])
+        .enum([
+          "default",
+          "outline",
+          "section",
+          "soft",
+          "elevated",
+          "transparent",
+        ])
         .optional(),
     }),
   },

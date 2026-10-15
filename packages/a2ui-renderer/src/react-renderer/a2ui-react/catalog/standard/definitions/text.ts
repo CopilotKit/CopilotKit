@@ -37,7 +37,7 @@ const simpleInline = (description: string) => ({
 export const textDefinitions = {
   Title: {
     description:
-      "Heading. size sm→h4, md→h3 (default), lg→h2, 3xl→h2, xl|2xl|4xl|5xl→h1. Bold by default (strong=true).",
+      "Heading styled like the chat's own headings. size sm→h4, md|lg→h3 (default md), xl|2xl and larger→h2. Bold by default (strong=true).",
     props: z.object({
       ...typography,
       text: dynamicString("Heading text"),

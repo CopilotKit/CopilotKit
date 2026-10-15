@@ -12,6 +12,7 @@ import {
   STANDARD_CATALOG_ID,
   FONT_FAMILY,
 } from "../a2ui-react/catalog/standard/tokens";
+import { STANDARD_CSS } from "../a2ui-react/catalog/standard/styles";
 
 describe("standard tokens", () => {
   it("maps numbers to 4px steps and passes strings through", () => {
@@ -53,21 +54,34 @@ describe("standard tokens", () => {
   });
   it("defaults font helpers to md", () => {
     expect(titleFont().fontSize).toBe(titleFont("md").fontSize);
-    expect(textFont().fontSize).toBe(16);
+    expect(textFont().fontSize).toBe("1em");
   });
-  it("follows the type scale", () => {
+  it("expresses the type scale in em of the host size", () => {
     expect(titleFont("2xl")).toMatchObject({
-      fontSize: 24,
-      lineHeight: "32px",
+      fontSize: "1.5em",
+      lineHeight: 1.333,
       fontWeight: 600,
     });
-    expect(titleFont("lg")).toMatchObject({ fontSize: 18, lineHeight: "28px" });
-    expect(textFont("md")).toEqual({ fontSize: 16, lineHeight: "26px" });
-    expect(textFont("sm")).toEqual({ fontSize: 14, lineHeight: "20px" });
+    expect(titleFont("lg")).toMatchObject({ fontSize: "1.125em" });
+    expect(textFont("md")).toEqual({ fontSize: "1em", lineHeight: 1.625 });
+    expect(textFont("sm")).toEqual({ fontSize: ".875em", lineHeight: 1.429 });
+    expect(textFont("3xs").fontSize).toBe(".625em");
+    expect(textFont("2xs").fontSize).toBe(".6875em");
+    expect(textFont("xs").fontSize).toBe(".75em");
+    expect(textFont("lg").fontSize).toBe("1.125em");
     expect(FONT_FAMILY).toContain("-apple-system, ui-sans-serif, system-ui");
     expect(borderColor("default")).toBe(
       "var(--a2ui-color-border-default, rgba(0, 0, 0, 0.1))",
     );
+  });
+  it("lets the surface inherit the host's typography", () => {
+    expect(STANDARD_CSS).toContain(".a2ui-surface{font:inherit;color:inherit}");
+    expect(STANDARD_CSS).not.toContain("font-family");
+    expect(STANDARD_CSS).toContain(
+      ":where(.a2ui-surface) :where(h2){font-size:1.5em;font-weight:600;line-height:1.3}",
+    );
+    // The list reset belongs to the List component, not to Markdown.
+    expect(STANDARD_CSS).not.toMatch(/\.a2ui-surface :is\(ul,ol\)/);
   });
   it("uses the documented catalog id", () => {
     expect(STANDARD_CATALOG_ID).toBe(

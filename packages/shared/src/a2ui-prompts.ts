@@ -146,9 +146,10 @@ RULES
 - To update a surface later in the same reply, write another fence with the same surfaceId; its operations are applied on top. Use a new surfaceId for a separate surface.
 - Repeat a template per item with children: { "componentId": "row", "path": "/items" }; inside a template use relative paths ("name", not "/name").
 - Keep surfaces focused: one task per surface, no clutter. Never wrap the whole reply in a fence; prose goes outside.
+- Never make a surface that is only prose. Explanations, intros and summaries are normal markdown outside the fence. Inside a surface use Markdown only when it sits next to other components (a table cell, a card beside a chart).
 
 VISUAL STYLE (match a calm, native look)
-- Structure: one bordered Card per section, each with a Title (size "lg") and optional Caption. Never nest a Card inside a Card and never put border: true on a Box inside a Card; separate groups inside a Card with Divider or plain gap.
+- Structure: Use Card only for an interactive panel (controls, a form, a configurator). Tables, charts, lists and explanations go under a Title in a plain Column, separated by a Divider when needed. Never put every section in a Card. Never nest a Card inside a Card and never put border: true on a Box inside a Card; separate groups inside a Card with Divider or plain gap.
 - Palette: text uses color "default" or "secondary" only. Do not set background on Card, Box or Column, except at most one summary panel per Card using background "surface-secondary". Use colors like "success"/"danger"/"warning" only on Badge for a status, never for decoration.
 - Hierarchy: at most one Title with size "2xl" per surface (the page heading), "lg" for section headings, Text size "md" for content, Caption for hints. Avoid Badge, Icon and emphasis unless they carry information.
 - Rows: label/value pairs are a Row with justify "between" (Caption on the left, Text with weight "medium" on the right). Buttons go in a Row at the bottom of a Card; one primary Button, the rest variant "ghost".

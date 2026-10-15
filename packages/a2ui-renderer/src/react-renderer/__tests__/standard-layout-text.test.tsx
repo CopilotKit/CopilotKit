@@ -95,8 +95,77 @@ describe("standard catalog: layout and text", () => {
     ]);
     expect((await v.findByText("small")).tagName).toBe("H4");
     expect(v.getByText("default").tagName).toBe("H3");
-    expect(v.getByText("large").tagName).toBe("H2");
-    expect(v.getByText("huge").tagName).toBe("H1");
+    expect(v.getByText("large").tagName).toBe("H3");
+    expect(v.getByText("huge").tagName).toBe("H2");
+  });
+  it("Title takes size, line height and weight from the host's heading styles", async () => {
+    const v = renderStandard([
+      { id: "root", component: "Column", children: ["a", "b"] },
+      { id: "a", component: "Title", text: "Breakdown", size: "2xl" },
+      {
+        id: "b",
+        component: "Title",
+        text: "Muted",
+        color: "secondary",
+        textAlign: "center",
+      },
+    ]);
+    const h2 = await v.findByText("Breakdown");
+    expect(h2.tagName).toBe("H2");
+    expect(h2.style.fontSize).toBe("");
+    expect(h2.style.lineHeight).toBe("");
+    expect(h2.style.fontWeight).toBe("");
+    expect(h2.style.margin).toBe("");
+    const muted = v.getByText("Muted");
+    expect(muted.style.color).toContain("--a2ui-color-text-secondary");
+    expect(muted.style.textAlign).toBe("center");
+  });
+  it("Text inherits its size unless one is given, which maps to em", async () => {
+    const v = renderStandard([
+      { id: "root", component: "Column", children: ["a", "b", "c", "d"] },
+      { id: "a", component: "Text", text: "plain" },
+      { id: "b", component: "Text", text: "small", size: "sm" },
+      { id: "c", component: "Caption", text: "caption" },
+      { id: "d", component: "Label", text: "label" },
+    ]);
+    const plain = await v.findByText("plain");
+    expect(plain.style.fontSize).toBe("");
+    expect(plain.style.lineHeight).toBe("");
+    expect(plain.style.color).toBe("");
+    expect(v.getByText("small").style.fontSize).toBe("0.875em");
+    const caption = v.getByText("caption");
+    expect(caption.style.fontSize).toBe("0.875em");
+    expect(caption.style.color).toContain("--a2ui-color-text-secondary");
+    const label = v.getByText("label");
+    expect(label.style.fontSize).toBe("0.875em");
+    expect(label.style.fontWeight).toBe("500");
+  });
+  it("Markdown has no typography of its own and keeps its bullets", async () => {
+    const v = renderStandard([
+      { id: "root", component: "Markdown", text: "- one\n- **two**" },
+    ]);
+    const li = await v.findByText("one");
+    const md = li.closest(".a2ui-markdown") as HTMLElement;
+    expect(md.getAttribute("style")).toBeNull();
+    expect(li.closest("ul")!.classList.contains("a2ui-std-list")).toBe(false);
+  });
+  it("Card variant section draws no box; outline is boxed even when nested", async () => {
+    const v = renderStandard([
+      { id: "root", component: "Column", children: ["s", "p"] },
+      { id: "s", component: "Card", variant: "section", children: ["st"] },
+      { id: "st", component: "Title", text: "Section" },
+      { id: "p", component: "Card", children: ["o"] },
+      { id: "o", component: "Card", variant: "outline", children: ["ot"] },
+      { id: "ot", component: "Text", text: "Outlined" },
+    ]);
+    const section = (await v.findByText("Section")).parentElement!;
+    expect(section.getAttribute("data-a2ui-card-variant")).toBe("section");
+    expect(section.getAttribute("style")).not.toContain("solid");
+    expect(section.style.padding).toBe("0px");
+    expect(section.style.gap).toBe("calc(var(--spacing, 0.25rem) * 4)");
+    const outline = v.getByText("Outlined").parentElement!;
+    expect(outline.getAttribute("data-a2ui-card")).toBe("nested");
+    expect(outline.style.border).toContain("1px solid");
   });
   it("Text renders inline children after its text", async () => {
     const v = renderStandard([

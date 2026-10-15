@@ -223,41 +223,52 @@ export function borderColor(v: string | undefined): string | undefined {
 }
 
 /**
- * Type scale:
+ * Type scale at a 16px base,
+ * expressed in em so surfaces scale with the host's font size:
  * title lg = 18/28, 2xl = 24/32 (Tailwind-like steps around them);
  * text md = 16/26, sm = 14/20, xs = 12/16, 3xs = 10/12.
+ * Line heights are unitless ratios.
  */
-const TITLE_SCALE: Record<TitleSize, [number, number]> = {
-  sm: [14, 20],
-  md: [16, 24],
-  lg: [18, 28],
-  xl: [20, 28],
-  "2xl": [24, 32],
-  "3xl": [30, 36],
-  "4xl": [36, 40],
-  "5xl": [48, 52],
+const TITLE_SCALE: Record<TitleSize, [string, number]> = {
+  sm: [".875em", 1.429],
+  md: ["1em", 1.5],
+  lg: ["1.125em", 1.556],
+  xl: ["1.25em", 1.4],
+  "2xl": ["1.5em", 1.333],
+  "3xl": ["1.875em", 1.2],
+  "4xl": ["2.25em", 1.111],
+  "5xl": ["3em", 1.083],
 };
-const TEXT_SCALE: Record<TextSize, [number, number]> = {
-  "3xs": [10, 12],
-  "2xs": [11, 14],
-  xs: [12, 16],
-  sm: [14, 20],
-  md: [16, 26],
-  lg: [18, 28],
+const TEXT_SCALE: Record<TextSize, [string, number]> = {
+  "3xs": [".625em", 1.2],
+  "2xs": [".6875em", 1.273],
+  xs: [".75em", 1.333],
+  sm: [".875em", 1.429],
+  md: ["1em", 1.625],
+  lg: ["1.125em", 1.556],
 };
 
-/** A system UI font stack; override with `--a2ui-font-family`. */
+/**
+ * A system UI font stack. Surfaces inherit the host's font instead; kept
+ * for backwards compatibility and for hosts that want it
+ * (`font-family: var(--a2ui-font-family, …)`).
+ */
 export const FONT_FAMILY =
   'var(--a2ui-font-family, -apple-system, ui-sans-serif, system-ui, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol")';
 
+/**
+ * Heading scale in em. `Title` no longer uses it (it inherits the host's
+ * heading styles); kept for backwards compatibility.
+ */
 export function titleFont(size: TitleSize = "md"): React.CSSProperties {
-  const [px, lh] = TITLE_SCALE[size] ?? TITLE_SCALE.md;
-  return { fontSize: px, lineHeight: `${lh}px`, fontWeight: 600 };
+  const [fontSize, lineHeight] = TITLE_SCALE[size] ?? TITLE_SCALE.md;
+  return { fontSize, lineHeight, fontWeight: 600 };
 }
 
+/** Body text size in em relative to the surrounding text. */
 export function textFont(size: TextSize = "md"): React.CSSProperties {
-  const [px, lh] = TEXT_SCALE[size] ?? TEXT_SCALE.md;
-  return { fontSize: px, lineHeight: `${lh}px` };
+  const [fontSize, lineHeight] = TEXT_SCALE[size] ?? TEXT_SCALE.md;
+  return { fontSize, lineHeight };
 }
 
 export const FONT_WEIGHT: Record<Weight, number> = {

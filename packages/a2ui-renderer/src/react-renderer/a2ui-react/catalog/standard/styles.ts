@@ -1,10 +1,15 @@
 import React from "react";
-import { FONT_FAMILY, borderColor, textColor } from "./tokens";
+import { borderColor, textColor } from "./tokens";
 
 /**
  * Stylesheet for what inline styles cannot express: pseudo-elements
- * (slider track/thumb, placeholder), `:checked` / `:first-child` states and
- * the surface root's font. Injected once per document.
+ * (slider track/thumb, placeholder), `:checked` / `:first-child` states,
+ * heading fallbacks and resets for host prose styles. Injected once per
+ * document.
+ *
+ * Typography is inherited: a surface takes the font, size, line height and
+ * colour of the text around it (the chat's prose), and headings take the
+ * host's heading styles.
  */
 
 export const STANDARD_STYLE_ID = "a2ui-standard-catalog";
@@ -20,8 +25,12 @@ const THUMB =
 export const STANDARD_CSS = [
   // The surface (and its root component) never exceeds the chat column.
   ".a2ui-surface{min-width:0;max-width:100%;box-sizing:border-box}",
-  // Outermost standard element carries the font, ink and base text.
-  `[data-a2ui-std]:not([data-a2ui-std] [data-a2ui-std]){font-family:${FONT_FAMILY};color:${textColor("default")};font-size:16px;line-height:26px;-webkit-font-smoothing:antialiased}`,
+  // The surface inherits the host's font, size, line height and ink.
+  ".a2ui-surface{font:inherit;color:inherit}",
+  // Heading sizes only for hosts without heading styles (zero specificity).
+  ":where(.a2ui-surface) :where(h2){font-size:1.5em;font-weight:600;line-height:1.3}",
+  ":where(.a2ui-surface) :where(h3){font-size:1.25em;font-weight:600;line-height:1.3}",
+  ":where(.a2ui-surface) :where(h4){font-size:1em;font-weight:600;line-height:1.4}",
   // Controls never fall back to the UA font.
   "[data-a2ui-std] :is(button,input,select,textarea),[data-a2ui-input]{font:inherit;color:inherit}",
   // Key/value rows: the trailing text of a space-between row sits flush right.
@@ -43,10 +52,17 @@ export const STANDARD_CSS = [
   ".a2ui-std-check:disabled{cursor:not-allowed}",
   // Hosts often wrap chat markdown in a "prose" stylesheet (Tailwind
   // typography) that adds margins to headings, paragraphs, lists and tables.
-  // A surface is an app panel, not prose: reset those inside the surface.
-  ".a2ui-surface :is(h1,h2,h3,h4,h5,h6,p,ul,ol,li,table,figure,figcaption,blockquote,pre){margin:0}",
-  ".a2ui-surface :is(ul,ol){padding-left:0;list-style:none}",
-  ".a2ui-surface table{font-size:inherit;line-height:inherit}",
+  // A surface is an app panel spaced by gaps: reset those margins, except
+  // inside a Markdown component, which reads like the chat's prose. The
+  // selector has to outrank `.prose :where(h2)`; hosts change it through
+  // `--a2ui-heading-margin` / `--a2ui-block-margin`.
+  ".a2ui-surface :is(h1,h2,h3,h4,h5,h6):not(.a2ui-markdown *){margin:var(--a2ui-heading-margin,0)}",
+  ".a2ui-surface :is(p,table,figure,figcaption,blockquote,pre):not(.a2ui-markdown *){margin:var(--a2ui-block-margin,0)}",
+  ".a2ui-markdown>:first-child{margin-top:0}",
+  ".a2ui-markdown>:last-child{margin-bottom:0}",
+  // Only the List component drops native bullets; Markdown keeps them.
+  ".a2ui-surface :is(.a2ui-std-list,.a2ui-std-list>li){margin:0}",
+  ".a2ui-surface .a2ui-std-table{font-size:inherit;line-height:inherit}",
   // Table: 8px cells, flush outer edges, hairline row dividers, no outer border.
   ".a2ui-std-table-wrap{width:100%;max-width:100%;min-width:0;overflow-x:auto}",
   ".a2ui-std-cell{padding:8px}",

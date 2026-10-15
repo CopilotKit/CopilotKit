@@ -16,7 +16,6 @@ import {
   spacing,
   textColor,
   textFont,
-  titleFont,
 } from "../tokens";
 import type { TitleSize, Weight } from "../tokens";
 import { useStandardStyles } from "../styles";
@@ -27,15 +26,19 @@ const safeHref = (href: unknown) =>
     ? href.trim()
     : undefined;
 
-const TITLE_TAG: Record<TitleSize, "h1" | "h2" | "h3" | "h4"> = {
+/**
+ * Heading level per size. Sizes come from the host's heading styles (the
+ * chat's prose), with zero-specificity fallbacks in `styles.ts`.
+ */
+const TITLE_TAG: Record<TitleSize, "h2" | "h3" | "h4"> = {
   sm: "h4",
   md: "h3",
-  lg: "h2",
-  xl: "h1",
-  "2xl": "h1",
+  lg: "h3",
+  xl: "h2",
+  "2xl": "h2",
   "3xl": "h2",
-  "4xl": "h1",
-  "5xl": "h1",
+  "4xl": "h2",
+  "5xl": "h2",
 };
 
 const HIGHLIGHT: Record<string, string> = {
@@ -99,7 +102,7 @@ function ShimmerText({ props }: RendererProps<any>) {
   return (
     <span
       style={{
-        ...textFont(props.size),
+        ...(props.size ? textFont(props.size) : {}),
         ...typographyStyle(props),
         display: "inline-block",
         textDecoration: props.lineThrough ? "line-through" : undefined,
@@ -122,7 +125,11 @@ const BADGE_PAD: Record<string, string> = {
   md: "0 6.65px",
   lg: "2px 8px",
 };
-const BADGE_FONT: Record<string, number> = { sm: 11, md: 12, lg: 13 };
+const BADGE_FONT: Record<string, string> = {
+  sm: ".6875em",
+  md: ".75em",
+  lg: ".8125em",
+};
 const BADGE_HEIGHT: Record<string, number> = { sm: 18, md: 20, lg: 24 };
 const BADGE_NEUTRAL_BG =
   "var(--a2ui-color-badge-secondary, rgba(0, 0, 0, 0.05))";
@@ -175,12 +182,11 @@ function Badge({ props }: RendererProps<any>) {
   );
 }
 
-/** Caption lg (the default) is 14/20, muted. */
-const CAPTION_PX: Record<string, number> = { sm: 12, md: 13, lg: 14 };
-const CAPTION_LH: Record<string, string> = {
-  sm: "16px",
-  md: "18px",
-  lg: "20px",
+/** Caption lg (the default) is 14px at a 16px base, muted. */
+const CAPTION_EM: Record<string, string> = {
+  sm: ".75em",
+  md: ".8125em",
+  lg: ".875em",
 };
 
 export const textRenderers = {
@@ -188,16 +194,20 @@ export const textRenderers = {
     useStandardStyles();
     const size: TitleSize = props.size ?? "md";
     const Tag = TITLE_TAG[size] ?? "h3";
+    // Size, line height, weight and margins come from the host's heading
+    // styles; only what the model asked for explicitly is inline.
+    const { margin: _margin, ...style } = typographyStyle(props);
     return (
       <Tag
         data-a2ui-std=""
+        data-a2ui-title={size}
         style={{
-          ...titleFont(size),
-          ...typographyStyle(props),
-          fontWeight:
-            props.strong === false
-              ? FONT_WEIGHT[(props.weight as Weight) ?? "normal"]
-              : FONT_WEIGHT[(props.weight as Weight) ?? "semibold"],
+          ...style,
+          fontWeight: props.weight
+            ? FONT_WEIGHT[props.weight as Weight]
+            : props.strong === false
+              ? FONT_WEIGHT.normal
+              : undefined,
         }}
       >
         {str(props.text)}
@@ -227,7 +237,8 @@ export const textRenderers = {
           // In a Row, text hugs its content (never stretches to 100%).
           flex: props.inline ? undefined : "0 1 auto",
           minWidth: props.inline ? undefined : 0,
-          ...textFont(props.size),
+          // Without a size, text inherits the host's size and line height.
+          ...(props.size ? textFont(props.size) : {}),
           ...typographyStyle(props),
           fontWeight: props.weight
             ? FONT_WEIGHT[props.weight as Weight]
@@ -255,8 +266,7 @@ export const textRenderers = {
     <span
       style={{
         display: "block",
-        fontSize: CAPTION_PX[props.size ?? "lg"] ?? 14,
-        lineHeight: CAPTION_LH[props.size ?? "lg"] ?? "20px",
+        fontSize: CAPTION_EM[props.size ?? "lg"] ?? CAPTION_EM.lg,
         ...typographyStyle({ ...props, color: props.color ?? "secondary" }),
         fontWeight: FONT_WEIGHT[(props.weight as Weight) ?? "normal"],
       }}
@@ -319,7 +329,8 @@ export const textRenderers = {
     </pre>
   ),
   Markdown: ({ props }: RendererProps<any>) => (
-    <div className="a2ui-markdown" style={{ ...textFont("md") }}>
+    // No typography of its own: it reads like the chat's prose around it.
+    <div className="a2ui-markdown">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{

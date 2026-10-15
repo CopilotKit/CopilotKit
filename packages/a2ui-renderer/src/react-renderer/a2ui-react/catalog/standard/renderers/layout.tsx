@@ -189,11 +189,27 @@ const container =
     );
   };
 
-/** Card: bordered at the top level, flattened when nested in another Card. */
+/**
+ * Card: bordered at the top level, flattened when nested in another Card.
+ * "section" never draws a box; "outline" always does.
+ */
 function cardStyle(p: any, nested: boolean): React.CSSProperties {
+  // A section is a heading plus its content: no box, no fill, no padding.
+  if (p.variant === "section") {
+    return {
+      flexDirection: "column",
+      gap: hasGap(p) ? undefined : spacing(4),
+      padding: p.padding != null ? spacing(p.padding) : 0,
+      border: "none",
+      boxShadow: "none",
+      borderRadius: 0,
+      background: p.background ? backgroundColor(p.background) : "transparent",
+    };
+  }
   const ownBackground =
     p.background ?? (p.variant === "soft" ? "surface-secondary" : undefined);
-  if (nested) {
+  // "outline" is boxed even inside another Card.
+  if (nested && p.variant !== "outline") {
     const base: React.CSSProperties = {
       flexDirection: "column",
       gap: hasGap(p) ? undefined : spacing(3),
@@ -231,12 +247,15 @@ function cardStyle(p: any, nested: boolean): React.CSSProperties {
 function Card({ props, children }: RendererProps<any>) {
   useStandardStyles();
   const nested = useContext(CardNestingContext);
+  // A section draws no box, so what it contains keeps its own nesting level.
+  const section = props.variant === "section";
   return (
-    <CardNestingContext.Provider value={true}>
+    <CardNestingContext.Provider value={section ? nested : true}>
       <CardDistanceContext.Provider value={0}>
         <div
           data-a2ui-std=""
           data-a2ui-card={nested ? "nested" : "top"}
+          data-a2ui-card-variant={props.variant ?? undefined}
           style={{
             ...layoutStyle(props),
             ...defined(cardStyle(props, nested)),
