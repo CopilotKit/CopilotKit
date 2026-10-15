@@ -1,0 +1,92 @@
+import { useEffect } from "react";
+import { describe, expect, it } from "vitest";
+import { render } from "@testing-library/react";
+import { A2UIProvider } from "../core/A2UIProvider";
+import { A2UIRenderer, themeToCssVariables } from "../core/A2UIRenderer";
+import { useA2UI } from "../hooks/useA2UI";
+import {
+  standardCatalog,
+  STANDARD_CATALOG_ID,
+} from "../a2ui-react/catalog/standard";
+import { renderStandard } from "./standard-test-utils";
+
+function Surface({ ops }: { ops: unknown[] }) {
+  const { processMessages } = useA2UI();
+  useEffect(() => {
+    processMessages(ops as Array<Record<string, unknown>>);
+  }, [ops, processMessages]);
+  return <A2UIRenderer surfaceId="s" />;
+}
+
+/**
+ * The standard catalog has no colours of its own: every colour, radius,
+ * shadow and font is `var(--a2ui-…, fallback)`, and the provider's `theme`
+ * sets those variables on the surface.
+ */
+describe("standard catalog: theme and tokens", () => {
+  it("applies --a2ui-* theme keys as CSS variables on the surface element", async () => {
+    const ops = [
+      {
+        version: "v0.9",
+        createSurface: { surfaceId: "s", catalogId: STANDARD_CATALOG_ID },
+      },
+      {
+        version: "v0.9",
+        updateComponents: {
+          surfaceId: "s",
+          components: [{ id: "root", component: "Text", text: "Hi" }],
+        },
+      },
+    ];
+    const v = render(
+      <A2UIProvider
+        catalog={standardCatalog}
+        theme={{
+          "--a2ui-color-accent": "rgb(15, 118, 110)",
+          "--a2ui-radius-lg": "4px",
+          unrelated: "ignored",
+        }}
+      >
+        <Surface ops={ops} />
+      </A2UIProvider>,
+    );
+    await v.findByText("Hi");
+    const surface = v.container.querySelector(".a2ui-surface") as HTMLElement;
+    expect(surface.style.getPropertyValue("--a2ui-color-accent")).toBe(
+      "rgb(15, 118, 110)",
+    );
+    expect(surface.style.getPropertyValue("--a2ui-radius-lg")).toBe("4px");
+    expect(surface.getAttribute("style")).not.toContain("unrelated");
+  });
+
+  it("themeToCssVariables keeps only --a2ui-* string and number entries", () => {
+    expect(themeToCssVariables(undefined)).toBeUndefined();
+    expect(themeToCssVariables({})).toBeUndefined();
+    expect(
+      themeToCssVariables({
+        "--a2ui-chart-1": "#123456",
+        "--a2ui-radius-md": 8,
+        "--a2ui-bad": { nested: true },
+        color: "red",
+      }),
+    ).toEqual({ "--a2ui-chart-1": "#123456", "--a2ui-radius-md": "8" });
+  });
+
+  it("renders solid buttons and badges with token colours, not literals", async () => {
+    const v = renderStandard([
+      { id: "root", component: "Column", children: ["b", "g"] },
+      {
+        id: "b",
+        component: "Button",
+        label: "Go",
+        variant: "solid",
+        action: { event: { name: "go" } },
+      },
+      { id: "g", component: "Badge", label: "New", variant: "solid" },
+    ]);
+    const button = (await v.findByText("Go")).closest("button") as HTMLElement;
+    expect(button.style.color).toBe("var(--a2ui-color-on-accent, #fff)");
+    const badge = v.getByText("New").closest("span") as HTMLElement;
+    expect(badge.style.color).toBe("var(--a2ui-color-on-accent, #fff)");
+  });
+});

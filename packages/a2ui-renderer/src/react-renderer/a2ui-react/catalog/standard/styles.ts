@@ -1,5 +1,5 @@
 import React from "react";
-import { borderColor, textColor } from "./tokens";
+import { borderColor, textColor, CONTROL_BG, SHADOW_XS } from "./tokens";
 
 /**
  * Stylesheet for what inline styles cannot express: pseudo-elements
@@ -19,8 +19,7 @@ const CHECK_SVG =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E\")";
 
 const SLIDER_TRACK = "var(--a2ui-color-slider-track, rgba(0, 0, 0, 0.04))";
-const THUMB =
-  "width:20px;height:20px;box-sizing:border-box;border-radius:9999px;background:#fff;border:1px solid rgba(0,0,0,.1);box-shadow:0 1px 2px rgba(0,0,0,.12);cursor:pointer";
+const THUMB = `width:20px;height:20px;box-sizing:border-box;border-radius:9999px;background:${CONTROL_BG};border:1px solid ${borderColor("default")};box-shadow:${SHADOW_XS};cursor:pointer`;
 
 export const STANDARD_CSS = [
   // The surface (and its root component) never exceeds the chat column.
@@ -45,10 +44,10 @@ export const STANDARD_CSS = [
   ".a2ui-std-range::-moz-range-track{height:24px;background:transparent;border:0}",
   `.a2ui-std-range::-moz-range-thumb{${THUMB}}`,
   // Checkbox / radio: 20px round control, filled when checked.
-  `.a2ui-std-check{-webkit-appearance:none;appearance:none;flex-shrink:0;width:20px;height:20px;margin:0;box-sizing:border-box;border:1px solid ${borderColor("strong")};border-radius:9999px;background:#fff center/14px 14px no-repeat;cursor:pointer}`,
+  `.a2ui-std-check{-webkit-appearance:none;appearance:none;flex-shrink:0;width:20px;height:20px;margin:0;box-sizing:border-box;border:1px solid ${borderColor("strong")};border-radius:9999px;background:${CONTROL_BG} center/14px 14px no-repeat;cursor:pointer}`,
   '.a2ui-std-check[data-shape="square"]{border-radius:6px}',
   `.a2ui-std-check:checked{background-color:${ACCENT};border-color:${ACCENT};background-image:${CHECK_SVG}}`,
-  `.a2ui-std-check[type="radio"]:checked{background-image:none;background-color:#fff;border:6px solid ${ACCENT}}`,
+  `.a2ui-std-check[type="radio"]:checked{background-image:none;background-color:${CONTROL_BG};border:6px solid ${ACCENT}}`,
   ".a2ui-std-check:disabled{cursor:not-allowed}",
   // Hosts often wrap chat markdown in a "prose" stylesheet (Tailwind
   // typography) that adds margins to headings, paragraphs, lists and tables.

@@ -1,25 +1,21 @@
 import React, { Suspense } from "react";
 import type { RendererProps } from "../../../../create-catalog";
 import type { ChartSeries } from "../definitions/data";
-import { FONT_WEIGHT, borderColor, textColor, textFont } from "../tokens";
+import {
+  FONT_WEIGHT,
+  borderColor,
+  textColor,
+  textFont,
+  CHART_CURSOR,
+  CHART_PALETTE,
+  SHADOW_MD,
+} from "../tokens";
 
 import type * as Recharts from "recharts";
 
 type RechartsModule = typeof Recharts;
 
-/**
- * Soft blue family first (a single light-blue hue with a
- * darker emphasis), then muted companions so stacked/multi-series charts stay
- * readable without shouting.
- */
-export const CHART_PALETTE = [
-  "#7fb0f2",
-  "#2f6fd1",
-  "#b7cff7",
-  "#8bb5a8",
-  "#d9b36b",
-  "#c08bb0",
-];
+// Series colours come from the shared tokens (`--a2ui-chart-N`).
 
 /** Legend labels in ink, not in the series colour. */
 const legendFormatter = (value: string) => (
@@ -34,11 +30,11 @@ const LEGEND_PROPS = {
 const TOOLTIP_STYLE = {
   contentStyle: {
     borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.08)",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+    border: `1px solid ${borderColor("subtle")}`,
+    boxShadow: SHADOW_MD,
     fontSize: 13,
   },
-  cursor: { fill: "rgba(0,0,0,0.04)" },
+  cursor: { fill: CHART_CURSOR },
 };
 
 export interface ChartProps {

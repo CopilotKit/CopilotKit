@@ -17,6 +17,8 @@ import {
   panelBackground,
   radius,
   spacing,
+  SHADOW_SM,
+  SHADOW_SOFT,
 } from "../tokens";
 import { useStandardStyles } from "../styles";
 
@@ -80,7 +82,7 @@ export function layoutStyle(p: LayoutProps): React.CSSProperties {
     flex: p.flex,
     aspectRatio: p.aspectRatio,
     overflow: p.scrollable ? "auto" : p.clip ? "hidden" : undefined,
-    boxShadow: p.shadow ? "0 1px 3px rgba(0,0,0,.12)" : undefined,
+    boxShadow: p.shadow ? SHADOW_SM : undefined,
     boxSizing: "border-box",
   });
 }
@@ -239,8 +241,7 @@ function cardStyle(p: any, nested: boolean): React.CSSProperties {
       ownBackground ??
         (p.variant === "transparent" ? "transparent" : undefined),
     ),
-    boxShadow:
-      p.variant === "elevated" ? "0 1px 3px rgba(0,0,0,.06)" : undefined,
+    boxShadow: p.variant === "elevated" ? SHADOW_SOFT : undefined,
   };
 }
 
