@@ -127,7 +127,7 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains 43 managed services plus six Intelligence services and one staging-only runner", () => {
+  it("contains 43 managed services plus seven staging-only Intelligence services", () => {
     const names = listServiceNames();
     expect(names.length).toBe(50);
   });

@@ -40,13 +40,13 @@ const ACTIVE = {
   ],
 };
 const INTELLIGENCE_IDS = {
-  "showcase-intelligence-test-runner": "4922b45b-6981-4559-be2f-fbbca9123323",
   "showcase-intelligence-api": "2cf17267-31c4-4e92-8270-5ad92bd7ad19",
   "showcase-intelligence-composite": "70b24c88-81a5-469d-ae57-3df0daea2b3c",
   "showcase-intelligence-gateway": "f2eec3fd-d841-481b-9a9d-c8fd94c27870",
   "showcase-intelligence-gateway-proxy": "12513b2b-e368-4f7a-8141-1c28ab4f6f09",
   "showcase-intelligence-postgres": "6c2d2998-e7ae-413d-997d-7277f9fd6e07",
   "showcase-intelligence-redis": "7b99fa95-2124-4d19-838a-652464e351da",
+  "showcase-intelligence-test-runner": "4922b45b-6981-4559-be2f-fbbca9123323",
 };
 
 describe("permanent fleet lifecycle isolation", () => {
@@ -302,6 +302,16 @@ describe("permanent fleet lifecycle isolation", () => {
     }
     const closure = computePromoteClosure(Object.keys(SERVICES));
     expect(closure).toEqual(emitted.closure);
+    for (const name of Object.keys(INTELLIGENCE_IDS)) {
+      expect(closure.services.map((service) => service.name)).not.toContain(
+        name,
+      );
+      expect(closure.skipped).toContainEqual({
+        name,
+        reason:
+          'no "prod" environment in the SSOT — cannot be promoted (it exists in: staging).',
+      });
+    }
     expect(closure.services.map(({ name }) => name)).toContain(
       "harness-workers",
     );

@@ -1561,7 +1561,7 @@ export const SERVICES: Record<
     },
   },
   // Staging-only Intelligence stack, deployed outside showcase_build.yml.
-  // These six services use pinned Intelligence/Caddy/database images rather
+  // These seven services use pinned Intelligence/Caddy/database images rather
   // than the Showcase staging :latest convention. Their registered names and
   // service IDs establish permanent identity in the image gate. Do not build,
   // probe, validate image shape, or promote them through the Showcase pipeline.
@@ -1650,15 +1650,13 @@ export const SERVICES: Record<
       },
     },
   },
-  // Permanent test controller. Only Staging has an instance; the runner has
-  // its own pinned image and must not enter Showcase builds or promotions.
   "showcase-intelligence-test-runner": {
     serviceId: "4922b45b-6981-4559-be2f-fbbca9123323",
     autoUpdates: { staging: "unmanaged" },
     ciBuilt: false,
     gateValidated: false,
     gateIgnore: true,
-    probeDriver: "shell",
+    probeDriver: "shell", // inert: staging probe is disabled
     environments: {
       staging: {
         instanceId: "f96bf2d4-f4f0-41b6-a7e9-547f33c38961",
