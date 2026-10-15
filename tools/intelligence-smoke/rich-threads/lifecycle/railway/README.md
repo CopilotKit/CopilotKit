@@ -136,6 +136,20 @@ files, and root `package.json`. It installs the locked browser-driver dependenci
 Node 24, tsx 4.21.0, Railway CLI 5.41.0, and Chromium. Build/publish may run on GitHub;
 controller, browser, provisioning, and cleanup execute inside Railway.
 
+Container inspection uses Railway CLI's native SSH transport. Configure
+`RICH_RUNNER_SSH_PRIVATE_KEY_B64` (canonical base64 of an unencrypted Ed25519
+private key), `RICH_RUNNER_SSH_PUBLIC_KEY`, and
+`RICH_RUNNER_SSH_KNOWN_HOSTS` (the independently verified `ssh.railway.com`
+Ed25519 host-key entry) on the permanent runner. Register the public key with
+the Railway workspace used by its automation token before deploying. Workspace
+key registration requires Railway workspace ADMIN access; service creation and
+deletion permissions alone do not prove that access.
+
+Startup checks that the key pair matches and writes owner-only SSH files with
+strict host checking. It removes the private seed from the worker environment.
+No SSH key belongs in GitHub artifacts or the image. Test users invoke the
+runner; they do not receive its Railway token or SSH key.
+
 Provide the canonical bootstrap privately through `RICH_BOOTSTRAP_SCRIPT_B64`
 (canonical base64, never a committed file or image layer). Startup verifies the
 committed source revision and SHA256, then flushes and atomically installs it as

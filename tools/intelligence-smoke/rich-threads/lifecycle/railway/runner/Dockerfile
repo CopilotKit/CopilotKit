@@ -1,5 +1,5 @@
 FROM node:24.18.0-bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git openssh-client && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 # Build context is a staged checkout containing the common bounded runner and
 # provider source. It must contain no environment files or credentials.
@@ -14,4 +14,4 @@ COPY tools/railway-disposable-proof/ tools/railway-disposable-proof/
 COPY showcase/scripts/railway-envs.ts showcase/scripts/railway-envs.ts
 COPY showcase/harness/src/shared/railway-lifecycle* showcase/harness/src/shared/
 COPY package.json package.json
-CMD ["node", "--import", "tsx", "tools/intelligence-smoke/rich-threads/lifecycle/railway/runner/server.mjs"]
+CMD ["node", "--import", "tsx", "tools/intelligence-smoke/rich-threads/lifecycle/railway/runner/start.mjs"]
