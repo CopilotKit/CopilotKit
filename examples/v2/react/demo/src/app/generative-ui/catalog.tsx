@@ -1,21 +1,17 @@
 "use client";
 import { useState } from "react";
-import type { ReactNode } from "react";
 import { z } from "zod";
 import { COUPON_CODE } from "./cart";
 import {
   createGenerativeUICatalog,
   useGenerativeUIField,
 } from "@copilotkit/react-core/v2";
-import type { GenerativeUIEventHandler } from "@copilotkit/react-core/v2";
+import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2";
 
 function ProductGrid({
   title,
   children,
-}: {
-  title?: string;
-  children?: ReactNode;
-}) {
+}: GenerativeUIComponentProps<typeof storeCatalog, "ProductGrid">) {
   return (
     <section className="space-y-3">
       {title && (
@@ -32,13 +28,7 @@ function ProductCard({
   price,
   tagline,
   onAddToCart,
-}: {
-  productId: string;
-  name: string;
-  price: number;
-  tagline?: string;
-  onAddToCart?: GenerativeUIEventHandler<typeof storeCatalog, "onAddToCart">;
-}) {
+}: GenerativeUIComponentProps<typeof storeCatalog, "ProductCard">) {
   const [status, setStatus] = useState<"idle" | "pending" | "added" | "error">(
     "idle",
   );
@@ -82,7 +72,10 @@ function ProductCard({
   );
 }
 
-function CartSummary({ count, total }: { count: number; total: number }) {
+function CartSummary({
+  count,
+  total,
+}: GenerativeUIComponentProps<typeof storeCatalog, "CartSummary">) {
   return (
     <div className="rounded-lg bg-gray-50 p-3 text-sm">
       Cart: <strong>{count}</strong> item(s) · <strong>${total}</strong>
@@ -95,15 +88,7 @@ function CheckoutForm({
   note,
   onApplyCoupon,
   onSubmit,
-}: {
-  email?: string;
-  note?: string;
-  onApplyCoupon?: GenerativeUIEventHandler<
-    typeof storeCatalog,
-    "onApplyCoupon"
-  >;
-  onSubmit?: GenerativeUIEventHandler<typeof storeCatalog, "onSubmit">;
-}) {
+}: GenerativeUIComponentProps<typeof storeCatalog, "CheckoutForm">) {
   const [emailValue, setEmail, emailField] = useGenerativeUIField(
     "email",
     email ?? "",
@@ -184,10 +169,7 @@ function CheckoutForm({
 function DiagnosticWidget({
   label,
   crash,
-}: {
-  label: string;
-  crash?: boolean;
-}) {
+}: GenerativeUIComponentProps<typeof storeCatalog, "DiagnosticWidget">) {
   if (crash) throw new Error(`DiagnosticWidget "${label}" crashed on purpose`);
   return (
     <div className="rounded border border-dashed p-2 text-xs text-gray-500">

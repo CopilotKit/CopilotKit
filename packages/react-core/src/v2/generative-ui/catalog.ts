@@ -1,6 +1,7 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { z } from "zod";
 import type { GenerativeUIComponentManifest } from "@copilotkit/shared";
+import type { GenerativeUIInvokeResult } from "./errors";
 import { toJsonSchema } from "./json-schema";
 
 export type GenerativeUISlotKind = "single" | "multiple";
@@ -22,9 +23,20 @@ export interface GenerativeUIComponentDefinition<Props = any> {
   slots?: Record<string, GenerativeUISlotKind>;
 }
 
+/**
+ * Any function or class component. Unlike `ComponentType`, checking a value
+ * against it does not read the component's props type. So a component can type
+ * its props from `typeof catalog` without a circular type reference.
+ */
+type AnyComponent =
+  | ((...args: never) => unknown)
+  | (abstract new (...args: never) => unknown);
+
 export type GenerativeUIComponentDefinitions = Record<
   string,
-  GenerativeUIComponentDefinition
+  Omit<GenerativeUIComponentDefinition, "component"> & {
+    component: AnyComponent;
+  }
 >;
 
 export interface GenerativeUICatalog<
@@ -41,6 +53,49 @@ export interface GenerativeUICatalog<
    */
   readonly definitions?: Components;
 }
+
+type CatalogDefinitions<Catalog extends GenerativeUICatalog<any>> = NonNullable<
+  Catalog["definitions"]
+>;
+
+type Simplify<T> = { [Key in keyof T]: T[Key] } & {};
+
+type DataProps<Definition> = Definition extends {
+  props?: infer Props extends z.ZodTypeAny;
+}
+  ? z.output<Props>
+  : {};
+
+type EventProps<Definition> = Definition extends {
+  events?: infer Events extends Record<string, GenerativeUIEventDefinition>;
+}
+  ? {
+      [Name in keyof Events]?: (
+        args: z.input<Events[Name]["parameters"]>,
+      ) => Promise<GenerativeUIInvokeResult>;
+    }
+  : {};
+
+type SlotProps<Definition> = Definition extends {
+  slots?: infer Slots extends Record<string, GenerativeUISlotKind>;
+}
+  ? { [Name in keyof Slots]?: ReactNode }
+  : {};
+
+/**
+ * Props that the renderer passes to a catalog component:
+ * `function CheckoutForm(props: GenerativeUIComponentProps<typeof catalog, "CheckoutForm">)`.
+ * Data props are the parsed `props` schema. Event and slot props are present
+ * only when the agent binds or fills them.
+ */
+export type GenerativeUIComponentProps<
+  Catalog extends GenerativeUICatalog<any>,
+  Name extends keyof CatalogDefinitions<Catalog> & string,
+> = Simplify<
+  DataProps<CatalogDefinitions<Catalog>[Name]> &
+    EventProps<CatalogDefinitions<Catalog>[Name]> &
+    SlotProps<CatalogDefinitions<Catalog>[Name]>
+>;
 
 export interface CreateGenerativeUICatalogConfig<
   Components extends GenerativeUIComponentDefinitions =
@@ -78,7 +133,7 @@ export function createGenerativeUICatalog<
     for (const [name, definition] of base.components) add(name, definition);
   }
   for (const [name, definition] of Object.entries(config.components))
-    add(name, definition);
+    add(name, definition as GenerativeUIComponentDefinition);
 
   const manifestComponents: Record<string, GenerativeUIComponentManifest> = {};
   for (const [name, definition] of components)

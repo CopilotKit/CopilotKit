@@ -2,6 +2,7 @@ export { createGenerativeUICatalog } from "./catalog";
 export type {
   GenerativeUICatalog,
   GenerativeUIComponentDefinition,
+  GenerativeUIComponentProps,
   GenerativeUIEventDefinition,
   GenerativeUISlotKind,
   CreateGenerativeUICatalogConfig,
