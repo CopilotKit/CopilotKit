@@ -12,8 +12,6 @@ export const GENERATIVE_UI_RENDER_TOOL = "render_ui";
 export const GENERATIVE_UI_EVENT_TOOL = "log_generative_ui_event";
 /** Target id of the chat transcript. */
 export const GENERATIVE_UI_CHAT_TARGET = "chat";
-/** Data-model subtree owned by the app (read-only for agents). */
-export const GENERATIVE_UI_APP_STATE_PATH = "/app";
 /** Component id every surface renders from. */
 export const GENERATIVE_UI_ROOT_ID = "root";
 
@@ -89,8 +87,12 @@ export interface GenerativeUIManifest {
   catalogVersion: string;
   components: Record<string, GenerativeUIComponentManifest>;
   functions: Record<string, GenerativeUIFunctionManifest>;
-  appState: string[];
-  targets: { id: string; kind: "chat" | "inline" }[];
+  /**
+   * Places where the model can render surfaces. Only mounted targets are
+   * listed. `description` tells the model where the target is on the page
+   * and what to put in it.
+   */
+  targets: { id: string; kind: "chat" | "inline"; description?: string }[];
   /** Surfaces the client already holds for the current thread. */
   surfaces: Record<string, { target: string }>;
 }

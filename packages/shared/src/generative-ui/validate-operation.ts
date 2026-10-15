@@ -1,4 +1,4 @@
-import { A2UI_VERSION, GENERATIVE_UI_APP_STATE_PATH } from "./types";
+import { A2UI_VERSION } from "./types";
 import type { GenerativeUIActionBinding, GenerativeUIManifest } from "./types";
 
 export type OperationValidation = { ok: true } | { ok: false; reason: string };
@@ -24,7 +24,6 @@ export interface ValidateOperationOptions {
 
 const OK: OperationValidation = { ok: true };
 const fail = (reason: string): OperationValidation => ({ ok: false, reason });
-const APP_KEY = GENERATIVE_UI_APP_STATE_PATH.slice(1);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -56,13 +55,6 @@ export function getOperationSurfaceId(op: unknown): string | undefined {
   return isRecord(payload) && typeof payload.surfaceId === "string"
     ? payload.surfaceId
     : undefined;
-}
-
-export function isAppStatePath(path: string): boolean {
-  return (
-    path === GENERATIVE_UI_APP_STATE_PATH ||
-    path.startsWith(`${GENERATIVE_UI_APP_STATE_PATH}/`)
-  );
 }
 
 /** `{ "path": "/x" }` — a data-model binding. */
@@ -142,12 +134,9 @@ function validateDataModelUpdate(
     return fail("updateDataModel.path must be an absolute JSON pointer");
   }
   if (path === "/") {
-    // The root must be an object so the app-owned "/app" subtree can live in it.
+    // Paths such as "/items" point into the root, so the root must be an object.
     if (!isRecord(payload.value)) {
       return fail("a root updateDataModel value must be a JSON object");
-    }
-    if (APP_KEY in payload.value) {
-      return fail(`the "${APP_KEY}" key is app-owned and read-only for agents`);
     }
     return OK;
   }
@@ -161,9 +150,6 @@ function validateDataModelUpdate(
     return fail(
       `path segment "${forbidden}" is not allowed in updateDataModel.path`,
     );
-  }
-  if (decoded[0] === APP_KEY) {
-    return fail(`path "${path}" is app-owned and read-only for agents`);
   }
   return OK;
 }

@@ -29,6 +29,10 @@ const update = (...components: unknown[]) => ({
   version: "v0.9",
   updateComponents: { surfaceId: "s1", components },
 });
+const setData = (fields: { path?: string; value?: unknown }) => ({
+  version: "v0.9",
+  updateDataModel: { surfaceId: "s1", ...fields },
+});
 const reasonOf = (op: unknown, withFunctions = false) => {
   const result = validateOperation(op, {
     manifest,
@@ -213,25 +217,9 @@ describe("validateOperation", () => {
     ).toMatch(/appears twice/);
   });
 
-  it("rejects agent writes to app-owned state", () => {
-    expect(
-      reasonOf({
-        version: "v0.9",
-        updateDataModel: { surfaceId: "s1", path: "/app/cart", value: 1 },
-      }),
-    ).toMatch(/app-owned/);
-    expect(
-      reasonOf({
-        version: "v0.9",
-        updateDataModel: { surfaceId: "s1", path: "/", value: { app: {} } },
-      }),
-    ).toMatch(/app-owned/);
-    expect(
-      reasonOf({
-        version: "v0.9",
-        updateDataModel: { surfaceId: "s1", path: "/apple", value: 1 },
-      }),
-    ).toBe("ok");
+  it("accepts writes under /app like any other data-model path", () => {
+    expect(reasonOf(setData({ path: "/app/cart", value: 1 }))).toBe("ok");
+    expect(reasonOf(setData({ path: "/", value: { app: {} } }))).toBe("ok");
   });
 
   it("rejects prototype-polluting path segments", () => {
@@ -241,53 +229,24 @@ describe("validateOperation", () => {
       "/prototype",
       "/a/~0/__proto__",
     ]) {
-      expect(
-        reasonOf({
-          version: "v0.9",
-          updateDataModel: { surfaceId: "s1", path, value: 1 },
-        }),
-      ).toMatch(/not allowed/);
+      expect(reasonOf(setData({ path, value: 1 }))).toMatch(/not allowed/);
     }
   });
 
-  it("rejects empty path segments, including the //app bypass", () => {
-    for (const path of ["//app/cart", "/a//b", "/a/", "/app/"]) {
-      expect(
-        reasonOf({
-          version: "v0.9",
-          updateDataModel: { surfaceId: "s1", path, value: 1 },
-        }),
-      ).not.toBe("ok");
+  it("rejects empty path segments", () => {
+    for (const path of ["//a/b", "/a//b", "/a/"]) {
+      expect(reasonOf(setData({ path, value: 1 }))).toMatch(/empty segments/);
     }
-    expect(
-      reasonOf({
-        version: "v0.9",
-        updateDataModel: { surfaceId: "s1", path: "//app/cart", value: 1 },
-      }),
-    ).toMatch(/empty segments/);
   });
 
   it("rejects root writes whose value is not a JSON object", () => {
     for (const value of [5, [1], "s", null, undefined]) {
-      expect(
-        reasonOf({
-          version: "v0.9",
-          updateDataModel: { surfaceId: "s1", path: "/", value },
-        }),
-      ).toMatch(/must be a JSON object/);
-      expect(
-        reasonOf({
-          version: "v0.9",
-          updateDataModel: { surfaceId: "s1", value },
-        }),
-      ).toMatch(/must be a JSON object/);
+      expect(reasonOf(setData({ path: "/", value }))).toMatch(
+        /must be a JSON object/,
+      );
+      expect(reasonOf(setData({ value }))).toMatch(/must be a JSON object/);
     }
-    expect(
-      reasonOf({
-        version: "v0.9",
-        updateDataModel: { surfaceId: "s1", value: { items: [] } },
-      }),
-    ).toBe("ok");
+    expect(reasonOf(setData({ value: { items: [] } }))).toBe("ok");
   });
 
   it("rejects component types that only exist on Object.prototype without throwing", () => {
