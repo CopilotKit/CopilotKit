@@ -1,9 +1,9 @@
 import { useRef } from "react";
 
 /**
- * Deps comparison shared by the tool registration hooks (`useFrontendTool`,
- * and through it `useHumanInTheLoop` and `useComponent`; `useFrontendTools`;
- * `useRenderTool`). Not part of the public API.
+ * Deps comparison shared by `useFrontendTool` (and through it
+ * `useHumanInTheLoop` and `useComponent`) and `useRenderTool`. Not part of the
+ * public API.
  */
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
@@ -15,12 +15,17 @@ function isPlainObject(value: object): boolean {
 
 /**
  * Plain data (primitives, plain objects, arrays, dates) compares by value.
- * Everything else (functions, class instances, maps, sets) compares by
- * identity. A cycle inside plain data is safe: a pair already being compared
- * counts as equal for that branch.
+ * Functions always compare equal: these hooks used to compare
+ * `JSON.stringify(deps)`, which turns every function into `null`, and a
+ * function that counted as changed would re-register on every render when it
+ * is written inline (and loop in a component that also reads
+ * `useRenderToolCall`). Everything else (class instances, maps, sets) compares
+ * by identity. A cycle inside plain data is safe: a pair already being
+ * compared counts as equal for that branch.
  */
 function depEqual(a: unknown, b: unknown, seen: Map<object, object>): boolean {
   if (Object.is(a, b)) return true;
+  if (typeof a === "function" && typeof b === "function") return true;
   if (
     typeof a !== "object" ||
     typeof b !== "object" ||

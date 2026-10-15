@@ -256,12 +256,18 @@ describe("useRenderTool", () => {
     expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(2);
   });
 
-  it("re-registers when a function dep changes identity", () => {
-    // `useRenderTool` compares deps per entry by identity, like useEffect. A
-    // fresh function on every render is a changed dep, so each render
-    // re-registers and the chat paints the latest closure. (The old
-    // `JSON.stringify(deps)` comparator collapsed a function to `null` and
-    // kept the first closure forever.)
+  it("PINS the limitation: a non-serialisable dep can never re-register", () => {
+    // `useRenderTool` compares deps with `useDepsVersion`, which treats every
+    // function as equal (as the old `JSON.stringify(extraDeps)` comparator did),
+    // so a function dep cannot trigger re-registration however often its
+    // identity changes. `use-frontend-tool.tsx` has the same comparator and the
+    // same edge.
+    //
+    // This records a documented sharp edge, NOT behaviour worth keeping. It is
+    // pinned so that changing the comparator (e.g. to reference equality) fails
+    // loudly here and forces the hook's JSDoc — which tells callers to pass what
+    // their render closes over in `deps` — to be corrected along with it. Do not
+    // read this test as a guarantee to preserve.
     const core = createMockCore();
     mockUseCopilotKit.mockReturnValue({ copilotkit: core });
 
@@ -272,6 +278,8 @@ describe("useRenderTool", () => {
           parameters: z.object({ query: z.string() }),
           render: () => <div>{label}</div>,
         },
+        // A FRESH function identity on every render. The comparator treats
+        // every function as equal, so the effect never sees it change.
         [() => label],
       );
       return null;
@@ -279,16 +287,27 @@ describe("useRenderTool", () => {
 
     const ui = render(<Harness label="before" />);
     expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(1);
+    const registeredBefore = core.renderToolCalls.find(
+      (item) => item.name === "searchDocs",
+    )!.render;
 
     ui.rerender(<Harness label="after" />);
 
-    expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(2);
+    // No second registration, and the entry still holds the FIRST closure…
+    expect(core.addHookRenderToolCall).toHaveBeenCalledTimes(1);
+    expect(
+      core.renderToolCalls.find((item) => item.name === "searchDocs")!.render,
+    ).toBe(registeredBefore);
+
+    // …which is the consequence that actually bites: the chat keeps painting the
+    // stale label. Compare "re-registers when deps change" above, where a
+    // serialisable dep does re-register.
     expect(
       paintCompleted(
         core.renderToolCalls.find((item) => item.name === "searchDocs")!,
         { query: "invoices" },
       ),
-    ).toBe("after");
+    ).toBe("before");
   });
 
   it("does not remove renderer on unmount", () => {

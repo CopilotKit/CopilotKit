@@ -97,10 +97,9 @@ function useFrontendTool<T extends Record<string, unknown>>(
 
   `deps` compares plain data (strings, numbers, booleans, `null`, dates, and
   plain objects and arrays of those) by value, so an inline literal such as
-  `[{ status }]` re-registers only when its contents change. Functions, class
-  instances and other objects compare by identity, as in `useEffect`, so a
-  changed callback re-registers and a circular value such as the `agent` from
-  `useAgent` is safe to pass. Adding or removing an entry counts as a change. See [Dependency
+  `[{ status }]` re-registers only when its contents change. A function never counts as changed, as before, so keep a changing callback
+  in a ref. Class instances and other objects compare by identity, so a
+  circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change. See [Dependency
   comparison](#dependency-comparison).
 </PropertyReference>
 
@@ -320,10 +319,10 @@ registration effect (`packages/react-core/src/v2/hooks/tool-registration.ts`).
   `undefined`, dates, and plain objects and arrays of those. An inline literal
   such as `[{ status }]` or `[items.filter(isOpen)]` re-registers only when its
   contents change. Key order does not matter.
-- Functions, class instances, `Map`, `Set` and other non-plain objects compare
-  by identity, as in `useEffect`. A changed callback re-registers. A function
-  written inline in `deps` is new on every render, so it re-registers on every
-  render; wrap it in `useCallback`.
+- A function never counts as changed, as before: a new callback in `deps`
+  does not re-register the tool. Read a changing callback through a ref (below).
+- Class instances, `Map`, `Set` and other non-plain objects compare by
+  identity.
 - A circular value, such as the `agent` returned by `useAgent`, is safe to list.
   A cycle inside plain data is safe too.
 - Adding or removing an entry counts as a change.

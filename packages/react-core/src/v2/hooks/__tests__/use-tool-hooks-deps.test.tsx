@@ -19,8 +19,9 @@ import { renderWithCopilotKit } from "../../__tests__/utils/test-helpers";
  * The contract these tests pin:
  * - plain data (primitives, plain objects, arrays, dates) compares by value, so
  *   an inline literal such as `[{ status }]` does not re-register every render;
- * - everything else (functions, class instances, circular values) compares by
- *   identity, and never throws;
+ * - functions always compare equal, as they did under `JSON.stringify`;
+ * - everything else (class instances, circular values) compares by identity,
+ *   and never throws;
  * - a change in the length of `deps` always counts as a change.
  */
 
@@ -188,7 +189,7 @@ describe.each(hookCases)("$name deps comparison", (hookCase) => {
     h.ui.unmount();
   });
 
-  it("re-registers when a function dep changes identity", async () => {
+  it("does not re-register when a function dep changes identity (same as before)", async () => {
     let setCount: React.Dispatch<React.SetStateAction<number>> = () => {};
     let setTick: React.Dispatch<React.SetStateAction<number>> = () => {};
     const Harness: React.FC = () => {
@@ -215,7 +216,7 @@ describe.each(hookCases)("$name deps comparison", (hookCase) => {
     expect(spy).toHaveBeenCalledTimes(0);
 
     await act(async () => setCount(1));
-    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledTimes(0);
   });
 
   it("re-registers each time deps change length, without a React warning", async () => {

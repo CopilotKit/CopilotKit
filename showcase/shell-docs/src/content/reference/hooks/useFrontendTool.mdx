@@ -101,10 +101,9 @@ function useFrontendTool<T extends Record<string, unknown>>(
 
   `deps` compares plain data (strings, numbers, booleans, `null`, dates, and
   plain objects and arrays of those) by value, so an inline literal such as
-  `[{ status }]` re-registers only when its contents change. Functions, class
-  instances and other objects compare by identity, as in `useEffect`, so a
-  changed callback re-registers and a circular value such as the `agent` from
-  `useAgent` is safe to pass. Adding or removing an entry counts as a change.
+  `[{ status }]` re-registers only when its contents change. A function never counts as changed, as before, so keep a changing callback
+  in a ref. Class instances and other objects compare by identity, so a
+  circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change.
 </PropertyReference>
 
 ## Usage

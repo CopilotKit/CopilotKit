@@ -1,7 +1,8 @@
 import { useLayoutEffect } from "react";
 import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
-import { useDepsVersion } from "./tool-registration";
+
+const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 const EMPTY_TOOLS: ReadonlyArray<ReactFrontendTool<any>> = [];
 
 /**
@@ -59,7 +60,7 @@ export function useFrontendTools(
 ) {
   const { copilotkit } = useCopilotKit();
   const toolList = tools ?? EMPTY_TOOLS;
-  const depsVersion = useDepsVersion(deps);
+  const extraDeps = deps ?? EMPTY_DEPS;
 
   // The array is usually built inline, so its identity changes on every render
   // and cannot be a dependency. Derive a value signature from the fields that
@@ -135,9 +136,11 @@ export function useFrontendTools(
     // the signature for the same reasons they are dependencies of
     // useFrontendTool: toggling either must re-register the tool.
     //
-    // `deps` is reduced to a version number by useDepsVersion: plain data
-    // compares by value, and functions, class instances and circular values
-    // compare by identity, so a changed `[navigate]` re-registers. A change in
-    // the length of `deps` counts as a change too.
-  }, [signature, copilotkit, depsVersion]);
+    // `deps` is spread rather than stringified. JSON.stringify maps a function
+    // to null, so a stringified `[navigate]` is the constant "[null]", and a
+    // changed callback would never re-register. That is exactly the case `deps`
+    // exists to cover. Spreading gives the entries React's own identity
+    // comparison, the same contract as the second argument of useEffect. Pass a
+    // deps array of a constant length, as React requires everywhere else.
+  }, [signature, copilotkit, ...extraDeps]);
 }
