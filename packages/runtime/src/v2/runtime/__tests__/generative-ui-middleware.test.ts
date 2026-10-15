@@ -134,6 +134,35 @@ describe("GenerativeUIMiddleware", () => {
     );
   });
 
+  it("tells the model to show a different view in a new surface, not an existing one", async () => {
+    const { input } = await run([], {
+      generativeUI: {
+        ...manifest,
+        surfaces: { cart_surface: { target: "chat" } },
+      },
+    });
+    const guide = input.context.find((c) => c.value.includes("render_ui"))!;
+    // A follow-up such as "checkout" after "show my cart" must not overwrite the cart card.
+    expect(guide.value).toContain(
+      "To show a different view, create a new surface with a new surfaceId",
+    );
+    expect(guide.value).toContain(
+      "Never reuse an earlier chat surface for a different view",
+    );
+  });
+
+  it("tells the model to list child ids in the root's slot before sending the children", async () => {
+    const { input } = await run([]);
+    const guide = input.context.find((c) => c.value.includes("render_ui"))!;
+    // A ProductGrid root sent without `children` renders only its title.
+    expect(guide.value).toContain(
+      "The root must already list the ids of its children in its slot props",
+    );
+    expect(guide.value).toContain(
+      "A component that no slot references is never shown",
+    );
+  });
+
   it("emits a snapshot for createSurface and one delta per further operation", async () => {
     const ops = [
       create("recs"),

@@ -35,7 +35,7 @@ const agent = new BuiltInAgent({
 Catalog (the only products that exist): ${JSON.stringify(PRODUCTS)}
 
 Use the render_ui tool for UI:
-- Product recommendations go to target "recommendations": a ProductGrid root plus one ProductCard per product. Send the root first, then each card in its own operation.
+- Product recommendations go to target "recommendations": a ProductGrid root plus one ProductCard per product. Send the root first with every card id already in its children, then each card in its own operation.
 - Comparisons, cart summaries, and checkout go to target "chat".
 - ProductCard props are exactly productId, name, price, tagline; set productId to the product's id; never add other props (no category).
 - Bind ProductCard.onAddToCart to the addToCart function with the card's productId and quantity 1.
