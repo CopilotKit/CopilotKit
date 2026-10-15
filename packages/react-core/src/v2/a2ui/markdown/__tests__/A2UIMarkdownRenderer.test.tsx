@@ -524,3 +524,118 @@ describe("A2UIMarkdownSurface cards (standard catalog)", () => {
     await waitFor(() => expect(wrapper.querySelector("table")).not.toBeNull());
   });
 });
+
+describe("A2UIMarkdownSurface segments", () => {
+  const segmented = fence(
+    create(),
+    uc([
+      { id: "root", component: "Column", children: ["b1", "t", "seats", "b2"] },
+      {
+        id: "b1",
+        component: "Button",
+        child: "l1",
+        action: { event: { name: "first" } },
+      },
+      { id: "l1", component: "Text", text: "First" },
+      { id: "t", component: "Title", text: "Plan comparison", size: "2xl" },
+      { id: "seats", component: "Text", text: { path: "/seats" } },
+      {
+        id: "b2",
+        component: "Button",
+        child: "l2",
+        action: { event: { name: "choose_plan" } },
+      },
+      { id: "l2", component: "Text", text: "Choose" },
+    ]),
+    JSON.stringify({
+      version: "v0.9",
+      updateDataModel: {
+        surfaceId: "s",
+        path: "/",
+        value: { seats: "8 seats" },
+      },
+    }),
+  );
+  const wrapper = (id: string) =>
+    document.querySelector(`[data-a2ui-markdown-surface='${id}']`)!;
+
+  it("renders interior prose as markdown between two surfaces", async () => {
+    renderMd(segmented);
+    const heading = (await screen.findByText("Plan comparison")).closest("h2");
+    expect(heading).not.toBeNull();
+    await screen.findByRole("button", { name: "Choose" });
+    const first = wrapper("s");
+    const second = wrapper("s#1");
+    expect(first.contains(screen.getByText("First"))).toBe(true);
+    expect(first.contains(heading)).toBe(false);
+    expect(second.contains(heading)).toBe(false);
+    expect(
+      first.compareDocumentPosition(heading!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      heading!.compareDocumentPosition(second) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("resolves data bindings in a later segment", async () => {
+    renderMd(segmented);
+    const seats = await screen.findByText("8 seats");
+    expect(wrapper("s#1").contains(seats)).toBe(true);
+  });
+
+  it("mirrors data written in one segment into the others", async () => {
+    renderMd(
+      fence(
+        create(),
+        uc([
+          { id: "root", component: "Column", children: ["sl", "t", "seats"] },
+          {
+            id: "sl",
+            component: "Slider",
+            value: { path: "/seats" },
+            min: 0,
+            max: 50,
+          },
+          { id: "t", component: "Title", text: "Plan comparison", size: "2xl" },
+          { id: "seats", component: "Text", text: { path: "/seats" } },
+        ]),
+        JSON.stringify({
+          version: "v0.9",
+          updateDataModel: { surfaceId: "s", path: "/", value: { seats: 8 } },
+        }),
+      ),
+      {
+        ...config,
+        catalog: standardCatalog,
+        catalogId: STANDARD_CATALOG_ID,
+      },
+    );
+    const seats = await screen.findByText("8");
+    expect(wrapper("s#1").contains(seats)).toBe(true);
+    const slider = await waitFor(() => {
+      const el = wrapper("s").querySelector("input[type='range']");
+      expect(el).not.toBeNull();
+      return el as HTMLInputElement;
+    });
+    fireEvent.change(slider, { target: { value: "20" } });
+    await waitFor(() => expect(wrapper("s#1").textContent).toContain("20"));
+  });
+
+  it("reports the fence's surfaceId for an action from a later segment", async () => {
+    const onAction = vi.fn(() => null);
+    renderMd(segmented, { ...config, onAction });
+    const button = await screen.findByRole("button", { name: "Choose" });
+    expect(wrapper("s#1").contains(button)).toBe(true);
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    await waitFor(() =>
+      expect(onAction).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "choose_plan", surfaceId: "s" }),
+        expect.any(Function),
+      ),
+    );
+  });
+});

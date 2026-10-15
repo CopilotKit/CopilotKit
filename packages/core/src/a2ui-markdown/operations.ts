@@ -869,16 +869,70 @@ export function flattenInformationalCards(
 /** Text-bearing components that belong in the chat's markdown, not a surface. */
 const PROSE_TEXT_COMPONENTS = new Set(["Title", "Text", "Caption", "Markdown"]);
 
-/** A peelable component: text-bearing prose, or a separator next to it. */
+/** A component that converts to markdown: text-bearing prose, or a separator next to it. */
 type ProseItem =
   | { kind: "text"; markdown: string }
   | { kind: "divider" | "spacer" };
+
+/** One line of text: list items and headings cannot span lines in markdown. */
+function oneLine(text: string): string {
+  return text.trim().replace(/\s*\n\s*/g, " ");
+}
+
+/**
+ * A literal List entry as list-item markdown: a non-empty string, or
+ * `{ label, description? }` with literal strings only. Anything carrying
+ * behaviour or decoration (`icon`, `action`, other keys, bound values) is null.
+ */
+function listEntryMarkdown(entry: unknown): string | null {
+  if (typeof entry === "string") return entry.trim() ? oneLine(entry) : null;
+  if (!isRecord(entry)) return null;
+  for (const key of Object.keys(entry)) {
+    if (key !== "label" && key !== "description") return null;
+  }
+  if (typeof entry.label !== "string" || !entry.label.trim()) return null;
+  const label = oneLine(entry.label);
+  if (entry.description === undefined) return label;
+  if (typeof entry.description !== "string") return null;
+  return entry.description.trim()
+    ? `**${label}** — ${oneLine(entry.description)}`
+    : label;
+}
+
+/**
+ * A List of literal text items as a markdown list (`marker: "number"` →
+ * `1. …`, otherwise `- …`), or null when it binds its items, renders
+ * `children`, or any item is not plain text.
+ */
+function listToMarkdown(c: Record<string, unknown>): string | null {
+  const children = c.children;
+  if (children != null && !(Array.isArray(children) && children.length === 0)) {
+    return null;
+  }
+  if (!Array.isArray(c.items) || c.items.length === 0) return null;
+  const lines: string[] = [];
+  for (const entry of c.items) {
+    const line = listEntryMarkdown(entry);
+    if (line === null) return null;
+    lines.push(line);
+  }
+  if (c.marker === "number") {
+    const start =
+      typeof c.start === "number" && Number.isInteger(c.start) ? c.start : 1;
+    return lines.map((line, i) => `${start + i}. ${line}`).join("\n");
+  }
+  return lines.map((line) => `- ${line}`).join("\n");
+}
 
 /** The prose item a component converts to, or null when it is not prose. */
 function toProseItem(c: Record<string, unknown> | undefined): ProseItem | null {
   if (!c) return null;
   if (c.component === "Divider") return { kind: "divider" };
   if (c.component === "Spacer") return { kind: "spacer" };
+  if (c.component === "List") {
+    const markdown = listToMarkdown(c);
+    return markdown === null ? null : { kind: "text", markdown };
+  }
   if (typeof c.component !== "string") return null;
   if (!PROSE_TEXT_COMPONENTS.has(c.component)) return null;
   // Only literal strings are prose; `{path}`-bound text is data.
@@ -904,15 +958,15 @@ function toProseItem(c: Record<string, unknown> | undefined): ProseItem | null {
 }
 
 /** Prose items as markdown: separators only survive between two text items. */
-function proseItemsToMarkdown(items: ProseItem[]): string {
+function proseItemsToMarkdown(items: (ProseItem | null)[]): string {
   const blocks: string[] = [];
   let pendingDivider = false;
   for (const item of items) {
-    if (item.kind === "text") {
+    if (item?.kind === "text") {
       if (pendingDivider && blocks.length > 0) blocks.push("---");
       pendingDivider = false;
       blocks.push(item.markdown);
-    } else if (item.kind === "divider") {
+    } else if (item?.kind === "divider") {
       pendingDivider = true;
     }
   }
@@ -945,49 +999,74 @@ function stackChildren(c: Record<string, unknown>): unknown[] | null {
   return null;
 }
 
-/** The leading/trailing run of prose items in `children`, from one end. */
-function proseRun(
-  children: unknown[],
-  byId: Map<string, Record<string, unknown>>,
-  fromEnd: boolean,
-): { count: number; items: ProseItem[] } {
-  const items: ProseItem[] = [];
-  for (let k = 0; k < children.length; k++) {
-    const id = children[fromEnd ? children.length - 1 - k : k];
-    const item = typeof id === "string" ? toProseItem(byId.get(id)) : null;
-    if (!item) break;
-    items.push(item);
-  }
-  if (fromEnd) items.reverse();
-  // Separators are never peeled on their own.
-  if (!items.some((i) => i.kind === "text")) return { count: 0, items: [] };
-  return { count: items.length, items };
-}
+/** A contiguous slice `[start, end)` of the stack's children. */
+type ChildRun = { prose: boolean; start: number; end: number };
 
 /**
- * Markdown mode: move prose at the edges of a surface out into markdown.
+ * Partitions the stack's children into alternating prose and surface runs.
+ * A run of consecutive prose items is prose only when it holds text: a run of
+ * separators alone (Divider/Spacer between two UI components, or at the very
+ * start/end of the stack) stays with the surface it sits in.
+ */
+function partitionChildren(items: (ProseItem | null)[]): ChildRun[] {
+  const runs: ChildRun[] = [];
+  let i = 0;
+  while (i < items.length) {
+    const candidate = items[i] !== null;
+    let hasText = false;
+    let j = i;
+    while (j < items.length && (items[j] !== null) === candidate) {
+      if (items[j]?.kind === "text") hasText = true;
+      j++;
+    }
+    const prose = candidate && hasText;
+    const last = runs[runs.length - 1];
+    if (!prose && last && !last.prose) last.end = j;
+    else runs.push({ prose, start: i, end: j });
+    i = j;
+  }
+  return runs;
+}
+
+/** One block of a segmented surface, in render order. */
+export type SurfaceSegment =
+  | { kind: "markdown"; markdown: string }
+  | { kind: "surface"; components: A2UIOperation[] };
+
+/**
+ * Markdown mode: split a surface into markdown and surface segments so that
+ * only real UI renders as A2UI and everything else is the chat's markdown.
  *
  * From `root`, descend through single-child vertical containers (Column,
  * column Box, informational Card) to the first one with several children:
- * the stack. Its leading and trailing children that are prose (`Title`,
- * `Text`, `Caption`, `Markdown` with literal text, plus `Divider`/`Spacer`
- * next to them) are removed from the surface and returned as markdown:
+ * the stack. Its children are partitioned, in order, into runs of prose and
+ * runs of UI. Prose is `Title`, `Text`, `Caption`, `Markdown` with literal
+ * text, a `List` of literal text items, plus `Divider`/`Spacer` next to them:
  * `Title` → heading by size (sm `####`, md/lg `###`, larger `##`), `Text` →
- * paragraph (`strong` → `**…**`), `Caption`/`Markdown` → paragraph, and a
- * `Divider` between two peeled blocks → `---`. Peeling stops at the first
- * non-prose child from each end, including a `{path}`-bound text, a Text with
- * inline children, a template entry or a component that has not arrived yet.
- * An interactive Card (see `classifySurfaceCards`) is never entered.
+ * paragraph (`strong` → `**…**`), `Caption`/`Markdown` → paragraph, `List` →
+ * `- …` (or `1. …` for `marker: "number"`, `**label** — description` for
+ * described items), and a `Divider` between two prose blocks → `---`.
  *
- * When everything is prose (or `root` itself is), `components` is empty and
- * the caller renders only the markdown.
+ * Not prose: `{path}`-bound text or items, a Text with inline children, a
+ * List with `children`/icons/actions, a template entry, and a child whose
+ * component has not streamed yet. Separators with no text beside them stay in
+ * the surface. An interactive Card (see `classifySurfaceCards`) is never
+ * entered.
+ *
+ * Each prose run becomes a markdown segment; each UI run becomes a surface
+ * segment whose `root` is a copy of the stack (its other props kept, `child`
+ * dropped) with only that run's `children`, followed by every component
+ * reachable from them. When nothing is prose the input comes back as the one
+ * surface segment (same array); when everything is (or `root` itself is),
+ * there are only markdown segments.
+ *
+ * Pure and linear in the number of components, so it runs on every stream
+ * update.
  */
-export function hoistSurfaceProse(components: A2UIOperation[]): {
-  components: A2UIOperation[];
-  leading: string;
-  trailing: string;
-} {
-  const unchanged = { components, leading: "", trailing: "" };
+export function segmentSurfaceProse(
+  components: A2UIOperation[],
+): SurfaceSegment[] {
+  const unchanged: SurfaceSegment[] = [{ kind: "surface", components }];
   const byId = new Map<string, Record<string, unknown>>();
   for (const c of components) {
     if (isRecord(c) && typeof c.id === "string") byId.set(c.id, c);
@@ -997,7 +1076,7 @@ export function hoistSurfaceProse(components: A2UIOperation[]): {
 
   const rootItem = toProseItem(root);
   if (rootItem?.kind === "text") {
-    return { components: [], leading: rootItem.markdown, trailing: "" };
+    return [{ kind: "markdown", markdown: rootItem.markdown }];
   }
 
   const interactiveCards = classifySurfaceCards(components);
@@ -1015,47 +1094,59 @@ export function hoistSurfaceProse(components: A2UIOperation[]): {
   }
 
   const children = stackChildren(stack)!;
-  const head = proseRun(children, byId, false);
-  if (head.count === children.length) {
-    if (head.count === 0) return unchanged;
-    return {
-      components: [],
-      leading: proseItemsToMarkdown(head.items),
-      trailing: "",
-    };
-  }
-  const tail = proseRun(children.slice(head.count), byId, true);
-  if (head.count === 0 && tail.count === 0) return unchanged;
-
-  const kept = children.slice(head.count, children.length - tail.count);
-  const peeled = new Set(
-    [
-      ...children.slice(0, head.count),
-      ...children.slice(children.length - tail.count),
-    ].filter((id): id is string => typeof id === "string"),
+  const items = children.map((id) =>
+    typeof id === "string" ? toProseItem(byId.get(id)) : null,
   );
-  const stackId = stack.id;
-  // Only a multi-child stack gets here, so it uses `children`.
-  const nextStack = { ...stack, children: kept };
-  // A peeled component referenced elsewhere in the surface stays defined.
-  const stillReferenced = new Set<string>();
-  for (const c of byId.values()) {
-    if (c.id === stackId || peeled.has(c.id as string)) continue;
-    for (const id of directChildIds(c)) stillReferenced.add(id);
+  const runs = partitionChildren(items);
+  if (!runs.some((run) => run.prose)) return unchanged;
+
+  // Which surface segments each component belongs to (shared ones go to all).
+  const surfaceRuns = runs.filter((run) => !run.prose);
+  const owners = new Map<string, number[]>();
+  surfaceRuns.forEach((run, index) => {
+    const pending = children
+      .slice(run.start, run.end)
+      .map(referencedId)
+      .filter((id): id is string => id !== undefined);
+    const seen = new Set<string>();
+    while (pending.length > 0) {
+      const id = pending.pop()!;
+      // `root` is replaced by the stack copy; the stack never nests in itself.
+      if (id === "root" || id === stack.id || seen.has(id)) continue;
+      seen.add(id);
+      const list = owners.get(id);
+      if (list) list.push(index);
+      else owners.set(id, [index]);
+      const c = byId.get(id);
+      if (c) pending.push(...directChildIds(c));
+    }
+  });
+  const surfaceComponents: A2UIOperation[][] = surfaceRuns.map((run) => {
+    const nextRoot: Record<string, unknown> = {
+      ...stack,
+      id: "root",
+      children: children.slice(run.start, run.end),
+    };
+    delete nextRoot.child;
+    return [nextRoot];
+  });
+  for (const c of components) {
+    if (!isRecord(c) || typeof c.id !== "string" || byId.get(c.id) !== c) {
+      continue;
+    }
+    for (const index of owners.get(c.id) ?? []) {
+      surfaceComponents[index]!.push(c);
+    }
   }
-  return {
-    components: components
-      .filter(
-        (c) =>
-          !(
-            isRecord(c) &&
-            typeof c.id === "string" &&
-            peeled.has(c.id) &&
-            !stillReferenced.has(c.id)
-          ),
-      )
-      .map((c) => (isRecord(c) && c.id === stackId ? nextStack : c)),
-    leading: proseItemsToMarkdown(head.items),
-    trailing: proseItemsToMarkdown(tail.items),
-  };
+
+  let surfaceIndex = 0;
+  return runs.map((run): SurfaceSegment => {
+    if (run.prose) {
+      return {
+        kind: "markdown",
+        markdown: proseItemsToMarkdown(items.slice(run.start, run.end)),
+      };
+    }
+    return { kind: "surface", components: surfaceComponents[surfaceIndex++]! };
+  });
 }
