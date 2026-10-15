@@ -9,6 +9,8 @@ export {
   useA2UIError,
 } from "./core/A2UIProvider";
 export type { A2UIProviderProps } from "./core/A2UIProvider";
+export { useMarkdownRenderer } from "./core/MarkdownRendererContext";
+export type { A2UIMarkdownRenderer } from "./core/MarkdownRendererContext";
 export { A2UIRenderer, themeToCssVariables } from "./core/A2UIRenderer";
 export type { A2UIRendererProps } from "./core/A2UIRenderer";
 
