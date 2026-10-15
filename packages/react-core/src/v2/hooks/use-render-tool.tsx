@@ -190,5 +190,9 @@ export function useRenderTool<S extends StandardSchemaV1>(
     copilotkit.addHookRenderToolCall(renderer);
 
     // No cleanup removal — keeps renderer for chat history, same as useFrontendTool
-  }, [config.name, copilotkit, JSON.stringify(extraDeps)]);
+    //
+    // `deps` is spread, not stringified, so each entry gets React's identity
+    // comparison. Stringifying threw on a circular value such as the agent
+    // from useAgent. See useFrontendTool.
+  }, [config.name, copilotkit, ...extraDeps]);
 }
