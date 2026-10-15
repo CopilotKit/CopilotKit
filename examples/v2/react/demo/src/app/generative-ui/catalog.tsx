@@ -37,7 +37,7 @@ function ProductCard({
   name: string;
   price: number;
   tagline?: string;
-  onAddToCart?: GenerativeUIEventHandler<{ productId: string }>;
+  onAddToCart?: GenerativeUIEventHandler<typeof storeCatalog, "onAddToCart">;
 }) {
   const [status, setStatus] = useState<"idle" | "pending" | "added" | "error">(
     "idle",
@@ -98,8 +98,11 @@ function CheckoutForm({
 }: {
   email?: string;
   note?: string;
-  onApplyCoupon?: GenerativeUIEventHandler<{ code: string }>;
-  onSubmit?: GenerativeUIEventHandler<{ email: string; note: string }>;
+  onApplyCoupon?: GenerativeUIEventHandler<
+    typeof storeCatalog,
+    "onApplyCoupon"
+  >;
+  onSubmit?: GenerativeUIEventHandler<typeof storeCatalog, "onSubmit">;
 }) {
   const [emailValue, setEmail, emailField] = useGenerativeUIField(
     "email",

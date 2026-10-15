@@ -42,7 +42,7 @@ function Card({
 }: {
   productId: string;
   name: string;
-  onAddToCart?: GenerativeUIEventHandler<{ productId: string }>;
+  onAddToCart?: GenerativeUIEventHandler<typeof catalog, "onAddToCart">;
 }) {
   useEffect(() => {
     mounts.set(productId, (mounts.get(productId) ?? 0) + 1);

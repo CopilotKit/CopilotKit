@@ -22,17 +22,35 @@ export interface GenerativeUIComponentDefinition<Props = any> {
   slots?: Record<string, GenerativeUISlotKind>;
 }
 
-export interface GenerativeUICatalog {
+export type GenerativeUIComponentDefinitions = Record<
+  string,
+  GenerativeUIComponentDefinition
+>;
+
+export interface GenerativeUICatalog<
+  Components extends GenerativeUIComponentDefinitions =
+    GenerativeUIComponentDefinitions,
+> {
   readonly id: string;
   readonly components: ReadonlyMap<string, GenerativeUIComponentDefinition>;
   readonly manifestComponents: Record<string, GenerativeUIComponentManifest>;
+  /**
+   * Type only, never set at runtime. Keeps the definitions passed to
+   * `createGenerativeUICatalog`, so `GenerativeUIEventHandler` can look up
+   * event parameters.
+   */
+  readonly definitions?: Components;
 }
 
-export interface CreateGenerativeUICatalogConfig {
+export interface CreateGenerativeUICatalogConfig<
+  Components extends GenerativeUIComponentDefinitions =
+    GenerativeUIComponentDefinitions,
+> {
   /** Catalog id; surfaces pin to it (use a versioned id, e.g. "acme/store@1"). */
   id: string;
+  // ponytail: GenerativeUIEventHandler sees only this catalog's own components, not those of `extends`.
   extends?: GenerativeUICatalog[];
-  components: Record<string, GenerativeUIComponentDefinition>;
+  components: Components;
 }
 
 const EMPTY_PROPS = z.object({}).strict();
@@ -41,9 +59,11 @@ const EMPTY_PROPS = z.object({}).strict();
  * Experimental. Defines the allowlist of React components an agent may render,
  * and compiles it to the serializable manifest sent to the agent.
  */
-export function createGenerativeUICatalog(
-  config: CreateGenerativeUICatalogConfig,
-): GenerativeUICatalog {
+export function createGenerativeUICatalog<
+  Components extends GenerativeUIComponentDefinitions,
+>(
+  config: CreateGenerativeUICatalogConfig<Components>,
+): GenerativeUICatalog<Components> {
   const components = new Map<string, GenerativeUIComponentDefinition>();
   const add = (name: string, definition: GenerativeUIComponentDefinition) => {
     if (components.has(name)) {

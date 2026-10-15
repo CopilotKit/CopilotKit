@@ -33,7 +33,7 @@ function Card({
 }: {
   productId: string;
   name: string;
-  onAddToCart?: GenerativeUIEventHandler<{ productId: string }>;
+  onAddToCart?: GenerativeUIEventHandler<typeof catalog, "onAddToCart">;
 }) {
   const [clicks, setClicks] = useState(0);
   useEffect(() => {
