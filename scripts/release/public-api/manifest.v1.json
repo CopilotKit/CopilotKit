@@ -1001,7 +1001,7 @@
     },
     {
       "name": "@copilotkit/intelligence-langgraph",
-      "version": "1.71.2",
+      "version": "1.72.0",
       "sourceDirectory": "packages/intelligence-langgraph",
       "entrypoints": [
         {
