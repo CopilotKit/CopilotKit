@@ -7,6 +7,7 @@ import {
   prepareSurfaceOperations,
   classifySurfaceCards,
   flattenInformationalCards,
+  hoistSurfaceProse,
 } from "../a2ui-markdown";
 
 const CREATE =
@@ -595,5 +596,165 @@ describe("classifySurfaceCards / flattenInformationalCards", () => {
     const out = flattenInformationalCards(input);
     expect(card(out, "k").variant).toBeUndefined();
     expect(out[1]).toBe(data);
+  });
+});
+
+describe("hoistSurfaceProse", () => {
+  const lisbon = [
+    {
+      id: "root",
+      component: "Column",
+      children: ["title", "intro", "div", "days", "chart"],
+    },
+    {
+      id: "title",
+      component: "Title",
+      text: "5-Day Trip to Lisbon",
+      size: "2xl",
+    },
+    {
+      id: "intro",
+      component: "Text",
+      text: "A balanced plan with **food** and views.",
+    },
+    { id: "div", component: "Divider" },
+    { id: "days", component: "List", children: ["d1"] },
+    { id: "d1", component: "Text", text: "Day 1" },
+    { id: "chart", component: "Chart", data: [] },
+  ];
+
+  it("hoists a leading title and intro and starts the surface at the List", () => {
+    const out = hoistSurfaceProse(lisbon);
+    expect(out.leading).toBe(
+      "## 5-Day Trip to Lisbon\n\nA balanced plan with **food** and views.",
+    );
+    expect(out.trailing).toBe("");
+    expect(out.components.map((c) => c.id)).toEqual([
+      "root",
+      "days",
+      "d1",
+      "chart",
+    ]);
+    expect(out.components[0]).toMatchObject({ children: ["days", "chart"] });
+  });
+
+  it("hoists trailing prose and keeps a divider only between peeled blocks", () => {
+    const out = hoistSurfaceProse([
+      {
+        id: "root",
+        component: "Column",
+        children: ["t", "s", "note", "d", "c"],
+      },
+      { id: "t", component: "Title", text: "Plan", size: "sm" },
+      { id: "s", component: "Slider", min: 0, max: 1, value: 0 },
+      { id: "note", component: "Text", text: "Prices vary.", strong: true },
+      { id: "d", component: "Divider" },
+      { id: "c", component: "Caption", text: "Updated today" },
+    ]);
+    expect(out.leading).toBe("#### Plan");
+    expect(out.trailing).toBe("**Prices vary.**\n\n---\n\nUpdated today");
+    expect(out.components.map((c) => c.id)).toEqual(["root", "s"]);
+  });
+
+  it("descends through single-child containers to the stack", () => {
+    const out = hoistSurfaceProse([
+      { id: "root", component: "Column", children: ["sec"] },
+      { id: "sec", component: "Card", variant: "section", child: "col" },
+      { id: "col", component: "Column", children: ["t", "tbl"] },
+      { id: "t", component: "Title", text: "Costs", size: "lg" },
+      { id: "tbl", component: "Table", columns: ["A"], rows: [["1"]] },
+    ]);
+    expect(out.leading).toBe("### Costs");
+    expect(out.components.find((c) => c.id === "col")).toMatchObject({
+      children: ["tbl"],
+    });
+    expect(out.components.find((c) => c.id === "root")).toBeDefined();
+  });
+
+  it("returns no components for a surface that is all prose", () => {
+    const out = hoistSurfaceProse([
+      { id: "root", component: "Column", children: ["t", "m"] },
+      { id: "t", component: "Title", text: "Summary" },
+      { id: "m", component: "Markdown", text: "Just **words**." },
+    ]);
+    expect(out.components).toEqual([]);
+    expect(out.leading).toBe("### Summary\n\nJust **words**.");
+  });
+
+  it("treats a prose root as the whole surface", () => {
+    const out = hoistSurfaceProse([
+      { id: "root", component: "Text", text: "Hello" },
+    ]);
+    expect(out).toEqual({ components: [], leading: "Hello", trailing: "" });
+  });
+
+  it("does not hoist a path-bound Title", () => {
+    const components = [
+      { id: "root", component: "Column", children: ["t", "s"] },
+      { id: "t", component: "Title", text: { path: "/title" } },
+      { id: "s", component: "Slider", min: 0, max: 1, value: 0 },
+    ];
+    expect(hoistSurfaceProse(components)).toEqual({
+      components,
+      leading: "",
+      trailing: "",
+    });
+  });
+
+  it("leaves an interactive Card-wrapped stack untouched", () => {
+    const components = [
+      { id: "root", component: "Column", children: ["panel"] },
+      { id: "panel", component: "Card", children: ["t", "s"] },
+      { id: "t", component: "Title", text: "Your project" },
+      { id: "s", component: "Slider", min: 0, max: 1, value: 0 },
+    ];
+    expect(hoistSurfaceProse(components).components).toBe(components);
+  });
+
+  it("leaves template children alone", () => {
+    const components = [
+      {
+        id: "root",
+        component: "Column",
+        children: { componentId: "row", path: "/items" },
+      },
+      { id: "row", component: "Text", text: "Item" },
+    ];
+    expect(hoistSurfaceProse(components).components).toBe(components);
+    const mixed = hoistSurfaceProse([
+      {
+        id: "root",
+        component: "Column",
+        children: [{ componentId: "row", path: "/items" }, "t"],
+      },
+      { id: "row", component: "Text", text: "Item" },
+      { id: "t", component: "Text", text: "Done" },
+    ]);
+    expect(mixed.leading).toBe("");
+    expect(mixed.trailing).toBe("Done");
+  });
+
+  it("stops at a child that has not streamed yet and never peels a lone divider", () => {
+    const out = hoistSurfaceProse([
+      { id: "root", component: "Column", children: ["t", "later", "d"] },
+      { id: "t", component: "Title", text: "Trip", size: "xl" },
+      { id: "d", component: "Divider" },
+    ]);
+    expect(out.leading).toBe("## Trip");
+    expect(out.trailing).toBe("");
+    expect(out.components.find((c) => c.id === "root")).toMatchObject({
+      children: ["later", "d"],
+    });
+  });
+
+  it("keeps a peeled component that something else still references", () => {
+    const out = hoistSurfaceProse([
+      { id: "root", component: "Column", children: ["t", "row"] },
+      { id: "t", component: "Text", text: "Shared" },
+      { id: "row", component: "Row", children: ["t", "b"] },
+      { id: "b", component: "Button", child: "t" },
+    ]);
+    expect(out.leading).toBe("Shared");
+    expect(out.components.map((c) => c.id)).toContain("t");
   });
 });

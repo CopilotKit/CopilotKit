@@ -147,6 +147,7 @@ RULES
 - Repeat a template per item with children: { "componentId": "row", "path": "/items" }; inside a template use relative paths ("name", not "/name").
 - Keep surfaces focused: one task per surface, no clutter. Never wrap the whole reply in a fence; prose goes outside.
 - Never make a surface that is only prose. Explanations, intros and summaries are normal markdown outside the fence. Inside a surface use Markdown only when it sits next to other components (a table cell, a card beside a chart).
+- Do not start a surface with a title or introduction; write those as markdown before the fence. The surface begins with the first real component.
 
 VISUAL STYLE (match a calm, native look)
 - Structure: Use Card only for an interactive panel (controls, a form, a configurator). Tables, charts, lists and explanations go under a Title in a plain Column, separated by a Divider when needed. Never put every section in a Card. Never nest a Card inside a Card and never put border: true on a Box inside a Card; separate groups inside a Card with Divider or plain gap.

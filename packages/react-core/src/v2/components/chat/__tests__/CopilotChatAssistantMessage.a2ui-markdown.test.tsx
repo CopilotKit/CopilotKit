@@ -6,7 +6,7 @@ import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChat
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 
 const FENCE =
-  '```a2ui\n{"version":"v0.9","createSurface":{"surfaceId":"s"}}\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Text","text":"Surface text"}]}}\n```';
+  '```a2ui\n{"version":"v0.9","createSurface":{"surfaceId":"s"}}\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","component":"Row","children":["t"]},{"id":"t","component":"Text","text":"Surface text"}]}}\n```';
 
 function renderIn(mode: "tool" | "markdown", content: string) {
   return render(
