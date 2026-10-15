@@ -4,6 +4,8 @@ export { useRenderCustomMessages } from "./use-render-custom-messages";
 export { useRenderActivityMessage } from "./use-render-activity-message";
 export { useFrontendTool } from "./use-frontend-tool";
 export { useFrontendTools } from "./use-frontend-tools";
+export { useWebmcpTools } from "./use-webmcp-tools";
+export type { WebMCPToolsOptions } from "./use-webmcp-tools";
 export { useComponent } from "./use-component";
 export { useRenderTool } from "./use-render-tool";
 export { useDefaultRenderTool } from "./use-default-render-tool";

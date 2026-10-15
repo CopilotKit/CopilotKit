@@ -16,6 +16,7 @@ describe("@copilotkit/react-core/v2/headless runtime exports", () => {
       "useAgent",
       "useFrontendTool",
       "useFrontendTools",
+      "useWebmcpTools",
       "useComponent",
       "useHumanInTheLoop",
       "useInterrupt",

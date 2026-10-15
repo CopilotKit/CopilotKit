@@ -28,6 +28,7 @@
     "---Add Agent Powers---",
     "frontend-tools",
     "webmcp",
+    "webmcp-tools",
     {
       "title": "Shared State",
       "pages": [
