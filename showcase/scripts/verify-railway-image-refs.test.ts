@@ -483,6 +483,31 @@ describe("image gate runner lifecycle orchestration", () => {
     expect(result.skipped).toBe(1);
   });
 
+  it.each([
+    ["4922b45b-6981-4559-be2f-fbbca9123323", false],
+    ["fixture-unregistered-runner", true],
+  ])(
+    "checks the staging Intelligence runner identity %s",
+    async (id, shouldFail) => {
+      const data = permanentInventory();
+      const name = "showcase-intelligence-test-runner";
+      addService(
+        data,
+        name,
+        id,
+        [ENV_ID_BY_NAME.staging],
+        `ghcr.io/copilotkit/rich-thread-runner@sha256:${"a".repeat(64)}`,
+      );
+
+      const result = await runRailwayImageGate({ data, now: NOW });
+
+      expect(result.summary.shouldFail).toBe(shouldFail);
+      expect(result.untracked).toEqual(shouldFail ? [name] : []);
+      expect(result.missingByEnv).toEqual({ prod: [], staging: [] });
+      expect(result.violations).toEqual([]);
+    },
+  );
+
   it("still fails a required permanent service missing in one environment", async () => {
     const data = permanentInventory();
     data.project!.services.edges.find(
