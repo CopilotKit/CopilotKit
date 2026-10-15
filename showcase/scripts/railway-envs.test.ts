@@ -1496,7 +1496,7 @@ describe("static gate and disposable approval policy", () => {
     ).toThrow(/gateValidated.*gateIgnore/);
   });
 
-  it("commits no approved pins and derives every permanent identity from the unchanged registry", () => {
+  it("approves only the reviewed bounded milestone images and preserves permanent identities", () => {
     expect(Object.keys(SERVICES)).toHaveLength(50);
     expect(DISPOSABLE_LIFECYCLE_POLICY).toEqual({
       projectId: PROJECT_ID,
@@ -1505,7 +1505,13 @@ describe("static gate and disposable approval policy", () => {
         name,
         serviceId: entry.serviceId,
       })),
-      approvedImages: [],
+      approvedImages: [
+        "ghcr.io/copilotkit/intelligence/composite@sha256:1bc9dbc634a8b713af7dcf19266eb2b514cdfa3c7e7858476a6ebe5fced45f1d",
+        "ghcr.io/copilotkit/intelligence/postgres-pgvector@sha256:91c40627db16d6d6c4e3c284c69c01ccdfd9172fac89e1b7d453ebb01127c205",
+        "docker.io/bitnamilegacy/redis@sha256:a25b5d07a14ec13730022c7cd9bab6308d55ccd86b74af7315553c17be884889",
+        "ghcr.io/copilotkit/rich-thread-application@sha256:ff2b891091bf0993d3b13ead9cd1ca3f74672b77e0522a1d1852a27ca7a0fb38",
+        "ghcr.io/copilotkit/rich-thread-strands@sha256:ecfdd8735b6630e2009ee4ee984fd792a584ddce47e8d970f43a4a536a1d9a8e",
+      ],
     });
     const independent = Object.entries(SERVICES).filter(([name]) =>
       name.startsWith("showcase-intelligence-"),

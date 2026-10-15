@@ -109,9 +109,13 @@ approvedImages}`, where `permanentServices` contains `{name, serviceId}` pairs
 and the other two lists contain strings. The generated JSON exposes the same
 object at `disposableLifecyclePolicy`.
 
-The initial committed `approvedImages` list is **empty**. No disposable service
-can be accepted until real immutable pins receive separate review and are added
-to that list. An empty-service setup record can validate; this does not authorize
+The committed `approvedImages` list contains the five reviewed image digests for
+the bounded Mastra and Strands TypeScript milestone: composite Intelligence,
+Postgres, Redis, the application/runtime/Mastra image, and the Strands image.
+Application pins come from [build 38765158954](https://github.com/CopilotKit/CopilotKit/actions/runs/38765158954)
+at revision `9e90057794443c46de8bf48ad9c94c1b44e3cee0`; the data-service pins use
+the existing composite smoke-test baseline. New builds still require separate
+review before adding their exact digests. An empty-service setup record can validate; this does not authorize
 deployment. Receipts cannot approve their own images. Each `expectedImage` must
 exactly match a listed `registry/repository@sha256:<64 lowercase hex characters>`
 reference. Nested GHCR repositories and external dependency registries work only
@@ -321,3 +325,19 @@ A prior activation receipt does not certify consumption of a newer snapshot.
 Changed URL or policy requires renewed activation. Merely deploying this reader
 or running a local test does not establish deployed consumer activation. Existing
 file readers remain supported for explicitly wired durable mirrors.
+
+The image-gate and Ruby promotion workflows bind the repository variable
+`SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` and secret
+`SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN` to this transport. Each supplies its own
+consumer role. Both settings absent preserve static-fleet operation; a partial
+binding fails before classification. The Ruby job installs the root `tsx`
+executable required by its classifier bridge. These bindings take effect only
+when the workflow revision containing them runs; configuring repository settings
+does not activate an older workflow or prove a consumer read.
+
+For the Staging harness, bind the same URL and token on the Staging service and
+set `SHOWCASE_REGISTRY_CONSUMER=harness` only after deploying a reader image with
+the matching generated policy. Do not configure HTTPS on a file-only reader.
+The permanent runner, harness, and workflow readers must agree on the policy
+hash. Keep scheduled provisioning off until real consumer reads establish all
+three activations. Never run a Production promotion just to obtain a receipt.

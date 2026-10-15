@@ -46,10 +46,18 @@ export async function readRailwayLifecycleEvidence(
         throw new Error("Registry unavailable");
       const chunks: Uint8Array[] = [];
       let size = 0;
-      for await (const chunk of response.body) {
-        size += chunk.byteLength;
-        if (size > 8 * 1024 * 1024) throw new Error("Registry exceeds bound");
-        chunks.push(chunk);
+      const reader = response.body.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          size += value.byteLength;
+          if (size > 8 * 1024 * 1024) throw new Error("Registry exceeds bound");
+          chunks.push(value);
+        }
+      } finally {
+        await reader.cancel().catch(() => {});
+        reader.releaseLock();
       }
       contents = Buffer.concat(chunks).toString("utf8");
       if (

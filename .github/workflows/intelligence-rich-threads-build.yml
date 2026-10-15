@@ -5,6 +5,9 @@ on:
     branches: [test/pni-596-rich-intelligence-persistence]
     paths:
       - tools/intelligence-smoke/rich-threads/**
+      - tools/railway-disposable-proof/**
+      - showcase/scripts/railway-envs.ts
+      - showcase/harness/src/shared/railway-lifecycle*
       - .github/workflows/intelligence-rich-threads-build.yml
 permissions:
   contents: read

@@ -475,7 +475,7 @@ describe("image gate runner lifecycle orchestration", () => {
     expect(result.summary.shouldFail).toBe(true);
   });
 
-  it("the committed empty approval list refuses a record that approves its own pin", async () => {
+  it("the committed approval list refuses a record that approves its own pin", async () => {
     const dir = await mkdtemp(join(tmpdir(), "image-gate-empty-policy-"));
     try {
       const recordsFile = join(dir, "records.json");

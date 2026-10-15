@@ -2892,5 +2892,14 @@ export const DISPOSABLE_LIFECYCLE_POLICY: RailwayLifecyclePolicy = {
     name,
     serviceId: entry.serviceId,
   })),
-  approvedImages: [],
+  // Operator-approved for the bounded Railway milestone. Application pins come
+  // from build 38765158954 at 9e90057794443c46de8bf48ad9c94c1b44e3cee0;
+  // data-service pins match the existing composite smoke-test baseline.
+  approvedImages: [
+    "ghcr.io/copilotkit/intelligence/composite@sha256:1bc9dbc634a8b713af7dcf19266eb2b514cdfa3c7e7858476a6ebe5fced45f1d",
+    "ghcr.io/copilotkit/intelligence/postgres-pgvector@sha256:91c40627db16d6d6c4e3c284c69c01ccdfd9172fac89e1b7d453ebb01127c205",
+    "docker.io/bitnamilegacy/redis@sha256:a25b5d07a14ec13730022c7cd9bab6308d55ccd86b74af7315553c17be884889",
+    "ghcr.io/copilotkit/rich-thread-application@sha256:ff2b891091bf0993d3b13ead9cd1ca3f74672b77e0522a1d1852a27ca7a0fb38",
+    "ghcr.io/copilotkit/rich-thread-strands@sha256:ecfdd8735b6630e2009ee4ee984fd792a584ddce47e8d970f43a4a536a1d9a8e",
+  ],
 };

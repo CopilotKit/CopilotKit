@@ -287,9 +287,9 @@ async function fixture(t, approved = true) {
   }
   return { config, dependencies, directory };
 }
-test("production empty approval list rejects before provider mutation", async (t) => {
+test("committed approval list rejects an unapproved pin before provider mutation", async (t) => {
   const f = await fixture(t, false);
-  assert.equal(policy.approvedImages.length, 0);
+  assert.equal(policy.approvedImages.includes(image), false);
   const p = fakeProvider();
   await assert.rejects(
     createRailwayEnvironment(

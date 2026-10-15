@@ -75,6 +75,36 @@ test("HTTPS registry reader checks policy/digest and acknowledges actual consump
     ).status,
     "invalid",
   );
+  let cancelled = false;
+  acknowledged = false;
+  globalThis.fetch = async (_url, options) => {
+    assert.notEqual(
+      options.method,
+      "POST",
+      "Oversized records cannot activate a reader",
+    );
+    return new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(8 * 1024 * 1024 + 1));
+        },
+        cancel() {
+          cancelled = true;
+        },
+      }),
+    );
+  };
+  assert.equal(
+    (
+      await readRailwayLifecycleEvidence(
+        "https://runner.example/registry",
+        policy,
+        new Date(),
+      )
+    ).status,
+    "invalid",
+  );
+  assert.equal(cancelled, true);
   globalThis.fetch = async () => {
     throw new Error("offline");
   };
