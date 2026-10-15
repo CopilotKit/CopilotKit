@@ -305,31 +305,26 @@ describe("learning feedback on assistant messages", () => {
     fireEvent.pointerLeave(thumbsUp());
     await waitFor(() => expect(popoverOpen()).toBe(false));
 
-    // The other thumb shows its tooltip as usual.
-    fireEvent.pointerMove(thumbsDown());
-    expect((await screen.findByRole("tooltip")).textContent).toBe(
-      "Bad response",
-    );
-    // Escape, not pointerLeave: jsdom pointer events carry no coordinates,
-    // which Radix needs to leave an open tooltip. How soon it closes depends
-    // on the React version, so wait for it rather than a fixed time.
-    fireEvent.keyDown(document, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
-
     // As in a browser: the pointer enters, then moves over the chosen thumb,
     // which asks its tooltip to open while the comment covers it.
     fireEvent.pointerEnter(thumbsUp());
     fireEvent.pointerMove(thumbsUp());
     await waitFor(() => expect(popoverOpen()).toBe(true));
-    // Give a tooltip the time it would need to open before checking it did not.
+    // Tooltips open without delay; give one the time it would need.
     await pause(10);
     expect(screen.queryByRole("tooltip")).toBeNull();
 
     fireEvent.pointerLeave(thumbsUp());
     await waitFor(() => expect(popoverOpen()).toBe(false));
     await pause(10);
-
     expect(screen.queryByRole("tooltip")).toBeNull();
+
+    // The tooltips are real: the other thumb shows its own as usual. Checked
+    // last, so no tooltip has to be closed, which jsdom cannot do reliably.
+    fireEvent.pointerMove(thumbsDown());
+    expect((await screen.findByRole("tooltip")).textContent).toBe(
+      "Bad response",
+    );
   });
 
   it("moving from the thumb into the popover keeps it open, and an edit saves as it closes", async () => {
