@@ -14,13 +14,16 @@ import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
-import { useFrontendTool } from "../../hooks/use-frontend-tool";
 import {
   MockStepwiseAgent,
   runFinishedEvent,
   runStartedEvent,
 } from "../../__tests__/utils/test-helpers";
-import { createGenerativeUICatalog, GenerativeUISurface } from "..";
+import {
+  createGenerativeUI,
+  GenerativeUISurface,
+  useGenerativeUIFunction,
+} from "..";
 import type {
   GenerativeUIChatSurfaceProps,
   GenerativeUIEventHandler,
@@ -42,7 +45,7 @@ function Card({
 }: {
   productId: string;
   name: string;
-  onAddToCart?: GenerativeUIEventHandler<typeof catalog, "onAddToCart">;
+  onAddToCart?: GenerativeUIEventHandler<typeof ui, "onAddToCart">;
 }) {
   useEffect(() => {
     mounts.set(productId, (mounts.get(productId) ?? 0) + 1);
@@ -59,16 +62,19 @@ function Card({
 function Grid({ children }: { children?: React.ReactNode }) {
   return <div>{children}</div>;
 }
-const catalog = createGenerativeUICatalog({
+const ui = createGenerativeUI({
   id: "shop",
+  functions: {
+    addToCart: { parameters: z.object({ productId: z.string() }) },
+    applyCoupon: { parameters: z.object({}) },
+  },
   components: {
     Grid: { component: Grid, slots: { children: "multiple" } },
+    // `onAddToCart` calls the `addToCart` function.
     Card: {
       component: Card,
       props: z.object({ productId: z.string(), name: z.string() }),
-      events: {
-        onAddToCart: { parameters: z.object({ productId: z.string() }) },
-      },
+      events: { onAddToCart: {} },
     },
   },
 });
@@ -120,7 +126,6 @@ const card = (id: string) => ({
   component: "Card",
   productId: id,
   name: `Product ${id}`,
-  onAddToCart: { functionCall: { call: "addToCart", args: {} } },
 });
 
 const cardEl = () =>
@@ -128,13 +133,9 @@ const cardEl = () =>
     '[data-generative-ui-chat-surface="cmp"]',
   ) as HTMLElement | null;
 
-function ExposedCoupon({ handler }: { handler: () => Promise<unknown> }) {
-  useFrontendTool({
-    name: "applyCoupon",
-    parameters: z.object({}),
-    handler,
-    exposeToGenerativeUI: true,
-  });
+function Handlers({ addToCart }: { addToCart: () => void }) {
+  useGenerativeUIFunction(ui, "addToCart", addToCart);
+  useGenerativeUIFunction(ui, "applyCoupon", async () => "ok");
   return null;
 }
 
@@ -146,21 +147,14 @@ function setup() {
   render(
     <CopilotKitProvider
       agents__unsafe_dev_only={{ default: agent }}
-      generativeUI={{
-        catalog,
-        functions: {
-          addToCart: {
-            parameters: z.object({ productId: z.string() }),
-            handler: addToCart,
-          },
-        },
-      }}
+      generativeUI={{ ui }}
     >
       <CopilotChatConfigurationProvider agentId="default" threadId={T}>
-        <ExposedCoupon handler={async () => "ok"} />
+        <Handlers addToCart={addToCart} />
         <section data-testid="inline">
           <GenerativeUISurface
             id="recommendations"
+            description="Next to the product list. Use it for recommendations."
             fallback={<span>No recommendations yet</span>}
           />
         </section>
@@ -181,7 +175,7 @@ async function send(text: string) {
 }
 
 describe("generative UI integration", () => {
-  it("forwards a manifest with mounted targets and exposed functions", async () => {
+  it("forwards a manifest with mounted targets, their descriptions and the functions with a handler", async () => {
     const { agent } = setup();
     await send("hi");
     agent.emit(runStartedEvent({ threadId: T, runId: "r1" }));
@@ -190,13 +184,18 @@ describe("generative UI integration", () => {
     expect(manifest.catalogId).toBe("shop");
     expect(manifest.targets).toEqual([
       { id: "chat", kind: "chat" },
-      { id: "recommendations", kind: "inline" },
+      {
+        id: "recommendations",
+        kind: "inline",
+        description: "Next to the product list. Use it for recommendations.",
+      },
     ]);
     expect(Object.keys(manifest.functions).sort()).toEqual([
       "addToCart",
       "applyCoupon",
     ]);
     expect(Object.keys(manifest.components)).toEqual(["Grid", "Card"]);
+    expect(manifest).not.toHaveProperty("appState");
   });
 
   it("renders inline-targeted surfaces only in their mount and binds clicks to host functions", async () => {
@@ -314,7 +313,7 @@ describe("generative UI integration", () => {
     render(
       <CopilotKitProvider
         agents__unsafe_dev_only={{ default: agent }}
-        generativeUI={{ catalog }}
+        generativeUI={{ ui }}
       >
         <CopilotChatConfigurationProvider agentId="default" threadId={T}>
           <div style={{ height: 400 }}>

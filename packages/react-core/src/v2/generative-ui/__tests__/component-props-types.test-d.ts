@@ -3,21 +3,21 @@
 import { expectTypeOf } from "vitest";
 import type { ReactNode } from "react";
 import { z } from "zod";
-import { createGenerativeUICatalog } from "../catalog";
+import { createGenerativeUI } from "../catalog";
 import type { GenerativeUIComponentProps } from "../catalog";
 import type { GenerativeUIInvokeResult } from "../errors";
 
-// Destructured, and typed through the catalog that renders it.
+// Destructured, and typed through the generative UI that renders it.
 function CheckoutForm({
   email,
   onSubmit,
-}: GenerativeUIComponentProps<typeof catalog, "CheckoutForm">) {
+}: GenerativeUIComponentProps<typeof ui, "CheckoutForm">) {
   void email;
   void onSubmit;
   return null;
 }
 
-function Grid(props: GenerativeUIComponentProps<typeof catalog, "Grid">) {
+function Grid(props: GenerativeUIComponentProps<typeof ui, "Grid">) {
   void props;
   return null;
 }
@@ -26,7 +26,7 @@ function Badge() {
   return null;
 }
 
-const catalog = createGenerativeUICatalog({
+const ui = createGenerativeUI({
   id: "props@1",
   components: {
     CheckoutForm: {
@@ -51,7 +51,7 @@ const catalog = createGenerativeUICatalog({
 });
 
 expectTypeOf<
-  GenerativeUIComponentProps<typeof catalog, "CheckoutForm">
+  GenerativeUIComponentProps<typeof ui, "CheckoutForm">
 >().toEqualTypeOf<{
   email?: string | undefined;
   quantity: number;
@@ -61,26 +61,15 @@ expectTypeOf<
   }) => Promise<GenerativeUIInvokeResult>;
 }>();
 
-expectTypeOf<
-  GenerativeUIComponentProps<typeof catalog, "Grid">
->().toEqualTypeOf<{
+expectTypeOf<GenerativeUIComponentProps<typeof ui, "Grid">>().toEqualTypeOf<{
   title: string;
   children?: ReactNode;
   header?: ReactNode;
 }>();
 
 expectTypeOf<
-  GenerativeUIComponentProps<typeof catalog, "Badge">
+  GenerativeUIComponentProps<typeof ui, "Badge">
 >().toEqualTypeOf<{}>();
 
-// @ts-expect-error "Missing" is not a component of the catalog.
-export type UnknownComponent = GenerativeUIComponentProps<
-  typeof catalog,
-  "Missing"
->;
-
-createGenerativeUICatalog({
-  id: "invalid@1",
-  // @ts-expect-error a number is not a component.
-  components: { Broken: { component: 42 } },
-});
+// @ts-expect-error "Missing" is not a component of the UI.
+export type Missing = GenerativeUIComponentProps<typeof ui, "Missing">;

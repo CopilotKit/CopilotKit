@@ -129,12 +129,6 @@ export type FrontendTool<
    */
   available?: boolean;
   /**
-   * Experimental. Also let generative UI components call this tool's handler
-   * directly (e.g. a button bound to `{ functionCall: { call: name } }`),
-   * without an agent round trip. Not sent to the agent as part of the schema.
-   */
-  exposeToGenerativeUI?: boolean;
-  /**
    * Also expose this tool to browser agents through the WebMCP API
    * (`document.modelContext`) while keeping the normal agent registration.
    *

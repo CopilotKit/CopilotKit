@@ -1,9 +1,12 @@
-import type { z } from "zod";
-import type { GenerativeUICatalog } from "./catalog";
+import type {
+  GenerativeUI,
+  GenerativeUIDefinitionsOf,
+  GenerativeUIEventInput,
+  UnionToIntersection,
+} from "./catalog";
 
 export type GenerativeUIErrorCode =
   | "function_not_found"
-  | "function_not_exposed"
   | "function_conflict"
   | "invalid_arguments"
   | "handler_failed"
@@ -23,24 +26,21 @@ export type GenerativeUIInvokeResult =
   | { ok: true; result: unknown }
   | { ok: false; error: GenerativeUIError };
 
-type Definitions<Catalog extends GenerativeUICatalog<any>> = NonNullable<
-  Catalog["definitions"]
->;
+type Components<UI extends GenerativeUI<any>> =
+  GenerativeUIDefinitionsOf<UI>["components"];
 
-type ComponentEvents<Definition> = Definition extends { events?: infer Events }
-  ? NonNullable<Events>
-  : never;
+type EventsOf<
+  UI extends GenerativeUI<any>,
+  Component extends keyof Components<UI>,
+> =
+  Components<UI>[Component]["events"] extends Record<string, unknown>
+    ? Components<UI>[Component]["events"]
+    : {};
 
 type IsUnion<T, U = T> = T extends unknown
   ? [U] extends [T]
     ? false
     : true
-  : never;
-
-type UnionToIntersection<U> = (
-  U extends unknown ? (value: U) => void : never
-) extends (value: infer I) => void
-  ? I
   : never;
 
 /** One member of a union. Used only after IsUnion proved the members equal. */
@@ -49,50 +49,44 @@ type OneOf<U> =
     ? R
     : never;
 
-/** Every event name that a component of the catalog declares. */
-export type GenerativeUIEventName<Catalog extends GenerativeUICatalog<any>> = {
-  [Component in keyof Definitions<Catalog>]: keyof ComponentEvents<
-    Definitions<Catalog>[Component]
-  > &
-    string;
-}[keyof Definitions<Catalog>];
+/** Every event name that a component of the UI declares, bases included. */
+export type GenerativeUIEventName<UI extends GenerativeUI<any>> = {
+  [Component in keyof Components<UI>]: keyof EventsOf<UI, Component> & string;
+}[keyof Components<UI>];
 
-type EventArgs<
-  Catalog extends GenerativeUICatalog<any>,
-  Name extends string,
-> = {
-  [Component in keyof Definitions<Catalog>]: ComponentEvents<
-    Definitions<Catalog>[Component]
-  > extends infer Events
-    ? Name extends keyof Events
-      ? Events[Name] extends {
-          parameters: infer Parameters extends z.ZodTypeAny;
-        }
-        ? z.input<Parameters>
-        : never
-      : never
+type EventArgs<UI extends GenerativeUI<any>, Name extends string> = {
+  [Component in keyof Components<UI>]: Name extends keyof EventsOf<
+    UI,
+    Component
+  >
+    ? GenerativeUIEventInput<
+        Name,
+        EventsOf<UI, Component>[Name],
+        GenerativeUIDefinitionsOf<UI>["functions"]
+      >
     : never;
-}[keyof Definitions<Catalog>];
+}[keyof Components<UI>];
 
 /**
- * Type of an event prop as seen by a catalog component, looked up by event
- * name in the catalog that renders the component:
- * `onSubmit?: GenerativeUIEventHandler<typeof catalog, "onSubmit">`.
+ * Type of an event prop as seen by a component, looked up by event name in
+ * the generative UI that renders the component:
+ * `onSubmit?: GenerativeUIEventHandler<typeof ui, "onSubmit">`.
  *
- * When components of the catalog declare the event with different
- * parameters, the result is not callable and names the conflict.
+ * The argument is the event `parameters` input. A matched event without
+ * `parameters` takes the input of its function.
+ *
+ * When components of the UI declare the event with different arguments, the
+ * result is not callable and names the conflict.
  */
 export type GenerativeUIEventHandler<
-  Catalog extends GenerativeUICatalog<any>,
-  Name extends GenerativeUIEventName<Catalog>,
+  UI extends GenerativeUI<any>,
+  Name extends GenerativeUIEventName<UI>,
 > =
-  true extends IsUnion<EventArgs<Catalog, Name>>
+  true extends IsUnion<EventArgs<UI, Name>>
     ? {
-        readonly error: `"${Name}" has different parameters on different components of this catalog`;
+        readonly error: `"${Name}" has different parameters on different components of this generative UI`;
       }
-    : (
-        args: OneOf<EventArgs<Catalog, Name>>,
-      ) => Promise<GenerativeUIInvokeResult>;
+    : (args: OneOf<EventArgs<UI, Name>>) => Promise<GenerativeUIInvokeResult>;
 
 export interface GenerativeUIErrorInfo {
   kind: "render" | "props" | "operation" | "function" | "event";

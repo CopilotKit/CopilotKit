@@ -8,14 +8,15 @@ import React, {
 } from "react";
 import type { ReactNode } from "react";
 import type { ComponentModel, SurfaceModel } from "@a2ui/web_core/v0_9";
-import { z } from "zod";
+import type { z } from "zod";
 import {
   GENERATIVE_UI_ROOT_ID,
   isActionBinding,
   isPathBinding,
 } from "@copilotkit/shared";
 import type { GenerativeUIActionBinding } from "@copilotkit/shared";
-import type { GenerativeUIComponentDefinition } from "./catalog";
+import { shallowEqual, useShallowStableRef } from "../lib/shallow-stable-ref";
+import type { ResolvedGenerativeUIComponent } from "./catalog";
 import {
   DefaultNodeFallback,
   NodeBoundary,
@@ -23,7 +24,7 @@ import {
   SurfaceBoundary,
 } from "./boundaries";
 import type { GenerativeUIInvokeResult } from "./errors";
-import { invokeBoundEvent } from "./events";
+import { invokeBoundEvent, invokeMatchedEvent } from "./events";
 import {
   GenerativeUINodeContext,
   reportErrorSafely,
@@ -35,10 +36,10 @@ import type {
   ManagedSurface,
 } from "./surface-manager";
 
-const EMPTY_PROPS = z.object({});
 const NO_ANCESTORS: readonly string[] = [];
 // No surface state exists on the server or during hydration.
 const undefinedSnapshot = () => undefined;
+const noopSubscribe = () => () => {};
 
 export function SurfaceView({ surface }: { surface: ManagedSurface }) {
   const runtime = useRequiredGenerativeUIRuntime();
@@ -113,7 +114,7 @@ const NodeView = memo(function NodeView({
   }
   if (!component || !properties)
     return <NodePlaceholder componentId={componentId} />;
-  const definition = runtime.catalog.components.get(component.type);
+  const definition = runtime.ui.components.get(component.type);
   if (!definition) {
     return (
       <DefaultNodeFallback
@@ -142,16 +143,24 @@ const NodeView = memo(function NodeView({
   );
 });
 
-function useBoundDataProps(
+/**
+ * The props the model sets, with `{ path }` bindings read from the surface
+ * data model. Bound props, events and slots are left out. The result is the
+ * same object until a value changes.
+ */
+function useModelDataProps(
   surface: ManagedSurface,
-  definition: GenerativeUIComponentDefinition,
+  definition: ResolvedGenerativeUIComponent,
   properties: Record<string, unknown>,
 ): Record<string, unknown> {
   const dataModel = surface.model.dataModel;
   const entries = useMemo(
     () =>
       Object.entries(properties).filter(
-        ([key]) => !definition.events?.[key] && !definition.slots?.[key],
+        ([key]) =>
+          !definition.events?.[key] &&
+          !definition.slots?.[key] &&
+          !Object.hasOwn(definition.selectors, key),
       ),
     [properties, definition],
   );
@@ -182,37 +191,181 @@ function useBoundDataProps(
     }
     return () => subscriptions.forEach((s) => s.unsubscribe());
   }, [dataModel, entries]);
-  return resolved;
+  return useShallowStableRef(resolved);
 }
 
+/** The selector results of one node, or the reason they could not be read. */
+type Selection =
+  | { ok: true; values: Record<string, unknown> }
+  | { ok: false; problem: string };
+
+const NO_SELECTION: Selection = { ok: true, values: {} };
+
+function isSameSelection(a: Selection, b: Selection) {
+  if (a.ok && b.ok) return shallowEqual(a.values, b.values);
+  if (!a.ok && !b.ok) return a.problem === b.problem;
+  return false;
+}
+
+/** Runs every selector of a node. A selector that throws gives a problem. */
+function select(
+  definition: ResolvedGenerativeUIComponent,
+  state: Readonly<Record<string, unknown>>,
+  modelProps: Record<string, unknown>,
+): Selection {
+  const values: Record<string, unknown> = {};
+  const selectors = Object.entries(definition.selectors);
+  for (const [key, selector] of selectors) {
+    try {
+      values[key] = selector(state, modelProps);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, problem: `${key}: selector threw: ${message}` };
+    }
+  }
+  return { ok: true, values };
+}
+
+interface SelectionCache {
+  state: Readonly<Record<string, unknown>>;
+  modelProps: Record<string, unknown>;
+  selection: Selection;
+}
+
+/**
+ * The values of the bound props of a node, read from the app state.
+ *
+ * The selectors run again only when the state object or the parsed model
+ * props change. When the new values are shallow-equal to the last ones, the
+ * last snapshot is kept. So the node re-renders only when a selected value
+ * changes. A selector that returns a new array on each call cannot cause a
+ * render loop: with the same inputs, the cached snapshot comes back.
+ *
+ * A node without bound props does not subscribe to the state.
+ */
+function useSelection(
+  manager: GenerativeUISurfaceManager,
+  definition: ResolvedGenerativeUIComponent,
+  modelProps: Record<string, unknown> | undefined,
+) {
+  const hasSelectors = Object.keys(definition.selectors).length > 0;
+  const cache = useRef<SelectionCache | undefined>(undefined);
+  const getSnapshot = () => {
+    if (!hasSelectors || modelProps === undefined) return NO_SELECTION;
+    const state = manager.getState();
+    const cached = cache.current;
+    const isCacheHit =
+      cached !== undefined &&
+      cached.state === state &&
+      cached.modelProps === modelProps;
+    if (isCacheHit) return cached.selection;
+    const next = select(definition, state, modelProps);
+    const selection =
+      cached !== undefined && isSameSelection(cached.selection, next)
+        ? cached.selection
+        : next;
+    cache.current = { state, modelProps, selection };
+    return selection;
+  };
+  // The server uses the same snapshot. It reads the state that is set now.
+  return useSyncExternalStore(
+    hasSelectors ? manager.subscribe : noopSubscribe,
+    getSnapshot,
+    getSnapshot,
+  );
+}
+
+function issuesOf(error: z.ZodError) {
+  return error.issues
+    .map((i) => `${i.path.join(".") || "props"}: ${i.message}`)
+    .join("; ");
+}
+
+type DataProps =
+  | { ok: true; props: Record<string, unknown> }
+  | { ok: false; problem: string };
+
+/**
+ * The data props of a node, in three steps: parse the model-set props with
+ * `modelProps`, run the selectors with them, then parse the selector results
+ * with `boundProps`. Gives the reason when a step fails.
+ */
+function useDataProps(
+  runtime: GenerativeUIRuntime,
+  surface: ManagedSurface,
+  definition: ResolvedGenerativeUIComponent,
+  properties: Record<string, unknown>,
+) {
+  const modelData = useModelDataProps(surface, definition, properties);
+  const parsedModel = useMemo(
+    () => definition.modelProps.safeParse(modelData),
+    [definition, modelData],
+  );
+  const selection = useSelection(
+    runtime.manager,
+    definition,
+    parsedModel.success ? parsedModel.data : undefined,
+  );
+  return useMemo((): DataProps => {
+    if (!parsedModel.success) {
+      return { ok: false, problem: issuesOf(parsedModel.error) };
+    }
+    if (!selection.ok) return selection;
+    const parsedBound = definition.boundProps.safeParse(selection.values);
+    if (!parsedBound.success) {
+      return { ok: false, problem: issuesOf(parsedBound.error) };
+    }
+    return { ok: true, props: { ...parsedModel.data, ...parsedBound.data } };
+  }, [definition, parsedModel, selection]);
+}
+
+/**
+ * The event props of a node. A matched event (one that matches a declared
+ * function) is always bound. An unmatched event is bound only when the model
+ * bound it.
+ */
 function useEventProps(
   runtime: GenerativeUIRuntime,
   surface: ManagedSurface,
   componentId: string,
-  definition: GenerativeUIComponentDefinition,
+  definition: ResolvedGenerativeUIComponent,
   properties: Record<string, unknown>,
 ) {
   const latest = useRef(properties);
   latest.current = properties;
   const boundNames = Object.keys(definition.events ?? {})
-    .filter((name) => isActionBinding(properties[name]))
+    .filter(
+      (name) =>
+        Object.hasOwn(definition.eventFunctions, name) ||
+        isActionBinding(properties[name]),
+    )
     .join("|");
   return useMemo(() => {
     const handlers: Record<
       string,
       (args?: unknown) => Promise<GenerativeUIInvokeResult>
     > = {};
-    for (const name of boundNames ? boundNames.split("|") : []) {
-      handlers[name] = (args) =>
-        invokeBoundEvent({
-          runtime,
-          surface,
-          componentId,
-          name,
-          parameters: definition.events![name].parameters,
-          binding: latest.current[name] as GenerativeUIActionBinding,
-          args,
-        });
+    const names = boundNames ? boundNames.split("|") : [];
+    for (const name of names) {
+      const call = {
+        runtime,
+        surface,
+        componentId,
+        name,
+        parameters: definition.events?.[name]?.parameters,
+      };
+      const functionName = Object.hasOwn(definition.eventFunctions, name)
+        ? definition.eventFunctions[name]
+        : undefined;
+      handlers[name] =
+        functionName === undefined
+          ? (args) =>
+              invokeBoundEvent({
+                ...call,
+                binding: latest.current[name] as GenerativeUIActionBinding,
+                args,
+              })
+          : (args) => invokeMatchedEvent({ ...call, functionName, args });
     }
     return handlers;
   }, [boundNames, runtime, surface, componentId, definition]);
@@ -220,7 +373,7 @@ function useEventProps(
 
 function useSlotProps(
   surface: ManagedSurface,
-  definition: GenerativeUIComponentDefinition,
+  definition: ResolvedGenerativeUIComponent,
   properties: Record<string, unknown>,
   componentId: string,
   ancestors: readonly string[],
@@ -269,12 +422,12 @@ function ResolvedNode({
 }: {
   surface: ManagedSurface;
   componentId: string;
-  definition: GenerativeUIComponentDefinition;
+  definition: ResolvedGenerativeUIComponent;
   properties: Record<string, unknown>;
   runtime: GenerativeUIRuntime;
   ancestors: readonly string[];
 }) {
-  const dataProps = useBoundDataProps(surface, definition, properties);
+  const dataProps = useDataProps(runtime, surface, definition, properties);
   const eventProps = useEventProps(
     runtime,
     surface,
@@ -297,12 +450,7 @@ function ResolvedNode({
     }),
     [surface.key, surface.surfaceId, componentId],
   );
-  const parsed = (definition.props ?? EMPTY_PROPS).safeParse(dataProps);
-  const problem = parsed.success
-    ? undefined
-    : parsed.error.issues
-        .map((i) => `${i.path.join(".") || "props"}: ${i.message}`)
-        .join("; ");
+  const problem = dataProps.ok ? undefined : dataProps.problem;
 
   useEffect(() => {
     if (problem) {
@@ -315,7 +463,7 @@ function ResolvedNode({
     }
   }, [problem, runtime, surface.surfaceId, componentId]);
 
-  if (!parsed.success) {
+  if (!dataProps.ok) {
     return (
       <DefaultNodeFallback
         message={`invalid props (${problem})`}
@@ -326,7 +474,7 @@ function ResolvedNode({
   const Component = definition.component;
   return (
     <GenerativeUINodeContext.Provider value={nodeContext}>
-      <Component {...parsed.data} {...eventProps} {...slotProps} />
+      <Component {...dataProps.props} {...eventProps} {...slotProps} />
     </GenerativeUINodeContext.Provider>
   );
 }

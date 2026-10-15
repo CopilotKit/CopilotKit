@@ -1,5 +1,3 @@
-import type { FrontendTool } from "@copilotkit/core";
-import { randomUUID } from "@copilotkit/shared";
 import type {
   GenerativeUIFunctionManifest,
   StandardSchemaV1,
@@ -8,10 +6,22 @@ import { GenerativeUIError } from "./errors";
 import type { GenerativeUIInvokeResult } from "./errors";
 import { toJsonSchema } from "./json-schema";
 
-export interface GenerativeUIFunctionDefinition<T = any> {
+/**
+ * A function that generated UI may call, as declared in
+ * `createGenerativeUI({ functions })`. Zod schemas fit `parameters`, because
+ * they implement Standard Schema.
+ */
+export interface GenerativeUIDeclaredFunction {
   description?: string;
-  parameters?: StandardSchemaV1<any, T>;
-  handler: (args: T) => unknown | Promise<unknown>;
+  parameters: StandardSchemaV1;
+}
+
+/**
+ * Holds the latest handler of one mounted `useGenerativeUIFunction`. The hook
+ * updates `current` on each render, so it registers only once per mount.
+ */
+export interface GenerativeUIHandlerRef {
+  current: (args: any) => unknown;
 }
 
 export interface GenerativeUIInvocationOrigin {
@@ -20,25 +30,28 @@ export interface GenerativeUIInvocationOrigin {
 }
 
 export interface GenerativeUIDispatcher {
+  /**
+   * Call a declared function with arguments from generated UI. Never throws:
+   * every failure becomes `{ ok: false, error }`.
+   */
   invoke(
     name: string,
     args: unknown,
     origin: GenerativeUIInvocationOrigin,
   ): Promise<GenerativeUIInvokeResult>;
+  /** The declared functions that have exactly one mounted handler, as JSON Schema. */
   listExposed(): Record<string, GenerativeUIFunctionManifest>;
+  /**
+   * Mount a handler for a declared function. Returns the function that
+   * unmounts it. Calling the returned function more than once is safe.
+   */
+  register(name: string, ref: GenerativeUIHandlerRef): () => void;
 }
 
-export interface GenerativeUIDispatcherSources {
-  getProviderFunctions: () =>
-    | Record<string, GenerativeUIFunctionDefinition>
-    | undefined;
-  getTool: (name: string) => FrontendTool<any> | undefined;
-  listTools: () => readonly FrontendTool<any>[];
-  /**
-   * Runtime toggle for tools (e.g. `copilotkit.setToolEnabled(name, false)`).
-   * Returning false for an exposed tool makes it fail closed and omits it from `listExposed`.
-   */
-  isToolEnabled?: (name: string) => boolean;
+export interface GenerativeUIDispatcherOptions {
+  /** The functions declared in `createGenerativeUI({ functions })`, read at call time. */
+  getDeclared: () => ReadonlyMap<string, GenerativeUIDeclaredFunction>;
+  /** Called for each failed `invoke`. A throw from it is ignored. */
   onError?: (info: {
     name: string;
     origin: GenerativeUIInvocationOrigin;
@@ -49,95 +62,75 @@ export interface GenerativeUIDispatcherSources {
 type Resolved =
   | {
       ok: true;
-      description?: string;
-      parameters?: StandardSchemaV1;
-      run: (args: unknown) => unknown;
+      declared: GenerativeUIDeclaredFunction;
+      ref: GenerativeUIHandlerRef;
     }
   | { ok: false; error: GenerativeUIError };
-
-const EMPTY_OBJECT_SCHEMA = { type: "object", properties: {} };
 
 const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 /**
- * One registry for functions generated UI may call: provider-level
- * `generativeUI.functions` and `useFrontendTool({ exposeToGenerativeUI: true })`.
- * Resolution happens at call time and fails closed; nothing is forwarded to the agent.
- * Neither `invoke` nor `listExposed` throws: user code that throws becomes a result.
+ * Creates the registry of functions that generated UI may call.
+ *
+ * A function is callable when it is declared in `getDeclared()` and exactly
+ * one handler is mounted for it with `register`. Names are resolved at call
+ * time and fail closed. Nothing is sent to the agent.
+ * Neither `invoke` nor `listExposed` throws.
+ *
+ * @param options.getDeclared - Returns the declared functions.
+ * @param options.onError - Gets each failed call.
+ *
+ * @example
+ * ```ts
+ * const dispatcher = createGenerativeUIDispatcher({
+ *   getDeclared: () => new Map(Object.entries(ui.functions)),
+ * });
+ * const unregister = dispatcher.register("addToCart", handlerRef);
+ * await dispatcher.invoke("addToCart", { productId: "p1" }, origin);
+ * unregister();
+ * ```
  */
 export function createGenerativeUIDispatcher(
-  sources: GenerativeUIDispatcherSources,
-): GenerativeUIDispatcher {
+  options: GenerativeUIDispatcherOptions,
+) {
+  const handlers = new Map<string, Set<GenerativeUIHandlerRef>>();
+
   const resolveUnchecked = (name: string): Resolved => {
-    const providerFunction = sources.getProviderFunctions()?.[name];
-    const tool = sources.getTool(name);
-    const exposedTool = tool?.exposeToGenerativeUI ? tool : undefined;
-    if (providerFunction && exposedTool) {
+    const declared = options.getDeclared().get(name);
+    if (!declared) {
+      return {
+        ok: false,
+        error: new GenerativeUIError(
+          "function_not_found",
+          `No generative UI function named "${name}" is declared in createGenerativeUI({ functions })`,
+        ),
+      };
+    }
+    const mounted = [...(handlers.get(name) ?? [])];
+    const [ref] = mounted;
+    if (!ref) {
+      return {
+        ok: false,
+        error: new GenerativeUIError(
+          "function_not_found",
+          `"${name}" is declared, but no useGenerativeUIFunction handler is mounted for it`,
+        ),
+      };
+    }
+    if (mounted.length > 1) {
       return {
         ok: false,
         error: new GenerativeUIError(
           "function_conflict",
-          `"${name}" is registered both in generativeUI.functions and by useFrontendTool({ exposeToGenerativeUI: true })`,
+          `"${name}" has ${mounted.length} useGenerativeUIFunction handlers mounted. Mount exactly one.`,
         ),
       };
     }
-    if (providerFunction) {
-      return {
-        ok: true,
-        description: providerFunction.description,
-        parameters: providerFunction.parameters,
-        run: providerFunction.handler,
-      };
-    }
-    if (exposedTool) {
-      const handler = exposedTool.handler;
-      if (
-        exposedTool.available === false ||
-        !handler ||
-        sources.isToolEnabled?.(name) === false
-      ) {
-        return {
-          ok: false,
-          error: new GenerativeUIError(
-            "function_not_exposed",
-            `"${name}" is currently disabled`,
-          ),
-        };
-      }
-      return {
-        ok: true,
-        description: exposedTool.description,
-        parameters: exposedTool.parameters,
-        run: (args) =>
-          handler(args as Record<string, unknown>, {
-            toolCall: {
-              id: `genui-${randomUUID()}`,
-              type: "function",
-              function: { name, arguments: JSON.stringify(args) },
-            },
-          }),
-      };
-    }
-    if (tool) {
-      return {
-        ok: false,
-        error: new GenerativeUIError(
-          "function_not_exposed",
-          `"${name}" is a frontend tool but is not exposed to generative UI (set exposeToGenerativeUI: true)`,
-        ),
-      };
-    }
-    return {
-      ok: false,
-      error: new GenerativeUIError(
-        "function_not_found",
-        `No generative UI function named "${name}"`,
-      ),
-    };
+    return { ok: true, declared, ref };
   };
 
-  // Source getters are user code too; a throw here becomes a result, not a rejection.
+  // getDeclared is outside code; a throw here becomes a result, not a rejection.
   const resolve = (name: string): Resolved => {
     try {
       return resolveUnchecked(name);
@@ -193,25 +186,29 @@ export function createGenerativeUIDispatcher(
     error: GenerativeUIError,
   ): GenerativeUIInvokeResult => {
     try {
-      sources.onError?.({ name, origin, error });
+      options.onError?.({ name, origin, error });
     } catch {
       // A throwing onError must not turn a failed call into a rejection.
     }
     return { ok: false, error };
   };
 
-  return {
+  const dispatcher: GenerativeUIDispatcher = {
     async invoke(name, args, origin) {
       const resolved = resolve(name);
       if (!resolved.ok) return failWith(name, origin, resolved.error);
-      let value: unknown = args ?? {};
-      if (resolved.parameters) {
-        const validated = await validateArgs(name, resolved.parameters, value);
-        if (!validated.ok) return failWith(name, origin, validated.error);
-        value = validated.value;
-      }
+      const validated = await validateArgs(
+        name,
+        resolved.declared.parameters,
+        args ?? {},
+      );
+      if (!validated.ok) return failWith(name, origin, validated.error);
       try {
-        return { ok: true, result: await resolved.run(value) };
+        // Read `current` now, so the latest handler runs.
+        return {
+          ok: true,
+          result: await resolved.ref.current(validated.value),
+        };
       } catch (error) {
         return failWith(
           name,
@@ -227,14 +224,9 @@ export function createGenerativeUIDispatcher(
     listExposed() {
       let names: string[];
       try {
-        const providerNames = Object.keys(sources.getProviderFunctions() ?? {});
-        const toolNames = sources
-          .listTools()
-          .filter((tool) => tool.exposeToGenerativeUI)
-          .map((tool) => tool.name);
-        names = [...new Set([...providerNames, ...toolNames])];
+        names = [...options.getDeclared().keys()];
       } catch {
-        // An unreadable registry advertises nothing.
+        // If the declared functions cannot be read, advertise nothing.
         return {};
       }
       // Advertise exactly the names invoke would accept.
@@ -242,14 +234,11 @@ export function createGenerativeUIDispatcher(
       for (const name of names) {
         const resolved = resolve(name);
         if (!resolved.ok) continue;
+        const { description, parameters } = resolved.declared;
         try {
           listed[name] = {
-            ...(resolved.description
-              ? { description: resolved.description }
-              : {}),
-            parameters: resolved.parameters
-              ? toJsonSchema(resolved.parameters)
-              : EMPTY_OBJECT_SCHEMA,
+            ...(description ? { description } : {}),
+            parameters: toJsonSchema(parameters),
           };
         } catch {
           // A schema that cannot be converted to JSON Schema is not advertised.
@@ -257,5 +246,16 @@ export function createGenerativeUIDispatcher(
       }
       return listed;
     },
+
+    register(name, ref) {
+      const mounted = handlers.get(name) ?? new Set<GenerativeUIHandlerRef>();
+      mounted.add(ref);
+      handlers.set(name, mounted);
+      // An empty set stays in the map. It resolves as "no handler mounted".
+      return () => {
+        mounted.delete(ref);
+      };
+    },
   };
+  return dispatcher;
 }

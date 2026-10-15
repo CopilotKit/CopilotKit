@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import type { GenerativeUIUserEvent } from "@copilotkit/shared";
-import type { GenerativeUICatalog } from "./catalog";
+import type { GenerativeUI } from "./catalog";
 import type { GenerativeUIDispatcher } from "./dispatcher";
 import type { GenerativeUIErrorInfo, GenerativeUIInvokeResult } from "./errors";
 import type { GenerativeUISurfaceManager } from "./surface-manager";
@@ -21,7 +21,8 @@ export interface GenerativeUIErrorBoundaryConfig {
 export interface GenerativeUIRuntime {
   manager: GenerativeUISurfaceManager;
   dispatcher: GenerativeUIDispatcher;
-  catalog: GenerativeUICatalog;
+  /** The generative UI given to the provider as `generativeUI={{ ui }}`. */
+  ui: GenerativeUI;
   forwardEvent: (
     event: GenerativeUIUserEvent,
     agentId: string | undefined,
@@ -41,7 +42,7 @@ export function useRequiredGenerativeUIRuntime(): GenerativeUIRuntime {
   const runtime = useContext(GenerativeUIRuntimeContext);
   if (!runtime) {
     throw new Error(
-      "Generative UI components must be rendered inside <CopilotKit generativeUI={{ catalog }}>.",
+      "Generative UI components must be rendered inside <CopilotKitProvider generativeUI={{ ui }}>.",
     );
   }
   return runtime;

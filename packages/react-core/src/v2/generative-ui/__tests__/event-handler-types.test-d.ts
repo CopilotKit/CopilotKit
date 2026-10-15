@@ -1,25 +1,25 @@
 // Type-only assertions, read by `tsc --noEmit` (`check-types`), never executed.
 // Same mechanism as `v2/__tests__/headless-type-exports.test-d.ts`.
 //
-// Components look up their event handler types in the catalog that renders
-// them, so these components reference `typeof catalog` while the catalog
+// Components look up their event handler types in the generative UI that
+// renders them, so these components reference `typeof ui` while the UI
 // references the components.
 import { expectTypeOf } from "vitest";
 import { z } from "zod";
-import { createGenerativeUICatalog } from "../catalog";
+import { createGenerativeUI } from "../catalog";
 import type {
   GenerativeUIEventHandler,
   GenerativeUIInvokeResult,
 } from "../errors";
 
 function CheckoutForm(_props: {
-  onSubmit?: GenerativeUIEventHandler<typeof catalog, "onSubmit">;
+  onSubmit?: GenerativeUIEventHandler<typeof ui, "onSubmit">;
 }) {
   return null;
 }
 
 function Card(_props: {
-  onAddToCart?: GenerativeUIEventHandler<typeof catalog, "onAddToCart">;
+  onAddToCart?: GenerativeUIEventHandler<typeof ui, "onAddToCart">;
 }) {
   return null;
 }
@@ -28,8 +28,16 @@ function Badge() {
   return null;
 }
 
-const catalog = createGenerativeUICatalog({
+const ui = createGenerativeUI({
   id: "types@1",
+  functions: {
+    addToCart: {
+      parameters: z.object({
+        productId: z.string(),
+        quantity: z.number().default(1),
+      }),
+    },
+  },
   components: {
     CheckoutForm: {
       component: CheckoutForm,
@@ -39,38 +47,31 @@ const catalog = createGenerativeUICatalog({
         },
       },
     },
-    Card: {
-      component: Card,
-      events: {
-        onAddToCart: { parameters: z.object({ productId: z.string() }) },
-      },
-    },
-    // The same event with the same parameters on a second component.
-    MiniCard: {
-      component: Badge,
-      events: {
-        onAddToCart: { parameters: z.object({ productId: z.string() }) },
-      },
-    },
+    // Matches `addToCart` and has no parameters of its own.
+    Card: { component: Card, events: { onAddToCart: {} } },
+    // The same matched event on a second component.
+    MiniCard: { component: Badge, events: { onAddToCart: {} } },
   },
 });
 
-expectTypeOf<
-  GenerativeUIEventHandler<typeof catalog, "onSubmit">
->().toEqualTypeOf<
+expectTypeOf<GenerativeUIEventHandler<typeof ui, "onSubmit">>().toEqualTypeOf<
   (args: { email: string; note: string }) => Promise<GenerativeUIInvokeResult>
 >();
 
+// A matched event without parameters takes the function input.
 expectTypeOf<
-  GenerativeUIEventHandler<typeof catalog, "onAddToCart">
+  GenerativeUIEventHandler<typeof ui, "onAddToCart">
 >().toEqualTypeOf<
-  (args: { productId: string }) => Promise<GenerativeUIInvokeResult>
+  (args: {
+    productId: string;
+    quantity?: number | undefined;
+  }) => Promise<GenerativeUIInvokeResult>
 >();
 
-// @ts-expect-error "onRemove" is not an event of any component in the catalog.
-export type UnknownEvent = GenerativeUIEventHandler<typeof catalog, "onRemove">;
+// @ts-expect-error "onRemove" is not an event of any component of the UI.
+export type UnknownEvent = GenerativeUIEventHandler<typeof ui, "onRemove">;
 
-const conflicting = createGenerativeUICatalog({
+const conflicting = createGenerativeUI({
   id: "conflict@1",
   components: {
     A: {

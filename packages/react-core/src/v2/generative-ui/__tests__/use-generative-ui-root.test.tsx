@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { StrictMode, useState } from "react";
 import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -13,7 +13,8 @@ import {
   runStartedEvent,
   toolCallChunkEvent,
 } from "../../__tests__/utils/test-helpers";
-import { createGenerativeUICatalog } from "../catalog";
+import { createGenerativeUI } from "../catalog";
+import { useGenerativeUIFunction } from "../hooks";
 import { useGenerativeUIRuntime } from "../runtime-context";
 import type { GenerativeUIRuntime } from "../runtime-context";
 import type { GenerativeUIConfig } from "../use-generative-ui-root";
@@ -26,43 +27,53 @@ class CapturingAgent extends MockStepwiseAgent {
   }
 }
 
-const catalog = createGenerativeUICatalog({
+const ui = createGenerativeUI({
   id: "shop",
+  functions: {
+    applyCoupon: { parameters: z.object({ code: z.string() }) },
+  },
   components: { Box: { component: () => null } },
 });
 
-function setup(config: Omit<GenerativeUIConfig, "catalog"> = {}) {
+type CouponHandler = (args: { code: string }) => unknown;
+
+function Coupon({ handler }: { handler: CouponHandler }) {
+  useGenerativeUIFunction(ui, "applyCoupon", handler);
+  return null;
+}
+
+function setup(config: Omit<GenerativeUIConfig, "ui"> = {}) {
   CapturingAgent.inputs = [];
   const agent = new CapturingAgent();
-  const handler = vi.fn(async () => "ok");
   const captured: {
     runtime?: GenerativeUIRuntime | null;
     copilotkit?: ReturnType<typeof useCopilotKit>["copilotkit"];
   } = {};
   function Probe() {
-    useFrontendTool({
-      name: "applyCoupon",
-      parameters: z.object({}),
-      handler,
-      exposeToGenerativeUI: true,
-    });
     captured.runtime = useGenerativeUIRuntime();
     captured.copilotkit = useCopilotKit().copilotkit;
     return null;
   }
-  render(
+  // StrictMode mounts, unmounts and mounts the handler hook's effect again.
+  const tree = (handler?: CouponHandler) => (
     <CopilotKitProvider
       agents__unsafe_dev_only={{ default: agent }}
-      generativeUI={{ catalog, ...config }}
+      generativeUI={{ ui, ...config }}
     >
       <Probe />
-    </CopilotKitProvider>,
+      {handler && (
+        <StrictMode>
+          <Coupon handler={handler} />
+        </StrictMode>
+      )}
+    </CopilotKitProvider>
   );
+  const { rerender } = render(tree());
   return {
     agent,
-    handler,
     runtime: captured.runtime!,
     copilotkit: captured.copilotkit!,
+    setHandler: (handler?: CouponHandler) => rerender(tree(handler)),
   };
 }
 
@@ -71,21 +82,43 @@ const origin = { surfaceId: "s1", componentId: "root" };
 afterEach(() => vi.restoreAllMocks());
 
 describe("useGenerativeUIRoot", () => {
-  it("treats a tool disabled via setToolEnabled as not exposed", async () => {
-    const { runtime, copilotkit, handler } = setup();
-    await waitFor(() =>
-      expect(Object.keys(runtime.dispatcher.listExposed())).toEqual([
-        "applyCoupon",
-      ]),
+  it("exposes a declared function only while a handler is mounted", async () => {
+    const { runtime, setHandler } = setup();
+    const invoke = () =>
+      runtime.dispatcher.invoke("applyCoupon", { code: "SAVE" }, origin);
+    expect(runtime.dispatcher.listExposed()).toEqual({});
+    const before = await invoke();
+    expect(!before.ok && before.error.code).toBe("function_not_found");
+
+    setHandler(() => "applied");
+    expect(Object.keys(runtime.dispatcher.listExposed())).toEqual([
+      "applyCoupon",
+    ]);
+    await expect(invoke()).resolves.toEqual({ ok: true, result: "applied" });
+
+    setHandler(undefined);
+    expect(runtime.dispatcher.listExposed()).toEqual({});
+    const after = await invoke();
+    expect(!after.ok && after.error.code).toBe("function_not_found");
+  });
+
+  it("runs the latest handler closure and keeps one registration across re-renders and StrictMode remounts", async () => {
+    const { runtime, setHandler } = setup();
+    const first = vi.fn(() => "first");
+    const latest = vi.fn(() => "latest");
+    setHandler(first);
+    setHandler(latest);
+
+    const result = await runtime.dispatcher.invoke(
+      "applyCoupon",
+      { code: "SAVE" },
+      origin,
     );
 
-    copilotkit.setToolEnabled("applyCoupon", false);
-
-    expect(runtime.dispatcher.listExposed()).toEqual({});
-    const result = await runtime.dispatcher.invoke("applyCoupon", {}, origin);
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.error.code).toBe("function_not_exposed");
-    expect(handler).not.toHaveBeenCalled();
+    // Two registrations would give `function_conflict`.
+    expect(result).toEqual({ ok: true, result: "latest" });
+    expect(latest).toHaveBeenCalledExactlyOnceWith({ code: "SAVE" });
+    expect(first).not.toHaveBeenCalled();
   });
 
   it("reportError never throws when the host onError throws", () => {
@@ -193,7 +226,7 @@ describe("useGenerativeUIRoot", () => {
         <CopilotKitProvider
           agents__unsafe_dev_only={{ default: agent }}
           properties={{ userId }}
-          generativeUI={{ catalog }}
+          generativeUI={{ ui }}
         >
           <SwitchUserTool onSwitch={() => setUserId("b")} />
         </CopilotKitProvider>
@@ -238,7 +271,7 @@ describe("useGenerativeUIRoot", () => {
       <CopilotKitProvider
         agents__unsafe_dev_only={{ default: agent }}
         properties={{ userId }}
-        generativeUI={withGenerativeUI ? { catalog } : undefined}
+        generativeUI={withGenerativeUI ? { ui } : undefined}
       >
         <Probe />
       </CopilotKitProvider>

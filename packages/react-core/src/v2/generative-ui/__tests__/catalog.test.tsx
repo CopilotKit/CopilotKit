@@ -1,106 +1,280 @@
 import React from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createGenerativeUICatalog } from "../catalog";
+import { createGenerativeUI } from "../catalog";
 
 const Card = () => <div />;
 const Grid = () => <div />;
 
-describe("createGenerativeUICatalog", () => {
-  it("compiles props, events and slots into a serializable manifest", () => {
-    const catalog = createGenerativeUICatalog({
-      id: "shop",
-      components: {
-        ProductCard: {
-          component: Card,
-          description: "A product",
-          props: z.object({ name: z.string(), price: z.number().optional() }),
-          events: {
-            onAddToCart: {
-              description: "Add",
-              parameters: z.object({ productId: z.string() }),
-            },
+const cartSchema = z.object({ count: z.number(), total: z.number() });
+const addToCart = {
+  description: "Add a product",
+  parameters: z.object({ productId: z.string() }),
+};
+
+function objectSchema(
+  properties: Record<string, unknown>,
+  required?: string[],
+) {
+  return {
+    type: "object",
+    properties,
+    ...(required ? { required } : {}),
+    additionalProperties: false,
+  };
+}
+
+describe("createGenerativeUI", () => {
+  const ui = createGenerativeUI({
+    id: "shop@1",
+    state: { cart: cartSchema, currency: z.string() },
+    functions: { addToCart },
+    components: {
+      ProductCard: {
+        component: Card,
+        description: "A product",
+        props: z.object({
+          name: z.string(),
+          currency: z.string(),
+          inCart: z.number(),
+        }),
+        bind: { inCart: (state) => state.cart.count },
+        events: {
+          onAddToCart: {},
+          onShare: {
+            description: "Share",
+            parameters: z.object({ channel: z.string() }),
           },
         },
-        ProductGrid: { component: Grid, slots: { children: "multiple" } },
       },
-    });
-    expect(catalog.id).toBe("shop");
-    expect(catalog.components.get("ProductCard")?.component).toBe(Card);
-    expect(catalog.manifestComponents.ProductCard).toEqual({
-      description: "A product",
-      props: {
-        type: "object",
-        properties: { name: { type: "string" }, price: { type: "number" } },
-        required: ["name"],
-        additionalProperties: false,
-      },
-      events: {
-        onAddToCart: {
-          description: "Add",
-          parameters: {
-            type: "object",
-            properties: { productId: { type: "string" } },
-            required: ["productId"],
-            additionalProperties: false,
+      ProductGrid: { component: Grid, slots: { children: "multiple" } },
+    },
+  });
+
+  it("hides bound props and matched events from the manifest", () => {
+    expect(ui.manifestComponents).toEqual({
+      ProductCard: {
+        description: "A product",
+        props: objectSchema({ name: { type: "string" } }, ["name"]),
+        events: {
+          onShare: {
+            description: "Share",
+            parameters: objectSchema({ channel: { type: "string" } }, [
+              "channel",
+            ]),
           },
         },
       },
+      ProductGrid: {
+        props: objectSchema({}),
+        slots: { children: "multiple" },
+      },
     });
-    expect(catalog.manifestComponents.ProductGrid).toEqual({
-      props: { type: "object", properties: {}, additionalProperties: false },
-      slots: { children: "multiple" },
-    });
-    expect(JSON.parse(JSON.stringify(catalog.manifestComponents))).toEqual(
-      catalog.manifestComponents,
+    expect(JSON.parse(JSON.stringify(ui.manifestComponents))).toEqual(
+      ui.manifestComponents,
     );
   });
 
-  it("merges extended catalogs and rejects duplicate component names", () => {
-    const base = createGenerativeUICatalog({
-      id: "base",
-      components: { Grid: { component: Grid } },
+  it("binds props by state name and by `bind`, and events by function name", () => {
+    const card = ui.components.get("ProductCard")!;
+    expect(card.component).toBe(Card);
+    expect(Object.keys(card.modelProps.shape)).toEqual(["name"]);
+    expect(Object.keys(card.boundProps.shape)).toEqual(["currency", "inCart"]);
+    expect(card.eventFunctions).toEqual({ onAddToCart: "addToCart" });
+
+    const state = { cart: { count: 3, total: 9 }, currency: "EUR" };
+    expect(card.selectors.currency!(state, { name: "Mug" })).toBe("EUR");
+    expect(card.selectors.inCart!(state, { name: "Mug" })).toBe(3);
+  });
+
+  it("lets `bind` win over the name rule", () => {
+    const withBind = createGenerativeUI({
+      id: "bind-wins@1",
+      state: { count: z.number() },
+      components: {
+        Badge: {
+          component: Card,
+          props: z.object({ count: z.number() }),
+          bind: { count: (state) => state.count * 10 },
+        },
+      },
     });
-    const app = createGenerativeUICatalog({
-      id: "app",
-      extends: [base],
-      components: { Card: { component: Card } },
+    const badge = withBind.components.get("Badge")!;
+    expect(badge.selectors.count!({ count: 2 }, {})).toBe(20);
+  });
+
+  it("matches an event by its exact function name", () => {
+    const exact = createGenerativeUI({
+      id: "exact@1",
+      functions: { addToCart },
+      components: { Card: { component: Card, events: { addToCart: {} } } },
     });
-    expect([...app.components.keys()]).toEqual(["Grid", "Card"]);
+    expect(exact.components.get("Card")!.eventFunctions).toEqual({
+      addToCart: "addToCart",
+    });
+    expect(exact.manifestComponents.Card).toEqual({ props: objectSchema({}) });
+  });
+
+  it("keeps the declared functions", () => {
+    expect([...ui.functions.entries()]).toEqual([["addToCart", addToCart]]);
+  });
+});
+
+describe("createGenerativeUI with extends", () => {
+  const widgets = createGenerativeUI({
+    id: "widgets@1",
+    state: { theme: z.string() },
+    functions: { share: { parameters: z.object({ url: z.string() }) } },
+    components: {
+      Grid: { component: Grid },
+      ProductCard: {
+        component: Card,
+        props: z.object({ name: z.string(), cart: cartSchema }),
+        events: {
+          onAddToCart: { parameters: z.object({ productId: z.string() }) },
+        },
+      },
+    },
+  });
+
+  const app = createGenerativeUI({
+    id: "app@1",
+    extends: [widgets],
+    state: { cart: cartSchema },
+    functions: { addToCart },
+    components: { Badge: { component: Card } },
+  });
+
+  it("merges state, functions and components, bases first", () => {
+    expect([...app.state.keys()]).toEqual(["theme", "cart"]);
+    expect([...app.functions.keys()]).toEqual(["share", "addToCart"]);
+    expect([...app.components.keys()]).toEqual([
+      "Grid",
+      "ProductCard",
+      "Badge",
+    ]);
+  });
+
+  it("matches base components against the merged state and functions", () => {
+    const card = app.components.get("ProductCard")!;
+    expect(card.eventFunctions).toEqual({ onAddToCart: "addToCart" });
+    expect(Object.keys(card.boundProps.shape)).toEqual(["cart"]);
+    expect(app.manifestComponents.ProductCard).toEqual({
+      props: objectSchema({ name: { type: "string" } }, ["name"]),
+    });
+    // The base itself is not changed.
+    expect(widgets.manifestComponents.ProductCard?.events).toHaveProperty(
+      "onAddToCart",
+    );
+  });
+});
+
+describe("createGenerativeUI startup errors", () => {
+  const base = createGenerativeUI({
+    id: "base@1",
+    state: { cart: cartSchema },
+    functions: { addToCart },
+    components: { Grid: { component: Grid } },
+  });
+
+  it("rejects a component name from two places", () => {
     expect(() =>
-      createGenerativeUICatalog({
-        id: "dup",
+      createGenerativeUI({
+        id: "dup@1",
         extends: [base],
         components: { Grid: { component: Card } },
       }),
-    ).toThrow(/"Grid" is defined more than once/);
+    ).toThrow(/Component "Grid" is defined more than once/);
+  });
+
+  it("rejects a state key from two places", () => {
+    expect(() =>
+      createGenerativeUI({
+        id: "dup@1",
+        extends: [base],
+        state: { cart: cartSchema },
+        components: {},
+      }),
+    ).toThrow(/State key "cart" is defined more than once/);
+  });
+
+  it("rejects a function name from two places", () => {
+    expect(() =>
+      createGenerativeUI({
+        id: "dup@1",
+        extends: [base],
+        functions: { addToCart },
+        components: {},
+      }),
+    ).toThrow(/Function "addToCart" is defined more than once/);
   });
 
   it("rejects a key used as more than one of prop, event and slot", () => {
     expect(() =>
-      createGenerativeUICatalog({
-        id: "bad",
+      createGenerativeUI({
+        id: "bad@1",
         components: {
           Card: {
             component: Card,
-            props: z.object({ onAddToCart: z.string() }),
-            events: { onAddToCart: { parameters: z.object({}) } },
+            props: z.object({ onShare: z.string() }),
+            events: { onShare: { parameters: z.object({}) } },
           },
         },
       }),
-    ).toThrow(
-      /"onAddToCart" is declared as more than one of prop, event, slot/,
-    );
+    ).toThrow(/"onShare" is declared as more than one of prop, event, slot/);
   });
 
   it("rejects the reserved A2UI keys id and component", () => {
     expect(() =>
-      createGenerativeUICatalog({
-        id: "bad",
+      createGenerativeUI({
+        id: "bad@1",
         components: {
           Card: { component: Card, props: z.object({ id: z.string() }) },
         },
       }),
     ).toThrow(/"id" is reserved/);
+  });
+
+  it("rejects an event that matches two functions", () => {
+    expect(() =>
+      createGenerativeUI({
+        id: "bad@1",
+        functions: { onAdd: addToCart, add: addToCart },
+        components: { Card: { component: Card, events: { onAdd: {} } } },
+      }),
+    ).toThrow(
+      /"onAdd" of component "Card" matches two functions, "onAdd" and "add"/,
+    );
+  });
+
+  // The next two errors are type errors too. The runtime check is for callers
+  // without TypeScript.
+  it("rejects an unmatched event without parameters", () => {
+    expect(() =>
+      createGenerativeUI({
+        id: "bad@1",
+        components: {
+          // @ts-expect-error an unmatched event needs `parameters`.
+          Card: { component: Card, events: { onShare: {} } },
+        },
+      }),
+    ).toThrow(/"onShare" of component "Card" matches no function/);
+  });
+
+  it("rejects a bind key that is not a prop", () => {
+    expect(() =>
+      createGenerativeUI({
+        id: "bad@1",
+        state: { cart: cartSchema },
+        components: {
+          Card: {
+            component: Card,
+            props: z.object({ count: z.number() }),
+            // @ts-expect-error "total" is not a prop.
+            bind: { total: () => 1 },
+          },
+        },
+      }),
+    ).toThrow(/bind key "total" is not a prop of component "Card"/);
   });
 });

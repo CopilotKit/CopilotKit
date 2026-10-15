@@ -1,171 +1,217 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import type { FrontendTool } from "@copilotkit/core";
+import type { StandardSchemaV1 } from "@copilotkit/shared";
 import { createGenerativeUIDispatcher } from "../dispatcher";
+import type {
+  GenerativeUIDeclaredFunction,
+  GenerativeUIHandlerRef,
+} from "../dispatcher";
 
 const origin = { surfaceId: "s1", componentId: "c1" };
 
-function setup({
-  functions = {},
-  tools = [],
-  isToolEnabled,
-}: {
-  functions?: Record<string, any>;
-  tools?: FrontendTool<any>[];
-  isToolEnabled?: (name: string) => boolean;
-} = {}) {
+const cartSchema = z.object({
+  productId: z.string(),
+  quantity: z.number().default(1),
+});
+
+function setup(declared: Record<string, GenerativeUIDeclaredFunction> = {}) {
   const onError = vi.fn();
   const dispatcher = createGenerativeUIDispatcher({
-    getProviderFunctions: () => functions,
-    getTool: (name) => tools.find((t) => t.name === name),
-    listTools: () => tools,
-    isToolEnabled,
+    getDeclared: () => new Map(Object.entries(declared)),
     onError,
   });
   return { dispatcher, onError };
 }
 
+function refOf(handler: GenerativeUIHandlerRef["current"]) {
+  const ref: GenerativeUIHandlerRef = { current: handler };
+  return ref;
+}
+
+/** A valid Standard Schema that has no JSON Schema conversion. */
+function customSchema() {
+  const schema: StandardSchemaV1 = {
+    "~standard": {
+      version: 1,
+      vendor: "custom",
+      validate: (value) => ({ value }),
+    },
+  };
+  return schema;
+}
+
 describe("createGenerativeUIDispatcher", () => {
-  it("runs a provider function with validated args and returns its result", async () => {
+  it("runs the mounted handler with schema defaults applied and returns its result", async () => {
+    const { dispatcher, onError } = setup({
+      addToCart: { parameters: cartSchema },
+    });
     const handler = vi.fn((args: { productId: string; quantity: number }) => ({
       added: args.quantity,
     }));
-    const { dispatcher } = setup({
-      functions: {
-        addToCart: {
-          parameters: z.object({
-            productId: z.string(),
-            quantity: z.number().default(1),
-          }),
-          handler,
-        },
-      },
-    });
+    dispatcher.register("addToCart", refOf(handler));
+
     const result = await dispatcher.invoke(
       "addToCart",
       { productId: "p1" },
       origin,
     );
+
     expect(result).toEqual({ ok: true, result: { added: 1 } });
     expect(handler).toHaveBeenCalledExactlyOnceWith({
       productId: "p1",
       quantity: 1,
     });
+    expect(onError).not.toHaveBeenCalled();
   });
 
-  it("rejects invalid arguments without calling the handler", async () => {
-    const handler = vi.fn();
+  it("returns invalid_arguments without calling the handler", async () => {
     const { dispatcher, onError } = setup({
-      functions: {
-        addToCart: { parameters: z.object({ productId: z.string() }), handler },
-      },
+      addToCart: { parameters: cartSchema },
     });
+    const handler = vi.fn();
+    dispatcher.register("addToCart", refOf(handler));
+
     const result = await dispatcher.invoke(
       "addToCart",
       { productId: 42 },
       origin,
     );
+
     expect(result).toMatchObject({
       ok: false,
-      error: { code: "invalid_arguments" },
+      error: {
+        code: "invalid_arguments",
+        message: expect.stringContaining("productId"),
+      },
     });
     expect(handler).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenCalledOnce();
-  });
-
-  it("runs a hook tool exposed to generative UI with a synthetic tool-call context", async () => {
-    const handler = vi.fn(
-      async (_args: Record<string, unknown>, _context: any) => "applied",
-    );
-    const { dispatcher } = setup({
-      tools: [
-        {
-          name: "applyCoupon",
-          parameters: z.object({ code: z.string() }),
-          handler,
-          exposeToGenerativeUI: true,
-        },
-      ],
-    });
-    const result = await dispatcher.invoke(
-      "applyCoupon",
-      { code: "SAVE10" },
+    expect(onError).toHaveBeenCalledExactlyOnceWith({
+      name: "addToCart",
       origin,
-    );
-    expect(result).toEqual({ ok: true, result: "applied" });
-    expect(handler.mock.calls[0][0]).toEqual({ code: "SAVE10" });
-    expect(handler.mock.calls[0][1].toolCall.function).toEqual({
-      name: "applyCoupon",
-      arguments: JSON.stringify({ code: "SAVE10" }),
+      error: expect.objectContaining({ code: "invalid_arguments" }),
     });
   });
 
-  it("fails closed for a tool that is not exposed or is disabled", async () => {
-    const handler = vi.fn();
+  it("returns invalid_arguments when the schema itself throws", async () => {
     const { dispatcher } = setup({
-      tools: [
-        { name: "removeFromCart", handler },
-        {
-          name: "applyCoupon",
-          handler,
-          exposeToGenerativeUI: true,
-          available: false,
-        },
-      ],
+      addToCart: {
+        parameters: z.object({ x: z.string() }).transform(() => {
+          throw new Error("bad");
+        }),
+      },
     });
+    const handler = vi.fn();
+    dispatcher.register("addToCart", refOf(handler));
+
+    await expect(
+      dispatcher.invoke("addToCart", { x: "a" }, origin),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: {
+        code: "invalid_arguments",
+        message: expect.stringContaining("bad"),
+      },
+    });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("returns function_not_found for a name that is not declared, even with a handler", async () => {
+    const { dispatcher } = setup();
+    const handler = vi.fn();
+    dispatcher.register("removeFromCart", refOf(handler));
+
     expect(await dispatcher.invoke("removeFromCart", {}, origin)).toMatchObject(
       {
         ok: false,
-        error: { code: "function_not_exposed" },
+        error: { code: "function_not_found" },
       },
     );
-    expect(await dispatcher.invoke("applyCoupon", {}, origin)).toMatchObject({
-      ok: false,
-      error: { code: "function_not_exposed" },
-    });
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it("fails closed for a missing function", async () => {
-    const { dispatcher } = setup();
-    expect(await dispatcher.invoke("nope", {}, origin)).toMatchObject({
-      ok: false,
-      error: { code: "function_not_found" },
-    });
-  });
+  it("returns function_not_found for a declared name with no mounted handler", async () => {
+    const { dispatcher } = setup({ addToCart: { parameters: cartSchema } });
 
-  it("refuses a name registered both on the provider and by an exposed hook tool", async () => {
-    const providerHandler = vi.fn();
-    const toolHandler = vi.fn();
-    const { dispatcher } = setup({
-      functions: { addToCart: { handler: providerHandler } },
-      tools: [
-        { name: "addToCart", handler: toolHandler, exposeToGenerativeUI: true },
-      ],
-    });
-    expect(await dispatcher.invoke("addToCart", {}, origin)).toMatchObject({
+    expect(
+      await dispatcher.invoke("addToCart", { productId: "p1" }, origin),
+    ).toMatchObject({
       ok: false,
-      error: { code: "function_conflict" },
-    });
-    expect(providerHandler).not.toHaveBeenCalled();
-    expect(toolHandler).not.toHaveBeenCalled();
-  });
-
-  it("turns handler failures into results instead of throwing", async () => {
-    const { dispatcher } = setup({
-      functions: {
-        sync: {
-          handler: () => {
-            throw new Error("boom");
-          },
-        },
-        async: {
-          handler: async () => {
-            throw new Error("later");
-          },
-        },
+      error: {
+        code: "function_not_found",
+        message: expect.stringContaining("no useGenerativeUIFunction handler"),
       },
     });
+  });
+
+  it("stops after unregister and works again after a new register", async () => {
+    const { dispatcher } = setup({ addToCart: { parameters: cartSchema } });
+    const unregister = dispatcher.register(
+      "addToCart",
+      refOf(() => "first"),
+    );
+    unregister();
+
+    expect(
+      await dispatcher.invoke("addToCart", { productId: "p1" }, origin),
+    ).toMatchObject({ ok: false, error: { code: "function_not_found" } });
+
+    dispatcher.register(
+      "addToCart",
+      refOf(() => "second"),
+    );
+    expect(
+      await dispatcher.invoke("addToCart", { productId: "p1" }, origin),
+    ).toEqual({ ok: true, result: "second" });
+  });
+
+  it("runs the latest handler after the ref changes, without a new register", async () => {
+    const { dispatcher } = setup({ addToCart: { parameters: cartSchema } });
+    const ref = refOf(() => "old");
+    dispatcher.register("addToCart", ref);
+    ref.current = () => "new";
+
+    expect(
+      await dispatcher.invoke("addToCart", { productId: "p1" }, origin),
+    ).toEqual({ ok: true, result: "new" });
+  });
+
+  it("returns function_conflict with two handlers and works again after one unregisters", async () => {
+    const { dispatcher } = setup({ addToCart: { parameters: cartSchema } });
+    const first = vi.fn(() => "first");
+    const second = vi.fn(() => "second");
+    const unregisterFirst = dispatcher.register("addToCart", refOf(first));
+    dispatcher.register("addToCart", refOf(second));
+
+    expect(
+      await dispatcher.invoke("addToCart", { productId: "p1" }, origin),
+    ).toMatchObject({ ok: false, error: { code: "function_conflict" } });
+    expect(first).not.toHaveBeenCalled();
+    expect(second).not.toHaveBeenCalled();
+
+    unregisterFirst();
+    expect(
+      await dispatcher.invoke("addToCart", { productId: "p1" }, origin),
+    ).toEqual({ ok: true, result: "second" });
+  });
+
+  it("returns handler_failed when the handler throws, sync or async", async () => {
+    const { dispatcher } = setup({
+      sync: { parameters: z.object({}) },
+      async: { parameters: z.object({}) },
+    });
+    dispatcher.register(
+      "sync",
+      refOf(() => {
+        throw new Error("boom");
+      }),
+    );
+    dispatcher.register(
+      "async",
+      refOf(async () => {
+        throw new Error("later");
+      }),
+    );
+
     expect(await dispatcher.invoke("sync", {}, origin)).toMatchObject({
       ok: false,
       error: {
@@ -182,68 +228,27 @@ describe("createGenerativeUIDispatcher", () => {
     });
   });
 
-  it("lists provider functions and exposed tools only", () => {
-    const { dispatcher } = setup({
-      functions: {
-        addToCart: {
-          description: "Add",
-          parameters: z.object({ productId: z.string() }),
-          handler: vi.fn(),
-        },
-      },
-      tools: [
-        { name: "applyCoupon", handler: vi.fn(), exposeToGenerativeUI: true },
-        { name: "removeFromCart", handler: vi.fn() },
-      ],
-    });
-    const listed = dispatcher.listExposed();
-    expect(Object.keys(listed).sort()).toEqual(["addToCart", "applyCoupon"]);
-    expect(listed.addToCart).toMatchObject({
-      description: "Add",
-      parameters: {
-        type: "object",
-        properties: { productId: { type: "string" } },
-      },
-    });
-    expect(listed.applyCoupon.parameters).toEqual({
-      type: "object",
-      properties: {},
-    });
-  });
-
-  it("reports a validator that throws as invalid_arguments instead of rejecting", async () => {
-    const handler = vi.fn();
-    const { dispatcher, onError } = setup({
-      functions: {
-        addToCart: {
-          parameters: z.object({ x: z.string() }).transform(() => {
-            throw new Error("bad");
-          }),
-          handler,
-        },
-      },
-    });
-    await expect(
-      dispatcher.invoke("addToCart", { x: "a" }, origin),
-    ).resolves.toMatchObject({
-      ok: false,
-      error: {
-        code: "invalid_arguments",
-        message: expect.stringContaining("bad"),
-      },
-    });
-    expect(handler).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenCalledOnce();
-  });
-
-  it("reports a throwing source getter as a result instead of rejecting", async () => {
+  it("resolves with the failed result when onError throws", async () => {
     const dispatcher = createGenerativeUIDispatcher({
-      getProviderFunctions: () => ({}),
-      getTool: () => {
+      getDeclared: () => new Map(),
+      onError: () => {
+        throw new Error("logger down");
+      },
+    });
+
+    await expect(dispatcher.invoke("nope", {}, origin)).resolves.toMatchObject({
+      ok: false,
+      error: { code: "function_not_found" },
+    });
+  });
+
+  it("does not throw when getDeclared throws", async () => {
+    const dispatcher = createGenerativeUIDispatcher({
+      getDeclared: () => {
         throw new Error("registry down");
       },
-      listTools: () => [],
     });
+
     await expect(
       dispatcher.invoke("anything", {}, origin),
     ).resolves.toMatchObject({
@@ -253,64 +258,35 @@ describe("createGenerativeUIDispatcher", () => {
         message: expect.stringContaining("registry down"),
       },
     });
+    expect(dispatcher.listExposed()).toEqual({});
   });
 
-  it("lists only the names invoke would accept", async () => {
-    const handlers = {
-      addToCart: vi.fn(),
-      noHandler: undefined,
-      hidden: vi.fn(),
-    };
+  it("lists only declared functions with exactly one handler and a convertible schema", () => {
     const { dispatcher } = setup({
-      functions: {
-        addToCart: { handler: vi.fn() },
-        checkout: { description: "Pay", handler: vi.fn() },
+      addToCart: {
+        description: "Add a product to the cart",
+        parameters: z.object({ productId: z.string() }),
       },
-      tools: [
-        {
-          name: "addToCart",
-          handler: handlers.addToCart,
-          exposeToGenerativeUI: true,
-        },
-        {
-          name: "noHandler",
-          handler: handlers.noHandler,
-          exposeToGenerativeUI: true,
-        },
-        {
-          name: "hidden",
-          handler: handlers.hidden,
-          exposeToGenerativeUI: true,
-        },
-        { name: "applyCoupon", handler: vi.fn(), exposeToGenerativeUI: true },
-      ],
-      isToolEnabled: (name) => name !== "hidden",
+      applyCoupon: { parameters: z.object({ code: z.string() }) },
+      checkout: { parameters: z.object({}) },
+      track: { parameters: customSchema() },
     });
-    expect(Object.keys(dispatcher.listExposed()).sort()).toEqual([
-      "applyCoupon",
-      "checkout",
-    ]);
-    for (const name of ["addToCart", "noHandler", "hidden"]) {
-      expect(await dispatcher.invoke(name, {}, origin)).toMatchObject({
-        ok: false,
-      });
-    }
-    expect(handlers.hidden).not.toHaveBeenCalled();
-  });
+    dispatcher.register("addToCart", refOf(vi.fn()));
+    dispatcher.register("applyCoupon", refOf(vi.fn()));
+    dispatcher.register("applyCoupon", refOf(vi.fn()));
+    dispatcher.register("track", refOf(vi.fn()));
+    dispatcher.register("undeclared", refOf(vi.fn()));
 
-  it("fails closed for an exposed tool disabled through isToolEnabled", async () => {
-    const handler = vi.fn();
-    const { dispatcher } = setup({
-      tools: [{ name: "applyCoupon", handler, exposeToGenerativeUI: true }],
-      isToolEnabled: () => false,
-    });
-    expect(await dispatcher.invoke("applyCoupon", {}, origin)).toMatchObject({
-      ok: false,
-      error: {
-        code: "function_not_exposed",
-        message: '"applyCoupon" is currently disabled',
+    expect(dispatcher.listExposed()).toEqual({
+      addToCart: {
+        description: "Add a product to the cart",
+        parameters: {
+          type: "object",
+          properties: { productId: { type: "string" } },
+          required: ["productId"],
+          additionalProperties: false,
+        },
       },
     });
-    expect(handler).not.toHaveBeenCalled();
   });
 });

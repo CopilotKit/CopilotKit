@@ -305,9 +305,11 @@ export interface CopilotKitProviderProps {
     recovery?: A2UIRecoveryRendererOptions;
   };
   /**
-   * Experimental. Native generative UI: a catalog of your React components the
-   * agent may render into chat or `<GenerativeUISurface id>` mounts, plus app
-   * functions generated UI can call directly.
+   * Experimental. Native generative UI: `generativeUI={{ ui }}`, where `ui`
+   * comes from `createGenerativeUI`. The agent renders your React components
+   * into chat or into `<GenerativeUISurface id>` mounts. Props that match
+   * the declared state and events that match the declared functions are
+   * bound by the library, and the model does not see them.
    */
   generativeUI?: GenerativeUIConfig;
   /**
@@ -463,7 +465,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // render tool — no runtime-side `a2ui` config required.
   const a2uiCatalogProvided = !!a2ui?.catalog;
   const a2uiActive = runtimeA2UIEnabled || a2uiCatalogProvided;
-  const generativeUIActive = !!generativeUI?.catalog;
+  const generativeUIActive = !!generativeUI?.ui;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     RuntimeLicenseStatus | undefined
   >(undefined);

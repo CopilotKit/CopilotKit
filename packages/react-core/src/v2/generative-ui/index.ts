@@ -1,13 +1,17 @@
-export { createGenerativeUICatalog } from "./catalog";
+export { createGenerativeUI } from "./catalog";
 export type {
-  GenerativeUICatalog,
+  CreateGenerativeUIConfig,
+  GenerativeUI,
   GenerativeUIComponentDefinition,
   GenerativeUIComponentProps,
   GenerativeUIEventDefinition,
+  GenerativeUIFunctionArgs,
+  GenerativeUIFunctionDefinition,
+  GenerativeUIFunctionInput,
+  GenerativeUIFunctionName,
   GenerativeUISlotKind,
-  CreateGenerativeUICatalogConfig,
+  GenerativeUIStateOf,
 } from "./catalog";
-export type { GenerativeUIFunctionDefinition } from "./dispatcher";
 export { GenerativeUIError } from "./errors";
 export type {
   GenerativeUIErrorCode,
@@ -21,4 +25,8 @@ export { GenerativeUISurface } from "./GenerativeUISurface";
 export type { GenerativeUISurfaceProps } from "./GenerativeUISurface";
 export { DefaultGenerativeUIChatCard } from "./chat";
 export type { GenerativeUIChatSurfaceProps } from "./chat";
-export { useGenerativeUIField, useGenerativeUIState } from "./hooks";
+export {
+  useGenerativeUIField,
+  useGenerativeUIFunction,
+  useGenerativeUIState,
+} from "./hooks";

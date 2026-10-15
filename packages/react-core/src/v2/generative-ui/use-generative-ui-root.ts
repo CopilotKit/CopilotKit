@@ -8,9 +8,8 @@ import {
 } from "@copilotkit/shared";
 import type { GenerativeUISurfaceContent } from "@copilotkit/shared";
 import type { CopilotKitCoreReact } from "../lib/react-core";
-import type { GenerativeUICatalog } from "./catalog";
+import type { GenerativeUI } from "./catalog";
 import { createGenerativeUIDispatcher } from "./dispatcher";
-import type { GenerativeUIFunctionDefinition } from "./dispatcher";
 import { GenerativeUIError } from "./errors";
 import type { GenerativeUIErrorInfo } from "./errors";
 import { buildGenerativeUIManifest } from "./manifest";
@@ -20,10 +19,17 @@ import type {
 } from "./runtime-context";
 import { GenerativeUISurfaceManager } from "./surface-manager";
 
+/**
+ * Experimental. The `generativeUI` prop of `CopilotKitProvider`:
+ * `generativeUI={{ ui, errorBoundary }}`.
+ */
 export interface GenerativeUIConfig {
-  catalog: GenerativeUICatalog;
-  /** App functions generated UI may call. Not exposed to the agent as tools. */
-  functions?: Record<string, GenerativeUIFunctionDefinition>;
+  /**
+   * The result of `createGenerativeUI`: the components the model can render,
+   * the app state they read and the functions they call.
+   */
+  ui: GenerativeUI;
+  /** Fallback UI and error reporting for generated UI. */
   errorBoundary?: GenerativeUIErrorBoundaryConfig;
 }
 
@@ -56,10 +62,10 @@ export function useGenerativeUIRoot(
 ): GenerativeUIRuntime | null {
   const configRef = useRef(config);
   configRef.current = config;
-  const catalog = config?.catalog;
+  const ui = config?.ui;
 
   const runtime = useMemo<GenerativeUIRuntime | null>(() => {
-    if (!catalog) return null;
+    if (!ui) return null;
     // Never throws: it is called from rendering, ingestion and event handlers,
     // and a throwing host `onError` must not break any of them.
     const reportError = (info: GenerativeUIErrorInfo) => {
@@ -79,7 +85,7 @@ export function useGenerativeUIRoot(
         );
       }
     };
-    const manager = new GenerativeUISurfaceManager(catalog, {
+    const manager = new GenerativeUISurfaceManager(ui, {
       onOperationRejected: ({ surfaceId, index, reason }) =>
         reportError({
           kind: "operation",
@@ -88,10 +94,7 @@ export function useGenerativeUIRoot(
         }),
     });
     const dispatcher = createGenerativeUIDispatcher({
-      getProviderFunctions: () => configRef.current?.functions,
-      getTool: (name) => copilotkit.getTool({ toolName: name }),
-      listTools: () => copilotkit.tools,
-      isToolEnabled: (name) => copilotkit.isToolEnabled(name),
+      getDeclared: () => ui.functions,
       onError: ({ origin, error }) =>
         reportError({ kind: "function", ...origin, error }),
     });
@@ -138,14 +141,14 @@ export function useGenerativeUIRoot(
     return {
       manager,
       dispatcher,
-      catalog,
+      ui,
       forwardEvent,
       reportError,
       get errorFallback() {
         return configRef.current?.errorBoundary?.fallback;
       },
     };
-  }, [catalog, copilotkit]);
+  }, [ui, copilotkit]);
 
   useEffect(() => {
     if (!runtime) return;
@@ -178,7 +181,7 @@ export function useGenerativeUIRoot(
     return () => {
       subscription.unsubscribe();
       for (const s of agentSubscriptions) s.unsubscribe();
-      // Stop advertising a catalog that is no longer mounted.
+      // Stop advertising a generative UI that is no longer mounted.
       if (GENERATIVE_UI_MANIFEST_KEY in copilotkit.properties) {
         const { [GENERATIVE_UI_MANIFEST_KEY]: _manifest, ...rest } =
           copilotkit.properties;

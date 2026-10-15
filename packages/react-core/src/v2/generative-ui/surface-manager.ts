@@ -1,10 +1,6 @@
 import { Catalog, ComponentModel, SurfaceModel } from "@a2ui/web_core/v0_9";
 import { z } from "zod";
-import {
-  GENERATIVE_UI_APP_STATE_PATH,
-  getOperationKind,
-  validateOperation,
-} from "@copilotkit/shared";
+import { getOperationKind, validateOperation } from "@copilotkit/shared";
 import type {
   A2UIComponentNode,
   A2UIOperation,
@@ -12,7 +8,7 @@ import type {
   GenerativeUISurfaceContent,
   GenerativeUISurfaceStatus,
 } from "@copilotkit/shared";
-import type { GenerativeUICatalog } from "./catalog";
+import type { GenerativeUI } from "./catalog";
 
 export function surfaceKey(threadId: string, surfaceId: string): string {
   return `${threadId}::${surfaceId}`;
@@ -55,6 +51,17 @@ interface Bookkeeping {
   lastFingerprint: string | undefined;
 }
 
+/** One mount of a target. Each mount gets its own object. */
+interface TargetRegistration {
+  readonly description: string | undefined;
+}
+
+/** A mounted target, as the manifest lists it. */
+export interface GenerativeUIMountedTarget {
+  id: string;
+  description?: string;
+}
+
 const PATH_BINDING = z.object({ path: z.string() }).strict();
 let creationCounter = 0;
 
@@ -62,14 +69,16 @@ let creationCounter = 0;
  * Framework-agnostic store of generated surfaces. One web_core SurfaceModel per
  * (threadId, surfaceId), shared by every mount. Applies only newly committed
  * operations, validates each before applying it, and owns app state and user
- * field drafts so agent updates cannot overwrite them.
+ * field drafts so agent updates cannot overwrite them. App state never goes
+ * into a surface's data model. Selectors read it with `getState()`.
  */
 export class GenerativeUISurfaceManager {
   private readonly surfaces = new Map<string, ManagedSurface>();
   private readonly bookkeeping = new Map<string, Bookkeeping>();
   private readonly listeners = new Set<() => void>();
-  private readonly targets = new Map<string, number>();
-  private readonly appState = new Map<string, unknown>();
+  /** Mounts of each target id, in mount order. */
+  private readonly targets = new Map<string, Set<TargetRegistration>>();
+  private state: Readonly<Record<string, unknown>> = {};
   private readonly fields = new Map<string, GenerativeUIFieldState>();
   private readonly wireSchemas = new Map<string, z.ZodTypeAny>();
   private readonly webCoreCatalog: Catalog<any>;
@@ -77,12 +86,12 @@ export class GenerativeUISurfaceManager {
   private version = 0;
 
   constructor(
-    private readonly catalog: GenerativeUICatalog,
+    private readonly ui: GenerativeUI,
     private readonly options: GenerativeUISurfaceManagerOptions = {},
   ) {
     this.webCoreCatalog = new Catalog(
-      catalog.id,
-      [...catalog.components.keys()].map((name) => ({ name, schema: z.any() })),
+      ui.id,
+      [...ui.components.keys()].map((name) => ({ name, schema: z.any() })),
       [],
     );
   }
@@ -205,40 +214,60 @@ export class GenerativeUISurfaceManager {
     return described;
   }
 
-  registerTarget(id: string): () => void {
-    this.targets.set(id, (this.targets.get(id) ?? 0) + 1);
+  /**
+   * Marks a target as mounted. Returns the function that unmounts it. Calling
+   * that function more than once has no effect.
+   */
+  registerTarget(id: string, description?: string) {
+    const registration: TargetRegistration = { description };
+    const registrations = this.targets.get(id) ?? new Set();
+    registrations.add(registration);
+    this.targets.set(id, registrations);
     this.notify();
     let released = false;
     return () => {
       if (released) return;
       released = true;
-      const remaining = (this.targets.get(id) ?? 1) - 1;
-      if (remaining <= 0) this.targets.delete(id);
-      else this.targets.set(id, remaining);
+      registrations.delete(registration);
+      if (registrations.size === 0) this.targets.delete(id);
       this.notify();
     };
   }
 
-  getMountedTargets(): string[] {
-    return [...this.targets.keys()];
+  /** The mounted targets, each with the description of its earliest mount. */
+  getMountedTargets() {
+    const mounted: GenerativeUIMountedTarget[] = [];
+    for (const [id, registrations] of this.targets) {
+      // ponytail: when mounts of one id have different descriptions, the earliest mount that is still mounted and has a description wins. A mount without a description does not hide the description of a later mount.
+      const description = [...registrations].find(
+        (registration) => registration.description !== undefined,
+      )?.description;
+      mounted.push(description === undefined ? { id } : { id, description });
+    }
+    return mounted;
   }
 
-  setAppState(key: string, value: unknown) {
-    this.appState.set(key, value);
-    for (const surface of this.surfaces.values())
-      this.writeAppState(surface, key, value);
+  /**
+   * The app state object. It is the same object until a key changes, so it
+   * can be a `useSyncExternalStore` snapshot.
+   */
+  getState = () => this.state;
+
+  /** Sets one state key. Notifies only when the value changed. */
+  setState(key: string, value: unknown) {
+    const isUnchanged =
+      Object.hasOwn(this.state, key) && Object.is(this.state[key], value);
+    if (isUnchanged) return;
+    this.state = { ...this.state, [key]: value };
     this.notify();
   }
 
-  removeAppState(key: string) {
-    if (!this.appState.delete(key)) return;
-    for (const surface of this.surfaces.values())
-      this.writeAppState(surface, key, undefined);
+  /** Removes one state key. Notifies only when the key was set. */
+  removeState(key: string) {
+    if (!Object.hasOwn(this.state, key)) return;
+    const { [key]: _removed, ...rest } = this.state;
+    this.state = rest;
     this.notify();
-  }
-
-  getAppStateKeys(): string[] {
-    return [...this.appState.keys()];
   }
 
   getField(
@@ -288,8 +317,6 @@ export class GenerativeUISurfaceManager {
       serverRejected: content.rejected ?? [],
       clientRejected: [],
     };
-    for (const [stateKey, value] of this.appState)
-      this.writeAppState(surface, stateKey, value);
     return surface;
   }
 
@@ -299,19 +326,52 @@ export class GenerativeUISurfaceManager {
     this.bookkeeping.delete(key);
   }
 
-  /** A failing write (for example through a primitive at the root) is skipped, never thrown. */
-  private writeAppState(surface: ManagedSurface, key: string, value: unknown) {
-    try {
-      surface.model.dataModel.set(
-        `${GENERATIVE_UI_APP_STATE_PATH}/${key}`,
-        value,
-      );
-    } catch {
-      // The data root cannot hold app state right now; the next rebuild restores it.
-    }
+  /**
+   * Drops the node keys that the app sets: bound props and matched events.
+   * The model does not see them, so a model value for one is ignored, not
+   * rejected. This runs before validation, because validation rejects keys
+   * that are not in the manifest. It never changes the given operation.
+   */
+  private dropAppSetKeys(op: unknown) {
+    if (getOperationKind(op) !== "updateComponents") return op;
+    // `getOperationKind` found a kind, so `op` is an object. The payload is
+    // not checked yet, so every part of it is optional here.
+    const record = op as {
+      updateComponents?: { components?: unknown } | null;
+    };
+    const payload = record.updateComponents;
+    const nodes = payload?.components;
+    if (!Array.isArray(nodes)) return op;
+    return {
+      ...record,
+      updateComponents: {
+        ...payload,
+        components: nodes.map((node) => this.dropAppSetNodeKeys(node)),
+      },
+    };
   }
 
-  private applyOperation(surface: ManagedSurface, op: unknown, index: number) {
+  private dropAppSetNodeKeys(node: unknown) {
+    if (typeof node !== "object" || node === null || !("component" in node))
+      return node;
+    const { component } = node;
+    if (typeof component !== "string") return node;
+    const definition = this.ui.components.get(component);
+    if (!definition) return node;
+    return Object.fromEntries(
+      Object.entries(node).filter(
+        ([key]) =>
+          !Object.hasOwn(definition.selectors, key) &&
+          !Object.hasOwn(definition.eventFunctions, key),
+      ),
+    );
+  }
+
+  private applyOperation(
+    surface: ManagedSurface,
+    received: unknown,
+    index: number,
+  ) {
     const reject = (reason: string) => {
       surface.clientRejected.push({ index, reason });
       this.options.onOperationRejected?.({
@@ -320,14 +380,15 @@ export class GenerativeUISurfaceManager {
         reason,
       });
     };
+    const op = this.dropAppSetKeys(received);
     if (getOperationKind(op) === "createSurface") {
       if (index !== 0) reject("createSurface may only be the first operation");
       return;
     }
     const validation = validateOperation(op, {
       manifest: {
-        catalogId: this.catalog.id,
-        components: this.catalog.manifestComponents,
+        catalogId: this.ui.id,
+        components: this.ui.manifestComponents,
       },
       knownSurfaces: new Set([surface.surfaceId]),
     });
@@ -354,17 +415,13 @@ export class GenerativeUISurfaceManager {
       } catch (error) {
         return reject(error instanceof Error ? error.message : String(error));
       }
-      if (path === "/") {
-        for (const [key, value] of this.appState)
-          this.writeAppState(surface, key, value);
-      }
       return;
     }
     if ("deleteSurface" in typed) surface.deleted = true;
   }
 
   private checkNodeProps(node: A2UIComponentNode): string | undefined {
-    const definition = this.catalog.components.get(node.component);
+    const definition = this.ui.components.get(node.component);
     if (!definition) return `unknown component "${node.component}"`;
     const { id: _id, component: _component, ...rest } = node;
     const dataProps = Object.fromEntries(
@@ -379,11 +436,15 @@ export class GenerativeUISurfaceManager {
       .join("; ");
   }
 
-  /** The component's props schema, where every prop may also be a `{ path }` binding. */
+  /**
+   * The schema of the props the model sets (`modelProps`), where every prop
+   * may also be a `{ path }` binding. Bound props are not in it, so a missing
+   * required bound prop does not fail.
+   */
   private wireSchema(name: string): z.ZodTypeAny {
     let schema = this.wireSchemas.get(name);
     if (!schema) {
-      const shape = this.catalog.components.get(name)?.props?.shape ?? {};
+      const shape = this.ui.components.get(name)?.modelProps.shape ?? {};
       schema = z.object(
         Object.fromEntries(
           Object.entries(shape).map(([key, propSchema]) => [

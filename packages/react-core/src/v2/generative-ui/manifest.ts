@@ -11,25 +11,36 @@ function fnv1a(text: string): string {
   return hash.toString(16).padStart(8, "0");
 }
 
-/** Builds the per-run manifest. Never contains handlers or renderers. */
+/**
+ * Builds the per-run manifest. Never contains handlers or renderers.
+ *
+ * - `functions`: the declared functions with exactly one mounted handler.
+ * - `targets`: the chat first, then each mounted `<GenerativeUISurface>`,
+ *   with its `description` when it has one.
+ */
 export function buildGenerativeUIManifest(
-  runtime: Pick<GenerativeUIRuntime, "catalog" | "manager" | "dispatcher">,
+  runtime: Pick<GenerativeUIRuntime, "ui" | "manager" | "dispatcher">,
   threadId: string | undefined,
-): GenerativeUIManifest {
-  const { catalog, manager, dispatcher } = runtime;
-  return {
-    catalogId: catalog.id,
-    catalogVersion: `fnv1a:${fnv1a(JSON.stringify({ id: catalog.id, components: catalog.manifestComponents }))}`,
-    components: catalog.manifestComponents,
+) {
+  const { ui, manager, dispatcher } = runtime;
+  const inlineTargets = manager
+    .getMountedTargets()
+    .filter((target) => target.id !== GENERATIVE_UI_CHAT_TARGET)
+    .map(({ id, description }) =>
+      description === undefined
+        ? { id, kind: "inline" as const }
+        : { id, kind: "inline" as const, description },
+    );
+  const manifest: GenerativeUIManifest = {
+    catalogId: ui.id,
+    catalogVersion: `fnv1a:${fnv1a(JSON.stringify({ id: ui.id, components: ui.manifestComponents }))}`,
+    components: ui.manifestComponents,
     functions: dispatcher.listExposed(),
-    appState: manager.getAppStateKeys(),
     targets: [
       { id: GENERATIVE_UI_CHAT_TARGET, kind: "chat" },
-      ...manager
-        .getMountedTargets()
-        .filter((id) => id !== GENERATIVE_UI_CHAT_TARGET)
-        .map((id) => ({ id, kind: "inline" as const })),
+      ...inlineTargets,
     ],
     surfaces: threadId ? manager.describeSurfaces(threadId) : {},
   };
+  return manifest;
 }
