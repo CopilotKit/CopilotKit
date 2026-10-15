@@ -1,5 +1,4 @@
 "use client";
-import { useMemo } from "react";
 import { z } from "zod";
 import {
   CopilotChat,
@@ -7,18 +6,33 @@ import {
   GenerativeUISurface,
   useAgentContext,
   useFrontendTool,
+  useGenerativeUIFunction,
   useGenerativeUIState,
 } from "@copilotkit/react-core/v2";
 import type { GenerativeUIConfig } from "@copilotkit/react-core/v2";
-import { storeCatalog } from "./catalog";
+import { storeUI } from "./catalog";
 import { useCart } from "./cart";
 import type { Cart } from "./cart";
 import { PRODUCTS } from "./products";
 
 export const dynamic = "force-dynamic";
 
+const generativeUI: GenerativeUIConfig = {
+  ui: storeUI,
+  errorBoundary: {
+    onError: (info) =>
+      console.warn(
+        "[generative-ui demo]",
+        info.kind,
+        info.surfaceId,
+        info.componentId,
+        info.error.message,
+      ),
+  },
+};
+
 function CartBindings({ cart }: { cart: Cart }) {
-  useGenerativeUIState("cart", {
+  useGenerativeUIState(storeUI, "cart", {
     count: cart.count,
     total: cart.total,
     coupon: cart.coupon,
@@ -27,8 +41,16 @@ function CartBindings({ cart }: { cart: Cart }) {
       quantity,
     })),
   });
-  // The manifest only advertises the `cart` key; give the agent the contents
-  // too so it can answer questions like "what's my total?".
+  useGenerativeUIFunction(storeUI, "addToCart", ({ productId, quantity }) => {
+    cart.addItem(productId, quantity);
+    return { added: productId, quantity };
+  });
+  useGenerativeUIFunction(storeUI, "applyCoupon", ({ code }) => {
+    cart.applyCoupon(code);
+    return `Coupon ${code} applied`;
+  });
+  // The model does not see the cart state. Give the agent the contents too,
+  // so it can answer questions like "what's my total?".
   useAgentContext({
     description: "The user's current shopping cart",
     value: {
@@ -48,18 +70,8 @@ function CartBindings({ cart }: { cart: Cart }) {
 }
 
 function CartTools({ cart }: { cart: Cart }) {
-  useFrontendTool({
-    name: "applyCoupon",
-    description: "Apply a coupon code to the cart",
-    parameters: z.object({ code: z.string() }),
-    handler: async ({ code }) => {
-      cart.applyCoupon(code);
-      return `Coupon ${code} applied`;
-    },
-    exposeToGenerativeUI: true,
-  });
-  // Agent-callable but deliberately NOT exposed to generated UI: binding a
-  // button to it must fail closed.
+  // A tool for the agent only. It is not declared in createGenerativeUI, so
+  // generated UI cannot call it.
   useFrontendTool({
     name: "removeFromCart",
     description: "Remove a product from the cart",
@@ -110,6 +122,7 @@ function Storefront({ cart }: { cart: Cart }) {
             </h2>
             <GenerativeUISurface
               id="recommendations"
+              description="Next to the product list. Use it for product recommendations."
               fallback={
                 <div className="rounded-lg border border-dashed p-4 text-sm text-gray-400">
                   Ask the assistant for recommendations.
@@ -132,43 +145,6 @@ function Storefront({ cart }: { cart: Cart }) {
 
 export default function GenerativeUIDemoPage() {
   const cart = useCart();
-  const { addItem } = cart;
-  const generativeUI = useMemo<GenerativeUIConfig>(
-    () => ({
-      catalog: storeCatalog,
-      functions: {
-        addToCart: {
-          description: "Add a product to the cart",
-          parameters: z.object({
-            productId: z.string(),
-            quantity: z.number().int().min(1).max(10).default(1),
-          }),
-          handler: ({
-            productId,
-            quantity,
-          }: {
-            productId: string;
-            quantity: number;
-          }) => {
-            addItem(productId, quantity);
-            return { added: productId, quantity };
-          },
-        },
-      },
-      errorBoundary: {
-        onError: (info) =>
-          console.warn(
-            "[generative-ui demo]",
-            info.kind,
-            info.surfaceId,
-            info.componentId,
-            info.error.message,
-          ),
-      },
-    }),
-    [addItem],
-  );
-
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit-generative-ui"

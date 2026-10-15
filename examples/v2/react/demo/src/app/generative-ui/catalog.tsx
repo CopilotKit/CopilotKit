@@ -3,7 +3,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { COUPON_CODE } from "./cart";
 import {
-  createGenerativeUICatalog,
+  createGenerativeUI,
   useGenerativeUIField,
 } from "@copilotkit/react-core/v2";
 import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2";
@@ -11,7 +11,7 @@ import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2";
 function ProductGrid({
   title,
   children,
-}: GenerativeUIComponentProps<typeof storeCatalog, "ProductGrid">) {
+}: GenerativeUIComponentProps<typeof storeUI, "ProductGrid">) {
   return (
     <section className="space-y-3">
       {title && (
@@ -27,8 +27,9 @@ function ProductCard({
   name,
   price,
   tagline,
+  inCart,
   onAddToCart,
-}: GenerativeUIComponentProps<typeof storeCatalog, "ProductCard">) {
+}: GenerativeUIComponentProps<typeof storeUI, "ProductCard">) {
   const [status, setStatus] = useState<"idle" | "pending" | "added" | "error">(
     "idle",
   );
@@ -63,6 +64,9 @@ function ProductCard({
               : "Add to cart"}
         </button>
       </div>
+      {inCart > 0 && (
+        <div className="mt-1 text-xs text-gray-600">In cart: {inCart}</div>
+      )}
       {status === "error" && (
         <div role="alert" className="mt-1 text-xs text-red-600">
           {error}
@@ -75,7 +79,7 @@ function ProductCard({
 function CartSummary({
   count,
   total,
-}: GenerativeUIComponentProps<typeof storeCatalog, "CartSummary">) {
+}: GenerativeUIComponentProps<typeof storeUI, "CartSummary">) {
   return (
     <div className="rounded-lg bg-gray-50 p-3 text-sm">
       Cart: <strong>{count}</strong> item(s) · <strong>${total}</strong>
@@ -88,7 +92,7 @@ function CheckoutForm({
   note,
   onApplyCoupon,
   onSubmit,
-}: GenerativeUIComponentProps<typeof storeCatalog, "CheckoutForm">) {
+}: GenerativeUIComponentProps<typeof storeUI, "CheckoutForm">) {
   const [emailValue, setEmail, emailField] = useGenerativeUIField(
     "email",
     email ?? "",
@@ -169,7 +173,7 @@ function CheckoutForm({
 function DiagnosticWidget({
   label,
   crash,
-}: GenerativeUIComponentProps<typeof storeCatalog, "DiagnosticWidget">) {
+}: GenerativeUIComponentProps<typeof storeUI, "DiagnosticWidget">) {
   if (crash) throw new Error(`DiagnosticWidget "${label}" crashed on purpose`);
   return (
     <div className="rounded border border-dashed p-2 text-xs text-gray-500">
@@ -178,8 +182,29 @@ function DiagnosticWidget({
   );
 }
 
-export const storeCatalog = createGenerativeUICatalog({
+const cartSchema = z.object({
+  count: z.number(),
+  total: z.number(),
+  coupon: z.string().nullable(),
+  items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
+});
+
+export const storeUI = createGenerativeUI({
   id: "acme/storefront@1",
+  state: { cart: cartSchema },
+  functions: {
+    addToCart: {
+      description: "Add a product to the cart",
+      parameters: z.object({
+        productId: z.string(),
+        quantity: z.number().int().min(1).max(10).default(1),
+      }),
+    },
+    applyCoupon: {
+      description: "Apply a coupon code to the cart",
+      parameters: z.object({ code: z.string() }),
+    },
+  },
   components: {
     ProductGrid: {
       component: ProductGrid,
@@ -191,39 +216,40 @@ export const storeCatalog = createGenerativeUICatalog({
     ProductCard: {
       component: ProductCard,
       description:
-        'A purchasable product. Bind onAddToCart to {"functionCall":{"call":"addToCart","args":{"productId":"<id>","quantity":1}}}.',
+        "A product the user can buy. Set productId to the product's id.",
       props: z.object({
         productId: z.string(),
         name: z.string(),
         price: z.number(),
         tagline: z.string().optional(),
+        inCart: z.number(),
       }),
-      events: {
-        onAddToCart: {
-          description: "User clicked Add to cart",
-          parameters: z.object({ productId: z.string() }),
-        },
+      bind: {
+        inCart: (state, { productId }) =>
+          state.cart.items.find((item) => item.productId === productId)
+            ?.quantity ?? 0,
       },
+      events: { onAddToCart: {} },
     },
     CartSummary: {
       component: CartSummary,
-      description:
-        'Live cart summary. Bind count to {"path":"/app/cart/count"} and total to {"path":"/app/cart/total"}.',
+      description: "Live cart summary.",
       props: z.object({ count: z.number(), total: z.number() }),
+      bind: {
+        count: (state) => state.cart.count,
+        total: (state) => state.cart.total,
+      },
     },
     CheckoutForm: {
       component: CheckoutForm,
       description:
-        'Checkout form. Optionally prefill email/note. Bind onApplyCoupon to exactly {"functionCall":{"call":"applyCoupon"}} with no args: the user types the code. Bind onSubmit to exactly {"event":{"name":"place_order"}}.',
+        'Checkout form. Optionally prefill email and note. Bind onSubmit to exactly {"event":{"name":"place_order"}}.',
       props: z.object({
         email: z.string().optional(),
         note: z.string().optional(),
       }),
       events: {
-        onApplyCoupon: {
-          description: "User applied a coupon code",
-          parameters: z.object({ code: z.string() }),
-        },
+        onApplyCoupon: {},
         onSubmit: {
           description: "User placed the order",
           parameters: z.object({ email: z.string(), note: z.string() }),
