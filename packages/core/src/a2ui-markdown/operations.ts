@@ -706,3 +706,162 @@ export function prepareSurfaceOperations(input: {
   }
   return { surfaceId, operations: out };
 }
+
+/**
+ * Components a user operates. A Card containing one of these is an
+ * interactive panel and keeps its box; every other Card is informational.
+ */
+const INTERACTIVE_COMPONENTS = new Set([
+  "Button",
+  "Pressable",
+  "Form",
+  "TextField",
+  "TextArea",
+  "Select",
+  "CheckBox",
+  "Radio",
+  "RadioGroup",
+  "Slider",
+  "SegmentedControl",
+  "DateTimeInput",
+]);
+
+/** A component id referenced by a `child`/`children` entry or a table cell. */
+function referencedId(value: unknown): string | undefined {
+  if (typeof value === "string") return value;
+  if (isRecord(value)) {
+    if (typeof value.componentId === "string") return value.componentId;
+    if (typeof value.id === "string") return value.id;
+  }
+  return undefined;
+}
+
+/** Ids of a table cell / column that renders a component (`{componentId}` or `{id}`). */
+function cellComponentId(value: unknown): string | undefined {
+  return isRecord(value) ? referencedId(value) : undefined;
+}
+
+/**
+ * Ids a component renders directly: `child`, `children` (string ids, an
+ * array, or a `{componentId}` template) and component cells of a Table's
+ * `rows`/`columns`.
+ */
+function directChildIds(component: Record<string, unknown>): string[] {
+  const ids: string[] = [];
+  const add = (id: string | undefined) => {
+    if (id) ids.push(id);
+  };
+  add(referencedId(component.child));
+  const children = component.children;
+  if (Array.isArray(children)) children.forEach((c) => add(referencedId(c)));
+  else add(referencedId(children));
+  if (Array.isArray(component.columns)) {
+    component.columns.forEach((c) => add(cellComponentId(c)));
+  }
+  if (Array.isArray(component.rows)) {
+    for (const row of component.rows) {
+      if (Array.isArray(row)) row.forEach((c) => add(cellComponentId(c)));
+    }
+  }
+  return ids;
+}
+
+/** Components of every updateComponents operation, by id (last definition wins). */
+function componentsById(
+  operations: A2UIOperation[],
+): Map<string, Record<string, unknown>> {
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const op of operations) {
+    const update = op.updateComponents;
+    const list = isRecord(update) ? update.components : undefined;
+    if (!Array.isArray(list)) continue;
+    for (const c of list) {
+      if (isRecord(c) && typeof c.id === "string") byId.set(c.id, c);
+    }
+  }
+  return byId;
+}
+
+function descendantIds(
+  rootId: string,
+  byId: Map<string, Record<string, unknown>>,
+): Set<string> {
+  const seen = new Set<string>();
+  const stack = [...directChildIds(byId.get(rootId) ?? {})];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    if (seen.has(id) || id === rootId) continue;
+    seen.add(id);
+    const c = byId.get(id);
+    if (c) stack.push(...directChildIds(c));
+  }
+  return seen;
+}
+
+/**
+ * Ids of the `Card` components that are interactive panels: at least one
+ * descendant (via `child`, `children` or table component cells) is a control
+ * (Button, Pressable, Form, TextField, TextArea, Select, CheckBox, Radio,
+ * RadioGroup, Slider, SegmentedControl, DateTimeInput).
+ */
+export function classifySurfaceCards(components: A2UIOperation[]): Set<string> {
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const c of components) {
+    if (isRecord(c) && typeof c.id === "string") byId.set(c.id, c);
+  }
+  const interactive = new Set<string>();
+  for (const [id, c] of byId) {
+    if (c.component !== "Card") continue;
+    for (const d of descendantIds(id, byId)) {
+      const type = byId.get(d)?.component;
+      if (typeof type === "string" && INTERACTIVE_COMPONENTS.has(type)) {
+        interactive.add(id);
+        break;
+      }
+    }
+  }
+  return interactive;
+}
+
+/**
+ * Markdown mode: only interactive panels keep a box. Every `Card` that is not
+ * an interactive panel (see `classifySurfaceCards`), sets no `variant` or
+ * `border` of its own and is not nested inside an interactive panel becomes
+ * `variant: "section"` (a heading plus content without a box). Operations
+ * other than updateComponents pass through unchanged.
+ */
+export function flattenInformationalCards(
+  operations: A2UIOperation[],
+): A2UIOperation[] {
+  const byId = componentsById(operations);
+  if (![...byId.values()].some((c) => c.component === "Card")) {
+    return operations;
+  }
+  const interactive = classifySurfaceCards([...byId.values()]);
+  const insideInteractive = new Set<string>();
+  for (const id of interactive) {
+    for (const d of descendantIds(id, byId)) insideInteractive.add(d);
+  }
+  const flatten = (c: Record<string, unknown>) =>
+    c.component === "Card" &&
+    typeof c.id === "string" &&
+    !interactive.has(c.id) &&
+    !insideInteractive.has(c.id) &&
+    c.variant == null &&
+    c.border == null;
+
+  return operations.map((op) => {
+    const update = op.updateComponents;
+    if (!isRecord(update) || !Array.isArray(update.components)) return op;
+    if (!update.components.some((c) => isRecord(c) && flatten(c))) return op;
+    return {
+      ...op,
+      updateComponents: {
+        ...update,
+        components: update.components.map((c) =>
+          isRecord(c) && flatten(c) ? { ...c, variant: "section" } : c,
+        ),
+      },
+    };
+  });
+}

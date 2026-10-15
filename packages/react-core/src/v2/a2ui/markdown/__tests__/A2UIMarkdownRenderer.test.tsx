@@ -7,7 +7,11 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { basicCatalog } from "@copilotkit/a2ui-renderer";
+import {
+  basicCatalog,
+  standardCatalog,
+  STANDARD_CATALOG_ID,
+} from "@copilotkit/a2ui-renderer";
 import type { Theme } from "@copilotkit/a2ui-renderer";
 import { A2UIMarkdownProvider } from "../A2UIMarkdownContext";
 import type { A2UIMarkdownConfig } from "../A2UIMarkdownContext";
@@ -409,5 +413,89 @@ describe("A2UIMarkdownSurface validation at fence close", () => {
     expect(
       warn.mock.calls.some((args) => String(args[0]).includes("[A2UI]")),
     ).toBe(false);
+  });
+});
+
+describe("A2UIMarkdownSurface cards (standard catalog)", () => {
+  const standard: A2UIMarkdownConfig = {
+    catalog: standardCatalog,
+    catalogId: STANDARD_CATALOG_ID,
+    theme: {} as Theme,
+    actionMode: "message",
+  };
+  const cardOf = (text: string) =>
+    screen.getByText(text).closest("[data-a2ui-card]") as HTMLElement;
+
+  it("draws a box only around the interactive panel", async () => {
+    renderMd(
+      fence(
+        create(),
+        uc([
+          { id: "root", component: "Column", children: ["info", "panel"] },
+          { id: "info", component: "Card", children: ["it", "tbl"] },
+          { id: "it", component: "Title", text: "Breakdown" },
+          {
+            id: "tbl",
+            component: "Table",
+            columns: ["Item", "Cost"],
+            rows: [["Seats", "$8"]],
+          },
+          { id: "panel", component: "Card", children: ["pt", "sl"] },
+          { id: "pt", component: "Title", text: "Your project" },
+          { id: "sl", component: "Slider", min: 1, max: 10, value: 3 },
+        ]),
+      ),
+      standard,
+    );
+    expect(await screen.findByText("Breakdown")).toBeTruthy();
+    const info = cardOf("Breakdown");
+    expect(info.getAttribute("data-a2ui-card-variant")).toBe("section");
+    expect(info.getAttribute("style")).not.toContain("1px solid");
+    const panel = cardOf("Your project");
+    expect(panel.getAttribute("style")).toContain("1px solid");
+  });
+
+  it("marks and warns about a surface that is only prose", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderMd(
+      fence(
+        create(),
+        uc([
+          { id: "root", component: "Column", children: ["t", "m"] },
+          { id: "t", component: "Title", text: "Summary" },
+          { id: "m", component: "Markdown", text: "Just **words**." },
+        ]),
+      ),
+      standard,
+    );
+    expect(await screen.findByText("Summary")).toBeTruthy();
+    const wrapper = document.querySelector("[data-a2ui-markdown-surface='s']")!;
+    expect(wrapper.hasAttribute("data-a2ui-prose-only")).toBe(true);
+    await waitFor(() =>
+      expect(
+        warn.mock.calls.some((args) =>
+          String(args[0]).includes(
+            "[A2UI] surface contains only prose; prefer plain markdown",
+          ),
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("does not mark a surface with a table as prose-only", async () => {
+    renderMd(
+      fence(
+        create(),
+        uc([
+          { id: "root", component: "Column", children: ["t", "tbl"] },
+          { id: "t", component: "Title", text: "Costs" },
+          { id: "tbl", component: "Table", columns: ["A"], rows: [["1"]] },
+        ]),
+      ),
+      standard,
+    );
+    expect(await screen.findByText("Costs")).toBeTruthy();
+    const wrapper = document.querySelector("[data-a2ui-markdown-surface='s']")!;
+    expect(wrapper.hasAttribute("data-a2ui-prose-only")).toBe(false);
   });
 });

@@ -5,6 +5,8 @@ import {
   extractStringField,
   getOperationSurfaceId,
   prepareSurfaceOperations,
+  classifySurfaceCards,
+  flattenInformationalCards,
 } from "../a2ui-markdown";
 
 const CREATE =
@@ -504,5 +506,94 @@ describe("extractCompleteArrayItems component repair", () => {
     ).components;
     expect(components.map((c) => c.id)).toEqual(["root", "form", "a"]);
     expect(components[1]).toHaveProperty("children", ["a"]);
+  });
+});
+
+describe("classifySurfaceCards / flattenInformationalCards", () => {
+  // Shaped like ChatGPT's estimator: one configurator panel, the rest
+  // informational sections (a table, a nested breakdown).
+  const components = [
+    {
+      id: "root",
+      component: "Column",
+      children: ["controls", "breakdown", "outlined", "panel"],
+    },
+    { id: "controls", component: "Card", children: ["c-title", "c-row"] },
+    { id: "c-title", component: "Title", text: "Your project" },
+    { id: "c-row", component: "Row", children: ["seats"] },
+    { id: "seats", component: "Slider", value: { path: "/seats" } },
+    { id: "breakdown", component: "Card", children: ["b-title", "b-table"] },
+    { id: "b-title", component: "Title", text: "Breakdown" },
+    {
+      id: "b-table",
+      component: "Table",
+      columns: ["Item", "Cost"],
+      rows: [["Seats", "$8"]],
+    },
+    { id: "outlined", component: "Card", variant: "outline", children: ["o"] },
+    { id: "o", component: "Text", text: "boxed on purpose" },
+    { id: "panel", component: "Card", children: ["inner", "submit"] },
+    { id: "inner", component: "Card", children: ["inner-text"] },
+    { id: "inner-text", component: "Text", text: "summary" },
+    { id: "submit", component: "Button", label: "Go" },
+  ];
+  const ops = [
+    { version: "v0.9", updateComponents: { surfaceId: "s", components } },
+  ];
+  const card = (out: Record<string, unknown>[], id: string) =>
+    (
+      out[0]!.updateComponents as { components: Record<string, unknown>[] }
+    ).components.find((c) => c.id === id)!;
+
+  it("classifies cards with a control descendant as interactive", () => {
+    expect([...classifySurfaceCards(components)].sort()).toEqual([
+      "controls",
+      "panel",
+    ]);
+  });
+
+  it("finds controls placed in table cells and child templates", () => {
+    const set = classifySurfaceCards([
+      { id: "a", component: "Card", children: ["t"] },
+      { id: "t", component: "Table", rows: [[{ componentId: "btn" }]] },
+      { id: "btn", component: "Button" },
+      {
+        id: "b",
+        component: "Card",
+        children: { componentId: "row", path: "/x" },
+      },
+      { id: "row", component: "CheckBox" },
+    ]);
+    expect([...set].sort()).toEqual(["a", "b"]);
+  });
+
+  it("turns informational cards into sections and leaves the rest alone", () => {
+    const out = flattenInformationalCards(ops);
+    expect(card(out, "controls").variant).toBeUndefined();
+    expect(card(out, "breakdown").variant).toBe("section");
+    expect(card(out, "outlined").variant).toBe("outline");
+    expect(card(out, "panel").variant).toBeUndefined();
+    // A card nested inside an interactive panel is left to the renderer.
+    expect(card(out, "inner").variant).toBeUndefined();
+  });
+
+  it("keeps an explicit border and passes non-component operations through", () => {
+    const data = {
+      version: "v0.9",
+      updateDataModel: { surfaceId: "s", value: {} },
+    };
+    const input = [
+      {
+        version: "v0.9",
+        updateComponents: {
+          surfaceId: "s",
+          components: [{ id: "k", component: "Card", border: true }],
+        },
+      },
+      data,
+    ];
+    const out = flattenInformationalCards(input);
+    expect(card(out, "k").variant).toBeUndefined();
+    expect(out[1]).toBe(data);
   });
 });

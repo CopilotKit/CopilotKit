@@ -25,4 +25,15 @@ describe("A2UI_MARKDOWN_GENERATION_GUIDELINES wording", () => {
     expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).toContain('{"call": ...}');
     expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).toContain('(never "type")');
   });
+  it("keeps Card for interactive panels and prose outside the fence", () => {
+    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).toContain(
+      "Use Card only for an interactive panel",
+    );
+    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).not.toContain(
+      "one bordered Card per section",
+    );
+    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).toContain(
+      "Never make a surface that is only prose.",
+    );
+  });
 });

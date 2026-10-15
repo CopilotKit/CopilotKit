@@ -465,6 +465,7 @@ function List({ props, children, dispatch }: RendererProps<any>) {
   return (
     <ListContext.Provider value={{ marker, connector }}>
       <Tag
+        className="a2ui-std-list"
         start={Tag === "ol" ? props.start : undefined}
         style={listStyle(marker, props.gap)}
       >

@@ -183,6 +183,7 @@ export function MapView({ props }: RendererProps<any>) {
       />
       {/* Labels are always in the DOM for tests and screen readers; visible only in fallback mode. */}
       <ul
+        className="a2ui-std-list"
         aria-label="Map locations"
         style={
           showFallback

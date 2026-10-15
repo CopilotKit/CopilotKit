@@ -30,7 +30,13 @@ import { LucideIcon } from "./media";
  */
 type Size = "sm" | "md" | "lg" | "xl";
 const HEIGHT: Record<Size, number> = { sm: 28, md: 32, lg: 36, xl: 40 };
-const FONT_PX: Record<Size, number> = { sm: 13, md: 14, lg: 14, xl: 16 };
+/** Control text in em of the host size (13/14/14/16px at a 16px base). */
+const FONT_PX: Record<Size, string> = {
+  sm: ".8125em",
+  md: ".875em",
+  lg: ".875em",
+  xl: "1em",
+};
 const PAD_X: Record<Size, number> = { sm: 10, md: 12, lg: 12, xl: 18 };
 const ICON_PX: Record<Size, number> = { sm: 14, md: 16, lg: 18, xl: 18 };
 
@@ -138,7 +144,7 @@ function Button({ props, children }: RendererProps<any>) {
     fontSize: FONT_PX[size],
     fontFamily: "inherit",
     fontWeight: FONT_WEIGHT.medium,
-    lineHeight: "14px",
+    lineHeight: 1,
     borderRadius: props.pill === false ? radius("md") : "9999px",
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.5 : undefined,
@@ -516,7 +522,7 @@ function Slider({ props }: RendererProps<any>) {
               display: "flex",
               justifyContent: "space-between",
               gap: spacing(2),
-              fontSize: 14,
+              fontSize: ".875em",
               lineHeight: 1.3,
               color: textColor("secondary"),
             }}
