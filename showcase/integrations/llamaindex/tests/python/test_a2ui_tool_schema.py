@@ -57,9 +57,7 @@ def test_injected_a2ui_components_reach_model_as_an_array(monkeypatch) -> None:
     )
     app = FastAPI()
     app.include_router(
-        a2ui_dynamic._make_a2ui_router(
-            a2ui_dynamic._a2ui_dynamic_workflow_factory()
-        )
+        a2ui_dynamic._make_a2ui_router(a2ui_dynamic._a2ui_dynamic_workflow_factory())
     )
     reply = TestClient(app).post(
         "/run",
@@ -97,7 +95,9 @@ def test_injected_a2ui_components_reach_model_as_an_array(monkeypatch) -> None:
     assert '"type":"TOOL_CALL_CHUNK"' in reply.text
     assert '"toolCallName":"render_a2ui"' in reply.text
     render_schema = next(
-        schema for schema in model_schemas if schema["function"]["name"] == "render_a2ui"
+        schema
+        for schema in model_schemas
+        if schema["function"]["name"] == "render_a2ui"
     )
     assert render_schema["function"]["parameters"]["properties"]["components"] == {
         "type": "array",
