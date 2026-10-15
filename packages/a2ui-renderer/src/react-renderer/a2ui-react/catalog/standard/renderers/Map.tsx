@@ -109,6 +109,10 @@ export function MapView({ props }: RendererProps<any>) {
               : [0, 20],
           zoom: props.zoom ?? (markers.length === 1 ? 10 : 1),
           attributionControl: { compact: true },
+          // The map sits inside a scrolling chat: a plain wheel must scroll
+          // the page, not zoom the map. Ctrl/⌘ + wheel (two fingers on touch)
+          // zooms, and MapLibre shows the hint itself.
+          cooperativeGestures: true,
         });
         map = instance;
         // Test and debugging handle (the map instance is otherwise private).
