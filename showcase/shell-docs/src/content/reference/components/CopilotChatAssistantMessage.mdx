@@ -40,8 +40,11 @@ import "@copilotkit/react-core/v2/styles.css";
 </PropertyReference>
 
 <PropertyReference name="onThumbsUp" type="(message: AssistantMessage) => void">
-  Callback invoked when the user clicks the thumbs-up button. When not provided,
-  the thumbs-up button is hidden from the toolbar. When this component is used
+  Callback invoked when the user clicks the thumbs-up button; while ratings are
+  recorded, only when the click gives a rating. When not provided,
+  the thumbs-up button is hidden from the toolbar, unless `thumbsUpButton` is
+  set or, inside `CopilotChatMessageView` under a `CopilotChatConfigurationProvider`, Automatic Learning capture has started
+  (see [Reply ratings](#reply-ratings)). When this component is used
   as the assistant slot of `CopilotChatMessageView`, the callback can receive a
   callback-only `rawEvent` value for a live direct AG-UI `TEXT_MESSAGE_START`.
   Direct use of this component receives the canonical assistant message.
@@ -51,8 +54,11 @@ import "@copilotkit/react-core/v2/styles.css";
   name="onThumbsDown"
   type="(message: AssistantMessage) => void"
 >
-  Callback invoked when the user clicks the thumbs-down button. When not
-  provided, the thumbs-down button is hidden from the toolbar. The
+  Callback invoked when the user clicks the thumbs-down button; while ratings
+  are recorded, only when the click gives a rating. When not
+  provided, the thumbs-down button is hidden from the toolbar, unless
+  `thumbsDownButton` is set or, inside `CopilotChatMessageView` under a
+  `CopilotChatConfigurationProvider`, Automatic Learning capture has started. The
   `CopilotChatMessageView` callback-only `rawEvent` behavior applies only when
   this component is used through that parent path.
 </PropertyReference>
@@ -128,8 +134,15 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
   type="SlotProp<typeof CopilotChatAssistantMessage.ThumbsUpButton>"
 >
   Slot for the thumbs-up rating button. Defaults to
-  `CopilotChatAssistantMessage.ThumbsUpButton`. Only rendered when `onThumbsUp`
-  is provided. The tooltip label is sourced from
+  `CopilotChatAssistantMessage.ThumbsUpButton`. Rendered when this slot or
+  `onThumbsUp` is set or, inside `CopilotChatMessageView`, Automatic Learning
+  captures the chat. While ratings are recorded, a replacement receives
+  `aria-pressed` and `data-copilotkit-rating`, and on the chosen thumb
+  `aria-haspopup`, `aria-expanded`, `onPointerEnter`, `onPointerLeave`,
+  `onFocus`, `onBlur`, and `onKeyDown`, besides `onClick`. Spread the props it
+  receives onto its button and pass the click event to `onClick`, so a
+  keyboard rating moves focus into the comment. The tooltip label is sourced
+  from
   `CopilotChatLabels.assistantMessageToolbarThumbsUpLabel`.
 </PropertyReference>
 
@@ -138,8 +151,10 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
   type="SlotProp<typeof CopilotChatAssistantMessage.ThumbsDownButton>"
 >
   Slot for the thumbs-down rating button. Defaults to
-  `CopilotChatAssistantMessage.ThumbsDownButton`. Only rendered when
-  `onThumbsDown` is provided. The tooltip label is sourced from
+  `CopilotChatAssistantMessage.ThumbsDownButton`. Rendered when this slot or
+  `onThumbsDown` is set or, inside `CopilotChatMessageView`, Automatic Learning
+  captures the chat. A replacement receives the same props as a
+  `thumbsUpButton` replacement. The tooltip label is sourced from
   `CopilotChatLabels.assistantMessageToolbarThumbsDownLabel`.
 </PropertyReference>
 
@@ -269,10 +284,21 @@ function ToolCallsList({ message, allMessages }) {
 ## Behavior
 
 - **Markdown Support**: The default Markdown renderer supports GitHub Flavored Markdown (tables, strikethrough, task lists), math expressions rendered with KaTeX, and syntax-highlighted code blocks via `rehype-pretty-code`.
-- **Toolbar Visibility**: The toolbar appears on hover or focus by default, except on the latest message while `isRunning` is `true`. Individual buttons are only rendered when their corresponding callback prop (`onThumbsUp`, `onThumbsDown`, `onReadAloud`, `onRegenerate`) is provided. The copy button is always visible when the toolbar is shown.
+- **Toolbar Visibility**: The toolbar appears on hover or focus by default, except on the latest message while `isRunning` is `true`. Individual buttons are only rendered when their corresponding callback prop (`onThumbsUp`, `onThumbsDown`, `onReadAloud`, `onRegenerate`) is provided. The thumbs also render when their slot is set or, inside `CopilotChatMessageView` under a `CopilotChatConfigurationProvider`, once Automatic Learning capture has started. The copy button is always visible when the toolbar is shown.
 - **Localized Labels**: All toolbar button tooltips are sourced from the nearest `CopilotChatConfigurationProvider`. See [`useCopilotChatConfiguration`](/reference/hooks/useCopilotChatConfiguration) for the full list of label keys.
 - **Tool Call Rendering**: Tool calls embedded in the assistant message are rendered by the `toolCallsView` slot. Each tool call is resolved using the `useRenderToolCall` hook, which looks up registered renderers by tool name.
 - **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
+
+## Reply ratings
+
+When this component renders inside `CopilotChatMessageView` under a `CopilotChatConfigurationProvider` and Automatic Learning capture has started, the thumbs record ratings, also while capture reconnects or is stopped:
+
+- A click rates the reply and opens a field for an optional comment next to the thumb.
+- Pointing at or keyboard-focusing the chosen thumb opens its comment again. On a touch screen, tapping the chosen thumb removes the rating instead.
+- Clicking the chosen thumb again removes the rating.
+- The rating is saved in the browser and sent to the active Trajectory as a `message.feedback` event. While no Trajectory captures, it waits and is sent once capture runs again while a chat is open.
+
+`onThumbsUp` and `onThumbsDown` run when a rating is given, not when it is removed. The comment field is `CopilotChatAssistantMessage.FeedbackComment`, which is not a slot; its placeholder and send button use the `assistantMessageFeedbackCommentPlaceholder` and `assistantMessageFeedbackCommentSubmitLabel` labels. See [Collect reply ratings](/intelligence/capture-interactions#collect-reply-ratings) for the event and how ratings reach Intelligence.
 
 ## Related
 

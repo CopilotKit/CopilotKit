@@ -18,6 +18,7 @@ This page describes the experimental self-hosted collector and its custom-sink i
 - Input, select, text area, and editable element values on input and change events.
 - Browser-visible request and response headers and bounded body snapshots.
 - Full agent message text in CopilotKit's custom-sink integration, unless `capture.agentText` is `false`.
+- Reply ratings with their comment and the first 500 characters of the rated reply, unless `capture.agentText` is `false`. The browser also keeps each rating, and a rating that waits for capture, in local storage. See [`message.feedback`](#events) below.
 
 Passwords and credentials never leave the browser. Their values become `[redacted]`:
 
@@ -56,8 +57,11 @@ Each event is an AG-UI `CUSTOM` event: `{ type: "CUSTOM", name, value, timestamp
 | `agent.run` | `phase`, `runId`, `threadId`, `agentId` | Core custom-sink integration |
 | `agent.message` | `messageId`, `runId`, `threadId`, `role`, `textLength`, `text` | Core custom-sink integration |
 | `tool.call` | `phase`, `toolCallId`, `toolName`, `threadId`, `messageId`, `runId`, `durationMs`, `outcome` | Core custom-sink integration |
+| `message.feedback` | `feedbackId`, `threadId`, `messageId`, `agentId`, `runId`, `rating`, `comment`, `response` | Chat, when a user rates a reply, changes the comment, or removes the rating |
 
-In the custom-sink integration, a `click` also carries `threadId`, `agentId`, `messageId`, `runId`, `toolCallId`, `toolName`, and `toolStatus`. When two chats show different Threads, `threadAmbiguity` describes the candidates. Standalone browser capture does not add these fields or emit chat events. Connected Core capture emits only `thread.linked`, once for each Thread, when Runtime starts a run in it.
+In the custom-sink integration, a `click` also carries `threadId`, `agentId`, `messageId`, `runId`, `toolCallId`, `toolName`, and `toolStatus`. When two chats show different Threads, `threadAmbiguity` describes the candidates. Standalone browser capture does not add these fields or emit chat events. Connected Core capture emits `thread.linked`, once for each Thread, when Runtime starts a run in it. Custom-sink and connected Core capture both emit `message.feedback`. In the custom-sink integration it can carry `threadAmbiguity` like your own events; its `threadId` is still the rated reply's Thread.
+
+A `message.feedback` event records a [reply rating](/intelligence/capture-interactions#collect-reply-ratings). `rating` is `"up"`, `"down"`, or `null` when the user removed the rating. `comment` is trimmed, cut at 1,000 characters, and omitted when empty. `response` holds the first 500 characters of the rated reply, and is left out when a custom sink sets `capture.agentText` to `false`, also for a rating that waited and is sent later. `runId` is omitted when the chat does not know the reply's run. `feedbackId` is `threadId:messageId`; the newest event for a `feedbackId` is the current rating.
 
 Control values include `value`, `checked` for checkboxes and radio buttons, `selectedValues` for select elements, and file metadata for file inputs.
 
