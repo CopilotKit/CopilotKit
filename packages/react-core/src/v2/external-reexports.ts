@@ -162,6 +162,7 @@ export type {
   RuntimeLicenseStatus,
   RuntimeMode,
   ScopedContext,
+  ScopedProperties,
   Selector,
   StartResult,
   StaticSuggestionsConfig,
