@@ -105,6 +105,23 @@ export class LearningBridge {
     return this.config !== undefined;
   }
 
+  /**
+   * Whether events may carry agent message text: not when the capture's config
+   * sets `capture.agentText` to false. A running custom-sink capture keeps the
+   * choice it started with; otherwise the current config decides.
+   */
+  get capturesAgentText() {
+    const config = this.activeConfig ?? this.config;
+    if (config === undefined) return false;
+    // Typed for custom sinks only, but honored for authenticated capture too.
+    const capture: unknown = config.capture;
+    return !(
+      typeof capture === "object" &&
+      capture !== null &&
+      (capture as { agentText?: unknown }).agentText === false
+    );
+  }
+
   private get isLegacyCaptureActive() {
     return this.collector !== null && this.collector.trajectoryId !== null;
   }
@@ -217,11 +234,16 @@ export class LearningBridge {
     this.executingTools.clear();
   }
 
-  /** A developer event. Only an explicit legacy sink adds open-Thread context. */
+  /**
+   * A developer event. Only an explicit legacy sink adds open-Thread context;
+   * an event that names its own Thread gets no ambiguity next to it.
+   */
   emit(name: string, value: JsonValue) {
     this.connection.emit(name, value);
     if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      this.collector?.emit(name, { ...this.openThreadContext(), ...value });
+      const context =
+        typeof value["threadId"] === "string" ? {} : this.openThreadContext();
+      this.collector?.emit(name, { ...context, ...value });
     }
   }
 
