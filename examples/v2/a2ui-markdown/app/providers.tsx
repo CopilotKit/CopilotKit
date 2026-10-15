@@ -20,7 +20,7 @@ export function Providers({
     <CopilotKit
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
-      agentId={agent}
+      agent={agent}
       a2ui={{ mode: "markdown" }}
     >
       {children}

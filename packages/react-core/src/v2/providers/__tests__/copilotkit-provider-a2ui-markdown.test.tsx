@@ -1,7 +1,11 @@
 import React from "react";
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { render } from "@testing-library/react";
-import { Catalog } from "@copilotkit/a2ui-renderer";
+import {
+  Catalog,
+  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+} from "@copilotkit/a2ui-renderer";
+import { A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION } from "@copilotkit/shared";
 import { CopilotKitCore } from "@copilotkit/core";
 import type { CopilotKitCoreReact } from "../../lib/react-core";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
@@ -89,6 +93,33 @@ describe("CopilotKitProvider a2ui markdown mode", () => {
     expect(
       entries.some((c) => c.description.includes("A2UI Component Schema")),
     ).toBe(false);
+    expect(
+      entries.some(
+        (c) => c.description === A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
+      ),
+    ).toBe(false);
+  });
+
+  it("sends the schema under its own key, not the tool-mode middleware key", () => {
+    // The LangGraph and Strands adapters match `A2UI_SCHEMA_CONTEXT_DESCRIPTION`
+    // exactly and move that entry out of the system prompt into
+    // `state["ag-ui"]["a2ui_schema"]` for the render_a2ui tool. Markdown mode
+    // has no tool, so reusing the key would hide the schema from the model.
+    const addContext = vi.spyOn(CopilotKitCore.prototype, "addContext");
+    render(
+      <CopilotKitProvider a2ui={{ mode: "markdown" }}>
+        <CoreCapture />
+      </CopilotKitProvider>,
+    );
+    const entries = addContext.mock.calls.map(([ctx]) => ctx);
+    expect(
+      entries.some((c) => c.description === A2UI_SCHEMA_CONTEXT_DESCRIPTION),
+    ).toBe(false);
+    expect(
+      entries.some(
+        (c) => c.description === A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
+      ),
+    ).toBe(true);
   });
 
   it("sends a compact catalog payload in markdown mode", () => {
@@ -108,9 +139,7 @@ describe("CopilotKitProvider a2ui markdown mode", () => {
     );
     expect(total).toBeLessThan(40_000);
 
-    const schema = Array.from(byDescription.entries()).find(([description]) =>
-      description.includes("A2UI Component Schema"),
-    )?.[1];
+    const schema = byDescription.get(A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION);
     expect(schema).toBeDefined();
     expect(schema).toContain('"Box"');
     expect(schema).not.toContain('"call"');
