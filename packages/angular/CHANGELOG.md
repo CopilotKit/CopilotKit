@@ -12,6 +12,28 @@ this replaces was a changesets-era artifact that stopped at `1.54.3`, from
 before the lane split off onto its own `0.x` line, and it is recoverable from
 git history (`git show angular/v0.5.0:packages/angular/CHANGELOG.md`).
 
+## 0.5.4 - 2026-10-15
+
+### Features
+
+- feat: evaluate request headers when each request is sent (sync and async builders) (#7510) (b7f0b96)
+- feat: add learning package and enhance CopilotChatAssistantMessageRen… (#7700) (a7166d1)
+
+### Fixes
+
+- fix(release): stop one scope's version line freezing another's (refs OSS-1107) (#6856) (93b2ecd)
+- fix(react-core,vue,angular): keep features enabled when the entitlement lookup times out (refs PE-533) (#7652) (be3a15c)
+
+### Breaking Changes
+
+- feat: evaluate request headers when each request is sent (sync and async builders) (#7510) (b7f0b96)
+  A `headers` builder now runs when each request is sent,
+  not on each provider render (React, Vue and Angular). A new token from the
+  builder no longer reloads the thread list or rejoins realtime, so an app
+  that switches users must remount the provider (for example
+  `key={userId}`) or call `setHeaders`. Otherwise the new user keeps seeing
+  the previous user's threads.
+
 ## 0.5.3 - 2026-10-07
 
 ### Features
