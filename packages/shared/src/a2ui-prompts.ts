@@ -143,30 +143,16 @@ RULES
 - Write normal markdown prose for explanations. Put UI in one or more fences:
   \`\`\`a2ui
   {"version":"v0.9","createSurface":{"surfaceId":"plan-estimator"}}
-  {"version":"v0.9","updateComponents":{"surfaceId":"plan-estimator","components":[ ...components... ]}}
   {"version":"v0.9","updateDataModel":{"surfaceId":"plan-estimator","path":"/","value":{ ...initial data... }}}
+  {"version":"v0.9","updateComponents":{"surfaceId":"plan-estimator","components":[ ...components... ]}}
   \`\`\`
-- Inside the fence, write exactly one JSON object per line and nothing else. No comments, no trailing commas, no markdown. Keep each operation compact on a single line and do not pretty-print the components array; if you must wrap, keep each component object whole on its line.
-- Write the createSurface line first, then updateComponents, then updateDataModel. Write the "root" component first in the components array, then its children, so the UI paints while you are still writing.
-- Exactly one component must have id "root". Every other component must be reachable from root via child/children. IDs are unique. No cycles.
-- Each component is one flat JSON object: {"id":"title","component":"Text","text":"Hello"}. The component name goes in "component" (never "type"); its properties sit next to it, not inside a "props" object.
-- Do not use function calls ({"call": ...}): this catalog defines no functions. A value is a literal or a { "path": "..." } binding. Compute derived values (totals, prices) yourself and write them as literals or into the data model.
-- The schema may list shared layout props once under "commonProps"; every component marked "includesCommonProps" accepts all of them in addition to its own props.
-- Rely on the catalog defaults for spacing: do not set padding/gap on Card or Box unless the layout needs it; numeric spacing is in 4px steps (gap 4 = 16px). Put related controls in one Card with a Title and a Caption, and use Row for label/value pairs.
-- ONLY use component names and properties from the Available Components schema. Property values are inline literals unless the schema lists a { "path": "..." } option for that property.
-- Editable inputs bind to the data model: "value": { "path": "/form/email" }. Pre-fill via updateDataModel. A button or form collects values through its action context: "action": { "event": { "name": "submit", "context": { "email": { "path": "/form/email" } } } }.
-- When a button should send a message back to you, put the text in the action context: "action": { "event": { "name": "choose", "context": { "message": "Show me the Team plan" } } }. A button without an action does nothing.
-- To update a surface later in the same reply, write another fence with the same surfaceId; its operations are applied on top. Use a new surfaceId for a separate surface.
-- Repeat a template per item with children: { "componentId": "row", "path": "/items" }; inside a template use relative paths ("name", not "/name").
-- Keep surfaces focused: one task per surface, no clutter. Never wrap the whole reply in a fence; prose goes outside.
-- Never make a surface that is only prose. Explanations, intros and summaries are normal markdown outside the fence. Inside a surface use Markdown only when it sits next to other components (a table cell, a card beside a chart).
-- Do not start a surface with a title or introduction; write those as markdown before the fence. The surface begins with the first real component.
-- Ordinary content (headings, paragraphs, bullet or numbered lists of text, dividers) is normal markdown outside the fence, also between two fences. A fence holds only what markdown cannot express: charts, tables, maps, images, badges, inputs, buttons, cards with controls.
-
-VISUAL STYLE (match a calm, native look)
-- Structure: Use Card only for an interactive panel (controls, a form, a configurator). Tables, charts and other components go in a plain Column; their headings and explanations are markdown outside the fence. Never put every section in a Card. Never nest a Card inside a Card and never put border: true on a Box inside a Card; separate groups inside a Card with Divider or plain gap.
-- Palette: text uses color "default" or "secondary" only. Do not set background on Card, Box or Column, except at most one summary panel per Card using background "surface-secondary". Use colors like "success"/"danger"/"warning" only on Badge for a status, never for decoration.
-- Hierarchy: at most one Title with size "2xl" per surface (the page heading), "lg" for section headings, Text size "md" for content, Caption for hints. Avoid Badge, Icon and emphasis unless they carry information.
-- Rows: label/value pairs are a Row with justify "between" (Caption on the left, Text with weight "medium" on the right). Buttons go in a Row at the bottom of a Card; one primary Button, the rest variant "ghost".
-- Tables: use Table with "columns" and "rows"; to put a Badge or Button in a cell write { "componentId": "<id>" } as the cell value and define that component in the same components array. Put action Buttons for each row either in a cell or in a Row under the table.
-- Spacing: rely on defaults (gap 4 between sections, Card padding default). Do not add Spacer or extra padding to compensate.`;
+- Inside the fence, write exactly one JSON object per line and nothing else: no comments, no trailing commas, no pretty-printing. Keep each component object whole on its line.
+- Order: createSurface, then updateDataModel with the complete initial data, then updateComponents with the "root" component first and its children after it, so bound values are known before the UI paints.
+- Exactly one component has id "root"; every other component is reachable from it via child/children; ids are unique; no cycles.
+- A component is one flat object: {"id":"title","component":"Text","text":"Hello"}. The name goes in "component" (never "type") and its properties sit next to it, never inside a "props" object.
+- Use only component names and properties from the Available Components schema. A value is a literal, or { "path": "/x" } where the schema allows a binding. There are no function calls ({"call": ...}) and no expressions: compute derived values (totals, prices) yourself and write them as literals or into the data model.
+- Inputs bind to the data model: "value": { "path": "/form/email" }. A button or form sends values through its action context: "action": { "event": { "name": "submit", "context": { "email": { "path": "/form/email" } } } }. To send a message back to you, put the text in the context: { "name": "choose", "context": { "message": "Show me the Team plan" } }. A button without an action does nothing.
+- To change a surface later in the same reply, write another fence with the same surfaceId; its operations apply on top. Use a new surfaceId for a separate surface.
+- Repeat a template per item with children: { "componentId": "row", "path": "/items" }; inside a template, paths are relative ("name", not "/name").
+- Never make a surface that is only prose. Headings, paragraphs, lists of text, intros and summaries are markdown outside the fence, also between two fences. A fence holds only what markdown cannot express: charts, tables, maps, images, badges, inputs, buttons, cards with controls. Use Card only for an interactive panel (controls, a form, a configurator); everything else sits in a plain Column. Never wrap the whole reply in a fence.
+`;

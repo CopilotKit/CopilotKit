@@ -67,7 +67,7 @@ export type MapMarker = z.infer<typeof mapMarker>;
 export const dataDefinitions = {
   Table: {
     description:
-      "Data table. Either `columns` + `rows` (array of row arrays), or `children` of TableSection/TableRow (ids or a template).",
+      'Data table in a plain Column, not a Card. Either `columns` + `rows` (array of row arrays), or `children` of TableSection/TableRow (ids or a template). A cell value { "componentId": "<id>" } renders a Badge or Button defined in the same components array.',
     props: z.object({
       columns: bindable(z.array(tableColumn))
         .optional()
@@ -126,7 +126,7 @@ export const dataDefinitions = {
   },
   List: {
     description:
-      "List of `items` (strings or { label, description?, icon?, action? }), or `children` ListItem ids/template when `items` is absent.",
+      "List inside a Card or beside another component; a plain list of text is markdown outside the fence. `items` (strings or { label, description?, icon?, action? }), or `children` ListItem ids/template when `items` is absent.",
     props: z.object({
       items: bindable(z.array(listItemValue)).optional(),
       children: childList,

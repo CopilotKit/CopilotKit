@@ -37,7 +37,7 @@ const simpleInline = (description: string) => ({
 export const textDefinitions = {
   Title: {
     description:
-      "Heading styled like the chat's own headings. size sm→h4, md|lg→h3 (default md), xl|2xl and larger→h2. Bold by default (strong=true).",
+      'Heading inside a Card or beside another component; a standalone heading is markdown outside the fence. At most one size "2xl" per surface, "lg" for section headings. size sm→h4, md|lg→h3 (default md), xl|2xl and larger→h2. Bold by default (strong=true).',
     props: z.object({
       ...typography,
       text: dynamicString("Heading text"),
@@ -47,7 +47,7 @@ export const textDefinitions = {
   },
   Text: {
     description:
-      "Body text. `text` supports inline markdown (**bold**, *italic*, ~~strike~~, ++underline++, `code`, [link](https://…)). `children` ids render inline after the text (e.g. a Badge).",
+      'Body text inside a Card or beside another component; a standalone paragraph is markdown outside the fence. Use color "default" or "secondary". `text` supports inline markdown (**bold**, *italic*, ~~strike~~, ++underline++, `code`, [link](https://…)). `children` ids render inline after the text (e.g. a Badge).',
     props: z.object({
       ...typography,
       text: dynamicString("Text with inline markdown").optional(),
@@ -64,7 +64,8 @@ export const textDefinitions = {
     }),
   },
   Caption: {
-    description: "Small secondary text.",
+    description:
+      "Small secondary text for a hint under a control or a label in a Row.",
     props: z.object({
       text: dynamicString("Caption text"),
       color,
@@ -96,7 +97,8 @@ export const textDefinitions = {
   Underline: simpleInline("Inline underlined text."),
   Strikethrough: simpleInline("Inline struck-through text."),
   Badge: {
-    description: "Small status pill.",
+    description:
+      "Small status pill. Colors success/danger/warning mark a status, never decoration.",
     props: z.object({
       label: dynamicString("Badge text"),
       color: z
@@ -130,7 +132,8 @@ export const textDefinitions = {
     }),
   },
   Markdown: {
-    description: "Full GitHub-flavoured markdown block.",
+    description:
+      "Full GitHub-flavoured markdown block, only next to other components (a table cell, beside a chart). Standalone markdown goes outside the fence.",
     props: z.object({
       text: dynamicString("Markdown source"),
       streaming: z.boolean().optional().describe("Default false"),

@@ -68,7 +68,9 @@ export const layoutProps = {
   background: z
     .string()
     .optional()
-    .describe(`One of ${BACKGROUNDS.join("|")} or a CSS color`),
+    .describe(
+      `One of ${BACKGROUNDS.join("|")} or a CSS color. Leave unset; at most one summary panel per Card may use "surface-secondary"`,
+    ),
   border: z.boolean().optional(),
   borderColor: z.enum(BORDER_COLORS).optional(),
   radius: radiusValue.optional(),
@@ -98,11 +100,13 @@ export const layoutDefinitions = {
     }),
   },
   Column: {
-    description: "Vertical flex container.",
+    description:
+      "Vertical flex container. The default gap already separates sections: no padding, background or Spacer to compensate.",
     props: z.object(layoutProps),
   },
   Row: {
-    description: "Horizontal flex container.",
+    description:
+      'Horizontal flex container. A label/value pair is a Row with justify "between": Caption on the left, Text weight "medium" on the right. Buttons go in a Row at the bottom of a Card: one primary Button, the rest variant "ghost".',
     props: z.object(layoutProps),
   },
   Grid: {
@@ -128,7 +132,7 @@ export const layoutDefinitions = {
   },
   Card: {
     description:
-      'Bordered, padded container for an interactive panel (controls, a form, a configurator). variant "section" = heading plus content without a box; "outline" = always boxed. In markdown mode a Card without controls renders as "section" unless it sets variant or border.',
+      'Bordered, padded container for an interactive panel only (controls, a form, a configurator); tables, charts and text never need one. Give it a Title and a Caption; separate groups inside with Divider or plain gap, never a nested Card or a bordered Box. variant "section" = heading plus content without a box; "outline" = always boxed. In markdown mode a Card without controls renders as "section" unless it sets variant or border.',
     props: z.object({
       ...layoutProps,
       variant: z
@@ -177,7 +181,8 @@ export const layoutDefinitions = {
     props: z.object(layoutProps),
   },
   Spacer: {
-    description: "Flexible empty space.",
+    description:
+      "Flexible empty space. Rarely needed: rely on the default gap.",
     props: z.object({ minSize: sizeValue.optional() }),
   },
   Divider: {
