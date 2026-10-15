@@ -7,7 +7,7 @@ import {
   prepareSurfaceOperations,
   classifySurfaceCards,
   flattenInformationalCards,
-  hoistSurfaceProse,
+  segmentSurfaceProse,
 } from "../a2ui-markdown";
 
 const CREATE =
@@ -599,120 +599,249 @@ describe("classifySurfaceCards / flattenInformationalCards", () => {
   });
 });
 
-describe("hoistSurfaceProse", () => {
-  const lisbon = [
-    {
-      id: "root",
-      component: "Column",
-      children: ["title", "intro", "div", "days", "chart"],
-    },
-    {
-      id: "title",
-      component: "Title",
-      text: "5-Day Trip to Lisbon",
-      size: "2xl",
-    },
-    {
-      id: "intro",
-      component: "Text",
-      text: "A balanced plan with **food** and views.",
-    },
-    { id: "div", component: "Divider" },
-    { id: "days", component: "List", children: ["d1"] },
-    { id: "d1", component: "Text", text: "Day 1" },
-    { id: "chart", component: "Chart", data: [] },
-  ];
-
-  it("hoists a leading title and intro and starts the surface at the List", () => {
-    const out = hoistSurfaceProse(lisbon);
-    expect(out.leading).toBe(
-      "## 5-Day Trip to Lisbon\n\nA balanced plan with **food** and views.",
+describe("segmentSurfaceProse", () => {
+  type Segment = ReturnType<typeof segmentSurfaceProse>[number];
+  /** A compact view: markdown text, or the component ids of a surface. */
+  const shape = (segments: Segment[]) =>
+    segments.map((s) =>
+      s.kind === "markdown"
+        ? { markdown: s.markdown }
+        : { surface: s.components.map((c) => c.id) },
     );
-    expect(out.trailing).toBe("");
-    expect(out.components.map((c) => c.id)).toEqual([
-      "root",
-      "days",
-      "d1",
-      "chart",
-    ]);
-    expect(out.components[0]).toMatchObject({ children: ["days", "chart"] });
+  const surfaceRoot = (segment: Segment | undefined) => {
+    if (segment?.kind !== "surface") throw new Error("not a surface segment");
+    return segment.components[0];
+  };
+  const slider = (id: string) => ({
+    id,
+    component: "Slider",
+    min: 0,
+    max: 1,
+    value: 0,
   });
 
-  it("hoists trailing prose and keeps a divider only between peeled blocks", () => {
-    const out = hoistSurfaceProse([
+  it("moves everything but the chart of a Lisbon itinerary into markdown", () => {
+    const out = segmentSurfaceProse([
       {
         id: "root",
         component: "Column",
-        children: ["t", "s", "note", "d", "c"],
+        gap: 4,
+        children: [
+          "title",
+          "intro",
+          "plan",
+          "days",
+          "div",
+          "ct",
+          "cap",
+          "chart",
+        ],
+      },
+      {
+        id: "title",
+        component: "Title",
+        text: "5-Day Trip to Lisbon",
+        size: "2xl",
+      },
+      { id: "intro", component: "Text", text: "A balanced plan." },
+      { id: "plan", component: "Title", text: "Itinerary", size: "lg" },
+      {
+        id: "days",
+        component: "List",
+        marker: "number",
+        items: ["Alfama", "Belém", "Sintra", "LX Factory", "Cascais"],
+      },
+      { id: "div", component: "Divider" },
+      { id: "ct", component: "Title", text: "Daily budget", size: "lg" },
+      { id: "cap", component: "Caption", text: "Estimates in EUR" },
+      { id: "chart", component: "Chart", data: [] },
+    ]);
+    expect(shape(out)).toEqual([
+      {
+        markdown:
+          "## 5-Day Trip to Lisbon\n\nA balanced plan.\n\n### Itinerary\n\n" +
+          "1. Alfama\n2. Belém\n3. Sintra\n4. LX Factory\n5. Cascais\n\n---\n\n" +
+          "### Daily budget\n\nEstimates in EUR",
+      },
+      { surface: ["root", "chart"] },
+    ]);
+    expect(surfaceRoot(out[1])).toEqual({
+      id: "root",
+      component: "Column",
+      gap: 4,
+      children: ["chart"],
+    });
+  });
+
+  it("splits interior prose into its own markdown segment between two surfaces", () => {
+    const out = segmentSurfaceProse([
+      { id: "root", component: "Column", children: ["panel", "t", "tbl"] },
+      { id: "panel", component: "Card", children: ["pt", "sl"] },
+      { id: "pt", component: "Title", text: "Your team" },
+      slider("sl"),
+      { id: "t", component: "Title", text: "Plan comparison", size: "lg" },
+      { id: "tbl", component: "Table", columns: ["A"], rows: [["1"]] },
+    ]);
+    expect(shape(out)).toEqual([
+      { surface: ["root", "panel", "pt", "sl"] },
+      { markdown: "### Plan comparison" },
+      { surface: ["root", "tbl"] },
+    ]);
+    expect(surfaceRoot(out[0])).toMatchObject({ children: ["panel"] });
+    expect(surfaceRoot(out[2])).toMatchObject({ children: ["tbl"] });
+  });
+
+  it("handles prose on both sides of two UI runs", () => {
+    const out = segmentSurfaceProse([
+      {
+        id: "root",
+        component: "Column",
+        children: ["t", "a", "mid", "b", "note"],
       },
       { id: "t", component: "Title", text: "Plan", size: "sm" },
-      { id: "s", component: "Slider", min: 0, max: 1, value: 0 },
+      slider("a"),
+      { id: "mid", component: "Text", text: "Then pick a tier." },
+      slider("b"),
       { id: "note", component: "Text", text: "Prices vary.", strong: true },
+    ]);
+    expect(shape(out)).toEqual([
+      { markdown: "#### Plan" },
+      { surface: ["root", "a"] },
+      { markdown: "Then pick a tier." },
+      { surface: ["root", "b"] },
+      { markdown: "**Prices vary.**" },
+    ]);
+  });
+
+  it("keeps a divider only between two prose blocks", () => {
+    const out = segmentSurfaceProse([
+      {
+        id: "root",
+        component: "Column",
+        children: ["s", "d1", "note", "d", "c"],
+      },
+      slider("s"),
+      { id: "d1", component: "Divider" },
+      { id: "note", component: "Text", text: "Prices vary." },
       { id: "d", component: "Divider" },
       { id: "c", component: "Caption", text: "Updated today" },
     ]);
-    expect(out.leading).toBe("#### Plan");
-    expect(out.trailing).toBe("**Prices vary.**\n\n---\n\nUpdated today");
-    expect(out.components.map((c) => c.id)).toEqual(["root", "s"]);
+    expect(shape(out)).toEqual([
+      { surface: ["root", "s"] },
+      { markdown: "Prices vary.\n\n---\n\nUpdated today" },
+    ]);
+  });
+
+  it("keeps separators with no text beside them in the surface", () => {
+    const out = segmentSurfaceProse([
+      {
+        id: "root",
+        component: "Column",
+        children: ["d0", "a", "d", "b", "t", "later", "sp"],
+      },
+      { id: "d0", component: "Divider" },
+      slider("a"),
+      { id: "d", component: "Divider" },
+      slider("b"),
+      { id: "t", component: "Title", text: "Trip", size: "xl" },
+      { id: "sp", component: "Spacer" },
+    ]);
+    // "later" has not streamed yet, so it is not prose.
+    expect(shape(out)).toEqual([
+      { surface: ["root", "d0", "a", "d", "b"] },
+      { markdown: "## Trip" },
+      { surface: ["root", "sp"] },
+    ]);
+    expect(surfaceRoot(out[0])).toMatchObject({
+      children: ["d0", "a", "d", "b"],
+    });
+    expect(surfaceRoot(out[2])).toMatchObject({ children: ["later", "sp"] });
   });
 
   it("descends through single-child containers to the stack", () => {
-    const out = hoistSurfaceProse([
+    const out = segmentSurfaceProse([
       { id: "root", component: "Column", children: ["sec"] },
       { id: "sec", component: "Card", variant: "section", child: "col" },
-      { id: "col", component: "Column", children: ["t", "tbl"] },
+      { id: "col", component: "Column", padding: 2, children: ["t", "tbl"] },
       { id: "t", component: "Title", text: "Costs", size: "lg" },
       { id: "tbl", component: "Table", columns: ["A"], rows: [["1"]] },
     ]);
-    expect(out.leading).toBe("### Costs");
-    expect(out.components.find((c) => c.id === "col")).toMatchObject({
+    expect(shape(out)).toEqual([
+      { markdown: "### Costs" },
+      { surface: ["root", "tbl"] },
+    ]);
+    expect(surfaceRoot(out[1])).toEqual({
+      id: "root",
+      component: "Column",
+      padding: 2,
       children: ["tbl"],
     });
-    expect(out.components.find((c) => c.id === "root")).toBeDefined();
   });
 
-  it("returns no components for a surface that is all prose", () => {
-    const out = hoistSurfaceProse([
+  it("drops the stack's lone child when it becomes the root", () => {
+    const out = segmentSurfaceProse([
+      { id: "root", component: "Column", children: ["sec"] },
+      { id: "sec", component: "Card", variant: "section", child: "t" },
+      { id: "t", component: "Title", text: "Only words" },
+    ]);
+    expect(shape(out)).toEqual([{ markdown: "### Only words" }]);
+  });
+
+  it("returns only markdown for a surface that is all prose", () => {
+    const out = segmentSurfaceProse([
       { id: "root", component: "Column", children: ["t", "m"] },
       { id: "t", component: "Title", text: "Summary" },
       { id: "m", component: "Markdown", text: "Just **words**." },
     ]);
-    expect(out.components).toEqual([]);
-    expect(out.leading).toBe("### Summary\n\nJust **words**.");
+    expect(out).toEqual([
+      { kind: "markdown", markdown: "### Summary\n\nJust **words**." },
+    ]);
   });
 
   it("treats a prose root as the whole surface", () => {
-    const out = hoistSurfaceProse([
-      { id: "root", component: "Text", text: "Hello" },
-    ]);
-    expect(out).toEqual({ components: [], leading: "Hello", trailing: "" });
+    expect(
+      segmentSurfaceProse([{ id: "root", component: "Text", text: "Hello" }]),
+    ).toEqual([{ kind: "markdown", markdown: "Hello" }]);
   });
 
-  it("does not hoist a path-bound Title", () => {
-    const components = [
+  it("returns the input unchanged when nothing is prose", () => {
+    const bound = [
       { id: "root", component: "Column", children: ["t", "s"] },
       { id: "t", component: "Title", text: { path: "/title" } },
-      { id: "s", component: "Slider", min: 0, max: 1, value: 0 },
+      slider("s"),
     ];
-    expect(hoistSurfaceProse(components)).toEqual({
-      components,
-      leading: "",
-      trailing: "",
-    });
+    const [whole] = segmentSurfaceProse(bound);
+    expect(whole?.kind === "surface" && whole.components).toBe(bound);
+    const inline = [
+      { id: "root", component: "Column", children: ["t", "s"] },
+      { id: "t", component: "Text", text: "Seats", children: ["badge"] },
+      { id: "badge", component: "Badge", text: "new" },
+      slider("s"),
+    ];
+    expect(shape(segmentSurfaceProse(inline))).toEqual([
+      { surface: ["root", "t", "badge", "s"] },
+    ]);
+    const noRoot = [{ id: "t", component: "Title", text: "Trip" }];
+    expect(segmentSurfaceProse(noRoot)).toEqual([
+      { kind: "surface", components: noRoot },
+    ]);
   });
 
-  it("leaves an interactive Card-wrapped stack untouched", () => {
+  it("never enters an interactive Card", () => {
     const components = [
       { id: "root", component: "Column", children: ["panel"] },
       { id: "panel", component: "Card", children: ["t", "s"] },
       { id: "t", component: "Title", text: "Your project" },
-      { id: "s", component: "Slider", min: 0, max: 1, value: 0 },
+      slider("s"),
     ];
-    expect(hoistSurfaceProse(components).components).toBe(components);
+    const [only, ...rest] = segmentSurfaceProse(components);
+    expect(rest).toEqual([]);
+    expect(only).toMatchObject({ kind: "surface" });
+    expect(only?.kind === "surface" && only.components).toBe(components);
   });
 
-  it("leaves template children alone", () => {
-    const components = [
+  it("keeps template children in the surface", () => {
+    const template = [
       {
         id: "root",
         component: "Column",
@@ -720,8 +849,10 @@ describe("hoistSurfaceProse", () => {
       },
       { id: "row", component: "Text", text: "Item" },
     ];
-    expect(hoistSurfaceProse(components).components).toBe(components);
-    const mixed = hoistSurfaceProse([
+    expect(shape(segmentSurfaceProse(template))).toEqual([
+      { surface: ["root", "row"] },
+    ]);
+    const mixed = segmentSurfaceProse([
       {
         id: "root",
         component: "Column",
@@ -730,31 +861,86 @@ describe("hoistSurfaceProse", () => {
       { id: "row", component: "Text", text: "Item" },
       { id: "t", component: "Text", text: "Done" },
     ]);
-    expect(mixed.leading).toBe("");
-    expect(mixed.trailing).toBe("Done");
-  });
-
-  it("stops at a child that has not streamed yet and never peels a lone divider", () => {
-    const out = hoistSurfaceProse([
-      { id: "root", component: "Column", children: ["t", "later", "d"] },
-      { id: "t", component: "Title", text: "Trip", size: "xl" },
-      { id: "d", component: "Divider" },
+    expect(shape(mixed)).toEqual([
+      { surface: ["root", "row"] },
+      { markdown: "Done" },
     ]);
-    expect(out.leading).toBe("## Trip");
-    expect(out.trailing).toBe("");
-    expect(out.components.find((c) => c.id === "root")).toMatchObject({
-      children: ["later", "d"],
-    });
   });
 
-  it("keeps a peeled component that something else still references", () => {
-    const out = hoistSurfaceProse([
+  it("keeps a prose component that UI in the surface still references", () => {
+    const out = segmentSurfaceProse([
       { id: "root", component: "Column", children: ["t", "row"] },
       { id: "t", component: "Text", text: "Shared" },
       { id: "row", component: "Row", children: ["t", "b"] },
       { id: "b", component: "Button", child: "t" },
     ]);
-    expect(out.leading).toBe("Shared");
-    expect(out.components.map((c) => c.id)).toContain("t");
+    expect(shape(out)).toEqual([
+      { markdown: "Shared" },
+      { surface: ["root", "t", "row", "b"] },
+    ]);
+  });
+
+  describe("List", () => {
+    const list = (props: Record<string, unknown>) =>
+      segmentSurfaceProse([
+        { id: "root", component: "Column", children: ["l", "s"] },
+        { id: "l", component: "List", ...props },
+        slider("s"),
+      ])[0];
+
+    it("turns string items into a bullet list", () => {
+      expect(list({ items: ["Sun", " Sea "] })).toEqual({
+        kind: "markdown",
+        markdown: "- Sun\n- Sea",
+      });
+      expect(list({ items: ["Sun"], marker: "none" })).toEqual({
+        kind: "markdown",
+        markdown: "- Sun",
+      });
+    });
+
+    it("turns label/description items into bold labels with an em dash", () => {
+      expect(
+        list({
+          items: [
+            { label: "Day 1", description: "Alfama" },
+            { label: "Day 2" },
+          ],
+        }),
+      ).toEqual({
+        kind: "markdown",
+        markdown: "- **Day 1** — Alfama\n- Day 2",
+      });
+    });
+
+    it("numbers a number-marker list from start", () => {
+      expect(list({ items: ["a", "b"], marker: "number" })).toEqual({
+        kind: "markdown",
+        markdown: "1. a\n2. b",
+      });
+      expect(list({ items: ["a", "b"], marker: "number", start: 3 })).toEqual({
+        kind: "markdown",
+        markdown: "3. a\n4. b",
+      });
+    });
+
+    it("keeps bound items, children, icons, actions and odd items in the surface", () => {
+      const rejected = [
+        { items: { path: "/days" } },
+        { items: [] },
+        { children: ["li"] },
+        { items: ["a"], children: ["li"] },
+        { items: [{ label: "a", icon: "sun" }] },
+        { items: [{ label: "a", action: { event: { name: "x" } } }] },
+        { items: [{ label: "a", extra: 1 }] },
+        { items: [{ label: { path: "/a" } }] },
+        { items: [{ label: "a", description: { path: "/d" } }] },
+        { items: ["a", ""] },
+        { items: [{ label: " " }] },
+      ];
+      for (const props of rejected) {
+        expect(list(props)).toMatchObject({ kind: "surface" });
+      }
+    });
   });
 });

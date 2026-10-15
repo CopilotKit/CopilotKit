@@ -1,10 +1,17 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Streamdown } from "streamdown";
 import {
   A2UIProvider,
   extractCatalogComponentSchemas,
   injectStyles,
+  useA2UI,
 } from "@copilotkit/a2ui-renderer";
 import type {
   A2UIClientEventMessage,
@@ -18,8 +25,8 @@ import type {
 import {
   extractFenceOperations,
   flattenInformationalCards,
-  hoistSurfaceProse,
   prepareSurfaceOperations,
+  segmentSurfaceProse,
 } from "@copilotkit/core";
 import type { A2UIOperation } from "@copilotkit/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
@@ -114,46 +121,145 @@ function collectComponents(operations: A2UIOperation[]): ComponentRecord[] {
   return [...byId.values(), ...anonymous];
 }
 
+/** One block of a rendered fence: chat markdown, or an A2UI surface. */
+type RenderSegment =
+  | { kind: "markdown"; markdown: string }
+  | { kind: "surface"; surfaceId: string; operations: A2UIOperation[] };
+
+const SURFACE_OPERATION_KEYS = [
+  "createSurface",
+  "updateComponents",
+  "updateDataModel",
+  "deleteSurface",
+] as const;
+
 /**
- * Moves the prose at the edges of the surface (see `hoistSurfaceProse`) out
- * into markdown, and rewrites the operations to the remaining components:
- * peeled components are dropped and the stack's shortened child list
- * replaces its earlier definitions.
+ * The operation addressed to `surfaceId` instead. A data model value is
+ * cloned: the DataModel stores the object it is given, so two segments fed
+ * the same value would share one mutable object and an input in one segment
+ * would silently change the other's data without notifying its bindings.
  */
-function hoistProse(operations: A2UIOperation[]): {
-  operations: A2UIOperation[];
-  leading: string;
-  trailing: string;
-} {
-  const hoisted = hoistSurfaceProse(collectComponents(operations));
-  if (!hoisted.leading && !hoisted.trailing) {
-    return { operations, leading: "", trailing: "" };
+function readdress(op: A2UIOperation, surfaceId: string): A2UIOperation {
+  for (const key of SURFACE_OPERATION_KEYS) {
+    const inner = op[key];
+    if (!isRecord(inner)) continue;
+    const next: Record<string, unknown> = { ...inner, surfaceId };
+    if (key === "updateDataModel" && "value" in inner) {
+      next.value = cloneData(inner.value);
+    }
+    return { ...op, [key]: next };
   }
-  const kept = new Map<string, ComponentRecord>();
-  for (const c of hoisted.components) {
-    if (isRecord(c) && typeof c.id === "string") kept.set(c.id, c);
+  return op;
+}
+
+/**
+ * Splits the surface into markdown and surface segments (see
+ * `segmentSurfaceProse`). The first surface segment keeps `surfaceId`, later
+ * ones are `<surfaceId>#1`, `#2`, …; each gets the fence's createSurface and
+ * updateDataModel operations re-addressed to it, so bindings resolve in every
+ * segment, and one updateComponents with its own components in place of the
+ * fence's. A surface that does not split keeps its operations untouched.
+ */
+function segmentOperations(
+  operations: A2UIOperation[],
+  surfaceId: string,
+): RenderSegment[] {
+  const components = collectComponents(operations);
+  const segments = segmentSurfaceProse(components);
+  const [first] = segments;
+  if (
+    segments.length === 1 &&
+    first?.kind === "surface" &&
+    first.components === components
+  ) {
+    return [{ kind: "surface", surfaceId, operations }];
   }
-  return {
-    operations: operations.map((op) => {
-      const update = op.updateComponents;
-      if (!isRecord(update) || !Array.isArray(update.components)) return op;
-      return {
-        ...op,
-        updateComponents: {
-          ...update,
-          components: update.components
-            .filter(
-              (c) => !isRecord(c) || typeof c.id !== "string" || kept.has(c.id),
-            )
-            .map((c) =>
-              isRecord(c) && typeof c.id === "string" ? kept.get(c.id) : c,
-            ),
-        },
-      };
-    }),
-    leading: hoisted.leading,
-    trailing: hoisted.trailing,
-  };
+  let surfaceIndex = 0;
+  return segments.map((segment): RenderSegment => {
+    if (segment.kind === "markdown") return segment;
+    const id = surfaceIndex === 0 ? surfaceId : `${surfaceId}#${surfaceIndex}`;
+    surfaceIndex++;
+    const out: A2UIOperation[] = [];
+    let placed = false;
+    for (const op of operations) {
+      if (!isRecord(op.updateComponents)) {
+        out.push(readdress(op, id));
+      } else if (!placed) {
+        placed = true;
+        out.push({
+          ...op,
+          updateComponents: { surfaceId: id, components: segment.components },
+        });
+      }
+    }
+    return { kind: "surface", surfaceId: id, operations: out };
+  });
+}
+
+/** The slice of the A2UI DataModel the segment mirror uses. */
+type SegmentDataModel = {
+  get(path: string): unknown;
+  set(path: string, value: unknown): unknown;
+  subscribe(
+    path: string,
+    onChange: (value: unknown) => void,
+  ): { unsubscribe(): void };
+};
+
+/** The data models of a fence's surface segments, by segment id. */
+type SegmentDataRegistry = Map<string, SegmentDataModel>;
+
+function cloneData(value: unknown): unknown {
+  return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+}
+
+function sameData(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Keeps the data models of a fence's surface segments identical.
+ *
+ * Each segment is its own A2UI surface with its own data model, so a slider
+ * in one segment would not drive a `{path}` binding in another. The mirror
+ * subscribes to the segment's root (`/`, which the DataModel notifies for any
+ * nested write) and copies the root into every sibling that differs; a
+ * segment that appears mid-stream first adopts a sibling's current root.
+ * Equal data is never written back, so the mirrors cannot ping-pong.
+ */
+function SegmentDataMirror({
+  surfaceId,
+  registry,
+}: {
+  surfaceId: string;
+  registry: SegmentDataRegistry;
+}) {
+  const { getSurface } = useA2UI();
+  const model = (getSurface(surfaceId) as { dataModel?: SegmentDataModel })
+    ?.dataModel;
+  useEffect(() => {
+    if (!model) return;
+    for (const [id, other] of registry) {
+      if (id === surfaceId) continue;
+      const root = other.get("/");
+      if (root !== undefined && !sameData(root, model.get("/"))) {
+        model.set("/", cloneData(root));
+      }
+      break;
+    }
+    registry.set(surfaceId, model);
+    const sub = model.subscribe("/", (value) => {
+      for (const [id, other] of registry) {
+        if (id === surfaceId || sameData(other.get("/"), value)) continue;
+        other.set("/", cloneData(value));
+      }
+    });
+    return () => {
+      sub.unsubscribe();
+      if (registry.get(surfaceId) === model) registry.delete(surfaceId);
+    };
+  }, [model, surfaceId, registry]);
+  return null;
 }
 
 /** Whether some updateComponents defines the `root` component the renderer starts from. */
@@ -222,7 +328,7 @@ export type A2UIMarkdownSurfaceProps = {
   extraOperations?: A2UIOperation[];
   /** Render nothing (a later fence whose surfaceId belongs to an earlier one). */
   hidden?: boolean;
-  /** Streamdown props for prose hoisted out of the surface (same as the chat's). */
+  /** Streamdown props for prose moved out of the surface (same as the chat's). */
   markdownProps?: Omit<React.ComponentProps<typeof Streamdown>, "children">;
 };
 
@@ -236,9 +342,11 @@ export type A2UIMarkdownSurfaceProps = {
  * keeps whatever painted. The failure card appears only for a closed fence
  * that never produced a root.
  *
- * Prose at the edges of the surface (a leading title or intro, a trailing
- * note) is hoisted out and rendered as markdown above and below it; a fence
- * that is only prose renders as markdown alone.
+ * Prose in the surface's main stack (titles, paragraphs, text lists and the
+ * dividers between them) renders as chat markdown in place, splitting the
+ * surface into several (`<surfaceId>#n` after the first) around it; a fence
+ * that is only prose renders as markdown alone. Actions from any of them
+ * report the fence's surfaceId.
  *
  * At fence close the components are validated against the catalog; problems
  * are logged in development and listed in the failure card's details, but a
@@ -258,6 +366,7 @@ export function A2UIMarkdownSurface({
   const agentId = chatConfig?.agentId ?? DEFAULT_AGENT_ID;
   const [ready, setReady] = useState(false);
   const markReady = useCallback(() => setReady(true), []);
+  const dataRegistry = useRef<SegmentDataRegistry>(new Map()).current;
 
   const parsed = useMemo(() => extractFenceOperations(fenceText), [fenceText]);
   const catalogId = config?.catalogId ?? "";
@@ -274,17 +383,12 @@ export function A2UIMarkdownSurface({
     };
   }, [parsed.operations, extraOperations, fallbackSurfaceId, catalogId]);
   // Prose arrives first, so it renders as markdown right away and stays in
-  // place while the rest of the surface streams in below it.
-  const hoisted = useMemo(
-    () => hoistProse(prepared.operations),
-    [prepared.operations],
+  // place while the rest of the surface streams in around it.
+  const segments = useMemo(
+    () => segmentOperations(prepared.operations, prepared.surfaceId),
+    [prepared.operations, prepared.surfaceId],
   );
-  const hasRoot = surfaceHasRoot(hoisted.operations);
-  // Everything was prose: render markdown only, no surface.
-  const proseOnly =
-    !hasRoot &&
-    (hoisted.leading !== "" || hoisted.trailing !== "") &&
-    surfaceHasRoot(prepared.operations);
+  const hasRoot = surfaceHasRoot(prepared.operations);
 
   // Child effects run first, so the operations are processed before this
   // reveals the surface. SurfaceMessageProcessor's onReady may also fire, but
@@ -323,7 +427,15 @@ export function A2UIMarkdownSurface({
   );
 
   const handleAction = useCallback(
-    async (message: A2UIClientEventMessage) => {
+    async (event: A2UIClientEventMessage) => {
+      // Every segment belongs to this fence's surface: report its id, not the
+      // segment's (`<surfaceId>#n`).
+      const message = event.userAction
+        ? {
+            ...event,
+            userAction: { ...event.userAction, surfaceId: prepared.surfaceId },
+          }
+        : event;
       try {
         if (!config) return;
         const agent = copilotkit.getAgent(agentId);
@@ -369,23 +481,26 @@ export function A2UIMarkdownSurface({
         console.error("[A2UI] action failed", err);
       }
     },
-    [config, copilotkit, agentId, resolveLabel],
+    [config, copilotkit, agentId, resolveLabel, prepared.surfaceId],
   );
 
   if (!config || hidden) return null;
 
-  const leadingMarkdown = hoisted.leading ? (
-    <Streamdown {...markdownProps}>{hoisted.leading}</Streamdown>
-  ) : null;
-  const trailingMarkdown = hoisted.trailing ? (
-    <Streamdown {...markdownProps}>{hoisted.trailing}</Streamdown>
-  ) : null;
+  const markdown = (text: string, key: string) => (
+    <Streamdown key={key} {...markdownProps}>
+      {text}
+    </Streamdown>
+  );
 
-  if (proseOnly) {
+  // Everything was prose: render markdown only, no surface.
+  if (hasRoot && !segments.some((segment) => segment.kind === "surface")) {
     return (
       <>
-        {leadingMarkdown}
-        {trailingMarkdown}
+        {segments.map((segment, i) =>
+          segment.kind === "markdown"
+            ? markdown(segment.markdown, `md-${i}`)
+            : null,
+        )}
       </>
     );
   }
@@ -420,46 +535,63 @@ export function A2UIMarkdownSurface({
   const Loading = config.loadingComponent;
   const showSurface = ready && hasRoot;
 
+  let surfaceCount = 0;
+  const surfaceSegments = segments.filter((s) => s.kind === "surface").length;
   return (
     <>
-      {leadingMarkdown}
-      <div
-        className={
-          showSurface
-            ? "cpk:relative cpk:my-4 cpk:flex cpk:w-full cpk:flex-col"
-            : "cpk:relative cpk:flex cpk:w-full cpk:flex-col"
+      {segments.map((segment) => {
+        // Keys follow the surfaces, so a segment keeps its element while
+        // prose splits off around it during streaming.
+        if (segment.kind === "markdown") {
+          return markdown(segment.markdown, `md-${surfaceCount}`);
         }
-        data-a2ui-markdown-surface={prepared.surfaceId}
-        style={SURFACE_FIT_STYLE}
-      >
-        {/* No built-in placeholder: the prose keeps streaming above and the
-          surface appears as soon as its root component is complete. Apps can
-          opt into a loader through `a2ui.loadingComponent`. */}
-        {!showSurface && Loading ? <Loading /> : null}
-        {hoisted.operations.length > 0 && (
+        surfaceCount++;
+        const { surfaceId, operations } = segment;
+        return (
           <div
-            aria-hidden={!showSurface}
-            data-a2ui-visible={showSurface ? "" : undefined}
-            className="cpk:flex cpk:w-full cpk:flex-col"
-            style={showSurface ? SURFACE_FIT_STYLE : HIDDEN_STYLE}
+            key={surfaceId}
+            className={
+              showSurface
+                ? "cpk:relative cpk:my-4 cpk:flex cpk:w-full cpk:flex-col"
+                : "cpk:relative cpk:flex cpk:w-full cpk:flex-col"
+            }
+            data-a2ui-markdown-surface={surfaceId}
+            style={SURFACE_FIT_STYLE}
           >
-            <A2UIProvider
-              key={prepared.surfaceId}
-              onAction={handleAction}
-              theme={config.theme}
-              catalog={config.catalog}
-            >
-              <SurfaceMessageProcessor
-                surfaceId={prepared.surfaceId}
-                operations={hoisted.operations}
-                onReady={markReady}
-              />
-              <A2UISurfaceOrError surfaceId={prepared.surfaceId} />
-            </A2UIProvider>
+            {/* No built-in placeholder: the prose keeps streaming above and
+              the surface appears as soon as its root component is complete.
+              Apps can opt into a loader through `a2ui.loadingComponent`. */}
+            {!showSurface && Loading ? <Loading /> : null}
+            {operations.length > 0 && (
+              <div
+                aria-hidden={!showSurface}
+                data-a2ui-visible={showSurface ? "" : undefined}
+                className="cpk:flex cpk:w-full cpk:flex-col"
+                style={showSurface ? SURFACE_FIT_STYLE : HIDDEN_STYLE}
+              >
+                <A2UIProvider
+                  onAction={handleAction}
+                  theme={config.theme}
+                  catalog={config.catalog}
+                >
+                  <SurfaceMessageProcessor
+                    surfaceId={surfaceId}
+                    operations={operations}
+                    onReady={markReady}
+                  />
+                  {surfaceSegments > 1 && (
+                    <SegmentDataMirror
+                      surfaceId={surfaceId}
+                      registry={dataRegistry}
+                    />
+                  )}
+                  <A2UISurfaceOrError surfaceId={surfaceId} />
+                </A2UIProvider>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      {trailingMarkdown}
+        );
+      })}
     </>
   );
 }
