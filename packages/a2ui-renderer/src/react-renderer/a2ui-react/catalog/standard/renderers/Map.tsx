@@ -21,6 +21,50 @@ import { useThemeOptional } from "../../../../theme/ThemeContext";
 export const DEFAULT_MAP_STYLE =
   "https://tiles.openfreemap.org/styles/positron";
 const MAP_STYLE_ID = "a2ui-standard-map";
+
+const ORDERING_OPS = new Set(["<", "<=", ">", ">="]);
+
+/**
+ * A filter expression with every numeric comparison on a feature property
+ * guarded by `["has", property]`.
+ *
+ * MapLibre wraps `["get", key]` in a number assertion when it is compared
+ * with a number, and the assertion logs "Expected value to be of type
+ * number, but found null instead." for every feature that lacks the
+ * property. OpenFreeMap's styles compare `ref_length` on roads that mostly
+ * have none, which filled the console for nothing; the comparison is false
+ * for a missing property either way.
+ */
+export function guardNumericFilter(filter: unknown): unknown {
+  if (!Array.isArray(filter)) return filter;
+  const [op, left, right] = filter;
+  if (
+    typeof op === "string" &&
+    ORDERING_OPS.has(op) &&
+    Array.isArray(left) &&
+    left[0] === "get" &&
+    typeof left[1] === "string" &&
+    typeof right === "number"
+  ) {
+    return ["all", ["has", left[1]], filter];
+  }
+  return filter.map((part) => guardNumericFilter(part));
+}
+
+/** The style with `guardNumericFilter` applied to every layer filter. */
+export function guardStyleFilters<
+  T extends { layers?: Array<{ filter?: unknown }> },
+>(style: T): T {
+  if (!Array.isArray(style.layers)) return style;
+  return {
+    ...style,
+    layers: style.layers.map((layer) =>
+      layer.filter === undefined
+        ? layer
+        : { ...layer, filter: guardNumericFilter(layer.filter) },
+    ),
+  };
+}
 const ROUTE_SOURCE = "a2ui-route";
 
 /**
@@ -101,7 +145,6 @@ export function MapView({ props }: RendererProps<any>) {
         const first = markers[0];
         const instance = new maplibregl.Map({
           container: containerRef.current,
-          style: styleUrl,
           center: props.center
             ? [props.center.lng, props.center.lat]
             : first
@@ -115,6 +158,11 @@ export function MapView({ props }: RendererProps<any>) {
           cooperativeGestures: true,
         });
         map = instance;
+        // `transformStyle` is a setStyle option, not a constructor one.
+        instance.setStyle(styleUrl, {
+          transformStyle: (_previous: unknown, next: unknown) =>
+            guardStyleFilters(next as { layers?: Array<{ filter?: unknown }> }),
+        });
         // Test and debugging handle (the map instance is otherwise private).
         (
           containerRef.current as HTMLDivElement & { __a2uiMap?: unknown }

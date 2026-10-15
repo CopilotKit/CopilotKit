@@ -108,3 +108,35 @@ describe("useStableValue", () => {
     expect(result.current).toEqual([{ day: "Mon", food: 2 }]);
   });
 });
+
+describe("map style filter guard", () => {
+  it("guards numeric property comparisons with a has check, recursively", async () => {
+    const { guardNumericFilter, guardStyleFilters } =
+      await import("../a2ui-react/catalog/standard/renderers/Map");
+    const filter = [
+      "all",
+      ["<=", ["get", "ref_length"], 6],
+      ["match", ["geometry-type"], ["LineString"], true, false],
+    ];
+    expect(guardNumericFilter(filter)).toEqual([
+      "all",
+      ["all", ["has", "ref_length"], ["<=", ["get", "ref_length"], 6]],
+      ["match", ["geometry-type"], ["LineString"], true, false],
+    ]);
+    // Comparisons that do not read a property, or compare two properties, stay.
+    expect(guardNumericFilter([">", ["zoom"], 5])).toEqual([">", ["zoom"], 5]);
+    expect(guardNumericFilter(["==", ["get", "rank"], 1])).toEqual([
+      "==",
+      ["get", "rank"],
+      1,
+    ]);
+    const style = {
+      version: 8,
+      layers: [{ id: "a", filter: [">=", ["get", "rank"], 2] }, { id: "b" }],
+    };
+    expect(guardStyleFilters(style).layers).toEqual([
+      { id: "a", filter: ["all", ["has", "rank"], [">=", ["get", "rank"], 2]] },
+      { id: "b" },
+    ]);
+  });
+});
