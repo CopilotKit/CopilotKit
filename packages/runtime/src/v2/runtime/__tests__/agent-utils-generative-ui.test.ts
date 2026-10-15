@@ -4,7 +4,7 @@ import { CopilotRuntime } from "../core/runtime";
 import { configureAgentForRequest } from "../handlers/shared/agent-utils";
 import { GenerativeUIMiddleware } from "../generative-ui";
 
-function setup(generativeUI?: { enabled?: boolean; agents?: string[] }) {
+function setup(generativeUI?: boolean | { agents?: string[] }) {
   const agent = new HttpAgent({ url: "http://localhost:9999/agent" });
   const runtime = new CopilotRuntime({
     agents: { default: agent },
@@ -30,8 +30,14 @@ test("applies the middleware when the provider forwards a manifest", () => {
   expect(genUICalls(use)).toHaveLength(1);
 });
 
-test("applies the middleware when the runtime enables it", () => {
-  const { use, params } = setup({});
+test("applies the middleware to every run when the runtime sets true", () => {
+  const { use, params } = setup(true);
+  configureAgentForRequest(params);
+  expect(genUICalls(use)).toHaveLength(1);
+});
+
+test("applies the middleware to every run of the named agents", () => {
+  const { use, params } = setup({ agents: ["default"] });
   configureAgentForRequest(params);
   expect(genUICalls(use)).toHaveLength(1);
 });
@@ -42,8 +48,8 @@ test("does nothing without a manifest or runtime config", () => {
   expect(genUICalls(use)).toHaveLength(0);
 });
 
-test("explicit enabled: false wins over a forwarded manifest", () => {
-  const { use, params } = setup({ enabled: false });
+test("false wins over a forwarded manifest", () => {
+  const { use, params } = setup(false);
   configureAgentForRequest({ ...params, providerGenerativeUIManifest: true });
   expect(genUICalls(use)).toHaveLength(0);
 });

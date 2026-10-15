@@ -169,10 +169,11 @@ export function configureAgentForRequest(params: {
   const generativeUI = runtime.generativeUI;
   if (
     (params.providerGenerativeUIManifest || generativeUI) &&
-    generativeUI?.enabled !== false &&
+    generativeUI !== false &&
     typeof agent.use === "function"
   ) {
-    const targetAgents = generativeUI?.agents;
+    const targetAgents =
+      typeof generativeUI === "object" ? generativeUI.agents : undefined;
     if (!targetAgents || targetAgents.includes(agentId)) {
       agent.use(new GenerativeUIMiddleware());
     }

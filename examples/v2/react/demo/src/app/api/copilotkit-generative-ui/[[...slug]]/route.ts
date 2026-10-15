@@ -44,7 +44,7 @@ Keep text replies short; let the UI carry the details.`,
 const runtime = new CopilotRuntime({
   agents: { default: agent },
   runner: new InMemoryAgentRunner(),
-  generativeUI: {},
+  generativeUI: true,
 });
 
 const app = createCopilotEndpoint({

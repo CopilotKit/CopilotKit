@@ -110,11 +110,14 @@ interface CopilotRuntimeMiddlewares {
   /** Auto-apply OpenGenerativeUIMiddleware to agents at run time. */
   openGenerativeUI?: OpenGenerativeUIConfig;
   /**
-   * Experimental: CopilotKit generative UI surfaces (`render_ui`). Applied
-   * automatically when the React provider forwards a `generativeUI` manifest;
-   * pass an object to enable it for every run, or `enabled: false` to disable.
+   * Experimental: CopilotKit generative UI surfaces (`render_ui`).
+   *
+   * - Omitted: applied to a run when the React provider sends a manifest.
+   * - `true`: applied to every run.
+   * - `{ agents }`: applied to every run of the named agents.
+   * - `false`: never applied, even when the provider sends a manifest.
    */
-  generativeUI?: BaseCopilotRuntimeMiddlewareOptions & { enabled?: boolean };
+  generativeUI?: boolean | BaseCopilotRuntimeMiddlewareOptions;
 }
 
 /**
