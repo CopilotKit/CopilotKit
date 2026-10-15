@@ -10,6 +10,8 @@ import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import { basicCatalog } from "../a2ui-react";
 import type { A2UIContextValue, A2UIActions } from "./store";
 import { ThemeProvider } from "../theme/ThemeContext";
+import { MarkdownRendererProvider } from "./MarkdownRendererContext";
+import type { A2UIMarkdownRenderer } from "./MarkdownRendererContext";
 import type { OnActionCallback } from "../types";
 import type { A2UIClientEventMessage, Theme } from "../../a2ui-types";
 
@@ -36,6 +38,13 @@ export interface A2UIProviderProps {
   theme?: Theme;
   /** Optional component catalog to use instead of the default basicCatalog */
   catalog?: any;
+  /**
+   * Renders markdown for components that carry a markdown block (the standard
+   * catalog's `Markdown`). Pass the host's own renderer so a block inside a
+   * surface looks like the host's prose; without it a small built-in
+   * renderer covers headings, lists, quotes, code and paragraphs.
+   */
+  markdownRenderer?: A2UIMarkdownRenderer;
   /** Child components */
   children: ReactNode;
 }
@@ -50,6 +59,7 @@ export function A2UIProvider({
   onAction,
   theme,
   catalog,
+  markdownRenderer,
   children,
 }: A2UIProviderProps) {
   // Store onAction in a ref so callbacks always have the latest value
@@ -132,7 +142,11 @@ export function A2UIProvider({
   return (
     <A2UIActionsContext.Provider value={actions}>
       <A2UIStateContext.Provider value={stateValue}>
-        <ThemeProvider theme={theme}>{children}</ThemeProvider>
+        <ThemeProvider theme={theme}>
+          <MarkdownRendererProvider value={markdownRenderer ?? null}>
+            {children}
+          </MarkdownRendererProvider>
+        </ThemeProvider>
       </A2UIStateContext.Provider>
     </A2UIActionsContext.Provider>
   );

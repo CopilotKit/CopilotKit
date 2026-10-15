@@ -15,6 +15,7 @@ import {
 } from "@copilotkit/a2ui-renderer";
 import type {
   A2UIClientEventMessage,
+  A2UIMarkdownRenderer as A2UIMarkdownRendererType,
   Catalog,
 } from "@copilotkit/a2ui-renderer";
 import { validateA2UIComponents } from "@ag-ui/a2ui-toolkit";
@@ -491,6 +492,15 @@ export function A2UIMarkdownSurface({
       {text}
     </Streamdown>
   );
+  // A `Markdown` component inside a surface renders with the chat's own
+  // Streamdown and props, so it is indistinguishable from the prose around it.
+  const markdownRenderer = useMemo<A2UIMarkdownRendererType>(
+    () =>
+      function SurfaceMarkdown({ text }) {
+        return <Streamdown {...markdownProps}>{text}</Streamdown>;
+      },
+    [markdownProps],
+  );
 
   // Everything was prose: render markdown only, no surface.
   if (hasRoot && !segments.some((segment) => segment.kind === "surface")) {
@@ -573,6 +583,7 @@ export function A2UIMarkdownSurface({
                   onAction={handleAction}
                   theme={config.theme}
                   catalog={config.catalog}
+                  markdownRenderer={markdownRenderer}
                 >
                   <SurfaceMessageProcessor
                     surfaceId={surfaceId}

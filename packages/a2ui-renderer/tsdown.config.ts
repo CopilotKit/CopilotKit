@@ -36,8 +36,6 @@ export default defineConfig([
         zod: "Zod",
         clsx: "clsx",
         "markdown-it": "markdownit",
-        "react-markdown": "ReactMarkdown",
-        "remark-gfm": "remarkGfm",
         "lucide-react": "LucideReact",
       };
       return options;

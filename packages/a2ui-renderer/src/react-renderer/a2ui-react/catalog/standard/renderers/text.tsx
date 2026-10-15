@@ -1,12 +1,12 @@
 import React, { useEffect } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import type {
   CatalogRenderers,
   RendererProps,
 } from "../../../../create-catalog";
 import type { textDefinitions } from "../definitions/text";
 import { renderInlineMarkdown } from "../inline-markdown";
+import { renderBlockMarkdown } from "../block-markdown";
+import { useMarkdownRenderer } from "../../../../core/MarkdownRendererContext";
 import { renderChildren } from "./layout";
 import {
   FONT_WEIGHT,
@@ -329,28 +329,19 @@ export const textRenderers = {
       <code data-language={props.language}>{str(props.text)}</code>
     </pre>
   ),
-  Markdown: ({ props }: RendererProps<any>) => (
+  Markdown: ({ props }: RendererProps<any>) => {
     // No typography of its own: it reads like the chat's prose around it.
-    <div className="a2ui-markdown">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ href, children: label }) => {
-            const safe = safeHref(href);
-            return safe ? (
-              <a href={safe} target="_blank" rel="noopener noreferrer">
-                {label}
-              </a>
-            ) : (
-              <span>{label}</span>
-            );
-          },
-        }}
-      >
-        {str(props.text)}
-      </ReactMarkdown>
-    </div>
-  ),
+    // The host's renderer (CopilotKit passes the chat's Streamdown) keeps a
+    // block inside a surface identical to chat markdown; the built-in block
+    // renderer is the dependency-free fallback.
+    const Host = useMarkdownRenderer();
+    const text = str(props.text);
+    return (
+      <div className="a2ui-markdown">
+        {Host ? <Host text={text} /> : renderBlockMarkdown(text)}
+      </div>
+    );
+  },
   Math: ({ props }: RendererProps<any>) => (
     <code
       data-math={props.block ? "block" : "inline"}
