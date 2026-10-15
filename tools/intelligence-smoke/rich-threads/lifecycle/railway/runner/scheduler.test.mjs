@@ -21,6 +21,73 @@ async function setup(t, overrides = {}) {
   });
   return { root, scheduler };
 }
+test("manual-only startup keeps recovery active without scheduling tests", async (t) => {
+  let now = 100;
+  let recoveries = 0;
+  let executions = 0;
+  const { scheduler } = await setup(t, {
+    clock: () => now,
+    recover: async () => {
+      recoveries++;
+    },
+    execute: async () => {
+      executions++;
+      return 0;
+    },
+  });
+  await scheduler.tick();
+  assert.equal(executions, 0);
+  assert.equal(recoveries, 2);
+  assert.equal(scheduler.status().scheduleEnabled, false);
+  const manual = await scheduler.start("single");
+  assert.equal(manual.accepted, true);
+  await manual.completion;
+  assert.equal(executions, 1);
+  now += 8 * 60 * 60 * 1000;
+  await scheduler.tick();
+  assert.equal(executions, 1);
+  assert.equal(scheduler.status().scheduleEnabled, false);
+});
+
+test(
+  "explicitly enabled scheduling starts a due run",
+  { timeout: 5000 },
+  async (t) => {
+    let finish;
+    let started;
+    const execution = new Promise((resolve) => {
+      started = resolve;
+    });
+    const { scheduler } = await setup(t, {
+      scheduleEnabled: true,
+      execute: () =>
+        new Promise((resolve) => {
+          finish = resolve;
+          started();
+        }),
+    });
+    await scheduler.tick();
+    await execution;
+    assert.equal(scheduler.status().scheduleEnabled, true);
+    assert.equal(scheduler.status().busy, true);
+    finish(0);
+    while (scheduler.status().busy)
+      await new Promise((resolve) => setTimeout(resolve, 5));
+  },
+);
+
+test("manual-only ticks still block runs when cleanup fails", async (t) => {
+  let fails = false;
+  const { scheduler } = await setup(t, {
+    recover: async () => {
+      if (fails) throw new Error("cleanup unavailable");
+    },
+  });
+  fails = true;
+  await scheduler.tick();
+  assert.equal(scheduler.status().blocked, true);
+  assert.equal((await scheduler.start("single")).accepted, false);
+});
 test("permanent scheduler serializes manual/timer runs and retains failed results", async (t) => {
   let finish;
   const { root, scheduler } = await setup(t, {

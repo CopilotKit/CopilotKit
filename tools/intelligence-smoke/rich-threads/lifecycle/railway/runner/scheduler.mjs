@@ -80,6 +80,7 @@ export async function reconcile(config) {
   }
 }
 
+/** Keep crash recovery active in manual mode; scheduled work requires explicit opt-in. */
 export async function createScheduler({
   root,
   config,
@@ -88,7 +89,9 @@ export async function createScheduler({
   execute = runController,
   recover = reconcile,
   clock = Date.now,
+  scheduleEnabled = false,
 }) {
+  assert.equal(typeof scheduleEnabled, "boolean");
   await mkdir(root, { recursive: true, mode: 0o700 });
   await mkdir(join(root, "results"), { recursive: true, mode: 0o700 });
   const unlock = await recoveryLock(join(root, "scheduler-lock"));
@@ -257,12 +260,12 @@ export async function createScheduler({
   }
   await recoverIdle();
   return {
-    status: () => ({ ...state, busy }),
+    status: () => ({ ...state, busy, scheduleEnabled }),
     start,
     async tick() {
       if (busy || closing) return;
       if (!(await recoverIdle())) return;
-      if (clock() >= state.nextRunAt) await start("single");
+      if (scheduleEnabled && clock() >= state.nextRunAt) await start("single");
     },
     async close() {
       closing = true;

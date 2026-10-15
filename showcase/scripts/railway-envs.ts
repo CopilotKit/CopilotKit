@@ -1650,6 +1650,22 @@ export const SERVICES: Record<
       },
     },
   },
+  // Permanent test controller. Only Staging has an instance; the runner has
+  // its own pinned image and must not enter Showcase builds or promotions.
+  "showcase-intelligence-test-runner": {
+    serviceId: "4922b45b-6981-4559-be2f-fbbca9123323",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell",
+    environments: {
+      staging: {
+        instanceId: "f96bf2d4-f4f0-41b6-a7e9-547f33c38961",
+        probe: false,
+      },
+    },
+  },
   // ───────────────────────── starter-* container fleet ─────────────────────
   // The 12 starter-template containers (ghcr.io/copilotkit/starter-<slug>),
   // live in BOTH staging and prod. Folded into the cluster-promote SSOT (S1)

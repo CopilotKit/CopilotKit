@@ -95,15 +95,31 @@ service/environment/volume IDs and the actual Railway runtime IDs are forbidden
 mutation targets even before registry registration. The permanent service must
 also be registered in the shared registry before activating hosted tests.
 
-The scheduler runs `controller.mjs --mode=single` every four hours, serializes
-manual and scheduled requests, and reconciles unfinished ownership on startup and
-every 30 seconds while idle. Cleanup failures block new work. Linux ownership
+The runner starts in manual-only mode. Leave `RICH_RUNNER_SCHEDULE_ENABLED`
+unset or set it to `false` during setup and hosted acceptance. After acceptance,
+set it to `true` to run `controller.mjs --mode=single` every four hours. Other
+values fail startup. An enabled schedule with no prior run is due on the first
+idle tick; a retained overdue schedule is also due immediately.
+`GET /status` includes `scheduleEnabled` so callers can distinguish manual mode
+from an enabled schedule. Both modes serialize requests and reconcile unfinished
+ownership on startup and every 30 seconds while idle. Disabling scheduling does
+not disable recovery, cancel an active run, or block authenticated manual runs.
+Cleanup failures block new work. Linux ownership
 locks include boot ID and process start ticks so PID reuse after container
 replacement cannot impersonate an old owner. The supervisor still enforces each
 attempt's 50-minute work budget and reserves cleanup time within 60 minutes.
 After a provider outage, verified late cleanup records `deadlineExceeded`; it
 releases the lease only once exact owned resources are absent. This is a lifetime
 failure, never a passing acceptance result.
+
+The permanent Staging service is `showcase-intelligence-test-runner`
+(`4922b45b-6981-4559-be2f-fbbca9123323`), instance
+`f96bf2d4-f4f0-41b6-a7e9-547f33c38961`. Its registry entry declares only Staging,
+with independent image management, no Showcase build/promotion, and no probe.
+It was created without an image or deployment; registration is not evidence of
+a running controller or hosted acceptance. Before deployment, the shared registry
+consumers must use the revision containing this entry. Older registry revisions
+will report the new service as unknown. No Production instance is required.
 
 Required private environment: `RICH_TEMPLATE_JSON`, `RICH_RUNNER_TOKEN` (at least
 32 characters), a separately verified Railway automation credential, and

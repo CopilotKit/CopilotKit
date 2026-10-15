@@ -4,7 +4,23 @@ import { mkdtemp, mkdir, writeFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { once } from "node:events";
-import { runnerServer } from "./server.mjs";
+import { runnerServer, schedulingEnabled } from "./server.mjs";
+test("scheduled runs require explicit opt-in and reject misspelled settings", () => {
+  assert.equal(schedulingEnabled({}), false);
+  assert.equal(
+    schedulingEnabled({ RICH_RUNNER_SCHEDULE_ENABLED: "false" }),
+    false,
+  );
+  assert.equal(
+    schedulingEnabled({ RICH_RUNNER_SCHEDULE_ENABLED: "true" }),
+    true,
+  );
+  for (const value of ["", "TRUE", "1", "yes"])
+    assert.throws(
+      () => schedulingEnabled({ RICH_RUNNER_SCHEDULE_ENABLED: value }),
+      /true or false/,
+    );
+});
 test("runner API authenticates mutations and bounds retained downloads", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "railway-api-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));

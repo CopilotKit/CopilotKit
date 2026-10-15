@@ -181,7 +181,18 @@ export function runnerServer({ root, config, token, scheduler }) {
   });
 }
 
+/** Parse the operator's scheduling opt-in before startup changes durable state. */
+export function schedulingEnabled(env = process.env) {
+  const value = env.RICH_RUNNER_SCHEDULE_ENABLED ?? "false";
+  assert.ok(
+    value === "true" || value === "false",
+    "RICH_RUNNER_SCHEDULE_ENABLED must be true or false",
+  );
+  return value === "true";
+}
+
 export async function main(env = process.env) {
+  const scheduleEnabled = schedulingEnabled(env);
   assert.ok(
     env.RAILWAY_SERVICE_ID &&
       env.RAILWAY_ENVIRONMENT_ID &&
@@ -237,6 +248,7 @@ export async function main(env = process.env) {
     config: template,
     configPath,
     controller: resolve("tools/intelligence-smoke/rich-threads/controller.mjs"),
+    scheduleEnabled,
   });
   const server = runnerServer({
     root,

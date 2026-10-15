@@ -40,6 +40,7 @@ const ACTIVE = {
   ],
 };
 const INTELLIGENCE_IDS = {
+  "showcase-intelligence-test-runner": "4922b45b-6981-4559-be2f-fbbca9123323",
   "showcase-intelligence-api": "2cf17267-31c4-4e92-8270-5ad92bd7ad19",
   "showcase-intelligence-composite": "70b24c88-81a5-469d-ae57-3df0daea2b3c",
   "showcase-intelligence-gateway": "f2eec3fd-d841-481b-9a9d-c8fd94c27870",
@@ -281,12 +282,12 @@ describe("permanent fleet lifecycle isolation", () => {
       expect(computePromoteClosure(Object.keys(SERVICES))).toEqual(
         emitted.closure,
       );
-      expect(Object.keys(SERVICES)).toHaveLength(49);
+      expect(Object.keys(SERVICES)).toHaveLength(50);
     },
   );
 
   it("keeps static Intelligence identities and the emitted permanent closure unchanged", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(49);
+    expect(Object.keys(SERVICES)).toHaveLength(50);
     expect(Object.hasOwn(SERVICES, TEMP_NAME)).toBe(false);
     expect(DISPOSABLE_LIFECYCLE_POLICY.approvedImages).toEqual([]);
     for (const [name, id] of Object.entries(INTELLIGENCE_IDS)) {

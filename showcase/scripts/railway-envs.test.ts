@@ -34,6 +34,24 @@ import type {
 } from "./railway-envs";
 
 describe("railway-envs SSOT", () => {
+  it("keeps the permanent Intelligence test runner confined to staging", () => {
+    const name = "showcase-intelligence-test-runner";
+    const entry = SERVICES[name];
+    expect(entry).toBeDefined();
+    expect(Object.keys(entry.environments)).toEqual(["staging"]);
+    expect(entry.autoUpdates).toEqual({ staging: "unmanaged" });
+    expect(entry.ciBuilt).toBe(false);
+    expect(effectiveStaticGatePolicy(entry)).toEqual({
+      presence: "optional",
+      image: "ignored",
+    });
+    expect(probeEnabled(name, "staging")).toBe(false);
+    expect(CI_BUILT_SERVICES).not.toContain(name);
+    expect(DISPOSABLE_LIFECYCLE_POLICY.permanentServices).toContainEqual({
+      name,
+      serviceId: entry.serviceId,
+    });
+  });
   it("exposes the canonical project id", () => {
     expect(PROJECT_ID).toBe("6f8c6bff-a80d-4f8f-b78d-50b32bcf4479");
   });
@@ -109,9 +127,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains 43 managed services plus four staging-only Intelligence services", () => {
+  it("contains 43 managed services plus six Intelligence services and one staging-only runner", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(49);
+    expect(names.length).toBe(50);
   });
 
   it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {
@@ -1479,7 +1497,7 @@ describe("static gate and disposable approval policy", () => {
   });
 
   it("commits no approved pins and derives every permanent identity from the unchanged registry", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(49);
+    expect(Object.keys(SERVICES)).toHaveLength(50);
     expect(DISPOSABLE_LIFECYCLE_POLICY).toEqual({
       projectId: PROJECT_ID,
       forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],
@@ -1492,7 +1510,7 @@ describe("static gate and disposable approval policy", () => {
     const independent = Object.entries(SERVICES).filter(([name]) =>
       name.startsWith("showcase-intelligence-"),
     );
-    expect(independent).toHaveLength(6);
+    expect(independent).toHaveLength(7);
     for (const [, entry] of independent) {
       expect(effectiveStaticGatePolicy(entry)).toEqual({
         presence: "optional",
