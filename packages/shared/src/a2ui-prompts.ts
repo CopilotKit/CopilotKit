@@ -123,6 +123,19 @@ Use the SAME surfaceId as the main surface. Match action names to button action 
 export const A2UI_MARKDOWN_GENERATION_GUIDELINES_DESCRIPTION =
   "A2UI markdown-mode generation guidelines — how to emit A2UI surfaces inside ```a2ui code fences in a normal markdown reply.";
 
+/**
+ * Description of the markdown-mode component-schema context entry.
+ *
+ * Deliberately different from `A2UI_SCHEMA_CONTEXT_DESCRIPTION` (the tool-mode
+ * key stamped by `@ag-ui/a2ui-middleware`): the LangGraph and Strands adapters
+ * recognise that exact string and route the entry into `state["ag-ui"]
+ * ["a2ui_schema"]` for the `render_a2ui` tool instead of the system prompt.
+ * Markdown mode has no tool, so the schema must stay ordinary context that
+ * reaches the model as App Context.
+ */
+export const A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION =
+  "A2UI markdown-mode component schema — the components and props the client can render inside ```a2ui code fences.";
+
 export const A2UI_MARKDOWN_GENERATION_GUIDELINES = `\
 You can render interactive UI inline in your reply by writing an A2UI surface inside a fenced code block tagged a2ui.
 

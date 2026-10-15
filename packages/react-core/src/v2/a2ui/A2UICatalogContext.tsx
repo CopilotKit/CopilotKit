@@ -10,6 +10,7 @@ import {
 import {
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   A2UI_DEFAULT_DESIGN_GUIDELINES,
+  A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
   A2UI_MARKDOWN_GENERATION_GUIDELINES,
   A2UI_MARKDOWN_GENERATION_GUIDELINES_DESCRIPTION,
 } from "@copilotkit/shared";
@@ -25,10 +26,10 @@ import { useLayoutEffect, useMemo } from "react";
  * the catalog/schema/guidelines payload on their runs.
  *
  * When `includeSchema` is true, the component schemas are also sent as context
- * using the same description key as the A2UI middleware. Tool mode sends the
- * full JSON Schema so the middleware can optionally overwrite it with a
- * server-side schema; markdown mode sends the compact summary from
- * `buildCompactCatalogSchema`.
+ * Tool mode sends the full JSON Schema under the A2UI middleware's description
+ * key so the middleware can optionally overwrite it with a server-side schema;
+ * markdown mode sends the compact summary from `buildCompactCatalogSchema`
+ * under its own key so agent adapters keep it in the system prompt.
  *
  * `mode` selects the generation guideline: "tool" (default) describes the
  * `render_a2ui` tool; "markdown" describes emitting operations inside ```a2ui
@@ -88,7 +89,13 @@ export function A2UICatalogContext({
     if (schemaValue) {
       ids.push(
         copilotkit.addContext({
-          description: A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+          // Markdown mode must not reuse the tool-mode key: LangGraph/Strands
+          // adapters match it exactly and divert the entry out of the prompt
+          // into `state["ag-ui"]["a2ui_schema"]` for the render_a2ui tool.
+          description:
+            mode === "markdown"
+              ? A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION
+              : A2UI_SCHEMA_CONTEXT_DESCRIPTION,
           value: schemaValue,
           ...scope,
         }),
