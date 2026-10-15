@@ -13,10 +13,17 @@ describe("A2UI_MARKDOWN_GENERATION_GUIDELINES", () => {
     expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).not.toContain("render_a2ui");
     expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).toContain('"root"');
   });
-  it("stays compact even though it carries its own visual-style rules", () => {
+  it("stays compact: visual-style rules live in the catalog descriptions", () => {
     // Markdown mode sends this instead of the tool generation + design pair.
-    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES.length).toBeLessThan(6000);
-    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).toContain("VISUAL STYLE");
+    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES.length).toBeLessThan(3500);
+    expect(A2UI_MARKDOWN_GENERATION_GUIDELINES).not.toContain("VISUAL STYLE");
+  });
+  it("asks for the data model before the components so bound values paint first", () => {
+    const g = A2UI_MARKDOWN_GENERATION_GUIDELINES;
+    expect(g.indexOf("updateDataModel")).toBeLessThan(
+      g.indexOf("updateComponents"),
+    );
+    expect(g).toContain("then updateDataModel");
   });
 });
 

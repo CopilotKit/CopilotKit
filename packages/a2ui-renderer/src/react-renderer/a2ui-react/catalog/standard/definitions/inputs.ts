@@ -50,7 +50,7 @@ const boundNumber = (d: string) => DynamicNumberSchema.optional().describe(d);
 export const inputDefinitions = {
   Button: {
     description:
-      "Clickable button that dispatches `action`. `children` ids render instead of `label` when present.",
+      'Clickable button that dispatches `action`; without an action it does nothing. One primary Button per Row, the rest variant "ghost". `children` ids render instead of `label` when present.',
     props: z.object({
       label: boundString("Button text"),
       text: boundString("Alias of `label`; used when `label` is absent"),
