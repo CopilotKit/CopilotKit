@@ -37,6 +37,8 @@ export const CopilotChatDefaultLabels = {
   assistantMessageToolbarInspectorHideDescription: "Until you reload this page",
   assistantMessageToolbarThumbsUpLabel: "Good response",
   assistantMessageToolbarThumbsDownLabel: "Bad response",
+  assistantMessageFeedbackCommentPlaceholder: "Add a comment (optional)",
+  assistantMessageFeedbackCommentSubmitLabel: "Send comment",
   assistantMessageToolbarReadAloudLabel: "Read aloud",
   assistantMessageToolbarRegenerateLabel: "Regenerate",
   userMessageToolbarCopyMessageLabel: "Copy",
