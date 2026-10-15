@@ -16,9 +16,11 @@ Two agents are wired into the runtime (`app/api/copilotkit/[[...slug]]/route.ts`
 | `http://localhost:3011/?agent=langgraph` | `langgraph`: the LangGraph Python agent in [`agent/`](./agent)  |
 
 Neither agent has A2UI-specific code. The provider sends the standard catalog's
-component schema and the fence guideline as context, and forwards
-`__copilotkitA2UIMode: "markdown"` so the runtime does not apply the A2UI
-middleware or the `render_a2ui` tool.
+component schema and the fence guideline as context, and forwards a structured
+envelope on `forwardedProps.copilotkit.ui` (method, version, mode, catalog,
+instructions) so the runtime does not apply the A2UI middleware or the
+`render_a2ui` tool, and so a backend can build its own prompt from it with
+`a2ui={{ mode: "markdown", sendContext: false }}`.
 
 ## Setup
 
