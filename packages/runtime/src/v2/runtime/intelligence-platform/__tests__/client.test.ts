@@ -62,6 +62,29 @@ function emptyResponse(status = 204) {
   );
 }
 
+/** A 429 with the platform's error body and an optional Retry-After. */
+function rateLimited(retryAfter?: string) {
+  return Promise.resolve(
+    new Response(
+      JSON.stringify({
+        error: {
+          code: "RATE_LIMIT_EXCEEDED",
+          message: "Rate limit exceeded.",
+          category: "rate_limit",
+          retryable: true,
+        },
+      }),
+      {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          ...(retryAfter === undefined ? {} : { "retry-after": retryAfter }),
+        },
+      },
+    ),
+  );
+}
+
 /** Build an entitlement client with a trailing-slash URL and project API key. */
 function runtimeEntitlementsClient() {
   fetchMock.mockReset();
@@ -1132,6 +1155,96 @@ describe("CopilotKitIntelligence", () => {
       expect(opts.headers).toMatchObject({
         "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
       });
+    });
+
+    it("waits out a 429 for Retry-After seconds and retries", async () => {
+      vi.useFakeTimers();
+      try {
+        const payload = { messages: [] };
+        fetchMock
+          .mockReturnValueOnce(rateLimited("2"))
+          .mockReturnValueOnce(jsonResponse(payload));
+
+        const pending = client.getThreadMessages({
+          threadId: "t-1",
+          userId: "user-1",
+        });
+        await vi.advanceTimersByTimeAsync(1_999);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+
+        await expect(pending).resolves.toEqual(payload);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("stops after three tries and throws the 429 with its Retry-After", async () => {
+      vi.useFakeTimers();
+      try {
+        fetchMock.mockImplementation(() => rateLimited("1"));
+
+        const pending = client
+          .getThreadMessages({ threadId: "t-1", userId: "user-1" })
+          .catch((error: unknown) => error);
+        await vi.advanceTimersByTimeAsync(10_000);
+        const error = await pending;
+
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+        expect(error).toBeInstanceOf(PlatformRequestError);
+        expect(error).toMatchObject({
+          status: 429,
+          retryable: true,
+          retryAfterSeconds: 1,
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("waits at most 5 seconds for one retry, and 1 second without Retry-After", async () => {
+      vi.useFakeTimers();
+      try {
+        fetchMock
+          .mockReturnValueOnce(rateLimited("3600"))
+          .mockReturnValueOnce(rateLimited())
+          .mockReturnValueOnce(jsonResponse({ messages: [] }));
+
+        const pending = client.getThreadMessages({
+          threadId: "t-1",
+          userId: "user-1",
+        });
+        await vi.advanceTimersByTimeAsync(5_000);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        await vi.advanceTimersByTimeAsync(1_000);
+
+        await expect(pending).resolves.toEqual({ messages: [] });
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("does not retry an error other than 429", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse(
+          {
+            error: {
+              code: "THREAD_TRANSCRIPT_TIMEOUT",
+              message: "The thread transcript took too long to build.",
+              category: "dependency",
+              retryable: true,
+            },
+          },
+          503,
+        ),
+      );
+
+      await expect(
+        client.getThreadMessages({ threadId: "t-1", userId: "user-1" }),
+      ).rejects.toMatchObject({ status: 503 });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 
