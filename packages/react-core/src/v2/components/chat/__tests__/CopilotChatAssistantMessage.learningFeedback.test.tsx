@@ -1,5 +1,11 @@
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import type { CopilotKitCore, LearningConfig } from "@copilotkit/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -297,8 +303,7 @@ describe("learning feedback on assistant messages", () => {
     await renderCapturingChat();
     click(thumbsUp());
     fireEvent.pointerLeave(thumbsUp());
-    await pause(FEEDBACK_COMMENT_CLOSE_DELAY_MS + 50);
-    expect(popoverOpen()).toBe(false);
+    await waitFor(() => expect(popoverOpen()).toBe(false));
 
     // The other thumb shows its tooltip as usual.
     fireEvent.pointerMove(thumbsDown());
@@ -306,23 +311,24 @@ describe("learning feedback on assistant messages", () => {
       "Bad response",
     );
     // Escape, not pointerLeave: jsdom pointer events carry no coordinates,
-    // which Radix needs to leave an open tooltip.
+    // which Radix needs to leave an open tooltip. How soon it closes depends
+    // on the React version, so wait for it rather than a fixed time.
     fireEvent.keyDown(document, { key: "Escape" });
-    await pause(10);
-    expect(screen.queryByRole("tooltip")).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
 
     // As in a browser: the pointer enters, then moves over the chosen thumb,
     // which asks its tooltip to open while the comment covers it.
     fireEvent.pointerEnter(thumbsUp());
     fireEvent.pointerMove(thumbsUp());
+    await waitFor(() => expect(popoverOpen()).toBe(true));
+    // Give a tooltip the time it would need to open before checking it did not.
     await pause(10);
-    expect(popoverOpen()).toBe(true);
     expect(screen.queryByRole("tooltip")).toBeNull();
 
     fireEvent.pointerLeave(thumbsUp());
-    await pause(FEEDBACK_COMMENT_CLOSE_DELAY_MS + 50);
+    await waitFor(() => expect(popoverOpen()).toBe(false));
+    await pause(10);
 
-    expect(popoverOpen()).toBe(false);
     expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
