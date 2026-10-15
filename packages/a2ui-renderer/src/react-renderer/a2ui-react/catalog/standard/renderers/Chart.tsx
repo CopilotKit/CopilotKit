@@ -1,4 +1,4 @@
-import React, { Suspense, useRef } from "react";
+import React, { Suspense, memo, useRef } from "react";
 import type { RendererProps } from "../../../../create-catalog";
 import type { ChartSeries } from "../definitions/data";
 import {
@@ -119,9 +119,10 @@ function makeFormatter(
  * The previous value while the new one is deep-equal to it.
  *
  * A streaming surface re-binds every component each time a sibling arrives,
- * so `data` and `series` reach the chart as new arrays with the same content.
- * Recharts keys its layout on prop identity and would rebuild the bars (and
- * replay the surface's fade-in on the new SVG nodes) on every such render.
+ * so the chart's props reach it as a new object with the same content.
+ * Recharts rebuilds nodes on every render it sees (and the surface's fade-in
+ * would replay on them), so `Chart` hands the memoized chart one stable
+ * props object and the chart only renders when its content changes.
  */
 export function useStableValue<T>(value: T): T {
   const ref = useRef<{ value: T; key: string } | null>(null);
@@ -132,12 +133,10 @@ export function useStableValue<T>(value: T): T {
 
 /** Builds the chart component from the lazily imported recharts module. */
 function createRechartsChart(R: RechartsModule) {
-  return function RechartsChart({ props }: { props: ChartProps }) {
-    const data = useStableValue(Array.isArray(props.data) ? props.data : []);
+  return memo(function RechartsChart({ props }: { props: ChartProps }) {
+    const data = Array.isArray(props.data) ? props.data : [];
     const chartType = props.chartType ?? "bar";
-    const series = useStableValue(
-      normalizeSeries(props.series, data, props.xKey),
-    );
+    const series = normalizeSeries(props.series, data, props.xKey);
     const fmt = makeFormatter(props.format, props.currency);
     const showLegend = props.showLegend ?? true;
     const showGrid = props.showGrid ?? true;
@@ -282,7 +281,7 @@ function createRechartsChart(R: RechartsModule) {
         </CartesianChart>
       </R.ResponsiveContainer>
     );
-  };
+  });
 }
 
 /** Shown when recharts cannot be loaded (e.g. a UMD build without it). */
@@ -328,10 +327,11 @@ function ChartDataTable({ props }: { props: ChartProps }) {
 
 // recharts is loaded on first render so it stays out of the main bundle. If
 // the import fails, the chart degrades to a plain data table.
-const LazyRechartsChart = React.lazy(() =>
+type ChartComponent = React.ComponentType<{ props: ChartProps }>;
+const LazyRechartsChart = React.lazy<ChartComponent>(() =>
   import("recharts").then(
-    (R) => ({ default: createRechartsChart(R) }),
-    () => ({ default: ChartDataTable }),
+    (R) => ({ default: createRechartsChart(R) as ChartComponent }),
+    () => ({ default: ChartDataTable as ChartComponent }),
   ),
 );
 
@@ -349,7 +349,7 @@ function ChartPlaceholder({ height }: { height: number }) {
 }
 
 export function Chart({ props }: RendererProps<any>) {
-  const p = props as ChartProps;
+  const p = useStableValue(props as ChartProps);
   const height = p.height ?? 240;
   return (
     <figure style={{ margin: 0, width: "100%", minWidth: 0 }}>
