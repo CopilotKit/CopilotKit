@@ -1014,13 +1014,9 @@ export const SAMPLES: CatalogSample[] = [
     covers: ["Popover", "PopoverTrigger", "PopoverContent"],
     components: [
       { id: "root", component: "Popover", children: ["trig", "cont"] },
+      // PopoverTrigger is already a button, so its child is text, not a Button.
       { id: "trig", component: "PopoverTrigger", children: ["tb"] },
-      {
-        id: "tb",
-        component: "Button",
-        label: "Open popover",
-        variant: "outline",
-      },
+      txt("tb", "Open popover"),
       {
         id: "cont",
         component: "PopoverContent",

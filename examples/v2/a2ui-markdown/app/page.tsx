@@ -73,18 +73,11 @@ function Suggestions({ agent }: { agent: ExampleAgent }) {
 }
 
 /** Shown in a page surface until the agent renders into it. */
-function EmptySurface({ label }: { label: string }) {
+function EmptySurface({ title, hint }: { title: string; hint: string }) {
   return (
-    <div
-      style={{
-        border: "1px dashed #c7c7cc",
-        borderRadius: 12,
-        padding: 16,
-        fontSize: 13,
-        opacity: 0.7,
-      }}
-    >
-      {label}
+    <div className="ex-empty">
+      <p className="ex-empty-title">{title}</p>
+      <p className="ex-empty-text">{hint}</p>
     </div>
   );
 }
@@ -95,36 +88,55 @@ function EmptySurface({ label }: { label: string }) {
  */
 function PageSurfaces() {
   return (
-    <section className="example-page" aria-label="Page surfaces">
-      <h2 style={{ fontSize: 14, margin: "0 0 8px" }}>
-        On the page (outside the chat)
-      </h2>
-      <GenerativeUISurface
-        id="dashboard"
-        description="The main panel of the page, to the left of the chat. Use it for dashboards, charts, and tables that the user asks to show on the page."
-        fallback={
-          <EmptySurface label='The "dashboard" surface is empty. Try the "Dashboard on the page" suggestion.' />
-        }
-      />
-      <h2 style={{ fontSize: 14, margin: "16px 0 8px" }}>Notes</h2>
-      <GenerativeUISurface
-        id="notes"
-        description="A small card under the dashboard. Use it for short notes, checklists, and summaries that the user asks to keep on the page."
-        fallback={
-          <EmptySurface label='The "notes" surface is empty. Try the "Checklist in the notes" suggestion.' />
-        }
-      />
+    <section className="ex-panel" aria-labelledby="page-surfaces-title">
+      <div className="ex-panel-header">
+        <div>
+          <h2 id="page-surfaces-title" className="ex-panel-title">
+            On the page
+          </h2>
+          <p className="ex-panel-hint">
+            Surfaces outside the chat. The agent renders into them by id.
+          </p>
+        </div>
+        <span className="ex-tag">2 targets</span>
+      </div>
+      <div className="ex-panel-body">
+        <div className="ex-slot ex-slot-main">
+          <div className="ex-slot-label">
+            Dashboard <code>dashboard</code>
+          </div>
+          <GenerativeUISurface
+            id="dashboard"
+            className="ex-slot-surface"
+            description="The main panel of the page, to the left of the chat. Use it for dashboards, charts, and tables that the user asks to show on the page."
+            fallback={
+              <EmptySurface
+                title="Nothing here yet"
+                hint='Try the "Dashboard on the page" suggestion.'
+              />
+            }
+          />
+        </div>
+        <div className="ex-slot">
+          <div className="ex-slot-label">
+            Notes <code>notes</code>
+          </div>
+          <GenerativeUISurface
+            id="notes"
+            className="ex-slot-surface"
+            description="A small card under the dashboard. Use it for short notes, checklists, and summaries that the user asks to keep on the page."
+            fallback={
+              <EmptySurface
+                title="Nothing here yet"
+                hint='Try the "Checklist in the notes" suggestion.'
+              />
+            }
+          />
+        </div>
+      </div>
     </section>
   );
 }
-
-/** Page and chat side by side; stacked on a narrow screen. */
-const LAYOUT_CSS = `
-.example-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,440px);gap:16px;flex:1;min-height:0}
-.example-page{overflow:auto;min-height:0;padding-bottom:16px}
-.example-chat{min-height:0;display:flex;flex-direction:column}
-@media (max-width: 900px){.example-layout{grid-template-columns:1fr;grid-template-rows:auto minmax(480px,1fr)}.example-page{overflow:visible}}
-`;
 
 function Chat() {
   const searchParams = useSearchParams();
@@ -134,75 +146,73 @@ function Chat() {
     searchParams.get("transport") === "tool" ? "tool" : "markdown";
   const href = (a: ExampleAgent, t: ExampleTransport) =>
     `/?agent=${a}&transport=${t}`;
+  const current = (active: boolean) => (active ? "page" : undefined);
 
   return (
     <Providers agent={agent} transport={transport}>
-      <main
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          height: "100dvh",
-          maxWidth: 1320,
-          margin: "0 auto",
-          padding: "0 16px",
-        }}
-      >
-        <header style={{ padding: "16px 0 8px" }}>
-          <h1 style={{ fontSize: 18, margin: 0 }}>
-            Generative UI,{" "}
-            {transport === "tool" ? "tool transport" : "markdown transport"} (
-            {agent === "langgraph" ? "LangGraph Python" : "built-in agent"})
-          </h1>
-          <p style={{ fontSize: 14, margin: "4px 0 0", opacity: 0.7 }}>
-            Click a suggestion below the chat to try the standard components.
-            The first three render into the surfaces on the page, outside the
-            chat.
-          </p>
-          <nav
-            style={{
-              display: "flex",
-              gap: 12,
-              fontSize: 13,
-              marginTop: 6,
-              flexWrap: "wrap",
-            }}
-          >
-            <span style={{ opacity: 0.6 }}>agent:</span>
-            <Link
-              href={href("default", transport)}
-              aria-current={agent === "default"}
-            >
-              built-in
+      <main className="ex-shell">
+        <header className="ex-topbar">
+          <div className="ex-brand">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a static SVG logo */}
+            <img src="/copilotkit-logo.svg" alt="CopilotKit" />
+            <span className="ex-brand-divider" aria-hidden="true" />
+            <div>
+              <h1 className="ex-title">Generative UI</h1>
+              <p className="ex-subtitle">
+                {transport === "tool"
+                  ? "The agent calls the render_ui tool."
+                  : "The agent writes a2ui code fences in its reply."}
+              </p>
+            </div>
+          </div>
+          <nav className="ex-controls" aria-label="Example settings">
+            <div className="ex-segment" role="group" aria-label="Agent">
+              <span className="ex-segment-label">Agent</span>
+              <Link
+                className="ex-pill"
+                href={href("default", transport)}
+                aria-current={current(agent === "default")}
+              >
+                Built-in
+              </Link>
+              <Link
+                className="ex-pill"
+                href={href("langgraph", transport)}
+                aria-current={current(agent === "langgraph")}
+              >
+                LangGraph
+              </Link>
+            </div>
+            <div className="ex-segment" role="group" aria-label="Transport">
+              <span className="ex-segment-label">Transport</span>
+              <Link
+                className="ex-pill"
+                href={href(agent, "markdown")}
+                aria-current={current(transport === "markdown")}
+              >
+                Markdown
+              </Link>
+              <Link
+                className="ex-pill"
+                href={href(agent, "tool")}
+                aria-current={current(transport === "tool")}
+              >
+                Tool
+              </Link>
+            </div>
+            <Link className="ex-pill ex-pill-plain" href="/catalog">
+              Catalog
             </Link>
-            <Link
-              href={href("langgraph", transport)}
-              aria-current={agent === "langgraph"}
-            >
-              LangGraph
-            </Link>
-            <span style={{ opacity: 0.6 }}>transport:</span>
-            <Link
-              href={href(agent, "markdown")}
-              aria-current={transport === "markdown"}
-            >
-              markdown fences
-            </Link>
-            <Link
-              href={href(agent, "tool")}
-              aria-current={transport === "tool"}
-            >
-              render_ui tool
-            </Link>
-            <Link href="/catalog">catalog</Link>
           </nav>
         </header>
-        <style>{LAYOUT_CSS}</style>
-        <div className="example-layout">
+        <div className="ex-layout">
           <PageSurfaces />
-          <div className="example-chat">
-            <Suggestions agent={agent} />
-            <CopilotChat />
-          </div>
+          <section className="ex-panel ex-panel-chat" aria-label="Chat">
+            <div className="ex-chat">
+              <Suggestions agent={agent} />
+              <CopilotChat />
+            </div>
+          </section>
         </div>
       </main>
     </Providers>

@@ -1,0 +1,523 @@
+/*
+ * Example styles, on the CopilotKit brand: a pale lavender page, white
+ * rounded panels, near-black text, lilac and mint accents, and mono pills
+ * for controls. The standard components keep their own --a2ui-* styles.
+ */
+:root {
+  --ex-bg: #ededf5;
+  --ex-surface: #ffffff;
+  --ex-text: #010507;
+  --ex-text-2: #57575b;
+  --ex-text-3: #838389;
+  --ex-border: #dbdbe5;
+  --ex-lilac: #bec2ff;
+  --ex-lilac-tint: #bec2ff1a;
+  --ex-mint: #85ecce;
+  --ex-mint-dark: #189370;
+  --ex-radius: 20px;
+  --ex-shadow: 0 1px 2px #0105070d, 0 8px 24px #0105070d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  color: var(--ex-text);
+  background: var(--ex-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* One soft ambient glow behind the content. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20vh -10vw auto -10vw;
+  height: 60vh;
+  background: linear-gradient(90deg, #bec2ff 0%, #85ecce 45.673%, #ffac4d 100%);
+  opacity: 0.2;
+  filter: blur(120px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ex-lilac);
+  outline-offset: 2px;
+}
+
+/* ---- Shell ---------------------------------------------------------- */
+
+.ex-shell {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: 100dvh;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px 24px 24px;
+}
+
+.ex-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  /* Room for the CopilotKit dev inspector button in the top right corner. */
+  padding-right: 72px;
+}
+
+.ex-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.ex-brand img {
+  height: 28px;
+  width: auto;
+  display: block;
+}
+
+.ex-brand-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--ex-border);
+}
+
+.ex-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.ex-subtitle {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ex-text-2);
+}
+
+/* ---- Segmented mono pills ------------------------------------------- */
+
+.ex-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ex-segment {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--ex-border);
+  border-radius: 999px;
+  background: #ffffffb2;
+  backdrop-filter: blur(8px);
+}
+
+.ex-segment-label {
+  padding: 0 8px 0 10px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ex-text-3);
+}
+
+.ex-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--ex-text-2);
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.ex-pill:hover {
+  color: var(--ex-text);
+  background: var(--ex-lilac-tint);
+}
+
+.ex-pill[aria-current="page"] {
+  color: #ffffff;
+  background: var(--ex-text);
+}
+
+.ex-pill-plain {
+  border: 1px solid var(--ex-border);
+  background: #ffffffb2;
+}
+
+/* ---- Two panels ----------------------------------------------------- */
+
+.ex-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+
+.ex-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--ex-surface);
+  border: 1px solid var(--ex-border);
+  border-radius: var(--ex-radius);
+  box-shadow: var(--ex-shadow);
+  overflow: hidden;
+}
+
+.ex-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ex-border);
+}
+
+.ex-panel-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ex-panel-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--ex-text-2);
+}
+
+.ex-tag {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ex-mint-dark);
+  background: #85ecce4d;
+}
+
+.ex-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ---- Page surfaces -------------------------------------------------- */
+
+.ex-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ex-slot-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ex-text-2);
+}
+
+.ex-slot-label code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 400;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--ex-text);
+  background: #f0f0f4;
+}
+
+.ex-slot-surface {
+  border: 1px solid var(--ex-border);
+  border-radius: 16px;
+  padding: 16px;
+  background: #fafafc;
+}
+
+.ex-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 24px;
+  border: 1px dashed var(--ex-lilac);
+  border-radius: 16px;
+  background: var(--ex-lilac-tint);
+}
+
+.ex-empty-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ex-empty-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ex-text-2);
+}
+
+.ex-slot-main .ex-empty {
+  min-height: 220px;
+  justify-content: center;
+}
+
+/* ---- Chat ----------------------------------------------------------- */
+
+.ex-chat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ex-chat > * {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---- Narrow screens ------------------------------------------------- */
+
+@media (max-width: 960px) {
+  .ex-shell {
+    height: auto;
+    min-height: 100dvh;
+    padding: 16px;
+  }
+  .ex-layout {
+    grid-template-columns: 1fr;
+  }
+  .ex-panel-chat {
+    height: 640px;
+  }
+  .ex-brand-divider,
+  .ex-subtitle {
+    display: none;
+  }
+}
+
+/* ---- Catalog page --------------------------------------------------- */
+
+.ex-cat {
+  height: auto;
+  min-height: 100dvh;
+  max-width: 1200px;
+  padding-bottom: 80px;
+}
+
+.ex-cat code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.9em;
+}
+
+.ex-cat-intro {
+  flex: none;
+}
+
+.ex-cat-intro .ex-panel-body {
+  gap: 12px;
+}
+
+.ex-cat-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ex-cat-index a {
+  padding: 4px 10px;
+  border: 1px solid var(--ex-border);
+  border-radius: 999px;
+  font-size: 12px;
+  text-decoration: none;
+  color: var(--ex-text-2);
+  background: var(--ex-surface);
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.ex-cat-index a:hover {
+  color: var(--ex-text);
+  background: var(--ex-lilac-tint);
+  border-color: var(--ex-lilac);
+}
+
+.ex-cat-index a[data-missing] {
+  border-style: dashed;
+  color: #a35a00;
+}
+
+.ex-cat-warning {
+  margin: 0;
+  font-size: 13px;
+  color: #a35a00;
+}
+
+.ex-cat-errors {
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #b3262e;
+  background: #fa5f671a;
+  overflow-x: auto;
+}
+
+.ex-cat-event {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.ex-cat-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ex-cat-group-title {
+  margin: 12px 0 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.ex-cat-card {
+  scroll-margin-top: 16px;
+  background: var(--ex-surface);
+  border: 1px solid var(--ex-border);
+  border-radius: var(--ex-radius);
+  box-shadow: var(--ex-shadow);
+  overflow: hidden;
+}
+
+.ex-cat-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--ex-border);
+}
+
+.ex-cat-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ex-cat-names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ex-cat-names code {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: #f0f0f4;
+}
+
+.ex-cat-card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.ex-cat-preview {
+  min-width: 0;
+  padding: 20px;
+}
+
+.ex-cat-loading {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ex-text-3);
+}
+
+.ex-cat-details {
+  min-width: 0;
+  padding: 16px 20px;
+  border-left: 1px solid var(--ex-border);
+  background: #fafafc;
+  font-size: 12px;
+  color: var(--ex-text-2);
+}
+
+.ex-cat-details details + details {
+  margin-top: 8px;
+}
+
+.ex-cat-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ex-text);
+}
+
+.ex-cat-details p {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+
+.ex-cat-details pre {
+  margin: 6px 0 0;
+  padding: 10px;
+  border: 1px solid var(--ex-border);
+  border-radius: 10px;
+  background: var(--ex-surface);
+  overflow-x: auto;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+@media (max-width: 960px) {
+  .ex-cat-card-body {
+    grid-template-columns: 1fr;
+  }
+  .ex-cat-details {
+    border-left: 0;
+    border-top: 1px solid var(--ex-border);
+  }
+}
