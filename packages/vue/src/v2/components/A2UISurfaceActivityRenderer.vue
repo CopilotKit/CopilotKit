@@ -87,12 +87,18 @@ function processOperations(operations: A2UIOperation[]) {
         : ops;
       // Some agent payloads include a redundant routing ID. web_core 0.15
       // validates v0.9 envelopes strictly; keep only the nested action's ID.
+      // The processor keeps these objects as its data model and edits them as
+      // the user interacts; they come from the agent's message content. Copy
+      // through JSON: the operations are JSON, and Vue's reactive proxies
+      // cannot be structured-cloned.
       processor.processMessages(
-        filtered.map((operation) => {
-          const message = { ...operation };
-          delete message.surfaceId;
-          return message;
-        }),
+        (JSON.parse(JSON.stringify(filtered)) as typeof filtered).map(
+          (operation) => {
+            const message = { ...operation };
+            delete message.surfaceId;
+            return message;
+          },
+        ),
       );
     }
     error.value = null;

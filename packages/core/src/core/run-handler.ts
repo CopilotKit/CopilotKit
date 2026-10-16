@@ -42,6 +42,21 @@ import { WebMCPRegistry } from "./webmcp";
  */
 const liveHITLStops = new WeakMap<AbortSignal, () => boolean>();
 
+/**
+ * Edits `agent.messages` by replacing the array instead of changing it in
+ * place. The current array may be the one the agent emitted with its last
+ * update, which subscribers and stored snapshots still hold. Like the in-place
+ * edit it replaces, this notifies no subscriber.
+ */
+function editAgentMessages(
+  agent: AbstractAgent,
+  edit: (messages: Message[]) => void,
+): void {
+  const messages = [...agent.messages];
+  edit(messages);
+  agent.messages = messages;
+}
+
 // Explicitly stopping a live approval must retain its error result. History
 // restoration and thread-switch cancellation instead discard the old result.
 /**
@@ -1202,7 +1217,9 @@ export class RunHandler {
               // All placeholders go; the arms below remove only the first.
               // One left behind would stay the call's only result.
               this.removePlaceholderResults(newMessages, toolCall.id);
-              this.removePlaceholderResults(agent.messages, toolCall.id);
+              editAgentMessages(agent, (messages) =>
+                this.removePlaceholderResults(messages, toolCall.id),
+              );
             } else {
               if (existingResultIndex !== -1)
                 newMessages.splice(existingResultIndex, 1);
@@ -1211,7 +1228,9 @@ export class RunHandler {
                 (m) => m.role === "tool" && m.toolCallId === toolCall.id,
               );
               if (agentMsgIdx !== -1) {
-                agent.messages.splice(agentMsgIdx, 1);
+                editAgentMessages(agent, (messages) =>
+                  messages.splice(agentMsgIdx, 1),
+                );
               }
             }
             existingResult = undefined;
@@ -1643,7 +1662,9 @@ export class RunHandler {
         content: handlerResult.content,
         ...(handlerResult.error ? { error: handlerResult.error } : {}),
       };
-      agent.messages.splice(insertAt, 0, toolMessage);
+      editAgentMessages(agent, (messages) =>
+        messages.splice(insertAt, 0, toolMessage),
+      );
 
       if (!handlerResult.error && tool?.followUp !== false) {
         return true; // Needs follow-up
@@ -1803,7 +1824,9 @@ export class RunHandler {
         content: toolCallResult,
         ...(errorMessage ? { error: errorMessage } : {}),
       };
-      agent.messages.splice(insertAt, 0, toolMessage);
+      editAgentMessages(agent, (messages) =>
+        messages.splice(insertAt, 0, toolMessage),
+      );
 
       if (!errorMessage && wildcardTool?.followUp !== false) {
         return true; // Needs follow-up
@@ -1838,16 +1861,18 @@ export class RunHandler {
 
     const error = new Error(`Tool not found: ${toolCall.function.name}`);
     const errorMessage = toolFailureMessage(error);
-    agent.messages.splice(
-      this.toolResultInsertionIndex(agent.messages, messageIndex, toolCall.id),
-      0,
-      {
-        id: randomUUID(),
-        role: "tool",
-        toolCallId: toolCall.id,
-        content: `Error: ${errorMessage}`,
-        error: errorMessage,
-      },
+    editAgentMessages(agent, (messages) =>
+      messages.splice(
+        this.toolResultInsertionIndex(messages, messageIndex, toolCall.id),
+        0,
+        {
+          id: randomUUID(),
+          role: "tool",
+          toolCallId: toolCall.id,
+          content: `Error: ${errorMessage}`,
+          error: errorMessage,
+        },
+      ),
     );
     await this._internal.emitError({
       error,
@@ -1914,7 +1939,7 @@ export class RunHandler {
     };
 
     // 4. Push assistant message into agent's messages
-    agent.messages.push(assistantMessage);
+    editAgentMessages(agent, (messages) => messages.push(assistantMessage));
 
     // 5. Execute the tool handler (if it has one)
     let handlerResult: ExecuteToolHandlerResult = {
@@ -1948,10 +1973,12 @@ export class RunHandler {
       (m) => m.id === assistantMessage.id,
     );
     if (assistantIndex !== -1) {
-      agent.messages.splice(assistantIndex + 1, 0, toolResultMessage);
+      editAgentMessages(agent, (messages) =>
+        messages.splice(assistantIndex + 1, 0, toolResultMessage),
+      );
     } else {
       // Fallback: push to end if assistant message was removed
-      agent.messages.push(toolResultMessage);
+      editAgentMessages(agent, (messages) => messages.push(toolResultMessage));
     }
 
     // 7. Handle followUp (only if no error)
@@ -1963,7 +1990,7 @@ export class RunHandler {
           role: "user",
           content: followUp,
         };
-        agent.messages.push(userMessage);
+        editAgentMessages(agent, (messages) => messages.push(userMessage));
       }
       // Yield to the framework scheduler so deferred state updates (e.g. React
       // useEffect in useAgentContext) can complete before the follow-up run reads

@@ -213,7 +213,10 @@ export function A2UIProvider({
         try {
           // Registering a 1.0 catalog disables web_core's implicit v0.9
           // fallback. Preserve the existing provider default explicitly.
-          versioned = normalizeMessages(messages);
+          // The processor keeps these objects as its data model and edits them
+          // as the user interacts. They come from the agent's message content,
+          // which must not change underneath it, so hand over a copy.
+          versioned = normalizeMessages(structuredClone(messages));
           validateSurfaceVersions(versioned, processor);
           processor.processMessages(versioned as any[]);
         } catch (err) {

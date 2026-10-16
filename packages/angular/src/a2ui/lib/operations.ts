@@ -1,10 +1,10 @@
-import {
+import type {
   A2uiMessage,
-  A2uiMessageSchema,
   ComponentApi,
   MessageProcessor,
   SurfaceModel,
 } from "@a2ui/web_core/v0_9";
+import { A2uiMessageSchema } from "@a2ui/web_core/v0_9";
 
 function surfaceIdOf(message: A2uiMessage): string {
   if ("createSurface" in message) return message.createSurface.surfaceId;
@@ -25,9 +25,15 @@ export function normalizeA2UIOperations(
   catalogId: string,
 ): A2uiMessage[] {
   return operations.flatMap((operation) => {
+    // The A2UI processor keeps parsed operations as its data model and edits
+    // them as the user interacts. Schema parsing passes untyped values such as
+    // `updateDataModel.value` through by reference, so copy first: the
+    // operations come from the agent's message content.
     const message: Record<string, unknown> = {
       version: "v0.9",
-      ...(typeof operation === "object" ? operation : {}),
+      ...(typeof operation === "object" && operation !== null
+        ? structuredClone(operation)
+        : {}),
     };
     // Compatibility with noncanonical agent payloads: this is routing metadata,
     // not part of the v0.9 envelope. The nested action's surfaceId is authoritative.
