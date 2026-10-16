@@ -211,7 +211,10 @@ function PopoverTrigger({ props, children }: RendererProps<any>) {
       role="button"
       tabIndex={0}
       aria-expanded={ctx?.open ?? false}
-      onClick={() => ctx?.toggle()}
+      // Capture phase: a Button child stops propagation of its own click
+      // (so it never bubbles into a Pressable), which would otherwise leave
+      // the trigger without the click.
+      onClickCapture={() => ctx?.toggle()}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
