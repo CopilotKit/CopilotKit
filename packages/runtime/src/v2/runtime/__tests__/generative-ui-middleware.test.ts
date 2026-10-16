@@ -232,6 +232,48 @@ describe("GenerativeUIMiddleware", () => {
     );
   });
 
+  it("lists the user values and the rejections of an existing surface in the guide", async () => {
+    const { input } = await run(
+      [],
+      uiProps({
+        surfaces: {
+          cart_surface: { target: "chat" },
+          form: {
+            target: "chat",
+            dataModel: { "/form/email": "me@x.io" },
+            rejected: ['operation 2: unknown component "Missing"'],
+          },
+        },
+      }),
+    );
+    const guide = guideText(input);
+    expect(guide).toContain(
+      [
+        '- "cart_surface" (target "chat")',
+        '- "form" (target "chat")',
+        '  user values: {"/form/email":"me@x.io"}',
+        '  rejected: operation 2: unknown component "Missing"',
+      ].join("\n"),
+    );
+    expect(guide).toContain(
+      "Rejected operations were dropped: send them again with the problem fixed.",
+    );
+  });
+
+  it("cuts long user values in the guide", async () => {
+    const { input } = await run(
+      [],
+      uiProps({
+        surfaces: {
+          form: { target: "chat", dataModel: { "/a": "x".repeat(600) } },
+        },
+      }),
+    );
+    expect(guideText(input).split("\n")).toContain(
+      `  user values: {"/a":"${"x".repeat(493)}...`,
+    );
+  });
+
   it("tells the model to list child ids in the root's slot before sending the children", async () => {
     const { input } = await run([]);
     const guide = guideText(input);
