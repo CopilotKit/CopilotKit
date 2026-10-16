@@ -14,4 +14,5 @@ COPY tools/railway-disposable-proof/ tools/railway-disposable-proof/
 COPY showcase/scripts/railway-envs.ts showcase/scripts/railway-envs.ts
 COPY showcase/harness/src/shared/railway-lifecycle* showcase/harness/src/shared/
 COPY package.json package.json
+COPY source-manifest.json runner-identity.json ./
 CMD ["node", "--import", "tsx", "tools/intelligence-smoke/rich-threads/lifecycle/railway/runner/server.mjs"]

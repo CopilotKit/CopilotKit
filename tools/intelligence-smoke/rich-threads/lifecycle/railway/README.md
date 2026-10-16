@@ -193,3 +193,51 @@ permanent service with its volume attached. Startup reconciliation exports
 `recovery.json` before/after ownership and cleanup evidence alongside retained
 results. Run both crash stages and inspect actual provider absence. These controls
 are implemented; local tests are supplemental and do not claim hosted acceptance.
+
+### Runner deployment protocol v1
+
+Use the existing runner admin bearer token. The image embeds `runner-identity.json`
+and `source-manifest.json`; the build artifact `bounded-row1-image-candidates`
+contains the same identity as `runner-identity.json` and manifest as
+`runner-source.json`. Identity fields are `protocolVersion: 1`, `sourceRevision`,
+`sourceManifestSha256`, `compatibilitySha256`, and `policySha256`. The source hash
+covers the exact manifest bytes. The compatibility hash covers
+`JSON.stringify(manifest.compatibilityFiles)`; the policy hash matches `/registry`.
+Railway's deployed OCI digest is separate evidence: an image cannot embed its own
+digest.
+
+1. `POST /deployment/drain` with exactly `{ "operationId": "github-123-456",
+"targetIdentity": { ... } }` fences manual and scheduled admission immediately.
+   The operation ID must match `[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}`. Active execution
+   finishes normally, including cleanup. Recovery ticks continue. Conflicting
+   owners or a changed target for the same owner receive 409.
+2. `GET /deployment` reports `phase` (`running`, `draining`, `drained`, or `failed`),
+   `runtimeIdentity`, opaque `templateSha256`, the retained `operation`, and
+   `busy`, `active`, `blocked`, `lastRecovery`. Deploy only after `drained`: a fresh
+   successful reconciliation must prove no active work or unfinished ownership.
+3. `POST /deployment/resume` with exactly `{ "operationId": "github-123-456",
+"expectedRuntimeIdentity": { ... } }` requires the same owner, the exact current
+   identity, and another clean recovery. Both successful mutations return 200
+   with the deployment snapshot. Wrong ownership, identity, or recovery state
+   returns 409; invalid input or unavailable persistence returns 503.
+
+`/data/deployment.json` retains baseline and target identities, the configuration
+hash, owner, and timestamps. Its writes are serialized separately from scheduler
+state. Drain survives restart, has no timeout, and never resumes itself. Resume
+keeps the last operation for retries; the next deployment uses a distinct owner.
+A failed deployment write keeps admissions closed for that process. The caller
+must receive a durable drain acknowledgement before changing the image.
+
+Startup checks `/data/runtime.json`, the retained template, policy, and pending
+operation before bootstrap or configuration writes. It preserves the exact
+retained template bytes. The first protocol image may initialize metadata only
+when no deployment metadata exists and the legacy template still matches.
+A changed image must match the drained operation's target or protocol-capable
+baseline; rollback to an older image without this protocol is unsupported.
+
+Ordinary test releases may change `scenarios/row1.mjs`, `rows/row1.mjs`, tests,
+and Markdown. All other staged inputs remain frozen, including controller,
+browser capture, policy/parser/publisher, journals, inspection, native and storage
+adapters, bootstrap, dependencies, Docker inputs, and test-service configuration.
+Root `package.json` is conservatively frozen too. Review every release explicitly;
+changes to these contracts need a coordinated release, not this protocol.

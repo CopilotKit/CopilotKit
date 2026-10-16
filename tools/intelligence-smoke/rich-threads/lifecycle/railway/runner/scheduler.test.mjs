@@ -262,3 +262,370 @@ test("restart before crash-control checkpoint does not certify hosted crash proo
   assert.equal(receipt.status, "failed");
   assert.equal(receipt.crashReached, false);
 });
+
+const identity = {
+  protocolVersion: 1,
+  sourceRevision: "a".repeat(40),
+  sourceManifestSha256: "a".repeat(64),
+  compatibilitySha256: "b".repeat(64),
+  policySha256: "c".repeat(64),
+};
+const targetIdentity = {
+  ...identity,
+  sourceRevision: "d".repeat(40),
+  sourceManifestSha256: "d".repeat(64),
+};
+const drainRequest = { operationId: "deploy-test-1", targetIdentity };
+
+test("drain fences manual and scheduled admission synchronously and survives restart", async (t) => {
+  let executions = 0;
+  const { root, scheduler } = await setup(t, {
+    runtimeIdentity: identity,
+    scheduleEnabled: true,
+    execute: async () => {
+      executions++;
+      return 0;
+    },
+  });
+  const pending = scheduler.drain(drainRequest);
+  assert.equal((await scheduler.start()).accepted, false);
+  await pending;
+  await scheduler.tick();
+  assert.equal(executions, 0);
+  assert.equal(scheduler.deployment().phase, "drained");
+  await assert.rejects(
+    scheduler.drain({ ...drainRequest, operationId: "other" }),
+    /owner/,
+  );
+  await scheduler.close();
+  const restarted = await createScheduler({
+    root,
+    config: {},
+    runtimeIdentity: targetIdentity,
+    recover: async () => {},
+  });
+
+  assert.equal(restarted.deployment().phase, "drained");
+  assert.equal((await restarted.start()).accepted, false);
+  await assert.rejects(
+    restarted.resume({
+      operationId: "other",
+      expectedRuntimeIdentity: targetIdentity,
+    }),
+    /owner/,
+  );
+  await assert.rejects(
+    restarted.resume({
+      operationId: drainRequest.operationId,
+      expectedRuntimeIdentity: identity,
+    }),
+    /identity/,
+  );
+  await restarted.resume({
+    operationId: drainRequest.operationId,
+    expectedRuntimeIdentity: targetIdentity,
+  });
+  assert.equal(restarted.deployment().phase, "running");
+  assert.equal(
+    (
+      await restarted.resume({
+        operationId: drainRequest.operationId,
+        expectedRuntimeIdentity: targetIdentity,
+      })
+    ).phase,
+    "running",
+  );
+  await restarted.close();
+});
+
+test("drain cancels admission already waiting in preflight", async (t) => {
+  let release,
+    entered,
+    recoveries = 0,
+    executions = 0;
+  const waiting = new Promise((resolve) => {
+    entered = resolve;
+  });
+  const { scheduler } = await setup(t, {
+    runtimeIdentity: identity,
+    recover: async () => {
+      if (++recoveries === 2) {
+        entered();
+        await new Promise((resolve) => {
+          release = resolve;
+        });
+      }
+    },
+    execute: async () => {
+      executions++;
+      return 0;
+    },
+  });
+  const admission = scheduler.start();
+  await waiting;
+  await scheduler.drain(drainRequest);
+  assert.equal(scheduler.deployment().phase, "draining");
+  release();
+  assert.equal((await admission).accepted, false);
+  await scheduler.tick();
+  assert.equal(scheduler.deployment().phase, "drained");
+  assert.equal(executions, 0);
+});
+
+test("drain lets active work and cleanup finish without abort", async (t) => {
+  let finish,
+    signal,
+    recoveries = 0;
+  const { scheduler } = await setup(t, {
+    runtimeIdentity: identity,
+    recover: async () => {
+      recoveries++;
+    },
+    execute: async (args) => {
+      signal = args.signal;
+      return new Promise((resolve) => {
+        finish = resolve;
+      });
+    },
+  });
+  const run = await scheduler.start();
+  await scheduler.drain(drainRequest);
+  assert.equal(signal.aborted, false);
+  assert.equal(scheduler.deployment().phase, "draining");
+  await assert.rejects(
+    scheduler.resume({
+      operationId: drainRequest.operationId,
+      expectedRuntimeIdentity: identity,
+    }),
+    /Clean/,
+  );
+  finish(0);
+  await run.completion;
+  await scheduler.tick();
+  assert.equal(scheduler.deployment().phase, "drained");
+  assert.ok(recoveries >= 4);
+});
+
+test("failed reconciliation and failed deployment persistence cannot resume admissions", async (t) => {
+  let failed = false;
+  const { scheduler } = await setup(t, {
+    runtimeIdentity: identity,
+    recover: async () => {
+      if (failed) throw Error("blocked");
+    },
+  });
+  failed = true;
+  await scheduler.drain(drainRequest);
+  assert.equal(scheduler.deployment().phase, "draining");
+  await assert.rejects(
+    scheduler.resume({
+      operationId: drainRequest.operationId,
+      expectedRuntimeIdentity: identity,
+    }),
+    /Clean/,
+  );
+  const second = await setup(t, {
+    runtimeIdentity: identity,
+    persistDeployment: async () => {
+      throw Error("disk full");
+    },
+  });
+  await assert.rejects(second.scheduler.drain(drainRequest), /disk full/);
+  assert.equal(second.scheduler.deployment().phase, "failed");
+  assert.equal((await second.scheduler.start()).accepted, false);
+});
+
+test("drain waits out a start writing its durable admission before refusing execution", async (t) => {
+  let entered,
+    release,
+    writes = 0,
+    executions = 0;
+  const writing = new Promise((resolve) => {
+    entered = resolve;
+  });
+  const { scheduler } = await setup(t, {
+    runtimeIdentity: identity,
+    persistScheduler: async (path, value) => {
+      if (++writes === 2) {
+        entered("writing");
+        await new Promise((resolve) => {
+          release = resolve;
+        });
+      }
+      await durableJson(path, value);
+    },
+    execute: async () => {
+      executions++;
+      return 0;
+    },
+  });
+  const start = scheduler.start();
+  const phase = await Promise.race([
+    writing,
+    start.then(async (run) => {
+      await run.completion;
+      return "admitted";
+    }),
+  ]);
+  assert.equal(phase, "writing");
+  await scheduler.drain(drainRequest);
+  release();
+  assert.equal((await start).accepted, false);
+  await scheduler.tick();
+  assert.equal(scheduler.deployment().phase, "drained");
+  assert.equal(executions, 0);
+});
+
+test("drain cannot certify unfinished ownership even if recovery returns", async (t) => {
+  const control = await mkdtemp(join(tmpdir(), "runner-owner-"));
+  t.after(() => rm(control, { recursive: true, force: true }));
+  await mkdir(join(control, "attempt"));
+  await durableJson(join(control, "attempt/journal.json"), {
+    runId: "attempt",
+    phase: "setup",
+    intents: [],
+    cleanup: { status: "failed" },
+  });
+  const { scheduler } = await setup(t, {
+    runtimeIdentity: identity,
+    config: { controlDirectory: control },
+  });
+  await scheduler.drain(drainRequest);
+  assert.equal(scheduler.deployment().phase, "draining");
+  assert.equal(scheduler.deployment().blocked, true);
+});
+
+test("same owner cannot retarget and a later operation needs a distinct owner", async (t) => {
+  const { scheduler } = await setup(t, { runtimeIdentity: identity });
+  await scheduler.drain(drainRequest);
+  await assert.rejects(
+    scheduler.drain({ ...drainRequest, targetIdentity: identity }),
+    /identity conflict/,
+  );
+  await scheduler.resume({
+    operationId: drainRequest.operationId,
+    expectedRuntimeIdentity: identity,
+  });
+  await assert.rejects(
+    scheduler.drain({ ...drainRequest, targetIdentity: identity }),
+    /identity conflict/,
+  );
+  await scheduler.drain({ ...drainRequest, operationId: "deploy-next" });
+  assert.equal(scheduler.deployment().operation.operationId, "deploy-next");
+});
+
+test("recovery tick cannot publish stale drained state while resume is being persisted", async (t) => {
+  let pendingResume,
+    releaseResume,
+    recoveringDuringResume,
+    holding = false;
+  const resumedWrite = new Promise((resolve) => {
+    pendingResume = resolve;
+  });
+  const recoveryEntered = new Promise((resolve) => {
+    recoveringDuringResume = resolve;
+  });
+  const { root, scheduler } = await setup(t, {
+    runtimeIdentity: identity,
+    recover: async () => {
+      if (holding) recoveringDuringResume();
+    },
+    persistDeployment: async (path, value) => {
+      if (value.status === "resumed") {
+        holding = true;
+        pendingResume();
+        await new Promise((resolve) => {
+          releaseResume = resolve;
+        });
+      }
+      await durableJson(path, value);
+    },
+  });
+  await scheduler.drain(drainRequest);
+  const resumed = scheduler.resume({
+    operationId: drainRequest.operationId,
+    expectedRuntimeIdentity: identity,
+  });
+  await resumedWrite;
+  const tick = scheduler.tick();
+  await Promise.race([recoveryEntered, tick]);
+  while (scheduler.status().busy)
+    await new Promise((resolve) => setImmediate(resolve));
+  releaseResume();
+  await resumed;
+  await tick;
+  assert.equal(
+    JSON.parse(await readFile(join(root, "deployment.json"))).status,
+    "resumed",
+  );
+  assert.equal(scheduler.deployment().operation.status, "resumed");
+  assert.equal(scheduler.deployment().phase, "running");
+});
+
+for (const pendingStatus of ["draining", "resumed"]) {
+  test(`shutdown retains ownership while ${pendingStatus} is being persisted`, async (t) => {
+    let entered, release;
+    const writing = new Promise((resolve) => {
+      entered = resolve;
+    });
+    const { root, scheduler } = await setup(t, {
+      runtimeIdentity: identity,
+      persistDeployment: async (path, value) => {
+        if (value.status === pendingStatus) {
+          entered();
+          await new Promise((resolve) => {
+            release = resolve;
+          });
+        }
+        await durableJson(path, value);
+      },
+    });
+    if (pendingStatus === "resumed") await scheduler.drain(drainRequest);
+    const mutation =
+      pendingStatus === "draining"
+        ? scheduler.drain(drainRequest)
+        : scheduler.resume({
+            operationId: drainRequest.operationId,
+            expectedRuntimeIdentity: identity,
+          });
+    await writing;
+    const stopping = scheduler.close();
+    try {
+      const nextTransition = scheduler.drain(drainRequest).then(
+        () => "accepted",
+        (error) => {
+          assert.match(error.message, /stopping/);
+          return "refused";
+        },
+      );
+      assert.equal(
+        await Promise.race([stopping.then(() => "closed"), nextTransition]),
+        "refused",
+      );
+      await assert.rejects(
+        createScheduler({
+          root,
+          config: {},
+          runtimeIdentity: identity,
+          recover: async () => {},
+        }),
+        /owner is still alive/,
+      );
+    } finally {
+      release();
+      await mutation;
+      await stopping;
+    }
+    const restarted = await createScheduler({
+      root,
+      config: {},
+      runtimeIdentity: identity,
+      recover: async () => {},
+    });
+    assert.equal(
+      restarted.deployment().phase,
+      pendingStatus === "draining" ? "drained" : "running",
+    );
+    await restarted.close();
+  });
+}

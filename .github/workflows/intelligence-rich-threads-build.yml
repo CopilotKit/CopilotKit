@@ -24,7 +24,7 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24.18.0"
-          cache: pnpm
+          package-manager-cache: false
       - run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
       - name: Stage exact committed application sources
         run: >-
@@ -88,6 +88,7 @@ jobs:
           copyFileSync(`${process.env.RUNNER_TEMP}/rich-app/source.json`, 'candidate-build/application-source.json');
           copyFileSync(`${process.env.RUNNER_TEMP}/rich-strands/source-manifest.json`, 'candidate-build/strands-source.json');
           copyFileSync(`${process.env.RUNNER_TEMP}/rich-runner/source-manifest.json`, 'candidate-build/runner-source.json');
+          copyFileSync(`${process.env.RUNNER_TEMP}/rich-runner/runner-identity.json`, 'candidate-build/runner-identity.json');
           NODE
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

@@ -4,6 +4,11 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { durableJson, recoveryLock } from "../journal.mjs";
+import {
+  compatibleIdentity,
+  sameIdentity,
+  templateDigest,
+} from "./deployment.mjs";
 import { recoverSupervisor } from "../supervisor.mjs";
 import { recoverRailwayEnvironment } from "../environment.mjs";
 
@@ -90,6 +95,9 @@ export async function createScheduler({
   recover = reconcile,
   clock = Date.now,
   scheduleEnabled = false,
+  runtimeIdentity,
+  persistDeployment = durableJson,
+  persistScheduler = durableJson,
 }) {
   assert.equal(typeof scheduleEnabled, "boolean");
   await mkdir(root, { recursive: true, mode: 0o700 });
@@ -102,16 +110,186 @@ export async function createScheduler({
     active: null,
     blocked: true,
   };
+  const deploymentPath = join(root, "deployment.json");
+  let operation = await optionalJson(deploymentPath);
+  if (operation) {
+    assert.equal(operation.version, 1);
+    assert.ok(["draining", "drained", "resumed"].includes(operation.status));
+    compatibleIdentity(operation.baselineIdentity, operation.targetIdentity);
+    assert.equal(operation.templateSha256, templateDigest(config));
+    assert.ok(
+      sameIdentity(runtimeIdentity, operation.baselineIdentity) ||
+        sameIdentity(runtimeIdentity, operation.targetIdentity),
+    );
+  }
+  let fenced = Boolean(operation && operation.status !== "resumed");
+  let deploymentFailure = false;
+  let deploymentWrites = Promise.resolve();
+  let recoveredForDrain = false;
+  const persist = (value) => {
+    const write = deploymentWrites.then(() =>
+      persistDeployment(deploymentPath, value),
+    );
+    deploymentWrites = write.catch(() => {
+      deploymentFailure = true;
+      fenced = true;
+    });
+    return write;
+  };
   let busy = false;
   let closing = false;
+  let unlocked = false;
   let abort;
-  const save = () => durableJson(statePath, state);
+  const deploymentTransitions = new Set();
+  /** Retain shutdown ownership until every admitted deployment transition settles. */
+  function trackTransition(promise) {
+    deploymentTransitions.add(promise);
+    promise.then(
+      () => deploymentTransitions.delete(promise),
+      () => deploymentTransitions.delete(promise),
+    );
+    return promise;
+  }
+  const save = () => persistScheduler(statePath, state);
+  const deployment = () => ({
+    protocolVersion: 1,
+    runtimeIdentity,
+    templateSha256: templateDigest(config),
+    operation: operation ? structuredClone(operation) : null,
+    phase: deploymentFailure
+      ? "failed"
+      : !fenced
+        ? "running"
+        : operation?.status === "drained" &&
+            recoveredForDrain &&
+            !busy &&
+            !state.active &&
+            !state.blocked
+          ? "drained"
+          : "draining",
+    busy,
+    active: state.active,
+    blocked: state.blocked,
+    lastRecovery: state.lastRecovery,
+  });
+  /** Persist readiness only after fresh recovery has proved ownership is clear. */
+  async function certifyDrain() {
+    if (
+      !fenced ||
+      closing ||
+      resuming ||
+      deploymentFailure ||
+      busy ||
+      state.active ||
+      state.blocked ||
+      !recoveredForDrain
+    )
+      return;
+    const next = { ...operation, status: "drained" };
+    await persist(next);
+    operation = next;
+  }
+  /** Claim a durable deployment owner and fence admissions before yielding. */
+  async function drain({ operationId, targetIdentity }) {
+    assert.ok(!closing, "Runner stopping; deployment transition refused");
+    assert.match(operationId, /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/);
+    compatibleIdentity(runtimeIdentity, targetIdentity);
+    if (operation?.operationId === operationId) {
+      assert.ok(
+        sameIdentity(operation.targetIdentity, targetIdentity),
+        "Deployment target identity conflict",
+      );
+      await deploymentWrites;
+      assert.ok(!deploymentFailure, "Deployment persistence failed");
+      return deployment();
+    }
+    assert.ok(!fenced, "Deployment owner conflict");
+    // Fence synchronously: an admitted start may already be awaiting preflight or disk.
+    fenced = true;
+    recoveredForDrain = false;
+    operation = {
+      version: 1,
+      status: "draining",
+      operationId,
+      baselineIdentity: structuredClone(runtimeIdentity),
+      targetIdentity: structuredClone(targetIdentity),
+      templateSha256: templateDigest(config),
+      requestedAt: new Date(clock()).toISOString(),
+    };
+    await persist(operation);
+    await recoverIdle();
+    return deployment();
+  }
+  let resuming = false;
+  /** Restore admission only for the same owner and the verified running image. */
+  async function resume({ operationId, expectedRuntimeIdentity }) {
+    assert.ok(!closing, "Runner stopping; deployment transition refused");
+    assert.equal(
+      operation?.operationId,
+      operationId,
+      "Deployment owner mismatch",
+    );
+    assert.ok(
+      sameIdentity(expectedRuntimeIdentity, runtimeIdentity),
+      "Runtime identity mismatch",
+    );
+    assert.ok(
+      sameIdentity(runtimeIdentity, operation.baselineIdentity) ||
+        sameIdentity(runtimeIdentity, operation.targetIdentity),
+      "Unexpected runtime identity",
+    );
+    assert.ok(
+      !deploymentFailure && !resuming,
+      "Deployment persistence failed or resume in progress",
+    );
+    if (!fenced) return deployment();
+    resuming = true;
+    try {
+      assert.ok(
+        !busy && !state.active,
+        "Clean recovery required before resume",
+      );
+      assert.ok(await recoverIdle(), "Clean recovery required before resume");
+      assert.ok(
+        recoveredForDrain && !busy && !state.active && !state.blocked,
+        "Clean recovery required before resume",
+      );
+      const next = {
+        ...operation,
+        status: "resumed",
+        resumedAt: new Date(clock()).toISOString(),
+      };
+      await persist(next);
+      operation = next;
+      fenced = false;
+      return deployment();
+    } finally {
+      resuming = false;
+    }
+  }
   async function recoverIdle() {
     if (busy) return false;
     busy = true;
+    recoveredForDrain = false;
     try {
       const before = state.active ? await ownershipEvidence(config) : [];
       await recover(config);
+      if (config.controlDirectory) {
+        for (const path of [
+          "active-run/lease.json",
+          "supervisor-lock/owner.json",
+        ])
+          assert.equal(
+            await optionalJson(join(config.controlDirectory, path)),
+            null,
+            "Unfinished ownership blocks deployment",
+          );
+        for (const run of await ownershipEvidence(config))
+          assert.ok(
+            run.phase === "complete" && run.cleanup?.status === "passed",
+            "Unfinished ownership blocks deployment",
+          );
+      }
       if (state.active) {
         const file = join(root, "results", state.active, "run.json");
         const prior = await optionalJson(file);
@@ -147,6 +325,7 @@ export async function createScheduler({
         });
         state.active = null;
       }
+      recoveredForDrain = fenced;
       state.blocked = false;
       state.lastRecovery = {
         status: "passed",
@@ -165,11 +344,13 @@ export async function createScheduler({
       return false;
     } finally {
       busy = false;
+      await certifyDrain();
     }
   }
   async function start(mode = "single", crashStage = "recorded-volume") {
     assert.ok(["single", "acceptance", "crash-recovery"].includes(mode));
     assert.ok(["recorded-volume", "ambiguous-create"].includes(crashStage));
+    if (fenced) return { accepted: false, reason: "deployment-draining" };
     if (busy || state.active || closing)
       return { accepted: false, reason: "busy-or-recovery-required" };
     busy = true;
@@ -182,95 +363,123 @@ export async function createScheduler({
       busy = false;
       return { accepted: false, reason: "cleanup-blocked" };
     }
-    if (closing) {
+    if (closing || fenced) {
       busy = false;
       return { accepted: false, reason: "runner-stopping" };
     }
-    const id = `run-${randomUUID()}`;
-    const directory = join(root, "results", id);
-    await mkdir(directory, { mode: 0o700 });
-    const receipt = {
-      id,
-      mode,
-      status: "running",
-      crashStage: mode === "crash-recovery" ? crashStage : undefined,
-      startedAt: new Date(clock()).toISOString(),
-    };
-    await durableJson(join(directory, "run.json"), receipt);
-    state.active = id;
-    state.nextRunAt = clock() + intervalMs;
-    await save();
-    abort = new AbortController();
-    if (closing) abort.abort();
-    const completion = (async () => {
-      const previousRuns = new Set(
-        (await ownershipEvidence(config)).map((run) => run.runId),
-      );
-      let exitCode = null;
-      let failure = null;
-      try {
-        exitCode = await execute({
-          controller,
-          configPath,
-          output: join(directory, "evidence"),
-          mode,
-          crashStage,
-          signal: abort.signal,
-        });
-        if (exitCode !== 0) failure = "Test controller failed";
-      } catch {
-        failure = "Test controller interrupted or failed";
-      }
-      let cleanup = "failed";
-      try {
-        await recover(config);
-        cleanup = "passed";
-      } catch {
-        failure = "Cleanup failed; new runs blocked";
-      }
-      const deadlineExceeded = (await ownershipEvidence(config)).some(
-        (run) => !previousRuns.has(run.runId) && run.cleanup?.deadlineExceeded,
-      );
-      if (deadlineExceeded)
-        failure = "Owned cleanup exceeded the 60-minute lifetime";
-      await durableJson(join(directory, "run.json"), {
-        ...receipt,
-        status: failure ? "failed" : "passed",
-        exitCode,
-        cleanup,
-        deadlineExceeded,
-        diagnostic: failure,
-        finishedAt: new Date(clock()).toISOString(),
-      });
-      state.blocked = cleanup !== "passed";
-      if (!state.blocked) state.active = null;
+    try {
+      const id = `run-${randomUUID()}`;
+      const directory = join(root, "results", id);
+      await mkdir(directory, { mode: 0o700 });
+      const receipt = {
+        id,
+        mode,
+        status: "running",
+        crashStage: mode === "crash-recovery" ? crashStage : undefined,
+        startedAt: new Date(clock()).toISOString(),
+      };
+      await durableJson(join(directory, "run.json"), receipt);
+      state.active = id;
+      state.nextRunAt = clock() + intervalMs;
       await save();
-    })().finally(() => {
-      busy = false;
-      abort = undefined;
-    });
-    // Retain unexpected disk failures as a blocking state, never an unhandled rejection.
-    completion.catch(() => {
+      abort = new AbortController();
+      if (closing) abort.abort();
+      if (fenced) {
+        await durableJson(join(directory, "run.json"), {
+          ...receipt,
+          status: "cancelled",
+          diagnostic: "Deployment drain before execution",
+        });
+        state.active = null;
+        await save();
+        busy = false;
+        return { accepted: false, reason: "deployment-draining" };
+      }
+      const completion = (async () => {
+        const previousRuns = new Set(
+          (await ownershipEvidence(config)).map((run) => run.runId),
+        );
+        let exitCode = null;
+        let failure = null;
+        try {
+          assert.ok(!fenced, "Deployment drain before execution");
+          exitCode = await execute({
+            controller,
+            configPath,
+            output: join(directory, "evidence"),
+            mode,
+            crashStage,
+            signal: abort.signal,
+          });
+          if (exitCode !== 0) failure = "Test controller failed";
+        } catch {
+          failure = "Test controller interrupted or failed";
+        }
+        let cleanup = "failed";
+        try {
+          await recover(config);
+          cleanup = "passed";
+        } catch {
+          failure = "Cleanup failed; new runs blocked";
+        }
+        const deadlineExceeded = (await ownershipEvidence(config)).some(
+          (run) =>
+            !previousRuns.has(run.runId) && run.cleanup?.deadlineExceeded,
+        );
+        if (deadlineExceeded)
+          failure = "Owned cleanup exceeded the 60-minute lifetime";
+        await durableJson(join(directory, "run.json"), {
+          ...receipt,
+          status: failure ? "failed" : "passed",
+          exitCode,
+          cleanup,
+          deadlineExceeded,
+          diagnostic: failure,
+          finishedAt: new Date(clock()).toISOString(),
+        });
+        state.blocked = cleanup !== "passed";
+        if (!state.blocked) state.active = null;
+        await save();
+      })().finally(() => {
+        busy = false;
+        abort = undefined;
+      });
+      // Retain unexpected disk failures as a blocking state, never an unhandled rejection.
+      completion.catch(() => {
+        state.blocked = true;
+        console.error(
+          "Durable runner result publication failed; reconciliation required",
+        );
+      });
+      return { accepted: true, id, completion };
+    } catch (error) {
       state.blocked = true;
-      console.error(
-        "Durable runner result publication failed; reconciliation required",
-      );
-    });
-    return { accepted: true, id, completion };
+      busy = false;
+      throw error;
+    }
   }
   await recoverIdle();
   return {
     status: () => ({ ...state, busy, scheduleEnabled }),
     start,
+    deployment,
+    drain: (request) => trackTransition(drain(request)),
+    resume: (request) => trackTransition(resume(request)),
     async tick() {
-      if (busy || closing) return;
+      if (busy || closing || resuming) return;
       if (!(await recoverIdle())) return;
-      if (scheduleEnabled && clock() >= state.nextRunAt) await start("single");
+      if (!fenced && scheduleEnabled && clock() >= state.nextRunAt)
+        await start("single");
     },
     async close() {
       closing = true;
       abort?.abort();
-      if (!busy) await unlock();
+      await Promise.allSettled(deploymentTransitions);
+      await deploymentWrites;
+      if (!busy && !unlocked) {
+        unlocked = true;
+        await unlock();
+      }
     },
   };
 }

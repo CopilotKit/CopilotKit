@@ -15,6 +15,7 @@ import { durableJson } from "../journal.mjs";
 import { parseRunRecordsSnapshot, policy } from "../contract.mts";
 import { digest, policyDigest } from "../distribution.mjs";
 import { createScheduler } from "./scheduler.mjs";
+import { checkStartup, validateIdentity } from "./deployment.mjs";
 import { installBootstrap } from "./bootstrap-seed.mjs";
 
 import { inspectionHandler } from "../inspection-channel.mjs";
@@ -96,6 +97,39 @@ export function runnerServer({ root, config, token, scheduler }) {
       const auth = Buffer.from(request.headers.authorization ?? "");
       if (auth.length !== expected.length || !timingSafeEqual(auth, expected))
         return send(401, { error: "unauthorized" });
+      if (request.method === "GET" && url.pathname === "/deployment")
+        return send(200, scheduler.deployment());
+      if (
+        request.method === "POST" &&
+        ["/deployment/drain", "/deployment/resume"].includes(url.pathname)
+      ) {
+        const body = await jsonBody(request);
+        const draining = url.pathname.endsWith("/drain");
+        assert.deepEqual(
+          Object.keys(body).sort(),
+          draining
+            ? ["operationId", "targetIdentity"]
+            : ["expectedRuntimeIdentity", "operationId"],
+        );
+        try {
+          return send(
+            200,
+            await scheduler[draining ? "drain" : "resume"](body),
+          );
+        } catch (error) {
+          if (
+            error.code === "DEPLOYMENT_CONFLICT" ||
+            /owner|identity|Clean recovery|compatibility|resume in progress/.test(
+              error.message,
+            )
+          )
+            return send(409, {
+              error: "deployment-conflict",
+              deployment: scheduler.deployment(),
+            });
+          throw error;
+        }
+      }
       if (request.method === "GET" && url.pathname === "/status")
         return send(200, scheduler.status());
       if (request.method === "GET" && url.pathname === "/registry") {
@@ -208,8 +242,6 @@ export async function main(env = process.env) {
   );
   const root = env.RAILWAY_VOLUME_MOUNT_PATH;
   assert.equal(root, "/data");
-  for (const path of ["private", "control", "results"])
-    await mkdir(join(root, path), { recursive: true, mode: 0o700 });
   const configPath = join(root, "private/template.json");
   const template = JSON.parse(env.RICH_TEMPLATE_JSON);
   assert.equal(template.controlDirectory, join(root, "control"));
@@ -220,13 +252,44 @@ export async function main(env = process.env) {
     serviceId: env.RAILWAY_SERVICE_ID,
     volumeId: env.RAILWAY_VOLUME_ID,
   };
+  const runtimeIdentity = JSON.parse(
+    await readFile(resolve("runner-identity.json"), "utf8"),
+  );
+  validateIdentity(runtimeIdentity);
+  assert.equal(
+    runtimeIdentity.policySha256,
+    policyDigest(),
+    "Image policy metadata mismatch",
+  );
+  const sourceBytes = await readFile(resolve("source-manifest.json"), "utf8");
+  const sourceManifest = JSON.parse(sourceBytes);
+  assert.equal(runtimeIdentity.sourceRevision, sourceManifest.revision);
+  assert.equal(runtimeIdentity.sourceManifestSha256, digest(sourceBytes));
+  assert.equal(
+    runtimeIdentity.compatibilitySha256,
+    digest(JSON.stringify(sourceManifest.compatibilityFiles)),
+  );
+  const runtimeMetadata = await checkStartup({
+    root,
+    template,
+    runtimeIdentity,
+  });
+  for (const path of ["private", "control", "results"])
+    await mkdir(join(root, path), { recursive: true, mode: 0o700 });
   await installBootstrap({
     root,
     template,
     seed: env.RICH_BOOTSTRAP_SCRIPT_B64,
   });
   delete env.RICH_BOOTSTRAP_SCRIPT_B64;
-  await durableJson(configPath, template);
+  // Existing template bytes remain untouched across an ordinary rollout.
+  try {
+    await readFile(configPath);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    await durableJson(configPath, template);
+  }
+  await durableJson(join(root, "runtime.json"), runtimeMetadata);
   // Only initialize an unmistakably new volume. Missing records on an existing
   // initialized volume are corruption and must block, never become an empty run list.
   const marker = join(root, "initialized.json");
@@ -256,6 +319,7 @@ export async function main(env = process.env) {
     configPath,
     controller: resolve("tools/intelligence-smoke/rich-threads/controller.mjs"),
     scheduleEnabled,
+    runtimeIdentity,
   });
   const server = runnerServer({
     root,

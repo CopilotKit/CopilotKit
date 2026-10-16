@@ -202,3 +202,80 @@ test("inspection credentials cannot administer runner and revoke immediately", a
     401,
   );
 });
+
+test("deployment routes require admin auth and exact bounded requests", async (t) => {
+  const token = "x".repeat(32);
+  const calls = [];
+  const server = runnerServer({
+    root: "/unused",
+    config: {},
+    token,
+    scheduler: {
+      deployment: () => ({ phase: "running" }),
+      drain: async (body) => {
+        calls.push(body);
+        return { phase: "draining" };
+      },
+      resume: async () => {
+        throw Object.assign(Error("owner conflict"), {
+          code: "DEPLOYMENT_CONFLICT",
+        });
+      },
+    },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const headers = {
+    authorization: `Bearer ${token}`,
+    "content-type": "application/json",
+  };
+  for (const path of ["/deployment", "/deployment/drain", "/deployment/resume"])
+    assert.equal(
+      (
+        await fetch(base + path, {
+          method: path === "/deployment" ? "GET" : "POST",
+          body: path === "/deployment" ? undefined : "{}",
+        })
+      ).status,
+      401,
+    );
+  assert.equal((await fetch(base + "/deployment", { headers })).status, 200);
+  const post = (path, body) =>
+    fetch(base + path, { method: "POST", headers, body: JSON.stringify(body) });
+  assert.equal(
+    (
+      await post("/deployment/drain", {
+        operationId: "op",
+        targetIdentity: {},
+        arbitraryConfig: {},
+      })
+    ).status,
+    503,
+  );
+  assert.equal(
+    (await post("/deployment/drain", { operationId: "op", targetIdentity: {} }))
+      .status,
+    200,
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(
+    (
+      await post("/deployment/resume", {
+        operationId: "wrong",
+        expectedRuntimeIdentity: {},
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await post("/deployment/drain", {
+        operationId: "x".repeat(17000),
+        targetIdentity: {},
+      })
+    ).status,
+    503,
+  );
+});

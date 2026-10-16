@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify, parseArgs } from "node:util";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { createHash } from "node:crypto";
+import { stripTypeScriptTypes } from "node:module";
+import { compatibilityFiles } from "./lifecycle/railway/runner/deployment.mjs";
 const execute = promisify(execFile);
 const { values } = parseArgs({
   options: {
@@ -63,7 +65,33 @@ assert.ok(
   files.some((file) => file.path.endsWith("/runner/Dockerfile")),
   "Committed provider runner Dockerfile required",
 );
+const frozenFiles = compatibilityFiles(files);
+const sourceManifest =
+  JSON.stringify(
+    { revision, files, compatibilityFiles: frozenFiles },
+    null,
+    2,
+  ) + "\n";
+const policySource = stripTypeScriptTypes(
+  await readFile(join(output, "showcase/scripts/railway-envs.ts"), "utf8"),
+);
+const { DISPOSABLE_LIFECYCLE_POLICY: policy } = await import(
+  `data:text/javascript;base64,${Buffer.from(policySource).toString("base64")}`
+);
+assert.ok(policy, "Committed lifecycle policy required");
+const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+await writeFile(join(output, "source-manifest.json"), sourceManifest);
 await writeFile(
-  join(output, "source-manifest.json"),
-  JSON.stringify({ revision, files }, null, 2),
+  join(output, "runner-identity.json"),
+  JSON.stringify(
+    {
+      protocolVersion: 1,
+      sourceRevision: revision,
+      sourceManifestSha256: sha256(sourceManifest),
+      compatibilitySha256: sha256(JSON.stringify(frozenFiles)),
+      policySha256: sha256(JSON.stringify(policy)),
+    },
+    null,
+    2,
+  ) + "\n",
 );
