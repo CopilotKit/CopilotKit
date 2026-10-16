@@ -1,24 +1,15 @@
 <script setup lang="ts">
-import {
-  computed,
-  h,
-  onBeforeUnmount,
-  shallowRef,
-  ref,
-  watch,
-  type VNode,
-} from "vue";
+import { computed, h, onBeforeUnmount, shallowRef, ref, watch } from "vue";
+import type { VNode } from "vue";
 import type { ActivityMessage } from "@ag-ui/core";
 import type { A2UITheme } from "../types";
 import type { A2UIOperation } from "./a2ui";
 import { getOperationSurfaceId } from "./a2ui";
 import { useCopilotKit } from "../providers";
-import { MessageProcessor, type SurfaceModel } from "@a2ui/web_core/v0_9";
-import {
-  vueBasicCatalog,
-  A2uiSurface,
-  type VueComponentImplementation,
-} from "./a2ui/index";
+import { MessageProcessor } from "@a2ui/web_core/v0_9";
+import type { SurfaceModel } from "@a2ui/web_core/v0_9";
+import { vueBasicCatalog, A2uiSurface } from "./a2ui/index";
+import type { VueComponentImplementation } from "./a2ui/index";
 
 const DEFAULT_SURFACE_ID = "default";
 
@@ -61,7 +52,7 @@ async function handleAction(message: unknown) {
   if (!props.agent) return;
   try {
     copilotkit.value.setProperties({
-      ...(copilotkit.value.properties ?? {}),
+      ...copilotkit.value.properties,
       a2uiAction: message,
     });
     await copilotkit.value.runAgent({ agent: props.agent as any });
@@ -94,7 +85,9 @@ function processOperations(operations: A2UIOperation[]) {
       const filtered = existing
         ? ops.filter((op) => !(op as any)?.createSurface)
         : ops;
-      processor.processMessages(filtered as any);
+      // The processor keeps these objects as its data model and edits them as
+      // the user interacts; they come from the agent's message content.
+      processor.processMessages(structuredClone(filtered) as any);
     }
     error.value = null;
   } catch (err) {
