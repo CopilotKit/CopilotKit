@@ -442,6 +442,38 @@ export const layoutRenderers = {
     flexDirection: "column",
     scrollSnapAlign: "start",
   })),
+  CarouselMediaItem: ({ props, children }: RendererProps<any>) => {
+    const width = { sm: 160, md: 240, lg: 320 }[
+      (props.size as "sm" | "md" | "lg" | undefined) ?? "md"
+    ];
+    return (
+      <div
+        data-a2ui-std=""
+        style={{
+          ...layoutStyle(props),
+          flex: "0 0 auto",
+          flexDirection: "column",
+          scrollSnapAlign: "start",
+          width,
+          gap: spacing(props.gap ?? 2),
+        }}
+      >
+        <img
+          src={String(props.media)}
+          alt={props.alt ?? ""}
+          loading="lazy"
+          style={{
+            display: "block",
+            width: "100%",
+            aspectRatio: props.aspectRatio ?? "4 / 3",
+            objectFit: "cover",
+            borderRadius: radius("lg"),
+          }}
+        />
+        {renderChildren(props.children, children)}
+      </div>
+    );
+  },
   Spacer: ({ props }: RendererProps<any>) => (
     <div
       aria-hidden

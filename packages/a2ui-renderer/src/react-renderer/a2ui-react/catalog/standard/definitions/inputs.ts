@@ -75,13 +75,21 @@ export const inputDefinitions = {
         .describe("type=submit (submits the enclosing Form)"),
       icon: z.string().optional().describe("Lucide icon name"),
       uniform: z.boolean().optional(),
+      href: boundString(
+        "Opens this URL in a new tab on click instead of dispatching action",
+      ),
+      copy: boundString(
+        "Copies this text to the clipboard on click (shows a check mark) instead of dispatching action",
+      ),
     }),
   },
   Pressable: {
-    description: "Clickable layout container that dispatches `action`.",
+    description:
+      "Clickable layout container that dispatches `action` (or opens `href`).",
     props: z.object({
       ...layoutProps,
       action,
+      href: boundString("Opens this URL in a new tab on click"),
       disabled: DynamicBooleanSchema.optional(),
       hoverBackground: z.string().optional(),
     }),

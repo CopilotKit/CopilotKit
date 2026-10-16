@@ -11,6 +11,12 @@ import React from "react";
 
 const SAFE_URL = /^(https?:|mailto:)/i;
 
+/** The URL when it is http, https or mailto, else undefined. */
+export const safeHref = (href: unknown): string | undefined =>
+  typeof href === "string" && SAFE_URL.test(href.trim())
+    ? href.trim()
+    : undefined;
+
 type Wrap = "strong" | "em" | "s" | "u" | "code";
 
 const DELIMITERS: Array<{ open: string; tag: Wrap }> = [
