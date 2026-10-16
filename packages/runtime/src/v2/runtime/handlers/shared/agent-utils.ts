@@ -1,5 +1,6 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { RunAgentInputSchema } from "@ag-ui/core/schemas";
+import type { CopilotKitUIEnvelope } from "@copilotkit/shared";
 import {
   A2UIMiddleware,
   OpenGenerativeUIMiddleware,
@@ -93,8 +94,11 @@ export function configureAgentForRequest(params: {
    * has to also set `a2ui.injectA2UITool` on the runtime.
    */
   providerA2UIHasCatalog?: boolean;
-  /** True when the React provider forwarded a generative UI manifest for this run. */
-  providerGenerativeUIManifest?: boolean;
+  /**
+   * The transport of the generative UI envelope that the client sent on this
+   * run (`forwardedProps.copilotkit.ui`). Not set when the run has no envelope.
+   */
+  providerGenerativeUITransport?: CopilotKitUIEnvelope["transport"];
   /** Retain proxy rejection even when no server is available to this agent. */
   isMcpProxyRequest?: boolean;
 }): void {
@@ -166,9 +170,14 @@ export function configureAgentForRequest(params: {
     }
   }
 
+  // A "markdown" envelope means the model writes ```a2ui fences, so the run
+  // gets no render tool, even when the runtime turns generative UI on.
   const generativeUI = runtime.generativeUI;
+  const transport = params.providerGenerativeUITransport;
+  const isGenerativeUIRun =
+    transport === "tool" || (transport !== "markdown" && !!generativeUI);
   if (
-    (params.providerGenerativeUIManifest || generativeUI) &&
+    isGenerativeUIRun &&
     generativeUI !== false &&
     typeof agent.use === "function"
   ) {

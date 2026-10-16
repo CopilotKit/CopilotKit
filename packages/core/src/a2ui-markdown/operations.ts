@@ -211,7 +211,7 @@ function repairComponentItem(item: string) {
       if (stack.length === 0) return out + item.slice(copied, i + 1);
     }
   }
-  const closers = stack
+  const closers = [...stack]
     .toReversed()
     .map((x) => (x === "{" ? "}" : "]"))
     .join("");

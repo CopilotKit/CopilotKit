@@ -1,3 +1,4 @@
+import { readCopilotKitUIEnvelope } from "@copilotkit/shared";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
 import { readGuardrailsEnabled } from "./shared/cloud-telemetry";
@@ -54,9 +55,11 @@ export async function handleRunAgent({
     const providerA2UIHasCatalog =
       (input.forwardedProps as Record<string, unknown> | undefined)
         ?.a2uiCatalogAvailable === true;
-    const providerGenerativeUIManifest =
-      (input.forwardedProps as Record<string, unknown> | undefined)
-        ?.generativeUI !== undefined;
+    // The generative UI envelope (`forwardedProps.copilotkit.ui`) picks the
+    // transport of this run.
+    const providerGenerativeUITransport = readCopilotKitUIEnvelope(
+      input.forwardedProps,
+    )?.transport;
 
     configureAgentForRequest({
       runtime,
@@ -64,7 +67,7 @@ export async function handleRunAgent({
       agentId,
       agent,
       providerA2UIHasCatalog,
-      providerGenerativeUIManifest,
+      providerGenerativeUITransport,
       isMcpProxyRequest: Object.prototype.hasOwnProperty.call(
         input.forwardedProps ?? {},
         "__proxiedMCPRequest",

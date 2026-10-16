@@ -112,10 +112,14 @@ interface CopilotRuntimeMiddlewares {
   /**
    * Experimental: CopilotKit generative UI surfaces (`render_ui`).
    *
-   * - Omitted: applied to a run when the React provider sends a manifest.
+   * - Omitted: applied to a run when the React provider sends a
+   *   tool-transport envelope (`forwardedProps.copilotkit.ui`).
    * - `true`: applied to every run.
    * - `{ agents }`: applied to every run of the named agents.
-   * - `false`: never applied, even when the provider sends a manifest.
+   * - `false`: never applied.
+   *
+   * A run with a markdown-transport envelope never gets it: the model writes
+   * the UI in a2ui code fences, and the client renders them.
    */
   generativeUI?: boolean | BaseCopilotRuntimeMiddlewareOptions;
 }

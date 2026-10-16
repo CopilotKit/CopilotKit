@@ -1,15 +1,10 @@
-import {
-  GENERATIVE_UI_EVENT_TOOL,
-  GENERATIVE_UI_RENDER_TOOL,
-} from "@copilotkit/shared";
+import { GENERATIVE_UI_RENDER_TOOL } from "@copilotkit/shared";
 import type { GenerativeUIManifest } from "@copilotkit/shared";
 
 export const GENERATIVE_UI_CONTEXT_DESCRIPTION =
   "Generative UI guide: available components, functions, targets, and how to call render_ui.";
 
-export function buildGenerativeUIPrompt(
-  manifest: GenerativeUIManifest,
-): string {
+export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
   const targets = manifest.targets
     .map(
       (t) =>
@@ -53,9 +48,8 @@ Rules:
 2. Stream progressively: send the root in its own updateComponents operation first, then one updateComponents operation per child, so the UI appears while you are still writing. The root must already list the ids of its children in its slot props (for example "children":["card-1","card-2"]), even though the children come later. A component that no slot references is never shown.
 3. Updating a component replaces all of its props, so resend every prop.
 4. Prop values are literals or data bindings {"path":"/data/path"}.
-5. Event props take an action. {"functionCall":{"call":"<function>","args":{...}}} runs an app function in the browser immediately, and you are not told about it. {"event":{"name":"<name>","context":{...}}} sends the interaction back to you. Only call functions listed below.
-6. To show a different view, create a new surface with a new surfaceId (for example, a checkout form after a cart summary). Update an existing surface only when the user asks to change that same view: then do not send createSurface, use its surfaceId, and pass its existing target. Never reuse an earlier chat surface for a different view, because that replaces the earlier UI and anything the user typed into it.
-7. If the conversation ends with a \`${GENERATIVE_UI_EVENT_TOOL}\` tool call and its result, that is the user interacting with the UI (for example clicking a button). Respond to that interaction.`,
+5. Event props take an action. {"functionCall":{"call":"<function>","args":{...}}} runs an app function in the browser immediately, and you are not told about it. {"event":{"name":"<name>","context":{...}}} sends the interaction back to you as a user message. Only call functions listed below.
+6. To show a different view, create a new surface with a new surfaceId (for example, a checkout form after a cart summary). Update an existing surface only when the user asks to change that same view: then do not send createSurface, use its surfaceId, and pass its existing target. Never reuse an earlier chat surface for a different view, because that replaces the earlier UI and anything the user typed into it.`,
     `### Targets\n${targets || "- none"}`,
     `### Components\n${components || "- none"}`,
     `### Functions\n${functions || "- none"}`,

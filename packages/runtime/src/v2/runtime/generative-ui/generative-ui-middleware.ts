@@ -10,25 +10,21 @@ import type {
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import {
-  GENERATIVE_UI_ACTION_KEY,
   GENERATIVE_UI_ACTIVITY_TYPE,
-  GENERATIVE_UI_EVENT_TOOL,
-  GENERATIVE_UI_MANIFEST_KEY,
   GENERATIVE_UI_RENDER_TOOL,
   RenderUIArgsStream,
   generativeUISurfaceMessageId,
   getOperationKind,
   getOperationSurfaceId,
   randomUUID,
+  readCopilotKitUIEnvelope,
   validateOperation,
 } from "@copilotkit/shared";
 import type {
   A2UIOperation,
-  GenerativeUIComponentManifest,
   GenerativeUIManifest,
   GenerativeUIRejectedOperation,
   GenerativeUISurfaceContent,
-  GenerativeUIUserEvent,
 } from "@copilotkit/shared";
 import {
   GENERATIVE_UI_CONTEXT_DESCRIPTION,
@@ -57,139 +53,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-const optionalString = (value: unknown): string | undefined =>
-  typeof value === "string" ? value : undefined;
-
-const stringArray = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value.filter((v): v is string => typeof v === "string")
-    : [];
-
-function normalizeComponent(
-  raw: unknown,
-): GenerativeUIComponentManifest | undefined {
-  if (!isRecord(raw) || !isRecord(raw.props)) return undefined;
-  const component: GenerativeUIComponentManifest = {
-    props: {
-      ...raw.props,
-      properties: isRecord(raw.props.properties) ? raw.props.properties : {},
-      required: stringArray(raw.props.required),
-    },
-  };
-  const description = optionalString(raw.description);
-  if (description !== undefined) component.description = description;
-  if (isRecord(raw.events)) {
-    component.events = Object.fromEntries(
-      Object.entries(raw.events)
-        .filter(([, event]) => isRecord(event))
-        .map(([name, event]) => [
-          name,
-          {
-            description: optionalString(
-              (event as Record<string, unknown>).description,
-            ),
-            parameters: isRecord((event as Record<string, unknown>).parameters)
-              ? ((event as Record<string, unknown>).parameters as Record<
-                  string,
-                  unknown
-                >)
-              : {},
-          },
-        ]),
-    );
-  }
-  if (isRecord(raw.slots)) {
-    component.slots = Object.fromEntries(
-      Object.entries(raw.slots).filter(
-        (entry): entry is [string, "single" | "multiple"] =>
-          entry[1] === "single" || entry[1] === "multiple",
-      ),
-    );
-  }
-  return component;
-}
-
 /**
- * The manifest is client-controlled `forwardedProps`, so it is untrusted.
- * Shape-check it and drop malformed entries so validation can never throw on
- * it. Returns `undefined` (run passes through) when `catalogId` or
- * `components` is unusable.
+ * Builds the manifest from the generative UI envelope
+ * (`forwardedProps.copilotkit.ui`). The client sends the envelope, so it is
+ * not trusted: `readCopilotKitUIEnvelope` checks every field. Returns
+ * `undefined` (the run passes through) when:
+ * - there is no valid envelope;
+ * - the transport is "markdown" (the model writes fences, not render_ui);
+ * - the catalog has no components (the server cannot validate operations).
  */
-function readManifest(
-  forwardedProps: unknown,
-): GenerativeUIManifest | undefined {
-  const raw = isRecord(forwardedProps)
-    ? forwardedProps[GENERATIVE_UI_MANIFEST_KEY]
-    : undefined;
-  if (
-    !isRecord(raw) ||
-    typeof raw.catalogId !== "string" ||
-    !isRecord(raw.components)
-  ) {
-    return undefined;
-  }
-  const components: GenerativeUIManifest["components"] = {};
-  for (const [name, entry] of Object.entries(raw.components)) {
-    const normalized = normalizeComponent(entry);
-    if (normalized) components[name] = normalized;
-  }
-  const functions: GenerativeUIManifest["functions"] = {};
-  if (isRecord(raw.functions)) {
-    for (const [name, entry] of Object.entries(raw.functions)) {
-      if (!isRecord(entry)) continue;
-      functions[name] = {
-        description: optionalString(entry.description),
-        parameters: isRecord(entry.parameters) ? entry.parameters : {},
-      };
-    }
-  }
-  const targets: GenerativeUIManifest["targets"] = [];
-  if (Array.isArray(raw.targets)) {
-    for (const target of raw.targets) {
-      if (isRecord(target) && typeof target.id === "string") {
-        const entry: GenerativeUIManifest["targets"][number] = {
-          id: target.id,
-          kind: target.kind === "chat" ? "chat" : "inline",
-        };
-        const description = optionalString(target.description);
-        if (description !== undefined) entry.description = description;
-        targets.push(entry);
-      }
-    }
-  }
-  const surfaces: GenerativeUIManifest["surfaces"] = {};
-  if (isRecord(raw.surfaces)) {
-    for (const [id, surface] of Object.entries(raw.surfaces)) {
-      if (isRecord(surface) && typeof surface.target === "string") {
-        surfaces[id] = { target: surface.target };
-      }
-    }
-  }
+function readManifest(forwardedProps: unknown) {
+  const envelope = readCopilotKitUIEnvelope(forwardedProps);
+  if (envelope?.transport !== "tool") return undefined;
+  const { catalog, functions, targets, surfaces } = envelope;
+  if (catalog.components === undefined) return undefined;
   return {
-    catalogId: raw.catalogId,
-    catalogVersion: optionalString(raw.catalogVersion) ?? "",
-    components,
+    catalogId: catalog.id,
+    catalogVersion: catalog.version,
+    components: catalog.components,
     functions,
     targets,
     surfaces,
   };
 }
 
-function readUserEvent(
-  forwardedProps: unknown,
-): GenerativeUIUserEvent | undefined {
-  const raw = isRecord(forwardedProps)
-    ? forwardedProps[GENERATIVE_UI_ACTION_KEY]
-    : undefined;
-  return isRecord(raw) && typeof raw.name === "string"
-    ? (raw as unknown as GenerativeUIUserEvent)
-    : undefined;
-}
-
-function prepareInput(
-  input: RunAgentInput,
-  manifest: GenerativeUIManifest,
-): RunAgentInput {
+function prepareInput(input: RunAgentInput, manifest: GenerativeUIManifest) {
   const tools = (input.tools ?? []).filter(
     (t) => t.name !== GENERATIVE_UI_RENDER_TOOL,
   );
@@ -222,41 +110,14 @@ function prepareInput(
     description: GENERATIVE_UI_CONTEXT_DESCRIPTION,
     value: buildGenerativeUIPrompt(manifest),
   });
-
-  const event = readUserEvent(input.forwardedProps);
-  if (!event) return { ...input, tools, context };
-  const toolCallId = randomUUID();
-  const messages = [
-    ...input.messages,
-    {
-      id: randomUUID(),
-      role: "assistant",
-      content: "",
-      toolCalls: [
-        {
-          id: toolCallId,
-          type: "function",
-          function: {
-            name: GENERATIVE_UI_EVENT_TOOL,
-            arguments: JSON.stringify(event),
-          },
-        },
-      ],
-    },
-    {
-      id: randomUUID(),
-      role: "tool",
-      toolCallId,
-      content: `The user triggered "${event.name}" on surface "${event.surfaceId}" (component "${event.componentId}"). Context: ${JSON.stringify(event.context ?? {})}`,
-    },
-  ] as Message[];
-  return { ...input, tools, context, messages };
+  return { ...input, tools, context };
 }
 
 /**
  * Experimental. Lets an agent render CopilotKit generative UI surfaces via the
- * `render_ui` tool. Each complete operation in the streamed arguments is
- * validated against the browser's manifest and committed immediately:
+ * `render_ui` tool. It applies only to runs whose generative UI envelope uses
+ * the "tool" transport. Each complete operation in the streamed arguments is
+ * validated against the catalog in the envelope and committed immediately:
  * `ACTIVITY_SNAPSHOT` for a new surface, `ACTIVITY_DELTA` for every further op.
  */
 export class GenerativeUIMiddleware extends Middleware {
@@ -295,7 +156,7 @@ function beginSurfaceUpdate(
 function processStream(
   source: Observable<EventWithState>,
   manifest: GenerativeUIManifest,
-): Observable<BaseEvent> {
+) {
   return new Observable<BaseEvent>((subscriber) => {
     const surfaces = new Map<string, string>(
       Object.entries(manifest.surfaces).map(([id, s]) => [id, s.target]),
