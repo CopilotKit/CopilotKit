@@ -212,13 +212,16 @@ export const layoutDefinitions = {
   },
   CarouselMediaItem: {
     description:
-      'Carousel slide with an image on top and children (a caption, a Text) under it. size "sm" 160px, "md" 240px (default), "lg" 320px wide.',
+      'Carousel slide with an image on top and children (a caption, a Text) under it. size "sm" 160px, "md" 240px (default), "lg" 320px wide. Clicking the image opens all slides full-screen unless `href` or `action` is set.',
     props: z.object({
       ...layoutProps,
       media: z.string().describe("Image URL"),
       alt: z.string().optional(),
       size: z.enum(["sm", "md", "lg"]).optional().describe('Default "md"'),
       aspectRatio: z.string().optional().describe('Default "4 / 3"'),
+      href: z.string().optional().describe("Opens this URL in a new tab"),
+      action: ActionSchema.optional().describe("Dispatched on click"),
+      lightbox: z.boolean().optional().describe("Default true"),
     }),
   },
   Spacer: {

@@ -13,7 +13,7 @@ import type { ExampleAgent, ExampleMode } from "./providers";
 /**
  * Click-to-try prompts. Each one leans on a different part of the standard
  * catalog so the pills double as a quick tour: inputs and bindings, tables,
- * charts, forms, maps, and flip cards.
+ * charts, forms, maps, SVG drawings, and flip cards.
  */
 const SUGGESTIONS = [
   {
@@ -40,6 +40,11 @@ const SUGGESTIONS = [
     title: "Cafés on a map",
     message:
       "Show four famous coffee houses in Vienna on a map with markers, and a short list underneath with one line about each.",
+  },
+  {
+    title: "How an engine works",
+    message:
+      "Explain how a four-stroke car engine works with an interactive SVG drawing of one cylinder in cross-section: cylinder wall, piston, connecting rod, crankshaft, intake and exhaust valves, spark plug. Add four buttons for the strokes (intake, compression, power, exhaust). When I click one, redraw the piston, valves and crank in that position, highlight the moving parts in a different colour, and explain in two sentences what happens in that stroke.",
   },
   {
     title: "Spanish flashcards",
