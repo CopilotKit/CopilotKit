@@ -184,14 +184,18 @@ function Favicon({ props }: RendererProps<any>) {
   );
 }
 
+/** Svg dimensions are pixels when numeric (not 4px steps like layout spacing). */
+const svgDim = (v: unknown): string | number | undefined =>
+  typeof v === "number" || typeof v === "string" ? v : undefined;
+
 function Svg({ props }: RendererProps<any>) {
-  const size = spacing(props.size);
+  const size = svgDim(props.size);
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox={props.viewBox}
-      width={spacing(props.width) ?? size ?? "100%"}
-      height={spacing(props.height) ?? size}
+      width={svgDim(props.width) ?? size ?? "100%"}
+      height={svgDim(props.height) ?? size}
       fill={textColor(props.fill) ?? "currentColor"}
       stroke={textColor(props.stroke)}
       strokeWidth={props.strokeWidth}

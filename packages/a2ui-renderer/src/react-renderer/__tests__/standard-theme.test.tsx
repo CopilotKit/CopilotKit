@@ -140,3 +140,22 @@ describe("map style filter guard", () => {
     ]);
   });
 });
+
+describe("Svg sizing", () => {
+  it("treats numeric width and height as pixels", async () => {
+    const v = renderStandard([
+      {
+        id: "root",
+        component: "Svg",
+        viewBox: "0 0 10 10",
+        width: 240,
+        height: 80,
+        circles: [{ cx: 5, cy: 5, r: 4 }],
+      },
+    ]);
+    await new Promise((r) => setTimeout(r, 0));
+    const svg = v.container.querySelector("svg")!;
+    expect(svg.getAttribute("width")).toBe("240");
+    expect(svg.getAttribute("height")).toBe("80");
+  });
+});

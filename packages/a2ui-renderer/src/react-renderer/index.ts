@@ -37,11 +37,14 @@ export {
   extractCatalogComponentSchemas,
   buildCompactCatalogSchema,
   buildCompactCatalogCapabilities,
+  stripFunctionCallVariants,
 } from "./catalog-utils";
 export type {
   InlineCatalogSchema,
   CompactCatalogSchema,
   CompactCatalogSchemaOptions,
+  CatalogContextValueOptions,
+  InlineCatalogSchemaOptions,
 } from "./catalog-utils";
 
 // Catalog creation — new API (definitions + renderers)
