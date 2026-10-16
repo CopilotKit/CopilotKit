@@ -10,6 +10,7 @@ import {
   repoRoot,
 } from "./v1-public-api.mjs";
 
+/** Adds missing per-export notices while preserving matching deprecation tags. */
 export function annotateDeclarationText(source, items, file = "index.d.mts") {
   const sourceFile = ts.createSourceFile(
     file,
