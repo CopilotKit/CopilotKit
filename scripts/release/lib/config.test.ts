@@ -48,7 +48,7 @@ describe("Learning release scope", () => {
     const core = getPackagesForScope("monorepo").find(
       (pkg) => pkg.name === "@copilotkit/core",
     );
-    expect(core?.pkg.dependencies[learning.name]).toBe("workspace:*");
+    expect(core?.pkg.dependencies[learning.name]).toBe("workspace:^");
     expect(findCrossScopePins(["monorepo"])).toContainEqual({
       from: "@copilotkit/core",
       dep: "@copilotkit/learning",

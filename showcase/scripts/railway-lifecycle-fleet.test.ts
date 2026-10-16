@@ -46,6 +46,7 @@ const INTELLIGENCE_IDS = {
   "showcase-intelligence-gateway-proxy": "12513b2b-e368-4f7a-8141-1c28ab4f6f09",
   "showcase-intelligence-postgres": "6c2d2998-e7ae-413d-997d-7277f9fd6e07",
   "showcase-intelligence-redis": "7b99fa95-2124-4d19-838a-652464e351da",
+  "showcase-intelligence-test-runner": "4922b45b-6981-4559-be2f-fbbca9123323",
 };
 
 describe("permanent fleet lifecycle isolation", () => {
@@ -281,12 +282,12 @@ describe("permanent fleet lifecycle isolation", () => {
       expect(computePromoteClosure(Object.keys(SERVICES))).toEqual(
         emitted.closure,
       );
-      expect(Object.keys(SERVICES)).toHaveLength(49);
+      expect(Object.keys(SERVICES)).toHaveLength(50);
     },
   );
 
   it("keeps static Intelligence identities and the emitted permanent closure unchanged", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(49);
+    expect(Object.keys(SERVICES)).toHaveLength(50);
     expect(Object.hasOwn(SERVICES, TEMP_NAME)).toBe(false);
     expect(DISPOSABLE_LIFECYCLE_POLICY.approvedImages).toEqual([]);
     for (const [name, id] of Object.entries(INTELLIGENCE_IDS)) {
@@ -301,6 +302,16 @@ describe("permanent fleet lifecycle isolation", () => {
     }
     const closure = computePromoteClosure(Object.keys(SERVICES));
     expect(closure).toEqual(emitted.closure);
+    for (const name of Object.keys(INTELLIGENCE_IDS)) {
+      expect(closure.services.map((service) => service.name)).not.toContain(
+        name,
+      );
+      expect(closure.skipped).toContainEqual({
+        name,
+        reason:
+          'no "prod" environment in the SSOT — cannot be promoted (it exists in: staging).',
+      });
+    }
     expect(closure.services.map(({ name }) => name)).toContain(
       "harness-workers",
     );

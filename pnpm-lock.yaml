@@ -2291,19 +2291,19 @@ importers:
         specifier: 1.0.2
         version: 1.0.2(zod@3.25.76)
       '@copilotkit/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       '@copilotkit/mcp-apps-renderer':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../mcp-apps-renderer
       '@copilotkit/shared':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../shared
       '@copilotkit/web-components':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../web-components
       '@copilotkit/web-inspector':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../web-inspector
       '@jetbrains/websandbox':
         specifier: ^1.1.3
@@ -2673,7 +2673,7 @@ importers:
         specifier: 1.0.2
         version: 1.0.2
       '@copilotkit/learning':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../learning
       '@copilotkit/shared':
         specifier: workspace:*
@@ -2789,7 +2789,7 @@ importers:
   packages/intelligence-langgraph:
     dependencies:
       '@copilotkit/runtime':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../runtime
     devDependencies:
       '@copilotkit/intelligence-delivery-core':
@@ -2829,7 +2829,7 @@ importers:
   packages/intelligence-mastra:
     dependencies:
       '@copilotkit/runtime':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../runtime
     devDependencies:
       '@copilotkit/intelligence-delivery-core':
@@ -3387,7 +3387,7 @@ importers:
         specifier: workspace:^
         version: link:../channels-core
       '@copilotkit/channels-intelligence':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../channels-intelligence
       '@copilotkit/license-verifier':
         specifier: ~0.5.0

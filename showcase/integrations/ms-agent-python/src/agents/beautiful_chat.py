@@ -34,7 +34,7 @@ from tools import search_flights_impl
 # ---------------------------------------------------------------------
 # Local data for the sales dashboard -- a self-contained copy of the
 # sample CSV the LangGraph beautiful-chat cell uses. We inline it here
-# (rather than reading from shared/python/data/db.csv) so the sales
+# (rather than reading from shared/python/tools/data/db.csv) so the sales
 # dashboard demo stays self-contained even if the shared data ever drifts.
 # ---------------------------------------------------------------------
 
