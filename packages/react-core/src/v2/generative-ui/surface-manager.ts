@@ -5,13 +5,19 @@ import {
   SurfaceModel,
 } from "@a2ui/web_core/v0_9";
 import { z } from "zod";
-import { getOperationKind, validateOperation } from "@copilotkit/shared";
+import {
+  GENERATIVE_UI_MAX_REJECTION_LENGTH,
+  GENERATIVE_UI_MAX_SUMMARY_REJECTIONS,
+  getOperationKind,
+  validateOperation,
+} from "@copilotkit/shared";
 import type {
   A2UIComponentNode,
   A2UIOperation,
   GenerativeUIRejectedOperation,
   GenerativeUISurfaceContent,
   GenerativeUISurfaceStatus,
+  GenerativeUISurfaceSummary,
 } from "@copilotkit/shared";
 import type { GenerativeUI } from "./catalog";
 
@@ -77,11 +83,19 @@ function isAtOrBelow(path: string, ancestor: string) {
   return path === ancestor || path.startsWith(`${ancestor}/`);
 }
 
-/** One surface of a thread, as the model sees it. */
-export interface GenerativeUISurfaceDescription {
-  target: string;
-  /** The values that the user set, by path. Left out when there are none. */
-  dataModel?: Record<string, unknown>;
+/**
+ * Rejections as `"operation <index>: <reason>"` lines, cut to the size that
+ * the envelope reader accepts.
+ */
+function summarizeRejections(rejections: GenerativeUIRejectedOperation[]) {
+  return rejections
+    .slice(0, GENERATIVE_UI_MAX_SUMMARY_REJECTIONS)
+    .map(({ index, reason }) =>
+      `operation ${index}: ${reason}`.slice(
+        0,
+        GENERATIVE_UI_MAX_REJECTION_LENGTH,
+      ),
+    );
 }
 
 /**
@@ -232,17 +246,24 @@ export class GenerativeUISurfaceManager {
   /**
    * The surfaces of a thread, for the model. A surface with user-owned
    * values lists them in `dataModel`, so the model can read what the user
-   * entered.
+   * entered. A surface with dropped operations lists them in `rejected`, so
+   * the model can fix them on the next run.
    */
   describeSurfaces(threadId: string) {
-    const described: Record<string, GenerativeUISurfaceDescription> = {};
+    const described: Record<string, GenerativeUISurfaceSummary> = {};
     for (const surface of this.surfaces.values()) {
       if (surface.threadId !== threadId || surface.deleted) continue;
       const owned = this.owned.get(surface.key);
-      described[surface.surfaceId] =
-        owned && owned.size > 0
-          ? { target: surface.target, dataModel: Object.fromEntries(owned) }
-          : { target: surface.target };
+      const rejections = [...surface.serverRejected, ...surface.clientRejected];
+      described[surface.surfaceId] = {
+        target: surface.target,
+        ...(owned && owned.size > 0
+          ? { dataModel: Object.fromEntries(owned) }
+          : {}),
+        ...(rejections.length > 0
+          ? { rejected: summarizeRejections(rejections) }
+          : {}),
+      };
     }
     return described;
   }

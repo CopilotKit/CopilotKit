@@ -108,8 +108,9 @@ function compactProps(schema: GenerativeUIJSONSchema) {
  * The component schema of the markdown transport, from the per-run
  * manifest. It is smaller than the manifest: each prop is one short type.
  * It has the catalog id, the targets with their descriptions, the
- * functions with their parameters, and the components with their props,
- * events and slots.
+ * functions with their parameters, the components with their props,
+ * events and slots, and the surfaces of the thread. A surface lists the
+ * values that the user set and the operations that the client dropped.
  *
  * @param manifest - The manifest from `buildGenerativeUIManifest`.
  * @returns A JSON-ready object.
@@ -117,14 +118,14 @@ function compactProps(schema: GenerativeUIJSONSchema) {
  * @example
  * ```ts
  * const value = JSON.stringify(
- *   buildCompactGenerativeUISchema(buildGenerativeUIManifest(runtime, undefined)),
+ *   buildCompactGenerativeUISchema(buildGenerativeUIManifest(runtime, threadId)),
  * );
  * ```
  */
 export function buildCompactGenerativeUISchema(
   manifest: Pick<
     GenerativeUIManifest,
-    "catalogId" | "components" | "functions" | "targets"
+    "catalogId" | "components" | "functions" | "targets" | "surfaces"
   >,
 ) {
   const components: Record<
@@ -164,6 +165,7 @@ export function buildCompactGenerativeUISchema(
     targets: manifest.targets,
     functions,
     components,
+    surfaces: manifest.surfaces,
   };
 }
 
@@ -180,8 +182,8 @@ export interface GenerativeUIMarkdownContextOptions {
  * component schema and the fence guideline. Both go only to `agentIds`.
  *
  * The schema is built again at each run start and when a
- * `<GenerativeUISurface>` mounts or unmounts, so its targets and functions
- * stay current.
+ * `<GenerativeUISurface>` mounts or unmounts, so its targets, functions,
+ * and surfaces stay current. The surfaces are those of the running thread.
  *
  * @param copilotkit - The CopilotKit core of the provider.
  * @param runtime - The generative UI runtime parts, or null without one.
@@ -218,8 +220,8 @@ export function useGenerativeUIMarkdownContext(
 
     let schemaId: string | undefined;
     let schemaValue: string | undefined;
-    const refreshSchema = () => {
-      const manifest = buildGenerativeUIManifest(runtime, undefined);
+    const refreshSchema = (threadId: string | undefined) => {
+      const manifest = buildGenerativeUIManifest(runtime, threadId);
       const value = JSON.stringify(buildCompactGenerativeUISchema(manifest));
       if (value === schemaValue) return;
       if (schemaId !== undefined) copilotkit.removeContext(schemaId);
@@ -230,7 +232,7 @@ export function useGenerativeUIMarkdownContext(
         ...scope,
       });
     };
-    refreshSchema();
+    refreshSchema(runtime.manager.getActiveThread());
 
     // The manager notifies on every operation. Build the schema again only
     // when the mounted targets change.
@@ -239,12 +241,13 @@ export function useGenerativeUIMarkdownContext(
       const nextKey = JSON.stringify(runtime.manager.getMountedTargets());
       if (nextKey === targetsKey) return;
       targetsKey = nextKey;
-      refreshSchema();
+      refreshSchema(runtime.manager.getActiveThread());
     });
     // Function handlers can mount at any time. Core reads the context after
-    // this callback, so the run gets the current functions.
+    // this callback, so the run gets the current functions and the surfaces
+    // of its thread.
     const subscription = copilotkit.subscribe({
-      onAgentRunStarted: refreshSchema,
+      onAgentRunStarted: ({ agent }) => refreshSchema(agent.threadId),
     });
 
     return () => {

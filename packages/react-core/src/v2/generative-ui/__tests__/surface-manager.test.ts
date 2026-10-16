@@ -401,6 +401,40 @@ describe("GenerativeUISurfaceManager", () => {
     });
   });
 
+  describe("rejections in describeSurfaces", () => {
+    it("lists the reported and the browser rejections as lines", () => {
+      const manager = new GenerativeUISurfaceManager(ui);
+      manager.ingest(
+        "t1",
+        "default",
+        content([create, data("/a", 1), data("/a/b", 2)], {
+          rejected: [{ index: 5, reason: "unknown component Foo" }],
+        }),
+      );
+      expect(manager.describeSurfaces("t1")).toEqual({
+        recs: {
+          target: "recommendations",
+          rejected: [
+            "operation 5: unknown component Foo",
+            expect.stringMatching(/^operation 2: \S/),
+          ],
+        },
+      });
+    });
+
+    it("keeps at most 20 lines of at most 500 characters", () => {
+      const manager = new GenerativeUISurfaceManager(ui);
+      const rejected = Array.from({ length: 25 }, (_, index) => ({
+        index,
+        reason: "x".repeat(600),
+      }));
+      manager.ingest("t1", "default", content([create], { rejected }));
+      const lines = manager.describeSurfaces("t1").recs.rejected ?? [];
+      expect(lines).toHaveLength(20);
+      expect(lines[19]).toBe(`operation 19: ${"x".repeat(486)}`);
+    });
+  });
+
   it("hides deleted surfaces", () => {
     const { manager } = managerWith([
       create,

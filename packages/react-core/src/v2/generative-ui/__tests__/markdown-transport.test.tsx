@@ -261,8 +261,39 @@ describe("markdown transport", () => {
         addToCart: { parameters: "{ sku: string }" },
       },
       components: { Button: { props: { label: "string" } } },
+      surfaces: {},
     });
     expect(unlisted.context).toEqual([]);
+  });
+
+  it("sends the dropped operations of a surface in the schema of the next run", async () => {
+    const { copilotkit, agent } = setup();
+    const missing = {
+      version: "v0.9",
+      updateComponents: {
+        surfaceId: "s1",
+        components: [{ id: "extra", component: "Missing" }],
+      },
+    };
+    await reply(agent, "show", "m1", [
+      fence([create("s1"), buttonRoot("s1", "Buy"), missing]),
+    ]);
+    await waitFor(() => expect(chatSurfaces()).toHaveLength(1));
+
+    const input = await runOnce(copilotkit, agent);
+
+    const schema = input.context.find(
+      (entry) =>
+        entry.description === GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
+    );
+    expect(JSON.parse(schema?.value ?? "{}").surfaces).toEqual({
+      s1: {
+        target: "chat",
+        rejected: [
+          'operation 2: component "extra": unknown component "Missing"',
+        ],
+      },
+    });
   });
 
   it("sends no context entries when sendContext is false", async () => {
