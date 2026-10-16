@@ -113,3 +113,70 @@ Design principles:
   action context should reference the same paths to capture user input.
 
 Use the SAME surfaceId as the main surface. Match action names to button action event names.`;
+
+/** Description of the context entry that carries `GENERATIVE_UI_MARKDOWN_GUIDELINES`. */
+export const GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION =
+  "Generative UI markdown guide: how to write UI surfaces inside ```a2ui code fences in a normal markdown reply.";
+
+/**
+ * Description of the context entry that carries the compact component schema
+ * in the markdown transport.
+ *
+ * It must not equal `A2UI_SCHEMA_CONTEXT_DESCRIPTION` (the key that
+ * `@ag-ui/a2ui-middleware` stamps for tool mode). The LangGraph and Strands
+ * adapters find that exact string and move the entry into
+ * `state["ag-ui"]["a2ui_schema"]` for the `render_a2ui` tool, so it never
+ * gets to the system prompt. The markdown transport has no tool, so the
+ * schema must stay ordinary context that the model reads as App Context.
+ */
+export const GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION =
+  "Generative UI component schema: the catalog id, components, props, events, slots, functions, and targets that ```a2ui code fences can use.";
+
+/**
+ * Generation guideline for the markdown transport. The model writes A2UI v0.9
+ * operations inside ```a2ui fences between normal markdown prose. The
+ * component schema goes in a separate context entry. The rules describe the
+ * same component, event, and slot model as the tool-mode guide.
+ */
+export const GENERATIVE_UI_MARKDOWN_GUIDELINES = `\
+You can show interactive UI in your reply. Write A2UI operations inside a fenced code block tagged a2ui.
+
+RULES
+- Write explanations as normal markdown prose outside the fences.
+- Open a fence with \`\`\`a2ui to show the surface in the chat, at the place of the fence.
+- Open a fence with \`\`\`a2ui target=<id> to show the surface in a named target. Use only target ids from the schema.
+- Inside a fence, write one JSON object per line and nothing else. No comments, no trailing commas, no pretty-printing.
+- Keep each operation whole on its line.
+- Give every operation "version":"v0.9".
+- Set catalogId in createSurface to the catalog id from the schema.
+- Write the operations in this order: createSurface, then updateDataModel with all the initial data, then updateComponents with the "root" component first and its children after it:
+  \`\`\`a2ui
+  {"version":"v0.9","createSurface":{"surfaceId":"plan-picker","catalogId":"<catalog id>"}}
+  {"version":"v0.9","updateDataModel":{"surfaceId":"plan-picker","path":"/","value":{ ...initial data... }}}
+  {"version":"v0.9","updateComponents":{"surfaceId":"plan-picker","components":[{"id":"root","component":"<Name>","children":["seats","pick"]}]}}
+  {"version":"v0.9","updateComponents":{"surfaceId":"plan-picker","components":[ ...the children... ]}}
+  \`\`\`
+- Every surface renders from the component with id "root". Make every other component reachable from "root" through slots.
+- Use unique ids. Do not make cycles. A component cannot be its own child.
+- Write a component as one flat object: {"id":"title","component":"<Name>","text":"Hello"}.
+- Put the component name in "component" (never "type"). Put props next to it, never inside a "props" object.
+- Use only the components, props, events, and slots in the schema.
+- Give a prop a literal value, or bind it to the data model with {"path":"/x"}.
+- Bind a writable prop to let the user edit it: "value":{"path":"/form/email"}. The user's input goes to that path.
+- Give an event prop an object: {"event":{"name":"<name>","context":{...}}} or {"functionCall":{"call":"<function>","args":{...}}}. Never a flat {"event":"<name>"}.
+- Use {"functionCall": ...} to run an app function in the browser. Use only functions from the schema. You are not told about the call.
+- Use {"event": ...} to send the interaction back to you as a user message. Put the text in the context: {"event":{"name":"choose","context":{"message":"Show me the Team plan"}}}.
+- To send input values with an event, bind them in the context: "context":{"email":{"path":"/form/email"}}.
+- A button or other event prop without an event or functionCall does nothing.
+- Never put {"call": ...} or an expression in a data prop. Compute derived values (totals, prices) yourself and write them as literals or into the data model.
+- Give a slot component ids: "child":"card" for a single slot, "children":["a","b"] for a multiple slot.
+- To repeat a component for each item of a list, give a multiple slot a template: "children":{"componentId":"row","path":"/items"}.
+- Inside a template, paths are relative to the item ("name", not "/name").
+- Updating a component replaces all of its props. Send every prop again.
+- To change a surface, write another fence with the same surfaceId, in this reply or in a later reply. Do not send createSurface again. The surface changes where it already is.
+- Use a new surfaceId for a different view.
+- Never make a surface that is only prose. Write headings, paragraphs, lists of text, intros, and summaries as markdown outside the fences, also between two fences.
+- Put in a fence only what markdown cannot show: charts, tables, maps, images, badges, inputs, buttons, cards with controls.
+- Use Card only for an interactive panel (controls, a form, a configurator). Put everything else in a plain layout component.
+- Never wrap the whole reply in a fence.
+`;

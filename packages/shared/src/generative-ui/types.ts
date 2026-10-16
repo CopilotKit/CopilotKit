@@ -66,6 +66,15 @@ export interface GenerativeUISurfaceContent {
   rejected: GenerativeUIRejectedOperation[];
 }
 
+/**
+ * Value of a "multiple" slot that repeats one component for each item of the
+ * list at `path`. Paths inside the repeated component are relative to the item.
+ */
+export type GenerativeUITemplateChildren = {
+  componentId: string;
+  path: string;
+};
+
 export interface GenerativeUIComponentManifest {
   description?: string;
   props: GenerativeUIJSONSchema;
@@ -73,6 +82,11 @@ export interface GenerativeUIComponentManifest {
     string,
     { description?: string; parameters: GenerativeUIJSONSchema }
   >;
+  /**
+   * Props that hold child components. A "single" slot takes one component id.
+   * A "multiple" slot takes a `string[]` of component ids, or a
+   * {@link GenerativeUITemplateChildren} template.
+   */
   slots?: Record<string, "single" | "multiple">;
 }
 

@@ -174,7 +174,16 @@ export function createLicenseContextValue(
 export {
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   A2UI_DEFAULT_DESIGN_GUIDELINES,
+  GENERATIVE_UI_MARKDOWN_GUIDELINES,
+  GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
+  GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
 } from "./a2ui-prompts";
+export {
+  COPILOTKIT_FORWARDED_PROPS_KEY,
+  COPILOTKIT_UI_ENVELOPE_FORMAT,
+  readCopilotKitUIEnvelope,
+} from "./a2ui-envelope";
+export type { CopilotKitUIEnvelope } from "./a2ui-envelope";
 
 export type { DebugEventEnvelope } from "./debug-event-envelope";
 

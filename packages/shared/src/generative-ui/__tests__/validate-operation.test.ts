@@ -154,6 +154,70 @@ describe("validateOperation", () => {
     ).toMatch(/component ids/);
   });
 
+  it("accepts a template with an absolute or a relative path in a multiple slot", () => {
+    for (const path of ["/products", "items/0/variants"]) {
+      expect(
+        reasonOf(
+          update({
+            id: "root",
+            component: "ProductGrid",
+            children: { componentId: "card", path },
+          }),
+        ),
+      ).toBe("ok");
+    }
+  });
+
+  it("rejects a template in a single slot", () => {
+    expect(
+      reasonOf(
+        update({
+          id: "f",
+          component: "Frame",
+          child: { componentId: "card", path: "/products" },
+        }),
+      ),
+    ).toBe(
+      'component "f": child: a template { "componentId", "path" } is only allowed in a "multiple" slot',
+    );
+  });
+
+  it("rejects template paths with forbidden or empty segments", () => {
+    const templateReason = (path: string) =>
+      reasonOf(
+        update({
+          id: "root",
+          component: "ProductGrid",
+          children: { componentId: "card", path },
+        }),
+      );
+    expect(templateReason("/__proto__/x")).toBe(
+      'component "root": children: path segment "__proto__" is not allowed in template path',
+    );
+    for (const path of ["/", "a//b", "items/"]) {
+      expect(templateReason(path)).toBe(
+        'component "root": children: template path must not contain empty segments',
+      );
+    }
+  });
+
+  it("rejects templates without a component id, with extra keys, or that repeat the node itself", () => {
+    const slotReason = (children: unknown) =>
+      reasonOf(update({ id: "root", component: "ProductGrid", children }));
+    expect(slotReason({ componentId: "", path: "/products" })).toMatch(
+      /template componentId must be a component id/,
+    );
+    expect(slotReason({ componentId: "card", path: "" })).toMatch(
+      /template path must be a JSON pointer or a relative path/,
+    );
+    expect(
+      slotReason({ componentId: "card", path: "/products", limit: 3 }),
+    ).toMatch(/takes only "componentId" and "path"/);
+    expect(slotReason({ componentId: "root", path: "/products" })).toMatch(
+      /its own child/,
+    );
+  });
+
   it("checks function names only when the function list is provided", () => {
     const op = update({
       id: "c1",

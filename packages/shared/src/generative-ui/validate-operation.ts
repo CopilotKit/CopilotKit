@@ -140,18 +140,26 @@ function validateDataModelUpdate(
     }
     return OK;
   }
-  const segments = path.slice(1).split("/");
+  const reason = pathProblem(path, "updateDataModel.path");
+  return reason ? fail(reason) : OK;
+}
+
+/**
+ * Checks the segments of an absolute JSON pointer ("/a/b") or of a path
+ * relative to a template item ("a/b"). `label` names the field in the reason.
+ */
+function pathProblem(path: string, label: string): string | undefined {
+  const relative = path.startsWith("/") ? path.slice(1) : path;
+  const segments = relative.split("/");
   if (segments.some((segment) => segment === "")) {
-    return fail("updateDataModel.path must not contain empty segments");
+    return `${label} must not contain empty segments`;
   }
   const decoded = segments.map(decodeSegment);
   const forbidden = decoded.find((segment) => FORBIDDEN_SEGMENTS.has(segment));
   if (forbidden !== undefined) {
-    return fail(
-      `path segment "${forbidden}" is not allowed in updateDataModel.path`,
-    );
+    return `path segment "${forbidden}" is not allowed in ${label}`;
   }
-  return OK;
+  return undefined;
 }
 
 function validateComponents(
@@ -259,16 +267,44 @@ function validateSlot(
   kind: "single" | "multiple",
   ownId: string,
 ): string | undefined {
-  if (kind === "multiple" && !Array.isArray(value)) {
-    return "must be an array of component ids";
+  const isTemplate = isRecord(value) && "componentId" in value;
+  if (kind === "single" && isTemplate) {
+    return 'a template { "componentId", "path" } is only allowed in a "multiple" slot';
   }
-  const ids = kind === "single" ? [value] : (value as unknown[]);
+  if (kind === "multiple" && isTemplate) {
+    return validateTemplate(value, ownId);
+  }
+  if (kind === "multiple" && !Array.isArray(value)) {
+    return 'must be an array of component ids or a template { "componentId", "path" }';
+  }
+  const ids = kind === "multiple" && Array.isArray(value) ? value : [value];
   for (const id of ids) {
     if (typeof id !== "string" || !id)
       return "must reference component ids (strings)";
     if (id === ownId) return "a component cannot be its own child";
   }
   return undefined;
+}
+
+function validateTemplate(
+  template: Record<string, unknown>,
+  ownId: string,
+): string | undefined {
+  const hasOnlyTemplateKeys = Object.keys(template).every(
+    (key) => key === "componentId" || key === "path",
+  );
+  if (!hasOnlyTemplateKeys) {
+    return 'a template takes only "componentId" and "path"';
+  }
+  const { componentId, path } = template;
+  if (typeof componentId !== "string" || !componentId) {
+    return "template componentId must be a component id";
+  }
+  if (componentId === ownId) return "a component cannot be its own child";
+  if (typeof path !== "string" || !path) {
+    return "template path must be a JSON pointer or a relative path";
+  }
+  return pathProblem(path, "template path");
 }
 
 function containsFunctionCall(value: unknown): boolean {
