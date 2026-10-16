@@ -10,13 +10,13 @@ describe("splitA2UIMarkdown", () => {
 
   it("splits prose, a closed a2ui fence, and trailing prose in order", () => {
     const md =
-      'Intro\n\n```a2ui\n{"version":"v0.9","createSurface":{"surfaceId":"s"}}\n```\n\nOutro';
+      'Intro\n\n```a2ui\n{"version":"v1.0","createSurface":{"surfaceId":"s"}}\n```\n\nOutro';
     expect(splitA2UIMarkdown(md)).toEqual([
       { type: "markdown", text: "Intro\n\n" },
       {
         type: "a2ui",
         index: 0,
-        text: '{"version":"v0.9","createSurface":{"surfaceId":"s"}}\n',
+        text: '{"version":"v1.0","createSurface":{"surfaceId":"s"}}\n',
         closed: true,
       },
       { type: "markdown", text: "\n\nOutro" },
@@ -25,12 +25,12 @@ describe("splitA2UIMarkdown", () => {
 
   it("marks an unterminated fence as open and keeps its partial body", () => {
     const md =
-      'Intro\n```a2ui\n{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","comp';
+      'Intro\n```a2ui\n{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"root","comp';
     const segs = splitA2UIMarkdown(md);
     expect(segs[1]).toEqual({
       type: "a2ui",
       index: 0,
-      text: '{"version":"v0.9","updateComponents":{"surfaceId":"s","components":[{"id":"root","comp',
+      text: '{"version":"v1.0","updateComponents":{"surfaceId":"s","components":[{"id":"root","comp',
       closed: false,
     });
   });
