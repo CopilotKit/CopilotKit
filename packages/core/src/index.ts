@@ -1,3 +1,6 @@
+// Installs same-id activity upsert on AbstractAgent.addMessage. See #7394.
+import "./activity-message-upsert";
+
 export * from "./core";
 export * from "./types";
 export * from "./agent";
