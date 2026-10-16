@@ -27,9 +27,47 @@ test.each(["development", "production"])(
           framework: "vue",
           sdkVersion: packageInfo.version,
         },
+        { defaultAnchor: undefined },
       );
     } finally {
       wrapper.unmount();
     }
   },
 );
+
+test("passes the default anchor, follows changes and restores the default", async () => {
+  const wrapper = mount(CopilotKitInspector, {
+    props: { defaultAnchor: { horizontal: "left", vertical: "bottom" } },
+  });
+  try {
+    await nextTick();
+    await vi.dynamicImportSettled();
+    await nextTick();
+    expect(configureWebInspectorElement).toHaveBeenCalledWith(
+      expect.any(HTMLElement),
+      null,
+      expect.any(Object),
+      { defaultAnchor: { horizontal: "left", vertical: "bottom" } },
+    );
+
+    await wrapper.setProps({
+      defaultAnchor: { horizontal: "left", vertical: "top" },
+    });
+    const inspector = wrapper.find("cpk-web-inspector")
+      .element as HTMLElement & {
+      defaultAnchor?: unknown;
+    };
+    expect(inspector.defaultAnchor).toEqual({
+      horizontal: "left",
+      vertical: "top",
+    });
+
+    await wrapper.setProps({ defaultAnchor: undefined });
+    expect(inspector.defaultAnchor).toEqual({
+      horizontal: "right",
+      vertical: "top",
+    });
+  } finally {
+    wrapper.unmount();
+  }
+});

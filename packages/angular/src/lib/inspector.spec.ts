@@ -113,6 +113,20 @@ describe("Angular inspector integration", () => {
         framework: "angular",
         sdkVersion: packageInfo.version,
       },
+      { defaultAnchor: undefined },
+    );
+  });
+
+  it("passes inspectorDefaultAnchor to the inspector", async () => {
+    await renderHost({
+      inspectorDefaultAnchor: { horizontal: "left", vertical: "bottom" },
+    });
+
+    expect(configureWebInspectorElement).toHaveBeenLastCalledWith(
+      expect.any(HTMLElement),
+      expect.anything(),
+      expect.any(Object),
+      { defaultAnchor: { horizontal: "left", vertical: "bottom" } },
     );
   });
 

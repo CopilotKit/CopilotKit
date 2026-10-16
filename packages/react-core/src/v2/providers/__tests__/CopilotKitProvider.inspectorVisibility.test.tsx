@@ -1,6 +1,7 @@
 import type { AssistantMessage } from "@ag-ui/core";
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { configureWebInspectorElement } from "@copilotkit/web-inspector";
 import { CopilotChatAssistantMessage } from "../../components/chat/CopilotChatAssistantMessage";
 import { CopilotChatConfigurationProvider } from "../CopilotChatConfigurationProvider";
 import { CopilotKitProvider } from "../CopilotKitProvider";
@@ -30,6 +31,28 @@ afterEach(() => {
 });
 
 describe("CopilotKitProvider development Inspector action", () => {
+  it("passes inspectorDefaultAnchor to the Inspector", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    render(
+      <CopilotKitProvider
+        runtimeUrl="/api/copilotkit"
+        inspectorDefaultAnchor={{ horizontal: "left", vertical: "bottom" }}
+      >
+        <span />
+      </CopilotKitProvider>,
+    );
+    await act(async () => {
+      await vi.dynamicImportSettled();
+    });
+
+    expect(configureWebInspectorElement).toHaveBeenLastCalledWith(
+      expect.any(HTMLElement),
+      expect.anything(),
+      expect.any(Object),
+      { defaultAnchor: { horizontal: "left", vertical: "bottom" } },
+    );
+  });
+
   it.each([
     "http://localhost:3000",
     "http://127.0.0.1:3000",

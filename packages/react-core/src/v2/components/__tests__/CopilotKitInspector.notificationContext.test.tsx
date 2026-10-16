@@ -29,6 +29,43 @@ test.each(["development", "production"])(
         framework: "react",
         sdkVersion: packageInfo.version,
       },
+      { defaultAnchor: undefined },
     );
   },
 );
+
+test("passes the default anchor, follows changes and restores the default", async () => {
+  const { rerender } = render(
+    <CopilotKitInspector
+      defaultAnchor={{ horizontal: "left", vertical: "bottom" }}
+    />,
+  );
+  await act(async () => {
+    await vi.dynamicImportSettled();
+  });
+  expect(configureWebInspectorElement).toHaveBeenCalledWith(
+    expect.any(HTMLElement),
+    null,
+    expect.any(Object),
+    { defaultAnchor: { horizontal: "left", vertical: "bottom" } },
+  );
+
+  rerender(
+    <CopilotKitInspector
+      defaultAnchor={{ horizontal: "left", vertical: "top" }}
+    />,
+  );
+  const inspector = document.querySelector("cpk-notification-test") as
+    | (HTMLElement & { defaultAnchor?: unknown })
+    | null;
+  expect(inspector?.defaultAnchor).toEqual({
+    horizontal: "left",
+    vertical: "top",
+  });
+
+  rerender(<CopilotKitInspector />);
+  expect(inspector?.defaultAnchor).toEqual({
+    horizontal: "right",
+    vertical: "top",
+  });
+});

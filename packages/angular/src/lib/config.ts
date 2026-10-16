@@ -19,6 +19,7 @@ import type {
   SuggestionsConfig,
 } from "@copilotkit/core";
 import { OpenGenerativeUIConfig } from "./open-generative-ui";
+import type { Anchor } from "@copilotkit/web-inspector";
 import { A2UICatalog } from "./components/a2ui/a2ui-types";
 
 export interface A2UIConfig {
@@ -97,6 +98,13 @@ export interface CopilotKitConfig {
    * always disabled in production and during server rendering.
    */
   enableInspector?: boolean;
+  /**
+   * Corner the Inspector launcher starts in. Once the user drags the launcher,
+   * its saved position wins.
+   *
+   * @default { horizontal: "right", vertical: "top" }
+   */
+  inspectorDefaultAnchor?: Anchor;
 }
 
 const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";

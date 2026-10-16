@@ -98,6 +98,7 @@ export class CopilotInspector {
           framework: "angular",
           sdkVersion: ANGULAR_SDK_VERSION,
         },
+        { defaultAnchor: this.config?.inspectorDefaultAnchor },
       );
 
       if (!existing) {
