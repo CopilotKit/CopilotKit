@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { RunAgentInput } from "@ag-ui/client";
 import {
-  GENERATIVE_UI_MARKDOWN_GUIDELINES,
+  buildGenerativeUIMarkdownGuidelines,
   envelopeToManifest,
   readCopilotKitUIEnvelope,
 } from "@copilotkit/shared";
@@ -46,6 +46,13 @@ const ui = createGenerativeUI({
       props: z.object({ label: z.string() }),
     },
   },
+});
+
+/** The guideline for this UI: no events, no multiple slot, and no function mounted. */
+const SMALL_GUIDELINE = buildGenerativeUIMarkdownGuidelines({
+  functions: false,
+  events: false,
+  templates: false,
 });
 
 type CouponHandler = (args: { code: string }) => unknown;
@@ -321,9 +328,7 @@ describe("useGenerativeUIRoot", () => {
         copilotkit_transport: "markdown",
         copilotkit_contextSent: true,
       });
-      expect(catalogOf(input)?.instructions).toBe(
-        GENERATIVE_UI_MARKDOWN_GUIDELINES,
-      );
+      expect(catalogOf(input)?.instructions).toBe(SMALL_GUIDELINE);
       expect(Object.keys(catalogOf(input)?.components ?? {})).toEqual([
         "Box",
         "Button",
@@ -344,11 +349,27 @@ describe("useGenerativeUIRoot", () => {
         catalogId: "shop",
         protocolVersion: "1.0",
         functions: {},
-        instructions: GENERATIVE_UI_MARKDOWN_GUIDELINES,
+        instructions: SMALL_GUIDELINE,
       });
       expect(
         envelopeOf(input)?.metadata.extensions.copilotkit_contextSent,
       ).toBe(false);
+    });
+
+    it("adds the function rules to the markdown guideline only while a function is mounted", async () => {
+      const { copilotkit, agent, setHandler } = setup({
+        ui,
+        transport: "markdown",
+      });
+
+      const before = await runOnce(copilotkit, agent);
+      setHandler(() => "ok");
+      const after = await runOnce(copilotkit, agent);
+
+      expect(catalogOf(before)?.instructions).not.toContain(
+        "callRendererFunction",
+      );
+      expect(catalogOf(after)?.instructions).toContain("callRendererFunction");
     });
 
     it("sends the envelope only to the agents in agentIds", async () => {

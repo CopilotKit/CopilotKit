@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { RunAgentInput } from "@ag-ui/client";
 import {
-  GENERATIVE_UI_MARKDOWN_GUIDELINES,
+  buildGenerativeUIMarkdownGuidelines,
   GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
 } from "@copilotkit/shared";
@@ -285,7 +285,14 @@ describe("markdown transport", () => {
       GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
       GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
     ]);
-    expect(listed.context[0].value).toBe(GENERATIVE_UI_MARKDOWN_GUIDELINES);
+    // The UI has a multiple slot and the mounted addToCart, but no events.
+    expect(listed.context[0].value).toBe(
+      buildGenerativeUIMarkdownGuidelines({
+        functions: true,
+        events: false,
+        templates: true,
+      }),
+    );
     expect(JSON.parse(listed.context[1].value)).toEqual({
       catalogId: "shop",
       targets: [

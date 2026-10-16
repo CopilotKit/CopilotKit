@@ -6,7 +6,6 @@ import {
   DEFAULT_AGENT_ID,
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_FUNCTION_CALL_ACTIVITY_TYPE,
-  GENERATIVE_UI_MARKDOWN_GUIDELINES,
   randomUUID,
   validateOperation,
 } from "@copilotkit/shared";
@@ -73,7 +72,6 @@ function envelopeOptionsFor(
       transport: "markdown",
       includeCatalog: config.includeCatalog !== false,
       contextSent: config.sendContext !== false,
-      instructions: GENERATIVE_UI_MARKDOWN_GUIDELINES,
     };
   }
   return { transport: "tool", includeCatalog: true, contextSent: false };
