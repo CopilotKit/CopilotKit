@@ -135,6 +135,27 @@ describe("buildMarkdownSurfaces", () => {
     expect([...fences.keys()]).toEqual(["m1:0"]);
   });
 
+  it.each([
+    ["no catalogId", { surfaceId: "s1" }],
+    ["another catalogId", { surfaceId: "s1", catalogId: "old/catalog@1" }],
+  ])(
+    "gives a createSurface with %s the catalog id of the generative UI",
+    (_name, createSurface) => {
+      const message = assistant(
+        "m1",
+        fence([
+          { version: "v0.9", createSurface },
+          components("s1", button("root", "Buy")),
+        ]),
+      );
+
+      const [surface] = build([message]).surfaces;
+
+      expect(surface.rejected).toEqual([]);
+      expect(surface.operations[0]).toEqual(create("s1"));
+    },
+  );
+
   it("leaves out an invalid operation and lists it in rejected", () => {
     const message = assistant(
       "m1",

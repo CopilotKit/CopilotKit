@@ -411,6 +411,33 @@ describe("GenerativeUIMiddleware", () => {
     expect(output.indexOf(findToolResult(output))).toBeLessThan(finishedIndex);
   });
 
+  it.each([
+    ["no catalogId", { surfaceId: "recs" }],
+    ["another catalogId", { surfaceId: "recs", catalogId: "old/catalog@1" }],
+  ])(
+    "applies a createSurface with %s, with the catalog id of the envelope",
+    async (_name, createSurface) => {
+      const { output } = await run(
+        renderCall({
+          target: "recommendations",
+          operations: [{ version: "v0.9", createSurface }],
+        }),
+      );
+      const [snapshot] = activity(output);
+      expect(snapshot).toMatchObject({
+        type: EventType.ACTIVITY_SNAPSHOT,
+        content: { operations: [create("recs")] },
+      });
+      expect(toolResult(output)).toMatchObject({ applied: 1, rejected: [] });
+    },
+  );
+
+  it("does not ask the model for a catalogId in the guide", async () => {
+    const { input } = await run([]);
+    const guide = input.context.map((entry) => entry.value).join("\n");
+    expect(guide).not.toContain("catalogId");
+  });
+
   it("rejects createSurface for a target that is not mounted", async () => {
     const { output } = await run(
       renderCall({ target: "sidebar", operations: [create("x")] }),

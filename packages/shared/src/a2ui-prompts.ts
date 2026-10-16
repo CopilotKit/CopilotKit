@@ -130,7 +130,7 @@ export const GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION =
  * schema must stay ordinary context that the model reads as App Context.
  */
 export const GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION =
-  "Generative UI component schema: the catalog id, components, props, events, slots, functions, and targets that ```a2ui code fences can use, and the surfaces that already exist.";
+  "Generative UI component schema: the components, props, events, slots, functions, and targets that ```a2ui code fences can use, and the surfaces that already exist.";
 
 /**
  * Generation guideline for the markdown transport. The model writes A2UI v0.9
@@ -148,10 +148,9 @@ RULES
 - Inside a fence, write one JSON object per line and nothing else. No comments, no trailing commas, no pretty-printing.
 - Keep each operation whole on its line.
 - Give every operation "version":"v0.9".
-- Set catalogId in createSurface to the catalog id from the schema.
 - Write the operations in this order: createSurface, then updateDataModel with all the initial data, then updateComponents with the "root" component first and its children after it:
   \`\`\`a2ui
-  {"version":"v0.9","createSurface":{"surfaceId":"plan-picker","catalogId":"<catalog id>"}}
+  {"version":"v0.9","createSurface":{"surfaceId":"plan-picker"}}
   {"version":"v0.9","updateDataModel":{"surfaceId":"plan-picker","path":"/","value":{ ...initial data... }}}
   {"version":"v0.9","updateComponents":{"surfaceId":"plan-picker","components":[{"id":"root","component":"<Name>","children":["seats","pick"]}]}}
   {"version":"v0.9","updateComponents":{"surfaceId":"plan-picker","components":[ ...the children... ]}}
