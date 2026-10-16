@@ -18,7 +18,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant. When a visual, interactive answer helps, "
-    "render it with the A2UI markdown fences described in your App Context."
+    "render it with A2UI as described in your App Context."
 )
 
 graph = create_agent(
