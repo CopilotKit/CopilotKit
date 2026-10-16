@@ -42,6 +42,42 @@ export const chartSchema = z.object({
       'The value fields: strings or { "key", "label"?, "color"? }. Default: every number field except xKey',
     ),
   stacked: z.boolean().optional(),
+  layout: z
+    .enum(["vertical", "horizontal"])
+    .optional()
+    .describe(
+      '"horizontal" draws the bars from left to right. Default "vertical"',
+    ),
+  yAxis: z
+    .object({
+      label: z.string().optional(),
+      min: z.number().optional(),
+      max: z.number().optional(),
+      width: z.number().optional().describe("Pixels"),
+    })
+    .optional()
+    .describe("The value axis"),
+  showDots: z.boolean().optional().describe("Point markers on a line or area"),
+  barRadius: z
+    .number()
+    .optional()
+    .describe("The corner radius of a bar, in pixels"),
+  innerRadius: z
+    .union([z.number(), z.string()])
+    .optional()
+    .describe("Pie and donut"),
+  outerRadius: z
+    .union([z.number(), z.string()])
+    .optional()
+    .describe("Pie and donut"),
+  startAngle: z.number().optional().describe("Pie and donut. Default 90"),
+  endAngle: z.number().optional().describe("Pie and donut. Default -270"),
+  cornerRadius: z.number().optional().describe("The corners of a slice"),
+  paddingAngle: z.number().optional().describe("The gap between slices"),
+  showLabelLines: z
+    .boolean()
+    .optional()
+    .describe("Leader lines of the slice labels. Default true"),
   height: z.number().optional().describe("Pixels. Default 240"),
   showLegend: z.boolean().optional().describe("Default true"),
   showGrid: z.boolean().optional().describe("Default true"),
@@ -244,11 +280,18 @@ function createRechartsChart(R: RechartsModule) {
                 data={data}
                 dataKey={first.key}
                 nameKey={props.xKey ?? "name"}
-                innerRadius={chartType === "donut" ? "55%" : 0}
-                outerRadius="80%"
-                startAngle={90}
-                endAngle={-270}
+                innerRadius={
+                  props.innerRadius ?? (chartType === "donut" ? "55%" : 0)
+                }
+                outerRadius={props.outerRadius ?? "80%"}
+                startAngle={props.startAngle ?? 90}
+                endAngle={props.endAngle ?? -270}
+                cornerRadius={props.cornerRadius}
+                paddingAngle={props.paddingAngle}
                 label={props.showValueLabels ? true : undefined}
+                labelLine={
+                  props.showValueLabels ? (props.showLabelLines ?? true) : false
+                }
                 isAnimationActive={false}
               >
                 {data.map((_, index) => (
@@ -268,6 +311,23 @@ function createRechartsChart(R: RechartsModule) {
 
     const CartesianChart = cartesianChartOf(R, chartType);
     const stackId = props.stacked ? "stack" : undefined;
+    const isHorizontal = props.layout === "horizontal";
+    const domain: [number | "auto", number | "auto"] = [
+      props.yAxis?.min ?? "auto",
+      props.yAxis?.max ?? "auto",
+    ];
+    const valueAxisLabel = props.yAxis?.label
+      ? {
+          value: props.yAxis.label,
+          position: isHorizontal
+            ? ("insideBottom" as const)
+            : ("insideLeft" as const),
+          angle: isHorizontal ? 0 : -90,
+          fontSize: 12,
+          fill: textColor("secondary"),
+        }
+      : undefined;
+    const dot = props.showDots ? { r: 3, strokeWidth: 0 } : false;
     const marks = series.map((item) => {
       const common = {
         dataKey: item.key,
@@ -283,7 +343,7 @@ function createRechartsChart(R: RechartsModule) {
               type="monotone"
               stroke={item.color}
               strokeWidth={2}
-              dot={false}
+              dot={dot ? { ...dot, fill: item.color } : false}
               label={valueLabel}
             />
           );
@@ -297,6 +357,7 @@ function createRechartsChart(R: RechartsModule) {
               fill={item.color}
               fillOpacity={0.2}
               stackId={stackId}
+              dot={dot ? { ...dot, fill: item.color } : false}
               label={valueLabel}
             />
           );
@@ -309,7 +370,15 @@ function createRechartsChart(R: RechartsModule) {
               {...common}
               fill={item.color}
               stackId={stackId}
-              radius={stackId ? 0 : [4, 4, 0, 0]}
+              radius={
+                stackId
+                  ? 0
+                  : props.barRadius !== undefined
+                    ? props.barRadius
+                    : isHorizontal
+                      ? [0, 4, 4, 0]
+                      : [4, 4, 0, 0]
+              }
               label={valueLabel}
             />
           );
@@ -323,28 +392,57 @@ function createRechartsChart(R: RechartsModule) {
       >
         <CartesianChart
           data={data}
+          // recharts calls the axis layout of a horizontal bar chart "vertical".
+          layout={isHorizontal ? "vertical" : "horizontal"}
           margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
         >
           {showGrid ? (
             <R.CartesianGrid
               strokeDasharray="3 3"
               stroke={borderColor("subtle")}
-              vertical={false}
+              vertical={isHorizontal}
+              horizontal={!isHorizontal}
             />
           ) : null}
-          <R.XAxis
-            dataKey={props.xKey}
-            tick={axisTick}
-            tickLine={false}
-            axisLine={{ stroke: borderColor("default") }}
-          />
-          <R.YAxis
-            tick={axisTick}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={format}
-            width={64}
-          />
+          {isHorizontal ? (
+            <>
+              <R.XAxis
+                type="number"
+                domain={domain}
+                tick={axisTick}
+                tickLine={false}
+                axisLine={{ stroke: borderColor("default") }}
+                tickFormatter={format}
+                label={valueAxisLabel}
+              />
+              <R.YAxis
+                type="category"
+                dataKey={props.xKey}
+                tick={axisTick}
+                tickLine={false}
+                axisLine={false}
+                width={props.yAxis?.width ?? 96}
+              />
+            </>
+          ) : (
+            <>
+              <R.XAxis
+                dataKey={props.xKey}
+                tick={axisTick}
+                tickLine={false}
+                axisLine={{ stroke: borderColor("default") }}
+              />
+              <R.YAxis
+                domain={domain}
+                tick={axisTick}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={format}
+                width={props.yAxis?.width ?? 64}
+                label={valueAxisLabel}
+              />
+            </>
+          )}
           {tooltip}
           {showLegend && series.length > 0 ? (
             <R.Legend {...LEGEND_PROPS} />
