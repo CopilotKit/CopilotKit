@@ -207,3 +207,65 @@ process.stdout.write(process.env.TEST_RESPONSE);
     (error) => error.diagnostic.traceIds.length === 16,
   );
 });
+
+const page = (ids, next = false, cursor) => ({
+  edges: ids.map((id) => ({ node: { id, projectId: "project" } })),
+  pageInfo: { hasNextPage: next, endCursor: cursor },
+});
+
+test("CLI inventory rejects incomplete pages, cycles, duplicates and cross-project entries", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "railway-pages-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const executable = join(root, "fake-railway");
+  await writeFile(
+    executable,
+    `#!${process.execPath}
+const fs = require('node:fs');
+const vars = JSON.parse(fs.readFileSync(process.argv[process.argv.indexOf('--variables') + 1].slice(1), 'utf8'));
+const pages = JSON.parse(process.env.TEST_PAGES);
+process.stdout.write(JSON.stringify({data:{project:{environments:pages[vars.after || 'first']}}}));
+`,
+    { mode: 0o700 },
+  );
+  const cases = [
+    [
+      {
+        first: page(["one"], true, "a"),
+        a: page(["two"], true, "b"),
+        b: page(["three"], true, "a"),
+      },
+      /pagination/,
+    ],
+    [{ first: page(["one"], true, "a"), a: page(["one"]) }, /duplicate/],
+    [{ first: { edges: [], pageInfo: {} } }, /Incomplete/],
+    [
+      {
+        first: {
+          edges: [{ node: { id: "one", projectId: "other" } }],
+          pageInfo: { hasNextPage: false },
+        },
+      },
+      /Malformed/,
+    ],
+  ];
+  for (const [pages, expected] of cases) {
+    const api = railwayApi({
+      executable,
+      env: { TEST_PAGES: JSON.stringify(pages) },
+    });
+    await assert.rejects(api.list("environments", "project"), expected);
+  }
+  const api = railwayApi({
+    executable,
+    env: {
+      TEST_PAGES: JSON.stringify({
+        first: page(["one"], true, "a"),
+        a: page(["two"]),
+      }),
+    },
+  });
+  assert.deepEqual(
+    (await api.list("environments", "project")).map((v) => v.id),
+    ["one", "two"],
+  );
+});

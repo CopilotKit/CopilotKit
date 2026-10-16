@@ -216,6 +216,10 @@ test("deployment routes require admin auth and exact bounded requests", async (t
         calls.push(body);
         return { phase: "draining" };
       },
+      recover: async (body) => {
+        calls.push(body);
+        return { phase: "recovery-ready" };
+      },
       resume: async () => {
         throw Object.assign(Error("owner conflict"), {
           code: "DEPLOYMENT_CONFLICT",
@@ -231,7 +235,12 @@ test("deployment routes require admin auth and exact bounded requests", async (t
     authorization: `Bearer ${token}`,
     "content-type": "application/json",
   };
-  for (const path of ["/deployment", "/deployment/drain", "/deployment/resume"])
+  for (const path of [
+    "/deployment",
+    "/deployment/drain",
+    "/deployment/resume",
+    "/deployment/recover",
+  ])
     assert.equal(
       (
         await fetch(base + path, {
@@ -260,6 +269,26 @@ test("deployment routes require admin auth and exact bounded requests", async (t
     200,
   );
   assert.equal(calls.length, 1);
+  assert.equal(
+    (
+      await post("/deployment/recover", {
+        operationId: "op",
+        expectedRuntimeIdentity: {},
+        force: true,
+      })
+    ).status,
+    503,
+  );
+  assert.equal(
+    (
+      await post("/deployment/recover", {
+        operationId: "op",
+        expectedRuntimeIdentity: {},
+      })
+    ).status,
+    200,
+  );
+  assert.equal(calls.length, 2);
   assert.equal(
     (
       await post("/deployment/resume", {

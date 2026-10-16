@@ -371,6 +371,11 @@ async function controllerFor({
   async function create(kind, name, variables, scope) {
     await check();
     const before = await inventory();
+    if (kind === "createEnvironment")
+      assert.ok(
+        !before.environments.some((value) => value.name === name),
+        "Environment name already exists; reconcile before creating",
+      );
     const intent = {
       serial: sequence++,
       kind,
@@ -387,13 +392,85 @@ async function controllerFor({
     };
     journal.intents.push(intent);
     await save();
-    const value = await requestCreation(intent, { input: variables });
+    const value =
+      kind === "createEnvironment"
+        ? await createVerifiedEnvironment(intent, variables)
+        : await requestCreation(intent, { input: variables });
     id(value.id);
     assert.equal(value.projectId, journal.projectId);
     intent.resultId = value.id;
     intent.status = "returned";
     await save();
     return value;
+  }
+  async function createVerifiedEnvironment(intent, variables) {
+    let failure;
+    try {
+      const returned = await requestCreation(intent, { input: variables });
+      id(returned.id);
+      intent.resultId = returned.id;
+      await save();
+      assert.equal(returned.projectId, journal.projectId);
+      assert.equal(returned.name, intent.name);
+      assert.equal(returned.sourceEnvironment?.id, intent.scope);
+    } catch (error) {
+      failure = error;
+    }
+    intent.verification = [];
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const evidence = {
+        attempt,
+        at: new Date().toISOString(),
+        complete: false,
+        outcome: "incomplete",
+      };
+      intent.verification.push(evidence);
+      let values;
+      try {
+        values = await api.list("environments", journal.projectId);
+      } catch {
+        await save();
+        throw new Error(
+          "Incomplete environment inventory; creation remains unresolved",
+        );
+      }
+      evidence.complete = true;
+      evidence.environmentIds = values.map((value) => value.id);
+      const named = values.filter((value) => value.name === intent.name);
+      const matches = named.filter(
+        (value) =>
+          value.projectId === journal.projectId &&
+          value.sourceEnvironment?.id === intent.scope &&
+          !intent.beforeIds.includes(value.id) &&
+          Number.isFinite(Date.parse(value.createdAt)) &&
+          Date.parse(value.createdAt) >= Date.parse(intent.startedAt) - 1000 &&
+          (!intent.resultId || intent.resultId === value.id),
+      );
+      evidence.matchingIds = matches.map((value) => value.id);
+      evidence.outcome =
+        named.length > 1 || matches.length !== named.length
+          ? "conflict"
+          : matches.length === 1
+            ? "matched"
+            : "not-observed";
+      await save();
+      assert.ok(
+        named.length <= 1 && matches.length === named.length,
+        "Environment inventory conflicts with exact creation intent",
+      );
+      if (matches.length === 1) {
+        intent.reconciledFromProvider = Boolean(failure);
+        return matches[0];
+      }
+      if (attempt < 3) await delay(1000);
+    }
+    // Empty observations never prove cancellation or permit a second mutation.
+    throw (
+      failure ??
+      new Error(
+        "Created environment not visible in bounded inventory verification",
+      )
+    );
   }
   async function requestCreation(intent, variables) {
     try {
@@ -582,7 +659,8 @@ async function controllerFor({
           (e) =>
             e.projectId === journal.projectId &&
             e.name === intent.name &&
-            (!intent.scope || e.sourceEnvironment?.id === intent.scope),
+            e.sourceEnvironment?.id === intent.scope &&
+            Number.isFinite(Date.parse(e.createdAt)),
         );
       else if (intent.kind === "createService") {
         const env = await ownedEnvironment(intent.scope);

@@ -241,3 +241,52 @@ browser capture, policy/parser/publisher, journals, inspection, native and stora
 adapters, bootstrap, dependencies, Docker inputs, and test-service configuration.
 Root `package.json` is conservatively frozen too. Review every release explicitly;
 changes to these contracts need a coordinated release, not this protocol.
+
+### Bounded recovery of the original PNI-605 source intent
+
+The recovery bridge is limited to lifecycle
+`rich-f091f87b-e90b-4dd1-bef2-6ae873a774a3` in the committed test project.
+It preserves the original journal and failed result. It does **not** establish
+provider-side cancellation or turn the overdue original run into a pass.
+
+A reviewed compatibility release supplies `RICH_RECOVERY_AUTHORIZATION_JSON`.
+The authorization binds the original intent and lease hashes, runner and lifecycle
+run IDs, permanent service/environment/volume, retained template, exact baseline
+and target build identities, deployment operation, and recorded operator decision.
+The old runner must first persist a same-image deployment drain fence. Ordinary
+clean-drain requirements are unchanged; a blocked legacy drain is never reported
+as clean. Only the authorized target may bootstrap this bridge. Rollback to the
+legacy runner cannot resume this recovery protocol.
+
+Startup saves the original journal/result snapshots and canonical JSON hashes in
+`/data/recovery.json`, then promotes the fenced deployment target to the reviewed
+candidate. Authenticated `POST /deployment/recover` takes exactly
+`{ operationId, expectedRuntimeIdentity }`. It verifies dead original owners,
+reads complete CLI environment inventory, and reconciles any exact old-name match
+before transferring the lease into a durable retained watch. The environment must
+match project, name, creation time and source; protected resources, duplicate
+matches, or nonempty environments block recovery. The retained watch is durable
+before the original lease is released. Interrupted recovery is idempotent.
+
+The endpoint reports `recovery-ready`, not `drained`. `POST /deployment/resume`
+requires a fresh watch reconciliation. The runner checks the retained intent on
+idle ticks, before each admission, and after each run. A late matching resource
+is inspected, deleted only within the owned empty source scope, and its absence
+verified by complete inventory. Failed or incomplete inventory blocks admission.
+The watch remains indefinitely, including after a late resource is cleaned.
+`GET /deployment` exposes its hash, last observation, original journal hash,
+failed/overdue verdict and `providerFinality: "unknown"`.
+
+This is bounded operational recovery under the recorded decision, not proof that
+the original request is terminal. Detection can be delayed by an active run,
+provider outage or visibility lag. The original intent remains tracked during
+that interval. Ordinary clean deployment drain remains unavailable while this
+watch is retained; further compatibility changes require an explicitly reviewed
+transition. Scheduling stays off. A recovery authorization records the decision;
+it does not itself execute a deployment, recovery request, or fresh test run.
+
+Every new environment-create request is followed by at most three complete CLI
+inventory observations, even when its response fails or is lost. Returned IDs
+are persisted before verification. Zero observations never authorize a duplicate
+mutation; incomplete, conflicting or exhausted verification retains cleanup
+ownership and fails the attempt.

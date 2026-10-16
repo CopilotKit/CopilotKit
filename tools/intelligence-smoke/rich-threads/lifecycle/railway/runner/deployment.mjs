@@ -79,7 +79,12 @@ export function compatibilityFiles(files) {
   );
 }
 /** Validate retained state before bootstrap or configuration can write anything. */
-export async function checkStartup({ root, template, runtimeIdentity }) {
+export async function checkStartup({
+  root,
+  template,
+  runtimeIdentity,
+  recoveryAuthorization,
+}) {
   validateIdentity(runtimeIdentity);
   const templateSha256 = templateDigest(template);
   const [metadata, operation, retained, initialized] = await Promise.all([
@@ -95,6 +100,24 @@ export async function checkStartup({ root, template, runtimeIdentity }) {
       templateSha256,
       "Retained configuration mismatch",
     );
+  const recovery = await optionalMetadata(join(root, "recovery.json"));
+  if (recoveryAuthorization || recovery) {
+    assert.ok(
+      metadata && retained && initialized,
+      "Recovery requires initialized retained authority",
+    );
+    assert.equal(metadata.templateSha256, templateSha256);
+    const { prepareRetainedRecovery } = await import("../recovery.mjs");
+    await prepareRetainedRecovery({
+      root,
+      config: template,
+      runtimeIdentity,
+      metadata,
+      operation,
+      authorization: recoveryAuthorization,
+    });
+    return { runtimeIdentity, templateSha256 };
+  }
   if (!metadata) {
     assert.equal(
       operation,
