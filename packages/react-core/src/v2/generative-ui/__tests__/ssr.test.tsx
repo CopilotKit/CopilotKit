@@ -11,22 +11,29 @@ import type {
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { createGenerativeUI } from "../catalog";
 import { createGenerativeUIDispatcher } from "../dispatcher";
-import { useGenerativeUIField } from "../hooks";
 import { GenerativeUIRuntimeContext } from "../runtime-context";
 import type { GenerativeUIRuntime } from "../runtime-context";
 import { GenerativeUISurfaceManager } from "../surface-manager";
 import { SurfaceView } from "../SurfaceView";
 import { GenerativeUISurface } from "../GenerativeUISurface";
 
-function Email({ email }: { email: string }) {
-  const [value] = useGenerativeUIField("email", email);
-  return <span>email:{value}</span>;
+function Email({
+  email,
+}: {
+  email: string;
+  setEmail: (value: string) => void;
+}) {
+  return <span>email:{email}</span>;
 }
 
 const ui = createGenerativeUI({
   id: "shop",
   components: {
-    Email: { component: Email, props: z.object({ email: z.string() }) },
+    Email: {
+      component: Email,
+      props: z.object({ email: z.string() }),
+      writable: ["email"],
+    },
   },
 });
 
@@ -79,7 +86,7 @@ describe("generative UI server rendering", () => {
     expect(html).toContain("fb");
   });
 
-  it("renders an existing surface (component model, properties and field hooks) without throwing", () => {
+  it("renders an existing surface (component model, properties and writable props) without throwing", () => {
     const renderSurface = surfaceWith({
       id: "root",
       component: "Email",

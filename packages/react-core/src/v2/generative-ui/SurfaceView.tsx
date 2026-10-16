@@ -1,9 +1,11 @@
 import React, {
   memo,
+  useCallback,
   useEffect,
   useMemo,
   useReducer,
   useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
 import type { ReactNode } from "react";
@@ -14,8 +16,12 @@ import {
   isActionBinding,
   isPathBinding,
 } from "@copilotkit/shared";
-import type { GenerativeUIActionBinding } from "@copilotkit/shared";
+import type {
+  GenerativeUIActionBinding,
+  GenerativeUITemplateChildren,
+} from "@copilotkit/shared";
 import { shallowEqual, useShallowStableRef } from "../lib/shallow-stable-ref";
+import { setterNameOf } from "./catalog";
 import type { ResolvedGenerativeUIComponent } from "./catalog";
 import {
   DefaultNodeFallback,
@@ -40,6 +46,65 @@ const NO_ANCESTORS: readonly string[] = [];
 // No surface state exists on the server or during hydration.
 const undefinedSnapshot = () => undefined;
 const noopSubscribe = () => () => {};
+const zeroSnapshot = () => 0;
+
+/** Adds one segment to a JSON pointer: ("/items", "0") gives "/items/0". */
+function joinPath(base: string, segment: string) {
+  return base === "/" ? `/${segment}` : `${base}/${segment}`;
+}
+
+/**
+ * The absolute data model path of a binding. A path without a leading "/"
+ * is relative to the current template item, or to the root outside of a
+ * template.
+ */
+function resolvePath(path: string, basePath: string | undefined) {
+  if (path.startsWith("/")) return path;
+  return joinPath(basePath ?? "/", path);
+}
+
+/** `{ path }` values with their paths made absolute. */
+function absoluteValues(
+  values: Record<string, unknown> | undefined,
+  basePath: string | undefined,
+) {
+  if (values === undefined) return undefined;
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [
+      key,
+      isPathBinding(value)
+        ? { path: resolvePath(value.path, basePath) }
+        : value,
+    ]),
+  );
+}
+
+/** An event binding whose `{ path }` args or context are absolute. */
+function absoluteBinding(
+  binding: GenerativeUIActionBinding,
+  basePath: string | undefined,
+): GenerativeUIActionBinding {
+  if ("functionCall" in binding) {
+    const { call, args } = binding.functionCall;
+    return { functionCall: { call, args: absoluteValues(args, basePath) } };
+  }
+  const { name, context } = binding.event;
+  return { event: { name, context: absoluteValues(context, basePath) } };
+}
+
+/** A "multiple" slot value that repeats a component for each list item. */
+function isTemplateChildren(
+  value: unknown,
+): value is GenerativeUITemplateChildren {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "componentId" in value &&
+    typeof value.componentId === "string" &&
+    "path" in value &&
+    typeof value.path === "string"
+  );
+}
 
 export function SurfaceView({ surface }: { surface: ManagedSurface }) {
   const runtime = useRequiredGenerativeUIRuntime();
@@ -48,6 +113,7 @@ export function SurfaceView({ surface }: { surface: ManagedSurface }) {
       <NodeView
         surface={surface}
         componentId={GENERATIVE_UI_ROOT_ID}
+        basePath={undefined}
         ancestors={NO_ANCESTORS}
       />
     </SurfaceBoundary>
@@ -87,14 +153,29 @@ function useComponentProperties(
   );
 }
 
+/**
+ * The id of a node in the ancestor list. A template renders the same
+ * component once per item, so the item path is part of the id. A real cycle
+ * repeats both.
+ */
+function scopedId(componentId: string, basePath: string | undefined) {
+  return `${basePath ?? ""}#${componentId}`;
+}
+
 const NodeView = memo(function NodeView({
   surface,
   componentId,
+  basePath,
   ancestors,
 }: {
   surface: ManagedSurface;
   componentId: string;
-  /** Ids of the nodes above this one; used to cut cyclic slot references. */
+  /**
+   * The data model path of the template item this node renders, or
+   * `undefined` outside of a template. Relative paths resolve against it.
+   */
+  basePath: string | undefined;
+  /** Scoped ids of the nodes above this one; used to cut cyclic references. */
   ancestors: readonly string[];
 }) {
   const runtime = useRequiredGenerativeUIRuntime();
@@ -104,7 +185,7 @@ const NodeView = memo(function NodeView({
     componentId,
   );
   const properties = useComponentProperties(runtime.manager, component);
-  if (ancestors.includes(componentId)) {
+  if (ancestors.includes(scopedId(componentId, basePath))) {
     return (
       <DefaultNodeFallback
         message={`cyclic reference to ${componentId}`}
@@ -137,6 +218,7 @@ const NodeView = memo(function NodeView({
         definition={definition}
         properties={properties}
         runtime={runtime}
+        basePath={basePath}
         ancestors={ancestors}
       />
     </NodeBoundary>
@@ -144,30 +226,89 @@ const NodeView = memo(function NodeView({
 });
 
 /**
+ * Renders the component of a template once for each item of the list at the
+ * template path, keyed by index. Renders nothing when there is no list.
+ */
+function TemplateChildren({
+  surface,
+  template,
+  basePath,
+  ancestors,
+}: {
+  surface: ManagedSurface;
+  template: GenerativeUITemplateChildren;
+  basePath: string | undefined;
+  ancestors: readonly string[];
+}) {
+  const dataModel = surface.model.dataModel;
+  const listPath = resolvePath(template.path, basePath);
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const subscription = dataModel.subscribe(listPath, onChange);
+      return () => subscription.unsubscribe();
+    },
+    [dataModel, listPath],
+  );
+  const getCount = () => {
+    const list = dataModel.get(listPath);
+    return Array.isArray(list) ? list.length : 0;
+  };
+  const count = useSyncExternalStore(subscribe, getCount, zeroSnapshot);
+  const indexes = Array.from({ length: count }, (_, index) => index);
+  return (
+    <>
+      {indexes.map((index) => (
+        <NodeView
+          key={index}
+          surface={surface}
+          componentId={template.componentId}
+          basePath={joinPath(listPath, String(index))}
+          ancestors={ancestors}
+        />
+      ))}
+    </>
+  );
+}
+
+/**
  * The props the model sets, with `{ path }` bindings read from the surface
- * data model. Bound props, events and slots are left out. The result is the
- * same object until a value changes.
+ * data model. A literal writable prop that the component set shows the
+ * local value from `overrides`. Bound props, events and slots are left out.
+ * The result is the same object until a value changes.
  */
 function useModelDataProps(
   surface: ManagedSurface,
   definition: ResolvedGenerativeUIComponent,
   properties: Record<string, unknown>,
+  basePath: string | undefined,
+  overrides: Record<string, unknown>,
 ): Record<string, unknown> {
   const dataModel = surface.model.dataModel;
   const entries = useMemo(
     () =>
-      Object.entries(properties).filter(
-        ([key]) =>
-          !definition.events?.[key] &&
-          !definition.slots?.[key] &&
-          !Object.hasOwn(definition.selectors, key),
-      ),
-    [properties, definition],
+      Object.entries(properties)
+        .filter(
+          ([key]) =>
+            !definition.events?.[key] &&
+            !definition.slots?.[key] &&
+            !Object.hasOwn(definition.selectors, key),
+        )
+        .map(([key, value]) => ({
+          key,
+          value,
+          path: isPathBinding(value)
+            ? resolvePath(value.path, basePath)
+            : undefined,
+        })),
+    [properties, definition, basePath],
   );
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const resolved: Record<string, unknown> = {};
-  for (const [key, value] of entries) {
-    resolved[key] = isPathBinding(value) ? dataModel.get(value.path) : value;
+  for (const { key, value, path } of entries) {
+    resolved[key] = path === undefined ? value : dataModel.get(path);
+  }
+  for (const [key, value] of Object.entries(overrides)) {
+    if (!isPathBinding(properties[key])) resolved[key] = value;
   }
   // The values this render was based on, so the effect can detect a write that
   // landed between render and subscription (web_core never replays the current
@@ -175,8 +316,8 @@ function useModelDataProps(
   const rendered = useRef(resolved);
   rendered.current = resolved;
   useEffect(() => {
-    const bound = entries.flatMap(([key, value]) =>
-      isPathBinding(value) ? [{ key, path: value.path }] : [],
+    const bound = entries.flatMap(({ key, path }) =>
+      path === undefined ? [] : [{ key, path }],
     );
     const subscriptions = bound.map(({ path }) =>
       dataModel.subscribe(path, () => rerender()),
@@ -295,8 +436,16 @@ function useDataProps(
   surface: ManagedSurface,
   definition: ResolvedGenerativeUIComponent,
   properties: Record<string, unknown>,
+  basePath: string | undefined,
+  overrides: Record<string, unknown>,
 ) {
-  const modelData = useModelDataProps(surface, definition, properties);
+  const modelData = useModelDataProps(
+    surface,
+    definition,
+    properties,
+    basePath,
+    overrides,
+  );
   const parsedModel = useMemo(
     () => definition.modelProps.safeParse(modelData),
     [definition, modelData],
@@ -330,6 +479,7 @@ function useEventProps(
   componentId: string,
   definition: ResolvedGenerativeUIComponent,
   properties: Record<string, unknown>,
+  basePath: string | undefined,
 ) {
   const latest = useRef(properties);
   latest.current = properties;
@@ -362,13 +512,66 @@ function useEventProps(
           ? (args) =>
               invokeBoundEvent({
                 ...call,
-                binding: latest.current[name] as GenerativeUIActionBinding,
+                binding: absoluteBinding(
+                  latest.current[name] as GenerativeUIActionBinding,
+                  basePath,
+                ),
                 args,
               })
           : (args) => invokeMatchedEvent({ ...call, functionName, args });
     }
     return handlers;
-  }, [boundNames, runtime, surface, componentId, definition]);
+  }, [boundNames, runtime, surface, componentId, definition, basePath]);
+}
+
+/**
+ * The setter props of a node: `setValue` for the writable prop `value`. For
+ * a prop the model bound to `{ path }`, the setter writes the data model and
+ * makes the path user-owned. For a literal prop, it sets `overrides`, a local
+ * value of this mounted node. The setters keep their identity.
+ */
+function useSetterProps(
+  runtime: GenerativeUIRuntime,
+  surface: ManagedSurface,
+  componentId: string,
+  definition: ResolvedGenerativeUIComponent,
+  properties: Record<string, unknown>,
+  basePath: string | undefined,
+) {
+  const [overrides, setOverrides] = useState<Record<string, unknown>>({});
+  const latest = useRef(properties);
+  latest.current = properties;
+  const setters = useMemo(() => {
+    const result: Record<string, (value: unknown) => void> = {};
+    const writable = definition.writable ?? [];
+    for (const key of writable) {
+      result[setterNameOf(key)] = (value) => {
+        const binding = latest.current[key];
+        if (!isPathBinding(binding)) {
+          setOverrides((current) => ({ ...current, [key]: value }));
+          return;
+        }
+        try {
+          runtime.manager.setOwnedValue(
+            surface.key,
+            resolvePath(binding.path, basePath),
+            value,
+          );
+        } catch (cause) {
+          const message =
+            cause instanceof Error ? cause.message : String(cause);
+          reportErrorSafely(runtime, {
+            kind: "props",
+            surfaceId: surface.surfaceId,
+            componentId,
+            error: new Error(`${setterNameOf(key)}: ${message}`),
+          });
+        }
+      };
+    }
+    return result;
+  }, [runtime, surface, componentId, definition, basePath]);
+  return { overrides, setters };
 }
 
 function useSlotProps(
@@ -376,10 +579,11 @@ function useSlotProps(
   definition: ResolvedGenerativeUIComponent,
   properties: Record<string, unknown>,
   componentId: string,
+  basePath: string | undefined,
   ancestors: readonly string[],
 ) {
   return useMemo(() => {
-    const childAncestors = [...ancestors, componentId];
+    const childAncestors = [...ancestors, scopedId(componentId, basePath)];
     const slots: Record<string, ReactNode> = {};
     for (const [name, kind] of Object.entries(definition.slots ?? {})) {
       const value = properties[name];
@@ -388,6 +592,16 @@ function useSlotProps(
           <NodeView
             surface={surface}
             componentId={value}
+            basePath={basePath}
+            ancestors={childAncestors}
+          />
+        );
+      } else if (kind === "multiple" && isTemplateChildren(value)) {
+        slots[name] = (
+          <TemplateChildren
+            surface={surface}
+            template={value}
+            basePath={basePath}
             ancestors={childAncestors}
           />
         );
@@ -403,13 +617,14 @@ function useSlotProps(
             key={id}
             surface={surface}
             componentId={id}
+            basePath={basePath}
             ancestors={childAncestors}
           />
         ));
       }
     }
     return slots;
-  }, [surface, definition, properties, componentId, ancestors]);
+  }, [surface, definition, properties, componentId, basePath, ancestors]);
 }
 
 function ResolvedNode({
@@ -418,6 +633,7 @@ function ResolvedNode({
   definition,
   properties,
   runtime,
+  basePath,
   ancestors,
 }: {
   surface: ManagedSurface;
@@ -425,21 +641,39 @@ function ResolvedNode({
   definition: ResolvedGenerativeUIComponent;
   properties: Record<string, unknown>;
   runtime: GenerativeUIRuntime;
+  basePath: string | undefined;
   ancestors: readonly string[];
 }) {
-  const dataProps = useDataProps(runtime, surface, definition, properties);
+  const { overrides, setters } = useSetterProps(
+    runtime,
+    surface,
+    componentId,
+    definition,
+    properties,
+    basePath,
+  );
+  const dataProps = useDataProps(
+    runtime,
+    surface,
+    definition,
+    properties,
+    basePath,
+    overrides,
+  );
   const eventProps = useEventProps(
     runtime,
     surface,
     componentId,
     definition,
     properties,
+    basePath,
   );
   const slotProps = useSlotProps(
     surface,
     definition,
     properties,
     componentId,
+    basePath,
     ancestors,
   );
   const nodeContext = useMemo(
@@ -474,7 +708,12 @@ function ResolvedNode({
   const Component = definition.component;
   return (
     <GenerativeUINodeContext.Provider value={nodeContext}>
-      <Component {...dataProps.props} {...eventProps} {...slotProps} />
+      <Component
+        {...dataProps.props}
+        {...eventProps}
+        {...slotProps}
+        {...setters}
+      />
     </GenerativeUINodeContext.Provider>
   );
 }

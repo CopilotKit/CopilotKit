@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ComponentModel } from "@a2ui/web_core/v0_9";
 import { z } from "zod";
@@ -20,11 +20,7 @@ import type {
   GenerativeUIErrorInfo,
   GenerativeUIEventHandler,
 } from "../errors";
-import {
-  useGenerativeUIField,
-  useGenerativeUIFunction,
-  useGenerativeUIState,
-} from "../hooks";
+import { useGenerativeUIFunction, useGenerativeUIState } from "../hooks";
 import { GenerativeUIRuntimeContext } from "../runtime-context";
 import type { GenerativeUIRuntime } from "../runtime-context";
 import { invokeBoundEvent } from "../events";
@@ -109,21 +105,21 @@ function CartIds({ ids }: { ids: string[] }) {
 function Label({ label }: { label: string }) {
   return <span>{label}</span>;
 }
-function Email({ email }: { email: string }) {
-  const [value, setValue, { dirty, reset }] = useGenerativeUIField(
-    "email",
-    email,
-  );
+function TextField({
+  label,
+  value,
+  setValue,
+}: GenerativeUIComponentProps<typeof ui, "TextField">) {
   return (
-    <div>
-      <input
-        aria-label="email"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      />
-      {dirty && <button onClick={reset}>reset</button>}
-    </div>
+    <input
+      aria-label={label ?? "field"}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+    />
   );
+}
+function Section({ title, children }: { title: string; children?: ReactNode }) {
+  return <section data-testid={`section-${title}`}>{children}</section>;
 }
 function Racer() {
   // Layout effects run after commit but before any passive effect, which is
@@ -213,7 +209,21 @@ const ui = createGenerativeUI({
         },
       },
     },
-    Email: { component: Email, props: z.object({ email: z.string() }) },
+    // `value` is writable, so the component gets `setValue`.
+    TextField: {
+      component: TextField,
+      props: z.object({
+        label: z.string().optional(),
+        value: z.string().default(""),
+      }),
+      writable: ["value"],
+    },
+    Text: { component: Label, props: z.object({ label: z.string() }) },
+    Section: {
+      component: Section,
+      props: z.object({ title: z.string() }),
+      slots: { children: "multiple" },
+    },
     Racer: { component: Racer },
     Bomb: { component: Bomb, props: z.object({ label: z.string() }) },
   },
@@ -311,6 +321,12 @@ function setup(
 
 const cartWith = (...items: Cart["items"]): Cart => ({ items });
 const alertText = () => screen.getByRole("alert").textContent;
+const inputs = () => screen.getAllByLabelText<HTMLInputElement>("field");
+/** The text of every `span` inside `element`, in order. */
+const texts = (element: HTMLElement) =>
+  [...element.querySelectorAll("span")].map((span) => span.textContent);
+const type = (input: HTMLInputElement, value: string) =>
+  fireEvent.change(input, { target: { value } });
 
 describe("SurfaceView", () => {
   afterEach(() => {
@@ -383,23 +399,6 @@ describe("SurfaceView", () => {
         context: { productId: "root", selected: "x" },
       },
       "default",
-    );
-  });
-
-  it("keeps a dirty field when the agent updates the component", () => {
-    const { push } = setup();
-    push(nodes({ id: "root", component: "Email", email: "agent@x.io" }));
-    const input = screen.getByLabelText("email") as HTMLInputElement;
-    input.focus();
-    fireEvent.change(input, { target: { value: "me@x.io" } });
-    push(nodes({ id: "root", component: "Email", email: "other@x.io" }));
-    expect((screen.getByLabelText("email") as HTMLInputElement).value).toBe(
-      "me@x.io",
-    );
-    expect(document.activeElement).toBe(screen.getByLabelText("email"));
-    fireEvent.click(screen.getByText("reset"));
-    expect((screen.getByLabelText("email") as HTMLInputElement).value).toBe(
-      "other@x.io",
     );
   });
 
@@ -721,6 +720,132 @@ describe("SurfaceView", () => {
         productId: "p123",
         quantity: 2,
       });
+    });
+  });
+
+  describe("writable props", () => {
+    const dataAt = (manager: GenerativeUISurfaceManager, path: string) =>
+      manager.getSurface("t1", S)!.model.dataModel.get(path);
+
+    it("writes a path-bound prop to the data model, and keeps it over an agent write", () => {
+      const { push, manager } = setup();
+      push(
+        data("/form", { email: "agent@x.io" }),
+        nodes({
+          id: "root",
+          component: "TextField",
+          value: { path: "/form/email" },
+        }),
+      );
+      type(inputs()[0]!, "me@x.io");
+      expect(dataAt(manager, "/form/email")).toBe("me@x.io");
+
+      push(data("/form/email", "other@x.io"));
+      expect(inputs()[0]!.value).toBe("me@x.io");
+      expect(dataAt(manager, "/form/email")).toBe("me@x.io");
+    });
+
+    it("keeps a literal prop's value local to the node", () => {
+      const { push, manager } = setup();
+      push(nodes({ id: "root", component: "TextField", value: "agent" }));
+      type(inputs()[0]!, "me");
+      expect(inputs()[0]!.value).toBe("me");
+      expect(manager.describeSurfaces("t1")).toEqual({
+        [S]: { target: "inline" },
+      });
+    });
+  });
+
+  describe("template slots", () => {
+    const grid = (template: { componentId: string; path: string }) =>
+      nodes({ id: "root", component: "Grid", children: template });
+    const label = (id: string, path: string) =>
+      nodes({ id, component: "Text", label: { path } });
+
+    it("renders the component once per item, with relative bindings", () => {
+      const { push } = setup();
+      push(
+        data("/items", [{ name: "A" }, { name: "B" }, { name: "C" }]),
+        grid({ componentId: "row", path: "/items" }),
+        label("row", "name"),
+      );
+      expect(texts(screen.getByTestId("grid"))).toEqual(["A", "B", "C"]);
+
+      push(data("/items", [{ name: "A" }]));
+      expect(texts(screen.getByTestId("grid"))).toEqual(["A"]);
+    });
+
+    it("resolves a nested template path against the outer item", () => {
+      const { push } = setup();
+      push(
+        data("/groups", [
+          { title: "G1", rows: [{ name: "a" }, { name: "b" }] },
+          { title: "G2", rows: [{ name: "c" }] },
+        ]),
+        grid({ componentId: "group", path: "/groups" }),
+        nodes({
+          id: "group",
+          component: "Section",
+          title: { path: "title" },
+          children: { componentId: "row", path: "rows" },
+        }),
+        label("row", "name"),
+      );
+      expect(texts(screen.getByTestId("section-G1"))).toEqual(["a", "b"]);
+      expect(texts(screen.getByTestId("section-G2"))).toEqual(["c"]);
+    });
+
+    it("writes a writable prop of a template item to the item path", () => {
+      const { push, manager } = setup();
+      push(
+        data("/items", [{ name: "A" }, { name: "B" }]),
+        grid({ componentId: "field", path: "/items" }),
+        nodes({ id: "field", component: "TextField", value: { path: "name" } }),
+      );
+      type(inputs()[1]!, "B2");
+      expect(
+        manager.getSurface("t1", S)!.model.dataModel.get("/items"),
+      ).toEqual([{ name: "A" }, { name: "B2" }]);
+      expect(inputs().map((input) => input.value)).toEqual(["A", "B2"]);
+    });
+
+    it.each([
+      ["missing", []],
+      ["empty", [data("/items", [])]],
+    ])("renders nothing for a %s list", (_label, before) => {
+      const { push } = setup();
+      push(
+        ...before,
+        grid({ componentId: "row", path: "/items" }),
+        label("row", "name"),
+      );
+      expect(screen.getByTestId("grid").childElementCount).toBe(0);
+    });
+
+    it("cuts a cycle between two templates and keeps the other items", () => {
+      const { push } = setup();
+      push(
+        data("/items", [{ name: "A" }]),
+        nodes(
+          { id: "root", component: "Grid", children: ["a", "ok"] },
+          {
+            id: "a",
+            component: "Section",
+            title: "a",
+            children: { componentId: "b", path: "/items" },
+          },
+          {
+            id: "b",
+            component: "Section",
+            title: "b",
+            children: { componentId: "a", path: "/items" },
+          },
+        ),
+        label("ok", "/items/0/name"),
+      );
+      // a, then b and a for item 0, then b again for item 0: the cycle.
+      expect(alertText()).toContain("cyclic reference to b");
+      expect(within(screen.getByTestId("grid")).getByText("A")).toBeTruthy();
     });
   });
 

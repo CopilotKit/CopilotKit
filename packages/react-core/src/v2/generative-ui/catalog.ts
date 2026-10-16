@@ -59,8 +59,20 @@ export interface GenerativeUIComponentDefinition {
   bind?: Record<string, RuntimeSelector>;
   /** Callback props. */
   events?: Record<string, GenerativeUIEventDefinition>;
-  /** Child props, filled with rendered child components. */
+  /**
+   * Child props, filled with rendered child components. A "multiple" slot
+   * takes a list of component ids, or a template `{ componentId, path }`
+   * that renders one component for each item of the list at `path`.
+   */
   slots?: Record<string, GenerativeUISlotKind>;
+  /**
+   * Props that the component can write. Each one gets a setter prop named
+   * `set` + the prop name: `value` gets `setValue`. When the model binds the
+   * prop to `{ path }`, the setter writes the surface data model at that
+   * path, and the agent can no longer change that path. Else the setter
+   * changes local state only.
+   */
+  writable?: readonly string[];
 }
 
 /** A component after `createGenerativeUI` resolved its bindings. */
@@ -86,6 +98,8 @@ export interface GenerativeUIComponentTypes {
   events: unknown;
   /** The `slots` object, or `unknown` when the component has none. */
   slots: unknown;
+  /** The `writable` list, or `unknown` when the component has none. */
+  writable: unknown;
 }
 
 /** Type-level data of a generative UI, with the keys of its bases merged in. */
@@ -231,11 +245,24 @@ type SlotProps<Slots> =
     ? { [Name in keyof Slots]?: ReactNode }
     : {};
 
+type WritableKeys<Writable> = Writable extends readonly (infer Key)[]
+  ? Key & string
+  : never;
+
+/** One setter for each writable prop: `value` gets `setValue`. */
+type SetterProps<Props, Writable> = {
+  [Key in WritableKeys<Writable> &
+    PropKeys<Props> as `set${Capitalize<Key>}`]: (
+    value: InputOf<ShapeOf<Props>[Key]>,
+  ) => void;
+};
+
 /**
  * Props that the renderer passes to a component:
  * `function CheckoutForm(props: GenerativeUIComponentProps<typeof ui, "CheckoutForm">)`.
  * Data props are the parsed `props` schema, bound props included. Event and
- * slot props are present only when they are bound or filled.
+ * slot props are present only when they are bound or filled. Each writable
+ * prop gets a setter (`value` gets `setValue`), which is always present.
  */
 export type GenerativeUIComponentProps<
   UI extends AnyGenerativeUI,
@@ -246,7 +273,11 @@ export type GenerativeUIComponentProps<
       GenerativeUIDefinitionsOf<UI>["components"][Name]["events"],
       GenerativeUIDefinitionsOf<UI>["functions"]
     > &
-    SlotProps<GenerativeUIDefinitionsOf<UI>["components"][Name]["slots"]>
+    SlotProps<GenerativeUIDefinitionsOf<UI>["components"][Name]["slots"]> &
+    SetterProps<
+      GenerativeUIDefinitionsOf<UI>["components"][Name]["props"],
+      GenerativeUIDefinitionsOf<UI>["components"][Name]["writable"]
+    >
 >;
 
 // ---- Config types ----
@@ -348,14 +379,20 @@ type EventsCheck<Events, Functions> = {
   [Name in keyof Events]: EventCheck<Name & string, Events[Name], Functions>;
 };
 
+/** Props that a component can list in `writable`: not bound by name. */
+type WritableKey<Props, State> = Exclude<
+  PropKeys<Props>,
+  NameKeys<Props, State>
+>;
+
 /**
- * Each component config is split over three mapped types. Each one infers
- * one part (props, events, slots) of every component. The checks are in
- * `NoInfer`, so they do not change what is inferred. They are not
+ * Each component config is split over four mapped types. Each one infers
+ * one part (props, events, slots, writable) of every component. The checks
+ * are in `NoInfer`, so they do not change what is inferred. They are not
  * intersected with zod types directly, because two zod class types do not
  * intersect cleanly.
  */
-type ComponentsConfig<Props, Events, Slots, State, Functions> = {
+type ComponentsConfig<Props, Events, Slots, Writable, State, Functions> = {
   [Name in keyof Props]: {
     component: AnyComponent;
     description?: string;
@@ -369,6 +406,11 @@ type ComponentsConfig<Props, Events, Slots, State, Functions> = {
   [Name in keyof Slots]: {
     slots?: Slots[Name] & Record<string, GenerativeUISlotKind>;
   };
+} & {
+  [Name in keyof Writable]: {
+    writable?: Writable[Name] &
+      NoInfer<readonly WritableKey<Props[Name & keyof Props], State>[]>;
+  };
 };
 
 /** The config of `createGenerativeUI`. */
@@ -379,6 +421,7 @@ export interface CreateGenerativeUIConfig<
   Props extends Record<string, unknown>,
   Events extends Record<string, unknown>,
   Slots extends Record<string, unknown>,
+  Writable extends Record<string, unknown>,
 > {
   /** Surfaces pin to it. Use a versioned id, for example "acme/store@1". */
   id: string;
@@ -393,16 +436,18 @@ export interface CreateGenerativeUIConfig<
     Props,
     Events,
     Slots,
+    Writable,
     MergedState<Bases, State>,
     MergedFunctions<Bases, Functions>
   >;
 }
 
-type OwnComponents<Props, Events, Slots> = {
+type OwnComponents<Props, Events, Slots, Writable> = {
   [Name in keyof Props]: {
     props: Props[Name];
     events: Name extends keyof Events ? Events[Name] : unknown;
     slots: Name extends keyof Slots ? Slots[Name] : unknown;
+    writable: Name extends keyof Writable ? Writable[Name] : unknown;
   };
 };
 
@@ -413,12 +458,13 @@ type ResultDefinitions<
   Props,
   Events,
   Slots,
+  Writable,
 > = {
   state: MergedState<Bases, State>;
   functions: MergedFunctions<Bases, Functions>;
   components: Simplify<
     UnionToIntersection<BaseDefinitions<Bases>["components"]> &
-      OwnComponents<Props, Events, Slots>
+      OwnComponents<Props, Events, Slots, Writable>
   >;
 };
 
@@ -451,6 +497,8 @@ const RESERVED_KEYS = new Set(["id", "component"]);
  * - `bind: { prop: (state, props) => value }` binds a prop to a selector.
  * - An event binds to the function with its name, else to the name without
  *   `on` (`onAddToCart` calls `addToCart`).
+ * - `writable: ["value"]` gives the component a `setValue` prop. See
+ *   `GenerativeUIComponentDefinition.writable`.
  *
  * The model does not see bound props or matched events.
  *
@@ -459,7 +507,9 @@ const RESERVED_KEYS = new Set(["id", "component"]);
  *   get typed state.
  * @throws Error when a name comes from two places, a key is reserved or used
  *   twice on a component, an event matches two functions, an unmatched event
- *   has no `parameters`, or a `bind` key is not a prop.
+ *   has no `parameters`, a `bind` key is not a prop, a `writable` key is not
+ *   a prop or is a bound prop, or a setter name is already a key of the
+ *   component.
  *
  * @example
  * ```ts
@@ -484,6 +534,7 @@ export function createGenerativeUI<
   Props extends Record<string, unknown> = {},
   Events extends Record<string, unknown> = {},
   Slots extends Record<string, unknown> = {},
+  Writable extends Record<string, unknown> = {},
 >(
   config: CreateGenerativeUIConfig<
     Bases,
@@ -491,13 +542,14 @@ export function createGenerativeUI<
     Functions,
     Props,
     Events,
-    Slots
+    Slots,
+    Writable
   >,
 ) {
   // TypeScript cannot relate the generic mapped config type to the runtime
   // shape. The config type is stricter than `RuntimeConfig`, so this is safe.
   const ui: GenerativeUI<
-    ResultDefinitions<Bases, State, Functions, Props, Events, Slots>
+    ResultDefinitions<Bases, State, Functions, Props, Events, Slots, Writable>
   > = buildGenerativeUI(config as RuntimeConfig);
   return ui;
 }
@@ -610,6 +662,8 @@ function resolveComponent(
     };
   }
 
+  assertWritable(name, definition, selectors, context.where);
+
   const modelProps = props.omit(boundMask);
   const component: ResolvedGenerativeUIComponent = {
     // The config checks components against `AnyComponent` (see above). Here
@@ -620,6 +674,7 @@ function resolveComponent(
     bind: definition.bind,
     events: definition.events,
     slots: definition.slots,
+    writable: definition.writable,
     selectors,
     eventFunctions,
     modelProps,
@@ -656,6 +711,52 @@ function matchFunction(
     );
   }
   return exact ?? fromPrefix;
+}
+
+/** The setter prop of a writable prop: `value` gives `setValue`. */
+export function setterNameOf(key: string) {
+  return `set${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+}
+
+/** Why a `writable` key is not valid, or `undefined` when it is valid. */
+function writableProblem(
+  key: string,
+  definition: RuntimeComponentDefinition,
+  selectors: Record<string, GenerativeUISelector>,
+) {
+  if (Object.hasOwn(definition.events ?? {}, key)) return "an event";
+  if (Object.hasOwn(definition.slots ?? {}, key)) return "a slot";
+  if (!Object.hasOwn(definition.props?.shape ?? {}, key)) return "not a prop";
+  if (Object.hasOwn(selectors, key)) return "a bound prop";
+  return undefined;
+}
+
+function assertWritable(
+  name: string,
+  definition: RuntimeComponentDefinition,
+  selectors: Record<string, GenerativeUISelector>,
+  where: string,
+) {
+  const writable = definition.writable ?? [];
+  const keys = new Set([
+    ...Object.keys(definition.props?.shape ?? {}),
+    ...Object.keys(definition.events ?? {}),
+    ...Object.keys(definition.slots ?? {}),
+  ]);
+  for (const key of writable) {
+    const problem = writableProblem(key, definition, selectors);
+    if (problem) {
+      throw new Error(
+        `[generativeUI] writable key "${key}" of component "${name}" is ${problem} in ${where}.`,
+      );
+    }
+    const setter = setterNameOf(key);
+    if (keys.has(setter)) {
+      throw new Error(
+        `[generativeUI] the setter "${setter}" of writable key "${key}" is already a key of component "${name}" in ${where}.`,
+      );
+    }
+  }
 }
 
 function assertDisjointKeys(

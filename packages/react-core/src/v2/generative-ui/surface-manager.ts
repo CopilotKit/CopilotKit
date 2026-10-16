@@ -1,4 +1,9 @@
-import { Catalog, ComponentModel, SurfaceModel } from "@a2ui/web_core/v0_9";
+import {
+  Catalog,
+  ComponentModel,
+  DataModel,
+  SurfaceModel,
+} from "@a2ui/web_core/v0_9";
 import { z } from "zod";
 import { getOperationKind, validateOperation } from "@copilotkit/shared";
 import type {
@@ -14,9 +19,6 @@ export function surfaceKey(threadId: string, surfaceId: string): string {
   return `${threadId}::${surfaceId}`;
 }
 
-const fieldKey = (key: string, componentId: string, name: string) =>
-  `${key}::${componentId}::${name}`;
-
 export interface ManagedSurface {
   readonly key: string;
   readonly threadId: string;
@@ -31,11 +33,6 @@ export interface ManagedSurface {
   serverRejected: GenerativeUIRejectedOperation[];
   /** Rejections detected while applying operations in the browser. */
   clientRejected: GenerativeUIRejectedOperation[];
-}
-
-export interface GenerativeUIFieldState {
-  readonly value: unknown;
-  readonly dirty: true;
 }
 
 export interface GenerativeUISurfaceManagerOptions {
@@ -65,12 +62,35 @@ export interface GenerativeUIMountedTarget {
 const PATH_BINDING = z.object({ path: z.string() }).strict();
 let creationCounter = 0;
 
+const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
+
+/** "/a/b/" to "/a/b". The root stays "/". */
+function normalizePath(path: string) {
+  const trimmed =
+    path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+  return trimmed || "/";
+}
+
+/** True when `path` is `ancestor` or below it. */
+function isAtOrBelow(path: string, ancestor: string) {
+  if (ancestor === "/") return true;
+  return path === ancestor || path.startsWith(`${ancestor}/`);
+}
+
+/** One surface of a thread, as the model sees it. */
+export interface GenerativeUISurfaceDescription {
+  target: string;
+  /** The values that the user set, by path. Left out when there are none. */
+  dataModel?: Record<string, unknown>;
+}
+
 /**
  * Framework-agnostic store of generated surfaces. One web_core SurfaceModel per
  * (threadId, surfaceId), shared by every mount. Applies only newly committed
- * operations, validates each before applying it, and owns app state and user
- * field drafts so agent updates cannot overwrite them. App state never goes
- * into a surface's data model. Selectors read it with `getState()`.
+ * operations, validates each before applying it, and owns app state and the
+ * data model paths that the user wrote, so agent updates cannot overwrite
+ * them. App state never goes into a surface's data model. Selectors read it
+ * with `getState()`.
  */
 export class GenerativeUISurfaceManager {
   private readonly surfaces = new Map<string, ManagedSurface>();
@@ -79,7 +99,11 @@ export class GenerativeUISurfaceManager {
   /** Mounts of each target id, in mount order. */
   private readonly targets = new Map<string, Set<TargetRegistration>>();
   private state: Readonly<Record<string, unknown>> = {};
-  private readonly fields = new Map<string, GenerativeUIFieldState>();
+  /**
+   * User-owned data model values, by surface key, then by path. Kept when a
+   * surface is rebuilt. Cleared when the surface is deleted.
+   */
+  private readonly owned = new Map<string, Map<string, unknown>>();
   private readonly wireSchemas = new Map<string, z.ZodTypeAny>();
   private readonly webCoreCatalog: Catalog<any>;
   private activeThreadId: string | undefined;
@@ -138,6 +162,7 @@ export class GenerativeUISurfaceManager {
     }
     if (!surface || !book) {
       surface = this.createSurface(key, threadId, agentId, content);
+      this.restoreOwnedValues(surface);
       book = { appliedCount: 0, lastFingerprint: undefined };
       this.surfaces.set(key, surface);
       this.bookkeeping.set(key, book);
@@ -204,12 +229,20 @@ export class GenerativeUISurfaceManager {
     return latest;
   }
 
-  describeSurfaces(threadId: string): Record<string, { target: string }> {
-    const described: Record<string, { target: string }> = {};
+  /**
+   * The surfaces of a thread, for the model. A surface with user-owned
+   * values lists them in `dataModel`, so the model can read what the user
+   * entered.
+   */
+  describeSurfaces(threadId: string) {
+    const described: Record<string, GenerativeUISurfaceDescription> = {};
     for (const surface of this.surfaces.values()) {
-      if (surface.threadId === threadId && !surface.deleted) {
-        described[surface.surfaceId] = { target: surface.target };
-      }
+      if (surface.threadId !== threadId || surface.deleted) continue;
+      const owned = this.owned.get(surface.key);
+      described[surface.surfaceId] =
+        owned && owned.size > 0
+          ? { target: surface.target, dataModel: Object.fromEntries(owned) }
+          : { target: surface.target };
     }
     return described;
   }
@@ -270,21 +303,76 @@ export class GenerativeUISurfaceManager {
     this.notify();
   }
 
-  getField(
-    key: string,
-    componentId: string,
-    name: string,
-  ): GenerativeUIFieldState | undefined {
-    return this.fields.get(fieldKey(key, componentId, name));
+  /**
+   * Writes a user value into the data model of a surface, and marks `path`
+   * as user-owned. Then agent writes to that path, or below it, are ignored.
+   * An agent write above it keeps the user value. Ownership ends when the
+   * surface is deleted. Does nothing for an unknown or deleted surface.
+   *
+   * @param key - The `key` of the surface.
+   * @param path - An absolute JSON pointer, for example "/form/email".
+   * @param value - The new value. It is copied.
+   * @throws Error when a path segment is "__proto__", "constructor" or
+   *   "prototype", or when the path does not fit the data (for example, a
+   *   segment above it holds a string).
+   */
+  setOwnedValue(key: string, path: string, value: unknown): void {
+    const surface = this.surfaces.get(key);
+    if (!surface || surface.deleted) return;
+    const normalized = normalizePath(path);
+    const segments = normalized.split("/");
+    const forbidden = segments.find((segment) =>
+      FORBIDDEN_SEGMENTS.has(segment),
+    );
+    if (forbidden !== undefined) {
+      throw new Error(
+        `[generativeUI] path segment "${forbidden}" is not allowed in "${path}".`,
+      );
+    }
+    surface.model.dataModel.set(normalized, structuredClone(value));
+    const owned = this.owned.get(key) ?? new Map<string, unknown>();
+    owned.set(normalized, structuredClone(value));
+    this.owned.set(key, owned);
   }
 
-  setField(key: string, componentId: string, name: string, value: unknown) {
-    this.fields.set(fieldKey(key, componentId, name), { value, dirty: true });
-    this.notify();
+  /**
+   * Writes the user-owned values into the new, empty data model of a rebuilt
+   * surface. The agent operations are applied after it.
+   */
+  private restoreOwnedValues(surface: ManagedSurface) {
+    const owned = this.owned.get(surface.key) ?? new Map<string, unknown>();
+    for (const [path, value] of owned) {
+      surface.model.dataModel.set(path, structuredClone(value));
+    }
   }
 
-  resetField(key: string, componentId: string, name: string) {
-    if (this.fields.delete(fieldKey(key, componentId, name))) this.notify();
+  /**
+   * The value that an agent write puts at `path`, with the user-owned values
+   * below `path` written back into it. `undefined` when `path` is user-owned
+   * or below a user-owned path, so the agent cannot write it. Throws when a
+   * user value does not fit the new value.
+   */
+  private mergeOwnedValues(key: string, path: string, value: unknown) {
+    const merged = { value: structuredClone(value) };
+    const owned = this.owned.get(key);
+    if (!owned) return merged;
+    const ownedPaths = [...owned.keys()];
+    const isBlocked = ownedPaths.some((ownedPath) =>
+      isAtOrBelow(path, ownedPath),
+    );
+    if (isBlocked) return undefined;
+    const below = ownedPaths.filter((ownedPath) =>
+      isAtOrBelow(ownedPath, path),
+    );
+    if (below.length === 0) return merged;
+    // A scratch model under "/value", so a root write merges the same way.
+    const scratch = new DataModel({ value: merged.value });
+    const prefix = path === "/" ? "" : path;
+    for (const ownedPath of below) {
+      const relative = ownedPath.slice(prefix.length);
+      scratch.set(`/value${relative}`, structuredClone(owned.get(ownedPath)));
+    }
+    return { value: scratch.get("/value") };
   }
 
   private extendsApplied(
@@ -405,19 +493,27 @@ export class GenerativeUISurfaceManager {
       return;
     }
     if ("updateDataModel" in typed) {
-      const path = typed.updateDataModel.path ?? "/";
+      const path = normalizePath(typed.updateDataModel.path ?? "/");
       try {
-        // Clone so the agent's content objects are never mutated or aliased.
-        surface.model.dataModel.set(
+        // The merge clones, so the agent's content objects are never mutated
+        // or aliased.
+        const merged = this.mergeOwnedValues(
+          surface.key,
           path,
-          structuredClone(typed.updateDataModel.value),
+          typed.updateDataModel.value,
         );
+        // The user owns this path. The write is ignored, not rejected.
+        if (!merged) return;
+        surface.model.dataModel.set(path, merged.value);
       } catch (error) {
         return reject(error instanceof Error ? error.message : String(error));
       }
       return;
     }
-    if ("deleteSurface" in typed) surface.deleted = true;
+    if ("deleteSurface" in typed) {
+      surface.deleted = true;
+      this.owned.delete(surface.key);
+    }
   }
 
   private checkNodeProps(node: A2UIComponentNode): string | undefined {
