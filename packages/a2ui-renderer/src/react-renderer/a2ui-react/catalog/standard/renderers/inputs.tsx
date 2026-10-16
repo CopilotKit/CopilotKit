@@ -18,6 +18,24 @@ import {
 } from "../tokens";
 import { ACCENT, useStandardStyles } from "../styles";
 import { LucideIcon } from "./media";
+import { safeHref } from "../inline-markdown";
+
+/** Open a URL in a new tab; silently ignores unsafe schemes. */
+function openUrl(href: unknown): void {
+  const safe = safeHref(href);
+  if (!safe || typeof window === "undefined") return;
+  window.open(safe, "_blank", "noopener,noreferrer");
+}
+
+/** Copy to the clipboard; resolves false when the API is unavailable. */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /*
  * Bound props are written back with the setter the generic binder adds for
@@ -121,6 +139,7 @@ function Field({
 
 function Button({ props, children }: RendererProps<any>) {
   useInputStyles();
+  const [copied, setCopied] = useState(false);
   const size: "sm" | "md" | "lg" = props.size ?? "lg";
   const variant: string = props.variant ?? "solid";
   const accent =
@@ -183,10 +202,28 @@ function Button({ props, children }: RendererProps<any>) {
         // A submit button inside a <form> lets the Form dispatch on submit;
         // outside a form it falls back to its own action.
         if (props.submit && e.currentTarget.form) return;
+        // Client-side verbs (open a URL, copy text) never reach the agent.
+        if (props.href) {
+          openUrl(str(props.href));
+          return;
+        }
+        if (props.copy != null && props.copy !== "") {
+          void copyText(str(props.copy)).then((ok) => {
+            if (!ok) return;
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          });
+          return;
+        }
         props.action?.();
       }}
+      data-a2ui-copied={copied ? "" : undefined}
     >
-      {props.icon ? (
+      {copied ? (
+        <span aria-hidden data-icon="check" style={{ display: "flex" }}>
+          <LucideIcon name="check" size={ICON_PX[size]} />
+        </span>
+      ) : props.icon ? (
         <span aria-hidden data-icon={props.icon} style={{ display: "flex" }}>
           <LucideIcon name={props.icon} size={ICON_PX[size]} />
         </span>
@@ -664,14 +701,17 @@ function Pressable({ props, children }: RendererProps<any>) {
       data-a2ui-input=""
       onClick={(e) => {
         e.stopPropagation();
-        if (!disabled) props.action?.();
+        if (disabled) return;
+        if (props.href) openUrl(str(props.href));
+        else props.action?.();
       }}
       onKeyDown={(e) => {
         // Keys pressed on a nested control (Button, input) belong to it.
         if (e.target !== e.currentTarget) return;
         if (!disabled && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
-          props.action?.();
+          if (props.href) openUrl(str(props.href));
+          else props.action?.();
         }
       }}
       onMouseEnter={() => setHover(true)}

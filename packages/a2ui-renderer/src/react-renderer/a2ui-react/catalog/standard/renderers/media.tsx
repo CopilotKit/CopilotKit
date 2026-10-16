@@ -121,7 +121,7 @@ function radiusCss(value: LayoutProps["radius"]): React.CSSProperties {
 }
 
 /** Full-screen view of one image; closes on click, Escape or the close button. */
-function Lightbox({
+export function Lightbox({
   src,
   alt,
   onClose,
@@ -247,7 +247,7 @@ function Icon({ props }: RendererProps<any>) {
   );
 }
 
-function hostOf(url: string): string | undefined {
+export function hostOf(url: string): string | undefined {
   try {
     return new URL(url.includes("://") ? url : `https://${url}`).hostname;
   } catch {

@@ -82,10 +82,10 @@ describe("buildCompactCatalogSchema", () => {
     expect(props["action?"]).not.toContain("functionCall");
   });
 
-  it("keeps the standard catalog under 25,000 chars without function calls", () => {
+  it("keeps the standard catalog under 36,000 chars without function calls", () => {
     const full = buildCompactCatalogSchema(standardCatalog);
     const json = JSON.stringify(full);
-    expect(json.length).toBeLessThan(30_000);
+    expect(json.length).toBeLessThan(36_000);
     expect(json).not.toContain('"call"');
     expect(json).not.toContain("call:");
     expect(Object.keys(full.components)).toHaveLength(

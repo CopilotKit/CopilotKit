@@ -180,6 +180,17 @@ export const layoutDefinitions = {
     description: "Carousel slide.",
     props: z.object(layoutProps),
   },
+  CarouselMediaItem: {
+    description:
+      'Carousel slide with an image on top and children (a caption, a Text) under it. size "sm" 160px, "md" 240px (default), "lg" 320px wide.',
+    props: z.object({
+      ...layoutProps,
+      media: z.string().describe("Image URL"),
+      alt: z.string().optional(),
+      size: z.enum(["sm", "md", "lg"]).optional().describe('Default "md"'),
+      aspectRatio: z.string().optional().describe('Default "4 / 3"'),
+    }),
+  },
   Spacer: {
     description:
       "Flexible empty space. Rarely needed: rely on the default gap.",

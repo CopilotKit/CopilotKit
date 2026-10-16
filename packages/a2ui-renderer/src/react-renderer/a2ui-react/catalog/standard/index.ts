@@ -12,6 +12,8 @@ import { dataDefinitions } from "./definitions/data";
 import { dataRenderers } from "./renderers/data";
 import { mediaDefinitions } from "./definitions/media";
 import { mediaRenderers } from "./renderers/media";
+import { compositeDefinitions } from "./definitions/composites";
+import { compositeRenderers } from "./renderers/composites";
 import { STANDARD_CATALOG_ID } from "./tokens";
 
 /** All standard-catalog component definitions (zod props + descriptions). */
@@ -22,6 +24,7 @@ export const standardDefinitions = {
   ...feedbackDefinitions,
   ...dataDefinitions,
   ...mediaDefinitions,
+  ...compositeDefinitions,
 };
 
 /** React renderers for every entry in `standardDefinitions`. */
@@ -32,6 +35,7 @@ export const standardRenderers: CatalogRenderers<typeof standardDefinitions> = {
   ...feedbackRenderers,
   ...dataRenderers,
   ...mediaRenderers,
+  ...compositeRenderers,
 };
 
 /** The standard catalog. */
