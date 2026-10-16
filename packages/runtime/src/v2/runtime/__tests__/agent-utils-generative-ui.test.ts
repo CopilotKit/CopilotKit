@@ -4,7 +4,10 @@ import { CopilotRuntime } from "../core/runtime";
 import { configureAgentForRequest } from "../handlers/shared/agent-utils";
 import { GenerativeUIMiddleware } from "../generative-ui";
 
-function setup(generativeUI?: boolean | { agents?: string[] }) {
+type RuntimeOption = boolean | { agents?: string[] } | undefined;
+type Transport = "tool" | "markdown" | undefined;
+
+function setup(generativeUI: RuntimeOption) {
   const agent = new HttpAgent({ url: "http://localhost:9999/agent" });
   const runtime = new CopilotRuntime({
     agents: { default: agent },
@@ -21,41 +24,54 @@ function setup(generativeUI?: boolean | { agents?: string[] }) {
   };
 }
 
-const genUICalls = (use: ReturnType<typeof setup>["use"]) =>
-  use.mock.calls.filter(([m]) => m instanceof GenerativeUIMiddleware);
+/** Runs `configureAgentForRequest` and counts the generative UI middlewares it added. */
+function genUICount(generativeUI: RuntimeOption, transport: Transport) {
+  const { use, params } = setup(generativeUI);
+  configureAgentForRequest({
+    ...params,
+    providerGenerativeUITransport: transport,
+  });
+  return use.mock.calls.filter(([m]) => m instanceof GenerativeUIMiddleware)
+    .length;
+}
 
-test("applies the middleware when the provider forwards a manifest", () => {
-  const { use, params } = setup();
-  configureAgentForRequest({ ...params, providerGenerativeUIManifest: true });
-  expect(genUICalls(use)).toHaveLength(1);
-});
+const cases: [string, RuntimeOption, Transport, number][] = [
+  ["adds it for a tool envelope", undefined, "tool", 1],
+  ["adds it to every run when the runtime option is true", true, undefined, 1],
+  [
+    "adds it to every run of the named agents",
+    { agents: ["default"] },
+    undefined,
+    1,
+  ],
+  [
+    "adds nothing without an envelope or a runtime option",
+    undefined,
+    undefined,
+    0,
+  ],
+  ["adds nothing for a markdown envelope", undefined, "markdown", 0],
+  [
+    "adds nothing for a markdown envelope, even when the runtime option is true",
+    true,
+    "markdown",
+    0,
+  ],
+  [
+    "adds nothing for a markdown envelope, even for a named agent",
+    { agents: ["default"] },
+    "markdown",
+    0,
+  ],
+  ["false wins over a tool envelope", false, "tool", 0],
+  [
+    "respects the agents filter for a tool envelope",
+    { agents: ["other"] },
+    "tool",
+    0,
+  ],
+];
 
-test("applies the middleware to every run when the runtime sets true", () => {
-  const { use, params } = setup(true);
-  configureAgentForRequest(params);
-  expect(genUICalls(use)).toHaveLength(1);
-});
-
-test("applies the middleware to every run of the named agents", () => {
-  const { use, params } = setup({ agents: ["default"] });
-  configureAgentForRequest(params);
-  expect(genUICalls(use)).toHaveLength(1);
-});
-
-test("does nothing without a manifest or runtime config", () => {
-  const { use, params } = setup();
-  configureAgentForRequest(params);
-  expect(genUICalls(use)).toHaveLength(0);
-});
-
-test("false wins over a forwarded manifest", () => {
-  const { use, params } = setup(false);
-  configureAgentForRequest({ ...params, providerGenerativeUIManifest: true });
-  expect(genUICalls(use)).toHaveLength(0);
-});
-
-test("respects the agents filter", () => {
-  const { use, params } = setup({ agents: ["other"] });
-  configureAgentForRequest({ ...params, providerGenerativeUIManifest: true });
-  expect(genUICalls(use)).toHaveLength(0);
+test.each(cases)("%s", (_case, generativeUI, transport, expected) => {
+  expect(genUICount(generativeUI, transport)).toBe(expected);
 });

@@ -9,7 +9,7 @@ import type {
 import { firstValueFrom, from, toArray } from "rxjs";
 import type { Observable } from "rxjs";
 import { describe, expect, it } from "vitest";
-import type { GenerativeUIManifest } from "@copilotkit/shared";
+import type { CopilotKitUIEnvelope } from "@copilotkit/shared";
 import { GenerativeUIMiddleware } from "../generative-ui";
 
 class ScriptedAgent extends AbstractAgent {
@@ -23,21 +23,27 @@ class ScriptedAgent extends AbstractAgent {
   }
 }
 
-const manifest: GenerativeUIManifest = {
-  catalogId: "shop",
-  catalogVersion: "fnv1a:test",
-  components: {
-    ProductGrid: {
-      props: { type: "object", properties: {} },
-      slots: { children: "multiple" },
-    },
-    ProductCard: {
-      props: {
-        type: "object",
-        properties: { name: { type: "string" } },
-        required: ["name"],
+const envelope: CopilotKitUIEnvelope = {
+  method: "a2ui",
+  version: "v0.9",
+  format: 2,
+  transport: "tool",
+  catalog: {
+    id: "shop",
+    version: "fnv1a:test",
+    components: {
+      ProductGrid: {
+        props: { type: "object", properties: {} },
+        slots: { children: "multiple" },
       },
-      events: { onAddToCart: { parameters: { type: "object" } } },
+      ProductCard: {
+        props: {
+          type: "object",
+          properties: { name: { type: "string" } },
+          required: ["name"],
+        },
+        events: { onAddToCart: { parameters: { type: "object" } } },
+      },
     },
   },
   functions: { addToCart: { parameters: { type: "object" } } },
@@ -46,7 +52,13 @@ const manifest: GenerativeUIManifest = {
     { id: "recommendations", kind: "inline" },
   ],
   surfaces: {},
+  contextSent: false,
 };
+
+/** The forwardedProps of a run that carries the envelope, with some fields changed. */
+function uiProps(overrides: Partial<CopilotKitUIEnvelope> = {}) {
+  return { copilotkit: { ui: { ...envelope, ...overrides } } };
+}
 
 const create = (surfaceId: string) => ({
   version: "v0.9",
@@ -88,7 +100,7 @@ function renderCall(
 
 async function run(
   script: BaseEvent[],
-  forwardedProps: Record<string, unknown> = { generativeUI: manifest },
+  forwardedProps: Record<string, unknown> = uiProps(),
 ) {
   const agent = new ScriptedAgent([
     { type: EventType.RUN_STARTED, threadId: "t1", runId: "r1" } as BaseEvent,
@@ -142,6 +154,16 @@ function toolResult(output: BaseEvent[]) {
   return JSON.parse(content);
 }
 
+/** The middleware added nothing to the run and changed none of its events. */
+function expectPassThrough({ output, input }: Awaited<ReturnType<typeof run>>) {
+  expect(input.tools).toEqual([]);
+  expect(input.context).toEqual([]);
+  expect(output.map((e) => e.type)).toEqual([
+    EventType.RUN_STARTED,
+    EventType.RUN_FINISHED,
+  ]);
+}
+
 function guideText(input: RunAgentInput) {
   const guide = input.context.find((c) => c.value.includes("render_ui"));
   if (!guide) throw new Error("the run has no generative UI guide");
@@ -149,13 +171,40 @@ function guideText(input: RunAgentInput) {
 }
 
 describe("GenerativeUIMiddleware", () => {
-  it("passes runs without a manifest through unchanged", async () => {
-    const { output, input } = await run([], {});
-    expect(input.tools).toEqual([]);
-    expect(output.map((e) => e.type)).toEqual([
-      EventType.RUN_STARTED,
-      EventType.RUN_FINISHED,
-    ]);
+  it("passes runs without an envelope through unchanged", async () => {
+    expectPassThrough(await run([], {}));
+  });
+
+  it("does not read a manifest from the generativeUI prop", async () => {
+    const { catalog, functions, targets, surfaces } = envelope;
+    const legacyManifest = {
+      catalogId: catalog.id,
+      catalogVersion: catalog.version,
+      components: catalog.components,
+      functions,
+      targets,
+      surfaces,
+    };
+    expectPassThrough(await run([], { generativeUI: legacyManifest }));
+  });
+
+  it("adds no render_ui tool for a markdown envelope", async () => {
+    expectPassThrough(await run([], uiProps({ transport: "markdown" })));
+  });
+
+  it("adds no render_ui tool when the tool envelope has no catalog components", async () => {
+    // Without components the server cannot validate the operations.
+    expectPassThrough(
+      await run([], uiProps({ catalog: { id: "shop", version: "1" } })),
+    );
+  });
+
+  it("passes the run through when the envelope is malformed", async () => {
+    const malformed = {
+      ...envelope,
+      catalog: { id: "shop", version: "1", components: { X: {} } },
+    };
+    expectPassThrough(await run([], { copilotkit: { ui: malformed } }));
   });
 
   it("injects the render_ui tool and the guide context", async () => {
@@ -169,12 +218,10 @@ describe("GenerativeUIMiddleware", () => {
   });
 
   it("tells the model to show a different view in a new surface, not an existing one", async () => {
-    const { input } = await run([], {
-      generativeUI: {
-        ...manifest,
-        surfaces: { cart_surface: { target: "chat" } },
-      },
-    });
+    const { input } = await run(
+      [],
+      uiProps({ surfaces: { cart_surface: { target: "chat" } } }),
+    );
     const guide = guideText(input);
     // A follow-up such as "checkout" after "show my cart" must not overwrite the cart card.
     expect(guide).toContain(
@@ -197,10 +244,10 @@ describe("GenerativeUIMiddleware", () => {
     );
   });
 
-  it("parses a target description from forwarded props and prints it in the guide", async () => {
-    const { input } = await run([], {
-      generativeUI: {
-        ...manifest,
+  it("prints a target description from the envelope in the guide", async () => {
+    const { input } = await run(
+      [],
+      uiProps({
         targets: [
           { id: "chat", kind: "chat" },
           {
@@ -210,8 +257,8 @@ describe("GenerativeUIMiddleware", () => {
               "Next to the product list. Use it for product recommendations.",
           },
         ],
-      },
-    });
+      }),
+    );
     expect(guideText(input)).toContain(
       [
         "### Targets",
@@ -223,14 +270,13 @@ describe("GenerativeUIMiddleware", () => {
 
   it("does not tell the model about app state, even when the client still sends it", async () => {
     const { input } = await run([], {
-      generativeUI: { ...manifest, appState: ["cart"] },
+      copilotkit: { ui: { ...envelope, appState: ["cart"] } },
     });
     const guide = guideText(input);
     expect(guide).not.toContain("App state");
     expect(guide).not.toContain("/app");
     // The rules after the removed app state rule are numbered again.
     expect(guide).toContain("\n6. To show a different view");
-    expect(guide).toContain("\n7. If the conversation ends");
   });
 
   it("emits a snapshot for createSurface and one delta per further operation", async () => {
@@ -341,12 +387,7 @@ describe("GenerativeUIMiddleware", () => {
     });
     const { output } = await run(
       renderCall({ target: "recommendations", operations: [op] }),
-      {
-        generativeUI: {
-          ...manifest,
-          surfaces: { recs: { target: "recommendations" } },
-        },
-      },
+      uiProps({ surfaces: { recs: { target: "recommendations" } } }),
     );
     const events = activity(output);
     expect(events.every((e) => e.type === EventType.ACTIVITY_DELTA)).toBe(true);
@@ -401,12 +442,7 @@ describe("GenerativeUIMiddleware", () => {
     const bad = components("recs", { id: "x", component: "Unknown" });
     const { output } = await run(
       renderCall({ target: "recommendations", operations: [bad] }),
-      {
-        generativeUI: {
-          ...manifest,
-          surfaces: { recs: { target: "recommendations" } },
-        },
-      },
+      uiProps({ surfaces: { recs: { target: "recommendations" } } }),
     );
     expect(patchOf(activity(output)[0])).toEqual([
       { op: "replace", path: "/status", value: "streaming" },
@@ -540,127 +576,19 @@ describe("GenerativeUIMiddleware", () => {
     ]);
   });
 
-  describe("untrusted manifest", () => {
-    it("drops a component entry without props instead of throwing, and rejects ops that use it", async () => {
-      const forged = {
-        catalogId: "shop",
-        components: { X: {} },
-        targets: [{ id: "chat", kind: "chat" }],
-      };
-      const ops = [
-        create("s"),
-        components("s", { id: "root", component: "X" }),
-      ];
-      const { output, input } = await run(
-        renderCall({ target: "chat", operations: ops }),
-        {
-          generativeUI: forged,
-        },
-      );
-      expect(input.tools.some((t) => t.name === "render_ui")).toBe(true);
-      const events = activity(output);
-      expect(events[0]).toMatchObject({
-        type: EventType.ACTIVITY_SNAPSHOT,
-        content: { surfaceId: "s", target: "chat" },
-      });
-      expect(patchOf(events[1])).toEqual([
-        {
-          op: "add",
-          path: "/rejected/-",
-          value: {
-            index: 1,
-            reason: expect.stringContaining('unknown component "X"'),
-          },
-        },
-      ]);
-      expect(toolResult(output)).toMatchObject({
-        status: "rendered",
-        applied: 1,
-        rejected: [
-          {
-            index: 1,
-            reason: expect.stringContaining('unknown component "X"'),
-          },
-        ],
-      });
-      expect(output[output.length - 1].type).toBe(EventType.RUN_FINISHED);
-    });
-
-    it("treats a non-array props.required as no required props", async () => {
-      const forged = {
-        catalogId: "shop",
-        components: {
-          ProductCard: {
-            props: {
-              type: "object",
-              properties: { name: { type: "string" } },
-              required: 5,
-            },
-          },
-        },
-        targets: [{ id: "chat", kind: "chat" }],
-      };
-      const ops = [
-        create("s"),
-        components("s", { id: "root", component: "ProductCard" }),
-      ];
-      const { output } = await run(
-        renderCall({ target: "chat", operations: ops }),
-        { generativeUI: forged },
-      );
-      expect(toolResult(output)).toMatchObject({
-        status: "rendered",
-        applied: 2,
-        rejected: [],
-      });
-    });
-
-    it("drops a target description that is not a string", async () => {
-      const forged = {
-        catalogId: "shop",
-        components: {},
-        targets: [{ id: "recommendations", kind: "inline", description: 5 }],
-      };
-      const { input } = await run([], { generativeUI: forged });
-      expect(guideText(input)).toContain(
-        '### Targets\n- "recommendations" (a named area of the app)\n\n',
-      );
-    });
-
-    it("passes the run through unchanged when catalogId is not a string", async () => {
-      const { output, input } = await run([], {
-        generativeUI: { catalogId: 1 },
-      });
-      expect(input.tools).toEqual([]);
-      expect(input.context).toEqual([]);
-      expect(output.map((e) => e.type)).toEqual([
-        EventType.RUN_STARTED,
-        EventType.RUN_FINISHED,
-      ]);
-    });
-  });
-
-  it("reports a user event to the model as a synthetic tool call", async () => {
-    const event = {
-      name: "show_more",
-      surfaceId: "recs",
-      componentId: "c1",
-      context: { productId: "p1" },
-    };
+  it("adds no hidden event messages and no event rule to the guide", async () => {
+    // An event that matches no function reaches the agent as a normal user
+    // message, so the middleware must not add a synthetic tool call for it.
     const { input } = await run([], {
-      generativeUI: manifest,
-      generativeUIAction: event,
+      ...uiProps(),
+      generativeUIAction: {
+        name: "show_more",
+        surfaceId: "recs",
+        componentId: "c1",
+        context: {},
+      },
     });
-    const [assistant, tool] = input.messages.slice(-2);
-    if (assistant.role !== "assistant" || tool.role !== "tool") {
-      throw new Error("expected an assistant tool call and then its result");
-    }
-    const [call] = assistant.toolCalls ?? [];
-    expect(call.function).toEqual({
-      name: "log_generative_ui_event",
-      arguments: JSON.stringify(event),
-    });
-    expect(tool.toolCallId).toBe(call.id);
-    expect(tool.content).toContain('"show_more"');
+    expect(input.messages).toEqual([]);
+    expect(guideText(input)).not.toContain("log_generative_ui_event");
   });
 });
