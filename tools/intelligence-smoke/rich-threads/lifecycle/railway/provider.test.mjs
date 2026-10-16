@@ -20,6 +20,7 @@ function fakeProvider(options = {}) {
     volumes: [],
     proxies: [],
     calls: [],
+    serviceInputs: [],
   };
   let serial = 0;
 
@@ -38,6 +39,19 @@ function fakeProvider(options = {}) {
           codes: ["GRAPHQL_VALIDATION_FAILED"],
         });
       const input = args.input;
+      if (
+        options.nameLimit &&
+        ["createEnvironment", "createService"].includes(op) &&
+        input.name.length > options.nameLimit
+      )
+        throw new RailwayRequestError({
+          version: 1,
+          operation: op,
+          failureClass: "graphql-rejected",
+          outcome: "unknown",
+          codes: ["BAD_USER_INPUT"],
+          messages: ["Error in name - Invalid input"],
+        });
       const env = state.environments.find(
         (e) => e.id === (input?.environmentId ?? args.environmentId),
       );
@@ -61,6 +75,7 @@ function fakeProvider(options = {}) {
         return clone(value);
       }
       if (op === "createService") {
+        state.serviceInputs.push(clone(input));
         assert.ok(env.sourceEnvironment, "Cannot create service outside fork");
         if (options.unknownCreate) throw new Error("Lost ambiguous response");
         const value = {
@@ -371,6 +386,70 @@ test("three consumer mirrors; one physical composite restart; exact resource abs
       JSON.parse(await readFile(target.recordsFile, "utf8")).runs[0].phase,
       "complete",
     );
+});
+test("long run IDs and service keys keep distinct bounded provider names", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider({ nameLimit: 32 });
+  const native = f.config.services.find((service) => service.key === "mastra");
+  native.key = "native-" + "a".repeat(56);
+  f.config.services.push({ ...native, key: "native-" + "a".repeat(55) + "b" });
+  const names = new Set();
+  for (const runId of [
+    "rich-3928b79a-4466-4c75-adec-123456789abc",
+    "r".repeat(63),
+  ]) {
+    const env = await createRailwayEnvironment(
+      { ...f, runId, frameworks: ["mastra"] },
+      { ...f.dependencies, api: p.api },
+    );
+    try {
+      const journal = JSON.parse(
+        await readFile(join(f.directory, runId, "journal.json"), "utf8"),
+      );
+      assert.equal(journal.runId, runId);
+      assert.deepEqual(
+        journal.services.map((service) => service.key),
+        f.config.services.map((service) => service.key),
+      );
+      for (const resource of [...journal.environments, ...journal.services]) {
+        assert.ok(resource.name.length <= 32, resource.name);
+        assert.match(resource.name, /^[a-z][a-z0-9-]*$/);
+        assert.equal(names.has(resource.name), false, resource.name);
+        names.add(resource.name);
+      }
+      const inspector = journal.services.find(
+        (service) => service.key === "inspector",
+      );
+      const worker = JSON.parse(
+        p.state.serviceInputs.find((input) => input.name === inspector.name)
+          .variables.RICH_INSPECTION_CONFIG_JSON,
+      );
+      const postgres = journal.services.find(
+        (service) => service.key === "postgres",
+      );
+      const redis = journal.services.find((service) => service.key === "redis");
+      assert.equal(
+        new URL(worker.databaseUrl).hostname,
+        `${postgres.name}.railway.internal`,
+      );
+      assert.equal(
+        new URL(worker.redisUrl).hostname,
+        `${redis.name}.railway.internal`,
+      );
+      assert.equal(
+        new URL(worker.native.mastra).hostname,
+        `${journal.services.at(-1).name}.railway.internal`,
+      );
+      assert.equal(journal.environments[1].name, journal.environmentName);
+      assert.equal(
+        journal.environments[0].name,
+        `${journal.environmentName}-source`,
+      );
+    } finally {
+      assert.equal((await env.cleanup()).status, "passed");
+    }
+    assert.equal(p.state.environments.length + p.state.services.length, 0);
+  }
 });
 test("lost response reconciles provider IDs and deletes partial setup", async (t) => {
   const f = await fixture(t);

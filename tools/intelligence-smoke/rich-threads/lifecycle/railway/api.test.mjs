@@ -208,6 +208,49 @@ process.stdout.write(process.env.TEST_RESPONSE);
   );
 });
 
+test("known name rejection is persisted without arbitrary provider messages", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "railway-name-error-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const executable = join(root, "fake-railway");
+  await writeFile(
+    executable,
+    `#!${process.execPath}
+process.stdout.write(process.env.TEST_RESPONSE);
+`,
+    { mode: 0o700 },
+  );
+  const diagnosticDirectory = join(root, "diagnostics");
+  const knownMessage = "Error in name - Invalid input";
+  const api = railwayApi({
+    executable,
+    diagnosticDirectory,
+    env: {
+      TEST_RESPONSE: JSON.stringify({
+        data: null,
+        errors: [
+          knownMessage,
+          knownMessage,
+          `${knownMessage}: PRIVATE_VALUE`,
+          "PRIVATE_MESSAGE",
+        ].map((message) => ({
+          message,
+          extensions: { code: "BAD_USER_INPUT" },
+        })),
+      }),
+    },
+  });
+  await assert.rejects(api.request("createEnvironment", {}), (error) => {
+    assert.deepEqual(error.diagnostic.messages, [knownMessage]);
+    assert.equal(error.diagnostic.outcome, "unknown");
+    return true;
+  });
+  const files = await readdir(diagnosticDirectory);
+  assert.equal(files.length, 1);
+  const saved = await readFile(join(diagnosticDirectory, files[0]), "utf8");
+  assert.deepEqual(JSON.parse(saved).messages, [knownMessage]);
+  assert.equal(saved.includes("PRIVATE_"), false);
+});
+
 const page = (ids, next = false, cursor) => ({
   edges: ids.map((id) => ({ node: { id, projectId: "project" } })),
   pageInfo: { hasNextPage: next, endCursor: cursor },

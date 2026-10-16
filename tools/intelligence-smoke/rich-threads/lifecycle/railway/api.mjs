@@ -73,6 +73,7 @@ const knownCodes = new Set([
   "UNAUTHENTICATED",
   "FORBIDDEN",
 ]);
+const knownMessages = new Set(["Error in name - Invalid input"]);
 export function railwayApi({
   executable = "railway",
   env = process.env,
@@ -205,7 +206,7 @@ export function railwayApi({
             ),
           );
         // Railway documents decimal trace IDs; retain only bounded canonical
-        // uint64 strings, never messages or arbitrary extension values. Current
+        // uint64 strings, never arbitrary messages or extension values. Current
         // API responses use error.traceId; docs also show extensions.traceId.
         const traceIds = [
           ...new Set(
@@ -221,12 +222,23 @@ export function railwayApi({
               ),
           ),
         ].slice(0, 16);
+        const messages = [
+          ...new Set(
+            errors
+              .slice(0, 16)
+              .map((error) => error?.message)
+              .filter((message) => knownMessages.has(message)),
+          ),
+        ];
         return await fail(
           operation,
           "graphql-rejected",
           preExecution ? "not-executed" : "unknown",
           codes,
-          traceIds.length ? { traceIds } : {},
+          {
+            ...(traceIds.length ? { traceIds } : {}),
+            ...(messages.length ? { messages } : {}),
+          },
         );
       }
       const data = response.data ?? response;

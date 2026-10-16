@@ -290,3 +290,15 @@ inventory observations, even when its response fails or is lost. Returned IDs
 are persisted before verification. Zero observations never authorize a duplicate
 mutation; incomplete, conflicting or exhausted verification retains cleanup
 ownership and fails the attempt.
+
+New environment and service names use a 32-character budget. A random run prefix
+is saved once in the journal; the source environment adds `-source`, and services
+add their base-36 index in the configured list. Full run IDs and service keys stay
+in the journal. Recovery uses the recorded names, including those from old runs.
+This budget covers the observed name rejection without treating 32 characters as
+a documented Railway limit.
+
+Provider diagnostics retain the exact known message `Error in name - Invalid
+input` alongside bounded error codes and trace IDs. Other provider messages remain
+excluded. The saved diagnostic also enters the creation intent on failure; this
+message does not change an unknown mutation outcome into proof of non-execution.
