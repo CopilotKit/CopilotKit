@@ -5,19 +5,16 @@ Mirrors `langgraph-python/src/agents/a2ui_dynamic.py`:
 
 - The agent binds a single `generate_a2ui` backend tool.
 - When called, `generate_a2ui` kicks off a secondary OpenAI chat completion with
-  a forced `_design_a2ui_surface` tool call. The registered client catalog is
-  expected to surface through the system prompt (the LlamaIndex router does not
-  yet auto-inject `copilotkit.context`, so the catalog description is inlined
-  into the system prompt for parity).
+  a forced `_design_a2ui_surface` tool call. Its component list and catalog ID
+  are specified in the backend prompt; the frontend registers the renderers.
 - The tool result carries the planner's A2UI component payload, which the
   workflow then RE-EMITS as a streamed ``render_a2ui`` tool-CALL on the outbound
   AG-UI stream so ``@ag-ui/a2ui-middleware`` mounts the surface.
 
 Pairs with the dedicated runtime route
 `src/app/api/copilotkit-declarative-gen-ui/route.ts` which sets
-`a2ui.injectA2UITool: true` so the middleware WATCHES the ``render_a2ui``
-tool-call name (the watched-names set is only populated when the tool is
-injected).
+`a2ui.injectA2UITool: false` with ``a2uiToolNames: ["render_a2ui"]``.
+The middleware watches the backend call without injecting another tool.
 
 INTEGRATION-LEVEL STREAMED render_a2ui FIX
 ------------------------------------------
@@ -25,8 +22,7 @@ The A2UI middleware (``@ag-ui/a2ui-middleware``) mounts the surface from a
 STREAMED render-tool CALL, NOT from a tool result:
 
   - On ``TOOL_CALL_START``: it tracks the call ONLY when ``toolCallName`` is in
-    its watched set (populated when ``injectA2UITool: true``, watching
-    ``render_a2ui``).
+    its watched set (configured by ``a2uiToolNames``).
   - On ``TOOL_CALL_ARGS`` deltas: it accumulates the args, parses ``components``
     out of the streamed args, and emits the ``a2ui-surface`` activity
     (``createSurface`` / ``updateComponents``) when ``components`` is present.
@@ -94,9 +90,8 @@ logger = logging.getLogger(__name__)
 
 CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
 
-# The render-tool name `@ag-ui/a2ui-middleware` watches (when
-# `injectA2UITool: true`) and mounts the surface from. We synthesise a STREAMED
-# tool-CALL by this name on the outbound stream.
+# The middleware watches this name in streamed tool calls and mounts the
+# surface from the backend-emitted arguments.
 RENDER_A2UI_TOOL_NAME = "render_a2ui"
 
 # Inner planner tool name. Deliberately NOT `render_a2ui`: the secondary forced

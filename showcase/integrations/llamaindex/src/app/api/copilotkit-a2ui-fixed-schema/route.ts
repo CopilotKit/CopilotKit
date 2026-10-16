@@ -2,8 +2,7 @@
 //
 // The backend agent (src/agents/a2ui_fixed.py) emits a STREAMED `render_a2ui`
 // tool-CALL carrying the pre-authored flight schema plus a runtime data model.
-// The A2UI middleware watches that streamed call (because `injectA2UITool: true`
-// populates its watched-names set with `render_a2ui`) and streams the rendered
+// The A2UI middleware watches that streamed call and streams the rendered
 // surface to the frontend's fixed catalog. A `TOOL_CALL_RESULT` does NOT mount
 // the surface — the llama-index AG-UI adapter only re-emits results via
 // `MESSAGES_SNAPSHOT`, which the middleware ignores — so the agent re-emits the
@@ -28,12 +27,10 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "a2ui-fixed-schema": a2uiFixedAgent as AbstractAgent },
   a2ui: {
-    // Set `true` so the middleware WATCHES the `render_a2ui` tool-call name
-    // (the watched-names set is only populated when the tool is injected). The
-    // backend re-emits the fixed schema as a streamed `render_a2ui` call that
-    // the middleware mounts the surface from; it does NOT call the injected
-    // tool itself (the backend `display_flight` tool produces the schema).
-    injectA2UITool: true,
+    // FAC-237: the backend emits the render call. The LlamaIndex adapter
+    // coerces injected tool properties to strings, so do not inject one.
+    injectA2UITool: false,
+    a2uiToolNames: ["render_a2ui"],
   },
 });
 
