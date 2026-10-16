@@ -1,32 +1,13 @@
 ---
 title: "Dynamic Schema A2UI"
-description: "LLM-generated A2UI — a secondary LLM creates both the schema and data from any prompt."
+description: "Generate A2UI components and data from a conversation."
 ---
-In the dynamic-schema approach, a secondary LLM generates the entire UI — schema, data, and layout — based on the conversation context. It's the most flexible A2UI flavor: the agent can render any UI for any request without pre-defined schemas.
 
-## How it works
+Dynamic Schema A2UI uses a second model call to create a UI from the conversation. Register the components that the frontend can render, then configure the backend for your framework as shown below.
 
-1. The primary LLM decides to call `generate_a2ui`
-2. Inside the tool, a secondary LLM generates a `render_a2ui` tool call with components, data, and layout
-3. The tool call arguments stream through the agent as `TOOL_CALL_ARGS` events
-4. The A2UI middleware intercepts these events and renders cards progressively as they stream in
+## Frontend catalog
 
-## Frontend / runtime
-
-Enable A2UI on your `CopilotRuntime` with `injectA2UITool: true`:
-
-```typescript title="app/api/copilotkit/route.ts"
-const runtime = new CopilotRuntime({
-  agents: { default: myAgent },
-  a2ui: {
-    injectA2UITool: true,
-  },
-});
-```
-
-`injectA2UITool: true` is the single switch: it forwards the decision to the agent so the A2UI tool is injected. Set it to `false` to turn A2UI off entirely — nothing is injected and no surfaces render.
-
-Register your component catalog on the provider so the LLM knows what it can draw (see [Bring Your Own Catalog](../../../../generative-ui/a2ui/dynamic-schema) for the catalog `definitions` / `renderers` / `createCatalog` split):
+Register the catalog with `CopilotKit`. The .NET and Python agents use the same frontend setup. See [Bring Your Own Catalog](../../../../generative-ui/a2ui/dynamic-schema) for the `definitions`, `renderers`, and `createCatalog` setup.
 
 ```tsx title="frontend/src/app/page.tsx"
 <CopilotKit a2ui={{ catalog: myCatalog }}>
@@ -34,9 +15,90 @@ Register your component catalog on the provider so the LLM knows what it can dra
 </CopilotKit>
 ```
 
-## Backend — auto-injected tool
+## Runtime and backend
 
-The agent binds no A2UI tool of its own. When `injectA2UITool` is on, the `agent-framework-ag-ui` adapter auto-injects `generate_a2ui` (built from your agent's own model) and executes it:
+The .NET and Python agents use different `generate_a2ui` paths. Select your language to see the matching runtime and backend code.
+
+<Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
+  <Tab value=".NET">
+
+The .NET agent owns `generate_a2ui`. Keep the A2UI middleware enabled, but do not inject a second tool. The tool calls a secondary model and returns `a2ui_operations`. Each `createSurface` operation must name the frontend catalog's ID.
+
+The .NET secondary model does not receive the frontend catalog. Its prompt must list the catalog's component names and describe the component shape, including the `root` component. The showcase's `DeclarativeGenUiDesignSystemPrompt()` does this. Update that prompt when you change the frontend catalog.
+
+```typescript title="src/app/api/copilotkit-declarative-gen-ui/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { "declarative-gen-ui": myAgent },
+  a2ui: {
+    injectA2UITool: false,
+  },
+});
+```
+
+This simplified C# excerpt shows the agent's tool and its call to a secondary model. `A2uiSecondaryToolCaller`, `BeautifulChatA2ui`, and `SalesAgentFactory` are helpers in the showcase, not public library APIs. See the [complete .NET agent](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/ms-agent-dotnet/agent/DeclarativeGenUiAgent.cs) for their use and for error handling.
+
+```csharp title="agent/DeclarativeGenUiAgent.cs"
+public AIAgent Create()
+{
+    var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
+    return new ChatClientAgent(
+        chatClient,
+        instructions: "Call generate_a2ui when a visual answer helps.",
+        tools: [
+            AIFunctionFactory.Create(
+                GenerateA2ui,
+                options: new() { Name = "generate_a2ui", SerializerOptions = _jsonSerializerOptions })
+        ]);
+}
+
+[Description("Generate dynamic A2UI components using a secondary LLM call")]
+private async Task<object> GenerateA2ui(
+    [Description("Conversation context to generate UI from.")] string context = "",
+    CancellationToken cancellationToken = default)
+{
+    var content = await A2uiSecondaryToolCaller.GetDesignToolArgumentsAsync(
+        _configuration,
+        BeautifulChatA2ui.DeclarativeGenUiDesignSystemPrompt(),
+        context,
+        cancellationToken);
+
+    return SalesAgentFactory.BuildA2uiResponseFromContent(
+        content,
+        Guid.NewGuid().ToString("n")[..16],
+        _logger,
+        forcedCatalogId: BeautifulChatA2ui.DeclarativeGenUiCatalogId);
+}
+```
+
+The agent endpoint is `/declarative-gen-ui`. The showcase helper returns a result like this. Your own tool must return the same `a2ui_operations` envelope with A2UI v0.9 operations. Set `createSurface.catalogId` to the ID of the catalog registered in `CopilotKit`; `defaultCatalogId` in the runtime does not fill it in for backend tool results.
+
+```json
+{
+  "a2ui_operations": [
+    { "version": "v0.9", "createSurface": { "surfaceId": "sales", "catalogId": "declarative-gen-ui-catalog" } },
+    { "version": "v0.9", "updateComponents": { "surfaceId": "sales", "components": [
+      { "id": "root", "component": "Text", "text": { "path": "/title" } }
+    ] } },
+    { "version": "v0.9", "updateDataModel": { "surfaceId": "sales", "path": "/", "value": { "title": "Sales summary" } } }
+  ]
+}
+```
+
+The middleware reads these operations from the tool result and renders the surface.
+
+  </Tab>
+  <Tab value="Python">
+
+The Python agent binds no A2UI tool. Set `injectA2UITool: true` so `agent-framework-ag-ui` injects and runs `generate_a2ui` with the agent's model.
+
+```typescript title="src/app/api/copilotkit-declarative-gen-ui/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { "declarative-gen-ui": myAgent },
+  a2ui: {
+    injectA2UITool: true,
+  },
+});
+```
 
 ```python title="src/agents/a2ui_dynamic.py"
 from agent_framework import Agent
@@ -46,28 +108,22 @@ base_agent = Agent(
     client=chat_client,
     name="declarative_gen_ui_agent",
     instructions=(
-        "Whenever a response would benefit from a rich visual — a dashboard, "
-        "KPI summary, card layout, or chart — call `generate_a2ui` to draw it. "
-        "Keep chat replies to one short sentence and let the UI do the talking."
+        "Call generate_a2ui when a visual answer helps. "
+        "Keep chat replies short and let the UI show the result."
     ),
 )
 
-# No A2UI tool here — the adapter auto-injects `generate_a2ui` when
-# `injectA2UITool` is on. Binding one yourself would suppress auto-injection.
+# Do not bind generate_a2ui here. The adapter injects it.
 agent = AgentFrameworkAgent(agent=base_agent)
 ```
 
-The system prompt can be used to tell the model *when* to draw; the adapter supplies and runs the tool.
+The adapter calls a secondary model to create `render_a2ui` arguments. It streams those arguments to the A2UI middleware, which renders the surface.
 
-## Backend — recovery and other policy
+**Recovery and streaming (Python)**
 
-The auto-inject path takes an optional `a2ui_config` on the endpoint — a backend
-policy dict the adapter reads when it injects the tool. This is where the
-error-recovery demo pins the validate→retry loop's attempt cap (and where MAF's
-upstream recovery example puts its config). The agent stays a plain agent; only
-the endpoint config changes:
+The Python auto-injection path accepts an optional `a2ui_config` on its endpoint. Use it to set the recovery attempt limit and the default catalog ID. Pass a raw `Agent` to this endpoint: if you pass an existing `AgentFrameworkAgent`, the endpoint does not apply `a2ui_config`. The recovery agent below is a separate raw agent, unlike the wrapped agent in the basic example above.
 
-```python title="src/agents/agent_server.py"
+```python title="src/agent_server.py"
 add_agent_framework_fastapi_endpoint(
     app=app,
     agent=a2ui_recovery_agent,
@@ -79,24 +135,11 @@ add_agent_framework_fastapi_endpoint(
 )
 ```
 
-`a2ui_config` accepts the same params the adapter uses under the hood:
+- `recovery` sets the validate-and-retry attempt limit. If all attempts fail, the tool returns `a2ui_recovery_exhausted`.
+- `default_catalog_id` binds the generated surface to your catalog. The host selects this catalog, not the model.
+- `guidelines` can tell the render model which components to use and how to arrange them.
 
-- **`recovery`** — the validate→retry loop config, e.g. `{"maxAttempts": 3}`. When every attempt is invalid the tool returns a graceful `a2ui_recovery_exhausted` fallback.
-- **`default_catalog_id`** — binds generated surfaces to your catalog (BYOC). Catalog ownership stays with the host; the model never picks it.
-- **`guidelines`** — optional prompt knobs for the render sub-agent (which components exist and how to compose them).
+The Python adapter streams `render_a2ui` arguments as `TOOL_CALL_ARGS` events. The middleware waits for a complete component schema before it creates the surface. It then sends complete data items as they arrive, so cards can appear one by one. The built-in progress indicator hides when data starts to stream. For a custom indicator, see [Advanced — Custom A2UI Progress Renderer](./advanced#custom-a2ui-progress-renderer).
 
-## Progressive streaming
-
-The secondary LLM's `render_a2ui` tool call streams through the agent as `TOOL_CALL_ARGS` events. The A2UI middleware:
-
-1. Extracts the `components` array as it streams — waits for the full schema before rendering
-2. Extracts `surfaceId` and `root` from the partial JSON
-3. Once the schema is complete, emits `createSurface` + `updateComponents`
-4. Extracts complete `items` objects progressively and emits `updateDataModel` for each
-5. Cards appear one by one as data streams in
-
-## Built-in progress indicator
-
-CopilotKit includes a built-in progress indicator that shows while the schema is being generated. It appears automatically and hides once data items start streaming.
-
-To replace it with a custom component, see the [Advanced — Custom A2UI Progress Renderer](./advanced#custom-a2ui-progress-renderer) guide.
+  </Tab>
+</Tabs>
