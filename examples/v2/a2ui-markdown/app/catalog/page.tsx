@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
 import Link from "next/link";
 import {
   CopilotKitProvider,
@@ -28,16 +27,6 @@ import type { CatalogSample } from "./samples";
  */
 
 type ComponentManifest = (typeof standardUI.manifestComponents)[string];
-
-const preStyle: CSSProperties = {
-  margin: "6px 0 0",
-  padding: 10,
-  background: "#f3f4f6",
-  borderRadius: 6,
-  overflowX: "auto",
-  fontSize: 11,
-  lineHeight: 1.45,
-};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -93,8 +82,9 @@ function LastEvent() {
   const last = userMessages[userMessages.length - 1];
   if (!last || typeof last.content !== "string") return null;
   return (
-    <p style={{ margin: "8px 0 0", fontSize: 12, color: "#0f766e" }}>
-      Last event: <code>{last.content}</code>
+    <p className="ex-cat-event" role="status">
+      <span className="ex-tag">Last event</span>
+      <code>{last.content}</code>
     </p>
   );
 }
@@ -109,50 +99,37 @@ function SampleCard({
   const surfaceId = sampleSurfaceId(index);
   const operations = sampleOperations(sample, surfaceId, standardUI.id);
   return (
-    <section
-      id={sample.covers[0]}
-      style={{ borderTop: "1px solid #e5e7eb", padding: "24px 0" }}
-    >
-      <h3 style={{ margin: "0 0 4px", fontSize: 17 }}>{sample.title}</h3>
-      <p style={{ margin: "0 0 14px", fontSize: 13, color: "#6b7280" }}>
-        {sample.covers.map((name) => (
-          <code key={name} style={{ marginRight: 8 }}>
-            {name}
-          </code>
-        ))}
-      </p>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)",
-          gap: 24,
-        }}
-      >
-        <div style={{ minWidth: 0 }}>
+    <section id={sample.covers[0]} className="ex-cat-card">
+      <header className="ex-cat-card-header">
+        <h3 className="ex-cat-card-title">{sample.title}</h3>
+        <div className="ex-cat-names">
+          {sample.covers.map((name) => (
+            <code key={name}>{name}</code>
+          ))}
+        </div>
+      </header>
+      <div className="ex-cat-card-body">
+        <div className="ex-cat-preview">
           <GenerativeUISurface
             id={surfaceId}
-            fallback={<p style={{ fontSize: 13 }}>Loading the sample...</p>}
+            fallback={<p className="ex-cat-loading">Loading the sample...</p>}
           />
         </div>
-        <div style={{ minWidth: 0, fontSize: 12, color: "#374151" }}>
+        <div className="ex-cat-details">
           {sample.covers.map((name) => {
             const manifest = standardUI.manifestComponents[name];
             if (!manifest) return null;
             return (
-              <details key={name} style={{ marginBottom: 8 }}>
-                <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-                  {name}
-                </summary>
-                <p style={{ margin: "6px 0" }}>{manifest.description}</p>
-                <pre style={preStyle}>{manifestLines(manifest).join("\n")}</pre>
+              <details key={name}>
+                <summary>{name}</summary>
+                <p>{manifest.description}</p>
+                <pre>{manifestLines(manifest).join("\n")}</pre>
               </details>
             );
           })}
           <details>
-            <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-              Operations
-            </summary>
-            <pre style={preStyle}>{JSON.stringify(operations, null, 1)}</pre>
+            <summary>Operations</summary>
+            <pre>{JSON.stringify(operations, null, 1)}</pre>
           </details>
         </div>
       </div>
@@ -169,56 +146,58 @@ function Catalog({ errors }: { errors: string[] }) {
     SAMPLES.find((sample) => sample.covers.includes(name))?.covers[0] ?? name;
 
   return (
-    <main
-      style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 16px 80px" }}
-    >
+    <main className="ex-shell ex-cat">
       <StartCatalog />
-      <header style={{ marginBottom: 16 }}>
-        <p style={{ margin: 0, fontSize: 12, color: "#6b7280" }}>
-          <Link href="/">Back to the chat</Link>
-        </p>
-        <h1 style={{ margin: "8px 0 4px", fontSize: 24 }}>
-          Standard components
-        </h1>
-        <p style={{ margin: 0, fontSize: 14, color: "#6b7280" }}>
-          {all.length} components in <code>{standardUI.id}</code>, rendered from
-          the operations a model would write. Each sample lists the description
-          and props the model sees.
-        </p>
-        {missing.length > 0 && (
-          <p style={{ margin: "8px 0 0", fontSize: 13, color: "#b45309" }}>
-            No sample yet for: {missing.join(", ")}
-          </p>
-        )}
-        {errors.length > 0 && (
-          <pre style={{ ...preStyle, color: "#b91c1c" }}>
-            {errors.join("\n")}
-          </pre>
-        )}
-        <LastEvent />
-        <nav
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "4px 10px",
-            marginTop: 12,
-            fontSize: 12,
-          }}
-        >
-          {all.map((name) => (
-            <a
-              key={name}
-              href={`#${anchorOf(name)}`}
-              style={{ color: covered.has(name) ? "#374151" : "#b45309" }}
-            >
-              {name}
-            </a>
-          ))}
+      <header className="ex-topbar">
+        <div className="ex-brand">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a static SVG logo */}
+          <img src="/copilotkit-logo.svg" alt="CopilotKit" />
+          <span className="ex-brand-divider" aria-hidden="true" />
+          <div>
+            <h1 className="ex-title">Standard components</h1>
+            <p className="ex-subtitle">
+              {all.length} components in <code>{standardUI.id}</code>, rendered
+              from the operations a model would write.
+            </p>
+          </div>
+        </div>
+        <nav className="ex-controls" aria-label="Pages">
+          <Link className="ex-pill ex-pill-plain" href="/">
+            Back to the chat
+          </Link>
         </nav>
       </header>
+      <section className="ex-panel ex-cat-intro" aria-label="Components">
+        <div className="ex-panel-body">
+          <p className="ex-panel-hint">
+            Each sample lists the description and the props that the model sees.
+            Click a name to jump to its sample.
+          </p>
+          {missing.length > 0 && (
+            <p className="ex-cat-warning">
+              No sample yet for: {missing.join(", ")}
+            </p>
+          )}
+          {errors.length > 0 && (
+            <pre className="ex-cat-errors">{errors.join("\n")}</pre>
+          )}
+          <LastEvent />
+          <nav className="ex-cat-index" aria-label="Component index">
+            {all.map((name) => (
+              <a
+                key={name}
+                href={`#${anchorOf(name)}`}
+                data-missing={covered.has(name) ? undefined : ""}
+              >
+                {name}
+              </a>
+            ))}
+          </nav>
+        </div>
+      </section>
       {groups.map((group) => (
-        <div key={group}>
-          <h2 style={{ fontSize: 20, margin: "32px 0 0" }}>{group}</h2>
+        <div key={group} className="ex-cat-group">
+          <h2 className="ex-cat-group-title">{group}</h2>
           {SAMPLES.map((sample, index) =>
             sample.group === group ? (
               <SampleCard key={sample.title} sample={sample} index={index} />

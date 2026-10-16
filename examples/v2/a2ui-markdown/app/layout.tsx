@@ -1,5 +1,10 @@
 import type { ReactNode } from "react";
+import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
 import "@copilotkit/react-core/v2/styles.css";
+import "./globals.css";
+
+const sans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-sans" });
+const mono = Spline_Sans_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const metadata = {
   title: "CopilotKit generative UI",
@@ -9,10 +14,8 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body style={{ margin: 0, fontFamily: "system-ui, sans-serif" }}>
-        {children}
-      </body>
+    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }
