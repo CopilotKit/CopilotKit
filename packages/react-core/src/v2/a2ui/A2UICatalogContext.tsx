@@ -54,9 +54,16 @@ export function A2UICatalogContext({
   const markdown = mode === "markdown";
   const contextOn = !markdown || sendContext !== false;
 
+  // Tool mode only. The schema entry already carries every definition, so the
+  // capabilities entry lists names unless the schema is switched off.
   const capabilitiesValue = useMemo(
-    () => (markdown ? null : buildCatalogContextValue(catalog)),
-    [catalog, markdown],
+    () =>
+      markdown
+        ? null
+        : buildCatalogContextValue(catalog, {
+            includeDefinitions: includeSchema === false,
+          }),
+    [catalog, markdown, includeSchema],
   );
 
   const schemaValue = useMemo(() => {

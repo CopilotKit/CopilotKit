@@ -47,9 +47,21 @@ export function getCustomComponentNames(
  * Custom components (those not in the basic catalog) are described using their
  * JSON Schema representation, matching the canonical A2UI catalog format.
  */
+export interface CatalogContextValueOptions {
+  /**
+   * Describe each custom component with its JSON Schema. Default true. Pass
+   * false when the component schema travels as its own context entry, so the
+   * definitions are not sent twice (for a 67-component catalog the duplicate
+   * is ~165 KB per run); the entry then lists component names only.
+   */
+  includeDefinitions?: boolean;
+}
+
 export function buildCatalogContextValue(
   catalog?: Catalog<ComponentApi>,
+  options: CatalogContextValueOptions = {},
 ): string {
+  const { includeDefinitions = true } = options;
   const resolved = catalog ?? basicCatalog;
   const lines: string[] = [];
   lines.push("Available A2UI catalog:");
@@ -70,6 +82,17 @@ export function buildCatalogContextValue(
   } else {
     lines.push("  Custom catalog (does NOT include all basic components).");
     lines.push("  Custom components:");
+  }
+  if (resolved.functions.size === 0) {
+    lines.push(
+      '  This catalog defines no functions: never use { "call": ... }; a value is a literal or a { "path": "..." } binding.',
+    );
+  }
+
+  if (!includeDefinitions) {
+    lines.push(`  ${customNames.join(", ")}`);
+    lines.push("  (schemas are in the A2UI Component Schema context entry)");
+    return lines.join("\n");
   }
 
   for (const name of customNames) {
@@ -110,16 +133,60 @@ export interface InlineCatalogSchema {
  * When sent via `useAgentContext` with `A2UI_SCHEMA_CONTEXT_DESCRIPTION`,
  * the middleware can optionally overwrite it with a server-side schema.
  */
+export interface InlineCatalogSchemaOptions {
+  /**
+   * Keep the `{ call, args, returnType }` FunctionCall alternative on Dynamic
+   * props and the `{ functionCall }` action variant. Default: only when the
+   * catalog registers functions. A catalog without functions must not
+   * advertise them, or the model writes `{ "call": ... }` for computed data
+   * and the component fails validation.
+   */
+  includeFunctionCalls?: boolean;
+}
+
+/** Whether a JSON Schema node is a FunctionCall or functionCall-action variant. */
+function isFunctionCallVariant(node: unknown): boolean {
+  if (typeof node !== "object" || node === null) return false;
+  const props = (node as { properties?: Record<string, unknown> }).properties;
+  return !!props && ("call" in props || "functionCall" in props);
+}
+
+/** The JSON Schema with FunctionCall variants removed from every union. */
+export function stripFunctionCallVariants<T>(schema: T): T {
+  if (Array.isArray(schema)) {
+    return schema.map((item) => stripFunctionCallVariants(item)) as T;
+  }
+  if (typeof schema !== "object" || schema === null) return schema;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(
+    schema as Record<string, unknown>,
+  )) {
+    if ((key === "anyOf" || key === "oneOf") && Array.isArray(value)) {
+      const kept = value.filter((v) => !isFunctionCallVariant(v));
+      out[key] = stripFunctionCallVariants(kept.length > 0 ? kept : value);
+    } else {
+      out[key] = stripFunctionCallVariants(value);
+    }
+  }
+  return out as T;
+}
+
 export function extractCatalogComponentSchemas(
   catalog?: Catalog<ComponentApi>,
+  options: InlineCatalogSchemaOptions = {},
 ): InlineCatalogSchema {
   const resolved = catalog ?? basicCatalog;
+  const includeFunctionCalls =
+    options.includeFunctionCalls ?? resolved.functions.size > 0;
   const components: Record<string, Record<string, unknown>> = {};
 
   for (const [name, comp] of resolved.components) {
-    const zodSchema = zodToJsonSchema(comp.schema, {
+    const raw = zodToJsonSchema(comp.schema, {
       target: "jsonSchema2019-09",
     }) as { properties?: Record<string, unknown>; required?: string[] };
+    const zodSchema = includeFunctionCalls
+      ? raw
+      : stripFunctionCallVariants(raw);
 
     components[name] = {
       allOf: [

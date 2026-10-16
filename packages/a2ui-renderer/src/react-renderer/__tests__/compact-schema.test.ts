@@ -172,3 +172,37 @@ describe("package entry", () => {
     expect(typeof entry.standardRenderers.Box).toBe("function");
   });
 });
+
+describe("tool-mode schema for a catalog without functions", () => {
+  it("drops FunctionCall variants from the inline JSON Schema", async () => {
+    const { extractCatalogComponentSchemas, stripFunctionCallVariants } =
+      await import("../catalog-utils");
+    const { standardCatalog } = await import("../a2ui-react/catalog/standard");
+    const schema = extractCatalogComponentSchemas(standardCatalog);
+    const text = JSON.stringify(schema);
+    expect(text).not.toContain('"call"');
+    expect(text).not.toContain('"functionCall"');
+    // Bindings survive the strip.
+    expect(text).toContain('"path"');
+    const kept = extractCatalogComponentSchemas(standardCatalog, {
+      includeFunctionCalls: true,
+    });
+    expect(JSON.stringify(kept)).toContain('"call"');
+    // A union made only of function calls is left alone rather than emptied.
+    const only = { anyOf: [{ properties: { call: {} } }] };
+    expect(stripFunctionCallVariants(only)).toEqual(only);
+  });
+
+  it("lists names only in the capabilities entry when definitions travel separately", async () => {
+    const { buildCatalogContextValue } = await import("../catalog-utils");
+    const { standardCatalog } = await import("../a2ui-react/catalog/standard");
+    const full = buildCatalogContextValue(standardCatalog);
+    const brief = buildCatalogContextValue(standardCatalog, {
+      includeDefinitions: false,
+    });
+    expect(brief.length).toBeLessThan(2000);
+    expect(full.length).toBeGreaterThan(brief.length * 10);
+    expect(brief).toContain("Chart");
+    expect(brief).toContain("defines no functions");
+  });
+});
