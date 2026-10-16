@@ -341,9 +341,11 @@ describe("SurfaceView", () => {
     mounts.clear();
     const { push } = setup();
     push(nodes({ id: "root", component: "Grid", children: ["a", "b", "c"] }));
+    // A child that has not streamed yet renders nothing, not a placeholder.
     expect(
       document.querySelectorAll("[data-generative-ui-placeholder]"),
-    ).toHaveLength(3);
+    ).toHaveLength(0);
+    expect(screen.queryByText("Alpha")).toBeNull();
     push(nodes({ id: "a", component: "Card", productId: "a", name: "Alpha" }));
     fireEvent.click(screen.getByText("pick a"));
     push(nodes({ id: "b", component: "Card", productId: "b", name: "Beta" }));

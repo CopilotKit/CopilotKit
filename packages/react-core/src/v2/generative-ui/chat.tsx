@@ -53,11 +53,6 @@ export function DefaultGenerativeUIChatCard({
       className="cpk:my-2 cpk:w-full cpk:rounded-xl cpk:border cpk:border-gray-200 cpk:p-3"
     >
       {children}
-      {isStreaming && (
-        <div className="cpk:mt-2 cpk:text-xs cpk:text-gray-500">
-          Generating…
-        </div>
-      )}
       {error && (
         <div role="alert" className="cpk:mt-2 cpk:text-xs cpk:text-red-600">
           Part of this UI couldn't be shown.
