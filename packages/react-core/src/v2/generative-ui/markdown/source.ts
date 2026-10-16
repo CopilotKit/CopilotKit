@@ -79,15 +79,43 @@ export function fenceKey(messageId: string, fenceIndex: number) {
 
 /**
  * The operations of a fence body. While the fence streams, the last object
- * can be unfinished. It is left out, so that only complete operations
- * render. A final fence keeps what can be saved from an unfinished object.
+ * can be unfinished. Of an unfinished updateComponents, the components that
+ * are complete render at once. Any other unfinished object is left out,
+ * because a part of a data model value can still change. A final fence
+ * keeps what can be saved from an unfinished object.
  */
 function fenceOperations(text: string, isStreaming: boolean) {
   const parsed = extractFenceOperations(text);
   if (!isStreaming || parsed.partialObject === null) return parsed.operations;
   // The unfinished object is always the end of the text.
-  const complete = text.slice(0, text.length - parsed.partialObject.length);
-  return extractFenceOperations(complete).operations;
+  const complete = extractFenceOperations(
+    text.slice(0, text.length - parsed.partialObject.length),
+  ).operations;
+  const partial =
+    parsed.operations.length > complete.length
+      ? parsed.operations[parsed.operations.length - 1]
+      : undefined;
+  return partial && isRecord(partial.updateComponents)
+    ? [...complete, partial]
+    : complete;
+}
+
+/**
+ * Each updateComponents becomes one operation per component, in order. The
+ * complete components of a streaming line then give the same first
+ * operations as the finished line, so the operation list only grows and the
+ * manager never has to start the surface again.
+ */
+function splitComponentUpdates(operations: A2UIMarkdownOperation[]) {
+  return operations.flatMap((op) => {
+    const update = op.updateComponents;
+    if (!isRecord(update) || !Array.isArray(update.components)) return [op];
+    if (update.components.length <= 1) return [op];
+    return update.components.map((component) => ({
+      ...op,
+      updateComponents: { ...update, components: [component] },
+    }));
+  });
 }
 
 /** createSurface first, the other operations after it in their order. */
@@ -345,7 +373,9 @@ export function buildMarkdownSurfaces(
       fallbackSurfaceId: draft.surfaceId,
       catalogId: ui.id,
     });
-    const operations = createSurfaceFirst(prepared.operations);
+    const operations = splitComponentUpdates(
+      createSurfaceFirst(prepared.operations),
+    );
     const isChat = draft.target === GENERATIVE_UI_CHAT_TARGET;
     const parts: SurfacePart[] = isChat
       ? liftProse(

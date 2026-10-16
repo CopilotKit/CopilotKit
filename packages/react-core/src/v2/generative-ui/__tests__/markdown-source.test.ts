@@ -156,7 +156,7 @@ describe("buildMarkdownSurfaces", () => {
     ]);
   });
 
-  it("uses only the complete operations of a fence that is still streaming", () => {
+  it("renders the complete components of a line that is still streaming", () => {
     const complete = fence([create("s1")], { close: false });
     // The first component is complete, but the operation is not.
     const halfLine =
@@ -166,7 +166,56 @@ describe("buildMarkdownSurfaces", () => {
     const [surface] = build([message], true).surfaces;
 
     expect(surface.status).toBe("streaming");
-    expect(surface.operations).toEqual([create("s1")]);
+    expect(surface.operations).toEqual([
+      create("s1"),
+      components("s1", button("root", "Buy")),
+    ]);
+  });
+
+  it("splits updateComponents into one operation per component", () => {
+    const message = assistant(
+      "m1",
+      fence([
+        create("s1"),
+        components("s1", button("root", "Buy"), button("more", "More")),
+      ]),
+    );
+
+    const [surface] = build([message]).surfaces;
+
+    expect(surface.operations).toEqual([
+      create("s1"),
+      components("s1", button("root", "Buy")),
+      components("s1", button("more", "More")),
+    ]);
+  });
+
+  it("only adds operations at the end while a fence streams in", () => {
+    const text = fence([
+      create("s1"),
+      data("s1", { plan: "team" }),
+      components(
+        "s1",
+        { id: "root", component: "Column", children: ["buy", "more"] },
+        button("buy", "Buy"),
+        button("more", "More"),
+      ),
+    ]);
+    const steps: string[][] = [];
+    for (let end = 1; end <= text.length; end++) {
+      const closed = end === text.length;
+      const [surface] = build(
+        [assistant("m1", text.slice(0, end))],
+        !closed,
+      ).surfaces;
+      if (surface)
+        steps.push(surface.operations.map((op) => JSON.stringify(op)));
+    }
+
+    for (let i = 1; i < steps.length; i++) {
+      expect(steps[i].slice(0, steps[i - 1].length)).toEqual(steps[i - 1]);
+    }
+    expect(steps.at(-1)).toHaveLength(5);
   });
 
   it("lifts prose out of a chat surface and splits the rest into #n sub-surfaces", () => {
@@ -201,11 +250,12 @@ describe("buildMarkdownSurfaces", () => {
     expect(surfaces.find((s) => s.surfaceId === "s1#1")?.operations).toEqual([
       create("s1#1"),
       data("s1#1", { plan: "team" }),
-      components(
-        "s1#1",
-        { id: "root", component: "Column", children: ["more"] },
-        button("more", "More"),
-      ),
+      components("s1#1", {
+        id: "root",
+        component: "Column",
+        children: ["more"],
+      }),
+      components("s1#1", button("more", "More")),
     ]);
   });
 });
@@ -227,6 +277,33 @@ describe("MarkdownSurfaceSource", () => {
     expect(after).toBe(before);
     expect(after?.model.componentsModel.get("root")?.properties).toEqual({
       label: "Buy",
+    });
+  });
+
+  it("shows each component as it streams in, on the same surface", () => {
+    const { manager, sync } = syncedSource();
+    const text = fence([
+      create("s1"),
+      components(
+        "s1",
+        { id: "root", component: "Column", children: ["buy", "more"] },
+        button("buy", "Buy"),
+        button("more", "More"),
+      ),
+    ]);
+    const cut = text.indexOf('{"id":"more"');
+    sync("t1", [assistant("m1", text.slice(0, cut))], true);
+    const streaming = manager.getSurface("t1", "s1");
+
+    expect(streaming?.model.componentsModel.get("buy")).toBeDefined();
+    expect(streaming?.model.componentsModel.get("more")).toBeUndefined();
+
+    sync("t1", [assistant("m1", text)]);
+
+    const done = manager.getSurface("t1", "s1");
+    expect(done).toBe(streaming);
+    expect(done?.model.componentsModel.get("more")?.properties).toEqual({
+      label: "More",
     });
   });
 
