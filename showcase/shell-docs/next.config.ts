@@ -26,6 +26,8 @@ const CHANNEL_REDIRECT_GUIDE_SLUGS = [
   "tools",
   "identity-and-memory",
   "rich-messages",
+  "posting-jsx-as-images",
+  "render-and-carousel",
   "interactive",
   "commands-and-reactions",
   "files-and-multimodality",
