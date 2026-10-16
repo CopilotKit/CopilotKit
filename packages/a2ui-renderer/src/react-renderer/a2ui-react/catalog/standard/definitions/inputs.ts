@@ -92,6 +92,9 @@ export const inputDefinitions = {
       href: boundString("Opens this URL in a new tab on click"),
       disabled: DynamicBooleanSchema.optional(),
       hoverBackground: z.string().optional(),
+      tooltip: z.string().optional().describe("Shown on hover"),
+      ariaPressed: DynamicBooleanSchema.optional(),
+      insetBorder: z.boolean().optional().describe("1px inner border"),
     }),
   },
   Form: {
@@ -146,7 +149,13 @@ export const inputDefinitions = {
       required: z.boolean().optional(),
       disabled: z.boolean().optional(),
       clearable: z.boolean().optional(),
+      clearLabel: z.string().optional().describe("Label of the empty option"),
       searchable: z.boolean().optional(),
+      icon: z
+        .string()
+        .optional()
+        .describe("Lucide icon shown before the value"),
+      block: z.boolean().optional(),
       size: size("xl"),
       pill,
     }),
@@ -240,6 +249,7 @@ export const inputDefinitions = {
       disabled: z.boolean().optional(),
       required: z.boolean().optional(),
       clearable: z.boolean().optional(),
+      block: z.boolean().optional(),
     }),
   },
 } satisfies CatalogDefinitions;

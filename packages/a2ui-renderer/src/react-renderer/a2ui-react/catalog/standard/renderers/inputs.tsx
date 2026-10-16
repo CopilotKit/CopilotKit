@@ -316,7 +316,9 @@ function Select({ props }: RendererProps<any>) {
         style={controlStyle(props, "xl")}
       >
         {props.placeholder || props.clearable || !value ? (
-          <option value="">{props.placeholder ?? ""}</option>
+          <option value="">
+            {props.clearLabel ?? props.placeholder ?? ""}
+          </option>
         ) : null}
         {options.map((o) => (
           <option key={o.value} value={o.value} title={o.description}>
@@ -698,6 +700,8 @@ function Pressable({ props, children }: RendererProps<any>) {
       role="button"
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled || undefined}
+      aria-pressed={props.ariaPressed == null ? undefined : !!props.ariaPressed}
+      title={props.tooltip}
       data-a2ui-input=""
       onClick={(e) => {
         e.stopPropagation();
@@ -721,6 +725,9 @@ function Pressable({ props, children }: RendererProps<any>) {
         ...layoutStyle(props),
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.5 : undefined,
+        boxShadow: props.insetBorder
+          ? `inset 0 0 0 1px ${borderColor("default")}`
+          : undefined,
         ...(hover && props.hoverBackground && !disabled
           ? { background: backgroundColor(props.hoverBackground) }
           : {}),

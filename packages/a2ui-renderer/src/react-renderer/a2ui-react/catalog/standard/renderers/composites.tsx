@@ -397,7 +397,8 @@ function CardButton({
         e.stopPropagation();
         if (item.href) openUrl(item.href);
         // The binder may hand nested actions over as ready-made dispatchers.
-        else if (typeof item.action === "function") (item.action as () => void)();
+        else if (typeof item.action === "function")
+          (item.action as () => void)();
         else if (item.action) dispatch?.(item.action);
       }}
       style={{

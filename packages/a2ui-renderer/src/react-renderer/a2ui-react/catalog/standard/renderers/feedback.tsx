@@ -25,7 +25,7 @@ import {
 const STYLE_ID = "a2ui-standard-feedback";
 const KEYFRAMES = [
   "@keyframes a2ui-spin{to{transform:rotate(360deg)}}",
-  "@keyframes a2ui-pulse{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.4);opacity:0}}",
+  "@keyframes a2ui-pulse{0%{transform:scale(1);opacity:var(--a2ui-pulse-opacity,.6)}100%{transform:scale(var(--a2ui-pulse-scale,2.4));opacity:0}}",
   "@keyframes a2ui-block-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}",
   "@keyframes a2ui-confetti{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(var(--a2ui-dx),var(--a2ui-dy)) rotate(var(--a2ui-rot));opacity:0}}",
 ].join("");
@@ -178,6 +178,7 @@ function Popover({ props, children }: RendererProps<any>) {
     props.setOpen?.(next);
   };
   const rootRef = useRef<HTMLDivElement>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
     const onDown = (e: MouseEvent) => {
@@ -195,8 +196,27 @@ function Popover({ props, children }: RendererProps<any>) {
       <div
         ref={rootRef}
         style={{ position: "relative", display: "inline-flex" }}
-        onMouseEnter={props.showOnHover ? () => setOpen(true) : undefined}
-        onMouseLeave={props.showOnHover ? () => setOpen(false) : undefined}
+        onMouseEnter={
+          props.showOnHover
+            ? () => {
+                if (hoverTimer.current) clearTimeout(hoverTimer.current);
+                const delay = props.hoverOpenDelay ?? 0;
+                if (delay > 0) {
+                  hoverTimer.current = setTimeout(() => setOpen(true), delay);
+                } else {
+                  setOpen(true);
+                }
+              }
+            : undefined
+        }
+        onMouseLeave={
+          props.showOnHover
+            ? () => {
+                if (hoverTimer.current) clearTimeout(hoverTimer.current);
+                setOpen(false);
+              }
+            : undefined
+        }
       >
         {renderChildren(props.children, children)}
       </div>
@@ -215,25 +235,31 @@ function PopoverTrigger({ props, children }: RendererProps<any>) {
       // (so it never bubbles into a Pressable), which would otherwise leave
       // the trigger without the click.
       onClickCapture={() => ctx?.toggle()}
+      data-a2ui-popover-trigger=""
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           ctx?.toggle();
         }
       }}
-      style={{ display: "inline-flex", cursor: "pointer" }}
+      style={{
+        display: props.block ? "flex" : "inline-flex",
+        width: props.block ? "100%" : undefined,
+        cursor: "pointer",
+      }}
     >
       {renderChildren(props.children, children)}
     </div>
   );
 }
 
-const SIDE_STYLE: Record<string, React.CSSProperties> = {
-  bottom: { top: "100%", marginTop: 6 },
-  top: { bottom: "100%", marginBottom: 6 },
-  left: { right: "100%", marginRight: 6 },
-  right: { left: "100%", marginLeft: 6 },
-};
+const sideStyle = (side: string, offset: number): React.CSSProperties =>
+  ({
+    bottom: { top: "100%", marginTop: offset },
+    top: { bottom: "100%", marginBottom: offset },
+    left: { right: "100%", marginRight: offset },
+    right: { left: "100%", marginLeft: offset },
+  })[side] ?? { top: "100%", marginTop: offset };
 
 function alignStyle(side: string, align: string): React.CSSProperties {
   const vertical = side === "top" || side === "bottom";
@@ -258,7 +284,7 @@ function PopoverContent({ props, children }: RendererProps<any>) {
       style={{
         position: ctx ? "absolute" : "relative",
         zIndex: 50,
-        ...(ctx ? (SIDE_STYLE[side] ?? SIDE_STYLE.bottom) : {}),
+        ...(ctx ? sideStyle(side, props.sideOffset ?? 6) : {}),
         ...(ctx ? alignStyle(side, props.align ?? "center") : {}),
         width: spacing(props.width),
         minWidth: 160,
@@ -295,7 +321,9 @@ function LoadingBlock({ props }: RendererProps<any>) {
         backgroundColor: base,
         backgroundImage: `linear-gradient(90deg, transparent 0%, ${SHIMMER_HIGHLIGHT} 50%, transparent 100%)`,
         backgroundSize: "200% 100%",
-        animation: `a2ui-block-shimmer ${props.duration ?? 1500}ms linear infinite`,
+        animation: props.reducedMotion
+          ? undefined
+          : `a2ui-block-shimmer ${props.duration ?? 1500}ms linear infinite`,
         ...textFont("sm"),
         color: textColor("secondary"),
       }}
@@ -323,13 +351,17 @@ function PulseIndicator({ props }: RendererProps<any>) {
     >
       <span
         aria-hidden
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: "9999px",
-          background: textColor(props.pulseColor) ?? color,
-          animation: `a2ui-pulse ${props.duration ?? 1500}ms ease-out infinite`,
-        }}
+        style={
+          {
+            position: "absolute",
+            inset: 0,
+            borderRadius: "9999px",
+            background: textColor(props.pulseColor) ?? color,
+            animation: `a2ui-pulse ${props.duration ?? 1500}ms ease-out infinite`,
+            ["--a2ui-pulse-scale" as string]: props.endScale,
+            ["--a2ui-pulse-opacity" as string]: props.startOpacity,
+          } as React.CSSProperties
+        }
       />
       <span
         aria-hidden

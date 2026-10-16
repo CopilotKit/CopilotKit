@@ -284,7 +284,20 @@ function TableRow({ props, children }: RendererProps<any>) {
         header,
       }}
     >
-      <tr aria-label={props.label}>
+      <tr>
+        {props.label ? (
+          <th
+            scope="row"
+            colSpan={props.labelColSpan}
+            {...cellProps({
+              header: true,
+              dividers: parent?.dividers ?? true,
+              align: "start",
+            })}
+          >
+            {props.label}
+          </th>
+        ) : null}
         {renderChildList(props.children, children)}
       </tr>
     </TableContext.Provider>
@@ -328,6 +341,7 @@ function TableCell({ props, children }: RendererProps<any>) {
 interface ListContextValue {
   marker: "bullet" | "number" | "rich" | "none";
   connector: boolean;
+  maxMarkerSize?: number;
 }
 
 const ListContext = createContext<ListContextValue | null>(null);
@@ -353,6 +367,7 @@ function ItemBody({
   description,
   icon,
   marker,
+  markerSize,
   connector,
   action,
   extra,
@@ -361,6 +376,7 @@ function ItemBody({
   description?: React.ReactNode;
   icon?: string;
   marker?: string;
+  markerSize?: number;
   connector?: boolean;
   action?: () => void;
   extra?: React.ReactNode;
@@ -388,7 +404,8 @@ function ItemBody({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          minWidth: 20,
+          minWidth: markerSize ?? 20,
+          maxWidth: markerSize,
           paddingTop: 2,
           color: textColor("secondary"),
           position: "relative",
@@ -455,6 +472,7 @@ function List({ props, children, dispatch }: RendererProps<any>) {
                   "description" in entry ? entry.description : undefined
                 }
                 icon={"icon" in entry ? entry.icon : undefined}
+                markerSize={props.maxMarkerSize}
                 connector={connector}
                 action={action}
               />
@@ -463,7 +481,9 @@ function List({ props, children, dispatch }: RendererProps<any>) {
         })
       : renderChildList(props.children, children);
   return (
-    <ListContext.Provider value={{ marker, connector }}>
+    <ListContext.Provider
+      value={{ marker, connector, maxMarkerSize: props.maxMarkerSize }}
+    >
       <Tag
         className="a2ui-std-list"
         start={Tag === "ol" ? props.start : undefined}
@@ -478,16 +498,20 @@ function List({ props, children, dispatch }: RendererProps<any>) {
 function ListItem({ props, children }: RendererProps<any>) {
   const list = useContext(ListContext);
   const Tag = list ? "li" : "div";
-  const action = typeof props.action === "function" ? props.action : undefined;
+  const disabled = !!props.disabled;
+  const action =
+    !disabled && typeof props.action === "function" ? props.action : undefined;
   return (
     <Tag
-      style={
-        props.marker &&
+      aria-disabled={disabled || undefined}
+      style={{
+        ...(props.marker &&
         list &&
         (list.marker === "bullet" || list.marker === "number")
           ? { listStyleType: "none" }
-          : undefined
-      }
+          : {}),
+        opacity: disabled ? 0.5 : undefined,
+      }}
     >
       <ItemBody
         label={props.label == null ? undefined : cellText(props.label)}
@@ -496,6 +520,7 @@ function ListItem({ props, children }: RendererProps<any>) {
         }
         icon={props.icon}
         marker={props.marker}
+        markerSize={props.markerSize ?? list?.maxMarkerSize}
         connector={list?.connector}
         action={action}
         extra={renderChildList(props.children, children)}

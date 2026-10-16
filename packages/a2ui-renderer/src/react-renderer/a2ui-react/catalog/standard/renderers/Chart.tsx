@@ -43,6 +43,17 @@ export interface ChartProps {
   xKey?: string;
   series?: ChartSeries[];
   stacked?: boolean;
+  layout?: "vertical" | "horizontal";
+  yAxis?: { label?: string; min?: number; max?: number; width?: number };
+  showDots?: boolean;
+  barRadius?: number;
+  innerRadius?: number | string;
+  outerRadius?: number | string;
+  startAngle?: number;
+  endAngle?: number;
+  cornerRadius?: number;
+  paddingAngle?: number;
+  showLabelLines?: boolean;
   height?: number;
   showLegend?: boolean;
   showGrid?: boolean;
@@ -161,11 +172,18 @@ function createRechartsChart(R: RechartsModule) {
                 data={data}
                 dataKey={s.key}
                 nameKey={props.xKey ?? "name"}
-                innerRadius={chartType === "donut" ? "55%" : 0}
-                outerRadius="80%"
-                startAngle={90}
-                endAngle={-270}
+                innerRadius={
+                  props.innerRadius ?? (chartType === "donut" ? "55%" : 0)
+                }
+                outerRadius={props.outerRadius ?? "80%"}
+                startAngle={props.startAngle ?? 90}
+                endAngle={props.endAngle ?? -270}
+                cornerRadius={props.cornerRadius}
+                paddingAngle={props.paddingAngle}
                 label={props.showValueLabels ? true : undefined}
+                labelLine={
+                  props.showValueLabels ? (props.showLabelLines ?? true) : false
+                }
                 isAnimationActive={false}
               >
                 {data.map((_, i) => (
@@ -194,6 +212,22 @@ function createRechartsChart(R: RechartsModule) {
             ? R.ScatterChart
             : R.BarChart;
     const stackId = props.stacked ? "stack" : undefined;
+    const horizontal = props.layout === "horizontal";
+    const domain: [number | "auto", number | "auto"] = [
+      props.yAxis?.min ?? "auto",
+      props.yAxis?.max ?? "auto",
+    ];
+    const valueAxisLabel = props.yAxis?.label
+      ? {
+          value: props.yAxis.label,
+          position: horizontal
+            ? ("insideBottom" as const)
+            : ("insideLeft" as const),
+          angle: horizontal ? 0 : -90,
+          fontSize: 12,
+          fill: textColor("secondary"),
+        }
+      : undefined;
 
     return (
       <R.ResponsiveContainer
@@ -203,28 +237,56 @@ function createRechartsChart(R: RechartsModule) {
       >
         <CartesianChart
           data={data}
+          layout={horizontal ? "vertical" : "horizontal"}
           margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
         >
           {showGrid ? (
             <R.CartesianGrid
               strokeDasharray="3 3"
               stroke={borderColor("subtle")}
-              vertical={false}
+              vertical={horizontal}
+              horizontal={!horizontal}
             />
           ) : null}
-          <R.XAxis
-            dataKey={props.xKey}
-            tick={axisTick}
-            tickLine={false}
-            axisLine={{ stroke: borderColor("default") }}
-          />
-          <R.YAxis
-            tick={axisTick}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={fmt as any}
-            width={64}
-          />
+          {horizontal ? (
+            <>
+              <R.XAxis
+                type="number"
+                domain={domain}
+                tick={axisTick}
+                tickLine={false}
+                axisLine={{ stroke: borderColor("default") }}
+                tickFormatter={fmt as any}
+                label={valueAxisLabel}
+              />
+              <R.YAxis
+                type="category"
+                dataKey={props.xKey}
+                tick={axisTick}
+                tickLine={false}
+                axisLine={false}
+                width={props.yAxis?.width ?? 96}
+              />
+            </>
+          ) : (
+            <>
+              <R.XAxis
+                dataKey={props.xKey}
+                tick={axisTick}
+                tickLine={false}
+                axisLine={{ stroke: borderColor("default") }}
+              />
+              <R.YAxis
+                domain={domain}
+                tick={axisTick}
+                tickLine={false}
+                axisLine={false}
+                tickFormatter={fmt as any}
+                width={props.yAxis?.width ?? 64}
+                label={valueAxisLabel}
+              />
+            </>
+          )}
           {showTooltip ? (
             <R.Tooltip formatter={fmt as any} {...TOOLTIP_STYLE} />
           ) : null}
@@ -245,7 +307,11 @@ function createRechartsChart(R: RechartsModule) {
                   type="monotone"
                   stroke={s.color}
                   strokeWidth={2}
-                  dot={false}
+                  dot={
+                    props.showDots
+                      ? { r: 3, strokeWidth: 0, fill: s.color }
+                      : false
+                  }
                   label={valueLabel}
                 />
               );
@@ -260,6 +326,11 @@ function createRechartsChart(R: RechartsModule) {
                   fill={s.color}
                   fillOpacity={0.2}
                   stackId={stackId}
+                  dot={
+                    props.showDots
+                      ? { r: 3, strokeWidth: 0, fill: s.color }
+                      : false
+                  }
                   label={valueLabel}
                 />
               );
@@ -273,7 +344,15 @@ function createRechartsChart(R: RechartsModule) {
                 {...common}
                 fill={s.color}
                 stackId={stackId}
-                radius={stackId ? 0 : [4, 4, 0, 0]}
+                radius={
+                  stackId
+                    ? 0
+                    : props.barRadius != null
+                      ? props.barRadius
+                      : horizontal
+                        ? [0, 4, 4, 0]
+                        : [4, 4, 0, 0]
+                }
                 label={valueLabel}
               />
             );
