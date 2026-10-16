@@ -5,6 +5,8 @@ import { ChatState } from "@copilotkit/angular";
 @Injectable()
 export class StoryChatState extends ChatState {
   readonly inputValue = signal<string>("");
+  override readonly isRunning = signal(false);
+  override readonly canStop = signal(false);
 
   submitInput(value: string): void {
     const trimmed = value.trim();
@@ -15,5 +17,11 @@ export class StoryChatState extends ChatState {
 
   changeInput(value: string): void {
     this.inputValue.set(value);
+  }
+
+  override stopRun(): void {
+    console.log("[Storybook] stopRun");
+    this.isRunning.set(false);
+    this.canStop.set(false);
   }
 }

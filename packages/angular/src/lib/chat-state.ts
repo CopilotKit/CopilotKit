@@ -18,9 +18,15 @@ export abstract class ChatState {
   readonly suggestions = signal<Suggestion[]>([]);
   readonly suggestionsLoading = signal(false);
   readonly isTranscribing = signal(false);
+  /** True while the agent behind this chat has a run in flight. */
+  readonly isRunning: Signal<boolean> = signal(false);
+  /** True when the input should offer Stop instead of Send. */
+  readonly canStop: Signal<boolean> = signal(false);
 
   abstract submitInput(value: string): void;
   abstract changeInput(value: string): void;
+  /** Stops the in-flight run. A no-op for chat states without run control. */
+  stopRun(): void {}
   selectSuggestion(_suggestion: Suggestion, _index: number): void {}
   finishTranscription(_audioBlob: Blob): void | Promise<void> {}
 

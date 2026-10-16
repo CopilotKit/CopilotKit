@@ -7,6 +7,7 @@ import {
   Input,
   Output,
   ChangeDetectionStrategy,
+  Injectable,
 } from "@angular/core";
 import { fn } from "storybook/test";
 import {
@@ -18,6 +19,26 @@ import {
 import { StoryChatState } from "./story-chat-state";
 import type { ToolsMenuItem } from "@copilotkit/angular";
 import { CustomSendButtonComponent } from "../components/custom-send-button.component";
+
+/** A chat state whose agent run is already in flight. */
+@Injectable()
+class RunningStoryChatState extends StoryChatState {
+  constructor() {
+    super();
+    this.isRunning.set(true);
+    this.canStop.set(true);
+  }
+}
+
+@Component({
+  selector: "running-chat-input",
+  imports: [CopilotChatInput],
+  providers: [{ provide: ChatState, useClass: RunningStoryChatState }],
+  template: `
+    <copilot-chat-input></copilot-chat-input>
+  `,
+})
+class RunningChatInputComponent {}
 
 // Additional custom button components for slot demonstrations
 @Component({
@@ -315,6 +336,29 @@ export class ChatComponent {
   }
 }`,
         language: "typescript",
+      },
+    },
+  },
+};
+
+// While an agent run is in flight
+export const Running: Story = {
+  name: "Running (Stop Button)",
+  decorators: [moduleMetadata({ imports: [RunningChatInputComponent] })],
+  render: () => ({
+    template: `
+      <div style="position: fixed; bottom: 0; left: 0; right: 0; display: flex; justify-content: center; padding: 16px;">
+        <div style="width: 100%; max-width: 640px;">
+          <running-chat-input></running-chat-input>
+        </div>
+      </div>
+    `,
+  }),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "While a run is in flight the send button becomes Stop. Clicking it, or pressing Enter on an empty composer, stops the run. Enter with text still sends; the chat queues it behind the run.",
       },
     },
   },

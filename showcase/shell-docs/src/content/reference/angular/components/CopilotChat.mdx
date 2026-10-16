@@ -5,7 +5,7 @@ description: "Angular standalone component that wires an agent to a complete cha
 
 ## Overview
 
-`CopilotChat` is the all-in-one chat component. It wires an agent into [`CopilotChatView`](/reference/angular/components/CopilotChatView) so you get a working chat interface with one selector. It resolves the agent through [`injectAgentStore`](/reference/angular/functions/injectAgentStore), subscribes to that agent's messages and running state, manages suggestions, tracks the input value, handles audio transcription, wires file attachments, and clears the input after each message is sent.
+`CopilotChat` is the all-in-one chat component. It wires an agent into [`CopilotChatView`](/reference/angular/components/CopilotChatView) so you get a working chat interface with one selector. It resolves the agent through [`injectAgentStore`](/reference/angular/functions/injectAgentStore), subscribes to that agent's messages and running state, manages suggestions, tracks the input value, handles audio transcription, wires file attachments, and clears the input after each message is sent. Messages sent while a run is in flight wait for it to finish, one at a time, and the input offers a Stop button while the agent runs.
 
 `CopilotChat` extends `ChatState` and provides itself to the view and input beneath it. You usually only need to point it at an agent.
 
