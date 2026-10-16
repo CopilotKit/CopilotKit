@@ -31,7 +31,7 @@ Key benefits:
 
     Use `@copilotkit/runtime` 1.76.0 or later. The current middleware release needs `@ag-ui/client` 1.x, which runtime 1.76.0 and later use.
 
-    ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
+    ```typescript title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
     import {
       CopilotRuntime,
       createCopilotRuntimeHandler,
@@ -58,6 +58,11 @@ Key benefits:
         ],
       }),
     );
+
+    const runtime = new CopilotRuntime({
+      agents: { sample_agent: agent },
+      runner: new InMemoryAgentRunner(),
+    });
 
     const handler = createCopilotRuntimeHandler({
       runtime,
