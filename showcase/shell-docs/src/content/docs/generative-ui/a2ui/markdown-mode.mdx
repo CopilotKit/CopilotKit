@@ -170,6 +170,15 @@ ancestor in your stylesheet, or pass them as the theme:
 The map's popup and route line use maplibre's own styling and do not follow
 these variables.
 
+The example app renders every component with sample data at
+`http://localhost:3011/catalog`, next to the description and props the model
+sees. The same catalog also works in tool mode: pass it without `mode` and the
+runtime injects the `render_a2ui` tool instead of the fence guideline.
+
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog: standardCatalog }}>
+```
+
 Pass `catalog` to replace the standard catalog with your own:
 
 ```tsx
