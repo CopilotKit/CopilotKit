@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { durableJson } from "./journal.mjs";
 const exec = promisify(execFile);
 const page = "pageInfo { hasNextPage endCursor } edges { node";
 export const operations = {
@@ -54,7 +56,54 @@ const resultFields = {
 };
 
 /** CLI owns token selection/refresh. Variables never appear in argv, errors or receipts. */
-export function railwayApi({ executable = "railway", env = process.env } = {}) {
+export class RailwayRequestError extends Error {
+  constructor(diagnostic) {
+    super(
+      `Railway ${diagnostic.operation} failed: ${diagnostic.failureClass}; outcome ${diagnostic.outcome}`,
+    );
+    this.name = "RailwayRequestError";
+    this.diagnostic = Object.freeze(diagnostic);
+  }
+}
+const knownCodes = new Set([
+  "GRAPHQL_PARSE_FAILED",
+  "GRAPHQL_VALIDATION_FAILED",
+  "BAD_USER_INPUT",
+  "INTERNAL_SERVER_ERROR",
+  "UNAUTHENTICATED",
+  "FORBIDDEN",
+]);
+export function railwayApi({
+  executable = "railway",
+  env = process.env,
+  diagnosticDirectory,
+} = {}) {
+  async function fail(
+    operation,
+    failureClass,
+    outcome = "unknown",
+    codes = [],
+    processFailure = {},
+  ) {
+    const diagnostic = {
+      version: 1,
+      id: randomUUID(),
+      operation,
+      failureClass,
+      outcome,
+      codes,
+      ...processFailure,
+      at: new Date().toISOString(),
+    };
+    if (diagnosticDirectory) {
+      await mkdir(diagnosticDirectory, { recursive: true, mode: 0o700 });
+      await durableJson(
+        join(diagnosticDirectory, `${diagnostic.id}.json`),
+        diagnostic,
+      );
+    }
+    throw new RailwayRequestError(diagnostic);
+  }
   async function request(operation, variables) {
     assert.ok(Object.hasOwn(operations, operation));
     const directory = await mkdtemp(join(tmpdir(), "rich-railway-api-"));
@@ -78,27 +127,96 @@ export function railwayApi({ executable = "railway", env = process.env } = {}) {
             "--variables",
             `@${join(directory, "variables.json")}`,
             "--compact",
+            "--allow-errors",
           ],
           { env, timeout: 20_000, maxBuffer: 8 * 1024 * 1024 },
         ));
-      } catch {
-        throw new Error(
-          `Railway ${operation} failed or timed out; reconcile creation intent before retry`,
+      } catch (error) {
+        // Only OS spawn failures prove the CLI never executed. Timeout, signal,
+        // nonzero exit and output overflow can all follow a committed mutation.
+        const processFailure = {
+          ...(Number.isInteger(error.code) &&
+          error.code >= 0 &&
+          error.code <= 255
+            ? { exitCode: error.code }
+            : {}),
+          ...(["SIGTERM", "SIGKILL", "SIGABRT", "SIGSEGV", "SIGINT"].includes(
+            error.signal,
+          )
+            ? { signal: error.signal }
+            : {}),
+          ...([
+            "ENOENT",
+            "EACCES",
+            "ENOEXEC",
+            "ETIMEDOUT",
+            "ENOBUFS",
+            "ERR_CHILD_PROCESS_STDIO_MAXBUFFER",
+          ].includes(error.code)
+            ? { osCode: error.code }
+            : {}),
+        };
+        if (["ENOENT", "EACCES", "ENOEXEC"].includes(error.code))
+          return await fail(
+            operation,
+            "cli-not-started",
+            "not-executed",
+            [],
+            processFailure,
+          );
+        return await fail(
+          operation,
+          error.killed ? "cli-interrupted" : "cli-failed",
+          "unknown",
+          [],
+          processFailure,
         );
       }
-      const response = JSON.parse(stdout);
-      assert.ok(
-        !response.errors?.length,
-        `Railway ${operation} returned GraphQL errors`,
-      );
+      let response;
+      try {
+        response = JSON.parse(stdout);
+      } catch {
+        return await fail(operation, "invalid-response");
+      }
+      if (!response || typeof response !== "object")
+        return await fail(operation, "invalid-response");
+      if (response.errors !== undefined && !Array.isArray(response.errors))
+        return await fail(operation, "invalid-response");
+      if (response.errors?.length) {
+        const errors = response.errors;
+        const codes = [
+          ...new Set(
+            errors
+              .slice(0, 16)
+              .map((e) => e?.extensions?.code)
+              .filter((code) => knownCodes.has(code)),
+          ),
+        ];
+        // GraphQL parsing/validation occurs before execution. Generic resolver
+        // errors, BAD_USER_INPUT, authorization errors and partial data do not
+        // establish that no side effect occurred.
+        const preExecution =
+          Array.isArray(errors) &&
+          errors.length <= 16 &&
+          !Object.hasOwn(response, "data") &&
+          errors.every((e) =>
+            ["GRAPHQL_PARSE_FAILED", "GRAPHQL_VALIDATION_FAILED"].includes(
+              e?.extensions?.code,
+            ),
+          );
+        return await fail(
+          operation,
+          "graphql-rejected",
+          preExecution ? "not-executed" : "unknown",
+          codes,
+        );
+      }
       const data = response.data ?? response;
       const value = resultFields[operation]
         ? data[resultFields[operation]]
         : data;
-      assert.ok(
-        value !== undefined && value !== null && value !== false,
-        `Railway ${operation} did not confirm success`,
-      );
+      if (value === undefined || value === null || value === false)
+        return await fail(operation, "unconfirmed-response");
       return value;
     } finally {
       await rm(directory, { recursive: true, force: true });

@@ -8,6 +8,7 @@ import {
   createRailwayEnvironment,
   recoverRailwayEnvironment,
 } from "./environment.mjs";
+import { RailwayRequestError } from "./api.mjs";
 import { receiveSnapshot } from "./receiver.mjs";
 import { distributeSnapshot } from "./distribution.mjs";
 const image = "ghcr.io/offline-test/fixture@sha256:" + "a".repeat(64);
@@ -28,11 +29,20 @@ function fakeProvider(options = {}) {
       clone(state.environments.find((e) => e.id === id)),
     request: async (op, args) => {
       state.calls.push(op);
+      if (op === options.rejectOperation)
+        throw new RailwayRequestError({
+          version: 1,
+          operation: op,
+          failureClass: "graphql-rejected",
+          outcome: "not-executed",
+          codes: ["GRAPHQL_VALIDATION_FAILED"],
+        });
       const input = args.input;
       const env = state.environments.find(
         (e) => e.id === (input?.environmentId ?? args.environmentId),
       );
       if (op === "createEnvironment") {
+        if (options.environmentFailure) throw options.environmentFailure;
         const value = {
           id: `env-${++serial}`,
           name: input.name,
@@ -396,6 +406,77 @@ test("unknown creation outcome retains lease and blocks new runs", async (t) => 
   );
   assert.equal(p.state.calls.filter((c) => c.startsWith("delete")).length, 0);
 });
+test("proven pre-execution rejection releases only after complete absence inventory", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider({
+    environmentFailure: new RailwayRequestError({
+      version: 1,
+      operation: "createEnvironment",
+      failureClass: "graphql-rejected",
+      outcome: "not-executed",
+      codes: ["GRAPHQL_VALIDATION_FAILED"],
+    }),
+  });
+  await assert.rejects(
+    createRailwayEnvironment(
+      { ...f, runId: "rejected", frameworks: ["mastra"] },
+      { ...f.dependencies, api: p.api },
+    ),
+    /graphql-rejected/,
+  );
+  const journal = JSON.parse(
+    await readFile(join(f.directory, "rejected/journal.json"), "utf8"),
+  );
+  assert.equal(journal.intents[0].status, "absent");
+  assert.equal(journal.cleanup.status, "passed");
+  await assert.rejects(readFile(join(f.directory, "active-run/lease.json")), {
+    code: "ENOENT",
+  });
+  assert.deepEqual(p.state.calls, ["createEnvironment"]);
+});
+
+test("repeated absence never settles a lost environment response; later resource is recovered", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider({ environmentFailure: new Error("Lost response") });
+  const args = { ...f, runId: "late-environment", frameworks: ["mastra"] };
+  const dependencies = { ...f.dependencies, api: p.api };
+  await assert.rejects(
+    createRailwayEnvironment(args, dependencies),
+    /setup and cleanup failed/,
+  );
+  const path = join(f.directory, "late-environment/journal.json");
+  for (let n = 0; n < 3; n++) {
+    await assert.rejects(
+      recoverRailwayEnvironment(args, dependencies),
+      /cleanup incomplete/,
+    );
+    assert.equal(
+      JSON.parse(await readFile(path, "utf8")).intents[0].status,
+      "pending",
+    );
+  }
+  const journal = JSON.parse(await readFile(path, "utf8"));
+  p.state.environments.push({
+    id: "late-owned-environment",
+    name: journal.intents[0].name,
+    projectId: f.config.projectId,
+    createdAt: journal.intents[0].startedAt,
+    isEphemeral: true,
+    sourceEnvironment: null,
+    serviceInstances: [],
+    volumeInstances: [],
+  });
+  assert.equal(
+    (await recoverRailwayEnvironment(args, dependencies)).status,
+    "passed",
+  );
+  assert.equal(p.state.environments.length, 0);
+  assert.equal(
+    JSON.parse(await readFile(path, "utf8")).intents[0].resultId,
+    "late-owned-environment",
+  );
+});
+
 test("escaped service is never a deletion target", async (t) => {
   const f = await fixture(t);
   const p = fakeProvider({ escape: true });
@@ -523,4 +604,49 @@ test("corrupt inspection state never prevents API-owned emergency cleanup", asyn
   assert.equal(p.state.services.length, 0);
   assert.equal(p.state.volumes.length, 0);
   assert.equal(p.state.environments.length, 0);
+});
+
+for (const operation of ["createService", "createVolume", "domain"]) {
+  test(`definitive ${operation} rejection retains proof and cleans prior resources`, async (t) => {
+    const f = await fixture(t);
+    const p = fakeProvider({ rejectOperation: operation });
+    await assert.rejects(
+      createRailwayEnvironment(
+        { ...f, runId: "rejected-resource", frameworks: ["mastra"] },
+        { ...f.dependencies, api: p.api },
+      ),
+      /graphql-rejected/,
+    );
+    const journal = JSON.parse(
+      await readFile(
+        join(f.directory, "rejected-resource/journal.json"),
+        "utf8",
+      ),
+    );
+    const intent = journal.intents.find(
+      (i) => i.kind === operation && i.failure,
+    );
+    assert.equal(intent.status, "absent");
+    assert.equal(journal.cleanup.status, "passed");
+    assert.equal(
+      p.state.environments.length +
+        p.state.services.length +
+        p.state.volumes.length,
+      0,
+    );
+  });
+}
+
+test("public proxy configuration remains forbidden before creation", async (t) => {
+  const f = await fixture(t);
+  f.config.services[0].tcpPort = 5432;
+  const p = fakeProvider();
+  await assert.rejects(
+    createRailwayEnvironment(
+      { ...f, runId: "forbidden-proxy", frameworks: ["mastra"] },
+      { ...f.dependencies, api: p.api },
+    ),
+    /Public database proxies are not allowed/,
+  );
+  assert.deepEqual(p.state.calls, []);
 });

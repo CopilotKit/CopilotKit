@@ -11,7 +11,7 @@ import {
   publishSnapshot,
 } from "./contract.mts";
 import { verifySupervisor } from "./supervision.mjs";
-import { railwayApi } from "./api.mjs";
+import { railwayApi, RailwayRequestError } from "./api.mjs";
 import {
   acquire,
   release,
@@ -204,7 +204,14 @@ export async function createRailwayEnvironment(
   validateRailwayConfig(config, frameworks);
   assert.ok(safe(runId));
   signal?.throwIfAborted();
-  const api = dependencies.api ?? railwayApi();
+  const api =
+    dependencies.api ??
+    railwayApi({
+      diagnosticDirectory: join(
+        config.controlDirectory,
+        "provider-diagnostics",
+      ),
+    });
   const distribute = dependencies.distribute ?? distributeSnapshot;
   await authority(config.controlDirectory);
   await (dependencies.supervision ?? verifySupervisor)(config);
@@ -380,13 +387,27 @@ async function controllerFor({
     };
     journal.intents.push(intent);
     await save();
-    const value = await api.request(kind, { input: variables });
+    const value = await requestCreation(intent, { input: variables });
     id(value.id);
     assert.equal(value.projectId, journal.projectId);
     intent.resultId = value.id;
     intent.status = "returned";
     await save();
     return value;
+  }
+  async function requestCreation(intent, variables) {
+    try {
+      return await api.request(intent.kind, variables);
+    } catch (error) {
+      if (
+        error instanceof RailwayRequestError &&
+        error.diagnostic.operation === intent.kind
+      ) {
+        intent.failure = error.diagnostic;
+        await save();
+      }
+      throw error;
+    }
   }
   async function ownedService(service) {
     assert.ok(
@@ -611,6 +632,26 @@ async function controllerFor({
       );
       if (intent.resultId)
         candidates = candidates.filter((c) => c.id === intent.resultId);
+      if (
+        !candidates.length &&
+        intent.failure?.version === 1 &&
+        intent.failure.operation === intent.kind &&
+        intent.failure.outcome === "not-executed" &&
+        (intent.failure.failureClass === "cli-not-started" ||
+          (intent.failure.failureClass === "graphql-rejected" &&
+            intent.failure.codes?.length &&
+            intent.failure.codes.every((code) =>
+              ["GRAPHQL_PARSE_FAILED", "GRAPHQL_VALIDATION_FAILED"].includes(
+                code,
+              ),
+            )))
+      ) {
+        intent.status = "absent";
+        intent.resolution = "proven-not-executed-and-inventory-absent";
+        intent.verifiedAt = new Date().toISOString();
+        await save();
+        continue;
+      }
       if (!candidates.length)
         throw new Error(
           "Creation outcome remains unknown; retain lease and reconcile provider inventory again",
@@ -1065,7 +1106,7 @@ async function controllerFor({
       };
       journal.intents.push(intent);
       await save();
-      const returned = await api.request("createService", {
+      const returned = await requestCreation(intent, {
         input: {
           projectId: journal.projectId,
           environmentId: fork.id,
@@ -1123,7 +1164,7 @@ async function controllerFor({
         };
         journal.intents.push(volumeIntent);
         await save();
-        const volume = await api.request("createVolume", {
+        const volume = await requestCreation(volumeIntent, {
           input: {
             projectId: journal.projectId,
             environmentId: fork.id,
@@ -1204,7 +1245,7 @@ async function controllerFor({
         };
         journal.intents.push(domainIntent);
         await save();
-        const domain = await api.request("domain", {
+        const domain = await requestCreation(domainIntent, {
           input: {
             environmentId: fork.id,
             serviceId: service.id,
@@ -1244,7 +1285,7 @@ async function controllerFor({
         };
         journal.intents.push(proxyIntent);
         await save();
-        const proxy = await api.request("createProxy", {
+        const proxy = await requestCreation(proxyIntent, {
           input: { ...args, applicationPort: spec.tcpPort },
         });
         id(proxy.id);
@@ -1385,7 +1426,14 @@ export async function recoverRailwayEnvironment(
       config,
       journal,
       directory,
-      api: dependencies.api ?? railwayApi(),
+      api:
+        dependencies.api ??
+        railwayApi({
+          diagnosticDirectory: join(
+            config.controlDirectory,
+            "provider-diagnostics",
+          ),
+        }),
       distribute: dependencies.distribute ?? distributeSnapshot,
       outputDir,
       dependenciesExecute: dependencies.inspection,
