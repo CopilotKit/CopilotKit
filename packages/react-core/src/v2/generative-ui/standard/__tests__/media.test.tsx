@@ -198,10 +198,13 @@ describe("standard media", () => {
   });
 
   it("embeds a YouTube video in privacy-enhanced mode", async () => {
+    // showThumbnail false: the poster-first default renders no iframe until
+    // the user presses play (see media-parity.test.tsx).
     const view = renderInColumn({
       id: "y",
       component: "YouTube",
       videoId: "dQw4w9WgXcQ",
+      showThumbnail: false,
     });
     const frame = await view.findByTitle("YouTube video");
     expect(frame.getAttribute("src")).toBe(

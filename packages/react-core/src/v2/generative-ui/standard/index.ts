@@ -1,4 +1,5 @@
 import { createGenerativeUI } from "../catalog";
+import { compositeComponents } from "./composites";
 import { dataComponents } from "./data";
 import { feedbackComponents } from "./feedback";
 import { inputComponents } from "./inputs";
@@ -9,8 +10,8 @@ import { STANDARD_CATALOG_ID } from "./tokens";
 
 /**
  * Experimental. The standard components: layout, text, inputs, feedback,
- * data and media. Give it to the provider as it is, or add your own
- * components on top of it with `extends`.
+ * data, media and composites. Give it to the provider as it is, or add your
+ * own components on top of it with `extends`.
  *
  * Style the components with the `--a2ui-*` CSS variables. Set them with
  * the `theme` option of `generativeUI`.
@@ -35,5 +36,6 @@ export const standardUI = createGenerativeUI({
     ...feedbackComponents,
     ...dataComponents,
     ...mediaComponents,
+    ...compositeComponents,
   },
 });

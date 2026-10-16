@@ -309,9 +309,10 @@ function surfaceContent(
  * @param messages - The messages of one thread.
  * @param options - The generative UI, its declared functions, and whether
  *   the last message can still grow.
- * @returns `surfaces`, one content for each surface and sub-surface, and
- *   `fences`, the blocks that each fence renders, by `fenceKey`. A fence
- *   that is not in `fences` renders nothing.
+ * @returns `surfaces`, one content for each surface and sub-surface;
+ *   `fences`, the blocks that each fence renders, by `fenceKey` (a fence
+ *   that is not in `fences` renders nothing); and `parts`, the surface ids
+ *   of the parts of each surface, by surface id.
  *
  * @example
  * ```ts
@@ -392,6 +393,15 @@ export function buildMarkdownSurfaces(
     }
   }
 
+  /** The surface ids of the parts of each split surface, by surface id. */
+  const parts = new Map<string, string[]>();
+  for (const [surfaceId, surfaceParts] of partsBySurface) {
+    const ids = surfaceParts.flatMap((part) =>
+      part.kind === "surface" ? [part.surfaceId] : [],
+    );
+    parts.set(surfaceId, ids);
+  }
+
   const fences = new Map<string, MarkdownFenceBlock[]>();
   for (const [key, surfaceIds] of created) {
     const blocks: MarkdownFenceBlock[] = [];
@@ -408,7 +418,7 @@ export function buildMarkdownSurfaces(
     if (blocks.length > 0) fences.set(key, blocks);
   }
 
-  return { surfaces, fences };
+  return { surfaces, fences, parts };
 }
 
 /** The declared functions, as `validateOperation` takes them. */
@@ -496,6 +506,11 @@ export class MarkdownSurfaceSource {
       running: options.running,
     });
     this.fences.set(threadId, result.fences);
+    // The parts of a split surface share one data model, so an input in one
+    // part drives a binding in another.
+    for (const parts of result.parts.values()) {
+      this.manager.linkSurfaces(threadId, parts);
+    }
     const previous = this.ingested.get(threadId) ?? new Map<string, string[]>();
     const next = new Map<string, string[]>();
     for (const content of result.surfaces) {

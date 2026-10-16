@@ -11,23 +11,36 @@ import Link from "next/link";
 import { Providers } from "./providers";
 import type { ExampleAgent, ExampleTransport } from "./providers";
 
+/** "page": the chat next to two page surfaces. "chat": the chat alone, full width. */
+type ExampleLayout = "page" | "chat";
+
+interface Suggestion {
+  title: string;
+  message: string;
+  /** The layouts the prompt makes sense in. Default: all. */
+  layouts?: ExampleLayout[];
+}
+
 /**
  * Click-to-try prompts. Each one leans on a different part of the standard
  * components so the pills double as a quick tour: inputs and bindings, tables,
- * charts, forms, maps, and flip cards.
+ * charts, forms, maps, SVG drawings, and flip cards.
  */
-const SUGGESTIONS = [
+const SUGGESTIONS: Suggestion[] = [
   {
+    layouts: ["page"],
     title: "Dashboard on the page",
     message:
       'Show a sales dashboard in the "dashboard" surface on the page, not in the chat: three stat cards (revenue, orders, average order value), a line chart of revenue over the last 6 months, and a table of the top 5 products.',
   },
   {
+    layouts: ["page"],
     title: "Checklist in the notes",
     message:
       'Put a launch checklist in the "notes" surface on the page, not in the chat: a title and five checkboxes for the launch steps.',
   },
   {
+    layouts: ["page"],
     title: "Update the dashboard",
     message:
       'Change the dashboard on the page: replace the line chart with a bar chart of orders per month, and add a badge "Best month" to the top month. Update the same surface; do not make a new one.',
@@ -58,16 +71,32 @@ const SUGGESTIONS = [
       "Show four famous coffee houses in Vienna on a map with markers, and a short list underneath with one line about each.",
   },
   {
+    title: "How an engine works",
+    message:
+      "Explain how a four-stroke car engine works with an interactive SVG drawing of one cylinder in cross-section: cylinder wall, piston, connecting rod, crankshaft, intake and exhaust valves, spark plug. Add four buttons for the strokes (intake, compression, power, exhaust). When I click one, redraw the piston, valves and crank in that position, highlight the moving parts in a different colour, and explain in two sentences what happens in that stroke.",
+  },
+  {
     title: "Spanish flashcards",
     message:
       "Make me five flashcards to learn Spanish greetings. Show them as flip cards in a grid and add a button that asks you for five more.",
   },
 ];
 
-function Suggestions({ agent }: { agent: ExampleAgent }) {
+function Suggestions({
+  agent,
+  layout,
+}: {
+  agent: ExampleAgent;
+  layout: ExampleLayout;
+}) {
+  // The prompts that target a page surface only make sense when the page
+  // surfaces are there.
+  const suggestions = SUGGESTIONS.filter(
+    ({ layouts }) => layouts === undefined || layouts.includes(layout),
+  ).map(({ title, message }) => ({ title, message }));
   useConfigureSuggestions(
-    { suggestions: SUGGESTIONS, available: "always", consumerAgentId: agent },
-    [agent],
+    { suggestions, available: "always", consumerAgentId: agent },
+    [agent, layout],
   );
   return null;
 }
@@ -144,8 +173,13 @@ function Chat() {
     searchParams.get("agent") === "langgraph" ? "langgraph" : "default";
   const transport: ExampleTransport =
     searchParams.get("transport") === "tool" ? "tool" : "markdown";
-  const href = (a: ExampleAgent, t: ExampleTransport) =>
-    `/?agent=${a}&transport=${t}`;
+  const layout: ExampleLayout =
+    searchParams.get("layout") === "chat" ? "chat" : "page";
+  const href = (
+    a: ExampleAgent,
+    t: ExampleTransport,
+    l: ExampleLayout = layout,
+  ) => `/?agent=${a}&transport=${t}${l === "chat" ? "&layout=chat" : ""}`;
   const current = (active: boolean) => (active ? "page" : undefined);
 
   return (
@@ -200,16 +234,39 @@ function Chat() {
                 Tool
               </Link>
             </div>
+            <div className="ex-segment" role="group" aria-label="Layout">
+              <span className="ex-segment-label">Layout</span>
+              <Link
+                className="ex-pill"
+                href={href(agent, transport, "page")}
+                aria-current={current(layout === "page")}
+              >
+                Page
+              </Link>
+              <Link
+                className="ex-pill"
+                href={href(agent, transport, "chat")}
+                aria-current={current(layout === "chat")}
+              >
+                Chat
+              </Link>
+            </div>
             <Link className="ex-pill ex-pill-plain" href="/catalog">
               Catalog
             </Link>
           </nav>
         </header>
-        <div className="ex-layout">
-          <PageSurfaces />
+        <div
+          className={
+            layout === "chat" ? "ex-layout ex-layout-chat" : "ex-layout"
+          }
+        >
+          {/* Without the page surfaces, the manifest lists only the chat as
+              a target, so the agent renders everything in the reply. */}
+          {layout === "page" ? <PageSurfaces /> : null}
           <section className="ex-panel ex-panel-chat" aria-label="Chat">
             <div className="ex-chat">
-              <Suggestions agent={agent} />
+              <Suggestions agent={agent} layout={layout} />
               <CopilotChat />
             </div>
           </section>

@@ -1,13 +1,10 @@
-import React, { useContext, useMemo } from "react";
+import React, { useContext, useInsertionEffect, useMemo } from "react";
 import type { ComponentProps, ComponentType } from "react";
 import { Streamdown } from "streamdown";
 import { splitA2UIMarkdown } from "@copilotkit/core";
 import { GENERATIVE_UI_ROOT_ID } from "@copilotkit/shared";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
-import {
-  DefaultGenerativeUIChatCard,
-  GenerativeUIChatSlotContext,
-} from "../chat";
+import { GenerativeUIChatSlotContext } from "../chat";
 import type { GenerativeUIChatSurfaceProps } from "../chat";
 import { useManagerVersion } from "../hooks";
 import { useRequiredGenerativeUIRuntime } from "../runtime-context";
@@ -17,6 +14,64 @@ import { getMarkdownSurfaceSource } from "./source";
 import type { MarkdownFenceBlock } from "./source";
 
 type MarkdownProps = Omit<ComponentProps<typeof Streamdown>, "children">;
+
+const FADE_STYLE_ID = "a2ui-markdown-fade";
+/**
+ * Components fade in as they stream: each element that appears under a
+ * markdown surface runs the keyframes once on mount. React keeps the keys
+ * stable per component id, so an element that is already there never
+ * animates again. SVG internals are left out: a chart library re-creates
+ * its nodes on each render, and a fade on each of them would read as the
+ * chart flashing whenever a sibling arrives.
+ */
+const FADE_CSS = [
+  "@keyframes a2ui-fade-in{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}",
+  "[data-a2ui-markdown-surface] .a2ui-surface *:not(svg):not(svg *){animation:a2ui-fade-in .28s ease-out both}",
+  "@media (prefers-reduced-motion: reduce){[data-a2ui-markdown-surface] *{animation:none !important}}",
+].join("\n");
+
+// There is no document on the server, so nothing is added there.
+const noEffect: typeof useInsertionEffect = () => {};
+const useInjectEffect =
+  typeof document === "undefined" ? noEffect : useInsertionEffect;
+
+function useFadeStyles() {
+  useInjectEffect(() => {
+    if (document.getElementById(FADE_STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = FADE_STYLE_ID;
+    style.textContent = FADE_CSS;
+    document.head.appendChild(style);
+  }, []);
+}
+
+/**
+ * The default wrapper of a chat surface in the markdown transport. It draws
+ * no box: a surface sits in the flow of the reply like a paragraph, and a
+ * Card draws its own box when it is interactive. Nothing shows while the
+ * surface streams. A rejected operation gets one line.
+ */
+export function DefaultMarkdownChatSurface({
+  surfaceId,
+  error,
+  children,
+}: GenerativeUIChatSurfaceProps) {
+  useFadeStyles();
+  return (
+    <div
+      data-generative-ui-chat-surface={surfaceId}
+      data-a2ui-markdown-surface={surfaceId}
+      className="cpk:relative cpk:my-4 cpk:flex cpk:w-full cpk:min-w-0 cpk:max-w-full cpk:flex-col"
+    >
+      {children}
+      {error && (
+        <div role="alert" className="cpk:mt-2 cpk:text-xs cpk:text-red-600">
+          Part of this UI couldn't be shown.
+        </div>
+      )}
+    </div>
+  );
+}
 
 export type MarkdownSurfacesProps = MarkdownProps & {
   /** The text of the assistant message, complete or still streaming. */
@@ -74,7 +129,7 @@ function FenceBlocks({
   markdownProps: MarkdownProps;
 }) {
   const Wrapper =
-    useContext(GenerativeUIChatSlotContext) ?? DefaultGenerativeUIChatCard;
+    useContext(GenerativeUIChatSlotContext) ?? DefaultMarkdownChatSurface;
   let surfaceCount = 0;
   return (
     <>
