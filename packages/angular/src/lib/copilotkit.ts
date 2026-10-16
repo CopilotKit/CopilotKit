@@ -1,8 +1,6 @@
-import { AbstractAgent } from "@ag-ui/client";
-import {
+import type { AbstractAgent } from "@ag-ui/client";
+import type {
   FrontendTool,
-  CopilotKitCore,
-  CopilotKitCoreRuntimeConnectionStatus,
   CopilotRuntimeTransport,
   CopilotKitCoreGetSuggestionsResult,
   CopilotKitHeadersSource,
@@ -11,32 +9,35 @@ import {
   RuntimeLicenseStatus,
   SuggestionsConfig,
   ThreadEndpointRuntimeInfo,
+} from "@copilotkit/core";
+import {
+  CopilotKitCore,
+  CopilotKitCoreRuntimeConnectionStatus,
   ɵwithHeaderDefaults,
 } from "@copilotkit/core";
+import type { Signal, WritableSignal } from "@angular/core";
 import {
   Injectable,
   Injector,
-  Signal,
-  WritableSignal,
   computed,
   runInInjectionContext,
   signal,
   inject,
 } from "@angular/core";
-import {
+import type {
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
+import type { RuntimeEntitlementResponse } from "@copilotkit/shared";
 import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   schemaToJsonSchema,
-  RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
+import type { RenderActivityMessageConfig } from "./activity-renderer";
 import {
   ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
-  RenderActivityMessageConfig,
   anyActivityContentSchema,
 } from "./activity-renderer";
 import {
@@ -58,13 +59,13 @@ import {
   RENDER_A2UI_TOOL_NAME,
   RenderA2UIArgsSchema,
 } from "./components/a2ui/a2ui-tool-types";
+import type { GenerateSandboxedUiArgs } from "./open-generative-ui";
 import {
   DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
   GENERATE_SANDBOXED_UI_DESCRIPTION,
   GENERATE_SANDBOXED_UI_TOOL_NAME,
   GenerateSandboxedUiArgsSchema,
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
-  GenerateSandboxedUiArgs,
 } from "./open-generative-ui";
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
@@ -590,6 +591,8 @@ export class CopilotKit {
       parameters: GenerateSandboxedUiArgsSchema,
       component: CopilotOpenGenerativeUIToolRenderer,
       handler: async () => "UI generated",
+      // This acknowledgement has no side effects and is safe to reconstruct.
+      reconnectBehavior: "resume-pending",
       followUp: true,
       injector: this.#rootInjector,
     };

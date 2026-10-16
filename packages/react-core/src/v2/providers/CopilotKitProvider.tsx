@@ -770,6 +770,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         description: GENERATE_SANDBOXED_UI_DESCRIPTION,
         parameters: GenerateSandboxedUiArgsSchema,
         handler: async () => "UI generated",
+        // This acknowledgement has no side effects and is safe to reconstruct.
+        reconnectBehavior: "resume-pending",
         followUp: true,
         render: OpenGenerativeUIToolRenderer,
       },
