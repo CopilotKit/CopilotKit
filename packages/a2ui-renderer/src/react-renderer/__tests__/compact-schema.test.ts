@@ -161,6 +161,14 @@ describe("buildCompactCatalogCapabilities", () => {
       100_000,
     );
   });
+
+  it("tolerates a minimal catalog object without a functions map", () => {
+    const minimal = { components: new Map() } as unknown as Parameters<
+      typeof buildCatalogContextValue
+    >[0];
+    expect(buildCatalogContextValue(minimal)).toContain("defines no functions");
+    expect(extractCatalogComponentSchemas(minimal).components).toEqual({});
+  });
 });
 
 describe("package entry", () => {

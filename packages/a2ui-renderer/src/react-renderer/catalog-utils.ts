@@ -83,7 +83,7 @@ export function buildCatalogContextValue(
     lines.push("  Custom catalog (does NOT include all basic components).");
     lines.push("  Custom components:");
   }
-  if (resolved.functions.size === 0) {
+  if ((resolved.functions?.size ?? 0) === 0) {
     lines.push(
       '  This catalog defines no functions: never use { "call": ... }; a value is a literal or a { "path": "..." } binding.',
     );
@@ -177,7 +177,7 @@ export function extractCatalogComponentSchemas(
 ): InlineCatalogSchema {
   const resolved = catalog ?? basicCatalog;
   const includeFunctionCalls =
-    options.includeFunctionCalls ?? resolved.functions.size > 0;
+    options.includeFunctionCalls ?? (resolved.functions?.size ?? 0) > 0;
   const components: Record<string, Record<string, unknown>> = {};
 
   for (const [name, comp] of resolved.components) {
