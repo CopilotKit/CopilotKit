@@ -86,8 +86,10 @@ function processOperations(operations: A2UIOperation[]) {
         ? ops.filter((op) => !(op as any)?.createSurface)
         : ops;
       // The processor keeps these objects as its data model and edits them as
-      // the user interacts; they come from the agent's message content.
-      processor.processMessages(structuredClone(filtered) as any);
+      // the user interacts; they come from the agent's message content. Copy
+      // through JSON: the operations are JSON, and Vue's reactive proxies
+      // cannot be structured-cloned.
+      processor.processMessages(JSON.parse(JSON.stringify(filtered)) as any);
     }
     error.value = null;
   } catch (err) {
