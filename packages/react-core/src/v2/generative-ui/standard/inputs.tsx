@@ -14,8 +14,25 @@ import {
   textFont,
 } from "./tokens";
 import { ACCENT, useStandardStyles } from "./styles";
-import { CHILDREN_SLOT, layoutProps, layoutStyle } from "./layout";
+import {
+  CHILDREN_SLOT,
+  VISIBLE_EVENT,
+  layoutProps,
+  layoutStyle,
+  useVisibleOnce,
+} from "./layout";
+import { openUrl } from "./lightbox";
 import { LucideIcon } from "./media";
+
+/** Copies text to the clipboard. False when the API is not there. */
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // ---- Shared schemas ----
 
@@ -86,11 +103,28 @@ const buttonSchema = z.object({
     .describe("Submits the Form around it. The Form sends its onSubmit event"),
   icon: z.string().optional().describe("Lucide icon name"),
   uniform: z.boolean().optional().describe("A square button, for an icon"),
+  href: z
+    .string()
+    .optional()
+    .describe("Opens this URL in a new tab on click, instead of onClick"),
+  copy: z
+    .string()
+    .optional()
+    .describe(
+      "Copies this text to the clipboard on click and shows a check mark, instead of onClick",
+    ),
 });
 const pressableSchema = z.object({
   ...layoutProps,
   disabled: z.boolean().optional(),
   hoverBackground: z.string().optional(),
+  href: z
+    .string()
+    .optional()
+    .describe("Opens this URL in a new tab on click, instead of onClick"),
+  tooltip: z.string().optional().describe("Shown on hover"),
+  ariaPressed: z.boolean().optional().describe("For a toggle"),
+  insetBorder: z.boolean().optional().describe("A 1px border inside the box"),
 });
 const formSchema = z.object({
   ...layoutProps,
@@ -141,7 +175,10 @@ const selectSchema = z.object({
   required: z.boolean().optional(),
   disabled: z.boolean().optional(),
   clearable: z.boolean().optional(),
+  clearLabel: z.string().optional().describe("The label of the empty option"),
   searchable: z.boolean().optional(),
+  icon: z.string().optional().describe("Lucide icon shown before the value"),
+  block: z.boolean().optional().describe("Full width"),
   size: size("xl"),
   pill,
 });
@@ -224,6 +261,7 @@ const dateTimeInputSchema = z.object({
   disabled: z.boolean().optional(),
   required: z.boolean().optional(),
   clearable: z.boolean().optional(),
+  block: z.boolean().optional().describe("Full width"),
 });
 
 type WithChildren<Props> = Props & { children?: ReactNode };
@@ -394,6 +432,7 @@ function buttonVariantStyle(
 
 function Button(props: ButtonProps) {
   useStandardStyles();
+  const [isCopied, setIsCopied] = useState(false);
   const buttonSize = props.size ?? "lg";
   const isDisabled = Boolean(props.disabled || props.loading);
   const style: CSSProperties = {
@@ -430,10 +469,29 @@ function Button(props: ButtonProps) {
         // Outside of a form, it sends its own onClick.
         const submitsForm = props.submit && event.currentTarget.form !== null;
         if (submitsForm) return;
+        // The client-side verbs (open a URL, copy text) never reach the
+        // agent.
+        if (props.href) {
+          openUrl(props.href);
+          return;
+        }
+        if (props.copy !== undefined && props.copy !== "") {
+          void copyText(props.copy).then((isOk) => {
+            if (!isOk) return;
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 1500);
+          });
+          return;
+        }
         void props.onClick?.({});
       }}
+      data-a2ui-copied={isCopied ? "" : undefined}
     >
-      {props.icon ? (
+      {isCopied ? (
+        <span aria-hidden="true" data-icon="check" style={{ display: "flex" }}>
+          <LucideIcon name="check" size={ICON_PX[buttonSize]} />
+        </span>
+      ) : props.icon ? (
         <span
           aria-hidden="true"
           data-icon={props.icon}
@@ -452,7 +510,10 @@ function Button(props: ButtonProps) {
 // ---- Pressable and Form ----
 
 type PressableProps = WithChildren<
-  z.output<typeof pressableSchema> & { onClick?: EventProp }
+  z.output<typeof pressableSchema> & {
+    onClick?: EventProp;
+    onVisible?: EventProp;
+  }
 >;
 
 /**
@@ -464,16 +525,23 @@ function Pressable(props: PressableProps) {
   useStandardStyles();
   const isDisabled = Boolean(props.disabled);
   const [isHovered, setIsHovered] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useVisibleOnce(ref, props.onVisible);
   const press = () => {
-    if (!isDisabled) void props.onClick?.({});
+    if (isDisabled) return;
+    if (props.href) openUrl(props.href);
+    else void props.onClick?.({});
   };
   const showHoverBackground =
     isHovered && props.hoverBackground !== undefined && !isDisabled;
   return (
     <div
+      ref={ref}
       role="button"
       tabIndex={isDisabled ? -1 : 0}
       aria-disabled={isDisabled || undefined}
+      aria-pressed={props.ariaPressed}
+      title={props.tooltip}
       data-a2ui-input=""
       onClick={(event) => {
         event.stopPropagation();
@@ -493,6 +561,9 @@ function Pressable(props: PressableProps) {
         ...layoutStyle(props),
         cursor: isDisabled ? "not-allowed" : "pointer",
         opacity: isDisabled ? 0.5 : undefined,
+        boxShadow: props.insetBorder
+          ? `inset 0 0 0 1px ${borderColor("default")}`
+          : undefined,
         ...(showHoverBackground
           ? { background: backgroundColor(props.hoverBackground) }
           : {}),
@@ -613,7 +684,14 @@ function DateTimeInput(props: DateTimeInputProps) {
   const showClear = props.clearable && value !== "";
   return (
     <Field label={props.label} htmlFor={id}>
-      <div style={{ display: "flex", gap: spacing(2), alignItems: "center" }}>
+      <div
+        style={{
+          display: props.block ? "flex" : "inline-flex",
+          width: props.block ? "100%" : undefined,
+          gap: spacing(2),
+          alignItems: "center",
+        }}
+      >
         <input
           id={id}
           type="date"
@@ -665,32 +743,61 @@ function Select(props: SelectProps) {
   const hasEmptyOption = Boolean(
     props.placeholder || props.clearable || value === "",
   );
+  const select = (
+    <select
+      id={id}
+      data-a2ui-input=""
+      name={props.name}
+      aria-label={props.label ? undefined : props.placeholder}
+      required={props.required}
+      disabled={props.disabled}
+      value={value}
+      onChange={(event) => props.setValue(event.target.value)}
+      style={{
+        ...controlStyle(props, "xl"),
+        width: props.block === false ? undefined : "100%",
+        paddingLeft: props.icon
+          ? `${PAD_X[props.size ?? "xl"] + 24}px`
+          : undefined,
+      }}
+    >
+      {hasEmptyOption ? (
+        <option value="">{props.clearLabel ?? props.placeholder ?? ""}</option>
+      ) : null}
+      {options.map((option) => (
+        <option
+          key={option.value}
+          value={option.value}
+          title={option.description}
+        >
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
   return (
     <Field label={props.label} htmlFor={id}>
-      <select
-        id={id}
-        data-a2ui-input=""
-        name={props.name}
-        aria-label={props.label ? undefined : props.placeholder}
-        required={props.required}
-        disabled={props.disabled}
-        value={value}
-        onChange={(event) => props.setValue(event.target.value)}
-        style={controlStyle(props, "xl")}
-      >
-        {hasEmptyOption ? (
-          <option value="">{props.placeholder ?? ""}</option>
-        ) : null}
-        {options.map((option) => (
-          <option
-            key={option.value}
-            value={option.value}
-            title={option.description}
+      {props.icon ? (
+        <span style={{ position: "relative", display: "flex", width: "100%" }}>
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              left: PAD_X[props.size ?? "xl"],
+              top: "50%",
+              transform: "translateY(-50%)",
+              display: "flex",
+              pointerEvents: "none",
+              color: textColor("secondary"),
+            }}
           >
-            {option.label}
-          </option>
-        ))}
-      </select>
+            <LucideIcon name={props.icon} size={16} />
+          </span>
+          {select}
+        </span>
+      ) : (
+        select
+      )}
     </Field>
   );
 }
@@ -1096,7 +1203,7 @@ export const inputComponents = {
   Button: {
     component: Button,
     description:
-      'A button that sends its onClick event. Without an event, it does nothing. Use one primary Button in a Row, and variant "ghost" for the others. With submit true inside a Form, it submits the Form. Children render instead of the label.',
+      'A button that sends its onClick event. With href it opens the URL, and with copy it copies the text, both without the agent. Use one primary Button in a Row, and variant "ghost" for the others. With submit true inside a Form, it submits the Form. Children render instead of the label.',
     props: buttonSchema,
     events: {
       onClick: {
@@ -1109,9 +1216,10 @@ export const inputComponents = {
   Pressable: {
     component: Pressable,
     description:
-      "A layout container that the user can click or press with Enter or Space. It sends its onClick event. A control inside it sends only its own event.",
+      "A layout container that the user can click or press with Enter or Space. It sends its onClick event, or opens href. A control inside it sends only its own event.",
     props: pressableSchema,
     events: {
+      ...VISIBLE_EVENT,
       onClick: {
         description: "Sent when the user clicks or presses the container.",
         parameters: NO_ARGS,
