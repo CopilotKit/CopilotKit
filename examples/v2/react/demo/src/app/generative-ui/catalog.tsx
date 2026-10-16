@@ -234,7 +234,7 @@ export const storeUI = createGenerativeUI({
     CheckoutForm: {
       component: CheckoutForm,
       description:
-        'Checkout form. Optionally prefill email and note. Bind onSubmit to exactly {"event":{"name":"place_order"}}.',
+        'Checkout form. Optionally prefill email and note. Bind onSubmit to exactly {"event":{"name":"place_order","userMessage":"Place my order"}}.',
       props: z.object({
         email: z.string().optional(),
         note: z.string().optional(),

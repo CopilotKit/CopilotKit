@@ -3,6 +3,8 @@ import type { CatalogSample } from "./samples";
 
 /** The activity type of a generative UI surface on the AG-UI wire. */
 const SURFACE_ACTIVITY_TYPE = "generative-ui-surface";
+/** The A2UI version of every operation. Generative UI accepts only "v1.0". */
+const A2UI_VERSION = "v1.0";
 
 /** The target and surface id of the sample at `index`. */
 export function sampleSurfaceId(index: number) {
@@ -16,7 +18,7 @@ export function sampleOperations(
   catalogId: string,
 ) {
   const create = {
-    version: "v0.9",
+    version: A2UI_VERSION,
     createSurface: { surfaceId, catalogId },
   };
   const data =
@@ -24,12 +26,12 @@ export function sampleOperations(
       ? []
       : [
           {
-            version: "v0.9",
+            version: A2UI_VERSION,
             updateDataModel: { surfaceId, path: "/", value: sample.data },
           },
         ];
   const update = {
-    version: "v0.9",
+    version: A2UI_VERSION,
     updateComponents: { surfaceId, components: sample.components },
   };
   return [create, ...data, update];
