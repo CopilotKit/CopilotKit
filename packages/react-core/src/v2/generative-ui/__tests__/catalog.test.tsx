@@ -277,4 +277,69 @@ describe("createGenerativeUI startup errors", () => {
       }),
     ).toThrow(/bind key "total" is not a prop of component "Card"/);
   });
+
+  describe("writable", () => {
+    /**
+     * Builds a UI whose `Field` component lists `key` as writable. The config
+     * is built at runtime so that each case can name a key that the types
+     * reject. That is the case for callers without TypeScript.
+     */
+    function withWritable(key: string) {
+      const writable: readonly string[] = [key];
+      return () =>
+        createGenerativeUI({
+          id: "writable@1",
+          state: { count: z.number() },
+          components: {
+            Field: {
+              component: Card,
+              props: z.object({
+                value: z.string(),
+                count: z.number(),
+                total: z.number(),
+              }),
+              bind: { total: () => 1 },
+              events: { onPick: { parameters: z.object({}) } },
+              slots: { children: "multiple" },
+              // @ts-expect-error a `string` key is wider than the prop keys.
+              writable,
+            },
+          },
+        });
+    }
+
+    it.each([
+      ["not a prop", "missing", /writable key "missing" .* is not a prop/],
+      ["an event", "onPick", /writable key "onPick" .* is an event/],
+      ["a slot", "children", /writable key "children" .* is a slot/],
+      [
+        "bound by state name",
+        "count",
+        /writable key "count" .* is a bound prop/,
+      ],
+      ["bound by `bind`", "total", /writable key "total" .* is a bound prop/],
+    ])("rejects a writable key that is %s", (_label, key, error) => {
+      expect(withWritable(key)).toThrow(error);
+    });
+
+    it("accepts a writable model prop", () => {
+      const ui = withWritable("value")();
+      expect(ui.components.get("Field")!.writable).toEqual(["value"]);
+    });
+
+    it("rejects a setter name that is already a key of the component", () => {
+      expect(() =>
+        createGenerativeUI({
+          id: "bad@1",
+          components: {
+            Field: {
+              component: Card,
+              props: z.object({ value: z.string(), setValue: z.string() }),
+              writable: ["value"],
+            },
+          },
+        }),
+      ).toThrow(/setter "setValue" of writable key "value" is already a key/);
+    });
+  });
 });

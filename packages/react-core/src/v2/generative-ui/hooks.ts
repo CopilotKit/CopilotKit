@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { z } from "zod";
 import type {
   GenerativeUI,
@@ -13,16 +7,11 @@ import type {
   GenerativeUIFunctionName,
   GenerativeUIStateOf,
 } from "./catalog";
-import {
-  GenerativeUINodeContext,
-  useRequiredGenerativeUIRuntime,
-} from "./runtime-context";
+import { useRequiredGenerativeUIRuntime } from "./runtime-context";
 import type { GenerativeUIRuntime } from "./runtime-context";
 
 const noopSubscribe = () => () => {};
 const zero = () => 0;
-// No surface state exists on the server or during hydration.
-const undefinedSnapshot = () => undefined;
 
 /** Re-renders on any surface-manager change. */
 export function useManagerVersion(runtime: GenerativeUIRuntime | null): number {
@@ -123,42 +112,4 @@ export function useGenerativeUIFunction<
   const latest = useRef(handler);
   latest.current = handler;
   useEffect(() => runtime.dispatcher.register(name, latest), [runtime, name]);
-}
-
-/**
- * Experimental. A form field owned by the user once edited: agent updates to
- * `agentValue` are ignored while the field is dirty, until `reset()`. The draft
- * lives in the surface store, so it survives remounts.
- */
-export function useGenerativeUIField<T>(
-  name: string,
-  agentValue: T,
-): [T, (value: T) => void, { dirty: boolean; reset: () => void }] {
-  const runtime = useRequiredGenerativeUIRuntime();
-  const node = useContext(GenerativeUINodeContext);
-  if (!node) {
-    throw new Error(
-      "useGenerativeUIField must be used inside a generative UI component.",
-    );
-  }
-  const { manager } = runtime;
-  const field = useSyncExternalStore(
-    manager.subscribe,
-    () => manager.getField(node.surfaceKey, node.componentId, name),
-    undefinedSnapshot,
-  );
-  const setValue = useCallback(
-    (value: T) =>
-      manager.setField(node.surfaceKey, node.componentId, name, value),
-    [manager, node.surfaceKey, node.componentId, name],
-  );
-  const reset = useCallback(
-    () => manager.resetField(node.surfaceKey, node.componentId, name),
-    [manager, node.surfaceKey, node.componentId, name],
-  );
-  return [
-    field ? (field.value as T) : agentValue,
-    setValue,
-    { dirty: !!field, reset },
-  ];
 }

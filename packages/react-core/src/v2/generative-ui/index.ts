@@ -25,8 +25,4 @@ export { GenerativeUISurface } from "./GenerativeUISurface";
 export type { GenerativeUISurfaceProps } from "./GenerativeUISurface";
 export { DefaultGenerativeUIChatCard } from "./chat";
 export type { GenerativeUIChatSurfaceProps } from "./chat";
-export {
-  useGenerativeUIField,
-  useGenerativeUIFunction,
-  useGenerativeUIState,
-} from "./hooks";
+export { useGenerativeUIFunction, useGenerativeUIState } from "./hooks";

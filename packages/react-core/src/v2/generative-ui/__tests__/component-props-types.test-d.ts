@@ -26,6 +26,16 @@ function Badge() {
   return null;
 }
 
+// A component with a writable prop types its own setter from `typeof ui`.
+function TextField({
+  value,
+  setValue,
+}: GenerativeUIComponentProps<typeof ui, "TextField">) {
+  void value;
+  void setValue;
+  return null;
+}
+
 const ui = createGenerativeUI({
   id: "props@1",
   components: {
@@ -47,6 +57,14 @@ const ui = createGenerativeUI({
       slots: { children: "multiple", header: "single" },
     },
     Badge: { component: Badge },
+    TextField: {
+      component: TextField,
+      props: z.object({
+        label: z.string().optional(),
+        value: z.string().default(""),
+      }),
+      writable: ["value"],
+    },
   },
 });
 
@@ -70,6 +88,41 @@ expectTypeOf<GenerativeUIComponentProps<typeof ui, "Grid">>().toEqualTypeOf<{
 expectTypeOf<
   GenerativeUIComponentProps<typeof ui, "Badge">
 >().toEqualTypeOf<{}>();
+
+// `value` is writable, so it gets `setValue`. `label` is not, so it gets no
+// setter. The setter takes the schema input.
+expectTypeOf<
+  GenerativeUIComponentProps<typeof ui, "TextField">
+>().toEqualTypeOf<{
+  label?: string | undefined;
+  value: string;
+  setValue: (value: string | undefined) => void;
+}>();
+
+createGenerativeUI({
+  id: "writable@1",
+  components: {
+    Field: {
+      component: Badge,
+      props: z.object({ value: z.string() }),
+      // @ts-expect-error "missing" is not a prop of the component.
+      writable: ["missing"],
+    },
+  },
+});
+
+createGenerativeUI({
+  id: "writable-state@1",
+  state: { value: z.string() },
+  components: {
+    Field: {
+      component: Badge,
+      props: z.object({ value: z.string() }),
+      // @ts-expect-error "value" is bound to the state key of the same name.
+      writable: ["value"],
+    },
+  },
+});
 
 // @ts-expect-error "Missing" is not a component of the UI.
 export type Missing = GenerativeUIComponentProps<typeof ui, "Missing">;

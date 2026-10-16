@@ -454,16 +454,103 @@ describe("GenerativeUISurfaceManager", () => {
     });
   });
 
-  it("keeps user field drafts across a surface rebuild until reset", () => {
-    const { manager } = managerWith([create, grid(["c1"])]);
+  describe("user-owned paths", () => {
     const key = surfaceKey("t1", "recs");
-    manager.setField(key, "form", "email", "me@x.io");
-    manager.ingest("t1", "default", content([create, grid(["c2"])]));
-    expect(manager.getField(key, "form", "email")).toEqual({
-      value: "me@x.io",
-      dirty: true,
+    const deleteSurface: A2UIOperation = {
+      version: "v0.9",
+      deleteSurface: { surfaceId: "recs" },
+    };
+
+    /** Ingests `operations` after the ones the surface already has. */
+    function append(
+      manager: GenerativeUISurfaceManager,
+      before: A2UIOperation[],
+      ...operations: A2UIOperation[]
+    ) {
+      const all = [...before, ...operations];
+      manager.ingest("t1", "default", content(all));
+      return all;
+    }
+
+    it("writes the value and ignores agent writes to the path or below it", () => {
+      const ops = [create, data("/form", { email: "agent@x.io" })];
+      const { manager, surface } = managerWith(ops);
+      manager.setOwnedValue(key, "/form/email", "me@x.io");
+      expect(surface.model.dataModel.get("/form/email")).toBe("me@x.io");
+
+      append(manager, ops, data("/form/email", "other@x.io"));
+      expect(surface.model.dataModel.get("/form/email")).toBe("me@x.io");
+      expect(surface.clientRejected).toEqual([]);
     });
-    manager.resetField(key, "form", "email");
-    expect(manager.getField(key, "form", "email")).toBeUndefined();
+
+    it("keeps the owned child when the agent writes a parent, and applies the rest", () => {
+      const ops = [create, data("/form", { email: "agent@x.io" })];
+      const { manager, surface } = managerWith(ops);
+      manager.setOwnedValue(key, "/form/email", "me@x.io");
+
+      const next = append(
+        manager,
+        ops,
+        data("/form", { email: "other@x.io", name: "Ada" }),
+      );
+      expect(surface.model.dataModel.get("/form")).toEqual({
+        email: "me@x.io",
+        name: "Ada",
+      });
+
+      append(manager, next, {
+        version: "v0.9",
+        updateDataModel: { surfaceId: "recs", value: { title: "New" } },
+      });
+      expect(surface.model.dataModel.get("/")).toEqual({
+        title: "New",
+        form: { email: "me@x.io" },
+      });
+    });
+
+    it("keeps owned values when the surface is rebuilt", () => {
+      const { manager } = managerWith([create, data("/name", "agent")]);
+      manager.setOwnedValue(key, "/name", "me");
+      manager.ingest("t1", "default", content([create, data("/name", "new")]));
+      expect(
+        manager.getSurface("t1", "recs")!.model.dataModel.get("/"),
+      ).toEqual({ name: "me" });
+    });
+
+    it("clears ownership when the surface is deleted and created again", () => {
+      const ops = [create, data("/name", "agent")];
+      const { manager } = managerWith(ops);
+      manager.setOwnedValue(key, "/name", "me");
+      append(manager, ops, deleteSurface);
+
+      manager.ingest("t1", "default", content([create, data("/name", "new")]));
+      const surface = manager.getSurface("t1", "recs")!;
+      expect(surface.model.dataModel.get("/name")).toBe("new");
+      expect(manager.describeSurfaces("t1")).toEqual({
+        recs: { target: "recommendations" },
+      });
+    });
+
+    it("lists the owned values in describeSurfaces", () => {
+      const { manager } = managerWith([create]);
+      manager.setOwnedValue(key, "/form/email", "me@x.io");
+      expect(manager.describeSurfaces("t1")).toEqual({
+        recs: {
+          target: "recommendations",
+          dataModel: { "/form/email": "me@x.io" },
+        },
+      });
+    });
+
+    it("throws on a prototype path and does not own it", () => {
+      const { manager } = managerWith([create]);
+      expect(() =>
+        manager.setOwnedValue(key, "/__proto__/polluted", "yes"),
+      ).toThrow(/"__proto__" is not allowed/);
+      expect(Object.hasOwn(Object.prototype, "polluted")).toBe(false);
+      expect(manager.describeSurfaces("t1")).toEqual({
+        recs: { target: "recommendations" },
+      });
+    });
   });
 });
