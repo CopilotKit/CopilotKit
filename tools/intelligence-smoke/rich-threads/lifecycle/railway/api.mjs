@@ -204,11 +204,29 @@ export function railwayApi({
               e?.extensions?.code,
             ),
           );
+        // Railway documents decimal trace IDs; retain only bounded canonical
+        // uint64 strings, never messages or arbitrary extension values. Current
+        // API responses use error.traceId; docs also show extensions.traceId.
+        const traceIds = [
+          ...new Set(
+            errors
+              .slice(0, 16)
+              .flatMap((error) => [error?.traceId, error?.extensions?.traceId])
+              .filter(
+                (value) =>
+                  typeof value === "string" &&
+                  /^[1-9][0-9]{0,19}$/.test(value) &&
+                  BigInt(value).toString() === value &&
+                  BigInt(value) <= 18446744073709551615n,
+              ),
+          ),
+        ].slice(0, 16);
         return await fail(
           operation,
           "graphql-rejected",
           preExecution ? "not-executed" : "unknown",
           codes,
+          traceIds.length ? { traceIds } : {},
         );
       }
       const data = response.data ?? response;
