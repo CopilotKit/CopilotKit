@@ -3,13 +3,15 @@ import { z } from "zod";
 import {
   CopilotChat,
   CopilotKitProvider,
-  GenerativeUISurface,
   useAgentContext,
   useFrontendTool,
+} from "@copilotkit/react-core/v2";
+import {
+  GenerativeUISurface,
   useGenerativeUIFunction,
   useGenerativeUIState,
-} from "@copilotkit/react-core/v2";
-import type { GenerativeUIConfig } from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core/v2/generative-ui";
+import type { GenerativeUIConfig } from "@copilotkit/react-core/v2/generative-ui";
 import { storeUI } from "./catalog";
 import { useCart } from "./cart";
 import type { Cart } from "./cart";
