@@ -24,7 +24,7 @@ no changelog before that.
 
 ### Other Changes
 
-- chore(deps): bump @ag-ui/* to 1.0.2 (PNI-551) (#7648) (d4afb51)
+- chore(deps): bump @ag-ui/\* to 1.0.2 (PNI-551) (#7648) (d4afb51)
 
 ## 0.11.0 - 2026-09-22
 
