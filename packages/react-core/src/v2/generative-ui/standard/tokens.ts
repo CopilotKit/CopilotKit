@@ -5,8 +5,8 @@
  * CSS.
  */
 
-export const STANDARD_CATALOG_ID =
-  "https://copilotkit.ai/a2ui/catalogs/standard/v1";
+/** Id of `standardUI`, the catalog id the model writes in createSurface. */
+export const STANDARD_CATALOG_ID = "copilotkit/standard@1";
 
 export const TITLE_SIZES = [
   "sm",

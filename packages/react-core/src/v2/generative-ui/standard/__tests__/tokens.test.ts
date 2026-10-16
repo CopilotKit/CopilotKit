@@ -134,8 +134,6 @@ describe("standard tokens", () => {
   });
 
   it("uses the documented catalog id", () => {
-    expect(STANDARD_CATALOG_ID).toBe(
-      "https://copilotkit.ai/a2ui/catalogs/standard/v1",
-    );
+    expect(STANDARD_CATALOG_ID).toBe("copilotkit/standard@1");
   });
 });

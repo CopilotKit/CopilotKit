@@ -1,0 +1,492 @@
+{
+  "components": [
+    {
+      "id": "root",
+      "component": "Column",
+      "gap": 4,
+      "children": [
+        "title",
+        "s-layout",
+        "s-text",
+        "s-inputs",
+        "s-feedback",
+        "s-data",
+        "s-media"
+      ]
+    },
+    {
+      "id": "title",
+      "component": "Title",
+      "text": "Standard catalog fixture",
+      "size": "xl"
+    },
+    {
+      "id": "box",
+      "component": "Box",
+      "gap": 2,
+      "padding": 2,
+      "border": true,
+      "radius": "md",
+      "children": ["row"]
+    },
+    {
+      "id": "row",
+      "component": "Row",
+      "gap": 2,
+      "align": "center",
+      "justify": "between",
+      "wrap": "wrap",
+      "children": ["spacer-l", "grid", "spacer-r"]
+    },
+    { "id": "spacer-l", "component": "Spacer", "minSize": 1 },
+    { "id": "spacer-r", "component": "Spacer" },
+    {
+      "id": "grid",
+      "component": "Grid",
+      "columns": 2,
+      "gap": 2,
+      "children": ["gi1", "gi2"]
+    },
+    { "id": "gi1", "component": "GridItem", "span": 1, "children": ["gi1-t"] },
+    { "id": "gi1-t", "component": "Text", "text": "Grid item one" },
+    { "id": "gi2", "component": "GridItem", "children": ["gi2-t"] },
+    { "id": "gi2-t", "component": "Text", "text": "Grid item two" },
+    { "id": "flow", "component": "Flow", "columns": 2, "children": ["fi"] },
+    {
+      "id": "fi",
+      "component": "FlowItem",
+      "aspectRatio": "2 / 1",
+      "children": ["fi-t"]
+    },
+    { "id": "fi-t", "component": "Text", "text": "Flow item" },
+    {
+      "id": "carousel",
+      "component": "Carousel",
+      "label": "Slides",
+      "visibleItems": 2,
+      "children": ["ci1", "ci2"]
+    },
+    { "id": "ci1", "component": "CarouselItem", "children": ["ci1-t"] },
+    { "id": "ci1-t", "component": "Text", "text": "Slide one" },
+    { "id": "ci2", "component": "CarouselItem", "children": ["ci2-t"] },
+    { "id": "ci2-t", "component": "Text", "text": "Slide two" },
+    { "id": "divider", "component": "Divider", "color": "subtle" },
+    { "id": "anim", "component": "Animate", "children": ["animg"] },
+    { "id": "animg", "component": "AnimateGroup", "children": ["animi"] },
+    { "id": "animi", "component": "AnimateItem", "children": ["trans"] },
+    { "id": "trans", "component": "Transition", "children": ["trans-t"] },
+    { "id": "trans-t", "component": "Text", "text": "Animated content" },
+    {
+      "id": "s-layout",
+      "component": "Card",
+      "variant": "soft",
+      "gap": 2,
+      "children": [
+        "s-layout-title",
+        "box",
+        "flow",
+        "carousel",
+        "divider",
+        "anim"
+      ]
+    },
+    { "id": "s-layout-title", "component": "Caption", "text": "Layout" },
+    {
+      "id": "text",
+      "component": "Text",
+      "text": "Body with **bold**, *italic* and `code` [link](https://copilotkit.ai)",
+      "children": ["badge"]
+    },
+    { "id": "badge", "component": "Badge", "label": "New", "color": "success" },
+    { "id": "label", "component": "Label", "text": "A label" },
+    { "id": "bold", "component": "Bold", "text": "Bold text" },
+    {
+      "id": "code",
+      "component": "Code",
+      "text": "const x = 1;",
+      "language": "ts"
+    },
+    {
+      "id": "md",
+      "component": "Markdown",
+      "text": "## Markdown heading\n\n- item a\n- item b"
+    },
+    { "id": "math", "component": "Math", "value": "E = mc^2", "block": true },
+    { "id": "shimmer", "component": "ShimmerText", "text": "Thinking" },
+    {
+      "id": "link",
+      "component": "Link",
+      "text": "CopilotKit",
+      "href": "https://copilotkit.ai"
+    },
+    {
+      "id": "tooltip",
+      "component": "Tooltip",
+      "trigger": "tooltip-t",
+      "content": "tooltip-c"
+    },
+    { "id": "tooltip-t", "component": "Text", "text": "Hover me" },
+    { "id": "tooltip-c", "component": "Text", "text": "Tooltip content" },
+    {
+      "id": "s-text",
+      "component": "Card",
+      "variant": "soft",
+      "gap": 2,
+      "children": [
+        "s-text-title",
+        "text",
+        "label",
+        "bold",
+        "code",
+        "md",
+        "math",
+        "shimmer",
+        "link",
+        "tooltip"
+      ]
+    },
+    { "id": "s-text-title", "component": "Caption", "text": "Text" },
+    {
+      "id": "form",
+      "component": "Form",
+      "gap": 2,
+      "onSubmit": {
+        "event": {
+          "name": "submit_form",
+          "context": { "name": { "path": "/form/name" } }
+        }
+      },
+      "children": [
+        "tf",
+        "ta",
+        "sel",
+        "cb",
+        "radio",
+        "rg",
+        "slider",
+        "seg",
+        "dt",
+        "press",
+        "btn"
+      ]
+    },
+    {
+      "id": "tf",
+      "component": "TextField",
+      "value": { "path": "/form/name" },
+      "label": "Name",
+      "placeholder": "Your name"
+    },
+    {
+      "id": "ta",
+      "component": "TextArea",
+      "value": { "path": "/form/notes" },
+      "label": "Notes",
+      "rows": 2
+    },
+    {
+      "id": "sel",
+      "component": "Select",
+      "value": { "path": "/form/plan" },
+      "label": "Plan",
+      "options": ["Free", "Team", { "value": "ent", "label": "Enterprise" }]
+    },
+    {
+      "id": "cb",
+      "component": "CheckBox",
+      "checked": { "path": "/form/annual" },
+      "label": "Annual billing"
+    },
+    {
+      "id": "radio",
+      "component": "Radio",
+      "value": "solo",
+      "label": "Solo radio"
+    },
+    {
+      "id": "rg",
+      "component": "RadioGroup",
+      "value": { "path": "/form/size" },
+      "label": "Size",
+      "options": ["S", "M", "L"]
+    },
+    {
+      "id": "slider",
+      "component": "Slider",
+      "value": { "path": "/form/seats" },
+      "label": "Seats",
+      "min": 1,
+      "max": 50,
+      "step": 1
+    },
+    {
+      "id": "seg",
+      "component": "SegmentedControl",
+      "value": { "path": "/form/period" },
+      "label": "Billing period",
+      "options": ["Monthly", "Yearly"]
+    },
+    {
+      "id": "dt",
+      "component": "DateTimeInput",
+      "value": { "path": "/form/date" },
+      "label": "Start date"
+    },
+    {
+      "id": "press",
+      "component": "Pressable",
+      "padding": 2,
+      "border": true,
+      "onClick": { "event": { "name": "pressed" } },
+      "children": ["press-t"]
+    },
+    { "id": "press-t", "component": "Text", "text": "Pressable area" },
+    {
+      "id": "btn",
+      "component": "Button",
+      "label": "Submit",
+      "submit": true,
+      "icon": "send"
+    },
+    {
+      "id": "s-inputs",
+      "component": "Card",
+      "variant": "soft",
+      "gap": 2,
+      "children": ["s-inputs-title", "form"]
+    },
+    { "id": "s-inputs-title", "component": "Caption", "text": "Inputs" },
+    { "id": "loading", "component": "Loading", "label": "Loading data" },
+    { "id": "loadind", "component": "LoadingIndicator", "size": "sm" },
+    { "id": "loadblk", "component": "LoadingBlock", "label": "Placeholder" },
+    { "id": "pulse", "component": "PulseIndicator", "color": "info" },
+    {
+      "id": "celeb",
+      "component": "Celebration",
+      "trigger": "done",
+      "children": ["celeb-t"]
+    },
+    { "id": "celeb-t", "component": "Text", "text": "Celebrate" },
+    {
+      "id": "flash",
+      "component": "FlashcardFlip",
+      "front": "Front side",
+      "back": "Back side",
+      "hint": "Click to flip"
+    },
+    {
+      "id": "pop",
+      "component": "Popover",
+      "children": ["pop-trig", "pop-content"]
+    },
+    {
+      "id": "pop-trig",
+      "component": "PopoverTrigger",
+      "children": ["pop-trig-t"]
+    },
+    { "id": "pop-trig-t", "component": "Text", "text": "Open popover" },
+    {
+      "id": "pop-content",
+      "component": "PopoverContent",
+      "side": "bottom",
+      "children": ["pop-c-t"]
+    },
+    { "id": "pop-c-t", "component": "Text", "text": "Popover body" },
+    {
+      "id": "s-feedback",
+      "component": "Card",
+      "variant": "soft",
+      "gap": 2,
+      "children": [
+        "s-feedback-title",
+        "loading",
+        "loadind",
+        "loadblk",
+        "pulse",
+        "celeb",
+        "flash",
+        "pop"
+      ]
+    },
+    { "id": "s-feedback-title", "component": "Caption", "text": "Feedback" },
+    {
+      "id": "table",
+      "component": "Table",
+      "columns": ["Feature", { "label": "Team", "align": "end" }],
+      "rows": [
+        ["Price", "$29/seat"],
+        ["Seats", "Unlimited"]
+      ]
+    },
+    { "id": "table2", "component": "Table", "children": ["tsec-h", "tsec-b"] },
+    {
+      "id": "tsec-h",
+      "component": "TableSection",
+      "header": true,
+      "children": ["th-row"]
+    },
+    { "id": "th-row", "component": "TableRow", "children": ["th-c1", "th-c2"] },
+    { "id": "th-c1", "component": "TableCell", "text": "Name" },
+    {
+      "id": "th-c2",
+      "component": "TableCell",
+      "text": "Score",
+      "align": "end"
+    },
+    {
+      "id": "tsec-b",
+      "component": "TableSection",
+      "children": { "componentId": "tb-row", "path": "/people" }
+    },
+    { "id": "tb-row", "component": "TableRow", "children": ["tb-c1", "tb-c2"] },
+    { "id": "tb-c1", "component": "TableCell", "text": { "path": "name" } },
+    {
+      "id": "tb-c2",
+      "component": "TableCell",
+      "align": "end",
+      "children": ["tb-c2-t"]
+    },
+    { "id": "tb-c2-t", "component": "Text", "text": { "path": "score" } },
+    {
+      "id": "list",
+      "component": "List",
+      "marker": "number",
+      "items": [
+        "First",
+        {
+          "label": "Second",
+          "description": "With description",
+          "icon": "check"
+        }
+      ],
+      "action": { "event": { "name": "pick_item" } }
+    },
+    {
+      "id": "list2",
+      "component": "List",
+      "marker": "rich",
+      "children": { "componentId": "li", "path": "/todos" }
+    },
+    {
+      "id": "li",
+      "component": "ListItem",
+      "label": { "path": "title" },
+      "icon": "circle"
+    },
+    {
+      "id": "chart",
+      "component": "Chart",
+      "chartType": "bar",
+      "title": "Monthly cost",
+      "xKey": "month",
+      "series": ["cost"],
+      "data": [
+        { "month": "Jan", "cost": 290 },
+        { "month": "Feb", "cost": 580 }
+      ],
+      "height": 160,
+      "format": "currency"
+    },
+    {
+      "id": "map",
+      "component": "Map",
+      "markers": [
+        { "label": "Vienna", "lat": 48.2, "lng": 16.37 },
+        { "label": "Graz", "lat": 47.07, "lng": 15.44 }
+      ],
+      "route": true,
+      "selected": { "path": "/city" },
+      "height": 160
+    },
+    {
+      "id": "s-data",
+      "component": "Card",
+      "variant": "soft",
+      "gap": 2,
+      "children": [
+        "s-data-title",
+        "table",
+        "table2",
+        "list",
+        "list2",
+        "chart",
+        "map"
+      ]
+    },
+    { "id": "s-data-title", "component": "Caption", "text": "Data" },
+    {
+      "id": "img",
+      "component": "Image",
+      "src": "https://example.com/a.png",
+      "alt": "Example image",
+      "aspectRatio": "16 / 9",
+      "radius": "lg",
+      "hideOnFailure": true
+    },
+    {
+      "id": "icon",
+      "component": "Icon",
+      "name": "arrow-right",
+      "size": "md",
+      "color": "secondary"
+    },
+    {
+      "id": "fav",
+      "component": "Favicon",
+      "url": "https://copilotkit.ai",
+      "alt": "CopilotKit"
+    },
+    {
+      "id": "svg",
+      "component": "Svg",
+      "viewBox": "0 0 20 20",
+      "size": 8,
+      "paths": [{ "d": "M2 2L18 18", "stroke": "danger" }],
+      "circles": [{ "cx": 10, "cy": 10, "r": 4, "fill": "info" }],
+      "rects": [{ "x": 1, "y": 1, "width": 4, "height": 4 }],
+      "lines": [{ "x1": 0, "y1": 20, "x2": 20, "y2": 0 }],
+      "texts": [
+        { "x": 10, "y": 18, "text": "svg", "size": 4, "anchor": "middle" }
+      ]
+    },
+    {
+      "id": "yt",
+      "component": "YouTube",
+      "videoId": "dQw4w9WgXcQ",
+      "title": "Video"
+    },
+    {
+      "id": "html",
+      "component": "HtmlView",
+      "html": "<p>Sandboxed HTML</p>",
+      "height": 80,
+      "title": "Sandboxed content"
+    },
+    {
+      "id": "s-media",
+      "component": "Card",
+      "variant": "soft",
+      "gap": 2,
+      "children": ["s-media-title", "img", "icon", "fav", "svg", "yt", "html"]
+    },
+    { "id": "s-media-title", "component": "Caption", "text": "Media" }
+  ],
+  "data": {
+    "form": {
+      "name": "",
+      "notes": "",
+      "plan": "Team",
+      "annual": false,
+      "size": "M",
+      "seats": 8,
+      "period": "Monthly",
+      "date": "2026-10-14"
+    },
+    "people": [
+      { "name": "Ada", "score": "98" },
+      { "name": "Linus", "score": "91" }
+    ],
+    "todos": [{ "title": "Buy milk" }, { "title": "Walk dog" }],
+    "city": "Vienna"
+  }
+}
