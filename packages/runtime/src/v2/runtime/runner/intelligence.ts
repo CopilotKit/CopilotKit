@@ -9,12 +9,13 @@ import { Observable } from "rxjs";
 import type { AbstractAgent, BaseEvent, RunStartedEvent } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import {
-  finalizeRunEvents,
+  createRunEventFinalizer,
   stripIntelligenceRoutingFields,
   AG_UI_CHANNEL_EVENT,
   phoenixExponentialBackoff,
   logger,
 } from "@copilotkit/shared";
+import type { RunEventFinalizer } from "@copilotkit/shared";
 import type { Channel } from "phoenix";
 import { Socket } from "phoenix";
 import { randomUUID } from "node:crypto";
@@ -34,6 +35,26 @@ export interface IntelligenceAgentRunnerOptions {
    * @default 15_000
    */
   heartbeatIntervalMs?: number;
+  /**
+   * Called each time Intelligence acknowledges a batch of runner events.
+   * Use it to watch the delivery queue: a growing `pendingEvents` or
+   * `oldestPendingAgeMs` means events are produced faster than Intelligence
+   * accepts them. Errors thrown by the callback are logged and ignored.
+   */
+  onEventDeliveryStats?: (stats: RunnerEventDeliveryStats) => void;
+}
+
+export interface RunnerEventDeliveryStats {
+  threadId: string;
+  runId: string;
+  /** Events in the batch Intelligence just acknowledged. */
+  acknowledgedEvents: number;
+  /** Time from sending the batch to its acknowledgement. */
+  ackLatencyMs: number;
+  /** Events still waiting for acknowledgement. */
+  pendingEvents: number;
+  /** Age of the oldest event still waiting, or 0 when none is. */
+  oldestPendingAgeMs: number;
 }
 
 export interface RunnerStartupBoundary {
@@ -49,7 +70,9 @@ interface ThreadState {
   isRunning: boolean;
   stopRequested: boolean;
   agent: AbstractAgent | null;
-  currentEvents: BaseEvent[];
+  /** Tracks only open lifecycles, so a run's events are never retained. */
+  finalizer: RunEventFinalizer;
+  runErrorEmitted: boolean;
   nextEventSeq: number;
   hasRunStarted: boolean;
   hasJoined: boolean;
@@ -64,6 +87,21 @@ interface ThreadState {
     string,
     { payload: Record<string, unknown>; queuedAt: number }
   >;
+  /**
+   * When the queue last became non-empty or last had a batch acknowledged.
+   *
+   * The deadline runs from here, so it measures a stalled gateway, not a long
+   * queue. While the gateway keeps acknowledging, `pendingEvents` can hold up
+   * to the rest of the current run: at most the run's own events, which the
+   * runner used to retain in full anyway. Nothing limits how large a single
+   * run gets; that is a separate question from delivery. Watch the queue
+   * through `onEventDeliveryStats`.
+   */
+  durableProgressAt: number;
+  /** Highest `cpki_event_seq` queued so far in this run. */
+  lastQueuedEventSeq: number;
+  /** Set when an event was queued behind a higher sequence number. */
+  pendingEventsOutOfOrder: boolean;
   activeEventBatch: { eventIds: string[]; attempt: number } | null;
   nextEventPushAttempt: number;
   eventRetryTimer: ReturnType<typeof setTimeout> | null;
@@ -271,7 +309,8 @@ export class IntelligenceAgentRunner extends AgentRunner {
         isRunning: true,
         stopRequested: false,
         agent,
-        currentEvents: [],
+        finalizer: createRunEventFinalizer(),
+        runErrorEmitted: false,
         nextEventSeq: 1,
         hasRunStarted: false,
         hasJoined: false,
@@ -283,6 +322,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
         resolveCompletion,
         stopTimer: null,
         pendingEvents: new Map(),
+        durableProgressAt: 0,
+        lastQueuedEventSeq: 0,
+        pendingEventsOutOfOrder: false,
         activeEventBatch: null,
         nextEventPushAttempt: 0,
         eventRetryTimer: null,
@@ -434,7 +476,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
             code: "CHANNEL_JOIN_ERROR",
           } as BaseEvent;
           observer.next(errorEvent);
-          state.currentEvents.push(errorEvent);
           this.removeThread(threadId, state);
           startupBoundary?.rejectStartup(error);
           observer.complete();
@@ -454,7 +495,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
             code: "CHANNEL_JOIN_TIMEOUT",
           } as BaseEvent;
           observer.next(errorEvent);
-          state.currentEvents.push(errorEvent);
           this.removeThread(threadId, state);
           startupBoundary?.rejectStartup(error);
           observer.complete();
@@ -580,7 +620,6 @@ export class IntelligenceAgentRunner extends AgentRunner {
     threadId: string,
     onRunError: (event: BaseEvent) => void,
   ): Promise<void> {
-    const { currentEvents } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
       if (!this.isCurrentThreadState(threadId, state)) {
         return;
@@ -592,10 +631,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
         ),
         state,
       );
-      currentEvents.push(canonicalEvent);
+      state.finalizer.observe(canonicalEvent);
 
       if (canonicalEvent.type === EventType.RUN_STARTED) {
         state.hasRunStarted = true;
+      }
+      if (canonicalEvent.type === EventType.RUN_ERROR) {
+        state.runErrorEmitted = true;
       }
 
       this.queueRunnerEvent(
@@ -670,10 +712,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         return;
       }
       ensureRunStarted();
-      const existingError = currentEvents.find(
-        (event) => event.type === EventType.RUN_ERROR,
-      );
-      if (!existingError) {
+      if (!state.runErrorEmitted) {
         const errorEvent = {
           type: EventType.RUN_ERROR,
           message: error instanceof Error ? error.message : String(error),
@@ -685,7 +724,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
         return;
       }
       ensureRunStarted();
-      const appended = finalizeRunEvents(currentEvents, {
+      const appended = state.finalizer.finalize({
         stopRequested: state.stopRequested,
         protocolVersion: request.input.protocolVersion,
       });
@@ -697,7 +736,14 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
   }
 
-  /** Queue one immutable event payload until Redis-backed gateway acknowledgement. */
+  /**
+   * Queue one immutable event payload until Redis-backed gateway acknowledgement.
+   *
+   * `pushCanonicalEvent` is the only producer and stamps a fresh, increasing
+   * `cpki_event_seq` on every event it queues, so the map's insertion order is
+   * sequence order. Batches are therefore read from the front of the map
+   * instead of sorting the whole queue on every event.
+   */
   private queueRunnerEvent(
     payload: Record<string, unknown>,
     state: ThreadState,
@@ -707,13 +753,63 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
     const eventId = this.runnerEventId(payload);
     if (!state.pendingEvents.has(eventId)) {
+      const queuedAt = Date.now();
+      const wasEmpty = state.pendingEvents.size === 0;
+      const eventSeq = this.runnerEventSeq(payload);
+      if (
+        eventSeq < state.lastQueuedEventSeq &&
+        !state.pendingEventsOutOfOrder
+      ) {
+        state.pendingEventsOutOfOrder = true;
+        logger.warn(
+          {
+            threadId: state.threadId,
+            runId: state.runId,
+            eventSeq,
+            lastQueuedEventSeq: state.lastQueuedEventSeq,
+          },
+          "Runner event queued out of sequence order; sorting pending events",
+        );
+      }
+      state.lastQueuedEventSeq = Math.max(state.lastQueuedEventSeq, eventSeq);
       state.pendingEvents.set(eventId, {
         payload: structuredClone(payload),
-        queuedAt: Date.now(),
+        queuedAt,
       });
+      if (wasEmpty) {
+        state.durableProgressAt = queuedAt;
+        // An empty queue has no deadline timer; its first event starts one.
+        this.scheduleEventDeadline(state);
+      }
     }
-    this.scheduleEventDeadline(state);
     this.replayPendingEvents(state);
+  }
+
+  /** The oldest `limit` pending events, in sequence order. */
+  private oldestPendingEvents(
+    state: ThreadState,
+    limit: number,
+  ): Array<[string, { payload: Record<string, unknown>; queuedAt: number }]> {
+    // Guard for the invariant in queueRunnerEvent: should another path ever
+    // queue an event behind a higher sequence number, fall back to sorting
+    // until the queue drains rather than send out of order.
+    if (state.pendingEventsOutOfOrder) {
+      return [...state.pendingEvents.entries()]
+        .sort(
+          ([, left], [, right]) =>
+            this.runnerEventSeq(left.payload) -
+            this.runnerEventSeq(right.payload),
+        )
+        .slice(0, limit);
+    }
+    const oldest: Array<
+      [string, { payload: Record<string, unknown>; queuedAt: number }]
+    > = [];
+    for (const entry of state.pendingEvents) {
+      if (oldest.length >= limit) break;
+      oldest.push(entry);
+    }
+    return oldest;
   }
 
   private pushPendingEventBatch(
@@ -731,6 +827,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
 
     const attempt = ++state.nextEventPushAttempt;
+    const sentAt = Date.now();
     state.activeEventBatch = { eventIds, attempt };
     const payloads = events.map((event) => event.payload);
     const isBatch = state.supportsRunnerEventBatch;
@@ -753,9 +850,18 @@ export class IntelligenceAgentRunner extends AgentRunner {
         for (const eventId of eventIds) {
           state.pendingEvents.delete(eventId);
         }
+        // The gateway is accepting events, so the deadline measures from here.
+        // A slow but healthy gateway must not fail a run that is still draining.
+        state.durableProgressAt = Date.now();
+        this.reportEventDelivery(
+          state,
+          eventIds.length,
+          state.durableProgressAt - sentAt,
+        );
         state.activeEventBatch = null;
         state.eventRetryAttempt = 0;
         if (state.pendingEvents.size === 0) {
+          state.pendingEventsOutOfOrder = false;
           this.clearPendingEventRetry(state);
           this.clearPendingEventFlush(state);
         }
@@ -767,6 +873,31 @@ export class IntelligenceAgentRunner extends AgentRunner {
         this.handlePendingEventFailure(state, attempt, response),
       )
       .receive("timeout", () => this.handlePendingEventFailure(state, attempt));
+  }
+
+  private reportEventDelivery(
+    state: ThreadState,
+    acknowledgedEvents: number,
+    ackLatencyMs: number,
+  ): void {
+    const onStats = this.options.onEventDeliveryStats;
+    if (!onStats) return;
+    const [oldest] = this.oldestPendingEvents(state, 1);
+    try {
+      onStats({
+        threadId: state.threadId,
+        runId: state.runId,
+        acknowledgedEvents,
+        ackLatencyMs,
+        pendingEvents: state.pendingEvents.size,
+        oldestPendingAgeMs: oldest ? Date.now() - oldest[1].queuedAt : 0,
+      });
+    } catch (error) {
+      logger.warn(
+        { err: error, threadId: state.threadId, runId: state.runId },
+        "onEventDeliveryStats callback failed",
+      );
+    }
   }
 
   private handlePendingEventFailure(
@@ -844,12 +975,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
-    const oldestQueuedAt = Math.min(
-      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
-    );
+    const [[, oldest]] = this.oldestPendingEvents(state, 1);
     const delay = Math.max(
       0,
-      oldestQueuedAt + RUNNER_EVENT_BATCH_FLUSH_MS - Date.now(),
+      oldest.queuedAt + RUNNER_EVENT_BATCH_FLUSH_MS - Date.now(),
     );
     state.eventFlushTimer = setTimeout(() => {
       state.eventFlushTimer = null;
@@ -882,20 +1011,19 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
-    const pendingEvents = [...state.pendingEvents.entries()].sort(
-      ([, left], [, right]) =>
-        this.runnerEventSeq(left.payload) - this.runnerEventSeq(right.payload),
-    );
-    if (pendingEvents.length === 0) {
+    if (state.pendingEvents.size === 0) {
       return;
     }
 
     const batchSize = state.supportsRunnerEventBatch
       ? MAX_RUNNER_EVENT_BATCH_SIZE
       : 1;
-    if (!state.supportsRunnerEventBatch || pendingEvents.length >= batchSize) {
+    if (
+      !state.supportsRunnerEventBatch ||
+      state.pendingEvents.size >= batchSize
+    ) {
       this.clearPendingEventFlush(state);
-      const batch = pendingEvents.slice(0, batchSize);
+      const batch = this.oldestPendingEvents(state, batchSize);
       this.pushPendingEventBatch(
         batch.map(([eventId]) => eventId),
         batch.map(([, event]) => event),
@@ -916,13 +1044,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
-    const batch = [...state.pendingEvents.entries()]
-      .sort(
-        ([, left], [, right]) =>
-          this.runnerEventSeq(left.payload) -
-          this.runnerEventSeq(right.payload),
-      )
-      .slice(0, MAX_RUNNER_EVENT_BATCH_SIZE);
+    const batch = this.oldestPendingEvents(state, MAX_RUNNER_EVENT_BATCH_SIZE);
     this.pushPendingEventBatch(
       batch.map(([eventId]) => eventId),
       batch.map(([, event]) => event),
@@ -1028,10 +1150,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
       return;
     }
 
-    const oldestQueuedAt = Math.min(
-      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
-    );
-    const deadline = oldestQueuedAt + EVENT_DURABILITY_DEADLINE_MS;
+    const deadline = state.durableProgressAt + EVENT_DURABILITY_DEADLINE_MS;
     state.eventDeadlineTimer = setTimeout(
       () => {
         state.eventDeadlineTimer = null;
@@ -1064,10 +1183,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     if (state.pendingEvents.size === 0) {
       return false;
     }
-    const oldestQueuedAt = Math.min(
-      ...[...state.pendingEvents.values()].map((event) => event.queuedAt),
-    );
-    if (Date.now() < oldestQueuedAt + EVENT_DURABILITY_DEADLINE_MS) {
+    if (Date.now() < state.durableProgressAt + EVENT_DURABILITY_DEADLINE_MS) {
       return false;
     }
     this.failThread(

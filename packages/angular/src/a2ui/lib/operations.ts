@@ -25,9 +25,15 @@ export function normalizeA2UIOperations(
   catalogId: string,
 ): A2uiMessage[] {
   return operations.flatMap((operation) => {
+    // The A2UI processor keeps parsed operations as its data model and edits
+    // them as the user interacts. Schema parsing passes untyped values such as
+    // `updateDataModel.value` through by reference, so copy first: the
+    // operations come from the agent's message content.
     const message: Record<string, unknown> = {
       version: "v0.9",
-      ...(typeof operation === "object" ? operation : {}),
+      ...(typeof operation === "object" && operation !== null
+        ? structuredClone(operation)
+        : {}),
     };
     if (
       message["createSurface"] &&

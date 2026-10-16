@@ -14,6 +14,7 @@ import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 import { isAbortError } from "../utils/abort-error";
+import { ɵgetConnectRunErrorPhase } from "../utils/connect-replay";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import {
   isForwardedToClientPlaceholder,
@@ -32,6 +33,21 @@ import { WebMCPRegistry } from "./webmcp";
  * takes no reason and whose signals never expose one.
  */
 const liveHITLStops = new WeakMap<AbortSignal, () => boolean>();
+
+/**
+ * Edits `agent.messages` by replacing the array instead of changing it in
+ * place. The current array may be the one the agent emitted with its last
+ * update, which subscribers and stored snapshots still hold. Like the in-place
+ * edit it replaces, this notifies no subscriber.
+ */
+function editAgentMessages(
+  agent: AbstractAgent,
+  edit: (messages: Message[]) => void,
+): void {
+  const messages = [...agent.messages];
+  edit(messages);
+  agent.messages = messages;
+}
 
 // Explicitly stopping a live approval must retain its error result. History
 // restoration and thread-switch cancellation instead discard the old result.
@@ -610,7 +626,7 @@ export class RunHandler {
           tools: this.buildFrontendTools(agent.agentId),
           context: this._internal.getContextForAgent(agent.agentId),
         },
-        this.createAgentErrorSubscriber(agent),
+        this.createAgentErrorSubscriber(agent, "connect"),
       );
 
       // Connecting ends when history is restored, not when a human answers.
@@ -776,7 +792,7 @@ export class RunHandler {
 
     try {
       let logicalRunId = resumedRunId ?? runId;
-      const agentSubscriber = this.createAgentErrorSubscriber(agent);
+      const agentSubscriber = this.createAgentErrorSubscriber(agent, "run");
       let started = false;
       const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
       const onRunInitialized = agentSubscriber.onRunInitialized;
@@ -976,7 +992,9 @@ export class RunHandler {
               (m) => m.role === "tool" && m.toolCallId === toolCall.id,
             );
             if (agentMsgIdx !== -1) {
-              agent.messages.splice(agentMsgIdx, 1);
+              editAgentMessages(agent, (messages) =>
+                messages.splice(agentMsgIdx, 1),
+              );
             }
           }
 
@@ -1313,7 +1331,9 @@ export class RunHandler {
         toolCallId: toolCall.id,
         content: handlerResult.content,
       };
-      agent.messages.splice(insertAt, 0, toolMessage);
+      editAgentMessages(agent, (messages) =>
+        messages.splice(insertAt, 0, toolMessage),
+      );
 
       if (!handlerResult.error && tool?.followUp !== false) {
         return true; // Needs follow-up
@@ -1477,7 +1497,9 @@ export class RunHandler {
         toolCallId: toolCall.id,
         content: toolCallResult,
       };
-      agent.messages.splice(insertAt, 0, toolMessage);
+      editAgentMessages(agent, (messages) =>
+        messages.splice(insertAt, 0, toolMessage),
+      );
 
       if (!errorMessage && wildcardTool?.followUp !== false) {
         return true; // Needs follow-up
@@ -1540,7 +1562,7 @@ export class RunHandler {
     };
 
     // 4. Push assistant message into agent's messages
-    agent.messages.push(assistantMessage);
+    editAgentMessages(agent, (messages) => messages.push(assistantMessage));
 
     // 5. Execute the tool handler (if it has one)
     let handlerResult: ExecuteToolHandlerResult = {
@@ -1573,10 +1595,12 @@ export class RunHandler {
       (m) => m.id === assistantMessage.id,
     );
     if (assistantIndex !== -1) {
-      agent.messages.splice(assistantIndex + 1, 0, toolResultMessage);
+      editAgentMessages(agent, (messages) =>
+        messages.splice(assistantIndex + 1, 0, toolResultMessage),
+      );
     } else {
       // Fallback: push to end if assistant message was removed
-      agent.messages.push(toolResultMessage);
+      editAgentMessages(agent, (messages) => messages.push(toolResultMessage));
     }
 
     // 7. Handle followUp (only if no error)
@@ -1588,7 +1612,7 @@ export class RunHandler {
           role: "user",
           content: followUp,
         };
-        agent.messages.push(userMessage);
+        editAgentMessages(agent, (messages) => messages.push(userMessage));
       }
       // Yield to the framework scheduler so deferred state updates (e.g. React
       // useEffect in useAgentContext) can complete before the follow-up run reads
@@ -1699,7 +1723,10 @@ export class RunHandler {
   /**
    * Create an agent error subscriber
    */
-  private createAgentErrorSubscriber(agent: AbstractAgent): AgentSubscriber {
+  private createAgentErrorSubscriber(
+    agent: AbstractAgent,
+    stream: "run" | "connect",
+  ): AgentSubscriber {
     const emitAgentError = async (
       error: Error,
       code: CopilotKitCoreErrorCode,
@@ -1765,6 +1792,10 @@ export class RunHandler {
             source: "onRunErrorEvent",
             event,
             runtimeErrorCode: event?.code,
+            // A connect replays stored history, so an old run's RUN_ERROR
+            // arrives here too. `phase` tells it apart from a live failure;
+            // a run stream only carries the run it started.
+            phase: stream === "run" ? "live" : ɵgetConnectRunErrorPhase(event),
           },
         );
       },

@@ -1152,6 +1152,270 @@ describe("IntelligenceAgentRunner", () => {
       expect(await runner.isRunning({ threadId })).toBe(false);
     });
 
+    it("drains a large run whose acknowledgements are slow but keep succeeding", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-slow-healthy-gateway";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-slow-healthy-gateway",
+      });
+      // 14,301 events at 150 ms per 32-event batch takes ~67 s to drain: past
+      // the durability deadline in total, but never 60 s without progress.
+      const customEvents = Array.from(
+        { length: 14_299 },
+        (_, index) =>
+          ({
+            type: EventType.CUSTOM,
+            name: "progress",
+            value: index,
+          }) as BaseEvent,
+      );
+      const agent = new MockAgent([
+        ...customEvents,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+        } as RunFinishedEvent,
+      ]);
+      let errors = 0;
+      let completions = 0;
+
+      runner.run({ threadId, agent, input }).subscribe({
+        error: () => errors++,
+        complete: () => completions++,
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+
+      let acknowledged = 0;
+      while (completions === 0 && errors === 0) {
+        await vi.advanceTimersByTimeAsync(150);
+        const pending = ch.pushLog[acknowledged];
+        if (!pending) break;
+        pending.push.trigger("ok");
+        acknowledged += 1;
+      }
+
+      expect(errors).toBe(0);
+      expect(completions).toBe(1);
+      expect(Date.now()).toBeGreaterThan(60_000);
+      const seqs = ch.pushLog.flatMap((push) =>
+        push.payload.events.map((event: any) => event.metadata.cpki_event_seq),
+      );
+      expect(seqs).toEqual(
+        Array.from({ length: 14_301 }, (_, index) => index + 1),
+      );
+    });
+
+    it("fails once the gateway stops acknowledging for the durability deadline after earlier progress", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-deadline-after-progress";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-deadline-after-progress",
+      });
+      const agent = new MockAgent(
+        Array.from(
+          { length: 100 },
+          (_, index) =>
+            ({
+              type: EventType.CUSTOM,
+              name: "progress",
+              value: index,
+            }) as BaseEvent,
+        ),
+      );
+      let receivedError: Error | undefined;
+
+      runner.run({ threadId, agent, input }).subscribe({
+        error: (error) => (receivedError = error),
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(1_000);
+      ch.pushLog[0].push.trigger("ok");
+      expect(ch.pushLog).toHaveLength(2);
+
+      // The oldest pending event was queued at 0; the deadline runs from the
+      // acknowledgement at 1 s, so 60 s after queueing is not yet a failure.
+      await vi.advanceTimersByTimeAsync(60_000 - 1);
+      expect(receivedError).toBeUndefined();
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(receivedError?.message).toMatch(/durably deliver/i);
+      expect(agent.aborted).toBe(true);
+      expect(await runner.isRunning({ threadId })).toBe(false);
+    });
+
+    it("still sends in sequence order if an event is queued behind a higher sequence", async () => {
+      vi.useFakeTimers();
+      autoAcknowledgePushes = false;
+      const threadId = "t-event-out-of-order";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-out-of-order",
+      });
+      const agent = new BlockingMockAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "msg-out-of-order",
+          role: "assistant",
+        } as TextMessageStartEvent,
+      ]);
+      runner.run({ threadId, agent, input }).subscribe({ error: () => {} });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(5);
+      expect(ch.pushLog).toHaveLength(1);
+
+      // pushCanonicalEvent always stamps increasing sequences, so this can
+      // only happen if another path queues events. Simulate one directly.
+      const state = (runner as any).threads.get(threadId);
+      const queue = (seq: number) =>
+        (runner as any).queueRunnerEvent(
+          {
+            type: EventType.CUSTOM,
+            name: "late",
+            value: seq,
+            threadId,
+            runId: input.runId,
+            metadata: { cpki_event_id: `late-${seq}`, cpki_event_seq: seq },
+          },
+          state,
+        );
+      queue(10);
+      queue(5);
+
+      ch.pushLog[0].push.trigger("ok");
+      await vi.advanceTimersByTimeAsync(5);
+
+      expect(
+        ch.pushLog[1].payload.events.map(
+          (event: any) => event.metadata.cpki_event_seq,
+        ),
+      ).toEqual([5, 10]);
+    });
+
+    it("reports delivery stats for each acknowledged batch and ignores callback errors", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(0);
+      autoAcknowledgePushes = false;
+      const stats: unknown[] = [];
+      const statsRunner = new IntelligenceAgentRunner({
+        url: "ws://localhost:4000/runner",
+        onEventDeliveryStats: (entry) => {
+          stats.push(entry);
+          throw new Error("metrics sink down");
+        },
+      });
+      const threadId = "t-event-delivery-stats";
+      const input = createRunInput({
+        threadId,
+        runId: "r-event-delivery-stats",
+      });
+      const agent = new MockAgent(
+        Array.from(
+          { length: 40 },
+          (_, index) =>
+            ({
+              type: EventType.CUSTOM,
+              name: "progress",
+              value: index,
+            }) as BaseEvent,
+        ),
+      );
+      let errors = 0;
+      let completions = 0;
+
+      statsRunner.run({ threadId, agent, input }).subscribe({
+        error: () => errors++,
+        complete: () => completions++,
+      });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await vi.advanceTimersByTimeAsync(150);
+      ch.pushLog[0].push.trigger("ok");
+
+      // RUN_STARTED + 40 events + the finalizer's RUN_ERROR = 42 queued.
+      expect(stats).toEqual([
+        {
+          threadId,
+          runId: input.runId,
+          acknowledgedEvents: 32,
+          ackLatencyMs: 150,
+          pendingEvents: 10,
+          oldestPendingAgeMs: 150,
+        },
+      ]);
+
+      // A partial batch waits for the flush timer.
+      await vi.advanceTimersByTimeAsync(5);
+      ch.pushLog[1].push.trigger("ok");
+      expect(stats).toHaveLength(2);
+      expect(stats[1]).toMatchObject({
+        pendingEvents: 0,
+        oldestPendingAgeMs: 0,
+      });
+      expect(errors).toBe(0);
+      expect(completions).toBe(1);
+    });
+
+    it("closes open lifecycles and emits one RUN_ERROR when the agent errors and then throws", async () => {
+      const threadId = "t-finalize-error-then-throw";
+      const input = createRunInput({
+        threadId,
+        runId: "r-finalize-error-then-throw",
+      });
+      class ErrorThenThrowAgent extends MockAgent {
+        async runAgent(
+          _input: RunAgentInput,
+          subscriber?: { onEvent?: (arg: { event: BaseEvent }) => void },
+        ): Promise<RunAgentResult> {
+          subscriber?.onEvent?.({
+            event: {
+              type: EventType.TEXT_MESSAGE_START,
+              messageId: "msg-open",
+              role: "assistant",
+            } as TextMessageStartEvent,
+          });
+          subscriber?.onEvent?.({
+            event: {
+              type: EventType.RUN_ERROR,
+              message: "provider failed",
+            } as RunErrorEvent,
+          });
+          throw new Error("provider failed");
+        }
+      }
+
+      let settled = false;
+      runner
+        .run({ threadId, agent: new ErrorThenThrowAgent(), input })
+        .subscribe({
+          complete: () => (settled = true),
+          error: () => (settled = true),
+        });
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok", { capabilities: ["runner_event_batch_v1"] });
+      await waitForCondition(() => settled);
+
+      const pushed = ch.pushLog.flatMap((push) => push.payload.events);
+      expect(
+        pushed.filter((event: BaseEvent) => event.type === EventType.RUN_ERROR),
+      ).toHaveLength(1);
+      // RUN_ERROR is terminal, so the open message needs no synthetic closer.
+      expect(
+        pushed.some(
+          (event: BaseEvent) => event.type === EventType.TEXT_MESSAGE_END,
+        ),
+      ).toBe(false);
+    });
+
     it("ignores late callbacks, agent emissions, and joins after terminal event cleanup", async () => {
       vi.useFakeTimers();
       autoAcknowledgePushes = false;

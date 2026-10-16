@@ -1,11 +1,5 @@
-import {
-  createContext,
-  useContext,
-  useRef,
-  useState,
-  useMemo,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useRef, useState, useMemo } from "react";
+import type { ReactNode } from "react";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import { basicCatalog } from "../a2ui-react";
 import type { A2UIContextValue, A2UIActions } from "./store";
@@ -92,7 +86,10 @@ export function A2UIProvider({
     actionsRef.current = {
       processMessages: (messages: Array<Record<string, unknown>>) => {
         try {
-          processor.processMessages(messages as any[]);
+          // The processor keeps these objects as its data model and edits them
+          // as the user interacts. They come from the agent's message content,
+          // which must not change underneath it, so hand over a copy.
+          processor.processMessages(structuredClone(messages) as any[]);
         } catch (err) {
           console.warn("[A2UI] processMessages error:", err);
           setError(err instanceof Error ? err.message : String(err));
