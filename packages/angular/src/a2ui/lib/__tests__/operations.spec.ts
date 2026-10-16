@@ -33,6 +33,19 @@ describe("normalizeA2UIOperations", () => {
     ]);
   });
 
+  it("copies operations, so the processor cannot edit the agent's message content", () => {
+    const value = { name: "original" };
+    const operation = {
+      version: "v0.9",
+      updateDataModel: { surfaceId: "one", value },
+    };
+
+    const [message] = normalizeA2UIOperations([operation], CATALOG_ID);
+
+    expect(message).toEqual(operation);
+    expect((message as any).updateDataModel.value).not.toBe(value);
+  });
+
   it("drops anything that is not a v0.9 message, with a warning each", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const legacy = { beginRendering: { surfaceId: "legacy" } };
