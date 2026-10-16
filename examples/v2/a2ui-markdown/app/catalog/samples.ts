@@ -743,7 +743,7 @@ export const SAMPLES: CatalogSample[] = [
       {
         id: "body",
         component: "TableSection",
-        children: [{ componentId: "row", path: "/days" }],
+        children: { componentId: "row", path: "/days" },
       },
       { id: "row", component: "TableRow", children: ["c1", "c2"] },
       { id: "c1", component: "TableCell", text: { path: "day" } },
