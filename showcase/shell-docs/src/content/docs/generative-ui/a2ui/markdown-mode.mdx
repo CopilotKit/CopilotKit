@@ -133,16 +133,22 @@ the existing surface instead of rendering a second one.
 
 Markdown mode ships with `standardCatalog` from `@copilotkit/a2ui-renderer`
 and uses it by default. It has these components
-and uses A2UI-native names where A2UI has the component:
+(73 components) and uses A2UI-native names where A2UI has the component:
 
 | Group | Components |
 | --- | --- |
-| Layout | `Box`, `Column`, `Row`, `Grid`, `GridItem`, `Card`, `Flow`, `FlowItem`, `Carousel`, `CarouselItem`, `Spacer`, `Divider`, `Animate`, `AnimateGroup`, `AnimateItem`, `Transition` |
+| Layout | `Box`, `Column`, `Row`, `Grid`, `GridItem`, `Card`, `Flow`, `FlowItem`, `Carousel`, `CarouselItem`, `CarouselMediaItem`, `Spacer`, `Divider`, `Animate`, `AnimateGroup`, `AnimateItem`, `Transition` |
 | Text | `Title`, `Text`, `Caption`, `Label`, `Bold`, `Italic`, `Underline`, `Strikethrough`, `Badge`, `Blockquote`, `Code`, `Markdown`, `Math`, `ShimmerText`, `Link`, `Tooltip` |
 | Inputs | `Button`, `Pressable`, `Form`, `TextField`, `TextArea`, `Select`, `CheckBox`, `Radio`, `RadioGroup`, `Slider`, `SegmentedControl`, `DateTimeInput` |
 | Data | `Table`, `TableSection`, `TableRow`, `TableCell`, `List`, `ListItem`, `Chart`, `Map` |
 | Media | `Image`, `Icon`, `Favicon`, `Svg`, `YouTube`, `HtmlView` |
 | Feedback and overlay | `Loading`, `LoadingIndicator`, `LoadingBlock`, `PulseIndicator`, `Celebration`, `FlashcardFlip`, `Popover`, `PopoverTrigger`, `PopoverContent` |
+| Composites | `LinkCard`, `Citation`, `FollowUp`, `EntityCard`, `ImageGrid`, `CarouselMediaItem` |
+
+`Button` and `Pressable` also take `href` (open a URL in a new tab) and
+`Button` takes `copy` (copy text to the clipboard); both run client-side
+without a round trip to the agent. `Image` opens a lightbox on click, and
+`YouTube` shows a poster until the user presses play.
 
 `Map` loads `maplibre-gl` on demand; install it in your app if your agent
 draws maps. The basemap is OpenFreeMap's keyless Positron style; pass your own

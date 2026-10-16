@@ -472,6 +472,9 @@ function EntityCard({ props, dispatch }: RendererProps<any>) {
         borderRadius: radius("xl"),
         background: backgroundColor("surface"),
         overflow: "hidden",
+        // A horizontal card keeps its content height inside a stretched grid
+        // row; the vertical card may fill the row.
+        alignSelf: horizontal ? "start" : undefined,
         cursor: clickable ? "pointer" : undefined,
       }}
     >
@@ -487,6 +490,7 @@ function EntityCard({ props, dispatch }: RendererProps<any>) {
             aspectRatio: horizontal
               ? "1 / 1"
               : (props.imageAspectRatio ?? "4 / 3"),
+            alignSelf: horizontal ? "start" : undefined,
             flex: "none",
           }}
         />
