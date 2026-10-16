@@ -184,6 +184,12 @@ a {
   min-height: 0;
 }
 
+/* Chat only: one centered column, no page surfaces. */
+.ex-layout-chat {
+  grid-template-columns: minmax(0, 880px);
+  justify-content: center;
+}
+
 .ex-panel {
   display: flex;
   flex-direction: column;
