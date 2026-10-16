@@ -263,6 +263,8 @@ export const SHADOW_XS = "var(--a2ui-shadow-xs, 0 1px 2px rgba(0,0,0,.12))";
 export const SHADOW_SM = "var(--a2ui-shadow-sm, 0 1px 3px rgba(0,0,0,.12))";
 export const SHADOW_SOFT = "var(--a2ui-shadow-soft, 0 1px 3px rgba(0,0,0,.06))";
 export const SHADOW_MD = "var(--a2ui-shadow-md, 0 4px 12px rgba(0,0,0,.08))";
+/** The scrim behind a lightbox or modal. */
+export const BACKDROP = "var(--a2ui-color-backdrop, rgba(0,0,0,.8))";
 /** The moving highlight of a shimmer placeholder. */
 export const SHIMMER_HIGHLIGHT =
   "var(--a2ui-color-shimmer, rgba(255,255,255,.55))";

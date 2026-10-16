@@ -42,6 +42,7 @@ describe("layoutComponents", () => {
       "FlowItem",
       "Carousel",
       "CarouselItem",
+      "CarouselMediaItem",
       "Spacer",
       "Divider",
       "Animate",
