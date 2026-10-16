@@ -63,7 +63,7 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
 Call \`${GENERATIVE_UI_RENDER_TOOL}\` to show UI. Arguments: \`target\` first, then \`operations\` (A2UI v0.9 messages applied in order).
 
 Every operation has "version": "v0.9" and exactly one of:
-- {"version":"v0.9","createSurface":{"surfaceId":"<new id>","catalogId":"${manifest.catalogId}"}} — first operation for a new surface.
+- {"version":"v0.9","createSurface":{"surfaceId":"<new id>"}} — first operation for a new surface.
 - {"version":"v0.9","updateComponents":{"surfaceId":"<id>","components":[<component>, ...]}} — add or replace components by id.
 - {"version":"v0.9","updateDataModel":{"surfaceId":"<id>","path":"/some/path","value":<json>}}
 - {"version":"v0.9","deleteSurface":{"surfaceId":"<id>"}}

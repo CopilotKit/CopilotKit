@@ -192,7 +192,7 @@ function processStream(
       let surfaceId: string | undefined;
       try {
         surfaceId = getOperationSurfaceId(op);
-        applyOperation(state, op, surfaceId, reject);
+        applyOperation(state, withCatalogId(op), surfaceId, reject);
       } catch (error) {
         // Never let one bad operation take down the run: report it to the
         // model through the tool result instead.
@@ -201,6 +201,20 @@ function processStream(
           surfaceId,
         );
       }
+    };
+
+    /**
+     * A run has one catalog, so the model does not have to name it. A
+     * createSurface gets the catalog id of the envelope, whatever the model
+     * wrote. The operation on the wire then stays valid A2UI v0.9.
+     */
+    const withCatalogId = (op: Record<string, unknown>) => {
+      const create = op.createSurface;
+      if (typeof create !== "object" || create === null) return op;
+      return {
+        ...op,
+        createSurface: { ...create, catalogId: manifest.catalogId },
+      };
     };
 
     const applyOperation = (

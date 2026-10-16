@@ -23,12 +23,10 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     );
   });
 
-  it("asks for one JSON object per line, each with the v0.9 version and the catalog id", () => {
+  it("asks for one JSON object per line, each with the v0.9 version and no catalogId", () => {
     expect(guide).toContain("write one JSON object per line and nothing else");
     expect(guide).toContain('Give every operation "version":"v0.9".');
-    expect(guide).toContain(
-      "Set catalogId in createSurface to the catalog id from the schema.",
-    );
+    expect(guide).not.toContain("catalogId");
   });
 
   it("asks for createSurface, then the data model, then the root component first", () => {
