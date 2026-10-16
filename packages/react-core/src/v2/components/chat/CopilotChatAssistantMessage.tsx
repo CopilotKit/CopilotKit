@@ -1,5 +1,6 @@
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -27,7 +28,7 @@ import {
   TooltipTrigger,
 } from "../../components/ui/tooltip";
 import { useKatexStyles } from "../../hooks/useKatexStyles";
-import type { WithSlots } from "../../lib/slots";
+import type { SlotValue, WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import { Streamdown } from "streamdown";
 import { copyToClipboard } from "@copilotkit/shared";
@@ -81,6 +82,14 @@ export type CopilotChatAssistantMessageProps = WithSlots<
     isLatest?: boolean;
     additionalToolbarItems?: React.ReactNode;
     toolbarVisible?: boolean;
+    /**
+     * The comment field of a reply rating, inside the popover next to the
+     * chosen thumb. Shown only while Automatic Learning records ratings; it
+     * renders after `children`, so a `children` layout does not place it.
+     */
+    feedbackComment?: SlotValue<
+      typeof CopilotChatAssistantMessage.FeedbackComment
+    >;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -170,12 +179,16 @@ function nextFocusable(
  * control after the thumb, and Enter or Escape inside it returns to the thumb.
  */
 function FeedbackCommentPopover({
+  feedbackComment,
   comment,
   savedComment,
   rating,
   anchor,
   messageId,
 }: {
+  feedbackComment:
+    | SlotValue<typeof CopilotChatAssistantMessage.FeedbackComment>
+    | undefined;
   comment: FeedbackComment;
   savedComment: string;
   rating: MessageFeedbackRating;
@@ -260,28 +273,34 @@ function FeedbackCommentPopover({
         onPointerLeave={() => comment.leave("pointer")}
         className="cpk:z-[1300]"
       >
-        <CopilotChatAssistantMessage.FeedbackComment
-          key={rating}
-          value={comment.draft}
-          savedComment={savedComment}
-          inputRef={comment.inputRef}
-          onChange={comment.setDraft}
-          onSubmit={() => {
-            comment.close();
-            comment.returnFocus(anchor.current);
-          }}
-          onEditingChange={comment.setEditing}
-          onLeave={(next) => {
-            // Focus moving within the popover or to a thumb, which the
-            // pointer is still on, does not close it.
-            if (
-              next &&
-              (contentRef.current?.contains(next) || isOwnThumb(next))
-            )
-              return;
-            comment.leave();
-          }}
-        />
+        {/* Keyed on the rating, so a new rating starts with a fresh field. */}
+        <Fragment key={rating}>
+          {renderSlot(
+            feedbackComment,
+            CopilotChatAssistantMessage.FeedbackComment,
+            {
+              value: comment.draft,
+              savedComment,
+              inputRef: comment.inputRef,
+              onChange: comment.setDraft,
+              onSubmit: () => {
+                comment.close();
+                comment.returnFocus(anchor.current);
+              },
+              onEditingChange: comment.setEditing,
+              onLeave: (next) => {
+                // Focus moving within the popover or to a thumb, which the
+                // pointer is still on, does not close it.
+                if (
+                  next &&
+                  (contentRef.current?.contains(next) || isOwnThumb(next))
+                )
+                  return;
+                comment.leave();
+              },
+            },
+          )}
+        </Fragment>
       </PopoverContent>
     </Popover>
   );
@@ -306,6 +325,7 @@ export function CopilotChatAssistantMessage({
   thumbsDownButton,
   readAloudButton,
   regenerateButton,
+  feedbackComment: feedbackCommentSlot,
   toolCallsView,
   children,
   className,
@@ -535,6 +555,7 @@ export function CopilotChatAssistantMessage({
   // Floats in a portal next to the chosen thumb, so it never moves the chat.
   const feedbackComment = feedback?.feedback && shouldShowToolbar && (
     <FeedbackCommentPopover
+      feedbackComment={feedbackCommentSlot}
       comment={comment}
       savedComment={feedback.feedback.comment ?? ""}
       rating={feedback.feedback.rating}

@@ -150,14 +150,14 @@ The event carries the open Thread. Built-in names such as `click` are reserved.
 
 ## Collect reply ratings
 
-Once a Trajectory has started while a chat is open, each finished reply with text in `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` gets a **Good response** and a **Bad response** button. You do not need to pass `onThumbsUp` or `onThumbsDown`. The buttons stay while capture reconnects or is stopped. A custom chat gets them when it renders its messages with `CopilotChatMessageView` inside a `CopilotChatConfigurationProvider`.
+Once a Trajectory has started while a chat is open, each finished reply with text in `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` gets a **Good response** and a **Bad response** button. You do not need to pass `onThumbsUp` or `onThumbsDown`. The buttons stay while capture reconnects or is stopped. A custom chat gets them when it renders its messages with `CopilotChatMessageView` inside a `CopilotChatConfigurationProvider`. To keep the thumbs to your own handlers, pass `messageFeedback: false` to the message view, for example `<CopilotChat messageView={{ messageFeedback: false }} />`.
 
 - Clicking a thumb rates the reply. A field for an optional comment opens next to it. Enter or leaving the field saves the comment. Escape, or a click on either thumb, discards an unsaved change. Switching to the other thumb starts the new rating without a comment.
 - Pointing at or keyboard-focusing the chosen thumb again opens its comment, so the user can add or change it later. On a touch screen, tapping the chosen thumb removes the rating instead.
 - Clicking the chosen thumb again removes the rating.
-- The browser saves each rating in local storage for its agent and Thread, so the chosen thumb and its comment return when the same browser shows that Thread again.
+- The chosen thumb and its comment stay while the page is open. After a reload the thumbs start unrated; a new rating replaces the earlier one in Intelligence.
 
-Each change sends a `message.feedback` event to the active Trajectory; while none captures, only the newest change of each rating waits (see below). The newest event for a `feedbackId` is the current rating, and `rating: null` means the user removed it:
+Each change sends a `message.feedback` event to the active Trajectory. The newest event for a `feedbackId` is the current rating, and `rating: null` means the user removed it:
 
 ```json
 {
@@ -178,11 +178,11 @@ Each change sends a `message.feedback` event to the active Trajectory; while non
 }
 ```
 
-A rating given while capture reconnects or is stopped waits in the browser, also across a reload when local storage works, and is sent once a Trajectory captures again while that chat, the same agent and Thread, is open. A rating belongs to its Thread, so that can be a later Trajectory. As with other events, a failed send is not retried. With connected capture, Intelligence shows the rating next to the reply in the Trajectory, and Automatic Learning reads it with the session.
+Like any Trajectory event, a rating given while capture reconnects or is stopped is not sent, and a failed send is not retried; the chat still shows it. A rating belongs to its Thread, so a later Trajectory can carry a change to it. With connected capture, Intelligence shows the rating next to the reply in the Trajectory, and Automatic Learning reads it with the session.
 
 `response` is left out when a custom sink sets `capture.agentText` to `false`.
 
-Your own `onThumbsUp` and `onThumbsDown` handlers still run when the user gives a rating, but not when the user removes one. To change the thumbs' tooltips, the comment placeholder, or the send button label, set the [chat labels](/reference/hooks/useCopilotChatConfiguration#copilotchatlabels). The comment popover is marked `data-copilotkit-ignore`, so capture records the saved comment, not each keystroke. Clicks on the thumbs are still captured as `click` events.
+Your own `onThumbsUp` and `onThumbsDown` handlers still run when the user gives a rating, but not when the user removes one. To change the thumbs' tooltips, the comment placeholder, or the send button label, set the [chat labels](/reference/hooks/useCopilotChatConfiguration#copilotchatlabels). To restyle or replace the comment field, use the assistant message's `feedbackComment` slot. The comment popover is marked `data-copilotkit-ignore`, so capture records the saved comment, not each keystroke. Clicks on the thumbs are still captured as `click` events.
 
 ## Start and stop a Trajectory yourself
 

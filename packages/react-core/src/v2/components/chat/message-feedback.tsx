@@ -11,7 +11,6 @@ import {
 } from "react";
 import type { RefObject } from "react";
 import {
-  flushPendingMessageFeedback,
   getMessageFeedback,
   setMessageFeedback,
   subscribeToMessageFeedback,
@@ -54,14 +53,11 @@ const rememberCapture = (copilotkit: CopilotKitCore) => {
  * Whether the thumbs record feedback for Learning. True once a Trajectory of
  * this Core has started and as long as Learning stays configured, also while
  * capture reconnects or is stopped, so the buttons do not flicker. Ratings
- * given meanwhile wait and are sent when capture runs again while `chat` is
- * open. A capture that never starts (for example without a license) leaves
- * it false.
+ * given meanwhile still show but, like any Trajectory event, are not
+ * sent. A capture that never starts (for example without a license) leaves it
+ * false.
  */
-export function useLearningFeedbackEnabled(
-  copilotkit: CopilotKitCore,
-  chat?: { agentId?: string; threadId?: string },
-) {
+export function useLearningFeedbackEnabled(copilotkit: CopilotKitCore) {
   const subscribeConfigured = useCallback(
     (onChange: () => void) =>
       copilotkit.ɵsubscribeToLearningConfigured(onChange),
@@ -82,14 +78,9 @@ export function useLearningFeedbackEnabled(
     () => copilotkit.trajectoryId !== null,
     () => false,
   );
-  const agentId = chat?.agentId;
-  const threadId = chat?.threadId;
   useEffect(() => {
-    if (!capturing) return;
-    rememberCapture(copilotkit);
-    if (agentId !== undefined && threadId !== undefined)
-      flushPendingMessageFeedback(copilotkit, { agentId, threadId });
-  }, [capturing, copilotkit, agentId, threadId]);
+    if (capturing) rememberCapture(copilotkit);
+  }, [capturing, copilotkit]);
   return configured && (capturing || capturedCores.has(copilotkit));
 }
 
@@ -212,14 +203,19 @@ export function useFeedbackComment(
     return waiting;
   }, []);
 
-  const cancelClose = () => {
+  // Stable, as they only read refs, so effects that depend on `close` run
+  // only when their own inputs change.
+  const cancelClose = useCallback(() => {
     if (timer.current === undefined) return;
     clearTimeout(timer.current);
     timer.current = undefined;
-  };
-  useEffect(() => cancelClose, []);
+  }, []);
+  useEffect(() => cancelClose, [cancelClose]);
 
-  const savedComment = () => latest.current.controls?.feedback?.comment ?? "";
+  const savedComment = useCallback(
+    () => latest.current.controls?.feedback?.comment ?? "",
+    [],
+  );
 
   // A message that unmounts (scrolled out of a virtual list) keeps its edit.
   useEffect(
@@ -232,22 +228,25 @@ export function useFeedbackComment(
     [],
   );
 
-  const close = ({ save = true }: { save?: boolean } = {}) => {
-    cancelClose();
-    focusWaiting.current = false;
-    pointerOver.current = false;
-    if (!latest.current.open) return;
-    const current = latest.current.controls;
-    if (
-      save &&
-      current?.feedback &&
-      latest.current.draft.trim() !== savedComment()
-    )
-      current.comment(latest.current.draft);
-    editing.current = false;
-    latest.current = { ...latest.current, open: false };
-    setOpen(false);
-  };
+  const close = useCallback(
+    ({ save = true }: { save?: boolean } = {}) => {
+      cancelClose();
+      focusWaiting.current = false;
+      pointerOver.current = false;
+      if (!latest.current.open) return;
+      const current = latest.current.controls;
+      if (
+        save &&
+        current?.feedback &&
+        latest.current.draft.trim() !== savedComment()
+      )
+        current.comment(latest.current.draft);
+      editing.current = false;
+      latest.current = { ...latest.current, open: false };
+      setOpen(false);
+    },
+    [cancelClose, savedComment],
+  );
 
   const show = ({ comment, focus }: { comment: string; focus: boolean }) => {
     cancelClose();

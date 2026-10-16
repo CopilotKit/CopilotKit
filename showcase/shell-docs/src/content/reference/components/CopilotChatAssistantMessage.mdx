@@ -188,6 +188,18 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
   renderer.
 </PropertyReference>
 
+<PropertyReference
+  name="feedbackComment"
+  type="SlotProp<typeof CopilotChatAssistantMessage.FeedbackComment>"
+>
+  Slot for the comment field of a [reply rating](#reply-ratings), shown in a
+  popover next to the chosen thumb. Defaults to
+  `CopilotChatAssistantMessage.FeedbackComment`. A replacement receives
+  `value`, `savedComment`, `inputRef`, `onChange`, `onSubmit`,
+  `onEditingChange`, and `onLeave`. It renders after `children`, so a
+  `children` layout does not need to place it.
+</PropertyReference>
+
 ## CopilotChatToolCallsView
 
 A companion component that renders the tool calls contained in an assistant message. Given an assistant message, it iterates over each tool call and renders it using the closest registered tool renderer (registered via `useFrontendTool`, `useHumanInTheLoop`, or `renderToolCalls` on the provider).
@@ -296,9 +308,9 @@ When this component renders inside `CopilotChatMessageView` under a `CopilotChat
 - A click rates the reply and opens a field for an optional comment next to the thumb.
 - Pointing at or keyboard-focusing the chosen thumb opens its comment again. On a touch screen, tapping the chosen thumb removes the rating instead.
 - Clicking the chosen thumb again removes the rating.
-- The rating is saved in the browser and sent to the active Trajectory as a `message.feedback` event. While no Trajectory captures, it waits and is sent once capture runs again while a chat is open.
+- The rating shows while the page is open and is sent to the active Trajectory as a `message.feedback` event. Like any Trajectory event, a rating given while no Trajectory captures is not sent.
 
-`onThumbsUp` and `onThumbsDown` run when a rating is given, not when it is removed. The comment field is `CopilotChatAssistantMessage.FeedbackComment`, which is not a slot; its placeholder and send button use the `assistantMessageFeedbackCommentPlaceholder` and `assistantMessageFeedbackCommentSubmitLabel` labels. See [Collect reply ratings](/intelligence/capture-interactions#collect-reply-ratings) for the event and how ratings reach Intelligence.
+`onThumbsUp` and `onThumbsDown` run when a rating is given, not when it is removed. The comment field is the `feedbackComment` slot, `CopilotChatAssistantMessage.FeedbackComment` by default; its placeholder and send button use the `assistantMessageFeedbackCommentPlaceholder` and `assistantMessageFeedbackCommentSubmitLabel` labels. See [Collect reply ratings](/intelligence/capture-interactions#collect-reply-ratings) for the event and how ratings reach Intelligence.
 
 ## Related
 

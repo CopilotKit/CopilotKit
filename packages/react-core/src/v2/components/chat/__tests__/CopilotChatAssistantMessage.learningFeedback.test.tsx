@@ -13,9 +13,11 @@ import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { useCopilotKit } from "../../../context";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
+import type { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import {
   MESSAGE_FEEDBACK_EVENT_NAME,
   getMessageFeedback,
+  setMessageFeedback,
   ɵresetMessageFeedbackCache,
 } from "../../../lib/message-feedback";
 import { FEEDBACK_COMMENT_CLOSE_DELAY_MS } from "../message-feedback";
@@ -81,12 +83,18 @@ function Chat({
   onThumbsDown,
   eventlessThumbs = false,
   showChat = true,
+  messageFeedback,
+  feedbackComment,
   onCore = () => {},
 }: {
   learningConfig?: React.ComponentProps<typeof CopilotKitProvider>["learning"];
   onThumbsDown?: (message: AssistantMessage) => void;
   eventlessThumbs?: boolean;
   showChat?: boolean;
+  messageFeedback?: boolean;
+  feedbackComment?: React.ComponentProps<
+    typeof CopilotChatAssistantMessage
+  >["feedbackComment"];
   onCore?: (core: CopilotKitCore) => void;
 }) {
   return (
@@ -96,7 +104,9 @@ function Chat({
         {showChat && (
           <CopilotChatMessageView
             messages={messages}
+            {...(messageFeedback === undefined ? {} : { messageFeedback })}
             assistantMessage={{
+              ...(feedbackComment ? { feedbackComment } : {}),
               ...(onThumbsDown ? { onThumbsDown } : {}),
               ...(eventlessThumbs
                 ? { thumbsUpButton: Like, thumbsDownButton: Dislike }
@@ -144,6 +154,21 @@ async function renderCapturingChat(
   return { view, core: core!, emit };
 }
 
+/** Changes the reply's rating the way another chat of this Thread would. */
+const rateElsewhere = (
+  core: CopilotKitCore,
+  feedback: { rating: "up" | "down"; comment?: string } | null,
+) =>
+  act(() =>
+    setMessageFeedback({
+      copilotkit: core,
+      agentId: AGENT_ID,
+      threadId: THREAD_ID,
+      message: reply,
+      feedback,
+    }),
+  );
+
 const feedbackEvents = (emit: { mock: { calls: unknown[][] } }) =>
   emit.mock.calls
     .filter(([name]) => name === MESSAGE_FEEDBACK_EVENT_NAME)
@@ -151,7 +176,6 @@ const feedbackEvents = (emit: { mock: { calls: unknown[][] } }) =>
 
 describe("learning feedback on assistant messages", () => {
   beforeEach(() => {
-    localStorage.clear();
     ɵresetMessageFeedbackCache();
     batches.length = 0;
   });
@@ -389,14 +413,13 @@ describe("learning feedback on assistant messages", () => {
     expect(document.activeElement).toBe(commentBox());
   });
 
-  it("restores the saved rating and comment after a reload", async () => {
+  it("shows the rating and comment again when the chat mounts again", async () => {
     const first = await renderCapturingChat();
     click(thumbsUp());
     fireEvent.change(commentBox()!, { target: { value: "good" } });
     fireEvent.submit(commentBox()!);
     first.view.unmount();
 
-    ɵresetMessageFeedbackCache();
     await renderCapturingChat();
 
     expect(thumbsUp().getAttribute("aria-pressed")).toBe("true");
@@ -436,23 +459,23 @@ describe("learning feedback on assistant messages", () => {
     );
   });
 
-  it("sends a rating given while capture is stopped once it runs again", async () => {
-    const { core, emit } = await renderCapturingChat();
+  it("keeps a rating given while capture is stopped, without sending it later", async () => {
+    const { core } = await renderCapturingChat();
     act(() => core.stopTrajectory());
+    batches.length = 0;
 
-    click(thumbsUp());
     click(thumbsDown());
     expect(thumbsDown().getAttribute("aria-pressed")).toBe("true");
-    expect(feedbackEvents(emit)).toEqual([]);
-
     await act(async () => {
       await core.startTrajectory();
     });
+    act(() => core.stopTrajectory());
 
-    // Only the newest change of each message goes out.
-    expect(feedbackEvents(emit)).toEqual([
-      expect.objectContaining({ messageId: reply.id, rating: "down" }),
-    ]);
+    // Like any Trajectory event, a rating given while nothing captures is lost.
+    const sent = batches
+      .flatMap((batch) => batch.events)
+      .filter((event) => event.name === MESSAGE_FEEDBACK_EVENT_NAME);
+    expect(sent).toEqual([]);
   });
 
   it("keeps the thumbs after capture stops", async () => {
@@ -473,40 +496,29 @@ describe("learning feedback on assistant messages", () => {
     expect(thumbsUp()).toBeTruthy();
   });
 
-  it("sends a rating that waited when the page is opened again", async () => {
-    const first = await renderCapturingChat();
-    act(() => first.core.stopTrajectory());
+  it("leaves the thumbs to the app when the message view turns ratings off", async () => {
+    const onThumbsDown = vi.fn();
+    const { emit } = await renderCapturingChat({
+      messageFeedback: false,
+      onThumbsDown,
+    });
+
+    expect(screen.queryByRole("button", { name: "Good response" })).toBeNull();
     click(thumbsDown());
-    first.view.unmount();
-    ɵresetMessageFeedbackCache();
-    batches.length = 0;
 
-    const second = await renderCapturingChat();
-    act(() => second.core.stopTrajectory());
-
-    const sent = batches
-      .flatMap((batch) => batch.events)
-      .filter((event) => event.name === MESSAGE_FEEDBACK_EVENT_NAME);
-    expect(sent).toEqual([
-      expect.objectContaining({
-        value: expect.objectContaining({ messageId: reply.id, rating: "down" }),
-      }),
-    ]);
+    expect(onThumbsDown).toHaveBeenCalledTimes(1);
+    expect(feedbackEvents(emit)).toEqual([]);
+    expect(commentBox()).toBeNull();
   });
 
-  it("keeps working when storage is blocked", async () => {
-    const setItem = vi
-      .spyOn(Storage.prototype, "setItem")
-      .mockImplementation(() => {
-        throw new Error("QuotaExceededError");
-      });
-    const { emit } = await renderCapturingChat();
+  it("renders the comment field from the feedbackComment slot", async () => {
+    await renderCapturingChat({
+      feedbackComment: { className: "custom-comment" },
+    });
 
     click(thumbsUp());
 
-    expect(setItem).toHaveBeenCalled();
-    expect(thumbsUp().getAttribute("aria-pressed")).toBe("true");
-    expect(feedbackEvents(emit)).toHaveLength(1);
+    expect(commentForm().classList.contains("custom-comment")).toBe(true);
   });
 
   it("does not tell the app about a rating that is removed", async () => {
@@ -685,75 +697,47 @@ describe("learning feedback on assistant messages", () => {
     expect(feedbackEvents(emit)).toHaveLength(1);
   });
 
-  it("shows a rating changed in another tab", async () => {
-    await renderCapturingChat();
-    const key = `copilotkit:message-feedback:v1:${JSON.stringify([AGENT_ID, THREAD_ID])}`;
-    const value = JSON.stringify({ [reply.id]: { rating: "down" } });
-    localStorage.setItem(key, value);
+  it("shows a rating changed elsewhere on the page", async () => {
+    const { core } = await renderCapturingChat();
 
-    act(() => {
-      window.dispatchEvent(
-        new StorageEvent("storage", { key, newValue: value }),
-      );
-    });
+    rateElsewhere(core, { rating: "down" });
 
     expect(thumbsDown().getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("closes the comment when another tab removes the rating", async () => {
-    const { emit } = await renderCapturingChat();
+  it("closes the comment when the rating is removed elsewhere on the page", async () => {
+    const { core, emit } = await renderCapturingChat();
     click(thumbsUp());
     fireEvent.change(commentBox()!, { target: { value: "Fast" } });
     fireEvent.submit(commentBox()!);
     fireEvent.pointerEnter(thumbsUp());
     expect(commentBox()).toHaveProperty("value", "Fast");
-    const key = `copilotkit:message-feedback:v1:${JSON.stringify([AGENT_ID, THREAD_ID])}`;
-    const sync = (value: string | null) => {
-      if (value === null) localStorage.removeItem(key);
-      else localStorage.setItem(key, value);
-      act(() => {
-        window.dispatchEvent(
-          new StorageEvent("storage", {
-            key,
-            newValue: value,
-            storageArea: localStorage,
-          }),
-        );
-      });
-    };
 
-    sync(null);
+    rateElsewhere(core, null);
     expect(thumbsUp().getAttribute("aria-pressed")).toBe("false");
     expect(commentBox()).toBeNull();
 
     // Rated again there, the comment that was open does not reopen by itself.
-    sync(JSON.stringify({ [reply.id]: { rating: "up", comment: "Fast" } }));
+    rateElsewhere(core, { rating: "up", comment: "Fast" });
     expect(thumbsUp().getAttribute("aria-pressed")).toBe("true");
     expect(commentBox()).toBeNull();
-    expect(feedbackEvents(emit)).toHaveLength(2);
+    // The two changes from this chat, then the two from elsewhere.
+    expect(feedbackEvents(emit)).toHaveLength(4);
   });
 
-  it("does not save a draft for a rating another tab changed", async () => {
-    const { emit } = await renderCapturingChat();
+  it("does not save a draft for a rating changed elsewhere on the page", async () => {
+    const { core, emit } = await renderCapturingChat();
     click(thumbsUp());
     fireEvent.change(commentBox()!, { target: { value: "Fast" } });
-    const key = `copilotkit:message-feedback:v1:${JSON.stringify([AGENT_ID, THREAD_ID])}`;
-    const value = JSON.stringify({ [reply.id]: { rating: "down" } });
-    localStorage.setItem(key, value);
 
-    act(() => {
-      window.dispatchEvent(
-        new StorageEvent("storage", {
-          key,
-          newValue: value,
-          storageArea: localStorage,
-        }),
-      );
-    });
+    rateElsewhere(core, { rating: "down" });
 
     expect(thumbsDown().getAttribute("aria-pressed")).toBe("true");
     expect(commentBox()).toBeNull();
-    expect(feedbackEvents(emit)).toHaveLength(1);
+    expect(feedbackEvents(emit)).toEqual([
+      expect.objectContaining({ rating: "up" }),
+      expect.objectContaining({ rating: "down" }),
+    ]);
   });
 
   it("stays open while focus is on the send button", async () => {

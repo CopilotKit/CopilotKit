@@ -371,8 +371,7 @@ export class LearningBridge {
     // `tool.call` events carry the tool name and this `messageId`.
     const content = typeof message.content === "string" ? message.content : "";
     const includeText =
-      this.activeConfig?.capture?.agentText !== false &&
-      typeof message.content === "string";
+      this.capturesAgentText && typeof message.content === "string";
     this.collector?.ɵemit("agent.message", {
       messageId: message.id,
       runId: this.runIdForMessage(agent, message.id),

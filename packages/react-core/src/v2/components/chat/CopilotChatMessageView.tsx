@@ -503,6 +503,12 @@ export type CopilotChatMessageViewProps = Omit<
        * Memoized on its input and this function — pass a stable function.
        */
       groupMessages?: (messages: Message[]) => MessageRow[];
+      /**
+       * Whether reply thumbs record ratings for Automatic Learning once a
+       * Trajectory has started. Defaults to `true`; set `false` to keep the
+       * thumbs to your own `onThumbsUp` / `onThumbsDown` handlers and slots.
+       */
+      messageFeedback?: boolean;
     } & React.HTMLAttributes<HTMLDivElement>
   >,
   "children"
@@ -530,6 +536,7 @@ export function CopilotChatMessageView({
   isRunning = false,
   transformMessages,
   groupMessages,
+  messageFeedback = true,
   children,
   className,
   ...props
@@ -759,16 +766,16 @@ export function CopilotChatMessageView({
     );
   const agentId = config?.agentId;
   const threadId = config?.threadId;
-  const learningFeedbackEnabled = useLearningFeedbackEnabled(copilotkit, {
-    agentId,
-    threadId,
-  });
+  const learningFeedbackEnabled = useLearningFeedbackEnabled(copilotkit);
   const feedbackScope = useMemo<MessageFeedbackScope | null>(
     () =>
-      learningFeedbackEnabled && agentId !== undefined && threadId !== undefined
+      messageFeedback &&
+      learningFeedbackEnabled &&
+      agentId !== undefined &&
+      threadId !== undefined
         ? { copilotkit, agentId, threadId }
         : null,
-    [learningFeedbackEnabled, copilotkit, agentId, threadId],
+    [messageFeedback, learningFeedbackEnabled, copilotkit, agentId, threadId],
   );
   const assistantSlotPropsWithFeedback = useMemo(() => {
     const onThumbsUp = assistantSlotProps?.onThumbsUp as
