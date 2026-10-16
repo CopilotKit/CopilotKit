@@ -1,15 +1,27 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { resolveLegacyDojoPath } from "@/lib/legacy-redirects";
+import { resolveBackendUrl } from "@/lib/backend-url";
+import { resolveLegacyDojoRedirect } from "@/lib/legacy-redirects";
+import { getIntegration } from "@/lib/registry";
+import { getRuntimeConfig } from "@/lib/runtime-config";
 
 export function middleware(request: NextRequest) {
-  const destination = resolveLegacyDojoPath(request.nextUrl.pathname);
-  if (!destination) return NextResponse.next();
-  const url = request.nextUrl.clone();
-  const [pathname, search = ""] = destination.split("?");
-  url.pathname = pathname;
-  url.search = search;
-  return NextResponse.redirect(url, 308);
+  const redirect = resolveLegacyDojoRedirect(request.nextUrl, {
+    demoRoute: (slug, demo) =>
+      getIntegration(slug)?.demos.find((d) => d.id === demo)?.route,
+    backendUrl: (slug) =>
+      resolveBackendUrl(
+        slug,
+        getRuntimeConfig({ noStore: false }).backendHostPattern,
+      ),
+  });
+  if (!redirect) return NextResponse.next();
+  // Relative dojo locations resolve against the request; Next strips the
+  // origin back off for same-origin redirects.
+  return NextResponse.redirect(
+    new URL(redirect.location, request.nextUrl),
+    redirect.permanent ? 308 : 307,
+  );
 }
 
 export const config = {
