@@ -18,7 +18,7 @@ internal static class InspectorRuntimeTests
         using var http = new HttpClient(handler);
         using var sdk = new IntelligenceClient(new IntelligenceOptions
         {
-            ApiKey = "server-key", ApiUrl = new Uri("https://platform.test"), RequestTimeout = TimeSpan.FromMilliseconds(100)
+            ApiKey = "server-key", ApiUrl = new Uri("https://platform.test")
         }, http);
         var identified = 0;
         var errors = new ConcurrentQueue<RuntimeError>();
@@ -59,7 +59,8 @@ internal static class InspectorRuntimeTests
             using var response = await browser.SendAsync(request);
             var metadata = await response.Content.ReadFromJsonAsync<JsonObject>();
 
-            Check(response.StatusCode == HttpStatusCode.OK && response.Headers.CacheControl is { NoStore: true, Private: true }, "metadata route returns private no-store JSON");
+            Check(response.StatusCode == HttpStatusCode.OK, $"metadata route returns JSON (status: {response.StatusCode})");
+            Check(response.Headers.CacheControl is { NoStore: true, Private: true }, "metadata route returns private no-store JSON");
             Check(JsonNode.DeepEquals(metadata, JsonNode.Parse("""{"schemaVersion":1,"identity":{"organizationName":"Org","projectName":"Project"},"usage":{"used":0,"limit":{"kind":"unknown"}}}""")), "Runtime returns only sanitized metadata modules");
             Check(handler.Authorization == "Bearer server-key" && handler.Cookie is null && identified == 0, "public metadata uses SDK credentials without browser credentials or app-user authentication");
             Check(response.Headers.GetValues("Access-Control-Allow-Origin").Single() == "https://app.test", "metadata retains allowed-origin CORS headers");
@@ -117,7 +118,10 @@ internal static class InspectorRuntimeTests
             Authorization = request.Headers.Authorization?.ToString();
             Cookie = request.Headers.TryGetValues("Cookie", out var cookies) ? string.Join(",", cookies) : null;
             if (!Responses.TryDequeue(out var response)) throw new Exception("unexpected metadata request");
-            if (response.Status == 0) await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            // Exercise the runtime's provider-timeout handling deterministically.
+            // SDK tests cover the real request deadline; a short shared deadline
+            // here also races successful responses against cold CI startup.
+            if (response.Status == 0) return await Task.FromCanceled<HttpResponseMessage>(new CancellationToken(true));
             if (response.Status == -1) throw new HttpRequestException("provider-secret-payload");
             return new((HttpStatusCode)response.Status) { Content = new StringContent(response.Body) };
         }
