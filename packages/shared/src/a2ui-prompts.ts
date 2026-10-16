@@ -1,3 +1,4 @@
+import type { GenerativeUIManifest } from "./generative-ui/types";
 /**
  * Default A2UI generation and design guideline prompts.
  *
@@ -132,56 +133,153 @@ export const GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION =
 export const GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION =
   "Generative UI component schema: the components, props, events, slots, functions, and targets that ```a2ui code fences can use, and the surfaces that already exist.";
 
-/**
- * Generation guideline for the markdown transport. The model writes A2UI v1.0
- * operations inside ```a2ui fences between normal markdown prose. The
- * component schema goes in a separate context entry. The rules describe the
- * same component, event, and slot model as the tool-mode guide.
- */
-export const GENERATIVE_UI_MARKDOWN_GUIDELINES = `\
-You can show interactive UI in your reply. Write A2UI operations inside a fenced code block tagged a2ui.
+/** Which optional parts of A2UI a manifest uses. The guides leave out the rules for the others. */
+export interface GenerativeUIGuideFeatures {
+  /** A function is mounted: function calls and callRendererFunction. */
+  functions: boolean;
+  /** A component has an event prop. */
+  events: boolean;
+  /** A component has a "multiple" slot, which takes templates and @index. */
+  templates: boolean;
+}
 
-RULES
-- Write explanations as normal markdown prose outside the fences.
-- Open a fence with \`\`\`a2ui to show the surface in the chat, at the place of the fence.
-- Open a fence with \`\`\`a2ui target=<id> to show the surface in a named target. Use only target ids from the schema.
-- Inside a fence, write one JSON object per line and nothing else. No comments, no trailing commas, no pretty-printing.
-- Keep each operation whole on its line.
-- Give every operation "version":"v1.0".
-- Start a surface with one createSurface. Put all the initial data in "dataModel" and the "root" component in "components". Then write the children in updateComponents lines, so that they show while you write:
+/** Every optional rule group. Use it when the manifest is not known. */
+export const ALL_GENERATIVE_UI_GUIDE_FEATURES: GenerativeUIGuideFeatures = {
+  functions: true,
+  events: true,
+  templates: true,
+};
+
+/**
+ * The optional parts of A2UI that a manifest uses, so that a guide sends only
+ * the rules that the model can apply.
+ *
+ * @param manifest - The components and the mounted functions of a run.
+ * @returns Which optional rule groups the guides include.
+ *
+ * @example
+ * ```ts
+ * const guide = buildGenerativeUIMarkdownGuidelines(
+ *   generativeUIGuideFeatures(manifest),
+ * );
+ * ```
+ */
+export function generativeUIGuideFeatures(
+  manifest: Pick<GenerativeUIManifest, "components" | "functions">,
+): GenerativeUIGuideFeatures {
+  const components = Object.values(manifest.components);
+  return {
+    functions: Object.keys(manifest.functions).length > 0,
+    events: components.some((c) => Object.keys(c.events ?? {}).length > 0),
+    templates: components.some((c) =>
+      Object.values(c.slots ?? {}).includes("multiple"),
+    ),
+  };
+}
+
+/** The first rules of every markdown guideline, before the optional groups. */
+const MARKDOWN_BASE_RULES = [
+  "Write explanations as normal markdown prose outside the fences.",
+  "Open a fence with ```a2ui to show the surface in the chat, at the place of the fence.",
+  "Open a fence with ```a2ui target=<id> to show the surface in a named target. Use only target ids from the schema.",
+  "Inside a fence, write one JSON object per line and nothing else. No comments, no trailing commas, no pretty-printing.",
+  "Keep each operation whole on its line.",
+  'Give every operation "version":"v1.0".',
+  `Start a surface with one createSurface. Put all the initial data in "dataModel" and the "root" component in "components". Then write the children in updateComponents lines, so that they show while you write:
   \`\`\`a2ui
   {"version":"v1.0","createSurface":{"surfaceId":"plan-picker","dataModel":{ ...initial data... },"components":[{"id":"root","component":"<Name>","children":["seats","pick"]}]}}
   {"version":"v1.0","updateComponents":{"surfaceId":"plan-picker","components":[ ...the children... ]}}
-  \`\`\`
-- Every surface renders from the component with id "root". Make every other component reachable from "root" through slots.
-- Use unique ids. Do not make cycles. A component cannot be its own child.
-- Write a component as one flat object: {"id":"title","component":"<Name>","text":"Hello"}.
-- Put the component name in "component" (never "type"). Put props next to it, never inside a "props" object.
-- Use only the components, props, events, and slots in the schema.
-- Give a prop a literal value, or bind it to the data model with {"@path":"/x"}. Never write {"path":"/x"} as a binding.
-- Bind a writable prop to let the user edit it: "value":{"@path":"/form/email"}. The user's input goes to that path.
-- To change data, write updateDataModel with a "path" and a "value": {"version":"v1.0","updateDataModel":{"surfaceId":"plan-picker","path":"/seats","value":12}}. Always give "value".
-- Set "value":null to delete the key at "path".
-- Give an event prop an object: {"event":{"name":"<name>","userMessage":"<text>","context":{...}}} or {"functionCall":{"@call":"<function>","args":{...}}}. Never a flat {"event":"<name>"}.
-- Use {"functionCall": ...} to run an app function in the browser when the user clicks. Use only functions from the schema. You are not told about the call.
-- Use {"event": ...} to send the interaction back to you as a user message. Put the text of that message in "userMessage": {"event":{"name":"choose","userMessage":"Show me the Team plan"}}.
-- To send input values with an event, bind them in the context: "context":{"email":{"@path":"/form/email"}}.
-- A button or other event prop without an event or functionCall does nothing.
-- Never put {"@call": ...} or an expression in a data prop. Compute derived values (totals, prices) yourself and write them as literals or into the data model. The only exception is {"@call":"@index"} in a template.
-- Give a slot component ids: "child":"card" for a single slot, "children":["a","b"] for a multiple slot.
-- To repeat a component for each item of a list, give a multiple slot a template: "children":{"componentId":"row","path":"/items"}.
-- Inside a template, paths are relative to the item ("name", not "/name").
-- Inside a template, {"@call":"@index"} gives the position of the item, from 0. To count from 1, write {"@call":"@index","args":{"offset":1}}.
-- Updating a component replaces all of its props. Send every prop again.
-- To change a surface, write another fence with the same surfaceId, in this reply or in a later reply. Do not send createSurface again. The surface changes where it already is.
-- Use a new surfaceId for a different view. Never use a surfaceId again, also after the surface is deleted.
-- To run an app function now, with no click, write a callRendererFunction line in a fence: {"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}. It needs no surface.
-- Give every callRendererFunction a new functionCallId. Use only functions from the schema.
-- The result of a callRendererFunction comes back to you as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Then you get a new turn.
-- Do not guess the result of a callRendererFunction. Wait for the developer message.
-- The schema lists the surfaces that already exist under "surfaces". "dataModel" holds the values that the user entered: read them, and do not write those paths. "rejected" lists operations that the client dropped: send corrected operations in a new fence for that surfaceId.
-- Never make a surface that is only prose. Write headings, paragraphs, lists of text, intros, and summaries as markdown outside the fences, also between two fences.
-- Put in a fence only what markdown cannot show: charts, tables, maps, images, badges, inputs, buttons, cards with controls.
-- Use Card only for an interactive panel (controls, a form, a configurator). Put everything else in a plain layout component.
-- Never wrap the whole reply in a fence.
+  \`\`\``,
+  'Every surface renders from the component with id "root". Make every other component reachable from "root" through slots.',
+  "Use unique ids. Do not make cycles. A component cannot be its own child.",
+  'Write a component as one flat object: {"id":"title","component":"<Name>","text":"Hello"}.',
+  'Put the component name in "component" (never "type"). Put props next to it, never inside a "props" object.',
+  "Use only the components, props, events, and slots in the schema.",
+  'Give a prop a literal value, or bind it to the data model with {"@path":"/x"}. Never write {"path":"/x"} as a binding.',
+  'Bind a writable prop to let the user edit it: "value":{"@path":"/form/email"}. The user\'s input goes to that path.',
+  'To change data, write updateDataModel with a "path" and a "value": {"version":"v1.0","updateDataModel":{"surfaceId":"plan-picker","path":"/seats","value":12}}. Always give "value".',
+  'Set "value":null to delete the key at "path".',
+];
+
+/** The last rules of every markdown guideline, after the optional groups. */
+const MARKDOWN_CLOSING_RULES = [
+  'The schema lists the surfaces that already exist under "surfaces". "dataModel" holds the values that the user entered: read them, and do not write those paths. "rejected" lists operations that the client dropped: send corrected operations in a new fence for that surfaceId.',
+  "Never make a surface that is only prose. Write headings, paragraphs, lists of text, intros, and summaries as markdown outside the fences, also between two fences.",
+  "Put in a fence only what markdown cannot show: charts, tables, maps, images, badges, inputs, buttons, cards with controls.",
+  "Use Card only for an interactive panel (controls, a form, a configurator). Put everything else in a plain layout component.",
+  "Never wrap the whole reply in a fence.",
+];
+
+/**
+ * Builds the markdown-transport guideline. The model writes A2UI v1.0
+ * operations inside ```a2ui fences between normal markdown prose. The rules
+ * for functions, events, and templates are left out when the manifest has
+ * none of them, so the guideline stays small.
+ *
+ * @param features - The optional rule groups to include. Defaults to all.
+ * @returns The guideline text, one rule per line.
+ */
+export function buildGenerativeUIMarkdownGuidelines(
+  features: GenerativeUIGuideFeatures = ALL_GENERATIVE_UI_GUIDE_FEATURES,
+) {
+  const { functions, events, templates } = features;
+  const rules = [...MARKDOWN_BASE_RULES];
+  if (events) {
+    rules.push(
+      functions
+        ? 'Give an event prop an object: {"event":{"name":"<name>","userMessage":"<text>","context":{...}}} or {"functionCall":{"@call":"<function>","args":{...}}}. Never a flat {"event":"<name>"}.'
+        : 'Give an event prop an object: {"event":{"name":"<name>","userMessage":"<text>","context":{...}}}. Never a flat {"event":"<name>"}.',
+    );
+    if (functions) {
+      rules.push(
+        'Use {"functionCall": ...} to run an app function in the browser when the user clicks. Use only functions from the schema. You are not told about the call.',
+      );
+    }
+    rules.push(
+      'Use {"event": ...} to send the interaction back to you as a user message. Put the text of that message in "userMessage": {"event":{"name":"choose","userMessage":"Show me the Team plan"}}.',
+      'To send input values with an event, bind them in the context: "context":{"email":{"@path":"/form/email"}}.',
+      functions
+        ? "A button or other event prop without an event or functionCall does nothing."
+        : "A button or other event prop without an event does nothing.",
+    );
+  }
+  rules.push(
+    templates
+      ? 'Never put {"@call": ...} or an expression in a data prop. Compute derived values (totals, prices) yourself and write them as literals or into the data model. The only exception is {"@call":"@index"} in a template.'
+      : 'Never put {"@call": ...} or an expression in a data prop. Compute derived values (totals, prices) yourself and write them as literals or into the data model.',
+    'Give a slot component ids: "child":"card" for a single slot, "children":["a","b"] for a multiple slot.',
+  );
+  if (templates) {
+    rules.push(
+      'To repeat a component for each item of a list, give a multiple slot a template: "children":{"componentId":"row","path":"/items"}.',
+      'Inside a template, paths are relative to the item ("name", not "/name").',
+      'Inside a template, {"@call":"@index"} gives the position of the item, from 0. To count from 1, write {"@call":"@index","args":{"offset":1}}.',
+    );
+  }
+  rules.push(
+    "Updating a component replaces all of its props. Send every prop again.",
+    "To change a surface, write another fence with the same surfaceId, in this reply or in a later reply. Do not send createSurface again. The surface changes where it already is.",
+    "Use a new surfaceId for a different view. Never use a surfaceId again, also after the surface is deleted.",
+  );
+  if (functions) {
+    rules.push(
+      'To run an app function now, with no click, write a callRendererFunction line in a fence: {"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}. It needs no surface.',
+      "Give every callRendererFunction a new functionCallId. Use only functions from the schema.",
+      'The result of a callRendererFunction comes back to you as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Then you get a new turn.',
+      "Do not guess the result of a callRendererFunction. Wait for the developer message.",
+    );
+  }
+  rules.push(...MARKDOWN_CLOSING_RULES);
+  return `You can show interactive UI in your reply. Write A2UI operations inside a fenced code block tagged a2ui.
+
+RULES
+${rules.map((rule) => `- ${rule}`).join("\n")}
 `;
+}
+
+/**
+ * The markdown-transport guideline with every rule group. A run sends
+ * `buildGenerativeUIMarkdownGuidelines` for its own manifest instead.
+ */
+export const GENERATIVE_UI_MARKDOWN_GUIDELINES =
+  buildGenerativeUIMarkdownGuidelines();
