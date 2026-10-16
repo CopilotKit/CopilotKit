@@ -71,6 +71,13 @@
   color: var(--copilot-kit-secondary-contrast-color);
 }
 
+.copilotKitMessageTimestamp {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  opacity: 0.65;
+}
+
 .copilotKitMessage.copilotKitAssistantMessage .copilotKitMessageControls {
   position: absolute;
   left: 0;
