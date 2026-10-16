@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import {
-  GENERATIVE_UI_MARKDOWN_GUIDELINES,
+  buildGenerativeUIMarkdownGuidelines,
+  generativeUIGuideFeatures,
   GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
 } from "@copilotkit/shared";
@@ -212,16 +213,26 @@ export function useGenerativeUIMarkdownContext(
       ? JSON.parse(agentIdsKey)
       : undefined;
     const scope = scopedAgentIds ? { agentIds: scopedAgentIds } : {};
-    const guidelineId = copilotkit.addContext({
-      description: GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
-      value: GENERATIVE_UI_MARKDOWN_GUIDELINES,
-      ...scope,
-    });
-
+    // The guideline has only the rule groups that the manifest uses, and the
+    // mounted functions can change, so it is built again with the schema.
+    let guidelineId: string | undefined;
+    let guidelineValue: string | undefined;
     let schemaId: string | undefined;
     let schemaValue: string | undefined;
     const refreshSchema = (threadId: string | undefined) => {
       const manifest = buildGenerativeUIManifest(runtime, threadId);
+      const guideline = buildGenerativeUIMarkdownGuidelines(
+        generativeUIGuideFeatures(manifest),
+      );
+      if (guideline !== guidelineValue) {
+        if (guidelineId !== undefined) copilotkit.removeContext(guidelineId);
+        guidelineValue = guideline;
+        guidelineId = copilotkit.addContext({
+          description: GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
+          value: guideline,
+          ...scope,
+        });
+      }
       const value = JSON.stringify(buildCompactGenerativeUISchema(manifest));
       if (value === schemaValue) return;
       if (schemaId !== undefined) copilotkit.removeContext(schemaId);
@@ -253,7 +264,7 @@ export function useGenerativeUIMarkdownContext(
     return () => {
       subscription.unsubscribe();
       unsubscribeManager();
-      copilotkit.removeContext(guidelineId);
+      if (guidelineId !== undefined) copilotkit.removeContext(guidelineId);
       if (schemaId !== undefined) copilotkit.removeContext(schemaId);
     };
   }, [copilotkit, runtime, enabled, agentIdsKey]);

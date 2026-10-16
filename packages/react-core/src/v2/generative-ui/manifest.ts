@@ -1,4 +1,6 @@
 import {
+  buildGenerativeUIMarkdownGuidelines,
+  generativeUIGuideFeatures,
   COPILOTKIT_UI_ENVELOPE_FORMAT,
   GENERATIVE_UI_CHAT_TARGET,
 } from "@copilotkit/shared";
@@ -51,7 +53,11 @@ export interface GenerativeUIEnvelopeOptions {
   includeCatalog: boolean;
   /** True when the client also sends the guide as context entries. */
   contextSent: boolean;
-  /** The markdown guideline. The inline catalog has it only when given. */
+  /**
+   * The markdown guideline. Left out, the markdown transport builds it from
+   * the manifest, with only the rule groups that the manifest uses. The
+   * tool transport sends none.
+   */
   instructions?: string;
 }
 
@@ -62,7 +68,8 @@ export interface GenerativeUIEnvelopeOptions {
  * in `metadata.extensions`.
  *
  * The inline catalog has no `components` only for the markdown transport
- * with `includeCatalog: false`. It has `instructions` only when given.
+ * with `includeCatalog: false`. It has `instructions` for the markdown
+ * transport, or when given.
  *
  * @param runtime - The generative UI runtime of the provider.
  * @param threadId - The thread of the run. Its surfaces go in `copilotkit_surfaces`.
@@ -83,8 +90,14 @@ export function buildGenerativeUIEnvelope(
   threadId: string | undefined,
   options: GenerativeUIEnvelopeOptions,
 ) {
-  const { transport, includeCatalog, contextSent, instructions } = options;
+  const { transport, includeCatalog, contextSent } = options;
   const manifest = buildGenerativeUIManifest(runtime, threadId);
+  // The markdown guideline has only the rule groups that this manifest uses.
+  const instructions =
+    options.instructions ??
+    (transport === "markdown"
+      ? buildGenerativeUIMarkdownGuidelines(generativeUIGuideFeatures(manifest))
+      : undefined);
   const omitComponents = transport === "markdown" && !includeCatalog;
   const envelope: CopilotKitUIEnvelope = {
     "v1.0": {
