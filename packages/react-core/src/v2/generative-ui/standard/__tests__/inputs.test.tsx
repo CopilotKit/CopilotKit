@@ -35,7 +35,7 @@ function renderInputs(
 /** An agent write to the data model of the test surface. */
 function agentWrite(path: string, value: unknown) {
   return {
-    version: "v0.9" as const,
+    version: "v1.0" as const,
     updateDataModel: { surfaceId: SURFACE_ID, path, value },
   };
 }
@@ -102,9 +102,9 @@ describe("standard inputs: values", () => {
           id: "f",
           component: "TextField",
           label: "Email",
-          value: { path: "/form/email" },
+          value: { "@path": "/form/email" },
         },
-        { id: "t", component: "Label", text: { path: "/form/email" } },
+        { id: "t", component: "Label", text: { "@path": "/form/email" } },
       ],
       { form: { email: "" } },
     );
@@ -144,7 +144,7 @@ describe("standard inputs: values", () => {
           id: "root",
           component: "CheckBox",
           label: "Annual billing",
-          checked: { path: "/annual" },
+          checked: { "@path": "/annual" },
         },
       ],
       { annual: false },
@@ -169,9 +169,9 @@ describe("standard inputs: values", () => {
           component: "Slider",
           label: "Seats",
           unit: "users",
-          value: { path: "/seats" },
-          min: { path: "/limits/min" },
-          max: { path: "/limits/max" },
+          value: { "@path": "/seats" },
+          min: { "@path": "/limits/min" },
+          max: { "@path": "/limits/max" },
           step: 1,
         },
       ],
@@ -193,7 +193,7 @@ describe("standard inputs: values", () => {
           id: "root",
           component: "DateTimeInput",
           label: "Start date",
-          value: { path: "/when" },
+          value: { "@path": "/when" },
           clearable: true,
         },
       ],
@@ -214,21 +214,21 @@ describe("standard inputs: options", () => {
       id: "s",
       component: "Select",
       label: "Plan",
-      value: { path: "/plan" },
-      options: { path: "/plans" },
+      value: { "@path": "/plan" },
+      options: { "@path": "/plans" },
     },
     {
       id: "r",
       component: "RadioGroup",
       label: "Plan choice",
-      value: { path: "/plan" },
+      value: { "@path": "/plan" },
       options: ["team", "enterprise"],
     },
     {
       id: "g",
       component: "SegmentedControl",
       label: "Plan segment",
-      value: { path: "/plan" },
+      value: { "@path": "/plan" },
       options: [
         { value: "team", label: "Team seg" },
         { value: "enterprise", label: "Ent seg" },
@@ -326,7 +326,7 @@ describe("standard inputs: events", () => {
           id: "f",
           component: "TextField",
           label: "Email",
-          value: { path: "/form/email" },
+          value: { "@path": "/form/email" },
         },
         {
           id: "b",
@@ -335,7 +335,7 @@ describe("standard inputs: events", () => {
           onClick: {
             event: {
               name: "subscribe",
-              context: { email: { path: "/form/email" }, source: "footer" },
+              context: { email: { "@path": "/form/email" }, source: "footer" },
             },
           },
         },
@@ -380,7 +380,7 @@ describe("standard inputs: events", () => {
           onSubmit: {
             event: {
               name: "signup",
-              context: { email: { path: "/form/email" } },
+              context: { email: { "@path": "/form/email" } },
             },
           },
         },
@@ -388,7 +388,7 @@ describe("standard inputs: events", () => {
           id: "f",
           component: "TextField",
           label: "Email",
-          value: { path: "/form/email" },
+          value: { "@path": "/form/email" },
         },
         {
           id: "b",

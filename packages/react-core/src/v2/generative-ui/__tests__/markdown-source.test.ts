@@ -33,15 +33,15 @@ const ui = createGenerativeUI({
 });
 
 const create = (surfaceId: string) => ({
-  version: "v0.9",
+  version: "v1.0",
   createSurface: { surfaceId, catalogId: "app" },
 });
 const components = (surfaceId: string, ...nodes: object[]) => ({
-  version: "v0.9",
+  version: "v1.0",
   updateComponents: { surfaceId, components: nodes },
 });
 const data = (surfaceId: string, value: object) => ({
-  version: "v0.9",
+  version: "v1.0",
   updateDataModel: { surfaceId, path: "/", value },
 });
 const button = (id: string, label: string) => ({
@@ -49,6 +49,34 @@ const button = (id: string, label: string) => ({
   component: "Button",
   label,
 });
+/** A createSurface that carries its data model and components. */
+const inlineCreate = (
+  surfaceId: string,
+  dataModel: object,
+  ...nodes: object[]
+) => ({
+  version: "v1.0",
+  createSurface: { surfaceId, dataModel, components: nodes },
+});
+const callFunction = (functionCallId: string, sku: string) => ({
+  version: "v1.0",
+  callRendererFunction: {
+    functionCallId,
+    callFunction: { "@call": "addToCart", args: { sku } },
+  },
+});
+/** A Column with a title, a button, a text and a button: prose and UI. */
+const mixedStack = [
+  {
+    id: "root",
+    component: "Column",
+    children: ["title", "buy", "note", "more"],
+  },
+  { id: "title", component: "Title", text: "Plans" },
+  button("buy", "Buy"),
+  { id: "note", component: "Text", text: "Or see more." },
+  button("more", "More"),
+];
 
 /** An a2ui fence with one operation per line. Leave `close` false to keep it open. */
 function fence(
@@ -144,7 +172,7 @@ describe("buildMarkdownSurfaces", () => {
       const message = assistant(
         "m1",
         fence([
-          { version: "v0.9", createSurface },
+          { version: "v1.0", createSurface },
           components("s1", button("root", "Buy")),
         ]),
       );
@@ -181,7 +209,7 @@ describe("buildMarkdownSurfaces", () => {
     const complete = fence([create("s1")], { close: false });
     // The first component is complete, but the operation is not.
     const halfLine =
-      '{"version":"v0.9","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Button","label":"Buy"},{"id":"mo';
+      '{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Button","label":"Buy"},{"id":"mo';
     const message = assistant("m1", `${complete}${halfLine}`);
 
     const [surface] = build([message], true).surfaces;
@@ -239,45 +267,124 @@ describe("buildMarkdownSurfaces", () => {
     expect(steps.at(-1)).toHaveLength(5);
   });
 
-  it("lifts prose out of a chat surface and splits the rest into #n sub-surfaces", () => {
-    const message = assistant(
-      "m1",
-      fence([
+  it.each([
+    [
+      "separate operations",
+      [
         create("s1"),
         data("s1", { plan: "team" }),
-        components(
-          "s1",
-          {
-            id: "root",
-            component: "Column",
-            children: ["title", "buy", "note", "more"],
-          },
-          { id: "title", component: "Title", text: "Plans" },
-          button("buy", "Buy"),
-          { id: "note", component: "Text", text: "Or see more." },
-          button("more", "More"),
-        ),
-      ]),
-    );
+        components("s1", ...mixedStack),
+      ],
+    ],
+    [
+      "one inline createSurface",
+      [inlineCreate("s1", { plan: "team" }, ...mixedStack)],
+    ],
+  ])(
+    "lifts prose out of a chat surface made with %s and splits the rest into #n sub-surfaces",
+    (_name, operations) => {
+      const message = assistant("m1", fence(operations));
 
-    const { surfaces, fences } = build([message]);
+      const { surfaces, fences } = build([message]);
+
+      expect(fences.get("m1:0")).toEqual([
+        { kind: "markdown", markdown: "### Plans" },
+        { kind: "surface", surfaceId: "s1" },
+        { kind: "markdown", markdown: "Or see more." },
+        { kind: "surface", surfaceId: "s1#1" },
+      ]);
+      expect(surfaces.find((s) => s.surfaceId === "s1#1")?.operations).toEqual([
+        create("s1#1"),
+        data("s1#1", { plan: "team" }),
+        components("s1#1", {
+          id: "root",
+          component: "Column",
+          children: ["more"],
+        }),
+        components("s1#1", button("more", "More")),
+      ]);
+    },
+  );
+
+  it("lifts the prose of an inline createSurface while it streams", () => {
+    const text = fence([inlineCreate("s1", { plan: "team" }, ...mixedStack)]);
+    const cut = text.indexOf('{"id":"note"');
+
+    const { surfaces, fences } = build(
+      [assistant("m1", text.slice(0, cut))],
+      true,
+    );
 
     expect(fences.get("m1:0")).toEqual([
       { kind: "markdown", markdown: "### Plans" },
       { kind: "surface", surfaceId: "s1" },
-      { kind: "markdown", markdown: "Or see more." },
-      { kind: "surface", surfaceId: "s1#1" },
     ]);
-    expect(surfaces.find((s) => s.surfaceId === "s1#1")?.operations).toEqual([
-      create("s1#1"),
-      data("s1#1", { plan: "team" }),
-      components("s1#1", {
+    expect(surfaces.map((s) => [s.surfaceId, s.status])).toEqual([
+      ["s1", "streaming"],
+    ]);
+  });
+
+  it("only adds operations at the end while an inline createSurface streams in", () => {
+    const text = fence([
+      inlineCreate(
+        "s1",
+        { plan: "team" },
+        { id: "root", component: "Column", children: ["buy", "more"] },
+        button("buy", "Buy"),
+        button("more", "More"),
+      ),
+    ]);
+    const steps: string[][] = [];
+    for (let end = 1; end <= text.length; end++) {
+      const closed = end === text.length;
+      const [surface] = build(
+        [assistant("m1", text.slice(0, end))],
+        !closed,
+      ).surfaces;
+      if (surface)
+        steps.push(surface.operations.map((op) => JSON.stringify(op)));
+    }
+
+    for (let i = 1; i < steps.length; i++) {
+      expect(steps[i].slice(0, steps[i - 1].length)).toEqual(steps[i - 1]);
+    }
+    expect(steps.at(-1)?.map((op) => JSON.parse(op))).toEqual([
+      create("s1"),
+      data("s1", { plan: "team" }),
+      components("s1", {
         id: "root",
         component: "Column",
-        children: ["more"],
+        children: ["buy", "more"],
       }),
-      components("s1#1", button("more", "More")),
+      components("s1", button("buy", "Buy")),
+      components("s1", button("more", "More")),
     ]);
+  });
+
+  it("gives the function call lines in order and keeps them out of the surfaces", () => {
+    const first = assistant(
+      "m1",
+      fence([
+        create("s1"),
+        callFunction("f1", "a"),
+        components("s1", button("root", "Buy")),
+      ]),
+    );
+    const onlyCall = assistant(
+      "m2",
+      `Adding it.\n${fence([callFunction("f2", "b")])}`,
+    );
+
+    const { surfaces, fences, functionCalls } = build([first, onlyCall]);
+
+    expect(functionCalls).toEqual([
+      { messageId: "m1", fenceIndex: 0, operation: callFunction("f1", "a") },
+      { messageId: "m2", fenceIndex: 0, operation: callFunction("f2", "b") },
+    ]);
+    expect(surfaces.map((s) => [s.surfaceId, s.operations])).toEqual([
+      ["s1", [create("s1"), components("s1", button("root", "Buy"))]],
+    ]);
+    expect([...fences.keys()]).toEqual(["m1:0"]);
   });
 });
 

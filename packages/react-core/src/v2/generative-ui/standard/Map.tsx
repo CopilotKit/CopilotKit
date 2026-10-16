@@ -28,7 +28,7 @@ export const mapSchema = z.object({
   markers: z
     .array(mapMarker)
     .optional()
-    .describe('A list of places, or { "path": "/x" }'),
+    .describe('A list of places, or { "@path": "/x" }'),
   route: z
     .boolean()
     .optional()
@@ -37,7 +37,7 @@ export const mapSchema = z.object({
     .string()
     .optional()
     .describe(
-      'The label of the selected marker. Bind it with { "path": "/x" } to read the choice of the user',
+      'The label of the selected marker. Bind it with { "@path": "/x" } to read the choice of the user',
     ),
   height: z.number().optional().describe("Pixels. Default 240"),
   zoom: z

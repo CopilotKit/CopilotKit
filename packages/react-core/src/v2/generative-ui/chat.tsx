@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_CHAT_TARGET,
+  GENERATIVE_UI_FUNCTION_CALL_ACTIVITY_TYPE,
   GENERATIVE_UI_RENDER_TOOL,
 } from "@copilotkit/shared";
 import type {
@@ -130,6 +131,19 @@ export function createGenerativeUIActivityRenderer(): ReactActivityMessageRender
       ContentSchema as unknown as ReactActivityMessageRenderer<GenerativeUISurfaceContent>["content"],
     render:
       GenerativeUIChatActivity as ReactActivityMessageRenderer<GenerativeUISurfaceContent>["render"],
+  };
+}
+
+/**
+ * Shows nothing in the chat for an agent-called function. The root reads the
+ * function-call activities from the messages and runs them. This renderer
+ * only keeps a wildcard ("*") activity renderer from showing them.
+ */
+export function createGenerativeUIFunctionCallActivityRenderer(): ReactActivityMessageRenderer<unknown> {
+  return {
+    activityType: GENERATIVE_UI_FUNCTION_CALL_ACTIVITY_TYPE,
+    content: z.unknown(),
+    render: () => null,
   };
 }
 

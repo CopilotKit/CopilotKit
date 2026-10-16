@@ -1,6 +1,9 @@
 import type { z } from "zod";
 import { isPathBinding } from "@copilotkit/shared";
-import type { GenerativeUIActionBinding } from "@copilotkit/shared";
+import type {
+  GenerativeUIActionBinding,
+  GenerativeUIUserEvent,
+} from "@copilotkit/shared";
 import { GenerativeUIError } from "./errors";
 import type { GenerativeUIInvokeResult } from "./errors";
 import type { GenerativeUIInvocationOrigin } from "./dispatcher";
@@ -24,16 +27,36 @@ interface EventCall {
   args: unknown;
 }
 
+/** A `{"@path"}` value read from the surface data model. Others stay. */
+function resolveValue(surface: ManagedSurface, value: unknown) {
+  return isPathBinding(value)
+    ? surface.model.dataModel.get(value["@path"])
+    : value;
+}
+
 function resolveValues(
   surface: ManagedSurface,
   values: Record<string, unknown> | undefined,
-): Record<string, unknown> {
+) {
   return Object.fromEntries(
     Object.entries(values ?? {}).map(([key, value]) => [
       key,
-      isPathBinding(value) ? surface.model.dataModel.get(value.path) : value,
+      resolveValue(surface, value),
     ]),
   );
+}
+
+/**
+ * The `userMessage` of an event binding, as text. A `{"@path"}` reads the
+ * data model. `undefined` when there is no message, or the value at the path
+ * is not a string.
+ */
+function resolveUserMessage(
+  surface: ManagedSurface,
+  userMessage: string | { "@path": string } | undefined,
+) {
+  const value = resolveValue(surface, userMessage);
+  return typeof value === "string" ? value : undefined;
 }
 
 /**
@@ -86,7 +109,7 @@ export function invokeBoundEvent(
     const componentArgs = args as Record<string, unknown>;
     if ("functionCall" in binding) {
       return runtime.dispatcher.invoke(
-        binding.functionCall.call,
+        binding.functionCall["@call"],
         {
           ...componentArgs,
           ...resolveValues(surface, binding.functionCall.args),
@@ -94,17 +117,14 @@ export function invokeBoundEvent(
         origin,
       );
     }
-    return runtime.forwardEvent(
-      {
-        name: binding.event.name,
-        ...origin,
-        context: {
-          ...componentArgs,
-          ...resolveValues(surface, binding.event.context),
-        },
-      },
-      surface.agentId,
-    );
+    const { event } = binding;
+    const forwarded: GenerativeUIUserEvent = {
+      name: event.name,
+      ...origin,
+      userMessage: resolveUserMessage(surface, event.userMessage),
+      context: { ...componentArgs, ...resolveValues(surface, event.context) },
+    };
+    return runtime.forwardEvent(forwarded, surface.agentId);
   });
 }
 

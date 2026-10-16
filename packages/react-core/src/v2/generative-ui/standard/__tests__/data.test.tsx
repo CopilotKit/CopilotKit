@@ -114,8 +114,8 @@ describe("Table", () => {
           children: { componentId: "row", path: "/rows" },
         },
         { id: "row", component: "TableRow", children: ["name", "price"] },
-        { id: "name", component: "TableCell", text: { path: "name" } },
-        { id: "price", component: "TableCell", text: { path: "price" } },
+        { id: "name", component: "TableCell", text: { "@path": "name" } },
+        { id: "price", component: "TableCell", text: { "@path": "price" } },
       ],
       {
         rows: [
@@ -178,8 +178,8 @@ describe("Table", () => {
         {
           id: "root",
           component: "Table",
-          columns: { path: "/columns" },
-          rows: { path: "/rows" },
+          columns: { "@path": "/columns" },
+          rows: { "@path": "/rows" },
           cellComponents: ["top"],
         },
         { id: "top", component: "Label", text: "Top pick" },
@@ -245,7 +245,7 @@ describe("List", () => {
           marker: "none",
           children: { componentId: "item", path: "/todos" },
         },
-        { id: "item", component: "ListItem", label: { path: "title" } },
+        { id: "item", component: "ListItem", label: { "@path": "title" } },
       ],
       { todos: [{ title: "Buy milk" }, { title: "Walk dog" }] },
     );
@@ -362,7 +362,7 @@ describe("Map", () => {
             { label: "Vienna", lat: 48.2, lng: 16.37 },
             { label: "Graz", lat: 47.07, lng: 15.44, category: "City" },
           ],
-          selected: { path: "/city" },
+          selected: { "@path": "/city" },
         },
       ],
       { city: "Vienna" },

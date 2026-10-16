@@ -24,20 +24,29 @@ export interface GenerativeUIHandlerRef {
   current: (args: any) => unknown;
 }
 
+/** The component of a surface that called a function. */
 export interface GenerativeUIInvocationOrigin {
   surfaceId: string;
   componentId: string;
 }
 
+/**
+ * What called a function: a component of a surface, or the agent with a
+ * `callRendererFunction` operation.
+ */
+export type GenerativeUICallOrigin =
+  | GenerativeUIInvocationOrigin
+  | { functionCallId: string };
+
 export interface GenerativeUIDispatcher {
   /**
-   * Call a declared function with arguments from generated UI. Never throws:
-   * every failure becomes `{ ok: false, error }`.
+   * Call a declared function with arguments from generated UI or from the
+   * agent. Never throws: every failure becomes `{ ok: false, error }`.
    */
   invoke(
     name: string,
     args: unknown,
-    origin: GenerativeUIInvocationOrigin,
+    origin: GenerativeUICallOrigin,
   ): Promise<GenerativeUIInvokeResult>;
   /** The declared functions that have exactly one mounted handler, as JSON Schema. */
   listExposed(): Record<string, GenerativeUIFunctionManifest>;
@@ -54,7 +63,7 @@ export interface GenerativeUIDispatcherOptions {
   /** Called for each failed `invoke`. A throw from it is ignored. */
   onError?: (info: {
     name: string;
-    origin: GenerativeUIInvocationOrigin;
+    origin: GenerativeUICallOrigin;
     error: GenerativeUIError;
   }) => void;
 }
@@ -182,7 +191,7 @@ export function createGenerativeUIDispatcher(
 
   const failWith = (
     name: string,
-    origin: GenerativeUIInvocationOrigin,
+    origin: GenerativeUICallOrigin,
     error: GenerativeUIError,
   ): GenerativeUIInvokeResult => {
     try {

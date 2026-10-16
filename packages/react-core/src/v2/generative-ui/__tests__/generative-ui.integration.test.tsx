@@ -11,6 +11,10 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import {
+  envelopeToManifest,
+  readCopilotKitUIEnvelope,
+} from "@copilotkit/shared";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
@@ -82,11 +86,11 @@ const ui = createGenerativeUI({
 
 const T = "thread-1";
 const create = (surfaceId: string) => ({
-  version: "v0.9",
+  version: "v1.0",
   createSurface: { surfaceId, catalogId: "shop" },
 });
 const nodes = (surfaceId: string, ...components: unknown[]) => ({
-  version: "v0.9",
+  version: "v1.0",
   updateComponents: { surfaceId, components },
 });
 const snapshot = (
@@ -178,8 +182,11 @@ function setup(theme?: GenerativeUITheme) {
   };
 }
 
-/** The envelope that a run sent as `forwardedProps.copilotkit.ui`. */
-const envelopeOf = (input: RunAgentInput) => input.forwardedProps.copilotkit.ui;
+/** The manifest that a run sent, read the way the runtime reads it. */
+function manifestOf(input: RunAgentInput | undefined) {
+  const envelope = readCopilotKitUIEnvelope(input?.forwardedProps);
+  return envelope && envelopeToManifest(envelope);
+}
 
 async function send(text: string) {
   const input = await screen.findByRole("textbox");
@@ -194,9 +201,9 @@ describe("generative UI integration", () => {
     await send("hi");
     agent.emit(runStartedEvent({ threadId: T, runId: "r1" }));
     agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
-    const envelope = envelopeOf(CapturingAgent.inputs[0]);
-    expect(envelope.catalog.id).toBe("shop");
-    expect(envelope.targets).toEqual([
+    const manifest = manifestOf(CapturingAgent.inputs[0]);
+    expect(manifest?.catalogId).toBe("shop");
+    expect(manifest?.targets).toEqual([
       { id: "chat", kind: "chat" },
       {
         id: "recommendations",
@@ -204,12 +211,11 @@ describe("generative UI integration", () => {
         description: "Next to the product list. Use it for recommendations.",
       },
     ]);
-    expect(Object.keys(envelope.functions).sort()).toEqual([
+    expect(Object.keys(manifest?.functions ?? {}).sort()).toEqual([
       "addToCart",
       "applyCoupon",
     ]);
-    expect(Object.keys(envelope.catalog.components)).toEqual(["Grid", "Card"]);
-    expect(envelope).not.toHaveProperty("appState");
+    expect(Object.keys(manifest?.components ?? {})).toEqual(["Grid", "Card"]);
   });
 
   it("renders inline-targeted surfaces only in their mount and binds clicks to host functions", async () => {
@@ -373,7 +379,7 @@ describe("generative UI integration", () => {
     await waitFor(() => expect(screen.getByText("Product p1")).toBeTruthy());
 
     await send("one more");
-    expect(envelopeOf(CapturingAgent.inputs.at(-1)!).surfaces).toEqual({
+    expect(manifestOf(CapturingAgent.inputs.at(-1))?.surfaces).toEqual({
       recs: { target: "recommendations" },
     });
     agent.emit(runStartedEvent({ threadId: T, runId: "r2" }));

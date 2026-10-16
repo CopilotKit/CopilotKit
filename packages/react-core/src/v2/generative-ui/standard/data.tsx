@@ -50,14 +50,14 @@ const tableSchema = z.object({
     .array(tableColumn)
     .optional()
     .describe(
-      'Strings, { "label", "align"?, "width"?, "componentId"? } or { "componentId" }, or { "path": "/x" }. Default []',
+      'Strings, { "label", "align"?, "width"?, "componentId"? } or { "componentId" }, or { "@path": "/x" }. Default []',
     ),
   // A cell is `unknown`, so booleans and null from bound data are valid too.
   rows: z
     .array(z.array(z.unknown()))
     .optional()
     .describe(
-      'A list of row lists, or { "path": "/x" }. A cell is a string, a number, or { "componentId": "<id>" } to show a component. Default []',
+      'A list of row lists, or { "@path": "/x" }. A cell is a string, a number, or { "componentId": "<id>" } to show a component. Default []',
     ),
   columnSizing: z.enum(["auto", "equal"]).optional().describe('Default "auto"'),
   dividers: z.boolean().optional().describe("Default true"),
@@ -105,7 +105,7 @@ const listSchema = z.object({
     .array(listItemValue)
     .optional()
     .describe(
-      'Strings or { "label", "description"?, "icon"?, "value"? }, or { "path": "/x" }',
+      'Strings or { "label", "description"?, "icon"?, "value"? }, or { "@path": "/x" }',
     ),
   marker: z.enum(LIST_MARKERS).optional().describe('Default "bullet"'),
   connector: z.enum(["none", "solid"]).optional().describe('Default "none"'),
@@ -634,7 +634,7 @@ function ListItem(props: ListItemProps) {
  *   `cellComponents` (the components that `{ componentId }` cells show).
  * - List and ListItem: an `action` event. The List event gets the index,
  *   label and value of the picked item.
- * - Map: `selected` is writable, so a `{ path }` binding gets the choice of
+ * - Map: `selected` is writable, so a `{ "@path" }` binding gets the choice of
  *   the user.
  */
 export const dataComponents = {
@@ -702,7 +702,7 @@ export const dataComponents = {
   Map: {
     component: MapView,
     description:
-      'A map with markers. With "route", a line connects the markers in order. Bind "selected" to { "path": "/x" } to get the label of the marker that the user picks. When maps are not available, it shows a list of the places.',
+      'A map with markers. With "route", a line connects the markers in order. Bind "selected" to { "@path": "/x" } to get the label of the marker that the user picks. When maps are not available, it shows a list of the places.',
     props: mapSchema,
     writable: ["selected"] as const,
   },

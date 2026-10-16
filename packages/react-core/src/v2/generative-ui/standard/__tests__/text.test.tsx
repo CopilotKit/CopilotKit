@@ -67,15 +67,15 @@ describe("standard text", () => {
     expect(view.container.querySelector("strong")?.textContent).toBe("$29");
   });
 
-  it("updates a Text bound to { path } when the data model changes", async () => {
+  it('updates a Text bound to { "@path" } when the data model changes', async () => {
     const view = renderSurface(
       ui,
-      [{ id: "root", component: "Text", text: { path: "/price" } }],
+      [{ id: "root", component: "Text", text: { "@path": "/price" } }],
       { price: "$290" },
     );
     await view.findByText("$290");
     view.update({
-      version: "v0.9",
+      version: "v1.0",
       updateDataModel: { surfaceId: SURFACE_ID, path: "/price", value: "$310" },
     });
     await view.findByText("$310");

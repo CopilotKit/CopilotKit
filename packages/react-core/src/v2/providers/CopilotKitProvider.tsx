@@ -69,6 +69,7 @@ import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
 import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
 import {
   createGenerativeUIActivityRenderer,
+  createGenerativeUIFunctionCallActivityRenderer,
   GenerativeUIToolCallRenderer,
 } from "../generative-ui/chat";
 import { GenerativeUIRuntimeContext } from "../generative-ui/runtime-context";
@@ -588,7 +589,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     if (generativeUIActive) {
-      renderers.push(createGenerativeUIActivityRenderer());
+      renderers.push(
+        createGenerativeUIActivityRenderer(),
+        createGenerativeUIFunctionCallActivityRenderer(),
+      );
     }
 
     return renderers;

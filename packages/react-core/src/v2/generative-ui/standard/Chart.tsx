@@ -33,7 +33,7 @@ export const chartSchema = z.object({
   data: z
     .array(z.record(z.string(), z.unknown()))
     .optional()
-    .describe('A list of objects, or { "path": "/x" }'),
+    .describe('A list of objects, or { "@path": "/x" }'),
   xKey: z.string().optional().describe("The field of the category axis"),
   series: z
     .array(chartSeries)

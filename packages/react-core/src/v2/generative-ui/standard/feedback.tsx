@@ -412,7 +412,7 @@ const PopoverContext = createContext<PopoverState | null>(null);
 /**
  * A non-modal overlay. It does not trap focus. Escape closes it and moves
  * focus back to the trigger. A pointer press outside of it closes it.
- * `open` is writable, so a `{ path }` binding keeps the open state in the
+ * `open` is writable, so a `{ "@path" }` binding keeps the open state in the
  * data model.
  */
 function Popover(props: PopoverProps) {

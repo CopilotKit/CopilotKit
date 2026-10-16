@@ -153,7 +153,8 @@
       "onSubmit": {
         "event": {
           "name": "submit_form",
-          "context": { "name": { "path": "/form/name" } }
+          "userMessage": "Send the form",
+          "context": { "name": { "@path": "/form/name" } }
         }
       },
       "children": [
@@ -173,28 +174,28 @@
     {
       "id": "tf",
       "component": "TextField",
-      "value": { "path": "/form/name" },
+      "value": { "@path": "/form/name" },
       "label": "Name",
       "placeholder": "Your name"
     },
     {
       "id": "ta",
       "component": "TextArea",
-      "value": { "path": "/form/notes" },
+      "value": { "@path": "/form/notes" },
       "label": "Notes",
       "rows": 2
     },
     {
       "id": "sel",
       "component": "Select",
-      "value": { "path": "/form/plan" },
+      "value": { "@path": "/form/plan" },
       "label": "Plan",
       "options": ["Free", "Team", { "value": "ent", "label": "Enterprise" }]
     },
     {
       "id": "cb",
       "component": "CheckBox",
-      "checked": { "path": "/form/annual" },
+      "checked": { "@path": "/form/annual" },
       "label": "Annual billing"
     },
     {
@@ -206,14 +207,14 @@
     {
       "id": "rg",
       "component": "RadioGroup",
-      "value": { "path": "/form/size" },
+      "value": { "@path": "/form/size" },
       "label": "Size",
       "options": ["S", "M", "L"]
     },
     {
       "id": "slider",
       "component": "Slider",
-      "value": { "path": "/form/seats" },
+      "value": { "@path": "/form/seats" },
       "label": "Seats",
       "min": 1,
       "max": 50,
@@ -222,14 +223,14 @@
     {
       "id": "seg",
       "component": "SegmentedControl",
-      "value": { "path": "/form/period" },
+      "value": { "@path": "/form/period" },
       "label": "Billing period",
       "options": ["Monthly", "Yearly"]
     },
     {
       "id": "dt",
       "component": "DateTimeInput",
-      "value": { "path": "/form/date" },
+      "value": { "@path": "/form/date" },
       "label": "Start date"
     },
     {
@@ -339,14 +340,14 @@
       "children": { "componentId": "tb-row", "path": "/people" }
     },
     { "id": "tb-row", "component": "TableRow", "children": ["tb-c1", "tb-c2"] },
-    { "id": "tb-c1", "component": "TableCell", "text": { "path": "name" } },
+    { "id": "tb-c1", "component": "TableCell", "text": { "@path": "name" } },
     {
       "id": "tb-c2",
       "component": "TableCell",
       "align": "end",
       "children": ["tb-c2-t"]
     },
-    { "id": "tb-c2-t", "component": "Text", "text": { "path": "score" } },
+    { "id": "tb-c2-t", "component": "Text", "text": { "@path": "score" } },
     {
       "id": "list",
       "component": "List",
@@ -370,7 +371,7 @@
     {
       "id": "li",
       "component": "ListItem",
-      "label": { "path": "title" },
+      "label": { "@path": "title" },
       "icon": "circle"
     },
     {
@@ -395,7 +396,7 @@
         { "label": "Graz", "lat": 47.07, "lng": 15.44 }
       ],
       "route": true,
-      "selected": { "path": "/city" },
+      "selected": { "@path": "/city" },
       "height": 160
     },
     {

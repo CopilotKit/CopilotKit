@@ -29,7 +29,7 @@ const ui = createGenerativeUI({
 });
 
 /** The `open` prop of a Popover: a literal, or a data model binding. */
-type PopoverOpen = { open?: boolean | { path: string } };
+type PopoverOpen = { open?: boolean | { "@path": string } };
 
 /** A Popover with an "Open" trigger and a "Hidden content" body. */
 function popoverNodes(popover: PopoverOpen = {}) {
@@ -172,7 +172,7 @@ describe("Celebration", () => {
     act(() => vi.advanceTimersByTime(CELEBRATION_MS));
     expect(confetti(view)).toBeNull();
     view.update({
-      version: "v0.9",
+      version: "v1.0",
       updateComponents: {
         surfaceId: SURFACE_ID,
         components: celebrationNodes("again"),
@@ -253,7 +253,7 @@ describe("Popover", () => {
   it("writes the open state to a bound data path", async () => {
     const view = renderSurface(
       ui,
-      popoverNodes({ open: { path: "/menuOpen" } }),
+      popoverNodes({ open: { "@path": "/menuOpen" } }),
       { menuOpen: false },
     );
     fireEvent.click(await view.findByText("Open"));

@@ -9,6 +9,9 @@ import {
   GENERATIVE_UI_MAX_REJECTION_LENGTH,
   GENERATIVE_UI_MAX_SUMMARY_REJECTIONS,
   getOperationKind,
+  getOperationSurfaceId,
+  isIndexCall,
+  isPathBinding,
   validateOperation,
 } from "@copilotkit/shared";
 import type {
@@ -18,6 +21,7 @@ import type {
   GenerativeUISurfaceContent,
   GenerativeUISurfaceStatus,
   GenerativeUISurfaceSummary,
+  OperationKind,
 } from "@copilotkit/shared";
 import type { GenerativeUI } from "./catalog";
 
@@ -49,6 +53,13 @@ export interface GenerativeUISurfaceManagerOptions {
   }) => void;
 }
 
+/** Where an operation is in the content of its surface. */
+interface OperationPosition {
+  index: number;
+  /** The content also deletes the surface, so it replays all of its life. */
+  isReplay: boolean;
+}
+
 interface Bookkeeping {
   appliedCount: number;
   lastFingerprint: string | undefined;
@@ -65,7 +76,9 @@ export interface GenerativeUIMountedTarget {
   description?: string;
 }
 
-const PATH_BINDING = z.object({ path: z.string() }).strict();
+/** A data prop can also be `{"@path"}` or `{"@call":"@index"}`. */
+const PATH_BINDING = z.custom(isPathBinding);
+const INDEX_CALL = z.custom(isIndexCall);
 let creationCounter = 0;
 
 const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
@@ -118,6 +131,12 @@ export class GenerativeUISurfaceManager {
    * surface is rebuilt. Cleared when the surface is deleted.
    */
   private readonly owned = new Map<string, Map<string, unknown>>();
+  /**
+   * Keys of the surfaces that a `deleteSurface` removed. A surface id is
+   * unique for the life of the page, so a key stays here when its surface is
+   * built again.
+   */
+  private readonly deletedKeys = new Set<string>();
   private readonly wireSchemas = new Map<string, z.ZodTypeAny>();
   private readonly webCoreCatalog: Catalog<any>;
   private activeThreadId: string | undefined;
@@ -200,8 +219,14 @@ export class GenerativeUISurfaceManager {
     if (operations.length > 0) {
       // Fingerprint the pristine operation before applying it.
       const lastFingerprint = JSON.stringify(operations[operations.length - 1]);
+      // Content that also deletes the surface replays all of its life, for
+      // example when the markdown source builds a surface again. Its
+      // createSurface is not a new create.
+      const isReplay = operations.some(
+        (op) => getOperationKind(op) === "deleteSurface",
+      );
       for (let index = book.appliedCount; index < operations.length; index++) {
-        this.applyOperation(surface, operations[index], index);
+        this.applyOperation(surface, operations[index], { index, isReplay });
         changed = true;
       }
       book.appliedCount = operations.length;
@@ -442,18 +467,19 @@ export class GenerativeUISurfaceManager {
    * that are not in the manifest. It never changes the given operation.
    */
   private dropAppSetKeys(op: unknown) {
-    if (getOperationKind(op) !== "updateComponents") return op;
+    const kind = getOperationKind(op);
+    if (kind !== "updateComponents" && kind !== "createSurface") return op;
     // `getOperationKind` found a kind, so `op` is an object. The payload is
     // not checked yet, so every part of it is optional here.
-    const record = op as {
-      updateComponents?: { components?: unknown } | null;
-    };
-    const payload = record.updateComponents;
+    const record = op as Partial<
+      Record<typeof kind, { components?: unknown } | null>
+    >;
+    const payload = record[kind];
     const nodes = payload?.components;
     if (!Array.isArray(nodes)) return op;
     return {
       ...record,
-      updateComponents: {
+      [kind]: {
         ...payload,
         components: nodes.map((node) => this.dropAppSetNodeKeys(node)),
       },
@@ -476,12 +502,44 @@ export class GenerativeUISurfaceManager {
     );
   }
 
+  /**
+   * The surfaces that `validateOperation` gets for one operation of the
+   * content of `surface`.
+   *
+   * - `knownSurfaces`: the surface, when it exists before the operation. It
+   *   does not exist before its first createSurface, or after a delete.
+   * - `createdSurfaces`: the surface, when a createSurface at this position
+   *   uses its id again. That is the case after the first operation, and for
+   *   a surface that was deleted before, unless the content replays that
+   *   delete.
+   */
+  private surfacesFor(
+    surface: ManagedSurface,
+    kind: OperationKind | undefined,
+    position: OperationPosition,
+  ) {
+    const isFirstCreate = kind === "createSurface" && position.index === 0;
+    const exists = !surface.deleted && !isFirstCreate;
+    const isRecreate = this.deletedKeys.has(surface.key) && !position.isReplay;
+    const isUsedAgain = position.index > 0 || isRecreate;
+    return {
+      knownSurfaces: new Set(exists ? [surface.surfaceId] : []),
+      createdSurfaces: new Set(isUsedAgain ? [surface.surfaceId] : []),
+    };
+  }
+
   private applyOperation(
     surface: ManagedSurface,
     received: unknown,
-    index: number,
+    position: OperationPosition,
   ) {
+    const { index } = position;
+    const kind = getOperationKind(received);
+    // An agent-called function is not a surface operation. The root runs it.
+    if (kind === "callRendererFunction") return;
     const reject = (reason: string) => {
+      // A surface whose first createSurface fails does not exist.
+      if (kind === "createSurface" && index === 0) surface.deleted = true;
       surface.clientRejected.push({ index, reason });
       this.options.onOperationRejected?.({
         surfaceId: surface.surfaceId,
@@ -489,51 +547,88 @@ export class GenerativeUISurfaceManager {
         reason,
       });
     };
-    const op = this.dropAppSetKeys(received);
-    if (getOperationKind(op) === "createSurface") {
-      if (index !== 0) reject("createSurface may only be the first operation");
-      return;
+    const targetId = getOperationSurfaceId(received);
+    if (targetId !== undefined && targetId !== surface.surfaceId) {
+      return reject(
+        `operation is for surface "${targetId}", not "${surface.surfaceId}"`,
+      );
     }
+    const op = this.dropAppSetKeys(received);
     const validation = validateOperation(op, {
       manifest: {
         catalogId: this.ui.id,
         components: this.ui.manifestComponents,
       },
-      knownSurfaces: new Set([surface.surfaceId]),
+      ...this.surfacesFor(surface, kind, position),
     });
     if (!validation.ok) return reject(validation.reason);
 
+    // validateOperation checked the shape of `op`.
     const typed = op as A2UIOperation;
+    if ("createSurface" in typed) {
+      const { dataModel, components = [] } = typed.createSurface;
+      const problem = this.nodesProblem(components);
+      if (problem) return reject(problem);
+      if (dataModel) {
+        const failure = this.writeAgentData(surface, "/", dataModel);
+        if (failure) return reject(failure);
+      }
+      for (const node of components) this.upsertNode(surface.model, node);
+      return;
+    }
     if ("updateComponents" in typed) {
       const nodes = typed.updateComponents.components;
-      for (const node of nodes) {
-        const problem = this.checkNodeProps(node);
-        if (problem) return reject(`component "${node.id}": ${problem}`);
-      }
+      const problem = this.nodesProblem(nodes);
+      if (problem) return reject(problem);
       for (const node of nodes) this.upsertNode(surface.model, node);
       return;
     }
     if ("updateDataModel" in typed) {
-      const path = normalizePath(typed.updateDataModel.path ?? "/");
-      try {
-        // The merge clones, so the agent's content objects are never mutated
-        // or aliased.
-        const merged = this.mergeOwnedValues(
-          surface.key,
-          path,
-          typed.updateDataModel.value,
-        );
-        // The user owns this path. The write is ignored, not rejected.
-        if (!merged) return;
-        surface.model.dataModel.set(path, merged.value);
-      } catch (error) {
-        return reject(error instanceof Error ? error.message : String(error));
-      }
+      const { path = "/", value } = typed.updateDataModel;
+      // A `null` value deletes the key. web_core deletes it for `undefined`.
+      const written = value === null ? undefined : value;
+      const failure = this.writeAgentData(
+        surface,
+        normalizePath(path),
+        written,
+      );
+      if (failure) return reject(failure);
       return;
     }
     if ("deleteSurface" in typed) {
       surface.deleted = true;
+      this.deletedKeys.add(surface.key);
       this.owned.delete(surface.key);
+    }
+  }
+
+  /** The first node with props of the wrong type, as a reason. */
+  private nodesProblem(nodes: A2UIComponentNode[]) {
+    for (const node of nodes) {
+      const problem = this.checkNodeProps(node);
+      if (problem) return `component "${node.id}": ${problem}`;
+    }
+    return undefined;
+  }
+
+  /**
+   * Writes an agent value at `path` and keeps the user-owned values. A write
+   * to a user-owned path is ignored, not rejected. Gives the reason when the
+   * value does not fit the data, else `undefined`.
+   */
+  private writeAgentData(
+    surface: ManagedSurface,
+    path: string,
+    value: unknown,
+  ) {
+    try {
+      // The merge clones, so the agent's content objects are never mutated
+      // or aliased.
+      const merged = this.mergeOwnedValues(surface.key, path, value);
+      if (merged) surface.model.dataModel.set(path, merged.value);
+      return undefined;
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
     }
   }
 
@@ -555,8 +650,8 @@ export class GenerativeUISurfaceManager {
 
   /**
    * The schema of the props the model sets (`modelProps`), where every prop
-   * may also be a `{ path }` binding. Bound props are not in it, so a missing
-   * required bound prop does not fail.
+   * may also be a `{"@path"}` binding or a `{"@call":"@index"}`. Bound
+   * props are not in it, so a missing required bound prop does not fail.
    */
   private wireSchema(name: string): z.ZodTypeAny {
     let schema = this.wireSchemas.get(name);
@@ -566,7 +661,7 @@ export class GenerativeUISurfaceManager {
         Object.fromEntries(
           Object.entries(shape).map(([key, propSchema]) => [
             key,
-            z.union([PATH_BINDING, propSchema as z.ZodTypeAny]),
+            z.union([PATH_BINDING, INDEX_CALL, propSchema as z.ZodTypeAny]),
           ]),
         ),
       );

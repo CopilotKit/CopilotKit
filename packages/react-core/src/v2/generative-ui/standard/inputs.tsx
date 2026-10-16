@@ -59,7 +59,7 @@ const fieldLabel = z
 const boundValue = z
   .string()
   .optional()
-  .describe('Bind it with { "path": "/x" } to read what the user entered');
+  .describe('Bind it with { "@path": "/x" } to read what the user entered');
 
 const buttonSchema = z.object({
   label: z.string().optional().describe("The button text"),
@@ -103,7 +103,7 @@ const textFieldSchema = z.object({
   value: z
     .union([z.string(), z.number()])
     .optional()
-    .describe('Bind it with { "path": "/x" } to read what the user typed'),
+    .describe('Bind it with { "@path": "/x" } to read what the user typed'),
   placeholder: z.string().optional(),
   label: fieldLabel,
   inputType: z
@@ -150,7 +150,7 @@ const checkBoxSchema = z.object({
     .boolean()
     .optional()
     .describe(
-      'Bind this (not value) with { "path": "/x" } to read the state of the box',
+      'Bind this (not value) with { "@path": "/x" } to read the state of the box',
     ),
   label: z.string().optional().describe("The label text. Always set it"),
   name: z.string().optional(),
@@ -183,7 +183,7 @@ const sliderSchema = z.object({
   value: z
     .number()
     .optional()
-    .describe('Bind it with { "path": "/x" } to read the number'),
+    .describe('Bind it with { "@path": "/x" } to read the number'),
   min: z.number().optional().describe("Default 0"),
   max: z.number().optional().describe("Default 100"),
   step: z.number().optional().describe("Default 1"),
@@ -216,7 +216,7 @@ const dateTimeInputSchema = z.object({
   value: z
     .string()
     .optional()
-    .describe('"YYYY-MM-DD". Bind it with { "path": "/x" }'),
+    .describe('"YYYY-MM-DD". Bind it with { "@path": "/x" }'),
   label: fieldLabel,
   min: z.string().optional().describe('The earliest date, "YYYY-MM-DD"'),
   max: z.string().optional().describe('The latest date, "YYYY-MM-DD"'),
@@ -1085,10 +1085,11 @@ function Slider(props: SliderProps) {
  * Give them to `createGenerativeUI({ components: { ...inputComponents } })`.
  *
  * - Button and Pressable send `onClick`. Form sends `onSubmit`. The model
- *   binds an event to `{ "event": { "name", "context" } }`, or an app
- *   function with the same name binds it automatically.
+ *   binds an event to `{ "event": { "name", "userMessage"?, "context"? } }`
+ *   or `{ "functionCall": { "@call", "args"? } }`, or an app function with
+ *   the same name binds it automatically.
  * - The value of a control is writable: `value` (`checked` for CheckBox).
- *   When the model binds it to `{ "path": "/x" }`, what the user enters goes
+ *   When the model binds it to `{ "@path": "/x" }`, what the user enters goes
  *   into the data model at that path, and the agent can no longer change it.
  */
 export const inputComponents = {
@@ -1121,7 +1122,7 @@ export const inputComponents = {
   Form: {
     component: Form,
     description:
-      'A layout container that is a form. It sends its onSubmit event when the user submits it (a Button with submit true, or Enter in a field). Put the values of its fields in the event context with { "path": "/x" }.',
+      'A layout container that is a form. It sends its onSubmit event when the user submits it (a Button with submit true, or Enter in a field). Put the values of its fields in the event context with { "@path": "/x" }.',
     props: formSchema,
     events: {
       onSubmit: {
@@ -1134,28 +1135,28 @@ export const inputComponents = {
   TextField: {
     component: TextField,
     description:
-      'A single-line text input. Bind value with { "path": "/x" } to read what the user typed. Give it a label.',
+      'A single-line text input. Bind value with { "@path": "/x" } to read what the user typed. Give it a label.',
     props: textFieldSchema,
     writable: VALUE_WRITABLE,
   },
   TextArea: {
     component: TextArea,
     description:
-      'A multi-line text input. Bind value with { "path": "/x" } to read what the user typed. Give it a label.',
+      'A multi-line text input. Bind value with { "@path": "/x" } to read what the user typed. Give it a label.',
     props: textAreaSchema,
     writable: VALUE_WRITABLE,
   },
   Select: {
     component: Select,
     description:
-      'A dropdown list of options. Bind value with { "path": "/x" } to read the chosen option. Give it a label.',
+      'A dropdown list of options. Bind value with { "@path": "/x" } to read the chosen option. Give it a label.',
     props: selectSchema,
     writable: VALUE_WRITABLE,
   },
   CheckBox: {
     component: CheckBox,
     description:
-      'A checkbox with a label. Bind checked (not value) with { "path": "/x" } to read its state.',
+      'A checkbox with a label. Bind checked (not value) with { "@path": "/x" } to read its state.',
     props: checkBoxSchema,
     writable: ["checked"] as const,
   },
@@ -1168,28 +1169,28 @@ export const inputComponents = {
   RadioGroup: {
     component: RadioGroup,
     description:
-      'A group of radio buttons. The user chooses one option. Bind value with { "path": "/x" } to read it. Give it a label.',
+      'A group of radio buttons. The user chooses one option. Bind value with { "@path": "/x" } to read it. Give it a label.',
     props: radioGroupSchema,
     writable: VALUE_WRITABLE,
   },
   Slider: {
     component: Slider,
     description:
-      'A range slider for a number between min and max. Bind value with { "path": "/x" } to read the number. Give it a label.',
+      'A range slider for a number between min and max. Bind value with { "@path": "/x" } to read the number. Give it a label.',
     props: sliderSchema,
     writable: VALUE_WRITABLE,
   },
   SegmentedControl: {
     component: SegmentedControl,
     description:
-      'A row of segments. The user chooses one option. Use it for 2 to 5 short options. Bind value with { "path": "/x" } to read it.',
+      'A row of segments. The user chooses one option. Use it for 2 to 5 short options. Bind value with { "@path": "/x" } to read it.',
     props: segmentedControlSchema,
     writable: VALUE_WRITABLE,
   },
   DateTimeInput: {
     component: DateTimeInput,
     description:
-      'A date picker. The value is "YYYY-MM-DD". Bind value with { "path": "/x" } to read the date. Give it a label.',
+      'A date picker. The value is "YYYY-MM-DD". Bind value with { "@path": "/x" } to read the date. Give it a label.',
     props: dateTimeInputSchema,
     writable: VALUE_WRITABLE,
   },
