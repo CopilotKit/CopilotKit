@@ -385,7 +385,7 @@ function useStableArrayProp<T>(
   return value;
 }
 
-// Provider component
+/** Provide a shared core instance and synchronize runtime, tool, and UI configuration. */
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,

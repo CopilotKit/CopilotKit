@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 async function mountProvider() {
   let core: CopilotKitCore | undefined;
   const Capture = defineComponent({
+    /** Expose the injected core without retaining Vue's reactive wrapper. */
     setup() {
       core = useCopilotKit().copilotkit.value;
       return () => null;

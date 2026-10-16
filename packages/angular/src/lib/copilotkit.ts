@@ -582,6 +582,7 @@ export class CopilotKit {
     return !!this.#config.openGenerativeUI || this.core.openGenerativeUIEnabled;
   }
 
+  /** Register sandbox rendering with a side-effect-free acknowledgement safe to replay. */
   #createOpenGenerativeUITool(): FrontendToolConfig<GenerateSandboxedUiArgs> & {
     injector: Injector;
   } {
