@@ -211,10 +211,11 @@ function repairComponentItem(item: string) {
       if (stack.length === 0) return out + item.slice(copied, i + 1);
     }
   }
-  const closers = [...stack]
-    .toReversed()
-    .map((x) => (x === "{" ? "}" : "]"))
-    .join("");
+  // Close the open brackets, innermost first.
+  const closers = stack.reduceRight(
+    (text, opener) => text + (opener === "{" ? "}" : "]"),
+    "",
+  );
   return out + item.slice(copied) + closers;
 }
 
