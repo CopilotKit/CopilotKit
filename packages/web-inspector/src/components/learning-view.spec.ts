@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type { InspectorLearningSnapshotV1 } from "@copilotkit/shared";
+import type {
+  InspectorLearningInsight,
+  InspectorLearningSnapshotV1,
+} from "@copilotkit/shared";
 import type { CpkLearningView } from "./learning-view.js";
 import { deriveLearningViewState } from "./learning-view.js";
 
@@ -281,8 +284,8 @@ describe("Learning results hierarchy", () => {
     await view.updateComplete;
 
     const unavailable = view.shadowRoot!.querySelector(".evidence-unavailable");
-    expect(unavailable?.textContent?.trim()).toBe(
-      "Evidence is no longer available",
+    expect(unavailable?.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      "1 Thread is no longer available",
     );
     expect(unavailable?.querySelector("button, a")).toBeNull();
     const accessible =
@@ -346,15 +349,23 @@ describe("Learning results hierarchy", () => {
     );
     expect(link?.target).toBe("_blank");
     expect(link?.rel.split(/\s+/).sort()).toEqual(["noopener", "noreferrer"]);
-    expect(link?.textContent).toContain("Trajectory 00000001");
-    expect(link?.textContent).toContain("2 events");
+    const createdAt = new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(new Date(0x0190a3b40000));
+    expect(link?.textContent).toContain(`Trajectory · ${createdAt}`);
+    expect(link?.querySelector(".evidence-id")?.textContent).toBe("00000001");
+    expect(link?.title).toBe("0190a3b4-0000-7000-8000-000000000001");
+    expect(link?.textContent).toContain("2 cited events");
     expect(link?.textContent).toContain("Open Trajectory");
     expect(
       view.shadowRoot!.querySelectorAll(".evidence-unavailable"),
     ).toHaveLength(1);
     link?.addEventListener("click", (event) => event.preventDefault());
     link?.click();
-    expect(opened).toEqual([{ category: "learning" }]);
+    expect(opened).toEqual([{ category: "trajectory" }]);
     view.remove();
   });
 
@@ -428,6 +439,165 @@ describe("Learning results hierarchy", () => {
       view.shadowRoot!.querySelector(".skill-lineage small")?.textContent,
     ).toMatch(/2\s*Threads\s*·\s*1\s*Trajectory/);
     view.remove();
+  });
+
+  describe("evidence panel", () => {
+    const trajectory = (index: number) => {
+      const trajectoryId = `0190a3b4-0000-7000-8000-${String(index).padStart(12, "0")}`;
+      return {
+        status: "available" as const,
+        trajectoryId,
+        eventCount: 1,
+        url: `https://app.copilotkit.ai/o/acme/checkout/trajectories/${trajectoryId}`,
+      };
+    };
+    const thread = (index: number) => ({
+      status: "available" as const,
+      threadId: `thread-${index}`,
+      threadName: `Thread name ${index}`,
+      messageIds: [`message-${index}`],
+      updatedAt: "2026-03-10T09:15:00.000Z",
+    });
+
+    async function openEvidence(
+      insight: Partial<InspectorLearningInsight>,
+    ): Promise<CpkLearningView> {
+      const view = await renderResults();
+      view.snapshot = snapshot({
+        ...resultSnapshot,
+        insightsPage: {
+          ...resultSnapshot.insightsPage,
+          items: [
+            {
+              id: "insight-panel",
+              statement: "Shoppers compare plans before they upgrade.",
+              impact: "Show the plan table first.",
+              totalThreadCount: 0,
+              evidenceTruncated: false,
+              evidence: [],
+              ...insight,
+            },
+          ],
+        },
+      });
+      await view.updateComplete;
+      view
+        .shadowRoot!.querySelector<HTMLButtonElement>(".insight-row")!
+        .click();
+      await view.updateComplete;
+      return view;
+    }
+
+    const text = (element: Element | null | undefined) =>
+      element?.textContent?.replace(/\s+/g, " ").trim();
+
+    it("shows the first rows of each kind and toggles the rest", async () => {
+      const view = await openEvidence({
+        totalTrajectoryCount: 14,
+        trajectoryEvidence: Array.from({ length: 14 }, (_, index) =>
+          trajectory(index + 1),
+        ),
+      });
+      const rows = () =>
+        view.shadowRoot!.querySelectorAll("a.evidence-link").length;
+      expect(rows()).toBe(10);
+      const more =
+        view.shadowRoot!.querySelector<HTMLButtonElement>(".evidence-more");
+      expect(text(more)).toBe("Show 4 more Trajectories");
+      expect(more?.getAttribute("aria-expanded")).toBe("false");
+
+      more!.click();
+      await view.updateComplete;
+      expect(rows()).toBe(14);
+      expect(text(view.shadowRoot!.querySelector(".evidence-more"))).toBe(
+        "Show fewer Trajectories",
+      );
+      view.remove();
+    });
+
+    it("collapses unavailable evidence into one line per kind", async () => {
+      const view = await openEvidence({
+        totalThreadCount: 2,
+        evidence: [thread(1), { status: "unavailable" }],
+        totalTrajectoryCount: 3,
+        trajectoryEvidence: [
+          trajectory(1),
+          { status: "unavailable" },
+          { status: "unavailable" },
+        ],
+      });
+      expect(
+        [...view.shadowRoot!.querySelectorAll(".evidence-unavailable")].map(
+          text,
+        ),
+      ).toEqual([
+        "1 Thread is no longer available",
+        "2 Trajectories are no longer available",
+      ]);
+      expect(
+        [...view.shadowRoot!.querySelectorAll(".evidence-group-heading")].map(
+          text,
+        ),
+      ).toEqual(["Threads", "Trajectories"]);
+      view.remove();
+    });
+
+    it("omits kind headings when only one kind is cited", async () => {
+      const view = await openEvidence({
+        totalThreadCount: 1,
+        evidence: [thread(1)],
+      });
+      expect(
+        view.shadowRoot!.querySelector(".evidence-group-heading"),
+      ).toBeNull();
+      view.remove();
+    });
+
+    it("states how much of a shortened response is listed", async () => {
+      const view = await openEvidence({
+        evidenceTruncated: true,
+        totalThreadCount: 1,
+        evidence: [thread(1)],
+        totalTrajectoryCount: 412,
+        trajectoryEvidence: [trajectory(1), trajectory(2)],
+      });
+      expect(text(view.shadowRoot!.querySelector(".evidence-coverage"))).toBe(
+        "Showing 2 of 412 Trajectories",
+      );
+      expect(view.shadowRoot!.textContent).not.toContain(
+        "Evidence response shortened",
+      );
+      view.remove();
+    });
+
+    it("keeps the shortened note when every source is listed", async () => {
+      const view = await openEvidence({
+        evidenceTruncated: true,
+        totalThreadCount: 1,
+        evidence: [thread(1)],
+      });
+      expect(view.shadowRoot!.querySelector(".evidence-coverage")).toBeNull();
+      expect(view.shadowRoot!.textContent).toContain(
+        "Evidence response shortened",
+      );
+      view.remove();
+    });
+
+    it("falls back to the id tail for Trajectory ids that are not UUIDv7", async () => {
+      const view = await openEvidence({
+        totalTrajectoryCount: 1,
+        trajectoryEvidence: [
+          {
+            ...trajectory(1),
+            trajectoryId: "0190a3b4-0000-4000-8000-0000000000aa",
+          },
+        ],
+      });
+      const link = view.shadowRoot!.querySelector("a.evidence-link");
+      expect(text(link)).toContain("Trajectory 000000aa · 1 cited event");
+      expect(link?.querySelector(".evidence-id")).toBeNull();
+      view.remove();
+    });
   });
 });
 

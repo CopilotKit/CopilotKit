@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing } from "lit";
 import type {
   InspectorLearningInsight,
   InspectorLearningSnapshotV1,
+  InspectorLearningTrajectoryEvidence,
 } from "@copilotkit/shared";
 
 export type LearningViewState =
@@ -19,12 +20,58 @@ export type LearningViewState =
 const plural = (count: number, singular: string, pluralForm: string) =>
   `${count} ${count === 1 ? singular : pluralForm}`;
 
+/** Rows shown per evidence kind before the panel asks to show more. */
+const EVIDENCE_PREVIEW_LIMIT = 10;
+
+type EvidenceKind = "threads" | "trajectories";
+
+const EVIDENCE_NOUNS: Record<EvidenceKind, readonly [string, string]> = {
+  threads: ["Thread", "Threads"],
+  trajectories: ["Trajectory", "Trajectories"],
+};
+
+const trajectoryTimeFormat = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
 /**
- * Shortens a Trajectory id for display. Trajectory ids are UUIDv7, whose
- * leading characters encode the creation time and repeat across a day, so
- * the random tail tells sessions apart.
+ * Reads the creation time from a UUIDv7 Trajectory id, whose first 48 bits
+ * are Unix milliseconds. Returns null for ids of any other version.
  */
-const trajectoryLabel = (trajectoryId: string) => trajectoryId.slice(-8);
+const trajectoryCreatedAt = (trajectoryId: string): Date | null => {
+  const hex = trajectoryId.replace(/-/g, "");
+  if (!/^[0-9a-f]{12}7[0-9a-f]{19}$/i.test(hex)) return null;
+  return new Date(Number.parseInt(hex.slice(0, 12), 16));
+};
+
+/**
+ * "Showing 100 of 412 Trajectories" for each kind the response shortened,
+ * or null when every cited source is listed.
+ */
+function evidenceCoverageLabel(
+  insight: InspectorLearningInsight,
+): string | null {
+  if (!insight.evidenceTruncated) return null;
+  const parts: string[] = [];
+  if (insight.evidence.length < insight.totalThreadCount) {
+    parts.push(
+      `${insight.evidence.length} of ${plural(insight.totalThreadCount, ...EVIDENCE_NOUNS.threads)}`,
+    );
+  }
+  const trajectoriesShown = insight.trajectoryEvidence?.length ?? 0;
+  if (
+    insight.totalTrajectoryCount !== undefined &&
+    trajectoriesShown < insight.totalTrajectoryCount
+  ) {
+    parts.push(
+      `${trajectoriesShown} of ${plural(insight.totalTrajectoryCount, ...EVIDENCE_NOUNS.trajectories)}`,
+    );
+  }
+  return parts.length === 0 ? null : `Showing ${parts.join(" · ")}`;
+}
 
 /**
  * Labels the sources an Insight cites. Trajectories are named only when
@@ -103,6 +150,8 @@ export class CpkLearningView extends LitElement {
   private promptTrigger: HTMLElement | null = null;
   private expandedSkillId: string | null = null;
   private selectedInsightId: string | null = null;
+  /** Evidence groups showing every row, keyed by Insight id and kind. */
+  private readonly expandedEvidence = new Set<string>();
   private skillPageKey = "";
 
   static styles = css`
@@ -836,6 +885,40 @@ export class CpkLearningView extends LitElement {
       color: var(--learning-muted-strong);
       font-style: italic;
     }
+    .evidence-coverage {
+      margin: 12px 0 0;
+      color: var(--learning-muted-strong);
+      font-size: 11px;
+    }
+    .evidence-group-heading {
+      margin: 6px 0 0;
+      color: var(--learning-muted-strong);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .evidence-group-heading:first-child {
+      margin-top: 0;
+    }
+    .evidence-id {
+      color: var(--learning-muted-strong);
+      font:
+        10px ui-monospace,
+        SFMono-Regular,
+        Menlo,
+        monospace;
+    }
+    .evidence-more {
+      justify-self: start;
+      padding: 2px 0;
+      color: var(--learning-purple-dark);
+      background: none;
+      border: 0;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
     .pagination {
       display: flex;
       align-items: center;
@@ -1262,6 +1345,10 @@ export class CpkLearningView extends LitElement {
   }
 
   private renderEvidence(insight: InspectorLearningInsight) {
+    const threads = insight.evidence;
+    const trajectories = insight.trajectoryEvidence ?? [];
+    const mixed = threads.length > 0 && trajectories.length > 0;
+    const coverage = evidenceCoverageLabel(insight);
     return html`<section class="detail-panel" aria-label="Insight evidence">
       <div class="detail-head">
         <div>
@@ -1280,19 +1367,20 @@ export class CpkLearningView extends LitElement {
           ×
         </button>
       </div>
+      ${coverage ? html`<p class="evidence-coverage">${coverage}</p>` : nothing}
       <div class="evidence-list">
         ${
-          insight.evidence.length === 0 &&
-          (insight.trajectoryEvidence?.length ?? 0) === 0
+          threads.length === 0 && trajectories.length === 0
             ? html`
                 <div class="evidence-unavailable">Evidence is no longer available</div>
               `
-            : insight.evidence.map((evidence) =>
-                evidence.status === "unavailable"
-                  ? html`
-                      <div class="evidence-unavailable">Evidence is no longer available</div>
-                    `
-                  : html`<button
+            : html`${this.renderEvidenceGroup(
+                insight.id,
+                "threads",
+                threads,
+                mixed,
+                (evidence) =>
+                  html`<button
                     class="evidence-link"
                     type="button"
                     @click=${() =>
@@ -1308,35 +1396,114 @@ export class CpkLearningView extends LitElement {
                     }
                     <span>Open Thread →</span>
                   </button>`,
-              )
+              )}${this.renderEvidenceGroup(
+                insight.id,
+                "trajectories",
+                trajectories,
+                mixed,
+                (evidence) => this.renderTrajectoryEvidence(evidence),
+              )}`
         }
-        ${(insight.trajectoryEvidence ?? []).map((evidence) =>
-          evidence.status === "unavailable"
-            ? html`
-                <div class="evidence-unavailable">Evidence is no longer available</div>
-              `
-            : html`<a
-                class="evidence-link"
-                href=${evidence.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                @click=${() =>
-                  this.emit("learning-web-link", { category: "learning" })}
-              >
-                ⌁
-                ${`Trajectory ${trajectoryLabel(evidence.trajectoryId)} · ${plural(evidence.eventCount, "event", "events")}`}
-                <span>Open Trajectory ↗</span>
-              </a>`,
-        )}
       </div>
       ${
-        insight.evidenceTruncated
+        insight.evidenceTruncated && !coverage
           ? html`
               <p class="supporting-unavailable">Evidence response shortened</p>
             `
           : nothing
       }
     </section>`;
+  }
+
+  /**
+   * Lists one kind of evidence: the first rows with a toggle for the rest,
+   * then one line counting the sources that are no longer available.
+   */
+  private renderEvidenceGroup<
+    T extends { readonly status: "available" | "unavailable" },
+  >(
+    insightId: string,
+    kind: EvidenceKind,
+    entries: readonly T[],
+    showHeading: boolean,
+    renderRow: (entry: Extract<T, { status: "available" }>) => unknown,
+  ) {
+    if (entries.length === 0) return nothing;
+    const available = entries.filter(
+      (entry): entry is Extract<T, { status: "available" }> =>
+        entry.status === "available",
+    );
+    const unavailable = entries.length - available.length;
+    const key = `${insightId}:${kind}`;
+    const expanded = this.expandedEvidence.has(key);
+    const hidden = Math.max(0, available.length - EVIDENCE_PREVIEW_LIMIT);
+    const [singular, pluralForm] = EVIDENCE_NOUNS[kind];
+    return html`
+      ${
+        showHeading
+          ? html`<h4 class="evidence-group-heading">${pluralForm}</h4>`
+          : nothing
+      }
+      ${(expanded ? available : available.slice(0, EVIDENCE_PREVIEW_LIMIT)).map(
+        renderRow,
+      )}
+      ${
+        hidden > 0
+          ? html`<button
+              class="evidence-more"
+              type="button"
+              aria-expanded=${expanded}
+              @click=${() => {
+                if (expanded) this.expandedEvidence.delete(key);
+                else this.expandedEvidence.add(key);
+                this.requestUpdate();
+              }}
+            >
+              ${
+                expanded
+                  ? `Show fewer ${pluralForm}`
+                  : `Show ${plural(hidden, `more ${singular}`, `more ${pluralForm}`)}`
+              }
+            </button>`
+          : nothing
+      }
+      ${
+        unavailable > 0
+          ? html`<div class="evidence-unavailable">
+              ${plural(unavailable, singular, pluralForm)}
+              ${unavailable === 1 ? "is" : "are"} no longer available
+            </div>`
+          : nothing
+      }
+    `;
+  }
+
+  private renderTrajectoryEvidence(
+    evidence: Extract<
+      InspectorLearningTrajectoryEvidence,
+      { status: "available" }
+    >,
+  ) {
+    const createdAt = trajectoryCreatedAt(evidence.trajectoryId);
+    const idTail = evidence.trajectoryId.slice(-8);
+    return html`<a
+      class="evidence-link"
+      href=${evidence.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title=${evidence.trajectoryId}
+      @click=${() => this.emit("learning-web-link", { category: "trajectory" })}
+    >
+      ⌁
+      ${
+        createdAt
+          ? `Trajectory · ${trajectoryTimeFormat.format(createdAt)}`
+          : `Trajectory ${idTail}`
+      }
+      · ${plural(evidence.eventCount, "cited event", "cited events")}
+      ${createdAt ? html`<small class="evidence-id">${idTail}</small>` : nothing}
+      <span>Open Trajectory ↗</span>
+    </a>`;
   }
 
   private selectInsight(insight: InspectorLearningInsight) {
