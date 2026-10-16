@@ -19,8 +19,13 @@ export type {
   GenerativeUIEventHandler,
   GenerativeUIInvokeResult,
 } from "./errors";
-export type { GenerativeUIErrorBoundaryConfig } from "./runtime-context";
-export type { GenerativeUIConfig } from "./use-generative-ui-root";
+export type {
+  GenerativeUIConfig,
+  GenerativeUIErrorBoundaryConfig,
+  GenerativeUIMarkdownConfig,
+  GenerativeUITheme,
+  GenerativeUIToolConfig,
+} from "./runtime-context";
 export { GenerativeUISurface } from "./GenerativeUISurface";
 export type { GenerativeUISurfaceProps } from "./GenerativeUISurface";
 export { DefaultGenerativeUIChatCard } from "./chat";

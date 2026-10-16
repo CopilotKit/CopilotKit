@@ -36,7 +36,7 @@ import {
   reportErrorSafely,
   useRequiredGenerativeUIRuntime,
 } from "./runtime-context";
-import type { GenerativeUIRuntime } from "./runtime-context";
+import type { GenerativeUIRuntime, GenerativeUITheme } from "./runtime-context";
 import type {
   GenerativeUISurfaceManager,
   ManagedSurface,
@@ -106,17 +106,38 @@ function isTemplateChildren(
   );
 }
 
+/** The `--a2ui-*` CSS variables of a theme, without `mapStyle`. */
+function themeVariables(theme: GenerativeUITheme | undefined) {
+  const { mapStyle: _mapStyle, ...variables } = theme ?? {};
+  return variables;
+}
+
 export function SurfaceView({ surface }: { surface: ManagedSurface }) {
   const runtime = useRequiredGenerativeUIRuntime();
+  const { theme } = runtime;
+  const style = useMemo(
+    () => ({ display: "contents", ...themeVariables(theme) }),
+    [theme],
+  );
+  // The root element is always there, so a theme change does not remount
+  // the surface. `display: contents` keeps it out of the layout, and the
+  // CSS variables still reach every component of the surface. The
+  // `a2ui-surface` class scopes the standard catalog's surface CSS rules.
   return (
-    <SurfaceBoundary surfaceId={surface.surfaceId} runtime={runtime}>
-      <NodeView
-        surface={surface}
-        componentId={GENERATIVE_UI_ROOT_ID}
-        basePath={undefined}
-        ancestors={NO_ANCESTORS}
-      />
-    </SurfaceBoundary>
+    <div
+      className="a2ui-surface"
+      data-generative-ui-root={surface.surfaceId}
+      style={style}
+    >
+      <SurfaceBoundary surfaceId={surface.surfaceId} runtime={runtime}>
+        <NodeView
+          surface={surface}
+          componentId={GENERATIVE_UI_ROOT_ID}
+          basePath={undefined}
+          ancestors={NO_ANCESTORS}
+        />
+      </SurfaceBoundary>
+    </div>
   );
 }
 

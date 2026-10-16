@@ -2,14 +2,8 @@
 export const A2UI_VERSION = "v0.9";
 /** Activity type of a generated surface message. */
 export const GENERATIVE_UI_ACTIVITY_TYPE = "generative-ui-surface";
-/** forwardedProps key carrying the client manifest. */
-export const GENERATIVE_UI_MANIFEST_KEY = "generativeUI";
-/** forwardedProps key carrying a user event bound to the agent. */
-export const GENERATIVE_UI_ACTION_KEY = "generativeUIAction";
 /** Tool the model calls to render or update surfaces. */
 export const GENERATIVE_UI_RENDER_TOOL = "render_ui";
-/** Synthetic tool call that reports a user event to the model. */
-export const GENERATIVE_UI_EVENT_TOOL = "log_generative_ui_event";
 /** Target id of the chat transcript. */
 export const GENERATIVE_UI_CHAT_TARGET = "chat";
 /** Component id every surface renders from. */

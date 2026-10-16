@@ -27,6 +27,7 @@ import {
 import type {
   GenerativeUIChatSurfaceProps,
   GenerativeUIEventHandler,
+  GenerativeUITheme,
 } from "..";
 
 class CapturingAgent extends MockStepwiseAgent {
@@ -133,21 +134,26 @@ const cardEl = () =>
     '[data-generative-ui-chat-surface="cmp"]',
   ) as HTMLElement | null;
 
+const surfaceRoot = (surfaceId: string) =>
+  document.querySelector<HTMLElement>(
+    `[data-generative-ui-root="${surfaceId}"]`,
+  )!;
+
 function Handlers({ addToCart }: { addToCart: () => void }) {
   useGenerativeUIFunction(ui, "addToCart", addToCart);
   useGenerativeUIFunction(ui, "applyCoupon", async () => "ok");
   return null;
 }
 
-function setup() {
+function setup(theme?: GenerativeUITheme) {
   CapturingAgent.inputs = [];
   mounts.clear();
   const agent = new CapturingAgent();
   const addToCart = vi.fn();
-  render(
+  const tree = (nextTheme?: GenerativeUITheme) => (
     <CopilotKitProvider
       agents__unsafe_dev_only={{ default: agent }}
-      generativeUI={{ ui }}
+      generativeUI={{ ui, theme: nextTheme }}
     >
       <CopilotChatConfigurationProvider agentId="default" threadId={T}>
         <Handlers addToCart={addToCart} />
@@ -162,10 +168,18 @@ function setup() {
           <CopilotChat welcomeScreen={false} />
         </div>
       </CopilotChatConfigurationProvider>
-    </CopilotKitProvider>,
+    </CopilotKitProvider>
   );
-  return { agent, addToCart };
+  const { rerender } = render(tree(theme));
+  return {
+    agent,
+    addToCart,
+    setTheme: (next: GenerativeUITheme) => rerender(tree(next)),
+  };
 }
+
+/** The envelope that a run sent as `forwardedProps.copilotkit.ui`. */
+const envelopeOf = (input: RunAgentInput) => input.forwardedProps.copilotkit.ui;
 
 async function send(text: string) {
   const input = await screen.findByRole("textbox");
@@ -175,14 +189,14 @@ async function send(text: string) {
 }
 
 describe("generative UI integration", () => {
-  it("forwards a manifest with mounted targets, their descriptions and the functions with a handler", async () => {
+  it("sends an envelope with mounted targets, their descriptions and the functions with a handler", async () => {
     const { agent } = setup();
     await send("hi");
     agent.emit(runStartedEvent({ threadId: T, runId: "r1" }));
     agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
-    const manifest = CapturingAgent.inputs[0].forwardedProps.generativeUI;
-    expect(manifest.catalogId).toBe("shop");
-    expect(manifest.targets).toEqual([
+    const envelope = envelopeOf(CapturingAgent.inputs[0]);
+    expect(envelope.catalog.id).toBe("shop");
+    expect(envelope.targets).toEqual([
       { id: "chat", kind: "chat" },
       {
         id: "recommendations",
@@ -190,12 +204,12 @@ describe("generative UI integration", () => {
         description: "Next to the product list. Use it for recommendations.",
       },
     ]);
-    expect(Object.keys(manifest.functions).sort()).toEqual([
+    expect(Object.keys(envelope.functions).sort()).toEqual([
       "addToCart",
       "applyCoupon",
     ]);
-    expect(Object.keys(manifest.components)).toEqual(["Grid", "Card"]);
-    expect(manifest).not.toHaveProperty("appState");
+    expect(Object.keys(envelope.catalog.components)).toEqual(["Grid", "Card"]);
+    expect(envelope).not.toHaveProperty("appState");
   });
 
   it("renders inline-targeted surfaces only in their mount and binds clicks to host functions", async () => {
@@ -359,9 +373,7 @@ describe("generative UI integration", () => {
     await waitFor(() => expect(screen.getByText("Product p1")).toBeTruthy());
 
     await send("one more");
-    expect(
-      CapturingAgent.inputs.at(-1)!.forwardedProps.generativeUI.surfaces,
-    ).toEqual({
+    expect(envelopeOf(CapturingAgent.inputs.at(-1)!).surfaces).toEqual({
       recs: { target: "recommendations" },
     });
     agent.emit(runStartedEvent({ threadId: T, runId: "r2" }));
@@ -369,5 +381,35 @@ describe("generative UI integration", () => {
     agent.emit(runFinishedEvent({ threadId: T, runId: "r2" }));
     await waitFor(() => expect(screen.getByText("Product p2")).toBeTruthy());
     expect(mounts.get("p1")).toBe(1);
+  });
+
+  it("sets the theme variables on the surface root and updates them without a remount", async () => {
+    const { agent, setTheme } = setup({
+      "--a2ui-color-primary": "#111111",
+      mapStyle: "https://tiles.example/style.json",
+    });
+    await send("recommend");
+    agent.emit(runStartedEvent({ threadId: T, runId: "r1" }));
+    agent.emit(
+      snapshot("recs", "recommendations", [
+        create("recs"),
+        nodes("recs", card("root")),
+      ]),
+    );
+    agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
+    await waitFor(() => expect(screen.getByText("Product root")).toBeTruthy());
+    expect(
+      surfaceRoot("recs").style.getPropertyValue("--a2ui-color-primary"),
+    ).toBe("#111111");
+    expect(surfaceRoot("recs").getAttribute("style")).not.toContain(
+      "tiles.example",
+    );
+
+    setTheme({ "--a2ui-color-primary": "#222222" });
+
+    expect(
+      surfaceRoot("recs").style.getPropertyValue("--a2ui-color-primary"),
+    ).toBe("#222222");
+    expect(mounts.get("root")).toBe(1);
   });
 });
