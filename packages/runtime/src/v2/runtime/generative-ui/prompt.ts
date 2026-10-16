@@ -4,6 +4,16 @@ import type { GenerativeUIManifest } from "@copilotkit/shared";
 export const GENERATIVE_UI_CONTEXT_DESCRIPTION =
   "Generative UI guide: available components, functions, targets, and how to call render_ui.";
 
+/** Most characters of the user values of one surface in the guide. */
+const MAX_USER_VALUES_LENGTH = 500;
+
+/** Cuts long text and marks the cut with "...". */
+function shorten(text: string) {
+  return text.length > MAX_USER_VALUES_LENGTH
+    ? `${text.slice(0, MAX_USER_VALUES_LENGTH)}...`
+    : text;
+}
+
 export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
   const targets = manifest.targets
     .map(
@@ -30,8 +40,23 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
     )
     .join("\n");
   const surfaces = Object.entries(manifest.surfaces)
-    .map(([id, s]) => `- "${id}" (target "${s.target}")`)
+    .map(([id, s]) => {
+      const lines = [`- "${id}" (target "${s.target}")`];
+      if (s.dataModel) {
+        lines.push(`  user values: ${shorten(JSON.stringify(s.dataModel))}`);
+      }
+      for (const rejection of s.rejected ?? []) {
+        lines.push(`  rejected: ${rejection}`);
+      }
+      return lines.join("\n");
+    })
     .join("\n");
+  const hasSurfaceNotes = Object.values(manifest.surfaces).some(
+    (s) => s.dataModel !== undefined || (s.rejected?.length ?? 0) > 0,
+  );
+  const surfaceNotes = hasSurfaceNotes
+    ? "User values are what the user entered, by path. Your writes to those paths are ignored. Rejected operations were dropped: send them again with the problem fixed.\n"
+    : "";
 
   return [
     `## Generative UI
@@ -53,6 +78,6 @@ Rules:
     `### Targets\n${targets || "- none"}`,
     `### Components\n${components || "- none"}`,
     `### Functions\n${functions || "- none"}`,
-    `### Existing surfaces\n${surfaces || "- none"}`,
+    `### Existing surfaces\n${surfaceNotes}${surfaces || "- none"}`,
   ].join("\n\n");
 }
