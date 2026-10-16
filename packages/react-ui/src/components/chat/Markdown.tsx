@@ -21,6 +21,10 @@ import type { FC } from "react";
 import { memo, useMemo } from "react";
 import type { Options, Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
+import {
+  MarkdownSurfaces,
+  useGenerativeUIRuntime,
+} from "@copilotkit/react-core/v2/generative-ui";
 import { CodeBlock } from "./CodeBlock";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -148,6 +152,11 @@ const MemoizedReactMarkdown: FC<Options> = memo(ReactMarkdown);
 
 type MarkdownProps = Omit<Options, "children"> & {
   content: string;
+  /**
+   * The id of the message. With the generative UI markdown transport on the
+   * provider, the ```a2ui fences of the message render as surfaces.
+   */
+  messageId?: string;
 };
 
 export const Markdown = ({
@@ -155,8 +164,15 @@ export const Markdown = ({
   components,
   remarkPlugins,
   rehypePlugins,
+  messageId,
   ...rest
 }: MarkdownProps) => {
+  // The v1 provider sits on the v2 core, so a `generativeUI` prop on it
+  // reaches this hook. Without the markdown transport, a fence is a code
+  // block.
+  const generativeUI = useGenerativeUIRuntime();
+  const rendersSurfaces =
+    generativeUI?.transport === "markdown" && messageId !== undefined;
   const mergedComponents = useMemo(
     () => ({ ...defaultComponents, ...components }),
     [components],
@@ -173,6 +189,13 @@ export const Markdown = ({
     () => [rehypeRaw, ...(rehypePlugins ?? []), rehypeSanitize],
     [rehypePlugins],
   );
+  if (rendersSurfaces) {
+    return (
+      <div className="copilotKitMarkdown">
+        <MarkdownSurfaces content={content} messageId={messageId} />
+      </div>
+    );
+  }
   return (
     <div className="copilotKitMarkdown">
       <MemoizedReactMarkdown
