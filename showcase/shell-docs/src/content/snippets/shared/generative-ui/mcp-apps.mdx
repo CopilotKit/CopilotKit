@@ -50,8 +50,14 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     ### Add the dependencies
 
     ```npm
-    npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/mcp-apps-middleware
+    npm install @copilotkit/react-core @copilotkit/runtime
     ```
+
+    Use `@copilotkit/runtime` 1.76.0 or later. The runtime includes the MCP Apps
+    middleware, so the `mcpApps` option below needs no other package. Install
+    `@ag-ui/mcp-apps-middleware` only if you attach the middleware to an agent
+    yourself with `.use()`. Its current release needs `@ag-ui/client` 1.x, which
+    runtime 1.76.0 and later use.
 
   </Step>
   <Step>
@@ -134,6 +140,12 @@ If you're looking to add an MCP App into an existing application, let's walk thr
       }),
     );
     ```
+
+    <Callout type="info" title="Using Intelligence?">
+      On a runtime connected to Intelligence, keep `mcpApps` and replace
+      `runner: new InMemoryAgentRunner()` with `intelligence` and `identifyUser`.
+      See [MCP Apps with Intelligence](/generative-ui/mcp-apps#mcp-apps-with-intelligence).
+    </Callout>
 
   </Step>
   <Step>
