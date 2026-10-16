@@ -79,6 +79,11 @@ describe("resolveLegacyDojoRedirect", () => {
       "/aws-strands-typescript/feature/multi_agent",
       "/?integration=strands-typescript&demo=subagents",
     ],
+    [
+      "/mastra-agent-local/feature/tool_approval",
+      "/?integration=mastra&demo=hitl-in-chat",
+    ],
+    ["/adk-js", "/?integration=google-adk"],
     // Unmapped feature keeps the integration; unmapped integration → root
     ["/mastra/feature/error_flow", "/?integration=mastra"],
     ["/watsonx/feature/agentic_chat", "/"],
@@ -129,6 +134,10 @@ describe("resolveLegacyDojoRedirect", () => {
       "/aws-strands-typescript/feature/multi_agent?sidebar=false",
       "https://showcase-strands-typescript.example/demos/subagents",
     ],
+    [
+      "/mastra-agent-local/feature/tool_approval?sidebar=false",
+      "https://showcase-mastra.example/demos/hitl-in-chat",
+    ],
   ])("embedded %s → %s", (from, to) => {
     expect(redirect(from)).toEqual({ location: to, permanent: false });
   });
@@ -155,7 +164,7 @@ describe("resolveLegacyDojoRedirect", () => {
   });
 
   it("accounts for every feature the legacy dojo ever shipped", () => {
-    // Every feature id from the legacy dojo's git history
+    // Every feature id from the legacy dojo's git history, all refs
     // (ag-ui apps/dojo menu.ts + feature routes). Each must be mapped or
     // listed in UNMAPPED with no showcase counterpart.
     const HISTORICAL = [
@@ -195,6 +204,7 @@ describe("resolveLegacyDojoRedirect", () => {
       "shared_state",
       "subagents",
       "subgraphs",
+      "tool_approval",
       "tool_based_generative_ui",
       "v1_agentic_chat",
       "vnext_chat",
@@ -212,6 +222,79 @@ describe("resolveLegacyDojoRedirect", () => {
     ]);
     const unaccounted = HISTORICAL.filter(
       (id) => !(id in LEGACY_FEATURES) && !UNMAPPED.has(id),
+    );
+    expect(unaccounted).toEqual([]);
+  });
+
+  it("accounts for every integration the legacy dojo ever shipped", () => {
+    // Every integration id from the legacy dojo's menu.ts history, all
+    // refs. Each must be mapped or listed in UNMAPPED (lands on the root).
+    const HISTORICAL = [
+      "a2a",
+      "a2a-basic",
+      "adk-js",
+      "adk-middleware",
+      "ag-ui-dotnet",
+      "ag2",
+      "agent-spec-langgraph",
+      "agent-spec-wayflow",
+      "agno",
+      "antigravity",
+      "aws-strands",
+      "aws-strands-typescript",
+      "builtin",
+      "builtin-a2ui",
+      "claude-agent-sdk-python",
+      "claude-agent-sdk-typescript",
+      "claude-managed-agents-dotnet",
+      "claude-managed-agents-python",
+      "claude-managed-agents-typescript",
+      "cloudflare-agents",
+      "crewai",
+      "crewai-conversational-flows",
+      "langchain",
+      "langgraph",
+      "langgraph-fastapi",
+      "langgraph-typescript",
+      "langroid",
+      "llama-index",
+      "mastra",
+      "mastra-agent-local",
+      "microsoft-agent-framework-dotnet",
+      "microsoft-agent-framework-python",
+      "middleware-starter",
+      "omnara",
+      "openai-agents-python",
+      "pydantic-ai",
+      "server-starter",
+      "server-starter-all-features",
+      "spring-ai",
+      "starter",
+      "vercel-ai-sdk",
+      "watsonx",
+    ];
+    const UNMAPPED = new Set([
+      "a2a",
+      "a2a-basic",
+      "ag-ui-dotnet",
+      "agent-spec-langgraph",
+      "agent-spec-wayflow",
+      "claude-managed-agents-dotnet",
+      "claude-managed-agents-python",
+      "claude-managed-agents-typescript",
+      "cloudflare-agents",
+      "langchain",
+      "middleware-starter",
+      "omnara",
+      "openai-agents-python",
+      "server-starter",
+      "server-starter-all-features",
+      "starter",
+      "vercel-ai-sdk",
+      "watsonx",
+    ]);
+    const unaccounted = HISTORICAL.filter(
+      (id) => !(id in LEGACY_INTEGRATIONS) && !UNMAPPED.has(id),
     );
     expect(unaccounted).toEqual([]);
   });

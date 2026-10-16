@@ -27,6 +27,7 @@ export const LEGACY_INTEGRATIONS: Record<string, string> = {
   "spring-ai": "spring-ai",
   "pydantic-ai": "pydantic-ai",
   "adk-middleware": "google-adk",
+  "adk-js": "google-adk",
   "microsoft-agent-framework-dotnet": "ms-agent-dotnet",
   "microsoft-agent-framework-python": "ms-agent-python",
   ag2: "ag2",
@@ -54,6 +55,8 @@ export const LEGACY_FEATURES: Record<string, string> = {
   agentic_chat_reasoning: "reasoning-default",
   human_in_the_loop: "hitl-in-chat",
   human_in_the_loop_approval: "hitl-in-chat",
+  // Mastra approve/reject before a tool runs.
+  tool_approval: "hitl-in-chat",
   interrupt: "gen-ui-interrupt",
   backend_tool_rendering: "tool-rendering",
   tool_based_generative_ui: "gen-ui-tool-based",
