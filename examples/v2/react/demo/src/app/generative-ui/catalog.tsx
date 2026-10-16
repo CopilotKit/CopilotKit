@@ -2,11 +2,8 @@
 import { useState } from "react";
 import { z } from "zod";
 import { COUPON_CODE } from "./cart";
-import {
-  createGenerativeUI,
-  useGenerativeUIField,
-} from "@copilotkit/react-core/v2";
-import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2";
+import { createGenerativeUI } from "@copilotkit/react-core/v2/generative-ui";
+import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2/generative-ui";
 
 function ProductGrid({
   title,
@@ -90,14 +87,13 @@ function CartSummary({
 function CheckoutForm({
   email,
   note,
+  setEmail,
+  setNote,
   onApplyCoupon,
   onSubmit,
 }: GenerativeUIComponentProps<typeof storeUI, "CheckoutForm">) {
-  const [emailValue, setEmail, emailField] = useGenerativeUIField(
-    "email",
-    email ?? "",
-  );
-  const [noteValue, setNote] = useGenerativeUIField("note", note ?? "");
+  const emailValue = email ?? "";
+  const noteValue = note ?? "";
   const [code, setCode] = useState("");
   const [message, setMessage] = useState<string>();
   return (
@@ -110,12 +106,7 @@ function CheckoutForm({
       }}
     >
       <label className="block">
-        Email{" "}
-        {emailField.dirty && (
-          <span className="text-xs text-amber-600">
-            (edited — agent updates paused)
-          </span>
-        )}
+        Email
         <input
           className="mt-1 w-full rounded border px-2 py-1"
           value={emailValue}
@@ -248,6 +239,8 @@ export const storeUI = createGenerativeUI({
         email: z.string().optional(),
         note: z.string().optional(),
       }),
+      // The user's input wins over later agent updates of these props.
+      writable: ["email", "note"],
       events: {
         onApplyCoupon: {},
         onSubmit: {
