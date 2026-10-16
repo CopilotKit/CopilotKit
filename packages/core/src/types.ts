@@ -102,7 +102,8 @@ export type FrontendTool<
   /**
    * @internal Classifies local execution. Omitted means an ordinary frontend
    * tool. Human-in-the-loop handlers are always restored from history replay;
-   * other tools only with `reconnectBehavior: "resume-pending"`.
+   * other handlers only with `reconnectBehavior: "resume-pending"`. Tools
+   * without a handler restore missing empty completion results automatically.
    * This field is not sent to the agent as part of the tool schema.
    */
   type?: "frontend" | "human-in-the-loop";

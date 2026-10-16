@@ -932,14 +932,15 @@ export class RunHandler {
           };
 
           const executableTool = tool ?? getWildcardTool();
-          // Restoring history runs only handlers that are safe to run again:
-          // human-in-the-loop prompts, and tools that opt in with
-          // reconnectBehavior "resume-pending" (#6101). Every other tool stays
-          // passive, so a reload never repeats its side effects.
+          // Handlerless frontend tools (e.g. chart components) must recreate
+          // missing empty results using their original call IDs. Handlers still
+          // run only for HITL prompts or an explicit "resume-pending" opt-in,
+          // so restoring history never repeats other tools' side effects.
           if (
             toolExecutionMode === "restore" &&
-            (!executableTool?.handler ||
-              (executableTool.type !== "human-in-the-loop" &&
+            (!executableTool ||
+              (executableTool.handler &&
+                executableTool.type !== "human-in-the-loop" &&
                 executableTool.reconnectBehavior !== "resume-pending"))
           ) {
             continue;
