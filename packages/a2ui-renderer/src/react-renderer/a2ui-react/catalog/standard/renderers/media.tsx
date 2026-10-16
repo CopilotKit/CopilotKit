@@ -121,24 +121,77 @@ function radiusCss(value: LayoutProps["radius"]): React.CSSProperties {
   return {};
 }
 
-/** Full-screen view of one image; closes on click, Escape or the close button. */
+export interface LightboxImage {
+  src: string;
+  alt?: string;
+}
+
+const LIGHTBOX_BUTTON: React.CSSProperties = {
+  position: "absolute",
+  border: "none",
+  borderRadius: 9999,
+  background: "rgba(255,255,255,.15)",
+  color: ON_ACCENT,
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+/**
+ * Full-screen view of one or more images. Closes on click, Escape or the
+ * close button; with several images the arrows and the arrow keys move
+ * between them.
+ */
 export function Lightbox({
-  src,
-  alt,
+  images,
+  index = 0,
   onClose,
 }: {
-  src: string;
-  alt: string;
+  images: LightboxImage[];
+  index?: number;
   onClose: () => void;
 }) {
+  const [current, setCurrent] = useState(index);
+  const count = images.length;
+  const step = (delta: number) =>
+    setCurrent((i) => (count === 0 ? 0 : (i + delta + count) % count));
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight" && count > 1) step(1);
+      else if (e.key === "ArrowLeft" && count > 1) step(-1);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, count]);
   if (typeof document === "undefined") return null;
+  const image = images[Math.min(current, count - 1)];
+  if (!image) return null;
+  const alt = image.alt ?? "";
+  const arrow = (delta: -1 | 1) => (
+    <button
+      type="button"
+      aria-label={delta < 0 ? "Previous image" : "Next image"}
+      data-a2ui-lightbox-arrow={delta < 0 ? "prev" : "next"}
+      onClick={(e) => {
+        e.stopPropagation();
+        step(delta);
+      }}
+      style={{
+        ...LIGHTBOX_BUTTON,
+        top: "50%",
+        [delta < 0 ? "left" : "right"]: 16,
+        transform: "translateY(-50%)",
+        width: 44,
+        height: 44,
+        fontSize: 28,
+        lineHeight: 1,
+      }}
+    >
+      {delta < 0 ? "‹" : "›"}
+    </button>
+  );
   return createPortal(
     <div
       role="dialog"
@@ -159,7 +212,8 @@ export function Lightbox({
       }}
     >
       <img
-        src={src}
+        key={image.src}
+        src={image.src}
         alt={alt}
         style={{
           maxWidth: "min(92vw, 1400px)",
@@ -169,23 +223,36 @@ export function Lightbox({
           boxShadow: SHADOW_MD,
         }}
       />
+      {count > 1 ? (
+        <span
+          data-a2ui-lightbox-counter=""
+          style={{
+            position: "absolute",
+            bottom: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
+            color: ON_ACCENT,
+            fontSize: 13,
+            opacity: 0.8,
+          }}
+        >
+          {current + 1} / {count}
+        </span>
+      ) : null}
+      {count > 1 ? arrow(-1) : null}
+      {count > 1 ? arrow(1) : null}
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
         style={{
-          position: "absolute",
+          ...LIGHTBOX_BUTTON,
           top: 16,
           right: 16,
           width: 36,
           height: 36,
-          border: "none",
-          borderRadius: 9999,
-          background: "rgba(255,255,255,.15)",
-          color: ON_ACCENT,
           fontSize: 20,
-          lineHeight: "36px",
-          cursor: "pointer",
+          lineHeight: 1,
         }}
       >
         ×
@@ -261,7 +328,7 @@ function Image({ props, dispatch }: RendererProps<any>) {
   return (
     <>
       {open && lightbox ? (
-        <Lightbox src={src} alt={alt} onClose={() => setOpen(false)} />
+        <Lightbox images={[{ src, alt }]} onClose={() => setOpen(false)} />
       ) : null}
       {overlay || props.hoverZoom ? (
         <div

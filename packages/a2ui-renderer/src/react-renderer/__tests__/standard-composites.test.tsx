@@ -129,6 +129,90 @@ describe("standard catalog: composites", () => {
     expect(document.querySelector("[data-a2ui-lightbox]")).toBeNull();
   });
 
+  it("ImageGrid lightbox walks through all images with the arrows and keys", async () => {
+    const v = renderStandard([
+      {
+        id: "root",
+        component: "ImageGrid",
+        images: [
+          { src: "https://example.com/1.png", alt: "one" },
+          { src: "https://example.com/2.png", alt: "two" },
+          { src: "https://example.com/3.png", alt: "three" },
+        ],
+      },
+    ]);
+    fireEvent.click(await v.findByAltText("two"));
+    const lightbox = () => document.querySelector("[data-a2ui-lightbox]")!;
+    const shown = () => lightbox().querySelector("img")!.getAttribute("src");
+    expect(shown()).toBe("https://example.com/2.png");
+    expect(lightbox().textContent).toContain("2 / 3");
+    fireEvent.click(
+      lightbox().querySelector("[data-a2ui-lightbox-arrow=next]")!,
+    );
+    expect(shown()).toBe("https://example.com/3.png");
+    fireEvent.keyDown(document, { key: "ArrowRight" });
+    expect(shown()).toBe("https://example.com/1.png");
+    fireEvent.keyDown(document, { key: "ArrowLeft" });
+    expect(shown()).toBe("https://example.com/3.png");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(document.querySelector("[data-a2ui-lightbox]")).toBeNull();
+  });
+
+  it("CarouselMediaItem opens a lightbox over every slide of its carousel", async () => {
+    const v = renderStandard([
+      { id: "root", component: "Carousel", children: ["a", "b", "c"] },
+      {
+        id: "a",
+        component: "CarouselMediaItem",
+        media: "https://example.com/a.png",
+        alt: "A",
+      },
+      {
+        id: "b",
+        component: "CarouselMediaItem",
+        media: "https://example.com/b.png",
+        alt: "B",
+      },
+      {
+        id: "c",
+        component: "CarouselMediaItem",
+        media: "https://example.com/c.png",
+        alt: "C",
+      },
+    ]);
+    fireEvent.click(await v.findByAltText("B"));
+    const lightbox = document.querySelector("[data-a2ui-lightbox]")!;
+    expect(lightbox.querySelector("img")!.getAttribute("src")).toBe(
+      "https://example.com/b.png",
+    );
+    expect(lightbox.textContent).toContain("2 / 3");
+    fireEvent.click(lightbox.querySelector("[data-a2ui-lightbox-arrow=next]")!);
+    expect(lightbox.querySelector("img")!.getAttribute("src")).toBe(
+      "https://example.com/c.png",
+    );
+  });
+
+  it("CarouselMediaItem with href opens the URL instead of the lightbox", async () => {
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const v = renderStandard([
+      { id: "root", component: "Carousel", children: ["a"] },
+      {
+        id: "a",
+        component: "CarouselMediaItem",
+        media: "https://example.com/a.png",
+        alt: "A",
+        href: "https://copilotkit.ai",
+      },
+    ]);
+    fireEvent.click(await v.findByAltText("A"));
+    expect(open).toHaveBeenCalledWith(
+      "https://copilotkit.ai",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    expect(document.querySelector("[data-a2ui-lightbox]")).toBeNull();
+  });
+
   it("CarouselMediaItem renders its image at the size's width", async () => {
     const v = renderStandard([
       { id: "root", component: "Carousel", children: ["a"] },

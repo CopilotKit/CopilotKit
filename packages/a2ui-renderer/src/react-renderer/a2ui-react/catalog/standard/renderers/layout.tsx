@@ -24,6 +24,8 @@ import {
   SHADOW_SOFT,
 } from "../tokens";
 import { useStandardStyles } from "../styles";
+import { Lightbox, type LightboxImage } from "./media";
+import { safeHref } from "../inline-markdown";
 
 const ALIGN_CSS: Record<string, string> = {
   start: "flex-start",
@@ -579,6 +581,94 @@ function Carousel({ props, children }: RendererProps<any>) {
   );
 }
 
+/**
+ * Carousel slide with an image on top. Clicking the image opens a lightbox
+ * over every media slide of the same carousel (DOM order, clicked one
+ * selected); `href` or `action` on the slide take over the click instead.
+ */
+function CarouselMediaItem({ props, children }: RendererProps<any>) {
+  const [open, setOpen] = useState<{
+    images: LightboxImage[];
+    index: number;
+  } | null>(null);
+  const width = { sm: 160, md: 240, lg: 320 }[
+    (props.size as "sm" | "md" | "lg" | undefined) ?? "md"
+  ];
+  const href = typeof props.href === "string" ? safeHref(props.href) : null;
+  const hasAction = typeof props.action === "function";
+  const lightbox = props.lightbox !== false && !href && !hasAction;
+  const onClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (href) {
+      if (typeof window !== "undefined") {
+        window.open(href, "_blank", "noopener,noreferrer");
+      }
+      return;
+    }
+    if (hasAction) {
+      (props.action as () => void)();
+      return;
+    }
+    if (!lightbox) return;
+    const own = e.currentTarget;
+    const scope =
+      own.closest("[data-a2ui-carousel]") ?? own.parentElement?.parentElement;
+    const slides = Array.from(
+      scope?.querySelectorAll<HTMLImageElement>(
+        "[data-a2ui-carousel-media] > img",
+      ) ?? [],
+    );
+    const images = slides.map((img) => ({ src: img.src, alt: img.alt }));
+    const index = Math.max(
+      0,
+      slides.findIndex((img) => img === own),
+    );
+    setOpen(
+      images.length > 0
+        ? { images, index }
+        : { images: [{ src: String(props.media), alt: props.alt }], index: 0 },
+    );
+  };
+  const clickable = lightbox || !!href || hasAction;
+  return (
+    <div
+      data-a2ui-std=""
+      data-a2ui-carousel-media=""
+      style={{
+        ...layoutStyle(props),
+        flex: "0 0 auto",
+        flexDirection: "column",
+        scrollSnapAlign: "start",
+        width,
+        gap: spacing(props.gap ?? 2),
+      }}
+    >
+      <img
+        src={String(props.media)}
+        alt={props.alt ?? ""}
+        loading="lazy"
+        onClick={clickable ? onClick : undefined}
+        data-a2ui-lightbox-trigger={lightbox ? "" : undefined}
+        style={{
+          display: "block",
+          width: "100%",
+          aspectRatio: props.aspectRatio ?? "4 / 3",
+          objectFit: "cover",
+          borderRadius: radius("lg"),
+          cursor: lightbox ? "zoom-in" : clickable ? "pointer" : undefined,
+        }}
+      />
+      {renderChildren(props.children, children)}
+      {open ? (
+        <Lightbox
+          images={open.images}
+          index={open.index}
+          onClose={() => setOpen(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 const span = (p: { span?: number; rowSpan?: number }) => ({
   gridColumn: p.span ? `span ${p.span}` : undefined,
   gridRow: p.rowSpan ? `span ${p.rowSpan}` : undefined,
@@ -623,38 +713,7 @@ export const layoutRenderers = {
     flexDirection: "column",
     scrollSnapAlign: "start",
   })),
-  CarouselMediaItem: ({ props, children }: RendererProps<any>) => {
-    const width = { sm: 160, md: 240, lg: 320 }[
-      (props.size as "sm" | "md" | "lg" | undefined) ?? "md"
-    ];
-    return (
-      <div
-        data-a2ui-std=""
-        style={{
-          ...layoutStyle(props),
-          flex: "0 0 auto",
-          flexDirection: "column",
-          scrollSnapAlign: "start",
-          width,
-          gap: spacing(props.gap ?? 2),
-        }}
-      >
-        <img
-          src={String(props.media)}
-          alt={props.alt ?? ""}
-          loading="lazy"
-          style={{
-            display: "block",
-            width: "100%",
-            aspectRatio: props.aspectRatio ?? "4 / 3",
-            objectFit: "cover",
-            borderRadius: radius("lg"),
-          }}
-        />
-        {renderChildren(props.children, children)}
-      </div>
-    );
-  },
+  CarouselMediaItem,
   Spacer: ({ props }: RendererProps<any>) => (
     <div
       aria-hidden

@@ -622,13 +622,12 @@ function ImageGrid({ props }: RendererProps<any>) {
   if (images.length === 0) return null;
   const columns = Math.max(1, Math.floor(props.columns ?? 3));
   const bento = props.layout === "bento" && images.length > 1;
-  const current = open === null ? null : images[open];
   return (
     <>
-      {current ? (
+      {open !== null ? (
         <Lightbox
-          src={current.src}
-          alt={current.alt ?? ""}
+          images={images.map((img) => ({ src: img.src, alt: img.alt }))}
+          index={open}
           onClose={() => setOpen(null)}
         />
       ) : null}
