@@ -21,6 +21,10 @@ export const mediaDefinitions = {
       background: z.string().optional(),
       frame: z.boolean().optional(),
       hideOnFailure: z.boolean().optional().describe("Default false"),
+      lightbox: z
+        .boolean()
+        .optional()
+        .describe("Default true: clicking opens the image full-screen"),
     }),
   },
   Icon: {

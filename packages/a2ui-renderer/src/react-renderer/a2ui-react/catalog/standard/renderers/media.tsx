@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   CatalogRenderers,
   RendererProps,
@@ -6,6 +7,9 @@ import type {
 import type { mediaDefinitions } from "../definitions/media";
 import type { LayoutProps } from "../definitions/layout";
 import {
+  BACKDROP,
+  ON_ACCENT,
+  SHADOW_MD,
   backgroundColor,
   borderColor,
   radius,
@@ -116,29 +120,118 @@ function radiusCss(value: LayoutProps["radius"]): React.CSSProperties {
   return {};
 }
 
+/** Full-screen view of one image; closes on click, Escape or the close button. */
+function Lightbox({
+  src,
+  alt,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={alt || "Image"}
+      data-a2ui-lightbox=""
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        background: BACKDROP,
+        cursor: "zoom-out",
+      }}
+    >
+      <img
+        src={src}
+        alt={alt}
+        style={{
+          maxWidth: "min(92vw, 1400px)",
+          maxHeight: "92vh",
+          objectFit: "contain",
+          borderRadius: radius("md"),
+          boxShadow: SHADOW_MD,
+        }}
+      />
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        style={{
+          position: "absolute",
+          top: 16,
+          right: 16,
+          width: 36,
+          height: 36,
+          border: "none",
+          borderRadius: 9999,
+          background: "rgba(255,255,255,.15)",
+          color: ON_ACCENT,
+          fontSize: 20,
+          lineHeight: "36px",
+          cursor: "pointer",
+        }}
+      >
+        ×
+      </button>
+    </div>,
+    document.body,
+  );
+}
+
 function Image({ props }: RendererProps<any>) {
   const [failed, setFailed] = useState(false);
+  const [open, setOpen] = useState(false);
   if (!props.src || (failed && props.hideOnFailure)) return null;
+  const lightbox = props.lightbox !== false && !failed;
+  const src = String(props.src);
+  const alt = props.alt ?? "";
   return (
-    <img
-      src={String(props.src)}
-      alt={props.alt ?? ""}
-      loading="lazy"
-      onError={() => setFailed(true)}
-      style={{
-        display: "block",
-        objectFit: props.fit ?? "cover",
-        aspectRatio: props.aspectRatio,
-        width: spacing(props.width) ?? (props.aspectRatio ? "100%" : undefined),
-        height: spacing(props.height),
-        maxWidth: spacing(props.maxWidth) ?? "100%",
-        maxHeight: spacing(props.maxHeight),
-        background: backgroundColor(props.background),
-        border: props.frame ? `1px solid ${borderColor("default")}` : undefined,
-        boxSizing: "border-box",
-        ...radiusCss(props.radius),
-      }}
-    />
+    <>
+      {open && lightbox ? (
+        <Lightbox src={src} alt={alt} onClose={() => setOpen(false)} />
+      ) : null}
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onError={() => setFailed(true)}
+        onClick={lightbox ? () => setOpen(true) : undefined}
+        data-a2ui-lightbox-trigger={lightbox ? "" : undefined}
+        style={{
+          cursor: lightbox ? "zoom-in" : undefined,
+          display: "block",
+          objectFit: props.fit ?? "cover",
+          aspectRatio: props.aspectRatio,
+          width:
+            spacing(props.width) ?? (props.aspectRatio ? "100%" : undefined),
+          height: spacing(props.height),
+          maxWidth: spacing(props.maxWidth) ?? "100%",
+          maxHeight: spacing(props.maxHeight),
+          background: backgroundColor(props.background),
+          border: props.frame
+            ? `1px solid ${borderColor("default")}`
+            : undefined,
+          boxSizing: "border-box",
+          ...radiusCss(props.radius),
+        }}
+      />
+    </>
   );
 }
 

@@ -159,3 +159,61 @@ describe("Svg sizing", () => {
     expect(svg.getAttribute("height")).toBe("80");
   });
 });
+
+describe("Image lightbox and Popover trigger", () => {
+  it("opens the image full-screen on click and closes on Escape", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    const v = renderStandard([
+      {
+        id: "root",
+        component: "Image",
+        src: "https://example.com/a.png",
+        alt: "A",
+      },
+    ]);
+    const img = (await v.findByAltText("A")) as HTMLImageElement;
+    expect(document.querySelector("[data-a2ui-lightbox]")).toBeNull();
+    fireEvent.click(img);
+    const dialog = document.querySelector("[data-a2ui-lightbox]")!;
+    expect(dialog).not.toBeNull();
+    expect(dialog.querySelector("img")!.getAttribute("src")).toBe(
+      "https://example.com/a.png",
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(document.querySelector("[data-a2ui-lightbox]")).toBeNull();
+  });
+
+  it("does not open a lightbox when lightbox is false", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    const v = renderStandard([
+      {
+        id: "root",
+        component: "Image",
+        src: "https://example.com/b.png",
+        alt: "B",
+        lightbox: false,
+      },
+    ]);
+    fireEvent.click(await v.findByAltText("B"));
+    expect(document.querySelector("[data-a2ui-lightbox]")).toBeNull();
+  });
+
+  it("toggles a Popover when its trigger is a Button", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    const v = renderStandard([
+      { id: "root", component: "Popover", children: ["t", "c"] },
+      { id: "t", component: "PopoverTrigger", children: ["b"] },
+      { id: "b", component: "Button", label: "Open", variant: "outline" },
+      { id: "c", component: "PopoverContent", children: ["x"] },
+      { id: "x", component: "Text", text: "Popover body" },
+    ]);
+    // The trigger wrapper is role="button" too, so target the real <button>.
+    await v.findByText("Open");
+    const button = v.container.querySelector("button")!;
+    expect(v.queryByText("Popover body")).toBeNull();
+    fireEvent.click(button);
+    expect(v.getByText("Popover body")).not.toBeNull();
+    fireEvent.click(button);
+    expect(v.queryByText("Popover body")).toBeNull();
+  });
+});
