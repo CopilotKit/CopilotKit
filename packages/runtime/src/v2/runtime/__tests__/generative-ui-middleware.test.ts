@@ -23,50 +23,86 @@ class ScriptedAgent extends AbstractAgent {
   }
 }
 
-const envelope: CopilotKitUIEnvelope = {
-  method: "a2ui",
-  version: "v0.9",
-  format: 2,
-  transport: "tool",
-  catalog: {
-    id: "shop",
-    version: "fnv1a:test",
-    components: {
-      ProductGrid: {
-        props: { type: "object", properties: {} },
-        slots: { children: "multiple" },
+type Extensions = CopilotKitUIEnvelope["metadata"]["extensions"];
+type InlineCatalog = NonNullable<
+  CopilotKitUIEnvelope["v1.0"]["inlineCatalogs"]
+>[number];
+
+const catalog: InlineCatalog = {
+  catalogId: "shop",
+  protocolVersion: "1.0",
+  components: {
+    ProductGrid: {
+      props: { type: "object", properties: {} },
+      slots: { children: "multiple" },
+    },
+    ProductCard: {
+      props: {
+        type: "object",
+        properties: { name: { type: "string" } },
+        required: ["name"],
       },
-      ProductCard: {
-        props: {
-          type: "object",
-          properties: { name: { type: "string" } },
-          required: ["name"],
-        },
-        events: { onAddToCart: { parameters: { type: "object" } } },
-      },
+      events: { onAddToCart: { parameters: { type: "object" } } },
     },
   },
   functions: { addToCart: { parameters: { type: "object" } } },
-  targets: [
+};
+
+const extensions: Extensions = {
+  copilotkit_format: 3,
+  copilotkit_transport: "tool",
+  copilotkit_targets: [
     { id: "chat", kind: "chat" },
     { id: "recommendations", kind: "inline" },
   ],
-  surfaces: {},
-  contextSent: false,
+  copilotkit_surfaces: {},
+  copilotkit_contextSent: false,
 };
 
-/** The forwardedProps of a run that carries the envelope, with some fields changed. */
-function uiProps(overrides: Partial<CopilotKitUIEnvelope> = {}) {
-  return { copilotkit: { ui: { ...envelope, ...overrides } } };
+/** A format 3 envelope, with some catalog or extension fields changed. */
+function uiEnvelope(
+  overrides: {
+    catalog?: Partial<InlineCatalog>;
+    extensions?: Partial<Extensions>;
+  } = {},
+): CopilotKitUIEnvelope {
+  return {
+    "v1.0": {
+      supportedCatalogIds: ["shop"],
+      inlineCatalogs: [{ ...catalog, ...overrides.catalog }],
+    },
+    metadata: { extensions: { ...extensions, ...overrides.extensions } },
+  };
+}
+
+/** The forwardedProps of a run that carries the envelope. */
+function uiProps(overrides: Parameters<typeof uiEnvelope>[0] = {}) {
+  return { copilotkit: { ui: uiEnvelope(overrides) } };
+}
+
+/** The forwardedProps of a run whose envelope lists these surfaces. */
+function withSurfaces(surfaces: Extensions["copilotkit_surfaces"]) {
+  return uiProps({ extensions: { copilotkit_surfaces: surfaces } });
 }
 
 const create = (surfaceId: string) => ({
-  version: "v0.9",
+  version: "v1.0",
   createSurface: { surfaceId, catalogId: "shop" },
 });
 const components = (surfaceId: string, ...nodes: unknown[]) => ({
-  version: "v0.9",
+  version: "v1.0",
   updateComponents: { surfaceId, components: nodes },
+});
+const deleteSurface = (surfaceId: string) => ({
+  version: "v1.0",
+  deleteSurface: { surfaceId },
+});
+const callFunction = (functionCallId: string, name = "addToCart") => ({
+  version: "v1.0",
+  callRendererFunction: {
+    functionCallId,
+    callFunction: { "@call": name, args: { productId: "p1" } },
+  },
 });
 
 function chunk(text: string, size: number): string[] {
@@ -95,7 +131,7 @@ function renderCall(
       delta,
     })),
     { type: EventType.TOOL_CALL_END, toolCallId },
-  ] as BaseEvent[];
+  ];
 }
 
 async function run(
@@ -103,9 +139,9 @@ async function run(
   forwardedProps: Record<string, unknown> = uiProps(),
 ) {
   const agent = new ScriptedAgent([
-    { type: EventType.RUN_STARTED, threadId: "t1", runId: "r1" } as BaseEvent,
+    { type: EventType.RUN_STARTED, threadId: "t1", runId: "r1" },
     ...script,
-    { type: EventType.RUN_FINISHED, threadId: "t1", runId: "r1" } as BaseEvent,
+    { type: EventType.RUN_FINISHED, threadId: "t1", runId: "r1" },
   ]);
   const input: RunAgentInput = {
     threadId: "t1",
@@ -146,12 +182,24 @@ function findToolResult(output: BaseEvent[]) {
   return result;
 }
 
-function toolResult(output: BaseEvent[]) {
-  const { content } = findToolResult(output);
+function parseToolResult({ content }: ToolCallResultEvent) {
   if (typeof content !== "string") {
     throw new Error("the render_ui tool result is not a JSON string");
   }
   return JSON.parse(content);
+}
+
+function toolResult(output: BaseEvent[]) {
+  return parseToolResult(findToolResult(output));
+}
+
+/** The parsed results of every render_ui call, in order. */
+function toolResults(output: BaseEvent[]) {
+  return output
+    .filter(
+      (e): e is ToolCallResultEvent => e.type === EventType.TOOL_CALL_RESULT,
+    )
+    .map(parseToolResult);
 }
 
 /** The middleware added nothing to the run and changed none of its events. */
@@ -176,34 +224,58 @@ describe("GenerativeUIMiddleware", () => {
   });
 
   it("does not read a manifest from the generativeUI prop", async () => {
-    const { catalog, functions, targets, surfaces } = envelope;
     const legacyManifest = {
-      catalogId: catalog.id,
-      catalogVersion: catalog.version,
+      catalogId: "shop",
       components: catalog.components,
-      functions,
-      targets,
-      surfaces,
+      functions: catalog.functions,
+      targets: extensions.copilotkit_targets,
+      surfaces: {},
     };
     expectPassThrough(await run([], { generativeUI: legacyManifest }));
   });
 
   it("adds no render_ui tool for a markdown envelope", async () => {
-    expectPassThrough(await run([], uiProps({ transport: "markdown" })));
+    expectPassThrough(
+      await run(
+        [],
+        uiProps({ extensions: { copilotkit_transport: "markdown" } }),
+      ),
+    );
   });
 
   it("adds no render_ui tool when the tool envelope has no catalog components", async () => {
     // Without components the server cannot validate the operations.
     expectPassThrough(
-      await run([], uiProps({ catalog: { id: "shop", version: "1" } })),
+      await run([], uiProps({ catalog: { components: undefined } })),
     );
   });
 
-  it("passes the run through when the envelope is malformed", async () => {
-    const malformed = {
-      ...envelope,
-      catalog: { id: "shop", version: "1", components: { X: {} } },
-    };
+  it.each([
+    [
+      "a component has no props schema",
+      {
+        ...uiEnvelope(),
+        "v1.0": {
+          supportedCatalogIds: ["shop"],
+          inlineCatalogs: [{ ...catalog, components: { X: {} } }],
+        },
+      },
+    ],
+    [
+      "the envelope has the format 2 shape",
+      {
+        method: "a2ui",
+        version: "v0.9",
+        format: 2,
+        transport: "tool",
+        catalog: { id: "shop", components: catalog.components },
+        functions: catalog.functions,
+        targets: extensions.copilotkit_targets,
+        surfaces: {},
+        contextSent: false,
+      },
+    ],
+  ])("passes the run through when %s", async (_case, malformed) => {
     expectPassThrough(await run([], { copilotkit: { ui: malformed } }));
   });
 
@@ -220,7 +292,7 @@ describe("GenerativeUIMiddleware", () => {
   it("tells the model to show a different view in a new surface, not an existing one", async () => {
     const { input } = await run(
       [],
-      uiProps({ surfaces: { cart_surface: { target: "chat" } } }),
+      withSurfaces({ cart_surface: { target: "chat" } }),
     );
     const guide = guideText(input);
     // A follow-up such as "checkout" after "show my cart" must not overwrite the cart card.
@@ -235,14 +307,12 @@ describe("GenerativeUIMiddleware", () => {
   it("lists the user values and the rejections of an existing surface in the guide", async () => {
     const { input } = await run(
       [],
-      uiProps({
-        surfaces: {
-          cart_surface: { target: "chat" },
-          form: {
-            target: "chat",
-            dataModel: { "/form/email": "me@x.io" },
-            rejected: ['operation 2: unknown component "Missing"'],
-          },
+      withSurfaces({
+        cart_surface: { target: "chat" },
+        form: {
+          target: "chat",
+          dataModel: { "/form/email": "me@x.io" },
+          rejected: ['operation 2: unknown component "Missing"'],
         },
       }),
     );
@@ -263,10 +333,8 @@ describe("GenerativeUIMiddleware", () => {
   it("cuts long user values in the guide", async () => {
     const { input } = await run(
       [],
-      uiProps({
-        surfaces: {
-          form: { target: "chat", dataModel: { "/a": "x".repeat(600) } },
-        },
+      withSurfaces({
+        form: { target: "chat", dataModel: { "/a": "x".repeat(600) } },
       }),
     );
     expect(guideText(input).split("\n")).toContain(
@@ -290,15 +358,17 @@ describe("GenerativeUIMiddleware", () => {
     const { input } = await run(
       [],
       uiProps({
-        targets: [
-          { id: "chat", kind: "chat" },
-          {
-            id: "recommendations",
-            kind: "inline",
-            description:
-              "Next to the product list. Use it for product recommendations.",
-          },
-        ],
+        extensions: {
+          copilotkit_targets: [
+            { id: "chat", kind: "chat" },
+            {
+              id: "recommendations",
+              kind: "inline",
+              description:
+                "Next to the product list. Use it for product recommendations.",
+            },
+          ],
+        },
       }),
     );
     expect(guideText(input)).toContain(
@@ -312,7 +382,7 @@ describe("GenerativeUIMiddleware", () => {
 
   it("does not tell the model about app state, even when the client still sends it", async () => {
     const { input } = await run([], {
-      copilotkit: { ui: { ...envelope, appState: ["cart"] } },
+      copilotkit: { ui: { ...uiEnvelope(), appState: ["cart"] } },
     });
     const guide = guideText(input);
     expect(guide).not.toContain("App state");
@@ -334,7 +404,7 @@ describe("GenerativeUIMiddleware", () => {
         component: "ProductCard",
         name: "A",
         onAddToCart: {
-          functionCall: { call: "addToCart", args: { productId: "p1" } },
+          functionCall: { "@call": "addToCart", args: { productId: "p1" } },
         },
       }),
     ];
@@ -420,7 +490,7 @@ describe("GenerativeUIMiddleware", () => {
       const { output } = await run(
         renderCall({
           target: "recommendations",
-          operations: [{ version: "v0.9", createSurface }],
+          operations: [{ version: "v1.0", createSurface }],
         }),
       );
       const [snapshot] = activity(output);
@@ -436,6 +506,174 @@ describe("GenerativeUIMiddleware", () => {
     const { input } = await run([]);
     const guide = input.context.map((entry) => entry.value).join("\n");
     expect(guide).not.toContain("catalogId");
+  });
+
+  it("teaches A2UI v1.0 in the guide", async () => {
+    const guide = guideText((await run([])).input);
+    expect(guide).not.toContain("v0.9");
+    expect(guide).toContain('"version":"v1.0"');
+    expect(guide).toContain('{"@path":"/data/path"}');
+    expect(guide).toContain('{"@call":"@index"}');
+    expect(guide).toContain('"callRendererFunction"');
+    expect(guide).toContain('"rendererFunctionResponse"');
+  });
+
+  it("keeps the inline data model and components of a createSurface in the snapshot", async () => {
+    const op = {
+      version: "v1.0",
+      createSurface: {
+        surfaceId: "recs",
+        dataModel: { title: "Picks" },
+        components: [{ id: "root", component: "ProductGrid", children: [] }],
+      },
+    };
+    const { output } = await run(
+      renderCall({ target: "recommendations", operations: [op] }),
+    );
+    expect(activity(output)[0]).toMatchObject({
+      type: EventType.ACTIVITY_SNAPSHOT,
+      content: {
+        operations: [
+          {
+            version: "v1.0",
+            createSurface: {
+              surfaceId: "recs",
+              catalogId: "shop",
+              dataModel: { title: "Picks" },
+              components: [
+                { id: "root", component: "ProductGrid", children: [] },
+              ],
+            },
+          },
+        ],
+      },
+    });
+    expect(toolResult(output)).toMatchObject({ applied: 1, rejected: [] });
+  });
+
+  it("rejects a v0.9 operation with the v1.0 reason", async () => {
+    const op = { version: "v0.9", createSurface: { surfaceId: "recs" } };
+    const { output } = await run(
+      renderCall({ target: "recommendations", operations: [op] }),
+    );
+    expect(activity(output)).toEqual([]);
+    expect(toolResult(output).rejected).toEqual([
+      { index: 0, reason: 'unsupported version "v0.9"; use "v1.0"' },
+    ]);
+  });
+
+  it.each([
+    ["created in this run", {}, [create("recs"), deleteSurface("recs")]],
+    [
+      "listed in the envelope",
+      { recs: { target: "recommendations" } },
+      [deleteSurface("recs")],
+    ],
+  ])(
+    "rejects a createSurface after deleteSurface for a surface %s",
+    async (_case, surfaces, before) => {
+      const { output } = await run(
+        renderCall({
+          target: "recommendations",
+          operations: [...before, create("recs")],
+        }),
+        withSurfaces(surfaces),
+      );
+      const snapshots = activity(output).filter(
+        (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
+      );
+      expect(snapshots).toHaveLength(before.length - 1);
+      expect(toolResult(output)).toMatchObject({
+        applied: before.length,
+        rejected: [
+          {
+            index: before.length,
+            reason: 'surface id "recs" was used before; use a new surfaceId',
+          },
+        ],
+      });
+    },
+  );
+
+  describe("callRendererFunction", () => {
+    it("emits one function-call activity and counts it in the tool result", async () => {
+      const { output } = await run(
+        renderCall({ target: "chat", operations: [callFunction("f1")] }),
+      );
+      expect(activity(output)).toEqual([
+        {
+          type: EventType.ACTIVITY_SNAPSHOT,
+          messageId: "genui-fn:f1",
+          activityType: "generative-ui-function-call",
+          content: {
+            functionCallId: "f1",
+            callFunction: { "@call": "addToCart", args: { productId: "p1" } },
+          },
+          replace: true,
+        },
+      ]);
+      expect(toolResult(output)).toEqual({
+        status: "rendered",
+        applied: 0,
+        calls: 1,
+        rejected: [],
+      });
+    });
+
+    it("runs a function call when render_ui has no target", async () => {
+      const { output } = await run(
+        renderCall({ operations: [callFunction("f1"), create("recs")] }),
+      );
+      expect(activity(output).map((e) => e.messageId)).toEqual(["genui-fn:f1"]);
+      expect(toolResult(output)).toMatchObject({
+        calls: 1,
+        rejected: [
+          { index: 1, reason: "render_ui was called without a target" },
+        ],
+      });
+    });
+
+    it("rejects a functionCallId that an earlier render_ui call of the run used", async () => {
+      const { output } = await run([
+        ...renderCall({ target: "chat", operations: [callFunction("f1")] }),
+        ...renderCall(
+          { target: "chat", operations: [callFunction("f1")] },
+          "call-2",
+        ),
+      ]);
+      expect(activity(output)).toHaveLength(1);
+      expect(toolResults(output)[1]).toMatchObject({
+        calls: 0,
+        rejected: [
+          {
+            index: 0,
+            reason:
+              'functionCallId "f1" was used before; use a new functionCallId',
+          },
+        ],
+      });
+    });
+
+    it("rejects a function that the client did not declare", async () => {
+      const { output } = await run(
+        renderCall({
+          target: "chat",
+          operations: [callFunction("f1", "deleteAccount")],
+        }),
+      );
+      expect(activity(output)).toEqual([]);
+      expect(toolResult(output)).toMatchObject({
+        calls: 0,
+        rejected: [
+          {
+            index: 0,
+            reason: expect.stringContaining(
+              'function "deleteAccount" is not exposed to generative UI',
+            ),
+          },
+        ],
+      });
+    });
   });
 
   it("rejects createSurface for a target that is not mounted", async () => {
@@ -456,7 +694,7 @@ describe("GenerativeUIMiddleware", () => {
     });
     const { output } = await run(
       renderCall({ target: "recommendations", operations: [op] }),
-      uiProps({ surfaces: { recs: { target: "recommendations" } } }),
+      withSurfaces({ recs: { target: "recommendations" } }),
     );
     const events = activity(output);
     expect(events.every((e) => e.type === EventType.ACTIVITY_DELTA)).toBe(true);
@@ -511,7 +749,7 @@ describe("GenerativeUIMiddleware", () => {
     const bad = components("recs", { id: "x", component: "Unknown" });
     const { output } = await run(
       renderCall({ target: "recommendations", operations: [bad] }),
-      uiProps({ surfaces: { recs: { target: "recommendations" } } }),
+      withSurfaces({ recs: { target: "recommendations" } }),
     );
     expect(patchOf(activity(output)[0])).toEqual([
       { op: "replace", path: "/status", value: "streaming" },
@@ -554,6 +792,7 @@ describe("GenerativeUIMiddleware", () => {
       expect(toolResult(output)).toEqual({
         status: "rendered",
         applied: 2,
+        calls: 0,
         rejected: [],
       });
     });
@@ -580,6 +819,7 @@ describe("GenerativeUIMiddleware", () => {
       expect(toolResult(output)).toEqual({
         status: "error",
         applied: 0,
+        calls: 0,
         rejected: [],
         reason: expect.stringContaining("nothing was rendered"),
       });
@@ -616,6 +856,7 @@ describe("GenerativeUIMiddleware", () => {
       expect(toolResult(output)).toEqual({
         status: "rendered",
         applied: 1,
+        calls: 0,
         rejected: [{ index: 1, reason: "operation was truncated" }],
       });
     });
