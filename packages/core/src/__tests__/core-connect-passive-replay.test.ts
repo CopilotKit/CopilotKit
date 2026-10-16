@@ -13,6 +13,7 @@ import {
   createToolResultMessage,
 } from "./test-utils";
 
+/** Replay durable snapshots and capture subsequent requests without a backend. */
 class ReplayAgent extends AbstractAgent {
   readonly runs: RunAgentInput[] = [];
   runMessages: Message[] = [];
@@ -56,6 +57,7 @@ class ReplayAgent extends AbstractAgent {
   }
 }
 
+/** Create an isolated pending approval and its original call ID. */
 function setup() {
   const core = new CopilotKitCore({});
   const message = createToolCallMessage("approval", { topic: "sales" });
@@ -66,6 +68,7 @@ function setup() {
   return { core, agent, message, toolCallId };
 }
 
+/** Keep approval completion under the test’s control. */
 function deferredAnswer() {
   let resolve!: (answer: string) => void;
   let reject!: (error: Error) => void;
@@ -78,6 +81,7 @@ function deferredAnswer() {
 
 // PNI-678: component results remain local while an approval is pending.
 describe("restoring component completions alongside an approval", () => {
+  /** Model two local chart completions followed by a pending approval. */
   function setupComponents(savedMessages?: Message[]) {
     const message = getAssistantMessage(
       createMultipleToolCallsMessage([
@@ -105,6 +109,7 @@ describe("restoring component completions alongside an approval", () => {
     return { core, agent, history, answer, handler };
   }
 
+  /** Assert result order, original IDs, and the absence of replacement cards. */
   function expectOriginalResults(messages: Message[], history: Message[]) {
     const calls = history.flatMap((message) =>
       message.role === "assistant" ? (message.toolCalls ?? []) : [],
@@ -194,12 +199,68 @@ describe("restoring component completions alongside an approval", () => {
     await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
     expect(handler).not.toHaveBeenCalled();
     expect(agent.runs[0]!.messages).toEqual([
-      ...saved,
+      saved[0],
+      saved[1],
       expect.objectContaining({
         role: "tool",
         toolCallId: calls[1]!.id,
         content: "",
       }),
+      saved[2],
+    ]);
+  });
+
+  it.each(["specific", "wildcard"])(
+    "replaces a restored handlerless placeholder (%s)",
+    async (registration) => {
+      const { core, agent, toolCallId } = setup();
+      core.addTool(
+        createTool({
+          name: registration === "wildcard" ? "*" : "approval",
+          handler: undefined,
+          followUp: true,
+        }),
+      );
+      agent.replayMessages.push(
+        createToolResultMessage(toolCallId, "Forwarded to client"),
+      );
+      await core.connectAgent({ agent });
+      await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
+      expect(
+        agent.runs[0]!.messages.filter((message) => message.role === "tool"),
+      ).toEqual([expect.objectContaining({ toolCallId, content: "" })]);
+      agent.replayMessages = structuredClone(agent.messages);
+      await core.connectAgent({ agent });
+      await setImmediate();
+      expect(agent.runs).toHaveLength(1);
+    },
+  );
+
+  it("inserts a wildcard result before later saved results without changing them", async () => {
+    const message = getAssistantMessage(
+      createMultipleToolCallsMessage([
+        { name: "first", args: {} },
+        { name: "middle", args: {} },
+        { name: "last", args: {} },
+      ]),
+    );
+    const calls = message.toolCalls!;
+    const first = createToolResultMessage(calls[0]!.id, "saved first");
+    const last = createToolResultMessage(calls[2]!.id, "saved last");
+    const agent = new ReplayAgent([message, first, last]);
+    const core = new CopilotKitCore({});
+    core.addTool(createTool({ name: "*", handler: undefined, followUp: true }));
+    await core.connectAgent({ agent });
+    await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
+    expect(agent.runs[0]!.messages).toEqual([
+      message,
+      first,
+      expect.objectContaining({
+        role: "tool",
+        toolCallId: calls[1]!.id,
+        content: "",
+      }),
+      last,
     ]);
   });
 

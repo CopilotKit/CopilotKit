@@ -7,6 +7,7 @@ import type { Message } from "@ag-ui/client";
 import type { CopilotKitCore } from "@copilotkit/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+/** Capture the real provider core after its built-in sandbox tool is registered. */
 async function mountProvider() {
   let core: CopilotKitCore | undefined;
   const Capture = defineComponent({
@@ -29,6 +30,7 @@ async function mountProvider() {
   return core;
 }
 
+/** Hydrate imported tool calls with controlled approval and side-effect handlers. */
 async function setupReplay(completed = false) {
   const core = await mountProvider();
   const agent = new HttpAgent({

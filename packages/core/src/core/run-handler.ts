@@ -966,8 +966,8 @@ export class RunHandler {
 
           if (
             existingResult &&
-            executableTool?.handler &&
-            this.isFrontendPlaceholderResult(existingResult)
+            this.isFrontendPlaceholderResult(existingResult) &&
+            (toolExecutionMode === "restore" || executableTool?.handler)
           ) {
             if (existingResultIndex !== -1)
               newMessages.splice(existingResultIndex, 1);
@@ -1109,6 +1109,31 @@ export class RunHandler {
     return runAgentResult;
   }
 
+  /** Locate a missing result before saved results for later calls in its batch. */
+  private toolResultInsertionIndex(
+    messages: Message[],
+    messageIndex: number,
+    toolCallId: string,
+  ): number {
+    const parent = messages[messageIndex];
+    const calls = parent?.role === "assistant" ? (parent.toolCalls ?? []) : [];
+    const callIndex = calls.findIndex((call) => call.id === toolCallId);
+    let insertAt = messageIndex + 1;
+    while (insertAt < messages.length) {
+      const result = messages[insertAt];
+      if (result?.role !== "tool") break;
+      const resultIndex = calls.findIndex(
+        (call) => call.id === result.toolCallId,
+      );
+      // Results from earlier batches may follow this assistant in replayed
+      // history. Preserve their position; only stop for a later sibling call.
+      if (resultIndex > callIndex) break;
+      insertAt++;
+    }
+    return insertAt;
+  }
+
+  /** Identify transport placeholders that must not count as completed answers. */
   private isFrontendPlaceholderResult(message: Message): boolean {
     return (
       message.role === "tool" && isForwardedToClientPlaceholder(message.content)
@@ -1297,17 +1322,11 @@ export class RunHandler {
         // already answered. Do not insert a stale answer or start a follow-up.
         return false;
       }
-      // Find the correct insertion point: after the parent assistant message
-      // and any tool-result messages already inserted for earlier tool calls
-      // in the same batch. This preserves tool-result ordering relative to
-      // the toolCalls array, which some providers (OpenAI) require.
-      let insertAt = messageIndex + 1;
-      while (
-        insertAt < agent.messages.length &&
-        agent.messages[insertAt]?.role === "tool"
-      ) {
-        insertAt++;
-      }
+      const insertAt = this.toolResultInsertionIndex(
+        agent.messages,
+        messageIndex,
+        toolCall.id,
+      );
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
@@ -1461,17 +1480,11 @@ export class RunHandler {
         // already answered. Do not insert a stale answer or start a follow-up.
         return false;
       }
-      // Find the correct insertion point: after the parent assistant message
-      // and any tool-result messages already inserted for earlier tool calls
-      // in the same batch. This preserves tool-result ordering relative to
-      // the toolCalls array, which some providers (OpenAI) require.
-      let insertAt = messageIndex + 1;
-      while (
-        insertAt < agent.messages.length &&
-        agent.messages[insertAt]?.role === "tool"
-      ) {
-        insertAt++;
-      }
+      const insertAt = this.toolResultInsertionIndex(
+        agent.messages,
+        messageIndex,
+        toolCall.id,
+      );
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
