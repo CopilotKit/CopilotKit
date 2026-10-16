@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildGenerativeUIMarkdownGuidelines,
+  generativeUIGuideFeatures,
   GENERATIVE_UI_MARKDOWN_GUIDELINES,
   GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
@@ -136,5 +138,68 @@ describe("markdown context entry descriptions", () => {
     expect(GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION).not.toBe(
       GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
     );
+  });
+});
+
+describe("generativeUIGuideFeatures", () => {
+  const props = { type: "object", properties: {} };
+
+  it("finds mounted functions, event props, and multiple slots", () => {
+    expect(
+      generativeUIGuideFeatures({
+        components: {
+          List: { props, slots: { items: "multiple" } },
+          Button: { props, events: { onClick: { parameters: props } } },
+        },
+        functions: { save: { parameters: props } },
+      }),
+    ).toEqual({ functions: true, events: true, templates: true });
+  });
+
+  it("finds none when the components have no events or multiple slots and no function is mounted", () => {
+    expect(
+      generativeUIGuideFeatures({
+        components: {
+          Card: { props, slots: { child: "single" }, events: {} },
+        },
+        functions: {},
+      }),
+    ).toEqual({ functions: false, events: false, templates: false });
+  });
+});
+
+describe("buildGenerativeUIMarkdownGuidelines", () => {
+  const none = { functions: false, events: false, templates: false };
+
+  it("has every rule group by default", () => {
+    expect(buildGenerativeUIMarkdownGuidelines()).toBe(
+      GENERATIVE_UI_MARKDOWN_GUIDELINES,
+    );
+  });
+
+  it("leaves out the function, event, and template rules when they are off", () => {
+    const small = buildGenerativeUIMarkdownGuidelines(none);
+    expect(small).not.toContain("callRendererFunction");
+    expect(small).not.toContain("functionCall");
+    expect(small).not.toContain("userMessage");
+    expect(small).not.toContain("@index");
+    expect(small).toContain("Never wrap the whole reply in a fence.");
+    expect(small.length).toBeLessThan(GENERATIVE_UI_MARKDOWN_GUIDELINES.length);
+  });
+
+  it("keeps events but drops the functionCall binding when no function is mounted", () => {
+    const text = buildGenerativeUIMarkdownGuidelines({ ...none, events: true });
+    expect(text).toContain("userMessage");
+    expect(text).not.toContain("functionCall");
+    expect(text).not.toContain("callRendererFunction");
+  });
+
+  it("adds the template and @index rules for a multiple slot", () => {
+    const text = buildGenerativeUIMarkdownGuidelines({
+      ...none,
+      templates: true,
+    });
+    expect(text).toContain("@index");
+    expect(text).toContain("componentId");
   });
 });
