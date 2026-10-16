@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "sourceRevision": "1c9f51ca5d3180079e5a43369a3bb7573d46d806",
+  "sourceRevision": "db155b54917e57cb548ab1ff6089bc2d1c01ea19",
   "build": {
-    "runId": 38871490260,
+    "runId": 38942331786,
     "runAttempt": 1,
     "workflowPath": ".github/workflows/intelligence-rich-threads-build.yml",
     "workflowSha256": "4337e0e43f7598ff19171ad3a73a250e404e7a8e138ae149cb30e75bda6224bf",
-    "artifactId": 12032524962,
-    "artifactSha256": "b03b244e9d83c8a06bf34cb58b5fadada6517dcf4153f11b37ec3b21ba4ef739"
+    "artifactId": 12063957839,
+    "artifactSha256": "81f126c54dd3878f32672fe0e41e83861747208ab150ff964c8cd39da5ac4609"
   },
   "baseline": {
     "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:984f616acffebca0c393a54294b4366a33214221782a7192b4761bb84325e79d",
@@ -20,13 +20,32 @@
     }
   },
   "candidate": {
-    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:984f616acffebca0c393a54294b4366a33214221782a7192b4761bb84325e79d",
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:b13f0f11281050c749b6824d58f4e541f8c4cdcba65941abacf631a01641ab9a",
     "runtimeIdentity": {
       "protocolVersion": 1,
-      "sourceRevision": "1c9f51ca5d3180079e5a43369a3bb7573d46d806",
-      "sourceManifestSha256": "42f3f61c34d61f81948c66136cab2b784ed09822e1bf2a355049513ee45e7403",
-      "compatibilitySha256": "423d1f8af5c05530e4d31feba1d0f1c7ad0a215e52fa0748aee1690d5191a74a",
+      "sourceRevision": "db155b54917e57cb548ab1ff6089bc2d1c01ea19",
+      "sourceManifestSha256": "5447ae57255e81d3f6164945b1e46bd92a22ebcec8c4be0572674a7effd448a6",
+      "compatibilitySha256": "dcc3e450e0b1c3bf55e00798fb7b6e8c40c45db965cb0c502872146d7e30fa40",
       "policySha256": "7eb39aa628b77c30efa88a00c4ad0695de89ac2bb919e7e25f550a4ab2f2c765"
+    }
+  },
+  "recovery": {
+    "version": 1,
+    "kind": "bounded-environment-retry",
+    "projectId": "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
+    "runnerRunId": "run-7d05705a-0b83-4cdb-9d32-9f054ae24d11",
+    "lifecycleRunId": "rich-f091f87b-e90b-4dd1-bef2-6ae873a774a3",
+    "intentSha256": "25ad2b74a34b749e7be7b7ad88d3c39e115717f1e48cd6fe2d0e7deb0280a406",
+    "leaseSha256": "976bd18df0558dfcdd515a87169b761ca2c3c36eb58f2928b89f6fbe8f4b5787",
+    "decision": {
+      "reference": "ran-2026-10-16-bounded-cli-retry",
+      "text": "They need to make a new request. When they receive response of whatever, they use CLI to verify that the env is there."
+    },
+    "permanentRunner": {
+      "projectId": "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
+      "environmentId": "8edfef02-ea09-4a20-8689-261f21cc2849",
+      "serviceId": "4922b45b-6981-4559-be2f-fbbca9123323",
+      "volumeId": "2a70e47d-85d4-4a8a-b17b-b6788c91b1c7"
     }
   }
 }
