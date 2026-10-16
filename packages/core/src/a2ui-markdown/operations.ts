@@ -1,22 +1,29 @@
 import { A2UI_VERSION, GENERATIVE_UI_ROOT_ID } from "@copilotkit/shared";
 
 /**
- * An A2UI v0.9 message as the model wrote it in an a2ui fence: an object that
- * carries one of createSurface, updateComponents, updateDataModel or
- * deleteSurface. The shape is not checked yet. Validate it (for example with
- * `validateOperation` from `@copilotkit/shared`) before it reaches a surface.
+ * An A2UI v1.0 message as the model wrote it in an a2ui fence: an object that
+ * carries one of createSurface, updateComponents, updateDataModel,
+ * deleteSurface or callRendererFunction. The shape is not checked yet.
+ * Validate it (for example with `validateOperation` from `@copilotkit/shared`)
+ * before it reaches a surface or runs a function.
  *
  * It is named `A2UIMarkdownOperation` because `@copilotkit/shared` already
  * exports the strict `A2UIOperation` type.
  */
 export type A2UIMarkdownOperation = Record<string, unknown>;
 
-const OP_KEYS = [
+/** The operation keys that change a surface. */
+const SURFACE_OP_KEYS = [
   "createSurface",
   "updateComponents",
   "updateDataModel",
   "deleteSurface",
 ] as const;
+
+/** The operation key of an agent-called function. It has no surface. */
+const FUNCTION_CALL_KEY = "callRendererFunction";
+
+const OP_KEYS = [...SURFACE_OP_KEYS, FUNCTION_CALL_KEY] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -340,14 +347,16 @@ function getOperationEntry(op: A2UIMarkdownOperation) {
 
 /**
  * The surfaceId an operation targets: the one nested under its operation key,
- * else a top-level `surfaceId`.
+ * else a top-level `surfaceId`. A `callRendererFunction` operation targets no
+ * surface, so it gets undefined.
  *
  * It is named `getMarkdownOperationSurfaceId` because `@copilotkit/shared`
  * already exports a strict `getOperationSurfaceId`. This one also reads a
  * top-level `surfaceId`, which models sometimes write.
  *
  * @param op - An operation from an a2ui fence.
- * @returns The surfaceId, or undefined when the operation names none.
+ * @returns The surfaceId, or undefined when the operation names none or is a
+ * function call.
  *
  * @example
  * ```ts
@@ -355,7 +364,8 @@ function getOperationEntry(op: A2UIMarkdownOperation) {
  * ```
  */
 export function getMarkdownOperationSurfaceId(op: A2UIMarkdownOperation) {
-  for (const key of OP_KEYS) {
+  if (getOperationEntry(op)?.key === FUNCTION_CALL_KEY) return undefined;
+  for (const key of SURFACE_OP_KEYS) {
     const inner = op[key];
     if (isRecord(inner) && typeof inner.surfaceId === "string") {
       return inner.surfaceId;
@@ -471,6 +481,15 @@ function readDirectString(s: string, objStart: number, key: string) {
   }
 }
 
+/** A direct object field of the object at `objStart`, once the whole object has arrived. */
+function readDirectRecord(s: string, objStart: number, key: string) {
+  const start = findDirectKeyValue(s, objStart, key, "{");
+  if (start < 0) return undefined;
+  const end = findValueEnd(s, start);
+  if (end < 0) return undefined;
+  return parseRecord(s.slice(start, end));
+}
+
 /**
  * The complete part of a (possibly unterminated) JSON value: the parsed value
  * when it is complete; for an open object, its complete entries plus the
@@ -508,10 +527,16 @@ function completePartOfValue(s: string, start: number) {
 }
 
 /**
- * Best-effort operation from an unfinished or malformed top-level object. Fields are read only
- * from the operation's own keys (`version` at the top level, `surfaceId`,
- * `catalogId` and `path` inside the operation object), never from component
- * props or data-model values that happen to share a name.
+ * Best-effort operation from an unfinished or malformed top-level object.
+ * Fields are read only from the operation's own keys (`version` at the top
+ * level, `surfaceId`, `catalogId`, `path`, `dataModel` and `components` inside
+ * the operation object), never from component props or data-model values that
+ * happen to share a name.
+ *
+ * A `createSurface` keeps its complete components and a `dataModel` that has
+ * fully arrived, so a surface created in one line renders while it streams.
+ * A `callRendererFunction` gives nothing: a function must not run with half
+ * of its args.
  */
 function partialOperation(line: string) {
   const root = skipWhitespace(line, 0);
@@ -559,9 +584,22 @@ function partialOperation(line: string) {
     const surfaceId = readDirectString(line, create, "surfaceId");
     if (!surfaceId) return null;
     const catalogId = readDirectString(line, create, "catalogId");
+    const dataModel = readDirectRecord(line, create, "dataModel");
+    const componentsStart = findDirectKeyValue(line, create, "components", "[");
+    const components =
+      componentsStart < 0
+        ? []
+        : completeArrayItemsAt(line, componentsStart, {
+            repairComponents: true,
+          }).items;
     return {
       version,
-      createSurface: { surfaceId, ...(catalogId ? { catalogId } : {}) },
+      createSurface: {
+        surfaceId,
+        ...(catalogId ? { catalogId } : {}),
+        ...(dataModel ? { dataModel } : {}),
+        ...(components.length > 0 ? { components } : {}),
+      },
     };
   }
   return null;
@@ -572,8 +610,9 @@ function partialOperation(line: string) {
  * `{"<operation>":{`. Seen at the start of a line while an earlier object is
  * still unbalanced, it means that object is malformed and has ended.
  */
-const OPERATION_START =
-  /^\{\s*"(?:version"\s*:\s*"v\d|(?:createSurface|updateComponents|updateDataModel|deleteSurface)"\s*:\s*\{)/;
+const OPERATION_START = new RegExp(
+  `^\\{\\s*"(?:version"\\s*:\\s*"v\\d|(?:${OP_KEYS.join("|")})"\\s*:\\s*\\{)`,
+);
 
 /**
  * Scan the top-level object whose "{" is at `start`. Returns the index just
@@ -713,16 +752,20 @@ export function extractFenceOperations(fenceText: string) {
  * `createSurface` when the model omitted it, and report the
  * surfaceId (the first one found, else `fallbackSurfaceId`).
  *
+ * `callRendererFunction` operations target no surface. They get no surfaceId,
+ * do not cause a synthesized `createSurface`, and come back in
+ * `functionCalls` (in fence order), never in `operations`.
+ *
  * @param input.operations - Operations from `extractFenceOperations`.
  * @param input.fallbackSurfaceId - The surfaceId to use when no operation
  * names one.
  * @param input.catalogId - The client catalog. It replaces any catalogId the
  * model wrote.
- * @returns `{ surfaceId, operations }`.
+ * @returns `{ surfaceId, operations, functionCalls }`.
  *
  * @example
  * ```ts
- * const { surfaceId, operations } = prepareSurfaceOperations({
+ * const { surfaceId, operations, functionCalls } = prepareSurfaceOperations({
  *   operations: extractFenceOperations(segment.text).operations,
  *   fallbackSurfaceId: `${messageId}-${segment.index}`,
  *   catalogId,
@@ -741,12 +784,18 @@ export function prepareSurfaceOperations(input: {
       .find((id): id is string => !!id) ?? fallbackSurfaceId;
 
   const out: A2UIMarkdownOperation[] = [];
+  const functionCalls: A2UIMarkdownOperation[] = [];
   let hasCreate = false;
   for (const op of operations) {
     const entry = getOperationEntry(op);
     if (!entry) continue;
     const { key } = entry;
     const inner = { ...entry.inner };
+    const version = typeof op.version === "string" ? op.version : A2UI_VERSION;
+    if (key === FUNCTION_CALL_KEY) {
+      functionCalls.push({ version, [key]: inner });
+      continue;
+    }
     if (typeof inner.surfaceId !== "string") inner.surfaceId = surfaceId;
     if (key === "createSurface") {
       // A surface is created once; a repeated createSurface (e.g. a later
@@ -756,10 +805,7 @@ export function prepareSurfaceOperations(input: {
       // The catalog is client-owned: whatever the model wrote is replaced.
       inner.catalogId = catalogId;
     }
-    out.push({
-      version: typeof op.version === "string" ? op.version : A2UI_VERSION,
-      [key]: inner,
-    });
+    out.push({ version, [key]: inner });
   }
 
   if (!hasCreate && out.length > 0) {
@@ -768,7 +814,7 @@ export function prepareSurfaceOperations(input: {
       createSurface: { surfaceId, catalogId },
     });
   }
-  return { surfaceId, operations: out };
+  return { surfaceId, operations: out, functionCalls };
 }
 
 /**
