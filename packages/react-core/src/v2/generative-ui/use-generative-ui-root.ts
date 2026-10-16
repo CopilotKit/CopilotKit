@@ -26,6 +26,8 @@ import type {
   GenerativeUIConfig,
   GenerativeUIRuntime,
 } from "./runtime-context";
+import { useGenerativeUIMarkdownContext } from "./markdown/context";
+import { getMarkdownSurfaceSource } from "./markdown/source";
 import { GenerativeUISurfaceManager } from "./surface-manager";
 import type { ManagedSurface } from "./surface-manager";
 
@@ -203,6 +205,29 @@ export function useGenerativeUIRoot(
       copilotkit.removeScopedProperties(envelopeId);
       envelopeId = undefined;
     };
+    /**
+     * The tool transport reads the surface activity messages. The markdown
+     * transport reads the ```a2ui fences of the assistant messages, and
+     * builds the surfaces of the thread from them again on each change.
+     */
+    const readMessages = (
+      agent: AbstractAgent,
+      messages: ReadonlyArray<Readonly<Message>>,
+      running: boolean,
+    ) => {
+      if (configRef.current?.transport !== "markdown") {
+        ingestMessages(core.manager, agent, messages);
+        return;
+      }
+      const { threadId } = agent;
+      if (!threadId) return;
+      // A thread switch can happen with no run start. The named targets
+      // must show the surfaces of the thread that the messages belong to.
+      core.manager.setActiveThread(threadId);
+      getMarkdownSurfaceSource(core).sync(threadId, agent.agentId, messages, {
+        running,
+      });
+    };
     const subscription = copilotkit.subscribe({
       // Core awaits this before it reads the properties for the run, so the
       // envelope set here goes with this run. Tool-call follow-up runs do not
@@ -228,11 +253,15 @@ export function useGenerativeUIRoot(
           agentSubscriptions.push(
             agent.subscribe({
               onMessagesChanged: ({ messages }) =>
-                ingestMessages(core.manager, agent, messages),
+                readMessages(agent, messages, agent.isRunning),
+              // The last message is final now. An open fence in it is final
+              // too, so its surface is no longer "streaming".
+              onRunFinalized: () => readMessages(agent, agent.messages, false),
+              onRunFailed: () => readMessages(agent, agent.messages, false),
             }),
           );
         }
-        ingestMessages(core.manager, agent, agent.messages);
+        readMessages(agent, agent.messages, agent.isRunning);
       },
     });
     return () => {
@@ -242,6 +271,11 @@ export function useGenerativeUIRoot(
       removeEnvelope();
     };
   }, [core, copilotkit]);
+
+  useGenerativeUIMarkdownContext(copilotkit, core, {
+    enabled: config?.transport === "markdown" && config.sendContext !== false,
+    agentIds: config?.agentIds,
+  });
 
   return runtime;
 }

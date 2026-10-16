@@ -1,0 +1,525 @@
+import type { Message } from "@ag-ui/client";
+import {
+  extractFenceOperations,
+  flattenInformationalCards,
+  getMarkdownOperationSurfaceId,
+  prepareSurfaceOperations,
+  segmentSurfaceProse,
+  splitA2UIMarkdown,
+} from "@copilotkit/core";
+import type { A2UIMarkdownOperation } from "@copilotkit/core";
+import {
+  A2UI_VERSION,
+  GENERATIVE_UI_CHAT_TARGET,
+  GENERATIVE_UI_ROOT_ID,
+  getOperationKind,
+  validateOperation,
+} from "@copilotkit/shared";
+import type {
+  A2UIOperation,
+  GenerativeUIFunctionManifest,
+  GenerativeUIRejectedOperation,
+  GenerativeUISurfaceContent,
+  ValidateOperationOptions,
+} from "@copilotkit/shared";
+import type { GenerativeUI } from "../catalog";
+import { toJsonSchema } from "../json-schema";
+import type { GenerativeUISurfaceManager } from "../surface-manager";
+
+/** What renders in place of one ```a2ui fence, in order. */
+export type MarkdownFenceBlock =
+  | { kind: "markdown"; markdown: string }
+  | { kind: "surface"; surfaceId: string };
+
+/** The part of a generative UI that the markdown source reads. */
+type MarkdownSourceUI = Pick<GenerativeUI, "id" | "manifestComponents">;
+
+export interface BuildMarkdownSurfacesOptions {
+  ui: MarkdownSourceUI;
+  /** The declared functions. A `functionCall` must name one of them. */
+  functions: Record<string, GenerativeUIFunctionManifest>;
+  /**
+   * The last message can still grow. Then an open fence in it is still
+   * streaming: its last, unfinished operation is left out, and the surface
+   * it creates has the status "streaming". Else an open fence is final.
+   */
+  running: boolean;
+}
+
+/** One surface, collected from the fences of all messages. */
+interface SurfaceDraft {
+  surfaceId: string;
+  target: string;
+  operations: A2UIMarkdownOperation[];
+  /** The fence that created the surface is still streaming. */
+  streaming: boolean;
+}
+
+/** The surface content, or one surface of it after the prose lift. */
+type SurfacePart =
+  | { kind: "markdown"; markdown: string }
+  | {
+      kind: "surface";
+      surfaceId: string;
+      operations: A2UIMarkdownOperation[];
+    };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+/** The key of one fence of one message. */
+export function fenceKey(messageId: string, fenceIndex: number) {
+  return `${messageId}:${fenceIndex}`;
+}
+
+/**
+ * The operations of a fence body. While the fence streams, the last object
+ * can be unfinished. It is left out, so that only complete operations
+ * render. A final fence keeps what can be saved from an unfinished object.
+ */
+function fenceOperations(text: string, isStreaming: boolean) {
+  const parsed = extractFenceOperations(text);
+  if (!isStreaming || parsed.partialObject === null) return parsed.operations;
+  // The unfinished object is always the end of the text.
+  const complete = text.slice(0, text.length - parsed.partialObject.length);
+  return extractFenceOperations(complete).operations;
+}
+
+/** createSurface first, the other operations after it in their order. */
+function createSurfaceFirst(operations: A2UIMarkdownOperation[]) {
+  const creates = operations.filter((op) => isRecord(op.createSurface));
+  const others = operations.filter((op) => !isRecord(op.createSurface));
+  return [...creates, ...others];
+}
+
+/** True when the component of `name` has the prop `prop`. */
+function hasProp(ui: MarkdownSourceUI, name: string, prop: string) {
+  const properties = ui.manifestComponents[name]?.props.properties;
+  return isRecord(properties) && Object.hasOwn(properties, prop);
+}
+
+/** Every component of the operations by id, last definition wins. */
+function collectComponents(operations: A2UIMarkdownOperation[]) {
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const op of operations) {
+    const update = op.updateComponents;
+    const list = isRecord(update) ? update.components : undefined;
+    if (!Array.isArray(list)) continue;
+    for (const component of list) {
+      if (isRecord(component) && isString(component.id)) {
+        byId.set(component.id, component);
+      }
+    }
+  }
+  return [...byId.values()];
+}
+
+/**
+ * The data model must not be shared between two surfaces. A data model
+ * keeps the object it gets, so an input in one surface would change the
+ * data of the other one.
+ */
+function cloneData(value: unknown) {
+  return value === undefined ? undefined : structuredClone(value);
+}
+
+/** The operation sent to `surfaceId`, with a copy of its data model value. */
+function readdress(op: A2UIMarkdownOperation, surfaceId: string) {
+  const kind = getOperationKind(op);
+  const payload = kind ? op[kind] : undefined;
+  if (!kind || !isRecord(payload)) return op;
+  const next: Record<string, unknown> = { ...payload, surfaceId };
+  if (kind === "updateDataModel" && "value" in payload) {
+    next.value = cloneData(payload.value);
+  }
+  return { ...op, [kind]: next };
+}
+
+/**
+ * The operations of one sub-surface. Each updateComponents keeps only the
+ * components of the sub-surface, with its own root. The other operations
+ * are sent to the sub-surface. The order stays the same, so a new operation
+ * of the fence only adds operations at the end.
+ */
+function subSurfaceOperations(
+  operations: A2UIMarkdownOperation[],
+  components: Record<string, unknown>[],
+  surfaceId: string,
+) {
+  const root = components.find((c) => c.id === GENERATIVE_UI_ROOT_ID);
+  const ids = new Set(components.map((c) => c.id));
+  const out: A2UIMarkdownOperation[] = [];
+  for (const op of operations) {
+    const update = op.updateComponents;
+    if (!isRecord(update) || !Array.isArray(update.components)) {
+      out.push(readdress(op, surfaceId));
+      continue;
+    }
+    const kept = update.components
+      .filter((c) => isRecord(c) && ids.has(c.id))
+      .map((c) => (isRecord(c) && c.id === GENERATIVE_UI_ROOT_ID ? root : c));
+    if (kept.length === 0) continue;
+    out.push({
+      ...op,
+      updateComponents: { ...update, surfaceId, components: kept },
+    });
+  }
+  return out;
+}
+
+/**
+ * Prose lift. Text components in the main stack of the surface (titles,
+ * paragraphs, text lists and the dividers between them) become chat
+ * markdown. The surface splits around them: the first surface keeps
+ * `surfaceId`, the next ones are `<surfaceId>#1`, `<surfaceId>#2`, and so
+ * on. A surface with no prose comes back as one part with the same
+ * operations.
+ */
+function liftProse(operations: A2UIMarkdownOperation[], surfaceId: string) {
+  const components = collectComponents(operations);
+  const segments = segmentSurfaceProse(components);
+  const [first] = segments;
+  const isUnchanged =
+    segments.length === 1 &&
+    first?.kind === "surface" &&
+    first.components === components;
+  if (isUnchanged) {
+    const whole: SurfacePart[] = [{ kind: "surface", surfaceId, operations }];
+    return whole;
+  }
+  let surfaceIndex = 0;
+  return segments.map((segment): SurfacePart => {
+    if (segment.kind === "markdown") return segment;
+    const id = surfaceIndex === 0 ? surfaceId : `${surfaceId}#${surfaceIndex}`;
+    surfaceIndex++;
+    return {
+      kind: "surface",
+      surfaceId: id,
+      operations: subSurfaceOperations(operations, segment.components, id),
+    };
+  });
+}
+
+/** `validateOperation`, with the operation typed when it is valid. */
+function checkOperation(
+  op: A2UIMarkdownOperation,
+  options: ValidateOperationOptions,
+) {
+  const validation = validateOperation(op, options);
+  if (!validation.ok) return validation;
+  // validateOperation checked the shape of `op`.
+  return { ok: true as const, operation: op as A2UIOperation };
+}
+
+/**
+ * The content of one surface. Each operation is validated against the
+ * manifest. A valid operation goes in `operations`. A rejected one goes in
+ * `rejected`, with its position and the reason.
+ */
+function surfaceContent(
+  surfaceId: string,
+  draft: SurfaceDraft,
+  operations: A2UIMarkdownOperation[],
+  options: BuildMarkdownSurfacesOptions,
+) {
+  const { ui, functions } = options;
+  const knownSurfaces = new Set<string>();
+  const manifest = { catalogId: ui.id, components: ui.manifestComponents };
+  const valid: A2UIOperation[] = [];
+  const rejected: GenerativeUIRejectedOperation[] = [];
+  operations.forEach((op, index) => {
+    const result = checkOperation(op, { manifest, knownSurfaces, functions });
+    if (!result.ok) {
+      rejected.push({ index, reason: result.reason });
+      return;
+    }
+    valid.push(result.operation);
+    const kind = getOperationKind(result.operation);
+    if (kind === "createSurface") knownSurfaces.add(surfaceId);
+    if (kind === "deleteSurface") knownSurfaces.delete(surfaceId);
+  });
+  const content: GenerativeUISurfaceContent = {
+    surfaceId,
+    target: draft.target,
+    catalogId: ui.id,
+    operations: valid,
+    status: draft.streaming ? "streaming" : "ready",
+    rejected,
+  };
+  return content;
+}
+
+/**
+ * Builds the surfaces of a thread from the ```a2ui fences of its assistant
+ * messages, in message order.
+ *
+ * - Operations are grouped by surfaceId across all messages. An operation
+ *   with no surfaceId goes to the first surface of its fence, else to
+ *   `<messageId>-<fenceIndex>`.
+ * - The fence that first writes a surface creates it. The `target=<id>` of
+ *   that fence sets the target. With no target, the surface goes to the
+ *   chat.
+ * - A later fence for the same surfaceId updates it. It does not create a
+ *   new surface.
+ * - The status is "streaming" while the creating fence streams, else
+ *   "ready".
+ * - Each operation is validated with `validateOperation`. Rejected ones are
+ *   left out and listed in `rejected`.
+ * - Chat surfaces get the prose lift: informational cards lose their box,
+ *   and prose becomes markdown that renders between sub-surfaces
+ *   (`<surfaceId>#<n>`).
+ *
+ * The function is pure. Call it again on each stream update. The manager
+ * applies only the new operations, so unchanged surfaces do not render
+ * again.
+ *
+ * @param messages - The messages of one thread.
+ * @param options - The generative UI, its declared functions, and whether
+ *   the last message can still grow.
+ * @returns `surfaces`, one content for each surface and sub-surface, and
+ *   `fences`, the blocks that each fence renders, by `fenceKey`. A fence
+ *   that is not in `fences` renders nothing.
+ *
+ * @example
+ * ```ts
+ * const { surfaces } = buildMarkdownSurfaces(agent.messages, {
+ *   ui,
+ *   functions: {},
+ *   running: agent.isRunning,
+ * });
+ * for (const content of surfaces) manager.ingest(threadId, agentId, content);
+ * ```
+ */
+export function buildMarkdownSurfaces(
+  messages: readonly Message[],
+  options: BuildMarkdownSurfacesOptions,
+) {
+  const drafts = new Map<string, SurfaceDraft>();
+  /** The surfaces that each fence created, in order. */
+  const created = new Map<string, string[]>();
+  const lastMessage = messages[messages.length - 1];
+
+  for (const message of messages) {
+    if (message.role !== "assistant" || !isString(message.content)) continue;
+    const isLastMessage = message === lastMessage;
+    const segments = splitA2UIMarkdown(message.content);
+    for (const segment of segments) {
+      if (segment.type !== "a2ui") continue;
+      const isStreaming = !segment.closed && isLastMessage && options.running;
+      const operations = fenceOperations(segment.text, isStreaming);
+      const key = fenceKey(message.id, segment.index);
+      const fenceSurfaceId =
+        operations.map(getMarkdownOperationSurfaceId).find(isString) ??
+        `${message.id}-${segment.index}`;
+      for (const op of operations) {
+        const surfaceId = getMarkdownOperationSurfaceId(op) ?? fenceSurfaceId;
+        let draft = drafts.get(surfaceId);
+        if (!draft) {
+          draft = {
+            surfaceId,
+            target: segment.target ?? GENERATIVE_UI_CHAT_TARGET,
+            operations: [],
+            streaming: isStreaming,
+          };
+          drafts.set(surfaceId, draft);
+          created.set(key, [...(created.get(key) ?? []), surfaceId]);
+        }
+        draft.operations.push(op);
+      }
+    }
+  }
+
+  const { ui } = options;
+  // Only a Card with a `variant` prop can become a section.
+  const canFlattenCards = hasProp(ui, "Card", "variant");
+  const surfaces: GenerativeUISurfaceContent[] = [];
+  const partsBySurface = new Map<string, SurfacePart[]>();
+  for (const draft of drafts.values()) {
+    const prepared = prepareSurfaceOperations({
+      operations: draft.operations,
+      fallbackSurfaceId: draft.surfaceId,
+      catalogId: ui.id,
+    });
+    const operations = createSurfaceFirst(prepared.operations);
+    const isChat = draft.target === GENERATIVE_UI_CHAT_TARGET;
+    const parts: SurfacePart[] = isChat
+      ? liftProse(
+          canFlattenCards ? flattenInformationalCards(operations) : operations,
+          draft.surfaceId,
+        )
+      : [{ kind: "surface", surfaceId: draft.surfaceId, operations }];
+    partsBySurface.set(draft.surfaceId, parts);
+    for (const part of parts) {
+      if (part.kind !== "surface") continue;
+      surfaces.push(
+        surfaceContent(part.surfaceId, draft, part.operations, options),
+      );
+    }
+  }
+
+  const fences = new Map<string, MarkdownFenceBlock[]>();
+  for (const [key, surfaceIds] of created) {
+    const blocks: MarkdownFenceBlock[] = [];
+    for (const surfaceId of surfaceIds) {
+      if (drafts.get(surfaceId)?.target !== GENERATIVE_UI_CHAT_TARGET) continue;
+      for (const part of partsBySurface.get(surfaceId) ?? []) {
+        blocks.push(
+          part.kind === "markdown"
+            ? part
+            : { kind: "surface", surfaceId: part.surfaceId },
+        );
+      }
+    }
+    if (blocks.length > 0) fences.set(key, blocks);
+  }
+
+  return { surfaces, fences };
+}
+
+/** The declared functions, as `validateOperation` takes them. */
+function declaredFunctions(ui: GenerativeUI) {
+  const functions: Record<string, GenerativeUIFunctionManifest> = {};
+  for (const [name, fn] of ui.functions) {
+    try {
+      functions[name] = {
+        ...(fn.description ? { description: fn.description } : {}),
+        parameters: toJsonSchema(fn.parameters),
+      };
+    } catch {
+      // A schema that cannot become JSON Schema still names a function.
+      functions[name] = { parameters: {} };
+    }
+  }
+  return functions;
+}
+
+/** True when `list` starts with all the items of `prefix`. */
+function startsWith(list: string[], prefix: string[]) {
+  return (
+    list.length >= prefix.length &&
+    prefix.every((item, index) => item === list[index])
+  );
+}
+
+/** A content that deletes a surface that the fences no longer write. */
+function removalContent(surfaceId: string, catalogId: string) {
+  const content: GenerativeUISurfaceContent = {
+    surfaceId,
+    target: GENERATIVE_UI_CHAT_TARGET,
+    catalogId,
+    status: "ready",
+    rejected: [],
+    operations: [
+      { version: A2UI_VERSION, createSurface: { surfaceId, catalogId } },
+      { version: A2UI_VERSION, deleteSurface: { surfaceId } },
+    ],
+  };
+  return content;
+}
+
+/**
+ * The markdown transport source of one surface manager. It turns the
+ * messages of a thread into surfaces in the manager, and keeps the blocks
+ * that each fence renders.
+ */
+export class MarkdownSurfaceSource {
+  private readonly functions: Record<string, GenerativeUIFunctionManifest>;
+  /** By thread: the blocks of each fence, from the latest sync. */
+  private readonly fences = new Map<
+    string,
+    Map<string, MarkdownFenceBlock[]>
+  >();
+  /** By thread, then surface: the operations last ingested, as JSON. */
+  private readonly ingested = new Map<string, Map<string, string[]>>();
+
+  constructor(
+    private readonly manager: GenerativeUISurfaceManager,
+    private readonly ui: GenerativeUI,
+  ) {
+    this.functions = declaredFunctions(ui);
+  }
+
+  /**
+   * Builds the surfaces of `threadId` from `messages` and gives them to the
+   * manager. A surface that an earlier sync of the thread made, and that the
+   * messages no longer write, is deleted. Other threads do not change.
+   *
+   * @param threadId - The thread of the messages.
+   * @param agentId - The agent that owns the thread.
+   * @param messages - All messages of the thread.
+   * @param options - `running`: the last message can still grow.
+   */
+  sync(
+    threadId: string,
+    agentId: string | undefined,
+    messages: readonly Message[],
+    options: { running: boolean },
+  ) {
+    const result = buildMarkdownSurfaces(messages, {
+      ui: this.ui,
+      functions: this.functions,
+      running: options.running,
+    });
+    this.fences.set(threadId, result.fences);
+    const previous = this.ingested.get(threadId) ?? new Map<string, string[]>();
+    const next = new Map<string, string[]>();
+    for (const content of result.surfaces) {
+      const fingerprints = content.operations.map((op) => JSON.stringify(op));
+      const before = previous.get(content.surfaceId);
+      // The manager checks only the last operation that it applied. When an
+      // earlier one changed (for example, the prose lift moved a split), an
+      // empty content makes it start the surface again.
+      if (before && !startsWith(fingerprints, before)) {
+        this.manager.ingest(threadId, agentId, { ...content, operations: [] });
+      }
+      this.manager.ingest(threadId, agentId, content);
+      next.set(content.surfaceId, fingerprints);
+    }
+    for (const surfaceId of previous.keys()) {
+      if (next.has(surfaceId)) continue;
+      this.manager.ingest(
+        threadId,
+        agentId,
+        removalContent(surfaceId, this.ui.id),
+      );
+    }
+    this.ingested.set(threadId, next);
+  }
+
+  /**
+   * The blocks that a fence renders in the chat, from the latest sync of the
+   * thread. `undefined` when the fence renders nothing: it updates a surface
+   * of an earlier fence, its surface is for a named target, or it has no
+   * complete operation yet.
+   */
+  getFenceBlocks(threadId: string, messageId: string, fenceIndex: number) {
+    return this.fences.get(threadId)?.get(fenceKey(messageId, fenceIndex));
+  }
+}
+
+const sources = new WeakMap<
+  GenerativeUISurfaceManager,
+  MarkdownSurfaceSource
+>();
+
+/**
+ * The markdown source of a generative UI runtime. There is one source for
+ * each surface manager. The root syncs it, and the chat messages read the
+ * fence blocks from it.
+ */
+export function getMarkdownSurfaceSource(runtime: {
+  manager: GenerativeUISurfaceManager;
+  ui: GenerativeUI;
+}) {
+  let source = sources.get(runtime.manager);
+  if (!source) {
+    source = new MarkdownSurfaceSource(runtime.manager, runtime.ui);
+    sources.set(runtime.manager, source);
+  }
+  return source;
+}
