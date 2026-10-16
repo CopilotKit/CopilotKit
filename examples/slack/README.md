@@ -513,6 +513,8 @@ Opens a structured Linear issue form. On Slack you get the full form (title, des
 
 On submission (`bot.onModalSubmit("file_issue", …)` in `app/index.ts`), the bot validates the inputs and files the issue via the agent (Linear MCP) with the usual `confirm_write` gate, then shows the filed card.
 
+The managed entrypoint (`pnpm channel`) registers the same handler with `support.onModalSubmit(FILE_ISSUE_CALLBACK, fileIssueSubmit)` in `app/managed.ts`. The default `pnpm start` and `pnpm dev` commands continue to use `app/index.ts`.
+
 **Source:** `app/modals/file-issue.tsx` (`FileIssueModal`, `issueFromValues`), `app/commands/index.ts` (`file-issue` command).
 
 > **Slack setup:** `/file-issue` must be declared under **Slash Commands** in your Slack app manifest (already present in `slack-app-manifest.yaml`).
@@ -537,3 +539,16 @@ pnpm --filter slack-example test     # unit tests (read_thread, render tools, co
 > and the obsolete button-value resume path, so it does not run against this
 > example as-is. The Telegram harness (`pnpm e2e:telegram`) is a working
 > manual-trigger smoke test — see [`e2e/TELEGRAM-README.md`](e2e/TELEGRAM-README.md).
+
+## JSX images and carousels (managed Slack)
+
+The existing entrypoints and chart/diagram tools are unchanged. Run `pnpm channel`
+for the managed Slack example. It additionally includes `render_mrr`,
+`render_carousel`, and the showcase commands, using bundled fonts and CSS for
+JSX snapshots. Images upload through Intelligence; carousel buttons remain
+native Slack actions. `pnpm build:css` regenerates the bundled stylesheet.
+
+See the Channels guides on posting JSX as images and mixing `<Render>` snapshots
+with native messages. The SDK also supports managed Teams. Embedded Teams card
+images share the existing 64 KiB packet budget; use a separate `thread.post(jsx)`
+image upload for larger snapshots.

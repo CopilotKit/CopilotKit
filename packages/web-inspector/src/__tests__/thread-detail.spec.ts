@@ -119,6 +119,14 @@ async function flushDetail(detail: CpkThreadInspector): Promise<void> {
   }
 }
 
+async function flushLiveMessageRefresh(
+  detail: CpkThreadInspector,
+): Promise<void> {
+  await flushDetail(detail);
+  await vi.advanceTimersByTimeAsync(1_000);
+  await flushDetail(detail);
+}
+
 async function flushInspector(inspector: WebInspectorElement): Promise<void> {
   for (let turn = 0; turn < 7; turn += 1) {
     await Promise.resolve();
@@ -1239,6 +1247,7 @@ test("Sam's tour uses the new labels while preserving step bodies, storage, navi
 });
 
 test("tool disclosures distinguish missing, null, and unreadable results", async () => {
+  vi.useFakeTimers();
   prepareDom();
   const getMessages = vi
     .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
@@ -1288,7 +1297,7 @@ test("tool disclosures distinguish missing, null, and unreadable results", async
       { id: "result", role: "tool", toolCallId: "lookup", content: "null" },
     ]);
     detail.liveMessageVersion += 1;
-    await flushDetail(detail);
+    await flushLiveMessageRefresh(detail);
     expect(root.querySelector(".cpk-td__tool-header")?.textContent).toContain(
       "Result received",
     );
@@ -1305,7 +1314,7 @@ test("tool disclosures distinguish missing, null, and unreadable results", async
       { id: "result", role: "tool", toolCallId: "lookup", content: "{broken" },
     ]);
     detail.liveMessageVersion += 1;
-    await flushDetail(detail);
+    await flushLiveMessageRefresh(detail);
     expect(root.querySelector(".cpk-td__tool-header")?.textContent).toContain(
       "Result unreadable",
     );
@@ -1318,12 +1327,14 @@ test("tool disclosures distinguish missing, null, and unreadable results", async
     expect(parseError).toHaveBeenCalledOnce();
   } finally {
     detail.remove();
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   }
 });
 
 test("conversation shows run errors and keeps last-good messages when refresh fails", async () => {
+  vi.useFakeTimers();
   prepareDom();
   const getMessages = vi
     .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
@@ -1355,7 +1366,7 @@ test("conversation shows run errors and keeps last-good messages when refresh fa
       root.querySelector('[role="tabpanel"]:not([hidden])')?.textContent,
     ).toContain("Calendar service unavailable");
     detail.liveMessageVersion += 1;
-    await flushDetail(detail);
+    await flushLiveMessageRefresh(detail);
     expect(root.textContent).toContain("Partial answer");
     expect(root.textContent).toContain(
       "Could not refresh messages. Showing the last loaded conversation.",
@@ -1367,8 +1378,12 @@ test("conversation shows run errors and keeps last-good messages when refresh fa
     );
     requireButton(root, "Show conversation").click();
     await flushDetail(detail);
+    let resolveRetry!: (messages: ThreadDebuggerMessage[]) => void;
     getMessages.mockImplementationOnce(
-      () => new Promise<ThreadDebuggerMessage[]>(() => {}),
+      () =>
+        new Promise<ThreadDebuggerMessage[]>((resolve) => {
+          resolveRetry = resolve;
+        }),
     );
     // Exercise a non-silent retry while the prior refresh warning is visible.
     void detail["fetchMessages"]("failed-run");
@@ -1376,24 +1391,36 @@ test("conversation shows run errors and keeps last-good messages when refresh fa
     expect(root.textContent).toContain("Loading messages…");
     expect(root.textContent).not.toContain("Could not refresh messages");
     detail.liveMessageVersion += 1;
-    await flushDetail(detail);
+    await flushLiveMessageRefresh(detail);
+    expect(getMessages).toHaveBeenCalledTimes(3);
+    expect(getMessages.mock.calls[2]?.[1]?.signal?.aborted).toBe(false);
+    expect(root.textContent).toContain("Loading messages…");
+    resolveRetry([]);
+    await flushLiveMessageRefresh(detail);
+    expect(getMessages).toHaveBeenCalledTimes(4);
     expect(root.textContent).toContain("Recovered answer");
     expect(root.textContent).not.toContain("Could not refresh messages");
   } finally {
     detail.remove();
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   }
 });
 
 test.each([false, true])(
-  "live refresh replacing the first message request clears loading (failure=%s)",
+  "live refresh waits for the first message request and clears loading (failure=%s)",
   async (fails) => {
+    vi.useFakeTimers();
     prepareDom();
+    let resolveInitial!: (messages: ThreadDebuggerMessage[]) => void;
     const getMessages = vi
       .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
       .mockImplementationOnce(
-        () => new Promise<ThreadDebuggerMessage[]>(() => {}),
+        () =>
+          new Promise<ThreadDebuggerMessage[]>((resolve) => {
+            resolveInitial = resolve;
+          }),
       );
     if (fails) getMessages.mockRejectedValue(new Error("Messages unavailable"));
     else
@@ -1408,13 +1435,20 @@ test.each([false, true])(
       await flushDetail(detail);
       expect(detail.shadowRoot?.textContent).toContain("Loading messages…");
       detail.liveMessageVersion += 1;
-      await flushDetail(detail);
+      await flushLiveMessageRefresh(detail);
+      expect(getMessages).toHaveBeenCalledOnce();
+      expect(getMessages.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
+      expect(detail.shadowRoot?.textContent).toContain("Loading messages…");
+      resolveInitial([]);
+      await flushLiveMessageRefresh(detail);
+      expect(getMessages).toHaveBeenCalledTimes(2);
       expect(detail.shadowRoot?.textContent).not.toContain("Loading messages…");
       expect(detail.shadowRoot?.textContent).toContain(
         fails ? "Messages unavailable" : "Latest answer",
       );
     } finally {
       detail.remove();
+      vi.useRealTimers();
       vi.restoreAllMocks();
       vi.unstubAllGlobals();
     }

@@ -24,7 +24,7 @@ from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
 from _banner import print_banner
-from _model import adk_model
+from _model import adk_model, warn_if_api_key_missing
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
@@ -209,11 +209,7 @@ public_agent_card = AgentCard(
 
 
 def main():
-    if not os.getenv("GOOGLE_API_KEY") and not os.getenv("GEMINI_API_KEY"):
-        print("⚠️  Warning: No API key found!")
-        print("   Set GOOGLE_API_KEY or GEMINI_API_KEY")
-        print("   Get a key from: https://aistudio.google.com/app/apikey")
-        print()
+    warn_if_api_key_missing(f"google:{os.getenv('GEMINI_MODEL', 'gemini-3.8-flash')}")
 
     request_handler = DefaultRequestHandler(
         agent_executor=AnalysisAgentExecutor(),

@@ -326,14 +326,18 @@ Changed URL or policy requires renewed activation. Merely deploying this reader
 or running a local test does not establish deployed consumer activation. Existing
 file readers remain supported for explicitly wired durable mirrors.
 
-The image-gate and Ruby promotion workflows bind the repository variable
+The image-gate workflow and both Ruby promotion workflows (`showcase_promote.yml`
+and `docs_promote.yml`) bind the repository variable
 `SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` and secret
 `SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN` to this transport. Each supplies its own
 consumer role. Both settings absent preserve static-fleet operation; a partial
-binding fails before classification. The Ruby job installs the root `tsx`
+binding fails before classification. Each Ruby job installs the root `tsx`
 executable required by its classifier bridge. These bindings take effect only
 when the workflow revision containing them runs; configuring repository settings
-does not activate an older workflow or prove a consumer read.
+does not activate an older workflow or prove a consumer read. Retain invocation
+evidence for both Ruby workflow installations; one role acknowledgment does not
+prove that both are configured. The docs workflow skips Ruby in dry-run mode, so
+that mode cannot establish activation.
 
 For the Staging harness, bind the same URL and token on the Staging service and
 set `SHOWCASE_REGISTRY_CONSUMER=harness` only after deploying a reader image with

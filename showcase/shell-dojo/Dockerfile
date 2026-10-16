@@ -5,10 +5,13 @@ WORKDIR /app
 
 # Copy only what shell-dojo + scripts need
 COPY showcase/scripts/package.json ./scripts/package.json
+COPY showcase/scripts/package-lock.json ./scripts/package-lock.json
 COPY showcase/shell-dojo/package.json ./shell-dojo/package.json
+COPY showcase/shell-dojo/package-lock.json ./shell-dojo/package-lock.json
 
-# Install deps for both (standalone, no workspace)
-RUN cd scripts && npm install --silent && cd ../shell-dojo && npm install --silent
+# Use the committed standalone locks; fresh resolution can crash npm's peer resolver.
+RUN cd scripts && npm ci --no-audit --no-fund \
+    && cd ../shell-dojo && npm ci --no-audit --no-fund
 
 # Copy source
 COPY showcase/shared/ ./shared/
