@@ -18,13 +18,14 @@ no changelog before that.
 
 ### Fixes
 
+- Restore npm 10 runtime installs by removing the optional Vitest peer dependency.
 - fix(runtime): ping Intelligence sockets every 15s so 30s proxy idle timeouts don't drop runs (#7568) (75f5721)
 - fix(channels-slack): deliver a message click's state.values to the handler (#6523) (269fe33)
 - fix(channels): explain missing Channel agent configuration (#7411) (33db9a8)
 
 ### Other Changes
 
-- chore(deps): bump @ag-ui/* to 1.0.2 (PNI-551) (#7648) (d4afb51)
+- chore(deps): bump @ag-ui/\* to 1.0.2 (PNI-551) (#7648) (d4afb51)
 
 ## 0.11.0 - 2026-09-22
 
