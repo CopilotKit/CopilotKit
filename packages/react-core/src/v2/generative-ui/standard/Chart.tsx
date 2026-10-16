@@ -270,7 +270,6 @@ function createRechartsChart(R: RechartsModule) {
     const stackId = props.stacked ? "stack" : undefined;
     const marks = series.map((item) => {
       const common = {
-        key: item.key,
         dataKey: item.key,
         name: item.label,
         isAnimationActive: false,
@@ -279,6 +278,7 @@ function createRechartsChart(R: RechartsModule) {
         case "line":
           return (
             <R.Line
+              key={item.key}
               {...common}
               type="monotone"
               stroke={item.color}
@@ -290,6 +290,7 @@ function createRechartsChart(R: RechartsModule) {
         case "area":
           return (
             <R.Area
+              key={item.key}
               {...common}
               type="monotone"
               stroke={item.color}
@@ -300,10 +301,11 @@ function createRechartsChart(R: RechartsModule) {
             />
           );
         case "scatter":
-          return <R.Scatter {...common} fill={item.color} />;
+          return <R.Scatter key={item.key} {...common} fill={item.color} />;
         case "bar":
           return (
             <R.Bar
+              key={item.key}
               {...common}
               fill={item.color}
               stackId={stackId}
