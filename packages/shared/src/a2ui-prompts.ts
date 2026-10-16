@@ -133,7 +133,7 @@ export const GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION =
   "Generative UI component schema: the components, props, events, slots, functions, and targets that ```a2ui code fences can use, and the surfaces that already exist.";
 
 /**
- * Generation guideline for the markdown transport. The model writes A2UI v0.9
+ * Generation guideline for the markdown transport. The model writes A2UI v1.0
  * operations inside ```a2ui fences between normal markdown prose. The
  * component schema goes in a separate context entry. The rules describe the
  * same component, event, and slot model as the tool-mode guide.
@@ -147,33 +147,38 @@ RULES
 - Open a fence with \`\`\`a2ui target=<id> to show the surface in a named target. Use only target ids from the schema.
 - Inside a fence, write one JSON object per line and nothing else. No comments, no trailing commas, no pretty-printing.
 - Keep each operation whole on its line.
-- Give every operation "version":"v0.9".
-- Write the operations in this order: createSurface, then updateDataModel with all the initial data, then updateComponents with the "root" component first and its children after it:
+- Give every operation "version":"v1.0".
+- Start a surface with one createSurface. Put all the initial data in "dataModel" and the "root" component in "components". Then write the children in updateComponents lines, so that they show while you write:
   \`\`\`a2ui
-  {"version":"v0.9","createSurface":{"surfaceId":"plan-picker"}}
-  {"version":"v0.9","updateDataModel":{"surfaceId":"plan-picker","path":"/","value":{ ...initial data... }}}
-  {"version":"v0.9","updateComponents":{"surfaceId":"plan-picker","components":[{"id":"root","component":"<Name>","children":["seats","pick"]}]}}
-  {"version":"v0.9","updateComponents":{"surfaceId":"plan-picker","components":[ ...the children... ]}}
+  {"version":"v1.0","createSurface":{"surfaceId":"plan-picker","dataModel":{ ...initial data... },"components":[{"id":"root","component":"<Name>","children":["seats","pick"]}]}}
+  {"version":"v1.0","updateComponents":{"surfaceId":"plan-picker","components":[ ...the children... ]}}
   \`\`\`
 - Every surface renders from the component with id "root". Make every other component reachable from "root" through slots.
 - Use unique ids. Do not make cycles. A component cannot be its own child.
 - Write a component as one flat object: {"id":"title","component":"<Name>","text":"Hello"}.
 - Put the component name in "component" (never "type"). Put props next to it, never inside a "props" object.
 - Use only the components, props, events, and slots in the schema.
-- Give a prop a literal value, or bind it to the data model with {"path":"/x"}.
-- Bind a writable prop to let the user edit it: "value":{"path":"/form/email"}. The user's input goes to that path.
-- Give an event prop an object: {"event":{"name":"<name>","context":{...}}} or {"functionCall":{"call":"<function>","args":{...}}}. Never a flat {"event":"<name>"}.
-- Use {"functionCall": ...} to run an app function in the browser. Use only functions from the schema. You are not told about the call.
-- Use {"event": ...} to send the interaction back to you as a user message. Put the text in the context: {"event":{"name":"choose","context":{"message":"Show me the Team plan"}}}.
-- To send input values with an event, bind them in the context: "context":{"email":{"path":"/form/email"}}.
+- Give a prop a literal value, or bind it to the data model with {"@path":"/x"}. Never write {"path":"/x"} as a binding.
+- Bind a writable prop to let the user edit it: "value":{"@path":"/form/email"}. The user's input goes to that path.
+- To change data, write updateDataModel with a "path" and a "value": {"version":"v1.0","updateDataModel":{"surfaceId":"plan-picker","path":"/seats","value":12}}. Always give "value".
+- Set "value":null to delete the key at "path".
+- Give an event prop an object: {"event":{"name":"<name>","userMessage":"<text>","context":{...}}} or {"functionCall":{"@call":"<function>","args":{...}}}. Never a flat {"event":"<name>"}.
+- Use {"functionCall": ...} to run an app function in the browser when the user clicks. Use only functions from the schema. You are not told about the call.
+- Use {"event": ...} to send the interaction back to you as a user message. Put the text of that message in "userMessage": {"event":{"name":"choose","userMessage":"Show me the Team plan"}}.
+- To send input values with an event, bind them in the context: "context":{"email":{"@path":"/form/email"}}.
 - A button or other event prop without an event or functionCall does nothing.
-- Never put {"call": ...} or an expression in a data prop. Compute derived values (totals, prices) yourself and write them as literals or into the data model.
+- Never put {"@call": ...} or an expression in a data prop. Compute derived values (totals, prices) yourself and write them as literals or into the data model. The only exception is {"@call":"@index"} in a template.
 - Give a slot component ids: "child":"card" for a single slot, "children":["a","b"] for a multiple slot.
 - To repeat a component for each item of a list, give a multiple slot a template: "children":{"componentId":"row","path":"/items"}.
 - Inside a template, paths are relative to the item ("name", not "/name").
+- Inside a template, {"@call":"@index"} gives the position of the item, from 0. To count from 1, write {"@call":"@index","args":{"offset":1}}.
 - Updating a component replaces all of its props. Send every prop again.
 - To change a surface, write another fence with the same surfaceId, in this reply or in a later reply. Do not send createSurface again. The surface changes where it already is.
-- Use a new surfaceId for a different view.
+- Use a new surfaceId for a different view. Never use a surfaceId again, also after the surface is deleted.
+- To run an app function now, with no click, write a callRendererFunction line in a fence: {"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}. It needs no surface.
+- Give every callRendererFunction a new functionCallId. Use only functions from the schema.
+- The result of a callRendererFunction comes back to you as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Then you get a new turn.
+- Do not guess the result of a callRendererFunction. Wait for the developer message.
 - The schema lists the surfaces that already exist under "surfaces". "dataModel" holds the values that the user entered: read them, and do not write those paths. "rejected" lists operations that the client dropped: send corrected operations in a new fence for that surfaceId.
 - Never make a surface that is only prose. Write headings, paragraphs, lists of text, intros, and summaries as markdown outside the fences, also between two fences.
 - Put in a fence only what markdown cannot show: charts, tables, maps, images, badges, inputs, buttons, cards with controls.

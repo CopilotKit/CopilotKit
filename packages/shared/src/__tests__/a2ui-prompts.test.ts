@@ -23,18 +23,22 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     );
   });
 
-  it("asks for one JSON object per line, each with the v0.9 version and no catalogId", () => {
+  it("asks for one JSON object per line, each with the v1.0 version and no catalogId", () => {
     expect(guide).toContain("write one JSON object per line and nothing else");
-    expect(guide).toContain('Give every operation "version":"v0.9".');
+    expect(guide).toContain('Give every operation "version":"v1.0".');
+    expect(guide).not.toContain("v0.9");
     expect(guide).not.toContain("catalogId");
   });
 
-  it("asks for createSurface, then the data model, then the root component first", () => {
+  it("starts a surface with one createSurface that holds the data and the root, then streams the children", () => {
     expect(guide).toContain(
-      'createSurface, then updateDataModel with all the initial data, then updateComponents with the "root" component first',
+      'Start a surface with one createSurface. Put all the initial data in "dataModel" and the "root" component in "components".',
     );
-    expect(guide.indexOf("updateDataModel")).toBeLessThan(
-      guide.indexOf("updateComponents"),
+    expect(guide).toContain(
+      '{"version":"v1.0","createSurface":{"surfaceId":"plan-picker","dataModel":{ ...initial data... },"components":[{"id":"root"',
+    );
+    expect(guide.indexOf('"createSurface"')).toBeLessThan(
+      guide.indexOf('"updateComponents"'),
     );
   });
 
@@ -45,28 +49,44 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     expect(guide).toContain('never inside a "props" object');
   });
 
-  it("describes path bindings for data and for writable inputs", () => {
-    expect(guide).toContain('bind it to the data model with {"path":"/x"}');
+  it("describes @path bindings for data and for writable inputs, and forbids the path form", () => {
+    expect(guide).toContain('bind it to the data model with {"@path":"/x"}');
+    expect(guide).toContain('Never write {"path":"/x"} as a binding.');
     expect(guide).toContain(
-      'Bind a writable prop to let the user edit it: "value":{"path":"/form/email"}.',
+      'Bind a writable prop to let the user edit it: "value":{"@path":"/form/email"}.',
     );
   });
 
-  it("describes both event bindings and that an unbound button does nothing", () => {
-    expect(guide).toContain('{"event":{"name":"<name>","context":{...}}}');
+  it("requires a value in updateDataModel and deletes with null", () => {
+    expect(guide).toContain('Always give "value".');
+    expect(guide).toContain('Set "value":null to delete the key at "path".');
+  });
+
+  it("describes events with userMessage, function calls with @call, and that an unbound button does nothing", () => {
     expect(guide).toContain(
-      '{"functionCall":{"call":"<function>","args":{...}}}',
+      '{"event":{"name":"<name>","userMessage":"<text>","context":{...}}}',
     );
+    expect(guide).toContain(
+      '{"functionCall":{"@call":"<function>","args":{...}}}',
+    );
+    expect(guide).toContain(
+      '{"event":{"name":"choose","userMessage":"Show me the Team plan"}}',
+    );
+    expect(guide).toContain('"context":{"email":{"@path":"/form/email"}}');
     expect(guide).toContain('Never a flat {"event":"<name>"}.');
     expect(guide).toContain(
       "A button or other event prop without an event or functionCall does nothing.",
     );
   });
 
-  it("keeps function calls and expressions out of data props", () => {
+  it("keeps function calls and expressions out of data props, except @index in a template", () => {
     expect(guide).toContain(
-      'Never put {"call": ...} or an expression in a data prop.',
+      'Never put {"@call": ...} or an expression in a data prop.',
     );
+    expect(guide).toContain(
+      'The only exception is {"@call":"@index"} in a template.',
+    );
+    expect(guide).toContain('{"@call":"@index","args":{"offset":1}}');
   });
 
   it("describes slots with child ids and with a template of relative paths", () => {
@@ -81,6 +101,22 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     expect(guide).toContain(
       "write another fence with the same surfaceId, in this reply or in a later reply.",
     );
+    expect(guide).toContain(
+      "Never use a surfaceId again, also after the surface is deleted.",
+    );
+  });
+
+  it("describes callRendererFunction, its unique id, and the developer-message response", () => {
+    expect(guide).toContain(
+      '{"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}',
+    );
+    expect(guide).toContain(
+      "Give every callRendererFunction a new functionCallId.",
+    );
+    expect(guide).toContain(
+      '{"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}',
+    );
+    expect(guide).toContain("Then you get a new turn.");
   });
 
   it("keeps prose outside the fences and Card for interactive panels", () => {

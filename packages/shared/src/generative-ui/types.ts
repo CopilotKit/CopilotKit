@@ -1,7 +1,10 @@
 /** A2UI protocol version used on the wire. */
-export const A2UI_VERSION = "v0.9";
+export const A2UI_VERSION = "v1.0";
 /** Activity type of a generated surface message. */
 export const GENERATIVE_UI_ACTIVITY_TYPE = "generative-ui-surface";
+/** Activity type of a function call that the agent asks the client to run. */
+export const GENERATIVE_UI_FUNCTION_CALL_ACTIVITY_TYPE =
+  "generative-ui-function-call";
 /** Tool the model calls to render or update surfaces. */
 export const GENERATIVE_UI_RENDER_TOOL = "render_ui";
 /** Target id of the chat transcript. */
@@ -10,8 +13,23 @@ export const GENERATIVE_UI_CHAT_TARGET = "chat";
 export const GENERATIVE_UI_ROOT_ID = "root";
 
 /** Activity message id of a surface. One message per surface. */
-export function generativeUISurfaceMessageId(surfaceId: string): string {
+export function generativeUISurfaceMessageId(surfaceId: string) {
   return `genui:${surfaceId}`;
+}
+
+/**
+ * Activity message id of an agent-called function. One message per
+ * `functionCallId`.
+ *
+ * @param functionCallId - The `functionCallId` of the `callRendererFunction` operation.
+ *
+ * @example
+ * ```ts
+ * generativeUIFunctionCallMessageId("f1"); // "genui-fn:f1"
+ * ```
+ */
+export function generativeUIFunctionCallMessageId(functionCallId: string) {
+  return `genui-fn:${functionCallId}`;
 }
 
 // Named `GenerativeUIJSONSchema` because the package root already exports a
@@ -24,22 +42,64 @@ export type A2UIComponentNode = {
   [prop: string]: unknown;
 };
 
+/**
+ * A call of a named function: `{ "@call": "addToCart", "args": { ... } }`.
+ * Without `catalogId`, the function comes from the catalog of the run.
+ */
+export type A2UIFunctionCall = {
+  "@call": string;
+  args?: Record<string, unknown>;
+  catalogId?: string;
+};
+
 export type A2UIOperation =
-  | { version: "v0.9"; createSurface: { surfaceId: string; catalogId: string } }
   | {
-      version: "v0.9";
+      version: "v1.0";
+      createSurface: {
+        surfaceId: string;
+        /** Left out by the model. The run's catalog id is filled in. */
+        catalogId?: string;
+        /** Components to add at once, checked like `updateComponents`. */
+        components?: A2UIComponentNode[];
+        /** The initial root data model. */
+        dataModel?: Record<string, unknown>;
+        sendDataModel?: boolean;
+        metadata?: { extensions?: Record<string, unknown> };
+      };
+    }
+  | {
+      version: "v1.0";
       updateComponents: { surfaceId: string; components: A2UIComponentNode[] };
     }
   | {
-      version: "v0.9";
-      updateDataModel: { surfaceId: string; path?: string; value?: unknown };
+      version: "v1.0";
+      /**
+       * Sets `value` at `path`. A `null` value deletes the key at `path`.
+       * With no `path`, or `"/"`, it sets the whole data model.
+       */
+      updateDataModel: { surfaceId: string; path?: string; value: unknown };
     }
-  | { version: "v0.9"; deleteSurface: { surfaceId: string } };
+  | { version: "v1.0"; deleteSurface: { surfaceId: string } }
+  | {
+      version: "v1.0";
+      /** Runs an app function in the browser, with no user interaction. */
+      callRendererFunction: {
+        functionCallId: string;
+        callFunction: A2UIFunctionCall;
+      };
+    };
 
 /** Value of an event prop: run a host function, or report the event to the agent. */
 export type GenerativeUIActionBinding =
-  | { functionCall: { call: string; args?: Record<string, unknown> } }
-  | { event: { name: string; context?: Record<string, unknown> } };
+  | {
+      event: {
+        name: string;
+        /** First line of the user message that the event becomes. */
+        userMessage?: string | { "@path": string };
+        context?: Record<string, unknown>;
+      };
+    }
+  | { functionCall: A2UIFunctionCall };
 
 export type GenerativeUISurfaceStatus = "streaming" | "ready" | "error";
 
@@ -58,6 +118,12 @@ export interface GenerativeUISurfaceContent {
   operations: A2UIOperation[];
   status: GenerativeUISurfaceStatus;
   rejected: GenerativeUIRejectedOperation[];
+}
+
+/** Content of a `generative-ui-function-call` activity message. */
+export interface GenerativeUIFunctionCallContent {
+  functionCallId: string;
+  callFunction: A2UIFunctionCall;
 }
 
 /**
@@ -92,7 +158,6 @@ export interface GenerativeUIFunctionManifest {
 /** Serializable description of what the browser can render and call. */
 export interface GenerativeUIManifest {
   catalogId: string;
-  catalogVersion: string;
   components: Record<string, GenerativeUIComponentManifest>;
   functions: Record<string, GenerativeUIFunctionManifest>;
   /**
@@ -130,4 +195,6 @@ export interface GenerativeUIUserEvent {
   surfaceId: string;
   componentId: string;
   context: Record<string, unknown>;
+  /** The resolved `event.userMessage`: the first line of the user message. */
+  userMessage?: string;
 }

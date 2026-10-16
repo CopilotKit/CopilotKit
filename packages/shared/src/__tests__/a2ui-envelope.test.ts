@@ -1,49 +1,66 @@
 import { describe, expect, it } from "vitest";
-import { readCopilotKitUIEnvelope } from "../a2ui-envelope";
+import { envelopeToManifest, readCopilotKitUIEnvelope } from "../a2ui-envelope";
 import type { CopilotKitUIEnvelope } from "../a2ui-envelope";
 
-function createEnvelope(
-  overrides?: Partial<CopilotKitUIEnvelope>,
-): CopilotKitUIEnvelope {
+type InlineCatalog = NonNullable<
+  CopilotKitUIEnvelope["v1.0"]["inlineCatalogs"]
+>[number];
+type Extensions = CopilotKitUIEnvelope["metadata"]["extensions"];
+
+const productGrid = {
+  description: "A grid of products.",
+  props: {
+    type: "object",
+    properties: { title: { type: "string" } },
+    required: ["title"],
+  },
+  events: { onSelect: { parameters: { type: "object" } } },
+  slots: { children: "multiple" as const },
+};
+const addToCart = { description: "Add.", parameters: { type: "object" } };
+const targets: Extensions["copilotkit_targets"] = [
+  { id: "chat", kind: "chat" },
+  { id: "sidebar", kind: "inline", description: "Right column." },
+];
+const surfaces: Extensions["copilotkit_surfaces"] = {
+  cart: { target: "sidebar" },
+  form: {
+    target: "chat",
+    dataModel: { "/form/email": "me@x.io" },
+    rejected: ["operation 2: unknown component Foo"],
+  },
+};
+
+function createCatalog(overrides?: Partial<InlineCatalog>): InlineCatalog {
   return {
-    method: "a2ui",
-    version: "v0.9",
-    format: 2,
-    transport: "markdown",
-    catalog: {
-      id: "acme/app",
-      version: "1",
-      components: {
-        ProductGrid: {
-          description: "A grid of products.",
-          props: {
-            type: "object",
-            properties: { title: { type: "string" } },
-            required: ["title"],
-          },
-          events: { onSelect: { parameters: { type: "object" } } },
-          slots: { children: "multiple" },
-        },
-      },
-    },
-    functions: {
-      addToCart: { description: "Add.", parameters: { type: "object" } },
-    },
-    targets: [
-      { id: "chat", kind: "chat" },
-      { id: "sidebar", kind: "inline", description: "Right column." },
-    ],
-    surfaces: {
-      cart: { target: "sidebar" },
-      form: {
-        target: "chat",
-        dataModel: { "/form/email": "me@x.io" },
-        rejected: ["operation 2: unknown component Foo"],
-      },
-    },
+    catalogId: "acme/app@1",
+    protocolVersion: "1.0",
+    components: { ProductGrid: productGrid },
+    functions: { addToCart },
     instructions: "Write fences.",
-    contextSent: true,
     ...overrides,
+  };
+}
+
+function createEnvelope(options?: {
+  catalog?: Partial<InlineCatalog>;
+  extensions?: Partial<Extensions>;
+}): CopilotKitUIEnvelope {
+  return {
+    "v1.0": {
+      supportedCatalogIds: ["acme/app@1"],
+      inlineCatalogs: [createCatalog(options?.catalog)],
+    },
+    metadata: {
+      extensions: {
+        copilotkit_format: 3,
+        copilotkit_transport: "markdown",
+        copilotkit_targets: targets,
+        copilotkit_surfaces: surfaces,
+        copilotkit_contextSent: true,
+        ...options?.extensions,
+      },
+    },
   };
 }
 
@@ -51,11 +68,34 @@ function createEnvelope(
 const readUI = (ui: unknown) =>
   readCopilotKitUIEnvelope({ copilotkit: { ui }, other: 1 });
 
-/** An envelope with one top-level field replaced by any value. */
-const withField = (key: string, value: unknown) => ({
-  ...createEnvelope(),
-  [key]: value,
-});
+/** An envelope with one key of the inline catalog replaced by any value. */
+const withCatalogField = (key: string, value: unknown) => {
+  const envelope = createEnvelope();
+  return {
+    ...envelope,
+    "v1.0": {
+      ...envelope["v1.0"],
+      inlineCatalogs: [{ ...createCatalog(), [key]: value }],
+    },
+  };
+};
+
+/** An envelope with one key of the capabilities replaced by any value. */
+const withCapability = (key: string, value: unknown) => {
+  const envelope = createEnvelope();
+  return { ...envelope, "v1.0": { ...envelope["v1.0"], [key]: value } };
+};
+
+/** An envelope with one CopilotKit extension replaced by any value. */
+const withExtension = (key: string, value: unknown) => {
+  const envelope = createEnvelope();
+  return {
+    ...envelope,
+    metadata: {
+      extensions: { ...envelope.metadata.extensions, [key]: value },
+    },
+  };
+};
 
 describe("readCopilotKitUIEnvelope", () => {
   it("reads a markdown envelope from forwardedProps.copilotkit.ui", () => {
@@ -65,23 +105,44 @@ describe("readCopilotKitUIEnvelope", () => {
 
   it("reads a tool envelope without instructions and without components", () => {
     const envelope: CopilotKitUIEnvelope = {
-      method: "a2ui",
-      version: "v0.9",
-      format: 2,
-      transport: "tool",
-      catalog: { id: "acme/app", version: "1" },
-      functions: {},
-      targets: [],
-      surfaces: {},
-      contextSent: false,
+      "v1.0": {
+        supportedCatalogIds: ["acme/app@1"],
+        inlineCatalogs: [
+          { catalogId: "acme/app@1", protocolVersion: "1.0", functions: {} },
+        ],
+      },
+      metadata: {
+        extensions: {
+          copilotkit_format: 3,
+          copilotkit_transport: "tool",
+          copilotkit_targets: [],
+          copilotkit_surfaces: {},
+          copilotkit_contextSent: false,
+        },
+      },
     };
+    expect(readUI(envelope)).toEqual(envelope);
+  });
+
+  it("reads an envelope without inline catalogs", () => {
+    const envelope: CopilotKitUIEnvelope = {
+      ...createEnvelope(),
+      "v1.0": { supportedCatalogIds: ["acme/app@1"] },
+    };
+    expect(readUI(envelope)).toEqual(envelope);
+  });
+
+  it("reads an envelope that carries other extensions too", () => {
+    const envelope = withExtension("a2ui_trace", { id: "t1" });
     expect(readUI(envelope)).toEqual(envelope);
   });
 
   it("reads a surface with 20 rejections of 500 characters", () => {
     const envelope = createEnvelope({
-      surfaces: {
-        cart: { target: "chat", rejected: Array(20).fill("x".repeat(500)) },
+      extensions: {
+        copilotkit_surfaces: {
+          cart: { target: "chat", rejected: Array(20).fill("x".repeat(500)) },
+        },
       },
     });
     expect(readUI(envelope)).toEqual(envelope);
@@ -96,76 +157,156 @@ describe("readCopilotKitUIEnvelope", () => {
   });
 
   it.each([
-    ["a wrong method", withField("method", "html")],
-    ["a wrong version", withField("version", "v1.0")],
-    ["the format 1 envelope", withField("format", 1)],
-    ["an unknown transport", withField("transport", "fence")],
-    ["no catalog", withField("catalog", undefined)],
-    ["no catalog id", withField("catalog", { version: "1" })],
-    ["an empty catalog id", withField("catalog", { id: "", version: "1" })],
-    ["no catalog version", withField("catalog", { id: "acme/app" })],
+    [
+      "the format 2 envelope",
+      {
+        method: "a2ui",
+        version: "v0.9",
+        format: 2,
+        transport: "tool",
+        catalog: { id: "acme/app", version: "1" },
+        functions: {},
+        targets: [],
+        surfaces: {},
+        contextSent: false,
+      },
+    ],
+    ["format 2 in the extensions", withExtension("copilotkit_format", 2)],
+    ["an unknown transport", withExtension("copilotkit_transport", "fence")],
+    ["no capabilities", { ...createEnvelope(), "v1.0": undefined }],
+    ["no metadata", { ...createEnvelope(), metadata: undefined }],
+    ["no extensions", { ...createEnvelope(), metadata: {} }],
+    ["no catalog id", withCapability("supportedCatalogIds", [])],
+    ["an empty catalog id", withCapability("supportedCatalogIds", [""])],
+    [
+      "inline catalogs that are not a list",
+      withCapability("inlineCatalogs", {}),
+    ],
+    [
+      "an inline catalog without an id",
+      withCatalogField("catalogId", undefined),
+    ],
+    [
+      "an inline catalog of protocol 0.9",
+      withCatalogField("protocolVersion", "0.9"),
+    ],
     [
       "a component without a props schema",
-      withField("catalog", {
-        id: "acme/app",
-        version: "1",
-        components: { Card: { description: "x" } },
-      }),
+      withCatalogField("components", { Card: { description: "x" } }),
     ],
     [
       "a component whose required list is not strings",
-      withField("catalog", {
-        id: "acme/app",
-        version: "1",
-        components: { Card: { props: { type: "object", required: 5 } } },
+      withCatalogField("components", {
+        Card: { props: { type: "object", required: 5 } },
       }),
     ],
     [
       "an unknown slot kind",
-      withField("catalog", {
-        id: "acme/app",
-        version: "1",
-        components: { Card: { props: {}, slots: { body: "many" } } },
+      withCatalogField("components", {
+        Card: { props: {}, slots: { body: "many" } },
       }),
     ],
     [
       "an event without parameters",
-      withField("catalog", {
-        id: "acme/app",
-        version: "1",
-        components: { Card: { props: {}, events: { onClick: {} } } },
+      withCatalogField("components", {
+        Card: { props: {}, events: { onClick: {} } },
       }),
     ],
-    ["a function without parameters", withField("functions", { add: {} })],
-    ["targets that are not a list", withField("targets", { chat: "chat" })],
+    [
+      "a function without parameters",
+      withCatalogField("functions", { add: {} }),
+    ],
+    [
+      "an inline catalog without functions",
+      withCatalogField("functions", undefined),
+    ],
+    ["instructions that are not text", withCatalogField("instructions", ["a"])],
+    [
+      "targets that are not a list",
+      withExtension("copilotkit_targets", { chat: "chat" }),
+    ],
     [
       "a target with an unknown kind",
-      withField("targets", [{ id: "x", kind: "modal" }]),
+      withExtension("copilotkit_targets", [{ id: "x", kind: "modal" }]),
     ],
-    ["a surface without a target", withField("surfaces", { cart: {} })],
+    [
+      "a surface without a target",
+      withExtension("copilotkit_surfaces", { cart: {} }),
+    ],
     [
       "a surface data model that is not an object",
-      withField("surfaces", { cart: { target: "chat", dataModel: ["a"] } }),
+      withExtension("copilotkit_surfaces", {
+        cart: { target: "chat", dataModel: ["a"] },
+      }),
     ],
     [
       "surface rejections that are not strings",
-      withField("surfaces", { cart: { target: "chat", rejected: [1] } }),
+      withExtension("copilotkit_surfaces", {
+        cart: { target: "chat", rejected: [1] },
+      }),
     ],
     [
       "more than 20 surface rejections",
-      withField("surfaces", {
+      withExtension("copilotkit_surfaces", {
         cart: { target: "chat", rejected: Array(21).fill("operation 0: x") },
       }),
     ],
     [
       "a surface rejection longer than 500 characters",
-      withField("surfaces", {
+      withExtension("copilotkit_surfaces", {
         cart: { target: "chat", rejected: ["x".repeat(501)] },
       }),
     ],
-    ["instructions that are not text", withField("instructions", ["a"])],
-    ["no contextSent flag", withField("contextSent", undefined)],
+    ["no contextSent flag", withExtension("copilotkit_contextSent", undefined)],
   ])("returns undefined for %s", (_case, ui) => {
     expect(readUI(ui)).toBeUndefined();
+  });
+});
+
+describe("envelopeToManifest", () => {
+  it("returns the manifest, the transport, the context flag, and the instructions", () => {
+    expect(envelopeToManifest(createEnvelope())).toEqual({
+      catalogId: "acme/app@1",
+      components: { ProductGrid: productGrid },
+      functions: { addToCart },
+      targets,
+      surfaces,
+      transport: "markdown",
+      contextSent: true,
+      instructions: "Write fences.",
+      hasComponents: true,
+    });
+  });
+
+  it("reports no components when the client left them out", () => {
+    const manifest = envelopeToManifest(
+      createEnvelope({
+        catalog: { components: undefined, instructions: undefined },
+        extensions: { copilotkit_transport: "tool" },
+      }),
+    );
+    expect(manifest).toMatchObject({
+      components: {},
+      functions: { addToCart },
+      transport: "tool",
+      hasComponents: false,
+    });
+    expect(manifest.instructions).toBeUndefined();
+  });
+
+  it("uses only the inline catalog of the first supported catalog id", () => {
+    const envelope: CopilotKitUIEnvelope = {
+      ...createEnvelope(),
+      "v1.0": {
+        supportedCatalogIds: ["acme/app@1"],
+        inlineCatalogs: [createCatalog({ catalogId: "other/catalog" })],
+      },
+    };
+    expect(envelopeToManifest(envelope)).toMatchObject({
+      catalogId: "acme/app@1",
+      components: {},
+      functions: {},
+      hasComponents: false,
+    });
   });
 });
