@@ -42,6 +42,13 @@ pnpm --filter @copilotkit/example-a2ui-markdown example-dev
 
 Open `http://localhost:3011` and click a suggestion below the chat.
 
+The page has two surfaces outside the chat: `dashboard` and `notes`. The first
+three suggestions render into them:
+
+1. "Dashboard on the page" fills `dashboard`.
+2. "Checklist in the notes" fills `notes`.
+3. "Update the dashboard" changes the dashboard in place, in a later reply.
+
 To use the LangGraph Python agent in [`agent/`](./agent), you need `uv`. In a
 second terminal, run these commands from `examples/v2/a2ui-markdown`:
 
