@@ -280,6 +280,12 @@ export async function handleIntelligenceRun({
       const history = await runtime.intelligence.getThreadMessages({
         threadId: canonicalThreadId,
         userId,
+        signal: request.signal,
+        // Nothing renews the lock until the heartbeat starts below, so a
+        // rate-limited read may retry for at most half the lock's lifetime.
+        retryDeadline:
+          lockRequestedAt +
+          ((lockTtlSeconds ?? runtime.lockTtlSeconds) * 1_000) / 2,
       });
       const historicMessageIds = new Set(
         history.messages.map((message) => message.id),
