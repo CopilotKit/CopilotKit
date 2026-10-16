@@ -37,10 +37,11 @@ describe("staging-only Intelligence services", () => {
     "showcase-intelligence-gateway-proxy",
     "showcase-intelligence-postgres",
     "showcase-intelligence-redis",
+    "showcase-intelligence-test-runner",
   ];
   const toDelete = ["showcase-intelligence-init"];
 
-  it("acknowledges all six retained services without claiming a prod instance", () => {
+  it("acknowledges all seven retained services without claiming a prod instance", () => {
     for (const name of kept) {
       const entry = SERVICES[name];
       expect(entry, name).toBeDefined();
@@ -279,7 +280,7 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 43 gate-managed services plus six staging-only Intelligence services", () => {
+  it("has 43 gate-managed services plus seven staging-only Intelligence services", () => {
     expect(Object.keys(SERVICES)).toHaveLength(50);
   });
 

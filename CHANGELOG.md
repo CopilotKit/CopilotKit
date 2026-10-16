@@ -16,6 +16,18 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.79.1 - 2026-10-15
+
+### Features
+
+- feat(runtime): assign Trajectories to Learning Spaces on the server (#7601) (81ca993)
+
+### Fixes
+
+- fix(web-inspector): coalesce streaming transcript refreshes (#7832) (16a1b46)
+- fix(a2ui-renderer): type RendererProps.children as (id, basePath?) (#7801) (5bdb483)
+- fix(release): stop one scope's version line freezing another's (refs OSS-1107) (#6856) (93b2ecd)
+
 ## 1.79.0 - 2026-10-12
 
 ### Features

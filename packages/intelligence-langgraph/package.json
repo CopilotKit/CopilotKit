@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/intelligence-langgraph",
-  "version": "1.71.2",
+  "version": "1.72.0",
   "description": "Learned skill delivery for LangGraph agents through CopilotKit Intelligence",
   "license": "MIT",
   "repository": {

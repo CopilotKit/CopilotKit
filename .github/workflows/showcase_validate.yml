@@ -14,6 +14,7 @@ on:
       # docs-release-workflows.test.ts must gate changes to these workflows.
       - ".github/workflows/docs_open_release_pr.yml"
       - ".github/workflows/docs_promote.yml"
+      - ".github/workflows/showcase_promote.yml"
       # This job runs showcase/scripts/advance-latest-tag.test.ts, which
       # asserts against the LIVE text of showcase_build.yml (that the build
       # step pushes no `:latest`, stamps the revision label, and runs the
@@ -34,6 +35,7 @@ on:
       - ".github/workflows/showcase_deploy.yml"
       - ".github/workflows/docs_open_release_pr.yml"
       - ".github/workflows/docs_promote.yml"
+      - ".github/workflows/showcase_promote.yml"
       - ".github/workflows/showcase_build.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
@@ -913,6 +915,18 @@ jobs:
             echo "::warning::No showcase/integrations/*/tests/python/ directories found"
           fi
           exit "$failed"
+
+      - name: Run shared Python tool tests
+        # The shared tools every Python integration imports through its `tools`
+        # symlink. These tests had no CI entry point and drifted from the code
+        # unnoticed, so they run here even when the package tests above fail.
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          venv="${RUNNER_TEMP}/showcase-venv-shared-python"
+          python -m venv "$venv"
+          "$venv/bin/python" -m pip install --quiet -r showcase/shared/python/requirements-test.txt
+          "$venv/bin/python" -m pytest showcase/shared/python/tests -v
 
   notify:
     # Slack #oss-alerts on any red. Never #engr (engr is sacred — release alerts only).

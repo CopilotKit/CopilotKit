@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
 import { parseArgs } from "node:util";
-import { setTimeout as delay } from "node:timers/promises";
+import { pollRunStatus } from "../status-poll.mjs";
 
 const { values } = parseArgs({
   options: {
@@ -25,7 +25,12 @@ assert.ok(
 assert.ok(process.env.RICH_RUNNER_TOKEN?.length >= 32, "Runner token required");
 const root = resolve(values.output);
 await mkdir(root, { recursive: false, mode: 0o700 });
-async function request(path, options = {}) {
+async function request(
+  path,
+  options = {},
+  timeout = 30_000,
+  allowStatusError = false,
+) {
   const url = new URL(path, base);
   assert.equal(url.origin, base.origin, "Runner response changed origin");
   const response = await fetch(url, {
@@ -35,9 +40,10 @@ async function request(path, options = {}) {
       authorization: `Bearer ${process.env.RICH_RUNNER_TOKEN}`,
     },
     redirect: "error",
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(timeout),
   });
-  assert.ok(response.ok, `Runner HTTP ${response.status}`);
+  if (!allowStatusError)
+    assert.ok(response.ok, `Runner HTTP ${response.status}`);
   return response;
 }
 const started = await (
@@ -55,17 +61,11 @@ await writeFile(join(root, "trigger.json"), JSON.stringify(started, null, 2), {
 });
 const deadline =
   Date.now() + (values.mode === "acceptance" ? 190 : 70) * 60_000;
-let receipt;
-while (Date.now() < deadline) {
-  receipt = await (await request(started.statusUrl)).json();
-  assert.equal(receipt.id, started.id, "Runner receipt identity changed");
-  if (receipt.status !== "running") break;
-  await delay(10_000);
-}
-assert.ok(
-  receipt && receipt.status !== "running",
-  "Runner still active; retained Railway journal owns cleanup",
-);
+const receipt = await pollRunStatus({
+  id: started.id,
+  deadline,
+  request: (timeout) => request(started.statusUrl, {}, timeout, true),
+});
 await writeFile(
   join(root, "runner-receipt.json"),
   JSON.stringify(receipt, null, 2),
