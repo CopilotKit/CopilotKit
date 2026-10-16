@@ -1,42 +1,38 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { AbstractAgent, Message } from "@ag-ui/client";
 import {
+  COPILOTKIT_FORWARDED_PROPS_KEY,
   DEFAULT_AGENT_ID,
-  GENERATIVE_UI_ACTION_KEY,
   GENERATIVE_UI_ACTIVITY_TYPE,
-  GENERATIVE_UI_MANIFEST_KEY,
+  GENERATIVE_UI_MARKDOWN_GUIDELINES,
+  randomUUID,
 } from "@copilotkit/shared";
-import type { GenerativeUISurfaceContent } from "@copilotkit/shared";
+import type {
+  A2UIOperation,
+  GenerativeUISurfaceContent,
+} from "@copilotkit/shared";
 import type { CopilotKitCoreReact } from "../lib/react-core";
-import type { GenerativeUI } from "./catalog";
+import { useShallowStableRef } from "../lib/shallow-stable-ref";
+import {
+  buildActionMessageText,
+  createComponentLabelResolver,
+} from "./action-message";
 import { createGenerativeUIDispatcher } from "./dispatcher";
 import { GenerativeUIError } from "./errors";
 import type { GenerativeUIErrorInfo } from "./errors";
-import { buildGenerativeUIManifest } from "./manifest";
+import { buildGenerativeUIEnvelope } from "./manifest";
+import type { GenerativeUIEnvelopeOptions } from "./manifest";
 import type {
-  GenerativeUIErrorBoundaryConfig,
+  GenerativeUIConfig,
   GenerativeUIRuntime,
 } from "./runtime-context";
 import { GenerativeUISurfaceManager } from "./surface-manager";
-
-/**
- * Experimental. The `generativeUI` prop of `CopilotKitProvider`:
- * `generativeUI={{ ui, errorBoundary }}`.
- */
-export interface GenerativeUIConfig {
-  /**
-   * The result of `createGenerativeUI`: the components the model can render,
-   * the app state they read and the functions they call.
-   */
-  ui: GenerativeUI;
-  /** Fallback UI and error reporting for generated UI. */
-  errorBoundary?: GenerativeUIErrorBoundaryConfig;
-}
+import type { ManagedSurface } from "./surface-manager";
 
 const isDevelopment = () => process.env.NODE_ENV !== "production";
 
 function ingestMessages(
-  runtime: GenerativeUIRuntime,
+  manager: GenerativeUISurfaceManager,
   agent: AbstractAgent,
   messages: ReadonlyArray<Readonly<Message>>,
 ) {
@@ -46,7 +42,7 @@ function ingestMessages(
       message.role === "activity" &&
       message.activityType === GENERATIVE_UI_ACTIVITY_TYPE
     ) {
-      runtime.manager.ingest(
+      manager.ingest(
         agent.threadId,
         agent.agentId,
         message.content as unknown as GenerativeUISurfaceContent,
@@ -55,7 +51,41 @@ function ingestMessages(
   }
 }
 
-/** Provider-side wiring: manager, dispatcher, agent subscriptions, manifest forwarding. */
+/** What the envelope of a run says, from the provider config. */
+function envelopeOptionsFor(
+  config: GenerativeUIConfig,
+): GenerativeUIEnvelopeOptions {
+  if (config.transport === "markdown") {
+    return {
+      transport: "markdown",
+      includeCatalog: config.includeCatalog !== false,
+      contextSent: config.sendContext !== false,
+      instructions: GENERATIVE_UI_MARKDOWN_GUIDELINES,
+    };
+  }
+  return { transport: "tool", includeCatalog: true, contextSent: false };
+}
+
+/**
+ * The components of a surface as one `updateComponents` operation, so that
+ * the label of the component that sent an event can be found.
+ */
+function surfaceComponents(surface: ManagedSurface): A2UIOperation[] {
+  const entries = [...surface.model.componentsModel.entries];
+  const components = entries.map(([id, model]) => ({
+    ...model.properties,
+    id,
+    component: model.type,
+  }));
+  return [
+    {
+      version: "v0.9",
+      updateComponents: { surfaceId: surface.surfaceId, components },
+    },
+  ];
+}
+
+/** Provider-side wiring: manager, dispatcher, agent subscriptions, envelope. */
 export function useGenerativeUIRoot(
   copilotkit: CopilotKitCoreReact,
   config: GenerativeUIConfig | undefined,
@@ -63,8 +93,12 @@ export function useGenerativeUIRoot(
   const configRef = useRef(config);
   configRef.current = config;
   const ui = config?.ui;
+  const transport = config?.transport ?? "tool";
+  const theme = useShallowStableRef(config?.theme);
 
-  const runtime = useMemo<GenerativeUIRuntime | null>(() => {
+  // The parts that live as long as `ui`. The surfaces are in the manager, so
+  // a new theme or transport does not remount them.
+  const core = useMemo(() => {
     if (!ui) return null;
     // Never throws: it is called from rendering, ingestion and event handlers,
     // and a throwing host `onError` must not break any of them.
@@ -102,93 +136,112 @@ export function useGenerativeUIRoot(
       event,
       agentId,
     ) => {
+      const fail = (message: string) => {
+        const error = new GenerativeUIError("event_forward_failed", message);
+        reportError({
+          kind: "event",
+          surfaceId: event.surfaceId,
+          componentId: event.componentId,
+          error,
+        });
+        return { ok: false as const, error };
+      };
       const agent = copilotkit.getAgent(agentId ?? DEFAULT_AGENT_ID);
       if (!agent) {
-        const error = new GenerativeUIError(
-          "event_forward_failed",
-          `No agent "${agentId}" to receive "${event.name}"`,
-        );
-        reportError({
-          kind: "event",
-          surfaceId: event.surfaceId,
-          componentId: event.componentId,
-          error,
-        });
-        return { ok: false, error };
+        return fail(`No agent "${agentId}" to receive "${event.name}"`);
       }
       try {
-        // Per-run forwardedProps, not provider properties: tool-call follow-up
-        // runs must not carry (and replay) the same user event.
-        await copilotkit.runAgent({
-          agent,
-          forwardedProps: { [GENERATIVE_UI_ACTION_KEY]: event },
+        // A visible user message: the user and the model both see the event.
+        const surface = agent.threadId
+          ? manager.getSurface(agent.threadId, event.surfaceId)
+          : undefined;
+        const resolveLabel = surface
+          ? createComponentLabelResolver(surfaceComponents(surface))
+          : undefined;
+        agent.addMessage({
+          id: randomUUID(),
+          role: "user",
+          content: buildActionMessageText(event, resolveLabel),
         });
+        await copilotkit.runAgent({ agent });
         return { ok: true, result: undefined };
       } catch (cause) {
-        const error = new GenerativeUIError(
-          "event_forward_failed",
+        return fail(
           `Forwarding "${event.name}" failed: ${cause instanceof Error ? cause.message : String(cause)}`,
         );
-        reportError({
-          kind: "event",
-          surfaceId: event.surfaceId,
-          componentId: event.componentId,
-          error,
-        });
-        return { ok: false, error };
       }
     };
+    return { manager, dispatcher, ui, forwardEvent, reportError };
+  }, [ui, copilotkit]);
+
+  // A new object when the theme or the transport changes, so that the
+  // components that read them render again.
+  const runtime = useMemo<GenerativeUIRuntime | null>(() => {
+    if (!core) return null;
     return {
-      manager,
-      dispatcher,
-      ui,
-      forwardEvent,
-      reportError,
+      ...core,
+      transport,
+      theme,
+      get config() {
+        // `core` exists only while the provider has a config. After the
+        // config is removed, nothing reads this runtime again.
+        return configRef.current ?? { ui: core.ui };
+      },
       get errorFallback() {
         return configRef.current?.errorBoundary?.fallback;
       },
     };
-  }, [ui, copilotkit]);
+  }, [core, transport, theme]);
 
   useEffect(() => {
-    if (!runtime) return;
+    if (!core) return;
     const watched = new WeakSet<AbstractAgent>();
     const agentSubscriptions: Array<{ unsubscribe(): void }> = [];
+    let envelopeId: string | undefined;
+    const removeEnvelope = () => {
+      if (envelopeId === undefined) return;
+      copilotkit.removeScopedProperties(envelopeId);
+      envelopeId = undefined;
+    };
     const subscription = copilotkit.subscribe({
-      // Awaited by core before it reads properties for the run, so the manifest
-      // set here travels with this very run.
+      // Core awaits this before it reads the properties for the run, so the
+      // envelope set here goes with this run. Tool-call follow-up runs do not
+      // fire it. The scoped entry stays until the next run start replaces it,
+      // so the follow-up runs send the same envelope.
       onAgentRunStarted: ({ agent }) => {
-        runtime.manager.setActiveThread(agent.threadId);
-        copilotkit.setProperties({
-          ...copilotkit.properties,
-          [GENERATIVE_UI_MANIFEST_KEY]: buildGenerativeUIManifest(
-            runtime,
+        core.manager.setActiveThread(agent.threadId);
+        const latest = configRef.current;
+        if (latest) {
+          removeEnvelope();
+          const envelope = buildGenerativeUIEnvelope(
+            core,
             agent.threadId,
-          ),
-        });
+            envelopeOptionsFor(latest),
+          );
+          envelopeId = copilotkit.addScopedProperties({
+            properties: { [COPILOTKIT_FORWARDED_PROPS_KEY]: { ui: envelope } },
+            agentIds: latest.agentIds,
+          });
+        }
         if (!watched.has(agent)) {
           watched.add(agent);
           agentSubscriptions.push(
             agent.subscribe({
               onMessagesChanged: ({ messages }) =>
-                ingestMessages(runtime, agent, messages),
+                ingestMessages(core.manager, agent, messages),
             }),
           );
         }
-        ingestMessages(runtime, agent, agent.messages);
+        ingestMessages(core.manager, agent, agent.messages);
       },
     });
     return () => {
       subscription.unsubscribe();
       for (const s of agentSubscriptions) s.unsubscribe();
       // Stop advertising a generative UI that is no longer mounted.
-      if (GENERATIVE_UI_MANIFEST_KEY in copilotkit.properties) {
-        const { [GENERATIVE_UI_MANIFEST_KEY]: _manifest, ...rest } =
-          copilotkit.properties;
-        copilotkit.setProperties(rest);
-      }
+      removeEnvelope();
     };
-  }, [runtime, copilotkit]);
+  }, [core, copilotkit]);
 
   return runtime;
 }

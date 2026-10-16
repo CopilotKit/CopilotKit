@@ -43,6 +43,8 @@ function surfaceWith(root: A2UIComponentNode) {
   const runtime: GenerativeUIRuntime = {
     manager,
     ui,
+    transport: "tool",
+    config: { ui },
     reportError: () => {},
     forwardEvent: async () => ({ ok: true as const, result: undefined }),
     errorFallback: undefined,

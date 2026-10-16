@@ -286,6 +286,8 @@ function setup(
   const runtime: GenerativeUIRuntime = {
     manager,
     ui,
+    transport: "tool",
+    config: { ui },
     reportError,
     forwardEvent,
     errorFallback: options.fallback,
@@ -937,6 +939,8 @@ describe("useGenerativeUIState", () => {
     const runtime: GenerativeUIRuntime = {
       manager,
       ui: prefsUI,
+      transport: "tool",
+      config: { ui: prefsUI },
       reportError: vi.fn(),
       forwardEvent: vi.fn(),
       dispatcher: createGenerativeUIDispatcher({

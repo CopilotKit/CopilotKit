@@ -18,11 +18,91 @@ export interface GenerativeUIErrorBoundaryConfig {
   onError?: (info: GenerativeUIErrorInfo) => void;
 }
 
+/**
+ * Values for the `--a2ui-*` CSS variables of the standard components, for
+ * example `{ "--a2ui-color-primary": "#4f46e5" }`. Each surface root sets
+ * them as inline CSS variables. `mapStyle` is the map style URL of the Map
+ * component.
+ */
+export type GenerativeUITheme = {
+  [variable: `--a2ui-${string}`]: string | undefined;
+  mapStyle?: string;
+};
+
+interface GenerativeUIBaseConfig {
+  /**
+   * The result of `createGenerativeUI`: the components the model can render,
+   * the app state they read and the functions they call.
+   */
+  ui: GenerativeUI;
+  /**
+   * The agents that get the generative UI. When omitted, every agent gets
+   * it. Other agents get no envelope.
+   */
+  agentIds?: string[];
+  /** Values for the `--a2ui-*` CSS variables and the map style. */
+  theme?: GenerativeUITheme;
+  /** Fallback UI and error reporting for generated UI. */
+  errorBoundary?: GenerativeUIErrorBoundaryConfig;
+}
+
+/**
+ * The tool transport: the model calls the `render_ui` tool, and the runtime
+ * validates each operation before it streams it to the client.
+ */
+export interface GenerativeUIToolConfig extends GenerativeUIBaseConfig {
+  /** Leave it out, or set "tool". */
+  transport?: "tool";
+  // Markdown-only options. `never` makes them a type error here, also when
+  // `transport` is left out.
+  sendContext?: never;
+  includeCatalog?: never;
+}
+
+/**
+ * The markdown transport: the model writes the operations in ```a2ui fences
+ * in its reply. The client reads and validates them.
+ */
+export interface GenerativeUIMarkdownConfig extends GenerativeUIBaseConfig {
+  transport: "markdown";
+  /**
+   * Send the component schema and the fence guideline as context entries.
+   * Set `false` when the backend builds its own prompt from the envelope.
+   * Default `true`.
+   */
+  sendContext?: boolean;
+  /**
+   * Send the component schemas in the envelope (`catalog.components`).
+   * Default `true`.
+   */
+  includeCatalog?: boolean;
+}
+
+/**
+ * Experimental. The `generativeUI` prop of `CopilotKitProvider`. Set
+ * `transport: "markdown"` to get the markdown options.
+ *
+ * @example
+ * ```tsx
+ * <CopilotKitProvider generativeUI={{ ui }} />
+ * <CopilotKitProvider generativeUI={{ ui, transport: "markdown", sendContext: false }} />
+ * ```
+ */
+export type GenerativeUIConfig =
+  | GenerativeUIToolConfig
+  | GenerativeUIMarkdownConfig;
+
 export interface GenerativeUIRuntime {
   manager: GenerativeUISurfaceManager;
   dispatcher: GenerativeUIDispatcher;
   /** The generative UI given to the provider as `generativeUI={{ ui }}`. */
   ui: GenerativeUI;
+  /** How the model sends operations. "tool" when the config leaves it out. */
+  transport: "tool" | "markdown";
+  /** The latest `generativeUI` config of the provider. */
+  readonly config: GenerativeUIConfig;
+  /** The latest `theme`. Each surface root sets its CSS variables. */
+  theme?: GenerativeUITheme;
   forwardEvent: (
     event: GenerativeUIUserEvent,
     agentId: string | undefined,

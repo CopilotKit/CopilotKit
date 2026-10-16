@@ -2,7 +2,6 @@
 
 import {
   GENERATE_SANDBOXED_UI_DESCRIPTION,
-  GENERATIVE_UI_MANIFEST_KEY,
   randomUUID,
 } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -67,7 +66,7 @@ import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { useGenerativeUIRoot } from "../generative-ui/use-generative-ui-root";
-import type { GenerativeUIConfig } from "../generative-ui/use-generative-ui-root";
+import type { GenerativeUIConfig } from "../generative-ui/runtime-context";
 import {
   createGenerativeUIActivityRenderer,
   GenerativeUIToolCallRenderer,
@@ -1043,22 +1042,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // runtime can turn A2UI on (and inject the render tool) without a separate
     // `a2ui.injectA2UITool` flag on the runtime.
     //
-    // The generative UI manifest is set per top-level run by
-    // useGenerativeUIRoot. Tool-call follow-up runs do not rebuild it, so carry
-    // the current one over instead of wiping it mid-turn. Only while generative
-    // UI is active: its teardown removes the key, and that must stay removed.
-    const generativeUIManifest = generativeUIActive
-      ? copilotkit.properties[GENERATIVE_UI_MANIFEST_KEY]
-      : undefined;
+    // The generative UI envelope is not in these properties: useGenerativeUIRoot
+    // adds it as scoped properties, so this call does not replace it.
     copilotkit.setProperties(
-      a2uiCatalogProvided || generativeUIManifest !== undefined
-        ? {
-            ...properties,
-            ...(a2uiCatalogProvided ? { a2uiCatalogAvailable: true } : {}),
-            ...(generativeUIManifest !== undefined
-              ? { [GENERATIVE_UI_MANIFEST_KEY]: generativeUIManifest }
-              : {}),
-          }
+      a2uiCatalogProvided
+        ? { ...properties, a2uiCatalogAvailable: true }
         : properties,
     );
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
@@ -1077,7 +1065,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     credentials,
     properties,
     a2uiCatalogProvided,
-    generativeUIActive,
     mergedAgents,
     useSingleEndpoint,
     debug,
