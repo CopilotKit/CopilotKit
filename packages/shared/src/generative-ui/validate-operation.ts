@@ -8,16 +8,26 @@ const OPERATION_KINDS = [
   "updateComponents",
   "updateDataModel",
   "deleteSurface",
+  "callRendererFunction",
 ] as const;
 export type OperationKind = (typeof OPERATION_KINDS)[number];
 
 export interface ValidateOperationOptions {
   manifest: Pick<GenerativeUIManifest, "catalogId" | "components">;
-  /** Surfaces that exist before this operation is applied. */
+  /**
+   * Surfaces that exist before this operation is applied. `updateComponents`,
+   * `updateDataModel`, and `deleteSurface` need their surface in this set.
+   */
   knownSurfaces: ReadonlySet<string>;
   /**
-   * UI-callable functions. When provided, `functionCall` bindings must name
-   * one of them. The client omits it: availability is checked at click time.
+   * Surface ids that were created before, also the deleted ones. A surface id
+   * is unique for the life of the page, so `createSurface` rejects them.
+   */
+  createdSurfaces?: ReadonlySet<string>;
+  /**
+   * UI-callable functions. When provided, `functionCall` bindings and
+   * `callRendererFunction` must name one of them. The client omits it:
+   * availability is checked when the function runs.
    */
   functions?: GenerativeUIManifest["functions"];
 }
@@ -25,44 +35,78 @@ export interface ValidateOperationOptions {
 const OK: OperationValidation = { ok: true };
 const fail = (reason: string): OperationValidation => ({ ok: false, reason });
 
+/** Models write the v0.9 binding from habit. The reason names the v1.0 form. */
+const V09_PATH_REASON = 'bind data with {"@path": "/x"}, not {"path": "/x"}';
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasOwn(record: object, key: string) {
+  return Object.prototype.hasOwnProperty.call(record, key);
 }
 
 /**
  * Reads an own property only. Model-controlled keys such as "constructor" or
  * "toString" must not resolve to Object.prototype members.
  */
-function ownValue<T>(
-  record: Record<string, T> | undefined,
-  key: string,
-): T | undefined {
-  return record && Object.prototype.hasOwnProperty.call(record, key)
-    ? record[key]
-    : undefined;
+function ownValue<T>(record: Record<string, T> | undefined, key: string) {
+  return record && hasOwn(record, key) ? record[key] : undefined;
 }
 
-export function getOperationKind(op: unknown): OperationKind | undefined {
+export function getOperationKind(op: unknown) {
   if (!isRecord(op)) return undefined;
   const kinds = OPERATION_KINDS.filter((kind) => kind in op);
   return kinds.length === 1 ? kinds[0] : undefined;
 }
 
-export function getOperationSurfaceId(op: unknown): string | undefined {
+/** The `surfaceId` of a surface operation. `callRendererFunction` has none. */
+export function getOperationSurfaceId(op: unknown) {
+  if (!isRecord(op)) return undefined;
   const kind = getOperationKind(op);
   if (!kind) return undefined;
-  const payload = (op as Record<string, unknown>)[kind];
+  const payload = op[kind];
   return isRecord(payload) && typeof payload.surfaceId === "string"
     ? payload.surfaceId
     : undefined;
 }
 
-/** `{ "path": "/x" }` — a data-model binding. */
-export function isPathBinding(value: unknown): value is { path: string } {
+/** `{ "@path": "/x" }`: a data-model binding. */
+export function isPathBinding(value: unknown): value is { "@path": string } {
+  return (
+    isRecord(value) &&
+    typeof value["@path"] === "string" &&
+    Object.keys(value).length === 1
+  );
+}
+
+/** `{ "path": "/x" }`: the v0.9 binding, which v1.0 does not accept. */
+function isV09PathBinding(value: unknown) {
   return (
     isRecord(value) &&
     typeof value.path === "string" &&
     Object.keys(value).length === 1
+  );
+}
+
+/**
+ * `{ "@call": "@index" }` or `{ "@call": "@index", "args": { "offset": 1 } }`:
+ * the 0-based position of the item in a template, plus `offset`.
+ */
+export function isIndexCall(
+  value: unknown,
+): value is { "@call": "@index"; args?: { offset?: number } } {
+  if (!isRecord(value) || value["@call"] !== "@index") return false;
+  const hasOnlyCallKeys = Object.keys(value).every(
+    (key) => key === "@call" || key === "args",
+  );
+  if (!hasOnlyCallKeys) return false;
+  const { args } = value;
+  if (args === undefined) return true;
+  return (
+    isRecord(args) &&
+    Object.keys(args).every((key) => key === "offset") &&
+    (args.offset === undefined || Number.isFinite(args.offset))
   );
 }
 
@@ -76,14 +120,26 @@ export function isActionBinding(
   );
 }
 
+/**
+ * Checks one A2UI v1.0 operation against the catalog and the surfaces that
+ * exist. The operation comes from the model, so nothing in it is trusted.
+ *
+ * @param op - The operation, as parsed from JSON.
+ * @param options - The catalog, the known and created surfaces, and the
+ *   functions that the UI can call.
+ *
+ * @example
+ * ```ts
+ * const result = validateOperation(op, { manifest, knownSurfaces });
+ * if (!result.ok) rejected.push({ index, reason: result.reason });
+ * ```
+ */
 export function validateOperation(
   op: unknown,
   options: ValidateOperationOptions,
-): OperationValidation {
+) {
   if (!isRecord(op)) return fail("operation must be a JSON object");
-  if (op.version !== A2UI_VERSION) {
-    return fail(`operation version must be "${A2UI_VERSION}"`);
-  }
+  if (op.version !== A2UI_VERSION) return fail(versionProblem(op.version));
   const kind = getOperationKind(op);
   if (!kind) {
     return fail(
@@ -91,6 +147,9 @@ export function validateOperation(
     );
   }
   const payload = op[kind];
+  if (kind === "callRendererFunction") {
+    return validateRendererFunctionCall(payload, options);
+  }
   if (
     !isRecord(payload) ||
     typeof payload.surfaceId !== "string" ||
@@ -99,36 +158,98 @@ export function validateOperation(
     return fail(`${kind}.surfaceId is required`);
   }
   const surfaceId = payload.surfaceId;
-  const known = options.knownSurfaces.has(surfaceId);
-
   if (kind === "createSurface") {
-    if (known) return fail(`surface "${surfaceId}" already exists`);
-    if (payload.catalogId !== options.manifest.catalogId) {
-      return fail(
-        `unknown catalog "${String(payload.catalogId)}"; use "${options.manifest.catalogId}"`,
-      );
-    }
-    return OK;
+    return validateCreateSurface(payload, surfaceId, options);
   }
-  if (!known) {
+  if (!options.knownSurfaces.has(surfaceId)) {
     return fail(
       `surface "${surfaceId}" does not exist; send createSurface first`,
     );
   }
-  if (kind === "deleteSurface") return OK;
-  if (kind === "updateDataModel") return validateDataModelUpdate(payload);
-  return validateComponents(payload.components, options);
+  switch (kind) {
+    case "deleteSurface":
+      return OK;
+    case "updateDataModel":
+      return validateDataModelUpdate(payload);
+    case "updateComponents":
+      return validateComponents(
+        payload.components,
+        "updateComponents.components",
+        options,
+      );
+  }
+}
+
+function versionProblem(version: unknown) {
+  return typeof version === "string"
+    ? `unsupported version "${version}"; use "${A2UI_VERSION}"`
+    : `operation needs "version":"${A2UI_VERSION}"`;
+}
+
+function catalogProblem(catalogId: unknown, expected: string) {
+  if (catalogId === undefined || catalogId === expected) return undefined;
+  return `unknown catalog "${String(catalogId)}"; leave out catalogId or use "${expected}"`;
+}
+
+function validateCreateSurface(
+  payload: Record<string, unknown>,
+  surfaceId: string,
+  options: ValidateOperationOptions,
+) {
+  if (options.knownSurfaces.has(surfaceId)) {
+    return fail(`surface "${surfaceId}" already exists`);
+  }
+  if (options.createdSurfaces?.has(surfaceId)) {
+    return fail(
+      `surface id "${surfaceId}" was used before; use a new surfaceId`,
+    );
+  }
+  const catalogReason = catalogProblem(
+    payload.catalogId,
+    options.manifest.catalogId,
+  );
+  if (catalogReason) return fail(catalogReason);
+  const { dataModel, components } = payload;
+  if (dataModel !== undefined && !isRecord(dataModel)) {
+    return fail("createSurface.dataModel must be a JSON object");
+  }
+  if (components === undefined) return OK;
+  return validateComponents(components, "createSurface.components", options);
+}
+
+function validateRendererFunctionCall(
+  payload: unknown,
+  options: ValidateOperationOptions,
+) {
+  const hasCallId =
+    isRecord(payload) &&
+    typeof payload.functionCallId === "string" &&
+    payload.functionCallId !== "";
+  if (!hasCallId) {
+    return fail(
+      "callRendererFunction.functionCallId must be a non-empty string",
+    );
+  }
+  const reason = functionCallProblem(
+    payload.callFunction,
+    "callRendererFunction.callFunction",
+    options,
+  );
+  return reason ? fail(reason) : OK;
 }
 
 const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
 
-function decodeSegment(segment: string): string {
+function decodeSegment(segment: string) {
   return segment.replace(/~([01])/g, (_, g) => (g === "1" ? "/" : "~"));
 }
 
-function validateDataModelUpdate(
-  payload: Record<string, unknown>,
-): OperationValidation {
+function validateDataModelUpdate(payload: Record<string, unknown>) {
+  if (payload.value === undefined) {
+    return fail(
+      'updateDataModel.value is required; use "value":null to delete',
+    );
+  }
   const path = payload.path ?? "/";
   if (typeof path !== "string" || !path.startsWith("/")) {
     return fail("updateDataModel.path must be an absolute JSON pointer");
@@ -148,7 +269,7 @@ function validateDataModelUpdate(
  * Checks the segments of an absolute JSON pointer ("/a/b") or of a path
  * relative to a template item ("a/b"). `label` names the field in the reason.
  */
-function pathProblem(path: string, label: string): string | undefined {
+function pathProblem(path: string, label: string) {
   const relative = path.startsWith("/") ? path.slice(1) : path;
   const segments = relative.split("/");
   if (segments.some((segment) => segment === "")) {
@@ -164,115 +285,160 @@ function pathProblem(path: string, label: string): string | undefined {
 
 function validateComponents(
   components: unknown,
+  label: string,
   options: ValidateOperationOptions,
-): OperationValidation {
+) {
   if (!Array.isArray(components) || components.length === 0) {
-    return fail("updateComponents.components must be a non-empty array");
+    return fail(`${label} must be a non-empty array`);
   }
   const ids = new Set<string>();
   for (const node of components) {
-    const reason = validateNode(node, options);
-    if (reason) {
-      return fail(
-        isRecord(node) && typeof node.id === "string"
-          ? `component "${node.id}": ${reason}`
-          : reason,
-      );
-    }
-    const id = (node as { id: string }).id;
-    if (ids.has(id))
+    if (!isRecord(node)) return fail("component must be a JSON object");
+    const { id } = node;
+    if (typeof id !== "string" || !id) return fail("id is required");
+    const reason = nodeProblem(node, id, options);
+    if (reason) return fail(`component "${id}": ${reason}`);
+    if (ids.has(id)) {
       return fail(`component "${id}" appears twice in one update`);
+    }
     ids.add(id);
   }
   return OK;
 }
 
-function validateNode(
-  node: unknown,
+function nodeProblem(
+  node: Record<string, unknown>,
+  id: string,
   options: ValidateOperationOptions,
-): string | undefined {
-  if (!isRecord(node)) return "component must be a JSON object";
-  if (typeof node.id !== "string" || !node.id) return "id is required";
+) {
   if (typeof node.component !== "string") return "component type is required";
   const entry = ownValue(options.manifest.components, node.component);
   if (!entry) return `unknown component "${node.component}"`;
-  const propNames = Object.keys(
-    (entry.props.properties as Record<string, unknown> | undefined) ?? {},
-  );
-  for (const [key, value] of Object.entries(node)) {
+  const { properties, required } = entry.props;
+  const propNames = isRecord(properties) ? Object.keys(properties) : [];
+  const props = Object.entries(node);
+  for (const [key, value] of props) {
     if (key === "id" || key === "component") continue;
     if (ownValue(entry.events, key)) {
-      const reason = validateActionBinding(value, options.functions);
+      const reason = actionBindingProblem(value, options);
       if (reason) return `${key}: ${reason}`;
       continue;
     }
     const slot = ownValue(entry.slots, key);
     if (slot) {
-      const reason = validateSlot(value, slot, node.id);
+      const reason = slotProblem(value, slot, id);
       if (reason) return `${key}: ${reason}`;
       continue;
     }
     if (!propNames.includes(key)) return `unknown prop "${key}"`;
-    if (containsFunctionCall(value)) {
-      return `${key}: function calls are only allowed in event props`;
+    if (isV09PathBinding(value)) return `${key}: ${V09_PATH_REASON}`;
+    if (containsFunctionCall(value, { allowIndex: true })) {
+      return `${key}: function calls are only allowed in event props; a data prop can use only {"@call":"@index"}`;
     }
   }
-  const required = (entry.props.required as string[] | undefined) ?? [];
-  for (const name of required) {
-    if (!(name in node)) return `missing required prop "${name}"`;
+  const requiredNames = Array.isArray(required) ? required : [];
+  for (const name of requiredNames) {
+    if (typeof name === "string" && !(name in node)) {
+      return `missing required prop "${name}"`;
+    }
   }
   return undefined;
 }
 
-function validateActionBinding(
+function actionBindingProblem(
   value: unknown,
-  functions: GenerativeUIManifest["functions"] | undefined,
-): string | undefined {
+  options: ValidateOperationOptions,
+) {
   if (!isRecord(value)) return "must be an action object";
   const keys = Object.keys(value);
-  if (
-    keys.length !== 1 ||
-    (keys[0] !== "functionCall" && keys[0] !== "event")
-  ) {
-    return 'must be { "functionCall": ... } or { "event": ... }';
+  const isOneAction =
+    keys.length === 1 && (keys[0] === "functionCall" || keys[0] === "event");
+  if (!isOneAction) {
+    return 'must be { "event": ... } or { "functionCall": ... }';
   }
   if (keys[0] === "functionCall") {
-    const call = value.functionCall;
-    if (!isRecord(call) || typeof call.call !== "string" || !call.call) {
-      return "functionCall.call must be a function name";
-    }
-    if (call.args !== undefined && !isRecord(call.args)) {
-      return "functionCall.args must be an object";
-    }
-    if (
-      functions &&
-      !Object.prototype.hasOwnProperty.call(functions, call.call)
-    ) {
-      return `function "${call.call}" is not exposed to generative UI`;
-    }
-    return undefined;
+    return functionCallProblem(value.functionCall, "functionCall", options);
   }
-  const event = value.event;
+  return eventProblem(value.event);
+}
+
+/**
+ * Checks `{ "@call": "<function>", "args": { ... } }`. `label` names the
+ * field in the reason.
+ */
+function functionCallProblem(
+  call: unknown,
+  label: string,
+  options: ValidateOperationOptions,
+) {
+  if (!isRecord(call)) {
+    return `${label} must be { "@call": "<function>", "args": { ... } }`;
+  }
+  const name = call["@call"];
+  if (typeof name !== "string" || !name) {
+    return typeof call.call === "string"
+      ? `${label} names the function with "@call", not "call"`
+      : `${label}["@call"] must be a function name`;
+  }
+  const { args } = call;
+  if (args !== undefined && !isRecord(args)) {
+    return `${label}.args must be an object`;
+  }
+  const catalogReason = catalogProblem(
+    call.catalogId,
+    options.manifest.catalogId,
+  );
+  if (catalogReason) return `${label}: ${catalogReason}`;
+  const argEntries = Object.entries(args ?? {});
+  for (const [key, arg] of argEntries) {
+    if (isV09PathBinding(arg))
+      return `${label}.args.${key}: ${V09_PATH_REASON}`;
+  }
+  if (options.functions && !hasOwn(options.functions, name)) {
+    return `function "${name}" is not exposed to generative UI`;
+  }
+  return undefined;
+}
+
+function eventProblem(event: unknown) {
   if (!isRecord(event) || typeof event.name !== "string" || !event.name) {
     return "event.name is required";
   }
-  if (event.context !== undefined && !isRecord(event.context)) {
-    return "event.context must be an object";
+  const { userMessage, context } = event;
+  const isUserMessage =
+    userMessage === undefined ||
+    typeof userMessage === "string" ||
+    isPathBinding(userMessage);
+  if (!isUserMessage) {
+    return isV09PathBinding(userMessage)
+      ? `event.userMessage: ${V09_PATH_REASON}`
+      : 'event.userMessage must be a string or {"@path": "/x"}';
+  }
+  if (context === undefined) return undefined;
+  if (!isRecord(context)) return "event.context must be an object";
+  const entries = Object.entries(context);
+  for (const [key, entry] of entries) {
+    if (isV09PathBinding(entry)) {
+      return `event.context.${key}: ${V09_PATH_REASON}`;
+    }
+    if (containsFunctionCall(entry, { allowIndex: false })) {
+      return `event.context.${key} must be a literal or {"@path": "/x"}`;
+    }
   }
   return undefined;
 }
 
-function validateSlot(
+function slotProblem(
   value: unknown,
   kind: "single" | "multiple",
   ownId: string,
-): string | undefined {
+) {
   const isTemplate = isRecord(value) && "componentId" in value;
   if (kind === "single" && isTemplate) {
     return 'a template { "componentId", "path" } is only allowed in a "multiple" slot';
   }
   if (kind === "multiple" && isTemplate) {
-    return validateTemplate(value, ownId);
+    return templateProblem(value, ownId);
   }
   if (kind === "multiple" && !Array.isArray(value)) {
     return 'must be an array of component ids or a template { "componentId", "path" }';
@@ -286,10 +452,7 @@ function validateSlot(
   return undefined;
 }
 
-function validateTemplate(
-  template: Record<string, unknown>,
-  ownId: string,
-): string | undefined {
+function templateProblem(template: Record<string, unknown>, ownId: string) {
   const hasOnlyTemplateKeys = Object.keys(template).every(
     (key) => key === "componentId" || key === "path",
   );
@@ -307,9 +470,26 @@ function validateTemplate(
   return pathProblem(path, "template path");
 }
 
-function containsFunctionCall(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(containsFunctionCall);
+/**
+ * True when `value` holds a function call at any depth. With `allowIndex`,
+ * `{"@call":"@index"}` does not count: a data prop in a template can use it.
+ */
+// The annotation is needed: the function calls itself in its return.
+function containsFunctionCall(
+  value: unknown,
+  options: { allowIndex: boolean },
+): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => containsFunctionCall(item, options));
+  }
   if (!isRecord(value)) return false;
-  if (typeof value.call === "string" || "functionCall" in value) return true;
-  return Object.values(value).some(containsFunctionCall);
+  if (options.allowIndex && isIndexCall(value)) return false;
+  const isCall =
+    "@call" in value ||
+    typeof value.call === "string" ||
+    "functionCall" in value;
+  if (isCall) return true;
+  return Object.values(value).some((item) =>
+    containsFunctionCall(item, options),
+  );
 }

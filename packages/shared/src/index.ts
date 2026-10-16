@@ -181,6 +181,7 @@ export {
 export {
   COPILOTKIT_FORWARDED_PROPS_KEY,
   COPILOTKIT_UI_ENVELOPE_FORMAT,
+  envelopeToManifest,
   readCopilotKitUIEnvelope,
 } from "./a2ui-envelope";
 export type { CopilotKitUIEnvelope } from "./a2ui-envelope";

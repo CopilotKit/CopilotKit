@@ -17,7 +17,7 @@ export interface ExtractedRenderUIArgs {
  * truncated `render_ui` argument string. Rescans from the start on each call;
  * argument payloads are small enough that this stays cheap.
  */
-export function extractRenderUIArgs(text: string): ExtractedRenderUIArgs {
+export function extractRenderUIArgs(text: string) {
   const result: ExtractedRenderUIArgs = { operations: [] };
   const stack: Array<"{" | "["> = [];
   let inString = false;
@@ -115,12 +115,14 @@ export function extractRenderUIArgs(text: string): ExtractedRenderUIArgs {
   return result;
 }
 
-function parseObject(raw: string): Record<string, unknown> | null {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseObject(raw: string) {
   try {
     const value: unknown = JSON.parse(raw);
-    return typeof value === "object" && value !== null && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : null;
+    return isRecord(value) ? value : null;
   } catch {
     return null;
   }
@@ -132,10 +134,7 @@ export class RenderUIArgsStream {
   private emitted = 0;
   private incomplete = false;
 
-  push(delta: string): {
-    target?: string;
-    newOperations: Array<Record<string, unknown> | null>;
-  } {
+  push(delta: string) {
     this.buffer += delta;
     const { target, operations, incompleteOperation } = extractRenderUIArgs(
       this.buffer,
@@ -147,7 +146,7 @@ export class RenderUIArgsStream {
   }
 
   /** Every argument delta received so far, concatenated. */
-  get text(): string {
+  get text() {
     return this.buffer;
   }
 
@@ -155,7 +154,7 @@ export class RenderUIArgsStream {
    * True when the text received so far ends inside an `operations[]` element.
    * Once the tool call has ended, that element was truncated.
    */
-  get hasIncompleteOperation(): boolean {
+  get hasIncompleteOperation() {
     return this.incomplete;
   }
 }

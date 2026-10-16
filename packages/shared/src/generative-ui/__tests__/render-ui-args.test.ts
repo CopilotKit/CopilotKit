@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { RenderUIArgsStream, extractRenderUIArgs } from "../render-ui-args";
 
 const opA = {
-  version: "v0.9",
-  createSurface: { surfaceId: "s", catalogId: "shop" },
+  version: "v1.0",
+  createSurface: { surfaceId: "s" },
 };
 const opB = {
-  version: "v0.9",
+  version: "v1.0",
   updateComponents: {
     surfaceId: "s",
     components: [
@@ -20,8 +20,31 @@ const opB = {
   },
 };
 const opC = {
-  version: "v0.9",
+  version: "v1.0",
   updateDataModel: { surfaceId: "s", path: "/a", value: [1, { b: "]" }] },
+};
+/** One createSurface with the data model and the root inline. */
+const inlineCreate = {
+  version: "v1.0",
+  createSurface: {
+    surfaceId: "plan",
+    dataModel: { seats: 10, plans: [{ name: "Team" }] },
+    components: [
+      {
+        id: "root",
+        component: "Column",
+        children: { componentId: "row", path: "/plans" },
+      },
+      { id: "row", component: "Text", text: { "@call": "@index" } },
+    ],
+  },
+};
+const functionCall = {
+  version: "v1.0",
+  callRendererFunction: {
+    functionCallId: "f1",
+    callFunction: { "@call": "addToCart", args: { productId: "p{1}" } },
+  },
 };
 
 describe("extractRenderUIArgs", () => {
@@ -52,7 +75,7 @@ describe("extractRenderUIArgs", () => {
 
   it("returns null for a balanced element that is not valid JSON", () => {
     const text =
-      '{"target":"chat","operations":[{"version":"v0.9", bad},' +
+      '{"target":"chat","operations":[{"version":"v1.0", bad},' +
       JSON.stringify(opA) +
       "]}";
     expect(extractRenderUIArgs(text).operations).toEqual([null, opA]);
@@ -93,6 +116,26 @@ describe("RenderUIArgsStream", () => {
     }
     expect(target).toBe("recommendations");
     expect(emitted).toEqual([opA, opB, opC]);
+  });
+
+  it("emits an inline createSurface and a callRendererFunction once each", () => {
+    const text = JSON.stringify({
+      target: "chat",
+      operations: [inlineCreate, functionCall],
+    });
+    const stream = new RenderUIArgsStream();
+    const emitted: unknown[] = [];
+    for (const ch of text) emitted.push(...stream.push(ch).newOperations);
+    expect(emitted).toEqual([inlineCreate, functionCall]);
+  });
+
+  it("holds back an inline createSurface until its components array closes", () => {
+    const text = JSON.stringify({ target: "chat", operations: [inlineCreate] });
+    const cut = text.indexOf('"row","component"');
+    const stream = new RenderUIArgsStream();
+    expect(stream.push(text.slice(0, cut)).newOperations).toEqual([]);
+    expect(stream.hasIncompleteOperation).toBe(true);
+    expect(stream.push(text.slice(cut)).newOperations).toEqual([inlineCreate]);
   });
 
   it("exposes the accumulated text and whether it ends mid-operation", () => {

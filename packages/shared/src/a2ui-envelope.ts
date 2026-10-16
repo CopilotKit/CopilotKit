@@ -1,7 +1,9 @@
 /**
  * The generative UI envelope that the client sends on every run as
- * `forwardedProps.copilotkit.ui`. The runtime reads it to pick the transport
- * and to build the guide. Backends that build their own prompt read it too.
+ * `forwardedProps.copilotkit.ui`. It has the A2UI v1.0 renderer capabilities
+ * shape, so a backend that speaks A2UI v1.0 can read the catalog as it is.
+ * CopilotKit data goes in `metadata.extensions`, under `copilotkit_` keys.
+ * The runtime reads it to pick the transport and to build the guide.
  */
 import {
   GENERATIVE_UI_MAX_REJECTION_LENGTH,
@@ -18,35 +20,43 @@ import type {
 export const COPILOTKIT_FORWARDED_PROPS_KEY = "copilotkit";
 
 /** Version of the envelope shape (not of the UI protocol that it carries). */
-export const COPILOTKIT_UI_ENVELOPE_FORMAT = 2;
+export const COPILOTKIT_UI_ENVELOPE_FORMAT = 3;
 
 /** What the client renders and calls, and how the model must write UI. */
 export interface CopilotKitUIEnvelope {
-  /** The generative UI protocol. */
-  method: "a2ui";
-  /** The A2UI version of the operations. */
-  version: "v0.9";
-  /** Envelope shape version. */
-  format: typeof COPILOTKIT_UI_ENVELOPE_FORMAT;
-  /** "tool": the model calls the render tool. "markdown": the model writes ```a2ui fences. */
-  transport: "tool" | "markdown";
-  /**
-   * The catalog that the client renders. `components` is not there when the
-   * client is set up with `includeCatalog: false`.
-   */
-  catalog: {
-    id: string;
-    version: string;
-    components?: Record<string, GenerativeUIComponentManifest>;
+  /** The A2UI v1.0 renderer capabilities. */
+  "v1.0": {
+    /** The catalog that the client renders comes first. */
+    supportedCatalogIds: string[];
+    inlineCatalogs?: Array<{
+      catalogId: string;
+      protocolVersion: "1.0";
+      /** Not there when the client is set up with `includeCatalog: false`. */
+      components?: Record<string, GenerativeUIComponentManifest>;
+      /** The app functions that are mounted now. */
+      functions: Record<string, GenerativeUIFunctionManifest>;
+      /** The markdown guideline. Only the markdown transport sends it. */
+      instructions?: string;
+    }>;
   };
-  functions: Record<string, GenerativeUIFunctionManifest>;
-  targets: GenerativeUIManifest["targets"];
-  surfaces: GenerativeUIManifest["surfaces"];
-  /** The markdown guideline. Only the markdown transport sends it. */
-  instructions?: string;
-  /** True when the client also sent the guide as context entries on this run. */
-  contextSent: boolean;
+  metadata: {
+    extensions: {
+      /** Envelope shape version. */
+      copilotkit_format: typeof COPILOTKIT_UI_ENVELOPE_FORMAT;
+      /** "tool": the model calls the render tool. "markdown": the model writes ```a2ui fences. */
+      copilotkit_transport: "tool" | "markdown";
+      copilotkit_targets: GenerativeUIManifest["targets"];
+      copilotkit_surfaces: GenerativeUIManifest["surfaces"];
+      /** True when the client also sent the guide as context entries on this run. */
+      copilotkit_contextSent: boolean;
+    };
+  };
 }
+
+type InlineCatalog = NonNullable<
+  CopilotKitUIEnvelope["v1.0"]["inlineCatalogs"]
+>[number];
+type Extensions = CopilotKitUIEnvelope["metadata"]["extensions"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -106,13 +116,27 @@ function isComponentManifest(
   );
 }
 
-function isCatalog(value: unknown): value is CopilotKitUIEnvelope["catalog"] {
+function isInlineCatalog(value: unknown): value is InlineCatalog {
   return (
     isRecord(value) &&
-    isNonEmptyString(value.id) &&
-    typeof value.version === "string" &&
+    isNonEmptyString(value.catalogId) &&
+    value.protocolVersion === "1.0" &&
     (value.components === undefined ||
-      isRecordOf(value.components, isComponentManifest))
+      isRecordOf(value.components, isComponentManifest)) &&
+    isRecordOf(value.functions, isSchemaEntry) &&
+    isOptionalString(value.instructions)
+  );
+}
+
+function isCapabilities(value: unknown): value is CopilotKitUIEnvelope["v1.0"] {
+  return (
+    isRecord(value) &&
+    Array.isArray(value.supportedCatalogIds) &&
+    value.supportedCatalogIds.length > 0 &&
+    value.supportedCatalogIds.every(isNonEmptyString) &&
+    (value.inlineCatalogs === undefined ||
+      (Array.isArray(value.inlineCatalogs) &&
+        value.inlineCatalogs.every(isInlineCatalog)))
   );
 }
 
@@ -149,20 +173,26 @@ function isSurfaceEntry(value: unknown): value is GenerativeUISurfaceSummary {
   );
 }
 
+/** Checks the `copilotkit_` keys only. Other extensions can be there too. */
+function isExtensions(value: unknown): value is Extensions {
+  return (
+    isRecord(value) &&
+    value.copilotkit_format === COPILOTKIT_UI_ENVELOPE_FORMAT &&
+    (value.copilotkit_transport === "tool" ||
+      value.copilotkit_transport === "markdown") &&
+    Array.isArray(value.copilotkit_targets) &&
+    value.copilotkit_targets.every(isTarget) &&
+    isRecordOf(value.copilotkit_surfaces, isSurfaceEntry) &&
+    typeof value.copilotkit_contextSent === "boolean"
+  );
+}
+
 function isEnvelope(value: unknown): value is CopilotKitUIEnvelope {
   return (
     isRecord(value) &&
-    value.method === "a2ui" &&
-    value.version === "v0.9" &&
-    value.format === COPILOTKIT_UI_ENVELOPE_FORMAT &&
-    (value.transport === "tool" || value.transport === "markdown") &&
-    isCatalog(value.catalog) &&
-    isRecordOf(value.functions, isSchemaEntry) &&
-    Array.isArray(value.targets) &&
-    value.targets.every(isTarget) &&
-    isRecordOf(value.surfaces, isSurfaceEntry) &&
-    isOptionalString(value.instructions) &&
-    typeof value.contextSent === "boolean"
+    isCapabilities(value["v1.0"]) &&
+    isRecord(value.metadata) &&
+    isExtensions(value.metadata.extensions)
   );
 }
 
@@ -171,15 +201,15 @@ function isEnvelope(value: unknown): value is CopilotKitUIEnvelope {
  *
  * The envelope comes from the client, so it is not trusted: every field is
  * checked. Returns `undefined` when the envelope is not there, or when it is
- * malformed (for example a wrong `method`, `transport`, or `format`, or no
- * catalog id).
+ * malformed (for example a wrong `copilotkit_format` or
+ * `copilotkit_transport`, or no catalog id).
  *
  * @param forwardedProps - The `forwardedProps` of the run input.
  *
  * @example
  * ```ts
  * const envelope = readCopilotKitUIEnvelope(input.forwardedProps);
- * if (envelope?.transport === "markdown") {
+ * if (envelope?.metadata.extensions.copilotkit_transport === "markdown") {
  *   // The model writes ```a2ui fences. Add no render tool.
  * }
  * ```
@@ -190,4 +220,51 @@ export function readCopilotKitUIEnvelope(forwardedProps: unknown) {
   if (!isRecord(namespace)) return undefined;
   const envelope = namespace.ui;
   return isEnvelope(envelope) ? envelope : undefined;
+}
+
+/**
+ * Turns an envelope into the manifest that the runtime and the prompts use.
+ *
+ * The catalog is the first of `supportedCatalogIds`. Its components,
+ * functions, and instructions come from the inline catalog with that id.
+ * With no such inline catalog, there are no components and no functions.
+ *
+ * The result also has:
+ * - `transport` and `contextSent`, from the extensions.
+ * - `instructions`, when the inline catalog has them.
+ * - `hasComponents`: false when the client left the component schemas out.
+ *   The runtime cannot check operations without them.
+ *
+ * @param envelope - An envelope from `readCopilotKitUIEnvelope`.
+ *
+ * @example
+ * ```ts
+ * const envelope = readCopilotKitUIEnvelope(input.forwardedProps);
+ * const manifest = envelope && envelopeToManifest(envelope);
+ * if (manifest?.transport === "tool" && manifest.hasComponents) {
+ *   // Add the render tool and validate operations against manifest.components.
+ * }
+ * ```
+ */
+export function envelopeToManifest(envelope: CopilotKitUIEnvelope) {
+  const { supportedCatalogIds, inlineCatalogs } = envelope["v1.0"];
+  const catalogId = supportedCatalogIds[0];
+  const catalog = inlineCatalogs?.find(
+    (entry) => entry.catalogId === catalogId,
+  );
+  const extensions = envelope.metadata.extensions;
+  const manifest: GenerativeUIManifest = {
+    catalogId,
+    components: catalog?.components ?? {},
+    functions: catalog?.functions ?? {},
+    targets: extensions.copilotkit_targets,
+    surfaces: extensions.copilotkit_surfaces,
+  };
+  return {
+    ...manifest,
+    transport: extensions.copilotkit_transport,
+    contextSent: extensions.copilotkit_contextSent,
+    instructions: catalog?.instructions,
+    hasComponents: catalog?.components !== undefined,
+  };
 }
