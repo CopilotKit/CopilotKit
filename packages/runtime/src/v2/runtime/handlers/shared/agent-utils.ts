@@ -98,7 +98,7 @@ export function configureAgentForRequest(params: {
    * The transport of the generative UI envelope that the client sent on this
    * run (`forwardedProps.copilotkit.ui`). Not set when the run has no envelope.
    */
-  providerGenerativeUITransport?: CopilotKitUIEnvelope["transport"];
+  providerGenerativeUITransport?: CopilotKitUIEnvelope["metadata"]["extensions"]["copilotkit_transport"];
   /** Retain proxy rejection even when no server is available to this agent. */
   isMcpProxyRequest?: boolean;
 }): void {

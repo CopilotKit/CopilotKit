@@ -14,6 +14,7 @@ import type {
 export interface GenerativeUISurfaceWriter {
   setRoot(node: Omit<A2UIComponentNode, "id">): void;
   upsert(...nodes: A2UIComponentNode[]): void;
+  /** Sets `value` at `path`. A `null` value deletes the key at `path`. */
   updateData(path: string, value: unknown): void;
   close(): void;
 }
@@ -21,6 +22,7 @@ export interface GenerativeUISurfaceWriter {
 /**
  * Experimental. Programmatic façade for custom agents and workflows: emits the
  * same `generative-ui-surface` activity events as `render_ui`, one per call.
+ * Every operation is A2UI v1.0.
  * Does not validate against the browser manifest; the client still validates
  * every operation before applying it.
  */
@@ -42,7 +44,7 @@ export function createSurfaceWriter(emit: (event: BaseEvent) => void) {
           messageId,
           activityType: GENERATIVE_UI_ACTIVITY_TYPE,
           patch: ops,
-        } as BaseEvent);
+        });
       const append = (op: A2UIOperation) =>
         patch([{ op: "add", path: "/operations/-", value: op }]);
       const content: GenerativeUISurfaceContent = {
@@ -50,7 +52,7 @@ export function createSurfaceWriter(emit: (event: BaseEvent) => void) {
         target,
         catalogId: catalog,
         operations: [
-          { version: "v0.9", createSurface: { surfaceId, catalogId: catalog } },
+          { version: "v1.0", createSurface: { surfaceId, catalogId: catalog } },
         ],
         status: "streaming",
         rejected: [],
@@ -61,11 +63,11 @@ export function createSurfaceWriter(emit: (event: BaseEvent) => void) {
         activityType: GENERATIVE_UI_ACTIVITY_TYPE,
         content,
         replace: true,
-      } as BaseEvent);
+      });
       return {
         setRoot: (node) =>
           append({
-            version: "v0.9",
+            version: "v1.0",
             updateComponents: {
               surfaceId,
               components: [
@@ -75,12 +77,12 @@ export function createSurfaceWriter(emit: (event: BaseEvent) => void) {
           }),
         upsert: (...nodes) =>
           append({
-            version: "v0.9",
+            version: "v1.0",
             updateComponents: { surfaceId, components: nodes },
           }),
         updateData: (path, value) =>
           append({
-            version: "v0.9",
+            version: "v1.0",
             updateDataModel: { surfaceId, path, value },
           }),
         close: () =>

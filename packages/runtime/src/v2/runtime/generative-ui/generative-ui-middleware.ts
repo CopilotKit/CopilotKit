@@ -11,8 +11,11 @@ import type {
 import { Observable } from "rxjs";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
+  GENERATIVE_UI_FUNCTION_CALL_ACTIVITY_TYPE,
   GENERATIVE_UI_RENDER_TOOL,
   RenderUIArgsStream,
+  envelopeToManifest,
+  generativeUIFunctionCallMessageId,
   generativeUISurfaceMessageId,
   getOperationKind,
   getOperationSurfaceId,
@@ -22,6 +25,7 @@ import {
 } from "@copilotkit/shared";
 import type {
   A2UIOperation,
+  GenerativeUIFunctionCallContent,
   GenerativeUIManifest,
   GenerativeUIRejectedOperation,
   GenerativeUISurfaceContent,
@@ -43,7 +47,10 @@ interface RenderCallState {
   target?: string;
   buffered: Array<Record<string, unknown> | null>;
   nextIndex: number;
+  /** Accepted surface operations. */
   applied: number;
+  /** Accepted `callRendererFunction` operations. */
+  calls: number;
   rejected: GenerativeUIRejectedOperation[];
   touched: Set<string>;
   finished: boolean;
@@ -56,7 +63,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * Builds the manifest from the generative UI envelope
  * (`forwardedProps.copilotkit.ui`). The client sends the envelope, so it is
- * not trusted: `readCopilotKitUIEnvelope` checks every field. Returns
+ * not trusted: `readCopilotKitUIEnvelope` checks every field, and
+ * `envelopeToManifest` turns it into the manifest. Returns
  * `undefined` (the run passes through) when:
  * - there is no valid envelope;
  * - the transport is "markdown" (the model writes fences, not render_ui);
@@ -64,17 +72,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 function readManifest(forwardedProps: unknown) {
   const envelope = readCopilotKitUIEnvelope(forwardedProps);
-  if (envelope?.transport !== "tool") return undefined;
-  const { catalog, functions, targets, surfaces } = envelope;
-  if (catalog.components === undefined) return undefined;
-  return {
-    catalogId: catalog.id,
-    catalogVersion: catalog.version,
-    components: catalog.components,
-    functions,
-    targets,
-    surfaces,
-  };
+  if (!envelope) return undefined;
+  const manifest = envelopeToManifest(envelope);
+  const isToolRun = manifest.transport === "tool" && manifest.hasComponents;
+  return isToolRun ? manifest : undefined;
 }
 
 function prepareInput(input: RunAgentInput, manifest: GenerativeUIManifest) {
@@ -84,7 +85,7 @@ function prepareInput(input: RunAgentInput, manifest: GenerativeUIManifest) {
   tools.push({
     name: GENERATIVE_UI_RENDER_TOOL,
     description:
-      "Render or update generative UI surfaces with A2UI v0.9 operations. Follow the generative UI guide in context.",
+      "Render or update generative UI surfaces, or call app functions, with A2UI v1.0 operations. Follow the generative UI guide in context.",
     parameters: {
       type: "object",
       properties: {
@@ -96,7 +97,7 @@ function prepareInput(input: RunAgentInput, manifest: GenerativeUIManifest) {
         },
         operations: {
           type: "array",
-          description: "A2UI v0.9 operations, applied in order.",
+          description: "A2UI v1.0 operations, applied in order.",
           items: { type: "object" },
         },
       },
@@ -118,7 +119,10 @@ function prepareInput(input: RunAgentInput, manifest: GenerativeUIManifest) {
  * `render_ui` tool. It applies only to runs whose generative UI envelope uses
  * the "tool" transport. Each complete operation in the streamed arguments is
  * validated against the catalog in the envelope and committed immediately:
- * `ACTIVITY_SNAPSHOT` for a new surface, `ACTIVITY_DELTA` for every further op.
+ * - `ACTIVITY_SNAPSHOT` for a new surface, `ACTIVITY_DELTA` for every further
+ *   operation on it.
+ * - One `ACTIVITY_SNAPSHOT` of type `generative-ui-function-call` for each
+ *   `callRendererFunction`. The client runs the function.
  */
 export class GenerativeUIMiddleware extends Middleware {
   run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> {
@@ -161,6 +165,10 @@ function processStream(
     const surfaces = new Map<string, string>(
       Object.entries(manifest.surfaces).map(([id, s]) => [id, s.target]),
     );
+    // A surface id is unique for the life of the page. Keep the ids that were
+    // created, also after deleteSurface, so a second createSurface is rejected.
+    const createdSurfaces = new Set(surfaces.keys());
+    const functionCallIds = new Set<string>();
     const calls = new Map<string, RenderCallState>();
     let heldFinish: EventWithState | null = null;
 
@@ -171,7 +179,7 @@ function processStream(
         messageId: generativeUISurfaceMessageId(surfaceId),
         activityType: GENERATIVE_UI_ACTIVITY_TYPE,
         patch: ops,
-      } as BaseEvent);
+      });
 
     const processOperation = (
       state: RenderCallState,
@@ -206,11 +214,12 @@ function processStream(
     /**
      * A run has one catalog, so the model does not have to name it. A
      * createSurface gets the catalog id of the envelope, whatever the model
-     * wrote. The operation on the wire then stays valid A2UI v0.9.
+     * wrote. The whole operation, with its inline components and data model,
+     * stays in the snapshot.
      */
     const withCatalogId = (op: Record<string, unknown>) => {
       const create = op.createSurface;
-      if (typeof create !== "object" || create === null) return op;
+      if (!isRecord(create)) return op;
       return {
         ...op,
         createSurface: { ...create, catalogId: manifest.catalogId },
@@ -226,44 +235,93 @@ function processStream(
       const validation = validateOperation(op, {
         manifest,
         knownSurfaces: new Set(surfaces.keys()),
+        createdSurfaces,
         functions: manifest.functions,
       });
       // `=== false` (not `!ok`): runtime is compiled non-strict, where `!ok`
       // does not narrow the discriminated union.
       if (validation.ok === false) return reject(validation.reason, surfaceId);
-      const id = surfaceId as string;
-      const kind = getOperationKind(op);
-
-      if (kind === "createSurface") {
-        const target = state.target as string;
-        if (!manifest.targets.some((t) => t.id === target)) {
-          return reject(`target "${target}" is not mounted`);
-        }
-        surfaces.set(id, target);
-        const content: GenerativeUISurfaceContent = {
-          surfaceId: id,
-          target,
-          catalogId: manifest.catalogId,
-          operations: [op as unknown as A2UIOperation],
-          status: "streaming",
-          rejected: [],
-        };
-        emit({
-          type: EventType.ACTIVITY_SNAPSHOT,
-          messageId: generativeUISurfaceMessageId(id),
-          activityType: GENERATIVE_UI_ACTIVITY_TYPE,
-          content,
-          replace: true,
-        } as BaseEvent);
-        state.touched.add(id);
-      } else {
-        patch(id, [
-          ...beginSurfaceUpdate(state, id),
-          { op: "add", path: "/operations/-", value: op },
-        ]);
-        if (kind === "deleteSurface") surfaces.delete(id);
+      // validateOperation checked the shape of the operation.
+      const accepted = op as A2UIOperation;
+      if ("callRendererFunction" in accepted) {
+        return callRendererFunction(
+          state,
+          accepted.callRendererFunction,
+          reject,
+        );
       }
+      if ("createSurface" in accepted) {
+        return createSurface(state, surfaceId, accepted, reject);
+      }
+      patch(surfaceId, [
+        ...beginSurfaceUpdate(state, surfaceId),
+        { op: "add", path: "/operations/-", value: accepted },
+      ]);
+      if ("deleteSurface" in accepted) surfaces.delete(surfaceId);
       state.applied++;
+    };
+
+    const createSurface = (
+      state: RenderCallState,
+      surfaceId: string,
+      op: A2UIOperation,
+      reject: (reason: string) => void,
+    ) => {
+      const { target } = state;
+      if (target === undefined) {
+        return reject("render_ui was called without a target");
+      }
+      if (!manifest.targets.some((t) => t.id === target)) {
+        return reject(`target "${target}" is not mounted`);
+      }
+      surfaces.set(surfaceId, target);
+      createdSurfaces.add(surfaceId);
+      const content: GenerativeUISurfaceContent = {
+        surfaceId,
+        target,
+        catalogId: manifest.catalogId,
+        operations: [op],
+        status: "streaming",
+        rejected: [],
+      };
+      emit({
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: generativeUISurfaceMessageId(surfaceId),
+        activityType: GENERATIVE_UI_ACTIVITY_TYPE,
+        content,
+        replace: true,
+      });
+      state.touched.add(surfaceId);
+      state.applied++;
+    };
+
+    /**
+     * Sends one function call to the client, which runs it. A function call
+     * needs no target and no surface. Each `functionCallId` runs once.
+     */
+    const callRendererFunction = (
+      state: RenderCallState,
+      content: GenerativeUIFunctionCallContent,
+      reject: (reason: string) => void,
+    ) => {
+      const { functionCallId } = content;
+      if (functionCallIds.has(functionCallId)) {
+        return reject(
+          `functionCallId "${functionCallId}" was used before; use a new functionCallId`,
+        );
+      }
+      functionCallIds.add(functionCallId);
+      emit({
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: generativeUIFunctionCallMessageId(functionCallId),
+        activityType: GENERATIVE_UI_FUNCTION_CALL_ACTIVITY_TYPE,
+        content: {
+          functionCallId,
+          callFunction: content.callFunction,
+        } satisfies GenerativeUIFunctionCallContent,
+        replace: true,
+      });
+      state.calls++;
     };
 
     /** Same buffering rule as streamed ops: hold them until the target is known. */
@@ -311,13 +369,20 @@ function processStream(
       if (state.nextIndex === 0 && state.buffered.length === 0)
         recoverOperations(state);
       if (state.target === undefined) {
-        for (const _op of state.buffered) {
+        // A function call needs no target, so it still runs. Every other
+        // operation is rejected.
+        const buffered = state.buffered;
+        state.buffered = [];
+        for (const op of buffered) {
+          if (getOperationKind(op) === "callRendererFunction") {
+            processOperation(state, op);
+            continue;
+          }
           state.rejected.push({
             index: state.nextIndex++,
             reason: "render_ui was called without a target",
           });
         }
-        state.buffered = [];
       }
       if (state.stream.hasIncompleteOperation) {
         // The arguments ended inside an element (for example the model hit its
@@ -354,6 +419,7 @@ function processStream(
             buffered: [],
             nextIndex: 0,
             applied: 0,
+            calls: 0,
             rejected: [],
             touched: new Set(),
             finished: false,
@@ -388,7 +454,10 @@ function processStream(
         for (const [toolCallId, state] of calls) {
           if (answered.has(toolCallId)) continue;
           const nothingParsed =
-            state.applied === 0 && state.rejected.length === 0;
+            state.applied === 0 &&
+            state.calls === 0 &&
+            state.rejected.length === 0;
+          // `applied` counts the surface operations, `calls` the function calls.
           emit({
             type: EventType.TOOL_CALL_RESULT,
             messageId: randomUUID(),
@@ -398,6 +467,7 @@ function processStream(
                 ? {
                     status: "error",
                     applied: 0,
+                    calls: 0,
                     rejected: [],
                     reason:
                       "operations must be a JSON array of A2UI operation objects; nothing was rendered",
@@ -405,10 +475,11 @@ function processStream(
                 : {
                     status: "rendered",
                     applied: state.applied,
+                    calls: state.calls,
                     rejected: state.rejected,
                   },
             ),
-          } as BaseEvent);
+          });
         }
         flushFinish();
       }

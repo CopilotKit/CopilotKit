@@ -1,4 +1,7 @@
-import { readCopilotKitUIEnvelope } from "@copilotkit/shared";
+import {
+  envelopeToManifest,
+  readCopilotKitUIEnvelope,
+} from "@copilotkit/shared";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
 import { readGuardrailsEnabled } from "./shared/cloud-telemetry";
@@ -57,9 +60,10 @@ export async function handleRunAgent({
         ?.a2uiCatalogAvailable === true;
     // The generative UI envelope (`forwardedProps.copilotkit.ui`) picks the
     // transport of this run.
-    const providerGenerativeUITransport = readCopilotKitUIEnvelope(
-      input.forwardedProps,
-    )?.transport;
+    const envelope = readCopilotKitUIEnvelope(input.forwardedProps);
+    const providerGenerativeUITransport = envelope
+      ? envelopeToManifest(envelope).transport
+      : undefined;
 
     configureAgentForRequest({
       runtime,

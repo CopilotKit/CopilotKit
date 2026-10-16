@@ -1,10 +1,14 @@
 import { EventType } from "@ag-ui/client";
-import type { BaseEvent } from "@ag-ui/client";
+import type { ActivityDeltaEvent, BaseEvent } from "@ag-ui/client";
 import { expect, test } from "vitest";
 import { createSurfaceWriter } from "../generative-ui";
 
+function isDelta(event: BaseEvent): event is ActivityDeltaEvent {
+  return event.type === EventType.ACTIVITY_DELTA;
+}
+
 test("openSurface emits a snapshot, then one delta per call, then ready", () => {
-  const events: any[] = [];
+  const events: BaseEvent[] = [];
   const ui = createSurfaceWriter((e: BaseEvent) => events.push(e));
   const surface = ui.openSurface({
     target: "recommendations",
@@ -29,20 +33,22 @@ test("openSurface emits a snapshot, then one delta per call, then ready", () => 
       catalogId: "shop",
       operations: [
         {
-          version: "v0.9",
+          version: "v1.0",
           createSurface: { surfaceId: "recs", catalogId: "shop" },
         },
       ],
       status: "streaming",
     },
   });
-  expect(events.slice(1).map((e) => e.patch)).toEqual([
+  const deltas = events.slice(1);
+  expect(deltas.every(isDelta)).toBe(true);
+  expect(deltas.filter(isDelta).map((e) => e.patch)).toEqual([
     [
       {
         op: "add",
         path: "/operations/-",
         value: {
-          version: "v0.9",
+          version: "v1.0",
           updateComponents: {
             surfaceId: "recs",
             components: [
@@ -57,7 +63,7 @@ test("openSurface emits a snapshot, then one delta per call, then ready", () => 
         op: "add",
         path: "/operations/-",
         value: {
-          version: "v0.9",
+          version: "v1.0",
           updateComponents: {
             surfaceId: "recs",
             components: [
@@ -77,7 +83,7 @@ test("openSurface emits a snapshot, then one delta per call, then ready", () => 
         op: "add",
         path: "/operations/-",
         value: {
-          version: "v0.9",
+          version: "v1.0",
           updateDataModel: {
             surfaceId: "recs",
             path: "/products/a/price",
