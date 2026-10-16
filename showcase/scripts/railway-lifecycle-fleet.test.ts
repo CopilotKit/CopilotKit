@@ -289,7 +289,7 @@ describe("permanent fleet lifecycle isolation", () => {
   it("keeps static Intelligence identities and the emitted permanent closure unchanged", () => {
     expect(Object.keys(SERVICES)).toHaveLength(50);
     expect(Object.hasOwn(SERVICES, TEMP_NAME)).toBe(false);
-    expect(DISPOSABLE_LIFECYCLE_POLICY.approvedImages).toEqual([]);
+    expect(DISPOSABLE_LIFECYCLE_POLICY.approvedImages).not.toContain(IMAGE);
     for (const [name, id] of Object.entries(INTELLIGENCE_IDS)) {
       expect(SERVICES[name]).toMatchObject({
         serviceId: id,

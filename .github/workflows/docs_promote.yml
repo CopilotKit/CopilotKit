@@ -6,6 +6,11 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      validate_registry_only:
+        description: "Validate the real registry reader without promoting or probing services"
+        required: false
+        default: false
+        type: boolean
       dry_run:
         description: "Print the pin and stop before promote"
         required: false
@@ -13,7 +18,7 @@ on:
         type: boolean
 
 concurrency:
-  group: docs-promote
+  group: ${{ inputs.validate_registry_only == true && format('docs-promote-registry-validation-{0}', github.run_id) || 'docs-promote' }}
   cancel-in-progress: false
 
 permissions:
@@ -48,6 +53,11 @@ jobs:
         with:
           node-version: 22.x
 
+      # The Ruby lifecycle bridge resolves tsx from repository-root node_modules.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Install registry reader tooling
+        run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
+
       - working-directory: showcase/scripts
         env:
           EMIT_SKIP_OXFMT: "1"
@@ -55,7 +65,27 @@ jobs:
           npm ci
           npx tsx emit-railway-envs-json.ts
 
+      # This calls only capture_snapshots + filter_disposable_snapshots!.
+      # The shared reader performs the authenticated policy check and real ack.
+      - name: Validate registry reader without promotion
+        if: ${{ inputs.validate_registry_only == true }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: ${{ vars.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN: ${{ secrets.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN }}
+          SHOWCASE_REGISTRY_CONSUMER: ruby-promotion
+        run: ruby showcase/scripts/validate-registry.rb "$RUNNER_TEMP/registry-validation.json"
+      - name: Retain safe registry validation receipt
+        if: ${{ inputs.validate_registry_only == true }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docs_promote-registry-validation
+          path: ${{ runner.temp }}/registry-validation.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Read pin
+        if: ${{ inputs.validate_registry_only != true }}
         id: pin
         working-directory: showcase/scripts
         run: |
@@ -78,15 +108,24 @@ jobs:
           '
 
       - name: Promote docs
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}
+        if: ${{ inputs.validate_registry_only != true && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true) }}
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IMAGE: ${{ steps.pin.outputs.image }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: ${{ vars.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN: ${{ secrets.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN }}
+          SHOWCASE_REGISTRY_CONSUMER: ruby-promotion
         run: |
           set -euo pipefail
           if [ -z "$RAILWAY_TOKEN" ]; then
             echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          if [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] && [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            unset SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE
+          elif [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] || [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            echo "::error::Configure both registry URL and token, or neither."
             exit 1
           fi
           # Explicit --digest deploys the reviewed pin, even if staging has
@@ -95,14 +134,14 @@ jobs:
           showcase/bin/railway promote docs --digest "$IMAGE" --yes --non-interactive
 
       - name: Probe docs prod
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run != true }}
+        if: ${{ inputs.validate_registry_only != true && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true) }}
         working-directory: showcase/scripts
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: npx tsx verify-deploy.ts --env prod --services docs
 
       - name: Slack notify
-        if: always() && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
+        if: ${{ always() && inputs.validate_registry_only != true && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true) }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           JOB_STATUS: ${{ job.status }}
