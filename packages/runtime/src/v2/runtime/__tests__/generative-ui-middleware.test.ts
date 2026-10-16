@@ -289,6 +289,33 @@ describe("GenerativeUIMiddleware", () => {
     expect(guideText(input)).toContain("ProductCard");
   });
 
+  it("leaves the function, event, and template rules out of the guide when the catalog has none", async () => {
+    const { input } = await run(
+      [],
+      uiProps({
+        catalog: {
+          components: {
+            Card: { props: { type: "object", properties: {} } },
+          },
+          functions: {},
+        },
+      }),
+    );
+    const guide = guideText(input);
+    expect(guide).not.toContain("callRendererFunction");
+    expect(guide).not.toContain("userMessage");
+    expect(guide).not.toContain("@index");
+    expect(guide).toContain("Never use a surfaceId again");
+  });
+
+  it("keeps the function, event, and template rules when the catalog has them", async () => {
+    const { input } = await run([]);
+    const guide = guideText(input);
+    expect(guide).toContain("callRendererFunction");
+    expect(guide).toContain("userMessage");
+    expect(guide).toContain("@index");
+  });
+
   it("tells the model to show a different view in a new surface, not an existing one", async () => {
     const { input } = await run(
       [],
