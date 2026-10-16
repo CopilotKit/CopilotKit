@@ -6,8 +6,9 @@ import {
   CopilotChat,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
+import Link from "next/link";
 import { Providers } from "./providers";
-import type { ExampleAgent } from "./providers";
+import type { ExampleAgent, ExampleMode } from "./providers";
 
 /**
  * Click-to-try prompts. Each one leans on a different part of the standard
@@ -59,9 +60,12 @@ function Chat() {
   const searchParams = useSearchParams();
   const agent: ExampleAgent =
     searchParams.get("agent") === "langgraph" ? "langgraph" : "default";
+  const mode: ExampleMode =
+    searchParams.get("mode") === "tool" ? "tool" : "markdown";
+  const href = (a: ExampleAgent, m: ExampleMode) => `/?agent=${a}&mode=${m}`;
 
   return (
-    <Providers agent={agent}>
+    <Providers agent={agent} mode={mode}>
       <main
         style={{
           display: "flex",
@@ -74,12 +78,46 @@ function Chat() {
       >
         <header style={{ padding: "16px 0 8px" }}>
           <h1 style={{ fontSize: 18, margin: 0 }}>
-            A2UI markdown mode (
+            A2UI {mode === "tool" ? "tool mode" : "markdown mode"} (
             {agent === "langgraph" ? "LangGraph Python" : "built-in agent"})
           </h1>
           <p style={{ fontSize: 14, margin: "4px 0 0", opacity: 0.7 }}>
             Click a suggestion below the chat to try the standard catalog.
           </p>
+          <nav
+            style={{
+              display: "flex",
+              gap: 12,
+              fontSize: 13,
+              marginTop: 6,
+              flexWrap: "wrap",
+            }}
+          >
+            <span style={{ opacity: 0.6 }}>agent:</span>
+            <Link
+              href={href("default", mode)}
+              aria-current={agent === "default"}
+            >
+              built-in
+            </Link>
+            <Link
+              href={href("langgraph", mode)}
+              aria-current={agent === "langgraph"}
+            >
+              LangGraph
+            </Link>
+            <span style={{ opacity: 0.6 }}>mode:</span>
+            <Link
+              href={href(agent, "markdown")}
+              aria-current={mode === "markdown"}
+            >
+              markdown fences
+            </Link>
+            <Link href={href(agent, "tool")} aria-current={mode === "tool"}>
+              render_a2ui tool
+            </Link>
+            <Link href="/catalog">catalog</Link>
+          </nav>
         </header>
         <div style={{ flex: 1, minHeight: 0 }}>
           <Suggestions agent={agent} />
