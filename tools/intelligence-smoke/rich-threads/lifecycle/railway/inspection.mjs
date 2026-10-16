@@ -1,87 +1,109 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { readFile } from "node:fs/promises";
 import { evaluateDatabaseTables, inspectRedis } from "../clean-scope.mjs";
 import { inspectBootstrapAudit } from "./bootstrap-audit.mjs";
-const exec = promisify(execFile);
-const quote = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
-/** Explicit provider IDs only. No linked CLI context, secret argv, or retained stderr. */
-export async function remoteCommand({ journal, service, command }) {
-  assert.ok(
-    journal.environmentId &&
-      journal.projectId &&
-      journal.services.some((s) => s.id === service.id),
-  );
-  try {
-    const { stdout } = await exec(
-      "railway",
-      [
-        "ssh",
-        "--project",
-        journal.projectId,
-        "--environment",
-        journal.environmentId,
-        "--service",
-        service.id,
-        "--",
-        command.map(quote).join(" "),
-      ],
-      { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 },
-    );
-    return stdout;
-  } catch {
-    throw new Error(`Owned remote inspection failed: ${service.key}`);
-  }
+import { requestInspection } from "./inspection-channel.mjs";
+
+/** Only controller-created fixed operations enter the private worker channel. */
+export function inspectOperation({ journal, config, operation, input }) {
+  return requestInspection({
+    controlDirectory: config.controlDirectory,
+    runId: journal.runId,
+    operation,
+    input,
+  });
 }
+/** PostgreSQL, Redis and worker readiness require a reply from this attempt's worker. */
 export async function serviceReady({
   journal,
+  config,
   service,
-  execute = remoteCommand,
+  execute = inspectOperation,
 }) {
   for (const check of service.healthchecks) {
+    const target = { postgres: "database", redis: "cache", worker: "worker" }[
+      check.kind
+    ];
+    if (!target) continue;
     try {
-      if (check.kind === "postgres")
-        await execute({
-          journal,
-          service,
-          command: [
-            "sh",
-            "-c",
-            'pg_isready -q -U "$POSTGRES_USER" -d "$POSTGRES_DB"',
-          ],
-        });
-      if (check.kind === "redis")
-        assert.equal(
-          (
-            await execute({
-              journal,
-              service,
-              command: [
-                "sh",
-                "-c",
-                'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli --raw PING',
-              ],
-            })
-          ).trim(),
-          "PONG",
-        );
+      const result = await execute({
+        journal,
+        config,
+        operation: "readiness",
+        input: { target },
+      });
+      if (result?.ready !== true) return false;
     } catch {
       return false;
     }
   }
   return true;
 }
-const databaseSQL = `BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
-SELECT format('SELECT json_build_object(''name'',%L,''count'',count(*)) FROM %I.%I;',schemaname||'.'||tablename,schemaname,tablename)
-FROM pg_catalog.pg_tables WHERE schemaname NOT IN ('pg_catalog','information_schema') AND schemaname NOT LIKE 'pg_toast%' ORDER BY schemaname,tablename
-\\gexec
-ROLLBACK;`;
+/** Validate scanner evidence, deriving success from table counts and file findings. */
+export function validateNativeReport(report, bootstrapTables = {}) {
+  assert.ok(
+    report &&
+      ["passed", "failed"].includes(report.status) &&
+      Array.isArray(report.files),
+    "Incomplete native inspection",
+  );
+  const paths = new Set();
+  for (const file of report.files) {
+    assert.ok(
+      typeof file.path === "string" &&
+        file.path.length > 0 &&
+        !file.path.startsWith("/") &&
+        !file.path.split("/").includes("..") &&
+        !paths.has(file.path),
+      "Invalid native file path",
+    );
+    paths.add(file.path);
+    assert.ok(["passed", "failed"].includes(file.status));
+    if (file.tables) {
+      assert.ok(Array.isArray(file.tables));
+      assert.match(
+        file.path,
+        /\.(db|sqlite|sqlite3)$/,
+        "Tables require a SQLite file",
+      );
+      assert.equal(
+        new Set(file.tables.map((table) => table.name)).size,
+        file.tables.length,
+        "Duplicate native table",
+      );
+      for (const table of file.tables) {
+        assert.equal(
+          table.expected,
+          bootstrapTables[table.name]?.count ?? 0,
+          "Unapproved native count exemption",
+        );
+        assert.ok(
+          typeof table.name === "string" &&
+            Number.isSafeInteger(table.count) &&
+            table.count >= 0 &&
+            Number.isSafeInteger(table.expected) &&
+            table.expected >= 0,
+        );
+      }
+      assert.equal(
+        file.status,
+        file.tables.every((t) => t.count === t.expected) ? "passed" : "failed",
+      );
+    } else
+      assert.ok(
+        file.status === "failed" &&
+          file.reason === "Preexisting native data or sidecar",
+      );
+  }
+  assert.equal(
+    report.status,
+    report.files.every((f) => f.status === "passed") ? "passed" : "failed",
+  );
+}
 /** Queries every PG table, every Redis DB and the entire native volume, including SQLite WAL/media. */
 export async function inspectRemoteStores({
   journal,
   config,
-  execute = remoteCommand,
+  execute = inspectOperation,
 }) {
   const db = journal.services.filter((s) => s.roles.includes("database"));
   const caches = journal.services.filter((s) => s.roles.includes("cache"));
@@ -91,27 +113,17 @@ export async function inspectRemoteStores({
   assert.equal(db.length, 1);
   assert.equal(caches.length, 1);
   assert.ok(native.length);
-  const auditSQL = journal.bootstrap
-    ? "SELECT json_build_object('bootstrapAudit', COALESCE(json_agg(to_jsonb(a) - 'id' - 'created_at'), '[]'::json)) FROM cpki.product_audit_events a;"
-    : "";
-  const encoded = Buffer.from(
-    databaseSQL.replace("ROLLBACK;", auditSQL + "\nROLLBACK;"),
-  ).toString("base64");
-  const result = await execute({
+  const snapshot = await execute({
     journal,
-    service: db[0],
-    command: [
-      "sh",
-      "-c",
-      `printf %s '${encoded}' | base64 -d | psql -X -q -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"`,
-    ],
+    config,
+    operation: "database-snapshot",
+    input: {},
   });
-  const rows = result
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
-  const audits = rows.filter((row) => Object.hasOwn(row, "bootstrapAudit"));
-  let counts = rows.filter((row) => !Object.hasOwn(row, "bootstrapAudit"));
+  assert.ok(Array.isArray(snapshot.counts), "Incomplete database snapshot");
+  const audits = snapshot.bootstrapAudit
+    ? [{ bootstrapAudit: snapshot.bootstrapAudit }]
+    : [];
+  let counts = snapshot.counts;
   let bootstrapAudit;
   if (journal.bootstrap) {
     assert.equal(audits.length, 1, "Bootstrap audit inspection required");
@@ -143,40 +155,26 @@ export async function inspectRemoteStores({
     });
     if (bootstrapAudit.status !== "passed") database.status = "failed";
   }
-  const cache = await inspectRedis({
-    sendCommand: () =>
-      execute({
-        journal,
-        service: caches[0],
-        command: [
-          "sh",
-          "-c",
-          'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli --raw INFO keyspace',
-        ],
-      }),
+  const cacheSnapshot = await execute({
+    journal,
+    config,
+    operation: "redis-snapshot",
+    input: {},
   });
-  const source = await readFile(
-    new URL("../clean-scope.mjs", import.meta.url),
-    "utf8",
-  );
+  const cache = await inspectRedis({
+    sendCommand: async () => cacheSnapshot.keyspace,
+  });
   const nativeReports = [];
   for (const service of native) {
     const volume = journal.volumes.find((v) => v.serviceId === service.id);
     assert.ok(volume?.mountPath, "Owned native volume required");
-    const script =
-      source +
-      `\nconsole.log(JSON.stringify(await inspectNativeDirectory(${JSON.stringify(volume.mountPath)},${JSON.stringify(config.nativeBootstrapTables ?? {})})));`;
-    const stdout = await execute({
+    const report = await execute({
       journal,
-      service,
-      command: ["node", "--input-type=module", "-e", script],
+      config,
+      operation: "native-snapshot",
+      input: { framework: service.framework },
     });
-    const report = JSON.parse(stdout);
-    assert.ok(
-      ["passed", "failed"].includes(report.status) &&
-        Array.isArray(report.files),
-      "Incomplete native inspection",
-    );
+    validateNativeReport(report, config.nativeBootstrapTables);
     nativeReports.push({
       framework: service.framework,
       serviceId: service.id,

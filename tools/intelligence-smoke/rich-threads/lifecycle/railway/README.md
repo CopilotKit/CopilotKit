@@ -36,9 +36,10 @@ Recovery refuses a live original controller or supervisor. A crashed recovery re
 - `provider: "railway"`, `purpose: "acceptance"`, `projectId` exactly from the committed policy; `controlDirectory`, `recordsFile` absolute owned durable paths.
 - `registryActivation: {review, revision}` records the external consumer activation review. It is not an approval override. Actual consumer activation is independently required before the first create; every phase publication verifies current authoritative bytes and matching policy/transport activation.
 - `consumers`: each `{consumer: "image-gate" | "ruby-promotion" | "harness", host, receiver, recordsFile}`; all actual reader installations must be included, including additional copies of a role.
-- `services`: `{key, roles, framework?, image, env?, volume?:{mountPath}, healthchecks, startCommand?, preDeployCommand?, tcpPort?}`. All images must already be independently approved in PNI-607. Roles: `database`, `cache`, `intelligence-api`, `intelligence-gateway`, `application-runtime`, `native-backend`, `application`. API and gateway may share one composite service. Every role needs readiness. PostgreSQL uses `{role:"database",kind:"postgres"}`, Redis uses `{role:"cache",kind:"redis"}`; HTTP uses `{role,port,path}`. Native images require Node 24's built-in SQLite reader. Data services require their own volumes. Service ordering is dependency order. Composite migrations run through its image/startup or `preDeployCommand` before readiness.
-- `env` values may use `{{service:<key>:host}}`, resolved to that run's owned Railway private hostname. Secret values remain in memory/private API input files; they never enter journal/snapshot/evidence. Configure actual image-required database/Redis variables; readiness uses `POSTGRES_USER`, `POSTGRES_DB`, `REDIS_PASSWORD` inside the owned containers.
-- `database: {serviceKey,user,password,database}` plus that database service's `tcpPort` produces the private scope's connection URL from the returned owned TCP proxy. Externally supplied `scope.databaseUrl` cannot substitute for owned storage.
+- `services`: `{key, roles, framework?, image, env?, volume?:{mountPath}, healthchecks, startCommand?, preDeployCommand?}`. All images must already be independently approved in PNI-607. Roles: `inspection-worker`, `database`, `cache`, `intelligence-api`, `intelligence-gateway`, `application-runtime`, `native-backend`, `application`. API and gateway may share one composite service. Every role needs readiness. The worker uses `{role:"inspection-worker",kind:"worker"}`. PostgreSQL uses `{role:"database",kind:"postgres"}`, Redis uses `{role:"cache",kind:"redis"}`; HTTP uses `{role,port,path}`. Native images require Node 24's built-in SQLite reader. Data services require their own volumes. Service ordering is dependency order. Composite migrations run through its image/startup or `preDeployCommand` before readiness.
+- `env` values may use `{{service:<key>:host}}`, resolved to that run's owned Railway private hostname. Secret values remain in memory/private API input files; they never enter journal/snapshot/evidence. Configure actual image-required database/Redis variables; the inspection worker probes the owned private PostgreSQL and Redis connections.
+- `database: {serviceKey,user,password,database}` supplies the worker's private connection. Public database TCP proxies and external `scope.databaseUrl` values are refused.
+- `inspection: {runnerUrl,token}` binds the worker to the permanent HTTPS authority and a fresh random attempt token. `createTemplate` requires an approved `images.inspector` digest and `licenseCredential`; `materialize` generates the token. Native helpers listen on private port 9191, with no public domain.
 - `scopes` retains common logical organization/project/key and native adapter identities. The provider overwrites API/gateway/runtime/application URLs with its owned domain endpoints and `capture.url` with the owned runtime capture endpoint. `scope.native.remote` supplies provider service ID, volume ID, and mount path. A local native path is not a remote reader; row2/common must consume the remote boundary.
 - `bootstrapTables` and `nativeBootstrapTables` are explicit count/reason exceptions; conversation, resource, memory, queue, media, and related data cannot be exempted.
 
@@ -46,7 +47,7 @@ The provider verifies a new empty source environment, then a fork whose source i
 
 ## Publication and consumer activation
 
-Deploy `receiver.mjs` beside each real consumer, with its service environment containing both `SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` and `SHOWCASE_REGISTRY_CONSUMER`. The former must be the **same file used by the actual image gate, Ruby promotion bridge, or harness**. The SSH request cannot set either value. Receiver Node/tsx, policy revision, known host keys and receiver path must be installed in advance. Initialize each durable file explicitly with the original publisher.
+The hosted runner uses HTTPS registry distribution; its validation rejects the legacy SSH adapter. The legacy adapter remains available only to separately configured external controller hosts. For that adapter, deploy `receiver.mjs` beside each real consumer, with its service environment containing both `SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` and `SHOWCASE_REGISTRY_CONSUMER`. The former must be the **same file used by the actual image gate, Ruby promotion bridge, or harness**. The SSH request cannot set either value. Receiver Node/tsx, policy revision, known host keys and receiver path must be installed in advance. Initialize each durable file explicitly with the original publisher.
 
 Each transfer validates the whole snapshot with the real parser, checks the exact policy and byte digests, retains previous runs, atomically publishes via the proof publisher, and acknowledges the configured reader path. Missing, stale-policy, malformed or unreadable evidence fails closed. A receiver-only installation does not establish consumer activation: the owner must retain the actual gate/Ruby/harness invocation and configured-path receipts in the activation review. This change neither merges nor deploys those shared consumers.
 
@@ -56,7 +57,9 @@ Creation intents are private durable journal entries before requests. Snapshot I
 
 Call `restart(["intelligence-api","intelligence-gateway","application-runtime","native-backend"], framework)` **once for a restart batch**. It selects unique physical services. One composite receipt has `serviceId`, `roles`, `readyRoles`, changed provider deployment-instance IDs and unchanged volume/instance/mount IDs. Do not call the two composite logical roles separately. Scalar calls remain supported for a single requested role.
 
-`verifyCleanScope()` runs bounded SSH commands with explicit project/environment/service IDs after independent ownership checks. It reads every application PostgreSQL table in a read-only transaction, every Redis database, all native SQLite tables including WAL state, and opaque snapshot/media sidecars. It never deletes data to make an inspection pass. Failed inspection evidence is retained.
+`verifyCleanScope()` sends fixed operations to one disposable inspection worker after ownership checks. The worker reads every application PostgreSQL table and bootstrap audit in one repeatable-read, read-only transaction, every Redis database through `INFO keyspace`, and both private native scanners. Native scanning includes SQLite WAL state and opaque snapshot/media sidecars. Failed, missing, or incomplete inspection evidence cannot pass. Nothing deletes data to make an inspection pass.
+
+The permanent runner journals jobs and results under the attempt directory. Polling claims a request once; a lost bootstrap result fails the attempt rather than rerunning the write. Requests and replies bind run and request IDs, expire at bounded deadlines, and have size limits. Filesystem locks serialize claims, replies and revocation across the HTTP server and controller process. Worker tokens cannot call admin endpoints; runner tokens cannot use worker endpoints. Cleanup revokes the worker token before deleting resources. The worker has no Railway or runner admin credential.
 
 Cleanup first reconciles outstanding creation intents, verifies exact ownership across all project environments, deletes owned TCP proxies/services/volumes, then both environments. Complete paginated project inventory must show every owned service, volume and environment ID absent. A 200/true delete response alone is insufficient. Restarts do not detach volumes or clear stores.
 
@@ -73,11 +76,11 @@ Credential reference found without reading its value: GitHub repository `Copilot
 ### Private canonical bootstrap for the bounded row1 journey
 
 Set `bootstrap` to `{ afterServiceKey: "composite", serviceKey: "postgres", scriptPath: "/private/controller/bootstrap-self-hosted.sh", sourceRevision: "f1d326e8e6924da8186cf1d3d23277cc8bda80de", sha256: "a8c8256ec56a24cb2e494bd8309f6db0fb2ac70c473de1cee2f46e784dbf28b4" }`.
-The script must be the canonical Intelligence `app-db-migrations/bootstrap-self-hosted.sh` at that revision, supplied privately by the controller. Its contents are hash-checked before remote execution and never copied to the journal. The composite image does not include this script.
+The script must be the canonical Intelligence `app-db-migrations/bootstrap-self-hosted.sh` at that revision, supplied privately by the controller. The controller and worker hash-check its contents before execution and never copied to the journal. The composite image does not include this script.
 
-The owned PostgreSQL service's private `env` must contain `DATABASE_URL` targeting its own loopback port 5432 (without query parameters) and `BOOTSTRAP_CONFIG_B64`. The latter contains canonical `organizations` and `localEvaluation` configuration; the caller generates per-run key material. Only the short key and long-key hash belong in the bootstrap configuration. Keep the actual application API key in private application/runtime variables.
+The owned PostgreSQL service's private `env` contains `BOOTSTRAP_CONFIG_B64`. This contains canonical `organizations` and `localEvaluation` configuration; the caller generates per-run key material. Only the short key and long-key hash belong in the bootstrap configuration. Keep the actual application API key in private application/runtime variables.
 
-Order services as PostgreSQL/cache, composite, then native backends/runtime/application. After composite readiness and ownership/volume checks, the provider rechecks PostgreSQL readiness and executes the pinned script. Exactly one committed `CPKI_LOCAL_BOOTSTRAP` identity is required. Later service variables and scope fields can use `{{bootstrap:projectId}}` and `{{bootstrap:organizationId}}`. The journal retains only these validated IDs and source provenance. Bootstrap failure enters the same ownership-checked cleanup as other setup failures.
+Order services as PostgreSQL/cache, inspection worker, composite, then native backends/runtime/application. Database/cache readiness waits until the worker exists. After composite readiness and ownership/volume checks, the provider rechecks PostgreSQL readiness and executes the pinned script. Exactly one committed `CPKI_LOCAL_BOOTSTRAP` identity is required. Later service variables and scope fields can use `{{bootstrap:projectId}}` and `{{bootstrap:organizationId}}`. The journal retains only these validated IDs and source provenance. Bootstrap failure enters the same ownership-checked cleanup as other setup failures.
 
 Declare exact permitted initialization counts in `bootstrapTables`; all other database tables must remain empty. This bootstrap support is locally tested infrastructure, not evidence of a live acceptance run or approved images.
 
@@ -133,22 +136,24 @@ script path before any run. Do not put credentials into the Docker build context
 `tools/intelligence-smoke/rich-threads/`, `tools/railway-disposable-proof/`,
 `showcase/scripts/railway-envs.ts`, all `showcase/harness/src/shared/railway-lifecycle*`
 files, and root `package.json`. It installs the locked browser-driver dependencies,
-Node 24, tsx 4.21.0, Railway CLI 5.41.0, and Chromium. Build/publish may run on GitHub;
+Node 24, tsx 4.21.0, Railway CLI 5.41.0 for API calls, and Chromium. Build/publish may run on GitHub;
 controller, browser, provisioning, and cleanup execute inside Railway.
 
-Container inspection uses Railway CLI's native SSH transport. Configure
-`RICH_RUNNER_SSH_PRIVATE_KEY_B64` (canonical base64 of an unencrypted Ed25519
-private key), `RICH_RUNNER_SSH_PUBLIC_KEY`, and
-`RICH_RUNNER_SSH_KNOWN_HOSTS` (the independently verified `ssh.railway.com`
-Ed25519 host-key entry) on the permanent runner. Register the public key with
-the Railway workspace used by its automation token before deploying. Workspace
-key registration requires Railway workspace ADMIN access; service creation and
-deletion permissions alone do not prove that access.
+`Inspector.Dockerfile` builds a separate worker image with locked PostgreSQL and
+Redis clients, Bash and psql. Its digest needs independent approval before use.
+The worker polls the permanent runner over HTTPS using only its attempt token.
+It receives private database/cache/native addresses and the verified bootstrap
+seed through private environment variables. It refuses Railway API tokens and
+runner admin tokens. The permanent runner retains the Railway API credential
+and owns all provisioning, cleanup and recovery. Neither image needs Railway
+SSH registration or an SSH seed. Only the permanent runner needs the Railway CLI
+for its existing API adapter.
 
-Startup checks that the key pair matches and writes owner-only SSH files with
-strict host checking. It removes the private seed from the worker environment.
-No SSH key belongs in GitHub artifacts or the image. Test users invoke the
-runner; they do not receive its Railway token or SSH key.
+Both native test images contain the Node 24 scanner and a supervised native
+entrypoint. The helper scans only the configured owned volume and exits with
+the native backend. Restarting a native service starts both processes again.
+The template passes `COPILOTKIT_LICENSE_TOKEN` to the composite and disables its
+thread-culler service through the pinned image's `S6_STAGE2_HOOK`.
 
 Provide the canonical bootstrap privately through `RICH_BOOTSTRAP_SCRIPT_B64`
 (canonical base64, never a committed file or image layer). Startup verifies the
@@ -160,7 +165,7 @@ be omitted: the retained owner-only regular file is hash-validated again. Missin
 corrupt, oversized, or incompatible content blocks startup; errors do not print
 source bytes. Supplying this private seed remains an operator deployment step.
 
-All endpoints except `/health` require `Authorization: Bearer <RICH_RUNNER_TOKEN>`:
+Admin endpoints require `Authorization: Bearer <RICH_RUNNER_TOKEN>`. `/health` is public. `/inspection/<runId>/poll` and `/inspection/<runId>/result` require that attempt's separate token:
 
 - `POST /runs` with `{ "mode": "single" | "acceptance" | "crash-recovery" }`
   returns 202 with immutable `id`, `statusUrl`, `resultsUrl`; overlap/cleanup block

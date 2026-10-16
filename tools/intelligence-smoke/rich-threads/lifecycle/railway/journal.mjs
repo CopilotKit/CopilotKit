@@ -95,7 +95,11 @@ export async function recoveryLock(path) {
         await readFile(join(path, "owner.json"), "utf8"),
       );
       assert.equal(actual.token, owner.token);
-      await rm(path, { recursive: true });
+      // Move the complete owner directory before removing it. Another acquirer
+      // must never replace the briefly empty directory during recursive removal.
+      const retired = `${path}.released-${owner.token}`;
+      await rename(path, retired);
+      await rm(retired, { recursive: true });
     };
   } finally {
     await rm(candidate, { recursive: true, force: true });

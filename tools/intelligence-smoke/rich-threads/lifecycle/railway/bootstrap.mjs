@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { remoteCommand, serviceReady } from "./inspection.mjs";
+import { inspectOperation, serviceReady } from "./inspection.mjs";
 
 import { bootstrapInput } from "./bootstrap-audit.mjs";
 
@@ -25,21 +25,19 @@ export function validateBootstrap(config) {
   );
   assert.ok(config.services[database].roles.includes("database"));
   assert.ok(config.services[after].roles.includes("intelligence-api"));
-  assert.ok(config.services[database].env?.DATABASE_URL);
   assert.ok(config.services[database].env?.BOOTSTRAP_CONFIG_B64);
-  let databaseUrl;
-  try {
-    databaseUrl = new URL(config.services[database].env.DATABASE_URL);
-  } catch {
-    throw new Error("Bootstrap requires a local PostgreSQL URL");
-  }
+  assert.equal(
+    config.database?.serviceKey,
+    b.serviceKey,
+    "Bootstrap must target the owned database",
+  );
   assert.ok(
-    ["postgres:", "postgresql:"].includes(databaseUrl.protocol) &&
-      ["localhost", "127.0.0.1", "[::1]"].includes(databaseUrl.hostname) &&
-      (!databaseUrl.port || databaseUrl.port === "5432") &&
-      !databaseUrl.search &&
-      !databaseUrl.hash,
-    "Bootstrap must target PostgreSQL inside the owned database service",
+    [
+      config.database.user,
+      config.database.password,
+      config.database.database,
+    ].every((value) => typeof value === "string" && value.length > 0),
+    "Owned database connection fields required",
   );
   assert.ok(
     config.services.every(
@@ -75,7 +73,7 @@ export async function runBootstrap({
   config,
   journal,
   service,
-  execute = remoteCommand,
+  execute = inspectOperation,
   readScript = readFile,
 }) {
   const source = await readScript(config.bootstrap.scriptPath, "utf8");
@@ -85,20 +83,23 @@ export async function runBootstrap({
     "Bootstrap source digest mismatch",
   );
   assert.ok(
-    await serviceReady({ journal, service, execute }),
+    await serviceReady({ journal, config, service, execute }),
     "Bootstrap database is not ready",
   );
-  let stdout;
+  let identity;
   try {
-    stdout = await execute({
+    identity = await execute({
       journal,
-      service,
-      command: ["bash", "-c", source],
+      config,
+      operation: "bootstrap",
+      input: {},
     });
+    identity = parseBootstrapIdentity(
+      `CPKI_LOCAL_BOOTSTRAP=${JSON.stringify({ version: 1, ...identity })}`,
+    );
   } catch {
     throw new Error("Owned canonical bootstrap failed");
   }
-  const identity = parseBootstrapIdentity(stdout);
   const org = bootstrapInput(config).organizations[0];
   assert.ok(
     identity.organizationId ===

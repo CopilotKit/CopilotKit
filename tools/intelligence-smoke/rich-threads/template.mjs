@@ -14,6 +14,7 @@ export function createTemplate({
   baseline,
   imageBootstrapTables = {},
   nativeBootstrapTables = {},
+  licenseCredential,
 }) {
   for (const key of [
     "postgres",
@@ -21,6 +22,7 @@ export function createTemplate({
     "composite",
     "application",
     "strands",
+    "inspector",
   ])
     assert.match(
       images?.[key] ?? "",
@@ -30,6 +32,10 @@ export function createTemplate({
   assert.ok(
     typeof modelCredential === "string" && modelCredential.length > 0,
     "Approved external model credential required",
+  );
+  assert.ok(
+    typeof licenseCredential === "string" && licenseCredential.length > 0,
+    "Approved license credential required",
   );
   const registry = new URL("/registry", runnerUrl);
   assert.ok(
@@ -84,6 +90,10 @@ export function createTemplate({
     controlDirectory: "/data/control",
     recordsFile: "/data/control/records.json",
     registryActivation,
+    inspection: {
+      runnerUrl: new URL("/", runnerUrl).href,
+      token: "{{run:inspectionToken}}",
+    },
     baseline,
     consumers: ["image-gate", "ruby-promotion", "harness"].map((consumer) => ({
       transport: "https",
@@ -119,19 +129,13 @@ export function createTemplate({
         key: "postgres",
         roles: ["database"],
         image: images.postgres,
-        tcpPort: 5432,
         volume: { mountPath: "/bitnami/postgresql" },
         healthchecks: [{ role: "database", kind: "postgres" }],
         env: {
-          // Bitnami initialization names plus inspection's libpq aliases.
+          // Bitnami initialization; worker connections use the private service host.
           POSTGRESQL_DATABASE: database,
           POSTGRESQL_PASSWORD: password,
           POSTGRESQL_POSTGRES_PASSWORD: password,
-          POSTGRES_USER: user,
-          POSTGRES_DB: database,
-          POSTGRES_PASSWORD: password,
-          PGPASSWORD: password,
-          DATABASE_URL: `postgresql://${user}:${password}@127.0.0.1:5432/${database}`,
           // Railway volumes mount as root; documented non-root-image setting.
           RAILWAY_RUN_UID: "0",
         },
@@ -143,6 +147,12 @@ export function createTemplate({
         volume: { mountPath: "/bitnami/redis" },
         healthchecks: [{ role: "cache", kind: "redis" }],
         env: { REDIS_PASSWORD: "{{run:redisPassword}}", RAILWAY_RUN_UID: "0" },
+      },
+      {
+        key: "inspector",
+        roles: ["inspection-worker"],
+        image: images.inspector,
+        healthchecks: [{ role: "inspection-worker", kind: "worker" }],
       },
       {
         key: "composite",
@@ -159,6 +169,9 @@ export function createTemplate({
           RUNNER_AUTH_SECRET: "{{run:runnerAuthSecret}}",
           SECRET_KEY_BASE: "{{run:secretKeyBase}}",
           INTELLIGENCE_DEPLOYMENT_MODE: "self_hosted",
+          S6_STAGE2_HOOK:
+            "rm -f /etc/s6-overlay/s6-rc.d/user/contents.d/thread-culler",
+          COPILOTKIT_LICENSE_TOKEN: licenseCredential,
           THREAD_COMPACTION_WORKER_ENABLED: "false",
           SKIP_SCHEMA_DUMP: "1",
         },
@@ -171,7 +184,7 @@ export function createTemplate({
         volume: { mountPath: "/data" },
         healthchecks: [{ role: "native-backend", port: 3002, path: "/health" }],
         startCommand:
-          "node --import tsx /app/rich-threads/application/mastra-backend.mjs",
+          "node /app/rich-threads/lifecycle/railway/native-start.mjs",
         env: {
           PORT: "3002",
           OPENAI_API_KEY: modelCredential,

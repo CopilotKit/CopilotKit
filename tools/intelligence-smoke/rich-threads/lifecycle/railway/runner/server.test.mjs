@@ -147,3 +147,58 @@ test("consumer activation records only the configured URL and current validated 
   assert.equal(saved.sha256, digest(bytes));
   assert.equal(saved.consumer, "harness");
 });
+
+test("inspection credentials cannot administer runner and revoke immediately", async (t) => {
+  const { initializeInspection, closeInspection } =
+    await import("../inspection-channel.mjs");
+  const root = await mkdtemp(join(tmpdir(), "runner-worker-auth-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const context = {
+    controlDirectory: root,
+    runId: "rich-auth",
+    token: "a".repeat(64),
+    expiresAt: new Date(Date.now() + 60000).toISOString(),
+  };
+  await mkdir(join(root, context.runId));
+  await writeFile(
+    join(root, context.runId, "journal.json"),
+    JSON.stringify({
+      runId: context.runId,
+      projectId: "project",
+      environmentId: "environment",
+      expiresAt: context.expiresAt,
+      phase: "setup",
+    }),
+  );
+  await initializeInspection(context);
+  const server = runnerServer({
+    root,
+    config: { controlDirectory: root },
+    token: "admin".repeat(16),
+    scheduler: { status: () => ({}) },
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => new Promise((r) => server.close(r)));
+  const base = `http://127.0.0.1:${server.address().port}`,
+    headers = { authorization: `Bearer ${context.token}` };
+  assert.equal(
+    (await fetch(base + "/inspection/rich-auth/poll", { headers })).status,
+    200,
+  );
+  for (const path of ["/status", "/registry", "/runs"])
+    assert.equal((await fetch(base + path, { headers })).status, 401);
+  assert.equal(
+    (
+      await fetch(base + "/inspection/rich-auth/poll", {
+        headers: { authorization: `Bearer ${"admin".repeat(16)}` },
+      })
+    ).status,
+    401,
+  );
+  await closeInspection(context);
+  assert.equal(
+    (await fetch(base + "/inspection/rich-auth/poll", { headers })).status,
+    401,
+  );
+});

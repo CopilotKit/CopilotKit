@@ -20,6 +20,17 @@ assert.match(revision, /^[a-f0-9]{40}$/);
 await mkdir(output, { recursive: false, mode: 0o700 });
 const files = [];
 for (const [prefix, destination] of [
+  ...[
+    "lifecycle/clean-scope.mjs",
+    "lifecycle/railway/native-inspection.mjs",
+    "lifecycle/railway/native-start.mjs",
+    "lifecycle/railway/inspection-channel.mjs",
+    "lifecycle/railway/journal.mjs",
+    "lifecycle/railway/process-owner.mjs",
+  ].map((path) => [
+    `tools/intelligence-smoke/rich-threads/${path}`,
+    `rich-threads/${path}`,
+  ]),
   ["showcase/integrations/strands-typescript/src/agent", "src/agent"],
   ["showcase/integrations/strands-typescript/src/cvdiag", "src/cvdiag"],
   ["showcase/shared/typescript/tools", "shared-tools"],

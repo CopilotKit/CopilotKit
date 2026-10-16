@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { policy, publishSnapshot } from "./contract.mts";
@@ -206,7 +206,6 @@ async function fixture(t, approved = true) {
   const services = [
     {
       key: "postgres",
-      tcpPort: 5432,
       roles: ["database"],
       volume: { mountPath: "/data" },
       healthchecks: [{ role: "database", kind: "postgres" }],
@@ -216,6 +215,11 @@ async function fixture(t, approved = true) {
       roles: ["cache"],
       volume: { mountPath: "/data" },
       healthchecks: [{ role: "cache", kind: "redis" }],
+    },
+    {
+      key: "inspector",
+      roles: ["inspection-worker"],
+      healthchecks: [{ role: "inspection-worker", kind: "worker" }],
     },
     {
       key: "composite",
@@ -250,6 +254,7 @@ async function fixture(t, approved = true) {
     recordsFile: file,
     services,
     consumers,
+    inspection: { runnerUrl: "https://runner.example", token: "a".repeat(64) },
     database: {
       serviceKey: "postgres",
       user: "test",
@@ -274,8 +279,7 @@ async function fixture(t, approved = true) {
         }),
       ),
     fetch: async () => new Response("healthy"),
-    remote: async ({ command }) =>
-      command.at(-1).includes("PING") ? "PONG\n" : "",
+    inspection: async () => ({ ready: true }),
   };
   // Explicit in-memory synthetic test approval only. No production policy file or runtime override.
   if (approved) {
@@ -307,7 +311,11 @@ test("three consumer mirrors; one physical composite restart; exact resource abs
     { ...f, runId: "grouped", frameworks: ["mastra"] },
     { ...f.dependencies, api: p.api },
   );
-  assert.ok(env.scopes.mastra.databaseUrl.includes("owned.example.test:12000"));
+  assert.equal(env.scopes.mastra.databaseUrl, undefined);
+  assert.equal(
+    p.state.calls.some((c) => c.op === "createProxy"),
+    false,
+  );
   assert.ok(env.scopes.mastra.capture.url.endsWith("/rich-thread-capture"));
   assert.ok(!JSON.stringify(env.receipt).includes("private-test-value"));
   const receipts = await env.restart(
@@ -497,4 +505,22 @@ test("unknown later create still removes earlier confirmed services and volumes"
     ).runId,
     "partial-unknown",
   );
+});
+
+test("corrupt inspection state never prevents API-owned emergency cleanup", async (t) => {
+  const f = await fixture(t),
+    p = fakeProvider();
+  const env = await createRailwayEnvironment(
+    { ...f, runId: "corrupt-inspection", frameworks: ["mastra"] },
+    { ...f.dependencies, api: p.api },
+  );
+  await writeFile(
+    join(f.directory, "corrupt-inspection", "inspection", "state.json"),
+    "invalid json",
+  );
+  const report = await env.cleanup();
+  assert.equal(report.status, "passed");
+  assert.equal(p.state.services.length, 0);
+  assert.equal(p.state.volumes.length, 0);
+  assert.equal(p.state.environments.length, 0);
 });

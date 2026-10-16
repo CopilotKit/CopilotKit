@@ -21,11 +21,9 @@ export function sourceEvent(raw, organizationId) {
   return event;
 }
 
-/** Pool is pg.Pool from the pinned harness dependencies. Reads are explicitly
- * scoped to the run's organization, project and user; no caller-supplied SQL.
- */
-export function createIntelligence({ scope, pool, fetchImpl = fetch }) {
-  const values = (threadId) => [
+/** Fixed read-only persistence observations with all ownership predicates retained. */
+export async function threadObservation(pool, scope, operation, threadId) {
+  const values = [
     scope.organizationId,
     scope.projectId,
     scope.userId,
@@ -33,25 +31,45 @@ export function createIntelligence({ scope, pool, fetchImpl = fetch }) {
   ];
   const where = `t.organization_id = $1 AND t.project_id = $2
     AND t.end_user_id = $3 AND t.thread_id = $4 AND t.deleted_at IS NULL`;
-  async function metadata(threadId) {
+  if (operation === "thread-metadata") {
     const result = await pool.query(
       `SELECT t.thread_id, t.agent_id, t.end_user_id FROM cpki.threads t WHERE ${where}`,
-      values(threadId),
+      values,
     );
     assert.ok(result.rows.length <= 1, "Ambiguous scoped thread identity");
     return result.rows[0] ?? null;
   }
-  async function rawEvents(threadId) {
-    const result = await pool.query(
-      `SELECT re.id, re.event_seq, ar.id AS run_id, re.raw
+  assert.equal(
+    operation,
+    "thread-events",
+    "Unsupported persistence observation",
+  );
+  const result = await pool.query(
+    `SELECT re.id, re.event_seq, ar.id AS run_id, re.raw
       FROM cpki.run_events re JOIN cpki.agent_runs ar ON ar.id = re.run_id
       JOIN cpki.threads t ON t.thread_id = ar.thread_id AND t.organization_id = re.organization_id
       WHERE ${where} AND ar.deleted_at IS NULL AND re.deleted_at IS NULL
       ORDER BY ar.created_at ASC, COALESCE(re.event_seq, re.id) ASC, re.id ASC`,
-      values(threadId),
-    );
-    return result.rows;
-  }
+    values,
+  );
+  return result.rows;
+}
+
+/** Pool is pg.Pool from the pinned harness dependencies. Reads are explicitly
+ * scoped to the run's organization, project and user; no caller-supplied SQL.
+ */
+export function createIntelligence({
+  scope,
+  pool,
+  observation,
+  fetchImpl = fetch,
+}) {
+  const observe =
+    observation ??
+    ((operation, threadId) =>
+      threadObservation(pool, scope, operation, threadId));
+  const metadata = (threadId) => observe("thread-metadata", threadId);
+  const rawEvents = (threadId) => observe("thread-events", threadId);
   async function read(threadId) {
     const identity = await metadata(threadId);
     assert.ok(identity, "Scoped durable thread not found");
@@ -96,6 +114,6 @@ export function createIntelligence({ scope, pool, fetchImpl = fetch }) {
     read,
     rawEvents,
     exists: async (threadId) => Boolean(await metadata(threadId)),
-    close: () => pool.end(),
+    close: () => pool?.end(),
   };
 }

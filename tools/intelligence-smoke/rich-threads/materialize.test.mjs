@@ -60,3 +60,54 @@ test("unknown configuration placeholder fails closed", () => {
   config.services[0].env.BAD = "{{run:misspelled}}";
   assert.throws(() => materialize(config), /Unknown run/);
 });
+
+test("template uses eight owned services, private inspection and fresh scoped credentials", async () => {
+  const { createTemplate } = await import("./template.mjs");
+  const images = Object.fromEntries(
+    [
+      "postgres",
+      "redis",
+      "composite",
+      "application",
+      "strands",
+      "inspector",
+    ].map((key) => [key, `example/${key}@sha256:${"a".repeat(64)}`]),
+  );
+  const options = {
+    images,
+    modelCredential: "test-model",
+    licenseCredential: "test-license",
+    runnerUrl: "https://runner.example",
+    registryActivation: { review: "test", revision: "test" },
+    baseline: {
+      sources: {
+        copilotkit: "a".repeat(40),
+        intelligence: "b".repeat(40),
+        agUi: "c".repeat(40),
+      },
+      packages: { test: "1.0.0" },
+      fixtureProvenance: "test fixture",
+    },
+  };
+  const config = createTemplate(options),
+    first = materialize(config),
+    second = materialize(config);
+  assert.equal(first.services.length, 8);
+  assert.notEqual(first.inspection.token, second.inspection.token);
+  assert.notEqual(first.inspection.token, first.scopes.mastra.capture.token);
+  assert.ok(first.services.every((s) => !s.tcpPort));
+  assert.equal(first.services[2].roles[0], "inspection-worker");
+  assert.equal(
+    first.services.find((s) => s.key === "composite").env
+      .COPILOTKIT_LICENSE_TOKEN,
+    "test-license",
+  );
+  assert.match(
+    first.services.find((s) => s.key === "composite").env.S6_STAGE2_HOOK,
+    /thread-culler/,
+  );
+  assert.throws(
+    () => createTemplate({ ...options, licenseCredential: undefined }),
+    /license/,
+  );
+});

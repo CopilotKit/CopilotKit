@@ -3,11 +3,9 @@ import { test } from "node:test";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { DatabaseSync } from "node:sqlite";
+import { inspectNativeDirectory } from "../clean-scope.mjs";
 import { inspectRemoteStores } from "./inspection.mjs";
-const exec = promisify(execFile);
 test("remote scanner checks actual SQLite tables and opaque media, SQL tables, all Redis databases", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "remote-native-"));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -24,18 +22,17 @@ test("remote scanner checks actual SQLite tables and opaque media, SQL tables, a
   };
   let sqlCount = 0,
     redisKeys = 0;
-  const execute = async ({ service, command }) => {
-    if (service.id === "pg") {
-      assert.ok(
-        Buffer.from(command.at(-1).split("'")[1], "base64")
-          .toString()
-          .includes("pg_catalog.pg_tables"),
-      );
-      return JSON.stringify({ name: "cpki.threads", count: sqlCount }) + "\n";
-    }
-    if (service.id === "redis")
-      return "# Keyspace\r\ndb9:keys=" + redisKeys + ",expires=0,avg_ttl=0\r\n";
-    return (await exec(command[0], command.slice(1))).stdout;
+  const execute = async ({ operation, input }) => {
+    if (operation === "database-snapshot")
+      return { counts: [{ name: "cpki.threads", count: sqlCount }] };
+    if (operation === "redis-snapshot")
+      return {
+        keyspace:
+          "# Keyspace\r\ndb9:keys=" + redisKeys + ",expires=0,avg_ttl=0\r\n",
+      };
+    assert.equal(operation, "native-snapshot");
+    assert.equal(input.framework, "mastra");
+    return inspectNativeDirectory(root);
   };
   const config = {};
   assert.equal(
@@ -65,5 +62,24 @@ test("remote scanner checks actual SQLite tables and opaque media, SQL tables, a
       execute,
     }),
     /Cannot exempt/,
+  );
+});
+
+test("native result cannot invent a passing count exemption or omit scanner evidence", async () => {
+  const { validateNativeReport } = await import("./inspection.mjs");
+  assert.throws(() => validateNativeReport({ status: "passed" }), /Incomplete/);
+  assert.throws(
+    () =>
+      validateNativeReport({
+        status: "passed",
+        files: [
+          {
+            path: "memory.db",
+            status: "passed",
+            tables: [{ name: "messages", count: 1, expected: 1 }],
+          },
+        ],
+      }),
+    /exemption/,
   );
 });

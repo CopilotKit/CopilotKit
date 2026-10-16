@@ -13,6 +13,7 @@ export function materialize(template) {
     organizationId: `org_${slug.replaceAll("-", "_")}`,
     projectSlug: slug,
     userId: `user-${randomUUID()}`,
+    inspectionToken: randomBytes(32).toString("hex"),
     captureToken: randomBytes(32).toString("hex"),
     databasePassword: randomBytes(32).toString("hex"),
     redisPassword: randomBytes(32).toString("hex"),

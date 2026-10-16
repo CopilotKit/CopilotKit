@@ -20,13 +20,22 @@ import {
   recoveryLock as acquireRecoveryLock,
 } from "./journal.mjs";
 import { distributeSnapshot, validateDistribution } from "./distribution.mjs";
-import { inspectRemoteStores, serviceReady } from "./inspection.mjs";
+import {
+  inspectRemoteStores,
+  serviceReady,
+  inspectOperation,
+} from "./inspection.mjs";
 import {
   validateBootstrap,
   bindBootstrap,
   runBootstrap,
 } from "./bootstrap.mjs";
+import {
+  initializeInspection,
+  closeInspection,
+} from "./inspection-channel.mjs";
 const physicalRoles = [
+  "inspection-worker",
   "database",
   "cache",
   "intelligence-api",
@@ -57,6 +66,11 @@ export function validateRailwayConfig(config, frameworks) {
     "Approved consumer activation reference required",
   );
   validateDistribution(config.consumers);
+  if (config.permanentRunner)
+    assert.ok(
+      config.consumers.every((c) => c.transport === "https"),
+      "Hosted runner requires HTTPS registry distribution",
+    );
   assert.ok(
     frameworks.length &&
       frameworks.every((f) => ["mastra", "strands-typescript"].includes(f)),
@@ -68,6 +82,7 @@ export function validateRailwayConfig(config, frameworks) {
   );
   for (const service of config.services) {
     assert.ok(safe(service.key));
+    assert.ok(!service.tcpPort, "Public database proxies are not allowed");
     if (service.tcpPort)
       assert.ok(
         service.roles.includes("database") &&
@@ -101,7 +116,8 @@ export function validateRailwayConfig(config, frameworks) {
     for (const health of service.healthchecks) {
       assert.ok(service.roles.includes(health.role));
       assert.ok(
-        (health.kind === "postgres" && health.role === "database") ||
+        (health.kind === "worker" && health.role === "inspection-worker") ||
+          (health.kind === "postgres" && health.role === "database") ||
           (health.kind === "redis" && health.role === "cache") ||
           ((!health.kind || health.kind === "http") &&
             health.path?.startsWith("/") &&
@@ -109,6 +125,29 @@ export function validateRailwayConfig(config, frameworks) {
       );
     }
   }
+  assert.ok(
+    config.inspection?.runnerUrl &&
+      /^[a-f0-9]{64}$/.test(config.inspection.token),
+    "Scoped inspection configuration required",
+  );
+  const inspector = config.services.findIndex((s) =>
+    s.roles.includes("inspection-worker"),
+  );
+  assert.equal(
+    config.services.filter((s) => s.roles.includes("inspection-worker")).length,
+    1,
+  );
+  assert.ok(
+    config.services
+      .filter((s) => s.roles.some((r) => ["database", "cache"].includes(r)))
+      .every((s) => config.services.indexOf(s) < inspector),
+    "Data resources must precede worker",
+  );
+  assert.ok(
+    config.services.findIndex((s) => s.roles.includes("intelligence-api")) >
+      inspector,
+    "Worker must precede composite",
+  );
   validateBootstrap(config);
   for (const service of config.services)
     assert.ok(
@@ -216,7 +255,7 @@ export async function createRailwayEnvironment(
     distribute,
     signal,
     outputDir,
-    dependenciesExecute: dependencies.remote,
+    dependenciesExecute: dependencies.inspection,
     requestHealth: dependencies.fetch ?? fetch,
     supervision: dependencies.supervision ?? verifySupervisor,
   });
@@ -404,6 +443,63 @@ async function controllerFor({
     }
     return values.sort((a, b) => a.id.localeCompare(b.id));
   }
+  async function inspectionVariables(spec, specs) {
+    const context = {
+      runId: journal.runId,
+      token: config.inspection.token,
+      expiresAt: journal.expiresAt,
+    };
+    if (spec.roles.includes("native-backend"))
+      return {
+        RICH_NATIVE_INSPECTION_JSON: JSON.stringify({
+          ...context,
+          root: spec.volume.mountPath,
+          framework: spec.framework,
+          bootstrapTables: config.nativeBootstrapTables ?? {},
+        }),
+      };
+    if (!spec.roles.includes("inspection-worker")) return {};
+    const host = (key) =>
+      bindServiceVariables(`{{service:${key}:host}}`, specs, journal);
+    const db = config.database;
+    assert.ok(db, "Owned database configuration required");
+    const databaseUrl = new URL(
+      `postgresql://${host(db.serviceKey)}:5432/${encodeURIComponent(db.database)}`,
+    );
+    databaseUrl.username = db.user;
+    databaseUrl.password = db.password;
+    const cache = specs.find((s) => s.roles.includes("cache"));
+    const redisUrl = new URL(`redis://${host(cache.key)}:6379`);
+    redisUrl.password = cache.env?.REDIS_PASSWORD ?? "";
+    const worker = {
+      ...context,
+      projectId: journal.projectId,
+      environmentId: journal.environmentId,
+      runnerUrl: config.inspection.runnerUrl,
+      databaseUrl: databaseUrl.href,
+      redisUrl: redisUrl.href,
+      native: Object.fromEntries(
+        specs
+          .filter((s) => s.roles.includes("native-backend"))
+          .map((s) => [s.framework, `http://${host(s.key)}:9191/inspect`]),
+      ),
+      scopes: Object.fromEntries(
+        Object.entries(config.scopes).map(([framework, scope]) => [
+          framework,
+          { organizationId: scope.organizationId, userId: scope.userId },
+        ]),
+      ),
+    };
+    if (config.bootstrap) {
+      worker.bootstrapSeed = Buffer.from(
+        await readFile(config.bootstrap.scriptPath, "utf8"),
+      ).toString("base64");
+      worker.bootstrapConfig = specs.find(
+        (s) => s.key === config.bootstrap.serviceKey,
+      ).env.BOOTSTRAP_CONFIG_B64;
+    }
+    return { RICH_INSPECTION_CONFIG_JSON: JSON.stringify(worker) };
+  }
   async function health(service, before) {
     const deadline = Math.min(
       Date.now() + 180_000,
@@ -432,6 +528,7 @@ async function controllerFor({
               .length &&
           (await serviceReady({
             journal,
+            config,
             service,
             execute: dependenciesExecute,
           }));
@@ -645,8 +742,27 @@ async function controllerFor({
     ending = true;
     clearTimeout(timer);
     cleanupPromise = (async () => {
+      if (journal.phase !== "complete") journal.phase = "teardown";
+      await save();
+      try {
+        await closeInspection({
+          controlDirectory: config.controlDirectory,
+          runId: journal.runId,
+        });
+      } catch (error) {
+        if (error.code !== "ENOENT") journal.inspectionRevocation = "failed";
+      }
       await setupPromise.catch(() => {});
       await mutations.catch(() => {});
+      // Setup may have created the channel while cancellation was being handled.
+      try {
+        await closeInspection({
+          controlDirectory: config.controlDirectory,
+          runId: journal.runId,
+        });
+      } catch (error) {
+        if (error.code !== "ENOENT") journal.inspectionRevocation = "failed";
+      }
       const lock = join(directory, "cleanup-lock");
       await mkdir(lock, { mode: 0o700 });
       // A crash deliberately leaves this lock and the run lease; reconciliation must be explicit.
@@ -783,6 +899,16 @@ async function controllerFor({
     scopes: {},
     receipt: journal,
     cleanup,
+    observe: async (framework, operation, threadId) => {
+      await check();
+      assert.ok(Object.hasOwn(environment.scopes, framework));
+      return (dependenciesExecute ?? inspectOperation)({
+        journal,
+        config,
+        operation,
+        input: { framework, threadId },
+      });
+    },
     async verifyCleanScope() {
       await check();
       for (const service of journal.services) await ownedService(service);
@@ -908,6 +1034,12 @@ async function controllerFor({
     assert.equal(state.serviceInstances.length, 0);
     assert.equal(state.volumeInstances.length, 0);
     await publish();
+    await initializeInspection({
+      controlDirectory: config.controlDirectory,
+      runId: journal.runId,
+      token: config.inspection.token,
+      expiresAt: journal.expiresAt,
+    });
     for (const spec of specs) {
       const name = `${journal.environmentName}-${spec.key}`;
       const service = {
@@ -939,12 +1071,15 @@ async function controllerFor({
           environmentId: fork.id,
           name,
           source: { image: spec.image },
-          variables: Object.fromEntries(
-            Object.entries(spec.env ?? {}).map(([key, value]) => [
-              key,
-              bindServiceVariables(value, specs, journal),
-            ]),
-          ),
+          variables: {
+            ...(await inspectionVariables(spec, specs)),
+            ...Object.fromEntries(
+              Object.entries(spec.env ?? {}).map(([key, value]) => [
+                key,
+                bindServiceVariables(value, specs, journal),
+              ]),
+            ),
+          },
         },
       });
       if (
@@ -1127,7 +1262,14 @@ async function controllerFor({
         serviceId: service.id,
         environmentId: fork.id,
       });
-      service.ready = await health(service);
+      if (!service.roles.some((r) => ["database", "cache"].includes(r)))
+        service.ready = await health(service);
+      if (service.roles.includes("inspection-worker")) {
+        for (const data of journal.services.filter((s) =>
+          s.roles.some((r) => ["database", "cache"].includes(r)),
+        ))
+          data.ready = await health(data);
+      }
       await save();
       if (config.bootstrap?.afterServiceKey === spec.key) {
         await check();
@@ -1175,28 +1317,10 @@ async function controllerFor({
           target.endpoints.find((e) => e.role === role).url,
         ).href;
       }
-      if (config.database) {
-        const databaseService = journal.services.find(
-          (s) =>
-            s.key === config.database.serviceKey &&
-            s.roles.includes("database"),
-        );
-        const proxy = journal.proxies.find(
-          (p) => p.serviceId === databaseService?.id,
-        );
-        assert.ok(proxy, "Owned database TCP proxy required");
-        const databaseUrl = new URL(
-          `postgresql://${proxy.domain}:${proxy.proxyPort}/${encodeURIComponent(config.database.database)}`,
-        );
-        databaseUrl.username = config.database.user;
-        databaseUrl.password = config.database.password;
-        resolved.databaseUrl = databaseUrl.href;
-      } else {
-        assert.ok(
-          !scope.databaseUrl,
-          "External databaseUrl cannot substitute for owned database",
-        );
-      }
+      assert.ok(
+        !scope.databaseUrl,
+        "External databaseUrl cannot substitute for private observations",
+      );
       if (scope.capture)
         resolved.capture = {
           ...scope.capture,
@@ -1264,7 +1388,7 @@ export async function recoverRailwayEnvironment(
       api: dependencies.api ?? railwayApi(),
       distribute: dependencies.distribute ?? distributeSnapshot,
       outputDir,
-      dependenciesExecute: dependencies.remote,
+      dependenciesExecute: dependencies.inspection,
       requestHealth: dependencies.fetch ?? fetch,
     });
     return await controller.cleanup();

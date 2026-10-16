@@ -58,6 +58,14 @@ jobs:
           context: ${{ runner.temp }}/rich-strands
           push: true
           tags: ghcr.io/copilotkit/rich-thread-strands:${{ github.sha }}
+      - name: Build and push private inspection worker image
+        id: inspector
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: ${{ runner.temp }}/rich-runner
+          file: ${{ runner.temp }}/rich-runner/tools/intelligence-smoke/rich-threads/lifecycle/railway/Inspector.Dockerfile
+          push: true
+          tags: ghcr.io/copilotkit/rich-thread-inspector:${{ github.sha }}
       - name: Build and push permanent Railway runner image
         id: runner
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
@@ -70,12 +78,13 @@ jobs:
         env:
           APP_DIGEST: ${{ steps.app.outputs.digest }}
           STRANDS_DIGEST: ${{ steps.strands.outputs.digest }}
+          INSPECTOR_DIGEST: ${{ steps.inspector.outputs.digest }}
           RUNNER_DIGEST: ${{ steps.runner.outputs.digest }}
         run: |
           node --input-type=module <<'NODE'
           import {writeFileSync, mkdirSync, copyFileSync} from 'node:fs';
           mkdirSync('candidate-build');
-          writeFileSync('candidate-build/image-candidates.json', JSON.stringify({revision:process.env.GITHUB_SHA, application:`ghcr.io/copilotkit/rich-thread-application@${process.env.APP_DIGEST}`, strands:`ghcr.io/copilotkit/rich-thread-strands@${process.env.STRANDS_DIGEST}`, runner:`ghcr.io/copilotkit/rich-thread-runner@${process.env.RUNNER_DIGEST}`, approved:false},null,2));
+          writeFileSync('candidate-build/image-candidates.json', JSON.stringify({revision:process.env.GITHUB_SHA, application:`ghcr.io/copilotkit/rich-thread-application@${process.env.APP_DIGEST}`, strands:`ghcr.io/copilotkit/rich-thread-strands@${process.env.STRANDS_DIGEST}`, runner:`ghcr.io/copilotkit/rich-thread-runner@${process.env.RUNNER_DIGEST}`, inspector:`ghcr.io/copilotkit/rich-thread-inspector@${process.env.INSPECTOR_DIGEST}`, approved:false},null,2));
           copyFileSync(`${process.env.RUNNER_TEMP}/rich-app/source.json`, 'candidate-build/application-source.json');
           copyFileSync(`${process.env.RUNNER_TEMP}/rich-strands/source-manifest.json`, 'candidate-build/strands-source.json');
           copyFileSync(`${process.env.RUNNER_TEMP}/rich-runner/source-manifest.json`, 'candidate-build/runner-source.json');

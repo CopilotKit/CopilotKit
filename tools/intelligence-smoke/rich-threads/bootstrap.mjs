@@ -57,7 +57,6 @@ export async function runConfiguredSuite({
     );
     const load = (name) => import(pathToFileURL(require.resolve(name)));
     const { chromium } = await load("playwright");
-    const pg = await load("pg");
     const { AbstractAgent } = await load("@ag-ui/client");
     const { from } = await load("rxjs");
     const { createEnvironment } = await import("./lifecycle/environment.mjs");
@@ -93,11 +92,8 @@ export async function runConfiguredSuite({
           createFixture: async ({ outputDir: frameworkOutput }) => {
             const intelligence = createIntelligence({
               scope,
-              pool: new (pg.Pool ?? pg.default.Pool)({
-                connectionString: scope.databaseUrl,
-                connectionTimeoutMillis: 10_000,
-                statement_timeout: 30_000,
-              }),
+              observation: (operation, threadId) =>
+                environment.observe(framework, operation, threadId),
             });
             const capture = createCapture({
               scope,

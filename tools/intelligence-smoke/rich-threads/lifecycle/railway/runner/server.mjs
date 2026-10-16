@@ -17,6 +17,8 @@ import { digest, policyDigest } from "../distribution.mjs";
 import { createScheduler } from "./scheduler.mjs";
 import { installBootstrap } from "./bootstrap-seed.mjs";
 
+import { inspectionHandler } from "../inspection-channel.mjs";
+
 const roles = ["image-gate", "ruby-promotion", "harness"];
 const idPattern = /^run-[a-f0-9-]{36}$/;
 const maxBytes = 32 * 1024 * 1024;
@@ -73,6 +75,9 @@ export function runnerServer({ root, config, token, scheduler }) {
     "Runner authentication required",
   );
   const expected = Buffer.from(`Bearer ${token}`);
+  const inspect = inspectionHandler({
+    controlDirectory: config.controlDirectory,
+  });
   return createServer(async (request, response) => {
     const send = (status, value, headers = {}) => {
       response.writeHead(status, {
@@ -86,6 +91,8 @@ export function runnerServer({ root, config, token, scheduler }) {
       const url = new URL(request.url, "http://runner");
       if (request.method === "GET" && url.pathname === "/health")
         return send(200, { service: "rich-threads-runner", alive: true });
+      if (url.pathname.startsWith("/inspection/"))
+        return await inspect(request, response);
       const auth = Buffer.from(request.headers.authorization ?? "");
       if (auth.length !== expected.length || !timingSafeEqual(auth, expected))
         return send(401, { error: "unauthorized" });

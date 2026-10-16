@@ -22,6 +22,12 @@ const config = () => ({
     serviceKey: "postgres",
     afterServiceKey: "composite",
   },
+  database: {
+    serviceKey: "postgres",
+    user: "postgres",
+    password: "private",
+    database: "owned",
+  },
   services: [
     {
       key: "postgres",
@@ -53,8 +59,7 @@ test("bootstrap requires pinned canonical source and deploy order before applica
   wrongOrder.services.reverse();
   assert.throws(() => validateBootstrap(wrongOrder));
   const external = config();
-  external.services[0].env.DATABASE_URL =
-    "postgresql://user:password@shared.example:5432/database";
+  external.database.serviceKey = "external";
   assert.throws(() => validateBootstrap(external));
   const absentEnv = config();
   delete absentEnv.services[0].env.BOOTSTRAP_CONFIG_B64;
