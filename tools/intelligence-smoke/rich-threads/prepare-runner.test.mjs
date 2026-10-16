@@ -14,6 +14,8 @@ test("runner staging binds committed source, compatibility, and policy identitie
     output = join(root, "output");
   await mkdir(source);
   const files = {
+    "tools/intelligence-smoke/rich-threads/trigger.mjs":
+      'import { pollRunStatus } from "../status-poll.mjs";\n',
     "package.json": '{"type":"module"}',
     "tools/intelligence-smoke/rich-threads/lifecycle/railway/runner/Dockerfile":
       "FROM node:24\n",
@@ -87,4 +89,45 @@ test("runner staging binds committed source, compatibility, and policy identitie
       .update(JSON.stringify(manifest.compatibilityFiles))
       .digest("hex"),
   );
+  const trigger = "tools/intelligence-smoke/rich-threads/trigger.mjs";
+  assert.equal(
+    manifest.files.some((file) => file.path === trigger),
+    false,
+  );
+  assert.equal(
+    manifest.compatibilityFiles.some((file) => file.path === trigger),
+    false,
+  );
+  await assert.rejects(readFile(join(output, trigger)), { code: "ENOENT" });
+  await writeFile(
+    join(source, trigger),
+    'import { pollRunStatus } from "../status-poll.mjs";\n// invocation-only change\n',
+  );
+  await exec("git", ["add", trigger], { cwd: source });
+  await exec(
+    "git",
+    [
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.invalid",
+      "commit",
+      "-qm",
+      "test: trigger only",
+    ],
+    { cwd: source },
+  );
+  const nextOutput = join(root, "next-output");
+  await exec(process.execPath, [
+    resolve("tools/intelligence-smoke/rich-threads/prepare-runner.mjs"),
+    "--source",
+    source,
+    "--output",
+    nextOutput,
+  ]);
+  const nextIdentity = JSON.parse(
+    await readFile(join(nextOutput, "runner-identity.json")),
+  );
+  assert.notEqual(nextIdentity.sourceRevision, identity.sourceRevision);
+  assert.equal(nextIdentity.compatibilitySha256, identity.compatibilitySha256);
 });

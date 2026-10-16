@@ -38,6 +38,8 @@ const { stdout: listing } = await execute(
 );
 const files = [];
 for (const path of listing.trim().split("\n")) {
+  // The GitHub invocation client is not a hosted runtime input.
+  if (path === "tools/intelligence-smoke/rich-threads/trigger.mjs") continue;
   if (
     path.startsWith("showcase/harness/src/shared/") &&
     !path.startsWith("showcase/harness/src/shared/railway-lifecycle")
