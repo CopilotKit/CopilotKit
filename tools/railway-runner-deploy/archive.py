@@ -1,4 +1,5 @@
 """Read bounded artifact files as data, without extracting paths or running code."""
+
 import base64
 import json
 import stat
@@ -6,8 +7,12 @@ import sys
 import zipfile
 
 allowed = {
-    "runner-identity.json", "runner-source.json", "image-candidates.json",
-    "application-source.json", "strands-source.json", "deployment-receipt.json",
+    "runner-identity.json",
+    "runner-source.json",
+    "image-candidates.json",
+    "application-source.json",
+    "strands-source.json",
+    "deployment-receipt.json",
 }
 try:
     result = {}
