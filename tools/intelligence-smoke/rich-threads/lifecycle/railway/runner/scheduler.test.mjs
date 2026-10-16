@@ -629,3 +629,209 @@ for (const pendingStatus of ["draining", "resumed"]) {
     await restarted.close();
   });
 }
+
+async function recoverySetup(t, overrides = {}) {
+  const { templateDigest } = await import("./deployment.mjs");
+  const root = await mkdtemp(join(tmpdir(), "runner-retained-"));
+  const config = { controlDirectory: join(root, "control") };
+  await mkdir(join(config.controlDirectory, "retained"), { recursive: true });
+  await durableJson(join(config.controlDirectory, "retained/journal.json"), {
+    runId: "retained",
+    phase: "cleanup",
+    intents: [],
+    cleanup: { status: "failed", deadlineExceeded: true },
+  });
+  const candidate = { ...targetIdentity, compatibilitySha256: "e".repeat(64) };
+  const authorization = {
+    operationId: "bounded-retry",
+    baselineIdentity: identity,
+    targetIdentity: candidate,
+    templateSha256: templateDigest(config),
+    runnerRunId: "old-run",
+    lifecycleRunId: "retained",
+  };
+  await durableJson(join(root, "deployment.json"), {
+    version: 1,
+    status: "draining",
+    ...authorization,
+    targetIdentity: identity,
+  });
+  await durableJson(join(root, "recovery.json"), {
+    version: 1,
+    authorization,
+    status: "prepared",
+  });
+  await durableJson(join(root, "scheduler.json"), {
+    version: 1,
+    active: "old-run",
+    blocked: true,
+  });
+  let watches = 0;
+  const options = {
+    root,
+    config,
+    runtimeIdentity: candidate,
+    recover: async (_config, { retainedRunId }) =>
+      assert.equal(retainedRunId, "retained"),
+    recoverRetained: async () => {
+      await durableJson(join(root, "recovery.json"), {
+        version: 1,
+        authorization,
+        status: "watching",
+      });
+    },
+    reconcileRetained: async () => {
+      watches++;
+      return "retained";
+    },
+    execute: async () => 0,
+    ...overrides,
+  };
+  const scheduler = await createScheduler(options);
+  t.after(async () => {
+    await scheduler.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  return {
+    root,
+    scheduler,
+    options,
+    request: {
+      operationId: authorization.operationId,
+      expectedRuntimeIdentity: candidate,
+    },
+    watches: () => watches,
+  };
+}
+
+test("bounded recovery retains its journal, fences restart, and watches every admission and completion", async (t) => {
+  const { root, scheduler, request, options, watches } = await recoverySetup(t);
+  assert.equal(watches(), 0);
+  await scheduler.tick();
+  assert.equal(watches(), 0);
+  assert.equal((await scheduler.start()).accepted, false);
+  await assert.rejects(scheduler.resume(request), /Explicit recovery/);
+  await assert.rejects(
+    scheduler.recover({ ...request, operationId: "other" }),
+    /owner/,
+  );
+  assert.equal((await scheduler.recover(request)).phase, "recovery-ready");
+  await assert.rejects(
+    scheduler.drain({
+      operationId: "ordinary",
+      targetIdentity: options.runtimeIdentity,
+    }),
+    /ordinary clean drain/,
+  );
+  await scheduler.close();
+  const restarted = await createScheduler(options);
+  t.after(() => restarted.close());
+  assert.equal(restarted.deployment().phase, "recovery-ready");
+  await restarted.resume(request);
+  const before = watches();
+  const run = await restarted.start();
+  assert.equal(run.accepted, true);
+  await run.completion;
+  assert.equal(watches(), before + 2);
+  assert.equal(
+    JSON.parse(await readFile(join(root, "control/retained/journal.json")))
+      .cleanup.status,
+    "failed",
+  );
+  await restarted.tick();
+  assert.equal(watches(), before + 3);
+  await restarted.close();
+});
+
+test("bounded recovery serializes transitions and incomplete inventory blocks resume and admission", async (t) => {
+  let release,
+    entered,
+    fail = false;
+  const started = new Promise((resolve) => {
+    entered = resolve;
+  });
+  const { scheduler, request, root } = await recoverySetup(t, {
+    recoverRetained: async ({ root: recoveryRoot }) => {
+      entered();
+      await new Promise((resolve) => {
+        release = resolve;
+      });
+      const path = join(recoveryRoot, "recovery.json");
+      const value = JSON.parse(await readFile(path));
+      await durableJson(path, { ...value, status: "watching" });
+    },
+    reconcileRetained: async () => {
+      if (fail) throw Error("incomplete inventory");
+      return "retained";
+    },
+  });
+  const recovering = scheduler.recover(request);
+  await started;
+  await assert.rejects(scheduler.recover(request), /busy/);
+  await assert.rejects(scheduler.resume(request), /in progress/);
+  assert.equal((await scheduler.start()).accepted, false);
+  release();
+  await recovering;
+  fail = true;
+  await assert.rejects(scheduler.resume(request), /Clean recovery/);
+  assert.equal(scheduler.deployment().blocked, true);
+  fail = false;
+  await scheduler.resume(request);
+  fail = true;
+  assert.equal((await scheduler.start()).reason, "cleanup-blocked");
+  assert.equal(
+    JSON.parse(await readFile(join(root, "deployment.json"))).status,
+    "resumed",
+  );
+});
+
+test("recovery skips only its watched journal and rejects unrelated unfinished ownership", async (t) => {
+  const { scheduler, root, request } = await recoverySetup(t);
+  const directory = join(root, "control", "unrelated");
+  await mkdir(directory);
+  await durableJson(join(directory, "journal.json"), {
+    runId: "unrelated",
+    phase: "setup",
+    intents: [],
+    cleanup: { status: "failed" },
+  });
+  await assert.rejects(scheduler.recover(request), /Unfinished ownership/);
+  assert.equal(scheduler.deployment().blocked, true);
+  assert.equal((await scheduler.start()).accepted, false);
+  assert.equal(
+    JSON.parse(await readFile(join(root, "control/retained/journal.json")))
+      .phase,
+    "cleanup",
+  );
+});
+
+test("deployment recovery receipt refreshes the durable watch hash after reconciliation", async (t) => {
+  const { templateDigest } = await import("./deployment.mjs");
+  const { scheduler, root, request } = await recoverySetup(t, {
+    reconcileRetained: async ({ root: recoveryRoot }) => {
+      const path = join(recoveryRoot, "recovery.json");
+      const state = JSON.parse(await readFile(path));
+      state.observationCount = (state.observationCount ?? 0) + 1;
+      state.lastVerifiedAt = new Date().toISOString();
+      state.oldJournalSha256 = "a".repeat(64);
+      await durableJson(path, state);
+      return "retained";
+    },
+  });
+  await scheduler.recover(request);
+  const receipt = scheduler.deployment().recovery;
+  const durable = JSON.parse(await readFile(join(root, "recovery.json")));
+  assert.equal(receipt.watchSha256, templateDigest(durable));
+  assert.equal(receipt.observationCount, 1);
+  assert.equal(receipt.lastVerifiedAt, durable.lastVerifiedAt);
+  assert.equal(receipt.operationId, request.operationId);
+  assert.equal(receipt.runnerRunId, "old-run");
+  assert.equal(receipt.providerFinality, "unknown");
+  assert.equal(receipt.originalStatus, "failed");
+  assert.equal(receipt.deadlineExceeded, true);
+  await scheduler.tick();
+  assert.notEqual(
+    scheduler.deployment().recovery.watchSha256,
+    receipt.watchSha256,
+  );
+});

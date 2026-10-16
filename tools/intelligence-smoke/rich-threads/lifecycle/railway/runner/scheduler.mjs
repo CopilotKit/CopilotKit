@@ -9,6 +9,11 @@ import {
   sameIdentity,
   templateDigest,
 } from "./deployment.mjs";
+import {
+  recoveryReceipt,
+  recoverRetainedIntent,
+  reconcileRetainedIntent,
+} from "../recovery.mjs";
 import { recoverSupervisor } from "../supervisor.mjs";
 import { recoverRailwayEnvironment } from "../environment.mjs";
 
@@ -55,7 +60,7 @@ async function ownershipEvidence(config) {
   return records;
 }
 
-export async function reconcile(config) {
+export async function reconcile(config, { retainedRunId = null } = {}) {
   const supervisor = await optionalJson(
     join(config.controlDirectory, "supervisor-lock/owner.json"),
   );
@@ -77,7 +82,7 @@ export async function reconcile(config) {
     const journal = await optionalJson(
       join(config.controlDirectory, entry.name, "journal.json"),
     );
-    if (journal)
+    if (journal && journal.runId !== retainedRunId)
       assert.ok(
         journal.phase === "complete" && journal.cleanup?.status === "passed",
         "Unfinished ownership journal blocks new runs",
@@ -93,6 +98,8 @@ export async function createScheduler({
   controller,
   execute = runController,
   recover = reconcile,
+  recoverRetained = recoverRetainedIntent,
+  reconcileRetained = reconcileRetainedIntent,
   clock = Date.now,
   scheduleEnabled = false,
   runtimeIdentity,
@@ -112,10 +119,48 @@ export async function createScheduler({
   };
   const deploymentPath = join(root, "deployment.json");
   let operation = await optionalJson(deploymentPath);
+  let recovery = await optionalJson(join(root, "recovery.json"));
+  if (recovery) {
+    assert.equal(
+      scheduleEnabled,
+      false,
+      "Retained recovery requires scheduling off",
+    );
+    assert.equal(recovery.version, 1);
+    const auth = recovery.authorization;
+    assert.equal(
+      operation?.operationId,
+      auth.operationId,
+      "Recovery owner mismatch",
+    );
+    assert.ok(sameIdentity(operation.baselineIdentity, auth.baselineIdentity));
+    assert.ok(sameIdentity(runtimeIdentity, auth.targetIdentity));
+    assert.equal(auth.templateSha256, templateDigest(config));
+    assert.ok(["prepared", "watching"].includes(recovery.status));
+    if (!operation.kind) {
+      assert.equal(operation.status, "draining");
+      assert.ok(sameIdentity(operation.targetIdentity, auth.baselineIdentity));
+      operation = {
+        ...operation,
+        kind: "bounded-environment-retry",
+        targetIdentity: auth.targetIdentity,
+      };
+      await persistDeployment(deploymentPath, operation);
+    }
+    assert.equal(operation.kind, "bounded-environment-retry");
+    assert.ok(sameIdentity(operation.targetIdentity, auth.targetIdentity));
+  }
   if (operation) {
     assert.equal(operation.version, 1);
-    assert.ok(["draining", "drained", "resumed"].includes(operation.status));
-    compatibleIdentity(operation.baselineIdentity, operation.targetIdentity);
+    assert.ok(
+      ["draining", "drained", "resumed", "recovery-ready"].includes(
+        operation.status,
+      ),
+    );
+    if (!recovery) {
+      assert.ok(!operation.kind, "Recovery authority missing");
+      compatibleIdentity(operation.baselineIdentity, operation.targetIdentity);
+    }
     assert.equal(operation.templateSha256, templateDigest(config));
     assert.ok(
       sameIdentity(runtimeIdentity, operation.baselineIdentity) ||
@@ -156,17 +201,20 @@ export async function createScheduler({
     runtimeIdentity,
     templateSha256: templateDigest(config),
     operation: operation ? structuredClone(operation) : null,
+    recovery: recoveryReceipt(recovery),
     phase: deploymentFailure
       ? "failed"
       : !fenced
         ? "running"
-        : operation?.status === "drained" &&
-            recoveredForDrain &&
-            !busy &&
-            !state.active &&
-            !state.blocked
-          ? "drained"
-          : "draining",
+        : operation?.status === "recovery-ready" && !busy && !state.blocked
+          ? "recovery-ready"
+          : operation?.status === "drained" &&
+              recoveredForDrain &&
+              !busy &&
+              !state.active &&
+              !state.blocked
+            ? "drained"
+            : "draining",
     busy,
     active: state.active,
     blocked: state.blocked,
@@ -175,6 +223,7 @@ export async function createScheduler({
   /** Persist readiness only after fresh recovery has proved ownership is clear. */
   async function certifyDrain() {
     if (
+      recovery ||
       !fenced ||
       closing ||
       resuming ||
@@ -192,6 +241,10 @@ export async function createScheduler({
   /** Claim a durable deployment owner and fence admissions before yielding. */
   async function drain({ operationId, targetIdentity }) {
     assert.ok(!closing, "Runner stopping; deployment transition refused");
+    assert.ok(
+      !recovery,
+      "Retained recovery cannot certify ordinary clean drain",
+    );
     assert.match(operationId, /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/);
     compatibleIdentity(runtimeIdentity, targetIdentity);
     if (operation?.operationId === operationId) {
@@ -221,6 +274,81 @@ export async function createScheduler({
     return deployment();
   }
   let resuming = false;
+  let recovering = false;
+  async function recoverBounded({ operationId, expectedRuntimeIdentity }) {
+    assert.ok(
+      !closing && !busy && !resuming && !recovering,
+      "Recovery transition busy or stopping",
+    );
+    assert.ok(
+      fenced && recovery && !deploymentFailure,
+      "Recovery fence required",
+    );
+    assert.equal(operation.operationId, operationId, "Recovery owner mismatch");
+    assert.ok(
+      sameIdentity(expectedRuntimeIdentity, runtimeIdentity),
+      "Runtime identity mismatch",
+    );
+    recovering = true;
+    busy = true;
+    try {
+      await recoverRetained({ root, config, operationId, runtimeIdentity });
+      recovery = await optionalJson(join(root, "recovery.json"));
+      assert.equal(recovery?.status, "watching");
+      assert.ok(
+        !state.active || state.active === recovery.authorization.runnerRunId,
+        "Unexpected active run",
+      );
+      state.active = null;
+      await reconcileOwnership();
+      state.blocked = false;
+      state.lastRecovery = {
+        status: "watching",
+        at: new Date(clock()).toISOString(),
+      };
+      await save();
+      const next = { ...operation, status: "recovery-ready" };
+      await persist(next);
+      operation = next;
+      recoveredForDrain = true;
+    } catch (error) {
+      state.blocked = true;
+      await save();
+      throw error;
+    } finally {
+      busy = false;
+      recovering = false;
+    }
+    return deployment();
+  }
+  async function reconcileOwnership() {
+    if (recovery)
+      assert.equal(recovery.status, "watching", "Explicit recovery required");
+    const retainedRunId = await reconcileRetained({ root, config });
+    if (recovery)
+      assert.equal(retainedRunId, recovery.authorization.lifecycleRunId);
+    else assert.equal(retainedRunId, null);
+    recovery = await optionalJson(join(root, "recovery.json"));
+    await recover(config, { retainedRunId });
+    if (config.controlDirectory) {
+      for (const path of [
+        "active-run/lease.json",
+        "supervisor-lock/owner.json",
+      ])
+        assert.equal(
+          await optionalJson(join(config.controlDirectory, path)),
+          null,
+          "Unfinished ownership blocks deployment",
+        );
+      for (const run of await ownershipEvidence(config))
+        if (run.runId !== retainedRunId)
+          assert.ok(
+            run.phase === "complete" && run.cleanup?.status === "passed",
+            "Unfinished ownership blocks deployment",
+          );
+    }
+    return retainedRunId;
+  }
   /** Restore admission only for the same owner and the verified running image. */
   async function resume({ operationId, expectedRuntimeIdentity }) {
     assert.ok(!closing, "Runner stopping; deployment transition refused");
@@ -239,10 +367,16 @@ export async function createScheduler({
       "Unexpected runtime identity",
     );
     assert.ok(
-      !deploymentFailure && !resuming,
+      !deploymentFailure && !resuming && !recovering,
       "Deployment persistence failed or resume in progress",
     );
     if (!fenced) return deployment();
+    if (recovery)
+      assert.equal(
+        operation.status,
+        "recovery-ready",
+        "Explicit recovery required",
+      );
     resuming = true;
     try {
       assert.ok(
@@ -268,33 +402,28 @@ export async function createScheduler({
     }
   }
   async function recoverIdle() {
-    if (busy) return false;
+    if (
+      busy ||
+      recovery?.status === "prepared" ||
+      (recovery && state.active === recovery.authorization.runnerRunId)
+    )
+      return false;
     busy = true;
     recoveredForDrain = false;
     try {
-      const before = state.active ? await ownershipEvidence(config) : [];
-      await recover(config);
-      if (config.controlDirectory) {
-        for (const path of [
-          "active-run/lease.json",
-          "supervisor-lock/owner.json",
-        ])
-          assert.equal(
-            await optionalJson(join(config.controlDirectory, path)),
-            null,
-            "Unfinished ownership blocks deployment",
-          );
-        for (const run of await ownershipEvidence(config))
-          assert.ok(
-            run.phase === "complete" && run.cleanup?.status === "passed",
-            "Unfinished ownership blocks deployment",
-          );
-      }
+      const before = state.active
+        ? (await ownershipEvidence(config)).filter(
+            (run) => run.runId !== recovery?.authorization.lifecycleRunId,
+          )
+        : [];
+      await reconcileOwnership();
       if (state.active) {
         const file = join(root, "results", state.active, "run.json");
         const prior = await optionalJson(file);
         assert.ok(prior, "Interrupted run evidence missing");
-        const after = await ownershipEvidence(config);
+        const after = (await ownershipEvidence(config)).filter(
+          (run) => run.runId !== recovery?.authorization.lifecycleRunId,
+        );
         await durableJson(
           join(root, "results", state.active, "recovery.json"),
           { before, after, recoveredAt: new Date(clock()).toISOString() },
@@ -355,7 +484,7 @@ export async function createScheduler({
       return { accepted: false, reason: "busy-or-recovery-required" };
     busy = true;
     try {
-      await recover(config);
+      await reconcileOwnership();
       state.blocked = false;
     } catch {
       state.blocked = true;
@@ -417,7 +546,7 @@ export async function createScheduler({
         }
         let cleanup = "failed";
         try {
-          await recover(config);
+          await reconcileOwnership();
           cleanup = "passed";
         } catch {
           failure = "Cleanup failed; new runs blocked";
@@ -458,15 +587,30 @@ export async function createScheduler({
       throw error;
     }
   }
-  await recoverIdle();
+  if (
+    recovery?.status === "prepared" ||
+    (recovery && state.active === recovery.authorization.runnerRunId)
+  ) {
+    state.blocked = true;
+    await save();
+  } else await recoverIdle();
   return {
     status: () => ({ ...state, busy, scheduleEnabled }),
     start,
     deployment,
     drain: (request) => trackTransition(drain(request)),
+    recover: (request) => trackTransition(recoverBounded(request)),
     resume: (request) => trackTransition(resume(request)),
     async tick() {
-      if (busy || closing || resuming) return;
+      if (
+        busy ||
+        closing ||
+        resuming ||
+        recovering ||
+        recovery?.status === "prepared" ||
+        (recovery && state.active === recovery.authorization.runnerRunId)
+      )
+        return;
       if (!(await recoverIdle())) return;
       if (!fenced && scheduleEnabled && clock() >= state.nextRunAt)
         await start("single");

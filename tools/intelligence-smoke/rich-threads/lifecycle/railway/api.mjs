@@ -243,7 +243,13 @@ export function railwayApi({
   async function list(kind, projectId) {
     const values = [];
     let after;
+    const cursors = new Set();
+    const ids = new Set();
+    let pages = 0;
+    const deadline = Date.now() + 40_000;
     do {
+      assert.ok(++pages <= 100, "Railway inventory page limit exceeded");
+      assert.ok(Date.now() < deadline, "Railway inventory deadline exceeded");
       const connection = (await request(kind, { projectId, after })).project[
         kind
       ];
@@ -252,14 +258,28 @@ export function railwayApi({
           typeof connection.pageInfo?.hasNextPage === "boolean",
         "Incomplete Railway inventory",
       );
-      values.push(...connection.edges.map((e) => e.node));
+      for (const edge of connection.edges) {
+        const value = edge?.node;
+        assert.ok(
+          value &&
+            typeof value.id === "string" &&
+            value.id.length &&
+            value.projectId === projectId &&
+            !ids.has(value.id),
+          "Malformed or duplicate Railway inventory entry",
+        );
+        ids.add(value.id);
+        values.push(value);
+      }
       if (!connection.pageInfo.hasNextPage) break;
       assert.ok(
-        connection.pageInfo.endCursor &&
-          connection.pageInfo.endCursor !== after,
+        typeof connection.pageInfo.endCursor === "string" &&
+          connection.pageInfo.endCursor.length &&
+          !cursors.has(connection.pageInfo.endCursor),
         "Railway pagination did not advance",
       );
       after = connection.pageInfo.endCursor;
+      cursors.add(after);
     } while (after);
     return values;
   }

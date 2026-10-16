@@ -56,6 +56,8 @@ function fakeProvider(options = {}) {
           volumeInstances: [],
         };
         state.environments.push(value);
+        if (options.lostEnvironmentResponse)
+          throw new Error("Lost environment response");
         return clone(value);
       }
       if (op === "createService") {
@@ -649,4 +651,118 @@ test("public proxy configuration remains forbidden before creation", async (t) =
     /Public database proxies are not allowed/,
   );
   assert.deepEqual(p.state.calls, []);
+});
+
+for (const lostEnvironmentResponse of [false, true]) {
+  test(`environment response lost=${lostEnvironmentResponse} requires complete CLI inventory`, async (t) => {
+    const f = await fixture(t);
+    const p = fakeProvider({ lostEnvironmentResponse });
+    const env = await createRailwayEnvironment(
+      { ...f, runId: "verified-environment", frameworks: ["mastra"] },
+      { ...f.dependencies, api: p.api },
+    );
+    const journal = JSON.parse(
+      await readFile(
+        join(f.directory, "verified-environment/journal.json"),
+        "utf8",
+      ),
+    );
+    const intents = journal.intents.filter(
+      (intent) => intent.kind === "createEnvironment",
+    );
+    assert.equal(intents.length, 2);
+    for (const intent of intents) {
+      assert.equal(intent.verification.length, 1);
+      assert.equal(intent.verification[0].complete, true);
+      assert.deepEqual(intent.verification[0].matchingIds, [intent.resultId]);
+      assert.equal(intent.reconciledFromProvider, lostEnvironmentResponse);
+    }
+    assert.equal(
+      p.state.calls.filter((op) => op === "createEnvironment").length,
+      2,
+    );
+    assert.equal((await env.cleanup()).status, "passed");
+  });
+}
+
+test("incomplete post-create inventory retains returned ID and blocks provisioning", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider();
+  const list = p.api.list;
+  p.api.list = async (kind) => {
+    if (kind === "environments" && p.state.calls.includes("createEnvironment"))
+      throw new Error("Incomplete inventory");
+    return list(kind);
+  };
+  await assert.rejects(
+    createRailwayEnvironment(
+      { ...f, runId: "incomplete-inventory", frameworks: ["mastra"] },
+      { ...f.dependencies, api: p.api },
+    ),
+    /setup and cleanup failed/,
+  );
+  const journal = JSON.parse(
+    await readFile(
+      join(f.directory, "incomplete-inventory/journal.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(journal.intents[0].resultId, p.state.environments[0].id);
+  assert.equal(journal.intents[0].verification[0].complete, false);
+  assert.deepEqual(p.state.calls, ["createEnvironment"]);
+});
+
+test("empty post-create inventory is bounded and preserves unresolved ownership", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider();
+  const list = p.api.list;
+  p.api.list = async (kind) => (kind === "environments" ? [] : list(kind));
+  await assert.rejects(
+    createRailwayEnvironment(
+      { ...f, runId: "invisible-environment", frameworks: ["mastra"] },
+      { ...f.dependencies, api: p.api },
+    ),
+    /setup and cleanup failed/,
+  );
+  const journal = JSON.parse(
+    await readFile(
+      join(f.directory, "invisible-environment/journal.json"),
+      "utf8",
+    ),
+  );
+  const intent = journal.intents[0];
+  assert.equal(intent.resultId, p.state.environments[0].id);
+  assert.equal(intent.status, "pending");
+  assert.equal(intent.verification.length, 3);
+  assert.ok(
+    intent.verification.every((v) => v.complete && v.matchingIds.length === 0),
+  );
+  assert.deepEqual(p.state.calls, ["createEnvironment"]);
+});
+
+test("wrong-source environment never gains cleanup ownership", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider();
+  const request = p.api.request;
+  p.api.request = async (op, args) => {
+    const value = await request(op, args);
+    if (op === "createEnvironment") {
+      p.state.environments[0].sourceEnvironment = { id: "foreign-source" };
+      value.sourceEnvironment = { id: "foreign-source" };
+    }
+    return value;
+  };
+  await assert.rejects(
+    createRailwayEnvironment(
+      { ...f, runId: "wrong-source", frameworks: ["mastra"] },
+      { ...f.dependencies, api: p.api },
+    ),
+    /setup and cleanup failed/,
+  );
+  const journal = JSON.parse(
+    await readFile(join(f.directory, "wrong-source/journal.json"), "utf8"),
+  );
+  assert.equal(journal.intents[0].verification[0].outcome, "conflict");
+  assert.equal(journal.environments.length, 0);
+  assert.deepEqual(p.state.calls, ["createEnvironment"]);
 });

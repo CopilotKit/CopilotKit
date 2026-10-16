@@ -101,7 +101,11 @@ export function runnerServer({ root, config, token, scheduler }) {
         return send(200, scheduler.deployment());
       if (
         request.method === "POST" &&
-        ["/deployment/drain", "/deployment/resume"].includes(url.pathname)
+        [
+          "/deployment/drain",
+          "/deployment/resume",
+          "/deployment/recover",
+        ].includes(url.pathname)
       ) {
         const body = await jsonBody(request);
         const draining = url.pathname.endsWith("/drain");
@@ -114,7 +118,13 @@ export function runnerServer({ root, config, token, scheduler }) {
         try {
           return send(
             200,
-            await scheduler[draining ? "drain" : "resume"](body),
+            await scheduler[
+              draining
+                ? "drain"
+                : url.pathname.endsWith("/recover")
+                  ? "recover"
+                  : "resume"
+            ](body),
           );
         } catch (error) {
           if (
@@ -273,6 +283,9 @@ export async function main(env = process.env) {
     root,
     template,
     runtimeIdentity,
+    recoveryAuthorization: env.RICH_RECOVERY_AUTHORIZATION_JSON
+      ? JSON.parse(env.RICH_RECOVERY_AUTHORIZATION_JSON)
+      : undefined,
   });
   for (const path of ["private", "control", "results"])
     await mkdir(join(root, path), { recursive: true, mode: 0o700 });
