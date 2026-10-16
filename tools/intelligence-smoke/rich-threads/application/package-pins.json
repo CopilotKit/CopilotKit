@@ -1,0 +1,16 @@
+{
+  "@copilotkit/a2ui-renderer": "1.77.0",
+  "@copilotkit/react-core": "1.77.0",
+  "@copilotkit/react-ui": "1.77.0",
+  "@copilotkit/runtime": "1.77.0",
+  "@copilotkit/shared": "1.77.0",
+  "@copilotkit/sdk-js": "1.77.0",
+  "@copilotkit/core": "1.77.0",
+  "@copilotkit/web-inspector": "1.77.0",
+  "@copilotkit/web-components": "1.77.0",
+  "@copilotkit/mcp-apps-renderer": "1.77.0",
+  "@ag-ui/core": "1.0.2",
+  "@ag-ui/client": "1.0.2",
+  "@ag-ui/encoder": "1.0.2",
+  "@ag-ui/mastra": "1.1.5"
+}

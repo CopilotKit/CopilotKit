@@ -1,0 +1,81 @@
+{
+  "observedAt": "2026-10-12T12:02:18.631Z",
+  "source": "Read-only Railway staging service source.image metadata; OCI manifests and config verified by SHA-256. No resource mutation.",
+  "approvalStatus": "NOT_APPROVED",
+  "candidates": [
+    {
+      "role": "composite",
+      "observedReference": "ghcr.io/copilotkit/intelligence/composite@sha256:1bc9dbc634a8b713af7dcf19266eb2b514cdfa3c7e7858476a6ebe5fced45f1d",
+      "candidate": "ghcr.io/copilotkit/intelligence/composite@sha256:1bc9dbc634a8b713af7dcf19266eb2b514cdfa3c7e7858476a6ebe5fced45f1d",
+      "manifestDigest": "sha256:1bc9dbc634a8b713af7dcf19266eb2b514cdfa3c7e7858476a6ebe5fced45f1d",
+      "linuxAmd64Manifest": "sha256:cdebd0c888743a970e30007d3be8529631ee2929fc4c3806207ef4e709eb556e",
+      "configDigest": "sha256:9bbf4f0e85b6aa1a9b4250cb2018dde051751bc5b2a5e510f4fb1c290693f880",
+      "created": "2026-10-01T23:55:03.410675189Z",
+      "provenance": {
+        "org.opencontainers.image.revision": "f1d326e8e6924da8186cf1d3d23277cc8bda80de",
+        "org.opencontainers.image.source": "https://github.com/CopilotKit/Intelligence",
+        "org.opencontainers.image.version": "0.13.9"
+      },
+      "approval": "REQUIRES_INDEPENDENT_REVIEW",
+      "suitability": "Existing shared-service image observed read-only; do not reuse shared stores."
+    },
+    {
+      "role": "postgres",
+      "observedReference": "ghcr.io/copilotkit/intelligence/postgres-pgvector@sha256:91c40627db16d6d6c4e3c284c69c01ccdfd9172fac89e1b7d453ebb01127c205",
+      "candidate": "ghcr.io/copilotkit/intelligence/postgres-pgvector@sha256:91c40627db16d6d6c4e3c284c69c01ccdfd9172fac89e1b7d453ebb01127c205",
+      "manifestDigest": "sha256:91c40627db16d6d6c4e3c284c69c01ccdfd9172fac89e1b7d453ebb01127c205",
+      "linuxAmd64Manifest": "sha256:c8f794e94b75e7ace88d87a480f9daadd31819420c9c88c60b7a214c6c79657d",
+      "configDigest": "sha256:537cf5a82be2be2ac4cb075cbed4c81f3e8ee2eb64aa7a850fb7c92b20ef85e4",
+      "created": "2026-10-02T00:09:49.075659936Z",
+      "provenance": {
+        "org.opencontainers.image.created": "2024-12-03T14:20:16Z",
+        "org.opencontainers.image.revision": "f1d326e8e6924da8186cf1d3d23277cc8bda80de",
+        "org.opencontainers.image.source": "https://github.com/CopilotKit/Intelligence",
+        "org.opencontainers.image.version": "0.13.9"
+      },
+      "approval": "REQUIRES_INDEPENDENT_REVIEW",
+      "suitability": "Existing shared-service image observed read-only; do not reuse shared stores."
+    },
+    {
+      "role": "redis",
+      "observedReference": "docker.io/bitnamilegacy/redis@sha256:a25b5d07a14ec13730022c7cd9bab6308d55ccd86b74af7315553c17be884889",
+      "candidate": "docker.io/bitnamilegacy/redis@sha256:a25b5d07a14ec13730022c7cd9bab6308d55ccd86b74af7315553c17be884889",
+      "manifestDigest": "sha256:a25b5d07a14ec13730022c7cd9bab6308d55ccd86b74af7315553c17be884889",
+      "linuxAmd64Manifest": "sha256:fbdf361bbb6a17be28913fb9e4a1cfe3244331d2cbf449ecfe7a1fbbab02efc4",
+      "configDigest": "sha256:19e119b1976bbe70116c266b30805e63c024a7e79768c6449668439d8360923d",
+      "created": "2025-04-24T08:32:16.561552141Z",
+      "provenance": {
+        "org.opencontainers.image.created": "2025-04-24T08:31:07Z",
+        "org.opencontainers.image.source": "https://github.com/bitnami/containers/tree/main/bitnami/redis",
+        "org.opencontainers.image.version": "7.4.3"
+      },
+      "approval": "REQUIRES_INDEPENDENT_REVIEW",
+      "suitability": "Existing shared-service image observed read-only; do not reuse shared stores."
+    },
+    {
+      "role": "mastra",
+      "observedReference": "ghcr.io/copilotkit/showcase-mastra:latest",
+      "status": "UNRESOLVED",
+      "reason": "The expression evaluated to a falsy value:\n\n  assert.ok(auth.ok)\n"
+    },
+    {
+      "role": "strands-typescript",
+      "observedReference": "ghcr.io/copilotkit/showcase-strands-typescript:latest",
+      "candidate": "ghcr.io/copilotkit/showcase-strands-typescript@sha256:e56022352f82386913fd9f85b382af2834398ee6cc85eb3046d1a7291bf7c93e",
+      "manifestDigest": "sha256:e56022352f82386913fd9f85b382af2834398ee6cc85eb3046d1a7291bf7c93e",
+      "linuxAmd64Manifest": "sha256:83a4cd363aa6756608b645004309d35168e65959f5405f5943fe965bad906a77",
+      "configDigest": "sha256:0926022a365636d2684afe3cb86319f7fea8b4692ed25355f4bd23e957e6a585",
+      "created": "2026-10-09T23:21:53.560063713Z",
+      "provenance": {
+        "org.opencontainers.image.revision": "04bc56aeff506d8d529fe3ebd4b1b442c49fdee5"
+      },
+      "approval": "REQUIRES_INDEPENDENT_REVIEW",
+      "suitability": "Existing Showcase image candidate only; durable native wiring and rich acceptance application require separately built artifacts."
+    }
+  ],
+  "missingArtifacts": [
+    "rich acceptance application/runtime with authenticated capture endpoint",
+    "Mastra durable native acceptance backend",
+    "Strands TypeScript durable native acceptance backend"
+  ]
+}
