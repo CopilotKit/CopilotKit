@@ -68,7 +68,7 @@ export interface GenerativeUIComponentDefinition {
   /**
    * Props that the component can write. Each one gets a setter prop named
    * `set` + the prop name: `value` gets `setValue`. When the model binds the
-   * prop to `{ path }`, the setter writes the surface data model at that
+   * prop to `{ "@path" }`, the setter writes the surface data model at that
    * path, and the agent can no longer change that path. Else the setter
    * changes local state only.
    */

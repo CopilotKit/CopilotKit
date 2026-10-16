@@ -72,7 +72,14 @@ describe("standard media", () => {
   it("reads the Image src from the data model", async () => {
     const view = renderSurface(
       ui,
-      [{ id: "root", component: "Image", src: { path: "/url" }, alt: "bound" }],
+      [
+        {
+          id: "root",
+          component: "Image",
+          src: { "@path": "/url" },
+          alt: "bound",
+        },
+      ],
       { url: "https://example.com/b.png" },
     );
     expect((await view.findByAltText("bound")).getAttribute("src")).toBe(

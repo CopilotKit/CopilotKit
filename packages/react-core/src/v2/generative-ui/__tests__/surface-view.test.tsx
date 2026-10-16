@@ -98,6 +98,9 @@ function Badge({ count }: { count: number }) {
 function Counter({ value }: { value: number }) {
   return <span data-testid="counter">{value}</span>;
 }
+function Position({ index }: { index?: number }) {
+  return <span data-testid="position">{index ?? "none"}</span>;
+}
 function CartIds({ ids }: { ids: string[] }) {
   cartIdsRenders++;
   return <span data-testid="cart-ids">{ids.join(",")}</span>;
@@ -192,6 +195,10 @@ const ui = createGenerativeUI({
     // `count` is bound by name to the `count` state key.
     Badge: { component: Badge, props: z.object({ count: z.number() }) },
     Counter: { component: Counter, props: z.object({ value: z.number() }) },
+    Position: {
+      component: Position,
+      props: z.object({ index: z.number().optional() }),
+    },
     // The selector returns a new array on each call.
     CartIds: {
       component: CartIds,
@@ -251,15 +258,15 @@ function CartState({ cart }: { cart: Cart }) {
 
 const S = "s1";
 const create: A2UIOperation = {
-  version: "v0.9",
+  version: "v1.0",
   createSurface: { surfaceId: S, catalogId: "shop" },
 };
 const nodes = (...components: A2UIComponentNode[]): A2UIOperation => ({
-  version: "v0.9",
+  version: "v1.0",
   updateComponents: { surfaceId: S, components },
 });
 const data = (path: string, value: unknown): A2UIOperation => ({
-  version: "v0.9",
+  version: "v1.0",
   updateDataModel: { surfaceId: S, path, value },
 });
 const content = (operations: A2UIOperation[]): GenerativeUISurfaceContent => ({
@@ -368,7 +375,9 @@ describe("SurfaceView", () => {
         component: "Card",
         productId: "root",
         name: "A",
-        onPick: { functionCall: { call: "addToCart", args: { quantity: 2 } } },
+        onPick: {
+          functionCall: { "@call": "addToCart", args: { quantity: 2 } },
+        },
       }),
     );
     await act(async () => fireEvent.click(screen.getByText("pick root")));
@@ -388,7 +397,7 @@ describe("SurfaceView", () => {
         productId: "root",
         name: "A",
         onPick: {
-          event: { name: "more", context: { selected: { path: "/sel" } } },
+          event: { name: "more", context: { selected: { "@path": "/sel" } } },
         },
       }),
     );
@@ -422,7 +431,7 @@ describe("SurfaceView", () => {
           component: "Card",
           productId: "ok",
           name: "Fine",
-          onPick: { functionCall: { call: "addToCart" } },
+          onPick: { functionCall: { "@call": "addToCart" } },
         },
       ),
     );
@@ -447,11 +456,24 @@ describe("SurfaceView", () => {
     expect(screen.getByText("survived v2")).toBeTruthy();
   });
 
+  it("gives an @index prop outside of a template no value, without an error", () => {
+    const { push, reportError } = setup();
+    push(
+      nodes({
+        id: "root",
+        component: "Position",
+        index: { "@call": "@index" },
+      }),
+    );
+    expect(screen.getByTestId("position").textContent).toBe("none");
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
   it("shows a local fallback when bound data has the wrong type", () => {
     const { push, reportError } = setup();
     push(
       data("/n", "many"),
-      nodes({ id: "root", component: "Counter", value: { path: "/n" } }),
+      nodes({ id: "root", component: "Counter", value: { "@path": "/n" } }),
     );
     expect(alertText()).toMatch(/value/);
     expect(reportError).toHaveBeenCalledWith(
@@ -522,7 +544,7 @@ describe("SurfaceView", () => {
       data("/n", 1),
       nodes(
         { id: "root", component: "Grid", children: ["counter", "racer"] },
-        { id: "counter", component: "Counter", value: { path: "/n" } },
+        { id: "counter", component: "Counter", value: { "@path": "/n" } },
         { id: "racer", component: "Racer" },
       ),
     );
@@ -540,7 +562,7 @@ describe("SurfaceView", () => {
       nodes(
         { id: "root", component: "Grid", children: ["bomb", "bad"] },
         { id: "bomb", component: "Bomb", label: "b1" },
-        { id: "bad", component: "Counter", value: { path: "/missing" } },
+        { id: "bad", component: "Counter", value: { "@path": "/missing" } },
       ),
     );
     expect(reportError).toHaveBeenCalled();
@@ -736,7 +758,7 @@ describe("SurfaceView", () => {
         nodes({
           id: "root",
           component: "TextField",
-          value: { path: "/form/email" },
+          value: { "@path": "/form/email" },
         }),
       );
       type(inputs()[0]!, "me@x.io");
@@ -762,7 +784,7 @@ describe("SurfaceView", () => {
     const grid = (template: { componentId: string; path: string }) =>
       nodes({ id: "root", component: "Grid", children: template });
     const label = (id: string, path: string) =>
-      nodes({ id, component: "Text", label: { path } });
+      nodes({ id, component: "Text", label: { "@path": path } });
 
     it("renders the component once per item, with relative bindings", () => {
       const { push } = setup();
@@ -788,7 +810,7 @@ describe("SurfaceView", () => {
         nodes({
           id: "group",
           component: "Section",
-          title: { path: "title" },
+          title: { "@path": "title" },
           children: { componentId: "row", path: "rows" },
         }),
         label("row", "name"),
@@ -802,13 +824,60 @@ describe("SurfaceView", () => {
       push(
         data("/items", [{ name: "A" }, { name: "B" }]),
         grid({ componentId: "field", path: "/items" }),
-        nodes({ id: "field", component: "TextField", value: { path: "name" } }),
+        nodes({
+          id: "field",
+          component: "TextField",
+          value: { "@path": "name" },
+        }),
       );
       type(inputs()[1]!, "B2");
       expect(
         manager.getSurface("t1", S)!.model.dataModel.get("/items"),
       ).toEqual([{ name: "A" }, { name: "B2" }]);
       expect(inputs().map((input) => input.value)).toEqual(["A", "B2"]);
+    });
+
+    it("gives an @index prop the item index plus the offset", () => {
+      const { push } = setup();
+      push(
+        data("/items", [{ name: "A" }, { name: "B" }]),
+        grid({ componentId: "pos", path: "/items" }),
+        nodes({
+          id: "pos",
+          component: "Position",
+          index: { "@call": "@index", args: { offset: 1 } },
+        }),
+      );
+      expect(texts(screen.getByTestId("grid"))).toEqual(["1", "2"]);
+    });
+
+    it("forwards the userMessage of an item, read from a relative @path", async () => {
+      const { push, forwardEvent } = setup();
+      push(
+        data("/items", [{ note: "I pick A" }, { note: "I pick B" }]),
+        grid({ componentId: "card", path: "/items" }),
+        nodes({
+          id: "card",
+          component: "Card",
+          productId: "p1",
+          name: "Plan",
+          onPick: {
+            event: { name: "pick", userMessage: { "@path": "note" } },
+          },
+        }),
+      );
+      const buttons = screen.getAllByText("pick p1");
+      await act(async () => fireEvent.click(buttons[1]!));
+      expect(forwardEvent).toHaveBeenCalledExactlyOnceWith(
+        {
+          name: "pick",
+          surfaceId: S,
+          componentId: "card",
+          userMessage: "I pick B",
+          context: { productId: "p1" },
+        },
+        "default",
+      );
     });
 
     it.each([

@@ -3,11 +3,12 @@ import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { RunAgentInput } from "@ag-ui/client";
-import { GENERATIVE_UI_MARKDOWN_GUIDELINES } from "@copilotkit/shared";
-import type {
-  CopilotKitUIEnvelope,
-  GenerativeUISurfaceContent,
+import {
+  GENERATIVE_UI_MARKDOWN_GUIDELINES,
+  envelopeToManifest,
+  readCopilotKitUIEnvelope,
 } from "@copilotkit/shared";
+import type { GenerativeUISurfaceContent } from "@copilotkit/shared";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { useCopilotKit } from "../../context";
 import { useFrontendTool } from "../../hooks/use-frontend-tool";
@@ -104,8 +105,14 @@ async function runOnce(copilotkit: CopilotKit, agent: CapturingAgent) {
   return CapturingAgent.inputs[index];
 }
 
-function envelopeOf(input: RunAgentInput): CopilotKitUIEnvelope | undefined {
-  return input.forwardedProps?.copilotkit?.ui;
+/** The envelope of a run, read the way the runtime reads it. */
+function envelopeOf(input: RunAgentInput) {
+  return readCopilotKitUIEnvelope(input.forwardedProps);
+}
+
+/** The one inline catalog of the envelope of a run. */
+function catalogOf(input: RunAgentInput) {
+  return envelopeOf(input)?.["v1.0"].inlineCatalogs?.[0];
 }
 
 function buttonSurface(surfaceId: string): GenerativeUISurfaceContent {
@@ -116,12 +123,29 @@ function buttonSurface(surfaceId: string): GenerativeUISurfaceContent {
     status: "ready",
     rejected: [],
     operations: [
-      { version: "v0.9", createSurface: { surfaceId, catalogId: "shop" } },
+      { version: "v1.0", createSurface: { surfaceId, catalogId: "shop" } },
       {
-        version: "v0.9",
+        version: "v1.0",
         updateComponents: {
           surfaceId,
           components: [{ id: "root", component: "Button", label: "Buy now" }],
+        },
+      },
+    ],
+  };
+}
+
+/** A surface whose root is a component that the catalog does not have. */
+function missingRootSurface(surfaceId: string): GenerativeUISurfaceContent {
+  return {
+    ...buttonSurface(surfaceId),
+    operations: [
+      { version: "v1.0", createSurface: { surfaceId, catalogId: "shop" } },
+      {
+        version: "v1.0",
+        updateComponents: {
+          surfaceId,
+          components: [{ id: "root", component: "Missing" }],
         },
       },
     ],
@@ -191,24 +215,8 @@ describe("useGenerativeUIRoot", () => {
     ).not.toThrow();
 
     // A rejected operation reports from inside ingestion, which must survive too.
-    const content: GenerativeUISurfaceContent = {
-      ...buttonSurface("s1"),
-      operations: [
-        {
-          version: "v0.9",
-          createSurface: { surfaceId: "s1", catalogId: "shop" },
-        },
-        {
-          version: "v0.9",
-          updateComponents: {
-            surfaceId: "s1",
-            components: [{ id: "root", component: "Missing" }],
-          },
-        },
-      ],
-    };
     expect(() =>
-      runtime.manager.ingest("t1", "default", content),
+      runtime.manager.ingest("t1", "default", missingRootSurface("s1")),
     ).not.toThrow();
 
     expect(onError).toHaveBeenCalledTimes(2);
@@ -223,42 +231,100 @@ describe("useGenerativeUIRoot", () => {
   });
 
   describe("envelope", () => {
-    it("sends the tool envelope with the components and no instructions", async () => {
+    it("sends the tool envelope in the v1.0 capabilities shape, with the components and no instructions", async () => {
       const { copilotkit, agent } = setup();
 
       const envelope = envelopeOf(await runOnce(copilotkit, agent));
 
-      expect(envelope).toEqual({
-        method: "a2ui",
-        version: "v0.9",
-        format: 2,
-        transport: "tool",
-        catalog: {
-          id: "shop",
-          version: expect.stringMatching(/^fnv1a:[0-9a-f]{8}$/),
-          components: {
-            Box: expect.any(Object),
-            Button: expect.any(Object),
+      expect(envelope).toStrictEqual({
+        "v1.0": {
+          supportedCatalogIds: ["shop"],
+          inlineCatalogs: [
+            {
+              catalogId: "shop",
+              protocolVersion: "1.0",
+              components: {
+                Box: expect.any(Object),
+                Button: expect.any(Object),
+              },
+              functions: {},
+            },
+          ],
+        },
+        metadata: {
+          extensions: {
+            copilotkit_format: 3,
+            copilotkit_transport: "tool",
+            copilotkit_targets: [{ id: "chat", kind: "chat" }],
+            copilotkit_surfaces: {},
+            copilotkit_contextSent: false,
           },
         },
-        functions: {},
+      });
+    });
+
+    it("sends an envelope that the runtime turns back into the manifest of the client", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { copilotkit, agent, runtime, setHandler } = setup();
+      setHandler(() => "applied");
+      act(() =>
+        runtime.manager.ingest(
+          agent.threadId,
+          "default",
+          missingRootSurface("s1"),
+        ),
+      );
+
+      const envelope = envelopeOf(await runOnce(copilotkit, agent));
+
+      expect(envelope && envelopeToManifest(envelope)).toEqual({
+        catalogId: "shop",
+        components: {
+          Box: expect.any(Object),
+          Button: {
+            props: expect.objectContaining({
+              properties: {
+                label: expect.objectContaining({ type: "string" }),
+              },
+            }),
+          },
+        },
+        functions: {
+          applyCoupon: {
+            parameters: expect.objectContaining({
+              properties: { code: expect.objectContaining({ type: "string" }) },
+            }),
+          },
+        },
         targets: [{ id: "chat", kind: "chat" }],
-        surfaces: {},
+        surfaces: {
+          s1: {
+            target: "chat",
+            rejected: [
+              'operation 1: component "root": unknown component "Missing"',
+            ],
+          },
+        },
+        transport: "tool",
         contextSent: false,
+        instructions: undefined,
+        hasComponents: true,
       });
     });
 
     it("sends the markdown envelope with the guideline, and with the components by default", async () => {
       const { copilotkit, agent } = setup({ ui, transport: "markdown" });
 
-      const envelope = envelopeOf(await runOnce(copilotkit, agent));
+      const input = await runOnce(copilotkit, agent);
 
-      expect(envelope).toMatchObject({
-        transport: "markdown",
-        instructions: GENERATIVE_UI_MARKDOWN_GUIDELINES,
-        contextSent: true,
+      expect(envelopeOf(input)?.metadata.extensions).toMatchObject({
+        copilotkit_transport: "markdown",
+        copilotkit_contextSent: true,
       });
-      expect(Object.keys(envelope?.catalog.components ?? {})).toEqual([
+      expect(catalogOf(input)?.instructions).toBe(
+        GENERATIVE_UI_MARKDOWN_GUIDELINES,
+      );
+      expect(Object.keys(catalogOf(input)?.components ?? {})).toEqual([
         "Box",
         "Button",
       ]);
@@ -272,13 +338,17 @@ describe("useGenerativeUIRoot", () => {
         sendContext: false,
       });
 
-      const envelope = envelopeOf(await runOnce(copilotkit, agent));
+      const input = await runOnce(copilotkit, agent);
 
-      expect(envelope?.catalog).toEqual({
-        id: "shop",
-        version: expect.stringMatching(/^fnv1a:/),
+      expect(catalogOf(input)).toStrictEqual({
+        catalogId: "shop",
+        protocolVersion: "1.0",
+        functions: {},
+        instructions: GENERATIVE_UI_MARKDOWN_GUIDELINES,
       });
-      expect(envelope?.contextSent).toBe(false);
+      expect(
+        envelopeOf(input)?.metadata.extensions.copilotkit_contextSent,
+      ).toBe(false);
     });
 
     it("sends the envelope only to the agents in agentIds", async () => {
@@ -290,7 +360,7 @@ describe("useGenerativeUIRoot", () => {
       const listed = await runOnce(copilotkit, agent);
       const unlisted = await runOnce(copilotkit, other);
 
-      expect(envelopeOf(listed)?.catalog.id).toBe("shop");
+      expect(catalogOf(listed)?.catalogId).toBe("shop");
       expect(unlisted.forwardedProps).not.toHaveProperty("copilotkit");
     });
 
@@ -342,7 +412,7 @@ describe("useGenerativeUIRoot", () => {
 
       void copilotkit.runAgent({ agent });
       await waitFor(() => expect(CapturingAgent.inputs).toHaveLength(1));
-      expect(envelopeOf(CapturingAgent.inputs[0])?.catalog.id).toBe("shop");
+      expect(catalogOf(CapturingAgent.inputs[0])?.catalogId).toBe("shop");
 
       agent.emit(runStartedEvent());
       agent.emit(
@@ -361,7 +431,7 @@ describe("useGenerativeUIRoot", () => {
       await waitFor(() => expect(CapturingAgent.inputs).toHaveLength(2));
       const followUp = CapturingAgent.inputs[1];
       expect(followUp.forwardedProps.userId).toBe("b");
-      expect(envelopeOf(followUp)?.catalog.id).toBe("shop");
+      expect(catalogOf(followUp)?.catalogId).toBe("shop");
     });
   });
 

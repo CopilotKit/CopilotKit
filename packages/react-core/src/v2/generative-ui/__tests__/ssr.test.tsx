@@ -58,11 +58,11 @@ function surfaceWith(root: A2UIComponentNode) {
     catalogId: "shop",
     operations: [
       {
-        version: "v0.9",
+        version: "v1.0",
         createSurface: { surfaceId: "s1", catalogId: "shop" },
       },
       {
-        version: "v0.9",
+        version: "v1.0",
         updateComponents: { surfaceId: "s1", components: [root] },
       },
     ],

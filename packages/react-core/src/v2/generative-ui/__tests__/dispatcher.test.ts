@@ -92,6 +92,26 @@ describe("createGenerativeUIDispatcher", () => {
     });
   });
 
+  it("gives onError the functionCallId of a call that the agent made", async () => {
+    const { dispatcher, onError } = setup({
+      addToCart: { parameters: cartSchema },
+    });
+    const agentCall = { functionCallId: "f1" };
+
+    const result = await dispatcher.invoke(
+      "addToCart",
+      { productId: "p1" },
+      agentCall,
+    );
+
+    expect(!result.ok && result.error.code).toBe("function_not_found");
+    expect(onError).toHaveBeenCalledExactlyOnceWith({
+      name: "addToCart",
+      origin: { functionCallId: "f1" },
+      error: expect.objectContaining({ code: "function_not_found" }),
+    });
+  });
+
   it("returns invalid_arguments when the schema itself throws", async () => {
     const { dispatcher } = setup({
       addToCart: {

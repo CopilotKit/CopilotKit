@@ -45,11 +45,11 @@ const ui = createGenerativeUI({
 });
 
 const create: A2UIOperation = {
-  version: "v0.9",
+  version: "v1.0",
   createSurface: { surfaceId: "recs", catalogId: "shop" },
 };
 const update = (...components: A2UIComponentNode[]): A2UIOperation => ({
-  version: "v0.9",
+  version: "v1.0",
   updateComponents: { surfaceId: "recs", components },
 });
 const grid = (children: string[]) =>
@@ -65,8 +65,20 @@ const card = (id: string, extra: Record<string, unknown> = {}) =>
 const badge = (extra: Record<string, unknown> = {}) =>
   update({ id: "badge", component: "CartBadge", label: "Cart", ...extra });
 const data = (path: string, value: unknown): A2UIOperation => ({
-  version: "v0.9",
+  version: "v1.0",
   updateDataModel: { surfaceId: "recs", path, value },
+});
+const remove: A2UIOperation = {
+  version: "v1.0",
+  deleteSurface: { surfaceId: "recs" },
+};
+const inlineCreate = (
+  extra: Partial<
+    Extract<A2UIOperation, { createSurface: unknown }>["createSurface"]
+  >,
+): A2UIOperation => ({
+  version: "v1.0",
+  createSurface: { surfaceId: "recs", catalogId: "shop", ...extra },
 });
 const content = (
   operations: A2UIOperation[],
@@ -86,6 +98,13 @@ function managerWith(operations: A2UIOperation[]) {
   const manager = new GenerativeUISurfaceManager(ui);
   manager.ingest("t1", "default", content(operations));
   return { manager, surface: manager.getSurface("t1", "recs")! };
+}
+
+/** A manager that reports each rejection to `onOperationRejected`. */
+function managerWithRejections() {
+  const onOperationRejected = vi.fn();
+  const manager = new GenerativeUISurfaceManager(ui, { onOperationRejected });
+  return { manager, onOperationRejected };
 }
 
 function listen(manager: GenerativeUISurfaceManager) {
@@ -135,10 +154,7 @@ describe("GenerativeUISurfaceManager", () => {
   });
 
   it("rejects an invalid operation and keeps applying its siblings", () => {
-    const onOperationRejected = vi.fn();
-    const manager = new GenerativeUISurfaceManager(ui, {
-      onOperationRejected,
-    });
+    const { manager, onOperationRejected } = managerWithRejections();
     const bad = update({ id: "x", component: "Nope" });
     manager.ingest("t1", "default", content([create, bad, grid([])]));
     const surface = manager.getSurface("t1", "recs")!;
@@ -215,15 +231,154 @@ describe("GenerativeUISurfaceManager", () => {
     });
   });
 
-  it("accepts path bindings and functionCall bindings to unknown functions", () => {
+  it("accepts @path and @index props, and functionCall bindings to unknown functions", () => {
     const { surface } = managerWith([
       create,
       card("c1", {
-        price: { path: "/p" },
-        onShare: { functionCall: { call: "gone", args: {} } },
+        name: { "@path": "/name" },
+        price: { "@call": "@index", args: { offset: 1 } },
+        onShare: { functionCall: { "@call": "gone", args: {} } },
       }),
     ]);
     expect(surface.clientRejected).toEqual([]);
+  });
+
+  describe("v1.0 operations", () => {
+    it("applies the data model and the components of an inline createSurface", () => {
+      const { surface } = managerWith([
+        inlineCreate({
+          dataModel: { title: "Picks" },
+          components: [
+            {
+              id: "root",
+              component: "ProductGrid",
+              title: { "@path": "/title" },
+              children: [],
+            },
+          ],
+        }),
+      ]);
+      expect(surface.clientRejected).toEqual([]);
+      expect(surface.model.dataModel.get("/")).toEqual({ title: "Picks" });
+      expect(surface.model.componentsModel.get("root")?.properties).toEqual({
+        title: { "@path": "/title" },
+        children: [],
+      });
+    });
+
+    it("drops a model value for a bound prop in an inline createSurface", () => {
+      const { surface } = managerWith([
+        inlineCreate({
+          components: [
+            { id: "badge", component: "CartBadge", label: "Cart", total: 99 },
+          ],
+        }),
+      ]);
+      expect(surface.clientRejected).toEqual([]);
+      expect(surface.model.componentsModel.get("badge")?.properties).toEqual({
+        label: "Cart",
+      });
+    });
+
+    it("does not make a surface whose inline createSurface is rejected", () => {
+      const { manager, onOperationRejected } = managerWithRejections();
+      const badCard = { id: "c1", component: "ProductCard", name: "A" };
+      manager.ingest(
+        "t1",
+        "default",
+        content([
+          inlineCreate({
+            dataModel: { title: "Picks" },
+            components: [{ ...badCard, price: "free" }],
+          }),
+          grid([]),
+        ]),
+      );
+      expect(manager.getSurface("t1", "recs")).toBeUndefined();
+      expect(onOperationRejected.mock.calls).toEqual([
+        [
+          {
+            surfaceId: "recs",
+            index: 0,
+            reason: expect.stringMatching(/price/),
+          },
+        ],
+        [
+          {
+            surfaceId: "recs",
+            index: 1,
+            reason: 'surface "recs" does not exist; send createSurface first',
+          },
+        ],
+      ]);
+    });
+
+    it("deletes the key at the path for a null value", () => {
+      const { surface } = managerWith([
+        create,
+        data("/form", { email: "a@x.io", name: "Ada" }),
+        data("/form/name", null),
+      ]);
+      expect(surface.clientRejected).toEqual([]);
+      expect(surface.model.dataModel.get("/form")).toEqual({ email: "a@x.io" });
+    });
+
+    it("ignores a callRendererFunction in the surface content", () => {
+      const call: A2UIOperation = {
+        version: "v1.0",
+        callRendererFunction: {
+          functionCallId: "f1",
+          callFunction: { "@call": "addToCart", args: { productId: "p1" } },
+        },
+      };
+      const { surface } = managerWith([create, call, grid([])]);
+      expect(surface.clientRejected).toEqual([]);
+      expect(surface.model.componentsModel.get("root")).toBeDefined();
+    });
+  });
+
+  describe("a surface id is used once", () => {
+    it.each([
+      ["exists", [create, grid([]), create], 'surface "recs" already exists'],
+      [
+        "was deleted",
+        [create, remove, create],
+        'surface id "recs" was used before; use a new surfaceId',
+      ],
+    ])(
+      "rejects a later createSurface when the surface %s",
+      (_name, operations, reason) => {
+        const { manager, onOperationRejected } = managerWithRejections();
+        manager.ingest("t1", "default", content(operations));
+        expect(onOperationRejected.mock.calls).toEqual([
+          [{ surfaceId: "recs", index: 2, reason }],
+        ]);
+      },
+    );
+
+    it("rejects a createSurface after delete that comes in new content", () => {
+      const { manager, onOperationRejected } = managerWithRejections();
+      manager.ingest("t1", "default", content([create, grid([]), remove]));
+      // The tool transport replaces the content of the surface message.
+      manager.ingest("t1", "default", content([create, grid([])]));
+      expect(manager.getSurface("t1", "recs")).toBeUndefined();
+      expect(onOperationRejected).toHaveBeenCalledWith({
+        surfaceId: "recs",
+        index: 0,
+        reason: 'surface id "recs" was used before; use a new surfaceId',
+      });
+    });
+
+    it("builds a deleted surface again without a rejection when the content replays the delete", () => {
+      const { manager, onOperationRejected } = managerWithRejections();
+      const operations = [create, grid([]), remove];
+      manager.ingest("t1", "default", content(operations));
+      // The markdown source starts a surface again with an empty content.
+      manager.ingest("t1", "default", content([]));
+      manager.ingest("t1", "default", content(operations));
+      expect(onOperationRejected).not.toHaveBeenCalled();
+      expect(manager.getSurface("t1", "recs")).toBeUndefined();
+    });
   });
 
   describe("bound props and matched events", () => {
@@ -241,7 +396,7 @@ describe("GenerativeUISurfaceManager", () => {
         badge({
           cart: { count: 99 },
           total: 99,
-          onAddToCart: { functionCall: { call: "addToCart", args: {} } },
+          onAddToCart: { functionCall: { "@call": "addToCart", args: {} } },
         }),
       ]);
       expect(surface.clientRejected).toEqual([]);
@@ -346,7 +501,7 @@ describe("GenerativeUISurfaceManager", () => {
   it("re-ingesting content that ends in a root write is a no-op and does not mutate the content", () => {
     const manager = new GenerativeUISurfaceManager(ui);
     const rootWrite: A2UIOperation = {
-      version: "v0.9",
+      version: "v1.0",
       updateDataModel: { surfaceId: "recs", value: { items: [] } },
     };
     const c = content([create, grid([]), rootWrite]);
@@ -383,7 +538,7 @@ describe("GenerativeUISurfaceManager", () => {
       content(
         [
           {
-            version: "v0.9",
+            version: "v1.0",
             createSurface: { surfaceId: "recs2", catalogId: "shop" },
           },
         ],
@@ -436,10 +591,7 @@ describe("GenerativeUISurfaceManager", () => {
   });
 
   it("hides deleted surfaces", () => {
-    const { manager } = managerWith([
-      create,
-      { version: "v0.9", deleteSurface: { surfaceId: "recs" } },
-    ]);
+    const { manager } = managerWith([create, remove]);
     expect(manager.getSurface("t1", "recs")).toBeUndefined();
   });
 
@@ -490,10 +642,6 @@ describe("GenerativeUISurfaceManager", () => {
 
   describe("user-owned paths", () => {
     const key = surfaceKey("t1", "recs");
-    const deleteSurface: A2UIOperation = {
-      version: "v0.9",
-      deleteSurface: { surfaceId: "recs" },
-    };
 
     /** Ingests `operations` after the ones the surface already has. */
     function append(
@@ -533,7 +681,7 @@ describe("GenerativeUISurfaceManager", () => {
       });
 
       append(manager, next, {
-        version: "v0.9",
+        version: "v1.0",
         updateDataModel: { surfaceId: "recs", value: { title: "New" } },
       });
       expect(surface.model.dataModel.get("/")).toEqual({
@@ -551,18 +699,16 @@ describe("GenerativeUISurfaceManager", () => {
       ).toEqual({ name: "me" });
     });
 
-    it("clears ownership when the surface is deleted and created again", () => {
-      const ops = [create, data("/name", "agent")];
-      const { manager } = managerWith(ops);
-      manager.setOwnedValue(key, "/name", "me");
-      append(manager, ops, deleteSurface);
+    it("keeps the owned value when the agent deletes its parent with null", () => {
+      const ops = [create, data("/form", { email: "agent@x.io", name: "Ada" })];
+      const { manager, surface } = managerWith(ops);
+      manager.setOwnedValue(key, "/form/email", "me@x.io");
 
-      manager.ingest("t1", "default", content([create, data("/name", "new")]));
-      const surface = manager.getSurface("t1", "recs")!;
-      expect(surface.model.dataModel.get("/name")).toBe("new");
-      expect(manager.describeSurfaces("t1")).toEqual({
-        recs: { target: "recommendations" },
+      append(manager, ops, data("/form", null));
+      expect(surface.model.dataModel.get("/form")).toEqual({
+        email: "me@x.io",
       });
+      expect(surface.clientRejected).toEqual([]);
     });
 
     it("lists the owned values in describeSurfaces", () => {

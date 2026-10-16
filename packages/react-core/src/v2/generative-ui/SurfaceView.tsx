@@ -14,6 +14,7 @@ import type { z } from "zod";
 import {
   GENERATIVE_UI_ROOT_ID,
   isActionBinding,
+  isIndexCall,
   isPathBinding,
 } from "@copilotkit/shared";
 import type {
@@ -63,7 +64,13 @@ function resolvePath(path: string, basePath: string | undefined) {
   return joinPath(basePath ?? "/", path);
 }
 
-/** `{ path }` values with their paths made absolute. */
+/** A `{"@path"}` value with its path made absolute. Other values stay. */
+function absoluteValue<T>(value: T, basePath: string | undefined) {
+  if (!isPathBinding(value)) return value;
+  return { "@path": resolvePath(value["@path"], basePath) };
+}
+
+/** `{"@path"}` values with their paths made absolute. */
 function absoluteValues(
   values: Record<string, unknown> | undefined,
   basePath: string | undefined,
@@ -72,24 +79,51 @@ function absoluteValues(
   return Object.fromEntries(
     Object.entries(values).map(([key, value]) => [
       key,
-      isPathBinding(value)
-        ? { path: resolvePath(value.path, basePath) }
-        : value,
+      absoluteValue(value, basePath),
     ]),
   );
 }
 
-/** An event binding whose `{ path }` args or context are absolute. */
+/**
+ * An event binding whose `{"@path"}` args, user message, and context are
+ * absolute.
+ */
 function absoluteBinding(
   binding: GenerativeUIActionBinding,
   basePath: string | undefined,
-): GenerativeUIActionBinding {
+) {
   if ("functionCall" in binding) {
-    const { call, args } = binding.functionCall;
-    return { functionCall: { call, args: absoluteValues(args, basePath) } };
+    const { functionCall } = binding;
+    const args = absoluteValues(functionCall.args, basePath);
+    return { functionCall: { ...functionCall, args } };
   }
-  const { name, context } = binding.event;
-  return { event: { name, context: absoluteValues(context, basePath) } };
+  const { event } = binding;
+  const userMessage = absoluteValue(event.userMessage, basePath);
+  const context = absoluteValues(event.context, basePath);
+  return { event: { ...event, userMessage, context } };
+}
+
+/**
+ * The index of the template item at `basePath`: its last segment. A
+ * template gives each item the path `<list>/<index>`. `undefined` outside
+ * of a template.
+ */
+function templateIndex(basePath: string | undefined) {
+  if (basePath === undefined) return undefined;
+  return Number(basePath.slice(basePath.lastIndexOf("/") + 1));
+}
+
+/**
+ * The value of a `{"@call":"@index"}` prop: the 0-based index of the
+ * template item, plus `args.offset`. `undefined` outside of a template.
+ */
+function indexValue(
+  call: { args?: { offset?: number } },
+  basePath: string | undefined,
+) {
+  const index = templateIndex(basePath);
+  if (index === undefined) return undefined;
+  return index + (call.args?.offset ?? 0);
 }
 
 /** A "multiple" slot value that repeats a component for each list item. */
@@ -292,10 +326,11 @@ function TemplateChildren({
 }
 
 /**
- * The props the model sets, with `{ path }` bindings read from the surface
- * data model. A literal writable prop that the component set shows the
- * local value from `overrides`. Bound props, events and slots are left out.
- * The result is the same object until a value changes.
+ * The props the model sets, with `{"@path"}` bindings read from the surface
+ * data model, and `{"@call":"@index"}` set to the index of the template
+ * item. A literal writable prop that the component set shows the local
+ * value from `overrides`. Bound props, events and slots are left out. The
+ * result is the same object until a value changes.
  */
 function useModelDataProps(
   surface: ManagedSurface,
@@ -316,9 +351,9 @@ function useModelDataProps(
         )
         .map(([key, value]) => ({
           key,
-          value,
+          value: isIndexCall(value) ? indexValue(value, basePath) : value,
           path: isPathBinding(value)
-            ? resolvePath(value.path, basePath)
+            ? resolvePath(value["@path"], basePath)
             : undefined,
         })),
     [properties, definition, basePath],
@@ -547,9 +582,9 @@ function useEventProps(
 
 /**
  * The setter props of a node: `setValue` for the writable prop `value`. For
- * a prop the model bound to `{ path }`, the setter writes the data model and
- * makes the path user-owned. For a literal prop, it sets `overrides`, a local
- * value of this mounted node. The setters keep their identity.
+ * a prop the model bound to `{"@path"}`, the setter writes the data model
+ * and makes the path user-owned. For a literal prop, it sets `overrides`, a
+ * local value of this mounted node. The setters keep their identity.
  */
 function useSetterProps(
   runtime: GenerativeUIRuntime,
@@ -575,7 +610,7 @@ function useSetterProps(
         try {
           runtime.manager.setOwnedValue(
             surface.key,
-            resolvePath(binding.path, basePath),
+            resolvePath(binding["@path"], basePath),
             value,
           );
         } catch (cause) {

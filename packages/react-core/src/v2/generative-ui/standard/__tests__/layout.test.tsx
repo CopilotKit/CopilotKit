@@ -319,7 +319,7 @@ describe("standard layout", () => {
             component,
             children: { componentId: "row", path: "/items" },
           },
-          { id: "row", component: "Label", text: { path: "name" } },
+          { id: "row", component: "Label", text: { "@path": "name" } },
         ],
         { items: [{ name: "Alpha" }, { name: "Beta" }] },
       );
@@ -338,13 +338,13 @@ describe("standard layout", () => {
           component: "Column",
           children: { componentId: "row", path: "/items" },
         },
-        { id: "row", component: "Label", text: { path: "name" } },
+        { id: "row", component: "Label", text: { "@path": "name" } },
       ],
       { items: [{ name: "Alpha" }] },
     );
     await view.findByText("Alpha");
     view.update({
-      version: "v0.9",
+      version: "v1.0",
       updateDataModel: {
         surfaceId: SURFACE_ID,
         path: "/items/1",

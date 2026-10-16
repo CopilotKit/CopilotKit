@@ -77,12 +77,21 @@ export function fenceKey(messageId: string, fenceIndex: number) {
   return `${messageId}:${fenceIndex}`;
 }
 
+/** One `callRendererFunction` line of a fence, in the order of the fences. */
+export interface MarkdownFunctionCall {
+  messageId: string;
+  fenceIndex: number;
+  /** The operation as the model wrote it. It is not validated yet. */
+  operation: A2UIMarkdownOperation;
+}
+
 /**
  * The operations of a fence body. While the fence streams, the last object
- * can be unfinished. Of an unfinished updateComponents, the components that
- * are complete render at once. Any other unfinished object is left out,
- * because a part of a data model value can still change. A final fence
- * keeps what can be saved from an unfinished object.
+ * can be unfinished. Of an unfinished updateComponents or createSurface, the
+ * components that are complete render at once (a createSurface also keeps
+ * its data model when all of it arrived). Any other unfinished object is
+ * left out, because a part of a data model value can still change. A final
+ * fence keeps what can be saved from an unfinished object.
  */
 function fenceOperations(text: string, isStreaming: boolean) {
   const parsed = extractFenceOperations(text);
@@ -95,9 +104,47 @@ function fenceOperations(text: string, isStreaming: boolean) {
     parsed.operations.length > complete.length
       ? parsed.operations[parsed.operations.length - 1]
       : undefined;
-  return partial && isRecord(partial.updateComponents)
-    ? [...complete, partial]
-    : complete;
+  const canRenderPartial =
+    partial !== undefined &&
+    (isRecord(partial.updateComponents) || isRecord(partial.createSurface));
+  return canRenderPartial ? [...complete, partial] : complete;
+}
+
+/**
+ * An inline createSurface becomes a createSurface with only its surfaceId
+ * and catalog, then an updateDataModel for its data model, then an
+ * updateComponents for its components. The prose lift and the split per
+ * component read only updateComponents, so they then work for an inline
+ * surface too. A createSurface with a data model or components of a wrong
+ * shape does not change, so that validation rejects it with the reason.
+ */
+function expandInlineCreate(operations: A2UIMarkdownOperation[]) {
+  return operations.flatMap((op) => {
+    const create = op.createSurface;
+    if (!isRecord(create)) return [op];
+    const { dataModel, components, ...rest } = create;
+    const hasData = isRecord(dataModel);
+    const hasComponents = Array.isArray(components) && components.length > 0;
+    const isWellFormed =
+      (dataModel === undefined || hasData) &&
+      (components === undefined || hasComponents);
+    if (!isWellFormed || (!hasData && !hasComponents)) return [op];
+    const { surfaceId } = create;
+    const expanded: A2UIMarkdownOperation[] = [{ ...op, createSurface: rest }];
+    if (hasData) {
+      expanded.push({
+        version: op.version,
+        updateDataModel: { surfaceId, path: "/", value: dataModel },
+      });
+    }
+    if (hasComponents) {
+      expanded.push({
+        version: op.version,
+        updateComponents: { surfaceId, components },
+      });
+    }
+    return expanded;
+  });
 }
 
 /**
@@ -300,7 +347,11 @@ function surfaceContent(
  *   left out and listed in `rejected`.
  * - Chat surfaces get the prose lift: informational cards lose their box,
  *   and prose becomes markdown that renders between sub-surfaces
- *   (`<surfaceId>#<n>`).
+ *   (`<surfaceId>#<n>`). An inline createSurface is split into its
+ *   createSurface, updateDataModel and updateComponents first.
+ * - A `callRendererFunction` line is not part of a surface. It goes to
+ *   `functionCalls`. A streaming line gives nothing, so a function never
+ *   runs with a part of its args.
  *
  * The function is pure. Call it again on each stream update. The manager
  * applies only the new operations, so unchanged surfaces do not render
@@ -309,8 +360,9 @@ function surfaceContent(
  * @param messages - The messages of one thread.
  * @param options - The generative UI, its declared functions, and whether
  *   the last message can still grow.
- * @returns `surfaces`, one content for each surface and sub-surface, and
- *   `fences`, the blocks that each fence renders, by `fenceKey`. A fence
+ * @returns `surfaces`, one content for each surface and sub-surface,
+ *   `fences`, the blocks that each fence renders, by `fenceKey`, and
+ *   `functionCalls`, the function calls of the fences in order. A fence
  *   that is not in `fences` renders nothing.
  *
  * @example
@@ -327,9 +379,11 @@ export function buildMarkdownSurfaces(
   messages: readonly Message[],
   options: BuildMarkdownSurfacesOptions,
 ) {
+  const { ui } = options;
   const drafts = new Map<string, SurfaceDraft>();
   /** The surfaces that each fence created, in order. */
   const created = new Map<string, string[]>();
+  const functionCalls: MarkdownFunctionCall[] = [];
   const lastMessage = messages[messages.length - 1];
 
   for (const message of messages) {
@@ -344,7 +398,24 @@ export function buildMarkdownSurfaces(
       const fenceSurfaceId =
         operations.map(getMarkdownOperationSurfaceId).find(isString) ??
         `${message.id}-${segment.index}`;
-      for (const op of operations) {
+      const prepared = prepareSurfaceOperations({
+        operations,
+        fallbackSurfaceId: fenceSurfaceId,
+        catalogId: ui.id,
+      });
+      for (const operation of prepared.functionCalls) {
+        functionCalls.push({
+          messageId: message.id,
+          fenceIndex: segment.index,
+          operation,
+        });
+      }
+      // A function call is not part of a surface. A fence with only
+      // function calls makes no surface and renders nothing.
+      const surfaceOperations = operations.filter(
+        (op) => getOperationKind(op) !== "callRendererFunction",
+      );
+      for (const op of surfaceOperations) {
         const surfaceId = getMarkdownOperationSurfaceId(op) ?? fenceSurfaceId;
         let draft = drafts.get(surfaceId);
         if (!draft) {
@@ -362,7 +433,6 @@ export function buildMarkdownSurfaces(
     }
   }
 
-  const { ui } = options;
   // Only a Card with a `variant` prop can become a section.
   const canFlattenCards = hasProp(ui, "Card", "variant");
   const surfaces: GenerativeUISurfaceContent[] = [];
@@ -374,7 +444,7 @@ export function buildMarkdownSurfaces(
       catalogId: ui.id,
     });
     const operations = splitComponentUpdates(
-      createSurfaceFirst(prepared.operations),
+      expandInlineCreate(createSurfaceFirst(prepared.operations)),
     );
     const isChat = draft.target === GENERATIVE_UI_CHAT_TARGET;
     const parts: SurfacePart[] = isChat
@@ -408,7 +478,7 @@ export function buildMarkdownSurfaces(
     if (blocks.length > 0) fences.set(key, blocks);
   }
 
-  return { surfaces, fences };
+  return { surfaces, fences, functionCalls };
 }
 
 /** The declared functions, as `validateOperation` takes them. */
@@ -483,6 +553,8 @@ export class MarkdownSurfaceSource {
    * @param agentId - The agent that owns the thread.
    * @param messages - All messages of the thread.
    * @param options - `running`: the last message can still grow.
+   * @returns The function calls of the fences, in order. The source does
+   *   not run them.
    */
   sync(
     threadId: string,
@@ -519,6 +591,7 @@ export class MarkdownSurfaceSource {
       );
     }
     this.ingested.set(threadId, next);
+    return result.functionCalls;
   }
 
   /**

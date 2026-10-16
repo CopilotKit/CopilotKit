@@ -66,17 +66,17 @@ export function renderSurface(
   };
   let operations: A2UIOperation[] = [
     {
-      version: "v0.9",
+      version: "v1.0",
       createSurface: { surfaceId: SURFACE_ID, catalogId: ui.id },
     },
     {
-      version: "v0.9",
+      version: "v1.0",
       updateComponents: { surfaceId: SURFACE_ID, components },
     },
   ];
   if (data) {
     operations.push({
-      version: "v0.9",
+      version: "v1.0",
       updateDataModel: { surfaceId: SURFACE_ID, path: "/", value: data },
     });
   }

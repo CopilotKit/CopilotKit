@@ -49,6 +49,14 @@ function Button({ label }: { label: string }) {
   return <button>{label}</button>;
 }
 
+function Column({ children }: { children?: React.ReactNode }) {
+  return <div>{children}</div>;
+}
+
+function Text({ text }: { text: string }) {
+  return <p data-testid="surface-text">{text}</p>;
+}
+
 const ui = createGenerativeUI({
   id: "shop",
   functions: {
@@ -56,6 +64,8 @@ const ui = createGenerativeUI({
   },
   components: {
     Button: { component: Button, props: z.object({ label: z.string() }) },
+    Column: { component: Column, slots: { children: "multiple" } },
+    Text: { component: Text, props: z.object({ text: z.string() }) },
   },
 });
 
@@ -63,11 +73,11 @@ const T = "thread-1";
 const TARGET_DESCRIPTION = "Next to the product list.";
 
 const create = (surfaceId: string) => ({
-  version: "v0.9",
+  version: "v1.0",
   createSurface: { surfaceId, catalogId: "shop" },
 });
 const buttonRoot = (surfaceId: string, label: string) => ({
-  version: "v0.9",
+  version: "v1.0",
   updateComponents: {
     surfaceId,
     components: [{ id: "root", component: "Button", label }],
@@ -197,6 +207,35 @@ describe("markdown transport", () => {
     );
   });
 
+  it("renders an inline createSurface while it streams, with its prose as chat markdown", async () => {
+    const { agent } = setup();
+    const line = JSON.stringify({
+      version: "v1.0",
+      createSurface: {
+        surfaceId: "s1",
+        components: [
+          { id: "root", component: "Column", children: ["intro", "buy"] },
+          { id: "intro", component: "Text", text: "Pick one plan." },
+          { id: "buy", component: "Button", label: "Buy" },
+        ],
+      },
+    });
+    await send("show");
+    agent.emit(runStartedEvent({ threadId: T, runId: "r1" }));
+
+    // The line stops in the middle of its closing brackets.
+    agent.emit(textChunkEvent("m1", `Hi\n\`\`\`a2ui\n${line.slice(0, -3)}`));
+
+    await waitFor(() => expect(chatSurfaces()).toHaveLength(1));
+    expect(within(chatSurfaces()[0]).getByRole("button").textContent).toBe(
+      "Buy",
+    );
+    const prose = await screen.findByText("Pick one plan.");
+    expect(chatSurfaces()[0].contains(prose)).toBe(false);
+    expect(screen.queryByTestId("surface-text")).toBeNull();
+    agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
+  });
+
   it("updates the first surface in place from a later reply and renders nothing at the later fence", async () => {
     const { agent } = setup();
     await reply(agent, "show", "m1", [
@@ -260,7 +299,11 @@ describe("markdown transport", () => {
       functions: {
         addToCart: { parameters: "{ sku: string }" },
       },
-      components: { Button: { props: { label: "string" } } },
+      components: {
+        Button: { props: { label: "string" } },
+        Column: expect.any(Object),
+        Text: { props: { text: "string" } },
+      },
       surfaces: {},
     });
     expect(unlisted.context).toEqual([]);
@@ -269,7 +312,7 @@ describe("markdown transport", () => {
   it("sends the dropped operations of a surface in the schema of the next run", async () => {
     const { copilotkit, agent } = setup();
     const missing = {
-      version: "v0.9",
+      version: "v1.0",
       updateComponents: {
         surfaceId: "s1",
         components: [{ id: "extra", component: "Missing" }],

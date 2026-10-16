@@ -28,11 +28,11 @@ function formatContextValue(value: unknown) {
  * Turns a user event that no function handles into the text of a visible
  * user message.
  *
- * The first line is, in order: `context.message`, `context.label`, the label
- * of the source component (from `resolveLabel`), or the event name made
- * readable (`choose_plan` becomes "Choose plan"). Each other context field
- * follows as one `key: value` line. Objects are written as JSON. `null` and
- * `undefined` fields are skipped.
+ * The first line is, in order: `userMessage`, `context.message`,
+ * `context.label`, the label of the source component (from `resolveLabel`),
+ * or the event name made readable (`choose_plan` becomes "Choose plan").
+ * Each other context field follows as one `key: value` line. Objects are
+ * written as JSON. `null` and `undefined` fields are skipped.
  *
  * @param event - The user event, as sent by a surface.
  * @param resolveLabel - Finds the visible label of a component by id. Build
@@ -44,17 +44,19 @@ function formatContextValue(value: unknown) {
  *   name: "choose_plan",
  *   surfaceId: "plans",
  *   componentId: "team-button",
- *   context: { message: "Pick the Team plan", seats: 12 },
+ *   userMessage: "I pick the Team plan",
+ *   context: { seats: 12 },
  * });
- * // "Pick the Team plan\n\nseats: 12"
+ * // "I pick the Team plan\n\nseats: 12"
  * ```
  */
 export function buildActionMessageText(
   event: GenerativeUIUserEvent,
   resolveLabel?: (componentId: string) => string | undefined,
 ) {
-  const { context } = event;
-  const explicit = TEXT_KEYS.map((key) => context[key]).find(isNonEmptyString);
+  const { context, userMessage } = event;
+  const candidates = [userMessage, ...TEXT_KEYS.map((key) => context[key])];
+  const explicit = candidates.find(isNonEmptyString);
   const resolved = explicit ? undefined : resolveLabel?.(event.componentId);
   const head =
     explicit ??
@@ -87,6 +89,17 @@ function childIds(component: A2UIComponentNode) {
   return [...single, ...multiple];
 }
 
+/** The components that an operation adds, inline or in an update. */
+function componentsOf(operation: A2UIOperation) {
+  if ("createSurface" in operation) {
+    return operation.createSurface.components ?? [];
+  }
+  if ("updateComponents" in operation) {
+    return operation.updateComponents.components;
+  }
+  return [];
+}
+
 /**
  * Builds a function that finds the visible label of a component on a surface.
  *
@@ -108,8 +121,7 @@ export function createComponentLabelResolver(
 ) {
   const byId = new Map<string, A2UIComponentNode>();
   for (const operation of operations) {
-    if (!("updateComponents" in operation)) continue;
-    const components = operation.updateComponents.components;
+    const components = componentsOf(operation);
     for (const component of components) {
       byId.set(component.id, component);
     }

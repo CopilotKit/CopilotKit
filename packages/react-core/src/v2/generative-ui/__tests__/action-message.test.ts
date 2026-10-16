@@ -23,12 +23,22 @@ function userEvent(
 
 function updateComponents(...components: A2UIComponentNode[]): A2UIOperation {
   return {
-    version: "v0.9",
+    version: "v1.0",
     updateComponents: { surfaceId: "plans", components },
   };
 }
 
 describe("buildActionMessageText", () => {
+  it("uses userMessage as the first line, before context.message, and appends the other fields", () => {
+    const text = buildActionMessageText(
+      userEvent({
+        userMessage: "I pick the Team plan",
+        context: { message: "Pick", seats: 12 },
+      }),
+    );
+    expect(text).toBe("I pick the Team plan\n\nseats: 12");
+  });
+
   it("uses context.message and appends the other context fields", () => {
     const text = buildActionMessageText(
       userEvent({
@@ -87,6 +97,12 @@ describe("buildActionMessageText with a label resolver", () => {
     );
   });
 
+  it("prefers userMessage over the component label", () => {
+    expect(
+      buildActionMessageText(userEvent({ userMessage: "Mine" }), resolveLabel),
+    ).toBe("Mine");
+  });
+
   it("prefers context.message and context.label over the component label", () => {
     expect(
       buildActionMessageText(
@@ -115,7 +131,7 @@ describe("buildActionMessageText with a label resolver", () => {
 describe("createComponentLabelResolver", () => {
   const operations: A2UIOperation[] = [
     {
-      version: "v0.9",
+      version: "v1.0",
       createSurface: { surfaceId: "plans", catalogId: "shop" },
     },
     updateComponents(
@@ -127,7 +143,7 @@ describe("createComponentLabelResolver", () => {
       { id: "c-text", component: "Text", text: "Second child" },
       { id: "d", component: "Text", text: "Plain text" },
       { id: "e", component: "Button", child: "missing" },
-      { id: "f", component: "Text", text: { path: "/x" } },
+      { id: "f", component: "Text", text: { "@path": "/x" } },
     ),
   ];
   const resolve = createComponentLabelResolver(operations);
@@ -152,6 +168,19 @@ describe("createComponentLabelResolver", () => {
     expect(resolve("zzz")).toBeUndefined();
     expect(resolve("e")).toBeUndefined();
     expect(resolve("f")).toBeUndefined();
+  });
+
+  it("reads the components of an inline createSurface", () => {
+    const inline = createComponentLabelResolver([
+      {
+        version: "v1.0",
+        createSurface: {
+          surfaceId: "plans",
+          components: [{ id: "g", component: "Button", label: "Inline" }],
+        },
+      },
+    ]);
+    expect(inline("g")).toBe("Inline");
   });
 
   it("uses the last definition of a component that is sent again", () => {
