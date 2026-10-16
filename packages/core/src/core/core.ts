@@ -40,6 +40,7 @@ import type {
   DebugConfig,
   RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
@@ -51,6 +52,27 @@ import { ɵcreateMemoryStore } from "../memory";
 import type { ɵMemoryStore } from "../memory";
 import { HeaderSourceResolver, isHeaderResolutionError } from "./header-source";
 import type { CopilotKitHeadersSource } from "./header-source";
+
+/**
+ * Run properties that go only to the runs of some agents.
+ * See `CopilotKitCore.addScopedProperties`.
+ */
+export interface ScopedProperties {
+  /** The properties to merge on top of the base run properties. */
+  properties: Record<string, unknown>;
+  /** The agents that get these properties. When omitted, every agent gets them. */
+  agentIds?: string[];
+}
+
+/** True for an object literal. Arrays, `null`, and class instances are not plain objects. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) === Object.prototype
+  );
+}
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -402,6 +424,7 @@ export interface CopilotKitCoreFriendsAccess {
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
   getContextForAgent(agentId?: string): Context[];
+  getPropertiesForAgent(agentId?: string): Record<string, unknown>;
   getAgent(id: string): AbstractAgent | undefined;
   /**
    * Re-apply the last resolved header snapshot to a single agent, merged on
@@ -452,6 +475,7 @@ export class CopilotKitCore {
   private _credentials?: RequestCredentials;
   private _messageFilter?: CopilotKitMessageFilter;
   private _properties: Record<string, unknown>;
+  private _scopedProperties: Map<string, ScopedProperties> = new Map();
   private _defaultThrottleMs?: number;
   private _debug?: DebugConfig;
 
@@ -969,6 +993,65 @@ export class CopilotKitCore {
     this.agentRegistry.applyMessageFilterToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+  }
+
+  /**
+   * Add run properties that go only to the runs of `agentIds`. When
+   * `agentIds` is omitted, every agent gets them. They merge on top of the
+   * base `properties`.
+   *
+   * When an entry value and the existing value under the same key are both
+   * plain objects, their keys merge one level deep. So several entries can
+   * add keys under one namespace (for example `copilotkit`).
+   *
+   * @param entry - The properties and the optional agent ids.
+   * @returns The id to pass to `removeScopedProperties`.
+   *
+   * @example
+   * const id = copilotkit.addScopedProperties({
+   *   properties: { copilotkit: { theme: "dark" } },
+   *   agentIds: ["research"],
+   * });
+   * copilotkit.removeScopedProperties(id);
+   */
+  addScopedProperties({ properties, agentIds }: ScopedProperties) {
+    const id = randomUUID();
+    this._scopedProperties.set(id, {
+      properties,
+      ...(agentIds ? { agentIds } : {}),
+    });
+    return id;
+  }
+
+  /** Remove an entry that `addScopedProperties` added. An unknown id does nothing. */
+  removeScopedProperties(id: string) {
+    this._scopedProperties.delete(id);
+  }
+
+  /**
+   * Build the forwarded properties for a run of the given agent: the base
+   * properties plus every scoped entry that matches the agent. An entry with
+   * `agentIds` does not match when `agentId` is omitted.
+   */
+  getPropertiesForAgent(agentId?: string) {
+    const merged: Record<string, unknown> = { ...this._properties };
+    const entries = this._scopedProperties.values();
+    for (const entry of entries) {
+      const isForOtherAgents =
+        entry.agentIds !== undefined &&
+        (agentId === undefined || !entry.agentIds.includes(agentId));
+      if (isForOtherAgents) continue;
+
+      const properties = Object.entries(entry.properties);
+      for (const [key, value] of properties) {
+        const base = merged[key];
+        merged[key] =
+          isPlainObject(base) && isPlainObject(value)
+            ? { ...base, ...value }
+            : value;
+      }
+    }
+    return merged;
   }
 
   setProperties(properties: Record<string, unknown>): void {

@@ -309,7 +309,7 @@ export class SuggestionEngine {
         {
           context: friends.getContextForAgent(consumerAgentId),
           forwardedProps: {
-            ...friends.properties,
+            ...friends.getPropertiesForAgent(consumerAgentId),
             toolChoice: {
               type: "function",
               function: { name: "copilotkitSuggest" },
