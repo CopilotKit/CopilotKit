@@ -29,6 +29,8 @@ Key benefits:
     npm install @ag-ui/mcp-apps-middleware
     ```
 
+    Use `@copilotkit/runtime` 1.76.0 or later. The current middleware release needs `@ag-ui/client` 1.x, which runtime 1.76.0 and later use.
+
     ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
     import {
       CopilotRuntime,
@@ -68,6 +70,10 @@ Key benefits:
 
     <Callout type="info" title="Server ID">
       Always provide a `serverId` for production deployments. Without it, CopilotKit generates a hash from the server URL. If your URL changes (e.g., different environments), previously stored MCP Apps in conversation history won't load correctly.
+    </Callout>
+
+    <Callout type="info" title="Using Intelligence?">
+      On a runtime connected to Intelligence, configure the servers with the runtime's `mcpApps` option instead, and pass `intelligence` in place of `runner`. See [MCP Apps with Intelligence](/generative-ui/mcp-apps#mcp-apps-with-intelligence).
     </Callout>
   </Step>
   <Step>
