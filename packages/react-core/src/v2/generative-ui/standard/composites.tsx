@@ -1,7 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, MouseEvent } from "react";
 import { z } from "zod";
 import type { GenerativeUIInvokeResult } from "../errors";
+import {
+  GenerativeUINodeContext,
+  useGenerativeUIRuntime,
+} from "../runtime-context";
 import { sizeValue } from "./layout";
 import { Lightbox, openUrl } from "./lightbox";
 import { safeHref } from "./markdown";
@@ -429,8 +433,39 @@ function Citation(props: CitationProps) {
 
 // ---- FollowUp ----
 
+/** The event a FollowUp pill sends when the model bound no onFollowUp. */
+const FOLLOW_UP_EVENT = "follow_up";
+
+/**
+ * A FollowUp always sends. When the model bound `onFollowUp`, that binding
+ * runs. Else the pill forwards a `follow_up` event with its message, which
+ * the engine turns into a visible user message with that text.
+ */
+function useFollowUpSend(onFollowUp: FollowUpProps["onFollowUp"]) {
+  const runtime = useGenerativeUIRuntime();
+  const node = useContext(GenerativeUINodeContext);
+  return (message: string) => {
+    if (onFollowUp) {
+      void onFollowUp({ message });
+      return;
+    }
+    if (!runtime || !node) return;
+    const surface = runtime.manager.getSurfaceByKey(node.surfaceKey);
+    void runtime.forwardEvent(
+      {
+        name: FOLLOW_UP_EVENT,
+        surfaceId: node.surfaceId,
+        componentId: node.componentId,
+        context: { message },
+      },
+      surface?.agentId,
+    );
+  };
+}
+
 function FollowUp(props: FollowUpProps) {
   useStandardStyles();
+  const send = useFollowUpSend(props.onFollowUp);
   const items = props.items ?? [];
   if (items.length === 0) return null;
   return (
@@ -455,7 +490,7 @@ function FollowUp(props: FollowUpProps) {
               data-a2ui-input=""
               onClick={(event) => {
                 event.stopPropagation();
-                void props.onFollowUp?.({ message });
+                send(message);
               }}
               style={{
                 ...PILL_BUTTON,
@@ -829,7 +864,7 @@ export const compositeComponents = {
   FollowUp: {
     component: FollowUp,
     description:
-      "Suggested next prompts as pills. A click sends the message of the pill as the next turn of the user. Put it at the end of a surface, with two to four short items.",
+      "Suggested next prompts as pills. A click sends the message of the pill as the next turn of the user, with no event binding needed. Put it at the end of a surface, with two to four short items.",
     props: followUpSchema,
     events: {
       onFollowUp: {

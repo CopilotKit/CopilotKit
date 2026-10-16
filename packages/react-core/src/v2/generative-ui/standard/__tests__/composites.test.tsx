@@ -116,6 +116,23 @@ describe("standard catalog: composites", () => {
     expect(event.context).toMatchObject({ message: "Make it luxury" });
   });
 
+  it("FollowUp sends its message without an onFollowUp binding", async () => {
+    const v = render([
+      {
+        id: "root",
+        component: "FollowUp",
+        items: ["Make it cheaper"],
+      },
+    ]);
+    fireEvent.click(await v.findByRole("button", { name: "Make it cheaper" }));
+    expect(v.forwardEvent).toHaveBeenCalledTimes(1);
+    expect(v.forwardEvent.mock.calls[0][0]).toMatchObject({
+      name: "follow_up",
+      componentId: "root",
+      context: { message: "Make it cheaper" },
+    });
+  });
+
   it("EntityCard renders title, meta, badge, rating and action buttons", async () => {
     const v = render([
       {

@@ -263,6 +263,12 @@ export class GenerativeUISurfaceManager {
     if (changed) this.notify();
   }
 
+  /** The surface of a `key` (see `surfaceKey`), unless it is deleted. */
+  getSurfaceByKey(key: string): ManagedSurface | undefined {
+    const surface = this.surfaces.get(key);
+    return surface && !surface.deleted ? surface : undefined;
+  }
+
   getSurface(threadId: string, surfaceId: string): ManagedSurface | undefined {
     const surface = this.surfaces.get(surfaceKey(threadId, surfaceId));
     return surface && !surface.deleted ? surface : undefined;
