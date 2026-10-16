@@ -52,6 +52,20 @@ vi.mock("@copilotkit/runtime/v2/node", () => ({
   createCopilotNodeListener: fakes.createCopilotNodeListener,
 }));
 vi.mock("./tools/index.js", () => ({ appTools: [] }));
+vi.mock("./tools/render-mrr.js", () => ({
+  renderMrrTool: { name: "render_mrr" },
+}));
+vi.mock("./tools/render-carousel.js", () => ({
+  renderCarouselTool: { name: "render_carousel" },
+  carouselCommand: { name: "carousel" },
+}));
+vi.mock("./showcase/index.js", () => ({
+  showcaseTools: [],
+  showcaseCommands: [],
+}));
+vi.mock("./render/brand.js", () => ({
+  loadBrandRender: async () => ({ fonts: [], stylesheets: [] }),
+}));
 vi.mock("./context/app-context.js", () => ({ appContext: [] }));
 vi.mock("./commands/index.js", () => ({ appCommands: [] }));
 vi.mock("./sender-context.js", () => ({ senderContext: vi.fn() }));
@@ -62,6 +76,7 @@ vi.mock("./modals/file-issue.js", () => ({
 vi.mock("./render/browser.js", () => ({ closeBrowser: fakes.closeBrowser }));
 
 const envKeys = [
+  "PORT",
   "AGENT_URL",
   "COPILOTKIT_INTELLIGENCE_URL",
   "COPILOTKIT_INTELLIGENCE_WS_URL",
@@ -164,4 +179,35 @@ describe("managed channel entrypoint", () => {
       ),
     );
   });
+
+  it.each(["not-a-port", "-1", "65536", "8300.5"])(
+    "rejects PORT=%s before activating a channel",
+    async (port) => {
+      for (const key of envKeys) previousEnv.set(key, process.env[key]);
+      vi.resetModules();
+      fakes.createCopilotNodeListener.mockClear();
+      fakes.CopilotRuntime.mockClear();
+      fakes.createServer.mockClear();
+      process.env.PORT = port;
+      vi.spyOn(process, "on").mockImplementation(
+        (() => process) as typeof process.on,
+      );
+      const exit = vi
+        .spyOn(process, "exit")
+        .mockImplementation((() => undefined as never) as typeof process.exit);
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await import("./managed.js");
+      await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+      expect(error).toHaveBeenCalledWith(
+        "[channel] fatal: failed to start managed Channel",
+        expect.objectContaining({
+          message: "PORT must be an integer between 0 and 65535.",
+        }),
+      );
+      expect(fakes.CopilotRuntime).not.toHaveBeenCalled();
+      expect(fakes.createCopilotNodeListener).not.toHaveBeenCalled();
+      expect(fakes.createServer).not.toHaveBeenCalled();
+    },
+  );
 });

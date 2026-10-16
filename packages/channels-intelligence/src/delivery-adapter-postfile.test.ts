@@ -2,7 +2,28 @@ import { AbstractAgent } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
 import { EMPTY } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
-import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
+import {
+  ChannelDeliveryTerminatedError,
+  Thread,
+  ActionRegistry,
+  InMemoryActionStore,
+  MemoryStore,
+} from "@copilotkit/channels-core";
+import type { ThreadDeps } from "@copilotkit/channels-core";
+import {
+  Message,
+  Header,
+  Render,
+  Carousel,
+  CarouselCard,
+  Button,
+} from "@copilotkit/channels-ui";
+import { jsx } from "@copilotkit/channels-ui/jsx-runtime";
+import {
+  assertDeliveryPacket,
+  deliveryPacketByteLength,
+} from "./delivery-contracts.js";
+import type { ChannelProviderPayload } from "./delivery-contracts.js";
 import {
   ChannelFileDeliveryUnknownError,
   DeliveryAdapter,
@@ -391,5 +412,164 @@ describe("DeliveryAdapter.postFile", () => {
         title: "Weekly report",
       },
     );
+  });
+});
+
+describe("managed JSX delivery", () => {
+  function setup(
+    provider: "slack" | "teams",
+    renderImage?: ThreadDeps["renderImage"],
+  ) {
+    const packets: ChannelProviderPayload[] = [];
+    const session = {
+      trackOperation: <T>(operation: () => Promise<T>) => operation(),
+      uploadFile: vi.fn().mockResolvedValue("fileref_managed_snapshot_01"),
+      effect: vi.fn(
+        async (_responseId: string, payload: ChannelProviderPayload) => {
+          const packet = {
+            protocol: "channel_delivery_v1",
+            deliveryId: prepared().deliveryId,
+            runtimeInstanceId: "rti_image_test",
+            ownerGeneration: 1,
+            seq: packets.length,
+            packetId: "pkt_image_test",
+            payload,
+          };
+          assertDeliveryPacket(packet);
+          expect(deliveryPacketByteLength(packet)).toBeLessThanOrEqual(
+            64 * 1024,
+          );
+          packets.push(payload);
+          return {
+            providerReference: "pref_v1_managed_image_01",
+            providerMessageId:
+              "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+          };
+        },
+      ),
+    } as unknown as ClaimedChannelDelivery;
+    const registry = new ActionRegistry({ store: new InMemoryActionStore() });
+    const thread = new Thread({
+      adapter: makeAdapter(),
+      replyTarget: replyTarget(session, provider),
+      conversationKey: "thread_postfile",
+      channelName: "support",
+      threadId: "thread_postfile",
+      registry,
+      agentFactory: () => new NoopAgent(),
+      tools: new Map(),
+      toolDescriptors: [],
+      context: [],
+      registerWaiter: () => {},
+      interruptHandlers: new Map(),
+      state: new MemoryStore(),
+      user: null,
+      actor: { id: "actor", kind: "unknown" },
+      renderImage,
+      render: { width: 160, height: 80, allowImageUrl: () => false },
+    });
+    return { thread, session, packets };
+  }
+
+  const snapshot = () =>
+    jsx("div", {
+      style: { width: "100%", height: "100%", backgroundColor: "#5533cc" },
+      children: "Preview",
+    });
+  const mixed = () =>
+    Message({
+      children: [
+        Header({ children: "Weekly report" }),
+        Carousel({
+          children: [
+            CarouselCard({
+              children: [
+                Render({ alt: "Preview", children: snapshot() }),
+                Button({ children: "Approve", onClick: async () => {} }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+
+  it.each(["slack", "teams"] as const)(
+    "renders real PNGs in managed %s cards and updates",
+    async (provider) => {
+      const { thread, session, packets } = setup(provider);
+      const ref = await thread.post(mixed());
+      await thread.update(ref, mixed());
+      expect(packets.map((p) => p.kind)).toEqual([
+        `${provider}.message.create`,
+        `${provider}.message.replace`,
+      ]);
+      expect(JSON.stringify(packets)).toContain("Approve");
+      expect(JSON.stringify(packets)).toContain(
+        provider === "slack" ? "slack_file" : "data:image/png;base64,iVBOR",
+      );
+      expect(JSON.stringify(packets)).toContain(
+        provider === "slack" ? "action_id" : "Action.Submit",
+      );
+      if (provider === "slack") {
+        expect(session.uploadFile).toHaveBeenCalledTimes(2);
+        const bytes = vi.mocked(session.uploadFile).mock.calls[0]![1].bytes;
+        expect(Array.from(bytes.subarray(0, 8))).toEqual([
+          137, 80, 78, 71, 13, 10, 26, 10,
+        ]);
+        expect(JSON.stringify(packets)).toContain(
+          "fileref_managed_snapshot_01",
+        );
+      } else {
+        expect(session.uploadFile).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it.each(["slack", "teams"] as const)(
+    "keeps large standalone %s snapshots out of packets",
+    async (provider) => {
+      const png = new Uint8Array(96 * 1024);
+      png.set([137, 80, 78, 71, 13, 10, 26, 10]);
+      const { thread, session, packets } = setup(provider, async () => png);
+      await thread.post(snapshot());
+      expect(session.uploadFile).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ bytes: png, filename: "image.png" }),
+      );
+      expect(packets).toEqual([
+        expect.objectContaining({
+          kind:
+            provider === "slack" ? "slack.file.create" : "teams.image.create",
+          fileHandle: "fileref_managed_snapshot_01",
+        }),
+      ]);
+      expect(JSON.stringify(packets)).not.toContain("base64");
+    },
+  );
+
+  it("rejects oversized Teams card packets before sending and allows a text fallback", async () => {
+    const { thread, packets } = setup(
+      "teams",
+      async () => new Uint8Array(50 * 1024),
+    );
+    await expect(thread.post(mixed())).rejects.toThrow(/64 KiB.*thread.post/);
+    expect(packets).toEqual([]);
+    await thread.post("Snapshot too large; here is the summary.");
+    expect(packets).toEqual([
+      {
+        kind: "teams.message.create",
+        text: "Snapshot too large; here is the summary.",
+      },
+    ]);
+  });
+
+  it("does not silently post a Slack card when upload staging fails", async () => {
+    const { thread, session, packets } = setup(
+      "slack",
+      async () => new Uint8Array([1]),
+    );
+    vi.mocked(session.uploadFile).mockRejectedValue(new Error("upload failed"));
+    await expect(thread.post(mixed())).rejects.toThrow("upload failed");
+    expect(packets).toEqual([]);
   });
 });
