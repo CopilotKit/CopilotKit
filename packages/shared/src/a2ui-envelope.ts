@@ -3,10 +3,15 @@
  * `forwardedProps.copilotkit.ui`. The runtime reads it to pick the transport
  * and to build the guide. Backends that build their own prompt read it too.
  */
+import {
+  GENERATIVE_UI_MAX_REJECTION_LENGTH,
+  GENERATIVE_UI_MAX_SUMMARY_REJECTIONS,
+} from "./generative-ui/types";
 import type {
   GenerativeUIComponentManifest,
   GenerativeUIFunctionManifest,
   GenerativeUIManifest,
+  GenerativeUISurfaceSummary,
 } from "./generative-ui/types";
 
 /** Top-level `forwardedProps` key that holds the CopilotKit run properties. */
@@ -122,8 +127,26 @@ function isTarget(value: unknown): value is GenerativeUITarget {
   );
 }
 
-function isSurfaceEntry(value: unknown): value is { target: string } {
-  return isRecord(value) && isNonEmptyString(value.target);
+/** A short list of short strings. The summary limits keep the guide small. */
+function isRejectionList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= GENERATIVE_UI_MAX_SUMMARY_REJECTIONS &&
+    value.every(
+      (entry) =>
+        typeof entry === "string" &&
+        entry.length <= GENERATIVE_UI_MAX_REJECTION_LENGTH,
+    )
+  );
+}
+
+function isSurfaceEntry(value: unknown): value is GenerativeUISurfaceSummary {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.target) &&
+    (value.dataModel === undefined || isRecord(value.dataModel)) &&
+    (value.rejected === undefined || isRejectionList(value.rejected))
+  );
 }
 
 function isEnvelope(value: unknown): value is CopilotKitUIEnvelope {

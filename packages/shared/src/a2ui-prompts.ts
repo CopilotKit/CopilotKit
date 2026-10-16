@@ -130,7 +130,7 @@ export const GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION =
  * schema must stay ordinary context that the model reads as App Context.
  */
 export const GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION =
-  "Generative UI component schema: the catalog id, components, props, events, slots, functions, and targets that ```a2ui code fences can use.";
+  "Generative UI component schema: the catalog id, components, props, events, slots, functions, and targets that ```a2ui code fences can use, and the surfaces that already exist.";
 
 /**
  * Generation guideline for the markdown transport. The model writes A2UI v0.9
@@ -175,6 +175,7 @@ RULES
 - Updating a component replaces all of its props. Send every prop again.
 - To change a surface, write another fence with the same surfaceId, in this reply or in a later reply. Do not send createSurface again. The surface changes where it already is.
 - Use a new surfaceId for a different view.
+- The schema lists the surfaces that already exist under "surfaces". "dataModel" holds the values that the user entered: read them, and do not write those paths. "rejected" lists operations that the client dropped: send corrected operations in a new fence for that surfaceId.
 - Never make a surface that is only prose. Write headings, paragraphs, lists of text, intros, and summaries as markdown outside the fences, also between two fences.
 - Put in a fence only what markdown cannot show: charts, tables, maps, images, badges, inputs, buttons, cards with controls.
 - Use Card only for an interactive panel (controls, a form, a configurator). Put everything else in a plain layout component.

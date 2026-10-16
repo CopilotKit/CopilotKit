@@ -33,7 +33,14 @@ function createEnvelope(
       { id: "chat", kind: "chat" },
       { id: "sidebar", kind: "inline", description: "Right column." },
     ],
-    surfaces: { cart: { target: "sidebar" } },
+    surfaces: {
+      cart: { target: "sidebar" },
+      form: {
+        target: "chat",
+        dataModel: { "/form/email": "me@x.io" },
+        rejected: ["operation 2: unknown component Foo"],
+      },
+    },
     instructions: "Write fences.",
     contextSent: true,
     ...overrides,
@@ -68,6 +75,15 @@ describe("readCopilotKitUIEnvelope", () => {
       surfaces: {},
       contextSent: false,
     };
+    expect(readUI(envelope)).toEqual(envelope);
+  });
+
+  it("reads a surface with 20 rejections of 500 characters", () => {
+    const envelope = createEnvelope({
+      surfaces: {
+        cart: { target: "chat", rejected: Array(20).fill("x".repeat(500)) },
+      },
+    });
     expect(readUI(envelope)).toEqual(envelope);
   });
 
@@ -127,6 +143,26 @@ describe("readCopilotKitUIEnvelope", () => {
       withField("targets", [{ id: "x", kind: "modal" }]),
     ],
     ["a surface without a target", withField("surfaces", { cart: {} })],
+    [
+      "a surface data model that is not an object",
+      withField("surfaces", { cart: { target: "chat", dataModel: ["a"] } }),
+    ],
+    [
+      "surface rejections that are not strings",
+      withField("surfaces", { cart: { target: "chat", rejected: [1] } }),
+    ],
+    [
+      "more than 20 surface rejections",
+      withField("surfaces", {
+        cart: { target: "chat", rejected: Array(21).fill("operation 0: x") },
+      }),
+    ],
+    [
+      "a surface rejection longer than 500 characters",
+      withField("surfaces", {
+        cart: { target: "chat", rejected: ["x".repeat(501)] },
+      }),
+    ],
     ["instructions that are not text", withField("instructions", ["a"])],
     ["no contextSent flag", withField("contextSent", undefined)],
   ])("returns undefined for %s", (_case, ui) => {

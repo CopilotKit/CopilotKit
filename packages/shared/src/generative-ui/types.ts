@@ -102,7 +102,26 @@ export interface GenerativeUIManifest {
    */
   targets: { id: string; kind: "chat" | "inline"; description?: string }[];
   /** Surfaces the client already holds for the current thread. */
-  surfaces: Record<string, { target: string }>;
+  surfaces: Record<string, GenerativeUISurfaceSummary>;
+}
+
+/** Most rejections that a surface summary lists. */
+export const GENERATIVE_UI_MAX_SUMMARY_REJECTIONS = 20;
+/** Most characters of one rejection in a surface summary. */
+export const GENERATIVE_UI_MAX_REJECTION_LENGTH = 500;
+
+/** One surface that the client holds, as the model sees it. */
+export interface GenerativeUISurfaceSummary {
+  target: string;
+  /** The values that the user set, by path. Left out when there are none. */
+  dataModel?: Record<string, unknown>;
+  /**
+   * Operations that the client dropped, as `"operation <index>: <reason>"`.
+   * At most {@link GENERATIVE_UI_MAX_SUMMARY_REJECTIONS} entries of at most
+   * {@link GENERATIVE_UI_MAX_REJECTION_LENGTH} characters. Left out when
+   * there are none.
+   */
+  rejected?: string[];
 }
 
 /** A user interaction bound to `{ event }`, sent to the agent. */
