@@ -1,6 +1,7 @@
 import React, {
   createContext,
   useContext,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -15,8 +16,10 @@ import {
   backgroundColor,
   borderColor,
   panelBackground,
+  textColor,
   radius,
   spacing,
+  SHADOW_MD,
   SHADOW_SM,
   SHADOW_SOFT,
 } from "../tokens";
@@ -63,10 +66,10 @@ export function layoutStyle(p: LayoutProps): React.CSSProperties {
     alignItems: p.align ? ALIGN_CSS[p.align] : undefined,
     justifyContent: p.justify ? JUSTIFY_CSS[p.justify] : undefined,
     flexWrap: p.wrap,
-    gap: spacing(p.gap),
+    gap: spacing(p.gap) ?? (p.disableAutoSpacing ? 0 : undefined),
     rowGap: spacing(p.rowGap),
     columnGap: spacing(p.columnGap),
-    padding: spacing(p.padding),
+    padding: p.flush ? 0 : spacing(p.padding),
     background: backgroundColor(p.background),
     border: p.border
       ? `1px solid ${borderColor(p.borderColor ?? "default")}`
@@ -75,10 +78,10 @@ export function layoutStyle(p: LayoutProps): React.CSSProperties {
     width: spacing(p.width),
     height: spacing(p.height),
     // Containers may shrink below their content and never exceed their parent.
-    minWidth: spacing(p.minWidth) ?? 0,
-    maxWidth: spacing(p.maxWidth) ?? "100%",
-    minHeight: spacing(p.minHeight),
-    maxHeight: spacing(p.maxHeight),
+    minWidth: spacing(p.minWidth ?? p.minSize) ?? 0,
+    maxWidth: spacing(p.maxWidth ?? p.maxSize) ?? "100%",
+    minHeight: spacing(p.minHeight ?? p.minSize),
+    maxHeight: spacing(p.maxHeight ?? p.maxSize),
     flex: p.flex,
     aspectRatio: p.aspectRatio,
     overflow: p.scrollable ? "auto" : p.clip ? "hidden" : undefined,
@@ -131,7 +134,41 @@ export const renderChildren = renderChildList;
 
 // The binder hands absent props over as `null`, so test for both.
 const hasGap = (p: LayoutProps) =>
-  p.gap != null || p.columnGap != null || p.rowGap != null;
+  p.gap != null ||
+  p.columnGap != null ||
+  p.rowGap != null ||
+  !!p.disableAutoSpacing;
+
+/**
+ * Dispatch `onVisible` once, the first time the element scrolls into view
+ * (ChatGPT's `onVisible`). No observer when the prop is absent.
+ */
+export function useVisibleOnce(
+  ref: React.RefObject<HTMLElement | null>,
+  onVisible: unknown,
+): void {
+  const fired = useRef(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (
+      typeof onVisible !== "function" ||
+      !el ||
+      typeof IntersectionObserver === "undefined"
+    ) {
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (fired.current) return;
+      if (entries.some((e) => e.isIntersecting)) {
+        fired.current = true;
+        (onVisible as () => void)();
+        observer.disconnect();
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref, onVisible]);
+}
 
 /**
  * True inside a Card. ChatGPT surfaces have exactly one bordered level (the
@@ -168,12 +205,16 @@ const container =
     useStandardStyles();
     const nested = useContext(CardNestingContext);
     const distance = useContext(CardDistanceContext);
+    const ref = useRef<HTMLDivElement>(null);
+    useVisibleOnce(ref, props.onVisible);
     return (
       <CardDistanceContext.Provider
         value={distance === null ? null : distance + 1}
       >
         <div
+          ref={ref}
           data-a2ui-std=""
+          role={props.role}
           {...(attrs ? attrs(props) : {})}
           style={{
             ...layoutStyle(props),
@@ -226,10 +267,13 @@ function cardStyle(p: any, nested: boolean): React.CSSProperties {
     }
     return { ...base, padding: 0, background: "transparent", borderRadius: 0 };
   }
+  const sizePadding = { sm: 2, md: 4, lg: 6 }[
+    (p.size as "sm" | "md" | "lg" | undefined) ?? "md"
+  ];
   return {
     flexDirection: "column",
     gap: hasGap(p) ? undefined : spacing(4),
-    padding: spacing(p.padding ?? 4),
+    padding: p.flush ? 0 : spacing(p.padding ?? sizePadding),
     borderRadius: radius(
       typeof p.radius === "object" ? undefined : (p.radius ?? "xl"),
     ),
@@ -241,19 +285,32 @@ function cardStyle(p: any, nested: boolean): React.CSSProperties {
       ownBackground ??
         (p.variant === "transparent" ? "transparent" : undefined),
     ),
-    boxShadow: p.variant === "elevated" ? SHADOW_SOFT : undefined,
+    boxShadow:
+      p.shadowStyle === "md"
+        ? SHADOW_MD
+        : p.shadowStyle === "sm"
+          ? SHADOW_SM
+          : p.shadowStyle === "none"
+            ? "none"
+            : p.variant === "elevated"
+              ? SHADOW_SOFT
+              : undefined,
   };
 }
 
 function Card({ props, children }: RendererProps<any>) {
   useStandardStyles();
   const nested = useContext(CardNestingContext);
+  const ref = useRef<HTMLDivElement>(null);
+  useVisibleOnce(ref, props.onVisible);
   // A section draws no box, so what it contains keeps its own nesting level.
   const section = props.variant === "section";
   return (
     <CardNestingContext.Provider value={section ? nested : true}>
       <CardDistanceContext.Provider value={0}>
         <div
+          ref={ref}
+          role={props.role}
           data-a2ui-std=""
           data-a2ui-card={nested ? "nested" : "top"}
           data-a2ui-card-variant={props.variant ?? undefined}
@@ -390,6 +447,138 @@ function GridItem({ props, children }: RendererProps<any>) {
   );
 }
 
+/**
+ * Horizontal snap scroller with previous/next arrows and a bindable
+ * `activeIndex`: setting it scrolls that slide into view, and scrolling
+ * writes the snapped slide's index back.
+ */
+function Carousel({ props, children }: RendererProps<any>) {
+  useStandardStyles();
+  const nested = useContext(CardNestingContext);
+  const scroller = useRef<HTMLDivElement>(null);
+  const [canPrev, setCanPrev] = useState(false);
+  const [canNext, setCanNext] = useState(false);
+  const snap: string = props.snap ?? "proximity";
+  const showArrows = props.showArrows !== false;
+
+  const slides = () =>
+    Array.from(scroller.current?.children ?? []) as HTMLElement[];
+  const update = () => {
+    const el = scroller.current;
+    if (!el) return;
+    setCanPrev(el.scrollLeft > 4);
+    setCanNext(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+  const scrollTo = (index: number) => {
+    const el = scroller.current;
+    const target = slides()[index];
+    if (!el || !target) return;
+    el.scrollTo({
+      left: target.offsetLeft - el.offsetLeft,
+      behavior: "smooth",
+    });
+  };
+  const nearest = () => {
+    const el = scroller.current;
+    if (!el) return 0;
+    let best = 0;
+    let bestDistance = Infinity;
+    slides().forEach((slide, i) => {
+      const distance = Math.abs(
+        slide.offsetLeft - el.offsetLeft - el.scrollLeft,
+      );
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = i;
+      }
+    });
+    return best;
+  };
+
+  useEffect(update, []);
+  useEffect(() => {
+    if (typeof props.activeIndex === "number") scrollTo(props.activeIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.activeIndex]);
+
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onScroll = () => {
+    update();
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      const index = nearest();
+      if (index !== props.activeIndex) props.setActiveIndex?.(index);
+    }, 120);
+  };
+
+  const arrow = (direction: -1 | 1, enabled: boolean, label: string) => (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={!enabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        scrollTo(Math.max(0, nearest() + direction));
+      }}
+      style={{
+        position: "absolute",
+        top: "50%",
+        [direction < 0 ? "left" : "right"]: 4,
+        transform: "translateY(-50%)",
+        width: 32,
+        height: 32,
+        borderRadius: 9999,
+        border: `1px solid ${borderColor("default")}`,
+        background: backgroundColor("surface-elevated"),
+        color: textColor("default"),
+        boxShadow: SHADOW_SM,
+        cursor: enabled ? "pointer" : "default",
+        opacity: enabled ? 1 : 0,
+        pointerEvents: enabled ? "auto" : "none",
+        transition: "opacity .15s",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 16,
+        lineHeight: 1,
+        zIndex: 1,
+      }}
+    >
+      {direction < 0 ? "‹" : "›"}
+    </button>
+  );
+
+  return (
+    <div style={{ position: "relative", width: "100%", minWidth: 0 }}>
+      <div
+        ref={scroller}
+        data-a2ui-std=""
+        data-a2ui-carousel=""
+        role="region"
+        aria-label={props.ariaLabel}
+        onScroll={onScroll}
+        style={{
+          ...layoutStyle(props),
+          ...(nested && props.background
+            ? { background: panelBackground(props.background) }
+            : {}),
+          flexDirection: "row",
+          gap: spacing(props.gap ?? 2),
+          overflowX: "auto",
+          scrollSnapType: snap === "none" ? undefined : `x ${snap}`,
+          scrollbarWidth: "none",
+        }}
+      >
+        {renderChildren(props.children, children)}
+      </div>
+      {showArrows
+        ? arrow(-1, canPrev, props.previousLabel ?? "Previous")
+        : null}
+      {showArrows ? arrow(1, canNext, props.nextLabel ?? "Next") : null}
+    </div>
+  );
+}
+
 const span = (p: { span?: number; rowSpan?: number }) => ({
   gridColumn: p.span ? `span ${p.span}` : undefined,
   gridRow: p.rowSpan ? `span ${p.rowSpan}` : undefined,
@@ -428,15 +617,7 @@ export const layoutRenderers = {
     flexDirection: "column",
     aspectRatio: p.aspectRatio ?? "1 / 1",
   })),
-  Carousel: container((p) => ({
-    flexDirection: "row",
-    gap: spacing(p.gap ?? 2),
-    overflowX: "auto",
-    scrollSnapType:
-      (p.snap ?? "proximity") === "none"
-        ? undefined
-        : `x ${p.snap ?? "proximity"}`,
-  })),
+  Carousel,
   CarouselItem: container(() => ({
     flex: "0 0 auto",
     flexDirection: "column",

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { safeHref } from "../inline-markdown";
 import type {
   CatalogRenderers,
   RendererProps,
@@ -194,43 +195,131 @@ export function Lightbox({
   );
 }
 
-function Image({ props }: RendererProps<any>) {
+function Image({ props, dispatch }: RendererProps<any>) {
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
+  const [hover, setHover] = useState(false);
   if (!props.src || (failed && props.hideOnFailure)) return null;
   const lightbox = props.lightbox !== false && !failed;
   const src = String(props.src);
   const alt = props.alt ?? "";
+  const frame: React.CSSProperties = {
+    display: "block",
+    aspectRatio: props.aspectRatio,
+    width: spacing(props.width) ?? (props.aspectRatio ? "100%" : undefined),
+    height: spacing(props.height),
+    minWidth: spacing(props.minWidth),
+    minHeight: spacing(props.minHeight),
+    maxWidth: spacing(props.maxWidth) ?? "100%",
+    maxHeight: spacing(props.maxHeight),
+    boxSizing: "border-box",
+    ...radiusCss(props.radius),
+  };
+  if (failed && props.fallback) {
+    return (
+      <div
+        role="img"
+        aria-label={alt || String(props.fallback)}
+        style={{
+          ...frame,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: spacing(3),
+          background: backgroundColor(props.background ?? "surface-secondary"),
+          color: textColor("secondary"),
+          fontSize: ".875em",
+          textAlign: "center",
+          minHeight: spacing(props.minHeight) ?? 64,
+        }}
+      >
+        {String(props.fallback)}
+      </div>
+    );
+  }
+  const overlay = props.actionOverlay;
+  const img = (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      onClick={lightbox ? () => setOpen(true) : undefined}
+      data-a2ui-lightbox-trigger={lightbox ? "" : undefined}
+      style={{
+        ...frame,
+        cursor: lightbox ? "zoom-in" : undefined,
+        objectFit: props.fit ?? "cover",
+        objectPosition: props.position,
+        background: backgroundColor(props.background),
+        border: props.frame ? `1px solid ${borderColor("default")}` : undefined,
+        transform: props.hoverZoom && hover ? "scale(1.03)" : undefined,
+        transition: props.hoverZoom ? "transform .2s ease" : undefined,
+      }}
+    />
+  );
   return (
     <>
       {open && lightbox ? (
         <Lightbox src={src} alt={alt} onClose={() => setOpen(false)} />
       ) : null}
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        onError={() => setFailed(true)}
-        onClick={lightbox ? () => setOpen(true) : undefined}
-        data-a2ui-lightbox-trigger={lightbox ? "" : undefined}
-        style={{
-          cursor: lightbox ? "zoom-in" : undefined,
-          display: "block",
-          objectFit: props.fit ?? "cover",
-          aspectRatio: props.aspectRatio,
-          width:
-            spacing(props.width) ?? (props.aspectRatio ? "100%" : undefined),
-          height: spacing(props.height),
-          maxWidth: spacing(props.maxWidth) ?? "100%",
-          maxHeight: spacing(props.maxHeight),
-          background: backgroundColor(props.background),
-          border: props.frame
-            ? `1px solid ${borderColor("default")}`
-            : undefined,
-          boxSizing: "border-box",
-          ...radiusCss(props.radius),
-        }}
-      />
+      {overlay || props.hoverZoom ? (
+        <div
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+          style={{
+            position: "relative",
+            display: "inline-block",
+            maxWidth: "100%",
+            overflow: props.hoverZoom ? "hidden" : undefined,
+            ...radiusCss(props.radius),
+          }}
+        >
+          {img}
+          {overlay ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (overlay.href) {
+                  const safe = safeHref(overlay.href);
+                  if (safe && typeof window !== "undefined") {
+                    window.open(safe, "_blank", "noopener,noreferrer");
+                  }
+                } else if (typeof overlay.action === "function") {
+                  (overlay.action as () => void)();
+                } else if (overlay.action) {
+                  dispatch?.(overlay.action);
+                }
+              }}
+              style={{
+                position: "absolute",
+                right: 8,
+                bottom: 8,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 12px",
+                borderRadius: 9999,
+                border: "none",
+                background: "var(--a2ui-color-overlay, rgba(0,0,0,.65))",
+                color: ON_ACCENT,
+                font: "inherit",
+                fontSize: ".8125em",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              {overlay.icon ? (
+                <LucideIcon name={overlay.icon} size={14} />
+              ) : null}
+              {overlay.label}
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        img
+      )}
     </>
   );
 }
@@ -292,6 +381,9 @@ function Svg({ props }: RendererProps<any>) {
       fill={textColor(props.fill) ?? "currentColor"}
       stroke={textColor(props.stroke)}
       strokeWidth={props.strokeWidth}
+      strokeLinecap={props.strokeLinecap}
+      strokeLinejoin={props.strokeLinejoin}
+      preserveAspectRatio={props.preserveAspectRatio}
       style={{ color: textColor(props.color ?? "prose"), display: "block" }}
     >
       {(props.rects ?? []).map((r: any, i: number) => (
@@ -361,23 +453,74 @@ const YOUTUBE_ID = /^[A-Za-z0-9_-]{6,20}$/;
  */
 function YouTube({ props }: RendererProps<any>) {
   const id = String(props.videoId ?? "");
+  const [playing, setPlaying] = useState(false);
   if (!YOUTUBE_ID.test(id)) return null;
+  const box: React.CSSProperties = {
+    display: "block",
+    aspectRatio: props.aspectRatio ?? "16 / 9",
+    width: spacing(props.width) ?? "100%",
+    maxWidth: spacing(props.maxWidth) ?? "100%",
+    borderRadius: radius("lg"),
+  };
+  // Poster first: no third-party script runs until the user asks to play.
+  if (props.showThumbnail !== false && !playing) {
+    return (
+      <button
+        type="button"
+        aria-label={`Play ${props.title ?? "video"}`}
+        onClick={() => setPlaying(true)}
+        style={{
+          ...box,
+          position: "relative",
+          padding: 0,
+          border: "none",
+          overflow: "hidden",
+          cursor: "pointer",
+          background: "#000",
+        }}
+      >
+        <img
+          src={`https://i.ytimg.com/vi/${id}/hqdefault.jpg`}
+          alt=""
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+        <span
+          aria-hidden
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 56,
+            height: 40,
+            borderRadius: 12,
+            background: "rgba(0,0,0,.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#fff",
+            fontSize: 18,
+          }}
+        >
+          ▶
+        </span>
+      </button>
+    );
+  }
   return (
     <iframe
-      src={`https://www.youtube-nocookie.com/embed/${id}`}
+      src={`https://www.youtube-nocookie.com/embed/${id}${playing ? "?autoplay=1" : ""}`}
       title={props.title ?? "YouTube video"}
       allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
       sandbox="allow-scripts allow-same-origin allow-presentation"
       referrerPolicy="strict-origin-when-cross-origin"
       allowFullScreen
-      style={{
-        display: "block",
-        border: 0,
-        aspectRatio: props.aspectRatio ?? "16 / 9",
-        width: spacing(props.width) ?? "100%",
-        maxWidth: spacing(props.maxWidth) ?? "100%",
-        borderRadius: radius("lg"),
-      }}
+      style={{ ...box, border: 0 }}
     />
   );
 }

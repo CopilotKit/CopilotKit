@@ -194,7 +194,14 @@ describe("standard catalog: data and media", () => {
         viewBox: "0 0 10 10",
         paths: [{ d: "M0 0L10 10", stroke: "danger" }],
       },
-      { id: "y", component: "YouTube", videoId: "dQw4w9WgXcQ" },
+      // showThumbnail false: the poster-first default renders no iframe
+      // until the user clicks play (covered in standard-prop-gaps).
+      {
+        id: "y",
+        component: "YouTube",
+        videoId: "dQw4w9WgXcQ",
+        showThumbnail: false,
+      },
       {
         id: "h",
         component: "HtmlView",

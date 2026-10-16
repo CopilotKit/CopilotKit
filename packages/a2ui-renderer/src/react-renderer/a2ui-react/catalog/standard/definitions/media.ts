@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DynamicStringSchema } from "@a2ui/web_core/v0_9";
+import { ActionSchema, DynamicStringSchema } from "@a2ui/web_core/v0_9";
 import type { CatalogDefinitions } from "../../../../create-catalog";
 import { radiusValue, sizeValue } from "./layout";
 
@@ -21,6 +21,26 @@ export const mediaDefinitions = {
       background: z.string().optional(),
       frame: z.boolean().optional(),
       hideOnFailure: z.boolean().optional().describe("Default false"),
+      fallback: z
+        .string()
+        .optional()
+        .describe("Text shown in place of the image when it fails to load"),
+      hoverZoom: z.boolean().optional().describe("Slight scale-up on hover"),
+      position: z
+        .string()
+        .optional()
+        .describe('CSS object-position, e.g. "top" or "50% 20%"'),
+      minWidth: sizeValue.optional(),
+      minHeight: sizeValue.optional(),
+      actionOverlay: z
+        .object({
+          label: z.string(),
+          icon: z.string().optional().describe("Lucide icon name"),
+          action: ActionSchema.optional(),
+          href: z.string().optional().describe("Opens this URL in a new tab"),
+        })
+        .optional()
+        .describe("Button drawn over the bottom-right corner of the image"),
       lightbox: z
         .boolean()
         .optional()
@@ -62,6 +82,9 @@ export const mediaDefinitions = {
       fill: colorProp.describe('Default "currentColor"'),
       stroke: colorProp,
       strokeWidth: z.number().optional(),
+      strokeLinecap: z.enum(["butt", "round", "square"]).optional(),
+      strokeLinejoin: z.enum(["miter", "round", "bevel"]).optional(),
+      preserveAspectRatio: z.string().optional(),
       paths: z
         .array(
           z.object({
@@ -126,6 +149,12 @@ export const mediaDefinitions = {
     props: z.object({
       videoId: z.string(),
       title: z.string().optional(),
+      showThumbnail: z
+        .boolean()
+        .optional()
+        .describe(
+          "Default true: show the poster with a play button; the player loads on click",
+        ),
       aspectRatio: z.string().optional().describe('Default "16 / 9"'),
       width: sizeValue.optional().describe('Default "100%"'),
       maxWidth: sizeValue.optional().describe('Default "100%"'),

@@ -103,7 +103,8 @@ export const dataDefinitions = {
     description: "Table row; children are TableCell ids (or a template).",
     props: z.object({
       header: z.boolean().optional(),
-      label: z.string().optional(),
+      label: z.string().optional().describe("Row header cell text"),
+      labelColSpan: z.number().optional(),
       children: childList,
     }),
   },
@@ -140,6 +141,10 @@ export const dataDefinitions = {
         .describe('Default "none"'),
       gap: sizeValue.optional(),
       start: z.number().optional().describe("First number for marker=number"),
+      maxMarkerSize: z
+        .number()
+        .optional()
+        .describe("Marker column width cap, px"),
     }),
   },
   ListItem: {
@@ -150,6 +155,8 @@ export const dataDefinitions = {
       description: DynamicStringSchema.optional(),
       icon: z.string().optional().describe("Lucide icon name"),
       marker: z.string().optional().describe("Overrides the list marker"),
+      markerSize: z.number().optional().describe("Marker column width, px"),
+      disabled: z.boolean().optional(),
       action,
       children: childList,
     }),
@@ -172,6 +179,39 @@ export const dataDefinitions = {
           'Strings or { "key", "label"?, "color"? }, or { "path": "/x" }',
         ),
       stacked: z.boolean().optional(),
+      layout: z
+        .enum(["vertical", "horizontal"])
+        .optional()
+        .describe('"horizontal" draws bars left to right; default "vertical"'),
+      yAxis: z
+        .object({
+          label: z.string().optional(),
+          min: z.number().optional(),
+          max: z.number().optional(),
+          width: z.number().optional(),
+        })
+        .optional(),
+      showDots: z.boolean().optional().describe("Line/area point markers"),
+      barRadius: z.number().optional().describe("Bar corner radius, px"),
+      innerRadius: z
+        .union([z.number(), z.string()])
+        .optional()
+        .describe("Pie/donut"),
+      outerRadius: z
+        .union([z.number(), z.string()])
+        .optional()
+        .describe("Pie/donut"),
+      startAngle: z.number().optional().describe("Pie/donut; default 90"),
+      endAngle: z.number().optional().describe("Pie/donut; default -270"),
+      cornerRadius: z.number().optional().describe("Pie/donut slice corners"),
+      paddingAngle: z
+        .number()
+        .optional()
+        .describe("Pie/donut gap between slices"),
+      showLabelLines: z
+        .boolean()
+        .optional()
+        .describe("Pie/donut label leader lines"),
       height: z.number().optional().describe("Pixels; default 240"),
       showLegend: z.boolean().optional().describe("Default true"),
       showGrid: z.boolean().optional().describe("Default true"),

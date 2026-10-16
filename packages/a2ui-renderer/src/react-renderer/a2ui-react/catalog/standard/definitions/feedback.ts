@@ -24,6 +24,7 @@ export const feedbackDefinitions = {
       label: z.string().optional(),
       background: z.string().optional().describe('Default "surface-tertiary"'),
       duration: z.number().optional().describe("Milliseconds; default 1500"),
+      reducedMotion: z.boolean().optional().describe("No shimmer animation"),
     }),
   },
   PulseIndicator: {
@@ -33,6 +34,8 @@ export const feedbackDefinitions = {
       size: z.number().optional().describe("Pixels; default 12"),
       pulseColor: z.string().optional(),
       duration: z.number().optional().describe("Milliseconds"),
+      endScale: z.number().optional().describe("Default 2.4"),
+      startOpacity: z.number().optional().describe("Default 0.6"),
     }),
   },
   Celebration: {
@@ -58,11 +61,15 @@ export const feedbackDefinitions = {
       children: childIds,
       open: DynamicBooleanSchema.optional(),
       showOnHover: z.boolean().optional(),
+      hoverOpenDelay: z.number().optional().describe("Milliseconds; default 0"),
     }),
   },
   PopoverTrigger: {
     description: "Popover trigger; clicking toggles the popover.",
-    props: z.object({ children: childIds }),
+    props: z.object({
+      children: childIds,
+      block: z.boolean().optional().describe("Full width"),
+    }),
   },
   PopoverContent: {
     description: "Popover body, shown when open.",
@@ -72,6 +79,10 @@ export const feedbackDefinitions = {
         .enum(["top", "bottom", "left", "right"])
         .optional()
         .describe('Default "bottom"'),
+      sideOffset: z
+        .number()
+        .optional()
+        .describe("Pixels from the trigger; default 6"),
       align: z.enum(["start", "center", "end"]).optional(),
       width: sizeValue.optional(),
     }),

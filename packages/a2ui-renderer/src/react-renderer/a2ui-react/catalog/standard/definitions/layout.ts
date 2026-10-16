@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { ChildListSchema, DataBindingSchema } from "@a2ui/web_core/v0_9";
+import {
+  ActionSchema,
+  ChildListSchema,
+  DataBindingSchema,
+  DynamicNumberSchema,
+} from "@a2ui/web_core/v0_9";
 import type { CatalogDefinitions } from "../../../../create-catalog";
 import {
   ALIGN,
@@ -86,6 +91,17 @@ export const layoutProps = {
   clip: z.boolean().optional(),
   shadow: z.boolean().optional(),
   inline: z.boolean().optional(),
+  role: z.string().optional().describe("ARIA role"),
+  flush: z.boolean().optional().describe("No padding"),
+  minSize: sizeValue.optional().describe("Minimum width and height"),
+  maxSize: sizeValue.optional().describe("Maximum width and height"),
+  disableAutoSpacing: z
+    .boolean()
+    .optional()
+    .describe("No default gap between children"),
+  onVisible: ActionSchema.optional().describe(
+    "Dispatched once when the container first scrolls into view",
+  ),
 };
 
 export type LayoutProps = z.infer<z.ZodObject<typeof layoutProps>>;
@@ -145,6 +161,14 @@ export const layoutDefinitions = {
           "transparent",
         ])
         .optional(),
+      shadowStyle: z
+        .enum(["none", "sm", "md"])
+        .optional()
+        .describe("Overrides the variant's shadow"),
+      size: z
+        .enum(["sm", "md", "lg"])
+        .optional()
+        .describe('Padding preset 8/16/24px; default "md"'),
     }),
   },
   Flow: {
@@ -171,7 +195,13 @@ export const layoutDefinitions = {
     props: z.object({
       ...layoutProps,
       visibleItems: z.number().optional(),
-      showArrows: z.boolean().optional(),
+      showArrows: z.boolean().optional().describe("Default true"),
+      activeIndex: DynamicNumberSchema.optional().describe(
+        'Index of the snapped item; bind with { "path": "/x" } to read or set it',
+      ),
+      previousLabel: z.string().optional().describe('Default "Previous"'),
+      nextLabel: z.string().optional().describe('Default "Next"'),
+      ariaLabel: z.string().optional(),
       snap: z.enum(["none", "proximity", "mandatory"]).optional(),
       snapAlign: z.enum(["start", "center", "end"]).optional(),
     }),

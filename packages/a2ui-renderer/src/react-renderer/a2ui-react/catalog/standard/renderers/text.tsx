@@ -241,6 +241,13 @@ export const textRenderers = {
           // Without a size, text inherits the host's size and line height.
           ...(props.size ? textFont(props.size) : {}),
           ...typographyStyle(props),
+          fontSize:
+            props.fontSize ??
+            (props.size ? textFont(props.size).fontSize : undefined),
+          lineHeight:
+            props.lineHeight ??
+            (props.size ? textFont(props.size).lineHeight : undefined),
+          minHeight: props.minLines ? `${props.minLines * 1.5}em` : undefined,
           fontWeight: props.weight
             ? FONT_WEIGHT[props.weight as Weight]
             : props.strong
