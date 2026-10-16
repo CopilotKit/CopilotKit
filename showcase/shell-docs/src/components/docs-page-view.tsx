@@ -490,6 +490,7 @@ export async function DocsPageView({
                                 integration?: string;
                                 demo?: string;
                               })}
+                              frontend={frontendOverride}
                               integration={
                                 defaultFramework ??
                                 (props.integration as string | undefined)
