@@ -102,6 +102,50 @@ describe("standard catalog: data and media (parity)", () => {
     expect(v.forwardEvent).not.toHaveBeenCalled();
   });
 
+  it("List items and ListItems show their value on the right of the label", async () => {
+    const v = render([
+      { id: "root", component: "Column", children: ["l", "m"] },
+      {
+        id: "l",
+        component: "List",
+        marker: "none",
+        items: [
+          { label: "Price", value: "$1,599" },
+          { label: "RAM", value: 32 },
+        ],
+      },
+      { id: "m", component: "List", children: ["i"] },
+      {
+        id: "i",
+        component: "ListItem",
+        label: "Battery",
+        value: "Up to 18 hrs",
+      },
+    ]);
+    const price = (await v.findByText("$1,599")) as HTMLElement;
+    expect(price.hasAttribute("data-a2ui-list-value")).toBe(true);
+    expect(price.parentElement!.style.justifyContent).toBe("space-between");
+    expect(v.getByText("32")).not.toBeNull();
+    expect(v.getByText("Up to 18 hrs")).not.toBeNull();
+  });
+
+  it("List items with an action keep the value as the pick payload and do not show it", async () => {
+    const v = render([
+      {
+        id: "root",
+        component: "List",
+        items: [{ label: "Graz", value: "graz" }],
+        action: { event: { name: "pick" } },
+      },
+    ]);
+    fireEvent.click(await v.findByRole("button", { name: "Graz" }));
+    expect(v.queryByText("graz")).toBeNull();
+    expect(v.forwardEvent.mock.calls[0][0].context).toMatchObject({
+      label: "Graz",
+      value: "graz",
+    });
+  });
+
   it("List maxMarkerSize and ListItem markerSize size the marker column", async () => {
     const v = render([
       {

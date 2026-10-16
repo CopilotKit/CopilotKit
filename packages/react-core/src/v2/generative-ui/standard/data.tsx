@@ -94,9 +94,11 @@ const listItemValue = z.union([
     description: z.string().optional(),
     icon: z.string().optional().describe("Lucide icon name"),
     value: z
-      .string()
+      .union([z.string(), z.number()])
       .optional()
-      .describe("Goes to the action when the user picks the item"),
+      .describe(
+        "Without an action: shown on the right of the label, for a key and value fact. With an action: the payload of the pick, not shown",
+      ),
   }),
 ]);
 type ListItemValue = z.output<typeof listItemValue>;
@@ -109,7 +111,7 @@ const listSchema = z.object({
     .array(listItemValue)
     .optional()
     .describe(
-      'Strings or { "label", "description"?, "icon"?, "value"? }, or { "@path": "/x" }',
+      'Strings or { "label", "value"?, "description"?, "icon"? }, or { "@path": "/x" }',
     ),
   marker: z.enum(LIST_MARKERS).optional().describe('Default "bullet"'),
   connector: z.enum(["none", "solid"]).optional().describe('Default "none"'),
@@ -122,6 +124,12 @@ const listSchema = z.object({
 });
 const listItemSchema = z.object({
   label: z.string().optional(),
+  value: z
+    .union([z.string(), z.number()])
+    .optional()
+    .describe(
+      "Without an action: shown on the right of the label, for a key and value fact",
+    ),
   description: z.string().optional(),
   icon: z.string().optional().describe("Lucide icon name"),
   marker: z.string().optional().describe("Shows this text as the marker"),
@@ -507,6 +515,7 @@ const ITEM_BUTTON_STYLE: CSSProperties = {
 
 function ItemBody({
   label,
+  value,
   description,
   icon,
   marker,
@@ -516,6 +525,7 @@ function ItemBody({
   extra,
 }: {
   label?: string;
+  value?: string | number;
   description?: string;
   icon?: string;
   marker?: string;
@@ -555,10 +565,39 @@ function ItemBody({
       }}
     >
       {leading}
-      <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-        {label ? (
-          <span style={{ ...textFont("md"), color: textColor("default") }}>
-            {label}
+      <span
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+          flex: 1,
+        }}
+      >
+        {label || value !== undefined ? (
+          <span
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              gap: spacing(3),
+              ...textFont("md"),
+              color: textColor("default"),
+            }}
+          >
+            <span>{label}</span>
+            {value !== undefined ? (
+              <span
+                data-a2ui-list-value=""
+                style={{
+                  fontWeight: FONT_WEIGHT.medium,
+                  fontVariantNumeric: "tabular-nums",
+                  textAlign: "end",
+                  flex: "none",
+                }}
+              >
+                {String(value)}
+              </span>
+            ) : null}
           </span>
         ) : null}
         {description ? (
@@ -601,18 +640,21 @@ function List(props: ListProps) {
     items.length > 0
       ? items.map((item, index) => {
           const entry = itemEntry(item);
+          const value = "value" in entry ? entry.value : undefined;
           const onPick = action
             ? () =>
                 void action({
                   index,
                   label: entry.label,
-                  value: "value" in entry ? entry.value : undefined,
+                  value: value === undefined ? undefined : String(value),
                 })
             : undefined;
           return (
             <li key={`${entry.label}-${index}`}>
               <ItemBody
                 label={entry.label}
+                // With an action, the value is the payload of the pick.
+                value={action ? undefined : value}
                 description={
                   "description" in entry ? entry.description : undefined
                 }
@@ -661,6 +703,7 @@ function ListItem(props: ListItemProps) {
     >
       <ItemBody
         label={props.label}
+        value={action ? undefined : props.value}
         description={props.description}
         icon={props.icon}
         marker={props.marker}
@@ -716,7 +759,7 @@ export const dataComponents = {
   List: {
     component: List,
     description:
-      'A list in a Card or next to another component. A plain list of text is markdown, not a List. Give "items" (strings or { "label", "description"?, "icon"?, "value"? }). Or, when there are no items, give "children": ListItem ids or a template. With an "action", the user can pick an item: the event context gets "index", "label" and "value" of the item.',
+      'A list in a Card or next to another component. A plain list of text is markdown, not a List. Give "items" (strings or { "label", "value"?, "description"?, "icon"? }); without an action, an item with a value is a key and value row, for facts like Price: $1,599. Or, when there are no items, give "children": ListItem ids or a template. With an "action", the user can pick an item: the event context gets "index", "label" and "value" of the item.',
     props: listSchema,
     events: {
       action: {
@@ -730,7 +773,7 @@ export const dataComponents = {
   ListItem: {
     component: ListItem,
     description:
-      'An item of a List, with a label, a description, an icon and children. With an "action", the user can pick it.',
+      'An item of a List, with a label, a value on the right, a description, an icon and children. With an "action", the user can pick it.',
     props: listItemSchema,
     events: {
       action: {
