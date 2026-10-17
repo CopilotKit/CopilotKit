@@ -8,12 +8,14 @@
 import {
   GENERATIVE_UI_MAX_REJECTION_LENGTH,
   GENERATIVE_UI_MAX_SUMMARY_REJECTIONS,
+  GENERATIVE_UI_MAX_TARGET_COMPONENTS,
 } from "./generative-ui/types";
 import type {
   GenerativeUIComponentManifest,
   GenerativeUIFunctionManifest,
   GenerativeUIManifest,
   GenerativeUISurfaceSummary,
+  GenerativeUITarget,
 } from "./generative-ui/types";
 
 /** Top-level `forwardedProps` key that holds the CopilotKit run properties. */
@@ -140,14 +142,22 @@ function isCapabilities(value: unknown): value is CopilotKitUIEnvelope["v1.0"] {
   );
 }
 
-type GenerativeUITarget = GenerativeUIManifest["targets"][number];
+/** A short list of component names. */
+function isComponentNameList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= GENERATIVE_UI_MAX_TARGET_COMPONENTS &&
+    value.every(isNonEmptyString)
+  );
+}
 
 function isTarget(value: unknown): value is GenerativeUITarget {
   return (
     isRecord(value) &&
     isNonEmptyString(value.id) &&
     (value.kind === "chat" || value.kind === "inline") &&
-    isOptionalString(value.description)
+    isOptionalString(value.description) &&
+    (value.components === undefined || isComponentNameList(value.components))
   );
 }
 

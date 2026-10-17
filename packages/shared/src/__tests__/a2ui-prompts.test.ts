@@ -23,6 +23,9 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     expect(guide).toContain(
       "Open a fence with ```a2ui target=<id> to show the surface in a named target.",
     );
+    expect(guide).toContain(
+      'When a target has "components", its surfaces can use only those components.',
+    );
   });
 
   it("asks for one JSON object per line, each with the v1.0 version and no catalogId", () => {

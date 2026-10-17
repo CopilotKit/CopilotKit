@@ -181,7 +181,7 @@ export function generativeUIGuideFeatures(
 const MARKDOWN_BASE_RULES = [
   "Write explanations as normal markdown prose outside the fences.",
   "Open a fence with ```a2ui to show the surface in the chat, at the place of the fence.",
-  "Open a fence with ```a2ui target=<id> to show the surface in a named target. Use only target ids from the schema.",
+  'Open a fence with ```a2ui target=<id> to show the surface in a named target. Use only target ids from the schema. When a target has "components", its surfaces can use only those components.',
   "Inside a fence, write one JSON object per line and nothing else. No comments, no trailing commas, no pretty-printing.",
   "Keep each operation whole on its line.",
   'Give every operation "version":"v1.0".',
