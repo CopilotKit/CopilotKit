@@ -17,7 +17,7 @@ This page shows exactly how the two sides connect so you can build predictable, 
 | `copilotkit_emit_tool_call(config, name, args)` | `useFrontendTool` | Agent manually fires a tool call; the registered handler runs in the browser |
 | LLM calls a frontend tool normally (via `bind_tools`) | `useFrontendTool` | Agent lets the LLM decide when to call the tool; same handler, same result |
 | LLM calls a frontend tool (via `bind_tools`) | `useComponent` | Agent calls a tool and the registered component is rendered inline in the chat |
-| `copilotkit_customize_config(config, emit_tool_calls=["ToolName"])` | `useFrontendTool` / `useComponent` | Controls which tool calls are streamed to the frontend; use this to filter noise |
+| AG-UI `FilterToolCallsMiddleware` (`allowedToolCalls` / `disallowedToolCalls`) | `useFrontendTool` / `useComponent` | Selectively filters which tool calls reach the frontend |
 | `copilotkit_customize_config(config, emit_tool_calls=False)` | — | Suppresses all tool call streaming for that LLM invocation |
 
 ### Persisted vs. emitted tool calls
@@ -159,18 +159,17 @@ When the LLM calls `showWeather`:
 3. `useComponent` renders `WeatherCard` inline in the chat with the tool arguments as props.
 4. The component remains visible in the chat on replay/refresh because the message is persisted.
 
-## Controlling which tool calls are streamed with `copilotkit_customize_config`
+## Controlling tool-call streaming
 
-By default, CopilotKit streams all LLM tool calls to the frontend. Use `copilotkit_customize_config` to filter them.
+By default, CopilotKit streams all LLM tool calls to the frontend. Use `copilotkit_customize_config` when you need an all-or-none switch for a specific LangGraph call.
 
 ```python title="agent.py"
 from copilotkit.langgraph import copilotkit_customize_config # [!code highlight]
 
 async def chat_node(state: AgentState, config: RunnableConfig):
-    # Only stream "showWeather" to the frontend; suppress all others
     streaming_config = copilotkit_customize_config( # [!code highlight]
         config,                                      # [!code highlight]
-        emit_tool_calls=["showWeather"],             # [!code highlight]
+        emit_tool_calls=False,                       # [!code highlight]
     )                                                # [!code highlight]
 
     model = ChatOpenAI(model="gpt-4o").bind_tools(
@@ -184,14 +183,14 @@ async def chat_node(state: AgentState, config: RunnableConfig):
 Always assign the result to a **new variable** (e.g. `streaming_config`) rather than overwriting `config`. In LangGraph Python, `config` is implicitly passed to all LangChain LLM calls in scope — overwriting it changes the behavior of every subsequent call unexpectedly.
 </Callout>
 
+For selective tool-call filtering, use AG-UI's `FilterToolCallsMiddleware` with `allowedToolCalls` or `disallowedToolCalls`. See the [AG-UI middleware documentation](https://docs.ag-ui.com/sdk/js/client/middleware).
+
 ### `emit_tool_calls` options at a glance
 
 | Value | Effect |
 |---|---|
 | `True` (default) | Stream all tool calls to the frontend |
 | `False` | Suppress all tool call streaming for this LLM call |
-| `"ToolName"` | Stream only the named tool call |
-| `["Tool1", "Tool2"]` | Stream only the listed tool calls |
 
 ## Choosing the right pattern
 
@@ -200,7 +199,7 @@ Always assign the result to a **new variable** (e.g. `streaming_config`) rather 
 | Agent imperatively triggers a browser action (toast, state update) | `copilotkit_emit_tool_call` → `useFrontendTool` |
 | LLM decides when to trigger a browser action | `bind_tools(state["copilotkit"]["actions"])` → `useFrontendTool` |
 | LLM renders a rich component in chat (persisted in history) | `bind_tools(state["copilotkit"]["actions"])` → `useComponent` |
-| Hide certain LLM tool calls from the frontend | `copilotkit_customize_config(emit_tool_calls=[...])` |
+| Hide certain LLM tool calls from the frontend | AG-UI `FilterToolCallsMiddleware` (`allowedToolCalls` / `disallowedToolCalls`) |
 | Hide all tool calls from the frontend for a sensitive LLM call | `copilotkit_customize_config(emit_tool_calls=False)` |
 
 ## See also
