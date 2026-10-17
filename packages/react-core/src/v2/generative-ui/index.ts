@@ -7,6 +7,7 @@ export type {
   CreateGenerativeUIConfig,
   GenerativeUI,
   GenerativeUIComponentDefinition,
+  GenerativeUIComponentName,
   GenerativeUIComponentProps,
   GenerativeUIEventDefinition,
   GenerativeUIFunctionArgs,

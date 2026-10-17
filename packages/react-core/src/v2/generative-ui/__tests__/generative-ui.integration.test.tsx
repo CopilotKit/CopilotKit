@@ -162,9 +162,10 @@ function setup(theme?: GenerativeUITheme) {
       <CopilotChatConfigurationProvider agentId="default" threadId={T}>
         <Handlers addToCart={addToCart} />
         <section data-testid="inline">
-          <GenerativeUISurface
+          <GenerativeUISurface<typeof ui>
             id="recommendations"
             description="Next to the product list. Use it for recommendations."
+            components={["Grid", "Card"]}
             fallback={<span>No recommendations yet</span>}
           />
         </section>
@@ -196,7 +197,7 @@ async function send(text: string) {
 }
 
 describe("generative UI integration", () => {
-  it("sends an envelope with mounted targets, their descriptions and the functions with a handler", async () => {
+  it("sends an envelope with mounted targets, their descriptions and components, and the functions with a handler", async () => {
     const { agent } = setup();
     await send("hi");
     agent.emit(runStartedEvent({ threadId: T, runId: "r1" }));
@@ -209,6 +210,7 @@ describe("generative UI integration", () => {
         id: "recommendations",
         kind: "inline",
         description: "Next to the product list. Use it for recommendations.",
+        components: ["Grid", "Card"],
       },
     ]);
     expect(Object.keys(manifest?.functions ?? {}).sort()).toEqual([

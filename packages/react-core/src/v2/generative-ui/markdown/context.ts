@@ -108,9 +108,9 @@ function compactProps(schema: GenerativeUIJSONSchema) {
 /**
  * The component schema of the markdown transport, from the per-run
  * manifest. It is smaller than the manifest: each prop is one short type.
- * It has the catalog id, the targets with their descriptions, the
- * functions with their parameters, the components with their props,
- * events and slots, and the surfaces of the thread. A surface lists the
+ * It has the catalog id, the targets with their descriptions and their
+ * component lists, the functions with their parameters, the components
+ * with their props, events and slots, and the surfaces of the thread. A surface lists the
  * values that the user set and the operations that the client dropped.
  *
  * @param manifest - The manifest from `buildGenerativeUIManifest`.
@@ -183,8 +183,8 @@ export interface GenerativeUIMarkdownContextOptions {
  * component schema and the fence guideline. Both go only to `agentIds`.
  *
  * The schema is built again at each run start and when a
- * `<GenerativeUISurface>` mounts or unmounts, so its targets, functions,
- * and surfaces stay current. The surfaces are those of the running thread.
+ * `<GenerativeUISurface>` mounts, unmounts, or changes its description or
+ * its components, so its targets, functions, and surfaces stay current. The surfaces are those of the running thread.
  *
  * @param copilotkit - The CopilotKit core of the provider.
  * @param runtime - The generative UI runtime parts, or null without one.
@@ -246,7 +246,8 @@ export function useGenerativeUIMarkdownContext(
     refreshSchema(runtime.manager.getActiveThread());
 
     // The manager notifies on every operation. Build the schema again only
-    // when the mounted targets change.
+    // when the mounted targets, their descriptions, or their component lists
+    // change.
     let targetsKey = JSON.stringify(runtime.manager.getMountedTargets());
     const unsubscribeManager = runtime.manager.subscribe(() => {
       const nextKey = JSON.stringify(runtime.manager.getMountedTargets());
