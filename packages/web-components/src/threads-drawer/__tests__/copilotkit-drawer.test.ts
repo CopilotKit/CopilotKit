@@ -1674,3 +1674,85 @@ test("unarchive aria-label falls back to 'New thread' for an empty-string name",
   ).toBe("Unarchive thread New thread");
   teardown();
 });
+
+/**
+ * Installs a `matchMedia` stub that evaluates `max-width` queries against a
+ * fixed viewport width, so a breakpoint boundary can be asserted directly
+ * instead of only asserting which query string was issued.
+ */
+function setMatchMediaAtWidth(viewportWidth: number) {
+  const listeners = new Set<(e: MediaQueryListEvent) => void>();
+  const mql = {
+    matches: false,
+    media: "",
+    onchange: null,
+    addEventListener: (_t: string, cb: (e: MediaQueryListEvent) => void) =>
+      listeners.add(cb),
+    removeEventListener: (_t: string, cb: (e: MediaQueryListEvent) => void) =>
+      listeners.delete(cb),
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => true,
+  };
+  window.matchMedia = vi.fn((query: string) => {
+    const max = /max-width:\s*(\d+)px/.exec(query);
+    const min = /min-width:\s*(\d+)px/.exec(query);
+    const matches = max
+      ? viewportWidth <= Number(max[1])
+      : min
+        ? viewportWidth >= Number(min[1])
+        : false;
+    return { ...mql, matches, media: query } as unknown as MediaQueryList;
+  }) as unknown as typeof window.matchMedia;
+  return {
+    emit(next: boolean) {
+      mql.matches = next;
+      listeners.forEach((cb) => cb({ matches: next } as MediaQueryListEvent));
+    },
+  };
+}
+
+test("a 768px-wide viewport is desktop: mobile is strictly below 768px", async () => {
+  defineCopilotKitThreadsDrawer();
+  setMatchMediaAtWidth(768);
+  const element = document.createElement(
+    COPILOTKIT_THREADS_DRAWER_TAG,
+  ) as CopilotKitThreadsDrawer;
+  document.body.appendChild(element);
+  await flush(element);
+
+  const root = element.shadowRoot!.querySelector('[part="root"]')!;
+  expect(root.classList.contains("mobile")).toBe(false);
+
+  element.remove();
+});
+
+test("a 767px-wide viewport is still mobile", async () => {
+  defineCopilotKitThreadsDrawer();
+  setMatchMediaAtWidth(767);
+  const element = document.createElement(
+    COPILOTKIT_THREADS_DRAWER_TAG,
+  ) as CopilotKitThreadsDrawer;
+  document.body.appendChild(element);
+  await flush(element);
+
+  const root = element.shadowRoot!.querySelector('[part="root"]')!;
+  expect(root.classList.contains("mobile")).toBe(true);
+
+  element.remove();
+});
+
+test("the mobile breakpoint query matches the rest of CopilotKit (767px)", async () => {
+  defineCopilotKitThreadsDrawer();
+  const controller = setMatchMedia(false);
+  const element = document.createElement(
+    COPILOTKIT_THREADS_DRAWER_TAG,
+  ) as CopilotKitThreadsDrawer;
+  document.body.appendChild(element);
+  await flush(element);
+
+  expect(window.matchMedia).toHaveBeenCalledWith("(max-width: 767px)");
+
+  element.remove();
+  controller.emit(false);
+});
