@@ -7,10 +7,13 @@ import { CopilotKitCore, CopilotKitCoreErrorCode } from "../core";
 import type { FrontendToolHandlerContext } from "../types";
 import {
   createTool,
+  createMultipleToolCallsMessage,
+  getAssistantMessage,
   createToolCallMessage,
   createToolResultMessage,
 } from "./test-utils";
 
+/** Replay durable snapshots and capture subsequent requests without a backend. */
 class ReplayAgent extends AbstractAgent {
   readonly runs: RunAgentInput[] = [];
   runMessages: Message[] = [];
@@ -54,6 +57,7 @@ class ReplayAgent extends AbstractAgent {
   }
 }
 
+/** Create an isolated pending approval and its original call ID. */
 function setup() {
   const core = new CopilotKitCore({});
   const message = createToolCallMessage("approval", { topic: "sales" });
@@ -64,6 +68,7 @@ function setup() {
   return { core, agent, message, toolCallId };
 }
 
+/** Keep approval completion under the test’s control. */
 function deferredAnswer() {
   let resolve!: (answer: string) => void;
   let reject!: (error: Error) => void;
@@ -73,6 +78,221 @@ function deferredAnswer() {
   });
   return { promise, resolve, reject };
 }
+
+// PNI-678: component results remain local while an approval is pending.
+describe("restoring component completions alongside an approval", () => {
+  /** Model two local chart completions followed by a pending approval. */
+  function setupComponents(savedMessages?: Message[]) {
+    const message = getAssistantMessage(
+      createMultipleToolCallsMessage([
+        { name: "pieChart", args: { apples: 30, pears: 70 } },
+        { name: "barChart", args: { monday: 4, tuesday: 8 } },
+        { name: "approval", args: { topic: "meeting" } },
+      ]),
+    );
+    const history = savedMessages ?? [message];
+    const answer = deferredAnswer();
+    const handler = vi.fn(() => answer.promise);
+    const core = new CopilotKitCore({});
+    for (const name of ["pieChart", "barChart"]) {
+      core.addTool(createTool({ name, handler: undefined, followUp: true }));
+    }
+    core.addTool(
+      createTool({
+        name: "approval",
+        type: "human-in-the-loop",
+        handler,
+        followUp: true,
+      }),
+    );
+    const agent = new ReplayAgent(structuredClone(history));
+    return { core, agent, history, answer, handler };
+  }
+
+  /** Assert result order, original IDs, and the absence of replacement cards. */
+  function expectOriginalResults(messages: Message[], history: Message[]) {
+    const calls = history.flatMap((message) =>
+      message.role === "assistant" ? (message.toolCalls ?? []) : [],
+    );
+    expect(
+      messages
+        .filter((message) => message.role === "tool")
+        .map((message) => ({
+          toolCallId: message.toolCallId,
+          content: message.content,
+        })),
+    ).toEqual(
+      calls.map((call) => ({
+        toolCallId: call.id,
+        content: call.function.name === "approval" ? "Tuesday at 2" : "",
+      })),
+    );
+    // No replacement calls or duplicated assistant messages/cards.
+    expect(messages.filter((message) => message.role === "assistant")).toEqual(
+      history,
+    );
+  }
+
+  it.each(["live", "reopen"])(
+    "%s sends both original chart completions with the approval answer",
+    async (mode) => {
+      const { core, agent, history, answer, handler } = setupComponents();
+      let running: Promise<unknown> | undefined;
+      if (mode === "live") {
+        agent.runMessages = structuredClone(history);
+        running = core.runAgent({ agent });
+      } else {
+        await core.connectAgent({ agent });
+      }
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+      expect(
+        agent.messages.filter((message) => message.role === "tool"),
+      ).toHaveLength(2);
+      expect(agent.runs).toHaveLength(mode === "live" ? 1 : 0);
+      agent.runMessages = [];
+      answer.resolve("Tuesday at 2");
+      await running;
+      await vi.waitFor(() =>
+        expect(agent.runs).toHaveLength(mode === "live" ? 2 : 1),
+      );
+      expectOriginalResults(agent.runs.at(-1)!.messages, history);
+    },
+  );
+
+  it("recovers after repeated reopening, then leaves all saved results completed", async () => {
+    const original = setupComponents();
+    for (let reopen = 0; reopen < 2; reopen++) {
+      // A fresh browser has only durable history, without local chart results.
+      const { core, agent, answer, handler } = setupComponents(
+        original.history,
+      );
+      await core.connectAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+      expect(
+        agent.messages.filter((message) => message.role === "tool"),
+      ).toHaveLength(2);
+      expect(agent.runs).toHaveLength(0);
+      answer.resolve("Tuesday at 2");
+      await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
+      expectOriginalResults(agent.runs[0]!.messages, original.history);
+
+      const saved = structuredClone(agent.runs[0]!.messages);
+      const completed = setupComponents(saved);
+      await completed.core.connectAgent({ agent: completed.agent });
+      await setImmediate();
+      expect(completed.handler).not.toHaveBeenCalled();
+      expect(completed.agent.runs).toHaveLength(0);
+      expect(completed.agent.messages).toEqual(saved);
+    }
+  });
+
+  it("fills only missing chart results when the approval and another chart are saved", async () => {
+    const original = setupComponents();
+    const calls = getAssistantMessage(original.history[0]).toolCalls!;
+    const saved = [
+      ...original.history,
+      createToolResultMessage(calls[0]!.id, ""),
+      createToolResultMessage(calls[2]!.id, "Tuesday at 2"),
+    ];
+    const { core, agent, handler } = setupComponents(saved);
+    await core.connectAgent({ agent });
+    await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
+    expect(handler).not.toHaveBeenCalled();
+    expect(agent.runs[0]!.messages).toEqual([
+      saved[0],
+      saved[1],
+      expect.objectContaining({
+        role: "tool",
+        toolCallId: calls[1]!.id,
+        content: "",
+      }),
+      saved[2],
+    ]);
+  });
+
+  it.each(["specific", "wildcard"])(
+    "replaces a restored handlerless placeholder (%s)",
+    async (registration) => {
+      const { core, agent, toolCallId } = setup();
+      core.addTool(
+        createTool({
+          name: registration === "wildcard" ? "*" : "approval",
+          handler: undefined,
+          followUp: true,
+        }),
+      );
+      agent.replayMessages.push(
+        createToolResultMessage(toolCallId, "Forwarded to client"),
+      );
+      await core.connectAgent({ agent });
+      await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
+      expect(
+        agent.runs[0]!.messages.filter((message) => message.role === "tool"),
+      ).toEqual([expect.objectContaining({ toolCallId, content: "" })]);
+      agent.replayMessages = structuredClone(agent.messages);
+      await core.connectAgent({ agent });
+      await setImmediate();
+      expect(agent.runs).toHaveLength(1);
+    },
+  );
+
+  it("inserts a wildcard result before later saved results without changing them", async () => {
+    const message = getAssistantMessage(
+      createMultipleToolCallsMessage([
+        { name: "first", args: {} },
+        { name: "middle", args: {} },
+        { name: "last", args: {} },
+      ]),
+    );
+    const calls = message.toolCalls!;
+    const first = createToolResultMessage(calls[0]!.id, "saved first");
+    const last = createToolResultMessage(calls[2]!.id, "saved last");
+    const agent = new ReplayAgent([message, first, last]);
+    const core = new CopilotKitCore({});
+    core.addTool(createTool({ name: "*", handler: undefined, followUp: true }));
+    await core.connectAgent({ agent });
+    await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
+    expect(agent.runs[0]!.messages).toEqual([
+      message,
+      first,
+      expect.objectContaining({
+        role: "tool",
+        toolCallId: calls[1]!.id,
+        content: "",
+      }),
+      last,
+    ]);
+  });
+
+  it.each([true, false])(
+    "honors handlerless followUp=%s without completing unknown tools",
+    async (followUp) => {
+      const { core, agent } = setup();
+      core.addTool(
+        createTool({ name: "approval", handler: undefined, followUp }),
+      );
+      agent.replayMessages.push(createToolCallMessage("unknownBackendTool"));
+      await core.connectAgent({ agent });
+      await vi.waitFor(() =>
+        expect(
+          agent.messages.filter((message) => message.role === "tool"),
+        ).toHaveLength(1),
+      );
+      await setImmediate();
+      expect(agent.runs).toHaveLength(followUp ? 1 : 0);
+    },
+  );
+
+  it("restores a handlerless wildcard result using the original call ID", async () => {
+    const { core, agent, toolCallId } = setup();
+    core.addTool(createTool({ name: "*", handler: undefined, followUp: true }));
+    await core.connectAgent({ agent });
+    await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
+    expect(
+      agent.runs[0]!.messages.filter((message) => message.role === "tool"),
+    ).toEqual([expect.objectContaining({ toolCallId, content: "" })]);
+  });
+});
 
 describe("CopilotKitCore.connectAgent selective replay", () => {
   it.each([undefined, "frontend"] as const)(
