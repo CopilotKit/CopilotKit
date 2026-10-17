@@ -247,6 +247,53 @@ describe("validateOperation: surface updates", () => {
   });
 });
 
+describe("validateOperation: components of the target", () => {
+  const allowedComponents = {
+    target: "products",
+    names: new Set(["ProductGrid", "ProductCard"]),
+  };
+  const notAllowed =
+    '"Frame" is not allowed in target "products"; use one of: ProductGrid, ProductCard';
+
+  it("accepts components of the list in updateComponents and in inline createSurface components", () => {
+    const grid = { id: "root", component: "ProductGrid", children: ["c1"] };
+    expect(reasonOf(update(grid), { allowedComponents })).toBe("ok");
+    expect(
+      reasonOf(create({ components: [grid] }), { allowedComponents }),
+    ).toBe("ok");
+  });
+
+  it("rejects a catalog component that is not in the list, also as a child", () => {
+    const frame = { id: "f", component: "Frame" };
+    expect(
+      reasonOf(update({ id: "root", component: "ProductGrid" }, frame), {
+        allowedComponents,
+      }),
+    ).toBe(`component "f": ${notAllowed}`);
+    expect(
+      reasonOf(create({ components: [{ ...frame, id: "root" }] }), {
+        allowedComponents,
+      }),
+    ).toBe(`component "root": ${notAllowed}`);
+  });
+
+  it("names the unknown component first when it is not in the catalog", () => {
+    expect(
+      reasonOf(update({ id: "x", component: "Nope" }), { allowedComponents }),
+    ).toBe('component "x": unknown component "Nope"');
+  });
+
+  it("rejects every component when the list is empty", () => {
+    expect(
+      reasonOf(update({ id: "root", component: "ProductGrid" }), {
+        allowedComponents: { target: "products", names: new Set() },
+      }),
+    ).toBe(
+      'component "root": "ProductGrid" is not allowed in target "products"; use one of: none',
+    );
+  });
+});
+
 describe("validateOperation: templates", () => {
   const templateReason = (children: unknown) =>
     reasonOf(update({ id: "root", component: "ProductGrid", children }));

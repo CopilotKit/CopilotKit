@@ -30,6 +30,19 @@ export interface ValidateOperationOptions {
    * availability is checked when the function runs.
    */
   functions?: GenerativeUIManifest["functions"];
+  /**
+   * The components that the target of the surface takes. When provided,
+   * `updateComponents` and the inline components of `createSurface` can use
+   * only these names. Left out, every catalog component is allowed.
+   */
+  allowedComponents?: AllowedComponents;
+}
+
+/** The component names that one target takes. */
+export interface AllowedComponents {
+  /** The target id, for the reason of a rejection. */
+  target: string;
+  names: ReadonlySet<string>;
 }
 
 const OK: OperationValidation = { ok: true };
@@ -125,8 +138,9 @@ export function isActionBinding(
  * exist. The operation comes from the model, so nothing in it is trusted.
  *
  * @param op - The operation, as parsed from JSON.
- * @param options - The catalog, the known and created surfaces, and the
- *   functions that the UI can call.
+ * @param options - The catalog, the known and created surfaces, the
+ *   functions that the UI can call, and the components that the target of
+ *   the surface takes.
  *
  * @example
  * ```ts
@@ -314,6 +328,11 @@ function nodeProblem(
   if (typeof node.component !== "string") return "component type is required";
   const entry = ownValue(options.manifest.components, node.component);
   if (!entry) return `unknown component "${node.component}"`;
+  const { allowedComponents } = options;
+  if (allowedComponents && !allowedComponents.names.has(node.component)) {
+    const names = [...allowedComponents.names].join(", ") || "none";
+    return `"${node.component}" is not allowed in target "${allowedComponents.target}"; use one of: ${names}`;
+  }
   const { properties, required } = entry.props;
   const propNames = isRecord(properties) ? Object.keys(properties) : [];
   const props = Object.entries(node);

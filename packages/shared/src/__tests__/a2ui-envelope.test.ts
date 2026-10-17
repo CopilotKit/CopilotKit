@@ -20,7 +20,12 @@ const productGrid = {
 const addToCart = { description: "Add.", parameters: { type: "object" } };
 const targets: Extensions["copilotkit_targets"] = [
   { id: "chat", kind: "chat" },
-  { id: "sidebar", kind: "inline", description: "Right column." },
+  {
+    id: "sidebar",
+    kind: "inline",
+    description: "Right column.",
+    components: ["ProductGrid"],
+  },
 ];
 const surfaces: Extensions["copilotkit_surfaces"] = {
   cart: { target: "sidebar" },
@@ -134,6 +139,17 @@ describe("readCopilotKitUIEnvelope", () => {
 
   it("reads an envelope that carries other extensions too", () => {
     const envelope = withExtension("a2ui_trace", { id: "t1" });
+    expect(readUI(envelope)).toEqual(envelope);
+  });
+
+  it("reads a target with 100 component names", () => {
+    const envelope = createEnvelope({
+      extensions: {
+        copilotkit_targets: [
+          { id: "x", kind: "inline", components: Array(100).fill("Card") },
+        ],
+      },
+    });
     expect(readUI(envelope)).toEqual(envelope);
   });
 
@@ -256,6 +272,24 @@ describe("readCopilotKitUIEnvelope", () => {
       withExtension("copilotkit_surfaces", {
         cart: { target: "chat", rejected: ["x".repeat(501)] },
       }),
+    ],
+    [
+      "target components that are not a list",
+      withExtension("copilotkit_targets", [
+        { id: "x", kind: "inline", components: "ProductGrid" },
+      ]),
+    ],
+    [
+      "a target component name that is empty",
+      withExtension("copilotkit_targets", [
+        { id: "x", kind: "inline", components: ["ProductGrid", ""] },
+      ]),
+    ],
+    [
+      "more than 100 target component names",
+      withExtension("copilotkit_targets", [
+        { id: "x", kind: "inline", components: Array(101).fill("ProductGrid") },
+      ]),
     ],
     ["no contextSent flag", withExtension("copilotkit_contextSent", undefined)],
   ])("returns undefined for %s", (_case, ui) => {

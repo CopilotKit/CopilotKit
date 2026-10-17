@@ -165,10 +165,26 @@ export interface GenerativeUIManifest {
    * listed. `description` tells the model where the target is on the page
    * and what to put in it.
    */
-  targets: { id: string; kind: "chat" | "inline"; description?: string }[];
+  targets: GenerativeUITarget[];
   /** Surfaces the client already holds for the current thread. */
   surfaces: Record<string, GenerativeUISurfaceSummary>;
 }
+
+/** A place where the model can render surfaces. */
+export interface GenerativeUITarget {
+  id: string;
+  kind: "chat" | "inline";
+  description?: string;
+  /**
+   * The only components that the surfaces of this target can use, at most
+   * {@link GENERATIVE_UI_MAX_TARGET_COMPONENTS} names. Left out, the target
+   * takes every component of the catalog.
+   */
+  components?: string[];
+}
+
+/** Most component names that one target can list. */
+export const GENERATIVE_UI_MAX_TARGET_COMPONENTS = 100;
 
 /** Most rejections that a surface summary lists. */
 export const GENERATIVE_UI_MAX_SUMMARY_REJECTIONS = 20;
