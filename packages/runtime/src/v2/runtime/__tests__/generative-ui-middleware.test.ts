@@ -407,6 +407,86 @@ describe("GenerativeUIMiddleware", () => {
     );
   });
 
+  describe("a target that limits its components", () => {
+    const notAllowed = (id: string) =>
+      `component "${id}": "ProductCard" is not allowed in target "recommendations"; use one of: ProductGrid`;
+    const grid = { id: "root", component: "ProductGrid", children: ["c1"] };
+    const productCard = { id: "c1", component: "ProductCard", name: "A" };
+
+    /** An envelope whose "recommendations" target takes only ProductGrid. */
+    const limitedProps = (surfaces: Extensions["copilotkit_surfaces"] = {}) =>
+      uiProps({
+        extensions: {
+          copilotkit_targets: [
+            { id: "chat", kind: "chat" },
+            {
+              id: "recommendations",
+              kind: "inline",
+              description: "Next to the product list.",
+              components: ["ProductGrid"],
+            },
+          ],
+          copilotkit_surfaces: surfaces,
+        },
+      });
+
+    it("lists the components of the target in the guide", async () => {
+      const { input } = await run([], limitedProps());
+      expect(guideText(input)).toContain(
+        '- "recommendations" (a named area of the app; only ProductGrid): Next to the product list.',
+      );
+    });
+
+    it("accepts a component of the list and rejects another one with the reason", async () => {
+      const ops = [
+        create("recs"),
+        components("recs", grid),
+        components("recs", productCard),
+      ];
+      const { output } = await run(
+        renderCall({ target: "recommendations", operations: ops }),
+        limitedProps(),
+      );
+      expect(toolResult(output)).toEqual({
+        status: "rendered",
+        applied: 2,
+        calls: 0,
+        rejected: [{ index: 2, reason: notAllowed("c1") }],
+      });
+    });
+
+    it("rejects a createSurface whose inline components are not in the list", async () => {
+      const op = {
+        version: "v1.0",
+        createSurface: {
+          surfaceId: "recs",
+          components: [{ ...productCard, id: "root" }],
+        },
+      };
+      const { output } = await run(
+        renderCall({ target: "recommendations", operations: [op] }),
+        limitedProps(),
+      );
+      expect(activity(output)).toEqual([]);
+      expect(toolResult(output).rejected).toEqual([
+        { index: 0, reason: notAllowed("root") },
+      ]);
+    });
+
+    it("checks an update against the target that the surface was created on", async () => {
+      const { output } = await run(
+        renderCall({
+          target: "chat",
+          operations: [components("recs", productCard)],
+        }),
+        limitedProps({ recs: { target: "recommendations" } }),
+      );
+      expect(toolResult(output).rejected).toEqual([
+        { index: 0, reason: notAllowed("c1") },
+      ]);
+    });
+  });
+
   it("does not tell the model about app state, even when the client still sends it", async () => {
     const { input } = await run([], {
       copilotkit: { ui: { ...uiEnvelope(), appState: ["cart"] } },

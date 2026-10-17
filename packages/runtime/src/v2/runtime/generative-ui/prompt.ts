@@ -19,10 +19,17 @@ function shorten(text: string) {
 
 export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
   const targets = manifest.targets
-    .map(
-      (t) =>
-        `- "${t.id}" (${t.kind === "chat" ? "inside the chat transcript" : "a named area of the app"})${t.description ? `: ${t.description}` : ""}`,
-    )
+    .map((t) => {
+      const place =
+        t.kind === "chat"
+          ? "inside the chat transcript"
+          : "a named area of the app";
+      const limit = t.components
+        ? `; only ${t.components.join(", ") || "no components"}`
+        : "";
+      const description = t.description ? `: ${t.description}` : "";
+      return `- "${t.id}" (${place}${limit})${description}`;
+    })
     .join("\n");
   const components = Object.entries(manifest.components)
     .map(([name, c]) => {
