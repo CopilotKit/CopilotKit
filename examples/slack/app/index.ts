@@ -4,20 +4,16 @@
  * wired to the Linear + Notion MCP servers); this directory holds everything
  * that runs on the chat-platform side of the bot for this deployment.
  *
- * MULTI-PLATFORM: this single app drives Slack, Discord, Telegram, and/or
- * WhatsApp from one process. `@copilotkit/channels`'s `createChannel` accepts an array
- * of adapters, so we include each platform's adapter only when its secrets are
- * present. Drop in `SLACK_*` to run Slack, `DISCORD_*` for Discord,
- * `TELEGRAM_BOT_TOKEN` for Telegram, `WHATSAPP_*` for WhatsApp — or any
- * combination to run them at once. The rest of `app/` (tools, components, HITL,
+ * PLATFORM: this app drives Slack. `@copilotkit/channels`'s `createChannel`
+ * accepts an array of adapters, so the Slack adapter is included when its
+ * secrets (`SLACK_*`) are present. The rest of `app/` (tools, components, HITL,
  * rendering) is platform-agnostic and shared verbatim.
  *
  * RUN MODEL — a Channel runs ONLY through the Intelligence runtime, so this
  * example needs an Intelligence key (free tier: `CPK_INTELLIGENCE_API_KEY`; the
  * platform URLs default to the managed service). The platform adapters stay DIRECT (they keep their own
- * Slack/Discord/Telegram/WhatsApp credentials + transports); the runtime OWNS
- * the Channel's lifecycle and STARTS all of its direct adapters for us. So all
- * four platforms stay on the ONE Channel — you declare it on
+ * Slack credentials + transports); the runtime OWNS the Channel's lifecycle
+ * and STARTS all of its direct adapters for us. You declare the Channel on
  * `new CopilotRuntime({ intelligence, identifyUser, channels: [bot] })` and mount
  * a node listener — which starts the Channel. `listener.channels.ready()` waits
  * for it to be live and `.stop()` tears it down. There is no
@@ -42,21 +38,6 @@ import {
   defaultSlackTools,
   defaultSlackContext,
 } from "@copilotkit/channels/slack";
-import {
-  discord,
-  defaultDiscordTools,
-  defaultDiscordContext,
-} from "@copilotkit/channels/discord";
-import {
-  telegram,
-  defaultTelegramTools,
-  defaultTelegramContext,
-} from "@copilotkit/channels/telegram";
-import {
-  whatsapp,
-  defaultWhatsAppTools,
-  defaultWhatsAppContext,
-} from "@copilotkit/channels/whatsapp";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
@@ -112,10 +93,9 @@ async function main() {
     : undefined;
 
   // Build the platform list from whichever secrets are present. Each adapter
-  // contributes its own built-in tools (e.g. `lookup_slack_user` /
-  // `lookup_discord_user` / `lookup_telegram_user`) and context (tagging +
-  // formatting guidance), added only when that platform is active so the model
-  // isn't handed a different platform's conventions.
+  // contributes its own built-in tools (e.g. `lookup_slack_user`) and context
+  // (tagging + formatting guidance), added only when that platform is active so
+  // the model isn't handed a different platform's conventions.
   const adapters: PlatformAdapter[] = [];
   const tools: ChannelTool[] = [...appTools];
   const context: ContextEntry[] = [...appContext];
@@ -156,66 +136,10 @@ async function main() {
     context.push(...defaultSlackContext);
   }
 
-  if (have("DISCORD_BOT_TOKEN", "DISCORD_APP_ID")) {
-    adapters.push(
-      discord({
-        botToken: required("DISCORD_BOT_TOKEN"),
-        appId: required("DISCORD_APP_ID"),
-        // Optional: register slash commands to one guild instantly during dev
-        // (global commands can take up to ~1h to propagate). Omit in prod.
-        guildId: process.env.DISCORD_GUILD_ID,
-      }),
-    );
-    tools.push(...defaultDiscordTools);
-    context.push(...defaultDiscordContext);
-  }
-
-  if (have("TELEGRAM_BOT_TOKEN")) {
-    // Telegram long-polls by default (no public URL / webhook setup needed).
-    // No greeting/suggestedPrompts: Telegram has no assistant-pane surface.
-    adapters.push(telegram({ token: required("TELEGRAM_BOT_TOKEN") }));
-    tools.push(...defaultTelegramTools);
-    context.push(...defaultTelegramContext);
-  }
-
-  if (
-    have(
-      "WHATSAPP_ACCESS_TOKEN",
-      "WHATSAPP_PHONE_NUMBER_ID",
-      "WHATSAPP_APP_SECRET",
-      "WHATSAPP_VERIFY_TOKEN",
-    )
-  ) {
-    // Unlike Slack/Discord (outbound), WhatsApp adds an INBOUND webhook HTTP
-    // server. It listens on Railway's injected `$PORT` (the public domain
-    // routes there); locally it defaults to 3000. Fail loud on a malformed
-    // PORT rather than letting `Number("abc")` → NaN reach `server.listen()`.
-    const port = process.env.PORT ? Number(process.env.PORT) : 3000;
-    if (!Number.isInteger(port) || port < 0) {
-      console.error(
-        `Invalid PORT: "${process.env.PORT}" is not a valid port number`,
-      );
-      process.exit(1);
-    }
-    adapters.push(
-      whatsapp({
-        accessToken: required("WHATSAPP_ACCESS_TOKEN"),
-        phoneNumberId: required("WHATSAPP_PHONE_NUMBER_ID"),
-        appSecret: required("WHATSAPP_APP_SECRET"),
-        verifyToken: required("WHATSAPP_VERIFY_TOKEN"),
-        port,
-        path: process.env.WHATSAPP_PATH ?? "/webhook",
-      }),
-    );
-    tools.push(...defaultWhatsAppTools);
-    context.push(...defaultWhatsAppContext);
-  }
-
   if (adapters.length === 0) {
     console.error(
-      "No platform secrets found. Set SLACK_BOT_TOKEN + SLACK_APP_TOKEN, " +
-        "DISCORD_BOT_TOKEN + DISCORD_APP_ID, TELEGRAM_BOT_TOKEN, " +
-        "and/or the WHATSAPP_* vars (see README).",
+      "No platform secrets found. Set SLACK_BOT_TOKEN + SLACK_APP_TOKEN " +
+        "(see README).",
     );
     process.exit(1);
   }
@@ -223,15 +147,14 @@ async function main() {
   const bot = createChannel({
     identifyUser: "platform",
     // Every declared Channel needs a unique `name` — the Intelligence runtime
-    // keys its lifecycle by it. All four platforms ride this ONE Channel; the
-    // runtime starts each of its direct adapters when the Channel activates.
+    // keys its lifecycle by it. The runtime starts each of its direct adapters
+    // when the Channel activates.
     name: "triage",
     adapters,
     // One AG-UI agent per conversation. The backend is a CopilotKit
     // `BuiltInAgent` (CopilotSseRuntime), which does NOT require a UUID-format
     // threadId, so the raw conversation thread id is fine. Nothing here is
-    // platform-specific, so one factory covers Slack, Discord, Telegram, and
-    // WhatsApp alike.
+    // platform-specific, so one factory covers every adapter.
     agent: (threadId) => {
       const a = new HttpAgent({
         url: agentUrl,
@@ -248,14 +171,13 @@ async function main() {
     tools,
     context,
     // Slash commands (`/agent`, `/triage`, `/preview`, `/file-issue`). For Slack
-    // each must ALSO be declared in the app config (or paste the manifest); Discord
-    // and Telegram register them up front. The engine routes by name; adapters that
-    // can't take commands ignore them.
+    // each must ALSO be declared in the app config (or paste the manifest). The
+    // engine routes by name; adapters that can't take commands ignore them.
     commands: appCommands,
   });
 
   // The turn handler. Each adapter pre-filters ingress to the turns this bot
-  // should answer — DMs, explicit mentions, and every WhatsApp message.
+  // should answer — DMs and explicit mentions.
   // createChannel is mention-preferred: a single handler covers them across every
   // active platform. `senderContext` names the
   // requesting user per `thread.platform`, so the label is correct on whichever
@@ -283,10 +205,9 @@ async function main() {
   // ~3s view_submission deadline (awaiting the run blows it → Slack double-files).
   bot.onModalSubmit(FILE_ISSUE_CALLBACK, fileIssueSubmit);
 
-  // Slack-only nicety: personalize the assistant-pane prompt chips for the
-  // opener. Harmless elsewhere — `onThreadStarted` only fires from adapters
-  // that emit it (Discord/Telegram/WhatsApp have no assistant pane), and
-  // platforms without suggested-prompt support no-op.
+  // Slack nicety: personalize the assistant-pane prompt chips for the opener.
+  // `onThreadStarted` only fires from adapters that emit it, and platforms
+  // without suggested-prompt support no-op.
   bot.onThreadStarted(async ({ thread, user }) => {
     if (!user?.name) return;
     await thread.setSuggestedPrompts([
@@ -316,7 +237,7 @@ async function main() {
 
   // Declare the Channel on the Intelligence runtime, which OWNS its lifecycle:
   // because Intelligence is configured, it starts EVERY direct adapter on the
-  // Channel (Slack + Discord + Telegram + WhatsApp alike) — there is no
+  // Channel — there is no
   // `bot.start()`. The runtime hosts no agents itself; the Channel supplies its
   // own (the HttpAgent above), so `agents` is empty.
   const channelRuntime = new CopilotRuntime({
@@ -370,8 +291,8 @@ async function main() {
   // Mounting the Node listener creates the runtime handler and STARTS the Channel
   // (connecting all its direct adapters); `.channels` is how you observe and stop
   // it. This listener holds the Intelligence key and needs no public ingress
-  // (each platform adapter has its own — e.g. WhatsApp's webhook on $PORT); it
-  // only owns the Channel lifecycle and keeps the process alive.
+  // (each platform adapter has its own transport); it only owns the Channel
+  // lifecycle and keeps the process alive.
   const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
   const listener = createCopilotNodeListener({
     runtime: channelRuntime,

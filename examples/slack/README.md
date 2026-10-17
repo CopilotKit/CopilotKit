@@ -1,25 +1,18 @@
-# bot-example — on-call triage assistant (Slack, Discord, Telegram &/or WhatsApp)
+# bot-example — on-call triage assistant (Slack)
 
 A runnable demo for [`@copilotkit/channels`](../../packages/channels): an on-call triage
 bot that turns incident chatter into tracked work. The umbrella supplies the
 platform-agnostic bot core and cross-platform JSX vocabulary; use its
-`@copilotkit/channels/slack`, `@copilotkit/channels/discord`,
-`@copilotkit/channels/telegram`, and `@copilotkit/channels/whatsapp` subpaths for
-the platform adapters.
+`@copilotkit/channels/slack` subpath for the Slack adapter.
 
-**One app, any platform — or all at once.** `createChannel` takes an array of
-adapters; `app/index.ts` includes the Slack adapter when `SLACK_*` secrets are
-present, the Discord adapter when `DISCORD_*` are present, the Telegram adapter
-when `TELEGRAM_BOT_TOKEN` is present, and the WhatsApp adapter when `WHATSAPP_*`
-are present. Everything else in `app/` (tools,
+`createChannel` takes an array of adapters; `app/index.ts` includes the Slack
+adapter when `SLACK_*` secrets are present. Everything else in `app/` (tools,
 components, the `confirm_write` HITL gate, chart/diagram/table rendering) is
-platform-agnostic and shared verbatim — set the secrets for whichever
-platform(s) you want and run the same process. It connects to **Linear** and
+platform-agnostic and shared verbatim. It connects to **Linear** and
 **Notion** over MCP and can:
 
 - **Query Linear** — _"what's open in CPK this cycle?"_ → renders issues
-  as a rich card (Block Kit on Slack, Components V2 on Discord, HTML on
-  Telegram).
+  as a rich Block Kit card.
 - **File a Linear issue** — _"file this thread as a bug"_ → drafts the
   issue, asks you to **confirm**, then creates it.
 - **Find Notion pages** — _"find the runbook for the auth outage"_ →
@@ -34,15 +27,15 @@ performs any Linear/Notion write.
 ## How it fits together
 
 ```
-Slack / Discord / Telegram ──@mention──▶  bot (app/)  ──AG-UI──▶  runtime (runtime.ts)
-                                                          │  BuiltInAgent (LLM)
-                                                          ├── Linear  MCP  (hosted)
-                                                          └── Notion  MCP  (sidecar)
+Slack ──@mention──▶  bot (app/)  ──AG-UI──▶  runtime (runtime.ts)
+                                             │  BuiltInAgent (LLM)
+                                             ├── Linear  MCP  (hosted)
+                                             └── Notion  MCP  (sidecar)
 ```
 
-- **`app/`** — the platform-agnostic bot: `createChannel` + whichever of the
-  `slack()` / `discord()` / `telegram()` adapters have secrets, the
-  `read_thread` / `render_chart` / `render_diagram` / `render_table` tools,
+- **`app/`** — the platform-agnostic bot: `createChannel` + the `slack()`
+  adapter, the `read_thread` / `render_chart` / `render_diagram` /
+  `render_table` tools,
   the `issue_card` / `issue_list` / `page_list` render-tools, the
   `confirm_write` HITL gate, and the bot's context. The components emit a
   cross-platform JSX IR that each adapter renders natively. This is the
@@ -50,9 +43,7 @@ Slack / Discord / Telegram ──@mention──▶  bot (app/)  ──AG-UI─�
 - **`runtime.ts`** — the agent backend: a single CopilotKit `BuiltInAgent`
   (LLM + Linear/Notion MCP), served over AG-UI. No Python, no LangGraph.
 - **`e2e/`** — live test harnesses. The Slack harness (`run.ts` /
-  `restart-recovery.ts`, `pnpm e2e`) is _legacy/WIP — see [Tests](#tests)_;
-  the Telegram harness (`telegram-run.ts`, `pnpm e2e:telegram`) is a
-  manual-trigger smoke test — see [`e2e/TELEGRAM-README.md`](e2e/TELEGRAM-README.md).
+  `restart-recovery.ts`, `pnpm e2e`) is _legacy/WIP — see [Tests](#tests)_.
 
 ### The bot (`app/index.ts`)
 
@@ -61,10 +52,8 @@ handler, then you **declare the Channel on the Intelligence runtime**, which own
 its lifecycle. A Channel runs ONLY through the Intelligence runtime: the platform
 adapters stay direct (they keep their own credentials), but the runtime starts
 them — there is no `bot.start()`/`bot.stop()`. The snippet below is an
-**abridged, single-platform sketch** — the real `app/index.ts` builds the adapter
-list from whichever secrets are present (Slack, Discord, Telegram, and/or
-WhatsApp) and adds graceful shutdown; read the file for the full multi-platform
-wiring:
+**abridged sketch** — the real `app/index.ts` adds secret checks and graceful
+shutdown; read the file for the full wiring:
 
 ```ts
 import { createServer } from "node:http";
@@ -168,8 +157,7 @@ Rich messages are authored as JSX components over the `@copilotkit/channels`
 vocabulary (`<Message>`, `<Header>`, `<Section>`, `<Context>`, `<Actions>`,
 `<Button>`, …). Each component (`IssueCard`, `IssueList`, `PageList`,
 `ConfirmWrite`) is a plain function whose zod prop schema doubles as a tool
-input schema. Each adapter renders the same IR natively (Block Kit on Slack,
-Components V2 on Discord, HTML on Telegram).
+input schema. Each adapter renders the same IR natively (Block Kit on Slack).
 
 The agent renders them through **render-tools** — `ChannelTool`s that wrap a
 component and post it. The agent calls the tool; the handler renders the
@@ -218,8 +206,7 @@ export const confirmWriteTool: ChannelTool<typeof confirmWriteSchema> = {
 `<ConfirmWrite>` is a JSX card whose Create/Cancel `<Button>`s each carry a
 `value` (`{ confirmed: true|false }`) and an inline `onClick` that updates
 the card in place to an approved/declined state — so the picker reflects the
-decision the moment it's clicked. (On Telegram the value can't ride in the
-64-byte `callback_data`, so the core recovers it from the rendered button.)
+decision the moment it's clicked.
 
 ### Slash commands (`app/commands/`)
 
@@ -232,7 +219,7 @@ Four app-owned slash commands, registered via `createChannel({ commands })`:
 - **`/preview <title>`** — privately previews the issue the bot would file
   (only you see it); degrades to a DM on platforms without ephemeral messages.
 - **`/file-issue`** — opens a structured Linear issue form; degrades to a
-  conversational flow on platforms without modal support (e.g. Telegram).
+  conversational flow on platforms without modal support.
 
 ```ts
 defineChannelCommand({
@@ -256,8 +243,7 @@ isn't in the history the agent reconstructs).
 > `/file-issue`) must be declared in your Slack app under **Slash Commands** —
 > Slack won't deliver an unregistered command, even over Socket Mode. The
 > easiest path is to paste the full `slack-app-manifest.yaml` when creating
-> (or updating) your app, which already declares all four. Discord and Telegram
-> register their commands up front via the adapter.
+> (or updating) your app, which already declares all four.
 
 ### The agent (`runtime.ts`)
 
@@ -271,21 +257,17 @@ model is `openai/gpt-5.5` (override with `AGENT_MODEL`).
 
 ## Local run
 
-Pieces: the **chat-platform app(s)** (Slack, Discord, and/or Telegram, created
-once), the optional **Notion MCP sidecar**, the **agent** (`runtime.ts`), and
-the **bot** (`app/`). Set up whichever platform(s) you want — the bot starts an
-adapter for each one whose secrets are present (so you can run any one, or
-several from one process).
+Pieces: the **Slack app** (created once), the optional **Notion MCP sidecar**,
+the **agent** (`runtime.ts`), and the **bot** (`app/`).
 
 > **This example runs from the monorepo.** Its application-level Channels
 > dependency is `@copilotkit/channels`; the root export and platform subpaths all
-> resolve from that umbrella. The Telegram adapter implementation is not published
-> separately yet, so all `@copilotkit/*` deps are `workspace:*` and the example runs
-> against local source: `pnpm --filter slack-example <script>`. Once the umbrella
+> resolve from that umbrella. All `@copilotkit/*` deps are `workspace:*` and the
+> example runs against local source: `pnpm --filter slack-example <script>`. Once the umbrella
 > version publishes, use its published range for a standalone build and keep the
 > platform imports on `@copilotkit/channels/<platform>`.
 
-### 1a. Slack app (set `SLACK_*` to enable Slack)
+### 1. Slack app
 
 - <https://api.slack.com/apps?new_app=1> → **From a manifest** → paste
   `slack-app-manifest.yaml`.
@@ -304,38 +286,13 @@ several from one process).
   `message.channels` and `message.groups` so Slack delivers plain thread
   replies.
 
-### 1b. Discord app (set `DISCORD_*` to enable Discord)
-
-- <https://discord.com/developers/applications> → **New Application**.
-- **Bot** → copy the token (`DISCORD_BOT_TOKEN`); under **Privileged Gateway
-  Intents** enable **both** **Message Content** and **Server Members** — both
-  are required or the Gateway login is rejected.
-- **General Information** → copy the **Application ID** (`DISCORD_APP_ID`).
-- **OAuth2 → URL Generator** → scopes `bot` + `applications.commands`,
-  permissions Send Messages / Read Message History / Use Slash Commands /
-  Embed Links → open the URL to add it to your server. Optionally set
-  `DISCORD_GUILD_ID` (your server id) so slash commands register instantly
-  during dev.
-
-### 1c. Telegram bot (set `TELEGRAM_BOT_TOKEN` to enable Telegram)
-
-- In Telegram, message **@BotFather** → `/newbot` → follow the prompts (name +
-  a username ending in `bot`) → copy the HTTP API token (`TELEGRAM_BOT_TOKEN`).
-- Long-polling is the default ingress — no public URL or webhook needed.
-- The bot auto-registers its slash commands (`/agent`, `/triage`, `/preview`,
-  `/file-issue` — all four passed to `createChannel`) via `setMyCommands` on start
-  (no manual BotFather `/setcommands` step). For group use, `/setprivacy` →
-  **Disable** if you want it to see non-mention messages.
-
 ### 2. Credentials
 
 ```bash
 cp .env.example .env
-# Fill in (set SLACK_*, DISCORD_*, and/or TELEGRAM_BOT_TOKEN — whichever you want):
+# Fill in:
 #   CPK_INTELLIGENCE_API_KEY                         (REQUIRED — owns the Channel; free tier)
-#   SLACK_BOT_TOKEN / SLACK_APP_TOKEN          (to run on Slack)
-#   DISCORD_BOT_TOKEN / DISCORD_APP_ID         (to run on Discord; DISCORD_GUILD_ID optional)
-#   TELEGRAM_BOT_TOKEN                         (to run on Telegram)
+#   SLACK_BOT_TOKEN / SLACK_APP_TOKEN
 #   OPENAI_API_KEY  (or ANTHROPIC_API_KEY / GOOGLE_API_KEY + AGENT_MODEL)
 #   LINEAR_API_KEY          (linear.app → Settings → API → Personal API keys)
 #   NOTION_TOKEN            (notion.so → Settings → Connections → integrations)
@@ -345,8 +302,8 @@ cp .env.example .env
 A Channel runs only through the Intelligence runtime, so `CPK_INTELLIGENCE_API_KEY` is
 **required** (free tier; `COPILOTKIT_API_KEY` is a deprecated alias, still read as a
 fallback). There are no URLs to set — the SDK defaults to the
-cloud-hosted CopilotKit Intelligence. The platform adapters stay direct — the runtime that owns the Channel starts each
-of them for you. Linear and Notion are independent — set only the ones you want;
+cloud-hosted CopilotKit Intelligence. The Slack adapter stays direct — the runtime that owns the Channel starts
+it for you. Linear and Notion are independent — set only the ones you want;
 the agent wires up whichever credentials are present.
 
 ### 3. Notion MCP sidecar (only if using Notion)
@@ -378,9 +335,8 @@ pnpm --filter slack-example dev       # tsx watch app/index.ts
 
 ### 6. Try it
 
-@mention the bot in a channel (Slack/Discord) or DM it / @mention it in a
-group (Telegram). In Slack channel threads, mention Kite again for each
-follow-up unless you enabled legacy thread continuation:
+@mention the bot in a channel or DM it. In channel threads, mention Kite again
+for each follow-up unless you enabled legacy thread continuation:
 
 > @CopilotKit Triage what are the open CPK issues this cycle?
 
@@ -453,7 +409,7 @@ the workspace and `packages/**` are visible. On Railway (or any host), set:
 | **Watch Paths**    | `packages/**`, `examples/slack/**`, `pnpm-lock.yaml`, `package.json`                                                     |
 
 `pnpm --filter slack-example build` builds `@copilotkit/channels` and
-`@copilotkit/runtime`; Nx brings the platform adapters in transitively through
+`@copilotkit/runtime`; Nx brings the Slack adapter in transitively through
 the project graph, so `tsx` runs against fresh `dist`. The **Watch Paths** are
 what makes a `packages/**`-only change trigger a redeploy (the example's own
 files no longer need to change to provoke one).
@@ -466,26 +422,6 @@ files no longer need to change to provoke one).
 > The optional managed gateway entrypoint deliberately imports an internal helper
 > from `@copilotkit/channels-intelligence`; it is not part of the curated umbrella
 > API. If you do not use that entrypoint, remove it and its dependency instead.
-
-### WhatsApp (inbound webhook, needs a public domain)
-
-Slack and Discord are outbound (Socket Mode / gateway) and need no public
-ingress. WhatsApp is different: it adds an inbound webhook HTTP server on
-`$PORT`, so the bot service needs a public URL. To enable it on the deployed
-bot service (Railway):
-
-1. Generate a public domain on the **bot** service (Settings → Networking).
-   Railway routes it to `$PORT`, which the WhatsApp adapter listens on.
-2. Set `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`,
-   `WHATSAPP_VERIFY_TOKEN` on the bot service (use a System User token — the
-   temporary one expires in 24h). The `runtime` service is unchanged.
-3. In the Meta app → WhatsApp → Configuration: Callback URL
-   `https://<bot-domain>/webhook`, Verify Token = `WHATSAPP_VERIFY_TOKEN`,
-   subscribe to the `messages` field.
-
-Health check: `GET https://<bot-domain>/` returns `ok`. Chart/diagram tools use
-the same headless browser the Slack/Discord paths already run; their PNGs go
-out as WhatsApp images via the media upload.
 
 ## Feature demos
 
@@ -509,7 +445,7 @@ Posts a private draft issue card visible only to you — a "here's what I'd file
 /file-issue
 ```
 
-Opens a structured Linear issue form. On Slack you get the full form (title, description text inputs, priority dropdown, type radio). On Discord the form is text-only. On Telegram there is no modal surface, so the bot narrates that and continues conversationally.
+Opens a structured Linear issue form (title, description text inputs, priority dropdown, type radio). On platforms without a modal surface, the bot narrates that and continues conversationally.
 
 On submission (`bot.onModalSubmit("file_issue", …)` in `app/index.ts`), the bot validates the inputs and files the issue via the agent (Linear MCP) with the usual `confirm_write` gate, then shows the filed card.
 
@@ -518,15 +454,6 @@ The managed entrypoint (`pnpm channel`) registers the same handler with `support
 **Source:** `app/modals/file-issue.tsx` (`FileIssueModal`, `issueFromValues`), `app/commands/index.ts` (`file-issue` command).
 
 > **Slack setup:** `/file-issue` must be declared under **Slash Commands** in your Slack app manifest (already present in `slack-app-manifest.yaml`).
-
-### Per-platform behavior
-
-| Demo                   | Slack                         | Discord                                         | Telegram                              |
-| ---------------------- | ----------------------------- | ----------------------------------------------- | ------------------------------------- |
-| Ephemeral (`/preview`) | native only-you message       | DM fallback                                     | DM fallback                           |
-| Modal (`/file-issue`)  | rich form (dropdowns + radio) | text-only (≤5 inputs; type/priority default in) | unsupported → conversational fallback |
-
-The degradation is always narrated, never silent: `/preview` reports whether it used the DM path; `/file-issue` says "modals aren't supported here" on Telegram and continues in chat.
 
 ## Tests
 
@@ -537,8 +464,7 @@ pnpm --filter slack-example test     # unit tests (read_thread, render tools, co
 > **Note:** the live-Slack e2e harness (`pnpm e2e` / `pnpm e2e:restart`) is
 > being migrated to the new `createChannel` API — it still targets the old bridge
 > and the obsolete button-value resume path, so it does not run against this
-> example as-is. The Telegram harness (`pnpm e2e:telegram`) is a working
-> manual-trigger smoke test — see [`e2e/TELEGRAM-README.md`](e2e/TELEGRAM-README.md).
+> example as-is.
 
 ## JSX images and carousels (managed Slack)
 

@@ -10,7 +10,7 @@ function npm404(): Error & { stderr: string } {
 describe("loadPublishedChannelsManifest", () => {
   it("waits for a just-published package to become visible", async () => {
     const manifest = {
-      name: "@copilotkit/channels-whatsapp",
+      name: "@copilotkit/channels-slack",
       version: "0.9.1",
     };
     const lookup = vi
@@ -23,7 +23,7 @@ describe("loadPublishedChannelsManifest", () => {
     const onRetry = vi.fn();
 
     await expect(
-      loadPublishedChannelsManifest("@copilotkit/channels-whatsapp", "0.9.1", {
+      loadPublishedChannelsManifest("@copilotkit/channels-slack", "0.9.1", {
         lookup,
         sleep,
         onRetry,
@@ -36,7 +36,7 @@ describe("loadPublishedChannelsManifest", () => {
     expect(sleep).toHaveBeenCalledOnce();
     expect(sleep).toHaveBeenCalledWith(10_000);
     expect(onRetry).toHaveBeenCalledWith(
-      "@copilotkit/channels-whatsapp@0.9.1 is not visible on npm yet; retrying in 10s (1/3).",
+      "@copilotkit/channels-slack@0.9.1 is not visible on npm yet; retrying in 10s (1/3).",
     );
   });
 

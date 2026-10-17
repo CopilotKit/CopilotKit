@@ -53,7 +53,7 @@ This feature targets managed Slack and Teams:
 - **Slack:** the SDK stores each PNG and puts its file handle in `slack_file.id`. Intelligence stages the image in Slack before posting the native message or carousel. Native buttons keep their action callbacks.
 - **Teams:** the SDK embeds snapshots as data URIs in an Adaptive Card. The complete delivery packet, including all images, text, and actions, must fit the existing **64 KiB** limit. Oversized cards fail with an error explaining the limit. Reduce the snapshot dimensions, use public `<Image url>` images, or post a larger snapshot separately with `thread.post(jsx)`, which uses the managed upload path.
 
-Run `pnpm channel` in `examples/slack` for the managed example. Existing direct adapters and Discord, Telegram, and WhatsApp behavior are unchanged.
+Run `pnpm channel` in `examples/slack` for the managed example. Existing direct adapter behavior is unchanged.
 
 | Managed platform | Carousel output |
 | --- | --- |
