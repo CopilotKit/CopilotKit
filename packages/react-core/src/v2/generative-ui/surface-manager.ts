@@ -65,15 +65,25 @@ interface Bookkeeping {
   lastFingerprint: string | undefined;
 }
 
-/** One mount of a target. Each mount gets its own object. */
-interface TargetRegistration {
-  readonly description: string | undefined;
+/** What one mount of a target tells the model. */
+export interface GenerativeUITargetOptions {
+  /** Where the target is on the page and what to show in it. */
+  description?: string;
+  /**
+   * The only components that the surfaces of the target can use. Left out,
+   * every component of the UI is allowed.
+   */
+  components?: readonly string[];
 }
+
+/** One mount of a target. Each mount gets its own object. */
+type TargetRegistration = Readonly<GenerativeUITargetOptions>;
 
 /** A mounted target, as the manifest lists it. */
 export interface GenerativeUIMountedTarget {
   id: string;
   description?: string;
+  components?: string[];
 }
 
 /** A data prop can also be `{"@path"}` or `{"@call":"@index"}`. */
@@ -296,9 +306,12 @@ export class GenerativeUISurfaceManager {
   /**
    * Marks a target as mounted. Returns the function that unmounts it. Calling
    * that function more than once has no effect.
+   *
+   * @param id - The target id.
+   * @param options - The description and the allowed components of this mount.
    */
-  registerTarget(id: string, description?: string) {
-    const registration: TargetRegistration = { description };
+  registerTarget(id: string, options: GenerativeUITargetOptions = {}) {
+    const registration: TargetRegistration = { ...options };
     const registrations = this.targets.get(id) ?? new Set();
     registrations.add(registration);
     this.targets.set(id, registrations);
@@ -313,7 +326,10 @@ export class GenerativeUISurfaceManager {
     };
   }
 
-  /** The mounted targets, each with the description of its earliest mount. */
+  /**
+   * The mounted targets. Each has the description and the component list of
+   * its earliest mount that has one.
+   */
   getMountedTargets() {
     const mounted: GenerativeUIMountedTarget[] = [];
     for (const [id, registrations] of this.targets) {
@@ -321,9 +337,33 @@ export class GenerativeUISurfaceManager {
       const description = [...registrations].find(
         (registration) => registration.description !== undefined,
       )?.description;
-      mounted.push(description === undefined ? { id } : { id, description });
+      const components = this.targetComponents(id);
+      mounted.push({
+        id,
+        ...(description === undefined ? {} : { description }),
+        ...(components === undefined ? {} : { components: [...components] }),
+      });
     }
     return mounted;
+  }
+
+  /**
+   * The component list of the earliest mount of `id` that has one.
+   * `undefined` when no mount of `id` limits its components.
+   */
+  private targetComponents(id: string) {
+    const registrations = this.targets.get(id) ?? new Set<TargetRegistration>();
+    return [...registrations].find(
+      (registration) => registration.components !== undefined,
+    )?.components;
+  }
+
+  /** The components that `validateOperation` allows on a surface. */
+  private allowedComponentsFor(surface: ManagedSurface) {
+    const components = this.targetComponents(surface.target);
+    return components === undefined
+      ? undefined
+      : { target: surface.target, names: new Set(components) };
   }
 
   /**
@@ -560,6 +600,7 @@ export class GenerativeUISurfaceManager {
         components: this.ui.manifestComponents,
       },
       ...this.surfacesFor(surface, kind, position),
+      allowedComponents: this.allowedComponentsFor(surface),
     });
     if (!validation.ok) return reject(validation.reason);
 

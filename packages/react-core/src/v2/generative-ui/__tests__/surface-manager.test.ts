@@ -609,7 +609,9 @@ describe("GenerativeUISurfaceManager", () => {
 
     it("lists the description and leaves it out when absent", () => {
       const manager = new GenerativeUISurfaceManager(ui);
-      manager.registerTarget("recommendations", "Next to the product list.");
+      manager.registerTarget("recommendations", {
+        description: "Next to the product list.",
+      });
       manager.registerTarget("sidebar");
       expect(manager.getMountedTargets()).toEqual([
         { id: "recommendations", description: "Next to the product list." },
@@ -619,8 +621,10 @@ describe("GenerativeUISurfaceManager", () => {
 
     it("keeps the first mount's description, then one from a mount that is still mounted", () => {
       const manager = new GenerativeUISurfaceManager(ui);
-      const first = manager.registerTarget("recommendations", "First");
-      manager.registerTarget("recommendations", "Second");
+      const first = manager.registerTarget("recommendations", {
+        description: "First",
+      });
+      manager.registerTarget("recommendations", { description: "Second" });
       expect(manager.getMountedTargets()).toEqual([
         { id: "recommendations", description: "First" },
       ]);
@@ -633,9 +637,94 @@ describe("GenerativeUISurfaceManager", () => {
     it("a mount without a description does not hide a later description", () => {
       const manager = new GenerativeUISurfaceManager(ui);
       manager.registerTarget("recommendations");
-      manager.registerTarget("recommendations", "Second");
+      manager.registerTarget("recommendations", { description: "Second" });
       expect(manager.getMountedTargets()).toEqual([
         { id: "recommendations", description: "Second" },
+      ]);
+    });
+
+    it("lists the components of the earliest mount that has them", () => {
+      const manager = new GenerativeUISurfaceManager(ui);
+      manager.registerTarget("recommendations");
+      const first = manager.registerTarget("recommendations", {
+        components: ["ProductGrid"],
+      });
+      manager.registerTarget("recommendations", {
+        components: ["ProductGrid", "ProductCard"],
+      });
+      expect(manager.getMountedTargets()).toEqual([
+        { id: "recommendations", components: ["ProductGrid"] },
+      ]);
+      first();
+      expect(manager.getMountedTargets()).toEqual([
+        { id: "recommendations", components: ["ProductGrid", "ProductCard"] },
+      ]);
+    });
+  });
+
+  describe("a target that limits its components", () => {
+    /** A manager whose "recommendations" target takes only `components`. */
+    function limitedManager(components: string[]) {
+      const { manager, onOperationRejected } = managerWithRejections();
+      manager.registerTarget("recommendations", { components });
+      return { manager, onOperationRejected };
+    }
+
+    it("applies the components of the list", () => {
+      const { manager } = limitedManager(["ProductGrid", "ProductCard"]);
+      manager.ingest(
+        "t1",
+        "default",
+        content([create, grid(["c1"]), card("c1")]),
+      );
+      const surface = manager.getSurface("t1", "recs")!;
+      expect(surface.clientRejected).toEqual([]);
+      expect(surface.model.componentsModel.get("c1")).toBeDefined();
+    });
+
+    it("rejects a component outside the list, also in an inline createSurface", () => {
+      const { manager, onOperationRejected } = limitedManager(["ProductGrid"]);
+      manager.ingest(
+        "t1",
+        "default",
+        content([create, grid(["c1"]), card("c1")]),
+      );
+      const surface = manager.getSurface("t1", "recs")!;
+      const reason =
+        'component "c1": "ProductCard" is not allowed in target "recommendations"; use one of: ProductGrid';
+      expect(surface.clientRejected).toEqual([{ index: 2, reason }]);
+      expect(surface.model.componentsModel.get("c1")).toBeUndefined();
+      expect(onOperationRejected).toHaveBeenCalledWith({
+        surfaceId: "recs",
+        index: 2,
+        reason,
+      });
+
+      manager.ingest(
+        "t2",
+        "default",
+        content([
+          inlineCreate({
+            components: [
+              { id: "root", component: "ProductCard", name: "A", price: 1 },
+            ],
+          }),
+        ]),
+      );
+      expect(manager.getSurface("t2", "recs")).toBeUndefined();
+    });
+
+    it("uses the list of the earliest mount", () => {
+      const { manager } = limitedManager(["ProductGrid"]);
+      manager.registerTarget("recommendations", {
+        components: ["ProductGrid", "ProductCard"],
+      });
+      manager.ingest("t1", "default", content([create, card("c1")]));
+      expect(manager.getSurface("t1", "recs")!.clientRejected).toEqual([
+        {
+          index: 1,
+          reason: expect.stringContaining('"ProductCard" is not allowed'),
+        },
       ]);
     });
   });

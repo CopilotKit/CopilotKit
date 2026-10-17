@@ -15,7 +15,7 @@ import type { GenerativeUIRuntime } from "./runtime-context";
  *
  * - `functions`: the declared functions with exactly one mounted handler.
  * - `targets`: the chat first, then each mounted `<GenerativeUISurface>`,
- *   with its `description` when it has one.
+ *   with its `description` and its `components` when it has them.
  */
 export function buildGenerativeUIManifest(
   runtime: Pick<GenerativeUIRuntime, "ui" | "manager" | "dispatcher">,
@@ -25,11 +25,7 @@ export function buildGenerativeUIManifest(
   const inlineTargets = manager
     .getMountedTargets()
     .filter((target) => target.id !== GENERATIVE_UI_CHAT_TARGET)
-    .map(({ id, description }) =>
-      description === undefined
-        ? { id, kind: "inline" as const }
-        : { id, kind: "inline" as const, description },
-    );
+    .map(({ id, ...rest }) => ({ id, kind: "inline" as const, ...rest }));
   const manifest: GenerativeUIManifest = {
     catalogId: ui.id,
     components: ui.manifestComponents,

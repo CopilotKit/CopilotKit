@@ -181,6 +181,13 @@ export type GenerativeUIFunctionsOf<UI extends AnyGenerativeUI> =
 export type GenerativeUIFunctionName<UI extends AnyGenerativeUI> =
   keyof GenerativeUIFunctionsOf<UI> & string;
 
+/**
+ * The name of a component of a generative UI, bases included. For
+ * `GenerativeUI<any>`, it is `string`.
+ */
+export type GenerativeUIComponentName<UI extends AnyGenerativeUI> =
+  keyof GenerativeUIDefinitionsOf<UI>["components"] & string;
+
 type FunctionInput<Functions, Name> = Name extends keyof Functions
   ? Functions[Name] extends GenerativeUIFunctionDefinition
     ? InputOf<Functions[Name]["parameters"]>
