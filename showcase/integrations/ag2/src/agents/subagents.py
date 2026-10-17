@@ -2,15 +2,15 @@
 
 Demonstrates multi-agent delegation with a visible delegation log.
 
-A top-level "supervisor" ConversableAgent orchestrates three specialized
-sub-agents — each itself a ConversableAgent — exposed as supervisor tools:
+A top-level "supervisor" Agent orchestrates three specialized
+sub-agents — each itself an Agent — exposed as supervisor tools:
 
   - `research_agent`  — gathers facts
   - `writing_agent`   — drafts prose
   - `critique_agent`  — reviews drafts
 
 Every delegation appends an entry to the `delegations` slot in shared
-agent state (via AG2's ContextVariables + ReplyResult), so the UI can
+agent state (the run's AG2 variables, published as state snapshots), so the UI can
 render a live "delegation log" as the supervisor fans work out and
 collects results. This is the canonical AG2 sub-agents-as-tools pattern,
 adapted to surface delegation events to the frontend via AG-UI's
@@ -19,18 +19,18 @@ shared-state channel.
 
 # @region[supervisor-delegation-tools]
 # @region[subagent-setup]
-import asyncio
 import logging
 import uuid
 from textwrap import dedent
 from typing import List, Literal
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
-from autogen.agentchat import ContextVariables, ReplyResult
-from autogen.tools import tool
+from ag2 import Agent, Context, tool
+from ag2.ag_ui import AGUIStream
+from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+from ._state import publish_state
 
 logger = logging.getLogger(__name__)
 
@@ -56,90 +56,74 @@ class SubagentsSnapshot(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Sub-agents (real ConversableAgents under the hood)
+# Sub-agents (real AG2 Agents under the hood)
 # ---------------------------------------------------------------------------
 #
-# Each sub-agent is its own LLM ConversableAgent with a focused system
+# Each sub-agent is its own LLM Agent with a focused system
 # prompt. They don't share memory or tools with the supervisor — the
 # supervisor only sees what each sub-agent's final reply produces.
 
-_SUB_LLM_CONFIG = LLMConfig({"model": "gpt-5-mini", "stream": False})
+_SUB_LLM_CONFIG = OpenAIResponsesConfig(model="gpt-5-mini", streaming=False)
 
-_research_agent = ConversableAgent(
-    name="research_sub_agent",
-    system_message=dedent(
+_research_agent = Agent(
+    "research_sub_agent",
+    prompt=dedent(
         """
         You are a research sub-agent. Given a topic, produce a concise
         bulleted list of 3-5 key facts. No preamble, no closing.
         """
     ).strip(),
-    llm_config=_SUB_LLM_CONFIG,
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=1,
+    config=_SUB_LLM_CONFIG,
 )
 
-_writing_agent = ConversableAgent(
-    name="writing_sub_agent",
-    system_message=dedent(
+_writing_agent = Agent(
+    "writing_sub_agent",
+    prompt=dedent(
         """
         You are a writing sub-agent. Given a brief and optional source
         facts, produce a polished 1-paragraph draft. Be clear and
         concrete. No preamble.
         """
     ).strip(),
-    llm_config=_SUB_LLM_CONFIG,
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=1,
+    config=_SUB_LLM_CONFIG,
 )
 
-_critique_agent = ConversableAgent(
-    name="critique_sub_agent",
-    system_message=dedent(
+_critique_agent = Agent(
+    "critique_sub_agent",
+    prompt=dedent(
         """
         You are an editorial critique sub-agent. Given a draft, produce
         2-3 crisp, actionable critiques. No preamble.
         """
     ).strip(),
-    llm_config=_SUB_LLM_CONFIG,
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=1,
+    config=_SUB_LLM_CONFIG,
 )
 # @endregion[subagent-setup]
 
 
-async def _invoke_sub_agent(sub_agent: ConversableAgent, task: str) -> str:
+async def _invoke_sub_agent(sub_agent: Agent, task: str) -> str:
     """Run a sub-agent on `task` and return its final reply text.
 
-    `generate_reply` produces a single LLM completion against a one-shot
-    user message. AG2's ``generate_reply`` is synchronous and performs a
-    blocking LLM round-trip, so we offload it to a worker thread to keep
-    the asyncio event loop responsive while the call is in flight.
+    `ask` runs one turn against a one-shot user message on the sub-agent's
+    own stream, so none of its events leak into the supervisor's AG-UI run.
     """
-    reply = await asyncio.to_thread(
-        sub_agent.generate_reply,
-        messages=[{"role": "user", "content": task}],
-    )
-    if reply is None:
-        return ""
-    if isinstance(reply, dict):
-        # ConversableAgent.generate_reply may return {"content": "..."}.
-        return str(reply.get("content") or "")
-    return str(reply)
+    reply = await sub_agent.ask(task)
+    return reply.body or ""
 
 
-def _load_snapshot(context_variables: ContextVariables) -> SubagentsSnapshot:
-    """Best-effort load of the SubagentsSnapshot from context variables.
+def _load_snapshot(ctx: Context) -> SubagentsSnapshot:
+    """Best-effort load of the SubagentsSnapshot from the run's variables.
 
     Logs at WARNING when state fails validation so silent corruption is
     visible in server logs instead of degrading to an empty snapshot
     without a trace.
     """
-    data = context_variables.data or {}
+    data = dict(ctx.variables)
     try:
         return SubagentsSnapshot.model_validate(data)
     except Exception as exc:
         logger.warning(
-            "subagents: failed to validate SubagentsSnapshot from context "
+            "subagents: failed to validate SubagentsSnapshot from run "
             "variables (%s: %s); falling back to empty snapshot",
             exc.__class__.__name__,
             exc,
@@ -147,15 +131,15 @@ def _load_snapshot(context_variables: ContextVariables) -> SubagentsSnapshot:
         return SubagentsSnapshot()
 
 
-def _record_delegation(
-    context_variables: ContextVariables,
+async def _record_delegation(
+    ctx: Context,
     sub_agent: SubAgentName,
     task: str,
     result: str,
     status: DelegationStatus = "completed",
-) -> ReplyResult:
-    """Append a delegation entry to shared state and return ReplyResult."""
-    snapshot = _load_snapshot(context_variables)
+) -> str:
+    """Append a delegation entry to shared state, publish it, return the result."""
+    snapshot = _load_snapshot(ctx)
     snapshot.delegations.append(
         Delegation(
             id=str(uuid.uuid4()),
@@ -165,24 +149,22 @@ def _record_delegation(
             result=result,
         )
     )
-    context_variables.update(snapshot.model_dump())
-    return ReplyResult(
-        message=result,
-        context_variables=context_variables,
-    )
+    ctx.variables.update(snapshot.model_dump())
+    await publish_state(ctx)
+    return result
 
 
 async def _run_delegation(
-    context_variables: ContextVariables,
+    ctx: Context,
     sub_agent_name: SubAgentName,
-    sub_agent: ConversableAgent,
+    sub_agent: Agent,
     task: str,
-) -> ReplyResult:
+) -> str:
     """Invoke a sub-agent and record the outcome (completed or failed).
 
-    If the underlying ``generate_reply`` raises (transport error, quota,
+    If the underlying ``ask`` raises (transport error, quota,
     SDK bug, ...), we record the delegation with ``status='failed'`` and
-    return a sane ReplyResult so the supervisor can recover instead of
+    return a sane result string so the supervisor can recover instead of
     crashing the turn. The full traceback is logged server-side; the
     user-facing ``result`` text only mentions the exception class to
     avoid leaking internals.
@@ -196,16 +178,16 @@ async def _run_delegation(
         failure_message = (
             f"sub-agent call failed: {exc.__class__.__name__} (see server logs)"
         )
-        return _record_delegation(
-            context_variables,
+        return await _record_delegation(
+            ctx,
             sub_agent_name,
             task,
             failure_message,
             status="failed",
         )
 
-    return _record_delegation(
-        context_variables,
+    return await _record_delegation(
+        ctx,
         sub_agent_name,
         task,
         result,
@@ -220,14 +202,14 @@ async def _run_delegation(
 
 # Each @tool wraps a sub-agent invocation. The supervisor LLM "calls"
 # these tools to delegate work; each call asynchronously runs the
-# matching sub-agent, records the delegation into shared state via
-# ContextVariables, and returns a ReplyResult the supervisor reads as
-# its tool output on the next step.
-@tool()
+# matching sub-agent, records the delegation into shared state via the
+# run's variables, and returns the sub-agent's text the supervisor reads
+# as its tool output on the next step.
+@tool
 async def research_agent(
-    context_variables: ContextVariables,
+    ctx: Context,
     task: str,
-) -> ReplyResult:
+) -> str:
     """Delegate a research task to the research sub-agent.
 
     Use for: gathering facts, background, definitions, statistics. Returns
@@ -237,15 +219,15 @@ async def research_agent(
         task: The specific research question or topic to investigate.
     """
     return await _run_delegation(
-        context_variables, "research_agent", _research_agent, task
+        ctx, "research_agent", _research_agent, task
     )
 
 
-@tool()
+@tool
 async def writing_agent(
-    context_variables: ContextVariables,
+    ctx: Context,
     task: str,
-) -> ReplyResult:
+) -> str:
     """Delegate a drafting task to the writing sub-agent.
 
     Use for: producing a polished paragraph, draft, or summary. Pass
@@ -255,15 +237,15 @@ async def writing_agent(
         task: The brief plus any relevant facts the writer should use.
     """
     return await _run_delegation(
-        context_variables, "writing_agent", _writing_agent, task
+        ctx, "writing_agent", _writing_agent, task
     )
 
 
-@tool()
+@tool
 async def critique_agent(
-    context_variables: ContextVariables,
+    ctx: Context,
     task: str,
-) -> ReplyResult:
+) -> str:
     """Delegate a critique task to the critique sub-agent.
 
     Use for: reviewing a draft and suggesting concrete improvements.
@@ -272,7 +254,7 @@ async def critique_agent(
         task: The draft to critique (paste it directly into ``task``).
     """
     return await _run_delegation(
-        context_variables, "critique_agent", _critique_agent, task
+        ctx, "critique_agent", _critique_agent, task
     )
 
 
@@ -283,9 +265,9 @@ async def critique_agent(
 # Supervisor (the agent we export)
 # ---------------------------------------------------------------------------
 
-supervisor = ConversableAgent(
-    name="supervisor",
-    system_message=dedent(
+supervisor = Agent(
+    "supervisor",
+    prompt=dedent(
         """
         You are a supervisor agent that coordinates three specialized
         sub-agents to produce high-quality deliverables.
@@ -304,11 +286,8 @@ supervisor = ConversableAgent(
         in your final reply — just summarize.
         """
     ).strip(),
-    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
-    human_input_mode="NEVER",
-    # Limit supervisor steps to bound delegation fan-out.
-    max_consecutive_auto_reply=8,
-    functions=[research_agent, writing_agent, critique_agent],
+    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    tools=[research_agent, writing_agent, critique_agent],
 )
 
 stream = AGUIStream(supervisor)

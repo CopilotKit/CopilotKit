@@ -1,17 +1,17 @@
 """AG2 agent for the Shared State (Read + Write) demo.
 
 Demonstrates the full bidirectional shared-state pattern between UI and
-agent using AG2's ContextVariables + ReplyResult mechanism:
+agent using AG2 1.x run variables:
 
 - **UI -> agent (write)**: The UI owns a `preferences` object (the user's
   profile) that it writes into agent state via `agent.setState({...})`.
-  AG2's AGUIStream maps incoming initial state into ContextVariables on
-  every run. The agent calls `get_current_preferences` to read them, and
+  AG2's AGUIStream maps incoming initial state into the run's
+  variables on every run. The agent calls `get_current_preferences` to read them, and
   the system prompt tells it to do so before answering.
 - **agent -> UI (read)**: The agent calls `set_notes` to update the
-  `notes` slot in shared state. Each call returns a ReplyResult that
-  attaches the updated ContextVariables, which AGUIStream surfaces back
-  to the UI so `useAgent({ updates: [OnStateChanged] })` re-renders.
+  `notes` slot in shared state. Each call writes the run's variables and
+  publishes a state snapshot, which AGUIStream surfaces back to the UI so
+  `useAgent({ updates: [OnStateChanged] })` re-renders.
 
 Together this gives bidirectional shared state: frontend writes,
 backend reads AND writes, frontend re-renders.
@@ -21,12 +21,13 @@ import logging
 from textwrap import dedent
 from typing import List, Optional
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
-from autogen.agentchat import ContextVariables, ReplyResult
-from autogen.tools import tool
+from ag2 import Agent, Context, tool
+from ag2.ag_ui import AGUIStream
+from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+
+from ._state import publish_state
 
 logger = logging.getLogger(__name__)
 
@@ -53,21 +54,21 @@ class SharedSnapshot(BaseModel):
     """Full shape of the shared state slot.
 
     Both the UI and the backend agree on this shape; it round-trips through
-    AG2's ContextVariables on every turn.
+    the AG2 run variables on every turn.
     """
 
     preferences: Preferences = Field(default_factory=Preferences)
     notes: List[str] = Field(default_factory=list)
 
 
-def _load_snapshot(context_variables: ContextVariables) -> SharedSnapshot:
-    """Best-effort load of the SharedSnapshot from context variables.
+def _load_snapshot(ctx: Context) -> SharedSnapshot:
+    """Best-effort load of the SharedSnapshot from the run's variables.
 
     Falls back to an empty snapshot if state is missing or malformed —
     this keeps the agent operational on the very first turn before the UI
     has called ``agent.setState``.
     """
-    data = context_variables.data or {}
+    data = dict(ctx.variables)
     try:
         return SharedSnapshot.model_validate(data)
     except Exception as exc:
@@ -96,22 +97,22 @@ def _load_snapshot(context_variables: ContextVariables) -> SharedSnapshot:
         return SharedSnapshot(preferences=prefs, notes=notes)
 
 
-@tool()
-async def get_current_preferences(context_variables: ContextVariables) -> str:
+@tool
+async def get_current_preferences(ctx: Context) -> str:
     """Return the user's preferences (name, tone, language, interests) as JSON.
 
     Always call this BEFORE answering, so your reply respects the user's
     preferred name, tone, language, and interests.
     """
-    snapshot = _load_snapshot(context_variables)
+    snapshot = _load_snapshot(ctx)
     return snapshot.preferences.model_dump_json(indent=2)
 
 
-@tool()
+@tool
 async def set_notes(
-    context_variables: ContextVariables,
+    ctx: Context,
     notes: List[str],
-) -> ReplyResult:
+) -> str:
     """Replace the notes array in shared state with the FULL updated list.
 
     Use this whenever the user asks you to "remember" something, or when you
@@ -119,19 +120,17 @@ async def set_notes(
     pass the FULL notes list (existing + new) — not a diff. Keep each note
     short (< 120 chars).
     """
-    snapshot = _load_snapshot(context_variables)
+    snapshot = _load_snapshot(ctx)
     cleaned = [str(n).strip() for n in notes if str(n).strip()]
     snapshot.notes = cleaned
-    context_variables.update(snapshot.model_dump())
-    return ReplyResult(
-        message=f"Notes updated. Total notes: {len(cleaned)}.",
-        context_variables=context_variables,
-    )
+    ctx.variables.update(snapshot.model_dump())
+    await publish_state(ctx)
+    return f"Notes updated. Total notes: {len(cleaned)}."
 
 
-agent = ConversableAgent(
-    name="shared_state_read_write_assistant",
-    system_message=dedent(
+agent = Agent(
+    "shared_state_read_write_assistant",
+    prompt=dedent(
         """
         You are a helpful, concise assistant.
 
@@ -152,10 +151,8 @@ agent = ConversableAgent(
         - Keep messages short and respect the preferred tone.
         """
     ).strip(),
-    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=10,
-    functions=[get_current_preferences, set_notes],
+    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    tools=[get_current_preferences, set_notes],
 )
 
 stream = AGUIStream(agent)

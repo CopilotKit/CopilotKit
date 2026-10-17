@@ -1,4 +1,4 @@
-// Dedicated runtime for the byoc-hashbrown demo (AG2).
+// Dedicated runtime for the declarative-hashbrown demo (AG2).
 //
 // The demo page wraps CopilotChat in the HashBrownDashboard provider and
 // overrides the assistant message slot with a renderer that consumes
@@ -24,7 +24,7 @@ const byocHashbrownAgent = new HttpAgent({
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts; published agents type generic mismatch.
   agents: {
-    "byoc-hashbrown-demo": byocHashbrownAgent,
+    "declarative-hashbrown-demo": byocHashbrownAgent,
     default: byocHashbrownAgent,
   },
 });
@@ -33,7 +33,7 @@ export const POST = async (req: NextRequest) => {
   try {
     const copilotHandler = createCopilotRuntimeHandler({
       runtime,
-      basePath: "/api/copilotkit-byoc-hashbrown",
+      basePath: "/api/copilotkit-declarative-hashbrown",
       mode: "single-route",
     });
     return await copilotHandler(req);
