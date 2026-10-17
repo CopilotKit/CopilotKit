@@ -5,6 +5,7 @@ import { RootProvider } from "fumadocs-ui/provider/next";
 import { AnalyticsClient } from "@/components/analytics-client";
 import { Banners } from "@/components/banners";
 import { BrandNav } from "@/components/brand-nav";
+import { NavigationProgress } from "@/components/navigation-progress";
 import { FrameworkProvider } from "@/components/framework-provider";
 import { PublicClerkProvider } from "@/components/public-clerk-provider";
 import { ShellSearchProvider } from "@/components/search-trigger";
@@ -201,6 +202,7 @@ export default function RootLayout({
                    * (margin: 0 4px; xl: 0 8px 8px 8px). */}
                   <Banners />
                   <BrandNav />
+                  <NavigationProgress />
                   <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-3 mb-2 md:mb-3">
                     {children}
                   </main>
