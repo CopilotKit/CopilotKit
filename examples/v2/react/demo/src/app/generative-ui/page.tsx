@@ -4,6 +4,7 @@ import {
   CopilotChat,
   CopilotKitProvider,
   useAgentContext,
+  useConfigureSuggestions,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import {
@@ -86,7 +87,42 @@ function CartTools({ cart }: { cart: Cart }) {
   return null;
 }
 
+/** The product list that shows until the agent replaces it. */
+function FeaturedProducts({ cart }: { cart: Cart }) {
+  return (
+    <section className="grid grid-cols-2 gap-3 self-start">
+      {PRODUCTS.map((p) => (
+        <article key={p.id} className="rounded-lg border p-3">
+          <div className="font-medium">{p.name}</div>
+          <div className="text-xs text-gray-500">{p.tagline}</div>
+          <div className="mt-2 flex justify-between">
+            <span>${p.price}</span>
+            <button
+              className="text-xs underline"
+              onClick={() => cart.addItem(p.id, 1)}
+            >
+              Add
+            </button>
+          </div>
+        </article>
+      ))}
+    </section>
+  );
+}
+
 function Storefront({ cart }: { cart: Cart }) {
+  // Try the "products" surface: the first message swaps the product list,
+  // the second one brings the featured products back.
+  useConfigureSuggestions({
+    available: "always",
+    suggestions: [
+      { title: "Buy headphones", message: "I want to buy headphones" },
+      {
+        title: "Featured products",
+        message: "Show the featured products again",
+      },
+    ],
+  });
   return (
     <div className="grid h-screen grid-cols-[1fr_420px]">
       <main className="overflow-auto p-6">
@@ -101,23 +137,13 @@ function Storefront({ cart }: { cart: Cart }) {
           </span>
         </header>
         <div className="grid grid-cols-[1fr_360px] gap-6">
-          <section className="grid grid-cols-2 gap-3 self-start">
-            {PRODUCTS.map((p) => (
-              <article key={p.id} className="rounded-lg border p-3">
-                <div className="font-medium">{p.name}</div>
-                <div className="text-xs text-gray-500">{p.tagline}</div>
-                <div className="mt-2 flex justify-between">
-                  <span>${p.price}</span>
-                  <button
-                    className="text-xs underline"
-                    onClick={() => cart.addItem(p.id, 1)}
-                  >
-                    Add
-                  </button>
-                </div>
-              </article>
-            ))}
-          </section>
+          <GenerativeUISurface<typeof storeUI>
+            id="products"
+            description="The main product list of the store. When the user asks for a kind of product (for example headphones), show the matching products here: a ProductGrid root with one ProductCard for each product. When the user asks for the featured products again, delete this surface, and the featured products come back."
+            components={["ProductGrid", "ProductCard"]}
+            className="self-start"
+            fallback={<FeaturedProducts cart={cart} />}
+          />
           <aside className="space-y-2">
             <h2 className="text-sm font-semibold text-gray-600">
               Recommended for you
