@@ -58,6 +58,27 @@
     },
     "candidate": {
       "$ref": "#/$defs/image"
+    },
+    "recovery": {
+      "const": {
+        "version": 1,
+        "kind": "bounded-environment-retry",
+        "projectId": "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
+        "runnerRunId": "run-7d05705a-0b83-4cdb-9d32-9f054ae24d11",
+        "lifecycleRunId": "rich-f091f87b-e90b-4dd1-bef2-6ae873a774a3",
+        "intentSha256": "25ad2b74a34b749e7be7b7ad88d3c39e115717f1e48cd6fe2d0e7deb0280a406",
+        "leaseSha256": "976bd18df0558dfcdd515a87169b761ca2c3c36eb58f2928b89f6fbe8f4b5787",
+        "decision": {
+          "reference": "ran-2026-10-16-bounded-cli-retry",
+          "text": "They need to make a new request. When they receive response of whatever, they use CLI to verify that the env is there."
+        },
+        "permanentRunner": {
+          "projectId": "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
+          "environmentId": "8edfef02-ea09-4a20-8689-261f21cc2849",
+          "serviceId": "4922b45b-6981-4559-be2f-fbbca9123323",
+          "volumeId": "2a70e47d-85d4-4a8a-b17b-b6788c91b1c7"
+        }
+      }
     }
   },
   "$defs": {
@@ -108,5 +129,32 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["recovery"]
+      },
+      "then": {
+        "properties": {
+          "baseline": {
+            "properties": {
+              "image": {
+                "const": "ghcr.io/copilotkit/rich-thread-runner@sha256:984f616acffebca0c393a54294b4366a33214221782a7192b4761bb84325e79d"
+              }
+            }
+          },
+          "candidate": {
+            "properties": {
+              "image": {
+                "not": {
+                  "const": "ghcr.io/copilotkit/rich-thread-runner@sha256:984f616acffebca0c393a54294b4366a33214221782a7192b4761bb84325e79d"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
