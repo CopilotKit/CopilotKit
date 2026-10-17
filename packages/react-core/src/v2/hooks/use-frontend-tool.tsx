@@ -47,7 +47,7 @@ export function useFrontendTool<
     // tool.available is included so toggling availability re-registers the tool.
     // tool.webmcp is compared by value (it is commonly an object literal), so
     // a changed WebMCP config re-registers without churning on identity.
-    // extraDeps is spread rather than stringified: JSON.stringify maps
+    // deps is spread rather than stringified: JSON.stringify maps
     // functions to null and throws on circular refs, so a changed callback
     // would never re-register. Spreading gives the entries React's own
     // identity comparison, the same contract as useEffect's deps array.
@@ -55,7 +55,7 @@ export function useFrontendTool<
     tool.name,
     tool.available,
     copilotkit,
-    ...extraDeps,
+    ...(deps ?? []),
     depsVersion,
     JSON.stringify(tool.webmcp ?? null),
   ]);
