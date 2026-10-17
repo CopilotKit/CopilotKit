@@ -1,0 +1,39 @@
+"use client";
+
+// The `@copilotkit/react-core/v2/generative-ui` entry. It is a "use client"
+// module like the `/v2` entry, so every export is named.
+export { createGenerativeUI } from "./catalog";
+export type {
+  CreateGenerativeUIConfig,
+  GenerativeUI,
+  GenerativeUIComponentDefinition,
+  GenerativeUIComponentName,
+  GenerativeUIComponentProps,
+  GenerativeUIEventDefinition,
+  GenerativeUIFunctionArgs,
+  GenerativeUIFunctionDefinition,
+  GenerativeUIFunctionInput,
+  GenerativeUIFunctionName,
+  GenerativeUISlotKind,
+  GenerativeUIStateOf,
+} from "./catalog";
+export { GenerativeUIError } from "./errors";
+export type {
+  GenerativeUIErrorCode,
+  GenerativeUIErrorInfo,
+  GenerativeUIEventHandler,
+  GenerativeUIInvokeResult,
+} from "./errors";
+export type {
+  GenerativeUIConfig,
+  GenerativeUIErrorBoundaryConfig,
+  GenerativeUIMarkdownConfig,
+  GenerativeUITheme,
+  GenerativeUIToolConfig,
+} from "./runtime-context";
+export { GenerativeUISurface } from "./GenerativeUISurface";
+export type { GenerativeUISurfaceProps } from "./GenerativeUISurface";
+export { DefaultGenerativeUIChatCard } from "./chat";
+export type { GenerativeUIChatSurfaceProps } from "./chat";
+export { useGenerativeUIFunction, useGenerativeUIState } from "./hooks";
+export { standardUI } from "./standard";

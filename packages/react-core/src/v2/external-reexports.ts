@@ -8,6 +8,7 @@
 
 // @copilotkit/core
 export {
+  A2UI_FENCE_LANGUAGE,
   AgentRegistry,
   AgentThreadLockedError,
   ContextStore,
@@ -25,6 +26,7 @@ export {
   SuggestionEngine,
   ToolCallStatus,
   WebMCPRegistry,
+  classifySurfaceCards,
   completePartialMarkdown,
   createActionGroup,
   createEffect,
@@ -38,6 +40,11 @@ export {
   emitInspectorViewThreadResult,
   empty,
   ensureObjectArgs,
+  extractCompleteArrayItems,
+  extractFenceOperations,
+  extractStringField,
+  flattenInformationalCards,
+  getMarkdownOperationSurfaceId,
   getWebMCPModelContext,
   isAbortError,
   isInspectorThreadBridgeEnabled,
@@ -49,8 +56,11 @@ export {
   onInspectorViewThread,
   onInspectorViewThreadResult,
   parseToolArguments,
+  prepareSurfaceOperations,
   props,
+  segmentSurfaceProse,
   select,
+  splitA2UIMarkdown,
   ɵCOPILOTKIT_FEATURES,
   ɵInterruptState,
   ɵMAX_SOCKET_RETRIES,
@@ -92,6 +102,7 @@ export {
 } from "@copilotkit/core";
 
 export type {
+  A2UIMarkdownOperation,
   ActionConfig,
   ActionCreator,
   ActionFromCreator,
@@ -136,6 +147,7 @@ export type {
   JsonValue,
   LearningConfig,
   LegacyLearningConfig,
+  MarkdownSegment,
   MemoryErrorCategory,
   MemoryErrorCode,
   MemoryErrorRegistryEntry,
@@ -150,6 +162,7 @@ export type {
   RuntimeLicenseStatus,
   RuntimeMode,
   ScopedContext,
+  ScopedProperties,
   Selector,
   StartResult,
   StaticSuggestionsConfig,
@@ -160,6 +173,7 @@ export type {
   Suggestion,
   SuggestionAvailability,
   SuggestionsConfig,
+  SurfaceSegment,
   ThreadEndpointRuntimeInfo,
   ThreadRunActivityNotification,
   TrajectoryStartOptions,
