@@ -62,10 +62,18 @@ import {
   GenerateSandboxedUiArgsSchema,
 } from "../components/OpenGenerativeUIRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import type { A2UIActionInterceptor } from "../a2ui/A2UIMessageRenderer";
+import { A2UIMarkdownProvider } from "../a2ui/markdown/A2UIMarkdownContext";
+import type { A2UIMarkdownConfig } from "../a2ui/markdown/A2UIMarkdownContext";
 import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
-import { viewerTheme, filterCatalog, Catalog } from "@copilotkit/a2ui-renderer";
+import {
+  viewerTheme,
+  filterCatalog,
+  Catalog,
+  standardCatalog,
+} from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
 import type {
@@ -295,6 +303,45 @@ export interface CopilotKitProviderProps {
      * much retry/debug detail to surface. When omitted, sane defaults apply.
      */
     recovery?: A2UIRecoveryRendererOptions;
+    /**
+     * How A2UI surfaces reach the client.
+     * - "tool" (default): the agent calls the `render_a2ui` tool and the runtime
+     *   middleware streams `a2ui-surface` activity messages.
+     * - "markdown": the agent writes A2UI operations inside ```a2ui fences in its
+     *   normal markdown reply; the chat renders each fence as a streaming surface.
+     *   The runtime middleware and tool are not used. When no `catalog` is given,
+     *   the `standardCatalog` from `@copilotkit/a2ui-renderer` is used.
+     */
+    mode?: "tool" | "markdown";
+    /** Intercept surface actions before they reach the agent. */
+    onAction?: A2UIActionInterceptor;
+    /**
+     * Markdown mode only. "message" (default) turns a button/form action into a
+     * visible user message; "legacy" forwards it as the `a2uiAction` run property
+     * like tool mode does.
+     */
+    actionMode?: "message" | "legacy";
+    /**
+     * Markdown mode only. When true (the default), the component schema and the
+     * generation guideline are sent to the agent as context entries, which the
+     * built-in agent and `CopilotKitMiddleware` paste into the system prompt.
+     * Set to false when your backend builds its prompt from the
+     * `forwardedProps.copilotkit.ui` envelope instead; the envelope is sent
+     * either way.
+     */
+    sendContext?: boolean;
+    /**
+     * Markdown mode only. When true (the default), the `copilotkit.ui` envelope
+     * carries the catalog's component schemas (A2UI inline catalog JSON Schema).
+     * Set to false to send only the catalog id, for backends that already hold
+     * the catalog.
+     */
+    includeCatalog?: boolean;
+    /**
+     * Restrict the A2UI context entries and the `copilotkit.ui` envelope to runs
+     * of these agents. When omitted, every agent receives them.
+     */
+    agentIds?: string[];
   };
   /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
@@ -446,8 +493,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // A catalog passed to the provider is enough to turn A2UI on: render the
   // surfaces locally and forward the catalog signal so the runtime injects the
   // render tool — no runtime-side `a2ui` config required.
-  const a2uiCatalogProvided = !!a2ui?.catalog;
-  const a2uiActive = runtimeA2UIEnabled || a2uiCatalogProvided;
+  //
+  // Markdown mode (`a2ui.mode: "markdown"`) replaces the tool path entirely: no
+  // render tool, no `a2ui-surface` activity renderer, no catalog signal to the
+  // runtime. Surfaces are rendered from ```a2ui fences in assistant markdown.
+  const a2uiMode = a2ui?.mode ?? "tool";
+  const a2uiMarkdownMode = a2uiMode === "markdown";
+  const a2uiCatalogProvided = !a2uiMarkdownMode && !!a2ui?.catalog;
+  const a2uiActive =
+    !a2uiMarkdownMode && (runtimeA2UIEnabled || a2uiCatalogProvided);
+  // Whether the catalog/guideline context is sent to the agent (either mode).
+  const a2uiContextActive = a2uiActive || a2uiMarkdownMode;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     RuntimeLicenseStatus | undefined
   >(undefined);
@@ -515,7 +571,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
 
   // Raw catalog provided by the caller (typed loosely to match `a2ui.catalog?: any`).
-  const rawCatalog = a2ui?.catalog as Catalog<any> | undefined;
+  // In markdown mode the standard catalog is the default; a user catalog replaces it.
+  const rawCatalog = (a2ui?.catalog ??
+    (a2uiMarkdownMode ? standardCatalog : undefined)) as
+    | Catalog<any>
+    | undefined;
 
   // Derive the FILTERED catalog: only components currently enabled on core.
   // Re-derives when enablement changes (catalogToggleVersion bump from the
@@ -566,12 +626,29 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           catalog: filteredCatalog,
           loadingComponent: a2ui?.loadingComponent,
           recovery: a2ui?.recovery,
+          onAction: a2ui?.onAction,
         }),
       );
     }
 
     return renderers;
   }, [a2uiActive, openGenUIActive, a2ui, filteredCatalog]);
+
+  // Markdown-mode config consumed by the assistant message's markdown renderer.
+  // Null in tool mode, which keeps the plain Streamdown renderer.
+  const a2uiMarkdownConfig = useMemo<A2UIMarkdownConfig | null>(() => {
+    if (!a2uiMarkdownMode) return null;
+    const catalog = (filteredCatalog ?? standardCatalog) as Catalog<any>;
+    return {
+      catalog,
+      catalogId: catalog.id,
+      theme: a2ui?.theme ?? viewerTheme,
+      loadingComponent: a2ui?.loadingComponent,
+      recovery: a2ui?.recovery,
+      onAction: a2ui?.onAction,
+      actionMode: a2ui?.actionMode ?? "message",
+    };
+  }, [a2uiMarkdownMode, filteredCatalog, a2ui]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
@@ -1019,10 +1096,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // Forward a per-run signal when the provider has an A2UI catalog so the
     // runtime can turn A2UI on (and inject the render tool) without a separate
     // `a2ui.injectA2UITool` flag on the runtime.
+    // In markdown mode, forward `__copilotkitA2UIMode` instead so the runtime
+    // skips the A2UI middleware and render tool.
     copilotkit.setProperties(
-      a2uiCatalogProvided
-        ? { ...properties, a2uiCatalogAvailable: true }
-        : properties,
+      a2uiMarkdownMode
+        ? { ...properties, __copilotkitA2UIMode: "markdown" }
+        : a2uiCatalogProvided
+          ? { ...properties, a2uiCatalogAvailable: true }
+          : properties,
     );
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
     copilotkit.setDebug(debug);
@@ -1040,6 +1121,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     credentials,
     properties,
     a2uiCatalogProvided,
+    a2uiMarkdownMode,
     mergedAgents,
     useSingleEndpoint,
     debug,
@@ -1266,10 +1348,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       <CopilotKitContext.Provider value={contextValue}>
         <LicenseContext.Provider value={licenseContextValue}>
           {a2uiActive && <A2UIBuiltInToolCallRenderer />}
-          {a2uiActive && (
+          {a2uiContextActive && (
             <A2UICatalogContext
               catalog={filteredCatalog}
               includeSchema={a2ui?.includeSchema}
+              includeCatalog={a2ui?.includeCatalog}
+              sendContext={a2ui?.sendContext}
+              agentIds={a2ui?.agentIds}
+              mode={a2uiMode}
             />
           )}
           <CopilotKitInspectorContextProvider value={inspectorContextValue}>
@@ -1281,7 +1367,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               `CopilotKitAgentIdContext` comment in `../context`.
             */}
             <CopilotKitAgentIdContext.Provider value={agentId}>
-              {children}
+              <A2UIMarkdownProvider value={a2uiMarkdownConfig}>
+                {children}
+              </A2UIMarkdownProvider>
             </CopilotKitAgentIdContext.Provider>
             {shouldRenderInspector ? (
               <CopilotKitInspector

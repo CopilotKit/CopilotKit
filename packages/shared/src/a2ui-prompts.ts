@@ -113,3 +113,46 @@ Design principles:
   action context should reference the same paths to capture user input.
 
 Use the SAME surfaceId as the main surface. Match action names to button action event names.`;
+
+/**
+ * Generation guidelines for A2UI markdown mode: the agent writes A2UI v0.9
+ * operations inside ```a2ui fences, interleaved with normal markdown prose.
+ * Shorter than the tool guideline on purpose; the component schema and the
+ * design guidelines are sent separately.
+ */
+export const A2UI_MARKDOWN_GENERATION_GUIDELINES_DESCRIPTION =
+  "A2UI markdown-mode generation guidelines — how to emit A2UI surfaces inside ```a2ui code fences in a normal markdown reply.";
+
+/**
+ * Description of the markdown-mode component-schema context entry.
+ *
+ * Deliberately different from `A2UI_SCHEMA_CONTEXT_DESCRIPTION` (the tool-mode
+ * key stamped by `@ag-ui/a2ui-middleware`): the LangGraph and Strands adapters
+ * recognise that exact string and route the entry into `state["ag-ui"]
+ * ["a2ui_schema"]` for the `render_a2ui` tool instead of the system prompt.
+ * Markdown mode has no tool, so the schema must stay ordinary context that
+ * reaches the model as App Context.
+ */
+export const A2UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION =
+  "A2UI markdown-mode component schema — the components and props the client can render inside ```a2ui code fences.";
+
+export const A2UI_MARKDOWN_GENERATION_GUIDELINES = `\
+You can render interactive UI inline in your reply by writing an A2UI surface inside a fenced code block tagged a2ui.
+
+RULES
+- Write normal markdown prose for explanations. Put UI in one or more fences:
+  \`\`\`a2ui
+  {"version":"v0.9","createSurface":{"surfaceId":"plan-estimator"}}
+  {"version":"v0.9","updateDataModel":{"surfaceId":"plan-estimator","path":"/","value":{ ...initial data... }}}
+  {"version":"v0.9","updateComponents":{"surfaceId":"plan-estimator","components":[ ...components... ]}}
+  \`\`\`
+- Inside the fence, write exactly one JSON object per line and nothing else: no comments, no trailing commas, no pretty-printing. Keep each component object whole on its line.
+- Order: createSurface, then updateDataModel with the complete initial data, then updateComponents with the "root" component first and its children after it, so bound values are known before the UI paints.
+- Exactly one component has id "root"; every other component is reachable from it via child/children; ids are unique; no cycles.
+- A component is one flat object: {"id":"title","component":"Text","text":"Hello"}. The name goes in "component" (never "type") and its properties sit next to it, never inside a "props" object.
+- Use only component names and properties from the Available Components schema. A value is a literal, or { "path": "/x" } where the schema allows a binding. There are no function calls ({"call": ...}) and no expressions: compute derived values (totals, prices) yourself and write them as literals or into the data model.
+- Inputs bind to the data model: "value": { "path": "/form/email" }. A button or form sends values through its action context: "action": { "event": { "name": "submit", "context": { "email": { "path": "/form/email" } } } }. To send a message back to you, put the text in the context: { "name": "choose", "context": { "message": "Show me the Team plan" } }. A button without an action does nothing.
+- To change a surface later in the same reply, write another fence with the same surfaceId; its operations apply on top. Use a new surfaceId for a separate surface.
+- Repeat a template per item with children: { "componentId": "row", "path": "/items" }; inside a template, paths are relative ("name", not "/name").
+- Never make a surface that is only prose. Headings, paragraphs, lists of text, intros and summaries are markdown outside the fence, also between two fences. A fence holds only what markdown cannot express: charts, tables, maps, images, badges, inputs, buttons, cards with controls. Use Card only for an interactive panel (controls, a form, a configurator); everything else sits in a plain Column. Never wrap the whole reply in a fence.
+`;

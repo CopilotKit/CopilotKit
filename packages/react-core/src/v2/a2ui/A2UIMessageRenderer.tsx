@@ -13,6 +13,12 @@ import {
   ROOT_COMPONENT_ID,
 } from "@copilotkit/a2ui-renderer";
 import type { Theme, A2UIClientEventMessage } from "@copilotkit/a2ui-renderer";
+import { Streamdown } from "streamdown";
+
+/** The chat's markdown renderer for `Markdown` components inside a surface. */
+function ChatMarkdown({ text }: { text: string }) {
+  return <Streamdown>{text}</Streamdown>;
+}
 import {
   A2UILifecycleFields,
   A2UIBuildingState,
@@ -519,7 +525,12 @@ function ReactSurfaceHost({
 
   return (
     <div className="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4">
-      <A2UIProvider onAction={handleAction} theme={theme} catalog={catalog}>
+      <A2UIProvider
+        onAction={handleAction}
+        theme={theme}
+        catalog={catalog}
+        markdownRenderer={ChatMarkdown}
+      >
         <SurfaceMessageProcessor
           surfaceId={surfaceId}
           operations={operations}
@@ -535,7 +546,7 @@ function ReactSurfaceHost({
  * Renders the A2UI surface, or an error message if processing failed.
  * Must be a child of A2UIProvider to access the error state.
  */
-function A2UISurfaceOrError({ surfaceId }: { surfaceId: string }) {
+export function A2UISurfaceOrError({ surfaceId }: { surfaceId: string }) {
   const error = useA2UIError();
   if (error) {
     return (
@@ -551,7 +562,7 @@ function A2UISurfaceOrError({ surfaceId }: { surfaceId: string }) {
  * Processes A2UI operations into the provider's message processor.
  * Must be a child of A2UIProvider to access the actions context.
  */
-function SurfaceMessageProcessor({
+export function SurfaceMessageProcessor({
   surfaceId,
   operations,
   onReady,
@@ -636,7 +647,7 @@ function SurfaceMessageProcessor({
  * components alone. Used to time the loader→surface cross-over to actual content
  * arrival rather than a fixed delay. (OSS-162)
  */
-function surfaceHasRenderableContent(operations: any[]): boolean {
+export function surfaceHasRenderableContent(operations: any[]): boolean {
   const componentOps = operations.filter((o) => o?.updateComponents);
   if (!componentOps.length) return false;
   const needsData = JSON.stringify(componentOps).includes('"path"');

@@ -36,6 +36,7 @@ export default defineConfig([
         zod: "Zod",
         clsx: "clsx",
         "markdown-it": "markdownit",
+        "lucide-react": "LucideReact",
       };
       return options;
     },

@@ -9,7 +9,9 @@ export {
   useA2UIError,
 } from "./core/A2UIProvider";
 export type { A2UIProviderProps } from "./core/A2UIProvider";
-export { A2UIRenderer } from "./core/A2UIRenderer";
+export { useMarkdownRenderer } from "./core/MarkdownRendererContext";
+export type { A2UIMarkdownRenderer } from "./core/MarkdownRendererContext";
+export { A2UIRenderer, themeToCssVariables } from "./core/A2UIRenderer";
 export type { A2UIRendererProps } from "./core/A2UIRenderer";
 
 // Hooks
@@ -33,8 +35,17 @@ export {
   getCustomComponentNames,
   buildCatalogContextValue,
   extractCatalogComponentSchemas,
+  buildCompactCatalogSchema,
+  buildCompactCatalogCapabilities,
+  stripFunctionCallVariants,
 } from "./catalog-utils";
-export type { InlineCatalogSchema } from "./catalog-utils";
+export type {
+  InlineCatalogSchema,
+  CompactCatalogSchema,
+  CompactCatalogSchemaOptions,
+  CatalogContextValueOptions,
+  InlineCatalogSchemaOptions,
+} from "./catalog-utils";
 
 // Catalog creation — new API (definitions + renderers)
 export { createCatalog, extractSchema } from "./create-catalog";
@@ -85,6 +96,12 @@ export type {
 export { createReactComponent } from "./a2ui-react/adapter";
 export type { ReactComponentImplementation } from "./a2ui-react/adapter";
 export { basicCatalog } from "./a2ui-react/catalog/basic";
+export {
+  standardCatalog,
+  standardDefinitions,
+  standardRenderers,
+  STANDARD_CATALOG_ID,
+} from "./a2ui-react/catalog/standard";
 export { Catalog } from "@a2ui/web_core/v0_9";
 
 // Prop schemas for catalog definitions. A prop the A2UI schema binds to the

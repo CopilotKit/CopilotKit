@@ -1,0 +1,26 @@
+{
+  "name": "@copilotkit/example-a2ui-markdown",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "example-dev": "next dev -p 3011",
+    "example-build": "next build",
+    "example-start": "next start -p 3011",
+    "dev:agent": "cd agent && uv run main.py",
+    "install:agent": "cd agent && uv sync"
+  },
+  "dependencies": {
+    "@copilotkit/a2ui-renderer": "workspace:*",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "next": "15.5.15",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}

@@ -1,8 +1,10 @@
+import { readCopilotKitUIEnvelope } from "@copilotkit/shared";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
 import { readGuardrailsEnabled } from "./shared/cloud-telemetry";
 import type { RunAgentParameters } from "./shared/agent-utils";
 import {
+  A2UI_MODE_FORWARDED_PROP,
   attachIntelligenceEnterpriseLearning,
   cloneAgentForRequest,
   configureAgentForRequest,
@@ -55,12 +57,23 @@ export async function handleRunAgent({
       (input.forwardedProps as Record<string, unknown> | undefined)
         ?.a2uiCatalogAvailable === true;
 
+    // The structured envelope (`forwardedProps.copilotkit.ui`) is the source of
+    // truth for the mode; the bare flag is what older providers forward.
+    const providerA2UIMode =
+      readCopilotKitUIEnvelope(input.forwardedProps)?.mode === "markdown" ||
+      (input.forwardedProps as Record<string, unknown> | undefined)?.[
+        A2UI_MODE_FORWARDED_PROP
+      ] === "markdown"
+        ? ("markdown" as const)
+        : undefined;
+
     configureAgentForRequest({
       runtime,
       request,
       agentId,
       agent,
       providerA2UIHasCatalog,
+      providerA2UIMode,
       isMcpProxyRequest: Object.prototype.hasOwnProperty.call(
         input.forwardedProps ?? {},
         "__proxiedMCPRequest",

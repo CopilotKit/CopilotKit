@@ -25,6 +25,24 @@ import type {
 import type { CopilotKitMessageFilter } from "./message-filter";
 import { AgentRegistry } from "./agent-registry";
 import type { ScopedContext } from "./context-store";
+
+/**
+ * Run properties with optional per-agent scoping (see
+ * `CopilotKitCore.addScopedProperties`).
+ */
+export interface ScopedProperties {
+  properties: Record<string, unknown>;
+  agentIds?: string[];
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) === Object.prototype
+  );
+}
 import { ContextStore } from "./context-store";
 import { SuggestionEngine } from "./suggestion-engine";
 import type {
@@ -40,6 +58,7 @@ import type {
   DebugConfig,
   RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
@@ -402,6 +421,7 @@ export interface CopilotKitCoreFriendsAccess {
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
   getContextForAgent(agentId?: string): Context[];
+  getPropertiesForAgent(agentId?: string): Record<string, unknown>;
   getAgent(id: string): AbstractAgent | undefined;
   /**
    * Re-apply the last resolved header snapshot to a single agent, merged on
@@ -452,6 +472,7 @@ export class CopilotKitCore {
   private _credentials?: RequestCredentials;
   private _messageFilter?: CopilotKitMessageFilter;
   private _properties: Record<string, unknown>;
+  private _scopedProperties: Map<string, ScopedProperties> = new Map();
   private _defaultThrottleMs?: number;
   private _debug?: DebugConfig;
 
@@ -969,6 +990,47 @@ export class CopilotKitCore {
     this.agentRegistry.applyMessageFilterToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+  }
+
+  /**
+   * Register run properties that are forwarded only to runs of `agentIds`
+   * (every agent when omitted), merged on top of `properties`. A plain-object
+   * value merges one level deep with a same-named base property, so several
+   * entries can contribute keys under one namespace (e.g. `copilotkit`).
+   * @returns the id to pass to `removeScopedProperties`.
+   */
+  addScopedProperties({ properties, agentIds }: ScopedProperties): string {
+    const id = randomUUID();
+    this._scopedProperties.set(id, {
+      properties,
+      ...(agentIds ? { agentIds } : {}),
+    });
+    return id;
+  }
+
+  removeScopedProperties(id: string): void {
+    this._scopedProperties.delete(id);
+  }
+
+  /** The forwarded properties for a run of `agentId`: base properties plus matching scoped entries. */
+  getPropertiesForAgent(agentId?: string): Record<string, unknown> {
+    const merged: Record<string, unknown> = { ...this._properties };
+    for (const entry of this._scopedProperties.values()) {
+      if (
+        entry.agentIds &&
+        (agentId === undefined || !entry.agentIds.includes(agentId))
+      ) {
+        continue;
+      }
+      for (const [key, value] of Object.entries(entry.properties)) {
+        const base = merged[key];
+        merged[key] =
+          isPlainObject(base) && isPlainObject(value)
+            ? { ...base, ...value }
+            : value;
+      }
+    }
+    return merged;
   }
 
   setProperties(properties: Record<string, unknown>): void {

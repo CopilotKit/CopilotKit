@@ -135,9 +135,12 @@ export function A2UIRetryingState({
 export function A2UIRecoveryFailure({
   content,
   debugExposure,
+  details,
 }: {
   content: any;
   debugExposure: DebugExposure;
+  /** Replaces the default `{ error, attempts }` developer-details payload. */
+  details?: unknown;
 }) {
   return (
     <div className="cpk:rounded-lg cpk:border cpk:border-amber-200 cpk:bg-amber-50 cpk:p-3 cpk:text-sm cpk:text-amber-800">
@@ -150,7 +153,9 @@ export function A2UIRecoveryFailure({
         <A2UIDebugDetails
           label="developer details"
           open={debugExposure === "verbose"}
-          payload={{ error: content?.error, attempts: content?.attempts }}
+          payload={
+            details ?? { error: content?.error, attempts: content?.attempts }
+          }
         />
       )}
     </div>

@@ -20,9 +20,9 @@ You can design and preview A2UI schemas visually using the
   **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/), a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
 </Callout>
 
-## The two approaches
+## The approaches
 
-CopilotKit ships two complementary A2UI approaches:
+CopilotKit ships three complementary A2UI approaches:
 
 - **[Dynamic Schema](./a2ui/dynamic-schema)**: a secondary LLM
   generates both the schema *and* the data. Maximum flexibility, so
@@ -32,8 +32,13 @@ CopilotKit ships two complementary A2UI approaches:
   authored ahead of time as JSON. The agent only streams *data* into
   the data model at runtime. Fastest, with no LLM schema generation.
 
-Both approaches share the same A2UI wire protocol and the same
-frontend renderer. The difference is *where the schema comes from* and
+- **[Markdown Mode](./a2ui/markdown-mode)**: the agent writes A2UI
+  operations inside ```` ```a2ui ```` fences in its normal markdown reply,
+  and the chat renders each fence as a live surface. No tool call and no
+  runtime middleware, so it works with any agent that streams text.
+
+All approaches share the same A2UI operations and the same frontend
+renderer. The difference is *where the schema comes from* and
 *how data reaches the client*.
 
 ## How it works
@@ -135,6 +140,11 @@ works: your agent owns a data-only tool and no subagent is injected.
     title="Fixed Schema"
     href="./a2ui/fixed-schema"
     description="Pre-authored JSON schema, agent streams data. Fastest path to production-quality UI."
+  />
+  <Card
+    title="Markdown Mode"
+    href="./a2ui/markdown-mode"
+    description="The agent writes A2UI inside ```a2ui fences in its reply. Prompt-only, works with any agent."
   />
 </Cards>
 

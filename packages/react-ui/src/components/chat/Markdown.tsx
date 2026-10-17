@@ -18,14 +18,79 @@
  */
 
 import type { FC } from "react";
-import { memo, useMemo } from "react";
+import {
+  createContext,
+  isValidElement,
+  memo,
+  useContext,
+  useId,
+  useMemo,
+} from "react";
 import type { Options, Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
+import {
+  A2UIMarkdownSurface,
+  useA2UIMarkdownConfig,
+} from "@copilotkit/react-core/v2";
 import { CodeBlock } from "./CodeBlock";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
+
+function isA2UICodeElement(children: unknown): boolean {
+  const child = Array.isArray(children) ? children[0] : children;
+  return (
+    isValidElement<{ className?: string }>(child) &&
+    /(^|\s)language-a2ui(\s|$)/.test(child.props.className ?? "")
+  );
+}
+
+/**
+ * Whether the message being rendered is still streaming. react-markdown's
+ * component overrides are static, so the flag reaches the code renderer
+ * through context rather than props.
+ */
+const MarkdownStreamingContext = createContext(false);
+
+/**
+ * v1 renders each ```a2ui fence as its own surface: unlike the v2
+ * A2UIMarkdownRenderer, fences that reuse an earlier fence's surfaceId are not
+ * merged into that surface.
+ */
+const A2UIFence: FC<{ value: string; closed: boolean }> = ({
+  value,
+  closed,
+}) => {
+  const config = useA2UIMarkdownConfig();
+  const fallbackId = useId();
+  if (!config) return <CodeBlock language="a2ui" value={value} />;
+  return (
+    <A2UIMarkdownSurface
+      fenceText={value}
+      closed={closed}
+      fallbackSurfaceId={`v1-${fallbackId}`}
+    />
+  );
+};
+
+/**
+ * An ```a2ui code block. The fence counts as closed only once the message has
+ * stopped streaming and no streaming cursor ("▍") trails it; react-markdown
+ * cannot tell an unterminated fence from a terminated one. While a message
+ * streams, every fence in it stays open (no failure card, skeleton until the
+ * root component arrives).
+ */
+const A2UICodeBlock: FC<{ raw: string }> = ({ raw }) => {
+  const isStreaming = useContext(MarkdownStreamingContext);
+  const cursor = /▍\s*$/.test(raw);
+  return (
+    <A2UIFence
+      value={raw.replace(/▍\s*$/, "").replace(/\n$/, "") + "\n"}
+      closed={!isStreaming && !cursor}
+    />
+  );
+};
 
 const defaultComponents: Components = {
   a({ children, ...props }) {
@@ -79,6 +144,10 @@ const defaultComponents: Components = {
       );
     }
 
+    if (match && match[1] === "a2ui") {
+      return <A2UICodeBlock raw={String(children)} />;
+    }
+
     return (
       <CodeBlock
         language={(match && match[1]) || ""}
@@ -122,11 +191,16 @@ const defaultComponents: Components = {
       {children}
     </div>
   ),
-  pre: ({ children, ...props }) => (
-    <pre className="copilotKitMarkdownElement" {...props}>
-      {children}
-    </pre>
-  ),
+  pre({ children, ...props }) {
+    // An ```a2ui fence renders a live surface, not preformatted text, so it
+    // must not sit inside a <pre> (monospace font, preserved whitespace).
+    if (isA2UICodeElement(children)) return <>{children}</>;
+    return (
+      <pre className="copilotKitMarkdownElement" {...props}>
+        {children}
+      </pre>
+    );
+  },
   blockquote: ({ children, ...props }) => (
     <blockquote className="copilotKitMarkdownElement" {...props}>
       {children}
@@ -148,10 +222,16 @@ const MemoizedReactMarkdown: FC<Options> = memo(ReactMarkdown);
 
 type MarkdownProps = Omit<Options, "children"> & {
   content: string;
+  /**
+   * Whether the content is still streaming. ```a2ui fences stay open (no
+   * failure card) until it is false.
+   */
+  isStreaming?: boolean;
 };
 
 export const Markdown = ({
   content,
+  isStreaming = false,
   components,
   remarkPlugins,
   rehypePlugins,
@@ -175,14 +255,16 @@ export const Markdown = ({
   );
   return (
     <div className="copilotKitMarkdown">
-      <MemoizedReactMarkdown
-        {...rest}
-        components={mergedComponents}
-        remarkPlugins={mergedRemarkPlugins}
-        rehypePlugins={mergedRehypePlugins}
-      >
-        {content}
-      </MemoizedReactMarkdown>
+      <MarkdownStreamingContext.Provider value={isStreaming}>
+        <MemoizedReactMarkdown
+          {...rest}
+          components={mergedComponents}
+          remarkPlugins={mergedRemarkPlugins}
+          rehypePlugins={mergedRehypePlugins}
+        >
+          {content}
+        </MemoizedReactMarkdown>
+      </MarkdownStreamingContext.Provider>
     </div>
   );
 };

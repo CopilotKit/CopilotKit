@@ -1,0 +1,239 @@
+import { z } from "zod";
+import { ActionSchema, DynamicStringSchema } from "@a2ui/web_core/v0_9";
+import type { CatalogDefinitions } from "../../../../create-catalog";
+import { bindable, childList, sizeValue } from "./layout";
+
+const action = ActionSchema.optional().describe(
+  'Dispatched on click. { "event": { "name": "...", "context": { ... } } }',
+);
+
+const cellAlign = z.enum(["start", "center", "end"]).optional();
+
+/**
+ * A `Table.rows`/`Table.columns` cell that renders another component (Badge,
+ * Button, Icon, Text) instead of plain text. `id` is accepted as an alias.
+ */
+export const tableComponentCell = z.union([
+  z.object({ componentId: z.string() }),
+  z.object({ id: z.string() }),
+]);
+export type TableComponentCell = z.infer<typeof tableComponentCell>;
+
+export const tableCell = z.union([z.string(), z.number(), tableComponentCell]);
+export type TableCellValue = z.infer<typeof tableCell>;
+
+export const tableColumn = z.union([
+  z.string(),
+  z.object({
+    label: z.string(),
+    align: cellAlign,
+    width: sizeValue.optional(),
+    componentId: z.string().optional(),
+  }),
+  tableComponentCell,
+]);
+export type TableColumn = z.infer<typeof tableColumn>;
+
+export const listItemValue = z.union([
+  z.string(),
+  z.object({
+    label: z.string(),
+    description: z.string().optional(),
+    icon: z.string().optional().describe("Lucide icon name"),
+    action,
+  }),
+]);
+export type ListItemValue = z.infer<typeof listItemValue>;
+
+export const chartSeries = z.union([
+  z.string(),
+  z.object({
+    key: z.string(),
+    label: z.string().optional(),
+    color: z.string().optional(),
+  }),
+]);
+export type ChartSeries = z.infer<typeof chartSeries>;
+
+export const mapMarker = z.object({
+  label: z.string(),
+  lat: z.number(),
+  lng: z.number(),
+  category: z.string().optional(),
+  icon: z.string().optional(),
+});
+export type MapMarker = z.infer<typeof mapMarker>;
+
+export const dataDefinitions = {
+  Table: {
+    description:
+      'Data table in a plain Column, not a Card. Either `columns` + `rows` (array of row arrays), or `children` of TableSection/TableRow (ids or a template). A cell value { "componentId": "<id>" } renders a Badge or Button defined in the same components array.',
+    props: z.object({
+      columns: bindable(z.array(tableColumn))
+        .optional()
+        .describe(
+          'Strings, { "label", "align"?, "width"?, "componentId"? } or { "componentId": "<id>" }, or { "path": "/x" }; default []',
+        ),
+      // Cells stay `any` so booleans/null from bound data still validate;
+      // `tableCell` documents the intended shapes.
+      rows: bindable(z.array(z.array(z.any())))
+        .optional()
+        .describe(
+          'Array of row arrays, or { "path": "/x" }; default []. Cells are strings/numbers, or { "componentId": "<id>" } to place a component (Badge, Button, Icon, Text) in that cell.',
+        ),
+      children: childList,
+      columnSizing: z
+        .enum(["auto", "equal"])
+        .optional()
+        .describe('Default "auto"'),
+      dividers: z.boolean().optional().describe("Default true"),
+      stickyHeader: z.boolean().optional().describe("Default false"),
+      emptyLabel: z.string().optional().describe('Default "No rows"'),
+    }),
+  },
+  TableSection: {
+    description: "Group of table rows; `header` renders it as <thead>.",
+    props: z.object({
+      header: z.boolean().optional(),
+      rowDivider: z.boolean().optional(),
+      children: childList,
+    }),
+  },
+  TableRow: {
+    description: "Table row; children are TableCell ids (or a template).",
+    props: z.object({
+      header: z.boolean().optional(),
+      label: z.string().optional().describe("Row header cell text"),
+      labelColSpan: z.number().optional(),
+      children: childList,
+    }),
+  },
+  TableCell: {
+    description: "Table cell with `text` or child ids.",
+    props: z.object({
+      text: DynamicStringSchema.optional().describe("Cell text"),
+      header: z.boolean().optional(),
+      align: cellAlign,
+      vAlign: z
+        .enum(["start", "center", "end"])
+        .optional()
+        .describe('Default "start"'),
+      colSpan: z.number().optional(),
+      rowSpan: z.number().optional(),
+      width: sizeValue.optional(),
+      padding: sizeValue.optional(),
+      children: childList,
+    }),
+  },
+  List: {
+    description:
+      "List inside a Card or beside another component; a plain list of text is markdown outside the fence. `items` (strings or { label, description?, icon?, action? }), or `children` ListItem ids/template when `items` is absent.",
+    props: z.object({
+      items: bindable(z.array(listItemValue)).optional(),
+      children: childList,
+      marker: z
+        .enum(["bullet", "number", "rich", "none"])
+        .optional()
+        .describe('Default "bullet"'),
+      connector: z
+        .enum(["none", "solid"])
+        .optional()
+        .describe('Default "none"'),
+      gap: sizeValue.optional(),
+      start: z.number().optional().describe("First number for marker=number"),
+      maxMarkerSize: z
+        .number()
+        .optional()
+        .describe("Marker column width cap, px"),
+    }),
+  },
+  ListItem: {
+    description:
+      "List entry with label, description, icon and optional action.",
+    props: z.object({
+      label: DynamicStringSchema.optional().describe("Item label"),
+      description: DynamicStringSchema.optional(),
+      icon: z.string().optional().describe("Lucide icon name"),
+      marker: z.string().optional().describe("Overrides the list marker"),
+      markerSize: z.number().optional().describe("Marker column width, px"),
+      disabled: z.boolean().optional(),
+      action,
+      children: childList,
+    }),
+  },
+  Chart: {
+    description:
+      "Chart (recharts). `data` is an array of objects; `xKey` names the category field; `series` names the value fields.",
+    props: z.object({
+      chartType: z
+        .enum(["bar", "line", "area", "scatter", "pie", "donut"])
+        .optional()
+        .describe('Default "bar"'),
+      data: bindable(z.array(z.record(z.string(), z.any())))
+        .optional()
+        .describe('Array of objects, or { "path": "/x" }'),
+      xKey: z.string().optional(),
+      series: bindable(z.array(chartSeries))
+        .optional()
+        .describe(
+          'Strings or { "key", "label"?, "color"? }, or { "path": "/x" }',
+        ),
+      stacked: z.boolean().optional(),
+      layout: z
+        .enum(["vertical", "horizontal"])
+        .optional()
+        .describe('"horizontal" draws bars left to right; default "vertical"'),
+      yAxis: z
+        .object({
+          label: z.string().optional(),
+          min: z.number().optional(),
+          max: z.number().optional(),
+          width: z.number().optional(),
+        })
+        .optional(),
+      showDots: z.boolean().optional().describe("Line/area point markers"),
+      barRadius: z.number().optional().describe("Bar corner radius, px"),
+      innerRadius: z
+        .union([z.number(), z.string()])
+        .optional()
+        .describe("Pie/donut"),
+      outerRadius: z
+        .union([z.number(), z.string()])
+        .optional()
+        .describe("Pie/donut"),
+      startAngle: z.number().optional().describe("Pie/donut; default 90"),
+      endAngle: z.number().optional().describe("Pie/donut; default -270"),
+      cornerRadius: z.number().optional().describe("Pie/donut slice corners"),
+      paddingAngle: z
+        .number()
+        .optional()
+        .describe("Pie/donut gap between slices"),
+      showLabelLines: z
+        .boolean()
+        .optional()
+        .describe("Pie/donut label leader lines"),
+      height: z.number().optional().describe("Pixels; default 240"),
+      showLegend: z.boolean().optional().describe("Default true"),
+      showGrid: z.boolean().optional().describe("Default true"),
+      showTooltip: z.boolean().optional().describe("Default true"),
+      showValueLabels: z.boolean().optional(),
+      format: z.enum(["number", "currency", "percent"]).optional(),
+      currency: z.string().optional().describe('ISO code; default "USD"'),
+      title: z.string().optional(),
+    }),
+  },
+  Map: {
+    description:
+      "Map (MapLibre) with markers; `route` connects markers in order. Falls back to a marker list when maps are unavailable.",
+    props: z.object({
+      markers: bindable(z.array(mapMarker)).optional(),
+      route: z.boolean().optional(),
+      selected: DynamicStringSchema.optional().describe(
+        'Selected marker label. Bind with { "path": "/x" }',
+      ),
+      height: z.number().optional().describe("Pixels; default 240"),
+      zoom: z.number().optional(),
+      center: z.object({ lat: z.number(), lng: z.number() }).optional(),
+    }),
+  },
+} satisfies CatalogDefinitions;
