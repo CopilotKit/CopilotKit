@@ -693,6 +693,52 @@ describe("thread handlers", () => {
     expect(body.nextCursor).toBe("cursor-xyz");
   });
 
+  it("returns 400 when the limit query param is not a positive integer", async () => {
+    const intelligence = {
+      listThreads: vi.fn().mockResolvedValue({
+        threads: [],
+        joinCode: "jc-1",
+      }),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleListThreads({
+      runtime,
+      request: new Request(
+        "https://example.com/threads?agentId=agent-1&limit=abc",
+      ),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Valid limit query param is required",
+    });
+    expect(intelligence.listThreads).not.toHaveBeenCalled();
+  });
+
+  it("rejects every limit query param that is not a positive integer", async () => {
+    const intelligence = {
+      listThreads: vi.fn().mockResolvedValue({
+        threads: [],
+        joinCode: "jc-1",
+      }),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    for (const limit of ["abc", "0", "-1", "1.5", "10px"]) {
+      const response = await handleListThreads({
+        runtime,
+        request: new Request(
+          `https://example.com/threads?agentId=agent-1&limit=${encodeURIComponent(limit)}`,
+        ),
+      });
+
+      expect(response.status).toBe(400);
+    }
+
+    expect(intelligence.listThreads).not.toHaveBeenCalled();
+  });
+
   it("omits includeArchived, limit, and cursor when not provided", async () => {
     const intelligence = {
       listThreads: vi.fn().mockResolvedValue({
