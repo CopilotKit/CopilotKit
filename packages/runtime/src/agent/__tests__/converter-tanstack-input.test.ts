@@ -3,6 +3,281 @@ import { convertInputToTanStackAI } from "../converters/tanstack";
 import { createDefaultInput } from "./agent-test-helpers";
 
 describe("convertInputToTanStackAI", () => {
+  describe("reasoning replay", () => {
+    it("preserves signed, unsigned, empty and terminal reasoning at their history positions", () => {
+      const input = createDefaultInput({
+        messages: [
+          { id: "u1", role: "user", content: "question" },
+          {
+            id: "r1",
+            role: "reasoning",
+            content: "summary",
+            encryptedValue: " opaque+/= ",
+            metadata: { tanstack: { signature: "stale" } },
+          },
+          { id: "r2", role: "reasoning", content: "unsigned" },
+          {
+            id: "a1",
+            role: "assistant",
+            toolCalls: [
+              {
+                id: "tc-1",
+                type: "function",
+                function: { name: "search", arguments: "{}" },
+              },
+            ],
+          },
+          { id: "t1", role: "tool", toolCallId: "tc-1", content: "result" },
+          {
+            id: "r3",
+            role: "reasoning",
+            content: "",
+            encryptedValue: "empty summary signature",
+          },
+          { id: "u2", role: "user", content: "next question" },
+          {
+            id: "r4",
+            role: "reasoning",
+            content: "terminal",
+            metadata: { tanstack: { signature: "fallback" } },
+          },
+        ],
+      });
+      const { messages, systemPrompts } = convertInputToTanStackAI(input);
+      expect(messages).toEqual([
+        { role: "user", content: "question" },
+        {
+          role: "assistant",
+          content: null,
+          thinking: [{ content: "summary", signature: " opaque+/= " }],
+        },
+        {
+          role: "assistant",
+          content: null,
+          thinking: [{ content: "unsigned" }],
+        },
+        {
+          role: "assistant",
+          content: null,
+          toolCalls: [
+            {
+              id: "tc-1",
+              type: "function",
+              function: { name: "search", arguments: "{}" },
+            },
+          ],
+        },
+        { role: "tool", content: "result", toolCallId: "tc-1" },
+        {
+          role: "assistant",
+          content: null,
+          thinking: [{ content: "", signature: "empty summary signature" }],
+        },
+        { role: "user", content: "next question" },
+        {
+          role: "assistant",
+          content: null,
+          thinking: [{ content: "terminal", signature: "fallback" }],
+        },
+      ]);
+      expect(systemPrompts).toEqual([]);
+    });
+
+    it("uses a nonempty canonical signature or compatibility metadata without interpreting the blob", () => {
+      const { messages } = convertInputToTanStackAI(
+        createDefaultInput({
+          messages: [
+            {
+              id: "r1",
+              role: "reasoning",
+              content: "",
+              encryptedValue: "",
+              metadata: { tanstack: { signature: "fallback" } },
+            },
+            {
+              id: "r2",
+              role: "reasoning",
+              content: "",
+              metadata: { tanstack: { signature: "" } },
+            },
+          ],
+        }),
+      );
+      expect(messages).toEqual([
+        {
+          role: "assistant",
+          content: null,
+          thinking: [{ content: "", signature: "fallback" }],
+        },
+        { role: "assistant", content: null, thinking: [{ content: "" }] },
+      ]);
+    });
+  });
+
+  describe("tool metadata replay", () => {
+    it.each(["constructor", "__proto__"])(
+      "does not use inherited tool metadata for opaque call ID %s",
+      (id) => {
+        const call = {
+          id,
+          type: "function" as const,
+          function: { name: "search", arguments: "{}" },
+        };
+        const { messages } = convertInputToTanStackAI(
+          createDefaultInput({
+            messages: [
+              {
+                id: "a1",
+                role: "assistant",
+                content: null,
+                metadata: { tanstack: { toolCallMetadata: {} } },
+                toolCalls: [call],
+              },
+            ],
+          }),
+        );
+        expect(messages[0].toolCalls).toEqual([call]);
+      },
+    );
+
+    it.each(["constructor", "__proto__"])(
+      "preserves own record metadata for opaque call ID %s",
+      (id) => {
+        const metadata = {
+          itemId: "fc-A",
+          thoughtSignature: "opaque signature",
+        };
+        const call = {
+          id,
+          type: "function" as const,
+          function: { name: "search", arguments: "{}" },
+        };
+        const { messages } = convertInputToTanStackAI(
+          createDefaultInput({
+            messages: [
+              {
+                id: "a1",
+                role: "assistant",
+                content: null,
+                metadata: {
+                  tanstack: {
+                    toolCallMetadata: Object.fromEntries([[id, metadata]]),
+                  },
+                },
+                toolCalls: [call],
+              },
+            ],
+          }),
+        );
+        expect(messages[0].toolCalls).toEqual([{ ...call, metadata }]);
+      },
+    );
+
+    it("rejects a non-record own fallback instead of forwarding a function as metadata", () => {
+      const call = {
+        id: "constructor",
+        type: "function" as const,
+        function: { name: "search", arguments: "{}" },
+      };
+      const { messages } = convertInputToTanStackAI(
+        createDefaultInput({
+          messages: [
+            {
+              id: "a1",
+              role: "assistant",
+              content: null,
+              metadata: {
+                tanstack: {
+                  toolCallMetadata: {
+                    constructor: () => ({ itemId: "invalid" }),
+                  },
+                },
+              },
+              toolCalls: [call],
+            },
+          ],
+        }),
+      );
+      expect(messages[0].toolCalls).toEqual([call]);
+    });
+
+    it("preserves direct metadata, falls back by call ID, and gives canonical signatures precedence", () => {
+      const args = ' { "q": "unchanged" } ';
+      const input = createDefaultInput({
+        messages: [
+          {
+            id: "a1",
+            role: "assistant",
+            content: null,
+            metadata: {
+              tanstack: {
+                toolCallMetadata: {
+                  direct: { itemId: "wrong" },
+                  fallback: { itemId: "fc-fallback", thoughtSignature: "old" },
+                },
+              },
+            },
+            toolCalls: [
+              {
+                id: "direct",
+                type: "function",
+                function: { name: "search", arguments: args },
+                metadata: {
+                  itemId: "fc-direct",
+                  provider: { key: "value" },
+                  thoughtSignature: "old",
+                },
+                encryptedValue: "canonical direct",
+              },
+              {
+                id: "fallback",
+                type: "function",
+                function: { name: "search", arguments: args },
+                encryptedValue: "canonical fallback",
+              },
+              {
+                id: "plain",
+                type: "function",
+                function: { name: "search", arguments: args },
+                metadata: { itemId: "fc-plain" },
+              },
+            ],
+          },
+        ],
+      });
+      const { messages } = convertInputToTanStackAI(input);
+      expect(messages[0].toolCalls).toEqual([
+        {
+          id: "direct",
+          type: "function",
+          function: { name: "search", arguments: args },
+          metadata: {
+            itemId: "fc-direct",
+            provider: { key: "value" },
+            thoughtSignature: "canonical direct",
+          },
+        },
+        {
+          id: "fallback",
+          type: "function",
+          function: { name: "search", arguments: args },
+          metadata: {
+            itemId: "fc-fallback",
+            thoughtSignature: "canonical fallback",
+          },
+        },
+        {
+          id: "plain",
+          type: "function",
+          function: { name: "search", arguments: args },
+          metadata: { itemId: "fc-plain" },
+        },
+      ]);
+      expect(input.messages[0]).toMatchObject({
+        toolCalls: [{ metadata: { thoughtSignature: "old" } }, {}, {}],
+      });
+    });
+  });
   // -------------------------------------------------------------------------
   // Message filtering
   // -------------------------------------------------------------------------
