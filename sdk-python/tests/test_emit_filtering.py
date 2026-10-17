@@ -6,6 +6,7 @@ Covers the two bugs fixed in https://github.com/CopilotKit/CopilotKit/issues/206
 """
 
 import asyncio
+import logging
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 from ag_ui.core import (
@@ -14,6 +15,7 @@ from ag_ui.core import (
     TextMessageContentEvent,
     ToolCallStartEvent,
 )
+from copilotkit.langgraph import copilotkit_customize_config
 from copilotkit.langgraph_agui_agent import LangGraphAGUIAgent
 
 
@@ -186,6 +188,36 @@ class TestNoneEmitMetadataValues:
         event = _make_tool_event({"copilotkit:emit-tool-calls": None})
         result = agent._dispatch_event(event)
         assert result is not None
+
+    @pytest.mark.parametrize("value", ["some_tool", ["some_tool"], True])
+    def test_non_false_emit_tool_calls_still_emits(self, agent, value):
+        """Only False suppresses. A string, list, or True still emits the tool call."""
+        event = _make_tool_event({"copilotkit:emit-tool-calls": value})
+        result = agent._dispatch_event(event)
+        assert result is not None
+
+    def test_non_bool_customize_warns_and_still_emits(self, agent, caplog):
+        """A string or list warns, is stored as True, and the tool call is still emitted."""
+        with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph"):
+            config = copilotkit_customize_config(
+                {},
+                emit_tool_calls=["some_tool"],  # type: ignore[arg-type]
+            )
+
+        assert config["metadata"]["copilotkit:emit-tool-calls"] is True
+        assert "FilterToolCallsMiddleware" in caplog.text
+        event = _make_tool_event(config["metadata"])
+        assert agent._dispatch_event(event) is not None
+
+    def test_false_customize_still_suppresses(self, agent, caplog):
+        """emit_tool_calls=False still suppresses tool events and does not warn."""
+        with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph"):
+            config = copilotkit_customize_config({}, emit_tool_calls=False)
+
+        assert config["metadata"]["copilotkit:emit-tool-calls"] is False
+        assert "FilterToolCallsMiddleware" not in caplog.text
+        event = _make_tool_event(config["metadata"])
+        assert agent._dispatch_event(event) is None
 
     def test_zero_emit_messages_does_not_filter(self, agent):
         """0 (falsy but not False) should not suppress text events (only False does)."""

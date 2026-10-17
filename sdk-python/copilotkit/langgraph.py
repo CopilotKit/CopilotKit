@@ -6,7 +6,7 @@ import uuid
 import json
 import warnings
 import asyncio
-from typing import List, Optional, Any, Union, Dict
+from typing import List, Optional, Any, Dict
 from typing_extensions import TypedDict
 from langgraph.graph import MessagesState
 
@@ -169,7 +169,7 @@ def copilotkit_customize_config(
     base_config: Optional[RunnableConfig] = None,
     *,
     emit_messages: Optional[bool] = None,
-    emit_tool_calls: Optional[Union[bool, str, List[str]]] = None,
+    emit_tool_calls: Optional[bool] = None,
     emit_intermediate_state: Optional[List[IntermediateStateConfig]] = None,
     emit_all: Optional[bool] = None,  # deprecated
 ) -> RunnableConfig:
@@ -222,9 +222,10 @@ def copilotkit_customize_config(
     emit_messages : Optional[bool]
         Configure how messages are emitted. By default, all messages are emitted. Pass False to
         disable emitting messages.
-    emit_tool_calls : Optional[Union[bool, str, List[str]]]
+    emit_tool_calls : Optional[bool]
         Configure how tool calls are emitted. By default, all tool calls are emitted. Pass False to
-        disable emitting tool calls. Pass a string or list of strings to emit only specific tool calls.
+        disable emitting tool calls. To emit only specific tool calls, use AG-UI's
+        FilterToolCallsMiddleware (allowedToolCalls / disallowedToolCalls).
     emit_intermediate_state : Optional[List[IntermediateStateConfig]]
         Lets you emit tool calls as streaming LangGraph state.
 
@@ -240,6 +241,13 @@ def copilotkit_customize_config(
             DeprecationWarning,
             stacklevel=2,
         )
+    if emit_tool_calls is not None and not isinstance(emit_tool_calls, bool):
+        logger.warning(
+            "emit_tool_calls only accepts a boolean. Non-boolean values are treated as True. "
+            "Use FilterToolCallsMiddleware (allowedToolCalls / disallowedToolCalls) "
+            "to emit only specific tool calls."
+        )
+        emit_tool_calls = True
     metadata = dict(base_config.get("metadata", {}) or {}) if base_config else {}
 
     if emit_all is True:

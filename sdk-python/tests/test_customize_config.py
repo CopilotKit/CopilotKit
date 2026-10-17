@@ -2,7 +2,13 @@
 
 Covers https://github.com/CopilotKit/CopilotKit/issues/6941:
   the function must not mutate the caller's shared metadata dict.
+Covers https://github.com/CopilotKit/CopilotKit/issues/7590:
+  non-boolean emit_tool_calls warns and is treated as True.
 """
+
+import logging
+
+import pytest
 
 from copilotkit.langgraph import copilotkit_customize_config
 
@@ -48,3 +54,43 @@ class TestCustomizeConfigDoesNotMutateCallerMetadata:
 
         assert customized["metadata"]["copilotkit:emit-messages"] is False
         assert customized["metadata"] is not None
+
+
+class TestEmitToolCallsBoolean:
+    """Non-boolean emit_tool_calls warns and is stored as True. False still suppresses."""
+
+    @pytest.mark.parametrize(
+        "value",
+        ["SearchTool", ["SearchTool", "FetchTool"], 123, {"name": "SearchTool"}],
+    )
+    def test_non_bool_warns_and_is_treated_as_true(self, value, caplog):
+        with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph"):
+            customized = copilotkit_customize_config(
+                {},
+                emit_tool_calls=value,  # type: ignore[arg-type]
+            )
+
+        assert customized["metadata"]["copilotkit:emit-tool-calls"] is True
+        assert "FilterToolCallsMiddleware" in caplog.text
+        assert "treated as True" in caplog.text
+
+    def test_false_sets_false_without_warning(self, caplog):
+        with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph"):
+            customized = copilotkit_customize_config({}, emit_tool_calls=False)
+
+        assert customized["metadata"]["copilotkit:emit-tool-calls"] is False
+        assert "FilterToolCallsMiddleware" not in caplog.text
+
+    def test_true_sets_true_without_warning(self, caplog):
+        with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph"):
+            customized = copilotkit_customize_config({}, emit_tool_calls=True)
+
+        assert customized["metadata"]["copilotkit:emit-tool-calls"] is True
+        assert "FilterToolCallsMiddleware" not in caplog.text
+
+    def test_omitted_does_not_set_metadata(self, caplog):
+        with caplog.at_level(logging.WARNING, logger="copilotkit.langgraph"):
+            customized = copilotkit_customize_config({})
+
+        assert "copilotkit:emit-tool-calls" not in customized["metadata"]
+        assert "FilterToolCallsMiddleware" not in caplog.text
