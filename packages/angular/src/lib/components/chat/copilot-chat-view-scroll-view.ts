@@ -72,6 +72,10 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   reasoningMessageComponent = input<Type<any> | undefined>();
   reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
   reasoningMessageClass = input<string | undefined>();
+  /** Component used to render each subagent group in the chat. */
+  subagentComponent = input<Type<any> | undefined>();
+  /** Template used to render each subagent group in the chat. */
+  subagentTemplate = input<TemplateRef<any> | undefined>();
   messageViewChildrenComponent = input<Type<any> | undefined>();
   messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();
   messageViewChildrenClass = input<string | undefined>();
@@ -201,6 +205,8 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
       reasoningMessageComponent: this.reasoningMessageComponent(),
       reasoningMessageTemplate: this.reasoningMessageTemplate(),
       reasoningMessageClass: this.reasoningMessageClass(),
+      subagentComponent: this.subagentComponent(),
+      subagentTemplate: this.subagentTemplate(),
       childrenComponent: this.messageViewChildrenComponent(),
       childrenTemplate: this.messageViewChildrenTemplate(),
       childrenClass: this.messageViewChildrenClass(),

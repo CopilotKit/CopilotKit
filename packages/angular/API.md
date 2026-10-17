@@ -94,6 +94,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotChatMessageViewCursor`
 - `CopilotChatMessageViewProps`
 - `CopilotChatReasoningMessage`
+- `CopilotChatSubagent`
 - `CopilotChatSendButton`
 - `CopilotChatStartTranscribeButton`
 - `CopilotChatSuggestionPill`
@@ -157,6 +158,7 @@ Import these symbols from `@copilotkit/angular`.
 - `HumanInTheLoopToolCall`
 - `HumanInTheLoopToolRenderer`
 - `InjectInterruptOptions`
+- `InjectSubagentsOptions`
 - `InjectThreadsInput`
 - `InjectThreadsResult`
 - `InterruptController`
@@ -235,6 +237,7 @@ Import these symbols from `@copilotkit/angular`.
 - `injectChatState`
 - `injectCopilotKitConfig`
 - `injectInterrupt`
+- `injectSubagents`
 - `injectMemories`
 - `injectThreads`
 - `isComponentType`

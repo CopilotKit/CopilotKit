@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { useSlots } from "vue";
+import { inject, useSlots } from "vue";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import type { CopilotChatToolCallRenderSlotProps } from "./types";
 import CopilotChatToolCallItem from "./CopilotChatToolCallItem.vue";
+import CopilotChatSubagentGroup, {
+  SubagentLayoutKey,
+} from "./CopilotChatSubagentGroup";
 
 withDefaults(
   defineProps<{
@@ -29,21 +32,30 @@ const componentSlots = useSlots() as Record<
 function getForwardedSlotNames(): ToolCallSlotName[] {
   return Object.keys(componentSlots) as ToolCallSlotName[];
 }
+
+// The subagents a tool call started render right after it, even when no
+// renderer is registered for the call.
+const subagentLayout = inject(SubagentLayoutKey, null);
+function groupsFor(toolCallId: string) {
+  return subagentLayout?.value.layout.byToolCallId.get(toolCallId) ?? [];
+}
 </script>
 
 <template>
-  <CopilotChatToolCallItem
-    v-for="toolCall in message.toolCalls ?? []"
-    :key="toolCall.id"
-    :tool-call="toolCall"
-    :messages="messages"
-  >
-    <template
-      v-for="slotName in getForwardedSlotNames()"
-      :key="slotName"
-      #[slotName]="slotProps"
-    >
-      <slot :name="slotName" v-bind="slotProps ?? {}" />
-    </template>
-  </CopilotChatToolCallItem>
+  <template v-for="toolCall in message.toolCalls ?? []" :key="toolCall.id">
+    <CopilotChatToolCallItem :tool-call="toolCall" :messages="messages">
+      <template
+        v-for="slotName in getForwardedSlotNames()"
+        :key="slotName"
+        #[slotName]="slotProps"
+      >
+        <slot :name="slotName" v-bind="slotProps ?? {}" />
+      </template>
+    </CopilotChatToolCallItem>
+    <CopilotChatSubagentGroup
+      v-for="group in groupsFor(toolCall.id)"
+      :key="`subagent-${group.subagentRunId}`"
+      :group="group"
+    />
+  </template>
 </template>
