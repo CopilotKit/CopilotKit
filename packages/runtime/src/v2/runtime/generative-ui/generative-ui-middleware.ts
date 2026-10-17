@@ -168,6 +168,12 @@ function processStream(
     // A surface id is unique for the life of the page. Keep the ids that were
     // created, also after deleteSurface, so a second createSurface is rejected.
     const createdSurfaces = new Set(surfaces.keys());
+    // The targets that limit their components, by target id.
+    const targetComponents = new Map(
+      manifest.targets
+        .filter((t) => t.components !== undefined)
+        .map((t) => [t.id, new Set(t.components)]),
+    );
     const functionCallIds = new Set<string>();
     const calls = new Map<string, RenderCallState>();
     let heldFinish: EventWithState | null = null;
@@ -226,6 +232,24 @@ function processStream(
       };
     };
 
+    /**
+     * The components that the target of the surface takes. A createSurface
+     * goes to the target of the render_ui call. Every other operation goes to
+     * the target that the surface was created on.
+     */
+    const allowedComponentsFor = (
+      state: RenderCallState,
+      op: Record<string, unknown>,
+      surfaceId: string | undefined,
+    ) => {
+      const target =
+        getOperationKind(op) === "createSurface"
+          ? state.target
+          : surfaces.get(surfaceId);
+      const names = targetComponents.get(target);
+      return names && { target, names };
+    };
+
     const applyOperation = (
       state: RenderCallState,
       op: Record<string, unknown>,
@@ -237,6 +261,7 @@ function processStream(
         knownSurfaces: new Set(surfaces.keys()),
         createdSurfaces,
         functions: manifest.functions,
+        allowedComponents: allowedComponentsFor(state, op, surfaceId),
       });
       // `=== false` (not `!ok`): runtime is compiled non-strict, where `!ok`
       // does not narrow the discriminated union.
