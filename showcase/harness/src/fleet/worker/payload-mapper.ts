@@ -17,14 +17,34 @@
  * into `payload.driverInputs`. So the worker side is a thin re-hydration: take
  * `driverInputs` as the d6 input, and default the `key` to the payload's
  * `probeKey` when the producer didn't stamp one (the d6 schema requires `key`).
- * The d6 driver's own zod schema is the validation gate — a malformed input
- * fails LOUD inside `driver.run`, surfaced by the loop as a terminal result.
+ *
+ * ── THE VALIDATION GATE LIVES HERE ─────────────────────────────────────────
+ * This mapper is where a malformed driver input is caught. That is NOT where it
+ * used to be, and the difference caused a production incident:
+ *
+ * The docstrings here previously asserted "each driver's OWN zod schema is the
+ * validation gate inside `driver.run`". That is FALSE on the fleet path.
+ * `driver.inputSchema.safeParse` runs only in the legacy in-process invoker
+ * (`probes/loader/probe-invoker.ts`); the fleet worker calls `driver.run(ctx,
+ * input)` with NO validation (`worker-loop.ts`). The d6 schema declares
+ * `backendUrl: z.string().url()`, which rejects `""` — but nothing ran it, so an
+ * empty `backendUrl` reached the driver, `${backendUrl}${route}` produced a
+ * RELATIVE path, and every cell of the service failed `page.goto` with
+ * `Cannot navigate to invalid URL` (a whole-column red block of `goto-error`).
+ *
+ * So the schema is now injected here and run as part of the mapping. On failure
+ * we THROW: the loop's `payloadToInput` try/catch converts a throw into a
+ * `worker-protocol-violation` carrying our message, which surfaces the precise
+ * zod error once per service instead of N indistinguishable per-cell reds.
+ * Injecting the schema (rather than reading `driver.inputSchema` in the loop)
+ * keeps `ServiceJobDriver` the deliberately minimal one-method interface it
+ * documents itself to be. The schema is OPTIONAL — omit it and the mapper is
+ * pure re-hydration, exactly as before.
  *
  * Returning `undefined` signals "this payload can't be mapped" → the loop
  * reports a `worker-protocol-violation` terminal result rather than crashing.
  * We return `undefined` ONLY when the producer attached no `driverInputs` at
- * all (there's nothing to run); a present-but-incomplete input is forwarded so
- * the d6 schema produces the precise validation error.
+ * all (there's nothing to run).
  */
 
 import type { PayloadToDriverInput } from "./worker-loop.js";
@@ -57,18 +77,37 @@ export const E2E_DEMOS_DRIVER_KIND: DriverKind = "e2e_demos";
 export const E2E_SMOKE_DRIVER_KIND: DriverKind = "e2e_smoke";
 
 /**
+ * The slice of a driver's zod `inputSchema` this mapper needs. Typed as a
+ * minimal structural interface rather than importing `z.ZodType` so the mapper
+ * doesn't take a zod dependency for one call, a test double is a one-method
+ * object literal, and a concrete `ZodType<SpecificInput>` stays assignable
+ * without variance friction. `ProbeDriver.inputSchema` satisfies it as-is.
+ */
+export interface DriverInputSchema {
+  safeParse(
+    value: unknown,
+  ): { success: true } | { success: false; error: { message: string } };
+}
+
+/**
  * Build a per-service `PayloadToDriverInput` mapping. Re-hydrates the serialized
  * driver input from `payload.driverInputs`, defaulting `key` to the payload's
- * `probeKey`. This re-hydration is IDENTICAL across the three browser driver
- * families (e2e_d6/e2e_demos/e2e_smoke): each driver serializes a
- * `{ key, backendUrl, … }`-shaped
- * object into `driverInputs`, and each driver's OWN zod schema is the validation
- * gate inside `driver.run` (a malformed input fails LOUD there, surfaced by the
- * loop as a terminal result). So one shared mapper serves every kind — every
- * registry entry wires THIS factory directly. Pure; the returned function
- * captures nothing mutable.
+ * `probeKey`, then validates the result against `inputSchema` when one is
+ * supplied. This re-hydration is IDENTICAL across the three browser driver
+ * families (e2e_d6/e2e_demos/e2e_smoke) — each serializes a
+ * `{ key, backendUrl, … }`-shaped object into `driverInputs` — so one shared
+ * mapper serves every kind; every registry entry wires THIS factory, passing
+ * its own driver's schema. Pure; the returned function captures nothing mutable.
+ *
+ * @param inputSchema The driver's `inputSchema`. When supplied, an input that
+ *   fails it makes the returned mapper THROW, which the worker loop reports as a
+ *   `worker-protocol-violation` carrying the zod message (see the module
+ *   docstring for why this gate lives here and not in `driver.run`). Omit it to
+ *   get pure re-hydration with no validation.
  */
-export function createPayloadToInput(): PayloadToDriverInput {
+export function createPayloadToInput(
+  inputSchema?: DriverInputSchema,
+): PayloadToDriverInput {
   return (payload: ServiceJobPayload): unknown | undefined => {
     const raw = payload.driverInputs;
     // No driver inputs → nothing the driver can run. Signal "unmappable" so the
@@ -83,6 +122,20 @@ export function createPayloadToInput(): PayloadToDriverInput {
     // row) so a producer that omitted it still yields a runnable input.
     if (typeof input.key !== "string" || input.key.length === 0) {
       input.key = payload.probeKey;
+    }
+    // Validate AFTER the key default so a producer that legitimately omitted
+    // `key` isn't rejected for a field this mapper is responsible for filling.
+    // THROW rather than return undefined: the loop's catch preserves this
+    // message, so the operator sees WHICH field the producer got wrong instead
+    // of a generic "could not map payload".
+    if (inputSchema) {
+      const parsed = inputSchema.safeParse(input);
+      if (!parsed.success) {
+        throw new Error(
+          `driver input for driverKind "${payload.driverKind}" failed its ` +
+            `inputSchema: ${parsed.error.message}`,
+        );
+      }
     }
     return input;
   };
