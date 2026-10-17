@@ -32,10 +32,11 @@ If you have already done that, you can check the following:
             the tool calls will be streamed progressively.
 
             ```python
-            response = await llm_with_tools.ainvoke(
-                [ SystemMessage(content=system_message), *state["messages"] ],
-                config=config
-            )
+            async def chat_node(state, config):
+                response = await llm_with_tools.ainvoke(
+                    [ SystemMessage(content=system_message), *state["messages"] ],
+                    config=config
+                )
             ```
         </p>
     </Accordion>

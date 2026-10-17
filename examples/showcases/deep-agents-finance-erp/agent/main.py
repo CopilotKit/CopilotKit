@@ -17,8 +17,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request as StarletteRequest
 
 from agent import build_agent
-from frontend_tools import ui_tools, hitl_tools
-from isolated_subagents import do_research, do_projections
 
 logger = logging.getLogger("finance_erp")
 logging.basicConfig(level=logging.INFO)
@@ -51,15 +49,9 @@ app.add_middleware(RequestLoggingMiddleware)
 
 agent_graph = build_agent()
 
-# Emit frontend tools + isolated subagent tools so their status shows in chat.
-# No internal "task" tool exists — subagents run in isolated threads.
-_emit_tool_names = (
-    [t.name for t in ui_tools]
-    + [t.name for t in hitl_tools]
-    + [do_research.name, do_projections.name]
-)
+# Emission is all-or-none. A name list is not a whitelist.
 agui_config = copilotkit_customize_config(
-    emit_tool_calls=_emit_tool_names,
+    emit_tool_calls=True,
     emit_messages=True,
 )
 agui_config["recursion_limit"] = 100

@@ -51,7 +51,6 @@ export async function chat_node(state: AgentState, config: RunnableConfig) {
         toolArgument: "research_question",
       },
     ],
-    emitToolCalls: "DeleteResources",
   });
 
   state["resources"] = state.resources || [];

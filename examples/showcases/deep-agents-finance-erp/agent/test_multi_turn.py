@@ -72,17 +72,10 @@ async def test_agui_integration():
     )
     from copilotkit import LangGraphAGUIAgent
     from copilotkit.langgraph import copilotkit_customize_config
-    from frontend_tools import ui_tools, hitl_tools
-    from isolated_subagents import do_research, do_projections
 
     agent_graph = build_agent()
-    _emit_tool_names = (
-        [t.name for t in ui_tools]
-        + [t.name for t in hitl_tools]
-        + [do_research.name, do_projections.name]
-    )
     agui_config = copilotkit_customize_config(
-        emit_tool_calls=_emit_tool_names,
+        emit_tool_calls=True,
         emit_messages=True,
     )
     agui_config["recursion_limit"] = 100

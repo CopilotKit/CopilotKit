@@ -44,18 +44,10 @@ def health():
 try:
     agent_graph = build_agent()
 
-    # Configure which tool calls to emit to the frontend
-    # Only emit main agent tools - suppress internal tools (internet_search from research subagent)
-    # This prevents subagent tool calls from appearing as JSON noise in the chat
-    agui_config = copilotkit_customize_config(
-        emit_tool_calls=[
-            "research",
-            "write_todos",
-            "write_file",
-            "read_file",
-            "edit_file",
-        ]
-    )
+    # Emission is all-or-none. A name list is not a whitelist: non-booleans
+    # warn and emit every tool call. Selective filtering is
+    # FilterToolCallsMiddleware (allowedToolCalls / disallowedToolCalls).
+    agui_config = copilotkit_customize_config(emit_tool_calls=True)
 
     # Add recursion limit for complex research tasks (6+ research calls + file operations)
     agui_config["recursion_limit"] = 100
