@@ -11,6 +11,7 @@
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { mount } from "@vue/test-utils";
+import { nextTick } from "vue";
 import type { AbstractAgent } from "@ag-ui/client";
 
 // Capture the bindMcpApp options and the returned session's calls. Hoisted so
@@ -32,11 +33,25 @@ vi.mock("@copilotkit/mcp-apps-renderer", () => ({
   bindMcpApp: bindMcpAppSpy,
 }));
 
-vi.mock("../../providers/useCopilotKit", () => ({
-  useCopilotKit: () => ({
-    copilotkit: { value: { runAgent: vi.fn() } },
-  }),
-}));
+// The provider mock exposes the options ref so a test can change it the way a
+// parent re-render would.
+vi.mock("../../providers/useCopilotKit", async () => {
+  const { shallowRef } = await import("vue");
+  const mcpApps = shallowRef<Record<string, unknown> | undefined>(undefined);
+  return {
+    useCopilotKit: () => ({
+      copilotkit: { value: { runAgent: vi.fn() } },
+      mcpApps,
+    }),
+    __mcpApps: mcpApps,
+  };
+});
+import * as useCopilotKitModule from "../../providers/useCopilotKit";
+const providedMcpApps = (
+  useCopilotKitModule as unknown as {
+    __mcpApps: { value: Record<string, unknown> | undefined };
+  }
+).__mcpApps;
 
 import {
   MCPAppsActivityRenderer,
@@ -83,6 +98,7 @@ function mountRenderer() {
 describe("MCPAppsActivityRenderer external-activity seed", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    providedMcpApps.value = undefined;
   });
 
   it("passes the activity messageId to the bridge for self-subscription", async () => {
@@ -105,5 +121,37 @@ describe("MCPAppsActivityRenderer external-activity seed", () => {
         resourceUri: "ui://server/external",
       }),
     );
+  });
+
+  it("hands the host's mcpApps options to the bridge and rebinds on their content, not their identity", async () => {
+    const inlineOnly = () => ({
+      hostContext: { availableDisplayModes: ["inline"] },
+    });
+    providedMcpApps.value = inlineOnly();
+    mountRenderer();
+
+    await vi.waitFor(() => expect(bindMcpAppSpy).toHaveBeenCalledTimes(1));
+    expect(
+      (bindMcpAppSpy.mock.calls[0]![0] as { options?: unknown }).options,
+    ).toEqual(inlineOnly());
+
+    // A parent re-render with the options written inline in the template: a
+    // new object with the same content must not rebind (that would reload
+    // the widget).
+    providedMcpApps.value = inlineOnly();
+    await nextTick();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(bindMcpAppSpy).toHaveBeenCalledTimes(1);
+
+    // Different content does rebind, with the new options.
+    providedMcpApps.value = {
+      hostContext: { availableDisplayModes: ["inline", "fullscreen"] },
+    };
+    await vi.waitFor(() => expect(bindMcpAppSpy).toHaveBeenCalledTimes(2));
+    expect(
+      (bindMcpAppSpy.mock.calls[1]![0] as { options?: unknown }).options,
+    ).toEqual({
+      hostContext: { availableDisplayModes: ["inline", "fullscreen"] },
+    });
   });
 });

@@ -103,6 +103,7 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   openGenerativeUI: undefined,
   useSingleEndpoint: undefined,
   a2ui: undefined,
+  mcpApps: undefined,
   enableInspector: undefined,
 });
 
@@ -755,6 +756,7 @@ provide(CopilotKitKey, {
   a2uiCatalog,
   a2uiLoadingComponent,
   a2uiIncludeSchema,
+  mcpApps: computed(() => props.mcpApps),
 });
 provide(SandboxFunctionsKey, sandboxFunctions);
 

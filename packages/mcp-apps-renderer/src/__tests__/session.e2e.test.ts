@@ -123,6 +123,7 @@ async function bindAndConnect(
   agent: AbstractAgent,
   content = makeContent(),
   hooks?: Parameters<typeof bindMcpApp>[0]["hooks"],
+  options?: Parameters<typeof bindMcpApp>[0]["options"],
 ) {
   const session = bindMcpApp({
     iframe,
@@ -130,6 +131,7 @@ async function bindAndConnect(
     getAgent: () => agent,
     host: { runAgent: async () => ({ result: undefined, newMessages: [] }) },
     hooks,
+    options,
   });
   sessions.push(session);
   await tick(60); // let fetchResource + bridge.connect settle
@@ -1291,5 +1293,398 @@ describe("bindMcpApp content and identity validation", () => {
     expect(
       captured.filter((m) => m?.method === "ui/notifications/tool-result"),
     ).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ui/request-display-mode: the host renders inline and fullscreen, never pip,
+// and tells the widget the mode and the modes on offer through host context.
+// ---------------------------------------------------------------------------
+const responseTo = (captured: any[], id: string) =>
+  captured.find((m) => m && m.id === id && "result" in m);
+const contextChanges = (captured: any[]) =>
+  captured
+    .filter((m) => m && m.method === "ui/notifications/host-context-changed")
+    .map((m) => m.params);
+
+/** Simulate the browser's transient user activation state. */
+const setActivation = (value: { isActive: boolean } | undefined) => {
+  Object.defineProperty(navigator, "userActivation", {
+    value,
+    configurable: true,
+  });
+};
+
+describe("bindMcpApp ui/request-display-mode", () => {
+  /** ui/initialize, so the bridge records what the app declared. */
+  async function initialize(
+    iframe: HTMLIFrameElement,
+    appCapabilities: Record<string, unknown> = {},
+  ) {
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      id: "init",
+      method: "ui/initialize",
+      params: {
+        appInfo: { name: "widget", version: "1.0.0" },
+        appCapabilities,
+        protocolVersion: "2026-01-26",
+      },
+    });
+    await tick(20);
+  }
+
+  async function requestMode(
+    iframe: HTMLIFrameElement,
+    id: string,
+    mode: string,
+  ) {
+    fromIframe(iframe, {
+      jsonrpc: "2.0",
+      id,
+      method: "ui/request-display-mode",
+      params: { mode },
+    });
+    await tick(30);
+  }
+
+  it("advertises the current mode and the modes on offer at initialize", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const { captured } = await bindAndConnect(iframe, agent);
+
+    await initialize(iframe);
+
+    const { hostContext } = responseTo(captured, "init").result;
+    expect(hostContext.displayMode).toBe("inline");
+    expect(hostContext.availableDisplayModes).toEqual(["inline", "fullscreen"]);
+    // The display fields are added to the configured context, not in its place.
+    expect(hostContext.platform).toBe("web");
+  });
+
+  it("grants fullscreen, then tells the widget and the adapter", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const onDisplayModeChange = vi.fn();
+    const { session, captured } = await bindAndConnect(
+      iframe,
+      agent,
+      makeContent(),
+      { onDisplayModeChange },
+    );
+    await initialize(iframe, {
+      availableDisplayModes: ["inline", "fullscreen"],
+    });
+
+    await requestMode(iframe, "fs", "fullscreen");
+
+    expect(responseTo(captured, "fs").result).toEqual({ mode: "fullscreen" });
+    expect(session.getDisplayMode()).toBe("fullscreen");
+    expect(onDisplayModeChange).toHaveBeenCalledWith("fullscreen");
+    // The app SDK learns the mode from the notification, not from the
+    // response; entering fullscreen also advertises the surface it gets.
+    const changes = contextChanges(captured);
+    expect(changes).toHaveLength(1);
+    expect(changes[0].displayMode).toBe("fullscreen");
+    expect(changes[0].containerDimensions).toEqual({
+      width: expect.any(Number),
+      height: expect.any(Number),
+    });
+  });
+
+  it("keeps the current mode for pip, which no frontend renders", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const onDisplayModeChange = vi.fn();
+    const { session, captured } = await bindAndConnect(
+      iframe,
+      agent,
+      makeContent(),
+      { onDisplayModeChange },
+    );
+    await initialize(iframe);
+    await requestMode(iframe, "fs", "fullscreen");
+
+    await requestMode(iframe, "pip", "pip");
+
+    // The answer is the mode still applied, not a hardcoded inline.
+    expect(responseTo(captured, "pip").result).toEqual({ mode: "fullscreen" });
+    expect(session.getDisplayMode()).toBe("fullscreen");
+    expect(onDisplayModeChange).not.toHaveBeenCalledWith("pip");
+    expect(contextChanges(captured)).toHaveLength(1);
+  });
+
+  it("refuses a mode the app did not declare at initialize", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const onDisplayModeChange = vi.fn();
+    const { session, captured } = await bindAndConnect(
+      iframe,
+      agent,
+      makeContent(),
+      { onDisplayModeChange },
+    );
+    await initialize(iframe, { availableDisplayModes: ["inline"] });
+
+    await requestMode(iframe, "fs", "fullscreen");
+
+    expect(responseTo(captured, "fs").result).toEqual({ mode: "inline" });
+    expect(session.getDisplayMode()).toBe("inline");
+    expect(onDisplayModeChange).not.toHaveBeenCalled();
+    expect(contextChanges(captured)).toHaveLength(0);
+  });
+
+  it("narrows the modes on offer to the configured availableDisplayModes", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const { session, captured } = await bindAndConnect(
+      iframe,
+      agent,
+      makeContent(),
+      undefined,
+      { hostContext: { platform: "web", availableDisplayModes: ["inline"] } },
+    );
+    await initialize(iframe);
+
+    expect(
+      responseTo(captured, "init").result.hostContext.availableDisplayModes,
+    ).toEqual(["inline"]);
+    await requestMode(iframe, "fs", "fullscreen");
+    expect(responseTo(captured, "fs").result).toEqual({ mode: "inline" });
+    expect(session.getDisplayMode()).toBe("inline");
+  });
+
+  it("ignores a host-initiated change to a mode the host does not offer", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const onDisplayModeChange = vi.fn();
+    const { session, captured } = await bindAndConnect(
+      iframe,
+      agent,
+      makeContent(),
+      { onDisplayModeChange },
+      { hostContext: { platform: "web", availableDisplayModes: ["inline"] } },
+    );
+
+    session.setDisplayMode("fullscreen");
+    await tick(20);
+
+    expect(session.getDisplayMode()).toBe("inline");
+    expect(onDisplayModeChange).not.toHaveBeenCalled();
+    expect(contextChanges(captured)).toHaveLength(0);
+  });
+
+  it("advertises the inline surface when leaving fullscreen, replacing the viewport", async () => {
+    const agent = makeAgent();
+    const column = document.createElement("div");
+    document.body.appendChild(column);
+    const iframe = document.createElement("iframe");
+    column.appendChild(iframe);
+    iframes.push(iframe);
+    column.getBoundingClientRect = () => ({ width: 400 }) as DOMRect;
+    const { captured } = await bindAndConnect(iframe, agent);
+    await initialize(iframe);
+
+    await requestMode(iframe, "fs", "fullscreen");
+    await requestMode(iframe, "back", "inline");
+
+    // The app SDK merges each notification into its cached context, so the
+    // inline surface must be sent, not merely omitted after the viewport. It
+    // carries a width only: the inline container grows with the content.
+    expect(contextChanges(captured)).toEqual([
+      {
+        displayMode: "fullscreen",
+        containerDimensions: {
+          width: expect.any(Number),
+          height: expect.any(Number),
+        },
+      },
+      { displayMode: "inline", containerDimensions: { width: 400 } },
+    ]);
+    column.remove();
+  });
+
+  it("measures the inline width on the nearest laid-out ancestor of the dialog", async () => {
+    const agent = makeAgent();
+    // The dialog's own holder collapses to zero width while the dialog is in
+    // the top layer (an inline-level custom element does); the ancestor that
+    // still has a width is the one to report.
+    const column = document.createElement("div");
+    const holder = document.createElement("span");
+    const dialog = document.createElement("dialog");
+    column.appendChild(holder);
+    holder.appendChild(dialog);
+    document.body.appendChild(column);
+    const iframe = document.createElement("iframe");
+    dialog.appendChild(iframe);
+    iframes.push(iframe);
+    column.getBoundingClientRect = () => ({ width: 640 }) as DOMRect;
+    const { captured } = await bindAndConnect(iframe, agent);
+    await initialize(iframe);
+
+    await requestMode(iframe, "fs", "fullscreen");
+    await requestMode(iframe, "back", "inline");
+
+    const changes = contextChanges(captured);
+    expect(changes[changes.length - 1]).toEqual({
+      displayMode: "inline",
+      containerDimensions: { width: 640 },
+    });
+    column.remove();
+  });
+
+  describe("user activation", () => {
+    afterEach(() => {
+      delete (navigator as { userActivation?: unknown }).userActivation;
+    });
+
+    it("refuses fullscreen without a recent user action", async () => {
+      setActivation({ isActive: false });
+      const agent = makeAgent();
+      const iframe = mount();
+      const onDisplayModeChange = vi.fn();
+      const { session, captured } = await bindAndConnect(
+        iframe,
+        agent,
+        makeContent(),
+        { onDisplayModeChange },
+      );
+      await initialize(iframe);
+
+      // A widget re-asking from its own handler, with no click behind it.
+      await requestMode(iframe, "fs", "fullscreen");
+
+      expect(responseTo(captured, "fs").result).toEqual({ mode: "inline" });
+      expect(session.getDisplayMode()).toBe("inline");
+      expect(onDisplayModeChange).not.toHaveBeenCalled();
+      expect(contextChanges(captured)).toHaveLength(0);
+    });
+
+    it("grants fullscreen while the user's action is still fresh", async () => {
+      setActivation({ isActive: true });
+      const agent = makeAgent();
+      const iframe = mount();
+      const { session, captured } = await bindAndConnect(iframe, agent);
+      await initialize(iframe);
+
+      await requestMode(iframe, "fs", "fullscreen");
+
+      expect(responseTo(captured, "fs").result).toEqual({ mode: "fullscreen" });
+      expect(session.getDisplayMode()).toBe("fullscreen");
+    });
+
+    it("refuses fullscreen after the host exited it, until the activation has been seen inactive", async () => {
+      // Transient activation outlives the click on the exit button, so a
+      // widget re-asking from its own handler still sees it active. Focus is
+      // no proof either: a widget can take it by script.
+      const activation = { isActive: true };
+      setActivation(activation);
+      const agent = makeAgent();
+      const iframe = mount();
+      const { session, captured } = await bindAndConnect(iframe, agent);
+      await initialize(iframe);
+      await requestMode(iframe, "fs", "fullscreen");
+      expect(session.getDisplayMode()).toBe("fullscreen");
+
+      session.setDisplayMode("inline");
+      iframe.focus();
+      iframe.dispatchEvent(new Event("focus"));
+      await requestMode(iframe, "again", "fullscreen");
+      expect(responseTo(captured, "again").result).toEqual({ mode: "inline" });
+      expect(session.getDisplayMode()).toBe("inline");
+
+      // The closing click's activation expires; the host notices on its own.
+      activation.isActive = false;
+      await tick(450);
+      // A newer gesture, then the request.
+      activation.isActive = true;
+      await requestMode(iframe, "after", "fullscreen");
+      expect(responseTo(captured, "after").result).toEqual({
+        mode: "fullscreen",
+      });
+      expect(session.getDisplayMode()).toBe("fullscreen");
+    });
+
+    it("keeps fullscreen refused after a host exit when the activation API is missing", async () => {
+      setActivation(undefined);
+      delete (navigator as { userActivation?: unknown }).userActivation;
+      const agent = makeAgent();
+      const iframe = mount();
+      const { session, captured } = await bindAndConnect(iframe, agent);
+      await initialize(iframe);
+      await requestMode(iframe, "fs", "fullscreen");
+      expect(session.getDisplayMode()).toBe("fullscreen");
+
+      session.setDisplayMode("inline");
+      await tick(450);
+      await requestMode(iframe, "again", "fullscreen");
+
+      // Nothing can tell a gesture from a script here, so the block stays.
+      expect(responseTo(captured, "again").result).toEqual({ mode: "inline" });
+      expect(session.getDisplayMode()).toBe("inline");
+    });
+
+    it("lets a widget that returned inline by itself ask for fullscreen again", async () => {
+      setActivation({ isActive: true });
+      const agent = makeAgent();
+      const iframe = mount();
+      const { session, captured } = await bindAndConnect(iframe, agent);
+      await initialize(iframe);
+      await requestMode(iframe, "fs", "fullscreen");
+      await requestMode(iframe, "back", "inline");
+
+      await requestMode(iframe, "again", "fullscreen");
+
+      expect(responseTo(captured, "again").result).toEqual({
+        mode: "fullscreen",
+      });
+      expect(session.getDisplayMode()).toBe("fullscreen");
+    });
+
+    it("still answers inline requests without a user action", async () => {
+      setActivation({ isActive: true });
+      const agent = makeAgent();
+      const iframe = mount();
+      const { session, captured } = await bindAndConnect(iframe, agent);
+      await initialize(iframe);
+      await requestMode(iframe, "fs", "fullscreen");
+      setActivation({ isActive: false });
+
+      await requestMode(iframe, "back", "inline");
+
+      expect(responseTo(captured, "back").result).toEqual({ mode: "inline" });
+      expect(session.getDisplayMode()).toBe("inline");
+    });
+  });
+
+  it("applies a host-initiated change through setDisplayMode", async () => {
+    const agent = makeAgent();
+    const iframe = mount();
+    const onDisplayModeChange = vi.fn();
+    const { session, captured } = await bindAndConnect(
+      iframe,
+      agent,
+      makeContent(),
+      { onDisplayModeChange },
+    );
+
+    session.setDisplayMode("fullscreen", { width: 800, height: 600 });
+    await tick(20);
+    expect(session.getDisplayMode()).toBe("fullscreen");
+    expect(onDisplayModeChange).toHaveBeenLastCalledWith("fullscreen");
+
+    session.setDisplayMode("inline");
+    await tick(20);
+    expect(session.getDisplayMode()).toBe("inline");
+    expect(onDisplayModeChange).toHaveBeenLastCalledWith("inline");
+    // The adapter's surface is advertised as given; leaving fullscreen only
+    // reports the mode (the bridge notifies changed fields).
+    expect(contextChanges(captured)).toEqual([
+      {
+        displayMode: "fullscreen",
+        containerDimensions: { width: 800, height: 600 },
+      },
+      { displayMode: "inline" },
+    ]);
   });
 });

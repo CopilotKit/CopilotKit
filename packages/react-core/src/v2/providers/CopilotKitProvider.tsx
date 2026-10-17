@@ -54,6 +54,7 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
+import type { MCPAppsOptions } from "../components/MCPAppsActivityRenderer";
 import {
   OpenGenerativeUIActivityType,
   OpenGenerativeUIContentSchema,
@@ -297,6 +298,22 @@ export interface CopilotKitProviderProps {
     recovery?: A2UIRecoveryRendererOptions;
   };
   /**
+   * Host-side options for MCP Apps widgets: the host identity, capabilities
+   * and UI context announced to widgets, and the two timeouts. Optional; use
+   * it to narrow what widgets may obtain, for example to keep them inline.
+   *
+   * @example
+   * ```tsx
+   * <CopilotKit
+   *   runtimeUrl="/api/copilotkit"
+   *   mcpApps={{ hostContext: { availableDisplayModes: ["inline"] } }}
+   * >
+   *   {children}
+   * </CopilotKit>
+   * ```
+   */
+  mcpApps?: MCPAppsOptions;
+  /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
    * triggered by `OnMessagesChanged` notifications. This value is used as
    * a fallback when neither the `useAgent()` hook nor `<CopilotChat>` /
@@ -410,6 +427,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint,
   onError,
   a2ui,
+  mcpApps,
   defaultThrottleMs,
   debug,
   learning,
@@ -1213,8 +1231,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       copilotkit,
       executingToolCallIds,
       showIntelligenceIndicator,
+      mcpApps,
     }),
-    [copilotkit, executingToolCallIds, showIntelligenceIndicator],
+    [copilotkit, executingToolCallIds, showIntelligenceIndicator, mcpApps],
   );
 
   // License context — driven by server-reported authority via /info endpoint

@@ -194,6 +194,7 @@ export function renderWithCopilotKit({
   agentId,
   threadId,
   defaultThrottleMs,
+  mcpApps,
   children,
 }: {
   agent?: AbstractAgent;
@@ -206,6 +207,7 @@ export function renderWithCopilotKit({
   agentId?: string;
   threadId?: string;
   defaultThrottleMs?: number;
+  mcpApps?: React.ComponentProps<typeof CopilotKitProvider>["mcpApps"];
   children?: React.ReactNode;
 }): ReturnType<typeof render> {
   const resolvedAgents = agents || (agent ? { default: agent } : undefined);
@@ -221,6 +223,7 @@ export function renderWithCopilotKit({
       frontendTools={frontendTools}
       humanInTheLoop={humanInTheLoop}
       defaultThrottleMs={defaultThrottleMs}
+      mcpApps={mcpApps}
     >
       <CopilotChatConfigurationProvider
         agentId={resolvedAgentId}
