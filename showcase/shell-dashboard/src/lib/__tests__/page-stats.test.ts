@@ -350,14 +350,26 @@ describe("computeHealthStats — gray is no-data, not green (Finding #3)", () =>
       mapOf([]),
       Date.now(),
     );
-    expect(stats).toEqual({ green: 0, amber: 0, red: 0, noData: 0 });
+    expect(stats).toEqual({
+      green: 0,
+      amber: 0,
+      red: 0,
+      noData: 0,
+      unavailable: 0,
+    });
   });
 
   // ── Finding A10 — a stub is wired-in-the-engine, must be counted ──
   it("counts a stub cell with no live data as noData, not skipped", () => {
     const stub = wiredCell({ status: "stub" });
     const stats = computeHealthStats([stub], mapOf([]), Date.now());
-    expect(stats).toEqual({ green: 0, amber: 0, red: 0, noData: 1 });
+    expect(stats).toEqual({
+      green: 0,
+      amber: 0,
+      red: 0,
+      noData: 1,
+      unavailable: 0,
+    });
   });
 });
 
