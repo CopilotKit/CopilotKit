@@ -401,7 +401,9 @@ export interface CopilotKitCoreFriendsAccess {
 
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
-  getContextForAgent(agentId?: string): Context[];
+  getContextForAgent(agentId?: string, threadId?: string): Context[];
+  /** Drop the context entries scoped to a deleted conversation. */
+  removeThreadContext(agentId: string, threadId: string): void;
   getAgent(id: string): AbstractAgent | undefined;
   /**
    * Re-apply the last resolved header snapshot to a single agent, merged on
@@ -1166,16 +1168,32 @@ export class CopilotKitCore {
     return this.contextStore.addContext(context);
   }
 
+  /**
+   * Create or replace the context entry stored under a stable `id`. Use it
+   * for state that is reported repeatedly (an MCP App's model context) so
+   * every report replaces the previous one instead of piling up. Pass
+   * `threadId` to keep the entry to one conversation.
+   */
+  upsertContext(id: string, context: ScopedContext): void {
+    this.contextStore.upsertContext(id, context);
+  }
+
   removeContext(id: string): void {
     this.contextStore.removeContext(id);
   }
 
   /**
-   * Build the context array for a run of the given agent, dropping entries
-   * scoped to other agents and stripping the scoping metadata.
+   * Build the context array for a run of the given agent in the given thread,
+   * dropping entries scoped to other agents or threads and stripping the
+   * scoping metadata.
    */
-  getContextForAgent(agentId?: string): Context[] {
-    return this.contextStore.getContextForAgent(agentId);
+  getContextForAgent(agentId?: string, threadId?: string): Context[] {
+    return this.contextStore.getContextForAgent(agentId, threadId);
+  }
+
+  /** @internal Called when a registered thread store reports a deletion. */
+  protected removeThreadContext(agentId: string, threadId: string): void {
+    this.contextStore.removeThreadContext(agentId, threadId);
   }
 
   /**

@@ -753,6 +753,14 @@ interface ThreadStore {
   subscribeToRunActivity?(
     callback: (notification: ThreadRunActivityNotification) => void,
   ): Subscription;
+  /**
+   * Notifies each thread that was deleted for good: a `deleteThread` the
+   * server confirmed, or a deletion pushed by the realtime channel. Archiving
+   * is not a deletion, even when it removes the thread from the list.
+   */
+  subscribeToThreadDeletions?(
+    callback: (threadId: string) => void,
+  ): Subscription;
   getState(): ThreadState;
   /**
    * Returns a stable initial snapshot for server-side rendering.
@@ -1604,6 +1612,46 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           map((action) => action.notification),
         )
         .subscribe(callback);
+    },
+    subscribeToThreadDeletions(
+      callback: (threadId: string) => void,
+    ): Subscription {
+      const confirmedDeletes$ = store.actions$.pipe(
+        ofType(threadAdapterEvents.deleteRequested),
+        mergeMap((request) =>
+          merge(
+            store.actions$.pipe(
+              ofType(threadRestEvents.mutationFinished),
+              filter(
+                (action) => action.outcome.requestId === request.requestId,
+              ),
+              map((action) => action.outcome.ok),
+            ),
+            store.actions$.pipe(
+              ofType(threadAdapterEvents.stopped),
+              map(() => false),
+            ),
+          ).pipe(
+            take(1),
+            filter((ok) => ok),
+            map(() => request.threadId),
+          ),
+        ),
+      );
+      const realtimeDeletes$ = store.actions$.pipe(
+        ofType(threadSocketEvents.metadataReceived),
+        filter(
+          (action) =>
+            action.sessionId === store.getState().sessionId &&
+            action.payload.operation === "deleted",
+        ),
+        map((action) =>
+          action.payload.operation === "deleted"
+            ? action.payload.deleted.id
+            : "",
+        ),
+      );
+      return merge(confirmedDeletes$, realtimeDeletes$).subscribe(callback);
     },
     getState(): ThreadState {
       return store.getState();

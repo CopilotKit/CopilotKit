@@ -150,6 +150,40 @@ Use this format to connect to an MCP server that streams events over a persisten
 }
 ```
 
+## Let a widget tell the model what the user is looking at
+
+A widget can share its state with the model through
+`ui/update-model-context`: a selection, the filters it shows, a cart. Nothing
+appears in the chat and no run starts; the latest state rides along with the
+next turns of the conversation.
+
+```ts
+await app.updateModelContext({
+  content: [{ type: "text", text: "The user is looking at the Lyon station." }],
+  structuredContent: { stationId: "lyon", filter: "available" },
+});
+
+// Optionally, start a turn that uses it.
+await app.sendMessage({
+  role: "user",
+  content: [{ type: "text", text: "Which departures are available?" }],
+});
+```
+
+CopilotKit supports it in React, Vue and Angular with no extra setup:
+
+- Each update replaces the widget's previous state; two widgets keep separate
+  states. Sending no content and no `structuredContent` clears it.
+- Text blocks and `structuredContent` are supported. Images, audio and
+  resources are refused with an error, and so is a state larger than 32 KiB.
+- The state belongs to the conversation the widget was opened in and is never
+  sent to another one. It stays in memory while the page is open, survives
+  the widget leaving the screen, and is removed when the conversation is
+  deleted. It is not restored after a page reload.
+- The state is sent to the agent in the run's `context`. The built-in agent
+  adds it to its prompt; another agent has to read `RunAgentInput.context` to
+  use it.
+
 ## Example MCP servers
 
 Try these open-source MCP Apps servers to get started:
