@@ -37,6 +37,7 @@ If you have already done that, you can check the following:
                     [ SystemMessage(content=system_message), *state["messages"] ],
                     config=config
                 )
+                return {"messages": response}
             ```
         </p>
     </Accordion>
