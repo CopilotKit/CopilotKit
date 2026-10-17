@@ -1,0 +1,20 @@
+{
+  "title": "Channels",
+  "icon": "lucide/MessagesSquare",
+  "pages": [
+    "index",
+    "intelligence",
+    "threads-and-state",
+    "identity-and-memory",
+    "history-and-transcripts",
+    "tools",
+    "commands-and-reactions",
+    "rich-messages",
+    "posting-jsx-as-images",
+    "render-and-carousel",
+    "files-and-multimodality",
+    "interactive",
+    "persistence-and-scaling",
+    "deploy-and-operate"
+  ]
+}

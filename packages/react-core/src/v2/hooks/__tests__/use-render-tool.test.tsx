@@ -257,11 +257,11 @@ describe("useRenderTool", () => {
   });
 
   it("PINS the limitation: a non-serialisable dep can never re-register", () => {
-    // `useRenderTool` compares deps with `JSON.stringify(extraDeps)` (the last
-    // entry of its effect's dependency array), so a function / Map / Set / class
-    // instance with private fields collapses to a CONSTANT and cannot trigger
-    // re-registration however often its identity changes. `use-frontend-tool.tsx`
-    // has the same comparator and the same edge.
+    // `useRenderTool` compares deps with `useDepsVersion`, which treats every
+    // function as equal (as the old `JSON.stringify(extraDeps)` comparator did),
+    // so a function dep cannot trigger re-registration however often its
+    // identity changes. `use-frontend-tool.tsx` has the same comparator and the
+    // same edge.
     //
     // This records a documented sharp edge, NOT behaviour worth keeping. It is
     // pinned so that changing the comparator (e.g. to reference equality) fails
@@ -278,8 +278,8 @@ describe("useRenderTool", () => {
           parameters: z.object({ query: z.string() }),
           render: () => <div>{label}</div>,
         },
-        // A FRESH function identity on every render. `JSON.stringify` flattens
-        // it to the constant `"[null]"`, so the effect never sees it change.
+        // A FRESH function identity on every render. The comparator treats
+        // every function as equal, so the effect never sees it change.
         [() => label],
       );
       return null;
