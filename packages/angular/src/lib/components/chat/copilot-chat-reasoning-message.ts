@@ -133,6 +133,7 @@ export class CopilotChatReasoningMessage {
     () => this.message().content ?? "",
   );
 
+  /** `labels.reasoningMessageThinkingLabel` while streaming, then "Thought for …". */
   protected readonly label = computed(() => {
     const start = this.startTime();
     if (this.isStreaming()) return this.labels.reasoningMessageThinkingLabel;

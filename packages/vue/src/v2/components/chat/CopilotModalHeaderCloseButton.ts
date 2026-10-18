@@ -3,6 +3,10 @@ import { IconX } from "../icons";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 
+/**
+ * Closes the popup or sidebar. Its accessible name is the `aria-label` the
+ * parent passes, or `labels.modalHeaderCloseButtonLabel`.
+ */
 export default defineComponent({
   name: "CopilotModalHeaderCloseButton",
   inheritAttrs: false,

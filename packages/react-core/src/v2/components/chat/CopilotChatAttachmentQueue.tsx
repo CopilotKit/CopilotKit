@@ -19,6 +19,10 @@ interface CopilotChatAttachmentQueueProps {
   className?: string;
 }
 
+/**
+ * The attachments queued in the composer, each with a preview and a remove
+ * button named by `labels.attachmentRemoveButtonLabel`.
+ */
 export const CopilotChatAttachmentQueue: React.FC<
   CopilotChatAttachmentQueueProps
 > = ({ attachments, onRemoveAttachment, className }) => {
@@ -153,6 +157,11 @@ function AudioPreview({ attachment }: { attachment: Attachment }) {
 // Video – thumbnail with play button; click opens lightbox with full controls
 // ---------------------------------------------------------------------------
 
+/**
+ * A video thumbnail with a play button, named by
+ * `labels.attachmentPlayVideoButtonLabel`, that opens the full player in a
+ * lightbox.
+ */
 function VideoPreview({ attachment }: { attachment: Attachment }) {
   const config = useCopilotChatConfiguration();
   const labels = config?.labels ?? CopilotChatDefaultLabels;

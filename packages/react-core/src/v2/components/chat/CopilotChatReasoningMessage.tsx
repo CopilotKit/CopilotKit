@@ -42,6 +42,12 @@ function formatDuration(seconds: number): string {
   return `${mins}m ${secs}s`;
 }
 
+/**
+ * A reasoning message as a collapsible block. While the model reasons it is
+ * open and the header shows `labels.reasoningMessageThinkingLabel`; when
+ * streaming ends it collapses and the header reads "Thought for …". The
+ * `header` slot also receives `elapsedSeconds`.
+ */
 export function CopilotChatReasoningMessage({
   message,
   messages,

@@ -175,6 +175,10 @@ export namespace CopilotModalHeader {
     </div>
   );
 
+  /**
+   * Closes the popup or sidebar. Its accessible name is
+   * `labels.modalHeaderCloseButtonLabel`.
+   */
   export const CloseButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
   > = ({ className, ...props }) => {

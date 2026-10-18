@@ -11,6 +11,11 @@ interface LightboxProps {
   children: React.ReactNode;
 }
 
+/**
+ * A full-screen preview portalled to `document.body`. It closes on Escape, a
+ * click on the backdrop, or its close button, which is named by
+ * `labels.attachmentPreviewCloseButtonLabel`.
+ */
 export function Lightbox({ onClose, children }: LightboxProps) {
   const config = useCopilotChatConfiguration();
   const labels = config?.labels ?? CopilotChatDefaultLabels;

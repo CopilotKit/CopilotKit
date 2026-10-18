@@ -29,6 +29,10 @@ export type CopilotSidebarViewProps = CopilotChatViewProps & {
   position?: "left" | "right";
 };
 
+/**
+ * The chat in a side panel: a `complementary` region named by
+ * `labels.sidebarLabel`, with a header, the chat view and a toggle button.
+ */
 export function CopilotSidebarView({
   header,
   toggleButton,

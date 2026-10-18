@@ -27,6 +27,7 @@ const germanLabels: Partial<CopilotChatLabels> = {
   sidebarLabel: "Chat-Seitenleiste",
 };
 
+/** Renders `ui` inside a chat configuration with the German labels. */
 function renderWithLabels(ui: React.ReactElement) {
   return render(
     <CopilotChatConfigurationProvider
@@ -44,6 +45,7 @@ const reasoning: ReasoningMessage = {
   content: "",
 };
 
+/** A ready attachment with a small inline `data:` source (nothing remote). */
 function attachment(
   id: string,
   type: Attachment["type"],
@@ -79,6 +81,7 @@ describe("chat strings from labels", () => {
   it("passes the elapsed reasoning time to a custom header", () => {
     vi.useFakeTimers();
     const seen: number[] = [];
+    /** A custom header that records every elapsedSeconds it receives. */
     const Header: React.FC<{ elapsedSeconds?: number }> = ({
       elapsedSeconds,
     }) => {

@@ -134,6 +134,7 @@ onBeforeUnmount(() => {
 });
 
 const config = useCopilotChatConfiguration();
+/** `labels.reasoningMessageThinkingLabel` while streaming, then "Thought for …". */
 const label = computed(() =>
   isStreaming.value
     ? (config.value?.labels ?? CopilotChatDefaultLabels)
