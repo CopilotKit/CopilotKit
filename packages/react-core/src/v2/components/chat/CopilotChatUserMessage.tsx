@@ -361,6 +361,13 @@ export namespace CopilotChatUserMessage {
     );
   };
 
+  /**
+   * Previous/next buttons and an "n/m" counter for switching between branches
+   * of a user message. Renders only with more than one branch and an
+   * `onSwitchToBranch` handler. The buttons are named by
+   * `labels.userMessageToolbarPreviousBranchLabel` and
+   * `labels.userMessageToolbarNextBranchLabel`.
+   */
   export const BranchNavigation: React.FC<
     React.HTMLAttributes<HTMLDivElement> & {
       currentBranch?: number;

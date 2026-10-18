@@ -819,6 +819,10 @@ export namespace CopilotChatView {
     );
   };
 
+  /**
+   * Scrolls the message list to the latest message. Shown while the user is
+   * scrolled up; its accessible name is `labels.chatScrollToBottomLabel`.
+   */
   export const ScrollToBottomButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
   > = ({ className, ...props }) => {

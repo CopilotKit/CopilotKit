@@ -1146,6 +1146,12 @@ export function CopilotChatInput({
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatInput {
+  /**
+   * The icon-only send button. Its accessible name is
+   * `labels.chatInputToolbarSendButtonLabel` unless an `aria-label` is passed;
+   * the input passes `labels.chatInputToolbarStopButtonLabel` while the button
+   * stops a run.
+   */
   export const SendButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
   > = ({ className, children, ...props }) => {
@@ -1168,6 +1174,10 @@ export namespace CopilotChatInput {
     );
   };
 
+  /**
+   * An icon-only toolbar button. `labels[labelKey]` is both its accessible
+   * name and its tooltip text.
+   */
   export const ToolbarButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement> & {
       icon: React.ReactNode;
@@ -1234,6 +1244,10 @@ export namespace CopilotChatInput {
     />
   );
 
+  /**
+   * The "+" button that opens the attachment and tools menu. Its accessible
+   * name and tooltip come from `labels.chatInputToolbarAddButtonLabel`.
+   */
   export const AddMenuButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement> & {
       toolsMenu?: (ToolsMenuItem | "-")[];

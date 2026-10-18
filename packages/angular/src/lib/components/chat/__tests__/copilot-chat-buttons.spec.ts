@@ -86,6 +86,7 @@ class IconButtonHost {
 })
 class ToolbarButtonHost {}
 
+/** The `aria-label` of every button inside `element`, in document order. */
 function buttonNames(element: HTMLElement): (string | null)[] {
   return Array.from(element.querySelectorAll("button"), (button) =>
     button.getAttribute("aria-label"),
