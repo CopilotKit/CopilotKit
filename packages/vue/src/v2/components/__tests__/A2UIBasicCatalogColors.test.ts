@@ -106,6 +106,71 @@ describe("A2UI basic catalog colours", () => {
     expect(styleOf(divider)).toContain("var(--a2ui-color-border, #ccc)");
   });
 
+  it("colours the error text and outlines with --a2ui-color-error", async () => {
+    // A text field and a checkbox whose check fails, because /valid is unset.
+    const invalid = {
+      a2ui_operations: [
+        {
+          version: "v0.9",
+          createSurface: { surfaceId: "invalid", catalogId: BASIC_CATALOG_ID },
+        },
+        {
+          version: "v0.9",
+          updateComponents: {
+            surfaceId: "invalid",
+            components: [
+              { id: "root", component: "Column", children: ["name", "agree"] },
+              {
+                id: "name",
+                component: "TextField",
+                label: "Name",
+                value: { path: "/name" },
+                checks: [
+                  { condition: { path: "/valid" }, message: "Required" },
+                ],
+              },
+              {
+                id: "agree",
+                component: "CheckBox",
+                label: "Agree",
+                value: { path: "/agree" },
+                checks: [
+                  { condition: { path: "/valid" }, message: "Must agree" },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const renderer = createA2UIMessageRenderer({ theme: {} });
+    const { container, findByText, getByText } = render(renderer.render, {
+      props: {
+        activityType: "a2ui-surface",
+        content: invalid,
+        message: {},
+        agent: {},
+      },
+      global: { provide: copilotKitProvide() },
+    });
+
+    await findByText("Required");
+    const textInput = container.querySelector(
+      "input[type='text'], input:not([type])",
+    );
+    const checkbox = container.querySelector("input[type='checkbox']");
+
+    expect(styleOf(textInput)).toContain(
+      "1px solid var(--a2ui-color-error, red)",
+    );
+    expect(styleOf(checkbox)).toContain(
+      "1px solid var(--a2ui-color-error, red)",
+    );
+    expect(styleOf(getByText("Required"))).toContain(
+      "var(--a2ui-color-error, red)",
+    );
+  });
+
   it("sets the variables from the dark theme in the chat stylesheet", () => {
     const globalsCss = readFileSync("src/styles/globals.css", "utf8");
     const darkBlock =
@@ -114,7 +179,7 @@ describe("A2UI basic catalog colours", () => {
       )?.[1] ?? "";
 
     expect(darkBlock).toContain("--a2ui-color-surface: var(--card);");
-    expect(darkBlock).toContain("--a2ui-color-border: var(--border);");
+    expect(darkBlock).toContain("--a2ui-color-border: oklch(0.371 0 0);");
     expect(darkBlock).toContain("--a2ui-color-muted: var(--muted-foreground);");
     expect(darkBlock).toContain("--a2ui-color-error: #f87171;");
   });

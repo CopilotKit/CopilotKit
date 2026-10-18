@@ -17,7 +17,7 @@ describe("A2UI colours in dark mode", () => {
 
   it("sets the A2UI surface, border, muted and error colours from the dark theme", () => {
     expect(darkBlock).toContain("--a2ui-color-surface: var(--card);");
-    expect(darkBlock).toContain("--a2ui-color-border: var(--border);");
+    expect(darkBlock).toContain("--a2ui-color-border: oklch(0.371 0 0);");
     expect(darkBlock).toContain("--a2ui-color-muted: var(--muted-foreground);");
     expect(darkBlock).toContain("--a2ui-color-error: #f87171;");
   });

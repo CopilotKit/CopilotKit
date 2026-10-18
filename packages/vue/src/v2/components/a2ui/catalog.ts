@@ -480,7 +480,7 @@ const TextField = createVueComponent(
       width: "100%",
       border:
         props.validationErrors && props.validationErrors.length > 0
-          ? "1px solid red"
+          ? "1px solid var(--a2ui-color-error, red)"
           : STANDARD_BORDER,
       borderRadius: STANDARD_RADIUS,
       boxSizing: "border-box",
@@ -574,7 +574,9 @@ const CheckBox = createVueComponent(
                 props.setValue((e.target as HTMLInputElement).checked),
               style: {
                 cursor: "pointer",
-                outline: hasError ? "1px solid red" : "none",
+                outline: hasError
+                  ? "1px solid var(--a2ui-color-error, red)"
+                  : "none",
               },
             }),
             props.label

@@ -52,11 +52,42 @@ const operations = [
   },
 ];
 
-function Surface() {
+// A text field and a checkbox whose check fails, because /valid is unset.
+const invalidOperations = [
+  {
+    version: "v0.9",
+    createSurface: { surfaceId: "surface", catalogId: BASIC_CATALOG_ID },
+  },
+  {
+    version: "v0.9",
+    updateComponents: {
+      surfaceId: "surface",
+      components: [
+        { id: "root", component: "Column", children: ["name", "agree"] },
+        {
+          id: "name",
+          component: "TextField",
+          label: "Name",
+          value: { path: "/name" },
+          checks: [{ condition: { path: "/valid" }, message: "Required" }],
+        },
+        {
+          id: "agree",
+          component: "CheckBox",
+          label: "Agree",
+          value: { path: "/agree" },
+          checks: [{ condition: { path: "/valid" }, message: "Must agree" }],
+        },
+      ],
+    },
+  },
+];
+
+function Surface({ messages = operations }: { messages?: unknown[] }) {
   const { processMessages } = useA2UI();
   useEffect(() => {
-    processMessages(operations as any);
-  }, [processMessages]);
+    processMessages(messages as any);
+  }, [processMessages, messages]);
   return <A2UIRenderer surfaceId="surface" />;
 }
 
@@ -94,5 +125,29 @@ describe("basic catalog colours", () => {
     expect(styleOf(button)).toContain("var(--a2ui-color-border, #ccc)");
     expect(styleOf(caption)).toContain("var(--a2ui-color-muted, #666)");
     expect(styleOf(divider)).toContain("var(--a2ui-color-border, #ccc)");
+  });
+
+  it("colours the error text and outlines with --a2ui-color-error", async () => {
+    const { container } = render(
+      <A2UIProvider>
+        <Surface messages={invalidOperations} />
+      </A2UIProvider>,
+    );
+
+    await screen.findByText("Required");
+    const textInput = container.querySelector(
+      "input[type='text'], input:not([type])",
+    );
+    const checkbox = container.querySelector("input[type='checkbox']");
+
+    expect(styleOf(textInput)).toContain(
+      "1px solid var(--a2ui-color-error, red)",
+    );
+    expect(styleOf(checkbox)).toContain(
+      "1px solid var(--a2ui-color-error, red)",
+    );
+    expect(styleOf(screen.getByText("Required"))).toContain(
+      "var(--a2ui-color-error, red)",
+    );
   });
 });

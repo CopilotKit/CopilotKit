@@ -72,7 +72,9 @@ export const TextField = createReactComponent(TextFieldApi, ({ props }) => {
           id={uniqueId}
           style={{
             ...style,
-            border: hasError ? "1px solid red" : STANDARD_BORDER,
+            border: hasError
+              ? "1px solid var(--a2ui-color-error, red)"
+              : STANDARD_BORDER,
           }}
           value={props.value || ""}
           onChange={onChange}
@@ -83,7 +85,9 @@ export const TextField = createReactComponent(TextFieldApi, ({ props }) => {
           type={type}
           style={{
             ...style,
-            border: hasError ? "1px solid red" : STANDARD_BORDER,
+            border: hasError
+              ? "1px solid var(--a2ui-color-error, red)"
+              : STANDARD_BORDER,
           }}
           value={props.value || ""}
           onChange={onChange}

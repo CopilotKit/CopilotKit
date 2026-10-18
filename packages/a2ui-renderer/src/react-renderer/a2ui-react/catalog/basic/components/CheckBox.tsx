@@ -40,7 +40,9 @@ export const CheckBox = createReactComponent(CheckBoxApi, ({ props }) => {
           onChange={onChange}
           style={{
             cursor: "pointer",
-            outline: hasError ? "1px solid red" : "none",
+            outline: hasError
+              ? "1px solid var(--a2ui-color-error, red)"
+              : "none",
           }}
         />
         {props.label && (
