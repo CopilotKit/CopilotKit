@@ -46,6 +46,7 @@ import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { ApiKeyHint } from "@/components/api-key-hint";
 import { WebMCPSetupPrompt } from "@/components/webmcp-setup-prompt";
 import { DemoSource } from "@/components/demo-source";
+import type { FrontendId } from "@/lib/frontend-options";
 import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
 import { AngularSnippet } from "@/components/angular-snippet";
 import { UnsupportedBox } from "@/components/snippet";
@@ -372,10 +373,12 @@ export const docsComponents = {
     integration,
     demo,
     showAllFiles,
+    frontend,
   }: {
     integration?: string;
     demo?: string;
     showAllFiles?: boolean;
+    frontend?: FrontendId;
   }) => {
     if (!integration || !demo) {
       warnSilentNull(
@@ -454,6 +457,7 @@ export const docsComponents = {
             integration={integration}
             demo={demo}
             onlyHighlighted={!showAllFiles}
+            frontend={frontend}
           />
         </DocsTab>
       </DocsTabs>
