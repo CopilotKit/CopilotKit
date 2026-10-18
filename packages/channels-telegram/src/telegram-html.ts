@@ -40,11 +40,19 @@ function linkPlaceholder(i: number): string {
   return `￾LINK${i}￾`;
 }
 
+/**
+ * Convert agent Markdown into Telegram HTML parse mode (see the mapping at the
+ * top of this file). Code is escaped and never re-parsed; all other text is
+ * escaped before markup is added.
+ */
 export function telegramHtml(input: string): string {
   if (!input) return input;
 
   // ── 1. Pull code regions out so we don't touch them. ──
   const codeRegions: string[] = [];
+  // Raw text of each region, for link text: Telegram does not allow a code
+  // entity inside a link, so code there is restored as plain text.
+  const codeText: string[] = [];
 
   // Fenced code blocks with an info string (```lang\n…```)
   let body = input.replace(
@@ -56,6 +64,7 @@ export function telegramHtml(input: string): string {
       // injectable, but meaningless to Telegram).
       const lang = /^[\w+#.-]+$/.test(rawLang) ? rawLang : "";
       const escaped = escapeHtml(inner.replace(/\n$/, ""));
+      codeText.push(inner);
       codeRegions.push(
         lang
           ? `<pre><code class="language-${escapeHtml(lang)}">${escaped}</code></pre>`
@@ -68,6 +77,7 @@ export function telegramHtml(input: string): string {
   // Single-line ``` ```code``` ``` fences (no info string by definition)
   body = body.replace(/```([^`\n]*)```/g, (_match, inner: string) => {
     const escaped = escapeHtml(inner);
+    codeText.push(inner);
     codeRegions.push(`<code>${escaped}</code>`);
     return codePlaceholder(codeRegions.length - 1);
   });
@@ -75,6 +85,7 @@ export function telegramHtml(input: string): string {
   // Inline code `…`
   body = body.replace(/`([^`\n]*)`/g, (_match, inner: string) => {
     const escaped = escapeHtml(inner);
+    codeText.push(inner);
     codeRegions.push(`<code>${escaped}</code>`);
     return codePlaceholder(codeRegions.length - 1);
   });
@@ -86,8 +97,10 @@ export function telegramHtml(input: string): string {
   // consistent with the existing `&`-in-URL behaviour).
   const linkRegions: Array<{ text: string; url: string }> = [];
 
+  // The URL may hold one level of balanced parentheses, as in
+  // https://en.wikipedia.org/wiki/Foo_(bar), so it isn't cut at the first ")".
   body = body.replace(
-    /\[([^\]\n]+)\]\(([^)\s]+)\)/g,
+    /\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)/g,
     (_m, text: string, url: string) => {
       linkRegions.push({ text, url });
       return linkPlaceholder(linkRegions.length - 1);
@@ -137,7 +150,12 @@ export function telegramHtml(input: string): string {
     const link = linkRegions[Number(idx)];
     if (!link) return "";
     const escapedUrl = escapeHtml(link.url);
-    const escapedText = escapeHtml(link.text);
+    const escapedText = escapeHtml(
+      link.text.replace(
+        CODE_PLACEHOLDER_RE,
+        (_c, codeIdx) => codeText[Number(codeIdx)] ?? "",
+      ),
+    );
     return `<a href="${escapedUrl}">${escapedText}</a>`;
   });
 

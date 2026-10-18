@@ -65,6 +65,12 @@ export async function detectSingleRouteEnvelope(
   return method as EndpointMethod;
 }
 
+/**
+ * Read the `{ method, params, body }` envelope of a single-route request.
+ *
+ * @throws A 415 Response when the body is not JSON, and a 400 Response when it
+ *   is not a JSON object or names an unsupported method.
+ */
 export async function parseMethodCall(request: Request): Promise<MethodCall> {
   const contentType = request.headers.get("content-type") || "";
 
@@ -79,6 +85,12 @@ export async function parseMethodCall(request: Request): Promise<MethodCall> {
   try {
     jsonEnvelope = (await request.clone().json()) as JsonEnvelope;
   } catch {
+    throw createResponseError("Invalid JSON payload", 400);
+  }
+
+  // Valid JSON that is not an object (`null`, a number) has no envelope to
+  // read; reading `.method` off `null` would surface as a 500.
+  if (typeof jsonEnvelope !== "object" || jsonEnvelope === null) {
     throw createResponseError("Invalid JSON payload", 400);
   }
 

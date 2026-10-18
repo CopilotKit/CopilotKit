@@ -48,6 +48,73 @@ export interface ChunkedEditStreamConfig {
 const DEFAULT_LIMIT = Math.floor(TELEGRAM_LIMITS.messageText / 2); // 2048
 const DEFAULT_MIN_INTERVAL_MS = 1000;
 
+interface FenceSpan {
+  start: number;
+  end: number;
+  info: string;
+}
+
+/**
+ * The complete multiline code fences (```info\n…```) in `text`, found with
+ * telegramHtml's own fence pattern. A ``` without a closing fence is not
+ * included, because telegramHtml renders it as prose.
+ */
+function findFences(text: string): FenceSpan[] {
+  return [...text.matchAll(/```([^\n`]*)\n[\s\S]*?```/g)].map((m) => ({
+    start: m.index!,
+    end: m.index! + m[0].length,
+    info: m[1]!.trim(),
+  }));
+}
+
+/**
+ * Move a chunk cut off a fence delimiter. A cut inside a fence's opening line
+ * (or right after it) moves back to the fence start, so the block opens in the
+ * next message; a cut inside the closing ``` (or right before it) moves to just
+ * past it. Either way each message gets whole delimiters and no empty block.
+ * A cut inside the code itself is left alone: balanceFences handles it.
+ *
+ * Only complete fences are seen, so a delimiter still streaming in when its
+ * boundary freezes can't be protected.
+ */
+function moveCutOffDelimiters(
+  text: string,
+  cut: number,
+  lastFrozen: number,
+): number {
+  for (const f of findFences(text)) {
+    const headerEnd = text.indexOf("\n", f.start) + 1;
+    if (f.start < cut && cut <= headerEnd) {
+      return f.start > lastFrozen ? f.start : cut;
+    }
+    if (f.end - 3 <= cut && cut < f.end) return f.end;
+  }
+  return cut;
+}
+
+/**
+ * Balance the code fences of the chunk `slice` = `buffer[start, end)`.
+ * `transform` runs per message, so a block split across messages would
+ * otherwise render as prose on both sides (and `__init__` would turn bold).
+ * Re-open the block at the start of a chunk that begins inside it and close it
+ * at the end of a chunk that ends inside it.
+ */
+function balanceFences(
+  slice: string,
+  start: number,
+  end: number,
+  fences: FenceSpan[],
+): string {
+  const spanning = (pos: number) =>
+    fences.find((f) => f.start < pos && pos < f.end);
+  const opened = spanning(start);
+  let out = opened ? "```" + opened.info + "\n" + slice : slice;
+  if (spanning(end)) {
+    out += out.endsWith("\n") ? "```" : "\n```";
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Internal single-message stream (mirrors Slack's MessageStream)
 // ---------------------------------------------------------------------------
@@ -200,12 +267,21 @@ export class ChunkedEditStream {
       // Bug 1 fix: enforce a minimum advance floor so adversarial input
       // (e.g. leading spaces / early newlines) doesn't produce ~1-char chunks.
       if (breakAt < minAdvance) breakAt = this.limit - 1;
-      const candidate = lastFrozen + breakAt + 1;
+      const candidate = moveCutOffDelimiters(
+        this.buffer,
+        lastFrozen + breakAt + 1,
+        lastFrozen,
+      );
       this.boundaries.push(candidate);
       lastFrozen = candidate;
     }
   }
 
+  /**
+   * Post a placeholder message for every chunk that doesn't have one yet, then
+   * hand each chunk's current slice (with its code fences balanced) to that
+   * message's edit stream.
+   */
   private async ensureStreamsAndDispatch(): Promise<void> {
     if (this.buffer.length === 0) return;
 
@@ -233,6 +309,7 @@ export class ChunkedEditStream {
       );
     }
     // Dispatch slices to each message's stream.
+    const fences = findFences(this.buffer);
     for (let i = 0; i < chunkCount; i++) {
       const start = i === 0 ? 0 : this.boundaries[i - 1]!;
       const end =
@@ -240,7 +317,7 @@ export class ChunkedEditStream {
       const slice = this.buffer.slice(start, end);
       // Bug 2 fix: never dispatch an empty slice.
       if (slice.length > 0) {
-        this.streams[i]!.append(slice);
+        this.streams[i]!.append(balanceFences(slice, start, end, fences));
       }
     }
   }

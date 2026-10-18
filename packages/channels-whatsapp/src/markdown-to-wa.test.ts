@@ -12,6 +12,13 @@ describe("markdownToWhatsApp", () => {
     expect(markdownToWhatsApp("_hi_")).toBe("_hi_");
   });
 
+  it("leaves spaced asterisks (arithmetic) alone", () => {
+    expect(markdownToWhatsApp("2 * 3 * 4 = 24")).toBe("2 * 3 * 4 = 24");
+    expect(markdownToWhatsApp("5 * 3 = 15 and *note*")).toBe(
+      "5 * 3 = 15 and _note_",
+    );
+  });
+
   it("converts ~~strike~~ to ~strike~", () => {
     expect(markdownToWhatsApp("~~gone~~")).toBe("~gone~");
   });
