@@ -109,9 +109,13 @@ approvedImages}`, where `permanentServices` contains `{name, serviceId}` pairs
 and the other two lists contain strings. The generated JSON exposes the same
 object at `disposableLifecyclePolicy`.
 
-The initial committed `approvedImages` list is **empty**. No disposable service
-can be accepted until real immutable pins receive separate review and are added
-to that list. An empty-service setup record can validate; this does not authorize
+The committed `approvedImages` list contains the five reviewed image digests for
+the bounded Mastra and Strands TypeScript milestone: composite Intelligence,
+Postgres, Redis, the application/runtime/Mastra image, and the Strands image.
+Application pins come from [build 38765158954](https://github.com/CopilotKit/CopilotKit/actions/runs/38765158954)
+at revision `9e90057794443c46de8bf48ad9c94c1b44e3cee0`; the data-service pins use
+the existing composite smoke-test baseline. New builds still require separate
+review before adding their exact digests. An empty-service setup record can validate; this does not authorize
 deployment. Receipts cannot approve their own images. Each `expectedImage` must
 exactly match a listed `registry/repository@sha256:<64 lowercase hex characters>`
 reference. Nested GHCR repositories and external dependency registries work only
@@ -300,3 +304,44 @@ provider, reviewed real image pins, readiness and cleanup evidence, and the
 atomic writer before hosted use. PNI-606 must supply the four-hour schedule.
 Offline classifier tests and Docker receipts do not prove Railway deployment or
 live probe acceptance.
+
+## Hosted permanent-runner transport
+
+The shared reader also accepts an operator-configured HTTPS URL in
+`SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE`, restricted to `/registry` without user
+info, query, fragment, or redirects. Set `SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN`
+and the actual `SHOWCASE_REGISTRY_CONSUMER` role (`image-gate`, `ruby-promotion`,
+`harness`). Each classification fetches fresh bytes with a ten-second timeout
+and eight-MiB bound, verifies snapshot and committed-policy hashes, parses the
+same schema above, then acknowledges those bytes to `/consumers/<role>`.
+Configured network, authentication, hash, or acknowledgment errors return invalid
+evidence. There is no stale-file or empty-snapshot fallback.
+
+The permanent Railway runner serves snapshots from its durable volume. Consumers
+fetch fresh evidence on every classification. Publication verifies the current
+served bytes and each role's actual activation for the configured URL and committed
+policy; it does not wait for every consumer to classify every intermediate update.
+A prior activation receipt does not certify consumption of a newer snapshot.
+Changed URL or policy requires renewed activation. Merely deploying this reader
+or running a local test does not establish deployed consumer activation. Existing
+file readers remain supported for explicitly wired durable mirrors.
+
+The image-gate workflow and both Ruby promotion workflows (`showcase_promote.yml`
+and `docs_promote.yml`) bind the repository variable
+`SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` and secret
+`SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN` to this transport. Each supplies its own
+consumer role. Both settings absent preserve static-fleet operation; a partial
+binding fails before classification. Each Ruby job installs the root `tsx`
+executable required by its classifier bridge. These bindings take effect only
+when the workflow revision containing them runs; configuring repository settings
+does not activate an older workflow or prove a consumer read. Retain invocation
+evidence for both Ruby workflow installations; one role acknowledgment does not
+prove that both are configured. The docs workflow skips Ruby in dry-run mode, so
+that mode cannot establish activation.
+
+For the Staging harness, bind the same URL and token on the Staging service and
+set `SHOWCASE_REGISTRY_CONSUMER=harness` only after deploying a reader image with
+the matching generated policy. Do not configure HTTPS on a file-only reader.
+The permanent runner, harness, and workflow readers must agree on the policy
+hash. Keep scheduled provisioning off until real consumer reads establish all
+three activations. Never run a Production promotion just to obtain a receipt.

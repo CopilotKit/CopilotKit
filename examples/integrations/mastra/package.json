@@ -18,7 +18,7 @@
     "@ai-sdk/anthropic": "^2.0.109",
     "@ai-sdk/google": "^2.0.102",
     "@ai-sdk/openai": "^2.0.42",
-    "@copilotkit/channels": "0.11.0",
+    "@copilotkit/channels": "0.11.1",
     "@copilotkit/react-core": "1.79.0",
     "@copilotkit/runtime": "1.79.0",
     "@libsql/client": "^0.15.15",
