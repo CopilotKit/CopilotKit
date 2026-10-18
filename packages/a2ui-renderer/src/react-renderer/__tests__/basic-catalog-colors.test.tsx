@@ -83,6 +83,7 @@ const invalidOperations = [
   },
 ];
 
+/** Processes the given A2UI operations and renders the resulting surface. */
 function Surface({ messages = operations }: { messages?: unknown[] }) {
   const { processMessages } = useA2UI();
   useEffect(() => {
@@ -91,6 +92,7 @@ function Surface({ messages = operations }: { messages?: unknown[] }) {
   return <A2UIRenderer surfaceId="surface" />;
 }
 
+/** The element's inline `style` attribute, or "" when there is no element. */
 function styleOf(element: Element | null | undefined) {
   return element?.getAttribute("style") ?? "";
 }

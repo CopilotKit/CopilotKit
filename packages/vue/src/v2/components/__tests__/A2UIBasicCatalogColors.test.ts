@@ -5,6 +5,7 @@ import { render, waitFor } from "@testing-library/vue";
 import { createA2UIMessageRenderer } from "../A2UIMessageRenderer";
 import { CopilotKitKey } from "../../providers/keys";
 
+/** A minimal CopilotKit context for rendering an A2UI surface without a runtime. */
 function copilotKitProvide() {
   return {
     [CopilotKitKey as symbol]: {
@@ -69,6 +70,7 @@ const content = {
   ],
 };
 
+/** The element's inline `style` attribute, or "" when there is no element. */
 const styleOf = (element: Element | null | undefined) =>
   element?.getAttribute("style") ?? "";
 
