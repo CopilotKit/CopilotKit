@@ -77,6 +77,12 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+
+  /* A2UI basic catalog from @copilotkit/vue; light values are its fallbacks. */
+  --a2ui-color-surface: var(--card);
+  --a2ui-color-border: var(--border);
+  --a2ui-color-muted: var(--muted-foreground);
+  --a2ui-color-error: #f87171;
 }
 
 @theme inline {

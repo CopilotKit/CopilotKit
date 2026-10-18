@@ -46,14 +46,23 @@ export const CheckBox = createReactComponent(CheckBoxApi, ({ props }) => {
         {props.label && (
           <label
             htmlFor={uniqueId}
-            style={{ cursor: "pointer", color: hasError ? "red" : "inherit" }}
+            style={{
+              cursor: "pointer",
+              color: hasError ? "var(--a2ui-color-error, red)" : "inherit",
+            }}
           >
             {props.label}
           </label>
         )}
       </div>
       {hasError && (
-        <span style={{ fontSize: "12px", color: "red", marginTop: "4px" }}>
+        <span
+          style={{
+            fontSize: "12px",
+            color: "var(--a2ui-color-error, red)",
+            marginTop: "4px",
+          }}
+        >
           {props.validationErrors?.[0]}
         </span>
       )}

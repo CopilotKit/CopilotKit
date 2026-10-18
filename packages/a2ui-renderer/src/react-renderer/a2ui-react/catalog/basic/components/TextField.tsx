@@ -90,7 +90,9 @@ export const TextField = createReactComponent(TextFieldApi, ({ props }) => {
         />
       )}
       {hasError && (
-        <span style={{ fontSize: "12px", color: "red" }}>
+        <span
+          style={{ fontSize: "12px", color: "var(--a2ui-color-error, red)" }}
+        >
           {props.validationErrors![0]}
         </span>
       )}
