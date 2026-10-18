@@ -19049,7 +19049,7 @@ export class WebInspectorElement extends LitElement {
         }}
         @learning-web-link=${(
           event: CustomEvent<{
-            category: "learning" | "runs" | "candidates";
+            category: "learning" | "runs" | "candidates" | "trajectory";
           }>,
         ) => {
           if (!this.core?.telemetryDisabled) {

@@ -99,6 +99,7 @@ const EXPECTED_LEARNING_KEYS = [
   "learning-first-run",
   "learning-success",
   "learning-insights-only",
+  "learning-trajectory-evidence",
   "learning-multiple-skills",
   "learning-new-threads",
   "learning-candidates-only",
@@ -493,7 +494,7 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 51-scenario route catalog", () => {
+test("exports the exact ordered 52-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
   expect(LEARNING_SCENARIO_KEYS).toEqual(EXPECTED_LEARNING_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
@@ -502,7 +503,7 @@ test("exports the exact ordered 51-scenario route catalog", () => {
     ...EXPECTED_LEARNING_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(51);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(52);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
 });
 
