@@ -537,13 +537,16 @@ export function CopilotChatInput({
     },
   );
 
+  const showsStop = isProcessing && canStop;
   const BoundSendButton = renderSlot(sendButton, CopilotChatInput.SendButton, {
     onClick: handleSendButtonClick,
     disabled: isProcessing ? !canStop : !canSend,
-    children:
-      isProcessing && canStop ? (
-        <Square className="cpk:size-[18px] cpk:fill-current" />
-      ) : undefined,
+    "aria-label": showsStop
+      ? labels.chatInputToolbarStopButtonLabel
+      : labels.chatInputToolbarSendButtonLabel,
+    children: showsStop ? (
+      <Square className="cpk:size-[18px] cpk:fill-current" />
+    ) : undefined,
   });
 
   const BoundStartTranscribeButton = renderSlot(
@@ -1145,20 +1148,25 @@ export function CopilotChatInput({
 export namespace CopilotChatInput {
   export const SendButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
-  > = ({ className, children, ...props }) => (
-    <div className="cpk:mr-[10px]">
-      <Button
-        type="button"
-        data-testid="copilot-send-button"
-        variant="chatInputToolbarPrimary"
-        size="chatInputToolbarIcon"
-        className={className}
-        {...props}
-      >
-        {children ?? <ArrowUp className="cpk:size-[18px]" />}
-      </Button>
-    </div>
-  );
+  > = ({ className, children, ...props }) => {
+    const config = useCopilotChatConfiguration();
+    const labels = config?.labels ?? CopilotChatDefaultLabels;
+    return (
+      <div className="cpk:mr-[10px]">
+        <Button
+          type="button"
+          data-testid="copilot-send-button"
+          variant="chatInputToolbarPrimary"
+          size="chatInputToolbarIcon"
+          className={className}
+          aria-label={labels.chatInputToolbarSendButtonLabel}
+          {...props}
+        >
+          {children ?? <ArrowUp className="cpk:size-[18px]" />}
+        </Button>
+      </div>
+    );
+  };
 
   export const ToolbarButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -1177,6 +1185,7 @@ export namespace CopilotChatInput {
             variant="chatInputToolbarSecondary"
             size="chatInputToolbarIcon"
             className={twMerge(defaultClassName, className)}
+            aria-label={labels[labelKey]}
             {...props}
           >
             {icon}
@@ -1310,6 +1319,7 @@ export namespace CopilotChatInput {
         size="chatInputToolbarIcon"
         className={twMerge("cpk:ml-1", className)}
         disabled={isDisabled}
+        aria-label={labels.chatInputToolbarAddButtonLabel}
         {...props}
       >
         <Plus className="cpk:size-[20px]" />

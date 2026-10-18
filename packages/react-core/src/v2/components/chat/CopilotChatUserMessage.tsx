@@ -378,6 +378,9 @@ export namespace CopilotChatUserMessage {
     message,
     ...props
   }) => {
+    const config = useCopilotChatConfiguration();
+    const labels = config?.labels ?? CopilotChatDefaultLabels;
+
     if (!numberOfBranches || numberOfBranches <= 1 || !onSwitchToBranch) {
       return null;
     }
@@ -403,6 +406,7 @@ export namespace CopilotChatUserMessage {
           }
           disabled={!canGoPrev}
           className="cpk:h-6 cpk:w-6 cpk:p-0"
+          aria-label={labels.userMessageToolbarPreviousBranchLabel}
         >
           <ChevronLeft className="cpk:size-[20px]" />
         </Button>
@@ -421,6 +425,7 @@ export namespace CopilotChatUserMessage {
           }
           disabled={!canGoNext}
           className="cpk:h-6 cpk:w-6 cpk:p-0"
+          aria-label={labels.userMessageToolbarNextBranchLabel}
         >
           <ChevronRight className="cpk:size-[20px]" />
         </Button>

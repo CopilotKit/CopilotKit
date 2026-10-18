@@ -4,6 +4,7 @@ import { mount } from "@vue/test-utils";
 import type { UserMessage } from "@ag-ui/core";
 import { CopilotChatDefaultLabels } from "../../../providers/types";
 import CopilotChatUserMessage from "../CopilotChatUserMessage.vue";
+import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
 
 describe("CopilotChatUserMessage", () => {
   let originalClipboard: Clipboard | undefined;
@@ -99,6 +100,43 @@ describe("CopilotChatUserMessage", () => {
         )
         .exists(),
     ).toBe(false);
+  });
+
+  it("names the branch buttons with the configured labels", () => {
+    const message: UserMessage = {
+      id: "user-5",
+      role: "user",
+      timestamp: new Date(),
+      content: "Branch message",
+    };
+
+    const wrapper = mount({
+      render: () =>
+        h(
+          CopilotChatConfigurationProvider,
+          {
+            threadId: "thread-1",
+            labels: {
+              userMessageToolbarPreviousBranchLabel: "Vorherige Antwort",
+              userMessageToolbarNextBranchLabel: "Nächste Antwort",
+            },
+          },
+          {
+            default: () =>
+              h(CopilotChatUserMessage, {
+                message,
+                branchIndex: 1,
+                numberOfBranches: 3,
+                onSwitchToBranch: vi.fn(),
+              }),
+          },
+        ),
+    });
+
+    expect(wrapper.find('[aria-label="Vorherige Antwort"]').exists()).toBe(
+      true,
+    );
+    expect(wrapper.find('[aria-label="Nächste Antwort"]').exists()).toBe(true);
   });
 
   it("renders branch navigation and emits switch payload exactly once", async () => {

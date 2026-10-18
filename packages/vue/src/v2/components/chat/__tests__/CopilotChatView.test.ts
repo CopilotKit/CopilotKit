@@ -404,6 +404,51 @@ describe("CopilotChatView", () => {
       .trigger("click");
   });
 
+  it("names the scroll-to-bottom button with the configured label", async () => {
+    const Host = defineComponent({
+      setup() {
+        return () =>
+          h(
+            CopilotKitProvider,
+            { runtimeUrl: "/api/copilotkit" },
+            {
+              default: () =>
+                h(
+                  CopilotChatConfigurationProvider,
+                  {
+                    threadId: "thread-1",
+                    agentId: "default",
+                    labels: { chatScrollToBottomLabel: "Nach unten scrollen" },
+                  },
+                  {
+                    default: () =>
+                      h(CopilotChatView, {
+                        messages: createChatMessages(12),
+                      }),
+                  },
+                ),
+            },
+          );
+      },
+    });
+
+    const wrapper = mount(Host);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const scrollElement = wrapper.get(
+      "[data-testid='copilot-chat-view-scroll']",
+    ).element as HTMLElement;
+    Object.defineProperty(scrollElement, "scrollHeight", { get: () => 1000 });
+    Object.defineProperty(scrollElement, "clientHeight", { get: () => 300 });
+    Object.defineProperty(scrollElement, "scrollTop", { get: () => 120 });
+    scrollElement.dispatchEvent(new Event("scroll"));
+    await nextTick();
+
+    const button = wrapper.get(
+      "[data-testid='copilot-chat-view-scroll-to-bottom']",
+    );
+    expect(button.attributes("aria-label")).toBe("Nach unten scrollen");
+  });
+
   it("preserves scroll position when new messages arrive and the user is scrolled up", async () => {
     const messages = ref<Message[]>(createChatMessages(12));
 

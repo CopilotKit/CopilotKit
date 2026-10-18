@@ -821,24 +821,29 @@ export namespace CopilotChatView {
 
   export const ScrollToBottomButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
-  > = ({ className, ...props }) => (
-    <Button
-      data-testid="copilot-scroll-to-bottom"
-      variant="outline"
-      size="sm"
-      className={twMerge(
-        "cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0 cpk:pointer-events-auto",
-        "cpk:bg-white cpk:dark:bg-gray-900",
-        "cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700",
-        "cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800",
-        "cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer",
-        className,
-      )}
-      {...props}
-    >
-      <ChevronDown className="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white" />
-    </Button>
-  );
+  > = ({ className, ...props }) => {
+    const config = useCopilotChatConfiguration();
+    const labels = config?.labels ?? CopilotChatDefaultLabels;
+    return (
+      <Button
+        data-testid="copilot-scroll-to-bottom"
+        variant="outline"
+        size="sm"
+        className={twMerge(
+          "cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0 cpk:pointer-events-auto",
+          "cpk:bg-white cpk:dark:bg-gray-900",
+          "cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700",
+          "cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800",
+          "cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer",
+          className,
+        )}
+        aria-label={labels.chatScrollToBottomLabel}
+        {...props}
+      >
+        <ChevronDown className="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white" />
+      </Button>
+    );
+  };
 
   // Default renders an empty div — no visual, but the element is still in the
   // tree so a slot override of the form `scrollView={{ feather: "my-class" }}`
