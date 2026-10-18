@@ -1377,17 +1377,11 @@ export class BuiltInAgent extends AbstractAgent {
         systemPrompt = parts.join("");
       }
 
-      // Convert messages and prepend system message if we have a prompt
+      // Keep agent-owned instructions separate from the conversation.
       const messages = convertMessagesToVercelAISDKMessages(input.messages, {
         forwardSystemMessages: config.forwardSystemMessages,
         forwardDeveloperMessages: config.forwardDeveloperMessages,
       });
-      if (systemPrompt) {
-        messages.unshift({
-          role: "system",
-          content: systemPrompt,
-        });
-      }
 
       // Resume injection: each ResumeEntry maps to the interrupt tool call it
       // addresses (interruptId === toolCallId) and is appended as that call's
@@ -1450,6 +1444,7 @@ export class BuiltInAgent extends AbstractAgent {
       const streamTextParams: Parameters<typeof streamText>[0] = {
         model,
         messages,
+        system: systemPrompt,
         tools: allTools,
         toolChoice: config.toolChoice,
         stopWhen: config.maxSteps ? stepCountIs(config.maxSteps) : undefined,
@@ -1605,10 +1600,12 @@ export class BuiltInAgent extends AbstractAgent {
           );
           abortController.signal.throwIfAborted();
           if (learnedSkills.catalog) {
-            messages.unshift({
-              role: "system",
-              content: learnedSkills.catalog,
-            });
+            streamTextParams.system = [
+              learnedSkills.catalog,
+              streamTextParams.system,
+            ]
+              .filter(Boolean)
+              .join("\n");
             // Loading a skill must leave room for a model step that uses it.
             if (config.maxSteps === undefined)
               streamTextParams.stopWhen = stepCountIs(10);

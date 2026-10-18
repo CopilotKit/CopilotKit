@@ -113,4 +113,31 @@ describe("AI SDK v6 Compatibility", () => {
       type: EventType.RUN_FINISHED,
     });
   });
+
+  it("passes its built prompt through system and keeps it out of conversation messages", async () => {
+    const agent = new BuiltInAgent({
+      model: "openai/gpt-4o-mini",
+      prompt: "Configured instructions",
+    });
+    vi.mocked(streamText).mockReturnValue(
+      mockStreamTextResponse([finish()]) as any,
+    );
+
+    await collectEvents(
+      agent.run({
+        threadId: "thread-prompt",
+        runId: "run-prompt",
+        messages: [{ id: "user-1", role: "user", content: "Hello" }],
+        tools: [],
+        context: [{ description: "Preference", value: "Concise" }],
+        state: { page: "home" },
+      }),
+    );
+
+    const callArgs = vi.mocked(streamText).mock.calls[0][0];
+    expect(callArgs.system).toContain("Configured instructions");
+    expect(callArgs.system).toContain("Preference:\nConcise");
+    expect(callArgs.system).toContain('"page": "home"');
+    expect(callArgs.messages).toEqual([{ role: "user", content: "Hello" }]);
+  });
 });

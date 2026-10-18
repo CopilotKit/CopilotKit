@@ -405,11 +405,9 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.messages).toHaveLength(2);
-      expect(callArgs.messages[0]).toMatchObject({
-        role: "system",
-        content: "You are a helpful assistant.",
-      });
+      expect(callArgs.system).toBe("You are a helpful assistant.");
+      expect(callArgs.messages).toHaveLength(1);
+      expect(callArgs.messages[0].role).toBe("user");
     });
 
     it("should include context in system message", async () => {
@@ -436,13 +434,11 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const systemMessage = callArgs.messages[0];
-      expect(systemMessage.role).toBe("system");
-      expect(systemMessage.content).toContain("Context from the application");
-      expect(systemMessage.content).toContain("User Name");
-      expect(systemMessage.content).toContain("John Doe");
-      expect(systemMessage.content).toContain("Location");
-      expect(systemMessage.content).toContain("New York");
+      expect(callArgs.system).toContain("Context from the application");
+      expect(callArgs.system).toContain("User Name");
+      expect(callArgs.system).toContain("John Doe");
+      expect(callArgs.system).toContain("Location");
+      expect(callArgs.system).toContain("New York");
     });
 
     it("should include state in system message", async () => {
@@ -466,13 +462,11 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const systemMessage = callArgs.messages[0];
-      expect(systemMessage.role).toBe("system");
-      expect(systemMessage.content).toContain("Application State");
-      expect(systemMessage.content).toContain("AGUISendStateSnapshot");
-      expect(systemMessage.content).toContain("AGUISendStateDelta");
-      expect(systemMessage.content).toContain('"counter": 0');
-      expect(systemMessage.content).toContain('"items"');
+      expect(callArgs.system).toContain("Application State");
+      expect(callArgs.system).toContain("AGUISendStateSnapshot");
+      expect(callArgs.system).toContain("AGUISendStateDelta");
+      expect(callArgs.system).toContain('"counter": 0');
+      expect(callArgs.system).toContain('"items"');
     });
 
     it("should combine prompt, context, and state", async () => {
@@ -497,13 +491,12 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const systemMessage = callArgs.messages[0];
-      expect(systemMessage.content).toContain("You are helpful.");
-      expect(systemMessage.content).toContain("Context from the application");
-      expect(systemMessage.content).toContain("Application State");
+      expect(callArgs.system).toContain("You are helpful.");
+      expect(callArgs.system).toContain("Context from the application");
+      expect(callArgs.system).toContain("Application State");
 
       // Check order: prompt, then context, then state
-      const systemContent = systemMessage.content as string;
+      const systemContent = callArgs.system as string;
       const promptIndex = systemContent.indexOf("You are helpful.");
       const contextIndex = systemContent.indexOf(
         "Context from the application",
@@ -708,21 +701,17 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      // Config prompt is prepended as first system message
-      expect(callArgs.messages).toHaveLength(4);
+      expect(callArgs.system).toBe("You are a helpful assistant.");
+      expect(callArgs.messages).toHaveLength(3);
       expect(callArgs.messages[0]).toMatchObject({
-        role: "system",
-        content: "You are a helpful assistant.",
-      });
-      expect(callArgs.messages[1]).toMatchObject({
         role: "system",
         content: "System instruction",
       });
-      expect(callArgs.messages[2]).toMatchObject({
+      expect(callArgs.messages[1]).toMatchObject({
         role: "system",
         content: "Developer hint",
       });
-      expect(callArgs.messages[3].role).toBe("user");
+      expect(callArgs.messages[2].role).toBe("user");
     });
   });
 

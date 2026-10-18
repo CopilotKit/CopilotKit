@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { streamText, stepCountIs } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { z } from "zod";
@@ -68,6 +68,48 @@ async function deliveryServer() {
 }
 
 describe("native AI SDK skill delivery over canonical HTTP transport", () => {
+  it("uses the AI SDK system option for BuiltInAgent instructions", async () => {
+    const model = new MockLanguageModelV3({
+      doStream: async () => ({
+        stream: simulateReadableStream<StreamPart>({
+          chunks: [
+            { type: "text-start", id: "text" },
+            { type: "text-delta", id: "text", delta: "Hi" },
+            { type: "text-end", id: "text" },
+            {
+              type: "finish",
+              finishReason: { unified: "stop", raw: "stop" },
+              usage,
+            },
+          ],
+        }),
+      }),
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const agent = new BuiltInAgent({
+      model,
+      prompt: "You are a helpful assistant.",
+    });
+
+    await collectEvents(
+      agent.run(
+        createDefaultInput({
+          messages: [{ id: "user", role: "user", content: "Hello" }],
+        }),
+      ),
+    );
+
+    expect(
+      model.doStreamCalls[0].prompt.map((message) => message.role),
+    ).toEqual(["system", "user"]);
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining(
+        "System messages in the prompt or messages fields",
+      ),
+    );
+    warn.mockRestore();
+  });
+
   it.each([false, true])(
     "pauses on an interrupt with prior skill loading: %s",
     async (loadFirst) => {
