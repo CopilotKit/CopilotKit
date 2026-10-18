@@ -978,7 +978,7 @@ export function CopilotChatInput({
     <div
       data-testid="copilot-slash-menu"
       role="listbox"
-      aria-label="Slash commands"
+      aria-label={labels.chatInputSlashMenuLabel}
       ref={slashMenuRef}
       className="cpk:absolute cpk:bottom-full cpk:left-0 cpk:right-0 cpk:z-30 cpk:mb-2 cpk:max-h-64 cpk:overflow-y-auto cpk:rounded-lg cpk:border cpk:border-border cpk:bg-white cpk:shadow-lg cpk:dark:border-[#3a3a3a] cpk:dark:bg-[#1f1f1f]"
       style={{
@@ -987,7 +987,7 @@ export function CopilotChatInput({
     >
       {filteredCommands.length === 0 ? (
         <div className="cpk:px-3 cpk:py-2 cpk:text-sm cpk:text-muted-foreground">
-          No commands found
+          {labels.chatInputSlashMenuEmptyText}
         </div>
       ) : (
         filteredCommands.map((item, index) => {

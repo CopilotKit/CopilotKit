@@ -11,6 +11,7 @@ import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { cn } from "../../utils";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
 import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils";
+import { injectChatLabels } from "../../chat-config";
 
 @Component({
   selector: "copilot-chat-reasoning-message",
@@ -89,6 +90,7 @@ export class CopilotChatReasoningMessage {
   readonly messages = input<Message[]>([]);
   readonly isRunning = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
+  private readonly labels = injectChatLabels();
 
   private readonly userToggled = signal(false);
 
@@ -133,7 +135,7 @@ export class CopilotChatReasoningMessage {
 
   protected readonly label = computed(() => {
     const start = this.startTime();
-    if (this.isStreaming()) return "Thinking…";
+    if (this.isStreaming()) return this.labels.reasoningMessageThinkingLabel;
     const seconds = start === undefined ? 0 : (Date.now() - start) / 1000;
     return `Thought for ${formatReasoningDuration(seconds)}`;
   });

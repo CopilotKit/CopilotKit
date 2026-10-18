@@ -8,6 +8,10 @@ import {
 import { Play } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { Lightbox, useLightbox } from "./Lightbox";
+import {
+  useCopilotChatConfiguration,
+  CopilotChatDefaultLabels,
+} from "../../providers/CopilotChatConfigurationProvider";
 
 interface CopilotChatAttachmentQueueProps {
   attachments: Attachment[];
@@ -18,6 +22,8 @@ interface CopilotChatAttachmentQueueProps {
 export const CopilotChatAttachmentQueue: React.FC<
   CopilotChatAttachmentQueueProps
 > = ({ attachments, onRemoveAttachment, className }) => {
+  const config = useCopilotChatConfiguration();
+  const labels = config?.labels ?? CopilotChatDefaultLabels;
   if (attachments.length === 0) return null;
 
   return (
@@ -48,7 +54,7 @@ export const CopilotChatAttachmentQueue: React.FC<
                 "cpk:absolute cpk:bg-black/60 cpk:text-white cpk:border-none cpk:rounded-full cpk:w-5 cpk:h-5 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:text-[10px] cpk:z-20",
                 isMedia ? "cpk:top-1 cpk:right-1" : "cpk:top-1.5 cpk:right-1.5",
               )}
-              aria-label="Remove attachment"
+              aria-label={labels.attachmentRemoveButtonLabel}
             >
               ✕
             </button>
@@ -148,6 +154,8 @@ function AudioPreview({ attachment }: { attachment: Attachment }) {
 // ---------------------------------------------------------------------------
 
 function VideoPreview({ attachment }: { attachment: Attachment }) {
+  const config = useCopilotChatConfiguration();
+  const labels = config?.labels ?? CopilotChatDefaultLabels;
   const src = getSourceUrl(attachment.source);
   const { thumbnailRef, vtName, open, openLightbox, closeLightbox } =
     useLightbox();
@@ -176,7 +184,7 @@ function VideoPreview({ attachment }: { attachment: Attachment }) {
       <button
         onClick={openLightbox}
         className="cpk:absolute cpk:inset-0 cpk:flex cpk:items-center cpk:justify-center cpk:z-10 cpk:cursor-pointer cpk:bg-black/20 cpk:border-none cpk:p-0"
-        aria-label="Play video"
+        aria-label={labels.attachmentPlayVideoButtonLabel}
       >
         <div className="cpk:w-8 cpk:h-8 cpk:rounded-full cpk:bg-black/60 cpk:flex cpk:items-center cpk:justify-center">
           <Play className="cpk:w-4 cpk:h-4 cpk:text-white cpk:ml-0.5" />

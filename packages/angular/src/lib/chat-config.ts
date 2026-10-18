@@ -19,6 +19,8 @@ export interface CopilotChatLabels {
   userMessageToolbarEditMessageLabel: string;
   chatDisclaimerText: string;
   welcomeMessageText: string;
+  reasoningMessageThinkingLabel: string;
+  attachmentRemoveButtonLabel: string;
 }
 
 // Default labels constant
@@ -41,6 +43,8 @@ export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
   chatDisclaimerText:
     "AI can make mistakes. Please verify important information.",
   welcomeMessageText: "How can I help you today?",
+  reasoningMessageThinkingLabel: "Thinking…",
+  attachmentRemoveButtonLabel: "Remove attachment",
 };
 
 export const COPILOT_CHAT_LABELS = new InjectionToken<CopilotChatLabels>(

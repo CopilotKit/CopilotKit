@@ -9,6 +9,7 @@ import {
   ControlledModalOpenScope,
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
+  CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
 import { useModalOpenControl } from "./modal-open-control";
 import CopilotChatToggleButton from "./CopilotChatToggleButton";
@@ -212,7 +213,10 @@ function CopilotSidebarViewInternal({
           } as React.CSSProperties
         }
         aria-hidden={!isSidebarOpen}
-        aria-label="Copilot chat sidebar"
+        aria-label={
+          configuration?.labels.sidebarLabel ??
+          CopilotChatDefaultLabels.sidebarLabel
+        }
         role="complementary"
       >
         <div className="cpk:flex cpk:h-full cpk:w-full cpk:flex-col cpk:overflow-hidden">
