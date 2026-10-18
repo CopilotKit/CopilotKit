@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
+import { render, screen } from "@testing-library/vue";
 import type { AssistantMessage, Message, UserMessage } from "@ag-ui/core";
 import type { Suggestion } from "@copilotkit/core";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
@@ -406,47 +407,57 @@ describe("CopilotChatView", () => {
 
   it("names the scroll-to-bottom button with the configured label", async () => {
     const Host = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatView,
+      },
       setup() {
-        return () =>
-          h(
-            CopilotKitProvider,
-            { runtimeUrl: "/api/copilotkit" },
-            {
-              default: () =>
-                h(
-                  CopilotChatConfigurationProvider,
-                  {
-                    threadId: "thread-1",
-                    agentId: "default",
-                    labels: { chatScrollToBottomLabel: "Nach unten scrollen" },
-                  },
-                  {
-                    default: () =>
-                      h(CopilotChatView, {
-                        messages: createChatMessages(12),
-                      }),
-                  },
-                ),
-            },
-          );
+        return {
+          messages: createChatMessages(12),
+          labels: { chatScrollToBottomLabel: "Nach unten scrollen" },
+        };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider
+            thread-id="thread-1"
+            agent-id="default"
+            :labels="labels"
+          >
+            <CopilotChatView :messages="messages" />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+    render(Host);
+
+    // Let the initial auto-scroll settle, then scroll away from the bottom so
+    // the button appears.
+    const scrollElement = await screen.findByTestId("copilot-chat-view-scroll");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    let scrollTop = 0;
+    Object.defineProperty(scrollElement, "scrollHeight", {
+      configurable: true,
+      get: () => 1000,
+    });
+    Object.defineProperty(scrollElement, "clientHeight", {
+      configurable: true,
+      get: () => 300,
+    });
+    Object.defineProperty(scrollElement, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value: number) => {
+        scrollTop = value;
       },
     });
-
-    const wrapper = mount(Host);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    const scrollElement = wrapper.get(
-      "[data-testid='copilot-chat-view-scroll']",
-    ).element as HTMLElement;
-    Object.defineProperty(scrollElement, "scrollHeight", { get: () => 1000 });
-    Object.defineProperty(scrollElement, "clientHeight", { get: () => 300 });
-    Object.defineProperty(scrollElement, "scrollTop", { get: () => 120 });
+    scrollTop = 120;
     scrollElement.dispatchEvent(new Event("scroll"));
-    await nextTick();
 
-    const button = wrapper.get(
-      "[data-testid='copilot-chat-view-scroll-to-bottom']",
-    );
-    expect(button.attributes("aria-label")).toBe("Nach unten scrollen");
+    expect(
+      await screen.findByRole("button", { name: "Nach unten scrollen" }),
+    ).toBeDefined();
   });
 
   it("preserves scroll position when new messages arrive and the user is scrolled up", async () => {
