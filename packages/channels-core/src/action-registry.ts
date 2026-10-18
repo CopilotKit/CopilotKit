@@ -6,7 +6,12 @@ import type {
   Renderable,
   MessageReactionHandler,
 } from "@copilotkit/channels-ui";
-import { isBound, getBoundArgs, renderToIR } from "@copilotkit/channels-ui";
+import {
+  isBound,
+  getBoundArgs,
+  renderToIR,
+  isHostElement,
+} from "@copilotkit/channels-ui";
 import type { ChannelComponentRenderContext } from "./channel-component.js";
 import { mintId } from "./mint-id.js";
 import type {
@@ -308,6 +313,8 @@ export class ActionRegistry {
   ): Promise<void> {
     for (let i = 0; i < nodes.length; i++) {
       const node = nodes[i]!;
+      // Snapshot callbacks are application props, not native channel actions.
+      if (node.type === "render" || isHostElement(node)) continue;
       const path: (string | number)[] = exactPath ?? [...base, i];
       const eventProps = EVENT_PROPS.filter(
         (eventProp) => typeof node.props[eventProp] === "function",

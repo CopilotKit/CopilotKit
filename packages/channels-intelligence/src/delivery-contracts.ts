@@ -250,6 +250,14 @@ export function assertDeliveryPacket(
     throw new TypeError("delivery payload is invalid");
   }
   if (deliveryPacketByteLength(value) > DELIVERY_PACKET_MAX_BYTES) {
+    if (
+      value.payload.kind.startsWith("teams.message.") &&
+      JSON.stringify(value.payload).includes("data:image/")
+    ) {
+      throw new RangeError(
+        "Teams card snapshots exceed the 64 KiB delivery packet limit. Reduce Render dimensions or post the image separately with thread.post(jsx).",
+      );
+    }
     throw new RangeError("delivery packet exceeds 64 KiB");
   }
 }

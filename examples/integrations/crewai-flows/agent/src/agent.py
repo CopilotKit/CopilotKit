@@ -7,7 +7,7 @@ import json
 
 from ag_ui_crewai.sdk import CopilotKitState, copilotkit_stream
 from crewai.flow.flow import Flow, listen, router, start
-from litellm import completion
+from litellm import acompletion
 
 from src.model import completion_options, resolve_model
 
@@ -111,7 +111,7 @@ class SampleAgentFlow(Flow[AgentState]):
         #     uses gpt-5-mini.
         model = resolve_model("openai:gpt-5-mini")
         response = await copilotkit_stream(
-            completion(
+            await acompletion(
                 model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},

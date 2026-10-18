@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Reviewed staging runner release",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sourceRevision",
+    "build",
+    "baseline",
+    "candidate"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "sourceRevision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "runAttempt",
+        "workflowPath",
+        "workflowSha256",
+        "artifactId",
+        "artifactSha256"
+      ],
+      "properties": {
+        "runId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "runAttempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "artifactId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflowPath": {
+          "const": ".github/workflows/intelligence-rich-threads-build.yml"
+        },
+        "workflowSha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "artifactSha256": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "baseline": {
+      "$ref": "#/$defs/image"
+    },
+    "candidate": {
+      "$ref": "#/$defs/image"
+    }
+  },
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "sourceRevision",
+        "sourceManifestSha256",
+        "compatibilitySha256",
+        "policySha256"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "sourceRevision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "sourceManifestSha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "compatibilitySha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "policySha256": {
+          "const": "7eb39aa628b77c30efa88a00c4ad0695de89ac2bb919e7e25f550a4ab2f2c765"
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["image", "runtimeIdentity"],
+      "properties": {
+        "image": {
+          "type": "string",
+          "pattern": "^ghcr\\.io/copilotkit/rich-thread-runner@sha256:[a-f0-9]{64}$"
+        },
+        "runtimeIdentity": {
+          "$ref": "#/$defs/identity"
+        }
+      }
+    }
+  }
+}
