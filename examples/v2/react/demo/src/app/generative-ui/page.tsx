@@ -137,7 +137,8 @@ function Storefront({ cart }: { cart: Cart }) {
           </span>
         </header>
         <div className="grid grid-cols-[1fr_360px] gap-6">
-          <GenerativeUISurface<typeof storeUI>
+          <GenerativeUISurface
+            ui={storeUI}
             id="products"
             description="The main product list of the store. When the user asks for a kind of product (for example headphones), show the matching products here: a ProductGrid root with one ProductCard for each product. When the user asks for the featured products again, delete this surface, and the featured products come back."
             components={["ProductGrid", "ProductCard"]}
