@@ -60,6 +60,30 @@ function manifestLines(manifest: ComponentManifest) {
   return [...props, ...slots, ...events];
 }
 
+/**
+ * Tells the viewer when the browser asks for reduced motion: the standard
+ * components then stop the shimmer, the spinners and the entrance
+ * animations, which otherwise looks like a bug on this page.
+ */
+function ReducedMotionNote() {
+  const [isReduced, setIsReduced] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setIsReduced(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  if (!isReduced) return null;
+  return (
+    <p className="ex-cat-warning">
+      This browser asks for reduced motion, so the shimmer, the spinners and the
+      entrance animations are stopped. Turn off the reduce motion setting of
+      your system to see them.
+    </p>
+  );
+}
+
 /** Starts the first run, which streams every sample surface. */
 function StartCatalog() {
   const { copilotkit } = useCopilotKit();
@@ -173,6 +197,7 @@ function Catalog({ errors }: { errors: string[] }) {
             Each sample lists the description and the props that the model sees.
             Click a name to jump to its sample.
           </p>
+          <ReducedMotionNote />
           {missing.length > 0 && (
             <p className="ex-cat-warning">
               No sample yet for: {missing.join(", ")}

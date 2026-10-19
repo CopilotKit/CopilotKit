@@ -73,6 +73,13 @@ export const STANDARD_CSS = [
   ".a2ui-std-cell:last-child{padding-inline-end:0}",
   `.a2ui-std-cell[data-divider]{border-bottom:1px solid ${borderColor("subtle")}}`,
   ".a2ui-std-table>tbody:last-child>tr:last-child>.a2ui-std-cell{border-bottom:0}",
+  // Entrance animations of Animate, AnimateGroup, AnimateItem and Transition.
+  "@keyframes a2ui-enter-fade{from{opacity:0}to{opacity:1}}",
+  "@keyframes a2ui-enter-slide-up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}",
+  "@keyframes a2ui-enter-slide-down{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}",
+  "@keyframes a2ui-enter-scale{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}",
+  "[data-a2ui-animate]{animation:var(--a2ui-animate-name,a2ui-enter-fade) var(--a2ui-animate-duration,400ms) ease-out both;animation-delay:var(--a2ui-animate-delay,0ms)}",
+  "@media (prefers-reduced-motion:reduce){[data-a2ui-animate]{animation:none!important}}",
 ].join("\n");
 
 // There is no document on the server, so nothing is added there.
