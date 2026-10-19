@@ -1,25 +1,15 @@
 {
   "schemaVersion": 1,
-  "sourceRevision": "d979e36a7950633baf557b22003f82c8dfaf865d",
+  "sourceRevision": "7259e26c8d9374d2c895eeb5017f580db47bef4d",
   "build": {
-    "runId": 38948420333,
+    "runId": 39300702413,
     "runAttempt": 1,
     "workflowPath": ".github/workflows/intelligence-rich-threads-build.yml",
     "workflowSha256": "4337e0e43f7598ff19171ad3a73a250e404e7a8e138ae149cb30e75bda6224bf",
-    "artifactId": 12068100020,
-    "artifactSha256": "da7b31f352df2a65d7aefc2ffd8a4554bd9871b703102f56bea69e23a4e6c2c8"
+    "artifactId": 12211287099,
+    "artifactSha256": "04f5dcd7d78726e6872fc5ca371f12ad21d4560ec8e86029355bc31a1bacaed3"
   },
   "baseline": {
-    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:984f616acffebca0c393a54294b4366a33214221782a7192b4761bb84325e79d",
-    "runtimeIdentity": {
-      "protocolVersion": 1,
-      "sourceRevision": "1c9f51ca5d3180079e5a43369a3bb7573d46d806",
-      "sourceManifestSha256": "42f3f61c34d61f81948c66136cab2b784ed09822e1bf2a355049513ee45e7403",
-      "compatibilitySha256": "423d1f8af5c05530e4d31feba1d0f1c7ad0a215e52fa0748aee1690d5191a74a",
-      "policySha256": "7eb39aa628b77c30efa88a00c4ad0695de89ac2bb919e7e25f550a4ab2f2c765"
-    }
-  },
-  "candidate": {
     "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:8db845b5d2b427317524254ff58b3e18db69046b9e75d950b6dc967c004a0019",
     "runtimeIdentity": {
       "protocolVersion": 1,
@@ -29,16 +19,30 @@
       "policySha256": "7eb39aa628b77c30efa88a00c4ad0695de89ac2bb919e7e25f550a4ab2f2c765"
     }
   },
+  "candidate": {
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:072768a227b3967d0c0aa98d5e1306ebbe7feda1ee4dff610e2d7a2f1ab81b78",
+    "runtimeIdentity": {
+      "protocolVersion": 1,
+      "sourceRevision": "7259e26c8d9374d2c895eeb5017f580db47bef4d",
+      "sourceManifestSha256": "9a0db17cce4b85b20b404c6adff6b14b85342551e77d1079410a0ac1bc5a8cc4",
+      "compatibilitySha256": "e4103daa3b333492b2701455cbf817b799c514279cf387cec73057411dca482d",
+      "policySha256": "7eb39aa628b77c30efa88a00c4ad0695de89ac2bb919e7e25f550a4ab2f2c765"
+    }
+  },
   "recovery": {
-    "version": 1,
+    "version": 2,
     "kind": "bounded-environment-retry",
     "projectId": "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
-    "runnerRunId": "run-7d05705a-0b83-4cdb-9d32-9f054ae24d11",
-    "lifecycleRunId": "rich-f091f87b-e90b-4dd1-bef2-6ae873a774a3",
-    "intentSha256": "25ad2b74a34b749e7be7b7ad88d3c39e115717f1e48cd6fe2d0e7deb0280a406",
-    "leaseSha256": "976bd18df0558dfcdd515a87169b761ca2c3c36eb58f2928b89f6fbe8f4b5787",
+    "runnerRunId": "run-7d2602d4-8b10-40b9-aaff-3c6a0029afad",
+    "lifecycleRunId": "rich-f6c38ef4-145e-44d0-8075-1e56e5818fe5",
+    "sourceEnvironmentId": "f15bc318-d863-4d1d-9717-74d2aeaed0c8",
+    "journalSha256": "4ee64b72b1264639e80b24c62bebdd265bca9613e96158b20ae0592c0157ba5e",
+    "intentSha256": "c15014aaba7dc2c7844a574bfee62e22fd9cc063af319d6e58615f9a7c13f3d2",
+    "leaseSha256": "3ea5195c1704ba358daf5af0eecab04a423f4c759dfa7c8e0426ee910894a3b0",
+    "originalWatchSha256": "6f0ab4d064ed5f58785c54e21ca88d068466763b7e4e8b8d5a90619e11180451",
+    "deploymentOperationSha256": "77d96842e4a124abf5fc961ea3cfdaf876facfed1227d4ac8e128f190510b2bd",
     "decision": {
-      "reference": "ran-2026-10-16-bounded-cli-retry",
+      "reference": "ran-2026-10-19-second-incident-recovery",
       "text": "They need to make a new request. When they receive response of whatever, they use CLI to verify that the env is there."
     },
     "permanentRunner": {
@@ -46,6 +50,12 @@
       "environmentId": "8edfef02-ea09-4a20-8689-261f21cc2849",
       "serviceId": "4922b45b-6981-4559-be2f-fbbca9123323",
       "volumeId": "2a70e47d-85d4-4a8a-b17b-b6788c91b1c7"
+    },
+    "providerHandoff": {
+      "deploymentId": "41d9b023-1870-444f-8889-c369e26faa54",
+      "imageDigest": "sha256:8db845b5d2b427317524254ff58b3e18db69046b9e75d950b6dc967c004a0019",
+      "volumeInstanceId": "f3187181-2fb7-4d3e-a9dc-c80eac894895",
+      "deploymentStopped": true
     }
   }
 }
