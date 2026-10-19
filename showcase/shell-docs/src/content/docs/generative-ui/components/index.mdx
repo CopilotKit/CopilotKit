@@ -17,16 +17,16 @@ You decide what the agent can render. The agent decides what to show and fills i
 
 ## Try it
 
-These steps add generative UI to a Next.js app. The agent is the built-in agent with an OpenAI model.
+These steps add generative UI to a Next.js app, with an OpenAI model through TanStack AI.
 
-Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model. The built-in agent does this. For a LangGraph Python agent, add `CopilotKitMiddleware`.
+Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model, as in step 2. For a LangGraph Python agent, add `CopilotKitMiddleware`.
 
 <Steps>
   <Step>
   ### Install the packages
 
   ```bash
-  npm install @copilotkit/react-core @copilotkit/runtime
+  npm install @copilotkit/react-core @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
   ```
 
   Put your OpenAI key in `.env.local`:
@@ -38,17 +38,34 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
   <Step>
   ### Add the runtime and an agent
 
+  The agent is a built-in agent in factory mode: you call the model yourself with [TanStack AI](https://tanstack.com/ai).
+
   ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+  import { chat } from "@tanstack/ai";
+  import { openaiText } from "@tanstack/ai-openai";
   import {
     BuiltInAgent,
+    convertInputToTanStackAI,
     CopilotRuntime,
     createCopilotRuntimeHandler,
     InMemoryAgentRunner,
   } from "@copilotkit/runtime/v2";
 
   const agent = new BuiltInAgent({
-    model: "openai/gpt-5.4",
-    prompt: "You are a helpful assistant. When a visual answer helps, render it with generative UI.",
+    type: "tanstack",
+    factory: ({ input, abortController }) => {
+      const { messages, systemPrompts, tools } = convertInputToTanStackAI(input);
+      return chat({
+        adapter: openaiText("gpt-5.5"),
+        messages,
+        systemPrompts: [
+          "You are a helpful assistant. When a visual answer helps, render it with generative UI.",
+          ...systemPrompts,
+        ],
+        tools,
+        abortController,
+      });
+    },
   });
 
   const runtime = new CopilotRuntime({
@@ -61,6 +78,13 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
   export const GET = handler;
   export const POST = handler;
   ```
+
+  Pass on both values from `convertInputToTanStackAI`:
+
+  - `tools` has the `render_ui` tool. Without it, the model cannot render.
+  - `systemPrompts` has the guide: the components, their props, and how to call `render_ui`. Without it, the model does not know what to render.
+
+  Add your own tools and prompts next to them. Do not replace them.
   </Step>
   <Step>
   ### Turn on generative UI
@@ -82,7 +106,7 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
   }
   ```
 
-  Wrap your app in it, and put a chat on a page:
+  The catalog holds React components, so the provider must be created in a client component. Wrap your layout in it, so every page shares one provider, and put a chat on a page:
 
   ```tsx title="app/layout.tsx"
   import { Providers } from "./providers";
