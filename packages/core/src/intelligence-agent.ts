@@ -132,6 +132,14 @@ export class AgentThreadLockedError extends Error {
   }
 }
 
+/** Terminal history restore failure; `reason` is the gateway's error code. */
+export class AgentHistoryReplayError extends Error {
+  constructor(public readonly reason: string) {
+    super(`Thread history replay failed: ${reason}`);
+    this.name = "AgentHistoryReplayError";
+  }
+}
+
 /**
  * Typed contract for agents that expose the completion promise of their
  * currently in-flight run.
@@ -768,40 +776,36 @@ export class IntelligenceAgent extends AbstractAgent {
         applied: null,
         replayFailed: false,
       };
-      let retryingReplay = false;
       const replayFailed$ = channel$.pipe(
         switchMapOperator(({ channel }) =>
           this.observeChannelEvent$<unknown>(channel, REPLAY_FAILED_EVENT),
         ),
         tap((payload) => {
           controlCursor.replayFailed = true;
-          retryingReplay = false;
           if (
             payload === null ||
             typeof payload !== "object" ||
-            !("retryable" in payload)
+            !("retryable" in payload) ||
+            payload.retryable !== false
           )
             return;
-          if (payload.retryable === false) {
-            const reason =
-              "reason" in payload && typeof payload.reason === "string"
-                ? payload.reason
-                : "unknown error";
-            throw new Error(`Thread history replay failed: ${reason}`);
-          }
-          if (payload.retryable === true) {
-            retryingReplay = true;
+          const reason =
+            "reason" in payload && typeof payload.reason === "string"
+              ? payload.reason
+              : "unknown error";
+          if (
+            reason === "history_cursor_unavailable" ||
+            ("latestEventId" in payload && payload.latestEventId === null)
+          ) {
+            this.clearReconnectCursor(input.threadId);
+          } else {
             this.updateLastSeenEventIdFromControl(
               input.threadId,
               payload,
               controlCursor,
             );
-            if ("latestEventId" in payload && payload.latestEventId === null) {
-              this.clearReconnectCursor(input.threadId);
-            }
-            // Phoenix reuses this params object when phx_error triggers rejoin.
-            params.last_seen_event_id = this.getLastSeenEventId(input.threadId);
           }
+          throw new AgentHistoryReplayError(reason);
         }),
       );
       // Controls are scoped to each replay epoch, not cached across rejoin.
@@ -813,10 +817,6 @@ export class IntelligenceAgent extends AbstractAgent {
       ).pipe(
         // Notify before idle completion can unsubscribe other observers.
         tap(() => {
-          if (retryingReplay) {
-            controlCursor.replayFailed = false;
-            retryingReplay = false;
-          }
           replayFinished = true;
           scheduleIdleWarning();
           options.lifecycle?.onReplayFinished?.();

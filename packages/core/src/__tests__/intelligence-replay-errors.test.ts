@@ -6,6 +6,7 @@ import { MockSocket } from "./test-utils";
 vi.mock("phoenix", () => ({ Socket: MockSocket }));
 
 const { IntelligenceAgent } = await import("../intelligence-agent");
+const { AgentHistoryReplayError } = await import("../index");
 
 class ReplayAgent extends IntelligenceAgent {
   replay(input: RunAgentInput) {
@@ -77,8 +78,13 @@ test.each(["connect", "run"] as const)(
       });
 
       expect(error).toHaveBeenCalledWith(
-        new Error("Thread history replay failed: history_event_too_large"),
+        expect.objectContaining({
+          name: "AgentHistoryReplayError",
+          reason: "history_event_too_large",
+          message: "Thread history replay failed: history_event_too_large",
+        }),
       );
+      expect(error.mock.calls[0]![0]).toBeInstanceOf(AgentHistoryReplayError);
       expect(next).not.toHaveBeenCalled();
       expect(complete).not.toHaveBeenCalled();
       expect(subscription.closed).toBe(true);
@@ -92,7 +98,7 @@ test.each(["connect", "run"] as const)(
 );
 
 test.each(["delivered-event", null])(
-  "retryable replay failure resumes from checkpoint %s on rejoin and later connections",
+  "a terminal replay failure preserves delivered checkpoint %s for the next explicit connect",
   async (checkpoint) => {
     const { agent, channels, fetch, input, teardown } = setup();
     const error = vi.fn();
@@ -107,36 +113,35 @@ test.each(["delivered-event", null])(
       await vi.waitFor(() => expect(channels).toHaveBeenCalledOnce());
       const channel = channels.mock.results[0]!.value;
       channel.triggerJoin("ok");
-      channel.serverPush("ag_ui_event", {
-        type: EventType.TEXT_MESSAGE_CONTENT,
-        messageId: "answer",
-        delta: "live",
-        metadata: { cpki_event_id: "live-beyond-checkpoint" },
-      });
+      if (checkpoint) {
+        channel.serverPush("ag_ui_event", {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "answer",
+          delta: "partial history",
+          metadata: { cpki_event_id: checkpoint },
+        });
+      }
 
       channel.serverPush("replay_failed", {
-        reason: "history_read_timeout",
-        retryable: true,
+        reason: "history_read_failed",
+        retryable: false,
         latestEventId: checkpoint,
       });
-      channel.serverPush("phx_error", {});
 
-      expect(channel.params.last_seen_event_id).toBe(checkpoint);
-      expect(subscription.closed).toBe(false);
-      expect(channel.left).toBe(false);
-      expect(error).not.toHaveBeenCalled();
+      expect(subscription.closed).toBe(true);
+      expect(channel.left).toBe(true);
+      expect(error).toHaveBeenCalledWith(
+        new AgentHistoryReplayError("history_read_failed"),
+      );
       expect(complete).not.toHaveBeenCalled();
-      // Phoenix reuses this channel and its params for its automatic rejoin.
-      channel.triggerJoin("ok");
+      // Frames after the terminal failure must not advance the saved checkpoint.
       channel.serverPush("ag_ui_event", {
         type: EventType.TEXT_MESSAGE_CONTENT,
         messageId: "answer",
-        delta: "replayed",
+        delta: "undelivered",
+        metadata: { cpki_event_id: "after-failure" },
       });
-      channel.serverPush("replay_complete", { latestEventId: checkpoint });
-      channel.serverPush("stream_idle", { latestEventId: checkpoint });
-      expect(complete).toHaveBeenCalledOnce();
-      expect(events).toHaveLength(2);
+      expect(events).toHaveLength(checkpoint ? 1 : 0);
 
       const nextConnection = agent.replay(input).subscribe({ error });
       try {
@@ -159,48 +164,57 @@ test.each(["delivered-event", null])(
   },
 );
 
-test("a successful retry keeps a newer live checkpoint when idle repeats the replay checkpoint", async () => {
+test("an unavailable cursor makes the next explicit connect request a fresh restore", async () => {
   const { agent, channels, fetch, input, teardown } = setup();
   const error = vi.fn();
-  const complete = vi.fn();
-  const subscription = agent.replay(input).subscribe({ error, complete });
+  const initial = agent.replay(input).subscribe({ error });
   try {
     await vi.waitFor(() => expect(channels).toHaveBeenCalledOnce());
-    const channel = channels.mock.results[0]!.value;
-    channel.triggerJoin("ok");
-    channel.serverPush("replay_failed", {
-      reason: "history_read_timeout",
-      retryable: true,
-      latestEventId: "event-10",
+    const firstChannel = channels.mock.results[0]!.value;
+    firstChannel.triggerJoin("ok");
+    firstChannel.serverPush("replay_complete", {
+      latestEventId: "expired-cursor",
     });
-    channel.serverPush("phx_error", {});
-    channel.triggerJoin("ok");
-    channel.serverPush("replay_complete", { latestEventId: "event-20" });
-    channel.serverPush("ag_ui_event", {
-      type: EventType.TEXT_MESSAGE_CONTENT,
-      messageId: "answer",
-      delta: "live after retry",
-      metadata: { cpki_event_id: "event-30" },
+    firstChannel.serverPush("stream_idle", {
+      latestEventId: "expired-cursor",
     });
-    channel.serverPush("stream_idle", { latestEventId: "event-20" });
 
-    expect(complete).toHaveBeenCalledOnce();
-    expect(error).not.toHaveBeenCalled();
-
-    const nextConnection = agent.replay(input).subscribe({ error });
+    const resume = agent.replay(input).subscribe({ error });
     try {
       await vi.waitFor(() => expect(channels).toHaveBeenCalledTimes(2));
-      expect(JSON.parse(String(fetch.mock.calls[1]![1]?.body))).toMatchObject({
-        lastSeenEventId: "event-30",
+      const resumeChannel = channels.mock.results[1]!.value;
+      expect(resumeChannel.params.last_seen_event_id).toBe("expired-cursor");
+      resumeChannel.triggerJoin("ok");
+      resumeChannel.serverPush("replay_failed", {
+        reason: "history_cursor_unavailable",
+        retryable: false,
+        latestEventId: "expired-cursor",
       });
-      expect(channels.mock.results[1]!.value.params.last_seen_event_id).toBe(
-        "event-30",
+
+      expect(error).toHaveBeenCalledWith(
+        new AgentHistoryReplayError("history_cursor_unavailable"),
       );
+      expect(resume.closed).toBe(true);
+
+      const restore = agent.replay(input).subscribe({ error });
+      try {
+        await vi.waitFor(() => expect(channels).toHaveBeenCalledTimes(3));
+        expect(JSON.parse(String(fetch.mock.calls[2]![1]?.body))).toMatchObject(
+          {
+            lastSeenEventId: null,
+          },
+        );
+        expect(
+          channels.mock.results[2]!.value.params.last_seen_event_id,
+        ).toBeNull();
+      } finally {
+        restore.unsubscribe();
+      }
     } finally {
-      nextConnection.unsubscribe();
+      resume.unsubscribe();
     }
   } finally {
-    subscription.unsubscribe();
+    initial.unsubscribe();
     teardown();
   }
 });
