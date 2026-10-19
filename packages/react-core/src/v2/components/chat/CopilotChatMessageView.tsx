@@ -29,7 +29,6 @@ import { twMerge } from "tailwind-merge";
 import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
-import { useGenerativeUIRuntime } from "../../generative-ui/runtime-context";
 import {
   IntelligenceIndicator,
   getIntelligenceTurnAnchors,
@@ -535,7 +534,6 @@ export function CopilotChatMessageView({
   const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit, showIntelligenceIndicator = true } = useCopilotKit();
   const config = useCopilotChatConfiguration();
-  const generativeUI = useGenerativeUIRuntime();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   // Subscribe to state changes so custom message renderers re-render when state updates.
@@ -1139,18 +1137,7 @@ export function CopilotChatMessageView({
   // reasoning message — the reasoning card already shows its own loading
   // indicator. A reasoning message the transform hid shows no indicator.
   const lastMessage = renderedMessages[renderedMessages.length - 1];
-  // With the markdown transport, the reply that streams in (prose and
-  // surfaces that paint in place) is the progress signal. The pulsing dot
-  // under it only flickers as the layout changes, so it hides once the
-  // assistant message has content.
-  const lastMessageHasText =
-    lastMessage?.role === "assistant" &&
-    typeof lastMessage.content === "string" &&
-    lastMessage.content.trim().length > 0;
-  const showCursor =
-    isRunning &&
-    lastMessage?.role !== "reasoning" &&
-    !(generativeUI?.transport === "markdown" && lastMessageHasText);
+  const showCursor = isRunning && lastMessage?.role !== "reasoning";
 
   // ---------------------------------------------------------------------------
   // Render — shared wrapper, conditional inner content (virtual vs flat)
