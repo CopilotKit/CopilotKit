@@ -7,10 +7,13 @@ canary project, its journal directory, or its unresolved parent-delete operation
 
 ## Exact scope and preconditions
 
-- Resolve the prior canary parent's disposition through provider-confirmed status
-  before requesting or executing another fresh project. Keep its unresolved child
-  intent intact; confirmation of parent retirement is not child cancellation.
-  This prepared variation does not authorize accumulating diagnostic resources.
+- Arrange authorized workspace-admin cleanup of the prior canary project before
+  requesting or executing another fresh project. Ran confirmed on October 19,
+  2026 that only workspace admins can delete Railway projects. This explains the
+  operational permission blocker; the discarded API error was not independently
+  recovered. No Railway support investigation is required to explain it.
+  Keep the old operation records and unresolved child intent intact.
+  Do not create another project to bypass pending admin cleanup.
 - One new disposable project in workspace `9cab81e9-4aa5-40cd-a484-3a585ca35c90`,
   named `pni605-canary-<12 hex>`. The sequencer records authorization, exact name,
   complete before-project IDs, create intent, response, and independent readback.
@@ -45,10 +48,33 @@ canary project, its journal directory, or its unresolved parent-delete operation
    delete the owned service, then B, then A; verify complete baseline restoration.
    Recheck exact lineage, creation time and empty workloads before deletion.
    Unknown outcomes stop and retain intent; never retry a failed delete.
-7. Parent project retirement is a separately reviewed sequencer operation with
-   provider-supported semantics. Do not assume a returned boolean or absence
+7. Parent project retirement requires an authorized workspace admin, coordinated
+   by the sequencer. Environment, service and volume deletion are distinct
+   operations; project deletion permission does not establish their permissions.
+   Do not assume a returned boolean or absence
    alone proves retirement. Require an exact tombstone and live-list absence;
    otherwise preserve the unresolved operation and stop without another delete.
+
+## Admin cleanup handoff
+
+The pending project is `pni605-canary-4c62a8d01b97`, ID
+`a843d02e-df72-4161-93cc-2bebbba329b2`, in workspace
+`9cab81e9-4aa5-40cd-a484-3a585ca35c90`. Its recorded creation time is
+`2026-10-19T12:18:51.730Z`. Last inventory showed the original baseline and source
+A, no services or volumes; the second environment-create outcome remains unknown.
+
+Give the authorized workspace admin this exact identity and the existing
+project-retirement receipt. Before deletion, the sequencer obtains a fresh
+read-only inventory and confirms no unexpected workloads. Record the admin's
+action separately from the prior unknown attempt, retain both original journals,
+then verify project retirement by exact identity and current readback. Until
+that evidence exists, project cleanup is pending, not complete. Do not resend the
+old request or replace its unknown outcome with an inferred cancellation.
+
+A suitable existing authorized scope is an alternative planning option, but this
+script currently requires a fresh disposable project. It needs a separately
+reviewed scope and ownership/preflight adaptation before use; do not bypass its
+freshness check or reuse the failed probe journal.
 
 ## Invocation after authorization
 
