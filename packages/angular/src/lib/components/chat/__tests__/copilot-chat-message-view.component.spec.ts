@@ -1,3 +1,4 @@
+import { CopilotKitCore } from "@copilotkit/core";
 import {
   Component,
   EnvironmentInjector,
@@ -103,6 +104,8 @@ describe("CopilotChatMessageView", () => {
         {
           provide: CopilotKit,
           useValue: {
+            // The message view tracks subagents through the core.
+            core: new CopilotKitCore({}),
             activityMessageRenderConfigs: renderers.asReadonly(),
             getAgent,
           },

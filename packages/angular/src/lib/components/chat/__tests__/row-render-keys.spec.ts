@@ -1,3 +1,4 @@
+import { CopilotKitCore } from "@copilotkit/core";
 import { ApplicationRef, Component, input } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -68,6 +69,8 @@ describe("CopilotChatMessageView row keys", () => {
         {
           provide: CopilotKit,
           useValue: {
+            // The message view tracks subagents through the core.
+            core: new CopilotKitCore({}),
             activityMessageRenderConfigs: () => [],
             toolCallRenderConfigs: () => [],
             getAgent: () => undefined,
