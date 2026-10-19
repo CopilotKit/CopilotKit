@@ -2419,8 +2419,8 @@ export class CpkThreadInspector extends PortableLitElement {
   /**
    * Monotonic per-thread counter the parent inspector ticks every time the
    * agent currently running on this thread emits a message change. When this
-   * prop changes for the same `threadId`, we re-fetch `/threads/:id/messages`
-   * so the conversation view reflects live streaming output.
+   * prop changes for the same `threadId`, we queue a bounded refresh of
+   * `/threads/:id/messages` so the conversation reflects streaming output.
    */
   liveMessageVersion = 0;
   viewInAppMode: "hidden" | "view" | "stop" = "hidden";
@@ -2514,6 +2514,9 @@ export class CpkThreadInspector extends PortableLitElement {
   private _lastSeenLiveMessageVersion = 0;
   private _metadataAbort: AbortController | null = null;
   private _messagesAbort: AbortController | null = null;
+  private _messagesRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private _messagesRefreshPending = false;
+  private _lastMessagesFetchAt = 0;
   private _eventsAbort: AbortController | null = null;
   private _stateAbort: AbortController | null = null;
   private _hasConnectedOnce = false;
@@ -2530,6 +2533,7 @@ export class CpkThreadInspector extends PortableLitElement {
   > => ({});
 
   static readonly COLLAPSE_THRESHOLD = 800;
+  private static readonly MESSAGE_REFRESH_INTERVAL_MS = 1_000;
   static readonly TAB_LIST: ReadonlyArray<{
     id: ThreadDetailsTab;
     label: string;
@@ -4066,17 +4070,12 @@ export class CpkThreadInspector extends PortableLitElement {
       this.threadId &&
       this.liveMessageVersion !== this._lastSeenLiveMessageVersion
     ) {
-      // Same thread, but the parent inspector signalled new agent-emitted
-      // messages on this thread (via `liveMessageVersion`). Re-fetch the
-      // canonical conversation from the runtime so streaming output flows
-      // into the view without us reimplementing AG-UI → ConversationItem
-      // mapping in the parent. `silent: true` so the loading-state indicator
-      // doesn't flash between every streaming chunk and we keep the
-      // last-good view on transient fetch errors.
+      // Streaming chunks can arrive faster than a transcript can load.
+      // Keep one pending refresh instead of aborting and replacing every
+      // request: browser aborts need not cancel work already on the server.
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
-      this._messagesAbort?.abort();
-      this._messagesAbort = null;
-      void this.fetchMessages(this.threadId, true);
+      this._messagesRefreshPending = true;
+      this.scheduleMessagesRefresh();
     }
 
     const focusedContentChanged =
@@ -4170,6 +4169,12 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private resetLoadedThreadData(): void {
+    if (this._messagesRefreshTimer !== null) {
+      clearTimeout(this._messagesRefreshTimer);
+      this._messagesRefreshTimer = null;
+    }
+    this._messagesRefreshPending = false;
+    this._lastMessagesFetchAt = 0;
     this._tab = "timeline";
     this._activatedTabs = new Set(["timeline"]);
     this._panelTplCache = new Map();
@@ -4225,6 +4230,40 @@ export class CpkThreadInspector extends PortableLitElement {
     }
   }
 
+  /** Coalesces live updates without overlapping requests or starving the final update. */
+  private scheduleMessagesRefresh(): void {
+    if (
+      !this._messagesRefreshPending ||
+      this._messagesRefreshTimer !== null ||
+      this._messagesAbort ||
+      !this.isConnected ||
+      !this.threadId ||
+      !this.canFetchMessages()
+    ) {
+      return;
+    }
+    const threadId = this.threadId;
+    const loadKey = this.currentLoadKey();
+    if (loadKey !== this._lastLoadKey) return;
+    const delay = Math.max(
+      0,
+      CpkThreadInspector.MESSAGE_REFRESH_INTERVAL_MS -
+        (Date.now() - this._lastMessagesFetchAt),
+    );
+    this._messagesRefreshTimer = setTimeout(() => {
+      this._messagesRefreshTimer = null;
+      if (
+        !this.isConnected ||
+        this.currentLoadKey() !== loadKey ||
+        this._lastLoadKey !== loadKey ||
+        this._messagesAbort
+      ) {
+        return;
+      }
+      void this.fetchMessages(threadId, true);
+    }, delay);
+  }
+
   /**
    * Fetch the canonical conversation for `threadId` from the runtime.
    *
@@ -4243,8 +4282,15 @@ export class CpkThreadInspector extends PortableLitElement {
       if (!silent) this._conversation = [];
       return;
     }
+    if (this._messagesRefreshTimer !== null) {
+      clearTimeout(this._messagesRefreshTimer);
+      this._messagesRefreshTimer = null;
+    }
+    this._messagesRefreshPending = false;
+    this._lastMessagesFetchAt = Date.now();
     this._messagesAbort?.abort();
     const controller = new AbortController();
+    const loadKey = this.currentLoadKey();
     this._messagesAbort = controller;
     if (!silent) {
       this._loadingMessages = true;
@@ -4257,12 +4303,14 @@ export class CpkThreadInspector extends PortableLitElement {
             signal: controller.signal,
           })
         : await this.fetchRuntimeMessages(threadId, controller.signal);
-      if (controller.signal.aborted || this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.currentLoadKey() !== loadKey)
+        return;
       this._conversation = this.mapMessages(messages);
       this._messagesError = null;
       this._messageRefreshError = null;
     } catch (err) {
-      if (controller.signal.aborted || this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.currentLoadKey() !== loadKey)
+        return;
       if (err instanceof Error && err.name === "AbortError") return;
       if (!silent || this._conversation.length === 0) {
         this._messagesError =
@@ -4273,9 +4321,13 @@ export class CpkThreadInspector extends PortableLitElement {
           "Could not refresh messages. Showing the last loaded conversation.";
       }
     } finally {
-      // A live refresh can replace the initial request before it finishes.
-      if (!controller.signal.aborted && this.threadId === threadId) {
-        this._loadingMessages = false;
+      // A stale provider may ignore abort and settle after a new source loads.
+      if (this._messagesAbort === controller) {
+        this._messagesAbort = null;
+        if (!controller.signal.aborted && this.currentLoadKey() === loadKey) {
+          this._loadingMessages = false;
+          this.scheduleMessagesRefresh();
+        }
       }
     }
   }
@@ -18997,7 +19049,7 @@ export class WebInspectorElement extends LitElement {
         }}
         @learning-web-link=${(
           event: CustomEvent<{
-            category: "learning" | "runs" | "candidates";
+            category: "learning" | "runs" | "candidates" | "trajectory";
           }>,
         ) => {
           if (!this.core?.telemetryDisabled) {
