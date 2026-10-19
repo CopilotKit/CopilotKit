@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import React from "react";
-import { renderHook } from "@testing-library/react";
+import { render as renderComponent, renderHook } from "@testing-library/react";
 import { useCopilotAction } from "../use-copilot-action";
 import { useFrontendTool } from "../use-frontend-tool";
 import { useRenderToolCall } from "../use-render-tool-call";
@@ -27,6 +27,23 @@ describe("useCopilotAction configuration", () => {
       undefined,
     );
     expect(useFrontendTool).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["no handler", { name: "showStatus", render: "Loading status" }],
+    [
+      'available: "frontend"',
+      { name: "showStatus", available: "frontend", render: "Loading status" },
+    ],
+  ])("wraps a string render in a renderer (%s)", (_label, action) => {
+    renderHook(() => useCopilotAction(action as FrontendAction));
+
+    const [{ render }] = vi.mocked(useRenderToolCall).mock.calls[0];
+    expect(typeof render).toBe("function");
+    const { container } = renderComponent(
+      <>{(render as () => React.ReactElement)()}</>,
+    );
+    expect(container.textContent).toBe("Loading status");
   });
 
   it("names the action and the missing fields when a named action has neither handler nor render", () => {
