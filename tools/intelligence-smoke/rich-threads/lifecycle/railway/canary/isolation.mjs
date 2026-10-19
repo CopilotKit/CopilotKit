@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { railwayApi } from "../api.mjs";
+import { creationPacer } from "../create-pacing.mjs";
 import { durableJson, recoveryLock } from "../journal.mjs";
 import { optionalMetadata, templateDigest } from "../runner/deployment.mjs";
 
@@ -124,6 +125,7 @@ async function runCanaryLocked({
   scope,
   api = railwayApi(),
   clock = Date.now,
+  pacingTime,
 }) {
   const startedAt = clock();
   const state = {
@@ -139,6 +141,13 @@ async function runCanaryLocked({
     observations: [],
   };
   const save = () => durableJson(join(root, "journal.json"), state);
+  const pace = creationPacer({
+    directory: join(root, "create-pacing"),
+    projectId: scope.projectId,
+    api,
+    clock,
+    ...pacingTime,
+  });
   const observe = async () => {
     const snapshot = await inventory(api, scope);
     state.observations.push({
@@ -151,6 +160,17 @@ async function runCanaryLocked({
     return snapshot;
   };
   async function mutate(operation, input, cleanup = false) {
+    return pace(
+      operation,
+      {
+        deadline: state.expiresAt,
+        check: async () =>
+          assert.ok(clock() < state.expiresAt, "Canary lifetime exceeded"),
+      },
+      () => mutateAfterPacing(operation, input, cleanup),
+    );
+  }
+  async function mutateAfterPacing(operation, input, cleanup = false) {
     if (!cleanup)
       assert.ok(clock() < state.expiresAt, "Canary lifetime exceeded");
     const intent = {

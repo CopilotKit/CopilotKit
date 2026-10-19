@@ -3,6 +3,7 @@ import {
   railwayServiceName,
 } from "./service-bindings.mjs";
 import { ownerAlive } from "./process-owner.mjs";
+import { creationPacer } from "./create-pacing.mjs";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, readFile, rm } from "node:fs/promises";
@@ -269,6 +270,7 @@ export async function createRailwayEnvironment(
     dependenciesExecute: dependencies.inspection,
     requestHealth: dependencies.fetch ?? fetch,
     supervision: dependencies.supervision ?? verifySupervisor,
+    pacingTime: dependencies.pacingTime,
   });
   try {
     await controller.setup(config.services);
@@ -300,6 +302,7 @@ async function controllerFor({
   dependenciesExecute,
   requestHealth = fetch,
   supervision = verifySupervisor,
+  pacingTime,
 }) {
   const journalPath = join(directory, "journal.json");
   let sequence = 0;
@@ -308,6 +311,12 @@ async function controllerFor({
   let cleanupPromise;
   let mutations = Promise.resolve();
   let setupPromise = Promise.resolve();
+  const pace = creationPacer({
+    directory: join(config.controlDirectory, "create-pacing"),
+    projectId: config.projectId,
+    api,
+    ...pacingTime,
+  });
   const save = async () => {
     await durableJson(journalPath, journal);
     await durableJson(
@@ -373,8 +382,16 @@ async function controllerFor({
     };
   }
   async function create(kind, name, variables, scope) {
+    return pace(
+      kind,
+      { check, deadline: Date.parse(journal.expiresAt) - 5 * 60 * 1000 },
+      () => createAfterPacing(kind, name, variables, scope),
+    );
+  }
+  async function createAfterPacing(kind, name, variables, scope) {
     await check();
     const before = await inventory();
+    await check();
     if (kind === "createEnvironment")
       assert.ok(
         !before.environments.some((value) => value.name === name),

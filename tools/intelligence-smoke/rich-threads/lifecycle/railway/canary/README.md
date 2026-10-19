@@ -1,4 +1,4 @@
-# PNI-605 isolated service-scope canary (prepared, not executed)
+# PNI-605 isolated service-scope canary
 
 Purpose: establish current provider behavior for serviceCreate(environmentId) and
 serviceInstanceUpdate(environmentId) without creating any instance in Showcase.
@@ -21,6 +21,10 @@ is used. The canary has no deploy operation.
 2. Before each create, persist its exact name/scope/input and complete before IDs.
    Create two empty environments with skipInitialDeploys. Verify returned IDs and
    exact names/project identity against complete inventory and detailed reads.
+   Before writing each environment intent, read the project's environment-create
+   rate limit and wait a full reported window plus two seconds. The private
+   `create-pacing` ledger records the reservation; an interrupted or fresh process
+   must wait another full window. This never retries an unresolved request.
 3. Create one empty service in environment A with no source/repository/variables.
    Read every environment, including original default environment. Record which
    environment IDs contain the new service. Create isolation passes only if A is
@@ -54,6 +58,9 @@ sequencer creates the disposable project after scope review, recording the uniqu
 ID before independent CLI verification. A lost project-create response stops;
 name absence does not permit retry. The script itself cannot create/delete projects.
 Project creation and deletion require the sequencer's separately journaled action.
+The sequencer must also observe the provider's project-create rate limit and
+coordinate external writers. A failed probe does not authorize another project
+or a new canary request. Preserve its original journal and unresolved outcomes.
 
 Copy `scope.example.json` to private scratch space and replace the project ID/name
 with the exact fresh project verified by the sequencer. The placeholder is invalid
