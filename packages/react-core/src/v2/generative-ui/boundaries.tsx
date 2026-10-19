@@ -39,14 +39,13 @@ export function DefaultNodeFallback({
   );
 }
 
-export function NodePlaceholder({ componentId }: { componentId: string }) {
-  return (
-    <div
-      data-generative-ui-placeholder={componentId}
-      aria-busy="true"
-      style={{ minHeight: 32, borderRadius: 8, background: "#f3f4f6" }}
-    />
-  );
+/**
+ * A child that has not streamed yet renders nothing. The prose keeps
+ * streaming above the surface, and each component appears as soon as it is
+ * complete. A grey block in its place would read as a broken layout.
+ */
+export function NodePlaceholder(_props: { componentId: string }) {
+  return null;
 }
 
 interface NodeBoundaryProps {

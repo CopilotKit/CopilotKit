@@ -62,8 +62,22 @@ const titleSchema = z.object({
 });
 const textSchema = z.object({
   ...typographyProps,
-  text: z.string().optional().describe("Text with inline markdown"),
+  text: z
+    .union([z.string(), z.number()])
+    .optional()
+    .describe("Text with inline markdown. A bound number shows as text"),
   size: z.enum(TEXT_SIZES).optional().describe('Default "md"'),
+  fontSize: sizeValue
+    .optional()
+    .describe("Pixels when a number. Wins over size"),
+  lineHeight: z
+    .union([z.number(), z.string()])
+    .optional()
+    .describe("A unitless ratio, or CSS"),
+  minLines: z
+    .number()
+    .optional()
+    .describe("Reserves the height of this many lines"),
   strong: z.boolean().optional().describe("Default false"),
   underline: z.boolean().optional(),
   lineThrough: z.boolean().optional(),
@@ -75,7 +89,7 @@ const textSchema = z.object({
 });
 const CAPTION_SIZES = ["sm", "md", "lg"] as const;
 const captionSchema = z.object({
-  text: z.string().describe("Caption text"),
+  text: z.union([z.string(), z.number()]).describe("Caption text"),
   color: colorProp,
   size: z.enum(CAPTION_SIZES).optional().describe('Default "lg"'),
   weight: weight.describe('Default "normal"'),
@@ -84,7 +98,7 @@ const captionSchema = z.object({
   maxLines: z.number().optional(),
 });
 const labelSchema = z.object({
-  text: z.string().describe("Label text"),
+  text: z.union([z.string(), z.number()]).describe("Label text"),
   htmlFor: z.string().optional(),
   color: colorProp,
   size: z.enum(TEXT_SIZES).optional().describe('Default "sm"'),
@@ -94,6 +108,10 @@ const labelSchema = z.object({
   width: sizeValue.optional(),
 });
 const boldSchema = z.object({ text: z.string(), weight });
+const inlineTextSchema = z.object({ text: z.string() });
+const blockquoteSchema = z.object({
+  text: z.string().describe("The quoted text, with inline markdown"),
+});
 const BADGE_SIZES = ["sm", "md", "lg"] as const;
 const badgeSchema = z.object({
   label: z.string().describe("Badge text"),
@@ -264,6 +282,13 @@ function Text(props: TextProps) {
         minWidth: props.inline ? undefined : 0,
         // Without a size, text takes the size and line height of the host.
         ...(props.size ? textFont(props.size) : {}),
+        ...(props.fontSize !== undefined
+          ? { fontSize: px(props.fontSize) }
+          : {}),
+        ...(props.lineHeight !== undefined
+          ? { lineHeight: props.lineHeight }
+          : {}),
+        minHeight: props.minLines ? `${props.minLines * 1.5}em` : undefined,
         margin: 0,
         ...typography,
         fontWeight,
@@ -274,7 +299,7 @@ function Text(props: TextProps) {
         background: highlight,
       }}
     >
-      {renderInlineMarkdown(props.text ?? "")}
+      {renderInlineMarkdown(props.text === undefined ? "" : String(props.text))}
       {hasChildren ? (
         <>
           {props.text ? " " : null}
@@ -305,7 +330,7 @@ function Caption(props: z.output<typeof captionSchema>) {
         fontWeight: FONT_WEIGHT[props.weight ?? "normal"],
       }}
     >
-      {renderInlineMarkdown(props.text)}
+      {renderInlineMarkdown(String(props.text))}
     </span>
   );
 }
@@ -324,6 +349,40 @@ function Label(props: z.output<typeof labelSchema>) {
     >
       {props.text}
     </label>
+  );
+}
+
+/** Pixels when a number, raw CSS when a string. */
+function px(value: number | string) {
+  return typeof value === "number" ? `${value}px` : value;
+}
+
+function Italic(props: z.output<typeof inlineTextSchema>) {
+  return <em>{props.text}</em>;
+}
+
+function Underline(props: z.output<typeof inlineTextSchema>) {
+  return <u>{props.text}</u>;
+}
+
+function Strikethrough(props: z.output<typeof inlineTextSchema>) {
+  return <s>{props.text}</s>;
+}
+
+function Blockquote(props: z.output<typeof blockquoteSchema>) {
+  useStandardStyles();
+  return (
+    <blockquote
+      data-a2ui-std=""
+      style={{
+        margin: 0,
+        paddingLeft: spacing(3),
+        borderLeft: `3px solid ${borderColor("strong")}`,
+        color: textColor("secondary"),
+      }}
+    >
+      {renderInlineMarkdown(props.text)}
+    </blockquote>
   );
 }
 
@@ -528,7 +587,15 @@ function Tooltip({ trigger, content }: TooltipProps) {
   };
   return (
     <span
-      style={{ position: "relative", display: "inline-flex" }}
+      // The wrapper hugs the trigger, so the tip centers on the trigger and
+      // not on a stretched flex item.
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignSelf: "flex-start",
+        width: "max-content",
+        maxWidth: "100%",
+      }}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={close}
     >
@@ -616,11 +683,32 @@ export const textComponents = {
     description: "Bold inline text.",
     props: boldSchema,
   },
+  Italic: {
+    component: Italic,
+    description: "Italic inline text.",
+    props: inlineTextSchema,
+  },
+  Underline: {
+    component: Underline,
+    description: "Underlined inline text.",
+    props: inlineTextSchema,
+  },
+  Strikethrough: {
+    component: Strikethrough,
+    description: "Struck-through inline text.",
+    props: inlineTextSchema,
+  },
   Badge: {
     component: Badge,
     description:
       "A small status pill. Use the colors success, danger and warning only to show a status, not for decoration.",
     props: badgeSchema,
+  },
+  Blockquote: {
+    component: Blockquote,
+    description:
+      "A block quotation with a line on the left. `text` can have inline markdown.",
+    props: blockquoteSchema,
   },
   Code: {
     component: Code,

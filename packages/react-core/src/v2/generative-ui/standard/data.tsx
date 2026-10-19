@@ -70,7 +70,11 @@ const tableSectionSchema = z.object({
 });
 const tableRowSchema = z.object({
   header: z.boolean().optional(),
-  label: z.string().optional().describe("A name of the row for screen readers"),
+  label: z
+    .string()
+    .optional()
+    .describe("The text of a header cell at the start of the row"),
+  labelColSpan: z.number().optional().describe("Columns the label cell spans"),
 });
 const tableCellSchema = z.object({
   text: z.union([z.string(), z.number()]).optional(),
@@ -90,9 +94,11 @@ const listItemValue = z.union([
     description: z.string().optional(),
     icon: z.string().optional().describe("Lucide icon name"),
     value: z
-      .string()
+      .union([z.string(), z.number()])
       .optional()
-      .describe("Goes to the action when the user picks the item"),
+      .describe(
+        "Without an action: shown on the right of the label, for a key and value fact. With an action: the payload of the pick, not shown",
+      ),
   }),
 ]);
 type ListItemValue = z.output<typeof listItemValue>;
@@ -105,18 +111,36 @@ const listSchema = z.object({
     .array(listItemValue)
     .optional()
     .describe(
-      'Strings or { "label", "description"?, "icon"?, "value"? }, or { "@path": "/x" }',
+      'Strings or { "label", "value"?, "description"?, "icon"? }, or { "@path": "/x" }',
     ),
   marker: z.enum(LIST_MARKERS).optional().describe('Default "bullet"'),
   connector: z.enum(["none", "solid"]).optional().describe('Default "none"'),
   gap: sizeValue.optional(),
   start: z.number().optional().describe('The first number of marker "number"'),
+  maxMarkerSize: z
+    .number()
+    .optional()
+    .describe("The width of the marker column in pixels"),
 });
 const listItemSchema = z.object({
   label: z.string().optional(),
+  value: z
+    .union([z.string(), z.number()])
+    .optional()
+    .describe(
+      "Without an action: shown on the right of the label, for a key and value fact",
+    ),
   description: z.string().optional(),
   icon: z.string().optional().describe("Lucide icon name"),
   marker: z.string().optional().describe("Shows this text as the marker"),
+  markerSize: z
+    .number()
+    .optional()
+    .describe("The width of the marker column in pixels"),
+  disabled: z
+    .boolean()
+    .optional()
+    .describe("Greys the item out and ignores its action"),
 });
 
 const listSelection = z.object({
@@ -388,15 +412,31 @@ function TableSection(props: TableSectionProps) {
 function TableRow(props: TableRowProps) {
   const parent = useContext(TableContext);
   const isHeader = props.header === true || parent?.isHeader === true;
+  const dividers = parent?.dividers ?? true;
   const row = (
     <TableContext.Provider
       value={{
-        dividers: parent?.dividers ?? true,
+        dividers,
         isInSection: true,
         isHeader,
       }}
     >
-      <tr aria-label={props.label}>{props.children}</tr>
+      <tr>
+        {props.label ? (
+          <th
+            scope="row"
+            colSpan={props.labelColSpan}
+            {...cellAttributes({
+              isHeader: true,
+              hasDivider: dividers,
+              align: "start",
+            })}
+          >
+            {props.label}
+          </th>
+        ) : null}
+        {props.children}
+      </tr>
     </TableContext.Provider>
   );
   // A row directly in a Table gets its own row group, so the DOM stays valid
@@ -438,6 +478,7 @@ function TableCell(props: TableCellProps) {
 interface ListContextValue {
   marker: ListMarker;
   hasConnector: boolean;
+  maxMarkerSize?: number;
 }
 
 const ListContext = createContext<ListContextValue | null>(null);
@@ -474,17 +515,21 @@ const ITEM_BUTTON_STYLE: CSSProperties = {
 
 function ItemBody({
   label,
+  value,
   description,
   icon,
   marker,
+  markerSize,
   hasConnector,
   onPick,
   extra,
 }: {
   label?: string;
+  value?: string | number;
   description?: string;
   icon?: string;
   marker?: string;
+  markerSize?: number;
   hasConnector?: boolean;
   onPick?: () => void;
   extra?: ReactNode;
@@ -498,7 +543,8 @@ function ItemBody({
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        minWidth: 20,
+        minWidth: markerSize ?? 20,
+        maxWidth: markerSize,
         paddingTop: 2,
         color: textColor("secondary"),
       }}
@@ -519,10 +565,39 @@ function ItemBody({
       }}
     >
       {leading}
-      <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-        {label ? (
-          <span style={{ ...textFont("md"), color: textColor("default") }}>
-            {label}
+      <span
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+          flex: 1,
+        }}
+      >
+        {label || value !== undefined ? (
+          <span
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "baseline",
+              gap: spacing(3),
+              ...textFont("md"),
+              color: textColor("default"),
+            }}
+          >
+            <span>{label}</span>
+            {value !== undefined ? (
+              <span
+                data-a2ui-list-value=""
+                style={{
+                  fontWeight: FONT_WEIGHT.medium,
+                  fontVariantNumeric: "tabular-nums",
+                  textAlign: "end",
+                  flex: "none",
+                }}
+              >
+                {String(value)}
+              </span>
+            ) : null}
           </span>
         ) : null}
         {description ? (
@@ -565,22 +640,26 @@ function List(props: ListProps) {
     items.length > 0
       ? items.map((item, index) => {
           const entry = itemEntry(item);
+          const value = "value" in entry ? entry.value : undefined;
           const onPick = action
             ? () =>
                 void action({
                   index,
                   label: entry.label,
-                  value: "value" in entry ? entry.value : undefined,
+                  value: value === undefined ? undefined : String(value),
                 })
             : undefined;
           return (
             <li key={`${entry.label}-${index}`}>
               <ItemBody
                 label={entry.label}
+                // With an action, the value is the payload of the pick.
+                value={action ? undefined : value}
                 description={
                   "description" in entry ? entry.description : undefined
                 }
                 icon={"icon" in entry ? entry.icon : undefined}
+                markerSize={props.maxMarkerSize}
                 hasConnector={hasConnector}
                 onPick={onPick}
               />
@@ -589,7 +668,9 @@ function List(props: ListProps) {
         })
       : props.children;
   return (
-    <ListContext.Provider value={{ marker, hasConnector }}>
+    <ListContext.Provider
+      value={{ marker, hasConnector, maxMarkerSize: props.maxMarkerSize }}
+    >
       <Tag
         className="a2ui-std-list"
         data-a2ui-std=""
@@ -607,17 +688,26 @@ function List(props: ListProps) {
 function ListItem(props: ListItemProps) {
   const list = useContext(ListContext);
   const Tag = list ? "li" : "div";
-  const action = props.action;
+  const isDisabled = props.disabled === true;
+  const action = isDisabled ? undefined : props.action;
   // An own marker replaces the native bullet or number.
   const hidesNativeMarker =
     props.marker !== undefined && isNativeMarker(list?.marker);
   return (
-    <Tag style={hidesNativeMarker ? { listStyleType: "none" } : undefined}>
+    <Tag
+      aria-disabled={isDisabled || undefined}
+      style={{
+        ...(hidesNativeMarker ? { listStyleType: "none" } : {}),
+        opacity: isDisabled ? 0.5 : undefined,
+      }}
+    >
       <ItemBody
         label={props.label}
+        value={action ? undefined : props.value}
         description={props.description}
         icon={props.icon}
         marker={props.marker}
+        markerSize={props.markerSize ?? list?.maxMarkerSize}
         hasConnector={list?.hasConnector}
         onPick={action ? () => void action({}) : undefined}
         extra={props.children}
@@ -655,7 +745,7 @@ export const dataComponents = {
   TableRow: {
     component: TableRow,
     description:
-      "A row of a Table. Its children are TableCell ids, or a template.",
+      "A row of a Table. Its children are TableCell ids, or a template. With label, a header cell with that text starts the row.",
     props: tableRowSchema,
     slots: CHILDREN_SLOT,
   },
@@ -669,7 +759,7 @@ export const dataComponents = {
   List: {
     component: List,
     description:
-      'A list in a Card or next to another component. A plain list of text is markdown, not a List. Give "items" (strings or { "label", "description"?, "icon"?, "value"? }). Or, when there are no items, give "children": ListItem ids or a template. With an "action", the user can pick an item: the event context gets "index", "label" and "value" of the item.',
+      'A list in a Card or next to another component. A plain list of text is markdown, not a List. Give "items" (strings or { "label", "value"?, "description"?, "icon"? }); without an action, an item with a value is a key and value row, for facts like Price: $1,599. Or, when there are no items, give "children": ListItem ids or a template. With an "action", the user can pick an item: the event context gets "index", "label" and "value" of the item.',
     props: listSchema,
     events: {
       action: {
@@ -683,7 +773,7 @@ export const dataComponents = {
   ListItem: {
     component: ListItem,
     description:
-      'An item of a List, with a label, a description, an icon and children. With an "action", the user can pick it.',
+      'An item of a List, with a label, a value on the right, a description, an icon and children. With an "action", the user can pick it.',
     props: listItemSchema,
     events: {
       action: {

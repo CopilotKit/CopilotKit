@@ -42,12 +42,9 @@ describe("layoutComponents", () => {
       "FlowItem",
       "Carousel",
       "CarouselItem",
+      "CarouselMediaItem",
       "Spacer",
       "Divider",
-      "Animate",
-      "AnimateGroup",
-      "AnimateItem",
-      "Transition",
     ]);
     for (const name of names) {
       expect(ui.manifestComponents[name].description).toMatch(/\S/);

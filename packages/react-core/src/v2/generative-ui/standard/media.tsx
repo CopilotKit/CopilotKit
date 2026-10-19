@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import type { LucideIcon as LucideComponent } from "lucide-react";
 import { z } from "zod";
+import type { GenerativeUIInvokeResult } from "../errors";
 import { radiusStyle, radiusValue, sizeValue } from "./layout";
+import { Lightbox, openUrl } from "./lightbox";
 import {
+  ON_ACCENT,
   WEIGHTS,
   backgroundColor,
   borderColor,
@@ -11,6 +15,11 @@ import {
   textColor,
 } from "./tokens";
 import type { Weight } from "./tokens";
+
+const NO_ARGS = z.object({});
+type EventProp = (
+  args: z.input<typeof NO_ARGS>,
+) => Promise<GenerativeUIInvokeResult>;
 
 // ---- Schemas ----
 
@@ -34,9 +43,34 @@ const imageSchema = z.object({
   height: sizeValue.optional(),
   maxWidth: sizeValue.optional(),
   maxHeight: sizeValue.optional(),
+  minWidth: sizeValue.optional(),
+  minHeight: sizeValue.optional(),
   background: z.string().optional(),
   frame: z.boolean().optional(),
+  position: z
+    .string()
+    .optional()
+    .describe('CSS object-position, for example "top" or "50% 20%"'),
   hideOnFailure: z.boolean().optional().describe("Default false"),
+  fallback: z
+    .string()
+    .optional()
+    .describe("Text shown in place of the image when it does not load"),
+  hoverZoom: z.boolean().optional().describe("A slight zoom on hover"),
+  lightbox: z
+    .boolean()
+    .optional()
+    .describe("Default true: a click opens the image full-screen"),
+  actionOverlay: z
+    .object({
+      label: z.string(),
+      icon: z.string().optional().describe("Lucide icon name"),
+      href: z.string().optional().describe("Opens this URL in a new tab"),
+    })
+    .optional()
+    .describe(
+      "A button over the bottom-right corner of the image. Without href, it sends onOverlayClick",
+    ),
 });
 const iconSchema = z.object({
   name: z.string().describe("Lucide icon name, kebab-case"),
@@ -76,6 +110,9 @@ const svgSchema = z.object({
   fill: colorProp.describe('Default "currentColor"'),
   stroke: colorProp,
   strokeWidth: z.number().optional(),
+  strokeLinecap: z.enum(["butt", "round", "square"]).optional(),
+  strokeLinejoin: z.enum(["miter", "round", "bevel"]).optional(),
+  preserveAspectRatio: z.string().optional(),
   paths: z
     .array(
       z.object({
@@ -137,6 +174,12 @@ const svgSchema = z.object({
 const youTubeSchema = z.object({
   videoId: z.string(),
   title: z.string().optional(),
+  showThumbnail: z
+    .boolean()
+    .optional()
+    .describe(
+      "Default true: the poster with a play button shows first, and the player loads on click",
+    ),
   aspectRatio: z.string().optional().describe('Default "16 / 9"'),
   width: sizeValue.optional().describe('Default "100%"'),
   maxWidth: sizeValue.optional().describe('Default "100%"'),
@@ -264,30 +307,133 @@ export function LucideIcon({
 
 // ---- Components ----
 
-function Image(props: z.output<typeof imageSchema>) {
+type ImageProps = z.output<typeof imageSchema> & {
+  onOverlayClick?: EventProp;
+};
+
+function Image(props: ImageProps) {
   const [failed, setFailed] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const isHidden = failed && props.hideOnFailure;
   if (!props.src || isHidden) return null;
-  return (
+  const showsLightbox = props.lightbox !== false && !failed;
+  const alt = props.alt ?? "";
+  const frame: CSSProperties = {
+    display: "block",
+    aspectRatio: props.aspectRatio,
+    width: spacing(props.width) ?? (props.aspectRatio ? "100%" : undefined),
+    height: spacing(props.height),
+    minWidth: spacing(props.minWidth),
+    minHeight: spacing(props.minHeight),
+    maxWidth: spacing(props.maxWidth) ?? "100%",
+    maxHeight: spacing(props.maxHeight),
+    boxSizing: "border-box",
+    ...radiusStyle(props.radius),
+  };
+  if (failed && props.fallback) {
+    return (
+      <div
+        role="img"
+        aria-label={alt || props.fallback}
+        style={{
+          ...frame,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: spacing(3),
+          background: backgroundColor(props.background ?? "surface-secondary"),
+          color: textColor("secondary"),
+          fontSize: ".875em",
+          textAlign: "center",
+          minHeight: spacing(props.minHeight) ?? 64,
+        }}
+      >
+        {props.fallback}
+      </div>
+    );
+  }
+  const overlay = props.actionOverlay;
+  const image = (
     <img
       src={props.src}
-      alt={props.alt ?? ""}
+      alt={alt}
       loading="lazy"
       onError={() => setFailed(true)}
+      onClick={showsLightbox ? () => setIsOpen(true) : undefined}
+      data-a2ui-lightbox-trigger={showsLightbox ? "" : undefined}
       style={{
-        display: "block",
+        ...frame,
+        cursor: showsLightbox ? "zoom-in" : undefined,
         objectFit: props.fit ?? "cover",
-        aspectRatio: props.aspectRatio,
-        width: spacing(props.width) ?? (props.aspectRatio ? "100%" : undefined),
-        height: spacing(props.height),
-        maxWidth: spacing(props.maxWidth) ?? "100%",
-        maxHeight: spacing(props.maxHeight),
+        objectPosition: props.position,
         background: backgroundColor(props.background),
         border: props.frame ? `1px solid ${borderColor("default")}` : undefined,
-        boxSizing: "border-box",
-        ...radiusStyle(props.radius),
+        transform: props.hoverZoom && isHovered ? "scale(1.03)" : undefined,
+        transition: props.hoverZoom ? "transform .2s ease" : undefined,
       }}
     />
+  );
+  const hasWrapper = overlay !== undefined || props.hoverZoom === true;
+  return (
+    <>
+      {isOpen && showsLightbox ? (
+        <Lightbox
+          images={[{ src: props.src, alt }]}
+          onClose={() => setIsOpen(false)}
+        />
+      ) : null}
+      {hasWrapper ? (
+        <div
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          style={{
+            position: "relative",
+            display: "inline-block",
+            maxWidth: "100%",
+            overflow: props.hoverZoom ? "hidden" : undefined,
+            ...radiusStyle(props.radius),
+          }}
+        >
+          {image}
+          {overlay ? (
+            <button
+              type="button"
+              data-a2ui-input=""
+              onClick={(event) => {
+                event.stopPropagation();
+                if (overlay.href) openUrl(overlay.href);
+                else void props.onOverlayClick?.({});
+              }}
+              style={{
+                position: "absolute",
+                right: 8,
+                bottom: 8,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 12px",
+                borderRadius: 9999,
+                border: "none",
+                background: "var(--a2ui-color-overlay, rgba(0,0,0,.65))",
+                color: ON_ACCENT,
+                font: "inherit",
+                fontSize: ".8125em",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              {overlay.icon ? (
+                <LucideIcon name={overlay.icon} size={14} />
+              ) : null}
+              {overlay.label}
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        image
+      )}
+    </>
   );
 }
 
@@ -304,7 +450,7 @@ function Icon(props: z.output<typeof iconSchema>) {
   );
 }
 
-function hostOf(url: string) {
+export function hostOf(url: string) {
   try {
     return new URL(url.includes("://") ? url : `https://${url}`).hostname;
   } catch {
@@ -360,6 +506,9 @@ function Svg(props: z.output<typeof svgSchema>) {
       fill={textColor(props.fill) ?? "currentColor"}
       stroke={textColor(props.stroke)}
       strokeWidth={props.strokeWidth}
+      strokeLinecap={props.strokeLinecap}
+      strokeLinejoin={props.strokeLinejoin}
+      preserveAspectRatio={props.preserveAspectRatio}
       style={{ color: textColor(props.color ?? "prose"), display: "block" }}
     >
       {rects.map((rect, index) => (
@@ -428,23 +577,74 @@ const YOUTUBE_ID = /^[A-Za-z0-9_-]{6,20}$/;
  * only lets it use its own origin. It cannot get to the host page.
  */
 function YouTube(props: z.output<typeof youTubeSchema>) {
+  const [isPlaying, setIsPlaying] = useState(false);
   if (!YOUTUBE_ID.test(props.videoId)) return null;
+  const box: CSSProperties = {
+    display: "block",
+    aspectRatio: props.aspectRatio ?? "16 / 9",
+    width: spacing(props.width) ?? "100%",
+    maxWidth: spacing(props.maxWidth) ?? "100%",
+    borderRadius: radius("lg"),
+  };
+  // The poster first: no third-party script runs until the user asks to play.
+  if (props.showThumbnail !== false && !isPlaying) {
+    return (
+      <button
+        type="button"
+        aria-label={`Play ${props.title ?? "video"}`}
+        onClick={() => setIsPlaying(true)}
+        style={{
+          ...box,
+          position: "relative",
+          padding: 0,
+          border: "none",
+          overflow: "hidden",
+          cursor: "pointer",
+          background: "#000",
+        }}
+      >
+        <img
+          src={`https://i.ytimg.com/vi/${props.videoId}/hqdefault.jpg`}
+          alt=""
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+        />
+        <span
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 56,
+            height: 40,
+            borderRadius: 12,
+            background: "rgba(0,0,0,.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#fff",
+            fontSize: 18,
+          }}
+        >
+          ▶
+        </span>
+      </button>
+    );
+  }
   return (
     <iframe
-      src={`https://www.youtube-nocookie.com/embed/${props.videoId}`}
+      src={`https://www.youtube-nocookie.com/embed/${props.videoId}${isPlaying ? "?autoplay=1" : ""}`}
       title={props.title ?? "YouTube video"}
-      allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
       sandbox="allow-scripts allow-same-origin allow-presentation"
       referrerPolicy="strict-origin-when-cross-origin"
       allowFullScreen
-      style={{
-        display: "block",
-        border: 0,
-        aspectRatio: props.aspectRatio ?? "16 / 9",
-        width: spacing(props.width) ?? "100%",
-        maxWidth: spacing(props.maxWidth) ?? "100%",
-        borderRadius: radius("lg"),
-      }}
+      style={{ ...box, border: 0 }}
     />
   );
 }
@@ -476,8 +676,15 @@ export const mediaComponents = {
   Image: {
     component: Image,
     description:
-      "An image from a URL. Set alt to say what the image shows, unless it is only decoration.",
+      "An image from a URL. A click opens it full-screen. Set alt to say what the image shows, unless it is only decoration.",
     props: imageSchema,
+    events: {
+      onOverlayClick: {
+        description:
+          "Sent when the user clicks the actionOverlay button and it has no href.",
+        parameters: NO_ARGS,
+      },
+    },
   },
   Icon: {
     component: Icon,
@@ -499,7 +706,7 @@ export const mediaComponents = {
   YouTube: {
     component: YouTube,
     description:
-      "An embedded YouTube video, in privacy-enhanced mode. Set title to name the video.",
+      "An embedded YouTube video, in privacy-enhanced mode. The poster shows first, and the player loads when the user presses play. Set title to name the video.",
     props: youTubeSchema,
   },
   HtmlView: {
