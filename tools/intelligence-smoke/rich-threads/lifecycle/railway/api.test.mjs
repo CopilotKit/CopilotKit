@@ -312,3 +312,97 @@ process.stdout.write(JSON.stringify({data:{project:{environments:pages[vars.afte
     ["one", "two"],
   );
 });
+
+test("rejection structure is bounded, correlated and excludes arbitrary strings", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "railway-structure-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const executable = join(root, "fake-railway");
+  await writeFile(
+    executable,
+    `#!${process.execPath}
+process.stdout.write(process.env.TEST_RESPONSE);
+`,
+    { mode: 0o700 },
+  );
+  const diagnosticDirectory = join(root, "diagnostics");
+  const errors = [
+    {
+      message: "Error in sourceEnvironmentId - Invalid input",
+      path: ["environmentCreate", "PRIVATE_PATH"],
+      extensions: { code: "BAD_USER_INPUT", secret: "PRIVATE_EXTENSION" },
+    },
+    {
+      message: "Error in name - Invalid input: PRIVATE_VALUE",
+      path: ["PRIVATE_ROOT"],
+      extensions: { code: "PRIVATE_CODE" },
+    },
+    { message: "Error in PRIVATE_FIELD - Invalid input" },
+    null,
+    "PRIVATE_ERROR",
+    ...Array.from({ length: 30 }, () => ({ message: "PRIVATE_MESSAGE" })),
+  ];
+  const api = railwayApi({
+    executable,
+    diagnosticDirectory,
+    env: {
+      TEST_RESPONSE: JSON.stringify({
+        data: { environmentCreate: { id: "PRIVATE_ID" } },
+        errors,
+      }),
+    },
+  });
+  let diagnostic;
+  await assert.rejects(
+    api.request("createEnvironment", { input: { secret: "PRIVATE_VARIABLE" } }),
+    (error) => {
+      diagnostic = error.diagnostic;
+      assert.equal(diagnostic.outcome, "unknown");
+      return true;
+    },
+  );
+  const structure = diagnostic.structure;
+  assert.equal(structure.errorCount, 17);
+  assert.equal(structure.errorsTruncated, true);
+  assert.equal(structure.dataKind, "object");
+  assert.equal(structure.errors.length, 16);
+  assert.equal(structure.errors[0].validationField, "sourceEnvironmentId");
+  assert.equal(structure.errors[0].code, "BAD_USER_INPUT");
+  assert.equal(structure.errors[0].rootFieldMatched, true);
+  assert.equal(structure.errors[1].messageRecognized, false);
+  assert.equal(structure.errors[1].rootFieldMatched, false);
+  assert.equal(structure.errors[2].validationField, undefined);
+  assert.equal(structure.errors[3].kind, "null");
+  assert.equal(structure.errors[4].kind, "string");
+  const saved = await readFile(
+    join(diagnosticDirectory, `${diagnostic.id}.json`),
+    "utf8",
+  );
+  assert.deepEqual(JSON.parse(saved), diagnostic);
+  assert.equal(saved.includes("PRIVATE_"), false);
+  assert.ok(saved.length < 8192);
+
+  // A familiar validation phrase on another operation must not be attributed
+  // to EnvironmentCreateInput, and malformed paths must not crash diagnostics.
+  const other = railwayApi({
+    executable,
+    env: {
+      TEST_RESPONSE: JSON.stringify({
+        errors: [
+          {
+            message: "Error in sourceEnvironmentId - Invalid input",
+            path: { secret: "PRIVATE_PATH" },
+          },
+        ],
+      }),
+    },
+  });
+  await assert.rejects(other.request("createService", {}), (error) => {
+    assert.equal(
+      error.diagnostic.structure.errors[0].validationField,
+      undefined,
+    );
+    assert.equal(error.diagnostic.structure.errors[0].pathKind, "object");
+    assert.equal(error.diagnostic.outcome, "unknown");
+    return true;
+  });
+});

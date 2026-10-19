@@ -302,3 +302,11 @@ Provider diagnostics retain the exact known message `Error in name - Invalid
 input` alongside bounded error codes and trace IDs. Other provider messages remain
 excluded. The saved diagnostic also enters the creation intent on failure; this
 message does not change an unknown mutation outcome into proof of non-execution.
+
+Rejection diagnostics also retain up to 16 per-error structural records: value
+kinds, recognized codes, whether the root path matches the requested operation,
+and exact `Error in <field> - Invalid input` categories for known environment
+input fields. `errorCount` saturates at 17 and `errorsTruncated` signals overflow.
+No arbitrary message, path segment, extension value or response data is retained.
+These records improve future diagnosis; they cannot recover discarded historical
+messages, establish provider finality, or change mutation outcome classification.
