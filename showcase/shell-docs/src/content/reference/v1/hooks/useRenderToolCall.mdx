@@ -87,9 +87,10 @@ useRenderToolCall({
 If you're migrating from `useCopilotAction` with only a `render` function:
 
 ```tsx
-// Before with useCopilotAction
+// Before with useCopilotAction (render-only actions need available: "disabled")
 useCopilotAction({
   name: "showResult",
+  available: "disabled",
   render: ({ args }) => <ResultCard {...args} />,
 });
 
