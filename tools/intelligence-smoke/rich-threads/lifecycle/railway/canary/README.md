@@ -1,5 +1,9 @@
 # PNI-605 isolated service-scope canary
 
+For the paced original source-to-fork variation, see [fork-plan.md](fork-plan.md)
+and `fork-scope.example.json`. It requires a separately authorized fresh scope;
+it does not reuse or retry the previous canary project or its operations.
+
 Purpose: establish current provider behavior for serviceCreate(environmentId) and
 serviceInstanceUpdate(environmentId) without creating any instance in Showcase.
 Official environment docs and current CLI behavior describe isolated environments;

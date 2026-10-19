@@ -49,6 +49,9 @@ async function fixture(t, options = {}) {
       ),
     environment: async (id) => ({
       ...environments.find((value) => value.id === id),
+      ...(options.wrongDetailedName && id.startsWith("env-")
+        ? { name: "unexpected-name" }
+        : {}),
       serviceInstances: (memberships.get(id) ?? []).map((serviceId) => ({
         serviceId,
         environmentId: id,
@@ -85,8 +88,24 @@ async function fixture(t, options = {}) {
       writes.push(operation);
       if (options.fail === operation) throw new Error("PRIVATE_PROVIDER_TEXT");
       if (operation === "createEnvironment") {
-        const value = { ...variables.input, id: `env-${++serial}` };
+        if (options.rejectFork && variables.input.sourceEnvironmentId)
+          throw Error("Fork rejected");
+        const value = {
+          ...variables.input,
+          id: `env-${++serial}`,
+          createdAt: new Date(now).toISOString(),
+          isEphemeral: true,
+          sourceEnvironment: variables.input.sourceEnvironmentId
+            ? {
+                id: options.wrongLineage
+                  ? "foreign"
+                  : variables.input.sourceEnvironmentId,
+              }
+            : null,
+        };
         environments.push(value);
+        if (options.lostFork && variables.input.sourceEnvironmentId)
+          throw Error("Fork response lost");
         return structuredClone(value);
       }
       if (operation === "createService") {
@@ -177,6 +196,76 @@ test("inert canary verifies isolated create/edit and restores baseline", async (
   assert.equal(f.environments[0].id, "default");
   assert.equal(f.services.length, 0);
   await assert.rejects(f.run(), { code: "EEXIST" });
+});
+
+test("paced original source-to-fork proof verifies lineage before isolated service edits", async (t) => {
+  const f = await fixture(t);
+  f.scope.purpose = "pni605-fork-isolation-canary";
+  const result = await f.run();
+  assert.equal(result.status, "passed");
+  assert.deepEqual(result.forkAcceptance, {
+    sourceEnvironmentId: "env-1",
+    forkEnvironmentId: "env-2",
+    verified: true,
+  });
+  assert.deepEqual(result.result, {
+    createIsolated: true,
+    editIsolated: true,
+    memberships: ["env-2"],
+  });
+  assert.equal(result.intents[0].input.input.sourceEnvironmentId, undefined);
+  assert.equal(result.intents[1].input.input.sourceEnvironmentId, "env-1");
+  assert.ok(result.intents[1].startedAt - result.intents[0].startedAt >= 32000);
+  assert.equal(result.intents[2].input.input.environmentId, "env-2");
+  assert.equal(result.intents[3].input.environmentId, "env-2");
+  assert.deepEqual(
+    result.intents
+      .filter((x) => x.operation === "deleteEnvironment")
+      .map((x) => x.input.id),
+    ["env-2", "env-1"],
+  );
+  assert.equal(result.cleanup, "baseline-restored");
+});
+
+for (const failure of [
+  "rejectFork",
+  "lostFork",
+  "wrongLineage",
+  "wrongDetailedName",
+]) {
+  test(`fork proof stops before service creation on ${failure}`, async (t) => {
+    const f = await fixture(t, { [failure]: true });
+    f.scope.purpose = "pni605-fork-isolation-canary";
+    await assert.rejects(f.run());
+    const expectedWrites =
+      failure === "wrongDetailedName"
+        ? ["createEnvironment"]
+        : ["createEnvironment", "createEnvironment"];
+    assert.deepEqual(f.writes, expectedWrites);
+    const before = await readFile(join(f.root, "journal.json"), "utf8");
+    await assert.rejects(cleanupCanary({ root: f.root, api: f.api }));
+    assert.deepEqual(f.writes, expectedWrites);
+    assert.equal(await readFile(join(f.root, "journal.json"), "utf8"), before);
+  });
+}
+
+test("fork service fanout stops before configuration and retains evidence", async (t) => {
+  const f = await fixture(t, { fanout: true });
+  f.scope.purpose = "pni605-fork-isolation-canary";
+  await assert.rejects(f.run(), /escaped target/);
+  assert.deepEqual(f.writes, [
+    "createEnvironment",
+    "createEnvironment",
+    "createService",
+  ]);
+  const saved = JSON.parse(
+    await readFile(join(f.root, "journal.json"), "utf8"),
+  );
+  assert.equal(saved.forkAcceptance.verified, true);
+  assert.deepEqual(saved.createMemberships, ["default", "env-1", "env-2"]);
+  const cleaned = await cleanupCanary({ root: f.root, api: f.api });
+  assert.equal(cleaned.cleanup, "baseline-restored");
+  assert.notEqual(cleaned.status, "passed");
 });
 
 test("canary reports create and edit fanout independently and cleans owned resources", async (t) => {
