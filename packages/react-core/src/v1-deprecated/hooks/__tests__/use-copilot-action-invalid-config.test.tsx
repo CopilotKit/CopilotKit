@@ -1,20 +1,32 @@
+import { vi } from "vitest";
 import React from "react";
 import { renderHook } from "@testing-library/react";
 import { useCopilotAction } from "../use-copilot-action";
+import { useFrontendTool } from "../use-frontend-tool";
+import { useRenderToolCall } from "../use-render-tool-call";
 import type { FrontendAction } from "../../types/frontend-action";
 
-describe("useCopilotAction invalid configuration", () => {
-  it("names the action and the missing field when a named action has only a render function", () => {
-    const action = {
-      name: "showWeather",
-      render: () => <div>weather</div>,
-    } as FrontendAction;
+vi.mock("../use-frontend-tool", () => ({ useFrontendTool: vi.fn() }));
+vi.mock("../use-render-tool-call", () => ({ useRenderToolCall: vi.fn() }));
+vi.mock("../use-human-in-the-loop", () => ({ useHumanInTheLoop: vi.fn() }));
 
-    expect(() => renderHook(() => useCopilotAction(action))).toThrow(
-      'useCopilotAction("showWeather"): this action has a render function but no handler. ' +
-        "Add a handler to run the action in the browser (an empty one is fine), " +
-        'or set available: "disabled" to only render a tool call that the agent runs.',
+describe("useCopilotAction configuration", () => {
+  beforeEach(() => {
+    vi.mocked(useFrontendTool).mockClear();
+    vi.mocked(useRenderToolCall).mockClear();
+  });
+
+  it("renders the tool calls of a named action that has only a render function", () => {
+    const render = () => <div>weather</div>;
+    const action = { name: "showWeather", render } as FrontendAction;
+
+    renderHook(() => useCopilotAction(action));
+
+    expect(useRenderToolCall).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "showWeather", render }),
+      undefined,
     );
+    expect(useFrontendTool).not.toHaveBeenCalled();
   });
 
   it("names the action and the missing fields when a named action has neither handler nor render", () => {
@@ -23,7 +35,7 @@ describe("useCopilotAction invalid configuration", () => {
     expect(() => renderHook(() => useCopilotAction(action))).toThrow(
       'useCopilotAction("doNothing"): this action has no handler and no render function. ' +
         "Add a handler to run the action in the browser, " +
-        'or a render function with available: "disabled" to render a tool call that the agent runs.',
+        "or a render function to render a tool call that the agent runs.",
     );
   });
 });

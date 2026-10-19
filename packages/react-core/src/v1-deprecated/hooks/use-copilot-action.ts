@@ -234,25 +234,19 @@ function getActionConfig<const T extends Parameter[] | [] = []>(
     };
   }
 
-  throw new Error(describeInvalidActionConfig(action));
-}
-
-// Names the action and the field to add, so the fix is clear from the error.
-function describeInvalidActionConfig(
-  action: FrontendAction<any> | CatchAllFrontendAction,
-): string {
-  const prefix = `useCopilotAction(${JSON.stringify(action.name)})`;
+  // A render function with no handler renders the agent's tool calls, as the
+  // v1 types and the useRenderToolCall migration docs describe.
   if ("render" in action && action.render) {
-    return (
-      `${prefix}: this action has a render function but no handler. ` +
-      "Add a handler to run the action in the browser (an empty one is fine), " +
-      'or set available: "disabled" to only render a tool call that the agent runs.'
-    );
+    return {
+      type: "render" as const,
+      action: action as UseRenderToolCallArgs<T>,
+    };
   }
-  return (
-    `${prefix}: this action has no handler and no render function. ` +
-    "Add a handler to run the action in the browser, " +
-    'or a render function with available: "disabled" to render a tool call that the agent runs.'
+
+  throw new Error(
+    `useCopilotAction(${JSON.stringify(action.name)}): this action has no handler and no render function. ` +
+      "Add a handler to run the action in the browser, " +
+      "or a render function to render a tool call that the agent runs.",
   );
 }
 
