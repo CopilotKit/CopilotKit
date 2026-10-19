@@ -162,8 +162,9 @@ function setup(theme?: GenerativeUITheme) {
       <CopilotChatConfigurationProvider agentId="default" threadId={T}>
         <Handlers addToCart={addToCart} />
         <section data-testid="inline">
-          <GenerativeUISurface<typeof ui>
+          <GenerativeUISurface
             id="recommendations"
+            ui={ui}
             description="Next to the product list. Use it for recommendations."
             components={["Grid", "Card"]}
             fallback={<span>No recommendations yet</span>}

@@ -22,23 +22,29 @@ expectTypeOf<GenerativeUIComponentName<typeof storeUI>>().toEqualTypeOf<
   "Row" | "ProductCard"
 >();
 
-// With the type of the UI, the names are checked.
+// The ui prop types the names.
 export const typed = (
-  <GenerativeUISurface<typeof storeUI>
+  <GenerativeUISurface
     id="products"
+    ui={storeUI}
     components={["Row", "ProductCard"]}
   />
 );
 
 export const unknownName = (
-  <GenerativeUISurface<typeof storeUI>
+  <GenerativeUISurface
     id="products"
+    ui={storeUI}
     // @ts-expect-error "Banner" is not a component of storeUI.
     components={["Row", "Banner"]}
   />
 );
 
-// Without the type of the UI, any string compiles.
+// components needs the ui prop.
 export const untyped = (
-  <GenerativeUISurface id="products" components={["Row", "Banner"]} />
+  // @ts-expect-error components without ui.
+  <GenerativeUISurface id="products" components={["Row"]} />
 );
+
+// A surface without a component limit needs no ui.
+export const unlimited = <GenerativeUISurface id="products" />;
