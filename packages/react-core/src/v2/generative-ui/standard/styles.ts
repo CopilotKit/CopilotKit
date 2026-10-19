@@ -1,4 +1,5 @@
 import React from "react";
+import { DARK_THEME_CSS } from "../theme";
 import { borderColor, textColor, CONTROL_BG, SHADOW_XS } from "./tokens";
 
 /**
@@ -24,6 +25,9 @@ const SLIDER_TRACK = "var(--a2ui-color-slider-track, rgba(0, 0, 0, 0.04))";
 const THUMB = `width:20px;height:20px;box-sizing:border-box;border-radius:9999px;background:${CONTROL_BG};border:1px solid ${borderColor("default")};box-shadow:${SHADOW_XS};cursor:pointer`;
 
 export const STANDARD_CSS = [
+  // The built-in dark values, under a `.dark` class. Every theme rule wins
+  // over them.
+  DARK_THEME_CSS,
   // The surface (and its root component) never gets wider than the chat column.
   ".a2ui-surface{min-width:0;max-width:100%;box-sizing:border-box}",
   // The surface inherits the font, size, line height and ink of the host.

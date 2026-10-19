@@ -24,10 +24,8 @@ export interface GenerativeUIErrorBoundaryConfig {
  * them as inline CSS variables. `mapStyle` is the map style URL of the Map
  * component.
  */
-export type GenerativeUITheme = {
-  [variable: `--a2ui-${string}`]: string | undefined;
-  mapStyle?: string;
-};
+import type { GenerativeUITheme } from "./theme";
+export type { GenerativeUITheme };
 
 interface GenerativeUIBaseConfig {
   /**
@@ -40,7 +38,11 @@ interface GenerativeUIBaseConfig {
    * it. Other agents get no envelope.
    */
   agentIds?: string[];
-  /** Values for the `--a2ui-*` CSS variables and the map style. */
+  /**
+   * Values for the `--a2ui-*` CSS variables and the map style. Top-level
+   * values apply in both modes. `dark` changes them in dark mode, which is
+   * on under a `.dark` class, like the CopilotKit chat.
+   */
   theme?: GenerativeUITheme;
   /** Fallback UI and error reporting for generated UI. */
   errorBoundary?: GenerativeUIErrorBoundaryConfig;

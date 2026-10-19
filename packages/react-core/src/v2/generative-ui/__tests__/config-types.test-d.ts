@@ -37,7 +37,29 @@ export const toolWithoutTransport: GenerativeUIConfig = {
 
 export const themed: GenerativeUIConfig = {
   ui,
-  theme: { "--a2ui-color-primary": "#4f46e5", mapStyle: "https://x/style" },
+  theme: {
+    "--a2ui-color-accent": "#4f46e5",
+    mapStyle: "https://x/style",
+    dark: { "--a2ui-color-panel": "#1f2937", mapStyle: "https://x/dark" },
+  },
+};
+
+export const unknownVariable: GenerativeUIConfig = {
+  ui,
+  theme: {
+    // @ts-expect-error not a variable that the standard components read
+    "--a2ui-color-acent": "#4f46e5",
+  },
+};
+
+export const unknownDarkVariable: GenerativeUIConfig = {
+  ui,
+  theme: {
+    dark: {
+      // @ts-expect-error not a variable that the standard components read
+      "--a2ui-color-primary": "#000",
+    },
+  },
 };
 
 export const badThemeKey: GenerativeUIConfig = {

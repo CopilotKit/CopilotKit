@@ -343,3 +343,72 @@ describe("createGenerativeUI startup errors", () => {
     });
   });
 });
+
+describe("overrides and omit", () => {
+  const base = createGenerativeUI({
+    id: "base@1",
+    components: {
+      Card: {
+        component: Card,
+        description: "A card",
+        props: z.object({ title: z.string() }),
+        slots: { children: "multiple" },
+      },
+      Grid: { component: Grid },
+      Map: { component: Grid },
+    },
+  });
+  const MyCard = () => <section />;
+
+  it("replaces the React component of a base component and keeps what the model sees", () => {
+    const app = createGenerativeUI({
+      id: "app@1",
+      extends: [base],
+      overrides: { Card: { component: MyCard } },
+      components: {},
+    });
+    expect(app.components.get("Card")!.component).toBe(MyCard);
+    expect(app.manifestComponents.Card).toEqual(base.manifestComponents.Card);
+    // The base itself is not changed.
+    expect(base.components.get("Card")!.component).toBe(Card);
+  });
+
+  it("throws when an override names no component of the bases", () => {
+    expect(() =>
+      createGenerativeUI({
+        id: "app@1",
+        extends: [base],
+        // @ts-expect-error "Crad" is not a component of the bases.
+        overrides: { Crad: { component: MyCard } },
+        components: {},
+      }),
+    ).toThrow(/Override "Crad" is not a component of the bases/);
+  });
+
+  it("drops omitted components from the components and from what the model sees", () => {
+    const slim = base.omit(["Map"]);
+    expect([...slim.components.keys()]).toEqual(["Card", "Grid"]);
+    expect(Object.keys(slim.manifestComponents)).toEqual(["Card", "Grid"]);
+    expect(slim.id).toBe("base@1");
+    // The original keeps every component.
+    expect([...base.components.keys()]).toEqual(["Card", "Grid", "Map"]);
+  });
+
+  it("extends an omitted UI, also with an override", () => {
+    const app = createGenerativeUI({
+      id: "app@1",
+      extends: [base.omit(["Map"])],
+      overrides: { Card: { component: MyCard } },
+      components: { Hero: { component: Grid } },
+    });
+    expect([...app.components.keys()]).toEqual(["Card", "Grid", "Hero"]);
+    expect(app.components.get("Card")!.component).toBe(MyCard);
+  });
+
+  it("throws when omit names an unknown component", () => {
+    // @ts-expect-error "Banner" is not a component of the UI.
+    expect(() => base.omit(["Banner"])).toThrow(
+      /Cannot omit "Banner": it is not a component of generative UI "base@1"/,
+    );
+  });
+});

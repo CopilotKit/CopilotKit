@@ -31,6 +31,11 @@ export type {
   GenerativeUITheme,
   GenerativeUIToolConfig,
 } from "./runtime-context";
+export type {
+  GenerativeUIThemeValues,
+  GenerativeUIThemeVariable,
+  GenerativeUIThemeVariables,
+} from "./theme";
 export { GenerativeUISurface } from "./GenerativeUISurface";
 export type { GenerativeUISurfaceProps } from "./GenerativeUISurface";
 export { DefaultGenerativeUIChatCard } from "./chat";

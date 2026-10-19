@@ -142,7 +142,36 @@ export interface GenerativeUI<
   readonly manifestComponents: Record<string, GenerativeUIComponentManifest>;
   /** Type only, never set at runtime. */
   readonly definitions?: Definitions;
+  /**
+   * A copy without the named components. The model no longer sees them, so
+   * the prompt gets smaller. State and functions stay. Call it once, at
+   * module level, like `createGenerativeUI`.
+   *
+   * @throws Error when a name is not a component of this UI.
+   *
+   * @example
+   * ```ts
+   * const ui = createGenerativeUI({
+   *   id: "acme/app@1",
+   *   extends: [standardUI.omit(["Map", "Chart"])],
+   *   components: {},
+   * });
+   * ```
+   */
+  omit<Names extends keyof Definitions["components"] & string>(
+    names: readonly Names[],
+  ): GenerativeUI<OmitComponents<Definitions, Names>>;
 }
+
+/** Definitions without some components. */
+type OmitComponents<
+  Definitions extends GenerativeUIDefinitions,
+  Names extends PropertyKey,
+> = {
+  state: Definitions["state"];
+  functions: Definitions["functions"];
+  components: Omit<Definitions["components"], Names>;
+};
 
 type AnyGenerativeUI = GenerativeUI<any>;
 
@@ -457,6 +486,12 @@ export interface CreateGenerativeUIConfig<
   state?: State;
   /** Functions that components can call. */
   functions?: Functions;
+  /**
+   * New React components for components of the bases, by name. The model
+   * sees the same component: its description, props, events and slots stay.
+   * The new component gets the same props as the one it replaces.
+   */
+  overrides?: NoInfer<OverridesConfig<Bases>>;
   /** The components the model can render. */
   components: ComponentsConfig<
     Props,
@@ -467,6 +502,22 @@ export interface CreateGenerativeUIConfig<
     MergedFunctions<Bases, Functions>
   >;
 }
+
+/** The definitions of the bases, merged. */
+type BasesDefinitions<Bases extends readonly AnyGenerativeUI[]> =
+  ResultDefinitions<Bases, {}, {}, {}, {}, {}, {}>;
+
+/** One new React component for each component of the bases that it names. */
+type OverridesConfig<Bases extends readonly AnyGenerativeUI[]> = {
+  [Name in keyof BasesDefinitions<Bases>["components"] & string]?: {
+    component: ComponentType<
+      BasesDefinitions<Bases> extends infer Definitions extends
+        GenerativeUIDefinitions
+        ? GenerativeUIComponentProps<GenerativeUI<Definitions>, Name>
+        : never
+    >;
+  };
+};
 
 type OwnComponents<Props, Events, Slots, Writable> = {
   [Name in keyof Props]: {
@@ -508,6 +559,7 @@ interface RuntimeConfig {
   extends?: readonly AnyGenerativeUI[];
   state?: Record<string, GenerativeUISchema>;
   functions?: Record<string, GenerativeUIFunctionDefinition>;
+  overrides?: Record<string, { component: AnyComponent }>;
   components: Record<string, RuntimeComponentDefinition>;
 }
 
@@ -526,10 +578,11 @@ const RESERVED_KEYS = new Set(["id", "component"]);
  *
  * The model does not see bound props or matched events.
  *
- * @param config - `id`, then optional `extends`, `state` and `functions`,
- *   then `components`. Put `state` before `components`, so the selectors
+ * @param config - `id`, then optional `extends`, `state`, `functions` and
+ *   `overrides`, then `components`. Put `state` before `components`, so the selectors
  *   get typed state.
- * @throws Error when a name comes from two places, `props` is not an object
+ * @throws Error when a name comes from two places, an override names no
+ *   component of the bases, `props` is not an object
  *   schema with a JSON Schema, a key is reserved or used
  *   twice on a component, an event matches two functions, an unmatched event
  *   has no `parameters`, a `bind` key is not a prop, a `writable` key is not
@@ -575,7 +628,7 @@ export function createGenerativeUI<
   // shape. The config type is stricter than `RuntimeConfig`, so this is safe.
   const ui: GenerativeUI<
     ResultDefinitions<Bases, State, Functions, Props, Events, Slots, Writable>
-  > = buildGenerativeUI(config as RuntimeConfig);
+  > = buildGenerativeUI(config as RuntimeConfig) as GenerativeUI<any>;
   return ui;
 }
 
@@ -608,6 +661,15 @@ function buildGenerativeUI(config: RuntimeConfig) {
     for (const [name, component] of base.components)
       add(definitions, "Component", name, component);
   }
+  for (const [name, override] of Object.entries(config.overrides ?? {})) {
+    const base = definitions.get(name);
+    if (!base) {
+      throw new Error(
+        `[generativeUI] Override "${name}" is not a component of the bases of ${where}.`,
+      );
+    }
+    definitions.set(name, { ...base, component: override.component });
+  }
   for (const [name, schema] of Object.entries(config.state ?? {}))
     add(state, "State key", name, schema);
   for (const [name, fn] of Object.entries(config.functions ?? {}))
@@ -626,13 +688,42 @@ function buildGenerativeUI(config: RuntimeConfig) {
     components.set(name, component);
     manifestComponents[name] = manifest;
   }
-  return {
+  return withOmit({
     id: config.id,
     state,
     functions,
     components,
     manifestComponents,
+  });
+}
+
+/** Adds the `omit` method to the data of a generative UI. */
+function withOmit(data: Omit<GenerativeUI, "omit">): GenerativeUI {
+  // The method is typed on `GenerativeUI`. The runtime works with names only.
+  const omit = (names: readonly string[]): GenerativeUI => {
+    for (const name of names) {
+      if (!data.components.has(name)) {
+        throw new Error(
+          `[generativeUI] Cannot omit "${name}": it is not a component of generative UI "${data.id}".`,
+        );
+      }
+    }
+    const isKept = (name: string) => !names.includes(name);
+    return withOmit({
+      id: data.id,
+      state: data.state,
+      functions: data.functions,
+      components: new Map(
+        [...data.components].filter(([name]) => isKept(name)),
+      ),
+      manifestComponents: Object.fromEntries(
+        Object.entries(data.manifestComponents).filter(([name]) =>
+          isKept(name),
+        ),
+      ),
+    });
   };
+  return { ...data, omit: omit as GenerativeUI["omit"] };
 }
 
 interface ResolveContext {

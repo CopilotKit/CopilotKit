@@ -57,10 +57,14 @@ type MapProps = z.output<typeof mapSchema> & {
 /**
  * The default basemap: the Positron style of OpenFreeMap. It is a keyless
  * OpenStreetMap vector style with streets and labels at city zoom. A host
- * sets another style with `theme: { mapStyle: "<style url>" }`.
+ * sets another style with `theme: { mapStyle: "<style url>" }`, and a
+ * dark one with `theme: { dark: { mapStyle: "<style url>" } }`.
  */
 export const DEFAULT_MAP_STYLE =
   "https://tiles.openfreemap.org/styles/positron";
+/** The default basemap in dark mode: the Dark style of OpenFreeMap. */
+export const DEFAULT_DARK_MAP_STYLE =
+  "https://tiles.openfreemap.org/styles/dark";
 
 const ORDERING_OPS = new Set(["<", "<=", ">", ">="]);
 
@@ -120,10 +124,10 @@ const MAP_CSS = [
   ".maplibregl-canvas-container{width:100%;height:100%}",
   ".maplibregl-marker{position:absolute;top:0;left:0;will-change:transform;cursor:pointer}",
   ".maplibregl-popup{position:absolute;top:0;left:0;display:flex;will-change:transform;pointer-events:none}",
-  ".maplibregl-popup-content{position:relative;background:#fff;border-radius:6px;padding:6px 10px;font:12px/1.4 system-ui,sans-serif;box-shadow:0 1px 4px rgba(0,0,0,.2);pointer-events:auto}",
+  ".maplibregl-popup-content{position:relative;background:var(--a2ui-color-surface-elevated, #fff);color:var(--a2ui-color-text-default, #0d0d0d);border-radius:6px;padding:6px 10px;font:12px/1.4 system-ui,sans-serif;box-shadow:var(--a2ui-shadow-sm, 0 1px 4px rgba(0,0,0,.2));pointer-events:auto}",
   ".maplibregl-popup-tip{display:none}",
   ".maplibregl-popup-close-button{display:none}",
-  ".maplibregl-ctrl-attrib{font:10px system-ui,sans-serif;position:absolute;right:0;bottom:0;background:rgba(255,255,255,.7);padding:0 4px}",
+  ".maplibregl-ctrl-attrib{font:10px system-ui,sans-serif;position:absolute;right:0;bottom:0;background:color-mix(in srgb, var(--a2ui-color-surface, #fff) 70%, transparent);color:var(--a2ui-color-text-secondary, #5d5d5d);padding:0 4px}",
   ".maplibregl-ctrl-attrib a{color:inherit}",
   // The cooperative-gesture hint is hidden until MapLibre adds `maplibregl-show`.
   ".maplibregl-cooperative-gesture-screen{align-items:center;background:rgba(0,0,0,.4);color:#fff;display:flex;font:14px/1.3 system-ui,sans-serif;inset:0;justify-content:center;opacity:0;padding:1rem;pointer-events:none;position:absolute;text-align:center;transition:opacity 1s ease 1s;z-index:2}",
@@ -178,6 +182,27 @@ const isValidMarker = (marker: MapMarker) =>
 type MapStatus = "loading" | "ready" | "fallback";
 
 /**
+ * True when the element is in dark mode: it, or an ancestor, has the `dark`
+ * class. It follows class changes anywhere in the document.
+ */
+function useIsDark(ref: React.RefObject<HTMLElement | null>) {
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const check = () => setIsDark(Boolean(ref.current?.closest(".dark")));
+    check();
+    // ponytail: one observer for each map, on every class change in the document. Fine for a few maps; a shared observer when a page has many.
+    const observer = new MutationObserver(check);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+      subtree: true,
+    });
+    return () => observer.disconnect();
+  }, [ref]);
+  return isDark;
+}
+
+/**
  * A MapLibre map with markers. maplibre-gl loads only in the browser. When
  * it is not installed, or WebGL is not there, the component shows a list of
  * the places. A click on a place or a marker sets `selected`.
@@ -194,7 +219,11 @@ export function MapView(props: MapProps) {
   const setSelectedRef = useRef(props.setSelected);
   setSelectedRef.current = props.setSelected;
   const { theme } = useRequiredGenerativeUIRuntime();
-  const styleUrl = theme?.mapStyle || DEFAULT_MAP_STYLE;
+  const isDark = useIsDark(containerRef);
+  // A top-level style applies in both modes. `dark.mapStyle` wins in dark mode.
+  const styleUrl = isDark
+    ? theme?.dark?.mapStyle || theme?.mapStyle || DEFAULT_DARK_MAP_STYLE
+    : theme?.mapStyle || DEFAULT_MAP_STYLE;
 
   useEffect(() => {
     let isCancelled = false;
