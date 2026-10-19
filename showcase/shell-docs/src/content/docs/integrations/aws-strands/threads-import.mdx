@@ -20,7 +20,7 @@ Keep your Strands agent and its durable storage connected so you can continue th
 
 To let users reopen conversations recorded before Intelligence was connected, use the importer below to copy supported historical content. Importing does not enable live delivery or establish ongoing database replication, and it cannot recover history the source no longer exposes.
 
-The Strands importer reads saved single-agent conversations from local session files for Python or TypeScript. Direct import from S3 or AgentCore is not supported. It brings over saved messages, rich tool results, attachments, and agent state where available. Some interactive content, such as MCP app views, may not have been saved in the original history.
+The Strands importer reads saved single-agent conversations from local session files or S3 for Python and TypeScript. Python also supports AgentCore Memory sessions saved by `AgentCoreMemorySessionManager`. It brings over saved messages, rich tool results, attachments, and agent state where available. Some interactive content, such as MCP app views, may not have been saved in the original history. External media references are not downloaded automatically.
 
 The following prerequisites and commands apply only to that historical import. Use Threads Drawer or [Headless Threads](/headless-threads) to open imported and new conversations through the same UI.
 
@@ -28,7 +28,7 @@ The following prerequisites and commands apply only to that historical import. U
 
 - A CopilotKit app with CopilotKit Intelligence enabled.
 - Saved Strands conversations in a persistent store. In-memory conversations cannot be imported.
-- Access to the local session files and the Strands agent ID for the conversations you want to import.
+- Read access to the source store and the Strands agent ID for the conversations you want to import.
 
 ## Confirm the target project
 
@@ -44,48 +44,104 @@ The command updates the project selected for the current directory and writes it
 
 ## Configure the source
 
-Choose the same language you use in the [Strands quickstart](/quickstart). Point the importer at the local session directory and select the agent whose conversations you want to import:
+Choose the same language you use in the [Strands quickstart](/quickstart), then select where your app saves its conversations. S3 and AgentCore Memory are read directly; you do not need to download history first.
+
+For AWS sources, use your existing AWS profile, SSO session, or role credentials. Set `AWS_PROFILE` if you need to select a profile. These credentials read the source; the Intelligence project key below selects the destination.
 
 <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
   <Tab value="Python">
     ```bash title="Terminal"
     export STRANDS_PY_IMPORT_SOURCE_ID="my-strands-app"
-    export STRANDS_PY_IMPORT_ROOT="/absolute/path/to/sessions"
-    export STRANDS_PY_IMPORT_FORMAT="records"
     export STRANDS_PY_IMPORT_AGENT_IDS="support"
     export STRANDS_PY_IMPORT_END_USER_ID="user-123"
     ```
 
-    Choose the format your app saves:
+    <Tabs groupId="strands_python_import_storage" items={['Local files', 'S3', 'AgentCore Memory']}>
+      <Tab value="Local files">
+        ```bash title="Terminal"
+        export STRANDS_PY_IMPORT_STORAGE="filesystem"
+        export STRANDS_PY_IMPORT_ROOT="/absolute/path/to/sessions"
+        export STRANDS_PY_IMPORT_FORMAT="records"
+        ```
+      </Tab>
+      <Tab value="S3">
+        ```bash title="Terminal"
+        export STRANDS_PY_IMPORT_STORAGE="s3"
+        export STRANDS_PY_IMPORT_AWS_REGION="us-east-1"
+        export STRANDS_PY_IMPORT_S3_BUCKET="my-strands-bucket"
+        export STRANDS_PY_IMPORT_S3_PREFIX="sessions/"
+        export STRANDS_PY_IMPORT_FORMAT="records"
+        ```
 
-    - **Session records:** use `records` when the directory contains `session_<id>` folders with `session.json` and agent message files.
-    - **Snapshots:** use `snapshots` when it contains `session/<id>/scopes/agent/<id>/snapshots/snapshot_latest.json`. If your app uses a different namespace folder, set `STRANDS_PY_IMPORT_SNAPSHOT_NAMESPACE` to that folder name.
+        Use the bucket and exact prefix containing your saved sessions, including any repeated slashes in the object keys. Reader access requires `s3:ListBucket` for that prefix and `s3:GetObject` for its objects, plus `kms:Decrypt` when needed.
+      </Tab>
+      <Tab value="AgentCore Memory">
+        ```bash title="Terminal"
+        export STRANDS_PY_IMPORT_STORAGE="agentcore"
+        export STRANDS_PY_IMPORT_AWS_REGION="us-east-1"
+        export STRANDS_PY_IMPORT_FORMAT="records"
+        export STRANDS_PY_IMPORT_AGENTCORE_MEMORY_ID="my-memory-id"
+        export STRANDS_PY_IMPORT_AGENTCORE_ACTOR_IDS="actor-123"
+        ```
+
+        Use the memory and actor that hold sessions saved by Python's `AgentCoreMemorySessionManager`. This imports native serialized sessions on the default branch, not arbitrary text-only events or forks.
+
+        Reader access requires `bedrock-agentcore:ListEvents`. Listing actors or sessions also requires `bedrock-agentcore:ListActors` or `bedrock-agentcore:ListSessions`; supplying the corresponding IDs avoids those listing calls. Scope permissions to the selected memory.
+
+        Actor IDs select native history; they are not automatically application user IDs. Set the end-user ID above to the user who should see these conversations.
+      </Tab>
+    </Tabs>
+
+    For local files or S3, choose the format your app saves:
+
+    - **Session records:** use `records` for `S3SessionManager` or a local store with `session_<id>/session.json` and agent message files.
+    - **Snapshots:** use `snapshots` when the root or prefix contains `session/<id>/scopes/agent/<id>/snapshots/snapshot_latest.json`. If your app uses a different namespace folder, set `STRANDS_PY_IMPORT_SNAPSHOT_NAMESPACE` to that folder name, or to an empty string if the root or prefix is already inside it.
 
     To select specific conversations, set `STRANDS_PY_IMPORT_SESSION_IDS="session-1,session-2"` to their native session IDs.
   </Tab>
   <Tab value="TypeScript">
     ```bash title="Terminal"
     export STRANDS_TS_IMPORT_SOURCE_ID="my-strands-app"
-    export STRANDS_TS_IMPORT_ROOT="/absolute/path/to/sessions"
     export STRANDS_TS_IMPORT_LAYOUT="unified"
     export STRANDS_TS_IMPORT_AGENT_IDS="support"
     export STRANDS_TS_IMPORT_END_USER_ID="user-123"
     ```
 
+    <Tabs groupId="strands_typescript_import_storage" items={['Local files', 'S3']}>
+      <Tab value="Local files">
+        ```bash title="Terminal"
+        export STRANDS_TS_IMPORT_STORAGE="filesystem"
+        export STRANDS_TS_IMPORT_ROOT="/absolute/path/to/sessions"
+        ```
+      </Tab>
+      <Tab value="S3">
+        ```bash title="Terminal"
+        export STRANDS_TS_IMPORT_STORAGE="s3"
+        export STRANDS_TS_IMPORT_AWS_REGION="us-east-1"
+        export STRANDS_TS_IMPORT_S3_BUCKET="my-strands-bucket"
+        export STRANDS_TS_IMPORT_S3_PREFIX="sessions/"
+        ```
+
+        Use the bucket and exact prefix containing your saved snapshots. Reader access requires `s3:ListBucket` for that prefix and `s3:GetObject` for its objects, plus `kms:Decrypt` when needed.
+      </Tab>
+    </Tabs>
+
     Choose the layout your app saves:
 
-    - **LocalFileStorage:** use `unified` when the directory contains `session/<id>/scopes/agent/<id>/snapshots/snapshot_latest.json`.
-    - **FileStorage:** use `legacy` when session ID folders sit directly inside the directory. For a custom namespace, point the root at that namespace folder and use `legacy`.
+    - **Unified layout:** use `unified` when the root or S3 prefix contains `session/<id>/scopes/agent/<id>/snapshots/snapshot_latest.json`, as with `LocalFileStorage`.
+    - **Legacy layout:** use `legacy` when session ID folders sit directly beneath the root or prefix, as with `FileStorage`. For a custom namespace, point the root or prefix at that namespace and use `legacy`.
 
     To select specific conversations, set `STRANDS_TS_IMPORT_SESSION_IDS="session-1,session-2"` to their native session IDs.
+
+    TypeScript AgentCore Memory histories are text-only and do not contain the tools, media, state, and pending interactions needed for this import. Use its native session snapshots in local files or S3 instead.
   </Tab>
 </Tabs>
 
 Replace `support` with your native Strands agent ID. Import one agent per session; orchestrated multi-agent sessions are not supported.
 
-Set the end-user ID to the application user ID your Runtime returns from `identifyUser`, so that user can find the imported conversations. This assigns the selected conversations to that user: use a directory containing only their history or select their session IDs, and repeat for each user.
+Set the end-user ID to the application user ID your Runtime returns from `identifyUser`, so that user can find the imported conversations. This assigns the selected conversations to that user: select only their sessions within the directory, S3 prefix, or AgentCore actor, and repeat for each user.
 
-The source ID is a name you choose for this store. Keep it the same when you import again, even if you move the files. Run the import while these conversations are idle. Snapshot imports include the latest saved view; they cannot recover messages already removed from it.
+The source ID is a name you choose for this store. Keep it the same when you import again, including when switching between local files and S3 for the same store. Run the import while these conversations are idle. Only saved history can be imported: snapshot imports use the latest saved view, and deleted messages or expired AgentCore events cannot be recovered.
 
 ## Run a dry run
 
@@ -166,7 +222,9 @@ Use `--replace` to refresh them; running or continued conversations are left unc
 
 Importing copies supported history; it does not establish ongoing database replication. Intelligence rename, archive, and delete operations affect only Intelligence records, leaving the native Strands records unchanged.
 
-Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the original Strands agent and its durable storage connected, and reopen the imported conversation from the Threads Drawer to pick up where you left off, including supported pending approvals and requests for input.
+Your app sends future conversations through CopilotKit to CopilotKit Intelligence. Keep the app connected to the original native session and agent in the same storage backend (including the same memory and actor for AgentCore), with its normal read/write credentials, and reopen the imported conversation from the Threads Drawer to pick up where you left off, including supported pending approvals and requests for input.
+
+Keep the app's frontend tools, approval handlers, and UI renderers configured. For native A2UI output without generation wrappers, set `a2uiGenerationToolNames: []` in your A2UI middleware configuration; if your app uses generation wrappers, list their tool names instead. See [A2UI setup](/generative-ui/a2ui).
 
 - **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
 - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
