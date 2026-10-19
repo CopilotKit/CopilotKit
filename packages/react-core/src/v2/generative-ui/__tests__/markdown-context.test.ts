@@ -199,10 +199,10 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
 
   it("keeps the schema and the guideline of the standard components small", () => {
     const schema = JSON.stringify(compactStandardSchema());
-    expect(schema.length).toBeLessThan(42_000);
+    expect(schema.length).toBeLessThan(46_000);
     expect(
       schema.length + GENERATIVE_UI_MARKDOWN_GUIDELINES.length,
-    ).toBeLessThan(46_000);
+    ).toBeLessThan(50_000);
   });
 
   it("explains commonProps in the guideline", () => {

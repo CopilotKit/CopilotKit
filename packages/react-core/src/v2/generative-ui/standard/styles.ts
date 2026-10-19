@@ -35,7 +35,7 @@ export const STANDARD_CSS = [
   // Controls never fall back to the UA font.
   "[data-a2ui-std] :is(button,input,select,textarea),[data-a2ui-input]{font:inherit;color:inherit}",
   // Key/value rows: the last text of a space-between row sits flush right.
-  '[data-a2ui-row="between"]>[data-a2ui-text]:last-child:not(:first-child){text-align:right;margin-inline-start:auto}',
+  '[data-a2ui-row="spaceBetween"]>[data-a2ui-text]:last-child:not(:first-child){text-align:right;margin-inline-start:auto}',
   `[data-a2ui-input]:focus-visible{outline:${FOCUS_RING};outline-offset:1px}`,
   // A scrollable container can take keyboard focus, so it shows a focus ring.
   `[data-a2ui-scroll]:focus-visible{outline:${FOCUS_RING};outline-offset:2px}`,

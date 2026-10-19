@@ -73,6 +73,7 @@ describe("feedbackComponents", () => {
       "Popover",
       "PopoverTrigger",
       "PopoverContent",
+      "Modal",
     ]);
     for (const name of names) {
       expect(ui.manifestComponents[name].description).toMatch(/\S/);

@@ -8,9 +8,10 @@ import React, {
 } from "react";
 import type { CSSProperties, KeyboardEvent, ReactNode, RefObject } from "react";
 import { z } from "zod";
-import { CHILDREN_SLOT, sizeValue } from "./layout";
+import { CHILDREN_SLOT, sizeValue, weightProp } from "./layout";
 import { useStandardStyles } from "./styles";
 import {
+  BACKDROP,
   backgroundColor,
   borderColor,
   radius,
@@ -620,6 +621,175 @@ function PopoverContent(props: PopoverContentProps) {
   );
 }
 
+const modalSchema = z.object({
+  title: z.string().optional().describe("The heading of the dialog"),
+  open: z
+    .boolean()
+    .optional()
+    .describe('Default false. Bind it with { "@path": "/x" } to read it'),
+  maxWidth: sizeValue.optional().describe("Default 480"),
+  weight: weightProp,
+});
+
+type ModalProps = z.output<typeof modalSchema> & {
+  trigger?: ReactNode;
+  content?: ReactNode;
+  setOpen?: (open: boolean) => void;
+};
+
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/**
+ * A modal dialog. The trigger is wrapped in a button when it is not one
+ * itself (a click anywhere on it opens the dialog). While open, Tab cycles
+ * inside the dialog, Escape closes it, and the focus returns to the trigger.
+ */
+function Modal(props: ModalProps) {
+  useFeedbackStyles();
+  const id = useId();
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = props.open ?? ownOpen;
+  const setOpen = (value: boolean) => {
+    setOwnOpen(value);
+    props.setOpen?.(value);
+  };
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    const previous = document.activeElement;
+    const focusables = () =>
+      Array.from(dialog?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
+    (focusables()[0] ?? dialog)?.focus();
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        setOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (previous instanceof HTMLElement) previous.focus();
+      else triggerRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    };
+    // setOpen is recreated each render; the effect only needs `open`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  return (
+    <>
+      <div
+        ref={triggerRef}
+        data-a2ui-std=""
+        data-a2ui-modal-trigger=""
+        style={{ display: "inline-flex", flexGrow: props.weight }}
+        // A control inside the trigger (a Button) handles its own click and
+        // stops propagation, so the capture phase sees it first.
+        onClickCapture={(event) => {
+          event.stopPropagation();
+          setOpen(true);
+        }}
+      >
+        {props.trigger}
+      </div>
+      {open && typeof document !== "undefined" ? (
+        <div
+          data-a2ui-modal-backdrop=""
+          onClick={() => setOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: spacing(4),
+            background: BACKDROP,
+          }}
+        >
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={props.title ? `${id}-title` : undefined}
+            tabIndex={-1}
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: spacing(3),
+              width: "100%",
+              maxWidth: spacing(props.maxWidth ?? 480),
+              maxHeight: "90vh",
+              overflow: "auto",
+              padding: spacing(5),
+              borderRadius: radius("xl"),
+              background: backgroundColor("surface"),
+              color: textColor("default"),
+              boxShadow: SHADOW_MD,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: spacing(3),
+              }}
+            >
+              {props.title ? (
+                <h2
+                  id={`${id}-title`}
+                  style={{ margin: 0, fontSize: "1.125em", fontWeight: 600 }}
+                >
+                  {props.title}
+                </h2>
+              ) : (
+                <span />
+              )}
+              <button
+                type="button"
+                aria-label="Close"
+                data-a2ui-input=""
+                onClick={() => setOpen(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  border: "none",
+                  borderRadius: radius("full"),
+                  background: "transparent",
+                  color: textColor("secondary"),
+                  fontSize: 20,
+                  lineHeight: 1,
+                  cursor: "pointer",
+                }}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            {props.content}
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 /**
  * The standard feedback components: loading states, a pulse dot, a
  * confetti burst, a flashcard and a popover. Give them to
@@ -688,5 +858,13 @@ export const feedbackComponents = {
       "The body of a Popover. It shows only when the Popover is open.",
     props: popoverContentSchema,
     slots: CHILDREN_SLOT,
+  },
+  Modal: {
+    component: Modal,
+    description:
+      "A dialog over the page. A click on the trigger (a Button or a Text) opens the content in the dialog. Escape, the close button or a click on the backdrop closes it.",
+    props: modalSchema,
+    slots: { trigger: "single", content: "single" } as const,
+    writable: ["open"] as const,
   },
 };

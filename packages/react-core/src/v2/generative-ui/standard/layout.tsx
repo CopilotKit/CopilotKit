@@ -2,11 +2,17 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
-import type { CSSProperties, MouseEvent, ReactNode } from "react";
+import type {
+  CSSProperties,
+  KeyboardEvent,
+  MouseEvent,
+  ReactNode,
+} from "react";
 import { z } from "zod";
 import type { GenerativeUIInvokeResult } from "../errors";
 import { Lightbox, openUrl } from "./lightbox";
@@ -35,6 +41,12 @@ import { useStandardStyles } from "./styles";
 
 /** A number is a count of 4px steps. A string is raw CSS. */
 export const sizeValue = z.union([z.number(), z.string()]);
+
+/** The A2UI `weight`: how much of the free space of a Row or Column to take. */
+export const weightProp = z
+  .number()
+  .optional()
+  .describe("flex-grow in a Row or Column");
 
 export const radiusValue = z.union([
   z.enum(RADII),
@@ -77,6 +89,7 @@ export const layoutProps = {
   minHeight: sizeValue.optional(),
   maxHeight: sizeValue.optional(),
   flex: z.number().optional(),
+  weight: weightProp,
   aspectRatio: z.string().optional(),
   scrollable: z.boolean().optional(),
   clip: z.boolean().optional(),
@@ -189,8 +202,11 @@ const carouselSchema = z.object({
 const CAROUSEL_MEDIA_SIZES = ["sm", "md", "lg"] as const;
 const carouselMediaItemSchema = z.object({
   ...layoutProps,
-  media: z.string().describe("Image URL"),
-  alt: z.string().optional().describe("What the image shows"),
+  url: z.string().describe("Image URL"),
+  description: z
+    .string()
+    .optional()
+    .describe("What the image shows, for screen readers"),
   size: z
     .enum(CAROUSEL_MEDIA_SIZES)
     .optional()
@@ -203,7 +219,24 @@ const carouselMediaItemSchema = z.object({
     .describe("Default true: a click opens all slides full-screen"),
 });
 const spacerSchema = z.object({ minSize: sizeValue.optional() });
+const tabsSchema = z.object({
+  tabs: z
+    .array(z.object({ title: z.string().describe("The tab title") }))
+    .describe("One entry per tab, in the order of the children"),
+  selectedIndex: z
+    .number()
+    .optional()
+    .describe(
+      'The open tab. Default 0. Bind it with { "@path": "/x" } to read it',
+    ),
+  weight: weightProp,
+});
 const dividerSchema = z.object({
+  axis: z
+    .enum(["horizontal", "vertical"])
+    .optional()
+    .describe('Default "horizontal"'),
+  weight: weightProp,
   color: z.enum(BORDER_COLORS).optional(),
   size: z.number().optional(),
   spacing: sizeValue.optional(),
@@ -237,9 +270,10 @@ const JUSTIFY_CSS: Record<(typeof JUSTIFY)[number], string> = {
   start: "flex-start",
   end: "flex-end",
   center: "center",
-  between: "space-between",
-  around: "space-around",
-  evenly: "space-evenly",
+  spaceBetween: "space-between",
+  spaceAround: "space-around",
+  spaceEvenly: "space-evenly",
+  stretch: "stretch",
 };
 
 /** The CSS of a `radius` prop: one radius, or one for each corner. */
@@ -298,6 +332,7 @@ export function layoutStyle(props: LayoutProps) {
     minHeight: spacing(props.minHeight ?? props.minSize),
     maxHeight: spacing(props.maxHeight ?? props.maxSize),
     flex: props.flex,
+    flexGrow: props.weight,
     aspectRatio: props.aspectRatio,
     overflow,
     boxShadow: props.shadow ? SHADOW_SM : undefined,
@@ -507,7 +542,7 @@ function cardShadow(props: CardProps) {
   }
 }
 
-function Card(props: WithChildren<CardProps>) {
+function Card(props: WithChildren<CardProps> & { child?: ReactNode }) {
   useStandardStyles();
   const nested = useContext(CardNestingContext);
   const ref = useRef<HTMLDivElement>(null);
@@ -529,6 +564,7 @@ function Card(props: WithChildren<CardProps>) {
             ...defined(cardStyle(props, nested)),
           }}
         >
+          {props.child}
           {props.children}
         </div>
       </CardDistanceContext.Provider>
@@ -905,7 +941,7 @@ function CarouselMediaItem(props: WithChildren<CarouselMediaItemProps>) {
     setOpen(
       images.length > 0
         ? { images, index }
-        : { images: [{ src: props.media, alt: props.alt }], index: 0 },
+        : { images: [{ src: props.url, alt: props.description }], index: 0 },
     );
   };
   return (
@@ -923,8 +959,8 @@ function CarouselMediaItem(props: WithChildren<CarouselMediaItemProps>) {
       }}
     >
       <img
-        src={props.media}
-        alt={props.alt ?? ""}
+        src={props.url}
+        alt={props.description ?? ""}
         loading="lazy"
         onClick={isClickable ? onClick : undefined}
         data-a2ui-lightbox-trigger={showsLightbox ? "" : undefined}
@@ -959,6 +995,134 @@ const CarouselItem = container(() => ({
   scrollSnapAlign: "start",
 }));
 
+type TabsProps = WithChildren<
+  z.output<typeof tabsSchema> & {
+    setSelectedIndex?: (index: number) => void;
+  }
+>;
+
+/**
+ * Tabs with one panel per tab. The nth child is the panel of the nth tab.
+ * The tab list is one tab stop: the arrow keys, Home and End move between
+ * the tabs and open them.
+ */
+function Tabs(props: TabsProps) {
+  useStandardStyles();
+  const id = useId();
+  const [ownIndex, setOwnIndex] = useState(0);
+  const panels = React.Children.toArray(props.children);
+  const tabs = props.tabs ?? [];
+  const count = tabs.length;
+  const selected = Math.min(
+    Math.max(0, props.selectedIndex ?? ownIndex),
+    Math.max(0, count - 1),
+  );
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const select = (index: number, focus = false) => {
+    setOwnIndex(index);
+    props.setSelectedIndex?.(index);
+    if (focus) tabRefs.current[index]?.focus();
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const step =
+      event.key === "ArrowRight"
+        ? 1
+        : event.key === "ArrowLeft"
+          ? -1
+          : undefined;
+    const next =
+      step !== undefined
+        ? (selected + step + count) % count
+        : event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? count - 1
+            : undefined;
+    if (next === undefined || count === 0) return;
+    event.preventDefault();
+    select(next, true);
+  };
+  if (count === 0) return null;
+  return (
+    <div
+      data-a2ui-std=""
+      data-a2ui-tabs=""
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: spacing(3),
+        width: "100%",
+        minWidth: 0,
+        flexGrow: props.weight,
+      }}
+    >
+      <div
+        role="tablist"
+        onKeyDown={onKeyDown}
+        style={{
+          display: "flex",
+          gap: spacing(1),
+          borderBottom: `1px solid ${borderColor("default")}`,
+          overflowX: "auto",
+        }}
+      >
+        {tabs.map((tab, index) => {
+          const isSelected = index === selected;
+          return (
+            <button
+              key={`${tab.title}-${index}`}
+              ref={(element) => {
+                tabRefs.current[index] = element;
+              }}
+              type="button"
+              role="tab"
+              id={`${id}-tab-${index}`}
+              aria-selected={isSelected}
+              aria-controls={`${id}-panel-${index}`}
+              tabIndex={isSelected ? 0 : -1}
+              data-a2ui-input=""
+              onClick={() => select(index)}
+              style={{
+                flexShrink: 0,
+                padding: `${spacing(2)} ${spacing(3)}`,
+                marginBottom: -1,
+                border: "none",
+                borderBottom: `2px solid ${isSelected ? textColor("default") : "transparent"}`,
+                background: "transparent",
+                color: isSelected
+                  ? textColor("default")
+                  : textColor("secondary"),
+                font: "inherit",
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              {tab.title}
+            </button>
+          );
+        })}
+      </div>
+      {tabs.map((_tab, index) =>
+        index === selected ? (
+          <div
+            key={index}
+            role="tabpanel"
+            id={`${id}-panel-${index}`}
+            aria-labelledby={`${id}-tab-${index}`}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: spacing(3),
+            }}
+          >
+            {panels[index]}
+          </div>
+        ) : null,
+      )}
+    </div>
+  );
+}
+
 function Spacer(props: z.output<typeof spacerSchema>) {
   return (
     <div
@@ -973,14 +1137,19 @@ function Spacer(props: z.output<typeof spacerSchema>) {
 }
 
 function Divider(props: z.output<typeof dividerSchema>) {
+  const line = `${props.size ?? 1}px solid ${borderColor(props.color ?? "subtle")}`;
+  const margin = props.flush ? 0 : spacing(props.spacing ?? 2);
+  const isVertical = props.axis === "vertical";
   return (
     <hr
+      aria-orientation={isVertical ? "vertical" : undefined}
       style={{
         border: 0,
-        borderTop: `${props.size ?? 1}px solid ${borderColor(props.color ?? "subtle")}`,
-        margin: props.flush ? 0 : `${spacing(props.spacing ?? 2)} 0`,
-        width: "100%",
+        ...(isVertical
+          ? { borderLeft: line, margin: `0 ${margin}`, height: "auto" }
+          : { borderTop: line, margin: `${margin} 0`, width: "100%" }),
         flexShrink: 0,
+        flexGrow: props.weight,
         alignSelf: "stretch",
       }}
     />
@@ -1013,7 +1182,7 @@ export const layoutComponents = {
   Row: {
     component: Row,
     description:
-      'A horizontal flex container. For a label and value pair, use a Row with justify "between": a Caption on the left and a Text with weight "medium" on the right. Put buttons in a Row at the bottom of a Card: one primary Button, and variant "ghost" for the others.',
+      'A horizontal flex container. For a label and value pair, use a Row with justify "spaceBetween": a Caption on the left and a Text with fontWeight "medium" on the right. Put buttons in a Row at the bottom of a Card: one primary Button, and variant "ghost" for the others.',
     props: layoutSchema,
     events: VISIBLE_EVENT,
     slots: CHILDREN_SLOT,
@@ -1040,7 +1209,7 @@ export const layoutComponents = {
       'A bordered, padded container, only for an interactive panel (controls, a form, a configurator). Tables, charts and text do not need one. Give it a Title and a Caption. Separate the groups in it with a Divider or the plain gap, never with a nested Card or a bordered Box. Variant "section" is a heading and content without a box. Variant "outline" always has a box. In markdown mode, a Card without controls renders as "section" unless it sets variant or border.',
     props: cardSchema,
     events: VISIBLE_EVENT,
-    slots: CHILDREN_SLOT,
+    slots: { child: "single", children: "multiple" } as const,
   },
   Flow: {
     component: Flow,
@@ -1096,7 +1265,16 @@ export const layoutComponents = {
   },
   Divider: {
     component: Divider,
-    description: "A horizontal line between two groups.",
+    description:
+      'A line between two groups: horizontal, or vertical with axis "vertical" in a Row.',
     props: dividerSchema,
+  },
+  Tabs: {
+    component: Tabs,
+    description:
+      'Tabs that show one panel at a time. Give tabs ({ "title" }) and the same number of children, in order: the nth child is the panel of the nth tab.',
+    props: tabsSchema,
+    slots: CHILDREN_SLOT,
+    writable: ["selectedIndex"] as const,
   },
 };
