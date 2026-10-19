@@ -9,6 +9,10 @@ import { durableJson } from "./journal.mjs";
 const exec = promisify(execFile);
 const page = "pageInfo { hasNextPage endCursor } edges { node";
 export const operations = {
+  canaryProject:
+    "query($id:String!){project(id:$id){id name createdAt workspaceId}}",
+  canaryInstance:
+    "query($environmentId:String!,$serviceId:String!){serviceInstance(environmentId:$environmentId,serviceId:$serviceId){serviceId environmentId startCommand hasEverDeployed source{image repo} latestDeployment{id status}}}",
   proxies:
     "query($environmentId:String!,$serviceId:String!){tcpProxies(environmentId:$environmentId,serviceId:$serviceId){id serviceId environmentId applicationPort proxyPort domain syncStatus}}",
   createProxy:
@@ -39,6 +43,8 @@ export const operations = {
   deleteEnvironment: "mutation($id:String!){environmentDelete(id:$id)}",
 };
 const resultFields = {
+  canaryProject: "project",
+  canaryInstance: "serviceInstance",
   proxies: "tcpProxies",
   createProxy: "tcpProxyCreate",
   deleteProxy: "tcpProxyDelete",
