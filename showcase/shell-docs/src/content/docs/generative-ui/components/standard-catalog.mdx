@@ -1,0 +1,99 @@
+---
+title: "Standard catalog"
+icon: "lucide/Blocks"
+description: "Use the 69 standard components, drop the ones you do not want, and replace any of them with your own."
+---
+
+## What is this?
+
+You want the agent to answer with tables, charts, and forms today, not after you build a component library. `standardUI` is a catalog of 69 ready-made components that the agent already knows how to use.
+
+Use it as it is:
+
+```tsx
+import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+
+<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+```
+
+## What is in it
+
+| Group | Components |
+| --- | --- |
+| Layout | `Box`, `Column`, `Row`, `Grid`, `GridItem`, `Card`, `Flow`, `FlowItem`, `Carousel`, `CarouselItem`, `CarouselMediaItem`, `Spacer`, `Divider` |
+| Text | `Title`, `Text`, `Caption`, `Label`, `Bold`, `Italic`, `Underline`, `Strikethrough`, `Badge`, `Blockquote`, `Code`, `Markdown`, `Math`, `ShimmerText`, `Link`, `Tooltip` |
+| Inputs | `Button`, `Pressable`, `Form`, `TextField`, `TextArea`, `Select`, `CheckBox`, `Radio`, `RadioGroup`, `Slider`, `SegmentedControl`, `DateTimeInput` |
+| Data | `Table`, `TableSection`, `TableRow`, `TableCell`, `List`, `ListItem`, `Chart`, `Map` |
+| Media | `Image`, `Icon`, `Favicon`, `Svg`, `YouTube`, `HtmlView` |
+| Feedback and overlay | `Loading`, `LoadingIndicator`, `LoadingBlock`, `PulseIndicator`, `Celebration`, `FlashcardFlip`, `Popover`, `PopoverTrigger`, `PopoverContent` |
+| Composites | `LinkCard`, `Citation`, `FollowUp`, `EntityCard`, `ImageGrid` |
+
+A few things to know:
+
+- **Inputs keep what users type.** When the agent binds an input to a value, what the user types stays. A later agent update cannot write over it.
+- **`Button` and `Pressable` can act in the browser.** `href` opens a URL, and `Button` with `copy` copies text, with no message to the agent.
+- **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps. Without it, the map shows a list of the places.
+- **`Chart` works out of the box.** It uses `recharts`, which comes with CopilotKit.
+
+To see every component with sample data, run [`examples/v2/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/a2ui-markdown) and open `/catalog`.
+
+## Add your own components
+
+Put your components on top of the standard ones with `extends`:
+
+```ts
+import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";
+
+export const appUI = createGenerativeUI({
+  id: "acme/app@1",
+  extends: [standardUI],
+  components: {
+    ProductCard: { component: ProductCard, props: productSchema },
+  },
+});
+```
+
+See [Catalogs](/generative-ui/components/catalogs) for how to declare a component.
+
+## Drop components
+
+Every component makes the prompt a little longer. If your app never needs a map or a video, remove them. `omit` returns a copy of the catalog without them, and the agent no longer sees them:
+
+```ts
+export const appUI = createGenerativeUI({
+  id: "acme/app@1",
+  extends: [standardUI.omit(["Map", "YouTube", "HtmlView"])],
+  components: {},
+});
+```
+
+The names are typed, so a typo is a type error. Call `omit` once, at module level.
+
+## Replace a component
+
+Your app has its own card, with your shadows and spacing. `overrides` swaps the React component of a standard component. The agent sees the same component as before, with the same props:
+
+```tsx
+import {
+  createGenerativeUI,
+  standardUI,
+  type GenerativeUIComponentProps,
+} from "@copilotkit/react-core/v2/generative-ui";
+
+function MyCard({ children }: GenerativeUIComponentProps<typeof standardUI, "Card">) {
+  return <div className="rounded-2xl border p-6 shadow-sm">{children}</div>;
+}
+
+export const appUI = createGenerativeUI({
+  id: "acme/app@1",
+  extends: [standardUI],
+  overrides: { Card: { component: MyCard } },
+  components: {},
+});
+```
+
+- Your component gets the props of the component it replaces. The types check this.
+- Only components of the catalogs in `extends` can be overridden. An unknown name is a type error.
+- You can combine both: `extends: [standardUI.omit(["Map"])]` with `overrides: { Card: ... }`.
+
+Next: make the standard components match your brand with a [theme](/generative-ui/components/theming).

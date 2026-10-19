@@ -1,0 +1,80 @@
+---
+title: "Components and surfaces"
+icon: "lucide/LayoutTemplate"
+description: "Let your agent render your React components, in the chat and in areas of your page."
+---
+
+## What is this?
+
+A text answer is often the wrong answer. "Compare these three plans" wants a table. "Show me cheap running shoes" wants product cards, and maybe in the product row of your page, not in the chat.
+
+With components and surfaces, the agent renders real React components while it answers:
+
+- **In the chat**, inside its reply.
+- **In areas of your page**, outside the chat. Asking the chat changes the page.
+
+You decide what the agent can render. The agent decides what to show and fills in the values. Users can type into the UI, press its buttons, and ask follow-up questions about it.
+
+## Try it in three steps
+
+You need a working CopilotKit app with `CopilotKitProvider` and a runtime. If you do not have one yet, start with the [quickstart](/quickstart).
+
+<Steps>
+  <Step>
+  ### Turn on generative UI
+
+  Give the provider the standard catalog. It has 69 ready-made components: layout, text, inputs, tables, charts, maps, and more.
+
+  ```tsx title="app/providers.tsx"
+  "use client";
+  import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+  import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+  import "@copilotkit/react-core/v2/styles.css";
+
+  export function Providers({ children }: { children: React.ReactNode }) {
+    return (
+      <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+        {children}
+      </CopilotKitProvider>
+    );
+  }
+  ```
+
+  Your runtime needs no change. When the provider sends a generative UI, the runtime gives that run a `render_ui` tool and a short guide on how to use it.
+  </Step>
+  <Step>
+  ### Ask for something visual
+
+  Open your chat and send:
+
+  ```text
+  Compare the Starter, Team, and Enterprise plans in a table
+  ```
+  </Step>
+  <Step>
+  ### Watch it render
+
+  The table fills in while the agent writes it. It is a real component, so a follow-up such as "add a column for support" changes it in place.
+  </Step>
+</Steps>
+
+That is a working setup. The agent now renders standard components in the chat.
+
+## Learn the ideas
+
+Three ideas carry the whole feature:
+
+- **[Surfaces](/generative-ui/components/surfaces)**: a place where generated UI renders. The chat is one. Any area of your page can be one.
+- **[Catalogs](/generative-ui/components/catalogs)**: the components that the agent can use, with their props. Use the standard one, or add your own.
+- **[Transports](/generative-ui/components/transports)**: how the UI reaches the browser. The agent calls a tool, or it writes the UI in its markdown reply.
+
+## Build with it
+
+- [Use the standard catalog](/generative-ui/components/standard-catalog): what is in it, and how to drop or replace components.
+- [Connect app state and actions](/generative-ui/components/state-and-actions): show live app data, run your code on a click, and keep what users type.
+- [Theme the components](/generative-ui/components/theming): your colors and fonts, and dark mode.
+- [Markdown mode](/generative-ui/components/markdown-mode): the agent writes the UI inside its reply, with no tool call.
+
+## See it in an app
+
+[`examples/v2/generative-ui-shop`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/generative-ui-shop) is a shop where the chat changes the page. Ask for "top rated" products, and the featured row on the home page swaps to what the agent picked.

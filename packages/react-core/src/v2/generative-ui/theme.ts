@@ -184,7 +184,7 @@ function hashOf(text: string) {
  * @example
  * ```ts
  * themeStyleSheet({ "--a2ui-color-accent": "red" });
- * // { id: "t…", css: '[data-a2ui-theme="t…"]{--a2ui-color-accent:red}' }
+ * // { id: "t…", css: '.a2ui-surface[data-a2ui-theme="t…"]{--a2ui-color-accent:red}' }
  * ```
  */
 export function themeStyleSheet(theme: GenerativeUITheme | undefined) {
@@ -193,7 +193,8 @@ export function themeStyleSheet(theme: GenerativeUITheme | undefined) {
   const darkOnly = declarations(dark);
   if (!both && !darkOnly) return undefined;
   const id = hashOf(`${both}|${darkOnly}`);
-  const self = `[data-a2ui-theme="${id}"]`;
+  // The class makes these rules win over an app rule on `.a2ui-surface`.
+  const self = `.a2ui-surface[data-a2ui-theme="${id}"]`;
   const rules = [
     both && `${self}{${both}}`,
     darkOnly && `${DARK} ${self},${self}${DARK}{${darkOnly}}`,

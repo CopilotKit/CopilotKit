@@ -13,7 +13,7 @@ describe("themeStyleSheet", () => {
       "--a2ui-color-accent": "#d97706",
       dark: { "--a2ui-color-panel": "#1f2937", mapStyle: "https://x/dark" },
     })!;
-    const self = `[data-a2ui-theme="${sheet.id}"]`;
+    const self = `.a2ui-surface[data-a2ui-theme="${sheet.id}"]`;
     expect(sheet.css).toBe(
       `${self}{--a2ui-color-accent:#d97706}:where(.dark) ${self},${self}:where(.dark){--a2ui-color-panel:#1f2937}`,
     );
@@ -36,7 +36,7 @@ describe("themeStyleSheet", () => {
     } as GenerativeUITheme;
     const sheet = themeStyleSheet(theme)!;
     expect(sheet.css).toBe(
-      `[data-a2ui-theme="${sheet.id}"]{--a2ui-color-focus:#3b9bff}`,
+      `.a2ui-surface[data-a2ui-theme="${sheet.id}"]{--a2ui-color-focus:#3b9bff}`,
     );
   });
 });
@@ -49,5 +49,13 @@ describe("the built-in dark values", () => {
       ),
     ).toBe(true);
     expect(DARK_THEME_CSS).toContain("--a2ui-color-surface:#1f1f1f");
+  });
+});
+
+describe("theme rule strength", () => {
+  it("is stronger than an app rule on .a2ui-surface, so theme values win", () => {
+    const sheet = themeStyleSheet({ "--a2ui-color-accent": "red" })!;
+    // Two classes or attributes: one more than `.a2ui-surface` alone.
+    expect(sheet.css.startsWith(".a2ui-surface[data-a2ui-theme=")).toBe(true);
   });
 });

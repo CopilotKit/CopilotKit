@@ -1,0 +1,158 @@
+---
+title: "State and actions"
+icon: "lucide/MousePointerClick"
+description: "Show live app data in generated UI, run your code when users click, and keep what they type."
+---
+
+## What is this?
+
+You want a product card that the agent rendered to act like the rest of your app. It must show how many of the product are in the cart, add to the cart when the user clicks, and keep what the user types into a form.
+
+Three tools connect generated UI to your app:
+
+- **App state** fills props with live values from your app.
+- **Functions** run your code when a component calls an event.
+- **Writable props** keep what the user types.
+
+## Show live app state
+
+The agent does not know how many items are in the cart, and it must not guess. Declare the state in the catalog, and the library fills the prop:
+
+```tsx title="app/catalog.tsx"
+const cartSchema = z.object({
+  items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
+});
+
+export const shopUI = createGenerativeUI({
+  id: "acme/shop@1",
+  state: { cart: cartSchema },
+  components: {
+    ProductCard: {
+      component: ProductCard,
+      props: z.object({ productId: z.string(), name: z.string(), inCart: z.number() }),
+      bind: {
+        inCart: (state, { productId }) =>
+          state.cart.items.find((item) => item.productId === productId)?.quantity ?? 0,
+      },
+    },
+  },
+});
+```
+
+Then give the state its value from your app:
+
+```tsx
+import { useGenerativeUIState } from "@copilotkit/react-core/v2/generative-ui";
+
+function CartState({ cart }: { cart: Cart }) {
+  useGenerativeUIState(shopUI, "cart", { items: cart.items });
+  return null;
+}
+```
+
+How props get their values:
+
+- A prop with the name of a state key reads that key. A prop named `cart` gets `state.cart`.
+- `bind` gives a prop a selector. The selector gets the state and the props that the agent set.
+- The agent never sets a bound prop and does not see it.
+
+The agent does not see the state either. To let it answer "what is in my cart?", also give it the data with [`useAgentContext`](/reference/hooks/useAgentContext).
+
+## Run your code on a click
+
+"Add to cart" must add to the cart, with no message to the agent. Declare a function, give the component an event with a matching name, and mount a handler:
+
+```tsx title="app/catalog.tsx"
+export const shopUI = createGenerativeUI({
+  id: "acme/shop@1",
+  functions: {
+    addToCart: {
+      description: "Add a product to the cart",
+      parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }),
+    },
+  },
+  components: {
+    ProductCard: {
+      component: ProductCard,
+      props: z.object({ productId: z.string(), name: z.string() }),
+      events: { onAddToCart: {} },
+    },
+  },
+});
+```
+
+```tsx
+import { useGenerativeUIFunction } from "@copilotkit/react-core/v2/generative-ui";
+
+function CartActions({ cart }: { cart: Cart }) {
+  useGenerativeUIFunction(shopUI, "addToCart", ({ productId, quantity }) => {
+    cart.addItem(productId, quantity);
+    return { added: productId };
+  });
+  return null;
+}
+```
+
+In the component, the event is a typed prop. It gives back a result, so you can show progress and errors:
+
+```tsx
+import { useState } from "react";
+import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2/generative-ui";
+
+function ProductCard({ productId, name, onAddToCart }: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
+  const [error, setError] = useState<string>();
+  return (
+    <article>
+      <h4>{name}</h4>
+      <button
+        onClick={async () => {
+          const result = await onAddToCart?.({ productId });
+          if (result && !result.ok) setError(result.error.message);
+        }}
+      >
+        Add to cart
+      </button>
+      {error ? <p role="alert">{error}</p> : null}
+    </article>
+  );
+}
+```
+
+An event matches the function with its name, or the name without `on`: `onAddToCart` calls `addToCart`.
+
+## Send a click to the agent
+
+Some clicks need the agent. For example, "Show me the Team plan" needs a new answer. An event that matches no function does that. Give it `parameters`:
+
+```ts
+events: {
+  onChoose: {
+    description: "The user picked a plan",
+    parameters: z.object({ plan: z.string() }),
+  },
+},
+```
+
+When the user clicks, the click becomes a visible user message, and the agent answers it. The agent can also choose the text of that message (its `userMessage`), for example "Show me the Team plan".
+
+## Keep what the user types
+
+A checkout form that the agent filled in must keep the user's edits. List the props that the component can change in `writable`. Each one gets a setter:
+
+```tsx
+CheckoutForm: {
+  component: CheckoutForm,
+  props: z.object({ email: z.string().optional() }),
+  writable: ["email"],
+},
+```
+
+```tsx
+function CheckoutForm({ email, setEmail }: GenerativeUIComponentProps<typeof shopUI, "CheckoutForm">) {
+  return <input value={email ?? ""} onChange={(event) => setEmail(event.target.value)} />;
+}
+```
+
+When the agent binds `email` to a value of the surface, what the user types is written there. From then on, that value belongs to the user: a later agent update cannot write over it. The agent still sees the value on its next run.
+
+Now the card shows live cart data, its button runs your code, and the form keeps the user's input.

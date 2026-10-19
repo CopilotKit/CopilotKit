@@ -5,6 +5,9 @@ import type { GenerativeUI } from "./catalog";
 import type { GenerativeUIDispatcher } from "./dispatcher";
 import type { GenerativeUIErrorInfo, GenerativeUIInvokeResult } from "./errors";
 import type { GenerativeUISurfaceManager } from "./surface-manager";
+import type { GenerativeUITheme } from "./theme";
+
+export type { GenerativeUITheme };
 
 export interface GenerativeUIErrorBoundaryConfig {
   /** Replaces the default per-component fallback. */
@@ -17,15 +20,6 @@ export interface GenerativeUIErrorBoundaryConfig {
   /** Called for render, props, operation, function and event failures. */
   onError?: (info: GenerativeUIErrorInfo) => void;
 }
-
-/**
- * Values for the `--a2ui-*` CSS variables of the standard components, for
- * example `{ "--a2ui-color-primary": "#4f46e5" }`. Each surface root sets
- * them as inline CSS variables. `mapStyle` is the map style URL of the Map
- * component.
- */
-import type { GenerativeUITheme } from "./theme";
-export type { GenerativeUITheme };
 
 interface GenerativeUIBaseConfig {
   /**

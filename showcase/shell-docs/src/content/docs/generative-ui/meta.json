@@ -16,6 +16,12 @@
       "pages": ["frontend-cards"]
     },
     {
+      "title": "Components and surfaces",
+      "icon": "lucide/LayoutTemplate",
+      "defaultOpen": true,
+      "pages": ["...components"]
+    },
+    {
       "title": "Declarative",
       "icon": "lucide/FileJson",
       "defaultOpen": true,
