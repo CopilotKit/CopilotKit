@@ -1,13 +1,27 @@
 import type { ComponentType, ReactNode } from "react";
-import { z } from "zod";
-import type { GenerativeUIComponentManifest } from "@copilotkit/shared";
+import type {
+  GenerativeUIComponentManifest,
+  GenerativeUIJSONSchema,
+  StandardSchemaV1,
+} from "@copilotkit/shared";
 import type { GenerativeUIInvokeResult } from "./errors";
 import { toJsonSchema } from "./json-schema";
+import type { GenerativeUISchema, SchemaInput, SchemaOutput } from "./schema";
 
 export type GenerativeUISlotKind = "single" | "multiple";
 
-/** A zod object schema for component props. */
-export type PropsSchema = z.ZodObject<z.ZodRawShape>;
+/**
+ * The schema of the props of a component: any Standard Schema of an object,
+ * for example `z.object({ ... })` or `v.object({ ... })`. The model gets
+ * the props as JSON Schema, so the schema must give one: Standard JSON
+ * Schema (zod 4.2+, ArkType, Valibot with `toStandardJsonSchema`) or zod 3.
+ * It must validate synchronously, because props are checked while a
+ * surface renders.
+ */
+export type PropsSchema = StandardSchemaV1<
+  Record<string, unknown>,
+  Record<string, unknown>
+>;
 
 /** An event prop of a component. */
 export interface GenerativeUIEventDefinition {
@@ -17,7 +31,7 @@ export interface GenerativeUIEventDefinition {
    * that matches a declared function can leave this out. Then the function
    * parameters are used.
    */
-  parameters?: z.ZodTypeAny;
+  parameters?: GenerativeUISchema;
 }
 
 /**
@@ -26,12 +40,13 @@ export interface GenerativeUIEventDefinition {
  */
 export interface GenerativeUIFunctionDefinition {
   description?: string;
-  parameters: z.ZodTypeAny;
+  parameters: GenerativeUISchema;
 }
 
 /**
- * Gives a bound prop its value. It gets the full state and the parsed
- * model-set props of the node. It runs in the browser and must be pure.
+ * Gives a bound prop its value. It gets the full state and the model-set
+ * props of the node, before the props schema parses them (no defaults or
+ * transforms). It runs in the browser and must be pure.
  */
 export type GenerativeUISelector = (
   state: Record<string, unknown>,
@@ -84,10 +99,8 @@ export interface ResolvedGenerativeUIComponent extends GenerativeUIComponentDefi
   selectors: Record<string, GenerativeUISelector>;
   /** Event name to the name of the declared function it calls. */
   eventFunctions: Record<string, string>;
-  /** `props` without the bound keys. The model sets these. */
-  modelProps: PropsSchema;
-  /** `props` with only the bound keys. Parses the selector results. */
-  boundProps: PropsSchema;
+  /** The keys of `props`, read from its JSON Schema. */
+  propKeys: readonly string[];
 }
 
 /** Type-level data of one component, kept in `GenerativeUI["definitions"]`. */
@@ -104,7 +117,7 @@ export interface GenerativeUIComponentTypes {
 
 /** Type-level data of a generative UI, with the keys of its bases merged in. */
 export interface GenerativeUIDefinitions {
-  state: Record<string, z.ZodTypeAny>;
+  state: Record<string, GenerativeUISchema>;
   functions: Record<string, GenerativeUIFunctionDefinition>;
   components: Record<string, GenerativeUIComponentTypes>;
 }
@@ -120,7 +133,7 @@ export interface GenerativeUI<
   /** Surfaces pin to this id. */
   readonly id: string;
   /** State schemas, bases first. */
-  readonly state: ReadonlyMap<string, z.ZodTypeAny>;
+  readonly state: ReadonlyMap<string, GenerativeUISchema>;
   /** Declared functions, bases first. */
   readonly functions: ReadonlyMap<string, GenerativeUIFunctionDefinition>;
   /** Components, bases first. */
@@ -151,10 +164,16 @@ export type UnionToIntersection<U> = (
   ? I
   : never;
 
-type OutputOf<Schema> = Schema extends z.ZodTypeAny ? z.output<Schema> : never;
-type InputOf<Schema> = Schema extends z.ZodTypeAny ? z.input<Schema> : never;
-type ShapeOf<Props> = Props extends PropsSchema ? Props["shape"] : {};
-type PropKeys<Props> = keyof ShapeOf<Props> & string;
+type OutputOf<Schema> = SchemaOutput<Schema>;
+type InputOf<Schema> = SchemaInput<Schema>;
+/** The prop names. None for a component without `props`. */
+type PropKeys<Props> = Props extends PropsSchema
+  ? keyof OutputOf<Props> & string
+  : never;
+/** The input type of one prop of a props schema. */
+type PropInput<Props, Key> = Key extends keyof InputOf<Props>
+  ? InputOf<Props>[Key]
+  : never;
 
 /** The type-level data of a generative UI. */
 export type GenerativeUIDefinitionsOf<UI extends AnyGenerativeUI> = NonNullable<
@@ -236,7 +255,7 @@ export type GenerativeUIEventInput<
   ? InputOf<Event["parameters" & keyof Event]>
   : FunctionInput<Functions, MatchedFunction<Name, Functions>>;
 
-type DataProps<Props> = Props extends PropsSchema ? z.output<Props> : {};
+type DataProps<Props> = Props extends PropsSchema ? OutputOf<Props> : {};
 
 type EventProps<Events, Functions> =
   Events extends Record<string, unknown>
@@ -260,7 +279,7 @@ type WritableKeys<Writable> = Writable extends readonly (infer Key)[]
 type SetterProps<Props, Writable> = {
   [Key in WritableKeys<Writable> &
     PropKeys<Props> as `set${Capitalize<Key>}`]: (
-    value: InputOf<ShapeOf<Props>[Key]>,
+    value: PropInput<Props, Key>,
   ) => void;
 };
 
@@ -309,8 +328,8 @@ type NameKeys<Props, State> = PropKeys<Props> & keyof State;
 type SelectorFor<Props, State, Key extends PropKeys<Props>> = (
   state: StateValues<State>,
   // ponytail: the type hides the name-bound keys and the key itself. Other `bind` keys stay in it, because TypeScript cannot read the `bind` keys before it types the selectors.
-  props: Simplify<Omit<OutputOf<Props>, NameKeys<Props, State> | Key>>,
-) => InputOf<ShapeOf<Props>[Key]>;
+  props: Simplify<Omit<InputOf<Props>, NameKeys<Props, State> | Key>>,
+) => PropInput<Props, Key>;
 
 type BindSelectors<Props, State> = {
   [Key in PropKeys<Props>]?: SelectorFor<Props, State, Key>;
@@ -319,7 +338,7 @@ type BindSelectors<Props, State> = {
 /** Name-bound keys whose state type does not fit the prop schema input. */
 type MismatchedNameKeys<Props, State> = {
   [Key in NameKeys<Props, State>]: [OutputOf<State[Key]>] extends [
-    InputOf<ShapeOf<Props>[Key]>,
+    PropInput<Props, Key>,
   ]
     ? never
     : Key;
@@ -343,7 +362,7 @@ type BindField<Props, State> = [MismatchedNameKeys<Props, State>] extends [
       };
     };
 
-/** `unknown` (no props) or a zod object. Else `props` gets an error. */
+/** `unknown` (no props) or an object schema. Else `props` gets an error. */
 type PropsCheck<Props> = unknown extends Props
   ? unknown
   : Props extends PropsSchema
@@ -355,7 +374,7 @@ type MatchCheck<Name extends string, Event, Functions> = [
 ] extends [never]
   ? "parameters" extends keyof Event
     ? unknown
-    : { parameters: z.ZodTypeAny }
+    : { parameters: GenerativeUISchema }
   : "parameters" extends keyof Event
     ? [OutputOf<Event["parameters" & keyof Event]>] extends [
         FunctionInput<Functions, MatchedFunction<Name, Functions>>,
@@ -396,8 +415,8 @@ type WritableKey<Props, State> = Exclude<
  * Each component config is split over four mapped types. Each one infers
  * one part (props, events, slots, writable) of every component. The checks
  * are in `NoInfer`, so they do not change what is inferred. They are not
- * intersected with zod types directly, because two zod class types do not
- * intersect cleanly.
+ * intersected with schema types directly, because two schema class types do
+ * not intersect cleanly.
  */
 type ComponentsConfig<Props, Events, Slots, Writable, State, Functions> = {
   [Name in keyof Props]: {
@@ -423,7 +442,7 @@ type ComponentsConfig<Props, Events, Slots, Writable, State, Functions> = {
 /** The config of `createGenerativeUI`. */
 export interface CreateGenerativeUIConfig<
   Bases extends readonly AnyGenerativeUI[],
-  State extends Record<string, z.ZodTypeAny>,
+  State extends Record<string, GenerativeUISchema>,
   Functions extends Record<string, GenerativeUIFunctionDefinition>,
   Props extends Record<string, unknown>,
   Events extends Record<string, unknown>,
@@ -487,12 +506,10 @@ interface RuntimeComponentDefinition extends Omit<
 interface RuntimeConfig {
   id: string;
   extends?: readonly AnyGenerativeUI[];
-  state?: Record<string, z.ZodTypeAny>;
+  state?: Record<string, GenerativeUISchema>;
   functions?: Record<string, GenerativeUIFunctionDefinition>;
   components: Record<string, RuntimeComponentDefinition>;
 }
-
-const EMPTY_PROPS = z.object({}).strict();
 
 const RESERVED_KEYS = new Set(["id", "component"]);
 
@@ -512,7 +529,8 @@ const RESERVED_KEYS = new Set(["id", "component"]);
  * @param config - `id`, then optional `extends`, `state` and `functions`,
  *   then `components`. Put `state` before `components`, so the selectors
  *   get typed state.
- * @throws Error when a name comes from two places, a key is reserved or used
+ * @throws Error when a name comes from two places, `props` is not an object
+ *   schema with a JSON Schema, a key is reserved or used
  *   twice on a component, an event matches two functions, an unmatched event
  *   has no `parameters`, a `bind` key is not a prop, a `writable` key is not
  *   a prop or is a bound prop, or a setter name is already a key of the
@@ -536,7 +554,7 @@ const RESERVED_KEYS = new Set(["id", "component"]);
  */
 export function createGenerativeUI<
   Bases extends readonly AnyGenerativeUI[] = [],
-  State extends Record<string, z.ZodTypeAny> = {},
+  State extends Record<string, GenerativeUISchema> = {},
   Functions extends Record<string, GenerativeUIFunctionDefinition> = {},
   Props extends Record<string, unknown> = {},
   Events extends Record<string, unknown> = {},
@@ -563,7 +581,7 @@ export function createGenerativeUI<
 
 function buildGenerativeUI(config: RuntimeConfig) {
   const where = `generative UI "${config.id}"`;
-  const state = new Map<string, z.ZodTypeAny>();
+  const state = new Map<string, GenerativeUISchema>();
   const functions = new Map<string, GenerativeUIFunctionDefinition>();
   const definitions = new Map<string, RuntimeComponentDefinition>();
 
@@ -618,7 +636,7 @@ function buildGenerativeUI(config: RuntimeConfig) {
 }
 
 interface ResolveContext {
-  state: ReadonlyMap<string, z.ZodTypeAny>;
+  state: ReadonlyMap<string, GenerativeUISchema>;
   functions: ReadonlyMap<string, GenerativeUIFunctionDefinition>;
   where: string;
 }
@@ -629,26 +647,23 @@ function resolveComponent(
   definition: RuntimeComponentDefinition,
   context: ResolveContext,
 ) {
-  assertDisjointKeys(name, definition);
-  const props: PropsSchema = definition.props ?? EMPTY_PROPS;
+  const propsJson = propsJsonSchema(name, definition, context.where);
+  const propKeys = Object.keys(propsJson.properties);
+  assertDisjointKeys(name, definition, propKeys);
 
   const selectors: Record<string, GenerativeUISelector> = {};
-  const propKeys = Object.keys(props.shape);
   for (const key of propKeys) {
     if (context.state.has(key)) selectors[key] = (state) => state[key];
   }
   const bind = definition.bind ?? {};
   for (const [key, selector] of Object.entries(bind)) {
-    if (!(key in props.shape)) {
+    if (!propKeys.includes(key)) {
       throw new Error(
         `[generativeUI] bind key "${key}" is not a prop of component "${name}" in ${context.where}.`,
       );
     }
     selectors[key] = selector;
   }
-  const boundMask: Record<string, true> = {};
-  for (const key of Object.keys(selectors)) boundMask[key] = true;
-
   const eventFunctions: Record<string, string> = {};
   const modelEvents: NonNullable<GenerativeUIComponentManifest["events"]> = {};
   const events = definition.events ?? {};
@@ -669,9 +684,8 @@ function resolveComponent(
     };
   }
 
-  assertWritable(name, definition, selectors, context.where);
+  assertWritable(name, definition, propKeys, selectors, context.where);
 
-  const modelProps = props.omit(boundMask);
   const component: ResolvedGenerativeUIComponent = {
     // The config checks components against `AnyComponent` (see above). Here
     // the renderer needs the React type.
@@ -684,12 +698,69 @@ function resolveComponent(
     writable: definition.writable,
     selectors,
     eventFunctions,
-    modelProps,
-    boundProps: props.pick(boundMask),
+    propKeys,
   };
   return {
     component,
-    manifest: toManifest(definition, modelProps, modelEvents),
+    manifest: toManifest(
+      definition,
+      modelPropsJsonSchema(propsJson, selectors),
+      modelEvents,
+    ),
+  };
+}
+
+type ObjectJsonSchema = GenerativeUIJSONSchema & {
+  properties: Record<string, GenerativeUIJSONSchema>;
+};
+
+/** The JSON Schema of `props`. A component without `props` has none. */
+function propsJsonSchema(
+  name: string,
+  definition: RuntimeComponentDefinition,
+  where: string,
+): ObjectJsonSchema {
+  if (!definition.props) return { type: "object", properties: {} };
+  const json = toJsonSchema(definition.props);
+  const { properties } = json;
+  const isObject =
+    typeof properties === "object" &&
+    properties !== null &&
+    !Array.isArray(properties);
+  if (!isObject) {
+    throw new Error(
+      `[generativeUI] the props of component "${name}" in ${where} must be an object schema.`,
+    );
+  }
+  return json as ObjectJsonSchema;
+}
+
+/**
+ * What the model sees of the props: the JSON Schema without the bound props,
+ * and with no other keys allowed.
+ */
+function modelPropsJsonSchema(
+  json: ObjectJsonSchema,
+  bound: Record<string, unknown>,
+): GenerativeUIJSONSchema {
+  const isModelKey = (key: string) => !Object.hasOwn(bound, key);
+  const {
+    properties,
+    required,
+    additionalProperties: _additionalProperties,
+    ...rest
+  } = json;
+  const modelRequired = Array.isArray(required)
+    ? required.filter((key: unknown) => isModelKey(String(key)))
+    : [];
+  return {
+    ...rest,
+    type: "object",
+    properties: Object.fromEntries(
+      Object.entries(properties).filter(([key]) => isModelKey(key)),
+    ),
+    ...(modelRequired.length > 0 ? { required: modelRequired } : {}),
+    additionalProperties: false,
   };
 }
 
@@ -729,11 +800,12 @@ export function setterNameOf(key: string) {
 function writableProblem(
   key: string,
   definition: RuntimeComponentDefinition,
+  propKeys: readonly string[],
   selectors: Record<string, GenerativeUISelector>,
 ) {
   if (Object.hasOwn(definition.events ?? {}, key)) return "an event";
   if (Object.hasOwn(definition.slots ?? {}, key)) return "a slot";
-  if (!Object.hasOwn(definition.props?.shape ?? {}, key)) return "not a prop";
+  if (!propKeys.includes(key)) return "not a prop";
   if (Object.hasOwn(selectors, key)) return "a bound prop";
   return undefined;
 }
@@ -741,17 +813,18 @@ function writableProblem(
 function assertWritable(
   name: string,
   definition: RuntimeComponentDefinition,
+  propKeys: readonly string[],
   selectors: Record<string, GenerativeUISelector>,
   where: string,
 ) {
   const writable = definition.writable ?? [];
   const keys = new Set([
-    ...Object.keys(definition.props?.shape ?? {}),
+    ...propKeys,
     ...Object.keys(definition.events ?? {}),
     ...Object.keys(definition.slots ?? {}),
   ]);
   for (const key of writable) {
-    const problem = writableProblem(key, definition, selectors);
+    const problem = writableProblem(key, definition, propKeys, selectors);
     if (problem) {
       throw new Error(
         `[generativeUI] writable key "${key}" of component "${name}" is ${problem} in ${where}.`,
@@ -769,10 +842,11 @@ function assertWritable(
 function assertDisjointKeys(
   name: string,
   definition: RuntimeComponentDefinition,
+  propKeys: readonly string[],
 ) {
   const seen = new Set<string>();
   const keys = [
-    ...Object.keys(definition.props?.shape ?? {}),
+    ...propKeys,
     ...Object.keys(definition.events ?? {}),
     ...Object.keys(definition.slots ?? {}),
   ];
@@ -793,12 +867,10 @@ function assertDisjointKeys(
 
 function toManifest(
   definition: RuntimeComponentDefinition,
-  modelProps: PropsSchema,
+  modelProps: GenerativeUIJSONSchema,
   modelEvents: NonNullable<GenerativeUIComponentManifest["events"]>,
 ) {
-  const manifest: GenerativeUIComponentManifest = {
-    props: toJsonSchema(modelProps.strict()),
-  };
+  const manifest: GenerativeUIComponentManifest = { props: modelProps };
   if (definition.description) manifest.description = definition.description;
   if (Object.keys(modelEvents).length > 0) manifest.events = modelEvents;
   if (definition.slots) manifest.slots = { ...definition.slots };

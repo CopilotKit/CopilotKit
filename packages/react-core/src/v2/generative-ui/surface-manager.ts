@@ -24,6 +24,12 @@ import type {
   OperationKind,
 } from "@copilotkit/shared";
 import type { GenerativeUI } from "./catalog";
+import {
+  formatIssues,
+  isAsyncIssue,
+  issueKey,
+  validateSchemaSync,
+} from "./schema";
 
 export function surfaceKey(threadId: string, surfaceId: string): string {
   return `${threadId}::${surfaceId}`;
@@ -86,9 +92,6 @@ export interface GenerativeUIMountedTarget {
   components?: string[];
 }
 
-/** A data prop can also be `{"@path"}` or `{"@call":"@index"}`. */
-const PATH_BINDING = z.custom(isPathBinding);
-const INDEX_CALL = z.custom(isIndexCall);
 let creationCounter = 0;
 
 const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
@@ -147,7 +150,6 @@ export class GenerativeUISurfaceManager {
    * built again.
    */
   private readonly deletedKeys = new Set<string>();
-  private readonly wireSchemas = new Map<string, z.ZodTypeAny>();
   private readonly webCoreCatalog: Catalog<any>;
   private activeThreadId: string | undefined;
   private version = 0;
@@ -682,33 +684,24 @@ export class GenerativeUISurfaceManager {
         ([key]) => !definition.events?.[key] && !definition.slots?.[key],
       ),
     );
-    const result = this.wireSchema(node.component).safeParse(dataProps);
-    if (result.success) return undefined;
-    return result.error.issues
-      .map((issue) => `${issue.path.join(".") || "props"}: ${issue.message}`)
-      .join("; ");
-  }
-
-  /**
-   * The schema of the props the model sets (`modelProps`), where every prop
-   * may also be a `{"@path"}` binding or a `{"@call":"@index"}`. Bound
-   * props are not in it, so a missing required bound prop does not fail.
-   */
-  private wireSchema(name: string): z.ZodTypeAny {
-    let schema = this.wireSchemas.get(name);
-    if (!schema) {
-      const shape = this.ui.components.get(name)?.modelProps.shape ?? {};
-      schema = z.object(
-        Object.fromEntries(
-          Object.entries(shape).map(([key, propSchema]) => [
-            key,
-            z.union([PATH_BINDING, INDEX_CALL, propSchema as z.ZodTypeAny]),
-          ]),
-        ),
-      );
-      this.wireSchemas.set(name, schema);
+    if (!definition.props) return undefined;
+    // The props schema checks the literal values. A `{"@path"}` or
+    // `{"@call":"@index"}` value is known only at render, and so is the
+    // value of a bound prop: their issues are left to the render check.
+    const unknownNow = new Set(Object.keys(definition.selectors));
+    const literals: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(dataProps)) {
+      if (isPathBinding(value) || isIndexCall(value)) unknownNow.add(key);
+      else literals[key] = value;
     }
-    return schema;
+    const result = validateSchemaSync(definition.props, literals);
+    if (result.success) return undefined;
+    // ponytail: an issue with no path (a check over several props) is left to the render check too, because it can depend on the values above. Only a schema that cannot validate synchronously is reported here.
+    const issues = result.issues.filter((issue) => {
+      const key = issueKey(issue);
+      return key === undefined ? isAsyncIssue(issue) : !unknownNow.has(key);
+    });
+    return issues.length > 0 ? formatIssues(issues) : undefined;
   }
 
   private upsertNode(model: SurfaceModel<any>, node: A2UIComponentNode) {

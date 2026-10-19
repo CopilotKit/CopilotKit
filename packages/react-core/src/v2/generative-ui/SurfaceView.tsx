@@ -10,7 +10,6 @@ import React, {
 } from "react";
 import type { ReactNode } from "react";
 import type { ComponentModel, SurfaceModel } from "@a2ui/web_core/v0_9";
-import type { z } from "zod";
 import {
   GENERATIVE_UI_ROOT_ID,
   isActionBinding,
@@ -24,6 +23,12 @@ import type {
 import { shallowEqual, useShallowStableRef } from "../lib/shallow-stable-ref";
 import { setterNameOf } from "./catalog";
 import type { ResolvedGenerativeUIComponent } from "./catalog";
+import {
+  formatIssues,
+  isAsyncIssue,
+  issueKey,
+  validateSchemaSync,
+} from "./schema";
 import {
   DefaultNodeFallback,
   NodeBoundary,
@@ -472,20 +477,42 @@ function useSelection(
   );
 }
 
-function issuesOf(error: z.ZodError) {
-  return error.issues
-    .map((i) => `${i.path.join(".") || "props"}: ${i.message}`)
-    .join("; ");
-}
-
 type DataProps =
   | { ok: true; props: Record<string, unknown> }
   | { ok: false; problem: string };
 
+type ModelCheck =
+  | { ok: true; values: Record<string, unknown> }
+  | { ok: false; problem: string };
+
 /**
- * The data props of a node, in three steps: parse the model-set props with
- * `modelProps`, run the selectors with them, then parse the selector results
- * with `boundProps`. Gives the reason when a step fails.
+ * Checks the model-set props with the props schema before the selectors run.
+ * The bound props are not set yet, so their issues do not count. Neither do
+ * issues with no path (a check over several props), which the full check
+ * after the selectors reports.
+ */
+function checkModelProps(
+  definition: ResolvedGenerativeUIComponent,
+  modelData: Record<string, unknown>,
+): ModelCheck {
+  if (!definition.props) return { ok: true, values: {} };
+  const result = validateSchemaSync(definition.props, modelData);
+  if (!result.success) {
+    const issues = result.issues.filter((issue) => {
+      const key = issueKey(issue);
+      return key === undefined
+        ? isAsyncIssue(issue)
+        : !Object.hasOwn(definition.selectors, key);
+    });
+    if (issues.length > 0) return { ok: false, problem: formatIssues(issues) };
+  }
+  return { ok: true, values: modelData };
+}
+
+/**
+ * The data props of a node, in three steps: check the model-set props with
+ * the props schema, run the selectors with them, then parse all props with
+ * the props schema. Gives the reason when a step fails.
  */
 function useDataProps(
   runtime: GenerativeUIRuntime,
@@ -502,26 +529,28 @@ function useDataProps(
     basePath,
     overrides,
   );
-  const parsedModel = useMemo(
-    () => definition.modelProps.safeParse(modelData),
+  const modelCheck = useMemo(
+    () => checkModelProps(definition, modelData),
     [definition, modelData],
   );
   const selection = useSelection(
     runtime.manager,
     definition,
-    parsedModel.success ? parsedModel.data : undefined,
+    modelCheck.ok ? modelCheck.values : undefined,
   );
   return useMemo((): DataProps => {
-    if (!parsedModel.success) {
-      return { ok: false, problem: issuesOf(parsedModel.error) };
-    }
+    if (!modelCheck.ok) return modelCheck;
     if (!selection.ok) return selection;
-    const parsedBound = definition.boundProps.safeParse(selection.values);
-    if (!parsedBound.success) {
-      return { ok: false, problem: issuesOf(parsedBound.error) };
+    if (!definition.props) return { ok: true, props: {} };
+    const parsed = validateSchemaSync(definition.props, {
+      ...modelCheck.values,
+      ...selection.values,
+    });
+    if (!parsed.success) {
+      return { ok: false, problem: formatIssues(parsed.issues) };
     }
-    return { ok: true, props: { ...parsedModel.data, ...parsedBound.data } };
-  }, [definition, parsedModel, selection]);
+    return { ok: true, props: parsed.data as Record<string, unknown> };
+  }, [definition, modelCheck, selection]);
 }
 
 /**
