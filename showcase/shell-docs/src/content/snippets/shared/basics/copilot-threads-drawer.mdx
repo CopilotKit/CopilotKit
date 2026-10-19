@@ -201,9 +201,31 @@ How it works:
 - The new thread appears in the Drawer list after its first run. An empty
   thread does not get a row.
 - If you set the `threadId` prop on `<CopilotChatConfigurationProvider>`, your
-  app controls the thread. Then `startNewThread()` does nothing and logs a
-  warning. Create the new thread id in your own state instead, and pass
-  `onNewThread` to the Drawer so its row runs the same code as your button.
+  app controls the thread. Then `startNewThread()` and the Drawer's own row
+  selection do nothing and log a warning. Keep the thread id in your own state,
+  and pass the Drawer two callbacks that update that state: `onThreadSelect`
+  for a selected row, and `onNewThread` for its "New Conversation" row. Your
+  button runs the same code as `onNewThread`:
+
+  ```tsx
+  function ControlledChat() {
+    const [threadId, setThreadId] = useState(() => crypto.randomUUID());
+    const startNew = () => setThreadId(crypto.randomUUID());
+
+    return (
+      <CopilotChatConfigurationProvider threadId={threadId}>
+        <CopilotThreadsDrawer
+          onThreadSelect={(id) => setThreadId(id)}
+          onNewThread={startNew}
+        />
+        <button type="button" onClick={startNew}>
+          New conversation
+        </button>
+        <CopilotChat />
+      </CopilotChatConfigurationProvider>
+    );
+  }
+  ```
 
 To show only your button, hide the Drawer's own new-conversation controls with
 their CSS parts. `new-thread-button` is the row in the open Drawer.

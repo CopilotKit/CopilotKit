@@ -229,9 +229,10 @@ a self-hosted gateway, an internal LLM proxy, [Ollama](https://ollama.com), [Tog
 above. Point `baseURL` at the provider's OpenAI-compatible route and pass your key:
 
 <Callout type="warn" title="Call provider.chat(model)">
-  For these providers, call `provider.chat("model")`, not `provider("model")`.
-  The bare call sends the request to the Responses API, and many of these
-  providers return an error for it. See
+  If the endpoint serves only the Chat Completions API, which is true for most
+  of these providers, call `provider.chat("model")`, not `provider("model")`.
+  The bare call sends the request to the Responses API. Keep the bare call only
+  for a proxy that forwards the Responses API to OpenAI. See
   [OpenAI-compatible providers](#openai-compatible-providers-use-providerchatmodel).
 </Callout>
 
