@@ -772,8 +772,33 @@ export class IntelligenceAgent extends AbstractAgent {
         switchMapOperator(({ channel }) =>
           this.observeChannelEvent$<unknown>(channel, REPLAY_FAILED_EVENT),
         ),
-        tap(() => {
+        tap((payload) => {
           controlCursor.replayFailed = true;
+          if (
+            payload === null ||
+            typeof payload !== "object" ||
+            !("retryable" in payload)
+          )
+            return;
+          if (payload.retryable === false) {
+            const reason =
+              "reason" in payload && typeof payload.reason === "string"
+                ? payload.reason
+                : "unknown error";
+            throw new Error(`Thread history replay failed: ${reason}`);
+          }
+          if (payload.retryable === true) {
+            this.updateLastSeenEventIdFromControl(
+              input.threadId,
+              payload,
+              controlCursor,
+            );
+            if ("latestEventId" in payload && payload.latestEventId === null) {
+              this.clearReconnectCursor(input.threadId);
+            }
+            // Phoenix reuses this params object when phx_error triggers rejoin.
+            params.last_seen_event_id = this.getLastSeenEventId(input.threadId);
+          }
         }),
       );
       // Controls are scoped to each replay epoch, not cached across rejoin.
