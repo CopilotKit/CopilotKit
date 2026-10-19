@@ -1,0 +1,27 @@
+[project]
+name = "myelin-journey-agent"
+version = "0.1.0"
+description = "Myelin journey-builder admin agent (Google ADK over AG-UI) for the reskinnable demo"
+requires-python = ">=3.12"
+dependencies = [
+  # Matches the version examples/integrations/adk/agent/uv.lock resolves and is
+  # validated with against ag-ui-adk 0.7.0.
+  "google-adk==2.5.0",
+  "google-genai",
+  # Same pins as examples/integrations/adk/agent — the AG-UI bridge this demo
+  # is validated against.
+  "ag-ui-adk==0.7.0",
+  "ag-ui-protocol==0.1.18",
+  "fastapi",
+  "uvicorn[standard]",
+  "python-dotenv",
+  "httpx",
+  # ADK's LiteLlm wrapper (google.adk.models.lite_llm) — lets the same ADK agent
+  # run on OpenAI when no Google key is available.
+  "litellm",
+  # uv skips transitive prereleases, and the only stable release was yanked.
+  "opentelemetry-resourcedetector-gcp==1.12.0a0",
+]
+
+[tool.uv]
+package = false

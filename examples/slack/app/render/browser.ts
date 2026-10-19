@@ -8,7 +8,8 @@
  *
  * Requires a Chromium binary: `npx playwright install chromium`.
  */
-import { chromium, type Browser } from "playwright";
+import { chromium } from "playwright";
+import type { Browser } from "playwright";
 
 let browserPromise: Promise<Browser> | undefined;
 let closing = false;

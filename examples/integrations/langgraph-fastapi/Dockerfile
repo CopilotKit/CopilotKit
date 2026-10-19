@@ -16,7 +16,7 @@ COPY showcase.json ./showcase.json
 # Overwrite the catch-all IN PLACE: a second exact /api/copilotkit/route.ts would
 # conflict, and an exact segment never matches subpaths like /api/copilotkit/info.
 COPY docker-route-override.ts ./src/app/api/copilotkit/\[\[...slug\]\]/route.ts
-RUN npm install --save-exact @ag-ui/client@0.0.59
+RUN npm install --save-exact @ag-ui/client@1.0.2
 
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 # Next.js 16+ uses Turbopack by default; use --webpack for serverExternalPackages compat
@@ -61,10 +61,11 @@ RUN uv pip install --system "ag-ui-langgraph[fastapi]==0.0.44" && \
     uv pip install --system --no-deps "copilotkit==0.1.96" && \
     uv pip install --system "partialjson>=0.0.8,<0.0.9" "toml>=0.10.2,<0.11.0" && \
     uv pip install --system \
-    "langchain==1.2.15" \
+    "langchain==1.4.0" \
     "langchain-openai==1.1.9" \
     "langchain-anthropic==1.4.1" \
-    "langgraph==1.1.6" \
+    "langchain-google-genai==4.4.0" \
+    "langgraph==1.2.11" \
     "langsmith==0.7.33" \
     "openai==1.109.1" \
     "python-dotenv>=1.0.0,<2.0.0" \

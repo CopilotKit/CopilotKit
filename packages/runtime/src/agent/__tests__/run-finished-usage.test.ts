@@ -1,7 +1,7 @@
 import { EventType } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
-import { expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { BuiltInAgent } from "../index";
 import { collectEvents, mockStreamTextResponse } from "./test-helpers";
 
@@ -11,16 +11,23 @@ vi.mock("ai", () => ({
   stepCountIs: vi.fn((count: number) => ({ type: "stepCount", count })),
 }));
 
-function setup(): { teardown: () => void } {
-  const originalEnv = process.env;
+beforeEach(() => {
   vi.clearAllMocks();
-  process.env = { ...originalEnv, OPENAI_API_KEY: "test-key" };
+  vi.stubEnv("OPENAI_API_KEY", "test-key");
+});
 
-  return {
-    teardown: () => {
-      process.env = originalEnv;
-    },
-  };
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+async function runAndCollectFinished(agent: BuiltInAgent) {
+  const events = await collectEvents(agent.run(createInput()));
+  const finished = events.filter(
+    (event) => event.type === EventType.RUN_FINISHED,
+  );
+  expect(finished).toHaveLength(1);
+  expect(finished[0]).not.toHaveProperty("finishReason");
+  return finished[0];
 }
 
 function createInput(): RunAgentInput {
@@ -45,164 +52,206 @@ const finishPart = {
 };
 
 test("classic AI SDK runs include total token usage on RUN_FINISHED", async () => {
-  const { teardown } = setup();
+  const model = {
+    specificationVersion: "v3" as const,
+    modelId: "test-model",
+    provider: "test-provider",
+    supportedUrls: {},
+    doGenerate: vi.fn(),
+    doStream: vi.fn(),
+  };
+  const agent = new BuiltInAgent({ model });
+  vi.mocked(streamText).mockReturnValue(mockStreamTextResponse([finishPart]));
 
-  try {
-    const model = {
-      specificationVersion: "v3" as const,
-      modelId: "test-model",
-      provider: "test-provider",
-      supportedUrls: {},
-      doGenerate: vi.fn(),
-      doStream: vi.fn(),
-    };
-    const agent = new BuiltInAgent({ model });
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finishPart]) as ReturnType<typeof streamText>,
-    );
+  const finished = await runAndCollectFinished(agent);
 
-    const events = await collectEvents(agent.run(createInput()));
-
-    expect(events.at(-1)).toMatchObject({
-      type: EventType.RUN_FINISHED,
-      finishReason: "stop",
-      usage: [
-        {
-          provider: "test-provider",
-          model: "test-model",
-          inputTokens: 12,
-          outputTokens: 8,
-          totalTokens: 20,
-        },
-      ],
-    });
-  } finally {
-    teardown();
-  }
+  expect(finished).toMatchObject({
+    type: EventType.RUN_FINISHED,
+    metadata: { finishReason: "stop" },
+    usage: [
+      {
+        provider: "test-provider",
+        model: "test-model",
+        inputTokens: 12,
+        outputTokens: 8,
+        totalTokens: 20,
+      },
+    ],
+  });
 });
 
 test("AI SDK factory runs include total token usage on RUN_FINISHED", async () => {
-  const { teardown } = setup();
+  const agent = new BuiltInAgent({
+    type: "aisdk",
+    factory: () => ({
+      fullStream: (async function* () {
+        yield finishPart;
+      })(),
+    }),
+  });
 
-  try {
-    const agent = new BuiltInAgent({
-      type: "aisdk",
-      factory: () => ({
-        fullStream: (async function* () {
-          yield finishPart;
-        })(),
-      }),
-    });
+  const finished = await runAndCollectFinished(agent);
 
-    const events = await collectEvents(agent.run(createInput()));
-
-    expect(events.at(-1)).toMatchObject({
-      type: EventType.RUN_FINISHED,
-      finishReason: "stop",
-      usage: [
-        {
-          inputTokens: 12,
-          outputTokens: 8,
-          totalTokens: 20,
-        },
-      ],
-    });
-  } finally {
-    teardown();
-  }
+  expect(finished).toMatchObject({
+    type: EventType.RUN_FINISHED,
+    metadata: { finishReason: "stop" },
+    usage: [
+      {
+        inputTokens: 12,
+        outputTokens: 8,
+        totalTokens: 20,
+      },
+    ],
+  });
 });
 
 test("AI SDK approval interrupts retain total token usage", async () => {
-  const { teardown } = setup();
+  const agent = new BuiltInAgent({
+    type: "aisdk",
+    factory: () => ({
+      fullStream: (async function* () {
+        yield {
+          type: "tool-approval-request",
+          toolCallId: "tool-call-1",
+          toolCall: { toolCallId: "tool-call-1", toolName: "grill" },
+        };
+        yield finishPart;
+      })(),
+    }),
+  });
 
-  try {
-    const agent = new BuiltInAgent({
-      type: "aisdk",
-      factory: () => ({
-        fullStream: (async function* () {
-          yield {
-            type: "tool-approval-request",
-            toolCallId: "tool-call-1",
-            toolCall: { toolCallId: "tool-call-1", toolName: "grill" },
-          };
-          yield finishPart;
-        })(),
-      }),
-    });
+  const finished = await runAndCollectFinished(agent);
 
-    const events = await collectEvents(agent.run(createInput()));
-
-    expect(events.at(-1)).toMatchObject({
-      type: EventType.RUN_FINISHED,
-      finishReason: "stop",
-      usage: [
-        {
-          inputTokens: 12,
-          outputTokens: 8,
-          totalTokens: 20,
-        },
-      ],
-      outcome: {
-        type: "interrupt",
-        interrupts: [{ id: "tool-call-1" }],
+  expect(finished).toMatchObject({
+    type: EventType.RUN_FINISHED,
+    metadata: { finishReason: "stop" },
+    usage: [
+      {
+        inputTokens: 12,
+        outputTokens: 8,
+        totalTokens: 20,
       },
-    });
-  } finally {
-    teardown();
-  }
+    ],
+    outcome: {
+      type: "interrupt",
+      interrupts: [{ id: "tool-call-1" }],
+    },
+  });
 });
 
 test("TanStack factory runs aggregate usage from every model turn", async () => {
-  const { teardown } = setup();
-
-  try {
-    const agent = new BuiltInAgent({
-      type: "tanstack",
-      factory: () =>
-        (async function* () {
-          yield {
-            type: "RUN_FINISHED",
-            model: "gpt-5-mini",
-            usage: {
-              promptTokens: 10,
-              completionTokens: 4,
-              totalTokens: 14,
-            },
-          };
-          yield {
-            type: "RUN_FINISHED",
-            model: "gpt-5-mini",
-            usage: {
-              promptTokens: 12,
-              completionTokens: 3,
-              totalTokens: 15,
-            },
-          };
-        })(),
-    });
-
-    const events = await collectEvents(agent.run(createInput()));
-
-    expect(events.at(-1)).toMatchObject({
-      type: EventType.RUN_FINISHED,
-      usage: [
-        {
+  const agent = new BuiltInAgent({
+    type: "tanstack",
+    factory: () =>
+      (async function* () {
+        yield {
+          type: "RUN_FINISHED",
           model: "gpt-5-mini",
-          inputTokens: 22,
-          outputTokens: 7,
-          totalTokens: 29,
-        },
-      ],
-    });
-  } finally {
-    teardown();
-  }
+          finishReason: "tool-calls",
+          metadata: { previousTurn: true },
+          usage: {
+            promptTokens: 10,
+            completionTokens: 4,
+            totalTokens: 14,
+          },
+        };
+        yield {
+          type: "RUN_FINISHED",
+          model: "gpt-5-mini",
+          finishReason: "stop",
+          metadata: { traceId: "last-turn" },
+          usage: {
+            promptTokens: 12,
+            completionTokens: 3,
+            totalTokens: 15,
+          },
+        };
+      })(),
+  });
+
+  const finished = await runAndCollectFinished(agent);
+
+  expect(finished).toMatchObject({
+    type: EventType.RUN_FINISHED,
+    metadata: { finishReason: "stop", traceId: "last-turn" },
+    usage: [
+      {
+        model: "gpt-5-mini",
+        inputTokens: 22,
+        outputTokens: 7,
+        totalTokens: 29,
+      },
+    ],
+  });
 });
 
 test("custom factory runs retain standard usage on one outer terminal event", async () => {
-  const { teardown } = setup();
+  const agent = new BuiltInAgent({
+    type: "custom",
+    factory: () =>
+      (async function* () {
+        yield {
+          type: EventType.RUN_FINISHED,
+          threadId: "inner-thread",
+          runId: "inner-run",
+          metadata: { finishReason: "stop", traceId: "custom-trace" },
+          usage: [
+            {
+              provider: "anthropic",
+              model: "claude-sonnet-4-6",
+              inputTokens: 30,
+              outputTokens: 11,
+              totalTokens: 41,
+            },
+          ],
+        };
+      })(),
+  });
 
-  try {
+  const finished = await runAndCollectFinished(agent);
+
+  expect(finished).toMatchObject({
+    threadId: "thread-token-usage",
+    runId: "run-token-usage",
+    metadata: { finishReason: "stop", traceId: "custom-trace" },
+    usage: [
+      {
+        provider: "anthropic",
+        model: "claude-sonnet-4-6",
+        inputTokens: 30,
+        outputTokens: 11,
+        totalTokens: 41,
+      },
+    ],
+  });
+});
+
+const latestMetadataCases = [
+  {
+    metadata: { finishReason: "stop", traceId: "last-turn" },
+    expectedMetadata: { finishReason: "stop", traceId: "last-turn" },
+  },
+  {
+    metadata: { finishReason: "" },
+    expectedMetadata: { finishReason: "" },
+  },
+  {
+    metadata: { traceId: "last-turn" },
+    expectedMetadata: { finishReason: "length", traceId: "last-turn" },
+  },
+  {
+    metadata: { finishReason: null, traceId: "last-turn" },
+    expectedMetadata: { finishReason: "length", traceId: "last-turn" },
+  },
+  {
+    metadata: undefined,
+    expectedMetadata: { finishReason: "length" },
+  },
+];
+
+test.each(latestMetadataCases)(
+  "custom runs retain the last supplied reason with the latest other metadata: %j",
+  async ({ metadata, expectedMetadata }) => {
     const agent = new BuiltInAgent({
       type: "custom",
       factory: () =>
@@ -210,40 +259,74 @@ test("custom factory runs retain standard usage on one outer terminal event", as
           yield {
             type: EventType.RUN_FINISHED,
             threadId: "inner-thread",
-            runId: "inner-run",
-            usage: [
-              {
-                provider: "anthropic",
-                model: "claude-sonnet-4-6",
-                inputTokens: 30,
-                outputTokens: 11,
-                totalTokens: 41,
-              },
-            ],
+            runId: "first-run",
+            metadata: { finishReason: "length", previousTurn: true },
+          };
+          yield {
+            type: EventType.RUN_FINISHED,
+            threadId: "inner-thread",
+            runId: "last-run",
+            ...(metadata ? { metadata } : {}),
           };
         })(),
     });
 
-    const events = await collectEvents(agent.run(createInput()));
+    const finished = await runAndCollectFinished(agent);
+    expect(finished.metadata).toEqual(expectedMetadata);
+  },
+);
 
-    expect(
-      events.filter((event) => event.type === EventType.RUN_FINISHED),
-    ).toEqual([
-      expect.objectContaining({
-        threadId: "thread-token-usage",
-        runId: "run-token-usage",
-        usage: [
-          {
-            provider: "anthropic",
-            model: "claude-sonnet-4-6",
-            inputTokens: 30,
-            outputTokens: 11,
-            totalTokens: 41,
-          },
-        ],
-      }),
-    ]);
-  } finally {
-    teardown();
-  }
-});
+const tanStackTerminalCases = [
+  {
+    terminal: { finishReason: "stop", metadata: { traceId: "last-turn" } },
+    expectedMetadata: { finishReason: "stop", traceId: "last-turn" },
+  },
+  {
+    terminal: { metadata: { finishReason: "stop", traceId: "last-turn" } },
+    expectedMetadata: { finishReason: "stop", traceId: "last-turn" },
+  },
+  {
+    terminal: { metadata: { traceId: "last-turn" } },
+    expectedMetadata: { finishReason: "tool-calls", traceId: "last-turn" },
+  },
+  { terminal: {}, expectedMetadata: { finishReason: "tool-calls" } },
+  {
+    terminal: { finishReason: "", metadata: { traceId: "last-turn" } },
+    expectedMetadata: { finishReason: "", traceId: "last-turn" },
+  },
+  {
+    terminal: { finishReason: null, metadata: { traceId: "last-turn" } },
+    expectedMetadata: { finishReason: "tool-calls", traceId: "last-turn" },
+  },
+];
+
+test.each(
+  tanStackTerminalCases.flatMap((testCase) => [
+    { ...testCase, usage: [{ inputTokens: 10 }] },
+    { ...testCase, usage: { promptTokens: 10 } },
+  ]),
+)(
+  "TanStack runs retain the last supplied reason with standard or native usage: %j",
+  async ({ terminal, expectedMetadata, usage }) => {
+    const agent = new BuiltInAgent({
+      type: "tanstack",
+      factory: () =>
+        (async function* () {
+          yield {
+            type: "RUN_FINISHED",
+            finishReason: "tool-calls",
+            metadata: { previousTurn: true },
+          };
+          yield {
+            type: "RUN_FINISHED",
+            ...terminal,
+            usage,
+          };
+        })(),
+    });
+
+    const finished = await runAndCollectFinished(agent);
+    expect(finished.metadata).toEqual(expectedMetadata);
+    expect(finished).toMatchObject({ usage: [{ inputTokens: 10 }] });
+  },
+);

@@ -143,7 +143,6 @@ describe("InterruptController", () => {
       }),
     ]);
     expect(run).toHaveBeenCalledWith(agent, {
-      runId: "run-id",
       resume: [
         { interruptId: "one", status: "resolved", payload: { approved: true } },
         { interruptId: "two", status: "cancelled" },
@@ -155,7 +154,7 @@ describe("InterruptController", () => {
     expect(controller.hasInterrupt()).toBe(false);
   });
 
-  it("preserves the interrupted run id when resuming", async () => {
+  it("uses a fresh run ID when resuming", async () => {
     const { agent, controller, run, startResume } = setup();
     const interruptControllerSubscriber = agent.subscriber;
     assertDefined(interruptControllerSubscriber);
@@ -173,7 +172,6 @@ describe("InterruptController", () => {
     const resumePromise = controller.resolve({ approved: true });
 
     expect(run).toHaveBeenCalledWith(agent, {
-      runId: interruptedRunId,
       resume: [
         {
           interruptId: "approve-refund",

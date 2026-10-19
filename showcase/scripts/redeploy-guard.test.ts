@@ -252,29 +252,36 @@ function rollupBuildResult(legResults: readonly string[]): string {
  */
 function contextFor(
   legResults: readonly string[],
-  opts: { runCancelled?: boolean; hasChanges?: boolean } = {},
+  opts: {
+    runCancelled?: boolean;
+    hasChanges?: boolean;
+    buildResult?: string;
+  } = {},
 ): GhContext {
   const anySuccess = legResults.includes("success");
+  const buildResult = opts.buildResult ?? rollupBuildResult(legResults);
   // `any_cancelled` / `cancelled_services` are derived from the per-slot
   // outcomes exactly as `aggregate-build-results` does.
   //
-  // Crucially, model WHEN THE AGGREGATOR ITSELF IS SKIPPED. Its guard is
-  // `!cancelled() && detect-changes.outputs.has_changes == 'true'`, so on a
-  // RUN-level cancellation OR a no-changes push it never runs, and a skipped
+  // Crucially, model WHEN THE AGGREGATOR ITSELF IS SKIPPED.
+  // It requires an uncancelled run, detected changes, and a build matrix
+  // that was not skipped. Otherwise it never runs, and a skipped
   // job's outputs resolve to the EMPTY STRING — not 'false'. That distinction
   // is load-bearing twice over: it is what keeps an intentional run-level
   // cancel silent, and it is what stops `any_success == 'false'` from firing
   // the alert on every routine push that builds nothing.
   const cancelledLegs = legResults.filter((r) => r === "cancelled");
   const aggregatorRan =
-    !(opts.runCancelled ?? false) && (opts.hasChanges ?? true);
+    !(opts.runCancelled ?? false) &&
+    (opts.hasChanges ?? true) &&
+    buildResult !== "skipped";
   return {
     runCancelled: opts.runCancelled ?? false,
     needs: {
       "detect-changes": {
         outputs: { has_changes: String(opts.hasChanges ?? true) },
       },
-      build: { result: rollupBuildResult(legResults) },
+      build: { result: buildResult },
       "aggregate-build-results": {
         outputs: aggregatorRan
           ? {
@@ -307,11 +314,32 @@ function jobRuns(
   const buildResult = String(
     (ctx.needs[buildJobKey] as { result: string }).result,
   );
-  const depFailedOrCancelled =
-    buildResult === "failure" || buildResult === "cancelled";
-  if (depFailedOrCancelled && !hasStatusFn) return false;
+  const depUnsuccessful = buildResult !== "success";
+  if (depUnsuccessful && !hasStatusFn) return false;
   return evalGuard(guard, ctx);
 }
+
+describe("aggregate-build-results upstream gate", () => {
+  it.each(["success", "failure", "cancelled", "skipped"])(
+    "handles build result %s without collecting artifacts from a skipped matrix",
+    (result) => {
+      const ctx = contextFor([result], { buildResult: result });
+      expect(jobRuns(readJobGuard("aggregate-build-results"), ctx)).toBe(
+        result !== "skipped",
+      );
+    },
+  );
+
+  it("does not collect on run cancellation or a no-change push", () => {
+    const guard = readJobGuard("aggregate-build-results");
+    expect(
+      jobRuns(guard, contextFor(["success"], { runCancelled: true })),
+    ).toBe(false);
+    expect(jobRuns(guard, contextFor(["success"], { hasChanges: false }))).toBe(
+      false,
+    );
+  });
+});
 
 /**
  * Build a GH context for the `redeploy-staging-starters` guard. Unlike the

@@ -1,11 +1,13 @@
 ---
 title: Open source vs Intelligence
-description: Compare CopilotKit's open-source SDKs and runtime with Intelligence services for Rich Threads, User Memories, Automatic Learning, Product Analytics, and Channels.
+description: Compare CopilotKit's open-source SDKs and runtime with Intelligence services for AG-UI Streams, User Memories, Automatic Learning, Product Analytics, and Channels.
 icon: "lucide/Cloud"
 doc_type: explanation
 ---
 
-CopilotKit's **open-source SDKs and runtime** connect your frontend to your agent without requiring a CopilotKit service. **CopilotKit Intelligence** adds Rich Threads, User Memories, Automatic Learning, Product Analytics, and Channels to that application. Choose the services your application needs while keeping your frontend and agent framework.
+CopilotKit's **open-source SDKs and TypeScript runtime** connect your frontend to your agent without requiring a CopilotKit service. **CopilotKit Intelligence** adds AG-UI Streams, User Memories, Automatic Learning, Product Analytics, and Channels to that application. Choose the services your application needs while keeping your frontend and agent framework.
+
+The TypeScript runtime is the default, most fully featured implementation and the only runtime that works without Intelligence. Python, Go, Ruby, and C#/.NET runtimes require cloud-hosted or self-hosted Intelligence. Their source is also open source; the distinction is the service they require. See [Runtime languages](/backend/copilot-runtime#runtime-languages) to choose a server implementation.
 
 ## The 30-second version
 
@@ -20,7 +22,7 @@ CopilotKit's **open-source SDKs and runtime** connect your frontend to your agen
 | Any AG-UI integration (LangGraph, Mastra, Built-in, custom)             | Yes                          |                               |
 | Framework-native or application-owned persistence                       | You operate and integrate it |                               |
 | Local Inspector for live events, tools, state, and connection debugging | Yes                          |                               |
-| Rich Threads with saved UI, resumable runs, and realtime sync           |                              | Yes                           |
+| AG-UI Streams with saved UI, resumable runs, and realtime sync           |                              | Yes                           |
 | User Memories and Automatic Learning                                    |                              | Yes                           |
 | Product Analytics and cloud-hosted channel connections                  |                              | Yes                           |
 | Inspector's saved Rich Threads and Automatic Learning panes             |                              | Yes                           |
@@ -54,7 +56,7 @@ MIT licensed. Run it on any host, in any cloud, with any LLM provider.
 
 A **backend service** beside your runtime, with capabilities you can add as needed:
 
-- **[Rich Threads](/threads)** — save conversations, UI, and inputs; reopen them across devices and reconnect to active runs.
+- **[AG-UI Streams](/threads)** — save conversations, UI, and inputs; reopen them across devices and reconnect to active runs.
 - **[User Memories](/intelligence/memories)** — retain facts beyond a single conversation, with user and project scopes.
 - **[Automatic Learning](/learning)** — turn real usage into skills you review and publish; use [Skill delivery](/intelligence/learned-skills) to make published skills available to your agent.
 - **[Product Analytics](/intelligence/analytics)** — understand how people use your agent and its tools.

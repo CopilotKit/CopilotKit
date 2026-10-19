@@ -111,7 +111,8 @@ describe("classifyModelSpec", () => {
 
   it("reports unknown for an already-built model", () => {
     // The endpoint was chosen before it reached us and is not recoverable:
-    // an Azure-backed model still reports provider "openai.responses".
+    // an Azure-backed model reports provider "openai.responses", the same
+    // label as one on api.openai.com.
     const prebuilt = resolveModel("openai/gpt-4o");
     expect(classifyModelSpec(prebuilt)).toBe("unknown");
   });

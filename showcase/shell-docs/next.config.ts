@@ -26,6 +26,8 @@ const CHANNEL_REDIRECT_GUIDE_SLUGS = [
   "tools",
   "identity-and-memory",
   "rich-messages",
+  "posting-jsx-as-images",
+  "render-and-carousel",
   "interactive",
   "commands-and-reactions",
   "files-and-multimodality",
@@ -818,11 +820,6 @@ const nextConfig: NextConfig = {
       {
         source: "/unselected/generative-ui/render-only",
         destination: "/generative-ui/your-components/display-only",
-        permanent: true,
-      },
-      {
-        source: "/unselected/generative-ui/tool-based",
-        destination: "/generative-ui/tool-rendering",
         permanent: true,
       },
       {

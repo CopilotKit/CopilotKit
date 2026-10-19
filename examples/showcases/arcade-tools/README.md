@@ -135,7 +135,7 @@ action to it. Wire that to your real session and each end user gets their own va
   tool definitions from Arcade to generate wrappers, or front your tools with an
   OAuth-protected [MCP gateway](https://docs.arcade.dev) for the production shape.
 - **Swap the model.** Set `OPENAI_MODEL` (e.g. `anthropic/claude-sonnet-4-6`,
-  `google/gemini-2.5-pro`). See CopilotKit's Built-in Agent model identifiers.
+  `google/gemini-3.8-flash`). See CopilotKit's Built-in Agent model identifiers.
 - **Real users.** Replace `getArcadeUserId()` with your authenticated user's id, derived
   per-request from your session (the app already fails closed if it's unset in production).
 

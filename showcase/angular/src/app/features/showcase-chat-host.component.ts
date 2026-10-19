@@ -1,5 +1,4 @@
 import type { AfterViewInit, ComponentRef, Type } from "@angular/core";
-import type { AttachmentsConfig } from "@copilotkit/angular";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,14 +9,16 @@ import {
   inject,
   input,
   inputBinding,
+  viewChild,
 } from "@angular/core";
-import { ActivatedRoute } from "@angular/router";
+import type { AttachmentsConfig } from "@copilotkit/angular";
 import {
   CopilotChat,
   CopilotKit,
   provideCopilotChatConfiguration,
   provideCopilotChatLabels,
 } from "@copilotkit/angular";
+import { ActivatedRoute } from "@angular/router";
 
 import {
   agentIdForCurrentIntegration,
@@ -33,7 +34,8 @@ import { populateChatInput } from "./showcase-chat-host-model";
   selector: "showcase-chat-host",
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: "showcase-chat-host" },
-  template: "",
+  // The chat renders inside the host, so it fills the host's box.
+  template: "<ng-container #chatOutlet />",
 })
 export class ShowcaseChatHostComponent implements AfterViewInit {
   readonly agentId = input<string | undefined>();
@@ -42,7 +44,9 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
   readonly messageViewChildrenComponent = input<Type<unknown> | undefined>();
   readonly headers = input<Record<string, string> | undefined>();
   readonly attachments = input<AttachmentsConfig | undefined>();
-  private readonly viewContainer = inject(ViewContainerRef);
+  private readonly outlet = viewChild.required("chatOutlet", {
+    read: ViewContainerRef,
+  });
   private readonly route = inject(ActivatedRoute);
   private readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
@@ -85,7 +89,7 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
     if (threadId !== undefined) {
       bindings.push(inputBinding("threadId", () => threadId));
     }
-    const chat = createDynamicComponent(this.viewContainer, CopilotChat, {
+    const chat = createDynamicComponent(this.outlet(), CopilotChat, {
       injector: childInjector,
       bindings,
     });

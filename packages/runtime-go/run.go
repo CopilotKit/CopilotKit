@@ -187,6 +187,20 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 		bad(w, 502, "Missing run credentials")
 		return
 	}
+	state := activeRun{cancel: stop, runID: canonicalRun, done: make(chan struct{})}
+	finish := func() {
+		r.mu.Lock()
+		if current, ok := r.active[canonicalThread]; ok && current.done == state.done {
+			delete(r.active, canonicalThread)
+		}
+		close(state.done)
+		r.mu.Unlock()
+	}
+	defer func() {
+		if !transferred {
+			finish()
+		}
+	}()
 	heartbeatDone := make(chan struct{})
 	go func() {
 		defer close(heartbeatDone)
@@ -211,6 +225,33 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 			<-heartbeatDone
 		}
 	}()
+	// A granted lease may replace a run whose agent or cleanup is still active.
+	handoff, cancelHandoff := context.WithTimeout(ctx, 5*time.Second)
+	defer cancelHandoff()
+	for {
+		r.mu.Lock()
+		if r.closed || handoff.Err() != nil {
+			r.mu.Unlock()
+			cleanup()
+			bad(w, 503, "Run admission canceled")
+			return
+		}
+		previous, exists := r.active[canonicalThread]
+		if !exists {
+			r.active[canonicalThread] = state
+			r.mu.Unlock()
+			break
+		}
+		r.mu.Unlock()
+		previous.cancel()
+		select {
+		case <-previous.done:
+		case <-handoff.Done():
+			cleanup()
+			bad(w, 503, "Run admission canceled")
+			return
+		}
+	}
 	history, e := r.platform(req.Context(), "GET", "/api/threads/"+url.PathEscape(canonicalThread)+"/messages?userId="+url.QueryEscape(u.ID), nil, nil)
 	if e != nil {
 		cleanup()
@@ -250,7 +291,7 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 		return
 	}
 	r.mu.Lock()
-	if r.closed {
+	if r.closed || (ctx.Err() != nil && !errors.Is(context.Cause(ctx), errUserStopped)) {
 		r.mu.Unlock()
 		pub.close()
 		cancel()
@@ -258,15 +299,6 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 		bad(w, 503, "Runtime shutting down")
 		return
 	}
-	if _, exists := r.active[canonicalThread]; exists {
-		r.mu.Unlock()
-		pub.close()
-		cancel()
-		cleanup()
-		bad(w, 409, "Thread already running")
-		return
-	}
-	r.active[canonicalThread] = activeRun{cancel: stop, runID: canonicalRun}
 	r.wg.Add(1)
 	r.mu.Unlock()
 	stopRequest()
@@ -280,11 +312,11 @@ func (r *Runtime) run(w http.ResponseWriter, req *http.Request, u User, agentID 
 	}()
 	go func() {
 		defer r.wg.Done()
+		defer finish()
 		defer cancel()
 		defer pub.close()
 		defer cancelPublisher()
 		defer stopPublisher()
-		defer func() { r.mu.Lock(); delete(r.active, canonicalThread); r.mu.Unlock() }()
 		defer func() { cancel(); <-heartbeatDone }()
 		r.capture("oss.runtime.agent_execution_stream_started", map[string]any{})
 		started, terminal := false, false

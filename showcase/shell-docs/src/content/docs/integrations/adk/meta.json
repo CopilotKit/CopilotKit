@@ -13,7 +13,7 @@
     "deploy-langsmith",
     "---Intelligence---",
     {
-      "title": "Rich Threads",
+      "title": "AG-UI Streams",
       "defaultOpen": true,
       "pages": ["threads", "headless-threads", "threads-import"]
     }

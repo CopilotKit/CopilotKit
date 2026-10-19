@@ -12,15 +12,11 @@
     "---Build Chat UIs---",
     "prebuilt-components",
     {
-      "title": "Rich Threads",
+      "title": "Threads",
       "defaultOpen": true,
       "pages": [
-        "threads",
         "prebuilt-components/copilot-threads-drawer",
-        "headless-threads",
-        "threads-lifecycle",
-        "threads-import",
-        "intelligence/threads-explained"
+        "headless-threads"
       ]
     },
     "custom-look-and-feel",
@@ -56,20 +52,36 @@
     "intelligence/overview",
     "intelligence/quickstart",
     "intelligence/intelligence-platform",
-    "threads",
+    {
+      "title": "AG-UI Streams",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "intelligence/bring-your-own-thread-system",
+        "threads-import",
+        "threads-lifecycle",
+        "intelligence/threads-explained"
+      ]
+    },
     "intelligence/memories",
     "learning",
     "intelligence/learned-skills",
+    "intelligence/capture-interactions",
+    "intelligence/standalone-collector",
+    "intelligence/captured-data",
     "intelligence/analytics",
     "intelligence/channels",
     "intelligence/managed-intelligence-platform",
     "intelligence/plans",
     "intelligence/self-hosting",
+    "intelligence/self-hosting-local",
     "intelligence/self-hosting-ecs",
+    "intelligence/self-hosting-observability",
     "---Deploy---",
     "...deploy",
     "---Other---",
     "...(other)",
+    "community-frameworks",
     {
       "title": "Troubleshooting",
       "pages": [

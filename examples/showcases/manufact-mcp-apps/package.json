@@ -1,0 +1,19 @@
+{
+  "name": "manufact-mcp-apps-showcase",
+  "private": true,
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "workspaces": [
+    "fizzy-maps",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n maps,web -c green,blue \"npm run dev -w fizzy-maps\" \"npm run dev -w web\"",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

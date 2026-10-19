@@ -37,7 +37,7 @@ def get_model(state: AgentState) -> BaseChatModel:
 
         return ChatGoogleGenerativeAI(
             temperature=0,
-            model="gemini-2.5-flash",
+            model="gemini-3.8-flash",
             api_key=cast(Any, os.getenv("GOOGLE_API_KEY")) or None,
         )
 

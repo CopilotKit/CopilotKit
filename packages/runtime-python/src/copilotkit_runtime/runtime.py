@@ -291,6 +291,7 @@ class IntelligenceRuntime:
                 return JSONResponse(
                     {
                         "threadId": data["threadId"],
+                        **({"runId": data["runId"]} if "runId" in data else {}),
                         "joinToken": data["joinToken"],
                         "realtime": self._realtime(data["threadId"]),
                     },

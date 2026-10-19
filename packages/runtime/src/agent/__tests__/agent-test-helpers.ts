@@ -27,6 +27,7 @@ export {
   toolCallDelta,
   toolCall,
   toolResult,
+  toolError,
   reasoningStart,
   reasoningDelta,
   reasoningEnd,

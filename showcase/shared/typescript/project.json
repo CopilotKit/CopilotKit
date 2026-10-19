@@ -1,0 +1,21 @@
+{
+  "name": "showcase-shared-typescript",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec vitest run --config showcase/shared/typescript/vitest.config.ts"
+      },
+      "inputs": ["{projectRoot}/**/*"],
+      "dependsOn": []
+    },
+    "check-types": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm exec tsc --project showcase/shared/typescript/tsconfig.json"
+      },
+      "inputs": ["{projectRoot}/**/*"],
+      "dependsOn": []
+    }
+  }
+}

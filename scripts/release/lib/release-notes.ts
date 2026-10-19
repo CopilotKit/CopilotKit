@@ -3,6 +3,8 @@ import type { ReleaseScope } from "./config.js";
 
 const BREAKING_CHANGE_MARKER = /^BREAKING(?: CHANGE|-CHANGE):[ \t]*(.*)$/;
 const BREAKING_SUBJECT = /^[a-z0-9-]+(?:\([^)]+\))?!:/i;
+const FEATURE_SUBJECT = /^feat(?:\([^)]+\))?!?:/;
+const FIX_SUBJECT = /^fix(?:\([^)]+\))?!?:/;
 const TRAILER = /^[a-z][a-z0-9-]*(?: [a-z][a-z0-9-]*)?:[ \t]+/i;
 
 export function extractBreakingChangeNotes(commit: Commit): string[] {
@@ -56,8 +58,8 @@ export function generateRawReleaseNotes(
   const other: Commit[] = [];
 
   for (const commit of summary.commits) {
-    if (/^feat[:(]/.test(commit.subject)) features.push(commit);
-    else if (/^fix[:(]/.test(commit.subject)) fixes.push(commit);
+    if (FEATURE_SUBJECT.test(commit.subject)) features.push(commit);
+    else if (FIX_SUBJECT.test(commit.subject)) fixes.push(commit);
     else other.push(commit);
   }
 

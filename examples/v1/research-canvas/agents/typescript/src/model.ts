@@ -17,7 +17,7 @@ function getModel(state: AgentState): BaseChatModel {
   console.log(`Using model: ${model}`);
 
   if (model === "openai") {
-    return new ChatOpenAI({ temperature: 0, model: "gpt-5-mini" });
+    return new ChatOpenAI({ model: "gpt-5-mini" });
   }
   if (model === "anthropic") {
     return new ChatAnthropic({
@@ -27,7 +27,7 @@ function getModel(state: AgentState): BaseChatModel {
   if (model === "google_genai") {
     return new ChatGoogleGenerativeAI({
       temperature: 0,
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       apiKey: process.env.GOOGLE_API_KEY || undefined,
     });
   }

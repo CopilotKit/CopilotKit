@@ -4,6 +4,7 @@ import { of } from "rxjs";
 import { setImmediate } from "node:timers/promises";
 import { describe, expect, it, vi } from "vitest";
 import { CopilotKitCore, CopilotKitCoreErrorCode } from "../core";
+import type { FrontendToolHandlerContext } from "../types";
 import {
   createTool,
   createToolCallMessage,
@@ -81,6 +82,9 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
       const handler = vi.fn(async () => "side effect");
       core.addTool(createTool({ name: "approval", type, handler }));
       await core.connectAgent({ agent });
+      // The restore pass runs after connectAgent resolves; let it run before
+      // asserting that it did nothing.
+      await setImmediate();
       expect(handler).not.toHaveBeenCalled();
       expect(agent.runs).toHaveLength(0);
     },
@@ -163,6 +167,8 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
     const first = core.connectAgent({ agent });
     await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
     await core.connectAgent({ agent });
+    // Let the second restore pass run before asserting it started nothing.
+    await setImmediate();
     expect(handler).toHaveBeenCalledTimes(1);
     answer.resolve("yes");
     await first;
@@ -648,5 +654,169 @@ describe("CopilotKitCore.connectAgent selective replay", () => {
     });
     await core.runAgent({ agent });
     expect(handler).toHaveBeenCalledTimes(1);
+  });
+});
+
+// #6101: an ordinary frontend tool can opt in to running its pending calls
+// when history is restored, instead of leaving the thread stuck on them.
+describe('CopilotKitCore.connectAgent with reconnectBehavior "resume-pending"', () => {
+  it.each(["approval", "*"])(
+    "runs the pending call of an opted-in tool registered as %s and continues with its result",
+    async (name) => {
+      const { core, agent, toolCallId } = setup();
+      const handler = vi.fn(async () => "browser data");
+      core.addTool(
+        createTool({
+          name,
+          handler,
+          followUp: true,
+          reconnectBehavior: "resume-pending",
+        }),
+      );
+
+      await core.connectAgent({ agent });
+
+      await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(agent.runs[0]?.messages).toContainEqual(
+        expect.objectContaining({
+          role: "tool",
+          toolCallId,
+          content: "browser data",
+        }),
+      );
+    },
+  );
+
+  it("tells the handler that the call is a replay", async () => {
+    const { core, agent } = setup();
+    const handler = vi.fn(
+      async (_args: unknown, _context: FrontendToolHandlerContext) => "ok",
+    );
+    core.addTool(
+      createTool({
+        name: "approval",
+        handler,
+        reconnectBehavior: "resume-pending",
+      }),
+    );
+
+    await core.connectAgent({ agent });
+
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    expect(handler.mock.calls[0]?.[1]).toMatchObject({ isReplay: true });
+  });
+
+  it("does not mark a call from a live run as a replay", async () => {
+    const { core, agent } = setup();
+    const handler = vi.fn(
+      async (_args: unknown, _context: FrontendToolHandlerContext) =>
+        "run result",
+    );
+    core.addTool(
+      createTool({
+        name: "approval",
+        handler,
+        reconnectBehavior: "resume-pending",
+      }),
+    );
+    vi.spyOn(agent, "runAgent").mockImplementationOnce(async () => {
+      agent.setMessages(agent.replayMessages);
+      return { result: undefined, newMessages: agent.replayMessages };
+    });
+
+    await core.runAgent({ agent });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0]?.[1]).not.toHaveProperty("isReplay");
+  });
+
+  it('leaves a tool with reconnectBehavior "passive" passive', async () => {
+    const { core, agent } = setup();
+    const handler = vi.fn(async () => "side effect");
+    core.addTool(
+      createTool({ name: "approval", handler, reconnectBehavior: "passive" }),
+    );
+
+    await core.connectAgent({ agent });
+    await setImmediate();
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(agent.runs).toHaveLength(0);
+  });
+
+  it("does not run a call that already has a result", async () => {
+    const { core, agent, message, toolCallId } = setup();
+    agent.replayMessages = [
+      message,
+      createToolResultMessage(toolCallId, "already answered"),
+    ];
+    const handler = vi.fn(async () => "again");
+    core.addTool(
+      createTool({
+        name: "approval",
+        handler,
+        followUp: true,
+        reconnectBehavior: "resume-pending",
+      }),
+    );
+
+    await core.connectAgent({ agent });
+    await setImmediate();
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(agent.runs).toHaveLength(0);
+  });
+
+  it("records the result without a follow-up run when followUp is false", async () => {
+    const { core, agent, toolCallId } = setup();
+    const handler = vi.fn(async () => "browser data");
+    core.addTool(
+      createTool({
+        name: "approval",
+        handler,
+        followUp: false,
+        reconnectBehavior: "resume-pending",
+      }),
+    );
+
+    await core.connectAgent({ agent });
+
+    await vi.waitFor(() =>
+      expect(agent.messages).toContainEqual(
+        expect.objectContaining({
+          role: "tool",
+          toolCallId,
+          content: "browser data",
+        }),
+      ),
+    );
+    await setImmediate();
+    expect(agent.runs).toHaveLength(0);
+  });
+
+  it("does not start the same pending call twice on reconnect", async () => {
+    const { core, agent } = setup();
+    const result = deferredAnswer();
+    const handler = vi.fn(() => result.promise);
+    core.addTool(
+      createTool({
+        name: "approval",
+        handler,
+        followUp: false,
+        reconnectBehavior: "resume-pending",
+      }),
+    );
+
+    const first = core.connectAgent({ agent });
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    await core.connectAgent({ agent });
+    // The second restore pass reaches the handler only after connectAgent
+    // resolves; let it run before asserting that it did not start the call.
+    await setImmediate();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    result.resolve("done");
+    await first;
   });
 });

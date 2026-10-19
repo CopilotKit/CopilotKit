@@ -1,0 +1,95 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / gen-ui-custom (pie chart path)",
+    "sourceFile": "harness/fixtures/d5/gen-ui-custom.json",
+    "created": "2026-05-21",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so each leg is staged on turnIndex (assistant-message count; +2 per tool round-trip, +1 per text answer)."
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-custom pie chart — first leg: emit render_pie_chart tool call. hasToolResult:false ensures this only matches when there's no prior tool result in the conversation. Includes narration content (with 'pie chart' tokens) inline so the D5 probe's last-assistant-text assertion passes even when the LGP runtime does not re-invoke the LLM after a frontend tool result returns (the second-leg fixture below remains a safety net for runtimes that DO loop back). chunkSize: 9999 guards against the @ag-ui/langgraph 0.0.34 partial-tool-call JSON.parse class — the render_pie_chart args are large enough to otherwise stream across multiple chunks and trip RUN_ERROR. The narration lives only on the turnIndex 2 leg: Antigravity streams a turn-0 text before the tool call as its own assistant message, which put the chart outside the first message and repeated the narration.",
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_001",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category (Q4)\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "gen-ui-custom pie chart — second leg: narration after the pie chart tool result lands. Kept as a safety net when the LGP runtime DOES loop back to the LLM. The follow-up text contains 'pie' and 'chart' tokens — the D5 probe asserts their presence.",
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "The page's 'Sales bar chart' suggestion pill: 0 = frontend render_bar_chart call, 2 = narration after the round-trip.",
+      "match": {
+        "userMessage": "Show me a bar chart of quarterly sales",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_ag_gen_ui_custom_sales_bar_001",
+            "name": "render_bar_chart",
+            "arguments": "{\"title\": \"Quarterly Sales\", \"description\": \"Sales by quarter, USD thousands\", \"data\": [{\"label\": \"Q1\", \"value\": 120}, {\"label\": \"Q2\", \"value\": 145}, {\"label\": \"Q3\", \"value\": 132}, {\"label\": \"Q4\", \"value\": 178}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a bar chart of quarterly sales",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Q4 is the strongest quarter at $178k, up from $120k in Q1. The values are illustrative samples."
+      }
+    },
+    {
+      "_comment": "gen-ui-tool-based.spec.ts 'bar chart request renders SVG visualization'. Tool call only at 0, narration at 2.",
+      "match": {
+        "userMessage": "Show me a bar chart of monthly expenses",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_ag_gen_ui_custom_monthly_bar_001",
+            "name": "render_bar_chart",
+            "arguments": "{\"title\": \"Monthly Expenses\", \"description\": \"Operating expenses by month, USD thousands\", \"data\": [{\"label\": \"Jan\", \"value\": 42}, {\"label\": \"Feb\", \"value\": 38}, {\"label\": \"Mar\", \"value\": 45}, {\"label\": \"Apr\", \"value\": 51}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a bar chart of monthly expenses",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "April has the highest expenses at $51k. The values are illustrative samples."
+      }
+    }
+  ]
+}

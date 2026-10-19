@@ -92,6 +92,8 @@ export function makeFakeRunRenderer(): RunRenderer {
 }
 
 export class FakeAdapter implements PlatformAdapter {
+  supportsJsxImages = true;
+
   platform = "fake";
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs = 3000;
@@ -369,6 +371,13 @@ export class FakeAdapter implements PlatformAdapter {
     opts: { fallbackToDM: boolean };
   }[] = [];
   postEphemeral?: PlatformAdapter["postEphemeral"];
+
+  // --- file upload ---
+  /** Override in tests to simulate an adapter that supports (or rejects) file upload. */
+  postFile?: PlatformAdapter["postFile"];
+  /** Override in tests to simulate an adapter that can stage a file. */
+  stageFile?: PlatformAdapter["stageFile"];
+  /** Override in tests to simulate a delivery keep-alive ping. */
 
   // --- modals ---
   openedModals: { triggerId: string; ir: ChannelNode[] }[] = [];

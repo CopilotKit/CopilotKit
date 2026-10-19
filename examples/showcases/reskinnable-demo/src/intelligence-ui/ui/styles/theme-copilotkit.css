@@ -1,0 +1,225 @@
+:root,
+[data-cpki-theme="light"],
+[data-cpki-theme="system"] {
+  color-scheme: light;
+
+  --imperial-blue: #757cf2;
+  --aquamarine-green: #5be4bb;
+  --sin-orange: #ffac4d;
+  --carmine-pink: #ef4444;
+  --solitude-white: #e8edf5;
+  --eerie-black: #181c1f;
+
+  --cpki-brand-imperial-blue: var(--imperial-blue);
+  --cpki-brand-aquamarine-green: var(--aquamarine-green);
+  --cpki-brand-sin-orange: var(--sin-orange);
+  --cpki-brand-carmine-pink: var(--carmine-pink);
+  --cpki-brand-solitude-white: var(--solitude-white);
+  --cpki-brand-eerie-black: var(--eerie-black);
+  --cpki-brand-gradient-glass:
+    radial-gradient(
+      36rem 14rem at 8% 18%,
+      rgb(117 124 242 / 20%),
+      transparent 64%
+    ),
+    radial-gradient(
+      34rem 16rem at 52% 100%,
+      rgb(91 228 187 / 18%),
+      transparent 66%
+    ),
+    radial-gradient(
+      30rem 14rem at 100% 0%,
+      rgb(255 172 77 / 14%),
+      transparent 64%
+    ),
+    linear-gradient(0deg, rgb(232 237 245 / 18%), rgb(232 237 245 / 18%)),
+    rgb(255 255 255 / 70%);
+  --cpki-texture-soft-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.14'/%3E%3C/svg%3E");
+  --cpki-glass-background: rgb(255 255 255 / 72%);
+  --cpki-glass-border: rgb(255 255 255 / 44%);
+  --cpki-glass-shadow: 0 12px 32px rgb(24 28 31 / 6%);
+
+  --cpki-color-background: #ffffff;
+  --cpki-color-foreground: var(--cpki-brand-eerie-black);
+  --cpki-color-surface: #ffffff;
+  --cpki-color-surface-raised: #ffffff;
+  --cpki-color-surface-subtle: #f7f7f9;
+  --cpki-color-surface-muted: rgb(232 237 245 / 34%);
+  --cpki-color-border: rgb(1 5 7 / 9%);
+  --cpki-color-border-subtle: rgb(1 5 7 / 5%);
+  --cpki-color-border-strong: rgb(1 5 7 / 18%);
+  --cpki-color-primary: var(--cpki-brand-eerie-black);
+  --cpki-color-primary-foreground: #ffffff;
+  --cpki-color-primary-hover: #2c3136;
+  --cpki-color-accent: var(--cpki-brand-imperial-blue);
+  --cpki-color-accent-foreground: var(--cpki-brand-eerie-black);
+  --cpki-color-danger: var(--cpki-brand-carmine-pink);
+  --cpki-color-danger-foreground: var(--cpki-brand-eerie-black);
+  --cpki-color-danger-hover: #ff7474;
+  --cpki-color-danger-muted: rgb(239 68 68 / 12%);
+  --cpki-color-danger-border: rgb(239 68 68 / 44%);
+  --cpki-color-warning: var(--cpki-brand-sin-orange);
+  --cpki-color-warning-foreground: var(--cpki-brand-eerie-black);
+  --cpki-color-warning-muted: rgb(255 172 77 / 18%);
+  --cpki-color-success: #189370;
+  --cpki-color-success-foreground: #010507;
+  --cpki-color-success-muted: rgb(91 228 187 / 18%);
+  --cpki-color-info-muted: rgb(117 124 242 / 12%);
+  --cpki-color-muted: #e8edf5;
+  --cpki-color-muted-foreground: #57575b;
+  --cpki-color-surface-hover: #e9edf3;
+  --cpki-color-focus-ring: var(--cpki-brand-imperial-blue);
+
+  --cpki-chart-series-1: var(--cpki-brand-imperial-blue);
+  --cpki-chart-series-2: var(--cpki-brand-aquamarine-green);
+  --cpki-chart-series-3: var(--cpki-brand-sin-orange);
+  --cpki-chart-series-4: var(--cpki-brand-carmine-pink);
+  --cpki-chart-series-5: var(--cpki-brand-solitude-white);
+  --cpki-chart-series-6: var(--cpki-brand-eerie-black);
+}
+
+[data-cpki-theme="dark"] {
+  color-scheme: dark;
+
+  --imperial-blue: #757cf2;
+  --aquamarine-green: #5be4bb;
+  --sin-orange: #ffac4d;
+  --carmine-pink: #ef4444;
+  --solitude-white: #e8edf5;
+  --eerie-black: #181c1f;
+
+  --cpki-brand-imperial-blue: var(--imperial-blue);
+  --cpki-brand-aquamarine-green: var(--aquamarine-green);
+  --cpki-brand-sin-orange: var(--sin-orange);
+  --cpki-brand-carmine-pink: var(--carmine-pink);
+  --cpki-brand-solitude-white: var(--solitude-white);
+  --cpki-brand-eerie-black: var(--eerie-black);
+  --cpki-brand-gradient-glass:
+    radial-gradient(
+      36rem 14rem at 8% 18%,
+      rgb(117 124 242 / 34%),
+      transparent 62%
+    ),
+    radial-gradient(
+      34rem 16rem at 52% 100%,
+      rgb(91 228 187 / 28%),
+      transparent 64%
+    ),
+    radial-gradient(
+      30rem 14rem at 100% 0%,
+      rgb(255 172 77 / 26%),
+      transparent 62%
+    ),
+    linear-gradient(0deg, rgb(232 237 245 / 10%), rgb(232 237 245 / 10%)),
+    rgb(24 28 31 / 82%);
+  --cpki-texture-soft-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
+  --cpki-glass-background: rgb(255 255 255 / 10%);
+  --cpki-glass-border: rgb(255 255 255 / 16%);
+  --cpki-glass-shadow: 0 20px 60px rgb(0 0 0 / 28%);
+
+  --cpki-color-background: var(--cpki-brand-eerie-black);
+  --cpki-color-foreground: var(--cpki-brand-solitude-white);
+  --cpki-color-surface: #202529;
+  --cpki-color-surface-raised: #272c31;
+  --cpki-color-surface-subtle: #2d3338;
+  --cpki-color-surface-muted: rgb(232 237 245 / 10%);
+  --cpki-color-border: rgb(232 237 245 / 18%);
+  --cpki-color-border-subtle: rgb(232 237 245 / 10%);
+  --cpki-color-border-strong: rgb(232 237 245 / 32%);
+  --cpki-color-primary: var(--cpki-brand-solitude-white);
+  --cpki-color-primary-foreground: var(--cpki-brand-eerie-black);
+  --cpki-color-primary-hover: #ffffff;
+  --cpki-color-accent: var(--cpki-brand-aquamarine-green);
+  --cpki-color-accent-foreground: var(--cpki-brand-eerie-black);
+  --cpki-color-danger: #ff8585;
+  --cpki-color-danger-foreground: var(--cpki-brand-eerie-black);
+  --cpki-color-danger-hover: #ffa0a0;
+  --cpki-color-danger-muted: rgb(239 68 68 / 20%);
+  --cpki-color-danger-border: rgb(239 68 68 / 56%);
+  --cpki-color-warning: var(--cpki-brand-sin-orange);
+  --cpki-color-warning-foreground: var(--cpki-brand-eerie-black);
+  --cpki-color-warning-muted: rgb(255 172 77 / 20%);
+  --cpki-color-success: var(--cpki-brand-aquamarine-green);
+  --cpki-color-success-foreground: var(--cpki-brand-eerie-black);
+  --cpki-color-success-muted: rgb(91 228 187 / 18%);
+  --cpki-color-info-muted: rgb(117 124 242 / 18%);
+  --cpki-color-muted: #3b4248;
+  --cpki-color-muted-foreground: #c7ccd4;
+  --cpki-color-surface-hover: #3a4147;
+  --cpki-color-focus-ring: var(--cpki-brand-aquamarine-green);
+
+  --cpki-chart-series-1: var(--cpki-brand-imperial-blue);
+  --cpki-chart-series-2: var(--cpki-brand-aquamarine-green);
+  --cpki-chart-series-3: var(--cpki-brand-sin-orange);
+  --cpki-chart-series-4: var(--cpki-brand-carmine-pink);
+  --cpki-chart-series-5: var(--cpki-brand-solitude-white);
+  --cpki-chart-series-6: var(--cpki-brand-eerie-black);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-cpki-theme="light"]),
+  [data-cpki-theme="system"] {
+    color-scheme: dark;
+
+    --cpki-brand-gradient-glass:
+      radial-gradient(
+        36rem 14rem at 8% 18%,
+        rgb(117 124 242 / 34%),
+        transparent 62%
+      ),
+      radial-gradient(
+        34rem 16rem at 52% 100%,
+        rgb(91 228 187 / 28%),
+        transparent 64%
+      ),
+      radial-gradient(
+        30rem 14rem at 100% 0%,
+        rgb(255 172 77 / 26%),
+        transparent 62%
+      ),
+      linear-gradient(0deg, rgb(232 237 245 / 10%), rgb(232 237 245 / 10%)),
+      rgb(24 28 31 / 82%);
+    --cpki-texture-soft-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
+    --cpki-glass-background: rgb(255 255 255 / 10%);
+    --cpki-glass-border: rgb(255 255 255 / 16%);
+    --cpki-glass-shadow: 0 20px 60px rgb(0 0 0 / 28%);
+
+    --cpki-color-background: var(--cpki-brand-eerie-black);
+    --cpki-color-foreground: var(--cpki-brand-solitude-white);
+    --cpki-color-surface: #202529;
+    --cpki-color-surface-raised: #272c31;
+    --cpki-color-surface-subtle: #2d3338;
+    --cpki-color-surface-muted: rgb(232 237 245 / 10%);
+    --cpki-color-border: rgb(232 237 245 / 18%);
+    --cpki-color-border-subtle: rgb(232 237 245 / 10%);
+    --cpki-color-border-strong: rgb(232 237 245 / 32%);
+    --cpki-color-primary: var(--cpki-brand-solitude-white);
+    --cpki-color-primary-foreground: var(--cpki-brand-eerie-black);
+    --cpki-color-primary-hover: #ffffff;
+    --cpki-color-accent: var(--cpki-brand-aquamarine-green);
+    --cpki-color-accent-foreground: var(--cpki-brand-eerie-black);
+    --cpki-color-danger: #ff8585;
+    --cpki-color-danger-foreground: var(--cpki-brand-eerie-black);
+    --cpki-color-danger-hover: #ffa0a0;
+    --cpki-color-danger-muted: rgb(239 68 68 / 20%);
+    --cpki-color-danger-border: rgb(239 68 68 / 56%);
+    --cpki-color-warning: var(--cpki-brand-sin-orange);
+    --cpki-color-warning-foreground: var(--cpki-brand-eerie-black);
+    --cpki-color-warning-muted: rgb(255 172 77 / 20%);
+    --cpki-color-success: var(--cpki-brand-aquamarine-green);
+    --cpki-color-success-foreground: var(--cpki-brand-eerie-black);
+    --cpki-color-success-muted: rgb(91 228 187 / 18%);
+    --cpki-color-info-muted: rgb(117 124 242 / 18%);
+    --cpki-color-muted: #3b4248;
+    --cpki-color-muted-foreground: #c7ccd4;
+    --cpki-color-surface-hover: #3a4147;
+    --cpki-color-focus-ring: var(--cpki-brand-aquamarine-green);
+
+    --cpki-chart-series-1: var(--cpki-brand-imperial-blue);
+    --cpki-chart-series-2: var(--cpki-brand-aquamarine-green);
+    --cpki-chart-series-3: var(--cpki-brand-sin-orange);
+    --cpki-chart-series-4: var(--cpki-brand-carmine-pink);
+    --cpki-chart-series-5: var(--cpki-brand-solitude-white);
+    --cpki-chart-series-6: var(--cpki-brand-eerie-black);
+  }
+}

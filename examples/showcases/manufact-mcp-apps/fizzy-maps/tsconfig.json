@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "jsx": "react-jsx",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": [
+    "index.ts",
+    "mcp-env.d.ts",
+    "src/**/*",
+    "views/**/*",
+    "server.ts",
+    ".mcp-use/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

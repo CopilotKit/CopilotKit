@@ -128,6 +128,17 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "agent/connect", agentId };
   }
 
+  // /trajectory/:trajectoryId/connect (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "trajectory" &&
+    segments[len - 1] === "connect"
+  ) {
+    const trajectoryId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!trajectoryId) return null;
+    return { method: "trajectory/connect", trajectoryId };
+  }
+
   // /agent/:agentId/stop/:threadId (4 segments)
   if (
     len >= 4 &&

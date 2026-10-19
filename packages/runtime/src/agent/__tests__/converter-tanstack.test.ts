@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { compactEvents, EventType } from "@ag-ui/client";
+import { EventSchemas } from "@ag-ui/core/schemas";
 import {
   createAgent,
   createDefaultInput,
@@ -549,7 +550,7 @@ describe("TanStack AI converter — state tools", () => {
     expect(deltaIdx).toBeGreaterThanOrEqual(0);
     expect(deltaIdx).toBeLessThan(resultIdx);
     expect(eventField<unknown>(events[deltaIdx], "delta")).toEqual(delta);
-    expect(() => compactEvents(events)).toThrow("OPERATION_NOT_AN_OBJECT");
+    expect(EventSchemas.safeParse(events[deltaIdx]).success).toBe(false);
   });
 
   it("emits STATE_SNAPSHOT when payload arrives in raw.result instead of raw.content", async () => {

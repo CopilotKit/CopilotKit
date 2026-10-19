@@ -6,6 +6,7 @@ import {
   serializeErr,
 } from "./status-writer.js";
 import type { WriterErrorInfo } from "./status-writer.js";
+import type { SelectedOutcome } from "./selected-observation.js";
 import { createEventBus } from "../events/event-bus.js";
 import type { PbClient } from "../storage/pb-client.js";
 import { logger } from "../logger.js";
@@ -274,6 +275,45 @@ describe("status-writer", () => {
     expect(out.transition).toBe("sustained_red");
     expect(out.firstFailureAt).toBe("2026-04-20T00:00:00Z");
     expect(out.failCount).toBe(2);
+  });
+
+  it("every tick appends a status_history row, sustained ticks included", async () => {
+    // status_history is bounded by 30-day retention, not by skipping
+    // sustained ticks. A key stable for longer than the retention window
+    // still needs recent rows, and red<->degraded is a sustained_red state
+    // change that only the audit row records.
+    const writer = createStatusWriter({
+      pb: env.pb,
+      bus: createEventBus(),
+      logger,
+    });
+    const ticks = [
+      ["green", "2026-04-20T00:00:00Z", "first"],
+      ["green", "2026-04-20T00:05:00Z", "sustained_green"],
+      ["red", "2026-04-20T00:10:00Z", "green_to_red"],
+      ["red", "2026-04-20T00:15:00Z", "sustained_red"],
+      ["degraded", "2026-04-20T00:20:00Z", "sustained_red"],
+      ["red", "2026-04-20T00:25:00Z", "sustained_red"],
+      ["green", "2026-04-20T00:30:00Z", "red_to_green"],
+    ] as const;
+    for (const [state, observedAt, transition] of ticks) {
+      const before = env.history.length;
+      const out = await writer.write({ ...probeResult(state), observedAt });
+      expect(out.transition).toBe(transition);
+      // One audit row per tick, written for this tick.
+      expect(env.history).toHaveLength(before + 1);
+      expect(env.history.at(-1)).toMatchObject({
+        key: "smoke:mastra",
+        state,
+        transition,
+        observed_at: observedAt,
+      });
+      // The status row is upserted on this tick, sustained or not.
+      expect(env.rows.get("smoke:mastra")).toMatchObject({
+        state,
+        observed_at: observedAt,
+      });
+    }
   });
 
   it("red_to_green clears first_failure_at and fail_count", async () => {
@@ -4041,5 +4081,141 @@ describe("fakePb test-infra invariants (round-9 #8)", () => {
       key: "smoke:c",
     })) as StatusRecord;
     expect(c.id).not.toBe(b.id);
+  });
+});
+
+describe("selected fleet observations", () => {
+  it("commits status/history through the endpoint and emits only for a new commit", async () => {
+    const env = fakePb();
+    const result = { ...probeResult("red"), key: "d6:mastra/chat" };
+    const apply = vi.fn<NonNullable<PbClient["applyFleetObservation"]>>(
+      async (plan) => {
+        if (!("outcome" in plan)) throw new Error("expected commit plan");
+        return { replay: false, outcome: plan.outcome };
+      },
+    );
+    const getOne = vi.fn(async () => ({ result_observation_receipts: null }));
+    const bus = createEventBus();
+    const changed = vi.fn();
+    bus.on("status.changed", changed);
+    const writer = createStatusWriter({
+      pb: {
+        ...env.pb,
+        getOne: async <T>() => (await getOne()) as T,
+        applyFleetObservation: apply,
+      },
+      bus,
+      logger,
+    });
+    const outcome = await writer.writeSelected({
+      jobId: "job000000000001",
+      result,
+    });
+    expect(outcome).toMatchObject({
+      kind: "write",
+      value: { failCount: 1, persisted: true },
+    });
+    expect(apply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        route: "write",
+        basis: null,
+        status: expect.objectContaining({ mode: "upsert" }),
+        history: expect.objectContaining({ key: result.key, state: "red" }),
+      }),
+    );
+    expect(env.history).toHaveLength(0);
+    expect(env.rows.size).toBe(0);
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks the endpoint to validate a pre-read receipt without rereading status or emitting", async () => {
+    const env = fakePb();
+    const result = { ...probeResult("red"), key: "d6:mastra/chat" };
+    const storedOutcome: SelectedOutcome = {
+      kind: "write",
+      value: {
+        previousState: "green",
+        newState: "red",
+        transition: "green_to_red",
+        firstFailureAt: result.observedAt,
+        failCount: 1,
+        persisted: true,
+      },
+    };
+    const getOne = vi.fn(async () => ({
+      result_observation_receipts: {
+        [result.key]: { fingerprint: "corrupt", outcome: {} },
+      },
+    }));
+    const getFirst = vi.spyOn(env.pb, "getFirst");
+    const apply = vi.fn<NonNullable<PbClient["applyFleetObservation"]>>(
+      async () => ({ replay: true, outcome: storedOutcome }),
+    );
+    const bus = createEventBus();
+    const changed = vi.fn();
+    bus.on("status.changed", changed);
+    const writer = createStatusWriter({
+      pb: {
+        ...env.pb,
+        getOne: async <T>() => (await getOne()) as T,
+        applyFleetObservation: apply,
+      },
+      bus,
+      logger,
+    });
+    await expect(
+      writer.writeSelected({ jobId: "job000000000001", result }),
+    ).resolves.toEqual(storedOutcome);
+    expect(Object.keys(apply.mock.calls[0][0]).sort()).toEqual([
+      "fingerprint",
+      "jobId",
+      "key",
+    ]);
+    expect(getFirst).not.toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
+    apply.mockRejectedValueOnce(
+      new Error("Invalid stored observation receipt"),
+    );
+    await expect(
+      writer.writeSelected({ jobId: "job000000000001", result }),
+    ).rejects.toThrow("Invalid stored observation receipt");
+  });
+
+  it("fails closed without job, receipt migration, endpoint, or endpoint acceptance", async () => {
+    const env = fakePb();
+    const result = { ...probeResult("red"), key: "d6:mastra/chat" };
+    const bus = createEventBus();
+    const apply = vi.fn(async () => {
+      throw new Error("atomic transaction failed");
+    });
+    const getOne = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({})
+      .mockResolvedValue({ result_observation_receipts: null });
+    const writer = createStatusWriter({
+      pb: {
+        ...env.pb,
+        getOne: async <T>() => (await getOne()) as T,
+        applyFleetObservation: apply,
+      },
+      bus,
+      logger,
+    });
+    await expect(
+      writer.writeSelected({ jobId: "job000000000001", result }),
+    ).rejects.toThrow("job is missing");
+    await expect(
+      writer.writeSelected({ jobId: "job000000000001", result }),
+    ).rejects.toThrow("migration is required");
+    await expect(
+      writer.writeSelected({ jobId: "job000000000001", result }),
+    ).rejects.toThrow("atomic transaction failed");
+    const unavailable = createStatusWriter({ pb: env.pb, bus, logger });
+    await expect(
+      unavailable.writeSelected({ jobId: "job000000000001", result }),
+    ).rejects.toThrow("client is required");
+    expect(env.history).toHaveLength(0);
+    expect(env.rows.size).toBe(0);
   });
 });

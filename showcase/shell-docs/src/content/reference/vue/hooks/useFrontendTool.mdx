@@ -59,8 +59,9 @@ function useFrontendTool<T extends Record<string, unknown>>(
     parsed arguments, typed from `parameters` but not validated against it, and
     the context object: `toolCall` (the raw tool call metadata), `agent` (the
     agent instance that invoked the tool; absent when the tool is invoked
-    through WebMCP), and `signal` (an `AbortSignal` that is aborted when the
-    user stops the agent).
+    through WebMCP), `signal` (an `AbortSignal` that is aborted when the
+    user stops the agent), and `isReplay` (`true` when the call is run while
+    the thread's history is restored; see `reconnectBehavior`).
     Long-running handlers can check `signal.aborted` or pass `signal` to
     `fetch` to cancel cooperatively. The resolved value is surfaced back to the
     agent as the tool result. `FrontendToolHandlerContext` is exported from
@@ -94,6 +95,10 @@ function useFrontendTool<T extends Record<string, unknown>>(
   <PropertyReference name="followUp" type="boolean">
     Whether the agent should automatically continue the run after the tool
     result is returned.
+  </PropertyReference>
+
+  <PropertyReference name="reconnectBehavior" type='"passive" | "resume-pending"' default='"passive"'>
+    What happens to a call of this tool that is still unanswered when the thread's history is restored, for example after a page reload. With `"passive"`, the call is shown but the handler does not run. With `"resume-pending"`, the handler runs for that call with `isReplay: true` in its context, and the run then continues as usual. Opt in only for a handler that is safe to run more than once. A call does not start twice at the same time on one page, but it can run again after a stop or a thread switch if its result never reached the agent, and two tabs that restore the same thread can each run it. If the agent calls this tool together with a tool that stays passive, the follow-up run sends the passive call without a result, which some model providers reject.
   </PropertyReference>
 
   <PropertyReference name="webmcp" type="boolean | { annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean } }">

@@ -91,7 +91,9 @@ it("rejects a snapshot with an invalid tool result", () => {
 
 it.each([
   { type: "image", data: "not base64!", mimeType: "image/png" },
-  { type: "audio", data: "abc", mimeType: "audio/wav" },
+  // "a" cannot be a base64 payload: a 4-character group never decodes from a
+  // single character. ("abc" would be fine - unpadded, but decodable.)
+  { type: "audio", data: "a", mimeType: "audio/wav" },
   { type: "resource", resource: { uri: "ui://demo/empty" } },
   { type: "resource_link", uri: "ui://demo/missing-name" },
   { type: "unknown", value: "future" },

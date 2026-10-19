@@ -10,6 +10,22 @@ To change what ships, edit the section on the release PR branch before merging.
 Entries begin with the first release cut after this file was added. The lane had
 no changelog before that.
 
+## 0.11.1 - 2026-10-16
+
+### Features
+
+- feat: AG-UI 1.0 for CopilotKit (#7270) (7693a04)
+
+### Fixes
+
+- fix(runtime): ping Intelligence sockets every 15s so 30s proxy idle timeouts don't drop runs (#7568) (75f5721)
+- fix(channels-slack): deliver a message click's state.values to the handler (#6523) (269fe33)
+- fix(channels): explain missing Channel agent configuration (#7411) (33db9a8)
+
+### Other Changes
+
+- chore(deps): bump @ag-ui/\* to 1.0.2 (PNI-551) (#7648) (d4afb51)
+
 ## 0.11.0 - 2026-09-22
 
 ### Fixes

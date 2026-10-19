@@ -143,6 +143,8 @@ export interface CopilotKitConfig {
   It is disabled by default so missing renderers remain visible integration
   errors rather than silently changing the experience.
 - `a2ui`: Theme, catalog, schema, loading UI, and recovery policy for A2UI.
+  Surfaces render with the catalog from `@copilotkit/angular/a2ui` (see
+  below); without one, A2UI stays off.
 - `openGenerativeUI`: Sandboxed UI functions and optional design guidance.
 
 ### Injection helpers
@@ -424,6 +426,135 @@ take precedence over optional built-ins.
   through the selected AG-UI agent; the browser provider does not accept a
   server URL. The renderer uses the same inline `srcdoc` sandbox, sandbox
   permissions, and resource-domain CSP as the React SDK.
+
+### A2UI with Angular components
+
+`@copilotkit/angular/a2ui` renders A2UI with ordinary standalone Angular
+components. A2UI needs a catalog: without one it stays off, even when the
+runtime enables it, and CopilotKit logs a warning. `basicCatalog`
+implements the A2UI basic components (Text, Row, Column, Card, Button,
+TextField, and the rest):
+
+```ts
+import { basicCatalog } from "@copilotkit/angular/a2ui";
+
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  a2ui: { catalog: basicCatalog },
+});
+```
+
+For your own components, build a catalog with `createAngularCatalog`. It
+contains exactly the components you register unless you pass
+`includeBasicCatalog: true`, which adds the basic components; a definition
+with the same name replaces the basic one. A component receives the resolved
+props through a single `props` input, or through inputs named after the
+schema keys. Props the agent has not sent yet arrive as `undefined`, so put
+defaults in the template (`label() ?? "…"`) rather than in `input("…")`.
+Containers render children with `<copilot-a2ui-child>`.
+
+```ts
+import {
+  ActionSchema,
+  ChildListSchema,
+  CopilotA2UIChild,
+  DynamicStringSchema,
+  createAngularCatalog,
+  type A2UICatalogDefinitions,
+  type A2UIProps,
+} from "@copilotkit/angular/a2ui";
+
+const definitions = {
+  Column: { props: z.object({ children: ChildListSchema }) },
+  Card: {
+    props: z.object({
+      title: DynamicStringSchema,
+      child: z.string().optional(),
+    }),
+  },
+  PrimaryButton: {
+    props: z.object({ label: z.string(), action: ActionSchema.optional() }),
+  },
+} satisfies A2UICatalogDefinitions;
+
+@Component({
+  selector: "app-a2ui-card",
+  imports: [CopilotA2UIChild],
+  template: `
+    <article>
+      <h3>{{ props().title }}</h3>
+      <copilot-a2ui-child [child]="props().child" />
+    </article>
+  `,
+})
+export class CardComponent {
+  readonly props = input.required<A2UIProps<typeof definitions, "Card">>();
+}
+
+export const catalog = createAngularCatalog(
+  definitions,
+  {
+    Column: ColumnComponent,
+    Card: CardComponent,
+    PrimaryButton: PrimaryButtonComponent,
+  },
+  { catalogId: "copilotkit://dashboard-catalog", includeBasicCatalog: true },
+);
+
+provideCopilotKit({ runtimeUrl: "/api/copilotkit", a2ui: { catalog } });
+```
+
+Props declared with `ActionSchema` arrive as callable closures, and dynamic
+props gain `set*` setters that write back to the data model. Inject
+`injectA2UIComponentContext()` to dispatch custom actions or write data-model
+paths directly. `<copilot-a2ui-surface>` renders operations outside the chat
+with the same catalog. `Icon` renders Material Symbols ligatures, so load that
+font if the agent uses icons.
+
+A catalog entry can also be a Custom Element, such as an existing design
+system's web component: pass `{ tagName, element }` instead of an Angular
+component. CopilotKit registers the element, renders it in place of the node,
+and assigns the node's A2UI `ComponentContext` to its `context` property on
+every update; the element reads its props and dispatches actions from there.
+
+```ts
+createAngularCatalog(
+  { Badge: { props: z.object({ label: z.string() }) } },
+  { Badge: { tagName: "acme-badge", element: AcmeBadge } },
+);
+```
+
+The basic catalog and the surface are styled with CSS variables. Set them on
+any ancestor; the CopilotKit stylesheet switches the colors in dark mode. The
+agent's `primaryColor` theme sets `--a2ui-color-primary` for its surface.
+
+| Variable                                                                | Default                              | Used for                                     |
+| ----------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------- |
+| `--a2ui-color-primary`                                                  | `#007bff`                            | primary buttons, active tabs, selected chips |
+| `--a2ui-color-on-primary`                                               | `#fff`                               | text on the primary color                    |
+| `--a2ui-color-surface`                                                  | `#fff`                               | cards, buttons, chips, dialogs               |
+| `--a2ui-color-border`                                                   | `#ccc`                               | borders and dividers                         |
+| `--a2ui-color-muted`                                                    | `#666`                               | captions and secondary text                  |
+| `--a2ui-color-error`                                                    | `red`                                | validation errors                            |
+| `--a2ui-color-input`, `--a2ui-color-on-input`                           | system field colors                  | text inputs                                  |
+| `--a2ui-color-placeholder`, `--a2ui-color-placeholder-highlight`        | `#f3f4f6`, `#e5e7eb`                 | loading and pending placeholders             |
+| `--a2ui-spacing-m`                                                      | `8px`                                | component margins and gaps                   |
+| `--a2ui-row-gap`, `--a2ui-column-gap`, `--a2ui-list-gap`                | `--a2ui-spacing-m`                   | space between children                       |
+| `--a2ui-border-radius`                                                  | `8px`                                | cards, inputs, dialogs                       |
+| `--a2ui-font-size-s`, `--a2ui-font-size-xs`                             | `14px`, `12px`                       | labels, captions                             |
+| `--a2ui-card-padding`, `--a2ui-card-shadow`                             | `16px`, subtle shadow                | Card                                         |
+| `--a2ui-button-padding`, `--a2ui-button-border-radius`                  | `8px 16px`, `4px`                    | Button, tabs                                 |
+| `--a2ui-input-padding`                                                  | `8px`                                | TextField, DateTimeInput                     |
+| `--a2ui-chip-border-radius`                                             | `16px`                               | ChoicePicker chips                           |
+| `--a2ui-icon-size`                                                      | `24px`                               | Icon                                         |
+| `--a2ui-modal-backdrop`, `--a2ui-modal-padding`, `--a2ui-modal-z-index` | `rgba(0, 0, 0, 0.5)`, `24px`, `1000` | Modal                                        |
+
+`--a2ui-primary-color`, which the React and Vue renderers use, still works as
+a fallback for `--a2ui-color-primary`.
+
+As in the A2UI renderers, Row, Column and List space their children with a gap
+rather than margins on each component, and a component's `weight` becomes its
+`flex` grow factor inside a Row or Column.
 
 ## Lifecycle and cleanup
 

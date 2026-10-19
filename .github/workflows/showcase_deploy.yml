@@ -102,7 +102,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.x
 
@@ -191,7 +191,7 @@ jobs:
         if: >-
           github.event_name == 'workflow_run' &&
           steps.check-redeploy-summary.outputs.summary_present == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: redeploy-summary
           path: .redeploy
@@ -292,7 +292,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.x
 
@@ -333,6 +333,20 @@ jobs:
           echo "::error::One or more staging services reported status:error in the redeploy summary."
           echo "See the resolve-matrix job's 'Gate on staging redeploy errors' step for details."
           exit 1
+
+  compatibility-refresh:
+    needs: [resolve-matrix, verify]
+    if: ${{ !cancelled() && needs.resolve-matrix.outputs.has_services == 'true' }}
+    permissions:
+      contents: read
+      packages: read
+    uses: $/.github/workflows/showcase_compatibility.yml
+    with:
+      environment: staging
+      services_csv: ${{ needs.resolve-matrix.outputs.services_csv }}
+    secrets:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SHOWCASE_HARNESS_SHARED_SECRET: ${{ secrets.SHOWCASE_HARNESS_SHARED_SECRET }}
 
   notify-harness:
     needs: [resolve-matrix, verify, enforce-redeploy-gate]
