@@ -22,12 +22,14 @@ const FADE_STYLE_ID = "a2ui-markdown-fade";
  * stable per component id, so an element that is already there never
  * animates again. SVG internals are left out: a chart library re-creates
  * its nodes on each render, and a fade on each of them would read as the
- * chart flashing whenever a sibling arrives.
+ * chart flashing whenever a sibling arrives. The fade runs under reduced
+ * motion too, because it moves nothing.
  */
 const FADE_CSS = [
-  "@keyframes a2ui-fade-in{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:none}}",
-  "[data-a2ui-markdown-surface] .a2ui-surface *:not(svg):not(svg *){animation:a2ui-fade-in .28s ease-out both}",
-  "@media (prefers-reduced-motion: reduce){[data-a2ui-markdown-surface] *{animation:none !important}}",
+  // Opacity only, so it also runs when the user asks for reduced motion:
+  // that setting is about movement, and a short fade is not movement.
+  "@keyframes a2ui-fade-in{from{opacity:0}to{opacity:1}}",
+  "[data-a2ui-markdown-surface] .a2ui-surface *:not(svg):not(svg *){animation:a2ui-fade-in .35s ease-out both}",
 ].join("\n");
 
 // There is no document on the server, so nothing is added there.
