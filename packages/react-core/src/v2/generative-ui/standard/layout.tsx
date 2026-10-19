@@ -3,7 +3,6 @@ import React, {
   useContext,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -203,27 +202,6 @@ const carouselMediaItemSchema = z.object({
     .optional()
     .describe("Default true: a click opens all slides full-screen"),
 });
-const ANIMATE_PRESETS = ["fade", "slide-up", "slide-down", "scale"] as const;
-type AnimatePreset = (typeof ANIMATE_PRESETS)[number];
-const animateProps = {
-  preset: z
-    .enum(ANIMATE_PRESETS)
-    .optional()
-    .describe(
-      'The entrance: "fade", "slide-up", "slide-down" or "scale". Default "fade"',
-    ),
-  duration: z.number().optional().describe("Milliseconds. Default 400"),
-  delay: z.number().optional().describe("Milliseconds. Default 0"),
-};
-const animateSchema = z.object({ ...layoutProps, ...animateProps });
-const animateGroupSchema = z.object({
-  ...layoutProps,
-  ...animateProps,
-  stagger: z
-    .number()
-    .optional()
-    .describe("Milliseconds between the entrances of the items. Default 80"),
-});
 const spacerSchema = z.object({ minSize: sizeValue.optional() });
 const dividerSchema = z.object({
   color: z.enum(BORDER_COLORS).optional(),
@@ -238,8 +216,6 @@ type GridItemProps = z.output<typeof gridItemSchema>;
 type CardProps = z.output<typeof cardSchema>;
 type FlowProps = z.output<typeof flowSchema>;
 type FlowItemProps = z.output<typeof flowItemSchema>;
-type AnimateProps = z.output<typeof animateSchema>;
-type AnimateGroupProps = z.output<typeof animateGroupSchema>;
 type CarouselProps = z.output<typeof carouselSchema> & {
   /** From the engine: `activeIndex` is writable. */
   setActiveIndex: (value: number) => void;
@@ -1011,163 +987,6 @@ function Divider(props: z.output<typeof dividerSchema>) {
   );
 }
 
-/** The CSS variables that drive the entrance animation of an element. */
-function animateVariables(props: {
-  preset?: AnimatePreset;
-  duration?: number;
-  delay?: number;
-}) {
-  const variables: Record<string, string> = {};
-  if (props.preset) {
-    variables["--a2ui-animate-name"] = `a2ui-enter-${props.preset}`;
-  }
-  if (props.duration !== undefined) {
-    variables["--a2ui-animate-duration"] = `${props.duration}ms`;
-  }
-  if (props.delay !== undefined) {
-    variables["--a2ui-animate-delay"] = `${props.delay}ms`;
-  }
-  return variables as CSSProperties;
-}
-
-/** A column that plays an entrance animation when it appears. */
-const Animate = container(
-  (props: AnimateProps) => ({
-    flexDirection: "column",
-    ...animateVariables(props),
-  }),
-  () => ({ "data-a2ui-animate": "" }),
-);
-
-interface AnimateGroupValue {
-  stagger: number;
-  preset?: AnimatePreset;
-  duration?: number;
-  delay?: number;
-}
-
-/** The stagger of the group, for its AnimateItem children. */
-const AnimateGroupContext = createContext<AnimateGroupValue | null>(null);
-
-/**
- * A column whose AnimateItem children enter one after the other. The group
- * itself does not animate. Each item takes the preset and duration of the
- * group, and a delay of its index times the stagger.
- */
-function AnimateGroup(props: WithChildren<AnimateGroupProps>) {
-  useStandardStyles();
-  const ref = useRef<HTMLDivElement>(null);
-  useVisibleOnce(ref, props.onVisible);
-  const { stagger, preset, duration, delay } = props;
-  const group = useMemo<AnimateGroupValue>(
-    () => ({ stagger: stagger ?? 80, preset, duration, delay }),
-    [stagger, preset, duration, delay],
-  );
-  return (
-    <AnimateGroupContext.Provider value={group}>
-      <div
-        ref={ref}
-        data-a2ui-std=""
-        data-a2ui-animate-group=""
-        role={props.role}
-        {...scrollAttributes(props.scrollable)}
-        style={{
-          ...layoutStyle(props),
-          ...(hasGap(props) ? {} : { gap: spacing(2) }),
-          flexDirection: "column",
-        }}
-      >
-        {props.children}
-      </div>
-    </AnimateGroupContext.Provider>
-  );
-}
-
-/**
- * An item of an AnimateGroup. It reads its position among its siblings when
- * it mounts, so the group can stagger the entrances. Outside of a group it
- * animates like Animate.
- */
-function AnimateItem(props: WithChildren<AnimateProps>) {
-  useStandardStyles();
-  const group = useContext(AnimateGroupContext);
-  const ref = useRef<HTMLDivElement>(null);
-  useVisibleOnce(ref, props.onVisible);
-  const [index, setIndex] = useState(0);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    const parent = element?.parentElement;
-    if (!element || !parent) return;
-    setIndex(Array.from(parent.children).indexOf(element));
-  }, []);
-  const delay =
-    props.delay ??
-    (group ? (group.delay ?? 0) + index * group.stagger : undefined);
-  return (
-    <div
-      ref={ref}
-      data-a2ui-std=""
-      data-a2ui-animate=""
-      data-a2ui-animate-index={group ? index : undefined}
-      role={props.role}
-      {...scrollAttributes(props.scrollable)}
-      style={{
-        ...layoutStyle(props),
-        ...(hasGap(props) ? {} : { gap: spacing(2) }),
-        flexDirection: "column",
-        ...animateVariables({
-          preset: props.preset ?? group?.preset,
-          duration: props.duration ?? group?.duration,
-          delay,
-        }),
-      }}
-    >
-      {props.children}
-    </div>
-  );
-}
-
-/** The keys of the rendered children: the child ids of the slot. */
-function childKeys(children: ReactNode) {
-  const keys: string[] = [];
-  React.Children.forEach(children, (child) => {
-    if (React.isValidElement(child) && child.key !== null) {
-      keys.push(String(child.key));
-    }
-  });
-  return keys.join("|");
-}
-
-/**
- * A column that plays its entrance animation again each time its set of
- * children changes: the ids make the key, so new content fades in. The
- * same children with new props do not animate again.
- */
-function Transition(props: WithChildren<AnimateProps>) {
-  useStandardStyles();
-  const ref = useRef<HTMLDivElement>(null);
-  useVisibleOnce(ref, props.onVisible);
-  return (
-    <div
-      key={childKeys(props.children)}
-      ref={ref}
-      data-a2ui-std=""
-      data-a2ui-animate=""
-      data-a2ui-transition=""
-      role={props.role}
-      {...scrollAttributes(props.scrollable)}
-      style={{
-        ...layoutStyle(props),
-        ...(hasGap(props) ? {} : { gap: spacing(2) }),
-        flexDirection: "column",
-        ...animateVariables(props),
-      }}
-    >
-      {props.children}
-    </div>
-  );
-}
-
 /**
  * The standard layout components: containers, Spacer and Divider. Give
  * them to `createGenerativeUI({ components: { ...layoutComponents } })`.
@@ -1279,37 +1098,5 @@ export const layoutComponents = {
     component: Divider,
     description: "A horizontal line between two groups.",
     props: dividerSchema,
-  },
-  Animate: {
-    component: Animate,
-    description:
-      'A column that plays an entrance animation when it appears: "fade" (default), "slide-up", "slide-down" or "scale". Use it for a result that deserves attention, not for every block.',
-    props: animateSchema,
-    events: VISIBLE_EVENT,
-    slots: CHILDREN_SLOT,
-  },
-  AnimateGroup: {
-    component: AnimateGroup,
-    description:
-      "A column whose AnimateItem children enter one after the other, stagger milliseconds apart. Put AnimateItem children in it, for example one per result.",
-    props: animateGroupSchema,
-    events: VISIBLE_EVENT,
-    slots: CHILDREN_SLOT,
-  },
-  AnimateItem: {
-    component: AnimateItem,
-    description:
-      "An item of an AnimateGroup. It enters after the items before it. Its own preset, duration and delay win over those of the group.",
-    props: animateSchema,
-    events: VISIBLE_EVENT,
-    slots: CHILDREN_SLOT,
-  },
-  Transition: {
-    component: Transition,
-    description:
-      "A column that plays its entrance animation again each time its children change, so new content fades in. Use it around content that a later fence replaces.",
-    props: animateSchema,
-    events: VISIBLE_EVENT,
-    slots: CHILDREN_SLOT,
   },
 };

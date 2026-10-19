@@ -139,43 +139,11 @@
       "color": "subtle"
     },
     {
-      "id": "anim",
-      "component": "Animate",
-      "children": ["animg"]
-    },
-    {
-      "id": "animg",
-      "component": "AnimateGroup",
-      "children": ["animi"]
-    },
-    {
-      "id": "animi",
-      "component": "AnimateItem",
-      "children": ["trans"]
-    },
-    {
-      "id": "trans",
-      "component": "Transition",
-      "children": ["trans-t"]
-    },
-    {
-      "id": "trans-t",
-      "component": "Text",
-      "text": "Animated content"
-    },
-    {
       "id": "s-layout",
       "component": "Card",
       "variant": "soft",
       "gap": 2,
-      "children": [
-        "s-layout-title",
-        "box",
-        "flow",
-        "carousel",
-        "divider",
-        "anim"
-      ]
+      "children": ["s-layout-title", "box", "flow", "carousel", "divider"]
     },
     {
       "id": "s-layout-title",

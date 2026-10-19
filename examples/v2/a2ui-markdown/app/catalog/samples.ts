@@ -261,38 +261,6 @@ export const SAMPLES: CatalogSample[] = [
       txt("c", "After the spacer"),
     ],
   },
-  {
-    group: "Layout",
-    title: "Animate, AnimateGroup, AnimateItem, Transition",
-    covers: ["Animate", "AnimateGroup", "AnimateItem", "Transition"],
-    components: [
-      { id: "root", component: "Column", gap: 3, children: ["grp", "a", "tr"] },
-      {
-        id: "grp",
-        component: "AnimateGroup",
-        preset: "slide-up",
-        stagger: 150,
-        children: ["i1", "i2", "i3"],
-      },
-      { id: "i1", component: "AnimateItem", children: ["x1"] },
-      txt("x1", "AnimateGroup: the items slide up one after the other"),
-      { id: "i2", component: "AnimateItem", children: ["x2"] },
-      txt("x2", "Second item, 150 ms later"),
-      { id: "i3", component: "AnimateItem", children: ["x3"] },
-      txt("x3", "Third item, 300 ms later"),
-      {
-        id: "a",
-        component: "Animate",
-        preset: "scale",
-        duration: 600,
-        delay: 500,
-        children: ["x4"],
-      },
-      txt("x4", "Animate: scales in after half a second"),
-      { id: "tr", component: "Transition", preset: "fade", children: ["x5"] },
-      txt("x5", "Transition: fades in again whenever its children change"),
-    ],
-  },
   // ------------------------------------------------------------------ Text
   {
     group: "Text",
