@@ -69,6 +69,32 @@ The temporary bootstrap branch exception requires both
 `RICH_RUNNER_DEPLOY_BOOTSTRAP_SHA` repository variable. Remove that variable after
 credential proof. Normal deployment requires `main`. No schedule is enabled.
 
+## Recovery of the October 16 ambiguous create
+
+The optional `--recovery PATH` generator input selects the single incident in
+`recovery-contract.mjs`. The release still requires review, immutable build
+provenance, and deployment from `main`. It is not a general compatibility bypass.
+The old runner first persists a same-image drain fence for the exact failed run.
+The controller then sets only `RICH_RECOVERY_AUTHORIZATION_JSON` with deployment
+suppressed, and replaces the image on the verified retained volume.
+
+The replacement validates the original intent and lease, retains the original
+journal and receipt, and persists ownership of possible late resources before
+releasing the old lease. `/deployment/recover` produces `recovery-ready`; resume
+requires a fresh inventory check and a durable watch receipt. The original attempt
+remains failed and overdue, and `providerFinality` remains `unknown`. Empty CLI
+inventory is an observation, not cancellation. The watch continues across runs and
+restarts; inventory errors or ambiguous ownership block admission. Scheduling
+stays off. Detection can be delayed by outages or an active run.
+
+A failed recovery candidate never rolls back automatically to the legacy image,
+which cannot interpret the new metadata. After a lost deploy response, rerun the
+same workflow only to adopt a fully verified candidate using its saved checkpoint.
+If the old runtime remains or deployment is unresolved, the fence remains closed;
+the controller does not issue a second deployment. Future updates while the watch
+exists require an explicit compatible recovery transition; ordinary clean-drain
+updates cannot certify the unresolved old request as cleaned up.
+
 ## Local checks
 
 ```sh

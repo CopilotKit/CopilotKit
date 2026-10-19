@@ -496,7 +496,7 @@ class IntelligenceRuntime:
             history = await self.platform.request(
                 "GET",
                 f"/api/threads/{segment(canonical_thread)}/messages",
-                query={"userId": user.id},
+                query={"userId": user.id, "fields": "id"},
             )
             if not isinstance(history, dict) or not isinstance(history.get("messages"), list):
                 raise PlatformError(502, "Invalid thread history")
