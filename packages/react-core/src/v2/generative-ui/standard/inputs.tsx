@@ -24,6 +24,12 @@ import {
 } from "./layout";
 import { openUrl } from "./lightbox";
 import { LucideIcon } from "./media";
+import {
+  CHECK_ERROR_STYLE,
+  checksProp,
+  firstFailedCheck,
+  useChecks,
+} from "./checks";
 
 /** Copies text to the clipboard. False when the API is not there. */
 async function copyText(text: string) {
@@ -81,6 +87,7 @@ const boundValue = z
 
 const buttonSchema = z.object({
   label: z.string().optional().describe("The button text"),
+  checks: checksProp,
   text: z
     .string()
     .optional()
@@ -138,6 +145,7 @@ const formSchema = z.object({
     .describe("A short name of the form for screen readers"),
 });
 const textFieldSchema = z.object({
+  checks: checksProp,
   value: z
     .union([z.string(), z.number()])
     .optional()
@@ -169,6 +177,7 @@ const textFieldSchema = z.object({
   mask: z.string().optional(),
 });
 const textAreaSchema = z.object({
+  checks: checksProp,
   value: boundValue,
   placeholder: z.string().optional(),
   label: fieldLabel,
@@ -183,6 +192,7 @@ const textAreaSchema = z.object({
   size: size("xl"),
 });
 const selectSchema = z.object({
+  checks: checksProp,
   value: boundValue,
   options: optionList,
   placeholder: z.string().optional(),
@@ -199,6 +209,7 @@ const selectSchema = z.object({
   pill,
 });
 const checkBoxSchema = z.object({
+  checks: checksProp,
   value: z
     .boolean()
     .optional()
@@ -223,6 +234,7 @@ const radioSchema = z.object({
   required: z.boolean().optional(),
 });
 const radioGroupSchema = z.object({
+  checks: checksProp,
   value: boundValue,
   options: optionList,
   label: fieldLabel,
@@ -233,6 +245,7 @@ const radioGroupSchema = z.object({
   required: z.boolean().optional(),
 });
 const sliderSchema = z.object({
+  checks: checksProp,
   value: z
     .number()
     .optional()
@@ -262,6 +275,7 @@ const sliderSchema = z.object({
   name: z.string().optional(),
 });
 const segmentedControlSchema = z.object({
+  checks: checksProp,
   value: boundValue,
   options: optionList,
   label: fieldLabel,
@@ -275,6 +289,7 @@ const segmentedControlSchema = z.object({
   disabled: z.boolean().optional(),
 });
 const choicePickerSchema = z.object({
+  checks: checksProp,
   value: z
     .array(z.string())
     .optional()
@@ -300,6 +315,7 @@ const choicePickerSchema = z.object({
   required: z.boolean().optional(),
 });
 const dateTimeInputSchema = z.object({
+  checks: checksProp,
   value: z
     .string()
     .optional()
@@ -416,6 +432,8 @@ function Field({
   htmlFor,
   labelId,
   weight,
+  error,
+  onBlur,
   children,
 }: {
   label?: string;
@@ -423,6 +441,10 @@ function Field({
   labelId?: string;
   /** The A2UI `weight`: flex-grow in a Row or Column. */
   weight?: number;
+  /** The message of a failed check, shown under the control. */
+  error?: string;
+  /** Called when the focus leaves the control, to mark it as touched. */
+  onBlur?: () => void;
   children: ReactNode;
 }) {
   const labelElement =
@@ -445,10 +467,22 @@ function Field({
         minWidth: 0,
         flexGrow: weight,
       }}
+      onBlurCapture={onBlur}
     >
       {label ? labelElement : null}
       {children}
+      <CheckError message={error} />
     </div>
+  );
+}
+
+/** The message of a failed check, under a control. Nothing when none. */
+function CheckError({ message }: { message: string | undefined }) {
+  if (message === undefined) return null;
+  return (
+    <span role="alert" data-a2ui-check-error="" style={CHECK_ERROR_STYLE}>
+      {message}
+    </span>
   );
 }
 
@@ -498,7 +532,10 @@ function Button(props: ButtonProps) {
   useStandardStyles();
   const [isCopied, setIsCopied] = useState(false);
   const buttonSize = props.size ?? "lg";
-  const isDisabled = Boolean(props.disabled || props.loading);
+  const failedCheck = firstFailedCheck(props.checks);
+  const isDisabled = Boolean(
+    props.disabled || props.loading || failedCheck !== undefined,
+  );
   const style: CSSProperties = {
     display: props.block ? "flex" : "inline-flex",
     width: props.block ? "100%" : undefined,
@@ -525,6 +562,7 @@ function Button(props: ButtonProps) {
       data-a2ui-input=""
       type={props.submit ? "submit" : "button"}
       disabled={isDisabled}
+      title={failedCheck}
       aria-busy={props.loading ? true : undefined}
       style={style}
       onClick={(event) => {
@@ -686,9 +724,11 @@ function TextField(props: TextFieldProps) {
   const id = useId();
   const ref = useRef<HTMLInputElement>(null);
   const variant = props.variant ?? "shortText";
+  const check = useChecks(props.checks, props.value);
   if (variant === "longText") {
     return (
       <TextArea
+        checks={props.checks}
         value={asText(props.value)}
         placeholder={props.placeholder}
         label={props.label}
@@ -703,7 +743,13 @@ function TextField(props: TextFieldProps) {
     );
   }
   return (
-    <Field label={props.label} htmlFor={id} weight={props.weight}>
+    <Field
+      label={props.label}
+      htmlFor={id}
+      weight={props.weight}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
       <input
         ref={ref}
         id={id}
@@ -715,7 +761,7 @@ function TextField(props: TextFieldProps) {
         aria-label={props.label ? undefined : props.placeholder}
         required={props.required}
         disabled={props.disabled}
-        aria-invalid={props.invalid || undefined}
+        aria-invalid={props.invalid || check.invalid || undefined}
         value={asText(props.value)}
         onFocus={props.autoSelect ? () => ref.current?.select() : undefined}
         onChange={(event) => props.setValue(event.target.value)}
@@ -733,8 +779,15 @@ function TextArea(props: TextAreaProps) {
   useStandardStyles();
   const id = useId();
   const areaSize = props.size ?? "xl";
+  const check = useChecks(props.checks, props.value);
   return (
-    <Field label={props.label} htmlFor={id} weight={props.weight}>
+    <Field
+      label={props.label}
+      htmlFor={id}
+      weight={props.weight}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
       <textarea
         id={id}
         data-a2ui-input=""
@@ -743,7 +796,7 @@ function TextArea(props: TextAreaProps) {
         aria-label={props.label ? undefined : props.placeholder}
         required={props.required}
         disabled={props.disabled}
-        aria-invalid={props.invalid || undefined}
+        aria-invalid={props.invalid || check.invalid || undefined}
         rows={props.rows ?? 3}
         value={asText(props.value)}
         onChange={(event) => {
@@ -783,8 +836,15 @@ function DateTimeInput(props: DateTimeInputProps) {
   const id = useId();
   const value = asText(props.value);
   const showClear = props.clearable && value !== "";
+  const check = useChecks(props.checks, props.value);
   return (
-    <Field label={props.label} htmlFor={id} weight={props.weight}>
+    <Field
+      label={props.label}
+      htmlFor={id}
+      weight={props.weight}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
       <div
         style={{
           display: props.block ? "flex" : "inline-flex",
@@ -803,6 +863,7 @@ function DateTimeInput(props: DateTimeInputProps) {
           aria-label={props.label ? undefined : props.placeholder}
           disabled={props.disabled}
           required={props.required}
+          aria-invalid={check.invalid || undefined}
           value={value}
           onChange={(event) => props.setValue(event.target.value)}
           style={controlStyle(props, "xl")}
@@ -848,6 +909,7 @@ function ChoicePicker(props: ChoicePickerProps) {
   const isMultiple = props.variant === "multipleSelection";
   const isChips = props.displayStyle === "chips";
   const chosen = Array.isArray(props.value) ? props.value : [];
+  const check = useChecks(props.checks, chosen);
   const options = normalizeOptions(props.options);
   const shown = filter
     ? options.filter((option) =>
@@ -866,7 +928,13 @@ function ChoicePicker(props: ChoicePickerProps) {
     );
   };
   return (
-    <Field label={props.label} labelId={labelId} weight={props.weight}>
+    <Field
+      label={props.label}
+      labelId={labelId}
+      weight={props.weight}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
       {props.filterable ? (
         <input
           type="search"
@@ -883,6 +951,7 @@ function ChoicePicker(props: ChoicePickerProps) {
         role={isChips ? "group" : isMultiple ? "group" : "radiogroup"}
         aria-labelledby={props.label ? labelId : undefined}
         aria-required={props.required || undefined}
+        aria-invalid={check.invalid || undefined}
         style={{
           display: "flex",
           flexDirection: isChips ? "row" : "column",
@@ -961,6 +1030,7 @@ function Select(props: SelectProps) {
   const id = useId();
   const options = normalizeOptions(props.options);
   const value = asText(props.value);
+  const check = useChecks(props.checks, props.value);
   const hasEmptyOption = Boolean(
     props.placeholder || props.clearable || value === "",
   );
@@ -972,6 +1042,7 @@ function Select(props: SelectProps) {
       aria-label={props.label ? undefined : props.placeholder}
       required={props.required}
       disabled={props.disabled}
+      aria-invalid={check.invalid || undefined}
       value={value}
       onChange={(event) => props.setValue(event.target.value)}
       style={{
@@ -997,7 +1068,12 @@ function Select(props: SelectProps) {
     </select>
   );
   return (
-    <Field label={props.label} htmlFor={id}>
+    <Field
+      label={props.label}
+      htmlFor={id}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
       {props.icon ? (
         <span style={{ position: "relative", display: "flex", width: "100%" }}>
           <span
@@ -1031,42 +1107,55 @@ function CheckBox(props: CheckBoxProps) {
   useStandardStyles();
   const isChecked = Boolean(props.value);
   const hasLabel = props.label !== undefined && props.label !== "";
+  const check = useChecks(props.checks, props.value);
   return (
-    <label
+    <span
       style={{
         display: "inline-flex",
-        alignItems: "center",
+        flexDirection: "column",
+        gap: spacing(1),
         flexGrow: props.weight,
-        gap: spacing(2),
-        cursor: props.disabled ? "not-allowed" : "pointer",
-        opacity: props.disabled ? 0.5 : undefined,
-        ...textFont("md"),
-        color: textColor("default"),
       }}
+      onBlurCapture={check.onBlur}
     >
-      <input
-        type="checkbox"
-        className="a2ui-std-check"
-        data-a2ui-input=""
-        data-shape={props.shape ?? "round"}
-        name={props.name}
-        aria-label={hasLabel ? undefined : props.name}
-        required={props.required}
-        disabled={props.disabled}
-        checked={isChecked}
-        onChange={(event) => props.setValue(event.target.checked)}
-      />
-      {hasLabel ? (
-        <span
-          style={{
-            textDecoration:
-              props.lineThrough && isChecked ? "line-through" : undefined,
-          }}
-        >
-          {props.label}
-        </span>
-      ) : null}
-    </label>
+      <label
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          flexGrow: props.weight,
+          gap: spacing(2),
+          cursor: props.disabled ? "not-allowed" : "pointer",
+          opacity: props.disabled ? 0.5 : undefined,
+          ...textFont("md"),
+          color: textColor("default"),
+        }}
+      >
+        <input
+          type="checkbox"
+          className="a2ui-std-check"
+          data-a2ui-input=""
+          data-shape={props.shape ?? "round"}
+          name={props.name}
+          aria-label={hasLabel ? undefined : props.name}
+          required={props.required}
+          disabled={props.disabled}
+          checked={isChecked}
+          aria-invalid={check.invalid || undefined}
+          onChange={(event) => props.setValue(event.target.checked)}
+        />
+        {hasLabel ? (
+          <span
+            style={{
+              textDecoration:
+                props.lineThrough && isChecked ? "line-through" : undefined,
+            }}
+          >
+            {props.label}
+          </span>
+        ) : null}
+      </label>
+      <CheckError message={check.error} />
+    </span>
   );
 }
 
@@ -1126,9 +1215,12 @@ function RadioGroup(props: RadioGroupProps) {
   const options = normalizeOptions(props.options);
   const value = asText(props.value);
   const variant = props.variant ?? "list";
+  const check = useChecks(props.checks, props.value);
   return (
     <fieldset
       disabled={props.disabled}
+      aria-invalid={check.invalid || undefined}
+      onBlurCapture={check.onBlur}
       style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}
     >
       {props.label ? (
@@ -1177,6 +1269,7 @@ function RadioGroup(props: RadioGroupProps) {
           );
         })}
       </div>
+      <CheckError message={check.error} />
     </fieldset>
   );
 }
@@ -1244,6 +1337,7 @@ function SegmentedControl(props: SegmentedControlProps) {
   const options = normalizeOptions(props.options);
   const value = asText(props.value);
   const isPill = props.pill !== false;
+  const check = useChecks(props.checks, props.value);
   const selectedIndex = options.findIndex((option) => option.value === value);
   const tabStopIndex = selectedIndex === -1 ? 0 : selectedIndex;
   const onKeyDown = (
@@ -1257,7 +1351,12 @@ function SegmentedControl(props: SegmentedControlProps) {
     segments.current[next]?.focus();
   };
   return (
-    <Field label={props.label} labelId={labelId}>
+    <Field
+      label={props.label}
+      labelId={labelId}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
       <div
         role="radiogroup"
         aria-labelledby={props.label ? labelId : undefined}
@@ -1322,6 +1421,7 @@ function Slider(props: SliderProps) {
   const marks = props.marks ?? [];
   const step = props.steps ? (max - min) / props.steps : (props.step ?? 1);
   const isDiscrete = props.sliderStyle === "discrete";
+  const check = useChecks(props.checks, props.value);
   const valueText = props.unit ? `${value} ${props.unit}` : `${value}`;
   const showValue = Boolean(props.label || props.unit);
   return (
@@ -1334,6 +1434,7 @@ function Slider(props: SliderProps) {
         minWidth: 0,
         flexGrow: props.weight,
       }}
+      onBlurCapture={check.onBlur}
     >
       <div
         style={{
@@ -1406,6 +1507,7 @@ function Slider(props: SliderProps) {
           </div>
         </>
       ) : null}
+      <CheckError message={check.error} />
     </div>
   );
 }
@@ -1428,7 +1530,7 @@ export const inputComponents = {
   Button: {
     component: Button,
     description:
-      'A button that sends its onClick event. With href it opens the URL, and with copy it copies the text, both without the agent. Use variant "primary" for the one main Button in a Row, and the default for the others. With submit true inside a Form, it submits the Form. The child or children render instead of the label.',
+      'A button that sends its onClick event. With href it opens the URL, and with copy it copies the text, both without the agent. Use variant "primary" for the one main Button in a Row, and the default for the others. With submit true inside a Form, it submits the Form. The child or children render instead of the label. With checks, it is disabled while a check fails.',
     props: buttonSchema,
     events: {
       onClick: {

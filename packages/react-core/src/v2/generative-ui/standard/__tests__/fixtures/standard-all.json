@@ -143,13 +143,14 @@
       "component": "Tabs",
       "tabs": [
         {
-          "title": "Plan"
+          "title": "Plan",
+          "child": "tab-plan"
         },
         {
-          "title": "Usage"
+          "title": "Usage",
+          "child": "tab-usage"
         }
-      ],
-      "children": ["tab-plan", "tab-usage"]
+      ]
     },
     {
       "id": "tab-plan",
@@ -330,7 +331,20 @@
         "@path": "/form/name"
       },
       "label": "Name",
-      "placeholder": "Your name"
+      "placeholder": "Your name",
+      "checks": [
+        {
+          "condition": {
+            "@call": "required",
+            "args": {
+              "value": {
+                "@path": "/form/name"
+              }
+            }
+          },
+          "message": "Name is required"
+        }
+      ]
     },
     {
       "id": "ta",
@@ -448,7 +462,19 @@
       "component": "Button",
       "label": "Submit",
       "submit": true,
-      "icon": "send"
+      "icon": "send",
+      "checks": [
+        {
+          "condition": {
+            "@call": "required",
+            "args": {
+              "value": {
+                "@path": "/form/name"
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "s-inputs",
@@ -460,7 +486,12 @@
     {
       "id": "s-inputs-title",
       "component": "Caption",
-      "text": "Inputs"
+      "text": {
+        "@call": "formatString",
+        "args": {
+          "value": "Inputs (${/form/seats} seats, ${formatCurrency(value: /form/total, currency: 'EUR')})"
+        }
+      }
     },
     {
       "id": "loading",
@@ -956,7 +987,8 @@
       "seats": 8,
       "period": "Monthly",
       "date": "2026-10-14",
-      "tags": ["Code"]
+      "tags": ["Code"],
+      "total": 1599
     },
     "people": [
       {

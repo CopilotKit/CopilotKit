@@ -15,6 +15,7 @@ import type {
 } from "react";
 import { z } from "zod";
 import type { GenerativeUIInvokeResult } from "../errors";
+import { child } from "../refs";
 import { Lightbox, openUrl } from "./lightbox";
 import type { LightboxImage } from "./lightbox";
 import {
@@ -221,8 +222,13 @@ const carouselMediaItemSchema = z.object({
 const spacerSchema = z.object({ minSize: sizeValue.optional() });
 const tabsSchema = z.object({
   tabs: z
-    .array(z.object({ title: z.string().describe("The tab title") }))
-    .describe("One entry per tab, in the order of the children"),
+    .array(
+      z.object({
+        title: z.string().describe("The tab title"),
+        child: child("The id of the panel component"),
+      }),
+    )
+    .describe("One entry per tab"),
   selectedIndex: z
     .number()
     .optional()
@@ -995,22 +1001,19 @@ const CarouselItem = container(() => ({
   scrollSnapAlign: "start",
 }));
 
-type TabsProps = WithChildren<
-  z.output<typeof tabsSchema> & {
-    setSelectedIndex?: (index: number) => void;
-  }
->;
+type TabsProps = z.output<typeof tabsSchema> & {
+  setSelectedIndex?: (index: number) => void;
+};
 
 /**
- * Tabs with one panel per tab. The nth child is the panel of the nth tab.
- * The tab list is one tab stop: the arrow keys, Home and End move between
- * the tabs and open them.
+ * Tabs with one panel per tab: the `child` of each entry, rendered by the
+ * engine. The tab list is one tab stop: the arrow keys, Home and End move
+ * between the tabs and open them.
  */
 function Tabs(props: TabsProps) {
   useStandardStyles();
   const id = useId();
   const [ownIndex, setOwnIndex] = useState(0);
-  const panels = React.Children.toArray(props.children);
   const tabs = props.tabs ?? [];
   const count = tabs.length;
   const selected = Math.min(
@@ -1102,7 +1105,7 @@ function Tabs(props: TabsProps) {
           );
         })}
       </div>
-      {tabs.map((_tab, index) =>
+      {tabs.map((tab, index) =>
         index === selected ? (
           <div
             key={index}
@@ -1115,7 +1118,7 @@ function Tabs(props: TabsProps) {
               gap: spacing(3),
             }}
           >
-            {panels[index]}
+            {tab.child}
           </div>
         ) : null,
       )}
@@ -1272,9 +1275,8 @@ export const layoutComponents = {
   Tabs: {
     component: Tabs,
     description:
-      'Tabs that show one panel at a time. Give tabs ({ "title" }) and the same number of children, in order: the nth child is the panel of the nth tab.',
+      'Tabs that show one panel at a time. Each tab has a title and the id of its panel component: "tabs":[{"title":"Specs","child":"specs"}].',
     props: tabsSchema,
-    slots: CHILDREN_SLOT,
     writable: ["selectedIndex"] as const,
   },
 };
