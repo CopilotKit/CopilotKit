@@ -73,7 +73,55 @@ const knownCodes = new Set([
   "UNAUTHENTICATED",
   "FORBIDDEN",
 ]);
+const environmentInputFields = [
+  "projectId",
+  "name",
+  "sourceEnvironmentId",
+  "ephemeral",
+  "skipInitialDeploys",
+  "stageInitialChanges",
+  "applyChangesInBackground",
+];
 const knownMessages = new Set(["Error in name - Invalid input"]);
+const valueKind = (value) =>
+  value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+
+// Enumerated categories only: provider messages, paths and extension values can
+// contain submitted credentials. Never copy them, even to private diagnostics.
+function errorStructure(operation, response) {
+  const errors = response.errors;
+  return {
+    errorCount: Math.min(errors.length, 17),
+    errorsTruncated: errors.length > 16,
+    dataKind: valueKind(response.data),
+    errors: errors.slice(0, 16).map((error) => {
+      const message = error?.message;
+      const validationField =
+        operation === "createEnvironment"
+          ? environmentInputFields.find(
+              (field) => message === `Error in ${field} - Invalid input`,
+            )
+          : undefined;
+      return {
+        kind: valueKind(error),
+        messageKind: valueKind(message),
+        messageRecognized: knownMessages.has(message) || !!validationField,
+        ...(validationField ? { validationField } : {}),
+        ...(knownCodes.has(error?.extensions?.code)
+          ? { code: error.extensions.code }
+          : {}),
+        pathKind: valueKind(error?.path),
+        // Only an exact root-field match is retained; nested segments may be
+        // user-controlled aliases or values. Do not infer execution from it.
+        rootFieldMatched:
+          Array.isArray(error?.path) &&
+          error.path[0] === resultFields[operation] &&
+          typeof resultFields[operation] === "string",
+        extensionsKind: valueKind(error?.extensions),
+      };
+    }),
+  };
+}
 export function railwayApi({
   executable = "railway",
   env = process.env,
@@ -238,6 +286,7 @@ export function railwayApi({
           {
             ...(traceIds.length ? { traceIds } : {}),
             ...(messages.length ? { messages } : {}),
+            structure: errorStructure(operation, response),
           },
         );
       }
