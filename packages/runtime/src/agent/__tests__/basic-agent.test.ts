@@ -449,7 +449,7 @@ describe("BasicAgent", () => {
       const input: RunAgentInput = {
         threadId: "thread1",
         runId: "run1",
-        messages: [],
+        messages: [{ id: "1", role: "user", content: "Hello" }],
         tools: [],
         context: [
           { description: "User Name", value: "John Doe" },
@@ -482,7 +482,7 @@ describe("BasicAgent", () => {
       const input: RunAgentInput = {
         threadId: "thread1",
         runId: "run1",
-        messages: [],
+        messages: [{ id: "1", role: "user", content: "Hello" }],
         tools: [],
         context: [],
         state: { counter: 0, items: ["a", "b"] },
@@ -513,7 +513,7 @@ describe("BasicAgent", () => {
       const input: RunAgentInput = {
         threadId: "thread1",
         runId: "run1",
-        messages: [],
+        messages: [{ id: "1", role: "user", content: "Hello" }],
         tools: [],
         context: [{ description: "Context", value: "Data" }],
         state: { value: 1 },

@@ -196,7 +196,13 @@ describe("BuiltInAgent learned skills", () => {
       prompt: "Host rules",
       learnedSkills,
     });
-    await collectEvents(agent.run(createDefaultInput()));
+    await collectEvents(
+      agent.run(
+        createDefaultInput({
+          messages: [{ id: "user", role: "user", content: "Hello" }],
+        }),
+      ),
+    );
     const params = vi.mocked(streamText).mock.calls[0][0];
     // Catalog first, then the host prompt; neither goes in `messages`.
     const system = params.system as SystemModelMessage[];

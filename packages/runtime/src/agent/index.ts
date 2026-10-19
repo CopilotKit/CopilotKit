@@ -1777,10 +1777,18 @@ export class BuiltInAgent extends AbstractAgent {
           }
           abortController.signal.throwIfAborted();
 
-          // Call streamText and process the stream
+          // Call streamText and process the stream. The AI SDK rejects an
+          // empty `messages` even when `system` is set, so a run with no
+          // conversation yet (e.g. started without a user message) sends the
+          // system messages as the conversation instead.
           const response = streamText({
             ...streamTextParams,
-            system: systemMessages.length > 0 ? systemMessages : undefined,
+            ...(messages.length > 0
+              ? {
+                  system:
+                    systemMessages.length > 0 ? systemMessages : undefined,
+                }
+              : { messages: systemMessages }),
             abortSignal: abortController.signal,
           });
 
