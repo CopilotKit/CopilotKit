@@ -65,22 +65,10 @@ async function defaultRenderImage(
   node: unknown,
   cfg: ResolvedRenderConfig,
 ): Promise<Uint8Array> {
-  let mod: typeof import("./render/takumi.js");
-  try {
-    mod = await import("./render/takumi.js");
-  } catch (err) {
-    // `react` and `takumi-js` are optional peers, so a plain native-only app
-    // never installs them. Name both instead of surfacing a bare resolve error.
-    const code = (err as { code?: unknown } | null)?.code;
-    if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
-      throw new Error(
-        "JSX image rendering needs the optional peer dependencies `react` and `takumi-js`. Install them (for example `pnpm add react takumi-js`).",
-        { cause: err },
-      );
-    }
-    throw err;
-  }
-  return mod.renderJsxToPng(node, cfg);
+  // The render module loads the optional peers itself, at call time, and
+  // reports them by name when they are not installed.
+  const { renderJsxToPng } = await import("./render/takumi.js");
+  return renderJsxToPng(node, cfg);
 }
 
 /**
