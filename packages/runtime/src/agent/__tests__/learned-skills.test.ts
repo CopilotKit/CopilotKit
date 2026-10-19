@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { streamText } from "ai";
-import type { ToolSet } from "ai";
+import type { SystemModelMessage, ToolSet } from "ai";
 import type * as AISDK from "ai";
 import { EventType } from "@ag-ui/client";
 import { BuiltInAgent } from "../index";
@@ -198,9 +198,13 @@ describe("BuiltInAgent learned skills", () => {
     });
     await collectEvents(agent.run(createDefaultInput()));
     const params = vi.mocked(streamText).mock.calls[0][0];
-    expect(JSON.stringify(params.messages)).toContain("Host rules");
-    expect(JSON.stringify(params.messages)).toContain("refund-policy");
-    expect(JSON.stringify(params.messages)).not.toContain("30 days");
+    // Catalog first, then the host prompt; neither goes in `messages`.
+    const system = params.system as SystemModelMessage[];
+    expect(system).toHaveLength(2);
+    expect(system[0].content).toContain("refund-policy");
+    expect(system[0].content).not.toContain("30 days");
+    expect(system[1].content).toBe("Host rules");
+    expect(params.messages!.some((m) => m.role === "system")).toBe(false);
     expect(
       await execute(params.tools!, "copilotkit_read_skill_file", {
         skill_name: "refund-policy",
@@ -224,6 +228,7 @@ describe("BuiltInAgent learned skills", () => {
       expect(JSON.stringify(params.messages)).not.toContain(
         "copilotkit_learned_skills",
       );
+      expect(params.system).toBeUndefined();
       expect(fetch).toHaveBeenCalledTimes(configured ? 1 : 0);
     },
   );

@@ -8,6 +8,7 @@ import type {
   RunAgentInput,
 } from "@ag-ui/client";
 import { streamText } from "ai";
+import type { SystemModelMessage } from "ai";
 import type * as AISDK from "ai";
 import {
   mockStreamTextResponse,
@@ -383,7 +384,7 @@ describe("BasicAgent", () => {
       expect(callArgs.messages[0].role).toBe("user");
     });
 
-    it("should prepend system message with config prompt", async () => {
+    it("should pass config prompt via the system option, not messages", async () => {
       const agent = new BasicAgent({
         model: "openai/gpt-4o",
         prompt: "You are a helpful assistant.",
@@ -405,11 +406,35 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.messages).toHaveLength(2);
-      expect(callArgs.messages[0]).toMatchObject({
-        role: "system",
-        content: "You are a helpful assistant.",
+      expect(callArgs.system).toEqual([
+        { role: "system", content: "You are a helpful assistant." },
+      ]);
+      expect(callArgs.messages).toHaveLength(1);
+      expect(callArgs.messages[0].role).toBe("user");
+    });
+
+    it("should not pass an empty system option when there is no prompt", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
       });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [{ id: "1", role: "user", content: "Hello" }],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      await collectEvents(agent["run"](input));
+
+      const callArgs = vi.mocked(streamText).mock.calls[0][0];
+      expect(callArgs.system).toBeUndefined();
     });
 
     it("should include context in system message", async () => {
@@ -436,7 +461,7 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const systemMessage = callArgs.messages[0];
+      const [systemMessage] = callArgs.system as SystemModelMessage[];
       expect(systemMessage.role).toBe("system");
       expect(systemMessage.content).toContain("Context from the application");
       expect(systemMessage.content).toContain("User Name");
@@ -466,7 +491,7 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const systemMessage = callArgs.messages[0];
+      const [systemMessage] = callArgs.system as SystemModelMessage[];
       expect(systemMessage.role).toBe("system");
       expect(systemMessage.content).toContain("Application State");
       expect(systemMessage.content).toContain("AGUISendStateSnapshot");
@@ -497,7 +522,7 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      const systemMessage = callArgs.messages[0];
+      const [systemMessage] = callArgs.system as SystemModelMessage[];
       expect(systemMessage.content).toContain("You are helpful.");
       expect(systemMessage.content).toContain("Context from the application");
       expect(systemMessage.content).toContain("Application State");
@@ -708,21 +733,21 @@ describe("BasicAgent", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      // Config prompt is prepended as first system message
-      expect(callArgs.messages).toHaveLength(4);
+      // Config prompt goes in `system`, which the AI SDK places before
+      // `messages`; forwarded system/developer messages stay in `messages`.
+      expect(callArgs.system).toEqual([
+        { role: "system", content: "You are a helpful assistant." },
+      ]);
+      expect(callArgs.messages).toHaveLength(3);
       expect(callArgs.messages[0]).toMatchObject({
-        role: "system",
-        content: "You are a helpful assistant.",
-      });
-      expect(callArgs.messages[1]).toMatchObject({
         role: "system",
         content: "System instruction",
       });
-      expect(callArgs.messages[2]).toMatchObject({
+      expect(callArgs.messages[1]).toMatchObject({
         role: "system",
         content: "Developer hint",
       });
-      expect(callArgs.messages[3].role).toBe("user");
+      expect(callArgs.messages[2].role).toBe("user");
     });
   });
 
