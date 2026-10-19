@@ -1,0 +1,6 @@
+.react-router
+build
+.env
+app/generated
+prisma/*.db
+prisma/*.db-journal
