@@ -424,7 +424,9 @@ describe("langGraphDefaultMergeState", () => {
     const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
     expect(result.copilotkit.actions).toHaveLength(1);
     // The later entry (ag-ui tools) wins.
-    expect(result.copilotkit.actions[0].description).toBe("nested");
+    expect(result.copilotkit.actions[0]).toMatchObject({
+      description: "nested",
+    });
   });
 
   it("exposes parameters for tools shaped by the real @ag-ui/langgraph merge", () => {
