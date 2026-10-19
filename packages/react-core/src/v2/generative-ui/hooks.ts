@@ -1,5 +1,4 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import type { z } from "zod";
 import type {
   GenerativeUI,
   GenerativeUIDefinitionsOf,
@@ -9,6 +8,8 @@ import type {
 } from "./catalog";
 import { useRequiredGenerativeUIRuntime } from "./runtime-context";
 import type { GenerativeUIRuntime } from "./runtime-context";
+import { formatIssues, validateSchema } from "./schema";
+import type { SchemaInput, ValidationResult } from "./schema";
 
 const noopSubscribe = () => () => {};
 const zero = () => 0;
@@ -26,9 +27,7 @@ export function useManagerVersion(runtime: GenerativeUIRuntime | null): number {
 type StateInput<
   UI extends GenerativeUI<any>,
   Key extends keyof GenerativeUIStateOf<UI>,
-> = GenerativeUIDefinitionsOf<UI>["state"][Key] extends z.ZodTypeAny
-  ? z.input<GenerativeUIDefinitionsOf<UI>["state"][Key]>
-  : never;
+> = SchemaInput<GenerativeUIDefinitionsOf<UI>["state"][Key]>;
 
 /**
  * Experimental. Gives one key of the app state declared in
@@ -57,22 +56,32 @@ export function useGenerativeUIState<
   const serialized = JSON.stringify(value);
   useEffect(() => {
     const raw: unknown = JSON.parse(serialized ?? "null");
-    // Selectors get the parsed output, so schema defaults and transforms run here.
-    const parsed = runtime.ui.state.get(key)?.safeParse(raw) ?? {
-      success: true as const,
-      data: raw,
+    let current = true;
+    const apply = (parsed: ValidationResult) => {
+      if (!current) return;
+      if (parsed.success) {
+        runtime.manager.setState(key, parsed.data);
+        return;
+      }
+      // An invalid value is not stored. Bound props that read this key show the props fallback.
+      runtime.manager.removeState(key);
+      if (process.env.NODE_ENV !== "production") {
+        console.error(
+          `[generativeUI] useGenerativeUIState: invalid value for "${key}": ${formatIssues(parsed.issues, "value")}`,
+        );
+      }
     };
-    if (parsed.success) {
-      runtime.manager.setState(key, parsed.data);
-      return;
-    }
-    // An invalid value is not stored. Bound props that read this key show the props fallback.
-    runtime.manager.removeState(key);
-    if (process.env.NODE_ENV !== "production") {
-      console.error(
-        `[generativeUI] useGenerativeUIState: invalid value for "${key}": ${parsed.error.message}`,
-      );
-    }
+    // Selectors get the parsed output, so schema defaults and transforms run
+    // here. A schema that validates synchronously applies at once.
+    const schema = runtime.ui.state.get(key);
+    const parsed = schema
+      ? validateSchema(schema, raw)
+      : { success: true as const, data: raw };
+    if (parsed instanceof Promise) void parsed.then(apply);
+    else apply(parsed);
+    return () => {
+      current = false;
+    };
   }, [runtime, key, serialized]);
   useEffect(() => () => runtime.manager.removeState(key), [runtime, key]);
 }

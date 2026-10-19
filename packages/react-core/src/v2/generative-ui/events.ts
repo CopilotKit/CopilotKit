@@ -1,4 +1,3 @@
-import type { z } from "zod";
 import { isPathBinding } from "@copilotkit/shared";
 import type {
   GenerativeUIActionBinding,
@@ -9,6 +8,8 @@ import type { GenerativeUIInvokeResult } from "./errors";
 import type { GenerativeUIInvocationOrigin } from "./dispatcher";
 import { reportErrorSafely } from "./runtime-context";
 import type { GenerativeUIRuntime } from "./runtime-context";
+import { formatIssues, validateSchema } from "./schema";
+import type { GenerativeUISchema } from "./schema";
 import type { ManagedSurface } from "./surface-manager";
 
 /** One call of an event prop by a component. */
@@ -23,7 +24,7 @@ interface EventCall {
    * the case for a matched event without `parameters`: the function schema
    * checks them.
    */
-  parameters?: z.ZodTypeAny;
+  parameters?: GenerativeUISchema;
   args: unknown;
 }
 
@@ -75,11 +76,13 @@ async function runEvent(
   const origin = { surfaceId: surface.surfaceId, componentId };
   try {
     if (!parameters) return await send(args ?? {}, origin);
-    const parsed = parameters.safeParse(args ?? {});
+    // A schema that validates synchronously sends in the same tick.
+    const result = validateSchema(parameters, args ?? {});
+    const parsed = result instanceof Promise ? await result : result;
     if (!parsed.success) {
       const error = new GenerativeUIError(
         "invalid_event_args",
-        `${name}: ${parsed.error.issues.map((i) => `${i.path.join(".") || "args"}: ${i.message}`).join("; ")}`,
+        `${name}: ${formatIssues(parsed.issues, "args")}`,
       );
       reportErrorSafely(runtime, { kind: "event", ...origin, error });
       return { ok: false, error };

@@ -78,8 +78,8 @@ describe("createGenerativeUI", () => {
   it("binds props by state name and by `bind`, and events by function name", () => {
     const card = ui.components.get("ProductCard")!;
     expect(card.component).toBe(Card);
-    expect(Object.keys(card.modelProps.shape)).toEqual(["name"]);
-    expect(Object.keys(card.boundProps.shape)).toEqual(["currency", "inCart"]);
+    expect(card.propKeys).toEqual(["name", "currency", "inCart"]);
+    expect(Object.keys(card.selectors)).toEqual(["currency", "inCart"]);
     expect(card.eventFunctions).toEqual({ onAddToCart: "addToCart" });
 
     const state = { cart: { count: 3, total: 9 }, currency: "EUR" };
@@ -158,7 +158,7 @@ describe("createGenerativeUI with extends", () => {
   it("matches base components against the merged state and functions", () => {
     const card = app.components.get("ProductCard")!;
     expect(card.eventFunctions).toEqual({ onAddToCart: "addToCart" });
-    expect(Object.keys(card.boundProps.shape)).toEqual(["cart"]);
+    expect(Object.keys(card.selectors)).toEqual(["cart"]);
     expect(app.manifestComponents.ProductCard).toEqual({
       props: objectSchema({ name: { type: "string" } }, ["name"]),
     });
