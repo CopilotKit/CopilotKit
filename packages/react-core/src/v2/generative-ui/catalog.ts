@@ -1,5 +1,7 @@
 import type { ComponentType, ReactNode } from "react";
+import { collectChildRefs } from "@copilotkit/shared";
 import type {
+  ChildRef,
   GenerativeUIComponentManifest,
   GenerativeUIJSONSchema,
   StandardSchemaV1,
@@ -101,6 +103,12 @@ export interface ResolvedGenerativeUIComponent extends GenerativeUIComponentDefi
   eventFunctions: Record<string, string>;
   /** The keys of `props`, read from its JSON Schema. */
   propKeys: readonly string[];
+  /**
+   * The component references in `props` (`child()`, `childList()`), at any
+   * depth. The renderer replaces each one with the rendered component. The
+   * `slots` of the definition are not in here.
+   */
+  childRefs: readonly ChildRef[];
 }
 
 /** Type-level data of one component, kept in `GenerativeUI["definitions"]`. */
@@ -699,6 +707,7 @@ function resolveComponent(
     selectors,
     eventFunctions,
     propKeys,
+    childRefs: collectChildRefs(propsJson),
   };
   return {
     component,

@@ -4,6 +4,11 @@ import type {
 } from "@copilotkit/shared";
 import { GenerativeUIError } from "./errors";
 import type { GenerativeUIInvokeResult } from "./errors";
+import {
+  BASIC_FUNCTIONS,
+  ExpressionError,
+  requiresUserActivation,
+} from "./functions";
 import { toJsonSchema } from "./json-schema";
 
 /**
@@ -202,9 +207,67 @@ export function createGenerativeUIDispatcher(
     return { ok: false, error };
   };
 
+  /**
+   * Runs a basic function of the A2UI catalog. One that needs a user gesture
+   * runs only for a component (an event binding), never for the agent.
+   */
+  const invokeBasic = (
+    name: string,
+    args: unknown,
+    origin: GenerativeUICallOrigin,
+  ): GenerativeUIInvokeResult => {
+    if (requiresUserActivation(name) && !("componentId" in origin)) {
+      return failWith(
+        name,
+        origin,
+        new GenerativeUIError(
+          "invalid_function_call",
+          `"${name}" runs only from a user gesture; the agent cannot call it`,
+        ),
+      );
+    }
+    const isObject =
+      typeof args === "object" && args !== null && !Array.isArray(args);
+    if (args !== undefined && !isObject) {
+      return failWith(
+        name,
+        origin,
+        new GenerativeUIError(
+          "invalid_arguments",
+          `Invalid arguments for "${name}": args must be an object`,
+        ),
+      );
+    }
+    try {
+      return {
+        ok: true,
+        result: BASIC_FUNCTIONS[name]((args ?? {}) as Record<string, unknown>),
+      };
+    } catch (error) {
+      return failWith(
+        name,
+        origin,
+        new GenerativeUIError(
+          error instanceof ExpressionError
+            ? "invalid_arguments"
+            : "handler_failed",
+          `"${name}" failed: ${messageOf(error)}`,
+        ),
+      );
+    }
+  };
+
   const dispatcher: GenerativeUIDispatcher = {
     async invoke(name, args, origin) {
       const resolved = resolve(name);
+      // A declared function wins over a basic one of the same name.
+      if (
+        !resolved.ok &&
+        resolved.error.code === "function_not_found" &&
+        Object.prototype.hasOwnProperty.call(BASIC_FUNCTIONS, name)
+      ) {
+        return invokeBasic(name, args, origin);
+      }
       if (!resolved.ok) return failWith(name, origin, resolved.error);
       const validated = await validateArgs(
         name,

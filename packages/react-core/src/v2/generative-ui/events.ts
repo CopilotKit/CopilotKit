@@ -1,9 +1,10 @@
-import { isPathBinding } from "@copilotkit/shared";
 import type {
   GenerativeUIActionBinding,
   GenerativeUIUserEvent,
 } from "@copilotkit/shared";
 import { GenerativeUIError } from "./errors";
+import { resolveDynamicValue } from "./resolve";
+import type { ResolveContext } from "./resolve";
 import type { GenerativeUIInvokeResult } from "./errors";
 import type { GenerativeUIInvocationOrigin } from "./dispatcher";
 import { reportErrorSafely } from "./runtime-context";
@@ -28,35 +29,52 @@ interface EventCall {
   args: unknown;
 }
 
-/** A `{"@path"}` value read from the surface data model. Others stay. */
-function resolveValue(surface: ManagedSurface, value: unknown) {
-  return isPathBinding(value)
-    ? surface.model.dataModel.get(value["@path"])
-    : value;
+/**
+ * The context of a running event binding: it reads the surface data model,
+ * resolves relative paths against the template item of the component, and
+ * runs as a user gesture, so `openUrl` is allowed.
+ */
+function eventContext(
+  surface: ManagedSurface,
+  basePath: string | undefined,
+): ResolveContext {
+  return { data: surface.model.dataModel, basePath, userActivation: true };
+}
+
+/**
+ * A value of an event binding with its dynamic values resolved: `{"@path"}`
+ * bindings and function values, at any depth.
+ */
+function resolveValue(
+  surface: ManagedSurface,
+  basePath: string | undefined,
+  value: unknown,
+) {
+  return resolveDynamicValue(value, eventContext(surface, basePath)).value;
 }
 
 function resolveValues(
   surface: ManagedSurface,
+  basePath: string | undefined,
   values: Record<string, unknown> | undefined,
 ) {
-  return Object.fromEntries(
-    Object.entries(values ?? {}).map(([key, value]) => [
-      key,
-      resolveValue(surface, value),
-    ]),
-  );
+  return resolveValue(surface, basePath, values ?? {}) as Record<
+    string,
+    unknown
+  >;
 }
 
 /**
- * The `userMessage` of an event binding, as text. A `{"@path"}` reads the
- * data model. `undefined` when there is no message, or the value at the path
- * is not a string.
+ * The `userMessage` of an event binding, as text. A `{"@path"}` or a
+ * function value is resolved. `undefined` when there is no message, or
+ * the value is not a string.
  */
 function resolveUserMessage(
   surface: ManagedSurface,
-  userMessage: string | { "@path": string } | undefined,
+  basePath: string | undefined,
+  userMessage: unknown,
 ) {
-  const value = resolveValue(surface, userMessage);
+  const value = resolveValue(surface, basePath, userMessage);
   return typeof value === "string" ? value : undefined;
 }
 
@@ -104,9 +122,13 @@ async function runEvent(
  * then calls a declared function or forwards an agent event. Never throws.
  */
 export function invokeBoundEvent(
-  params: EventCall & { binding: GenerativeUIActionBinding },
+  params: EventCall & {
+    binding: GenerativeUIActionBinding;
+    /** The template item path of the component, for relative paths. */
+    basePath: string | undefined;
+  },
 ) {
-  const { runtime, surface, binding } = params;
+  const { runtime, surface, binding, basePath } = params;
   return runEvent(params, (args, origin) => {
     // ponytail: the args are spread into the call. Args that are not an object are lost, as before.
     const componentArgs = args as Record<string, unknown>;
@@ -115,7 +137,7 @@ export function invokeBoundEvent(
         binding.functionCall["@call"],
         {
           ...componentArgs,
-          ...resolveValues(surface, binding.functionCall.args),
+          ...resolveValues(surface, basePath, binding.functionCall.args),
         },
         origin,
       );
@@ -124,8 +146,11 @@ export function invokeBoundEvent(
     const forwarded: GenerativeUIUserEvent = {
       name: event.name,
       ...origin,
-      userMessage: resolveUserMessage(surface, event.userMessage),
-      context: { ...componentArgs, ...resolveValues(surface, event.context) },
+      userMessage: resolveUserMessage(surface, basePath, event.userMessage),
+      context: {
+        ...componentArgs,
+        ...resolveValues(surface, basePath, event.context),
+      },
     };
     return runtime.forwardEvent(forwarded, surface.agentId);
   });

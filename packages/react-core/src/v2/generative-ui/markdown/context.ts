@@ -4,6 +4,8 @@ import {
   generativeUIGuideFeatures,
   GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
+  A2UI_BASIC_FUNCTIONS,
+  childRefKind,
 } from "@copilotkit/shared";
 import type {
   GenerativeUIJSONSchema,
@@ -28,9 +30,17 @@ function schemaList(value: unknown) {
   return Array.isArray(value) ? value.filter(isRecord) : [];
 }
 
-/** Puts a union in parentheses, so that `[]` applies to all of it. */
+/**
+ * Puts a top-level union in parentheses, so that `[]` applies to all of
+ * it. A union inside braces needs none.
+ */
 function asArrayItem(type: string) {
-  return type.includes(" | ") ? `(${type})[]` : `${type}[]`;
+  let outside = type;
+  for (let inner = outside.replace(/\{[^{}]*\}/g, ""); inner !== outside; ) {
+    outside = inner;
+    inner = outside.replace(/\{[^{}]*\}/g, "");
+  }
+  return outside.includes(" | ") ? `(${type})[]` : `${type}[]`;
 }
 
 /**
@@ -38,6 +48,10 @@ function asArrayItem(type: string) {
  * `{ label: string; size?: "sm" | "md" }`.
  */
 function compactType(schema: GenerativeUIJSONSchema, depth: number): string {
+  const ref = childRefKind(schema);
+  if (ref === "single") return "componentId";
+  if (ref === "multiple")
+    return "componentId[] | { componentId: string; path: string }";
   if ("const" in schema) return JSON.stringify(schema.const);
   if (Array.isArray(schema.enum)) {
     return schema.enum.map((value) => JSON.stringify(value)).join(" | ");
@@ -223,15 +237,21 @@ export function buildCompactGenerativeUISchema(
       );
     }
   }
-  const functions = Object.fromEntries(
-    Object.entries(manifest.functions).map(([name, fn]) => [
+  // The basic functions of A2UI come first; an app function of the same
+  // name replaces one.
+  const functions = Object.fromEntries([
+    ...Object.entries(A2UI_BASIC_FUNCTIONS).map(([name, fn]) => [
+      name,
+      { description: fn.description, parameters: fn.parameters },
+    ]),
+    ...Object.entries(manifest.functions).map(([name, fn]) => [
       name,
       {
         ...(fn.description ? { description: fn.description } : {}),
         parameters: compactType(fn.parameters, 0),
       },
     ]),
-  );
+  ]);
   return {
     catalogId: manifest.catalogId,
     targets: manifest.targets,

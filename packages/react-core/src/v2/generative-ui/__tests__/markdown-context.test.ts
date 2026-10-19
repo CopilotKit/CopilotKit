@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { GENERATIVE_UI_MARKDOWN_GUIDELINES } from "@copilotkit/shared";
+import {
+  A2UI_BASIC_FUNCTIONS,
+  GENERATIVE_UI_MARKDOWN_GUIDELINES,
+} from "@copilotkit/shared";
 import { createGenerativeUIDispatcher } from "../dispatcher";
 import { buildGenerativeUIManifest } from "../manifest";
 import { standardUI } from "../standard";
@@ -22,6 +25,14 @@ function createManifest(
     ...overrides,
   };
 }
+
+/** The basic functions of A2UI, as every compact schema lists them. */
+const BASIC_FUNCTIONS = Object.fromEntries(
+  Object.entries(A2UI_BASIC_FUNCTIONS).map(([name, fn]) => [
+    name,
+    { description: fn.description, parameters: fn.parameters },
+  ]),
+);
 
 /** The compact type of one optional prop with this schema. */
 function compactPropOf(schema: GenerativeUIJSONSchema) {
@@ -92,6 +103,7 @@ describe("buildCompactGenerativeUISchema", () => {
         { id: "sidebar", kind: "inline", description: "Next to the cart" },
       ],
       functions: {
+        ...BASIC_FUNCTIONS,
         addToCart: {
           description: "Adds an item to the cart",
           parameters: "{ sku: string }",
@@ -128,6 +140,7 @@ describe("buildCompactGenerativeUISchema", () => {
 
     expect(compact.components).toStrictEqual({ Box: { props: {} } });
     expect(compact.functions).toStrictEqual({
+      ...BASIC_FUNCTIONS,
       refresh: { parameters: "unknown" },
     });
   });
@@ -199,10 +212,10 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
 
   it("keeps the schema and the guideline of the standard components small", () => {
     const schema = JSON.stringify(compactStandardSchema());
-    expect(schema.length).toBeLessThan(46_000);
+    expect(schema.length).toBeLessThan(52_000);
     expect(
       schema.length + GENERATIVE_UI_MARKDOWN_GUIDELINES.length,
-    ).toBeLessThan(50_000);
+    ).toBeLessThan(56_000);
   });
 
   it("explains commonProps in the guideline", () => {

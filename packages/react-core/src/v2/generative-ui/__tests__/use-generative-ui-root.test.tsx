@@ -53,6 +53,7 @@ const SMALL_GUIDELINE = buildGenerativeUIMarkdownGuidelines({
   functions: false,
   events: false,
   templates: false,
+  checks: false,
 });
 
 type CouponHandler = (args: { code: string }) => unknown;
