@@ -1034,6 +1034,7 @@ export class IntelligenceAgent extends AbstractAgent {
         }
       : {
           stream_mode: "connect",
+          supports_replay_errors: true,
           last_seen_event_id:
             replayCursor === undefined
               ? this.getReconnectCursor(input)

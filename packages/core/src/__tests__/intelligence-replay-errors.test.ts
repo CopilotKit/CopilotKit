@@ -65,6 +65,9 @@ test.each(["connect", "run"] as const)(
     try {
       await vi.waitFor(() => expect(channels).toHaveBeenCalledOnce());
       const channel = channels.mock.results[0]!.value;
+      expect(channel.params.supports_replay_errors).toBe(
+        mode === "connect" ? true : undefined,
+      );
       channel.triggerJoin("ok");
 
       channel.serverPush("replay_failed", {
