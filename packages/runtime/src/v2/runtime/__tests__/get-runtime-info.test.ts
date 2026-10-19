@@ -698,7 +698,6 @@ describe("handleGetRuntimeInfo", () => {
     expect(data.a2uiEnabled).toBe(false);
   });
 
-  // Verify an agent's display name can differ from its ID.
   it("should allow an agent name to differ from its registry ID", async () => {
     const agent = new BuiltInAgent({
       model: "openai/gpt-5-mini",
@@ -724,7 +723,6 @@ describe("handleGetRuntimeInfo", () => {
     expect(data.agents.research_agent_v2.name).toBe("Research Assistant");
   });
 
-  // Verify that agents without a display name fall back to their ID.
   it("should default the agent name to its registry ID", async () => {
     const mockAgent = {
       description: "Helps with research",

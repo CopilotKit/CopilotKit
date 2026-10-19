@@ -1240,7 +1240,7 @@ function isFactoryConfig(
 }
 
 export class BuiltInAgent extends AbstractAgent {
-  name?: string; // Stores agent's optional name separate from its ID.
+  name?: string;
   private abortController?: AbortController;
   private skillRegistry?: SkillRegistry;
 
@@ -1261,7 +1261,7 @@ export class BuiltInAgent extends AbstractAgent {
 
   constructor(private config: BuiltInAgentConfiguration) {
     super();
-    this.name = config.name; // Initialize display name from agent configuration
+    this.name = config.name;
     this.skillRegistry =
       config.learnedSkills === undefined
         ? undefined

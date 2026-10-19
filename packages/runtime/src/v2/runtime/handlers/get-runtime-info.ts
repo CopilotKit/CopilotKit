@@ -146,7 +146,6 @@ export async function handleGetRuntimeInfo({
         }
 
         const description: AgentDescription = {
-          // Use display name if available, otherwise fall back to ID.
           name: (agent as { name?: string }).name ?? name,
           description: agent.description,
           className: agent.constructor.name,

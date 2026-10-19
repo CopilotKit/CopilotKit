@@ -98,9 +98,7 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
   HttpAgentConfig,
   "url"
 > {
-  /**
-   * Human-readable agent name, independent of the ID used for routing.
-   */
+  //  Human-readable agent name, independent of the ID used for routing.
   name?: string;
   runtimeUrl?: string;
   transport?: CopilotRuntimeTransport;
@@ -716,6 +714,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     const cloned = new ProxiedCopilotRuntimeAgent({
       runtimeUrl: this.runtimeEndpointUrl ?? this.runtimeUrl,
       agentId: this.agentId,
+      name: this.name,
       runtimeAgentId: this.runtimeAgentId,
       description: this.description,
       headers: { ...this.headers },
