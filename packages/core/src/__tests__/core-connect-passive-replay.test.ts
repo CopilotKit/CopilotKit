@@ -79,6 +79,155 @@ function deferredAnswer() {
   return { promise, resolve, reject };
 }
 
+describe("reconnect respects user turn boundaries", () => {
+  it("does not follow up when a new user turn arrives during the framework flush", async () => {
+    const { core, agent } = setup();
+    const flush = deferredAnswer();
+    const scheduler = vi
+      .spyOn(core, "waitForPendingFrameworkUpdates")
+      .mockImplementation(async () => {
+        await flush.promise;
+      });
+    core.addTool(
+      createTool({ name: "approval", handler: undefined, followUp: true }),
+    );
+    await core.connectAgent({ agent });
+    await vi.waitFor(() => expect(scheduler).toHaveBeenCalledTimes(1));
+    expect(
+      agent.messages.filter((message) => message.role === "tool"),
+    ).toHaveLength(1);
+    const history: Message[] = [
+      ...agent.messages,
+      { id: "moved-on", role: "user", content: "never mind" },
+    ];
+    agent.setMessages(structuredClone(history));
+    flush.resolve("flushed");
+    await setImmediate();
+    expect(agent.messages).toEqual(history);
+    expect(agent.runs).toHaveLength(0);
+  });
+
+  it.each([
+    ["component", "chart"],
+    ["component", "*"],
+    ["resume-pending", "chart"],
+    ["resume-pending", "*"],
+    ["human-in-the-loop", "chart"],
+    ["human-in-the-loop", "*"],
+  ])(
+    "leaves historical %s calls registered as %s untouched",
+    async (kind, name) => {
+      const handler = vi.fn(async () => "answer");
+      const core = new CopilotKitCore({});
+      core.addTool(
+        createTool({
+          name,
+          handler: kind === "component" ? undefined : handler,
+          type: kind === "human-in-the-loop" ? "human-in-the-loop" : "frontend",
+          reconnectBehavior: "resume-pending",
+          followUp: true,
+        }),
+      );
+      const history: Message[] = [
+        { id: "request-chart", role: "user", content: "draw a chart" },
+        createToolCallMessage("chart", {}),
+        { id: "changed-mind", role: "user", content: "never mind, 2+2?" },
+      ];
+      const agent = new ReplayAgent(structuredClone(history));
+      // A later user message is sufficient even before its assistant reply.
+      await core.connectAgent({ agent });
+      await setImmediate();
+      expect(agent.messages).toEqual(history);
+      expect(handler).not.toHaveBeenCalled();
+      expect(agent.runs).toHaveLength(0);
+
+      history.push({ id: "answer", role: "assistant", content: "4" });
+      agent.replayMessages = structuredClone(history);
+      await core.connectAgent({ agent });
+      await setImmediate();
+      expect(agent.messages).toEqual(history);
+      expect(handler).not.toHaveBeenCalled();
+      expect(agent.runs).toHaveLength(0);
+    },
+  );
+
+  it("restores all assistant messages in the latest turn while ignoring old calls", async () => {
+    const old = createToolCallMessage("chart", {});
+    const chart = getAssistantMessage(createToolCallMessage("chart", {}));
+    const approval = getAssistantMessage(createToolCallMessage("approval", {}));
+    const answer = deferredAnswer();
+    const handler = vi.fn(() => answer.promise);
+    const core = new CopilotKitCore({});
+    core.addTool(
+      createTool({ name: "chart", handler: undefined, followUp: true }),
+    );
+    core.addTool(
+      createTool({
+        name: "approval",
+        type: "human-in-the-loop",
+        handler,
+        followUp: true,
+      }),
+    );
+    const history: Message[] = [
+      old,
+      {
+        id: "latest-request",
+        role: "user",
+        content: "another chart, then approval",
+      },
+      chart,
+      approval,
+    ];
+    const agent = new ReplayAgent(structuredClone(history));
+    await core.connectAgent({ agent });
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    expect(agent.runs).toHaveLength(0);
+    answer.resolve("approved");
+    await vi.waitFor(() => expect(agent.runs).toHaveLength(1));
+    expect(agent.messages.filter((message) => message.role === "tool")).toEqual(
+      [
+        expect.objectContaining({
+          toolCallId: chart.toolCalls?.[0]?.id,
+          content: "",
+        }),
+        expect.objectContaining({
+          toolCallId: approval.toolCalls?.[0]?.id,
+          content: "approved",
+        }),
+      ],
+    );
+  });
+
+  it.each(["approval", "*"])(
+    "discards a pending replay answer after a new user turn (%s)",
+    async (name) => {
+      const { core, agent } = setup();
+      const answer = deferredAnswer();
+      const handler = vi.fn(() => answer.promise);
+      core.addTool(
+        createTool({
+          name,
+          handler,
+          reconnectBehavior: "resume-pending",
+          followUp: true,
+        }),
+      );
+      await core.connectAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+      const history: Message[] = [
+        ...agent.messages,
+        { id: "moved-on", role: "user", content: "never mind" },
+      ];
+      agent.setMessages(structuredClone(history));
+      answer.resolve("stale answer");
+      await setImmediate();
+      expect(agent.messages).toEqual(history);
+      expect(agent.runs).toHaveLength(0);
+    },
+  );
+});
+
 // PNI-678: component results remain local while an approval is pending.
 describe("restoring component completions alongside an approval", () => {
   /** Model two local chart completions followed by a pending approval. */
