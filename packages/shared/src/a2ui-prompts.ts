@@ -194,7 +194,7 @@ const MARKDOWN_BASE_RULES = [
   "Use unique ids. Do not make cycles. A component cannot be its own child.",
   'Write a component as one flat object: {"id":"title","component":"<Name>","text":"Hello"}.',
   'Put the component name in "component" (never "type"). Put props next to it, never inside a "props" object.',
-  "Use only the components, props, events, and slots in the schema.",
+  'Use only the components, props, events, and slots in the schema. A component with "includesCommonProps" also takes every prop in "commonProps".',
   'Give a prop a literal value, or bind it to the data model with {"@path":"/x"}. Never write {"path":"/x"} as a binding.',
   'Bind a writable prop to let the user edit it: "value":{"@path":"/form/email"}. The user\'s input goes to that path.',
   'To change data, write updateDataModel with a "path" and a "value": {"version":"v1.0","updateDataModel":{"surfaceId":"plan-picker","path":"/seats","value":12}}. Always give "value".',
