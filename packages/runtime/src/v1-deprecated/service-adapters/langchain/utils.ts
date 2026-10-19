@@ -225,6 +225,8 @@ export async function streamLangChainResponse({
     eventStream$.signal?.addEventListener("abort", cancelReader, {
       once: true,
     });
+    // An abort that happened before the listener was added never fires it.
+    if (eventStream$.signal?.aborted) cancelReader();
 
     let mode: "function" | "message" | null = null;
     let currentMessageId: string;

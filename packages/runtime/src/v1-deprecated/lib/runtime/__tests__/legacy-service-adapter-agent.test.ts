@@ -12,8 +12,9 @@ import type { BaseMessage } from "@langchain/core/messages";
 import { CopilotRuntime } from "../copilot-runtime";
 import { LegacyServiceAdapterAgent } from "../legacy-service-adapter-agent";
 import type { CopilotServiceAdapter } from "../../../service-adapters/service-adapter";
-import type { RuntimeEventSubject } from "../../../service-adapters/events";
+import { RuntimeEventSubject } from "../../../service-adapters/events";
 import { LangChainAdapter } from "../../../service-adapters/langchain/langchain-adapter";
+import { streamLangChainResponse } from "../../../service-adapters/langchain/utils";
 import { createCopilotEndpointSingleRoute } from "../../../../v2/runtime/endpoints/hono-single";
 
 type ChainFn = ConstructorParameters<typeof LangChainAdapter>[0]["chainFn"];
@@ -459,5 +460,35 @@ describe("LegacyServiceAdapterAgent.abortRun", () => {
 
     expect(cancelled).toBe(true);
     expect(pulls).toBe(pullsAfterStop);
+  });
+
+  it("cancels a LangChain stream whose signal was aborted before streaming", async () => {
+    let cancelled = false;
+    const endless = new ReadableStream<AIMessageChunk>({
+      async pull(controller) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        controller.enqueue(new AIMessageChunk({ content: "tok " }));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const controller = new AbortController();
+    controller.abort();
+    const eventStream$ = new RuntimeEventSubject(controller.signal);
+
+    const done = streamLangChainResponse({
+      result: endless as never,
+      eventStream$,
+    });
+    const outcome = await Promise.race([
+      done.then(() => "done"),
+      new Promise<"timeout">((resolve) =>
+        setTimeout(() => resolve("timeout"), 1000),
+      ),
+    ]);
+
+    expect(outcome).toBe("done");
+    expect(cancelled).toBe(true);
   });
 });
