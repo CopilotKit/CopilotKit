@@ -1,0 +1,114 @@
+---
+title: "Surfaces"
+icon: "lucide/PanelsTopLeft"
+description: "Render generated UI in the chat, or in named areas of your page that the chat can change."
+---
+
+## What is this?
+
+The chat is a good place for an answer. It is a bad place for the product grid of your shop. When a user asks "show me cheap running shoes", the shoes belong in the product row of the page, not in a chat bubble.
+
+A **surface** is one piece of generated UI. Each surface renders in a **target**, a place where generated UI can go:
+
+- **The chat.** Always there. The agent can use every component of the catalog.
+- **A page target.** An area of your page that you mark with `GenerativeUISurface`. The agent sees it only while it is on screen.
+
+## Add a page target
+
+Wrap an area of your page in `GenerativeUISurface`. Give it an id, and tell the agent what the area is for:
+
+```tsx title="app/page.tsx"
+import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
+import { shopUI } from "./catalog";
+
+export function FeaturedProducts({ products }: { products: Product[] }) {
+  return (
+    <GenerativeUISurface
+      id="featured"
+      ui={shopUI}
+      description="The Featured Products row of the home page. When the customer asks to see products here, show them as a ProductGrid with one ProductCard for each product. When they ask for the featured products again, delete this surface."
+      components={["ProductGrid", "ProductCard"]}
+      fallback={<ProductRow products={products} />}
+    />
+  );
+}
+```
+
+What each prop does:
+
+- `id`: the target id. The agent names it when it renders here.
+- `description`: what the area is and what belongs in it. The agent reads it on every run, so write it like an instruction.
+- `fallback`: shows until the agent renders here, and again after the agent deletes its surface.
+- `ui` and `components`: the only components the agent can use here. See [Limit the components](#limit-the-components).
+
+Now "show me cheap running shoes" swaps the row, and "show the featured products again" brings your own row back.
+
+## Limit the components
+
+A product row must hold product cards, not a slider or a chart. `components` names the only components that the agent can use in this target, the root included:
+
+```tsx
+<GenerativeUISurface id="featured" ui={shopUI} components={["ProductGrid", "ProductCard"]} />
+```
+
+- The agent gets the list, so it knows what fits.
+- An operation with another component is rejected, and the agent gets the reason.
+- `ui` types the names, so a typo is a type error. Pass the same catalog that you gave the provider.
+
+Leave out `components` (and `ui`) to allow every component of the catalog.
+
+## Scroll to the surface
+
+When the agent starts to render into a target, the page scrolls to it, unless it is already on screen. Turn this off for one target:
+
+```tsx
+<GenerativeUISurface id="sidebar-notes" autoScroll={false} />
+```
+
+With a sticky header, give surfaces some room at the top in your CSS:
+
+```css
+[data-generative-ui-surface] {
+  scroll-margin-top: 6rem;
+}
+```
+
+## One target for each item
+
+A target can be specific. A product page can give each product its own target, so its recommendations stay with it when the user moves between products:
+
+```tsx
+<GenerativeUISurface
+  key={product.id}
+  id={`recommendations-${product.id}`}
+  description={`The "You might also like" row under ${product.name}. Show related products here. Never include ${product.name} itself.`}
+/>
+```
+
+## When a component fails
+
+Each component renders inside its own error boundary. One broken component shows a small fallback, and the rest of the surface keeps working. To report errors, or to draw your own fallback:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  generativeUI={{
+    ui: shopUI,
+    errorBoundary: {
+      onError: (info) => console.warn(info.kind, info.surfaceId, info.error.message),
+      fallback: ({ retry }) => <button onClick={retry}>Try again</button>,
+    },
+  }}
+>
+```
+
+## What the agent knows about surfaces
+
+On every run, the agent gets:
+
+- The targets that are on screen, with their descriptions and component limits.
+- The surfaces that already exist, so it can update one in place instead of building a new one.
+- The values the user typed into a surface. The agent cannot write over those values.
+- The operations that the browser rejected, with the reason, so the agent can fix them.
+
+Next: decide what the agent can render in a surface, with a [catalog](/generative-ui/components/catalogs).

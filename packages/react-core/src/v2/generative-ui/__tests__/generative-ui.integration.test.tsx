@@ -411,7 +411,7 @@ describe("generative UI integration", () => {
       surfaceRoot("recs").querySelector("style")?.textContent ?? "";
     const id = () => surfaceRoot("recs").getAttribute("data-a2ui-theme");
     expect(css()).toBe(
-      `[data-a2ui-theme="${id()}"]{--a2ui-color-accent:#111111}`,
+      `.a2ui-surface[data-a2ui-theme="${id()}"]{--a2ui-color-accent:#111111}`,
     );
     expect(css()).not.toContain("tiles.example");
 
@@ -420,7 +420,7 @@ describe("generative UI integration", () => {
       dark: { "--a2ui-color-accent": "#eeeeee" },
     });
 
-    const self = `[data-a2ui-theme="${id()}"]`;
+    const self = `.a2ui-surface[data-a2ui-theme="${id()}"]`;
     expect(css()).toBe(
       `${self}{--a2ui-color-accent:#222222}:where(.dark) ${self},${self}:where(.dark){--a2ui-color-accent:#eeeeee}`,
     );
