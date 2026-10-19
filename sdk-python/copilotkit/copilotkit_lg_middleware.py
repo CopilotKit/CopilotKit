@@ -337,15 +337,12 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     def _properties_from_carrier(carrier: Any, namespace: str) -> dict:
         if not isinstance(carrier, dict):
             return {}
+        # Only the namespaced key is read. Top-level ``context``/``actions`` on
+        # a runtime/config carrier belong to the app (e.g. ``configurable``
+        # forwarded into runtime context) and must never reach the prompt.
         nested = carrier.get(namespace)
         if isinstance(nested, dict) and nested:
             return nested
-        # Legacy unnamespaced CopilotKit runtime/config carriers only. Never
-        # expose an arbitrary runtime context (tenant ids, headers, etc.).
-        if namespace == "copilotkit" and any(
-            key in carrier for key in ("actions", "context")
-        ):
-            return carrier
         return {}
 
     @staticmethod
