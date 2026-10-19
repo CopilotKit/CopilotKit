@@ -90,7 +90,7 @@ describe("standard catalog: layout and text (parity)", () => {
             component,
             children: { componentId: "row", path: "/items" },
           },
-          { id: "row", component: "Text", text: { path: "name" } },
+          { id: "row", component: "Text", text: { "@path": "name" } },
         ],
         { items: [{ name: "Alpha" }, { name: "Beta" }] },
       );
@@ -156,7 +156,7 @@ describe("standard catalog: layout and text (parity)", () => {
         {
           id: "root",
           component: "Carousel",
-          activeIndex: { path: "/slide" },
+          activeIndex: { "@path": "/slide" },
           children: ["a", "b"],
         },
         { id: "a", component: "CarouselItem", children: ["ta"] },

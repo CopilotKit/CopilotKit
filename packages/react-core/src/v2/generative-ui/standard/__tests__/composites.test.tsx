@@ -129,7 +129,7 @@ describe("standard catalog: composites", () => {
     expect(v.forwardEvent.mock.calls[0][0]).toMatchObject({
       name: "follow_up",
       componentId: "root",
-      context: { message: "Make it cheaper" },
+      userMessage: "Make it cheaper",
     });
   });
 

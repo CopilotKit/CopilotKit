@@ -37,8 +37,8 @@ const ui = createGenerativeUI({
 
 const T = "thread";
 
-const op = (payload: Record<string, unknown>): A2UIOperation =>
-  ({ version: "v0.9", ...payload }) as A2UIOperation;
+const op = (payload: Record<string, unknown>) =>
+  ({ version: "v1.0", ...payload }) as unknown as A2UIOperation;
 
 function content(surfaceId: string, operations: A2UIOperation[]) {
   return {
@@ -119,15 +119,15 @@ describe("markdown transport: the parts of a split surface", () => {
     role: "assistant",
     content: fence([
       {
-        version: "v0.9",
+        version: "v1.0",
         createSurface: { surfaceId: "plan", catalogId: "app" },
       },
       {
-        version: "v0.9",
+        version: "v1.0",
         updateDataModel: { surfaceId: "plan", path: "/", value: { seats: 5 } },
       },
       {
-        version: "v0.9",
+        version: "v1.0",
         updateComponents: {
           surfaceId: "plan",
           components: [
@@ -136,9 +136,9 @@ describe("markdown transport: the parts of a split surface", () => {
               component: "Column",
               children: ["seats", "intro", "price"],
             },
-            { id: "seats", component: "Slider", value: { path: "/seats" } },
+            { id: "seats", component: "Slider", value: { "@path": "/seats" } },
             { id: "intro", component: "Title", text: "Your plan" },
-            { id: "price", component: "Text", text: { path: "/seats" } },
+            { id: "price", component: "Text", text: { "@path": "/seats" } },
           ],
         },
       },

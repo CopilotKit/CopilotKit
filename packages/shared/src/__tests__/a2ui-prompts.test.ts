@@ -102,9 +102,12 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     );
   });
 
-  it("updates a surface from a later fence with the same surfaceId, also in a later reply", () => {
+  it("updates a surface from a later fence with the same surfaceId in the reply, and a target from a later reply", () => {
     expect(guide).toContain(
-      "write another fence with the same surfaceId, in this reply or in a later reply.",
+      "To change a surface in this reply, write another fence with the same surfaceId.",
+    );
+    expect(guide).toContain(
+      "A surface in a target can also be changed from a later reply; a chat surface cannot",
     );
     expect(guide).toContain(
       "Never use a surfaceId again, also after the surface is deleted.",
