@@ -1,5 +1,12 @@
 import { promises as fs } from "node:fs";
 import { z } from "zod";
+import { fileURLToPath } from "node:url";
+import {
+  classifyRailwayInventory,
+  parseRailwayLifecyclePolicy,
+} from "../../shared/railway-lifecycle.js";
+import type { ObservedRailwayService } from "../../shared/railway-lifecycle.js";
+import { readRailwayLifecycleEvidence } from "../../shared/railway-lifecycle-records.js";
 import type { DiscoveryContext, DiscoverySource } from "../types.js";
 import {
   DiscoverySourceAuthError,
@@ -448,6 +455,113 @@ function deriveSlugFromServiceName(name: string): string {
   return name.startsWith("showcase-") ? name.slice("showcase-".length) : name;
 }
 
+/** Preserve corroborating names so an unknown row cannot inherit another row's exclusion. */
+function serviceIdentityKey(serviceId: string, name: string): string {
+  return JSON.stringify([serviceId, name]);
+}
+
+/**
+ * Load committed policy only when durable evidence is configured. The container
+ * packages this JSON separately; source runs read the same generated artifact.
+ * Configured read/validation failures abort discovery instead of granting exemptions.
+ */
+async function ownedDisposableServiceKeys(
+  ctx: DiscoveryContext,
+  services: readonly ObservedRailwayService[],
+): Promise<ReadonlySet<string>> {
+  const recordsPath = ctx.env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE;
+  if (recordsPath === undefined) return new Set();
+  const projectId = ctx.env.RAILWAY_PROJECT_ID;
+  const environmentId = ctx.env.RAILWAY_ENVIRONMENT_ID;
+  if (!projectId || !environmentId) {
+    throw new DiscoverySourceSchemaError(
+      "railway-services",
+      "Configured lifecycle evidence requires RAILWAY_PROJECT_ID and RAILWAY_ENVIRONMENT_ID",
+    );
+  }
+  const policyPath =
+    ctx.env.NODE_ENV === "production"
+      ? "/app/data/railway-envs.generated.json"
+      : fileURLToPath(
+          new URL(
+            "../../../../scripts/railway-envs.generated.json",
+            import.meta.url,
+          ),
+        );
+  let policyInput: unknown;
+  try {
+    const raw = await fs.readFile(policyPath, {
+      encoding: "utf8",
+      signal: ctx.abortSignal,
+    });
+    const generated: unknown = JSON.parse(raw);
+    policyInput =
+      generated &&
+      typeof generated === "object" &&
+      "disposableLifecyclePolicy" in generated
+        ? generated.disposableLifecyclePolicy
+        : undefined;
+  } catch (err) {
+    if (isAbortError(err)) throw err;
+    throw new DiscoverySourceSchemaError(
+      "railway-services",
+      "Lifecycle policy could not be read as JSON",
+      policyPath,
+    );
+  }
+  const policy = parseRailwayLifecyclePolicy(policyInput);
+  if (!policy.ok) {
+    throw new DiscoverySourceSchemaError(
+      "railway-services",
+      `Invalid lifecycle policy: ${policy.issues.map((issue) => issue.code).join(", ")}`,
+      policyPath,
+    );
+  }
+  const now = new Date();
+  ctx.abortSignal?.throwIfAborted();
+  const evidence = await readRailwayLifecycleEvidence(
+    recordsPath,
+    policy.value,
+    now,
+    ctx.abortSignal,
+  );
+  ctx.abortSignal?.throwIfAborted();
+  if (evidence.status === "invalid") {
+    throw new DiscoverySourceSchemaError(
+      "railway-services",
+      `Invalid lifecycle evidence: ${evidence.issues.map((issue) => issue.code).join(", ")}`,
+      recordsPath,
+    );
+  }
+  const classified = classifyRailwayInventory({
+    policy: policy.value,
+    evidence,
+    now,
+    projectId,
+    observedEnvironmentIds: [environmentId],
+    services,
+  });
+  for (const issue of classified.diagnostics) {
+    ctx.logger.info("discovery.railway-services.lifecycle-diagnostic", {
+      ...issue,
+    });
+  }
+  for (const issue of classified.failures) {
+    ctx.logger.warn("discovery.railway-services.lifecycle-failure", {
+      ...issue,
+    });
+  }
+  return new Set(
+    classified.services
+      .filter(
+        (service) =>
+          service.classification === "owned-disposable" &&
+          service.environmentId === environmentId,
+      )
+      .map((service) => serviceIdentityKey(service.serviceId, service.name)),
+  );
+}
+
 /**
  * Static local-injection schema for `LOCAL_SERVICES_JSON`. The local D6 gate
  * (and any non-Railway driver) feeds the IDENTICAL `RailwayServiceInfo[]`
@@ -473,6 +587,8 @@ const LocalServiceSchema = z
     name: z.string().min(1),
     publicUrl: z.string().url(),
     imageRef: z.string().optional(),
+    serviceId: z.string().min(1).optional(),
+    environmentId: z.string().min(1).optional(),
     env: z.record(z.string()).optional(),
     deployedDigest: z.string().optional(),
     demos: z.array(z.string()).optional(),
@@ -491,11 +607,11 @@ const LocalServicesSchema = z.array(LocalServiceSchema);
  * failure) when the JSON is malformed, so the invoker surfaces a single keyed
  * synthetic error rather than a silent empty roster.
  */
-function buildLocalServices(
+async function buildLocalServices(
   ctx: DiscoveryContext,
   raw: string,
   filter: z.infer<typeof ConfigSchema>,
-): RailwayServiceInfo[] {
+): Promise<RailwayServiceInfo[]> {
   let parsedUnknown: unknown;
   try {
     parsedUnknown = JSON.parse(raw);
@@ -516,9 +632,36 @@ function buildLocalServices(
       parsed.error,
     );
   }
+  const observed: ObservedRailwayService[] = [];
+  if (ctx.env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE !== undefined) {
+    for (const svc of parsed.data) {
+      if (
+        !svc.serviceId ||
+        !svc.environmentId ||
+        svc.environmentId !== ctx.env.RAILWAY_ENVIRONMENT_ID
+      ) {
+        throw new DiscoverySourceSchemaError(
+          "railway-services",
+          "Configured lifecycle evidence requires each local serviceId and environmentId to identify the configured inventory",
+        );
+      }
+      observed.push({
+        name: svc.name,
+        serviceId: svc.serviceId,
+        environmentId: svc.environmentId,
+        image: svc.imageRef ?? null,
+      });
+    }
+  }
+  const ownedKeys = await ownedDisposableServiceKeys(ctx, observed);
   const excludeSet = new Set(filter.nameExcludes ?? []);
   const out: RailwayServiceInfo[] = [];
   for (const svc of parsed.data) {
+    if (
+      svc.serviceId &&
+      ownedKeys.has(serviceIdentityKey(svc.serviceId, svc.name))
+    )
+      continue;
     if (filter.namePrefix && !svc.name.startsWith(filter.namePrefix)) continue;
     if (excludeSet.has(svc.name)) continue;
     out.push({
@@ -543,6 +686,12 @@ function buildLocalServices(
 export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
   name: "railway-services",
   configSchema: ConfigSchema,
+  /** Ownership exclusions require current evidence, even when upstream fails first. */
+  cachePolicy(ctx) {
+    return ctx.env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE === undefined
+      ? "stale-on-error"
+      : "fresh-only";
+  },
   async enumerate(ctx, rawConfig) {
     // `rawConfig` is the filter-contents object the invoker hands us —
     // see ConfigSchema docstring above for why this is flat, not a
@@ -650,23 +799,43 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
     // schema for forward compatibility with a future Railway labels API
     // but isn't enforced yet — Railway doesn't expose service labels
     // today. `namePrefix` is the live filter.
+    const inventory = parsedProject.data.project.services.edges.map(
+      (edge) => edge.node,
+    );
+    const observed = inventory.flatMap((service) =>
+      service.serviceInstances.edges
+        .filter((edge) => edge.node.environmentId === environmentId)
+        .map((edge) => ({
+          name: service.name,
+          serviceId: service.id,
+          environmentId,
+          image: edge.node.source?.image ?? null,
+        })),
+    );
+    const ownedKeys = await ownedDisposableServiceKeys(ctx, observed);
     const excludeSet = new Set(filter.nameExcludes ?? []);
-    const services = parsedProject.data.project.services.edges
-      .map((e) => e.node)
-      .filter((svc) => {
-        if (filter.namePrefix && !svc.name.startsWith(filter.namePrefix)) {
-          return false;
-        }
-        // Exact-name exclusion — applied AFTER the prefix check so the
-        // exclusion list only has to enumerate names the prefix already
-        // matched. Returning false here skips the per-service env fetch
-        // entirely (same path as the prefix miss above) so excluded
-        // services cost nothing beyond the project-level round-trip.
-        if (excludeSet.has(svc.name)) {
-          return false;
-        }
-        return true;
-      });
+    const services = inventory.filter((svc) => {
+      // Project membership alone does not establish an instance in this environment.
+      if (
+        !svc.serviceInstances.edges.some(
+          (edge) => edge.node.environmentId === environmentId,
+        )
+      )
+        return false;
+      if (ownedKeys.has(serviceIdentityKey(svc.id, svc.name))) return false;
+      if (filter.namePrefix && !svc.name.startsWith(filter.namePrefix)) {
+        return false;
+      }
+      // Exact-name exclusion — applied AFTER the prefix check so the
+      // exclusion list only has to enumerate names the prefix already
+      // matched. Returning false here skips the per-service env fetch
+      // entirely (same path as the prefix miss above) so excluded
+      // services cost nothing beyond the project-level round-trip.
+      if (excludeSet.has(svc.name)) {
+        return false;
+      }
+      return true;
+    });
 
     // Per-service detail enrichment. Bounded-parallel fan-out — the
     // serial `for-of` loop scaled linearly with service count and

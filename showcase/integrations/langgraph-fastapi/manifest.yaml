@@ -508,8 +508,10 @@ demos:
     highlight:
       - src/agents/src/byoc_hashbrown_agent.py
       - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/chat.tsx
       - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
       - src/app/demos/declarative-hashbrown/metric-card.tsx
+      - src/app/demos/declarative-hashbrown/charts/chart-config.ts
       - src/app/demos/declarative-hashbrown/charts/bar-chart.tsx
       - src/app/demos/declarative-hashbrown/charts/pie-chart.tsx
       - src/app/demos/declarative-hashbrown/types.ts

@@ -277,12 +277,11 @@ export async function handleIntelligenceRun({
   let persistedInputMessages: Message[] | undefined;
   if (Array.isArray(input.messages)) {
     try {
-      const history = await runtime.intelligence.getThreadMessages({
-        threadId: canonicalThreadId,
-        userId,
-      });
       const historicMessageIds = new Set(
-        history.messages.map((message) => message.id),
+        await runtime.intelligence.ɵgetThreadMessageIds({
+          threadId: canonicalThreadId,
+          userId,
+        }),
       );
       persistedInputMessages = input.messages.filter(
         (message) => !historicMessageIds.has(message.id),

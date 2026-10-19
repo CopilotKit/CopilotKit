@@ -5,12 +5,14 @@ on:
     paths:
       - "examples/integrations/**"
       - "scripts/__tests__/integration-intelligence-migration.test.ts"
+      - "scripts/__tests__/starter-model-env-contract.test.ts"
       - ".github/workflows/integrations_parity.yml"
   push:
     branches: [main]
     paths:
       - "examples/integrations/**"
       - "scripts/__tests__/integration-intelligence-migration.test.ts"
+      - "scripts/__tests__/starter-model-env-contract.test.ts"
       - ".github/workflows/integrations_parity.yml"
 
 permissions:
@@ -53,3 +55,8 @@ jobs:
 
       - name: Verify Intelligence template credential contracts
         run: pnpm exec vitest run scripts/__tests__/integration-intelligence-migration.test.ts
+
+      # python3 comes with ubuntu-latest. Two cases import a starter's
+      # stdlib-only model helper.
+      - name: Verify the starter model env contract (PE-701)
+        run: pnpm exec vitest run scripts/__tests__/starter-model-env-contract.test.ts

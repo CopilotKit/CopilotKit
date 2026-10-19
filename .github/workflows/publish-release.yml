@@ -432,6 +432,22 @@ jobs:
             echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # The last line of defence for OSS-1107: a stable release of one scope
+      # must not ship a version another scope's PUBLISHED manifest has stopped
+      # admitting. `@copilotkit/angular@0.4.0` pinned `@copilotkit/core@1.69.3`
+      # and the monorepo scope released `1.70.0` four days later, so every
+      # Angular application on the new floor resolved two copies of core.
+      #
+      # This runs before every publish step, the Channels dependency phase
+      # included. Running it after that phase made it a gate on the umbrella
+      # alone: a rejection would leave the foundation and adapter packages
+      # already on `latest`, a partial release no retry can take back.
+      - name: Verify no published scope is left behind
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode == 'stable' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm run verify:cross-scope-pins:registry -- --scope "$SCOPE"
+
       # The family must exist on npm before the umbrella is allowed to ship:
       # the registry verifier installs the packed umbrella against those exact
       # published dependencies. Publish the foundation and adapters first, then
@@ -753,7 +769,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: ">=0.8.0"
 
@@ -889,7 +905,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.9.7"
           enable-cache: false
@@ -934,7 +950,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.9.7"
           enable-cache: false
@@ -964,7 +980,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.9.7"
           enable-cache: false
@@ -994,7 +1010,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.9.7"
           enable-cache: false

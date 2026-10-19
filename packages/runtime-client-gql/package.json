@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime-client-gql",
-  "version": "1.77.2",
+  "version": "1.79.1",
   "private": false,
   "keywords": [
     "ai",
@@ -38,6 +38,7 @@
   },
   "scripts": {
     "build": "pnpm run graphql-codegen && tsdown",
+    "check-dts": "tsx ../../scripts/validate-dts-imports.ts dist",
     "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "dev": "concurrently \"pnpm run graphql-codegen:watch\" \"tsdown --watch\"",
     "test": "pnpm run graphql-codegen && vitest run",
@@ -52,7 +53,9 @@
   },
   "dependencies": {
     "@copilotkit/shared": "workspace:*",
+    "@graphql-typed-document-node/core": "^3.2.0",
     "@urql/core": "^5.0.3",
+    "graphql": "^16.8.1",
     "untruncate-json": "^0.0.1",
     "urql": "^4.1.0"
   },
@@ -64,12 +67,10 @@
     "@graphql-codegen/typescript-operations": "^4.2.1",
     "@graphql-codegen/typescript-urql": "^4.0.0",
     "@graphql-codegen/urql-introspection": "^3.0.0",
-    "@graphql-typed-document-node/core": "^3.2.0",
     "@parcel/watcher": "^2.4.1",
     "@types/node": "^20.12.12",
     "concurrently": "^8.2.2",
     "esbuild": "^0.23.0",
-    "graphql": "^16.8.1",
     "ts-node": "^10.9.2",
     "tsdown": "^0.20.3",
     "typescript": "^5.4.5",

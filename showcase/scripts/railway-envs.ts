@@ -30,6 +30,8 @@
  * widening — accessors resolve any registered env name.
  */
 
+import type { RailwayLifecyclePolicy } from "../harness/src/shared/railway-lifecycle";
+
 export const PROJECT_ID = "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479";
 
 export const PRODUCTION_ENV_ID = "b14919f4-6417-429f-848d-c6ae2201e04f";
@@ -346,6 +348,23 @@ export type AutoUpdatesPolicy = "disabled" | "minor" | "unmanaged";
  */
 export type AutoUpdatesByEnv = Record<EnvName, AutoUpdatesPolicy>;
 
+export interface StaticGatePolicy {
+  readonly presence: "required" | "optional";
+  readonly image: "showcase-convention" | "ignored";
+}
+
+/** Resolve static flags once for presence and image consumers; reject contradictory intent. */
+export function effectiveStaticGatePolicy(
+  entry: Pick<ServiceEntry, "gateValidated" | "gateIgnore">,
+): StaticGatePolicy {
+  if (entry.gateValidated && entry.gateIgnore) {
+    throw new Error("gateValidated:true and gateIgnore:true are contradictory");
+  }
+  return entry.gateValidated
+    ? { presence: "required", image: "showcase-convention" }
+    : { presence: "optional", image: "ignored" };
+}
+
 export interface ServiceEntry {
   /** Railway service ID (env-independent). */
   serviceId: string;
@@ -410,16 +429,16 @@ export interface ServiceEntry {
    */
   imageOf?: string;
   /**
-   * Opt-out flag for the image-ref gate. When `true`, the gate ignores
-   * this service entirely in BOTH the SSOT→Railway direction (no
-   * "missing from Railway" failure if absent) AND the Railway→SSOT
-   * direction (no "untracked Railway service" failure if Railway has
-   * a service with this name that is not WS4-managed). Default: false.
+   * Marks independently deployed services whose image policy does not match
+   * the Showcase build pipeline. Use with `gateValidated: false`;
+   * `gateValidated: true` together with `gateIgnore: true` is invalid.
    *
-   * Intentionally narrow: this exists for independently deployed services
-   * whose image policy does not match the Showcase build pipeline. Single-env
-   * services are fully supported by the gate when they are validated. The
-   * default for every Showcase-managed service is `false` (omitted).
+   * This flag does not grant inventory membership. Permanent identity still
+   * requires the exact registered service name and `serviceId`.
+   * `effectiveStaticGatePolicy` resolves presence and image policy:
+   * `gateValidated: false` means optional presence and ignored image policy,
+   * even when `gateIgnore` is omitted. Single-env services remain supported
+   * when validated. Default: `false` (omitted) for Showcase-managed services.
    */
   gateIgnore?: boolean;
   /**
@@ -1542,10 +1561,10 @@ export const SERVICES: Record<
     },
   },
   // Staging-only Intelligence stack, deployed outside showcase_build.yml.
-  // These six services use pinned Intelligence/Caddy/database images rather
-  // than the Showcase staging :latest convention. Keep them in the SSOT so
-  // the image gate recognizes their Railway names, but do not build, probe,
-  // validate image shape, or promote them through the Showcase pipeline.
+  // These seven services use pinned Intelligence/Caddy/database images rather
+  // than the Showcase staging :latest convention. Their registered names and
+  // service IDs establish permanent identity in the image gate. Do not build,
+  // probe, validate image shape, or promote them through the Showcase pipeline.
   // The superseded init service is intentionally absent: Composite runs migrations.
   "showcase-intelligence-api": {
     serviceId: "2cf17267-31c4-4e92-8270-5ad92bd7ad19",
@@ -1627,6 +1646,20 @@ export const SERVICES: Record<
     environments: {
       staging: {
         instanceId: "4695150f-0de8-4b3b-b302-7a377621a200",
+        probe: false,
+      },
+    },
+  },
+  "showcase-intelligence-test-runner": {
+    serviceId: "4922b45b-6981-4559-be2f-fbbca9123323",
+    autoUpdates: { staging: "unmanaged" },
+    ciBuilt: false,
+    gateValidated: false,
+    gateIgnore: true,
+    probeDriver: "shell", // inert: staging probe is disabled
+    environments: {
+      staging: {
+        instanceId: "f96bf2d4-f4f0-41b6-a7e9-547f33c38961",
         probe: false,
       },
     },
@@ -2845,3 +2878,27 @@ assertImageConsumersValid();
 assertEnvRegistryConsistent();
 assertServiceAndInstanceIdsUnique();
 assertClosureValid();
+
+// Validate all static policies on load, including entries absent from live inventory.
+for (const entry of Object.values(SERVICES)) effectiveStaticGatePolicy(entry);
+
+/** Independent committed approval policy. Receipts cannot add approved pins or permanent entries. */
+export const DISPOSABLE_LIFECYCLE_POLICY: RailwayLifecyclePolicy = {
+  projectId: PROJECT_ID,
+  forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],
+  permanentServices: Object.entries(SERVICES).map(([name, entry]) => ({
+    name,
+    serviceId: entry.serviceId,
+  })),
+  // Operator-approved for the bounded Railway milestone. Application and inspector pins come
+  // from build 38829560760 at 36dd3c5453076d1ed428cf03a0bc3dd98159608f;
+  // data-service pins match the existing composite smoke-test baseline.
+  approvedImages: [
+    "ghcr.io/copilotkit/intelligence/composite@sha256:1bc9dbc634a8b713af7dcf19266eb2b514cdfa3c7e7858476a6ebe5fced45f1d",
+    "ghcr.io/copilotkit/intelligence/postgres-pgvector@sha256:91c40627db16d6d6c4e3c284c69c01ccdfd9172fac89e1b7d453ebb01127c205",
+    "docker.io/bitnamilegacy/redis@sha256:a25b5d07a14ec13730022c7cd9bab6308d55ccd86b74af7315553c17be884889",
+    "ghcr.io/copilotkit/rich-thread-application@sha256:6b6d757e8c5c605c384673a4e8418cd7cd275de2b8b068ebb21856a1032fc71d",
+    "ghcr.io/copilotkit/rich-thread-strands@sha256:a24c58ee44b65fe723434027bf9f40e6b77e679db67ba6229f329676ead430b9",
+    "ghcr.io/copilotkit/rich-thread-inspector@sha256:e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981",
+  ],
+};

@@ -34,10 +34,12 @@ bun install
 
 > **Note:** Installing the package dependencies will also install the agent's Python dependencies via the `install:agent` script using `uv`. This will automatically create a virtual environment and install dependencies from `pyproject.toml`.
 
-2. Set up your OpenAI API key:
+2. Set up your model key:
 
 ```bash
-echo "OPENAI_API_KEY=your-openai-api-key-here" > .env
+cp .env.example .env
+# Add the key of the model provider in .env. COPILOTKIT_AGENT_MODEL chooses
+# the provider and model, for example anthropic:claude-sonnet-4-5.
 ```
 
 3. Start the development server:
