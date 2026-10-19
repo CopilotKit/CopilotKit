@@ -16,6 +16,9 @@ import type { GenerativeUIRuntime } from "../runtime-context";
 /** Objects nested deeper than this show as `object`. */
 const MAX_OBJECT_DEPTH = 2;
 
+/** A prop must appear verbatim in at least this many components to be hoisted. */
+const COMMON_PROP_MIN_COMPONENTS = 8;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -106,8 +109,68 @@ function compactProps(schema: GenerativeUIJSONSchema) {
 }
 
 /**
+ * The prop set worth listing once. Candidates are (key, type) pairs that at
+ * least {@link COMMON_PROP_MIN_COMPONENTS} components carry verbatim. The
+ * candidate subset of each component is a possible common set, scored by
+ * the characters it saves (set size times the components that contain all
+ * of it). `undefined` when no set is shared by enough components.
+ */
+function findCommonProps(propsList: Array<Record<string, string>>) {
+  const pairKey = (key: string, type: string) => `${key}\u0000${type}`;
+  const counts = new Map<string, number>();
+  for (const props of propsList) {
+    for (const [key, type] of Object.entries(props)) {
+      const id = pairKey(key, type);
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  }
+  let best: Record<string, string> | undefined;
+  let bestScore = 0;
+  const seen = new Set<string>();
+  for (const props of propsList) {
+    const subset = Object.entries(props).filter(
+      ([key, type]) =>
+        (counts.get(pairKey(key, type)) ?? 0) >= COMMON_PROP_MIN_COMPONENTS,
+    );
+    if (subset.length < 2) continue;
+    const signature = subset
+      .map(([key, type]) => pairKey(key, type))
+      .join("\n");
+    if (seen.has(signature)) continue;
+    seen.add(signature);
+    const members = propsList.filter((other) =>
+      subset.every(([key, type]) => other[key] === type),
+    ).length;
+    if (members < COMMON_PROP_MIN_COMPONENTS) continue;
+    const size = subset.reduce(
+      (total, [key, type]) => total + key.length + type.length,
+      0,
+    );
+    const score = size * (members - 1);
+    if (score > bestScore) {
+      bestScore = score;
+      best = Object.fromEntries(subset);
+    }
+  }
+  return best;
+}
+
+/** One component of the compact schema. */
+interface CompactComponent {
+  description?: string;
+  /** True when the component also takes every prop in `commonProps`. */
+  includesCommonProps?: true;
+  props: Record<string, string>;
+  events?: Record<string, string>;
+  slots?: Record<string, "single" | "multiple">;
+}
+
+/**
  * The component schema of the markdown transport, from the per-run
- * manifest. It is smaller than the manifest: each prop is one short type.
+ * manifest. It is smaller than the manifest: each prop is one short type,
+ * and the props that many components share verbatim (the layout props of
+ * the containers) are listed once in `commonProps`; a component that takes
+ * them is flagged `includesCommonProps`.
  * It has the catalog id, the targets with their descriptions and their
  * component lists, the functions with their parameters, the components
  * with their props, events and slots, and the surfaces of the thread. A surface lists the
@@ -129,15 +192,7 @@ export function buildCompactGenerativeUISchema(
     "catalogId" | "components" | "functions" | "targets" | "surfaces"
   >,
 ) {
-  const components: Record<
-    string,
-    {
-      description?: string;
-      props: Record<string, string>;
-      events?: Record<string, string>;
-      slots?: Record<string, "single" | "multiple">;
-    }
-  > = {};
+  const components: Record<string, CompactComponent> = {};
   for (const [name, component] of Object.entries(manifest.components)) {
     const events = Object.entries(component.events ?? {}).map(
       ([event, definition]) => [
@@ -152,6 +207,22 @@ export function buildCompactGenerativeUISchema(
       ...(component.slots ? { slots: component.slots } : {}),
     };
   }
+  const common = findCommonProps(
+    Object.values(components).map((component) => component.props),
+  );
+  if (common) {
+    const commonKeys = Object.keys(common);
+    for (const component of Object.values(components)) {
+      const includesCommon = commonKeys.every(
+        (key) => component.props[key] === common[key],
+      );
+      if (!includesCommon) continue;
+      component.includesCommonProps = true;
+      component.props = Object.fromEntries(
+        Object.entries(component.props).filter(([key]) => !(key in common)),
+      );
+    }
+  }
   const functions = Object.fromEntries(
     Object.entries(manifest.functions).map(([name, fn]) => [
       name,
@@ -165,6 +236,7 @@ export function buildCompactGenerativeUISchema(
     catalogId: manifest.catalogId,
     targets: manifest.targets,
     functions,
+    ...(common ? { commonProps: common } : {}),
     components,
     surfaces: manifest.surfaces,
   };

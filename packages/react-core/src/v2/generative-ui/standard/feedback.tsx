@@ -33,7 +33,7 @@ export const FEEDBACK_STYLE_ID = "a2ui-standard-feedback";
  */
 export const FEEDBACK_CSS = [
   "@keyframes a2ui-spin{to{transform:rotate(360deg)}}",
-  "@keyframes a2ui-pulse{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.4);opacity:0}}",
+  "@keyframes a2ui-pulse{0%{transform:scale(1);opacity:var(--a2ui-pulse-opacity,.6)}100%{transform:scale(var(--a2ui-pulse-scale,2.4));opacity:0}}",
   "@keyframes a2ui-block-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}",
   "@keyframes a2ui-confetti{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(var(--a2ui-dx),var(--a2ui-dy)) rotate(var(--a2ui-rot));opacity:0}}",
   "[data-a2ui-feedback-button]:focus-visible{outline:2px solid var(--a2ui-color-focus, #0285ff);outline-offset:2px}",
@@ -105,6 +105,7 @@ const loadingBlockSchema = z.object({
     .optional()
     .describe('Background token. Default "surface-tertiary"'),
   duration: z.number().optional().describe("Milliseconds. Default 1500"),
+  reducedMotion: z.boolean().optional().describe("No shimmer animation"),
 });
 const pulseIndicatorSchema = z.object({
   label: z
@@ -117,6 +118,8 @@ const pulseIndicatorSchema = z.object({
   size: z.number().optional().describe("Pixels. Default 12"),
   pulseColor: z.string().optional(),
   duration: z.number().optional().describe("Milliseconds. Default 1500"),
+  endScale: z.number().optional().describe("Default 2.4"),
+  startOpacity: z.number().optional().describe("Default 0.6"),
 });
 const celebrationSchema = z.object({
   trigger: z
@@ -135,12 +138,23 @@ const flashcardSchema = z.object({
 const popoverSchema = z.object({
   open: z.boolean().optional().describe("Default false"),
   showOnHover: z.boolean().optional(),
+  hoverOpenDelay: z
+    .number()
+    .optional()
+    .describe("Milliseconds before a hover opens it. Default 0"),
+});
+const popoverTriggerSchema = z.object({
+  block: z.boolean().optional().describe("Full width"),
 });
 const popoverContentSchema = z.object({
   side: z
     .enum(["top", "bottom", "left", "right"])
     .optional()
     .describe('Default "bottom"'),
+  sideOffset: z
+    .number()
+    .optional()
+    .describe("Pixels between the trigger and the content. Default 6"),
   align: z
     .enum(["start", "center", "end"])
     .optional()
@@ -159,6 +173,7 @@ type FlashcardProps = z.output<typeof flashcardSchema>;
 type PopoverProps = WithChildren<
   z.output<typeof popoverSchema> & { setOpen: (value: boolean) => void }
 >;
+type PopoverTriggerProps = WithChildren<z.output<typeof popoverTriggerSchema>>;
 type PopoverContentProps = WithChildren<z.output<typeof popoverContentSchema>>;
 
 // ---- Loading ----
@@ -237,7 +252,9 @@ function LoadingBlock(props: LoadingBlockProps) {
         ),
         backgroundImage: `linear-gradient(90deg, transparent 0%, ${SHIMMER_HIGHLIGHT} 50%, transparent 100%)`,
         backgroundSize: "200% 100%",
-        animation: `a2ui-block-shimmer ${props.duration ?? 1500}ms linear infinite`,
+        animation: props.reducedMotion
+          ? undefined
+          : `a2ui-block-shimmer ${props.duration ?? 1500}ms linear infinite`,
         ...textFont("sm"),
         color: textColor("secondary"),
       }}
@@ -268,13 +285,17 @@ function PulseIndicator(props: PulseIndicatorProps) {
     >
       <span
         data-a2ui-motion=""
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: "9999px",
-          background: textColor(props.pulseColor) ?? color,
-          animation: `a2ui-pulse ${props.duration ?? 1500}ms ease-out infinite`,
-        }}
+        style={
+          {
+            position: "absolute",
+            inset: 0,
+            borderRadius: "9999px",
+            background: textColor(props.pulseColor) ?? color,
+            animation: `a2ui-pulse ${props.duration ?? 1500}ms ease-out infinite`,
+            "--a2ui-pulse-scale": props.endScale,
+            "--a2ui-pulse-opacity": props.startOpacity,
+          } as CSSProperties
+        }
       />
       <span
         style={{
@@ -422,6 +443,17 @@ function Popover(props: PopoverProps) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openOnHover = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    const delay = props.hoverOpenDelay ?? 0;
+    if (delay > 0) hoverTimer.current = setTimeout(() => setOpen(true), delay);
+    else setOpen(true);
+  };
+  const closeOnLeave = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    setOpen(false);
+  };
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: PointerEvent) => {
@@ -456,8 +488,8 @@ function Popover(props: PopoverProps) {
         ref={rootRef}
         data-a2ui-std=""
         onKeyDown={onKeyDown}
-        onMouseEnter={props.showOnHover ? () => setOpen(true) : undefined}
-        onMouseLeave={props.showOnHover ? () => setOpen(false) : undefined}
+        onMouseEnter={props.showOnHover ? openOnHover : undefined}
+        onMouseLeave={props.showOnHover ? closeOnLeave : undefined}
         style={{ position: "relative", display: "inline-flex" }}
       >
         {props.children}
@@ -466,7 +498,7 @@ function Popover(props: PopoverProps) {
   );
 }
 
-function PopoverTrigger(props: { children?: ReactNode }) {
+function PopoverTrigger(props: PopoverTriggerProps) {
   useFeedbackStyles();
   const popover = useContext(PopoverContext);
   if (!popover) return <>{props.children}</>;
@@ -480,10 +512,15 @@ function PopoverTrigger(props: { children?: ReactNode }) {
       aria-controls={popover.open ? popover.contentId : undefined}
       data-a2ui-std=""
       data-a2ui-feedback-button=""
-      onClick={() => popover.setOpen(!popover.open)}
+      data-a2ui-popover-trigger=""
+      // The capture phase: a Button child stops the propagation of its own
+      // click (so it never bubbles into a Pressable), which would leave the
+      // trigger without the click.
+      onClickCapture={() => popover.setOpen(!popover.open)}
       style={{
         ...BUTTON_RESET,
-        display: "inline-flex",
+        display: props.block ? "flex" : "inline-flex",
+        width: props.block ? "100%" : undefined,
         alignItems: "center",
         minWidth: 24,
         minHeight: 24,
@@ -498,12 +535,19 @@ function PopoverTrigger(props: { children?: ReactNode }) {
 type Side = NonNullable<PopoverContentProps["side"]>;
 type Align = NonNullable<PopoverContentProps["align"]>;
 
-const SIDE_STYLE: Record<Side, CSSProperties> = {
-  bottom: { top: "100%", marginTop: 6 },
-  top: { bottom: "100%", marginBottom: 6 },
-  left: { right: "100%", marginRight: 6 },
-  right: { left: "100%", marginLeft: 6 },
-};
+/** Where the content sits: on `side` of the trigger, `offset` pixels away. */
+function sideStyle(side: Side, offset: number): CSSProperties {
+  switch (side) {
+    case "bottom":
+      return { top: "100%", marginTop: offset };
+    case "top":
+      return { bottom: "100%", marginBottom: offset };
+    case "left":
+      return { right: "100%", marginRight: offset };
+    case "right":
+      return { left: "100%", marginLeft: offset };
+  }
+}
 
 /** Where the content sits along the side of the trigger. */
 function alignStyle(side: Side, align: Align) {
@@ -566,7 +610,7 @@ function PopoverContent(props: PopoverContentProps) {
       style={{
         ...PANEL_STYLE,
         position: "absolute",
-        ...SIDE_STYLE[side],
+        ...sideStyle(side, props.sideOffset ?? 6),
         ...alignStyle(side, props.align ?? "center"),
         width: spacing(props.width),
       }}
@@ -635,7 +679,7 @@ export const feedbackComponents = {
     component: PopoverTrigger,
     description:
       "The trigger of a Popover. Its children are the label of the trigger: a Text or an Icon. Do not put a Button in it, because the trigger is already a button.",
-    props: z.object({}),
+    props: popoverTriggerSchema,
     slots: CHILDREN_SLOT,
   },
   PopoverContent: {

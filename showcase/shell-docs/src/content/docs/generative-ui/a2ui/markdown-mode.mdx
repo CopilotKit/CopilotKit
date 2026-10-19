@@ -1,0 +1,297 @@
+---
+title: "Markdown mode"
+icon: "lucide/Code"
+description: "Render A2UI surfaces inline from ```a2ui fences in ordinary markdown replies, with the standard components."
+---
+
+<Callout type="warn">
+  Experimental. The `generativeUI` prop and `@copilotkit/react-core/v2/generative-ui`
+  are new APIs that can still change.
+</Callout>
+
+## What is this?
+
+In markdown mode the agent does not call a tool to render UI. It writes A2UI
+operations inside a fenced code block tagged `a2ui`, in the middle of an
+ordinary markdown reply, and the chat renders each fence as a live surface.
+Prose before and after the fence renders as normal markdown. Prose the model
+puts *inside* a fence (a title, a paragraph, a list of text) is lifted out and
+rendered as chat markdown too, so only real UI ends up in a surface.
+
+Inside the fence the agent writes one JSON operation per line:
+
+````markdown
+Here is an estimate you can play with:
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"plan-estimator","dataModel":{"seats":10,"price":"$290 / month"},"components":[{"id":"root","component":"Card","children":["seats","price"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"plan-estimator","components":[{"id":"seats","component":"Slider","label":"Seats","min":1,"max":50,"value":{"@path":"/seats"}},{"id":"price","component":"Text","text":{"@path":"/price"}}]}}
+```
+
+Move the slider to change the seat count.
+````
+
+The operations are A2UI v1.0. The `createSurface` carries the initial data
+model and the root component, so bound values are known the moment a
+component paints, and the children follow one line at a time.
+
+Because the UI travels as plain text, markdown mode works with any AG-UI
+agent: the built-in agent, LangGraph, or anything else that streams text. The
+same components also work through the `render_ui` tool: that is the `tool`
+transport, and both transports render on one surface engine.
+
+## Enable it
+
+Give the provider a generative UI and pick the markdown transport:
+
+```tsx title="app/providers.tsx"
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  generativeUI={{ ui: standardUI, transport: "markdown" }}
+>
+  {children}
+</CopilotKitProvider>;
+```
+
+With the markdown transport on, the provider:
+
+- sends two context entries to the agent: a compact schema of the components
+  (names, props, events and slots, about 10k tokens for the standard
+  components) and the markdown guideline (how to write the fence, about 1k
+  tokens; rules for functions, events and templates are left out when the
+  manifest has none);
+- forwards a structured envelope on `forwardedProps.copilotkit.ui` on every
+  run (see [Backends that build their own prompt](#backends-that-build-their-own-prompt)),
+  which also tells the runtime **not** to add the `render_ui` tool to the run;
+- swaps the assistant message's markdown renderer for one that splits prose
+  from `a2ui` fences and renders each fence as a surface.
+
+No agent changes are needed. The built-in agent pastes every context entry
+into its system prompt. For a LangGraph Python agent, add
+`CopilotKitMiddleware` so the same happens there. Any other framework needs to
+do one thing: put the run's `context` entries into the system prompt.
+
+### Backends that build their own prompt
+
+Every run also carries a structured envelope at
+`forwardedProps.copilotkit.ui`:
+
+```json
+{
+  "method": "a2ui",
+  "version": "v1.0",
+  "format": 2,
+  "transport": "markdown",
+  "catalog": { "id": "copilotkit/standard@1", "version": "fnv1a:…", "components": { "...": "..." } },
+  "functions": {},
+  "targets": [{ "id": "chat", "kind": "chat" }],
+  "surfaces": {},
+  "instructions": "You can show interactive UI in your reply ...",
+  "contextSent": true
+}
+```
+
+`catalog.components` is the component manifest (JSON Schema per component,
+with its events and slots). `instructions` is the guideline text. `surfaces`
+lists the surfaces the client already holds for the thread, with the values
+the user set and any operations the client rejected, so the model can update
+a surface in place or fix a mistake. A backend that prefers the envelope over
+the context entries turns the context off and reads it:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  generativeUI={{ ui: standardUI, transport: "markdown", sendContext: false }}
+>
+```
+
+```python
+ui = input.forwarded_props["copilotkit"]["ui"]
+system = f"{MY_PROMPT}\n\n{ui['instructions']}\n\nComponents:\n{json.dumps(ui['catalog'])}"
+```
+
+Three related options, all on the markdown transport only:
+
+- `sendContext: false` sends no context entries; `contextSent` in the envelope
+  reflects it, so a backend that supports both paths never injects the
+  schema twice.
+- `includeCatalog: false` leaves `catalog.components` out of the envelope, for
+  backends that already hold the components.
+- `agentIds: ["chat"]` restricts the context entries and the envelope to runs
+  of those agents. By default every agent receives them.
+
+A runnable example with the built-in agent and a LangGraph Python agent lives
+in [`examples/v2/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/a2ui-markdown).
+
+## Streaming
+
+Surfaces paint while the reply is still streaming:
+
+- Each component renders as soon as its JSON has fully streamed, so a surface
+  fills in component by component inside an open fence. A child that has not
+  arrived yet takes no space; there is no placeholder.
+- Components fade in once as they appear. A chart never re-animates when a
+  sibling arrives.
+- If the stream stops mid-fence (for example, the run is aborted), the surface
+  keeps whatever already painted.
+- The chat shows no progress indicator under a reply that already has text:
+  the reply painting in place is the progress signal.
+
+If the model omits `createSurface`, CopilotKit synthesizes one. A later fence
+in the same reply that reuses a `surfaceId` applies its operations to the
+existing surface instead of rendering a second one. The chat is a
+transcript, so a later reply that reuses the id gets a surface of its own
+and the earlier reply keeps what it showed. A fence with `target=<id>` in
+its info string renders into the `<GenerativeUISurface id>` of that id on
+the page instead of the chat; a page target is a place, so any later reply
+updates it.
+
+## Prose inside a surface
+
+Only interactive panels keep a box. A `Card` without controls renders as a
+plain section, and titles, paragraphs and text lists in the main stack of a
+surface become chat markdown. The surface splits around them into parts
+that render in order. The parts share one data model, so a slider in one
+part still drives a bound value in another.
+
+## The standard components
+
+Markdown mode ships with `standardUI`, 69 components,
+with A2UI-native names where A2UI has the
+component:
+
+| Group | Components |
+| --- | --- |
+| Layout | `Box`, `Column`, `Row`, `Grid`, `GridItem`, `Card`, `Flow`, `FlowItem`, `Carousel`, `CarouselItem`, `CarouselMediaItem`, `Spacer`, `Divider` |
+| Text | `Title`, `Text`, `Caption`, `Label`, `Bold`, `Italic`, `Underline`, `Strikethrough`, `Badge`, `Blockquote`, `Code`, `Markdown`, `Math`, `ShimmerText`, `Link`, `Tooltip` |
+| Inputs | `Button`, `Pressable`, `Form`, `TextField`, `TextArea`, `Select`, `CheckBox`, `Radio`, `RadioGroup`, `Slider`, `SegmentedControl`, `DateTimeInput` |
+| Data | `Table`, `TableSection`, `TableRow`, `TableCell`, `List`, `ListItem`, `Chart`, `Map` |
+| Media | `Image`, `Icon`, `Favicon`, `Svg`, `YouTube`, `HtmlView` |
+| Feedback and overlay | `Loading`, `LoadingIndicator`, `LoadingBlock`, `PulseIndicator`, `Celebration`, `FlashcardFlip`, `Popover`, `PopoverTrigger`, `PopoverContent` |
+| Composites | `LinkCard`, `Citation`, `FollowUp`, `EntityCard`, `ImageGrid` |
+
+Every prop accepts a literal or a data-model binding (`{ "@path": "/seats" }`).
+The value of a control (`value`, or `checked` for `CheckBox`) is writable:
+when the model binds it to a path, what the user enters goes into the data
+model at that path, and the agent can no longer change it.
+
+`Button` and `Pressable` also take `href` (open a URL in a new tab) and
+`Button` takes `copy` (copy text to the clipboard); both run client-side
+without a round trip to the agent. `Image`, `ImageGrid` and
+`CarouselMediaItem` open a lightbox on click (the grid and the carousel let
+the user step through all of their images), and `YouTube` shows a poster
+until the user presses play.
+
+`Map` loads `maplibre-gl` on demand; install it in your app if your agent
+draws maps. The basemap is OpenFreeMap's keyless Positron style; pass your own
+style URL as `theme: { mapStyle: "https://…/style.json" }`. A `Markdown`
+component inside a surface renders with Streamdown, like the chat prose
+around it.
+
+The example app renders every component with sample data at
+`http://localhost:3011/catalog`, next to the description and props the model
+sees.
+
+### Your own components
+
+Add components on top of the standard ones with `createGenerativeUI`. A
+component is a React component with a zod props schema; children are slots,
+callbacks are events, and `writable` names the props the component can set:
+
+```tsx
+import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";
+
+const ui = createGenerativeUI({
+  id: "acme/app@1",
+  extends: [standardUI],
+  components: {
+    ProductCard: {
+      component: ProductCard,
+      description: "A product with its price and an Add to cart button.",
+      props: z.object({ name: z.string(), price: z.number() }),
+      events: { onAdd: { parameters: z.object({}) } },
+    },
+  },
+});
+
+<CopilotKitProvider generativeUI={{ ui, transport: "markdown" }}>
+```
+
+### Styling
+
+Every colour, radius, shadow and font in the standard components is a CSS
+variable with a fallback (`--a2ui-color-accent`, `--a2ui-color-text-*`,
+`--a2ui-color-border-*`, `--a2ui-radius-*`, `--a2ui-shadow-*`,
+`--a2ui-chart-1` … `--a2ui-chart-6`, `--a2ui-font-family`). Set them on any
+ancestor in your stylesheet, or pass them as the theme:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  generativeUI={{
+    ui: standardUI,
+    transport: "markdown",
+    theme: { "--a2ui-color-accent": "#0f766e", "--a2ui-chart-1": "#0f766e" },
+  }}
+>
+```
+
+The map's popup and route line use maplibre's own styling and do not follow
+these variables.
+
+## Events
+
+When the user presses a button or submits a form, the component sends its
+event. The model binds an event to `{ "event": { "name", "context" } }`:
+
+```json
+{ "onClick": { "event": { "name": "choose", "userMessage": "Show me the Team plan", "context": { "plan": "team" } } } }
+```
+
+An event that no function handles becomes a **visible user message** and runs
+the agent, exactly as if the user had typed it. The message text is the
+event's `userMessage` when present, otherwise the humanized event name,
+followed by the context values as `key: value` lines. The guideline tells
+the agent to put the text it wants back into `userMessage`.
+
+To handle an event in the browser instead, declare a function with the
+event's name (or the name without `on`) and bind a handler. The event then
+calls the function, with no run:
+
+```tsx
+const ui = createGenerativeUI({
+  id: "acme/app@1",
+  extends: [standardUI],
+  functions: { followUp: { parameters: z.object({ message: z.string() }) } },
+});
+
+function FollowUpHandler() {
+  useGenerativeUIFunction(ui, "followUp", ({ message }) => track(message));
+  return null;
+}
+```
+
+This works for the events of the standard components too: `FollowUp` sends
+`onFollowUp`, `Button` and `Pressable` send `onClick`, `Form` sends
+`onSubmit`, `List` and `ListItem` send `action`, every container sends
+`onVisible` once when it scrolls into view.
+
+## v1 chat
+
+The v1 chat components in `@copilotkit/react-ui` (`CopilotChat`,
+`CopilotSidebar`, `CopilotPopup`) render `a2ui` fences too. Pass the same
+`generativeUI` prop to the v1 `<CopilotKit>` provider; without it a fence
+renders as a plain code block.
+
+## Limitations
+
+- Fences are block-level only. A fence must start at column 0; a fence
+  indented inside a list item renders as a code block.
+- Values are literals or data-model bindings. There are no computed
+  expressions (only `{"@call":"@index"}` inside a template), so a price that
+  depends on a slider must be recomputed by the agent (for example, after an
+  event) rather than inside the surface.
+- A surface id is never used again, also after `deleteSurface`.

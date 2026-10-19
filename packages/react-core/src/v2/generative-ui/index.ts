@@ -35,5 +35,8 @@ export { GenerativeUISurface } from "./GenerativeUISurface";
 export type { GenerativeUISurfaceProps } from "./GenerativeUISurface";
 export { DefaultGenerativeUIChatCard } from "./chat";
 export type { GenerativeUIChatSurfaceProps } from "./chat";
+export { MarkdownSurfaces } from "./markdown/MarkdownSurfaces";
+export type { MarkdownSurfacesProps } from "./markdown/MarkdownSurfaces";
+export { useGenerativeUIRuntime } from "./runtime-context";
 export { useGenerativeUIFunction, useGenerativeUIState } from "./hooks";
 export { standardUI } from "./standard";

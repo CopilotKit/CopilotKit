@@ -236,26 +236,27 @@ describe("markdown transport", () => {
     agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
   });
 
-  it("updates the first surface in place from a later reply and renders nothing at the later fence", async () => {
+  it("renders a later reply that reuses a surfaceId as its own surface, under that reply", async () => {
     const { agent } = setup();
     await reply(agent, "show", "m1", [
       fence([create("s1"), buttonRoot("s1", "Buy")]),
     ]);
     await waitFor(() => expect(chatSurfaces()).toHaveLength(1));
 
-    await reply(agent, "rename it", "m2", [
-      `Renamed it.\n${fence([buttonRoot("s1", "Buy now")])}`,
+    await reply(agent, "another", "m2", [
+      `Another one.\n${fence([buttonRoot("s1", "Buy now")])}`,
     ]);
 
-    await waitFor(() =>
-      expect(within(chatSurfaces()[0]).getByRole("button").textContent).toBe(
-        "Buy now",
-      ),
+    await waitFor(() => expect(chatSurfaces()).toHaveLength(2));
+    expect(within(chatSurfaces()[0]).getByRole("button").textContent).toBe(
+      "Buy",
     );
-    expect(chatSurfaces()).toHaveLength(1);
-    const firstMessage = document.querySelector('[data-message-id="m1"]');
-    expect(firstMessage?.contains(chatSurfaces()[0])).toBe(true);
-    expect(await screen.findByText("Renamed it.")).toBeTruthy();
+    expect(within(chatSurfaces()[1]).getByRole("button").textContent).toBe(
+      "Buy now",
+    );
+    const secondMessage = document.querySelector('[data-message-id="m2"]');
+    expect(secondMessage?.contains(chatSurfaces()[1])).toBe(true);
+    expect(await screen.findByText("Another one.")).toBeTruthy();
   });
 
   it("renders a target=<id> fence inside <GenerativeUISurface id> and not in the chat", async () => {

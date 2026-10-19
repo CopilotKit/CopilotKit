@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { compositeComponents } from "../composites";
 import { dataComponents } from "../data";
 import { feedbackComponents } from "../feedback";
 import { standardUI } from "../index";
@@ -43,10 +44,11 @@ describe("standardUI", () => {
       feedbackComponents,
       dataComponents,
       mediaComponents,
+      compositeComponents,
     ].flatMap((group) => Object.keys(group));
     // A name in two groups would collapse into one entry here.
     expect([...standardUI.components.keys()]).toEqual(groupNames);
-    expect(standardUI.components.size).toBe(63);
+    expect(standardUI.components.size).toBe(69);
     for (const [name, manifest] of Object.entries(
       standardUI.manifestComponents,
     )) {
@@ -70,8 +72,10 @@ describe("standardUI", () => {
   it("renders the fixture with no error", async () => {
     const view = renderSurface(standardUI, fixture.components, fixture.data);
     expect(await view.findByText("Standard catalog fixture")).toBeTruthy();
-    // Template rows, template list items, and the Map list of places.
+    // Template rows, template list items, the Map list of places, and a
+    // composite.
     expect(await view.findByText("Linus")).toBeTruthy();
+    expect(await view.findByText("Café Central")).toBeTruthy();
     expect(await view.findByText("Walk dog")).toBeTruthy();
     expect(await view.findByText("Graz")).toBeTruthy();
     expect(view.reportError).not.toHaveBeenCalled();

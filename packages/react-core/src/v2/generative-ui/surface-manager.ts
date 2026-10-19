@@ -150,6 +150,12 @@ export class GenerativeUISurfaceManager {
    * built again.
    */
   private readonly deletedKeys = new Set<string>();
+  /**
+   * Surfaces that share their data model, by surface key: the parts of a
+   * chat surface that the prose lift split. A user write to one part goes
+   * to every part, so an input in one part drives a binding in another.
+   */
+  private readonly linked = new Map<string, ReadonlySet<string>>();
   private readonly webCoreCatalog: Catalog<any>;
   private activeThreadId: string | undefined;
   private version = 0;
@@ -255,6 +261,12 @@ export class GenerativeUISurfaceManager {
       changed = true;
     }
     if (changed) this.notify();
+  }
+
+  /** The surface of a `key` (see `surfaceKey`), unless it is deleted. */
+  getSurfaceByKey(key: string): ManagedSurface | undefined {
+    const surface = this.surfaces.get(key);
+    return surface && !surface.deleted ? surface : undefined;
   }
 
   getSurface(threadId: string, surfaceId: string): ManagedSurface | undefined {
@@ -392,10 +404,28 @@ export class GenerativeUISurfaceManager {
   }
 
   /**
+   * Makes the surfaces of `surfaceIds` share their data model: a user write
+   * to one of them goes to all of them (see `setOwnedValue`). The markdown
+   * transport links the parts of a chat surface that the prose lift split.
+   * A later call for one of the surfaces replaces its group.
+   *
+   * @param threadId - The thread of the surfaces.
+   * @param surfaceIds - The surface ids of the group. One id clears a link.
+   */
+  linkSurfaces(threadId: string, surfaceIds: readonly string[]) {
+    const keys = new Set(surfaceIds.map((id) => surfaceKey(threadId, id)));
+    for (const key of keys) {
+      if (keys.size > 1) this.linked.set(key, keys);
+      else this.linked.delete(key);
+    }
+  }
+
+  /**
    * Writes a user value into the data model of a surface, and marks `path`
    * as user-owned. Then agent writes to that path, or below it, are ignored.
    * An agent write above it keeps the user value. Ownership ends when the
-   * surface is deleted. Does nothing for an unknown or deleted surface.
+   * surface is deleted. Does nothing for an unknown or deleted surface. The
+   * surfaces linked to it (see `linkSurfaces`) get the same write.
    *
    * @param key - The `key` of the surface.
    * @param path - An absolute JSON pointer, for example "/form/email".
@@ -405,8 +435,6 @@ export class GenerativeUISurfaceManager {
    *   segment above it holds a string).
    */
   setOwnedValue(key: string, path: string, value: unknown): void {
-    const surface = this.surfaces.get(key);
-    if (!surface || surface.deleted) return;
     const normalized = normalizePath(path);
     const segments = normalized.split("/");
     const forbidden = segments.find((segment) =>
@@ -417,9 +445,17 @@ export class GenerativeUISurfaceManager {
         `[generativeUI] path segment "${forbidden}" is not allowed in "${path}".`,
       );
     }
-    surface.model.dataModel.set(normalized, structuredClone(value));
+    for (const target of this.linked.get(key) ?? [key]) {
+      this.writeOwnedValue(target, normalized, value);
+    }
+  }
+
+  private writeOwnedValue(key: string, path: string, value: unknown) {
+    const surface = this.surfaces.get(key);
+    if (!surface || surface.deleted) return;
+    surface.model.dataModel.set(path, structuredClone(value));
     const owned = this.owned.get(key) ?? new Map<string, unknown>();
-    owned.set(normalized, structuredClone(value));
+    owned.set(path, structuredClone(value));
     this.owned.set(key, owned);
   }
 
@@ -500,6 +536,14 @@ export class GenerativeUISurfaceManager {
     this.surfaces.get(key)?.model.dispose();
     this.surfaces.delete(key);
     this.bookkeeping.delete(key);
+  }
+
+  /** The surfaces of a thread that a part of `surfaceId` reads, for tests. */
+  getLinkedSurfaceIds(threadId: string, surfaceId: string) {
+    const keys = this.linked.get(surfaceKey(threadId, surfaceId));
+    if (!keys) return [surfaceId];
+    const prefix = `${threadId}::`;
+    return [...keys].map((key) => key.slice(prefix.length));
   }
 
   /**
