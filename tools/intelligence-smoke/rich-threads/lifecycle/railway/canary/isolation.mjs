@@ -24,7 +24,11 @@ function validateScope(scope) {
     "Unexpected scope fields",
   );
   assert.equal(scope.version, 1);
-  assert.equal(scope.purpose, "pni605-isolation-canary");
+  assert.ok(
+    ["pni605-isolation-canary", "pni605-fork-isolation-canary"].includes(
+      scope.purpose,
+    ),
+  );
   assert.equal(scope.workspaceId, canaryWorkspaceId);
   assert.match(scope.projectId, uuid);
   assert.notEqual(
@@ -128,6 +132,7 @@ async function runCanaryLocked({
   pacingTime,
 }) {
   const startedAt = clock();
+  const forkMode = scope.purpose === "pni605-fork-isolation-canary";
   const state = {
     version: 1,
     scope,
@@ -224,6 +229,8 @@ async function runCanaryLocked({
     await save();
     const prefix = `pni605-${state.runId.slice(0, 8)}`;
     for (const suffix of ["a", "b"]) {
+      const sourceEnvironmentId =
+        forkMode && suffix === "b" ? state.environments[0].id : undefined;
       const name = `${prefix}-${suffix}`;
       const current = await observe();
       assertEmpty(current);
@@ -233,6 +240,7 @@ async function runCanaryLocked({
           name,
           ephemeral: true,
           skipInitialDeploys: true,
+          ...(sourceEnvironmentId ? { sourceEnvironmentId } : {}),
         },
       });
       assert.ok(
@@ -240,7 +248,16 @@ async function runCanaryLocked({
       );
       assert.equal(value.name, name);
       assert.equal(value.projectId, scope.projectId);
-      state.environments.push({ id: value.id, name });
+      state.environments.push({
+        id: value.id,
+        name,
+        ...(forkMode
+          ? {
+              createdAt: value.createdAt,
+              sourceEnvironmentId: sourceEnvironmentId ?? null,
+            }
+          : {}),
+      });
       await save();
       const verified = await observe();
       const matches = verified.environments.filter(
@@ -249,8 +266,39 @@ async function runCanaryLocked({
       assert.equal(matches.length, 1);
       assert.equal(matches[0].id, value.id);
       assertEmpty(verified);
+      if (forkMode) {
+        for (const actual of [
+          value,
+          matches[0],
+          verified.details.find((item) => item.id === value.id),
+        ]) {
+          assert.equal(actual.id, value.id);
+          assert.equal(actual.name, name);
+          assert.equal(actual.projectId, scope.projectId);
+          assert.equal(
+            actual.sourceEnvironment?.id ?? null,
+            sourceEnvironmentId ?? null,
+            "Fork lineage mismatch",
+          );
+          assert.equal(actual.isEphemeral, true);
+          assert.equal(actual.createdAt, value.createdAt);
+          assert.ok(
+            Number.isFinite(Date.parse(actual.createdAt)) &&
+              Date.parse(actual.createdAt) >=
+                state.intents.at(-1).startedAt - 1000,
+          );
+        }
+      }
     }
-    const target = state.environments[0].id;
+    const target = state.environments[forkMode ? 1 : 0].id;
+    if (forkMode) {
+      state.forkAcceptance = {
+        sourceEnvironmentId: state.environments[0].id,
+        forkEnvironmentId: target,
+        verified: true,
+      };
+      await save();
+    }
     const serviceName = `${prefix}-inert`;
     const service = await mutate("createService", {
       input: {
@@ -275,6 +323,15 @@ async function runCanaryLocked({
       .map((env) => env.id)
       .sort();
     assert.ok(memberships.includes(target));
+    if (forkMode) {
+      state.createMemberships = memberships;
+      await save();
+      assert.deepEqual(
+        memberships,
+        [target],
+        "Fork service creation escaped target; no configuration permitted",
+      );
+    }
     const instances = [];
     for (const environmentId of memberships) {
       const instance = await api.request("canaryInstance", {
@@ -428,10 +485,30 @@ async function cleanupCanaryLocked({
       assert.equal(intent.input.input.name, value.name);
       assert.equal(intent.result.projectId, state.scope.projectId);
       assert.equal(intent.result.name, value.name);
+      if (
+        operation === "createEnvironment" &&
+        state.scope.purpose === "pni605-fork-isolation-canary"
+      ) {
+        const expectedSource =
+          value.id === state.environments[0].id
+            ? null
+            : state.environments[0].id;
+        assert.equal(
+          intent.input.input.sourceEnvironmentId ?? null,
+          expectedSource,
+        );
+        assert.equal(
+          intent.result.sourceEnvironment?.id ?? null,
+          expectedSource,
+        );
+        assert.equal(intent.result.createdAt, value.createdAt);
+      }
       if (operation === "createService")
         assert.equal(
           intent.input.input.environmentId,
-          state.environments[0].id,
+          state.environments[
+            state.scope.purpose === "pni605-fork-isolation-canary" ? 1 : 0
+          ].id,
         );
     }
   }
@@ -451,6 +528,24 @@ async function cleanupCanaryLocked({
   );
   assert.deepEqual(current.volumes, [], "Unexpected volume blocks cleanup");
   assertNoWorkloads(current);
+  if (state.scope.purpose === "pni605-fork-isolation-canary") {
+    for (const owned of state.environments) {
+      const actual = current.details.find((value) => value.id === owned.id);
+      if (!actual) continue; // Existing delete intent/absence checks below remain mandatory.
+      assert.equal(actual.name, owned.name);
+      assert.equal(actual.projectId, state.scope.projectId);
+      const expectedSource =
+        owned.id === state.environments[0].id ? null : state.environments[0].id;
+      assert.equal(owned.sourceEnvironmentId, expectedSource);
+      assert.equal(
+        actual.sourceEnvironment?.id ?? null,
+        expectedSource,
+        "Fork lineage changed; cleanup blocked",
+      );
+      assert.equal(actual.createdAt, owned.createdAt);
+      assert.equal(actual.isEphemeral, true);
+    }
+  }
   state.status = "cleaning";
   await save();
   async function remove(operation, kind, owned) {
@@ -476,6 +571,22 @@ async function cleanupCanaryLocked({
     assert.equal(matches[0].projectId, state.scope.projectId);
     if (kind === "environments") {
       const environment = before.details.find((value) => value.id === owned.id);
+      if (state.scope.purpose === "pni605-fork-isolation-canary") {
+        assert.equal(environment.name, owned.name);
+        assert.equal(environment.projectId, state.scope.projectId);
+        const expectedSource =
+          owned.id === state.environments[0].id
+            ? null
+            : state.environments[0].id;
+        assert.equal(owned.sourceEnvironmentId, expectedSource);
+        assert.equal(
+          environment.sourceEnvironment?.id ?? null,
+          expectedSource,
+          "Fork lineage changed; cleanup blocked",
+        );
+        assert.equal(environment.createdAt, owned.createdAt);
+        assert.equal(environment.isEphemeral, true);
+      }
       assert.deepEqual(environment.serviceInstances, []);
       assert.deepEqual(environment.volumeInstances, []);
     }
