@@ -24,16 +24,16 @@ Inside the fence the agent writes one JSON operation per line:
 Here is an estimate you can play with:
 
 ```a2ui
-{"version":"v0.9","createSurface":{"surfaceId":"plan-estimator"}}
-{"version":"v0.9","updateDataModel":{"surfaceId":"plan-estimator","path":"/","value":{"seats":10,"price":"$290 / month"}}}
-{"version":"v0.9","updateComponents":{"surfaceId":"plan-estimator","components":[{"id":"root","component":"Card","children":["seats","price"]},{"id":"seats","component":"Slider","label":"Seats","min":1,"max":50,"value":{"path":"/seats"}},{"id":"price","component":"Text","text":{"path":"/price"}}]}}
+{"version":"v1.0","createSurface":{"surfaceId":"plan-estimator","dataModel":{"seats":10,"price":"$290 / month"},"components":[{"id":"root","component":"Card","children":["seats","price"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"plan-estimator","components":[{"id":"seats","component":"Slider","label":"Seats","min":1,"max":50,"value":{"@path":"/seats"}},{"id":"price","component":"Text","text":{"@path":"/price"}}]}}
 ```
 
 Move the slider to change the seat count.
 ````
 
-The data model comes before the components, so bound values are known the
-moment a component paints.
+The operations are A2UI v1.0. The `createSurface` carries the initial data
+model and the root component, so bound values are known the moment a
+component paints, and the children follow one line at a time.
 
 Because the UI travels as plain text, markdown mode works with any AG-UI
 agent: the built-in agent, LangGraph, or anything else that streams text. The
@@ -59,9 +59,10 @@ import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 With the markdown transport on, the provider:
 
 - sends two context entries to the agent: a compact schema of the components
-  (names, props, events and slots, about 8k tokens for the standard
-  components) and the markdown guideline (how to write the fence, about 700
-  tokens);
+  (names, props, events and slots, about 10k tokens for the standard
+  components) and the markdown guideline (how to write the fence, about 1k
+  tokens; rules for functions, events and templates are left out when the
+  manifest has none);
 - forwards a structured envelope on `forwardedProps.copilotkit.ui` on every
   run (see [Backends that build their own prompt](#backends-that-build-their-own-prompt)),
   which also tells the runtime **not** to add the `render_ui` tool to the run;
@@ -81,7 +82,7 @@ Every run also carries a structured envelope at
 ```json
 {
   "method": "a2ui",
-  "version": "v0.9",
+  "version": "v1.0",
   "format": 2,
   "transport": "markdown",
   "catalog": { "id": "copilotkit/standard@1", "version": "fnv1a:…", "components": { "...": "..." } },
@@ -172,7 +173,7 @@ component:
 | Feedback and overlay | `Loading`, `LoadingIndicator`, `LoadingBlock`, `PulseIndicator`, `Celebration`, `FlashcardFlip`, `Popover`, `PopoverTrigger`, `PopoverContent` |
 | Composites | `LinkCard`, `Citation`, `FollowUp`, `EntityCard`, `ImageGrid` |
 
-Every prop accepts a literal or a data-model binding (`{ "path": "/seats" }`).
+Every prop accepts a literal or a data-model binding (`{ "@path": "/seats" }`).
 The value of a control (`value`, or `checked` for `CheckBox`) is writable:
 when the model binds it to a path, what the user enters goes into the data
 model at that path, and the agent can no longer change it.
@@ -247,14 +248,14 @@ When the user presses a button or submits a form, the component sends its
 event. The model binds an event to `{ "event": { "name", "context" } }`:
 
 ```json
-{ "onClick": { "event": { "name": "choose", "context": { "message": "Show me the Team plan" } } } }
+{ "onClick": { "event": { "name": "choose", "userMessage": "Show me the Team plan", "context": { "plan": "team" } } } }
 ```
 
 An event that no function handles becomes a **visible user message** and runs
 the agent, exactly as if the user had typed it. The message text is the
-context's `message` (or `label`) when present, otherwise the humanized event
-name, followed by the remaining context values as `key: value` lines. The
-guideline tells the agent to put the text it wants back into the context.
+event's `userMessage` when present, otherwise the humanized event name,
+followed by the context values as `key: value` lines. The guideline tells
+the agent to put the text it wants back into `userMessage`.
 
 To handle an event in the browser instead, declare a function with the
 event's name (or the name without `on`) and bind a handler. The event then
@@ -290,6 +291,7 @@ renders as a plain code block.
 - Fences are block-level only. A fence must start at column 0; a fence
   indented inside a list item renders as a code block.
 - Values are literals or data-model bindings. There are no computed
-  expressions, so a price that depends on a slider must be recomputed by the
-  agent (for example, after an event) rather than inside the surface.
-- A surface cannot be created again after `deleteSurface`.
+  expressions (only `{"@call":"@index"}` inside a template), so a price that
+  depends on a slider must be recomputed by the agent (for example, after an
+  event) rather than inside the surface.
+- A surface id is never used again, also after `deleteSurface`.

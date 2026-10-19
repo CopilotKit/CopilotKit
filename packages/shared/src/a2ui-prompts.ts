@@ -258,7 +258,7 @@ export function buildGenerativeUIMarkdownGuidelines(
   }
   rules.push(
     "Updating a component replaces all of its props. Send every prop again.",
-    "To change a surface, write another fence with the same surfaceId, in this reply or in a later reply. Do not send createSurface again. The surface changes where it already is.",
+    "To change a surface in this reply, write another fence with the same surfaceId. Do not send createSurface again. The surface changes where it already is. A surface in a target can also be changed from a later reply; a chat surface cannot, because the chat is a transcript: a later reply with the same surfaceId makes a new surface.",
     "Use a new surfaceId for a different view. Never use a surfaceId again, also after the surface is deleted.",
   );
   if (functions) {

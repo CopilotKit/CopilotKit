@@ -456,6 +456,7 @@ function useFollowUpSend(onFollowUp: FollowUpProps["onFollowUp"]) {
         name: FOLLOW_UP_EVENT,
         surfaceId: node.surfaceId,
         componentId: node.componentId,
+        userMessage: message,
         context: { message },
       },
       surface?.agentId,

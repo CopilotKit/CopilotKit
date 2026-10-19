@@ -19,10 +19,10 @@ describe("standard catalog: inputs (parity)", () => {
         {
           id: "f",
           component: "TextField",
-          value: { path: "/name" },
+          value: { "@path": "/name" },
           placeholder: "Your name",
         },
-        { id: "t", component: "Text", text: { path: "/name" } },
+        { id: "t", component: "Text", text: { "@path": "/name" } },
       ],
       { name: "" },
     );
@@ -39,7 +39,7 @@ describe("standard catalog: inputs (parity)", () => {
         {
           id: "s",
           component: "Slider",
-          value: { path: "/seats" },
+          value: { "@path": "/seats" },
           min: 1,
           max: 50,
           step: 1,
@@ -47,10 +47,10 @@ describe("standard catalog: inputs (parity)", () => {
         {
           id: "c",
           component: "CheckBox",
-          checked: { path: "/annual" },
+          checked: { "@path": "/annual" },
           label: "Annual",
         },
-        { id: "t", component: "Text", text: { path: "/seats" } },
+        { id: "t", component: "Text", text: { "@path": "/seats" } },
       ],
       { seats: 8, annual: false },
     );
@@ -73,24 +73,29 @@ describe("standard catalog: inputs (parity)", () => {
         {
           id: "s",
           component: "Select",
-          value: { path: "/plan" },
+          value: { "@path": "/plan" },
           options: [{ value: "team", label: "Team" }, "enterprise"],
         },
         {
           id: "r",
           component: "RadioGroup",
-          value: { path: "/plan" },
+          value: { "@path": "/plan" },
           options: ["team", "enterprise"],
           label: "Plan",
         },
         {
           id: "g",
           component: "SegmentedControl",
-          value: { path: "/plan" },
+          value: { "@path": "/plan" },
           options: ["team", "enterprise"],
         },
-        { id: "a", component: "TextArea", value: { path: "/notes" }, rows: 2 },
-        { id: "d", component: "DateTimeInput", value: { path: "/when" } },
+        {
+          id: "a",
+          component: "TextArea",
+          value: { "@path": "/notes" },
+          rows: 2,
+        },
+        { id: "d", component: "DateTimeInput", value: { "@path": "/when" } },
       ],
       { plan: "team", notes: "", when: "" },
     );
@@ -108,19 +113,19 @@ describe("standard catalog: inputs (parity)", () => {
         {
           id: "s",
           component: "Select",
-          value: { path: "/plan" },
+          value: { "@path": "/plan" },
           options: ["team", "enterprise"],
         },
         {
           id: "r",
           component: "RadioGroup",
-          value: { path: "/plan" },
+          value: { "@path": "/plan" },
           options: ["team", "enterprise"],
         },
         {
           id: "g",
           component: "SegmentedControl",
-          value: { path: "/plan" },
+          value: { "@path": "/plan" },
           options: [
             { value: "team", label: "Team seg" },
             { value: "enterprise", label: "Ent seg" },
@@ -178,13 +183,13 @@ describe("standard catalog: inputs (parity)", () => {
           component: "Pressable",
           children: { componentId: "pr", path: "/a" },
         },
-        { id: "pr", component: "Text", text: { path: "name" } },
+        { id: "pr", component: "Text", text: { "@path": "name" } },
         {
           id: "f",
           component: "Form",
           children: { componentId: "fr", path: "/b" },
         },
-        { id: "fr", component: "Text", text: { path: "name" } },
+        { id: "fr", component: "Text", text: { "@path": "name" } },
       ],
       { a: [{ name: "P1" }, { name: "P2" }], b: [{ name: "F1" }] },
     );
