@@ -14,7 +14,11 @@ import { STANDARD_CATALOG_ID } from "./tokens";
  * own components on top of it with `extends`.
  *
  * Style the components with the `--a2ui-*` CSS variables. Set them with
- * the `theme` option of `generativeUI`.
+ * the `theme` option of `generativeUI`. The components have built-in dark
+ * values, which apply under a `.dark` class, like the CopilotKit chat.
+ *
+ * Replace the React component of a standard component with `overrides`.
+ * Drop standard components with `standardUI.omit([...])`.
  *
  * @example
  * ```tsx
@@ -22,7 +26,8 @@ import { STANDARD_CATALOG_ID } from "./tokens";
  *
  * const ui = createGenerativeUI({
  *   id: "acme/app@1",
- *   extends: [standardUI],
+ *   extends: [standardUI.omit(["Map"])],
+ *   overrides: { Card: { component: MyCard } },
  *   components: { ProductCard: { component: ProductCard, props: productSchema } },
  * });
  * ```

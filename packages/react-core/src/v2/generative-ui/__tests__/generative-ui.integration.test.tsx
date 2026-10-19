@@ -392,9 +392,9 @@ describe("generative UI integration", () => {
     expect(mounts.get("p1")).toBe(1);
   });
 
-  it("sets the theme variables on the surface root and updates them without a remount", async () => {
+  it("sets the theme variables in a stylesheet of the surface root and updates them without a remount", async () => {
     const { agent, setTheme } = setup({
-      "--a2ui-color-primary": "#111111",
+      "--a2ui-color-accent": "#111111",
       mapStyle: "https://tiles.example/style.json",
     });
     await send("recommend");
@@ -407,18 +407,23 @@ describe("generative UI integration", () => {
     );
     agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
     await waitFor(() => expect(screen.getByText("Product root")).toBeTruthy());
-    expect(
-      surfaceRoot("recs").style.getPropertyValue("--a2ui-color-primary"),
-    ).toBe("#111111");
-    expect(surfaceRoot("recs").getAttribute("style")).not.toContain(
-      "tiles.example",
+    const css = () =>
+      surfaceRoot("recs").querySelector("style")?.textContent ?? "";
+    const id = () => surfaceRoot("recs").getAttribute("data-a2ui-theme");
+    expect(css()).toBe(
+      `[data-a2ui-theme="${id()}"]{--a2ui-color-accent:#111111}`,
     );
+    expect(css()).not.toContain("tiles.example");
 
-    setTheme({ "--a2ui-color-primary": "#222222" });
+    setTheme({
+      "--a2ui-color-accent": "#222222",
+      dark: { "--a2ui-color-accent": "#eeeeee" },
+    });
 
-    expect(
-      surfaceRoot("recs").style.getPropertyValue("--a2ui-color-primary"),
-    ).toBe("#222222");
+    const self = `[data-a2ui-theme="${id()}"]`;
+    expect(css()).toBe(
+      `${self}{--a2ui-color-accent:#222222}:where(.dark) ${self},${self}:where(.dark){--a2ui-color-accent:#eeeeee}`,
+    );
     expect(mounts.get("root")).toBe(1);
   });
 });

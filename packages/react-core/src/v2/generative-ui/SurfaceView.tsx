@@ -42,13 +42,15 @@ import {
   reportErrorSafely,
   useRequiredGenerativeUIRuntime,
 } from "./runtime-context";
-import type { GenerativeUIRuntime, GenerativeUITheme } from "./runtime-context";
+import type { GenerativeUIRuntime } from "./runtime-context";
+import { themeStyleSheet } from "./theme";
 import type {
   GenerativeUISurfaceManager,
   ManagedSurface,
 } from "./surface-manager";
 
 const NO_ANCESTORS: readonly string[] = [];
+const ROOT_STYLE = { display: "contents" } as const;
 // No surface state exists on the server or during hydration.
 const undefinedSnapshot = () => undefined;
 const noopSubscribe = () => () => {};
@@ -145,29 +147,26 @@ function isTemplateChildren(
   );
 }
 
-/** The `--a2ui-*` CSS variables of a theme, without `mapStyle`. */
-function themeVariables(theme: GenerativeUITheme | undefined) {
-  const { mapStyle: _mapStyle, ...variables } = theme ?? {};
-  return variables;
-}
-
 export function SurfaceView({ surface }: { surface: ManagedSurface }) {
   const runtime = useRequiredGenerativeUIRuntime();
   const { theme } = runtime;
-  const style = useMemo(
-    () => ({ display: "contents", ...themeVariables(theme) }),
-    [theme],
-  );
+  const sheet = useMemo(() => themeStyleSheet(theme), [theme]);
   // The root element is always there, so a theme change does not remount
   // the surface. `display: contents` keeps it out of the layout, and the
   // CSS variables still reach every component of the surface. The
   // `a2ui-surface` class scopes the standard catalog's surface CSS rules.
+  // The theme is a stylesheet, not an inline style, so that its `dark`
+  // values can apply in dark mode only. The values are checked in
+  // `themeStyleSheet`, and the HTML is set as is, so the server render
+  // keeps the quotes of the rule.
   return (
     <div
       className="a2ui-surface"
       data-generative-ui-root={surface.surfaceId}
-      style={style}
+      data-a2ui-theme={sheet?.id}
+      style={ROOT_STYLE}
     >
+      {sheet ? <style dangerouslySetInnerHTML={{ __html: sheet.css }} /> : null}
       <SurfaceBoundary surfaceId={surface.surfaceId} runtime={runtime}>
         <NodeView
           surface={surface}
