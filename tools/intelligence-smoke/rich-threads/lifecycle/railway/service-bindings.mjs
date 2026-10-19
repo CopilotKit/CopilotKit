@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
 import { bindBootstrap } from "./bootstrap.mjs";
+/** Resolve recorded ownership names, or the stable ordinal for a planned service. */
+export function railwayServiceName(key, specs, journal) {
+  const index = specs.findIndex((service) => service.key === key);
+  assert.ok(index >= 0, "Unknown private service binding");
+  return (
+    journal.services.find((service) => service.key === key)?.name ??
+    `${journal.environmentName}-${index.toString(36)}`
+  );
+}
 export function bindServiceVariables(value, specs, journal) {
   return bindBootstrap(String(value), journal.bootstrap)
     .replace(/\{\{service:([a-z0-9-]+):host\}\}/g, (_match, key) => {
-      assert.ok(
-        specs.some((s) => s.key === key),
-        "Unknown private service binding",
-      );
-      return `${journal.environmentName}-${key}.railway.internal`;
+      return `${railwayServiceName(key, specs, journal)}.railway.internal`;
     })
     .replace(
       /\{\{service:([a-z0-9-]+):url:([a-z-]+)\}\}/g,

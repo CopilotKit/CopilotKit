@@ -41,3 +41,27 @@ test("public gateway binding uses only provider-returned ready owned endpoint", 
     ),
   );
 });
+
+test("private bindings use recorded names and planned ordinals for forward and self references", () => {
+  const specs = [
+    { key: "postgres" },
+    { key: "runtime" },
+    { key: "application" },
+  ];
+  const journal = {
+    environmentName: "rich-0123456789abcdef012",
+    services: [{ key: "postgres", name: "retained-postgres" }],
+  };
+  assert.equal(
+    bindServiceVariables(
+      "{{service:postgres:host}} {{service:runtime:host}} {{service:application:host}}",
+      specs,
+      journal,
+    ),
+    "retained-postgres.railway.internal rich-0123456789abcdef012-1.railway.internal rich-0123456789abcdef012-2.railway.internal",
+  );
+  assert.throws(
+    () => bindServiceVariables("{{service:unknown:host}}", specs, journal),
+    /Unknown private service binding/,
+  );
+});

@@ -1,7 +1,10 @@
-import { bindServiceVariables } from "./service-bindings.mjs";
+import {
+  bindServiceVariables,
+  railwayServiceName,
+} from "./service-bindings.mjs";
 import { ownerAlive } from "./process-owner.mjs";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -244,7 +247,8 @@ export async function createRailwayEnvironment(
     startedAt,
     expiresAt: new Date(Date.parse(startedAt) + 60 * 60 * 1000).toISOString(),
     phase: "setup",
-    environmentName: `rich-${runId}-${randomUUID().slice(0, 8)}`,
+    // Leave room for the source suffix and service ordinals within 32 characters.
+    environmentName: `rich-${randomBytes(10).toString("hex").slice(0, 19)}`,
     environments: [],
     services: [],
     volumes: [],
@@ -1160,7 +1164,7 @@ async function controllerFor({
       expiresAt: journal.expiresAt,
     });
     for (const spec of specs) {
-      const name = `${journal.environmentName}-${spec.key}`;
+      const name = railwayServiceName(spec.key, specs, journal);
       const service = {
         key: spec.key,
         name,
