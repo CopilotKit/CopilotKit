@@ -140,6 +140,82 @@ export default function Page() {
   desktop launcher is the design, not a broken wiring.
 </Callout>
 
+## Add your own "New conversation" button
+
+The Drawer has its own "New Conversation" row. Your app can also keep its own
+button, for example in a toolbar or a page header. To start a new conversation
+from that button, call `startNewThread()` from
+[`useCopilotChatConfiguration`](/reference/hooks/useCopilotChatConfiguration).
+This is the same function the Drawer calls for its own row.
+
+```tsx title="app/page.tsx"
+import {
+  CopilotKitProvider,
+  CopilotChatConfigurationProvider,
+  CopilotChat,
+  CopilotThreadsDrawer,
+  useCopilotChatConfiguration,
+} from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+function NewConversationButton() {
+  const configuration = useCopilotChatConfiguration(); // [!code highlight]
+
+  return (
+    <button
+      type="button"
+      onClick={() => configuration?.startNewThread()} // [!code highlight]
+    >
+      New conversation
+    </button>
+  );
+}
+
+export default function Page() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <CopilotChatConfigurationProvider>
+        <div style={{ display: "flex", height: "100dvh" }}>
+          <CopilotThreadsDrawer />
+          <main style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+            <header>
+              <NewConversationButton />
+            </header>
+            <CopilotChat />
+          </main>
+        </div>
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>
+  );
+}
+```
+
+How it works:
+
+- Put the button inside the same `<CopilotChatConfigurationProvider>` as the
+  Drawer and the chat. Outside a provider, `useCopilotChatConfiguration()`
+  returns `null` and the button does nothing.
+- `startNewThread()` gives the chat a new thread id and shows the welcome
+  screen. The Drawer reads the active thread from the same configuration, so
+  no row stays selected.
+- The new thread appears in the Drawer list after its first run. An empty
+  thread does not get a row.
+- If you set the `threadId` prop on `<CopilotChatConfigurationProvider>`, your
+  app controls the thread. Then `startNewThread()` does nothing and logs a
+  warning. Create the new thread id in your own state instead, and pass
+  `onNewThread` to the Drawer so its row runs the same code as your button.
+
+To show only your button, hide the Drawer's own new-conversation controls with
+their CSS parts. `new-thread-button` is the row in the open Drawer.
+`launcher-new-thread` is the (+) button in the closed or collapsed launcher.
+
+```css
+copilotkit-threads-drawer::part(new-thread-button),
+copilotkit-threads-drawer::part(launcher-new-thread) {
+  display: none;
+}
+```
+
 ## Configuring the drawer
 
 `<CopilotThreadsDrawer>` works with zero props. The optional ones:
