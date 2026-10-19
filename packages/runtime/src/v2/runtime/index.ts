@@ -1,6 +1,10 @@
 export * from "./core/runtime";
 export * from "./endpoints";
 
+// Export experimental generative UI middleware and surface writer
+export { GenerativeUIMiddleware, createSurfaceWriter } from "./generative-ui";
+export type { GenerativeUISurfaceWriter } from "./generative-ui";
+
 // Export agent runners and base types
 export * from "./runner";
 
