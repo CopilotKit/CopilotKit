@@ -1,3 +1,4 @@
+import { A2UI_CHILD_LIST_REF } from "./generative-ui/child-refs";
 import type { GenerativeUIManifest } from "./generative-ui/types";
 /**
  * Default A2UI generation and design guideline prompts.
@@ -141,6 +142,8 @@ export interface GenerativeUIGuideFeatures {
   events: boolean;
   /** A component has a "multiple" slot, which takes templates and @index. */
   templates: boolean;
+  /** A component has a "checks" prop: validation rules on inputs. */
+  checks: boolean;
 }
 
 /** Every optional rule group. Use it when the manifest is not known. */
@@ -148,6 +151,7 @@ export const ALL_GENERATIVE_UI_GUIDE_FEATURES: GenerativeUIGuideFeatures = {
   functions: true,
   events: true,
   templates: true,
+  checks: true,
 };
 
 /**
@@ -168,12 +172,29 @@ export function generativeUIGuideFeatures(
   manifest: Pick<GenerativeUIManifest, "components" | "functions">,
 ): GenerativeUIGuideFeatures {
   const components = Object.values(manifest.components);
+  const hasChildList = (schema: unknown): boolean => {
+    if (Array.isArray(schema)) return schema.some(hasChildList);
+    if (typeof schema !== "object" || schema === null) return false;
+    const node = schema as Record<string, unknown>;
+    if (node.$ref === A2UI_CHILD_LIST_REF) return true;
+    return Object.values(node).some(hasChildList);
+  };
   return {
     functions: Object.keys(manifest.functions).length > 0,
     events: components.some((c) => Object.keys(c.events ?? {}).length > 0),
-    templates: components.some((c) =>
-      Object.values(c.slots ?? {}).includes("multiple"),
+    templates: components.some(
+      (c) =>
+        Object.values(c.slots ?? {}).includes("multiple") ||
+        hasChildList(c.props),
     ),
+    checks: components.some((c) => {
+      const properties = c.props.properties;
+      return (
+        typeof properties === "object" &&
+        properties !== null &&
+        Object.prototype.hasOwnProperty.call(properties, "checks")
+      );
+    }),
   };
 }
 
@@ -196,6 +217,8 @@ const MARKDOWN_BASE_RULES = [
   'Put the component name in "component" (never "type"). Put props next to it, never inside a "props" object.',
   'Use only the components, props, events, and slots in the schema. A component with "includesCommonProps" also takes every prop in "commonProps".',
   'Give a prop a literal value, or bind it to the data model with {"@path":"/x"}. Never write {"path":"/x"} as a binding.',
+  'A prop can also be a function value that updates with the data: {"@call":"formatCurrency","args":{"value":{"@path":"/total"},"currency":"EUR"}}. Use only the functions under "functions" in the schema. Write a literal when the value never changes.',
+  'formatString interpolates ${...}: {"@call":"formatString","args":{"value":"${/qty} × ${formatCurrency(value: /price, currency: \'EUR\')}"}}. Inside ${...}, a path has no quotes, a string has single quotes, and a function takes named args.',
   'Bind a writable prop to let the user edit it: "value":{"@path":"/form/email"}. The user\'s input goes to that path.',
   'To change data, write updateDataModel with a "path" and a "value": {"version":"v1.0","updateDataModel":{"surfaceId":"plan-picker","path":"/seats","value":12}}. Always give "value".',
   'Set "value":null to delete the key at "path".',
@@ -222,36 +245,30 @@ const MARKDOWN_CLOSING_RULES = [
 export function buildGenerativeUIMarkdownGuidelines(
   features: GenerativeUIGuideFeatures = ALL_GENERATIVE_UI_GUIDE_FEATURES,
 ) {
-  const { functions, events, templates } = features;
+  const { functions, events, templates, checks } = features;
   const rules = [...MARKDOWN_BASE_RULES];
   if (events) {
     rules.push(
+      'Give an event prop an object: {"event":{"name":"<name>","userMessage":"<text>","context":{...}}} or {"functionCall":{"@call":"<function>","args":{...}}}. Never a flat {"event":"<name>"}.',
       functions
-        ? 'Give an event prop an object: {"event":{"name":"<name>","userMessage":"<text>","context":{...}}} or {"functionCall":{"@call":"<function>","args":{...}}}. Never a flat {"event":"<name>"}.'
-        : 'Give an event prop an object: {"event":{"name":"<name>","userMessage":"<text>","context":{...}}}. Never a flat {"event":"<name>"}.',
-    );
-    if (functions) {
-      rules.push(
-        'Use {"functionCall": ...} to run an app function in the browser when the user clicks. Use only functions from the schema. You are not told about the call.',
-      );
-    }
-    rules.push(
+        ? 'Use {"functionCall": ...} to run a function in the browser when the user clicks: an app function from the schema, or openUrl: {"functionCall":{"@call":"openUrl","args":{"url":"https://example.com"}}}. You are not told about the call.'
+        : 'Use {"functionCall": ...} to open a URL when the user clicks: {"functionCall":{"@call":"openUrl","args":{"url":"https://example.com"}}}. You are not told about the call.',
       'Use {"event": ...} to send the interaction back to you as a user message. Put the text of that message in "userMessage": {"event":{"name":"choose","userMessage":"Show me the Team plan"}}.',
       'To send input values with an event, bind them in the context: "context":{"email":{"@path":"/form/email"}}.',
-      functions
-        ? "A button or other event prop without an event or functionCall does nothing."
-        : "A button or other event prop without an event does nothing.",
+      "A button or other event prop without an event or functionCall does nothing.",
+    );
+  }
+  if (checks) {
+    rules.push(
+      'Validate an input with "checks": [{"condition":{"@call":"email","args":{"value":{"@path":"/form/email"}}},"message":"Enter a valid email"}]. The check functions are required, regex, length, numeric and email; a condition can also be a boolean {"@path"}. A failed check shows the message under the input and disables a Button that has the same checks.',
     );
   }
   rules.push(
-    templates
-      ? 'Never put {"@call": ...} or an expression in a data prop. Compute derived values (totals, prices) yourself and write them as literals or into the data model. The only exception is {"@call":"@index"} in a template.'
-      : 'Never put {"@call": ...} or an expression in a data prop. Compute derived values (totals, prices) yourself and write them as literals or into the data model.',
-    'Give a slot component ids: "child":"card" for a single slot, "children":["a","b"] for a multiple slot.',
+    'A prop typed componentId takes the id of another component, and a childList takes ids ["a","b"]: "child":"card", "children":["a","b"], "tabs":[{"title":"Specs","child":"specs"}].',
   );
   if (templates) {
     rules.push(
-      'To repeat a component for each item of a list, give a multiple slot a template: "children":{"componentId":"row","path":"/items"}.',
+      'To repeat a component for each item of a list, give a childList a template: "children":{"componentId":"row","path":"/items"}.',
       'Inside a template, paths are relative to the item ("name", not "/name").',
       'Inside a template, {"@call":"@index"} gives the position of the item, from 0. To count from 1, write {"@call":"@index","args":{"offset":1}}.',
     );

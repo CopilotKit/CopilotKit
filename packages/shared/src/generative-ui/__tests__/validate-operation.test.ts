@@ -7,6 +7,7 @@ import {
   validateOperation,
 } from "../validate-operation";
 import type { ValidateOperationOptions } from "../validate-operation";
+import { A2UI_COMPONENT_ID_REF } from "../child-refs";
 import type { GenerativeUIManifest } from "../types";
 
 const manifest: Pick<GenerativeUIManifest, "catalogId" | "components"> = {
@@ -27,6 +28,24 @@ const manifest: Pick<GenerativeUIManifest, "catalogId" | "components"> = {
     Frame: {
       props: { type: "object", properties: {} },
       slots: { child: "single" },
+    },
+    // A typed child reference inside a list, as A2UI 1.0 Tabs has it.
+    Tabs: {
+      props: {
+        type: "object",
+        properties: {
+          tabs: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                child: { $ref: A2UI_COMPONENT_ID_REF },
+              },
+            },
+          },
+        },
+      },
     },
   },
 };
@@ -353,17 +372,91 @@ describe("validateOperation: data props", () => {
     ).toBe("ok");
   });
 
+  it("accepts a basic function value, also nested and with bound args", () => {
+    expect(
+      reasonOf(
+        card({
+          name: {
+            "@call": "formatCurrency",
+            args: { value: { "@path": "/price" }, currency: "EUR" },
+          },
+        }),
+      ),
+    ).toBe("ok");
+    expect(
+      reasonOf(
+        card({
+          name: [
+            { label: { "@call": "formatString", args: { value: "${/n}" } } },
+          ],
+        }),
+      ),
+    ).toBe("ok");
+  });
+
   it("rejects every other function call in a data prop", () => {
-    const reason =
-      'component "c1": name: function calls are only allowed in event props; a data prop can use only {"@call":"@index"}';
-    for (const name of [
-      { "@call": "formatPrice", args: {} },
-      { "@call": "@index", args: { offset: "1" } },
-      [{ label: { "@call": "formatPrice" } }],
-      { call: "addToCart", args: {} },
-    ]) {
-      expect(reasonOf(card({ name }))).toBe(reason);
+    const prefix = 'component "c1": name: ';
+    const suffix =
+      "; a data prop can call only @index and the basic functions (";
+    const cases: Array<[unknown, string]> = [
+      [
+        { "@call": "formatPrice", args: {} },
+        '"formatPrice" is not a basic function',
+      ],
+      [
+        { "@call": "@index", args: { offset: "1" } },
+        "@index takes only an offset",
+      ],
+      [
+        [{ label: { "@call": "formatPrice" } }],
+        '"formatPrice" is not a basic function',
+      ],
+      [
+        { call: "addToCart", args: {} },
+        'name the function with "@call", not "call"',
+      ],
+      [
+        { "@call": "openUrl", args: { url: "https://x" } },
+        '"openUrl" runs only from an event',
+      ],
+      [
+        { "@call": "formatNumber", args: [1] },
+        'the args of "formatNumber" must be an object',
+      ],
+      [
+        { nested: { functionCall: { "@call": "addToCart" } } },
+        "an event binding is not a value",
+      ],
+    ];
+    for (const [name, reason] of cases) {
+      expect(reasonOf(card({ name }))).toContain(prefix + reason + suffix);
     }
+  });
+});
+
+describe("validateOperation: typed child references", () => {
+  const tabs = (tabs: unknown) => update({ id: "t1", component: "Tabs", tabs });
+
+  it("accepts component ids at a nested reference", () => {
+    expect(
+      reasonOf(
+        tabs([
+          { title: "A", child: "a" },
+          { title: "B", child: "b" },
+        ]),
+      ),
+    ).toBe("ok");
+    // A bound list is checked at render.
+    expect(reasonOf(tabs({ "@path": "/tabs" }))).toBe("ok");
+  });
+
+  it("rejects a value that is not an id, and the component itself", () => {
+    expect(reasonOf(tabs([{ title: "A", child: 1 }]))).toBe(
+      'component "t1": tabs.child: must reference component ids (strings)',
+    );
+    expect(reasonOf(tabs([{ title: "A", child: "t1" }]))).toBe(
+      'component "t1": tabs.child: a component cannot be its own child',
+    );
   });
 });
 
@@ -395,7 +488,7 @@ describe("validateOperation: event bindings", () => {
 
   it("rejects a userMessage that is not a string or a binding", () => {
     expect(eventReason({ name: "choose", userMessage: 5 })).toBe(
-      'component "c1": onAddToCart: event.userMessage must be a string or {"@path": "/x"}',
+      'component "c1": onAddToCart: event.userMessage must be a string, {"@path": "/x"} or a function value',
     );
   });
 
@@ -410,11 +503,37 @@ describe("validateOperation: event bindings", () => {
     );
   });
 
-  it("rejects a function call in the event context", () => {
+  it("accepts a function value as the userMessage", () => {
+    expect(
+      eventReason({
+        name: "choose",
+        userMessage: { "@call": "formatString", args: { value: "Pick ${/n}" } },
+      }),
+    ).toBe("ok");
+    expect(eventReason({ name: "choose", userMessage: 1 })).toBe(
+      'component "c1": onAddToCart: event.userMessage must be a string, {"@path": "/x"} or a function value',
+    );
+  });
+
+  it("accepts @index and a basic function in the event context, but not an app function", () => {
     expect(
       eventReason({ name: "choose", context: { row: { "@call": "@index" } } }),
-    ).toBe(
-      'component "c1": onAddToCart: event.context.row must be a literal or {"@path": "/x"}',
+    ).toBe("ok");
+    expect(
+      eventReason({
+        name: "choose",
+        context: {
+          label: { "@call": "formatString", args: { value: "${/name}" } },
+        },
+      }),
+    ).toBe("ok");
+    expect(
+      eventReason({
+        name: "choose",
+        context: { row: { "@call": "addToCart" } },
+      }),
+    ).toContain(
+      'component "c1": onAddToCart: event.context.row: "addToCart" is not a basic function',
     );
   });
 });
@@ -431,6 +550,15 @@ describe("validateOperation: function-call bindings", () => {
       'component "c1": onAddToCart: function "removeFromCart" is not exposed to generative UI',
     );
     expect(callReason(call)).toBe("ok");
+  });
+
+  it("accepts a basic function in an event binding without a declaration", () => {
+    expect(
+      callReason(
+        { "@call": "openUrl", args: { url: "https://example.com" } },
+        { functions },
+      ),
+    ).toBe("ok");
   });
 
   it("does not expose inherited Object.prototype keys as functions", () => {
@@ -526,6 +654,27 @@ describe("validateOperation: callRendererFunction", () => {
         ),
       ).toBe("callRendererFunction.functionCallId must be a non-empty string");
     }
+  });
+
+  it("refuses a user-gesture function from the agent, and takes the other basic ones", () => {
+    expect(
+      reasonOf(
+        callFunction({
+          callFunction: { "@call": "openUrl", args: { url: "https://x" } },
+        }),
+        { functions },
+      ),
+    ).toBe(
+      'function "openUrl" runs only from a user gesture; the agent cannot call it',
+    );
+    expect(
+      reasonOf(
+        callFunction({
+          callFunction: { "@call": "formatNumber", args: { value: 1 } },
+        }),
+        { functions },
+      ),
+    ).toBe("ok");
   });
 
   it("requires a function name in @call", () => {
