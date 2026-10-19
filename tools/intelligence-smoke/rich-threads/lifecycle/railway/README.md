@@ -75,6 +75,12 @@ The permanent runner journals jobs and results under the attempt directory. Poll
 
 Cleanup first reconciles outstanding creation intents, verifies exact ownership across all project environments, deletes owned TCP proxies/services/volumes, then both environments. Complete paginated project inventory must show every owned service, volume and environment ID absent. A 200/true delete response alone is insufficient. Restarts do not detach volumes or clear stores.
 
+Service cleanup always supplies the owned `environmentId` to `serviceDelete`.
+Railway documents that omission targets non-fork environments; it cannot delete
+the owned fork instance correctly. The API boundary rejects missing scope before
+sending a request. Existing unknown unscoped requests remain unchanged; any
+corrective scoped cleanup needs its own reviewed operation record and readback.
+
 ## Pins and credentials for review
 
 `image-candidates.json` records read-only observed references, independently hashed OCI index/manifest/config digests and available source revision/version labels. None are approvals. Composite/PostgreSQL point to Intelligence `f1d326e8e6924da8186cf1d3d23277cc8bda80de`, version `0.13.9`; Redis is `7.4.3`. Strands is an existing Showcase candidate, not a claim that the custom acceptance/native durability wiring is included. Mastra anonymous package authorization failed. The rich runtime/application and durable native acceptance images still require builds with their source/dependency receipts.

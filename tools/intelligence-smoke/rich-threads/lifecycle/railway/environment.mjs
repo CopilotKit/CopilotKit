@@ -864,7 +864,7 @@ async function controllerFor({
       kind === "deleteVolume"
         ? { volumeId: resource.id }
         : kind === "deleteService"
-          ? { id: resource.id }
+          ? { id: resource.id, environmentId: journal.environmentId }
           : { id: resource.id },
     );
     const deadline = Date.now() + 30_000;

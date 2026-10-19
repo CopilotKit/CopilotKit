@@ -245,8 +245,12 @@ async function fixture(t, options = {}) {
         return true;
       }
       if (operation === "deleteService") {
-        services.splice(0);
-        memberships.clear();
+        assert.ok(variables.environmentId, "Scoped deletion required");
+        memberships.delete(variables.environmentId);
+        if (
+          ![...memberships.values()].some((ids) => ids.includes(variables.id))
+        )
+          services.splice(0);
         if (options.lostDelete) throw new Error("PRIVATE_LOST_DELETE");
         return true;
       }
@@ -501,20 +505,24 @@ test("fork service fanout stops before configuration and retains evidence", asyn
   );
   assert.equal(saved.forkAcceptance.verified, true);
   assert.deepEqual(saved.createMemberships, ["default", "env-1", "env-2"]);
-  const cleaned = await cleanupCanary({ root: f.root, api: f.api });
-  assert.equal(cleaned.cleanup, "baseline-restored");
-  assert.notEqual(cleaned.status, "passed");
+  await assert.rejects(
+    cleanupCanary({ root: f.root, api: f.api }),
+    /Service escaped target/,
+  );
+  assert.ok(!f.writes.includes("deleteService"));
 });
 
-test("canary reports create and edit fanout independently and cleans owned resources", async (t) => {
+test("canary reports fanout independently and refuses broad cleanup", async (t) => {
   for (const editFanout of [false, true])
     await t.test(String(editFanout), async (sub) => {
       const f = await fixture(sub, { fanout: true, editFanout });
-      const result = await f.run();
-      assert.equal(result.status, "isolation-failed");
+      await assert.rejects(f.run(), /Service escaped target/);
+      const result = JSON.parse(
+        await readFile(join(f.root, "journal.json"), "utf8"),
+      );
       assert.equal(result.result.createIsolated, false);
       assert.equal(result.result.editIsolated, !editFanout);
-      assert.equal(result.cleanup, "baseline-restored");
+      assert.ok(!f.writes.includes("deleteService"));
     });
 });
 

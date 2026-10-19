@@ -187,6 +187,11 @@ function fakeProvider(options = {}) {
         return true;
       }
       if (op === "deleteService") {
+        assert.equal(
+          args.environmentId,
+          state.environments.find((e) => e.sourceEnvironment)?.id,
+          "Fork cleanup must name its environment",
+        );
         if (options.denyDelete) throw new Error("Deletion refused");
         state.services = state.services.filter((s) => s.id !== args.id);
         for (const e of state.environments) {
