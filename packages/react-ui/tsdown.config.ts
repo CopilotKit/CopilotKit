@@ -71,10 +71,10 @@ export default defineConfig([
           // Native import() exceeds the ES2018 UMD target. Resolve the same
           // external only when a code block mounts, from CommonJS or its global.
           const highlighterImport =
-            /import\(["']react-syntax-highlighter["']\)/g;
-          if (code.match(highlighterImport)?.length !== 1) {
+            /import\(["']react-syntax-highlighter\/dist\/esm\/(prism|light)["']\)/g;
+          if (code.match(highlighterImport)?.length !== 2) {
             throw new Error(
-              "Expected one lazy syntax highlighter import in the UMD bundle",
+              "Expected two lazy syntax highlighter imports in the UMD bundle",
             );
           }
           const deferredHighlighter = [
@@ -85,7 +85,10 @@ export default defineConfig([
             ': typeof globalThis !== "undefined" ? globalThis.ReactSyntaxHighlighter',
             ': typeof window !== "undefined" ? window.ReactSyntaxHighlighter : undefined)',
           ].join(" ");
-          const output = code.replace(highlighterImport, deferredHighlighter);
+          const output = code.replace(highlighterImport, (_import, name) => {
+            const exportName = name === "prism" ? "Prism" : "Light";
+            return `${deferredHighlighter}.then((module) => ({ default: module && module.${exportName} }))`;
+          });
           if (/\bimport\s*\(/.test(output)) {
             throw new Error(
               "UMD output still contains an unsupported dynamic import",

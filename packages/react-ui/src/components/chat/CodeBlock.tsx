@@ -91,9 +91,15 @@ const CodeBlock: FC<Props> = memo(({ language, value }) => {
     }
 
     let active = true;
-    import("react-syntax-highlighter")
+    // Import concrete modules so bundlers do not retain every highlighter and
+    // every highlight.js grammar through a computed export lookup.
+    const loadHighlighter =
+      highlighter === "Prism"
+        ? import("react-syntax-highlighter/dist/esm/prism")
+        : import("react-syntax-highlighter/dist/esm/light");
+    loadHighlighter
       .then((module) => {
-        if (active) setSyntaxHighlighter(() => module[highlighter]);
+        if (active) setSyntaxHighlighter(() => module.default);
       })
       .catch(() => {
         // Keep the readable plain-code view if the optional grammar chunk fails.

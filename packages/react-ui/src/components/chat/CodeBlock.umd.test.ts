@@ -8,9 +8,10 @@ const umd = (
   }>
 )[1];
 const expression = umd.plugins[0].renderChunk(
-  'import("react-syntax-highlighter")',
+  'Promise.all([import("react-syntax-highlighter/dist/esm/prism"), import("react-syntax-highlighter/dist/esm/light")]).then((modules) => modules.map((module) => module.default))',
 );
-const highlighter = { Prism: () => "highlighted" };
+const highlighter = { Prism: () => "prism", Light: () => "light" };
+const expected = [highlighter.Prism, highlighter.Light];
 
 describe("UMD deferred highlighter resolver", () => {
   it("loads the dependency asynchronously in AMD", async () => {
@@ -26,7 +27,7 @@ describe("UMD deferred highlighter resolver", () => {
     };
     await expect(
       runInNewContext(expression, { define, require, globalThis: undefined }),
-    ).resolves.toBe(highlighter);
+    ).resolves.toEqual(expected);
   });
 
   it("loads the dependency through CommonJS", async () => {
@@ -34,8 +35,8 @@ describe("UMD deferred highlighter resolver", () => {
       expect(id).toBe("react-syntax-highlighter");
       return highlighter;
     };
-    await expect(runInNewContext(expression, { require })).resolves.toBe(
-      highlighter,
+    await expect(runInNewContext(expression, { require })).resolves.toEqual(
+      expected,
     );
   });
 
@@ -45,12 +46,12 @@ describe("UMD deferred highlighter resolver", () => {
         globalThis: undefined,
         window: { ReactSyntaxHighlighter: highlighter },
       }),
-    ).resolves.toBe(highlighter);
+    ).resolves.toEqual(expected);
   });
 
   it("returns undefined when no loader or global is available", async () => {
     await expect(
       runInNewContext(expression, { globalThis: undefined }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual([undefined, undefined]);
   });
 });

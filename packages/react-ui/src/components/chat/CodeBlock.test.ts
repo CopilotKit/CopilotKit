@@ -6,12 +6,22 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const highlighter = vi.hoisted(() => ({ imports: 0 }));
 
-vi.mock("react-syntax-highlighter", async () => {
+vi.mock("react-syntax-highlighter", () => {
+  throw new Error("The package root must not be loaded by a code block");
+});
+
+vi.mock("react-syntax-highlighter/dist/esm/prism", () => {
   highlighter.imports += 1;
   return {
-    Prism: ({ children }: { children: React.ReactNode }) =>
+    default: ({ children }: { children: React.ReactNode }) =>
       React.createElement("pre", { "data-highlighter": "prism" }, children),
-    Light: ({ children }: { children: React.ReactNode }) =>
+  };
+});
+
+vi.mock("react-syntax-highlighter/dist/esm/light", () => {
+  highlighter.imports += 1;
+  return {
+    default: ({ children }: { children: React.ReactNode }) =>
       React.createElement("pre", { "data-highlighter": "light" }, children),
   };
 });
