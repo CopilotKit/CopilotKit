@@ -12,6 +12,7 @@ const count = Number(params.get("count") ?? "80");
 const nextCount = Number(params.get("nextCount") ?? String(count));
 const mode = params.get("mode") === "none" ? "none" : "pin-to-bottom";
 const standalone = params.get("standalone") === "true";
+const variedRows = params.get("variedRows") === "true";
 
 function App() {
   const [hidden, setHidden] = useState(false);
@@ -34,7 +35,7 @@ function App() {
     ...Array.from({ length: thread === "one" ? count : nextCount }, (_, i) => ({
       id: `${thread}-${i}`,
       role: i % 2 ? ("assistant" as const) : ("user" as const),
-      content: `Message ${i} ${"sample text ".repeat(20)}`,
+      content: `Message ${i} ${"sample text ".repeat(variedRows ? 10 + (i % 7) * 13 : 20)}`,
     })).slice(trimmed ? 1 : 0),
   ];
   const chat = (

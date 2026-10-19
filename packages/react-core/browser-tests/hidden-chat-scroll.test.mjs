@@ -73,10 +73,11 @@ async function openChat({
   mode,
   nextCount = count,
   standalone = false,
+  variedRows = false,
 }) {
   const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
   await page.goto(
-    `${baseURL}/?count=${count}&mode=${mode}&nextCount=${nextCount}&standalone=${standalone}`,
+    `${baseURL}/?count=${count}&mode=${mode}&nextCount=${nextCount}&standalone=${standalone}&variedRows=${variedRows}`,
   );
   await page.locator('[data-testid="copilot-message-list"]').waitFor();
   await page.waitForFunction(() => {
@@ -359,7 +360,12 @@ test("switching non-virtual threads while hidden opens the longer thread at its 
 test("a reader slightly above the pin threshold stays put after host hiding", async () => {
   const page = await openChat({ count: 20, mode: "pin-to-bottom" });
   try {
-    await page.waitForTimeout(1100);
+    // Start after the initial smooth pin has reached its target, even on
+    // slower CI runners, before testing an intentional near-bottom escape.
+    await page.waitForFunction(() => {
+      const el = window.__chatScroll;
+      return el.scrollHeight - el.clientHeight - el.scrollTop <= 2;
+    });
     await page.evaluate(() => {
       const el = window.__chatScroll;
       el.scrollTop = el.scrollHeight - el.clientHeight - 85;
@@ -467,3 +473,50 @@ test("hiding before the return-to-bottom animation's first frame keeps the pin",
     await page.close();
   }
 });
+
+async function visibleAnchor(page) {
+  return page.evaluate(() => {
+    const viewport = window.__chatScroll.getBoundingClientRect();
+    const row = [...document.querySelectorAll("[data-index]")].find(
+      (element) => {
+        const bounds = element.getBoundingClientRect();
+        return bounds.bottom > viewport.top && bounds.top < viewport.bottom;
+      },
+    );
+    return (
+      row && {
+        message: row.textContent.match(/Message \d+/)?.[0],
+        offset: row.getBoundingClientRect().top - viewport.top,
+      }
+    );
+  });
+}
+
+for (const mode of ["pin-to-bottom", "none"]) {
+  test(`${mode} preserves the same message over repeated hide/show with varied row heights`, async () => {
+    const page = await openChat({ count: 80, mode, variedRows: true });
+    try {
+      await scrollAway(page);
+      const before = await visibleAnchor(page);
+      assert.ok(
+        before?.message,
+        "the reader must have a visible message anchor",
+      );
+      for (let cycle = 0; cycle < 3; cycle += 1) {
+        await hideAndRestore(page);
+        const after = await visibleAnchor(page);
+        assert.equal(
+          after?.message,
+          before.message,
+          `cycle ${cycle + 1}: ${JSON.stringify({ before, after })}`,
+        );
+        assert.ok(
+          Math.abs(after.offset - before.offset) < 3,
+          `cycle ${cycle + 1} moved the message: ${JSON.stringify({ before, after })}`,
+        );
+      }
+    } finally {
+      await page.close();
+    }
+  });
+}
