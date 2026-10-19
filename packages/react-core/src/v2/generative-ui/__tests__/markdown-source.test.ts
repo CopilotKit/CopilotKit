@@ -142,17 +142,13 @@ describe("buildMarkdownSurfaces", () => {
     expect(fences.size).toBe(0);
   });
 
-  it("adds a later fence for the same surfaceId to the first surface, and only the first fence renders it", () => {
-    const first = assistant(
+  it("adds a later fence of the same reply for the same surfaceId to the first surface, and only the first fence renders it", () => {
+    const message = assistant(
       "m1",
-      fence([create("s1"), components("s1", button("root", "Buy"))]),
-    );
-    const later = assistant(
-      "m2",
-      `Updated:\n${fence([components("s1", button("root", "Buy now"))])}`,
+      `${fence([create("s1"), components("s1", button("root", "Buy"))])}Updated:\n${fence([components("s1", button("root", "Buy now"))])}`,
     );
 
-    const { surfaces, fences } = build([first, later]);
+    const { surfaces, fences } = build([message]);
 
     expect(surfaces).toHaveLength(1);
     expect(surfaces[0].operations).toEqual([
@@ -161,6 +157,50 @@ describe("buildMarkdownSurfaces", () => {
       components("s1", button("root", "Buy now")),
     ]);
     expect([...fences.keys()]).toEqual(["m1:0"]);
+  });
+
+  it("gives a later reply that reuses the id of a chat surface a surface of its own", () => {
+    const first = assistant(
+      "m1",
+      fence([create("s1"), components("s1", button("root", "Buy"))]),
+    );
+    const later = assistant(
+      "m2",
+      `Five more:\n${fence([create("s1"), components("s1", button("root", "Buy now"))])}`,
+    );
+
+    const { surfaces, fences } = build([first, later]);
+
+    expect(surfaces.map((s) => s.surfaceId)).toEqual(["s1", "s1@m2"]);
+    expect(surfaces[1].operations).toEqual([
+      create("s1@m2"),
+      components("s1@m2", button("root", "Buy now")),
+    ]);
+    expect([...fences.keys()]).toEqual(["m1:0", "m2:0"]);
+    expect(fences.get("m2:0")).toEqual([
+      { kind: "surface", surfaceId: "s1@m2" },
+    ]);
+  });
+
+  it("updates a page target from a later reply", () => {
+    const first = assistant(
+      "m1",
+      fence([create("panel"), components("panel", button("root", "Buy"))], {
+        info: " target=side",
+      }),
+    );
+    const later = assistant(
+      "m2",
+      fence([components("panel", button("root", "Buy now"))], {
+        info: " target=side",
+      }),
+    );
+
+    const { surfaces } = build([first, later]);
+
+    expect(surfaces.map((s) => s.surfaceId)).toEqual(["panel"]);
+    expect(surfaces[0].target).toBe("side");
+    expect(surfaces[0].operations).toHaveLength(3);
   });
 
   it.each([
