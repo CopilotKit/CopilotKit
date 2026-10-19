@@ -21,12 +21,18 @@ type LooseCreateElement = (
  * installed cannot resolve them at all. So both are loaded by package name
  * through a native `import()` the bundlers are told to skip: the server
  * resolves them from node_modules only when an image is actually rendered.
+ * esbuild ignores those hints, but leaves an unresolvable `import()` with a
+ * `.catch` for run time instead of failing the bundle, hence the `rethrow`.
  */
 async function loadPeers(): Promise<[TakumiModule, ReactModule]> {
   try {
     return await Promise.all([
-      import(/* webpackIgnore: true */ /* turbopackIgnore: true */ "takumi-js"),
-      import(/* webpackIgnore: true */ /* turbopackIgnore: true */ "react"),
+      import(
+        /* webpackIgnore: true */ /* turbopackIgnore: true */ "takumi-js"
+      ).catch(rethrow),
+      import(
+        /* webpackIgnore: true */ /* turbopackIgnore: true */ "react"
+      ).catch(rethrow),
     ]);
   } catch (err) {
     // `react` and `takumi-js` are optional peers, so a plain native-only app
@@ -34,12 +40,16 @@ async function loadPeers(): Promise<[TakumiModule, ReactModule]> {
     const code = (err as { code?: unknown } | null)?.code;
     if (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") {
       throw new Error(
-        "JSX image rendering needs the optional peer dependencies `react` and `takumi-js`. Install them (for example `pnpm add react takumi-js`).",
+        "JSX image rendering needs the optional peer dependencies `react` and `takumi-js`. Install them (for example `pnpm add react takumi-js`); if they are installed, make sure your deployment ships them with the server.",
         { cause: err },
       );
     }
     throw err;
   }
+}
+
+function rethrow(err: unknown): never {
+  throw err;
 }
 
 // React tags elements with one of these symbols (pre-19 vs 19+).
