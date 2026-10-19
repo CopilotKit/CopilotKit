@@ -4,12 +4,23 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { railwayApi } from "../api.mjs";
 import { creationPacer } from "../create-pacing.mjs";
+import {
+  loadReuseAdmission,
+  assertReuseInventory,
+} from "./reuse-admission.mjs";
 import { durableJson, recoveryLock } from "../journal.mjs";
 import { optionalMetadata, templateDigest } from "../runner/deployment.mjs";
 
 export const canaryWorkspaceId = "9cab81e9-4aa5-40cd-a484-3a585ca35c90";
 const forbiddenProjectId = "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479";
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+const isReused = (scope) =>
+  scope.purpose === "pni605-reused-fork-isolation-canary";
+const isFork = (scope) =>
+  isReused(scope) || scope.purpose === "pni605-fork-isolation-canary";
+const sourceId = (state) => state.reuse?.source.id ?? state.environments[0]?.id;
+const targetId = (state) =>
+  state.environments[isFork(state.scope) && !isReused(state.scope) ? 1 : 0]?.id;
 function validateScope(scope) {
   assert.deepEqual(
     Object.keys(scope).sort(),
@@ -25,9 +36,11 @@ function validateScope(scope) {
   );
   assert.equal(scope.version, 1);
   assert.ok(
-    ["pni605-isolation-canary", "pni605-fork-isolation-canary"].includes(
-      scope.purpose,
-    ),
+    [
+      "pni605-isolation-canary",
+      "pni605-fork-isolation-canary",
+      "pni605-reused-fork-isolation-canary",
+    ].includes(scope.purpose),
   );
   assert.equal(scope.workspaceId, canaryWorkspaceId);
   assert.match(scope.projectId, uuid);
@@ -130,20 +143,28 @@ async function runCanaryLocked({
   api = railwayApi(),
   clock = Date.now,
   pacingTime,
+  reuseAdmission,
 }) {
   const startedAt = clock();
-  const forkMode = scope.purpose === "pni605-fork-isolation-canary";
+  const forkMode = isFork(scope);
+  const reuse = isReused(scope)
+    ? await loadReuseAdmission({ root, scope, clock, ...reuseAdmission })
+    : undefined;
   const state = {
     version: 1,
     scope,
     runId: randomUUID(),
     startedAt,
-    expiresAt: startedAt + scope.lifetimeMs,
+    expiresAt: Math.min(
+      startedAt + scope.lifetimeMs,
+      reuse?.expiresAt ?? Infinity,
+    ),
     status: "preflight",
     intents: [],
     environments: [],
     services: [],
     observations: [],
+    ...(reuse ? { reuse } : {}),
   };
   const save = () => durableJson(join(root, "journal.json"), state);
   const pace = creationPacer({
@@ -176,6 +197,17 @@ async function runCanaryLocked({
     );
   }
   async function mutateAfterPacing(operation, input, cleanup = false) {
+    if (reuse) {
+      await loadReuseAdmission({
+        root,
+        scope,
+        clock,
+        priorRoot: reuse.priorRoot,
+        admissionPath: reuse.admissionPath,
+        expected: reuse,
+      });
+      assertReuseInventory(await observe(), state, reuse);
+    }
     if (!cleanup)
       assert.ok(clock() < state.expiresAt, "Canary lifetime exceeded");
     const intent = {
@@ -218,20 +250,28 @@ async function runCanaryLocked({
   try {
     const before = await observe();
     assertEmpty(before);
-    assert.ok(
-      Number.isFinite(Date.parse(before.project.createdAt)) &&
-        Date.parse(before.project.createdAt) <= startedAt &&
-        startedAt - Date.parse(before.project.createdAt) <= 600000,
-      "Dedicated project must be freshly created",
-    );
+    if (reuse) assertReuseInventory(before, state, reuse);
+    else
+      assert.ok(
+        Number.isFinite(Date.parse(before.project.createdAt)) &&
+          Date.parse(before.project.createdAt) <= startedAt &&
+          startedAt - Date.parse(before.project.createdAt) <= 600000,
+        "Dedicated project must be freshly created",
+      );
     state.baseline = before;
     state.status = "creating";
     await save();
     const prefix = `pni605-${state.runId.slice(0, 8)}`;
-    for (const suffix of ["a", "b"]) {
+    for (const suffix of reuse ? ["b"] : ["a", "b"]) {
       const sourceEnvironmentId =
-        forkMode && suffix === "b" ? state.environments[0].id : undefined;
+        forkMode && suffix === "b" ? sourceId(state) : undefined;
       const name = `${prefix}-${suffix}`;
+      if (reuse)
+        assert.notEqual(
+          name,
+          reuse.unknownIntent.input.input.name,
+          "Fresh fork must not reuse old unresolved name",
+        );
       const current = await observe();
       assertEmpty(current);
       const value = await mutate("createEnvironment", {
@@ -290,10 +330,10 @@ async function runCanaryLocked({
         }
       }
     }
-    const target = state.environments[forkMode ? 1 : 0].id;
+    const target = targetId(state);
     if (forkMode) {
       state.forkAcceptance = {
-        sourceEnvironmentId: state.environments[0].id,
+        sourceEnvironmentId: sourceId(state),
         forkEnvironmentId: target,
         verified: true,
       };
@@ -423,6 +463,18 @@ async function cleanupCanaryLocked({
     api,
   });
   assert.ok(state.baseline, "Baseline missing");
+  const reuse = isReused(state.scope)
+    ? await loadReuseAdmission({
+        root,
+        scope: state.scope,
+        clock,
+        priorRoot: state.reuse?.priorRoot,
+        admissionPath: state.reuse?.admissionPath,
+        expected: state.reuse,
+        cleanup: true,
+      })
+    : undefined;
+  if (reuse) assertReuseInventory(current, state, reuse, true);
   assertEmpty(state.baseline);
   const prefix = `pni605-${state.runId.slice(0, 8)}`;
   for (const environment of state.environments) {
@@ -485,14 +537,9 @@ async function cleanupCanaryLocked({
       assert.equal(intent.input.input.name, value.name);
       assert.equal(intent.result.projectId, state.scope.projectId);
       assert.equal(intent.result.name, value.name);
-      if (
-        operation === "createEnvironment" &&
-        state.scope.purpose === "pni605-fork-isolation-canary"
-      ) {
+      if (operation === "createEnvironment" && isFork(state.scope)) {
         const expectedSource =
-          value.id === state.environments[0].id
-            ? null
-            : state.environments[0].id;
+          !reuse && value.id === sourceId(state) ? null : sourceId(state);
         assert.equal(
           intent.input.input.sourceEnvironmentId ?? null,
           expectedSource,
@@ -504,12 +551,7 @@ async function cleanupCanaryLocked({
         assert.equal(intent.result.createdAt, value.createdAt);
       }
       if (operation === "createService")
-        assert.equal(
-          intent.input.input.environmentId,
-          state.environments[
-            state.scope.purpose === "pni605-fork-isolation-canary" ? 1 : 0
-          ].id,
-        );
+        assert.equal(intent.input.input.environmentId, targetId(state));
     }
   }
   const serviceIds = new Set(state.services.map((value) => value.id));
@@ -528,14 +570,14 @@ async function cleanupCanaryLocked({
   );
   assert.deepEqual(current.volumes, [], "Unexpected volume blocks cleanup");
   assertNoWorkloads(current);
-  if (state.scope.purpose === "pni605-fork-isolation-canary") {
+  if (isFork(state.scope)) {
     for (const owned of state.environments) {
       const actual = current.details.find((value) => value.id === owned.id);
       if (!actual) continue; // Existing delete intent/absence checks below remain mandatory.
       assert.equal(actual.name, owned.name);
       assert.equal(actual.projectId, state.scope.projectId);
       const expectedSource =
-        owned.id === state.environments[0].id ? null : state.environments[0].id;
+        !reuse && owned.id === sourceId(state) ? null : sourceId(state);
       assert.equal(owned.sourceEnvironmentId, expectedSource);
       assert.equal(
         actual.sourceEnvironment?.id ?? null,
@@ -550,6 +592,18 @@ async function cleanupCanaryLocked({
   await save();
   async function remove(operation, kind, owned) {
     const before = await inventory(api, state.scope);
+    if (reuse) {
+      await loadReuseAdmission({
+        root,
+        scope: state.scope,
+        clock,
+        priorRoot: reuse.priorRoot,
+        admissionPath: reuse.admissionPath,
+        expected: reuse,
+        cleanup: true,
+      });
+      assertReuseInventory(before, state, reuse, true);
+    }
     assertNoWorkloads(before);
     const matches = before[kind].filter(
       (value) => value.id === owned.id || value.name === owned.name,
@@ -571,13 +625,11 @@ async function cleanupCanaryLocked({
     assert.equal(matches[0].projectId, state.scope.projectId);
     if (kind === "environments") {
       const environment = before.details.find((value) => value.id === owned.id);
-      if (state.scope.purpose === "pni605-fork-isolation-canary") {
+      if (isFork(state.scope)) {
         assert.equal(environment.name, owned.name);
         assert.equal(environment.projectId, state.scope.projectId);
         const expectedSource =
-          owned.id === state.environments[0].id
-            ? null
-            : state.environments[0].id;
+          !reuse && owned.id === sourceId(state) ? null : sourceId(state);
         assert.equal(owned.sourceEnvironmentId, expectedSource);
         assert.equal(
           environment.sourceEnvironment?.id ?? null,
@@ -633,6 +685,18 @@ async function cleanupCanaryLocked({
   for (const environment of [...state.environments].toReversed())
     await remove("deleteEnvironment", "environments", environment);
   const final = await inventory(api, state.scope);
+  if (reuse) {
+    await loadReuseAdmission({
+      root,
+      scope: state.scope,
+      clock,
+      priorRoot: reuse.priorRoot,
+      admissionPath: reuse.admissionPath,
+      expected: reuse,
+      cleanup: true,
+    });
+    assertReuseInventory(final, state, reuse, true);
+  }
   assertEmpty(final);
   assert.deepEqual(
     final.environments.map((value) => value.id).sort(),

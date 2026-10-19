@@ -12,7 +12,7 @@ export const operations = {
   creationLimits:
     "query($id:String!){project(id:$id){id workspaceId subscriptionPlanLimit}}",
   canaryProject:
-    "query($id:String!){project(id:$id){id name createdAt workspaceId}}",
+    "query($id:String!){project(id:$id){id name createdAt workspaceId deletedAt}}",
   canaryInstance:
     "query($environmentId:String!,$serviceId:String!){serviceInstance(environmentId:$environmentId,serviceId:$serviceId){serviceId environmentId startCommand hasEverDeployed source{image repo} latestDeployment{id status}}}",
   proxies:

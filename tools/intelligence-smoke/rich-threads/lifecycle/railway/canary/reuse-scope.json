@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "purpose": "pni605-reused-fork-isolation-canary",
+  "workspaceId": "9cab81e9-4aa5-40cd-a484-3a585ca35c90",
+  "projectId": "a843d02e-df72-4161-93cc-2bebbba329b2",
+  "projectName": "pni605-canary-4c62a8d01b97",
+  "lifetimeMs": 600000
+}
