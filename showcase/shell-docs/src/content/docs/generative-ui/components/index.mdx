@@ -15,11 +15,53 @@ With components and surfaces, the agent renders real React components while it a
 
 You decide what the agent can render. The agent decides what to show and fills in the values. Users can type into the UI, press its buttons, and ask follow-up questions about it.
 
-## Try it in three steps
+## Try it
 
-You need a working CopilotKit app with `CopilotKitProvider` and a runtime. If you do not have one yet, start with the [quickstart](/quickstart).
+These steps add generative UI to a Next.js app. The agent is the built-in agent with an OpenAI model.
+
+Already have CopilotKit running? Do step 3 only. Your runtime needs no change: when the provider sends a catalog, the runtime gives that run a `render_ui` tool and a short guide. Your agent must pass the run's tools and context to its model. The built-in agent does this. For a LangGraph Python agent, add `CopilotKitMiddleware`.
 
 <Steps>
+  <Step>
+  ### Install the packages
+
+  ```bash
+  npm install @copilotkit/react-core @copilotkit/runtime
+  ```
+
+  Put your OpenAI key in `.env.local`:
+
+  ```bash title=".env.local"
+  OPENAI_API_KEY=sk-...
+  ```
+  </Step>
+  <Step>
+  ### Add the runtime and an agent
+
+  ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+  import {
+    BuiltInAgent,
+    CopilotRuntime,
+    createCopilotRuntimeHandler,
+    InMemoryAgentRunner,
+  } from "@copilotkit/runtime/v2";
+
+  const agent = new BuiltInAgent({
+    model: "openai/gpt-5.4",
+    prompt: "You are a helpful assistant. When a visual answer helps, render it with generative UI.",
+  });
+
+  const runtime = new CopilotRuntime({
+    agents: { default: agent },
+    runner: new InMemoryAgentRunner(),
+  });
+
+  const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+
+  export const GET = handler;
+  export const POST = handler;
+  ```
+  </Step>
   <Step>
   ### Turn on generative UI
 
@@ -40,19 +82,39 @@ You need a working CopilotKit app with `CopilotKitProvider` and a runtime. If yo
   }
   ```
 
-  Your runtime needs no change. When the provider sends a generative UI, the runtime gives that run a `render_ui` tool and a short guide on how to use it.
+  Wrap your app in it, and put a chat on a page:
+
+  ```tsx title="app/layout.tsx"
+  import { Providers } from "./providers";
+
+  export default function RootLayout({ children }: { children: React.ReactNode }) {
+    return (
+      <html lang="en">
+        <body>
+          <Providers>{children}</Providers>
+        </body>
+      </html>
+    );
+  }
+  ```
+
+  ```tsx title="app/page.tsx"
+  "use client";
+  import { CopilotChat } from "@copilotkit/react-core/v2";
+
+  export default function Page() {
+    return <CopilotChat />;
+  }
+  ```
   </Step>
   <Step>
   ### Ask for something visual
 
-  Open your chat and send:
+  Run `npm run dev`, open the page, and send:
 
   ```text
   Compare the Starter, Team, and Enterprise plans in a table
   ```
-  </Step>
-  <Step>
-  ### Watch it render
 
   The table fills in while the agent writes it. It is a real component, so a follow-up such as "add a column for support" changes it in place.
   </Step>
