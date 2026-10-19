@@ -95,6 +95,36 @@ the controller does not issue a second deployment. Future updates while the watc
 exists require an explicit compatible recovery transition; ordinary clean-drain
 updates cannot certify the unresolved old request as cleaned up.
 
+## Recovery of the October 19 failed fork
+
+The version 2 incident in `second-recovery-contract.mjs` preserves the first
+watch and adds the failed fork and its source environment to a second watch.
+It binds the exact deployed image, runtime, template, previous operation,
+immutable incident projections, source ID, volume and attachment. Full journal
+snapshots are retained by the replacement at startup; mutable observation
+timestamps are not authorization inputs.
+
+The old runtime cannot drain while its first watch exists. The controller saves
+a `stop-requested` checkpoint before stopping the exact recorded deployment.
+Only Railway's `deploymentStopped: true` readback proves that its instances have
+stopped. A successful stop response, deployment status, or unavailable HTTP
+endpoint is insufficient. Complete deployment inventory must exclude other
+running or pending deployments. The volume and attachment are rechecked across
+the handoff; neither is replaced or deleted.
+
+The same workflow attempt owner can resume from a `stopped` checkpoint and repeat
+the identical configuration writes with automatic deployment suppressed. Once
+`candidate-requested` is recorded, it never issues another deployment. A lost
+response may only adopt an exact candidate with matching runtime fence and
+provider evidence. Failed or ambiguous candidates stay closed; there is no
+automatic rollback to a runtime that cannot interpret the second watch.
+
+Both watch receipts must retain failed outcomes and unknown provider finality.
+The source environment remains owned while late-fork provenance requires it;
+this is retained cleanup responsibility, not a fully cleaned result. Explicit
+recover and resume remain mandatory. Scheduling stays off. Build provenance and
+a reviewed release merged to `main` are required before any live handoff.
+
 ## Local checks
 
 ```sh

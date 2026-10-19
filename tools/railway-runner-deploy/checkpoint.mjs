@@ -14,6 +14,13 @@ const stages = [
   "rollback-deployed",
   "resume-requested",
 ];
+const stoppedStages = [
+  "stop-requested",
+  "stopped",
+  "candidate-requested",
+  "candidate-deployed",
+  "resume-requested",
+];
 /** Validate the exact saved drain proof; an unverified final state is never authority. */
 export function validateCheckpoint(value, { run, releaseSha256, operationId }) {
   requireThat(
@@ -40,14 +47,14 @@ export function validateCheckpoint(value, { run, releaseSha256, operationId }) {
     "Invalid deployment checkpoint",
   );
   requireThat(
-    value.version === 1 &&
+    [1, 2].includes(value.version) &&
       value.operationId === operationId &&
       value.runId === run.id &&
       value.controlRevision === run.sha &&
       value.workflowSha256 === run.workflowSha256 &&
       value.releaseSha256 === releaseSha256 &&
       SHA256.test(value.templateSha256) &&
-      stages.includes(value.stage),
+      (value.version === 2 ? stoppedStages : stages).includes(value.stage),
     "Deployment checkpoint provenance mismatch",
   );
   requireThat(
@@ -62,6 +69,15 @@ export function validateCheckpoint(value, { run, releaseSha256, operationId }) {
           value[key].length > 0 &&
           value[key] !== value.baselineDeploymentId),
       "Invalid checkpoint deployment identity",
+    );
+  if (value.version === 2)
+    requireThat(
+      value.rollbackDeploymentId === null &&
+        (!["stop-requested", "stopped"].includes(value.stage) ||
+          value.candidateDeploymentId === null) &&
+        (!["candidate-deployed", "resume-requested"].includes(value.stage) ||
+          value.candidateDeploymentId !== null),
+      "Invalid stopped handoff checkpoint",
     );
   validateVolume(value);
   return value;
