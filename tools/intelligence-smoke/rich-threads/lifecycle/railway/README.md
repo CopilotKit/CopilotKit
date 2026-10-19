@@ -310,3 +310,36 @@ input fields. `errorCount` saturates at 17 and `errorsTruncated` signals overflo
 No arbitrary message, path segment, extension value or response data is retained.
 These records improve future diagnosis; they cannot recover discarded historical
 messages, establish provider finality, or change mutation outcome classification.
+
+### Second incident: stopped runner handoff
+
+The reviewed v2 authorization is limited to the October 19 failed fork request.
+The controller must stop the exact baseline deployment, verify
+`deploymentStopped`, exclude other running deployments, and preserve the permanent
+volume and attachment before installing the candidate. A Boolean in the runtime
+configuration is a controller attestation, not independent provider stop proof.
+Startup additionally checks dead process owners, retained configuration and build
+identities before writing a second snapshot in `recovery-v2.json` and a closed
+admission fence. The original `recovery.json` continues owning its first watch.
+
+`RICH_RECOVERY_AUTHORIZATION_JSON` version 2 retains the existing operation,
+identity, template and permanent-runner fields. Its `journalSha256`,
+`intentSha256`, `originalWatchSha256` and `deploymentOperationSha256` hash the
+canonical projections exported by `recovery-v2.mjs` (`journalBinding`,
+`repeatedIntentBinding`, `originalWatchBinding`, `deploymentOperationBinding`).
+These omit mutable observations, not ownership or original journal identity.
+`leaseSha256` still hashes the full lease. The second decision reference is
+`ran-2026-10-19-second-incident-recovery`, with the original bounded CLI retry
+policy text. `providerHandoff` binds the old deployment, image digest, attachment
+and verified stopped flag. Full immutable snapshots and their hashes are retained
+separately at startup; interruptions replay the same checkpoint before recovery.
+
+The existing recover and resume endpoints remain separate. Deployment recovery
+receipts include both `watches`, the second full `oldJournalSha256`, its
+`originalReceiptSha256`, the full `originalWatchSnapshotSha256`, and
+`retainedSourceEnvironmentId`. Each watch reconciles before admission and on idle
+ticks. Late forks require exact source linkage and empty contents before deletion.
+The known source is retained, verified empty, and never deleted by this transition:
+removing it could destroy the provenance needed for a later fork. Both original
+run receipts remain failed, with deadline status computed for each incident.
+This transition does not claim complete resource cleanup or fix provisioning.

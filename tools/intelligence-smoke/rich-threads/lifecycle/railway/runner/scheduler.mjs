@@ -11,6 +11,8 @@ import {
 } from "./deployment.mjs";
 import {
   recoveryReceipt,
+  effectiveRecovery,
+  retainedRunIds,
   recoverRetainedIntent,
   reconcileRetainedIntent,
 } from "../recovery.mjs";
@@ -60,7 +62,10 @@ async function ownershipEvidence(config) {
   return records;
 }
 
-export async function reconcile(config, { retainedRunId = null } = {}) {
+export async function reconcile(
+  config,
+  { retainedRunId = null, retainedIds = [retainedRunId] } = {},
+) {
   const supervisor = await optionalJson(
     join(config.controlDirectory, "supervisor-lock/owner.json"),
   );
@@ -82,7 +87,7 @@ export async function reconcile(config, { retainedRunId = null } = {}) {
     const journal = await optionalJson(
       join(config.controlDirectory, entry.name, "journal.json"),
     );
-    if (journal && journal.runId !== retainedRunId)
+    if (journal && !retainedIds.includes(journal.runId))
       assert.ok(
         journal.phase === "complete" && journal.cleanup?.status === "passed",
         "Unfinished ownership journal blocks new runs",
@@ -119,14 +124,14 @@ export async function createScheduler({
   };
   const deploymentPath = join(root, "deployment.json");
   let operation = await optionalJson(deploymentPath);
-  let recovery = await optionalJson(join(root, "recovery.json"));
+  let recovery = await effectiveRecovery(root);
   if (recovery) {
     assert.equal(
       scheduleEnabled,
       false,
       "Retained recovery requires scheduling off",
     );
-    assert.equal(recovery.version, 1);
+    assert.ok([1, 2].includes(recovery.version));
     const auth = recovery.authorization;
     assert.equal(
       operation?.operationId,
@@ -293,7 +298,7 @@ export async function createScheduler({
     busy = true;
     try {
       await recoverRetained({ root, config, operationId, runtimeIdentity });
-      recovery = await optionalJson(join(root, "recovery.json"));
+      recovery = await effectiveRecovery(root);
       assert.equal(recovery?.status, "watching");
       assert.ok(
         !state.active || state.active === recovery.authorization.runnerRunId,
@@ -328,8 +333,9 @@ export async function createScheduler({
     if (recovery)
       assert.equal(retainedRunId, recovery.authorization.lifecycleRunId);
     else assert.equal(retainedRunId, null);
-    recovery = await optionalJson(join(root, "recovery.json"));
-    await recover(config, { retainedRunId });
+    recovery = await effectiveRecovery(root);
+    const retainedIds = retainedRunIds(recovery);
+    await recover(config, { retainedRunId, retainedIds });
     if (config.controlDirectory) {
       for (const path of [
         "active-run/lease.json",
@@ -341,7 +347,7 @@ export async function createScheduler({
           "Unfinished ownership blocks deployment",
         );
       for (const run of await ownershipEvidence(config))
-        if (run.runId !== retainedRunId)
+        if (!retainedIds.includes(run.runId))
           assert.ok(
             run.phase === "complete" && run.cleanup?.status === "passed",
             "Unfinished ownership blocks deployment",
@@ -413,7 +419,7 @@ export async function createScheduler({
     try {
       const before = state.active
         ? (await ownershipEvidence(config)).filter(
-            (run) => run.runId !== recovery?.authorization.lifecycleRunId,
+            (run) => !retainedRunIds(recovery).includes(run.runId),
           )
         : [];
       await reconcileOwnership();
@@ -422,7 +428,7 @@ export async function createScheduler({
         const prior = await optionalJson(file);
         assert.ok(prior, "Interrupted run evidence missing");
         const after = (await ownershipEvidence(config)).filter(
-          (run) => run.runId !== recovery?.authorization.lifecycleRunId,
+          (run) => !retainedRunIds(recovery).includes(run.runId),
         );
         await durableJson(
           join(root, "results", state.active, "recovery.json"),

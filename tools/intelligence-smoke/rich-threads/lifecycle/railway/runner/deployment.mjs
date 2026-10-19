@@ -100,7 +100,9 @@ export async function checkStartup({
       templateSha256,
       "Retained configuration mismatch",
     );
-  const recovery = await optionalMetadata(join(root, "recovery.json"));
+  const recovery =
+    (await optionalMetadata(join(root, "recovery-v2.json"))) ??
+    (await optionalMetadata(join(root, "recovery.json")));
   if (recoveryAuthorization || recovery) {
     assert.ok(
       metadata && retained && initialized,
