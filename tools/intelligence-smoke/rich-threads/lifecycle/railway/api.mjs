@@ -40,7 +40,8 @@ export const operations = {
   deploy:
     "mutation($serviceId:String!,$environmentId:String!){serviceInstanceDeployV2(serviceId:$serviceId,environmentId:$environmentId)}",
   restart: "mutation($id:String!){deploymentRestart(id:$id)}",
-  deleteService: "mutation($id:String!){serviceDelete(id:$id)}",
+  deleteService:
+    "mutation($id:String!,$environmentId:String!){serviceDelete(id:$id,environmentId:$environmentId)}",
   deleteVolume: "mutation($volumeId:String!){volumeDelete(volumeId:$volumeId)}",
   deleteEnvironment: "mutation($id:String!){environmentDelete(id:$id)}",
 };
@@ -164,6 +165,12 @@ export function railwayApi({
   }
   async function request(operation, variables) {
     assert.ok(Object.hasOwn(operations, operation));
+    if (operation === "deleteService")
+      assert.ok(
+        typeof variables?.environmentId === "string" &&
+          variables.environmentId.trim().length > 0,
+        "Service deletion requires an explicit environment scope",
+      );
     const directory = await mkdtemp(join(tmpdir(), "rich-railway-api-"));
     try {
       await writeFile(join(directory, "query.graphql"), operations[operation], {

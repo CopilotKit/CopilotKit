@@ -12,6 +12,36 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { railwayApi, RailwayRequestError } from "./api.mjs";
 
+test("service deletion requires scope and sends the environment in the GraphQL mutation", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "railway-scoped-delete-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const executable = join(root, "fake-railway");
+  await writeFile(
+    executable,
+    `#!${process.execPath}
+const fs = require('node:fs');
+const query = fs.readFileSync(process.argv[process.argv.indexOf('--file') + 1], 'utf8');
+const variableArg = process.argv[process.argv.indexOf('--variables') + 1];
+const input = JSON.parse(fs.readFileSync(variableArg.replace(/^@/, ''), 'utf8'));
+if (!query.includes('serviceDelete(id:$id,environmentId:$environmentId)') || !query.includes('$environmentId:String!') || input.id !== 'owned-service' || input.environmentId !== 'owned-fork') process.exit(9);
+process.stdout.write(JSON.stringify({data:{serviceDelete:true}}));
+`,
+    { mode: 0o700 },
+  );
+  const api = railwayApi({ executable });
+  await assert.rejects(
+    api.request("deleteService", { id: "owned-service" }),
+    /explicit environment scope/,
+  );
+  assert.equal(
+    await api.request("deleteService", {
+      id: "owned-service",
+      environmentId: "owned-fork",
+    }),
+    true,
+  );
+});
+
 test("CLI boundary retains bounded classification without private payloads", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "railway-api-"));
   t.after(() => rm(root, { recursive: true, force: true }));

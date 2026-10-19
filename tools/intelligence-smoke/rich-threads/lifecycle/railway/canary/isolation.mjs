@@ -623,6 +623,19 @@ async function cleanupCanaryLocked({
     assert.equal(matches[0].id, owned.id);
     assert.equal(matches[0].name, owned.name);
     assert.equal(matches[0].projectId, state.scope.projectId);
+    if (kind === "services") {
+      assert.deepEqual(
+        before.details
+          .filter((env) =>
+            env.serviceInstances.some(
+              (instance) => instance.serviceId === owned.id,
+            ),
+          )
+          .map((env) => env.id),
+        [targetId(state)],
+        "Service escaped target; scoped cleanup blocked",
+      );
+    }
     if (kind === "environments") {
       const environment = before.details.find((value) => value.id === owned.id);
       if (isFork(state.scope)) {
@@ -652,7 +665,12 @@ async function cleanupCanaryLocked({
     const intent = {
       serial: state.intents.length,
       operation,
-      input: { id: owned.id },
+      input: {
+        id: owned.id,
+        ...(operation === "deleteService"
+          ? { environmentId: targetId(state) }
+          : {}),
+      },
       startedAt: clock(),
       status: "pending",
     };
