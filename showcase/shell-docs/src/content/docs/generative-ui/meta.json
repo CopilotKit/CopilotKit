@@ -16,16 +16,10 @@
       "pages": ["frontend-cards"]
     },
     {
-      "title": "Components and surfaces",
-      "icon": "lucide/LayoutTemplate",
-      "defaultOpen": true,
-      "pages": ["...components"]
-    },
-    {
       "title": "Declarative",
       "icon": "lucide/FileJson",
       "defaultOpen": true,
-      "pages": ["...a2ui", "json-render", "hashbrown"]
+      "pages": ["components", "...a2ui", "json-render", "hashbrown"]
     },
     {
       "title": "Open-Ended",
