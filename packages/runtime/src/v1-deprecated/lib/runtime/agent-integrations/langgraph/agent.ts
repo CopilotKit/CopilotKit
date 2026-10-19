@@ -70,7 +70,9 @@ type LangGraphMessage = Parameters<
  * Copy `name`, `description` and `parameters` from an OpenAI-style
  * `{ function: { ... } }` descriptor to the top level, so Python agents that
  * read `tool["parameters"]` get the real schema instead of `None` (#6570).
- * Fields already at the top level win, and `function` is kept intact.
+ * Non-null fields already at the top level win, and `function` is kept intact.
+ * A top-level `null` is backfilled too: Python `None` comes back as `null`
+ * when state is restored from a checkpoint.
  *
  * Scope: this only normalizes `copilotkit.actions` for the v1 `LangGraphAgent`.
  * `state["tools"]` and `ag-ui.tools` stay nested, and v2 users of
@@ -83,7 +85,7 @@ function normalizeLangGraphTool(tool: any): any {
 
   const normalized = { ...tool };
   for (const key of ["name", "description", "parameters"] as const) {
-    if (normalized[key] === undefined && functionSpec[key] !== undefined) {
+    if (normalized[key] == null && functionSpec[key] != null) {
       normalized[key] = functionSpec[key];
     }
   }

@@ -372,6 +372,34 @@ describe("langGraphDefaultMergeState", () => {
     expect(result.copilotkit.actions[0].function).toEqual(tool.function);
   });
 
+  it("backfills top-level null fields from nested ones", () => {
+    const { agent } = createAgent();
+    // Python None restored from a checkpoint arrives as null.
+    const tool = {
+      type: "function",
+      name: "lookupWeather",
+      description: null,
+      parameters: null,
+      function: {
+        name: "lookupWeather",
+        description: "Look up the weather",
+        parameters: { type: "object", properties: {} },
+      },
+    };
+
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools: [tool], context: [] },
+      tools: [],
+      messages: [],
+    });
+
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit.actions[0]).toMatchObject({
+      description: "Look up the weather",
+      parameters: { type: "object", properties: {} },
+    });
+  });
+
   it("does not overwrite top-level fields with nested ones", () => {
     const { agent } = createAgent();
     const tool = {
