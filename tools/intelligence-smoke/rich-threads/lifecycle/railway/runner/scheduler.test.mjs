@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createScheduler } from "./scheduler.mjs";
+import { createScheduler, reconcile } from "./scheduler.mjs";
 import { durableJson } from "../journal.mjs";
 async function setup(t, overrides = {}) {
   const root = await mkdtemp(join(tmpdir(), "railway-runner-test-"));
@@ -89,17 +89,22 @@ test("manual-only ticks still block runs when cleanup fails", async (t) => {
   assert.equal((await scheduler.start("single")).accepted, false);
 });
 test("permanent scheduler serializes manual/timer runs and retains failed results", async (t) => {
-  let finish;
+  let finish, entered;
+  const started = new Promise((resolve) => {
+    entered = resolve;
+  });
   const { root, scheduler } = await setup(t, {
     execute: () =>
       new Promise((resolve) => {
         finish = resolve;
+        entered();
       }),
   });
   const first = await scheduler.start();
   assert.equal(first.accepted, true);
   assert.equal((await scheduler.start()).accepted, false);
   await scheduler.tick();
+  await started;
   finish(1);
   await first.completion;
   const receipt = JSON.parse(
@@ -373,6 +378,10 @@ test("drain cancels admission already waiting in preflight", async (t) => {
 });
 
 test("drain lets active work and cleanup finish without abort", async (t) => {
+  let entered;
+  const started = new Promise((resolve) => {
+    entered = resolve;
+  });
   let finish,
     signal,
     recoveries = 0;
@@ -385,10 +394,12 @@ test("drain lets active work and cleanup finish without abort", async (t) => {
       signal = args.signal;
       return new Promise((resolve) => {
         finish = resolve;
+        entered();
       });
     },
   });
   const run = await scheduler.start();
+  await started;
   await scheduler.drain(drainRequest);
   assert.equal(signal.aborted, false);
   assert.equal(scheduler.deployment().phase, "draining");
@@ -834,4 +845,94 @@ test("deployment recovery receipt refreshes the durable watch hash after reconci
     scheduler.deployment().recovery.watchSha256,
     receipt.watchSha256,
   );
+});
+
+for (const mode of ["missing", "mismatch", "passed-retained", "valid"])
+  test(`retained volume admission ${mode}`, async (t) => {
+    const controlDirectory = await mkdtemp(
+      join(tmpdir(), "retention-admission-"),
+    );
+    t.after(() => rm(controlDirectory, { recursive: true, force: true }));
+    const retained = [
+      { volumeId: "owned", evidence: { state: "pending-detached" } },
+    ];
+    const journal = {
+      runId: "retained",
+      phase: "complete",
+      retainedVolumes: mode === "missing" ? [] : retained,
+      cleanup: {
+        status:
+          mode === "passed-retained"
+            ? "passed"
+            : "passed-pending-provider-deletion",
+        activeResourcesAbsent: true,
+        physicalDeletionComplete: false,
+        retainedVolumes: mode === "mismatch" ? [] : retained,
+      },
+    };
+    await mkdir(join(controlDirectory, "retained"));
+    await durableJson(join(controlDirectory, "retained/journal.json"), journal);
+    let calls = 0;
+    const run = () =>
+      reconcile(
+        { controlDirectory },
+        {
+          reconcileVolumes: async ({ runId }) => {
+            assert.equal(runId, "retained");
+            calls++;
+          },
+        },
+      );
+    if (mode === "valid") {
+      await run();
+      assert.equal(calls, 1);
+    } else {
+      await assert.rejects(run());
+      assert.equal(calls, 0);
+    }
+  });
+
+test("restart exports cleanup only for the interrupted run's lifecycle IDs", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "retained-receipt-scope-"));
+  const control = join(root, "control"),
+    id = "run-current";
+  await mkdir(join(root, "results", id), { recursive: true });
+  for (const runId of ["historical", "current"]) {
+    await mkdir(join(control, runId), { recursive: true });
+    await durableJson(join(control, runId, "journal.json"), {
+      runId,
+      phase: "complete",
+      intents: [],
+      cleanup: { status: "passed", deadlineExceeded: runId === "historical" },
+    });
+  }
+  await durableJson(join(root, "results", id, "run.json"), {
+    id,
+    status: "running",
+    lifecycleBaselineRunIds: ["historical"],
+  });
+  await durableJson(join(root, "scheduler.json"), {
+    version: 1,
+    active: id,
+    blocked: false,
+    nextRunAt: 500,
+  });
+  const scheduler = await createScheduler({
+    root,
+    config: { controlDirectory: control },
+    recover: async () => {},
+    clock: () => 100,
+  });
+  t.after(async () => {
+    await scheduler.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  const receipt = JSON.parse(
+    await readFile(join(root, "results", id, "run.json"), "utf8"),
+  );
+  assert.deepEqual(
+    receipt.cleanupEvidence.map((e) => e.runId),
+    ["current"],
+  );
+  assert.equal(receipt.deadlineExceeded, false);
 });
