@@ -20,6 +20,25 @@ Image rendering is opt-in at install time too. React and Takumi, the rasterizer,
   Without them, posting JSX as an image throws an error that names both packages.
 </Callout>
 
+<Callout type="warn" title="Ship them with your server">
+  The renderer loads `react` and `takumi-js` only when an image is posted, so bundlers and output file tracing do not see them. A traced deployment, such as Next.js with `output: "standalone"` or Vercel, can leave them out even though they are installed, and posting an image then fails with the same error. In Next.js, include them for the routes that render images:
+
+  ```ts title="next.config.ts"
+  const nextConfig = {
+    outputFileTracingIncludes: {
+      // Routes that render images, for example your channel route.
+      "/api/**": [
+        "./node_modules/takumi-js/**",
+        "./node_modules/@takumi-rs/**",
+        "./node_modules/react/**",
+      ],
+    },
+  };
+  ```
+
+  Other bundled or traced deploy targets need the same: ship `takumi-js` and its platform package (`@takumi-rs/core-<platform>`) with the server.
+</Callout>
+
 <Steps>
   <Step>
     ### How it's routed
