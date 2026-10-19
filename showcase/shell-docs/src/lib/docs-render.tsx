@@ -1319,7 +1319,6 @@ export function normalizeSidebarNav(
     ]),
     ...sidebarSection("Generative UI", [
       generativeTopic("Controlled"),
-      generativeTopic("Components and surfaces"),
       generativeTopic("Declarative"),
       generativeTopic("Open-Ended", "Open-ended"),
     ]),
