@@ -158,3 +158,49 @@ test.each(["delivered-event", null])(
     }
   },
 );
+
+test("a successful retry keeps a newer live checkpoint when idle repeats the replay checkpoint", async () => {
+  const { agent, channels, fetch, input, teardown } = setup();
+  const error = vi.fn();
+  const complete = vi.fn();
+  const subscription = agent.replay(input).subscribe({ error, complete });
+  try {
+    await vi.waitFor(() => expect(channels).toHaveBeenCalledOnce());
+    const channel = channels.mock.results[0]!.value;
+    channel.triggerJoin("ok");
+    channel.serverPush("replay_failed", {
+      reason: "history_read_timeout",
+      retryable: true,
+      latestEventId: "event-10",
+    });
+    channel.serverPush("phx_error", {});
+    channel.triggerJoin("ok");
+    channel.serverPush("replay_complete", { latestEventId: "event-20" });
+    channel.serverPush("ag_ui_event", {
+      type: EventType.TEXT_MESSAGE_CONTENT,
+      messageId: "answer",
+      delta: "live after retry",
+      metadata: { cpki_event_id: "event-30" },
+    });
+    channel.serverPush("stream_idle", { latestEventId: "event-20" });
+
+    expect(complete).toHaveBeenCalledOnce();
+    expect(error).not.toHaveBeenCalled();
+
+    const nextConnection = agent.replay(input).subscribe({ error });
+    try {
+      await vi.waitFor(() => expect(channels).toHaveBeenCalledTimes(2));
+      expect(JSON.parse(String(fetch.mock.calls[1]![1]?.body))).toMatchObject({
+        lastSeenEventId: "event-30",
+      });
+      expect(channels.mock.results[1]!.value.params.last_seen_event_id).toBe(
+        "event-30",
+      );
+    } finally {
+      nextConnection.unsubscribe();
+    }
+  } finally {
+    subscription.unsubscribe();
+    teardown();
+  }
+});

@@ -768,12 +768,14 @@ export class IntelligenceAgent extends AbstractAgent {
         applied: null,
         replayFailed: false,
       };
+      let retryingReplay = false;
       const replayFailed$ = channel$.pipe(
         switchMapOperator(({ channel }) =>
           this.observeChannelEvent$<unknown>(channel, REPLAY_FAILED_EVENT),
         ),
         tap((payload) => {
           controlCursor.replayFailed = true;
+          retryingReplay = false;
           if (
             payload === null ||
             typeof payload !== "object" ||
@@ -788,6 +790,7 @@ export class IntelligenceAgent extends AbstractAgent {
             throw new Error(`Thread history replay failed: ${reason}`);
           }
           if (payload.retryable === true) {
+            retryingReplay = true;
             this.updateLastSeenEventIdFromControl(
               input.threadId,
               payload,
@@ -810,6 +813,10 @@ export class IntelligenceAgent extends AbstractAgent {
       ).pipe(
         // Notify before idle completion can unsubscribe other observers.
         tap(() => {
+          if (retryingReplay) {
+            controlCursor.replayFailed = false;
+            retryingReplay = false;
+          }
           replayFinished = true;
           scheduleIdleWarning();
           options.lifecycle?.onReplayFinished?.();
