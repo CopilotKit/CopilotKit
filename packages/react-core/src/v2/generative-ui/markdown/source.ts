@@ -339,8 +339,9 @@ function surfaceContent(
  * - The fence that first writes a surface creates it. The `target=<id>` of
  *   that fence sets the target. With no target, the surface goes to the
  *   chat.
- * - A later fence for the same surfaceId updates it. It does not create a
- *   new surface.
+ * - A later fence of the same reply for the same surfaceId updates it. A
+ *   later reply that reuses the id of a chat surface gets a surface of its
+ *   own, `<id>@<messageId>`. A page target is updated from any reply.
  * - The status is "streaming" while the creating fence streams, else
  *   "ready".
  * - Each operation is validated with `validateOperation`. Rejected ones are
@@ -385,7 +386,30 @@ export function buildMarkdownSurfaces(
   /** The surfaces that each fence created, in order. */
   const created = new Map<string, string[]>();
   const functionCalls: MarkdownFunctionCall[] = [];
+  /** The message that owns each chat surface id, by the id the model wrote. */
+  const chatOwners = new Map<string, string>();
   const lastMessage = messages[messages.length - 1];
+
+  /**
+   * A chat surface belongs to the reply that wrote it: the chat is a
+   * transcript, so a later reply that reuses an id gets a surface of its
+   * own (`<id>@<messageId>`) instead of changing the earlier reply. A fence
+   * for a page target keeps its id, because a target is a place on the
+   * page that a later reply updates on purpose.
+   */
+  const scopedSurfaceId = (
+    requested: string,
+    messageId: string,
+    target: string | undefined,
+  ) => {
+    if (target !== undefined) return requested;
+    const owner = chatOwners.get(requested);
+    if (owner === undefined) {
+      chatOwners.set(requested, messageId);
+      return requested;
+    }
+    return owner === messageId ? requested : `${requested}@${messageId}`;
+  };
 
   for (const message of messages) {
     if (message.role !== "assistant" || !isString(message.content)) continue;
@@ -417,7 +441,12 @@ export function buildMarkdownSurfaces(
         (op) => getOperationKind(op) !== "callRendererFunction",
       );
       for (const op of surfaceOperations) {
-        const surfaceId = getMarkdownOperationSurfaceId(op) ?? fenceSurfaceId;
+        const requested = getMarkdownOperationSurfaceId(op) ?? fenceSurfaceId;
+        const surfaceId = scopedSurfaceId(
+          requested,
+          message.id,
+          segment.target,
+        );
         let draft = drafts.get(surfaceId);
         if (!draft) {
           draft = {
@@ -429,7 +458,9 @@ export function buildMarkdownSurfaces(
           drafts.set(surfaceId, draft);
           created.set(key, [...(created.get(key) ?? []), surfaceId]);
         }
-        draft.operations.push(op);
+        draft.operations.push(
+          surfaceId === requested ? op : readdress(op, surfaceId),
+        );
       }
     }
   }

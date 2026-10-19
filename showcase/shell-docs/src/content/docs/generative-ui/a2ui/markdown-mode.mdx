@@ -140,10 +140,13 @@ Surfaces paint while the reply is still streaming:
   the reply painting in place is the progress signal.
 
 If the model omits `createSurface`, CopilotKit synthesizes one. A later fence
-that reuses a `surfaceId` applies its operations to the existing surface
-instead of rendering a second one, also in a later reply. A fence with
-`target=<id>` in its info string renders into the
-`<GenerativeUISurface id>` of that id on the page instead of the chat.
+in the same reply that reuses a `surfaceId` applies its operations to the
+existing surface instead of rendering a second one. The chat is a
+transcript, so a later reply that reuses the id gets a surface of its own
+and the earlier reply keeps what it showed. A fence with `target=<id>` in
+its info string renders into the `<GenerativeUISurface id>` of that id on
+the page instead of the chat; a page target is a place, so any later reply
+updates it.
 
 ## Prose inside a surface
 
