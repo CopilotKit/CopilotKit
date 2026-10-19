@@ -9,6 +9,8 @@ import { durableJson } from "./journal.mjs";
 const exec = promisify(execFile);
 const page = "pageInfo { hasNextPage endCursor } edges { node";
 export const operations = {
+  creationLimits:
+    "query($id:String!){project(id:$id){id workspaceId subscriptionPlanLimit}}",
   canaryProject:
     "query($id:String!){project(id:$id){id name createdAt workspaceId}}",
   canaryInstance:
@@ -43,6 +45,7 @@ export const operations = {
   deleteEnvironment: "mutation($id:String!){environmentDelete(id:$id)}",
 };
 const resultFields = {
+  creationLimits: "project",
   canaryProject: "project",
   canaryInstance: "serviceInstance",
   proxies: "tcpProxies",

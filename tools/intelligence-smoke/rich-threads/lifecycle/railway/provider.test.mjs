@@ -30,6 +30,17 @@ function fakeProvider(options = {}) {
       clone(state.environments.find((e) => e.id === id)),
     request: async (op, args) => {
       state.calls.push(op);
+      if (op === "creationLimits")
+        return {
+          id: args.id,
+          workspaceId: "11111111-2222-3333-4444-555555555555",
+          subscriptionPlanLimit: {
+            rateLimits: {
+              environmentCreate: { max: 1, windowSeconds: 30 },
+              volumeCreate: { max: 1, windowSeconds: 30 },
+            },
+          },
+        };
       if (op === options.rejectOperation)
         throw new RailwayRequestError({
           version: 1,
@@ -296,7 +307,15 @@ async function fixture(t, approved = true) {
       },
     },
   };
+  let pacingNow = Date.now();
   const dependencies = {
+    pacingTime: {
+      clock: () => pacingNow,
+      monotonic: () => pacingNow,
+      sleep: async (ms) => {
+        pacingNow += ms;
+      },
+    },
     supervision: async () => {},
     distribute: (snapshotFile, targets) =>
       distributeSnapshot(snapshotFile, targets, (target, request) =>
@@ -513,7 +532,7 @@ test("proven pre-execution rejection releases only after complete absence invent
   await assert.rejects(readFile(join(f.directory, "active-run/lease.json")), {
     code: "ENOENT",
   });
-  assert.deepEqual(p.state.calls, ["createEnvironment"]);
+  assert.deepEqual(p.state.calls, ["creationLimits", "createEnvironment"]);
 });
 
 test("repeated absence never settles a lost environment response; later resource is recovered", async (t) => {
@@ -764,6 +783,37 @@ for (const lostEnvironmentResponse of [false, true]) {
   });
 }
 
+test("cancellation during post-pacing inventory sends no creation intent", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider();
+  const abort = new AbortController();
+  const list = p.api.list;
+  p.api.list = async (kind) => {
+    if (kind === "volumes" && p.state.calls.includes("creationLimits"))
+      abort.abort(new Error("cancelled during inventory"));
+    return list(kind);
+  };
+  await assert.rejects(
+    createRailwayEnvironment(
+      {
+        ...f,
+        runId: "cancelled-inventory",
+        frameworks: ["mastra"],
+        signal: abort.signal,
+      },
+      { ...f.dependencies, api: p.api },
+    ),
+  );
+  assert.deepEqual(p.state.calls, ["creationLimits"]);
+  const journal = JSON.parse(
+    await readFile(
+      join(f.directory, "cancelled-inventory/journal.json"),
+      "utf8",
+    ),
+  );
+  assert.deepEqual(journal.intents, []);
+});
+
 test("incomplete post-create inventory retains returned ID and blocks provisioning", async (t) => {
   const f = await fixture(t);
   const p = fakeProvider();
@@ -788,7 +838,7 @@ test("incomplete post-create inventory retains returned ID and blocks provisioni
   );
   assert.equal(journal.intents[0].resultId, p.state.environments[0].id);
   assert.equal(journal.intents[0].verification[0].complete, false);
-  assert.deepEqual(p.state.calls, ["createEnvironment"]);
+  assert.deepEqual(p.state.calls, ["creationLimits", "createEnvironment"]);
 });
 
 test("empty post-create inventory is bounded and preserves unresolved ownership", async (t) => {
@@ -816,7 +866,7 @@ test("empty post-create inventory is bounded and preserves unresolved ownership"
   assert.ok(
     intent.verification.every((v) => v.complete && v.matchingIds.length === 0),
   );
-  assert.deepEqual(p.state.calls, ["createEnvironment"]);
+  assert.deepEqual(p.state.calls, ["creationLimits", "createEnvironment"]);
 });
 
 test("wrong-source environment never gains cleanup ownership", async (t) => {
@@ -843,5 +893,5 @@ test("wrong-source environment never gains cleanup ownership", async (t) => {
   );
   assert.equal(journal.intents[0].verification[0].outcome, "conflict");
   assert.equal(journal.environments.length, 0);
-  assert.deepEqual(p.state.calls, ["createEnvironment"]);
+  assert.deepEqual(p.state.calls, ["creationLimits", "createEnvironment"]);
 });

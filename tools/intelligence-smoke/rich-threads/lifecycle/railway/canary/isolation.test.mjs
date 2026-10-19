@@ -15,7 +15,7 @@ async function fixture(t, options = {}) {
   const parent = await mkdtemp(join(tmpdir(), "isolated-canary-"));
   t.after(() => rm(parent, { recursive: true, force: true }));
   const root = join(parent, "journal");
-  const now = Date.now();
+  let now = Date.now();
   const scope = {
     version: 1,
     purpose: "pni605-isolation-canary",
@@ -58,6 +58,13 @@ async function fixture(t, options = {}) {
       volumeInstances: [],
     }),
     request: async (operation, variables) => {
+      if (operation === "creationLimits")
+        return {
+          ...project,
+          subscriptionPlanLimit: {
+            rateLimits: { environmentCreate: { max: 1, windowSeconds: 30 } },
+          },
+        };
       if (operation === "canaryProject") return structuredClone(project);
       if (operation === "canaryInstance")
         return {
@@ -118,7 +125,19 @@ async function fixture(t, options = {}) {
       throw new Error(`Unexpected ${operation}`);
     },
   };
-  const run = () => runCanary({ root, scope, api, clock: () => now });
+  const run = () =>
+    runCanary({
+      root,
+      scope,
+      api,
+      clock: () => now,
+      pacingTime: {
+        monotonic: () => now,
+        sleep: async (ms) => {
+          now += ms;
+        },
+      },
+    });
   return { root, scope, api, writes, run, project, services, environments };
 }
 
@@ -126,6 +145,8 @@ test("inert canary verifies isolated create/edit and restores baseline", async (
   const f = await fixture(t);
   const result = await f.run();
   assert.equal(result.status, "passed");
+  assert.ok(result.intents[0].startedAt - result.startedAt >= 32000);
+  assert.ok(result.intents[1].startedAt - result.intents[0].startedAt >= 32000);
   assert.deepEqual(result.result, {
     createIsolated: true,
     editIsolated: true,

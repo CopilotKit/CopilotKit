@@ -53,6 +53,18 @@ Each transfer validates the whole snapshot with the real parser, checks the exac
 
 Creation intents are private durable journal entries before requests. Snapshot IDs originate in provider responses or independently reconciled provider inventory; names never become fabricated provider IDs. `setup`, `ready`, `teardown`, terminal and expired records are retained. Teardown distribution failure does not stop emergency ownership-checked deletion, but completion requires successful final distribution. The classifier is diagnostic only and is never deletion authority.
 
+Before creating an environment or volume, the controller reads the project's
+`subscriptionPlanLimit.rateLimits`. It waits one complete reported window plus
+two seconds before each new intent, even when the plan permits more than one
+request per window. A workspace/operation ledger and lock under
+`controlDirectory/create-pacing` retain timing across runs and interrupted
+requests. Both monotonic elapsed time and the durable wall-clock reference must
+clear the window; restart always incurs another complete window. Missing limits,
+corrupt timing state, an interrupted check, or insufficient lifetime stop before
+the new intent. This does not retry or resolve any prior request. Other tools and
+credentials must still be coordinated by the sole live sequencer: the local gate
+cannot reserve Railway's quota against external writers.
+
 ## Restart, inspection and cleanup
 
 Call `restart(["intelligence-api","intelligence-gateway","application-runtime","native-backend"], framework)` **once for a restart batch**. It selects unique physical services. One composite receipt has `serviceId`, `roles`, `readyRoles`, changed provider deployment-instance IDs and unchanged volume/instance/mount IDs. Do not call the two composite logical roles separately. Scalar calls remain supported for a single requested role.
