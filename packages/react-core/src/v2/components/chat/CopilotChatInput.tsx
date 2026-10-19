@@ -128,8 +128,7 @@ const SLASH_MENU_ITEM_HEIGHT_PX = 40;
 /**
  * The chat composer: a text area with the add-menu, voice and send/stop
  * buttons, and a slash-command menu that lists `toolsMenu` items once the text
- * starts with "/". The menu's accessible name and empty state come from
- * `labels.chatInputSlashMenuLabel` and `labels.chatInputSlashMenuEmptyText`.
+ * starts with "/".
  */
 export function CopilotChatInput({
   mode = "input",
