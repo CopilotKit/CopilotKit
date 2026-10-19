@@ -123,7 +123,7 @@ function validateJournal(journal, authorization) {
   );
 }
 const statePath = (root) => join(root, "recovery.json");
-async function assertOwnersStopped(
+export async function assertOwnersStopped(
   root,
   config,
   journal,
@@ -160,6 +160,16 @@ export async function prepareRetainedRecovery(
   { root, config, runtimeIdentity, metadata, operation, authorization },
   dependencies = {},
 ) {
+  if (
+    authorization?.version === 2 ||
+    (await optionalMetadata(join(root, "recovery-v2.json")))
+  ) {
+    const { prepareRepeatedRecovery } = await import("./recovery-v2.mjs");
+    return prepareRepeatedRecovery(
+      { root, config, runtimeIdentity, metadata, operation, authorization },
+      dependencies,
+    );
+  }
   await authority(config.controlDirectory);
   const prior = await optionalMetadata(statePath(root));
   authorization ??= prior?.authorization;
@@ -251,9 +261,10 @@ export async function prepareRetainedRecovery(
   await durableJson(statePath(root), state);
   return state;
 }
-async function loadState(root, config) {
+export async function loadState(root, config) {
   const state = await optionalMetadata(statePath(root));
   if (!state) return null;
+  assert.equal(state.version, 1, "Invalid original recovery version");
   validateAuthorization(state.authorization, config);
   validateJournal(state.originalJournal, state.authorization);
   assert.equal(templateDigest(state.originalJournal), state.oldJournalSha256);
@@ -278,7 +289,7 @@ async function loadState(root, config) {
   );
   return state;
 }
-async function inspectWatch(root, config, state, dependencies) {
+export async function inspectWatch(root, config, state, dependencies) {
   const api =
     dependencies.api ??
     railwayApi({
@@ -288,8 +299,12 @@ async function inspectWatch(root, config, state, dependencies) {
       ),
     });
   const pause = dependencies.delay ?? delay;
-  const intent = state.originalJournal.intents[0];
-  const save = () => durableJson(statePath(root), state);
+  const intent = state.originalJournal.intents[state.version === 2 ? 1 : 0];
+  const save = () =>
+    durableJson(
+      state.version === 2 ? join(root, "recovery-v2.json") : statePath(root),
+      state,
+    );
   async function inventory() {
     const values = await api.list("environments", config.projectId);
     assert.ok(Array.isArray(values));
@@ -355,12 +370,12 @@ async function inspectWatch(root, config, state, dependencies) {
       Number.isFinite(Date.parse(value.createdAt)) &&
         Date.parse(value.createdAt) >= Date.parse(intent.startedAt) - 1000,
     );
-    assert.equal(value.sourceEnvironment?.id ?? null, null);
+    assert.equal(value.sourceEnvironment?.id ?? null, intent.scope ?? null);
     const observed = await api.environment(value.id);
     for (const key of ["id", "name", "projectId", "createdAt"])
       assert.equal(observed[key], value[key]);
     assert.equal(observed.isEphemeral, true);
-    assert.equal(observed.sourceEnvironment?.id ?? null, null);
+    assert.equal(observed.sourceEnvironment?.id ?? null, intent.scope ?? null);
     assert.deepEqual(
       observed.serviceInstances,
       [],
@@ -417,7 +432,7 @@ async function inspectWatch(root, config, state, dependencies) {
   state.providerFinality = "unknown";
   await save();
 }
-async function finishTransfer(root, config, state, dependencies) {
+export async function finishTransfer(root, config, state, dependencies) {
   const lease = await optionalMetadata(
     join(config.controlDirectory, "active-run/lease.json"),
   );
@@ -447,7 +462,10 @@ async function finishTransfer(root, config, state, dependencies) {
       ...state.originalReceipt,
       status: "failed",
       cleanup: "retained-watch",
-      deadlineExceeded: true,
+      deadlineExceeded:
+        state.version === 2
+          ? Date.parse(state.originalJournal.expiresAt) < Date.now()
+          : true,
       recovery: {
         operationId: state.authorization.operationId,
         lifecycleRunId: state.authorization.lifecycleRunId,
@@ -464,6 +482,13 @@ export async function recoverRetainedIntent(
   { root, config, operationId, runtimeIdentity },
   dependencies = {},
 ) {
+  if (await optionalMetadata(join(root, "recovery-v2.json"))) {
+    const { recoverRepeatedIntent } = await import("./recovery-v2.mjs");
+    return recoverRepeatedIntent(
+      { root, config, operationId, runtimeIdentity },
+      dependencies,
+    );
+  }
   const state = await loadState(root, config);
   assert.ok(state);
   assert.equal(state.authorization.operationId, operationId);
@@ -485,7 +510,7 @@ export async function recoverRetainedIntent(
 }
 export function recoveryReceipt(state) {
   if (!state) return null;
-  return {
+  const receipt = {
     status: state.status,
     operationId: state.authorization.operationId,
     lifecycleRunId: state.authorization.lifecycleRunId,
@@ -496,14 +521,35 @@ export function recoveryReceipt(state) {
     observationCount: state.observationCount,
     providerFinality: "unknown",
     originalStatus: "failed",
-    deadlineExceeded: true,
+    deadlineExceeded:
+      state.version === 2
+        ? Date.parse(state.originalJournal.expiresAt) < Date.now()
+        : true,
   };
+  return state.version === 2
+    ? {
+        ...receipt,
+        retainedSourceEnvironmentId: state.retainedSourceEnvironmentId,
+        originalWatchSnapshotSha256: templateDigest(state.originalWatch),
+        authorizationSha256: templateDigest(state.authorization),
+        journalBindingSha256: state.authorization.journalSha256,
+        originalReceiptSha256: state.originalReceiptSha256,
+        watches: [
+          ...(state.watches ?? [recoveryReceipt(state.originalWatch)]),
+          receipt,
+        ],
+      }
+    : receipt;
 }
 /** Called while scheduler is serialized: before admission, after a run, and on idle ticks. */
 export async function reconcileRetainedIntent(
   { root, config },
   dependencies = {},
 ) {
+  if (await optionalMetadata(join(root, "recovery-v2.json"))) {
+    const { reconcileRepeatedIntent } = await import("./recovery-v2.mjs");
+    return reconcileRepeatedIntent({ root, config }, dependencies);
+  }
   const state = await loadState(root, config);
   if (!state) return null;
   assert.equal(
@@ -514,4 +560,21 @@ export async function reconcileRetainedIntent(
   await inspectWatch(root, config, state, dependencies);
   await finishTransfer(root, config, state, dependencies);
   return state.authorization.lifecycleRunId;
+}
+
+export async function effectiveRecovery(root) {
+  return (
+    (await optionalMetadata(join(root, "recovery-v2.json"))) ??
+    (await optionalMetadata(statePath(root)))
+  );
+}
+export function retainedRunIds(state) {
+  return state
+    ? [
+        ...(state.version === 2
+          ? [state.originalWatch.authorization.lifecycleRunId]
+          : []),
+        state.authorization.lifecycleRunId,
+      ]
+    : [];
 }

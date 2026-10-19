@@ -15,7 +15,7 @@ import {
 } from "./recovery.mjs";
 import { checkStartup, templateDigest } from "./runner/deployment.mjs";
 
-async function fixture(t) {
+async function fixture(t, options = {}) {
   const root = await mkdtemp(join(tmpdir(), "retained-watch-"));
   const cleanup = [];
   t.after(async () => {
@@ -29,7 +29,7 @@ async function fixture(t) {
       projectId: recoveryCase.projectId,
       environmentId: "8edfef02-ea09-4a20-8689-261f21cc2849",
       serviceId: "4922b45b-6981-4559-be2f-fbbca9123323",
-      volumeId: "permanent-volume",
+      volumeId: options.volumeId ?? "permanent-volume",
     },
   };
   for (const path of [
@@ -88,7 +88,7 @@ async function fixture(t) {
   };
   const runtimeIdentity = {
     ...baselineIdentity,
-    sourceRevision: "d".repeat(40),
+    sourceRevision: options.sourceRevision ?? "d".repeat(40),
     compatibilitySha256: "e".repeat(64),
   };
   const authorization = {
@@ -450,4 +450,351 @@ test("post-delete inventory also rejects other tracked IDs reappearing renamed",
   };
   await assert.rejects(f.watch(), /deletion not verified/);
   assert.deepEqual(f.deleted, ["late-owned-env", "second-late-env"]);
+});
+
+// Second incident tests keep the original source watch active while ownership
+// of a distinct recorded source and ambiguous fork transfers to a second watch.
+async function repeatedFixture(t) {
+  const v2 = await import("./recovery-v2.mjs");
+  const f = await fixture(t, {
+    volumeId: "2a70e47d-85d4-4a8a-b17b-b6788c91b1c7",
+    sourceRevision: v2.repeatedCase.baselineRevision,
+  });
+  await f.prepare();
+  await f.recover();
+  const first = await f.read("recovery.json");
+  const source = {
+    id: v2.repeatedCase.sourceEnvironmentId,
+    name: "rich-a9163c157392637bb12-source",
+    projectId: f.config.projectId,
+    createdAt: "2026-10-19T10:39:46.669Z",
+    isEphemeral: true,
+    sourceEnvironment: null,
+  };
+  f.values.push(source);
+  const journal = {
+    ...structuredClone(f.journal),
+    runId: v2.repeatedCase.lifecycleRunId,
+    lease: {
+      ...f.journal.lease,
+      runId: v2.repeatedCase.lifecycleRunId,
+      token: "second-lease",
+    },
+    startedAt: "2026-10-19T10:39:45.428Z",
+    expiresAt: "2026-10-19T11:39:45.428Z",
+    environmentName: "rich-a9163c157392637bb12",
+    environments: [source],
+    intents: [
+      {
+        serial: 0,
+        kind: "createEnvironment",
+        name: source.name,
+        startedAt: "2026-10-19T10:39:46.487Z",
+        beforeIds: f.journal.intents[0].beforeIds,
+        status: "recorded",
+        resultId: source.id,
+      },
+      {
+        serial: 1,
+        kind: "createEnvironment",
+        name: "rich-a9163c157392637bb12",
+        scope: source.id,
+        startedAt: "2026-10-19T10:39:48.745Z",
+        beforeIds: [...f.journal.intents[0].beforeIds, source.id],
+        status: "pending",
+      },
+    ],
+  };
+  const operation = {
+    ...f.operation,
+    kind: "bounded-environment-retry",
+    status: "resumed",
+    targetIdentity: f.runtimeIdentity,
+  };
+  const runtimeIdentity = {
+    ...f.runtimeIdentity,
+    sourceRevision: "f".repeat(40),
+  };
+  const authorization = {
+    ...f.authorization,
+    version: 2,
+    operationId: "second-recovery",
+    baselineIdentity: f.runtimeIdentity,
+    targetIdentity: runtimeIdentity,
+    runnerRunId: v2.repeatedCase.runnerRunId,
+    lifecycleRunId: journal.runId,
+    sourceEnvironmentId: source.id,
+    decision: {
+      ...f.authorization.decision,
+      reference: "ran-2026-10-19-second-incident-recovery",
+    },
+    journalSha256: templateDigest(v2.journalBinding(journal)),
+    intentSha256: templateDigest(v2.repeatedIntentBinding(journal.intents[1])),
+    leaseSha256: templateDigest(journal.lease),
+    originalWatchSha256: templateDigest(v2.originalWatchBinding(first)),
+    deploymentOperationSha256: templateDigest(
+      v2.deploymentOperationBinding(operation),
+    ),
+    providerHandoff: {
+      deploymentId: v2.repeatedCase.deploymentId,
+      imageDigest: v2.repeatedCase.imageDigest,
+      volumeInstanceId: v2.repeatedCase.volumeInstanceId,
+      deploymentStopped: true,
+    },
+  };
+  await mkdir(join(f.config.controlDirectory, journal.runId));
+  await mkdir(join(f.config.controlDirectory, "active-run"));
+  await mkdir(join(f.root, "results", authorization.runnerRunId));
+  const metadata = {
+    runtimeIdentity: f.runtimeIdentity,
+    templateSha256: templateDigest(f.config),
+  };
+  for (const [path, value] of Object.entries({
+    [`control/${journal.runId}/journal.json`]: journal,
+    "control/active-run/lease.json": journal.lease,
+    "scheduler.json": { active: authorization.runnerRunId, blocked: true },
+    [`results/${authorization.runnerRunId}/run.json`]: {
+      ...f.receipt,
+      id: authorization.runnerRunId,
+    },
+    "runtime.json": metadata,
+    "deployment.json": operation,
+  }))
+    await durableJson(join(f.root, path), value);
+  const prepare = async () =>
+    prepareRetainedRecovery(
+      {
+        root: f.root,
+        config: f.config,
+        runtimeIdentity,
+        metadata,
+        operation: await f.read("deployment.json"),
+        authorization,
+      },
+      f.dependencies,
+    );
+  const recover = () =>
+    recoverRetainedIntent(
+      {
+        root: f.root,
+        config: f.config,
+        runtimeIdentity,
+        operationId: authorization.operationId,
+      },
+      f.dependencies,
+    );
+  return {
+    ...f,
+    v2,
+    first,
+    source,
+    secondJournal: journal,
+    secondAuthorization: authorization,
+    secondRuntime: runtimeIdentity,
+    prepareSecond: prepare,
+    recoverSecond: recover,
+  };
+}
+
+test("second incident startup fences admission, preserves both watches and cleans late forks without deleting source", async (t) => {
+  const f = await repeatedFixture(t);
+  await f.prepareSecond();
+  assert.equal((await f.read("deployment.json")).status, "draining");
+  assert.deepEqual(await f.read("recovery.json"), f.first);
+  await f.prepareSecond(); // replay after checkpoint/fence write
+  const receipt = await f.recoverSecond();
+  assert.equal(receipt.watches.length, 2);
+  assert.equal(receipt.retainedSourceEnvironmentId, f.source.id);
+  await assert.rejects(f.read("control/active-run/lease.json"), {
+    code: "ENOENT",
+  });
+  const fork = {
+    id: "late-fork",
+    name: f.secondJournal.intents[1].name,
+    projectId: f.config.projectId,
+    createdAt: f.secondJournal.intents[1].startedAt,
+    sourceEnvironment: { id: f.source.id },
+  };
+  f.values.push(f.late(), fork);
+  await f.watch();
+  assert.deepEqual(f.deleted.sort(), ["late-fork", "late-owned-env"]);
+  assert.deepEqual(f.values, [f.source]);
+  assert.deepEqual(
+    await f.read(`control/${f.journal.runId}/journal.json`),
+    f.journal,
+  );
+  assert.deepEqual(
+    await f.read(`control/${f.secondJournal.runId}/journal.json`),
+    f.secondJournal,
+  );
+  for (const id of [
+    f.authorization.runnerRunId,
+    f.secondAuthorization.runnerRunId,
+  ]) {
+    const saved = await f.read(`results/${id}/run.json`);
+    assert.equal(saved.status, "failed");
+    assert.equal(saved.cleanup, "retained-watch");
+    assert.equal(
+      saved.deadlineExceeded,
+      id === f.authorization.runnerRunId ||
+        Date.parse(f.secondJournal.expiresAt) < Date.now(),
+    );
+  }
+});
+
+test("second incident rejects changed bindings and preserves lease on unsafe source", async (t) => {
+  const f = await repeatedFixture(t);
+  f.secondAuthorization.providerHandoff.deploymentStopped = false;
+  await assert.rejects(f.prepareSecond());
+  f.secondAuthorization.providerHandoff.deploymentStopped = true;
+  const hash = f.secondAuthorization.originalWatchSha256;
+  f.secondAuthorization.originalWatchSha256 = "0".repeat(64);
+  await assert.rejects(f.prepareSecond());
+  f.secondAuthorization.originalWatchSha256 = hash;
+  await f.prepareSecond();
+  f.source.name = "wrong-source";
+  await assert.rejects(f.recoverSecond(), /Retained source identity/);
+  assert.equal(
+    (await f.read("control/active-run/lease.json")).runId,
+    f.secondJournal.runId,
+  );
+  assert.equal((await f.read("recovery-v2.json")).status, "prepared");
+});
+
+test("second incident replays interrupted fence and ownership transfer checkpoints", async (t) => {
+  const f = await repeatedFixture(t);
+  const oldOperation = await f.read("deployment.json");
+  await f.prepareSecond();
+  const snapshot = await f.read("recovery-v2.json");
+  await durableJson(join(f.root, "deployment.json"), oldOperation);
+  await f.prepareSecond();
+  assert.deepEqual(await f.read("recovery-v2.json"), snapshot);
+  assert.equal((await f.read("deployment.json")).status, "draining");
+  await f.recoverSecond();
+  // Recreate the original lease to model a crash after durable watch promotion
+  // but before lease removal. No new authorization or journal rewrite is needed.
+  await mkdir(join(f.config.controlDirectory, "active-run"));
+  await durableJson(
+    join(f.config.controlDirectory, "active-run/lease.json"),
+    f.secondJournal.lease,
+  );
+  await f.recoverSecond();
+  await assert.rejects(f.read("control/active-run/lease.json"), {
+    code: "ENOENT",
+  });
+  assert.deepEqual((await f.read("recovery-v2.json")).originalWatch, f.first);
+});
+
+test("second incident scheduler requires explicit recover and resume across restart", async (t) => {
+  const f = await repeatedFixture(t);
+  await f.prepareSecond();
+  const options = {
+    root: f.root,
+    config: f.config,
+    runtimeIdentity: f.secondRuntime,
+    execute: async () => 0,
+    recoverRetained: (args) => recoverRetainedIntent(args, f.dependencies),
+    reconcileRetained: (args) => reconcileRetainedIntent(args, f.dependencies),
+  };
+  let scheduler = await createScheduler(options);
+  f.cleanup.push(() => scheduler.close());
+  const request = {
+    operationId: f.secondAuthorization.operationId,
+    expectedRuntimeIdentity: f.secondRuntime,
+  };
+  assert.equal((await scheduler.start()).accepted, false);
+  await scheduler.recover(request);
+  assert.equal(scheduler.deployment().phase, "recovery-ready");
+  assert.equal(scheduler.deployment().recovery.watches.length, 2);
+  await scheduler.close();
+  await f.prepareSecond();
+  scheduler = await createScheduler(options);
+  assert.equal((await scheduler.start()).accepted, false);
+  await scheduler.resume(request);
+  assert.equal(scheduler.deployment().phase, "running");
+  assert.equal(scheduler.status().scheduleEnabled, false);
+  await scheduler.tick();
+  assert.equal(scheduler.status().blocked, false);
+  assert.deepEqual(f.deleted, []);
+  const start = await scheduler.start("single");
+  assert.equal(start.accepted, true);
+  await start.completion;
+  assert.equal(scheduler.status().blocked, false);
+});
+
+test("second incident refuses wrong fork provenance, corrupt first snapshot and foreign lease", async (t) => {
+  for (const scenario of [
+    "fork",
+    "snapshot",
+    "lease",
+    "populated-source",
+    "version",
+  ])
+    await t.test(scenario, async (sub) => {
+      const f = await repeatedFixture(sub);
+      await f.prepareSecond();
+      const originalWatch = await f.read("recovery.json");
+      if (scenario === "version") {
+        const state = await f.read("recovery-v2.json");
+        state.version = 1;
+        await durableJson(join(f.root, "recovery-v2.json"), state);
+      }
+      if (scenario === "fork")
+        f.values.push({
+          id: "unowned-fork",
+          name: f.secondJournal.intents[1].name,
+          projectId: f.config.projectId,
+          createdAt: f.secondJournal.intents[1].startedAt,
+          sourceEnvironment: { id: "other" },
+        });
+      if (scenario === "snapshot") {
+        const state = await f.read("recovery-v2.json");
+        state.originalWatch.originalJournal.phase = "complete";
+        await durableJson(join(f.root, "recovery-v2.json"), state);
+      }
+      if (scenario === "lease")
+        await durableJson(
+          join(f.config.controlDirectory, "active-run/lease.json"),
+          { ...f.secondJournal.lease, token: "foreign" },
+        );
+      if (scenario === "populated-source") {
+        const original = f.dependencies.api.environment;
+        f.dependencies.api.environment = async (id) => ({
+          ...(await original(id)),
+          serviceInstances: [{ serviceId: "unowned" }],
+        });
+      }
+      await assert.rejects(f.recoverSecond());
+      assert.deepEqual(f.deleted, []);
+      assert.ok(await f.read("control/active-run/lease.json"));
+      const currentWatch = await f.read("recovery.json");
+      if (scenario === "fork") {
+        assert.deepEqual(
+          currentWatch.originalJournal,
+          originalWatch.originalJournal,
+        );
+        assert.deepEqual(
+          currentWatch.authorization,
+          originalWatch.authorization,
+        );
+        assert.deepEqual(
+          currentWatch.cleanupEvents,
+          originalWatch.cleanupEvents,
+        );
+      } else assert.deepEqual(currentWatch, originalWatch);
+      assert.equal((await f.read("recovery-v2.json")).status, "prepared");
+    });
+});
+
+test("second incident rejects corrupted original watch version without overwriting either file", async (t) => {
+  const f = await repeatedFixture(t);
+  await f.prepareSecond();
+  const first = await f.read("recovery.json");
+  first.version = 2;
+  await durableJson(join(f.root, "recovery.json"), first);
+  const second = await f.read("recovery-v2.json");
+  await assert.rejects(f.recoverSecond(), /original recovery version/);
+  assert.deepEqual(await f.read("recovery.json"), first);
+  assert.deepEqual(await f.read("recovery-v2.json"), second);
+  assert.deepEqual(f.deleted, []);
 });
