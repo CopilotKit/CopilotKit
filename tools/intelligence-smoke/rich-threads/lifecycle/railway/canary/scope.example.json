@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "purpose": "pni605-isolation-canary",
+  "workspaceId": "9cab81e9-4aa5-40cd-a484-3a585ca35c90",
+  "projectId": "REPLACE_WITH_REVIEWED_FRESH_PROJECT_ID",
+  "projectName": "pni605-canary-abcdef123456",
+  "lifetimeMs": 600000
+}
