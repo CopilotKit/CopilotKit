@@ -282,13 +282,13 @@ export const SAMPLES: CatalogSample[] = [
       {
         id: "root",
         component: "Tabs",
-        tabs: [{ title: "Overview" }, { title: "Specs" }, { title: "Reviews" }],
-        children: ["t1", "t2", "t3"],
+        tabs: [
+          { title: "Overview", child: "t1" },
+          { title: "Specs", child: "t2" },
+          { title: "Reviews", child: "t3" },
+        ],
       },
-      txt(
-        "t1",
-        "The overview panel. The nth child is the panel of the nth tab.",
-      ),
+      txt("t1", "The overview panel. Each tab names its panel by id."),
       {
         id: "t2",
         component: "List",
@@ -971,6 +971,138 @@ export const SAMPLES: CatalogSample[] = [
         ],
       },
     ],
+  },
+  // --------------------------------------------------------- Dynamic values
+  {
+    group: "Dynamic values",
+    title: "Function values: formatString, formatCurrency, pluralize",
+    covers: ["Slider", "Text", "List"],
+    components: [
+      { id: "root", component: "Column", gap: 3, children: ["s", "t", "l"] },
+      {
+        id: "s",
+        component: "Slider",
+        label: "Seats",
+        min: 1,
+        max: 20,
+        value: { "@path": "/seats" },
+      },
+      {
+        id: "t",
+        component: "Text",
+        text: {
+          "@call": "formatString",
+          args: {
+            value:
+              "${/seats} ${pluralize(value: /seats, one: 'seat', other: 'seats')} cost ${formatCurrency(value: /total, currency: 'EUR')} per month",
+          },
+        },
+      },
+      {
+        id: "l",
+        component: "List",
+        items: [
+          {
+            label: "Per seat",
+            value: {
+              "@call": "formatCurrency",
+              args: { value: 12, currency: "EUR", decimals: 0 },
+            },
+          },
+          {
+            label: "Renews",
+            value: {
+              "@call": "formatDate",
+              args: { value: "2026-11-01", format: "EEEE, MMM d, yyyy" },
+            },
+          },
+          {
+            label: "Seats (bound)",
+            value: {
+              "@call": "formatNumber",
+              args: { value: { "@path": "/seats" } },
+            },
+          },
+        ],
+      },
+    ],
+    data: { seats: 4, total: 48 },
+  },
+  {
+    group: "Dynamic values",
+    title: "Checks: length, email; Button disabled until valid",
+    covers: ["TextField", "Button"],
+    components: [
+      { id: "root", component: "Card", children: ["ti", "n", "e", "b"] },
+      { id: "ti", component: "Title", text: "Invite a teammate", size: "sm" },
+      {
+        id: "n",
+        component: "TextField",
+        label: "Name",
+        value: { "@path": "/invite/name" },
+        checks: [
+          {
+            condition: {
+              "@call": "length",
+              args: { value: { "@path": "/invite/name" }, min: 2 },
+            },
+            message: "At least 2 characters",
+          },
+        ],
+      },
+      {
+        id: "e",
+        component: "TextField",
+        label: "Email",
+        variant: "email",
+        value: { "@path": "/invite/email" },
+        checks: [
+          {
+            condition: {
+              "@call": "email",
+              args: { value: { "@path": "/invite/email" } },
+            },
+            message: "Enter a valid email address",
+          },
+        ],
+      },
+      {
+        id: "b",
+        component: "Button",
+        label: "Send invite",
+        variant: "primary",
+        checks: [
+          {
+            condition: {
+              "@call": "and",
+              args: {
+                values: [
+                  {
+                    "@call": "length",
+                    args: { value: { "@path": "/invite/name" }, min: 2 },
+                  },
+                  {
+                    "@call": "email",
+                    args: { value: { "@path": "/invite/email" } },
+                  },
+                ],
+              },
+            },
+            message: "Fill in a name and a valid email",
+          },
+        ],
+        onClick: {
+          event: {
+            name: "invite",
+            userMessage: {
+              "@call": "formatString",
+              args: { value: "Invite ${/invite/name} (${/invite/email})" },
+            },
+          },
+        },
+      },
+    ],
+    data: { invite: { name: "", email: "" } },
   },
   // ----------------------------------------------------------------- Media
   {
