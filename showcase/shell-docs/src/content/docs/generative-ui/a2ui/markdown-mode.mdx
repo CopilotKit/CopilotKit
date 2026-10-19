@@ -159,22 +159,24 @@ part still drives a bound value in another.
 
 ## The standard components
 
-Markdown mode ships with `standardUI`, 69 components modelled on ChatGPT's
-Intelligent UI components, with A2UI-native names where A2UI has the
-component:
+Markdown mode ships with `standardUI`, 73 components modelled on ChatGPT's
+Intelligent UI components. The 18 components of the A2UI 1.0 basic catalog
+are in it under their A2UI names and with their A2UI props (`Image.url`,
+`CheckBox.value`, `Row.justify: "spaceBetween"`, `weight` for flex-grow,
+and so on), plus extra props; the rest extend the catalog:
 
 | Group | Components |
 | --- | --- |
-| Layout | `Box`, `Column`, `Row`, `Grid`, `GridItem`, `Card`, `Flow`, `FlowItem`, `Carousel`, `CarouselItem`, `CarouselMediaItem`, `Spacer`, `Divider` |
+| Layout | `Box`, `Column`, `Row`, `Grid`, `GridItem`, `Card`, `Flow`, `FlowItem`, `Carousel`, `CarouselItem`, `CarouselMediaItem`, `Spacer`, `Divider`, `Tabs` |
 | Text | `Title`, `Text`, `Caption`, `Label`, `Bold`, `Italic`, `Underline`, `Strikethrough`, `Badge`, `Blockquote`, `Code`, `Markdown`, `Math`, `ShimmerText`, `Link`, `Tooltip` |
-| Inputs | `Button`, `Pressable`, `Form`, `TextField`, `TextArea`, `Select`, `CheckBox`, `Radio`, `RadioGroup`, `Slider`, `SegmentedControl`, `DateTimeInput` |
+| Inputs | `Button`, `Pressable`, `Form`, `TextField`, `TextArea`, `Select`, `CheckBox`, `Radio`, `RadioGroup`, `Slider`, `SegmentedControl`, `ChoicePicker`, `DateTimeInput` |
 | Data | `Table`, `TableSection`, `TableRow`, `TableCell`, `List`, `ListItem`, `Chart`, `Map` |
-| Media | `Image`, `Icon`, `Favicon`, `Svg`, `YouTube`, `HtmlView` |
-| Feedback and overlay | `Loading`, `LoadingIndicator`, `LoadingBlock`, `PulseIndicator`, `Celebration`, `FlashcardFlip`, `Popover`, `PopoverTrigger`, `PopoverContent` |
+| Media | `Image`, `Icon`, `Favicon`, `Svg`, `Video`, `AudioPlayer`, `HtmlView` |
+| Feedback and overlay | `Loading`, `LoadingIndicator`, `LoadingBlock`, `PulseIndicator`, `Celebration`, `FlashcardFlip`, `Popover`, `PopoverTrigger`, `PopoverContent`, `Modal` |
 | Composites | `LinkCard`, `Citation`, `FollowUp`, `EntityCard`, `ImageGrid` |
 
 Every prop accepts a literal or a data-model binding (`{ "@path": "/seats" }`).
-The value of a control (`value`, or `checked` for `CheckBox`) is writable:
+The `value` of a control is writable:
 when the model binds it to a path, what the user enters goes into the data
 model at that path, and the agent can no longer change it.
 
@@ -182,8 +184,14 @@ model at that path, and the agent can no longer change it.
 `Button` takes `copy` (copy text to the clipboard); both run client-side
 without a round trip to the agent. `Image`, `ImageGrid` and
 `CarouselMediaItem` open a lightbox on click (the grid and the carousel let
-the user step through all of their images), and `YouTube` shows a poster
-until the user presses play.
+the user step through all of their images). `Video` plays a video file in a
+native player; given a YouTube link, it shows a poster until the user presses
+play and then loads the privacy-enhanced embed.
+
+`Tabs` takes `tabs: [{ "title" }]` and the same number of children, in
+order: the nth child is the panel of the nth tab. (The A2UI 1.0 catalog puts
+a `child` id inside each tab entry; the engine resolves child ids only in
+top-level slots, so the panels are children here.)
 
 `Map` loads `maplibre-gl` on demand; install it in your app if your agent
 draws maps. The basemap is OpenFreeMap's keyless Positron style; pass your own
