@@ -1,3 +1,14 @@
+> **Historical plan — superseded October 19, 2026.** The supplied runner
+> credential subsequently performed child-resource and project deletion. The
+> sequencer independently verified the current `a843` canary project's absence
+> using its exact ID and a complete active-project inventory. Browser-account
+> administrator restrictions do not establish the runner credential's rights.
+> Earlier unknown-response receipts remain preserved and unresolved as historical
+> outcomes; current absence does not retroactively prove those requests failed or
+> were cancelled. This correction authorizes no new project, creation retry, or
+> further live action. The dated plan below is retained for the audit trail; its
+> administrator-cleanup prerequisite is superseded.
+
 # Fresh source-to-fork proof — prepared, not authorized or executed
 
 This variation tests the original runtime architecture with paced requests. It
