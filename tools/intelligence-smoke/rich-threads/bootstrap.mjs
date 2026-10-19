@@ -12,6 +12,10 @@ import { runSuite } from "./runner.mjs";
 import { aggregate } from "./contract.mjs";
 import { scenarios } from "./scenarios/row1.mjs";
 import { milestone, deferred } from "./contract.mjs";
+import {
+  activeCleanupVerified,
+  reportCleanupVerified,
+} from "./cleanup-verdict.mjs";
 
 /** One environment for all selected frameworks; rows and frameworks serialize. */
 export async function runConfiguredSuite({
@@ -174,8 +178,13 @@ export async function runConfiguredSuite({
   } finally {
     if (environment) {
       try {
-        await environment.cleanup();
-        report.cleanup = "passed";
+        const cleanup = await environment.cleanup();
+        report.cleanupEvidence = cleanup;
+        assert.ok(
+          activeCleanupVerified(cleanup),
+          "Active-resource cleanup evidence is incomplete",
+        );
+        report.cleanup = cleanup.status;
         report.withinLifetime = environment.receipt.withinLifetime === true;
         report.deadlineExceeded =
           environment.receipt.cleanup?.deadlineExceeded === true;
@@ -191,7 +200,7 @@ export async function runConfiguredSuite({
       }
     }
     report.harnessSuccess =
-      report.cleanup === "passed" &&
+      reportCleanupVerified(report) &&
       report.frameworks.length === frameworks.length &&
       report.frameworks.every(
         (item) =>

@@ -78,8 +78,11 @@ Its durable volume retains ownership journals, cleanup progress, registry snapsh
 and results across restarts. It runs one attempt every four hours, rejects overlap,
 reconciles unfinished work on startup and periodically, and blocks new work until
 cleanup succeeds. The permanent runner and its volume are never cleanup targets.
-Each disposable environment has a maximum 60-minute lifetime; delayed cleanup is
-reported and resumed after recovery. Persistent Showcase services remain untouched.
+Each disposable environment has a maximum 60-minute execution and active-resource
+lifetime; delayed shutdown or detachment fails that deadline. Persistent Showcase
+services remain untouched. Railway may retain a detached, pending-deletion volume
+record for up to 48 hours. That retention is tracked separately and does not extend
+the active-resource deadline.
 
 `one-run.mjs --config=<private-template> --output=<new-retained-directory>` performs
 one fresh supervised attempt on both frameworks. `controller.mjs` runs the manual
@@ -102,8 +105,16 @@ package manifest from one committed revision. The common application's public
 package pins remain explicit baseline qualifications.
 
 Registry readers use the merged PNI-607 contract and require concrete activation.
-Provider-returned URLs and IDs bind each scope. Cleanup verifies complete owned
-service, volume and environment absence; delete-response success is insufficient.
+Provider-returned URLs and IDs bind each scope. Cleanup verifies owned service and
+environment absence and either volume absence or independently verified pending,
+detached volume records. Delete-response success alone is insufficient.
+`passed` means physical absence was verified. `passed-pending-provider-deletion`
+means active resources are gone but owned volume records remain; the report retains
+the deletion attempt, complete inventory evidence, and a 48-hour retention deadline.
+Unknown responses remain unknown even when independent state proves detachment.
+The scheduler reconciles retained records read-only across restarts and reports
+retention overdue separately. Active or attached resources never qualify. Acceptance
+checks validate the full cleanup evidence; a status marker alone cannot pass.
 No destination conversation records may be inserted as test fixtures.
 
 ## Private configuration
@@ -117,7 +128,8 @@ hash-only `BOOTSTRAP_CONFIG_B64` and fresh scope IDs. The provider resolves
 privately as `RICH_THREADS_RUNTIME_CONFIG_JSON`.
 
 Per-attempt private files live beside the private template on the durable volume,
-outside exported results. Remove them only after verified cleanup. The four logical
+outside exported results. Retain them while provider deletion is pending; remove
+them only after verified physical absence. The four logical
 bootstrap tables each contain one record for the fresh organization/project/key;
 image migration metadata counts require independent verification. Audit content
 uses a separate exact bootstrap audit check, never an arbitrary event exemption.

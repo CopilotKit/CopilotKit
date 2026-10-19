@@ -1,4 +1,5 @@
 import { milestone, frameworks } from "./contract.mjs";
+import { reportCleanupVerified } from "./cleanup-verdict.mjs";
 
 /** Supervisor success includes reconciliation, even for an expected worker failure. */
 export function acceptanceVerdict({
@@ -13,7 +14,7 @@ export function acceptanceVerdict({
     report.milestone === milestone &&
     report.provider === "railway" &&
     report.purpose === "acceptance" &&
-    report.cleanup === "passed" &&
+    reportCleanupVerified(report) &&
     report.withinLifetime === true &&
     report.deadlineExceeded !== true &&
     report.harnessSuccess === true &&

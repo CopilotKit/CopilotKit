@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { acceptanceVerdict } from "./acceptance-verdict.mjs";
+import { reportCleanupVerified } from "./cleanup-verdict.mjs";
 import { materialize } from "./materialize.mjs";
 import { parseArgs } from "node:util";
 
@@ -83,13 +84,18 @@ try {
       intentional,
       cancelled,
     });
-    if (report.cleanup === "passed")
+    if (
+      reportCleanupVerified(report) &&
+      report.cleanupEvidence.physicalDeletionComplete
+    )
       await rm(privateDirectory, { recursive: true });
     results.push({
       name,
       passed,
       supervisorExit: code,
       suite: `${name}/suite.json`,
+      cleanup: report.cleanup,
+      cleanupEvidence: report.cleanupEvidence,
     });
     assert.ok(
       passed,
