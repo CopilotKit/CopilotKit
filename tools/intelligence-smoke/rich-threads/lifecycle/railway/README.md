@@ -361,3 +361,39 @@ The known source is retained, verified empty, and never deleted by this transiti
 removing it could destroy the provenance needed for a later fork. Both original
 run receipts remain failed, with deadline status computed for each incident.
 This transition does not claim complete resource cleanup or fix provisioning.
+
+### Provider-retained volume deletion
+
+Active cleanup and physical record removal are separate. Railway can retain a
+pending-deletion volume record for up to 48 hours (Mark's supplied live runner
+credential evidence, 2026-10-19; raw provider receipts were not supplied here).
+The 60-minute execution and active-resource deadline is unchanged.
+
+Before deleting an owned volume, the journal persists its exact project,
+environment, volume ID and mutation intent. The returned acknowledgement,
+refusal or unknown outcome remains recorded. An existing intent is reconciled
+without repeating the mutation. A lost response is never treated as an
+acknowledgement.
+
+Independent complete project-volume and environment inventories must verify
+all retained instances belong to the owned environment and mount, have
+`isPendingDeletion: true`, and have `serviceId: null`. An attached, foreign,
+non-pending, incomplete or contradictory record blocks cleanup. A local marker
+alone is insufficient. Environment deletion may proceed only after its service
+instances are absent and any remaining volume instances match this verified
+pending/detached evidence.
+
+The resulting cleanup receipt reports `activeResourcesAbsent: true` and either
+`status: passed` with `physicalDeletionComplete: true`, or
+`status: passed-pending-provider-deletion` with `physicalDeletionComplete: false`
+and nonempty `retainedVolumes`. The active lease is released only after services
+and owned environments are absent. Physical deletion is not claimed for retained
+records. The original execution deadline and failed mutation outcomes remain
+unchanged.
+
+The scheduler reconciles retained records read-only on restart and idle ticks.
+It persists independent observations, retains the first verified detachment time,
+and exposes a separate 48-hour retention deadline and overdue flag. Eventual
+absence clears the retention entry without resending deletion. Overdue records
+require operator/provider follow-up; they do not retroactively change the active
+cleanup deadline or invent physical deletion.

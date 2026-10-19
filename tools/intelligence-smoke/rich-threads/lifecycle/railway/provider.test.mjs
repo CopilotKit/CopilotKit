@@ -207,6 +207,20 @@ function fakeProvider(options = {}) {
         return true;
       }
       if (op === "deleteVolume") {
+        if (options.pendingVolume) {
+          for (const volume of state.volumes.filter(
+            (v) => v.id === args.volumeId,
+          ))
+            for (const { node } of volume.volumeInstances.edges)
+              node.isPendingDeletion = true;
+          for (const e of state.environments)
+            for (const instance of e.volumeInstances.filter(
+              (v) => v.volumeId === args.volumeId,
+            ))
+              instance.isPendingDeletion = true;
+          if (options.lostVolumeDelete) throw new Error("Lost delete response");
+          return true;
+        }
         state.volumes = state.volumes.filter((v) => v.id !== args.volumeId);
         for (const e of state.environments)
           e.volumeInstances = e.volumeInstances.filter(
@@ -900,3 +914,58 @@ test("wrong-source environment never gains cleanup ownership", async (t) => {
   assert.equal(journal.environments.length, 0);
   assert.deepEqual(p.state.calls, ["creationLimits", "createEnvironment"]);
 });
+
+for (const lost of [false, true])
+  test(`pending detached volume cleanup preserves receipt lost=${lost}`, async (t) => {
+    const f = await fixture(t);
+    const p = fakeProvider({ pendingVolume: true, lostVolumeDelete: lost });
+    const env = await createRailwayEnvironment(
+      { ...f, runId: "retained-volumes", frameworks: ["mastra"] },
+      { ...f.dependencies, api: p.api },
+    );
+    const result = await env.cleanup();
+    assert.equal(result.status, "passed-pending-provider-deletion");
+    assert.equal(result.activeResourcesAbsent, true);
+    assert.equal(result.physicalDeletionComplete, false);
+    assert.equal(p.state.environments.length, 0);
+    assert.equal(p.state.services.length, 0);
+    assert.ok(result.retainedVolumes.length > 0);
+    assert.ok(
+      result.retainedVolumes.every(
+        (v) => v.receipt.outcome === (lost ? "unknown" : "acknowledged"),
+      ),
+    );
+    const { reconcileRetainedRailwayVolumes } =
+      await import("./environment.mjs");
+    const callCount = p.state.calls.filter((c) => c === "deleteVolume").length;
+    const later = await reconcileRetainedRailwayVolumes(
+      { config: f.config, runId: "retained-volumes" },
+      { api: p.api, now: () => Date.now() + 49 * 60 * 60 * 1000 },
+    );
+    assert.ok(later.retainedVolumes.every((v) => v.overdue));
+    assert.equal(
+      p.state.calls.filter((c) => c === "deleteVolume").length,
+      callCount,
+    );
+    p.state.volumes = [];
+    const complete = await reconcileRetainedRailwayVolumes(
+      { config: f.config, runId: "retained-volumes" },
+      { api: p.api },
+    );
+    assert.equal(complete.status, "passed");
+    assert.equal(complete.physicalDeletionComplete, true);
+    assert.deepEqual(complete.retainedVolumes, []);
+    const journal = JSON.parse(
+      await readFile(
+        join(f.config.controlDirectory, "retained-volumes/journal.json"),
+        "utf8",
+      ),
+    );
+    for (const original of result.retainedVolumes) {
+      const archived = journal.volumeRetirementCompleted[original.volumeId];
+      assert.equal(archived.firstVerifiedAt, original.firstVerifiedAt);
+      assert.equal(archived.evidence.state, "pending-detached");
+      assert.equal(archived.absenceEvidence.state, "absent");
+      assert.equal(archived.receipt.outcome, original.receipt.outcome);
+    }
+  });

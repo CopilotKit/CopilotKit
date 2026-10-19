@@ -17,8 +17,20 @@ import {
   reconcileRetainedIntent,
 } from "../recovery.mjs";
 import { recoverSupervisor } from "../supervisor.mjs";
-import { recoverRailwayEnvironment } from "../environment.mjs";
+import {
+  recoverRailwayEnvironment,
+  reconcileRetainedRailwayVolumes,
+} from "../environment.mjs";
 
+function activeCleanupComplete(cleanup) {
+  return (
+    cleanup?.status === "passed" ||
+    (cleanup?.status === "passed-pending-provider-deletion" &&
+      cleanup.activeResourcesAbsent === true &&
+      cleanup.physicalDeletionComplete === false &&
+      cleanup.retainedVolumes?.length > 0)
+  );
+}
 const intervalMs = 4 * 60 * 60 * 1000;
 async function optionalJson(path) {
   try {
@@ -64,7 +76,11 @@ async function ownershipEvidence(config) {
 
 export async function reconcile(
   config,
-  { retainedRunId = null, retainedIds = [retainedRunId] } = {},
+  {
+    retainedRunId = null,
+    retainedIds = [retainedRunId],
+    reconcileVolumes = reconcileRetainedRailwayVolumes,
+  } = {},
 ) {
   const supervisor = await optionalJson(
     join(config.controlDirectory, "supervisor-lock/owner.json"),
@@ -87,9 +103,31 @@ export async function reconcile(
     const journal = await optionalJson(
       join(config.controlDirectory, entry.name, "journal.json"),
     );
+    if (journal?.cleanup?.status === "passed")
+      assert.equal(
+        journal.retainedVolumes?.length ?? 0,
+        0,
+        "Passed cleanup has unreconciled retained volumes",
+      );
+    if (
+      journal?.phase === "complete" &&
+      journal.cleanup?.status === "passed-pending-provider-deletion" &&
+      !retainedIds.includes(journal.runId)
+    ) {
+      assert.ok(
+        journal.retainedVolumes?.length > 0,
+        "Missing retained ownership evidence",
+      );
+      assert.deepEqual(
+        journal.cleanup.retainedVolumes,
+        journal.retainedVolumes,
+        "Retained evidence mismatch",
+      );
+      await reconcileVolumes({ config, runId: journal.runId });
+    }
     if (journal && !retainedIds.includes(journal.runId))
       assert.ok(
-        journal.phase === "complete" && journal.cleanup?.status === "passed",
+        journal.phase === "complete" && activeCleanupComplete(journal.cleanup),
         "Unfinished ownership journal blocks new runs",
       );
   }
@@ -349,10 +387,19 @@ export async function createScheduler({
       for (const run of await ownershipEvidence(config))
         if (!retainedIds.includes(run.runId))
           assert.ok(
-            run.phase === "complete" && run.cleanup?.status === "passed",
+            run.phase === "complete" && activeCleanupComplete(run.cleanup),
             "Unfinished ownership blocks deployment",
           );
     }
+    state.retainedVolumes = (await ownershipEvidence(config)).flatMap((run) =>
+      (run.cleanup?.retainedVolumes ?? []).map((volume) => ({
+        ...volume,
+        runId: run.runId,
+      })),
+    );
+    state.retentionOverdue = state.retainedVolumes.some(
+      (volume) => volume.overdue,
+    );
     return retainedRunId;
   }
   /** Restore admission only for the same owner and the verified running image. */
@@ -427,8 +474,23 @@ export async function createScheduler({
         const file = join(root, "results", state.active, "run.json");
         const prior = await optionalJson(file);
         assert.ok(prior, "Interrupted run evidence missing");
+        const lifecycleIds = prior.lifecycleBaselineRunIds
+          ? new Set(
+              (await ownershipEvidence(config))
+                .filter(
+                  (run) => !prior.lifecycleBaselineRunIds.includes(run.runId),
+                )
+                .map((run) => run.runId),
+            )
+          : new Set(
+              before
+                .filter((run) => run.phase !== "complete")
+                .map((run) => run.runId),
+            );
         const after = (await ownershipEvidence(config)).filter(
-          (run) => !retainedRunIds(recovery).includes(run.runId),
+          (run) =>
+            !retainedRunIds(recovery).includes(run.runId) &&
+            lifecycleIds.has(run.runId),
         );
         await durableJson(
           join(root, "results", state.active, "recovery.json"),
@@ -450,7 +512,15 @@ export async function createScheduler({
           status: crashReached ? "interrupted-cleaned" : "failed",
           crashReached,
           recoveredAt: new Date(clock()).toISOString(),
-          cleanup: "passed",
+          cleanup: after.some(
+            (run) => run.cleanup?.status === "passed-pending-provider-deletion",
+          )
+            ? "passed-pending-provider-deletion"
+            : "passed",
+          cleanupEvidence: after.map((run) => ({
+            runId: run.runId,
+            ...run.cleanup,
+          })),
           deadlineExceeded: after.some(
             (run) =>
               before.some(
@@ -534,6 +604,8 @@ export async function createScheduler({
         const previousRuns = new Set(
           (await ownershipEvidence(config)).map((run) => run.runId),
         );
+        receipt.lifecycleBaselineRunIds = [...previousRuns];
+        await durableJson(join(directory, "run.json"), receipt);
         let exitCode = null;
         let failure = null;
         try {
@@ -557,6 +629,16 @@ export async function createScheduler({
         } catch {
           failure = "Cleanup failed; new runs blocked";
         }
+        const cleanupEvidence = (await ownershipEvidence(config))
+          .filter((run) => !previousRuns.has(run.runId))
+          .map((run) => ({ runId: run.runId, ...run.cleanup }));
+        if (
+          cleanup === "passed" &&
+          cleanupEvidence.some(
+            (e) => e.status === "passed-pending-provider-deletion",
+          )
+        )
+          cleanup = "passed-pending-provider-deletion";
         const deadlineExceeded = (await ownershipEvidence(config)).some(
           (run) =>
             !previousRuns.has(run.runId) && run.cleanup?.deadlineExceeded,
@@ -568,11 +650,15 @@ export async function createScheduler({
           status: failure ? "failed" : "passed",
           exitCode,
           cleanup,
+          cleanupEvidence,
           deadlineExceeded,
           diagnostic: failure,
           finishedAt: new Date(clock()).toISOString(),
         });
-        state.blocked = cleanup !== "passed";
+        state.blocked = ![
+          "passed",
+          "passed-pending-provider-deletion",
+        ].includes(cleanup);
         if (!state.blocked) state.active = null;
         await save();
       })().finally(() => {

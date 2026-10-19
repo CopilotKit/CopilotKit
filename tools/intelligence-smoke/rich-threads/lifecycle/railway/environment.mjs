@@ -2,6 +2,10 @@ import {
   bindServiceVariables,
   railwayServiceName,
 } from "./service-bindings.mjs";
+import {
+  observeVolumeRetirement,
+  retainedVolumeRecord,
+} from "./volume-retirement.mjs";
 import { ownerAlive } from "./process-owner.mjs";
 import { creationPacer } from "./create-pacing.mjs";
 import assert from "node:assert/strict";
@@ -305,6 +309,7 @@ async function controllerFor({
   pacingTime,
 }) {
   const journalPath = join(directory, "journal.json");
+  journal.retainedVolumes ??= [];
   let sequence = 0;
   let timer;
   let ending = false;
@@ -805,6 +810,88 @@ async function controllerFor({
       await save();
     }
   }
+  async function retireVolume(resource) {
+    journal.volumeDeletionReceipts ??= [];
+    journal.retainedVolumes ??= [];
+    let receipt = journal.volumeDeletionReceipts.find(
+      (r) => r.volumeId === resource.id,
+    );
+    if (!receipt) {
+      const volume = (await api.list("volumes", journal.projectId)).find(
+        (v) => v.id === resource.id,
+      );
+      if (volume) {
+        assert.equal(volume.projectId, journal.projectId);
+        assert.equal(volume.volumeInstances.pageInfo.hasNextPage, false);
+        for (const { node: instance } of volume.volumeInstances.edges) {
+          assert.equal(instance.environmentId, journal.environmentId);
+          assert.equal(instance.mountPath, resource.mountPath);
+          assert.ok(
+            instance.serviceId === resource.serviceId ||
+              instance.serviceId === null,
+          );
+        }
+      }
+      receipt = {
+        volumeId: resource.id,
+        projectId: journal.projectId,
+        environmentId: journal.environmentId,
+        startedAt: new Date().toISOString(),
+        requestSent: false,
+        outcome: "pending",
+      };
+      journal.volumeDeletionReceipts.push(receipt);
+      await save();
+      if (volume) {
+        receipt.requestSent = true;
+        await save();
+        try {
+          receipt.response = await api.request("deleteVolume", {
+            volumeId: resource.id,
+          });
+          receipt.outcome =
+            receipt.response === true ? "acknowledged" : "refused";
+          receipt.returnedAt = new Date().toISOString();
+        } catch (error) {
+          receipt.outcome = "unknown";
+          if (error.diagnostic) receipt.diagnostic = error.diagnostic;
+        }
+        await save();
+      }
+    }
+    const evidence = await observeVolumeRetirement({
+      api,
+      journal,
+      resource,
+      receipt,
+    });
+    const previous = journal.retainedVolumes.find(
+      (v) => v.volumeId === resource.id,
+    );
+    journal.retainedVolumes = journal.retainedVolumes.filter(
+      (v) => v.volumeId !== resource.id,
+    );
+    if (evidence.state === "pending-detached")
+      journal.retainedVolumes.push(
+        retainedVolumeRecord({
+          journal,
+          resource,
+          receipt,
+          evidence,
+          previous,
+        }),
+      );
+    if (previous && evidence.state === "absent") {
+      journal.volumeRetirementCompleted ??= {};
+      journal.volumeRetirementCompleted[resource.id] = {
+        ...previous,
+        absenceEvidence: evidence,
+      };
+    }
+    journal.volumeRetirementEvidence ??= {};
+    journal.volumeRetirementEvidence[resource.id] = evidence;
+    await save();
+  }
   async function removeConfirmed(kind, resource) {
     assert.ok(
       ![
@@ -819,6 +906,7 @@ async function controllerFor({
         .includes(resource.id),
       "Permanent runner resource is protected",
     );
+    if (kind === "deleteVolume") return retireVolume(resource);
     const listKind =
       kind === "deleteVolume"
         ? "volumes"
@@ -839,11 +927,22 @@ async function controllerFor({
         0,
         "Environment still contains service instances",
       );
-      assert.equal(
-        env.volumeInstances.length,
-        0,
-        "Environment still contains volumes",
-      );
+      for (const instance of env.volumeInstances) {
+        const retained = journal.retainedVolumes?.find(
+          (v) => v.volumeId === instance.volumeId,
+        );
+        assert.ok(
+          retained,
+          "Environment still contains active or unowned volumes",
+        );
+        assert.equal(instance.serviceId, null);
+        assert.equal(instance.isPendingDeletion, true);
+        assert.equal(instance.environmentId, journal.environmentId);
+        assert.equal(instance.mountPath, retained.mountPath);
+        assert.ok(
+          retained.evidence.instances.some((i) => i.id === instance.id),
+        );
+      }
     } else {
       const volume = (await api.list("volumes", journal.projectId)).find(
         (v) => v.id === resource.id,
@@ -968,7 +1067,7 @@ async function controllerFor({
         for (const volume of journal.volumes.toReversed())
           await attempt(() => removeConfirmed("deleteVolume", volume));
         // Do not delete an environment while a create outcome in it remains unknown.
-        if (!reconciliationFailure)
+        if (!reconciliationFailure && failures.length === 0)
           for (const environment of journal.environments.toReversed())
             await attempt(() =>
               removeConfirmed("deleteEnvironment", environment),
@@ -984,16 +1083,25 @@ async function controllerFor({
           !after.services.some((s) =>
             journal.services.some((r) => r.id === s.id),
           ) &&
-            !after.volumes.some((s) =>
-              journal.volumes.some((r) => r.id === s.id),
+            !after.volumes.some(
+              (s) =>
+                journal.volumes.some((r) => r.id === s.id) &&
+                !journal.retainedVolumes?.some((r) => r.volumeId === s.id),
             ) &&
             !after.environments.some((s) =>
               journal.environments.some((r) => r.id === s.id),
             ),
           "Owned resource remains after cleanup",
         );
+        // Re-read after environment removal; retained records must still be detached.
+        for (const volume of journal.volumes) await retireVolume(volume);
         journal.cleanup = {
-          status: "passed",
+          status: journal.retainedVolumes.length
+            ? "passed-pending-provider-deletion"
+            : "passed",
+          activeResourcesAbsent: true,
+          physicalDeletionComplete: journal.retainedVolumes.length === 0,
+          retainedVolumes: structuredClone(journal.retainedVolumes),
           verifiedAt: new Date().toISOString(),
           serviceIds: journal.services.map((s) => s.id),
           volumeIds: journal.volumes.map((v) => v.id),
@@ -1541,5 +1649,77 @@ export async function recoverRailwayEnvironment(
     return await controller.cleanup();
   } finally {
     await releaseRecovery();
+  }
+}
+
+/** Read-only eventual-retention reconciliation, independent of an already released active lease. */
+export async function reconcileRetainedRailwayVolumes(
+  { config, runId },
+  dependencies = {},
+) {
+  await authority(config.controlDirectory);
+  assert.ok(safe(runId));
+  const directory = join(config.controlDirectory, runId);
+  const unlock = await acquireRecoveryLock(
+    join(directory, "retained-volume-lock"),
+  );
+  try {
+    const path = join(directory, "journal.json");
+    const journal = JSON.parse(await readFile(path, "utf8"));
+    assert.equal(journal.runId, runId);
+    assert.equal(journal.projectId, config.projectId);
+    assert.equal(journal.phase, "complete");
+    assert.ok(
+      ["passed", "passed-pending-provider-deletion"].includes(
+        journal.cleanup.status,
+      ),
+    );
+    const api = dependencies.api ?? railwayApi();
+    const retained = [];
+    for (const previous of journal.retainedVolumes ?? []) {
+      const resource = journal.volumes.find((v) => v.id === previous.volumeId);
+      assert.ok(resource, "Retained volume missing ownership");
+      const receipt = journal.volumeDeletionReceipts.find(
+        (r) => r.volumeId === resource.id,
+      );
+      const evidence = await observeVolumeRetirement({
+        api,
+        journal,
+        resource,
+        receipt,
+        now: dependencies.now?.() ?? Date.now(),
+      });
+      if (evidence.state === "absent") {
+        journal.volumeRetirementCompleted ??= {};
+        journal.volumeRetirementCompleted[resource.id] = {
+          ...previous,
+          absenceEvidence: evidence,
+        };
+      }
+      journal.volumeRetirementEvidence[resource.id] = evidence;
+      if (evidence.state === "pending-detached")
+        retained.push(
+          retainedVolumeRecord({
+            journal,
+            resource,
+            receipt,
+            evidence,
+            previous,
+          }),
+        );
+    }
+    journal.retainedVolumes = retained;
+    journal.cleanup.retainedVolumes = structuredClone(retained);
+    journal.cleanup.physicalDeletionComplete = retained.length === 0;
+    journal.cleanup.status = retained.length
+      ? "passed-pending-provider-deletion"
+      : "passed";
+    journal.cleanup.retentionReconciledAt = new Date(
+      dependencies.now?.() ?? Date.now(),
+    ).toISOString();
+    await durableJson(path, journal);
+    return journal.cleanup;
+  } finally {
+    await unlock();
   }
 }
