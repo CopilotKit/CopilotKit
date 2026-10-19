@@ -3,7 +3,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { STANDARD_CSS } from "../styles";
 import { gridItemColumn } from "../layout";
 import { standardUI } from "../index";
-import { renderSurface } from "./render";
+import { SURFACE_ID, renderSurface } from "./render";
 
 /**
  * Tests ported from the a2ui-renderer standard catalog, so the behaviour
@@ -273,6 +273,117 @@ describe("standard catalog: layout and text (parity)", () => {
     callback!([{ isIntersecting: true }]);
     expect(v.forwardEvent).toHaveBeenCalledTimes(1);
     expect(v.forwardEvent.mock.calls[0][0].name).toBe("seen");
+  });
+});
+
+describe("standard catalog: entrance animations", () => {
+  it("Animate sets the preset, duration and delay of its entrance", async () => {
+    const v = render([
+      {
+        id: "root",
+        component: "Animate",
+        preset: "slide-up",
+        duration: 600,
+        delay: 200,
+        children: ["t"],
+      },
+      { id: "t", component: "Text", text: "Enter" },
+    ]);
+    const box = (await v.findByText("Enter")).parentElement as HTMLElement;
+    expect(box.hasAttribute("data-a2ui-animate")).toBe(true);
+    expect(box.style.getPropertyValue("--a2ui-animate-name")).toBe(
+      "a2ui-enter-slide-up",
+    );
+    expect(box.style.getPropertyValue("--a2ui-animate-duration")).toBe("600ms");
+    expect(box.style.getPropertyValue("--a2ui-animate-delay")).toBe("200ms");
+    expect(STANDARD_CSS).toContain("@keyframes a2ui-enter-slide-up");
+    expect(STANDARD_CSS).toContain(
+      "prefers-reduced-motion:reduce){[data-a2ui-animate]{animation:none",
+    );
+  });
+
+  it("AnimateGroup staggers its AnimateItem children by their index", async () => {
+    const v = render([
+      {
+        id: "root",
+        component: "AnimateGroup",
+        stagger: 150,
+        preset: "scale",
+        children: ["a", "b", "c"],
+      },
+      { id: "a", component: "AnimateItem", children: ["ta"] },
+      { id: "ta", component: "Text", text: "One" },
+      { id: "b", component: "AnimateItem", children: ["tb"] },
+      { id: "tb", component: "Text", text: "Two" },
+      { id: "c", component: "AnimateItem", delay: 999, children: ["tc"] },
+      { id: "tc", component: "Text", text: "Three" },
+    ]);
+    const item = (text: string) =>
+      v.getByText(text).parentElement as HTMLElement;
+    await v.findByText("Three");
+    await waitFor(() =>
+      expect(item("Three").getAttribute("data-a2ui-animate-index")).toBe("2"),
+    );
+    expect(item("One").style.getPropertyValue("--a2ui-animate-delay")).toBe(
+      "0ms",
+    );
+    expect(item("Two").style.getPropertyValue("--a2ui-animate-delay")).toBe(
+      "150ms",
+    );
+    expect(item("Two").style.getPropertyValue("--a2ui-animate-name")).toBe(
+      "a2ui-enter-scale",
+    );
+    // An item's own delay wins over the stagger.
+    expect(item("Three").style.getPropertyValue("--a2ui-animate-delay")).toBe(
+      "999ms",
+    );
+    expect(
+      item("One").parentElement!.hasAttribute("data-a2ui-animate-group"),
+    ).toBe(true);
+  });
+
+  it("Transition animates again when its children change, and not when a child's props change", async () => {
+    const v = render([
+      { id: "root", component: "Transition", children: ["a"] },
+      { id: "a", component: "Text", text: "First" },
+    ]);
+    const before = (await v.findByText("First")).parentElement as HTMLElement;
+    v.update({
+      version: "v0.9",
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [{ id: "a", component: "Text", text: "First again" }],
+      },
+    });
+    await v.findByText("First again");
+    expect(v.getByText("First again").parentElement).toBe(before);
+    v.update({
+      version: "v0.9",
+      updateComponents: {
+        surfaceId: SURFACE_ID,
+        components: [
+          { id: "root", component: "Transition", children: ["b"] },
+          { id: "b", component: "Text", text: "Second" },
+        ],
+      },
+    });
+    const after = (await v.findByText("Second")).parentElement as HTMLElement;
+    expect(after).not.toBe(before);
+    expect(after.hasAttribute("data-a2ui-transition")).toBe(true);
+  });
+
+  it("Tooltip hugs its trigger instead of stretching across the column", async () => {
+    const v = render([
+      { id: "root", component: "Column", children: ["tip"] },
+      { id: "tip", component: "Tooltip", trigger: "t", content: "c" },
+      { id: "t", component: "Text", text: "Hover me" },
+      { id: "c", component: "Text", text: "Tip" },
+    ]);
+    const wrapper = (await v.findByText("Hover me")).closest(
+      "[data-a2ui-tooltip-trigger]",
+    )!.parentElement as HTMLElement;
+    expect(wrapper.style.alignSelf).toBe("flex-start");
+    expect(wrapper.style.width).toBe("max-content");
   });
 });
 

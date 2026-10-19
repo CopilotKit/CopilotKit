@@ -587,7 +587,15 @@ function Tooltip({ trigger, content }: TooltipProps) {
   };
   return (
     <span
-      style={{ position: "relative", display: "inline-flex" }}
+      // The wrapper hugs the trigger, so the tip centers on the trigger and
+      // not on a stretched flex item.
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        alignSelf: "flex-start",
+        width: "max-content",
+        maxWidth: "100%",
+      }}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={close}
     >
