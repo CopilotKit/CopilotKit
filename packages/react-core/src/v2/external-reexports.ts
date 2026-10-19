@@ -8,6 +8,7 @@
 
 // @copilotkit/core
 export {
+  AgentHistoryReplayError,
   AgentRegistry,
   AgentThreadLockedError,
   ContextStore,
