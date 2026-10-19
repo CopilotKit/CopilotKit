@@ -3,13 +3,14 @@ import {
   createEnvironmentInjector,
   runInInjectionContext,
   signal,
-  type Signal,
 } from "@angular/core";
+import type { Signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import type { AgentSubscriber, Interrupt } from "@ag-ui/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { injectAgentStore, type AgentStore } from "./agent";
+import { injectAgentStore } from "./agent";
+import type { AgentStore } from "./agent";
 import { COPILOT_CHAT_CONFIGURATION } from "./chat-configuration";
 import { CopilotKit } from "./copilotkit";
 import { injectInterrupt } from "./inject-interrupt";
@@ -89,9 +90,11 @@ describe("injectInterrupt", () => {
     expect(enabled).toHaveBeenCalledTimes(1);
     expect(runAgent).toHaveBeenCalledWith({
       agent,
-      runId: "run-id",
       resume: [{ interruptId: "approve", payload: "yes", status: "resolved" }],
     });
+    expect(runAgent).not.toHaveBeenCalledWith(
+      expect.objectContaining({ runId: expect.anything() }),
+    );
 
     injector.destroy();
     expect(agent.unsubscribe).toHaveBeenCalledTimes(1);

@@ -13,6 +13,7 @@ permissions:
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
+    timeout-minutes: 5 # observed max 0.1m over 24 runs
     steps:
       - name: Check author is on Demo team
         id: check-team

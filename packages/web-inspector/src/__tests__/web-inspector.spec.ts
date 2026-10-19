@@ -1,3 +1,9 @@
+import { notificationTestId } from "./notification-fixture.js";
+vi.mock("../lib/notification-loader.js", async () => {
+  const { fetchNotificationFixture } =
+    await import("./notification-fixture.js");
+  return { loadNotificationFeed: fetchNotificationFixture };
+});
 import {
   CpkThreadInspector,
   configureWebInspectorElement,
@@ -480,6 +486,58 @@ describe("WebInspectorElement", () => {
     await inspector.updateComplete;
     expect(internals.agentStates.get("counter")).toEqual({ counter: 5 });
   });
+
+  describe("small viewports", () => {
+    const setViewport = (width: number, height: number) => {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: width,
+      });
+      Object.defineProperty(window, "innerHeight", {
+        configurable: true,
+        writable: true,
+        value: height,
+      });
+    };
+    const initialViewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+    afterEach(() => setViewport(initialViewport.width, initialViewport.height));
+
+    const openWindow = async () => {
+      const { core } = createMockCore();
+      const inspector = new WebInspectorElement();
+      inspector.core = core as unknown as CopilotKitCore;
+      document.body.appendChild(inspector);
+      await inspector.updateComplete;
+      inspector.openInspector("floating_button");
+      await inspector.updateComplete;
+      return inspector.shadowRoot!.querySelector<HTMLElement>(
+        ".inspector-window",
+      )!;
+    };
+
+    it("zooms the window down so the desktop layout fits the screen", async () => {
+      setViewport(768, 600);
+      const inspectorWindow = await openWindow();
+
+      // On screen: 736x568, the viewport minus its margins, at 0.8 zoom.
+      expect(inspectorWindow.style.zoom).toBe("0.8");
+      expect(inspectorWindow.style.width).toBe("920px");
+      expect(inspectorWindow.style.height).toBe("710px");
+    });
+
+    it("keeps the full-size window when the screen can hold it", async () => {
+      setViewport(1440, 900);
+      const inspectorWindow = await openWindow();
+
+      expect(inspectorWindow.style.zoom).toBe("");
+      expect(inspectorWindow.style.width).toBe("960px");
+      expect(inspectorWindow.style.height).toBe("740px");
+    });
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -498,7 +556,10 @@ describe("WebInspectorElement", () => {
 type ThreadDetailsInternals = {
   threadId: string | null;
   runtimeUrl: string;
-  headers: Record<string, string>;
+  resolveHeaders: () =>
+    | Record<string, string>
+    | Promise<Record<string, string>>;
+  headersGeneration: number;
   threadInspectionAvailable: boolean;
   liveMessageVersion: number;
   provider: ThreadDebuggerProvider | null;
@@ -640,7 +701,7 @@ describe("ɵCpkThreadDetails caching", () => {
       const { el, internals } = createThreadDetails();
 
       internals.runtimeUrl = "http://localhost:4000";
-      internals.headers = { Authorization: "Bearer test-token" };
+      internals.resolveHeaders = () => ({ Authorization: "Bearer test-token" });
       internals.threadId = "t1";
       await el.updateComplete;
 
@@ -1256,7 +1317,8 @@ describe("CpkThreadInspector provider contract", () => {
     });
   });
 
-  it("refetches runtime thread data when headers change for the same thread", async () => {
+  it("resolves headers at send time but only reloads thread inspection on a headersGeneration change", async () => {
+    let token = "first";
     const fetchMock = vi.fn(
       (_url: string, init?: { headers?: Record<string, string> }) =>
         Promise.resolve(
@@ -1291,7 +1353,7 @@ describe("CpkThreadInspector provider contract", () => {
 
     internals.runtimeUrl = "http://runtime";
     internals.threadInspectionAvailable = true;
-    internals.headers = { Authorization: "Bearer first" };
+    internals.resolveHeaders = () => ({ Authorization: `Bearer ${token}` });
     internals.threadId = "thread-1";
     await flushProviderWork(el);
 
@@ -1302,7 +1364,18 @@ describe("CpkThreadInspector provider contract", () => {
       });
     });
 
-    internals.headers = { Authorization: "Bearer second" };
+    // Discriminating assertion first: a token rotation through the SAME
+    // builder identity, with no `headersGeneration` bump, must not reload
+    // (re-fetch) the already-loaded thread.
+    token = "second";
+    internals.resolveHeaders = () => ({ Authorization: `Bearer ${token}` });
+    await flushProviderWork(el);
+    expect(eventFetches()).toHaveLength(1);
+
+    // A `headersGeneration` bump (mirroring a real `core.setHeaders` source
+    // change) does reload, exactly once, and the reload's request resolves
+    // headers at send time (the current, rotated token).
+    internals.headersGeneration = 1;
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
@@ -1314,6 +1387,10 @@ describe("CpkThreadInspector provider contract", () => {
     expect(headersOf(eventFetches().at(-1)!)).toMatchObject({
       Authorization: "Bearer second",
     });
+
+    // Settles: no extra reload trails behind.
+    await flushProviderWork(el);
+    expect(eventFetches()).toHaveLength(2);
   });
 
   it("loads runtime messages when event history is empty so timeline fallback and counts work", async () => {
@@ -1516,11 +1593,10 @@ describe("CpkThreadInspector provider contract", () => {
 // cannot inflate itself by counting people who opened the Inspector for an
 // unrelated reason, or who arrived before the feed resolved.
 
-const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/notifications/v1.json";
 
 type OpenTelemetryInternals = {
   isOpen: boolean;
-  announcementTimestamp: string | null;
   fetchAnnouncement: () => Promise<void>;
   openInspector: (source: InspectorOpenSource) => void;
 };
@@ -1539,6 +1615,10 @@ async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
   await inspector.updateComplete;
   inspector.shadowRoot
     ?.querySelector<HTMLElement>('button[data-inspector-menu-key="whats-new"]')
+    ?.click();
+  await inspector.updateComplete;
+  inspector.shadowRoot
+    ?.querySelector<HTMLButtonElement>(".cpk-notification-row")
     ?.click();
   await inspector.updateComplete;
 }
@@ -1597,6 +1677,11 @@ describe("WebInspectorElement open + What's new telemetry", () => {
         CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     }
     const inspector = new WebInspectorElement();
+    inspector.notificationContext = {
+      development: true,
+      framework: "react",
+      sdkVersion: "1.70.2",
+    };
     document.body.appendChild(inspector);
     inspector.core = harness.core as unknown as WebInspectorElement["core"];
     return {
@@ -1636,7 +1721,11 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
     expect(
       eventsNamed("oss.inspector.hud_notification_viewed")[0]?.properties,
-    ).toMatchObject({ banner_id: timestamp, trigger: "user" });
+    ).toMatchObject({
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
+      trigger: "user",
+    });
     expect(
       eventsNamed("oss.inspector.hud_feature_toggle_viewed").map(
         (event) => event.properties.feature,
@@ -1736,7 +1825,8 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     expect(
       eventsNamed("oss.inspector.hud_notification_clicked")[0]?.properties,
     ).toMatchObject({
-      banner_id: timestamp,
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
       action: "dismiss",
       trigger: "user",
     });
@@ -1759,7 +1849,12 @@ describe("WebInspectorElement open + What's new telemetry", () => {
       ?.click();
     expect(
       eventsNamed("oss.inspector.hud_notification_clicked")[0]?.properties,
-    ).toMatchObject({ banner_id: timestamp, action: "open", trigger: "user" });
+    ).toMatchObject({
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
+      action: "open",
+      trigger: "user",
+    });
   });
 
   it("records feature row actions", async () => {
@@ -1810,7 +1905,10 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
     expect(
       eventsNamed("oss.inspector.hud_notification_viewed")[0]?.properties,
-    ).toMatchObject({ banner_id: timestamp });
+    ).toMatchObject({
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
+    });
   });
 
   it("records one launcher signal presentation when the pulse is rendered", async () => {
@@ -1823,7 +1921,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     const viewed = eventsNamed("oss.inspector.whats_new_signal_viewed");
     expect(viewed).toHaveLength(1);
     expect(viewed[0]!.properties).toMatchObject({
-      banner_id: timestamp,
+      banner_id: notificationTestId(timestamp),
       surface: "launcher",
       presentation: "animated",
       package_name: "@copilotkit/web-inspector",
@@ -1921,7 +2019,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     const viewed = eventsNamed("oss.inspector.whats_new_viewed");
     expect(viewed).toHaveLength(1);
     expect(viewed[0]!.properties).toMatchObject({
-      banner_id: timestamp,
+      banner_id: notificationTestId(timestamp),
       surface: "whats_new",
       package_name: "@copilotkit/web-inspector",
     });
@@ -2210,6 +2308,8 @@ type HeaderMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
+  resolveHeaders: () => Record<string, string>;
+  ɵheadersGeneration: number;
   ɵruntimeFetch: typeof fetch;
   threadEndpoints: {
     list: boolean;
@@ -2240,9 +2340,17 @@ function createHeaderMockCore(
   const subscribers = new Set<CopilotKitCoreSubscriber>();
   // Delegates to the live `globalThis.fetch` so every existing assertion on the
   // fetch stub keeps working, while a regression back to the global leaves this
-  // spy uncalled.
-  const runtimeFetch = vi.fn<typeof fetch>((...args) =>
-    globalThis.fetch(...args),
+  // spy uncalled. Mirrors the real `ɵruntimeFetch`'s contract (#1937): it
+  // overlays the CURRENT core headers onto the request at send time, so a
+  // caller routing through it must not also bake in a headers snapshot.
+  const runtimeFetch = vi.fn<typeof fetch>((input, init) =>
+    globalThis.fetch(input, {
+      ...init,
+      headers: {
+        ...(init?.headers as Record<string, string> | undefined),
+        ...core.headers,
+      },
+    }),
   );
   const core: HeaderMockCore = {
     intelligence: { wsUrl: "" },
@@ -2254,6 +2362,8 @@ function createHeaderMockCore(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
+    resolveHeaders: () => core.headers,
+    ɵheadersGeneration: 0,
     ɵruntimeFetch: runtimeFetch,
     threadEndpoints: {
       list: true,
@@ -2290,6 +2400,7 @@ function createHeaderMockCore(
     },
     emitHeadersChanged(nextHeaders: Record<string, string>) {
       core.headers = nextHeaders;
+      core.ɵheadersGeneration += 1;
       subscribers.forEach((s) =>
         s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
       );
@@ -2404,6 +2515,11 @@ function setupRuntimeDiagnostics() {
 
     localStorage.removeItem("cpk:inspector:state");
     const inspector = new WebInspectorElement();
+    inspector.notificationContext = {
+      development: true,
+      framework: "react",
+      sdkVersion: "1.70.2",
+    };
     document.body.appendChild(inspector);
     inspector.core = core;
     await inspector.updateComplete;
@@ -3455,6 +3571,7 @@ type MemoryMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   intelligence: { wsUrl: string } | undefined;
   licenseStatus?: "valid" | "none" | "expired" | "unknown";
+  resolveHeaders?: () => Record<string, string>;
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
     unsubscribe: () => void;
   };
@@ -3761,7 +3878,72 @@ describe("WebInspectorElement memories — view states", () => {
       runtimeTransport: "rest" as const,
       inspectorLearning: true,
       ɵruntimeFetch: fetch,
+      resolveHeaders: () => ({}),
     });
+
+  // #1937: the Learning request used to ALSO pass a separately
+  // resolved `headers:` snapshot alongside `fetch: core.ɵruntimeFetch`,
+  // which already resolves and overlays current headers at send time. That
+  // called the header builder twice per request and could let a header the
+  // builder stopped returning ride along on the (never-overlaid-again)
+  // static snapshot. `ɵruntimeFetch` is the ONLY thing that should resolve
+  // headers for this request.
+  it("resolves headers once per Learning request through ɵruntimeFetch, and drops a header the builder stopped returning", async () => {
+    const state = { includeStaleKey: true };
+    const resolveHeadersSpy = vi.fn(() => ({
+      Authorization: "Bearer constant",
+      ...(state.includeStaleKey ? { "X-Old-Key": "stale" } : {}),
+    }));
+    const requests: Array<Record<string, string>> = [];
+    // Mirrors the real `ɵruntimeFetch` contract: resolve the current headers
+    // once, overlay them onto the request, then send it.
+    const runtimeFetch = vi.fn(
+      async (
+        _input: RequestInfo | URL,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        const resolved = await resolveHeadersSpy();
+        const headers = {
+          ...(init?.headers as Record<string, string> | undefined),
+          ...resolved,
+        };
+        requests.push(headers);
+        return new Response(JSON.stringify(resultsSnapshot()), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    );
+    const core = Object.assign(learningCore(runtimeFetch), {
+      resolveHeaders: resolveHeadersSpy,
+    });
+
+    const el = await mountMemories(core);
+    const view = await learningSurface(el);
+    await vi.waitFor(() => {
+      expect(
+        view.shadowRoot?.querySelector("[data-learning-state='results']"),
+      ).not.toBeNull();
+    });
+
+    // Discriminating assertion first: exactly one resolve for this one
+    // Learning request. A separately `await`-ed `headers:` snapshot on top
+    // of `ɵruntimeFetch`'s own resolve would call the builder twice.
+    expect(resolveHeadersSpy).toHaveBeenCalledTimes(1);
+    expect(requests[0]?.["X-Old-Key"]).toBe("stale");
+    expect(requests[0]?.Authorization).toBe("Bearer constant");
+
+    state.includeStaleKey = false;
+    await (
+      el as unknown as { refreshLearningSnapshot: () => Promise<void> }
+    ).refreshLearningSnapshot();
+
+    await vi.waitFor(() => {
+      expect(resolveHeadersSpy).toHaveBeenCalledTimes(2);
+    });
+    expect(requests.at(-1)?.["X-Old-Key"]).toBeUndefined();
+    expect(requests.at(-1)?.Authorization).toBe("Bearer constant");
+  });
 
   it("advances the Learning preview copy action into setup progress before capability is available", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);

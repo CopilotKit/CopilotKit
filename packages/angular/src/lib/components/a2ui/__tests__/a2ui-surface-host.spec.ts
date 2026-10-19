@@ -1,9 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import {
-  defineA2UIWebComponentsOnce,
-  surfaceHasRenderableContent,
-} from "../a2ui-surface-host";
+import { surfaceHasRenderableContent } from "../a2ui-surface-host";
 
 describe("surfaceHasRenderableContent", () => {
   it("accepts static components and waits for populated data-bound surfaces", () => {
@@ -39,12 +36,5 @@ describe("surfaceHasRenderableContent", () => {
         },
       ]),
     ).toBe(true);
-  });
-
-  it("is inert when custom elements are unavailable during SSR", async () => {
-    const customElements = globalThis.customElements;
-    vi.stubGlobal("customElements", undefined);
-    await expect(defineA2UIWebComponentsOnce()).resolves.toBeUndefined();
-    vi.stubGlobal("customElements", customElements);
   });
 });

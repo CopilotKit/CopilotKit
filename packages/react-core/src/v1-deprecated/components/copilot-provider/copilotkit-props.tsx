@@ -22,6 +22,7 @@ import type { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import type { ReactNode } from "react";
 import type { AuthState } from "../../context/copilot-context";
 import type { CopilotErrorHandler, DebugConfig } from "@copilotkit/shared";
+import type { CopilotKitHeadersSource } from "@copilotkit/core";
 import type { CopilotKitProviderProps } from "../../../v2";
 /**
  * Props for CopilotKit.
@@ -75,19 +76,47 @@ export interface CopilotKitProps extends Omit<
 
   /**
    * Additional headers to be sent with the request.
-   * Can be a static object or a function that returns headers dynamically
-   * (useful for refreshing auth tokens).
+   * Can be a static object, a synchronous builder, or an async builder
+   * (useful for refreshing auth tokens). Whichever form you use, it is
+   * evaluated when each request is sent, not when this component renders.
    *
    * For example:
    * ```tsx
    * // Static headers
    * headers={{ "Authorization": "Bearer X" }}
    *
-   * // Dynamic headers (re-evaluated on each render)
+   * // Synchronous builder, evaluated at send time
    * headers={() => ({ "Authorization": `Bearer ${getToken()}` })}
+   *
+   * // Async builder, evaluated (and awaited) at send time
+   * headers={async () => ({ "Authorization": `Bearer ${await getToken()}` })}
    * ```
+   *
+   * An async builder is only awaited on the request paths served by
+   * `<CopilotKit>`'s v2 provider (agent runs, threads, the inspector, and
+   * so on). The legacy v1 `CopilotTask` / GraphQL path (and anything else
+   * that reads the internal `copilotApiConfig.headers` snapshot) never
+   * awaits it: an async builder is called once, its result (and any
+   * rejection) is discarded, and every read there gets an empty object
+   * instead, with one console warning per provider instance in development.
+   *
+   * Cache inside the builder. Clerk's and Auth0's `getToken()` already
+   * cache. A builder that calls the network every time adds one call per
+   * request.
+   *
+   * If the builder throws or rejects, that request is not sent and
+   * `onError` gets `header_resolution_failed`.
+   *
+   * Passing the same builder again, or a new builder function, does not
+   * reload anything, because the provider keeps one stable wrapper. On a
+   * user switch, remount the provider (for example `key={userId}`) so
+   * thread lists and Inspector metadata reload for the new user.
+   *
+   * Core headers are also sent to any self-managed agent registered
+   * directly with CopilotKit, including ones on other origins. Don't put a
+   * bearer token in core headers if those agents point at a third party.
    */
-  headers?: Record<string, string> | (() => Record<string, string>);
+  headers?: CopilotKitHeadersSource;
 
   /**
    * The children to be rendered within the CopilotKit.

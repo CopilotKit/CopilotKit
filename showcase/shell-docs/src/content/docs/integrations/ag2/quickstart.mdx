@@ -18,7 +18,7 @@ Use this prompt to connect your AG2 agent to CopilotKit and verify a working con
 This quickstart guide shows how to build a **Weather Agent** using AG2 and CopilotKit. In just minutes, you'll have a working application where users can ask for real-time weather conditions in any city worldwide — powered by AG2's `AGUIStream` over the AG-UI protocol and rendered with CopilotKit's chat UI.
 
 <Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+  CopilotKit consumes AG-UI 1.0 protocol events streamed by AG2 (1.1.2 or newer) over HTTP. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
 </Callout>
 
 ## AG2 Bootstrap Template
@@ -35,9 +35,9 @@ Follow the prompts to pick AG2 and the features you want, then run the install/s
 
 Before you begin, you'll need the following:
 
-- **Python 3.10–3.13** for running the AG2 backend
+- **Python 3.10–3.14** for running the AG2 backend
 - <a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank">uv</a> (for Python dependency management)
-- <a href="https://nodejs.org/en/download" target="_blank">Node.js</a> 18.18.0 or newer (specifically: ^18.18.0 || ^19.8.0 || >= 20.0.0)
+- <a href="https://nodejs.org/en/download" target="_blank">Node.js</a> 20.9 or newer
 - <a href="https://pnpm.io/installation" target="_blank">pnpm</a> (for frontend package management)
 - <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI API key</a>
 
@@ -70,16 +70,19 @@ Before you begin, you'll need the following:
         uv sync
         ```
 
-        #### Set your `OPENAI_API_KEY`:
+        #### Set your `OPENAI_API_KEY` and `AUTH_SECRET`:
+
+        The sample serves the agent only to a signed-in user. `AUTH_SECRET` signs and verifies the user's access token, so the backend and the frontend must use the same value. Any long random string works.
 
         ```sh
         export OPENAI_API_KEY="your_openai_api_key"
+        export AUTH_SECRET="a-long-random-string"
         ```
 
         #### Launch the AG2 weather agent:
 
         ```bash
-        uv run python weather.py
+        uv run python -m backend
         ```
         The backend server will start at http://localhost:8000 and serve the agent at `/weather`.
     </Step>
@@ -93,15 +96,19 @@ Before you begin, you'll need the following:
         ```bash
         cd ui
         pnpm install
-        pnpm dev
+        AUTH_SECRET="a-long-random-string" pnpm dev
         ```
 
-        The frontend application will start at http://localhost:3000.
+        The frontend application will start at http://localhost:3000. Use the same `AUTH_SECRET` as the backend.
+
+        <Callout type="warn">
+            The sample's sign-in is a demonstration: it accepts any name and keeps the token in `localStorage`. Replace `verify_access_token` in `backend/auth.py` and the token route in the UI before reusing the pattern. See [Authentication](/ag2/auth).
+        </Callout>
     </Step>
     <Step>
         ### 🎉 Talk to your agent!
 
-        Congrats! You've successfully integrated an AG2 Agent chatbot into your application. Try asking a few questions:
+        Congrats! You've successfully integrated an AG2 Agent chatbot into your application. Enter a name to sign in, then try asking a few questions:
 
         ```
         What's the weather in London?
@@ -114,6 +121,15 @@ Before you begin, you'll need the following:
         ```
         What's the weather here?
         ```
+
+        The sample also shows the AG-UI 1.0 features next to the chat:
+
+        | Feature | Try it |
+        | --- | --- |
+        | [Sub-agents](/ag2/multi-agent/subagents) (`ClothingAdvisor`, `TripPlanner`) | "What should I wear in Oslo?" |
+        | [Interrupts](/ag2/human-in-the-loop#approve-a-tool-call-with-interrupts) (`save_favorite_city` waits for approval) | "Save Lisbon to my favorites" |
+        | [Shared state](/ag2/shared-state) (the favorites panel) | Save a city, then watch the panel |
+        | Capabilities | `curl localhost:8000/weather` |
 
         <Callout type="info">
             Asking "What's the weather here?" will use your browser's location if you allow it. If location access is denied, the agent will ask you for a city name instead.
@@ -128,6 +144,64 @@ Before you begin, you'll need the following:
 </Steps>
 
 ---
+
+## Connect your own AG2 agent
+
+The samples repository is a ready-made example. To expose any AG2 agent over AG-UI, install AG2 (1.1.2+) with the AG-UI and OpenAI extras and wrap the agent in `AGUIStream`:
+
+```bash
+pip install "ag2[ag-ui,openai]>=1.1.2"
+```
+
+```python title="run_ag_ui.py"
+from fastapi import FastAPI, Header
+from fastapi.responses import StreamingResponse
+
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream, RunAgentInput
+from ag2.config import OpenAIResponsesConfig
+
+agent = Agent(
+    name="support_bot",
+    prompt="You help users with billing questions.",
+    config=OpenAIResponsesConfig(model="gpt-5.5"),
+)
+
+stream = AGUIStream(agent)
+app = FastAPI()
+
+@app.post("/chat")
+async def run_agent(
+    message: RunAgentInput,
+    accept: str | None = Header(None),
+) -> StreamingResponse:
+    return StreamingResponse(
+        stream.dispatch(message, accept=accept),
+        media_type=accept or "text/event-stream",
+    )
+```
+
+If you don't need custom auth, logging, or middleware around the endpoint, `AGUIStream.build_asgi()` builds a ready-to-mount ASGI endpoint instead:
+
+```python title="run_ag_ui.py"
+from fastapi import FastAPI
+
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream
+from ag2.config import OpenAIResponsesConfig
+
+agent = Agent(
+    name="support_bot",
+    prompt="You help users with billing questions.",
+    config=OpenAIResponsesConfig(model="gpt-5.5"),
+)
+
+stream = AGUIStream(agent)
+app = FastAPI()
+app.mount("/chat", stream.build_asgi())
+```
+
+Point the `HttpAgent` in your Copilot Runtime at `http://localhost:8000/chat` and your agent is live in the UI. See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a> for supported protocol events, interrupts, capabilities, and shared-state details.
 
 ## What's next?
 

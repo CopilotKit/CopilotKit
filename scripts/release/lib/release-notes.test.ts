@@ -117,4 +117,28 @@ describe("generateRawReleaseNotes", () => {
 
     expect(notes).not.toContain("### Breaking Changes");
   });
+
+  it("lists a breaking feat or fix under its own section, not Other Changes", () => {
+    const notes = generateRawReleaseNotes(
+      "1.1.0",
+      "monorepo",
+      summary([
+        { hash: "abc123456", subject: "feat!: drop the legacy hook", body: "" },
+        {
+          hash: "def567890",
+          subject: "fix(core)!: reject unknown tool names",
+          body: "",
+        },
+      ]),
+    );
+
+    const [beforeBreaking] = notes.split("### Breaking Changes");
+    expect(beforeBreaking).toContain(
+      "### Features\n\n- feat!: drop the legacy hook (abc1234)",
+    );
+    expect(beforeBreaking).toContain(
+      "### Fixes\n\n- fix(core)!: reject unknown tool names (def5678)",
+    );
+    expect(beforeBreaking).not.toContain("### Other Changes");
+  });
 });

@@ -27,7 +27,7 @@ test("enumerates and navigates the complete Automatic Learning matrix at the roo
   await openWorkbenchState(page, "landing");
 
   await expect(
-    page.getByRole("heading", { name: "Inspector state workbench" }),
+    page.getByRole("heading", { name: "Inspector workbench" }),
   ).toBeVisible();
   await expect(
     page.getByRole("complementary", { name: "Scenario validation console" }),

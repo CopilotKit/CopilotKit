@@ -4,7 +4,7 @@ import type {
   ToolCallResultEvent,
   RunErrorEvent,
 } from "@ag-ui/client";
-import { EventType } from "@ag-ui/client";
+import { contentToText, EventType } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkit/shared";
 
 const createTextStart = (messageId: string): BaseEvent =>
@@ -39,7 +39,7 @@ describe("finalizeRunEvents", () => {
       (event): event is ToolCallResultEvent =>
         event.type === EventType.TOOL_CALL_RESULT,
     );
-    expect(JSON.parse(resultEvent?.content ?? "")).toEqual(
+    expect(JSON.parse(contentToText(resultEvent?.content))).toEqual(
       expect.objectContaining({
         status: "stopped",
         reason: "stop_requested",
@@ -68,7 +68,7 @@ describe("finalizeRunEvents", () => {
       (event): event is ToolCallResultEvent =>
         event.type === EventType.TOOL_CALL_RESULT,
     );
-    expect(JSON.parse(resultEvent?.content ?? "")).toEqual(
+    expect(JSON.parse(contentToText(resultEvent?.content))).toEqual(
       expect.objectContaining({
         status: "error",
         reason: "missing_terminal_event",

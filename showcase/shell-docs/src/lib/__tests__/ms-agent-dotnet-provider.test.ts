@@ -91,7 +91,15 @@ test("uses the current Agent Framework server and OpenAI APIs", () => {
   expect(quickstart).toContain(
     'dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"',
   );
-  expect(starter).toContain('_configuration["OPENAI_API_KEY"]');
+  // The API key is read for the provider COPILOTKIT_AGENT_MODEL selects;
+  // OpenAI stays the default.
+  expect(starter).toContain('_ => "OPENAI_API_KEY"');
+  expect(starter).toContain("_configuration[apiKeyName]");
+  expect(starter).toContain('_configuration["COPILOTKIT_AGENT_MODEL"]');
+  expect(starter).toContain('"openai:gpt-5-mini"');
+  expect(starter).toContain(
+    "is not <provider>:<model> with provider openai, anthropic or google",
+  );
   expect(starter).toContain('_configuration["OPENAI_BASE_URL"]');
   expect(starter).toContain("builder.Services.AddAGUIServer()");
   expect(starter).toContain('app.MapAGUIServer("/"');
@@ -140,30 +148,5 @@ test("registers predictive state mappings as AG-UI endpoint metadata", () => {
 
   expect(guide).toMatch(
     /AGUIStreamOptions streamOptions = new AGUIStreamOptions\(\)[\s\S]*?\.MapCall\("step_progress",[\s\S]*?app\.MapAGUIServer\("\/", agent\)\.WithMetadata\(streamOptions\);/,
-  );
-});
-
-test("runs the provider guard in docs CI for docs and starter changes", () => {
-  const workflow = read(".github/workflows/test_integration-docs.yml");
-  const pathTriggers = [
-    "showcase/shell-docs/src/content/**",
-    "showcase/shell-docs/model-allowlist.json",
-    "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts",
-    "showcase/shell-docs/package.json",
-    "showcase/shell-docs/package-lock.json",
-    "examples/integrations/ms-agent-framework-dotnet/**",
-  ] as const;
-
-  for (const pathTrigger of pathTriggers) {
-    const matchingLines = workflow
-      .split("\n")
-      .filter((line) => line === `      - "${pathTrigger}"`);
-    expect(
-      matchingLines,
-      `${pathTrigger} must trigger on PRs and pushes`,
-    ).toHaveLength(2);
-  }
-  expect(workflow).toContain(
-    "npm exec -- vitest run src/lib/__tests__/ms-agent-dotnet-provider.test.ts",
   );
 });

@@ -201,12 +201,7 @@ export function queryDataImpl(_query: string): DataRow[] {
 
 // ---- search_flights ------------------------------------------------------
 
-export function searchFlightsImpl(flights: Flight[]): {
-  flights: Flight[];
-  schema: Record<string, unknown>;
-} {
-  return { flights, schema: {} };
-}
+export { searchFlightsImpl } from "../../../shared-tools/search-flights";
 
 // ---- sales todos ---------------------------------------------------------
 

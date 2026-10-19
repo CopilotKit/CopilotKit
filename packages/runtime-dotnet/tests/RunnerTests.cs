@@ -26,6 +26,107 @@ internal static class RunnerTests
         await IdleReconnectAsync();
         await BoundedShutdownAsync();
         await StopWithoutBodyAsync();
+        foreach (var mode in new[] { "restart", "shutdown", "cancel" }) await CleanupHandoffAsync(mode);
+        foreach (var callback in new[] { false, true }) await HandoffTimeoutAsync(callback);
+        await ShutdownPendingTimeoutAsync();
+    }
+
+    private static async Task ShutdownPendingTimeoutAsync()
+    {
+        var agent = new TestAgent(true, true);
+        await using var fixture = await Fixture.CreateAsync(agent);
+        await fixture.StartRunAsync();
+        fixture.Platform.HoldSuccessorDelete = true;
+        fixture.Platform.IgnoreDeleteCancellation = true;
+        var successor = fixture.StartRequestAsync(runId: "next");
+        Task? shutdown = null;
+        try
+        {
+            await fixture.Platform.SuccessorRenewed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            shutdown = fixture.StopRuntimeAsync();
+            await fixture.Platform.SuccessorDeleteEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            await fixture.ShutdownTimedOut.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            var retainedPendingCleanup = false;
+            try { await shutdown.WaitAsync(TimeSpan.FromMilliseconds(80)); }
+            catch (TimeoutException) { retainedPendingCleanup = true; }
+            Check(retainedPendingCleanup, "shutdown timeout fallback still drains pending admission cleanup");
+        }
+        finally
+        {
+            fixture.Platform.ReleaseSuccessorDelete.TrySetResult();
+            agent.Release.TrySetResult();
+            await successor.WaitAsync(TimeSpan.FromSeconds(2));
+            if (shutdown is not null) await shutdown.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        Check(agent.Invocations == 1, "shutdown fallback never dispatches the waiting successor");
+    }
+
+    private static async Task HandoffTimeoutAsync(bool blockedCallback)
+    {
+        var agent = new TestAgent(true, !blockedCallback, blockedCallback);
+        await using var fixture = await Fixture.CreateAsync(agent);
+        await fixture.StartRunAsync();
+        try
+        {
+            var response = await fixture.StartRequestAsync(runId: "next").WaitAsync(TimeSpan.FromSeconds(2));
+            Check(!response.IsSuccessStatusCode && agent.Invocations == 1, "handoff deadline prevents overlap with blocked cancellation: " + blockedCallback);
+            Check(fixture.Platform.DeletedRuns.Contains("next"), "failed handoff releases only its own lease");
+        }
+        finally { agent.Release.TrySetResult(); }
+    }
+
+    private static async Task CleanupHandoffAsync(string mode)
+    {
+        var agent = new TestAgent(true);
+        await using var fixture = await Fixture.CreateAsync(agent);
+        fixture.Platform.HoldDeleteRun = "run";
+        await fixture.StartRunAsync();
+        await fixture.StopAsync("thread", new { runId = "run" });
+        await fixture.Platform.DeleteEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        using var cancellation = new CancellationTokenSource();
+        var successor = fixture.StartRequestAsync(runId: "next", cancellationToken: cancellation.Token);
+        try
+        {
+            await fixture.Platform.SuccessorRenewed.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            Check(!successor.IsCompleted && agent.Invocations == 1, "successor renews while predecessor cleanup is pending: " + mode);
+            Task? shutdown = null;
+            if (mode == "shutdown")
+            {
+                fixture.Platform.HoldSuccessorDelete = true;
+                shutdown = fixture.StopRuntimeAsync();
+                await fixture.Platform.SuccessorDeleteEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+                Check(!shutdown.IsCompleted, "shutdown owns pending successor cleanup");
+                fixture.Platform.ReleaseSuccessorDelete.TrySetResult();
+            }
+            if (mode == "cancel") cancellation.Cancel();
+            if (mode != "restart")
+            {
+                await WaitAsync(() => fixture.Platform.DeletedRuns.Contains("next"));
+                Check(agent.Invocations == 1, "canceled admission never starts the successor: " + mode);
+                if (shutdown is not null) Check(!shutdown.IsCompleted, "shutdown still owns predecessor cleanup");
+            }
+            fixture.Platform.ReleaseDelete.TrySetResult();
+            if (mode == "cancel")
+            {
+                try { await successor; throw new Exception("request cancellation was ignored"); }
+                catch (OperationCanceledException) { }
+            }
+            else
+            {
+                var response = await successor.WaitAsync(TimeSpan.FromSeconds(2));
+                Check(response.IsSuccessStatusCode == (mode == "restart"), "handoff returns the expected response: " + mode);
+            }
+            if (shutdown is not null) await shutdown.WaitAsync(TimeSpan.FromSeconds(2));
+            if (mode == "restart")
+            {
+                await WaitAsync(() => agent.Invocations == 2);
+                Check(fixture.Platform.LockRun == "next", "old cleanup preserves the successor lease");
+                var stale = await fixture.StopAsync("thread", new { runId = "run" });
+                Check((await stale.Content.ReadFromJsonAsync<JsonObject>())?["stopped"]?.GetValue<bool>() == false, "old Stop cannot cancel the successor");
+                await fixture.StopAsync("thread", new { runId = "next" });
+            }
+        }
+        finally { fixture.Platform.ReleaseDelete.TrySetResult(); fixture.Platform.ReleaseSuccessorDelete.TrySetResult(); }
     }
 
     private static async Task ProjectOnlyMemoryMutationAsync(string method)
@@ -231,7 +332,7 @@ internal static class RunnerTests
         public void Dispose() => Value.DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 
-    private sealed class TestAgent(bool idle, bool ignoreCancellation = false) : IRuntimeAgent
+    private sealed class TestAgent(bool idle, bool ignoreCancellation = false, bool blockCancellationCallback = false) : IRuntimeAgent
     {
         public string Description => "runner test";
         public TaskCompletionSource Cancelled { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -240,6 +341,7 @@ internal static class RunnerTests
         public async IAsyncEnumerable<JsonObject> RunAsync(JsonObject input, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
         {
             Interlocked.Increment(ref Invocations);
+            using var registration = blockCancellationCallback ? cancellationToken.Register(() => Release.Task.GetAwaiter().GetResult()) : default;
             try
             {
                 yield return new JsonObject { ["type"] = "TEXT_MESSAGE_START", ["messageId"] = "message", ["role"] = "assistant" };
@@ -268,6 +370,13 @@ internal static class RunnerTests
     private sealed class PlatformHandler : HttpMessageHandler
     {
         public bool FailRenewal; public int Renewals; public bool Deleted; public bool HoldDelete;
+        public string? HoldDeleteRun; public string? LockRun;
+        public bool HoldSuccessorDelete;
+        public bool IgnoreDeleteCancellation;
+        public ConcurrentBag<string> DeletedRuns { get; } = new();
+        public TaskCompletionSource SuccessorRenewed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource SuccessorDeleteEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseSuccessorDelete { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public string History = "{\"messages\":[]}";
         public string ThreadAgent = "default"; public int ThreadReads; public int MemoryCalls;
         public string? ReceivedGrant;
@@ -277,11 +386,14 @@ internal static class RunnerTests
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var path = request.RequestUri!.AbsolutePath;
+            var body = request.Content is null ? null : await request.Content.ReadFromJsonAsync<JsonObject>(cancellationToken);
+            var runId = body?["runId"]?.GetValue<string>() ?? "run";
             if (path.StartsWith("/api/memories", StringComparison.Ordinal)) { Interlocked.Increment(ref MemoryCalls); ReceivedGrant = request.Headers.GetValues("x-cpki-memory-grant").Single(); return new HttpResponseMessage(MemoryStatus) { Content = new StringContent("{\"memories\":[]}") }; }
             if (request.Method == HttpMethod.Get && !path.EndsWith("/messages", StringComparison.Ordinal)) { Interlocked.Increment(ref ThreadReads); return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = JsonContent.Create(new { thread = new { id = "thread", agentId = ThreadAgent } }) }; }
-            if (request.Method == HttpMethod.Patch) { Interlocked.Increment(ref Renewals); if (FailRenewal) return new HttpResponseMessage(System.Net.HttpStatusCode.Conflict); }
-            if (request.Method == HttpMethod.Delete) { DeleteEntered.TrySetResult(); if (HoldDelete) await ReleaseDelete.Task.WaitAsync(cancellationToken); Deleted = true; }
-            var value = path.EndsWith("/messages", StringComparison.Ordinal) ? History : "{\"threadId\":\"thread\",\"runId\":\"run\",\"joinToken\":\"token\"}";
+            if (request.Method == HttpMethod.Post && path.EndsWith("/lock", StringComparison.Ordinal)) LockRun = runId;
+            if (request.Method == HttpMethod.Patch) { Interlocked.Increment(ref Renewals); if (runId == "next") SuccessorRenewed.TrySetResult(); if (FailRenewal) return new HttpResponseMessage(System.Net.HttpStatusCode.Conflict); }
+            if (request.Method == HttpMethod.Delete) { DeleteEntered.TrySetResult(); if (HoldDelete || HoldDeleteRun == runId) await ReleaseDelete.Task.WaitAsync(cancellationToken); if (runId == "next" && HoldSuccessorDelete) { SuccessorDeleteEntered.TrySetResult(); await ReleaseSuccessorDelete.Task.WaitAsync(IgnoreDeleteCancellation ? CancellationToken.None : cancellationToken); } if (LockRun == runId) LockRun = null; DeletedRuns.Add(runId); Deleted = true; }
+            var value = path.EndsWith("/messages", StringComparison.Ordinal) ? History : new JsonObject { ["threadId"] = "thread", ["runId"] = runId, ["joinToken"] = "token" }.ToJsonString();
             return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(value) };
         }
     }
@@ -295,6 +407,7 @@ internal static class RunnerTests
         public bool CloseFirstJoin; public int Joins;
         public bool HoldJoin;
         public TaskCompletionSource JoinEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ShutdownTimedOut { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public RuntimeOptions Options { get; private set; } = null!;
         public JsonObject? MemoryGrant { get; set; } = new() { ["user"] = "read-write", ["project"] = "read-write" };
         public bool FailMemoryPolicy;
@@ -331,7 +444,7 @@ internal static class RunnerTests
             });
             await fixture.app.StartAsync();
             var address = fixture.app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
-            fixture.Options = new RuntimeOptions { ApiUrl = new Uri(address), RunnerUrl = new Uri(address + "/runner"), ClientUrl = new Uri(address), ApiKey = "test", Agents = new Dictionary<string, IRuntimeAgent> { ["default"] = agent }, IdentifyUser = (_, _) => ValueTask.FromResult<RuntimeUser?>(new RuntimeUser("user")), MemoryGrant = (_, _, _) => fixture.FailMemoryPolicy ? throw new InvalidOperationException("PRIVATE_POLICY_ERROR") : ValueTask.FromResult(fixture.MemoryGrant), TelemetryDisabled = true, RequestTimeout = TimeSpan.FromMilliseconds(300), LockHeartbeatInterval = TimeSpan.FromMilliseconds(30) };
+            fixture.Options = new RuntimeOptions { ApiUrl = new Uri(address), RunnerUrl = new Uri(address + "/runner"), ClientUrl = new Uri(address), ApiKey = "test", Agents = new Dictionary<string, IRuntimeAgent> { ["default"] = agent }, IdentifyUser = (_, _) => ValueTask.FromResult<RuntimeUser?>(new RuntimeUser("user")), MemoryGrant = (_, _, _) => fixture.FailMemoryPolicy ? throw new InvalidOperationException("PRIVATE_POLICY_ERROR") : ValueTask.FromResult(fixture.MemoryGrant), OnError = error => { if (error.Code == "RUN_SHUTDOWN_TIMEOUT") fixture.ShutdownTimedOut.TrySetResult(); }, TelemetryDisabled = true, RequestTimeout = TimeSpan.FromMilliseconds(300), LockHeartbeatInterval = TimeSpan.FromMilliseconds(30) };
             fixture.platformHttp = new HttpClient(fixture.Platform); fixture.runtime = new IntelligenceRuntime(fixture.Options, fixture.platformHttp);
             var hostBuilder = WebApplication.CreateBuilder(); hostBuilder.Logging.ClearProviders(); hostBuilder.WebHost.UseUrls("http://127.0.0.1:0");
             fixture.host = hostBuilder.Build(); fixture.runtime.Map(fixture.host); await fixture.host.StartAsync();
@@ -343,7 +456,7 @@ internal static class RunnerTests
             var result = await StartRequestAsync();
             Check(result.IsSuccessStatusCode, "runner fixture starts through authenticated HTTP boundary");
         }
-        public Task<HttpResponseMessage> StartRequestAsync(object[]? messages = null) => browser.PostAsJsonAsync("/copilotkit/agent/default/run", new { threadId = "thread", runId = "run", messages = messages ?? Array.Empty<object>(), tools = Array.Empty<object>(), context = Array.Empty<object>(), state = new { }, forwardedProps = new { } });
+        public Task<HttpResponseMessage> StartRequestAsync(object[]? messages = null, string runId = "run", CancellationToken cancellationToken = default) => browser.PostAsJsonAsync("/copilotkit/agent/default/run", new { threadId = "thread", runId, messages = messages ?? Array.Empty<object>(), tools = Array.Empty<object>(), context = Array.Empty<object>(), state = new { }, forwardedProps = new { } }, cancellationToken);
         public Task StopRuntimeAsync() => runtime.DisposeAsync().AsTask();
         public async Task<bool> StopWithoutBodyAsync() => (await browser.PostAsync("/copilotkit/agent/default/stop/thread", null)).IsSuccessStatusCode;
         public Task<HttpResponseMessage> StopAsync(string thread, object body) => browser.PostAsJsonAsync("/copilotkit/agent/default/stop/" + thread, body);

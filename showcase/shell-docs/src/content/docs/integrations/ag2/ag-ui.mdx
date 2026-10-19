@@ -5,4 +5,21 @@ description: "The AG-UI protocol connects your frontend to your AI agents via ev
 ---
 import AGUI from "@/snippets/shared/backend/ag-ui.mdx";
 
+<Callout type="info">
+  On the AG2 side, `AGUIStream` (from the `ag2.ag_ui` module, AG2 1.1.2+) exposes any agent as an AG-UI endpoint that CopilotKit consumes directly — see the [quickstart](/ag2/quickstart) and the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
+</Callout>
+
+AG2 1.1.2+ also describes the agent in a **capabilities** document (`stream.capabilities()`), which `stream.build_asgi()` serves on a `GET` to the same endpoint. It holds the agent's identity, whether it accepts client-provided tools and state snapshots, its named sub-agents, and whether it supports interrupts. It is read off the agent before any run starts. A group AG2 cannot vouch for is omitted, which AG-UI reads as "says nothing", not "unsupported". See the <a href="https://docs.ag2.ai/docs/user-guide/ag-ui/overview#capabilities" target="_blank">AG2 capabilities reference</a>.
+
+A hand-written `@app.post("/chat")` route serves no `GET`, so a request to it returns 405. Add a route that returns the document:
+
+```python title="agent.py"
+@app.get("/chat")
+async def capabilities() -> JSONResponse:
+    # The same serialization `build_asgi()` uses: camelCase keys, unset groups left out.
+    return JSONResponse(stream.capabilities().model_dump(by_alias=True, exclude_none=True))
+```
+
+`JSONResponse` comes from `fastapi.responses`.
+
 <AGUI components={props.components} />

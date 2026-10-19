@@ -1,8 +1,14 @@
 // @vitest-environment jsdom
 
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Tab, Tabs } from "@/components/docs-tabs";
 
 const STORAGE_KEY = "shell-docs.tab.pm";
@@ -20,6 +26,45 @@ function PanelFor(text: string): HTMLElement | null {
   return screen.getByText(text).closest('[role="tabpanel"]');
 }
 
+function LanguageGroup({
+  name,
+  groupId = "runtime_language",
+  items = ["TypeScript", "Python"],
+  persist = true,
+  urlDefault,
+}: {
+  name: string;
+  groupId?: string;
+  items?: string[];
+  persist?: boolean;
+  urlDefault?: string;
+}): React.ReactElement {
+  return (
+    <section aria-label={name}>
+      <Tabs
+        groupId={groupId}
+        persist={persist}
+        items={items}
+        urlDefault={urlDefault}
+      >
+        {items.map((item) => (
+          <Tab key={item} value={item}>
+            {name} {item} content
+          </Tab>
+        ))}
+      </Tabs>
+    </section>
+  );
+}
+
+function selectLanguage(name: string, language: string): void {
+  fireEvent.mouseDown(
+    within(screen.getByRole("region", { name })).getByRole("tab", {
+      name: language,
+    }),
+  );
+}
+
 describe("DocsTabs", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -27,6 +72,90 @@ describe("DocsTabs", () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it("synchronizes mounted runtime groups without changing agent or non-persistent tabs", () => {
+    render(
+      <>
+        <LanguageGroup name="install" />
+        <LanguageGroup name="runtime" />
+        <LanguageGroup name="agent" groupId="agent_language" />
+        <LanguageGroup name="local" persist={false} />
+      </>,
+    );
+
+    selectLanguage("install", "Python");
+
+    expect(PanelFor("runtime Python content")?.getAttribute("data-state")).toBe(
+      "active",
+    );
+    expect(
+      PanelFor("agent TypeScript content")?.getAttribute("data-state"),
+    ).toBe("active");
+    expect(
+      PanelFor("local TypeScript content")?.getAttribute("data-state"),
+    ).toBe("active");
+
+    selectLanguage("runtime", "TypeScript");
+    expect(
+      PanelFor("install TypeScript content")?.getAttribute("data-state"),
+    ).toBe("active");
+  });
+
+  it("allows a user choice to synchronize groups seeded by a URL default", () => {
+    window.localStorage.setItem("shell-docs.tab.runtime_language", "python");
+    render(
+      <>
+        <LanguageGroup name="install" urlDefault="TypeScript" />
+        <LanguageGroup name="runtime" urlDefault="TypeScript" />
+      </>,
+    );
+
+    expect(
+      PanelFor("runtime TypeScript content")?.getAttribute("data-state"),
+    ).toBe("active");
+    selectLanguage("install", "Python");
+    expect(PanelFor("runtime Python content")?.getAttribute("data-state")).toBe(
+      "active",
+    );
+  });
+
+  it("keeps the active panel when a sibling selects an unsupported value", () => {
+    render(
+      <>
+        <LanguageGroup name="install" />
+        <LanguageGroup name="limited" items={["TypeScript", "JavaScript"]} />
+      </>,
+    );
+
+    selectLanguage("install", "Python");
+    expect(
+      PanelFor("limited TypeScript content")?.getAttribute("data-state"),
+    ).toBe("active");
+  });
+
+  it("switches and synchronizes tabs even when localStorage is unavailable", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    render(
+      <>
+        <LanguageGroup name="install" />
+        <LanguageGroup name="runtime" />
+      </>,
+    );
+
+    selectLanguage("install", "Python");
+    expect(PanelFor("install Python content")?.getAttribute("data-state")).toBe(
+      "active",
+    );
+    expect(PanelFor("runtime Python content")?.getAttribute("data-state")).toBe(
+      "active",
+    );
   });
 
   it("selects the first item when no default is given", () => {

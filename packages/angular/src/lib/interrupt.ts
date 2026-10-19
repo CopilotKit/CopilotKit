@@ -8,11 +8,8 @@ import type {
   ResumeEntry,
   RunAgentResult,
 } from "@ag-ui/client";
-import {
-  ɵInterruptState,
-  type ɵInterruptDecision,
-  type ɵPendingInterrupt,
-} from "@copilotkit/core";
+import { ɵInterruptState } from "@copilotkit/core";
+import type { ɵInterruptDecision, ɵPendingInterrupt } from "@copilotkit/core";
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
 
@@ -107,7 +104,6 @@ export class InterruptController<TValue = unknown, TResult = never> {
   readonly #result = signal<TResult | null>(null);
   readonly #error = signal<unknown | null>(null);
   readonly #interruptState = new ɵInterruptState<TValue>();
-  readonly #interruptRunIds = new Map<string, string>();
   readonly #runner: InterruptRunner;
   readonly #options: InjectInterruptOptions<TValue, TResult>;
   #agent?: AbstractAgent;
@@ -179,9 +175,6 @@ export class InterruptController<TValue = unknown, TResult = never> {
       },
       onRunFinishedEvent: (params) => {
         if (params.outcome === "interrupt") {
-          for (const interrupt of params.interrupts) {
-            this.#interruptRunIds.set(interrupt.id, params.input.runId);
-          }
           standard = params.interrupts;
         }
       },
@@ -425,9 +418,6 @@ export class InterruptController<TValue = unknown, TResult = never> {
     if (decision.kind !== "resume") return;
 
     try {
-      const runId = decision.resume
-        .map((entry) => this.#interruptRunIds.get(entry.interruptId))
-        .find((candidate): candidate is string => candidate !== undefined);
       const toolMessages = decision.toolResults.map(
         (toolResult): Message =>
           ({
@@ -440,7 +430,6 @@ export class InterruptController<TValue = unknown, TResult = never> {
       for (const message of toolMessages) agent.addMessage(message);
       return this.#startResume(agent, {
         resume: decision.resume,
-        ...(runId !== undefined ? { runId } : {}),
       });
     } catch (error) {
       this.#clear(error);
@@ -490,6 +479,5 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#error.set(error);
     this.#resumePromise = undefined;
     this.#interruptState.clear();
-    this.#interruptRunIds.clear();
   }
 }

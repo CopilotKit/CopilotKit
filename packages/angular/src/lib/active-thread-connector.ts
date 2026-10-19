@@ -1,14 +1,17 @@
-import { effect, untracked, type Signal } from "@angular/core";
+import type { Signal } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { AgentStore } from "./agent";
 import type { CopilotChatConfiguration } from "./chat-configuration";
+import { explicitEffect } from "./explicit-effect";
 
 /**
  * Opens a connect for `agent` (whose `threadId` the connector has already
  * pinned) and returns a handle that tears it down. The chat component owns
  * the connection's abort, detach and loading state.
  */
-export type ConnectFn = (agent: AbstractAgent) => { dispose(): void };
+export type ConnectFn = (agent: AbstractAgent) => {
+  dispose(): void | Promise<void>;
+};
 
 /**
  * Wires the active chat thread to the live agent.
@@ -29,16 +32,16 @@ export type ConnectFn = (agent: AbstractAgent) => { dispose(): void };
  *   initial mount nor on an agent-store swap that leaves the thread id unchanged
  *   (which would otherwise wipe a resumed/shared agent's existing history).
  *
- * Tracked reads happen in the effect's reactive scope; all mutation and the
- * connect call run inside `untracked()` so they do not register as
- * dependencies (mirrors the effect/untracked idiom in `threads.ts`).
+ * The tracked reads are exactly the `explicitEffect` dependency function; all
+ * mutation and the connect call run in its untracked body, so they do not
+ * register as dependencies.
  *
  * @param config - The chat configuration exposing the resolved thread signals.
  * @param agentStore - Signal yielding the current {@link AgentStore}.
  * @param connect - Opens a connect and returns its tear-down handle.
  */
 export function connectActiveThread(
-  config: CopilotChatConfiguration,
+  config: Pick<CopilotChatConfiguration, "threadId" | "hasExplicitThreadId">,
   agentStore: Signal<AgentStore>,
   connect: ConnectFn,
 ): void {
@@ -48,21 +51,74 @@ export function connectActiveThread(
   // unchanged. Clearing only on a real transition prevents wiping a
   // resumed/shared agent's existing message history.
   let lastThreadId: string | undefined;
-  effect((onCleanup) => {
-    const threadId = config.threadId();
-    const explicit = config.hasExplicitThreadId();
-    const store = agentStore();
-    untracked(() => {
+  let lastAgent: AbstractAgent | undefined;
+  // Keep teardown ordered across agent swaps, since clones can share cursors.
+  let pendingDetach: Promise<void> | undefined;
+  explicitEffect(
+    () => ({
+      threadId: config.threadId(),
+      explicit: config.hasExplicitThreadId(),
+      store: agentStore(),
+    }),
+    ({ threadId, explicit, store }, onCleanup) => {
       const agent = store.agent;
+      const discardedThreadId =
+        lastAgent === agent ? lastThreadId : agent.threadId;
+      let active = true;
+      let handle: ReturnType<ConnectFn> | undefined;
       agent.threadId = threadId;
       if (explicit) {
-        const handle = connect(agent);
-        onCleanup(() => handle.dispose());
+        if (pendingDetach) {
+          void pendingDetach.then(() => {
+            if (active) handle = connect(agent);
+          });
+        } else {
+          handle = connect(agent);
+        }
       } else if (lastThreadId !== undefined && threadId !== lastThreadId) {
-        // Real switch to a new fresh thread; not mount and not a same-thread swap.
-        agent.setMessages([]);
+        const clearCursor = () => {
+          if (!discardedThreadId) return;
+          if (
+            "clearReplayCursor" in agent &&
+            typeof agent.clearReplayCursor === "function"
+          )
+            agent.clearReplayCursor(discardedThreadId);
+          if (
+            "clearReconnectCursor" in agent &&
+            typeof agent.clearReconnectCursor === "function"
+          )
+            agent.clearReconnectCursor(discardedThreadId);
+        };
+        const clearBaseline = () => {
+          if (!active) return;
+          agent.setMessages([]);
+          agent.setState({});
+          agent.pendingInterrupts = [];
+        };
+        const detach = pendingDetach ?? agent.detachActiveRun();
+        clearCursor();
+        clearBaseline();
+        const reset = detach.then(() => {
+          clearCursor();
+          clearBaseline();
+        });
+        pendingDetach = reset;
+        void reset.finally(() => {
+          if (pendingDetach === reset) pendingDetach = undefined;
+        });
       }
+      onCleanup(() => {
+        active = false;
+        const detached = handle?.dispose();
+        if (detached) {
+          pendingDetach = detached;
+          void detached.finally(() => {
+            if (pendingDetach === detached) pendingDetach = undefined;
+          });
+        }
+      });
       lastThreadId = threadId;
-    });
-  });
+      lastAgent = agent;
+    },
+  );
 }

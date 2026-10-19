@@ -331,7 +331,7 @@ Running tasks do not receive new environment-secret values until they restart. T
 
 ### Inspect a failed rollout
 
-Use ECS service events, stopped-task reasons, and `/ecs/<deploymentName>/...` CloudWatch log groups. Container Insights defaults to enabled. `otlpEndpoint` passes exporter configuration to instrumented workloads; the bundle does not install an observability backend.
+Use ECS service events, stopped-task reasons, and `/ecs/<deploymentName>/...` CloudWatch log groups. Container Insights defaults to enabled. Set `otlpEndpoint` to the base URL of your OTLP collector to receive traces. The bundle does not install an observability backend. See [Monitor with OpenTelemetry](/intelligence/self-hosting-observability).
 
 | Failure | Check |
 | --- | --- |

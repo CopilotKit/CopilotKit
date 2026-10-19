@@ -236,7 +236,7 @@ describe("searchable pages", () => {
       surfaces: surface([
         {
           type: "group",
-          title: "Rich Threads",
+          title: "AG-UI Streams",
           slug: "sidebar#rich-threads",
           children: [page("threads")],
         },
@@ -306,10 +306,10 @@ describe("searchable pages", () => {
 
     const { navTitles } = computeSearchablePages({
       contentDir,
-      surfaces: surface([page("threads", "Rich Threads")]),
+      surfaces: surface([page("threads", "AG-UI Streams")]),
     });
 
-    expect(navTitles.get("threads")).toBe("Rich Threads");
+    expect(navTitles.get("threads")).toBe("AG-UI Streams");
   });
 
   it("ignores a sidebar title that only makes sense next to its parent", () => {
@@ -317,7 +317,7 @@ describe("searchable pages", () => {
       threads: "---\ntitle: Threads\n---\n",
     });
 
-    // `nav_title: Overview` reads fine under a "Rich Threads" group and
+    // `nav_title: Overview` reads fine under a "AG-UI Streams" group and
     // identifies nothing in a flat list of search results.
     const { navTitles } = computeSearchablePages({
       contentDir,

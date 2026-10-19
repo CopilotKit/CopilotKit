@@ -339,6 +339,7 @@ function InputWithTools() {
 ```tsx
 function ChatInputWithAgent() {
   const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
 
   return (
     <CopilotChatInput
@@ -349,9 +350,11 @@ function ChatInputWithAgent() {
           content: text,
           id: crypto.randomUUID(),
         });
-        agent.runAgent();
+        // Drive the run through CopilotKit so registered frontend tools
+        // execute and the run is tracked for stop.
+        copilotkit.runAgent({ agent });
       }}
-      onStop={() => agent.abortRun()}
+      onStop={() => copilotkit.stopAgent({ agent })}
       autoFocus
     />
   );

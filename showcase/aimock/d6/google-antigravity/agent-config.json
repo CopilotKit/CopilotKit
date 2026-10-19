@@ -1,0 +1,387 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / agent-config. The model reads the tone / expertise / responseLength context entry through the built-in `get_app_context` before every answer (src/agents/agent_config.py). Served through /api/copilotkit-agent-config as agent `agent-config-demo`.",
+    "sourceFile": "d5-agent-config.ts",
+    "created": "2026-09-30",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages, so hasToolResult/toolCallId never fire and every leg is staged on turnIndex (aimock's count of assistant messages; +2 per tool round-trip, +1 per text answer). The highest turnIndex <= assistantCount wins, so each leg carries every absolute position a test reaches it from: a fresh thread (0/2...) AND its slot in the probe's single-thread sequence."
+  },
+  "fixtures": [
+    {
+      "_comment": "tone:professional: turn 1 of d5-agent-config.ts and a fresh thread alike. The probe runs all six prompts in ONE thread, and each turn is a get_app_context read (the adapter's silent built-in; the probe sets the dropdown before sending) plus the answer, 3 assistant messages, so turn k sits at 3k/3k+2. Every later prompt also carries fresh-thread legs at 0/2. The two texts of a pair must differ; responseLength:detailed must be >= 80 chars longer than concise.",
+      "match": {
+        "userMessage": "tone:professional — introduce yourself per your config",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_001",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "tone:professional — introduce yourself per your config",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Good day. I am your CopilotKit assistant, configured to operate in a professional capacity. I am prepared to assist you with any questions or tasks you may have. How may I be of service today?"
+      }
+    },
+    {
+      "_comment": "tone:casual on a fresh thread.",
+      "match": {
+        "userMessage": "tone:casual — introduce yourself per your config",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_002",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "tone:casual — introduce yourself per your config",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Hey there! I'm your CopilotKit buddy. I keep things chill and easy-going. What's up — need a hand with anything?"
+      }
+    },
+    {
+      "_comment": "tone:casual: turn 2 of d5-agent-config.ts.",
+      "match": {
+        "userMessage": "tone:casual — introduce yourself per your config",
+        "turnIndex": 3,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_003",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "tone:casual — introduce yourself per your config",
+        "turnIndex": 5,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Hey there! I'm your CopilotKit buddy. I keep things chill and easy-going. What's up — need a hand with anything?"
+      }
+    },
+    {
+      "_comment": "expertise:beginner on a fresh thread.",
+      "match": {
+        "userMessage": "expertise:beginner — explain how copilotkit works per your config",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_004",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expertise:beginner — explain how copilotkit works per your config",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "CopilotKit is like a smart helper you can add to your website or app. Think of it as a friendly assistant that lives inside your project and can answer questions, fill out forms, and do tasks for you automatically."
+      }
+    },
+    {
+      "_comment": "expertise:beginner: turn 3 of d5-agent-config.ts.",
+      "match": {
+        "userMessage": "expertise:beginner — explain how copilotkit works per your config",
+        "turnIndex": 6,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_005",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expertise:beginner — explain how copilotkit works per your config",
+        "turnIndex": 8,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "CopilotKit is like a smart helper you can add to your website or app. Think of it as a friendly assistant that lives inside your project and can answer questions, fill out forms, and do tasks for you automatically."
+      }
+    },
+    {
+      "_comment": "expertise:expert on a fresh thread.",
+      "match": {
+        "userMessage": "expertise:expert — explain how copilotkit works per your config",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_006",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expertise:expert — explain how copilotkit works per your config",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "CopilotKit is an open-source AI agent framework with three layers: a React frontend SDK providing hooks (useAgent, useFrontendTool, useAgentContext), a runtime that manages the AG-UI event stream, and agent adapters for LangGraph, Antigravity, and custom backends. The runtime proxies tool calls between the frontend and the agent, handling streaming, state synchronization, and human-in-the-loop interrupts transparently."
+      }
+    },
+    {
+      "_comment": "expertise:expert: turn 4 of d5-agent-config.ts.",
+      "match": {
+        "userMessage": "expertise:expert — explain how copilotkit works per your config",
+        "turnIndex": 9,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_007",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expertise:expert — explain how copilotkit works per your config",
+        "turnIndex": 11,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "CopilotKit is an open-source AI agent framework with three layers: a React frontend SDK providing hooks (useAgent, useFrontendTool, useAgentContext), a runtime that manages the AG-UI event stream, and agent adapters for LangGraph, Antigravity, and custom backends. The runtime proxies tool calls between the frontend and the agent, handling streaming, state synchronization, and human-in-the-loop interrupts transparently."
+      }
+    },
+    {
+      "_comment": "responseLength:concise on a fresh thread.",
+      "match": {
+        "userMessage": "responseLength:concise — describe agent context per your config",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_008",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "responseLength:concise — describe agent context per your config",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Agent context is a per-turn data bag passed from the frontend to the agent via useAgentContext."
+      }
+    },
+    {
+      "_comment": "responseLength:concise: turn 5 of d5-agent-config.ts.",
+      "match": {
+        "userMessage": "responseLength:concise — describe agent context per your config",
+        "turnIndex": 12,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_009",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "responseLength:concise — describe agent context per your config",
+        "turnIndex": 14,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Agent context is a per-turn data bag passed from the frontend to the agent via useAgentContext."
+      }
+    },
+    {
+      "_comment": "responseLength:detailed on a fresh thread.",
+      "match": {
+        "userMessage": "responseLength:detailed — describe agent context per your config",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_010",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "responseLength:detailed — describe agent context per your config",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Agent context is a per-turn data bag passed from the frontend to the agent via the useAgentContext hook. On the React side, you call useAgentContext({ description, value }) and CopilotKit sends those values with every run as RunAgentInput.context. This agent reads them at the start of each turn through its get_app_context tool, so every reply reflects the latest frontend state. This enables real-time personalisation: switching a dropdown from 'professional' to 'casual' immediately changes how the agent responds, without restarting the conversation or reconfiguring the backend. The pattern extends to any key-value pair your app needs — feature flags, user roles, locale, or custom metadata."
+      }
+    },
+    {
+      "_comment": "responseLength:detailed: turn 6 of d5-agent-config.ts.",
+      "match": {
+        "userMessage": "responseLength:detailed — describe agent context per your config",
+        "turnIndex": 15,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_011",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "responseLength:detailed — describe agent context per your config",
+        "turnIndex": 17,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Agent context is a per-turn data bag passed from the frontend to the agent via the useAgentContext hook. On the React side, you call useAgentContext({ description, value }) and CopilotKit sends those values with every run as RunAgentInput.context. This agent reads them at the start of each turn through its get_app_context tool, so every reply reflects the latest frontend state. This enables real-time personalisation: switching a dropdown from 'professional' to 'casual' immediately changes how the agent responds, without restarting the conversation or reconfiguring the backend. The pattern extends to any key-value pair your app needs — feature flags, user roles, locale, or custom metadata."
+      }
+    },
+    {
+      "_comment": "agent-config.spec.ts 'changing config between sends produces distinct request payloads': \"First\" on a fresh thread, then \"Second\" in the same thread at assistantCount 3. The spec only checks the request payloads; these legs keep the run from missing a fixture. The spec's plain \"Hello\" sends are answered by gen-ui-agent.json's text-only \"Hello\" fixture (an exact duplicate key would break the collision ratchet).",
+      "match": {
+        "userMessage": "First",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_012",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "First",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Hello. I am your CopilotKit assistant, set to a professional tone, intermediate expertise and concise replies."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Second",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_013",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Second",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Hey! Casual mode's on now, and I'll go into more detail from here."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Second",
+        "turnIndex": 3,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_cfg_014",
+            "name": "get_app_context",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Second",
+        "turnIndex": 5,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Hey! Casual mode's on now, and I'll go into more detail from here."
+      }
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "name": "starter-claude-managed-agents",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "tags": ["scope:examples"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "examples/integrations/claude-managed-agents",
+        "command": "npm run build"
+      },
+      "dependsOn": []
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "examples/integrations/claude-managed-agents",
+        "command": "npm run typecheck"
+      },
+      "dependsOn": []
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "examples/integrations/claude-managed-agents",
+        "command": "npm run test"
+      },
+      "dependsOn": []
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "examples/integrations/claude-managed-agents",
+        "command": "npm run lint"
+      },
+      "dependsOn": []
+    },
+    "e2e": {
+      "executor": "nx:run-commands",
+      "options": {
+        "cwd": "examples/integrations/claude-managed-agents",
+        "command": "npm run test:e2e"
+      },
+      "dependsOn": []
+    }
+  },
+  "implicitDependencies": ["!@copilotkit/*"]
+}

@@ -7,7 +7,7 @@ import {
 } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AbstractAgent } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import type {
   AgentSubscriber,
   BaseEvent,
@@ -35,6 +35,7 @@ type StubCore = Pick<
   | "headers"
   | "subscribeToAgentWithOptions"
   | "runAgent"
+  | "applyHeadersToAgent"
 > & {
   agents?: Record<string, AbstractAgent>;
 };
@@ -127,6 +128,32 @@ class MockAgent extends AbstractAgent {
     }
   }
 
+  emitRunError() {
+    for (const subscriber of this.subscribers) {
+      subscriber.onRunErrorEvent?.({
+        event: { type: EventType.RUN_ERROR, message: "Saved failure" },
+        messages: this.messages,
+        state: this.state,
+        agent: this,
+      });
+    }
+  }
+
+  emitRunStarted() {
+    for (const subscriber of this.subscribers) {
+      subscriber.onRunStartedEvent?.({
+        event: {
+          type: EventType.RUN_STARTED,
+          threadId: this.threadId,
+          runId: "successor",
+        },
+        messages: this.messages,
+        state: this.state,
+        agent: this,
+      });
+    }
+  }
+
   emitRunFinalized() {
     for (const s of this.subscribers) {
       s.onRunFinalized?.({
@@ -160,6 +187,7 @@ class CopilotKitStub {
   readonly #runtimeUrl = signal<string | undefined>(undefined);
   readonly #runtimeTransport = signal<"rest" | "single" | "auto">("auto");
   readonly #headers = signal<Record<string, string>>({});
+  readonly #headersGeneration = signal<number>(0);
   readonly #credentials = signal<RequestCredentials | undefined>(undefined);
   getAgent = vi.fn((id: string) => this.#agents()[id]);
   agents = this.#agents.asReadonly();
@@ -167,7 +195,12 @@ class CopilotKitStub {
   runtimeUrl = this.#runtimeUrl.asReadonly();
   runtimeTransport = this.#runtimeTransport.asReadonly();
   headers = this.#headers.asReadonly();
+  ɵheadersGeneration = this.#headersGeneration.asReadonly();
   credentials = this.#credentials.asReadonly();
+  // A real core instance backs `subscribeToAgentWithOptions` AND
+  // `applyHeadersToAgent` so the latter exercises its actual (own-only for a
+  // `ProxiedCopilotRuntimeAgent`, merged for a plain `HttpAgent`) behavior
+  // rather than a no-op spy (#1937).
   #coreInstance = new CopilotKitCore({});
   runAgent = vi.fn(async () => ({ result: null, newMessages: [] }));
   core: StubCore = {
@@ -178,6 +211,9 @@ class CopilotKitStub {
     subscribeToAgentWithOptions:
       this.#coreInstance.subscribeToAgentWithOptions.bind(this.#coreInstance),
     runAgent: this.runAgent as unknown as CopilotKitCore["runAgent"],
+    applyHeadersToAgent: this.#coreInstance.applyHeadersToAgent.bind(
+      this.#coreInstance,
+    ),
   };
 
   setAgents(map: Record<string, AbstractAgent>) {
@@ -196,8 +232,10 @@ class CopilotKitStub {
   }
 
   setHeaders(value: Record<string, string>) {
-    this.#headers.set(value);
-    this.core = { ...this.core, headers: value };
+    this.#coreInstance.setHeaders(value);
+    this.#headers.set(this.#coreInstance.headers);
+    this.#headersGeneration.set(this.#coreInstance.ɵheadersGeneration);
+    this.core = { ...this.core, headers: this.#coreInstance.headers };
   }
 
   setCredentials(value: RequestCredentials | undefined) {
@@ -250,6 +288,21 @@ describe("injectAgentStore", () => {
     agent.emitRunInitialized();
     expect(store?.isRunning()).toBe(true);
 
+    // Replayed errors are history; the connection still owns the busy state.
+    agent.isRunning = true;
+    agent.emitRunError();
+    expect(store?.isRunning()).toBe(true);
+    agent.isRunning = false;
+    agent.emitRunError();
+    expect(store?.isRunning()).toBe(false);
+    // A successor turn changes only run status, without messages/state updates.
+    agent.isRunning = true;
+    agent.emitRunStarted();
+    expect(store?.isRunning()).toBe(true);
+    agent.emitRunFinalized();
+    expect(store?.isRunning()).toBe(false);
+
+    agent.emitRunInitialized();
     agent.emitRunFailed();
     expect(store?.isRunning()).toBe(false);
   });
@@ -321,6 +374,10 @@ describe("injectAgentStore", () => {
     copilotKitStub.setRuntimeConnectionStatus(
       CopilotKitCoreRuntimeConnectionStatus.Connecting,
     );
+    const applyHeadersSpy = vi.spyOn(
+      copilotKitStub.core,
+      "applyHeadersToAgent",
+    );
 
     @Component({
       standalone: true,
@@ -341,7 +398,16 @@ describe("injectAgentStore", () => {
     // Single narrowing after the instanceof assertion above
     const proxiedAgent = proxied as ProxiedCopilotRuntimeAgent;
     expect(proxiedAgent.agentId).toBe("missing");
-    expect(proxiedAgent.headers).toEqual({ "x-test": "1" });
+    // The discriminating assertion: the provisional MUST go through
+    // `applyHeadersToAgent` (which installs `ɵruntimeFetch`), not a manual
+    // header write.
+    expect(applyHeadersSpy).toHaveBeenCalledWith(proxiedAgent);
+    // `applyHeadersToAgent` sets only the agent's OWN (construction-time)
+    // headers on a `ProxiedCopilotRuntimeAgent` — none were passed here, so
+    // this stays empty. Core headers ride via the `ɵruntimeFetch` it
+    // installs, resolved fresh at send time (#1937); see
+    // headers-at-send-time.spec.ts for that behavior.
+    expect(proxiedAgent.headers).toEqual({});
   });
 
   it("keeps credentials current on the cached provisional agent", () => {
@@ -366,12 +432,19 @@ describe("injectAgentStore", () => {
     expect(initialAgent).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
     expect(initialAgent.credentials).toBe("include");
 
+    const applyHeadersSpy = vi.spyOn(
+      copilotKitStub.core,
+      "applyHeadersToAgent",
+    );
     copilotKitStub.setCredentials("omit");
 
     const updatedAgent = fixture.componentInstance.store()
       .agent as ProxiedCopilotRuntimeAgent;
     expect(updatedAgent).toBe(initialAgent);
     expect(updatedAgent.credentials).toBe("omit");
+    // The cached-provisional branch re-applies headers on every re-resolve
+    // too (the discriminating assertion for this test).
+    expect(applyHeadersSpy).toHaveBeenCalledWith(updatedAgent);
   });
 
   it("shares a provisional runtime agent across same-id consumers", () => {

@@ -10,7 +10,7 @@
     "---Basics---",
     "prebuilt-components",
     {
-      "title": "Rich Threads",
+      "title": "AG-UI Streams",
       "defaultOpen": true,
       "pages": [
         "threads",

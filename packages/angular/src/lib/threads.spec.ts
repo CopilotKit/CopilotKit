@@ -67,6 +67,9 @@ class CopilotKitStub {
     );
   readonly #runtimeUrl = signal<string | undefined>(undefined);
   readonly #headers = signal<Record<string, string>>({});
+  // Bumped only by `setHeaders` below — never by header VALUES alone —
+  // mirroring the real CopilotKit wrapper's `ɵheadersGeneration` (#1937).
+  readonly #headersGeneration = signal<number>(0);
   // `threadEndpoints`/`intelligence` are signals (mirroring the real
   // CopilotKit wrapper) so the threads store's context-sync effect re-runs
   // when `/info` populates them — including `wsUrl` arriving after Connected.
@@ -78,6 +81,7 @@ class CopilotKitStub {
   readonly runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
   readonly runtimeUrl = this.#runtimeUrl.asReadonly();
   readonly headers = this.#headers.asReadonly();
+  readonly ɵheadersGeneration = this.#headersGeneration.asReadonly();
   readonly threadEndpoints = this.#threadEndpoints.asReadonly();
   readonly intelligence = this.#intelligence.asReadonly();
 
@@ -109,8 +113,12 @@ class CopilotKitStub {
   ): void {
     this.#runtimeConnectionStatus.set(value);
   }
+  /** Mirrors a real `setHeaders()` call: a genuine source change, so the
+   *  generation bumps every time this is called (callers that want to
+   *  exercise "no change" pass the identical value they last set). */
   setHeaders(value: Record<string, string>): void {
     this.#headers.set(value);
+    this.#headersGeneration.update((n) => n + 1);
   }
   setThreadEndpoints(value: ThreadEndpointsStub | undefined): void {
     this.#threadEndpoints.set(value);
@@ -510,9 +518,12 @@ describe("injectThreads", () => {
     expect(listCalls.length).toBe(2);
   });
 
-  it("does not re-dispatch when headers change key order only", async () => {
+  it("re-dispatches exactly once when the header source's generation changes (#1937)", async () => {
+    // Headers are no longer part of the dispatched context at all (the
+    // store's `fetch` is `ɵruntimeFetch`, which overlays them at send time),
+    // so a change here can only be observed as a re-dispatch keyed on
+    // `ɵheadersGeneration` — never on header VALUES or key order.
     active!.fetchMock.mockResolvedValue(jsonResponse({ threads: [] }));
-    active!.stub.setHeaders({ a: "1", b: "2" });
 
     @Component({ standalone: true, template: "" })
     class Host {
@@ -525,19 +536,24 @@ describe("injectThreads", () => {
     fixture.detectChanges();
     await active!.flush();
 
-    const before = active!.fetchMock.mock.calls.filter(([url]) =>
-      String(url).includes("/threads?"),
-    ).length;
+    const listCallCount = () =>
+      active!.fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes("/threads?"),
+      ).length;
+    const before = listCallCount();
 
-    // Same entries, different insertion order: signature must be unchanged.
-    active!.stub.setHeaders({ b: "2", a: "1" });
+    // A genuine source change (a real `setHeaders()` call) bumps the
+    // generation: re-dispatches exactly once.
+    active!.stub.setHeaders({ a: "1", b: "2" });
     fixture.detectChanges();
     await active!.flush();
+    expect(listCallCount()).toBe(before + 1);
 
-    const after = active!.fetchMock.mock.calls.filter(([url]) =>
-      String(url).includes("/threads?"),
-    ).length;
-    expect(after).toBe(before);
+    // Settling further (repeated change detection, nothing new to dispatch)
+    // must not keep re-dispatching.
+    fixture.detectChanges();
+    await active!.flush();
+    expect(listCallCount()).toBe(before + 1);
   });
 
   it("keeps destructured fetchMoreThreads/refetchThreads/startNewThread callable", async () => {

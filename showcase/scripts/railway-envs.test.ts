@@ -10,6 +10,8 @@ import {
   SERVICES,
   STAGING_ENV_ID,
   assertClosureValid,
+  effectiveStaticGatePolicy,
+  DISPOSABLE_LIFECYCLE_POLICY,
   assertDispatchNamesUnique,
   assertEnvRegistryConsistent,
   assertImageConsumersValid,
@@ -32,6 +34,24 @@ import type {
 } from "./railway-envs";
 
 describe("railway-envs SSOT", () => {
+  it("keeps the permanent Intelligence test runner confined to staging", () => {
+    const name = "showcase-intelligence-test-runner";
+    const entry = SERVICES[name];
+    expect(entry).toBeDefined();
+    expect(Object.keys(entry.environments)).toEqual(["staging"]);
+    expect(entry.autoUpdates).toEqual({ staging: "unmanaged" });
+    expect(entry.ciBuilt).toBe(false);
+    expect(effectiveStaticGatePolicy(entry)).toEqual({
+      presence: "optional",
+      image: "ignored",
+    });
+    expect(probeEnabled(name, "staging")).toBe(false);
+    expect(CI_BUILT_SERVICES).not.toContain(name);
+    expect(DISPOSABLE_LIFECYCLE_POLICY.permanentServices).toContainEqual({
+      name,
+      serviceId: entry.serviceId,
+    });
+  });
   it("exposes the canonical project id", () => {
     expect(PROJECT_ID).toBe("6f8c6bff-a80d-4f8f-b78d-50b32bcf4479");
   });
@@ -107,9 +127,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains exactly 42 services (30 showcase/infra + 12 starter-*)", () => {
+  it("contains 43 managed services plus seven staging-only Intelligence services", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(42);
+    expect(names.length).toBe(50);
   });
 
   it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {
@@ -252,12 +272,13 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("CI_BUILT_SERVICES contains exactly 40 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
-    // 28 showcase/infra CI-built (including conversational flows) + 12
+  it("CI_BUILT_SERVICES contains exactly 41 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
+    // 29 showcase/infra CI-built (including conversational flows and the
+    // google-antigravity) + 12
     // starter-<slug> (S2 brought them under the gate; they ARE built+pushed by
     // showcase_build.yml's `build-starters` job to
     // ghcr.io/copilotkit/starter-<slug>:latest).
-    expect(CI_BUILT_SERVICES.size).toBe(40);
+    expect(CI_BUILT_SERVICES.size).toBe(41);
     // pocketbase is now CI-built (showcase_build.yml `pocketbase` slot,
     // gated to showcase/pocketbase/** changes).
     expect(CI_BUILT_SERVICES.has("pocketbase")).toBe(true);
@@ -1090,7 +1111,7 @@ describe("promote-tier SSOT fields", () => {
   });
 
   it("declares runtimeDeps: every agent service needs a current aimock", () => {
-    for (const [key, entry] of Object.entries(SERVICES)) {
+    for (const entry of Object.values(SERVICES)) {
       if (entry.probeDriver !== "agent") continue;
       expect(entry.runtimeDeps).toContain("aimock");
     }
@@ -1407,8 +1428,14 @@ describe("autoUpdates deploy-consolidation policy (per-env, staging-first)", () 
   // BOTH staging and prod are enforced "disabled" (prod was migrated off
   // "unmanaged" once its live autoUpdates were flipped to disabled). The
   // sibling drift gate ENFORCES the concrete-"disabled" envs for both.
-  it("every service declares staging 'disabled' and prod 'disabled'", () => {
+  it("every managed service declares staging 'disabled' and prod 'disabled'", () => {
     for (const [name, entry] of Object.entries(SERVICES)) {
+      if (entry.gateIgnore) {
+        expect(entry.autoUpdates, `${name}.autoUpdates`).toEqual({
+          staging: "unmanaged",
+        });
+        continue;
+      }
       const au = (entry as { autoUpdates?: Record<string, string> })
         .autoUpdates;
       expect(
@@ -1433,6 +1460,12 @@ describe("autoUpdates deploy-consolidation policy (per-env, staging-first)", () 
     };
     expect(generated.services.length).toBeGreaterThan(0);
     for (const svc of generated.services) {
+      if (SERVICES[svc.name].gateIgnore) {
+        expect(svc.autoUpdates, `${svc.name}.autoUpdates`).toEqual({
+          staging: "unmanaged",
+        });
+        continue;
+      }
       expect(
         svc.autoUpdates?.staging,
         `generated ${svc.name}.autoUpdates.staging must be "disabled"`,
@@ -1441,6 +1474,58 @@ describe("autoUpdates deploy-consolidation policy (per-env, staging-first)", () 
         svc.autoUpdates?.prod,
         `generated ${svc.name}.autoUpdates.prod must be "disabled"`,
       ).toBe("disabled");
+    }
+  });
+});
+
+describe("static gate and disposable approval policy", () => {
+  it("resolves required convention and optional ignored policies", () => {
+    expect(effectiveStaticGatePolicy({ gateValidated: true })).toEqual({
+      presence: "required",
+      image: "showcase-convention",
+    });
+    expect(effectiveStaticGatePolicy({ gateValidated: false })).toEqual({
+      presence: "optional",
+      image: "ignored",
+    });
+    expect(
+      effectiveStaticGatePolicy({ gateValidated: false, gateIgnore: true }),
+    ).toEqual({ presence: "optional", image: "ignored" });
+    expect(() =>
+      effectiveStaticGatePolicy({ gateValidated: true, gateIgnore: true }),
+    ).toThrow(/gateValidated.*gateIgnore/);
+  });
+
+  it("approves only the reviewed bounded milestone images and preserves permanent identities", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(50);
+    expect(DISPOSABLE_LIFECYCLE_POLICY).toEqual({
+      projectId: PROJECT_ID,
+      forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],
+      permanentServices: Object.entries(SERVICES).map(([name, entry]) => ({
+        name,
+        serviceId: entry.serviceId,
+      })),
+      approvedImages: [
+        "ghcr.io/copilotkit/intelligence/composite@sha256:1bc9dbc634a8b713af7dcf19266eb2b514cdfa3c7e7858476a6ebe5fced45f1d",
+        "ghcr.io/copilotkit/intelligence/postgres-pgvector@sha256:91c40627db16d6d6c4e3c284c69c01ccdfd9172fac89e1b7d453ebb01127c205",
+        "docker.io/bitnamilegacy/redis@sha256:a25b5d07a14ec13730022c7cd9bab6308d55ccd86b74af7315553c17be884889",
+        "ghcr.io/copilotkit/rich-thread-application@sha256:6b6d757e8c5c605c384673a4e8418cd7cd275de2b8b068ebb21856a1032fc71d",
+        "ghcr.io/copilotkit/rich-thread-strands@sha256:a24c58ee44b65fe723434027bf9f40e6b77e679db67ba6229f329676ead430b9",
+        "ghcr.io/copilotkit/rich-thread-inspector@sha256:e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981",
+      ],
+    });
+    const independent = Object.entries(SERVICES).filter(([name]) =>
+      name.startsWith("showcase-intelligence-"),
+    );
+    expect(independent).toHaveLength(7);
+    for (const [, entry] of independent) {
+      expect(effectiveStaticGatePolicy(entry)).toEqual({
+        presence: "optional",
+        image: "ignored",
+      });
+      expect(entry.gateIgnore).toBe(true);
+      expect(entry.autoUpdates).toEqual({ staging: "unmanaged" });
+      expect(entry.environments.staging.probe).toBe(false);
     }
   });
 });

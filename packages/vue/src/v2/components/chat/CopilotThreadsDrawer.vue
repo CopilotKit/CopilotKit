@@ -73,6 +73,9 @@ const license = useLicenseContext();
 
 const licensed = computed(() => {
   const status = license.value.status;
+  // `unknown` is an unrecovered retryable entitlement lookup, not a settled
+  // negative: fetch the list and let the threads endpoint decide.
+  if (status === "unknown") return true;
   const present = status === "valid" || status === "expiring";
   return present && license.value.checkFeature("threads");
 });

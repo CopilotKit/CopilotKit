@@ -1,0 +1,204 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / shared-state-read-write. The model reads the UI's preferences and notes through the built-in `get_shared_state` and writes notes with the `set_notes` server tool (src/agents/shared_state.py).",
+    "created": "2026-09-30",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages, so hasToolResult/toolCallId never fire and every leg is staged on turnIndex (aimock's count of assistant messages; +2 per tool round-trip, +1 per text answer). The highest turnIndex <= assistantCount wins, so each leg carries every absolute position a test reaches it from: a fresh thread (0/2...) AND its slot in the probe's single-thread sequence."
+  },
+  "fixtures": [
+    {
+      "_comment": "Turn 1 of d5-shared-state.ts (feature shared-state-write; one thread: this turn, then the recall). Three legs: the silent built-in `get_shared_state` read (to see the existing notes), `set_notes` with the full list (set_state streams a STATE_SNAPSHOT the Agent Scratch Pad renders), then the answer. The probe asserts it mentions color or blue.",
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssrw_001",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssrw_002",
+            "name": "set_notes",
+            "arguments": "{\"notes\": [\"Favorite color: blue\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "turnIndex": 4,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Got it — I noted that your favorite color is blue."
+      }
+    },
+    {
+      "_comment": "Recall on a fresh thread. The full prompt is the match key: the bare \"favorite color\" key langgraph-python uses is a substring of the turn-1 prompt and would compete with its legs.",
+      "match": {
+        "userMessage": "What is my favorite color?",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssrw_003",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is my favorite color?",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Your favorite color is blue — it's in my notes."
+      }
+    },
+    {
+      "_comment": "Turn 2 of d5-shared-state.ts: turn 1 left the thread at assistantCount 5 (two tool round-trips + answer). The probe asserts the answer contains \"blue\".",
+      "match": {
+        "userMessage": "What is my favorite color?",
+        "turnIndex": 5,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssrw_004",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is my favorite color?",
+        "turnIndex": 7,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Your favorite color is blue — it's in my notes."
+      }
+    },
+    {
+      "_comment": "'Greet me' pill. shared-state-read-write.spec.ts expects /shared-state co-pilot/ and not the generic showcase blurb.",
+      "match": {
+        "userMessage": "Say hi and introduce yourself.",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssrw_005",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Say hi and introduce yourself.",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Hi — I'm your shared-state co-pilot. I read your Preferences panel (name, tone, language, interests) from shared state before every answer, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+      }
+    },
+    {
+      "_comment": "'Remember something' pill: read, set_notes, answer.",
+      "match": {
+        "userMessage": "Remember that I prefer morning meetings and that I don't eat dairy.",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssrw_006",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Remember that I prefer morning meetings and that I don't eat dairy.",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssrw_007",
+            "name": "set_notes",
+            "arguments": "{\"notes\": [\"Prefers morning meetings\", \"Doesn't eat dairy\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Remember that I prefer morning meetings and that I don't eat dairy.",
+        "turnIndex": 4,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Noted — you prefer morning meetings and you don't eat dairy. Both are in the scratch pad now."
+      }
+    },
+    {
+      "_comment": "'Plan a weekend' pill. shared-state-read-write.spec.ts expects /interests panel/.",
+      "match": {
+        "userMessage": "Suggest a weekend plan based on my interests.",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_ga_ssrw_008",
+            "name": "get_shared_state",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Suggest a weekend plan based on my interests.",
+        "turnIndex": 2,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
+      }
+    }
+  ]
+}
