@@ -46,6 +46,13 @@ test("Microsoft Agent Framework dynamic A2UI guide selects the matching backend"
       expect.objectContaining({ id: "root", component: "Text" }),
     ]),
   );
+  // This showcase's Text catalog definition requires an inline string.
+  const root = operations[1].updateComponents.components.find(
+    (component: { id: string }) => component.id === "root",
+  );
+  expect(typeof root.text).toBe("string");
+  expect(root.text).toBe("Sales summary");
+  expect(operations).toHaveLength(2);
 
   expect(python).toContain("injectA2UITool: true");
   expect(python).toContain("a2ui_config");
