@@ -1,5 +1,9 @@
 # PNI-605 isolated service-scope canary
 
+Ran authorized assessing and reusing the existing private project on October 19, 2026. The [existing-project reuse plan](reuse-plan.md) is the applicable variation
+for that scope. It retains source A and the original journals, creates only a new
+fork and inert service, and requires reviewed inactive-deletion evidence.
+
 For the paced original source-to-fork variation, see [fork-plan.md](fork-plan.md)
 and `fork-scope.example.json`. It requires a separately authorized fresh scope;
 it does not reuse or retry the previous canary project or its operations.

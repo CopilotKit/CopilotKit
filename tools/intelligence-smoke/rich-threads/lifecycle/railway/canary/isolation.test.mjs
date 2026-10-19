@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, mkdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { durableJson, recoveryLock } from "../journal.mjs";
+import { reuseIdentity } from "./reuse-admission.mjs";
 import {
   runCanary,
   inspectCanary,
@@ -33,6 +35,115 @@ async function fixture(t, options = {}) {
   const environments = [
     { id: "default", name: "production", projectId: scope.projectId },
   ];
+  let reuseAdmission;
+  let priorFiles;
+  if (options.reuse) {
+    Object.assign(scope, {
+      purpose: "pni605-reused-fork-isolation-canary",
+      projectId: reuseIdentity.projectId,
+      projectName: reuseIdentity.projectName,
+    });
+    Object.assign(project, {
+      id: scope.projectId,
+      name: scope.projectName,
+      createdAt: reuseIdentity.createdAt,
+      deletedAt: null,
+    });
+    environments.splice(0, 1, {
+      id: reuseIdentity.baselineId,
+      name: "canary-baseline",
+      projectId: scope.projectId,
+    });
+    const source = {
+      id: reuseIdentity.sourceId,
+      name: reuseIdentity.sourceName,
+      projectId: scope.projectId,
+      createdAt: reuseIdentity.sourceCreatedAt,
+      isEphemeral: true,
+      sourceEnvironment: null,
+    };
+    environments.push(source);
+    const priorRoot = join(parent, "prior");
+    await mkdir(join(priorRoot, "probe"), { recursive: true });
+    const priorProject = {
+      status: "create-verified",
+      before: [],
+      returned: {
+        id: project.id,
+        name: project.name,
+        workspaceId: project.workspaceId,
+        createdAt: project.createdAt,
+      },
+    };
+    const priorProbe = {
+      status: "unresolved",
+      scope: { projectId: scope.projectId },
+      services: [],
+      environments: [{ id: source.id, name: source.name }],
+      intents: [
+        {
+          operation: "createEnvironment",
+          status: "returned",
+          input: { input: { projectId: scope.projectId, name: source.name } },
+          result: source,
+        },
+        {
+          operation: "createEnvironment",
+          status: "pending",
+          input: {
+            input: {
+              projectId: scope.projectId,
+              name: reuseIdentity.unresolvedName,
+            },
+          },
+        },
+      ],
+    };
+    const hashes = {};
+    const hashFile = async (path) =>
+      createHash("sha256")
+        .update(await readFile(path))
+        .digest("hex");
+    priorFiles = {
+      project: join(priorRoot, "project-journal.json"),
+      probe: join(priorRoot, "probe/journal.json"),
+      retirement: join(priorRoot, "project-retirement.json"),
+    };
+    await durableJson(priorFiles.project, priorProject);
+    await durableJson(priorFiles.probe, priorProbe);
+    hashes.projectSha256 = await hashFile(priorFiles.project);
+    hashes.probeSha256 = await hashFile(priorFiles.probe);
+    await durableJson(priorFiles.retirement, {
+      projectId: scope.projectId,
+      status: "deletion-unresolved",
+      response: "unknown",
+      probeJournalSha256: hashes.probeSha256,
+    });
+    hashes.retirementSha256 = await hashFile(priorFiles.retirement);
+    const evidencePath = join(parent, "deletion-evidence.json");
+    await durableJson(evidencePath, {
+      assessment: "inactive",
+      basis: "offline reviewed fixture",
+    });
+    const admissionPath = join(parent, "reuse-admission.json");
+    await durableJson(admissionPath, {
+      version: 1,
+      kind: "pni605-existing-project-reuse",
+      authorization: "ran-2026-10-19-reuse-existing-project",
+      projectId: scope.projectId,
+      projectName: scope.projectName,
+      workspaceId: scope.workspaceId,
+      reviewedAt: new Date(now).toISOString(),
+      expiresAt: new Date(now + 600000).toISOString(),
+      deletion: {
+        status: "inactive",
+        evidencePath,
+        sha256: await hashFile(evidencePath),
+      },
+      prior: hashes,
+    });
+    reuseAdmission = { priorRoot, admissionPath };
+  }
   const services = [];
   const memberships = new Map();
   const commands = new Map();
@@ -104,6 +215,12 @@ async function fixture(t, options = {}) {
             : null,
         };
         environments.push(value);
+        if (options.appearOldB)
+          environments.push({
+            id: "late-old-b",
+            name: reuseIdentity.unresolvedName,
+            projectId: scope.projectId,
+          });
         if (options.lostFork && variables.input.sourceEnvironmentId)
           throw Error("Fork response lost");
         return structuredClone(value);
@@ -154,11 +271,132 @@ async function fixture(t, options = {}) {
         monotonic: () => now,
         sleep: async (ms) => {
           now += ms;
+          if (options.tamperOriginalDuringPace) {
+            options.tamperOriginalDuringPace = false;
+            const old = JSON.parse(await readFile(priorFiles.probe, "utf8"));
+            old.modified = true;
+            await durableJson(priorFiles.probe, old);
+          }
         },
       },
+      reuseAdmission,
     });
-  return { root, scope, api, writes, run, project, services, environments };
+  return {
+    root,
+    scope,
+    api,
+    writes,
+    run,
+    project,
+    services,
+    environments,
+    reuseAdmission,
+    priorFiles,
+  };
 }
+
+test("existing-project proof reuses source, preserves journals, and cleans only new children", async (t) => {
+  const f = await fixture(t, { reuse: true });
+  const originals = await Promise.all(
+    Object.values(f.priorFiles).map((path) => readFile(path, "utf8")),
+  );
+  const result = await f.run();
+  assert.equal(result.status, "passed");
+  assert.equal(
+    result.intents.filter((x) => x.operation === "createEnvironment").length,
+    1,
+  );
+  assert.equal(
+    result.intents[0].input.input.sourceEnvironmentId,
+    reuseIdentity.sourceId,
+  );
+  assert.notEqual(
+    result.intents[0].input.input.name,
+    reuseIdentity.unresolvedName,
+  );
+  assert.equal(
+    result.forkAcceptance.sourceEnvironmentId,
+    reuseIdentity.sourceId,
+  );
+  assert.deepEqual(result.result.memberships, ["env-1"]);
+  assert.deepEqual(
+    result.intents
+      .filter((x) => x.operation === "deleteEnvironment")
+      .map((x) => x.input.id),
+    ["env-1"],
+  );
+  assert.deepEqual(
+    f.environments.map((x) => x.id).sort(),
+    [reuseIdentity.baselineId, reuseIdentity.sourceId].sort(),
+  );
+  assert.deepEqual(
+    await Promise.all(
+      Object.values(f.priorFiles).map((path) => readFile(path, "utf8")),
+    ),
+    originals,
+  );
+  assert.equal(result.reuse.unknownIntent.status, "pending");
+});
+
+for (const disposition of ["unknown", "pending", "scheduled"]) {
+  test(`reuse refuses ${disposition} deletion admission before any write`, async (t) => {
+    const f = await fixture(t, { reuse: true });
+    const admission = JSON.parse(
+      await readFile(f.reuseAdmission.admissionPath, "utf8"),
+    );
+    admission.deletion.status = disposition;
+    await durableJson(f.reuseAdmission.admissionPath, admission);
+    await assert.rejects(f.run(), /deletion blocks reuse/);
+    assert.deepEqual(f.writes, []);
+  });
+}
+
+test("reuse refuses changed source identity and deleted project", async (t) => {
+  for (const kind of ["source", "project"]) {
+    const f = await fixture(t, { reuse: true });
+    if (kind === "source")
+      f.environments.find((x) => x.id === reuseIdentity.sourceId).createdAt =
+        "2020-01-01T00:00:00Z";
+    else f.project.deletedAt = new Date().toISOString();
+    await assert.rejects(f.run());
+    assert.deepEqual(f.writes, []);
+  }
+});
+
+test("original late environment stops reuse before the next write, without adoption or cleanup", async (t) => {
+  const f = await fixture(t, { reuse: true, appearOldB: true });
+  await assert.rejects(f.run(), /Original unresolved environment appeared/);
+  assert.deepEqual(f.writes, ["createEnvironment"]);
+  await assert.rejects(
+    cleanupCanary({ root: f.root, api: f.api }),
+    /Original unresolved environment appeared/,
+  );
+  assert.deepEqual(f.writes, ["createEnvironment"]);
+  const saved = JSON.parse(await readFile(f.priorFiles.probe, "utf8"));
+  assert.equal(saved.intents[1].status, "pending");
+});
+
+test("original journal changed during pacing blocks the first create", async (t) => {
+  const f = await fixture(t, { reuse: true, tamperOriginalDuringPace: true });
+  await assert.rejects(f.run(), /Original journal changed/);
+  assert.deepEqual(f.writes, []);
+});
+
+test("corrupt saved reuse source blocks cleanup before any further write", async (t) => {
+  const f = await fixture(t, { reuse: true, fail: "configure" });
+  await assert.rejects(f.run());
+  const writes = [...f.writes];
+  const saved = JSON.parse(
+    await readFile(join(f.root, "journal.json"), "utf8"),
+  );
+  saved.reuse.source.id = "foreign-source";
+  await durableJson(join(f.root, "journal.json"), saved);
+  await assert.rejects(
+    cleanupCanary({ root: f.root, api: f.api }),
+    /Saved reuse source changed/,
+  );
+  assert.deepEqual(f.writes, writes);
+});
 
 test("inert canary verifies isolated create/edit and restores baseline", async (t) => {
   const f = await fixture(t);
