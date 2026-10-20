@@ -11,9 +11,11 @@ import type {
 import { Observable } from "rxjs";
 import {
   GENERATIVE_UI_ACTIVITY_TYPE,
+  GENERATIVE_UI_CONTEXT_DESCRIPTION,
   GENERATIVE_UI_FUNCTION_CALL_ACTIVITY_TYPE,
   GENERATIVE_UI_RENDER_TOOL,
   RenderUIArgsStream,
+  buildGenerativeUIPrompt,
   envelopeToManifest,
   generativeUIFunctionCallMessageId,
   generativeUISurfaceMessageId,
@@ -30,10 +32,6 @@ import type {
   GenerativeUIRejectedOperation,
   GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
-import {
-  GENERATIVE_UI_CONTEXT_DESCRIPTION,
-  buildGenerativeUIPrompt,
-} from "./prompt";
 
 type EventWithState = { event: BaseEvent; messages: Message[] };
 type JsonPatchOperation = {

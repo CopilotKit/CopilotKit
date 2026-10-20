@@ -4,6 +4,8 @@ icon: "lucide/LayoutTemplate"
 description: "Let your agent render your React components, in the chat and in areas of your page."
 ---
 
+import InspectorPaneGenerativeUI from "@/snippets/shared/inspector/open-inspector-pane-generative-ui.mdx";
+
 ## What is this?
 
 A text answer is often the wrong answer. "Compare these three plans" wants a table. "Show me cheap running shoes" wants product cards, and maybe in the product row of your page, not in the chat.
@@ -145,6 +147,8 @@ Already have CopilotKit running? Do step 3 only. Your runtime needs no change: w
 </Steps>
 
 That is a working setup. The agent now renders standard components in the chat.
+
+<InspectorPaneGenerativeUI components={props.components} />
 
 ## Learn the ideas
 

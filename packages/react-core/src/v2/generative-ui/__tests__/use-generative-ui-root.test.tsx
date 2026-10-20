@@ -1,11 +1,15 @@
 import React, { StrictMode, useState } from "react";
 import { act, render, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 import type { RunAgentInput } from "@ag-ui/client";
 import {
+  GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
+  GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
   buildGenerativeUIMarkdownGuidelines,
+  buildGenerativeUIPrompt,
   envelopeToManifest,
+  randomUUID,
   readCopilotKitUIEnvelope,
 } from "@copilotkit/shared";
 import type { GenerativeUISurfaceContent } from "@copilotkit/shared";
@@ -453,6 +457,89 @@ describe("useGenerativeUIRoot", () => {
       const followUp = CapturingAgent.inputs[1];
       expect(followUp.forwardedProps.userId).toBe("b");
       expect(catalogOf(followUp)?.catalogId).toBe("shop");
+    });
+  });
+
+  describe("debug source", () => {
+    it("gives core a snapshot of the catalog, functions, and surfaces, and removes it on unmount", () => {
+      const { copilotkit, runtime, setHandler, unmount } = setup();
+      const source = copilotkit.ɵgenerativeUIDebugSource;
+      expect(source).toBeDefined();
+
+      setHandler(() => "applied");
+      runtime.manager.ingest("t1", "default", buttonSurface("s1"));
+      runtime.manager.setActiveThread("t1");
+      const snapshot = source!.getSnapshot();
+      expect(snapshot.catalogId).toBe("shop");
+      expect(snapshot.transport).toBe("tool");
+      expect(Object.keys(snapshot.components)).toEqual(["Box", "Button"]);
+      expect(snapshot.functions.applyCoupon?.handlers).toBe(1);
+      expect(snapshot.targets).toEqual([{ id: "chat", kind: "chat" }]);
+      expect(snapshot.lastRun).toBeUndefined();
+      expect(snapshot.surfaces).toHaveLength(1);
+      expect(snapshot.surfaces[0]).toMatchObject({
+        surfaceId: "s1",
+        threadId: "t1",
+        target: "chat",
+        status: "ready",
+        rejected: [],
+      });
+      expect(snapshot.surfaces[0]?.operations).toHaveLength(2);
+
+      unmount();
+      expect(copilotkit.ɵgenerativeUIDebugSource).toBeUndefined();
+    });
+
+    it("keeps the envelope of the last run and the render_ui guide that the runtime builds from it", async () => {
+      const { copilotkit, agent } = setup();
+      const listener = vi.fn();
+      copilotkit.ɵgenerativeUIDebugSource!.subscribe(listener);
+
+      const input = await runOnce(copilotkit, agent);
+
+      const lastRun =
+        copilotkit.ɵgenerativeUIDebugSource!.getSnapshot().lastRun;
+      const sent = envelopeOf(input)!;
+      expect(listener).toHaveBeenCalled();
+      expect(lastRun?.agentId).toBe(agent.agentId);
+      expect(lastRun?.envelope).toEqual(sent);
+      expect(lastRun?.prompt).toEqual([
+        {
+          title: "render_ui guide",
+          source: "runtime",
+          text: buildGenerativeUIPrompt(envelopeToManifest(sent)),
+        },
+      ]);
+    });
+
+    it("shows the context entries that a markdown run sends", async () => {
+      // The test setup gives every randomUUID call one id, so the second
+      // context entry would replace the first.
+      let count = 0;
+      vi.mocked(randomUUID).mockImplementation(() => `id-${count++}`);
+      onTestFinished(() => {
+        vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
+      });
+      const { copilotkit, agent } = setup({ ui, transport: "markdown" });
+
+      const input = await runOnce(copilotkit, agent);
+
+      const contextValue = (description: string) =>
+        input.context.find((entry) => entry.description === description)?.value;
+      const lastRun =
+        copilotkit.ɵgenerativeUIDebugSource!.getSnapshot().lastRun;
+      expect(
+        lastRun?.prompt.map(({ source, text }) => ({ source, text })),
+      ).toEqual([
+        {
+          source: "context",
+          text: contextValue(GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION),
+        },
+        {
+          source: "context",
+          text: contextValue(GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION),
+        },
+      ]);
     });
   });
 

@@ -49,6 +49,7 @@ import type { LearningConfig, TrajectoryStartOptions } from "./learning-bridge";
 import type { JsonValue, StartResult } from "@copilotkit/learning";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
+import type { ɵGenerativeUIDebugSource } from "./generative-ui-debug";
 import type { ɵMemoryStore } from "../memory";
 import { HeaderSourceResolver, isHeaderResolutionError } from "./header-source";
 import type { CopilotKitHeadersSource } from "./header-source";
@@ -491,6 +492,8 @@ export class CopilotKitCore {
   private learningBridge: LearningBridge;
   private notifiedTrajectoryId: string | null = null;
   private readonly learningConfiguredListeners = new Set<() => void>();
+  private _generativeUIDebugSource: ɵGenerativeUIDebugSource | undefined;
+  private readonly generativeUIDebugListeners = new Set<() => void>();
   /**
    * The single core-owned memory store, created lazily on first
    * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
@@ -1138,6 +1141,35 @@ export class CopilotKitCore {
     this.learningConfiguredListeners.add(listener);
     return () => {
       this.learningConfiguredListeners.delete(listener);
+    };
+  }
+
+  /**
+   * @internal The generative UI of the framework package, for the inspector.
+   * `undefined` when no provider has a `generativeUI` config.
+   */
+  get ɵgenerativeUIDebugSource(): ɵGenerativeUIDebugSource | undefined {
+    return this._generativeUIDebugSource;
+  }
+
+  /** @internal Set by the framework package. `undefined` removes it. */
+  ɵsetGenerativeUIDebugSource(source: ɵGenerativeUIDebugSource | undefined) {
+    if (source === this._generativeUIDebugSource) return;
+    this._generativeUIDebugSource = source;
+    for (const listener of [...this.generativeUIDebugListeners]) {
+      try {
+        listener();
+      } catch (error) {
+        console.error("Generative UI debug listener error:", error);
+      }
+    }
+  }
+
+  /** @internal Calls `listener` when {@link ɵgenerativeUIDebugSource} is set or removed. */
+  ɵsubscribeToGenerativeUIDebugSource(listener: () => void): () => void {
+    this.generativeUIDebugListeners.add(listener);
+    return () => {
+      this.generativeUIDebugListeners.delete(listener);
     };
   }
 

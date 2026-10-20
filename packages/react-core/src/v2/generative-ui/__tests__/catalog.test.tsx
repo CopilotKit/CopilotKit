@@ -1,7 +1,7 @@
 import React from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createGenerativeUI } from "../catalog";
+import { componentCatalogIds, createGenerativeUI } from "../catalog";
 
 const Card = () => <div />;
 const Grid = () => <div />;
@@ -403,6 +403,26 @@ describe("overrides and omit", () => {
     });
     expect([...app.components.keys()]).toEqual(["Card", "Grid", "Hero"]);
     expect(app.components.get("Card")!.component).toBe(MyCard);
+  });
+
+  it("keeps the catalog that declared each component, through two levels of extends", () => {
+    const middle = createGenerativeUI({
+      id: "middle@1",
+      extends: [base.omit(["Map"])],
+      components: { Hero: { component: Grid } },
+    });
+    const app = createGenerativeUI({
+      id: "app@1",
+      extends: [middle],
+      overrides: { Card: { component: MyCard } },
+      components: { Footer: { component: Grid } },
+    });
+    expect(Object.fromEntries(componentCatalogIds(app))).toEqual({
+      Card: "base@1",
+      Grid: "base@1",
+      Hero: "middle@1",
+      Footer: "app@1",
+    });
   });
 
   it("throws when omit names an unknown component", () => {

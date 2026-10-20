@@ -55,6 +55,8 @@ export interface GenerativeUIDispatcher {
    * unmounts it. Calling the returned function more than once is safe.
    */
   register(name: string, ref: GenerativeUIHandlerRef): () => void;
+  /** How many handlers are mounted for `name`, for the inspector. */
+  handlerCount(name: string): number;
 }
 
 export interface GenerativeUIDispatcherOptions {
@@ -265,6 +267,8 @@ export function createGenerativeUIDispatcher(
         mounted.delete(ref);
       };
     },
+
+    handlerCount: (name) => handlers.get(name)?.size ?? 0,
   };
   return dispatcher;
 }
