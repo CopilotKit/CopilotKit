@@ -306,7 +306,7 @@ describe("createGenerativeUIDispatcher", () => {
           required: ["productId"],
           additionalProperties: false,
         },
-        allowedCallers: "rendererOrAgent",
+        allowedCallers: "rendererOnly",
       },
     });
   });
@@ -368,7 +368,7 @@ describe("createGenerativeUIDispatcher", () => {
       );
     });
 
-    it("lets both call a function with no allowedCallers", async () => {
+    it("lets only the renderer call a function with no allowedCallers, as A2UI 1.0 does", async () => {
       const { dispatcher } = setup({ ping: { parameters: z.object({}) } });
       dispatcher.register(
         "ping",
@@ -378,10 +378,10 @@ describe("createGenerativeUIDispatcher", () => {
         ok: true,
         result: 1,
       });
-      await expect(dispatcher.invoke("ping", {}, agentCall)).resolves.toEqual({
-        ok: true,
-        result: 1,
-      });
+      const fromAgent = await dispatcher.invoke("ping", {}, agentCall);
+      expect(!fromAgent.ok && fromAgent.error.code).toBe(
+        "invalid_function_call",
+      );
     });
 
     it("refuses the agent an app function that requires user activation, and runs it for a component", async () => {

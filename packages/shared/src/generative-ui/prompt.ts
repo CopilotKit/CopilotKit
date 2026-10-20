@@ -58,13 +58,14 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
         Object.keys(f.parameters).length === 2
           ? signature
           : JSON.stringify(f.parameters);
+      // A function is for the UI unless marked: the agent calls only what
+      // the mark allows.
       const callers = functionCallers(f);
-      const who =
-        callers.renderer && callers.agent
-          ? ""
-          : callers.agent
-            ? " (agent only)"
-            : " (UI only)";
+      const who = callers.agent
+        ? callers.renderer
+          ? " (UI or agent)"
+          : " (agent only)"
+        : "";
       return `- **${name}**${who}${f.description ? `: ${f.description}` : ""}\n  args: ${args}`;
     })
     .join("\n");
@@ -132,7 +133,7 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
       : []),
     ...(hasFunctions
       ? [
-          "Give every callRendererFunction a new functionCallId. Only call functions listed below, and never one marked (UI only). A function marked (agent only) is only for callRendererFunction: do not bind an event to it.",
+          "Give every callRendererFunction a new functionCallId. Call only a function marked (UI or agent) or (agent only); a function with no mark is for the UI only. A function marked (agent only) is only for callRendererFunction: do not bind an event to it.",
           'The result of a callRendererFunction comes back to you in a new turn, as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Do not wait for the result in this reply, and do not guess it.',
         ]
       : []),

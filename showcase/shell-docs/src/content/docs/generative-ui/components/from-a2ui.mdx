@@ -131,7 +131,7 @@ A2UI 1.0 is still a candidate on [a2ui.org](https://a2ui.org/), so this table ca
 | `checks` and `ValidationResult` (`code`, `severity`) | Yes |
 | The action event message (`sourceComponentId`, `timestamp`) | Yes, in the envelope of the run, next to the visible user message |
 | Component envelope: `catalogId`, `accessibility`, `metadata` | Yes; `catalogId` must be the id of the UI |
-| Function definitions: `returnType`, `allowedCallers`, `requiresUserActivation` | Yes; the default is `rendererOrAgent`, where A2UI defaults to `rendererOnly` |
+| Function definitions: `returnType`, `allowedCallers`, `requiresUserActivation` | Yes, with the A2UI default: the agent calls only what a declaration allows |
 | Catalog definition JSON | Yes, `exportA2UICatalog(ui)` |
 | Several catalogs in one surface | No: one UI per provider; combine catalogs with `extends` |
 | `allowedParents` and `allowedChildren` | Not enforced |

@@ -49,7 +49,12 @@ const manifest: Pick<GenerativeUIManifest, "catalogId" | "components"> = {
     },
   },
 };
-const functions = { addToCart: { parameters: { type: "object" } } };
+const functions = {
+  addToCart: {
+    parameters: { type: "object" },
+    allowedCallers: "rendererOrAgent" as const,
+  },
+};
 const knownSurfaces = new Set(["s1"]);
 
 const update = (...components: unknown[]) => ({
@@ -752,7 +757,14 @@ describe("validateOperation: callRendererFunction", () => {
         callFunction({
           callFunction: { "@call": "openUrl", args: { url: "https://x" } },
         }),
-        { functions: { openUrl: { parameters: { type: "object" } } } },
+        {
+          functions: {
+            openUrl: {
+              parameters: { type: "object" },
+              allowedCallers: "rendererOrAgent",
+            },
+          },
+        },
       ),
     ).toBe("ok");
   });

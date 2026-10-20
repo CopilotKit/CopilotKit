@@ -290,7 +290,7 @@ export function buildGenerativeUIMarkdownGuidelines(
   if (functions) {
     rules.push(
       'To run an app function now, with no click, write a callRendererFunction line in a fence: {"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}. It needs no surface.',
-      'Give every callRendererFunction a new functionCallId. Use only functions from the schema, and never one with "callers": "UI only". A function with "callers": "agent only" is only for callRendererFunction: do not bind an event to it.',
+      'Give every callRendererFunction a new functionCallId. Call only a function from the schema with "callers": "UI or agent" or "agent only"; a function without "callers" is for the UI only. A function with "callers": "agent only" is only for callRendererFunction: do not bind an event to it.',
       'The result of a callRendererFunction comes back to you as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Then you get a new turn.',
       "Do not guess the result of a callRendererFunction. Wait for the developer message.",
     );

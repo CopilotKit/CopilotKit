@@ -311,7 +311,7 @@ describe("useGenerativeUIRoot", () => {
             parameters: expect.objectContaining({
               properties: { code: expect.objectContaining({ type: "string" }) },
             }),
-            allowedCallers: "rendererOrAgent",
+            allowedCallers: "rendererOnly",
           },
           formatCurrency: expect.any(Object),
         }),

@@ -49,8 +49,8 @@ export interface ExportA2UICatalogOptions {
  *   function, takes its literal schema, a `DataBinding` or a `FunctionCall`,
  *   because the renderer resolves dynamic values at any depth.
  * - Every function states `returnType` and `allowedCallers`: the built-ins
- *   are `rendererOnly`; a declared function without `allowedCallers` is
- *   `rendererOrAgent`, the CopilotKit default.
+ *   are `rendererOnly`, and so is a declared function without
+ *   `allowedCallers`, as in A2UI 1.0.
  *
  * @param ui - The generative UI to describe.
  * @param options - The title, description and instructions of the catalog.
