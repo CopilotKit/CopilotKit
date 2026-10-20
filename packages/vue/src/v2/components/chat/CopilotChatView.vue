@@ -660,6 +660,7 @@ onBeforeUnmount(() => {
           <button
             type="button"
             data-testid="copilot-chat-view-scroll-to-bottom"
+            :aria-label="labels.chatScrollToBottomLabel"
             class="cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0 cpk:pointer-events-auto cpk:bg-white cpk:dark:bg-gray-900 cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700 cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer"
             @click="scrollToBottom()"
           >

@@ -1,4 +1,8 @@
 import {
+  validateRecovery,
+  RECOVERY_BASELINE_IMAGE,
+} from "./recovery-contract.mjs";
+import {
   BUILD_WORKFLOW,
   DEPLOY_WORKFLOW,
   IMAGE,
@@ -27,6 +31,7 @@ export function validateRelease(release) {
           "build",
           "baseline",
           "candidate",
+          ...(Object.hasOwn(release, "recovery") ? ["recovery"] : []),
         ].sort(),
       ),
     "Unknown release fields",
@@ -44,10 +49,22 @@ export function validateRelease(release) {
     );
     validateIdentity(item.runtimeIdentity);
   }
-  compatible(
-    release.baseline.runtimeIdentity,
-    release.candidate.runtimeIdentity,
-  );
+  if (Object.hasOwn(release, "recovery")) {
+    requireThat(
+      release.baseline.image === RECOVERY_BASELINE_IMAGE &&
+        release.candidate.image !== RECOVERY_BASELINE_IMAGE,
+      "Recovery image mismatch",
+    );
+    validateRecovery(
+      release.recovery,
+      release.baseline.runtimeIdentity,
+      release.candidate.runtimeIdentity,
+    );
+  } else
+    compatible(
+      release.baseline.runtimeIdentity,
+      release.candidate.runtimeIdentity,
+    );
   requireThat(
     release.candidate.runtimeIdentity.sourceRevision === release.sourceRevision,
     "Candidate revision mismatch",
