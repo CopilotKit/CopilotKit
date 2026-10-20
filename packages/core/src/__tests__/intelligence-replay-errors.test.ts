@@ -6,7 +6,7 @@ import { MockSocket } from "./test-utils";
 vi.mock("phoenix", () => ({ Socket: MockSocket }));
 
 const { IntelligenceAgent } = await import("../intelligence-agent");
-const { AgentHistoryReplayError, ProxiedCopilotRuntimeAgent } =
+const { AgentHistoryReplayError, ProxiedCopilotRuntimeAgent, CopilotKitCore } =
   await import("../index");
 
 class ReplayAgent extends IntelligenceAgent {
@@ -63,6 +63,79 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
+
+test.each(["backoff", "credentials", "restore"] as const)(
+  "congestion budget expires while awaiting %s and keeps the safe checkpoint",
+  async (phase) => {
+    const { agent, channels, fetch, input, teardown } = setup();
+    vi.useFakeTimers();
+    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    const failure = vi.fn();
+    const pendingCredentials = deferred<Response>();
+    const subscription = agent.replay(input).subscribe({ error: failure });
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      const first = channels.mock.results[0]!.value;
+      first.triggerJoin("ok");
+      first.serverPush("replay_failed", {
+        reason: "history_busy",
+        retryable: true,
+        latestEventId: "safe-checkpoint",
+      });
+      if (phase === "credentials")
+        fetch.mockReturnValueOnce(pendingCredentials.promise);
+
+      let elapsed = 750;
+      await vi.advanceTimersByTimeAsync(elapsed);
+      if (phase !== "credentials") {
+        channels.mock.results[1]!.value.triggerJoin("ok");
+      }
+      if (phase === "backoff") {
+        for (let attempt = 1; elapsed < 300_000; attempt++) {
+          channels.mock.results[attempt]!.value.serverPush("replay_failed", {
+            reason: "history_busy",
+            retryable: true,
+            latestEventId: "safe-checkpoint",
+          });
+          const delay = Math.min(1_000 * 2 ** attempt, 30_000) * 0.75;
+          if (elapsed + delay >= 300_000) break;
+          await vi.advanceTimersByTimeAsync(delay);
+          elapsed += delay;
+          channels.mock.results[attempt + 1]!.value.triggerJoin("ok");
+        }
+      }
+      await vi.advanceTimersByTimeAsync(300_000 - elapsed - 1);
+      expect(failure).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(failure).toHaveBeenCalledExactlyOnceWith(
+        new AgentHistoryReplayError("history_busy"),
+      );
+      expect(subscription.closed).toBe(true);
+      expect(channels.mock.results.at(-1)!.value.left).toBe(true);
+      if (phase === "credentials") {
+        expect(fetch.mock.calls[1]![1]?.signal?.aborted).toBe(true);
+      }
+      const requestsAtFailure = fetch.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(fetch).toHaveBeenCalledTimes(requestsAtFailure);
+      const explicitRetry = agent.replay(input).subscribe({ error: failure });
+      try {
+        await vi.advanceTimersByTimeAsync(0);
+        expect(
+          JSON.parse(String(fetch.mock.calls.at(-1)![1]?.body)),
+        ).toMatchObject({
+          lastSeenEventId: "safe-checkpoint",
+        });
+      } finally {
+        explicitRetry.unsubscribe();
+      }
+    } finally {
+      subscription.unsubscribe();
+      teardown();
+    }
+  },
+);
 
 test.each(["connect", "run"] as const)(
   "%s exposes permanent replay failure and closes the transport",
@@ -756,3 +829,457 @@ test("the runtime proxy clears stale approvals when the fresh replay reset appli
     teardown();
   }
 });
+
+test("Core reports a terminal history restore failure once without a run-failure console error", async () => {
+  const { agent, channels, input, teardown } = setup();
+  agent.threadId = input.threadId;
+  const onError = vi.fn();
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  const core = new CopilotKitCore({});
+  const errors = core.subscribe({ onError });
+  const connection = core.connectAgent({ agent });
+  try {
+    await vi.waitFor(() => expect(channels).toHaveBeenCalledOnce());
+    const channel = channels.mock.results[0]!.value;
+    channel.triggerJoin("ok");
+    channel.serverPush("replay_failed", {
+      reason: "history_read_timeout",
+      retryable: false,
+      latestEventId: null,
+    });
+    await connection;
+    expect(onError).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        code: "agent_history_replay_failed",
+        error: new AgentHistoryReplayError("history_read_timeout"),
+        context: { agentId: agent.agentId, threadId: input.threadId },
+      }),
+    );
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(agent.isRunning).toBe(false);
+    expect(channel.left).toBe(true);
+  } finally {
+    await agent.detachActiveRun();
+    await connection;
+    errors.unsubscribe();
+    teardown();
+  }
+});
+
+test("connect drains async events without AG-UI's private source-error helper", async () => {
+  const { agent, channels, input, teardown } = setup();
+  vi.useFakeTimers();
+  agent.threadId = input.threadId;
+  Object.defineProperty(agent, "applyBeforeSourceError", { value: undefined });
+  const pending = deferred<void>();
+  const onContent = vi.fn(() => pending.promise);
+  const failure = vi.fn();
+  const connection = agent
+    .connectAgent(undefined, {
+      onTextMessageContentEvent: onContent,
+    })
+    .catch(failure);
+  try {
+    await vi.advanceTimersByTimeAsync(0);
+    expect(failure).not.toHaveBeenCalled();
+    expect(channels).toHaveBeenCalledOnce();
+    const channel = channels.mock.results[0]!.value;
+    channel.triggerJoin("ok");
+    channel.serverPush("ag_ui_event", {
+      type: EventType.TEXT_MESSAGE_CHUNK,
+      messageId: "answer",
+      delta: "delivered before failure",
+      metadata: { cpki_event_id: "content-10" },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onContent).toHaveBeenCalledOnce();
+    channel.serverPush("replay_failed", {
+      reason: "history_read_failed",
+      retryable: false,
+      latestEventId: "content-10",
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(failure).not.toHaveBeenCalled();
+    pending.resolve();
+    await connection;
+    expect(failure).toHaveBeenCalledExactlyOnceWith(
+      new AgentHistoryReplayError("history_read_failed"),
+    );
+    expect(agent.messages).toEqual([
+      expect.objectContaining({
+        id: "answer",
+        content: "delivered before failure",
+      }),
+    ]);
+    expect(agent.isRunning).toBe(false);
+  } finally {
+    pending.resolve();
+    await agent.detachActiveRun();
+    await connection;
+    teardown();
+  }
+});
+
+test("Phoenix rejoin reads the current cursor after a reset and subsequent delivery", async () => {
+  const { agent, channels, fetch, input, teardown } = setup();
+  vi.useFakeTimers();
+  const failure = vi.fn();
+  const initial = agent.replay(input).subscribe({ error: failure });
+  try {
+    await vi.advanceTimersByTimeAsync(0);
+    const first = channels.mock.results[0]!.value;
+    first.triggerJoin("ok");
+    first.serverPush("replay_complete", { latestEventId: "expired" });
+    first.serverPush("stream_idle", { latestEventId: "expired" });
+    const resumed = agent.replay(input).subscribe({ error: failure });
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      const channel = channels.mock.results[1]!.value;
+      expect(channel.params.last_seen_event_id).toBe("expired");
+      channel.triggerJoin("ok");
+      channel.serverPush("replay_reset", {
+        reason: "history_cursor_unavailable",
+        latestEventId: null,
+      });
+      channel.triggerError();
+      // Phoenix evaluates the same params closure for each join push.
+      channel.join();
+      expect(channel.params.last_seen_event_id).toBeNull();
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "answer",
+        delta: "fresh",
+        metadata: { cpki_event_id: "fresh-30" },
+      });
+      channel.triggerError();
+      channel.join();
+      expect(channel.params.last_seen_event_id).toBe("fresh-30");
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(failure).not.toHaveBeenCalled();
+    } finally {
+      resumed.unsubscribe();
+    }
+  } finally {
+    initial.unsubscribe();
+    teardown();
+  }
+});
+
+test.each([
+  { control: { latest_event_id: null }, expected: null },
+  {
+    control: { latestEventId: null, latest_event_id: "stale" },
+    expected: null,
+  },
+  {
+    control: { latestEventId: "safe", latest_event_id: null },
+    expected: "safe",
+  },
+  { control: {}, expected: "old" },
+])(
+  "terminal checkpoint aliases are unambiguous: $control",
+  async ({ control, expected }) => {
+    const { agent, channels, fetch, input, teardown } = setup();
+    vi.useFakeTimers();
+    const failure = vi.fn();
+    const initial = agent.replay(input).subscribe({ error: failure });
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      const first = channels.mock.results[0]!.value;
+      first.triggerJoin("ok");
+      first.serverPush("replay_complete", { latestEventId: "old" });
+      first.serverPush("stream_idle", { latestEventId: "old" });
+      const resumed = agent.replay(input).subscribe({ error: failure });
+      try {
+        await vi.advanceTimersByTimeAsync(0);
+        const channel = channels.mock.results[1]!.value;
+        channel.triggerJoin("ok");
+        channel.serverPush("replay_failed", {
+          reason: "history_read_failed",
+          retryable: false,
+          ...control,
+        });
+        expect(failure).toHaveBeenCalledExactlyOnceWith(
+          new AgentHistoryReplayError("history_read_failed"),
+        );
+        const next = agent.replay(input).subscribe({ error: failure });
+        try {
+          await vi.advanceTimersByTimeAsync(0);
+          expect(
+            JSON.parse(String(fetch.mock.calls[2]![1]?.body)),
+          ).toMatchObject({ lastSeenEventId: expected });
+        } finally {
+          next.unsubscribe();
+        }
+      } finally {
+        resumed.unsubscribe();
+      }
+    } finally {
+      initial.unsubscribe();
+      teardown();
+    }
+  },
+);
+
+test("successful restoration resets the recovery clock and the next exhausted episode reports its last reason", async () => {
+  const { agent, channels, fetch, input, teardown } = setup();
+  vi.useFakeTimers();
+  vi.spyOn(Math, "random").mockReturnValue(0.5);
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const failure = vi.fn();
+  const subscription = agent.replay(input).subscribe({ error: failure });
+  try {
+    await vi.advanceTimersByTimeAsync(0);
+    const first = channels.mock.results[0]!.value;
+    first.triggerJoin("ok");
+    first.serverPush("replay_failed", {
+      reason: "history_busy",
+      retryable: true,
+    });
+    await vi.advanceTimersByTimeAsync(750);
+    const second = channels.mock.results[1]!.value;
+    second.triggerJoin("ok");
+    await vi.advanceTimersByTimeAsync(298_250);
+    second.serverPush("replay_complete", { latestEventId: "restored" });
+    await vi.advanceTimersByTimeAsync(1_001);
+    expect(failure).not.toHaveBeenCalled();
+    second.serverPush("replay_failed", {
+      reason: "memory_budget",
+      retryable: true,
+    });
+    await vi.advanceTimersByTimeAsync(749);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1);
+    const third = channels.mock.results[2]!.value;
+    third.triggerJoin("ok");
+    third.serverPush("replay_failed", {
+      reason: "restore_capacity",
+      retryable: true,
+    });
+    await vi.advanceTimersByTimeAsync(299_249);
+    expect(failure).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(failure).toHaveBeenCalledExactlyOnceWith(
+      new AgentHistoryReplayError("restore_capacity"),
+    );
+    expect(subscription.closed).toBe(true);
+    const requests = fetch.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(300_000);
+    expect(fetch).toHaveBeenCalledTimes(requests);
+  } finally {
+    subscription.unsubscribe();
+    teardown();
+  }
+});
+
+test("an exhausted public connect rejects once and clears running state", async () => {
+  const { agent, channels, input, teardown } = setup();
+  vi.useFakeTimers();
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  agent.threadId = input.threadId;
+  const failure = vi.fn();
+  const onRunFailed = vi.fn();
+  const connection = agent
+    .connectAgent(undefined, { onRunFailed })
+    .catch(failure);
+  try {
+    await vi.advanceTimersByTimeAsync(0);
+    const first = channels.mock.results[0]!.value;
+    first.triggerJoin("ok");
+    first.serverPush("replay_failed", {
+      reason: "history_busy",
+      retryable: true,
+    });
+    expect(agent.isRunning).toBe(true);
+    await vi.advanceTimersByTimeAsync(300_000);
+    await connection;
+    expect(failure).toHaveBeenCalledExactlyOnceWith(
+      new AgentHistoryReplayError("history_busy"),
+    );
+    expect(onRunFailed).not.toHaveBeenCalled();
+    expect(agent.isRunning).toBe(false);
+  } finally {
+    await agent.detachActiveRun();
+    await connection;
+    teardown();
+  }
+});
+
+test.each(["direct", "proxy"] as const)(
+  "Core run recovery reports one history failure after applying its delivered prefix (%s)",
+  async (transport) => {
+    const { agent: direct, channels, input, teardown } = setup();
+    vi.useFakeTimers();
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const agent =
+      transport === "direct"
+        ? direct
+        : new ProxiedCopilotRuntimeAgent({
+            runtimeUrl: "http://localhost:4000",
+            runtimeMode: "intelligence",
+            intelligence: { wsUrl: "ws://localhost:4000/client" },
+            agentId: "agent-1",
+          });
+    agent.threadId = input.threadId;
+    const pending = deferred<void>();
+    const onContent = vi.fn(() => pending.promise);
+    const agentSubscriber = agent.subscribe({
+      onTextMessageContentEvent: ({ event }) =>
+        event.delta === " after reconnect" ? onContent() : undefined,
+    });
+    const onError = vi.fn();
+    const core = new CopilotKitCore({});
+    const errors = core.subscribe({ onError });
+    core.addAgent__unsafe_dev_only({ id: "agent-1", agent });
+    const run = core.runAgent({ agent, runId: input.runId });
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      const first = channels.mock.results[0]!.value;
+      first.triggerJoin("ok");
+      first.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      });
+      first.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "answer",
+        role: "assistant",
+      });
+      first.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "answer",
+        delta: "before",
+        metadata: { cpki_event_id: "before-10" },
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      const socket = channels.mock.contexts[0];
+      if (!(socket instanceof MockSocket))
+        throw new Error("Missing original socket");
+      for (let attempt = 0; attempt < 5; attempt++)
+        socket.triggerError(new Error("transport dropped"));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(channels).toHaveBeenCalledTimes(2);
+      const recovery = channels.mock.results[1]!.value;
+      expect(recovery.params).toMatchObject({
+        stream_mode: "connect",
+        last_seen_event_id: "before-10",
+      });
+      recovery.triggerJoin("ok");
+      recovery.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "answer",
+        delta: " after reconnect",
+        metadata: { cpki_event_id: "after-20" },
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(onContent).toHaveBeenCalledOnce();
+      recovery.serverPush("replay_failed", {
+        reason: "history_read_failed",
+        retryable: false,
+        latestEventId: "after-20",
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(onError).not.toHaveBeenCalled();
+      pending.resolve();
+      await run;
+      expect(agent.messages).toEqual([
+        expect.objectContaining({
+          id: "answer",
+          content: "before after reconnect",
+        }),
+      ]);
+      expect(onError).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          code: "agent_history_replay_failed",
+          error: new AgentHistoryReplayError("history_read_failed"),
+        }),
+      );
+      expect(consoleError).not.toHaveBeenCalled();
+      expect(agent.isRunning).toBe(false);
+      const resumed = agent.connectAgent();
+      await vi.advanceTimersByTimeAsync(0);
+      const next = channels.mock.results[2]!.value;
+      expect(next.params.last_seen_event_id).toBe("after-20");
+      next.triggerJoin("ok");
+      next.serverPush("replay_complete", { latestEventId: "after-20" });
+      next.serverPush("stream_idle", { latestEventId: "after-20" });
+      await resumed;
+    } finally {
+      pending.resolve();
+      await agent.detachActiveRun();
+      await run;
+      agentSubscriber.unsubscribe();
+      errors.unsubscribe();
+      teardown();
+    }
+  },
+);
+
+test.each([
+  { transport: "direct", historyFailure: true },
+  { transport: "proxy", historyFailure: true },
+  { transport: "direct", historyFailure: false },
+  { transport: "proxy", historyFailure: false },
+])(
+  "direct run callers still reject: $transport, history=$historyFailure",
+  async ({ transport, historyFailure }) => {
+    const { agent: direct, channels, fetch, input, teardown } = setup();
+    vi.useFakeTimers();
+    const agent =
+      transport === "direct"
+        ? direct
+        : new ProxiedCopilotRuntimeAgent({
+            runtimeUrl: "http://localhost:4000",
+            runtimeMode: "intelligence",
+            intelligence: { wsUrl: "ws://localhost:4000/client" },
+            agentId: "agent-1",
+          });
+    agent.threadId = input.threadId;
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const failure = vi.fn();
+    const onRunFailed = vi.fn();
+    if (!historyFailure)
+      fetch.mockResolvedValueOnce(
+        new Response("run unavailable", { status: 503 }),
+      );
+    const run = agent
+      .runAgent({ runId: input.runId }, { onRunFailed })
+      .catch(failure);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      if (historyFailure) {
+        const channel = channels.mock.results[0]!.value;
+        channel.triggerJoin("ok");
+        channel.serverPush("ag_ui_event", {
+          type: EventType.RUN_STARTED,
+          threadId: input.threadId,
+          runId: input.runId,
+        });
+        channel.serverPush("replay_failed", {
+          reason: "history_read_failed",
+          retryable: false,
+          latestEventId: null,
+        });
+      }
+      await run;
+      expect(failure).toHaveBeenCalledExactlyOnceWith(
+        historyFailure
+          ? new AgentHistoryReplayError("history_read_failed")
+          : new Error("REST run request failed: run unavailable"),
+      );
+      expect(onRunFailed).toHaveBeenCalledTimes(historyFailure ? 0 : 1);
+      expect(consoleError).toHaveBeenCalledTimes(historyFailure ? 0 : 1);
+      expect(agent.isRunning).toBe(false);
+    } finally {
+      await agent.detachActiveRun();
+      await run;
+      teardown();
+    }
+  },
+);

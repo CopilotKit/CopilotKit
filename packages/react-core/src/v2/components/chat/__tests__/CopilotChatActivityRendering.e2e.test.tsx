@@ -66,9 +66,14 @@ const {
     private joinPush = new MockPhoenixPush();
     private nextRef = 1;
 
-    constructor(topic: string, params: Record<string, unknown>) {
+    constructor(
+      topic: string,
+      private readonly paramsSource:
+        | Record<string, unknown>
+        | (() => Record<string, unknown>),
+    ) {
       this.topic = topic;
-      this.params = params;
+      this.params = typeof paramsSource === "function" ? {} : paramsSource;
     }
 
     on(event: string, callback: (payload: unknown) => void): number {
@@ -95,6 +100,10 @@ const {
     }
 
     join(): MockPhoenixPush {
+      this.params =
+        typeof this.paramsSource === "function"
+          ? this.paramsSource()
+          : this.paramsSource;
       return this.joinPush;
     }
 
@@ -133,7 +142,7 @@ const {
 
     channel(
       topic: string,
-      params: Record<string, unknown>,
+      params: Record<string, unknown> | (() => Record<string, unknown>),
     ): MockPhoenixChannel {
       const channel = new MockPhoenixChannel(topic, params);
       this.channels.push(channel);

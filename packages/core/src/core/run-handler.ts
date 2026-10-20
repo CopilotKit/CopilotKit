@@ -11,6 +11,7 @@ import type {
 import { randomUUID, logger } from "@copilotkit/shared";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
+import { AgentHistoryReplayError } from "../history-replay-error";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 import { isAbortError } from "../utils/abort-error";
@@ -666,7 +667,10 @@ export class RunHandler {
         }
         await this._internal.emitError({
           error: connectError,
-          code: CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
+          code:
+            connectError instanceof AgentHistoryReplayError
+              ? CopilotKitCoreErrorCode.AGENT_HISTORY_REPLAY_FAILED
+              : CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
           context,
         });
       }
@@ -843,7 +847,10 @@ export class RunHandler {
       }
       await this._internal.emitError({
         error: runError,
-        code: CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
+        code:
+          runError instanceof AgentHistoryReplayError
+            ? CopilotKitCoreErrorCode.AGENT_HISTORY_REPLAY_FAILED
+            : CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
         context,
       });
       return { result: undefined, newMessages: [] };

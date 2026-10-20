@@ -38,7 +38,10 @@ export interface ɵPhoenixChannelLike {
 export interface ɵPhoenixSocketLike {
   connect(): void;
   disconnect(): void;
-  channel(topic: string, params?: Record<string, unknown>): ɵPhoenixChannelLike;
+  channel(
+    topic: string,
+    params?: Record<string, unknown> | (() => Record<string, unknown>),
+  ): ɵPhoenixChannelLike;
   onError(callback: (error?: unknown) => void): unknown;
   onOpen(callback: () => void): unknown;
 }
@@ -88,7 +91,7 @@ export interface ɵPhoenixSocketOptions {
 export interface ɵPhoenixChannelOptions {
   socket$: Observable<ɵPhoenixSocketSession>;
   topic: string;
-  params?: Record<string, unknown>;
+  params?: Record<string, unknown> | (() => Record<string, unknown>);
   leaveOnUnsubscribe?: boolean;
 }
 

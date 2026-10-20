@@ -1,3 +1,5 @@
+import { AgentHistoryReplayError } from "./history-replay-error";
+export { AgentHistoryReplayError } from "./history-replay-error";
 import type { ConnectionReplayLifecycle } from "./utils/connect-replay";
 import type {
   RunAgentInput,
@@ -11,6 +13,7 @@ import { AbstractAgent, EventType } from "@ag-ui/client";
 import {
   EMPTY,
   Notification,
+  Subject,
   combineLatest,
   defer,
   dematerialize,
@@ -83,6 +86,7 @@ const CONNECT_IDLE_WARNING_MS = 30_000;
 // Credential refreshes allowed in a row for sockets that never opened. Past this,
 // the run fails instead of waiting on a realtime endpoint that is not answering.
 const MAX_UNOPENED_CREDENTIAL_REFRESHES = 2;
+const HISTORY_RECOVERY_BUDGET_MS = 5 * 60_000;
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
@@ -132,14 +136,6 @@ export class AgentThreadLockedError extends Error {
   constructor(threadId?: string) {
     super(threadId ? `Thread ${threadId} is locked` : "Thread is locked");
     this.name = "AgentThreadLockedError";
-  }
-}
-
-/** Terminal history restore failure; `reason` is the gateway's error code. */
-export class AgentHistoryReplayError extends Error {
-  constructor(public readonly reason: string) {
-    super(`Thread history replay failed: ${reason}`);
-    this.name = "AgentHistoryReplayError";
   }
 }
 
@@ -268,6 +264,18 @@ export class IntelligenceAgent extends AbstractAgent {
 
   clone(): IntelligenceAgent {
     return new IntelligenceAgent(this.config, this.sharedState);
+  }
+
+  protected override onError(
+    input: RunAgentInput,
+    error: Error,
+    subscribers: AgentSubscriber[],
+  ) {
+    // A run can reconnect through history restoration. Preserve its typed
+    // failure for the caller without reporting a second agent-run failure.
+    if (error instanceof AgentHistoryReplayError)
+      return throwError(() => error);
+    return super.onError(input, error, subscribers);
   }
 
   /**
@@ -473,94 +481,98 @@ export class IntelligenceAgent extends AbstractAgent {
     input: RunAgentInput,
     replayCursor?: string | null,
   ): Observable<ThreadJoinCredentials | McpResourceReadResponse | null> {
-    return defer(async () => {
-      try {
-        const requestFetch = this.config.fetch ?? globalFetch;
-        const body = {
-          ...input,
-          ...(mode === "connect"
-            ? {
-                lastSeenEventId:
-                  replayCursor === undefined
-                    ? this.getReconnectCursor(input)
-                    : replayCursor,
-              }
-            : {}),
-        };
-        const single = this.config.transport === "single";
-        const response = await requestFetch(
-          single ? this.config.runtimeUrl : this.buildRuntimeUrl(mode),
-          {
-            method: "POST",
-            redirect: "error",
-            headers: {
-              "Content-Type": "application/json",
-              ...this.headers,
+    return defer(() => {
+      const controller = new AbortController();
+      return defer(async () => {
+        try {
+          const requestFetch = this.config.fetch ?? globalFetch;
+          const body = {
+            ...input,
+            ...(mode === "connect"
+              ? {
+                  lastSeenEventId:
+                    replayCursor === undefined
+                      ? this.getReconnectCursor(input)
+                      : replayCursor,
+                }
+              : {}),
+          };
+          const single = this.config.transport === "single";
+          const response = await requestFetch(
+            single ? this.config.runtimeUrl : this.buildRuntimeUrl(mode),
+            {
+              method: "POST",
+              signal: controller.signal,
+              redirect: "error",
+              headers: {
+                "Content-Type": "application/json",
+                ...this.headers,
+              },
+              // Post the whole RunAgentInput rather than naming each field, so a
+              // protocol field such as `resume` cannot be dropped here again.
+              body: JSON.stringify(
+                single
+                  ? {
+                      method: `agent/${mode}`,
+                      params: { agentId: this.config.agentId },
+                      body,
+                    }
+                  : body,
+              ),
+              ...(this.credentials ? { credentials: this.credentials } : {}),
             },
-            // Post the whole RunAgentInput rather than naming each field, so a
-            // protocol field such as `resume` cannot be dropped here again.
-            body: JSON.stringify(
-              single
-                ? {
-                    method: `agent/${mode}`,
-                    params: { agentId: this.config.agentId },
-                    body,
-                  }
-                : body,
-            ),
-            ...(this.credentials ? { credentials: this.credentials } : {}),
-          },
-        );
+          );
 
-        if (response.status === 204 && mode === "connect") {
-          return null;
-        }
+          if (response.status === 204 && mode === "connect") {
+            return null;
+          }
 
-        if (response.status === 409 && mode === "run") {
-          throw new AgentThreadLockedError(input.threadId);
-        }
+          if (response.status === 409 && mode === "run") {
+            throw new AgentThreadLockedError(input.threadId);
+          }
 
-        if (!response.ok) {
-          const text = await response.text().catch(() => "");
+          if (!response.ok) {
+            const text = await response.text().catch(() => "");
+            throw new Error(
+              text || response.statusText || String(response.status),
+            );
+          }
+
+          const payload: unknown = await response.json();
+          if (
+            mode === "run" &&
+            isMcpResourceRead(input) &&
+            typeof payload === "object" &&
+            payload !== null &&
+            (payload as { kind?: unknown }).kind === "mcp-resource-read"
+          ) {
+            const resource = payload as Partial<McpResourceReadResponse>;
+            if (
+              typeof resource.threadId !== "string" ||
+              !resource.threadId ||
+              typeof resource.runId !== "string" ||
+              !resource.runId
+            ) {
+              throw new Error("invalid MCP resource response identity");
+            }
+            return {
+              kind: "mcp-resource-read" as const,
+              threadId: resource.threadId,
+              runId: resource.runId,
+              result: resource.result,
+            };
+          }
+          return this.normalizeJoinCredentials(payload, input);
+        } catch (error) {
+          if (error instanceof AgentThreadLockedError) {
+            throw error;
+          }
           throw new Error(
-            text || response.statusText || String(response.status),
+            `REST ${mode} request failed: ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error },
           );
         }
-
-        const payload: unknown = await response.json();
-        if (
-          mode === "run" &&
-          isMcpResourceRead(input) &&
-          typeof payload === "object" &&
-          payload !== null &&
-          (payload as { kind?: unknown }).kind === "mcp-resource-read"
-        ) {
-          const resource = payload as Partial<McpResourceReadResponse>;
-          if (
-            typeof resource.threadId !== "string" ||
-            !resource.threadId ||
-            typeof resource.runId !== "string" ||
-            !resource.runId
-          ) {
-            throw new Error("invalid MCP resource response identity");
-          }
-          return {
-            kind: "mcp-resource-read" as const,
-            threadId: resource.threadId,
-            runId: resource.runId,
-            result: resource.result,
-          };
-        }
-        return this.normalizeJoinCredentials(payload, input);
-      } catch (error) {
-        if (error instanceof AgentThreadLockedError) {
-          throw error;
-        }
-        throw new Error(
-          `REST ${mode} request failed: ${error instanceof Error ? error.message : String(error)}`,
-          { cause: error },
-        );
-      }
+      }).pipe(finalize(() => controller.abort()));
     });
   }
 
@@ -607,104 +619,130 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   private observeThread$(
-    input: RunAgentInput,
-    credentials: ThreadJoinCredentials,
-    options: {
+    initialInput: RunAgentInput,
+    initialCredentials: ThreadJoinCredentials,
+    initialOptions: {
       completeOnRunError: boolean;
       streamMode: "run" | "connect";
       lifecycle?: ConnectionReplayLifecycle;
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
       unopenedRefreshes?: number;
-      replayRetryAttempts?: number;
     },
   ): Observable<BaseEvent> {
-    const {
-      unopenedRefreshes: previousUnopened = 0,
-      replayRetryAttempts: previousReplayAttempts = 0,
-      ...sessionOptions
-    } = options;
     return defer(() => {
-      let socketOpened = false;
-      let replayRetryAttempts = previousReplayAttempts;
-      return this.observeThreadSession$(input, credentials, {
-        ...sessionOptions,
-        onSocketOpen: () => {
-          socketOpened = true;
-        },
-        onReplayComplete: () => {
-          replayRetryAttempts = 0;
-        },
-      }).pipe(
-        catchError((error) => {
-          const retryReplay = error instanceof RetryableHistoryReplayError;
-          if (!retryReplay && !this.isSocketReconnectExhaustedError(error)) {
-            return throwError(() => error);
-          }
+      let replayRetryAttempts = 0;
+      let recoveryTimer: ReturnType<typeof setTimeout> | undefined;
+      let lastCongestionReason = "";
+      const recoveryExpired$ = new Subject<never>();
+      const resetRecovery = () => {
+        clearTimeout(recoveryTimer);
+        recoveryTimer = undefined;
+        replayRetryAttempts = 0;
+      };
+      type ObservationOptions = typeof initialOptions;
+      const observe = (
+        input: RunAgentInput,
+        credentials: ThreadJoinCredentials,
+        options: ObservationOptions,
+      ): Observable<BaseEvent> => {
+        const { unopenedRefreshes: previousUnopened = 0, ...currentOptions } =
+          options;
+        return defer(() => {
+          let socketOpened = false;
+          return this.observeThreadSession$(input, credentials, {
+            ...currentOptions,
+            onSocketOpen: () => {
+              socketOpened = true;
+            },
+            onReplayComplete: resetRecovery,
+          }).pipe(
+            catchError((error) => {
+              const retryReplay = error instanceof RetryableHistoryReplayError;
+              if (
+                !retryReplay &&
+                !this.isSocketReconnectExhaustedError(error)
+              ) {
+                return throwError(() => error);
+              }
 
-          // A session whose socket opened was a real connection that dropped, so
-          // it restarts the count. Sessions that never open mean the realtime
-          // endpoint is unavailable, and fresh credentials will not fix that.
-          // Only a run is capped: a developer is waiting on its turn. A connect
-          // restores history in the background, and nothing retries it after it
-          // fails, so it keeps reconnecting until the endpoint recovers.
-          const unopenedRefreshes = retryReplay
-            ? previousUnopened
-            : socketOpened
-              ? 0
-              : previousUnopened + 1;
-          if (
-            options.streamMode === "run" &&
-            unopenedRefreshes > MAX_UNOPENED_CREDENTIAL_REFRESHES
-          ) {
-            return throwError(
-              () =>
-                new Error(
-                  `Realtime connection to ${credentials.realtime.clientUrl} never opened ` +
-                    `in ${unopenedRefreshes} connection attempts. ` +
-                    `The realtime endpoint is unavailable.`,
-                ),
-            );
-          }
+              // The recovery clock covers backoff, credential fetches, and joins.
+              // Only a completed restore starts a new congestion episode.
+              if (retryReplay) {
+                lastCongestionReason = error.message;
+                recoveryTimer ??= setTimeout(() => {
+                  recoveryExpired$.error(
+                    new AgentHistoryReplayError(lastCongestionReason),
+                  );
+                }, HISTORY_RECOVERY_BUDGET_MS);
+              }
 
-          // Phoenix resets its own backoff on join, before history has restored.
-          // Keep overload attempts across sessions until replay_complete instead.
-          const retryDelay = retryReplay
-            ? Math.min(1_000 * 2 ** replayRetryAttempts++, 30_000) *
-              (0.5 + Math.random() * 0.5)
-            : 0;
-          return (retryReplay ? timer(retryDelay) : of(0)).pipe(
-            switchMap(() => {
-              const replayCursor = this.getReconnectCursor(input);
-              return this.requestJoinCredentials$(
-                "connect",
-                input,
-                replayCursor,
-              ).pipe(
-                switchMap((refreshedCredentials) =>
-                  refreshedCredentials === null
-                    ? EMPTY
-                    : this.observeThread$(
-                        this.applyCanonicalRunIdentity(
-                          input,
-                          refreshedCredentials,
-                          {
-                            fallbackToInputRunId: options.streamMode === "run",
-                          },
-                        ),
-                        refreshedCredentials,
-                        {
-                          ...sessionOptions,
-                          channelMode: "connect",
-                          replayCursor,
-                          unopenedRefreshes,
-                          replayRetryAttempts,
-                        },
-                      ),
-                ),
+              const unopenedRefreshes = retryReplay
+                ? previousUnopened
+                : socketOpened
+                  ? 0
+                  : previousUnopened + 1;
+              if (
+                options.streamMode === "run" &&
+                unopenedRefreshes > MAX_UNOPENED_CREDENTIAL_REFRESHES
+              ) {
+                return throwError(
+                  () =>
+                    new Error(
+                      `Realtime connection to ${credentials.realtime.clientUrl} never opened ` +
+                        `in ${unopenedRefreshes} connection attempts. ` +
+                        `The realtime endpoint is unavailable.`,
+                    ),
+                );
+              }
+
+              // Phoenix resets its own backoff on join, before history has restored.
+              // Keep overload attempts across sessions until replay_complete instead.
+              const retryDelay = retryReplay
+                ? Math.min(1_000 * 2 ** replayRetryAttempts++, 30_000) *
+                  (0.5 + Math.random() * 0.5)
+                : 0;
+              return (retryReplay ? timer(retryDelay) : of(0)).pipe(
+                switchMap(() => {
+                  const replayCursor = this.getReconnectCursor(input);
+                  return this.requestJoinCredentials$(
+                    "connect",
+                    input,
+                    replayCursor,
+                  ).pipe(
+                    switchMap((refreshedCredentials) =>
+                      refreshedCredentials === null
+                        ? EMPTY
+                        : observe(
+                            this.applyCanonicalRunIdentity(
+                              input,
+                              refreshedCredentials,
+                              {
+                                fallbackToInputRunId:
+                                  options.streamMode === "run",
+                              },
+                            ),
+                            refreshedCredentials,
+                            {
+                              ...currentOptions,
+                              channelMode: "connect",
+                              replayCursor,
+                              unopenedRefreshes,
+                            },
+                          ),
+                    ),
+                  );
+                }),
               );
             }),
           );
+        });
+      };
+      return observe(initialInput, initialCredentials, initialOptions).pipe(
+        takeUntil(recoveryExpired$),
+        finalize(() => {
+          resetRecovery();
+          recoveryExpired$.complete();
         }),
       );
     });
@@ -779,11 +817,18 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
-      const params = this.createThreadChannelParams(
-        input,
-        options.channelMode ?? options.streamMode,
-        options.replayCursor,
-      );
+      let firstJoin = true;
+      const params = () => {
+        const cursor = firstJoin
+          ? options.replayCursor
+          : this.getReconnectCursor(input);
+        firstJoin = false;
+        return this.createThreadChannelParams(
+          input,
+          options.channelMode ?? options.streamMode,
+          cursor,
+        );
+      };
       const channel$ = ɵphoenixChannel$({
         socket$,
         topic: credentials.realtime.topic,
@@ -858,10 +903,13 @@ export class IntelligenceAgent extends AbstractAgent {
             "reason" in payload && typeof payload.reason === "string"
               ? payload.reason
               : "unknown error";
-          if (
-            reason === "history_cursor_unavailable" ||
-            ("latestEventId" in payload && payload.latestEventId === null)
-          ) {
+          const checkpoint =
+            "latestEventId" in payload
+              ? payload.latestEventId
+              : "latest_event_id" in payload
+                ? payload.latest_event_id
+                : undefined;
+          if (reason === "history_cursor_unavailable" || checkpoint === null) {
             this.clearReconnectCursor(input.threadId);
           } else {
             this.updateLastSeenEventIdFromControl(
@@ -1201,7 +1249,9 @@ export class IntelligenceAgent extends AbstractAgent {
       latest_event_id?: unknown;
     };
     const latestEventId =
-      controlPayload.latestEventId ?? controlPayload.latest_event_id;
+      "latestEventId" in controlPayload
+        ? controlPayload.latestEventId
+        : controlPayload.latest_event_id;
     return this.readDurableEventId(latestEventId);
   }
 

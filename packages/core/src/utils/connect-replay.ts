@@ -1,3 +1,4 @@
+import { AgentHistoryReplayError } from "../history-replay-error";
 import type {
   AbstractAgent,
   AgentSubscriber,
@@ -15,8 +16,14 @@ import {
   transformChunks,
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { EMPTY, Subject, defer, lastValueFrom } from "rxjs";
-import { catchError, finalize, takeUntil, tap } from "rxjs/operators";
+import { EMPTY, Subject, defer, lastValueFrom, throwError } from "rxjs";
+import {
+  catchError,
+  concatWith,
+  finalize,
+  takeUntil,
+  tap,
+} from "rxjs/operators";
 
 /** Internal connection callbacks; HTTP connections keep their EOF behavior. */
 export interface ConnectionReplayLifecycle {
@@ -181,7 +188,29 @@ export async function ɵconnectWithoutEventVerification(
 
     // Match the base pipeline: drain delivered events before surfacing a source
     // error, so a saved replay checkpoint never skips queued reducer work.
-    const processed$ = self.applyBeforeSourceError(input, source$, subscribers);
+    const processed$: Observable<unknown> = defer(() => {
+      let sourceFailure: { error: unknown } | undefined;
+      const delivered$ = source$.pipe(
+        catchError((error: unknown) => {
+          sourceFailure = { error };
+          return EMPTY;
+        }),
+      );
+      return self
+        .processApplyEvents(
+          input,
+          self.apply(input, delivered$, subscribers),
+          subscribers,
+        )
+        .pipe(
+          concatWith(
+            defer(() => {
+              const failure = sourceFailure;
+              return failure ? throwError(() => failure.error) : EMPTY;
+            }),
+          ),
+        );
+    });
 
     await lastValueFrom(
       processed$.pipe(
@@ -197,6 +226,11 @@ export async function ɵconnectWithoutEventVerification(
           // subscriber for a benign condition.
           if (error instanceof AGUIConnectNotImplementedError) {
             return EMPTY;
+          }
+          // Restoration is a connection failure, not a failed agent run. Let
+          // the caller report it once, with its typed reason intact.
+          if (error instanceof AgentHistoryReplayError) {
+            return throwError(() => error);
           }
           return self.onError(input, error, subscribers);
         }),
