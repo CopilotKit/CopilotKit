@@ -128,6 +128,19 @@ export const appUI = createGenerativeUI({
 
 A name can come from one catalog only. Two components named `Card` throw an error when the app loads. To replace a standard component, use [overrides](/generative-ui/components/standard-catalog#replace-a-component).
 
+## Export the catalog for other A2UI tools
+
+`exportA2UICatalog(ui)` writes your UI as an A2UI 1.0 catalog definition (the `catalog_definition.json` shape), for a validator, another renderer or a prompt builder:
+
+```ts
+import { exportA2UICatalog } from "@copilotkit/react-core/v2/generative-ui";
+
+const catalog = exportA2UICatalog(appUI, { title: "Acme app" });
+fs.writeFileSync("acme-catalog.json", JSON.stringify(catalog, null, 2));
+```
+
+Every component is an entry with `component` as a `const`, its model-set props, its events as `Action` references and its slots as `ComponentId` or `ChildList` references. A prop takes its literal schema, a `DataBinding` or a `FunctionCall`, because the renderer resolves dynamic values in any prop. Every function, built-in or declared, states `returnType` and `allowedCallers`; `calc` and `series` are listed like the others, so a reader without them knows what it cannot run.
+
 ## What the agent sees
 
 The agent gets each component with its description and the props that it can set. It does not see:
