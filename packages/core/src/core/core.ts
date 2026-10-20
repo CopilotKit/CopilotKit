@@ -1018,7 +1018,10 @@ export class CopilotKitCore {
    * copilotkit.removeScopedProperties(id);
    */
   addScopedProperties({ properties, agentIds }: ScopedProperties) {
-    const id = randomUUID();
+    let id = randomUUID();
+    // An id source that repeats itself (a mock, say) must not replace an
+    // earlier entry: every call adds one.
+    for (let n = 1; this._scopedProperties.has(id); n++) id = `${id}-${n}`;
     this._scopedProperties.set(id, {
       properties,
       ...(agentIds ? { agentIds } : {}),

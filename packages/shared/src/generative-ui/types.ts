@@ -32,6 +32,11 @@ export function generativeUIFunctionCallMessageId(functionCallId: string) {
   return `genui-fn:${functionCallId}`;
 }
 
+import type {
+  A2UIFunctionPermissions,
+  A2UIFunctionReturnType,
+} from "./basic-functions";
+
 // Named `GenerativeUIJSONSchema` because the package root already exports a
 // `JSONSchema` (utils/json-schema.ts); the bare name would collide.
 export type GenerativeUIJSONSchema = Record<string, unknown>;
@@ -41,6 +46,18 @@ export type A2UIComponentNode = {
   component: string;
   [prop: string]: unknown;
 };
+
+/**
+ * The keys of the A2UI 1.0 component envelope next to `id` and
+ * `component`: `catalogId`, `accessibility` and `metadata`. They are not
+ * props of the component. The renderer reads `accessibility` and ignores
+ * the other two.
+ */
+export const A2UI_COMPONENT_ENVELOPE_KEYS: ReadonlySet<string> = new Set([
+  "catalogId",
+  "accessibility",
+  "metadata",
+]);
 
 /**
  * A call of a named function: `{ "@call": "addToCart", "args": { ... } }`.
@@ -153,9 +170,11 @@ export interface GenerativeUIComponentManifest {
   slots?: Record<string, "single" | "multiple">;
 }
 
-export interface GenerativeUIFunctionManifest {
+export interface GenerativeUIFunctionManifest extends A2UIFunctionPermissions {
   description?: string;
   parameters: GenerativeUIJSONSchema;
+  /** What the function gives back, as A2UI 1.0 names it. */
+  returnType?: A2UIFunctionReturnType;
 }
 
 /** Serializable description of what the browser can render and call. */
@@ -216,4 +235,53 @@ export interface GenerativeUIUserEvent {
   context: Record<string, unknown>;
   /** The resolved `event.userMessage`: the first line of the user message. */
   userMessage?: string;
+  /** When the user acted, as an ISO 8601 string. Filled in when left out. */
+  timestamp?: string;
+}
+
+/**
+ * The A2UI 1.0 action message of a user event: what a renderer sends to the
+ * agent when the user triggers an `{ event }` action. The run that the
+ * event starts carries it in the envelope (`copilotkit_action`), next to
+ * the visible user message.
+ */
+export interface A2UIActionMessage {
+  version: typeof A2UI_VERSION;
+  action: {
+    name: string;
+    surfaceId: string;
+    sourceComponentId: string;
+    /** ISO 8601. */
+    timestamp: string;
+    userMessage?: string;
+    context: Record<string, unknown>;
+  };
+}
+
+/**
+ * The action message of a user event, with the A2UI field names. Takes the
+ * time of the call when the event has no timestamp.
+ *
+ * @example
+ * ```ts
+ * toA2UIActionMessage({ name: "buy", surfaceId: "s1", componentId: "b", context: { sku: "a" } });
+ * // { version: "v1.0", action: { name: "buy", surfaceId: "s1", sourceComponentId: "b", timestamp: "2026-…", context: { sku: "a" } } }
+ * ```
+ */
+export function toA2UIActionMessage(
+  event: GenerativeUIUserEvent,
+): A2UIActionMessage {
+  return {
+    version: A2UI_VERSION,
+    action: {
+      name: event.name,
+      surfaceId: event.surfaceId,
+      sourceComponentId: event.componentId,
+      timestamp: event.timestamp ?? new Date().toISOString(),
+      ...(event.userMessage === undefined
+        ? {}
+        : { userMessage: event.userMessage }),
+      context: event.context,
+    },
+  };
 }

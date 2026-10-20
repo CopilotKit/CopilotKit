@@ -18,6 +18,7 @@ describe("basic functions", () => {
     expect(fn("required", { value: "" })).toEqual({
       valid: false,
       message: "Required",
+      code: "required",
     });
     expect(fn("required", { value: [] }).valid).toBe(false);
     expect(fn("required", { value: 0 }).valid).toBe(true);
@@ -29,7 +30,16 @@ describe("basic functions", () => {
     expect(fn("length", { value: "abcd", max: 3 })).toEqual({
       valid: false,
       message: "At most 3 characters",
+      code: "tooLong",
     });
+    expect(fn("length", { value: "a", min: 2 }).code).toBe("tooShort");
+    expect(fn("regex", { value: "ab", pattern: "^[A-Z]+$" }).code).toBe(
+      "pattern",
+    );
+    expect(fn("numeric", { value: "x" }).code).toBe("notANumber");
+    expect(fn("numeric", { value: 0, min: 1 }).code).toBe("tooSmall");
+    expect(fn("numeric", { value: 11, max: 10 }).code).toBe("tooLarge");
+    expect(fn("email", { value: "a@b" }).code).toBe("email");
     expect(fn("numeric", { value: "7", min: 1, max: 10 }).valid).toBe(true);
     expect(fn("numeric", { value: "x" }).valid).toBe(false);
     expect(fn("numeric", { value: 11, max: 10 }).message).toBe("At most 10");

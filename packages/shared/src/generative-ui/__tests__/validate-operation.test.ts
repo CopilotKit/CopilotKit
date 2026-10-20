@@ -238,6 +238,59 @@ describe("validateOperation: surface updates", () => {
     );
   });
 
+  it("accepts the A2UI component envelope: the own catalogId, accessibility and metadata", () => {
+    expect(
+      reasonOf(
+        card({
+          catalogId: "shop",
+          accessibility: {
+            label: { "@path": "/name" },
+            description: {
+              "@call": "formatString",
+              args: { value: "Adds ${/name}" },
+            },
+            live: "polite",
+            hidden: false,
+          },
+          metadata: { extensions: { "acme.track": "cart" } },
+        }),
+      ),
+    ).toBe("ok");
+    expect(reasonOf(card({ metadata: {} }))).toBe("ok");
+  });
+
+  it("rejects an envelope with a foreign catalog, a bad accessibility or malformed metadata", () => {
+    expect(reasonOf(card({ catalogId: "other" }))).toBe(
+      'component "c1": catalogId: unknown catalog "other"; leave out catalogId or use "shop"',
+    );
+    expect(reasonOf(card({ accessibility: "x" }))).toMatch(
+      /accessibility: must be \{ "label"/,
+    );
+    expect(reasonOf(card({ accessibility: { role: "img" } }))).toBe(
+      'component "c1": accessibility: unknown key "role"',
+    );
+    expect(reasonOf(card({ accessibility: { live: "loud" } }))).toBe(
+      'component "c1": accessibility: live must be one of off, polite, assertive',
+    );
+    expect(reasonOf(card({ accessibility: { hidden: "yes" } }))).toBe(
+      'component "c1": accessibility: hidden must be a boolean',
+    );
+    expect(reasonOf(card({ accessibility: { label: 1 } }))).toBe(
+      'component "c1": accessibility: label must be a string',
+    );
+    expect(
+      reasonOf(card({ accessibility: { label: { path: "/name" } } })),
+    ).toBe(
+      'component "c1": accessibility: label: bind data with {"@path": "/x"}, not {"path": "/x"}',
+    );
+    expect(
+      reasonOf(card({ accessibility: { label: { "@call": "openUrl" } } })),
+    ).toMatch(/accessibility: label: /);
+    expect(reasonOf(card({ metadata: { extensions: 1 } }))).toBe(
+      'component "c1": metadata must be { "extensions": { ... } }',
+    );
+  });
+
   it("rejects slot values that are not id references or reference the node itself", () => {
     expect(
       reasonOf(
@@ -704,7 +757,7 @@ describe("validateOperation: callRendererFunction", () => {
     ).toBe("ok");
   });
 
-  it("refuses a user-gesture function from the agent, and takes the other basic ones", () => {
+  it("refuses a user-gesture function and every other built-in from the agent: they are value functions of the UI", () => {
     expect(
       reasonOf(
         callFunction({
@@ -722,7 +775,48 @@ describe("validateOperation: callRendererFunction", () => {
         }),
         { functions },
       ),
-    ).toBe("ok");
+    ).toBe(
+      'function "formatNumber" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it',
+    );
+  });
+
+  it("applies the allowedCallers of an app function, to the agent and to event bindings", () => {
+    const permissions = {
+      ...functions,
+      track: {
+        parameters: { type: "object" },
+        allowedCallers: "rendererOnly" as const,
+      },
+      reload: {
+        parameters: { type: "object" },
+        allowedCallers: "agentOnly" as const,
+      },
+      share: {
+        parameters: { type: "object" },
+        requiresUserActivation: true,
+      },
+    };
+    const agentCall = (name: string) =>
+      reasonOf(callFunction({ callFunction: { "@call": name } }), {
+        functions: permissions,
+      });
+    expect(agentCall("addToCart")).toBe("ok");
+    expect(agentCall("reload")).toBe("ok");
+    expect(agentCall("track")).toBe(
+      'function "track" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it',
+    );
+    expect(agentCall("share")).toBe(
+      'function "share" runs only from a user gesture; the agent cannot call it',
+    );
+    const binding = (name: string) =>
+      reasonOf(card({ onAddToCart: { functionCall: { "@call": name } } }), {
+        functions: permissions,
+      });
+    expect(binding("track")).toBe("ok");
+    expect(binding("share")).toBe("ok");
+    expect(binding("reload")).toBe(
+      'component "c1": onAddToCart: function "reload" runs only for the agent (allowedCallers "agentOnly"); the UI cannot call it',
+    );
   });
 
   it("requires a function name in @call", () => {

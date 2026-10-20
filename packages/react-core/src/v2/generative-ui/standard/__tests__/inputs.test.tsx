@@ -352,8 +352,51 @@ describe("standard inputs: events", () => {
       name: "subscribe",
       surfaceId: SURFACE_ID,
       componentId: "b",
+      timestamp: expect.any(String),
       context: { email: "ada@example.com", source: "footer" },
     });
+  });
+
+  it("applies the accessibility envelope to a field and to a CheckBox", async () => {
+    const view = renderInputs([
+      { id: "root", component: "Column", children: ["f", "c"] },
+      {
+        id: "f",
+        component: "TextField",
+        label: "Email",
+        accessibility: { label: "Contact email", description: "Work address" },
+      },
+      {
+        id: "c",
+        component: "CheckBox",
+        label: "Terms",
+        accessibility: { hidden: true },
+      },
+    ]);
+    const group = await view.findByRole("group", { name: "Contact email" });
+    expect(group.getAttribute("aria-description")).toBe("Work address");
+    // The control itself carries the name: ARIA names do not inherit.
+    const input = view.getByRole("textbox", { name: "Contact email" });
+    expect(input.getAttribute("aria-description")).toBe("Work address");
+    expect(group.contains(input)).toBe(true);
+    const box = view.getByLabelText("Terms");
+    expect(box.closest("[aria-hidden]")?.getAttribute("aria-hidden")).toBe(
+      "true",
+    );
+  });
+
+  it("names a Button by the accessibility label of its envelope", async () => {
+    const view = renderInputs([
+      {
+        id: "root",
+        component: "Button",
+        label: "Go",
+        accessibility: { label: "Send the order", description: "Final step" },
+      },
+    ]);
+    const button = await view.findByRole("button", { name: "Send the order" });
+    expect(button.getAttribute("aria-description")).toBe("Final step");
+    expect(button.textContent).toBe("Go");
   });
 
   it("does not send the event of a disabled Button", async () => {

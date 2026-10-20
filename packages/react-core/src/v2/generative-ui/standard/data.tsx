@@ -14,6 +14,7 @@ import {
   textColor,
   textFont,
 } from "./tokens";
+import { useGenerativeUIAccessibility } from "../accessibility";
 import { useStandardStyles } from "./styles";
 
 // ---- Schemas ----
@@ -399,6 +400,7 @@ function Table(props: TableProps) {
 }
 
 function TableSection(props: TableSectionProps) {
+  const aria = useGenerativeUIAccessibility();
   const parent = useContext(TableContext);
   const isHeader = props.header === true;
   const Tag = isHeader ? "thead" : "tbody";
@@ -410,12 +412,13 @@ function TableSection(props: TableSectionProps) {
         isHeader,
       }}
     >
-      <Tag>{props.children}</Tag>
+      <Tag {...aria}>{props.children}</Tag>
     </TableContext.Provider>
   );
 }
 
 function TableRow(props: TableRowProps) {
+  const aria = useGenerativeUIAccessibility();
   const parent = useContext(TableContext);
   const isHeader = props.header === true || parent?.isHeader === true;
   const dividers = parent?.dividers ?? true;
@@ -427,7 +430,7 @@ function TableRow(props: TableRowProps) {
         isHeader,
       }}
     >
-      <tr>
+      <tr {...aria}>
         {props.label ? (
           <th
             scope="row"
@@ -454,6 +457,7 @@ function TableRow(props: TableRowProps) {
 }
 
 function TableCell(props: TableCellProps) {
+  const aria = useGenerativeUIAccessibility();
   const parent = useContext(TableContext);
   const isHeader = props.header === true || parent?.isHeader === true;
   // A header cell in a header row names a column. Else it names its row.
@@ -461,6 +465,7 @@ function TableCell(props: TableCellProps) {
   const Tag = isHeader ? "th" : "td";
   return (
     <Tag
+      {...aria}
       scope={isHeader ? scope : undefined}
       colSpan={props.colSpan}
       rowSpan={props.rowSpan}
@@ -761,6 +766,7 @@ export const dataComponents = {
   },
   TableSection: {
     component: TableSection,
+    accessibility: "self" as const,
     description:
       "A group of TableRow children in a Table. With header true, it is the header of the table.",
     props: tableSectionSchema,
@@ -768,6 +774,7 @@ export const dataComponents = {
   },
   TableRow: {
     component: TableRow,
+    accessibility: "self" as const,
     description:
       "A row of a Table. Its children are TableCell ids, or a template. With label, a header cell with that text starts the row.",
     props: tableRowSchema,
@@ -775,6 +782,7 @@ export const dataComponents = {
   },
   TableCell: {
     component: TableCell,
+    accessibility: "self" as const,
     description:
       'A cell of a TableRow. It shows "text", or its children. With header true, it is a header cell.',
     props: tableCellSchema,

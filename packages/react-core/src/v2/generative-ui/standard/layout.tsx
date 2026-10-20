@@ -36,6 +36,7 @@ import {
   spacing,
   textColor,
 } from "./tokens";
+import { namedRole, useGenerativeUIAccessibility } from "../accessibility";
 import { useStandardStyles } from "./styles";
 
 // ---- Shared schemas ----
@@ -431,6 +432,7 @@ function container<Props extends LayoutProps = LayoutProps>(
 ) {
   return function Container(props: WithChildren<Props>) {
     useStandardStyles();
+    const aria = useGenerativeUIAccessibility();
     const nested = useContext(CardNestingContext);
     const distance = useContext(CardDistanceContext);
     const ref = useRef<HTMLDivElement>(null);
@@ -444,7 +446,8 @@ function container<Props extends LayoutProps = LayoutProps>(
         <div
           ref={ref}
           data-a2ui-std=""
-          role={props.role}
+          role={namedRole(aria, props.role)}
+          {...aria}
           {...scrollAttributes(props.scrollable)}
           {...attributes?.(props)}
           style={{
@@ -550,6 +553,7 @@ function cardShadow(props: CardProps) {
 
 function Card(props: WithChildren<CardProps> & { child?: ReactNode }) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   const nested = useContext(CardNestingContext);
   const ref = useRef<HTMLDivElement>(null);
   useVisibleOnce(ref, props.onVisible);
@@ -560,7 +564,8 @@ function Card(props: WithChildren<CardProps> & { child?: ReactNode }) {
       <CardDistanceContext.Provider value={0}>
         <div
           ref={ref}
-          role={props.role}
+          role={namedRole(aria, props.role)}
+          {...aria}
           data-a2ui-std=""
           data-a2ui-card={nested ? "nested" : "top"}
           data-a2ui-card-variant={props.variant}
