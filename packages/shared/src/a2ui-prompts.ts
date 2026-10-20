@@ -221,7 +221,7 @@ const MARKDOWN_BASE_RULES = [
   "Use unique ids. Do not make cycles. A component cannot be its own child.",
   'Write a component as one flat object: {"id":"title","component":"<Name>","text":"Hello"}.',
   'Put the component name in "component" (never "type"). Put props next to it, never inside a "props" object.',
-  'Any component also takes "accessibility":{"label":"<1 to 3 words>","description":"<what it does>","live":"polite"} for screen readers. Set "label" when nothing visible names the component.',
+  'A component may take "accessibility":{"label":"<1 to 3 words>","description":"<what it does>"} for screen readers: on the component it describes, when nothing visible names it. Not on every component, and "live":"polite" only on text that changes by itself.',
   'Use only the components, props, events, and slots in the schema. A component with "includesCommonProps" also takes every prop in "commonProps".',
   'Give a prop a literal value, or bind it to the data model with {"@path":"/x"}. Never write {"path":"/x"} as a binding.',
   'A prop can also be a function value that updates with the data: {"@call":"formatCurrency","args":{"value":{"@path":"/total"},"currency":"EUR"}}. Use only the functions under "functions" in the schema. Write a literal when the value never changes.',
@@ -262,7 +262,7 @@ export function buildGenerativeUIMarkdownGuidelines(
       functions
         ? 'Use {"functionCall": ...} to run a function in the browser when the user clicks: an app function from the schema, or openUrl: {"functionCall":{"@call":"openUrl","args":{"url":"https://example.com"}}}. You are not told about the call.'
         : 'Use {"functionCall": ...} to open a URL when the user clicks: {"functionCall":{"@call":"openUrl","args":{"url":"https://example.com"}}}. You are not told about the call.',
-      'Use {"event": ...} to send the interaction back to you as a user message. Put the text of that message in "userMessage": {"event":{"name":"choose","userMessage":"Show me the Team plan"}}.',
+      'Use {"event": ...} to send the interaction back to you as a user message. Put the text of that message in "userMessage": {"event":{"name":"choose","userMessage":"Show me the Team plan"}}. "userMessage" is plain text: ${...} is not interpolated in it; put values in "context".',
       'To send input values with an event, bind them in the context: "context":{"email":{"@path":"/form/email"}}.',
       "A button or other event prop without an event or functionCall does nothing.",
     );
