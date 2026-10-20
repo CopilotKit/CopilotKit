@@ -1245,7 +1245,11 @@ onBeforeUnmount(() => {
                     <button
                       type="button"
                       data-testid="copilot-chat-input-send"
-                      aria-label="Send message"
+                      :aria-label="
+                        isProcessing && hasStopAction
+                          ? labels.chatInputToolbarStopButtonLabel
+                          : labels.chatInputToolbarSendButtonLabel
+                      "
                       :disabled="sendDisabled"
                       class="cpk:inline-flex cpk:h-9 cpk:w-9 cpk:shrink-0 cpk:items-center cpk:justify-center cpk:rounded-full cpk:bg-black cpk:text-white cpk:transition-colors cpk:hover:opacity-70 cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50 cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)] cpk:disabled:hover:opacity-100 cpk:dark:bg-white cpk:dark:text-black cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white"
                       @click="handleSendButtonClick"

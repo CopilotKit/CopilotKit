@@ -23,6 +23,8 @@ export const CopilotChatDefaultLabels = {
   chatInputToolbarFinishTranscribeButtonLabel: "Finish",
   chatInputToolbarAddButtonLabel: "Add attachments",
   chatInputToolbarToolsButtonLabel: "Tools",
+  chatInputToolbarSendButtonLabel: "Send message",
+  chatInputToolbarStopButtonLabel: "Stop",
   assistantMessageToolbarCopyCodeLabel: "Copy",
   assistantMessageToolbarCopyCodeCopiedLabel: "Copied",
   assistantMessageToolbarCopyMessageLabel: "Copy",
@@ -41,10 +43,13 @@ export const CopilotChatDefaultLabels = {
   assistantMessageToolbarRegenerateLabel: "Regenerate",
   userMessageToolbarCopyMessageLabel: "Copy",
   userMessageToolbarEditMessageLabel: "Edit",
+  userMessageToolbarPreviousBranchLabel: "Previous branch",
+  userMessageToolbarNextBranchLabel: "Next branch",
   chatDisclaimerText:
     "AI can make mistakes. Please verify important information.",
   chatToggleOpenLabel: "Open chat",
   chatToggleCloseLabel: "Close chat",
+  chatScrollToBottomLabel: "Scroll to bottom",
   modalHeaderTitle: "CopilotKit Chat",
   welcomeMessageText: "How can I help you today?",
 };

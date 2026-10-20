@@ -421,7 +421,19 @@ jobs:
       - name: Verify Railway image refs
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: npx tsx showcase/scripts/verify-railway-image-refs.ts
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: ${{ vars.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN: ${{ secrets.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN }}
+          SHOWCASE_REGISTRY_CONSUMER: image-gate
+        run: |
+          # An unset deployment binding preserves the existing static-fleet mode.
+          # Once configured, reader/auth/policy failures must fail the gate.
+          if [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] && [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            unset SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE
+          elif [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] || [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            echo "::error::Configure both registry URL and token, or neither."
+            exit 1
+          fi
+          npx tsx showcase/scripts/verify-railway-image-refs.ts
 
   # Build one browser bundle for every selected integration image. Staging
   # redeploys these GHCR images directly; production promotion pins the same
