@@ -19,6 +19,9 @@ import {
   toolCallChunkEvent,
 } from "../../__tests__/utils/test-helpers";
 import { createGenerativeUI } from "../catalog";
+import { createGenerativeUIDispatcher } from "../dispatcher";
+import { GenerativeUISurfaceManager } from "../surface-manager";
+import { buildGenerativeUIManifest } from "../manifest";
 import { useGenerativeUIFunction } from "../hooks";
 import { useGenerativeUIRuntime } from "../runtime-context";
 import type {
@@ -53,6 +56,7 @@ const SMALL_GUIDELINE = buildGenerativeUIMarkdownGuidelines({
   functions: false,
   events: false,
   templates: false,
+  checks: false,
 });
 
 type CouponHandler = (args: { code: string }) => unknown;
@@ -254,7 +258,9 @@ describe("useGenerativeUIRoot", () => {
                 Box: expect.any(Object),
                 Button: expect.any(Object),
               },
-              functions: {},
+              functions: expect.objectContaining({
+                formatCurrency: expect.any(Object),
+              }),
             },
           ],
         },
@@ -296,13 +302,14 @@ describe("useGenerativeUIRoot", () => {
             }),
           },
         },
-        functions: {
+        functions: expect.objectContaining({
           applyCoupon: {
             parameters: expect.objectContaining({
               properties: { code: expect.objectContaining({ type: "string" }) },
             }),
           },
-        },
+          formatCurrency: expect.any(Object),
+        }),
         targets: [{ id: "chat", kind: "chat" }],
         surfaces: {
           s1: {
@@ -348,7 +355,9 @@ describe("useGenerativeUIRoot", () => {
       expect(catalogOf(input)).toStrictEqual({
         catalogId: "shop",
         protocolVersion: "1.0",
-        functions: {},
+        functions: expect.objectContaining({
+          formatCurrency: expect.any(Object),
+        }),
         instructions: SMALL_GUIDELINE,
       });
       expect(
@@ -456,6 +465,32 @@ describe("useGenerativeUIRoot", () => {
     });
   });
 
+  describe("manifest functions", () => {
+    it("does not advertise a built-in under a name the app declared, even while no handler is mounted", () => {
+      const { runtime } = setup();
+      const manifest = buildGenerativeUIManifest(runtime, undefined);
+      // The test UI declares addToCart; formatNumber is a built-in.
+      expect(manifest.functions).toHaveProperty("formatNumber");
+      const shadowing = createGenerativeUI({
+        id: "shadow",
+        functions: {
+          formatNumber: { parameters: z.object({ value: z.number() }) },
+        },
+        components: {},
+      });
+      const manager = new GenerativeUISurfaceManager(shadowing);
+      const dispatcher = createGenerativeUIDispatcher({
+        getDeclared: () => shadowing.functions,
+      });
+      const shadowed = buildGenerativeUIManifest(
+        { ui: shadowing, manager, dispatcher },
+        undefined,
+      );
+      expect(shadowed.functions).not.toHaveProperty("formatNumber");
+      expect(shadowed.functions).toHaveProperty("formatCurrency");
+    });
+  });
+
   describe("forwardEvent", () => {
     it("adds the event as a user message with the label of its component, then runs the agent", async () => {
       const { runtime, agent } = setup();
@@ -476,6 +511,35 @@ describe("useGenerativeUIRoot", () => {
         role: "user",
         content: "Buy now\n\nsku: a",
       });
+    });
+
+    it("drops an event while the agent runs or another event is on its way, and takes the next one once idle", async () => {
+      const { runtime, agent } = setup();
+      act(() =>
+        runtime.manager.ingest(agent.threadId, "default", buttonSurface("s1")),
+      );
+      const event = { name: "buy", ...origin, context: { sku: "a" } };
+
+      // A double click: the second event arrives before the run has started.
+      const first = runtime.forwardEvent(event, "default");
+      const repeat = await runtime.forwardEvent(event, "default");
+      expect(!repeat.ok && repeat.error.code).toBe("agent_busy");
+      await waitFor(() => expect(CapturingAgent.inputs).toHaveLength(1));
+      agent.emit(runStartedEvent());
+
+      // A click while the reply streams.
+      const midRun = await runtime.forwardEvent(event, "default");
+      expect(!midRun.ok && midRun.error.code).toBe("agent_busy");
+      agent.emit(runFinishedEvent());
+      await expect(first).resolves.toEqual({ ok: true, result: undefined });
+      expect(CapturingAgent.inputs).toHaveLength(1);
+
+      // Idle again: the next event is sent.
+      const next = runtime.forwardEvent(event, "default");
+      await waitFor(() => expect(CapturingAgent.inputs).toHaveLength(2));
+      agent.emit(runStartedEvent());
+      agent.emit(runFinishedEvent());
+      await expect(next).resolves.toEqual({ ok: true, result: undefined });
     });
 
     it("reports event_forward_failed when the agent does not exist", async () => {

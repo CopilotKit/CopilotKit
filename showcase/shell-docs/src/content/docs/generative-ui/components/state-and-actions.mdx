@@ -135,6 +135,12 @@ events: {
 
 When the user clicks, the click becomes a visible user message, and the agent answers it. The agent can also choose the text of that message (its `userMessage`), for example "Show me the Team plan".
 
+## Compute values in the browser
+
+A prop can be a function value as well as a literal or a binding, at any depth: `{ "@call": "formatCurrency", "args": { "value": { "@path": "/total" }, "currency": "EUR" } }`. It recomputes when the data it reads changes, with no round trip to the agent. The functions of the A2UI 1.0 basic catalog are built in: `formatString` (with `${/path}` and `${fn(arg: value)}` interpolation), `formatNumber`, `formatCurrency`, `formatDate`, `pluralize`, `and`, `or`, `not`, the validators `required`, `regex`, `length`, `numeric` and `email`, `@index` in a template, and `openUrl`, which runs only as the `functionCall` of an event.
+
+A2UI 1.0 has no arithmetic, so CopilotKit adds two catalog functions. `calc` evaluates an expression over named args: `{ "@call": "calc", "args": { "expression": "seats * 29 * (annual ? 0.8 : 1)", "seats": { "@path": "/seats" }, "annual": { "@path": "/annual" } } }`, with `+ - * / %`, comparisons, `&& || !`, `?:`, `min`, `max`, `round`, `floor`, `ceil`, `abs` and text concatenation. `series` builds a list of `count` items from an item template with `${...}` expressions over a loop variable, for chart data. Both appear to the model as regular catalog functions; a renderer without them rejects the call. The agent can call every built-in with `callRendererFunction`, except `openUrl`.
+
 ## Keep what the user types
 
 A checkout form that the agent filled in must keep the user's edits. List the props that the component can change in `writable`. Each one gets a setter:

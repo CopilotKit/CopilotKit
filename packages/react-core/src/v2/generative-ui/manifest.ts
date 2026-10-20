@@ -3,17 +3,41 @@ import {
   generativeUIGuideFeatures,
   COPILOTKIT_UI_ENVELOPE_FORMAT,
   GENERATIVE_UI_CHAT_TARGET,
+  GENERATIVE_UI_FUNCTIONS,
 } from "@copilotkit/shared";
 import type {
   CopilotKitUIEnvelope,
+  GenerativeUIFunctionManifest,
   GenerativeUIManifest,
 } from "@copilotkit/shared";
+
+/**
+ * The built-in functions (the A2UI basic catalog plus calc and series) as
+ * manifest entries. Their args are described by the short signature, not
+ * by a full JSON Schema: the renderer checks them when they run. An app
+ * function of the same name replaces the entry.
+ */
+export function builtInFunctionManifests(): Record<
+  string,
+  GenerativeUIFunctionManifest
+> {
+  return Object.fromEntries(
+    Object.entries(GENERATIVE_UI_FUNCTIONS).map(([name, fn]) => [
+      name,
+      {
+        description: fn.description,
+        parameters: { type: "object", description: fn.parameters },
+      },
+    ]),
+  );
+}
 import type { GenerativeUIRuntime } from "./runtime-context";
 
 /**
  * Builds the per-run manifest. Never contains handlers or renderers.
  *
- * - `functions`: the declared functions with exactly one mounted handler.
+ * - `functions`: the built-in functions, then the declared functions with
+ *   exactly one mounted handler.
  * - `targets`: the chat first, then each mounted `<GenerativeUISurface>`,
  *   with its `description` and its `components` when it has them.
  */
@@ -29,7 +53,16 @@ export function buildGenerativeUIManifest(
   const manifest: GenerativeUIManifest = {
     catalogId: ui.id,
     components: ui.manifestComponents,
-    functions: dispatcher.listExposed(),
+    // A name the app declares is the app's, also while its handler is not
+    // mounted: the dispatcher never runs the built-in in its place.
+    functions: {
+      ...Object.fromEntries(
+        Object.entries(builtInFunctionManifests()).filter(
+          ([name]) => !ui.functions.has(name),
+        ),
+      ),
+      ...dispatcher.listExposed(),
+    },
     targets: [
       { id: GENERATIVE_UI_CHAT_TARGET, kind: "chat" },
       ...inlineTargets,

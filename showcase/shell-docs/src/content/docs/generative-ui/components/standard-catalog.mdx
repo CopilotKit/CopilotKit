@@ -1,12 +1,12 @@
 ---
 title: "Standard catalog"
 icon: "lucide/Blocks"
-description: "Use the 69 standard components, drop the ones you do not want, and replace any of them with your own."
+description: "Use the 73 standard components, drop the ones you do not want, and replace any of them with your own."
 ---
 
 ## What is this?
 
-You want the agent to answer with tables, charts, and forms today, not after you build a component library. `standardUI` is a catalog of 69 ready-made components that the agent already knows how to use.
+You want the agent to answer with tables, charts, and forms today, not after you build a component library. `standardUI` is a catalog of 73 ready-made components that the agent already knows how to use. The 18 components of the A2UI 1.0 basic catalog are in it under their A2UI names and props (`Image.url`, `CheckBox.value`, `Row.justify: "spaceBetween"`, `weight` for flex-grow); the rest extend the catalog.
 
 Use it as it is:
 
@@ -20,16 +20,18 @@ import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 
 | Group | Components |
 | --- | --- |
-| Layout | `Box`, `Column`, `Row`, `Grid`, `GridItem`, `Card`, `Flow`, `FlowItem`, `Carousel`, `CarouselItem`, `CarouselMediaItem`, `Spacer`, `Divider` |
+| Layout | `Box`, `Column`, `Row`, `Grid`, `GridItem`, `Card`, `Flow`, `FlowItem`, `Carousel`, `CarouselItem`, `CarouselMediaItem`, `Spacer`, `Divider`, `Tabs` |
 | Text | `Title`, `Text`, `Caption`, `Label`, `Bold`, `Italic`, `Underline`, `Strikethrough`, `Badge`, `Blockquote`, `Code`, `Markdown`, `Math`, `ShimmerText`, `Link`, `Tooltip` |
-| Inputs | `Button`, `Pressable`, `Form`, `TextField`, `TextArea`, `Select`, `CheckBox`, `Radio`, `RadioGroup`, `Slider`, `SegmentedControl`, `DateTimeInput` |
+| Inputs | `Button`, `Pressable`, `Form`, `TextField`, `TextArea`, `Select`, `CheckBox`, `Radio`, `RadioGroup`, `Slider`, `SegmentedControl`, `ChoicePicker`, `DateTimeInput` |
 | Data | `Table`, `TableSection`, `TableRow`, `TableCell`, `List`, `ListItem`, `Chart`, `Map` |
-| Media | `Image`, `Icon`, `Favicon`, `Svg`, `YouTube`, `HtmlView` |
-| Feedback and overlay | `Loading`, `LoadingIndicator`, `LoadingBlock`, `PulseIndicator`, `Celebration`, `FlashcardFlip`, `Popover`, `PopoverTrigger`, `PopoverContent` |
+| Media | `Image`, `Icon`, `Favicon`, `Svg`, `Video`, `AudioPlayer`, `HtmlView` |
+| Feedback and overlay | `Loading`, `LoadingIndicator`, `LoadingBlock`, `PulseIndicator`, `Celebration`, `FlashcardFlip`, `Popover`, `PopoverTrigger`, `PopoverContent`, `Modal` |
 | Composites | `LinkCard`, `Citation`, `FollowUp`, `EntityCard`, `ImageGrid` |
 
 A few things to know:
 
+- **Every input validates.** `checks` holds the `Checkable` rules of A2UI 1.0: `[{ "condition": { "@call": "email", "args": { "value": { "@path": "/form/email" } } }, "message": "Enter a valid email" }]`. An input shows the first failed message once the user has been in it, and a `Button` with the same checks is disabled while one fails.
+- **`Video` takes any URL.** A video file plays in the native player; a YouTube link shows a poster until the user presses play, then loads the privacy-enhanced embed. `Tabs` takes `tabs: [{ "title", "child" }]` with the id of each panel.
 - **Inputs keep what users type.** When the agent binds an input to a value, what the user types stays. A later agent update cannot write over it.
 - **`Button` and `Pressable` can act in the browser.** `href` opens a URL, and `Button` with `copy` copies text, with no message to the agent.
 - **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps. Without it, the map shows a list of the places.
@@ -62,7 +64,7 @@ Every component makes the prompt a little longer. If your app never needs a map 
 ```ts
 export const appUI = createGenerativeUI({
   id: "acme/app@1",
-  extends: [standardUI.omit(["Map", "YouTube", "HtmlView"])],
+  extends: [standardUI.omit(["Map", "Video", "HtmlView"])],
   components: {},
 });
 ```

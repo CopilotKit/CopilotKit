@@ -170,18 +170,18 @@ describe("standard catalog: data and media (parity)", () => {
     expect((v.getByText("②") as HTMLElement).style.minWidth).toBe("48px");
   });
 
-  it("Image, Icon, Favicon, Svg, YouTube, HtmlView render safely", async () => {
+  it("Image, Icon, Favicon, Svg, Video, AudioPlayer, HtmlView render safely", async () => {
     const v = render([
       {
         id: "root",
         component: "Column",
-        children: ["i", "c", "f", "s", "y", "h"],
+        children: ["i", "c", "f", "s", "y", "au", "h"],
       },
       {
         id: "i",
         component: "Image",
-        src: "https://example.com/a.png",
-        alt: "pic",
+        url: "https://example.com/a.png",
+        description: "pic",
         aspectRatio: "16/9",
         radius: "lg",
       },
@@ -198,11 +198,12 @@ describe("standard catalog: data and media (parity)", () => {
         viewBox: "0 0 10 10",
         paths: [{ d: "M0 0L10 10", stroke: "danger" }],
       },
+      { id: "y", component: "Video", url: "https://example.com/clip.mp4" },
       {
-        id: "y",
-        component: "YouTube",
-        videoId: "dQw4w9WgXcQ",
-        showThumbnail: false,
+        id: "au",
+        component: "AudioPlayer",
+        url: "https://example.com/clip.mp3",
+        description: "A clip",
       },
       {
         id: "h",
@@ -216,12 +217,17 @@ describe("standard catalog: data and media (parity)", () => {
     );
     expect(v.container.querySelector("svg")).not.toBeNull();
     const iframes = v.container.querySelectorAll("iframe");
-    expect(iframes.length).toBe(2);
-    expect(iframes[1].getAttribute("sandbox")).toBe("");
+    expect(iframes.length).toBe(1);
+    expect(iframes[0].getAttribute("sandbox")).toBe("");
     expect((window as unknown as { __x?: number }).__x).toBeUndefined();
-    expect(iframes[0].getAttribute("src")).toBe(
-      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
+    // A plain video URL plays in a native element, with no third party.
+    expect(v.container.querySelector("video")?.getAttribute("src")).toBe(
+      "https://example.com/clip.mp4",
     );
+    expect(v.container.querySelector("audio")?.getAttribute("src")).toBe(
+      "https://example.com/clip.mp3",
+    );
+    expect(v.getByText("A clip").tagName).toBe("FIGCAPTION");
     expect(v.getByAltText("ck").getAttribute("src")).toBe(
       "https://www.google.com/s2/favicons?domain=copilotkit.ai&sz=64",
     );
@@ -238,8 +244,8 @@ describe("standard catalog: data and media (parity)", () => {
       {
         id: "root",
         component: "Image",
-        src: "https://example.com/missing.png",
-        alt: "Missing",
+        url: "https://example.com/missing.png",
+        description: "Missing",
         fallback: "Image unavailable",
       },
     ]);
@@ -252,8 +258,8 @@ describe("standard catalog: data and media (parity)", () => {
       {
         id: "root",
         component: "Image",
-        src: "https://example.com/a.png",
-        alt: "A",
+        url: "https://example.com/a.png",
+        description: "A",
         actionOverlay: { label: "Save" },
         onOverlayClick: { event: { name: "save" } },
       },
@@ -267,8 +273,8 @@ describe("standard catalog: data and media (parity)", () => {
       {
         id: "root",
         component: "Image",
-        src: "https://example.com/a.png",
-        alt: "Z",
+        url: "https://example.com/a.png",
+        description: "Z",
         hoverZoom: true,
         position: "top",
       },
@@ -279,12 +285,12 @@ describe("standard catalog: data and media (parity)", () => {
     expect(img.parentElement!.style.overflow).toBe("hidden");
   });
 
-  it("YouTube shows a poster first and loads the player on click", async () => {
+  it("Video with a YouTube URL shows a poster first and loads the player on click", async () => {
     const v = render([
       {
         id: "root",
-        component: "YouTube",
-        videoId: "dQw4w9WgXcQ",
+        component: "Video",
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10s",
         title: "Clip",
       },
     ]);
