@@ -23,7 +23,13 @@ import type {
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
 import type { ActionInput } from "../../graphql/inputs/action.input";
 
-/** Matches BuiltInAgent's default `stepCountIs(10)`. */
+/**
+ * More than one step is required: the v2 client starts a follow-up run only
+ * after it executes a frontend tool, so a server tool's result reaches the
+ * model only if this run calls it again. Ten is the limit BuiltInAgent uses
+ * when it loops (with learned skills). Its own default is one step, which
+ * stops before answering a server tool (OSS-1232).
+ */
 const MAX_STEPS = 10;
 
 /** Roles `aguiToGQL` converts. Anything else (e.g. `activity`) has no v1 form. */
