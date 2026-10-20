@@ -710,27 +710,37 @@ export class IntelligenceAgent extends AbstractAgent {
                     input,
                     replayCursor,
                   ).pipe(
-                    switchMap((refreshedCredentials) =>
-                      refreshedCredentials === null
-                        ? EMPTY
-                        : observe(
-                            this.applyCanonicalRunIdentity(
-                              input,
-                              refreshedCredentials,
-                              {
-                                fallbackToInputRunId:
-                                  options.streamMode === "run",
-                              },
-                            ),
-                            refreshedCredentials,
-                            {
-                              ...currentOptions,
-                              channelMode: "connect",
-                              replayCursor,
-                              unopenedRefreshes,
-                            },
-                          ),
-                    ),
+                    switchMap((refreshedCredentials) => {
+                      if (refreshedCredentials === null) {
+                        if (options.streamMode === "run") {
+                          this.clearReconnectCursor(input.threadId);
+                          throw new AgentHistoryReplayError(
+                            "history_run_incomplete",
+                          );
+                        }
+                        return EMPTY;
+                      }
+                      return observe(
+                        this.applyCanonicalRunIdentity(
+                          input,
+                          // Connect credentials describe the thread's latest run,
+                          // which must not replace the run this caller started.
+                          options.streamMode === "run"
+                            ? { ...refreshedCredentials, runId: input.runId }
+                            : refreshedCredentials,
+                          {
+                            fallbackToInputRunId: options.streamMode === "run",
+                          },
+                        ),
+                        refreshedCredentials,
+                        {
+                          ...currentOptions,
+                          channelMode: "connect",
+                          replayCursor,
+                          unopenedRefreshes,
+                        },
+                      );
+                    }),
                   );
                 }),
               );
@@ -827,6 +837,7 @@ export class IntelligenceAgent extends AbstractAgent {
           input,
           options.channelMode ?? options.streamMode,
           cursor,
+          options.streamMode === "connect",
         );
       };
       const channel$ = ɵphoenixChannel$({
@@ -845,7 +856,7 @@ export class IntelligenceAgent extends AbstractAgent {
       );
       let latestObservedReplayCursor: string | null = null;
       const threadEvents$ = this.observeThreadEvents$(
-        input.threadId,
+        input,
         channel$,
         options,
       ).pipe(
@@ -1013,12 +1024,24 @@ export class IntelligenceAgent extends AbstractAgent {
         take(1),
       );
       const terminal$ = merge(threadCompleted$, streamIdleCompletion$);
+      const unfinishedRun$ =
+        options.streamMode === "run" && options.channelMode === "connect"
+          ? streamIdle$.pipe(
+              tap(() => {
+                this.clearReconnectCursor(input.threadId);
+                throw new AgentHistoryReplayError("history_run_incomplete");
+              }),
+              ignoreElements(),
+              takeUntil(terminal$),
+            )
+          : EMPTY;
 
       return merge(
         // Install replay/idle observers before joining the channel.
         replayReset$.pipe(takeUntil(terminal$)),
         replayFailed$.pipe(ignoreElements(), takeUntil(terminal$)),
         replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
+        unfinishedRun$,
         this.joinThreadChannel$(channel$),
         this.observeSocketHealth$(socket$, options.onSocketOpen).pipe(
           takeUntil(terminal$),
@@ -1058,16 +1081,34 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   private observeThreadEvents$(
-    threadId: string,
+    input: RunAgentInput,
     channel$: Observable<ɵPhoenixChannelSession>,
-    options: { completeOnRunError: boolean; streamMode: "run" | "connect" },
+    options: {
+      completeOnRunError: boolean;
+      streamMode: "run" | "connect";
+      channelMode?: "run" | "connect";
+    },
   ): Observable<BaseEvent> {
     return channel$.pipe(
       switchMapOperator(({ channel }) =>
         this.observeChannelEvent$<BaseEvent>(channel, CLIENT_AG_UI_EVENT),
       ),
       tap((payload) => {
-        this.updateLastSeenEventId(threadId, payload);
+        // Recovery uses thread history, but the outer AG-UI pipeline still
+        // belongs to one run. Never apply or checkpoint another run's frame.
+        if (options.streamMode === "run" && options.channelMode === "connect") {
+          const runId =
+            "run_id" in payload && typeof payload.run_id === "string"
+              ? payload.run_id
+              : "runId" in payload && typeof payload.runId === "string"
+                ? payload.runId
+                : null;
+          if (runId && runId !== input.runId) {
+            this.clearReconnectCursor(input.threadId);
+            throw new AgentHistoryReplayError("history_run_mismatch");
+          }
+        }
+        this.updateLastSeenEventId(input.threadId, payload);
       }),
       // Only the run stream goes through AG-UI 1.0 enforcement, which would
       // strip these fields with a warning each. Replays stay as sent.
@@ -1155,7 +1196,8 @@ export class IntelligenceAgent extends AbstractAgent {
   private createThreadChannelParams(
     input: RunAgentInput,
     streamMode: "run" | "connect",
-    replayCursor?: string | null,
+    replayCursor: string | null | undefined,
+    supportsReplayReset: boolean,
   ): Record<string, unknown> {
     return streamMode === "run"
       ? {
@@ -1165,7 +1207,7 @@ export class IntelligenceAgent extends AbstractAgent {
       : {
           stream_mode: "connect",
           supports_replay_errors: true,
-          supports_replay_reset: true,
+          supports_replay_reset: supportsReplayReset,
           last_seen_event_id:
             replayCursor === undefined
               ? this.getReconnectCursor(input)

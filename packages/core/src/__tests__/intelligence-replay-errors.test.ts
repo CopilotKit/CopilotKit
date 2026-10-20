@@ -1283,3 +1283,358 @@ test.each([
     }
   },
 );
+
+test.each(["direct", "proxy"] as const)(
+  "active-run recovery declines fresh reset and clears an unavailable cursor for explicit connect (%s)",
+  async (transport) => {
+    const { agent: direct, channels, input, teardown } = setup();
+    vi.useFakeTimers();
+    const agent =
+      transport === "direct"
+        ? direct
+        : new ProxiedCopilotRuntimeAgent({
+            runtimeUrl: "http://localhost:4000",
+            runtimeMode: "intelligence",
+            intelligence: { wsUrl: "ws://localhost:4000/client" },
+            agentId: "agent-1",
+          });
+    agent.threadId = input.threadId;
+    const failure = vi.fn();
+    const run = agent.runAgent({ runId: input.runId }).catch(failure);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      const first = channels.mock.results[0]!.value;
+      first.triggerJoin("ok");
+      first.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+        metadata: { cpki_event_id: "expired" },
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      const socket = channels.mock.contexts[0];
+      if (!(socket instanceof MockSocket))
+        throw new Error("Missing original socket");
+      for (let attempt = 0; attempt < 5; attempt++)
+        socket.triggerError(new Error("transport dropped"));
+      await vi.advanceTimersByTimeAsync(0);
+      const recovery = channels.mock.results[1]!.value;
+      expect(recovery.params).toMatchObject({
+        stream_mode: "connect",
+        supports_replay_reset: false,
+        last_seen_event_id: "expired",
+      });
+      recovery.triggerJoin("ok");
+      recovery.triggerError();
+      recovery.join();
+      expect(recovery.params.supports_replay_reset).toBe(false);
+      recovery.triggerJoin("ok");
+      recovery.serverPush("replay_failed", {
+        reason: "history_cursor_unavailable",
+        retryable: false,
+        latestEventId: "expired",
+      });
+      await run;
+      expect(failure).toHaveBeenCalledExactlyOnceWith(
+        new AgentHistoryReplayError("history_cursor_unavailable"),
+      );
+      expect(agent.isRunning).toBe(false);
+      const explicit = agent.connectAgent();
+      await vi.advanceTimersByTimeAsync(0);
+      const fresh = channels.mock.results[2]!.value;
+      expect(fresh.params).toMatchObject({
+        supports_replay_reset: true,
+        last_seen_event_id: null,
+      });
+      fresh.triggerJoin("ok");
+      fresh.serverPush("replay_complete", { latestEventId: null });
+      fresh.serverPush("stream_idle", { latestEventId: null });
+      await explicit;
+    } finally {
+      await agent.detachActiveRun();
+      await run;
+      teardown();
+    }
+  },
+);
+
+test.each([
+  { transport: "direct", started: false },
+  { transport: "proxy", started: false },
+  { transport: "direct", started: true },
+  { transport: "proxy", started: true },
+] as const)(
+  "active-run recovery rejects foreign history before applying it ($transport, started=$started)",
+  async ({ transport, started }) => {
+    const { agent: direct, channels, fetch, input, teardown } = setup();
+    vi.useFakeTimers();
+    const agent =
+      transport === "direct"
+        ? direct
+        : new ProxiedCopilotRuntimeAgent({
+            runtimeUrl: "http://localhost:4000",
+            runtimeMode: "intelligence",
+            intelligence: { wsUrl: "ws://localhost:4000/client" },
+            agentId: "agent-1",
+          });
+    agent.threadId = input.threadId;
+    const failure = vi.fn();
+    const finished = vi.fn();
+    const run = agent
+      .runAgent({ runId: input.runId }, { onRunFinishedEvent: finished })
+      .catch(failure);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      const first = channels.mock.results[0]!.value;
+      first.triggerJoin("ok");
+      if (started)
+        first.serverPush("ag_ui_event", {
+          type: EventType.RUN_STARTED,
+          threadId: input.threadId,
+          runId: input.runId,
+          metadata: { cpki_event_id: "current-10" },
+        });
+      await vi.advanceTimersByTimeAsync(0);
+      fetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            threadId: input.threadId,
+            runId: "other-run",
+            joinToken: "refreshed",
+            realtime: {
+              clientUrl: "ws://localhost:4000/client",
+              topic: `thread:${input.threadId}`,
+            },
+          }),
+        ),
+      );
+      const socket = channels.mock.contexts[0];
+      if (!(socket instanceof MockSocket))
+        throw new Error("Missing original socket");
+      for (let attempt = 0; attempt < 5; attempt++)
+        socket.triggerError(new Error("transport dropped"));
+      await vi.advanceTimersByTimeAsync(0);
+      const recovery = channels.mock.results[1]!.value;
+      recovery.triggerJoin("ok");
+      recovery.serverPush("ag_ui_event", {
+        type: started ? EventType.RUN_FINISHED : EventType.RUN_STARTED,
+        threadId: input.threadId,
+        // The authenticated routing field takes precedence over raw payload identity.
+        ...(started
+          ? { run_id: "other-run", runId: input.runId }
+          : { runId: "other-run" }),
+        metadata: { cpki_event_id: "foreign-20" },
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(failure).toHaveBeenCalledExactlyOnceWith(
+        new AgentHistoryReplayError("history_run_mismatch"),
+      );
+      expect(finished).not.toHaveBeenCalled();
+      expect(agent.isRunning).toBe(false);
+      const explicit = agent.connectAgent();
+      await vi.advanceTimersByTimeAsync(0);
+      const fresh = channels.mock.results[2]!.value;
+      expect(fresh.params.last_seen_event_id).toBeNull();
+      fresh.triggerJoin("ok");
+      fresh.serverPush("replay_complete", { latestEventId: null });
+      fresh.serverPush("stream_idle", { latestEventId: null });
+      await explicit;
+    } finally {
+      await agent.detachActiveRun();
+      await run;
+      teardown();
+    }
+  },
+);
+
+test.each(["direct", "proxy"] as const)(
+  "active-run recovery reports idle without its terminal event (%s)",
+  async (transport) => {
+    const { agent: direct, channels, input, teardown } = setup();
+    vi.useFakeTimers();
+    const agent =
+      transport === "direct"
+        ? direct
+        : new ProxiedCopilotRuntimeAgent({
+            runtimeUrl: "http://localhost:4000",
+            runtimeMode: "intelligence",
+            intelligence: { wsUrl: "ws://localhost:4000/client" },
+            agentId: "agent-1",
+          });
+    agent.threadId = input.threadId;
+    const failure = vi.fn();
+    const run = agent.runAgent({ runId: input.runId }).catch(failure);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      const first = channels.mock.results[0]!.value;
+      first.triggerJoin("ok");
+      first.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+        metadata: { cpki_event_id: "current-10" },
+      });
+      const socket = channels.mock.contexts[0];
+      if (!(socket instanceof MockSocket))
+        throw new Error("Missing original socket");
+      for (let attempt = 0; attempt < 5; attempt++)
+        socket.triggerError(new Error("transport dropped"));
+      await vi.advanceTimersByTimeAsync(0);
+      const recovery = channels.mock.results[1]!.value;
+      recovery.triggerJoin("ok");
+      recovery.serverPush("replay_complete", { latestEventId: "current-10" });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(failure).not.toHaveBeenCalled();
+      recovery.serverPush("stream_idle", { latestEventId: "current-10" });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(failure).toHaveBeenCalledExactlyOnceWith(
+        new AgentHistoryReplayError("history_run_incomplete"),
+      );
+      expect(agent.isRunning).toBe(false);
+      const explicit = agent.connectAgent();
+      await vi.advanceTimersByTimeAsync(0);
+      const fresh = channels.mock.results[2]!.value;
+      expect(fresh.params.last_seen_event_id).toBeNull();
+      fresh.triggerJoin("ok");
+      fresh.serverPush("replay_complete", { latestEventId: null });
+      fresh.serverPush("stream_idle", { latestEventId: null });
+      await explicit;
+    } finally {
+      await agent.detachActiveRun();
+      await run;
+      teardown();
+    }
+  },
+);
+
+test("active-run recovery rejects empty credentials instead of completing an unfinished run", async () => {
+  const { agent, channels, fetch, input, teardown } = setup();
+  vi.useFakeTimers();
+  agent.threadId = input.threadId;
+  const failure = vi.fn();
+  const run = agent.runAgent({ runId: input.runId }).catch(failure);
+  try {
+    await vi.advanceTimersByTimeAsync(0);
+    channels.mock.results[0]!.value.triggerJoin("ok");
+    fetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const socket = channels.mock.contexts[0];
+    if (!(socket instanceof MockSocket))
+      throw new Error("Missing original socket");
+    for (let attempt = 0; attempt < 5; attempt++)
+      socket.triggerError(new Error("transport dropped"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(failure).toHaveBeenCalledExactlyOnceWith(
+      new AgentHistoryReplayError("history_run_incomplete"),
+    );
+    expect(agent.isRunning).toBe(false);
+  } finally {
+    await agent.detachActiveRun();
+    await run;
+    teardown();
+  }
+});
+
+test.each(["direct", "proxy"] as const)(
+  "active-run recovery preserves its identity and drains its terminal before idle (%s)",
+  async (transport) => {
+    const { agent: direct, channels, fetch, input, teardown } = setup();
+    vi.useFakeTimers();
+    const agent =
+      transport === "direct"
+        ? direct
+        : new ProxiedCopilotRuntimeAgent({
+            runtimeUrl: "http://localhost:4000",
+            runtimeMode: "intelligence",
+            intelligence: { wsUrl: "ws://localhost:4000/client" },
+            agentId: "agent-1",
+          });
+    agent.threadId = input.threadId;
+    const pending = deferred<void>();
+    const failure = vi.fn();
+    const finished = vi.fn();
+    const run = agent
+      .runAgent(
+        { runId: input.runId },
+        {
+          onRunFinishedEvent: finished,
+          onTextMessageContentEvent: () => pending.promise,
+        },
+      )
+      .catch(failure);
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      const first = channels.mock.results[0]!.value;
+      first.triggerJoin("ok");
+      first.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+        metadata: { cpki_event_id: "current-10" },
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      fetch.mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            threadId: input.threadId,
+            runId: "other-run",
+            joinToken: "refreshed",
+            realtime: {
+              clientUrl: "ws://localhost:4000/client",
+              topic: `thread:${input.threadId}`,
+            },
+          }),
+        ),
+      );
+      const socket = channels.mock.contexts[0];
+      if (!(socket instanceof MockSocket))
+        throw new Error("Missing original socket");
+      for (let attempt = 0; attempt < 5; attempt++)
+        socket.triggerError(new Error("transport dropped"));
+      await vi.advanceTimersByTimeAsync(0);
+      const recovery = channels.mock.results[1]!.value;
+      recovery.triggerJoin("ok");
+      recovery.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: "current-text",
+        role: "assistant",
+        run_id: input.runId,
+      });
+      recovery.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: "current-text",
+        delta: "recovered",
+        run_id: input.runId,
+      });
+      recovery.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: "current-text",
+        run_id: input.runId,
+      });
+      recovery.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+        run_id: input.runId,
+        metadata: { cpki_event_id: "current-20" },
+      });
+      recovery.serverPush("stream_idle", { latestEventId: "current-20" });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(failure).not.toHaveBeenCalled();
+      expect(finished).not.toHaveBeenCalled();
+      expect(agent.isRunning).toBe(true);
+      pending.resolve();
+      await run;
+      expect(failure).not.toHaveBeenCalled();
+      expect(finished).toHaveBeenCalledOnce();
+      expect(agent.messages).toEqual([
+        expect.objectContaining({ id: "current-text", content: "recovered" }),
+      ]);
+      expect(agent.isRunning).toBe(false);
+    } finally {
+      pending.resolve();
+      await agent.detachActiveRun();
+      await run;
+      teardown();
+    }
+  },
+);

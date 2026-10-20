@@ -665,7 +665,7 @@ describe("IntelligenceAgent", () => {
       expect(getChannel(agent)!.params).toEqual({
         stream_mode: "connect",
         supports_replay_errors: true,
-        supports_replay_reset: true,
+        supports_replay_reset: false,
         last_seen_event_id: "event-2",
       });
     });
