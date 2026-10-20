@@ -830,7 +830,7 @@ test("the runtime proxy clears stale approvals when the fresh replay reset appli
   }
 });
 
-test("Core reports a terminal history restore failure once without a run-failure console error", async () => {
+test("Core reports a terminal history restore failure once through the normal failure lifecycle", async () => {
   const { agent, channels, input, teardown } = setup();
   agent.threadId = input.threadId;
   const onError = vi.fn();
@@ -855,7 +855,7 @@ test("Core reports a terminal history restore failure once without a run-failure
         context: { agentId: agent.agentId, threadId: input.threadId },
       }),
     );
-    expect(consoleError).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledOnce();
     expect(agent.isRunning).toBe(false);
     expect(channel.left).toBe(true);
   } finally {
@@ -1097,7 +1097,7 @@ test("an exhausted public connect rejects once and clears running state", async 
     expect(failure).toHaveBeenCalledExactlyOnceWith(
       new AgentHistoryReplayError("history_busy"),
     );
-    expect(onRunFailed).not.toHaveBeenCalled();
+    expect(onRunFailed).toHaveBeenCalledOnce();
     expect(agent.isRunning).toBe(false);
   } finally {
     await agent.detachActiveRun();
@@ -1198,7 +1198,7 @@ test.each(["direct", "proxy"] as const)(
           error: new AgentHistoryReplayError("history_read_failed"),
         }),
       );
-      expect(consoleError).not.toHaveBeenCalled();
+      expect(consoleError).toHaveBeenCalledOnce();
       expect(agent.isRunning).toBe(false);
       const resumed = agent.connectAgent();
       await vi.advanceTimersByTimeAsync(0);
@@ -1273,8 +1273,8 @@ test.each([
           ? new AgentHistoryReplayError("history_read_failed")
           : new Error("REST run request failed: run unavailable"),
       );
-      expect(onRunFailed).toHaveBeenCalledTimes(historyFailure ? 0 : 1);
-      expect(consoleError).toHaveBeenCalledTimes(historyFailure ? 0 : 1);
+      expect(onRunFailed).toHaveBeenCalledOnce();
+      expect(consoleError).toHaveBeenCalledOnce();
       expect(agent.isRunning).toBe(false);
     } finally {
       await agent.detachActiveRun();
@@ -1634,6 +1634,137 @@ test.each(["direct", "proxy"] as const)(
       pending.resolve();
       await agent.detachActiveRun();
       await run;
+      teardown();
+    }
+  },
+);
+
+test.each([
+  { transport: "direct", mode: "connect" },
+  { transport: "proxy", mode: "connect" },
+  { transport: "direct", mode: "run" },
+  { transport: "proxy", mode: "run" },
+] as const)(
+  "terminal replay failure reconciles pending tool results and notifies once ($transport, $mode)",
+  async ({ transport, mode }) => {
+    const { agent: direct, channels, input, teardown } = setup();
+    vi.useFakeTimers();
+    const agent =
+      transport === "direct"
+        ? direct
+        : new ProxiedCopilotRuntimeAgent({
+            runtimeUrl: "http://localhost:4000",
+            runtimeMode: "intelligence",
+            intelligence: { wsUrl: "ws://localhost:4000/client" },
+            agentId: "agent-1",
+          });
+    agent.threadId = input.threadId;
+    const core = new CopilotKitCore({});
+    core.addAgent__unsafe_dev_only({ id: "agent-1", agent });
+    const onError = vi.fn();
+    const errors = core.subscribe({ onError });
+    const onRunFailed = vi.fn();
+    const lifecycle = agent.subscribe({ onRunFailed });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const operation =
+      mode === "connect"
+        ? core.connectAgent({ agent })
+        : core.runAgent({ agent, runId: input.runId });
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      let channel = channels.mock.results[0]!.value;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+        metadata: { cpki_event_id: "started-10" },
+      });
+      if (mode === "run") {
+        const socket = channels.mock.contexts[0];
+        if (!(socket instanceof MockSocket))
+          throw new Error("Missing original socket");
+        for (let attempt = 0; attempt < 5; attempt++)
+          socket.triggerError(new Error("transport dropped"));
+        await vi.advanceTimersByTimeAsync(0);
+        channel = channels.mock.results[1]!.value;
+        expect(channel.params.stream_mode).toBe("connect");
+        channel.triggerJoin("ok");
+      }
+      const owner = {
+        id: "assistant-weather",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "weather-call",
+            type: "function",
+            function: { name: "weather", arguments: "{}" },
+          },
+        ],
+      };
+      channel.serverPush("ag_ui_event", {
+        type: EventType.TOOL_CALL_START,
+        toolCallId: "weather-call",
+        toolCallName: "weather",
+        parentMessageId: owner.id,
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.TOOL_CALL_END,
+        toolCallId: "weather-call",
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.TOOL_CALL_RESULT,
+        toolCallId: "weather-call",
+        messageId: "weather-result",
+        role: "tool",
+        content: "72 degrees",
+      });
+      // A stale server snapshot must not erase a result already delivered in
+      // this restore when the connection fails before RUN_FINISHED.
+      channel.serverPush("ag_ui_event", {
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [owner],
+        metadata: { cpki_event_id: "snapshot-20" },
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(agent.messages).toEqual([owner]);
+      channel.serverPush("replay_failed", {
+        reason: "history_read_failed",
+        retryable: false,
+        latestEventId: "snapshot-20",
+      });
+      await operation;
+
+      expect(agent.messages).toEqual([
+        owner,
+        {
+          id: "weather-result",
+          role: "tool",
+          toolCallId: "weather-call",
+          content: "72 degrees",
+        },
+      ]);
+      expect(onRunFailed).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          error: new AgentHistoryReplayError("history_read_failed"),
+        }),
+      );
+      expect(onError).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          code: "agent_history_replay_failed",
+          error: new AgentHistoryReplayError("history_read_failed"),
+        }),
+      );
+      expect(consoleError).toHaveBeenCalledOnce();
+      expect(agent.isRunning).toBe(false);
+    } finally {
+      await agent.detachActiveRun();
+      await operation;
+      lifecycle.unsubscribe();
+      errors.unsubscribe();
       teardown();
     }
   },

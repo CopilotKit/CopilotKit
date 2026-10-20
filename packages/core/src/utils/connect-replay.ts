@@ -1,4 +1,3 @@
-import { AgentHistoryReplayError } from "../history-replay-error";
 import type {
   AbstractAgent,
   AgentSubscriber,
@@ -226,11 +225,6 @@ export async function ɵconnectWithoutEventVerification(
           // subscriber for a benign condition.
           if (error instanceof AGUIConnectNotImplementedError) {
             return EMPTY;
-          }
-          // Restoration is a connection failure, not a failed agent run. Let
-          // the caller report it once, with its typed reason intact.
-          if (error instanceof AgentHistoryReplayError) {
-            return throwError(() => error);
           }
           return self.onError(input, error, subscribers);
         }),

@@ -1725,6 +1725,9 @@ export class RunHandler {
 
     return {
       onRunFailed: async ({ error }: { error: Error }) => {
+        // The outer catch reports history failures with their dedicated code.
+        // Other subscribers still need onRunFailed for cleanup and mutations.
+        if (error instanceof AgentHistoryReplayError) return;
         const code =
           error instanceof AgentThreadLockedError
             ? CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED

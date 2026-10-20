@@ -1,4 +1,3 @@
-import { AgentHistoryReplayError } from "./history-replay-error";
 import type {
   AbstractAgent,
   AgentCapabilities,
@@ -17,7 +16,7 @@ import {
   transformHttpEventStream,
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { EMPTY, defer, from, of, throwError } from "rxjs";
+import { EMPTY, defer, from, of } from "rxjs";
 import {
   catchError,
   concatMap,
@@ -283,18 +282,6 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
 
   set messageFilter(filter: CopilotKitMessageFilter | undefined) {
     this._messageFilter = filter;
-  }
-
-  protected override onError(
-    input: RunAgentInput,
-    error: Error,
-    subscribers: AgentSubscriber[],
-  ) {
-    // A run can reconnect through history restoration. Preserve its typed
-    // failure for the caller without reporting a second agent-run failure.
-    if (error instanceof AgentHistoryReplayError)
-      return throwError(() => error);
-    return super.onError(input, error, subscribers);
   }
 
   /**

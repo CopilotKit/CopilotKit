@@ -266,18 +266,6 @@ export class IntelligenceAgent extends AbstractAgent {
     return new IntelligenceAgent(this.config, this.sharedState);
   }
 
-  protected override onError(
-    input: RunAgentInput,
-    error: Error,
-    subscribers: AgentSubscriber[],
-  ) {
-    // A run can reconnect through history restoration. Preserve its typed
-    // failure for the caller without reporting a second agent-run failure.
-    if (error instanceof AgentHistoryReplayError)
-      return throwError(() => error);
-    return super.onError(input, error, subscribers);
-  }
-
   /**
    * Override of AbstractAgent.connectAgent that removes the `verifyEvents` step.
    *
