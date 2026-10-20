@@ -7,9 +7,11 @@ import {
   GENERATIVE_UI_ACTIVITY_TYPE,
   GENERATIVE_UI_FUNCTION_CALL_ACTIVITY_TYPE,
   randomUUID,
+  toA2UIActionMessage,
   validateOperation,
 } from "@copilotkit/shared";
 import type {
+  A2UIActionMessage,
   A2UIOperation,
   GenerativeUISurfaceContent,
   ValidateOperationOptions,
@@ -28,6 +30,7 @@ import { createGenerativeUIDispatcher } from "./dispatcher";
 import type { GenerativeUIDispatcher } from "./dispatcher";
 import { GenerativeUIError } from "./errors";
 import type { GenerativeUIErrorCode, GenerativeUIErrorInfo } from "./errors";
+import { buildGenerativeUIEnvelope } from "./manifest";
 import type { GenerativeUIEnvelopeOptions } from "./manifest";
 import type {
   GenerativeUIConfig,
@@ -490,6 +493,64 @@ export function useGenerativeUIRoot(
     // The agents with an event on its way to a run. Set before the run
     // starts, so a repeat click in the same tick is caught too.
     const forwardingAgents = new Set<AbstractAgent>();
+    /**
+     * The action of a user event, as an envelope entry scoped to the agent
+     * the user acted on, for the run that the event starts: the structured
+     * form of the user message. It is set before the run starts and dropped
+     * when the run is over, so a suggestion request or a follow-up run
+     * (both read the properties with no run start) does not carry the same
+     * action again, and another agent never gets a click meant for this one.
+     * The entry comes after the shared envelope, so it wins for its agent;
+     * `refreshActions` keeps it last when the shared envelope is set again.
+     */
+    const actions = new Map<
+      AbstractAgent,
+      {
+        id: string;
+        action: A2UIActionMessage;
+        /** Drops the action when the run ends, before any follow-up run. */
+        subscription: { unsubscribe(): void };
+      }
+    >();
+    const dropAction = (agent: AbstractAgent) => {
+      const entry = actions.get(agent);
+      if (!entry) return;
+      entry.subscription.unsubscribe();
+      copilotkit.removeScopedProperties(entry.id);
+      actions.delete(agent);
+    };
+    const setAction = (agent: AbstractAgent, action: A2UIActionMessage) => {
+      const previous = actions.get(agent);
+      previous?.subscription.unsubscribe();
+      if (previous) copilotkit.removeScopedProperties(previous.id);
+      actions.delete(agent);
+      const latest = configRef.current;
+      if (!latest) return;
+      const envelope = buildGenerativeUIEnvelope(
+        { ui, manager, dispatcher },
+        agent.threadId,
+        { ...envelopeOptionsFor(latest), action },
+      );
+      const id = copilotkit.addScopedProperties({
+        properties: { [COPILOTKIT_FORWARDED_PROPS_KEY]: { ui: envelope } },
+        agentIds:
+          agent.agentId === undefined ? latest.agentIds : [agent.agentId],
+      });
+      // The run ends before `runAgent` resolves: a frontend tool makes a
+      // follow-up run first, and that run must not carry the action again.
+      // The agent itself says when its run is over.
+      const subscription = agent.subscribe({
+        onRunFinalized: () => dropAction(agent),
+        onRunFailed: () => dropAction(agent),
+      });
+      actions.set(agent, { id, action, subscription });
+    };
+    const refreshActions = () => {
+      for (const [agent, { action }] of [...actions]) setAction(agent, action);
+    };
+    const dropAllActions = () => {
+      for (const agent of [...actions.keys()]) dropAction(agent);
+    };
     const forwardEvent: GenerativeUIRuntime["forwardEvent"] = async (
       event,
       agentId,
@@ -536,6 +597,9 @@ export function useGenerativeUIRoot(
           role: "user",
           content: buildActionMessageText(event, resolveLabel),
         });
+        // Set now, not at the run start: while another agent runs, this
+        // run starts with no run-start notification.
+        setAction(agent, toA2UIActionMessage(event));
         await copilotkit.runAgent({ agent });
         return { ok: true, result: undefined };
       } catch (cause) {
@@ -544,6 +608,7 @@ export function useGenerativeUIRoot(
         );
       } finally {
         forwardingAgents.delete(agent);
+        dropAction(agent);
       }
     };
     return {
@@ -553,6 +618,8 @@ export function useGenerativeUIRoot(
       forwardEvent,
       reportError,
       functionCalls,
+      refreshActions,
+      dropAllActions,
     };
   }, [ui, copilotkit]);
 
@@ -600,6 +667,36 @@ export function useGenerativeUIRoot(
       envelopeId = undefined;
     };
     /**
+     * Sets the shared envelope of the run. The action entries of the agents
+     * with a user event under way (see `forwardEvent`) are set again after
+     * it, so they stay the last entries and win for their agents.
+     */
+    const setEnvelope = (agent: AbstractAgent, latest: GenerativeUIConfig) => {
+      removeEnvelope();
+      const run = describeGenerativeUIRun(
+        core,
+        agent.threadId,
+        envelopeOptionsFor(latest),
+      );
+      envelopeId = copilotkit.addScopedProperties({
+        properties: {
+          [COPILOTKIT_FORWARDED_PROPS_KEY]: { ui: run.envelope },
+        },
+        agentIds: latest.agentIds,
+      });
+      core.refreshActions();
+      const isForAgent =
+        !latest.agentIds || latest.agentIds.includes(agent.agentId ?? "");
+      if (isForAgent) {
+        debug.recordRun({
+          ...run,
+          agentId: agent.agentId,
+          threadId: agent.threadId,
+          startedAt: Date.now(),
+        });
+      }
+    };
+    /**
      * The tool transport reads the surface activity messages. The markdown
      * transport reads the ```a2ui fences of the assistant messages, and
      * builds the surfaces of the thread from them again on each change.
@@ -636,30 +733,7 @@ export function useGenerativeUIRoot(
       onAgentRunStarted: ({ agent }) => {
         core.manager.setActiveThread(agent.threadId);
         const latest = configRef.current;
-        if (latest) {
-          removeEnvelope();
-          const run = describeGenerativeUIRun(
-            core,
-            agent.threadId,
-            envelopeOptionsFor(latest),
-          );
-          envelopeId = copilotkit.addScopedProperties({
-            properties: {
-              [COPILOTKIT_FORWARDED_PROPS_KEY]: { ui: run.envelope },
-            },
-            agentIds: latest.agentIds,
-          });
-          const isForAgent =
-            !latest.agentIds || latest.agentIds.includes(agent.agentId ?? "");
-          if (isForAgent) {
-            debug.recordRun({
-              ...run,
-              agentId: agent.agentId,
-              threadId: agent.threadId,
-              startedAt: Date.now(),
-            });
-          }
-        }
+        if (latest) setEnvelope(agent, latest);
         if (!watched.has(agent)) {
           watched.add(agent);
           agentSubscriptions.push(
@@ -682,6 +756,7 @@ export function useGenerativeUIRoot(
       subscription.unsubscribe();
       for (const s of agentSubscriptions) s.unsubscribe();
       // Stop advertising a generative UI that is no longer mounted.
+      core.dropAllActions();
       removeEnvelope();
       if (copilotkit.ɵgenerativeUIDebugSource === debug.source) {
         copilotkit.ɵsetGenerativeUIDebugSource(undefined);
