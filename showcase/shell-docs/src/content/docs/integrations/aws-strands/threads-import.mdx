@@ -12,7 +12,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## Add Intelligence to your existing app
 
-Give users reconnection, catch-up, and delivery across devices around your Strands agent. Follow the [Intelligence quickstart](/intelligence/quickstart) to connect your existing CopilotKit app and runtime, then verify that a new conversation is saved. This enables AG-UI streams for runs through CopilotKit; no historical import is required.
+Give users reconnection, catch-up, and delivery across devices around your Strands agent. Follow the [Intelligence quickstart](/intelligence/quickstart) to connect your existing CopilotKit app and Runtime, then verify that a new conversation is saved. This enables AG-UI streams for runs through CopilotKit; no historical import is required.
 
 Keep your Strands agent and its durable storage connected so you can continue the same conversations after importing them. See [how streams work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
 
@@ -57,7 +57,7 @@ For AWS sources, use your existing AWS profile, SSO session, or role credentials
     export STRANDS_PY_IMPORT_END_USER_ID="user-123"
     ```
 
-    Set `STRANDS_PY_IMPORT_END_USER_ID` to the application user ID your runtime returns from `identifyUser`. All selected conversations are assigned to that user: select only their sessions within the directory, S3 prefix, or AgentCore actor, and repeat for each user.
+    Set `STRANDS_PY_IMPORT_END_USER_ID` to the application user ID your Runtime returns from `identifyUser`. All selected conversations are assigned to that user: select only their sessions within the directory, S3 prefix, or AgentCore actor, and repeat for each user.
 
     <Tabs groupId="strands_python_import_storage" items={['Local files', 'S3', 'AgentCore Memory']}>
       <Tab value="Local files">
@@ -110,7 +110,7 @@ For AWS sources, use your existing AWS profile, SSO session, or role credentials
     export STRANDS_TS_IMPORT_END_USER_ID="user-123"
     ```
 
-    Set `STRANDS_TS_IMPORT_END_USER_ID` to the application user ID your runtime returns from `identifyUser`. All selected conversations are assigned to that user: select only their sessions within the directory or S3 prefix, and repeat for each user.
+    Set `STRANDS_TS_IMPORT_END_USER_ID` to the application user ID your Runtime returns from `identifyUser`. All selected conversations are assigned to that user: select only their sessions within the directory or S3 prefix, and repeat for each user.
 
     <Tabs groupId="strands_typescript_import_storage" items={['Local files', 'S3']}>
       <Tab value="Local files">
