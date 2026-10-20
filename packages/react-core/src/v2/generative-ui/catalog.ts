@@ -50,10 +50,9 @@ export interface GenerativeUIFunctionDefinition extends A2UIFunctionPermissions 
   description?: string;
   parameters: GenerativeUISchema;
   /**
-   * Who may call it. `"rendererOnly"`: event bindings and prop values.
-   * `"agentOnly"`: `callRendererFunction`. Left out, both may: CopilotKit's
-   * default is `"rendererOrAgent"`, where A2UI 1.0 defaults to
-   * `"rendererOnly"`.
+   * Who may call it. `"rendererOnly"` (the default, as in A2UI 1.0): event
+   * bindings and prop values. `"agentOnly"`: `callRendererFunction`.
+   * `"rendererOrAgent"`: both. The agent calls only what you allow.
    */
   allowedCallers?: A2UIFunctionPermissions["allowedCallers"];
   /**

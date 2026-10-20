@@ -53,7 +53,10 @@ function Button({ label }: { label: string }) {
 const ui = createGenerativeUI({
   id: "shop",
   functions: {
-    addToCart: { parameters: z.object({ sku: z.string() }) },
+    addToCart: {
+      parameters: z.object({ sku: z.string() }),
+      allowedCallers: "rendererOrAgent",
+    },
   },
   components: {
     Button: { component: Button, props: z.object({ label: z.string() }) },

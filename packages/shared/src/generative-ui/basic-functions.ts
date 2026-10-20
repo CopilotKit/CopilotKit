@@ -27,13 +27,13 @@ export type A2UIAllowedCallers =
   | "rendererOrAgent";
 
 /**
- * The callers of an app function that names none. A2UI 1.0 defaults to
- * `rendererOnly`. CopilotKit lets the agent call app functions too, so
- * `callRendererFunction` works without a declaration; the exported catalog
- * writes the value out, so a 1.0 reader sees the same thing.
+ * The callers of an app function that names none: the renderer only, as
+ * in A2UI 1.0. The agent calls a function with `callRendererFunction` only
+ * when its declaration allows it (`"rendererOrAgent"` or `"agentOnly"`).
+ * The manifests and the exported catalog write the value out.
  */
 export const GENERATIVE_UI_DEFAULT_ALLOWED_CALLERS: A2UIAllowedCallers =
-  "rendererOrAgent";
+  "rendererOnly";
 
 /** The A2UI 1.0 interface fields of a function: who calls it, and how. */
 export interface A2UIFunctionPermissions {

@@ -139,7 +139,7 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     expect(guide).toContain(
       "Give every callRendererFunction a new functionCallId.",
     );
-    expect(guide).toContain('never one with "callers": "UI only"');
+    expect(guide).toContain('"callers": "UI or agent" or "agent only"');
     expect(guide).toContain(
       '{"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}',
     );

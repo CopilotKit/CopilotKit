@@ -45,7 +45,12 @@ const catalog: InlineCatalog = {
       events: { onAddToCart: { parameters: { type: "object" } } },
     },
   },
-  functions: { addToCart: { parameters: { type: "object" } } },
+  functions: {
+    addToCart: {
+      parameters: { type: "object" },
+      allowedCallers: "rendererOrAgent",
+    },
+  },
 };
 
 const extensions: Extensions = {

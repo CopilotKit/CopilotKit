@@ -211,12 +211,11 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
       description: expect.stringContaining("ISO 4217"),
       parameters:
         "{ value: number; currency: string; decimals?: number; grouping?: boolean }",
-      callers: "UI only",
     });
     expect(schema.functions.calc.parameters).toContain("expression: string");
   });
 
-  it("says who may call an app function only when not both may", () => {
+  it("says when the agent may call an app function", () => {
     const n = { type: "number" };
     const schema = buildCompactGenerativeUISchema({
       catalogId: "shop",
@@ -230,11 +229,12 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
         share: { parameters: n, requiresUserActivation: true },
       },
     });
+    // No mark means the UI only, the default; the marks are for the agent.
     expect(schema.functions).toEqual({
-      addToCart: { parameters: "number" },
-      track: { parameters: "number", callers: "UI only" },
+      addToCart: { parameters: "number", callers: "UI or agent" },
+      track: { parameters: "number" },
       reload: { parameters: "number", callers: "agent only" },
-      share: { parameters: "number", callers: "UI only" },
+      share: { parameters: "number" },
     });
   });
 

@@ -130,7 +130,7 @@ describe("exportA2UICatalog", () => {
     );
   });
 
-  it("describes declared functions from their schema, with the CopilotKit default callers written out, and lets one shadow a built-in", () => {
+  it("describes declared functions from their schema, with the default callers written out, and lets one shadow a built-in", () => {
     const ui = createGenerativeUI({
       id: "acme/shop@1",
       functions: {
@@ -152,7 +152,7 @@ describe("exportA2UICatalog", () => {
       type: "object",
       description: "Add a product to the cart",
       returnType: "object",
-      allowedCallers: "rendererOrAgent",
+      allowedCallers: "rendererOnly",
       requiresUserActivation: false,
       properties: {
         "@call": { const: "addToCart" },
@@ -186,7 +186,7 @@ describe("exportA2UICatalog", () => {
       allowedCallers: "rendererOnly",
     });
     expect(functions.formatNumber).toMatchObject({
-      allowedCallers: "rendererOrAgent",
+      allowedCallers: "rendererOnly",
       properties: {
         args: {
           properties: { value: { anyOf: [{ type: "number" }, {}, {}] } },
