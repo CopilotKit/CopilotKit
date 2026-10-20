@@ -560,6 +560,7 @@ describe("CopilotChat activity message rendering", () => {
       expect(channel.topic).toBe(`thread:${threadId}`);
       expect(channel.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
         last_seen_event_id: null,
       });
 
