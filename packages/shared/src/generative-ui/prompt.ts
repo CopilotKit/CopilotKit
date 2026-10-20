@@ -1,8 +1,6 @@
-import {
-  GENERATIVE_UI_RENDER_TOOL,
-  generativeUIGuideFeatures,
-} from "@copilotkit/shared";
-import type { GenerativeUIManifest } from "@copilotkit/shared";
+import { generativeUIGuideFeatures } from "../a2ui-prompts";
+import { GENERATIVE_UI_RENDER_TOOL } from "./types";
+import type { GenerativeUIManifest } from "./types";
 
 export const GENERATIVE_UI_CONTEXT_DESCRIPTION =
   "Generative UI guide: available components, functions, targets, and how to call render_ui.";
@@ -17,6 +15,11 @@ function shorten(text: string) {
     : text;
 }
 
+/**
+ * The guide that the runtime adds as a context entry to a tool-transport run:
+ * the `render_ui` rules, the targets, components, functions, and surfaces of
+ * the manifest. It is in shared so that the inspector shows the same text.
+ */
 export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
   const targets = manifest.targets
     .map((t) => {

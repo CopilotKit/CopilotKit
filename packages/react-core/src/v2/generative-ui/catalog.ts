@@ -565,6 +565,19 @@ interface RuntimeConfig {
 
 const RESERVED_KEYS = new Set(["id", "component"]);
 
+/** The id of the catalog that declared each component, for the inspector. */
+const componentCatalogs = new WeakMap<object, ReadonlyMap<string, string>>();
+
+/**
+ * The id of the catalog that declared each component of `ui`. A component
+ * from `extends` keeps the id of its base. Not exported from the package.
+ */
+export function componentCatalogIds(
+  ui: AnyGenerativeUI,
+): ReadonlyMap<string, string> {
+  return componentCatalogs.get(ui) ?? new Map();
+}
+
 /**
  * Experimental. Declares the components the model can render, the app state
  * they read, and the functions they call.
@@ -637,6 +650,7 @@ function buildGenerativeUI(config: RuntimeConfig) {
   const state = new Map<string, GenerativeUISchema>();
   const functions = new Map<string, GenerativeUIFunctionDefinition>();
   const definitions = new Map<string, RuntimeComponentDefinition>();
+  const catalogs = new Map<string, string>();
 
   function add<Value>(
     map: Map<string, Value>,
@@ -658,8 +672,11 @@ function buildGenerativeUI(config: RuntimeConfig) {
       add(state, "State key", name, schema);
     for (const [name, fn] of base.functions)
       add(functions, "Function", name, fn);
-    for (const [name, component] of base.components)
+    const baseCatalogs = componentCatalogIds(base);
+    for (const [name, component] of base.components) {
       add(definitions, "Component", name, component);
+      catalogs.set(name, baseCatalogs.get(name) ?? base.id);
+    }
   }
   for (const [name, override] of Object.entries(config.overrides ?? {})) {
     const base = definitions.get(name);
@@ -674,8 +691,10 @@ function buildGenerativeUI(config: RuntimeConfig) {
     add(state, "State key", name, schema);
   for (const [name, fn] of Object.entries(config.functions ?? {}))
     add(functions, "Function", name, fn);
-  for (const [name, component] of Object.entries(config.components))
+  for (const [name, component] of Object.entries(config.components)) {
     add(definitions, "Component", name, component);
+    catalogs.set(name, config.id);
+  }
 
   const components = new Map<string, ResolvedGenerativeUIComponent>();
   const manifestComponents: Record<string, GenerativeUIComponentManifest> = {};
@@ -688,17 +707,17 @@ function buildGenerativeUI(config: RuntimeConfig) {
     components.set(name, component);
     manifestComponents[name] = manifest;
   }
-  return withOmit({
-    id: config.id,
-    state,
-    functions,
-    components,
-    manifestComponents,
-  });
+  return withOmit(
+    { id: config.id, state, functions, components, manifestComponents },
+    catalogs,
+  );
 }
 
 /** Adds the `omit` method to the data of a generative UI. */
-function withOmit(data: Omit<GenerativeUI, "omit">): GenerativeUI {
+function withOmit(
+  data: Omit<GenerativeUI, "omit">,
+  catalogs: ReadonlyMap<string, string>,
+): GenerativeUI {
   // The method is typed on `GenerativeUI`. The runtime works with names only.
   const omit = (names: readonly string[]): GenerativeUI => {
     for (const name of names) {
@@ -709,21 +728,26 @@ function withOmit(data: Omit<GenerativeUI, "omit">): GenerativeUI {
       }
     }
     const isKept = (name: string) => !names.includes(name);
-    return withOmit({
-      id: data.id,
-      state: data.state,
-      functions: data.functions,
-      components: new Map(
-        [...data.components].filter(([name]) => isKept(name)),
-      ),
-      manifestComponents: Object.fromEntries(
-        Object.entries(data.manifestComponents).filter(([name]) =>
-          isKept(name),
+    return withOmit(
+      {
+        id: data.id,
+        state: data.state,
+        functions: data.functions,
+        components: new Map(
+          [...data.components].filter(([name]) => isKept(name)),
         ),
-      ),
-    });
+        manifestComponents: Object.fromEntries(
+          Object.entries(data.manifestComponents).filter(([name]) =>
+            isKept(name),
+          ),
+        ),
+      },
+      catalogs,
+    );
   };
-  return { ...data, omit: omit as GenerativeUI["omit"] };
+  const ui = { ...data, omit: omit as GenerativeUI["omit"] };
+  componentCatalogs.set(ui, catalogs);
+  return ui;
 }
 
 interface ResolveContext {

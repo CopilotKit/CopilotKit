@@ -1,7 +1,10 @@
 import { Minus, Plus, Star, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import { z } from "zod";
-import { createGenerativeUI } from "@copilotkit/react-core/v2/generative-ui";
+import {
+  createGenerativeUI,
+  standardUI,
+} from "@copilotkit/react-core/v2/generative-ui";
 import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2/generative-ui";
 import { ProductCard } from "#app/components/product-card.tsx";
 import { useCart } from "#app/contexts/cart.tsx";
@@ -196,6 +199,9 @@ const productFields = {
 
 export const shopUI = createGenerativeUI({
   id: "epicstore/shop@1",
+  // The standard components (tables, charts, forms, and more) can render in
+  // the chat. The page surfaces limit themselves to the shop components.
+  extends: [standardUI],
   components: {
     ProductGrid: {
       component: ProductGrid,

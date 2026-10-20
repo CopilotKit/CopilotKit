@@ -20,11 +20,14 @@ import {
   buildActionMessageText,
   createComponentLabelResolver,
 } from "./action-message";
+import {
+  createGenerativeUIDebugSource,
+  describeGenerativeUIRun,
+} from "./debug-source";
 import { createGenerativeUIDispatcher } from "./dispatcher";
 import type { GenerativeUIDispatcher } from "./dispatcher";
 import { GenerativeUIError } from "./errors";
 import type { GenerativeUIErrorCode, GenerativeUIErrorInfo } from "./errors";
-import { buildGenerativeUIEnvelope } from "./manifest";
 import type { GenerativeUIEnvelopeOptions } from "./manifest";
 import type {
   GenerativeUIConfig,
@@ -562,6 +565,15 @@ export function useGenerativeUIRoot(
     const watched = new WeakSet<AbstractAgent>();
     const agentSubscriptions: Array<{ unsubscribe(): void }> = [];
     let envelopeId: string | undefined;
+    // The inspector reads the catalog, the surfaces, and the runs from it.
+    const debug = createGenerativeUIDebugSource(core, () => {
+      const latest = configRef.current ?? { ui: core.ui };
+      return {
+        options: envelopeOptionsFor(latest),
+        agentIds: latest.agentIds,
+      };
+    });
+    copilotkit.ɵsetGenerativeUIDebugSource(debug.source);
     const removeEnvelope = () => {
       if (envelopeId === undefined) return;
       copilotkit.removeScopedProperties(envelopeId);
@@ -606,15 +618,27 @@ export function useGenerativeUIRoot(
         const latest = configRef.current;
         if (latest) {
           removeEnvelope();
-          const envelope = buildGenerativeUIEnvelope(
+          const run = describeGenerativeUIRun(
             core,
             agent.threadId,
             envelopeOptionsFor(latest),
           );
           envelopeId = copilotkit.addScopedProperties({
-            properties: { [COPILOTKIT_FORWARDED_PROPS_KEY]: { ui: envelope } },
+            properties: {
+              [COPILOTKIT_FORWARDED_PROPS_KEY]: { ui: run.envelope },
+            },
             agentIds: latest.agentIds,
           });
+          const isForAgent =
+            !latest.agentIds || latest.agentIds.includes(agent.agentId ?? "");
+          if (isForAgent) {
+            debug.recordRun({
+              ...run,
+              agentId: agent.agentId,
+              threadId: agent.threadId,
+              startedAt: Date.now(),
+            });
+          }
         }
         if (!watched.has(agent)) {
           watched.add(agent);
@@ -639,6 +663,9 @@ export function useGenerativeUIRoot(
       for (const s of agentSubscriptions) s.unsubscribe();
       // Stop advertising a generative UI that is no longer mounted.
       removeEnvelope();
+      if (copilotkit.ɵgenerativeUIDebugSource === debug.source) {
+        copilotkit.ɵsetGenerativeUIDebugSource(undefined);
+      }
     };
   }, [core, copilotkit]);
 

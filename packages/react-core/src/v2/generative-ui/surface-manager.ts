@@ -49,6 +49,8 @@ export interface ManagedSurface {
   serverRejected: GenerativeUIRejectedOperation[];
   /** Rejections detected while applying operations in the browser. */
   clientRejected: GenerativeUIRejectedOperation[];
+  /** The committed operations of the latest content, for the inspector. */
+  operations: readonly A2UIOperation[];
 }
 
 export interface GenerativeUISurfaceManagerOptions {
@@ -248,6 +250,7 @@ export class GenerativeUISurfaceManager {
         changed = true;
       }
       book.appliedCount = operations.length;
+      surface.operations = operations;
       book.lastFingerprint = lastFingerprint;
     }
     if (
@@ -315,6 +318,33 @@ export class GenerativeUISurfaceManager {
       };
     }
     return described;
+  }
+
+  /** Every surface that is not deleted, oldest first, for the inspector. */
+  debugSurfaces() {
+    return [...this.surfaces.values()]
+      .filter((surface) => !surface.deleted)
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((surface) => ({
+        surfaceId: surface.surfaceId,
+        threadId: surface.threadId,
+        agentId: surface.agentId,
+        target: surface.target,
+        status: surface.status,
+        operations: surface.operations,
+        dataModel: surface.model.dataModel.get("/"),
+        userValues: Object.fromEntries(this.owned.get(surface.key) ?? []),
+        rejected: [
+          ...surface.serverRejected.map((r) => ({
+            ...r,
+            source: "runtime" as const,
+          })),
+          ...surface.clientRejected.map((r) => ({
+            ...r,
+            source: "browser" as const,
+          })),
+        ],
+      }));
   }
 
   /**
@@ -528,6 +558,7 @@ export class GenerativeUISurfaceManager {
       deleted: false,
       serverRejected: content.rejected ?? [],
       clientRejected: [],
+      operations: [],
     };
     return surface;
   }
