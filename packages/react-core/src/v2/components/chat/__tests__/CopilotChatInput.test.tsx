@@ -475,6 +475,37 @@ describe("CopilotChatInput", () => {
     expect(screen.getByText("@Documentation")).toBeDefined();
   });
 
+  it("updates the active mention when the caret moves", async () => {
+    const handleMention = vi.fn();
+    renderWithProvider(
+      <CopilotChatInput
+        onSubmitMessage={mockOnSubmitMessage}
+        mentionItems={[
+          { id: "docs", label: "Documentation", value: "docs content" },
+        ]}
+        onSelectMention={handleMention}
+      />,
+    );
+
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, {
+      target: { value: "@doc and @doc", selectionStart: 4 },
+    });
+    await screen.findByTestId("copilot-mention-menu");
+
+    fireEvent.select(textarea, {
+      target: { selectionStart: 13, selectionEnd: 13 },
+    });
+    fireEvent.keyDown(textarea, { key: "Enter", code: "Enter" });
+
+    expect(handleMention).toHaveBeenCalledWith({
+      id: "docs",
+      label: "Documentation",
+      value: "docs content",
+    });
+    expect((textarea as HTMLTextAreaElement).value).toBe("@doc and ");
+  });
+
   it("prioritizes prefix matches when filtering slash commands", async () => {
     renderWithProvider(
       <CopilotChatInput

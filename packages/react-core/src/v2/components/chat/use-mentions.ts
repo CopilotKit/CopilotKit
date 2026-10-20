@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { CopilotChatMentionItem } from "./mentions";
 
+/** Manages the mention selections attached to the next submitted message. */
 export function useMentions() {
   const [mentions, setMentions] = useState<CopilotChatMentionItem[]>([]);
   const mentionsRef = useRef(mentions);

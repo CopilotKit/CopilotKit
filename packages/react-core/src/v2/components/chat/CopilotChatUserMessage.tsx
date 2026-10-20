@@ -25,6 +25,7 @@ import { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
 import type { CopilotChatMentionMetadata } from "./mentions";
 import { getMentionMetadata, isMentionPart } from "./mentions";
 
+/** Flattens ordinary text parts while excluding metadata-tagged mentions. */
 function flattenUserMessageContent(content?: UserMessage["content"]): string {
   if (!content) {
     return "";
@@ -52,6 +53,7 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
     .join("\n");
 }
 
+/** Extracts validated mention metadata from multipart user-message content. */
 function getMentions(
   content?: UserMessage["content"],
 ): CopilotChatMentionMetadata[] {
@@ -121,6 +123,7 @@ export type CopilotChatUserMessageProps = WithSlots<
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
+/** Renders a persisted user message, including mention and attachment parts. */
 export function CopilotChatUserMessage({
   message,
   onEditMessage,

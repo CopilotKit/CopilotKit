@@ -19,6 +19,7 @@ export type CopilotChatMentionPart = TextPart & {
   };
 };
 
+/** Creates the persisted AG-UI text part for a selected chat mention. */
 export function createMentionPart(
   item: CopilotChatMentionItem,
 ): CopilotChatMentionPart {
@@ -35,6 +36,7 @@ export function createMentionPart(
   };
 }
 
+/** Returns validated CopilotKit mention metadata from an AG-UI text part. */
 export function getMentionMetadata(
   part: unknown,
 ): CopilotChatMentionMetadata | undefined {
@@ -69,6 +71,7 @@ export function getMentionMetadata(
   };
 }
 
+/** Determines whether a message content part is a CopilotKit mention. */
 export function isMentionPart(part: unknown): part is CopilotChatMentionPart {
   return getMentionMetadata(part) !== undefined;
 }

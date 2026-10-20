@@ -142,6 +142,7 @@ function DropOverlay() {
   );
 }
 
+/** Renders the configured chat view, including the default or custom input. */
 export function CopilotChatView({
   messageView,
   input,

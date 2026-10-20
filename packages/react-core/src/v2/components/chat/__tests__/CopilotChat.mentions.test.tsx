@@ -1,5 +1,11 @@
 import React from "react";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { EMPTY } from "rxjs";
 import type { Observable } from "rxjs";
@@ -7,6 +13,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   MockStepwiseAgent,
   renderWithCopilotKit,
+  runFinishedEvent,
+  runStartedEvent,
 } from "../../../__tests__/utils/test-helpers";
 import { CopilotChat } from "../CopilotChat";
 
@@ -36,20 +44,18 @@ function renderChat(
   });
 }
 
-async function selectMention() {
+async function selectMention(query = "@cur", label = "Current document") {
   const textarea = await screen.findByRole("textbox");
   fireEvent.change(textarea, {
-    target: { value: "@cur", selectionStart: 4 },
+    target: { value: query, selectionStart: query.length },
   });
 
   const menu = await screen.findByTestId("copilot-mention-menu");
-  fireEvent.mouseDown(
-    within(menu).getByRole("option", { name: "Current document" }),
-  );
+  fireEvent.mouseDown(within(menu).getByRole("option", { name: label }));
 
   await waitFor(() => {
     expect(screen.queryByTestId("copilot-mention-menu")).toBeNull();
-    expect(screen.getByText("@Current document")).toBeDefined();
+    expect(screen.getByText(`@${label}`)).toBeDefined();
   });
 
   return textarea;
@@ -144,5 +150,58 @@ describe("CopilotChat mentions", () => {
       type: "text",
       metadata: { copilotkit: { type: "mention", id: mentionItem.id } },
     });
+  });
+
+  it("keeps mention selections made while a queued message waits for an active run", async () => {
+    const agent = new NoopAgent();
+    const addMessage = vi.spyOn(agent, "addMessage");
+    const nextMention = {
+      id: "next-document",
+      label: "Next document",
+      value: "next document content",
+    };
+    renderChat(agent, { mentionItems: [mentionItem, nextMention] });
+
+    const textarea = await selectMention();
+    let finishActiveRun!: () => void;
+    const inFlight = new Promise<void>((resolve) => {
+      finishActiveRun = resolve;
+    });
+    agent.emit(runStartedEvent());
+    agent.setActiveRunCompletionPromise(inFlight);
+
+    fireEvent.change(textarea, { target: { value: "First request" } });
+    fireEvent.keyDown(textarea, { key: "Enter", code: "Enter" });
+    await waitFor(() => {
+      expect(screen.queryByText("@Current document")).toBeNull();
+    });
+
+    await selectMention("@next", "Next document");
+
+    await act(async () => {
+      agent.emit(runFinishedEvent());
+      finishActiveRun();
+      await inFlight;
+    });
+
+    await waitFor(() => expect(addMessage).toHaveBeenCalled());
+    const content = addMessage.mock.calls.at(-1)?.[0].content;
+    expect(Array.isArray(content)).toBe(true);
+    if (!Array.isArray(content)) return;
+    expect(content).toContainEqual(
+      expect.objectContaining({
+        metadata: {
+          copilotkit: expect.objectContaining({ id: mentionItem.id }),
+        },
+      }),
+    );
+    expect(content).not.toContainEqual(
+      expect.objectContaining({
+        metadata: {
+          copilotkit: expect.objectContaining({ id: nextMention.id }),
+        },
+      }),
+    );
+    expect(screen.getByText("@Next document")).toBeDefined();
   });
 });

@@ -562,6 +562,11 @@ export function CopilotChatInput({
     ref: inputRef,
     value: resolvedValue,
     onChange: handleChange,
+    onSelect: (event) =>
+      updateTriggerMenu(
+        event.currentTarget.value,
+        event.currentTarget.selectionStart,
+      ),
     onKeyDown: handleKeyDown,
     onCompositionStart: () => {
       isComposingRef.current = true;

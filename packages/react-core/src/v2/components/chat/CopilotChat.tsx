@@ -121,6 +121,7 @@ export type CopilotChatProps = Omit<
    */
   throttleMs?: number;
 };
+/** Renders the v2 chat surface and coordinates its message lifecycle. */
 export function CopilotChat({
   agentId,
   threadId,
@@ -896,20 +897,25 @@ export function CopilotChat({
     return isCurrentSelection();
   }, [agent]);
 
-  const enqueueSubmission = useCallback((submit: () => Promise<void>) => {
-    const selection = previousThreadRef.current;
-    const pending = submissionQueueRef.current
-      .then(async () => {
-        if (selection?.active && previousThreadRef.current === selection) {
-          await submit();
-        }
-      })
-      .catch((error) => {
-        console.error("CopilotChat: queued submission failed", error);
-      });
-    submissionQueueRef.current = pending;
-    return pending;
-  }, []);
+  const enqueueSubmission = useCallback(
+    (submit: () => Promise<void>, onSkipped?: () => void) => {
+      const selection = previousThreadRef.current;
+      const pending = submissionQueueRef.current
+        .then(async () => {
+          if (selection?.active && previousThreadRef.current === selection) {
+            await submit();
+          } else {
+            onSkipped?.();
+          }
+        })
+        .catch((error) => {
+          console.error("CopilotChat: queued submission failed", error);
+        });
+      submissionQueueRef.current = pending;
+      return pending;
+    },
+    [],
+  );
 
   const onSubmitInput = useCallback(
     async (value: string) => {
@@ -926,6 +932,15 @@ export function CopilotChat({
         return;
       }
 
+      // Capture mentions at the same time as the text. A queued send may wait
+      // for an active run, and mention edits during that wait belong to the
+      // next message rather than this accepted submission.
+      const capturedMentions = consumeMentions();
+      const restoreCapturedSubmission = () => {
+        setInputValue(value);
+        capturedMentions.forEach(selectMention);
+      };
+
       // Clear the input immediately so the composer reflects the accepted send
       // even though the actual dispatch may be deferred behind the in-flight
       // run. If the post-await guard later BLOCKS the send (e.g. an upload
@@ -938,7 +953,7 @@ export function CopilotChat({
         // message instead of pre-empting it (see waitForActiveRunToSettle).
         const ready = await waitForActiveRunToSettle();
         if (ready !== true) {
-          if (ready === "failed") setInputValue(value);
+          restoreCapturedSubmission();
           return;
         }
 
@@ -956,19 +971,18 @@ export function CopilotChat({
             "[CopilotKit] Cannot send while attachments are uploading (post-await re-check)",
           );
           setTranscriptionError("Cannot send while attachments are uploading.");
-          setInputValue(value);
+          restoreCapturedSubmission();
           return;
         }
 
-        const readyMentions = consumeMentions();
         const readyAttachments = consumeAttachments();
 
-        if (readyMentions.length > 0 || readyAttachments.length > 0) {
+        if (capturedMentions.length > 0 || readyAttachments.length > 0) {
           const contentParts: InputContent[] = [];
           if (value.trim()) {
             contentParts.push({ type: "text", text: value });
           }
-          for (const mention of readyMentions) {
+          for (const mention of capturedMentions) {
             contentParts.push(createMentionPart(mention));
           }
           for (const att of readyAttachments) {
@@ -1018,13 +1032,14 @@ export function CopilotChat({
             }
           }
         }
-      });
+      }, restoreCapturedSubmission);
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       agent,
       consumeMentions,
+      selectMention,
       consumeAttachments,
       waitForActiveRunToSettle,
       enqueueSubmission,

@@ -56,7 +56,7 @@ import "@copilotkit/react-core/v2/styles.css";
 />
 ```
 
-The persisted text part includes a readable `Mention: &lt;label&gt;` line before
+The persisted text part includes a readable `Mention: <label>` line before
 the value so agents can identify the selected resource even when an adapter
 does not forward text-part metadata. Its `metadata.copilotkit` object carries
 `{ type: "mention", id, label }` for UI and custom-renderer use. The default
