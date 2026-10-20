@@ -9,6 +9,7 @@
     "state-and-actions",
     "theming",
     "transports",
-    "markdown-mode"
+    "markdown-mode",
+    "from-a2ui"
   ]
 }
