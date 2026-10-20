@@ -3182,6 +3182,9 @@ importers:
       phoenix:
         specifier: ^1.8.4
         version: 1.8.4
+      playwright:
+        specifier: 1.59.1
+        version: 1.59.1
       postcss:
         specifier: ^8.5.6
         version: 8.5.6
@@ -3711,9 +3714,15 @@ importers:
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
+      '@graphql-typed-document-node/core':
+        specifier: ^3.2.0
+        version: 3.2.0(graphql@16.12.0)
       '@urql/core':
         specifier: ^5.0.3
         version: 5.2.0(graphql@16.12.0)
+      graphql:
+        specifier: ^16.8.1
+        version: 16.12.0
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -3745,9 +3754,6 @@ importers:
       '@graphql-codegen/urql-introspection':
         specifier: ^3.0.0
         version: 3.0.1(graphql@16.12.0)
-      '@graphql-typed-document-node/core':
-        specifier: ^3.2.0
-        version: 3.2.0(graphql@16.12.0)
       '@parcel/watcher':
         specifier: ^2.4.1
         version: 2.5.1
@@ -3760,9 +3766,6 @@ importers:
       esbuild:
         specifier: '>=0.25.4'
         version: 0.27.3
-      graphql:
-        specifier: ^16.8.1
-        version: 16.12.0
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.23))(@types/node@20.19.27)(typescript@5.9.3)

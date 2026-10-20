@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { STAGING, RUNNER_URL, IMAGE, equal, requireThat } from "./contract.mjs";
+import { BOUNDED_RECOVERY, validateRecovery } from "./recovery-contract.mjs";
 
 /** Consume a bounded remote body without including it in an error. */
 export async function boundedBytes(response, limit = 2 * 1024 * 1024) {
@@ -125,6 +126,39 @@ export function createRailway({
         mountPath: volume.mountPath,
       };
     },
+    async setRecoveryAuthorization(value) {
+      const {
+        operationId,
+        baselineIdentity,
+        targetIdentity,
+        templateSha256,
+        ...fixed
+      } = value;
+      validateRecovery(fixed, baselineIdentity, targetIdentity);
+      requireThat(
+        /^github-655515393-\d+$/.test(operationId) &&
+          /^[a-f0-9]{64}$/.test(templateSha256),
+        "Invalid recovery binding",
+      );
+      requireThat(equal(fixed, BOUNDED_RECOVERY), "Unknown recovery case");
+      const data = await query(
+        "mutation($input:VariableUpsertInput!){variableUpsert(input:$input)}",
+        {
+          input: {
+            projectId: STAGING.projectId,
+            environmentId: STAGING.environmentId,
+            serviceId: STAGING.serviceId,
+            name: "RICH_RECOVERY_AUTHORIZATION_JSON",
+            value: JSON.stringify(value),
+            skipDeploys: true,
+          },
+        },
+      );
+      requireThat(
+        data.variableUpsert === true,
+        "Recovery authorization update unconfirmed",
+      );
+    },
     async setImage(image) {
       requireThat(IMAGE.test(image), "Immutable runner image required");
       const data = await query(
@@ -237,6 +271,7 @@ export function createRunner({
     get: () => request("/deployment"),
     probe: () => request("/deployment", undefined, true),
     drain: (body) => request("/deployment/drain", body),
+    recover: (body) => request("/deployment/recover", body),
     resume: (body) => request("/deployment/resume", body),
   };
 }

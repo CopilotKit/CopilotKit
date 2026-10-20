@@ -930,7 +930,9 @@ export function CopilotChatMessageView({
       measuredRef.current.total = total - (sizes.get(index) ?? 0) + height;
       sizes.set(index, height);
     }
-    return height;
+    // display:none is not a new row measurement. Keep its last visible size
+    // until the host has a layout again.
+    return height > 0 ? height : (measuredRef.current.sizes.get(index) ?? 100);
   }, []);
 
   const isPinnedToBottomRef = React.useRef(isPinnedToBottom);
@@ -962,7 +964,9 @@ export function CopilotChatMessageView({
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
     count: shouldVirtualize ? rows.length : 0,
-    getScrollElement: () => scrollElement,
+    // A disabled virtualizer must not reconnect and reset a flat list's
+    // scroll offset when a hidden host becomes visible again.
+    getScrollElement: () => (shouldVirtualize ? scrollElement : null),
     estimateSize: estimateRowSize,
     overscan: 5,
     measureElement: measureRowElement,
@@ -993,8 +997,15 @@ export function CopilotChatMessageView({
   // on the virtualizer's total-size div — same as the flat path. Adding
   // renderedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
+  const lastEndAlignedFirstMessageRef = React.useRef<string | undefined>(
+    undefined,
+  );
   useLayoutEffect(() => {
     if (!shouldVirtualize || !rows.length) return;
+    // Resizing a hidden host can temporarily disable virtualization. Do not
+    // align again when the same message list becomes measurable once more.
+    if (lastEndAlignedFirstMessageRef.current === firstMessageId) return;
+    lastEndAlignedFirstMessageRef.current = firstMessageId;
     virtualizer.scrollToIndex(rows.length - 1, {
       align: "end",
     });
@@ -1139,6 +1150,111 @@ export function CopilotChatMessageView({
     ];
   };
 
+  const rowKeysRef = useRef<string[]>([]);
+  rowKeysRef.current = rows.map(rowKey);
+  const virtualModeRef = useRef(shouldVirtualize);
+  virtualModeRef.current = shouldVirtualize;
+
+  // Re-entering virtual mode can re-estimate rows above the viewport. A pixel
+  // scrollTop then identifies different content, so retain the first visible
+  // row and its offset within the viewport instead.
+  useEffect(() => {
+    const element = scrollElementFromCtx;
+    if (!element) return;
+    let anchor: { key: string; offset: number } | null = null;
+    let suspended = false;
+    let frame = 0;
+
+    const visibleRows = () =>
+      Array.from(element.querySelectorAll<HTMLElement>("[data-scroll-anchor]"));
+    const remember = () => {
+      if (suspended || element.clientHeight === 0 || !virtualModeRef.current)
+        return;
+      if (isPinnedToBottomRef.current) {
+        anchor = null;
+        return;
+      }
+      const viewport = element.getBoundingClientRect();
+      const row = visibleRows().find((row) => {
+        const bounds = row.getBoundingClientRect();
+        return bounds.bottom > viewport.top && bounds.top < viewport.bottom;
+      });
+      if (row) {
+        anchor = {
+          key: row.dataset.scrollAnchor!,
+          offset: row.getBoundingClientRect().top - viewport.top,
+        };
+      }
+    };
+    const observer = new ResizeObserver(() => {
+      if (element.clientHeight === 0) {
+        suspended = true;
+        cancelAnimationFrame(frame);
+        return;
+      }
+      if (!suspended || !anchor) {
+        suspended = false;
+        remember();
+        return;
+      }
+      let attempts = 0;
+      let stableFrames = 0;
+      const restore = () => {
+        if (!anchor || element.clientHeight === 0) return;
+        const index = rowKeysRef.current.indexOf(anchor.key);
+        if (index < 0) {
+          anchor = null;
+          suspended = false;
+          return;
+        }
+        const row = visibleRows().find(
+          (row) => row.dataset.scrollAnchor === anchor!.key,
+        );
+        if (row) {
+          const delta =
+            row.getBoundingClientRect().top -
+            element.getBoundingClientRect().top -
+            anchor.offset;
+          element.scrollTop += delta;
+          stableFrames = Math.abs(delta) < 1 ? stableFrames + 1 : 0;
+        } else {
+          // Bring an unmounted anchor into range, then refine its measured
+          // position on the next frame rather than using an estimated height.
+          const offset = virtualizer.getOffsetForIndex(index, "start")?.[0];
+          if (offset !== undefined)
+            virtualizer.scrollToOffset(offset - anchor.offset);
+          stableFrames = 0;
+        }
+        if (++attempts < 60 && stableFrames < 3) {
+          frame = requestAnimationFrame(restore);
+        } else {
+          suspended = false;
+          remember();
+        }
+      };
+      frame = requestAnimationFrame(restore);
+    });
+    const interrupt = () => {
+      cancelAnimationFrame(frame);
+      anchor = null;
+      suspended = false;
+    };
+    element.addEventListener("scroll", remember, { passive: true });
+    element.addEventListener("wheel", interrupt, { passive: true });
+    element.addEventListener("touchstart", interrupt, { passive: true });
+    element.addEventListener("keydown", interrupt);
+    observer.observe(element);
+    remember();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      element.removeEventListener("scroll", remember);
+      element.removeEventListener("wheel", interrupt);
+      element.removeEventListener("touchstart", interrupt);
+      element.removeEventListener("keydown", interrupt);
+    };
+  }, [scrollElementFromCtx, virtualizer, firstMessageId]);
+
   // Build the flat element list only when we're not virtualizing (avoids
   // creating 500 React elements that we'd immediately discard).
   const messageElements: React.ReactElement[] = shouldVirtualize
@@ -1190,6 +1306,7 @@ export function CopilotChatMessageView({
                 <div
                   key={rowKey(row)}
                   data-index={virtualItem.index}
+                  data-scroll-anchor={rowKey(row)}
                   ref={virtualizer.measureElement}
                   style={{
                     position: "absolute",
