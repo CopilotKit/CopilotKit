@@ -94,8 +94,11 @@ export type GenerativeUIActionBinding =
   | {
       event: {
         name: string;
-        /** First line of the user message that the event becomes. */
-        userMessage?: string | { "@path": string };
+        /**
+         * First line of the user message that the event becomes: text, a
+         * data binding, or a function value such as formatString.
+         */
+        userMessage?: string | { "@path": string } | A2UIFunctionCall;
         context?: Record<string, unknown>;
       };
     }
