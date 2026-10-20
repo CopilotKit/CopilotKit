@@ -29,9 +29,11 @@ export function truthOf(value: unknown): boolean {
 }
 
 const valid = (): A2UIValidationResult => ({ valid: true });
-const invalid = (message: string): A2UIValidationResult => ({
+/** A failed result. `code` names the failure, the same for every locale. */
+const invalid = (message: string, code: string): A2UIValidationResult => ({
   valid: false,
   message,
+  code,
 });
 
 function text(value: unknown) {
@@ -171,7 +173,7 @@ export const BASIC_FUNCTIONS: Record<string, BasicFunction> = {
       value === null ||
       value === "" ||
       (Array.isArray(value) && value.length === 0);
-    return isEmpty ? invalid("Required") : valid();
+    return isEmpty ? invalid("Required", "required") : valid();
   },
   regex: ({ value, pattern }) => {
     if (typeof pattern !== "string") {
@@ -183,29 +185,35 @@ export const BASIC_FUNCTIONS: Record<string, BasicFunction> = {
     } catch {
       throw new ExpressionError(`"${pattern}" is not a regular expression`);
     }
-    return expression.test(text(value)) ? valid() : invalid("Invalid format");
+    return expression.test(text(value))
+      ? valid()
+      : invalid("Invalid format", "pattern");
   },
   length: ({ value, min, max }) => {
     const size = text(value).length;
     const low = optionalNumber(min, "min");
     const high = optionalNumber(max, "max");
     if (low !== undefined && size < low)
-      return invalid(`At least ${low} characters`);
+      return invalid(`At least ${low} characters`, "tooShort");
     if (high !== undefined && size > high)
-      return invalid(`At most ${high} characters`);
+      return invalid(`At most ${high} characters`, "tooLong");
     return valid();
   },
   numeric: ({ value, min, max }) => {
     const parsed = numberOf(value);
-    if (Number.isNaN(parsed)) return invalid("Must be a number");
+    if (Number.isNaN(parsed)) return invalid("Must be a number", "notANumber");
     const low = optionalNumber(min, "min");
     const high = optionalNumber(max, "max");
-    if (low !== undefined && parsed < low) return invalid(`At least ${low}`);
-    if (high !== undefined && parsed > high) return invalid(`At most ${high}`);
+    if (low !== undefined && parsed < low)
+      return invalid(`At least ${low}`, "tooSmall");
+    if (high !== undefined && parsed > high)
+      return invalid(`At most ${high}`, "tooLarge");
     return valid();
   },
   email: ({ value }) =>
-    EMAIL.test(text(value)) ? valid() : invalid("Invalid email address"),
+    EMAIL.test(text(value))
+      ? valid()
+      : invalid("Invalid email address", "email"),
   formatNumber: (args) => {
     const parsed = numberOf(args.value);
     if (Number.isNaN(parsed))

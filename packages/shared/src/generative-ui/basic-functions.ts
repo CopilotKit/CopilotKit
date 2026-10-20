@@ -248,13 +248,22 @@ export function isCallBinding(
   );
 }
 
+/** How bad a failed check is. `error` is the default; only an error blocks. */
+export type A2UIValidationSeverity = "error" | "warning" | "info";
+
 /**
  * A2UI's `ValidationResult`: what a check gives. A validator function gives
  * one; a check may also bind a boolean, which the renderer coerces to one.
+ * `code` names the failure for programs; `severity` says how bad it is,
+ * `"error"` when left out. Other keys are allowed, for app validators that
+ * carry more (a suggested value, a field path).
  */
 export interface A2UIValidationResult {
   valid: boolean;
   message?: string;
+  code?: string;
+  severity?: A2UIValidationSeverity;
+  [extra: string]: unknown;
 }
 
 export function isValidationResult(
