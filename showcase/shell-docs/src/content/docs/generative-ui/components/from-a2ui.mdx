@@ -118,10 +118,13 @@ See [Markdown mode](/generative-ui/components/markdown-mode).
 
 ## Support matrix
 
+A2UI 1.0 is still a candidate on [a2ui.org](https://a2ui.org/), so this table can change.
+
 | A2UI 1.0 | Components and surfaces |
 | --- | --- |
 | `createSurface`, `updateComponents`, `updateDataModel`, `deleteSurface` | Yes |
 | `callRendererFunction` and `rendererFunctionResponse` | Yes, with the `allowedCallers` of each function |
+| `callAgentFunction` and `agentFunctionResponse` | No: a user event starts a new run, with the action message in its envelope |
 | The basic catalog (18 components) | Yes, with their 1.0 names, plus 55 more |
 | The basic functions (14) | Yes; `calc` and `series` are CopilotKit extensions |
 | Dynamic values at any depth, `formatString` with `${}`, `@index` | Yes |
@@ -133,3 +136,4 @@ See [Markdown mode](/generative-ui/components/markdown-mode).
 | Several catalogs in one surface | No: one UI per provider; combine catalogs with `extends` |
 | `allowedParents` and `allowedChildren` | Not enforced |
 | v0.9 operations and `{ "path" }` bindings | No; rejected with a reason that names the 1.0 form |
+| Agent tools built with `@ag-ui/a2ui-toolkit` 0.0.5 | No: the toolkit writes v0.9 operations. Use the `render_ui` tool that the runtime adds |
