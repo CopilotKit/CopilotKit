@@ -18,6 +18,8 @@ export type {
   GenerativeUIStateOf,
 } from "./catalog";
 export { child, childList } from "./refs";
+export { exportA2UICatalog } from "./catalog-export";
+export type { ExportA2UICatalogOptions } from "./catalog-export";
 export { useGenerativeUIAccessibility } from "./accessibility";
 export type {
   GenerativeUIAccessibility,
