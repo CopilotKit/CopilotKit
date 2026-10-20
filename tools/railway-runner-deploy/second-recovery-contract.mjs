@@ -57,13 +57,16 @@ export const SECOND_RECOVERY = Object.freeze({
     volumeId: STAGING.volumeId,
   },
   providerHandoff: {
+    version: 1,
+    method: "deploymentRemove",
     deploymentId: "41d9b023-1870-444f-8889-c369e26faa54",
     imageDigest: SECOND_BASELINE.image.split("@")[1],
     volumeInstanceId: STAGING.volumeInstanceId,
-    deploymentStopped: true,
+    deploymentStatus: "REMOVED",
   },
 });
 
+/** Sort nested binding keys before hashing an authorization or incident projection. */
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
   if (value && typeof value === "object")
@@ -74,13 +77,16 @@ function canonical(value) {
     );
   return value;
 }
+/** Hash canonical JSON so equivalent field ordering preserves the binding. */
 export const bindingDigest = (value) =>
   sha256(JSON.stringify(canonical(value)));
+/** Select the immutable first-incident watch identity, excluding advancing observations. */
 export function originalWatchBinding(value) {
   return Object.fromEntries(
     Object.keys(ORIGINAL_WATCH).map((key) => [key, value?.[key]]),
   );
 }
+/** Select the deployment fence fields bound by the second-incident authorization. */
 export function operationBinding(value) {
   return Object.fromEntries(
     [
@@ -94,6 +100,7 @@ export function operationBinding(value) {
     ].map((key) => [key, value?.[key]]),
   );
 }
+/** Require the exact reviewed incident and baseline before permitting a new candidate. */
 export function validateSecondRecovery(recovery, baseline, candidate) {
   requireThat(
     equal(recovery, SECOND_RECOVERY),
@@ -111,6 +118,7 @@ export function validateSecondRecovery(recovery, baseline, candidate) {
     "New second recovery candidate required",
   );
 }
+/** Bind the reviewed incident to this workflow owner and candidate runtime. */
 export function secondRecoveryAuthorization(release, operationId) {
   validateSecondRecovery(release.recovery, release.baseline, release.candidate);
   requireThat(
@@ -124,4 +132,30 @@ export function secondRecoveryAuthorization(release, operationId) {
     targetIdentity: release.candidate.runtimeIdentity,
     templateSha256: SECOND_TEMPLATE,
   };
+}
+
+/** Immutable scoped provider proof persisted before configuration or deployment. */
+export function validateRemovalProof(proof) {
+  const expected = {
+    version: 1,
+    method: "deploymentRemove",
+    deploymentId: SECOND_RECOVERY.providerHandoff.deploymentId,
+    status: "REMOVED",
+    image: SECOND_BASELINE.image,
+    projectId: STAGING.projectId,
+    environmentId: STAGING.environmentId,
+    serviceId: STAGING.serviceId,
+    volumeId: STAGING.volumeId,
+    volumeInstanceId: STAGING.volumeInstanceId,
+    mountPath: STAGING.mountPath,
+  };
+  requireThat(
+    proof &&
+      typeof proof.observedAt === "string" &&
+      Number.isFinite(Date.parse(proof.observedAt)),
+    "Removal observation timestamp required",
+  );
+  const { observedAt, ...binding } = proof;
+  requireThat(equal(binding, expected), "Removal proof identity mismatch");
+  return proof;
 }

@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   createRailway,
   createRunner,
-  STOPPED_HANDOFF_BASELINE,
+  REMOVAL_HANDOFF_BASELINE,
 } from "./adapters.mjs";
 import { STAGING, RUNNER_URL } from "./contract.mjs";
 const image = `ghcr.io/copilotkit/rich-thread-runner@sha256:${"a".repeat(64)}`;
@@ -205,9 +205,9 @@ test("early failed deployment needs pinned source image but not an unavailable p
 function stoppedState(overrides = {}) {
   return {
     ...data().serviceInstance.activeDeployments[0],
-    id: STOPPED_HANDOFF_BASELINE.deploymentId,
+    id: REMOVAL_HANDOFF_BASELINE.deploymentId,
     deploymentStopped: false,
-    meta: { image: STOPPED_HANDOFF_BASELINE.image, private: "secret" },
+    meta: { image: REMOVAL_HANDOFF_BASELINE.image, private: "secret" },
     ...overrides,
   };
 }
@@ -223,23 +223,23 @@ function handoffAdapter(reply) {
   });
   return { railway, calls };
 }
-test("stop acknowledgement never substitutes for independently read stopped evidence", async () => {
+test("remove acknowledgement never substitutes for independently read stopped evidence", async () => {
   const { railway, calls } = handoffAdapter((body) =>
     body.query.startsWith("mutation")
-      ? { deploymentStop: true }
+      ? { deploymentRemove: true }
       : { deployment: stoppedState() },
   );
   assert.deepEqual(
-    await railway.stopDeployment(STOPPED_HANDOFF_BASELINE.deploymentId),
-    { stopAcknowledged: true },
+    await railway.removeDeployment(REMOVAL_HANDOFF_BASELINE.deploymentId),
+    { removeAcknowledged: true },
   );
   assert.equal(
-    (await railway.stoppedDeployment(STOPPED_HANDOFF_BASELINE.deploymentId))
+    (await railway.readDeploymentStatus(REMOVAL_HANDOFF_BASELINE.deploymentId))
       .deploymentStopped,
     false,
   );
   await assert.rejects(
-    railway.stopDeployment(STOPPED_HANDOFF_BASELINE.deploymentId),
+    railway.removeDeployment(REMOVAL_HANDOFF_BASELINE.deploymentId),
   );
   assert.equal(calls.filter((x) => x.query.startsWith("mutation")).length, 1);
 });
@@ -249,32 +249,32 @@ for (const mismatch of [
   "environmentId",
   "serviceId",
   "image",
-  "missingBoolean",
+  "missingStatus",
 ])
-  test(`stop rejects ${mismatch} before mutation`, async () => {
+  test(`remove rejects ${mismatch} before mutation`, async () => {
     const state = stoppedState();
     if (mismatch === "image") state.meta.image = image;
-    else if (mismatch === "missingBoolean") delete state.deploymentStopped;
+    else if (mismatch === "missingStatus") delete state.status;
     else state[mismatch] = "other";
     const { railway, calls } = handoffAdapter(() => ({ deployment: state }));
     await assert.rejects(
-      railway.stopDeployment(STOPPED_HANDOFF_BASELINE.deploymentId),
+      railway.removeDeployment(REMOVAL_HANDOFF_BASELINE.deploymentId),
     );
     assert.equal(calls.filter((x) => x.query.startsWith("mutation")).length, 0);
-    await assert.rejects(railway.stopDeployment("another-deployment"));
+    await assert.rejects(railway.removeDeployment("another-deployment"));
   });
 for (const response of [false, null])
-  test(`unconfirmed stop ${response} cannot be retried`, async () => {
+  test(`unconfirmed remove ${response} cannot be retried`, async () => {
     const { railway, calls } = handoffAdapter((body) =>
       body.query.startsWith("mutation")
-        ? { deploymentStop: response }
+        ? { deploymentRemove: response }
         : { deployment: stoppedState() },
     );
     await assert.rejects(
-      railway.stopDeployment(STOPPED_HANDOFF_BASELINE.deploymentId),
+      railway.removeDeployment(REMOVAL_HANDOFF_BASELINE.deploymentId),
     );
     await assert.rejects(
-      railway.stopDeployment(STOPPED_HANDOFF_BASELINE.deploymentId),
+      railway.removeDeployment(REMOVAL_HANDOFF_BASELINE.deploymentId),
     );
     assert.equal(calls.filter((x) => x.query.startsWith("mutation")).length, 1);
   });
@@ -313,7 +313,7 @@ test("inventory paginates fixed scope and retains competing pending/live evidenc
   });
   assert.equal(calls[1].variables.after, "cursor");
 });
-for (const defect of ["scope", "boolean", "cursor", "duplicate", "bound"])
+for (const defect of ["scope", "status", "cursor", "duplicate", "bound"])
   test(`inventory fails closed for ${defect}`, async () => {
     const { railway, calls } = handoffAdapter((_body, number) => {
       const state = stoppedState({
@@ -321,7 +321,7 @@ for (const defect of ["scope", "boolean", "cursor", "duplicate", "bound"])
         deploymentStopped: true,
       });
       if (defect === "scope") state.projectId = "other";
-      if (defect === "boolean") delete state.deploymentStopped;
+      if (defect === "status") delete state.status;
       return {
         deployments: {
           edges: [{ node: state }],
@@ -336,18 +336,45 @@ for (const defect of ["scope", "boolean", "cursor", "duplicate", "bound"])
     assert.ok(calls.length <= 20);
     if (defect === "bound") assert.equal(calls.length, 20);
   });
-test("lost stop response preserves one-attempt boundary", async () => {
+test("lost remove response preserves one-attempt boundary", async () => {
   const { railway, calls } = handoffAdapter((body) => {
     if (body.query.startsWith("mutation"))
       throw new Error("private transport secret");
     return { deployment: stoppedState() };
   });
   await assert.rejects(
-    railway.stopDeployment(STOPPED_HANDOFF_BASELINE.deploymentId),
+    railway.removeDeployment(REMOVAL_HANDOFF_BASELINE.deploymentId),
     (error) => !error.message.includes("private"),
   );
   await assert.rejects(
-    railway.stopDeployment(STOPPED_HANDOFF_BASELINE.deploymentId),
+    railway.removeDeployment(REMOVAL_HANDOFF_BASELINE.deploymentId),
   );
   assert.equal(calls.filter((x) => x.query.startsWith("mutation")).length, 1);
+});
+
+test("remove mutation is exact and readback preserves the stale stop flag without inferring finality", async () => {
+  let removed = false;
+  const { railway, calls } = handoffAdapter((body) => {
+    if (body.query.startsWith("mutation")) {
+      assert.equal(
+        body.query,
+        "mutation($id:String!){deploymentRemove(id:$id)}",
+      );
+      removed = true;
+      return { deploymentRemove: true };
+    }
+    return {
+      deployment: stoppedState({
+        status: removed ? "REMOVED" : "SUCCESS",
+        deploymentStopped: false,
+      }),
+    };
+  });
+  await railway.removeDeployment(REMOVAL_HANDOFF_BASELINE.deploymentId);
+  const state = await railway.readDeploymentStatus(
+    REMOVAL_HANDOFF_BASELINE.deploymentId,
+  );
+  assert.equal(state.status, "REMOVED");
+  assert.equal(state.deploymentStopped, false);
+  assert.equal(calls.filter((c) => c.query.startsWith("mutation")).length, 1);
 });

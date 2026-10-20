@@ -1,5 +1,7 @@
 const retentionMs = 48 * 60 * 60 * 1000;
+/** Require a nonempty resource identifier or mount path in exported evidence. */
 const text = (value) => typeof value === "string" && value.length > 0;
+/** Reject missing or unparsable observation times before comparing evidence order. */
 const timestamp = (value) =>
   typeof value === "string" && Number.isFinite(Date.parse(value));
 
@@ -98,6 +100,7 @@ export function activeCleanupVerified(cleanup) {
       !evidence.inspectedEnvironmentIds.every(text)
     )
       return false;
+    /** Match a retained instance to its owner and require explicit pending detachment. */
     const detached = (instance) =>
       instance &&
       text(instance.id) &&

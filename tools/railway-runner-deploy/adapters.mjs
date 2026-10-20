@@ -14,8 +14,8 @@ import {
   SECOND_TEMPLATE,
 } from "./second-recovery-contract.mjs";
 
-// This stop capability is deliberately limited to the reviewed second incident.
-export const STOPPED_HANDOFF_BASELINE = Object.freeze({
+// This remove capability is deliberately limited to the reviewed second incident.
+export const REMOVAL_HANDOFF_BASELINE = Object.freeze({
   deploymentId: "41d9b023-1870-444f-8889-c369e26faa54",
   image:
     "ghcr.io/copilotkit/rich-thread-runner@sha256:8db845b5d2b427317524254ff58b3e18db69046b9e75d950b6dc967c004a0019",
@@ -38,7 +38,7 @@ function timeout(deadline, clock) {
   requireThat(remaining > 0, "Deployment deadline exceeded");
   return AbortSignal.timeout(Math.min(30000, remaining));
 }
-/** Expose fixed staging operations and the incident-bound stop capability. */
+/** Expose fixed staging operations and the incident-bound remove capability. */
 export function createRailway({
   token,
   fetch = globalThis.fetch,
@@ -88,15 +88,15 @@ export function createRailway({
     );
     return { id: state.id, status: state.status, image: meta.image };
   };
+  /** Validate scope and expose only bounded deployment status/image evidence. */
   const handoffDeployment = (state) => {
     scope(state);
     requireThat(
       typeof state.id === "string" &&
         state.id.length > 0 &&
         typeof state.status === "string" &&
-        /^[A-Z_]{1,40}$/.test(state.status) &&
-        typeof state.deploymentStopped === "boolean",
-      "Incomplete deployment stop evidence",
+        /^[A-Z_]{1,40}$/.test(state.status),
+      "Incomplete deployment removal evidence",
     );
     const image = state.meta?.image ?? null;
     requireThat(
@@ -110,7 +110,8 @@ export function createRailway({
       deploymentStopped: state.deploymentStopped,
     };
   };
-  const stoppedDeployment = async (id) => {
+  /** Read the exact deployment without interpreting the unreliable stopped flag. */
+  const readDeploymentStatus = async (id) => {
     requireThat(
       typeof id === "string" && id.length > 0,
       "Deployment identity required",
@@ -123,34 +124,41 @@ export function createRailway({
     requireThat(result.id === id, "Railway deployment identity mismatch");
     return result;
   };
-  let stopAttempted = false;
+  let removeAttempted = false;
   return {
-    stoppedDeployment,
-    async stopDeployment(id) {
+    readDeploymentStatus,
+    /** Issue at most one removal request for the reviewed active baseline. */
+    async removeDeployment(id) {
       requireThat(
-        id === STOPPED_HANDOFF_BASELINE.deploymentId,
-        "Unauthorized deployment stop",
+        id === REMOVAL_HANDOFF_BASELINE.deploymentId,
+        "Unauthorized deployment removal",
       );
-      requireThat(!stopAttempted, "Deployment stop already attempted");
-      const state = await stoppedDeployment(id);
+      requireThat(!removeAttempted, "Deployment removal already attempted");
+      const state = await readDeploymentStatus(id);
       requireThat(
-        state.image === STOPPED_HANDOFF_BASELINE.image,
-        "Stop baseline image mismatch",
+        state.image === REMOVAL_HANDOFF_BASELINE.image &&
+          state.status === "SUCCESS",
+        "Removal baseline image mismatch",
       );
       // A lost or negative response is ambiguous: never repeat this mutation.
-      requireThat(!stopAttempted, "Deployment stop already attempted");
-      stopAttempted = true;
+      requireThat(!removeAttempted, "Deployment removal already attempted");
+      removeAttempted = true;
       const result = await query(
-        "mutation($id:String!){deploymentStop(id:$id)}",
+        "mutation($id:String!){deploymentRemove(id:$id)}",
         { id },
       );
-      requireThat(
-        result.deploymentStop === true,
-        "Deployment stop unconfirmed",
-      );
-      // Acknowledgement is not finality; callers must read deploymentStopped.
-      return { stopAcknowledged: true };
+      if (result.deploymentRemove !== true) {
+        const error = new Error("Deployment removal unconfirmed");
+        error.removalOutcome =
+          result.deploymentRemove === false ? "refused" : "unknown";
+        error.removalResponse =
+          result.deploymentRemove === false ? false : null;
+        throw error;
+      }
+      // Acknowledgement is not finality; callers must independently read status REMOVED.
+      return { removeAcknowledged: true };
     },
+    /** Enumerate every deployment in the fixed staging scope, failing on incomplete pages. */
     async handoffInventory() {
       const rows = [];
       const ids = new Set();

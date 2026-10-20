@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "sourceRevision": "7259e26c8d9374d2c895eeb5017f580db47bef4d",
+  "sourceRevision": "549a1fd8b2dde4b87254a0de99cc831a5d5ee5dc",
   "build": {
-    "runId": 39300702413,
+    "runId": 39387659283,
     "runAttempt": 1,
     "workflowPath": ".github/workflows/intelligence-rich-threads-build.yml",
     "workflowSha256": "4337e0e43f7598ff19171ad3a73a250e404e7a8e138ae149cb30e75bda6224bf",
-    "artifactId": 12211287099,
-    "artifactSha256": "04f5dcd7d78726e6872fc5ca371f12ad21d4560ec8e86029355bc31a1bacaed3"
+    "artifactId": 12248835354,
+    "artifactSha256": "791edc2349d0e6cedca3964d3f487cb4d3d580a83bf51225d00d663b9a11e10a"
   },
   "baseline": {
     "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:8db845b5d2b427317524254ff58b3e18db69046b9e75d950b6dc967c004a0019",
@@ -20,12 +20,12 @@
     }
   },
   "candidate": {
-    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:072768a227b3967d0c0aa98d5e1306ebbe7feda1ee4dff610e2d7a2f1ab81b78",
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:5b64700afc0000d8e2bad1fef1dee1046d9cac68b84041bc6eb794f6700774fe",
     "runtimeIdentity": {
       "protocolVersion": 1,
-      "sourceRevision": "7259e26c8d9374d2c895eeb5017f580db47bef4d",
-      "sourceManifestSha256": "9a0db17cce4b85b20b404c6adff6b14b85342551e77d1079410a0ac1bc5a8cc4",
-      "compatibilitySha256": "e4103daa3b333492b2701455cbf817b799c514279cf387cec73057411dca482d",
+      "sourceRevision": "549a1fd8b2dde4b87254a0de99cc831a5d5ee5dc",
+      "sourceManifestSha256": "13ddf1e1a70b7c16740f506e243e8a6d4616a846b5cab18f77a66b1a76a08a10",
+      "compatibilitySha256": "4a3287909ee9a6bf9bc278d82b7b503c8dd865d5bd66a82f07b40e462fd9ca7b",
       "policySha256": "7eb39aa628b77c30efa88a00c4ad0695de89ac2bb919e7e25f550a4ab2f2c765"
     }
   },
@@ -52,10 +52,12 @@
       "volumeId": "2a70e47d-85d4-4a8a-b17b-b6788c91b1c7"
     },
     "providerHandoff": {
+      "version": 1,
+      "method": "deploymentRemove",
       "deploymentId": "41d9b023-1870-444f-8889-c369e26faa54",
       "imageDigest": "sha256:8db845b5d2b427317524254ff58b3e18db69046b9e75d950b6dc967c004a0019",
       "volumeInstanceId": "f3187181-2fb7-4d3e-a9dc-c80eac894895",
-      "deploymentStopped": true
+      "deploymentStatus": "REMOVED"
     }
   }
 }

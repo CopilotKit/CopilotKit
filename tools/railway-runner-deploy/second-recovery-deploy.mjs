@@ -1,4 +1,10 @@
-import { equal, requireThat, validateVolume, SHA256 } from "./contract.mjs";
+import {
+  equal,
+  requireThat,
+  validateVolume,
+  SHA256,
+  STAGING,
+} from "./contract.mjs";
 import { validateCheckpoint } from "./checkpoint.mjs";
 import {
   SECOND_RECOVERY,
@@ -9,6 +15,7 @@ import {
   bindingDigest,
   operationBinding,
   originalWatchBinding,
+  validateRemovalProof,
 } from "./second-recovery-contract.mjs";
 
 const pending = new Set([
@@ -18,16 +25,7 @@ const pending = new Set([
   "DEPLOYING",
   "WAITING",
 ]);
-const terminal = new Set([
-  "SUCCESS",
-  "FAILED",
-  "CRASHED",
-  "REMOVED",
-  "COMPLETED",
-  "SKIPPED",
-]);
-
-/** Replace only the reviewed stopped runner; never infer cancellation or repeat an unknown deploy. */
+/** Replace only the reviewed removed deployment; never infer cancellation or repeat an unknown deploy. */
 export async function deploySecondRecoveryRunner({
   release,
   operationId,
@@ -49,7 +47,7 @@ export async function deploySecondRecoveryRunner({
   if (checkpoint) {
     validateCheckpoint(checkpoint, context);
     requireThat(
-      checkpoint.version === 2 &&
+      checkpoint.version === 3 &&
         checkpoint.baselineDeploymentId === baselineId &&
         checkpoint.templateSha256 === SECOND_TEMPLATE,
       "Second recovery checkpoint mismatch",
@@ -95,7 +93,7 @@ export async function deploySecondRecoveryRunner({
         provider.latest.status === "SUCCESS",
       "Second recovery deployment identity mismatch",
     );
-  const inventory = async (allowedId, stopped) => {
+  const inventory = async (allowedId, removed) => {
     checkTime();
     const rows = await railway.handoffInventory();
     if (allowedId) {
@@ -103,7 +101,6 @@ export async function deploySecondRecoveryRunner({
       requireThat(
         allowed.length === 1 &&
           allowed[0].status === "SUCCESS" &&
-          allowed[0].deploymentStopped === false &&
           allowed[0].image ===
             (allowedId === baselineId ? baseline.image : candidate.image),
         "Active deployment inventory proof incomplete",
@@ -114,23 +111,19 @@ export async function deploySecondRecoveryRunner({
       "Handoff baseline inventory missing",
     );
     for (const row of rows) {
-      requireThat(
-        typeof row.deploymentStopped === "boolean",
-        "Stopped proof missing",
-      );
       if (row.id === allowedId) continue;
       requireThat(
-        terminal.has(row.status) && row.deploymentStopped === true,
+        row.status === "REMOVED",
         "Competing deployment prevents handoff",
       );
     }
-    if (stopped) {
-      const old = await railway.stoppedDeployment(baselineId);
+    if (removed) {
+      const old = await railway.readDeploymentStatus(baselineId);
       requireThat(
         old.id === baselineId &&
           old.image === baseline.image &&
-          old.deploymentStopped === true,
-        "Original deployment has not stopped",
+          old.status === "REMOVED",
+        "Original deployment has not been removed",
       );
     }
     return rows;
@@ -243,13 +236,15 @@ export async function deploySecondRecoveryRunner({
       provider = await inspect();
       actual(provider, baseline, baselineId);
       checkpoint = {
-        version: 2,
+        version: 3,
         operationId,
         runId: provenance.run.id,
         controlRevision: provenance.run.sha,
         workflowSha256: provenance.run.workflowSha256,
         releaseSha256: provenance.releaseSha256,
-        stage: "stop-requested",
+        stage: "remove-requested",
+        removalProof: null,
+        removalRequest: { outcome: "pending", response: null },
         baselineDeploymentId: baselineId,
         candidateDeploymentId: null,
         rollbackDeploymentId: null,
@@ -258,36 +253,66 @@ export async function deploySecondRecoveryRunner({
         volumeInstanceId: provider.volumeInstanceId,
         mountPath: provider.mountPath,
       };
-      await save("stop-requested");
+      await save("remove-requested");
+      let removalRequest;
       try {
-        await railway.stopDeployment(baselineId);
-      } catch {
-        /* Acknowledgement is not authority; only the following provider read proves stop. */
+        await railway.removeDeployment(baselineId);
+        removalRequest = { outcome: "acknowledged", response: true };
+      } catch (error) {
+        // Keep the actual response outcome even if independent REMOVED proof later succeeds.
+        removalRequest =
+          error.removalOutcome === "refused"
+            ? { outcome: "refused", response: false }
+            : { outcome: "unknown", response: null };
       }
+      await save("remove-requested", { removalRequest });
     }
-    if (checkpoint.stage === "stop-requested") {
+    if (checkpoint.stage === "remove-requested") {
       for (;;) {
         checkTime();
-        const old = await railway.stoppedDeployment(baselineId);
+        const old = await railway.readDeploymentStatus(baselineId);
         requireThat(
           old.id === baselineId && old.image === baseline.image,
-          "Stopped deployment identity changed",
+          "Removal deployment identity changed",
         );
-        if (old.deploymentStopped === true) break;
-        requireThat(old.deploymentStopped === false, "Stopped proof missing");
+        if (old.status === "REMOVED") break;
+        requireThat(
+          ["SUCCESS", "REMOVING"].includes(old.status),
+          "Unexpected removal status",
+        );
         await sleep(Math.min(1000, deadline - clock()));
       }
       await inventory(null, true);
-      await inspect();
-      await save("stopped");
+      const provider = await inspect();
+      requireThat(
+        provider.active === null && provider.latest?.id === baselineId,
+        "Removed baseline still active or replaced",
+      );
+      const removalProof = {
+        version: 1,
+        method: "deploymentRemove",
+        deploymentId: baselineId,
+        status: "REMOVED",
+        image: baseline.image,
+        projectId: STAGING.projectId,
+        environmentId: STAGING.environmentId,
+        serviceId: STAGING.serviceId,
+        volumeId: provider.volumeId,
+        volumeInstanceId: provider.volumeInstanceId,
+        mountPath: provider.mountPath,
+        observedAt: new Date(clock()).toISOString(),
+      };
+      validateRemovalProof(removalProof);
+      await save("removed", { removalProof });
     }
-    if (checkpoint.stage === "stopped") {
+    if (checkpoint.stage === "removed") {
       await inventory(null, true);
       const provider = await inspect();
       requireThat(
         [baseline.image, candidate.image].includes(provider.configuredImage) &&
-          provider.latest?.id === baselineId,
-        "Stopped baseline configuration changed",
+          provider.latest?.id === baselineId &&
+          provider.active === null,
+        "Removed baseline configuration changed",
       );
       await railway.setRecoveryAuthorization(authorization);
       await inventory(null, true);

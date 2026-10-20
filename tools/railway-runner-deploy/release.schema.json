@@ -109,7 +109,9 @@
               "deploymentId": "41d9b023-1870-444f-8889-c369e26faa54",
               "imageDigest": "sha256:8db845b5d2b427317524254ff58b3e18db69046b9e75d950b6dc967c004a0019",
               "volumeInstanceId": "f3187181-2fb7-4d3e-a9dc-c80eac894895",
-              "deploymentStopped": true
+              "version": 1,
+              "method": "deploymentRemove",
+              "deploymentStatus": "REMOVED"
             }
           }
         }

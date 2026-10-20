@@ -105,14 +105,25 @@ snapshots are retained by the replacement at startup; mutable observation
 timestamps are not authorization inputs.
 
 The old runtime cannot drain while its first watch exists. The controller saves
-a `stop-requested` checkpoint before stopping the exact recorded deployment.
-Only Railway's `deploymentStopped: true` readback proves that its instances have
-stopped. A successful stop response, deployment status, or unavailable HTTP
-endpoint is insufficient. Complete deployment inventory must exclude other
-running or pending deployments. The volume and attachment are rechecked across
-the handoff; neither is replaced or deleted.
+one version 3 `remove-requested` checkpoint before sending `deploymentRemove`
+for the exact recorded deployment. Independent scoped readback must show
+`status: REMOVED`. `REMOVING` and the original `SUCCESS` status may be polled
+within the deadline; other statuses fail closed. The `deploymentStopped` flag is
+retained only as raw diagnostic data: it may remain false after removal and is
+never synthesized or used as removal authority. A successful mutation response
+or unavailable HTTP endpoint is insufficient.
 
-The same workflow attempt owner can resume from a `stopped` checkpoint and repeat
+The checkpoint retains the mutation outcome separately: pending intent,
+acknowledged response, explicit false response (refused), or unknown response.
+Even a refusal or lost response can progress only after independent `REMOVED`
+readback; the original response history stays intact. The verified proof binds
+the deployment, image, scope, volume, attachment and observation time. Complete
+inventory must show every other deployment as `REMOVED`. Volume and attachment
+are rechecked across the handoff; neither is replaced or deleted.
+
+Legacy version 2 stop checkpoints are rejected, even if their boolean says true.
+The same workflow owner can resume from a version 3 `removed` checkpoint only
+with the saved proof and fresh provider evidence. It can repeat
 the identical configuration writes with automatic deployment suppressed. Once
 `candidate-requested` is recorded, it never issues another deployment. A lost
 response may only adopt an exact candidate with matching runtime fence and

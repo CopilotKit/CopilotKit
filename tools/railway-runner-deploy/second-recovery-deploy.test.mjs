@@ -92,10 +92,10 @@ function fixture() {
   const railway = {
     inspect: async () => structuredClone(provider),
     handoffInventory: async () => structuredClone(rows),
-    stoppedDeployment: async () => structuredClone(row),
-    stopDeployment: async () => {
-      calls.push("stop");
-      row.deploymentStopped = true;
+    readDeploymentStatus: async () => structuredClone(row),
+    removeDeployment: async () => {
+      calls.push("remove");
+      row.status = "REMOVED";
       provider.active = null;
     },
     setRecoveryAuthorization: async (value) => {
@@ -108,8 +108,8 @@ function fixture() {
     },
     deploy: async () => {
       calls.push("deploy");
-      assert.equal(row.deploymentStopped, true);
-      assert.equal(auth.providerHandoff.deploymentStopped, true);
+      assert.equal(row.status, "REMOVED");
+      assert.equal(auth.providerHandoff.deploymentStatus, "REMOVED");
       rows.push({
         id: "new",
         image: candidate.image,
@@ -202,11 +202,11 @@ function fixture() {
   };
 }
 
-test("second recovery stops the exact deployment, preserves both watches and resumes only after proof", async () => {
+test("second recovery removes the exact deployment, preserves both watches and resumes only after proof", async () => {
   const h = fixture();
   const result = await deploySecondRecoveryRunner(h.options);
   assert.deepEqual(h.calls, [
-    "stop",
+    "remove",
     "authorize",
     "image",
     "deploy",
@@ -221,7 +221,7 @@ test("second recovery stops the exact deployment, preserves both watches and res
   );
   assert.equal(
     h.receipts.find((receipt) => receipt.checkpoint)?.checkpoint.stage,
-    "stop-requested",
+    "remove-requested",
   );
 });
 
@@ -233,7 +233,7 @@ for (const mismatch of [
   "volume",
   "competing-running",
   "competing-queued",
-  "missing-stop-proof",
+  "missing-status-proof",
 ])
   test(`second recovery rejects ${mismatch} before provider mutations`, async () => {
     const h = fixture();
@@ -247,15 +247,15 @@ for (const mismatch of [
       h.rows.push({ id: "other", status: "SUCCESS", deploymentStopped: false });
     if (mismatch === "competing-queued")
       h.rows.push({ id: "other", status: "QUEUED", deploymentStopped: true });
-    if (mismatch === "missing-stop-proof") delete h.row.deploymentStopped;
+    if (mismatch === "missing-status-proof") delete h.row.status;
     await assert.rejects(deploySecondRecoveryRunner(h.options));
     assert.deepEqual(h.calls, []);
   });
 
-test("lost stop response is resolved by explicit stopped readback", async () => {
+test("lost remove response is resolved by explicit REMOVED readback", async () => {
   const h = fixture(),
-    stop = h.railway.stopDeployment;
-  h.railway.stopDeployment = async () => {
+    stop = h.railway.removeDeployment;
+  h.railway.removeDeployment = async () => {
     await stop();
     throw Error("lost");
   };
@@ -265,10 +265,10 @@ test("lost stop response is resolved by explicit stopped readback", async () => 
   );
 });
 
-test("stop acknowledgement without stopped instances never permits an image update or a repeated stop", async () => {
+test("remove acknowledgement without REMOVED never permits an image update or a repeated remove", async () => {
   const h = fixture();
-  h.railway.stopDeployment = async () => {
-    h.calls.push("stop");
+  h.railway.removeDeployment = async () => {
+    h.calls.push("remove");
   };
   await assert.rejects(deploySecondRecoveryRunner(h.options), /deadline/);
   const previousCheckpoint = h.receipts.at(-1).checkpoint;
@@ -277,27 +277,27 @@ test("stop acknowledgement without stopped instances never permits an image upda
     deploySecondRecoveryRunner({ ...h.options, previousCheckpoint }),
   );
   assert.deepEqual(h.calls, []);
-  assert.equal(previousCheckpoint.stage, "stop-requested");
+  assert.equal(previousCheckpoint.stage, "remove-requested");
 });
 
-test("stopped checkpoint resumes idempotent configuration without calling the stopped runner", async () => {
+test("removed checkpoint resumes idempotent configuration without calling the removed runner", async () => {
   const h = fixture();
   h.railway.setRecoveryAuthorization = async () => {
     throw Error("lost");
   };
   await assert.rejects(deploySecondRecoveryRunner(h.options));
   const previousCheckpoint = h.receipts.at(-1).checkpoint;
-  assert.equal(previousCheckpoint.stage, "stopped");
-  // Rebuild fixture adapters with a stop-requested checkpoint to exercise stop adoption separately.
+  assert.equal(previousCheckpoint.stage, "removed");
+  // Rebuild fixture adapters with a remove-requested checkpoint to exercise stop adoption separately.
   const resumed = fixture();
-  resumed.row.deploymentStopped = true;
+  resumed.row.status = "REMOVED";
   resumed.provider.active = null;
   const result = await deploySecondRecoveryRunner({
     ...resumed.options,
     previousCheckpoint,
   });
   assert.equal(result.finalState.verified, true);
-  assert.equal(resumed.calls.includes("stop"), false);
+  assert.equal(resumed.calls.includes("remove"), false);
 });
 
 test("lost deploy response can adopt exact candidate but cannot deploy twice", async () => {
@@ -343,7 +343,7 @@ for (const missing of [
   "journal-binding",
   "second-deadline",
   "candidate-missing",
-  "candidate-stopped",
+  "candidate-removed",
 ])
   test(`second recovery retains closed admission without ${missing} proof`, async () => {
     const h = fixture(),
@@ -361,7 +361,7 @@ for (const missing of [
       if (missing === "second-deadline")
         h.state.recovery.watches[1].deadlineExceeded = false;
       if (missing === "candidate-missing") h.rows.splice(1, 1);
-      if (missing === "candidate-stopped") h.rows[1].deploymentStopped = true;
+      if (missing === "candidate-removed") h.rows[1].status = "REMOVED";
       if (missing === "original-outcome")
         h.state.recovery.watches[0].originalStatus = "passed";
       if (missing === "second-outcome")
@@ -465,11 +465,204 @@ test("release and variable adapters accept only the exact second incident with a
       ...authorization,
       providerHandoff: {
         ...authorization.providerHandoff,
-        deploymentStopped: false,
+        deploymentStatus: "SUCCESS",
       },
     },
     { ...authorization, targetIdentity: authorization.baselineIdentity },
   ])
     await assert.rejects(railway.setRecoveryAuthorization(invalid));
   assert.equal(requests.length, 1);
+});
+
+test("REMOVED readback permits handoff even when deploymentStopped remains false", async () => {
+  const h = fixture();
+  h.railway.removeDeployment = async () => {
+    h.calls.push("remove");
+    h.row.status = "REMOVED";
+    h.row.deploymentStopped = false;
+    h.provider.active = null;
+  };
+  const result = await deploySecondRecoveryRunner(h.options);
+  assert.equal(result.finalState.verified, true);
+  assert.equal(result.checkpoint.removalProof.status, "REMOVED");
+});
+
+test("a true stopped flag with SUCCESS is not removal proof", async () => {
+  const h = fixture();
+  h.railway.removeDeployment = async () => {
+    h.calls.push("remove");
+    h.row.deploymentStopped = true;
+    h.provider.active = null;
+  };
+  await assert.rejects(deploySecondRecoveryRunner(h.options));
+  assert.deepEqual(h.calls, ["remove"]);
+});
+
+test("REMOVING is polled and the verified removal proof survives a restart", async () => {
+  const h = fixture();
+  let reads = 0;
+  h.railway.removeDeployment = async () => {
+    h.calls.push("remove");
+    h.row.status = "REMOVING";
+    h.provider.active = null;
+    throw Error("lost response");
+  };
+  h.railway.readDeploymentStatus = async () => {
+    if (++reads >= 2) h.row.status = "REMOVED";
+    return structuredClone(h.row);
+  };
+  h.railway.setRecoveryAuthorization = async () => {
+    throw Error("interrupted after proof");
+  };
+  await assert.rejects(deploySecondRecoveryRunner(h.options), /interrupted/);
+  const checkpoint = h.receipts.at(-1).checkpoint;
+  assert.equal(checkpoint.version, 3);
+  assert.equal(checkpoint.stage, "removed");
+  assert.equal(checkpoint.removalProof.status, "REMOVED");
+  assert.equal(
+    checkpoint.removalProof.volumeInstanceId,
+    STAGING.volumeInstanceId,
+  );
+  assert.equal(
+    Object.hasOwn(checkpoint.removalProof, "deploymentStopped"),
+    false,
+  );
+  const resumed = fixture();
+  resumed.row.status = "REMOVED";
+  resumed.provider.active = null;
+  const result = await deploySecondRecoveryRunner({
+    ...resumed.options,
+    previousCheckpoint: checkpoint,
+  });
+  assert.equal(result.finalState.verified, true);
+  assert.equal(resumed.calls.includes("remove"), false);
+  assert.deepEqual(result.checkpoint.removalProof, checkpoint.removalProof);
+});
+
+for (const change of [
+  "legacy-checkpoint",
+  "missing-proof",
+  "wrong-scope",
+  "wrong-image",
+  "wrong-volume",
+  "wrong-status",
+  "missing-time",
+])
+  test(`restart rejects ${change} before provider work`, async () => {
+    const h = fixture();
+    h.railway.setRecoveryAuthorization = async () => {
+      throw Error("interrupted");
+    };
+    await assert.rejects(deploySecondRecoveryRunner(h.options));
+    const checkpoint = structuredClone(h.receipts.at(-1).checkpoint);
+    if (change === "legacy-checkpoint") {
+      checkpoint.version = 2;
+      checkpoint.stage = "stopped";
+      delete checkpoint.removalProof;
+    }
+    if (change === "missing-proof") checkpoint.removalProof = null;
+    if (change === "wrong-scope")
+      checkpoint.removalProof.environmentId = "other";
+    if (change === "wrong-image")
+      checkpoint.removalProof.image = h.options.release.candidate.image;
+    if (change === "wrong-volume")
+      checkpoint.removalProof.volumeInstanceId = "other";
+    if (change === "wrong-status") checkpoint.removalProof.status = "SUCCESS";
+    if (change === "missing-time") delete checkpoint.removalProof.observedAt;
+    h.calls.length = 0;
+    await assert.rejects(
+      deploySecondRecoveryRunner({
+        ...h.options,
+        previousCheckpoint: checkpoint,
+      }),
+    );
+    assert.deepEqual(h.calls, []);
+  });
+
+for (const change of [
+  "missing-status",
+  "unexpected-status",
+  "wrong-id",
+  "wrong-image",
+  "volume",
+  "concurrent-workload",
+])
+  test(`removal readback fails closed for ${change}`, async () => {
+    const h = fixture(),
+      remove = h.railway.removeDeployment;
+    h.railway.removeDeployment = async () => {
+      await remove();
+      if (change === "missing-status") delete h.row.status;
+      if (change === "unexpected-status") h.row.status = "CRASHED";
+      if (change === "wrong-id") h.row.id = "other";
+      if (change === "wrong-image")
+        h.row.image = h.options.release.candidate.image;
+      if (change === "volume") h.provider.volumeInstanceId = "other";
+      if (change === "concurrent-workload")
+        h.rows.push({
+          id: "competing",
+          image: h.options.release.baseline.image,
+          status: "SUCCESS",
+          deploymentStopped: true,
+        });
+    };
+    await assert.rejects(deploySecondRecoveryRunner(h.options));
+    assert.deepEqual(h.calls, ["remove"]);
+    assert.equal(h.receipts.at(-1).finalState.verified, false);
+  });
+
+test("legacy stop intent cannot be adopted even when live baseline is REMOVED", async () => {
+  const h = fixture();
+  h.railway.removeDeployment = async () => {
+    throw Error("lost");
+  };
+  await assert.rejects(deploySecondRecoveryRunner(h.options));
+  const checkpoint = {
+    ...h.receipts.at(-1).checkpoint,
+    version: 2,
+    stage: "stop-requested",
+  };
+  delete checkpoint.removalProof;
+  h.row.status = "REMOVED";
+  h.provider.active = null;
+  await assert.rejects(
+    deploySecondRecoveryRunner({
+      ...h.options,
+      previousCheckpoint: checkpoint,
+    }),
+  );
+  assert.deepEqual(h.calls, []);
+});
+
+for (const outcome of ["unknown", "refused"])
+  test(`independent REMOVED proof retains ${outcome} mutation history`, async () => {
+    const h = fixture(),
+      remove = h.railway.removeDeployment;
+    h.railway.removeDeployment = async () => {
+      await remove();
+      const error = new Error("mutation not acknowledged");
+      if (outcome === "refused") error.removalOutcome = "refused";
+      throw error;
+    };
+    const result = await deploySecondRecoveryRunner(h.options);
+    assert.deepEqual(result.checkpoint.removalRequest, {
+      outcome,
+      response: outcome === "refused" ? false : null,
+    });
+    assert.equal(result.checkpoint.removalProof.status, "REMOVED");
+  });
+
+test("durable remove intent must succeed before the mutation is sent", async () => {
+  const h = fixture();
+  await assert.rejects(
+    deploySecondRecoveryRunner({
+      ...h.options,
+      receipt: async (value) => {
+        if (value.checkpoint?.stage === "remove-requested")
+          throw Error("receipt unavailable");
+      },
+    }),
+    /receipt unavailable/,
+  );
+  assert.deepEqual(h.calls, []);
 });

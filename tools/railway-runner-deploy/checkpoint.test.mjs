@@ -107,10 +107,12 @@ test("third attempt retains first attempt authority through a verified preflight
   assert.equal(await readAttemptCheckpoint(h.github, h.context), undefined);
 });
 
-test("stopped handoff checkpoints preserve provenance without borrowing ordinary rollback authority", async () => {
+test("removal handoff checkpoints preserve provenance without borrowing ordinary rollback authority", async () => {
   const h = fixture();
-  h.checkpoint.version = 2;
-  h.checkpoint.stage = "stop-requested";
+  h.checkpoint.version = 3;
+  h.checkpoint.stage = "remove-requested";
+  h.checkpoint.removalProof = null;
+  h.checkpoint.removalRequest = { outcome: "pending", response: null };
   h.checkpoint.candidateDeploymentId = null;
   assert.deepEqual(
     await readAttemptCheckpoint(h.github, h.context),
