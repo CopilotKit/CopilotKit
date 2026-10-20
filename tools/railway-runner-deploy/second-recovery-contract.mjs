@@ -155,7 +155,7 @@ export function validateRemovalProof(proof) {
       Number.isFinite(Date.parse(proof.observedAt)),
     "Removal observation timestamp required",
   );
-  const { observedAt, ...binding } = proof;
+  const { observedAt: _observedAt, ...binding } = proof;
   requireThat(equal(binding, expected), "Removal proof identity mismatch");
   return proof;
 }
