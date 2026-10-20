@@ -9,6 +9,7 @@ import { asSchema, InvalidToolInputError, TypeValidationError } from "ai";
 import type { FlexibleSchema } from "ai";
 import { randomUUID } from "@copilotkit/shared";
 import type * as SharedAgui from "@copilotkit/shared";
+import { convertToolsToVercelAITools } from "../../../agent";
 import type { BuiltInAgentClassicConfig } from "../../../agent";
 import type { CopilotServiceAdapter } from "../../service-adapters/service-adapter";
 import {
@@ -221,6 +222,40 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
         messages.push({ id: randomUUID(), role: "tool", toolCallId, content });
       }
 
+      // BuiltInAgent checks frontend tool calls against their JSON Schema on
+      // the server too, and answers a failing call with an error result
+      // instead of sending it to the browser. Do the same, so the client never
+      // runs a handler with arguments its own schema rejects.
+      const rejected = new Set<string>();
+      for (const call of pending) {
+        if (serverTools.has(call.name)) continue;
+        const tool = input.tools.find((t) => t.name === call.name);
+        if (!tool) continue;
+        let schema: FlexibleSchema<unknown> | undefined;
+        try {
+          schema = convertToolsToVercelAITools([tool])[tool.name]?.inputSchema;
+        } catch {
+          // Not a JSON Schema the validator accepts: leave the call as it was.
+          continue;
+        }
+        const checked = await validateToolArgs(call, schema);
+        if ("error" in checked) {
+          rejected.add(call.id);
+          emit({
+            type: EventType.TOOL_CALL_RESULT,
+            messageId: randomUUID(),
+            toolCallId: call.id,
+            content: checked.error,
+          } as BaseEvent);
+          messages.push({
+            id: randomUUID(),
+            role: "tool",
+            toolCallId: call.id,
+            content: checked.error,
+          });
+        }
+      }
+
       for (const call of serverCalls) {
         if (signal.aborted) return;
         const content = await this.executeServerTool(
@@ -243,8 +278,9 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
 
       // Another step only makes sense when every open call has a result. A
       // frontend tool call ends the run; the client executes it and starts
-      // the next one.
-      if (!serverCalls.length || serverCalls.length !== pending.length) {
+      // the next one. A rejected call already has its (error) result.
+      const answeredHere = serverCalls.length + rejected.size;
+      if (!answeredHere || answeredHere !== pending.length) {
         return;
       }
     }
@@ -254,36 +290,18 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
     tool: ServerTool,
     call: StepToolCall,
   ): Promise<string> {
-    let args: unknown = {};
-    try {
-      args = call.args ? JSON.parse(call.args) : {};
-    } catch {
-      return `The tool "${call.name}" received arguments that are not valid JSON.`;
-    }
     // Validate against the tool's schema, as the AI SDK does for BuiltInAgent,
     // so one action behaves the same whichever adapter runs it. Arguments that
     // fail go back to the model as an error result it can correct, and never
     // reach the handler. Unknown keys are stripped. v1 itself (<= 1.10) passed
     // the raw parsed JSON to the handler; this follows BuiltInAgent instead.
-    const validate = asSchema(
+    const checked = await validateToolArgs(
+      call,
       tool.parameters as FlexibleSchema<unknown> | undefined,
-    ).validate;
-    if (validate) {
-      const result = await validate(args);
-      // `in`, not `!result.success`: this package compiles with `strict: false`,
-      // which does not narrow on a boolean discriminant.
-      if ("error" in result) {
-        const error = new InvalidToolInputError({
-          toolName: call.name,
-          toolInput: call.args,
-          cause: TypeValidationError.wrap({ value: args, cause: result.error }),
-        });
-        return `Error: ${error.message}`;
-      }
-      args = result.value;
-    }
+    );
+    if ("error" in checked) return checked.error;
     try {
-      const output = await tool.execute!(args as never);
+      const output = await tool.execute!(checked.value as never);
       return typeof output === "string" ? output : JSON.stringify(output ?? "");
     } catch (error) {
       return JSON.stringify({
@@ -438,4 +456,38 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
         return;
     }
   }
+}
+
+/**
+ * Parses a tool call's arguments and checks them against `schema`, with the
+ * AI SDK's own error, so a failure reads exactly as it does on BuiltInAgent.
+ * Returns the validated value (undeclared keys stripped by a Zod schema) or
+ * the text of the error result to send back.
+ */
+async function validateToolArgs(
+  call: StepToolCall,
+  schema: FlexibleSchema<unknown> | undefined,
+): Promise<{ value: unknown } | { error: string }> {
+  let args: unknown = {};
+  try {
+    args = call.args ? JSON.parse(call.args) : {};
+  } catch {
+    return {
+      error: `The tool "${call.name}" received arguments that are not valid JSON.`,
+    };
+  }
+  const validate = asSchema(schema).validate;
+  if (!validate) return { value: args };
+  const result = await validate(args);
+  // `in`, not `!result.success`: this package compiles with `strict: false`,
+  // which does not narrow on a boolean discriminant.
+  if ("error" in result) {
+    const error = new InvalidToolInputError({
+      toolName: call.name,
+      toolInput: call.args,
+      cause: TypeValidationError.wrap({ value: args, cause: result.error }),
+    });
+    return { error: `Error: ${error.message}` };
+  }
+  return { value: result.value };
 }
