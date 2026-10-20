@@ -10,6 +10,7 @@ import {
   feedbackComponents,
 } from "../feedback";
 import { SURFACE_ID, renderSurface } from "./render";
+import { standardUI } from "../index";
 
 /** Test-only leaves, so the feedback tests need no other group. */
 function Label({ text }: { text: string }) {
@@ -73,6 +74,7 @@ describe("feedbackComponents", () => {
       "Popover",
       "PopoverTrigger",
       "PopoverContent",
+      "Modal",
     ]);
     for (const name of names) {
       expect(ui.manifestComponents[name].description).toMatch(/\S/);
@@ -88,6 +90,156 @@ describe("feedbackComponents", () => {
       });
     }
     expect(ui.manifestComponents.FlashcardFlip.slots).toBeUndefined();
+  });
+});
+
+describe("Modal", () => {
+  it("opens from the keyboard when the trigger is plain text, and keeps a Button trigger as the only control", async () => {
+    const view = renderSurface(standardUI, [
+      { id: "root", component: "Column", children: ["m1", "m2"] },
+      {
+        id: "m1",
+        component: "Modal",
+        title: "One",
+        trigger: "t1",
+        content: "c1",
+      },
+      { id: "t1", component: "Text", text: "Open one" },
+      { id: "c1", component: "Text", text: "Body one" },
+      {
+        id: "m2",
+        component: "Modal",
+        title: "Two",
+        trigger: "t2",
+        content: "c2",
+      },
+      { id: "t2", component: "Button", label: "Open two" },
+      { id: "c2", component: "Text", text: "Body two" },
+    ]);
+    const plain = (await view.findByText("Open one")).closest(
+      "[data-a2ui-modal-trigger]",
+    ) as HTMLElement;
+    await act(async () => {});
+    expect(plain.getAttribute("role")).toBe("button");
+    expect(plain.getAttribute("tabindex")).toBe("0");
+    fireEvent.keyDown(plain, { key: "Enter" });
+    expect((await view.findByRole("dialog")).textContent).toContain("Body one");
+    fireEvent.keyDown(document, { key: "Escape" });
+    await act(async () => {});
+    expect(view.queryByRole("dialog")).toBeNull();
+
+    const buttoned = view
+      .getByRole("button", { name: "Open two" })
+      .closest("[data-a2ui-modal-trigger]") as HTMLElement;
+    expect(buttoned.getAttribute("role")).toBeNull();
+    expect(buttoned.getAttribute("tabindex")).toBeNull();
+  });
+
+  it("does not open when the trigger is a disabled Pressable", async () => {
+    const view = renderSurface(standardUI, [
+      {
+        id: "root",
+        component: "Modal",
+        title: "Off",
+        trigger: "t",
+        content: "c",
+      },
+      { id: "t", component: "Pressable", disabled: true, children: ["l"] },
+      { id: "l", component: "Text", text: "Press" },
+      { id: "c", component: "Text", text: "Body" },
+    ]);
+    const label = await view.findByText("Press");
+    const wrapper = label.closest("[data-a2ui-modal-trigger]") as HTMLElement;
+    await act(async () => {});
+    expect(wrapper.getAttribute("role")).toBeNull();
+    fireEvent.click(label);
+    fireEvent.keyDown(wrapper, { key: "Enter" });
+    expect(view.queryByRole("dialog")).toBeNull();
+  });
+
+  it("does not open from the keyboard when the trigger is a disabled Button", async () => {
+    const view = renderSurface(standardUI, [
+      {
+        id: "root",
+        component: "Modal",
+        title: "Off",
+        trigger: "t",
+        content: "c",
+      },
+      { id: "t", component: "Button", label: "Open", disabled: true },
+      { id: "c", component: "Text", text: "Body" },
+    ]);
+    const wrapper = (await view.findByRole("button", { name: "Open" })).closest(
+      "[data-a2ui-modal-trigger]",
+    ) as HTMLElement;
+    await act(async () => {});
+    expect(wrapper.getAttribute("role")).toBeNull();
+    expect(wrapper.getAttribute("tabindex")).toBeNull();
+    fireEvent.keyDown(wrapper, { key: "Enter" });
+    fireEvent.keyDown(wrapper, { key: " " });
+    expect(view.queryByRole("dialog")).toBeNull();
+  });
+
+  it("closes only the newest overlay on Escape: a lightbox inside the dialog first, then the dialog", async () => {
+    const view = renderSurface(standardUI, [
+      {
+        id: "root",
+        component: "Modal",
+        title: "Pics",
+        trigger: "t",
+        content: "img",
+      },
+      { id: "t", component: "Text", text: "Open" },
+      {
+        id: "img",
+        component: "Image",
+        url: "https://example.com/a.png",
+        description: "A",
+      },
+    ]);
+    fireEvent.click(await view.findByText("Open"));
+    const dialog = await view.findByRole("dialog");
+    fireEvent.click(await view.findByAltText("A"));
+    await act(async () => {});
+    expect(document.querySelector("[data-a2ui-lightbox]")).not.toBeNull();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await act(async () => {});
+    expect(document.querySelector("[data-a2ui-lightbox]")).toBeNull();
+    expect(document.body.contains(dialog)).toBe(true);
+    fireEvent.keyDown(document, { key: "Escape" });
+    await act(async () => {});
+    expect(view.queryByRole("dialog")).toBeNull();
+  });
+
+  it("lets a Button trigger send its own event while the dialog opens", async () => {
+    const view = renderSurface(standardUI, [
+      {
+        id: "root",
+        component: "Modal",
+        title: "Two",
+        trigger: "t",
+        content: "c",
+      },
+      {
+        id: "t",
+        component: "Button",
+        label: "Open",
+        onClick: { event: { name: "opened" } },
+      },
+      { id: "c", component: "Text", text: "Body" },
+    ]);
+    fireEvent.click(await view.findByRole("button", { name: "Open" }));
+    const dialog = await view.findByRole("dialog");
+    expect(dialog.textContent).toContain("Body");
+    // The overlay is portaled to the body, outside any transformed row, and
+    // keeps the surface style scope.
+    expect(view.container.contains(dialog)).toBe(false);
+    expect(dialog.closest(".a2ui-surface")).not.toBeNull();
+    await act(async () => {});
+    expect(view.forwardEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "opened" }),
+      expect.anything(),
+    );
   });
 });
 

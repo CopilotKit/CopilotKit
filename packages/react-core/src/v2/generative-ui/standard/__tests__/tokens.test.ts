@@ -123,7 +123,7 @@ describe("standard tokens", () => {
     // The list reset belongs to the List component, not to Markdown.
     expect(STANDARD_CSS).not.toMatch(/\.a2ui-surface :is\(ul,ol\)/);
     expect(STANDARD_CSS).toContain(
-      '[data-a2ui-row="between"]>[data-a2ui-text]:last-child:not(:first-child){text-align:right',
+      '[data-a2ui-row="spaceBetween"]>[data-a2ui-text]:last-child:not(:first-child){text-align:right',
     );
   });
 

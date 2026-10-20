@@ -25,9 +25,10 @@ export const JUSTIFY = [
   "start",
   "center",
   "end",
-  "between",
-  "around",
-  "evenly",
+  "spaceBetween",
+  "spaceAround",
+  "spaceEvenly",
+  "stretch",
 ] as const;
 export const WRAP = ["nowrap", "wrap", "wrap-reverse"] as const;
 export const RADII = [

@@ -8,7 +8,7 @@ import type {
 import { renderToString } from "katex";
 import { z } from "zod";
 import { useKatexStyles } from "../../hooks/useKatexStyles";
-import { CHILDREN_SLOT, sizeValue } from "./layout";
+import { CHILDREN_SLOT, sizeValue, weightProp } from "./layout";
 import {
   ExternalLink,
   Markdown,
@@ -39,12 +39,12 @@ const colorProp = z
   .string()
   .optional()
   .describe(`One of ${TEXT_COLORS.join("|")} or a CSS color`);
-const weight = z.enum(WEIGHTS).optional();
+const fontWeight = z.enum(WEIGHTS).optional();
 const textAlign = z.enum(["start", "center", "end"]).optional();
 
 const typographyProps = {
   color: colorProp,
-  weight,
+  fontWeight,
   textAlign,
   italic: z.boolean().optional(),
   truncate: z.boolean().optional(),
@@ -62,6 +62,7 @@ const titleSchema = z.object({
 });
 const textSchema = z.object({
   ...typographyProps,
+  weight: weightProp,
   text: z
     .union([z.string(), z.number()])
     .optional()
@@ -92,7 +93,7 @@ const captionSchema = z.object({
   text: z.union([z.string(), z.number()]).describe("Caption text"),
   color: colorProp,
   size: z.enum(CAPTION_SIZES).optional().describe('Default "lg"'),
-  weight: weight.describe('Default "normal"'),
+  fontWeight: fontWeight.describe('Default "normal"'),
   textAlign,
   truncate: z.boolean().optional(),
   maxLines: z.number().optional(),
@@ -102,12 +103,12 @@ const labelSchema = z.object({
   htmlFor: z.string().optional(),
   color: colorProp,
   size: z.enum(TEXT_SIZES).optional().describe('Default "sm"'),
-  weight: weight.describe('Default "medium"'),
+  fontWeight: fontWeight.describe('Default "medium"'),
   textAlign,
   truncate: z.boolean().optional(),
   width: sizeValue.optional(),
 });
-const boldSchema = z.object({ text: z.string(), weight });
+const boldSchema = z.object({ text: z.string(), fontWeight });
 const inlineTextSchema = z.object({ text: z.string() });
 const blockquoteSchema = z.object({
   text: z.string().describe("The quoted text, with inline markdown"),
@@ -125,7 +126,7 @@ const badgeSchema = z.object({
     .enum(["soft", "solid", "outline"])
     .optional()
     .describe('Default "soft"'),
-  weight: weight.describe('Default "medium"'),
+  fontWeight: fontWeight.describe('Default "medium"'),
   maxWidth: sizeValue.optional(),
   padding: sizeValue.optional(),
 });
@@ -194,7 +195,7 @@ function typographyStyle(props: TypographyProps) {
       : {};
   return {
     color: textColor(props.color),
-    fontWeight: props.weight ? FONT_WEIGHT[props.weight] : undefined,
+    fontWeight: props.fontWeight ? FONT_WEIGHT[props.fontWeight] : undefined,
     textAlign: props.textAlign,
     fontStyle: props.italic ? "italic" : undefined,
     fontVariantNumeric: props.tabularNums ? "tabular-nums" : undefined,
@@ -226,8 +227,8 @@ function Title(props: z.output<typeof titleSchema>) {
   const size = props.size ?? "md";
   const Tag = TITLE_TAG[size];
   // Only what the model set is inline. The rest comes from the host.
-  const fontWeight = props.weight
-    ? FONT_WEIGHT[props.weight]
+  const fontWeight = props.fontWeight
+    ? FONT_WEIGHT[props.fontWeight]
     : props.strong === false
       ? FONT_WEIGHT.normal
       : undefined;
@@ -265,8 +266,8 @@ function Text(props: TextProps) {
     .filter(Boolean)
     .join(" ");
   const typography = typographyStyle(props);
-  const fontWeight = props.weight
-    ? FONT_WEIGHT[props.weight]
+  const fontWeight = props.fontWeight
+    ? FONT_WEIGHT[props.fontWeight]
     : props.strong
       ? FONT_WEIGHT.semibold
       : undefined;
@@ -278,7 +279,7 @@ function Text(props: TextProps) {
       style={{
         display: props.inline ? "inline" : "block",
         // In a Row, text takes the width of its content, not 100%.
-        flex: props.inline ? undefined : "0 1 auto",
+        flex: props.inline ? undefined : `${props.weight ?? 0} 1 auto`,
         minWidth: props.inline ? undefined : 0,
         // Without a size, text takes the size and line height of the host.
         ...(props.size ? textFont(props.size) : {}),
@@ -327,7 +328,7 @@ function Caption(props: z.output<typeof captionSchema>) {
         fontSize: CAPTION_EM[props.size ?? "lg"],
         margin: 0,
         ...typographyStyle({ ...props, color: props.color ?? "secondary" }),
-        fontWeight: FONT_WEIGHT[props.weight ?? "normal"],
+        fontWeight: FONT_WEIGHT[props.fontWeight ?? "normal"],
       }}
     >
       {renderInlineMarkdown(String(props.text))}
@@ -344,7 +345,7 @@ function Label(props: z.output<typeof labelSchema>) {
         ...textFont(props.size ?? "sm"),
         margin: 0,
         ...typographyStyle({ ...props, color: props.color ?? "secondary" }),
-        fontWeight: FONT_WEIGHT[props.weight ?? "medium"],
+        fontWeight: FONT_WEIGHT[props.fontWeight ?? "medium"],
       }}
     >
       {props.text}
@@ -390,7 +391,9 @@ function Bold(props: z.output<typeof boldSchema>) {
   return (
     <strong
       style={{
-        fontWeight: props.weight ? FONT_WEIGHT[props.weight] : undefined,
+        fontWeight: props.fontWeight
+          ? FONT_WEIGHT[props.fontWeight]
+          : undefined,
       }}
     >
       {props.text}
@@ -455,7 +458,7 @@ function Badge(props: BadgeProps) {
         fontSize: BADGE_FONT[size],
         lineHeight: "16px",
         letterSpacing: "0.3px",
-        fontWeight: FONT_WEIGHT[props.weight ?? "medium"],
+        fontWeight: FONT_WEIGHT[props.fontWeight ?? "medium"],
         borderRadius: props.pill === false ? radius("sm") : radius("full"),
         background: badgeBackground(color, variant),
         color: variant === "solid" ? ON_ACCENT : ink,
