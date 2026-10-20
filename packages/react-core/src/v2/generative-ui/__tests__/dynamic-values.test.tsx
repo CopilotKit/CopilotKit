@@ -384,22 +384,23 @@ describe("basic functions through the dispatcher", () => {
     getDeclared: () => ui.functions,
   });
 
-  it("runs a basic function for the agent, except one that needs a user gesture", async () => {
+  const component = { surfaceId: "s", componentId: "c" };
+
+  it("runs a basic function for a component, and refuses the agent: they are value functions of the UI", async () => {
     await expect(
-      dispatcher.invoke(
-        "formatNumber",
-        { value: 1234 },
-        { functionCallId: "f1" },
-      ),
+      dispatcher.invoke("formatNumber", { value: 1234 }, component),
     ).resolves.toEqual({ ok: true, result: "1,234" });
-    const refused = await dispatcher.invoke(
-      "openUrl",
-      { url: "https://x" },
-      { functionCallId: "f2" },
-    );
-    expect(refused.ok).toBe(false);
-    if (!refused.ok) {
-      expect(refused.error.code).toBe("invalid_function_call");
+    for (const [name, args] of [
+      ["formatNumber", { value: 1234 }],
+      ["openUrl", { url: "https://x" }],
+    ] as const) {
+      const refused = await dispatcher.invoke(name, args, {
+        functionCallId: "f2",
+      });
+      expect(refused.ok).toBe(false);
+      if (!refused.ok) {
+        expect(refused.error.code).toBe("invalid_function_call");
+      }
     }
   });
 
@@ -443,12 +444,12 @@ describe("basic functions through the dispatcher", () => {
     if (!result.ok) expect(result.error.code).toBe("function_not_found");
   });
 
-  it("runs formatString for the agent with literal args", async () => {
+  it("runs formatString for a component with literal args", async () => {
     await expect(
       dispatcher.invoke(
         "formatString",
         { value: "${formatNumber(value: 1234)} items" },
-        { functionCallId: "f5" },
+        component,
       ),
     ).resolves.toEqual({ ok: true, result: "1,234 items" });
   });
@@ -457,7 +458,7 @@ describe("basic functions through the dispatcher", () => {
     const bad = await dispatcher.invoke(
       "formatCurrency",
       { value: 1 },
-      { functionCallId: "f3" },
+      component,
     );
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(bad.error.code).toBe("invalid_arguments");

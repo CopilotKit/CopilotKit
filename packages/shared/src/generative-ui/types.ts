@@ -32,6 +32,11 @@ export function generativeUIFunctionCallMessageId(functionCallId: string) {
   return `genui-fn:${functionCallId}`;
 }
 
+import type {
+  A2UIFunctionPermissions,
+  A2UIFunctionReturnType,
+} from "./basic-functions";
+
 // Named `GenerativeUIJSONSchema` because the package root already exports a
 // `JSONSchema` (utils/json-schema.ts); the bare name would collide.
 export type GenerativeUIJSONSchema = Record<string, unknown>;
@@ -153,9 +158,11 @@ export interface GenerativeUIComponentManifest {
   slots?: Record<string, "single" | "multiple">;
 }
 
-export interface GenerativeUIFunctionManifest {
+export interface GenerativeUIFunctionManifest extends A2UIFunctionPermissions {
   description?: string;
   parameters: GenerativeUIJSONSchema;
+  /** What the function gives back, as A2UI 1.0 names it. */
+  returnType?: A2UIFunctionReturnType;
 }
 
 /** Serializable description of what the browser can render and call. */

@@ -120,6 +120,20 @@ function ProductCard({ productId, name, onAddToCart }: GenerativeUIComponentProp
 
 An event matches the function with its name, or the name without `on`: `onAddToCart` calls `addToCart`.
 
+### Who may call a function
+
+A declaration can carry the A2UI 1.0 interface fields. `allowedCallers` is `"rendererOnly"` (event bindings and prop values), `"agentOnly"` (`callRendererFunction`) or `"rendererOrAgent"`. `requiresUserActivation: true` limits a function to a user gesture, like `openUrl`, which makes it `rendererOnly`. `returnType` names what the handler gives back, with the A2UI names (`"string"`, `"number"`, `"boolean"`, `"array"`, `"object"`, `"validationResult"`, `"any"`, `"void"`).
+
+```ts
+functions: {
+  addToCart: { parameters: z.object({ productId: z.string() }), returnType: "object" },
+  track: { parameters: z.object({ event: z.string() }), allowedCallers: "rendererOnly", returnType: "void" },
+  reload: { parameters: z.object({}), allowedCallers: "agentOnly" },
+},
+```
+
+Left out, both may call the function: CopilotKit's default is `"rendererOrAgent"`, so `callRendererFunction` works without a declaration, where A2UI 1.0 defaults to `"rendererOnly"`. The manifest and the exported catalog always write the value out, so a 1.0 reader sees the same thing. The dispatcher and the runtime refuse the other caller with `invalid_function_call`, and an event cannot match an `"agentOnly"` function. The built-in functions are value functions of the UI: the agent cannot call them.
+
 ## Send a click to the agent
 
 Some clicks need the agent. For example, "Show me the Team plan" needs a new answer. An event that matches no function does that. Give it `parameters`:
@@ -141,7 +155,7 @@ The run that the click starts also carries the structured A2UI 1.0 action messag
 
 A prop can be a function value as well as a literal or a binding, at any depth: `{ "@call": "formatCurrency", "args": { "value": { "@path": "/total" }, "currency": "EUR" } }`. It recomputes when the data it reads changes, with no round trip to the agent. The functions of the A2UI 1.0 basic catalog are built in: `formatString` (with `${/path}` and `${fn(arg: value)}` interpolation), `formatNumber`, `formatCurrency`, `formatDate`, `pluralize`, `and`, `or`, `not`, the validators `required`, `regex`, `length`, `numeric` and `email`, `@index` in a template, and `openUrl`, which runs only as the `functionCall` of an event.
 
-A2UI 1.0 has no arithmetic, so CopilotKit adds two catalog functions. `calc` evaluates an expression over named args: `{ "@call": "calc", "args": { "expression": "seats * 29 * (annual ? 0.8 : 1)", "seats": { "@path": "/seats" }, "annual": { "@path": "/annual" } } }`, with `+ - * / %`, comparisons, `&& || !`, `?:`, `min`, `max`, `round`, `floor`, `ceil`, `abs` and text concatenation. `series` builds a list of `count` items from an item template with `${...}` expressions over a loop variable, for chart data. Both appear to the model as regular catalog functions; a renderer without them rejects the call. The agent can call every built-in with `callRendererFunction`, except `openUrl`.
+A2UI 1.0 has no arithmetic, so CopilotKit adds two catalog functions. `calc` evaluates an expression over named args: `{ "@call": "calc", "args": { "expression": "seats * 29 * (annual ? 0.8 : 1)", "seats": { "@path": "/seats" }, "annual": { "@path": "/annual" } } }`, with `+ - * / %`, comparisons, `&& || !`, `?:`, `min`, `max`, `round`, `floor`, `ceil`, `abs` and text concatenation. `series` builds a list of `count` items from an item template with `${...}` expressions over a loop variable, for chart data. Both appear to the model as regular catalog functions; a renderer without them rejects the call. The built-ins run only in the browser: the agent cannot call them with `callRendererFunction`.
 
 ## Keep what the user types
 

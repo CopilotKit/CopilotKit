@@ -1,6 +1,8 @@
 import type { ComponentType, ReactNode } from "react";
-import { collectChildRefs } from "@copilotkit/shared";
+import { collectChildRefs, functionCallers } from "@copilotkit/shared";
 import type {
+  A2UIFunctionPermissions,
+  A2UIFunctionReturnType,
   ChildRef,
   GenerativeUIComponentManifest,
   GenerativeUIJSONSchema,
@@ -40,9 +42,23 @@ export interface GenerativeUIEventDefinition {
  * A function that generated UI can call. The handler comes from
  * `useGenerativeUIFunction`.
  */
-export interface GenerativeUIFunctionDefinition {
+export interface GenerativeUIFunctionDefinition extends A2UIFunctionPermissions {
   description?: string;
   parameters: GenerativeUISchema;
+  /**
+   * Who may call it. `"rendererOnly"`: event bindings and prop values.
+   * `"agentOnly"`: `callRendererFunction`. Left out, both may: CopilotKit's
+   * default is `"rendererOrAgent"`, where A2UI 1.0 defaults to
+   * `"rendererOnly"`.
+   */
+  allowedCallers?: A2UIFunctionPermissions["allowedCallers"];
+  /**
+   * True for a function that runs only from a user gesture, like `openUrl`.
+   * It is then for the renderer only.
+   */
+  requiresUserActivation?: boolean;
+  /** What the handler gives back, as A2UI 1.0 names it. */
+  returnType?: A2UIFunctionReturnType;
 }
 
 /**
@@ -699,6 +715,18 @@ function buildGenerativeUI(config: RuntimeConfig) {
     add(state, "State key", name, schema);
   for (const [name, fn] of Object.entries(config.functions ?? {}))
     add(functions, "Function", name, fn);
+  for (const [name, fn] of functions) {
+    const isGestureOnly = fn.requiresUserActivation === true;
+    if (
+      isGestureOnly &&
+      fn.allowedCallers !== undefined &&
+      fn.allowedCallers !== "rendererOnly"
+    ) {
+      throw new Error(
+        `[generativeUI] Function "${name}" in ${where} requires user activation, so its allowedCallers must be "rendererOnly", not "${fn.allowedCallers}".`,
+      );
+    }
+  }
   for (const [name, component] of Object.entries(config.components)) {
     add(definitions, "Component", name, component);
     catalogs.set(name, config.id);
@@ -793,6 +821,12 @@ function resolveComponent(
   for (const [eventName, event] of Object.entries(events)) {
     const functionName = matchFunction(eventName, name, context);
     if (functionName !== undefined) {
+      const matched = context.functions.get(functionName);
+      if (matched && !functionCallers(matched).renderer) {
+        throw new Error(
+          `[generativeUI] Event "${eventName}" of component "${name}" matches function "${functionName}", which the UI cannot call (allowedCallers "agentOnly") in ${context.where}.`,
+        );
+      }
       eventFunctions[eventName] = functionName;
       continue;
     }

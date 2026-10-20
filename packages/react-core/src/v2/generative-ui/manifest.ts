@@ -28,6 +28,9 @@ export function builtInFunctionManifests(): Record<
       {
         description: fn.description,
         parameters: { type: "object", description: fn.parameters },
+        returnType: fn.returnType,
+        allowedCallers: fn.allowedCallers,
+        ...(fn.requiresUserActivation ? { requiresUserActivation: true } : {}),
       },
     ]),
   );

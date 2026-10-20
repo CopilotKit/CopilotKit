@@ -1,8 +1,10 @@
 import {
   GENERATIVE_UI_FUNCTIONS,
+  functionCallers,
   isA2UIBasicFunction,
   isA2UIValueFunction,
 } from "./basic-functions";
+import type { A2UIFunctionPermissions } from "./basic-functions";
 import { collectChildRefs } from "./child-refs";
 import type { ChildRef } from "./child-refs";
 import { A2UI_VERSION } from "./types";
@@ -430,30 +432,49 @@ function functionCallProblem(
       return `${label}.args.${key}: ${V09_PATH_REASON}`;
   }
   // A function the app declares under a built-in name is the app's; the
-  // restrictions of the built-in do not apply to it. Without the list of
-  // app functions, the caller cannot tell the two apart, so the dispatcher
-  // applies the restriction when the call runs.
+  // restrictions of the built-in do not apply to it.
   const appFunctions = options.functions;
-  const knowsAppFunctions = appFunctions !== undefined;
-  const isAppFunction =
-    appFunctions !== undefined && hasOwn(appFunctions, name);
-  const basic =
-    !isAppFunction && hasOwn(GENERATIVE_UI_FUNCTIONS, name)
+  const declared =
+    appFunctions !== undefined && hasOwn(appFunctions, name)
+      ? appFunctions[name]
+      : undefined;
+  const builtIn =
+    declared === undefined && hasOwn(GENERATIVE_UI_FUNCTIONS, name)
       ? GENERATIVE_UI_FUNCTIONS[name]
       : undefined;
-  if (
-    knowsAppFunctions &&
-    basic?.requiresUserActivation &&
-    label.startsWith("callRendererFunction")
-  ) {
-    return `function "${name}" runs only from a user gesture; the agent cannot call it`;
+  if (declared === undefined && builtIn === undefined) {
+    return appFunctions === undefined
+      ? undefined
+      : `function "${name}" is not exposed to generative UI`;
   }
-  if (
-    basic === undefined &&
-    options.functions &&
-    !hasOwn(options.functions, name)
-  ) {
-    return `function "${name}" is not exposed to generative UI`;
+  // Without the list of app functions, a built-in name may be the app's own
+  // function, so the dispatcher applies the restriction when the call runs.
+  if (declared === undefined && appFunctions === undefined) return undefined;
+  return callerProblem(
+    name,
+    declared ?? builtIn!,
+    label.startsWith("callRendererFunction") ? "agent" : "renderer",
+  );
+}
+
+/**
+ * Why `caller` may not call a function with these permissions, or
+ * `undefined` when it may. The dispatcher gives the same reasons at run
+ * time, for the calls that are not validated against a function list.
+ */
+export function callerProblem(
+  name: string,
+  fn: A2UIFunctionPermissions,
+  caller: "agent" | "renderer",
+) {
+  const callers = functionCallers(fn);
+  if (caller === "agent" && !callers.agent) {
+    return fn.requiresUserActivation
+      ? `function "${name}" runs only from a user gesture; the agent cannot call it`
+      : `function "${name}" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it`;
+  }
+  if (caller === "renderer" && !callers.renderer) {
+    return `function "${name}" runs only for the agent (allowedCallers "agentOnly"); the UI cannot call it`;
   }
   return undefined;
 }

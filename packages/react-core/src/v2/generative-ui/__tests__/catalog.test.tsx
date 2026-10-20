@@ -247,6 +247,48 @@ describe("createGenerativeUI startup errors", () => {
     );
   });
 
+  it("rejects an event that matches a function the UI cannot call", () => {
+    expect(() =>
+      createGenerativeUI({
+        id: "bad@1",
+        functions: {
+          reload: { parameters: z.object({}), allowedCallers: "agentOnly" },
+        },
+        components: { Card: { component: Card, events: { onReload: {} } } },
+      }),
+    ).toThrow(
+      /"onReload" of component "Card" matches function "reload", which the UI cannot call \(allowedCallers "agentOnly"\)/,
+    );
+  });
+
+  it("rejects a function that requires user activation but is not rendererOnly", () => {
+    expect(() =>
+      createGenerativeUI({
+        id: "bad@1",
+        functions: {
+          share: {
+            parameters: z.object({}),
+            requiresUserActivation: true,
+            allowedCallers: "rendererOrAgent",
+          },
+        },
+        components: {},
+      }),
+    ).toThrow(
+      /"share" in .* requires user activation, so its allowedCallers must be "rendererOnly"/,
+    );
+    // Left out, the callers follow from the activation.
+    expect(
+      createGenerativeUI({
+        id: "ok@1",
+        functions: {
+          share: { parameters: z.object({}), requiresUserActivation: true },
+        },
+        components: {},
+      }).functions.get("share"),
+    ).toMatchObject({ requiresUserActivation: true });
+  });
+
   // The next two errors are type errors too. The runtime check is for callers
   // without TypeScript.
   it("rejects an unmatched event without parameters", () => {

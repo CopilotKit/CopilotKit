@@ -6,25 +6,90 @@
  * may call each one.
  */
 
-/** What a basic function gives back. */
-export type A2UIBasicFunctionReturn =
+/** What a function gives back, as A2UI 1.0 names it. */
+export type A2UIFunctionReturnType =
   | "string"
+  | "number"
   | "boolean"
+  | "array"
+  | "object"
   | "validationResult"
+  | "any"
   | "void";
 
-export interface A2UIBasicFunctionInfo {
+/**
+ * Who may call a function. The renderer calls it from an event binding or
+ * as a prop value; the agent calls it with `callRendererFunction`.
+ */
+export type A2UIAllowedCallers =
+  | "rendererOnly"
+  | "agentOnly"
+  | "rendererOrAgent";
+
+/**
+ * The callers of an app function that names none. A2UI 1.0 defaults to
+ * `rendererOnly`. CopilotKit lets the agent call app functions too, so
+ * `callRendererFunction` works without a declaration; the exported catalog
+ * writes the value out, so a 1.0 reader sees the same thing.
+ */
+export const GENERATIVE_UI_DEFAULT_ALLOWED_CALLERS: A2UIAllowedCallers =
+  "rendererOrAgent";
+
+/** The A2UI 1.0 interface fields of a function: who calls it, and how. */
+export interface A2UIFunctionPermissions {
+  allowedCallers?: A2UIAllowedCallers;
+  /**
+   * True for a function that only runs from a user gesture (a click, a key
+   * press). It is `rendererOnly`: the agent cannot call it, and a prop
+   * cannot be bound to it.
+   */
+  requiresUserActivation?: boolean;
+}
+
+/**
+ * Who may call a function, from its permissions. A function that needs a
+ * user gesture is for the renderer only, whatever `allowedCallers` says.
+ *
+ * @example
+ * ```ts
+ * functionCallers({}); // { renderer: true, agent: true }
+ * functionCallers({ allowedCallers: "rendererOnly" }); // { renderer: true, agent: false }
+ * functionCallers({ requiresUserActivation: true }); // { renderer: true, agent: false }
+ * ```
+ */
+export function functionCallers(fn: A2UIFunctionPermissions) {
+  if (fn.requiresUserActivation) return { renderer: true, agent: false };
+  const callers = fn.allowedCallers ?? GENERATIVE_UI_DEFAULT_ALLOWED_CALLERS;
+  return {
+    renderer: callers !== "agentOnly",
+    agent: callers !== "rendererOnly",
+  };
+}
+
+export interface A2UIBasicFunctionInfo extends A2UIFunctionPermissions {
   description: string;
   /** The args, as a short TypeScript-like type for the compact schema. */
   parameters: string;
-  returnType: A2UIBasicFunctionReturn;
-  /**
-   * True for a function that only runs from a user gesture (an event
-   * binding). The agent cannot call it, and a prop cannot be bound to it.
-   */
+  returnType: A2UIFunctionReturnType;
+  /** Built-in functions are value functions of the renderer. */
+  allowedCallers: "rendererOnly";
   requiresUserActivation?: true;
   /** True for a CopilotKit function that the A2UI basic catalog lacks. */
   extension?: true;
+}
+
+/** Marks a table of built-in functions as callable by the renderer only. */
+function rendererOnly<Name extends string>(
+  functions: Record<Name, Omit<A2UIBasicFunctionInfo, "allowedCallers">>,
+): Readonly<Record<Name, A2UIBasicFunctionInfo>> {
+  return Object.fromEntries(
+    Object.entries<Omit<A2UIBasicFunctionInfo, "allowedCallers">>(
+      functions,
+    ).map(([name, info]) => [
+      name,
+      { ...info, allowedCallers: "rendererOnly" },
+    ]),
+  ) as Record<Name, A2UIBasicFunctionInfo>;
 }
 
 /**
@@ -34,7 +99,7 @@ export interface A2UIBasicFunctionInfo {
  */
 export const A2UI_BASIC_FUNCTIONS: Readonly<
   Record<string, A2UIBasicFunctionInfo>
-> = {
+> = rendererOnly({
   required: {
     description: "Valid when the value is not empty",
     parameters: "{ value: unknown }",
@@ -110,7 +175,7 @@ export const A2UI_BASIC_FUNCTIONS: Readonly<
     parameters: "{ value: boolean }",
     returnType: "boolean",
   },
-};
+});
 
 /**
  * The value functions that CopilotKit adds to the basic catalog, because
@@ -121,13 +186,13 @@ export const A2UI_BASIC_FUNCTIONS: Readonly<
  */
 export const COPILOTKIT_FUNCTIONS: Readonly<
   Record<string, A2UIBasicFunctionInfo>
-> = {
+> = rendererOnly({
   calc: {
     description:
       "The value of an arithmetic expression over the other args, by name: + - * / % ( ), comparisons, && || !, cond ? a : b, min max round floor ceil abs, 'text' + name",
     parameters:
       "{ expression: string; [name: string]: number | string | boolean }",
-    returnType: "string",
+    returnType: "any",
     extension: true,
   },
   series: {
@@ -135,10 +200,10 @@ export const COPILOTKIT_FUNCTIONS: Readonly<
       "A list of count copies of item; ${expression} in the item uses the loop variable (default i, counting from start, default 1) and the other args. For chart data and template lists",
     parameters:
       "{ count: number; item: unknown; variable?: string; start?: number; [name: string]: unknown }",
-    returnType: "string",
+    returnType: "array",
     extension: true,
   },
-};
+});
 
 /** Every function a `{"@call"}` may name without a declaration: basic and CopilotKit. */
 export const GENERATIVE_UI_FUNCTIONS: Readonly<

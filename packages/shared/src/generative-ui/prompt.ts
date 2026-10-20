@@ -1,4 +1,5 @@
 import { generativeUIGuideFeatures } from "../a2ui-prompts";
+import { functionCallers } from "./basic-functions";
 import { GENERATIVE_UI_RENDER_TOOL } from "./types";
 import type { GenerativeUIManifest } from "./types";
 
@@ -57,7 +58,14 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
         Object.keys(f.parameters).length === 2
           ? signature
           : JSON.stringify(f.parameters);
-      return `- **${name}**${f.description ? `: ${f.description}` : ""}\n  args: ${args}`;
+      const callers = functionCallers(f);
+      const who =
+        callers.renderer && callers.agent
+          ? ""
+          : callers.agent
+            ? " (agent only)"
+            : " (UI only)";
+      return `- **${name}**${who}${f.description ? `: ${f.description}` : ""}\n  args: ${args}`;
     })
     .join("\n");
   const surfaces = Object.entries(manifest.surfaces)
@@ -123,7 +131,7 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
       : []),
     ...(hasFunctions
       ? [
-          "Give every callRendererFunction a new functionCallId. Only call functions listed below.",
+          "Give every callRendererFunction a new functionCallId. Only call functions listed below, and never one marked (UI only). A function marked (agent only) is only for callRendererFunction: do not bind an event to it.",
           'The result of a callRendererFunction comes back to you in a new turn, as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Do not wait for the result in this reply, and do not guess it.',
         ]
       : []),

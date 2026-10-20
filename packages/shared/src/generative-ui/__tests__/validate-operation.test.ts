@@ -704,7 +704,7 @@ describe("validateOperation: callRendererFunction", () => {
     ).toBe("ok");
   });
 
-  it("refuses a user-gesture function from the agent, and takes the other basic ones", () => {
+  it("refuses a user-gesture function and every other built-in from the agent: they are value functions of the UI", () => {
     expect(
       reasonOf(
         callFunction({
@@ -722,7 +722,48 @@ describe("validateOperation: callRendererFunction", () => {
         }),
         { functions },
       ),
-    ).toBe("ok");
+    ).toBe(
+      'function "formatNumber" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it',
+    );
+  });
+
+  it("applies the allowedCallers of an app function, to the agent and to event bindings", () => {
+    const permissions = {
+      ...functions,
+      track: {
+        parameters: { type: "object" },
+        allowedCallers: "rendererOnly" as const,
+      },
+      reload: {
+        parameters: { type: "object" },
+        allowedCallers: "agentOnly" as const,
+      },
+      share: {
+        parameters: { type: "object" },
+        requiresUserActivation: true,
+      },
+    };
+    const agentCall = (name: string) =>
+      reasonOf(callFunction({ callFunction: { "@call": name } }), {
+        functions: permissions,
+      });
+    expect(agentCall("addToCart")).toBe("ok");
+    expect(agentCall("reload")).toBe("ok");
+    expect(agentCall("track")).toBe(
+      'function "track" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it',
+    );
+    expect(agentCall("share")).toBe(
+      'function "share" runs only from a user gesture; the agent cannot call it',
+    );
+    const binding = (name: string) =>
+      reasonOf(card({ onAddToCart: { functionCall: { "@call": name } } }), {
+        functions: permissions,
+      });
+    expect(binding("track")).toBe("ok");
+    expect(binding("share")).toBe("ok");
+    expect(binding("reload")).toBe(
+      'component "c1": onAddToCart: function "reload" runs only for the agent (allowedCallers "agentOnly"); the UI cannot call it',
+    );
   });
 
   it("requires a function name in @call", () => {

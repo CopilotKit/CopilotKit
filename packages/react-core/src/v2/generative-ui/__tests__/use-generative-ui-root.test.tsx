@@ -311,6 +311,7 @@ describe("useGenerativeUIRoot", () => {
             parameters: expect.objectContaining({
               properties: { code: expect.objectContaining({ type: "string" }) },
             }),
+            allowedCallers: "rendererOrAgent",
           },
           formatCurrency: expect.any(Object),
         }),
@@ -575,6 +576,24 @@ describe("useGenerativeUIRoot", () => {
       );
       expect(shadowed.functions).not.toHaveProperty("formatNumber");
       expect(shadowed.functions).toHaveProperty("formatCurrency");
+    });
+
+    it("advertises the built-ins with their return type and as UI-only, and openUrl as a gesture function", () => {
+      const { runtime } = setup();
+      const { functions } = buildGenerativeUIManifest(runtime, undefined);
+      expect(functions.formatNumber).toMatchObject({
+        returnType: "string",
+        allowedCallers: "rendererOnly",
+      });
+      expect(functions.formatNumber).not.toHaveProperty(
+        "requiresUserActivation",
+      );
+      expect(functions.openUrl).toMatchObject({
+        returnType: "void",
+        allowedCallers: "rendererOnly",
+        requiresUserActivation: true,
+      });
+      expect(functions.series.returnType).toBe("array");
     });
   });
 
