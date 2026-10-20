@@ -33,7 +33,7 @@ const {
   MockPhoenixSocket,
 } = vi.hoisted(() => {
   const mockDestroy = vi.fn();
-  const mockCreate = vi.fn(() => ({
+  const mockCreate = vi.fn((..._args: unknown[]) => ({
     iframe: document.createElement("iframe"),
     promise: Promise.resolve(),
     run: vi.fn().mockResolvedValue(undefined),
