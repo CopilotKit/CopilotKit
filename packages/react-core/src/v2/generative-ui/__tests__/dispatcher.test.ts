@@ -306,7 +306,118 @@ describe("createGenerativeUIDispatcher", () => {
           required: ["productId"],
           additionalProperties: false,
         },
+        allowedCallers: "rendererOrAgent",
       },
+    });
+  });
+
+  it("lists the return type and the permissions of a declared function, with the callers always written out", () => {
+    const { dispatcher } = setup({
+      share: {
+        parameters: z.object({}),
+        requiresUserActivation: true,
+        returnType: "void",
+      },
+      reload: { parameters: z.object({}), allowedCallers: "agentOnly" },
+    });
+    dispatcher.register("share", refOf(vi.fn()));
+    dispatcher.register("reload", refOf(vi.fn()));
+    expect(dispatcher.listExposed()).toEqual({
+      share: {
+        parameters: expect.any(Object),
+        returnType: "void",
+        allowedCallers: "rendererOnly",
+        requiresUserActivation: true,
+      },
+      reload: { parameters: expect.any(Object), allowedCallers: "agentOnly" },
+    });
+  });
+
+  describe("who may call a function", () => {
+    const agentCall = { functionCallId: "f1" };
+
+    it("refuses the agent a rendererOnly function, and a component an agentOnly one", async () => {
+      const handler = vi.fn(() => "ran");
+      const { dispatcher } = setup({
+        track: { parameters: z.object({}), allowedCallers: "rendererOnly" },
+        reload: { parameters: z.object({}), allowedCallers: "agentOnly" },
+      });
+      dispatcher.register("track", refOf(handler));
+      dispatcher.register("reload", refOf(handler));
+
+      const fromAgent = await dispatcher.invoke("track", {}, agentCall);
+      expect(!fromAgent.ok && fromAgent.error).toMatchObject({
+        code: "invalid_function_call",
+        message:
+          'function "track" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it',
+      });
+      const fromComponent = await dispatcher.invoke("reload", {}, origin);
+      expect(!fromComponent.ok && fromComponent.error).toMatchObject({
+        code: "invalid_function_call",
+        message:
+          'function "reload" runs only for the agent (allowedCallers "agentOnly"); the UI cannot call it',
+      });
+      expect(handler).not.toHaveBeenCalled();
+
+      await expect(dispatcher.invoke("track", {}, origin)).resolves.toEqual({
+        ok: true,
+        result: "ran",
+      });
+      await expect(dispatcher.invoke("reload", {}, agentCall)).resolves.toEqual(
+        { ok: true, result: "ran" },
+      );
+    });
+
+    it("lets both call a function with no allowedCallers", async () => {
+      const { dispatcher } = setup({ ping: { parameters: z.object({}) } });
+      dispatcher.register(
+        "ping",
+        refOf(() => 1),
+      );
+      await expect(dispatcher.invoke("ping", {}, origin)).resolves.toEqual({
+        ok: true,
+        result: 1,
+      });
+      await expect(dispatcher.invoke("ping", {}, agentCall)).resolves.toEqual({
+        ok: true,
+        result: 1,
+      });
+    });
+
+    it("refuses the agent an app function that requires user activation, and runs it for a component", async () => {
+      const { dispatcher } = setup({
+        share: { parameters: z.object({}), requiresUserActivation: true },
+      });
+      dispatcher.register(
+        "share",
+        refOf(() => "shared"),
+      );
+      const fromAgent = await dispatcher.invoke("share", {}, agentCall);
+      expect(!fromAgent.ok && fromAgent.error.message).toBe(
+        'function "share" runs only from a user gesture; the agent cannot call it',
+      );
+      // jsdom has no navigator.userActivation, so the gesture is assumed.
+      await expect(dispatcher.invoke("share", {}, origin)).resolves.toEqual({
+        ok: true,
+        result: "shared",
+      });
+    });
+
+    it("refuses the agent every built-in: they are value functions of the UI", async () => {
+      const { dispatcher } = setup();
+      const result = await dispatcher.invoke(
+        "formatNumber",
+        { value: 1 },
+        agentCall,
+      );
+      expect(!result.ok && result.error).toMatchObject({
+        code: "invalid_function_call",
+        message:
+          'function "formatNumber" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it',
+      });
+      await expect(
+        dispatcher.invoke("formatNumber", { value: 1 }, origin),
+      ).resolves.toEqual({ ok: true, result: "1" });
     });
   });
 });

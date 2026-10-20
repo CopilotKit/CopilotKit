@@ -284,6 +284,8 @@ export function envelopeToManifest(envelope: CopilotKitUIEnvelope) {
     contextSent: extensions.copilotkit_contextSent,
     instructions: catalog?.instructions,
     hasComponents: catalog?.components !== undefined,
-    action: extensions.copilotkit_action,
+    ...(extensions.copilotkit_action === undefined
+      ? {}
+      : { action: extensions.copilotkit_action }),
   };
 }

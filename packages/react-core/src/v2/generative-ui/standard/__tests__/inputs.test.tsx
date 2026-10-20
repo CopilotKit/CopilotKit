@@ -352,6 +352,7 @@ describe("standard inputs: events", () => {
       name: "subscribe",
       surfaceId: SURFACE_ID,
       componentId: "b",
+      timestamp: expect.any(String),
       context: { email: "ada@example.com", source: "footer" },
     });
   });

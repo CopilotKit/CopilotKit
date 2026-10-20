@@ -309,7 +309,6 @@ describe("envelopeToManifest", () => {
       contextSent: true,
       instructions: "Write fences.",
       hasComponents: true,
-      action: undefined,
     });
   });
 
