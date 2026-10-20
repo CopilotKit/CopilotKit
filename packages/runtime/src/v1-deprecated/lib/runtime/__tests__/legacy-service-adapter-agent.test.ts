@@ -156,6 +156,76 @@ describe("LangChainAdapter through the v1 endpoint (#3217)", () => {
     expect(JSON.parse(args.delta)).toEqual({ title: "Ada" });
   });
 
+  describe("validates frontend tool calls as BuiltInAgent does", () => {
+    const showCity = {
+      name: "showCity",
+      description: "Show a city",
+      parameters: {
+        type: "object",
+        properties: { city: { type: "string" } },
+        required: ["city"],
+      },
+    };
+    const callsThenDone = (calls: { id: string; args: object }[]) => {
+      const seen: BaseMessage[][] = [];
+      const chainFn = vi.fn<ChainFn>(async ({ messages }) => {
+        seen.push(messages);
+        return seen.length === 1
+          ? new AIMessage({
+              content: "",
+              tool_calls: calls.map((c) => ({ ...c, name: "showCity" })),
+            })
+          : new AIMessage("Done");
+      });
+      return { chainFn, seen };
+    };
+    const resultsOf = (events: BaseEvent[]) =>
+      events.filter((e) => e.type === EventType.TOOL_CALL_RESULT) as ({
+        toolCallId: string;
+        content: string;
+      } & BaseEvent)[];
+
+    it("answers an invalid call with an error result instead of sending it to the browser", async () => {
+      const { chainFn, seen } = callsThenDone([
+        { id: "bad", args: { city: 42 } },
+      ]);
+
+      const events = await runThroughEndpoint(
+        chainFn,
+        baseInput({ tools: [showCity] }),
+      );
+
+      const results = resultsOf(events);
+      expect(results).toHaveLength(1);
+      expect(results[0]!.toolCallId).toBe("bad");
+      expect(results[0]!.content).toMatch(
+        /^Error: Invalid input for tool showCity: .*Invalid arguments for tool showCity/s,
+      );
+      // Every call has a result, so the model gets a step to correct itself.
+      expect(chainFn).toHaveBeenCalledTimes(2);
+      const toolMessage = seen[1]!.find((m) => m instanceof ToolMessage);
+      expect(toolMessage?.content).toBe(results[0]!.content);
+      expect(types(events)).not.toContain(EventType.RUN_ERROR);
+    });
+
+    it("rejects only the invalid call and still hands the valid one to the browser", async () => {
+      const { chainFn } = callsThenDone([
+        { id: "ok", args: { city: "Paris" } },
+        { id: "bad", args: { city: 42 } },
+      ]);
+
+      const events = await runThroughEndpoint(
+        chainFn,
+        baseInput({ tools: [showCity] }),
+      );
+
+      expect(resultsOf(events).map((r) => r.toolCallId)).toEqual(["bad"]);
+      // The valid call is still open, so the run ends for the client to run it.
+      expect(chainFn).toHaveBeenCalledTimes(1);
+      expect(types(events).at(-1)).toBe(EventType.RUN_FINISHED);
+    });
+  });
+
   it("executes a server-side v1 action and feeds its result back to chainFn", async () => {
     const handler = vi.fn(async ({ name }: { name: string }) => `hi ${name}`);
     const seen: BaseMessage[][] = [];
