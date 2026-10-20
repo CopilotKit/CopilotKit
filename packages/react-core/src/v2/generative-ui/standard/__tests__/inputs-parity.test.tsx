@@ -47,7 +47,7 @@ describe("standard catalog: inputs (parity)", () => {
         {
           id: "c",
           component: "CheckBox",
-          checked: { "@path": "/annual" },
+          value: { "@path": "/annual" },
           label: "Annual",
         },
         { id: "t", component: "Text", text: { "@path": "/seats" } },
@@ -238,14 +238,14 @@ describe("standard catalog: inputs (parity)", () => {
     expect(pressable.style.boxShadow).toContain("inset 0 0 0 1px");
   });
 
-  it("renders solid buttons and badges with token colours, not literals", async () => {
+  it("renders primary buttons and solid badges with token colours, not literals", async () => {
     const v = render([
       { id: "root", component: "Column", children: ["b", "g"] },
       {
         id: "b",
         component: "Button",
         label: "Go",
-        variant: "solid",
+        variant: "primary",
         onClick: { event: { name: "go" } },
       },
       { id: "g", component: "Badge", label: "New", variant: "solid" },

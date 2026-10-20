@@ -105,7 +105,7 @@ describe("standard catalog: layout and text (parity)", () => {
       {
         id: "r1",
         component: "Row",
-        justify: "between",
+        justify: "spaceBetween",
         children: ["k", "val"],
       },
       { id: "k", component: "Text", text: "Price" },
@@ -116,7 +116,7 @@ describe("standard catalog: layout and text (parity)", () => {
     const value = await v.findByText("$29.00");
     const row = value.parentElement!;
     expect(row.style.alignItems).toBe("center");
-    expect(row.dataset.a2uiRow).toBe("between");
+    expect(row.dataset.a2uiRow).toBe("spaceBetween");
     expect(value.style.flex).toBe("0 1 auto");
     expect(value.style.minWidth).toMatch(/^0(px)?$/);
     expect(value.style.width).toBe("");
@@ -125,7 +125,7 @@ describe("standard catalog: layout and text (parity)", () => {
       "flex-start",
     );
     expect(STANDARD_CSS).toContain(
-      '[data-a2ui-row="between"]>[data-a2ui-text]:last-child:not(:first-child){text-align:right',
+      '[data-a2ui-row="spaceBetween"]>[data-a2ui-text]:last-child:not(:first-child){text-align:right',
     );
   });
 
