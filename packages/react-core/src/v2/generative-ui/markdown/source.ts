@@ -1,3 +1,4 @@
+import type { ChildRef } from "@copilotkit/shared";
 import type { Message } from "@ag-ui/client";
 import {
   extractFenceOperations,
@@ -7,13 +8,16 @@ import {
   segmentSurfaceProse,
   splitA2UIMarkdown,
 } from "@copilotkit/core";
-import type { A2UIMarkdownOperation } from "@copilotkit/core";
+import type { A2UIMarkdownOperation, ChildIdsOf } from "@copilotkit/core";
 import {
   A2UI_VERSION,
   GENERATIVE_UI_CHAT_TARGET,
   GENERATIVE_UI_ROOT_ID,
   getOperationKind,
   validateOperation,
+  childIdsAtRefs,
+  collectChildRefs,
+  hasBoundChildRef,
 } from "@copilotkit/shared";
 import type {
   A2UIOperation,
@@ -178,6 +182,51 @@ function hasProp(ui: MarkdownSourceUI, name: string, prop: string) {
   return isRecord(properties) && Object.hasOwn(properties, prop);
 }
 
+const childRefCache = new WeakMap<object, readonly ChildRef[]>();
+
+/** The ids in a slot value: an id, a list of ids, or a template. */
+function slotIds(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.filter(isString);
+  return isRecord(value) && isString(value.componentId)
+    ? [value.componentId]
+    : [];
+}
+
+/**
+ * A reader of the ids a component renders beyond `child` and `children`:
+ * its declared slots (the `trigger` and `content` of a Modal) and its typed
+ * child references (the `child` of each entry of `tabs`), from its catalog
+ * entry. The prose lift follows these ids like `children`, so a panel is
+ * never cut off from its Tabs. A reference that is bound to the data
+ * model is "unknown": its ids exist only at render time.
+ */
+function childIdsReader(ui: MarkdownSourceUI): ChildIdsOf {
+  return (component) => {
+    const name = component.component;
+    // An own property only: "constructor" is not a component.
+    const entry =
+      typeof name === "string" && Object.hasOwn(ui.manifestComponents, name)
+        ? ui.manifestComponents[name]
+        : undefined;
+    if (!entry) return [];
+    const ids: string[] = [];
+    for (const slot of Object.keys(entry.slots ?? {})) {
+      if (slot !== "child" && slot !== "children") {
+        ids.push(...slotIds(component[slot]));
+      }
+    }
+    let refs = childRefCache.get(entry.props);
+    if (!refs) {
+      refs = collectChildRefs(entry.props);
+      childRefCache.set(entry.props, refs);
+    }
+    if (refs.length === 0) return ids;
+    if (hasBoundChildRef(component, refs)) return "unknown";
+    return [...ids, ...childIdsAtRefs(component, refs)];
+  };
+}
+
 /** Every component of the operations by id, last definition wins. */
 function collectComponents(operations: A2UIMarkdownOperation[]) {
   const byId = new Map<string, Record<string, unknown>>();
@@ -255,9 +304,13 @@ function subSurfaceOperations(
  * on. A surface with no prose comes back as one part with the same
  * operations.
  */
-function liftProse(operations: A2UIMarkdownOperation[], surfaceId: string) {
+function liftProse(
+  operations: A2UIMarkdownOperation[],
+  surfaceId: string,
+  childIds: ChildIdsOf,
+) {
   const components = collectComponents(operations);
-  const segments = segmentSurfaceProse(components);
+  const segments = segmentSurfaceProse(components, { childIds });
   const [first] = segments;
   const isUnchanged =
     segments.length === 1 &&
@@ -469,6 +522,7 @@ export function buildMarkdownSurfaces(
   const canFlattenCards = hasProp(ui, "Card", "variant");
   const surfaces: GenerativeUISurfaceContent[] = [];
   const partsBySurface = new Map<string, SurfacePart[]>();
+  const childIds = childIdsReader(ui);
   for (const draft of drafts.values()) {
     const prepared = prepareSurfaceOperations({
       operations: draft.operations,
@@ -481,8 +535,11 @@ export function buildMarkdownSurfaces(
     const isChat = draft.target === GENERATIVE_UI_CHAT_TARGET;
     const parts: SurfacePart[] = isChat
       ? liftProse(
-          canFlattenCards ? flattenInformationalCards(operations) : operations,
+          canFlattenCards
+            ? flattenInformationalCards(operations, { childIds })
+            : operations,
           draft.surfaceId,
+          childIds,
         )
       : [{ kind: "surface", surfaceId: draft.surfaceId, operations }];
     partsBySurface.set(draft.surfaceId, parts);

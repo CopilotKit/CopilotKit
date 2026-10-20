@@ -199,10 +199,20 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
 
   it("keeps the schema and the guideline of the standard components small", () => {
     const schema = JSON.stringify(compactStandardSchema());
-    expect(schema.length).toBeLessThan(42_000);
+    expect(schema.length).toBeLessThan(52_000);
     expect(
       schema.length + GENERATIVE_UI_MARKDOWN_GUIDELINES.length,
-    ).toBeLessThan(46_000);
+    ).toBeLessThan(56_000);
+  });
+
+  it("lists the built-in functions with their signatures, from the manifest", () => {
+    const schema = compactStandardSchema();
+    expect(schema.functions.formatCurrency).toEqual({
+      description: expect.stringContaining("ISO 4217"),
+      parameters:
+        "{ value: number; currency: string; decimals?: number; grouping?: boolean }",
+    });
+    expect(schema.functions.calc.parameters).toContain("expression: string");
   });
 
   it("explains commonProps in the guideline", () => {
