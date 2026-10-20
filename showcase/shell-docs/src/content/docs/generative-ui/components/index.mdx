@@ -150,6 +150,18 @@ That is a working setup. The agent now renders standard components in the chat.
 
 <InspectorPaneGenerativeUI components={props.components} />
 
+## When something does not render
+
+The agent answered, but the UI did not show, or it shows the wrong thing. Open Inspector, go to **Generative UI**, and open the tab for what you see:
+
+| What you see | Open | What to look for |
+| --- | --- | --- |
+| The pane says "No generative UI" | Nothing to open | The provider has no `generativeUI` config. Pass `generativeUI={{ ui }}` to `CopilotKitProvider`. |
+| The surface stays empty, or shows its fallback | **Surfaces** | Find the surface and open its card. **Rejected operations** gives the reason for each dropped operation, for example an unknown component. |
+| A component shows wrong or missing values | **Surfaces** | The component tree shows each rendered component with the props that the agent sent. |
+| The agent never uses a component or a function | **Catalog** | Search for its name. A component that is not in the list is not sent to the model. A function with no mounted handler gets a warning. |
+| You want to see what the model got | **Prompt** | The envelope and the `render_ui` guide of the last run, and of the next run. |
+
 ## Learn the ideas
 
 Three ideas carry the whole feature:
