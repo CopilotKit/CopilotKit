@@ -1,7 +1,7 @@
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
 import { of } from "rxjs";
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
 
 /**
@@ -127,6 +127,28 @@ describe("scoped run properties", () => {
     });
 
     expect(core.getPropertiesForAgent()).toEqual({});
+  });
+
+  it("keeps every entry when the id source repeats itself", async () => {
+    vi.doMock("@copilotkit/shared", async (importOriginal) => ({
+      ...(await importOriginal<Record<string, unknown>>()),
+      randomUUID: () => "same-id",
+    }));
+    try {
+      // The module under test is cached with the real id source.
+      vi.resetModules();
+      const { CopilotKitCore: MockedCore } = await import("../core");
+      const mocked = new MockedCore({});
+      const first = mocked.addScopedProperties({ properties: { a: 1 } });
+      const second = mocked.addScopedProperties({ properties: { b: 2 } });
+      expect(first).toBe("same-id");
+      expect(second).toBe("same-id-1");
+      expect(mocked.getPropertiesForAgent("chat")).toEqual({ a: 1, b: 2 });
+      mocked.removeScopedProperties(second);
+      expect(mocked.getPropertiesForAgent("chat")).toEqual({ a: 1 });
+    } finally {
+      vi.doUnmock("@copilotkit/shared");
+    }
   });
 
   it("stops forwarding an entry once it is removed", () => {

@@ -495,7 +495,7 @@ describe("GenerativeUIMiddleware", () => {
     expect(guide).not.toContain("App state");
     expect(guide).not.toContain("/app");
     // The rules after the removed app state rule are numbered again.
-    expect(guide).toContain("\n6. To show a different view");
+    expect(guide).toContain("\n7. To show a different view");
   });
 
   it("emits a snapshot for createSurface and one delta per further operation", async () => {

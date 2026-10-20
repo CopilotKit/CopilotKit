@@ -75,6 +75,8 @@ The `id` names the catalog. Use a versioned id, for example `acme/shop@1`.
 - A child reference inside the props schema: mark a prop with `child()` or `childList()` from `@copilotkit/react-core/v2/generative-ui`, anywhere in the schema, for example `tabs: z.array(z.object({ title: z.string(), child: child() }))`. The engine renders the referenced components and your component receives them as React nodes in place of the ids. This is how A2UI 1.0 marks references (`ComponentId`, `ChildList`); `slots` stays for the plain top-level case.
 - `events`, `bind`, and `writable`: actions, app state, and inputs. See [Connect app state and actions](/generative-ui/components/state-and-actions).
 
+Next to `id` and `component`, every component the agent writes may carry the A2UI 1.0 envelope: `catalogId` (must be the id of your UI), `metadata` (`{ "extensions": { ... } }`, kept for your own tooling) and `accessibility` (`label`, `description`, `live`, `hidden`; `label`, `description` and `hidden` may be bindings or function values). The engine resolves `accessibility` and keeps all three out of your props. `hidden` and `live` apply to every component: the engine wraps the component in an element with `aria-hidden` and `aria-live`. A `label` or a `description` needs an element with a role, so the standard components set them on their root or on their control. In your own component, call `useGenerativeUIAccessibility()` and spread the result on the root element. A component that must not be wrapped (a table row or cell) declares `accessibility: "self"` and applies the attributes itself.
+
 ## Type your components
 
 `GenerativeUIComponentProps<typeof ui, "Name">` gives a component the exact props that the renderer passes. It reads them from the schema, so the component and the catalog cannot drift apart:
@@ -125,6 +127,19 @@ export const appUI = createGenerativeUI({
 ```
 
 A name can come from one catalog only. Two components named `Card` throw an error when the app loads. To replace a standard component, use [overrides](/generative-ui/components/standard-catalog#replace-a-component).
+
+## Export the catalog for other A2UI tools
+
+`exportA2UICatalog(ui)` writes your UI as an A2UI 1.0 catalog definition (the `catalog_definition.json` shape), for a validator, another renderer or a prompt builder:
+
+```ts
+import { exportA2UICatalog } from "@copilotkit/react-core/v2/generative-ui";
+
+const catalog = exportA2UICatalog(appUI, { title: "Acme app" });
+fs.writeFileSync("acme-catalog.json", JSON.stringify(catalog, null, 2));
+```
+
+Every component is an entry with `component` as a `const`, its model-set props, its events as `Action` references and its slots as `ComponentId` or `ChildList` references. A prop takes its literal schema, a `DataBinding` or a `FunctionCall`, because the renderer resolves dynamic values in any prop. Every function, built-in or declared, states `returnType` and `allowedCallers`; `calc` and `series` are listed like the others, so a reader without them knows what it cannot run.
 
 ## What the agent sees
 

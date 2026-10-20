@@ -11,6 +11,11 @@ import React, {
 import type { CSSProperties, KeyboardEvent, ReactNode, RefObject } from "react";
 import { createPortal } from "react-dom";
 import { z } from "zod";
+import {
+  controlAria,
+  useGenerativeUIAccessibility,
+  wrapperAria,
+} from "../accessibility";
 import { useGenerativeUIRuntime } from "../runtime-context";
 import { useOverlayEscape } from "./overlay-stack";
 import { CHILDREN_SLOT, sizeValue, weightProp } from "./layout";
@@ -505,11 +510,13 @@ function Popover(props: PopoverProps) {
 }
 
 function PopoverTrigger(props: PopoverTriggerProps) {
+  const aria = useGenerativeUIAccessibility();
   useFeedbackStyles();
   const popover = useContext(PopoverContext);
   if (!popover) return <>{props.children}</>;
   return (
     <button
+      {...controlAria(aria)}
       ref={popover.triggerRef}
       type="button"
       id={popover.triggerId}
@@ -661,6 +668,9 @@ const DISABLED = '[disabled],[aria-disabled="true"]';
  */
 function Modal(props: ModalProps) {
   useFeedbackStyles();
+  // The dialog is a portal, outside the wrapper the engine puts around the
+  // component, so it takes the envelope itself.
+  const aria = useGenerativeUIAccessibility();
   const id = useId();
   const [ownOpen, setOwnOpen] = useState(false);
   const open = props.open ?? ownOpen;
@@ -797,7 +807,14 @@ function Modal(props: ModalProps) {
                   ref={dialogRef}
                   role="dialog"
                   aria-modal="true"
-                  aria-labelledby={props.title ? `${id}-title` : undefined}
+                  aria-labelledby={
+                    props.title && aria["aria-label"] === undefined
+                      ? `${id}-title`
+                      : undefined
+                  }
+                  aria-label={aria["aria-label"]}
+                  aria-description={aria["aria-description"]}
+                  {...wrapperAria(aria)}
                   tabIndex={-1}
                   onClick={(event) => event.stopPropagation()}
                   style={{

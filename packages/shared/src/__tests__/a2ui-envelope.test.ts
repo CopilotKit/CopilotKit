@@ -312,6 +312,27 @@ describe("envelopeToManifest", () => {
     });
   });
 
+  it("gives the action of the user event that started the run", () => {
+    const action = {
+      version: "v1.0" as const,
+      action: {
+        name: "buy",
+        surfaceId: "s1",
+        sourceComponentId: "button",
+        timestamp: "2026-10-20T10:00:00.000Z",
+        userMessage: "Buy now",
+        context: { sku: "a" },
+      },
+    };
+    const envelope = createEnvelope({
+      extensions: { copilotkit_action: action },
+    });
+    expect(readCopilotKitUIEnvelope({ copilotkit: { ui: envelope } })).toEqual(
+      envelope,
+    );
+    expect(envelopeToManifest(envelope).action).toEqual(action);
+  });
+
   it("reports no components when the client left them out", () => {
     const manifest = envelopeToManifest(
       createEnvelope({

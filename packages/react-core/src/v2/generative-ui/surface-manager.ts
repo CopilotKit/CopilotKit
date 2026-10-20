@@ -7,6 +7,7 @@ import {
 } from "@a2ui/web_core/v0_9";
 import { z } from "zod";
 import {
+  A2UI_COMPONENT_ENVELOPE_KEYS,
   GENERATIVE_UI_MAX_REJECTION_LENGTH,
   GENERATIVE_UI_MAX_SUMMARY_REJECTIONS,
   getOperationKind,
@@ -757,7 +758,10 @@ export class GenerativeUISurfaceManager {
     const { id: _id, component: _component, ...rest } = node;
     const dataProps = Object.fromEntries(
       Object.entries(rest).filter(
-        ([key]) => !definition.events?.[key] && !definition.slots?.[key],
+        ([key]) =>
+          !definition.events?.[key] &&
+          !definition.slots?.[key] &&
+          !A2UI_COMPONENT_ENVELOPE_KEYS.has(key),
       ),
     );
     if (!definition.props) return undefined;

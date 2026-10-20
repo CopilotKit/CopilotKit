@@ -1,4 +1,5 @@
 import { generativeUIGuideFeatures } from "../a2ui-prompts";
+import { functionCallers } from "./basic-functions";
 import { GENERATIVE_UI_RENDER_TOOL } from "./types";
 import type { GenerativeUIManifest } from "./types";
 
@@ -57,7 +58,14 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
         Object.keys(f.parameters).length === 2
           ? signature
           : JSON.stringify(f.parameters);
-      return `- **${name}**${f.description ? `: ${f.description}` : ""}\n  args: ${args}`;
+      const callers = functionCallers(f);
+      const who =
+        callers.renderer && callers.agent
+          ? ""
+          : callers.agent
+            ? " (agent only)"
+            : " (UI only)";
+      return `- **${name}**${who}${f.description ? `: ${f.description}` : ""}\n  args: ${args}`;
     })
     .join("\n");
   const surfaces = Object.entries(manifest.surfaces)
@@ -103,6 +111,7 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
     : 'Event props take an action: {"event":{"name":"<name>","userMessage":"<text>","context":{...}}} sends the interaction back to you as a user message, with "userMessage" as its first line.';
   const rules = [
     'Components are flat objects: {"id":"...","component":"<Name>", ...props}. Every surface renders from the component with id "root". Reference children by id in slot props.',
+    'Any component also takes "accessibility":{"label":"<1 to 3 words>","description":"<what it does>","live":"polite"} for screen readers. Set "label" when nothing visible names the component.',
     'Stream progressively: put the initial data in "dataModel" and the root in "components" of the createSurface operation, then send one updateComponents operation per child, so the UI appears while you are still writing. The root must already list the ids of its children in its slot props (for example "children":["card-1","card-2"]), even though the children come later. A component that no slot references is never shown.',
     "Updating a component replaces all of its props, so resend every prop.",
     'Prop values are literals or data bindings {"@path":"/data/path"}. Never write {"path":"/data/path"} as a binding.',
@@ -123,7 +132,7 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
       : []),
     ...(hasFunctions
       ? [
-          "Give every callRendererFunction a new functionCallId. Only call functions listed below.",
+          "Give every callRendererFunction a new functionCallId. Only call functions listed below, and never one marked (UI only). A function marked (agent only) is only for callRendererFunction: do not bind an event to it.",
           'The result of a callRendererFunction comes back to you in a new turn, as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Do not wait for the result in this reply, and do not guess it.',
         ]
       : []),

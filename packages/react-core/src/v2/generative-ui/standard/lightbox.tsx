@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { useGenerativeUIAccessibility, wrapperAria } from "../accessibility";
 import { useOverlayEscape } from "./overlay-stack";
 import { BACKDROP, ON_ACCENT, SHADOW_MD, radius } from "./tokens";
 
@@ -36,6 +37,9 @@ export function Lightbox({
   onClose: () => void;
 }) {
   const [current, setCurrent] = useState(index);
+  // A portal: the hidden state and the live region of the image's envelope
+  // do not reach it from the engine's wrapper.
+  const aria = useGenerativeUIAccessibility();
   const count = images.length;
   const step = (delta: number) =>
     setCurrent((i) => (count === 0 ? 0 : (i + delta + count) % count));
@@ -85,6 +89,7 @@ export function Lightbox({
       role="dialog"
       aria-modal="true"
       aria-label={alt || "Image"}
+      {...wrapperAria(aria)}
       data-a2ui-lightbox=""
       onClick={onClose}
       style={{

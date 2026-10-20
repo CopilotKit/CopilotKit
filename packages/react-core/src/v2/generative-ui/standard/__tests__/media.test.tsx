@@ -111,6 +111,41 @@ describe("standard media", () => {
     expect(view.getByAltText("kept")).toBeInstanceOf(HTMLImageElement);
   });
 
+  it("hides an Image together with its action overlay", async () => {
+    const view = renderInColumn({
+      id: "a",
+      component: "Image",
+      url: "https://example.com/a.png",
+      description: "Chart",
+      actionOverlay: { label: "Open" },
+      accessibility: { hidden: true, label: "Sales chart" },
+    });
+    const img = await view.findByAltText("Chart");
+    const wrapper = img.parentElement!;
+    expect(wrapper.getAttribute("aria-hidden")).toBe("true");
+    expect(img.hasAttribute("aria-hidden")).toBe(false);
+    // The name stays on the image: names do not inherit from a wrapper.
+    expect(img.getAttribute("aria-label")).toBe("Sales chart");
+    expect(wrapper.hasAttribute("aria-label")).toBe(false);
+    expect(wrapper.querySelector("button")).not.toBeNull();
+  });
+
+  it("keeps the accessibility of the envelope on the fallback of a failed Image", async () => {
+    const view = renderInColumn({
+      id: "a",
+      component: "Image",
+      url: "https://example.com/broken.png",
+      description: "Chart",
+      fallback: "No chart",
+      accessibility: { label: "Sales chart", hidden: true },
+    });
+    fireEvent.error(await view.findByAltText("Chart"));
+    const fallback = view.getByText("No chart");
+    expect(fallback.getAttribute("role")).toBe("img");
+    expect(fallback.getAttribute("aria-label")).toBe("Sales chart");
+    expect(fallback.getAttribute("aria-hidden")).toBe("true");
+  });
+
   it("loads a lucide Icon on first use and hides it from screen readers", async () => {
     const view = renderInColumn({
       id: "c",
@@ -137,6 +172,27 @@ describe("standard media", () => {
     });
     const icon = await view.findByRole("img", { name: "Done" });
     expect(icon.getAttribute("aria-hidden")).toBeNull();
+  });
+
+  it("names an Icon and an Svg by the envelope label, like the label prop", async () => {
+    const view = renderInColumn(
+      {
+        id: "i",
+        component: "Icon",
+        name: "check",
+        accessibility: { label: "Done", description: "The step is complete" },
+      },
+      {
+        id: "s",
+        component: "Svg",
+        viewBox: "0 0 10 10",
+        circles: [{ cx: 5, cy: 5, r: 4 }],
+        accessibility: { label: "Dot" },
+      },
+    );
+    const icon = await view.findByRole("img", { name: "Done" });
+    expect(icon.getAttribute("aria-description")).toBe("The step is complete");
+    expect(view.getByRole("img", { name: "Dot" }).tagName).toBe("svg");
   });
 
   it("renders nothing for an Icon with an unknown name", async () => {
@@ -211,8 +267,10 @@ describe("standard media", () => {
       component: "Video",
       url: "https://youtu.be/dQw4w9WgXcQ",
       posterUrl: "https://example.com/poster.png",
+      accessibility: { description: "The launch keynote" },
     });
     const play = await view.findByRole("button", { name: "Play video" });
+    expect(play.getAttribute("aria-description")).toBe("The launch keynote");
     // The poster given by the model, not the YouTube thumbnail.
     expect(play.querySelector("img")?.getAttribute("src")).toBe(
       "https://example.com/poster.png",
@@ -220,6 +278,7 @@ describe("standard media", () => {
     expect(view.container.querySelector("iframe")).toBeNull();
     fireEvent.click(play);
     const frame = await view.findByTitle("YouTube video");
+    expect(frame.getAttribute("aria-description")).toBe("The launch keynote");
     expect(frame.getAttribute("src")).toBe(
       "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1",
     );
@@ -228,7 +287,7 @@ describe("standard media", () => {
     );
   });
 
-  it("never embeds a YouTube URL whose id is not a plain id", async () => {
+  it("never embeds a YouTube URL whose id is not a plain id: a page the player cannot play shows as a link", async () => {
     const view = renderInColumn({
       id: "y",
       component: "Video",
@@ -236,7 +295,81 @@ describe("standard media", () => {
     });
     await view.findByText("end");
     expect(view.container.querySelector("iframe")).toBeNull();
-    expect(view.container.querySelector("video")).not.toBeNull();
+    expect(view.container.querySelector("video")).toBeNull();
+    const link = view.container.querySelector("[data-a2ui-video-link]");
+    expect(link?.tagName).toBe("A");
+    expect(link?.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
+  it("shows a link card for a page on another video site, and the native player with captions for a file", async () => {
+    const view = renderInColumn(
+      {
+        id: "v",
+        component: "Video",
+        url: "https://vimeo.com/123456",
+        title: "Launch keynote",
+      },
+      {
+        id: "f",
+        component: "Video",
+        url: "https://cdn.example.com/clip.webm",
+        captions: [
+          {
+            url: "https://cdn.example.com/en.vtt",
+            language: "en",
+            label: "English",
+          },
+          {
+            url: "https://cdn.example.com/de.vtt",
+            language: "de",
+            kind: "captions",
+          },
+        ],
+      },
+      { id: "s", component: "Video", url: "https://streams.example.com/live" },
+    );
+    await view.findByText("end");
+    const link = await view.findByRole("link", {
+      name: "Open Launch keynote on vimeo.com",
+    });
+    expect(link.getAttribute("href")).toBe("https://vimeo.com/123456");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.textContent).toContain("Launch keynote");
+    expect(link.textContent).toContain("vimeo.com");
+    const videos = view.container.querySelectorAll("video");
+    // A file by extension, and a URL that is not a video page, both play.
+    expect(videos).toHaveLength(2);
+    // Tracks load in the CORS mode of the player, so a player with captions has one.
+    expect(videos[0]!.getAttribute("crossorigin")).toBe("anonymous");
+    expect(videos[1]!.hasAttribute("crossorigin")).toBe(false);
+    const tracks = videos[0]!.querySelectorAll("track");
+    expect(tracks).toHaveLength(2);
+    expect(tracks[0]!.getAttribute("srclang")).toBe("en");
+    expect(tracks[0]!.getAttribute("kind")).toBe("subtitles");
+    expect(tracks[0]!.hasAttribute("default")).toBe(true);
+    expect(tracks[1]!.getAttribute("kind")).toBe("captions");
+    expect(tracks[1]!.hasAttribute("default")).toBe(false);
+  });
+
+  it("replaces a native player with the link when the file does not load", async () => {
+    const view = renderInColumn({
+      id: "f",
+      component: "Video",
+      url: "https://cdn.example.com/missing.mp4",
+    });
+    const video = await waitFor(() => {
+      const element = view.container.querySelector("video");
+      if (!element) throw new Error("no player");
+      return element;
+    });
+    fireEvent.error(video);
+    const link = await view.findByRole("link", {
+      name: "Open video on cdn.example.com",
+    });
+    expect(link.getAttribute("href")).toBe(
+      "https://cdn.example.com/missing.mp4",
+    );
+    expect(view.container.querySelector("video")).toBeNull();
   });
 
   it("renders HtmlView in a fully sandboxed iframe that runs no script", async () => {

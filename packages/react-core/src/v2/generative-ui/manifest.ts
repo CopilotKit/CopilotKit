@@ -6,6 +6,7 @@ import {
   GENERATIVE_UI_FUNCTIONS,
 } from "@copilotkit/shared";
 import type {
+  A2UIActionMessage,
   CopilotKitUIEnvelope,
   GenerativeUIFunctionManifest,
   GenerativeUIManifest,
@@ -27,6 +28,9 @@ export function builtInFunctionManifests(): Record<
       {
         description: fn.description,
         parameters: { type: "object", description: fn.parameters },
+        returnType: fn.returnType,
+        allowedCallers: fn.allowedCallers,
+        ...(fn.requiresUserActivation ? { requiresUserActivation: true } : {}),
       },
     ]),
   );
@@ -88,6 +92,8 @@ export interface GenerativeUIEnvelopeOptions {
    * tool transport sends none.
    */
   instructions?: string;
+  /** The user action that starts this run, when one does. */
+  action?: A2UIActionMessage;
 }
 
 /**
@@ -119,7 +125,7 @@ export function buildGenerativeUIEnvelope(
   threadId: string | undefined,
   options: GenerativeUIEnvelopeOptions,
 ) {
-  const { transport, includeCatalog, contextSent } = options;
+  const { transport, includeCatalog, contextSent, action } = options;
   const manifest = buildGenerativeUIManifest(runtime, threadId);
   // The markdown guideline has only the rule groups that this manifest uses.
   const instructions =
@@ -148,6 +154,7 @@ export function buildGenerativeUIEnvelope(
         copilotkit_targets: manifest.targets,
         copilotkit_surfaces: manifest.surfaces,
         copilotkit_contextSent: contextSent,
+        ...(action === undefined ? {} : { copilotkit_action: action }),
       },
     },
   };

@@ -1,4 +1,4 @@
-import { fireEvent, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { standardUI } from "../index";
 import { renderSurface } from "./render";
@@ -152,6 +152,90 @@ describe("standard catalog: checks", () => {
     );
     fireEvent.click(v.getByRole("button", { name: "Send" }));
     await waitFor(() => expect(v.forwardEvent).toHaveBeenCalled());
+  });
+
+  it("shows a warning or an info without making the control invalid or disabling the Button, and keeps the code", async () => {
+    const v = renderSurface(
+      standardUI,
+      [
+        { id: "root", component: "Column", children: ["f", "b"] },
+        {
+          id: "f",
+          component: "TextField",
+          label: "Coupon",
+          value: { "@path": "/coupon" },
+          checks: [{ condition: { "@path": "/couponCheck" } }],
+        },
+        {
+          id: "b",
+          component: "Button",
+          label: "Apply",
+          checks: [{ condition: { "@path": "/couponCheck" } }],
+          onClick: { event: { name: "apply" } },
+        },
+      ],
+      {
+        coupon: "OLD10",
+        couponCheck: {
+          valid: false,
+          message: "This coupon expires today",
+          code: "EXPIRING",
+          severity: "warning",
+        },
+      },
+    );
+    const status = await v.findByRole("status");
+    expect(status.textContent).toBe("This coupon expires today");
+    expect(status.getAttribute("data-a2ui-check-severity")).toBe("warning");
+    expect(status.getAttribute("data-a2ui-check-code")).toBe("EXPIRING");
+    expect(v.queryByRole("alert")).toBeNull();
+    expect(v.getByLabelText("Coupon").getAttribute("aria-invalid")).toBeNull();
+    const button = v.getByRole("button", {
+      name: "Apply",
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute("title")).toBe("This coupon expires today");
+    // An error from the same data blocks again.
+    act(() =>
+      v.update({
+        version: "v1.0",
+        updateDataModel: {
+          surfaceId: "surface",
+          path: "/couponCheck",
+          value: { valid: false, message: "Expired", severity: "error" },
+        },
+      }),
+    );
+    await waitFor(() =>
+      expect(v.getByRole("alert").textContent).toBe("Expired"),
+    );
+    expect(
+      (v.getByRole("button", { name: "Apply" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
+  it("shows the error and blocks when a warning comes before it in the checks", async () => {
+    const v = renderSurface(
+      standardUI,
+      [
+        {
+          id: "root",
+          component: "Button",
+          label: "Apply",
+          checks: [
+            { condition: { "@path": "/warn" } },
+            { condition: false, message: "Name is required" },
+          ],
+          onClick: { event: { name: "apply" } },
+        },
+      ],
+      { warn: { valid: false, message: "Expires soon", severity: "warning" } },
+    );
+    const button = (await v.findByRole("button", {
+      name: "Apply",
+    })) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("title")).toBe("Name is required");
   });
 
   it("takes a boolean binding as a condition, and a numeric check on a Slider", async () => {

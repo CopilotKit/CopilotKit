@@ -11,6 +11,7 @@ import {
   GENERATIVE_UI_MAX_TARGET_COMPONENTS,
 } from "./generative-ui/types";
 import type {
+  A2UIActionMessage,
   GenerativeUIComponentManifest,
   GenerativeUIFunctionManifest,
   GenerativeUIManifest,
@@ -51,6 +52,11 @@ export interface CopilotKitUIEnvelope {
       copilotkit_surfaces: GenerativeUIManifest["surfaces"];
       /** True when the client also sent the guide as context entries on this run. */
       copilotkit_contextSent: boolean;
+      /**
+       * The A2UI action that started this run, when a user event did: the
+       * structured form of the user message that the event added.
+       */
+      copilotkit_action?: A2UIActionMessage;
     };
   };
 }
@@ -244,6 +250,8 @@ export function readCopilotKitUIEnvelope(forwardedProps: unknown) {
  * - `instructions`, when the inline catalog has them.
  * - `hasComponents`: false when the client left the component schemas out.
  *   The runtime cannot check operations without them.
+ * - `action`: the A2UI action message of the user event that started the
+ *   run, when one did.
  *
  * @param envelope - An envelope from `readCopilotKitUIEnvelope`.
  *
@@ -276,5 +284,8 @@ export function envelopeToManifest(envelope: CopilotKitUIEnvelope) {
     contextSent: extensions.copilotkit_contextSent,
     instructions: catalog?.instructions,
     hasComponents: catalog?.components !== undefined,
+    ...(extensions.copilotkit_action === undefined
+      ? {}
+      : { action: extensions.copilotkit_action }),
   };
 }
