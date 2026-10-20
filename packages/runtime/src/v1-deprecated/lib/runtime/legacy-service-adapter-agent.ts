@@ -5,7 +5,7 @@ import type {
   RunAgentInput,
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
-import { asSchema } from "ai";
+import { asSchema, InvalidToolInputError, TypeValidationError } from "ai";
 import type { FlexibleSchema } from "ai";
 import { randomUUID } from "@copilotkit/shared";
 import type * as SharedAgui from "@copilotkit/shared";
@@ -259,6 +259,28 @@ export class LegacyServiceAdapterAgent extends AbstractAgent {
       args = call.args ? JSON.parse(call.args) : {};
     } catch {
       return `The tool "${call.name}" received arguments that are not valid JSON.`;
+    }
+    // Validate against the tool's schema, as the AI SDK does for BuiltInAgent,
+    // so one action behaves the same whichever adapter runs it. Arguments that
+    // fail go back to the model as an error result it can correct, and never
+    // reach the handler. Unknown keys are stripped. v1 itself (<= 1.10) passed
+    // the raw parsed JSON to the handler; this follows BuiltInAgent instead.
+    const validate = asSchema(
+      tool.parameters as FlexibleSchema<unknown> | undefined,
+    ).validate;
+    if (validate) {
+      const result = await validate(args);
+      // `in`, not `!result.success`: this package compiles with `strict: false`,
+      // which does not narrow on a boolean discriminant.
+      if ("error" in result) {
+        const error = new InvalidToolInputError({
+          toolName: call.name,
+          toolInput: call.args,
+          cause: TypeValidationError.wrap({ value: args, cause: result.error }),
+        });
+        return `Error: ${error.message}`;
+      }
+      args = result.value;
     }
     try {
       const output = await tool.execute!(args as never);
