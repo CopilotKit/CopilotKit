@@ -211,6 +211,78 @@ describe("LangChainAdapter through the v1 endpoint (#3217)", () => {
     ]);
   });
 
+  describe("validates action arguments as BuiltInAgent does", () => {
+    const greetAction = (handler: (args: never) => Promise<string>) => ({
+      name: "greet",
+      description: "Greet someone",
+      parameters: [
+        { name: "name", type: "string" as const, required: true },
+        {
+          name: "tone",
+          type: "string" as const,
+          enum: ["warm", "formal"],
+          required: false,
+        },
+      ],
+      handler,
+    });
+
+    const callGreet = (args: Record<string, unknown>) => {
+      const seen: BaseMessage[][] = [];
+      const chainFn = vi.fn<ChainFn>(async ({ messages }) => {
+        seen.push(messages);
+        return seen.length === 1
+          ? new AIMessage({
+              content: "",
+              tool_calls: [{ id: "call-1", name: "greet", args }],
+            })
+          : new AIMessage("Done");
+      });
+      return { chainFn, seen };
+    };
+
+    it.each([
+      ["a missing required argument", { tone: "warm" }],
+      ["a wrong type", { name: 42 }],
+      ["a value outside the enum", { name: "Ada", tone: "rude" }],
+      ["null for an optional argument", { name: "Ada", tone: null }],
+    ])(
+      "returns %s to the model as an error and does not call the handler",
+      async (_label, args) => {
+        const handler = vi.fn(async () => "unreachable");
+        const { chainFn, seen } = callGreet(args);
+
+        const events = await runThroughEndpoint(chainFn, baseInput(), {
+          actions: [greetAction(handler)],
+        });
+
+        expect(handler).not.toHaveBeenCalled();
+        const result = events.find(
+          (e) => e.type === EventType.TOOL_CALL_RESULT,
+        ) as { content: string } & BaseEvent;
+        expect(result.content).toMatch(
+          /^Error: Invalid input for tool greet: Type validation failed/,
+        );
+        // The model sees the error and gets another step to correct itself.
+        expect(chainFn).toHaveBeenCalledTimes(2);
+        const toolMessage = seen[1]!.find((m) => m instanceof ToolMessage);
+        expect(toolMessage?.content).toBe(result.content);
+        expect(types(events)).not.toContain(EventType.RUN_ERROR);
+      },
+    );
+
+    it("strips arguments the action does not declare", async () => {
+      const handler = vi.fn(async () => "hi");
+      const { chainFn } = callGreet({ name: "Ada", junk: 1 });
+
+      await runThroughEndpoint(chainFn, baseInput(), {
+        actions: [greetAction(handler)],
+      });
+
+      expect(handler).toHaveBeenCalledWith({ name: "Ada" });
+    });
+  });
+
   it("passes application context to chainFn as a system message", async () => {
     const chainFn = vi.fn<ChainFn>(async () => new AIMessage("ok"));
 
