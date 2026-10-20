@@ -1,0 +1,60 @@
+{
+  "name": "antigravity-copilotkit-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20.9"
+  },
+  "scripts": {
+    "predev": "node scripts/setup.mjs",
+    "dev": "concurrently --names ui,agent --prefix-colors blue,green --kill-others \"pnpm dev:ui\" \"pnpm dev:agent\"",
+    "dev:ui": "next dev --port 3000",
+    "dev:agent": "cd agent && uv run repo-doctor-agent",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test:agent": "cd agent && uv run pytest",
+    "mock-model": "node e2e/mock-model.mjs",
+    "e2e": "node e2e/run-flow.mjs"
+  },
+  "dependencies": {
+    "@ag-ui/client": "1.0.2",
+    "@copilotkit/a2ui-renderer": "1.79.0",
+    "@copilotkit/react-core": "1.79.0",
+    "@copilotkit/runtime": "1.79.0",
+    "clsx": "2.1.1",
+    "hono": "4.13.13",
+    "lucide-react": "1.57.0",
+    "next": "16.4.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "shiki": "4.5.0",
+    "strip-ansi": "7.2.0",
+    "tailwind-merge": "3.7.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@copilotkit/aimock": "1.45.1",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "concurrently": "10.0.6",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.1",
+    "puppeteer-core": "25.14.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@ag-ui/client": "1.0.2",
+      "@ag-ui/core": "1.0.2",
+      "@ag-ui/encoder": "1.0.2",
+      "@ag-ui/proto": "1.0.2"
+    }
+  }
+}

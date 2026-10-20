@@ -1,0 +1,6 @@
+# This showcase is its own pnpm root. It is not part of the repo's workspace
+# (it ships its own lockfile and installs published @copilotkit packages), and
+# without this file pnpm walks up to the repo root and installs the monorepo
+# instead of this app.
+packages:
+  - "."
