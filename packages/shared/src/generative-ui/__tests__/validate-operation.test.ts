@@ -238,6 +238,59 @@ describe("validateOperation: surface updates", () => {
     );
   });
 
+  it("accepts the A2UI component envelope: the own catalogId, accessibility and metadata", () => {
+    expect(
+      reasonOf(
+        card({
+          catalogId: "shop",
+          accessibility: {
+            label: { "@path": "/name" },
+            description: {
+              "@call": "formatString",
+              args: { value: "Adds ${/name}" },
+            },
+            live: "polite",
+            hidden: false,
+          },
+          metadata: { extensions: { "acme.track": "cart" } },
+        }),
+      ),
+    ).toBe("ok");
+    expect(reasonOf(card({ metadata: {} }))).toBe("ok");
+  });
+
+  it("rejects an envelope with a foreign catalog, a bad accessibility or malformed metadata", () => {
+    expect(reasonOf(card({ catalogId: "other" }))).toBe(
+      'component "c1": catalogId: unknown catalog "other"; leave out catalogId or use "shop"',
+    );
+    expect(reasonOf(card({ accessibility: "x" }))).toMatch(
+      /accessibility: must be \{ "label"/,
+    );
+    expect(reasonOf(card({ accessibility: { role: "img" } }))).toBe(
+      'component "c1": accessibility: unknown key "role"',
+    );
+    expect(reasonOf(card({ accessibility: { live: "loud" } }))).toBe(
+      'component "c1": accessibility: live must be one of off, polite, assertive',
+    );
+    expect(reasonOf(card({ accessibility: { hidden: "yes" } }))).toBe(
+      'component "c1": accessibility: hidden must be a boolean',
+    );
+    expect(reasonOf(card({ accessibility: { label: 1 } }))).toBe(
+      'component "c1": accessibility: label must be a string',
+    );
+    expect(
+      reasonOf(card({ accessibility: { label: { path: "/name" } } })),
+    ).toBe(
+      'component "c1": accessibility: label: bind data with {"@path": "/x"}, not {"path": "/x"}',
+    );
+    expect(
+      reasonOf(card({ accessibility: { label: { "@call": "openUrl" } } })),
+    ).toMatch(/accessibility: label: /);
+    expect(reasonOf(card({ metadata: { extensions: 1 } }))).toBe(
+      'component "c1": metadata must be { "extensions": { ... } }',
+    );
+  });
+
   it("rejects slot values that are not id references or reference the node itself", () => {
     expect(
       reasonOf(

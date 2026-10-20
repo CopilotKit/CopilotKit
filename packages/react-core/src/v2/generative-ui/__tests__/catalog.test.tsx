@@ -224,7 +224,7 @@ describe("createGenerativeUI startup errors", () => {
     ).toThrow(/"onShare" is declared as more than one of prop, event, slot/);
   });
 
-  it("rejects the reserved A2UI keys id and component", () => {
+  it("rejects the reserved A2UI keys: id, component and the envelope keys", () => {
     expect(() =>
       createGenerativeUI({
         id: "bad@1",
@@ -233,6 +233,17 @@ describe("createGenerativeUI startup errors", () => {
         },
       }),
     ).toThrow(/"id" is reserved/);
+    // The envelope keys are read by the engine, never given to a component.
+    for (const key of ["catalogId", "accessibility", "metadata"]) {
+      expect(() =>
+        createGenerativeUI({
+          id: "bad@1",
+          components: {
+            Card: { component: Card, props: z.object({ [key]: z.string() }) },
+          },
+        }),
+      ).toThrow(new RegExp(`"${key}" is reserved`));
+    }
   });
 
   it("rejects an event that matches two functions", () => {

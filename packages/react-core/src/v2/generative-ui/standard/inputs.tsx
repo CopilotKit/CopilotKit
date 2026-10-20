@@ -13,6 +13,11 @@ import {
   textColor,
   textFont,
 } from "./tokens";
+import {
+  controlAria,
+  useGenerativeUIAccessibility,
+  wrapperAria,
+} from "../accessibility";
 import { ACCENT, useStandardStyles } from "./styles";
 import {
   CHILDREN_SLOT,
@@ -447,6 +452,12 @@ function Field({
   onBlur?: () => void;
   children: ReactNode;
 }) {
+  // The envelope of the control: hidden hides label and control; a label
+  // or a description names the pair as a group, and the control itself
+  // takes them too (see controlAria), because ARIA names do not inherit.
+  const aria = useGenerativeUIAccessibility();
+  const isNamed =
+    aria["aria-label"] !== undefined || aria["aria-description"] !== undefined;
   const labelElement =
     htmlFor !== undefined ? (
       <label htmlFor={htmlFor} style={FIELD_LABEL_STYLE}>
@@ -459,6 +470,10 @@ function Field({
     );
   return (
     <div
+      {...wrapperAria(aria)}
+      role={isNamed ? "group" : undefined}
+      aria-label={isNamed ? aria["aria-label"] : undefined}
+      aria-description={isNamed ? aria["aria-description"] : undefined}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -530,6 +545,7 @@ function buttonVariantStyle(
 
 function Button(props: ButtonProps) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   const [isCopied, setIsCopied] = useState(false);
   const buttonSize = props.size ?? "lg";
   const failedCheck = firstFailedCheck(props.checks);
@@ -561,6 +577,7 @@ function Button(props: ButtonProps) {
     <button
       data-a2ui-input=""
       type={props.submit ? "submit" : "button"}
+      {...aria}
       disabled={isDisabled}
       title={failedCheck}
       aria-busy={props.loading ? true : undefined}
@@ -628,6 +645,7 @@ type PressableProps = WithChildren<
  */
 function Pressable(props: PressableProps) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   const isDisabled = Boolean(props.disabled);
   const [isHovered, setIsHovered] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -648,6 +666,7 @@ function Pressable(props: PressableProps) {
       aria-pressed={props.ariaPressed}
       title={props.tooltip}
       data-a2ui-input=""
+      {...aria}
       onClick={(event) => {
         event.stopPropagation();
         press();
@@ -721,6 +740,7 @@ const TEXT_FIELD_TYPE = {
 
 function TextField(props: TextFieldProps) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   const id = useId();
   const ref = useRef<HTMLInputElement>(null);
   const variant = props.variant ?? "shortText";
@@ -766,6 +786,7 @@ function TextField(props: TextFieldProps) {
         onFocus={props.autoSelect ? () => ref.current?.select() : undefined}
         onChange={(event) => props.setValue(event.target.value)}
         style={controlStyle(props, "xl")}
+        {...controlAria(aria)}
       />
     </Field>
   );
@@ -777,6 +798,7 @@ type TextAreaProps = z.output<typeof textAreaSchema> & {
 
 function TextArea(props: TextAreaProps) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   const id = useId();
   const areaSize = props.size ?? "xl";
   const check = useChecks(props.checks, props.value);
@@ -815,6 +837,7 @@ function TextArea(props: TextAreaProps) {
             : undefined,
           lineHeight: 1.5,
         }}
+        {...controlAria(aria)}
       />
     </Field>
   );
@@ -833,6 +856,7 @@ function dateTimeInputType(props: DateTimeInputProps) {
 
 function DateTimeInput(props: DateTimeInputProps) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   const id = useId();
   const value = asText(props.value);
   const showClear = props.clearable && value !== "";
@@ -867,6 +891,7 @@ function DateTimeInput(props: DateTimeInputProps) {
           value={value}
           onChange={(event) => props.setValue(event.target.value)}
           style={controlStyle(props, "xl")}
+          {...controlAria(aria)}
         />
         {showClear ? (
           <button
@@ -1051,6 +1076,7 @@ type SelectProps = z.output<typeof selectSchema> & {
 
 function Select(props: SelectProps) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   const id = useId();
   const options = normalizeOptions(props.options);
   const value = asText(props.value);
@@ -1076,6 +1102,7 @@ function Select(props: SelectProps) {
           ? `${PAD_X[props.size ?? "xl"] + 24}px`
           : undefined,
       }}
+      {...controlAria(aria)}
     >
       {hasEmptyOption ? (
         <option value="">{props.clearLabel ?? props.placeholder ?? ""}</option>
@@ -1129,11 +1156,13 @@ type CheckBoxProps = z.output<typeof checkBoxSchema> & {
 
 function CheckBox(props: CheckBoxProps) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   const isChecked = Boolean(props.value);
   const hasLabel = props.label !== undefined && props.label !== "";
   const check = useChecks(props.checks, props.value);
   return (
     <span
+      {...wrapperAria(aria)}
       style={{
         display: "inline-flex",
         flexDirection: "column",
@@ -1166,6 +1195,7 @@ function CheckBox(props: CheckBoxProps) {
           checked={isChecked}
           aria-invalid={check.invalid || undefined}
           onChange={(event) => props.setValue(event.target.checked)}
+          {...controlAria(aria)}
         />
         {hasLabel ? (
           <span
@@ -1185,8 +1215,10 @@ function CheckBox(props: CheckBoxProps) {
 
 function Radio(props: z.output<typeof radioSchema>) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   return (
     <label
+      {...wrapperAria(aria)}
       style={{
         display: "inline-flex",
         alignItems: "center",
@@ -1201,6 +1233,7 @@ function Radio(props: z.output<typeof radioSchema>) {
         value={props.value}
         disabled={props.disabled}
         required={props.required}
+        {...controlAria(aria)}
       />
       {props.label ?? props.value}
     </label>
@@ -1234,6 +1267,7 @@ function radioOptionStyle(
 /** Native radios in a fieldset, so the arrow keys work without extra code. */
 function RadioGroup(props: RadioGroupProps) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   const fallbackName = useId();
   const name = props.name ?? fallbackName;
   const options = normalizeOptions(props.options);
@@ -1242,6 +1276,7 @@ function RadioGroup(props: RadioGroupProps) {
   const check = useChecks(props.checks, props.value);
   return (
     <fieldset
+      {...aria}
       disabled={props.disabled}
       aria-invalid={check.invalid || undefined}
       onBlurCapture={check.onBlur}
@@ -1437,6 +1472,7 @@ type SliderProps = z.output<typeof sliderSchema> & {
 
 function Slider(props: SliderProps) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   const id = useId();
   const listId = useId();
   const min = props.min ?? 0;
@@ -1450,6 +1486,7 @@ function Slider(props: SliderProps) {
   const showValue = Boolean(props.label || props.unit);
   return (
     <div
+      {...wrapperAria(aria)}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -1506,6 +1543,7 @@ function Slider(props: SliderProps) {
         value={value}
         list={isDiscrete && marks.length > 0 ? listId : undefined}
         onChange={(event) => props.setValue(Number(event.target.value))}
+        {...controlAria(aria)}
       />
       {marks.length > 0 ? (
         <>

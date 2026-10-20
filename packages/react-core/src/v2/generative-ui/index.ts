@@ -18,6 +18,11 @@ export type {
   GenerativeUIStateOf,
 } from "./catalog";
 export { child, childList } from "./refs";
+export { useGenerativeUIAccessibility } from "./accessibility";
+export type {
+  GenerativeUIAccessibility,
+  GenerativeUIAriaAttributes,
+} from "./accessibility";
 export { GenerativeUIError } from "./errors";
 export type {
   GenerativeUIErrorCode,

@@ -897,6 +897,36 @@ describe("segmentSurfaceProse", () => {
     ]);
   });
 
+  it("does not lift text out of a container with an accessibility envelope", () => {
+    const components = [
+      {
+        id: "root",
+        component: "Column",
+        children: ["t", "s"],
+        accessibility: { hidden: true },
+      },
+      { id: "t", component: "Text", text: "Hidden note" },
+      slider("s"),
+    ];
+    const [whole] = segmentSurfaceProse(components);
+    expect(whole?.kind === "surface" && whole.components).toBe(components);
+  });
+
+  it("keeps a text with an accessibility envelope in the surface", () => {
+    const components = [
+      { id: "root", component: "Column", children: ["t", "s"] },
+      {
+        id: "t",
+        component: "Text",
+        text: "Hidden note",
+        accessibility: { hidden: true },
+      },
+      slider("s"),
+    ];
+    const [whole] = segmentSurfaceProse(components);
+    expect(whole?.kind === "surface" && whole.components).toBe(components);
+  });
+
   it("treats a prose root as the whole surface", () => {
     expect(
       segmentSurfaceProse([{ id: "root", component: "Text", text: "Hello" }]),

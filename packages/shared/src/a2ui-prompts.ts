@@ -221,6 +221,7 @@ const MARKDOWN_BASE_RULES = [
   "Use unique ids. Do not make cycles. A component cannot be its own child.",
   'Write a component as one flat object: {"id":"title","component":"<Name>","text":"Hello"}.',
   'Put the component name in "component" (never "type"). Put props next to it, never inside a "props" object.',
+  'Any component also takes "accessibility":{"label":"<1 to 3 words>","description":"<what it does>","live":"polite"} for screen readers. Set "label" when nothing visible names the component.',
   'Use only the components, props, events, and slots in the schema. A component with "includesCommonProps" also takes every prop in "commonProps".',
   'Give a prop a literal value, or bind it to the data model with {"@path":"/x"}. Never write {"path":"/x"} as a binding.',
   'A prop can also be a function value that updates with the data: {"@call":"formatCurrency","args":{"value":{"@path":"/total"},"currency":"EUR"}}. Use only the functions under "functions" in the schema. Write a literal when the value never changes.',

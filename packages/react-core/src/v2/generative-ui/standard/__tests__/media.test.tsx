@@ -139,6 +139,27 @@ describe("standard media", () => {
     expect(icon.getAttribute("aria-hidden")).toBeNull();
   });
 
+  it("names an Icon and an Svg by the envelope label, like the label prop", async () => {
+    const view = renderInColumn(
+      {
+        id: "i",
+        component: "Icon",
+        name: "check",
+        accessibility: { label: "Done", description: "The step is complete" },
+      },
+      {
+        id: "s",
+        component: "Svg",
+        viewBox: "0 0 10 10",
+        circles: [{ cx: 5, cy: 5, r: 4 }],
+        accessibility: { label: "Dot" },
+      },
+    );
+    const icon = await view.findByRole("img", { name: "Done" });
+    expect(icon.getAttribute("aria-description")).toBe("The step is complete");
+    expect(view.getByRole("img", { name: "Dot" }).tagName).toBe("svg");
+  });
+
   it("renders nothing for an Icon with an unknown name", async () => {
     const view = renderInColumn(
       { id: "c", component: "Icon", name: "definitely-not-an-icon" },
