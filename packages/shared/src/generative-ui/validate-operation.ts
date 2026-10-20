@@ -3,6 +3,7 @@ import {
   functionCallers,
   isA2UIBasicFunction,
   isA2UIValueFunction,
+  isCallBinding,
 } from "./basic-functions";
 import type { A2UIFunctionPermissions } from "./basic-functions";
 import { collectChildRefs } from "./child-refs";
@@ -351,6 +352,23 @@ function nodeProblem(
   const props = Object.entries(node);
   for (const [key, value] of props) {
     if (key === "id" || key === "component") continue;
+    if (key === "catalogId") {
+      const reason = catalogProblem(value, options.manifest.catalogId);
+      if (reason) return `${key}: ${reason}`;
+      continue;
+    }
+    if (key === "metadata") {
+      const isMetadata =
+        isRecord(value) &&
+        (value.extensions === undefined || isRecord(value.extensions));
+      if (!isMetadata) return 'metadata must be { "extensions": { ... } }';
+      continue;
+    }
+    if (key === "accessibility") {
+      const reason = accessibilityProblem(value);
+      if (reason) return `${key}: ${reason}`;
+      continue;
+    }
     if (ownValue(entry.events, key)) {
       const reason = actionBindingProblem(value, options);
       if (reason) return `${key}: ${reason}`;
@@ -377,6 +395,41 @@ function nodeProblem(
   for (const name of requiredNames) {
     if (typeof name === "string" && !(name in node)) {
       return `missing required prop "${name}"`;
+    }
+  }
+  return undefined;
+}
+
+const ACCESSIBILITY_KEYS = ["label", "description", "live", "hidden"];
+const LIVE_VALUES = ["off", "polite", "assertive"];
+
+/**
+ * Checks the `accessibility` of a component envelope: `label` and
+ * `description` are strings or dynamic values, `live` is one of the ARIA
+ * values, `hidden` is a boolean or a dynamic value.
+ */
+function accessibilityProblem(value: unknown) {
+  if (!isRecord(value)) {
+    return 'must be { "label": "...", "description": "...", "live": "polite", "hidden": false }';
+  }
+  const isDynamic = (field: unknown) =>
+    isPathBinding(field) || isCallBinding(field);
+  for (const [key, field] of Object.entries(value)) {
+    if (!ACCESSIBILITY_KEYS.includes(key)) return `unknown key "${key}"`;
+    if (isV09PathBinding(field)) return `${key}: ${V09_PATH_REASON}`;
+    if (isDynamic(field)) {
+      const call = findForbiddenCall(field, { allowValueFunctions: true });
+      if (call !== undefined) return `${key}: ${call}`;
+      continue;
+    }
+    if (key === "live") {
+      if (typeof field !== "string" || !LIVE_VALUES.includes(field)) {
+        return `live must be one of ${LIVE_VALUES.join(", ")}`;
+      }
+    } else if (key === "hidden") {
+      if (typeof field !== "boolean") return "hidden must be a boolean";
+    } else if (typeof field !== "string") {
+      return `${key} must be a string`;
     }
   }
   return undefined;

@@ -15,6 +15,7 @@ import {
   renderInlineMarkdown,
   safeHref,
 } from "./markdown";
+import { useGenerativeUIAccessibility } from "../accessibility";
 import { useStandardStyles } from "./styles";
 import {
   FONT_WEIGHT,
@@ -253,6 +254,7 @@ const HIGHLIGHT = {
 
 function Text(props: TextProps) {
   useStandardStyles();
+  const aria = useGenerativeUIAccessibility();
   const highlight =
     props.highlight === true
       ? HIGHLIGHT.orange
@@ -276,6 +278,7 @@ function Text(props: TextProps) {
     <span
       data-a2ui-text=""
       data-a2ui-std=""
+      {...aria}
       style={{
         display: props.inline ? "inline" : "block",
         // In a Row, text takes the width of its content, not 100%.

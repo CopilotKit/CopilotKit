@@ -48,6 +48,18 @@ export type A2UIComponentNode = {
 };
 
 /**
+ * The keys of the A2UI 1.0 component envelope next to `id` and
+ * `component`: `catalogId`, `accessibility` and `metadata`. They are not
+ * props of the component. The renderer reads `accessibility` and ignores
+ * the other two.
+ */
+export const A2UI_COMPONENT_ENVELOPE_KEYS: ReadonlySet<string> = new Set([
+  "catalogId",
+  "accessibility",
+  "metadata",
+]);
+
+/**
  * A call of a named function: `{ "@call": "addToCart", "args": { ... } }`.
  * Without `catalogId`, the function comes from the catalog of the run.
  */

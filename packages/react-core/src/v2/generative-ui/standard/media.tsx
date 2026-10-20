@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import type { LucideIcon as LucideComponent } from "lucide-react";
 import { z } from "zod";
+import { useGenerativeUIAccessibility } from "../accessibility";
 import type { GenerativeUIInvokeResult } from "../errors";
 import { radiusStyle, radiusValue, sizeValue, weightProp } from "./layout";
 import { Lightbox, openUrl } from "./lightbox";
@@ -298,6 +299,7 @@ function useLucideIcons() {
 export function LucideIcon({
   name,
   label,
+  description,
   size = "md",
   color,
   weight,
@@ -306,6 +308,7 @@ export function LucideIcon({
 }: {
   name: string;
   label?: string;
+  description?: string;
   size?: IconSize;
   color?: string;
   weight?: Weight;
@@ -321,7 +324,7 @@ export function LucideIcon({
   const a11y =
     label === undefined
       ? { "aria-hidden": true }
-      : { role: "img", "aria-label": label };
+      : { role: "img", "aria-label": label, "aria-description": description };
   return (
     <IconComponent
       {...a11y}
@@ -373,6 +376,7 @@ type ImageProps = z.output<typeof imageSchema> & {
 };
 
 function Image(props: ImageProps) {
+  const aria = useGenerativeUIAccessibility();
   const [failed, setFailed] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -425,6 +429,7 @@ function Image(props: ImageProps) {
     <img
       src={props.url}
       alt={alt}
+      {...aria}
       loading="lazy"
       onError={() => setFailed(true)}
       onClick={showsLightbox ? () => setIsOpen(true) : undefined}
@@ -573,15 +578,22 @@ export function lucideNameOf(name: string) {
 }
 
 function Icon(props: z.output<typeof iconSchema>) {
+  const aria = useGenerativeUIAccessibility();
+  // The envelope names the icon like `label` does.
+  const label = aria["aria-label"] ?? props.label;
   const size = props.size ?? "md";
   const style = { flexGrow: props.weight };
   if (typeof props.name === "object") {
     const pixels =
       typeof size === "number" ? size : props.inline ? "1em" : ICON_PX[size];
     const a11y =
-      props.label === undefined
+      label === undefined
         ? { "aria-hidden": true }
-        : { role: "img", "aria-label": props.label };
+        : {
+            role: "img",
+            "aria-label": label,
+            "aria-description": aria["aria-description"],
+          };
     return (
       <svg
         {...a11y}
@@ -604,7 +616,8 @@ function Icon(props: z.output<typeof iconSchema>) {
   return (
     <LucideIcon
       name={lucideNameOf(props.name)}
-      label={props.label}
+      label={label}
+      description={aria["aria-description"]}
       size={size}
       color={props.color}
       weight={props.strokeWeight}
@@ -650,10 +663,16 @@ function Favicon(props: z.output<typeof faviconSchema>) {
  * 4px steps like the layout spacing).
  */
 function Svg(props: z.output<typeof svgSchema>) {
+  const aria = useGenerativeUIAccessibility();
+  const label = aria["aria-label"] ?? props.label;
   const a11y =
-    props.label === undefined
+    label === undefined
       ? { "aria-hidden": true }
-      : { role: "img", "aria-label": props.label };
+      : {
+          role: "img",
+          "aria-label": label,
+          "aria-description": aria["aria-description"],
+        };
   const rects = props.rects ?? [];
   const circles = props.circles ?? [];
   const paths = props.paths ?? [];
@@ -766,6 +785,7 @@ type VideoProps = z.output<typeof videoSchema>;
  * host page.
  */
 function Video(props: VideoProps) {
+  const aria = useGenerativeUIAccessibility();
   const [isPlaying, setIsPlaying] = useState(false);
   const youTubeId = youTubeIdOf(props.url);
   const box: CSSProperties = {
@@ -785,6 +805,7 @@ function Video(props: VideoProps) {
         poster={props.posterUrl}
         title={props.title}
         aria-label={props.title}
+        {...aria}
         style={{ ...box, background: "#000", objectFit: "contain" }}
       />
     );
@@ -856,9 +877,11 @@ function Video(props: VideoProps) {
 }
 
 function AudioPlayer(props: z.output<typeof audioPlayerSchema>) {
+  const aria = useGenerativeUIAccessibility();
   return (
     <figure
       data-a2ui-std=""
+      {...aria}
       style={{
         display: "flex",
         flexDirection: "column",

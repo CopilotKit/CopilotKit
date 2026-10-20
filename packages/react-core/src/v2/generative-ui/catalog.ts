@@ -1,5 +1,9 @@
 import type { ComponentType, ReactNode } from "react";
-import { collectChildRefs, functionCallers } from "@copilotkit/shared";
+import {
+  A2UI_COMPONENT_ENVELOPE_KEYS,
+  collectChildRefs,
+  functionCallers,
+} from "@copilotkit/shared";
 import type {
   A2UIFunctionPermissions,
   A2UIFunctionReturnType,
@@ -106,6 +110,13 @@ export interface GenerativeUIComponentDefinition {
    * changes local state only.
    */
   writable?: readonly string[];
+  /**
+   * Who applies the `accessibility` envelope of the component: by default
+   * the engine, in a wrapper element around the component. `"self"` for a
+   * component that must not be wrapped (a table row or cell) and applies
+   * the attributes itself with `useGenerativeUIAccessibility()`.
+   */
+  accessibility?: "wrapper" | "self";
 }
 
 /** A component after `createGenerativeUI` resolved its bindings. */
@@ -125,6 +136,8 @@ export interface ResolvedGenerativeUIComponent extends GenerativeUIComponentDefi
    * `slots` of the definition are not in here.
    */
   childRefs: readonly ChildRef[];
+  /** Who applies the `accessibility` envelope; see the definition. */
+  accessibility: "wrapper" | "self";
 }
 
 /** Type-level data of one component, kept in `GenerativeUI["definitions"]`. */
@@ -476,6 +489,7 @@ type ComponentsConfig<Props, Events, Slots, Writable, State, Functions> = {
     component: AnyComponent;
     description?: string;
     props?: Props[Name];
+    accessibility?: "wrapper" | "self";
   } & NoInfer<PropsCheck<Props[Name]> & BindField<Props[Name], State>>;
 } & {
   [Name in keyof Events]: {
@@ -587,7 +601,12 @@ interface RuntimeConfig {
   components: Record<string, RuntimeComponentDefinition>;
 }
 
-const RESERVED_KEYS = new Set(["id", "component"]);
+/** The A2UI component envelope: `id`, `component`, `catalogId`, `accessibility`, `metadata`. */
+const RESERVED_KEYS = new Set([
+  "id",
+  "component",
+  ...A2UI_COMPONENT_ENVELOPE_KEYS,
+]);
 
 /** The id of the catalog that declared each component, for the inspector. */
 const componentCatalogs = new WeakMap<object, ReadonlyMap<string, string>>();
@@ -853,6 +872,7 @@ function resolveComponent(
     events: definition.events,
     slots: definition.slots,
     writable: definition.writable,
+    accessibility: definition.accessibility ?? "wrapper",
     selectors,
     eventFunctions,
     propKeys,

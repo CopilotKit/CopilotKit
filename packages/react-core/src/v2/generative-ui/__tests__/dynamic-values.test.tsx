@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { act, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { useGenerativeUIAccessibility } from "../accessibility";
 import { createGenerativeUI } from "../catalog";
 import { createGenerativeUIDispatcher } from "../dispatcher";
 import { renderSurface } from "../standard/__tests__/render";
@@ -36,6 +37,14 @@ function Button({
 function Column({ children }: { children?: ReactNode }) {
   return <div>{children}</div>;
 }
+function Panel({ title }: { title: string }) {
+  const aria = useGenerativeUIAccessibility();
+  return (
+    <section data-testid="panel" {...aria}>
+      {title}
+    </section>
+  );
+}
 
 const ui = createGenerativeUI({
   id: "test",
@@ -55,6 +64,11 @@ const ui = createGenerativeUI({
       component: Button,
       props: z.object({ label: z.string() }),
       events: { onClick: { parameters: z.object({}) } },
+    },
+    // Strict: an envelope key that reached the props would fail it.
+    Panel: {
+      component: Panel,
+      props: z.object({ title: z.string() }).strict(),
     },
   },
 });
@@ -469,6 +483,148 @@ describe("basic functions through the dispatcher", () => {
     );
     expect(missing.ok).toBe(false);
     if (!missing.ok) expect(missing.error.code).toBe("function_not_found");
+  });
+});
+
+describe("the component envelope", () => {
+  it("resolves accessibility, gives it to the component as ARIA attributes, and keeps catalogId and metadata out of the props", async () => {
+    const v = renderSurface(
+      ui,
+      [
+        {
+          id: "root",
+          component: "Panel",
+          title: "Totals",
+          catalogId: "test",
+          metadata: { extensions: { "acme.track": "totals" } },
+          accessibility: {
+            label: { "@path": "/name" },
+            description: "The totals of the order",
+            live: "polite",
+            hidden: { "@path": "/hide" },
+          },
+        },
+      ],
+      { name: "Order totals", hide: false },
+    );
+    const panel = await v.findByTestId("panel");
+    expect(panel.getAttribute("aria-label")).toBe("Order totals");
+    expect(panel.getAttribute("aria-description")).toBe(
+      "The totals of the order",
+    );
+    expect(panel.getAttribute("aria-live")).toBe("polite");
+    expect(panel.getAttribute("aria-hidden")).toBeNull();
+    act(() =>
+      v.update(setData("/name", "Cart totals"), setData("/hide", true)),
+    );
+    await waitFor(() =>
+      expect(v.getByTestId("panel").getAttribute("aria-label")).toBe(
+        "Cart totals",
+      ),
+    );
+    expect(v.getByTestId("panel").getAttribute("aria-hidden")).toBe("true");
+    expect(v.reportError).not.toHaveBeenCalled();
+  });
+
+  it("hides and announces a component that does not read the envelope itself", async () => {
+    const v = renderSurface(
+      ui,
+      [
+        {
+          id: "root",
+          component: "Rows",
+          rows: [{ label: "a", value: 1 }],
+          accessibility: { hidden: true, live: "polite", label: "Totals" },
+        },
+      ],
+      {},
+    );
+    const wrapper = await waitFor(() => {
+      const element = v.container.querySelector("[data-a2ui-accessibility]");
+      if (!element) throw new Error("no wrapper");
+      return element;
+    });
+    expect(wrapper.getAttribute("aria-hidden")).toBe("true");
+    expect(wrapper.getAttribute("aria-live")).toBe("polite");
+    // The name needs an element with a role; the wrapper has none.
+    expect(wrapper.hasAttribute("aria-label")).toBe(false);
+    expect(wrapper.querySelector("dl")).not.toBeNull();
+  });
+
+  it("keeps the component mounted when a bound hidden flips", async () => {
+    const v = renderSurface(
+      ui,
+      [
+        {
+          id: "root",
+          component: "Panel",
+          title: "Totals",
+          accessibility: { hidden: { "@path": "/hide" } },
+        },
+      ],
+      { hide: false },
+    );
+    const panel = await v.findByTestId("panel");
+    const wrapper = panel.parentElement!;
+    expect(wrapper.hasAttribute("data-a2ui-accessibility")).toBe(true);
+    expect(wrapper.hasAttribute("aria-hidden")).toBe(false);
+    act(() => v.update(setData("/hide", true)));
+    await waitFor(() =>
+      expect(wrapper.getAttribute("aria-hidden")).toBe("true"),
+    );
+    // The same elements: nothing was remounted.
+    expect(v.getByTestId("panel")).toBe(panel);
+    act(() => v.update(setData("/hide", false)));
+    await waitFor(() =>
+      expect(wrapper.hasAttribute("aria-hidden")).toBe(false),
+    );
+    expect(v.getByTestId("panel")).toBe(panel);
+  });
+
+  it("names nothing while a label is a binding to a missing value, without an error", async () => {
+    const v = renderSurface(ui, [
+      {
+        id: "root",
+        component: "Panel",
+        title: "Totals",
+        accessibility: { label: { "@path": "/missing" } },
+      },
+    ]);
+    const panel = await v.findByTestId("panel");
+    expect(panel.getAttribute("aria-label")).toBeNull();
+    expect(v.reportError).not.toHaveBeenCalled();
+  });
+
+  it("renders the component when its accessibility cannot be computed yet, and names it once the data is there", async () => {
+    const v = renderSurface(ui, [
+      {
+        id: "root",
+        component: "Panel",
+        title: "Totals",
+        accessibility: {
+          label: {
+            "@call": "formatString",
+            args: {
+              value: "${formatNumber(value: /count)} items",
+            },
+          },
+          hidden: true,
+        },
+      },
+    ]);
+    // formatNumber of a missing value fails; the component is not at fault,
+    // and the other fields of the envelope still apply.
+    const panel = await v.findByTestId("panel");
+    expect(panel.textContent).toBe("Totals");
+    expect(panel.getAttribute("aria-label")).toBeNull();
+    expect(panel.getAttribute("aria-hidden")).toBe("true");
+    expect(v.reportError).not.toHaveBeenCalled();
+    act(() => v.update(setData("/count", 1234)));
+    await waitFor(() =>
+      expect(v.getByTestId("panel").getAttribute("aria-label")).toBe(
+        "1,234 items",
+      ),
+    );
   });
 });
 

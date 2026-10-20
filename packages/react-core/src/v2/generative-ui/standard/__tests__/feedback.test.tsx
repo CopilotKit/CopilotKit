@@ -244,6 +244,44 @@ describe("Modal", () => {
 });
 
 describe("standard feedback", () => {
+  it("names a PopoverTrigger by its envelope", async () => {
+    const view = renderSurface(standardUI, [
+      { id: "root", component: "Popover", children: ["t", "c"] },
+      {
+        id: "t",
+        component: "PopoverTrigger",
+        children: ["i"],
+        accessibility: { label: "More options" },
+      },
+      { id: "i", component: "Icon", name: "ellipsis" },
+      { id: "c", component: "PopoverContent", children: ["x"] },
+      { id: "x", component: "Text", text: "Options" },
+    ]);
+    await view.findByRole("button", { name: "More options" });
+  });
+
+  it("applies the envelope of a Modal to its dialog, which is a portal", async () => {
+    const view = renderSurface(standardUI, [
+      { id: "root", component: "Column", children: ["m"] },
+      {
+        id: "m",
+        component: "Modal",
+        title: "Terms",
+        open: true,
+        trigger: "t",
+        content: "c",
+        accessibility: { label: "Terms of service", live: "polite" },
+      },
+      { id: "t", component: "Button", label: "Open" },
+      { id: "c", component: "Text", text: "Body" },
+    ]);
+    const dialog = await view.findByRole("dialog", {
+      name: "Terms of service",
+    });
+    expect(dialog.getAttribute("aria-live")).toBe("polite");
+    expect(dialog.hasAttribute("aria-labelledby")).toBe(false);
+  });
+
   it("renders the feedback and overlay components", async () => {
     const view = renderSurface(ui, [
       {
