@@ -211,8 +211,31 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
       description: expect.stringContaining("ISO 4217"),
       parameters:
         "{ value: number; currency: string; decimals?: number; grouping?: boolean }",
+      callers: "UI only",
     });
     expect(schema.functions.calc.parameters).toContain("expression: string");
+  });
+
+  it("says who may call an app function only when not both may", () => {
+    const n = { type: "number" };
+    const schema = buildCompactGenerativeUISchema({
+      catalogId: "shop",
+      components: {},
+      targets: [],
+      surfaces: {},
+      functions: {
+        addToCart: { parameters: n, allowedCallers: "rendererOrAgent" },
+        track: { parameters: n, allowedCallers: "rendererOnly" },
+        reload: { parameters: n, allowedCallers: "agentOnly" },
+        share: { parameters: n, requiresUserActivation: true },
+      },
+    });
+    expect(schema.functions).toEqual({
+      addToCart: { parameters: "number" },
+      track: { parameters: "number", callers: "UI only" },
+      reload: { parameters: "number", callers: "agent only" },
+      share: { parameters: "number", callers: "UI only" },
+    });
   });
 
   it("explains commonProps in the guideline", () => {

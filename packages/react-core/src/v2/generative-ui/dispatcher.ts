@@ -1,14 +1,17 @@
+import {
+  callerProblem,
+  functionCallers,
+  GENERATIVE_UI_FUNCTIONS,
+} from "@copilotkit/shared";
 import type {
+  A2UIFunctionPermissions,
+  A2UIFunctionReturnType,
   GenerativeUIFunctionManifest,
   StandardSchemaV1,
 } from "@copilotkit/shared";
 import { GenerativeUIError } from "./errors";
 import type { GenerativeUIInvokeResult } from "./errors";
-import {
-  BASIC_FUNCTIONS,
-  ExpressionError,
-  requiresUserActivation,
-} from "./functions";
+import { BASIC_FUNCTIONS, ExpressionError } from "./functions";
 import { toJsonSchema } from "./json-schema";
 
 /**
@@ -16,9 +19,10 @@ import { toJsonSchema } from "./json-schema";
  * `createGenerativeUI({ functions })`. Zod schemas fit `parameters`, because
  * they implement Standard Schema.
  */
-export interface GenerativeUIDeclaredFunction {
+export interface GenerativeUIDeclaredFunction extends A2UIFunctionPermissions {
   description?: string;
   parameters: StandardSchemaV1;
+  returnType?: A2UIFunctionReturnType;
 }
 
 /**
@@ -120,6 +124,23 @@ function hasUserActivation() {
     }
   ).userActivation;
   return activation === undefined || activation.isActive;
+}
+
+/**
+ * The permissions of a declared function as the manifest states them: the
+ * callers always written out, so a reader needs no default.
+ */
+function permissionsOf(fn: A2UIFunctionPermissions) {
+  const callers = functionCallers(fn);
+  return {
+    allowedCallers:
+      callers.renderer && callers.agent
+        ? ("rendererOrAgent" as const)
+        : callers.agent
+          ? ("agentOnly" as const)
+          : ("rendererOnly" as const),
+    ...(fn.requiresUserActivation ? { requiresUserActivation: true } : {}),
+  };
 }
 
 export function createGenerativeUIDispatcher(
@@ -233,38 +254,44 @@ export function createGenerativeUIDispatcher(
   };
 
   /**
-   * Runs a basic function of the A2UI catalog. One that needs a user gesture
-   * runs only for a component (an event binding), never for the agent.
+   * Why `origin` may not call a function with these permissions now, as an
+   * error, or `undefined` when it may. The agent is refused what is for the
+   * renderer; a component is refused what is for the agent, and a gesture
+   * function when the browser counts no user activation.
+   */
+  const callerError = (
+    name: string,
+    fn: A2UIFunctionPermissions,
+    origin: GenerativeUICallOrigin,
+  ) => {
+    const isComponent = "componentId" in origin;
+    const problem = callerProblem(name, fn, isComponent ? "renderer" : "agent");
+    if (problem !== undefined) {
+      return new GenerativeUIError("invalid_function_call", problem);
+    }
+    // A component event is not always a gesture: onVisible fires from an
+    // IntersectionObserver. Browsers track activation themselves.
+    if (isComponent && fn.requiresUserActivation && !hasUserActivation()) {
+      return new GenerativeUIError(
+        "invalid_function_call",
+        `function "${name}" runs only from a user gesture; this event was not one`,
+      );
+    }
+    return undefined;
+  };
+
+  /**
+   * Runs a basic function of the A2UI catalog. They are value functions of
+   * the renderer: the agent cannot call them, and one that needs a user
+   * gesture runs only from an event binding.
    */
   const invokeBasic = (
     name: string,
     args: unknown,
     origin: GenerativeUICallOrigin,
   ): GenerativeUIInvokeResult => {
-    if (requiresUserActivation(name)) {
-      if (!("componentId" in origin)) {
-        return failWith(
-          name,
-          origin,
-          new GenerativeUIError(
-            "invalid_function_call",
-            `"${name}" runs only from a user gesture; the agent cannot call it`,
-          ),
-        );
-      }
-      // A component event is not always a gesture: onVisible fires from an
-      // IntersectionObserver. Browsers track activation themselves.
-      if (!hasUserActivation()) {
-        return failWith(
-          name,
-          origin,
-          new GenerativeUIError(
-            "invalid_function_call",
-            `"${name}" runs only from a user gesture; this event was not one`,
-          ),
-        );
-      }
-    }
+    const refused = callerError(name, GENERATIVE_UI_FUNCTIONS[name], origin);
+    if (refused) return failWith(name, origin, refused);
     const isObject =
       typeof args === "object" && args !== null && !Array.isArray(args);
     if (args !== undefined && !isObject) {
@@ -311,6 +338,8 @@ export function createGenerativeUIDispatcher(
         return invokeBasic(name, args, origin);
       }
       if (!resolved.ok) return failWith(name, origin, resolved.error);
+      const refused = callerError(name, resolved.declared, origin);
+      if (refused) return failWith(name, origin, refused);
       const validated = await validateArgs(
         name,
         resolved.declared.parameters,
@@ -348,11 +377,13 @@ export function createGenerativeUIDispatcher(
       for (const name of names) {
         const resolved = resolve(name);
         if (!resolved.ok) continue;
-        const { description, parameters } = resolved.declared;
+        const { description, parameters, returnType } = resolved.declared;
         try {
           listed[name] = {
             ...(description ? { description } : {}),
             parameters: toJsonSchema(parameters),
+            ...(returnType ? { returnType } : {}),
+            ...permissionsOf(resolved.declared),
           };
         } catch {
           // A schema that cannot be converted to JSON Schema is not advertised.

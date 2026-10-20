@@ -454,6 +454,39 @@ describe("agent-called functions, markdown transport only", () => {
     ]);
     expect(handler).not.toHaveBeenCalled();
   });
+
+  it("answers a call of a built-in with invalid_function_call: they run only in the UI", async () => {
+    const { agent, copilotkit } = setup(markdownTransport, [vi.fn()]);
+    await startUserTurn(copilotkit, agent, "u1");
+
+    agent.emit(
+      textChunkEvent(
+        "m1",
+        fence([
+          callLine({
+            functionCallId: "f1",
+            callFunction: { "@call": "formatNumber", args: { value: 1 } },
+          }),
+        ]),
+      ),
+    );
+    agent.emit(runFinishedEvent());
+
+    await waitForRuns(2);
+    expect(answers(agent)).toEqual([
+      {
+        version: "v1.0",
+        rendererFunctionResponse: {
+          functionCallId: "f1",
+          error: {
+            code: "invalid_function_call",
+            message:
+              'function "formatNumber" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it',
+          },
+        },
+      },
+    ]);
+  });
 });
 
 // A wildcard renderer shows every activity that has no renderer of its own.

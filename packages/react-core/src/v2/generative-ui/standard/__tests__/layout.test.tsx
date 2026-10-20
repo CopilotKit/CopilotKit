@@ -156,6 +156,34 @@ describe("standard layout", () => {
     expect((await parentOf(view, "top")).style.alignItems).toBe("flex-start");
   });
 
+  it("applies the accessibility of the envelope to a container and a Card", async () => {
+    const view = renderSurface(ui, [
+      {
+        id: "root",
+        component: "Column",
+        children: ["c"],
+        accessibility: { label: "Order", live: "polite" },
+      },
+      {
+        id: "c",
+        component: "Card",
+        children: ["t"],
+        accessibility: { description: "The items", hidden: true },
+      },
+      { id: "t", component: "Label", text: "inside" },
+    ]);
+    const card = await parentOf(view, "inside");
+    expect(card.getAttribute("aria-description")).toBe("The items");
+    expect(card.getAttribute("aria-hidden")).toBe("true");
+    // The Card sits in the envelope wrapper of the engine, inside the Column.
+    const column = view.container.querySelector('[aria-label="Order"]');
+    expect(column?.getAttribute("aria-live")).toBe("polite");
+    expect(column?.contains(card)).toBe(true);
+    // A generic element cannot carry a name: a named container is a group.
+    expect(column?.getAttribute("role")).toBe("group");
+    expect(card.getAttribute("role")).toBe("group");
+  });
+
   it("gives a Card its default padding, radius and border", async () => {
     const view = renderSurface(ui, [
       { id: "root", component: "Card", children: ["t"] },

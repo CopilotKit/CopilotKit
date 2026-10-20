@@ -1082,6 +1082,9 @@ function listToMarkdown(c: Record<string, unknown>) {
 /** The prose item a component converts to, or null when it is not prose. */
 function toProseItem(c: Record<string, unknown> | undefined) {
   if (!c) return null;
+  // A component with an accessibility envelope stays a component: markdown
+  // has no place for its label, its live region or its hidden state.
+  if (c.accessibility !== undefined) return null;
   if (c.component === "Divider") return { kind: "divider" as const };
   if (c.component === "Spacer") return { kind: "spacer" as const };
   if (c.component === "List") {
@@ -1136,6 +1139,9 @@ function isVerticalStack(
   c: Record<string, unknown>,
   interactiveCards: Set<string>,
 ) {
+  // A container with an accessibility envelope keeps its children: lifted
+  // text would lose its hidden state or its live region.
+  if (c.accessibility !== undefined) return false;
   if (c.component === "Column") return true;
   if (c.component === "Box") {
     return c.direction == null || c.direction === "col";
@@ -1211,8 +1217,9 @@ export type SurfaceSegment =
  * described items), and a `Divider` between two prose blocks → `---`.
  *
  * Not prose: `{path}`-bound text or items, a Text with inline children, a
- * List with `children`/icons/actions, a template entry, and a child whose
- * component has not streamed yet. Separators with no text beside them stay in
+ * List with `children`/icons/actions, a template entry, a component with an
+ * `accessibility` envelope, and a child whose component has not streamed
+ * yet. Separators with no text beside them stay in
  * the surface. An interactive Card (see `classifySurfaceCards`) is never
  * entered.
  *

@@ -11,6 +11,7 @@ import React, {
 import type { ReactNode } from "react";
 import type { ComponentModel, SurfaceModel } from "@a2ui/web_core/v0_9";
 import {
+  A2UI_COMPONENT_ENVELOPE_KEYS,
   GENERATIVE_UI_ROOT_ID,
   isActionBinding,
   isPathBinding,
@@ -37,6 +38,12 @@ import {
   NodePlaceholder,
   SurfaceBoundary,
 } from "./boundaries";
+import {
+  accessibilityAttributes,
+  readAccessibility,
+  wrapperAria,
+} from "./accessibility";
+import type { GenerativeUIAccessibility } from "./accessibility";
 import type { GenerativeUIInvokeResult } from "./errors";
 import { invokeBoundEvent, invokeMatchedEvent } from "./events";
 import {
@@ -267,7 +274,12 @@ interface ResolvedProp {
 }
 
 type ModelData =
-  | { ok: true; values: Record<string, unknown> }
+  | {
+      ok: true;
+      values: Record<string, unknown>;
+      /** The resolved `accessibility` of the component envelope. */
+      accessibility: GenerativeUIAccessibility | undefined;
+    }
   | { ok: false; problem: string };
 
 /**
@@ -275,7 +287,9 @@ type ModelData =
  * surface data model: `{"@path"}` bindings, `{"@call"}` function values and
  * `{"@call":"@index"}` in a template, at any depth. A literal writable prop
  * that the component set shows the local value from `overrides`. Bound
- * props, events and slots are left out.
+ * props, events and slots are left out, and so are the keys of the A2UI
+ * component envelope; `accessibility` is resolved the same way and given
+ * on its own.
  *
  * A prop is resolved again only when its raw value or a data model value it
  * read has changed, so the result keeps its identity otherwise. A function
@@ -289,24 +303,38 @@ function useModelDataProps(
   overrides: Record<string, unknown>,
 ): ModelData {
   const dataModel = surface.model.dataModel;
-  const keys = useMemo(
-    () =>
-      Object.keys(properties).filter(
-        (key) =>
-          !definition.events?.[key] &&
-          !definition.slots?.[key] &&
-          !Object.hasOwn(definition.selectors, key),
-      ),
-    [properties, definition],
-  );
+  // The units to resolve: each model prop, and each field of the envelope's
+  // `accessibility` on its own, so a label that cannot be computed does not
+  // take the other fields with it.
+  const units = useMemo(() => {
+    const list: Array<{ key: string; raw: unknown; field?: string }> = [];
+    for (const key of Object.keys(properties)) {
+      if (
+        definition.events?.[key] ||
+        definition.slots?.[key] ||
+        Object.hasOwn(definition.selectors, key) ||
+        A2UI_COMPONENT_ENVELOPE_KEYS.has(key)
+      ) {
+        continue;
+      }
+      list.push({ key, raw: properties[key] });
+    }
+    const a11y = properties.accessibility;
+    if (typeof a11y === "object" && a11y !== null && !Array.isArray(a11y)) {
+      for (const [field, raw] of Object.entries(a11y)) {
+        list.push({ key: `accessibility/${field}`, raw, field });
+      }
+    }
+    return list;
+  }, [properties, definition]);
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const cache = useRef(new Map<string, ResolvedProp>());
   const values: Record<string, unknown> = {};
+  const a11yValues: Record<string, unknown> = {};
   const paths = new Set<string>();
   let problem: string | undefined;
   const next = new Map<string, ResolvedProp>();
-  for (const key of keys) {
-    const raw = properties[key];
+  for (const { key, raw, field } of units) {
     const cached = cache.current.get(key);
     // A cached resolution holds while the raw prop, the template item and
     // every value it read are the same. A data model notification clears
@@ -340,11 +368,17 @@ function useModelDataProps(
     };
     const entry = isFresh && cached ? cached : resolve();
     next.set(key, entry);
-    if (entry.outcome.ok) values[key] = entry.outcome.value;
+    if (field !== undefined) {
+      // The envelope is not a prop: a label that cannot be computed names
+      // nothing, and the component is not at fault for it. Its reads stay
+      // subscribed, so the data that fixes it brings the label.
+      if (entry.outcome.ok) a11yValues[field] = entry.outcome.value;
+    } else if (entry.outcome.ok) values[key] = entry.outcome.value;
     else problem ??= `${key}: ${entry.outcome.message}`;
     for (const path of entry.reads.keys()) paths.add(path);
   }
   cache.current = next;
+  const accessibility = readAccessibility(a11yValues);
   for (const [key, value] of Object.entries(overrides)) {
     if (!isPathBinding(properties[key])) values[key] = value;
   }
@@ -371,13 +405,23 @@ function useModelDataProps(
     if (isStale) rerender();
     return () => subscriptions.forEach((s) => s.unsubscribe());
   }, [dataModel, pathKey]);
-  const stable = useRef<ModelData>({ ok: true, values: {} });
+  const stable = useRef<ModelData>({
+    ok: true,
+    values: {},
+    accessibility: undefined,
+  });
   const result: ModelData =
-    problem === undefined ? { ok: true, values } : { ok: false, problem };
+    problem === undefined
+      ? { ok: true, values, accessibility }
+      : { ok: false, problem };
   const last = stable.current;
   const isSame =
     result.ok && last.ok
-      ? shallowEqual(last.values, result.values)
+      ? shallowEqual(last.values, result.values) &&
+        shallowEqual(
+          (last.accessibility ?? {}) as Record<string, unknown>,
+          (result.accessibility ?? {}) as Record<string, unknown>,
+        )
       : !result.ok && !last.ok && last.problem === result.problem;
   if (!isSame) stable.current = result;
   return stable.current;
@@ -465,7 +509,11 @@ function useSelection(
 }
 
 type DataProps =
-  | { ok: true; props: Record<string, unknown> }
+  | {
+      ok: true;
+      props: Record<string, unknown>;
+      accessibility: GenerativeUIAccessibility | undefined;
+    }
   | { ok: false; problem: string };
 
 type ModelCheck =
@@ -526,10 +574,11 @@ function useDataProps(
     definition,
     modelCheck.ok ? modelCheck.values : undefined,
   );
+  const accessibility = modelData.ok ? modelData.accessibility : undefined;
   return useMemo((): DataProps => {
     if (!modelCheck.ok) return modelCheck;
     if (!selection.ok) return selection;
-    if (!definition.props) return { ok: true, props: {} };
+    if (!definition.props) return { ok: true, props: {}, accessibility };
     const parsed = validateSchemaSync(definition.props, {
       ...modelCheck.values,
       ...selection.values,
@@ -537,8 +586,12 @@ function useDataProps(
     if (!parsed.success) {
       return { ok: false, problem: formatIssues(parsed.issues) };
     }
-    return { ok: true, props: parsed.data as Record<string, unknown> };
-  }, [definition, modelCheck, selection]);
+    return {
+      ok: true,
+      props: parsed.data as Record<string, unknown>,
+      accessibility,
+    };
+  }, [definition, modelCheck, selection, accessibility]);
 }
 
 /**
@@ -816,13 +869,15 @@ function ResolvedNode({
     basePath,
     ancestors,
   );
+  const accessibility = dataProps.ok ? dataProps.accessibility : undefined;
   const nodeContext = useMemo(
     () => ({
       surfaceKey: surface.key,
       surfaceId: surface.surfaceId,
       componentId,
+      accessibility,
     }),
-    [surface.key, surface.surfaceId, componentId],
+    [surface.key, surface.surfaceId, componentId, accessibility],
   );
   const problem = dataProps.ok ? undefined : dataProps.problem;
 
@@ -846,14 +901,37 @@ function ResolvedNode({
     );
   }
   const Component = definition.component;
+  const rendered = (
+    <Component {...childRefProps} {...eventProps} {...slotProps} {...setters} />
+  );
+  // The hidden state and the live region of the envelope apply to every
+  // component here, in a wrapper with no box of its own. A label or a
+  // description needs an element with a role, so the component sets those
+  // itself (the standard ones do; see useGenerativeUIAccessibility). The
+  // wrapper is there whenever the component has an envelope (unless the
+  // component applies the envelope itself: a table row or cell cannot sit
+  // in a span), whatever its values: a bound `hidden` that flips must not remount the component and
+  // lose what the user typed into it. A component that is sent again with
+  // an envelope added or removed does remount: a wrapper on every node
+  // would break the stylesheet's child selectors (table rows and cells,
+  // the last text of a spaceBetween row), and bound inputs keep their
+  // values in the data model anyway.
+  const hasEnvelope =
+    properties.accessibility !== undefined &&
+    definition.accessibility !== "self";
   return (
     <GenerativeUINodeContext.Provider value={nodeContext}>
-      <Component
-        {...childRefProps}
-        {...eventProps}
-        {...slotProps}
-        {...setters}
-      />
+      {hasEnvelope ? (
+        <span
+          data-a2ui-accessibility=""
+          style={ROOT_STYLE}
+          {...wrapperAria(accessibilityAttributes(accessibility))}
+        >
+          {rendered}
+        </span>
+      ) : (
+        rendered
+      )}
     </GenerativeUINodeContext.Provider>
   );
 }
