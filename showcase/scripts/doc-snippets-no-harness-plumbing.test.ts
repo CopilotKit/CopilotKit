@@ -28,6 +28,7 @@ const FORBIDDEN = [
   "x-diag-hops",
   "x-diag-run-id",
   "copilotkit_forwarded_headers",
+  "aimock_headers",
   // Header-forwarding / CVDIAG helpers that get swapped out of snippets.
   // A forwardingFetch-only file has no other listed identifier, so without
   // these a forgotten marker would ship a broken "../header-forwarding" import.

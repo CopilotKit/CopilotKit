@@ -148,11 +148,11 @@ const headerForwardingMiddleware = createMiddleware({
 const a2uiTool = getA2UITools({
   // @doc-replace
   model: new ChatOpenAI({
-    model: "gpt-4.1",
+    model: "gpt-5-mini",
     configuration: { fetch: forwardingFetch },
   }),
   // @doc-as
-  // model: new ChatOpenAI({ model: "gpt-4.1" }),
+  // model: new ChatOpenAI({ model: "gpt-5-mini" }),
   // @doc-end
   defaultCatalogId: "declarative-gen-ui-catalog",
   // Recovery loop runs by default; pinned here so the renderer's "Retrying…
@@ -171,11 +171,11 @@ const a2uiTool = getA2UITools({
 export const graph = createAgent({
   // @doc-replace
   model: new ChatOpenAI({
-    model: "gpt-4.1",
+    model: "gpt-5-mini",
     configuration: { fetch: forwardingFetch },
   }),
   // @doc-as
-  // model: new ChatOpenAI({ model: "gpt-4.1" }),
+  // model: new ChatOpenAI({ model: "gpt-5-mini" }),
   // @doc-end
   // Cast: tool typed against @ag-ui/langgraph's own @langchain/core peer.
   tools: [a2uiTool as any],

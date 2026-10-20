@@ -37,8 +37,9 @@ function useFrontendTool<T extends Record<string, unknown>>(
 </PropertyReference>
 
 <PropertyReference name="parameters" type="z.ZodSchema" required>
-  A Zod schema defining the tool's input parameters. The schema is used for both
-  validation and type inference.
+  A Zod schema defining the tool's input parameters. The schema drives the
+  advertised tool schema and type inference. Runtime arguments are JSON-parsed
+  but are not validated against that schema.
 </PropertyReference>
 
 <PropertyReference
@@ -47,7 +48,8 @@ function useFrontendTool<T extends Record<string, unknown>>(
   required
 >
   An async function that executes when the agent calls the tool. Receives the
-  validated, typed arguments and the context object:
+  parsed arguments, typed from `parameters` but not validated against it, and
+  the context object:
 
   - `toolCall` (`ToolCall`) -- the raw tool call metadata
   - `agent` (`AbstractAgent | undefined`) -- the agent instance that invoked
@@ -55,6 +57,9 @@ function useFrontendTool<T extends Record<string, unknown>>(
   - `signal` (`AbortSignal | undefined`) -- an `AbortSignal` that is aborted
     when the user stops the agent (via `stopAgent()` or `agent.abortRun()`).
     Long-running handlers can check `signal.aborted` to exit early.
+  - `isReplay` (`boolean | undefined`) -- `true` when the call is run while
+    the thread's history is restored (see `reconnectBehavior`); absent for a
+    call from a live run.
 
   `FrontendToolHandlerContext` is exported from `@copilotkit/core`.
 </PropertyReference>
@@ -75,6 +80,10 @@ function useFrontendTool<T extends Record<string, unknown>>(
     Controls tool availability. Set to `"disabled"` to temporarily prevent the agent from calling the tool, or `"remote"` to indicate the tool is handled server-side.
   </PropertyReference>
 
+  <PropertyReference name="reconnectBehavior" type='"passive" | "resume-pending"' default='"passive"'>
+    What happens to a call of this tool that is still unanswered when the thread's history is restored, for example after a page reload. With `"passive"`, the call is shown but the handler does not run. With `"resume-pending"`, the handler runs for that call with `isReplay: true` in its context, and the run then continues as usual. Opt in only for a handler that is safe to run more than once. A call does not start twice at the same time on one page, but it can run again after a stop or a thread switch if its result never reached the agent, and two tabs that restore the same thread can each run it. If the agent calls this tool together with a tool that stays passive, the follow-up run sends the passive call without a result, which some model providers reject.
+  </PropertyReference>
+
   <PropertyReference name="webmcp" type="boolean | { annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean } }">
     Also expose the tool to browser agents through the WebMCP API
     (`document.modelContext`). Pass `true` to register with default
@@ -86,9 +95,15 @@ function useFrontendTool<T extends Record<string, unknown>>(
 </PropertyReference>
 
 <PropertyReference name="deps" type="ReadonlyArray<unknown>">
-  An optional dependency array, similar to `useEffect`. When provided, the tool
-  registration is refreshed whenever any value in the array changes. Use this
-  when your handler or render function captures external state.
+  An optional dependency array. When provided, the tool registration is
+  refreshed whenever a value in the array changes. Use this when your handler
+  or render function captures external state.
+
+  `deps` compares plain data (strings, numbers, booleans, `null`, dates, and
+  plain objects and arrays of those) by value, so an inline literal such as
+  `[{ status }]` re-registers only when its contents change. A function never counts as changed, as before, so keep a changing callback
+  in a ref. Class instances and other objects compare by identity, so a
+  circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change.
 </PropertyReference>
 
 ## Usage
@@ -251,7 +266,7 @@ See [Ensuring your agent reliably calls frontend tools](/integrations/langgraph/
 
 - **Duplicate detection**: If a tool with the same `name` is already registered, the hook logs a warning. Only one tool per name is active at a time.
 - **Mount/Unmount lifecycle**: The tool and its optional render component are registered on mount and removed on unmount.
-- **Dependency tracking**: When `deps` is provided, the tool registration is refreshed whenever any dependency value changes, similar to `useEffect`.
+- **Dependency tracking**: When `deps` is provided, the tool registration is refreshed whenever a dependency changes. Plain data compares by value; functions and other objects compare by identity.
 - **WebMCP registration**: With `webmcp` set, the tool is also registered on `document.modelContext` and unregistered on unmount. The tool needs a `description` for this (WebMCP rejects tools without one).
 - **Render component lifecycle**: If a `render` function is provided, it is added to the internal render tool calls registry. It receives streaming `args` (partial during `InProgress`, complete during `Executing` and `Complete`).
 - **No return value**: The hook returns `void`.

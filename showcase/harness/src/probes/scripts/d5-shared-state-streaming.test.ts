@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
@@ -7,8 +8,8 @@ import {
   buildStreamingAssertion,
   SHARED_STATE_STREAMING_PILLS,
   STREAMING_MIN_FINAL_CHARS,
-  type StreamingBaselineRef,
 } from "./d5-shared-state-streaming.js";
+import type { StreamingBaselineRef } from "./d5-shared-state-streaming.js";
 
 function makePage(state: {
   charCount: number;

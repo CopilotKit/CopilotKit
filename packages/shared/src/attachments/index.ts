@@ -7,6 +7,8 @@ export type {
   AttachmentModality,
 } from "./types";
 
+export { createAttachmentContent } from "./content";
+
 export {
   getModalityFromMimeType,
   formatFileSize,

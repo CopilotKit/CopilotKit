@@ -1,11 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.ts";
 
 @layer base {
   :root {
-    --copilot-kit-primary-color: black;
-
     --background: 0 0% 100%;
     --foreground: 0 0% 3.9%;
     --card: 0 0% 100%;
@@ -71,9 +68,23 @@
 }
 
 .copilotKitWindow {
-  @apply md:w-[300px] lg:w-[400px] xl:w-[450px] 2xl:w-[500px] !important;
+  @media (width >= 48rem) {
+    width: 300px !important;
+  }
+
+  @media (width >= 64rem) {
+    width: 400px !important;
+  }
+
+  @media (width >= 80rem) {
+    width: 450px !important;
+  }
+
+  @media (width >= 96rem) {
+    width: 500px !important;
+  }
 }
 
 .copilotKitDevConsole {
-  @apply hidden !important;
+  display: none !important;
 }

@@ -114,7 +114,7 @@ re-author the affected fixture by hand following the existing pattern:
    one-off check.
 5. Replay-verify each leg of the conversation against a booted aimock:
    ```
-   npx @copilotkit/aimock --port 14010 --fixtures showcase/harness/fixtures/d5/<feature>.json --validate-on-load
+   pnpm aimock --port 14010 --fixtures showcase/harness/fixtures/d5/<feature>.json --validate-on-load
    ```
    then issue chat-completions requests for each turn (turn 1 user message,
    turn 1 follow-up after tool result, turn 2 user message, ...) and assert

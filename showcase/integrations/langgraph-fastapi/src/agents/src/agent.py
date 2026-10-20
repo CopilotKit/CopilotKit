@@ -126,7 +126,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
         if isinstance(entry, dict) and entry.get("value")
     )
 
-    model = ChatOpenAI(model="gpt-4.1")
+    model = ChatOpenAI(model="gpt-5-mini")
     model_with_tool = model.bind_tools([render_a2ui], tool_choice="render_a2ui")
     response = model_with_tool.invoke(
         [SystemMessage(content=context_text), *messages],
@@ -140,7 +140,7 @@ def generate_a2ui(runtime: ToolRuntime[Any]) -> str:
     return json.dumps(result)
 
 
-model = ChatOpenAI(model="gpt-4o-mini")
+model = ChatOpenAI(model="gpt-5-mini")
 
 SYSTEM_PROMPT = """You are a polished, professional demo assistant for CopilotKit.
 Keep responses brief and clear -- 1 to 2 sentences max.

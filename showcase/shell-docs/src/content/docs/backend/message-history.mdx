@@ -1,0 +1,425 @@
+---
+title: "Message history"
+icon: "lucide/Scissors"
+description: "Trim the conversation history CopilotKit forwards to an agent that already stores its own."
+---
+
+CopilotKit forwards the whole conversation on every run. The frontend holds the
+transcript, and each run carries it to your agent as `input.messages`. A
+stateless agent needs that, because the transcript is the only record of the
+conversation.
+
+An agent that stores its own history does not need it. If your backend keeps a
+LangGraph checkpointer, Mastra memory, an AWS Strands `SessionManager`, or a
+Microsoft Agent Framework chat-history provider, then two copies of the
+conversation exist. This page shows how to forward less.
+
+Most applications need one prop: `messageFilter` on the provider. The rest of
+this page covers the cases it does not reach, which are trimming inside the
+runtime and trimming an agent you construct yourself.
+
+## When to trim
+
+Trim the forwarded history if your agent stores the conversation itself. Two
+symptoms point here:
+
+- **Duplicated history.** Your agent merges the messages CopilotKit sends with
+  the messages it already stored, so the model receives every turn twice. Token
+  cost doubles. The merge can also separate a tool call from its result. A
+  backend whose stored history ends with a pending tool call appends the
+  forwarded copy after that call. The call is then no longer followed by its
+  result, and Anthropic rejects the run. This is the human-in-the-loop failure
+  reported on
+  [#1482](https://github.com/CopilotKit/CopilotKit/issues/1482#issuecomment-4555989351).
+- **Large requests.** The request body grows with the conversation. Long threads
+  raise latency on every turn, and a proxy can reject the request with HTTP 413.
+
+Do not trim if your agent is stateless. A stateless agent reads the conversation
+only from `input.messages`, so a trimmed payload erases its memory of the
+thread.
+
+<Callout type="warn" title="Keep tool calls and tool results together">
+Every tool result you forward must reach the model with its tool call, and the
+call must be answered by the message right after it. A filter that keeps "the
+last message only" splits that pair and breaks human-in-the-loop runs.
+
+`messageFilter` repairs the pair for you, so the browser recipe below is safe
+however blunt your rule is. A middleware filter has to do it itself, which is
+what `lastTurnOnly` is for.
+</Callout>
+
+## Trim from the browser
+
+`messageFilter` on the provider decides what each run puts on the wire. Return
+the messages to send:
+
+<FrontendOnly frontend="react">
+```tsx title="app/page.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  messageFilter={(messages) => messages.slice(-1)}
+>
+  <YourApp />
+</CopilotKit>;
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="src/app/app.config.ts"
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+      messageFilter: (messages) => messages.slice(-1),
+    }),
+  ],
+};
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="vue">
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotKitProvider
+    runtime-url="/api/copilotkit"
+    :message-filter="(messages) => messages.slice(-1)"
+  >
+    <YourApp />
+  </CopilotKitProvider>
+</template>
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="react-native">
+```tsx title="App.tsx"
+import { CopilotKitProvider } from "@copilotkit/react-native";
+
+<CopilotKitProvider
+  runtimeUrl="https://your-server/api/copilotkit"
+  messageFilter={(messages) => messages.slice(-1)}
+>
+  <YourApp />
+</CopilotKitProvider>;
+```
+</FrontendOnly>
+
+This is the shortest fix for both symptoms at once. The request body shrinks,
+and your agent stops merging a second copy of the conversation into its own
+store. It reaches the agents CopilotKit discovers from `runtimeUrl`, which is
+the case most applications have.
+
+A rule this blunt is safe here. CopilotKit repairs broken tool-call pairs before
+the request goes out, and the repair restores rather than discards: a forwarded
+tool result gets its call put back directly in front of it, and a forwarded call
+gets its result back. `slice(-1)` therefore cannot strand a human-in-the-loop
+approval.
+
+Four things the filter does not touch:
+
+- **The chat UI.** It rewrites the request body only. The transcript renders in
+  full.
+- **Agents you pass in yourself** through `selfManagedAgents`. Those instances
+  are yours, so use a middleware on them — see below.
+- **CopilotKit Intelligence runs.** That runtime is the store of record for the
+  thread, so the client does not get to truncate what reaches it.
+- **Suggestion runs.** A suggestion runs on a fresh thread, so the messages sent
+  with it are the only context the provider has.
+
+If the filter throws or returns something that is not an array, CopilotKit warns
+and sends the full thread. Trimming is an optimization, so a bug in it does not
+fail the run.
+
+Prefer a stable reference, such as `useCallback` in React. An inline arrow
+re-registers the filter on every render, which is harmless but needless.
+
+## Write a filter for middleware
+
+Use this instead when you trim inside the runtime, or on an agent you construct
+yourself. There is no repair pass on those paths, so the filter has to keep the
+pairs valid on its own. It needs two pieces: a filter that chooses the messages,
+and an [AG-UI middleware](/agentic-protocols/ag-ui-middleware) that applies it.
+Put both in one module.
+
+The filter below keeps the final turn, which is the last user message and
+everything after it. A tool call and its result normally sit inside one turn, so
+the pair survives. The rest covers the exception. A human-in-the-loop run can
+leave a tool call in an earlier turn, so the filter pulls that call back in. It
+pulls back only the calls that a forwarded result answers, because an assistant
+message can hold several tool calls and forwarding a call whose result you
+dropped recreates the error you are trying to avoid. It also puts each rescued
+call directly in front of the result that answers it, because a provider expects
+a tool call to be answered by the message right after it.
+
+```ts title="trim-history.ts" doctest="component"
+import {
+  Middleware,
+  type AbstractAgent,
+  type Message,
+  type RunAgentInput,
+} from "@ag-ui/client";
+
+/** Keeps the final turn, plus any tool call a forwarded tool result needs. */
+export function lastTurnOnly(messages: Message[]): Message[] {
+  let start = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      start = i;
+      break;
+    }
+  }
+  if (start === -1) return messages;
+
+  const kept = messages.slice(start);
+  const keptIds = new Set(kept.map((message) => message.id));
+  const answeredIds = new Set(
+    kept.flatMap((message) => (message.role === "tool" ? [message.toolCallId] : [])),
+  );
+
+  // Index the earlier assistant messages by the calls a kept result answers.
+  // `Message` is a union, so the map holds the assistant member: only that one
+  // carries `toolCalls`.
+  const issuerOf = new Map<string, Extract<Message, { role: "assistant" }>>();
+  for (const message of messages.slice(0, start)) {
+    if (message.role !== "assistant" || keptIds.has(message.id)) continue;
+    // Keep only the calls a forwarded result answers. An assistant message can
+    // hold several calls, and a call whose result you drop must go too.
+    const toolCalls = (message.toolCalls ?? []).filter((call) =>
+      answeredIds.has(call.id),
+    );
+    if (toolCalls.length === 0) continue;
+    const narrowed = { ...message, toolCalls };
+    for (const call of toolCalls) issuerOf.set(call.id, narrowed);
+  }
+
+  // Put each rescued call directly in front of the result that answers it, and
+  // keep that message's other results with it. A provider expects a tool call
+  // to be answered by the messages right after it, so collecting the rescued
+  // calls at the front, or letting anything separate a parallel call from one
+  // of its results, recreates the error.
+  const emittedIssuers = new Set<Extract<Message, { role: "assistant" }>>();
+  const placedResults = new Set<string>();
+  const forwarded: Message[] = [];
+  for (const message of kept) {
+    if (message.role === "tool") {
+      if (placedResults.has(message.id)) continue;
+      const issuer = issuerOf.get(message.toolCallId);
+      if (issuer && !emittedIssuers.has(issuer)) {
+        emittedIssuers.add(issuer);
+        forwarded.push(issuer);
+        for (const sibling of kept) {
+          if (sibling.role !== "tool") continue;
+          if (!issuer.toolCalls?.some((call) => call.id === sibling.toolCallId)) continue;
+          placedResults.add(sibling.id);
+          forwarded.push(sibling);
+        }
+        continue;
+      }
+    }
+    forwarded.push(message);
+  }
+  return forwarded;
+}
+
+/** Rewrites the messages of one run, leaving the stored transcript alone. */
+export class TrimHistoryMiddleware extends Middleware {
+  constructor(private readonly trim: (messages: Message[]) => Message[]) {
+    super();
+  }
+
+  run(input: RunAgentInput, next: AbstractAgent) {
+    return this.runNext({ ...input, messages: this.trim(input.messages) }, next);
+  }
+}
+```
+
+Adapt the rule to what your backend stores. If your agent keeps the last ten
+turns, forward the same window.
+
+### Check it on a turn with two tool calls
+
+One assistant message can hold several tool calls, and the kept turn can carry
+the result for only one of them. The rescue pass must forward that one call and
+drop the other, because a forwarded call whose result you dropped is the broken
+pair this page is about. Run this against your own filter:
+
+```ts title="check-trim-history.ts" doctest="script"
+import { strict as assert } from "node:assert";
+import type { Message } from "@ag-ui/client";
+import { lastTurnOnly } from "./trim-history";
+
+const call = (id: string, name: string) => ({
+  id,
+  type: "function" as const,
+  function: { name, arguments: "{}" },
+});
+
+// One earlier assistant message opens two calls. The kept turn answers only
+// the second one, because the first was resolved before the last user message.
+const messages: Message[] = [
+  { id: "u1", role: "user", content: "book me a flight and a hotel" },
+  { id: "a1", role: "assistant", toolCalls: [call("cA", "bookFlight"), call("cB", "bookHotel")] },
+  { id: "t-a", role: "tool", toolCallId: "cA", content: "flight booked" },
+  { id: "u2", role: "user", content: "yes, that hotel" },
+  { id: "t-b", role: "tool", toolCallId: "cB", content: "hotel booked" },
+];
+
+const trimmed = lastTurnOnly(messages);
+
+// Only the answered call is forwarded; `cA` was resolved before the kept turn.
+const forwardedCallIds = trimmed.flatMap((message) =>
+  message.role === "assistant" ? (message.toolCalls ?? []).map((c) => c.id) : [],
+);
+assert.deepEqual(forwardedCallIds, ["cB"]);
+
+// And every forwarded call is answered by the message right after it, which is
+// what the provider requires. Presence somewhere in the list is not enough.
+trimmed.forEach((message, index) => {
+  for (const toolCall of message.role === "assistant" ? (message.toolCalls ?? []) : []) {
+    const next = trimmed[index + 1];
+    assert.ok(
+      next && next.role === "tool" && next.toolCallId === toolCall.id,
+      `tool call ${toolCall.id} is not answered by the next message`,
+    );
+  }
+});
+
+// The stored transcript is untouched: `a1` still holds both calls.
+assert.equal(messages[1].role === "assistant" && messages[1].toolCalls?.length, 2);
+
+// A second run: both results of one parallel call are retained, and an
+// assistant message sits between them. The rescued call must stay with BOTH
+// results, so nothing separates it from either one.
+const parallel: Message[] = [
+  { id: "u1", role: "user", content: "book both" },
+  { id: "a1", role: "assistant", toolCalls: [call("cA", "bookFlight"), call("cB", "bookHotel")] },
+  { id: "u2", role: "user", content: "go ahead" },
+  { id: "t-a", role: "tool", toolCallId: "cA", content: "flight booked" },
+  { id: "a3", role: "assistant", content: "one moment" },
+  { id: "t-b", role: "tool", toolCallId: "cB", content: "hotel booked" },
+];
+
+const trimmedParallel = lastTurnOnly(parallel);
+trimmedParallel.forEach((message, index) => {
+  for (const toolCall of message.role === "assistant" ? (message.toolCalls ?? []) : []) {
+    const answers = new Set<string>();
+    for (let i = index + 1; trimmedParallel[i]?.role === "tool"; i++) {
+      answers.add(trimmedParallel[i].toolCallId);
+    }
+    assert.ok(
+      answers.has(toolCall.id),
+      `tool call ${toolCall.id} is separated from its result`,
+    );
+  }
+});
+
+console.log("trim-history: forwarded only the answered call, next to its result");
+```
+
+## Trim inside the runtime
+
+The middleware rewrites `input.messages` before the run reaches your agent. It
+runs server-side, inside the runtime, so the browser cannot change it. Attach it
+to the agent before you register the agent with the runtime:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { lastTurnOnly, TrimHistoryMiddleware } from "./trim-history";
+
+const agent = new HttpAgent({ url: process.env.AGENT_URL! });
+agent.use(new TrimHistoryMiddleware(lastTurnOnly));
+
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+});
+```
+
+`.use()` is on `AbstractAgent`, so this works for any agent the runtime
+registers, whatever framework it wraps.
+
+The runtime clones a registered agent for every run, and a clone keeps its
+middleware. One `.use()` call at startup therefore covers every run.
+
+This placement fixes duplicated history. It does not shrink the request the
+browser sends, because the browser still posts the full transcript to your
+runtime. Use `messageFilter` for that, and note that it makes this placement
+redundant for most applications: reach for the runtime when the trimming rule
+has to be server-side, for example when it must hold whatever the frontend
+sends.
+
+## Trim an agent you construct yourself
+
+The same middleware shrinks the request body when you attach it to an agent
+instance you construct yourself, through
+[`selfManagedAgents` or the local development option](/backend/self-managed-agents).
+The filtered messages become the HTTP body, and the transcript in the UI stays
+whole. `selfManagedAgents` belongs to the Enterprise plan, so
+production use needs a `publicLicenseKey`.
+
+<FrontendOnly frontend="react">
+```tsx title="app/page.tsx"
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { lastTurnOnly, TrimHistoryMiddleware } from "./trim-history";
+
+const supportAgent = new HttpAgent({ url: "https://agents.example.com/support" });
+supportAgent.use(new TrimHistoryMiddleware(lastTurnOnly));
+
+<CopilotKit selfManagedAgents={{ "support-agent": supportAgent }}>
+  <YourApp />
+</CopilotKit>;
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="src/app/app.config.ts"
+import { HttpAgent } from "@ag-ui/client";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { lastTurnOnly, TrimHistoryMiddleware } from "./trim-history";
+
+const supportAgent = new HttpAgent({ url: "https://agents.example.com/support" });
+supportAgent.use(new TrimHistoryMiddleware(lastTurnOnly));
+
+export const appConfig = {
+  providers: [
+    provideCopilotKit({
+      selfManagedAgents: { "support-agent": supportAgent },
+    }),
+  ],
+};
+```
+</FrontendOnly>
+
+<Callout type="info">
+Use this only for agents you construct. CopilotKit owns the agents it discovers
+from `runtimeUrl`: a change to the runtime URL or the transport replaces one,
+and the replacement carries over the thread, the state and the messages, but not
+anything you attached yourself. `messageFilter` is the supported option for
+those, and it survives the replacement because CopilotKit re-applies it.
+</Callout>
+
+## What trimming does not change
+
+- **The chat UI.** Trimming rewrites the payload of one run. The agent keeps its
+  own message list, and the transcript renders in full.
+- **Runtime persistence.** A runtime that stores threads records the events of
+  each run, so earlier turns stay in the thread.
+- **Agent state.** Neither mechanism touches `input.state`, `input.tools`, or
+  `input.context`. Only the message list changes.
+
+## Related
+
+- [AG-UI Middleware](/agentic-protocols/ag-ui-middleware): the middleware
+  lifecycle and the `Middleware` base class.
+- [Self-managed agents](/backend/self-managed-agents): passing your own agent
+  instances to the frontend provider.
+- [AgentRunner and persistence](/backend/agent-runner): where the runtime keeps
+  thread history.

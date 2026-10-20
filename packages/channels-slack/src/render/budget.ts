@@ -8,11 +8,16 @@ export const SLACK_LIMITS = {
   contextElements: 10,
   buttonText: 75,
   actionId: 255,
+  blockId: 255,
   buttonValue: 2000,
   selectOptions: 100,
   tableColumns: 20,
   tableRows: 100,
   cellText: 2000,
+  cardTitle: 150,
+  cardBody: 200,
+  cardActions: 3,
+  carouselSlides: 10,
 } as const;
 
 /** Truncate to max chars, appending an ellipsis marker if the input was longer. Never returns >max. */

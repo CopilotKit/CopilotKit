@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Cloud,
   Layers,
+  Lightbulb,
   Link2,
   MessageSquare,
   Radio,
@@ -51,6 +52,7 @@ const MEGA_MENU_ICONS: Record<Exclude<MegaMenuIconName, "kite">, LucideIcon> = {
   box: Box,
   radio: Radio,
   brain: Brain,
+  lightbulb: Lightbulb,
   chart: BarChart3,
 };
 

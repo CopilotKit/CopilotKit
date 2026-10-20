@@ -51,8 +51,11 @@ export const RELEASE_AGE_EXCLUDE = [
   "@ag-ui/encoder",
   "@ag-ui/proto",
   "@ag-ui/langgraph",
+  "@ag-ui/mcp-apps-middleware",
   "@ag-ui/a2ui-middleware",
   "@ag-ui/a2ui-toolkit",
+  "@ag-ui/mcp-middleware",
+  "@ag-ui/mcp-apps-middleware",
 ] as const;
 
 export function createConsumerWorkspaceYaml(): string {

@@ -57,6 +57,7 @@ export const Modal = createReactComponent(ModalApi, ({ props, buildChild }) => {
           >
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
                 style={{
                   border: "none",

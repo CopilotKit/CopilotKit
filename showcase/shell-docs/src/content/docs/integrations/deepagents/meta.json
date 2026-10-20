@@ -14,14 +14,13 @@
     "...human-in-the-loop",
     "---Intelligence---",
     {
-      "title": "Rich Threads",
+      "title": "AG-UI Streams",
       "defaultOpen": true,
       "pages": [
         "threads",
         "headless-threads",
         "threads-lifecycle",
-        "threads-import",
-        "threads-self-managed"
+        "threads-import"
       ]
     }
   ]

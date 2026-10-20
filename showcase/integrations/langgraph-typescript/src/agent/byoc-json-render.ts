@@ -9,7 +9,7 @@
  * MetricCard, BarChart, PieChart.
  */
 
-import type { RunnableConfig } from "@langchain/core/runnables";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
@@ -163,16 +163,16 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // survives the LangChain → OpenAI chat-completions mapping.
   // @doc-replace
   const model = makeChatOpenAI(config, {
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
     temperature: 0.2,
     modelKwargs: { response_format: { type: "json_object" } },
   });
   // @doc-as
   // const model = new ChatOpenAI({
-  //     model: "gpt-4o-mini",
-  //     temperature: 0.2,
-  //     modelKwargs: { response_format: { type: "json_object" } },
-  //   });
+  //   model: "gpt-5-mini",
+  //   temperature: 0.2,
+  //   modelKwargs: { response_format: { type: "json_object" } },
+  // });
   // @doc-end
   const response = await model.invoke(
     [new SystemMessage({ content: SYSTEM_PROMPT }), ...state.messages],

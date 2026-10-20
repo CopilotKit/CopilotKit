@@ -3,8 +3,7 @@
 import React from "react";
 import { CopilotChat } from "@copilotkit/react-core/v2";
 
-import type { Delegation, SubAgentName } from "./delegation-log";
-import { DelegationLog } from "./delegation-log";
+import { Delegation, SubAgentName, DelegationLog } from "./delegation-log";
 import { SupervisorActivityBanner } from "./supervisor-activity-banner";
 
 interface DemoLayoutProps {

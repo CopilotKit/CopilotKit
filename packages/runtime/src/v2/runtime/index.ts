@@ -10,6 +10,12 @@ export * from "./transcription-service/transcription-service";
 // Export CopilotKit Intelligence client and types
 export {
   CopilotKitIntelligence,
+  LearnedSkillsError,
+  type LearnedSkillsErrorCode,
+  type GetLearnedSkillsSnapshotRequest,
+  type GetLearnedSkillsSnapshotsRequest,
+  type LearnedSkillsBatchResult,
+  type LearnedSkillsSnapshotResult,
   type CopilotKitIntelligenceConfig,
   type CreateThreadRequest,
   type ThreadSummary,

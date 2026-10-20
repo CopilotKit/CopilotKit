@@ -16,6 +16,13 @@ export type CopilotChatReasoningMessageProps = WithSlots<
     message: ReasoningMessage;
     messages?: Message[];
     isRunning?: boolean;
+    /**
+     * Whether this is the last message the chat renders. The message view
+     * passes it, because the rendered list can differ from `messages` when
+     * `transformMessages` drops, replaces or reorders messages. Defaults to
+     * comparing against the last entry of `messages`.
+     */
+    isLatest?: boolean;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -35,6 +42,7 @@ export function CopilotChatReasoningMessage({
   message,
   messages,
   isRunning,
+  isLatest: isLatestProp,
   header,
   contentView,
   toggle,
@@ -42,7 +50,8 @@ export function CopilotChatReasoningMessage({
   className,
   ...props
 }: CopilotChatReasoningMessageProps) {
-  const isLatest = messages?.[messages.length - 1]?.id === message.id;
+  const isLatest =
+    isLatestProp ?? messages?.[messages.length - 1]?.id === message.id;
   const isStreaming = !!(isRunning && isLatest);
   const hasContent = !!(message.content && message.content.length > 0);
 

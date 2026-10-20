@@ -55,6 +55,43 @@ describe("CopilotPopupView", () => {
     );
   });
 
+  it("only exposes stop capability when an onStop callback is available", async () => {
+    const withoutStop = mountPopupView(
+      {},
+      {
+        "welcome-screen": ({ canStop }: { canStop: boolean }) =>
+          h("div", { "data-testid": "popup-can-stop" }, String(canStop)),
+      },
+    );
+
+    expect(withoutStop.get("[data-testid='popup-can-stop']").text()).toBe(
+      "false",
+    );
+
+    const onStop = vi.fn();
+    const withStop = mountPopupView(
+      { onStop },
+      {
+        "welcome-screen": ({
+          canStop,
+          onStop: stop,
+        }: {
+          canStop: boolean;
+          onStop: () => void;
+        }) =>
+          h(
+            "button",
+            { "data-testid": "popup-stop", onClick: stop },
+            String(canStop),
+          ),
+      },
+    );
+
+    expect(withStop.get("[data-testid='popup-stop']").text()).toBe("true");
+    await withStop.get("[data-testid='popup-stop']").trigger("click");
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
   it("closes on escape and outside pointerdown when enabled", async () => {
     const wrapper = mountPopupView({
       clickOutsideToClose: true,
@@ -108,5 +145,47 @@ describe("CopilotPopupView", () => {
 
   it("exposes the WelcomeScreen namespaced export", () => {
     expect(NamespacedPopupView.WelcomeScreen).toBeDefined();
+  });
+
+  it("passes capability flags through the namespaced WelcomeScreen input slot", () => {
+    const wrapper = mount(NamespacedPopupView.WelcomeScreen, {
+      props: {
+        suggestions: [],
+        loadingIndexes: [],
+        modelValue: "",
+        isRunning: false,
+        inputMode: "input",
+        inputToolsMenu: [],
+        canStop: false,
+        canAddFile: false,
+        canTranscribe: false,
+        onUpdateModelValue: vi.fn(),
+        onSubmitMessage: vi.fn(),
+        onStop: vi.fn(),
+        onAddFile: vi.fn(),
+        onStartTranscribe: vi.fn(),
+        onSelectSuggestion: vi.fn(),
+      },
+      slots: {
+        input: ({
+          canStop,
+          canAddFile,
+          canTranscribe,
+        }: {
+          canStop: boolean;
+          canAddFile: boolean;
+          canTranscribe: boolean;
+        }) =>
+          h(
+            "div",
+            { "data-testid": "popup-welcome-capabilities" },
+            `${canStop}:${canAddFile}:${canTranscribe}`,
+          ),
+      },
+    });
+
+    expect(
+      wrapper.get("[data-testid='popup-welcome-capabilities']").text(),
+    ).toBe("false:false:false");
   });
 });

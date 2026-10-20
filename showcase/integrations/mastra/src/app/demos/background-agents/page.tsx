@@ -27,12 +27,14 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 import { Chat } from "./chat";
 import { backgroundTaskActivityRenderer } from "./activity-card";
 
+const activityRenderers = [backgroundTaskActivityRenderer];
+
 export default function BackgroundAgentsDemo() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit-background-agents"
       agent="background-agents"
-      renderActivityMessages={[backgroundTaskActivityRenderer]}
+      renderActivityMessages={activityRenderers}
     >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">

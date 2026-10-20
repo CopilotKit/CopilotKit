@@ -21,6 +21,7 @@
     "@angular/common": "^22.1.5",
     "@angular/compiler": "^22.1.5",
     "@angular/core": "^22.1.5",
+    "@angular/forms": "^22.1.5",
     "@angular/platform-browser": "^22.1.5",
     "@copilotkit/angular": "0.5.2",
     "@copilotkit/core": "1.70.2",

@@ -124,7 +124,7 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
     # client = openai.OpenAI()
     # @doc-end
     response = client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": system_prompt},
             {
@@ -156,7 +156,7 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
 
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o", timeout=120),
+    model=OpenAIChat(id="gpt-5-mini", timeout=120),
     tools=[generate_a2ui],
     tool_call_limit=4,
     description=SYSTEM_PROMPT,

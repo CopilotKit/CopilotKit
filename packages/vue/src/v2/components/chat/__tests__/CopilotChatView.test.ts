@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import { mount } from "@vue/test-utils";
+import { render, screen } from "@testing-library/vue";
 import type { AssistantMessage, Message, UserMessage } from "@ag-ui/core";
 import type { Suggestion } from "@copilotkit/core";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
@@ -119,6 +120,124 @@ describe("CopilotChatView", () => {
     expect(chatViewWrapper.emitted("submit-message")?.at(0)).toEqual([
       "hello from vue chat view",
     ]);
+  });
+
+  it("forwards a static stop listener through the input slot", async () => {
+    const onStop = vi.fn();
+    const StaticStopHost = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatView,
+      },
+      setup() {
+        return { chatMessages, onStop };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider
+            thread-id="thread-1"
+            agent-id="default"
+          >
+            <CopilotChatView :messages="chatMessages" @stop="onStop">
+              <template #input="{ onStop: slotOnStop }">
+                <button data-testid="direct-stop" @click="slotOnStop">
+                  stop
+                </button>
+              </template>
+            </CopilotChatView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+    const wrapper = mount(StaticStopHost);
+
+    await wrapper.get("[data-testid='direct-stop']").trigger("click");
+
+    expect(onStop).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes canStop / canAddFile / canTranscribe on the input slot", () => {
+    const CapabilityHost = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatView,
+      },
+      setup() {
+        return { chatMessages };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider
+            thread-id="thread-1"
+            agent-id="default"
+          >
+            <CopilotChatView
+              :messages="chatMessages"
+              :on-stop="() => {}"
+              :on-add-file="() => {}"
+            >
+              <template
+                #input="{ canStop, canAddFile, canTranscribe }"
+              >
+                <span data-testid="can-stop">{{ canStop }}</span>
+                <span data-testid="can-add-file">{{ canAddFile }}</span>
+                <span data-testid="can-transcribe">{{ canTranscribe }}</span>
+              </template>
+            </CopilotChatView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+    const wrapper = mount(CapabilityHost);
+
+    expect(wrapper.get("[data-testid='can-stop']").text()).toBe("true");
+    expect(wrapper.get("[data-testid='can-add-file']").text()).toBe("true");
+    expect(wrapper.get("[data-testid='can-transcribe']").text()).toBe("false");
+  });
+
+  it("exposes canStop / canAddFile / canTranscribe on the welcome-screen slot", () => {
+    const WelcomeCapabilityHost = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatView,
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider
+            thread-id="thread-1"
+            agent-id="default"
+          >
+            <CopilotChatView
+              :messages="[]"
+              :on-stop="() => {}"
+              :on-start-transcribe="() => {}"
+            >
+              <template
+                #welcome-screen="{ canStop, canAddFile, canTranscribe }"
+              >
+                <span data-testid="welcome-can-stop">{{ canStop }}</span>
+                <span data-testid="welcome-can-add-file">{{ canAddFile }}</span>
+                <span data-testid="welcome-can-transcribe">{{
+                  canTranscribe
+                }}</span>
+              </template>
+            </CopilotChatView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+    const wrapper = mount(WelcomeCapabilityHost);
+
+    expect(wrapper.get("[data-testid='welcome-can-stop']").text()).toBe("true");
+    expect(wrapper.get("[data-testid='welcome-can-add-file']").text()).toBe(
+      "false",
+    );
+    expect(wrapper.get("[data-testid='welcome-can-transcribe']").text()).toBe(
+      "true",
+    );
   });
 
   it("renders suggestions and forwards selection callback and event", async () => {
@@ -284,6 +403,61 @@ describe("CopilotChatView", () => {
     await wrapper
       .get("[data-testid='chat-view-custom-assistant-copy']")
       .trigger("click");
+  });
+
+  it("names the scroll-to-bottom button with the configured label", async () => {
+    const Host = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatView,
+      },
+      setup() {
+        return {
+          messages: createChatMessages(12),
+          labels: { chatScrollToBottomLabel: "Nach unten scrollen" },
+        };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider
+            thread-id="thread-1"
+            agent-id="default"
+            :labels="labels"
+          >
+            <CopilotChatView :messages="messages" />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+    render(Host);
+
+    // Let the initial auto-scroll settle, then scroll away from the bottom so
+    // the button appears.
+    const scrollElement = await screen.findByTestId("copilot-chat-view-scroll");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    let scrollTop = 0;
+    Object.defineProperty(scrollElement, "scrollHeight", {
+      configurable: true,
+      get: () => 1000,
+    });
+    Object.defineProperty(scrollElement, "clientHeight", {
+      configurable: true,
+      get: () => 300,
+    });
+    Object.defineProperty(scrollElement, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value: number) => {
+        scrollTop = value;
+      },
+    });
+    scrollTop = 120;
+    scrollElement.dispatchEvent(new Event("scroll"));
+
+    expect(
+      await screen.findByRole("button", { name: "Nach unten scrollen" }),
+    ).toBeDefined();
   });
 
   it("preserves scroll position when new messages arrive and the user is scrolled up", async () => {

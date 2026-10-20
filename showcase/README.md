@@ -213,16 +213,22 @@ two data sources:
    routes automatically and update the dashboard in real time. No manual
    intervention needed for probe data.
 
-**Known limitation — PocketBase fetch cap:** `useLiveStatus.ts` fetches status
-records with a hard `INITIAL_CAP` (currently 2000). PocketBase returns records
-in rowid (creation) order. If the total record count exceeds the cap,
-later-created dimensions (e.g. `e2e:<slug>/<featureId>` per-cell records from
-the 6-hourly e2e-demos probe) get silently truncated, causing the dashboard to
-show D2 instead of D4 across the board. If new probe types are added and the
-dashboard regresses to D2, raise `INITIAL_CAP` in
-`shell-dashboard/src/hooks/useLiveStatus.ts`. The correct long-term fix is
-dimension-scoped fetching or `sort=-updated` so the cap never silently drops
-functional records.
+**Troubleshooting incomplete status reads:**
+[`useLiveStatus.ts`](./shell-dashboard/src/hooks/useLiveStatus.ts) reads status
+records in pages, bounded by `MAX_INITIAL_FETCH_PAGES`. The initial bulk read
+loads the status rows; a separate read adds detailed `signal` data for selected
+rows. If the bulk read is incomplete, it fails into the connection retry/error
+path rather than accepting a partial matrix. A failed or truncated supplemental
+read logs a warning and retains the bulk results, which may lack those details
+until a later live update.
+
+When results appear missing or incorrect, check the dashboard connection
+indicator, browser console warnings, and PocketBase responses to distinguish a
+failed bulk read, an exceeded page limit, and missing supplemental details. A low depth label alone does not identify the
+cause. Confirm unread rows before changing the page limit: raising it permits
+more requests and processing, and cannot repair a failed request or missing
+probe result. The old `INITIAL_CAP` setting no longer exists. For local setup and
+checks, see the [dashboard verification guide](./shell-dashboard/README.md#verification).
 
 Key invariants:
 

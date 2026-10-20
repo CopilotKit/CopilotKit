@@ -880,7 +880,10 @@ describe("probeDocs production canonical-host guard", () => {
     | "llms"
     | "llms-full";
 
-  function docsSurfaceFetch(leak?: MachineSurface): FetchLike {
+  function docsSurfaceFetch(
+    leak?: MachineSurface,
+    onboardingUrl = "https://copilotkit.ai/onboarding-prompts",
+  ): FetchLike {
     return makeFetch((url) => {
       if (url.includes("/graphql/v2")) return gqlDeploymentResponse("SUCCESS");
       if (url.endsWith("/robots.txt")) {
@@ -902,7 +905,9 @@ describe("probeDocs production canonical-host guard", () => {
       if (url.endsWith("/llms.txt")) {
         const origin = leak === "llms" ? leakedOrigin : canonicalOrigin;
         return Promise.resolve(
-          mkResponse({ text: `- [Quickstart](${origin}/quickstart)` }),
+          mkResponse({
+            text: `- [Quickstart](${origin}/quickstart)\n- [Onboarding](${onboardingUrl})`,
+          }),
         );
       }
       if (url.endsWith("/llms-full.txt")) {
@@ -946,6 +951,21 @@ describe("probeDocs production canonical-host guard", () => {
     expect(error).toContain("docs.showcase.copilotkit.ai");
     expect(error).toContain("docs.copilotkit.ai");
   });
+
+  it.each([
+    ["https://www.copilotkit.ai/onboarding-prompts", true],
+    ["https://preview.up.railway.app/onboarding-prompts", false],
+    ["https://copilotkit.ai/quickstart", false],
+  ])(
+    "validates the onboarding exception narrowly: %s",
+    async (url, allowed) => {
+      const error = await checkProductionDocsCanonicalHost(
+        target.host,
+        docsSurfaceFetch(undefined, url),
+      );
+      expect(error === undefined).toBe(allowed);
+    },
+  );
 });
 
 describe("docs deployed auth runtime-config guard", () => {

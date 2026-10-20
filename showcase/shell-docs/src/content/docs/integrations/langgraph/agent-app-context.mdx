@@ -103,6 +103,10 @@ This context can then be shared with your LangGraph agent.
                 The state of a LangGraph agent is the "hub" for applicative information used by the agent.
                 Naturally, the context from CopilotKit will be injected there.
 
+                In both Python and TypeScript, the CopilotKit state key is lowercase
+                `copilotkit`. Read `state.copilotkit.context` in TypeScript; the
+                SDK's state schema does not define a `copilotKit` field.
+
                 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent.py"
@@ -164,7 +168,7 @@ This context can then be shared with your LangGraph agent.
 
                         async function chat_node(state: AgentState, config: RunnableConfig) {
                           // Extract the colleagues from CopilotKit context
-                          const copilotKitContext = state.copilotKit.context
+                          const copilotKitContext = state.copilotkit.context
                           const colleaguesContextItem = copilotKitContext.find(contextItem => contextItem.description === "The current user's colleagues")
 
                           // [!code highlight:5]
@@ -276,6 +280,58 @@ This context can then be shared with your LangGraph agent.
                         ```
                     </Tab>
                 </Tabs>
+            </Step>
+
+            <Step>
+                ### Serve the agent with FastAPI (Python)
+
+                If you deploy with LangSmith, skip this step. The LangGraph API server supplies persistence, so do not pass a `checkpointer`.
+
+                If you run the agent in your own FastAPI app, nothing supplies persistence. `ag-ui-langgraph` reads thread state with `graph.aget_state(...)`, which raises `ValueError: No checkpointer set` without a checkpointer. Pass one to `create_agent`.
+
+                `create_agent` comes from `langchain` 1.x. Install it explicitly, together with the FastAPI packages:
+
+                ```bash
+                uv add "langchain>=1" langchain-openai ag-ui-langgraph fastapi uvicorn copilotkit python-dotenv
+                ```
+
+                ```python title="main.py" doctest="server"
+                from dotenv import load_dotenv
+                from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+                from copilotkit import CopilotKitMiddleware, CopilotKitState, LangGraphAGUIAgent
+                from fastapi import FastAPI
+                from langchain.agents import create_agent
+                from langgraph.checkpoint.memory import MemorySaver
+                import uvicorn
+
+                load_dotenv()
+
+                graph = create_agent(
+                    model="openai:gpt-5.4",
+                    tools=[],  # Backend tools go here
+                    middleware=[CopilotKitMiddleware()],
+                    system_prompt="You are a helpful assistant.",
+                    state_schema=CopilotKitState,
+                    checkpointer=MemorySaver(), # [!code highlight]
+                )
+
+                app = FastAPI()
+
+                add_langgraph_fastapi_endpoint(
+                    app=app,
+                    agent=LangGraphAGUIAgent(
+                        name="sample_agent",
+                        description="An agent that reads context from the app.",
+                        graph=graph,
+                    ),
+                    path="/",
+                )
+
+                if __name__ == "__main__":
+                    uvicorn.run("main:app", host="0.0.0.0", port=8123, reload=True)
+                ```
+
+                `MemorySaver` keeps state in process memory only. For production, use a durable saver, for example Postgres. The [quickstart](/langgraph-python/quickstart) shows the runtime route and provider that connect to this server on port `8123`.
             </Step>
 
             <Step>

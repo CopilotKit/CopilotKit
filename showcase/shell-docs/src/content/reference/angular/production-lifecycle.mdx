@@ -83,7 +83,7 @@ hydration. Follow these rules:
    operations during server rendering.
 3. Put application-owned `window`, `document`, observer, media-query, and media
    API access behind `isPlatformBrowser` or `afterNextRender`.
-4. Allow A2UI custom elements, Open Generative UI sandboxes, audio recording,
+4. Allow A2UI surfaces, Open Generative UI sandboxes, audio recording,
    and MCP Apps iframes to activate in the browser after hydration.
 5. Do not branch the pre-hydration template on browser globals. Change UI state
    through signals after hydration instead.

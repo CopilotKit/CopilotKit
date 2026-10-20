@@ -89,6 +89,131 @@ describe("sse-response.ts — telemetry lifecycle", () => {
     );
   });
 
+  it("carries executionSeed onto stream_ended", async () => {
+    // `llmHostClass` is knowable from the agent's config and never appears on
+    // a streamed event, so the seed is the only path it has onto telemetry.
+    const completing = new Observable<BaseEvent>((subscriber) => {
+      subscriber.complete();
+    });
+    createSseEventResponse({
+      request: makeRequest(),
+      observableFactory: () => completing,
+      executionSeed: { llmHostClass: "azure" },
+    });
+
+    await vi.waitFor(() => {
+      expect(captureSpy).toHaveBeenCalledWith(
+        "oss.runtime.agent_execution_stream_ended",
+        { llmHostClass: "azure" },
+      );
+    });
+  });
+
+  it("carries executionSeed onto stream_errored", async () => {
+    const failing = new Observable<BaseEvent>((subscriber) => {
+      subscriber.error(new Error("upstream exploded"));
+    });
+    createSseEventResponse({
+      request: makeRequest(),
+      observableFactory: () => failing,
+      executionSeed: { llmHostClass: "openrouter" },
+    });
+
+    await vi.waitFor(() => {
+      expect(captureSpy).toHaveBeenCalledWith(
+        "oss.runtime.agent_execution_stream_errored",
+        expect.objectContaining({ llmHostClass: "openrouter" }),
+      );
+    });
+  });
+
+  it("reports provider, model, and LangGraph facts scraped off the stream", async () => {
+    // This enrichment used to live in the v1 TelemetryAgentRunner, which
+    // wrapped the runner only to collect it and emitted a second copy of
+    // every stream event to carry it. The v1 entrypoint no longer wraps, so
+    // if this regressed the data would vanish rather than duplicate.
+    const enriched = new Observable<BaseEvent>((subscriber) => {
+      subscriber.next({
+        type: "TEXT_MESSAGE_END",
+        messageId: "m1",
+        rawEvent: { data: { output: { model: "gpt-4o" } } },
+      } as unknown as BaseEvent);
+      subscriber.next({
+        type: "TEXT_MESSAGE_END",
+        messageId: "m2",
+        rawEvent: {
+          metadata: { langgraph_host: "cloud", langgraph_version: "0.2.1" },
+        },
+      } as unknown as BaseEvent);
+      subscriber.complete();
+    });
+    createSseEventResponse({
+      request: makeRequest(),
+      observableFactory: () => enriched,
+    });
+
+    await vi.waitFor(() => {
+      expect(captureSpy).toHaveBeenCalledWith(
+        "oss.runtime.agent_execution_stream_ended",
+        {
+          model: "gpt-4o",
+          provider: "gpt-4o",
+          langGraphHost: "cloud",
+          langGraphVersion: "0.2.1",
+        },
+      );
+    });
+  });
+
+  it("carries the scraped facts on a stream that errors part way through", async () => {
+    const failingAfterMetadata = new Observable<BaseEvent>((subscriber) => {
+      subscriber.next({
+        type: "TEXT_MESSAGE_END",
+        messageId: "m1",
+        rawEvent: { data: { output: { model: "claude-opus-5" } } },
+      } as unknown as BaseEvent);
+      subscriber.error(new Error("upstream died"));
+    });
+    createSseEventResponse({
+      request: makeRequest(),
+      observableFactory: () => failingAfterMetadata,
+    });
+
+    await vi.waitFor(() => {
+      expect(captureSpy).toHaveBeenCalledWith(
+        "oss.runtime.agent_execution_stream_errored",
+        {
+          error: "upstream died",
+          model: "claude-opus-5",
+          provider: "claude-opus-5",
+        },
+      );
+    });
+  });
+
+  it("reports an empty record when the stream carries no raw upstream events", async () => {
+    // Most agents send nothing to scrape. The event must stay `{}` rather
+    // than grow keys with undefined values.
+    const plain = new Observable<BaseEvent>((subscriber) => {
+      subscriber.next({
+        type: "TEXT_MESSAGE_END",
+        messageId: "m1",
+      } as unknown as BaseEvent);
+      subscriber.complete();
+    });
+    createSseEventResponse({
+      request: makeRequest(),
+      observableFactory: () => plain,
+    });
+
+    await vi.waitFor(() => {
+      expect(captureSpy).toHaveBeenCalledWith(
+        "oss.runtime.agent_execution_stream_ended",
+        {},
+      );
+    });
+  });
+
   it("fires agent_execution_stream_errored with the error message when the observable errors", async () => {
     const failing = new Observable<BaseEvent>((subscriber) => {
       subscriber.error(new Error("stream blew up"));

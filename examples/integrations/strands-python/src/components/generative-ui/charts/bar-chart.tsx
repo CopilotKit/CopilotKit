@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   Rectangle,
 } from "recharts";
+import type { BarShapeProps } from "recharts";
 import { z } from "zod";
 import { CHART_COLORS, CHART_CONFIG } from "./config";
 import {
@@ -46,9 +47,7 @@ function useSeenIndices() {
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function AnimatedBar(props: any) {
-  const { isNew, ...rest } = props;
+function AnimatedBar({ isNew, ...rest }: BarShapeProps & { isNew: boolean }) {
   return (
     <g
       style={
@@ -138,8 +137,8 @@ export function BarChart({ title, description, data }: BarChartProps) {
               dataKey="value"
               radius={[6, 6, 0, 0]}
               maxBarSize={48}
-              shape={(props: Record<string, unknown>) => (
-                <AnimatedBar {...props} isNew={isNew(props.index as number)} />
+              shape={(props: BarShapeProps) => (
+                <AnimatedBar {...props} isNew={isNew(props.index)} />
               )}
             >
               {data.map((_, index) => (

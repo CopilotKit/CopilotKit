@@ -69,10 +69,16 @@ export function resolveAngularDoc(
   backendFramework: string | null,
   slugPath: string,
 ): AngularDocResolution | null {
+  // `frontends/angular` IS the Angular quickstart — it is backend-scoped and
+  // swaps its runtime step with the sidebar's selection. Without this mapping
+  // `quickstart` falls through to `integrations/<backend>/quickstart`, the
+  // React page that opens with `npx create-next-app`.
   const angularContentSlug =
     slugPath === "using-these-docs"
       ? "frontends/angular/docs-status"
-      : `frontends/angular/${slugPath}`;
+      : slugPath === "quickstart"
+        ? "frontends/angular"
+        : `frontends/angular/${slugPath}`;
   if (loadDoc(angularContentSlug)) {
     return {
       slugPath,

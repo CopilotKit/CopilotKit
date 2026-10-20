@@ -7,6 +7,7 @@ import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
+import { platformErrorResponse } from "../shared/platform-error";
 import { supportsLocalThreadEndpoints } from "../../runner/agent-runner";
 
 interface ThreadsHandlerParams {
@@ -157,9 +158,13 @@ export async function handleUpdateThread({
     );
     if (isHandlerResponse(mutation)) return mutation;
 
-    const updates = { ...mutation.body };
-    delete updates.agentId;
-    delete updates.userId;
+    // The public SDK accepts trusted updates; browser fields must be allowlisted.
+    const updates: Record<string, unknown> = {};
+    for (const key of ["name", "archived"]) {
+      if (Object.prototype.hasOwnProperty.call(mutation.body, key)) {
+        updates[key] = mutation.body[key];
+      }
+    }
 
     const thread = await intelligenceRuntime.intelligence.updateThread({
       threadId,
@@ -281,7 +286,7 @@ export async function handleGetThreadMessages({
       return Response.json(data);
     } catch (error) {
       logger.error({ err: error, threadId }, "Error fetching thread messages");
-      return errorResponse("Failed to fetch thread messages", 500);
+      return platformErrorResponse(error, "Failed to fetch thread messages");
     }
   }
 
@@ -358,7 +363,7 @@ export async function handleGetThreadEvents({
       return Response.json({ events: data.events });
     } catch (error) {
       logger.error({ err: error, threadId }, "Error fetching thread events");
-      return errorResponse("Failed to fetch thread events", 500);
+      return platformErrorResponse(error, "Failed to fetch thread events");
     }
   }
 
@@ -402,7 +407,7 @@ export async function handleGetThreadState({
       return Response.json({ state });
     } catch (error) {
       logger.error({ err: error, threadId }, "Error fetching thread state");
-      return errorResponse("Failed to fetch thread state", 500);
+      return platformErrorResponse(error, "Failed to fetch thread state");
     }
   }
 

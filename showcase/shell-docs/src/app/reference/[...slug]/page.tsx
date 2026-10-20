@@ -34,7 +34,7 @@ import {
   referenceVersionHref,
   resolveReferencePage,
 } from "@/lib/reference-items";
-import { stripLeadingImports } from "@/lib/docs-render";
+import { inlineSnippets, stripLeadingImports } from "@/lib/docs-render";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 import { V1_DEPRECATION_NOTICE_USE_V2_INSTEAD } from "@/lib/v1-deprecation-use-v2-instead";
 
@@ -142,7 +142,7 @@ export default async function ReferenceSlugPage({
     notFound();
   }
 
-  const cleanedContent = stripLeadingImports(content);
+  const cleanedContent = stripLeadingImports(inlineSnippets(content));
 
   const title =
     typeof data.title === "string" && data.title.length > 0

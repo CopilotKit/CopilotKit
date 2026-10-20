@@ -45,6 +45,8 @@ The Channel name is the project-unique Intelligence Code. A single managed
 runtime declares both Slack and Teams for that Channel; Intelligence routes each
 prepared delivery only to its originating provider.
 
+Handlers that reply directly without `runAgent()` may omit `agent`.
+
 ## Options
 
 | Option           | Type                                           | Notes                                                                                                                                |
@@ -53,14 +55,14 @@ prepared delivery only to its originating provider.
 | `identifyUser`   | `"platform" \| ChannelIdentifyUser`            | Required. Maps each provider actor to an application user or `null`. See the Identity and Memory guide for [Slack](/slack/identity-and-memory) or [Teams](/teams/identity-and-memory). |
 | `showToolStatus` | `boolean`                                      | Managed Slack hides tool-call progress by default. Set `true` to show it; tool history remains available in Intelligence either way. |
 | `replyContinuation` | `ReplyContinuationOptions`                  | Managed Slack continuation limits. Direct Slack configures the same option on `slack()`.                                             |
-| `agent`          | `AbstractAgent \| (threadId) => AbstractAgent` | Prefer a factory. Every turn clones its configured agent, including the agent returned by a factory.                                 |
+| `agent`          | `AbstractAgent \| (threadId) => AbstractAgent` | Required when calling `thread.runAgent()`. Not inherited from `runtime.agents`. Prefer a factory.                                 |
 | `sanitizeAgentEvents` | `boolean`                                  | Defaults to `true`. Repairs the known nullable AG-UI parent-message field before strict HTTP-stream validation.                       |
 | `tools`          | `ChannelTool[]`                                | Channel-level typed tools.                                                                                                           |
 | `context`        | `ContextEntry[]`                               | Stable context added to every agent run.                                                                                             |
 | `components`     | `ChannelComponent[]`                           | Named JSX components used to reconstruct callbacks.                                                                                  |
 | `commands`       | `ChannelCommand[]`                             | Declared commands routed from provider ingress.                                                                                      |
 | `store`          | `StoreConfig`                                  | State, persistence, turn concurrency (`parallel` default), transcripts, and dedup.                                                   |
-| `adapters`       | `PlatformAdapter[]`                            | Developer-owned direct transports that may coexist with the managed Intelligence adapter.                                            |
+| `adapters`       | `PlatformAdapter[]`                            | Developer-owned direct transports that may coexist with the cloud-hosted Intelligence adapter.                                            |
 
 The managed runtime validates `name` as lowercase kebab-case, 3–64 characters,
 not equal to `channels`, and unique within the Runtime.

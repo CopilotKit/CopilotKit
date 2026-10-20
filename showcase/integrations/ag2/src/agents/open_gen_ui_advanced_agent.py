@@ -70,7 +70,7 @@ Generation guidance:
 agent = ConversableAgent(
     name="open_gen_ui_advanced_assistant",
     system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-4.1", "stream": True}),
+    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
     human_input_mode="NEVER",
     max_consecutive_auto_reply=4,
     functions=[],

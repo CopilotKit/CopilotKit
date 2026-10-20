@@ -104,6 +104,11 @@ Unknown or unsupported nodes are omitted instead of failing the whole message.
 That makes portable rendering resilient, but it also means the text around an
 optional visual must still carry the important result.
 
+To post your own React component as an image, see
+[Posting JSX as images](/channels/posting-jsx-as-images). To mix native text
+with React snapshots in one message, see
+[Render and carousel](/channels/render-and-carousel).
+
 `Select` and `Input` have different interaction behavior by provider. Managed
 Slack dispatches those controls directly. Managed Teams renders Adaptive Card
 fields and submits them with a `Button`'s `Action.Submit`; that Button callback
@@ -117,7 +122,7 @@ and strings are clamped to Slack's native limits. If a message exceeds the
 top-level block budget, the renderer adds a truncation notice.
 
 Although the direct Slack renderer can return an attachment accent, the current
-managed Intelligence post and update path forwards only blocks. Do not rely on
+cloud-hosted Intelligence post and update path forwards only blocks. Do not rely on
 `Message.accent` in a managed Slack workflow.
 
 Do not put essential information only in `Chart`: the Slack renderer currently

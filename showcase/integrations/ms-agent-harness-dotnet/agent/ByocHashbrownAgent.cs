@@ -91,7 +91,7 @@ Example response (sales dashboard):
 
     public AIAgent CreateAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
         _logger.LogInformation("ByocHashbrownAgent constructing harness agent");
 
         // The harness `ChatOptions.Instructions` carries the system prompt that

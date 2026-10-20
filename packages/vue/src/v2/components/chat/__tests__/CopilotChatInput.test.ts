@@ -535,6 +535,45 @@ describe("CopilotChatInput", () => {
     });
   });
 
+  // The send button shows only an icon, so its accessible name comes from the
+  // labels config; that is also what lets an app translate it.
+  it("names the send button with the default label", () => {
+    renderWithProvider({
+      props: { modelValue: "" },
+      listeners: { onSubmitMessage: mockOnSubmitMessage },
+    });
+
+    expect(screen.getByRole("button", { name: "Send message" })).toBe(
+      getSendButton(),
+    );
+  });
+
+  it("names the send button Stop while it stops the run", () => {
+    renderWithProvider({
+      props: { modelValue: "", isRunning: true },
+      listeners: { onSubmitMessage: mockOnSubmitMessage, onStop: vi.fn() },
+    });
+
+    expect(screen.getByRole("button", { name: "Stop" })).toBe(getSendButton());
+  });
+
+  it("names the send button with the configured labels", () => {
+    renderWithProvider({
+      template: `
+        <CopilotChatConfigurationProvider
+          :thread-id="TEST_THREAD_ID"
+          :labels="{ chatInputToolbarSendButtonLabel: 'Nachricht senden' }"
+        >
+          <CopilotChatInput model-value="" />
+        </CopilotChatConfigurationProvider>
+      `,
+    });
+
+    expect(screen.getByRole("button", { name: "Nachricht senden" })).toBe(
+      getSendButton(),
+    );
+  });
+
   it("shows cancel and finish buttons in transcribe mode", () => {
     renderWithProvider({
       props: {
@@ -560,6 +599,40 @@ describe("CopilotChatInput", () => {
       screen.queryByTestId("copilot-chat-input-start-transcribe"),
     ).toBeNull();
     expect(screen.queryByTestId("copilot-chat-input-send")).toBeNull();
+  });
+
+  it("shows finish control when only onFinishTranscribeWithAudio is provided", () => {
+    renderWithProvider({
+      props: {
+        mode: "transcribe",
+      },
+      listeners: {
+        onCancelTranscribe: () => {},
+        onFinishTranscribeWithAudio: () => {},
+      },
+    });
+
+    expect(
+      screen.getByTestId("copilot-chat-input-finish-transcribe"),
+    ).toBeDefined();
+  });
+
+  it("hides finish control when neither finish handler is provided", () => {
+    renderWithProvider({
+      props: {
+        mode: "transcribe",
+      },
+      listeners: {
+        onCancelTranscribe: () => {},
+      },
+    });
+
+    expect(
+      screen.queryByTestId("copilot-chat-input-finish-transcribe"),
+    ).toBeNull();
+    expect(
+      screen.getByTestId("copilot-chat-input-cancel-transcribe"),
+    ).toBeDefined();
   });
 
   it("disables add menu button in transcribe mode", () => {

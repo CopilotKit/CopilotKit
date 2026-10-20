@@ -169,7 +169,7 @@ const searchFlights = tool(
 // host catalog and emits the a2ui_operations envelope. Replaces the prior
 // hand-rolled generate_a2ui tool.
 const generateA2ui = getA2UITools({
-  model: new ChatOpenAI({ model: "gpt-4.1" }),
+  model: new ChatOpenAI({ model: "gpt-5-mini" }),
   defaultCatalogId: "copilotkit://app-dashboard-catalog",
 });
 
@@ -189,9 +189,9 @@ const tools = [
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
   // @doc-replace
-  const model = makeChatOpenAI(config, { temperature: 0, model: "gpt-4o" });
+  const model = makeChatOpenAI(config, { model: "gpt-5-mini" });
   // @doc-as
-  // const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
+  // const model = new ChatOpenAI({ model: "gpt-5-mini" });
   // @doc-end
 
   const modelWithTools = model.bindTools!([

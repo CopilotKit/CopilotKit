@@ -7,7 +7,12 @@ import {
   lambdaClient,
   parseAndWarnTelemetryId,
 } from "./lambda-client";
-import { computeSamplingMeta, TELEMETRY_EMITTER_V1 } from "./sampling";
+import {
+  computeSamplingMeta,
+  TELEMETRY_EMITTER_V1,
+  TELEMETRY_SURFACE_V1,
+  UNSAMPLED_RATE,
+} from "./sampling";
 import { isTelemetryDisabled } from "./telemetry-disabled";
 
 export { isTelemetryDisabled };
@@ -45,16 +50,18 @@ export class TelemetryClient {
   // the Lambda transport.
   private telemetryId: string | null = null;
   // License-derived identity used only as sampling authority. A standalone
-  // telemetry id remains a transport claim and does not bypass sampleRate.
+  // telemetry id remains a transport claim and does not bypass the
+  // Segment gate.
   private licenseTelemetryId: string | null = null;
   packageName: string;
   packageVersion: string;
   private telemetryDisabled: boolean = false;
-  // Client-side sampling rate for anonymous events. Identified events
-  // (those whose license token yielded a telemetry_id) bypass the gate
-  // entirely. Applied uniformly to both the lambda sink and Segment —
-  // one dice roll per capture, both sinks see the same decision.
-  private sampleRate: number = 0.05;
+  // Client-side sampling rate for anonymous events on the Segment wire
+  // only. The lambda sink is ours and takes every event; Segment is
+  // billed per event, so the anonymous population stays capped there.
+  // Identified events (those whose license token yielded a telemetry_id)
+  // bypass the gate on both wires.
+  private segmentSampleRate: number = 0.05;
   private anonymousId = `anon_${uuidv4()}`;
 
   constructor({
@@ -68,6 +75,8 @@ export class TelemetryClient {
     packageVersion: string;
     telemetryDisabled?: boolean;
     telemetryBaseUrl?: string;
+    // Anonymous sampling rate for the Segment wire. Named without the
+    // prefix for backward compatibility; the lambda sink ignores it.
     sampleRate?: number;
   }) {
     this.packageName = packageName;
@@ -95,9 +104,9 @@ export class TelemetryClient {
     });
   }
 
-  private shouldSendEvent() {
+  private shouldSendToSegment() {
     const randomNumber = Math.random();
-    return randomNumber < this.sampleRate;
+    return randomNumber < this.segmentSampleRate;
   }
 
   async capture<K extends keyof AnalyticsEvents>(
@@ -120,19 +129,29 @@ export class TelemetryClient {
       return;
     }
 
-    // Callers without license-derived sampling authority are gated by
-    // sampleRate. Legacy license tokens with telemetry_id always send —
-    // the volume is bounded by paying-customer count and full fidelity
-    // per identified customer is worth the marginal cost.
-    if (!identity.licenseTelemetryId && !this.shouldSendEvent()) {
-      return;
-    }
+    // The two wires are gated separately. The lambda sink takes every
+    // event: it is CopilotKit-owned, so anonymous volume costs nothing
+    // per event there and a real count beats one extrapolated from 5% of
+    // the population. Segment is billed per event, so it keeps the gate —
+    // callers without license-derived sampling authority are dropped from
+    // that copy at segmentSampleRate. Legacy license tokens with a
+    // telemetry_id send on both wires: the volume is bounded by
+    // paying-customer count and full fidelity per identified customer is
+    // worth the marginal cost.
+    const sendToSegment =
+      Boolean(identity.licenseTelemetryId) || this.shouldSendToSegment();
 
     // Sampling metadata is computed in ./sampling so this client and the
     // v2 runtime client can't drift apart again — see the note there.
-    const samplingMeta = computeSamplingMeta({
+    // One call per wire, because the two wires were gated differently and
+    // a shared block would overweight the lambda copy by 1/sampleRate.
+    const lambdaSamplingMeta = computeSamplingMeta({
       telemetryId: identity.licenseTelemetryId,
-      sampleRate: this.sampleRate,
+      sampleRate: UNSAMPLED_RATE,
+    });
+    const segmentSamplingMeta = computeSamplingMeta({
+      telemetryId: identity.licenseTelemetryId,
+      sampleRate: this.segmentSampleRate,
     });
 
     // Everything below travels identically on both copies of this event.
@@ -142,8 +161,8 @@ export class TelemetryClient {
     // duplication from $lib or from which fields happen to be present
     // (OSS-1019).
     const eventMeta = {
-      ...samplingMeta,
       telemetry_emitter: TELEMETRY_EMITTER_V1,
+      telemetry_surface: TELEMETRY_SURFACE_V1,
       telemetry_event_id: uuidv4(),
     };
 
@@ -151,6 +170,7 @@ export class TelemetryClient {
     const propertiesWithGlobal: Record<string, any> = {
       ...this.globalProperties,
       ...eventMeta,
+      ...segmentSamplingMeta,
       telemetry_transport: "segment",
       ...flattenedProperties,
     };
@@ -170,6 +190,7 @@ export class TelemetryClient {
       globalProperties: {
         ...this.globalProperties,
         ...eventMeta,
+        ...lambdaSamplingMeta,
         telemetry_transport: "lambda",
       },
       packageName: this.packageName,
@@ -178,7 +199,7 @@ export class TelemetryClient {
       licenseToken: identity.licenseToken ?? undefined,
     });
 
-    if (this.segment) {
+    if (this.segment && sendToSegment) {
       this.segment.track({
         anonymousId: this.anonymousId,
         event,
@@ -238,7 +259,7 @@ export class TelemetryClient {
    * Create an immutable capture scope for one runtime.
    *
    * The scope shares this client's sinks, process-wide opt-out, global
-   * properties, and sampling settings, but snapshots transport identity and
+   * properties, and Segment sampling rate, but snapshots transport identity and
    * license-derived sampling authority. Constructing another runtime cannot
    * rewrite an existing scope.
    *
@@ -290,16 +311,16 @@ export class TelemetryClient {
 
     // Number.isNaN guards against parseFloat("nonsense") slipping past the
     // range check (all NaN comparisons are false), which would silently
-    // drop every anonymous event with no signal — especially important
-    // since the default is now 0.05, making env-var overrides more common.
+    // drop every anonymous Segment event with no signal.
     if (Number.isNaN(_sampleRate) || _sampleRate < 0 || _sampleRate > 1) {
       throw new Error("Sample rate must be between 0 and 1");
     }
 
-    this.sampleRate = _sampleRate;
+    this.segmentSampleRate = _sampleRate;
     // Per-event sampling metadata (sampleRate/sampleRateAdjustmentFactor/
-    // sampleWeight) is computed per capture() in ./sampling. Only license-
-    // authorized events get effectiveSampleRate=1; standalone transport
-    // identity stays in the sampled population.
+    // sampleWeight) is computed per capture() in ./sampling, once per
+    // wire. Only license-authorized events get effectiveSampleRate=1 on
+    // the Segment copy; standalone transport identity stays in the
+    // sampled population there. The lambda copy is always unsampled.
   }
 }

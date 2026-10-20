@@ -237,7 +237,10 @@ describe("buildCellModel — comm-error overlay precedence", () => {
 
 describe("buildCellModel — starter axis (probeAxis: 'starter')", () => {
   const COL = "google-adk";
-  const STARTER_LEVELS = ["health", "agent", "chat", "interaction"] as const;
+  // The LADDER row keys, S1 -> S3. This was a LOCAL literal of the four legacy
+  // levels and imported neither deleted export, so it is one of the readers the
+  // export deletion could not red — it fails loudly at test-run time instead.
+  const STARTER_LEVELS = ["shell", "runtime", "agentrun"] as const;
   const STARTER_CELL = {
     slug: COL,
     featureId: "starter",
@@ -262,10 +265,9 @@ describe("buildCellModel — starter axis (probeAxis: 'starter')", () => {
 
   it("derives GREEN when every starter level is fresh-green", () => {
     const live = starterMap({
-      health: "green",
-      agent: "green",
-      chat: "green",
-      interaction: "green",
+      shell: "green",
+      runtime: "green",
+      agentrun: "green",
     });
     const model = buildCellModel(live, STARTER_CELL, NOW);
     expect(model.chipColor).toBe("green");
@@ -275,10 +277,9 @@ describe("buildCellModel — starter axis (probeAxis: 'starter')", () => {
 
   it("derives RED when any starter level is red", () => {
     const live = starterMap({
-      health: "green",
-      agent: "green",
-      chat: "green",
-      interaction: "red",
+      shell: "green",
+      runtime: "green",
+      agentrun: "red",
     });
     const model = buildCellModel(live, STARTER_CELL, NOW);
     expect(model.chipColor).toBe("red");
@@ -286,10 +287,9 @@ describe("buildCellModel — starter axis (probeAxis: 'starter')", () => {
 
   it("derives GRAY when a starter level row is missing (unverified)", () => {
     const live = starterMap({
-      health: "green",
-      agent: "green",
-      chat: "green",
-      // interaction missing
+      shell: "green",
+      runtime: "green",
+      // agentrun missing
     });
     const model = buildCellModel(live, STARTER_CELL, NOW);
     expect(model.chipColor).toBe("gray");
@@ -317,11 +317,11 @@ describe("buildCellModel — starter axis (probeAxis: 'starter')", () => {
     // red and the cell isn't wholly stale (3 fresh rows), so the matrix-stale
     // gray fold does NOT apply.
     const live: LiveStatusMap = new Map();
-    for (const level of ["health", "agent", "chat"] as const) {
+    for (const level of ["shell", "runtime"] as const) {
       const key = keyFor("starter", COL, level);
       live.set(key, row(key, "green"));
     }
-    const staleKey = keyFor("starter", COL, "interaction");
+    const staleKey = keyFor("starter", COL, "agentrun");
     live.set(staleKey, row(staleKey, "green", { observedAt: STALE_OBSERVED }));
 
     const model = buildCellModel(live, STARTER_CELL, NOW);
@@ -331,17 +331,12 @@ describe("buildCellModel — starter axis (probeAxis: 'starter')", () => {
   });
 
   it("derives GRAY with isStaleCell when ALL contributing rows are stale", () => {
-    // Every level present and green but ALL past the matrix window → the U8
+    // Every rung present and green but ALL past the matrix window → the U8
     // matrix-staleness fold collapses any colour to gray and flags the cell
     // stale ("re-sweep pending"). starterMap applies the one stale timestamp to
-    // all four rows.
+    // all three rungs.
     const live = starterMap(
-      {
-        health: "green",
-        agent: "green",
-        chat: "green",
-        interaction: "green",
-      },
+      { shell: "green", runtime: "green", agentrun: "green" },
       STALE_OBSERVED,
     );
     const model = buildCellModel(live, STARTER_CELL, NOW);

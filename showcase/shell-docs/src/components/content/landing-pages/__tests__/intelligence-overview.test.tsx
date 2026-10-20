@@ -31,21 +31,6 @@ afterEach(() => {
 });
 
 describe("IntelligenceOverview", () => {
-  it("renders the product demo and its actions without a duplicate page heading", () => {
-    render(<IntelligenceOverview />);
-
-    expect(screen.queryByRole("heading")).toBeNull();
-    expect(
-      screen.queryByText(/CopilotKit Intelligence adds persistent threads/i),
-    ).toBeNull();
-    expect(
-      screen.getByRole("button", { name: /copy onboarding prompt/i }),
-    ).toBeTruthy();
-
-    const connect = screen.getByRole("link", { name: /connect an app/i });
-    expect(connect.getAttribute("href")).toBe("/intelligence/quickstart");
-  });
-
   it("swallows autoplay rejection so the page still renders", async () => {
     const play = vi.fn().mockRejectedValue(new DOMException("blocked"));
     const originalPlay = HTMLMediaElement.prototype.play;
@@ -92,57 +77,22 @@ describe("IntelligenceOverview", () => {
     expect(video.controls).toBe(true);
     expect(video.muted).toBe(true);
     expect(video.loop).toBe(true);
-
-    const prompt = screen.getByRole("button", {
-      name: /copy onboarding prompt/i,
-    });
-    expect(
-      video.compareDocumentPosition(prompt) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
   });
 
   it("links each feature card to its guide", () => {
     render(<IntelligenceFeatureCards />);
 
-    expect(
-      screen
-        .getByRole("link", { name: "Open the Rich Threads guide" })
-        .getAttribute("href"),
-    ).toBe("/threads");
-    expect(
-      screen
-        .getByRole("link", { name: "Open the Memory guide" })
-        .getAttribute("href"),
-    ).toBe("/intelligence/memories");
-    expect(
-      screen
-        .getByRole("link", { name: "See Analytics on the product page" })
-        .getAttribute("href"),
-    ).toBe(
-      "https://www.copilotkit.ai/copilotkit-intelligence#analytics-insights",
-    );
-    expect(
-      screen
-        .getByRole("link", { name: "Open the Learning guide" })
-        .getAttribute("href"),
-    ).toBe("/learning");
-    expect(
-      screen
-        .getByRole("link", { name: "Open the self-hosting guide" })
-        .getAttribute("href"),
-    ).toBe("/intelligence/self-hosting");
-
-    for (const title of [
-      "Rich Threads",
-      "Memory",
-      "Analytics",
-      "Automatic Learning",
-      "Self-hosting",
-    ]) {
-      const card = screen
-        .getByRole("heading", { name: title })
-        .closest("article");
-      expect(card?.querySelector("svg")).toBeTruthy();
+    const expected: Array<[string, string]> = [
+      ["AG-UI Streams", "/threads"],
+      ["Channels", "/intelligence/channels"],
+      ["User Memories", "/intelligence/memories"],
+      ["Product Analytics", "/intelligence/analytics"],
+      ["Automatic Learning", "/learning"],
+      ["Inspector", "/inspector"],
+    ];
+    for (const [title, href] of expected) {
+      const card = screen.getByRole("link", { name: new RegExp(title) });
+      expect(card.getAttribute("href")).toBe(href);
     }
   });
 });

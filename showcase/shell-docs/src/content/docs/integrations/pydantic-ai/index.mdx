@@ -1,55 +1,90 @@
 ---
-title: Overview
+title: Introduction
 icon: "custom/pydantic"
 description: Bring your Pydantic AI agents to your users with CopilotKit via AG-UI.
 hideHeader: true
+# The landing page carries its own prompt button in the hero; the page-tools
+# row above the title would put a second one on the page, which the data-record
+# partner pages do not have.
+hidePageActions: true
 ---
 
 <FrameworkOverview
   frameworkName="Pydantic AI"
-  frameworkIcon={<PydanticAIIcon className="h-10 w-10" />}
+  frameworkIcon={<PydanticAIIcon className="h-12 w-12" />}
   header="Bring your Pydantic AI agents to your users"
-  subheader="Give your Pydantic AI agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications."
-  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  subheader="Pydantic AI runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/pydantic-ai/quickstart"
   initCommand="npx copilotkit@latest init"
-  featuresLink="https://feature-viewer.copilotkit.ai/pydantic-ai/feature/agentic_chat"
+  lede="Pydantic AI gives you the agent and the types around it: validated tools, typed results and the dependencies you hand in. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your agent already does."
   supportedFeatures={[
     {
       title: "Generative UI",
-      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
-      documentationLink: "/pydantic-ai/generative-ui",
-      demoLink: "https://feature-viewer.copilotkit.ai/pydantic-ai/feature/tool_based_generative_ui",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+      iconKey: "paintbrush",
+      description:
+        "Your agent calls typed tools as it runs. CopilotKit streams those calls to the browser and renders each one as a React component, instead of leaving the user with a spinner.",
+      documentationLink: "/pydantic-ai/generative-ui"
     },
     {
-      title: "Human in the Loop",
-      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
-      documentationLink: "/pydantic-ai/human-in-the-loop",
-      demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+      title: "Human-in-the-loop",
+      iconKey: "user",
+      description:
+        "A frontend tool registered with useHumanInTheLoop renders your own UI, waits for the user's answer, and hands it back to the agent as the tool result.",
+      documentationLink: "/pydantic-ai/human-in-the-loop"
     },
     {
-      title: "Shared State",
-      description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
-      documentationLink: "/pydantic-ai/shared-state",
-      demoLink: "https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
+      title: "Shared state",
+      iconKey: "repeat",
+      description:
+        "Your agent carries state between turns. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      documentationLink: "/pydantic-ai/shared-state"
     }
   ]}
-  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png"
-  liveDemos={[
-    {
-      type: "saas",
-      title: "SaaS Copilot",
-      description: "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
-      iframeUrl: "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true"
-    },
-    {
-      type: "canvas",
-      title: "Canvas Copilot",
-      description: "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
-      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
-    }
-  ]}
-/>
+  capabilitiesFootnote={{
+    text: "Chat surfaces, headless UI, frontend tools and multi-agent flows work with Pydantic AI too.",
+    linkLabel: "And more",
+    href: "/pydantic-ai/build-with-agents"
+  }}
+  connect={{
+    intro:
+      "Your agent keeps running as its own Python service, with the AGUIAdapter from pydantic_ai.ui.ag_ui in front of it. CopilotKit reaches that service over HTTP, so nothing inside the agent changes.",
+    filename: "app/api/copilotkit/route.ts",
+    language: "ts",
+    guideLink: "/pydantic-ai/quickstart"
+  }}
+  showcase={{
+    integration: "pydantic-ai",
+    intro:
+      "Pydantic AI and CopilotKit running together, in the React frontend. Every demo below is the same integration with one capability turned on.",
+    demos: [
+      { slug: "agentic-chat", title: "Pre-Built: CopilotChat" },
+      { slug: "hitl-in-chat", title: "Human In the Loop: In-chat" },
+      { slug: "shared-state-read-write", title: "Shared State: Read + Write" },
+      { slug: "gen-ui-agent", title: "Generative UI: Agent State" }
+    ]
+  }}
+>
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({ url: process.env.AGENT_URL! }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+```
+
+</FrameworkOverview>

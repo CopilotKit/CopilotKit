@@ -137,14 +137,10 @@ const tools = [scheduleMeeting];
 async function chatNode(state: AgentState, config: RunnableConfig) {
   // @doc-replace
   const model = makeChatOpenAI(config, {
-    temperature: 0,
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
   });
   // @doc-as
-  // const model = new ChatOpenAI({
-  //   temperature: 0,
-  //   model: "gpt-4o-mini",
-  // });
+  // const model = new ChatOpenAI({ model: "gpt-5-mini" });
   // @doc-end
 
   const modelWithTools = model.bindTools!([

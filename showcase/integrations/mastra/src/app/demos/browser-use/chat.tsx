@@ -3,8 +3,7 @@
 import React from "react";
 import { CopilotChat, useRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { BrowseResultsCard } from "./browse-results-card";
-import type { BrowseResult } from "./browse-results-card";
+import { BrowseResultsCard, type BrowseResult } from "./browse-results-card";
 import { parseJsonResult } from "../_shared/parse-json-result";
 import { useSuggestions } from "./suggestions";
 

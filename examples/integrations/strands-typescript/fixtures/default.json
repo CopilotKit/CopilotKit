@@ -19,6 +19,55 @@
       }
     },
     {
+      "match": { "toolCallId": "call_generate_a2ui_sales_001" },
+      "response": {
+        "content": "Here's your sales dashboard with revenue, customer, conversion, and sales metrics."
+      }
+    },
+    {
+      "match": { "toolCallId": "call_query_data_dashboard_001" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{\"user_intent\":\"Create a sales dashboard with total revenue, new customers, conversion rate, revenue by category, and monthly sales.\"}",
+            "id": "call_generate_a2ui_sales_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Create a sales dashboard with total revenue",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"sales-dashboard\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"metrics\",\"charts\"],\"gap\":16},{\"id\":\"metrics\",\"component\":\"Row\",\"children\":[\"revenue-card\",\"customers-card\",\"conversion-card\"],\"gap\":16},{\"id\":\"revenue-card\",\"component\":\"DashboardCard\",\"title\":\"Total Revenue\",\"child\":\"revenue\"},{\"id\":\"revenue\",\"component\":\"Metric\",\"label\":\"Total Revenue\",\"value\":\"$6.6M\",\"trend\":\"up\",\"trendValue\":\"+20%\"},{\"id\":\"customers-card\",\"component\":\"DashboardCard\",\"title\":\"New Customers\",\"child\":\"customers\"},{\"id\":\"customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"1,240\",\"trend\":\"up\"},{\"id\":\"conversion-card\",\"component\":\"DashboardCard\",\"title\":\"Conversion Rate\",\"child\":\"conversion\"},{\"id\":\"conversion\",\"component\":\"Metric\",\"label\":\"Conversion Rate\",\"value\":\"3.8%\",\"trend\":\"neutral\"},{\"id\":\"charts\",\"component\":\"Row\",\"children\":[\"revenue-chart-card\",\"sales-chart-card\"],\"gap\":16},{\"id\":\"revenue-chart-card\",\"component\":\"DashboardCard\",\"title\":\"Revenue by Category\",\"child\":\"revenue-chart\"},{\"id\":\"revenue-chart\",\"component\":\"PieChart\",\"data\":[{\"label\":\"Enterprise\",\"value\":3800000},{\"label\":\"SMB\",\"value\":1800000},{\"label\":\"Services\",\"value\":1000000}]},{\"id\":\"sales-chart-card\",\"component\":\"DashboardCard\",\"title\":\"Monthly Sales\",\"child\":\"sales-chart\"},{\"id\":\"sales-chart\",\"component\":\"BarChart\",\"data\":[{\"label\":\"Jan\",\"value\":900000},{\"label\":\"Feb\",\"value\":1100000},{\"label\":\"Mar\",\"value\":1300000}]}]}",
+            "id": "call_render_a2ui_sales_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "sales dashboard with total revenue",
+        "toolName": "query_data",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"financial sales data for a dashboard\"}",
+            "id": "call_query_data_dashboard_001"
+          }
+        ]
+      }
+    },
+    {
       "match": { "userMessage": "Hello" },
       "response": {
         "content": "Hello! I'm your todo app assistant. I can help you manage your tasks, query data, and more. Here's what I can do:\n\n- **Manage Todos** - Add, update, or remove tasks\n- **View Todos** - See your current task list\n- **Query Data** - Look up and analyze data\n- **Search Flights** - Find flight information\n\nWhat would you like to do today?"

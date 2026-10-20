@@ -3,6 +3,8 @@ title: Channels SDK
 description: API reference for managed and direct provider agents built with @copilotkit/channels.
 ---
 
+import ChannelsInstall from "@/snippets/shared/channels/install.mdx";
+
 The Channels SDK connects an agent to chat providers through a long-running
 `@copilotkit/channels` process. In the managed Slack and Microsoft Teams path,
 CopilotKit Intelligence owns the provider connection while your process owns
@@ -10,9 +12,7 @@ the agent, tools, approvals, state, and deployment. The package also exports
 developer-operated direct adapters for Slack, Teams, Discord, Telegram, and
 WhatsApp.
 
-```sh
-npm install --save-exact @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0
-```
+<ChannelsInstall />
 
 ## API reference
 

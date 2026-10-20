@@ -34,40 +34,44 @@ vi.mock("react-native", async () => {
 });
 
 import { CopilotChat } from "../CopilotChat";
-import { useRenderTool } from "../../hooks/useRenderTool";
+import { useRenderTool } from "../../headless";
 import { TestCopilotKit } from "../../__mocks__/test-copilotkit";
 import { assistantToolCall, toolMessage } from "../../__mocks__/tool-fixtures";
 
-// Reports status + args only. Assertions about the RESULT must NOT use this one:
-// its output cannot distinguish "the correlated result reached the renderer" from
-// "status flipped for some other reason", which is how a corrupted tool-message
-// content passed unnoticed. Use `ReportRegistrar` below for those.
+// Every registrar in this file uses `useRenderTool`, i.e. react-core's
+// RENDERER-ONLY hook (RN re-exports it and owns no hook of its own). None of them
+// registers a callable tool, which is exactly right here: the chat's job is to
+// paint a tool call, and whether the tool is the frontend's or the server's makes
+// no difference to that.
+//
+// Reports status + parameters only. Assertions about the RESULT must NOT use this
+// one: its output cannot distinguish "the correlated result reached the renderer"
+// from "status flipped for some other reason", which is how a corrupted
+// tool-message content passed unnoticed. Use `ReportRegistrar` below for those.
 function Registrar() {
   useRenderTool({
     name: "showPlaces",
-    description: "Show places",
     parameters: z.object({ title: z.string() }),
-    // Tolerates partial props — that is the contract while streaming.
-    render: ({ args, status }) => (
-      <div data-testid="places">{`${status}:${(args as { title?: string }).title ?? ""}`}</div>
+    // Tolerates partial parameters — that is the contract while streaming.
+    render: ({ parameters, status }) => (
+      <div data-testid="places">{`${status}:${parameters.title ?? ""}`}</div>
     ),
   });
   return null;
 }
 
-// Reports status, args AND result together, so one assertion observes the whole
-// output of the `toolCallId -> ToolMessage` correlation: the status it derived,
-// the args it parsed, and the result content it actually handed the renderer.
-// `undefined` is spelled out rather than stringified, so an absent result stays
-// distinguishable from an empty-string one.
+// Reports status, parameters AND result together, so one assertion observes the
+// whole output of the `toolCallId -> ToolMessage` correlation: the status it
+// derived, the parameters it parsed, and the result content it actually handed
+// the renderer. `undefined` is spelled out rather than stringified, so an absent
+// result stays distinguishable from an empty-string one.
 function ReportRegistrar() {
   useRenderTool({
     name: "reportPlaces",
-    description: "Report places",
     parameters: z.object({ title: z.string() }),
-    render: ({ args, status, result }) => (
+    render: ({ parameters, status, result }) => (
       <div data-testid="report">
-        {`${status}:${(args as { title?: string }).title ?? ""}|${
+        {`${status}:${parameters.title ?? ""}|${
           result === undefined ? "<no result>" : result
         }`}
       </div>
@@ -76,14 +80,15 @@ function ReportRegistrar() {
   return null;
 }
 
-// Renders the raw args object it receives, so tests can assert exactly what the
-// renderer got for degenerate argument strings (empty / unparseable).
+// Renders the raw parameters object it receives, so tests can assert exactly what
+// the renderer got for degenerate argument strings (empty / unparseable).
 function ArgsRegistrar() {
   useRenderTool({
     name: "echoArgs",
-    description: "Echo args",
     parameters: z.object({}),
-    render: ({ args }) => <div data-testid="args">{JSON.stringify(args)}</div>,
+    render: ({ parameters }) => (
+      <div data-testid="args">{JSON.stringify(parameters)}</div>
+    ),
   });
   return null;
 }
@@ -94,7 +99,6 @@ function ArgsRegistrar() {
 function ResultRegistrar() {
   useRenderTool({
     name: "echoResult",
-    description: "Echo result",
     parameters: z.object({}),
     render: ({ status, result }) => (
       <div data-testid="result">{`${status}|${String(result)}`}</div>
@@ -424,17 +428,73 @@ describe("CopilotChat tool-result content", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("serialises ARRAY tool content instead of collapsing it to an empty result", () => {
-    // The silent-failure regression: array content (structured / attachment
-    // parts) was coerced to "", which a renderer cannot distinguish from a tool
-    // that genuinely returned nothing.
+  it("renders PARTS tool content as its text, without a warning", () => {
+    // AG-UI 1.0: a tool result may be a list of content parts. That is
+    // legitimate content, not a malformed message: the renderer gets the text
+    // parts concatenated and the media part contributes nothing to the string.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    renderWithResult([{ type: "text", text: "hello" }]);
+    renderWithResult([
+      { type: "text", text: "hello " },
+      {
+        type: "image",
+        source: { type: "url", value: "https://example.com/x.png" },
+      },
+      { type: "text", text: "world" },
+    ]);
     expect(screen.getByTestId("result").textContent).toBe(
-      'complete|[{"type":"text","text":"hello"}]',
+      "complete|hello world",
+    );
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("treats a part with a provider file handle as a part, without a warning", () => {
+    // AG-UI 1.0 adds the `file` source: a handle the model provider issued.
+    // It is a real part; it adds nothing to the string, like other media.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult([
+      { type: "text", text: "see file" },
+      { type: "document", source: { type: "file", value: "file-abc123" } },
+    ]);
+    expect(screen.getByTestId("result").textContent).toBe("complete|see file");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("serialises an ARRAY that is not parts instead of collapsing it to an empty result", () => {
+    // The silent-failure regression: array content that is not a parts list
+    // was coerced to "", which a renderer cannot distinguish from a tool that
+    // genuinely returned nothing.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult(["hello", 42]);
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|["hello",42]',
     );
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]?.[0])).toContain("tc1");
+  });
+
+  it("serialises a media part whose inline source lacks its mime type, and warns", () => {
+    // Inline bytes without a mimeType is a malformed part, not a part: the
+    // schema rejects it, so it keeps the serialise-and-warn path.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult([
+      { type: "image", source: { type: "data", value: "abc" } },
+    ]);
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|[{"type":"image","source":{"type":"data","value":"abc"}}]',
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("serialises an ARRAY of typed records that are not content parts, and warns", () => {
+    // A `type` field alone does not make a part. Restored or unvalidated
+    // content like this used to be serialised and warned about, and must not
+    // silently become an empty result now that parts are accepted.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderWithResult([{ type: "record", answer: 42 }]);
+    expect(screen.getByTestId("result").textContent).toBe(
+      'complete|[{"type":"record","answer":42}]',
+    );
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("serialises OBJECT tool content instead of collapsing it to an empty result", () => {

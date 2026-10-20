@@ -1,7 +1,7 @@
+import type { Injector, Type } from "@angular/core";
 import {
   Component,
   TemplateRef,
-  Type,
   ViewContainerRef,
   computed,
   effect,
@@ -10,7 +10,7 @@ import {
   viewChild,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
-import { SlotOutputs } from "./slot.types";
+import type { SlotOutputs } from "./slot.types";
 import { slotBindings, slotInputNames } from "./slot.utils";
 
 /**
@@ -22,7 +22,7 @@ import { slotBindings, slotInputNames } from "./slot.utils";
  * - A component slot (or `defaultComponent`) is created with `context` keys
  *   bound to its matching inputs and `outputs` handlers bound to its matching
  *   outputs. Bound values stay live; the component is only recreated when the
- *   resolved type or set of bound input names changes.
+ *   resolved type, the set of bound input names, or the `injector` changes.
  * - With neither a slot nor a default component, the projected content shows.
  *
  * @example
@@ -50,6 +50,8 @@ export class CopilotSlot {
   readonly context = input<object>();
   readonly defaultComponent = input<Type<unknown>>();
   readonly outputs = input<SlotOutputs>();
+  /** Element injector for the created component. */
+  readonly injector = input<Injector>();
 
   private readonly host = viewChild.required("host", {
     read: ViewContainerRef,
@@ -84,8 +86,10 @@ export class CopilotSlot {
       const type = this.componentType();
       if (!type) return;
       const inputNames = this.inputNames();
+      const injector = this.injector();
       const ref = untracked(() =>
         this.host().createComponent(type, {
+          injector,
           bindings: slotBindings(
             type,
             inputNames,

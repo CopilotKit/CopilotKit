@@ -9,6 +9,7 @@ import type { ProbesRouteDeps } from "./probes.js";
 import { registerFleetRunsRoutes } from "./fleet-runs.js";
 import type { FleetRunsRouteDeps } from "./fleet-runs.js";
 import { registerMatrixRoute } from "./matrix.js";
+import { registerCompatibilityRoutes } from "./compatibility.js";
 import { renderPrometheus } from "./metrics.js";
 import type { MetricsRegistry } from "./metrics.js";
 
@@ -139,6 +140,12 @@ export function buildServer(deps: ServerDeps): Hono {
   // unconditionally — it is a pure read over `pb` (always on ServerDeps) with
   // no mutating route, matching /api/runs' exposure posture (§11.7).
   registerMatrixRoute(app, { pb: deps.pb, logger: deps.logger });
+  registerCompatibilityRoutes(app, {
+    pb: deps.pb,
+    logger: deps.logger,
+    secrets: deps.webhookSecrets ?? [],
+    environmentId: process.env.RAILWAY_ENVIRONMENT_ID,
+  });
 
   if (deps.metrics) {
     const registry = deps.metrics;

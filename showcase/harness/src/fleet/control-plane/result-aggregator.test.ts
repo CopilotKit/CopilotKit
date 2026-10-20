@@ -19,10 +19,12 @@ import {
   FLEET_COMM_ERROR_SIGNAL_KEY,
   commErrorFromStatusSignal,
   probeResultsForServiceJobResult,
-  type PoolCommError,
-  type ServiceJobResult,
 } from "../contracts.js";
-import { createResultAggregator } from "./result-aggregator.js";
+import type { PoolCommError, ServiceJobResult } from "../contracts.js";
+import {
+  createResultAggregator,
+  createJobFeatureScopeResolver,
+} from "./result-aggregator.js";
 import { createStatusWriter } from "../../writers/status-writer.js";
 
 // Wrap the projection in a PASSTHROUGH vi.fn so the empty-projection guard
@@ -252,8 +254,13 @@ function makeFakeRunWriter(): {
     async findByJobId(jobId) {
       if (!jobId) return null;
       // Newest-first, mirroring the real -started_at sort.
-      const match = [...rows].reverse().find((r) => r.jobId === jobId);
-      return match ? { id: match.id, terminal: match.terminal } : null;
+      for (let index = rows.length - 1; index >= 0; index -= 1) {
+        const match = rows[index];
+        if (match.jobId === jobId) {
+          return { id: match.id, terminal: match.terminal };
+        }
+      }
+      return null;
     },
     async update(opts) {
       calls.update.push(opts);
@@ -3492,5 +3499,121 @@ describe("[H1] comm-error overlay preserves attribution + counters (real status-
     expect(row.first_failure_at).toBe("2026-06-03T23:00:00.000Z");
     expect(row.state).toBe("red");
     expect(commErrorFromStatusSignal(row.signal)).toEqual(SAMPLE_COMM_ERROR);
+  });
+});
+
+describe("selected observation caller", () => {
+  it("reads selection from persisted payload and rejects unknown scope", async () => {
+    const getOne = vi
+      .fn()
+      .mockResolvedValueOnce({
+        id: "j",
+        payload: { driverKind: "e2e_d6", cellIds: ["shared-state"] },
+      })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "j",
+        payload: { driverKind: "e2e_d6", cellIds: [0] },
+      });
+    const resolve = createJobFeatureScopeResolver({ getOne });
+    await expect(resolve("j")).resolves.toEqual(["shared-state"]);
+    await expect(resolve("j")).rejects.toThrow("unknown scope");
+    await expect(resolve("j")).rejects.toThrow("invalid scope");
+  });
+
+  it.each(["d6:langgraph-python", "d5-single-pill-e2e:langgraph-python"])(
+    "writes only selected canonical cells for %s without changing raw result",
+    async (aggregateKey) => {
+      const statusFake = makeFakeStatusWriter();
+      const runFake = makeFakeRunWriter();
+      const result = makeResult({
+        aggregateKey,
+        cells: makeResult().cells.map((c) => ({
+          ...c,
+          cellKey: c.cellKey.replace(
+            "d6:",
+            aggregateKey.startsWith("d5") ? "d5:" : "d6:",
+          ),
+        })),
+      });
+      const before = JSON.stringify(result);
+      const writeSelected = vi.fn<NonNullable<StatusWriter["writeSelected"]>>(
+        async ({ result: observation }) => ({
+          kind: "write",
+          value: {
+            previousState: null,
+            newState: observation.state,
+            transition: "first",
+            firstFailureAt: null,
+            failCount: 0,
+            persisted: true,
+          },
+        }),
+      );
+      const aggregator = createResultAggregator({
+        statusWriter: { ...statusFake.writer, writeSelected },
+        runWriter: runFake.writer,
+        logger: makeLogger(),
+        now: () => 1000,
+        resolveFeatureScope: async () => ["shared-state"],
+      });
+      await aggregator.aggregate(result);
+      expect(writeSelected).toHaveBeenCalledTimes(1);
+      expect(writeSelected.mock.calls[0][0].result.key).toBe(
+        aggregateKey.startsWith("d5")
+          ? "d5:langgraph-python/shared-state"
+          : "d6:langgraph-python/shared-state",
+      );
+      expect(statusFake.writes).toHaveLength(0);
+      expect(statusFake.overlays).toHaveLength(0);
+      expect(JSON.stringify(result)).toBe(before);
+      expect(runFake.calls.finish[0]).toMatchObject({
+        required: true,
+        summary: { selectedObservationFingerprint: expect.any(String) },
+      });
+    },
+  );
+
+  it("propagates selected write and finish failures, and repairs an uncertified terminal run", async () => {
+    const statusFake = makeFakeStatusWriter();
+    const runFake = makeFakeRunWriter();
+    runFake.rows.push({ id: "prior", jobId: "job-1", terminal: true });
+    const writeSelected = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("atomic failure"))
+      .mockResolvedValue({
+        kind: "write",
+        value: {
+          previousState: null,
+          newState: "green",
+          transition: "first",
+          firstFailureAt: null,
+          failCount: 0,
+          persisted: true,
+        },
+      });
+    const aggregator = createResultAggregator({
+      statusWriter: { ...statusFake.writer, writeSelected },
+      runWriter: runFake.writer,
+      logger: makeLogger(),
+      now: () => 1000,
+      resolveFeatureScope: async () => ["shared-state"],
+    });
+    await expect(aggregator.aggregate(makeResult())).rejects.toThrow(
+      "atomic failure",
+    );
+    expect(runFake.calls.update[0]).toMatchObject({
+      id: "prior",
+      reopen: true,
+    });
+    expect(runFake.calls.finish).toHaveLength(0);
+    expect(runFake.calls.start).toHaveLength(0);
+    runFake.writer.finish = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("finish failed"));
+    await expect(aggregator.aggregate(makeResult())).rejects.toThrow(
+      "finish failed",
+    );
+    expect(statusFake.writes).toHaveLength(0);
   });
 });

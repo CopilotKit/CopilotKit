@@ -25,6 +25,11 @@ name: "Showcase: Promote (staging → prod)"
 on:
   workflow_dispatch:
     inputs:
+      validate_registry_only:
+        description: "Validate the real registry reader without promoting or probing services"
+        required: false
+        default: false
+        type: boolean
       service:
         description: "Service to promote (dispatch_name or SSOT key). 'all' = whole fleet. Leave the placeholder to abort."
         required: true
@@ -42,6 +47,7 @@ on:
           - crewai-conversational-flows
           - crewai-crews
           - google-adk
+          - google-antigravity
           - langgraph-fastapi
           - langgraph-python
           - langgraph-typescript
@@ -86,7 +92,7 @@ on:
 # at once; `cancel-in-progress: false` ensures an in-flight prod promote is
 # never cancelled by a newer run queued behind it.
 concurrency:
-  group: showcase-promote
+  group: ${{ inputs.validate_registry_only == true && format('showcase-promote-registry-validation-{0}', github.run_id) || 'showcase-promote' }}
   cancel-in-progress: false
 
 permissions:
@@ -94,6 +100,7 @@ permissions:
 
 jobs:
   resolve-targets:
+    if: ${{ inputs.validate_registry_only != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
@@ -113,7 +120,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.x
       - name: Generate SSOT artifact
@@ -149,6 +156,7 @@ jobs:
         run: showcase/scripts/resolve-promote-targets.sh
 
   verify-staging-precondition:
+    if: ${{ inputs.validate_registry_only != true }}
     needs: [resolve-targets]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -159,7 +167,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.x
       - working-directory: showcase/scripts
@@ -204,7 +212,7 @@ jobs:
     # stays as an advisory early signal surfaced in the notify payload, not a
     # hard blocker. `!cancelled()` keeps a human-cancelled run from promoting;
     # mirrors the verify-prod gate idiom below.
-    if: ${{ !cancelled() && needs.resolve-targets.result == 'success' }}
+    if: ${{ !cancelled() && (inputs.validate_registry_only == true || needs.resolve-targets.result == 'success') }}
     runs-on: ubuntu-latest
     # promote-fleet.sh now fans out promotes WITHIN a tier (PROMOTE_FANOUT, cap
     # 5) instead of running the whole fleet serially. Even so, the largest tier
@@ -240,28 +248,54 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
         with:
           ruby-version: "3.3"
           bundler-cache: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.x
+      # The Ruby lifecycle bridge resolves tsx from repository-root node_modules.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Install registry reader tooling
+        run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
       - working-directory: showcase/scripts
         # Same EPHEMERAL regeneration as resolve-targets: bin/railway reads this
-        # JSON to derive EXPECTED_DOMAINS and it is never committed, so skip the
-        # oxfmt-canonical pass (repo-root oxfmt is not installed by this job's
-        # showcase/scripts-scoped `npm ci`; an ENOENT here would abort promote).
+        # JSON to derive EXPECTED_DOMAINS. This runtime-only regeneration does
+        # not need the formatting pass used for checked-in generated output.
         env:
           EMIT_SKIP_OXFMT: "1"
         run: |
           npm ci
           npx tsx emit-railway-envs-json.ts
+      # This calls only capture_snapshots + filter_disposable_snapshots!.
+      # The shared reader performs the authenticated policy check and real ack.
+      - name: Validate registry reader without promotion
+        if: ${{ inputs.validate_registry_only == true }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: ${{ vars.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN: ${{ secrets.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN }}
+          SHOWCASE_REGISTRY_CONSUMER: ruby-promotion
+        run: ruby showcase/scripts/validate-registry.rb "$RUNNER_TEMP/registry-validation.json"
+      - name: Retain safe registry validation receipt
+        if: ${{ inputs.validate_registry_only == true }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: showcase_promote-registry-validation
+          path: ${{ runner.temp }}/registry-validation.json
+          if-no-files-found: error
+          retention-days: 14
+
       - name: bin/railway promote
+        if: ${{ inputs.validate_registry_only != true }}
         id: promote
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: ${{ vars.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN: ${{ secrets.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN }}
+          SHOWCASE_REGISTRY_CONSUMER: ruby-promotion
           # Tier-ordered closure plan (U4): promote-fleet.sh prefers CLOSURE_PLAN
           # over SERVICES_CSV, promoting BY TIER (0->1->2) with dependent-tier
           # gating AND within-tier parallel fan-out (PROMOTE_FANOUT). A serial
@@ -278,6 +312,12 @@ jobs:
             echo "::error::RAILWAY_TOKEN is not set"
             exit 1
           fi
+          if [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] && [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            unset SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE
+          elif [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] || [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            echo "::error::Configure both registry URL and token, or neither."
+            exit 1
+          fi
           # promote-fleet.sh runs each service in turn BEST-EFFORT: a single
           # red service (e.g. a chronically-broken integration in the `all`
           # set) must not abort promotion of the rest of the fleet. The script
@@ -292,6 +332,23 @@ jobs:
           RAILWAY_BIN="showcase/bin/railway" \
             showcase/scripts/promote-fleet.sh
 
+  compatibility-refresh:
+    needs: [promote]
+    if: ${{ !cancelled() && inputs.validate_registry_only != true && needs.promote.outputs.succeeded_csv != '' }}
+    permissions:
+      contents: read
+      packages: read
+    # GitHub supports self-repository calls since 2026-07-30. actionlint 1.7.12
+    # still rejects this valid syntax (rhysd/actionlint#760); keep it for Zizmor
+    # and exact-commit resolution rather than reverting to a workspace path.
+    uses: $/.github/workflows/showcase_compatibility.yml
+    with:
+      environment: prod
+      services_csv: ${{ needs.promote.outputs.succeeded_csv }}
+    secrets:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SHOWCASE_HARNESS_SHARED_SECRET: ${{ secrets.SHOWCASE_HARNESS_SHARED_SECRET }}
+
   verify-prod:
     needs: [resolve-targets, promote]
     # Run whenever promote actually RAN — success OR partial failure — so the
@@ -301,7 +358,7 @@ jobs:
     # Under the default `if: success()` this job was SKIPPED on any partial
     # promote failure, leaving the promoted services with zero prod
     # verification — that is the bug this gate fixes.
-    if: ${{ !cancelled() && needs.promote.result != 'skipped' }}
+    if: ${{ !cancelled() && inputs.validate_registry_only != true && needs.promote.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: railway
@@ -321,7 +378,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.x
       - working-directory: showcase/scripts
@@ -490,7 +547,7 @@ jobs:
     #                                  service failed).
     #   verify-prod                  = verifies the succeeded subset.
     needs: [resolve-targets, verify-staging-precondition, promote, verify-prod]
-    if: always()
+    if: ${{ always() && inputs.validate_registry_only != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -606,7 +663,7 @@ jobs:
       - name: Mint devops-bot token
         id: app-token
         if: steps.payload.outputs.dispatch == '1'
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           app-id: 1108748
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}

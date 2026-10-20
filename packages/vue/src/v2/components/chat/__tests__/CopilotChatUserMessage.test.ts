@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { h, nextTick } from "vue";
+import { defineComponent, h, nextTick } from "vue";
+import { render, screen } from "@testing-library/vue";
 import { mount } from "@vue/test-utils";
 import type { UserMessage } from "@ag-ui/core";
 import { CopilotChatDefaultLabels } from "../../../providers/types";
 import CopilotChatUserMessage from "../CopilotChatUserMessage.vue";
+import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
 
 describe("CopilotChatUserMessage", () => {
   let originalClipboard: Clipboard | undefined;
@@ -99,6 +101,45 @@ describe("CopilotChatUserMessage", () => {
         )
         .exists(),
     ).toBe(false);
+  });
+
+  it("names the branch buttons with the configured labels", () => {
+    const Host = defineComponent({
+      components: { CopilotChatConfigurationProvider, CopilotChatUserMessage },
+      setup() {
+        return {
+          message: {
+            id: "user-5",
+            role: "user",
+            timestamp: new Date(),
+            content: "Branch message",
+          } as UserMessage,
+          labels: {
+            userMessageToolbarPreviousBranchLabel: "Vorherige Antwort",
+            userMessageToolbarNextBranchLabel: "Nächste Antwort",
+          },
+          onSwitchToBranch: vi.fn(),
+        };
+      },
+      template: `
+        <CopilotChatConfigurationProvider thread-id="thread-1" :labels="labels">
+          <CopilotChatUserMessage
+            :message="message"
+            :branch-index="1"
+            :number-of-branches="3"
+            :on-switch-to-branch="onSwitchToBranch"
+          />
+        </CopilotChatConfigurationProvider>
+      `,
+    });
+    render(Host);
+
+    expect(
+      screen.getByRole("button", { name: "Vorherige Antwort" }),
+    ).toBeDefined();
+    expect(
+      screen.getByRole("button", { name: "Nächste Antwort" }),
+    ).toBeDefined();
   });
 
   it("renders branch navigation and emits switch payload exactly once", async () => {
@@ -252,6 +293,52 @@ describe("CopilotChatUserMessage", () => {
       numberOfBranches: 3,
       message,
     });
+  });
+
+  it("disables custom branch commands when no switch callback is available", async () => {
+    const message: UserMessage = {
+      id: "user-no-branch-handler",
+      role: "user",
+      timestamp: new Date(),
+      content: "Custom branch controls without a handler",
+    };
+
+    const wrapper = mount(CopilotChatUserMessage, {
+      props: {
+        message,
+        branchIndex: 0,
+        numberOfBranches: 2,
+      },
+      slots: {
+        "branch-navigation": ({
+          canGoPrev,
+          canGoNext,
+          goNext,
+        }: {
+          canGoPrev: boolean;
+          canGoNext: boolean;
+          goNext: () => void;
+        }) =>
+          h("div", [
+            h(
+              "span",
+              { "data-testid": "branch-capabilities" },
+              `${canGoPrev}:${canGoNext}`,
+            ),
+            h(
+              "button",
+              { "data-testid": "branch-next", onClick: goNext },
+              "next",
+            ),
+          ]),
+      },
+    });
+
+    expect(wrapper.get("[data-testid='branch-capabilities']").text()).toBe(
+      "false:false",
+    );
+    await wrapper.get("[data-testid='branch-next']").trigger("click");
+    expect(wrapper.emitted("switch-to-branch")).toBeUndefined();
   });
 
   it("supports custom layout slot with all control callbacks", async () => {

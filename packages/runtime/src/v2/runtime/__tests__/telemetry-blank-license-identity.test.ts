@@ -18,7 +18,13 @@ function jwtWithTelemetryId(telemetryId: string): string {
   return `header.${payload}.sig`;
 }
 
-/** Creates one isolated V2 telemetry capture with a fixed sampling decision. */
+/**
+ * Creates one isolated V2 telemetry capture.
+ *
+ * `randomValue` no longer decides anything — this client does not sample.
+ * The spy stays so the tests can assert it is never consulted, which is
+ * what would break if a gate came back.
+ */
 function setupRuntimeCapture(
   randomValue: number,
   telemetryId: string = " \t ",
@@ -27,10 +33,7 @@ function setupRuntimeCapture(
   delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
   const randomSpy = vi.spyOn(Math, "random").mockReturnValue(randomValue);
   const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-  const client = new TelemetryClient({
-    telemetryDisabled: false,
-    sampleRate: 0.05,
-  });
+  const client = new TelemetryClient({ telemetryDisabled: false });
   client.setLicenseToken(jwtWithTelemetryId(telemetryId));
 
   return {
@@ -48,22 +51,26 @@ function setupRuntimeCapture(
   };
 }
 
-test("V2 whitespace-only legacy claim stays subject to sampling", async () => {
+test("V2 whitespace-only legacy claim is rejected as an identity", async () => {
   const sinkSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
   const { client, randomSpy, teardown } = setupRuntimeCapture(0.99);
 
   try {
     await client.capture("oss.runtime.instance_created", instanceCreatedEvent);
 
-    expect(randomSpy).toHaveBeenCalledTimes(1);
-    expect(sinkSpy).not.toHaveBeenCalled();
+    // The event goes either way. What proves the claim was rejected is
+    // that it goes marked anonymous, and with no identity header.
+    expect(randomSpy).not.toHaveBeenCalled();
+    expect(sinkSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      telemetry_identified: false,
+    });
   } finally {
     sinkSpy.mockRestore();
     teardown();
   }
 });
 
-test("V2 sampled whitespace-only legacy claim sends no identity header", async () => {
+test("V2 whitespace-only legacy claim sends no identity header", async () => {
   const fetchSpy = vi
     .spyOn(globalThis, "fetch")
     .mockResolvedValue(new Response("", { status: 202 }));
@@ -72,7 +79,7 @@ test("V2 sampled whitespace-only legacy claim sends no identity header", async (
   try {
     await client.capture("oss.runtime.instance_created", instanceCreatedEvent);
 
-    expect(randomSpy).toHaveBeenCalledTimes(1);
+    expect(randomSpy).not.toHaveBeenCalled();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const request = fetchSpy.mock.calls[0]?.[1];
     expect(
@@ -85,7 +92,7 @@ test("V2 sampled whitespace-only legacy claim sends no identity header", async (
 });
 
 test.each(["bad\nid", "bad\u0000id", "tenant-🚀"])(
-  "V2 header-invalid legacy claim %j stays subject to sampling",
+  "V2 header-invalid legacy claim %j is rejected as an identity",
   async (invalidTelemetryId) => {
     const sinkSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
     const { client, randomSpy, teardown } = setupRuntimeCapture(
@@ -99,8 +106,10 @@ test.each(["bad\nid", "bad\u0000id", "tenant-🚀"])(
         instanceCreatedEvent,
       );
 
-      expect(randomSpy).toHaveBeenCalledTimes(1);
-      expect(sinkSpy).not.toHaveBeenCalled();
+      expect(randomSpy).not.toHaveBeenCalled();
+      expect(sinkSpy.mock.calls[0][0].globalProperties).toMatchObject({
+        telemetry_identified: false,
+      });
     } finally {
       sinkSpy.mockRestore();
       teardown();

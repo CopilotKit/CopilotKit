@@ -15,6 +15,7 @@ import {
   resolveD6Row,
   resolveStarterRow,
   starterIsSupported,
+  starterSupport,
   statusSignalHasCommErrorKey,
   upsertByKey,
 } from "./live-status";
@@ -1381,10 +1382,13 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
 
 const NOW = Date.now();
 
-describe("STARTER_COLUMNS (§a 12-mapped / 7-not-supported split)", () => {
-  it("contains exactly the 12 mapped columns", () => {
-    // 12 mapped + 7 not-supported = 19 columns. Guards the dashboard's copy
-    // of the harness STARTER_TO_COLUMN value set against silent rot.
+describe("STARTER_COLUMNS (probed / unprobed / unsupported split)", () => {
+  it("contains exactly the 12 probed columns", () => {
+    // A COUNT is not a drift guard — this assertion held at 12 for the entire
+    // time three real starters were being reported as unsupported frameworks.
+    // The real guards are `starter-mapping-drift.test.ts` (filesystem- and
+    // CI-matrix-derived) and `starter-column-equality.test.ts` (set equality
+    // with the harness producer map). This one only pins the current size.
     expect(STARTER_COLUMNS.size).toBe(12);
   });
 
@@ -1407,16 +1411,43 @@ describe("STARTER_COLUMNS (§a 12-mapped / 7-not-supported split)", () => {
     }
   });
 
-  it("treats the 7 unmapped columns as not supported", () => {
+  it("treats only the 5 genuinely starter-less columns as not supported", () => {
+    // These are the ONLY columns allowed to render the outward-facing ∅
+    // "Not supported by this framework" claim: no `examples/integrations/<slug>`
+    // directory exists for any of them. `crewai-conversational-flows` is NOT
+    // here: it WAS, pending "a human decision on whether the matrix's
+    // `crewai-flows` is this column", until the tree turned out to answer it —
+    // the column's manifest and the starter's docs page advertise the same
+    // `init --framework flows` scaffold. It is now `unprobed` (below).
     for (const col of [
       "ag2",
-      "claude-sdk-python",
-      "claude-sdk-typescript",
       "langroid",
       "spring-ai",
       "built-in-agent",
       "ms-agent-harness-dotnet",
     ]) {
+      expect(starterSupport(col)).toBe("unsupported");
+      expect(starterIsSupported(col)).toBe(false);
+    }
+  });
+
+  it("treats columns with a real but unprobed starter as 'unprobed', never 'unsupported'", () => {
+    // These shipped a starter under `examples/integrations/` the whole time the
+    // dashboard claimed their framework was unsupported.
+    //
+    // `crewai-conversational-flows`'s starter is `crewai-flows` — the name
+    // drifts, so the pairing is declared in `UNPROBED_STARTER_TO_COLUMN`
+    // (harness `starter-mapping.ts`) and guarded against the manifests + docs
+    // by `starter-mapping-drift.test.ts`. It stays UNPROBED rather than probed:
+    // it is the one smoke-matrix starter with no root `Dockerfile`, so
+    // `build-starters` publishes no image and no Railway service exists.
+    for (const col of [
+      "strands-typescript",
+      "claude-sdk-python",
+      "claude-sdk-typescript",
+      "crewai-conversational-flows",
+    ]) {
+      expect(starterSupport(col)).toBe("unprobed");
       expect(starterIsSupported(col)).toBe(false);
     }
   });
@@ -1444,7 +1475,7 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
   it("✓ healthy: green row → green ✓", () => {
     const b = buildStarterBadge(
       "health",
-      true,
+      "probed",
       row("starter:agno/health", "starter", "green"),
       NOW,
       "live",
@@ -1456,7 +1487,7 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
   it("red ✗ smoke-failed: red row → red ✗", () => {
     const b = buildStarterBadge(
       "chat",
-      true,
+      "probed",
       row("starter:agno/chat", "starter", "red"),
       NOW,
       "live",
@@ -1469,7 +1500,7 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
     const stale = row("starter:agno/agent", "starter", "green", {
       observed_at: new Date(NOW - STARTER_STALE_AFTER_MS - 1).toISOString(),
     });
-    const b = buildStarterBadge("agent", true, stale, NOW, "live");
+    const b = buildStarterBadge("agent", "probed", stale, NOW, "live");
     expect(b.tone).toBe("amber");
     expect(b.label).toBe("~");
     // The downgraded effective row's state agrees with the tone.
@@ -1480,7 +1511,7 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
     const atBoundary = row("starter:agno/agent", "starter", "green", {
       observed_at: new Date(NOW - STARTER_STALE_AFTER_MS).toISOString(),
     });
-    const b = buildStarterBadge("agent", true, atBoundary, NOW, "live");
+    const b = buildStarterBadge("agent", "probed", atBoundary, NOW, "live");
     expect(b.tone).toBe("green");
     expect(b.label).toBe("✓");
   });
@@ -1500,7 +1531,7 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
     const oneMiss = row("starter:agno/agent", "starter", "green", {
       observed_at: new Date(NOW - 2 * ONE_HOUR_MS).toISOString(),
     });
-    const b = buildStarterBadge("agent", true, oneMiss, NOW, "live");
+    const b = buildStarterBadge("agent", "probed", oneMiss, NOW, "live");
     expect(b.tone).toBe("green");
     expect(b.label).toBe("✓");
   });
@@ -1509,61 +1540,75 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
     const twoMisses = row("starter:agno/agent", "starter", "green", {
       observed_at: new Date(NOW - 3 * ONE_HOUR_MS).toISOString(),
     });
-    const b = buildStarterBadge("agent", true, twoMisses, NOW, "live");
+    const b = buildStarterBadge("agent", "probed", twoMisses, NOW, "live");
     expect(b.tone).toBe("amber");
     expect(b.label).toBe("~");
     expect(b.row?.state).toBe("degraded");
   });
 
   it("gray ?: supported column, no row yet → gray ? (not-yet-run)", () => {
-    const b = buildStarterBadge("interaction", true, null, NOW, "live");
+    const b = buildStarterBadge("interaction", "probed", null, NOW, "live");
     expect(b.tone).toBe("gray");
     expect(b.label).toBe("?");
   });
 
-  it("not-supported 🚫: unmapped column → 🚫 unsupported chip, mapping-derived (not data-derived)", () => {
+  it("unprobed: a column with a real but unprobed starter → gray ?, NEVER the ∅ capability claim", () => {
+    // The defect this branch exists to kill: `strands-typescript`,
+    // `claude-sdk-python` and `claude-sdk-typescript` all ship a starter under
+    // `examples/integrations/` and were nonetheless rendered
+    // ∅ "Not supported by this framework" — an outward-facing claim about a
+    // partner framework's capabilities, used to describe our own plumbing.
+    const b = buildStarterBadge("health", "unprobed", null, NOW, "live");
+    expect(b.label).toBe("?");
+    expect(b.tooltip).toBe("Starter exists in-repo; no live starter probe yet");
+    expect(b.tooltip).not.toContain("Not supported");
+    expect(b.tone).not.toBe("red");
+    expect(b.row).toBeNull();
+  });
+
+  it("not-supported ∅: unmapped column → ∅ unsupported chip, mapping-derived (not data-derived)", () => {
     // Keyed off isSupported=false, NOT off a missing row. An integration with
     // NO starter is architecturally unsupported in the starter row, so it
-    // renders the SAME 🚫 "Not supported by this framework" treatment the
+    // renders the SAME ∅ "Not supported by this framework" treatment the
     // depth-chip/unified-cell already use — NOT a grey/no-data `?`, and NOT a
     // red smoke-failed `✗` (which would mis-communicate "we tried and failed").
-    const b = buildStarterBadge("health", false, null, NOW, "live");
-    expect(b.label).toBe("🚫");
+    const b = buildStarterBadge("health", "unsupported", null, NOW, "live");
+    expect(b.label).toBe("∅");
     expect(b.tooltip).toBe("Not supported by this framework");
     // It must be visually distinct from a data-bearing red FAIL: never red.
     expect(b.tone).not.toBe("red");
     expect(b.row).toBeNull();
   });
 
-  it("not-supported 🚫 is independent of any row data (mapping wins)", () => {
+  it("not-supported ∅ is independent of any row data (mapping wins)", () => {
     // Even if a stray row existed, an unmapped column must still render the
-    // not-supported 🚫 state — the caller passes row=null for unmapped columns,
+    // not-supported ∅ state — the caller passes row=null for unmapped columns,
     // but assert buildStarterBadge ignores row entirely when !isSupported.
     const b = buildStarterBadge(
       "health",
-      false,
+      "unsupported",
       row("starter:ag2/health", "starter", "green"),
       NOW,
       "live",
     );
-    expect(b.label).toBe("🚫");
+    expect(b.label).toBe("∅");
     expect(b.tone).not.toBe("red");
   });
 
-  it("supported column with a genuinely-red row still renders red ✗ (NOT masked as 🚫)", () => {
-    // Guard the inverse: only ABSENT starters become 🚫. A starter that exists
+  it("supported column with a genuinely-red row still renders red ✗ (NOT masked as ∅)", () => {
+    // Guard the inverse: only ABSENT starters become ∅. A starter that exists
     // and FAILED must keep surfacing its real red ✗ — never reframed as
     // "unsupported".
     const b = buildStarterBadge(
       "chat",
-      true,
+      "probed",
       row("starter:agno/chat", "starter", "red"),
       NOW,
       "live",
     );
     expect(b.tone).toBe("red");
     expect(b.label).toBe("✗");
-    expect(b.label).not.toBe("🚫");
+    expect(b.label).not.toBe("∅");
   });
 
   it("tooltip carries the per-level descriptor for data-bearing states", () => {
@@ -1576,7 +1621,7 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
     for (const level of STARTER_LEVELS) {
       const b = buildStarterBadge(
         level,
-        true,
+        "probed",
         row(`starter:agno/${level}`, "starter", "green"),
         NOW,
         "live",
@@ -1617,7 +1662,7 @@ describe("buildStarterBadge — two-miss tolerance for SOFT errorClass (pool-fle
   it("(a) single SOFT transport-error miss (fail_count=1) is TOLERATED — does NOT flip red", () => {
     const b = buildStarterBadge(
       "agent",
-      true,
+      "probed",
       softRedRow("transport-error", 1),
       NOW,
       "live",
@@ -1632,7 +1677,7 @@ describe("buildStarterBadge — two-miss tolerance for SOFT errorClass (pool-fle
   it("(a') single SOFT aborted miss (fail_count=1) is TOLERATED — does NOT flip red", () => {
     const b = buildStarterBadge(
       "agent",
-      true,
+      "probed",
       softRedRow("aborted", 1),
       NOW,
       "live",
@@ -1646,7 +1691,7 @@ describe("buildStarterBadge — two-miss tolerance for SOFT errorClass (pool-fle
     // legacy/edge row reporting 0 must still be treated as a single soft miss.
     const b = buildStarterBadge(
       "agent",
-      true,
+      "probed",
       softRedRow("transport-error", 0),
       NOW,
       "live",
@@ -1658,7 +1703,7 @@ describe("buildStarterBadge — two-miss tolerance for SOFT errorClass (pool-fle
   it("(b) TWO consecutive SOFT misses (fail_count=2) FLIP to red ✗", () => {
     const b = buildStarterBadge(
       "agent",
-      true,
+      "probed",
       softRedRow("transport-error", 2),
       NOW,
       "live",
@@ -1670,7 +1715,7 @@ describe("buildStarterBadge — two-miss tolerance for SOFT errorClass (pool-fle
   it("(b') three+ consecutive SOFT misses (fail_count=3) stay red ✗", () => {
     const b = buildStarterBadge(
       "agent",
-      true,
+      "probed",
       softRedRow("aborted", 3),
       NOW,
       "live",
@@ -1685,7 +1730,7 @@ describe("buildStarterBadge — two-miss tolerance for SOFT errorClass (pool-fle
       fail_count: 1,
       first_failure_at: FRESH_OBSERVED_AT,
     });
-    const b = buildStarterBadge("agent", true, hard, NOW, "live");
+    const b = buildStarterBadge("agent", "probed", hard, NOW, "live");
     expect(b.tone).toBe("red");
     expect(b.label).toBe("✗");
   });
@@ -1700,7 +1745,7 @@ describe("buildStarterBadge — two-miss tolerance for SOFT errorClass (pool-fle
       fail_count: 0,
       first_failure_at: null,
     });
-    const b = buildStarterBadge("agent", true, recovered, NOW, "live");
+    const b = buildStarterBadge("agent", "probed", recovered, NOW, "live");
     expect(b.tone).toBe("green");
     expect(b.label).toBe("✓");
   });
@@ -1713,20 +1758,20 @@ describe("buildStarterBadge — two-miss tolerance for SOFT errorClass (pool-fle
       signal: {},
       fail_count: 1,
     });
-    const b = buildStarterBadge("agent", true, untagged, NOW, "live");
+    const b = buildStarterBadge("agent", "probed", untagged, NOW, "live");
     expect(b.tone).toBe("red");
     expect(b.label).toBe("✗");
   });
 
-  it("tolerance never applies to an UNSUPPORTED column (🚫 wins over soft red)", () => {
+  it("tolerance never applies to an UNSUPPORTED column (∅ wins over soft red)", () => {
     const b = buildStarterBadge(
       "agent",
-      false,
+      "unsupported",
       softRedRow("transport-error", 1),
       NOW,
       "live",
     );
-    expect(b.label).toBe("🚫");
+    expect(b.label).toBe("∅");
     expect(b.tone).not.toBe("red");
     expect(b.tone).not.toBe("amber");
   });

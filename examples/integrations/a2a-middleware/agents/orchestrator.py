@@ -12,12 +12,37 @@ load_dotenv()
 import os
 import uvicorn
 from fastapi import FastAPI
-from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+from ag_ui_adk import ADKAgent, CONTEXT_STATE_KEY, add_adk_fastapi_endpoint
+from _banner import print_banner
+from _model import adk_model, warn_if_api_key_missing
 from google.adk.agents import LlmAgent
+from google.adk.agents.callback_context import CallbackContext
+from google.adk.models.llm_request import LlmRequest
+
+
+def add_page_context(
+    callback_context: CallbackContext, llm_request: LlmRequest
+) -> None:
+    """Append what the page shares (`useAgentContext`) to the system instruction.
+
+    @ag-ui/a2a-middleware forwards the run's AG-UI `context` to this agent, and
+    ag-ui-adk stores it in session state under `CONTEXT_STATE_KEY` without
+    adding it to the prompt, so without this the model never sees it.
+    """
+    entries = callback_context.state.get(CONTEXT_STATE_KEY) or []
+    if not entries:
+        return
+    shared = "\n\n".join(f"{e['description']}:\n{e['value']}" for e in entries)
+    llm_request.append_instructions(
+        [f"Context provided by the application:\n\n{shared}"]
+    )
+
 
 orchestrator_agent = LlmAgent(
     name="OrchestratorAgent",
-    model="gemini-2.5-pro",
+    # COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this
+    # and the other two agents; unset, the orchestrator uses gemini-3.8-flash.
+    model=adk_model("google:gemini-3.8-flash"),
     instruction="""
     You are an orchestrator agent that coordinates research and analysis tasks.
 
@@ -60,6 +85,7 @@ orchestrator_agent = LlmAgent(
     IMPORTANT: Once you have received a response from an agent, do NOT call that same
     agent again for the same information. Use the information you already have.
     """,
+    before_model_callback=add_page_context,
 )
 
 # Wrap with AG-UI middleware to expose via AG-UI Protocol
@@ -75,12 +101,11 @@ app = FastAPI(title="A2A Orchestrator (ADK + AG-UI Protocol)")
 add_adk_fastapi_endpoint(app, adk_orchestrator_agent, path="/")
 
 if __name__ == "__main__":
-    if not os.getenv("GOOGLE_API_KEY"):
-        print("⚠️  Warning: GOOGLE_API_KEY not set!")
-        print("   Set it with: export GOOGLE_API_KEY='your-key-here'")
-        print("   Get a key from: https://aistudio.google.com/app/apikey")
-        print()
+    warn_if_api_key_missing("google:gemini-3.8-flash")
 
     port = int(os.getenv("ORCHESTRATOR_PORT", 9000))
-    print(f"🚀 Starting Orchestrator Agent (ADK + AG-UI) on http://localhost:{port}")
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Wide on purpose: the other dev processes and containers reach this agent.
+    # One variable feeds both the banner and the bind so they cannot drift.
+    host = os.getenv("ORCHESTRATOR_HOST", "0.0.0.0")
+    print_banner("🚀 Starting Orchestrator Agent (ADK + AG-UI)", host, port)
+    uvicorn.run(app, host=host, port=port)

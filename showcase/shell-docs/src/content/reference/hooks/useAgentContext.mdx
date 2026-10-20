@@ -157,7 +157,27 @@ const entry = context.find(
 const records = entry ? JSON.parse(entry.value) : undefined;
 ```
 
-Where that context list surfaces in your agent depends on your framework's AG-UI adapter -- see your integration's guide for the field it populates.
+Where that context list surfaces in your agent depends on your framework's AG-UI adapter.
+
+### Google ADK
+
+`ag-ui-adk` stores the request's context list in ADK session state under
+`CONTEXT_STATE_KEY`, a public export whose value is `"_ag_ui_context"`:
+
+```python
+from ag_ui_adk import CONTEXT_STATE_KEY
+
+def dashboard_records_for_adk(ctx):
+    return dashboard_records(ctx.state.get(CONTEXT_STATE_KEY, []))
+```
+
+Use the `ctx` passed to an ADK instruction provider, `callback_context` in a
+callback, or `tool_context` in a tool. The entries are dictionaries with string
+`description` and `value` fields. To make these values visible to the model,
+include them in an instruction provider or a before-model callback;
+`AGUIToolset()` alone does not inject them into the prompt. See the
+[Google ADK read-only context setup](/google-adk/shared-state/agent-readonly)
+for a complete agent example.
 
 <Callout type="warn">
   Do not type-check `value` against the shape you registered.

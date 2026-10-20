@@ -76,7 +76,7 @@ _schedule_meeting_tool = FunctionTool.from_defaults(
 
 async def _workflow_factory():
     return FixedAGUIChatWorkflow(
-        llm=OpenAI(model="gpt-4o-mini", **_openai_kwargs),
+        llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
         frontend_tools=[_schedule_meeting_tool],
         backend_tools=[],
         system_prompt=SYSTEM_PROMPT,

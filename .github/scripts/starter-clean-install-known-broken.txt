@@ -1,0 +1,14 @@
+# Starters that were ALREADY broken when the PE-140 clean-install check landed.
+#
+# A failure against a manifest listed here is reported as a ::warning:: instead
+# of an ::error::, so the lane is green on day one and a NEW breakage is
+# unambiguous. Every line owes a ticket. This file only ever shrinks: do not add
+# to it to make a change pass, fix the starter.
+#
+# Format, one entry per line:
+#   <starter>|<manifest path relative to the repo root>|<why, and the ticket>
+#
+# Matching is on the first two fields, so a listed manifest is exempt for every
+# problem it reports, not just the one seen on 2026-09-17. That is the cost of
+# keeping the list short, and it is also why the list has to shrink.
+

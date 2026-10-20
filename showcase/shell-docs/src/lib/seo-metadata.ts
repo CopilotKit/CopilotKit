@@ -2,7 +2,6 @@
 // four catch-all docs routes:
 //   - src/app/[[...slug]]/page.tsx
 //   - src/app/[framework]/[[...slug]]/page.tsx
-//   - src/app/ag-ui/[[...slug]]/page.tsx
 //   - src/app/reference/[...slug]/page.tsx
 //
 // Each route previously returned only `alternates.canonical`, leaving every

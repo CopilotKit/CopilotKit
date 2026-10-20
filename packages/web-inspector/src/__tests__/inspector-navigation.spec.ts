@@ -1,3 +1,8 @@
+vi.mock("../lib/notification-loader.js", async () => {
+  const { fetchNotificationFixture } =
+    await import("./notification-fixture.js");
+  return { loadNotificationFeed: fetchNotificationFixture };
+});
 import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotKitCore,
@@ -42,6 +47,7 @@ type SetupOptions = {
     announcement: string;
   };
   runtimeMode?: "sse" | "intelligence";
+  intelligenceEnabled?: boolean;
   telemetryDisabled?: boolean;
   threads?: ɵThread[];
   failThreadMessages?: boolean;
@@ -113,6 +119,7 @@ async function setup(
 ): Promise<InspectorNavigationContext> {
   document.body.replaceChildren();
   window.localStorage.clear();
+  document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
   if (options.persistedState !== undefined) {
     window.localStorage.setItem("cpk:inspector:state", options.persistedState);
   }
@@ -126,7 +133,7 @@ async function setup(
         telemetryBodies.push(parseTelemetryBody(String(init?.body)));
         return new Response(null, { status: 204 });
       }
-      if (url === "https://cdn.copilotkit.ai/announcements.json") {
+      if (url === "https://cdn.copilotkit.ai/notifications/v1.json") {
         if (!options.announcement) {
           return new Response(null, { status: 404 });
         }
@@ -145,6 +152,7 @@ async function setup(
             : {},
           audioFileTranscriptionEnabled: false,
           mode: options.runtimeMode ?? "sse",
+          intelligence: options.intelligenceEnabled ? { wsUrl: "" } : undefined,
           threadEndpoints: {
             list: Boolean(options.threads),
             inspect: Boolean(options.threads),
@@ -214,6 +222,11 @@ async function setup(
     ]);
   }
   const inspector = new WebInspectorElement();
+  inspector.notificationContext = {
+    development: true,
+    framework: "react",
+    sdkVersion: "1.70.2",
+  };
   let selectedMenuBeforeCore: unknown;
   if (options.appendBeforeCore) {
     document.body.appendChild(inspector);
@@ -314,6 +327,7 @@ async function setup(
       vi.unstubAllGlobals();
       vi.restoreAllMocks();
       window.localStorage.clear();
+      document.cookie = "cpk_inspector_notifications_v1=; Max-Age=0; Path=/";
       document.body.replaceChildren();
       document.getElementById("cpk-inspector-brand-fonts")?.remove();
     },
@@ -753,7 +767,11 @@ test("Try from here stays on Threads when messages fail", async () => {
 });
 
 test("Try from here is hidden on example tour threads", async () => {
-  const context = await setup({ agent: true, threads: [] });
+  const context = await setup({
+    agent: true,
+    threads: [],
+    intelligenceEnabled: true,
+  });
   try {
     await context.open();
     await context.selectLeaf("threads");
@@ -871,7 +889,10 @@ test("Playground surface styles live in the Web Inspector shadow root", () => {
 });
 
 test("trusted identity stays on Home while connection state moves into branded chrome", async () => {
-  const context = await setup({ metadata: trustedMetadata() });
+  const context = await setup({
+    metadata: trustedMetadata(),
+    intelligenceEnabled: true,
+  });
   try {
     await context.open();
 
@@ -1047,7 +1068,7 @@ test("trusted identity stays on Home while connection state moves into branded c
       learning
         .querySelector(".inspector-home-feature-status")
         ?.getAttribute("aria-label"),
-    ).toBe("Learning is not enabled in your runtime");
+    ).toBe("Automatic Learning is not enabled in your runtime");
     expect(
       learning.querySelector('[data-inspector-home-feature-prompt="memory"]'),
     ).not.toBeNull();
@@ -1180,7 +1201,7 @@ test("disabled Intelligence becomes a setup action in the sidebar and on Home", 
       "Sidebar Intelligence setup action was not rendered",
     );
     expect(sidebarSetup.textContent?.replace(/\s+/g, " ")).toContain(
-      "Intelligence is off Set up Threads and Memory",
+      "Intelligence is off Connect Intelligence",
     );
     expect(sidebarSetup.href).toBe(setupUrl);
 
@@ -1334,20 +1355,21 @@ test("Home feature actions copy correlated onboarding prompts", async () => {
       String(prompt),
     );
     const onboardingRunIds = copiedPrompts.map((prompt) => {
-      expect(prompt).toContain(
-        "Identify your coding-agent slug (for example, `codex` or `claude-code`)",
-      );
-      expect(prompt).toContain(
-        "never reveal credentials or send optional diagnostic feedback reports",
-      );
-      expect(prompt).toContain(
-        "local validation proves A2UI works—not merely that the code compiles",
-      );
-      expect(prompt).toContain("A2UI guide");
-      expect(prompt).not.toContain("--intent");
-      const match = prompt.match(
-        /--run ([A-Za-z0-9_-]{12}) --coding-agent <coding-agent-slug>/,
-      );
+      // The copied text is one sentence pointing at the hosted document. The
+      // setup wording, the standing permission for the session check, and the
+      // credentials warning all moved there with the command -- they are not
+      // dropped, and the website repo's `onboarding-prompt-document.test.ts`
+      // is what pins them now.
+      expect(prompt).toContain("copilotkit.ai/onboarding-prompts/");
+      expect(prompt).toContain("help me set this up");
+      expect(prompt).not.toContain("Identify your coding-agent slug");
+      expect(prompt).not.toContain("optional diagnostic feedback");
+      // The A2UI route owns the guide link, the plan and the proof step. The
+      // button's whole job is to name the outcome.
+      expect(prompt).toContain("?intent=add-a2ui");
+      expect(prompt).not.toContain("A2UI guide");
+      expect(prompt).not.toContain("not merely that the code compiles");
+      const match = prompt.match(/onboarding-prompts\/([A-Za-z0-9_-]{12})/);
       expect(match?.[1]).toBeDefined();
       return match![1]!;
     });
@@ -1744,7 +1766,7 @@ test("Workbench remembers Learning, and Settings does not persist a settings lea
     );
     await context.toggleSettings();
     expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
-      "Learning",
+      "Automatic Learning",
     );
   } finally {
     context.teardown();

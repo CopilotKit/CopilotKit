@@ -1,0 +1,75 @@
+{
+  "name": "runtime-dotnet",
+  "projectType": "library",
+  "root": "packages/runtime-dotnet",
+  "targets": {
+    "pack": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "dotnet pack packages/runtime-dotnet/sdk/CopilotKit.Intelligence.csproj --configuration Release --output packages/runtime-dotnet/src/bin/packages",
+          "dotnet pack packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj --configuration Release --output packages/runtime-dotnet/src/bin/packages"
+        ],
+        "parallel": false
+      },
+      "outputs": ["{projectRoot}/src/bin/packages"],
+      "cache": false,
+      "dependsOn": []
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "dotnet run --project packages/runtime-dotnet/sdk-tests/Intelligence.Tests.csproj",
+          "dotnet run --project packages/runtime-dotnet/tests/Runtime.Tests.csproj",
+          "dotnet run --project packages/runtime-dotnet/agent-framework-tests/AgentFramework.Tests.csproj"
+        ],
+        "parallel": false
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "dotnet build packages/runtime-dotnet/sdk/CopilotKit.Intelligence.csproj --configuration Release",
+          "dotnet build packages/runtime-dotnet/driver/Runtime.Driver.csproj --configuration Release"
+        ],
+        "parallel": false
+      },
+      "outputs": [
+        "{projectRoot}/sdk/bin",
+        "{projectRoot}/src/bin",
+        "{projectRoot}/driver/bin"
+      ],
+      "cache": false,
+      "dependsOn": []
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "dotnet build packages/runtime-dotnet/sdk/CopilotKit.Intelligence.csproj -warnaserror",
+          "dotnet build packages/runtime-dotnet/src/CopilotKit.Intelligence.Runtime.csproj -warnaserror"
+        ],
+        "parallel": false
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "check-types": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "dotnet build packages/runtime-dotnet/sdk-tests/Intelligence.Tests.csproj -warnaserror",
+          "dotnet build packages/runtime-dotnet/driver/Runtime.Driver.csproj -warnaserror"
+        ],
+        "parallel": false
+      },
+      "cache": false,
+      "dependsOn": []
+    }
+  },
+  "tags": ["type:lib"]
+}

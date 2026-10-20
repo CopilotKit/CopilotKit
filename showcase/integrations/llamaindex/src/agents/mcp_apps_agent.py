@@ -64,7 +64,7 @@ if os.environ.get("OPENAI_BASE_URL"):
 # fixture; otherwise the run 404s in aimock and emits RUN_ERROR (sse-missing).
 # See agents/_request_tools.py.
 mcp_apps_router = make_request_aware_router(
-    llm=OpenAI(model="gpt-4o-mini", **_openai_kwargs),
+    llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
     frontend_tools=[],
     backend_tools=[],
     system_prompt=SYSTEM_PROMPT,

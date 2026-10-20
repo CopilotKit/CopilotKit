@@ -16,7 +16,13 @@ import { describe, expect, it } from "vitest";
  * value-level graph from `src/index.ts` and fails if it reaches a Node-only
  * package. Type-only edges are erased at build time and are therefore fine.
  */
-const NODE_ONLY_PACKAGES = ["@segment/analytics-node", "node-fetch"];
+const NODE_ONLY_PACKAGES = [
+  "@segment/analytics-node",
+  "node-fetch",
+  "@ag-ui/a2ui-middleware",
+  "clarinet",
+  "rxjs",
+];
 
 const SRC = resolve(__dirname, "..");
 

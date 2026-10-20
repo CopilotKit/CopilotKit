@@ -25,10 +25,10 @@ from copilotkit import a2ui
 from dotenv import load_dotenv
 from langchain_core.messages import SystemMessage
 from langchain_core.tools import tool as lc_tool
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 from strands import Agent, tool
-from strands.models.openai import OpenAIModel
+
+from src.model import create_chat_model, create_strands_model
 
 # ---------------------------------------------------------------------------
 # Env loading (shared demo root pattern used by the other integration demos)
@@ -214,7 +214,8 @@ def generate_a2ui(user_intent: str, agent) -> str:
     )
     prompt = f"{context_text}\n\n{user_intent}" if context_text else user_intent
 
-    model = ChatOpenAI(model="gpt-4.1")
+    # COPILOTKIT_AGENT_MODEL overrides this site too; unset, it uses gpt-5-mini.
+    model = create_chat_model("openai:gpt-5-mini")
     model_with_tool = model.bind_tools(
         [render_a2ui],
         tool_choice="render_a2ui",
@@ -253,13 +254,32 @@ def generate_a2ui(user_intent: str, agent) -> str:
 # ---------------------------------------------------------------------------
 
 
+def page_context_text(input_data) -> str:
+    """Render what the page shares (``useAgentContext``) for the prompt.
+
+    ``ag_ui_strands`` only copies ``RunAgentInput.context`` onto
+    ``agent.state["agui_context"]`` for tools to read; it never adds it to
+    the prompt, so without this the model does not see it.
+    """
+    entries = []
+    for ctx in getattr(input_data, "context", None) or []:
+        description = getattr(ctx, "description", "") or ""
+        value = getattr(ctx, "value", "") or ""
+        entries.append(f"{description}:\n{value}")
+    if not entries:
+        return ""
+    return "Context provided by the application:\n\n" + "\n\n".join(entries)
+
+
 def build_todos_prompt(input_data, user_message: str) -> str:
-    """Inject the current todos state into the prompt."""
+    """Inject the page's shared context and the current todos into the prompt."""
+    prompt = user_message
     state_dict = getattr(input_data, "state", None)
     if isinstance(state_dict, dict) and "todos" in state_dict:
         todos_json = json.dumps(state_dict.get("todos", []), indent=2)
-        return f"Current todos list:\n{todos_json}\n\nUser request: {user_message}"
-    return user_message
+        prompt = f"Current todos list:\n{todos_json}\n\nUser request: {user_message}"
+    context_text = page_context_text(input_data)
+    return f"{context_text}\n\n{prompt}" if context_text else prompt
 
 
 async def todos_state_from_args(context):
@@ -298,11 +318,10 @@ shared_state_config = StrandsAgentConfig(
 # ---------------------------------------------------------------------------
 # Agent wiring
 # ---------------------------------------------------------------------------
-api_key = os.getenv("OPENAI_API_KEY", "")
-model = OpenAIModel(
-    client_args={"api_key": api_key},
-    model_id="gpt-5.4",
-    params={"parallel_tool_calls": False},
+# COPILOTKIT_AGENT_MODEL (e.g. "anthropic:claude-sonnet-4-5") overrides this and
+# every other model site in the agent; unset, this site uses gpt-5.4.
+model = create_strands_model(
+    "openai:gpt-5.4", openai_params={"parallel_tool_calls": False}
 )
 
 system_prompt = (

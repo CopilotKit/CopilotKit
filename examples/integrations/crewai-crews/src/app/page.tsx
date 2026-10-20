@@ -58,7 +58,6 @@ export default function CopilotKitPage() {
           >
             <YourMainContent themeColor={themeColor} />
             <CopilotSidebar
-              clickOutsideToClose={false}
               defaultOpen={true}
               labels={{
                 modalHeaderTitle: "Popup Assistant",

@@ -1,3 +1,9 @@
+import { notificationTestId } from "./notification-fixture.js";
+vi.mock("../lib/notification-loader.js", async () => {
+  const { fetchNotificationFixture } =
+    await import("./notification-fixture.js");
+  return { loadNotificationFeed: fetchNotificationFixture };
+});
 import {
   CpkThreadInspector,
   configureWebInspectorElement,
@@ -480,6 +486,58 @@ describe("WebInspectorElement", () => {
     await inspector.updateComplete;
     expect(internals.agentStates.get("counter")).toEqual({ counter: 5 });
   });
+
+  describe("small viewports", () => {
+    const setViewport = (width: number, height: number) => {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        writable: true,
+        value: width,
+      });
+      Object.defineProperty(window, "innerHeight", {
+        configurable: true,
+        writable: true,
+        value: height,
+      });
+    };
+    const initialViewport = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+    afterEach(() => setViewport(initialViewport.width, initialViewport.height));
+
+    const openWindow = async () => {
+      const { core } = createMockCore();
+      const inspector = new WebInspectorElement();
+      inspector.core = core as unknown as CopilotKitCore;
+      document.body.appendChild(inspector);
+      await inspector.updateComplete;
+      inspector.openInspector("floating_button");
+      await inspector.updateComplete;
+      return inspector.shadowRoot!.querySelector<HTMLElement>(
+        ".inspector-window",
+      )!;
+    };
+
+    it("zooms the window down so the desktop layout fits the screen", async () => {
+      setViewport(768, 600);
+      const inspectorWindow = await openWindow();
+
+      // On screen: 736x568, the viewport minus its margins, at 0.8 zoom.
+      expect(inspectorWindow.style.zoom).toBe("0.8");
+      expect(inspectorWindow.style.width).toBe("920px");
+      expect(inspectorWindow.style.height).toBe("710px");
+    });
+
+    it("keeps the full-size window when the screen can hold it", async () => {
+      setViewport(1440, 900);
+      const inspectorWindow = await openWindow();
+
+      expect(inspectorWindow.style.zoom).toBe("");
+      expect(inspectorWindow.style.width).toBe("960px");
+      expect(inspectorWindow.style.height).toBe("740px");
+    });
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -498,7 +556,10 @@ describe("WebInspectorElement", () => {
 type ThreadDetailsInternals = {
   threadId: string | null;
   runtimeUrl: string;
-  headers: Record<string, string>;
+  resolveHeaders: () =>
+    | Record<string, string>
+    | Promise<Record<string, string>>;
+  headersGeneration: number;
   threadInspectionAvailable: boolean;
   liveMessageVersion: number;
   provider: ThreadDebuggerProvider | null;
@@ -640,7 +701,7 @@ describe("ɵCpkThreadDetails caching", () => {
       const { el, internals } = createThreadDetails();
 
       internals.runtimeUrl = "http://localhost:4000";
-      internals.headers = { Authorization: "Bearer test-token" };
+      internals.resolveHeaders = () => ({ Authorization: "Bearer test-token" });
       internals.threadId = "t1";
       await el.updateComplete;
 
@@ -1004,7 +1065,7 @@ describe("CpkThreadInspector provider contract", () => {
     expect(internals._fetchedEvents).toHaveLength(6);
 
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Messages");
+    expect(text).toContain("Conversation");
     expect(text).toContain("AG-UI Events");
     expect(text).toContain("State");
     expect(text).toContain("Run started");
@@ -1256,7 +1317,8 @@ describe("CpkThreadInspector provider contract", () => {
     });
   });
 
-  it("refetches runtime thread data when headers change for the same thread", async () => {
+  it("resolves headers at send time but only reloads thread inspection on a headersGeneration change", async () => {
+    let token = "first";
     const fetchMock = vi.fn(
       (_url: string, init?: { headers?: Record<string, string> }) =>
         Promise.resolve(
@@ -1291,7 +1353,7 @@ describe("CpkThreadInspector provider contract", () => {
 
     internals.runtimeUrl = "http://runtime";
     internals.threadInspectionAvailable = true;
-    internals.headers = { Authorization: "Bearer first" };
+    internals.resolveHeaders = () => ({ Authorization: `Bearer ${token}` });
     internals.threadId = "thread-1";
     await flushProviderWork(el);
 
@@ -1302,7 +1364,18 @@ describe("CpkThreadInspector provider contract", () => {
       });
     });
 
-    internals.headers = { Authorization: "Bearer second" };
+    // Discriminating assertion first: a token rotation through the SAME
+    // builder identity, with no `headersGeneration` bump, must not reload
+    // (re-fetch) the already-loaded thread.
+    token = "second";
+    internals.resolveHeaders = () => ({ Authorization: `Bearer ${token}` });
+    await flushProviderWork(el);
+    expect(eventFetches()).toHaveLength(1);
+
+    // A `headersGeneration` bump (mirroring a real `core.setHeaders` source
+    // change) does reload, exactly once, and the reload's request resolves
+    // headers at send time (the current, rotated token).
+    internals.headersGeneration = 1;
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
@@ -1314,6 +1387,10 @@ describe("CpkThreadInspector provider contract", () => {
     expect(headersOf(eventFetches().at(-1)!)).toMatchObject({
       Authorization: "Bearer second",
     });
+
+    // Settles: no extra reload trails behind.
+    await flushProviderWork(el);
+    expect(eventFetches()).toHaveLength(2);
   });
 
   it("loads runtime messages when event history is empty so timeline fallback and counts work", async () => {
@@ -1358,7 +1435,7 @@ describe("CpkThreadInspector provider contract", () => {
       ?.click();
     await flushProviderWork(el);
 
-    expect(el.shadowRoot?.textContent ?? "").toContain("Messages");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Conversation");
     expect(el.shadowRoot?.textContent ?? "").toContain("2");
   });
 
@@ -1516,11 +1593,10 @@ describe("CpkThreadInspector provider contract", () => {
 // cannot inflate itself by counting people who opened the Inspector for an
 // unrelated reason, or who arrived before the feed resolved.
 
-const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/notifications/v1.json";
 
 type OpenTelemetryInternals = {
   isOpen: boolean;
-  announcementTimestamp: string | null;
   fetchAnnouncement: () => Promise<void>;
   openInspector: (source: InspectorOpenSource) => void;
 };
@@ -1539,6 +1615,10 @@ async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
   await inspector.updateComplete;
   inspector.shadowRoot
     ?.querySelector<HTMLElement>('button[data-inspector-menu-key="whats-new"]')
+    ?.click();
+  await inspector.updateComplete;
+  inspector.shadowRoot
+    ?.querySelector<HTMLButtonElement>(".cpk-notification-row")
     ?.click();
   await inspector.updateComplete;
 }
@@ -1597,6 +1677,11 @@ describe("WebInspectorElement open + What's new telemetry", () => {
         CopilotKitCoreRuntimeConnectionStatus.Disconnected;
     }
     const inspector = new WebInspectorElement();
+    inspector.notificationContext = {
+      development: true,
+      framework: "react",
+      sdkVersion: "1.70.2",
+    };
     document.body.appendChild(inspector);
     inspector.core = harness.core as unknown as WebInspectorElement["core"];
     return {
@@ -1620,6 +1705,211 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     if (!link) throw new Error("Expected announcement link");
     return link;
   };
+  const showHud = async (inspector: WebInspectorElement) => {
+    await inspector.updateComplete;
+    inspector.shadowRoot
+      ?.querySelector(".console-button-wrapper")
+      ?.dispatchEvent(new PointerEvent("pointerenter", { bubbles: true }));
+    await inspector.updateComplete;
+  };
+
+  it("records rendered HUD parts once per presentation and identifies the notification", async () => {
+    const { inspector, internals } = mount();
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+    expect(
+      eventsNamed("oss.inspector.hud_notification_viewed")[0]?.properties,
+    ).toMatchObject({
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
+      trigger: "user",
+    });
+    expect(
+      eventsNamed("oss.inspector.hud_feature_toggle_viewed").map(
+        (event) => event.properties.feature,
+      ),
+    ).toEqual(["learning"]);
+    expect(eventsNamed("oss.inspector.hud_hide_viewed")).toHaveLength(1);
+    expect(
+      [
+        "hud_viewed",
+        "hud_notification_viewed",
+        "hud_feature_toggle_viewed",
+        "hud_hide_viewed",
+      ].map(
+        (name) => eventsNamed(`oss.inspector.${name}`)[0]?.properties.trigger,
+      ),
+    ).toEqual(["user", "user", "user", "user"]);
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".console-button-wrapper")
+      ?.dispatchEvent(new PointerEvent("pointerleave", { bubbles: true }));
+    // Close through the same Escape path a keyboard user has.
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".console-button-wrapper")
+      ?.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    await inspector.updateComplete;
+    await showHud(inspector);
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(2);
+  });
+
+  it("labels the automatic page-load preview as an intro, including clicks made during it", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { inspector } = mount();
+      await inspector.updateComplete;
+      expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+
+      await vi.advanceTimersByTimeAsync(500);
+      await inspector.updateComplete;
+      expect(
+        eventsNamed("oss.inspector.hud_viewed").map(
+          (event) => event.properties.trigger,
+        ),
+      ).toEqual(["intro"]);
+      expect(
+        eventsNamed("oss.inspector.hud_hide_viewed")[0]?.properties,
+      ).toMatchObject({ trigger: "intro" });
+
+      // Taking over the preview keeps the presentation it started as.
+      await showHud(inspector);
+      inspector.shadowRoot
+        ?.querySelector<HTMLButtonElement>('[data-cpk-hud-toggle="learning"]')
+        ?.click();
+      expect(
+        eventsNamed("oss.inspector.hud_feature_toggle_clicked")[0]?.properties,
+      ).toMatchObject({ feature: "learning", trigger: "intro" });
+      expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("labels a hover after the intro has ended as a user presentation", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const { inspector } = mount();
+      await inspector.updateComplete;
+      await vi.advanceTimersByTimeAsync(500 + 3400);
+      await inspector.updateComplete;
+      expect(
+        inspector.shadowRoot?.querySelector("[data-cpk-launcher-hud]"),
+      ).toBeNull();
+
+      await showHud(inspector);
+      expect(
+        eventsNamed("oss.inspector.hud_viewed").map(
+          (event) => event.properties.trigger,
+        ),
+      ).toEqual(["intro", "user"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("records notification dismissals and feature toggle navigation", async () => {
+    const { inspector, internals } = mount();
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>("[data-cpk-hud-news-dismiss]")
+      ?.click();
+    await inspector.updateComplete;
+    expect(
+      eventsNamed("oss.inspector.hud_notification_clicked")[0]?.properties,
+    ).toMatchObject({
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
+      action: "dismiss",
+      trigger: "user",
+    });
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-cpk-hud-toggle="learning"]')
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_feature_toggle_clicked")[0]?.properties,
+    ).toMatchObject({ feature: "learning", trigger: "user" });
+    expect(eventsNamed("oss.inspector.hud_feature_clicked")).toHaveLength(0);
+  });
+
+  it("records notification opens", async () => {
+    const { inspector, internals } = mount();
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>("[data-cpk-hud-news]")
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_notification_clicked")[0]?.properties,
+    ).toMatchObject({
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
+      action: "open",
+      trigger: "user",
+    });
+  });
+
+  it("records feature row actions", async () => {
+    const { inspector } = mount();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-cpk-hud-learn-more="learning"]')
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_feature_clicked").at(-1)?.properties,
+    ).toMatchObject({
+      feature: "learning",
+      control: "learn_more",
+      trigger: "user",
+    });
+  });
+
+  it("records the hide action", async () => {
+    const { inspector } = mount();
+    await showHud(inspector);
+    inspector.shadowRoot
+      ?.querySelector<HTMLButtonElement>('[data-cpk-dismiss-inspector="day"]')
+      ?.click();
+    expect(
+      eventsNamed("oss.inspector.hud_hide_clicked").map(
+        (event) => event.properties.trigger,
+      ),
+    ).toEqual(["user"]);
+  });
+
+  it("holds HUD telemetry until the handshake and drops it on runtime opt-out", async () => {
+    const { inspector, internals, harness } = mount(false, false);
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+    harness.completeHandshake({ telemetryDisabled: true });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+  });
+
+  it("flushes a pending HUD impression after an allowed handshake", async () => {
+    const { inspector, internals, harness } = mount(false, false);
+    await internals.fetchAnnouncement();
+    await showHud(inspector);
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(0);
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.hud_viewed")).toHaveLength(1);
+    expect(
+      eventsNamed("oss.inspector.hud_notification_viewed")[0]?.properties,
+    ).toMatchObject({
+      banner_id: notificationTestId(timestamp),
+      notification_id: notificationTestId(timestamp),
+    });
+  });
 
   it("records one launcher signal presentation when the pulse is rendered", async () => {
     const { inspector, internals } = mount();
@@ -1631,7 +1921,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     const viewed = eventsNamed("oss.inspector.whats_new_signal_viewed");
     expect(viewed).toHaveLength(1);
     expect(viewed[0]!.properties).toMatchObject({
-      banner_id: timestamp,
+      banner_id: notificationTestId(timestamp),
       surface: "launcher",
       presentation: "animated",
       package_name: "@copilotkit/web-inspector",
@@ -1729,7 +2019,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     const viewed = eventsNamed("oss.inspector.whats_new_viewed");
     expect(viewed).toHaveLength(1);
     expect(viewed[0]!.properties).toMatchObject({
-      banner_id: timestamp,
+      banner_id: notificationTestId(timestamp),
       surface: "whats_new",
       package_name: "@copilotkit/web-inspector",
     });
@@ -2003,6 +2293,7 @@ type RuntimeEntitlementDiagnostics = NonNullable<
 >;
 
 type HeaderMockCore = {
+  intelligence: { wsUrl: string };
   agents: Record<string, AbstractAgent>;
   context: Record<string, unknown>;
   properties: Record<string, unknown>;
@@ -2017,6 +2308,8 @@ type HeaderMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
+  resolveHeaders: () => Record<string, string>;
+  ɵheadersGeneration: number;
   ɵruntimeFetch: typeof fetch;
   threadEndpoints: {
     list: boolean;
@@ -2047,11 +2340,20 @@ function createHeaderMockCore(
   const subscribers = new Set<CopilotKitCoreSubscriber>();
   // Delegates to the live `globalThis.fetch` so every existing assertion on the
   // fetch stub keeps working, while a regression back to the global leaves this
-  // spy uncalled.
-  const runtimeFetch = vi.fn<typeof fetch>((...args) =>
-    globalThis.fetch(...args),
+  // spy uncalled. Mirrors the real `ɵruntimeFetch`'s contract (#1937): it
+  // overlays the CURRENT core headers onto the request at send time, so a
+  // caller routing through it must not also bake in a headers snapshot.
+  const runtimeFetch = vi.fn<typeof fetch>((input, init) =>
+    globalThis.fetch(input, {
+      ...init,
+      headers: {
+        ...(init?.headers as Record<string, string> | undefined),
+        ...core.headers,
+      },
+    }),
   );
   const core: HeaderMockCore = {
+    intelligence: { wsUrl: "" },
     agents,
     context: {},
     properties: {},
@@ -2060,6 +2362,8 @@ function createHeaderMockCore(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
+    resolveHeaders: () => core.headers,
+    ɵheadersGeneration: 0,
     ɵruntimeFetch: runtimeFetch,
     threadEndpoints: {
       list: true,
@@ -2096,6 +2400,7 @@ function createHeaderMockCore(
     },
     emitHeadersChanged(nextHeaders: Record<string, string>) {
       core.headers = nextHeaders;
+      core.ɵheadersGeneration += 1;
       subscribers.forEach((s) =>
         s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
       );
@@ -2210,6 +2515,11 @@ function setupRuntimeDiagnostics() {
 
     localStorage.removeItem("cpk:inspector:state");
     const inspector = new WebInspectorElement();
+    inspector.notificationContext = {
+      development: true,
+      framework: "react",
+      sdkVersion: "1.70.2",
+    };
     document.body.appendChild(inspector);
     inspector.core = core;
     await inspector.updateComplete;
@@ -2224,7 +2534,7 @@ function setupRuntimeDiagnostics() {
 
     const threadsButton = Array.from(
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-    ).find((button) => button.textContent?.trim() === "Threads");
+    ).find((button) => button.textContent?.trim() === "Rich Threads");
     expect(threadsButton).toBeDefined();
     threadsButton?.click();
     await inspector.updateComplete;
@@ -2258,7 +2568,8 @@ test.each([
         entitlementSource: "clerk_subscription",
       },
     },
-    lockedHeading: "Renew Intelligence to inspect Threads.",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "expired self-hosted entitlement",
@@ -2273,7 +2584,8 @@ test.each([
         traceId: "trace-expired",
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "misconfigured self-hosted entitlement",
@@ -2286,7 +2598,8 @@ test.each([
         retryable: false,
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "unavailable managed entitlement",
@@ -2299,7 +2612,8 @@ test.each([
         retryable: true,
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "SDK fail-soft entitlement lookup",
@@ -2312,7 +2626,8 @@ test.each([
         retryable: true,
       },
     },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
 ] as const)(
   "keeps the unified locked splash for $diagnostic",
@@ -2359,7 +2674,7 @@ test("keeps the unified locked splash for an expired legacy license", async () =
     );
     expect(diagnostics).toHaveLength(0);
     expect(inspector.shadowRoot?.textContent ?? "").toContain(
-      "Renew Intelligence to inspect Threads.",
+      "Production-grade chat threads without the complexity. Self hostable.",
     );
   } finally {
     fixture.teardown();
@@ -2386,7 +2701,7 @@ test.each([
     diagnostics: { licenseStatus: "expired" },
   },
 ] as const)(
-  "keeps Threads available for $diagnostic when the Runtime advertises list capability",
+  "shows setup for $diagnostic without Intelligence while still requesting local Threads",
   async ({ diagnostics }) => {
     const fixture = setupRuntimeDiagnostics();
 
@@ -2399,13 +2714,17 @@ test.each([
       const threadsButton = Array.from(
         inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
           [],
-      ).find((button) => button.textContent?.trim() === "Threads");
+      ).find((button) => button.textContent?.trim() === "Rich Threads");
       expect(threadsButton).toBeDefined();
       await vi.waitFor(() => {
-        expect(threadListText(inspector)).toContain("Realtime thread sync");
+        expect(
+          inspector.shadowRoot?.querySelector(
+            '[data-inspector-locked-feature="threads"]',
+          ),
+        ).not.toBeNull();
       });
       expect(inspector.shadowRoot?.textContent ?? "").toContain(
-        "Threads are persistent, inspectable conversations",
+        "Production-grade chat threads without the complexity. Self hostable.",
       );
       expect(inspector.shadowRoot?.textContent ?? "").not.toContain(
         "Enable Intelligence to inspect Threads.",
@@ -2432,12 +2751,14 @@ test.each([
       },
       licenseStatus: "expired",
     },
-    lockedHeading: "Renew Intelligence to inspect Threads.",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
   {
     diagnostic: "legacy valid license",
     diagnostics: { licenseStatus: "valid" },
-    lockedHeading: "Finish setting up Rich Threads",
+    lockedHeading:
+      "Production-grade chat threads without the complexity. Self hostable.",
   },
 ] as const)(
   "keeps Threads unavailable for $diagnostic when the Runtime omits list capability",
@@ -2453,7 +2774,7 @@ test.each([
       const threadsButton = Array.from(
         inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
           [],
-      ).find((button) => button.textContent?.trim() === "Threads");
+      ).find((button) => button.textContent?.trim() === "Rich Threads");
       expect(threadsButton).toBeDefined();
       expect(inspector.shadowRoot?.textContent ?? "").toContain(lockedHeading);
       expect(threadListText(inspector)).not.toContain(
@@ -2810,7 +3131,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const threadsButton = Array.from(
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-    ).find((button) => button.textContent?.trim() === "Threads");
+    ).find((button) => button.textContent?.trim() === "Rich Threads");
     expect(threadsButton, "Threads menu button should render").toBeDefined();
 
     threadsButton!.click();
@@ -3250,6 +3571,7 @@ type MemoryMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   intelligence: { wsUrl: string } | undefined;
   licenseStatus?: "valid" | "none" | "expired" | "unknown";
+  resolveHeaders?: () => Record<string, string>;
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
     unsubscribe: () => void;
   };
@@ -3556,7 +3878,72 @@ describe("WebInspectorElement memories — view states", () => {
       runtimeTransport: "rest" as const,
       inspectorLearning: true,
       ɵruntimeFetch: fetch,
+      resolveHeaders: () => ({}),
     });
+
+  // #1937: the Learning request used to ALSO pass a separately
+  // resolved `headers:` snapshot alongside `fetch: core.ɵruntimeFetch`,
+  // which already resolves and overlays current headers at send time. That
+  // called the header builder twice per request and could let a header the
+  // builder stopped returning ride along on the (never-overlaid-again)
+  // static snapshot. `ɵruntimeFetch` is the ONLY thing that should resolve
+  // headers for this request.
+  it("resolves headers once per Learning request through ɵruntimeFetch, and drops a header the builder stopped returning", async () => {
+    const state = { includeStaleKey: true };
+    const resolveHeadersSpy = vi.fn(() => ({
+      Authorization: "Bearer constant",
+      ...(state.includeStaleKey ? { "X-Old-Key": "stale" } : {}),
+    }));
+    const requests: Array<Record<string, string>> = [];
+    // Mirrors the real `ɵruntimeFetch` contract: resolve the current headers
+    // once, overlay them onto the request, then send it.
+    const runtimeFetch = vi.fn(
+      async (
+        _input: RequestInfo | URL,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        const resolved = await resolveHeadersSpy();
+        const headers = {
+          ...(init?.headers as Record<string, string> | undefined),
+          ...resolved,
+        };
+        requests.push(headers);
+        return new Response(JSON.stringify(resultsSnapshot()), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    );
+    const core = Object.assign(learningCore(runtimeFetch), {
+      resolveHeaders: resolveHeadersSpy,
+    });
+
+    const el = await mountMemories(core);
+    const view = await learningSurface(el);
+    await vi.waitFor(() => {
+      expect(
+        view.shadowRoot?.querySelector("[data-learning-state='results']"),
+      ).not.toBeNull();
+    });
+
+    // Discriminating assertion first: exactly one resolve for this one
+    // Learning request. A separately `await`-ed `headers:` snapshot on top
+    // of `ɵruntimeFetch`'s own resolve would call the builder twice.
+    expect(resolveHeadersSpy).toHaveBeenCalledTimes(1);
+    expect(requests[0]?.["X-Old-Key"]).toBe("stale");
+    expect(requests[0]?.Authorization).toBe("Bearer constant");
+
+    state.includeStaleKey = false;
+    await (
+      el as unknown as { refreshLearningSnapshot: () => Promise<void> }
+    ).refreshLearningSnapshot();
+
+    await vi.waitFor(() => {
+      expect(resolveHeadersSpy).toHaveBeenCalledTimes(2);
+    });
+    expect(requests.at(-1)?.["X-Old-Key"]).toBeUndefined();
+    expect(requests.at(-1)?.Authorization).toBe("Bearer constant");
+  });
 
   it("advances the Learning preview copy action into setup progress before capability is available", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
@@ -3582,8 +3969,12 @@ describe("WebInspectorElement memories — view states", () => {
     expect(landing?.textContent).toContain(
       "Turn every interaction into reusable context.",
     );
+    // The Learning pane asks for Learning. It used to borrow the Threads
+    // target, so this button copied a Threads prompt and announced itself as
+    // one, on a page headed "Turn every interaction into reusable context"
+    // (OSS-1151).
     const copy = landing?.querySelector<HTMLButtonElement>(
-      '[data-inspector-feature-setup-prompt="threads"]',
+      '[data-inspector-feature-setup-prompt="memory"]',
     );
     expect(copy).not.toBeNull();
     copy?.click();
@@ -3595,6 +3986,13 @@ describe("WebInspectorElement memories — view states", () => {
         agentId: null,
       });
     });
+    // What the developer actually pastes. `add-learning` refuses cleanly
+    // through `feature/stop` when a prerequisite is missing, which is why the
+    // route beats this pane guessing at one.
+    expect(String(writeText.mock.calls[0]?.[0])).toContain(
+      "?intent=add-learning",
+    );
+    expect(copy?.getAttribute("aria-label")).toContain("Learning");
     expect(internals.selectedMenu).toBe("memories");
     await el.updateComplete;
     const view = el.shadowRoot?.querySelector<HTMLElement>("cpk-learning-view");
@@ -3604,13 +4002,52 @@ describe("WebInspectorElement memories — view states", () => {
       view?.shadowRoot?.querySelector('[data-learning-state="setup"]'),
     ).not.toBeNull();
     expect(view?.shadowRoot?.textContent).toContain(
-      "Waiting for Learning setup",
+      "Waiting for Automatic Learning setup",
     );
     expect(view?.shadowRoot?.textContent).toContain("Copy the setup prompt");
-    expect(view?.shadowRoot?.textContent).toContain("Set up Learning");
+    expect(view?.shadowRoot?.textContent).toContain(
+      "Set up Automatic Learning",
+    );
     expect(
       view?.shadowRoot?.querySelector(".step")?.classList.contains("complete"),
     ).toBe(true);
+
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    view?.shadowRoot?.querySelector<HTMLButtonElement>(".copy-again")?.click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => {
+      const updatedView =
+        el.shadowRoot?.querySelector<HTMLElement>("cpk-learning-view");
+      expect(
+        updatedView?.shadowRoot?.querySelector<HTMLButtonElement>(".copy-again")
+          ?.textContent,
+      ).toContain("Copied!");
+    });
+    const resetCallIndex = timeoutSpy.mock.calls.findIndex(
+      ([, delay]) => delay === 2_000,
+    );
+    const resetCall = timeoutSpy.mock.calls[resetCallIndex];
+    expect(resetCall).toBeDefined();
+    (resetCall?.[0] as () => void)();
+    clearTimeout(timeoutSpy.mock.results[resetCallIndex]?.value);
+    await vi.waitFor(() => {
+      const updatedView =
+        el.shadowRoot?.querySelector<HTMLElement>("cpk-learning-view");
+      expect(
+        updatedView?.shadowRoot?.querySelector<HTMLButtonElement>(".copy-again")
+          ?.textContent,
+      ).toContain("Copy prompt again");
+    });
+    timeoutSpy.mockRestore();
+
+    view?.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".pane-actions button")
+      ?.click();
+    await el.updateComplete;
+    expect(internals.learningSetupMarker).toBeNull();
+    expect(learningPreview(el)?.textContent).toContain(
+      "Turn every interaction into reusable context.",
+    );
   });
 
   it("keeps all-agents Learning unscoped when several agents are present", () => {
@@ -3858,7 +4295,7 @@ describe("WebInspectorElement memories — view states", () => {
     const preview = learningPreview(el);
 
     expect(
-      preview.querySelector('[data-inspector-feature-setup-prompt="threads"]'),
+      preview.querySelector('[data-inspector-feature-setup-prompt="memory"]'),
     ).not.toBeNull();
     expect(preview.textContent).toContain("Copy setup prompt");
   });

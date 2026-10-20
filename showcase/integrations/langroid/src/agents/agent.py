@@ -355,9 +355,9 @@ SYSTEM_PROMPT = (
 def create_agent(system_message: str | None = None) -> lr.ChatAgent:
     """Create a Langroid ChatAgent configured with all showcase tools.
 
-    Default model is the bare ``gpt-4.1`` (not ``openai/gpt-4.1``): langroid
+    Default model is the bare ``gpt-5-mini`` (not ``openai/gpt-5-mini``): langroid
     does NOT strip the ``openai/`` prefix before passing the string to the
-    OpenAI SDK, and the SDK rejects ``openai/gpt-4.1`` as "model not found".
+    OpenAI SDK, and the SDK rejects ``openai/gpt-5-mini`` as "model not found".
 
     ``system_message`` — optional override for the agent's system prompt.
     Used by the Agent Config Object demo to steer tone / expertise /
@@ -365,7 +365,7 @@ def create_agent(system_message: str | None = None) -> lr.ChatAgent:
     ``SYSTEM_PROMPT`` is used so behavior for every other demo is
     unchanged.
     """
-    model = os.getenv("LANGROID_MODEL", "gpt-4.1")
+    model = os.getenv("LANGROID_MODEL", "gpt-5-mini")
 
     llm_config = lm.OpenAIGPTConfig(
         chat_model=model,

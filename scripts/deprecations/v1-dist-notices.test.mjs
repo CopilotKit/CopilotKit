@@ -70,7 +70,7 @@ test("every v1 package build runs the declaration warning postprocessor", () => 
     ["packages/runtime/package.json", "--entrypoint runtime,runtime-langgraph"],
     [
       "packages/sdk-js/package.json",
-      "--entrypoint sdk-js,sdk-js-langchain,sdk-js-langgraph,sdk-js-langgraph-middlewares",
+      "--entrypoint sdk-js,sdk-js-langchain,sdk-js-langgraph-middlewares",
     ],
   ]);
   for (const [file, argument] of expected) {

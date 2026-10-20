@@ -12,11 +12,14 @@
  */
 
 import { z } from "zod";
-import type { RunnableConfig } from "@langchain/core/runnables";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import type { AIMessage } from "@langchain/core/messages";
-import { SystemMessage, ToolMessage } from "@langchain/core/messages";
+import {
+  AIMessage,
+  SystemMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
 import type { ToolRunnableConfig } from "@langchain/core/tools";
 import {
   Annotation,
@@ -140,13 +143,13 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // @doc-replace
   const model = makeChatOpenAI(config, {
     temperature: 0,
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
   });
   // @doc-as
   // const model = new ChatOpenAI({
-  //     temperature: 0,
-  //     model: "gpt-4o-mini",
-  //   });
+  //   temperature: 0,
+  //   model: "gpt-5-mini",
+  // });
   // @doc-end
 
   const modelWithTools = model.bindTools!([

@@ -92,12 +92,12 @@ export const POST = async (req: NextRequest) =>
 // @doc-as
 // export const POST = async (req: NextRequest) => {
 //   try {
-//     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-//       endpoint: "/api/copilotkit-mcp-apps",
-//       serviceAdapter: new ExperimentalEmptyAdapter(),
+//     const copilotHandler = createCopilotRuntimeHandler({
 //       runtime,
+//       basePath: "/api/copilotkit-mcp-apps",
+//       mode: "single-route",
 //     });
-//     return await handleRequest(req);
+//     return await copilotHandler(req);
 //   } catch (error: unknown) {
 //     const e = error as { message?: string; stack?: string };
 //     return NextResponse.json(

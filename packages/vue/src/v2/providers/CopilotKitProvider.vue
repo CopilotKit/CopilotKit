@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { GENERATE_SANDBOXED_UI_DESCRIPTION } from "@copilotkit/shared";
 import {
   computed,
+  h,
   onMounted,
   provide,
   ref,
@@ -10,11 +12,14 @@ import {
 } from "vue";
 import { z } from "zod";
 import type { AbstractAgent } from "@ag-ui/client";
+import { ToolCallStatus } from "@copilotkit/core";
 import type {
   CopilotKitCoreErrorCode,
   CopilotKitCoreSubscriber,
+  CopilotKitHeadersSource,
   FrontendTool,
 } from "@copilotkit/core";
+import { ɵwithHeaderDefaults } from "@copilotkit/core";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import type {
   RuntimeEntitlementResponse,
@@ -52,6 +57,7 @@ import type {
   VueActivityMessageRenderer,
   VueFrontendTool,
   VueToolCallRenderer,
+  VueToolCallRendererRenderProps,
 } from "../types";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
@@ -70,6 +76,10 @@ const RENDER_ACTIVITY_MESSAGES_STABLE_WARNING =
   "renderActivityMessages must be a stable array.";
 const SANDBOX_FUNCTIONS_STABLE_WARNING =
   "openGenerativeUI.sandboxFunctions must be a stable array.";
+// Matches the message React's `useHumanInTheLoop` rejects with, so an aborted
+// interrupt reads the same across frameworks (see #5554).
+const HUMAN_IN_THE_LOOP_ABORTED_MESSAGE =
+  "Human-in-the-loop interaction aborted";
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
 - Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
@@ -80,20 +90,6 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Use CSS Grid or Flexbox for layout. Ensure the UI looks good at any width.
 - Minimal transitions (150ms) for hover/focus states only. No decorative animations.
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
-
-const GENERATE_SANDBOXED_UI_DESCRIPTION =
-  "Generate sandboxed UI. " +
-  "IMPORTANT: The generated code runs in a sandboxed iframe WITHOUT same-origin access. " +
-  "Do NOT use localStorage, sessionStorage, document.cookie, IndexedDB, or fetch/XMLHttpRequest to same-origin URLs. " +
-  "To communicate with the host application, use Websandbox.connection.remote.<functionName>(args) which returns a Promise.\n\n" +
-  "You CAN use external libraries from CDNs by including <script> or <link> tags in the HTML <head> (e.g., Chart.js, D3, Three.js, x-data-spreadsheet, etc.). " +
-  "CDN resources load normally inside the sandbox.\n\n" +
-  "PARAMETER ORDER IS CRITICAL — generate parameters in exactly this order:\n" +
-  "1. initialHeight + placeholderMessages (shown to user while generating)\n" +
-  "2. css (all styles FIRST — the user sees a placeholder until CSS is complete)\n" +
-  "3. html (streams in live — the user watches the UI build as HTML is generated)\n" +
-  "4. jsFunctions (reusable helper functions)\n" +
-  "5. jsExpressions (applied one-by-one — the user sees each expression take effect)";
 
 const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   headers: () => ({}),
@@ -197,16 +193,36 @@ const hasLocalAgents = computed(
   () => Object.keys(mergedAgents.value).length > 0,
 );
 
-const resolvedHeaders = computed(() =>
-  typeof props.headers === "function" ? props.headers() : props.headers,
-);
+// Whether `headers` is a builder, as its own computed so that a re-render
+// merely passing a NEW function of the same kind (e.g. a fresh inline arrow)
+// doesn't propagate: this computed's VALUE doesn't change, so Vue never marks
+// `headersSource` below dirty on that account. Reading `props.headers`
+// directly inside `headersSource` would defeat this — its exact identity
+// would then be tracked there instead.
+const isHeadersBuilder = computed(() => typeof props.headers === "function");
 
-const mergedHeaders = computed(() => {
-  const headers = resolvedHeaders.value;
-  if (!resolvedPublicKey.value) return headers;
-  if (headers[HEADER_NAME]) return headers;
-  return { ...headers, [HEADER_NAME]: resolvedPublicKey.value };
-});
+// Stable for the component's lifetime: reads `props.headers` fresh on every
+// call, so it is always current at send time (#1937), never during render.
+// The read below can return a sync record or an async promise depending on
+// what `props.headers` happens to be at call time, which
+// `CopilotKitHeadersSource`'s shape can't express in one function signature
+// (sync-only OR async-only) — same rationale as the cast inside
+// `ɵwithHeaderDefaults`.
+const latestHeaders = (() =>
+  typeof props.headers === "function"
+    ? props.headers()
+    : props.headers) as () => Record<string, string>;
+
+// The source handed to core. A record keeps today's identity semantics (its
+// own reference changes propagate); a builder is represented by the stable
+// `latestHeaders` above, so only `isHeadersBuilder` and `resolvedPublicKey`
+// actually drive recomputation.
+const headersSource = computed<CopilotKitHeadersSource>(() =>
+  ɵwithHeaderDefaults(
+    isHeadersBuilder.value ? latestHeaders : props.headers,
+    resolvedPublicKey.value ? { [HEADER_NAME]: resolvedPublicKey.value } : {},
+  ),
+);
 
 const chatApiEndpoint = computed(
   () =>
@@ -228,29 +244,99 @@ watch(
   { immediate: true },
 );
 
+/**
+ * A human-in-the-loop tool call from the `humanInTheLoop` prop that is waiting
+ * on the user. Keyed by tool call id so parallel interrupts on the same tool
+ * stay independent.
+ */
+type PendingHumanInTheLoop = {
+  resolve: (result: unknown) => void;
+  detachAbort?: () => void;
+};
+
+const pendingHumanInTheLoop = new Map<string, PendingHumanInTheLoop>();
+
+/** Removes a pending interaction and detaches its abort listener. */
+const takePendingHumanInTheLoop = (key: string) => {
+  const pending = pendingHumanInTheLoop.get(key);
+  if (!pending) return undefined;
+  pending.detachAbort?.();
+  pendingHumanInTheLoop.delete(key);
+  return pending;
+};
+
 const processedHumanInTheLoop = computed(() => {
   const tools: FrontendTool[] = [];
   const renderToolCalls: VueToolCallRenderer<unknown>[] = [];
 
   for (const tool of props.humanInTheLoop) {
     tools.push({
+      type: "human-in-the-loop",
       name: tool.name,
       description: tool.description,
       parameters: tool.parameters,
       followUp: tool.followUp,
       ...(tool.agentId && { agentId: tool.agentId }),
-      handler: async () => {
-        console.warn(
-          `Human-in-the-loop tool '${tool.name}' called but no interactive handler is set up.`,
-        );
-        return undefined;
+      // Keep the tool call pending until the render calls `respond`, matching
+      // the `useHumanInTheLoop` composable. Resolving immediately made the HITL
+      // UI flash and disappear without ever waiting for the user.
+      handler: async (_args, context) => {
+        const signal = context?.signal;
+        const key = context?.toolCall?.id ?? tool.name;
+
+        return new Promise((resolve, reject) => {
+          // Already aborted before the handler ran — reject so core records an
+          // explicit error tool result rather than silently resolving empty.
+          if (signal?.aborted) {
+            reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
+            return;
+          }
+
+          const pending: PendingHumanInTheLoop = { resolve };
+          pendingHumanInTheLoop.set(key, pending);
+
+          if (signal) {
+            const onAbort = () => {
+              pendingHumanInTheLoop.delete(key);
+              reject(new Error(HUMAN_IN_THE_LOOP_ABORTED_MESSAGE));
+            };
+            signal.addEventListener("abort", onAbort, { once: true });
+            pending.detachAbort = () => {
+              signal.removeEventListener("abort", onAbort);
+            };
+          }
+        });
       },
     });
     if (tool.render) {
+      const ToolComponent = tool.render;
+      const render: VueToolCallRenderer<unknown>["render"] = (
+        renderProps: VueToolCallRendererRenderProps<unknown>,
+      ) => {
+        const key = renderProps.toolCallId ?? tool.name;
+        return h(ToolComponent as Parameters<typeof h>[0], {
+          ...renderProps,
+          // `renderProps.name` is the tool that was actually invoked. It equals
+          // `tool.name` for a named registration; for a wildcard (`"*"`) it is
+          // the only place the real name exists.
+          name: tool.name === "*" ? renderProps.name : tool.name,
+          description: tool.description || "",
+          agentId: tool.agentId,
+          // `respond` is live only while the tool is executing — the one phase
+          // with a promise waiting on the user.
+          respond:
+            renderProps.status === ToolCallStatus.Executing
+              ? async (result: unknown) => {
+                  takePendingHumanInTheLoop(key)?.resolve(result);
+                }
+              : undefined,
+        });
+      };
+
       renderToolCalls.push({
         name: tool.name,
         args: tool.parameters ?? z.any(),
-        render: tool.render,
+        render,
         ...(tool.agentId && { agentId: tool.agentId }),
       } as VueToolCallRenderer<unknown>);
     }
@@ -338,6 +424,8 @@ const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
       description: GENERATE_SANDBOXED_UI_DESCRIPTION,
       parameters: GenerateSandboxedUiArgsSchema,
       handler: async () => "UI generated",
+      // This acknowledgement has no side effects and is safe to reconstruct.
+      reconnectBehavior: "resume-pending",
       followUp: true,
       render:
         OpenGenerativeUIToolRenderer as unknown as VueFrontendTool["render"],
@@ -405,8 +493,9 @@ const createCopilotKit = () => {
         : props.useSingleEndpoint === false
           ? "rest"
           : "auto",
-    headers: mergedHeaders.value,
+    headers: headersSource.value,
     credentials: props.credentials,
+    messageFilter: props.messageFilter,
     properties: resolvedProperties.value,
     agents__unsafe_dev_only: mergedAgents.value,
     tools: allTools.value,
@@ -481,12 +570,25 @@ watch(
         });
       },
     });
+    // `onHeadersChanged` fires only from a real `setHeaders()` call (a new
+    // source), never from a builder resolving a new token — same generation
+    // core bumps. Without this, nothing pokes Vue's reactivity when a source
+    // change lands: `ɵheadersGeneration` is a plain property read, not a
+    // ref/reactive value, so `headersKey` (use-threads.ts) and the
+    // HttpAgent watcher (use-agent.ts) only re-read it when SOME OTHER
+    // trigger happens to fire around the same time (#1937).
+    const sub6 = core.subscribe({
+      onHeadersChanged: () => {
+        triggerRef(copilotkit);
+      },
+    });
     onCleanup(() => {
       sub1.unsubscribe();
       sub2.unsubscribe();
       sub3.unsubscribe();
       sub4.unsubscribe();
       sub5.unsubscribe();
+      sub6.unsubscribe();
     });
   },
   { immediate: true },
@@ -514,6 +616,18 @@ watch([allRenderActivityMessages], ([renderActivityMessages]) => {
   triggerRef(copilotkit);
 });
 
+// The last `headersSource` reference actually handed to `core.setHeaders`.
+// `syncRuntimeConfig` runs once (unconditionally) from `onMounted` in
+// addition to the constructor already having applied this same value.
+// `HeaderSourceResolver.setSource` itself is a no-op both for an identical
+// function reference and for a record whose normalized values equal the
+// currently applied record's (see #1937), so this reference
+// check is now a cheap pre-filter rather than the only thing preventing a
+// spurious `onHeadersChanged`. It still avoids the `setHeaders` call (and
+// its normalize + shallow-equal work) entirely on the common path where
+// nothing changed.
+let lastAppliedHeadersSource: CopilotKitHeadersSource = headersSource.value;
+
 function syncRuntimeConfig() {
   copilotkit.value.setRuntimeUrl(chatApiEndpoint.value);
   copilotkit.value.setRuntimeTransport(
@@ -523,8 +637,12 @@ function syncRuntimeConfig() {
         ? "rest"
         : "auto",
   );
-  copilotkit.value.setHeaders(mergedHeaders.value);
+  if (headersSource.value !== lastAppliedHeadersSource) {
+    lastAppliedHeadersSource = headersSource.value;
+    copilotkit.value.setHeaders(headersSource.value);
+  }
   copilotkit.value.setCredentials(props.credentials);
+  copilotkit.value.setMessageFilter(props.messageFilter);
   copilotkit.value.setProperties(resolvedProperties.value);
   copilotkit.value.setAgents__unsafe_dev_only(mergedAgents.value);
   copilotkit.value.setDebug(props.debug);
@@ -534,8 +652,9 @@ function syncRuntimeConfig() {
 watch(
   [
     () => chatApiEndpoint.value,
-    () => mergedHeaders.value,
+    () => headersSource.value,
     () => props.credentials,
+    () => props.messageFilter,
     () => resolvedProperties.value,
     () => mergedAgents.value,
     () => props.useSingleEndpoint,
@@ -663,10 +782,12 @@ const runtimeEntitlementRetryInProgress = computed(
     runtimeEntitlementRetryPending.value &&
     !hasLegacyRuntimeEntitlementFallback.value,
 );
-const runtimeEntitlementFailureSettled = computed(
+// Only a terminal failure denies features. A retryable failure (a timeout,
+// a network error, a 5xx) says nothing about what the project may use.
+const terminalRuntimeEntitlementFailure = computed(
   () =>
     hasNonReadyRuntimeEntitlement.value &&
-    !runtimeEntitlementRetryInProgress.value &&
+    !retryableRuntimeEntitlementFailure.value &&
     !hasLegacyRuntimeEntitlementFallback.value,
 );
 const licenseContextValue = computed<LicenseContextValue>(() => {
@@ -676,7 +797,7 @@ const licenseContextValue = computed<LicenseContextValue>(() => {
       : runtimeLicenseStatus.value,
     runtimeEntitlements.value,
   );
-  if (!runtimeEntitlementFailureSettled.value) {
+  if (!terminalRuntimeEntitlementFailure.value) {
     return runtimeLicenseContext;
   }
 

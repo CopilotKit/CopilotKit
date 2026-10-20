@@ -3,47 +3,88 @@ title: Introduction
 icon: "custom/agno"
 description: Bring your Agno agents to your users with CopilotKit via AG-UI.
 hideHeader: true
+# The landing page carries its own prompt button in the hero; the page-tools
+# row above the title would put a second one on the page, which the data-record
+# partner pages do not have.
+hidePageActions: true
 ---
 
 <FrameworkOverview
   frameworkName="Agno"
-  frameworkIcon={<AgnoIcon className="h-10 w-10" />}
+  frameworkIcon={<AgnoIcon className="h-12 w-12" />}
   header="Bring your Agno agents to your users"
-  subheader="Give your Agno agents real user-interactivity using CopilotKit and AG-UI. Build rich, interactive, agent-powered applications."
-  bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
+  subheader="Agno runs your agents. CopilotKit gives them a surface your users can see, interrupt and steer."
   guideLink="/agno/quickstart"
   initCommand="npx copilotkit@latest init"
-  featuresLink="https://feature-viewer.copilotkit.ai/agno/feature/agentic_chat"
+  lede="Agno gives you the agent: a model, tools, memory and a server that runs them. What it does not give you is the surface. Somewhere for the conversation to happen, a way to show the run while it is running, and a moment for a person to step in. Each capability below builds on something your agent already does."
   supportedFeatures={[
     {
       title: "Generative UI",
-      description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
-      documentationLink: "/agno/generative-ui",
-      demoLink: "https://feature-viewer.copilotkit.ai/agno/feature/tool_based_generative_ui",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
+      iconKey: "paintbrush",
+      description:
+        "Your agent calls tools and reports progress as it works. CopilotKit streams that to the browser and renders each step as a React component your users watch update while the agent works.",
+      documentationLink: "/agno/generative-ui"
     },
     {
-      title: "Human in the Loop",
-      description: "Empower users to guide agents at key checkpoints. Combine the best of AI and human judgment for more reliable and controllable agent behavior.",
-      documentationLink: "/agno/human-in-the-loop",
-      demoLink: "https://examples-coagents-ai-travel-app.vercel.app/",
-      videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
-    },
-  ]}
-  architectureImage="https://cdn.copilotkit.ai/docs/copilotkit/images/generic-agui-architecture.png"
-  liveDemos={[
-    {
-      type: "saas",
-      title: "SaaS Copilot",
-      description: "A traditional SaaS application enhanced with AI agents. These copilots integrate seamlessly into existing workflows, providing intelligent assistance for specific business processes. Perfect for customer service, sales automation, project management, and domain-specific tasks where users need guided, step-by-step AI assistance.",
-      iframeUrl: "https://examples-coagents-ai-travel-app.vercel.app?copilotOpen=true"
+      title: "Human-in-the-loop",
+      iconKey: "user",
+      description:
+        "A frontend tool registered with useHumanInTheLoop renders your own UI, waits for the user's answer, and hands it back to the agent as the tool result.",
+      documentationLink: "/agno/human-in-the-loop"
     },
     {
-      type: "canvas",
-      title: "Canvas Copilot",
-      description: "An infinite canvas interface where users collaborate with AI agents in a spatial, visual environment. These copilots excel at research, brainstorming, content creation, and complex problem-solving where information needs to be organized, connected, and explored in a non-linear, creative way.",
-      iframeUrl: "https://examples-coagents-research-canvas-ui.vercel.app/"
+      title: "Shared state",
+      iconKey: "repeat",
+      description:
+        "Your agent keeps state between turns on the server. CopilotKit mirrors it into your app and back, so a user edit and an agent write land in the same place.",
+      documentationLink: "/agno/shared-state"
     }
   ]}
-/>
+  capabilitiesFootnote={{
+    text: "Chat surfaces, headless UI, frontend tools and multi-agent flows work with Agno too.",
+    linkLabel: "And more",
+    href: "/agno/build-with-agents"
+  }}
+  connect={{
+    intro:
+      "Your agent keeps running as its own Agno service. The AgnoAgent bridge points CopilotKit at its AG-UI endpoint, so nothing inside the agent changes.",
+    filename: "app/api/copilotkit/route.ts",
+    language: "ts",
+    guideLink: "/agno/quickstart"
+  }}
+  showcase={{
+    integration: "agno",
+    intro:
+      "Agno and CopilotKit running together, in the React frontend. Every demo below is the same integration with one capability turned on.",
+    demos: [
+      { slug: "agentic-chat", title: "Pre-Built: CopilotChat" },
+      { slug: "hitl-in-chat", title: "Human In the Loop: In-chat" },
+      { slug: "shared-state-read-write", title: "Shared State: Read + Write" },
+      { slug: "gen-ui-agent", title: "Generative UI: Agent State" }
+    ]
+  }}
+>
 
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { AgnoAgent } from "@ag-ui/agno";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new AgnoAgent({ url: "http://localhost:8000/agui" }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+```
+
+</FrameworkOverview>

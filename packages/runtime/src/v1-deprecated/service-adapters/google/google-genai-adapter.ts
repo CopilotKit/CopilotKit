@@ -30,10 +30,12 @@
  *
  * const copilotKit = new CopilotRuntime();
  *
- * return new GoogleGenerativeAIAdapter({ model: "gemini-2.5-flash", apiVersion: "v1" });
+ * return new GoogleGenerativeAIAdapter({ model: "gemini-3.8-flash", apiVersion: "v1" });
  * ```
  */
 import { LangChainAdapter } from "../langchain/langchain-adapter";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import type { LanguageModel } from "ai";
 
 interface GoogleGenerativeAIAdapterOptions {
   /**
@@ -50,13 +52,15 @@ interface GoogleGenerativeAIAdapterOptions {
   apiKey?: string;
 }
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+const DEFAULT_MODEL = "gemini-3.5-flash";
 const DEFAULT_API_VERSION: GoogleGenerativeAIAdapterOptions["apiVersion"] =
   "v1";
 let hasWarnedDefaultGoogleModel = false;
 
 export class GoogleGenerativeAIAdapter extends LangChainAdapter {
   public provider = "google";
+  private _apiKey?: string;
+  private _apiVersion?: GoogleGenerativeAIAdapterOptions["apiVersion"];
   public model: string = DEFAULT_MODEL;
 
   constructor(options?: GoogleGenerativeAIAdapterOptions) {
@@ -110,5 +114,33 @@ export class GoogleGenerativeAIAdapter extends LangChainAdapter {
         });
       },
     });
+
+    // `this.model` is otherwise only assigned inside the chain closure, which
+    // does not run until a request arrives — so `getLanguageModel()` would
+    // report the default model instead of the configured one.
+    this._apiKey = options?.apiKey;
+    this._apiVersion = options?.apiVersion;
+    this.model = options?.model ?? DEFAULT_MODEL;
+  }
+
+  /**
+   * Hands `BuiltInAgent` a model built from this adapter's own credentials.
+   * Without it the runtime rebuilds a bare "google/<model>" string and the
+   * provider falls back to environment variables, dropping the `apiKey`
+   * passed to this constructor.
+   */
+  getLanguageModel(): LanguageModel {
+    // `createGoogleGenerativeAI` has no `apiVersion` option, so the version is
+    // carried on the base URL. Only when the caller asked for one: the
+    // provider's own default is v1beta, and that has been the live default
+    // ever since this method started routing around `process()`. Forcing the
+    // adapter's documented "v1" here would strand models v1 does not serve.
+    const provider = createGoogleGenerativeAI({
+      apiKey: this._apiKey ?? process.env.GOOGLE_API_KEY,
+      ...(this._apiVersion && {
+        baseURL: `https://generativelanguage.googleapis.com/${this._apiVersion}`,
+      }),
+    });
+    return provider(this.model);
   }
 }

@@ -63,7 +63,7 @@ class SubagentsSnapshot(BaseModel):
 # prompt. They don't share memory or tools with the supervisor — the
 # supervisor only sees what each sub-agent's final reply produces.
 
-_SUB_LLM_CONFIG = LLMConfig({"model": "gpt-4o-mini", "stream": False})
+_SUB_LLM_CONFIG = LLMConfig({"model": "gpt-5-mini", "stream": False})
 
 _research_agent = ConversableAgent(
     name="research_sub_agent",
@@ -304,7 +304,7 @@ supervisor = ConversableAgent(
         in your final reply — just summarize.
         """
     ).strip(),
-    llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
+    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
     human_input_mode="NEVER",
     # Limit supervisor steps to bound delegation fan-out.
     max_consecutive_auto_reply=8,

@@ -8,7 +8,7 @@
  * can resolve the call.
  */
 
-import type { RunnableConfig } from "@langchain/core/runnables";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import { MemorySaver, START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
@@ -35,13 +35,13 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // @doc-replace
   const model = makeChatOpenAI(config, {
     temperature: 0,
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
   });
   // @doc-as
   // const model = new ChatOpenAI({
-  //     temperature: 0,
-  //     model: "gpt-4o-mini",
-  //   });
+  //   temperature: 0,
+  //   model: "gpt-5-mini",
+  // });
   // @doc-end
 
   const modelWithTools = model.bindTools!([

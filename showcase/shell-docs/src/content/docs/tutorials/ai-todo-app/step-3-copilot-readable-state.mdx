@@ -21,9 +21,9 @@ All of this is consumable by a `useTasks` hook, which we use in the rest of our 
 
 This resembles the majority of React apps, where frontend state, either for a feature or the entire app, is managed by a context or state management library.
 
-## The `useCopilotReadable` hook
+## The `useAgentContext` hook
 
-Our goal is to make our copilot aware of this state, so that it can provide more accurate and helpful responses. We can easily achieve this by using the [`useCopilotReadable`](/reference/v1/hooks/useCopilotReadable) hook.
+Our goal is to make our copilot aware of this state, so that it can provide more accurate and helpful responses. We can easily achieve this by using the [`useAgentContext`](/reference/hooks/useAgentContext) hook.
 
 ```tsx title="lib/hooks/use-tasks.tsx" {3,8-11}
 // ... the rest of the file
@@ -32,7 +32,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>(defaultTasks);
 
   // [!code highlight:4]
-  useCopilotReadable({
+  useAgentContext({
     description: "The state of the todo list",
     value: JSON.stringify(tasks),
   });
@@ -41,7 +41,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
 };
 ```
 
-In this example, we use the `useCopilotReadable` hook to provide the copilot with the state of our tasks.
+In this example, we use the `useAgentContext` hook to provide the copilot with the state of our tasks.
 
 - For the `description` property, we provide a concise description that tells the copilot what this piece of readable data means.
 - For the `value` property, we pass the entire state as a JSON string.

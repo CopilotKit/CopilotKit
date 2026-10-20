@@ -1,0 +1,10 @@
+/*
+ * A caption that belongs to the header, such as All projects coverage. Pages
+ * stack their blocks 1rem apart; the note sits half that under the header so
+ * it reads as part of it.
+ */
+.note {
+  margin: -0.5rem 0 0;
+  color: var(--muted-foreground);
+  font-size: var(--text-caption);
+}

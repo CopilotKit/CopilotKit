@@ -1,5 +1,6 @@
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
+import { readGuardrailsEnabled } from "./shared/cloud-telemetry";
 import type { RunAgentParameters } from "./shared/agent-utils";
 import {
   attachIntelligenceEnterpriseLearning,
@@ -17,21 +18,14 @@ export async function handleRunAgent({
   agentId,
 }: RunAgentParameters) {
   const startTime = Date.now();
+  const publicApiKey = request.headers.get("x-copilotcloud-public-api-key");
   (runtime.telemetry ?? telemetry).capture(
     "oss.runtime.copilot_request_created",
     {
-      "cloud.guardrails.enabled": false,
+      "cloud.guardrails.enabled": await readGuardrailsEnabled(request),
       requestType: "run",
-      "cloud.api_key_provided": !!request.headers.get(
-        "x-copilotcloud-public-api-key",
-      ),
-      ...(request.headers.get("x-copilotcloud-public-api-key")
-        ? {
-            "cloud.public_api_key": request.headers.get(
-              "x-copilotcloud-public-api-key",
-            )!,
-          }
-        : {}),
+      "cloud.api_key_provided": !!publicApiKey,
+      ...(publicApiKey ? { "cloud.public_api_key": publicApiKey } : {}),
     },
   );
 
@@ -67,6 +61,10 @@ export async function handleRunAgent({
       agentId,
       agent,
       providerA2UIHasCatalog,
+      isMcpProxyRequest: Object.prototype.hasOwnProperty.call(
+        input.forwardedProps ?? {},
+        "__proxiedMCPRequest",
+      ),
     });
     const memoryResponse = await attachIntelligenceEnterpriseLearning({
       runtime,

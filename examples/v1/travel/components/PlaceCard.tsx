@@ -1,8 +1,8 @@
 import { Card, CardTitle, CardContent } from "@/components/ui/card";
-import { Place } from "@/lib/types";
+import type { Place } from "@/lib/types";
 import { Stars } from "@/components/Stars";
 import { MapPin, Info } from "lucide-react";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 

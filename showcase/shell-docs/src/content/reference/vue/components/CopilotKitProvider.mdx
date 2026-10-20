@@ -47,8 +47,30 @@ You must provide at least one of `runtimeUrl`, `publicApiKey`, or `publicLicense
   The endpoint for the Copilot Runtime instance. When omitted but a public key is set, requests fall back to the Copilot Cloud chat endpoint.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)">
-  Additional headers to send with each request. Pass a plain object, or a function that returns headers (useful for dynamically resolved values such as auth tokens).
+<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>) | (() => Promise<Record<string, string>>)">
+  Additional headers to send with each request. Pass a plain object for
+  static headers, or a function (sync or async) that returns them. A builder
+  runs when each request is sent, so a refreshed token is always used.
+
+Cache inside the builder. Clerk's and Auth0's `getToken()` already cache. A
+builder that calls the network every time adds one call per request.
+
+If the builder throws or rejects, that request is not sent and `onError`
+gets `header_resolution_failed`.
+
+Re-passing the same builder function is a no-op, and so is passing a new
+function through the `headers` prop: the provider keeps one stable wrapper for
+any builder. On a user switch, remount the provider (for example with a `key`),
+or call `copilotkit.value.setHeaders(...)` with a new function or a record, so
+Inspector metadata and thread lists reload for the new user. This does not
+refetch the runtime's `/info`.
+
+`copilotkit.value.headers` is the last resolved value. Use
+`await copilotkit.value.resolveHeaders()` for your own requests.
+
+Core headers are also sent to any `selfManagedAgents` /
+`agents__unsafe_dev_only` agent, including ones on other origins. Don't put a
+bearer token in core headers if those agents point at a third party.
 
 ```json
 {
@@ -60,6 +82,36 @@ You must provide at least one of `runtimeUrl`, `publicApiKey`, or `publicLicense
 
 <PropertyReference name="credentials" type="RequestCredentials">
   Indicates whether the user agent should send or receive cookies for cross-origin requests. Set to `"include"` to enable HTTP-only cookie authentication (configure CORS with credentials on your runtime endpoint to match).
+</PropertyReference>
+
+<PropertyReference name="messageFilter" type="(messages: Message[], context: { agentId: string }) => Message[]">
+  Rewrites the message list sent to the agent on every run.
+
+CopilotKit sends the whole thread with each request. When your agent already
+stores the conversation — a LangGraph checkpointer, a Mastra memory store, a
+Strands `SessionManager` — most of that payload is waste, and an agent that
+merges the inbound list with its own store can show the model every turn twice.
+
+Return the messages to send:
+
+```vue
+<CopilotKitProvider
+  runtime-url="/api/copilotkit"
+  :message-filter="(messages) => messages.slice(-1)"
+>
+  <YourApp />
+</CopilotKitProvider>
+```
+
+The filter changes the request body only. The transcript the UI renders is
+untouched, so the chat still shows the full conversation. Broken tool-call pairs
+are repaired before the request goes out, so a filter this blunt cannot strand a
+tool result mid-approval.
+
+Agents reached through your CopilotRuntime honor this. An agent your app
+constructs itself and passes in directly does not. CopilotKit Intelligence runs
+and suggestion runs are never filtered.
+
 </PropertyReference>
 
 <PropertyReference name="defaultThrottleMs" type="number">

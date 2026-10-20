@@ -1,5 +1,9 @@
 import type { AbstractAgent } from "@ag-ui/client";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type {
+  CopilotKitCoreErrorCode,
+  CopilotKitHeadersSource,
+  CopilotKitMessageFilter,
+} from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
 import type {
   A2UITheme,
@@ -14,8 +18,37 @@ import type { Component } from "vue";
 
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  /**
+   * Headers sent with every request. A record, or a sync or async builder
+   * that runs when each request is sent. An inline arrow is fine. The builder
+   * should be cheap; cache tokens in it.
+   */
+  headers?: CopilotKitHeadersSource;
   credentials?: RequestCredentials;
+  /**
+   * Rewrites the message list sent to runtime agents on every run.
+   *
+   * CopilotKit sends the whole thread each time. When your agent already
+   * stores the conversation, most of that payload is waste, and an agent that
+   * merges the inbound list with its own store can show the model every turn
+   * twice. Return the messages to send:
+   *
+   * ```vue
+   * <CopilotKitProvider
+   *   runtime-url="/api/copilotkit"
+   *   :message-filter="(messages) => messages.slice(-1)"
+   * />
+   * ```
+   *
+   * The filter changes the request body only. The transcript the UI renders is
+   * untouched. Broken tool-call pairs are repaired before the request is sent,
+   * so a filter this blunt cannot strand a tool result mid-HITL.
+   *
+   * Agents reached through your CopilotRuntime honor this. An agent your app
+   * passes in directly does not, and neither Intelligence runs nor suggestion
+   * runs are ever filtered.
+   */
+  messageFilter?: CopilotKitMessageFilter;
   defaultThrottleMs?: number;
   publicApiKey?: string;
   publicLicenseKey?: string;

@@ -35,7 +35,7 @@ both Slack and Teams for this Channel and keeps each delivery provider-scoped.
 | `components`     | `ChannelComponent[]`                                   | Named JSX components whose callbacks can be reconstructed from stored snapshots.                                            |
 | `commands`       | `ChannelCommand[]`                                     | Declared commands for providers that support them.                                                                          |
 | `store`          | `StoreConfig`                                          | State schema, persistence, turn concurrency (`parallel` default), dedup, and optional transcript bridge.                    |
-| `adapters`       | `PlatformAdapter[]`                                    | Low-level direct transports. They may coexist with the managed Intelligence adapter on this Channel.                        |
+| `adapters`       | `PlatformAdapter[]`                                    | Low-level direct transports. They may coexist with the cloud-hosted Intelligence adapter on this Channel.                        |
 
 One Channel may receive managed Slack and Teams deliveries. Names must be
 unique inside one `CopilotRuntime`.

@@ -1,44 +1,4 @@
-/*
- * V1 SDK DEPRECATED. USE V2 INSTEAD
- *
- * This file defines public v1 SDK exports. Use the exact v2 mappings below.
- * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
- * the linked v2 documentation before generating replacement code.
- *
- * @copilotkit/sdk-js/langgraph — copilotkitMiddleware:
- *   No 1:1 v2 replacement is available.
- *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
- *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/
- *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
- *
- * @copilotkit/sdk-js/langgraph — createCopilotkitMiddleware:
- *   No 1:1 v2 replacement is available.
- *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
- *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/
- *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
- *
- * @copilotkit/sdk-js/langgraph — ExposeStateOption:
- *   No 1:1 v2 replacement is available.
- *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
- *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/
- *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
- *
- * @copilotkit/sdk-js/langgraph — zodState:
- *   No 1:1 v2 replacement is available.
- *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
- *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/
- *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
- *
- * Migration guide: https://docs.copilotkit.ai/migrate/v2
- *
- * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
- */
-
-import { createMiddleware, AIMessage, SystemMessage } from "langchain";
+import { createMiddleware, AIMessage } from "langchain";
 import type { InteropZodObject } from "@langchain/core/utils/types";
 import type {
   StandardJSONSchemaV1,
@@ -61,13 +21,55 @@ const a2uiThreadKey = (state: any): string =>
   (state?.thread_id as string) || A2UI_DEFAULT_THREAD_KEY;
 
 /**
+ * Merge AG-UI defaults with CopilotKit overrides. Dictionaries recurse; every
+ * conflicting leaf uses CopilotKit, including false, null and empty values.
+ * Arrays and serialized strings are atomic: no positional pairing or decoding.
+ */
+const isPropertyBag = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+
+const mergeProperties = (
+  base: Record<string, unknown>,
+  overrides: Record<string, unknown>,
+): Record<string, unknown> =>
+  Object.fromEntries(
+    Array.from(new Set([...Object.keys(base), ...Object.keys(overrides)])).map(
+      (key) => {
+        const value = Object.prototype.hasOwnProperty.call(overrides, key)
+          ? isPropertyBag(base[key]) && isPropertyBag(overrides[key])
+            ? mergeProperties(base[key], overrides[key])
+            : overrides[key]
+          : base[key];
+        return [key, value];
+      },
+    ),
+  );
+
+const effectiveProperties = (state: unknown): Record<string, unknown> => {
+  const source = isPropertyBag(state) ? state : {};
+  return mergeProperties(
+    isPropertyBag(source["ag-ui"]) ? source["ag-ui"] : {},
+    isPropertyBag(source.copilotkit) ? source.copilotkit : {},
+  );
+};
+
+const decodeCatalogValue = (value: unknown): unknown => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+/**
  * Find the frontend-registered A2UI catalog wherever it was passed. Returns
  * `{ compositionGuide?, catalogId? }` when a catalog is present, else `null`
- * (so the tool is never advertised when the client can't render A2UI). Two
+ * independently of the explicit tool-injection decision. Two
  * delivery paths, depending on how the agent is served:
  *  - AG-UI native endpoint → `state["ag-ui"].a2ui_schema` (JSON
  *    `{ catalogId, components }`); the toolkit reads it from state itself.
- *  - CopilotKit runtime proxy → a `state.copilotkit.context` entry describing
+ *  - Runtime proxy → an effective `context` entry describing
  *    the A2UI catalog (catalog id + component schemas as text), passed to the
  *    subagent via `compositionGuide`.
  * `catalogId` binds generated surfaces to the frontend's catalog so BYOC
@@ -76,7 +78,8 @@ const a2uiThreadKey = (state: any): string =>
 const resolveA2uiCatalog = (
   state: any,
 ): { compositionGuide?: string; catalogId?: string } | null => {
-  const a2uiSchema = state?.["ag-ui"]?.a2ui_schema;
+  const properties = effectiveProperties(state);
+  const a2uiSchema = properties.a2ui_schema;
   if (a2uiSchema) {
     let catalogId: string | undefined;
     try {
@@ -88,11 +91,17 @@ const resolveA2uiCatalog = (
     }
     return { catalogId };
   }
-  const context = state?.copilotkit?.context;
+  const context = decodeCatalogValue(properties.context);
   for (const entry of Array.isArray(context) ? context : []) {
-    const description = entry?.description ?? "";
-    const value = entry?.value ?? "";
-    if (!description.includes("A2UI catalog") || !value) continue;
+    const description = entry?.description;
+    const value = decodeCatalogValue(entry?.value);
+    if (
+      typeof description !== "string" ||
+      typeof value !== "string" ||
+      !description.includes("A2UI catalog") ||
+      !value
+    )
+      continue;
     const match = /^\s*-\s+(\S+)/m.exec(value);
     return { compositionGuide: value, catalogId: match?.[1] };
   }
@@ -107,7 +116,7 @@ const resolveA2uiCatalog = (
  * no signal (off, or no A2UI middleware in the pipeline) → no auto-injection.
  */
 const a2uiInjectDecision = (state: any): boolean | string | undefined =>
-  state?.["ag-ui"]?.inject_a2ui_tool;
+  effectiveProperties(state).inject_a2ui_tool as boolean | string | undefined;
 
 type WithJsonSchema<T> = T extends { "~standard": infer S }
   ? Omit<T, "~standard"> & {
@@ -249,13 +258,7 @@ const buildStateNote = (
   return `Current agent state:\n${body}`;
 };
 
-const applyStateNote = (request: any, expose: ExposeStateOption): any => {
-  const note = buildStateNote(
-    (request.state ?? {}) as Record<string, unknown>,
-    expose,
-  );
-  if (!note) return request;
-
+const appendSystemNote = (request: any, note: string): any => {
   const existingMessage = request.systemMessage;
   if (existingMessage != null) {
     const separator = existingMessage.text === "" ? "" : "\n\n";
@@ -282,97 +285,114 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
   };
 };
 
-const createAppContextBeforeAgent = (state, runtime) => {
-  const messages = state.messages;
+const applyStateNote = (request: any, expose: ExposeStateOption): any => {
+  const note = buildStateNote(
+    (request.state ?? {}) as Record<string, unknown>,
+    expose,
+  );
+  return note ? appendSystemNote(request, note) : request;
+};
 
-  if (!messages || messages.length === 0) {
-    return;
-  }
+const APP_CONTEXT_PREFIX = "App Context:\n";
 
-  // Get app context from runtime
-  const appContext = state["copilotkit"]?.context ?? runtime?.context;
+// LangGraph runtime context carries trusted run configuration (thread, tenant
+// and user ids) that must never reach the model, so only a CopilotKit carrier
+// inside it counts: an "ag-ui" or "copilotkit" namespace, or a legacy
+// unnamespaced carrier with an actions or context key. See #7077.
+const runtimeCarrierProperties = (
+  carrier: unknown,
+  namespace: "ag-ui" | "copilotkit",
+): Record<string, unknown> => {
+  if (!isPropertyBag(carrier)) return {};
+  const nested = carrier[namespace];
+  if (isPropertyBag(nested) && Object.keys(nested).length > 0) return nested;
+  if (
+    namespace === "copilotkit" &&
+    ("actions" in carrier || "context" in carrier)
+  )
+    return carrier;
+  return {};
+};
 
-  // Check if appContext is missing or empty
+// Interception bookkeeping alone does not make a state namespace present.
+const BOOKKEEPING_KEYS = new Set([
+  "interceptedToolCalls",
+  "originalAIMessageId",
+]);
+
+const definedProperties = (value: unknown): Record<string, unknown> =>
+  isPropertyBag(value)
+    ? Object.fromEntries(
+        Object.entries(value).filter(([, entry]) => entry !== undefined),
+      )
+    : {};
+
+// Each namespace comes from state, or from its runtime carrier when state has
+// none of it. CopilotKit then merges over AG-UI, as in the Python middleware.
+const contextNamespace = (
+  state: unknown,
+  runtimeContext: unknown,
+  namespace: "ag-ui" | "copilotkit",
+): Record<string, unknown> => {
+  const fromState = definedProperties(
+    isPropertyBag(state) ? state[namespace] : undefined,
+  );
+  return Object.keys(fromState).some((key) => !BOOKKEEPING_KEYS.has(key))
+    ? fromState
+    : definedProperties(runtimeCarrierProperties(runtimeContext, namespace));
+};
+
+const buildAppContextNote = (
+  state: unknown,
+  runtimeContext: unknown,
+): string | null => {
+  const properties = mergeProperties(
+    contextNamespace(state, runtimeContext, "ag-ui"),
+    contextNamespace(state, runtimeContext, "copilotkit"),
+  );
+  // Forwarded request headers are transport data, never model context.
+  const appContext = isPropertyBag(properties.context)
+    ? Object.fromEntries(
+        Object.entries(properties.context).filter(
+          ([key]) => key !== "copilotkit_forwarded_headers",
+        ),
+      )
+    : properties.context;
+
   const isEmptyContext =
     !appContext ||
     (typeof appContext === "string" && appContext.trim() === "") ||
     (typeof appContext === "object" && Object.keys(appContext).length === 0);
+  if (isEmptyContext) return null;
 
-  if (isEmptyContext) {
-    return;
-  }
-
-  // Create the context content
   const contextContent =
     typeof appContext === "string"
       ? appContext
       : JSON.stringify(appContext, null, 2);
-  const contextMessageContent = `App Context:\n${contextContent}`;
-  const contextMessagePrefix = "App Context:\n";
+  return `${APP_CONTEXT_PREFIX}${contextContent}`;
+};
 
-  // Helper to get message content as string
-  const getContentString = (msg: any): string | null => {
-    if (typeof msg.content === "string") return msg.content;
-    if (Array.isArray(msg.content) && msg.content[0]?.text)
-      return msg.content[0].text;
-    return null;
-  };
+const isAppContextMessage = (msg: any): boolean => {
+  const type = msg?._getType?.();
+  if (type !== "system" && type !== "developer") return false;
+  const content =
+    typeof msg.content === "string" ? msg.content : msg.content?.[0]?.text;
+  return typeof content === "string" && content.startsWith(APP_CONTEXT_PREFIX);
+};
 
-  // Find the first system/developer message (not our context message) to determine
-  // where to insert our context message (right after it)
-  let firstSystemIndex = -1;
-
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    const type = msg._getType?.();
-    if (type === "system" || type === "developer") {
-      const content = getContentString(msg);
-      // Skip if this is our own context message
-      if (content?.startsWith(contextMessagePrefix)) {
-        continue;
-      }
-      firstSystemIndex = i;
-      break;
-    }
+// App context goes into the one leading system message, never a message of its
+// own: Anthropic and Gemini reject a second system message. Older releases
+// wrote an "App Context:" SystemMessage into the thread, so drop any such
+// message from the model's input too.
+const applyAppContextNote = (request: any): any => {
+  const messages = request.messages ?? [];
+  const keptMessages = messages.filter((msg: any) => !isAppContextMessage(msg));
+  if (keptMessages.length !== messages.length) {
+    request = { ...request, messages: keptMessages };
   }
 
-  // Check if our context message already exists
-  let existingContextIndex = -1;
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    const type = msg._getType?.();
-    if (type === "system" || type === "developer") {
-      const content = getContentString(msg);
-      if (content?.startsWith(contextMessagePrefix)) {
-        existingContextIndex = i;
-        break;
-      }
-    }
-  }
-
-  // Create the context message
-  const contextMessage = new SystemMessage({ content: contextMessageContent });
-
-  let updatedMessages;
-
-  if (existingContextIndex !== -1) {
-    // Replace existing context message
-    updatedMessages = [...messages];
-    updatedMessages[existingContextIndex] = contextMessage;
-  } else {
-    // Insert after the first system message, or at position 0 if no system message
-    const insertIndex = firstSystemIndex !== -1 ? firstSystemIndex + 1 : 0;
-    updatedMessages = [
-      ...messages.slice(0, insertIndex),
-      contextMessage,
-      ...messages.slice(insertIndex),
-    ];
-  }
-
-  return {
-    ...state,
-    messages: updatedMessages,
-  };
+  const note = buildAppContextNote(request.state, request.runtime?.context);
+  return note ? appendSystemNote(request, note) : request;
 };
 
 /**
@@ -398,14 +418,19 @@ const createAppContextBeforeAgent = (state, runtime) => {
  */
 const copilotKitStateSchema = z
   .object({
+    "ag-ui": zodState(z.record(z.string(), z.unknown()).optional()),
     copilotkit: zodState(
       z
         .object({
-          actions: z.array(z.any()),
+          actions: z
+            .union([z.array(z.any()), z.literal(false)])
+            .nullable()
+            .optional(),
           context: z.any().optional(),
           interceptedToolCalls: z.array(z.any()).optional(),
           originalAIMessageId: z.string().optional(),
         })
+        .passthrough()
         .optional(),
     ),
   })
@@ -461,9 +486,11 @@ const buildMiddlewareInput = (
 
   stateSchema: copilotKitStateSchema as unknown as InteropZodObject,
 
-  // Inject frontend tools, surface user state, and forward x-aimock-* headers
+  // Inject frontend tools, surface user state and app context, and forward
+  // x-aimock-* headers
   wrapModelCall: async (request: any, handler: (req: any) => Promise<any>) => {
     request = applyStateNote(request, exposeState);
+    request = applyAppContextNote(request);
 
     // Forward x-aimock-* headers from the incoming AG-UI request
     const forwardedHeaders = getForwardedHeaders();
@@ -515,12 +542,40 @@ const buildMiddlewareInput = (
         (request.tools || []).map((t: any) => t?.name),
       );
       if (!existingNames.has(candidate.name)) {
+        // ToolNode derives tool runtime state from its config, ignoring an
+        // overridden middleware request.state. Adapt the tool's invocation
+        // config so the toolkit sees the same effective properties.
+        const invoke = candidate.invoke.bind(candidate);
+        candidate.invoke = (input, config) => {
+          const state =
+            config && "state" in config && isPropertyBag(config.state)
+              ? config.state
+              : request.state;
+          const properties = effectiveProperties(state);
+          const schema = properties.a2ui_schema;
+          const context = decodeCatalogValue(properties.context);
+          return invoke(input, {
+            ...config,
+            state: {
+              ...state,
+              "ag-ui": {
+                ...properties,
+                context: Array.isArray(context) ? context : [],
+                // The toolkit interpolates the native schema into its prompt.
+                a2ui_schema: isPropertyBag(schema)
+                  ? JSON.stringify(schema)
+                  : schema,
+              },
+            },
+          });
+        };
         a2uiTool = candidate;
         a2uiToolsByThread.set(a2uiThreadKey(request.state), a2uiTool);
       }
     }
 
-    let frontendTools = request.state["copilotkit"]?.actions ?? [];
+    const actions = effectiveProperties(request.state).actions;
+    let frontendTools = Array.isArray(actions) ? actions : [];
     if (a2uiTool) {
       // Our generate_a2ui replaces the runtime's render tool — don't advertise
       // both. Drop the render tool the A2UI middleware injected.
@@ -559,8 +614,6 @@ const buildMiddlewareInput = (
     }
     return handler(request);
   },
-
-  beforeAgent: createAppContextBeforeAgent,
 
   // Restore frontend tool calls to AIMessage before agent exits
   afterAgent: (state) => {
@@ -608,7 +661,8 @@ const buildMiddlewareInput = (
 
   // Intercept frontend tool calls after model returns, before ToolNode executes
   afterModel: (state) => {
-    const frontendTools = state["copilotkit"]?.actions ?? [];
+    const actions = effectiveProperties(state).actions;
+    const frontendTools = Array.isArray(actions) ? actions : [];
     if (frontendTools.length === 0) return;
 
     const frontendToolNames = new Set(

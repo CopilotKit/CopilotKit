@@ -133,6 +133,7 @@ async function setup(options: SetupOptions): Promise<ThreadSelectionHarness> {
             agents: {},
             audioFileTranscriptionEnabled: false,
             mode: "sse",
+            intelligence: { wsUrl: "" },
             threadEndpoints: {
               list: true,
               inspect: true,
@@ -244,7 +245,7 @@ async function setup(options: SetupOptions): Promise<ThreadSelectionHarness> {
 
   const threadsButton = Array.from(
     inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
-  ).find((button) => button.textContent?.trim() === "Threads");
+  ).find((button) => button.textContent?.trim() === "Rich Threads");
   if (!threadsButton) throw new Error("Threads menu button not found");
   threadsButton.click();
   await flushInspector(inspector);
@@ -601,9 +602,9 @@ test("keeps enabled-zero examples local until one is clicked", async () => {
 
     await vi.waitFor(() => {
       expect(harness.details()?.threadId).toBe("example-realtime-sync");
-      expect(harness.details()?.shadowRoot?.textContent).toContain(
-        "Run started",
-      );
+      expect(
+        harness.details()?.shadowRoot?.querySelector(".cpk-td__bubble"),
+      ).not.toBeNull();
     });
     expect(harness.activeRowNames()).toEqual(["Realtime thread sync"]);
     expect(harness.detailRequestIds()).toEqual([]);

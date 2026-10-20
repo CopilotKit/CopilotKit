@@ -17,9 +17,9 @@
  */
 
 import type { Model } from "@strands-agents/sdk";
+// @doc-replace
 import { forwardingFetch } from "./header-forwarding.js";
 
-// @doc-replace
 /**
  * aimock keys its fixtures on the `x-aimock-context` header of the outbound
  * OpenAI request — it identifies which integration's fixtures to match. An
@@ -39,6 +39,14 @@ export interface CreateModelOptions {
    * `false`. Only enable for demos that render reasoning in the UI.
    */
   reasoning?: boolean;
+  /**
+   * Override the OpenAI model id. Takes precedence over `MODEL_ID` so a demo
+   * that needs a specific class of model (a reasoning model, say) is not
+   * silently downgraded by the deployment-wide default. OpenAI-only on purpose:
+   * an OpenAI reasoning model id means nothing to Anthropic or Bedrock, and
+   * forwarding it there would fail the request instead of falling back.
+   */
+  openaiModelId?: string;
   /**
    * OpenAI API mode. Defaults to `"chat"` for the showcase so tool-call
    * arguments stream incrementally. Pass `"responses"` to use the Responses
@@ -66,11 +74,17 @@ export async function createModel(
     const baseURL = process.env.OPENAI_BASE_URL;
     return new OpenAIModel({
       apiKey,
-      modelId: process.env.MODEL_ID ?? "gpt-4o",
+      modelId: options.openaiModelId ?? process.env.MODEL_ID ?? "gpt-4o",
       // Default to chat completions (incremental tool-arg streaming).
       api: options.openaiApi ?? "chat",
-      ...(reasoning
-        ? { params: { reasoning: { effort: "medium", summary: "auto" } } }
+      // `summary: "detailed"` rather than `"auto"`: with `"auto"` the model
+      // decides, and with tools in play it routinely skips the summary, which
+      // leaves the frontend's reasoning slot unmounted. Responses-API only:
+      // chat completions rejects the `reasoning` param, so asking for
+      // reasoning without switching API mode would break the request rather
+      // than quietly do nothing.
+      ...(reasoning && (options.openaiApi ?? "chat") === "responses"
+        ? { params: { reasoning: { effort: "medium", summary: "detailed" } } }
         : {}),
       // @doc-replace
       clientConfig: {

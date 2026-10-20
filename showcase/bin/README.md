@@ -26,6 +26,28 @@ showcase/bin/railway --help
 
 ## Auth
 
+### Disposable lifecycle records
+
+Set `SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE` to the operator-owned durable JSON
+snapshot described in the [Railway ownership contract](../scripts/railway-lifecycle.md).
+Configured evidence makes `promote` require the source checkout, Node, and
+repository-local `node_modules/.bin/tsx`. Unset evidence grants no disposable
+exemptions and adds no lifecycle subprocess dependency. Invalid evidence refuses
+promotion; lifecycle records never grant deletion authority. The committed image
+approval list starts empty, so disposable services cannot yet be accepted.
+
+### Validate the registry reader without promotion
+
+Dispatch `showcase_promote.yml` or `docs_promote.yml` with
+`validate_registry_only=true` to exercise that workflow's installed Ruby and
+TypeScript reader. The mode requires the configured HTTPS registry and credentials.
+It captures live inventory and runs the real reader acknowledgment, then uploads a
+receipt with the policy hash, time, and workflow identity. It never runs promotion,
+service probes, compatibility refresh, or notifications. Raw snapshots and
+credentials stay out of the receipt. The default remains `false`.
+
+### Credentials
+
 The tool reads a Railway API token from (in order):
 
 1. `RAILWAY_TOKEN` environment variable
@@ -99,6 +121,39 @@ showcase/bin/railway promote --yes
 showcase/bin/railway restore --env production --snapshot before-promote.yaml --yes
 ```
 
+Docs production does not use `bin/railway promote --all`. Merge the `release/docs/prod` PR (pin file `showcase/pins/docs-prod.json`). Emergency only: `showcase/bin/railway promote docs --yes`.
+
+### Landing a docs release
+
+The bot opens one candidate after a green docs staging probe and leaves it
+unchanged while the PR is open. Later builds do not push new pins over approvals.
+To replace an unmerged candidate, close its PR and dispatch **Docs: open prod
+release PR** on `main`. After a merge, the next Verify Deploy completion (or a
+manual dispatch) can propose the next staging digest.
+
+1. Inspect the digest in `showcase/pins/docs-prod.json` and the staging page.
+   The pin's `git_sha` is the verification trigger SHA, which can be a
+   scripts-only commit; it is not guaranteed to be the image's source revision.
+   The immutable digest is the release identity. Staging can advance during
+   review, so its current page may no longer represent the pinned candidate.
+2. Update the release branch from `main` if GitHub requires it. Obtain approval
+   **after** that update: the current rules require one approval, dismiss stale
+   approvals, require approval of the last push, and require an up-to-date branch
+   with passing checks. Further manual pushes can require reapproval.
+3. Merge once GitHub's merge box is green. The workflow checks out that exact
+   merge commit and promotes its pin; it does not resolve a closed PR merge ref.
+
+The extra-approval setting for unattributed changes applies to
+[unattributed GitHub Copilot PRs](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#additional-approval-for-unattributed-copilot-pull-requests),
+not all app-authored commits. This workflow uses the devops-bot GitHub App, not
+Copilot, so that setting alone does not require a second reviewer. Always use
+GitHub's current merge requirements as the authority; no rule bypass is enabled.
+
+Promotion deliberately uses `--digest`: it skips P2's in-flight race check and
+the staging-drift signal so it can ship the reviewed candidate even after staging
+advances. P1 (digest exists in GHCR) and P3 (staging live-green) still run. This is
+review-gated delivery, not automatic production deployment.
+
 ## CI integration
 
 `.github/workflows/showcase_lint_prod.yml` runs `bin/railway lint-prod` on
@@ -150,9 +205,15 @@ The `findings` count is also written to `$GITHUB_OUTPUT` so downstream jobs
 
 ## Tests
 
+From the repository root, with Node 22 and the pnpm version in `package.json`:
+
 ```sh
+pnpm install --frozen-lockfile --ignore-scripts
 ruby showcase/bin/spec/all_tests.rb
 ```
+
+The suite invokes the real TypeScript lifecycle classifier, which requires
+repository-local `node_modules/.bin/tsx`.
 
 Tests are minitest (stdlib). They cover:
 

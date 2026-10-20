@@ -32,7 +32,9 @@ export {
   LangGraphAgent,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
-   * No 1:1 v2 replacement is available.
+   * Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`.
+   * Exception: a v1 client still resuming interrupts through `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a back-compat bridge for that channel.
+   * Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
    * Start with `@copilotkit/runtime/v2`.
    * V2 docs: https://docs.copilotkit.ai/
    * V2 reference docs: https://docs.copilotkit.ai/reference/v2

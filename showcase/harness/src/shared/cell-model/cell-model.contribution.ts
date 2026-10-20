@@ -118,7 +118,30 @@ export type ContributionKind =
   | "INFRA_RED_FRESH"
   | "FAIL_FRESH";
 
-export type RungKind = "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "starter";
+/**
+ * Every ladder position, across both axes, in ONE closed union.
+ *
+ * `D1`–`D6` are the agent/liveness axis; `S1`–`S6` are the starter axis. The
+ * `D`/`S` prefix is what keeps the two axes' kind names disjoint here; their
+ * DEPTHS share one integer space (`DEPTH_OF` in `cell-model.combine.ts`).
+ *
+ * The former `"starter"` kind — one aggregate pseudo-rung pinned at depth 0 —
+ * is GONE. It was the mechanism by which a starter cell could never have a
+ * ladder at all.
+ */
+export type RungKind =
+  | "D1"
+  | "D2"
+  | "D3"
+  | "D4"
+  | "D5"
+  | "D6"
+  | "S1"
+  | "S2"
+  | "S3"
+  | "S4"
+  | "S5"
+  | "S6";
 
 /** Stage A output — the raw PB rows a ladder position reads, no interpretation. */
 export interface RawRung {
@@ -248,12 +271,33 @@ export interface FirstStrikeRule {
 /** D4 crosses to a hard red on the SECOND consecutive strike. */
 export const D4_FIRST_STRIKE_THRESHOLD = 2;
 
+/**
+ * S1–S3 inherit the former aggregate `starter` rule unchanged — the
+ * behaviour-preserving choice, and the one that keeps the starter row's
+ * existing amber semantics. All three are a single HTTP call over the public
+ * internet, so all three are equally exposed to a transient transport error;
+ * `requireSoftClass` is what keeps the tolerance scoped to that class rather
+ * than to any red. S4–S6 are `enabled: false` until they exist.
+ */
 export const firstStrikeConfig: Readonly<Record<RungKind, FirstStrikeRule>> = {
-  starter: {
+  S1: {
     enabled: true,
     threshold: SOFT_MISS_TOLERANCE_THRESHOLD,
     requireSoftClass: true,
   },
+  S2: {
+    enabled: true,
+    threshold: SOFT_MISS_TOLERANCE_THRESHOLD,
+    requireSoftClass: true,
+  },
+  S3: {
+    enabled: true,
+    threshold: SOFT_MISS_TOLERANCE_THRESHOLD,
+    requireSoftClass: true,
+  },
+  S4: { enabled: false },
+  S5: { enabled: false },
+  S6: { enabled: false },
   D4: {
     enabled: true,
     threshold: D4_FIRST_STRIKE_THRESHOLD,
@@ -270,20 +314,33 @@ export const firstStrikeConfig: Readonly<Record<RungKind, FirstStrikeRule>> = {
 // Family fold (§3 rule 1) — the shared core lifted from the legacy resolvers
 // ---------------------------------------------------------------------------
 
-/** Family window per rung kind (spec §3 rule 2). */
+/**
+ * Family window per rung kind (spec §3 rule 2).
+ *
+ * An EXHAUSTIVE `Record`, deliberately — not a `switch` with a `default`. As a
+ * switch this FAILED OPEN: adding the six `S<n>` kinds to `RungKind` without
+ * cases compiled clean and silently gave every starter rung the 6h e2e window
+ * instead of the 2.5h starter window, defeating the U8 all-stale → gray fold on
+ * a `40 * * * *` cron. A `Record<RungKind, number>` makes the omission a build
+ * error instead.
+ */
+const STALE_WINDOW_BY_KIND: Readonly<Record<RungKind, number>> = {
+  D1: LIVENESS_STALE_AFTER_MS,
+  D2: LIVENESS_STALE_AFTER_MS,
+  D3: E2E_STALE_AFTER_MS,
+  D4: D4_STALE_AFTER_MS,
+  D5: E2E_STALE_AFTER_MS,
+  D6: E2E_STALE_AFTER_MS,
+  S1: STARTER_STALE_AFTER_MS,
+  S2: STARTER_STALE_AFTER_MS,
+  S3: STARTER_STALE_AFTER_MS,
+  S4: STARTER_STALE_AFTER_MS,
+  S5: STARTER_STALE_AFTER_MS,
+  S6: STARTER_STALE_AFTER_MS,
+};
+
 export function staleWindowFor(kind: RungKind): number {
-  switch (kind) {
-    case "D1":
-    case "D2":
-      return LIVENESS_STALE_AFTER_MS;
-    case "D4":
-      return D4_STALE_AFTER_MS;
-    case "starter":
-      return STARTER_STALE_AFTER_MS;
-    default:
-      // D3/D5/D6 (e2e cadence)
-      return E2E_STALE_AFTER_MS;
-  }
+  return STALE_WINDOW_BY_KIND[kind];
 }
 
 interface FamilyFold {

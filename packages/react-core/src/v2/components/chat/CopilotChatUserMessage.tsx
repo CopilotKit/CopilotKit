@@ -219,7 +219,7 @@ export function CopilotChatUserMessage({
       {...props}
     >
       {mediaParts.length > 0 && (
-        <div className="cpk:flex cpk:flex-row cpk:flex-wrap cpk:justify-end cpk:gap-2 cpk:mb-2">
+        <div className="cpk:flex cpk:flex-row cpk:flex-wrap cpk:max-w-full cpk:justify-end cpk:gap-2 cpk:mb-2">
           {mediaParts.map((part, index) => (
             <CopilotChatAttachmentRenderer
               key={index}
@@ -361,6 +361,13 @@ export namespace CopilotChatUserMessage {
     );
   };
 
+  /**
+   * Previous/next buttons and an "n/m" counter for switching between branches
+   * of a user message. Renders only with more than one branch and an
+   * `onSwitchToBranch` handler. The buttons are named by
+   * `labels.userMessageToolbarPreviousBranchLabel` and
+   * `labels.userMessageToolbarNextBranchLabel`.
+   */
   export const BranchNavigation: React.FC<
     React.HTMLAttributes<HTMLDivElement> & {
       currentBranch?: number;
@@ -378,6 +385,9 @@ export namespace CopilotChatUserMessage {
     message,
     ...props
   }) => {
+    const config = useCopilotChatConfiguration();
+    const labels = config?.labels ?? CopilotChatDefaultLabels;
+
     if (!numberOfBranches || numberOfBranches <= 1 || !onSwitchToBranch) {
       return null;
     }
@@ -403,6 +413,7 @@ export namespace CopilotChatUserMessage {
           }
           disabled={!canGoPrev}
           className="cpk:h-6 cpk:w-6 cpk:p-0"
+          aria-label={labels.userMessageToolbarPreviousBranchLabel}
         >
           <ChevronLeft className="cpk:size-[20px]" />
         </Button>
@@ -421,6 +432,7 @@ export namespace CopilotChatUserMessage {
           }
           disabled={!canGoNext}
           className="cpk:h-6 cpk:w-6 cpk:p-0"
+          aria-label={labels.userMessageToolbarNextBranchLabel}
         >
           <ChevronRight className="cpk:size-[20px]" />
         </Button>

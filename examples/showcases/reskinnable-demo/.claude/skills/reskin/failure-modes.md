@@ -237,8 +237,10 @@ Three rules, in order of how often they are skipped:
   failure paths below. Wait on a **CONDITION with a bounded budget**, and treat an
   expired budget as a failure, not a green light.
 - **Read the framework's source for the observable signals**, and be specific:
-  file accepted vs silently rejected (`processFiles` drops anything failing
-  `accept`/`maxSize` and calls an `onUploadFailed` nobody wires), encoding
+  file accepted vs rejected (`processFiles` drops anything failing
+  `accept`/`maxSize` and calls `onUploadFailed`, which the shell wires in
+  `shell/attach/upload-attachment.ts` — the presenter is told, your code is
+  not), encoding
   finished, send button in SEND vs STOP vs disabled (one button plays both roles,
   so mid-run a click CANCELS the run), and the click itself confirmable.
 

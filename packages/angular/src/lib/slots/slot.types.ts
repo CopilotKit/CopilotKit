@@ -1,4 +1,5 @@
-import { Type, TemplateRef, InjectionToken, Injector } from "@angular/core";
+import type { Type, TemplateRef, Injector } from "@angular/core";
+import { InjectionToken } from "@angular/core";
 
 /**
  * Represents a value that can be used as a slot override.

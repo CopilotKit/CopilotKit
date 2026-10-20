@@ -1,5 +1,5 @@
 /**
- * Schema-library-agnostic helpers for the Slack SDK.
+ * Schema-library-agnostic helpers for the Channels SDK.
  *
  * The public API accepts any [Standard Schema](https://standardschema.dev)
  * validator — Zod 3.24+, Valibot v1+, ArkType v2+, and anything else that
@@ -10,13 +10,17 @@
  *
  * These wrap the canonical primitives from `@copilotkit/shared` (the same
  * ones `@copilotkit/core` uses for its `FrontendTool` parameters) plus a
- * couple of Slack-local conveniences.
+ * couple of Channels-local conveniences.
  */
 import { schemaToJsonSchema as sharedSchemaToJsonSchema } from "@copilotkit/shared";
-import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
+import type {
+  StandardSchemaV1,
+  StandardJSONSchemaV1,
+  InferSchemaOutput,
+} from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
-export type { StandardSchemaV1, InferSchemaOutput };
+export type { StandardSchemaV1, StandardJSONSchemaV1, InferSchemaOutput };
 
 /**
  * A Standard Schema whose validated output is an object record.
@@ -100,4 +104,181 @@ function formatIssues(issues: ReadonlyArray<StandardSchemaV1.Issue>): string {
       return `${path || "(root)"}: ${issue.message}`;
     })
     .join("; ");
+}
+
+/** True when `T` is a union of more than one member. */
+type IsUnion<T, U = T> = T extends unknown
+  ? [U] extends [T]
+    ? false
+    : true
+  : never;
+
+/**
+ * `Name` unless it is a union or the widened `string`, in which case `never`.
+ *
+ * The output type is built by mapping over `Name`, so a union claims every
+ * member is present while the function creates exactly one key, and a widened
+ * `string` claims every possible key. Either way the type promises a `string`
+ * where the value is `undefined`. Restricting the parameter to one literal is
+ * what makes `SingleStringParameterSchema` honest.
+ */
+type SingleLiteral<Name extends string> = string extends Name
+  ? never
+  : true extends IsUnion<Name>
+    ? never
+    : Name;
+
+/**
+ * A parameter schema for a tool that takes exactly one required string.
+ *
+ * The output type is keyed by the literal `Name` passed in, so a handler
+ * written against it destructures the real field name and not a widened
+ * `Record`.
+ */
+export type SingleStringParameterSchema<Name extends string> = StandardSchemaV1<
+  unknown,
+  { [K in Name]: string }
+> &
+  StandardJSONSchemaV1<unknown, { [K in Name]: string }>;
+
+/**
+ * `typeof` reports "object" for both `null` and arrays. Zod names them
+ * separately, and this message is what the agent reads back on a bad call,
+ * so it is worth the three lines to keep the wording it used to get.
+ */
+function parsedTypeOf(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+/**
+ * Build a tool parameter schema for a single required, non-empty string,
+ * written directly against the [Standard Schema](https://standardschema.dev)
+ * protocol.
+ *
+ * WHY THIS EXISTS (PE-30, OSS-1173)
+ * ---------------------------------
+ * Every platform adapter ships one `lookup_<platform>_user` tool, and each
+ * one took the same parameter: a single string to resolve to a user. Each
+ * built that parameter with `z.object({query: z.string().min(1)})`, and a
+ * `zod` range in the adapter's `package.json` was the price.
+ *
+ * That price was not local. The `@copilotkit/channels` umbrella depends on
+ * every adapter, and `@microsoft/agents-hosting` and
+ * `@microsoft/agents-activity` pin `zod` at exactly `3.25.75`. An adapter
+ * asking for `^3.25.76` is a range that excludes that pin, so installing the
+ * umbrella alongside the Microsoft packages left a tree no application could
+ * repair from its own `package.json` — the conflict came from two packages we
+ * publish. One dependency for one object literal was not a trade worth
+ * keeping, three times over.
+ *
+ * `defineChannelTool` accepts any Standard Schema, and `toJsonSchema()` reads
+ * `~standard.jsonSchema.input()` in preference to every other path, so this
+ * one small object is all a tool ever needed.
+ *
+ * Behavior mirrors the `z.object({[name]: z.string().min(1).describe(...)})`
+ * it replaces: the field is required, must be a string of at least one
+ * character, and unknown keys are stripped rather than rejected (Zod's
+ * default `strip` mode for `z.object`). The emitted document is what
+ * `zod-to-json-schema` emitted for that object, so the descriptor the model
+ * is shown does not change. Its body is target-agnostic — `type`,
+ * `properties`, `required`, `minLength` and `additionalProperties` mean the
+ * same thing in draft-07 and draft-2020-12 — so one document serves every
+ * target a caller asks for, and `$schema` keeps the draft-07 value the
+ * previous output carried.
+ *
+ * The one-character floor is fixed rather than configurable because all three
+ * call sites want it and a knob nobody turns is a knob nobody tests.
+ */
+export function singleStringParameterSchema<
+  const Name extends string,
+>(options: {
+  /**
+   * Field name, e.g. `"query"`. Becomes the sole key of the output object.
+   *
+   * Must be a single string literal. A union or a widened `string` is a
+   * compile error, because the output type would then promise keys this
+   * function never creates. See `SingleLiteral`.
+   */
+  name: SingleLiteral<Name>;
+  /** Field description handed to the model. Was `z.string().describe(...)`. */
+  description: string;
+}): SingleStringParameterSchema<Name> {
+  // `SingleLiteral<Name>` is a deferred conditional type, so TypeScript cannot
+  // prove it reduces to `Name` inside the body. It does for every value that
+  // reaches here, because any other value is a compile error at the call.
+  const { name, description } = options as { name: Name; description: string };
+  type Output = { [K in Name]: string };
+
+  // Built per call, never shared. `zodToJsonSchema` returned a fresh document
+  // every time, and `toAgentToolDescriptors` hands its result straight to the
+  // caller. A single shared object would let one consumer's in-place edit —
+  // stripping `$schema` for a provider that rejects it, say — silently change
+  // what every later turn in the process is shown.
+  const buildJsonSchema = (): Record<string, unknown> => ({
+    type: "object",
+    properties: {
+      [name]: { type: "string", minLength: 1, description },
+    },
+    required: [name],
+    additionalProperties: false,
+    $schema: "http://json-schema.org/draft-07/schema#",
+  });
+
+  function validate(value: unknown): StandardSchemaV1.Result<Output> {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return {
+        issues: [
+          { message: "Expected object, received " + parsedTypeOf(value) },
+        ],
+      };
+    }
+    const field = (value as Record<string, unknown>)[name];
+    // Zod reports a missing required key as "Required", not as a type
+    // mismatch against `undefined`. The agent reads this back when it calls
+    // the tool with no argument, which is the most common bad call there is.
+    if (field === undefined) {
+      return { issues: [{ message: "Required", path: [name] }] };
+    }
+    if (typeof field !== "string") {
+      return {
+        issues: [
+          {
+            message: "Expected string, received " + parsedTypeOf(field),
+            path: [name],
+          },
+        ],
+      };
+    }
+    if (field.length < 1) {
+      return {
+        issues: [
+          {
+            message: "String must contain at least 1 character(s)",
+            path: [name],
+          },
+        ],
+      };
+    }
+    // Rebuilt rather than returned as-is: this is what strips unknown keys.
+    return { value: { [name]: field } as Output };
+  }
+
+  return {
+    "~standard": {
+      version: 1,
+      // The Standard Schema `vendor` names the library that produced the
+      // schema, and that library is this one whichever adapter calls it.
+      // Consumers branch on this tag — `isZodSchema` in `@copilotkit/runtime`
+      // is one — so three different tags for one implementation would be three
+      // things to teach such a branch about.
+      vendor: "@copilotkit/channels-core",
+      validate,
+      jsonSchema: {
+        input: buildJsonSchema,
+        output: buildJsonSchema,
+      },
+    },
+  };
 }

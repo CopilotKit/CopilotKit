@@ -138,11 +138,9 @@ console.log(
  */
 // @doc-as
 // /**
-//  * Extract inbound headers that should ride along to the outbound Anthropic
-//  * call: `authorization` + every `x-*` header. Mirrors the runtime's
-//  * `extractForwardableHeaders` (@copilotkit/runtime
-//  * `v2/runtime/handlers/header-utils.ts`) and the LGT/LGP forwarding
-//  * pattern.
+//  * Extract inbound `x-*` headers that should ride along to the outbound
+//  * Anthropic call. Never forward app/session `authorization` tokens to the
+//  * provider.
 //  *
 //  * Returns a plain Record so it can be spread into Anthropic SDK
 //  * `RequestOptions.headers` on every `messages.stream` / `messages.create`
@@ -1056,13 +1054,13 @@ function makeAgentHandler(config: DemoConfig = {}) {
   return async (req: Request, res: Response): Promise<void> => {
     const input = req.body as RunAgentInput;
     // @doc-replace
-    // Inbound x-* / authorization headers travel from the AG-UI client →
+    // Inbound x-* headers travel from the AG-UI client →
     // CopilotRuntime → HttpAgent → here. We forward them to every
     // Anthropic call so aimock (and any other downstream observer)
     // receives `x-aimock-context` and friends.
     const forwardedHeaders = extractForwardedHeaders(req);
     // @doc-as
-    // // Inbound x-* / authorization headers travel from the AG-UI client →
+    // // Inbound x-* headers travel from the AG-UI client →
     // // CopilotRuntime → HttpAgent → here. We forward them to every
     // // Anthropic call so downstream observers receive them.
     // const forwardedHeaders = extractForwardedHeaders(req);

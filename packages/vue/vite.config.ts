@@ -29,6 +29,13 @@ export default defineConfig({
         "@ag-ui/client",
         "@ag-ui/core",
         "@copilotkit/core",
+        // Keep the shared MCP Apps host + its subpaths external. The root entry
+        // carries the ext-apps AppBridge and is loaded through a dynamic
+        // import() in the renderer, so it must stay a real runtime import (not
+        // be inlined, which would pull the bridge into the eager chunk and undo
+        // the lazy-loading); `/activity` is the bridge-free surface imported
+        // statically for activity registration.
+        /^@copilotkit\/mcp-apps-renderer(\/.*)?$/,
         "@copilotkit/shared",
         "@copilotkit/web-inspector",
         // Keep @copilotkit/web-components (the Lit drawer element) + its subpaths

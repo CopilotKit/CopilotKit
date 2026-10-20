@@ -253,7 +253,7 @@ test("an active self-hosted producer entitlement grants Angular threads", async 
   }
 });
 
-test("a settled non-ready entitlement denies Angular threads without a legacy fallback", async () => {
+test("a settled unknown entitlement falls back to the threads endpoint, never the locked view", async () => {
   const { dispose, drawer, fixture, threadsEnabled } = setupManagedEntitlement(
     "unknown",
     RETRYABLE_MANAGED_ENTITLEMENT,
@@ -262,8 +262,9 @@ test("a settled non-ready entitlement denies Angular threads without a legacy fa
   try {
     await fixture.whenStable();
 
-    expect(threadsEnabled()).toBe(false);
-    expect(drawer.licensed).toBe(false);
+    // `unknown` is unresolved, not negative: the threads endpoint decides.
+    expect(threadsEnabled()).toBe(true);
+    expect(drawer.licensed).toBe(true);
     expect(drawer.loading).toBe(false);
   } finally {
     dispose();

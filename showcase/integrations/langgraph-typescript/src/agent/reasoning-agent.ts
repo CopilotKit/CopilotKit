@@ -28,15 +28,15 @@
  * @doc-end
  */
 
-import type { RunnableConfig } from "@langchain/core/runnables";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage, AIMessage } from "@langchain/core/messages";
-import type { BaseMessage } from "@langchain/langgraph";
 import {
   Annotation,
   MemorySaver,
   START,
   StateGraph,
   messagesStateReducer,
+  BaseMessage,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 // @doc-replace
@@ -84,10 +84,13 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   });
   // @doc-as
   // const model = new ChatOpenAI({
-  //     model: REASONING_MODEL,
-  //     useResponsesApi: true,
-  //     reasoning: { effort: "low", summary: "auto" },
-  //   });
+  //   model: REASONING_MODEL,
+  //   useResponsesApi: true,
+  //   reasoning: { effort: "low", summary: "auto" },
+  //   // Token streaming of the Responses API can merge the reasoning summary
+  //   // and the answer into one block; non-streaming keeps them separate.
+  //   disableStreaming: true,
+  // });
   // @doc-end
 
   const response = await model.invoke(

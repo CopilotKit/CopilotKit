@@ -95,8 +95,20 @@
     },
     "check-dts": {
       "dependsOn": ["build"],
-      "inputs": ["{projectRoot}/package.json", "{projectRoot}/dist/**"],
+      "inputs": [
+        "{projectRoot}/package.json",
+        "{projectRoot}/dist/**",
+        "{projectRoot}/type-fixtures/**",
+        "{workspaceRoot}/scripts/validate-dts-ambient.ts",
+        "{workspaceRoot}/scripts/validate-dts-imports.ts",
+        "{workspaceRoot}/scripts/validate-optional-peer-entries.ts",
+        "{workspaceRoot}/scripts/validate-module-scope-create-require.ts"
+      ],
       "cache": true
+    },
+    "test:browser-scroll": {
+      "dependsOn": ["build"],
+      "cache": false
     }
   },
   "parallel": 14,

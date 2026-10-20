@@ -6,6 +6,9 @@
 
 import { useState } from "react";
 import type { Overlay } from "@/lib/overlay-types";
+import { GLYPH_LIST } from "@/lib/glyphs";
+import type { GlyphSpec } from "@/lib/glyphs";
+import { StatusChip, GlyphMark } from "@/components/badges";
 
 export interface AdaptiveLegendProps {
   overlays: Set<Overlay>;
@@ -76,41 +79,91 @@ function HealthLegend() {
       </LegendItem>
       <LegendItem>
         <span className="font-semibold text-[var(--text-secondary)]">D6</span>
-        Parity (Reference): full all-pills run verified against the reference
-        integration
-      </LegendItem>
-      {/* Regression indicator */}
-      <LegendItem>
-        <span className="text-[var(--danger)] font-medium">▼</span>
-        depth regression from previous run
-      </LegendItem>
-      {/* D4/D5 color chips */}
-      <LegendItem>
-        <span className="text-[var(--ok)]">D4 ✓</span>/
-        <span className="text-[var(--amber)]">~</span>/
-        <span className="text-[var(--danger)]">✗</span>
-        round-trip check (green &lt;1h / amber stale / red fail)
+        All Pills: every feature type the integration declares is run (D5 runs
+        one representative); green only if all pass
       </LegendItem>
       <LegendItem>
-        <span className="text-[var(--ok)]">D5</span>/
-        <span className="text-[var(--amber)]">D5</span>/
-        <span className="text-[var(--danger)]">D5</span>
-        single-pill check (green pass / amber stale / red fail)
+        <span className="font-semibold text-[var(--text-secondary)]">
+          UI / BE / 1P / D6
+        </span>
+        per-rung marks, each with its own prefix — detail under the cell&rsquo;s
+        depth chip
+      </LegendItem>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Glyph vocabulary — GENERATED from `GLYPH_LIST`                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One legend row per glyph, mapped straight off the SAME constant the renderer
+ * switches on (`@/lib/glyphs`). A glyph cannot be emitted without a legend row
+ * because there is only one place to add one — and
+ * `glyphs.contract.test.tsx` fails CI if the two sets ever diverge.
+ *
+ * Each row shows the glyph in BOTH forms it can take: the chip (the cell's one
+ * filled-or-hollow object) and the bare mark (a rung's detail).
+ */
+function GlyphLegendItem({ spec }: { spec: GlyphSpec }) {
+  return (
+    <LegendItem>
+      <span className="inline-flex items-center gap-1" aria-hidden="true">
+        <StatusChip tone="gray" label={spec.mark} />
+        <GlyphMark label={spec.mark} tone="gray" />
+      </span>
+      <span>
+        <span className="font-semibold text-[var(--text-secondary)]">
+          {spec.term}
+        </span>{" "}
+        — {spec.legend}
+      </span>
+    </LegendItem>
+  );
+}
+
+function GlyphLegend() {
+  const verdicts = GLYPH_LIST.filter((g) => g.glyphClass === "verdict");
+  const absences = GLYPH_LIST.filter((g) => g.glyphClass === "absence");
+  return (
+    <>
+      <LegendItem>
+        <span className="font-semibold text-[var(--text-secondary)]">
+          A filled chip is a result. A hollow chip is not a result —
+        </span>
+        never read a hollow chip as a failure.
       </LegendItem>
       <LegendItem>
-        <span className="text-[var(--ok)]">D6</span>/
-        <span className="text-[var(--amber)]">D6</span>/
-        <span className="text-[var(--danger)]">D6</span>
-        parity check (green pass / amber stale / red fail)
+        <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--text-secondary)]">
+          Result
+        </span>
+        a probe ran and judged this cell
       </LegendItem>
-      {/* Status symbols */}
+      {verdicts.map((g) => (
+        <GlyphLegendItem key={g.id} spec={g} />
+      ))}
       <LegendItem>
-        <span className="text-[var(--text-muted)]">?</span>
-        probe has not yet ticked since deploy
+        <span className="font-semibold text-[var(--text-secondary)]">
+          D0&ndash;D6
+        </span>
+        depth reached — green at this cell&rsquo;s ceiling, amber 1&ndash;2
+        below, red 3+ below, grey at D0
       </LegendItem>
       <LegendItem>
-        <span className="text-[var(--text-muted)]">—</span>
-        supported, no demo yet
+        <span className="text-[10px] uppercase tracking-wider font-semibold text-[var(--text-secondary)]">
+          No result
+        </span>
+        nothing was judged here
+      </LegendItem>
+      {absences.map((g) => (
+        <GlyphLegendItem key={g.id} spec={g} />
+      ))}
+      <LegendItem>
+        <span className="font-semibold text-[var(--text-secondary)]">
+          Starter rows
+        </span>
+        use this same vocabulary with the same meanings
       </LegendItem>
     </>
   );
@@ -156,13 +209,10 @@ function ParityLegend() {
 function DocsLegend() {
   return (
     <LegendItem>
-      <span className="text-[var(--ok)]">docs-og ✓</span>
-      {" / "}
-      <span className="text-[var(--text-muted)]">·</span>
-      {" / "}
-      <span className="text-[var(--danger)]">docs-shell ✗</span>
-      {" / "}
-      <span className="text-[var(--amber)]">!</span> docs: ok / missing / 404 /
+      <span className="font-semibold text-[var(--text-secondary)]">
+        docs-og / docs-shell
+      </span>
+      inline text in the same vocabulary — present, missing or opted out, 404,
       probe error
     </LegendItem>
   );
@@ -176,10 +226,6 @@ function AlwaysLegend() {
         <span className="text-[var(--text-secondary)]">testing</span>
         rows are muted &amp; hide docs (primary feature = has docs)
       </LegendItem>
-      <LegendItem>
-        <span className="text-[var(--danger)]">✗</span>
-        not supported
-      </LegendItem>
     </>
   );
 }
@@ -189,7 +235,17 @@ function AlwaysLegend() {
 /* ------------------------------------------------------------------ */
 
 export function AdaptiveLegend({ overlays }: AdaptiveLegendProps) {
-  const [open, setOpen] = useState(true);
+  /**
+   * CLOSED by default. The legend is `position: fixed` and ~152px tall while
+   * the grid reserves only `pb-12` (48px) under it, so an open-by-default
+   * legend sat on top of the last rows: at 1440x900, fully scrolled, it hid 42
+   * of the 84 starter cells with nothing on screen saying it could be
+   * collapsed. One click still opens it.
+   *
+   * No persistence: this component has never had any, and adding a
+   * localStorage key is out of scope here.
+   */
+  const [open, setOpen] = useState(false);
 
   return (
     <div
@@ -218,6 +274,7 @@ export function AdaptiveLegend({ overlays }: AdaptiveLegendProps) {
           {overlays.has("health") && <HealthLegend />}
           {overlays.has("parity") && <ParityLegend />}
           {overlays.has("docs") && <DocsLegend />}
+          <GlyphLegend />
           <AlwaysLegend />
         </div>
       )}

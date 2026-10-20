@@ -4,17 +4,29 @@
  * `defaultSlackTools` into the `tools:` config they pass to
  * `createChannel`.
  */
-import { z } from "zod";
-import { defineChannelTool } from "@copilotkit/channels-core";
+import {
+  defineChannelTool,
+  singleStringParameterSchema,
+} from "@copilotkit/channels-core";
 import type { ChannelTool } from "@copilotkit/channels-core";
 
-const lookupSchema = z.object({
-  query: z
-    .string()
-    .min(1)
-    .describe(
-      "Handle, display name, first name, or email of the person to look up.",
-    ),
+/**
+ * Parameter schema for `lookup_slack_user`.
+ *
+ * Built by `singleStringParameterSchema` rather than by `z.object`, so that
+ * `@copilotkit/channels-slack` declares no `zod` range. See that helper for
+ * why the range was not free (OSS-1173, PE-30). It emits the same JSON
+ * Schema document the Zod object emitted, so the descriptor the model is
+ * shown is unchanged.
+ *
+ * This file used to carry its own copy of the validator. Discord and Telegram
+ * needed the identical schema, so it moved to `channels-core` rather than
+ * being written a third time.
+ */
+const lookupSchema = singleStringParameterSchema({
+  name: "query",
+  description:
+    "Handle, display name, first name, or email of the person to look up.",
 });
 
 export const lookupSlackUserTool = defineChannelTool({

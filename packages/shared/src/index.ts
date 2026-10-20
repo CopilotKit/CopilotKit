@@ -13,6 +13,9 @@ export * from "./constants";
 // This mirrors the license-verifier note below.
 export { isTelemetryDisabled } from "./telemetry/telemetry-disabled";
 export * from "./telemetry/sampling";
+// Pure string classification with no imports, so it carries no runtime edge
+// into browser builds — same reasoning as `sampling` above.
+export * from "./telemetry/model-host";
 export {
   firstNonBlankTelemetryId,
   lambdaClient,
@@ -31,7 +34,13 @@ export * from "./standard-schema";
 export * from "./attachments";
 
 export { logger } from "./logger";
-export { finalizeRunEvents } from "./finalize-events";
+export {
+  createRunEventFinalizer,
+  finalizeRunEvents,
+  type FinalizeRunOptions,
+  type RunEventFinalizer,
+} from "./finalize-events";
+export { stripIntelligenceRoutingFields } from "./intelligence-routing-fields";
 
 export {
   TranscriptionErrorCode,
@@ -168,3 +177,5 @@ export {
 } from "./a2ui-prompts";
 
 export type { DebugEventEnvelope } from "./debug-event-envelope";
+
+export { GENERATE_SANDBOXED_UI_DESCRIPTION } from "./open-generative-ui-prompts";

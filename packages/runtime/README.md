@@ -142,3 +142,69 @@ Or use the `DO_NOT_TRACK` standard:
 ```bash
 export DO_NOT_TRACK=1
 ```
+
+## Stopping Intelligence runs
+
+Await Stop before sending another message on the same thread. With
+`IntelligenceAgentRunner`, `stopped: true` means the gateway acknowledged the
+run's terminal events and the runtime completed local cleanup. The gateway
+releases only the lock owned by that run.
+
+Stop requests agent cancellation and excludes late agent events from thread
+history. Agents that support `detachActiveRun()` also detach their local
+subscription. Older agents remain supported. An adapter must honor cancellation
+to stop external work; Stop cannot undo tool calls that already took effect.
+
+The HTTP request and response formats are unchanged. Empty-body Stop requests
+still stop the current run. Direct runner callers can pass the existing optional
+`runId` to stop only that run. A missing, mismatched, or already-requested Stop
+returns `false`. Failed terminal delivery rejects Stop; the HTTP handler returns
+its existing error response instead of reporting success. The wait is bounded by
+the existing 60-second durability window.
+
+No Intelligence upgrade is required. The runtime uses the existing terminal
+events and supports both single-event and batched gateway acknowledgments.
+
+## BuiltInAgent skill delivery from multiple containers
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const agent = new BuiltInAgent({
+  model: "openai/gpt-4o",
+  learnedSkills: {
+    containers: [
+      { id: "support", revision: "revision-123" },
+      { id: "company-wide" },
+    ],
+  },
+});
+```
+
+Set `CPK_INTELLIGENCE_API_KEY` or supply an Intelligence client in `learnedSkills.client`.
+The existing `containerId` and top-level `revision` interface remains supported.
+The SDK rejects a combination of the old fields and `containers`.
+The new interface ignores legacy container and revision environment variables.
+Each container keeps its own revision and cache. A cold failure or confirmed denial blocks the whole invocation.
+Skill names include the container prefix, such as `support/refund-policy`, when you use `containers`.
+See [Skill delivery](https://docs.copilotkit.ai/intelligence/learned-skills) for all adapters, environment defaults, and factory-mode wiring.
+
+Explicit `containers` accepts 1–50 unique container IDs and sends one batch request for all sources that need a refresh. This also applies to a list with one entry.
+The server must support `POST /api/v1/learning/skills/batch` before you use this configuration. The SDK does not fall back to separate requests.
+Legacy `containerId` configuration keeps its existing single-container request. Both interfaces use the same authentication configuration.
+
+## Intelligence runner reconnects
+
+`IntelligenceAgentRunner` retains unacknowledged events and retries them with the
+same IDs after reconnect. An unexpected normal WebSocket close (`1000`) also
+reconnects while the run remains active. Intentional cleanup does not reconnect.
+
+Recovery also depends on the Intelligence gateway's reconnect grace period.
+The current gateway defaults to 15 seconds and stores pending disconnects in
+Redis so another gateway replica can finish cleanup. The gateway controls this
+period; the runner does not negotiate it. A gateway with no reconnect grace can
+record `RUNNER_CONNECTION_DROPPED` before the runner reconnects.
+
+This recovers a lost WebSocket while the agent runtime remains alive. It does
+not restart an agent after its runtime process exits. The existing 60-second
+event acknowledgment deadline still applies.

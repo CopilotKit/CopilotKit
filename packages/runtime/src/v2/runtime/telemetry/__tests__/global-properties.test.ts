@@ -21,7 +21,7 @@ describe("telemetry global properties", () => {
   function client() {
     // Sample rate 1 so nothing is dropped by the anonymous gate; these assert
     // what a sent event carries, not whether it was sampled.
-    return new TelemetryClient({ sampleRate: 1 });
+    return new TelemetryClient();
   }
 
   beforeEach(() => {
@@ -124,10 +124,7 @@ describe("telemetry global properties", () => {
   });
 
   it("sends nothing at all when telemetry is disabled", async () => {
-    const telemetry = new TelemetryClient({
-      telemetryDisabled: true,
-      sampleRate: 1,
-    });
+    const telemetry = new TelemetryClient({ telemetryDisabled: true });
     telemetry.setGlobalProperties({ accessibility_title: "OpenBot" });
 
     await telemetry.capture("oss.runtime.agent_execution_stream_started", {});
@@ -146,6 +143,7 @@ describe("telemetry global properties", () => {
       "sampleWeight",
       "telemetry_emitter",
       "telemetry_identified",
+      "telemetry_surface",
       "telemetry_transport",
     ]);
   });

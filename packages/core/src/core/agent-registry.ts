@@ -1,5 +1,6 @@
 import type { AbstractAgent } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
+import type { HttpAgent } from "@ag-ui/client";
+import { ɵisHttpAgent } from "../utils/http-agent";
 import type {
   RuntimeInfo,
   RuntimeMode,
@@ -33,6 +34,12 @@ import {
   runtimeRequestMeta,
 } from "../utils/runtime-request";
 import { createSingleRouteResourceRequest } from "../utils/single-route-resource-request";
+import {
+  abortable,
+  isHeaderResolutionError,
+  isPromiseLike,
+  ɵoverlayCoreHeaders,
+} from "./header-source";
 
 type ResolvedCopilotRuntimeTransport = Exclude<CopilotRuntimeTransport, "auto">;
 
@@ -84,6 +91,8 @@ interface RuntimeConnectionAttempt {
 
 interface RuntimeAgentConnection {
   runtimeUrl: string;
+  /** The caller-supplied URL the proxy was built with (trailing slash intact). */
+  endpointUrl?: string;
   transport: CopilotRuntimeTransport;
 }
 
@@ -127,6 +136,8 @@ export class AgentRegistry {
   private readonly mintedThreadIds = new WeakMap<AbstractAgent, string>();
 
   private _runtimeUrl?: string;
+  /** The runtime URL as the caller supplied it; the single-route endpoint uses it verbatim. */
+  private _runtimeEndpointUrl?: string;
   // Tracks an in-flight `/info` connection so concurrent calls targeting the
   // same runtime (url + requested transport) collapse to a single request
   // instead of each firing their own. See #5801.
@@ -291,6 +302,7 @@ export class AgentRegistry {
     this.localAgents = this.assignAgentIds(agents);
     this.applyHeadersToAgents(this.localAgents);
     this.applyCredentialsToAgents(this.localAgents);
+    this.applyMessageFilterToAgents(this.localAgents);
     this.applyRuntimeFetchToAgents(this.localAgents);
     this._agents = this.localAgents;
   }
@@ -305,8 +317,12 @@ export class AgentRegistry {
     const normalizedRuntimeUrl = runtimeUrl
       ? runtimeUrl.replace(/\/$/, "")
       : undefined;
+    const runtimeEndpointUrl = runtimeUrl || undefined;
 
-    if (this._runtimeUrl === normalizedRuntimeUrl) {
+    if (
+      this._runtimeUrl === normalizedRuntimeUrl &&
+      this._runtimeEndpointUrl === runtimeEndpointUrl
+    ) {
       return;
     }
 
@@ -319,6 +335,7 @@ export class AgentRegistry {
     this._runtimeEntitlements = undefined;
     this._singleRouteResourceOperations = false;
     this._runtimeUrl = normalizedRuntimeUrl;
+    this._runtimeEndpointUrl = runtimeEndpointUrl;
 
     // Deferred construction (see CopilotKitCore.connect / #5801): record the URL
     // so getters/hooks see it synchronously, but do NOT start the `/info` fetch
@@ -439,6 +456,7 @@ export class AgentRegistry {
     this._agents = { ...this.localAgents, ...this.remoteAgents };
     this.applyHeadersToAgents(this._agents);
     this.applyCredentialsToAgents(this._agents);
+    this.applyMessageFilterToAgents(this._agents);
     this.applyRuntimeFetchToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
@@ -493,7 +511,7 @@ export class AgentRegistry {
     const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
     const debug = friends.debug;
     const agent = new ProxiedCopilotRuntimeAgent({
-      runtimeUrl: this._runtimeUrl,
+      runtimeUrl: this._runtimeEndpointUrl ?? this._runtimeUrl,
       agentId,
       runtimeAgentId,
       transport: this._runtimeTransport,
@@ -509,6 +527,7 @@ export class AgentRegistry {
         : RUNTIME_MODE_SSE,
       intelligence: this._intelligence,
       debug: debug ? resolveDebugConfig(debug) : undefined,
+      messageFilter: friends.messageFilter,
     });
     this.applyHeadersToAgent(agent);
     this.applyRuntimeFetchToAgent(agent);
@@ -556,34 +575,95 @@ export class AgentRegistry {
   }
 
   /**
-   * Apply current core headers to an agent, merged ON TOP of the agent's own
-   * construction-time headers (the per-agent baseline in `agentOwnHeaders`).
-   * Core wins on a key conflict. Non-`HttpAgent` agents are left untouched
-   * because only `HttpAgent` carries a `headers` field. See #5635.
+   * Shared core-and-own-header merge for a single agent. Captures the
+   * agent's construction-time headers once (the per-agent baseline in
+   * `agentOwnHeaders`), then either keeps only that baseline — a
+   * `ProxiedCopilotRuntimeAgent`, whose core headers are added by
+   * `ɵruntimeFetch` when each request is actually sent instead, so a key the
+   * builder stops returning can never ride along from a stale copy baked
+   * onto the agent (see #1937) — or merges `coreHeaders` on top of it (any
+   * other `HttpAgent`; core wins on a key conflict, see #5635).
    */
-  applyHeadersToAgent(agent: AbstractAgent): void {
-    if (agent instanceof HttpAgent) {
-      // Capture the agent's construction-time headers once, before any core
-      // headers overwrite them. On every subsequent apply we rebuild from this
-      // baseline so re-applying core headers (e.g. via setHeaders) never loses
-      // the agent's own headers.
-      if (!this.agentOwnHeaders.has(agent)) {
-        this.agentOwnHeaders.set(agent, { ...agent.headers });
-      }
-      agent.headers = {
-        ...this.agentOwnHeaders.get(agent),
-        ...(this.core as unknown as CopilotKitCoreFriendsAccess).headers,
-      };
+  private applyHeaderRecordToAgent(
+    agent: HttpAgent,
+    coreHeaders: Record<string, string>,
+  ): void {
+    // On every apply we rebuild from this baseline so re-applying core
+    // headers (e.g. via setHeaders) never loses the agent's own headers.
+    if (!this.agentOwnHeaders.has(agent)) {
+      this.agentOwnHeaders.set(agent, { ...agent.headers });
     }
+    const own = this.agentOwnHeaders.get(agent)!;
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.headers = { ...own };
+      this.applyRuntimeFetchToAgent(agent);
+      return;
+    }
+    agent.headers = { ...own, ...coreHeaders };
   }
 
   /**
-   * Apply current headers to all agents
+   * Apply the last resolved header snapshot to an agent, merged ON TOP of
+   * the agent's own construction-time headers. Non-`HttpAgent` agents are
+   * left untouched because only `HttpAgent` carries a `headers` field. See
+   * #5635.
+   *
+   * Never invokes the headers builder — safe to call from anywhere (dev-only
+   * registration helpers, a React effect that re-runs on every render)
+   * without risking a synchronous throw or an unhandled async rejection from
+   * a user-supplied builder. Use `prepareAgentHeadersForRun` (friends-only)
+   * on the run/connect path, where a builder failure can be awaited and
+   * reported once.
+   */
+  applyHeadersToAgent(agent: AbstractAgent): void {
+    if (!ɵisHttpAgent(agent)) return;
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+    this.applyHeaderRecordToAgent(agent, friends.headers);
+  }
+
+  /**
+   * Apply the last resolved header snapshot to every agent, without
+   * triggering a builder call per agent. Used by `initialize` and
+   * `setHeaders`; a run re-applies with fresh headers anyway (see
+   * `prepareAgentHeadersForRun`).
    */
   applyHeadersToAgents(agents: Record<string, AbstractAgent>): void {
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
     Object.values(agents).forEach((agent) => {
-      this.applyHeadersToAgent(agent);
+      if (ɵisHttpAgent(agent)) {
+        this.applyHeaderRecordToAgent(agent, friends.headers);
+      }
     });
+  }
+
+  /**
+   * Resolve headers fresh and apply them to `agent` right before a run or
+   * connect actually sends (#1937) — the resolving counterpart to
+   * `applyHeadersToAgent`. Friends-only: only the run handler should call
+   * this, since resolving can invoke a user-supplied builder that throws
+   * synchronously or returns a rejecting promise. Resolution is synchronous
+   * for a record or a sync builder; this returns a promise only when an
+   * async builder must be awaited first, and callers that need the write to
+   * have landed before continuing must await a returned promise.
+   *
+   * A `ProxiedCopilotRuntimeAgent` never invokes the builder here: its core
+   * headers are added by `ɵruntimeFetch` at send time instead, so only its
+   * own headers are (re)applied.
+   */
+  prepareAgentHeadersForRun(agent: AbstractAgent): void | Promise<void> {
+    if (!ɵisHttpAgent(agent)) return;
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      this.applyHeaderRecordToAgent(agent, {});
+      return;
+    }
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+    const resolved = friends.resolveHeaders();
+    if (isPromiseLike(resolved)) {
+      return Promise.resolve(resolved).then((headers) => {
+        this.applyHeaderRecordToAgent(agent, headers);
+      });
+    }
+    this.applyHeaderRecordToAgent(agent, resolved);
   }
 
   /**
@@ -606,12 +686,82 @@ export class AgentRegistry {
     });
   }
 
+  /**
+   * Carry the mode a fresh `/info` reported onto a proxy this re-sync kept.
+   *
+   * `canReuseRuntimeAgent` deliberately ignores the mode: a preserved proxy is
+   * backing an open conversation, and replacing the instance to change one
+   * field would drop it. The mode is therefore pushed onto the survivor here,
+   * the same way headers and credentials are. Without it the mode was fixed at
+   * construction, so a runtime that flipped `intelligence` → `sse` under an
+   * open page left every later run on the delegate path. See #7130.
+   */
+  applyRuntimeModeToAgent(
+    agent: AbstractAgent,
+    runtimeInfo: RuntimeInfo,
+  ): void {
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.adoptRuntimeMode(
+        runtimeInfo.mode ?? RUNTIME_MODE_SSE,
+        runtimeInfo.intelligence,
+      );
+    }
+  }
+
+  /**
+   * Apply the core's message filter to an agent.
+   *
+   * The test is the class, not which bucket the agent is registered in: every
+   * `ProxiedCopilotRuntimeAgent` gets the core filter, whether it came from
+   * `/info` or from `registerProxiedAgent` (which files its proxy under
+   * `localAgents`). Agents of any other class are left untouched — an
+   * `AbstractAgent` the app built has no such hook, and its owner already has
+   * the AG-UI middleware seam.
+   *
+   * This is the sole writer of `agent.messageFilter` in normal operation. The
+   * public setter exists for the registry and for tests; a value written
+   * directly onto an agent is replaced the next time the registry sweeps, the
+   * same way per-agent credentials are.
+   */
+  applyMessageFilterToAgent(agent: AbstractAgent): void {
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.messageFilter = (
+        this.core as unknown as CopilotKitCoreFriendsAccess
+      ).messageFilter;
+    }
+  }
+
+  /**
+   * Apply the core's message filter to all agents
+   */
+  applyMessageFilterToAgents(agents: Record<string, AbstractAgent>): void {
+    Object.values(agents).forEach((agent) => {
+      this.applyMessageFilterToAgent(agent);
+    });
+  }
+
+  /** Preserve the exact configured URL when posting to a single endpoint. */
+  get runtimeEndpointUrl(): string | undefined {
+    return this._runtimeEndpointUrl;
+  }
+
   createRuntimeFetch(): typeof fetch {
     if (!this.runtimeFetch) {
       this.runtimeFetch = (async (
         input: RequestInfo | URL,
         init?: RequestInit,
       ): Promise<Response> => {
+        const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+        const coreHeaders = await abortable(
+          friends.resolveHeaders(),
+          init?.signal,
+        );
+        const requestHeaders = ɵoverlayCoreHeaders(
+          init?.headers ??
+            (input instanceof Request ? input.headers : undefined),
+          coreHeaders,
+        );
+        init = { ...init, headers: requestHeaders };
         const meta = () => runtimeRequestMeta(init);
         const watchdog = this.armRuntimeRequestWatchdog(meta());
         try {
@@ -622,7 +772,11 @@ export class AgentRegistry {
               ? await createSingleRouteResourceRequest(
                   input,
                   init,
-                  this._runtimeUrl,
+                  // The endpoint itself is the POST target here, so it has to be
+                  // the caller's URL verbatim - a trailing slash can select a
+                  // different proxy location. `_runtimeUrl` is the slash-stripped
+                  // form kept for path joins (issue #7028).
+                  this._runtimeEndpointUrl ?? this._runtimeUrl,
                 )
               : null;
           const response = singleRouteRequest
@@ -721,7 +875,32 @@ export class AgentRegistry {
     const headersGeneration = this.inspectorMetadataHeadersGeneration;
     const credentialsGeneration = this.inspectorMetadataCredentialsGeneration;
     const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
-    const headers = { ...friends.headers };
+
+    // Resolve before creating the AbortController: a builder failure here
+    // must degrade to absent metadata (like any other optional-route
+    // failure) without ever leaving a dangling, never-aborted controller.
+    // Resolution is synchronous for a record or a sync builder — only await
+    // when it's actually async (there's no AbortSignal yet to make this
+    // abortable), so a sync source never pays an extra microtask tick here.
+    let headers: Record<string, string>;
+    try {
+      const resolved = friends.resolveHeaders();
+      headers = {
+        ...(isPromiseLike(resolved) ? await resolved : resolved),
+      };
+    } catch {
+      if (generation === this.inspectorMetadataGeneration) {
+        this.setInspectorMetadata(undefined);
+      }
+      return;
+    }
+    // A concurrent refresh (e.g. from setHeaders/setCredentials) may have
+    // superseded this call while the builder above was pending — without
+    // this check, a slower earlier call would still send a request with
+    // stale headers and could replace the newer call's AbortController.
+    if (generation !== this.inspectorMetadataGeneration) {
+      return;
+    }
     const credentials = friends.credentials;
     const abortController = new AbortController();
     this.inspectorMetadataAbortController = abortController;
@@ -752,7 +931,7 @@ export class AgentRegistry {
         const response =
           resolvedTransport === "single"
             ? await this.fetchInspectorMetadataSingle({
-                runtimeUrl,
+                runtimeUrl: this.singleEndpointUrlFor(runtimeUrl),
                 headers,
                 credentials,
                 signal: abortController.signal,
@@ -1028,6 +1207,13 @@ export class AgentRegistry {
       CopilotKitCoreRuntimeConnectionStatus.Error,
     );
 
+    if (isHeaderResolutionError(error)) {
+      logger.warn(
+        `Could not resolve request headers for the identification request (${this._runtimeUrl}/info). Check the headers builder passed to CopilotKit.`,
+      );
+      return;
+    }
+
     const runtimeStatus = isRuntimeInfoRequestError(error)
       ? error.runtimeInfoStatus
       : undefined;
@@ -1118,7 +1304,9 @@ export class AgentRegistry {
 
   /** Return the stable key that scopes connection and entitlement retries. */
   private runtimeConnectionKey(): string {
-    return `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
+    // The endpoint URL is part of the identity: a change that only adds or
+    // drops the trailing slash targets a different single-route endpoint.
+    return `${this._runtimeEndpointUrl ?? this._runtimeUrl ?? ""}::${this._requestedTransport}`;
   }
 
   /** Return whether a proxy still targets this Runtime connection. */
@@ -1133,6 +1321,7 @@ export class AgentRegistry {
     const connection = this.remoteAgentConnections.get(agent);
     return (
       connection?.runtimeUrl === runtimeUrl.replace(/\/$/, "") &&
+      connection.endpointUrl === this._runtimeEndpointUrl &&
       connection.transport === transport
     );
   }
@@ -1321,11 +1510,13 @@ export class AgentRegistry {
             ) {
               this.applyHeadersToAgent(existing);
               this.applyCredentialsToAgent(existing);
+              this.applyMessageFilterToAgent(existing);
               this.applyRuntimeFetchToAgent(existing);
+              this.applyRuntimeModeToAgent(existing, runtimeInfoResponse);
               return [id, existing];
             }
             const agent = new ProxiedCopilotRuntimeAgent({
-              runtimeUrl,
+              runtimeUrl: this._runtimeEndpointUrl ?? runtimeUrl,
               agentId: id, // Runtime agents always have their ID set correctly
               description: description,
               transport: this._runtimeTransport,
@@ -1334,6 +1525,9 @@ export class AgentRegistry {
               intelligence: runtimeInfoResponse.intelligence,
               capabilities,
               debug: rawDebug ? resolveDebugConfig(rawDebug) : undefined,
+              messageFilter: (
+                this.core as unknown as CopilotKitCoreFriendsAccess
+              ).messageFilter,
             });
             this.applyHeadersToAgent(agent);
             this.applyRuntimeFetchToAgent(agent);
@@ -1345,6 +1539,7 @@ export class AgentRegistry {
             }
             this.remoteAgentConnections.set(agent, {
               runtimeUrl,
+              endpointUrl: this._runtimeEndpointUrl,
               transport: this._runtimeTransport,
             });
             return [id, agent];
@@ -1494,18 +1689,23 @@ export class AgentRegistry {
     runtimeTransport: CopilotRuntimeTransport,
     signal?: AbortSignal,
   ): Promise<RuntimeInfoFetchResult> {
-    const baseHeaders = (this.core as unknown as CopilotKitCoreFriendsAccess)
-      .headers;
-    const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess)
-      .credentials;
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+    const credentials = friends.credentials;
+    // Resolution is synchronous for a record or a sync builder — only await
+    // when it's actually async, so a sync source never pays an extra
+    // microtask tick here.
+    const resolved = friends.resolveHeaders();
+    const resolvedHeaders = isPromiseLike(resolved)
+      ? await abortable(resolved, signal)
+      : resolved;
     const headers: Record<string, string> = {
-      ...baseHeaders,
+      ...resolvedHeaders,
     };
 
     if (runtimeTransport === "single") {
       return {
         runtimeInfo: await this.fetchRuntimeInfoSingle(
-          runtimeUrl,
+          this.singleEndpointUrlFor(runtimeUrl),
           headers,
           credentials,
           signal,
@@ -1536,6 +1736,19 @@ export class AgentRegistry {
       runtimeInfo: (await response.json()) as RuntimeInfo,
       resolvedTransport: "rest",
     };
+  }
+
+  /**
+   * The URL a single-route request targets: the runtime URL as the caller
+   * supplied it. `runtimeUrl` is the slash-stripped form used for path joins;
+   * a trailing slash can select a different proxy location, so the endpoint
+   * itself keeps it.
+   */
+  private singleEndpointUrlFor(runtimeUrl: string): string {
+    return this._runtimeEndpointUrl !== undefined &&
+      this._runtimeUrl === runtimeUrl
+      ? this._runtimeEndpointUrl
+      : runtimeUrl;
   }
 
   private async fetchRuntimeInfoSingle(
@@ -1590,7 +1803,7 @@ export class AgentRegistry {
     }
 
     const runtimeInfo = await this.fetchRuntimeInfoSingle(
-      runtimeUrl,
+      this.singleEndpointUrlFor(runtimeUrl),
       { ...headers },
       credentials,
       signal,

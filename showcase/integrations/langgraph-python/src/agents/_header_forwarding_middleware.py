@@ -47,7 +47,10 @@ from langchain.agents.middleware import (
     AgentState,
     ModelRequest,
     ModelResponse,
+    ToolCallRequest,
 )
+from langchain_core.messages import ToolMessage
+from langgraph.types import Command
 
 # Reuse the installed copilotkit's existing header-forwarding helpers so
 # the behaviour stays bit-identical to the full CopilotKitMiddleware's
@@ -257,6 +260,40 @@ class HeaderForwardingMiddleware(AgentMiddleware[AgentState, Any]):
         run.agent_exit(terminal_outcome="ok")
         run.response_complete(http_status=200)
         return response
+
+
+class AuxiliaryModelHeaderForwardingMiddleware(AgentMiddleware[AgentState, Any]):
+    """Forward current request headers for tool-owned auxiliary model calls."""
+
+    def __init__(self, *models: Any) -> None:
+        if not models:
+            raise ValueError("at least one auxiliary model is required")
+        self._models = tuple(models)
+
+    @property
+    def name(self) -> str:
+        return "AuxiliaryModelHeaderForwardingMiddleware"
+
+    def _prepare_tool_call(self) -> None:
+        _extract_forwarded_headers_from_config()
+        for model in self._models:
+            _ensure_httpx_hook(model)
+
+    def wrap_tool_call(
+        self,
+        request: ToolCallRequest,
+        handler: Callable[[ToolCallRequest], ToolMessage | Command[Any]],
+    ) -> ToolMessage | Command[Any]:
+        self._prepare_tool_call()
+        return handler(request)
+
+    async def awrap_tool_call(
+        self,
+        request: ToolCallRequest,
+        handler: Callable[[ToolCallRequest], Awaitable[ToolMessage | Command[Any]]],
+    ) -> ToolMessage | Command[Any]:
+        self._prepare_tool_call()
+        return await handler(request)
 
 
 def _model_name(request: ModelRequest) -> str:

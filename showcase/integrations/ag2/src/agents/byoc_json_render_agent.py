@@ -101,7 +101,7 @@ byoc_json_render_agent = ConversableAgent(
     system_message=SYSTEM_PROMPT.strip(),
     llm_config=LLMConfig(
         {
-            "model": "gpt-4o-mini",
+            "model": "gpt-5-mini",
             "stream": True,
             "temperature": 0.2,
             "response_format": {"type": "json_object"},

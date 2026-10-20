@@ -1,7 +1,11 @@
-import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execSync, spawn } from "node:child_process";
+import {
+  packRuntimeWorkspace,
+  standaloneConsumerEnv,
+} from "../../tools/learned-skill-conformance/workspace-artifacts.mjs";
+import { createDependencyInstaller, validateDepName } from "./dependencies.mjs";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -69,51 +73,20 @@ function initSnippetPackage(snippetDir: string): void {
   );
 }
 
-/**
- * Install a dependency set once and link it into a snippet directory.
- *
- * The store lives at `.doctest-output/.deps/<hash>` and is keyed by the sorted
- * dependency list, so snippets requesting the same set share one install while
- * a snippet with different deps still gets its own. The snippet's own
- * `node_modules` becomes a symlink to the store, which Node and TypeScript both
- * resolve through normally.
- */
-function installSharedDeps(snippetDir: string, deps: string[]): void {
-  const safe = deps.map(validateDepName);
-  const key = crypto
-    .createHash("sha256")
-    .update([...safe].sort().join("\n"))
-    .digest("hex")
-    .slice(0, 16);
-  const store = path.join(OUTPUT_DIR, ".deps", key);
-  const storeModules = path.join(store, "node_modules");
-
-  if (!fs.existsSync(storeModules)) {
-    fs.mkdirSync(store, { recursive: true });
-    fs.writeFileSync(
-      path.join(store, "package.json"),
-      JSON.stringify({ name: "doctest-deps", version: "1.0.0" }, null, 2),
+const installSharedDeps = createDependencyInstaller({
+  outputDir: OUTPUT_DIR,
+  runtimeAgentDependencies: JSON.parse(
+    fs.readFileSync(
+      path.resolve(__dirname, "../../packages/runtime/package.json"),
       "utf-8",
-    );
-    execSync(`npm install --no-audit --no-fund ${safe.join(" ")}`, {
-      cwd: store,
-      stdio: "pipe",
-      timeout: 300_000,
-    });
-  }
-
-  const link = path.join(snippetDir, "node_modules");
-  if (!fs.existsSync(link)) {
-    fs.symlinkSync(storeModules, link, "junction");
-  }
-}
-
-function validateDepName(dep: string): string {
-  if (!/^[@\w][\w./-]*(?:@[\w.^~>=<*-]+)?$/.test(dep)) {
-    throw new Error(`Invalid dependency name: ${dep}`);
-  }
-  return dep;
-}
+    ),
+  ).dependencies,
+  packRuntime: () =>
+    packRuntimeWorkspace(
+      path.resolve(__dirname, "../.."),
+      path.join(OUTPUT_DIR, ".artifacts"),
+    ),
+});
 
 /**
  * Find a snippet's `doctest.json`, searching upward to {@link OUTPUT_DIR}.
@@ -290,12 +263,7 @@ async function runTypeScriptServer(
 
     const deps = config.typescript?.deps || config.node?.deps || [];
     if (deps.length > 0) {
-      const safeDeps = deps.map(validateDepName);
-      execSync(`npm install ${safeDeps.join(" ")}`, {
-        cwd: snippetDir,
-        stdio: "pipe",
-        timeout: 120_000,
-      });
+      installSharedDeps(snippetDir, deps);
     }
 
     const code = fs.readFileSync(path.join(snippetDir, entryFile), "utf-8");
@@ -308,7 +276,7 @@ async function runTypeScriptServer(
       [...runner.split(" ").slice(1), entryFile],
       {
         cwd: snippetDir,
-        env: mergeEnv(),
+        env: standaloneConsumerEnv(mergeEnv()),
         stdio: "pipe",
       },
     );
@@ -385,18 +353,13 @@ async function runScript(
       initSnippetPackage(snippetDir);
       const deps = config.typescript?.deps || config.node?.deps || [];
       if (deps.length > 0) {
-        const safeDeps = deps.map(validateDepName);
-        execSync(`npm install ${safeDeps.join(" ")}`, {
-          cwd: snippetDir,
-          stdio: "pipe",
-          timeout: 120_000,
-        });
+        installSharedDeps(snippetDir, deps);
       }
 
       const runner = entryFile.endsWith(".ts") ? "npx tsx" : "node";
       execSync(`${runner} ${entryFile}`, {
         cwd: snippetDir,
-        env: mergeEnv(),
+        env: standaloneConsumerEnv(mergeEnv()),
         stdio: "pipe",
         timeout: SCRIPT_TIMEOUT_MS,
       });
@@ -463,6 +426,7 @@ async function runComponent(
 
     execSync("npx tsc --noEmit", {
       cwd: snippetDir,
+      env: standaloneConsumerEnv(),
       stdio: "pipe",
       timeout: SCRIPT_TIMEOUT_MS,
     });

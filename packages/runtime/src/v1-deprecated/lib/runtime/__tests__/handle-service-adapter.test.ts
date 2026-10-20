@@ -5,6 +5,23 @@ import { describe, expect, it } from "vitest";
 import { BuiltInAgent } from "../../../../agent";
 import type { CopilotServiceAdapter } from "../../../service-adapters";
 import { CopilotRuntime } from "../copilot-runtime";
+import { resolveAgents } from "../../../../v2/runtime/core/runtime";
+
+/**
+ * Agents resolve per request now, so every read goes through the factory with
+ * a request in hand. A misconfigured adapter therefore surfaces on the first
+ * request rather than at endpoint construction.
+ */
+const aRequest = () =>
+  new Request("https://app.example.com/api/copilotkit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: [], forwardedProps: {} }),
+  });
+
+function resolvedAgents(runtime: CopilotRuntime) {
+  return resolveAgents(runtime.instance.agents, aRequest());
+}
 
 function makeAdapter(
   overrides?: Partial<CopilotServiceAdapter>,
@@ -19,7 +36,7 @@ function makeAdapter(
 }
 
 async function getDefaultAgent(runtime: CopilotRuntime) {
-  const agents = (await runtime.instance.agents) as Record<
+  const agents = (await resolvedAgents(runtime)) as Record<
     string,
     AbstractAgent
   >;
@@ -78,10 +95,10 @@ describe("CopilotRuntime#handleServiceAdapter (#3217)", () => {
 
     runtime.handleServiceAdapter(makeAdapter({ name: "LangChainAdapter" }));
 
-    await expect(runtime.instance.agents).rejects.toBeInstanceOf(
+    await expect(resolvedAgents(runtime)).rejects.toBeInstanceOf(
       CopilotKitMisuseError,
     );
-    await expect(runtime.instance.agents).rejects.toThrow(
+    await expect(resolvedAgents(runtime)).rejects.toThrow(
       /Service adapter "LangChainAdapter" does not provide model information/,
     );
   });
@@ -91,7 +108,7 @@ describe("CopilotRuntime#handleServiceAdapter (#3217)", () => {
 
     runtime.handleServiceAdapter(makeAdapter({ name: undefined }));
 
-    await expect(runtime.instance.agents).rejects.toThrow(
+    await expect(resolvedAgents(runtime)).rejects.toThrow(
       /Service adapter "unknown" does not provide model information/,
     );
   });
@@ -105,7 +122,7 @@ describe("CopilotRuntime#handleServiceAdapter (#3217)", () => {
       makeAdapter({ name: "PartialAdapter", provider: "openai" }),
     );
 
-    await expect(runtime.instance.agents).rejects.toThrow(
+    await expect(resolvedAgents(runtime)).rejects.toThrow(
       CopilotKitMisuseError,
     );
   });

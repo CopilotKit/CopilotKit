@@ -70,7 +70,11 @@ function renderSourceNotice(items) {
         lines.push(` *   Migration note: ${note}`);
       }
     } else {
-      lines.push(" *   No 1:1 v2 replacement is available.");
+      if (item.replacementNote) {
+        for (const note of item.replacementNote) lines.push(` *   ${note}`);
+      } else {
+        lines.push(" *   No 1:1 v2 replacement is available.");
+      }
       if (item.relatedDocs) {
         lines.push(
           ` *   Related v2 docs (${item.relatedDocs.label}): ${item.relatedDocs.url}`,
@@ -180,10 +184,12 @@ function renderExportMap(inventories) {
     for (const item of exports) {
       const replacement = item.replacement
         ? `\`${item.replacement.importLine}\`<br />\`${item.replacement.usageLine}\``
-        : `No 1:1 replacement. Start with \`${entrypoint.v2ImportPath}\`.`;
+        : item.replacementNote
+          ? escapeTableCell(item.replacementNote.join(" "))
+          : `No 1:1 replacement. Start with \`${entrypoint.v2ImportPath}\`.`;
       const source = item.replacement
         ? `\`${item.replacement.source}\``
-        : `\`${entrypoint.v2Source}\``;
+        : `\`${item.replacementNoteSource ?? entrypoint.v2Source}\``;
       const docs = item.replacement
         ? item.replacement.docs === V2_REFERENCE
           ? `[V2 docs](${V2_DOCS})<br />[V2 reference docs](${V2_REFERENCE})`

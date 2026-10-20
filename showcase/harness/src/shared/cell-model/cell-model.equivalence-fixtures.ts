@@ -22,10 +22,16 @@
  * here. When adding a variant, prefer one that makes two rows of a family
  * DIFFER over one that restates a uniform shape.
  *
- * NOTE: the `feature === null` liveness-only path is NOT in this matrix. The
- * unified `buildCellModel` supports it, but a `keyFor`-derived fixture cannot
- * represent a null `featureId`; that path is proven exclusively in
- * `cell-model-v2.test.ts`.
+ * NOTE: the `feature === null` liveness-only path IS in this matrix, as of the
+ * starter-ladder partition (`livenessOnlySweep`). It used to be excluded on the
+ * premise that "a `keyFor`-derived fixture cannot represent a null
+ * `featureId`" — which was false: a fixture carries an explicit
+ * `CellModelInput`, and the D1/D2 (`health:`/`agent:`) row keys take no feature
+ * segment, so the path is directly constructible here. The exclusion mattered:
+ * the null-feature path is exactly what `LIVENESS_AXIS` re-expresses in
+ * `cell-model.combine.ts`, so four of the six generalized kind-literal sites
+ * had ZERO golden-master coverage. The four `liveness-only-*` fixtures close
+ * that. `cell-model-v2.test.ts` §T4 still proves the same path end-to-end.
  *
  * `cell-model.equivalence.test.ts` runs the unified `buildCellModel` over these
  * fixtures and asserts byte-identity with `cell-model.equivalence-baseline.json`
@@ -36,7 +42,7 @@ import {
   keyFor,
   mergeRowsToMap,
   CATALOG_TO_D5_KEY,
-  STARTER_LEVELS,
+  STARTER_ROW_LEVELS,
 } from "./live-status.js";
 import type { CellModelInput } from "./cell-model.js";
 import { E2E_STALE_AFTER_MS, FUTURE_SKEW_TOLERANCE_MS } from "./staleness.js";
@@ -91,6 +97,15 @@ const F_UNMAPPED = "no-such-d5-feature";
 
 function wired(featureId: string): CellModelInput {
   return { slug: SLUG, featureId, isSupported: true, isWired: true };
+}
+
+/**
+ * A NULL-FEATURE (liveness-only) cell input: ladder is D1/D2, ceiling 2. This
+ * is the `cell-model.ts` `:871` call site — the one that becomes `LIVENESS_AXIS`
+ * — and it had no golden-master coverage before the starter-ladder change.
+ */
+function livenessOnly(): CellModelInput {
+  return { slug: SLUG, featureId: null, isSupported: true, isWired: true };
 }
 
 /** All rows needed to make a feature FULLY GREEN through the D3→D6 ladder. */
@@ -505,6 +520,37 @@ function multiKeyD5Sweep(): Fixture[] {
   ];
 }
 
+/**
+ * NULL-FEATURE (liveness-only) sweep — the `LIVENESS_AXIS` golden master.
+ *
+ * Four entries, one per behaviour the generalized `combine` must preserve on
+ * this axis: the all-green ceiling (`ceilingIsComplete`), the gate-gap break in
+ * BOTH positions (`gateGapBreaks`, which none of the 17 `combine` unit cases
+ * covers), and the §F present-fresh-red gate (`gateKinds`).
+ */
+function livenessOnlySweep(): Fixture[] {
+  const mk = (name: string, rows: StatusRow[]): Fixture => ({
+    name,
+    input: livenessOnly(),
+    live: mergeRowsToMap(rows),
+  });
+  const health = keyFor("health", SLUG);
+  const agent = keyFor("agent", SLUG);
+  return [
+    // Green D1 + green D2 → the complete liveness ceiling.
+    mk("liveness-only-green-d1-d2", [
+      row(health, "green"),
+      row(agent, "green"),
+    ]),
+    // ABSENT D1 over green D2 → the gap break: gray chip, achieved 0.
+    mk("liveness-only-absent-d1-green-d2", [row(agent, "green")]),
+    // Green D1 over ABSENT D2 → the gap break in the upper position.
+    mk("liveness-only-green-d1-absent-d2", [row(health, "green")]),
+    // Present fresh-red D1 → the §F gate: red, achieved 0.
+    mk("liveness-only-fresh-red-d1", [row(health, "red"), row(agent, "green")]),
+  ];
+}
+
 // ── Starter axis ───────────────────────────────────────────────────────────
 const STARTER_COL = "langgraph-python";
 function starterInput(): CellModelInput {
@@ -516,11 +562,17 @@ function starterInput(): CellModelInput {
     probeAxis: "starter",
   };
 }
+/**
+ * Build the starter LADDER rows, S1 -> S3, in depth order. Keyed on
+ * `STARTER_ROW_LEVELS` (`shell`/`runtime`/`agentrun`) — every name disjoint
+ * from the four legacy levels these fixtures used to carry, so index 0 is now
+ * S1 (the shallowest rung) rather than the deleted `health`.
+ */
 function starterRows(
   build: (level: string, i: number) => StatusRow | null,
 ): StatusRow[] {
   const out: StatusRow[] = [];
-  STARTER_LEVELS.forEach((level, i) => {
+  STARTER_ROW_LEVELS.forEach((level, i) => {
     const r = build(level, i);
     if (r) out.push(r);
   });
@@ -587,8 +639,12 @@ function starterSweep(): Fixture[] {
     // SOFT_MISS_TOLERANCE_THRESHOLD = 2, so the fail-count leg of the
     // first-strike rule is satisfied and the SOFT-CLASS leg is the only thing
     // deciding the verdict. With EVERY the family is not all-soft → no
-    // de-amplification → red. With ANY the soft `health` miss alone would re-arm
-    // tolerance for the hard `agent` content regression → amber.
+    // de-amplification → red. With ANY the soft S1 miss alone would re-arm
+    // tolerance for the hard S2 content regression → amber.
+    //
+    // Post-ladder this ALSO exercises the fold across two DIFFERENT rungs
+    // rather than within one aggregate family: S1 stops the walk at achieved 0
+    // and S2's hard red is what the chip scan reads.
     mk(
       "hetero-starter-mixed-soft-hard",
       starterRows((l, i) => {
@@ -622,6 +678,7 @@ export const FIXTURES: Fixture[] = [
   ...d6SoftParitySweep(),
   ...unmappedD5Sweep(),
   ...multiKeyD5Sweep(),
+  ...livenessOnlySweep(),
   ...starterSweep(),
 ].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 

@@ -10,8 +10,7 @@ A minimal starter template for building multi-agent applications with **A2A Prot
 
 - **Node.js** 18+
 - **Python** 3.10+
-- **Google API Key** - [Get one here](https://aistudio.google.com/app/apikey)
-- **OpenAI API Key** - [Get one here](https://platform.openai.com/api-keys)
+- **A model key** - by default a Google API key ([get one here](https://aistudio.google.com/app/apikey)). `COPILOTKIT_AGENT_MODEL` in `.env` chooses the model of all three agents, and an OpenAI or Anthropic key works too.
 
 ### Installation
 
@@ -35,9 +34,9 @@ cd ..
 
 ```bash
 cp .env.example .env
-# Edit .env and add your API keys:
-# GOOGLE_API_KEY=your_google_api_key
-# OPENAI_API_KEY=your_openai_api_key
+# Add the key of the model provider in .env. COPILOTKIT_AGENT_MODEL chooses
+# the provider and model of all three agents (default google:gemini-3.8-flash,
+# with GOOGLE_API_KEY), for example anthropic:claude-sonnet-4-5.
 ```
 
 4. **Start all services:**
@@ -52,6 +51,15 @@ This will start:
 - **Orchestrator**: http://localhost:9000
 - **Research Agent**: http://localhost:9001
 - **Analysis Agent**: http://localhost:9002
+
+> **The three agent ports are not loopback-only.** All three agents bind every
+> interface (`0.0.0.0`), so anything that can reach this machine on your local
+> network can reach them, and they are unauthenticated. That is deliberate — it
+> is what lets containers and other devices talk to them — and each agent's
+> startup banner now prints its `Network:` address alongside the `localhost`
+> one so you can see it. To keep an agent on loopback instead, set its host
+> variable: `ORCHESTRATOR_HOST=127.0.0.1`, `RESEARCH_HOST=127.0.0.1`, or
+> `ANALYSIS_HOST=127.0.0.1`.
 
 ## Usage
 
@@ -270,7 +278,7 @@ The **A2A Middleware** (in `app/api/copilotkit/route.ts`) is the magic that conn
 
 ### Missing API keys?
 
-- Ensure `.env` file exists with `GOOGLE_API_KEY` and `OPENAI_API_KEY`
+- Ensure `.env` exists and holds the key of the provider in `COPILOTKIT_AGENT_MODEL`
 - Restart all services after adding keys
 
 ### Python import errors?

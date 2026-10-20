@@ -16,7 +16,7 @@
  * while page.goto() targets the actual route — this is intentional.
  *
  * To run with aimock (deterministic LLM responses for agent-dependent tests):
- *   npx aimock --fixtures showcase/aimock --port 4010 --validate-on-load &
+ *   pnpm aimock --fixtures showcase/aimock --port 4010 --validate-on-load &
  *   cd showcase/integrations/langgraph-python
  *   OPENAI_BASE_URL=http://localhost:4010/v1 OPENAI_API_KEY=test-key pnpm dev &
  *   cd ../../scripts

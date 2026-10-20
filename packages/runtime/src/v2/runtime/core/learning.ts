@@ -1,5 +1,16 @@
 import type { RunAgentInput } from "@ag-ui/client";
 import type { MaybePromise } from "@copilotkit/shared";
+import type { CopilotRuntimeLike } from "./runtime";
+
+/** Checks configuration without invoking a selector that requires a real run. */
+export function hasLearningContainerConfiguration(
+  runtime: CopilotRuntimeLike,
+): boolean {
+  return (
+    runtime.intelligence?.ɵgetLearningContainerId?.() !== undefined ||
+    runtime.learning?.containerId !== undefined
+  );
+}
 
 /** Application user resolved by an Intelligence runtime. */
 export interface CopilotRuntimeUser {
@@ -26,6 +37,72 @@ export type LearningContainerSelectorInput =
 export type GetLearningContainerId = (
   input: LearningContainerSelectorInput,
 ) => MaybePromise<string | null | undefined>;
+
+/**
+ * Context for assigning browser activity to Learning Spaces. The Runtime
+ * verifies `user`; the browser chooses `trajectoryId`, which is only checked
+ * to be a UUID.
+ */
+export interface TrajectoryLearningContainerSelectorInput {
+  readonly trajectoryId: string;
+  readonly user: CopilotRuntimeUser;
+}
+
+/**
+ * Selects existing Learning Spaces without requiring an agent run or Thread.
+ * The optional signal cancels on request abort or the five-second deadline.
+ */
+export type GetTrajectoryLearningContainerIds = (
+  input: TrajectoryLearningContainerSelectorInput,
+  signal?: AbortSignal,
+) => MaybePromise<readonly string[] | null | undefined>;
+
+/** Resolves bounded, validated Space IDs selected by application server code. */
+export async function resolveTrajectoryLearningContainerIds(
+  selector: GetTrajectoryLearningContainerIds | undefined,
+  input: TrajectoryLearningContainerSelectorInput,
+  signal?: AbortSignal,
+): Promise<readonly string[] | undefined> {
+  signal?.throwIfAborted();
+  if (!selector) return undefined;
+  const controller = new AbortController();
+  const onAbort = () => controller.abort(signal?.reason);
+  signal?.addEventListener("abort", onAbort, { once: true });
+  const timeout = setTimeout(
+    () =>
+      controller.abort(
+        new Error("Trajectory Learning Container selection timed out"),
+      ),
+    5_000,
+  );
+  let onCancelled: (() => void) | undefined;
+  try {
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      onCancelled = () => reject(controller.signal.reason);
+      controller.signal.addEventListener("abort", onCancelled, { once: true });
+    });
+    const selection = new Promise<readonly string[] | null | undefined>(
+      (resolve) => {
+        resolve(selector(input, controller.signal));
+      },
+    );
+    const value = await Promise.race([selection, cancelled]);
+    controller.signal.throwIfAborted();
+    if (value == null) return undefined;
+    if (!Array.isArray(value) || value.length > 100) {
+      throw new Error(
+        "Trajectory Learning Container selection must be an array of at most 100 IDs",
+      );
+    }
+    // Array.from visits holes in sparse arrays, so they fail validation.
+    return [...new Set(Array.from(value, assertStableLearningContainerId))];
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", onAbort);
+    if (onCancelled)
+      controller.signal.removeEventListener("abort", onCancelled);
+  }
+}
 
 /** Context for choosing one Learning Container for an Intelligence run. */
 export type CopilotRuntimeLearningContext =

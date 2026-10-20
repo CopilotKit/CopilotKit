@@ -3,8 +3,7 @@ import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
-
-const EMPTY_DEPS: ReadonlyArray<unknown> = [];
+import { useDepsVersion } from "./tool-registration";
 
 export interface RenderToolInProgressProps<S extends StandardSchemaV1> {
   name: string;
@@ -38,7 +37,7 @@ export type RenderToolProps<S extends StandardSchemaV1> =
 type RenderToolConfig<S extends StandardSchemaV1> = {
   name: string;
   parameters?: S;
-  render: (props: RenderToolProps<S>) => React.ReactElement;
+  render: (props: RenderToolProps<S>) => React.ReactElement | null;
   agentId?: string;
 };
 
@@ -69,7 +68,7 @@ type RenderToolConfig<S extends StandardSchemaV1> = {
 export function useRenderTool(
   config: {
     name: "*";
-    render: (props: any) => React.ReactElement;
+    render: (props: any) => React.ReactElement | null;
     agentId?: string;
   },
   deps?: ReadonlyArray<unknown>,
@@ -106,7 +105,7 @@ export function useRenderTool<S extends StandardSchemaV1>(
   config: {
     name: string;
     parameters: S;
-    render: (props: RenderToolProps<S>) => React.ReactElement;
+    render: (props: RenderToolProps<S>) => React.ReactElement | null;
     agentId?: string;
   },
   deps?: ReadonlyArray<unknown>,
@@ -158,7 +157,10 @@ export function useRenderTool<S extends StandardSchemaV1>(
   deps?: ReadonlyArray<unknown>,
 ): void {
   const { copilotkit } = useCopilotKit();
-  const extraDeps = deps ?? EMPTY_DEPS;
+  // Plain data in `deps` compares by value, everything else by identity; see
+  // useDepsVersion. `deps` is never serialized, so it may hold a circular
+  // value such as the agent from useAgent.
+  const depsVersion = useDepsVersion(deps);
 
   useEffect(() => {
     // Build the ReactToolCallRenderer via defineToolCallRenderer
@@ -190,5 +192,5 @@ export function useRenderTool<S extends StandardSchemaV1>(
     copilotkit.addHookRenderToolCall(renderer);
 
     // No cleanup removal — keeps renderer for chat history, same as useFrontendTool
-  }, [config.name, copilotkit, JSON.stringify(extraDeps)]);
+  }, [config.name, copilotkit, depsVersion]);
 }

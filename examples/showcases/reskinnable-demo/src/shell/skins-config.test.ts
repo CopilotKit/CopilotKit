@@ -178,6 +178,38 @@ describe("the resolved no-restricted-syntax selectors", () => {
         "statusKeyedTerminalRender",
       ],
     ],
+    // Ledgerline withholds what clears POL-114 (the events cost center) from
+    // both agent-facing files; its pages, where the person reads the Policy
+    // panel, carry beat 2 only.
+    [
+      "src/skins/ledgerline/tools.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    [
+      "src/skins/ledgerline/agent.ts",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "withheldGateVocabulary",
+        "statusKeyedTerminalRender",
+      ],
+    ],
+    [
+      "src/skins/ledgerline/pages/report-detail.tsx",
+      [
+        "literalSkinPrefix",
+        "templateLeadingPrefix",
+        "interpolationThenSlash",
+        "statusKeyedTerminalRender",
+      ],
+    ],
     [
       "src/skins/keel/tools.tsx",
       [

@@ -51,14 +51,18 @@ export async function createSingleRouteResourceRequest(
   init: RequestInit | undefined,
   runtimeUrl: string,
 ): Promise<SingleRouteResourceRequest | null> {
-  const runtime = new URL(runtimeUrl);
+  const baseUrl =
+    typeof window !== "undefined" && window.location?.href
+      ? window.location.href
+      : "http://localhost";
+  const runtime = new URL(runtimeUrl, baseUrl);
   const inputUrl =
     input instanceof Request
       ? input.url
       : input instanceof URL
         ? input.href
         : input;
-  const target = new URL(inputUrl, runtime);
+  const target = new URL(inputUrl, baseUrl);
   const runtimePath = runtime.pathname.replace(/\/$/, "");
   if (target.origin !== runtime.origin) return null;
   if (!target.pathname.startsWith(`${runtimePath}/`)) return null;

@@ -1,5 +1,6 @@
 import type { AbstractAgent, Message, Tool } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
+import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { randomUUID, partialJSONParse } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
 import type { CopilotKitCoreGetSuggestionsResult } from "./core";
@@ -221,15 +222,18 @@ export class SuggestionEngine {
         this.core.runtimeTransport !== "single";
 
       let suggestionAgent: AbstractAgent;
+      // Tracks the stateless HttpAgent (when built) so its headers can be
+      // resolved fresh right before the request is sent, without widening
+      // `suggestionAgent`'s type below.
+      let statelessAgent: HttpAgent | undefined;
       if (useStateless) {
         const suggestUrl = `${this.core.runtimeUrl}/agent/${encodeURIComponent(
           resolvedProviderAgentId,
         )}/suggest`;
         const credentials = this.core.credentials;
-        suggestionAgent = new HttpAgent({
+        statelessAgent = new HttpAgent({
           agentId: resolvedProviderAgentId,
           url: suggestUrl,
-          headers: { ...this.core.headers },
           // `HttpAgentConfig` has no `credentials` field; inject it via a fetch
           // wrapper so cookie-based / self-hosted auth still rides along on the
           // `/suggest` request.
@@ -240,8 +244,17 @@ export class SuggestionEngine {
               }
             : {}),
         });
+        suggestionAgent = statelessAgent;
       } else {
         suggestionAgent = suggestionsProviderAgent.clone();
+        // A suggestion run gets a brand-new thread id, so no backend store can
+        // fill in history the client withheld. An app-level `messageFilter`
+        // trimmed for a persisted conversation would therefore leave the
+        // provider with only the tail of the seeded context and generate
+        // suggestions about nothing. The seeded messages ARE the context here.
+        if (suggestionAgent instanceof ProxiedCopilotRuntimeAgent) {
+          suggestionAgent.messageFilter = undefined;
+        }
       }
 
       suggestionAgent.threadId = suggestionId;
@@ -254,10 +267,37 @@ export class SuggestionEngine {
           suggestionAgent.abortRun();
         },
       };
+      // Registered before the header resolution below (which can await) so
+      // `isLoading` flips true in the same tick this generation starts,
+      // matching the pre-#1937 timing: a caller inspecting it right after
+      // `reloadSuggestions()` must see the run as already in flight.
       this._runningSuggestions[consumerAgentId] = [
         ...(this._runningSuggestions[consumerAgentId] ?? []),
         runHandle,
       ];
+
+      if (statelessAgent) {
+        // Resolved fresh (not the last snapshot) so a builder's current
+        // token rides along on this stateless request, applied right before
+        // the request is sent (#1937).
+        statelessAgent.headers = { ...(await this.core.resolveHeaders()) };
+      } else {
+        // A clone of a plain `HttpAgent` carries the source agent's headers
+        // from its last run, so apply fresh ones the way a normal run does.
+        // A proxied runtime agent adds core headers at send time instead.
+        await (
+          this.core as unknown as CopilotKitCoreFriendsAccess
+        ).prepareAgentHeadersForRun(suggestionAgent);
+      }
+
+      // `clearSuggestions`/`abortRun` may have run while the header
+      // resolution above was in flight. `HttpAgent.runAgent` always installs
+      // a fresh `AbortController` for the run it starts, so an abort issued
+      // against the (now-discarded) pre-run instance would NOT stop the
+      // request below from being sent, and a completed run would write stale
+      // suggestions into whatever the current turn has become. `finally`
+      // still performs its cleanup on this early return.
+      if (aborted) return;
 
       suggestionAgent.addMessage({
         id: suggestionId,

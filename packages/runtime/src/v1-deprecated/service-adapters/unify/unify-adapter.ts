@@ -49,6 +49,8 @@ import type {
   CopilotServiceAdapter,
 } from "../service-adapter";
 import { randomId, randomUUID } from "@copilotkit/shared";
+import { createOpenAI } from "@ai-sdk/openai";
+import type { LanguageModel } from "ai";
 import {
   convertActionInputToOpenAITool,
   convertMessageToOpenAIMessage,
@@ -60,7 +62,7 @@ export interface UnifyAdapterParams {
 }
 
 export class UnifyAdapter implements CopilotServiceAdapter {
-  private apiKey: string;
+  private apiKey?: string;
   public model: string;
   private start: boolean;
   public provider = "unify";
@@ -70,11 +72,11 @@ export class UnifyAdapter implements CopilotServiceAdapter {
   }
 
   constructor(options?: UnifyAdapterParams) {
-    if (options?.apiKey) {
-      this.apiKey = options.apiKey;
-    } else {
-      this.apiKey = "UNIFY_API_KEY";
-    }
+    // Was `this.apiKey = "UNIFY_API_KEY"` — the *name* of the variable, stored
+    // as the key. Every request that relied on the default authenticated with
+    // the literal placeholder and came back 401. Read the variable instead,
+    // matching how the Google adapter falls back to GOOGLE_API_KEY.
+    this.apiKey = options?.apiKey ?? process.env.UNIFY_API_KEY;
     this.model = options?.model;
     this.start = true;
   }
@@ -187,5 +189,19 @@ export class UnifyAdapter implements CopilotServiceAdapter {
     return {
       threadId: request.threadId || randomUUID(),
     };
+  }
+
+  /**
+   * Unify's API is OpenAI-compatible, so the model is built from the OpenAI
+   * provider pointed at Unify's base URL with this adapter's own key. Without
+   * it the runtime rebuilds a bare "unify/<model>" string, which is not a
+   * provider it can resolve.
+   */
+  getLanguageModel(): LanguageModel {
+    const provider = createOpenAI({
+      baseURL: "https://api.unify.ai/v0/",
+      apiKey: this.apiKey,
+    });
+    return provider(this.model);
   }
 }

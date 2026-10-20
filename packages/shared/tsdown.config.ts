@@ -2,10 +2,13 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig([
   {
-    // `src/telemetry/index.ts` is a second entry so that the Node-only
-    // telemetry client is reachable as `@copilotkit/shared/telemetry`. The
-    // root entry deliberately does not re-export it (#4151).
-    entry: ["src/index.ts", "src/telemetry/index.ts"],
+    // Node-only telemetry and event transforms have separate entries.
+    // The browser-facing root must not re-export either (#4151).
+    entry: [
+      "src/index.ts",
+      "src/telemetry/index.ts",
+      "src/event-transforms/index.ts",
+    ],
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,

@@ -196,3 +196,92 @@ describe("real runtime catalog", () => {
     ).not.toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// extractCallees — event names given as a constant
+//
+// The setup wizard shipped a prompt emitter this extractor could not see,
+// because it passes `INTELLIGENCE_ONBOARDING_EVENTS.promptCopied` rather than a
+// string. The call site was missing from the published fragment and from the
+// pin that was supposed to guard it. See PE-218.
+// ---------------------------------------------------------------------------
+
+describe("extractCallees with constant event names", () => {
+  const constantsFile = f(
+    "lib/events.ts",
+    `export const ONBOARDING_EVENTS = {
+       promptCopied: "docs.prompt_copied",
+       promptFetched: "docs.prompt_fetched",
+     } as const;
+     export const SINGLE_EVENT = "docs.single";`,
+  );
+
+  it("resolves a member reference declared in another file", () => {
+    const out = extractCallees(
+      [
+        constantsFile,
+        f(
+          "wizard.tsx",
+          `capture(ONBOARDING_EVENTS.promptCopied, { onboarding_run_id: runId, action: "copy" });`,
+        ),
+      ],
+      { calleeNames: ["capture"] },
+    );
+    expect(out).toEqual([
+      {
+        event: "docs.prompt_copied",
+        call_sites: ["wizard.tsx"],
+        properties_seen: ["action", "onboarding_run_id"],
+      },
+    ]);
+  });
+
+  it("resolves a bare identifier constant", () => {
+    const out = extractCallees(
+      [constantsFile, f("x.tsx", `capture(SINGLE_EVENT, { a: 1 });`)],
+      { calleeNames: ["capture"] },
+    );
+    expect(out.map((e) => e.event)).toEqual(["docs.single"]);
+  });
+
+  it("merges a constant call site with a string-literal one", () => {
+    const out = extractCallees(
+      [
+        constantsFile,
+        f("a.tsx", `capture("docs.prompt_copied", { surface: s });`),
+        f("b.tsx", `capture(ONBOARDING_EVENTS.promptCopied, { action: a });`),
+      ],
+      { calleeNames: ["capture"] },
+    );
+    expect(out).toEqual([
+      {
+        event: "docs.prompt_copied",
+        call_sites: ["a.tsx", "b.tsx"],
+        properties_seen: ["action", "surface"],
+      },
+    ]);
+  });
+
+  it("ignores a reference it cannot resolve", () => {
+    // Better to omit the call site than to invent an event name for it.
+    const out = extractCallees(
+      [f("y.tsx", `capture(SOMETHING_UNKNOWN, {});`)],
+      {
+        calleeNames: ["capture"],
+      },
+    );
+    expect(out).toEqual([]);
+  });
+
+  it("refuses to resolve a name two files define differently", () => {
+    const out = extractCallees(
+      [
+        f("one.ts", `export const E = { a: "first" } as const;`),
+        f("two.ts", `export const E = { a: "second" } as const;`),
+        f("use.tsx", `capture(E.a, {});`),
+      ],
+      { calleeNames: ["capture"] },
+    );
+    expect(out).toEqual([]);
+  });
+});

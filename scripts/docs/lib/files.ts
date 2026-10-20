@@ -175,7 +175,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   {
     sourcePath: "sdk-python/copilotkit/langgraph.py",
     destinationPath:
-      "showcase/shell-docs/src/content/reference/sdk/python/LangGraph.mdx",
+      "showcase/shell-docs/src/content/reference/v1/sdk/python/LangGraph.mdx",
     title: "LangGraph SDK",
     description:
       "The CopilotKit LangGraph SDK for Python allows you to build and run LangGraph workflows with CopilotKit.",
@@ -190,7 +190,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   {
     sourcePath: "sdk-python/copilotkit/crewai/crewai_sdk.py",
     destinationPath:
-      "showcase/shell-docs/src/content/reference/sdk/python/CrewAI.mdx",
+      "showcase/shell-docs/src/content/reference/v1/sdk/python/CrewAI.mdx",
     title: "CrewAI SDK",
     description:
       "The CopilotKit CrewAI SDK for Python allows you to build and run CrewAI agents with CopilotKit.",
@@ -207,7 +207,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   {
     sourcePath: "sdk-python/copilotkit/langgraph_agui_agent.py",
     destinationPath:
-      "showcase/shell-docs/src/content/reference/sdk/python/LangGraphAGUIAgent.mdx",
+      "showcase/shell-docs/src/content/reference/v1/sdk/python/LangGraphAGUIAgent.mdx",
     title: "LangGraphAGUIAgent",
     description:
       "LangGraphAGUIAgent lets you define your agent for use with CopilotKit.",
@@ -216,7 +216,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   {
     sourcePath: "sdk-python/copilotkit/crewai/crewai_agent.py",
     destinationPath:
-      "showcase/shell-docs/src/content/reference/sdk/python/CrewAIAgent.mdx",
+      "showcase/shell-docs/src/content/reference/v1/sdk/python/CrewAIAgent.mdx",
     title: "CrewAIAgent",
     description:
       "CrewAIAgent lets you define your agent for use with CopilotKit.",
@@ -225,7 +225,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   {
     sourcePath: "sdk-python/copilotkit/sdk.py",
     destinationPath:
-      "showcase/shell-docs/src/content/reference/sdk/python/RemoteEndpoints.mdx",
+      "showcase/shell-docs/src/content/reference/v1/sdk/python/RemoteEndpoints.mdx",
     title: "Remote Endpoints",
     description:
       "CopilotKit Remote Endpoints allow you to connect actions and agents written in Python to your CopilotKit application.",
@@ -234,7 +234,7 @@ export const REFERENCE_DOCS: ReferenceDocConfiguration[] = [
   {
     sourcePath: "packages/sdk-js/src/langgraph/index.ts",
     destinationPath:
-      "showcase/shell-docs/src/content/reference/sdk/js/LangGraph.mdx",
+      "showcase/shell-docs/src/content/reference/v1/sdk/js/LangGraph.mdx",
     title: "LangGraph SDK",
     description:
       "The CopilotKit LangGraph SDK for JavaScript allows you to build and run LangGraph workflows with CopilotKit.",

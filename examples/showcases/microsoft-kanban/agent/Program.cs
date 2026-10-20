@@ -71,7 +71,7 @@ public class CanvasAgentFactory
         // Create Kanban service with shared state
         var kanbanService = new KanbanService(_state);
 
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         var chatClientAgent = chatClient.CreateAIAgent(
             name: "my_agent",

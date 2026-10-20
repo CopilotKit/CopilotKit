@@ -9,6 +9,8 @@ export type CopilotKitInspectorOpenRequest = {
 };
 
 type CopilotKitInspectorContextValue = {
+  /** Explicit provider preference, which takes priority over chat preferences. */
+  providerEnableInspector?: boolean;
   isInspectorEnabled: boolean;
   openInspector: (request: CopilotKitInspectorOpenRequest) => void;
 };

@@ -20,13 +20,16 @@ import {
   resolveStarterRow,
   buildStarterBadge,
   starterIsSupported,
+  starterSupport,
   STARTER_LEVELS,
 } from "@/lib/live-status";
-import { ToneChip } from "@/components/badges";
+import { StatusChip } from "@/components/badges";
+import { StarterCell } from "@/components/starter-cell";
+import { GLYPHS } from "@/lib/glyphs";
 import { LevelStrip } from "@/components/level-strip";
 import { OverlayColumnHeader } from "@/components/overlay-column-header";
 import { RefDepthHeader, RefDepthCell } from "@/components/ref-depth-column";
-import { buildCellModel } from "@/lib/cell-model";
+import { buildCellModel, catalogCellToInput } from "@/lib/cell-model";
 import { asParityTier } from "@/lib/page-stats";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
 import type { CatalogCell } from "@/components/depth-utils";
@@ -414,9 +417,10 @@ const CategorySection = React.memo(
                       className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-top"
                       style={{ backgroundColor: "#f5f0ff" }}
                     >
-                      <span className="text-[var(--text-muted)] text-[10px]">
-                        --
-                      </span>
+                      {/* Spacer, NOT a status — it has no reference datum.
+                          It used to render `--`, the same glyph the unshipped
+                          depth chip used, so one mark carried two meanings.
+                          An empty cell is the honest rendering. */}
                     </td>
                   ))}
                 {integrations.map((integration) => {
@@ -444,21 +448,26 @@ const CategorySection = React.memo(
                         })
                       ) : isNotSupported ? (
                         // Architectural limit — framework cannot support this
-                        // feature. Distinct from the unshipped "no demo" ✗ so
-                        // viewers can tell "won't be done" apart from "to do".
-                        <span
-                          className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-base border border-slate-500/40 bg-slate-500/10 text-slate-400"
+                        // feature. A HOLLOW chip with a solid slate border:
+                        // nothing was judged here, so it must not sit in the
+                        // verdict layer at all.
+                        <StatusChip
+                          tone="gray"
+                          label={GLYPHS.notSupported.mark}
                           title="Not supported by this framework"
-                        >
-                          🚫
-                        </span>
+                        />
                       ) : (
-                        <div
-                          className="text-center text-base text-[var(--danger)]"
-                          title="No demo"
-                        >
-                          ✗
-                        </div>
+                        // In scope, not built yet. This was a 16px red ✗ in
+                        // the failure colour at the failure weight — the
+                        // loudest mark in the entire table, for UNBUILT WORK.
+                        // A hollow DASHED chip is the "slot not filled in"
+                        // idiom, and it is what lets ✗ mean only "a probe ran
+                        // and failed".
+                        <StatusChip
+                          tone="gray"
+                          label={GLYPHS.notShipped.mark}
+                          title="not shipped — in scope, not built yet"
+                        />
                       )}
                     </td>
                   );
@@ -507,18 +516,40 @@ interface StarterSectionProps {
   categoryColSpan: number;
   /** Whether the parity ref-depth spacer column is present. */
   showRefDepth: boolean;
+  /**
+   * The catalog's Step-5 starter cells, keyed by column slug — and, by being
+   * empty or not, THE RENDER-SIDE READING OF `SHOWCASE_STARTER_CELLS`.
+   *
+   * Step 5 of `catalog-flatten.ts` mints these cells only when that flag is
+   * set, and `catalog.json` is a build artifact the dashboard imports
+   * statically, so a flag-on render is a REBUILD, not a runtime toggle. Reading
+   * the flag's EFFECT rather than re-reading the flag is what makes the two
+   * agree by construction: the single-cell row can never render against an
+   * empty cell set, and a flag-off build cannot reach it at all. With the flag
+   * unset this map is empty and the four legacy sub-rows render unchanged.
+   */
+  starterCells: Map<string, CatalogCell>;
 }
 
 /**
- * The "Starter" row-group: four fixed sub-rows (health/agent/chat/interaction)
- * keyed to the integration columns. Rendered like a `CategorySection`, but the
- * cells resolve via `resolveStarterRow` + `buildStarterBadge` (the full 5-state
- * §d vocabulary) instead of the depth model.
+ * The "Starter" row-group, in one of TWO shapes.
  *
- * INFORMATIONAL ONLY: this group never calls `renderCell`/`buildCellModel`, so
- * starter rows cannot contribute to any feature-cell rollup or column tally
- * (spec §d) — the exclusion is structural, not a filter. Ported from the dead
- * `CellMatrix.StarterSection` so it actually renders in the live FeatureGrid.
+ * LADDER (a catalog built with `SHOWCASE_STARTER_CELLS` set): ONE row, one
+ * `StarterCell` per column — a `D1`/`D2`/`D3` depth chip over three bare rung
+ * marks, folded by the same `buildCellModel` → `combine` the feature cells use,
+ * on `STARTER_AXIS`. 84 cells become 21, and a green deep rung over a red
+ * shallow one becomes structurally impossible rather than merely unobserved.
+ *
+ * LEGACY (the flag unset — the default): four fixed sub-rows
+ * (health/agent/chat/interaction) resolving via `resolveStarterRow` +
+ * `buildStarterBadge`, byte-for-byte the behaviour that shipped before. These
+ * four rows never went through `combine`, which is why the langgraph trio could
+ * render a green `Interaction` chip directly beneath three red rows.
+ *
+ * Either shape is INFORMATIONAL ONLY: a starter cell is minted with
+ * `feature: null`, and both `computeHealthStats` and `computeDepthDistribution`
+ * guard on `cell.feature === null`, so it contributes to no feature-cell rollup
+ * or column tally. The group header is its own tally.
  */
 function StarterSection({
   integrations,
@@ -527,6 +558,7 @@ function StarterSection({
   now,
   categoryColSpan,
   showRefDepth,
+  starterCells,
 }: StarterSectionProps) {
   const { isOpen, toggle } = useCollapsible({
     name: "Starter",
@@ -536,6 +568,92 @@ function StarterSection({
   const supportedCount = integrations.filter((int) =>
     starterIsSupported(int.slug),
   ).length;
+
+  // ONE cell per starter, folded by the same `combine()` the feature cells use.
+  // Empty when `SHOWCASE_STARTER_CELLS` was unset at catalog-build time, which
+  // is exactly when the four legacy sub-rows must still render.
+  const ladder = useMemo(() => {
+    if (starterCells.size === 0) return null;
+    const models = new Map<string, ReturnType<typeof buildCellModel>>();
+    for (const integration of integrations) {
+      const cell = starterCells.get(integration.slug);
+      if (!cell) continue;
+      models.set(
+        integration.slug,
+        buildCellModel(liveStatus, catalogCellToInput(cell), now),
+      );
+    }
+    return models;
+  }, [starterCells, integrations, liveStatus, now]);
+
+  if (ladder) {
+    // `<green>/<provisioned>` (§3.4), NOT `<supported>/<all columns>`. A column
+    // that declares a starter `path:` but no `service:` has nothing deployed to
+    // probe, so it is neither green nor provisioned and leaves the denominator
+    // — which is what the header `title` spells out, so the number cannot be
+    // read as "9 starters are failing".
+    const provisioned = integrations.filter(
+      (int) => int.starter_validation?.service,
+    );
+    const greenCount = provisioned.filter(
+      (int) => ladder.get(int.slug)?.chipColor === "green",
+    ).length;
+    return (
+      <Fragment>
+        <CategoryHeaderRow
+          name="Starter"
+          count={`${greenCount}/${provisioned.length}`}
+          colSpan={categoryColSpan}
+          isOpen={isOpen}
+          onToggle={toggle}
+          countTitle={`${greenCount} of ${provisioned.length} provisioned starter services are green at their full depth. ${
+            integrations.length - provisioned.length
+          } of the ${integrations.length} columns declare no deployed starter service and are outside the denominator.`}
+        />
+        {isOpen && (
+          <tr
+            data-testid="starter-row-ladder"
+            className="grid-row border-t border-[var(--border)]"
+          >
+            <td
+              className="sticky left-0 z-10 px-1 py-1 border-r border-[var(--border)] align-middle min-w-[160px]"
+              style={SURFACE_STYLE}
+            >
+              <span className="text-xs font-medium text-[var(--text)]">
+                Starter
+              </span>
+            </td>
+            {showRefDepth && (
+              <td
+                className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-middle"
+                style={{ backgroundColor: "#f5f0ff" }}
+              >
+                {/* Spacer, not a status — see the feature-row comment. */}
+              </td>
+            )}
+            {integrations.map((integration) => {
+              const model = ladder.get(integration.slug);
+              return (
+                <td
+                  key={integration.slug}
+                  data-testid={`starter-cell-${integration.slug}`}
+                  className="border-l border-[var(--border)] px-1 py-1 align-middle text-center"
+                >
+                  {model ? (
+                    <StarterCell
+                      slug={integration.slug}
+                      model={model}
+                      declaration={integration.starter_validation}
+                    />
+                  ) : null}
+                </td>
+              );
+            })}
+          </tr>
+        )}
+      </Fragment>
+    );
+  }
 
   return (
     <Fragment>
@@ -566,17 +684,18 @@ function StarterSection({
                 className="sticky left-[160px] z-10 px-1 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-middle"
                 style={{ backgroundColor: "#f5f0ff" }}
               >
-                <span className="text-[var(--text-muted)] text-[10px]">--</span>
+                {/* Spacer, not a status — see the feature-row comment. */}
               </td>
             )}
             {integrations.map((integration) => {
-              const isSupported = starterIsSupported(integration.slug);
-              const starterRow = isSupported
-                ? resolveStarterRow(liveStatus, integration.slug, level)
-                : null;
+              const support = starterSupport(integration.slug);
+              const starterRow =
+                support === "probed"
+                  ? resolveStarterRow(liveStatus, integration.slug, level)
+                  : null;
               const badge = buildStarterBadge(
                 level,
-                isSupported,
+                support,
                 starterRow,
                 now,
                 connection,
@@ -587,7 +706,7 @@ function StarterSection({
                   data-testid={`starter-cell-${integration.slug}-${level}`}
                   className="border-l border-[var(--border)] px-1 py-1 align-middle text-center"
                 >
-                  <ToneChip
+                  <StatusChip
                     tone={badge.tone}
                     label={badge.label}
                     title={badge.tooltip}
@@ -724,6 +843,18 @@ export function FeatureGrid({
         }
         map.set(cell.integration, tier);
       }
+    }
+    return map;
+  }, [catalog]);
+
+  // The catalog's Step-5 starter cells, by column slug. Empty (and the legacy
+  // four-row block therefore renders) whenever `SHOWCASE_STARTER_CELLS` was
+  // unset for the catalog build — see `StarterSectionProps.starterCells`.
+  const starterCells = useMemo(() => {
+    const map = new Map<string, CatalogCell>();
+    if (!catalog) return map;
+    for (const cell of catalog.cells) {
+      if (cell.manifestation === "starter") map.set(cell.integration, cell);
     }
     return map;
   }, [catalog]);
@@ -997,6 +1128,7 @@ export function FeatureGrid({
               now={now}
               categoryColSpan={categoryColSpan}
               showRefDepth={showRefDepth}
+              starterCells={starterCells}
             />
           </tbody>
         </table>

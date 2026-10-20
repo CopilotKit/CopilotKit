@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { catalogCellToInput } from "./catalog-input.js";
-import type { CellStructuralInput } from "./catalog-input.js";
+import {
+  catalogCellToInput,
+  type CellStructuralInput,
+} from "./catalog-input.js";
 
 const base: CellStructuralInput = {
   integration: "langgraph-python",

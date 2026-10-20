@@ -15,6 +15,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Agent, tool } from "@strands-agents/sdk";
 import { z } from "zod";
+import type { RunAgentInput } from "@ag-ui/core";
 import { StrandsAgent } from "@ag-ui/aws-strands";
 import type { StrandsAgentConfig } from "@ag-ui/aws-strands";
 import {
@@ -25,9 +26,11 @@ import {
 } from "@ag-ui/a2ui-toolkit";
 import { createModel } from "./model-factory";
 import { SHOWCASE_TOOLS } from "./tools";
+import { BoardStateStrandsAgent } from "./todo-state-sync";
 import {
-  buildStatePrompt,
+  withStateContext,
   salesStateFromArgs,
+  salesStateFromResult,
   notesStateFromArgs,
   stepsStateFromArgs,
   documentStateFromArgs,
@@ -40,17 +43,27 @@ import {
   BYOC_JSON_RENDER_SYSTEM_PROMPT,
 } from "./prompts";
 
-export async function buildShowcaseAgent(): Promise<StrandsAgent> {
+// @region[agent-config-context-registration]
+export class ShowcaseStrandsAgent extends BoardStateStrandsAgent {
+  override async *run(inputData: RunAgentInput) {
+    // The adapter exposes context during model calls and restores history afterward.
+    yield* super.run(withStateContext(inputData));
+  }
+}
+// @endregion[agent-config-context-registration]
+
+export async function buildShowcaseAgent(
+  openaiApi: "chat" | "responses" = "chat",
+): Promise<StrandsAgent> {
   const config: StrandsAgentConfig = {
-    // @region[agent-config-context-registration]
-    stateContextBuilder: buildStatePrompt,
-    // @endregion[agent-config-context-registration]
     toolBehaviors: {
-      // Sales pipeline lives in shared state; emit the snapshot from args.
+      // The tool keeps the sales pipeline in appState; this snapshot, built
+      // from the args, only carries it to the UI. Keep the call/result in
+      // message snapshots too so completed threads can replay them.
       manage_sales_todos: {
-        skipMessagesSnapshot: true,
         stateFromArgs: salesStateFromArgs,
       },
+      get_sales_todos: { stateFromResult: salesStateFromResult },
       // Shared State (Read + Write) — notes panel.
       set_notes: { stateFromArgs: notesStateFromArgs },
       // gen-ui-agent — live progress card driven by set_steps transitions.
@@ -71,18 +84,28 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
   };
 
   const strandsAgent = new Agent({
-    model: await createModel(),
+    model: await createModel({ openaiApi }),
     systemPrompt: SYSTEM_PROMPT,
     tools: SHOWCASE_TOOLS,
   });
 
-  return new StrandsAgent({
+  return new ShowcaseStrandsAgent({
     agent: strandsAgent,
     name: "strands_agent",
     description:
       "A polished CopilotKit demo assistant: chat, tools, shared state, HITL, sub-agents.",
     config,
   });
+}
+
+/**
+ * Published Strands Chat Completions drops parallel call indices before native
+ * aggregation. Responses preserves each call and emits complete, ordered blocks.
+ * Rich chat intentionally buffers tool arguments; the shared agent keeps Chat
+ * for demos that demonstrate progressive state and UI updates.
+ */
+export function buildRichChatAgent(): Promise<StrandsAgent> {
+  return buildShowcaseAgent("responses");
 }
 
 /** Tool-free agent for the voice demo (transcription + basic chat). */
@@ -147,6 +170,7 @@ export async function buildByocJsonRenderAgent(): Promise<StrandsAgent> {
 // catalog}.ts — catalog id `copilotkit://flight-fixed-catalog`. This mirrors
 // the canonical langgraph-python demo (src/agents/a2ui_fixed.py).
 
+// @region[backend-schema-json-load]
 const _A2UI_DIR = dirname(fileURLToPath(import.meta.url));
 
 const A2UI_FIXED_CATALOG_ID = "copilotkit://flight-fixed-catalog";
@@ -157,6 +181,7 @@ const A2UI_FIXED_SURFACE_ID = "flight-fixed-schema";
 const FLIGHT_SCHEMA: Array<Record<string, unknown>> = JSON.parse(
   readFileSync(join(_A2UI_DIR, "a2ui_schemas", "flight_schema.json"), "utf-8"),
 );
+// @endregion[backend-schema-json-load]
 
 const A2UI_FIXED_SYSTEM_PROMPT =
   "You help users find flights. When asked about a flight, call " +
@@ -177,6 +202,7 @@ const A2UI_FIXED_SYSTEM_PROMPT =
  * result comes through empty — unlike the Python SDK, which wraps strings.)
  */
 export async function buildA2uiFixedSchemaAgent(): Promise<StrandsAgent> {
+  // @region[backend-render-operations]
   const displayFlight = tool({
     name: "display_flight",
     description:
@@ -204,6 +230,7 @@ export async function buildA2uiFixedSchemaAgent(): Promise<StrandsAgent> {
       ],
     }),
   });
+  // @endregion[backend-render-operations]
 
   const strandsAgent = new Agent({
     // Chat Completions API: the Responses adapter buffers tool-call argument

@@ -20,8 +20,12 @@ interface CopilotKitCoreConfig {
   runtimeUrl?: string;
   runtimeTransport?: CopilotRuntimeTransport;
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
-  headers?: Record<string, string>;
+  headers?:
+    | Record<string, string>
+    | (() => Record<string, string>)
+    | (() => Promise<Record<string, string>>);
   credentials?: RequestCredentials;
+  messageFilter?: CopilotKitMessageFilter;
   properties?: Record<string, unknown>;
   tools?: FrontendTool<any>[];
   suggestionsConfig?: SuggestionsConfig[];
@@ -43,12 +47,31 @@ interface CopilotKitCoreConfig {
   Mapping from agent name to its `AbstractAgent` instance. For development only — production requires a CopilotRuntime.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string>" default="{}">
-  Headers appended to every HTTP request made by `CopilotKitCore`.
+<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>) | (() => Promise<Record<string, string>>)" default="{}">
+  Headers appended to every HTTP request made by `CopilotKitCore`. Pass a
+  record for static headers, or a function (sync or async) to build them
+  fresh. A builder runs when each request is sent, so a refreshed token is
+  always used. Cache inside the builder — a builder that calls the network
+  every time adds one call per request.
+
+  If the builder throws or rejects, the request is not sent and `onError`
+  gets [`HEADER_RESOLUTION_FAILED`](/reference/core/enums/CopilotKitCoreErrorCode).
+
+  See `setHeaders` and `resolveHeaders` on
+  [`CopilotKitCore`](/reference/core/classes/CopilotKitCore).
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">
   Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies).
+</PropertyReference>
+
+<PropertyReference name="messageFilter" type="CopilotKitMessageFilter">
+  Rewrites the message list sent to runtime agents on every run. Use it when the
+  agent already stores the conversation and re-sending it is waste or
+  duplication. The filter changes the request body only — the transcript the UI
+  renders is untouched — and broken tool-call pairs are repaired before the
+  request goes out. Intelligence runs and suggestion runs are never filtered.
+  Change it later with `setMessageFilter`.
 </PropertyReference>
 
 <PropertyReference name="properties" type="Record<string, unknown>" default="{}">

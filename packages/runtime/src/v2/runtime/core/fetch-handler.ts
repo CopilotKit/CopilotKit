@@ -82,6 +82,10 @@ import {
 import { handleRunAgent } from "../handlers/handle-run";
 import { handleSuggestAgent } from "../handlers/handle-suggest";
 import { handleConnectAgent } from "../handlers/handle-connect";
+import {
+  handleTrajectoryConnect,
+  trajectoryErrorResponse,
+} from "../handlers/handle-trajectory-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleInspectorMetadata } from "../handlers/handle-inspector-metadata";
@@ -158,14 +162,6 @@ export interface CopilotRuntimeHandlerOptions {
    * - "single-route": Single POST endpoint with JSON envelope { method, params, body }
    */
   mode?: "multi-route" | "single-route";
-
-  /**
-   * Explicitly exposes the read-only Inspector Learning capability.
-   *
-   * Defaults to `false`. Debug mode and the handler's normal request/auth
-   * middleware remain independent, additional gates.
-   */
-  inspectorLearning?: boolean;
 
   /**
    * Optional CORS configuration.
@@ -331,14 +327,7 @@ export function createCopilotRuntimeHandler(
 export function createCopilotRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler {
-  const {
-    runtime,
-    basePath,
-    mode = "multi-route",
-    cors,
-    hooks,
-    inspectorLearning = false,
-  } = options;
+  const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
 
   fireInstanceCreatedTelemetry({ runtime });
 
@@ -423,6 +412,11 @@ export function createCopilotRuntimeHandler(
           route.method === "transcribe"
         ) {
           request = createJsonRequest(request, methodCall.body);
+        } else if (route.method === "agent/stop") {
+          request = createJsonRequest(
+            request,
+            methodCall.body === undefined ? {} : methodCall.body,
+          );
         } else if (route.method === "inspector/learning") {
           const learningUrl = new URL(request.url);
           for (const key of [
@@ -443,7 +437,6 @@ export function createCopilotRuntimeHandler(
         }
         response = await dispatchRoute(runtime, request, route, {
           threadEndpointsEnabled: methodCall.method === "resource/request",
-          inspectorLearningEnabled: inspectorLearning,
           singleRouteResourceOperationsEnabled: true,
         });
       } else {
@@ -505,7 +498,6 @@ export function createCopilotRuntimeHandler(
         // 6. Handler dispatch
         response = await dispatchRoute(runtime, request, route, {
           threadEndpointsEnabled: true,
-          inspectorLearningEnabled: inspectorLearning,
           singleRouteResourceOperationsEnabled: false,
         });
       }
@@ -621,14 +613,14 @@ function dispatchRoute(
   route: RouteInfo,
   options: {
     threadEndpointsEnabled: boolean;
-    inspectorLearningEnabled: boolean;
     singleRouteResourceOperationsEnabled: boolean;
   },
 ): Promise<Response> {
   if (
     isIntelligenceRuntime(runtime) &&
     runtime.identifyUser === undefined &&
-    route.method !== "info"
+    route.method !== "info" &&
+    route.method !== "trajectory/connect"
   ) {
     throw jsonResponse({ error: "Not found" }, 404);
   }
@@ -647,6 +639,12 @@ function dispatchRoute(
   }
 
   switch (route.method) {
+    case "trajectory/connect":
+      return handleTrajectoryConnect({
+        runtime,
+        request,
+        trajectoryId: route.trajectoryId,
+      });
     case "agent/run":
       return handleRunAgent({
         runtime,
@@ -677,7 +675,6 @@ function dispatchRoute(
         runtime,
         request,
         threadEndpointsEnabled: options.threadEndpointsEnabled,
-        inspectorLearningEnabled: options.inspectorLearningEnabled,
         singleRouteResourceOperationsEnabled:
           options.singleRouteResourceOperationsEnabled,
       });
@@ -687,7 +684,6 @@ function dispatchRoute(
       return handleInspectorLearning({
         runtime,
         request,
-        enabled: options.inspectorLearningEnabled,
       });
     case "transcribe":
       return handleTranscribe({ runtime, request });
@@ -777,8 +773,16 @@ async function resolveSingleRoute(
       basePath.length > 1 && basePath.endsWith("/")
         ? basePath.slice(0, -1)
         : basePath;
-    if (!pathname.startsWith(normalizedBase)) {
-      throw jsonResponse({ error: "Not found" }, 404);
+    // Same boundary rule as multi-route matchRoute: "/" matches everything;
+    // otherwise the character after basePath must be "/" or end of string.
+    if (normalizedBase !== "/") {
+      const afterBase = pathname.slice(normalizedBase.length);
+      if (
+        !pathname.startsWith(normalizedBase) ||
+        (afterBase.length > 0 && !afterBase.startsWith("/"))
+      ) {
+        throw jsonResponse({ error: "Not found" }, 404);
+      }
     }
   }
 
@@ -790,6 +794,18 @@ async function resolveSingleRoute(
 
   let route: RouteInfo;
   switch (methodCall.method) {
+    case "trajectory/connect": {
+      const trajectoryId = methodCall.params?.trajectoryId;
+      if (typeof trajectoryId !== "string") {
+        throw trajectoryErrorResponse(
+          "INVALID_REQUEST",
+          "A valid trajectoryId is required",
+          400,
+        );
+      }
+      route = { method: "trajectory/connect", trajectoryId };
+      break;
+    }
     case "agent/run":
       route = {
         method: "agent/run",

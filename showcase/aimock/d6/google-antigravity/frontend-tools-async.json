@@ -1,0 +1,167 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / frontend-tools-async",
+    "sourceFile": "d5-all.json",
+    "created": "2026-05-21",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so every leg is staged on turnIndex (aimock's count of assistant messages; +2 per tool round-trip, +1 per text answer). turnIndex is a POSITION disambiguator, not a reject gate (aimock selectByTurnIndex): the candidate with the highest turnIndex <= assistantCount wins, so a leg must carry EVERY absolute position a test can reach it from -- a fresh thread (0/2) AND its slot in a multi-pill single-thread sequence."
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "auth check turn 1",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "Authenticated session is active. The runtime accepted your request because the Authorization header carried the demo bearer token."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "fetch the async metric",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "The async tool resolved with the requested metric. The frontend handler awaited completion before forwarding the result back to the agent — async-streaming behavior confirmed."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — project-planning pill, narration one tool round-trip after leg 1 (0->2). This is also the shared d5-frontend-tools-async probe's only prompt, which always runs as turn 1 of a fresh thread.",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "You have notes on project planning: \"Q2 project planning kickoff\" and \"Project planning retrospective notes\". Let me know if you want a summary of either."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — project-planning pill. 1st turn: query_notes tool call. Specific match wins over the broad 'plan' fixture in feature-parity.json (d5-all.json loads first). Staged at turnIndex 0 only: this is pill 1 everywhere it is driven (its own spec test and pill 1 of the 'sequential pills in one thread' test).",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_project_planning_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"project planning\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill, narration one tool round-trip after each leg-1 position (0->2, 3->5).",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "You have one note related to auth: \"Planning: migrate auth to passkeys\" — it covers WebAuthn library options and a fallback for unsupported browsers."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "context": "google-antigravity",
+        "turnIndex": 5
+      },
+      "response": {
+        "content": "You have one note related to auth: \"Planning: migrate auth to passkeys\" — it covers WebAuthn library options and a fallback for unsupported browsers."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — auth pill. 1st turn: query_notes tool call. Beats the showcase-assistant catch-all in feature-parity.json by virtue of d5-all.json's load order and a longer specific substring match. Staged at BOTH 0 (the spec's own single-pill test) and 3 (pill 2 of the 'sequential pills in one thread' test, reached after the project-planning round-trip consumes 0..2).",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_auth_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"auth\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "context": "google-antigravity",
+        "turnIndex": 3
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_auth_001_t3",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"auth\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill, narration one tool round-trip after each leg-1 position (0->2, 6->8). Locked narration leading phrase per spec test #4 assertion.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "You have a note titled \"Book recommendations\" that is tagged with \"reading.\" It includes the following books: Thinking Fast and Slow by Daniel Kahneman, The Design of Everyday Things by Don Norman."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "context": "google-antigravity",
+        "turnIndex": 8
+      },
+      "response": {
+        "content": "You have a note titled \"Book recommendations\" that is tagged with \"reading.\" It includes the following books: Thinking Fast and Slow by Daniel Kahneman, The Design of Everyday Things by Don Norman."
+      }
+    },
+    {
+      "_comment": "frontend-tools-async — reading pill. 1st turn: query_notes tool call. Staged at BOTH 0 (the spec's own single-pill test) and 6 (pill 3 of the 'sequential pills in one thread' test, reached after the project-planning and auth round-trips consume 0..5).",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_reading_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"reading\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "context": "google-antigravity",
+        "turnIndex": 6
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_reading_001_t6",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"reading\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

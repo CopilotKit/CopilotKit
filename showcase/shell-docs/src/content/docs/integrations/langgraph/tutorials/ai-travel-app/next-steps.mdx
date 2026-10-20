@@ -2,25 +2,22 @@
 title: "Next Steps"
 ---
 
-This is the end of the tutorial. You can now start building your own CoAgents into your appications!
+You have now toured the complete CopilotKit v2 travel example.
 
 ## Source code
 
-You can find the source code and interactive sandboxes here:
+- [Travel example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v1/travel)
+- [v1 to v2 migration guide](/migrate/v2)
 
-- [Start app](https://github.com/CopilotKit/CopilotKit/tree/coagents-travel-tutorial-start/examples/coagents-travel)
-- [Final app](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-travel)
+## What to try next
 
-## What's next?
-
-For next steps, here are some ideas:
-
-- Add suggestions to your copilot, using the [`useCopilotChatSuggestions`](/reference/v1/hooks/useCopilotChatSuggestions) hook.
-- Implement a custom UI for your agent, using the [`useCopilotChat`](/reference/v1/hooks/useCopilotChat) hook.
-- Add human editing of tool call arguments to the human in the loop implementation.
-
-We have more tutorials coming soon.
+- Change the prompts passed to `useConfigureSuggestions` in
+  `lib/hooks/use-trips.tsx`.
+- Build a custom chat surface with the state returned by `useAgent`.
+- Let users edit a proposed tool call before calling the `respond` function.
+- Use the [hook selection guide](/concepts/which-hook) to add another v2 tool or
+  renderer.
 
 ## Need help?
 
-If you have any questions, feel free to reach out to us on [Discord](https://discord.gg/6dffbvGU3D).
+Ask a question in the [CopilotKit Discord](https://discord.gg/6dffbvGU3D).

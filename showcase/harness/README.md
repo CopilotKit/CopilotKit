@@ -422,7 +422,7 @@ pnpm typecheck           # tsc --noEmit
 
 Golden-file tests (renderer, filters): regenerate with `pnpm test:update-goldens`.
 
-All LLM-adjacent targets (none in this service today, but see `aimock`) should use `npx aimock` for deterministic replay — never hand-rolled vi.mock response stubs.
+All LLM-adjacent targets (none in this service today, but see `aimock`) should use the `llmock` bin of `@copilotkit/aimock` (`pnpm aimock`) for deterministic replay — never hand-rolled vi.mock response stubs.
 
 ## 2.5 Build + deploy
 

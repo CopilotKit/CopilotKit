@@ -721,7 +721,7 @@ export function pickNewestSuccessDigest(
  * `staging_running_digest`. Returns null when no SUCCESS deployment /
  * imageDigest is available.
  */
-async function liveFetchDeployedDigest(
+export async function liveFetchDeployedDigest(
   token: string,
   serviceId: string,
   environmentId: string,

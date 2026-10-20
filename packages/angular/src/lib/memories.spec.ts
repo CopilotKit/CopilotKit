@@ -5,7 +5,8 @@ import type { Mock } from "vitest";
 import { ɵcreateMemoryStore } from "@copilotkit/core";
 import type { ɵMemoryStore } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
-import { injectMemories, type MemoriesController } from "./memories";
+import { injectMemories } from "./memories";
+import type { MemoriesController } from "./memories";
 
 const RUNTIME_URL = "https://runtime.example.com";
 const WS_URL = "wss://gw.example.com/client";

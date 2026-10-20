@@ -85,6 +85,6 @@ Example response (sales dashboard):
 
 
 agent = Agent(
-    model=OpenAIResponsesModel("gpt-4o-mini"),
+    model=OpenAIResponsesModel("gpt-5-mini"),
     system_prompt=BYOC_HASHBROWN_SYSTEM_PROMPT,
 )

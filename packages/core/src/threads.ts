@@ -60,7 +60,13 @@ interface ThreadRecord {
 
 interface ThreadRuntimeContext {
   runtimeUrl: string;
-  headers: Record<string, string>;
+  /**
+   * Optional: `environment.fetch` is expected to be `ɵruntimeFetch`, which
+   * already resolves and overlays the current core headers at send time
+   * (#1937). Set explicitly only when the store's `fetch` does NOT already
+   * carry headers.
+   */
+  headers?: Record<string, string>;
   wsUrl?: string;
   agentId: string;
   includeArchived?: boolean;

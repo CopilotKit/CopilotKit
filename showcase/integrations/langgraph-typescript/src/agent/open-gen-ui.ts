@@ -19,7 +19,7 @@
  * This is the minimal variant: no sandbox functions, no app-side tools.
  */
 
-import type { RunnableConfig } from "@langchain/core/runnables";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { AIMessage, SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
@@ -78,14 +78,14 @@ type AgentState = typeof AgentStateAnnotation.State;
 async function chatNode(state: AgentState, config: RunnableConfig) {
   // @doc-replace
   const model = makeChatOpenAI(config, {
-    model: "gpt-4.1",
+    model: "gpt-5-mini",
     modelKwargs: { parallel_tool_calls: false },
   });
   // @doc-as
   // const model = new ChatOpenAI({
-  //     model: "gpt-4.1",
-  //     modelKwargs: { parallel_tool_calls: false },
-  //   });
+  //   model: "gpt-5-mini",
+  //   modelKwargs: { parallel_tool_calls: false },
+  // });
   // @doc-end
 
   const frontendTools = convertActionsToDynamicStructuredTools(

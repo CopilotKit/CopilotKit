@@ -1,5 +1,7 @@
 # Open ChatKit Studio
 
+> **Hosted demo retirement:** This hosted demo is being retired from the public catalog. Source remains available for historical reference and local use. There is no replacement hosted deployment.
+
 Explore and build embeddable chat experiences.
 
 ## Applications

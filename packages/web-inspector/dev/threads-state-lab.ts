@@ -36,6 +36,8 @@ export const EDGE_SCENARIO_KEYS = [
   "pro-warning-4500-of-5000",
   "pro-at-limit-5000-of-5000",
   "oss-no-metadata-enabled-zero",
+  "oss-ephemeral-existing",
+  "oss-intelligence-disabled",
   "capability-absent",
   "unknown-limit",
   "missing-expiry",
@@ -244,6 +246,7 @@ function runtimeInfo(
     capability: ThreadsStateScenario["capability"];
     licenseStatus?: RuntimeInfo["licenseStatus"];
     metadata?: boolean;
+    mode?: RuntimeInfo["mode"];
     telemetryDisabled?: boolean;
   }>,
 ): RuntimeInfo {
@@ -257,10 +260,14 @@ function runtimeInfo(
       },
     },
     audioFileTranscriptionEnabled: false,
-    mode: "intelligence",
-    intelligence: {
-      wsUrl: `ws://127.0.0.1:5177/inspector-lab-runtime/${key}/realtime`,
-    },
+    mode: options.mode ?? "intelligence",
+    ...(options.mode === "sse"
+      ? {}
+      : {
+          intelligence: {
+            wsUrl: `ws://127.0.0.1:5177/inspector-lab-runtime/${key}/realtime`,
+          },
+        }),
     ...(options.capability === "absent"
       ? {}
       : {
@@ -475,7 +482,12 @@ function buildScenario(
             inspect: 0,
             state: 0,
           }
-        : initialExpectedRequests,
+        : {
+            ...initialExpectedRequests,
+            subscribe: input.runtimeInfo.intelligence
+              ? initialExpectedRequests.subscribe
+              : 0,
+          },
     ...(expectedNewestThreadId ? { expectedNewestThreadId } : {}),
     joinCode: `threads-lab-${input.key}`,
     joinToken: `threads-lab-token-${input.key}`,
@@ -641,18 +653,52 @@ function edgeScenario(
         inspectorMetadataBody: atLimit,
       });
     }
+    case "oss-ephemeral-existing":
     case "oss-no-metadata-enabled-zero":
       return buildScenario({
         ...base,
-        label: "OSS · no metadata · enabled · zero",
-        description: "Explicit Threads capability with no metadata body.",
+        label:
+          key === "oss-ephemeral-existing"
+            ? "OSS · ephemeral threads"
+            : "OSS · no metadata · enabled · zero",
+        description: "Local Threads capability without Intelligence.",
         deployment: "oss",
         plan: "oss",
+        data: key === "oss-ephemeral-existing" ? "existing" : "zero",
+        runtimeInfo: {
+          ...runtimeInfo(key, {
+            capability: "enabled",
+            metadata: false,
+            licenseStatus: "none",
+          }),
+          mode: "sse",
+          intelligence: undefined,
+          threadEndpoints: {
+            list: true,
+            inspect: true,
+            mutations: false,
+            realtimeMetadata: false,
+          },
+        },
+        inspectorMetadata: undefined,
+        inspectorMetadataBody: undefined,
+        threads: key === "oss-ephemeral-existing" ? threadFixtures(key) : [],
+      });
+    case "oss-intelligence-disabled":
+      return buildScenario({
+        ...base,
+        label: "OSS · Intelligence disabled",
+        description:
+          "Confirmed SSE runtime without Intelligence or saved Threads.",
+        deployment: "oss",
+        plan: "oss",
+        capability: "absent",
         data: "zero",
         runtimeInfo: runtimeInfo(key, {
-          capability: "enabled",
+          capability: "absent",
           metadata: false,
-          licenseStatus: undefined,
+          licenseStatus: "none",
+          mode: "sse",
         }),
         inspectorMetadata: undefined,
         inspectorMetadataBody: undefined,
@@ -1017,6 +1063,9 @@ export function clearThreadsStateLabNotificationState(
   sessionStorage: Pick<Storage, "removeItem">,
   cookieTarget: { cookie: string },
 ): void {
+  localStorage.removeItem("cpk:inspector:notifications:v1");
+  cookieTarget.cookie =
+    "cpk_inspector_notifications_v1=; Path=/; Max-Age=0; SameSite=Lax";
   const rawInspectorState = localStorage.getItem(INSPECTOR_STATE_STORAGE_KEY);
   if (rawInspectorState) {
     try {
@@ -1038,6 +1087,7 @@ export function clearThreadsStateLabNotificationState(
   localStorage.removeItem(ANNOUNCEMENT_READ_STORAGE_KEY);
   localStorage.removeItem(INSPECTOR_DISMISSAL_STORAGE_KEY);
   sessionStorage.removeItem(ANNOUNCEMENT_PULSED_SESSION_KEY);
+  sessionStorage.removeItem("cpk:inspector:notification-pulsed-id");
   cookieTarget.cookie = `${ANNOUNCEMENT_READ_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
   cookieTarget.cookie = `${INSPECTOR_DISMISSAL_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
 }

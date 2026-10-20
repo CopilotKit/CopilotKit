@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, getCurrentInstance, useAttrs } from "vue";
+import { computed, useAttrs } from "vue";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
 import CopilotPopupViewInternal from "./CopilotPopupViewInternal.vue";
 import type {
@@ -66,18 +66,6 @@ const emit = defineEmits<{
 }>();
 
 const attrs = useAttrs();
-const instance = getCurrentInstance();
-const vnodeProps = computed(
-  () => (instance?.vnode.props ?? {}) as Record<string, unknown>,
-);
-
-function hasListener(listenerName: string) {
-  const listener = vnodeProps.value[listenerName];
-  if (Array.isArray(listener)) {
-    return listener.length > 0;
-  }
-  return !!listener;
-}
 
 const internalProps = computed(() => {
   const { defaultOpen: _defaultOpen, ...rest } = props;
@@ -87,7 +75,6 @@ const internalProps = computed(() => {
 const forwardedEventListeners = computed(() => {
   const listeners: Record<string, unknown> = {
     onSubmitMessage: (value: string) => emit("submit-message", value),
-    onStop: () => emit("stop"),
     onInputChange: (value: string) => emit("input-change", value),
     onSelectSuggestion: (
       suggestion: (typeof props.suggestions)[number],
@@ -95,16 +82,19 @@ const forwardedEventListeners = computed(() => {
     ) => emit("select-suggestion", suggestion, index),
   };
 
-  if (hasListener("onAddFile")) {
+  if (props.onStop) {
+    listeners.onStop = () => emit("stop");
+  }
+  if (props.onAddFile) {
     listeners.onAddFile = () => emit("add-file");
   }
-  if (hasListener("onStartTranscribe")) {
+  if (props.onStartTranscribe) {
     listeners.onStartTranscribe = () => emit("start-transcribe");
   }
-  if (hasListener("onCancelTranscribe")) {
+  if (props.onCancelTranscribe) {
     listeners.onCancelTranscribe = () => emit("cancel-transcribe");
   }
-  if (hasListener("onFinishTranscribe")) {
+  if (props.onFinishTranscribe) {
     listeners.onFinishTranscribe = () => emit("finish-transcribe");
   }
 

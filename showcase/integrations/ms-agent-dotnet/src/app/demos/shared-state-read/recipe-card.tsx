@@ -18,8 +18,13 @@ import { Separator } from "@/components/ui/separator";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 
-import { cookingTimeValues, SkillLevel, SpecialPreferences } from "./types";
-import type { Ingredient, RecipeData } from "./types";
+import {
+  cookingTimeValues,
+  type Ingredient,
+  type RecipeData,
+  SkillLevel,
+  SpecialPreferences,
+} from "./types";
 
 export interface RecipeCardProps {
   recipe: RecipeData;

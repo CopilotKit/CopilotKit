@@ -1,6 +1,8 @@
 import { Component, Injectable, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { ChatState } from "../../../chat-state";
+import { provideCopilotChatLabels } from "../../../chat-config";
+import { CopilotKit } from "../../../copilotkit";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -22,6 +24,16 @@ class ChatStateStub extends ChatState {
   override readonly attachmentsEnabled = signal(false);
   override readonly attachmentsUploading = signal(false);
 }
+
+@Injectable()
+class CopilotKitStub {
+  readonly audioFileTranscriptionEnabled = signal(true);
+}
+
+const defaultInputProviders = [
+  { provide: ChatState, useClass: ChatStateStub },
+  { provide: CopilotKit, useClass: CopilotKitStub },
+];
 
 @Component({
   imports: [CopilotChatInput],
@@ -74,6 +86,13 @@ class IconButtonHost {
 })
 class ToolbarButtonHost {}
 
+/** The `aria-label` of every button inside `element`, in document order. */
+function buttonNames(element: HTMLElement): (string | null)[] {
+  return Array.from(element.querySelectorAll("button"), (button) =>
+    button.getAttribute("aria-label"),
+  );
+}
+
 describe("CopilotChat icon buttons", () => {
   afterEach(() => TestBed.resetTestingModule());
 
@@ -99,6 +118,35 @@ describe("CopilotChat icon buttons", () => {
     ]);
   });
 
+  it("names the send, scroll-to-bottom and branch buttons with the configured labels", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        ...defaultInputProviders,
+        provideCopilotChatLabels({
+          chatInputToolbarSendButtonLabel: "Nachricht senden",
+          chatScrollToBottomLabel: "Nach unten scrollen",
+          userMessageToolbarPreviousBranchLabel: "Vorherige Antwort",
+          userMessageToolbarNextBranchLabel: "Nächste Antwort",
+        }),
+      ],
+    });
+    const buttons = TestBed.createComponent(IconButtonHost);
+    buttons.detectChanges();
+    const input = TestBed.createComponent(DefaultInputHost);
+    input.detectChanges();
+
+    expect(buttonNames(buttons.nativeElement)).toContain("Nachricht senden");
+    expect(buttonNames(buttons.nativeElement)).toContain("Nach unten scrollen");
+    expect(buttonNames(buttons.nativeElement)).toContain("Vorherige Antwort");
+    expect(buttonNames(buttons.nativeElement)).toContain("Nächste Antwort");
+    expect(buttonNames(buttons.nativeElement)).not.toContain("Send message");
+    expect(buttonNames(input.nativeElement)).toEqual([
+      "Tools",
+      "Transcribe",
+      "Nachricht senden",
+    ]);
+  });
+
   it("emits enabled send clicks and ignores disabled clicks", () => {
     const fixture = TestBed.createComponent(CopilotChatSendButton);
     const clicked = vi.fn();
@@ -115,7 +163,7 @@ describe("CopilotChat icon buttons", () => {
 
   it("names every icon-only control in the default chat input", () => {
     TestBed.configureTestingModule({
-      providers: [{ provide: ChatState, useClass: ChatStateStub }],
+      providers: defaultInputProviders,
     });
     const fixture = TestBed.createComponent(DefaultInputHost);
     fixture.detectChanges();
@@ -130,7 +178,7 @@ describe("CopilotChat icon buttons", () => {
 
   it("exposes the canonical chat textarea test id", () => {
     TestBed.configureTestingModule({
-      providers: [{ provide: ChatState, useClass: ChatStateStub }],
+      providers: defaultInputProviders,
     });
     const fixture = TestBed.createComponent(DefaultInputHost);
     fixture.detectChanges();

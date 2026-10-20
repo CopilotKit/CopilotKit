@@ -18,6 +18,9 @@ const props = withDefaults(defineProps<CopilotSidebarWelcomeScreenProps>(), {
   isRunning: false,
   inputMode: "input",
   inputToolsMenu: () => [],
+  canStop: undefined,
+  canAddFile: undefined,
+  canTranscribe: undefined,
   onAddFile: undefined,
   onStartTranscribe: undefined,
   onCancelTranscribe: undefined,
@@ -37,20 +40,47 @@ defineSlots<{
 const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 
+function handleStop() {
+  props.onStop?.();
+}
+
+function handleAddFile() {
+  props.onAddFile?.();
+}
+
+function handleStartTranscribe() {
+  props.onStartTranscribe?.();
+}
+
+function handleCancelTranscribe() {
+  props.onCancelTranscribe?.();
+}
+
+function handleFinishTranscribe() {
+  props.onFinishTranscribe?.();
+}
+
+async function handleFinishTranscribeWithAudio(audioBlob: Blob) {
+  await props.onFinishTranscribeWithAudio?.(audioBlob);
+}
+
 const inputSlotProps = computed<CopilotSidebarWelcomeScreenInputSlotProps>(
   () => ({
     modelValue: props.modelValue,
     isRunning: props.isRunning,
     inputMode: props.inputMode,
     inputToolsMenu: props.inputToolsMenu,
+    canStop: props.canStop ?? Boolean(props.onStop),
+    canAddFile: props.canAddFile ?? Boolean(props.onAddFile),
+    canTranscribe: props.canTranscribe ?? Boolean(props.onStartTranscribe),
     onUpdateModelValue: props.onUpdateModelValue,
     onSubmitMessage: props.onSubmitMessage,
-    onStop: props.onStop,
-    onAddFile: props.onAddFile,
-    onStartTranscribe: props.onStartTranscribe,
-    onCancelTranscribe: props.onCancelTranscribe,
-    onFinishTranscribe: props.onFinishTranscribe,
-    onFinishTranscribeWithAudio: props.onFinishTranscribeWithAudio,
+    onStop: handleStop,
+    onAddFile: handleAddFile,
+    onStartTranscribe: handleStartTranscribe,
+    onCancelTranscribe: handleCancelTranscribe,
+    onFinishTranscribe: handleFinishTranscribe,
+    onFinishTranscribeWithAudio: handleFinishTranscribeWithAudio,
   }),
 );
 const suggestionViewSlotProps =

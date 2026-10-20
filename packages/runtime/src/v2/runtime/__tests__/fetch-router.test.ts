@@ -1,6 +1,19 @@
 import { describe, it, expect, test } from "vitest";
 import { matchRoute } from "../core/fetch-router";
 
+it.each([
+  "info",
+  "threads/thread/events",
+  "memories/memory",
+  "agent/default/run",
+])("preserves suffix routes inside a configured mount for %s", (route) => {
+  expect(matchRoute(`/copilotkit/unknown/${route}`, "/copilotkit")).toEqual(
+    matchRoute(`/${route}`),
+  );
+  expect(matchRoute(`/unknown/${route}`, "/")).toEqual(matchRoute(`/${route}`));
+  expect(matchRoute(`/unknown/${route}`)).not.toBeNull();
+});
+
 describe("fetch-router", () => {
   describe("with basePath (strict prefix stripping)", () => {
     const basePath = "/api/copilotkit";

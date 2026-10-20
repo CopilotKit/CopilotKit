@@ -12,7 +12,7 @@ description: "CopilotKit Remote Endpoints allow you to connect actions and agent
 }
 ## CopilotKitRemoteEndpoint
 
-CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your 
+CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your
     CopilotKit application.
 
     To install CopilotKit for Python, run:
@@ -58,7 +58,7 @@ CopilotKitRemoteEndpoint lets you connect actions and agents written in Python t
         actions=lambda context: [
             Action(
                 name="greet_user",
-                handler=make_greet_user_handler(context["properties"]["name"]), 
+                handler=make_greet_user_handler(context["properties"]["name"]),
                 description="Greet the user"
             )
         ]
@@ -82,12 +82,12 @@ CopilotKitRemoteEndpoint lets you connect actions and agents written in Python t
     Serving agents works in a similar way to serving actions:
 
     ```python
-    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
     from my_agent.agent import graph
 
     sdk = CopilotKitRemoteEndpoint(
         agents=[
-            LangGraphAgent(
+            LangGraphAGUIAgent(
                 name="email_agent",
                 description="This agent sends emails",
                 graph=graph,
@@ -99,12 +99,12 @@ CopilotKitRemoteEndpoint lets you connect actions and agents written in Python t
     To dynamically build agents, provide a callable that returns a list of agents:
 
     ```python
-    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent
+    from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
     from my_agent.agent import graph
 
     sdk = CopilotKitRemoteEndpoint(
         agents=lambda context: [
-            LangGraphAgent(
+            LangGraphAGUIAgent(
                 name="email_agent",
                 description="This agent sends emails",
                 graph=graph,

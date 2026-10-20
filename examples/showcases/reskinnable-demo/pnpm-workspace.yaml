@@ -15,26 +15,15 @@
 packages:
   - "."
 
-# The canary pins, in their SUPPORTED home.
+# The @ag-ui canary overrides are GONE, deliberately.
 #
-# These same five live in `package.json` under `pnpm.overrides`, where only
-# pnpm < 10.11-ish reads them — the newer CLI prints "The 'pnpm' field in
-# package.json is no longer read by pnpm" and moves on. This app pins
-# `packageManager: pnpm@10.10.0`, so the old location still works today and the
-# demo installs correctly; that is a version pin doing load-bearing work
-# nobody would think to look for.
+# They existed for one reason: a released `@ag-ui/core` rejected `SUBAGENT_*`
+# events in the HTTP transport before any middleware ran, which killed banking's
+# harness console. Those events now ship in stable 0.0.59 (verified:
+# SUBAGENT_STARTED / SUBAGENT_FINISHED / SUBAGENT_ERROR are in its published
+# types), and @copilotkit 1.71.0 depends on exactly 0.0.59 — so the overrides
+# would now pin the tree BEHIND its own dependency rather than ahead of it.
 #
-# Three of the five are the reason this matters: `@ag-ui/core`, `@ag-ui/encoder`
-# and `@ag-ui/proto` are pinned NOWHERE else (`@ag-ui/client` and
-# `@ag-ui/langgraph` are direct dependencies). A released `@ag-ui/core` rejects
-# `SUBAGENT_*` events in the HTTP transport before any middleware runs, so
-# losing those three pins kills the banking harness console — which is exactly
-# what a `packageManager` bump would have done, silently.
-#
-# Keep both copies in sync until the canary line ships stable, then delete both.
-overrides:
-  "@ag-ui/core": 0.0.59-canary.1786716392.0
-  "@ag-ui/client": 0.0.59-canary.1786716392.0
-  "@ag-ui/encoder": 0.0.59-canary.1786716392.0
-  "@ag-ui/proto": 0.0.59-canary.1786716392.0
-  "@ag-ui/langgraph": 0.0.43-canary.1786716392.0
+# The matching copies under `pnpm.overrides` in package.json are removed too;
+# the note that used to live here said to delete both once the canary line
+# shipped stable, and it has.

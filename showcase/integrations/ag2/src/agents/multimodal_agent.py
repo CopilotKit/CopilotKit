@@ -1,6 +1,6 @@
 """AG2 agent backing the Multimodal Attachments demo.
 
-Vision-capable AG2 ConversableAgent (gpt-4o) that accepts image + PDF
+Vision-capable AG2 ConversableAgent (gpt-5-mini) that accepts image + PDF
 attachments. Images are forwarded to the model natively; PDFs are flattened
 to inline text via `pypdf` so the model can read them without needing
 file-part support.
@@ -52,7 +52,7 @@ SYSTEM_PROMPT = (
 multimodal_agent = ConversableAgent(
     name="multimodal_assistant",
     system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-4o", "stream": True, "temperature": 0.2}),
+    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True, "temperature": 0.2}),
     human_input_mode="NEVER",
     max_consecutive_auto_reply=5,
     functions=[],

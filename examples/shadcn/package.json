@@ -25,6 +25,7 @@
     "radix-ui": "^1.6.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-is": "19.2.3",
     "recharts": "3.8.0",
     "tailwind-merge": "3.6.0",
     "zod": "3.25.76"

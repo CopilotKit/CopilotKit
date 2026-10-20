@@ -8,6 +8,34 @@ import type {
   StarterSmokeLevelSignal,
 } from "./starter-smoke.js";
 import { STARTER_LEVELS } from "../helpers/starter-mapping.js";
+
+/**
+ * The four LEGACY smoke levels the aggregate `signal.passed`/`failed` are
+ * computed over. A local constant, not `STARTER_LEVELS.length`: during the
+ * Phase-0 dual-write that shared constant no longer describes what the driver
+ * EMITS, so reading `passed` off it would silently track the wrong number the
+ * moment either list moves.
+ */
+const LEGACY_LEVEL_COUNT = 4;
+/** Four legacy rows + three ladder rows, per run. */
+const DUAL_WRITE_EMIT_COUNT = 7;
+
+/**
+ * The `/info` body a healthy deployed starter actually serves: a `version`
+ * AND a non-empty `agents` map. `truth-staging.md` records that every starter
+ * whose `/info` answers at all advertises one, resolving `default`.
+ *
+ * The fake used to default to `{"version":"1.59.5"}` with NO agents map. That
+ * was a test convenience, not a statement about production — and it matters
+ * now, because S2 PROMOTES the agents-map read from a side effect to an
+ * ASSERTION, so a map-less body is an S2 failure by design. Leaving the fake
+ * map-less would have made every happy-path case exercise the degraded shape.
+ * The degraded shape keeps its own explicit test below.
+ */
+const DEFAULT_INFO_BODY = JSON.stringify({
+  version: "1.59.5",
+  agents: { default: { description: "default agent" } },
+});
 import { logger } from "../../logger.js";
 import type {
   ProbeContext,
@@ -242,7 +270,7 @@ function fakeFetch(opts: {
     if (level === "health") {
       const status = opts.healthStatus ?? 200;
       const res = new Response(
-        opts.healthBody ?? opts.agentBody ?? '{"version":"1.59.5"}',
+        opts.healthBody ?? opts.agentBody ?? DEFAULT_INFO_BODY,
         {
           status,
           statusText: `HTTP ${status}`,
@@ -254,7 +282,7 @@ function fakeFetch(opts: {
     }
     if (level === "agent") {
       const status = opts.agentStatus ?? 200;
-      const res = new Response(opts.agentBody ?? '{"version":"1.59.5"}', {
+      const res = new Response(opts.agentBody ?? DEFAULT_INFO_BODY, {
         status,
         statusText: `HTTP ${status}`,
         headers: { "Content-Type": "application/json" },
@@ -346,18 +374,98 @@ describe("starterSmokeDriver", () => {
     expect(r.key).toBe("starter:mastra");
     expect(r.signal.columnSlug).toBe("mastra");
     expect(r.signal.starterSlug).toBe("mastra");
-    expect(r.signal.passed).toBe(4);
+    // `signal.passed` counts the LEGACY levels the aggregate is computed over.
+    // Asserted against a local constant rather than `STARTER_LEVELS.length`,
+    // because during the dual-write that constant no longer describes what the
+    // driver emits — it emits DUAL_WRITE_EMIT_COUNT rows per run.
+    expect(r.signal.passed).toBe(LEGACY_LEVEL_COUNT);
     expect(r.signal.failed).toEqual([]);
 
+    // ── The Phase-0 DUAL-WRITE: seven rows, in emission order. ─────────────
+    //
+    // Four legacy + three ladder, every name disjoint. Asserted verbatim and
+    // in order so a partial emit, a rekey typo, or an accidental OVERWRITE of
+    // a legacy key is a loud failure rather than a silent one.
     const rows = sideRows(writes);
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(DUAL_WRITE_EMIT_COUNT);
     expect(rows.map((w) => w.key)).toEqual([
       "starter:mastra/health",
       "starter:mastra/agent",
       "starter:mastra/chat",
       "starter:mastra/interaction",
+      "starter:mastra/shell",
+      "starter:mastra/runtime",
+      "starter:mastra/agentrun",
     ]);
     expect(rows.every((w) => w.state === "green")).toBe(true);
+  });
+
+  // ── Both ordering invariants, pinned simultaneously. ────────────────────
+  //
+  // The LEGACY one survives until Phase 3 (the chat rung depends on the agent
+  // rung having read the `agents` map first), and the LADDER one is its
+  // successor (S3 depends on S2's resolution the same way). Pinning both is
+  // what makes the dual-write window observable rather than merely asserted.
+  it("emission order: agent before chat (legacy) AND runtime before agentrun (ladder)", async () => {
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    await driver.run(mkCtx(fakeFetch({}), writer), {
+      key: "starter_smoke:starter-mastra",
+      name: "starter-mastra",
+      publicUrl: "https://starter-mastra.up.railway.app",
+    });
+    const keys = sideRows(writes).map((w) => w.key);
+    expect(keys.indexOf("starter:mastra/agent")).toBeLessThan(
+      keys.indexOf("starter:mastra/chat"),
+    );
+    expect(keys.indexOf("starter:mastra/runtime")).toBeLessThan(
+      keys.indexOf("starter:mastra/agentrun"),
+    );
+    // And the ladder rungs are depth-ordered among themselves.
+    expect(keys.indexOf("starter:mastra/shell")).toBeLessThan(
+      keys.indexOf("starter:mastra/runtime"),
+    );
+  });
+
+  // The dual-write is ADDITIVE. This is the assertion that makes "no legacy
+  // row is touched" a machine fact: the three ladder names are disjoint from
+  // the four legacy ones, so nothing can overwrite a live, unflagged row.
+  it("the ladder keys are DISJOINT from the legacy keys", async () => {
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    await driver.run(mkCtx(fakeFetch({}), writer), {
+      key: "starter_smoke:starter-mastra",
+      name: "starter-mastra",
+      publicUrl: "https://starter-mastra.up.railway.app",
+    });
+    const levels = sideRows(writes).map((w) => w.key.split("/")[1]);
+    const legacy = new Set(["health", "agent", "chat", "interaction"]);
+    const ladder = new Set(["shell", "runtime", "agentrun"]);
+    expect([...ladder].filter((l) => legacy.has(l))).toEqual([]);
+    expect(new Set(levels)).toEqual(new Set([...legacy, ...ladder]));
+    // No key is emitted twice — an overwrite would show up here.
+    expect(new Set(levels).size).toBe(levels.length);
+  });
+
+  // S1 is the SAME request and the SAME assertion as legacy `interaction`, so
+  // its state must be identical on every run. That identity is what makes the
+  // cross-key datum check a real check rather than a comparison of two
+  // different observations — and it is the reason the dual-write costs zero
+  // additional HTTP requests.
+  it("S1 `shell` is byte-identical in state to legacy `interaction`", async () => {
+    for (const scenario of [{}, { interactionStatus: 500 }] as const) {
+      const { writer, writes } = mkWriter();
+      const driver = createStarterSmokeDriver();
+      await driver.run(mkCtx(fakeFetch(scenario), writer), {
+        key: "starter_smoke:starter-mastra",
+        name: "starter-mastra",
+        publicUrl: "https://starter-mastra.up.railway.app",
+      });
+      const rows = sideRows(writes);
+      const interaction = rows.find((w) => w.key.endsWith("/interaction"));
+      const shell = rows.find((w) => w.key.endsWith("/shell"));
+      expect(shell?.state).toBe(interaction?.state);
+    }
   });
 
   it("applies the starter→column slug remap (drift case: langgraph-js → langgraph-typescript)", async () => {
@@ -379,6 +487,9 @@ describe("starterSmokeDriver", () => {
       "starter:langgraph-typescript/agent",
       "starter:langgraph-typescript/chat",
       "starter:langgraph-typescript/interaction",
+      "starter:langgraph-typescript/shell",
+      "starter:langgraph-typescript/runtime",
+      "starter:langgraph-typescript/agentrun",
     ]);
   });
 
@@ -675,6 +786,204 @@ describe("starterSmokeDriver", () => {
     expect(r.signal.failed).not.toContain("chat");
   });
 
+  // ── S3's four AG-UI ordering assertions, one case each. ────────────────
+  //
+  // Each stream below satisfies the LEGACY `chat` rung in full (text content +
+  // terminal RUN_FINISHED, no RUN_ERROR) and fails exactly one ORDERING
+  // assertion, so each case proves the new assertion binds on its own rather
+  // than riding on the text check. The legacy row must stay GREEN in every one
+  // — S3 is a strict superset, so it may be red where `chat` is green and never
+  // the reverse.
+  describe("S3 `agentrun` ordering assertions", () => {
+    const sse = (events: Record<string, unknown>[]) =>
+      events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join("");
+    const TEXT = {
+      type: "TEXT_MESSAGE_CONTENT",
+      messageId: "m1",
+      delta: "Hello",
+    };
+
+    const run = async (chatSse: string) => {
+      const { writer, writes } = mkWriter();
+      const driver = createStarterSmokeDriver();
+      await driver.run(mkCtx(fakeFetch({ chatSse }), writer), {
+        key: "starter_smoke:starter-agno",
+        name: "starter-agno",
+        publicUrl: "https://starter-agno.up.railway.app",
+      });
+      const rows = sideRows(writes);
+      return {
+        chat: rows.find((w) => w.key === "starter:agno/chat")!,
+        agentrun: rows.find((w) => w.key === "starter:agno/agentrun")!,
+      };
+    };
+
+    it("run-started-first: text before RUN_STARTED", async () => {
+      const { chat, agentrun } = await run(
+        sse([
+          TEXT,
+          { type: "RUN_STARTED", threadId: "t1", runId: "r1" },
+          { type: "RUN_FINISHED", threadId: "t1", runId: "r1" },
+        ]),
+      );
+      expect(chat.state).toBe("green");
+      expect(agentrun.state).toBe("red");
+      expect(agentrun.signal.errorDesc).toContain("run-started-first");
+    });
+
+    it("text-message-start-end-pairing: END before START", async () => {
+      const { chat, agentrun } = await run(
+        sse([
+          { type: "RUN_STARTED", threadId: "t1", runId: "r1" },
+          { type: "TEXT_MESSAGE_END", messageId: "m1" },
+          TEXT,
+          { type: "TEXT_MESSAGE_START", messageId: "m1", role: "assistant" },
+          { type: "RUN_FINISHED", threadId: "t1", runId: "r1" },
+        ]),
+      );
+      expect(chat.state).toBe("green");
+      expect(agentrun.state).toBe("red");
+      expect(agentrun.signal.errorDesc).toContain(
+        "text-message-start-end-pairing",
+      );
+    });
+
+    it("thread-run-id-echo: RUN_STARTED without threadId/runId", async () => {
+      const { chat, agentrun } = await run(
+        sse([
+          { type: "RUN_STARTED" },
+          TEXT,
+          { type: "RUN_FINISHED", threadId: "t1", runId: "r1" },
+        ]),
+      );
+      expect(chat.state).toBe("green");
+      expect(agentrun.state).toBe("red");
+      expect(agentrun.signal.errorDesc).toContain("thread-run-id-echo");
+    });
+
+    it("run-finished-last: an event trails RUN_FINISHED", async () => {
+      const { chat, agentrun } = await run(
+        sse([
+          { type: "RUN_STARTED", threadId: "t1", runId: "r1" },
+          TEXT,
+          { type: "RUN_FINISHED", threadId: "t1", runId: "r1" },
+          { type: "STEP_FINISHED", stepName: "s1" },
+        ]),
+      );
+      expect(chat.state).toBe("green");
+      expect(agentrun.state).toBe("red");
+      expect(agentrun.signal.errorDesc).toContain("run-finished-last");
+    });
+
+    it("a pure *_CHUNK stream (no START/END pair) is LEGAL, not a pairing failure", async () => {
+      // A stream that never uses the bracketed form carries no START/END pair.
+      // Demanding one would red a healthy starter for choosing the other legal
+      // encoding — the exact "weaken or over-tighten" trap the exit criterion
+      // exists to keep out of the validator.
+      const { chat, agentrun } = await run(
+        sse([
+          { type: "RUN_STARTED", threadId: "t1", runId: "r1" },
+          { type: "TEXT_MESSAGE_CHUNK", messageId: "m1", delta: "Hi" },
+          { type: "RUN_FINISHED", threadId: "t1", runId: "r1" },
+        ]),
+      );
+      expect(chat.state).toBe("green");
+      expect(agentrun.state).toBe("green");
+    });
+
+    it("the golden well-ordered stream passes both rungs", async () => {
+      const { chat, agentrun } = await run(SSE_HAPPY);
+      expect(chat.state).toBe("green");
+      expect(agentrun.state).toBe("green");
+    });
+  });
+
+  it("S2 `runtime` REDS on a degraded /info with no agents map, while legacy `agent` stays green", async () => {
+    // This is the S2 strengthening, made visible. The legacy `agent` rung only
+    // required a `version`; it read the `agents` map as a SIDE EFFECT and fell
+    // back to `default` when there was none. S2 PROMOTES that read to an
+    // assertion, so a map-less `/info` is a stated failure instead of a silent
+    // guess. The legacy row must stay exactly as green as it is today — that
+    // non-interference is what makes the dual-write safe.
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    await driver.run(
+      mkCtx(fakeFetch({ agentBody: '{"version":"1.59.5"}' }), writer),
+      {
+        key: "starter_smoke:starter-agno",
+        name: "starter-agno",
+        publicUrl: "https://starter-agno.up.railway.app",
+      },
+    );
+    const rows = sideRows(writes);
+    expect(rows.find((w) => w.key === "starter:agno/agent")!.state).toBe(
+      "green",
+    );
+    const runtime = rows.find((w) => w.key === "starter:agno/runtime")!;
+    expect(runtime.state).toBe("red");
+    expect(runtime.signal.errorDesc).toContain("agents map");
+    // A hard red: an absent agents map is a configuration regression, not a
+    // transient transport hiccup, so it must NOT earn soft-miss tolerance.
+    expect(runtime.signal.errorClass).toBe("smoke-failed");
+  });
+
+  it("S2 `runtime` REDS as agent-id-ambiguous on a multi-agent map with no `default`", async () => {
+    // The legacy rule took THE FIRST NON-EMPTY KEY — an arbitrary pick that
+    // reported green. Rule: prefer `default`; else the sole key; else red.
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    await driver.run(
+      mkCtx(
+        fakeFetch({
+          agentBody: JSON.stringify({
+            version: "1.59.5",
+            agents: { alpha: {}, beta: {} },
+          }),
+        }),
+        writer,
+      ),
+      {
+        key: "starter_smoke:starter-agno",
+        name: "starter-agno",
+        publicUrl: "https://starter-agno.up.railway.app",
+      },
+    );
+    const rows = sideRows(writes);
+    expect(rows.find((w) => w.key === "starter:agno/agent")!.state).toBe(
+      "green",
+    );
+    const runtime = rows.find((w) => w.key === "starter:agno/runtime")!;
+    expect(runtime.state).toBe("red");
+    expect(runtime.signal.errorDesc).toContain("agent-id-ambiguous");
+  });
+
+  it("S2 `runtime` PASSES on a SOLE non-default agent key (the mastra shape)", async () => {
+    // Rule 2. Exactly one key is unambiguous even without a `default`, so a
+    // single-agent starter like mastra must NOT be redded by the new rule —
+    // this is the case that keeps the predicted delta at zero.
+    const { writer, writes } = mkWriter();
+    const driver = createStarterSmokeDriver();
+    await driver.run(
+      mkCtx(
+        fakeFetch({
+          agentBody: JSON.stringify({
+            version: "1.59.5",
+            agents: { weatherAgent: { description: "weather" } },
+          }),
+        }),
+        writer,
+      ),
+      {
+        key: "starter_smoke:starter-mastra",
+        name: "starter-mastra",
+        publicUrl: "https://starter-mastra.up.railway.app",
+      },
+    );
+    expect(
+      sideRows(writes).find((w) => w.key === "starter:mastra/runtime")!.state,
+    ).toBe("green");
+  });
+
   it("falls back to agentId 'default' when /info agents map is empty/absent", async () => {
     // The 11 default-registering starters have `agents:{default}` (or an
     // absent/empty map in degraded info). `default` is the EXPECTED resolved
@@ -868,6 +1177,59 @@ describe("starterSmokeDriver", () => {
     expect(seenHeaders.chat?.["content-type"]).toBe("application/json");
     expect(seenHeaders.chat?.["accept"]).toBe("text/event-stream");
     expect(seenHeaders.chat?.["x-aimock-context"]).toBe("agno");
+  });
+
+  it("chat POST body sends UUID threadId/runId, FRESH per invocation", async () => {
+    // Regression guard. The body used to hardcode `threadId:
+    // "starter-smoke-thread"` / `runId: "starter-smoke-run"`. `langgraph-js`
+    // fronts a real LangGraph Platform server, whose `POST /threads` validates
+    // `thread_id` as a UUID and answers a non-UUID with
+    // `HTTP 400 ZodError {validation:"uuid", path:["thread_id"]}`, which the
+    // runtime surfaces as `RUN_ERROR ... Failed to create thread` — so that
+    // starter's chat rung was red on EVERY run no matter how healthy the image.
+    //
+    // FRESH per invocation, not a fixed UUID: LangGraph Platform PERSISTS
+    // thread state, so a constant id would accumulate the probe's turns in one
+    // ever-growing thread and stop testing a cold single-turn round-trip.
+    const UUID_RE =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-9][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const bodies: string[] = [];
+    const capture = (base: typeof fetch): typeof fetch =>
+      (async (url: string | URL, init?: RequestInit) => {
+        if ((init?.method ?? "GET").toUpperCase() === "POST" && init?.body) {
+          bodies.push(String(init.body));
+        }
+        return base(url as string, init);
+      }) as unknown as typeof fetch;
+
+    const driver = createStarterSmokeDriver();
+    const input = {
+      key: "starter_smoke:starter-langgraph-js",
+      name: "starter-langgraph-js",
+      publicUrl: "https://starter-langgraph-js.up.railway.app",
+    };
+    await driver.run(mkCtx(capture(fakeFetch({})), mkWriter().writer), input);
+    await driver.run(mkCtx(capture(fakeFetch({})), mkWriter().writer), input);
+
+    expect(bodies).toHaveLength(2);
+    const parsed = bodies.map(
+      (b) => JSON.parse(b) as { threadId: string; runId: string },
+    );
+    for (const body of parsed) {
+      expect(body.threadId).toMatch(UUID_RE);
+      expect(body.runId).toMatch(UUID_RE);
+    }
+    expect(parsed[0]!.threadId).not.toBe(parsed[1]!.threadId);
+    expect(parsed[0]!.runId).not.toBe(parsed[1]!.runId);
+    // The rest of the AG-UI run body is unchanged by the id fix.
+    const first = JSON.parse(bodies[0]!) as Record<string, unknown>;
+    expect(first.messages).toEqual([
+      { id: "u1", role: "user", content: "Hello" },
+    ]);
+    expect(first.state).toEqual({});
+    expect(first.tools).toEqual([]);
+    expect(first.context).toEqual([]);
+    expect(first.forwardedProps).toEqual({});
   });
 
   it("health rung uses GET /api/copilotkit/info and reds on non-2xx", async () => {
@@ -1332,12 +1694,19 @@ describe("starterSmokeDriver", () => {
     // short-circuit `aborted`.
     expect(r.signal.failed.sort()).toEqual(["agent", "chat", "interaction"]);
     expect(r.signal.errorClass).toBe("aborted");
+    // The dual-write propagates the abort into BOTH keyspaces: 4 legacy + 3
+    // ladder. It emits no extra FETCHES (asserted above) because the ladder
+    // rungs are derived from the same observations.
     const rows = sideRows(writes);
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(DUAL_WRITE_EMIT_COUNT);
     const healthRow = rows.find((w) => w.key === "starter:agno/health")!;
     expect(healthRow.state).toBe("green");
     for (const row of rows.filter((w) => w.key !== "starter:agno/health")) {
       expect(row.state).toBe("red");
+      // `aborted` is a SOFT class, so a cold-start wake that races the outer
+      // timeout renders amber under the two-miss tolerance rather than a hard
+      // red. The ladder rows MUST inherit that class, not be re-classified:
+      // hard-redding them would make every cold tick a false regression.
       expect(row.signal.errorClass).toBe("aborted");
     }
   });
@@ -1511,6 +1880,6 @@ describe("starterSmokeDriver", () => {
     expect(writeErrors).toHaveLength(0);
     expect(r.state).toBe("green");
     expect(r.key).toBe("starter:mastra");
-    expect(r.signal.passed).toBe(STARTER_LEVELS.length);
+    expect(r.signal.passed).toBe(LEGACY_LEVEL_COUNT);
   });
 });

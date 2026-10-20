@@ -79,7 +79,7 @@ user cancelled.";
     // @region[backend-tool-call]
     public AIAgent CreateInterruptAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var chatClient = _openAiClient.GetChatClient("gpt-5-mini").AsIChatClient();
 
         // No backend fallback tool is registered. If the frontend tool is
         // missing, the demo should fail visibly instead of bypassing the

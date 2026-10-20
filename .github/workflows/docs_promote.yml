@@ -1,0 +1,166 @@
+name: "Docs: promote pin to prod"
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      validate_registry_only:
+        description: "Validate the real registry reader without promoting or probing services"
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: "Print the pin and stop before promote"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ inputs.validate_registry_only == true && format('docs-promote-registry-validation-{0}', github.run_id) || 'docs-promote' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       github.event.pull_request.head.ref == 'release/docs/prod')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: railway
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          # Closed PR merge refs are not durable. Read the pin that actually
+          # landed; manual dispatch instead reads the explicitly selected ref.
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.x
+
+      # The Ruby lifecycle bridge resolves tsx from repository-root node_modules.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Install registry reader tooling
+        run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
+
+      - working-directory: showcase/scripts
+        env:
+          EMIT_SKIP_OXFMT: "1"
+        run: |
+          npm ci
+          npx tsx emit-railway-envs-json.ts
+
+      # This calls only capture_snapshots + filter_disposable_snapshots!.
+      # The shared reader performs the authenticated policy check and real ack.
+      - name: Validate registry reader without promotion
+        if: ${{ inputs.validate_registry_only == true }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: ${{ vars.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN: ${{ secrets.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN }}
+          SHOWCASE_REGISTRY_CONSUMER: ruby-promotion
+        run: ruby showcase/scripts/validate-registry.rb "$RUNNER_TEMP/registry-validation.json"
+      - name: Retain safe registry validation receipt
+        if: ${{ inputs.validate_registry_only == true }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docs_promote-registry-validation
+          path: ${{ runner.temp }}/registry-validation.json
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Read pin
+        if: ${{ inputs.validate_registry_only != true }}
+        id: pin
+        working-directory: showcase/scripts
+        run: |
+          set -euo pipefail
+          PIN=../../showcase/pins/docs-prod.json
+          if [ ! -f "$PIN" ]; then
+            echo "::error::showcase/pins/docs-prod.json is missing"
+            exit 1
+          fi
+          export PIN
+          npx tsx -e '
+            import { appendFileSync, readFileSync } from "node:fs";
+            import { parseDocsProdPin } from "./docs-prod-pin.ts";
+            const pinPath = process.env.PIN;
+            if (!pinPath) throw new Error("PIN is not set");
+            const pin = parseDocsProdPin(readFileSync(pinPath, "utf8"));
+            const out = process.env.GITHUB_OUTPUT;
+            if (!out) throw new Error("GITHUB_OUTPUT is not set");
+            appendFileSync(out, "digest=" + pin.digest + "\nimage=" + pin.image + "\n");
+          '
+
+      - name: Promote docs
+        if: ${{ inputs.validate_registry_only != true && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true) }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE: ${{ steps.pin.outputs.image }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: ${{ vars.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN: ${{ secrets.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN }}
+          SHOWCASE_REGISTRY_CONSUMER: ruby-promotion
+        run: |
+          set -euo pipefail
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          if [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] && [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            unset SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE
+          elif [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] || [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            echo "::error::Configure both registry URL and token, or neither."
+            exit 1
+          fi
+          # Explicit --digest deploys the reviewed pin, even if staging has
+          # advanced. It skips P2 (in-flight race) and staging-drift checks;
+          # P1 (digest exists) and P3 (staging live-green) still run.
+          showcase/bin/railway promote docs --digest "$IMAGE" --yes --non-interactive
+
+      - name: Probe docs prod
+        if: ${{ inputs.validate_registry_only != true && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true) }}
+        working-directory: showcase/scripts
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: npx tsx verify-deploy.ts --env prod --services docs
+
+      - name: Slack notify
+        if: ${{ always() && inputs.validate_registry_only != true && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true) }}
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DIGEST: ${{ steps.pin.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+            echo "::notice::SLACK_BOT_TOKEN is not set; skipping Slack notify."
+            exit 0
+          fi
+          if [ "$JOB_STATUS" = "success" ]; then
+            CHANNEL="#team-showcase"
+            TEXT="Docs prod pin shipped \`$DIGEST\`. $RUN_URL"
+          else
+            CHANNEL="#oss-alerts"
+            TEXT="Docs prod pin failed \`$DIGEST\`. $RUN_URL"
+          fi
+          curl -sS -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg channel "$CHANNEL" --arg text "$TEXT" '{channel:$channel,text:$text}')"

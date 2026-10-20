@@ -46,7 +46,7 @@ internal static class A2uiSecondaryToolCaller
 
         var payload = new
         {
-            model = "gpt-4.1",
+            model = "gpt-5-mini",
             messages = new object[]
             {
                 new { role = "system", content = systemPrompt },

@@ -587,13 +587,13 @@ export const POST = withCvdiagBackend(copilotkitPost, {
 //       agents: getAgents(),
 //     });
 //
-//     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+//     const copilotHandler = createCopilotRuntimeHandler({
 //       runtime,
-//       serviceAdapter,
-//       endpoint: "/api/copilotkit",
+//       basePath: "/api/copilotkit",
+//       mode: "single-route",
 //     });
 //
-//     response = await handleRequest(req);
+//     response = await copilotHandler(req);
 //   } catch (err) {
 //     const errorId = logRouteError(err, "setup");
 //     return NextResponse.json(

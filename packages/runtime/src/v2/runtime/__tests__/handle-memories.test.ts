@@ -132,6 +132,57 @@ describe("memory handlers", () => {
     expect(intelligence.listMemories).not.toHaveBeenCalled();
   });
 
+  /**
+   * The browser Memory routes keep refusing an all-none grant, while an AGENT
+   * run given the same grant now proceeds without Memory tools. The asymmetry
+   * is deliberate: these routes exist only to serve memories, so "you may not
+   * have them" is the honest answer to the question actually asked, and an
+   * empty list would imply none exist. A conversation asks for something else
+   * entirely and should not die because Memory is switched off.
+   *
+   * Both spellings of "grant nothing" are covered, because they are one outcome
+   * rather than two states and must not drift apart.
+   */
+  it("returns forbidden for an explicit all-none client grant too", async () => {
+    const intelligence = { listMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({
+      intelligence,
+      memory: {
+        access: vi.fn().mockReturnValue({ user: "none", project: "none" }),
+      },
+    });
+
+    const response = await handleListMemories({
+      runtime,
+      request: new Request("https://example.com/memories"),
+    });
+
+    expect(response.status).toBe(403);
+    expect(intelligence.listMemories).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A policy that returns nothing at all breaks its own contract
+   * (`MemoryGrant | null`), so it is a broken policy rather than a restrictive
+   * one — 500, not the 403 an all-none grant earns. Reading a missing return as
+   * "grant nothing" would make a typo indistinguishable from a decision.
+   */
+  it("fails closed when the configured Memory policy returns undefined", async () => {
+    const intelligence = { listMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({
+      intelligence,
+      memory: { access: vi.fn().mockReturnValue(undefined) },
+    });
+
+    const response = await handleListMemories({
+      runtime,
+      request: new Request("https://example.com/memories"),
+    });
+
+    expect(response.status).toBe(500);
+    expect(intelligence.listMemories).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the configured Memory policy throws", async () => {
     const intelligence = { listMemories: vi.fn() };
     const runtime = createIntelligenceRuntime({

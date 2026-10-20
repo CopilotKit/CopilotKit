@@ -17,7 +17,7 @@ def select_trip(trip_id: str):
     return f"Selected trip {trip_id}"
 
 
-llm = ChatOpenAI(model="gpt-4.1-mini")
+llm = ChatOpenAI(model="gpt-5-mini")
 tools = [search_for_places, select_trip]
 
 

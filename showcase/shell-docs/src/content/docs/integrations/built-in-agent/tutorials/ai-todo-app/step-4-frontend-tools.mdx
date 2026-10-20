@@ -17,7 +17,7 @@ The [`useFrontendTool`](/reference/v1/hooks/useFrontendTool) hook makes tools av
 ```tsx filename="lib/hooks/use-tasks.tsx" showLineNumbers {3-3,8-22,24-38,40-61}
 // ... the rest of the file
 
-import { useCopilotReadable, useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useAgentContext, useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 import { z } from "zod"; // [!code highlight]
 
 export const TasksProvider = ({ children }: { children: ReactNode }) => {
@@ -30,7 +30,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     parameters: z.object({
       title: z.string().describe("The title of the task"),
     }),
-    handler: ({ title }) => {
+    handler: async ({ title }) => {
       addTask(title);
       return `Added task: ${title}`;
     },
@@ -43,7 +43,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
     parameters: z.object({
       id: z.number().describe("The id of the task"),
     }),
-    handler: ({ id }) => {
+    handler: async ({ id }) => {
       deleteTask(id);
       return `Deleted task ${id}`;
     },
@@ -59,7 +59,7 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
         .enum(Object.values(TaskStatus) as [string, ...string[]])
         .describe("The status of the task"),
     }),
-    handler: ({ id, status }) => {
+    handler: async ({ id, status }) => {
       setTaskStatus(id, status);
       return `Set task ${id} status to ${status}`;
     },

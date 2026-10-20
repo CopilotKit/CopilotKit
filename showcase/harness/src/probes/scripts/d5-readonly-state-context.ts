@@ -22,11 +22,8 @@
  * structural Page type does not, so we runtime-cast and verify.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-  type D5FeatureType,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import {
   FIRST_SIGNAL_TIMEOUT_MS,
@@ -63,7 +60,7 @@ async function installRequestCapture(
     route(
       url: string | RegExp,
       handler: (
-        route: { continue(): Promise<void> },
+        route: { continue(): Promise<void>; fallback?(): Promise<void> },
         request: { url(): string; method(): string; postData(): string | null },
       ) => void | Promise<void>,
     ): Promise<void>;
@@ -82,7 +79,8 @@ async function installRequestCapture(
       const body = request.postData();
       if (body) lastBody = body;
     }
-    void route.continue();
+    // Let the earlier shared probe-thread marker run before the request is sent.
+    void (route.fallback?.() ?? route.continue());
   });
   return {
     getLastBody: () => lastBody,

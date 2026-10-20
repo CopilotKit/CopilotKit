@@ -7,6 +7,7 @@ export const WEBMCP_SETUP_PROMPT =
 export function WebMCPSetupPrompt(): React.JSX.Element {
   return (
     <CodingAgentSetupPrompt
+      feature="webmcp"
       summary="Use this pre-built prompt to get WebMCP running faster."
       prompt={WEBMCP_SETUP_PROMPT}
       copySurface="docs_webmcp_setup_prompt"

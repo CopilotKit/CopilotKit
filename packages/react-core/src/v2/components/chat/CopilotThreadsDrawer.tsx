@@ -31,6 +31,7 @@ import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
+import { useDefaultAgentId } from "../../context";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 /**
@@ -207,10 +208,10 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  *   thread-list launcher appears, and binds the element `open` state to the
  *   configuration's `drawerOpen`.
  *
- * License gating is two-pronged: the locked view shows when no license is configured
- * (the runtime reported no license status) OR the `threads` feature is
- * explicitly unlicensed. While unlicensed, the thread fetch is skipped entirely
- * so an unlicensed drawer issues no network requests.
+ * Intelligence gating is two-pronged: the locked view shows when the runtime
+ * reports no active entitlement OR the `threads` feature is unavailable. While
+ * unavailable, the thread fetch is skipped entirely so the drawer issues no
+ * network requests.
  *
  * Thread switching needs no host wiring: when `onThreadSelect`/`onNewThread`
  * are omitted, the wrapper drives the surrounding chat configuration directly
@@ -222,7 +223,7 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  * @example
  * ```tsx
  * // Callback-free: the drawer drives the chat configuration itself.
- * <CopilotKitProvider runtimeUrl="/api/copilotkit" publicLicenseKey="ck_pub_...">
+ * <CopilotKitProvider runtimeUrl="/api/copilotkit">
  *   <CopilotChat />
  *   <CopilotThreadsDrawer />
  * </CopilotKitProvider>
@@ -250,10 +251,15 @@ export function CopilotThreadsDrawer({
   // We therefore also require a positive license-present signal from the
   // runtime-reported status. Only a "valid" or "expiring" license is treated
   // as present; a resolved "none"/"expired"/"invalid" status gates the drawer
-  // to the locked view.
+  // to the locked view. "unknown" is unresolved, not negative (see below).
   const licensePresent = status === "valid" || status === "expiring";
   const featureLicensed = checkFeature("threads");
-  const licensed = licensePresent && featureLicensed;
+  // `unknown` means the retryable entitlement lookup did not recover within
+  // the bounded retry. That is not a settled negative, so never lock on it:
+  // fetch the list and let the threads endpoint decide, surfacing a failure
+  // through the drawer's retryable error state rather than the upgrade CTA.
+  const entitlementUnresolved = status === "unknown";
+  const licensed = entitlementUnresolved || (licensePresent && featureLicensed);
 
   // The runtime reports license status asynchronously: `status` is null until
   // the first /info response lands and while a retryable entitlement lookup is
@@ -264,7 +270,9 @@ export function CopilotThreadsDrawer({
   // `threads` feature) surfaces the locked view.
   const licensePending = status === null;
 
-  const resolvedAgentId = agentId ?? configuration?.agentId ?? DEFAULT_AGENT_ID;
+  const providerAgentId = useDefaultAgentId();
+  const resolvedAgentId =
+    agentId ?? configuration?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID;
   const activeThreadId = configuration?.threadId ?? null;
 
   // While unlicensed, skip the thread fetch entirely: the element shows only

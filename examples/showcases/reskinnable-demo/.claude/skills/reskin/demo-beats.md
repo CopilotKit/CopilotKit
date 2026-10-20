@@ -407,17 +407,17 @@ Three mechanics worth copying verbatim:
   not own, so an unobserved step is an assumption. Nine ways it breaks, and what
   each one needs:
 
-  | Failure                                                        | Detected by                                                                                                                                                                                  |
-  | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | The document route answers non-2xx                             | `!res.ok`                                                                                                                                                                                    |
-  | The fetch throws                                               | its OWN `try`, not one wrapping the whole chain                                                                                                                                              |
-  | A 2xx body that is empty, or an HTML error page served as 200  | check the BYTES (`%PDF` header), not the URL                                                                                                                                                 |
-  | The composer's hidden `input[type=file]` is gone (an upgrade)  | `querySelector` returns null                                                                                                                                                                 |
-  | Writing the file onto the input throws (`File`/`DataTransfer`) | a `try` around the DOM write, so it is not blamed on the fetch                                                                                                                               |
-  | **The composer silently REJECTS the file**                     | `processFiles` drops anything failing `accept`/`maxSize` and calls an `onUploadFailed` nobody wires — so wait for an attachment CHIP to appear in `[data-testid="copilot-attachment-queue"]` |
-  | **The file is still base64-ENCODING when you click send**      | `consumeAttachments` hands over only `ready` files and `onSubmitInput` refuses to send while anything is `uploading` — wait for the chip to print the filename                               |
-  | **The send button is currently a STOP button**                 | one button plays both roles; mid-run a click CANCELS the run. Require the enabled + send-mark state                                                                                          |
-  | The textarea's React value setter is gone, or the write missed | check `el.value` after writing — do NOT `setter?.call()` the only failure away                                                                                                               |
+  | Failure                                                        | Detected by                                                                                                                                                                                                                                                                                                |
+  | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | The document route answers non-2xx                             | `!res.ok`                                                                                                                                                                                                                                                                                                  |
+  | The fetch throws                                               | its OWN `try`, not one wrapping the whole chain                                                                                                                                                                                                                                                            |
+  | A 2xx body that is empty, or an HTML error page served as 200  | check the BYTES (`%PDF` header), not the URL                                                                                                                                                                                                                                                               |
+  | The composer's hidden `input[type=file]` is gone (an upgrade)  | `querySelector` returns null                                                                                                                                                                                                                                                                               |
+  | Writing the file onto the input throws (`File`/`DataTransfer`) | a `try` around the DOM write, so it is not blamed on the fetch                                                                                                                                                                                                                                             |
+  | **The composer REJECTS the file**                              | `processFiles` drops anything failing `accept`/`maxSize`. The shell now wires `onUploadFailed` (`shell/attach/upload-attachment.ts`), so a rejection alerts the presenter — but the drop is still silent to YOUR code, so keep waiting on an attachment CHIP in `[data-testid="copilot-attachment-queue"]` |
+  | **The file is still base64-ENCODING when you click send**      | `consumeAttachments` hands over only `ready` files and `onSubmitInput` refuses to send while anything is `uploading` — wait for the chip to print the filename                                                                                                                                             |
+  | **The send button is currently a STOP button**                 | one button plays both roles; mid-run a click CANCELS the run. Require the enabled + send-mark state                                                                                                                                                                                                        |
+  | The textarea's React value setter is gone, or the write missed | check `el.value` after writing — do NOT `setter?.call()` the only failure away                                                                                                                                                                                                                             |
 
   The rules the shell module follows, so you can recognize a change that breaks
   one: locate the composer before staging; carry a machine-readable CAUSE, not a
@@ -855,12 +855,13 @@ instead, because a set rots and a command does not.
 | An in-memory `useData` substrate          | `bookstore` — the only implementor; seed catalog + a `localStorage` cart mirror       |
 
 > **Generating a PDF? Do NOT write the bytes — call `@/shell/documents`.**
-> `buildPdf(lines: Line[])` emits a single page of base-14 text with a correct
-> xref, and your file supplies CONTENT only. Every shipped builder is nothing but
-> content, and they are the shape to copy — derive the set rather than trusting a
-> list here: `ls src/skins/*/data/*-pdf.ts` returns all of them (airline's hotel
-> confirmation, commerce's price sheet, exec's budget memo, keel's bulletin,
-> logistics' rate sheet and people's offer letter today).
+> `buildPdf(lines: Line[])` emits base-14 text with a correct xref, paginated
+> across as many pages as the content needs, and your file supplies CONTENT only.
+> Every shipped builder is nothing but content, and they are the shape to copy —
+> derive the set rather than trusting a list here: `ls src/skins/*/data/*-pdf.ts`
+> returns all of them (airline's hotel confirmation, commerce's price sheet,
+> exec's budget memo, keel's bulletin, logistics' rate sheet and people's offer
+> letter today).
 > `people/data/offer-letter-pdf.ts` is the smallest one to read first.
 >
 > The three traps below are FIXED IN THE PRIMITIVE, so you inherit all three. They

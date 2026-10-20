@@ -15,6 +15,11 @@ vi.mock("@copilotkit/web-inspector", () => {
     connectedCallback() {
       this.coreAtConnection = this.core;
       this.autoAttachCoreAtConnection = this.autoAttachCore;
+      this.dispatchEvent(
+        new CustomEvent("cpk-inspector-visibility-change", {
+          detail: { visible: true },
+        }),
+      );
     }
   }
 

@@ -42,7 +42,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 
 @Component({
   selector: "copilot-chat-assistant-message",
-  host: { "data-copilotkit": "" },
+  host: { "data-copilotkit": "", class: "cpk:block cpk:w-full" },
   imports: [
     CommonModule,
     CopilotSlot,
@@ -191,11 +191,6 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
     `
       /* Import KaTeX styles */
       @import "katex/dist/katex.min.css";
-
-      :host {
-        display: block;
-        width: 100%;
-      }
 
       /* Atom One Light theme for highlight.js */
       .hljs {

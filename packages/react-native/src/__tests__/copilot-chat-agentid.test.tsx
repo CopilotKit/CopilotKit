@@ -30,6 +30,7 @@ function createMockCore() {
     setHeaders: vi.fn(),
     setCredentials: vi.fn(),
     setProperties: vi.fn(),
+    setMessageFilter: vi.fn(),
     setDebug: vi.fn(),
     setDefaultThrottleMs: vi.fn(),
     getAgent: vi.fn(() => undefined),

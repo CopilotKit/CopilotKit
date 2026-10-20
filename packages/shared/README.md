@@ -198,3 +198,25 @@ request the optional metadata route when a runtime reports
 # Documentation
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).
+
+## Event and attachment conversion
+
+`createAttachmentContent` from `@copilotkit/shared` builds the same AG-UI
+attachment content part used by the React, Angular, and Vue chat components.
+It preserves the source and merges the filename into metadata, with explicit
+metadata taking precedence.
+
+The Node-only `@copilotkit/shared/event-transforms` entry exports
+`OpenGenerativeUIMiddleware`, the existing upstream `A2UIMiddleware`, and
+`transformRecordedEvents(input, events, options)`. The latter applies the same
+converters to one recorded, pre-middleware AG-UI run without executing tools or
+contacting an agent. Enable converters explicitly with `openGenerativeUI: true`
+and/or `a2ui: { ...originalRuntimeOptions }`. Pass the recorded input, including
+prior messages and catalog context, to preserve live conversion behavior.
+
+The result includes the original events and generated activities in runtime
+order. The caller owns persistence IDs, historical timestamps, and provenance.
+A2UI can generate random message IDs for synthetic tool results; an importer
+that needs deterministic IDs must assign them before saving. Do not process
+already transformed histories a second time. This entry does not include MCP
+execution or recreate runtime configuration absent from the recording.

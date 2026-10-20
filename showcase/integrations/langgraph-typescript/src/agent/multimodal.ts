@@ -2,7 +2,7 @@
  * Multimodal LangGraph TypeScript agent — accepts image + document (PDF)
  * attachments scoped to the `/demos/multimodal` cell.
  *
- * Uses a *dedicated* vision-capable graph (gpt-4o) so other demos continue
+ * Uses a *dedicated* vision-capable graph (gpt-5-mini) so other demos continue
  * to use cheaper, text-only models. Inputs forwarded by the runtime:
  *   - `{"type": "text", "text": "..."}`
  *   - `{"type": "image", "source": {"type": "data", "value": "<base64>",
@@ -10,16 +10,19 @@
  *   - `{"type": "document", "source": {"type": "data", "value": "<base64>",
  *      "mimeType": "application/pdf"}}`
  *
- * gpt-4o consumes `image` parts natively. For `document` parts (PDFs) we
+ * gpt-5-mini consumes `image` parts natively. For `document` parts (PDFs) we
  * extract text server-side via `pdf-parse` and inline it as a text part
  * with a clear delimiter — matching the Python reference's `pypdf`-backed
  * extraction so the TS multimodal demo reaches feature parity.
  */
 
-import type { RunnableConfig } from "@langchain/core/runnables";
-import type { AIMessage } from "@langchain/core/messages";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import type { BaseMessage } from "@langchain/core/messages";
+import { RunnableConfig } from "@langchain/core/runnables";
+import {
+  AIMessage,
+  HumanMessage,
+  SystemMessage,
+  type BaseMessage,
+} from "@langchain/core/messages";
 import {
   MemorySaver,
   START,
@@ -66,7 +69,7 @@ async function rewritePart(part: unknown): Promise<unknown> {
   // The @ag-ui/langgraph converter collapses EVERY attachment (image AND
   // document) into an `image_url` data-URL before it reaches here, so the real
   // wire path is this branch — route on the data-URL MIME (mirrors the Python
-  // reference). Images pass through unchanged (gpt-4o consumes them natively);
+  // reference). Images pass through unchanged (gpt-5-mini consumes them natively);
   // any non-image data URL (e.g. application/pdf) is flattened to text, because
   // OpenAI 400s ("Only image types are supported") on a non-image image_url.
   if (p.type === "image_url") {
@@ -184,12 +187,18 @@ async function rewriteMessages(
 }
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  // gpt-4o is the vision-capable default; temperature kept low for
+  // gpt-5-mini is the vision-capable default; temperature kept low for
   // deterministic image-Q&A behavior.
   // @doc-replace
-  const model = makeChatOpenAI(config, { model: "gpt-4o", temperature: 0.2 });
+  const model = makeChatOpenAI(config, {
+    model: "gpt-5-mini",
+    temperature: 0.2,
+  });
   // @doc-as
-  // const model = new ChatOpenAI({ model: "gpt-4o", temperature: 0.2 });
+  // const model = new ChatOpenAI({
+  //   model: "gpt-5-mini",
+  //   temperature: 0.2,
+  // });
   // @doc-end
 
   const messages = await rewriteMessages(state.messages);

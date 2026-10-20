@@ -55,12 +55,14 @@ vi.mock("../../lib/react-core", () => {
     setHeaders() {}
     setCredentials() {}
     setProperties() {}
+    setMessageFilter() {}
     setTools() {}
     setRenderToolCalls() {}
     setRenderActivityMessages() {}
     setRenderCustomMessages() {}
     setAgents__unsafe_dev_only() {}
     setDebug() {}
+    setLearningConfig() {}
     addContext() {}
     removeContext() {}
   }

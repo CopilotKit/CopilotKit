@@ -6,6 +6,9 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
     exclude: ["node_modules/**", ".next/**"],
+    // Link checks load the docs content tree. Keep memory bounded on the
+    // four-core CI runner; local and CI runs use the same small suite.
+    maxWorkers: 2,
   },
   resolve: {
     alias: [

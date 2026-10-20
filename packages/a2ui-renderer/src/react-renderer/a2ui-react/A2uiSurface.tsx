@@ -15,12 +15,10 @@
  */
 
 import React, { useSyncExternalStore, memo, useMemo, useCallback } from "react";
-import {
-  type SurfaceModel,
-  ComponentContext,
-  type ComponentModel,
-} from "@a2ui/web_core/v0_9";
+import { ComponentContext } from "@a2ui/web_core/v0_9";
+import type { SurfaceModel, ComponentModel } from "@a2ui/web_core/v0_9";
 import type { ReactComponentImplementation } from "./adapter";
+import { ROOT_COMPONENT_ID } from "../../a2ui-types.js";
 
 const ResolvedChild = memo(
   ({
@@ -149,6 +147,8 @@ DeferredChild.displayName = "DeferredChild";
 export const A2uiSurface: React.FC<{
   surface: SurfaceModel<ReactComponentImplementation>;
 }> = ({ surface }) => {
-  // The root component always has ID 'root' and base path '/'
-  return <DeferredChild surface={surface} id="root" basePath="/" />;
+  // Walking starts at the fixed root id (see ROOT_COMPONENT_ID) and base path '/'
+  return (
+    <DeferredChild surface={surface} id={ROOT_COMPONENT_ID} basePath="/" />
+  );
 };

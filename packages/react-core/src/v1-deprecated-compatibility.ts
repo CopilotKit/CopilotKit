@@ -4,7 +4,7 @@
  * This is the deprecated v1 entrypoint `@copilotkit/react-core`. Use v2 instead.
  * Migrate to `@copilotkit/react-core/v2` and follow each export's specific
  * IDE deprecation warning below; renamed APIs are not safe search-and-replaces.
- * This entrypoint currently exposes 78 deprecated public exports.
+ * This entrypoint currently exposes 79 deprecated public exports.
  * V2 source entrypoint: packages/react-core/src/v2/index.ts
  * V2 docs: https://docs.copilotkit.ai/
  * V2 reference docs: https://docs.copilotkit.ai/reference/v2
@@ -838,6 +838,15 @@ export {
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CatchAllActionRenderProps,
+  /**
+   * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
+   * No 1:1 v2 replacement is available.
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+   * Migration guide: https://docs.copilotkit.ai/migrate/v2
+   */
+  type CatchAllActionRenderPropsWait,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.

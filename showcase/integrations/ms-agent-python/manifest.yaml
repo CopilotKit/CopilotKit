@@ -499,8 +499,10 @@ demos:
     highlight:
       - src/agents/byoc_hashbrown_agent.py
       - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/chat.tsx
       - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
       - src/app/demos/declarative-hashbrown/metric-card.tsx
+      - src/app/demos/declarative-hashbrown/charts/chart-config.ts
       - src/app/demos/declarative-hashbrown/charts/bar-chart.tsx
       - src/app/demos/declarative-hashbrown/charts/pie-chart.tsx
       - src/app/demos/declarative-hashbrown/types.ts
@@ -556,3 +558,9 @@ demos:
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit-agent-config/route.ts
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
+# drives the public "Full Starter" section on the integration profile page.
+starter_validation:
+  path: examples/integrations/ms-agent-framework-python
+  service: starter-ms-agent-framework-python

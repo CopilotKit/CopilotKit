@@ -7,18 +7,17 @@
  */
 
 import { z } from "zod";
-import type { RunnableConfig } from "@langchain/core/runnables";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import type { AIMessage } from "@langchain/core/messages";
-import { SystemMessage } from "@langchain/core/messages";
-import type { BaseMessage } from "@langchain/langgraph";
+import { AIMessage, SystemMessage } from "@langchain/core/messages";
 import {
   Annotation,
   MemorySaver,
   START,
   StateGraph,
   messagesStateReducer,
+  BaseMessage,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 // @doc-replace
@@ -160,10 +159,10 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   });
   // @doc-as
   // const model = new ChatOpenAI({
-  //     model: REASONING_MODEL,
-  //     useResponsesApi: true,
-  //     reasoning: { effort: "low", summary: "auto" },
-  //   });
+  //   model: REASONING_MODEL,
+  //   useResponsesApi: true,
+  //   reasoning: { effort: "low", summary: "auto" },
+  // });
   // @doc-end
 
   const modelWithTools = model.bindTools!(tools);

@@ -74,8 +74,9 @@ export function buildFeedbackBlocks(opts?: {
 export function renderBlockKit(ir: ChannelNode[]): KnownBlock[] {
   const blocks: KnownBlock[] = [];
   const native = containsNativeNode(ir);
+  const fields = newFieldIdContext();
   for (const node of ir) {
-    renderNode(node, blocks);
+    renderNode(node, blocks, fields);
   }
 
   const dataVisualizations = blocks.filter(
@@ -152,8 +153,72 @@ function overflowSignal(count: number): KnownBlock {
   } as KnownBlock;
 }
 
+/**
+ * Per-message allocator for the `block_id`s that become a handler's
+ * `ctx.values` keys (OSS-848).
+ *
+ * Slack only reports a field under its BLOCK id, so a block rendered without
+ * one gets a fresh random id on every render and the value it carries is
+ * unreadable by name. Teams already keys a field by `props.name`
+ * (`channels-teams/src/render/adaptive-card.ts`), so a cross-platform
+ * `<Input name="root_cause">` has to arrive as `ctx.values.root_cause` here
+ * too. This mirrors that allocator arm-for-arm — same precedence, same
+ * reserved names, same `_1` de-duplication — so the two platforms mint the
+ * SAME key for the same tree.
+ */
+interface FieldIdContext {
+  nextFieldIndex: number;
+  used: Set<string>;
+}
+
+function newFieldIdContext(): FieldIdContext {
+  // Reserved on the Teams side; excluded here purely to keep the two in step.
+  return { nextFieldIndex: 0, used: new Set(["ckActionId", "value"]) };
+}
+
+/** The author's explicit `name`, if usable as a field key. */
+function explicitFieldName(props: Record<string, unknown>): string | undefined {
+  const raw = typeof props.name === "string" ? props.name.trim() : "";
+  if (!raw || raw === "ckActionId" || raw === "value") return undefined;
+  return raw;
+}
+
+/**
+ * Allocate the `block_id` for one stateful field: the author's `name`, else the
+ * registry-minted handler id (unique per render, and what a handler already
+ * addresses), else a positional `input_1` / `select_1`. Collisions get a `_N`
+ * suffix so a message can never carry two identical block ids, which Slack
+ * rejects outright.
+ */
+function fieldBlockId(
+  node: ChannelNode,
+  handlerProp: "onSelect" | "onSubmit",
+  fallback: "select" | "input",
+  ctx: FieldIdContext,
+): string {
+  const props = node.props ?? {};
+  const index = ++ctx.nextFieldIndex;
+  const base = truncateText(
+    explicitFieldName(props) ??
+      idFromHandler(props[handlerProp]) ??
+      `${fallback}_${index}`,
+    SLACK_LIMITS.blockId,
+  );
+  let candidate = base;
+  let suffix = 1;
+  while (ctx.used.has(candidate)) {
+    candidate = `${base}_${suffix++}`;
+  }
+  ctx.used.add(candidate);
+  return candidate;
+}
+
 /** Render a single IR node, pushing zero or more blocks onto `out`. */
-function renderNode(node: ChannelNode, out: KnownBlock[]): void {
+function renderNode(
+  node: ChannelNode,
+  out: KnownBlock[],
+  fields: FieldIdContext,
+): void {
   if (isNativeNode(node)) {
     if (node.props.nativeKind !== "block" && node.props.nativeKind !== "raw") {
       throw new Error(
@@ -168,7 +233,7 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
   switch (node.type) {
     case "message": {
       // The message container is not a block; flatten its children.
-      for (const child of childNodes(node)) renderNode(child, out);
+      for (const child of childNodes(node)) renderNode(child, out, fields);
       return;
     }
     case "header": {
@@ -257,7 +322,35 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       for (const child of items) {
         if (child.type === "select" && child.props.multi) {
           flush();
-          out.push(multiSelectInput(child));
+          out.push(
+            multiSelectInput(
+              child,
+              fieldBlockId(child, "onSelect", "select", fields),
+            ),
+          );
+          continue;
+        }
+        if (child.type === "select") {
+          // Allocate unconditionally so the field index advances in step with
+          // the Teams renderer, whether or not the id is used as a block id.
+          const blockId = fieldBlockId(child, "onSelect", "select", fields);
+          const el = renderActionElement(child);
+          if (el === null) continue;
+          // A named select gets an `actions` block to itself, because a block
+          // carries ONE block_id and that is the only half Slack reports a
+          // field under. Grouping it with siblings would make the author's name
+          // unrepresentable; unnamed selects stay grouped as before and are
+          // delivered by action id (see `flattenStateValues`).
+          if (explicitFieldName(child.props ?? {})) {
+            flush();
+            out.push({
+              type: "actions",
+              block_id: blockId,
+              elements: [el],
+            } as KnownBlock);
+            continue;
+          }
+          elements.push(el);
           continue;
         }
         const el = renderActionElement(child);
@@ -267,12 +360,22 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       return;
     }
     case "image": {
-      const url = (props.url ?? props.image_url) as string | undefined;
+      out.push(slackImageElement(props) as unknown as KnownBlock);
+      return;
+    }
+    case "carousel": {
+      const { items } = clampArray(
+        childNodes(node),
+        SLACK_LIMITS.carouselSlides,
+      );
       out.push({
-        type: "image",
-        image_url: url ?? "",
-        alt_text: (props.alt ?? props.altText ?? "") as string,
-      } as KnownBlock);
+        type: "carousel",
+        elements: items.map((slide) => renderSlackCard(slide)),
+      } as unknown as KnownBlock);
+      return;
+    }
+    case "carouselCard": {
+      out.push(renderSlackCard(node) as unknown as KnownBlock);
       return;
     }
     case "divider": {
@@ -282,6 +385,10 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
     case "input": {
       out.push({
         type: "input",
+        // Slack reports this field's value under the BLOCK id, so without one
+        // the handler's `ctx.values` key is a fresh random string per render
+        // (OSS-848). Derived from `props.name` to match Teams.
+        block_id: fieldBlockId(node, "onSubmit", "input", fields),
         dispatch_action: true,
         element: {
           type: "plain_text_input",
@@ -427,8 +534,9 @@ function renderActionElement(node: ChannelNode): object | null {
  * Render a `<Select multi>` as a dispatching input block holding a
  * `multi_static_select` (which Slack forbids inside an `actions` block). The
  * block_actions payload carries `selected_options`, decoded to a `string[]`.
+ * `blockId` is the author-facing `ctx.values` key (OSS-848).
  */
-function multiSelectInput(node: ChannelNode): KnownBlock {
+function multiSelectInput(node: ChannelNode, blockId: string): KnownBlock {
   const props = node.props ?? {};
   const action_id = truncateText(
     idFromHandler(props.onSelect) ?? "select",
@@ -439,6 +547,7 @@ function multiSelectInput(node: ChannelNode): KnownBlock {
   const { items } = clampArray(options, SLACK_LIMITS.selectOptions);
   return {
     type: "input",
+    block_id: blockId,
     dispatch_action: true,
     element: {
       type: "multi_static_select",
@@ -457,6 +566,62 @@ function multiSelectInput(node: ChannelNode): KnownBlock {
       text: truncateText(String(props.placeholder ?? " "), 150),
     },
   } as KnownBlock;
+}
+
+/** Image block / card hero: prefer a staged Slack file id, else a public URL. */
+function slackImageElement(
+  props: Record<string, unknown>,
+): Record<string, unknown> {
+  const alt = String(props.alt ?? props.altText ?? "");
+  const slackFileId = [props.slackFileId, props.fileId].find(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  );
+  if (slackFileId) {
+    return { type: "image", slack_file: { id: slackFileId }, alt_text: alt };
+  }
+  const url = (props.url ?? props.image_url) as string | undefined;
+  return { type: "image", image_url: url ?? "", alt_text: alt };
+}
+
+/**
+ * Map a carousel slide to a Slack card. A lone image becomes a hero-only
+ * card; a carouselCard maps Header/Section/image/Button onto card fields.
+ */
+function renderSlackCard(slide: ChannelNode): Record<string, unknown> {
+  if (slide.type === "image" || slide.type === "render") {
+    return { type: "card", hero_image: slackImageElement(slide.props ?? {}) };
+  }
+
+  const card: Record<string, unknown> = { type: "card" };
+  const actions: object[] = [];
+  for (const child of childNodes(slide)) {
+    if (child.type === "header") {
+      card.title = {
+        type: "mrkdwn",
+        text: truncateText(
+          markdownToMrkdwn(collectText(child)),
+          SLACK_LIMITS.cardTitle,
+        ),
+      };
+    } else if (child.type === "section") {
+      card.body = {
+        type: "mrkdwn",
+        text: truncateText(
+          markdownToMrkdwn(collectText(child)),
+          SLACK_LIMITS.cardBody,
+        ),
+      };
+    } else if (child.type === "image" || child.type === "render") {
+      card.hero_image = slackImageElement(child.props ?? {});
+    } else if (child.type === "button") {
+      const el = renderActionElement(child);
+      if (el !== null) actions.push(el);
+    }
+  }
+  if (actions.length > 0) {
+    card.actions = clampArray(actions, SLACK_LIMITS.cardActions).items;
+  }
+  return card;
 }
 
 /** Derive a button's `action_id`: prefer the registry-stamped id, else a stable fallback. */

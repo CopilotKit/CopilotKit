@@ -50,7 +50,7 @@ graph = create_deep_agent(
 #     model=init_chat_model(
 #         f"openai:{REASONING_MODEL}",
 #         use_responses_api=True,
-#         reasoning={"effort": "low", "summary": "auto"},
+#         reasoning={"effort": "medium", "summary": "detailed"},
 #     ),
 #     tools=[],
 #     system_prompt=SYSTEM_PROMPT,

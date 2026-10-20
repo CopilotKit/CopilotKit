@@ -577,3 +577,9 @@ demos:
 managed_platform:
   name: Agent OS
   url: https://os.agno.com
+
+# Starter VALIDATION ladder (dashboard). NOT the `starter:` key — that one
+# drives the public "Full Starter" section on the integration profile page.
+starter_validation:
+  path: examples/integrations/agno
+  service: starter-agno

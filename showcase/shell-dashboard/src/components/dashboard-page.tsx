@@ -1,7 +1,6 @@
 "use client";
-// Feature matrix: composable overlay-driven 2-tab layout.
-// Matrix tab: overlay toggles control which visual layers render.
-// Ops tab: probe status grid (unchanged from legacy).
+// Dashboard tabs: Coverage, Compatibility, Baseline, and Ops.
+// Coverage overlay toggles control which visual layers render in the matrix.
 //
 // This is the client half of the dashboard route. The route file
 // (`src/app/page.tsx`) is a SERVER component that reads `SHELL_URL` at
@@ -26,6 +25,8 @@ import { mergeRowsToMap } from "@/lib/live-status";
 import { useOverlays } from "@/hooks/useOverlays";
 import { OverlayToggleBar } from "@/components/overlay-toggle-bar";
 import { UnifiedCell } from "@/components/unified-cell";
+import { StatusChip } from "@/components/badges";
+import { GLYPHS } from "@/lib/glyphs";
 import { buildCellModel } from "@/lib/cell-model";
 import {
   computeHealthStats,
@@ -37,6 +38,7 @@ import { AdaptiveStatsBar } from "@/components/adaptive-stats-bar";
 import { AdaptiveLegend } from "@/components/adaptive-legend";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BaselineTab } from "@/components/baseline-tab";
+import { CompatibilityTab } from "@/components/compatibility-tab";
 import { DiscoveryAuthBanner } from "@/components/discovery-auth-banner";
 import { getDocsStatus } from "@/lib/docs-status";
 import catalog from "@/data/catalog.json";
@@ -86,8 +88,11 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
   // live-status changes OR the 60s `tick` fires, so chips and stats agree on
   // which green rows are stale instead of each defaulting to its own
   // `Date.now()` that may have crossed a window boundary milliseconds later.
-  // Mirrors the single-`now` discipline in cell-matrix.tsx.
-  const now = useMemo(() => Date.now(), [liveStatus, tick]);
+  const now = useMemo(() => {
+    void liveStatus;
+    void tick;
+    return Date.now();
+  }, [liveStatus, tick]);
 
   // R2-D.1: real probe wiring. `useProbes` polls the ops API every 10s and
   // feeds the schedule grid; `useTriggerProbe` POSTs to /trigger with the
@@ -207,14 +212,16 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
           `buildCellModel failed for ${ctx.integration.slug}/${ctx.feature.id} — degrading this cell`,
           err,
         );
+        // A fault on OUR side, not a verdict about the integration — same
+        // class (and same mark) as a pool-unreachable depth chip and a docs
+        // probe error, so it renders as the hollow indigo `!`.
         return (
-          <span
-            className="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-base border border-slate-500/40 bg-slate-500/10 text-slate-400"
+          <StatusChip
+            tone="blue"
+            label={GLYPHS.fault.mark}
             title={`Cell unavailable (invalid feature id): ${ctx.feature.id}`}
-            data-testid={`cell-error-${ctx.integration.slug}-${ctx.feature.id}`}
-          >
-            !
-          </span>
+            testId={`cell-error-${ctx.integration.slug}-${ctx.feature.id}`}
+          />
         );
       }
       return <UnifiedCell ctx={ctx} model={model} overlays={overlays} />;
@@ -226,10 +233,11 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
     <WorkerRunsProvider value={workerRunsStatus}>
       <div data-testid="tab-shell" className="h-dvh flex flex-col">
         {/* Tab bar — pinned above scroll area */}
-        <div className="flex-shrink-0 flex items-center gap-0 border-b border-[var(--border)] px-8">
+        <div className="flex-shrink-0 flex items-center gap-0 overflow-x-auto whitespace-nowrap border-b border-[var(--border)] px-4 sm:px-8">
           <button
             type="button"
             data-testid="tab-matrix"
+            aria-current={activeTab === "matrix" ? "page" : undefined}
             onClick={() => setTab("matrix")}
             className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
               activeTab === "matrix"
@@ -241,7 +249,21 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
           </button>
           <button
             type="button"
+            data-testid="tab-compatibility"
+            aria-current={activeTab === "compatibility" ? "page" : undefined}
+            onClick={() => setTab("compatibility")}
+            className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+              activeTab === "compatibility"
+                ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
+                : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            }`}
+          >
+            Compatibility
+          </button>
+          <button
+            type="button"
             data-testid="tab-baseline"
+            aria-current={activeTab === "baseline" ? "page" : undefined}
             onClick={() => setTab("baseline")}
             className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
               activeTab === "baseline"
@@ -254,6 +276,7 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
           <button
             type="button"
             data-testid="tab-ops"
+            aria-current={activeTab === "ops" ? "page" : undefined}
             onClick={() => setTab("ops")}
             className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
               activeTab === "ops"
@@ -315,6 +338,8 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
             </div>
           </>
         )}
+
+        {activeTab === "compatibility" && <CompatibilityTab />}
 
         {activeTab === "baseline" && <BaselineTab />}
 

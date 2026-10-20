@@ -134,6 +134,59 @@ function captureSessionAgents(fake: FakeAdapter): { agents: FakeAgent[] } {
 }
 
 describe("createChannel", () => {
+  it("reports a missing Channel agent only when a handler calls runAgent", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    try {
+      await expect(
+        fake.getSink().onTurn({
+          conversationKey: "c1",
+          replyTarget: {},
+          userText: "hello",
+          platform: "fake",
+        }),
+      ).rejects.toMatchObject({
+        code: "channel_agent_not_configured",
+        message: expect.stringContaining("createChannel"),
+      });
+    } finally {
+      await channel.ɵruntime.stop();
+    }
+  });
+
+  it("allows a handler to reply directly without a Channel agent", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.post(Section({ children: "Hello without an agent" }));
+    });
+
+    await channel.ɵruntime.start();
+    try {
+      await fake.getSink().onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "hello",
+        platform: "fake",
+      });
+      expect(fake.posted).toHaveLength(1);
+      expect(collectText(fake.posted[0]!)).toBe("Hello without an agent");
+    } finally {
+      await channel.ɵruntime.stop();
+    }
+  });
+
   it("rejects activation when a message-capable adapter has no eligible handler", async () => {
     const fake = new FakeAdapter({ messageEvents: true });
     const channel = createChannel({
@@ -2130,5 +2183,19 @@ describe("createChannel slash commands", () => {
     const fake = new FakeAdapter();
     channel.ɵruntime.addAdapter(fake);
     expect(channel.adapters).toEqual([fake]);
+  });
+});
+
+describe("createChannel render config", () => {
+  it("accepts a render config without throwing and starts", async () => {
+    const adapter = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [adapter],
+      render: { stylesheets: [".card{color:red}"], width: 800 },
+    });
+    await channel.ɵruntime.start();
+    expect(adapter.started).toBe(true);
+    await channel.ɵruntime.stop();
   });
 });

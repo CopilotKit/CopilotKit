@@ -1,5 +1,5 @@
-import type { Router } from "express";
 import { createCopilotExpressHandler } from "./express";
+import type { CopilotExpressRouter } from "./express";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import type { CopilotRuntimeHooks } from "../core/hooks";
 
@@ -43,7 +43,7 @@ export function createCopilotEndpointSingleRouteExpress({
   runtime,
   basePath,
   hooks,
-}: CopilotSingleRouteExpressParams): Router {
+}: CopilotSingleRouteExpressParams): CopilotExpressRouter {
   return createCopilotExpressHandler({
     runtime,
     basePath,

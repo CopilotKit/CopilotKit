@@ -171,7 +171,7 @@ def _generate_a2ui(context: str) -> str:
     }
 
     response = client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-5-mini",
         messages=[
             {"role": "system", "content": context or "Generate a useful dashboard UI."},
             {
@@ -233,7 +233,7 @@ _AGENT_SYSTEM_PROMPT = (
 
 async def _agent_workflow_factory():
     wf = FixedAGUIChatWorkflow(
-        llm=OpenAI(model="gpt-4.1", **_openai_kwargs),
+        llm=OpenAI(model="gpt-5-mini", **_openai_kwargs),
         frontend_tools=[
             change_background,
             generate_haiku,

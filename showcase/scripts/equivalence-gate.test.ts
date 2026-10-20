@@ -128,8 +128,15 @@ const CELL: GateCell = {
   isWired: true,
 };
 
-/** The 4 starter smoke levels, mirroring STARTER_LEVELS. */
-const STARTER_LEVELS = ["health", "agent", "chat", "interaction"] as const;
+/**
+ * The 3 starter LADDER row-key levels, mirroring `STARTER_ROW_LEVELS`.
+ *
+ * This is a LOCAL literal, so deleting the shared export cannot red it — it is
+ * one of the sites a compiler sweep misses. Left on the legacy four it would
+ * make the gate's own test assert a keyspace the engine no longer reads, and
+ * the failure is a silent `null` ("not stale"), not an error.
+ */
+const STARTER_LEVELS = ["shell", "runtime", "agentrun"] as const;
 
 /**
  * A STARTER-axis cell, keyed by its dashboard COLUMN slug. The equivalence

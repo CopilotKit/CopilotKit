@@ -114,6 +114,26 @@ describe("Content Bundler", () => {
     expect(lgAgent.language).toBe("python");
   });
 
+  it("exposes the Mastra fixed-schema tool's required companion file", () => {
+    const demo = runBundlerAndRead().demos["mastra::a2ui-fixed-schema"];
+    const tool = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/a2ui-generate.ts",
+    );
+    const context = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/a2ui-context.ts",
+    );
+
+    expect(tool.content).toContain('from "./a2ui-context"');
+    expect(context).toMatchObject({
+      highlighted: true,
+      language: "typescript",
+    });
+    expect(context.content).toContain(
+      "export function readForwardedA2uiContext",
+    );
+    expect(context.content).toContain("export function systemPromptFrom");
+  });
+
   it("includes core langgraph-python demos", () => {
     const content = runBundlerAndRead();
 
@@ -135,6 +155,31 @@ describe("Content Bundler", () => {
     }
   });
 
+  it("exposes the Mastra subagents working-memory companion", () => {
+    const demo = runBundlerAndRead().demos["mastra::subagents"];
+    const tool = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/subagents.ts",
+    );
+    const memory = demo.files.find(
+      (file: any) => file.filename === "src/mastra/tools/working-memory.ts",
+    );
+
+    expect(tool.content).toContain('from "./working-memory"');
+    expect(memory).toMatchObject({ highlighted: true, language: "typescript" });
+    expect(memory.content).toContain(
+      "export async function writeDelegationsToWorkingMemory",
+    );
+    // The harness provider is swapped out of the snippet, so readers see the
+    // stock AI SDK import and the helper file is not published.
+    expect(tool.content).toContain('from "@ai-sdk/openai"');
+    expect(tool.content).not.toContain("_header_forwarding");
+    expect(
+      demo.files.some(
+        (file: any) => file.filename === "src/mastra/_header_forwarding.ts",
+      ),
+    ).toBe(false);
+  });
+
   it("bundles the Strands TypeScript sub-agent documentation regions", () => {
     const content = runBundlerAndRead();
     const demo = content.demos["strands-typescript::subagents"];
@@ -151,6 +196,30 @@ describe("Content Bundler", () => {
       highlightOrder: 1,
     });
     expect(toolsFile.content).not.toContain("@region[");
+
+    const stateFile = demo.files.find(
+      (file: any) => file.filename === "src/agent/state.ts",
+    );
+    expect(stateFile).toMatchObject({
+      filename: "src/agent/state.ts",
+      language: "typescript",
+      highlighted: true,
+      highlightOrder: 2,
+    });
+    expect(stateFile.content).toContain("makeSubagentStateFromResult");
+    expect(stateFile.content).toContain("Promise<StatePayload | null>");
+    expect(stateFile.content).not.toContain("@region[");
+
+    const stateFromResult = demo.regions["subagent-state-from-result"];
+    expect(stateFromResult).toMatchObject({
+      file: "src/agent/state.ts",
+      language: "typescript",
+    });
+    expect(stateFromResult.code).toContain(
+      "export function makeSubagentStateFromResult",
+    );
+    expect(stateFromResult.code).toContain("function readSubagentTask");
+    expect(stateFromResult.code).toContain("StateSnapshotEvent");
 
     const setup = demo.regions["subagent-setup"];
     expect(setup).toMatchObject({

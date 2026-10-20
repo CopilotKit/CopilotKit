@@ -22,6 +22,7 @@ import { normalizeCommandName, toCommandSpec } from "./commands.js";
 import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
+import type { RenderConfig } from "./render/config.js";
 import type { AbstractAgent } from "@ag-ui/client";
 import { sanitizeAgentEventStream } from "./sanitize-agent-events.js";
 import type {
@@ -489,6 +490,8 @@ export interface CreateChannelOptions<
   commands?: ChannelCommand[];
   /** Persistence, per-thread state schema, transcripts, and lock/dedup tuning. */
   store?: StoreConfig<TStateSchema>;
+  /** Image-render config (fonts + compiled CSS) for posting arbitrary JSX as images. */
+  render?: RenderConfig;
 }
 
 export interface Channel<TState = unknown> {
@@ -701,8 +704,11 @@ export function createChannel<
     const a = opts.agent;
     if (!a) {
       return () => {
-        throw new Error(
-          "createChannel: no agent configured (pass `agent` to use runAgent)",
+        throw Object.assign(
+          new Error(
+            "createChannel: no agent configured (pass `agent` to use runAgent)",
+          ),
+          { code: "channel_agent_not_configured" },
         );
       };
     }
@@ -887,6 +893,7 @@ export function createChannel<
       interactionActionId: extras?.interactionActionId,
       intelligenceMemoryAvailable,
       telemetry,
+      render: opts.render,
     };
     return new Thread(deps);
   }

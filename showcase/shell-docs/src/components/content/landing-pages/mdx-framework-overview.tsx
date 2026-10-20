@@ -1,9 +1,16 @@
 import type { ReactNode } from "react";
+import type { FrontendId } from "@/lib/frontend-options";
+import { buildAngularBackendOverview } from "@/lib/angular-backend-overview";
+import { partnerShowcaseDemos } from "@/lib/partner-showcase-demos";
+import { DocsSetupWizard } from "@/components/docs-setup-wizard";
 
 import { FrameworkOverview } from "./framework-overview";
 import type {
+  ConnectSection,
   FrameworkOverviewData,
   LiveDemo,
+  OpsPlatformCTAData,
+  ShowcaseSection,
   SupportedFeature,
 } from "@/data/frameworks/types";
 
@@ -62,6 +69,26 @@ export interface MdxFrameworkOverviewProps {
   liveDemos?: LiveDemo[];
   tutorialLink?: string;
   /**
+   * Structured call-to-action rendered below the supported-features
+   * section. `FrameworkOverview` uses it as the fallback when no
+   * `afterFeatures` node is supplied.
+   */
+  cta?: OpsPlatformCTAData;
+  /**
+   * Free-form slot rendered below the supported-features section, taking
+   * precedence over `cta`. Authored `index.mdx` files pass JSX here, e.g.
+   * `afterFeatures={<OpsPlatformCTA … />}`.
+   *
+   * Both this and `cta` used to be missing from this interface while the
+   * authored MDX already set them, so `synthData` was built without them
+   * and the nodes were dropped without any error — the Intelligence CTA on
+   * the Microsoft Agent Framework pages never reached the page. Every prop
+   * an authored file can set has to be forwarded explicitly, because this
+   * adapter assembles `FrameworkOverviewData` field by field rather than
+   * spreading.
+   */
+  afterFeatures?: ReactNode;
+  /**
    * URL framework slug bound by the per-render override in
    * `app/[framework]/[[...slug]]/page.tsx` (see header comment). Authored
    * MDX never sets this directly — the render site injects it via the
@@ -70,6 +97,28 @@ export interface MdxFrameworkOverviewProps {
    */
   currentFramework?: string;
   hrefPrefix?: string;
+  /**
+   * Capability-card layout. Setting `lede` is what switches the page over —
+   * see `FrameworkOverviewData.lede`. Authored files that leave these unset
+   * keep the video-per-feature layout.
+   */
+  lede?: string;
+  capabilitiesFootnote?: {
+    text: string;
+    linkLabel: string;
+    href: string;
+  };
+  connect?: ConnectSection;
+  showcase?: ShowcaseSection;
+  /**
+   * The "Connect your agent" snippet, authored as an ordinary fenced code
+   * block between the opening and closing tags. It renders through
+   * rehype-code and `MdxCodeBlock` like every other fence in the docs, which a
+   * multi-line template literal in a `connect.code` attribute does not: the
+   * MDX pipeline shortened every one of its lines by two spaces.
+   */
+  children?: ReactNode;
+  frontendOverride?: FrontendId;
 }
 
 export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
@@ -100,13 +149,36 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
     architectureVideo: props.architectureVideo,
     liveDemos: props.liveDemos ?? [],
     tutorialLink: props.tutorialLink,
+    cta: props.cta,
+    lede: props.lede,
+    capabilitiesFootnote: props.capabilitiesFootnote,
+    connect: props.connect,
+    showcase: props.showcase,
   };
   return (
     <FrameworkOverview
-      data={synthData}
+      data={
+        props.frontendOverride === "angular"
+          ? buildAngularBackendOverview(synthData, currentFramework)
+          : synthData
+      }
       currentFramework={currentFramework}
       hrefPrefix={props.hrefPrefix}
       iconOverride={props.frameworkIcon}
+      connectSnippet={props.children}
+      frontendOverride={props.frontendOverride}
+      showcaseDemos={partnerShowcaseDemos(
+        currentFramework,
+        props.frontendOverride,
+      )}
+      setupContent={
+        <DocsSetupWizard
+          key={`${props.frontendOverride ?? "react"}/${currentFramework}`}
+          backend={currentFramework}
+          frontend={props.frontendOverride ?? "react"}
+        />
+      }
+      afterFeatures={props.afterFeatures}
     />
   );
 }

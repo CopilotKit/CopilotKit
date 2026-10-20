@@ -4,15 +4,24 @@
  * `defaultTelegramTools` into the `tools:` config they pass to
  * `createChannel`.
  */
-import { z } from "zod";
-import { defineChannelTool } from "@copilotkit/channels-core";
+import {
+  defineChannelTool,
+  singleStringParameterSchema,
+} from "@copilotkit/channels-core";
 import type { ChannelTool } from "@copilotkit/channels-core";
 
-const lookupSchema = z.object({
-  query: z
-    .string()
-    .min(1)
-    .describe("Handle, display name, or first name of the person to look up."),
+/**
+ * Parameter schema for `lookup_telegram_user`.
+ *
+ * Built by `singleStringParameterSchema` rather than by `z.object`, so that
+ * `@copilotkit/channels-telegram` declares no `zod` range. See that helper
+ * for why the range was not free (PE-30). It emits the same JSON Schema
+ * document the Zod object emitted, so the descriptor the model is shown is
+ * unchanged.
+ */
+const lookupSchema = singleStringParameterSchema({
+  name: "query",
+  description: "Handle, display name, or first name of the person to look up.",
 });
 
 export const lookupTelegramUserTool = defineChannelTool({

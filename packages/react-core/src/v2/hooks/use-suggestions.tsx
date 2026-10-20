@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Suggestion } from "@copilotkit/core";
-import { useCopilotKit } from "../context";
+import type { Suggestion } from "@copilotkit/core";
+import { useCopilotKit, useDefaultAgentId } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
@@ -20,9 +20,10 @@ export function useSuggestions({
 }: UseSuggestionsOptions = {}): UseSuggestionsResult {
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
+  const providerAgentId = useDefaultAgentId();
   const resolvedAgentId = useMemo(
-    () => agentId ?? config?.agentId ?? DEFAULT_AGENT_ID,
-    [agentId, config?.agentId],
+    () => agentId ?? config?.agentId ?? providerAgentId ?? DEFAULT_AGENT_ID,
+    [agentId, config?.agentId, providerAgentId],
   );
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>(() => {

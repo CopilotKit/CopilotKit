@@ -61,6 +61,11 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
         var firstRunMessages = messages.Append(stateUpdateMessage);
 
         var allUpdates = new List<AgentResponseUpdate>();
+        // Text-only updates from the first run are withheld, because on the happy
+        // path their text IS the JSON state snapshot and must not be shown to the
+        // user. They are kept so they can still be delivered if the first run turns
+        // out not to be a state snapshot at all (see below).
+        var withheldTextUpdates = new List<AgentResponseUpdate>();
         await foreach (var update in InnerAgent.RunStreamingAsync(firstRunMessages, session, firstRunOptions, cancellationToken).ConfigureAwait(false))
         {
             allUpdates.Add(update);
@@ -70,6 +75,10 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
             if (hasNonTextContent)
             {
                 yield return update;
+            }
+            else
+            {
+                withheldTextUpdates.Add(update);
             }
         }
 
@@ -87,6 +96,17 @@ internal sealed class SharedStateAgent : DelegatingAIAgent
 
         if (stateSnapshot is not { } parsedStateSnapshot)
         {
+            // The model answered in prose rather than with the requested state
+            // snapshot — a plain conversational turn, a refusal, or a provider that
+            // does not honour the JSON-schema response format. Deliver that answer
+            // instead of dropping it: swallowing it here ends the run with no
+            // assistant message at all while still reporting success, which is
+            // indistinguishable to the user from the agent being broken.
+            foreach (var update in withheldTextUpdates)
+            {
+                yield return update;
+            }
+
             yield break;
         }
 

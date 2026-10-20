@@ -1,63 +1,71 @@
-import { AbstractAgent } from "@ag-ui/client";
-import {
+import type { AbstractAgent } from "@ag-ui/client";
+import type {
   FrontendTool,
+  CopilotRuntimeTransport,
+  CopilotKitCoreGetSuggestionsResult,
+  CopilotKitHeadersSource,
+  CopilotKitMessageFilter,
+  IntelligenceRuntimeInfo,
+  RuntimeLicenseStatus,
+  SuggestionsConfig,
+  ThreadEndpointRuntimeInfo,
+} from "@copilotkit/core";
+import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
-  CopilotRuntimeTransport,
-  type CopilotKitCoreGetSuggestionsResult,
-  type IntelligenceRuntimeInfo,
-  type RuntimeLicenseStatus,
-  type SuggestionsConfig,
-  type ThreadEndpointRuntimeInfo,
+  ɵwithHeaderDefaults,
 } from "@copilotkit/core";
+import type { Signal, WritableSignal } from "@angular/core";
 import {
   Injectable,
   Injector,
-  Signal,
-  WritableSignal,
   computed,
   runInInjectionContext,
   signal,
   inject,
 } from "@angular/core";
-import {
+import type {
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
+import type { RuntimeEntitlementResponse } from "@copilotkit/shared";
 import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   schemaToJsonSchema,
-  type RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
+import type { RenderActivityMessageConfig } from "./activity-renderer";
+import {
+  ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
+  anyActivityContentSchema,
+} from "./activity-renderer";
+import {
+  injectCopilotKitConfig,
+  ɵresolvePublicKeyHeaderDefaults,
+} from "./config";
+import { HumanInTheLoop } from "./human-in-the-loop";
+import { ensureLicenseWatermark } from "./license-watermark";
+import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
 import {
   A2UI_SCHEMA_CONTEXT_DESCRIPTION,
   buildCatalogContextValue,
   extractCatalogComponentSchemas,
-} from "@copilotkit/a2ui-renderer/web-components";
-import {
-  ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
-  RenderActivityMessageConfig,
-  anyActivityContentSchema,
-} from "./activity-renderer";
-import { injectCopilotKitConfig } from "./config";
-import { HumanInTheLoop } from "./human-in-the-loop";
-import { ensureLicenseWatermark } from "./license-watermark";
-import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
+} from "./components/a2ui/a2ui-catalog-context";
+import { CopilotA2UIRenderToolCall } from "./components/a2ui/a2ui-render-tool-call";
 import { CopilotA2UIToolRenderer } from "./components/a2ui/a2ui-tool-renderer";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
   RENDER_A2UI_TOOL_NAME,
   RenderA2UIArgsSchema,
 } from "./components/a2ui/a2ui-tool-types";
+import type { GenerateSandboxedUiArgs } from "./open-generative-ui";
 import {
   DEFAULT_OPEN_GENERATIVE_UI_DESIGN_SKILL,
   GENERATE_SANDBOXED_UI_DESCRIPTION,
   GENERATE_SANDBOXED_UI_TOOL_NAME,
   GenerateSandboxedUiArgsSchema,
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
-  type GenerateSandboxedUiArgs,
 } from "./open-generative-ui";
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
@@ -105,7 +113,27 @@ export class CopilotKit {
   readonly #runtimeTransport = signal<CopilotRuntimeTransport>("auto");
   readonly runtimeTransport = this.#runtimeTransport.asReadonly();
   readonly #headers = signal<Record<string, string>>({});
+  /**
+   * Snapshot as of the last header SOURCE change (a `setHeaders()`/
+   * `updateRuntime({ headers })` call) — not necessarily current for a
+   * builder. It updates from `onHeadersChanged`, which fires only on a real
+   * source change, never on a builder merely resolving a fresh token during a
+   * run. With a builder this can read `{}` (or a stale record) between
+   * source changes even though requests are already carrying the current
+   * token (#1937). For the value a builder would resolve right now, call
+   * `copilotkit.core.resolveHeaders()` instead.
+   */
   readonly headers = this.#headers.asReadonly();
+  readonly #headersGeneration = signal<number>(0);
+  /**
+   * Bumped only when `setHeaders` accepts a real source change (a new
+   * builder identity, or a record whose normalized values actually differ) —
+   * never when a builder merely resolves a new token. Set from
+   * `onHeadersChanged`, which fires only from a real `setHeaders()` call, so
+   * subscribers can key thread-context dispatch and agent header refresh on
+   * this signal instead of on header VALUES (see #1937).
+   */
+  readonly ɵheadersGeneration = this.#headersGeneration.asReadonly();
   readonly #credentials = signal<RequestCredentials | undefined>(undefined);
   readonly credentials = this.#credentials.asReadonly();
   readonly #threadEndpoints = signal<ThreadEndpointRuntimeInfo | undefined>(
@@ -118,6 +146,14 @@ export class CopilotKit {
    * consumers re-run when `/info` lands.
    */
   readonly threadEndpoints = this.#threadEndpoints.asReadonly();
+  readonly #audioFileTranscriptionEnabled = signal(false);
+  /**
+   * Voice transcription capability advertised by the connected runtime's
+   * `/info` response. The value remains false until the runtime explicitly
+   * reports support.
+   */
+  readonly audioFileTranscriptionEnabled =
+    this.#audioFileTranscriptionEnabled.asReadonly();
   readonly #intelligence = signal<IntelligenceRuntimeInfo | undefined>(
     undefined,
   );
@@ -157,10 +193,37 @@ export class CopilotKit {
   >({});
   readonly suggestionsByAgent = this.#suggestionsByAgent.asReadonly();
 
+  /**
+   * The public-key header default, computed once from this instance's config
+   * (license key / already-present header, see `resolveLicense` in
+   * `config.ts`).
+   */
+  readonly #publicKeyDefaults = ɵresolvePublicKeyHeaderDefaults(this.#config);
+
+  // `ɵwithHeaderDefaults` returns a new function for a function source on
+  // every call. Remember the last source and its wrapper, so passing the same
+  // builder again hands core the same function and stays a no-op (#1937).
+  #lastHeadersSource: CopilotKitHeadersSource | undefined;
+  #lastWrappedHeaders: CopilotKitHeadersSource | undefined;
+
+  #withPublicKeyDefaults(
+    source: CopilotKitHeadersSource,
+  ): CopilotKitHeadersSource {
+    if (source !== this.#lastHeadersSource) {
+      this.#lastHeadersSource = source;
+      this.#lastWrappedHeaders = ɵwithHeaderDefaults(
+        source,
+        this.#publicKeyDefaults,
+      );
+    }
+    return this.#lastWrappedHeaders!;
+  }
+
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
-    headers: this.#config.headers,
+    headers: this.#withPublicKeyDefaults(this.#config.headers ?? {}),
     credentials: this.#config.credentials,
+    messageFilter: this.#config.messageFilter,
     agents__unsafe_dev_only: {
       ...this.#config.agents,
       ...this.#config.selfManagedAgents,
@@ -216,18 +279,29 @@ export class CopilotKit {
 
   #openGenerativeUIToolRegistered = false;
   #openGenerativeUIContextIds: string[] = [];
+  #warnedMissingA2UICatalog = false;
   #a2UIContextIds: string[] = [];
 
   constructor() {
     void this.#inspector.isInspectorEnabled;
-    ensureLicenseWatermark(this.#config.headers);
+    // A builder is only evaluated at send time, so it can't be read here.
+    // The record branch below already has its own key-header fallback.
+    ensureLicenseWatermark(
+      typeof this.#config.headers === "function"
+        ? undefined
+        : this.#config.headers,
+    );
 
     this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
     this.#headers.set(this.core.headers);
+    this.#headersGeneration.set(this.core.ɵheadersGeneration);
     this.#credentials.set(this.core.credentials);
     this.#threadEndpoints.set(this.core.threadEndpoints);
+    this.#audioFileTranscriptionEnabled.set(
+      this.core.audioFileTranscriptionEnabled,
+    );
     this.#intelligence.set(this.core.intelligence);
     this.#licenseStatus.set(this.core.licenseStatus);
     this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
@@ -260,6 +334,17 @@ export class CopilotKit {
       this.addHumanInTheLoop(humanInTheLoopTool);
     });
 
+    // The core constructor registers dev agents without announcing them, so
+    // its run tracking (per-run state, subagents) never subscribes to them.
+    // Publish them once, as the React provider does on mount.
+    const devAgents = {
+      ...this.#config.agents,
+      ...this.#config.selfManagedAgents,
+    };
+    if (Object.keys(devAgents).length > 0) {
+      this.core.setAgents__unsafe_dev_only(devAgents);
+    }
+
     this.core.subscribe({
       onAgentsChanged: () => {
         this.#agents.set(this.core.agents);
@@ -272,6 +357,9 @@ export class CopilotKit {
         // `/info` resolves.
         this.#runtimeConnectionStatus.set(status);
         this.#threadEndpoints.set(this.core.threadEndpoints);
+        this.#audioFileTranscriptionEnabled.set(
+          this.core.audioFileTranscriptionEnabled,
+        );
         this.#intelligence.set(this.core.intelligence);
         this.#licenseStatus.set(this.core.licenseStatus);
         this.#runtimeEntitlements.set(this.core.runtimeEntitlements);
@@ -283,6 +371,13 @@ export class CopilotKit {
       },
       onHeadersChanged: ({ headers }) => {
         this.#headers.set(headers);
+        // Fires only from a real `setHeaders()` call (a new source), never
+        // from a builder resolving a new token — same generation core bumps.
+        // Without this, nothing pokes Angular's reactivity when a source
+        // change lands: `ɵheadersGeneration` (core's) is a plain property
+        // read, not a signal, so `ɵheadersGeneration`-keyed dependents
+        // (threads.ts, agent.ts) only re-read it when this handler sets ours.
+        this.#headersGeneration.set(this.core.ɵheadersGeneration);
       },
       onSuggestionsChanged: ({ agentId, suggestions }) => {
         this.#setSuggestions(agentId, {
@@ -406,8 +501,7 @@ export class CopilotKit {
       {
         name: RENDER_A2UI_TOOL_NAME,
         args: RenderA2UIArgsSchema,
-        component: CopilotA2UIToolRenderer,
-        passAgent: true,
+        component: CopilotA2UIRenderToolCall,
       },
       {
         name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
@@ -419,19 +513,32 @@ export class CopilotKit {
     this.#syncA2UIContexts();
   }
 
-  #getA2UICatalog(): unknown {
-    return this.#config.a2ui?.catalog;
-  }
-
-  /** Return whether runtime capability or an explicit catalog enables A2UI. */
+  /**
+   * A2UI renders only with a configured catalog. Without one, the runtime may
+   * still enable it, but surfaces could not render, so CopilotKit registers no
+   * renderers or agent context and says how to fix it.
+   */
   #isA2UIActive(): boolean {
-    return this.core.a2uiEnabled || this.#getA2UICatalog() !== undefined;
+    const hasCatalog = this.#config.a2ui?.catalog !== undefined;
+    if (
+      this.core.a2uiEnabled &&
+      !hasCatalog &&
+      !this.#warnedMissingA2UICatalog
+    ) {
+      this.#warnedMissingA2UICatalog = true;
+      console.warn(
+        "[CopilotKit] The runtime enables A2UI, but no `a2ui.catalog` is configured, so A2UI stays off. " +
+          "Pass `basicCatalog` or a catalog from `createAngularCatalog`, both in `@copilotkit/angular/a2ui`.",
+      );
+    }
+    return hasCatalog;
   }
 
   #syncA2UIContexts(): void {
     this.#removeA2UIContexts();
 
-    const catalog = this.#getA2UICatalog();
+    const catalog = this.#config.a2ui?.catalog;
+    if (!catalog) return;
     this.#a2UIContextIds.push(
       this.core.addContext({
         description:
@@ -475,6 +582,7 @@ export class CopilotKit {
     return !!this.#config.openGenerativeUI || this.core.openGenerativeUIEnabled;
   }
 
+  /** Register sandbox rendering with a side-effect-free acknowledgement safe to replay. */
   #createOpenGenerativeUITool(): FrontendToolConfig<GenerateSandboxedUiArgs> & {
     injector: Injector;
   } {
@@ -484,6 +592,8 @@ export class CopilotKit {
       parameters: GenerateSandboxedUiArgsSchema,
       component: CopilotOpenGenerativeUIToolRenderer,
       handler: async () => "UI generated",
+      // This acknowledgement has no side effects and is safe to reconstruct.
+      reconnectBehavior: "resume-pending",
       followUp: true,
       injector: this.#rootInjector,
     };
@@ -565,8 +675,13 @@ export class CopilotKit {
   ): FrontendTool {
     return {
       ...humanInTheLoopTool,
-      handler: (args, { toolCall }) => {
-        return this.#hitl.onResult(toolCall.id, humanInTheLoopTool.name);
+      type: "human-in-the-loop",
+      handler: (args, { toolCall, signal: abortSignal }) => {
+        return this.#hitl.onResult(
+          toolCall.id,
+          humanInTheLoopTool.name,
+          abortSignal,
+        );
       },
     };
   }
@@ -636,8 +751,9 @@ export class CopilotKit {
   updateRuntime(options: {
     runtimeUrl?: string;
     runtimeTransport?: CopilotRuntimeTransport;
-    headers?: Record<string, string>;
+    headers?: CopilotKitHeadersSource;
     credentials?: RequestCredentials;
+    messageFilter?: CopilotKitMessageFilter;
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
     selfManagedAgents?: Record<string, AbstractAgent>;
@@ -651,12 +767,17 @@ export class CopilotKit {
       this.#runtimeTransport.set(options.runtimeTransport);
     }
     if (options.headers !== undefined) {
-      this.core.setHeaders(options.headers);
-      this.#headers.set(options.headers);
+      this.core.setHeaders(this.#withPublicKeyDefaults(options.headers));
+      this.#headers.set(this.core.headers);
     }
     if ("credentials" in options) {
       this.core.setCredentials(options.credentials);
       this.#credentials.set(options.credentials);
+    }
+    // `in`, not `!== undefined`: clearing the filter is a real instruction, and
+    // `undefined` is the value that expresses it.
+    if ("messageFilter" in options) {
+      this.core.setMessageFilter(options.messageFilter);
     }
     if (options.properties !== undefined) {
       this.core.setProperties(

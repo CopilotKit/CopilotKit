@@ -507,7 +507,7 @@ async function setup(options: SetupOptions): Promise<CapabilityHarness> {
       const threadsButton = Array.from(
         inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
           [],
-      ).find((button) => button.textContent?.trim() === "Threads");
+      ).find((button) => button.textContent?.trim() === "Rich Threads");
       if (!threadsButton) throw new Error("Threads menu button not found");
       threadsButton.click();
       await flushInspector(inspector);
@@ -731,9 +731,15 @@ test("inspect true loads events, empty-events messages fallback, and state witho
     directInspector.threadId = "direct-thread";
     directInspector.provider = provider;
     directInspector.runtimeUrl = RUNTIME_URL;
-    directInspector.headers = { Authorization: "Bearer direct-test" };
+    directInspector.resolveHeaders = () => ({
+      Authorization: "Bearer direct-test",
+    });
     directInspector.threadInspectionAvailable = true;
     document.body.append(directInspector);
+    await directInspector.updateComplete;
+    Array.from(directInspector.shadowRoot!.querySelectorAll("button"))
+      .find((button) => button.textContent?.trim() === "Show event timeline")!
+      .click();
     await directInspector.updateComplete;
     await vi.waitFor(() => {
       expect(providerSignals).toHaveLength(1);
@@ -935,6 +941,7 @@ test("enabled zero keeps all three local examples and their providers off real r
     initialEndpoints: LIST_AND_INSPECT,
     listHasRow: false,
   });
+  vi.spyOn(harness.core, "intelligence", "get").mockReturnValue({ wsUrl: "" });
   try {
     await vi.waitFor(() => expect(harness.requests().list).toBe(1));
     await harness.openThreads();
@@ -945,7 +952,9 @@ test("enabled zero keeps all three local examples and their providers off real r
 
     await harness.selectThread("Realtime thread sync");
     await vi.waitFor(() =>
-      expect(harness.detailsText()).toContain("Run started"),
+      expect(
+        harness.details()?.shadowRoot?.querySelector(".cpk-td__bubble"),
+      ).not.toBeNull(),
     );
     const detail = harness.details();
     if (!detail?.provider?.getMessages) {
@@ -954,7 +963,9 @@ test("enabled zero keeps all three local examples and their providers off real r
     const messagesSpy = vi.spyOn(detail.provider, "getMessages");
     detail.liveMessageVersion += 1;
     detail.requestUpdate();
-    await vi.waitFor(() => expect(messagesSpy).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(messagesSpy).toHaveBeenCalledTimes(1), {
+      timeout: 2_000,
+    });
 
     await harness.activateDetailTab("State");
     await vi.waitFor(() =>

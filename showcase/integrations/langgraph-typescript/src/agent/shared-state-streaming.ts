@@ -118,9 +118,9 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   });
   // @doc-as
   // const model = new ChatOpenAI({
-  //     model: "gpt-5.4",
-  //     modelKwargs: { parallel_tool_calls: false },
-  //   });
+  //   model: "gpt-5.4",
+  //   modelKwargs: { parallel_tool_calls: false },
+  // });
   // @doc-end
 
   const modelWithTools = model.bindTools!([

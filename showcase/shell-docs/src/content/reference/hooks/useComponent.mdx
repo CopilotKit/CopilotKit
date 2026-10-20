@@ -28,6 +28,7 @@ function useComponent<TSchema extends z.ZodTypeAny | undefined = undefined>(
     // When omitted, render accepts any props.
     render: ComponentType<InferRenderProps<TSchema>>;
     agentId?: string;
+    followUp?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
 ): void;
@@ -37,9 +38,10 @@ function useComponent<TSchema extends z.ZodTypeAny | undefined = undefined>(
 
 - `config.name`: tool name used by the agent to invoke this component tool.
 - `config.description`: optional extra description for model guidance.
-- `config.parameters`: optional Zod schema for typed/validated parameters. When provided, `render` props are inferred from the schema.
+- `config.parameters`: optional Zod schema for the tool's parameters. When provided, `render` props are inferred from the schema. When omitted, the tool is advertised with an empty parameter schema (`{ "type": "object", "properties": {} }`), so the agent invokes it with no arguments.
 - `config.render`: React component rendered with parsed tool parameters. Accepts any props when `parameters` is omitted.
 - `config.agentId`: optional agent scope for the registration.
+- `config.followUp`: whether the agent should continue after rendering the component. Defaults to `true`; set it to `false` to stop after the tool call.
 - `deps`: optional dependency array for refreshing registration.
 
 ## Behavior
@@ -48,6 +50,7 @@ function useComponent<TSchema extends z.ZodTypeAny | undefined = undefined>(
 - Calls `useFrontendTool` internally with a render function that spreads the tool parameters as component props.
 - Inherits `useFrontendTool` lifecycle behavior: duplicate-name override warning, tool removal on unmount, and renderer retention for chat history.
 - Tracks updates by `config.name` plus `deps` (include any changing captured values in `deps`).
+- **`deps` comparison**: compares plain data (strings, numbers, booleans, `null`, dates, and plain objects and arrays of those) by value, so an inline literal such as `[{ status }]` re-registers only when its contents change. A function never counts as changed, as before, so keep a changing callback in a ref. Class instances and other objects compare by identity, so a circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change.
 
 ## Usage
 

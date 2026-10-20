@@ -1,0 +1,75 @@
+{
+  "name": "intelligence-langgraph-python",
+  "projectType": "library",
+  "root": "packages/intelligence-langgraph-python",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run pytest",
+        "cwd": "packages/intelligence-langgraph-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run ruff check . && uv run ruff format --check .",
+        "cwd": "packages/intelligence-langgraph-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run mypy src",
+        "cwd": "packages/intelligence-langgraph-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv build",
+        "cwd": "packages/intelligence-langgraph-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "verify-distribution": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run python scripts/check_distribution.py",
+        "cwd": "packages/intelligence-langgraph-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "test-minimum": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run --isolated --with langchain==1.2.16 --with langgraph==1.1.10 pytest",
+        "cwd": "packages/intelligence-langgraph-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    },
+    "test-latest": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uv run --upgrade-package langchain --upgrade-package langgraph pytest",
+        "cwd": "packages/intelligence-langgraph-python"
+      },
+      "cache": false,
+      "dependsOn": []
+    }
+  },
+  "tags": ["scope:intelligence", "lang:python"],
+  "implicitDependencies": [
+    "intelligence-delivery-python-core",
+    "runtime-python"
+  ]
+}

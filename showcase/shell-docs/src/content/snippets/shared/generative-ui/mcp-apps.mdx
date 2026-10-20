@@ -50,8 +50,14 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     ### Add the dependencies
 
     ```npm
-    npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/mcp-apps-middleware
+    npm install @copilotkit/react-core @copilotkit/runtime
     ```
+
+    Use `@copilotkit/runtime` 1.76.0 or later. The runtime includes the MCP Apps
+    middleware, so the `mcpApps` option below needs no other package. Install
+    `@ag-ui/mcp-apps-middleware` only if you attach the middleware to an agent
+    yourself with `.use()`. Its current release needs `@ag-ui/client` 1.x, which
+    runtime 1.76.0 and later use.
 
   </Step>
   <Step>
@@ -135,6 +141,12 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     );
     ```
 
+    <Callout type="info" title="Using Intelligence?">
+      On a runtime connected to Intelligence, keep `mcpApps` and replace
+      `runner: new InMemoryAgentRunner()` with `intelligence` and `identifyUser`.
+      See [MCP Apps with Intelligence](/generative-ui/mcp-apps#mcp-apps-with-intelligence).
+    </Callout>
+
   </Step>
   <Step>
     ### Configure environment
@@ -155,9 +167,26 @@ If you're looking to add an MCP App into an existing application, let's walk thr
 
     Wrap your application with the CopilotKit provider:
 
+    ```tsx title="app/providers.tsx"
+    "use client";
+
+    import { CopilotKit } from "@copilotkit/react-core/v2";
+
+    export function Providers({ children }: { children: React.ReactNode }) {
+      return (
+        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+          {children}
+        </CopilotKit>
+      );
+    }
+    ```
+
+    `app/layout.tsx` is a server component and cannot import the provider
+    directly, so it renders your client file instead:
+
     ```tsx title="app/layout.tsx"
     // [!code highlight:2]
-    import { CopilotKit } from "@copilotkit/react-core/v2";
+    import { Providers } from "./providers";
     import "@copilotkit/react-core/v2/styles.css";
 
     // ...
@@ -167,9 +196,9 @@ If you're looking to add an MCP App into an existing application, let's walk thr
             <html lang="en">
                 <body>
                     {/* [!code highlight:3] */}
-                    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+                    <Providers>
                         {children}
-                    </CopilotKit>
+                    </Providers>
                 </body>
             </html>
         );

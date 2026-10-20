@@ -1,8 +1,29 @@
+import { loadNotificationFeed } from "./lib/notification-loader.js";
+import { loadHudFeed } from "./lib/hud-loader.js";
+import { resolveHudContent } from "./lib/hud-config.js";
+import type { HudContent, HudFeed } from "./lib/hud-config.js";
+import { HUD_DEFAULT_CONTENT } from "./lib/hud-defaults.js";
+import {
+  emptyNotificationState,
+  reconcileNotifications,
+  acknowledgeNotification,
+  compareNotifications,
+} from "./lib/notifications.js";
+import type {
+  NotificationContext,
+  NotificationFeed,
+} from "./lib/notifications.js";
+import {
+  loadNotificationState,
+  migrateAnnouncementReadState,
+  saveNotificationState,
+} from "./lib/persistence.js";
 import { LitElement, css, html, nothing, render, unsafeCSS } from "lit";
 import type { TemplateResult } from "lit";
 import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
+import { notificationArticleStyles } from "./styles/notification-article.js";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
 import inspectorLogoKiteUrl from "./assets/inspector-logo-kite.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
@@ -60,11 +81,10 @@ import {
   clearLegacyAnnouncementReadState,
   INSPECTOR_DISMISSAL_MAX_DURATION_MS,
   loadInspectorDismissedUntil,
-  loadAnnouncementPulsedTimestamp,
-  loadAnnouncementReadTimestamp,
   loadInspectorState,
-  saveAnnouncementPulsedTimestamp,
-  saveAnnouncementReadTimestamp,
+  hasNotificationPulsed,
+  saveNotificationPulsedId,
+  saveInspectorDismissedForever,
   saveInspectorDismissedUntil,
   saveInspectorState,
   isValidAnchor,
@@ -98,7 +118,6 @@ import type {
 } from "./lib/inspector-metadata.js";
 import {
   buildHomeModel,
-  homeFeatureImplementationPrompt,
   runtimeConnectionNeedsAttention,
 } from "./lib/home-briefing.js";
 import type {
@@ -109,6 +128,7 @@ import type {
 } from "./lib/home-briefing.js";
 import {
   INSPECTOR_GROUPS,
+  INSPECTOR_MENU_KEYS,
   INSPECTOR_NAV_SECTIONS,
   getGroupForMenu,
   isInspectorMenuKey,
@@ -159,8 +179,18 @@ import {
   trackWhatsNewClicked,
   trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
+  trackHudViewed,
+  trackHudNotificationViewed,
+  trackHudNotificationClicked,
+  trackHudFeatureToggleViewed,
+  trackHudFeatureToggleClicked,
+  trackHudFeatureClicked,
+  trackHudHideViewed,
+  trackHudHideClicked,
 } from "./lib/telemetry.js";
+import type { HudTrigger } from "./lib/telemetry.js";
 import {
+  createFeatureOnboardingPrompt,
   createOnboardingPrompt,
   createOnboardingRunId,
 } from "./lib/onboarding-prompt.js";
@@ -198,6 +228,19 @@ export type InspectorOpenOptions = {
   messageId?: string;
 };
 
+/**
+ * Resolve the attached core's request headers at send time. A core released
+ * before `resolveHeaders()` existed has only the static `headers` map, so an
+ * inspector attached to it falls back to a copy of that map.
+ */
+function resolveAttachedCoreHeaders(
+  core: CopilotKitCore,
+): Record<string, string> | Promise<Record<string, string>> {
+  return typeof core.resolveHeaders === "function"
+    ? core.resolveHeaders()
+    : { ...core.headers };
+}
+
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
@@ -205,7 +248,8 @@ export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
  * User-facing label for the learning view. The legacy menu key stays
  * "memories" for persistence and telemetry stability.
  */
-const LEARNING_VIEW_LABEL = "Learning";
+const LEARNING_VIEW_LABEL = "Automatic Learning";
+const LEARNING_RECOPY_CONFIRMATION_MS = 2_000;
 
 /**
  * User-facing label for the What's new view. Its menu key stays `whats-new`
@@ -395,23 +439,23 @@ type LauncherHudRowId = "threads" | "learning";
 
 const HUD_INSPECTOR_LABEL = "CopilotKit Inspector";
 const HUD_ANNOUNCEMENT_TITLE_LIMIT = 80;
-const HUD_THREADS_LABEL = "Rich Threads";
-const HUD_LEARNING_LABEL = "Automatic Learning";
-const HUD_LEARN_MORE_LABEL = "Click to learn more";
 
-type InspectorDismissalDuration = "day" | "week";
+type InspectorDismissalDuration = "day" | "week" | "forever";
 const INSPECTOR_DISMISSAL_MS: Readonly<
   Record<InspectorDismissalDuration, number>
 > = {
   day: 24 * 60 * 60 * 1000,
-  week: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+  week: 7 * 24 * 60 * 60 * 1000,
+  // Renewed to a full window on every load; see saveInspectorDismissedForever.
+  forever: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
 };
+// setTimeout fires immediately for delays above 2^31-1 ms (~24.8 days).
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 
 type HomeFeaturePromptId = HomeServiceId;
 type HomeFeaturePromptTarget = Readonly<{
   id: HomeFeaturePromptId;
   label: string;
-  docsUrl: string;
 }>;
 
 const LAUNCHER_SIGNALS: Readonly<
@@ -638,11 +682,21 @@ const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
 const MIN_WINDOW_HEIGHT = 480;
+/**
+ * A window minimum that gives way on screens smaller than it, so the window
+ * (and its close control) never runs past the viewport edge.
+ */
+const viewportCappedMin = (px: number, unit: "vw" | "vh"): string =>
+  `min(${px}px, calc(100${unit} - ${EDGE_MARGIN * 2}px))`;
+/**
+ * The floating window zooms down with the screen, never below this, once the
+ * viewport can no longer hold the default window at full size.
+ */
+const MIN_WINDOW_SCALE = 0.8;
 const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
-const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
-// The launcher keeps its current touch target on compact screens and grows to
-// an exactly 20% larger desktop cap. `box-sizing` makes these OUTER sizes.
-const LAUNCHER_MIN_SIZE = 51.84;
+// The launcher tracks the viewport width: 34px on phone-width screens, rising
+// linearly to the desktop cap at 1440px. `box-sizing` makes these OUTER sizes.
+const LAUNCHER_MIN_SIZE = 34;
 const LAUNCHER_MAX_SIZE = 62.208;
 const DEFAULT_BUTTON_SIZE: Size = {
   width: LAUNCHER_MIN_SIZE,
@@ -701,7 +755,7 @@ const SELF_HOSTED_INTELLIGENCE_URL =
 const INTELLIGENCE_STORY_BEATS = [
   {
     id: "threads",
-    label: "Threads",
+    label: "Rich Threads",
     // Roughly 24 words of copy plus a picture to take in. The upstream timings
     // were written for a page where the animation carried itself; here it has
     // to be read, so every beat gets time for two sentences at a comfortable
@@ -726,7 +780,7 @@ const INTELLIGENCE_STORY_BEATS = [
   },
   {
     id: "learning",
-    label: "Learning",
+    label: "Automatic Learning",
     duration: 6_000,
     lead: "Your users already told you what to fix.",
     // Insights are a first-class concept in the product, and the evidence link
@@ -734,7 +788,7 @@ const INTELLIGENCE_STORY_BEATS = [
     // not a model's opinion. Learning's own onboarding leads with "46 evidence
     // refs" across "12 Threads" for exactly this reason.
     support:
-      "Learning reads the runs behind those threads and finds the patterns — every Insight linked to the messages that back it.",
+      "Automatic Learning reads the runs behind those threads and finds the patterns — every Insight linked to the messages that back it.",
   },
   {
     id: "skill",
@@ -835,7 +889,7 @@ const INTELLIGENCE_STORY_CHAIN = [
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
-  "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.";
+  "The demo video is unavailable. Use the example threads to explore Conversation, AG-UI Events, and State.";
 const THREADS_LOCKED_VIDEO_URL =
   "https://www.loom.com/embed/79817778d29e490c97225127d2f17b3a?hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true&hide_speed=true";
 const LEARNING_LOCKED_VIDEO_URL =
@@ -1023,6 +1077,13 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "ACTIVITY_SNAPSHOT",
   "ACTIVITY_DELTA",
 ] as const;
+
+const THREADS_LOCKED_COPY = {
+  heading:
+    "Production-grade chat threads without the complexity. Self hostable.",
+  description:
+    "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
+} as const;
 
 type SanitizedValue =
   | string
@@ -1223,6 +1284,8 @@ interface ConversationToolCall {
   toolCallId: string;
   arguments: Record<string, unknown>;
   result: Record<string, unknown> | null;
+  hasResult: boolean;
+  resultUnreadable?: boolean;
   createdAt: string;
   groupId?: string;
 }
@@ -1534,9 +1597,9 @@ const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
 }> = [
   {
     tab: "timeline",
-    label: "Messages",
+    label: "Conversation",
     title: "Read the run as a story",
-    body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
+    body: "Read messages and tool calls as a conversation. Switch to the event timeline to inspect state changes and run markers.",
   },
   {
     tab: "raw-events",
@@ -1655,10 +1718,124 @@ function coerceJsonValue(value: unknown): unknown {
   }
 }
 
+/**
+ * Draws one JSON value of the inspector into a container that the host page
+ * owns. `value` is the raw value: a JSON string or an already-parsed value.
+ * Return a function to run when the inspector removes or replaces the value.
+ */
+export type InspectorJsonRenderer = (
+  container: HTMLElement,
+  value: unknown,
+) => (() => void) | void;
+
+let inspectorJsonRenderer: InspectorJsonRenderer | null = null;
+let inspectorJsonSlotCount = 0;
+
+const JSON_BLOCK_TAG = "cpk-json-block";
+
+/**
+ * Replaces the inspector's built-in JSON blocks (tool arguments and results,
+ * state, events, and context) with a host renderer. Pass `null` to restore the
+ * built-in blocks. Set it before the inspector renders: a block that is
+ * already on screen changes at the inspector's next render.
+ *
+ * @example
+ * ```ts
+ * setInspectorJsonRenderer((container, value) => {
+ *   const root = createRoot(container);
+ *   root.render(<JsonView value={value} />);
+ *   return () => root.unmount();
+ * });
+ * ```
+ */
+export function setInspectorJsonRenderer(
+  renderer: InspectorJsonRenderer | null,
+): void {
+  inspectorJsonRenderer = renderer;
+}
+
+/**
+ * Hosts one value drawn by the host renderer. Inside a shadow root, the
+ * container lives in the shadow host's light DOM and shows here through a
+ * named slot, so the host page's own styles apply to what the renderer draws.
+ */
+// The fallback keeps module import safe where no DOM exists (server render).
+class CpkJsonBlock extends ((globalThis.HTMLElement ??
+  class {}) as typeof HTMLElement) {
+  #value: unknown = undefined;
+  #hasValue = false;
+  #cleanup: (() => void) | undefined;
+  #container: HTMLElement | undefined;
+
+  get value(): unknown {
+    return this.#value;
+  }
+
+  set value(next: unknown) {
+    if (this.#hasValue && Object.is(next, this.#value)) return;
+    this.#value = next;
+    this.#hasValue = true;
+    if (this.isConnected) this.#render();
+  }
+
+  connectedCallback(): void {
+    this.style.display = "block";
+    this.#render();
+  }
+
+  disconnectedCallback(): void {
+    this.#teardown();
+  }
+
+  #render(): void {
+    this.#teardown();
+    const renderer = inspectorJsonRenderer;
+    if (!renderer) return;
+    const root = this.getRootNode();
+    const container = this.ownerDocument.createElement("div");
+    // `instanceof ShadowRoot` fails across realms (the pop-out window).
+    if (root.nodeType === Node.DOCUMENT_FRAGMENT_NODE && "host" in root) {
+      inspectorJsonSlotCount += 1;
+      const name = `cpk-json-${inspectorJsonSlotCount}`;
+      const slot = this.ownerDocument.createElement("slot");
+      slot.name = name;
+      this.replaceChildren(slot);
+      container.slot = name;
+      (root as ShadowRoot).host.append(container);
+    } else {
+      this.replaceChildren(container);
+    }
+    this.#container = container;
+    const cleanup = renderer(container, this.#value);
+    this.#cleanup = typeof cleanup === "function" ? cleanup : undefined;
+  }
+
+  #teardown(): void {
+    const cleanup = this.#cleanup;
+    this.#cleanup = undefined;
+    cleanup?.();
+    this.#container?.remove();
+    this.#container = undefined;
+    this.replaceChildren();
+  }
+}
+
 function renderHighlightedJsonBlock(
   value: unknown,
   options: { maxHeight?: string } = {},
 ) {
+  if (inspectorJsonRenderer) {
+    // The raw value keeps its identity across renders, so an unchanged
+    // value does not draw again.
+    return html`<cpk-json-block
+      .value=${value}
+      style=${
+        options.maxHeight
+          ? `overflow:auto;max-height:${options.maxHeight}`
+          : nothing
+      }
+    ></cpk-json-block>`;
+  }
   const parsed = coerceJsonValue(value);
   const style = options.maxHeight
     ? `max-height:${options.maxHeight}`
@@ -2161,10 +2338,13 @@ class CpkThreadList extends PortableLitElement {
 export class CpkThreadInspector extends PortableLitElement {
   static properties = {
     threadId: { attribute: false },
+    showThreadTitle: { type: Boolean, attribute: false },
     provider: { attribute: false },
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
+    resolveHeaders: { attribute: false },
+    headersGeneration: { attribute: false },
     threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
@@ -2186,6 +2366,7 @@ export class CpkThreadInspector extends PortableLitElement {
     _loadingEvents: { state: true },
     _loadingState: { state: true },
     _messagesError: { state: true },
+    _messageRefreshError: { state: true },
     _eventsError: { state: true },
     _stateError: { state: true },
     _expandedTools: { state: true },
@@ -2200,11 +2381,33 @@ export class CpkThreadInspector extends PortableLitElement {
     _activatedTabs: { state: true },
   };
 
+  /** Whether to render the viewer title. Set false when the embedding page owns its heading. */
+  showThreadTitle = true;
   threadId: string | null = null;
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
+  /**
+   * @deprecated Set `resolveHeaders` instead — it resolves fresh headers at
+   * send time (#1937), so a rotated token is never stale. This is a
+   * fallback used only when `resolveHeaders` is left unset (its default
+   * no-op); when both are set, `resolveHeaders` wins. Never part of the
+   * load key — see `headersGeneration`.
+   */
   headers: Record<string, string> = {};
+  // Resolved at send time (#1937): a builder can return a fresh token on every
+  // call, so this must be invoked per-request rather than snapshotted once.
+  // The default value is a sentinel: `ɵresolveInspectorHeaders` compares
+  // against it to know whether a host actually set `resolveHeaders`, so it
+  // can fall back to the deprecated `headers` field when not.
+  resolveHeaders: () =>
+    | Record<string, string>
+    | Promise<Record<string, string>> =
+    CpkThreadInspector.ɵdefaultResolveHeaders;
+  // Bumped only by an actual header-source change (never by a builder
+  // returning a new value). Never key the load signature on header VALUES —
+  // that would reload thread inspection on every token rotation.
+  headersGeneration = 0;
   threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
@@ -2216,8 +2419,8 @@ export class CpkThreadInspector extends PortableLitElement {
   /**
    * Monotonic per-thread counter the parent inspector ticks every time the
    * agent currently running on this thread emits a message change. When this
-   * prop changes for the same `threadId`, we re-fetch `/threads/:id/messages`
-   * so the conversation view reflects live streaming output.
+   * prop changes for the same `threadId`, we queue a bounded refresh of
+   * `/threads/:id/messages` so the conversation reflects streaming output.
    */
   liveMessageVersion = 0;
   viewInAppMode: "hidden" | "view" | "stop" = "hidden";
@@ -2229,6 +2432,7 @@ export class CpkThreadInspector extends PortableLitElement {
   tryFromHereError: string | null = null;
 
   private _tab: ThreadDetailsTab = "timeline";
+  private _showEventTimeline = false;
   private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
   private _conversation: ConversationItem[] = [];
   private _fetchedEvents: ApiAgentEvent[] | null = null;
@@ -2237,6 +2441,7 @@ export class CpkThreadInspector extends PortableLitElement {
   private _loadingEvents = false;
   private _loadingState = false;
   private _messagesError: string | null = null;
+  private _messageRefreshError: string | null = null;
   private _eventsError: string | null = null;
   private _stateError: string | null = null;
   private _expandedTools = new Set<string>();
@@ -2309,6 +2514,9 @@ export class CpkThreadInspector extends PortableLitElement {
   private _lastSeenLiveMessageVersion = 0;
   private _metadataAbort: AbortController | null = null;
   private _messagesAbort: AbortController | null = null;
+  private _messagesRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private _messagesRefreshPending = false;
+  private _lastMessagesFetchAt = 0;
   private _eventsAbort: AbortController | null = null;
   private _stateAbort: AbortController | null = null;
   private _hasConnectedOnce = false;
@@ -2318,13 +2526,19 @@ export class CpkThreadInspector extends PortableLitElement {
   private _dividerStartWidth = 0;
   private static nextDomId = 1;
   private readonly domIdPrefix = `cpk-thread-detail-${CpkThreadInspector.nextDomId++}`;
+  /** Sentinel identity for `resolveHeaders`'s default value; see its field doc. */
+  private static readonly ɵdefaultResolveHeaders = (): Record<
+    string,
+    string
+  > => ({});
 
   static readonly COLLAPSE_THRESHOLD = 800;
+  private static readonly MESSAGE_REFRESH_INTERVAL_MS = 1_000;
   static readonly TAB_LIST: ReadonlyArray<{
     id: ThreadDetailsTab;
     label: string;
   }> = [
-    { id: "timeline", label: "Messages" },
+    { id: "timeline", label: "Conversation" },
     { id: "raw-events", label: "AG-UI Events" },
     { id: "state", label: "State" },
   ];
@@ -2351,22 +2565,31 @@ export class CpkThreadInspector extends PortableLitElement {
     ].join("|");
   }
 
-  /**
-   * Build a deterministic signature for runtime fetch headers so auth/CSRF
-   * changes invalidate cached thread data even when the selected thread is
-   * otherwise unchanged.
-   */
-  private static headersLoadKey(headers: Record<string, string>): string {
-    return JSON.stringify(
-      Object.entries(headers).sort(([leftKey], [rightKey]) =>
-        leftKey.localeCompare(rightKey),
-      ),
-    );
+  private renderConversationActions() {
+    return html`<div class="cpk-td__timeline-toolbar">
+        <button type="button" class="cpk-td__timeline-bulk-toggle" aria-pressed=${this._showEventTimeline} @click=${() => {
+          this._showEventTimeline = !this._showEventTimeline;
+          this.requestUpdate();
+        }}>${this._showEventTimeline ? "Show conversation" : "Show event timeline"}</button>
+        ${this.renderTryFromHereControl()}
+      </div>`;
   }
 
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
     if (id === "timeline") {
-      return this.withMessagesToolbar(this.renderTimeline());
+      return html`${
+        this._messageRefreshError
+          ? html`<div class="cpk-td__status cpk-td__status--error" role="status">${this._messageRefreshError}</div>`
+          : nothing
+      }${
+        this._showEventTimeline
+          ? html`<div class="cpk-td__timeline-toolbar">${this.renderTimelineBulkButtons()}</div>${this.renderTimeline()}`
+          : this._conversation.length ||
+              this._loadingMessages ||
+              this._messagesError
+            ? this.renderConversation()
+            : this.renderTimeline()
+      }`;
     }
     if (id === "state") return this.renderState();
     return this.renderEvents();
@@ -2609,6 +2832,49 @@ export class CpkThreadInspector extends PortableLitElement {
       margin-inline-start: 0;
     }
 
+    .cpk-td__thread-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 16px;
+      padding: 12px 16px;
+      flex-shrink: 0;
+      border-bottom: 1px solid #dbdbe540;
+    }
+    .cpk-td__thread-title {
+      flex: 1 1 180px;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .cpk-td__pinned-actions {
+      margin-left: auto;
+      max-width: 100%;
+    }
+    .cpk-td__pinned-actions .cpk-td__timeline-toolbar {
+      justify-content: flex-end;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant {
+      background: transparent;
+      color: #e7e7ed;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--user {
+      background: #27272a;
+      color: #f4f4f5;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__show-more {
+      color: #c5b5ff;
+    }
+    .cpk-td__timeline-bulk-toggle[aria-pressed="true"] {
+      background: #ece7fa;
+      color: #51418b;
+    }
+    .cpk-td__bubble-inner {
+      line-height: 1.65;
+      overflow-wrap: anywhere;
+    }
     .cpk-td__metadata-strip {
       display: flex;
       flex-direction: column;
@@ -2779,6 +3045,13 @@ export class CpkThreadInspector extends PortableLitElement {
       flex-direction: column;
       gap: 12px;
     }
+    .cpk-td__panel--conversation {
+      width: 100%;
+      max-width: 800px;
+      min-width: 0;
+      margin-inline: auto;
+    }
+
     .cpk-td__panel > * {
       flex-shrink: 0;
     }
@@ -2854,7 +3127,7 @@ export class CpkThreadInspector extends PortableLitElement {
     /* ── Conversation bubbles ────────────────────────────────────────── */
     .cpk-td__bubble {
       display: flex;
-      margin-bottom: 2px;
+      margin-bottom: 10px;
     }
 
     .cpk-td__bubble--user {
@@ -2866,16 +3139,16 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     .cpk-td__bubble-inner {
-      padding: 9px 14px;
-      max-width: 75%;
-      font-size: 13px;
-      line-height: 1.55;
+      padding: 10px 16px;
+      max-width: 80%;
+      font-size: 14px;
+      line-height: 1.65;
     }
 
     .cpk-td__bubble-inner--user {
-      background: #eee6fe;
-      color: #57575b;
-      border-radius: 12px 12px 4px 12px;
+      background: #f4f4f5;
+      color: #18181b;
+      border-radius: 18px;
     }
 
     .cpk-td__show-more {
@@ -2890,116 +3163,155 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     .cpk-td__bubble-inner--assistant {
-      background: #f7f7f9;
+      background: transparent;
       color: #010507;
-      border-radius: 12px 12px 12px 4px;
-      border: 1px solid #e9e9ef;
+      max-width: 100%;
+      padding: 4px 0;
+      border: 0;
     }
 
-    /* ── Tool call blocks ────────────────────────────────────────────── */
+    /* Tool activity stays compact in the conversation; raw data is opt-in. */
     .cpk-td__tool-block {
-      border: 1px solid #e9e9ef;
-      border-radius: 7px;
-      overflow: hidden;
+      min-width: 0;
     }
-
+    .cpk-td__tool-block:has(> .cpk-td__tool-header[aria-expanded="true"]) {
+      border-radius: 10px;
+      overflow: hidden;
+      background: #ffffff;
+      box-shadow: 0 0 0 1px oklch(0 0 0 / 0.08);
+    }
     .cpk-td__tool-header {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      background: rgba(133, 236, 206, 0.15);
+      gap: 10px;
+      padding: 10px 12px;
+      background: transparent;
+      color: #68686e;
       cursor: pointer;
-      font-size: 11px;
-      user-select: none;
+      width: 100%;
+      border: 0;
+      font-family: inherit;
+      text-align: left;
+      font-size: 12px;
     }
-
+    .cpk-td__tool-header > svg {
+      flex-shrink: 0;
+    }
+    .cpk-td__tool-header:focus-visible {
+      outline: 2px solid var(--cpk-primary-color, #7076b3);
+      outline-offset: -2px;
+    }
     .cpk-td__tool-header:hover {
-      background: rgba(133, 236, 206, 0.22);
+      background: #f7f7f9;
+      border-radius: 8px;
     }
-
-    .cpk-td__tool-name {
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
-      font-weight: 500;
-      color: #087653;
-      text-transform: uppercase;
+    .cpk-td__tool-block:has(> .cpk-td__tool-header[aria-expanded="true"])
+      .cpk-td__tool-header:hover {
+      border-radius: 0;
+    }
+    .cpk-td__tool-copy {
       flex: 1;
+      min-width: 0;
     }
-
+    .cpk-td__tool-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      min-width: 0;
+    }
+    .cpk-td__tool-name {
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.6;
+      color: #57575b;
+      overflow-wrap: anywhere;
+    }
     .cpk-td__tool-status {
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
-      text-transform: uppercase;
-      color: #087653;
+      display: block;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #68686e;
     }
-
     .cpk-td__tool-status--pending {
       color: #8a5900;
     }
-
     .cpk-td__tool-chevron {
-      color: #68686e;
-      font-size: 10px;
+      flex-shrink: 0;
+      transition: transform 150ms;
     }
-
+    .cpk-td__tool-header[aria-expanded="true"] .cpk-td__tool-chevron {
+      transform: rotate(90deg);
+    }
+    .cpk-td__tool-name--streaming {
+      width: fit-content;
+      background: linear-gradient(100deg, #68686e 35%, #c9c9d5 50%, #68686e 65%);
+      background-size: 250% 100%;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      animation: cpk-tool-shimmer 2s linear infinite;
+    }
+    @keyframes cpk-tool-shimmer {
+      from {
+        background-position: 150% 0;
+      }
+      to {
+        background-position: -100% 0;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cpk-td__tool-name--streaming {
+        animation: none;
+        background: none;
+        color: inherit;
+      }
+      .cpk-td__tool-chevron {
+        transition: none;
+      }
+    }
     .cpk-td__tool-body {
-      padding: 8px 10px;
+      min-width: 0;
+      padding-top: 4px;
       border-top: 1px solid #e9e9ef;
-      background: #ffffff;
     }
-
-    .cpk-td__tool-section-label {
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
-      font-weight: 500;
+    .cpk-td__tool-identifier {
+      margin-left: 0.35em;
       color: #68686e;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-      letter-spacing: 0.3px;
-    }
-
-    .cpk-td__tool-pre {
-      margin: 0;
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 12px;
-      background: #f7f7f9;
-      padding: 10px 12px;
-      border-radius: 6px;
-      overflow-x: auto;
-      white-space: pre-wrap;
+      font:
+        11px/1.6 "Spline Sans Mono",
+        monospace;
       overflow-wrap: anywhere;
-      word-break: normal;
-      color: #010507;
+    }
+    .cpk-td__tool-data {
+      display: grid;
+      gap: 0;
+    }
+    .cpk-td__tool-section-label {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.65;
+      color: #68686e;
+      margin: 0;
+      padding: 8px 12px;
+    }
+    .cpk-td__tool-body .cpk-json-block {
+      font-size: 12px;
       line-height: 1.65;
     }
-
-    /* ── Tool call group ─────────────────────────────────────────────── */
+    .cpk-td__tool-result {
+      border-top: 1px solid #e9e9ef;
+    }
     .cpk-td__tool-group {
-      border: 1px solid #e9e9ef;
-      border-radius: 7px;
-      overflow: hidden;
+      min-width: 0;
     }
-
     .cpk-td__tool-group-header {
-      padding: 5px 10px;
-      background: rgba(133, 236, 206, 0.15);
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
-      color: #087653;
-      text-transform: uppercase;
-      font-weight: 500;
-      border-bottom: 1px solid #e9e9ef;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: #68686e;
     }
-
     .cpk-td__tool-group .cpk-td__tool-block {
-      border: none;
-      border-bottom: 1px solid #e9e9ef;
-      border-radius: 0;
-    }
-
-    .cpk-td__tool-group .cpk-td__tool-block:last-child {
-      border-bottom: none;
+      margin-left: 12px;
     }
 
     /* ── Inline chips (reasoning / state update) ─────────────────────── */
@@ -3242,21 +3554,25 @@ export class CpkThreadInspector extends PortableLitElement {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      padding: 4px 16px 8px;
+      padding: 0;
       animation: cpk-genui-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
     .cpk-td__genui-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 5px;
-      background: #eee6fe;
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 12px;
+      min-height: 44px;
+      box-sizing: border-box;
+      border: 1px solid #e5def5;
+      border-radius: 12px;
+      background: #f7f4fc;
       color: #57575b;
-      font-size: 10px;
-      font-weight: 600;
-      align-self: flex-start;
+      font-size: 13px;
+      line-height: 20px;
+      font-weight: 500;
     }
 
     .cpk-td__genui-card {
@@ -3267,13 +3583,39 @@ export class CpkThreadInspector extends PortableLitElement {
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
     }
 
-    .cpk-td__genui-placeholder {
-      padding: 8px 12px;
-      border-radius: 10px;
-      border: 1px solid #ede9fe;
-      background: #f5f3ff;
-      color: #7c3aed;
-      font-size: 11px;
+    .cpk-td__genui-component {
+      margin-left: 6px;
+      font-size: 13px;
+      font-weight: 400;
+      overflow-wrap: anywhere;
+      min-width: 0;
+      line-height: inherit;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__genui-badge {
+      border-color: #49405f;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__tool-header {
+      background: transparent;
+    }
+    :host([data-color-scheme="dark"])
+      .cpk-td__tool-block:has(> .cpk-td__tool-header[aria-expanded="true"]) {
+      background: #191c24;
+      box-shadow: 0 0 0 1px oklch(1 0 0 / 0.12);
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-body,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-result {
+      border-top-color: #343742;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-name {
+      color: #f4f4f5;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-status {
+      color: #a1a1aa;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-status--pending {
+      color: #fbbf24;
     }
 
     /* ── AG-UI Events ────────────────────────────────────────────────── */
@@ -3495,9 +3837,6 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
     :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-block,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-header,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-body,
     :host([data-color-scheme="dark"]) .cpk-td__event,
     :host([data-color-scheme="dark"]) .cpk-td__event-payload,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-item,
@@ -3513,8 +3852,6 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
     :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
-    :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__event,
     :host([data-color-scheme="dark"]) .cpk-td__genui-card,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-item,
@@ -3524,14 +3861,8 @@ export class CpkThreadInspector extends PortableLitElement {
       background: #191c24;
     }
 
-    :host([data-color-scheme="dark"]) .cpk-td__timeline-header,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-body {
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-header {
       background: #171a22;
-    }
-
-    :host([data-color-scheme="dark"]) .cpk-td__tool-pre {
-      background: #111319;
-      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle:hover,
@@ -3667,13 +3998,34 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__tab--active,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-value,
     :host([data-color-scheme="dark"]) .cpk-td__tool-name,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-pre,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-title,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-tdp__value {
       color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__tool-status,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-section-label,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-identifier,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-group-header {
+      color: #aeb1bd;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-name--streaming {
+      color: transparent;
+      background-image: linear-gradient(
+        100deg,
+        #aeb1bd 35%,
+        #ffffff 50%,
+        #aeb1bd 65%
+      );
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :host([data-color-scheme="dark"]) .cpk-td__tool-name--streaming {
+        background: none;
+        color: #f3f4f8;
+      }
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__event-payload,
@@ -3698,8 +4050,8 @@ export class CpkThreadInspector extends PortableLitElement {
       this.resetLoadedThreadData();
 
       if (this.threadId) {
-        // Timeline is the default tab and should be event-derived. Fetch
-        // events eagerly; the raw tab reuses the same response when opened.
+        // Keep fetching events alongside messages so the timeline and raw
+        // events views reuse the same response when opened.
         // User messages often never appear as TEXT_MESSAGE events (they are
         // added locally before RUN_STARTED), so also load the conversation.
         void this.fetchMetadata(this.threadId);
@@ -3718,17 +4070,12 @@ export class CpkThreadInspector extends PortableLitElement {
       this.threadId &&
       this.liveMessageVersion !== this._lastSeenLiveMessageVersion
     ) {
-      // Same thread, but the parent inspector signalled new agent-emitted
-      // messages on this thread (via `liveMessageVersion`). Re-fetch the
-      // canonical conversation from the runtime so streaming output flows
-      // into the view without us reimplementing AG-UI → ConversationItem
-      // mapping in the parent. `silent: true` so the loading-state indicator
-      // doesn't flash between every streaming chunk and we keep the
-      // last-good view on transient fetch errors.
+      // Streaming chunks can arrive faster than a transcript can load.
+      // Keep one pending refresh instead of aborting and replacing every
+      // request: browser aborts need not cancel work already on the server.
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
-      this._messagesAbort?.abort();
-      this._messagesAbort = null;
-      void this.fetchMessages(this.threadId, true);
+      this._messagesRefreshPending = true;
+      this.scheduleMessagesRefresh();
     }
 
     const focusedContentChanged =
@@ -3753,7 +4100,9 @@ export class CpkThreadInspector extends PortableLitElement {
   private scrollToFocusedMessage(): void {
     if (!this.focusMessageId) return;
     const message = Array.from(
-      this.shadowRoot?.querySelectorAll<HTMLElement>("[data-message-id]") ?? [],
+      this.shadowRoot?.querySelectorAll<HTMLElement>(
+        `#${this.panelDomId(this._tab)}:not([hidden]) [data-message-id]`,
+      ) ?? [],
     ).find((candidate) => candidate.dataset.messageId === this.focusMessageId);
     if (!message) return;
     message.scrollIntoView?.({ block: "center" });
@@ -3814,12 +4163,18 @@ export class CpkThreadInspector extends PortableLitElement {
       this.threadId ?? "thread:none",
       CpkThreadInspector.providerLoadKey(this.provider),
       `runtime:${this.runtimeUrl}`,
-      `headers:${CpkThreadInspector.headersLoadKey(this.headers)}`,
+      `headersGen:${this.headersGeneration}`,
       `inspect:${this.threadInspectionAvailable ? "1" : "0"}`,
     ].join("||");
   }
 
   private resetLoadedThreadData(): void {
+    if (this._messagesRefreshTimer !== null) {
+      clearTimeout(this._messagesRefreshTimer);
+      this._messagesRefreshTimer = null;
+    }
+    this._messagesRefreshPending = false;
+    this._lastMessagesFetchAt = 0;
     this._tab = "timeline";
     this._activatedTabs = new Set(["timeline"]);
     this._panelTplCache = new Map();
@@ -3848,6 +4203,7 @@ export class CpkThreadInspector extends PortableLitElement {
     this._loadingEvents = false;
     this._loadingState = false;
     this._messagesError = null;
+    this._messageRefreshError = null;
     this._eventsError = null;
     this._stateError = null;
     this._fetchedMetadata = null;
@@ -3869,9 +4225,43 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedMetadata = metadata;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._fetchedMetadata = null;
     }
+  }
+
+  /** Coalesces live updates without overlapping requests or starving the final update. */
+  private scheduleMessagesRefresh(): void {
+    if (
+      !this._messagesRefreshPending ||
+      this._messagesRefreshTimer !== null ||
+      this._messagesAbort ||
+      !this.isConnected ||
+      !this.threadId ||
+      !this.canFetchMessages()
+    ) {
+      return;
+    }
+    const threadId = this.threadId;
+    const loadKey = this.currentLoadKey();
+    if (loadKey !== this._lastLoadKey) return;
+    const delay = Math.max(
+      0,
+      CpkThreadInspector.MESSAGE_REFRESH_INTERVAL_MS -
+        (Date.now() - this._lastMessagesFetchAt),
+    );
+    this._messagesRefreshTimer = setTimeout(() => {
+      this._messagesRefreshTimer = null;
+      if (
+        !this.isConnected ||
+        this.currentLoadKey() !== loadKey ||
+        this._lastLoadKey !== loadKey ||
+        this._messagesAbort
+      ) {
+        return;
+      }
+      void this.fetchMessages(threadId, true);
+    }, delay);
   }
 
   /**
@@ -3892,12 +4282,20 @@ export class CpkThreadInspector extends PortableLitElement {
       if (!silent) this._conversation = [];
       return;
     }
+    if (this._messagesRefreshTimer !== null) {
+      clearTimeout(this._messagesRefreshTimer);
+      this._messagesRefreshTimer = null;
+    }
+    this._messagesRefreshPending = false;
+    this._lastMessagesFetchAt = Date.now();
     this._messagesAbort?.abort();
     const controller = new AbortController();
+    const loadKey = this.currentLoadKey();
     this._messagesAbort = controller;
     if (!silent) {
       this._loadingMessages = true;
       this._messagesError = null;
+      this._messageRefreshError = null;
     }
     try {
       const messages = this.provider?.getMessages
@@ -3905,20 +4303,31 @@ export class CpkThreadInspector extends PortableLitElement {
             signal: controller.signal,
           })
         : await this.fetchRuntimeMessages(threadId, controller.signal);
-      if (controller.signal.aborted || this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.currentLoadKey() !== loadKey)
+        return;
       this._conversation = this.mapMessages(messages);
+      this._messagesError = null;
+      this._messageRefreshError = null;
     } catch (err) {
+      if (controller.signal.aborted || this.currentLoadKey() !== loadKey)
+        return;
       if (err instanceof Error && err.name === "AbortError") return;
-      if (!silent) {
+      if (!silent || this._conversation.length === 0) {
         this._messagesError =
           err instanceof Error ? err.message : "Failed to load messages";
         this._conversation = [];
+      } else {
+        this._messageRefreshError =
+          "Could not refresh messages. Showing the last loaded conversation.";
       }
-      // Silent mode: keep last-good conversation, don't surface the error.
-      // The next successful live re-fetch will recover automatically.
     } finally {
-      if (!silent && !controller.signal.aborted) {
-        this._loadingMessages = false;
+      // A stale provider may ignore abort and settle after a new source loads.
+      if (this._messagesAbort === controller) {
+        this._messagesAbort = null;
+        if (!controller.signal.aborted && this.currentLoadKey() === loadKey) {
+          this._loadingMessages = false;
+          this.scheduleMessagesRefresh();
+        }
       }
     }
   }
@@ -3956,7 +4365,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedEvents = mappedEvents;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._eventsError =
         err instanceof Error ? err.message : "Failed to load events";
       this._fetchedEvents = [];
@@ -3995,7 +4404,7 @@ export class CpkThreadInspector extends PortableLitElement {
       this._fetchedState = result.state ?? null;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      if (this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.threadId !== threadId) return;
       this._stateError =
         err instanceof Error ? err.message : "Failed to load state";
       this._fetchedState = null;
@@ -4006,12 +4415,24 @@ export class CpkThreadInspector extends PortableLitElement {
     }
   }
 
+  /**
+   * `resolveHeaders` when a host actually set it; otherwise the deprecated
+   * `headers` fallback. Never both — see the `headers` field's doc.
+   */
+  private ɵresolveInspectorHeaders():
+    | Record<string, string>
+    | Promise<Record<string, string>> {
+    return this.resolveHeaders === CpkThreadInspector.ɵdefaultResolveHeaders
+      ? this.headers
+      : this.resolveHeaders();
+  }
+
   private async fetchRuntimeMessages(
     threadId: string,
     signal: AbortSignal,
   ): Promise<ThreadDebuggerMessage[]> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "messages"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -4024,7 +4445,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeEventsFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "events"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (res.status === 501) {
@@ -4042,7 +4463,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeStateFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "state"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (res.status === 501) {
@@ -4102,6 +4523,7 @@ export class CpkThreadInspector extends PortableLitElement {
               toolCallId: tc.id,
               arguments: args,
               result: null,
+              hasResult: false,
               createdAt: "",
             };
             toolCallMap.set(tc.id, item);
@@ -4127,6 +4549,8 @@ export class CpkThreadInspector extends PortableLitElement {
       } else if (msg.role === "tool" && msg.toolCallId) {
         const tc = toolCallMap.get(msg.toolCallId);
         if (tc) {
+          tc.hasResult = true;
+          tc.resultUnreadable = false;
           try {
             tc.result = this.parseToolCallContent(msg.content);
           } catch (err) {
@@ -4137,6 +4561,7 @@ export class CpkThreadInspector extends PortableLitElement {
               "[CopilotKit Inspector] Failed to parse tool-call result content",
               { toolCallId: msg.toolCallId, raw: msg.content, error: err },
             );
+            tc.resultUnreadable = true;
             tc.result = { __parseError: true, __raw: msg.content ?? null };
           }
         }
@@ -4753,7 +5178,14 @@ export class CpkThreadInspector extends PortableLitElement {
             }
             ${this.renderPanelToggle()}
           </div>
-          ${this.renderMetadataStrip()}
+          <div class="cpk-td__thread-header">
+            ${
+              this.showThreadTitle
+                ? html`<div class="cpk-td__thread-title">${this.metadata?.name || this.thread?.name || "Rich Thread"}</div>`
+                : nothing
+            }
+            ${this._tab === "timeline" ? html`<div class="cpk-td__pinned-actions">${this.renderConversationActions()}</div>` : nothing}
+          </div>
 
           <!-- Scrollable content -->
           <div class="cpk-td__content">
@@ -4768,7 +5200,7 @@ export class CpkThreadInspector extends PortableLitElement {
               this._activatedTabs.has(tab.id)
                 ? html`<div
                     id=${this.panelDomId(tab.id)}
-                    class="cpk-td__panel"
+                    class="cpk-td__panel ${tab.id === "timeline" && !this._showEventTimeline && this._conversation.length > 0 ? "cpk-td__panel--conversation" : ""}"
                     role="tabpanel"
                     aria-labelledby=${this.tabDomId(tab.id)}
                     ?hidden=${this._tab !== tab.id || this._panelInitializing}
@@ -4806,61 +5238,6 @@ export class CpkThreadInspector extends PortableLitElement {
               : nothing
           }
           ${this.renderDetailPanel()}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderMetadataStrip() {
-    const metadata = this.metadata;
-    const pills: Array<{ label: string; value: string; wrap?: boolean }> = [
-      {
-        label: "Name",
-        value: metadata?.name ?? this.thread?.name ?? "Untitled",
-      },
-      { label: "ID", value: metadata?.id ?? this.threadId ?? "—" },
-    ];
-    for (const fact of [
-      { label: "Agent", value: metadata?.agentId },
-      { label: "Created", value: metadata?.createdAt },
-      { label: "Updated", value: metadata?.updatedAt },
-    ]) {
-      if (fact.value == null || fact.value === "") continue;
-      pills.push({
-        label: fact.label,
-        value:
-          fact.label === "Created" || fact.label === "Updated"
-            ? this.fmtTime(fact.value)
-            : fact.value,
-      });
-    }
-    return html`
-      <div
-        class="cpk-td__metadata-strip"
-        role="group"
-        aria-label="Thread metadata"
-      >
-        <div class="cpk-td__metadata-pills">
-          ${pills.map(
-            (pill) => html`
-              <span
-                class="cpk-td__metadata-pill ${
-                  pill.wrap ? "cpk-td__metadata-pill--wrap" : ""
-                }"
-                role="group"
-                title=${pill.value}
-                aria-label=${`${pill.label}: ${pill.value}`}
-              >
-                <span class="cpk-td__metadata-label">${pill.label}</span>
-                <span
-                  class="cpk-td__metadata-value ${
-                    pill.wrap ? "cpk-td__metadata-value--wrap" : ""
-                  }"
-                  >${pill.value}</span
-                >
-              </span>
-            `,
-          )}
         </div>
       </div>
     `;
@@ -4949,15 +5326,6 @@ export class CpkThreadInspector extends PortableLitElement {
     );
   };
 
-  private renderTimelineBulkControls() {
-    const bulk = this.renderTimelineBulkButtons();
-    const tryFromHere = this.renderTryFromHereControl();
-    if (bulk === nothing && tryFromHere === nothing) return nothing;
-    return html`<div class="cpk-td__timeline-toolbar">
-      ${bulk}${tryFromHere}
-    </div>`;
-  }
-
   private renderTimelineBulkButtons() {
     if (this._eventsNotAvailable) return nothing;
 
@@ -4969,26 +5337,14 @@ export class CpkThreadInspector extends PortableLitElement {
     const allExpanded = detailIds.every((id) =>
       this._expandedTimelineDetails.has(id),
     );
-    const allCollapsed = detailIds.every(
-      (id) => !this._expandedTimelineDetails.has(id),
-    );
 
     return html`
       <button
         type="button"
         class="cpk-td__timeline-bulk-toggle"
-        ?disabled=${allExpanded}
-        @click=${() => this.expandTimelineDetails(detailIds)}
+        @click=${() => (allExpanded ? this.collapseTimelineDetails(detailIds) : this.expandTimelineDetails(detailIds))}
       >
-        Expand all
-      </button>
-      <button
-        type="button"
-        class="cpk-td__timeline-bulk-toggle"
-        ?disabled=${allCollapsed}
-        @click=${() => this.collapseTimelineDetails(detailIds)}
-      >
-        Collapse all
+        ${allExpanded ? "Collapse all" : "Expand all"}
       </button>
     `;
   }
@@ -4998,26 +5354,14 @@ export class CpkThreadInspector extends PortableLitElement {
     if (eventIds.length <= 1) return nothing;
 
     const allExpanded = eventIds.every((id) => this._expandedRawEvents.has(id));
-    const allCollapsed = eventIds.every(
-      (id) => !this._expandedRawEvents.has(id),
-    );
 
     return html`<div class="cpk-td__timeline-toolbar">
       <button
         type="button"
         class="cpk-td__timeline-bulk-toggle"
-        ?disabled=${allExpanded}
-        @click=${() => this.expandRawEventDetails(eventIds)}
+        @click=${() => (allExpanded ? this.collapseRawEventDetails(eventIds) : this.expandRawEventDetails(eventIds))}
       >
-        Expand all
-      </button>
-      <button
-        type="button"
-        class="cpk-td__timeline-bulk-toggle"
-        ?disabled=${allCollapsed}
-        @click=${() => this.collapseRawEventDetails(eventIds)}
-      >
-        Collapse all
+        ${allExpanded ? "Collapse all" : "Expand all"}
       </button>
     </div>`;
   }
@@ -5032,10 +5376,6 @@ export class CpkThreadInspector extends PortableLitElement {
       );
       source?.scrollIntoView?.({ block: "center" });
     });
-  }
-
-  private withMessagesToolbar(content: unknown) {
-    return html`${this.renderTimelineBulkControls()}${content}`;
   }
 
   private renderTimeline() {
@@ -5238,19 +5578,106 @@ export class CpkThreadInspector extends PortableLitElement {
         </div>
       `;
     }
-    // Expand state is part of the cache key because clicking a tool-call
-    // header or the "Show more" button on a long message replaces
-    // `_expandedTools` / `_expandedMessages` without touching
-    // `_conversation` — without those keys the cache returns the
-    // pre-toggle template and the disclosure appears broken.
+    const items = this.renderItems;
+    const errors = this.conversationRunErrors(items);
+    const streamingTools = this.streamingToolCallIds();
+    // Event chunks must not rebuild a long conversation. Only the error rows
+    // and tool streaming transitions are relevant, not the full event list.
     return this.cachedPanelTpl(
       "timeline-fallback",
-      [this._conversation, this._expandedTools, this._expandedMessages],
+      [
+        this._conversation,
+        this._expandedTools,
+        this._expandedMessages,
+        JSON.stringify(errors),
+        JSON.stringify([...streamingTools]),
+        this._expandedTimelineDetails,
+      ],
       () => {
-        const items = this.renderItems;
-        return html`${items.map((item) => this.renderRenderItem(item))}`;
+        const errorsAfter = new Map<number, TimelineItem[]>();
+        for (const { after, item } of errors) {
+          const group = errorsAfter.get(after) ?? [];
+          group.push(item);
+          errorsAfter.set(after, group);
+        }
+        const renderErrors = (after: number) =>
+          errorsAfter.get(after)?.map((item) => this.renderTimelineItem(item));
+        return html`
+          ${renderErrors(-1)}
+          ${items.map((item, index) => html`${this.renderRenderItem(item, streamingTools)}${renderErrors(index)}`)}
+        `;
       },
     );
+  }
+
+  private streamingToolCallIds(): Set<string> {
+    const streaming = new Set<string>();
+    let currentThread = false;
+    // The parent's live event buffer is newest first. Scope by RUN_STARTED
+    // because this buffer is per agent and may contain other threads.
+    for (let i = this.agentEventsInput.length - 1; i >= 0; i--) {
+      const event = this.agentEventsInput[i]!;
+      const payload =
+        event.payload.event && typeof event.payload.event === "object"
+          ? (event.payload.event as Record<string, unknown>)
+          : event.payload;
+      if (event.type === "RUN_STARTED") {
+        streaming.clear();
+        currentThread = payload.threadId === this.threadId;
+      } else if (event.type === "RUN_FINISHED" || event.type === "RUN_ERROR") {
+        streaming.clear();
+        currentThread = false;
+      } else if (currentThread && typeof payload.toolCallId === "string") {
+        if (event.type === "TOOL_CALL_START") streaming.add(payload.toolCallId);
+        if (
+          event.type === "TOOL_CALL_END" ||
+          event.type === "TOOL_CALL_RESULT"
+        ) {
+          streaming.delete(payload.toolCallId);
+        }
+      }
+    }
+    return streaming;
+  }
+
+  private conversationRunErrors(items: RenderItem[]) {
+    const positions = new Map<string, number>();
+    items.forEach((item, index) => {
+      positions.set(item.id, index);
+      if (item.type === "tool_call_group") {
+        for (const tool of item.items) positions.set(tool.id, index);
+      }
+    });
+    const errors: Array<{ after: number; item: TimelineItem }> = [];
+    let after = -1;
+    let hasAnchor = false;
+    for (const event of this.activeEvents) {
+      const keys = event.type.startsWith("TOOL_CALL")
+        ? ["toolCallId", "tool_call_id", "callId", "id"]
+        : event.type.startsWith("TEXT_MESSAGE") ||
+            event.type.startsWith("ACTIVITY")
+          ? ["messageId", "message_id", "id"]
+          : [];
+      const id = keys
+        .map((key) => event.payload[key])
+        .find((value) => typeof value === "string");
+      const position = id == null ? undefined : positions.get(id);
+      if (position !== undefined) {
+        after = Math.max(after, position);
+        hasAnchor = true;
+      }
+      if (event.type === "RUN_ERROR" || event.type === "ERROR") {
+        for (const item of this.timelineItemsFromEvents([event])) {
+          errors.push({ after, item });
+        }
+      }
+    }
+    // Some runtimes supply errors without message events. Keep those visible
+    // after the saved conversation rather than pretending they happened first.
+    if (!hasAnchor) {
+      for (const error of errors) error.after = items.length - 1;
+    }
+    return errors;
   }
 
   /**
@@ -5289,15 +5716,15 @@ export class CpkThreadInspector extends PortableLitElement {
     return null;
   }
 
-  private renderRenderItem(item: RenderItem) {
+  private renderRenderItem(item: RenderItem, streamingTools: Set<string>) {
     switch (item.type) {
       case "user":
       case "assistant":
         return this.renderBubble(item);
       case "tool_call":
-        return this.renderToolBlock(item);
+        return this.renderToolBlock(item, streamingTools.has(item.toolCallId));
       case "tool_call_group":
-        return this.renderToolGroup(item);
+        return this.renderToolGroup(item, streamingTools);
       case "reasoning":
         return html`<div class="cpk-td__inline-chip">
           <span>Reasoned for ${item.duration}</span>
@@ -5330,6 +5757,8 @@ export class CpkThreadInspector extends PortableLitElement {
           isUser ? "cpk-td__bubble--user" : "cpk-td__bubble--assistant"
         }"
         data-message-id=${item.id}
+        role="group"
+        aria-label=${isUser ? "User message" : "Assistant message"}
       >
         <div
           class="cpk-td__bubble-inner ${
@@ -5338,7 +5767,7 @@ export class CpkThreadInspector extends PortableLitElement {
               : "cpk-td__bubble-inner--assistant"
           }"
         >
-          ${shown}
+          <div style="white-space:pre-wrap">${shown}</div>
           ${
             tooLong
               ? html`<span
@@ -5353,54 +5782,67 @@ export class CpkThreadInspector extends PortableLitElement {
     `;
   }
 
-  private renderToolBlock(item: ConversationToolCall) {
+  private renderToolBlock(item: ConversationToolCall, streaming = false) {
+    streaming = streaming && !item.hasResult;
+    const label = item.toolName
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/[_-]+/g, " ");
+    const readableName = label.charAt(0).toUpperCase() + label.slice(1);
     const expanded = this._expandedTools.has(item.id);
     return html`
       <div class="cpk-td__tool-block">
-        <div
+        <button
+          type="button"
           class="cpk-td__tool-header"
+          aria-expanded=${expanded}
           @click=${() => this.toggleToolExpand(item.id)}
         >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path
-              d="M1 9C1 9 2 7 5 7C8 7 9 9 9 9M5 1C5 1 7 2.5 7 4.5C7 6.5 5 7 5 7C5 7 3 6.5 3 4.5C3 2.5 5 1 5 1Z"
-              stroke="#087653"
-              stroke-width="1.2"
+              d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"
+              stroke="currentColor"
+              stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
             />
           </svg>
-          <span class="cpk-td__tool-name">${item.toolName}</span>
-          ${
-            item.result || Object.keys(item.arguments).length > 0
-              ? html`
-                  <span class="cpk-td__tool-status">DONE</span>
-                `
-              : html`
-                  <span class="cpk-td__tool-status cpk-td__tool-status--pending">PENDING</span>
-                `
-          }
-          <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
-        </div>
+          <span class="cpk-td__tool-copy">
+            <span class="cpk-td__tool-title">
+              <span class="cpk-td__tool-name ${streaming ? "cpk-td__tool-name--streaming" : ""}">${readableName}</span><code class="cpk-td__tool-identifier">(${item.toolName})</code>
+            </span>
+            <span class="cpk-td__tool-status ${item.resultUnreadable || (!item.hasResult && !streaming) ? "cpk-td__tool-status--pending" : ""}">${
+              streaming
+                ? "Receiving arguments"
+                : item.resultUnreadable
+                  ? "Result unreadable"
+                  : item.hasResult
+                    ? "Result received"
+                    : "No result recorded"
+            }</span>
+          </span>
+          <svg class="cpk-td__tool-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
         ${
           expanded
             ? html`
               <div class="cpk-td__tool-body">
-                <div class="cpk-td__tool-section-label">Arguments</div>
-                ${renderHighlightedJsonBlock(item.arguments)}
-                ${
-                  item.result
-                    ? html`
-                      <div
-                        class="cpk-td__tool-section-label"
-                        style="margin-top:8px"
-                      >
-                        Result
-                      </div>
+                <div class="cpk-td__tool-data">
+                  <section>
+                    <div class="cpk-td__tool-section-label">Arguments</div>
+                    ${renderHighlightedJsonBlock(item.arguments)}
+                  </section>
+                  ${
+                    item.hasResult
+                      ? html`
+                    <section class="cpk-td__tool-result">
+                      <div class="cpk-td__tool-section-label">Result</div>
                       ${renderHighlightedJsonBlock(item.result)}
-                    `
-                    : nothing
-                }
+                    </section>`
+                      : nothing
+                  }
+                </div>
               </div>
             `
             : nothing
@@ -5409,13 +5851,13 @@ export class CpkThreadInspector extends PortableLitElement {
     `;
   }
 
-  private renderToolGroup(group: ToolCallGroup) {
+  private renderToolGroup(group: ToolCallGroup, streamingTools: Set<string>) {
     return html`
       <div class="cpk-td__tool-group">
         <div class="cpk-td__tool-group-header">
           ${group.items.length} tool call${group.items.length !== 1 ? "s" : ""}
         </div>
-        ${group.items.map((tc) => this.renderToolBlock(tc))}
+        ${group.items.map((tc) => this.renderToolBlock(tc, streamingTools.has(tc.toolCallId)))}
       </div>
     `;
   }
@@ -5427,10 +5869,8 @@ export class CpkThreadInspector extends PortableLitElement {
           <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
           </svg>
-          Generative UI
-        </div>
-        <div class="cpk-td__genui-placeholder">
-          ${item.activityType} — rendered in chat
+          <span>Generative UI</span>
+          <code class="cpk-td__genui-component">${item.activityType}</code>
         </div>
       </div>
     `;
@@ -6443,11 +6883,23 @@ function defineElementOnce(
 export class WebInspectorElement extends LitElement {
   static properties = {
     core: { attribute: false },
+    notificationContext: { attribute: false },
     autoAttachCore: { type: Boolean, attribute: "auto-attach-core" },
     _capabilitiesVersion: { state: true },
   } as const;
 
   private _core: CopilotKitCore | null = null;
+  // Memoized so `<cpk-thread-details>`'s `.resolveHeaders=` binding gets a
+  // STABLE function reference across renders. A fresh closure every render
+  // (e.g. an inline arrow in the template) would look like a changed
+  // reactive property on every host update and force a full
+  // `CpkThreadInspector` update cycle each time, regardless of whether
+  // headers actually changed. Reads `this._core` at CALL time, so it always
+  // resolves against whichever core is currently attached.
+  private readonly resolveCoreHeaders = ():
+    | Record<string, string>
+    | Promise<Record<string, string>> =>
+    this._core ? resolveAttachedCoreHeaders(this._core) : {};
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
   private _memories: Memory[] = [];
@@ -6481,8 +6933,12 @@ export class WebInspectorElement extends LitElement {
   private learningPollTimer: ReturnType<typeof setTimeout> | null = null;
   private learningPollFailureCount = 0;
   private learningSetupMarker: LearningSetupMarker | null = null;
+  private learningSetupCopyRequest = 0;
   private learningSetupUnsubscribe: (() => void) | null = null;
   private learningPromptCopyState: "idle" | "copied" | "error" = "idle";
+  private learningPromptRecopyState: "idle" | "copied" | "error" = "idle";
+  private learningPromptRecopyTimer: ReturnType<typeof setTimeout> | null =
+    null;
   private learningViewedState: LearningViewState | null = null;
   // ── Semantic recall (B3) ──────────────────────────────────────────────
   // `null` = no recall run yet (section hidden). `[]` = ran, no matches.
@@ -6589,6 +7045,7 @@ export class WebInspectorElement extends LitElement {
   };
   private lastScrolledAgentNavigationLayout: string | null = null;
   private selectedThreadId: string | null = null;
+  private ephemeralThreadsSetupOpen = false;
   private inAppThreadId: string | null = null;
   private inAppAgentId: string | null = null;
   private inAppSource: "app" | "override" | null = null;
@@ -6600,7 +7057,8 @@ export class WebInspectorElement extends LitElement {
   private requestedThreadId: string | null = null;
   private focusedThreadMessageId: string | null = null;
   private threadFocusRequestId = 0;
-  private threadListWidth = 290;
+  private threadListWidth = 240;
+  private threadListCollapsed = false;
   private threadDividerResizing = false;
   private threadDividerPointerId = -1;
   private threadDividerStartX = 0;
@@ -6667,19 +7125,20 @@ export class WebInspectorElement extends LitElement {
     startW: number;
   } | null = null;
 
+  /** Host package identity and development gate, set before connecting the element. */
+  notificationContext: NotificationContext = { development: false };
+  private notificationFeed: NotificationFeed | null = null;
+  private notificationState = emptyNotificationState();
+  private notificationDocuments = new Map<string, string>();
+  private selectedNotificationId: string | null = null;
   private announcementHtml: string | null = null;
-  private announcementMarkdown: string | null = null;
-  private announcementTimestamp: string | null = null;
-  private announcementPreviewText: string | null = null;
-  // Forward-compat for an optional `cta_label` field on the announcement
-  // CDN payload (e.g. "Try threads", "New feature"). The current schema
-  // ({timestamp, previewText, announcement}) doesn't carry it, so this is
-  // null in production today; we read it defensively in fetchAnnouncement
-  // so a future CDN-side schema bump lights up `cta_label` on
-  // whats_new_clicked without an inspector release.
-  private announcementCtaLabel: string | null = null;
+  private announcementId: string | null = null;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
+  private hudFeed: HudFeed | null = null;
+  private hudFeedPromise: Promise<void> | null = null;
+  /** Launcher HUD copy and destinations: built-ins until a feed rule matches. */
+  private hudContent: HudContent = HUD_DEFAULT_CONTENT;
   private newsSignalArmed = false;
   /** Which signal's beat is in flight, or null between beats. */
   private pulsingSignal: LauncherSignalKey | null = null;
@@ -6752,8 +7211,15 @@ export class WebInspectorElement extends LitElement {
   private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
     null;
   private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
+  private viewedHudElement: HTMLElement | null = null;
+  // Set when a presentation starts. Taking over a playing intro keeps "intro".
+  private launcherHudTrigger: HudTrigger = "user";
+  private readonly viewedHudParts = new Set<string>();
+  // The runtime's telemetry opt-out is known only after /info resolves.
+  private pendingHudTelemetry: Array<() => void> = [];
   /** Host-wide deadline that suppresses both the Inspector and its launcher. */
   private inspectorDismissedUntil: number | null = null;
+  private lastReportedInspectorVisibility: boolean | null = null;
   private inspectorDismissalTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
@@ -6769,6 +7235,7 @@ export class WebInspectorElement extends LitElement {
   private viewedNewsSignalIds: Set<string> = new Set();
   private pendingNewsSignalViewed: {
     banner_id: string;
+    notification_id?: string;
     surface: "launcher";
     presentation: WhatsNewSignalPresentation;
     cta_label?: string;
@@ -6790,6 +7257,7 @@ export class WebInspectorElement extends LitElement {
   // before the first impression has flushed.
   private pendingBannerViewed: Array<{
     banner_id: string;
+    notification_id?: string;
     surface: WhatsNewSurface;
     cta_label?: string;
   }> = [];
@@ -6840,6 +7308,7 @@ export class WebInspectorElement extends LitElement {
     this.detachFromCore();
 
     const hadResolvedCore = this.hasResolvedCore;
+    this.ephemeralThreadsSetupOpen = false;
     this._core = value ?? null;
     if (this._core) {
       this.hasResolvedCore = true;
@@ -6943,7 +7412,7 @@ export class WebInspectorElement extends LitElement {
       },
       {
         key: "threads",
-        label: "Threads",
+        label: "Rich Threads",
         icon: "MessageSquare" as LucideIconName,
       },
       {
@@ -7135,6 +7604,7 @@ export class WebInspectorElement extends LitElement {
     if (
       this.selectedMenu !== "threads" ||
       this.settingsOpen ||
+      this.ephemeralThreadsSetupOpen ||
       !this.areThreadEndpointsAvailable()
     ) {
       return false;
@@ -7406,15 +7876,19 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
-    const runtimeFetch =
-      typeof core.ɵruntimeFetch === "function"
-        ? core.ɵruntimeFetch
-        : globalThis.fetch;
-    const store = ɵcreateThreadStore({ fetch: runtimeFetch });
+    // `ɵruntimeFetch` already resolves and overlays the current core headers
+    // at send time (#1937), so the context below must NOT also carry a
+    // `headers` snapshot — that would let a header the source no longer
+    // returns keep riding along. Only the defensive fallback for a core
+    // without `ɵruntimeFetch` needs a static snapshot here.
+    const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
+    const store = ɵcreateThreadStore({
+      fetch: hasRuntimeFetch ? core.ɵruntimeFetch : globalThis.fetch,
+    });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: { ...core.headers },
+      ...(hasRuntimeFetch ? {} : { headers: { ...core.headers } }),
       wsUrl: core.intelligence?.wsUrl,
       agentId,
     });
@@ -7470,18 +7944,24 @@ export class WebInspectorElement extends LitElement {
 
   // Keep inspector-owned thread stores in sync when the host updates headers
   // at runtime (e.g. a refreshed auth/CSRF token via core.setHeaders). Mirrors
-  // useThreads(), which re-dispatches the context whenever core.headers change,
-  // so the owned stores' /threads requests stay authorized.
+  // useThreads(), which re-dispatches the context whenever `onHeadersChanged`
+  // fires, so the owned stores' /threads requests stay authorized. The
+  // re-dispatched context omits `headers` (see `ensureOwnedThreadStore`) —
+  // `ɵruntimeFetch` resolves the current headers at send time, so this only
+  // needs to trigger the store's refetch, not carry a snapshot. A token
+  // rotation alone doesn't call `onHeadersChanged`/this method, so it doesn't
+  // trigger a refetch either.
   private updateOwnedThreadStoreHeaders(
     headers: Readonly<Record<string, string>>,
   ): void {
     if (!this.areThreadEndpointsAvailable()) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
+    const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
     for (const [agentId, store] of this._ownedThreadStores) {
       store.setContext({
         runtimeUrl: core.runtimeUrl,
-        headers: { ...headers },
+        ...(hasRuntimeFetch ? {} : { headers: { ...headers } }),
         wsUrl: core.intelligence?.wsUrl,
         agentId,
       });
@@ -7541,6 +8021,7 @@ export class WebInspectorElement extends LitElement {
       value,
       runtimeLicense,
     );
+    this.refreshNotifications();
   }
 
   private attachToCore(core: CopilotKitCore): void {
@@ -7571,7 +8052,7 @@ export class WebInspectorElement extends LitElement {
             maybeShowDisclosure();
           }
           this.flushPendingWhatsNewTelemetry();
-          if (this.isOpen && this.selectedMenu === "memories") {
+          if (this.isLearningStatusVisible()) {
             this.clearLearningSnapshot();
             void this.refreshLearningSnapshot({ preserve: false });
           }
@@ -7613,7 +8094,7 @@ export class WebInspectorElement extends LitElement {
               if (identity !== this.learningProjectIdentity) {
                 this.learningProjectIdentity = identity;
                 this.clearLearningSnapshot();
-                if (this.isOpen && this.selectedMenu === "memories") {
+                if (this.isLearningStatusVisible()) {
                   void this.refreshLearningSnapshot({ preserve: false });
                 }
               }
@@ -7851,6 +8332,15 @@ export class WebInspectorElement extends LitElement {
     return null;
   }
 
+  /** Whether a visible surface needs the current Learning connection status. */
+  private isLearningStatusVisible(): boolean {
+    return (
+      this.launcherHudOpen ||
+      (this.isOpen &&
+        (this.selectedMenu === "home" || this.selectedMenu === "memories"))
+    );
+  }
+
   private isLearningSetupActive(): boolean {
     const runtimeUrl = this.core?.runtimeUrl;
     if (!runtimeUrl) return false;
@@ -7999,8 +8489,11 @@ export class WebInspectorElement extends LitElement {
             this.learningSnapshot?.insightsPage.page ??
             1,
         },
+        // `ɵruntimeFetch` already resolves and overlays the current core
+        // headers at send time (#1937). Passing a separately resolved
+        // `headers` snapshot here would call the builder twice per request
+        // and could let a header the source no longer returns ride along.
         fetch: core.ɵruntimeFetch,
-        headers: core.headers,
         credentials: core.credentials,
         signal: controller.signal,
       });
@@ -8129,9 +8622,7 @@ export class WebInspectorElement extends LitElement {
     if (!clipboard?.writeText) return false;
     try {
       await clipboard.writeText(
-        homeFeatureImplementationPrompt(service, {
-          onboardingRunId,
-        }),
+        createFeatureOnboardingPrompt(service.id, onboardingRunId),
       );
       return true;
     } catch {
@@ -8139,25 +8630,58 @@ export class WebInspectorElement extends LitElement {
     }
   };
 
-  private handleLearningSetupCopy = async (event?: Event): Promise<void> => {
-    const service = this.getHomeFeaturePromptTarget("threads");
+  private handleLearningSetupCopy = async (
+    event?: Event,
+    recopy = false,
+  ): Promise<void> => {
+    // The Learning tile, not the Threads one. This pane borrowed the Threads
+    // target, so its button copied a Threads prompt and announced itself as
+    // "Threads setup prompt copied" under a Learning heading (OSS-1151).
+    //
+    // Learning does not need the Threads feature first. A runtime mounted
+    // `mode: "single-route"` serves no thread route at all and still binds
+    // Containers, because the binding happens server-side while a run starts;
+    // and `learningOn` reads the `memory` tile independently of `threadsOn`.
+    // `add-learning` inspects its own prerequisites and refuses through
+    // `feature/stop` when one is missing, which is why the route decides that
+    // rather than this pane.
+    const service = this.getHomeFeaturePromptTarget("memory");
     if (!service || !this.core?.runtimeUrl) return;
+    const request = ++this.learningSetupCopyRequest;
+    const runId = this.getOnboardingRunId();
     const copied = await this.copyFeaturePromptToClipboard(
       service,
       event,
-      this.getOnboardingRunId(),
+      runId,
     );
+    if (request !== this.learningSetupCopyRequest) return;
     if (!this.core.telemetryDisabled) {
       trackLearningSetupPromptClicked({
         outcome: copied ? "success" : "failure",
+        onboarding_run_id: runId,
       });
     }
     if (!copied) {
-      this.learningPromptCopyState = "error";
+      if (recopy) {
+        this.cancelLearningPromptRecopyReset();
+        this.learningPromptRecopyState = "error";
+      } else {
+        this.learningPromptCopyState = "error";
+      }
       this.requestUpdate();
       return;
     }
-    this.learningPromptCopyState = "copied";
+    if (recopy) {
+      this.cancelLearningPromptRecopyReset();
+      this.learningPromptRecopyState = "copied";
+      this.learningPromptRecopyTimer = setTimeout(() => {
+        this.learningPromptRecopyTimer = null;
+        this.learningPromptRecopyState = "idle";
+        this.requestUpdate();
+      }, LEARNING_RECOPY_CONFIRMATION_MS);
+    } else {
+      this.learningPromptCopyState = "copied";
+    }
     this.learningSetupMarker = writeLearningSetupMarker({
       runtimeUrl: this.core.runtimeUrl,
       agentId: this.getLearningAgentId(),
@@ -8166,6 +8690,25 @@ export class WebInspectorElement extends LitElement {
     this.persistState();
     this.requestUpdate();
     void this.refreshLearningSnapshot({ preserve: false });
+  };
+
+  private cancelLearningPromptRecopyReset(): void {
+    if (this.learningPromptRecopyTimer !== null) {
+      clearTimeout(this.learningPromptRecopyTimer);
+      this.learningPromptRecopyTimer = null;
+    }
+  }
+
+  private handleLearningGoBack = (): void => {
+    this.learningSetupCopyRequest += 1;
+    this.cancelLearningPromptRecopyReset();
+    clearLearningSetupMarker();
+    this.learningSetupMarker = null;
+    this.learningPromptCopyState = "idle";
+    this.learningPromptRecopyState = "idle";
+    this.cancelLearningPoll();
+    this.requestUpdate();
+    this.trackLearningViewState();
   };
 
   private handleLearningPage = (
@@ -8226,6 +8769,8 @@ export class WebInspectorElement extends LitElement {
     // activation re-subscribes (and re-evaluates SDK support) cleanly.
     this._memorySubscribed = false;
     this._memoryStoreUnsupported = false;
+    this.cancelLearningPromptRecopyReset();
+    this.learningPromptRecopyState = "idle";
     // Reset recall state and bump the sequence token so any in-flight recall
     // resolving after detach is ignored.
     this._recallSeq += 1;
@@ -8315,8 +8860,7 @@ export class WebInspectorElement extends LitElement {
     }
     if (
       previousLearningAgentId !== learningAgentId &&
-      this.isOpen &&
-      this.selectedMenu === "memories"
+      this.isLearningStatusVisible()
     ) {
       this.clearLearningSnapshot();
       void this.refreshLearningSnapshot({ preserve: false });
@@ -9382,7 +9926,7 @@ export class WebInspectorElement extends LitElement {
            is the button's sibling, can clear the mark by the same length. */
         --cpk-launcher-size: clamp(
           ${LAUNCHER_MIN_SIZE}px,
-          7vw,
+          calc(22px + 2.8vw),
           ${LAUNCHER_MAX_SIZE}px
         );
       }
@@ -9652,158 +10196,7 @@ export class WebInspectorElement extends LitElement {
         font-weight: 600 !important;
       }
 
-      .announcement-content {
-        color: #1f2230;
-        font-size: 13px;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        line-height: 1.55;
-      }
-
-      .announcement-content h1,
-      .announcement-content h2,
-      .announcement-content h3 {
-        color: #010507;
-        font-weight: 700;
-        line-height: 1.3;
-        margin: 0.9rem 0 0.4rem;
-      }
-      .announcement-content > h1:first-child,
-      .announcement-content > h2:first-child,
-      .announcement-content > h3:first-child {
-        margin-top: 0;
-      }
-
-      .announcement-content h1 {
-        font-size: 1.15rem;
-        letter-spacing: -0.01em;
-      }
-      .announcement-content h2 {
-        font-size: 1rem;
-      }
-      .announcement-content h3 {
-        font-size: 0.9rem;
-        text-transform: none;
-      }
-
-      .announcement-content p {
-        margin: 0.45rem 0;
-      }
-
-      .announcement-content strong {
-        color: #010507;
-        font-weight: 700;
-      }
-
-      .announcement-content ul {
-        list-style: disc;
-        padding-left: 1.25rem;
-        margin: 0.45rem 0;
-      }
-
-      .announcement-content ol {
-        list-style: decimal;
-        padding-left: 1.25rem;
-        margin: 0.45rem 0;
-      }
-
-      .announcement-content li + li {
-        margin-top: 0.15rem;
-      }
-
-      .announcement-content a {
-        color: #5558b2;
-        text-decoration: underline;
-      }
-
-      .announcement-content :not(pre) > code {
-        background: #f3f3f7;
-        border: 1px solid #e4e4ec;
-        border-radius: 5px;
-        padding: 1px 5px;
-        font-size: 0.85em;
-        color: #4a3a8a;
-      }
-
-      .announcement-code {
-        position: relative;
-        margin: 0.6rem 0;
-      }
-
-      .announcement-code pre {
-        background: #0f1117;
-        color: #e6e8f2;
-        border-radius: 10px;
-        padding: 10px 12px;
-        overflow-x: auto;
-        font-size: 12px;
-        line-height: 1.5;
-        white-space: pre;
-      }
-
-      .announcement-code pre code::after {
-        content: "";
-        display: inline-block;
-        width: 80px;
-      }
-
-      .announcement-code__copy-shield {
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        padding: 4px 4px 4px 24px;
-        border-top-right-radius: 10px;
-        background: linear-gradient(
-          to right,
-          rgba(15, 17, 23, 0) 0%,
-          rgba(15, 17, 23, 0.95) 40%,
-          #0f1117 100%
-        );
-        pointer-events: none;
-      }
-
-      .announcement-code pre code {
-        background: transparent;
-        border: none;
-        padding: 0;
-        color: inherit;
-        font-size: inherit;
-      }
-
-      .announcement-code pre::-webkit-scrollbar {
-        height: 6px;
-      }
-      .announcement-code pre::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .announcement-code pre::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 4px;
-      }
-
-      .announcement-code__copy {
-        position: relative;
-        pointer-events: auto;
-        padding: 3px 8px;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        font-size: 11px;
-        font-weight: 600;
-        color: #e6e8f2;
-        background: #1f222d;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 6px;
-        cursor: pointer;
-        transition:
-          background 0.12s ease,
-          color 0.12s ease;
-      }
-      .announcement-code__copy:hover {
-        background: #2a2e3c;
-      }
-      .announcement-code__copy[data-copied="true"] {
-        background: #eee6fe;
-        color: #6430ab;
-        border-color: transparent;
-      }
+      ${notificationArticleStyles}
 
       /* ── What's new ──────────────────────────────────────────────── */
       .whats-new {
@@ -10356,6 +10749,24 @@ export class WebInspectorElement extends LitElement {
         );
       }
 
+      /* With no news or setup actions, the dismissal is the whole HUD. */
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] {
+        --hud-dismiss-day-height: 36px;
+        width: max-content;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only][data-cpk-hud-vertical="top"] {
+        top: calc((var(--cpk-launcher-size) - var(--hud-dismiss-day-height)) / 2);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only][data-cpk-hud-vertical="bottom"] {
+        bottom: calc((var(--cpk-launcher-size) - var(--hud-dismiss-day-height)) / 2);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] .cpk-launcher-hud__card {
+        width: max-content;
+      }
+
       .cpk-launcher-hud__list {
         margin: 0;
         padding: 0;
@@ -10522,6 +10933,11 @@ export class WebInspectorElement extends LitElement {
           color 120ms ease;
       }
 
+      .cpk-launcher-hud[data-cpk-hud-dismiss-only] .cpk-launcher-hud__dismiss-day {
+        font-size: 11px;
+        white-space: nowrap;
+      }
+
       .cpk-launcher-hud__dismiss-day:hover,
       .cpk-launcher-hud__dismiss-day:focus-visible {
         border-color: var(--hud-accent);
@@ -10615,6 +11031,8 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud__label {
         min-width: 0;
+        /* Remote copy can be one long word; wrap it inside the row. */
+        overflow-wrap: anywhere;
       }
 
       .cpk-launcher-hud__feature-icon {
@@ -10740,8 +11158,8 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track {
-        border-color: var(--hud-accent);
-        background: color-mix(in srgb, var(--hud-accent) 76%, transparent);
+        border-color: #087653;
+        background: #087653;
       }
 
       .cpk-launcher-hud__toggle[data-enabled="true"]
@@ -10764,8 +11182,8 @@ export class WebInspectorElement extends LitElement {
       .cpk-launcher-hud[data-color-scheme="light"]
         .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track {
-        border-color: #6757b0;
-        background: #7563c7;
+        border-color: #087653;
+        background: #087653;
       }
 
       .cpk-launcher-hud[data-color-scheme="light"]
@@ -11309,6 +11727,7 @@ export class WebInspectorElement extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
+    this.notificationState = loadNotificationState();
     if (typeof window !== "undefined") {
       this.accountCtaMotionPaused = document.visibilityState !== "visible";
       this.threadsExampleOverviewVideoReducedMotion =
@@ -11347,10 +11766,7 @@ export class WebInspectorElement extends LitElement {
       this.refreshInspectorDismissalState();
       this.subscribeToSystemColorScheme();
       this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
-      // The superseded, origin-scoped read state is discarded rather than
-      // migrated: every existing user is re-armed exactly once so they
-      // discover the surface that replaced the announcement bubble. Deleting
-      // the key rather than leaving it means nothing can fall back to it.
+      // The pre-cookie key is obsolete; migrate the cookie and mirror after loading the feed.
       clearLegacyAnnouncementReadState();
       this.tryAutoAttachCore();
       if (!this.isInspectorDismissed) {
@@ -11510,7 +11926,8 @@ export class WebInspectorElement extends LitElement {
       : this.renderButton();
   }
 
-  protected willUpdate(): void {
+  protected willUpdate(changed: Map<string, unknown>): void {
+    if (changed.has("notificationContext")) this.refreshHudContent();
     // Before the render that paints the dot: every mutation of the underlying
     // connection / thread state already requests an update, so mirroring the
     // latches here keeps the resting dot in step with the state it reports.
@@ -11523,11 +11940,26 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
-  protected updated(): void {
+  protected updated(changed: Map<string, unknown>): void {
+    if (changed.has("notificationContext") || changed.has("core")) {
+      this.ensureAnnouncementLoading();
+      this.refreshNotifications();
+    }
+    // Host shortcuts follow actual Inspector visibility, including dismissals.
+    const visible = !this.isInspectorDismissed;
+    if (visible !== this.lastReportedInspectorVisibility) {
+      this.lastReportedInspectorVisibility = visible;
+      this.dispatchEvent(
+        new CustomEvent("cpk-inspector-visibility-change", {
+          detail: { visible },
+        }),
+      );
+    }
     this.syncInspectorPortal();
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
     this.maybeTrackNewsSignalViewed();
+    this.maybeTrackHudViews();
     // The pill's full width is only measurable once it has been laid out, and
     // the answer decides both the direction and the telemetry label below, so
     // this runs before the visibility event rather than after it.
@@ -11808,7 +12240,10 @@ export class WebInspectorElement extends LitElement {
   private scheduleInspectorDismissalExpiry(): void {
     this.clearInspectorDismissalTimer();
     if (this.inspectorDismissedUntil === null) return;
-    const delay = Math.max(0, this.inspectorDismissedUntil - Date.now() + 25);
+    const delay = Math.min(
+      MAX_TIMER_DELAY_MS,
+      Math.max(0, this.inspectorDismissedUntil - Date.now() + 25),
+    );
     this.inspectorDismissalTimer = setTimeout(() => {
       this.inspectorDismissalTimer = null;
       this.refreshInspectorDismissalState();
@@ -11845,7 +12280,8 @@ export class WebInspectorElement extends LitElement {
   private dismissInspectorFor(duration: InspectorDismissalDuration): void {
     const now = Date.now();
     const until = now + INSPECTOR_DISMISSAL_MS[duration];
-    saveInspectorDismissedUntil(until, now);
+    if (duration === "forever") saveInspectorDismissedForever(now);
+    else saveInspectorDismissedUntil(until, now);
     this.inspectorDismissedUntil = until;
     this.scheduleInspectorDismissalExpiry();
     this.settingsOpen = false;
@@ -11886,6 +12322,8 @@ export class WebInspectorElement extends LitElement {
       this.resolveLauncherHudSide();
       this.launcherHudIntro = true;
       this.launcherHudOpen = true;
+      this.launcherHudTrigger = "intro";
+      void this.refreshLearningSnapshot({ preserve: true });
       this.requestUpdate();
       this.launcherHudIntroEndTimer = setTimeout(() => {
         this.launcherHudIntroEndTimer = null;
@@ -11940,6 +12378,8 @@ export class WebInspectorElement extends LitElement {
     }
     if (this.launcherHudOpen) return;
     this.launcherHudOpen = true;
+    this.launcherHudTrigger = "user";
+    void this.refreshLearningSnapshot({ preserve: true });
     this.requestUpdate();
   }
 
@@ -11951,6 +12391,8 @@ export class WebInspectorElement extends LitElement {
     }
     if (!this.launcherHudOpen) return;
     this.launcherHudOpen = false;
+    this.viewedHudElement = null;
+    this.viewedHudParts.clear();
     this.requestUpdate();
   }
 
@@ -11998,14 +12440,95 @@ export class WebInspectorElement extends LitElement {
       ?.focus();
   };
 
+  private queueHudTelemetry(send: () => void): void {
+    if (this.core?.telemetryDisabled) return;
+    if (
+      this.runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected
+    ) {
+      send();
+    } else if (this.pendingHudTelemetry.length < MAX_PENDING_BANNER_VIEWED) {
+      this.pendingHudTelemetry.push(send);
+    }
+  }
+
+  private flushPendingHudTelemetry(): void {
+    if (this.core?.telemetryDisabled) {
+      this.pendingHudTelemetry = [];
+      return;
+    }
+    if (this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected)
+      return;
+    const queued = this.pendingHudTelemetry;
+    this.pendingHudTelemetry = [];
+    for (const send of queued) send();
+  }
+
+  private maybeTrackHudViews(): void {
+    const hud = this.activeRoot.querySelector<HTMLElement>(
+      "[data-cpk-launcher-hud]",
+    );
+    if (!hud) {
+      this.viewedHudElement = null;
+      this.viewedHudParts.clear();
+      return;
+    }
+    if (document.visibilityState !== "visible") return;
+    if (hud !== this.viewedHudElement) {
+      this.viewedHudElement = hud;
+      this.viewedHudParts.clear();
+    }
+    const once = (key: string, send: () => void): void => {
+      if (this.viewedHudParts.has(key)) return;
+      this.viewedHudParts.add(key);
+      this.queueHudTelemetry(send);
+    };
+    const trigger = this.launcherHudTrigger;
+    once("hud", () => trackHudViewed({ trigger }));
+    if (hud.querySelector("[data-cpk-hud-news]") && this.announcementId) {
+      const banner_id = this.announcementId;
+      once(`notification:${banner_id}`, () =>
+        trackHudNotificationViewed({
+          banner_id,
+          notification_id: banner_id,
+          trigger,
+        }),
+      );
+    }
+    for (const feature of ["threads", "learning"] as const) {
+      if (hud.querySelector(`[data-cpk-hud-toggle="${feature}"]`)) {
+        once(`toggle:${feature}`, () =>
+          trackHudFeatureToggleViewed({ feature, trigger }),
+        );
+      }
+    }
+    if (hud.querySelector('[data-cpk-dismiss-inspector="day"]')) {
+      once("hide", () => trackHudHideViewed({ trigger }));
+    }
+  }
+
   private handleHudActionClick = (
     event: Event,
     row: LauncherHudRowId,
+    control: "row" | "action" | "learn_more" | "toggle",
   ): void => {
     event.preventDefault();
     event.stopPropagation();
+    const trigger = this.launcherHudTrigger;
+    this.queueHudTelemetry(() =>
+      control === "toggle"
+        ? trackHudFeatureToggleClicked({ feature: row, trigger })
+        : trackHudFeatureClicked({ feature: row, control, trigger }),
+    );
+    const destination = this.hudContent[row].destination;
+    // A known screen can still be hidden (e.g. no frontend tools); opening it
+    // would silently keep the last screen, so use the built-in row instead.
     this.hudLandingMenu =
-      row === "threads" ? "threads" : row === "learning" ? "memories" : "home";
+      isInspectorMenuKey(destination) &&
+      this.menuItems.some((item) => item.key === destination)
+        ? destination
+        : row === "threads"
+          ? "threads"
+          : "memories";
     this.closeLauncherHud();
     this.openInspector("floating_button");
   };
@@ -12018,13 +12541,27 @@ export class WebInspectorElement extends LitElement {
     ) {
       return;
     }
-    this.handleHudActionClick(event, row);
+    this.handleHudActionClick(event, row, "row");
   };
 
   private handleHudNewsClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
+    const banner_id = this.announcementId;
+    if (banner_id) {
+      const trigger = this.launcherHudTrigger;
+      this.queueHudTelemetry(() =>
+        trackHudNotificationClicked({
+          banner_id,
+          notification_id: banner_id,
+          action: "open",
+          trigger,
+        }),
+      );
+    }
     this.hudLandingMenu = WHATS_NEW_MENU_KEY;
+    if (this.notificationState.activeId)
+      this.readNotification(this.notificationState.activeId);
     this.closeLauncherHud();
     this.openInspector("floating_button");
   };
@@ -12032,6 +12569,18 @@ export class WebInspectorElement extends LitElement {
   private handleHudNewsDismissClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
+    const banner_id = this.announcementId;
+    if (banner_id) {
+      const trigger = this.launcherHudTrigger;
+      this.queueHudTelemetry(() =>
+        trackHudNotificationClicked({
+          banner_id,
+          notification_id: banner_id,
+          action: "dismiss",
+          trigger,
+        }),
+      );
+    }
     this.clearNewsSignal();
     this.activeRoot
       .querySelector<HTMLButtonElement>(".console-button")
@@ -12042,12 +12591,17 @@ export class WebInspectorElement extends LitElement {
   private handleHudDismissDayClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
+    const trigger = this.launcherHudTrigger;
+    this.queueHudTelemetry(() => trackHudHideClicked({ trigger }));
     this.dismissInspectorFor("day");
   };
 
   private getUnreadAnnouncementTitle(): string | null {
     if (!this.newsSignalArmed || !this.announcementLoaded) return null;
-    const title = this.announcementPreviewText?.trim() || "New in CopilotKit";
+    const title =
+      this.notificationFeed?.notifications
+        .find((notice) => notice.id === this.notificationState.activeId)
+        ?.title.trim() || "New in CopilotKit";
     const titleCharacters = Array.from(title);
     return titleCharacters.length > HUD_ANNOUNCEMENT_TITLE_LIMIT
       ? `${titleCharacters
@@ -12059,12 +12613,14 @@ export class WebInspectorElement extends LitElement {
 
   private renderHudRow(args: {
     id: LauncherHudRowId;
-    label: string;
     icon: LucideIconName;
     connected?: boolean;
     introIndex: number;
-  }): TemplateResult {
+  }): TemplateResult | typeof nothing {
+    if (args.connected) return nothing;
     const detailId = `cpk-hud-detail-${args.id}`;
+    // Feed text is bound as text, never as markup.
+    const { label, description } = this.hudContent[args.id];
     return html`
       <li
         class="cpk-launcher-hud__row"
@@ -12082,9 +12638,9 @@ export class WebInspectorElement extends LitElement {
             type="button"
             class="cpk-launcher-hud__action"
             data-cpk-hud-action
-            aria-label=${`Open ${args.label} in Inspector`}
+            aria-label=${`Open ${label} in Inspector`}
             @click=${(event: Event) =>
-              this.handleHudActionClick(event, args.id)}
+              this.handleHudActionClick(event, args.id, "action")}
             @pointerdown=${(event: Event) => event.stopPropagation()}
           >
             <span
@@ -12093,13 +12649,13 @@ export class WebInspectorElement extends LitElement {
               aria-hidden="true"
               >${this.renderIcon(args.icon)}</span
             >
-            <span class="cpk-launcher-hud__label">${args.label}</span>
+            <span class="cpk-launcher-hud__label">${label}</span>
           </button>
           <span
             class="cpk-launcher-hud__tooltip"
             id=${detailId}
             role="tooltip"
-            >${HUD_LEARN_MORE_LABEL}</span
+            >${description}</span
           >
         </span>
         <span class="cpk-launcher-hud__controls">
@@ -12107,10 +12663,10 @@ export class WebInspectorElement extends LitElement {
             type="button"
             class="cpk-launcher-hud__learn-more"
             data-cpk-hud-learn-more=${args.id}
-            aria-label=${`Learn more about ${args.label}`}
+            aria-label=${`Learn more about ${label}`}
             aria-describedby=${detailId}
             @click=${(event: Event) =>
-              this.handleHudActionClick(event, args.id)}
+              this.handleHudActionClick(event, args.id, "learn_more")}
             @pointerdown=${(event: Event) => event.stopPropagation()}
           >
             ${this.renderIcon("CircleHelp")}
@@ -12122,12 +12678,12 @@ export class WebInspectorElement extends LitElement {
             data-enabled=${args.connected ? "true" : "false"}
             aria-label=${
               args.connected
-                ? `${args.label} is enabled`
-                : `Open ${args.label} in Inspector`
+                ? `${label} is enabled`
+                : `Open ${label} in Inspector`
             }
             ?disabled=${args.connected}
             @click=${(event: Event) =>
-              this.handleHudActionClick(event, args.id)}
+              this.handleHudActionClick(event, args.id, "toggle")}
             @pointerdown=${(event: Event) => event.stopPropagation()}
           >
             <span
@@ -12154,11 +12710,13 @@ export class WebInspectorElement extends LitElement {
     );
     const announcementTitle = this.getUnreadAnnouncementTitle();
     const featureBlockIntroIndex = announcementTitle ? 1 : 0;
+    const dismissOnly = !announcementTitle && threadsOn && learningOn;
     return html`
       <div
         class="cpk-launcher-hud"
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
+        ?data-cpk-hud-dismiss-only=${dismissOnly}
         data-cpk-hud-side=${this.launcherHudSide}
         data-cpk-hud-vertical=${this.contextState.button.anchor.vertical}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
@@ -12168,7 +12726,13 @@ export class WebInspectorElement extends LitElement {
           "--cpk-launcher-hud-waterfall-duration": `${LAUNCHER_HUD_INTRO_MS.waterfallDuration}ms`,
         })}
       >
-        <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+        ${
+          dismissOnly
+            ? nothing
+            : html`
+                <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+              `
+        }
         <div class="cpk-launcher-hud__card">
           ${
             announcementTitle
@@ -12213,37 +12777,46 @@ export class WebInspectorElement extends LitElement {
                 `
               : nothing
           }
-          <ul
-            class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
-            role="list"
-            style=${styleMap({
-              "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
-                featureBlockIntroIndex,
-              ),
-            })}
-          >
-            ${this.renderHudRow({
-              id: "threads",
-              label: HUD_THREADS_LABEL,
-              icon: "MessageSquare",
-              connected: threadsOn,
-              introIndex: featureBlockIntroIndex + 1,
-            })}
-            ${this.renderHudRow({
-              id: "learning",
-              label: HUD_LEARNING_LABEL,
-              icon: "Brain",
-              connected: learningOn,
-              introIndex: featureBlockIntroIndex + 2,
-            })}
-          </ul>
+          ${
+            threadsOn && learningOn
+              ? nothing
+              : html`
+                  <ul
+                    class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
+                    role="list"
+                    style=${styleMap({
+                      "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+                        featureBlockIntroIndex,
+                      ),
+                    })}
+                  >
+                    ${this.renderHudRow({
+                      id: "threads",
+                      icon: "MessageSquare",
+                      connected: threadsOn,
+                      introIndex: featureBlockIntroIndex + 1,
+                    })}
+                    ${this.renderHudRow({
+                      id: "learning",
+                      icon: "Brain",
+                      connected: learningOn,
+                      introIndex: featureBlockIntroIndex + (threadsOn ? 1 : 2),
+                    })}
+                  </ul>
+                `
+          }
           <button
             type="button"
             class="cpk-launcher-hud__dismiss-day"
             data-cpk-dismiss-inspector="day"
             style=${styleMap({
               "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
-                featureBlockIntroIndex + 3,
+                dismissOnly
+                  ? 0
+                  : featureBlockIntroIndex +
+                      Number(!threadsOn) +
+                      Number(!learningOn) +
+                      1,
               ),
             })}
             @click=${this.handleHudDismissDayClick}
@@ -12469,7 +13042,7 @@ export class WebInspectorElement extends LitElement {
         : "Intelligence is off";
       const setupLabel = renewing
         ? "Renew to restore access"
-        : "Set up Threads and Memory";
+        : "Connect Intelligence";
       return html`
         <a
           class="inspector-sidebar-status-card inspector-sidebar-intelligence inspector-sidebar-intelligence-setup"
@@ -12479,7 +13052,7 @@ export class WebInspectorElement extends LitElement {
           href=${action.url}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="${action.label} to enable Threads and Memory (opens in a new tab)"
+          aria-label="${action.label} to enable Rich Threads and Automatic Learning (opens in a new tab)"
           title=${action.label}
           style=${INTERACTIVE_FOCUS_BASE_STYLE}
           @click=${() => this.handleHomeHeroCta(action)}
@@ -12502,14 +13075,14 @@ export class WebInspectorElement extends LitElement {
       ? planLabel
         ? `${planLabel} plan`
         : "Connected"
-      : "Threads and Memory are off";
+      : "Rich Threads and Automatic Learning are off";
     const label = connected
       ? `${primaryLabel}, ${secondaryLabel}, Intelligence connected`
       : "Connect Intelligence";
     const actionLabel = action?.label;
     const description = connected
       ? `${secondaryLabel} · Intelligence connected`
-      : "Threads and Memory need Intelligence.";
+      : "Rich Threads and Automatic Learning need Intelligence.";
     return html`
       <section
         class="inspector-sidebar-status-card inspector-sidebar-intelligence"
@@ -12573,7 +13146,9 @@ export class WebInspectorElement extends LitElement {
     const sidebarBounds = sidebar.getBoundingClientRect();
     this.sidebarRailTooltip = {
       label,
-      top: targetBounds.top - sidebarBounds.top + targetBounds.height / 2,
+      top:
+        (targetBounds.top - sidebarBounds.top + targetBounds.height / 2) /
+        this.getWindowScale(),
     };
     this.requestUpdate();
   };
@@ -12595,6 +13170,9 @@ export class WebInspectorElement extends LitElement {
 
   private getHomeModel(): HomeModel {
     const lastRuntimeEvent = this.flattenedEvents[0];
+    const activeNotice = this.notificationFeed?.notifications.find(
+      (notice) => notice.id === this.notificationState.activeId,
+    );
     return buildHomeModel({
       intelligenceConnected: Boolean(this._core?.intelligence),
       threadsAvailable: this.areThreadEndpointsAvailable(),
@@ -12609,21 +13187,22 @@ export class WebInspectorElement extends LitElement {
             timestamp: lastRuntimeEvent.timestamp,
           }
         : undefined,
-      // `available` begins optimistic inside the lazy Memory store. Until the
-      // first capability probe has actually settled, showing Learning as on
-      // would be a false positive that corrects itself only after navigation.
-      memoriesOn:
-        this._memorySubscribed &&
-        !this._memoriesLoading &&
-        this._memoriesAvailable,
+      // A capability advertises the endpoint, not a configured Learning
+      // container. Use its successful snapshot for Home and launcher status.
+      learningOn:
+        this.learningSupported &&
+        this.learningError === null &&
+        this.learningSnapshot?.configuration.state === "configured",
       a2uiOn: this._core?.a2uiEnabled === true,
       openGenUiOn: this._core?.openGenerativeUIEnabled === true,
       suggestionsOn: this._core?.suggestions === true,
       audioOn: this._core?.audioFileTranscriptionEnabled === true,
       websocketUrl: this._core?.intelligence?.wsUrl,
-      announcementPreviewText: this.announcementPreviewText ?? undefined,
-      announcementMarkdown: this.announcementMarkdown ?? undefined,
-      announcementHtml: this.announcementHtml ?? undefined,
+      announcementPreviewText: activeNotice?.title,
+      announcementMarkdown: activeNotice?.body,
+      announcementHtml: activeNotice
+        ? this.notificationDocuments.get(activeNotice.id)
+        : undefined,
       intelligenceSignupUrl: this.getIntelligenceSignupUrl(),
     });
   }
@@ -12665,7 +13244,7 @@ export class WebInspectorElement extends LitElement {
           data-inspector-whats-new-preview
           aria-label="Open What's New"
           style=${INTERACTIVE_FOCUS_BASE_STYLE}
-          @click=${() => this.handleMenuSelect(WHATS_NEW_MENU_KEY)}
+          @click=${() => (this.notificationState.activeId ? this.readNotification(this.notificationState.activeId) : this.handleMenuSelect(WHATS_NEW_MENU_KEY))}
         >
           <span class="inspector-whats-new-preview-copy">
             <span class="inspector-whats-new-preview-title">
@@ -12683,59 +13262,113 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderWhatsNewView() {
-    const state = this.getWhatsNewState();
-    const news = this.getHomeModel().news;
-    const updatedAt = this.announcementTimestamp
-      ? new Date(this.announcementTimestamp)
-      : null;
-    const updatedLabel =
-      updatedAt && !Number.isNaN(updatedAt.getTime())
-        ? new Intl.DateTimeFormat(undefined, {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          }).format(updatedAt)
-        : null;
+    const notices =
+      this.notificationFeed?.notifications
+        .filter((n) => this.notificationState.eligibleIds.includes(n.id))
+        .sort(compareNotifications) ?? [];
+    const selected = notices.find((n) => n.id === this.selectedNotificationId);
+    const formatDate = (date: string) =>
+      new Date(date).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
     return html`
       <div
         class="inspector-home inspector-whats-new"
         data-inspector-whats-new
         data-cpk-whats-new
-        data-cpk-whats-new-state=${state}
+        data-cpk-whats-new-state=${this.getWhatsNewState()}
       >
-        <header class="inspector-whats-new-header">
-          <h1 class="inspector-home-title">What's New</h1>
-          ${
-            updatedLabel
-              ? html`
-                <p class="inspector-whats-new-updated">
-                  Updated
-                  <time datetime=${updatedAt?.toISOString()}
-                    >${updatedLabel}</time
-                  >
-                </p>
-              `
-              : nothing
-          }
-        </header>
         <section class="inspector-home-news" aria-label="CopilotKit updates">
           ${
-            news.empty || !news.documentHtml
+            selected
               ? html`
-                <article class="inspector-whats-new-empty">
-                  <h2 class="inspector-home-card-title">${news.title}</h2>
-                  <p class="inspector-home-card-copy">${news.previewText}</p>
-                </article>
-              `
-              : html`
+                <button
+                  type="button"
+                  class="inspector-whats-new-back"
+                  @click=${() => {
+                    this.selectedNotificationId = null;
+                    this.requestUpdate();
+                  }}
+                >
+                  <span aria-hidden="true"
+                    >${this.renderIcon("ArrowLeft")}</span
+                  >
+                  All updates
+                </button>
                 <article class="inspector-whats-new-document">
+                  <header class="inspector-whats-new-document-header">
+                    <h1>${selected.title}</h1>
+                    <time datetime=${selected.publishedAt}>
+                      ${formatDate(selected.publishedAt)}
+                    </time>
+                  </header>
                   <div
                     class="announcement-content"
                     @click=${this.handleAnnouncementContentClick}
                   >
-                    ${unsafeHTML(news.documentHtml)}
+                    ${unsafeHTML(
+                      this.notificationDocuments.get(selected.id) ?? "",
+                    )}
                   </div>
                 </article>
+              `
+              : html`
+                <header class="inspector-whats-new-header">
+                  <h1 class="inspector-home-title">What's New</h1>
+                </header>
+                ${
+                  notices.length
+                    ? html`
+                      <ul class="inspector-whats-new-list">
+                        ${notices.map((notice) => {
+                          const read = this.notificationState.readIds.includes(
+                            notice.id,
+                          );
+                          return html`
+                            <li>
+                              <button
+                                type="button"
+                                class="cpk-notification-row"
+                                data-notification-id=${notice.id}
+                                @click=${() => this.readNotification(notice.id)}
+                              >
+                                <span class="cpk-notification-copy">
+                                  <strong>${notice.title}</strong>
+                                  <span class="cpk-notification-meta">
+                                    <time datetime=${notice.publishedAt}
+                                      >${formatDate(notice.publishedAt)}</time
+                                    >
+                                    ${
+                                      read
+                                        ? nothing
+                                        : html`
+                                            <span class="cpk-notification-unread">Unread</span>
+                                          `
+                                    }
+                                  </span>
+                                </span>
+                                <span
+                                  class="cpk-notification-chevron"
+                                  aria-hidden="true"
+                                  >${this.renderIcon("ChevronRight")}</span
+                                >
+                              </button>
+                            </li>
+                          `;
+                        })}
+                      </ul>
+                    `
+                    : html`<p class="inspector-whats-new-empty" role="status">
+                      ${
+                        this.announcementLoaded ||
+                        !this.notificationContext.development
+                          ? "You're all caught up."
+                          : "Loading updates…"
+                      }
+                    </p>`
+                }
               `
           }
         </section>
@@ -13030,7 +13663,7 @@ export class WebInspectorElement extends LitElement {
           class="inspector-home-section-header inspector-system-health-header"
         >
           <div class="inspector-system-health-heading">
-            <h1 class="inspector-home-section-title">System Health</h1>
+            <h2 class="inspector-home-section-title">System Health</h2>
           </div>
           <span
             class="inspector-system-health-state"
@@ -13989,6 +14622,7 @@ export class WebInspectorElement extends LitElement {
     const isTransitioning = this.hasAttribute("data-transitioning");
     const disableDrag = isDocked || isPoppedOut;
 
+    const scale = this.getWindowScale();
     const windowStyles = isPoppedOut
       ? {
           position: "fixed",
@@ -14003,11 +14637,13 @@ export class WebInspectorElement extends LitElement {
       : isDocked
         ? { ...this.getDockedWindowStyles(), overflowX: "hidden" }
         : {
-            width: `${Math.round(windowState.size.width)}px`,
-            height: `${Math.round(windowState.size.height)}px`,
-            minWidth: `${MIN_WINDOW_WIDTH}px`,
-            minHeight: `${MIN_WINDOW_HEIGHT}px`,
+            // `size` is the on-screen size; zoom scales the layout box up to it.
+            width: `${Math.round(windowState.size.width / scale)}px`,
+            height: `${Math.round(windowState.size.height / scale)}px`,
+            minWidth: viewportCappedMin(MIN_WINDOW_WIDTH, "vw"),
+            minHeight: viewportCappedMin(MIN_WINDOW_HEIGHT, "vh"),
             overflowX: "hidden",
+            ...(scale < 1 ? { zoom: String(scale) } : {}),
           };
 
     const hasContextDropdown = this.contextOptions.some(
@@ -14020,7 +14656,7 @@ export class WebInspectorElement extends LitElement {
         : window.innerWidth;
     const automaticallyCollapsed = shouldUseIconRail({
       dockedLeft: this.dockMode === "docked-left",
-      width: viewportWidth,
+      width: viewportWidth / scale,
     });
     const iconRail = this.sidebarCollapsed || automaticallyCollapsed;
     const contextDropdown = hasContextDropdown
@@ -14663,9 +15299,12 @@ export class WebInspectorElement extends LitElement {
     const inspectorWindow =
       this.shadowRoot?.querySelector<HTMLElement>(".inspector-window");
     if (inspectorWindow) {
-      const width = Math.round(Number.parseFloat(inspectorWindow.style.width));
+      const scale = this.getWindowScale();
+      const width = Math.round(
+        Number.parseFloat(inspectorWindow.style.width) * scale,
+      );
       const height = Math.round(
-        Number.parseFloat(inspectorWindow.style.height),
+        Number.parseFloat(inspectorWindow.style.height) * scale,
       );
       if (Number.isFinite(width) && Number.isFinite(height)) {
         return { width, height };
@@ -15027,6 +15666,28 @@ export class WebInspectorElement extends LitElement {
     return { width: window.innerWidth, height: window.innerHeight };
   }
 
+  /**
+   * Zoom for the floating window: 1 while the viewport holds the default
+   * window, then proportional to the screen down to MIN_WINDOW_SCALE, so a
+   * small screen gets the same layout smaller rather than a cramped one.
+   */
+  private getWindowScale(): number {
+    if (
+      typeof window === "undefined" ||
+      this.isPoppedOut ||
+      this.dockMode !== "floating"
+    ) {
+      return 1;
+    }
+    const fit = Math.min(
+      window.innerWidth / (DEFAULT_WINDOW_SIZE.width + EDGE_MARGIN * 2),
+      window.innerHeight / (DEFAULT_WINDOW_SIZE.height + EDGE_MARGIN * 2),
+    );
+    // Whole 5% steps, so a viewport a few pixels short of the default window
+    // keeps the full-size window rather than a 0.99 zoom.
+    return Math.min(1, Math.max(MIN_WINDOW_SCALE, Math.round(fit * 20) / 20));
+  }
+
   private persistState(): void {
     const state: PersistedState = {
       button: {
@@ -15362,7 +16023,7 @@ export class WebInspectorElement extends LitElement {
     this.ensureAnnouncementLoading();
 
     this.isOpen = true;
-    if (this.selectedMenu === "memories") {
+    if (this.isLearningStatusVisible()) {
       void this.refreshLearningSnapshot({
         preserve: this.learningSnapshot !== null,
       });
@@ -15548,7 +16209,7 @@ export class WebInspectorElement extends LitElement {
         bottom: "0",
         width: `${Math.round(this.contextState.window.size.width)}px`,
         height: "auto",
-        minWidth: `${MIN_WINDOW_WIDTH_DOCKED_LEFT}px`,
+        minWidth: viewportCappedMin(MIN_WINDOW_WIDTH_DOCKED_LEFT, "vw"),
         borderRadius: "0",
       };
     }
@@ -15556,8 +16217,8 @@ export class WebInspectorElement extends LitElement {
     return {
       width: `${Math.round(this.contextState.window.size.width)}px`,
       height: `${Math.round(this.contextState.window.size.height)}px`,
-      minWidth: `${MIN_WINDOW_WIDTH}px`,
-      minHeight: `${MIN_WINDOW_HEIGHT}px`,
+      minWidth: viewportCappedMin(MIN_WINDOW_WIDTH, "vw"),
+      minHeight: viewportCappedMin(MIN_WINDOW_HEIGHT, "vh"),
     };
   }
 
@@ -16025,12 +16686,13 @@ export class WebInspectorElement extends LitElement {
     }
     const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
     const encodedThreadId = encodeURIComponent(thread.id);
+    const headers = { ...(await resolveAttachedCoreHeaders(core)) };
     const [messagesResponse, stateResponse] = await Promise.all([
       fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
-        headers: { ...core.headers },
+        headers,
       }),
       fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
-        headers: { ...core.headers },
+        headers,
       }),
     ]);
     if (!messagesResponse.ok) {
@@ -16956,7 +17618,7 @@ export class WebInspectorElement extends LitElement {
             </span>
             <div>
               <h2 id="inspector-settings-visibility-title">Visibility</h2>
-              <p>Temporarily hide the Inspector on this domain.</p>
+              <p>Hide the Inspector on this domain.</p>
             </div>
           </div>
 
@@ -16976,6 +17638,27 @@ export class WebInspectorElement extends LitElement {
             >
               <span aria-hidden="true">${this.renderIcon("Clock")}</span>
               Hide Inspector for one week
+            </button>
+          </div>
+
+          <div class="inspector-settings-visibility">
+            <div>
+              <h3>Hide the Inspector indefinitely</h3>
+              <p>
+                Keep the Inspector hidden on this domain until you bring it
+                back. To restore it, delete the
+                <code>cpk_inspector_dismissed_until</code> cookie and the
+                <code>cpk:inspector:dismissed_until</code> localStorage entry.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="inspector-settings-dismiss"
+              data-cpk-dismiss-inspector="forever"
+              @click=${() => this.dismissInspectorFor("forever")}
+            >
+              <span aria-hidden="true">${this.renderIcon("EyeOff")}</span>
+              Always hide Inspector
             </button>
           </div>
         </section>
@@ -17194,15 +17877,15 @@ export class WebInspectorElement extends LitElement {
     ) {
       return;
     }
-    const id = this.announcementTimestamp;
+    const id = this.announcementId;
     if (!id) return;
     const key = `${id}:${opts.cta}`;
     if (this.clickedBannerIds.has(key)) return;
     this.clickedBannerIds.add(key);
     trackWhatsNewClicked({
       banner_id: id,
+      notification_id: id,
       cta: opts.cta,
-      cta_label: this.announcementCtaLabel ?? undefined,
     });
   }
 
@@ -18245,34 +18928,6 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
-  private getThreadsLockedCopy(): {
-    heading: string;
-    description: string;
-  } {
-    switch (this.inspectorMetadataProjection.licenseState) {
-      case "valid":
-        return {
-          heading: "Finish setting up Rich Threads",
-          description:
-            "Copy this prompt into your coding agent to finish the setup.",
-        };
-      case "none":
-      case "unknown":
-        return {
-          heading:
-            "Production-grade chat threads without the complexity. Self hostable.",
-          description:
-            "Chat threads that go beyond text with generative UI and multimodal inputs, built to replay missed events and stay in sync across tabs, sessions, and devices.",
-        };
-      case "expired":
-        return {
-          heading: "Renew Intelligence to inspect Threads.",
-          description:
-            "Your Intelligence access has expired. Renew it to inspect saved thread history.",
-        };
-    }
-  }
-
   /**
    * Renders the realtime-connection indicator in the memory-store header.
    * Only `"connected"` shows the live (green-dot) state; `"connecting"` shows a
@@ -18330,7 +18985,7 @@ export class WebInspectorElement extends LitElement {
     if (state === "landing") {
       return this.renderLockedFeatureOverview({
         serviceId: "memory",
-        featureName: "Learning",
+        featureName: "Automatic Learning",
         heading: "Turn every interaction into reusable context.",
         description:
           "Learning captures durable information from agent interactions and brings it back when it matters, so your product gets more useful over time.",
@@ -18338,7 +18993,7 @@ export class WebInspectorElement extends LitElement {
         videoTitle: "CopilotKit Learning overview",
         outlineItems: LEARNING_LOCKED_FEATURE_OUTLINE,
         setupPrompt: {
-          serviceId: "threads",
+          serviceId: "memory",
           copyState: this.learningPromptCopyState,
           onClick: (event) => void this.handleLearningSetupCopy(event),
         },
@@ -18354,20 +19009,20 @@ export class WebInspectorElement extends LitElement {
         .snapshot=${this.learningSnapshot}
         .setupActive=${this.isLearningSetupActive()}
         .copyState=${this.learningPromptCopyState}
-        .setupPrompt=${
-          this.getHomeFeaturePromptTarget("threads")
-            ? homeFeatureImplementationPrompt(
-                this.getHomeFeaturePromptTarget("threads")!,
-                { onboardingRunId: this.getOnboardingRunId() },
-              )
-            : ""
-        }
+        .recopyState=${this.learningPromptRecopyState}
+        .setupPrompt=${createFeatureOnboardingPrompt(
+          "memory",
+          this.getOnboardingRunId(),
+        )}
         @learning-retry=${() =>
           this.refreshLearningSnapshot({
             preserve: this.learningSnapshot !== null,
           })}
         @learning-copy-setup=${(event: Event) =>
           this.handleLearningSetupCopy(event)}
+        @learning-recopy-setup=${(event: Event) =>
+          this.handleLearningSetupCopy(event, true)}
+        @learning-go-back=${this.handleLearningGoBack}
         @learning-page=${(event: CustomEvent) =>
           this.handleLearningPage(
             event as CustomEvent<{
@@ -18394,7 +19049,7 @@ export class WebInspectorElement extends LitElement {
         }}
         @learning-web-link=${(
           event: CustomEvent<{
-            category: "learning" | "runs" | "candidates";
+            category: "learning" | "runs" | "candidates" | "trajectory";
           }>,
         ) => {
           if (!this.core?.telemetryDisabled) {
@@ -18419,7 +19074,7 @@ export class WebInspectorElement extends LitElement {
     if (!learningEnabled) {
       return this.renderLockedFeatureOverview({
         serviceId: "memory",
-        featureName: "Learning",
+        featureName: "Automatic Learning",
         heading: this._memoryStoreUnsupported
           ? "Upgrade to enable Learning"
           : "Turn every interaction into reusable context.",
@@ -18700,23 +19355,49 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderThreadsView() {
-    const locked = !this.areThreadEndpointsAvailable();
-    if (locked) {
-      this.trackThreadsViewStateOnce("locked");
-      const lockedCopy = this.getThreadsLockedCopy();
-      return this.renderLockedFeatureOverview({
-        serviceId: "threads",
-        featureName: "Rich Threads",
-        heading: lockedCopy.heading,
-        description: lockedCopy.description,
-        videoUrl: THREADS_LOCKED_VIDEO_URL,
-        videoTitle: "Rich Threads overview",
-        outlineItems: THREADS_LOCKED_FEATURE_OUTLINE,
-      });
-    }
-
     const { displayThreads, threadsErrorMessage, threadsLoading } =
       this.getActiveThreadsState();
+    const ephemeral = !this._core?.intelligence;
+    const available = this.areThreadEndpointsAvailable();
+    const hasEphemeralThreads =
+      ephemeral && available && displayThreads.length > 0;
+    if (!ephemeral) this.ephemeralThreadsSetupOpen = false;
+    const locked =
+      !available ||
+      (ephemeral &&
+        displayThreads.length === 0 &&
+        !threadsLoading &&
+        !threadsErrorMessage);
+    if (locked || this.ephemeralThreadsSetupOpen) {
+      this.trackThreadsViewStateOnce("locked");
+      return html`
+        ${
+          hasEphemeralThreads
+            ? html`
+          <nav class="cpk-threads-setup-navigation" aria-label="Threads setup navigation">
+            <button type="button" class="cpk-threads-setup-back"
+              data-inspector-ephemeral-back
+              @click=${() => {
+                this.ephemeralThreadsSetupOpen = false;
+                this.requestUpdate();
+              }}>
+              <span aria-hidden="true">←</span> Back to your threads
+            </button>
+          </nav>
+        `
+            : nothing
+        }
+        ${this.renderLockedFeatureOverview({
+          serviceId: "threads",
+          featureName: "Rich Threads",
+          heading: THREADS_LOCKED_COPY.heading,
+          description: THREADS_LOCKED_COPY.description,
+          videoUrl: THREADS_LOCKED_VIDEO_URL,
+          videoTitle: "Rich Threads overview",
+          outlineItems: THREADS_LOCKED_FEATURE_OUTLINE,
+        })}`;
+    }
+
     const loadingWithoutRows =
       threadsLoading && !threadsErrorMessage && displayThreads.length === 0;
 
@@ -18756,13 +19437,39 @@ export class WebInspectorElement extends LitElement {
       <div
         style="display:flex;height:100%;overflow:hidden;flex-direction:column;"
       >
+        <div class="inspector-thread-heading"><strong>Rich Threads</strong><button type="button" class="inspector-text-button" aria-expanded=${!this.threadListCollapsed} @click=${() => {
+          this.threadListCollapsed = !this.threadListCollapsed;
+          this.requestUpdate();
+        }}>${this.threadListCollapsed ? "Show thread list" : "Hide thread list"}</button></div>
         <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
           <!-- Left sidebar: thread list -->
           <div
-            style="width:${
+            style="display:${this.threadListCollapsed ? "none" : "flex"};width:${
               this.threadListWidth
-            }px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+            }px;max-width:calc(100% - 160px);flex-shrink:0;overflow:hidden;flex-direction:column;border-right:1px solid #DBDBE5;"
           >
+        ${
+          ephemeral
+            ? html`
+          <button type="button" class="cpk-ephemeral-threads-banner"
+            data-inspector-ephemeral-banner data-inspector-ephemeral-upgrade
+            aria-label="Make threads permanent. Ephemeral history can disappear on restart."
+            @click=${() => {
+              this.ephemeralThreadsSetupOpen = true;
+              this.requestUpdate();
+            }}>
+            <span class="cpk-ephemeral-threads-icon" aria-hidden="true">${this.renderIcon("Clock")}</span>
+            <span class="cpk-ephemeral-threads-copy">
+              <span class="cpk-ephemeral-threads-headline">
+                <strong>Keep your threads.</strong>
+              </span>
+              <span class="cpk-ephemeral-threads-description">Ephemeral history can disappear on restart.</span>
+              <span class="cpk-ephemeral-threads-upgrade">Make them permanent <span aria-hidden="true">${this.renderIcon("ArrowRight")}</span></span>
+            </span>
+          </button>
+        `
+            : nothing
+        }
             <cpk-thread-list
               style="min-height:0;flex:1;"
               data-color-scheme=${this.colorScheme}
@@ -18849,7 +19556,10 @@ export class WebInspectorElement extends LitElement {
                             ? ""
                             : (this._core?.runtimeUrl ?? "")
                         }
-                        .headers=${this._core?.headers ?? {}}
+                        .resolveHeaders=${this.resolveCoreHeaders}
+                        .headersGeneration=${
+                          this._core?.ɵheadersGeneration ?? 0
+                        }
                         .threadInspectionAvailable=${
                           selectedThreadIsLocalExample ||
                           (this.areThreadEndpointsAvailable() &&
@@ -19870,6 +20580,7 @@ export class WebInspectorElement extends LitElement {
     }
 
     if (key === "home" && previousMenu !== "home") {
+      void this.refreshLearningSnapshot({ preserve: true });
       this.homeViewedThisOpen = false;
     }
 
@@ -19976,7 +20687,7 @@ export class WebInspectorElement extends LitElement {
       this.autoSelectLatestThread();
       if (this.selectedMenu === "playground") {
         this.startPlaygroundSession(false);
-      } else if (this.selectedMenu === "memories") {
+      } else if (this.isLearningStatusVisible()) {
         this.clearLearningSnapshot();
         void this.refreshLearningSnapshot({ preserve: false });
       }
@@ -21146,13 +21857,12 @@ export class WebInspectorElement extends LitElement {
   }
 
   private clearNewsSignal(): void {
-    if (!this.newsSignalArmed) return;
-    this.newsSignalArmed = false;
-    if (this.announcementTimestamp) {
-      saveAnnouncementReadTimestamp(this.announcementTimestamp);
-    }
-    this.retireSignal(NEWS_SIGNAL_ID);
-    this.requestUpdate();
+    if (!this.notificationState.activeId) return;
+    this.notificationState = acknowledgeNotification(
+      this.notificationState,
+      this.notificationState.activeId,
+    );
+    this.refreshNotifications();
   }
 
   // ── The beat ────────────────────────────────────────────────────────────
@@ -21217,8 +21927,8 @@ export class WebInspectorElement extends LitElement {
     // deferred beat unfired.
     if (isWiringErrorKey(key)) {
       this.errorBeatSpent = true;
-    } else if (this.announcementTimestamp && key === NEWS_SIGNAL_ID) {
-      saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
+    } else if (this.notificationState.activeId && key === NEWS_SIGNAL_ID) {
+      saveNotificationPulsedId(this.notificationState.activeId);
     }
     this.beginGestureTail(key);
     this.requestUpdate();
@@ -21632,18 +22342,21 @@ export class WebInspectorElement extends LitElement {
     ) {
       return;
     }
-    const id = this.announcementTimestamp;
+    const notice = this.notificationFeed?.notifications.find(
+      (n) => n.id === this.notificationState.activeId,
+    );
+    const id = notice?.id;
     if (!id || this.viewedNewsSignalIds.has(id)) return;
     this.viewedNewsSignalIds.add(id);
     this.pendingNewsSignalViewed = {
       banner_id: id,
+      notification_id: id,
       surface: "launcher",
       presentation:
         typeof window !== "undefined" &&
         window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
           ? "reduced_motion"
           : "animated",
-      cta_label: this.announcementCtaLabel ?? undefined,
     };
     this.flushPendingWhatsNewTelemetry();
   }
@@ -21669,7 +22382,9 @@ export class WebInspectorElement extends LitElement {
   private getVisibleBannerSurface(): WhatsNewSurface | null {
     if (!this.isOpen || this.settingsOpen) return null;
     if (this.selectedMenu !== WHATS_NEW_MENU_KEY) return null;
-    return this.announcementHtml ? "whats_new" : null;
+    return this.selectedNotificationId && this.announcementHtml
+      ? "whats_new"
+      : null;
   }
 
   /**
@@ -21689,7 +22404,6 @@ export class WebInspectorElement extends LitElement {
   private maybeCompleteWhatsNewView(): void {
     if (!this.getVisibleBannerSurface()) return;
     this.maybeTrackWhatsNewViewed();
-    this.clearNewsSignal();
   }
 
   /**
@@ -21697,7 +22411,7 @@ export class WebInspectorElement extends LitElement {
    * currently visible, once per announcement per surface.
    */
   private maybeTrackWhatsNewViewed(): void {
-    const id = this.announcementTimestamp;
+    const id = this.announcementId;
     if (!id) return;
     const surface = this.getVisibleBannerSurface();
     if (!surface) return;
@@ -21707,8 +22421,8 @@ export class WebInspectorElement extends LitElement {
     this.viewedBannerSurfaces.add(key);
     this.pendingBannerViewed.push({
       banner_id: id,
+      notification_id: id,
       surface,
-      cta_label: this.announcementCtaLabel ?? undefined,
     });
     this.flushPendingWhatsNewTelemetry();
   }
@@ -21716,6 +22430,7 @@ export class WebInspectorElement extends LitElement {
   // Releases held notification telemetry once /info has answered, or discards
   // it when the runtime reports telemetry disabled.
   private flushPendingWhatsNewTelemetry(): void {
+    this.flushPendingHudTelemetry();
     if (
       this.pendingBannerViewed.length === 0 &&
       !this.pendingNewsSignalViewed
@@ -21742,76 +22457,161 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
+  /** Start the development-only remote feeds; neither blocks rendering. */
   private ensureAnnouncementLoading(): void {
     if (
-      this.announcementPromise ||
+      this.isInspectorDismissed ||
+      !this.notificationContext.development ||
+      !this.isConnected ||
       typeof window === "undefined" ||
       typeof fetch === "undefined"
     ) {
       return;
     }
-    this.announcementPromise = this.fetchAnnouncement();
+    this.announcementPromise ??= this.fetchAnnouncement();
+    this.hudFeedPromise ??= this.fetchHudFeed();
+  }
+
+  private async fetchHudFeed(): Promise<void> {
+    this.hudFeed = await loadHudFeed();
+    this.refreshHudContent();
+    this.requestUpdate();
+  }
+
+  /** Overlay the matching feed rule on the built-in HUD content. */
+  private refreshHudContent(): void {
+    this.hudContent = resolveHudContent(
+      this.hudFeed,
+      this.notificationContext,
+      {
+        defaults: HUD_DEFAULT_CONTENT,
+        supportedDestinations: INSPECTOR_MENU_KEYS,
+      },
+    );
   }
 
   private async fetchAnnouncement(): Promise<void> {
     try {
-      const response = await fetch(ANNOUNCEMENT_URL, { cache: "no-cache" });
-      if (!response.ok) {
-        throw new Error(`Failed to load announcement (${response.status})`);
+      const feed = await loadNotificationFeed(this.notificationContext);
+      if (feed) {
+        const documents = await Promise.all(
+          feed.notifications.map(
+            async (notice) =>
+              [
+                notice.id,
+                (await this.convertMarkdownToHtml(notice.body)) ?? "",
+              ] as const,
+          ),
+        );
+        this.notificationDocuments = new Map(documents);
+        this.notificationFeed = feed;
       }
-
-      const data = (await response.json()) as {
-        timestamp?: unknown;
-        previewText?: unknown;
-        announcement?: unknown;
-        cta_label?: unknown;
-      };
-
-      const timestamp =
-        typeof data?.timestamp === "string" ? data.timestamp : null;
-      const previewText =
-        typeof data?.previewText === "string" ? data.previewText : null;
-      const markdown =
-        typeof data?.announcement === "string" ? data.announcement : null;
-      const ctaLabel =
-        typeof data?.cta_label === "string" ? data.cta_label : null;
-
-      if (!timestamp || !markdown) {
-        throw new Error("Malformed announcement payload");
-      }
-
-      this.announcementTimestamp = timestamp;
-      this.announcementPreviewText = previewText ?? "";
-      this.announcementMarkdown = markdown;
-      this.announcementCtaLabel = ctaLabel;
-      this.announcementHtml = await this.convertMarkdownToHtml(markdown);
-      this.announcementLoaded = true;
-
-      // The signal arms on a timestamp plus a body that actually renders —
-      // anything else would produce a dot that What's new can never clear,
-      // because clearing requires content. `previewText` does NOT gate it:
-      // that was defensible while the text was the bubble's headline, but it
-      // is now just the heading, and gating on it would mean an announcement
-      // without preview text produced no dot at all.
-      if (
-        this.announcementHtml &&
-        loadAnnouncementReadTimestamp() !== timestamp
-      ) {
-        this.armNewsSignal({
-          pulse: loadAnnouncementPulsedTimestamp() !== timestamp,
-        });
-      }
-
-      this.requestUpdate();
-    } catch (error) {
-      // Swallowing here would hide non-network failures (malformed JSON, the
-      // explicit "Malformed announcement payload" throw above, exceptions
-      // from `convertMarkdownToHtml`). At minimum, surface in the console so
-      // a stale announcement is debuggable.
-      console.warn("[CopilotKit Inspector] Failed to load announcement", error);
-      this.announcementLoaded = true;
-      this.requestUpdate();
+    } catch {
+      /* Notification failures cannot disrupt the host. */
     }
+    this.announcementLoaded = true;
+    this.refreshNotifications();
+    this.requestUpdate();
+  }
+
+  /** Resolve only confirmed runtime metadata; missing fields stay unknown. */
+  private getNotificationContext(): NotificationContext {
+    const base = this.notificationContext;
+    const core = this.core;
+    if (
+      !core ||
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected
+    )
+      return base;
+    const mode = core.runtimeMode;
+    const entitlement =
+      core.runtimeEntitlements?.status === "ready"
+        ? core.runtimeEntitlements.entitlement
+        : undefined;
+    return {
+      ...base,
+      intelligence:
+        mode === "intelligence"
+          ? "enabled"
+          : mode === "sse"
+            ? "disabled"
+            : undefined,
+      plan:
+        this.inspectorMetadataProjection.plan?.code ?? entitlement?.planCode,
+      deployment:
+        entitlement?.source === "managedOrgSubscription"
+          ? "managed"
+          : entitlement
+            ? "self-hosted"
+            : undefined,
+    };
+  }
+
+  private refreshNotifications(): void {
+    if (!this.notificationFeed) return;
+    this.notificationState = migrateAnnouncementReadState(
+      this.notificationState,
+      this.notificationFeed,
+    );
+    const previousActiveId = this.notificationState.activeId;
+    this.notificationState = reconcileNotifications(
+      this.notificationState,
+      this.notificationFeed,
+      this.getNotificationContext(),
+    );
+    saveNotificationState(this.notificationState);
+    if (
+      !this.notificationState.eligibleIds.includes(
+        this.selectedNotificationId ?? "",
+      )
+    )
+      this.selectedNotificationId = null;
+    const notice =
+      this.notificationFeed.notifications.find(
+        (n) =>
+          this.notificationState.eligibleIds.includes(n.id) &&
+          n.id ===
+            (this.selectedNotificationId ?? this.notificationState.activeId),
+      ) ??
+      this.notificationFeed.notifications
+        .filter((n) => this.notificationState.eligibleIds.includes(n.id))
+        .sort(compareNotifications)[0];
+    this.announcementId = notice?.id ?? null;
+    this.announcementHtml = notice
+      ? (this.notificationDocuments.get(notice.id) ?? null)
+      : null;
+    if (
+      this.notificationState.activeId &&
+      this.notificationState.eligibleIds.includes(
+        this.notificationState.activeId,
+      )
+    )
+      this.armNewsSignal({
+        pulse:
+          (previousActiveId !== this.notificationState.activeId ||
+            !this.newsSignalArmed) &&
+          !hasNotificationPulsed(
+            this.notificationState.activeId,
+            this.notificationFeed.notifications.find(
+              (n) => n.id === this.notificationState.activeId,
+            )!.publishedAt,
+          ),
+      });
+    else {
+      this.newsSignalArmed = false;
+      this.retireSignal(NEWS_SIGNAL_ID);
+    }
+    this.requestUpdate();
+  }
+
+  private readNotification(id: string): void {
+    this.selectedNotificationId = id;
+    this.notificationState = acknowledgeNotification(
+      this.notificationState,
+      id,
+    );
+    this.refreshNotifications();
+    this.handleMenuSelect(WHATS_NEW_MENU_KEY);
   }
 
   private async convertMarkdownToHtml(
@@ -21997,6 +22797,7 @@ export function defineWebInspector(
   defineElementOnce(registry, THREAD_INSPECTOR_TAG, CpkThreadInspector);
   defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);
   defineElementOnce(registry, "cpk-memory-list", CpkMemoryList);
+  defineElementOnce(registry, JSON_BLOCK_TAG, CpkJsonBlock);
   defineElementOnce(registry, WEB_INSPECTOR_TAG, WebInspectorElement);
 }
 
@@ -22008,8 +22809,10 @@ export function defineWebInspector(
 export function configureWebInspectorElement(
   inspector: WebInspectorElement,
   core: CopilotKitCore | null,
+  notificationContext: NotificationContext = { development: false },
 ): WebInspectorElement {
   inspector.autoAttachCore = false;
+  inspector.notificationContext = notificationContext;
   inspector.core = core;
   return inspector;
 }

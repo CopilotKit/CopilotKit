@@ -27,22 +27,15 @@ import { CopilotKit } from "@copilotkit/react-core";
 ## Properties
 
 <PropertyReference name="publicApiKey" type="string"  > 
-Your Copilot Cloud API key.
- 
-  Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
+Your CopilotKit public license key.
 </PropertyReference>
 
 <PropertyReference name="publicLicenseKey" type="string"  > 
 Your public license key for accessing CopilotKit Intelligence features.
- 
-  Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
 </PropertyReference>
 
 <PropertyReference name="guardrails_c" type="{ validTopics?: string[]; invalidTopics?: string[]; }"  > 
-Restrict input to specific topics using guardrails.
-  @remarks
- 
-  This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+@internal Defunct — retained for backward compatibility.
 </PropertyReference>
 
 <PropertyReference name="runtimeUrl" type="string"  > 
@@ -57,19 +50,47 @@ The endpoint for the Copilot transcribe audio service.
 The endpoint for the Copilot text to speech service.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)"  > 
+<PropertyReference name="headers" type="CopilotKitHeadersSource"  > 
 Additional headers to be sent with the request.
-  Can be a static object or a function that returns headers dynamically
-  (useful for refreshing auth tokens).
+  Can be a static object, a synchronous builder, or an async builder
+  (useful for refreshing auth tokens). Whichever form you use, it is
+  evaluated when each request is sent, not when this component renders.
  
   For example:
   ```tsx
   // Static headers
   headers={{ "Authorization": "Bearer X" }}
  
-  // Dynamic headers (re-evaluated on each render)
+  // Synchronous builder, evaluated at send time
   headers={() => ({ "Authorization": `Bearer ${getToken()}` })}
+ 
+  // Async builder, evaluated (and awaited) at send time
+  headers={async () => ({ "Authorization": `Bearer ${await getToken()}` })}
   ```
+ 
+  An async builder is only awaited on the request paths served by
+  `<CopilotKit>`'s v2 provider (agent runs, threads, the inspector, and
+  so on). The legacy v1 `CopilotTask` / GraphQL path (and anything else
+  that reads the internal `copilotApiConfig.headers` snapshot) never
+  awaits it: an async builder is called once, its result (and any
+  rejection) is discarded, and every read there gets an empty object
+  instead, with one console warning per provider instance in development.
+ 
+  Cache inside the builder. Clerk's and Auth0's `getToken()` already
+  cache. A builder that calls the network every time adds one call per
+  request.
+ 
+  If the builder throws or rejects, that request is not sent and
+  `onError` gets `header_resolution_failed`.
+ 
+  Passing the same builder again, or a new builder function, does not
+  reload anything, because the provider keeps one stable wrapper. On a
+  user switch, remount the provider (for example `key={userId}`) so
+  thread lists and Inspector metadata reload for the new user.
+ 
+  Core headers are also sent to any self-managed agent registered
+  directly with CopilotKit, including ones on other origins. Don't put a
+  bearer token in core headers if those agents point at a third party.
 </PropertyReference>
 
 <PropertyReference name="children" type="ReactNode" required > 
@@ -91,7 +112,7 @@ Custom properties to be sent with the request.
   }
   ```
  
-  Note: The `authorization` property is automatically forwarded to LangGraph agents. See the [LangGraph Agent Authentication Guide](/langgraph-python/auth) for details.
+  Note: The `authorization` property is automatically forwarded to LangGraph agents. See the [LangGraph Agent Authentication Guide](/auth) for details.
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials"  > 
@@ -128,10 +149,7 @@ The forwarded parameters to use for the task.
 </PropertyReference>
 
 <PropertyReference name="authConfig_c" type="{ SignInComponent: React.ComponentType<{ onSignInComplete: (authState: AuthState) => void; }>; }"  > 
-The auth config to use for the CopilotKit.
-  @remarks
- 
-  This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+@internal Defunct — retained for backward compatibility.
 </PropertyReference>
 
 <PropertyReference name="threadId" type="string"  > 
@@ -141,15 +159,11 @@ The thread id to use for the CopilotKit.
 <PropertyReference name="onError" type="CopilotErrorHandler"  > 
 Optional error handler for comprehensive debugging and observability.
  
-  Requires publicApiKey: Error handling only works when publicApiKey is provided.
-  This is a CopilotKit Intelligence feature.
- 
   @param errorEvent - Structured error event with rich debugging context
  
   @example
   ```typescript
   <CopilotKit
-    publicApiKey="ck_pub_your_key"
     onError={(errorEvent) => {
       debugDashboard.capture(errorEvent);
     }}
@@ -159,8 +173,9 @@ Optional error handler for comprehensive debugging and observability.
 
 <PropertyReference name="enableInspector" type="boolean"  > 
 Enable or disable the CopilotKit Inspector, letting you inspect AG-UI events,
-  view agent messages, check agent state, and visualize agent context. Defaults
-  to enabled.
+  view agent messages, check agent state, and visualize agent context. The
+  Inspector is enabled by default in development browser builds and is always
+  disabled in production and during server rendering.
 </PropertyReference>
 
 <PropertyReference name="debug" type="DebugConfig"  > 
@@ -177,3 +192,4 @@ Enable debug logging. On the server (`CopilotRuntime`), this enables
   </CopilotKit>
   ```
 </PropertyReference>
+

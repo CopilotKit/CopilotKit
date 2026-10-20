@@ -5,10 +5,13 @@ WORKDIR /app
 
 # Copy only what shell-dojo + scripts need
 COPY showcase/scripts/package.json ./scripts/package.json
+COPY showcase/scripts/package-lock.json ./scripts/package-lock.json
 COPY showcase/shell-dojo/package.json ./shell-dojo/package.json
+COPY showcase/shell-dojo/package-lock.json ./shell-dojo/package-lock.json
 
-# Install deps for both (standalone, no workspace)
-RUN cd scripts && npm install --silent && cd ../shell-dojo && npm install --silent
+# Use the committed standalone locks; fresh resolution can crash npm's peer resolver.
+RUN cd scripts && npm ci --no-audit --no-fund \
+    && cd ../shell-dojo && npm ci --no-audit --no-fund
 
 # Copy source
 COPY showcase/shared/ ./shared/
@@ -23,11 +26,18 @@ ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 # generate-registry.ts imports the catalog cross-join/flatten fold from
 # ../harness/src/shared/catalog/catalog-flatten.js. That file is ESM (relies on
 # the harness package.json's `"type": "module"`) and does `import yaml from
-# "js-yaml"`, resolved by walking up from the harness tree. Stage the fold + the
-# harness package.json for the ESM scope, then point harness/node_modules at the
-# already-installed scripts node_modules so js-yaml (+ its argparse dep) resolve
-# — no second install of the harness package.
-COPY showcase/harness/src/shared/catalog/ ./harness/src/shared/catalog/
+# "js-yaml"`, resolved by walking up from the harness tree. Stage the harness's
+# shared tree + the harness package.json for the ESM scope, then point
+# harness/node_modules at the already-installed scripts node_modules so js-yaml
+# (+ its argparse dep) resolve — no second install of the harness package.
+#
+# Copy the WHOLE `src/shared` tree, not just `catalog/`. This used to stage
+# `catalog/` alone, which held only as long as catalog-flatten.ts imported
+# nothing outside it; the moment Step 5 read `STARTER_CEILING` from
+# `../cell-model/cell-model.combine.js` the build died with
+# ERR_MODULE_NOT_FOUND at `generate-registry.ts`. A whole-tree copy means the
+# next shared-path import cannot reintroduce that.
+COPY showcase/harness/src/shared/ ./harness/src/shared/
 COPY showcase/harness/package.json ./harness/package.json
 RUN ln -s ../scripts/node_modules harness/node_modules
 

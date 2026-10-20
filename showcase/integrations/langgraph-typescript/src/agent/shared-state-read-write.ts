@@ -171,15 +171,15 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // @doc-replace
   const model = makeChatOpenAI(config, {
     temperature: 0,
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
     modelKwargs: { parallel_tool_calls: false },
   });
   // @doc-as
   // const model = new ChatOpenAI({
-  //     temperature: 0,
-  //     model: "gpt-4o-mini",
-  //     modelKwargs: { parallel_tool_calls: false },
-  //   });
+  //   temperature: 0,
+  //   model: "gpt-5-mini",
+  //   modelKwargs: { parallel_tool_calls: false },
+  // });
   // @doc-end
 
   const modelWithTools = model.bindTools!([

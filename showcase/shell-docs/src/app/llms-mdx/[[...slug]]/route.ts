@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import path from "path";
-import { AG_UI_CONTENT_DIR } from "@/lib/sitemap-helpers";
-import { loadDoc } from "@/lib/docs-render";
+import { docCandidateOrder, loadDoc } from "@/lib/docs-render";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import { resolveAngularDoc } from "@/lib/angular-doc-navigation";
 import {
@@ -24,7 +22,6 @@ import {
 import type { LlmPage } from "@/lib/llm-text";
 import { renderPageToLlmText } from "@/lib/llm-text";
 import { resolveReferencePage } from "@/lib/reference-items";
-import fs from "fs";
 import matter from "gray-matter";
 
 // Per-page raw-Markdown endpoint. The `next.config.ts` rewrites map
@@ -46,14 +43,20 @@ import matter from "gray-matter";
 //   - Frontmatter is stripped and replaced with an H1 + description
 //     blockquote so the title survives.
 //
+// TELEMETRY LIVES IN `src/middleware.ts`, NOT HERE. Every `<path>.md`
+// fetch is reported as `docs.llm_text_fetched`, with the caller
+// classified from its user agent. Middleware runs before the
+// `next.config.ts` rewrite that maps `.md`/`.mdx` onto this route, so
+// it sees the request under its public path; a second capture here
+// would count the same fetch twice.
+//
 // URL resolution mirrors what `app/[framework]/[[...slug]]/page.tsx` does:
 //   - Frontend-scoped URLs reuse the same `/<frontend>` content
 //     resolution as the live frontend pages.
 //   - When the first segment is a known integration slug, we try
 //     `integrations/<docsFolder>/<rest>.mdx` first (or root depending on
 //     docs_mode), so framework-scoped URLs resolve the correct MDX.
-//   - Otherwise we walk the bare slug, then fall back to `/reference/...`
-//     and `/ag-ui/...` content roots.
+//   - Otherwise we walk the bare slug, then fall back to `/reference/...`.
 
 export async function GET(
   _req: Request,
@@ -324,21 +327,6 @@ function resolvePage(slug: string[]): ResolvedPage | null {
     };
   }
 
-  // /ag-ui/<slug>.md → src/content/ag-ui/<slug>.mdx
-  if (first === "ag-ui") {
-    const agSlug = rest || "index";
-    const filePath = findExistingMdx(AG_UI_CONTENT_DIR, agSlug);
-    if (!filePath) return null;
-    return {
-      page: {
-        url,
-        title: agSlug,
-        filePath,
-        loadSlug: `__ag-ui__/${agSlug}`,
-      },
-    };
-  }
-
   // Framework-scoped URL: first segment is an integration slug.
   const frameworkSlugs = new Set(getIntegrations().map((i) => i.slug));
   if (frameworkSlugs.has(first)) {
@@ -382,14 +370,12 @@ function resolveFrameworkScopedPage(
   const rootSlugPath = tail;
   const frameworkSlugPath = `integrations/${docsFolder}/${tail}`;
 
-  // `authored` frameworks own their entire IA — try the per-framework
-  // tree first. `generated` is the inverse — root wins, framework
-  // tree is the override, except quickstart where the root file is
-  // only a routing shim and the page route prefers framework content.
-  const candidateOrder =
-    docsMode === "authored" || tail === "quickstart"
-      ? [frameworkSlugPath, rootSlugPath]
-      : [rootSlugPath, frameworkSlugPath];
+  // Shared with the page route (docCandidateOrder) so raw Markdown and the
+  // rendered page never disagree. This previously treated only `quickstart`
+  // as framework-wins; the page route also gives `threads-import` to the
+  // framework, so llms-mdx served root content for a URL the site renders
+  // from the framework tree.
+  const candidateOrder = docCandidateOrder(docsMode, docsFolder, tail);
   if (tail === "index") {
     candidateOrder.push(`integrations/${docsFolder}/quickstart`);
   }
@@ -408,34 +394,6 @@ function resolveFrameworkScopedPage(
       },
       framework,
     };
-  }
-  return null;
-}
-
-/**
- * Resolve `<root>/<slug>.mdx` or `<root>/<slug>/index.mdx` if present.
- * Returns null when neither exists. Constrained to `root` via
- * `path.resolve()` + prefix check to keep slug input from escaping the
- * content dir.
- */
-function findExistingMdx(root: string, slug: string): string | null {
-  const candidates = [
-    path.join(root, `${slug}.mdx`),
-    path.join(root, slug, "index.mdx"),
-  ];
-  const resolvedRoot = path.resolve(root);
-  for (const cand of candidates) {
-    const resolved = path.resolve(cand);
-    if (!resolved.startsWith(resolvedRoot + path.sep)) {
-      console.warn(
-        "[llms-mdx] rejecting candidate outside content root",
-        cand,
-        "root:",
-        root,
-      );
-      continue;
-    }
-    if (fs.existsSync(resolved)) return resolved;
   }
   return null;
 }

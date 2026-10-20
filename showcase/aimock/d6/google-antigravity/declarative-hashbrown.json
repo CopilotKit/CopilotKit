@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-antigravity / declarative-hashbrown. The tool-less AntigravityAgent replies with the renderer's JSON as plain assistant text.",
+    "created": "2026-09-30",
+    "copiedFrom": "strands",
+    "googleAntigravityStaging": "turnIndex 0: every probe and e2e test sends one pill on a fresh thread, and the answer is a single text turn."
+  },
+  "fixtures": [
+    {
+      "_comment": "Pill prompt from the page's suggestions.ts; the tool-less agent answers with the JSON text the assistant-message renderer parses. Content copied verbatim from strands.",
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "{\"ui\":[{\"metric\":{\"props\":{\"label\":\"Total Revenue\",\"value\":\"$2.4M\"}}},{\"metric\":{\"props\":{\"label\":\"New Customers\",\"value\":\"1,847\"}}},{\"pieChart\":{\"props\":{\"title\":\"Revenue by Segment\",\"data\":\"[{\\\"label\\\":\\\"Enterprise\\\",\\\"value\\\":1200000},{\\\"label\\\":\\\"Mid-Market\\\",\\\"value\\\":720000},{\\\"label\\\":\\\"SMB\\\",\\\"value\\\":480000}]\"}}},{\"barChart\":{\"props\":{\"title\":\"Monthly Revenue\",\"data\":\"[{\\\"label\\\":\\\"Oct\\\",\\\"value\\\":780000},{\\\"label\\\":\\\"Nov\\\",\\\"value\\\":810000},{\\\"label\\\":\\\"Dec\\\",\\\"value\\\":810000}]\"}}}]}"
+      }
+    },
+    {
+      "_comment": "Pill prompt from the page's suggestions.ts; the tool-less agent answers with the JSON text the assistant-message renderer parses. Content copied verbatim from strands.",
+      "match": {
+        "userMessage": "Break down Q4 revenue by product category as a pie chart. Include at least four segments with realistic sample values.",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "{\"ui\":[{\"metric\":{\"props\":{\"label\":\"Q4 Revenue\",\"value\":\"$2.4M\"}}},{\"pieChart\":{\"props\":{\"title\":\"Revenue by Product Category\",\"data\":\"[{\\\"label\\\":\\\"Platform\\\",\\\"value\\\":960000},{\\\"label\\\":\\\"Analytics\\\",\\\"value\\\":600000},{\\\"label\\\":\\\"Integrations\\\",\\\"value\\\":480000},{\\\"label\\\":\\\"Support\\\",\\\"value\\\":360000}]\"}}}]}"
+      }
+    },
+    {
+      "_comment": "Pill prompt from the page's suggestions.ts; the tool-less agent answers with the JSON text the assistant-message renderer parses. Content copied verbatim from strands.",
+      "match": {
+        "userMessage": "Show me monthly operating expenses for the last six months as a bar chart with one bar per month.",
+        "turnIndex": 0,
+        "context": "google-antigravity"
+      },
+      "response": {
+        "content": "{\"ui\":[{\"metric\":{\"props\":{\"label\":\"Avg Monthly OpEx\",\"value\":\"$612K\"}}},{\"barChart\":{\"props\":{\"title\":\"Monthly Operating Expenses\",\"data\":\"[{\\\"label\\\":\\\"Jul\\\",\\\"value\\\":580000},{\\\"label\\\":\\\"Aug\\\",\\\"value\\\":595000},{\\\"label\\\":\\\"Sep\\\",\\\"value\\\":610000},{\\\"label\\\":\\\"Oct\\\",\\\"value\\\":625000},{\\\"label\\\":\\\"Nov\\\",\\\"value\\\":630000},{\\\"label\\\":\\\"Dec\\\",\\\"value\\\":632000}]\"}}}]}"
+      }
+    }
+  ]
+}

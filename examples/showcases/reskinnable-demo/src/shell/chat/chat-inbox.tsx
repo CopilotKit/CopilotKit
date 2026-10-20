@@ -1,11 +1,18 @@
 "use client";
 
-import { Archive, PanelLeftClose, SquarePen, Trash2 } from "lucide-react";
+import {
+  Archive,
+  PanelLeftClose,
+  PanelRightClose,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
 import { useThreads } from "@copilotkit/react-core/v2";
 
 import { cn } from "@/lib/utils";
 import { useSkin } from "@/shell/skin-provider";
 import { useChatInbox } from "./chat-inbox-context";
+import { useThreadTitles } from "./thread-titles";
 
 const UNTITLED_LABEL = "New chat";
 const BUCKET_ORDER = [
@@ -47,7 +54,7 @@ export function ChatInbox({
   } = useChatInbox();
 
   const {
-    threads,
+    threads: allThreads,
     isLoading,
     archiveThread,
     deleteThread,
@@ -59,6 +66,24 @@ export function ChatInbox({
     includeArchived: showArchived,
     limit: 20,
   });
+
+  // Optional per-skin tidying (see `threadList` in the skin contract): hide
+  // threads from before the skin's last reset, and title unnamed threads from
+  // their first user message.
+  const hiddenBefore = skin.threadList?.useHiddenBefore?.() ?? null;
+  const threads =
+    hiddenBefore === null
+      ? allThreads
+      : allThreads.filter(
+          (t) =>
+            t.id === selectedThreadId ||
+            Date.parse(t.lastRunAt ?? t.updatedAt) >= hiddenBefore,
+        );
+  const derivedTitles = useThreadTitles(
+    threads,
+    skin.id,
+    skin.threadList?.titleFromFirstMessage === true,
+  );
 
   const handleArchive = (id: string) => {
     if (id === selectedThreadId) startNewConversation();
@@ -108,7 +133,11 @@ export function ChatInbox({
           onClick={closeInbox}
           className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[#5d5d5d] transition-colors hover:bg-[#ececec] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0d0d0d] dark:text-[#b4b4b4] dark:hover:bg-white/10 dark:focus-visible:ring-white"
         >
-          <PanelLeftClose className="h-[17px] w-[17px]" />
+          {skin.layoutDefaults?.inboxSide === "right" ? (
+            <PanelRightClose className="h-[17px] w-[17px]" />
+          ) : (
+            <PanelLeftClose className="h-[17px] w-[17px]" />
+          )}
         </button>
       </div>
       <div className="px-2 pb-1">
@@ -145,7 +174,8 @@ export function ChatInbox({
                 </p>
                 <div className="flex flex-col gap-0.5">
                   {grouped.get(bucket)!.map((thread) => {
-                    const title = thread.name ?? UNTITLED_LABEL;
+                    const named = thread.name ?? derivedTitles[thread.id];
+                    const title = named ?? UNTITLED_LABEL;
                     const selected = thread.id === selectedThreadId;
                     return (
                       <div
@@ -156,6 +186,7 @@ export function ChatInbox({
                         <button
                           type="button"
                           aria-current={selected ? "true" : undefined}
+                          title={named ? title : undefined}
                           onClick={() => selectConversation(thread.id)}
                           className={cn(
                             // pr-2, not a reserved 3.5rem gutter for the hover
@@ -177,8 +208,7 @@ export function ChatInbox({
                           <span
                             className={cn(
                               "truncate",
-                              !thread.name &&
-                                "text-[#6e6e6e] dark:text-[#9b9b9b]",
+                              !named && "text-[#6e6e6e] dark:text-[#9b9b9b]",
                             )}
                           >
                             {title}
