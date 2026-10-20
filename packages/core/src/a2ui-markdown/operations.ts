@@ -833,6 +833,7 @@ const INTERACTIVE_COMPONENTS = new Set([
   "RadioGroup",
   "Slider",
   "SegmentedControl",
+  "ChoicePicker",
   "DateTimeInput",
 ]);
 
@@ -852,15 +853,35 @@ function cellComponentId(value: unknown) {
 }
 
 /**
- * Ids a component renders directly: `child`, `children` (string ids, an
- * array, or a `{componentId}` template) and component cells of a Table's
- * `rows`/`columns`.
+ * More ids a component renders, beyond `child`, `children` and the table
+ * cells: the typed child references of its catalog, which can sit at any
+ * depth of its props (the `child` of each entry of `tabs`). The catalog
+ * knows them; the operations alone do not.
  */
-function directChildIds(component: Record<string, unknown>) {
+export type ChildIdsOf = (
+  component: Record<string, unknown>,
+) => string[] | "unknown";
+
+/** The options of the walks that follow child ids. */
+export interface ChildWalkOptions {
+  childIds?: ChildIdsOf;
+}
+
+/**
+ * Ids a component renders directly: `child`, `children` (string ids, an
+ * array, or a `{componentId}` template), component cells of a Table's
+ * `rows`/`columns`, and the ids that `extra` finds in its typed references.
+ */
+function directChildIds(
+  component: Record<string, unknown>,
+  extra?: ChildIdsOf,
+) {
   const ids: string[] = [];
   const add = (id: string | undefined) => {
     if (id) ids.push(id);
   };
+  const extraIds = extra?.(component);
+  if (Array.isArray(extraIds)) extraIds.forEach(add);
   add(referencedId(component.child));
   const children = component.children;
   if (Array.isArray(children)) children.forEach((c) => add(referencedId(c)));
@@ -893,15 +914,16 @@ function componentsById(operations: A2UIMarkdownOperation[]) {
 function descendantIds(
   rootId: string,
   byId: Map<string, Record<string, unknown>>,
+  extra?: ChildIdsOf,
 ) {
   const seen = new Set<string>();
-  const stack = [...directChildIds(byId.get(rootId) ?? {})];
+  const stack = [...directChildIds(byId.get(rootId) ?? {}, extra)];
   while (stack.length > 0) {
     const id = stack.pop()!;
     if (seen.has(id) || id === rootId) continue;
     seen.add(id);
     const c = byId.get(id);
-    if (c) stack.push(...directChildIds(c));
+    if (c) stack.push(...directChildIds(c, extra));
   }
   return seen;
 }
@@ -921,7 +943,10 @@ function descendantIds(
  * const keepsBox = interactive.has("quote-form");
  * ```
  */
-export function classifySurfaceCards(components: Record<string, unknown>[]) {
+export function classifySurfaceCards(
+  components: Record<string, unknown>[],
+  options: ChildWalkOptions = {},
+) {
   const byId = new Map<string, Record<string, unknown>>();
   for (const c of components) {
     if (isRecord(c) && typeof c.id === "string") byId.set(c.id, c);
@@ -929,7 +954,7 @@ export function classifySurfaceCards(components: Record<string, unknown>[]) {
   const interactive = new Set<string>();
   for (const [id, c] of byId) {
     if (c.component !== "Card") continue;
-    for (const d of descendantIds(id, byId)) {
+    for (const d of descendantIds(id, byId, options.childIds)) {
       const type = byId.get(d)?.component;
       if (typeof type === "string" && INTERACTIVE_COMPONENTS.has(type)) {
         interactive.add(id);
@@ -956,15 +981,20 @@ export function classifySurfaceCards(components: Record<string, unknown>[]) {
  * const operations = flattenInformationalCards(prepared.operations);
  * ```
  */
-export function flattenInformationalCards(operations: A2UIMarkdownOperation[]) {
+export function flattenInformationalCards(
+  operations: A2UIMarkdownOperation[],
+  options: ChildWalkOptions = {},
+) {
   const byId = componentsById(operations);
   if (![...byId.values()].some((c) => c.component === "Card")) {
     return operations;
   }
-  const interactive = classifySurfaceCards([...byId.values()]);
+  const interactive = classifySurfaceCards([...byId.values()], options);
   const insideInteractive = new Set<string>();
   for (const id of interactive) {
-    for (const d of descendantIds(id, byId)) insideInteractive.add(d);
+    for (const d of descendantIds(id, byId, options.childIds)) {
+      insideInteractive.add(d);
+    }
   }
   const flatten = (c: Record<string, unknown>) =>
     c.component === "Card" &&
@@ -1055,6 +1085,9 @@ function toProseItem(c: Record<string, unknown> | undefined) {
   if (c.component === "Divider") return { kind: "divider" as const };
   if (c.component === "Spacer") return { kind: "spacer" as const };
   if (c.component === "List") {
+    // A horizontal list is a layout, not a text list; a bound direction
+    // may be horizontal at render time.
+    if (c.direction !== undefined && c.direction !== "vertical") return null;
     const markdown = listToMarkdown(c);
     return markdown === null ? null : { kind: "text" as const, markdown };
   }
@@ -1118,13 +1151,15 @@ function isVerticalStack(
 }
 
 /** The child-id list of a stack (`children`, or a lone `child`), else null. */
+/**
+ * The children of a stack in render order: `child` first (a Card renders
+ * its `child` before its `children`), then `children`.
+ */
 function stackChildren(c: Record<string, unknown>) {
-  let children: unknown[] | null = null;
-  if (Array.isArray(c.children)) children = c.children;
-  else if (typeof c.child === "string" && c.children === undefined) {
-    children = [c.child];
-  }
-  return children;
+  const first = typeof c.child === "string" ? [c.child] : [];
+  if (Array.isArray(c.children)) return [...first, ...c.children];
+  if (first.length > 0 && c.children === undefined) return first;
+  return null;
 }
 
 /** A contiguous slice `[start, end)` of the stack's children. */
@@ -1202,7 +1237,10 @@ export type SurfaceSegment =
  * }
  * ```
  */
-export function segmentSurfaceProse(components: Record<string, unknown>[]) {
+export function segmentSurfaceProse(
+  components: Record<string, unknown>[],
+  options: ChildWalkOptions = {},
+) {
   const unchanged: SurfaceSegment[] = [{ kind: "surface", components }];
   const byId = new Map<string, Record<string, unknown>>();
   for (const c of components) {
@@ -1210,6 +1248,13 @@ export function segmentSurfaceProse(components: Record<string, unknown>[]) {
   }
   const root = byId.get(GENERATIVE_UI_ROOT_ID);
   if (!root) return unchanged;
+  // A component whose children are known only at render time (a bound
+  // list of tabs) could reference any component. The lift cannot tell
+  // which ones to keep, so it keeps the surface whole.
+  const hasUnknownChildren = components.some(
+    (c) => isRecord(c) && options.childIds?.(c) === "unknown",
+  );
+  if (hasUnknownChildren) return unchanged;
 
   const rootItem = toProseItem(root);
   if (rootItem?.kind === "text") {
@@ -1219,7 +1264,7 @@ export function segmentSurfaceProse(components: Record<string, unknown>[]) {
     return whole;
   }
 
-  const interactiveCards = classifySurfaceCards(components);
+  const interactiveCards = classifySurfaceCards(components, options);
   let stack = root;
   let stackId: string = GENERATIVE_UI_ROOT_ID;
   let children: unknown[];
@@ -1264,12 +1309,15 @@ export function segmentSurfaceProse(components: Record<string, unknown>[]) {
       if (list) list.push(index);
       else owners.set(id, [index]);
       const c = byId.get(id);
-      if (c) pending.push(...directChildIds(c));
+      if (c) pending.push(...directChildIds(c, options.childIds));
     }
   });
   const surfaceComponents = surfaceRuns.map((run) => {
+    // `child` is folded into `children` by stackChildren, so the copy must
+    // not render it a second time.
+    const { child: _child, ...stackRest } = stack;
     const nextRoot: Record<string, unknown> = {
-      ...stack,
+      ...stackRest,
       id: GENERATIVE_UI_ROOT_ID,
       children: stackChildIds.slice(run.start, run.end),
     };
