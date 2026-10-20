@@ -692,3 +692,38 @@ test("durable remove intent must succeed before the mutation is sent", async () 
   );
   assert.deepEqual(h.calls, []);
 });
+
+for (const boundary of ["authorize", "image"]) {
+  for (const changedField of ["active", "latest"]) {
+    test(`second recovery rejects ${changedField} competitor after inventory before ${boundary === "authorize" ? "setImage" : "deploy"}`, async () => {
+      const h = fixture();
+      const inventory = h.railway.handoffInventory;
+      let injected = false;
+      h.railway.handoffInventory = async () => {
+        const snapshot = await inventory();
+        if (!injected && h.calls.at(-1) === boundary) {
+          injected = true;
+          h.provider[changedField] = {
+            id: "competitor",
+            image: h.provider.configuredImage,
+            status: "SUCCESS",
+          };
+        }
+        return snapshot;
+      };
+      await assert.rejects(
+        deploySecondRecoveryRunner(h.options),
+        boundary === "authorize"
+          ? /Removed baseline configuration changed/
+          : /Candidate configuration unverified/,
+      );
+      assert.equal(injected, true);
+      assert.deepEqual(
+        h.calls,
+        boundary === "authorize"
+          ? ["remove", "authorize"]
+          : ["remove", "authorize", "image"],
+      );
+    });
+  }
+}

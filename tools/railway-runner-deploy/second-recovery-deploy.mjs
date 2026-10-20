@@ -316,11 +316,22 @@ export async function deploySecondRecoveryRunner({
       );
       await railway.setRecoveryAuthorization(authorization);
       await inventory(null, true);
-      await inspect();
+      const authorizedProvider = await inspect();
+      requireThat(
+        [baseline.image, candidate.image].includes(
+          authorizedProvider.configuredImage,
+        ) &&
+          authorizedProvider.latest?.id === baselineId &&
+          authorizedProvider.active === null,
+        "Removed baseline configuration changed",
+      );
       await railway.setImage(candidate.image);
       await inventory(null, true);
+      const candidateProvider = await inspect();
       requireThat(
-        (await inspect()).configuredImage === candidate.image,
+        candidateProvider.configuredImage === candidate.image &&
+          candidateProvider.latest?.id === baselineId &&
+          candidateProvider.active === null,
         "Candidate configuration unverified",
       );
       await save("candidate-requested");
