@@ -536,10 +536,12 @@ async function repeatedFixture(t) {
       v2.deploymentOperationBinding(operation),
     ),
     providerHandoff: {
+      version: 1,
+      method: "deploymentRemove",
       deploymentId: v2.repeatedCase.deploymentId,
       imageDigest: v2.repeatedCase.imageDigest,
       volumeInstanceId: v2.repeatedCase.volumeInstanceId,
-      deploymentStopped: true,
+      deploymentStatus: "REMOVED",
     },
   };
   await mkdir(join(f.config.controlDirectory, journal.runId));
@@ -644,9 +646,9 @@ test("second incident startup fences admission, preserves both watches and clean
 
 test("second incident rejects changed bindings and preserves lease on unsafe source", async (t) => {
   const f = await repeatedFixture(t);
-  f.secondAuthorization.providerHandoff.deploymentStopped = false;
+  f.secondAuthorization.providerHandoff.deploymentStatus = "STOPPED";
   await assert.rejects(f.prepareSecond());
-  f.secondAuthorization.providerHandoff.deploymentStopped = true;
+  f.secondAuthorization.providerHandoff.deploymentStatus = "REMOVED";
   const hash = f.secondAuthorization.originalWatchSha256;
   f.secondAuthorization.originalWatchSha256 = "0".repeat(64);
   await assert.rejects(f.prepareSecond());
@@ -797,4 +799,81 @@ test("second incident rejects corrupted original watch version without overwriti
   assert.deepEqual(await f.read("recovery.json"), first);
   assert.deepEqual(await f.read("recovery-v2.json"), second);
   assert.deepEqual(f.deleted, []);
+});
+
+for (const [field, value] of [
+  ["deploymentStatus", "STOPPING"],
+  ["deploymentStatus", "CANCELLED"],
+  ["deploymentStatus", null],
+  ["deploymentStatus", undefined],
+  ["version", 2],
+  ["method", "deploymentStop"],
+  ["deploymentId", "other-deployment"],
+  ["imageDigest", "sha256:" + "0".repeat(64)],
+  ["volumeInstanceId", "other-volume-instance"],
+])
+  test(`removed deployment handoff rejects ${field}=${value}`, async (t) => {
+    const f = await repeatedFixture(t);
+    f.secondAuthorization.providerHandoff[field] = value;
+    await assert.rejects(f.prepareSecond());
+    await assert.rejects(f.read("recovery-v2.json"), { code: "ENOENT" });
+    assert.equal(
+      (await f.read("control/active-run/lease.json")).runId,
+      f.secondJournal.runId,
+    );
+  });
+function legacyHandoff(value) {
+  const { deploymentId, imageDigest, volumeInstanceId } = value;
+  return {
+    deploymentId,
+    imageDigest,
+    volumeInstanceId,
+    deploymentStopped: true,
+  };
+}
+test("legacy stopped assertion cannot prepare or activate a new recovery", async (t) => {
+  const f = await repeatedFixture(t);
+  f.secondAuthorization.providerHandoff = legacyHandoff(
+    f.secondAuthorization.providerHandoff,
+  );
+  await assert.rejects(f.prepareSecond());
+  await assert.rejects(f.read("recovery-v2.json"), { code: "ENOENT" });
+});
+test("persisted legacy prepared handoff stays blocked without rewriting evidence", async (t) => {
+  const f = await repeatedFixture(t);
+  await f.prepareSecond();
+  const state = await f.read("recovery-v2.json");
+  state.authorization.providerHandoff = legacyHandoff(
+    state.authorization.providerHandoff,
+  );
+  await durableJson(join(f.root, "recovery-v2.json"), state);
+  const original = await readFile(join(f.root, "recovery-v2.json"), "utf8");
+  await assert.rejects(f.recoverSecond());
+  assert.equal(
+    await readFile(join(f.root, "recovery-v2.json"), "utf8"),
+    original,
+  );
+  assert.equal(
+    (await f.read("control/active-run/lease.json")).runId,
+    f.secondJournal.runId,
+  );
+});
+test("established legacy watch remains readable with its authorization unchanged", async (t) => {
+  const f = await repeatedFixture(t);
+  await f.prepareSecond();
+  await f.recoverSecond();
+  const state = await f.read("recovery-v2.json");
+  state.authorization.providerHandoff = legacyHandoff(
+    state.authorization.providerHandoff,
+  );
+  await durableJson(join(f.root, "recovery-v2.json"), state);
+  const original = structuredClone(state.authorization);
+  await f.watch();
+  assert.deepEqual((await f.read("recovery-v2.json")).authorization, original);
+  assert.deepEqual(
+    await f.read(`control/${f.secondJournal.runId}/journal.json`),
+    f.secondJournal,
+  );
+  await assert.rejects(f.prepareSecond());
+  assert.deepEqual((await f.read("recovery-v2.json")).authorization, original);
 });

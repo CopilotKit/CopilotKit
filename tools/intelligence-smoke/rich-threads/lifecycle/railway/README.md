@@ -329,13 +329,13 @@ No arbitrary message, path segment, extension value or response data is retained
 These records improve future diagnosis; they cannot recover discarded historical
 messages, establish provider finality, or change mutation outcome classification.
 
-### Second incident: stopped runner handoff
+### Second incident: removed runner deployment handoff
 
 The reviewed v2 authorization is limited to the October 19 failed fork request.
-The controller must stop the exact baseline deployment, verify
-`deploymentStopped`, exclude other running deployments, and preserve the permanent
-volume and attachment before installing the candidate. A Boolean in the runtime
-configuration is a controller attestation, not independent provider stop proof.
+The controller must remove the exact baseline deployment, verify its scoped
+`REMOVED` readback, exclude competing non-removed deployments, and preserve the
+permanent volume and attachment before installing the candidate. The versioned
+controller attestation must be backed by persisted provider observations.
 Startup additionally checks dead process owners, retained configuration and build
 identities before writing a second snapshot in `recovery-v2.json` and a closed
 admission fence. The original `recovery.json` continues owning its first watch.
@@ -349,7 +349,17 @@ These omit mutable observations, not ownership or original journal identity.
 `leaseSha256` still hashes the full lease. The second decision reference is
 `ran-2026-10-19-second-incident-recovery`, with the original bounded CLI retry
 policy text. `providerHandoff` binds the old deployment, image digest, attachment
-and verified stopped flag. Full immutable snapshots and their hashes are retained
+and a versioned removal attestation: `providerHandoff.version: 1`,
+`method: deploymentRemove`, and `deploymentStatus: REMOVED`. The controller must
+persist the exact deployment/image/status readback and unchanged retained-volume
+proof before issuing this authorization. A stop response or `deploymentStopped`
+flag is not a substitute. The runtime validates this reviewed controller
+attestation; it does not independently query deployment termination.
+
+Fresh or merely prepared legacy stop-based handoffs fail closed. Already established
+legacy watches remain readable with their authorization bytes unchanged; they
+are not upgraded or rewritten. The first incident watch is unchanged.
+Full immutable snapshots and their hashes are retained
 separately at startup; interruptions replay the same checkpoint before recovery.
 
 The existing recover and resume endpoints remain separate. Deployment recovery

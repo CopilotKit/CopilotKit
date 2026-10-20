@@ -93,7 +93,7 @@ export function deploymentOperationBinding(value) {
   );
 }
 
-function validateAuth(auth, config) {
+function validateAuth(auth, config, { legacyWatching = false } = {}) {
   assert.equal(auth.version, 2);
   assert.equal(auth.kind, "bounded-environment-retry");
   assert.match(auth.operationId, /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/);
@@ -138,12 +138,28 @@ function validateAuth(auth, config) {
     "deploymentOperationSha256",
   ])
     assert.match(auth[key], /^[a-f0-9]{64}$/);
-  assert.deepEqual(auth.providerHandoff, {
+  const scope = {
     deploymentId: repeatedCase.deploymentId,
     imageDigest: repeatedCase.imageDigest,
     volumeInstanceId: repeatedCase.volumeInstanceId,
-    deploymentStopped: true,
-  });
+  };
+  // Existing established watches retain their historical authorization bytes.
+  // A legacy stopped assertion cannot admit a fresh or merely prepared handoff.
+  if (
+    legacyWatching &&
+    Object.hasOwn(auth.providerHandoff, "deploymentStopped")
+  )
+    assert.deepEqual(auth.providerHandoff, {
+      ...scope,
+      deploymentStopped: true,
+    });
+  else
+    assert.deepEqual(auth.providerHandoff, {
+      version: 1,
+      method: "deploymentRemove",
+      ...scope,
+      deploymentStatus: "REMOVED",
+    });
   assert.equal(
     auth.decision.reference,
     "ran-2026-10-19-second-incident-recovery",
@@ -203,7 +219,9 @@ async function validated(root, config, state) {
     1,
     "Invalid original watch snapshot version",
   );
-  validateAuth(state.authorization, config);
+  validateAuth(state.authorization, config, {
+    legacyWatching: state.status === "watching",
+  });
   validateJournal(state.originalJournal, state.authorization);
   assert.equal(templateDigest(state.originalJournal), state.oldJournalSha256);
   assert.equal(
@@ -247,7 +265,7 @@ async function validated(root, config, state) {
   assert.ok(["prepared", "watching"].includes(state.status));
   return first;
 }
-/** Reviewed stopped-provider handoff. No live mutation or provider-finality inference. */
+/** Reviewed removed-deployment handoff. No live mutation or create-finality inference. */
 export async function prepareRepeatedRecovery(
   { root, config, runtimeIdentity, metadata, operation, authorization },
   dependencies = {},
@@ -255,7 +273,9 @@ export async function prepareRepeatedRecovery(
   await authority(config.controlDirectory);
   let state = await optionalMetadata(statePath(root));
   authorization ??= state?.authorization;
-  validateAuth(authorization, config);
+  validateAuth(authorization, config, {
+    legacyWatching: state?.status === "watching",
+  });
   assert.ok(sameIdentity(runtimeIdentity, authorization.targetIdentity));
   const initialized = await optionalMetadata(join(root, "initialized.json"));
   assert.equal(initialized?.serviceId, config.permanentRunner.serviceId);
