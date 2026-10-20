@@ -12,7 +12,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## Add Intelligence to your existing app
 
-Give users reconnection, catch-up, and delivery across devices around your Strands agent. Follow the [Intelligence quickstart](/intelligence/quickstart) to connect your existing CopilotKit app and Runtime, then verify that a new conversation is saved. This enables AG-UI streams for runs through CopilotKit; no historical import is required.
+Give users reconnection, catch-up, and delivery across devices around your Strands agent. Follow the [Intelligence quickstart](/intelligence/quickstart) to connect your existing CopilotKit app and runtime, then verify that a new conversation is saved. This enables AG-UI streams for runs through CopilotKit; no historical import is required.
 
 Keep your Strands agent and its durable storage connected so you can continue the same conversations after importing them. See [how streams work with framework storage](/intelligence/threads-explained#how-threads-work-with-framework-storage).
 
@@ -27,6 +27,7 @@ The following prerequisites and commands apply only to that historical import. U
 ## Prerequisites
 
 - A CopilotKit app with CopilotKit Intelligence enabled.
+- Node.js 20.9 or later to run the CopilotKit CLI.
 - Saved Strands conversations in a persistent store. In-memory conversations cannot be imported.
 - Read access to the source store and the Strands agent ID for the conversations you want to import.
 
@@ -55,6 +56,8 @@ For AWS sources, use your existing AWS profile, SSO session, or role credentials
     export STRANDS_PY_IMPORT_AGENT_IDS="support"
     export STRANDS_PY_IMPORT_END_USER_ID="user-123"
     ```
+
+    Set `STRANDS_PY_IMPORT_END_USER_ID` to the application user ID your runtime returns from `identifyUser`. All selected conversations are assigned to that user: select only their sessions within the directory, S3 prefix, or AgentCore actor, and repeat for each user.
 
     <Tabs groupId="strands_python_import_storage" items={['Local files', 'S3', 'AgentCore Memory']}>
       <Tab value="Local files">
@@ -107,6 +110,8 @@ For AWS sources, use your existing AWS profile, SSO session, or role credentials
     export STRANDS_TS_IMPORT_END_USER_ID="user-123"
     ```
 
+    Set `STRANDS_TS_IMPORT_END_USER_ID` to the application user ID your runtime returns from `identifyUser`. All selected conversations are assigned to that user: select only their sessions within the directory or S3 prefix, and repeat for each user.
+
     <Tabs groupId="strands_typescript_import_storage" items={['Local files', 'S3']}>
       <Tab value="Local files">
         ```bash title="Terminal"
@@ -137,9 +142,7 @@ For AWS sources, use your existing AWS profile, SSO session, or role credentials
   </Tab>
 </Tabs>
 
-Replace `support` with your native Strands agent ID. Import one agent per session; orchestrated multi-agent sessions are not supported.
-
-Set the end-user ID to the application user ID your Runtime returns from `identifyUser`, so that user can find the imported conversations. This assigns the selected conversations to that user: select only their sessions within the directory, S3 prefix, or AgentCore actor, and repeat for each user.
+Replace `support` with your native Strands agent ID. To select several agents across sessions, use comma-separated IDs, such as `"support,sales"`, in `STRANDS_PY_IMPORT_AGENT_IDS` or `STRANDS_TS_IMPORT_AGENT_IDS`. Each session must belong to a single agent; orchestrated multi-agent sessions are not supported.
 
 The source ID is a name you choose for this store. Keep it the same when you import again, including when switching between local files and S3 for the same store. Run the import while these conversations are idle. Only saved history can be imported: snapshot imports use the latest saved view, and deleted messages or expired AgentCore events cannot be recovered.
 
@@ -164,7 +167,7 @@ The dry run counts conversations, reports conversations that cannot be imported,
 
 ## Map Strands agents to CopilotKit agent IDs
 
-Map the native Strands agent ID reported by the dry run to the `agentId` your live CopilotKit runtime uses.
+Map each native Strands agent ID you set in `STRANDS_PY_IMPORT_AGENT_IDS` or `STRANDS_TS_IMPORT_AGENT_IDS` to the `agentId` your live CopilotKit runtime uses.
 
 ```json title="agent-map.json"
 {
@@ -196,15 +199,37 @@ Run the import after the dry run and agent map look right.
     ```bash title="Terminal"
     npx copilotkit@latest import --source strands-python --agent-map ./agent-map.json
     ```
+
+    For self-hosted CopilotKit Intelligence, pass the target connection explicitly:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest import \
+      --source strands-python \
+      --api-url "$INTELLIGENCE_API_URL" \
+      --api-key "$CPK_INTELLIGENCE_API_KEY" \
+      --agent-map ./agent-map.json \
+      --yes
+    ```
   </Tab>
   <Tab value="TypeScript">
     ```bash title="Terminal"
     npx copilotkit@latest import --source strands-typescript --agent-map ./agent-map.json
     ```
+
+    For self-hosted CopilotKit Intelligence, pass the target connection explicitly:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest import \
+      --source strands-typescript \
+      --api-url "$INTELLIGENCE_API_URL" \
+      --api-key "$CPK_INTELLIGENCE_API_KEY" \
+      --agent-map ./agent-map.json \
+      --yes
+    ```
   </Tab>
 </Tabs>
 
-For self-hosted CopilotKit Intelligence, add `--api-url "$INTELLIGENCE_API_URL"` and `--api-key "$CPK_INTELLIGENCE_API_KEY"` to the command. Add `--yes` to skip the confirmation prompt.
+Use `--yes` to skip the confirmation prompt.
 
 Conversations without an end-user ID are omitted by default. Set the end-user ID in the source configuration above before importing.
 
@@ -216,7 +241,26 @@ Sign in as the application user whose ID you imported. Open the Threads Drawer, 
 
 Already-imported conversations are skipped by default.
 
-Use `--replace` to refresh them; running or continued conversations are left unchanged. Add the flag to the same import command above, keeping its source, agent map, and user selection.
+Use `--replace` to refresh them; running or continued conversations are left unchanged:
+
+<Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+  <Tab value="Python">
+    ```bash title="Terminal"
+    npx copilotkit@latest import \
+      --source strands-python \
+      --agent-map ./agent-map.json \
+      --replace
+    ```
+  </Tab>
+  <Tab value="TypeScript">
+    ```bash title="Terminal"
+    npx copilotkit@latest import \
+      --source strands-typescript \
+      --agent-map ./agent-map.json \
+      --replace
+    ```
+  </Tab>
+</Tabs>
 
 ## Continue using Strands persistence
 
