@@ -2,7 +2,11 @@ import React, { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import type { LucideIcon as LucideComponent } from "lucide-react";
 import { z } from "zod";
-import { useGenerativeUIAccessibility } from "../accessibility";
+import {
+  controlAria,
+  useGenerativeUIAccessibility,
+  wrapperAria,
+} from "../accessibility";
 import type { GenerativeUIInvokeResult } from "../errors";
 import { radiusStyle, radiusValue, sizeValue, weightProp } from "./layout";
 import { Lightbox, openUrl } from "./lightbox";
@@ -195,15 +199,27 @@ const svgSchema = z.object({
     )
     .optional(),
 });
+const captionTrack = z.object({
+  url: z.string().describe("The URL of a WebVTT file"),
+  language: z.string().optional().describe('BCP 47, for example "en"'),
+  label: z.string().optional().describe("Shown in the captions menu"),
+  kind: z.enum(["subtitles", "captions", "descriptions"]).optional(),
+});
 const videoSchema = z.object({
   url: z
     .string()
-    .describe("The URL of a video file, or of a YouTube video or short"),
+    .describe(
+      "The URL of a video file, or of a YouTube video or short. A page on another video site shows as a link",
+    ),
   posterUrl: z
     .string()
     .optional()
     .describe("The image shown before the video plays"),
   title: z.string().optional().describe("Names the video for screen readers"),
+  captions: z
+    .array(captionTrack)
+    .optional()
+    .describe("Caption tracks of a video file"),
   aspectRatio: z.string().optional().describe('Default "16 / 9"'),
   width: sizeValue.optional().describe('Default "100%"'),
   maxWidth: sizeValue.optional().describe('Default "100%"'),
@@ -407,6 +423,7 @@ function Image(props: ImageProps) {
       <div
         role="img"
         aria-label={alt || props.fallback}
+        {...aria}
         style={{
           ...frame,
           display: "flex",
@@ -425,11 +442,14 @@ function Image(props: ImageProps) {
     );
   }
   const overlay = props.actionOverlay;
+  const hasWrapper = overlay !== undefined || props.hoverZoom === true;
+  // With an overlay button next to it, hidden and live belong to the pair;
+  // the name stays on the image, because names do not inherit.
   const image = (
     <img
       src={props.url}
       alt={alt}
-      {...aria}
+      {...(hasWrapper ? controlAria(aria) : aria)}
       loading="lazy"
       onError={() => setFailed(true)}
       onClick={showsLightbox ? () => setIsOpen(true) : undefined}
@@ -446,7 +466,6 @@ function Image(props: ImageProps) {
       }}
     />
   );
-  const hasWrapper = overlay !== undefined || props.hoverZoom === true;
   return (
     <>
       {isOpen && showsLightbox ? (
@@ -457,6 +476,7 @@ function Image(props: ImageProps) {
       ) : null}
       {hasWrapper ? (
         <div
+          {...wrapperAria(aria)}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           style={{
@@ -779,6 +799,121 @@ export function youTubeIdOf(url: string) {
 
 type VideoProps = z.output<typeof videoSchema>;
 
+const VIDEO_FILE = /\.(mp4|m4v|webm|ogv|ogg|mov|m3u8|mpd)$/i;
+/** Video sites whose pages the native player cannot play. */
+const VIDEO_PAGE_HOSTS = [
+  "youtube.com",
+  "youtube-nocookie.com",
+  "youtu.be",
+  "vimeo.com",
+  "dailymotion.com",
+  "twitch.tv",
+  "tiktok.com",
+  "loom.com",
+  "wistia.com",
+  "facebook.com",
+  "instagram.com",
+  "x.com",
+  "twitter.com",
+];
+
+export type VideoSource = "youtube" | "file" | "page";
+
+/**
+ * How to show a video URL: the YouTube embed, the native player for a file
+ * (a known extension, or any URL that is not a page of a video site), or a
+ * link for a page the player cannot play. A URL that does not parse is a
+ * file: the player reports the failure, and the link takes its place.
+ */
+export function videoSourceOf(url: string): VideoSource {
+  if (youTubeIdOf(url) !== undefined) return "youtube";
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return "file";
+  }
+  if (VIDEO_FILE.test(parsed.pathname)) return "file";
+  const host = parsed.hostname.replace(/^www\.|^m\./, "");
+  const isPage = VIDEO_PAGE_HOSTS.some(
+    (site) => host === site || host.endsWith(`.${site}`),
+  );
+  return isPage ? "page" : "file";
+}
+
+/** A link to a video that cannot play here, in place of a dead player. */
+function VideoLink({
+  url,
+  title,
+  box,
+  aria,
+}: {
+  url: string;
+  title: string | undefined;
+  box: CSSProperties;
+  aria: ReturnType<typeof useGenerativeUIAccessibility>;
+}) {
+  const href = /^https?:/i.test(url.trim()) ? url.trim() : undefined;
+  const host = hostOf(url);
+  const body = (
+    <>
+      <span
+        aria-hidden="true"
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: "50%",
+          background: "rgba(255,255,255,.15)",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 16,
+        }}
+      >
+        ▶
+      </span>
+      <span style={{ fontWeight: 500 }}>{title ?? "Watch video"}</span>
+      {host ? (
+        <span style={{ opacity: 0.7, fontSize: ".875em" }}>{host}</span>
+      ) : null}
+    </>
+  );
+  const style: CSSProperties = {
+    ...box,
+    aspectRatio: undefined,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing(2),
+    padding: spacing(6),
+    boxSizing: "border-box",
+    background: "#000",
+    color: "#fff",
+    textDecoration: "none",
+  };
+  if (href === undefined) {
+    return (
+      <span data-a2ui-video-link="" {...aria} style={style}>
+        {body}
+      </span>
+    );
+  }
+  return (
+    <a
+      data-a2ui-video-link=""
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`Open ${title ?? "video"} on ${host ?? "its site"}`}
+      {...aria}
+      style={style}
+    >
+      {body}
+    </a>
+  );
+}
+
 /*
  * The YouTube player is cross-origin (youtube-nocookie.com). So
  * allow-same-origin only lets it use its own origin. It cannot get to the
@@ -787,6 +922,7 @@ type VideoProps = z.output<typeof videoSchema>;
 function Video(props: VideoProps) {
   const aria = useGenerativeUIAccessibility();
   const [isPlaying, setIsPlaying] = useState(false);
+  const [failedUrl, setFailedUrl] = useState<string>();
   const youTubeId = youTubeIdOf(props.url);
   const box: CSSProperties = {
     display: "block",
@@ -796,6 +932,12 @@ function Video(props: VideoProps) {
     flexGrow: props.weight,
     borderRadius: radius("lg"),
   };
+  const source = videoSourceOf(props.url);
+  if (source === "page" || failedUrl === props.url) {
+    return (
+      <VideoLink url={props.url} title={props.title} box={box} aria={aria} />
+    );
+  }
   if (youTubeId === undefined) {
     return (
       <video
@@ -806,8 +948,24 @@ function Video(props: VideoProps) {
         title={props.title}
         aria-label={props.title}
         {...aria}
+        // A file that does not load leaves a dead player; a link is better.
+        onError={() => setFailedUrl(props.url)}
+        // Tracks load in the CORS mode of their media element; without one,
+        // a caption file on another host never loads.
+        crossOrigin={props.captions?.length ? "anonymous" : undefined}
         style={{ ...box, background: "#000", objectFit: "contain" }}
-      />
+      >
+        {(props.captions ?? []).map((track, index) => (
+          <track
+            key={`${track.url}-${index}`}
+            src={track.url}
+            kind={track.kind ?? "subtitles"}
+            srcLang={track.language}
+            label={track.label}
+            default={index === 0 ? true : undefined}
+          />
+        ))}
+      </video>
     );
   }
   // The poster first: no third-party script runs until the user asks to play.
@@ -816,6 +974,7 @@ function Video(props: VideoProps) {
       <button
         type="button"
         aria-label={`Play ${props.title ?? "video"}`}
+        {...aria}
         onClick={() => setIsPlaying(true)}
         style={{
           ...box,
@@ -867,6 +1026,7 @@ function Video(props: VideoProps) {
     <iframe
       src={`https://www.youtube-nocookie.com/embed/${youTubeId}?autoplay=1`}
       title={props.title ?? "YouTube video"}
+      {...aria}
       allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
       sandbox="allow-scripts allow-same-origin allow-presentation"
       referrerPolicy="strict-origin-when-cross-origin"
@@ -967,7 +1127,7 @@ export const mediaComponents = {
   Video: {
     component: Video,
     description:
-      "A video player for a video file URL, or a YouTube link in privacy-enhanced mode: the poster shows first, and the player loads when the user presses play. Set title to name the video.",
+      "A video player for a video file URL (with optional captions), or a YouTube link in privacy-enhanced mode: the poster shows first, and the player loads when the user presses play. A page on another video site shows as a link to it. Set title to name the video.",
     props: videoSchema,
   },
   AudioPlayer: {
