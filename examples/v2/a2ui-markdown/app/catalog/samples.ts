@@ -39,9 +39,14 @@ export const SAMPLES: CatalogSample[] = [
     covers: ["Box", "Column", "Row"],
     components: [
       { id: "root", component: "Column", gap: 3, children: ["row", "box"] },
-      { id: "row", component: "Row", justify: "between", children: ["l", "v"] },
+      {
+        id: "row",
+        component: "Row",
+        justify: "spaceBetween",
+        children: ["l", "v"],
+      },
       { id: "l", component: "Caption", text: "Monthly price" },
-      txt("v", "$290/mo", { weight: "medium" }),
+      txt("v", "$290/mo", { fontWeight: "medium" }),
       {
         id: "box",
         component: "Box",
@@ -120,7 +125,7 @@ export const SAMPLES: CatalogSample[] = [
         id: "k1",
         component: "CheckBox",
         label: "Enable notifications",
-        checked: { "@path": "/on" },
+        value: { "@path": "/on" },
       },
       {
         id: "c2",
@@ -253,12 +258,46 @@ export const SAMPLES: CatalogSample[] = [
     title: "Spacer and Divider",
     covers: ["Spacer", "Divider"],
     components: [
-      { id: "root", component: "Column", children: ["a", "d", "b", "sp", "c"] },
+      {
+        id: "root",
+        component: "Column",
+        children: ["a", "d", "b", "sp", "c", "vr"],
+      },
       txt("a", "Above the divider"),
       { id: "d", component: "Divider" },
       txt("b", "Below the divider, then a 24px Spacer"),
       { id: "sp", component: "Spacer", minSize: 6 },
       txt("c", "After the spacer"),
+      { id: "vr", component: "Row", gap: 3, children: ["v1", "vd", "v2"] },
+      txt("v1", "Left"),
+      { id: "vd", component: "Divider", axis: "vertical" },
+      txt("v2", 'Right of a Divider with axis "vertical"'),
+    ],
+  },
+  {
+    group: "Layout",
+    title: "Tabs",
+    covers: ["Tabs"],
+    components: [
+      {
+        id: "root",
+        component: "Tabs",
+        tabs: [
+          { title: "Overview", child: "t1" },
+          { title: "Specs", child: "t2" },
+          { title: "Reviews", child: "t3" },
+        ],
+      },
+      txt("t1", "The overview panel. Each tab names its panel by id."),
+      {
+        id: "t2",
+        component: "List",
+        items: [
+          { label: "Weight", value: "1.2 kg" },
+          { label: "Battery", value: "18 h" },
+        ],
+      },
+      txt("t3", "4.6 out of 5 from 1,284 reviews."),
     ],
   },
   // ------------------------------------------------------------------ Text
@@ -303,7 +342,7 @@ export const SAMPLES: CatalogSample[] = [
         size: "sm",
       }),
       txt("c", "Weight medium with a trailing badge", {
-        weight: "medium",
+        fontWeight: "medium",
         children: ["bd"],
       }),
       { id: "bd", component: "Badge", label: "New", color: "success" },
@@ -436,29 +475,29 @@ export const SAMPLES: CatalogSample[] = [
       {
         id: "a",
         component: "Button",
-        label: "Solid",
-        onClick: { event: { name: "solid" } },
+        label: "Primary",
+        variant: "primary",
+        onClick: { event: { name: "primary" } },
       },
       {
         id: "b",
+        component: "Button",
+        label: "Default",
+        onClick: { event: { name: "default" } },
+      },
+      {
+        id: "c",
         component: "Button",
         label: "Soft",
         variant: "soft",
         onClick: { event: { name: "soft" } },
       },
       {
-        id: "c",
-        component: "Button",
-        label: "Outline",
-        variant: "outline",
-        onClick: { event: { name: "outline" } },
-      },
-      {
         id: "d",
         component: "Button",
-        label: "Ghost",
-        variant: "ghost",
-        onClick: { event: { name: "ghost" } },
+        label: "Borderless",
+        variant: "borderless",
+        onClick: { event: { name: "borderless" } },
       },
       {
         id: "r2",
@@ -545,7 +584,7 @@ export const SAMPLES: CatalogSample[] = [
         id: "e",
         component: "TextField",
         label: "Email",
-        inputType: "email",
+        variant: "email",
         placeholder: "you@company.com",
         value: { "@path": "/form/email" },
       },
@@ -584,7 +623,7 @@ export const SAMPLES: CatalogSample[] = [
         id: "c1",
         component: "CheckBox",
         label: "Round checkbox (default)",
-        checked: { "@path": "/a" },
+        value: { "@path": "/a" },
       },
       {
         id: "c2",
@@ -592,7 +631,7 @@ export const SAMPLES: CatalogSample[] = [
         label: "Square, strikes when checked",
         shape: "square",
         lineThrough: true,
-        checked: { "@path": "/b" },
+        value: { "@path": "/b" },
       },
       {
         id: "rg",
@@ -629,6 +668,37 @@ export const SAMPLES: CatalogSample[] = [
       },
     ],
     data: { a: true, b: false, days: "3", goal: "strength" },
+  },
+  {
+    group: "Inputs",
+    title: "ChoicePicker: one or many, checkboxes or chips",
+    covers: ["ChoicePicker"],
+    components: [
+      { id: "root", component: "Column", gap: 4, children: ["one", "many"] },
+      {
+        id: "one",
+        component: "ChoicePicker",
+        label: "Seat (one choice)",
+        options: ["Window", "Aisle", "Middle"],
+        value: { "@path": "/seat" },
+      },
+      {
+        id: "many",
+        component: "ChoicePicker",
+        label: "Extras (several, as chips, filterable)",
+        variant: "multipleSelection",
+        displayStyle: "chips",
+        filterable: true,
+        options: [
+          { value: "bag", label: "Checked bag" },
+          { value: "meal", label: "Meal" },
+          { value: "wifi", label: "Wi-Fi" },
+          { value: "lounge", label: "Lounge" },
+        ],
+        value: { "@path": "/extras" },
+      },
+    ],
+    data: { seat: ["Aisle"], extras: ["meal"] },
   },
   {
     group: "Inputs",
@@ -699,7 +769,6 @@ export const SAMPLES: CatalogSample[] = [
         component: "Button",
         label: "Contact",
         size: "sm",
-        variant: "outline",
         onClick: {
           event: {
             name: "contact",
@@ -752,7 +821,23 @@ export const SAMPLES: CatalogSample[] = [
     title: "List markers and ListItem",
     covers: ["List", "ListItem"],
     components: [
-      { id: "root", component: "Column", gap: 3, children: ["n", "r", "k"] },
+      {
+        id: "root",
+        component: "Column",
+        gap: 3,
+        children: ["n", "r", "k", "h"],
+      },
+      {
+        id: "h",
+        component: "List",
+        direction: "horizontal",
+        marker: "none",
+        items: [
+          { label: "Horizontal", icon: "arrow-right" },
+          { label: "list", icon: "list" },
+          { label: "scrolls sideways", icon: "move-horizontal" },
+        ],
+      },
       {
         id: "n",
         component: "List",
@@ -887,46 +972,238 @@ export const SAMPLES: CatalogSample[] = [
       },
     ],
   },
+  // --------------------------------------------------------- Dynamic values
+  {
+    group: "Dynamic values",
+    title: "Function values: formatString, calc, series, formatCurrency",
+    covers: ["Slider", "Text", "List", "Chart"],
+    components: [
+      {
+        id: "root",
+        component: "Column",
+        gap: 3,
+        children: ["s", "t", "l", "ch"],
+      },
+      {
+        id: "s",
+        component: "Slider",
+        label: "Seats",
+        min: 1,
+        max: 20,
+        value: { "@path": "/seats" },
+      },
+      {
+        id: "t",
+        component: "Text",
+        text: {
+          "@call": "formatString",
+          args: {
+            value:
+              "${/seats} ${pluralize(value: /seats, one: 'seat', other: 'seats')} cost ${formatCurrency(value: calc(expression: 'seats * 12', seats: /seats), currency: 'EUR')} per month",
+          },
+        },
+      },
+      {
+        id: "l",
+        component: "List",
+        items: [
+          {
+            label: "Per seat",
+            value: {
+              "@call": "formatCurrency",
+              args: { value: 12, currency: "EUR", decimals: 0 },
+            },
+          },
+          {
+            label: "Renews",
+            value: {
+              "@call": "formatDate",
+              args: { value: "2026-11-01", format: "EEEE, MMM d, yyyy" },
+            },
+          },
+          {
+            label: "Seats (bound)",
+            value: {
+              "@call": "formatNumber",
+              args: { value: { "@path": "/seats" } },
+            },
+          },
+        ],
+      },
+      {
+        id: "ch",
+        component: "Chart",
+        chartType: "bar",
+        title: "Cumulative cost (series over the slider)",
+        xKey: "month",
+        series: [{ key: "cost", label: "Cost" }],
+        data: {
+          "@call": "series",
+          args: {
+            count: 6,
+            variable: "m",
+            item: { month: "M${m}", cost: "${m * seats * 12}" },
+            seats: { "@path": "/seats" },
+          },
+        },
+        height: 180,
+      },
+    ],
+    data: { seats: 4 },
+  },
+  {
+    group: "Dynamic values",
+    title: "Checks: length, email; Button disabled until valid",
+    covers: ["TextField", "Button"],
+    components: [
+      { id: "root", component: "Card", children: ["ti", "n", "e", "b"] },
+      { id: "ti", component: "Title", text: "Invite a teammate", size: "sm" },
+      {
+        id: "n",
+        component: "TextField",
+        label: "Name",
+        value: { "@path": "/invite/name" },
+        checks: [
+          {
+            condition: {
+              "@call": "length",
+              args: { value: { "@path": "/invite/name" }, min: 2 },
+            },
+            message: "At least 2 characters",
+          },
+        ],
+      },
+      {
+        id: "e",
+        component: "TextField",
+        label: "Email",
+        variant: "email",
+        value: { "@path": "/invite/email" },
+        checks: [
+          {
+            condition: {
+              "@call": "email",
+              args: { value: { "@path": "/invite/email" } },
+            },
+            message: "Enter a valid email address",
+          },
+        ],
+      },
+      {
+        id: "b",
+        component: "Button",
+        label: "Send invite",
+        variant: "primary",
+        checks: [
+          {
+            condition: {
+              "@call": "and",
+              args: {
+                values: [
+                  {
+                    "@call": "length",
+                    args: { value: { "@path": "/invite/name" }, min: 2 },
+                  },
+                  {
+                    "@call": "email",
+                    args: { value: { "@path": "/invite/email" } },
+                  },
+                ],
+              },
+            },
+            message: "Fill in a name and a valid email",
+          },
+        ],
+        onClick: {
+          event: {
+            name: "invite",
+            userMessage: {
+              "@call": "formatString",
+              args: { value: "Invite ${/invite/name} (${/invite/email})" },
+            },
+          },
+        },
+      },
+    ],
+    data: { invite: { name: "", email: "" } },
+  },
   // ----------------------------------------------------------------- Media
   {
     group: "Media",
     title: "Image, Icon, Favicon",
     covers: ["Image", "Icon", "Favicon"],
     components: [
-      { id: "root", component: "Column", gap: 3, children: ["img", "row"] },
+      {
+        id: "root",
+        component: "Column",
+        gap: 3,
+        children: ["img", "variants", "row"],
+      },
       {
         id: "img",
         component: "Image",
-        src: "https://picsum.photos/seed/copilotkit/640/320",
-        alt: "Sample photo",
+        url: "https://picsum.photos/seed/copilotkit/640/320",
+        description: "Sample photo",
         aspectRatio: "2 / 1",
         radius: "lg",
         maxWidth: 480,
       },
       {
+        id: "variants",
+        component: "Row",
+        gap: 3,
+        align: "center",
+        children: ["av", "ic", "sf", "vt"],
+      },
+      {
+        id: "av",
+        component: "Image",
+        variant: "avatar",
+        url: "https://picsum.photos/seed/avatar/120/120",
+        description: "Avatar",
+      },
+      {
+        id: "ic",
+        component: "Image",
+        variant: "icon",
+        url: "https://picsum.photos/seed/icon/48/48",
+        description: "Icon-sized image",
+      },
+      {
+        id: "sf",
+        component: "Image",
+        variant: "smallFeature",
+        url: "https://picsum.photos/seed/small/320/240",
+        description: "Small feature",
+      },
+      txt("vt", 'Image variants "avatar", "icon" and "smallFeature"'),
+      {
         id: "row",
         component: "Row",
         gap: 3,
         align: "center",
-        children: ["i1", "i2", "i3", "fav", "ft"],
+        children: ["i1", "i2", "i3", "i4", "i5", "fav", "ft"],
       },
       { id: "i1", component: "Icon", name: "sparkles" },
       { id: "i2", component: "Icon", name: "chart-bar", size: "lg" },
       { id: "i3", component: "Icon", name: "map-pin", color: "danger" },
+      // A2UI basic catalog icon names work too.
+      { id: "i4", component: "Icon", name: "shoppingCart" },
+      { id: "i5", component: "Icon", name: "favorite", color: "danger" },
       { id: "fav", component: "Favicon", url: "https://github.com", size: 20 },
       txt("ft", "Favicon of github.com"),
     ],
   },
   {
     group: "Media",
-    title: "Svg, YouTube, HtmlView",
-    covers: ["Svg", "YouTube", "HtmlView"],
+    title: "Svg, Video, AudioPlayer, HtmlView",
+    covers: ["Svg", "Video", "AudioPlayer", "HtmlView"],
     components: [
       {
         id: "root",
         component: "Column",
         gap: 3,
-        children: ["svg", "yt", "html"],
+        children: ["svg", "yt", "aud", "html"],
       },
       {
         id: "svg",
@@ -941,10 +1218,16 @@ export const SAMPLES: CatalogSample[] = [
       },
       {
         id: "yt",
-        component: "YouTube",
-        videoId: "dQw4w9WgXcQ",
-        title: "YouTube embed",
+        component: "Video",
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        title: "Video from a YouTube link",
         maxWidth: 480,
+      },
+      {
+        id: "aud",
+        component: "AudioPlayer",
+        url: "https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c8/Example.ogg/Example.ogg.mp3",
+        description: "AudioPlayer: a short sample clip",
       },
       {
         id: "html",
@@ -1099,14 +1382,17 @@ export const SAMPLES: CatalogSample[] = [
         columns: 3,
         images: [
           {
-            src: "https://picsum.photos/seed/g1/800/800",
-            alt: "One",
+            url: "https://picsum.photos/seed/g1/800/800",
+            description: "One",
             caption: "Hofburg",
           },
-          { src: "https://picsum.photos/seed/g2/400/400", alt: "Two" },
-          { src: "https://picsum.photos/seed/g3/400/400", alt: "Three" },
-          { src: "https://picsum.photos/seed/g4/400/400", alt: "Four" },
-          { src: "https://picsum.photos/seed/g5/400/400", alt: "Five" },
+          { url: "https://picsum.photos/seed/g2/400/400", description: "Two" },
+          {
+            url: "https://picsum.photos/seed/g3/400/400",
+            description: "Three",
+          },
+          { url: "https://picsum.photos/seed/g4/400/400", description: "Four" },
+          { url: "https://picsum.photos/seed/g5/400/400", description: "Five" },
         ],
       },
     ],
@@ -1126,28 +1412,28 @@ export const SAMPLES: CatalogSample[] = [
       {
         id: "m1",
         component: "CarouselMediaItem",
-        media: "https://picsum.photos/seed/m1/480/360",
+        url: "https://picsum.photos/seed/m1/480/360",
         children: ["c1"],
       },
       { id: "c1", component: "Caption", text: "Schönbrunn" },
       {
         id: "m2",
         component: "CarouselMediaItem",
-        media: "https://picsum.photos/seed/m2/480/360",
+        url: "https://picsum.photos/seed/m2/480/360",
         children: ["c2"],
       },
       { id: "c2", component: "Caption", text: "Belvedere" },
       {
         id: "m3",
         component: "CarouselMediaItem",
-        media: "https://picsum.photos/seed/m3/480/360",
+        url: "https://picsum.photos/seed/m3/480/360",
         children: ["c3"],
       },
       { id: "c3", component: "Caption", text: "Prater" },
       {
         id: "m4",
         component: "CarouselMediaItem",
-        media: "https://picsum.photos/seed/m4/480/360",
+        url: "https://picsum.photos/seed/m4/480/360",
         size: "sm",
         children: ["c4"],
       },
@@ -1165,7 +1451,6 @@ export const SAMPLES: CatalogSample[] = [
         id: "b1",
         component: "Button",
         label: "Open docs",
-        variant: "outline",
         icon: "external-link",
         href: "https://docs.copilotkit.ai",
       },
@@ -1267,6 +1552,39 @@ export const SAMPLES: CatalogSample[] = [
         children: ["ctext"],
       },
       txt("ctext", "Popover content, toggled by the trigger."),
+    ],
+  },
+  {
+    group: "Feedback",
+    title: "Modal",
+    covers: ["Modal"],
+    components: [
+      {
+        id: "root",
+        component: "Modal",
+        title: "Booking details",
+        trigger: "mt",
+        content: "mc",
+      },
+      {
+        id: "mt",
+        component: "Button",
+        label: "Open modal",
+        variant: "primary",
+      },
+      { id: "mc", component: "Column", gap: 3, children: ["m1", "m2"] },
+      txt(
+        "m1",
+        "Escape, the close button or a click on the backdrop closes it.",
+      ),
+      {
+        id: "m2",
+        component: "List",
+        items: [
+          { label: "Flight", value: "OS 101" },
+          { label: "Seat", value: "12A" },
+        ],
+      },
     ],
   },
 ];
