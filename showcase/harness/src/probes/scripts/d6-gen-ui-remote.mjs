@@ -21,6 +21,7 @@ const diagnostics = {
 };
 const boundedText = (value) =>
   String(value ?? "")
+    .replace(/([a-z][a-z0-9+.-]*:\/\/)[^/\s?#]*@/gi, "$1[redacted]@")
     .replace(/https?:\/\/\S+/g, "[URL]")
     .replace(/\b(?:sk-\S+|Bearer\s+\S+)/gi, "[redacted]")
     .slice(0, 500);
