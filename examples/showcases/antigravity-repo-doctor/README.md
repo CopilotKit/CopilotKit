@@ -2,7 +2,7 @@
 
 An AI agent that finds out why a GitHub repository's CI is failing, fixes it, and asks you before it does anything risky. Built with [CopilotKit](https://github.com/CopilotKit/CopilotKit) and the [Antigravity AG-UI SDK (`ag-ui-antigravity`)](https://github.com/ag-ui-protocol/ag-ui/tree/main/integrations/antigravity/python), on [Google Antigravity](https://github.com/google-antigravity/antigravity-sdk-python) and Gemini.
 
-https://github.com/user-attachments/assets/a6ff0a2c-ecee-4e9e-a74f-c6ffd56d77de
+https://github.com/user-attachments/assets/5d8cca98-b0fb-4178-bb81-29e473d036b3
 
 ## What it does
 
