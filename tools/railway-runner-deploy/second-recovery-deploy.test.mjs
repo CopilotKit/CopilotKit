@@ -330,6 +330,32 @@ test("lost deploy response can adopt exact candidate but cannot deploy twice", a
   assert.deepEqual(unknown.calls, []);
 });
 
+for (const change of ["binding", "outcome", "missing"]) {
+  test(`changed original watch ${change} blocks recover before mutation and on candidate restart`, async () => {
+    const h = fixture();
+    const deploy = h.railway.deploy;
+    h.railway.deploy = async () => {
+      const id = await deploy();
+      h.state.recovery = structuredClone(h.state.recovery);
+      if (change === "binding")
+        h.state.recovery.oldJournalSha256 = "0".repeat(64);
+      if (change === "outcome") h.state.recovery.originalStatus = "passed";
+      if (change === "missing") h.state.recovery = null;
+      return id;
+    };
+    await assert.rejects(deploySecondRecoveryRunner(h.options));
+    assert.equal(h.calls.includes("recover"), false);
+    assert.equal(h.calls.includes("resume"), false);
+    const previousCheckpoint = h.receipts.at(-1).checkpoint;
+    assert.equal(previousCheckpoint.stage, "candidate-deployed");
+    h.calls.length = 0;
+    await assert.rejects(
+      deploySecondRecoveryRunner({ ...h.options, previousCheckpoint }),
+    );
+    assert.deepEqual(h.calls, []);
+  });
+}
+
 for (const missing of [
   "first",
   "second",
