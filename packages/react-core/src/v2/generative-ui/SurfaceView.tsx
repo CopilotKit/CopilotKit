@@ -13,16 +13,18 @@ import type { ComponentModel, SurfaceModel } from "@a2ui/web_core/v0_9";
 import {
   GENERATIVE_UI_ROOT_ID,
   isActionBinding,
-  isIndexCall,
   isPathBinding,
+  mapAtChildRef,
 } from "@copilotkit/shared";
 import type {
+  ChildRef,
   GenerativeUIActionBinding,
   GenerativeUITemplateChildren,
 } from "@copilotkit/shared";
-import { shallowEqual, useShallowStableRef } from "../lib/shallow-stable-ref";
+import { shallowEqual } from "../lib/shallow-stable-ref";
 import { setterNameOf } from "./catalog";
 import type { ResolvedGenerativeUIComponent } from "./catalog";
+import { joinPath, resolvePath, tryResolveDynamicValue } from "./resolve";
 import {
   formatIssues,
   isAsyncIssue,
@@ -55,83 +57,6 @@ const ROOT_STYLE = { display: "contents" } as const;
 const undefinedSnapshot = () => undefined;
 const noopSubscribe = () => () => {};
 const zeroSnapshot = () => 0;
-
-/** Adds one segment to a JSON pointer: ("/items", "0") gives "/items/0". */
-function joinPath(base: string, segment: string) {
-  return base === "/" ? `/${segment}` : `${base}/${segment}`;
-}
-
-/**
- * The absolute data model path of a binding. A path without a leading "/"
- * is relative to the current template item, or to the root outside of a
- * template.
- */
-function resolvePath(path: string, basePath: string | undefined) {
-  if (path.startsWith("/")) return path;
-  return joinPath(basePath ?? "/", path);
-}
-
-/** A `{"@path"}` value with its path made absolute. Other values stay. */
-function absoluteValue<T>(value: T, basePath: string | undefined) {
-  if (!isPathBinding(value)) return value;
-  return { "@path": resolvePath(value["@path"], basePath) };
-}
-
-/** `{"@path"}` values with their paths made absolute. */
-function absoluteValues(
-  values: Record<string, unknown> | undefined,
-  basePath: string | undefined,
-) {
-  if (values === undefined) return undefined;
-  return Object.fromEntries(
-    Object.entries(values).map(([key, value]) => [
-      key,
-      absoluteValue(value, basePath),
-    ]),
-  );
-}
-
-/**
- * An event binding whose `{"@path"}` args, user message, and context are
- * absolute.
- */
-function absoluteBinding(
-  binding: GenerativeUIActionBinding,
-  basePath: string | undefined,
-) {
-  if ("functionCall" in binding) {
-    const { functionCall } = binding;
-    const args = absoluteValues(functionCall.args, basePath);
-    return { functionCall: { ...functionCall, args } };
-  }
-  const { event } = binding;
-  const userMessage = absoluteValue(event.userMessage, basePath);
-  const context = absoluteValues(event.context, basePath);
-  return { event: { ...event, userMessage, context } };
-}
-
-/**
- * The index of the template item at `basePath`: its last segment. A
- * template gives each item the path `<list>/<index>`. `undefined` outside
- * of a template.
- */
-function templateIndex(basePath: string | undefined) {
-  if (basePath === undefined) return undefined;
-  return Number(basePath.slice(basePath.lastIndexOf("/") + 1));
-}
-
-/**
- * The value of a `{"@call":"@index"}` prop: the 0-based index of the
- * template item, plus `args.offset`. `undefined` outside of a template.
- */
-function indexValue(
-  call: { args?: { offset?: number } },
-  basePath: string | undefined,
-) {
-  const index = templateIndex(basePath);
-  if (index === undefined) return undefined;
-  return index + (call.args?.offset ?? 0);
-}
 
 /** A "multiple" slot value that repeats a component for each list item. */
 function isTemplateChildren(
@@ -329,12 +254,32 @@ function TemplateChildren({
   );
 }
 
+/** What one data prop resolved to, and what it read to get there. */
+interface ResolvedProp {
+  /** The raw prop value it was resolved from. */
+  raw: unknown;
+  /** The template item path it was resolved in. */
+  basePath: string | undefined;
+  /** The value, or the reason it could not be computed. */
+  outcome: { ok: true; value: unknown } | { ok: false; message: string };
+  /** The data model value at each path it read, when it was resolved. */
+  reads: Map<string, unknown>;
+}
+
+type ModelData =
+  | { ok: true; values: Record<string, unknown> }
+  | { ok: false; problem: string };
+
 /**
- * The props the model sets, with `{"@path"}` bindings read from the surface
- * data model, and `{"@call":"@index"}` set to the index of the template
- * item. A literal writable prop that the component set shows the local
- * value from `overrides`. Bound props, events and slots are left out. The
- * result is the same object until a value changes.
+ * The props the model sets, with their dynamic values resolved from the
+ * surface data model: `{"@path"}` bindings, `{"@call"}` function values and
+ * `{"@call":"@index"}` in a template, at any depth. A literal writable prop
+ * that the component set shows the local value from `overrides`. Bound
+ * props, events and slots are left out.
+ *
+ * A prop is resolved again only when its raw value or a data model value it
+ * read has changed, so the result keeps its identity otherwise. A function
+ * value that cannot be computed gives a problem instead of values.
  */
 function useModelDataProps(
   surface: ManagedSurface,
@@ -342,57 +287,100 @@ function useModelDataProps(
   properties: Record<string, unknown>,
   basePath: string | undefined,
   overrides: Record<string, unknown>,
-): Record<string, unknown> {
+): ModelData {
   const dataModel = surface.model.dataModel;
-  const entries = useMemo(
+  const keys = useMemo(
     () =>
-      Object.entries(properties)
-        .filter(
-          ([key]) =>
-            !definition.events?.[key] &&
-            !definition.slots?.[key] &&
-            !Object.hasOwn(definition.selectors, key),
-        )
-        .map(([key, value]) => ({
-          key,
-          value: isIndexCall(value) ? indexValue(value, basePath) : value,
-          path: isPathBinding(value)
-            ? resolvePath(value["@path"], basePath)
-            : undefined,
-        })),
-    [properties, definition, basePath],
+      Object.keys(properties).filter(
+        (key) =>
+          !definition.events?.[key] &&
+          !definition.slots?.[key] &&
+          !Object.hasOwn(definition.selectors, key),
+      ),
+    [properties, definition],
   );
   const [, rerender] = useReducer((n: number) => n + 1, 0);
-  const resolved: Record<string, unknown> = {};
-  for (const { key, value, path } of entries) {
-    resolved[key] = path === undefined ? value : dataModel.get(path);
+  const cache = useRef(new Map<string, ResolvedProp>());
+  const values: Record<string, unknown> = {};
+  const paths = new Set<string>();
+  let problem: string | undefined;
+  const next = new Map<string, ResolvedProp>();
+  for (const key of keys) {
+    const raw = properties[key];
+    const cached = cache.current.get(key);
+    // A cached resolution holds while the raw prop, the template item and
+    // every value it read are the same. A data model notification clears
+    // the cache (below), because web_core changes lists and objects in
+    // place, so a changed item inside one keeps the identity of the list.
+    const isFresh =
+      cached !== undefined &&
+      cached.raw === raw &&
+      cached.basePath === basePath &&
+      [...cached.reads].every(([path, value]) =>
+        Object.is(dataModel.get(path), value),
+      );
+    const resolve = (): ResolvedProp => {
+      const resolved = tryResolveDynamicValue(
+        raw,
+        { data: dataModel, basePath },
+        { isChecks: key === "checks" },
+      );
+      // The reads are kept also when the resolution failed, so the node
+      // stays subscribed to the data that can fix it.
+      const reads = new Map<string, unknown>();
+      for (const path of resolved.paths) reads.set(path, dataModel.get(path));
+      return {
+        raw,
+        basePath,
+        reads,
+        outcome: resolved.ok
+          ? { ok: true, value: resolved.value }
+          : { ok: false, message: resolved.error.message },
+      };
+    };
+    const entry = isFresh && cached ? cached : resolve();
+    next.set(key, entry);
+    if (entry.outcome.ok) values[key] = entry.outcome.value;
+    else problem ??= `${key}: ${entry.outcome.message}`;
+    for (const path of entry.reads.keys()) paths.add(path);
   }
+  cache.current = next;
   for (const [key, value] of Object.entries(overrides)) {
-    if (!isPathBinding(properties[key])) resolved[key] = value;
+    if (!isPathBinding(properties[key])) values[key] = value;
   }
   // The values this render was based on, so the effect can detect a write that
   // landed between render and subscription (web_core never replays the current
   // value on subscribe).
-  const rendered = useRef(resolved);
-  rendered.current = resolved;
+  const rendered = useRef(next);
+  rendered.current = next;
+  const pathKey = [...paths].sort().join("\n");
   useEffect(() => {
-    const bound = entries.flatMap(({ key, path }) =>
-      path === undefined ? [] : [{ key, path }],
-    );
-    const subscriptions = bound.map(({ path }) =>
-      dataModel.subscribe(path, () => rerender()),
-    );
-    if (
-      bound.some(
-        ({ key, path }) =>
-          !Object.is(dataModel.get(path), rendered.current[key]),
-      )
-    ) {
+    const list = pathKey === "" ? [] : pathKey.split("\n");
+    const onChange = () => {
+      cache.current = new Map();
       rerender();
-    }
+    };
+    const subscriptions = list.map((path) =>
+      dataModel.subscribe(path, onChange),
+    );
+    const isStale = [...rendered.current.values()].some((entry) =>
+      [...entry.reads].some(
+        ([path, value]) => !Object.is(dataModel.get(path), value),
+      ),
+    );
+    if (isStale) rerender();
     return () => subscriptions.forEach((s) => s.unsubscribe());
-  }, [dataModel, entries]);
-  return useShallowStableRef(resolved);
+  }, [dataModel, pathKey]);
+  const stable = useRef<ModelData>({ ok: true, values: {} });
+  const result: ModelData =
+    problem === undefined ? { ok: true, values } : { ok: false, problem };
+  const last = stable.current;
+  const isSame =
+    result.ok && last.ok
+      ? shallowEqual(last.values, result.values)
+      : !result.ok && !last.ok && last.problem === result.problem;
+  if (!isSame) stable.current = result;
+  return stable.current;
 }
 
 /** The selector results of one node, or the reason they could not be read. */
@@ -529,7 +517,8 @@ function useDataProps(
     overrides,
   );
   const modelCheck = useMemo(
-    () => checkModelProps(definition, modelData),
+    () =>
+      modelData.ok ? checkModelProps(definition, modelData.values) : modelData,
     [definition, modelData],
   );
   const selection = useSelection(
@@ -596,10 +585,8 @@ function useEventProps(
           ? (args) =>
               invokeBoundEvent({
                 ...call,
-                binding: absoluteBinding(
-                  latest.current[name] as GenerativeUIActionBinding,
-                  basePath,
-                ),
+                binding: latest.current[name] as GenerativeUIActionBinding,
+                basePath,
                 args,
               })
           : (args) => invokeMatchedEvent({ ...call, functionName, args });
@@ -711,6 +698,67 @@ function useSlotProps(
   }, [surface, definition, properties, componentId, basePath, ancestors]);
 }
 
+/**
+ * The parsed data props with every typed child reference (`child()`,
+ * `childList()`, at any depth) replaced by the rendered component. Without
+ * references, the parsed props come back as they are.
+ */
+function useChildRefProps(
+  surface: ManagedSurface,
+  refs: readonly ChildRef[],
+  props: Record<string, unknown> | undefined,
+  componentId: string,
+  basePath: string | undefined,
+  ancestors: readonly string[],
+) {
+  return useMemo(() => {
+    if (props === undefined || refs.length === 0) return props;
+    const childAncestors = [...ancestors, scopedId(componentId, basePath)];
+    const render = (kind: ChildRef["kind"], value: unknown): unknown => {
+      if (kind === "single") {
+        return typeof value === "string" ? (
+          <NodeView
+            surface={surface}
+            componentId={value}
+            basePath={basePath}
+            ancestors={childAncestors}
+          />
+        ) : undefined;
+      }
+      if (isTemplateChildren(value)) {
+        return (
+          <TemplateChildren
+            surface={surface}
+            template={value}
+            basePath={basePath}
+            ancestors={childAncestors}
+          />
+        );
+      }
+      if (!Array.isArray(value)) return undefined;
+      const ids = [
+        ...new Set(value.filter((id): id is string => typeof id === "string")),
+      ];
+      return ids.map((id) => (
+        <NodeView
+          key={id}
+          surface={surface}
+          componentId={id}
+          basePath={basePath}
+          ancestors={childAncestors}
+        />
+      ));
+    };
+    let result: unknown = props;
+    for (const ref of refs) {
+      result = mapAtChildRef(result, ref.path, (found) =>
+        render(ref.kind, found),
+      );
+    }
+    return result as Record<string, unknown>;
+  }, [surface, refs, props, componentId, basePath, ancestors]);
+}
+
 function ResolvedNode({
   surface,
   componentId,
@@ -760,6 +808,14 @@ function ResolvedNode({
     basePath,
     ancestors,
   );
+  const childRefProps = useChildRefProps(
+    surface,
+    definition.childRefs,
+    dataProps.ok ? dataProps.props : undefined,
+    componentId,
+    basePath,
+    ancestors,
+  );
   const nodeContext = useMemo(
     () => ({
       surfaceKey: surface.key,
@@ -793,7 +849,7 @@ function ResolvedNode({
   return (
     <GenerativeUINodeContext.Provider value={nodeContext}>
       <Component
-        {...dataProps.props}
+        {...childRefProps}
         {...eventProps}
         {...slotProps}
         {...setters}
