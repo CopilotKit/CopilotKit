@@ -10,4 +10,9 @@ export {
   prepareSurfaceOperations,
   segmentSurfaceProse,
 } from "./operations";
-export type { A2UIMarkdownOperation, SurfaceSegment } from "./operations";
+export type {
+  A2UIMarkdownOperation,
+  ChildIdsOf,
+  ChildWalkOptions,
+  SurfaceSegment,
+} from "./operations";

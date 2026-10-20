@@ -20,9 +20,16 @@ import {
   layoutProps,
   layoutStyle,
   useVisibleOnce,
+  weightProp,
 } from "./layout";
 import { openUrl } from "./lightbox";
 import { LucideIcon } from "./media";
+import {
+  CHECK_ERROR_STYLE,
+  checksProp,
+  firstFailedCheck,
+  useChecks,
+} from "./checks";
 
 /** Copies text to the clipboard. False when the API is not there. */
 async function copyText(text: string) {
@@ -80,20 +87,24 @@ const boundValue = z
 
 const buttonSchema = z.object({
   label: z.string().optional().describe("The button text"),
+  checks: checksProp,
   text: z
     .string()
     .optional()
     .describe("Same as label. Used when label is not set"),
   variant: z
-    .enum(["solid", "soft", "outline", "ghost"])
+    .enum(["default", "primary", "soft", "borderless"])
     .optional()
-    .describe('Default "solid"'),
+    .describe(
+      'Default "default": outlined. "primary" is filled, for the one main action. "borderless" has no box, like a link',
+    ),
   color: z
     .enum(["primary", "secondary", "danger"])
     .optional()
     .describe('Default "primary"'),
   size: z.enum(["sm", "md", "lg"]).optional().describe('Default "lg"'),
   block: z.boolean().optional().describe("Full width"),
+  weight: weightProp,
   pill,
   disabled: z.boolean().optional(),
   loading: z.boolean().optional(),
@@ -134,16 +145,28 @@ const formSchema = z.object({
     .describe("A short name of the form for screen readers"),
 });
 const textFieldSchema = z.object({
+  checks: checksProp,
   value: z
     .union([z.string(), z.number()])
     .optional()
     .describe('Bind it with { "@path": "/x" } to read what the user typed'),
   placeholder: z.string().optional(),
   label: fieldLabel,
-  inputType: z
-    .enum(["text", "number", "email", "password", "url", "tel"])
+  variant: z
+    .enum([
+      "shortText",
+      "longText",
+      "number",
+      "obscured",
+      "email",
+      "url",
+      "tel",
+    ])
     .optional()
-    .describe('Default "text"'),
+    .describe(
+      'Default "shortText". "longText" is a multi-line field, "obscured" a password',
+    ),
+  weight: weightProp,
   name: z.string().optional(),
   required: z.boolean().optional(),
   disabled: z.boolean().optional(),
@@ -154,9 +177,11 @@ const textFieldSchema = z.object({
   mask: z.string().optional(),
 });
 const textAreaSchema = z.object({
+  checks: checksProp,
   value: boundValue,
   placeholder: z.string().optional(),
   label: fieldLabel,
+  weight: weightProp,
   rows: z.number().optional().describe("Default 3"),
   maxRows: z.number().optional(),
   autoResize: z.boolean().optional(),
@@ -167,6 +192,7 @@ const textAreaSchema = z.object({
   size: size("xl"),
 });
 const selectSchema = z.object({
+  checks: checksProp,
   value: boundValue,
   options: optionList,
   placeholder: z.string().optional(),
@@ -183,15 +209,16 @@ const selectSchema = z.object({
   pill,
 });
 const checkBoxSchema = z.object({
-  checked: z
+  checks: checksProp,
+  value: z
     .boolean()
     .optional()
     .describe(
-      'Bind this (not value) with { "@path": "/x" } to read the state of the box',
+      'True when checked. Bind it with { "@path": "/x" } to read the state of the box',
     ),
   label: z.string().optional().describe("The label text. Always set it"),
   name: z.string().optional(),
-  value: z.string().optional().describe('The form value. Default "on"'),
+  weight: weightProp,
   disabled: z.boolean().optional(),
   required: z.boolean().optional(),
   lineThrough: z
@@ -207,6 +234,7 @@ const radioSchema = z.object({
   required: z.boolean().optional(),
 });
 const radioGroupSchema = z.object({
+  checks: checksProp,
   value: boundValue,
   options: optionList,
   label: fieldLabel,
@@ -217,6 +245,7 @@ const radioGroupSchema = z.object({
   required: z.boolean().optional(),
 });
 const sliderSchema = z.object({
+  checks: checksProp,
   value: z
     .number()
     .optional()
@@ -224,7 +253,16 @@ const sliderSchema = z.object({
   min: z.number().optional().describe("Default 0"),
   max: z.number().optional().describe("Default 100"),
   step: z.number().optional().describe("Default 1"),
+  steps: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe(
+      "The number of equal divisions between min and max, instead of step",
+    ),
   label: fieldLabel,
+  weight: weightProp,
   unit: z.string().optional().describe('Unit after the value, for example "%"'),
   marks: z
     .array(z.object({ value: z.number(), label: z.string().optional() }))
@@ -237,6 +275,7 @@ const sliderSchema = z.object({
   name: z.string().optional(),
 });
 const segmentedControlSchema = z.object({
+  checks: checksProp,
   value: boundValue,
   options: optionList,
   label: fieldLabel,
@@ -249,14 +288,51 @@ const segmentedControlSchema = z.object({
     .describe('Default "ghost"'),
   disabled: z.boolean().optional(),
 });
+const choicePickerSchema = z.object({
+  checks: checksProp,
+  value: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'The chosen option values. Bind it with { "@path": "/x" } to a string list',
+    ),
+  options: optionList,
+  label: fieldLabel,
+  variant: z
+    .enum(["multipleSelection", "mutuallyExclusive"])
+    .optional()
+    .describe('Default "mutuallyExclusive": the user picks one option'),
+  displayStyle: z
+    .enum(["checkbox", "chips"])
+    .optional()
+    .describe('Default "checkbox". "chips" shows the options as pills'),
+  filterable: z
+    .boolean()
+    .optional()
+    .describe("Default false. Shows a field that filters the options"),
+  weight: weightProp,
+  disabled: z.boolean().optional(),
+  required: z.boolean().optional(),
+});
 const dateTimeInputSchema = z.object({
+  checks: checksProp,
   value: z
     .string()
     .optional()
-    .describe('"YYYY-MM-DD". Bind it with { "@path": "/x" }'),
+    .describe(
+      'ISO 8601: "YYYY-MM-DD", "HH:MM" or "YYYY-MM-DDTHH:MM". Bind it with { "@path": "/x" }',
+    ),
   label: fieldLabel,
-  min: z.string().optional().describe('The earliest date, "YYYY-MM-DD"'),
-  max: z.string().optional().describe('The latest date, "YYYY-MM-DD"'),
+  enableDate: z
+    .boolean()
+    .optional()
+    .describe(
+      "The user picks a date. Default true unless only enableTime is set",
+    ),
+  enableTime: z.boolean().optional().describe("The user picks a time"),
+  weight: weightProp,
+  min: z.string().optional().describe("The earliest value, ISO 8601"),
+  max: z.string().optional().describe("The latest value, ISO 8601"),
   placeholder: z.string().optional(),
   disabled: z.boolean().optional(),
   required: z.boolean().optional(),
@@ -355,11 +431,20 @@ function Field({
   label,
   htmlFor,
   labelId,
+  weight,
+  error,
+  onBlur,
   children,
 }: {
   label?: string;
   htmlFor?: string;
   labelId?: string;
+  /** The A2UI `weight`: flex-grow in a Row or Column. */
+  weight?: number;
+  /** The message of a failed check, shown under the control. */
+  error?: string;
+  /** Called when the focus leaves the control, to mark it as touched. */
+  onBlur?: () => void;
   children: ReactNode;
 }) {
   const labelElement =
@@ -380,18 +465,31 @@ function Field({
         gap: spacing(2),
         width: "100%",
         minWidth: 0,
+        flexGrow: weight,
       }}
+      onBlurCapture={onBlur}
     >
       {label ? labelElement : null}
       {children}
+      <CheckError message={error} />
     </div>
+  );
+}
+
+/** The message of a failed check, under a control. Nothing when none. */
+function CheckError({ message }: { message: string | undefined }) {
+  if (message === undefined) return null;
+  return (
+    <span role="alert" data-a2ui-check-error="" style={CHECK_ERROR_STYLE}>
+      {message}
+    </span>
   );
 }
 
 // ---- Button ----
 
 type ButtonProps = WithChildren<
-  z.output<typeof buttonSchema> & { onClick?: EventProp }
+  z.output<typeof buttonSchema> & { onClick?: EventProp; child?: ReactNode }
 >;
 
 function buttonVariantStyle(
@@ -407,7 +505,7 @@ function buttonVariantStyle(
   const foreground =
     color === "danger" ? textColor("danger") : textColor("default");
   switch (variant) {
-    case "solid":
+    case "primary":
       return {
         background: accent,
         color: color === "secondary" ? foreground : ON_ACCENT,
@@ -419,13 +517,13 @@ function buttonVariantStyle(
         color: foreground,
         border: "1px solid transparent",
       };
-    case "outline":
+    case "default":
       return {
         background: "transparent",
         color: foreground,
         border: `1px solid ${color === "danger" ? accent : borderColor("default")}`,
       };
-    case "ghost":
+    case "borderless":
       return { background: "transparent", color: foreground, border: "none" };
   }
 }
@@ -434,10 +532,14 @@ function Button(props: ButtonProps) {
   useStandardStyles();
   const [isCopied, setIsCopied] = useState(false);
   const buttonSize = props.size ?? "lg";
-  const isDisabled = Boolean(props.disabled || props.loading);
+  const failedCheck = firstFailedCheck(props.checks);
+  const isDisabled = Boolean(
+    props.disabled || props.loading || failedCheck !== undefined,
+  );
   const style: CSSProperties = {
     display: props.block ? "flex" : "inline-flex",
     width: props.block ? "100%" : undefined,
+    flexGrow: props.weight,
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
@@ -453,13 +555,14 @@ function Button(props: ButtonProps) {
     borderRadius: props.pill === false ? radius("md") : "9999px",
     cursor: isDisabled ? "not-allowed" : "pointer",
     opacity: isDisabled ? 0.5 : undefined,
-    ...buttonVariantStyle(props.variant ?? "solid", props.color),
+    ...buttonVariantStyle(props.variant ?? "default", props.color),
   };
   return (
     <button
       data-a2ui-input=""
       type={props.submit ? "submit" : "button"}
       disabled={isDisabled}
+      title={failedCheck}
       aria-busy={props.loading ? true : undefined}
       style={style}
       onClick={(event) => {
@@ -500,9 +603,11 @@ function Button(props: ButtonProps) {
           <LucideIcon name={props.icon} size={ICON_PX[buttonSize]} />
         </span>
       ) : null}
-      {hasContent(props.children)
-        ? props.children
-        : asText(props.label ?? props.text)}
+      {hasContent(props.child)
+        ? props.child
+        : hasContent(props.children)
+          ? props.children
+          : asText(props.label ?? props.text)}
     </button>
   );
 }
@@ -604,24 +709,59 @@ type TextFieldProps = z.output<typeof textFieldSchema> & {
   setValue: (value: string | number) => void;
 };
 
+/** The `type` of the input of each single-line TextField variant. */
+const TEXT_FIELD_TYPE = {
+  shortText: "text",
+  number: "number",
+  obscured: "password",
+  email: "email",
+  url: "url",
+  tel: "tel",
+} as const;
+
 function TextField(props: TextFieldProps) {
   useStandardStyles();
   const id = useId();
   const ref = useRef<HTMLInputElement>(null);
+  const variant = props.variant ?? "shortText";
+  const check = useChecks(props.checks, props.value);
+  if (variant === "longText") {
+    return (
+      <TextArea
+        checks={props.checks}
+        value={asText(props.value)}
+        placeholder={props.placeholder}
+        label={props.label}
+        name={props.name}
+        required={props.required}
+        disabled={props.disabled}
+        invalid={props.invalid}
+        size={props.size}
+        weight={props.weight}
+        setValue={props.setValue}
+      />
+    );
+  }
   return (
-    <Field label={props.label} htmlFor={id}>
+    <Field
+      label={props.label}
+      htmlFor={id}
+      weight={props.weight}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
       <input
         ref={ref}
         id={id}
         data-a2ui-input=""
-        type={props.inputType ?? "text"}
+        type={TEXT_FIELD_TYPE[variant]}
         name={props.name}
         placeholder={props.placeholder}
         // Without a visible label, the placeholder still names the field.
         aria-label={props.label ? undefined : props.placeholder}
         required={props.required}
         disabled={props.disabled}
-        aria-invalid={props.invalid || undefined}
+        aria-invalid={props.invalid || check.invalid || undefined}
         value={asText(props.value)}
         onFocus={props.autoSelect ? () => ref.current?.select() : undefined}
         onChange={(event) => props.setValue(event.target.value)}
@@ -639,8 +779,15 @@ function TextArea(props: TextAreaProps) {
   useStandardStyles();
   const id = useId();
   const areaSize = props.size ?? "xl";
+  const check = useChecks(props.checks, props.value);
   return (
-    <Field label={props.label} htmlFor={id}>
+    <Field
+      label={props.label}
+      htmlFor={id}
+      weight={props.weight}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
       <textarea
         id={id}
         data-a2ui-input=""
@@ -649,7 +796,7 @@ function TextArea(props: TextAreaProps) {
         aria-label={props.label ? undefined : props.placeholder}
         required={props.required}
         disabled={props.disabled}
-        aria-invalid={props.invalid || undefined}
+        aria-invalid={props.invalid || check.invalid || undefined}
         rows={props.rows ?? 3}
         value={asText(props.value)}
         onChange={(event) => {
@@ -677,13 +824,27 @@ type DateTimeInputProps = z.output<typeof dateTimeInputSchema> & {
   setValue: (value: string) => void;
 };
 
+/** The input type: a date by default, a time, or both. */
+function dateTimeInputType(props: DateTimeInputProps) {
+  const hasTime = props.enableTime === true;
+  const hasDate = props.enableDate ?? !hasTime;
+  return hasDate && hasTime ? "datetime-local" : hasTime ? "time" : "date";
+}
+
 function DateTimeInput(props: DateTimeInputProps) {
   useStandardStyles();
   const id = useId();
   const value = asText(props.value);
   const showClear = props.clearable && value !== "";
+  const check = useChecks(props.checks, props.value);
   return (
-    <Field label={props.label} htmlFor={id}>
+    <Field
+      label={props.label}
+      htmlFor={id}
+      weight={props.weight}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
       <div
         style={{
           display: props.block ? "flex" : "inline-flex",
@@ -694,7 +855,7 @@ function DateTimeInput(props: DateTimeInputProps) {
       >
         <input
           id={id}
-          type="date"
+          type={dateTimeInputType(props)}
           data-a2ui-input=""
           min={props.min}
           max={props.max}
@@ -702,6 +863,7 @@ function DateTimeInput(props: DateTimeInputProps) {
           aria-label={props.label ? undefined : props.placeholder}
           disabled={props.disabled}
           required={props.required}
+          aria-invalid={check.invalid || undefined}
           value={value}
           onChange={(event) => props.setValue(event.target.value)}
           style={controlStyle(props, "xl")}
@@ -710,7 +872,7 @@ function DateTimeInput(props: DateTimeInputProps) {
           <button
             type="button"
             data-a2ui-input=""
-            aria-label="Clear date"
+            aria-label="Clear"
             onClick={() => props.setValue("")}
             style={{
               minWidth: 24,
@@ -731,6 +893,158 @@ function DateTimeInput(props: DateTimeInputProps) {
 
 // ---- Choices ----
 
+type ChoicePickerProps = z.output<typeof choicePickerSchema> & {
+  setValue: (value: string[]) => void;
+};
+
+/**
+ * One or more options from a list, as checkboxes (or radios, for one
+ * choice) or as chips. The value is always a list of option values.
+ */
+function ChoicePicker(props: ChoicePickerProps) {
+  useStandardStyles();
+  const labelId = useId();
+  const fallbackName = useId();
+  const [filter, setFilter] = useState("");
+  const isMultiple = props.variant === "multipleSelection";
+  const isChips = props.displayStyle === "chips";
+  const chosen = Array.isArray(props.value) ? props.value : [];
+  const check = useChecks(props.checks, chosen);
+  const options = normalizeOptions(props.options);
+  const shown = filter
+    ? options.filter((option) =>
+        option.label.toLowerCase().includes(filter.toLowerCase()),
+      )
+    : options;
+  const toggle = (value: string) => {
+    if (!isMultiple) {
+      props.setValue(chosen.includes(value) ? [] : [value]);
+      return;
+    }
+    props.setValue(
+      chosen.includes(value)
+        ? chosen.filter((item) => item !== value)
+        : [...chosen, value],
+    );
+  };
+  return (
+    <Field
+      label={props.label}
+      labelId={labelId}
+      weight={props.weight}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
+      {props.filterable ? (
+        <input
+          type="search"
+          data-a2ui-input=""
+          aria-label="Filter options"
+          placeholder="Filter…"
+          value={filter}
+          disabled={props.disabled}
+          onChange={(event) => setFilter(event.target.value)}
+          style={controlStyle(props, "lg")}
+        />
+      ) : null}
+      {props.required ? (
+        // The checkboxes and chips carry no selection of their own, so this
+        // sentinel makes an empty required choice fail the Form's
+        // constraint validation. It is invisible and not in the tab order.
+        <input
+          tabIndex={-1}
+          aria-hidden="true"
+          required
+          disabled={props.disabled}
+          name={undefined}
+          value={chosen.join(",")}
+          onChange={() => {}}
+          style={{
+            position: "absolute",
+            opacity: 0,
+            width: 1,
+            height: 1,
+            margin: 0,
+            padding: 0,
+            border: 0,
+            pointerEvents: "none",
+          }}
+        />
+      ) : null}
+      <div
+        role={isChips ? "group" : isMultiple ? "group" : "radiogroup"}
+        aria-labelledby={props.label ? labelId : undefined}
+        aria-required={props.required || undefined}
+        aria-invalid={check.invalid || undefined}
+        style={{
+          display: "flex",
+          flexDirection: isChips ? "row" : "column",
+          flexWrap: isChips ? "wrap" : undefined,
+          gap: spacing(2),
+          opacity: props.disabled ? 0.5 : undefined,
+        }}
+      >
+        {shown.map((option) => {
+          const isSelected = chosen.includes(option.value);
+          if (isChips) {
+            return (
+              <button
+                key={option.value}
+                type="button"
+                data-a2ui-input=""
+                aria-pressed={isSelected}
+                disabled={props.disabled}
+                onClick={() => toggle(option.value)}
+                style={{
+                  ...radioOptionStyle("pills", isSelected),
+                  background: isSelected
+                    ? backgroundColor("surface-secondary")
+                    : "transparent",
+                  color: textColor("default"),
+                  fontFamily: "inherit",
+                  cursor: props.disabled ? "not-allowed" : "pointer",
+                }}
+              >
+                {option.label}
+              </button>
+            );
+          }
+          return (
+            <label key={option.value} style={radioOptionStyle("list", false)}>
+              <input
+                type={isMultiple ? "checkbox" : "radio"}
+                className="a2ui-std-check"
+                data-a2ui-input=""
+                name={fallbackName}
+                value={option.value}
+                checked={isSelected}
+                disabled={props.disabled}
+                onChange={() => toggle(option.value)}
+                onClick={
+                  // A radio does not fire onChange when it is already checked.
+                  !isMultiple && isSelected
+                    ? () => toggle(option.value)
+                    : undefined
+                }
+              />
+              <span style={{ display: "flex", flexDirection: "column" }}>
+                <span>{option.label}</span>
+                {option.description ? (
+                  <span
+                    style={{ ...textFont("sm"), color: textColor("secondary") }}
+                  >
+                    {option.description}
+                  </span>
+                ) : null}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </Field>
+  );
+}
+
 type SelectProps = z.output<typeof selectSchema> & {
   setValue: (value: string) => void;
 };
@@ -740,6 +1054,7 @@ function Select(props: SelectProps) {
   const id = useId();
   const options = normalizeOptions(props.options);
   const value = asText(props.value);
+  const check = useChecks(props.checks, props.value);
   const hasEmptyOption = Boolean(
     props.placeholder || props.clearable || value === "",
   );
@@ -751,6 +1066,7 @@ function Select(props: SelectProps) {
       aria-label={props.label ? undefined : props.placeholder}
       required={props.required}
       disabled={props.disabled}
+      aria-invalid={check.invalid || undefined}
       value={value}
       onChange={(event) => props.setValue(event.target.value)}
       style={{
@@ -776,7 +1092,12 @@ function Select(props: SelectProps) {
     </select>
   );
   return (
-    <Field label={props.label} htmlFor={id}>
+    <Field
+      label={props.label}
+      htmlFor={id}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
       {props.icon ? (
         <span style={{ position: "relative", display: "flex", width: "100%" }}>
           <span
@@ -803,49 +1124,62 @@ function Select(props: SelectProps) {
 }
 
 type CheckBoxProps = z.output<typeof checkBoxSchema> & {
-  setChecked: (checked: boolean) => void;
+  setValue: (value: boolean) => void;
 };
 
 function CheckBox(props: CheckBoxProps) {
   useStandardStyles();
-  const isChecked = Boolean(props.checked);
+  const isChecked = Boolean(props.value);
   const hasLabel = props.label !== undefined && props.label !== "";
+  const check = useChecks(props.checks, props.value);
   return (
-    <label
+    <span
       style={{
         display: "inline-flex",
-        alignItems: "center",
-        gap: spacing(2),
-        cursor: props.disabled ? "not-allowed" : "pointer",
-        opacity: props.disabled ? 0.5 : undefined,
-        ...textFont("md"),
-        color: textColor("default"),
+        flexDirection: "column",
+        gap: spacing(1),
+        flexGrow: props.weight,
       }}
+      onBlurCapture={check.onBlur}
     >
-      <input
-        type="checkbox"
-        className="a2ui-std-check"
-        data-a2ui-input=""
-        data-shape={props.shape ?? "round"}
-        name={props.name}
-        value={props.value ?? "on"}
-        aria-label={hasLabel ? undefined : props.name}
-        required={props.required}
-        disabled={props.disabled}
-        checked={isChecked}
-        onChange={(event) => props.setChecked(event.target.checked)}
-      />
-      {hasLabel ? (
-        <span
-          style={{
-            textDecoration:
-              props.lineThrough && isChecked ? "line-through" : undefined,
-          }}
-        >
-          {props.label}
-        </span>
-      ) : null}
-    </label>
+      <label
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          flexGrow: props.weight,
+          gap: spacing(2),
+          cursor: props.disabled ? "not-allowed" : "pointer",
+          opacity: props.disabled ? 0.5 : undefined,
+          ...textFont("md"),
+          color: textColor("default"),
+        }}
+      >
+        <input
+          type="checkbox"
+          className="a2ui-std-check"
+          data-a2ui-input=""
+          data-shape={props.shape ?? "round"}
+          name={props.name}
+          aria-label={hasLabel ? undefined : props.name}
+          required={props.required}
+          disabled={props.disabled}
+          checked={isChecked}
+          aria-invalid={check.invalid || undefined}
+          onChange={(event) => props.setValue(event.target.checked)}
+        />
+        {hasLabel ? (
+          <span
+            style={{
+              textDecoration:
+                props.lineThrough && isChecked ? "line-through" : undefined,
+            }}
+          >
+            {props.label}
+          </span>
+        ) : null}
+      </label>
+      <CheckError message={check.error} />
+    </span>
   );
 }
 
@@ -905,9 +1239,12 @@ function RadioGroup(props: RadioGroupProps) {
   const options = normalizeOptions(props.options);
   const value = asText(props.value);
   const variant = props.variant ?? "list";
+  const check = useChecks(props.checks, props.value);
   return (
     <fieldset
       disabled={props.disabled}
+      aria-invalid={check.invalid || undefined}
+      onBlurCapture={check.onBlur}
       style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}
     >
       {props.label ? (
@@ -956,6 +1293,7 @@ function RadioGroup(props: RadioGroupProps) {
           );
         })}
       </div>
+      <CheckError message={check.error} />
     </fieldset>
   );
 }
@@ -1023,6 +1361,7 @@ function SegmentedControl(props: SegmentedControlProps) {
   const options = normalizeOptions(props.options);
   const value = asText(props.value);
   const isPill = props.pill !== false;
+  const check = useChecks(props.checks, props.value);
   const selectedIndex = options.findIndex((option) => option.value === value);
   const tabStopIndex = selectedIndex === -1 ? 0 : selectedIndex;
   const onKeyDown = (
@@ -1036,7 +1375,12 @@ function SegmentedControl(props: SegmentedControlProps) {
     segments.current[next]?.focus();
   };
   return (
-    <Field label={props.label} labelId={labelId}>
+    <Field
+      label={props.label}
+      labelId={labelId}
+      error={check.error}
+      onBlur={check.onBlur}
+    >
       <div
         role="radiogroup"
         aria-labelledby={props.label ? labelId : undefined}
@@ -1095,9 +1439,13 @@ function Slider(props: SliderProps) {
   useStandardStyles();
   const id = useId();
   const listId = useId();
-  const value = props.value ?? props.min ?? 0;
+  const min = props.min ?? 0;
+  const max = props.max ?? 100;
+  const value = props.value ?? min;
   const marks = props.marks ?? [];
+  const step = props.steps ? (max - min) / props.steps : (props.step ?? 1);
   const isDiscrete = props.sliderStyle === "discrete";
+  const check = useChecks(props.checks, props.value);
   const valueText = props.unit ? `${value} ${props.unit}` : `${value}`;
   const showValue = Boolean(props.label || props.unit);
   return (
@@ -1108,7 +1456,9 @@ function Slider(props: SliderProps) {
         gap: spacing(2),
         width: "100%",
         minWidth: 0,
+        flexGrow: props.weight,
       }}
+      onBlurCapture={check.onBlur}
     >
       <div
         style={{
@@ -1149,9 +1499,9 @@ function Slider(props: SliderProps) {
         name={props.name}
         aria-label={props.label ? undefined : props.name}
         aria-valuetext={props.unit ? valueText : undefined}
-        min={props.min ?? 0}
-        max={props.max ?? 100}
-        step={props.step ?? 1}
+        min={min}
+        max={max}
+        step={step}
         disabled={props.disabled}
         value={value}
         list={isDiscrete && marks.length > 0 ? listId : undefined}
@@ -1181,6 +1531,7 @@ function Slider(props: SliderProps) {
           </div>
         </>
       ) : null}
+      <CheckError message={check.error} />
     </div>
   );
 }
@@ -1195,7 +1546,7 @@ function Slider(props: SliderProps) {
  *   binds an event to `{ "event": { "name", "userMessage"?, "context"? } }`
  *   or `{ "functionCall": { "@call", "args"? } }`, or an app function with
  *   the same name binds it automatically.
- * - The value of a control is writable: `value` (`checked` for CheckBox).
+ * - The value of a control is writable: `value`.
  *   When the model binds it to `{ "@path": "/x" }`, what the user enters goes
  *   into the data model at that path, and the agent can no longer change it.
  */
@@ -1203,7 +1554,7 @@ export const inputComponents = {
   Button: {
     component: Button,
     description:
-      'A button that sends its onClick event. With href it opens the URL, and with copy it copies the text, both without the agent. Use one primary Button in a Row, and variant "ghost" for the others. With submit true inside a Form, it submits the Form. Children render instead of the label.',
+      'A button that sends its onClick event. With href it opens the URL, and with copy it copies the text, both without the agent. Use variant "primary" for the one main Button in a Row, and the default for the others. With submit true inside a Form, it submits the Form. The child or children render instead of the label. With checks, it is disabled while a check fails.',
     props: buttonSchema,
     events: {
       onClick: {
@@ -1211,7 +1562,7 @@ export const inputComponents = {
         parameters: NO_ARGS,
       },
     },
-    slots: CHILDREN_SLOT,
+    slots: { child: "single", children: "multiple" } as const,
   },
   Pressable: {
     component: Pressable,
@@ -1243,7 +1594,7 @@ export const inputComponents = {
   TextField: {
     component: TextField,
     description:
-      'A single-line text input. Bind value with { "@path": "/x" } to read what the user typed. Give it a label.',
+      'A text input, single-line unless variant is "longText". Bind value with { "@path": "/x" } to read what the user typed. Give it a label.',
     props: textFieldSchema,
     writable: VALUE_WRITABLE,
   },
@@ -1264,9 +1615,9 @@ export const inputComponents = {
   CheckBox: {
     component: CheckBox,
     description:
-      'A checkbox with a label. Bind checked (not value) with { "@path": "/x" } to read its state.',
+      'A checkbox with a label. Bind value with { "@path": "/x" } to read its state, true or false.',
     props: checkBoxSchema,
-    writable: ["checked"] as const,
+    writable: VALUE_WRITABLE,
   },
   Radio: {
     component: Radio,
@@ -1295,10 +1646,17 @@ export const inputComponents = {
     props: segmentedControlSchema,
     writable: VALUE_WRITABLE,
   },
+  ChoicePicker: {
+    component: ChoicePicker,
+    description:
+      'A list of options, as checkboxes or chips. The user picks one, or several with variant "multipleSelection". Bind value with { "@path": "/x" } to read the chosen values as a list. Give it a label.',
+    props: choicePickerSchema,
+    writable: VALUE_WRITABLE,
+  },
   DateTimeInput: {
     component: DateTimeInput,
     description:
-      'A date picker. The value is "YYYY-MM-DD". Bind value with { "@path": "/x" } to read the date. Give it a label.',
+      'A date picker, or a time picker with enableTime, or both. The value is ISO 8601. Bind value with { "@path": "/x" } to read it. Give it a label.',
     props: dateTimeInputSchema,
     writable: VALUE_WRITABLE,
   },

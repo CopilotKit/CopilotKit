@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { useOverlayEscape } from "./overlay-stack";
 import { BACKDROP, ON_ACCENT, SHADOW_MD, radius } from "./tokens";
 
 export interface LightboxImage {
@@ -38,15 +39,20 @@ export function Lightbox({
   const count = images.length;
   const step = (delta: number) =>
     setCurrent((i) => (count === 0 ? 0 : (i + delta + count) % count));
+  // Escape goes through the overlay stack, so a lightbox inside a Modal
+  // closes alone. The close is stable, so a re-render keeps the order.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const close = useCallback(() => closeRef.current(), []);
+  useOverlayEscape(true, close);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-      else if (event.key === "ArrowRight" && count > 1) step(1);
+      if (event.key === "ArrowRight" && count > 1) step(1);
       else if (event.key === "ArrowLeft" && count > 1) step(-1);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose, count]);
+  }, [count]);
   if (typeof document === "undefined") return null;
   const image = images[Math.min(current, count - 1)];
   if (!image) return null;

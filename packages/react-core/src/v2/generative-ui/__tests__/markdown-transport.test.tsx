@@ -292,6 +292,7 @@ describe("markdown transport", () => {
         functions: true,
         events: false,
         templates: true,
+        checks: false,
       }),
     );
     expect(JSON.parse(listed.context[1].value)).toEqual({
@@ -304,9 +305,10 @@ describe("markdown transport", () => {
           description: TARGET_DESCRIPTION,
         },
       ],
-      functions: {
+      functions: expect.objectContaining({
         addToCart: { parameters: "{ sku: string }" },
-      },
+        formatCurrency: expect.any(Object),
+      }),
       components: {
         Button: { props: { label: "string" } },
         Column: expect.any(Object),

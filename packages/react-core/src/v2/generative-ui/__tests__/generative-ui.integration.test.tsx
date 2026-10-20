@@ -14,6 +14,7 @@ import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import {
   envelopeToManifest,
   readCopilotKitUIEnvelope,
+  isA2UIBasicFunction,
 } from "@copilotkit/shared";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
@@ -214,10 +215,12 @@ describe("generative UI integration", () => {
         components: ["Grid", "Card"],
       },
     ]);
-    expect(Object.keys(manifest?.functions ?? {}).sort()).toEqual([
-      "addToCart",
-      "applyCoupon",
-    ]);
+    // The app functions, next to the built-in ones of the catalog.
+    const appFunctions = Object.keys(manifest?.functions ?? {}).filter(
+      (name) => !isA2UIBasicFunction(name),
+    );
+    expect(appFunctions.sort()).toEqual(["addToCart", "applyCoupon"]);
+    expect(manifest?.functions).toHaveProperty("formatCurrency");
     expect(Object.keys(manifest?.components ?? {})).toEqual(["Grid", "Card"]);
   });
 

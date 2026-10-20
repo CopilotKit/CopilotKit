@@ -484,6 +484,9 @@ export function useGenerativeUIRoot(
       dispatcher,
       manifest: { catalogId: ui.id, components: ui.manifestComponents },
     });
+    // The agents with an event on its way to a run. Set before the run
+    // starts, so a repeat click in the same tick is caught too.
+    const forwardingAgents = new Set<AbstractAgent>();
     const forwardEvent: GenerativeUIRuntime["forwardEvent"] = async (
       event,
       agentId,
@@ -502,6 +505,21 @@ export function useGenerativeUIRoot(
       if (!agent) {
         return fail(`No agent "${agentId}" to receive "${event.name}"`);
       }
+      // An event is a one-click send. While the agent runs, or another event
+      // is on its way, a second one is almost always a repeat: a double
+      // click, or a click while the reply streams. Sending it would start a
+      // second run and derail the chat, so it is dropped. The component gets
+      // `agent_busy`; it is not an error of the UI, so nothing is reported.
+      if (agent.isRunning || forwardingAgents.has(agent)) {
+        return {
+          ok: false as const,
+          error: new GenerativeUIError(
+            "agent_busy",
+            `"${event.name}" was not sent: the agent is running`,
+          ),
+        };
+      }
+      forwardingAgents.add(agent);
       try {
         // A visible user message: the user and the model both see the event.
         const surface = agent.threadId
@@ -521,6 +539,8 @@ export function useGenerativeUIRoot(
         return fail(
           `Forwarding "${event.name}" failed: ${cause instanceof Error ? cause.message : String(cause)}`,
         );
+      } finally {
+        forwardingAgents.delete(agent);
       }
     };
     return {

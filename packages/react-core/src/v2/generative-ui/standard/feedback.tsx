@@ -1,16 +1,22 @@
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import type { CSSProperties, KeyboardEvent, ReactNode, RefObject } from "react";
+import { createPortal } from "react-dom";
 import { z } from "zod";
-import { CHILDREN_SLOT, sizeValue } from "./layout";
+import { useGenerativeUIRuntime } from "../runtime-context";
+import { useOverlayEscape } from "./overlay-stack";
+import { CHILDREN_SLOT, sizeValue, weightProp } from "./layout";
 import { useStandardStyles } from "./styles";
 import {
+  BACKDROP,
   backgroundColor,
   borderColor,
   radius,
@@ -620,6 +626,248 @@ function PopoverContent(props: PopoverContentProps) {
   );
 }
 
+const modalSchema = z.object({
+  title: z.string().optional().describe("The heading of the dialog"),
+  open: z
+    .boolean()
+    .optional()
+    .describe('Default false. Bind it with { "@path": "/x" } to read it'),
+  maxWidth: sizeValue.optional().describe("Default 480"),
+  weight: weightProp,
+});
+
+type ModalProps = z.output<typeof modalSchema> & {
+  trigger?: ReactNode;
+  content?: ReactNode;
+  setOpen?: (open: boolean) => void;
+};
+
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),iframe,video[controls],audio[controls],[tabindex]:not([tabindex="-1"])';
+/**
+ * A control, enabled or not: a disabled Button, or a Pressable (a div with
+ * the button role) is still the trigger, and the wrapper must not open the
+ * dialog in its place.
+ */
+const CONTROL =
+  'a[href],button,input,select,textarea,[role="button"],[tabindex]:not([tabindex="-1"])';
+/** A click inside one of these never opens the dialog. */
+const DISABLED = '[disabled],[aria-disabled="true"]';
+
+/**
+ * A modal dialog. The trigger is wrapped in a button when it is not one
+ * itself (a click anywhere on it opens the dialog). While open, Tab cycles
+ * inside the dialog, Escape closes it, and the focus returns to the trigger.
+ */
+function Modal(props: ModalProps) {
+  useFeedbackStyles();
+  const id = useId();
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = props.open ?? ownOpen;
+  const setOpen = (value: boolean) => {
+    setOwnOpen(value);
+    props.setOpen?.(value);
+  };
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // A stable close for the overlay stack, so a re-render of this Modal does
+  // not move it above an overlay that opened later.
+  const closeRef = useRef(() => setOpen(false));
+  closeRef.current = () => setOpen(false);
+  const close = useCallback(() => closeRef.current(), []);
+  useOverlayEscape(open, close);
+  // A trigger that is not a control itself (a Text) gets the button role
+  // and a tab stop, so the keyboard can open the dialog. A Button inside
+  // keeps its own semantics: nesting buttons is invalid.
+  const [isPlainTrigger, setPlainTrigger] = useState(false);
+  // The trigger component can stream in after the Modal, which re-renders
+  // the slot but not the Modal. So the DOM of the trigger is observed, and
+  // the classification follows what is rendered in it.
+  useEffect(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const classify = () => {
+      // A disabled control is still a control: the wrapper must not open
+      // the dialog in its place.
+      const isPlain = trigger.querySelector(CONTROL) === null;
+      setPlainTrigger((current) => (current === isPlain ? current : isPlain));
+    };
+    classify();
+    if (typeof MutationObserver === "undefined") return;
+    const observer = new MutationObserver(classify);
+    observer.observe(trigger, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+  // The dialog is portaled out of the surface, so it takes the theme
+  // variables and the surface style scope with it.
+  const theme = useGenerativeUIRuntime()?.theme;
+  const portalStyle = useMemo((): CSSProperties => {
+    const { mapStyle: _mapStyle, ...variables } = theme ?? {};
+    return { display: "contents", ...(variables as CSSProperties) };
+  }, [theme]);
+  useEffect(() => {
+    if (!open) return;
+    const dialog = dialogRef.current;
+    const previous = document.activeElement;
+    const focusables = () =>
+      Array.from(dialog?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []);
+    (focusables()[0] ?? dialog)?.focus();
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      // Escape is handled by the overlay stack: only the newest overlay.
+      if (event.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (previous instanceof HTMLElement) previous.focus();
+      else triggerRef.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+    };
+    // setOpen is recreated each render; the effect only needs `open`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+  return (
+    <>
+      <div
+        ref={triggerRef}
+        data-a2ui-std=""
+        data-a2ui-modal-trigger=""
+        role={isPlainTrigger ? "button" : undefined}
+        tabIndex={isPlainTrigger ? 0 : undefined}
+        aria-haspopup={isPlainTrigger ? "dialog" : undefined}
+        aria-expanded={isPlainTrigger ? open : undefined}
+        style={{
+          display: "inline-flex",
+          flexGrow: props.weight,
+          cursor: isPlainTrigger ? "pointer" : undefined,
+        }}
+        // The capture phase sees the click before a Button inside handles
+        // it, and lets it through: the Button still sends its own event,
+        // opens its href or copies its text.
+        onClickCapture={(event) => {
+          // A disabled control inside the trigger (a Pressable, a Button)
+          // keeps the dialog closed, also before its own click handler.
+          const target = event.target as Element | null;
+          const control = target?.closest(CONTROL);
+          if (control && triggerRef.current?.contains(control)) {
+            if (control.matches(DISABLED)) return;
+          }
+          setOpen(true);
+        }}
+        onKeyDown={(event) => {
+          if (!isPlainTrigger) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
+      >
+        {props.trigger}
+      </div>
+      {open && typeof document !== "undefined"
+        ? // A portal: a fixed backdrop inside a transformed chat row would be
+          // clipped to the row. The Lightbox does the same.
+          createPortal(
+            <div className="a2ui-surface" style={portalStyle}>
+              <div
+                data-a2ui-modal-backdrop=""
+                onClick={() => setOpen(false)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 1000,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: spacing(4),
+                  background: BACKDROP,
+                }}
+              >
+                <div
+                  ref={dialogRef}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby={props.title ? `${id}-title` : undefined}
+                  tabIndex={-1}
+                  onClick={(event) => event.stopPropagation()}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: spacing(3),
+                    width: "100%",
+                    maxWidth: spacing(props.maxWidth ?? 480),
+                    maxHeight: "90vh",
+                    overflow: "auto",
+                    padding: spacing(5),
+                    borderRadius: radius("xl"),
+                    background: backgroundColor("surface"),
+                    color: textColor("default"),
+                    boxShadow: SHADOW_MD,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: spacing(3),
+                    }}
+                  >
+                    {props.title ? (
+                      <h2
+                        id={`${id}-title`}
+                        style={{
+                          margin: 0,
+                          fontSize: "1.125em",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {props.title}
+                      </h2>
+                    ) : (
+                      <span />
+                    )}
+                    <button
+                      type="button"
+                      aria-label="Close"
+                      data-a2ui-input=""
+                      onClick={() => setOpen(false)}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        border: "none",
+                        borderRadius: radius("full"),
+                        background: "transparent",
+                        color: textColor("secondary"),
+                        fontSize: 20,
+                        lineHeight: 1,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <span aria-hidden="true">×</span>
+                    </button>
+                  </div>
+                  {props.content}
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
+}
+
 /**
  * The standard feedback components: loading states, a pulse dot, a
  * confetti burst, a flashcard and a popover. Give them to
@@ -688,5 +936,13 @@ export const feedbackComponents = {
       "The body of a Popover. It shows only when the Popover is open.",
     props: popoverContentSchema,
     slots: CHILDREN_SLOT,
+  },
+  Modal: {
+    component: Modal,
+    description:
+      "A dialog over the page. A click on the trigger (a Button or a Text) opens the content in the dialog. Escape, the close button or a click on the backdrop closes it.",
+    props: modalSchema,
+    slots: { trigger: "single", content: "single" } as const,
+    writable: ["open"] as const,
   },
 };
