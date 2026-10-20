@@ -56,7 +56,11 @@ export {
   type CopilotChatViewProps,
 } from "./CopilotChatView";
 
-export { CopilotChat, type CopilotChatProps } from "./CopilotChat";
+export {
+  CopilotChat,
+  type CopilotChatProps,
+  type CopilotChatMentionItem,
+} from "./CopilotChat";
 
 export {
   CopilotChatToggleButton,

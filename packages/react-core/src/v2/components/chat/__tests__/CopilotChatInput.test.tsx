@@ -425,6 +425,56 @@ describe("CopilotChatInput", () => {
     expect((textarea as HTMLTextAreaElement).value).toBe("");
   });
 
+  it("uses the shared trigger menu for slash commands and mentions", async () => {
+    const handleCommand = vi.fn();
+    const handleMention = vi.fn();
+    const { rerender } = renderWithProvider(
+      <CopilotChatInput
+        onSubmitMessage={mockOnSubmitMessage}
+        toolsMenu={[{ label: "Open docs", action: handleCommand }]}
+        mentionItems={[
+          { id: "docs", label: "Documentation", value: "docs content" },
+        ]}
+        onSelectMention={handleMention}
+      />,
+    );
+
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "/op" } });
+    expect(await screen.findByTestId("copilot-slash-menu")).toBeDefined();
+
+    fireEvent.change(textarea, {
+      target: { value: "Ask @doc", selectionStart: 8 },
+    });
+    await screen.findByTestId("copilot-mention-menu");
+    expect(screen.queryByTestId("copilot-slash-menu")).toBeNull();
+    fireEvent.keyDown(textarea, { key: "Enter", code: "Enter" });
+
+    expect(handleCommand).not.toHaveBeenCalled();
+    expect(handleMention).toHaveBeenCalledWith({
+      id: "docs",
+      label: "Documentation",
+      value: "docs content",
+    });
+
+    rerender(
+      <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>
+        <CopilotChatInput
+          onSubmitMessage={mockOnSubmitMessage}
+          toolsMenu={[{ label: "Open docs", action: handleCommand }]}
+          mentionItems={[
+            { id: "docs", label: "Documentation", value: "docs content" },
+          ]}
+          selectedMentions={[
+            { id: "docs", label: "Documentation", value: "docs content" },
+          ]}
+          onSelectMention={handleMention}
+        />
+      </CopilotChatConfigurationProvider>,
+    );
+    expect(screen.getByText("@Documentation")).toBeDefined();
+  });
+
   it("prioritizes prefix matches when filtering slash commands", async () => {
     renderWithProvider(
       <CopilotChatInput
