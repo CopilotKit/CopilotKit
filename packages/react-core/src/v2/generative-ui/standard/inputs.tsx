@@ -30,11 +30,12 @@ import {
 import { openUrl } from "./lightbox";
 import { LucideIcon } from "./media";
 import {
-  CHECK_ERROR_STYLE,
+  checkMessageStyle,
   checksProp,
   firstFailedCheck,
   useChecks,
 } from "./checks";
+import type { FailedCheck } from "./checks";
 
 /** Copies text to the clipboard. False when the API is not there. */
 async function copyText(text: string) {
@@ -446,8 +447,8 @@ function Field({
   labelId?: string;
   /** The A2UI `weight`: flex-grow in a Row or Column. */
   weight?: number;
-  /** The message of a failed check, shown under the control. */
-  error?: string;
+  /** The failed check, shown under the control. */
+  error?: FailedCheck;
   /** Called when the focus leaves the control, to mark it as touched. */
   onBlur?: () => void;
   children: ReactNode;
@@ -486,17 +487,26 @@ function Field({
     >
       {label ? labelElement : null}
       {children}
-      <CheckError message={error} />
+      <CheckError check={error} />
     </div>
   );
 }
 
-/** The message of a failed check, under a control. Nothing when none. */
-function CheckError({ message }: { message: string | undefined }) {
-  if (message === undefined) return null;
+/**
+ * The message of a failed check, under a control. Nothing when none. An
+ * error is an alert; a warning or an info is a status, in its own color.
+ */
+function CheckError({ check }: { check: FailedCheck | undefined }) {
+  if (check === undefined) return null;
   return (
-    <span role="alert" data-a2ui-check-error="" style={CHECK_ERROR_STYLE}>
-      {message}
+    <span
+      role={check.severity === "error" ? "alert" : "status"}
+      data-a2ui-check-error=""
+      data-a2ui-check-severity={check.severity}
+      data-a2ui-check-code={check.code}
+      style={checkMessageStyle(check.severity)}
+    >
+      {check.message}
     </span>
   );
 }
@@ -548,9 +558,12 @@ function Button(props: ButtonProps) {
   const aria = useGenerativeUIAccessibility();
   const [isCopied, setIsCopied] = useState(false);
   const buttonSize = props.size ?? "lg";
+  // A warning or an info does not hold the button back.
   const failedCheck = firstFailedCheck(props.checks);
+  const blockingCheck =
+    failedCheck?.severity === "error" ? failedCheck : undefined;
   const isDisabled = Boolean(
-    props.disabled || props.loading || failedCheck !== undefined,
+    props.disabled || props.loading || blockingCheck !== undefined,
   );
   const style: CSSProperties = {
     display: props.block ? "flex" : "inline-flex",
@@ -579,7 +592,7 @@ function Button(props: ButtonProps) {
       type={props.submit ? "submit" : "button"}
       {...aria}
       disabled={isDisabled}
-      title={failedCheck}
+      title={failedCheck?.message}
       aria-busy={props.loading ? true : undefined}
       style={style}
       onClick={(event) => {
@@ -1208,7 +1221,7 @@ function CheckBox(props: CheckBoxProps) {
           </span>
         ) : null}
       </label>
-      <CheckError message={check.error} />
+      <CheckError check={check.error} />
     </span>
   );
 }
@@ -1328,7 +1341,7 @@ function RadioGroup(props: RadioGroupProps) {
           );
         })}
       </div>
-      <CheckError message={check.error} />
+      <CheckError check={check.error} />
     </fieldset>
   );
 }
@@ -1569,7 +1582,7 @@ function Slider(props: SliderProps) {
           </div>
         </>
       ) : null}
-      <CheckError message={check.error} />
+      <CheckError check={check.error} />
     </div>
   );
 }

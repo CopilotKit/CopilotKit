@@ -117,7 +117,9 @@ describe("resolveDynamicValue: function values", () => {
         checks: [{ condition: { "@call": "required", args: { value: "" } } }],
       }).value,
     ).toEqual({
-      checks: [{ condition: { valid: false, message: "Required" } }],
+      checks: [
+        { condition: { valid: false, message: "Required", code: "required" } },
+      ],
     });
     expect(
       resolveDynamicValue(check, root, { keepValidation: true }).value,
@@ -127,7 +129,9 @@ describe("resolveDynamicValue: function values", () => {
   it("keeps a validator result only as the condition of a check", () => {
     const required = { "@call": "required", args: { value: "" } };
     expect(resolve({ checks: [{ condition: required }] }).value).toEqual({
-      checks: [{ condition: { valid: false, message: "Required" } }],
+      checks: [
+        { condition: { valid: false, message: "Required", code: "required" } },
+      ],
     });
     // An arg that happens to be named condition is a plain boolean.
     expect(
