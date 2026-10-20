@@ -110,47 +110,54 @@ describe("learning-preview composition", () => {
     ).toBe(`0.0.2-canary.${suffix}`);
   });
 
-  it("packs and installs Core against the exact Learning from this run", () => {
-    const packages = previewPackages();
-    pinPrereleaseDependencies(packages);
-    const core = pack(packages[0]);
-    const learning = pack(packages[1]);
-    expect(core.manifest.dependencies?.[LEARNING_PACKAGE]).toBe(
-      learning.manifest.version,
-    );
-    verifyPackedLearningPreview(LEARNING_PREVIEW, packages, core.manifest);
-    const consumer = join(temp, "consumer");
-    mkdirSync(consumer);
-    writeFileSync(
-      join(consumer, "package.json"),
-      JSON.stringify({
-        name: "preview-consumer",
-        private: true,
-        dependencies: {
-          "@copilotkit/core": `file:${core.tarball}`,
-          [LEARNING_PACKAGE]: `file:${learning.tarball}`,
-        },
-        pnpm: { overrides: { [LEARNING_PACKAGE]: `file:${learning.tarball}` } },
-      }),
-    );
-    execFileSync(
-      "pnpm",
-      [
-        "install",
-        "--offline",
-        "--ignore-scripts",
-        "--store-dir",
-        join(temp, "store"),
-      ],
-      { cwd: consumer, stdio: "pipe" },
-    );
-    const installed = execFileSync(
-      process.execPath,
-      ["-p", 'require("@copilotkit/core")'],
-      { cwd: consumer, encoding: "utf8" },
-    ).trim();
-    expect(installed).toBe("0.0.2-canary.preview.123");
-  });
+  // Real package-manager subprocesses can exceed the unit-test deadline on CI.
+  it(
+    "packs and installs Core against the exact Learning from this run",
+    { timeout: 30_000 },
+    () => {
+      const packages = previewPackages();
+      pinPrereleaseDependencies(packages);
+      const core = pack(packages[0]);
+      const learning = pack(packages[1]);
+      expect(core.manifest.dependencies?.[LEARNING_PACKAGE]).toBe(
+        learning.manifest.version,
+      );
+      verifyPackedLearningPreview(LEARNING_PREVIEW, packages, core.manifest);
+      const consumer = join(temp, "consumer");
+      mkdirSync(consumer);
+      writeFileSync(
+        join(consumer, "package.json"),
+        JSON.stringify({
+          name: "preview-consumer",
+          private: true,
+          dependencies: {
+            "@copilotkit/core": `file:${core.tarball}`,
+            [LEARNING_PACKAGE]: `file:${learning.tarball}`,
+          },
+          pnpm: {
+            overrides: { [LEARNING_PACKAGE]: `file:${learning.tarball}` },
+          },
+        }),
+      );
+      execFileSync(
+        "pnpm",
+        [
+          "install",
+          "--offline",
+          "--ignore-scripts",
+          "--store-dir",
+          join(temp, "store"),
+        ],
+        { cwd: consumer, stdio: "pipe" },
+      );
+      const installed = execFileSync(
+        process.execPath,
+        ["-p", 'require("@copilotkit/core")'],
+        { cwd: consumer, encoding: "utf8" },
+      ).trim();
+      expect(installed).toBe("0.0.2-canary.preview.123");
+    },
+  );
 
   it.each([undefined, "1.76.0", "^0.0.2-canary.preview.123", "0.0.1"])(
     "rejects a packed Core pin outside this run: %s",

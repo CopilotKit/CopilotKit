@@ -19,7 +19,7 @@ import {
   RENDER_A2UI_TOOL_NAME,
 } from "./components/a2ui/a2ui-tool-types";
 import { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "./components/a2ui/a2ui-catalog-context";
-import { A2UICatalog } from "./components/a2ui/a2ui-types";
+import type { A2UICatalog } from "./components/a2ui/a2ui-types";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
@@ -333,6 +333,7 @@ describe("CopilotKit", () => {
       expect.objectContaining({
         name: GENERATE_SANDBOXED_UI_TOOL_NAME,
         component: CopilotOpenGenerativeUIToolRenderer,
+        reconnectBehavior: "resume-pending",
         followUp: true,
       }),
     );
