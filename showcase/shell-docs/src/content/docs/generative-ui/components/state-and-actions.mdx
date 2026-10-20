@@ -135,6 +135,8 @@ events: {
 
 When the user clicks, the click becomes a visible user message, and the agent answers it. The agent can also choose the text of that message (its `userMessage`), for example "Show me the Team plan".
 
+The run that the click starts also carries the structured A2UI 1.0 action message, in `forwardedProps.copilotkit.ui.metadata.extensions.copilotkit_action`: `{ "version": "v1.0", "action": { "name": "choose", "surfaceId": "plans", "sourceComponentId": "team-button", "timestamp": "2026-10-20T10:00:00.000Z", "userMessage": "Show me the Team plan", "context": { "plan": "team" } } }`. An agent that wants the structured event reads it from there instead of parsing the message; `envelopeToManifest` from `@copilotkit/shared` gives it back as `action`.
+
 ## Compute values in the browser
 
 A prop can be a function value as well as a literal or a binding, at any depth: `{ "@call": "formatCurrency", "args": { "value": { "@path": "/total" }, "currency": "EUR" } }`. It recomputes when the data it reads changes, with no round trip to the agent. The functions of the A2UI 1.0 basic catalog are built in: `formatString` (with `${/path}` and `${fn(arg: value)}` interpolation), `formatNumber`, `formatCurrency`, `formatDate`, `pluralize`, `and`, `or`, `not`, the validators `required`, `regex`, `length`, `numeric` and `email`, `@index` in a template, and `openUrl`, which runs only as the `functionCall` of an event.

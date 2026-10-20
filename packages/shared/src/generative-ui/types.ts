@@ -216,4 +216,53 @@ export interface GenerativeUIUserEvent {
   context: Record<string, unknown>;
   /** The resolved `event.userMessage`: the first line of the user message. */
   userMessage?: string;
+  /** When the user acted, as an ISO 8601 string. Filled in when left out. */
+  timestamp?: string;
+}
+
+/**
+ * The A2UI 1.0 action message of a user event: what a renderer sends to the
+ * agent when the user triggers an `{ event }` action. The run that the
+ * event starts carries it in the envelope (`copilotkit_action`), next to
+ * the visible user message.
+ */
+export interface A2UIActionMessage {
+  version: typeof A2UI_VERSION;
+  action: {
+    name: string;
+    surfaceId: string;
+    sourceComponentId: string;
+    /** ISO 8601. */
+    timestamp: string;
+    userMessage?: string;
+    context: Record<string, unknown>;
+  };
+}
+
+/**
+ * The action message of a user event, with the A2UI field names. Takes the
+ * time of the call when the event has no timestamp.
+ *
+ * @example
+ * ```ts
+ * toA2UIActionMessage({ name: "buy", surfaceId: "s1", componentId: "b", context: { sku: "a" } });
+ * // { version: "v1.0", action: { name: "buy", surfaceId: "s1", sourceComponentId: "b", timestamp: "2026-…", context: { sku: "a" } } }
+ * ```
+ */
+export function toA2UIActionMessage(
+  event: GenerativeUIUserEvent,
+): A2UIActionMessage {
+  return {
+    version: A2UI_VERSION,
+    action: {
+      name: event.name,
+      surfaceId: event.surfaceId,
+      sourceComponentId: event.componentId,
+      timestamp: event.timestamp ?? new Date().toISOString(),
+      ...(event.userMessage === undefined
+        ? {}
+        : { userMessage: event.userMessage }),
+      context: event.context,
+    },
+  };
 }
