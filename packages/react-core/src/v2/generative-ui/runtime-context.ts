@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import type { GenerativeUIUserEvent } from "@copilotkit/shared";
+import type { GenerativeUIAccessibility } from "./accessibility";
 import type { GenerativeUI } from "./catalog";
 import type { GenerativeUIDispatcher } from "./dispatcher";
 import type { GenerativeUIErrorInfo, GenerativeUIInvokeResult } from "./errors";
@@ -144,6 +145,8 @@ export interface GenerativeUINodeContextValue {
   surfaceKey: string;
   surfaceId: string;
   componentId: string;
+  /** The resolved `accessibility` of the component envelope, if any. */
+  accessibility?: GenerativeUIAccessibility;
 }
 
 export const GenerativeUINodeContext =

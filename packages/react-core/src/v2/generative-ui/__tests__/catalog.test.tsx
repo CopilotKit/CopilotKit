@@ -224,7 +224,7 @@ describe("createGenerativeUI startup errors", () => {
     ).toThrow(/"onShare" is declared as more than one of prop, event, slot/);
   });
 
-  it("rejects the reserved A2UI keys id and component", () => {
+  it("rejects the reserved A2UI keys: id, component and the envelope keys", () => {
     expect(() =>
       createGenerativeUI({
         id: "bad@1",
@@ -233,6 +233,17 @@ describe("createGenerativeUI startup errors", () => {
         },
       }),
     ).toThrow(/"id" is reserved/);
+    // The envelope keys are read by the engine, never given to a component.
+    for (const key of ["catalogId", "accessibility", "metadata"]) {
+      expect(() =>
+        createGenerativeUI({
+          id: "bad@1",
+          components: {
+            Card: { component: Card, props: z.object({ [key]: z.string() }) },
+          },
+        }),
+      ).toThrow(new RegExp(`"${key}" is reserved`));
+    }
   });
 
   it("rejects an event that matches two functions", () => {
@@ -245,6 +256,48 @@ describe("createGenerativeUI startup errors", () => {
     ).toThrow(
       /"onAdd" of component "Card" matches two functions, "onAdd" and "add"/,
     );
+  });
+
+  it("rejects an event that matches a function the UI cannot call", () => {
+    expect(() =>
+      createGenerativeUI({
+        id: "bad@1",
+        functions: {
+          reload: { parameters: z.object({}), allowedCallers: "agentOnly" },
+        },
+        components: { Card: { component: Card, events: { onReload: {} } } },
+      }),
+    ).toThrow(
+      /"onReload" of component "Card" matches function "reload", which the UI cannot call \(allowedCallers "agentOnly"\)/,
+    );
+  });
+
+  it("rejects a function that requires user activation but is not rendererOnly", () => {
+    expect(() =>
+      createGenerativeUI({
+        id: "bad@1",
+        functions: {
+          share: {
+            parameters: z.object({}),
+            requiresUserActivation: true,
+            allowedCallers: "rendererOrAgent",
+          },
+        },
+        components: {},
+      }),
+    ).toThrow(
+      /"share" in .* requires user activation, so its allowedCallers must be "rendererOnly"/,
+    );
+    // Left out, the callers follow from the activation.
+    expect(
+      createGenerativeUI({
+        id: "ok@1",
+        functions: {
+          share: { parameters: z.object({}), requiresUserActivation: true },
+        },
+        components: {},
+      }).functions.get("share"),
+    ).toMatchObject({ requiresUserActivation: true });
   });
 
   // The next two errors are type errors too. The runtime check is for callers

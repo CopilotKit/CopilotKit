@@ -154,6 +154,7 @@ export function invokeBoundEvent(
     const forwarded: GenerativeUIUserEvent = {
       name: event.name,
       ...origin,
+      timestamp: new Date().toISOString(),
       userMessage: resolveUserMessage(surface, basePath, event.userMessage),
       context: {
         ...componentArgs,

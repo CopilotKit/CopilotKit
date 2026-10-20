@@ -104,6 +104,27 @@ describe("Table", () => {
     expect(view.getByText("10").style.textAlign).toBe("end");
   });
 
+  it("applies the envelope of a TableCell to the cell itself, with no element in between", async () => {
+    const view = renderSurface(ui, [
+      { id: "root", component: "Table", children: ["r"] },
+      { id: "r", component: "TableRow", children: ["c"] },
+      {
+        id: "c",
+        component: "TableCell",
+        children: ["t"],
+        accessibility: { label: "Total", description: "Incl. VAT" },
+      },
+      { id: "t", component: "Label", text: "42" },
+    ]);
+    const cell = (await view.findByText("42")).closest("td")!;
+    expect(cell.getAttribute("aria-label")).toBe("Total");
+    expect(cell.getAttribute("aria-description")).toBe("Incl. VAT");
+    expect(cell.parentElement?.tagName).toBe("TR");
+    expect(
+      view.container.querySelector("[data-a2ui-accessibility]"),
+    ).toBeNull();
+  });
+
   it("repeats a TableRow template for each item at /rows", async () => {
     const view = renderSurface(
       ui,

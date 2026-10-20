@@ -5,6 +5,7 @@ import {
   GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
   childRefKind,
+  functionCallers,
 } from "@copilotkit/shared";
 import type {
   GenerativeUIJSONSchema,
@@ -238,7 +239,8 @@ export function buildCompactGenerativeUISchema(
   }
   // A built-in function carries its short signature in the description of
   // its parameters (see `builtInFunctionManifests`); an app function gets
-  // its JSON Schema made short.
+  // its JSON Schema made short. A function that not both the UI and the
+  // agent may call says who may.
   const functions = Object.fromEntries(
     Object.entries(manifest.functions).map(([name, fn]) => {
       const signature = fn.parameters.description;
@@ -246,11 +248,15 @@ export function buildCompactGenerativeUISchema(
         typeof signature === "string" &&
         signature.startsWith("{") &&
         Object.keys(fn.parameters).length === 2;
+      const callers = functionCallers(fn);
       return [
         name,
         {
           ...(fn.description ? { description: fn.description } : {}),
           parameters: hasSignature ? signature : compactType(fn.parameters, 0),
+          ...(callers.renderer && callers.agent
+            ? {}
+            : { callers: callers.agent ? "agent only" : "UI only" }),
         },
       ];
     }),

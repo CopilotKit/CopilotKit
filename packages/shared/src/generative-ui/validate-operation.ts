@@ -1,8 +1,11 @@
 import {
   GENERATIVE_UI_FUNCTIONS,
+  functionCallers,
   isA2UIBasicFunction,
   isA2UIValueFunction,
+  isCallBinding,
 } from "./basic-functions";
+import type { A2UIFunctionPermissions } from "./basic-functions";
 import { collectChildRefs } from "./child-refs";
 import type { ChildRef } from "./child-refs";
 import { A2UI_VERSION } from "./types";
@@ -349,6 +352,23 @@ function nodeProblem(
   const props = Object.entries(node);
   for (const [key, value] of props) {
     if (key === "id" || key === "component") continue;
+    if (key === "catalogId") {
+      const reason = catalogProblem(value, options.manifest.catalogId);
+      if (reason) return `${key}: ${reason}`;
+      continue;
+    }
+    if (key === "metadata") {
+      const isMetadata =
+        isRecord(value) &&
+        (value.extensions === undefined || isRecord(value.extensions));
+      if (!isMetadata) return 'metadata must be { "extensions": { ... } }';
+      continue;
+    }
+    if (key === "accessibility") {
+      const reason = accessibilityProblem(value);
+      if (reason) return `${key}: ${reason}`;
+      continue;
+    }
     if (ownValue(entry.events, key)) {
       const reason = actionBindingProblem(value, options);
       if (reason) return `${key}: ${reason}`;
@@ -375,6 +395,41 @@ function nodeProblem(
   for (const name of requiredNames) {
     if (typeof name === "string" && !(name in node)) {
       return `missing required prop "${name}"`;
+    }
+  }
+  return undefined;
+}
+
+const ACCESSIBILITY_KEYS = ["label", "description", "live", "hidden"];
+const LIVE_VALUES = ["off", "polite", "assertive"];
+
+/**
+ * Checks the `accessibility` of a component envelope: `label` and
+ * `description` are strings or dynamic values, `live` is one of the ARIA
+ * values, `hidden` is a boolean or a dynamic value.
+ */
+function accessibilityProblem(value: unknown) {
+  if (!isRecord(value)) {
+    return 'must be { "label": "...", "description": "...", "live": "polite", "hidden": false }';
+  }
+  const isDynamic = (field: unknown) =>
+    isPathBinding(field) || isCallBinding(field);
+  for (const [key, field] of Object.entries(value)) {
+    if (!ACCESSIBILITY_KEYS.includes(key)) return `unknown key "${key}"`;
+    if (isV09PathBinding(field)) return `${key}: ${V09_PATH_REASON}`;
+    if (isDynamic(field)) {
+      const call = findForbiddenCall(field, { allowValueFunctions: true });
+      if (call !== undefined) return `${key}: ${call}`;
+      continue;
+    }
+    if (key === "live") {
+      if (typeof field !== "string" || !LIVE_VALUES.includes(field)) {
+        return `live must be one of ${LIVE_VALUES.join(", ")}`;
+      }
+    } else if (key === "hidden") {
+      if (typeof field !== "boolean") return "hidden must be a boolean";
+    } else if (typeof field !== "string") {
+      return `${key} must be a string`;
     }
   }
   return undefined;
@@ -430,30 +485,49 @@ function functionCallProblem(
       return `${label}.args.${key}: ${V09_PATH_REASON}`;
   }
   // A function the app declares under a built-in name is the app's; the
-  // restrictions of the built-in do not apply to it. Without the list of
-  // app functions, the caller cannot tell the two apart, so the dispatcher
-  // applies the restriction when the call runs.
+  // restrictions of the built-in do not apply to it.
   const appFunctions = options.functions;
-  const knowsAppFunctions = appFunctions !== undefined;
-  const isAppFunction =
-    appFunctions !== undefined && hasOwn(appFunctions, name);
-  const basic =
-    !isAppFunction && hasOwn(GENERATIVE_UI_FUNCTIONS, name)
+  const declared =
+    appFunctions !== undefined && hasOwn(appFunctions, name)
+      ? appFunctions[name]
+      : undefined;
+  const builtIn =
+    declared === undefined && hasOwn(GENERATIVE_UI_FUNCTIONS, name)
       ? GENERATIVE_UI_FUNCTIONS[name]
       : undefined;
-  if (
-    knowsAppFunctions &&
-    basic?.requiresUserActivation &&
-    label.startsWith("callRendererFunction")
-  ) {
-    return `function "${name}" runs only from a user gesture; the agent cannot call it`;
+  if (declared === undefined && builtIn === undefined) {
+    return appFunctions === undefined
+      ? undefined
+      : `function "${name}" is not exposed to generative UI`;
   }
-  if (
-    basic === undefined &&
-    options.functions &&
-    !hasOwn(options.functions, name)
-  ) {
-    return `function "${name}" is not exposed to generative UI`;
+  // Without the list of app functions, a built-in name may be the app's own
+  // function, so the dispatcher applies the restriction when the call runs.
+  if (declared === undefined && appFunctions === undefined) return undefined;
+  return callerProblem(
+    name,
+    declared ?? builtIn!,
+    label.startsWith("callRendererFunction") ? "agent" : "renderer",
+  );
+}
+
+/**
+ * Why `caller` may not call a function with these permissions, or
+ * `undefined` when it may. The dispatcher gives the same reasons at run
+ * time, for the calls that are not validated against a function list.
+ */
+export function callerProblem(
+  name: string,
+  fn: A2UIFunctionPermissions,
+  caller: "agent" | "renderer",
+) {
+  const callers = functionCallers(fn);
+  if (caller === "agent" && !callers.agent) {
+    return fn.requiresUserActivation
+      ? `function "${name}" runs only from a user gesture; the agent cannot call it`
+      : `function "${name}" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it`;
+  }
+  if (caller === "renderer" && !callers.renderer) {
+    return `function "${name}" runs only for the agent (allowedCallers "agentOnly"); the UI cannot call it`;
   }
   return undefined;
 }
