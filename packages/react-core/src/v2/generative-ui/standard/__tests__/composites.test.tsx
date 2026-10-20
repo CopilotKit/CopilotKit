@@ -192,9 +192,13 @@ describe("standard catalog: composites", () => {
         component: "ImageGrid",
         layout: "bento",
         images: [
-          { src: "https://example.com/1.png", alt: "one" },
-          { src: "https://example.com/2.png", alt: "two", caption: "Two" },
-          { src: "https://example.com/3.png", alt: "three" },
+          { url: "https://example.com/1.png", description: "one" },
+          {
+            url: "https://example.com/2.png",
+            description: "two",
+            caption: "Two",
+          },
+          { url: "https://example.com/3.png", description: "three" },
         ],
       },
     ]);
@@ -213,9 +217,9 @@ describe("standard catalog: composites", () => {
         id: "root",
         component: "ImageGrid",
         images: [
-          { src: "https://example.com/1.png", alt: "one" },
-          { src: "https://example.com/2.png", alt: "two" },
-          { src: "https://example.com/3.png", alt: "three" },
+          { url: "https://example.com/1.png", description: "one" },
+          { url: "https://example.com/2.png", description: "two" },
+          { url: "https://example.com/3.png", description: "three" },
         ],
       },
     ]);
@@ -240,20 +244,20 @@ describe("standard catalog: composites", () => {
       {
         id: "a",
         component: "CarouselMediaItem",
-        media: "https://example.com/a.png",
-        alt: "A",
+        url: "https://example.com/a.png",
+        description: "A",
       },
       {
         id: "b",
         component: "CarouselMediaItem",
-        media: "https://example.com/b.png",
-        alt: "B",
+        url: "https://example.com/b.png",
+        description: "B",
       },
       {
         id: "c",
         component: "CarouselMediaItem",
-        media: "https://example.com/c.png",
-        alt: "C",
+        url: "https://example.com/c.png",
+        description: "C",
       },
     ]);
     fireEvent.click(await v.findByAltText("B"));
@@ -272,8 +276,8 @@ describe("standard catalog: composites", () => {
       {
         id: "a",
         component: "CarouselMediaItem",
-        media: "https://example.com/a.png",
-        alt: "A",
+        url: "https://example.com/a.png",
+        description: "A",
         href: "https://copilotkit.ai",
       },
     ]);
@@ -292,8 +296,8 @@ describe("standard catalog: composites", () => {
       {
         id: "a",
         component: "CarouselMediaItem",
-        media: "https://example.com/a.png",
-        alt: "slide",
+        url: "https://example.com/a.png",
+        description: "slide",
         size: "sm",
         children: ["t"],
       },
@@ -311,8 +315,8 @@ describe("Image lightbox and Popover trigger", () => {
       {
         id: "root",
         component: "Image",
-        src: "https://example.com/a.png",
-        alt: "A",
+        url: "https://example.com/a.png",
+        description: "A",
       },
     ]);
     const img = await v.findByAltText("A");
@@ -328,8 +332,8 @@ describe("Image lightbox and Popover trigger", () => {
       {
         id: "root",
         component: "Image",
-        src: "https://example.com/b.png",
-        alt: "B",
+        url: "https://example.com/b.png",
+        description: "B",
         lightbox: false,
       },
     ]);
@@ -341,7 +345,7 @@ describe("Image lightbox and Popover trigger", () => {
     const v = render([
       { id: "root", component: "Popover", children: ["t", "c"] },
       { id: "t", component: "PopoverTrigger", children: ["b"] },
-      { id: "b", component: "Button", label: "Open", variant: "outline" },
+      { id: "b", component: "Button", label: "Open", variant: "default" },
       { id: "c", component: "PopoverContent", children: ["x"] },
       { id: "x", component: "Text", text: "Popover body" },
     ]);

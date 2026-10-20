@@ -1,5 +1,9 @@
 import { LitElement, css, html, nothing } from "lit";
-import { GENERATIVE_UI_ROOT_ID } from "@copilotkit/shared";
+import {
+  GENERATIVE_UI_ROOT_ID,
+  childIdsAtRefs,
+  collectChildRefs,
+} from "@copilotkit/shared";
 import type {
   A2UIComponentNode,
   A2UIOperation,
@@ -92,17 +96,29 @@ export function componentTree(
     if (!node || seen.has(node.id)) return [];
     seen.add(node.id);
     const { id: _id, component, ...rest } = node;
-    const slots = catalog[component]?.slots ?? {};
+    const manifest = catalog[component];
+    // A child is in a slot, or at a `child()` / `childList()` ref of the
+    // props. A top-level ref reads like a slot. A deeper ref (the `child` of
+    // each tab) stays in the props, and its ids become children too.
+    const refs = manifest ? collectChildRefs(manifest.props) : [];
+    const childKeys = new Set([
+      ...Object.keys(manifest?.slots ?? {}),
+      ...refs.filter((ref) => ref.path.length === 1).map((ref) => ref.path[0]),
+    ]);
+    const nested = refs.filter((ref) => ref.path.length > 1);
     const props: Record<string, unknown> = {};
     const children: ComponentTreeNode[] = [];
     for (const [name, value] of Object.entries(rest)) {
-      if (!slots[name]) props[name] = value;
+      if (!childKeys.has(name)) props[name] = value;
       else if (Array.isArray(value)) {
         for (const child of value) children.push(...build(child));
       } else if (typeof value === "object" && value !== null) {
         const template = value as Partial<GenerativeUITemplateChildren>;
         children.push(...build(template.componentId, template.path));
       } else children.push(...build(value));
+    }
+    for (const child of childIdsAtRefs(rest, nested)) {
+      children.push(...build(child));
     }
     return [
       {
@@ -573,7 +589,12 @@ export class CpkGenerativeUIView extends LitElement {
     const key = `component:${name}`;
     const isOpen = this.expanded.has(key);
     const events = Object.keys(component.events ?? {});
-    const slots = Object.entries(component.slots ?? {});
+    const slots = [
+      ...Object.entries(component.slots ?? {}),
+      ...collectChildRefs(component.props).map(
+        (ref) => [ref.path.join("."), ref.kind] as const,
+      ),
+    ];
     return html`<div class="card">
       <button
         type="button"

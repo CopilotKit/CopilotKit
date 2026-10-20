@@ -43,7 +43,8 @@ describe("mediaComponents", () => {
       "Icon",
       "Favicon",
       "Svg",
-      "YouTube",
+      "Video",
+      "AudioPlayer",
       "HtmlView",
     ]);
     for (const name of names) {
@@ -57,8 +58,8 @@ describe("standard media", () => {
     const view = renderInColumn({
       id: "i",
       component: "Image",
-      src: "https://example.com/a.png",
-      alt: "pic",
+      url: "https://example.com/a.png",
+      description: "pic",
       aspectRatio: "16/9",
       radius: "lg",
     });
@@ -76,8 +77,8 @@ describe("standard media", () => {
         {
           id: "root",
           component: "Image",
-          src: { "@path": "/url" },
-          alt: "bound",
+          url: { "@path": "/url" },
+          description: "bound",
         },
       ],
       { url: "https://example.com/b.png" },
@@ -92,15 +93,15 @@ describe("standard media", () => {
       {
         id: "a",
         component: "Image",
-        src: "https://example.com/broken.png",
-        alt: "hidden",
+        url: "https://example.com/broken.png",
+        description: "hidden",
         hideOnFailure: true,
       },
       {
         id: "b",
         component: "Image",
-        src: "https://example.com/broken.png",
-        alt: "kept",
+        url: "https://example.com/broken.png",
+        description: "kept",
       },
     );
     const hidden = await view.findByAltText("hidden");
@@ -204,32 +205,38 @@ describe("standard media", () => {
     );
   });
 
-  it("embeds a YouTube video in privacy-enhanced mode", async () => {
-    // showThumbnail false: the poster-first default renders no iframe until
-    // the user presses play (see media-parity.test.tsx).
+  it("embeds a YouTube link in privacy-enhanced mode once the user presses play", async () => {
     const view = renderInColumn({
       id: "y",
-      component: "YouTube",
-      videoId: "dQw4w9WgXcQ",
-      showThumbnail: false,
+      component: "Video",
+      url: "https://youtu.be/dQw4w9WgXcQ",
+      posterUrl: "https://example.com/poster.png",
     });
+    const play = await view.findByRole("button", { name: "Play video" });
+    // The poster given by the model, not the YouTube thumbnail.
+    expect(play.querySelector("img")?.getAttribute("src")).toBe(
+      "https://example.com/poster.png",
+    );
+    expect(view.container.querySelector("iframe")).toBeNull();
+    fireEvent.click(play);
     const frame = await view.findByTitle("YouTube video");
     expect(frame.getAttribute("src")).toBe(
-      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
+      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1",
     );
     expect(frame.getAttribute("sandbox")).toBe(
       "allow-scripts allow-same-origin allow-presentation",
     );
   });
 
-  it("refuses a YouTube videoId that is not a plain id", async () => {
+  it("never embeds a YouTube URL whose id is not a plain id", async () => {
     const view = renderInColumn({
       id: "y",
-      component: "YouTube",
-      videoId: "../../evil?x=1",
+      component: "Video",
+      url: "https://www.youtube.com/watch?v=../../evil",
     });
     await view.findByText("end");
     expect(view.container.querySelector("iframe")).toBeNull();
+    expect(view.container.querySelector("video")).not.toBeNull();
   });
 
   it("renders HtmlView in a fully sandboxed iframe that runs no script", async () => {

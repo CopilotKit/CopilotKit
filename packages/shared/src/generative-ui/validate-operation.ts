@@ -1,5 +1,16 @@
+import {
+  GENERATIVE_UI_FUNCTIONS,
+  isA2UIBasicFunction,
+  isA2UIValueFunction,
+} from "./basic-functions";
+import { collectChildRefs } from "./child-refs";
+import type { ChildRef } from "./child-refs";
 import { A2UI_VERSION } from "./types";
-import type { GenerativeUIActionBinding, GenerativeUIManifest } from "./types";
+import type {
+  GenerativeUIActionBinding,
+  GenerativeUIJSONSchema,
+  GenerativeUIManifest,
+} from "./types";
 
 export type OperationValidation = { ok: true } | { ok: false; reason: string };
 
@@ -351,9 +362,14 @@ function nodeProblem(
     }
     if (!propNames.includes(key)) return `unknown prop "${key}"`;
     if (isV09PathBinding(value)) return `${key}: ${V09_PATH_REASON}`;
-    if (containsFunctionCall(value, { allowIndex: true })) {
-      return `${key}: function calls are only allowed in event props; a data prop can use only {"@call":"@index"}`;
+    const call = findForbiddenCall(value, { allowValueFunctions: true });
+    if (call !== undefined) {
+      return `${key}: ${call}; a data prop can call only ${VALUE_FUNCTION_LIST}`;
     }
+  }
+  for (const ref of childRefsOf(entry.props)) {
+    const reason = childRefProblem(node, ref, id);
+    if (reason) return reason;
   }
   const requiredNames = Array.isArray(required) ? required : [];
   for (const name of requiredNames) {
@@ -413,7 +429,30 @@ function functionCallProblem(
     if (isV09PathBinding(arg))
       return `${label}.args.${key}: ${V09_PATH_REASON}`;
   }
-  if (options.functions && !hasOwn(options.functions, name)) {
+  // A function the app declares under a built-in name is the app's; the
+  // restrictions of the built-in do not apply to it. Without the list of
+  // app functions, the caller cannot tell the two apart, so the dispatcher
+  // applies the restriction when the call runs.
+  const appFunctions = options.functions;
+  const knowsAppFunctions = appFunctions !== undefined;
+  const isAppFunction =
+    appFunctions !== undefined && hasOwn(appFunctions, name);
+  const basic =
+    !isAppFunction && hasOwn(GENERATIVE_UI_FUNCTIONS, name)
+      ? GENERATIVE_UI_FUNCTIONS[name]
+      : undefined;
+  if (
+    knowsAppFunctions &&
+    basic?.requiresUserActivation &&
+    label.startsWith("callRendererFunction")
+  ) {
+    return `function "${name}" runs only from a user gesture; the agent cannot call it`;
+  }
+  if (
+    basic === undefined &&
+    options.functions &&
+    !hasOwn(options.functions, name)
+  ) {
     return `function "${name}" is not exposed to generative UI`;
   }
   return undefined;
@@ -427,11 +466,15 @@ function eventProblem(event: unknown) {
   const isUserMessage =
     userMessage === undefined ||
     typeof userMessage === "string" ||
-    isPathBinding(userMessage);
+    isPathBinding(userMessage) ||
+    (isRecord(userMessage) &&
+      typeof userMessage["@call"] === "string" &&
+      findForbiddenCall(userMessage, { allowValueFunctions: true }) ===
+        undefined);
   if (!isUserMessage) {
     return isV09PathBinding(userMessage)
       ? `event.userMessage: ${V09_PATH_REASON}`
-      : 'event.userMessage must be a string or {"@path": "/x"}';
+      : 'event.userMessage must be a string, {"@path": "/x"} or a function value';
   }
   if (context === undefined) return undefined;
   if (!isRecord(context)) return "event.context must be an object";
@@ -440,8 +483,9 @@ function eventProblem(event: unknown) {
     if (isV09PathBinding(entry)) {
       return `event.context.${key}: ${V09_PATH_REASON}`;
     }
-    if (containsFunctionCall(entry, { allowIndex: false })) {
-      return `event.context.${key} must be a literal or {"@path": "/x"}`;
+    const call = findForbiddenCall(entry, { allowValueFunctions: true });
+    if (call !== undefined) {
+      return `event.context.${key}: ${call}; a context value can call only ${VALUE_FUNCTION_LIST}`;
     }
   }
   return undefined;
@@ -489,26 +533,107 @@ function templateProblem(template: Record<string, unknown>, ownId: string) {
   return pathProblem(path, "template path");
 }
 
+const VALUE_FUNCTION_LIST = `@index and the built-in functions (${Object.keys(
+  GENERATIVE_UI_FUNCTIONS,
+)
+  .filter(isA2UIValueFunction)
+  .join(", ")})`;
+
 /**
- * True when `value` holds a function call at any depth. With `allowIndex`,
- * `{"@call":"@index"}` does not count: a data prop in a template can use it.
+ * The reason for the first function call in `value` that a data value may
+ * not make, at any depth, or `undefined`. A data value may call `@index`
+ * and, with `allowValueFunctions`, the basic functions that need no user
+ * gesture; the renderer resolves those. An app function, `openUrl`, or an
+ * event binding is not a value.
  */
 // The annotation is needed: the function calls itself in its return.
-function containsFunctionCall(
+function findForbiddenCall(
   value: unknown,
-  options: { allowIndex: boolean },
-): boolean {
+  options: { allowValueFunctions: boolean },
+): string | undefined {
   if (Array.isArray(value)) {
-    return value.some((item) => containsFunctionCall(item, options));
+    for (const item of value) {
+      const reason = findForbiddenCall(item, options);
+      if (reason !== undefined) return reason;
+    }
+    return undefined;
   }
-  if (!isRecord(value)) return false;
-  if (options.allowIndex && isIndexCall(value)) return false;
-  const isCall =
-    "@call" in value ||
-    typeof value.call === "string" ||
-    "functionCall" in value;
-  if (isCall) return true;
-  return Object.values(value).some((item) =>
-    containsFunctionCall(item, options),
-  );
+  if (!isRecord(value)) return undefined;
+  if (isIndexCall(value)) return undefined;
+  if (value["@call"] === "@index") return "@index takes only an offset";
+  if (typeof value.call === "string") {
+    return 'name the function with "@call", not "call"';
+  }
+  if ("functionCall" in value) {
+    return "an event binding is not a value";
+  }
+  const name = value["@call"];
+  if (typeof name === "string") {
+    if (!options.allowValueFunctions || !isA2UIValueFunction(name)) {
+      return isA2UIBasicFunction(name)
+        ? `"${name}" runs only from an event`
+        : `"${name}" is not a basic function`;
+    }
+    const args = value.args;
+    if (args !== undefined && !isRecord(args)) {
+      return `the args of "${name}" must be an object`;
+    }
+    return args === undefined ? undefined : findForbiddenCall(args, options);
+  }
+  for (const item of Object.values(value)) {
+    const reason = findForbiddenCall(item, options);
+    if (reason !== undefined) return reason;
+  }
+  return undefined;
+}
+
+const childRefCache = new WeakMap<GenerativeUIJSONSchema, ChildRef[]>();
+
+/** The component references of a props schema, computed once per schema. */
+function childRefsOf(props: GenerativeUIJSONSchema) {
+  let refs = childRefCache.get(props);
+  if (!refs) {
+    refs = collectChildRefs(props);
+    childRefCache.set(props, refs);
+  }
+  return refs;
+}
+
+/**
+ * Checks the component ids at one reference of a node: a typed `child()`
+ * or `childList()` prop, at any depth. A missing key is fine; the props
+ * schema reports a required one.
+ */
+function childRefProblem(
+  node: Record<string, unknown>,
+  ref: ChildRef,
+  ownId: string,
+): string | undefined {
+  const label = ref.path.filter((step) => step !== "*").join(".");
+  const isDynamic = (value: unknown) =>
+    isPathBinding(value) || (isRecord(value) && "@call" in value);
+  const visit = (
+    value: unknown,
+    steps: readonly string[],
+  ): string | undefined => {
+    // A bound or computed value, at the reference or above it, is known
+    // only at render.
+    if (isDynamic(value)) return undefined;
+    if (steps.length === 0) {
+      const reason = slotProblem(value, ref.kind, ownId);
+      return reason ? `${label}: ${reason}` : undefined;
+    }
+    const [head, ...rest] = steps;
+    if (head === "*") {
+      if (!Array.isArray(value)) return undefined;
+      for (const item of value) {
+        const reason = visit(item, rest);
+        if (reason) return reason;
+      }
+      return undefined;
+    }
+    if (!isRecord(value) || !hasOwn(value, head)) return undefined;
+    return visit(value[head], rest);
+  };
+  return visit(node, ref.path);
 }

@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import type { LucideIcon as LucideComponent } from "lucide-react";
 import { z } from "zod";
 import type { GenerativeUIInvokeResult } from "../errors";
-import { radiusStyle, radiusValue, sizeValue } from "./layout";
+import { radiusStyle, radiusValue, sizeValue, weightProp } from "./layout";
 import { Lightbox, openUrl } from "./lightbox";
 import {
   ON_ACCENT,
@@ -28,16 +28,34 @@ const colorProp = z.string().optional();
 export const ICON_SIZES = ["sm", "md", "lg", "xl"] as const;
 export type IconSize = (typeof ICON_SIZES)[number] | number;
 
+const IMAGE_VARIANTS = [
+  "icon",
+  "avatar",
+  "smallFeature",
+  "mediumFeature",
+  "largeFeature",
+  "header",
+] as const;
 const imageSchema = z.object({
-  src: z.string().describe("Image URL"),
-  alt: z
+  url: z.string().describe("Image URL"),
+  description: z
     .string()
     .optional()
     .describe(
-      "What the image shows. Leave it unset only for a decorative image",
+      "What the image shows, for screen readers. Leave it unset only for a decorative image",
     ),
+  variant: z
+    .enum(IMAGE_VARIANTS)
+    .optional()
+    .describe(
+      'The size: "icon" 24px, "avatar" 40px round, "smallFeature" 160px wide, "largeFeature" and "header" full width. Default "mediumFeature": the natural size',
+    ),
+  weight: weightProp,
   aspectRatio: z.string().optional(),
-  fit: z.enum(["cover", "contain"]).optional().describe('Default "cover"'),
+  fit: z
+    .enum(["cover", "contain", "fill", "none", "scaleDown"])
+    .optional()
+    .describe('CSS object-fit. Default "cover"'),
   radius: radiusValue.optional(),
   width: sizeValue.optional(),
   height: sizeValue.optional(),
@@ -73,7 +91,11 @@ const imageSchema = z.object({
     ),
 });
 const iconSchema = z.object({
-  name: z.string().describe("Lucide icon name, kebab-case"),
+  name: z
+    .union([z.string(), z.object({ svgPath: z.string() })])
+    .describe(
+      'A Lucide icon name in kebab-case ("arrow-right"), an A2UI icon name ("arrowBack"), or { "svgPath" } on a 24px grid',
+    ),
   label: z
     .string()
     .optional()
@@ -86,7 +108,8 @@ const iconSchema = z.object({
     .describe('Default "md"'),
   color: colorProp,
   inline: z.boolean().optional().describe("Default false"),
-  weight: z.enum(WEIGHTS).optional(),
+  strokeWeight: z.enum(WEIGHTS).optional().describe("The stroke width"),
+  weight: weightProp,
 });
 const faviconSchema = z.object({
   url: z.string(),
@@ -171,18 +194,27 @@ const svgSchema = z.object({
     )
     .optional(),
 });
-const youTubeSchema = z.object({
-  videoId: z.string(),
-  title: z.string().optional(),
-  showThumbnail: z
-    .boolean()
+const videoSchema = z.object({
+  url: z
+    .string()
+    .describe("The URL of a video file, or of a YouTube video or short"),
+  posterUrl: z
+    .string()
     .optional()
-    .describe(
-      "Default true: the poster with a play button shows first, and the player loads on click",
-    ),
+    .describe("The image shown before the video plays"),
+  title: z.string().optional().describe("Names the video for screen readers"),
   aspectRatio: z.string().optional().describe('Default "16 / 9"'),
   width: sizeValue.optional().describe('Default "100%"'),
   maxWidth: sizeValue.optional().describe('Default "100%"'),
+  weight: weightProp,
+});
+const audioPlayerSchema = z.object({
+  url: z.string().describe("The URL of the audio file"),
+  description: z
+    .string()
+    .optional()
+    .describe("A title or summary of the audio, shown above the player"),
+  weight: weightProp,
 });
 const htmlViewSchema = z.object({
   html: z.string(),
@@ -270,6 +302,7 @@ export function LucideIcon({
   color,
   weight,
   inline,
+  style,
 }: {
   name: string;
   label?: string;
@@ -277,6 +310,7 @@ export function LucideIcon({
   color?: string;
   weight?: Weight;
   inline?: boolean;
+  style?: CSSProperties;
 }) {
   const icons = useLucideIcons();
   if (!name || !icons) return null;
@@ -297,6 +331,7 @@ export function LucideIcon({
       color={textColor(color) ?? "currentColor"}
       strokeWidth={weight ? ICON_STROKE[weight] : undefined}
       style={{
+        ...style,
         flexShrink: 0,
         display: inline ? "inline-block" : "block",
         verticalAlign: inline ? "-0.125em" : undefined,
@@ -307,6 +342,32 @@ export function LucideIcon({
 
 // ---- Components ----
 
+type ImageVariantStyle = Pick<
+  CSSProperties,
+  "width" | "height" | "maxWidth" | "aspectRatio" | "borderRadius"
+>;
+
+/** The size of each Image variant. "mediumFeature" is the natural size. */
+const IMAGE_VARIANT_STYLE: Record<
+  (typeof IMAGE_VARIANTS)[number],
+  ImageVariantStyle
+> = {
+  icon: { width: 24, height: 24, borderRadius: radius("xs") },
+  avatar: { width: 40, height: 40, borderRadius: radius("full") },
+  smallFeature: { width: "100%", maxWidth: 160 },
+  mediumFeature: {},
+  largeFeature: { width: "100%" },
+  header: { width: "100%", aspectRatio: "3 / 1" },
+};
+
+const OBJECT_FIT = {
+  cover: "cover",
+  contain: "contain",
+  fill: "fill",
+  none: "none",
+  scaleDown: "scale-down",
+} as const;
+
 type ImageProps = z.output<typeof imageSchema> & {
   onOverlayClick?: EventProp;
 };
@@ -316,20 +377,26 @@ function Image(props: ImageProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const isHidden = failed && props.hideOnFailure;
-  if (!props.src || isHidden) return null;
+  if (!props.url || isHidden) return null;
   const showsLightbox = props.lightbox !== false && !failed;
-  const alt = props.alt ?? "";
+  const alt = props.description ?? "";
+  const variant = IMAGE_VARIANT_STYLE[props.variant ?? "mediumFeature"];
   const frame: CSSProperties = {
     display: "block",
-    aspectRatio: props.aspectRatio,
-    width: spacing(props.width) ?? (props.aspectRatio ? "100%" : undefined),
-    height: spacing(props.height),
+    ...variant,
+    aspectRatio: props.aspectRatio ?? variant.aspectRatio,
+    width:
+      spacing(props.width) ??
+      (props.aspectRatio ? "100%" : undefined) ??
+      variant.width,
+    height: spacing(props.height) ?? variant.height,
     minWidth: spacing(props.minWidth),
     minHeight: spacing(props.minHeight),
-    maxWidth: spacing(props.maxWidth) ?? "100%",
+    maxWidth: spacing(props.maxWidth) ?? variant.maxWidth ?? "100%",
     maxHeight: spacing(props.maxHeight),
+    flexGrow: props.weight,
     boxSizing: "border-box",
-    ...radiusStyle(props.radius),
+    ...radiusStyle(props.radius ?? variant.borderRadius),
   };
   if (failed && props.fallback) {
     return (
@@ -356,7 +423,7 @@ function Image(props: ImageProps) {
   const overlay = props.actionOverlay;
   const image = (
     <img
-      src={props.src}
+      src={props.url}
       alt={alt}
       loading="lazy"
       onError={() => setFailed(true)}
@@ -365,7 +432,7 @@ function Image(props: ImageProps) {
       style={{
         ...frame,
         cursor: showsLightbox ? "zoom-in" : undefined,
-        objectFit: props.fit ?? "cover",
+        objectFit: OBJECT_FIT[props.fit ?? "cover"],
         objectPosition: props.position,
         background: backgroundColor(props.background),
         border: props.frame ? `1px solid ${borderColor("default")}` : undefined,
@@ -379,7 +446,7 @@ function Image(props: ImageProps) {
     <>
       {isOpen && showsLightbox ? (
         <Lightbox
-          images={[{ src: props.src, alt }]}
+          images={[{ src: props.url, alt }]}
           onClose={() => setIsOpen(false)}
         />
       ) : null}
@@ -437,15 +504,112 @@ function Image(props: ImageProps) {
   );
 }
 
+/** The A2UI basic catalog icon names, and the Lucide icon of each. */
+const A2UI_ICONS: Record<string, string> = {
+  accountCircle: "circle-user",
+  add: "plus",
+  arrowBack: "arrow-left",
+  arrowForward: "arrow-right",
+  attachFile: "paperclip",
+  calendarToday: "calendar",
+  call: "phone",
+  camera: "camera",
+  check: "check",
+  close: "x",
+  delete: "trash-2",
+  download: "download",
+  edit: "pencil",
+  event: "calendar-days",
+  error: "circle-alert",
+  fastForward: "fast-forward",
+  favorite: "heart",
+  favoriteOff: "heart-off",
+  folder: "folder",
+  help: "circle-question-mark",
+  home: "house",
+  info: "info",
+  locationOn: "map-pin",
+  lock: "lock",
+  lockOpen: "lock-open",
+  mail: "mail",
+  menu: "menu",
+  moreVert: "ellipsis-vertical",
+  moreHoriz: "ellipsis",
+  notificationsOff: "bell-off",
+  notifications: "bell",
+  pause: "pause",
+  payment: "credit-card",
+  person: "user",
+  phone: "phone",
+  photo: "image",
+  play: "play",
+  print: "printer",
+  refresh: "refresh-cw",
+  rewind: "rewind",
+  search: "search",
+  send: "send",
+  settings: "settings",
+  share: "share-2",
+  shoppingCart: "shopping-cart",
+  skipNext: "skip-forward",
+  skipPrevious: "skip-back",
+  star: "star",
+  starHalf: "star-half",
+  starOff: "star-off",
+  stop: "square",
+  upload: "upload",
+  visibility: "eye",
+  visibilityOff: "eye-off",
+  volumeDown: "volume-1",
+  volumeMute: "volume-x",
+  volumeOff: "volume-off",
+  volumeUp: "volume-2",
+  warning: "triangle-alert",
+};
+
+/** The Lucide name of an icon: an A2UI name maps, any other name passes. */
+export function lucideNameOf(name: string) {
+  return A2UI_ICONS[name] ?? name;
+}
+
 function Icon(props: z.output<typeof iconSchema>) {
+  const size = props.size ?? "md";
+  const style = { flexGrow: props.weight };
+  if (typeof props.name === "object") {
+    const pixels =
+      typeof size === "number" ? size : props.inline ? "1em" : ICON_PX[size];
+    const a11y =
+      props.label === undefined
+        ? { "aria-hidden": true }
+        : { role: "img", "aria-label": props.label };
+    return (
+      <svg
+        {...a11y}
+        focusable="false"
+        viewBox="0 0 24 24"
+        width={pixels}
+        height={pixels}
+        fill={textColor(props.color) ?? "currentColor"}
+        style={{
+          ...style,
+          flexShrink: 0,
+          display: props.inline ? "inline-block" : "block",
+          verticalAlign: props.inline ? "-0.125em" : undefined,
+        }}
+      >
+        <path d={props.name.svgPath} />
+      </svg>
+    );
+  }
   return (
     <LucideIcon
-      name={props.name}
+      name={lucideNameOf(props.name)}
       label={props.label}
-      size={props.size ?? "md"}
+      size={size}
       color={props.color}
-      weight={props.weight}
+      weight={props.strokeWeight}
       inline={props.inline}
+      style={style}
     />
   );
 }
@@ -572,22 +736,61 @@ function Svg(props: z.output<typeof svgSchema>) {
 /** A YouTube id is about 11 characters of [A-Za-z0-9_-]. Others are refused. */
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{6,20}$/;
 
-/*
- * The player is cross-origin (youtube-nocookie.com). So allow-same-origin
- * only lets it use its own origin. It cannot get to the host page.
+/**
+ * The id of a YouTube video or short in `url`, or `undefined` for another
+ * URL. Accepts watch, embed, shorts, live and youtu.be links.
  */
-function YouTube(props: z.output<typeof youTubeSchema>) {
+export function youTubeIdOf(url: string) {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;
+  }
+  const host = parsed.hostname.replace(/^www\.|^m\./, "");
+  let id: string | null | undefined;
+  if (host === "youtu.be") {
+    id = parsed.pathname.slice(1);
+  } else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    const match = parsed.pathname.match(/^\/(?:embed|shorts|live|v)\/([^/]+)/);
+    id = match ? match[1] : parsed.searchParams.get("v");
+  }
+  return id && YOUTUBE_ID.test(id) ? id : undefined;
+}
+
+type VideoProps = z.output<typeof videoSchema>;
+
+/*
+ * The YouTube player is cross-origin (youtube-nocookie.com). So
+ * allow-same-origin only lets it use its own origin. It cannot get to the
+ * host page.
+ */
+function Video(props: VideoProps) {
   const [isPlaying, setIsPlaying] = useState(false);
-  if (!YOUTUBE_ID.test(props.videoId)) return null;
+  const youTubeId = youTubeIdOf(props.url);
   const box: CSSProperties = {
     display: "block",
     aspectRatio: props.aspectRatio ?? "16 / 9",
     width: spacing(props.width) ?? "100%",
     maxWidth: spacing(props.maxWidth) ?? "100%",
+    flexGrow: props.weight,
     borderRadius: radius("lg"),
   };
+  if (youTubeId === undefined) {
+    return (
+      <video
+        controls
+        preload="metadata"
+        src={props.url}
+        poster={props.posterUrl}
+        title={props.title}
+        aria-label={props.title}
+        style={{ ...box, background: "#000", objectFit: "contain" }}
+      />
+    );
+  }
   // The poster first: no third-party script runs until the user asks to play.
-  if (props.showThumbnail !== false && !isPlaying) {
+  if (!isPlaying) {
     return (
       <button
         type="button"
@@ -604,7 +807,10 @@ function YouTube(props: z.output<typeof youTubeSchema>) {
         }}
       >
         <img
-          src={`https://i.ytimg.com/vi/${props.videoId}/hqdefault.jpg`}
+          src={
+            props.posterUrl ??
+            `https://i.ytimg.com/vi/${youTubeId}/hqdefault.jpg`
+          }
           alt=""
           style={{
             width: "100%",
@@ -638,7 +844,7 @@ function YouTube(props: z.output<typeof youTubeSchema>) {
   }
   return (
     <iframe
-      src={`https://www.youtube-nocookie.com/embed/${props.videoId}${isPlaying ? "?autoplay=1" : ""}`}
+      src={`https://www.youtube-nocookie.com/embed/${youTubeId}?autoplay=1`}
       title={props.title ?? "YouTube video"}
       allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen"
       sandbox="allow-scripts allow-same-origin allow-presentation"
@@ -646,6 +852,38 @@ function YouTube(props: z.output<typeof youTubeSchema>) {
       allowFullScreen
       style={{ ...box, border: 0 }}
     />
+  );
+}
+
+function AudioPlayer(props: z.output<typeof audioPlayerSchema>) {
+  return (
+    <figure
+      data-a2ui-std=""
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: spacing(1),
+        margin: 0,
+        width: "100%",
+        minWidth: 0,
+        flexGrow: props.weight,
+      }}
+    >
+      {props.description ? (
+        <figcaption
+          style={{ fontSize: ".875em", color: textColor("secondary") }}
+        >
+          {props.description}
+        </figcaption>
+      ) : null}
+      <audio
+        controls
+        preload="metadata"
+        src={props.url}
+        aria-label={props.description}
+        style={{ display: "block", width: "100%" }}
+      />
+    </figure>
   );
 }
 
@@ -676,7 +914,7 @@ export const mediaComponents = {
   Image: {
     component: Image,
     description:
-      "An image from a URL. A click opens it full-screen. Set alt to say what the image shows, unless it is only decoration.",
+      "An image from a URL. A click opens it full-screen. Set description to say what the image shows, unless it is only decoration.",
     props: imageSchema,
     events: {
       onOverlayClick: {
@@ -689,7 +927,7 @@ export const mediaComponents = {
   Icon: {
     component: Icon,
     description:
-      'A Lucide icon by kebab-case name (for example "arrow-right"). Set label when no text next to the icon says what it means.',
+      'A Lucide icon by kebab-case name (for example "arrow-right"), or an A2UI icon name (for example "arrowBack"). Set label when no text next to the icon says what it means.',
     props: iconSchema,
   },
   Favicon: {
@@ -703,11 +941,17 @@ export const mediaComponents = {
       "A vector drawing from primitive shapes (paths, circles, rects, lines, texts). Colors take text color tokens or CSS colors.",
     props: svgSchema,
   },
-  YouTube: {
-    component: YouTube,
+  Video: {
+    component: Video,
     description:
-      "An embedded YouTube video, in privacy-enhanced mode. The poster shows first, and the player loads when the user presses play. Set title to name the video.",
-    props: youTubeSchema,
+      "A video player for a video file URL, or a YouTube link in privacy-enhanced mode: the poster shows first, and the player loads when the user presses play. Set title to name the video.",
+    props: videoSchema,
+  },
+  AudioPlayer: {
+    component: AudioPlayer,
+    description:
+      "An audio player for an audio file URL, with the description above it.",
+    props: audioPlayerSchema,
   },
   HtmlView: {
     component: HtmlView,

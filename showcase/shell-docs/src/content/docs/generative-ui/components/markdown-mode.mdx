@@ -129,7 +129,7 @@ The v1 chat components in `@copilotkit/react-ui` (`CopilotChat`, `CopilotSidebar
 ## Limits
 
 - A block must start at the beginning of a line. A block that is indented inside a list item renders as code.
-- Values are literals or bindings (`{"@path": "/seats"}`). There are no computed values, except `{"@call":"@index"}` inside a template. A price that depends on a slider must be computed by the agent, for example after an event.
+- Values are literals, bindings (`{"@path": "/seats"}`) or function values (`{"@call": "calc", "args": { "expression": "seats * 29", "seats": {"@path": "/seats"} }}`); see [function values](/generative-ui/components/state-and-actions#compute-values-in-the-browser). There are no operators outside `calc`, and no function that maps over a list.
 - A `surfaceId` is never used twice, also after `deleteSurface`.
 
 To run it, start [`examples/v2/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/a2ui-markdown) with the built-in agent or the LangGraph Python agent, and open `/?transport=markdown`.
