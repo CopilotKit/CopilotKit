@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { GENERATIVE_UI_MARKDOWN_GUIDELINES } from "@copilotkit/shared";
+import {
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS,
+  GENERATIVE_UI_MARKDOWN_GUIDELINES,
+} from "@copilotkit/shared";
 import { createGenerativeUIDispatcher } from "../dispatcher";
 import { buildGenerativeUIManifest } from "../manifest";
 import { standardUI } from "../standard";
@@ -215,28 +218,50 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
     expect(schema.functions.calc.parameters).toContain("expression: string");
   });
 
-  it("says when the agent may call an app function", () => {
-    const n = { type: "number" };
-    const schema = buildCompactGenerativeUISchema({
-      catalogId: "shop",
-      components: {},
-      targets: [],
-      surfaces: {},
-      functions: {
-        addToCart: { parameters: n, allowedCallers: "rendererOrAgent" },
-        track: { parameters: n, allowedCallers: "rendererOnly" },
-        reload: { parameters: n, allowedCallers: "agentOnly" },
-        share: { parameters: n, requiresUserActivation: true },
-      },
-    });
-    // No mark means the UI only, the default; the marks are for the agent.
-    expect(schema.functions).toEqual({
-      addToCart: { parameters: "number", callers: "UI or agent" },
-      track: { parameters: "number" },
-      reload: { parameters: "number", callers: "agent only" },
-      share: { parameters: "number" },
-    });
-  });
+  it.skipIf(GENERATIVE_UI_AGENT_FUNCTION_CALLS)(
+    "writes no callers while the agent path is off",
+    () => {
+      const schema = buildCompactGenerativeUISchema({
+        catalogId: "shop",
+        components: {},
+        targets: [],
+        surfaces: {},
+        functions: {
+          reload: {
+            parameters: { type: "number" },
+            allowedCallers: "agentOnly",
+          },
+        },
+      });
+      expect(schema.functions).toEqual({ reload: { parameters: "number" } });
+    },
+  );
+
+  it.skipIf(!GENERATIVE_UI_AGENT_FUNCTION_CALLS)(
+    "says when the agent may call an app function",
+    () => {
+      const n = { type: "number" };
+      const schema = buildCompactGenerativeUISchema({
+        catalogId: "shop",
+        components: {},
+        targets: [],
+        surfaces: {},
+        functions: {
+          addToCart: { parameters: n, allowedCallers: "rendererOrAgent" },
+          track: { parameters: n, allowedCallers: "rendererOnly" },
+          reload: { parameters: n, allowedCallers: "agentOnly" },
+          share: { parameters: n, requiresUserActivation: true },
+        },
+      });
+      // No mark means the UI only, the default; the marks are for the agent.
+      expect(schema.functions).toEqual({
+        addToCart: { parameters: "number", callers: "UI or agent" },
+        track: { parameters: "number" },
+        reload: { parameters: "number", callers: "agent only" },
+        share: { parameters: "number" },
+      });
+    },
+  );
 
   it("explains commonProps in the guideline", () => {
     expect(GENERATIVE_UI_MARKDOWN_GUIDELINES).toContain("includesCommonProps");

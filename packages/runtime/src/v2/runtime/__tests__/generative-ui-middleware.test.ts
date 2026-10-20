@@ -9,6 +9,10 @@ import type {
 import { firstValueFrom, from, toArray } from "rxjs";
 import type { Observable } from "rxjs";
 import { describe, expect, it } from "vitest";
+import {
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS,
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS_OFF_REASON,
+} from "@copilotkit/shared";
 import type { CopilotKitUIEnvelope } from "@copilotkit/shared";
 import { GenerativeUIMiddleware } from "../generative-ui";
 
@@ -316,7 +320,12 @@ describe("GenerativeUIMiddleware", () => {
   it("keeps the function, event, and template rules when the catalog has them", async () => {
     const { input } = await run([]);
     const guide = guideText(input);
-    expect(guide).toContain("callRendererFunction");
+    // The agent path is off for now: its rules are not in the guide.
+    if (GENERATIVE_UI_AGENT_FUNCTION_CALLS) {
+      expect(guide).toContain("callRendererFunction");
+    } else {
+      expect(guide).not.toContain("callRendererFunction");
+    }
     expect(guide).toContain("userMessage");
     expect(guide).toContain("@index");
   });
@@ -626,8 +635,10 @@ describe("GenerativeUIMiddleware", () => {
     expect(guide).toContain('"version":"v1.0"');
     expect(guide).toContain('{"@path":"/data/path"}');
     expect(guide).toContain('{"@call":"@index"}');
-    expect(guide).toContain('"callRendererFunction"');
-    expect(guide).toContain('"rendererFunctionResponse"');
+    if (GENERATIVE_UI_AGENT_FUNCTION_CALLS) {
+      expect(guide).toContain('"callRendererFunction"');
+      expect(guide).toContain('"rendererFunctionResponse"');
+    }
   });
 
   it("keeps the inline data model and components of a createSurface in the snapshot", async () => {
@@ -707,86 +718,111 @@ describe("GenerativeUIMiddleware", () => {
     },
   );
 
-  describe("callRendererFunction", () => {
-    it("emits one function-call activity and counts it in the tool result", async () => {
-      const { output } = await run(
-        renderCall({ target: "chat", operations: [callFunction("f1")] }),
-      );
-      expect(activity(output)).toEqual([
-        {
-          type: EventType.ACTIVITY_SNAPSHOT,
-          messageId: "genui-fn:f1",
-          activityType: "generative-ui-function-call",
-          content: {
-            functionCallId: "f1",
-            callFunction: { "@call": "addToCart", args: { productId: "p1" } },
-          },
-          replace: true,
-        },
-      ]);
-      expect(toolResult(output)).toEqual({
-        status: "rendered",
-        applied: 0,
-        calls: 1,
-        rejected: [],
-      });
-    });
-
-    it("runs a function call when render_ui has no target", async () => {
-      const { output } = await run(
-        renderCall({ operations: [callFunction("f1"), create("recs")] }),
-      );
-      expect(activity(output).map((e) => e.messageId)).toEqual(["genui-fn:f1"]);
-      expect(toolResult(output)).toMatchObject({
-        calls: 1,
-        rejected: [
-          { index: 1, reason: "render_ui was called without a target" },
-        ],
-      });
-    });
-
-    it("rejects a functionCallId that an earlier render_ui call of the run used", async () => {
-      const { output } = await run([
-        ...renderCall({ target: "chat", operations: [callFunction("f1")] }),
-        ...renderCall(
-          { target: "chat", operations: [callFunction("f1")] },
-          "call-2",
-        ),
-      ]);
-      expect(activity(output)).toHaveLength(1);
-      expect(toolResults(output)[1]).toMatchObject({
-        calls: 0,
-        rejected: [
-          {
-            index: 0,
-            reason:
-              'functionCallId "f1" was used before; use a new functionCallId',
-          },
-        ],
-      });
-    });
-
-    it("rejects a function that the client did not declare", async () => {
-      const { output } = await run(
-        renderCall({
-          target: "chat",
-          operations: [callFunction("f1", "deleteAccount")],
-        }),
-      );
-      expect(activity(output)).toEqual([]);
-      expect(toolResult(output)).toMatchObject({
-        calls: 0,
-        rejected: [
-          {
-            index: 0,
-            reason: expect.stringContaining(
-              'function "deleteAccount" is not exposed to generative UI',
-            ),
-          },
-        ],
-      });
-    });
+  describe("callRendererFunction while the agent path is off", () => {
+    it.skipIf(GENERATIVE_UI_AGENT_FUNCTION_CALLS)(
+      "rejects the operation with the reason and emits no function-call activity",
+      async () => {
+        const { output } = await run(
+          renderCall({ target: "chat", operations: [callFunction("f1")] }),
+        );
+        expect(activity(output)).toEqual([]);
+        expect(toolResult(output)).toEqual({
+          status: "rendered",
+          applied: 0,
+          calls: 0,
+          rejected: [
+            { index: 0, reason: GENERATIVE_UI_AGENT_FUNCTION_CALLS_OFF_REASON },
+          ],
+        });
+      },
+    );
   });
+
+  describe.skipIf(!GENERATIVE_UI_AGENT_FUNCTION_CALLS)(
+    "callRendererFunction",
+    () => {
+      it("emits one function-call activity and counts it in the tool result", async () => {
+        const { output } = await run(
+          renderCall({ target: "chat", operations: [callFunction("f1")] }),
+        );
+        expect(activity(output)).toEqual([
+          {
+            type: EventType.ACTIVITY_SNAPSHOT,
+            messageId: "genui-fn:f1",
+            activityType: "generative-ui-function-call",
+            content: {
+              functionCallId: "f1",
+              callFunction: { "@call": "addToCart", args: { productId: "p1" } },
+            },
+            replace: true,
+          },
+        ]);
+        expect(toolResult(output)).toEqual({
+          status: "rendered",
+          applied: 0,
+          calls: 1,
+          rejected: [],
+        });
+      });
+
+      it("runs a function call when render_ui has no target", async () => {
+        const { output } = await run(
+          renderCall({ operations: [callFunction("f1"), create("recs")] }),
+        );
+        expect(activity(output).map((e) => e.messageId)).toEqual([
+          "genui-fn:f1",
+        ]);
+        expect(toolResult(output)).toMatchObject({
+          calls: 1,
+          rejected: [
+            { index: 1, reason: "render_ui was called without a target" },
+          ],
+        });
+      });
+
+      it("rejects a functionCallId that an earlier render_ui call of the run used", async () => {
+        const { output } = await run([
+          ...renderCall({ target: "chat", operations: [callFunction("f1")] }),
+          ...renderCall(
+            { target: "chat", operations: [callFunction("f1")] },
+            "call-2",
+          ),
+        ]);
+        expect(activity(output)).toHaveLength(1);
+        expect(toolResults(output)[1]).toMatchObject({
+          calls: 0,
+          rejected: [
+            {
+              index: 0,
+              reason:
+                'functionCallId "f1" was used before; use a new functionCallId',
+            },
+          ],
+        });
+      });
+
+      it("rejects a function that the client did not declare", async () => {
+        const { output } = await run(
+          renderCall({
+            target: "chat",
+            operations: [callFunction("f1", "deleteAccount")],
+          }),
+        );
+        expect(activity(output)).toEqual([]);
+        expect(toolResult(output)).toMatchObject({
+          calls: 0,
+          rejected: [
+            {
+              index: 0,
+              reason: expect.stringContaining(
+                'function "deleteAccount" is not exposed to generative UI',
+              ),
+            },
+          ],
+        });
+      });
+    },
+  );
 
   it("rejects createSurface for a target that is not mounted", async () => {
     const { output } = await run(

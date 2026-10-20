@@ -1,5 +1,6 @@
 import { isA2UIBasicFunction } from "./generative-ui/basic-functions";
 import { A2UI_CHILD_LIST_REF } from "./generative-ui/child-refs";
+import { GENERATIVE_UI_AGENT_FUNCTION_CALLS } from "./generative-ui/types";
 import type { GenerativeUIManifest } from "./generative-ui/types";
 /**
  * Default A2UI generation and design guideline prompts.
@@ -287,7 +288,7 @@ export function buildGenerativeUIMarkdownGuidelines(
     "To change a surface in this reply, write another fence with the same surfaceId. Do not send createSurface again. The surface changes where it already is. A surface in a target can also be changed from a later reply; a chat surface cannot, because the chat is a transcript: a later reply with the same surfaceId makes a new surface.",
     "Use a new surfaceId for a different view. Never use a surfaceId again, also after the surface is deleted.",
   );
-  if (functions) {
+  if (functions && GENERATIVE_UI_AGENT_FUNCTION_CALLS) {
     rules.push(
       'To run an app function now, with no click, write a callRendererFunction line in a fence: {"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}. It needs no surface.',
       'Give every callRendererFunction a new functionCallId. Call only a function from the schema with "callers": "UI or agent" or "agent only"; a function without "callers" is for the UI only. A function with "callers": "agent only" is only for callRendererFunction: do not bind an event to it.',
