@@ -18,6 +18,7 @@ import {
   of,
   switchMap,
   throwError,
+  timer,
 } from "rxjs";
 import type { ObservableNotification, Observable } from "rxjs";
 import {
@@ -73,6 +74,8 @@ const globalFetch: typeof fetch = (...args) => fetch(...args);
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const REPLAY_COMPLETE_EVENT = "replay_complete";
 const REPLAY_FAILED_EVENT = "replay_failed";
+const REPLAY_RESET_EVENT = "replay_reset";
+const REPLAY_RESET_METADATA = "@copilotkit/core/replay-reset";
 const STREAM_IDLE_EVENT = "stream_idle";
 const STOP_RUN_EVENT = "stop_run";
 const CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS = 100;
@@ -139,6 +142,8 @@ export class AgentHistoryReplayError extends Error {
     this.name = "AgentHistoryReplayError";
   }
 }
+
+class RetryableHistoryReplayError extends Error {}
 
 /**
  * Typed contract for agents that expose the completion promise of their
@@ -213,6 +218,15 @@ export class IntelligenceAgent extends AbstractAgent {
     super();
     this.config = config;
     this.sharedState = sharedState;
+    this.subscribe({
+      onMessagesSnapshotEvent: ({ event }) => {
+        if (event.metadata?.[REPLAY_RESET_METADATA] !== true) return;
+        // Reset the reducer's copy too: ordinary snapshots preserve client-only
+        // activity/reasoning, and setters cannot replace its in-flight state.
+        this.pendingInterrupts = [];
+        return { messages: [], state: {} };
+      },
+    });
   }
 
   /**
@@ -602,20 +616,29 @@ export class IntelligenceAgent extends AbstractAgent {
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
       unopenedRefreshes?: number;
+      replayRetryAttempts?: number;
     },
   ): Observable<BaseEvent> {
-    const { unopenedRefreshes: previousUnopened = 0, ...sessionOptions } =
-      options;
+    const {
+      unopenedRefreshes: previousUnopened = 0,
+      replayRetryAttempts: previousReplayAttempts = 0,
+      ...sessionOptions
+    } = options;
     return defer(() => {
       let socketOpened = false;
+      let replayRetryAttempts = previousReplayAttempts;
       return this.observeThreadSession$(input, credentials, {
         ...sessionOptions,
         onSocketOpen: () => {
           socketOpened = true;
         },
+        onReplayComplete: () => {
+          replayRetryAttempts = 0;
+        },
       }).pipe(
         catchError((error) => {
-          if (!this.isSocketReconnectExhaustedError(error)) {
+          const retryReplay = error instanceof RetryableHistoryReplayError;
+          if (!retryReplay && !this.isSocketReconnectExhaustedError(error)) {
             return throwError(() => error);
           }
 
@@ -625,7 +648,11 @@ export class IntelligenceAgent extends AbstractAgent {
           // Only a run is capped: a developer is waiting on its turn. A connect
           // restores history in the background, and nothing retries it after it
           // fails, so it keeps reconnecting until the endpoint recovers.
-          const unopenedRefreshes = socketOpened ? 0 : previousUnopened + 1;
+          const unopenedRefreshes = retryReplay
+            ? previousUnopened
+            : socketOpened
+              ? 0
+              : previousUnopened + 1;
           if (
             options.streamMode === "run" &&
             unopenedRefreshes > MAX_UNOPENED_CREDENTIAL_REFRESHES
@@ -640,32 +667,43 @@ export class IntelligenceAgent extends AbstractAgent {
             );
           }
 
-          const replayCursor = this.getReconnectCursor(input);
-          return this.requestJoinCredentials$(
-            "connect",
-            input,
-            replayCursor,
-          ).pipe(
-            switchMap((refreshedCredentials) =>
-              refreshedCredentials === null
-                ? EMPTY
-                : this.observeThread$(
-                    this.applyCanonicalRunIdentity(
-                      input,
-                      refreshedCredentials,
-                      {
-                        fallbackToInputRunId: options.streamMode === "run",
-                      },
-                    ),
-                    refreshedCredentials,
-                    {
-                      ...sessionOptions,
-                      channelMode: "connect",
-                      replayCursor,
-                      unopenedRefreshes,
-                    },
-                  ),
-            ),
+          // Phoenix resets its own backoff on join, before history has restored.
+          // Keep overload attempts across sessions until replay_complete instead.
+          const retryDelay = retryReplay
+            ? Math.min(1_000 * 2 ** replayRetryAttempts++, 30_000) *
+              (0.5 + Math.random() * 0.5)
+            : 0;
+          return (retryReplay ? timer(retryDelay) : of(0)).pipe(
+            switchMap(() => {
+              const replayCursor = this.getReconnectCursor(input);
+              return this.requestJoinCredentials$(
+                "connect",
+                input,
+                replayCursor,
+              ).pipe(
+                switchMap((refreshedCredentials) =>
+                  refreshedCredentials === null
+                    ? EMPTY
+                    : this.observeThread$(
+                        this.applyCanonicalRunIdentity(
+                          input,
+                          refreshedCredentials,
+                          {
+                            fallbackToInputRunId: options.streamMode === "run",
+                          },
+                        ),
+                        refreshedCredentials,
+                        {
+                          ...sessionOptions,
+                          channelMode: "connect",
+                          replayCursor,
+                          unopenedRefreshes,
+                          replayRetryAttempts,
+                        },
+                      ),
+                ),
+              );
+            }),
           );
         }),
       );
@@ -682,6 +720,7 @@ export class IntelligenceAgent extends AbstractAgent {
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
       onSocketOpen?: () => void;
+      onReplayComplete?: () => void;
     },
   ): Observable<BaseEvent> {
     return defer(() => {
@@ -756,7 +795,7 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
-      const reconnectCursor = this.readDurableEventId(
+      let reconnectCursor = this.readDurableEventId(
         options.replayCursor ?? this.getReconnectCursor(input),
       );
       let latestObservedReplayCursor: string | null = null;
@@ -776,6 +815,32 @@ export class IntelligenceAgent extends AbstractAgent {
         applied: null,
         replayFailed: false,
       };
+      const replayReset$ = channel$.pipe(
+        switchMapOperator(({ channel }) =>
+          this.observeChannelEvent$<unknown>(channel, REPLAY_RESET_EVENT),
+        ),
+        filter(
+          (payload) =>
+            payload !== null &&
+            typeof payload === "object" &&
+            "reason" in payload &&
+            payload.reason === "history_cursor_unavailable",
+        ),
+        map(() => {
+          this.clearReconnectCursor(input.threadId);
+          reconnectCursor = null;
+          latestObservedReplayCursor = null;
+          controlCursor.applied = null;
+          controlCursor.replayFailed = false;
+          // This ordered snapshot closes all pending chunk lanes before the
+          // internal subscriber clears messages, state, and pending interrupts.
+          return {
+            type: EventType.MESSAGES_SNAPSHOT,
+            messages: [],
+            metadata: { [REPLAY_RESET_METADATA]: true },
+          };
+        }),
+      );
       const replayFailed$ = channel$.pipe(
         switchMapOperator(({ channel }) =>
           this.observeChannelEvent$<unknown>(channel, REPLAY_FAILED_EVENT),
@@ -786,7 +851,7 @@ export class IntelligenceAgent extends AbstractAgent {
             payload === null ||
             typeof payload !== "object" ||
             !("retryable" in payload) ||
-            payload.retryable !== false
+            typeof payload.retryable !== "boolean"
           )
             return;
           const reason =
@@ -805,6 +870,14 @@ export class IntelligenceAgent extends AbstractAgent {
               controlCursor,
             );
           }
+          if (
+            payload.retryable &&
+            ["restore_capacity", "history_busy", "memory_budget"].includes(
+              reason,
+            )
+          ) {
+            throw new RetryableHistoryReplayError(reason);
+          }
           throw new AgentHistoryReplayError(reason);
         }),
       );
@@ -818,6 +891,7 @@ export class IntelligenceAgent extends AbstractAgent {
         // Notify before idle completion can unsubscribe other observers.
         tap(() => {
           replayFinished = true;
+          options.onReplayComplete?.();
           scheduleIdleWarning();
           options.lifecycle?.onReplayFinished?.();
         }),
@@ -894,6 +968,7 @@ export class IntelligenceAgent extends AbstractAgent {
 
       return merge(
         // Install replay/idle observers before joining the channel.
+        replayReset$.pipe(takeUntil(terminal$)),
         replayFailed$.pipe(ignoreElements(), takeUntil(terminal$)),
         replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
         this.joinThreadChannel$(channel$),
@@ -1042,6 +1117,7 @@ export class IntelligenceAgent extends AbstractAgent {
       : {
           stream_mode: "connect",
           supports_replay_errors: true,
+          supports_replay_reset: true,
           last_seen_event_id:
             replayCursor === undefined
               ? this.getReconnectCursor(input)

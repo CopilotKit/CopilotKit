@@ -561,6 +561,7 @@ describe("CopilotChat activity message rendering", () => {
       expect(channel.params).toEqual({
         stream_mode: "connect",
         supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: null,
       });
 

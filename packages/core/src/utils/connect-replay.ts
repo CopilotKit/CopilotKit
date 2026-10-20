@@ -179,8 +179,9 @@ export async function ɵconnectWithoutEventVerification(
       takeUntil(activeRunDetach$),
     );
 
-    const applied$ = self.apply(input, source$, subscribers);
-    const processed$ = self.processApplyEvents(input, applied$, subscribers);
+    // Match the base pipeline: drain delivered events before surfacing a source
+    // error, so a saved replay checkpoint never skips queued reducer work.
+    const processed$ = self.applyBeforeSourceError(input, source$, subscribers);
 
     await lastValueFrom(
       processed$.pipe(
