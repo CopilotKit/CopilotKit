@@ -1,6 +1,9 @@
 import { generativeUIGuideFeatures } from "../a2ui-prompts";
 import { functionCallers } from "./basic-functions";
-import { GENERATIVE_UI_RENDER_TOOL } from "./types";
+import {
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS,
+  GENERATIVE_UI_RENDER_TOOL,
+} from "./types";
 import type { GenerativeUIManifest } from "./types";
 
 export const GENERATIVE_UI_CONTEXT_DESCRIPTION =
@@ -61,11 +64,12 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
       // A function is for the UI unless marked: the agent calls only what
       // the mark allows.
       const callers = functionCallers(f);
-      const who = callers.agent
-        ? callers.renderer
-          ? " (UI or agent)"
-          : " (agent only)"
-        : "";
+      const who =
+        callers.agent && GENERATIVE_UI_AGENT_FUNCTION_CALLS
+          ? callers.renderer
+            ? " (UI or agent)"
+            : " (agent only)"
+          : "";
       return `- **${name}**${who}${f.description ? `: ${f.description}` : ""}\n  args: ${args}`;
     })
     .join("\n");
@@ -96,12 +100,14 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
     templates,
     checks,
   } = generativeUIGuideFeatures(manifest);
+  // The agent calls functions only while that path is on.
+  const agentCalls = hasFunctions && GENERATIVE_UI_AGENT_FUNCTION_CALLS;
   const operations = [
     '{"version":"v1.0","createSurface":{"surfaceId":"<new id>","dataModel":{...},"components":[{"id":"root","component":"<Name>","children":["<child id>"]}]}}: the first operation of a new surface. "dataModel" and "components" are optional.',
     '{"version":"v1.0","updateComponents":{"surfaceId":"<id>","components":[<component>, ...]}}: add or replace components by id.',
     '{"version":"v1.0","updateDataModel":{"surfaceId":"<id>","path":"/some/path","value":<json>}}: set the value at "path". Always give "value". "value":null deletes the key at "path".',
     '{"version":"v1.0","deleteSurface":{"surfaceId":"<id>"}}: remove the surface.',
-    ...(hasFunctions
+    ...(agentCalls
       ? [
           '{"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}: run an app function now, with no click. It needs no surface.',
         ]
@@ -131,7 +137,7 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
           'To repeat a component for each item of a list, give a multiple slot a template: "children":{"componentId":"row","path":"/items"}. Inside the template, paths are relative to the item ("name", not "/name"). {"@call":"@index"} gives the position of the item, from 0; {"@call":"@index","args":{"offset":1}} counts from 1.',
         ]
       : []),
-    ...(hasFunctions
+    ...(agentCalls
       ? [
           "Give every callRendererFunction a new functionCallId. Call only a function marked (UI or agent) or (agent only); a function with no mark is for the UI only. A function marked (agent only) is only for callRendererFunction: do not bind an event to it.",
           'The result of a callRendererFunction comes back to you in a new turn, as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Do not wait for the result in this reply, and do not guess it.',

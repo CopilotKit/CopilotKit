@@ -11,6 +11,18 @@ export const GENERATIVE_UI_RENDER_TOOL = "render_ui";
 export const GENERATIVE_UI_CHAT_TARGET = "chat";
 /** Component id every surface renders from. */
 export const GENERATIVE_UI_ROOT_ID = "root";
+/**
+ * Whether the agent may call renderer functions with `callRendererFunction`.
+ * Off for now: the result goes back as a developer message, and not every
+ * backend keeps that message where the model reads it in order. While off,
+ * the prompts do not mention the operation, the validator rejects it, and
+ * the dispatcher refuses the agent, whatever a declaration's
+ * `allowedCallers` says. The code and its tests stay for when it is on.
+ */
+export const GENERATIVE_UI_AGENT_FUNCTION_CALLS = false;
+/** The reason an agent function call is rejected while they are off. */
+export const GENERATIVE_UI_AGENT_FUNCTION_CALLS_OFF_REASON =
+  "callRendererFunction is not supported in this version: the agent cannot call renderer functions until their results can be sent back to it reliably";
 
 /** Activity message id of a surface. One message per surface. */
 export function generativeUISurfaceMessageId(surfaceId: string) {

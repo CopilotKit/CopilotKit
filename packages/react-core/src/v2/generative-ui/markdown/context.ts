@@ -3,6 +3,7 @@ import {
   buildGenerativeUIMarkdownGuidelines,
   generativeUIGuideFeatures,
   GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS,
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
   childRefKind,
   functionCallers,
@@ -254,7 +255,7 @@ export function buildCompactGenerativeUISchema(
         {
           ...(fn.description ? { description: fn.description } : {}),
           parameters: hasSignature ? signature : compactType(fn.parameters, 0),
-          ...(callers.agent
+          ...(callers.agent && GENERATIVE_UI_AGENT_FUNCTION_CALLS
             ? { callers: callers.renderer ? "UI or agent" : "agent only" }
             : {}),
         },
