@@ -332,6 +332,10 @@ export function CopilotChat({
   const pendingRunActivityReconnectRef = useRef(false);
   const runActivityReconnectGenerationRef = useRef(0);
   const activeLocalRunIdsRef = useRef<Set<string>>(new Set());
+  // In-flight runs this client started on the agent by any path (the input,
+  // `copilotkit.runAgent`, a frontend-tool follow-up). Kept apart from
+  // `activeLocalRunIdsRef`, whose pinned ids span a whole follow-up chain.
+  const observedLocalRunIdsRef = useRef<Set<string>>(new Set());
   const recentlyLocalRunIdsRef = useRef<
     Map<string, ReturnType<typeof setTimeout>>
   >(new Map());
@@ -409,6 +413,7 @@ export function CopilotChat({
       if (
         !notification.runId ||
         (!activeLocalRunIdsRef.current.has(notification.runId) &&
+          !observedLocalRunIdsRef.current.has(notification.runId) &&
           !recentlyLocalRunIdsRef.current.has(notification.runId))
       ) {
         return false;
@@ -775,6 +780,17 @@ export function CopilotChat({
       startRunActivityReconnectRef.current?.(generation);
     });
 
+    const observedLocalRunIds = observedLocalRunIdsRef.current;
+    const localRunSubscription = agent.subscribe({
+      onRunInitialized: ({ input }) => {
+        observedLocalRunIds.add(input.runId);
+      },
+      onRunFinalized: ({ input }) => {
+        observedLocalRunIds.delete(input.runId);
+        rememberRecentlyLocalRunId(input.runId);
+      },
+    });
+
     return () => {
       detached = true;
       pendingRunActivityReconnectRef.current = false;
@@ -791,6 +807,7 @@ export function CopilotChat({
       }
       activeWakeRunIdsRef.current.clear();
       subscription.unsubscribe();
+      localRunSubscription.unsubscribe();
       if (ownsStandaloneStore) {
         threadStore.setContext(null);
         threadStore.stop();
@@ -811,6 +828,7 @@ export function CopilotChat({
     copilotkit.threadEndpoints?.realtimeMetadata,
     standaloneRunActivityStore,
     isLocalActiveRunActivity,
+    rememberRecentlyLocalRunId,
     rememberRecentlyWakeRunId,
   ]);
 
