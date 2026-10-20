@@ -110,6 +110,8 @@ export type {
   ActionGroupConfig,
   ActionGroupResult,
   AnyAction,
+  ChildIdsOf,
+  ChildWalkOptions,
   CopilotKitCoreAddAgentParams,
   CopilotKitCoreCatalogComponent,
   CopilotKitCoreConfig,

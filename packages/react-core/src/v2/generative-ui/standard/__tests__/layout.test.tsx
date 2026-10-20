@@ -45,6 +45,7 @@ describe("layoutComponents", () => {
       "CarouselMediaItem",
       "Spacer",
       "Divider",
+      "Tabs",
     ]);
     for (const name of names) {
       expect(ui.manifestComponents[name].description).toMatch(/\S/);
@@ -83,7 +84,7 @@ describe("standard layout", () => {
   it("lays a Row out horizontally and gives a Grid its column count", async () => {
     const view = renderSurface(ui, [
       { id: "root", component: "Column", children: ["r", "g"] },
-      { id: "r", component: "Row", justify: "between", children: ["a"] },
+      { id: "r", component: "Row", justify: "spaceBetween", children: ["a"] },
       { id: "a", component: "Label", text: "A" },
       { id: "g", component: "Grid", columns: 3, children: ["b"] },
       { id: "b", component: "GridItem", span: 2, children: ["c"] },
@@ -144,14 +145,14 @@ describe("standard layout", () => {
   it("centers Row children by default and keeps an explicit align", async () => {
     const view = renderSurface(ui, [
       { id: "root", component: "Column", children: ["r1", "r2"] },
-      { id: "r1", component: "Row", justify: "between", children: ["k"] },
+      { id: "r1", component: "Row", justify: "spaceBetween", children: ["k"] },
       { id: "k", component: "Label", text: "Price" },
       { id: "r2", component: "Row", align: "start", children: ["s"] },
       { id: "s", component: "Label", text: "top" },
     ]);
     const row = await parentOf(view, "Price");
     expect(row.style.alignItems).toBe("center");
-    expect(row.dataset.a2uiRow).toBe("between");
+    expect(row.dataset.a2uiRow).toBe("spaceBetween");
     expect((await parentOf(view, "top")).style.alignItems).toBe("flex-start");
   });
 

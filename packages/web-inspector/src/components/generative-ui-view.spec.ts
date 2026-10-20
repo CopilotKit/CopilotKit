@@ -210,6 +210,58 @@ describe("generative UI view helpers", () => {
     expect(componentTree([], new Set(), catalog)).toBeUndefined();
   });
 
+  it("follows the child refs of the props, at the top and deeper", () => {
+    const catalog = {
+      Tabs: {
+        props: {
+          type: "object",
+          properties: {
+            header: { $ref: "common_types.json#/$defs/ComponentId" },
+            tabs: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  child: { $ref: "common_types.json#/$defs/ComponentId" },
+                },
+              },
+            },
+          },
+        },
+      },
+      Text: { props: {} },
+    };
+    const operations = [
+      {
+        version: "v1.0",
+        createSurface: {
+          surfaceId: "s1",
+          components: [
+            {
+              id: "root",
+              component: "Tabs",
+              header: "h",
+              tabs: [{ title: "One", child: "p1" }],
+            },
+            { id: "h", component: "Text" },
+            { id: "p1", component: "Text" },
+          ],
+        },
+      },
+    ] as Parameters<typeof componentTree>[0];
+
+    expect(componentTree(operations, new Set(), catalog)).toEqual({
+      id: "root",
+      component: "Tabs",
+      props: { tabs: [{ title: "One", child: "p1" }] },
+      children: [
+        { id: "h", component: "Text", props: {}, children: [] },
+        { id: "p1", component: "Text", props: {}, children: [] },
+      ],
+    });
+  });
+
   it("groups components by catalog, the provider catalog first", () => {
     const entries: [string, number][] = [
       ["Text", 1],

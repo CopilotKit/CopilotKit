@@ -118,8 +118,8 @@ const entityActionArgs = z.object({
   label: z.string().describe("The label of the clicked button"),
 });
 export const gridImage = z.object({
-  src: z.string(),
-  alt: z.string().optional(),
+  url: z.string(),
+  description: z.string().optional().describe("What the image shows"),
   caption: z.string().optional(),
   href: text("Opens this URL instead of the full-screen view"),
 });
@@ -128,7 +128,7 @@ const imageGridSchema = z.object({
     .array(gridImage)
     .optional()
     .describe(
-      'A list of { "src", "alt"?, "caption"?, "href"? }, or { "path": "/x" }',
+      'A list of { "url", "description"?, "caption"?, "href"? }, or { "@path": "/x" }',
     ),
   columns: z.number().optional().describe("Default 3"),
   aspectRatio: z.string().optional().describe('Default "1 / 1"'),
@@ -769,7 +769,10 @@ function ImageGrid(props: ImageGridProps) {
     <>
       {open !== null ? (
         <Lightbox
-          images={images.map((image) => ({ src: image.src, alt: image.alt }))}
+          images={images.map((image) => ({
+            src: image.url,
+            alt: image.description,
+          }))}
           index={open}
           onClose={() => setOpen(null)}
         />
@@ -789,7 +792,7 @@ function ImageGrid(props: ImageGridProps) {
           const isLead = isBento && index === 0;
           return (
             <figure
-              key={`${image.src}-${index}`}
+              key={`${image.url}-${index}`}
               style={{
                 margin: 0,
                 minWidth: 0,
@@ -801,8 +804,8 @@ function ImageGrid(props: ImageGridProps) {
               }}
             >
               <img
-                src={image.src}
-                alt={image.alt ?? ""}
+                src={image.url}
+                alt={image.description ?? ""}
                 loading="lazy"
                 onClick={() =>
                   image.href ? openUrl(image.href) : setOpen(index)

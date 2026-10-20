@@ -47,10 +47,18 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
     })
     .join("\n");
   const functions = Object.entries(manifest.functions)
-    .map(
-      ([name, f]) =>
-        `- **${name}**${f.description ? `: ${f.description}` : ""}\n  args: ${JSON.stringify(f.parameters)}`,
-    )
+    .map(([name, f]) => {
+      // A built-in function carries its short signature in the description
+      // of its parameters; an app function has a JSON Schema.
+      const signature = f.parameters.description;
+      const args =
+        typeof signature === "string" &&
+        signature.startsWith("{") &&
+        Object.keys(f.parameters).length === 2
+          ? signature
+          : JSON.stringify(f.parameters);
+      return `- **${name}**${f.description ? `: ${f.description}` : ""}\n  args: ${args}`;
+    })
     .join("\n");
   const surfaces = Object.entries(manifest.surfaces)
     .map(([id, s]) => {
@@ -77,6 +85,7 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
     functions: hasFunctions,
     events,
     templates,
+    checks,
   } = generativeUIGuideFeatures(manifest);
   const operations = [
     '{"version":"v1.0","createSurface":{"surfaceId":"<new id>","dataModel":{...},"components":[{"id":"root","component":"<Name>","children":["<child id>"]}]}}: the first operation of a new surface. "dataModel" and "components" are optional.',
@@ -100,14 +109,18 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
     ...(events ? [eventRule] : []),
     "To show a different view, create a new surface with a new surfaceId (for example, a checkout form after a cart summary). Update an existing surface only when the user asks to change that same view: then do not send createSurface, use its surfaceId, and pass its existing target. Never reuse an earlier chat surface for a different view, because that replaces the earlier UI and anything the user typed into it.",
     "Never use a surfaceId again, also after deleteSurface.",
+    'A prop can also be a function value that updates with the data: {"@call":"formatCurrency","args":{"value":{"@path":"/total"},"currency":"EUR"}}. Only call functions listed below. formatString interpolates ${/path} and ${fn(arg: value)} in its value.',
+    'There are no operators in ${...} or in args. For arithmetic use calc, with the values as named args: {"@call":"calc","args":{"expression":"seats * 29 * (annual ? 0.8 : 1)","seats":{"@path":"/seats"},"annual":{"@path":"/annual"}}}. For a computed list (chart data) use series: {"@call":"series","args":{"count":12,"variable":"m","item":{"month":"${m}","cost":"${m * monthly}"},"monthly":{"@path":"/monthly"}}}.',
+    ...(checks
+      ? [
+          'Validate an input with "checks": [{"condition":{"@call":"email","args":{"value":{"@path":"/form/email"}}},"message":"Enter a valid email"}]. The check functions are required, regex, length, numeric and email. A failed check shows the message under the input and disables a Button that has the same checks.',
+        ]
+      : []),
     ...(templates
       ? [
-          'To repeat a component for each item of a list, give a multiple slot a template: "children":{"componentId":"row","path":"/items"}. Inside the template, paths are relative to the item ("name", not "/name").',
-          'Never put {"@call": ...} in a data prop. Compute derived values yourself. The only exception: inside a template, {"@call":"@index"} gives the position of the item, from 0. Write {"@call":"@index","args":{"offset":1}} to count from 1.',
+          'To repeat a component for each item of a list, give a multiple slot a template: "children":{"componentId":"row","path":"/items"}. Inside the template, paths are relative to the item ("name", not "/name"). {"@call":"@index"} gives the position of the item, from 0; {"@call":"@index","args":{"offset":1}} counts from 1.',
         ]
-      : [
-          'Never put {"@call": ...} in a data prop. Compute derived values yourself.',
-        ]),
+      : []),
     ...(hasFunctions
       ? [
           "Give every callRendererFunction a new functionCallId. Only call functions listed below.",

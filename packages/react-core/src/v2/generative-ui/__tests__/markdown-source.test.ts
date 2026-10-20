@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { Message } from "@ag-ui/client";
 import { createGenerativeUI } from "../catalog";
+import { child } from "../refs";
 import {
   buildMarkdownSurfaces,
   MarkdownSurfaceSource,
@@ -28,6 +29,28 @@ const ui = createGenerativeUI({
       component: Noop,
       props: z.object({ label: z.string() }),
       events: { onClick: { parameters: z.object({}) } },
+    },
+    Tabs: {
+      component: Noop,
+      props: z.object({
+        tabs: z.array(z.object({ title: z.string(), child: child() })),
+      }),
+    },
+    Modal: {
+      component: Noop,
+      props: z.object({ title: z.string().optional() }),
+      slots: { trigger: "single", content: "single" },
+    },
+    List: {
+      component: Noop,
+      props: z.object({
+        items: z.array(z.string()).optional(),
+        direction: z.enum(["vertical", "horizontal"]).optional(),
+      }),
+    },
+    Card: {
+      component: Noop,
+      slots: { child: "single", children: "multiple" },
     },
   },
 });
@@ -105,6 +128,212 @@ function syncedSource() {
 }
 
 describe("buildMarkdownSurfaces", () => {
+  it("keeps the panels of Tabs, referenced through typed child ids, when the prose is lifted", () => {
+    const message = assistant(
+      "m1",
+      fence([
+        create("s1"),
+        components(
+          "s1",
+          { id: "root", component: "Column", children: ["title", "tabs"] },
+          { id: "title", component: "Title", text: "Plans" },
+          {
+            id: "tabs",
+            component: "Tabs",
+            tabs: [
+              { title: "A", child: "pa" },
+              { title: "B", child: "pb" },
+            ],
+          },
+          button("pa", "Panel A"),
+          button("pb", "Panel B"),
+        ),
+      ]),
+    );
+
+    const { surfaces, fences } = build([message]);
+
+    expect(fences.get("m1:0")).toEqual([
+      { kind: "markdown", markdown: "### Plans" },
+      { kind: "surface", surfaceId: "s1" },
+    ]);
+    const kept = surfaces
+      .find((s) => s.surfaceId === "s1")
+      ?.operations.flatMap((op) =>
+        "updateComponents" in op &&
+        Array.isArray(op.updateComponents.components)
+          ? op.updateComponents.components.map((c) => (c as { id: string }).id)
+          : [],
+      );
+    expect(kept).toEqual(["root", "tabs", "pa", "pb"]);
+  });
+
+  it("keeps the trigger and content of a Modal, referenced through its slots, when the prose is lifted", () => {
+    const message = assistant(
+      "m1",
+      fence([
+        create("s1"),
+        components(
+          "s1",
+          { id: "root", component: "Column", children: ["title", "modal"] },
+          { id: "title", component: "Title", text: "Plans" },
+          { id: "modal", component: "Modal", trigger: "t", content: "c" },
+          button("t", "Open"),
+          button("c", "Body"),
+        ),
+      ]),
+    );
+
+    const { surfaces } = build([message]);
+
+    const kept = surfaces
+      .find((s) => s.surfaceId === "s1")
+      ?.operations.flatMap((op) =>
+        "updateComponents" in op &&
+        Array.isArray(op.updateComponents.components)
+          ? op.updateComponents.components.map((c) => (c as { id: string }).id)
+          : [],
+      );
+    expect(kept).toEqual(["root", "modal", "t", "c"]);
+  });
+
+  it("keeps both the child and the children of a Card when its prose is lifted", () => {
+    const message = assistant(
+      "m1",
+      fence([
+        create("s1"),
+        components(
+          "s1",
+          {
+            id: "root",
+            component: "Card",
+            child: "title",
+            children: ["lst", "note"],
+          },
+          { id: "title", component: "Title", text: "Plans" },
+          {
+            id: "lst",
+            component: "List",
+            direction: "horizontal",
+            items: ["One", "Two"],
+          },
+          { id: "note", component: "Text", text: "Or see more." },
+        ),
+      ]),
+    );
+
+    const { surfaces, fences } = build([message]);
+
+    expect(fences.get("m1:0")).toEqual([
+      { kind: "markdown", markdown: "### Plans" },
+      { kind: "surface", surfaceId: "s1" },
+      { kind: "markdown", markdown: "Or see more." },
+    ]);
+    const root = surfaces
+      .find((s) => s.surfaceId === "s1")
+      ?.operations.flatMap((op) =>
+        "updateComponents" in op &&
+        Array.isArray(op.updateComponents.components)
+          ? op.updateComponents.components
+          : [],
+      )
+      .find((c) => (c as { id: string }).id === "root") as Record<
+      string,
+      unknown
+    >;
+    expect(root.children).toEqual(["lst"]);
+    expect(root).not.toHaveProperty("child");
+  });
+
+  it("keeps a List whose direction is bound as a surface", () => {
+    const message = assistant(
+      "m1",
+      fence([
+        create("s1"),
+        components("s1", {
+          id: "root",
+          component: "List",
+          direction: { "@path": "/direction" },
+          items: ["One", "Two"],
+        }),
+      ]),
+    );
+
+    const { fences } = build([message]);
+
+    expect(fences.get("m1:0")).toEqual([{ kind: "surface", surfaceId: "s1" }]);
+  });
+
+  it("keeps a horizontal List as a surface instead of lifting it to a markdown list", () => {
+    const message = assistant(
+      "m1",
+      fence([
+        create("s1"),
+        components("s1", {
+          id: "root",
+          component: "List",
+          direction: "horizontal",
+          items: ["One", "Two"],
+        }),
+      ]),
+    );
+
+    const { fences } = build([message]);
+
+    expect(fences.get("m1:0")).toEqual([{ kind: "surface", surfaceId: "s1" }]);
+  });
+
+  it("treats an inherited object property as an unknown component, not as a catalog entry", () => {
+    const message = assistant(
+      "m1",
+      fence([
+        create("s1"),
+        components(
+          "s1",
+          { id: "root", component: "Column", children: ["title", "x"] },
+          { id: "title", component: "Title", text: "Plans" },
+          { id: "x", component: "constructor" },
+        ),
+      ]),
+    );
+
+    const { surfaces } = build([message]);
+
+    const surface = surfaces.find((s) => s.surfaceId === "s1");
+    expect(surface?.rejected.map((r) => r.reason)).toEqual([
+      expect.stringContaining('unknown component "constructor"'),
+    ]);
+  });
+
+  it("does not lift prose out of a surface whose child references are bound, because their ids are unknown", () => {
+    const message = assistant(
+      "m1",
+      fence([
+        create("s1"),
+        components(
+          "s1",
+          { id: "root", component: "Column", children: ["title", "tabs"] },
+          { id: "title", component: "Title", text: "Plans" },
+          { id: "tabs", component: "Tabs", tabs: { "@path": "/tabs" } },
+          button("pa", "Panel A"),
+        ),
+      ]),
+    );
+
+    const { surfaces, fences } = build([message]);
+
+    expect(fences.get("m1:0")).toEqual([{ kind: "surface", surfaceId: "s1" }]);
+    const kept = surfaces
+      .find((s) => s.surfaceId === "s1")
+      ?.operations.flatMap((op) =>
+        "updateComponents" in op &&
+        Array.isArray(op.updateComponents.components)
+          ? op.updateComponents.components.map((c) => (c as { id: string }).id)
+          : [],
+      );
+    expect(kept).toEqual(["root", "title", "tabs", "pa"]);
+  });
+
   it("turns a fence into the content of a chat surface that the fence renders", () => {
     const message = assistant(
       "m1",

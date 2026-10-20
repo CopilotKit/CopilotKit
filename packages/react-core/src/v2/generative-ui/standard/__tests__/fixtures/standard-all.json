@@ -35,7 +35,7 @@
       "component": "Row",
       "gap": 2,
       "align": "center",
-      "justify": "between",
+      "justify": "spaceBetween",
       "wrap": "wrap",
       "children": ["spacer-l", "grid", "spacer-r"]
     },
@@ -123,8 +123,8 @@
     {
       "id": "cmi",
       "component": "CarouselMediaItem",
-      "media": "https://example.com/slide.png",
-      "alt": "Slide three",
+      "url": "https://example.com/slide.png",
+      "description": "Slide three",
       "size": "sm",
       "children": ["cmi-t"]
     },
@@ -139,11 +139,42 @@
       "color": "subtle"
     },
     {
+      "id": "tabs",
+      "component": "Tabs",
+      "tabs": [
+        {
+          "title": "Plan",
+          "child": "tab-plan"
+        },
+        {
+          "title": "Usage",
+          "child": "tab-usage"
+        }
+      ]
+    },
+    {
+      "id": "tab-plan",
+      "component": "Text",
+      "text": "Plan panel"
+    },
+    {
+      "id": "tab-usage",
+      "component": "Text",
+      "text": "Usage panel"
+    },
+    {
       "id": "s-layout",
       "component": "Card",
       "variant": "soft",
       "gap": 2,
-      "children": ["s-layout-title", "box", "flow", "carousel", "divider"]
+      "children": [
+        "s-layout-title",
+        "box",
+        "flow",
+        "carousel",
+        "divider",
+        "tabs"
+      ]
     },
     {
       "id": "s-layout-title",
@@ -287,6 +318,7 @@
         "rg",
         "slider",
         "seg",
+        "cp",
         "dt",
         "press",
         "btn"
@@ -299,7 +331,20 @@
         "@path": "/form/name"
       },
       "label": "Name",
-      "placeholder": "Your name"
+      "placeholder": "Your name",
+      "checks": [
+        {
+          "condition": {
+            "@call": "required",
+            "args": {
+              "value": {
+                "@path": "/form/name"
+              }
+            }
+          },
+          "message": "Name is required"
+        }
+      ]
     },
     {
       "id": "ta",
@@ -329,7 +374,7 @@
     {
       "id": "cb",
       "component": "CheckBox",
-      "checked": {
+      "value": {
         "@path": "/form/annual"
       },
       "label": "Annual billing"
@@ -370,6 +415,24 @@
       "options": ["Monthly", "Yearly"]
     },
     {
+      "id": "cp",
+      "component": "ChoicePicker",
+      "value": {
+        "@path": "/form/tags"
+      },
+      "label": "Tags",
+      "variant": "multipleSelection",
+      "displayStyle": "chips",
+      "options": [
+        "Design",
+        "Code",
+        {
+          "value": "ops",
+          "label": "Operations"
+        }
+      ]
+    },
+    {
       "id": "dt",
       "component": "DateTimeInput",
       "value": {
@@ -399,7 +462,19 @@
       "component": "Button",
       "label": "Submit",
       "submit": true,
-      "icon": "send"
+      "icon": "send",
+      "checks": [
+        {
+          "condition": {
+            "@call": "required",
+            "args": {
+              "value": {
+                "@path": "/form/name"
+              }
+            }
+          }
+        }
+      ]
     },
     {
       "id": "s-inputs",
@@ -411,7 +486,12 @@
     {
       "id": "s-inputs-title",
       "component": "Caption",
-      "text": "Inputs"
+      "text": {
+        "@call": "formatString",
+        "args": {
+          "value": "Inputs (${/form/seats} seats, ${formatCurrency(value: /form/total, currency: 'EUR')})"
+        }
+      }
     },
     {
       "id": "loading",
@@ -478,6 +558,23 @@
       "text": "Popover body"
     },
     {
+      "id": "modal",
+      "component": "Modal",
+      "title": "Details",
+      "trigger": "modal-t",
+      "content": "modal-c"
+    },
+    {
+      "id": "modal-t",
+      "component": "Button",
+      "label": "Open details"
+    },
+    {
+      "id": "modal-c",
+      "component": "Text",
+      "text": "Modal body"
+    },
+    {
       "id": "s-feedback",
       "component": "Card",
       "variant": "soft",
@@ -490,7 +587,8 @@
         "pulse",
         "celeb",
         "flash",
-        "pop"
+        "pop",
+        "modal"
       ]
     },
     {
@@ -672,8 +770,8 @@
     {
       "id": "img",
       "component": "Image",
-      "src": "https://example.com/a.png",
-      "alt": "Example image",
+      "url": "https://example.com/a.png",
+      "description": "Example image",
       "aspectRatio": "16 / 9",
       "radius": "lg",
       "hideOnFailure": true
@@ -738,9 +836,15 @@
     },
     {
       "id": "yt",
-      "component": "YouTube",
-      "videoId": "dQw4w9WgXcQ",
+      "component": "Video",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
       "title": "Video"
+    },
+    {
+      "id": "aud",
+      "component": "AudioPlayer",
+      "url": "https://example.com/clip.mp3",
+      "description": "Audio clip"
     },
     {
       "id": "html",
@@ -754,7 +858,16 @@
       "component": "Card",
       "variant": "soft",
       "gap": 2,
-      "children": ["s-media-title", "img", "icon", "fav", "svg", "yt", "html"]
+      "children": [
+        "s-media-title",
+        "img",
+        "icon",
+        "fav",
+        "svg",
+        "yt",
+        "aud",
+        "html"
+      ]
     },
     {
       "id": "s-media-title",
@@ -830,17 +943,17 @@
       "layout": "bento",
       "images": [
         {
-          "src": "https://example.com/1.png",
-          "alt": "one"
+          "url": "https://example.com/1.png",
+          "description": "one"
         },
         {
-          "src": "https://example.com/2.png",
-          "alt": "two",
+          "url": "https://example.com/2.png",
+          "description": "two",
           "caption": "Two"
         },
         {
-          "src": "https://example.com/3.png",
-          "alt": "three"
+          "url": "https://example.com/3.png",
+          "description": "three"
         }
       ]
     },
@@ -873,7 +986,9 @@
       "size": "M",
       "seats": 8,
       "period": "Monthly",
-      "date": "2026-10-14"
+      "date": "2026-10-14",
+      "tags": ["Code"],
+      "total": 1599
     },
     "people": [
       {

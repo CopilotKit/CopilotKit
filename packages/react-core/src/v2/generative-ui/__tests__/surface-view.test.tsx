@@ -945,6 +945,7 @@ describe("SurfaceView", () => {
         componentId: "root",
         name: "onPick",
         parameters,
+        basePath: undefined,
         binding: { event: { name: "more" } },
         args: { productId: 1 },
       });
@@ -973,6 +974,7 @@ describe("SurfaceView", () => {
         componentId: "root",
         name: "onPick",
         parameters,
+        basePath: undefined,
         binding: { event: { name: "more" } },
         args: { productId: "p" },
       });

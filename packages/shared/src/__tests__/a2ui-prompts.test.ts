@@ -45,6 +45,7 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     expect(guide.indexOf('"createSurface"')).toBeLessThan(
       guide.indexOf('"updateComponents"'),
     );
+    expect(guide).toContain('Keep "dataModel" flat');
   });
 
   it("keeps components flat, which live models got wrong", () => {
@@ -84,18 +85,35 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     );
   });
 
-  it("keeps function calls and expressions out of data props, except @index in a template", () => {
+  it("describes function values and the formatString grammar", () => {
     expect(guide).toContain(
-      'Never put {"@call": ...} or an expression in a data prop.',
+      'A prop can also be a function value that updates with the data: {"@call":"formatCurrency"',
     );
     expect(guide).toContain(
-      'The only exception is {"@call":"@index"} in a template.',
+      'Use only the functions under "functions" in the schema.',
     );
+    expect(guide).toContain("formatString interpolates ${...}");
+    expect(guide).toContain("There are no operators in ${...}");
+    expect(guide).toContain(
+      '{"@call":"calc","args":{"expression":"seats * 29 * (annual ? 0.8 : 1)"',
+    );
+    expect(guide).toContain(
+      '{"@call":"series","args":{"count":12,"variable":"m"',
+    );
+    expect(guide).toContain('the "items" of a List');
+    expect(guide).not.toContain("template path of a list");
     expect(guide).toContain('{"@call":"@index","args":{"offset":1}}');
   });
 
+  it("describes checks with the validator functions", () => {
+    expect(guide).toContain('Validate an input with "checks"');
+    expect(guide).toContain("required, regex, length, numeric and email");
+    expect(guide).toContain("disables a Button that has the same checks");
+  });
+
   it("describes slots with child ids and with a template of relative paths", () => {
-    expect(guide).toContain('"children":["a","b"] for a multiple slot');
+    expect(guide).toContain('"tabs":[{"title":"Specs","child":"specs"}]');
+    expect(guide).toContain('"children":["a","b"]');
     expect(guide).toContain('"children":{"componentId":"row","path":"/items"}');
     expect(guide).toContain(
       'paths are relative to the item ("name", not "/name")',
@@ -159,7 +177,12 @@ describe("generativeUIGuideFeatures", () => {
         },
         functions: { save: { parameters: props } },
       }),
-    ).toEqual({ functions: true, events: true, templates: true });
+    ).toEqual({
+      functions: true,
+      events: true,
+      templates: true,
+      checks: false,
+    });
   });
 
   it("finds none when the components have no events or multiple slots and no function is mounted", () => {
@@ -170,12 +193,22 @@ describe("generativeUIGuideFeatures", () => {
         },
         functions: {},
       }),
-    ).toEqual({ functions: false, events: false, templates: false });
+    ).toEqual({
+      functions: false,
+      events: false,
+      templates: false,
+      checks: false,
+    });
   });
 });
 
 describe("buildGenerativeUIMarkdownGuidelines", () => {
-  const none = { functions: false, events: false, templates: false };
+  const none = {
+    functions: false,
+    events: false,
+    templates: false,
+    checks: false,
+  };
 
   it("has every rule group by default", () => {
     expect(buildGenerativeUIMarkdownGuidelines()).toBe(
@@ -189,15 +222,35 @@ describe("buildGenerativeUIMarkdownGuidelines", () => {
     expect(small).not.toContain("functionCall");
     expect(small).not.toContain("userMessage");
     expect(small).not.toContain("@index");
+    expect(small).not.toContain('"checks"');
     expect(small).toContain("Never wrap the whole reply in a fence.");
     expect(small.length).toBeLessThan(GENERATIVE_UI_MARKDOWN_GUIDELINES.length);
   });
 
-  it("keeps events but drops the functionCall binding when no function is mounted", () => {
+  it("keeps events and openUrl, but no app functions, when none is mounted", () => {
     const text = buildGenerativeUIMarkdownGuidelines({ ...none, events: true });
     expect(text).toContain("userMessage");
-    expect(text).not.toContain("functionCall");
+    expect(text).toContain('"@call":"openUrl"');
+    expect(text).not.toContain("an app function from the schema");
     expect(text).not.toContain("callRendererFunction");
+  });
+
+  it("adds the checks rule for a component with a checks prop", () => {
+    const text = buildGenerativeUIMarkdownGuidelines({ ...none, checks: true });
+    expect(text).toContain('Validate an input with "checks"');
+    expect(
+      generativeUIGuideFeatures({
+        components: {
+          TextField: {
+            props: {
+              type: "object",
+              properties: { checks: { type: "array" } },
+            },
+          },
+        },
+        functions: {},
+      }).checks,
+    ).toBe(true);
   });
 
   it("adds the template and @index rules for a multiple slot", () => {

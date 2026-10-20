@@ -76,6 +76,7 @@ describe("inputComponents", () => {
       "RadioGroup",
       "Slider",
       "SegmentedControl",
+      "ChoicePicker",
       "DateTimeInput",
     ]);
     for (const name of names) {
@@ -137,14 +138,14 @@ describe("standard inputs: values", () => {
     expect(view.dataAt("/")).toEqual({ notes: "unchanged" });
   });
 
-  it("writes a CheckBox state to its checked path", async () => {
+  it("writes a CheckBox state to its value path", async () => {
     const view = renderInputs(
       [
         {
           id: "root",
           component: "CheckBox",
           label: "Annual billing",
-          checked: { "@path": "/annual" },
+          value: { "@path": "/annual" },
         },
       ],
       { annual: false },
@@ -202,7 +203,7 @@ describe("standard inputs: values", () => {
     const date = await view.findByLabelText("Start date");
     fireEvent.change(date, { target: { value: "2026-01-05" } });
     expect(view.dataAt("/when")).toBe("2026-01-05");
-    fireEvent.click(view.getByRole("button", { name: "Clear date" }));
+    fireEvent.click(view.getByRole("button", { name: "Clear" }));
     expect(view.dataAt("/when")).toBe("");
   });
 });

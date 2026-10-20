@@ -1,3 +1,4 @@
+import { containsDynamicValue } from "./resolve";
 import {
   Catalog,
   ComponentModel,
@@ -760,13 +761,13 @@ export class GenerativeUISurfaceManager {
       ),
     );
     if (!definition.props) return undefined;
-    // The props schema checks the literal values. A `{"@path"}` or
-    // `{"@call":"@index"}` value is known only at render, and so is the
+    // The props schema checks the literal values. A prop with a `{"@path"}`
+    // or `{"@call"}` anywhere in it is known only at render, and so is the
     // value of a bound prop: their issues are left to the render check.
     const unknownNow = new Set(Object.keys(definition.selectors));
     const literals: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(dataProps)) {
-      if (isPathBinding(value) || isIndexCall(value)) unknownNow.add(key);
+      if (containsDynamicValue(value)) unknownNow.add(key);
       else literals[key] = value;
     }
     const result = validateSchemaSync(definition.props, literals);

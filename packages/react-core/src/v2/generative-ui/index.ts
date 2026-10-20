@@ -17,6 +17,7 @@ export type {
   GenerativeUISlotKind,
   GenerativeUIStateOf,
 } from "./catalog";
+export { child, childList } from "./refs";
 export { GenerativeUIError } from "./errors";
 export type {
   GenerativeUIErrorCode,

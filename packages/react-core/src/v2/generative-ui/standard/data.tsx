@@ -1,7 +1,7 @@
 import React, { createContext, isValidElement, useContext } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { z } from "zod";
-import { CHILDREN_SLOT, sizeValue } from "./layout";
+import { CHILDREN_SLOT, sizeValue, weightProp } from "./layout";
 import { LucideIcon } from "./media";
 import { Chart, VISUALLY_HIDDEN, chartSchema } from "./Chart";
 import { MapView, mapSchema } from "./Map";
@@ -113,6 +113,12 @@ const listSchema = z.object({
     .describe(
       'Strings or { "label", "value"?, "description"?, "icon"? }, or { "@path": "/x" }',
     ),
+  direction: z
+    .enum(["vertical", "horizontal"])
+    .optional()
+    .describe('Default "vertical". "horizontal" scrolls sideways'),
+  align: z.enum(["start", "center", "end", "stretch"]).optional(),
+  weight: weightProp,
   marker: z.enum(LIST_MARKERS).optional().describe('Default "bullet"'),
   connector: z.enum(["none", "solid"]).optional().describe('Default "none"'),
   gap: sizeValue.optional(),
@@ -486,18 +492,32 @@ const ListContext = createContext<ListContextValue | null>(null);
 const isNativeMarker = (marker: string | undefined) =>
   marker === "bullet" || marker === "number";
 
-function listStyle(marker: ListMarker, gap: number | string | undefined) {
+function listStyle(
+  marker: ListMarker,
+  props: Pick<ListProps, "gap" | "direction" | "align" | "weight">,
+) {
   const listStyleType =
     marker === "number" ? "decimal" : marker === "bullet" ? "disc" : "none";
+  const isHorizontal = props.direction === "horizontal";
   return {
     margin: 0,
-    paddingInlineStart: isNativeMarker(marker) ? "1.5em" : 0,
-    listStyleType,
+    paddingInlineStart: isNativeMarker(marker) && !isHorizontal ? "1.5em" : 0,
+    listStyleType: isHorizontal ? "none" : listStyleType,
     display: "flex",
-    flexDirection: "column",
-    gap: spacing(gap ?? 1),
+    flexDirection: isHorizontal ? "row" : "column",
+    alignItems: props.align ? ALIGN_CSS[props.align] : undefined,
+    flexGrow: props.weight,
+    overflowX: isHorizontal ? "auto" : undefined,
+    gap: spacing(props.gap ?? (isHorizontal ? 3 : 1)),
   } satisfies CSSProperties;
 }
+
+const ALIGN_CSS = {
+  start: "flex-start",
+  center: "center",
+  end: "flex-end",
+  stretch: "stretch",
+} as const;
 
 /** A plain button: no box, the full row is the hit area, a focus ring. */
 const ITEM_BUTTON_STYLE: CSSProperties = {
@@ -675,9 +695,13 @@ function List(props: ListProps) {
         className="a2ui-std-list"
         data-a2ui-std=""
         // Safari drops the list role when list-style is "none".
-        role={isNativeMarker(marker) ? undefined : "list"}
+        role={
+          isNativeMarker(marker) && props.direction !== "horizontal"
+            ? undefined
+            : "list"
+        }
         start={Tag === "ol" ? props.start : undefined}
-        style={listStyle(marker, props.gap)}
+        style={listStyle(marker, props)}
       >
         {body}
       </Tag>

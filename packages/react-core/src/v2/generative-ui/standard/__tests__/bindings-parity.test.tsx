@@ -221,7 +221,7 @@ describe("standard catalog: data-model bindings on literal props (parity)", () =
       ],
       {
         next: ["Cheaper", { label: "Luxury" }],
-        pics: [{ src: "https://example.com/1.png", alt: "one" }],
+        pics: [{ url: "https://example.com/1.png", description: "one" }],
       },
     );
     expect(await v.findByRole("button", { name: "Luxury" })).toBeTruthy();

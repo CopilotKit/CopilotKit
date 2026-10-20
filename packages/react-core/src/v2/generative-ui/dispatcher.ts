@@ -4,6 +4,11 @@ import type {
 } from "@copilotkit/shared";
 import { GenerativeUIError } from "./errors";
 import type { GenerativeUIInvokeResult } from "./errors";
+import {
+  BASIC_FUNCTIONS,
+  ExpressionError,
+  requiresUserActivation,
+} from "./functions";
 import { toJsonSchema } from "./json-schema";
 
 /**
@@ -102,6 +107,21 @@ const messageOf = (error: unknown): string =>
  * unregister();
  * ```
  */
+/**
+ * True while the browser counts the current task as user-activated (a
+ * click, a key press). Where the API is missing (older browsers, test
+ * environments), the gesture is assumed.
+ */
+function hasUserActivation() {
+  if (typeof navigator === "undefined") return true;
+  const activation = (
+    navigator as Navigator & {
+      userActivation?: { isActive: boolean };
+    }
+  ).userActivation;
+  return activation === undefined || activation.isActive;
+}
+
 export function createGenerativeUIDispatcher(
   options: GenerativeUIDispatcherOptions,
 ) {
@@ -139,6 +159,14 @@ export function createGenerativeUIDispatcher(
       };
     }
     return { ok: true, declared, ref };
+  };
+
+  const isDeclared = (name: string) => {
+    try {
+      return options.getDeclared().has(name);
+    } catch {
+      return false;
+    }
   };
 
   // getDeclared is outside code; a throw here becomes a result, not a rejection.
@@ -204,9 +232,84 @@ export function createGenerativeUIDispatcher(
     return { ok: false, error };
   };
 
+  /**
+   * Runs a basic function of the A2UI catalog. One that needs a user gesture
+   * runs only for a component (an event binding), never for the agent.
+   */
+  const invokeBasic = (
+    name: string,
+    args: unknown,
+    origin: GenerativeUICallOrigin,
+  ): GenerativeUIInvokeResult => {
+    if (requiresUserActivation(name)) {
+      if (!("componentId" in origin)) {
+        return failWith(
+          name,
+          origin,
+          new GenerativeUIError(
+            "invalid_function_call",
+            `"${name}" runs only from a user gesture; the agent cannot call it`,
+          ),
+        );
+      }
+      // A component event is not always a gesture: onVisible fires from an
+      // IntersectionObserver. Browsers track activation themselves.
+      if (!hasUserActivation()) {
+        return failWith(
+          name,
+          origin,
+          new GenerativeUIError(
+            "invalid_function_call",
+            `"${name}" runs only from a user gesture; this event was not one`,
+          ),
+        );
+      }
+    }
+    const isObject =
+      typeof args === "object" && args !== null && !Array.isArray(args);
+    if (args !== undefined && !isObject) {
+      return failWith(
+        name,
+        origin,
+        new GenerativeUIError(
+          "invalid_arguments",
+          `Invalid arguments for "${name}": args must be an object`,
+        ),
+      );
+    }
+    try {
+      return {
+        ok: true,
+        result: BASIC_FUNCTIONS[name]((args ?? {}) as Record<string, unknown>),
+      };
+    } catch (error) {
+      return failWith(
+        name,
+        origin,
+        new GenerativeUIError(
+          error instanceof ExpressionError
+            ? "invalid_arguments"
+            : "handler_failed",
+          `"${name}" failed: ${messageOf(error)}`,
+        ),
+      );
+    }
+  };
+
   const dispatcher: GenerativeUIDispatcher = {
     async invoke(name, args, origin) {
       const resolved = resolve(name);
+      // A declared function wins over a basic one of the same name, also
+      // while its handler is not mounted: that is an error of the app, not
+      // a call of the basic function.
+      if (
+        !resolved.ok &&
+        resolved.error.code === "function_not_found" &&
+        !isDeclared(name) &&
+        Object.prototype.hasOwnProperty.call(BASIC_FUNCTIONS, name)
+      ) {
+        return invokeBasic(name, args, origin);
+      }
       if (!resolved.ok) return failWith(name, origin, resolved.error);
       const validated = await validateArgs(
         name,
