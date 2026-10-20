@@ -129,10 +129,14 @@ describe("useAgent e2e", () => {
       await agent.emit(runFinishedEvent());
       await agent.complete();
 
+      // The streaming renderer splits text across span segments; query by textContent instead.
       await waitFor(() => {
-        expect(
-          screen.getByText("Hello! I received your message."),
-        ).toBeDefined();
+        const el = screen.queryAllByText((_text, element) =>
+          (element?.textContent ?? "").includes(
+            "Hello! I received your message.",
+          ),
+        );
+        expect(el.length).toBeGreaterThan(0);
       });
     });
   });

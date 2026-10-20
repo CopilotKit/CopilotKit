@@ -1,7 +1,6 @@
 @import "tailwindcss" prefix(cpk);
 @plugin "@tailwindcss/typography";
 @source "../**/*.{ts,tsx,vue}";
-@source "../../node_modules/streamdown-vue/dist/**/*.{js,mjs,cjs}";
 
 @import "tw-animate-css";
 
@@ -176,10 +175,6 @@
   }
 }
 
-[data-copilotkit] div[data-streamdown="code-block"] > pre {
-  @apply cpk:mt-0 cpk:mb-0;
-}
-
 [data-copilotkit] .prose input[type="checkbox"] {
   appearance: none;
   background-color: #fff;
@@ -209,30 +204,6 @@
   background-size: 100% 100%;
 }
 
-.copilot-chat-assistant-markdown [data-streamdown="code-block"] {
-  @apply cpk:my-4 cpk:w-full cpk:overflow-hidden cpk:rounded-xl cpk:border cpk:border-border cpk:bg-transparent;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-block-header"] {
-  @apply cpk:flex cpk:items-center cpk:justify-between cpk:p-3 cpk:text-xs cpk:text-muted-foreground;
-  background-color: transparent !important;
-  border-bottom: 0 !important;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-lang"] {
-  @apply cpk:ml-1 cpk:font-mono cpk:lowercase;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="h2"] {
-  margin-bottom: 0.5rem;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="inline-code"] {
-  border-radius: 4px;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-
 .copilot-chat-assistant-markdown .sr-only {
   position: absolute;
   width: 1px;
@@ -243,72 +214,4 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-actions"] {
-  @apply cpk:flex cpk:items-center cpk:gap-2;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-actions"] button span {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="download-button"],
-.copilot-chat-assistant-markdown [data-streamdown="copy-button"] {
-  @apply cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50;
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  opacity: 1 !important;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-body"] {
-  @apply cpk:overflow-x-auto cpk:p-0;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-body"] pre {
-  @apply cpk:overflow-x-auto cpk:border-t cpk:border-border cpk:p-4 cpk:text-sm;
-  background-color: transparent !important;
-  margin: 0 !important;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-body"] pre.shiki {
-  --shiki-light-bg: transparent !important;
-  background-color: transparent !important;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code"] .line {
-  display: block;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="code-line-number"] {
-  @apply cpk:mr-4 cpk:inline-block cpk:w-4 cpk:select-none cpk:text-right cpk:font-mono cpk:text-[13px] cpk:text-muted-foreground/50;
-  opacity: 1 !important;
-  padding-right: 0 !important;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="table-header"],
-.copilot-chat-assistant-markdown [data-streamdown="thead"] {
-  @apply cpk:bg-muted/80;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="table-body"],
-.copilot-chat-assistant-markdown [data-streamdown="tbody"] {
-  @apply cpk:divide-y cpk:divide-border cpk:bg-muted/40;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="th"] {
-  @apply cpk:whitespace-nowrap cpk:px-4 cpk:py-2 cpk:text-left cpk:font-semibold cpk:text-sm;
-}
-
-.copilot-chat-assistant-markdown [data-streamdown="td"] {
-  @apply cpk:px-4 cpk:py-2 cpk:text-sm;
 }
