@@ -378,3 +378,140 @@ test("remove mutation is exact and readback preserves the stale stop flag withou
   assert.equal(state.deploymentStopped, false);
   assert.equal(calls.filter((c) => c.query.startsWith("mutation")).length, 1);
 });
+
+test("missing latest is exposed only with both removed-handoff flags and no active deployment", async () => {
+  const value = data();
+  value.serviceInstance.activeDeployments = [];
+  value.serviceInstance.latestDeployment = null;
+  const railway = createRailway({
+    token: "private",
+    fetch: async () => Response.json({ data: value }),
+  });
+  await assert.rejects(railway.inspect());
+  await assert.rejects(railway.inspect({ allowNoActive: true }));
+  await assert.rejects(railway.inspect({ allowMissingLatest: true }));
+  await assert.rejects(
+    railway.inspect({ allowNoActive: "true", allowMissingLatest: true }),
+  );
+  await assert.rejects(
+    railway.inspect({ allowNoActive: true, allowMissingLatest: "true" }),
+  );
+  assert.equal(
+    (await railway.inspect({ allowNoActive: true, allowMissingLatest: true }))
+      .latest,
+    null,
+  );
+  value.serviceInstance.activeDeployments =
+    data().serviceInstance.activeDeployments;
+  await assert.rejects(
+    railway.inspect({ allowNoActive: true, allowMissingLatest: true }),
+  );
+});
+
+test("explicit scope, image pattern and removal baseline stay isolated from staging and caller mutation", async () => {
+  const scope = Object.fromEntries(
+    Object.entries(STAGING).map(([key, value]) => [
+      key,
+      key === "mountPath" ? "/fixture" : `dev-${value}`,
+    ]),
+  );
+  const expectedScope = { ...scope };
+  const fixtureImage = `ghcr.io/copilotkit/fixture@sha256:${"b".repeat(64)}`;
+  const removalBaseline = {
+    deploymentId: "dev-deployment",
+    image: fixtureImage,
+  };
+  const value = data();
+  const node = {
+    id: removalBaseline.deploymentId,
+    status: "SUCCESS",
+    projectId: scope.projectId,
+    environmentId: scope.environmentId,
+    serviceId: scope.serviceId,
+    meta: {
+      image: fixtureImage,
+      imageDigest: fixtureImage.split("@")[1],
+      volumeMounts: [scope.mountPath],
+    },
+  };
+  value.serviceInstance = {
+    id: scope.instanceId,
+    serviceId: scope.serviceId,
+    environmentId: scope.environmentId,
+    source: { image: fixtureImage },
+    activeDeployments: [node],
+    latestDeployment: node,
+  };
+  value.environment = {
+    id: scope.environmentId,
+    projectId: scope.projectId,
+    volumeInstances: {
+      pageInfo: { hasNextPage: false },
+      edges: [
+        {
+          node: {
+            id: scope.volumeInstanceId,
+            volumeId: scope.volumeId,
+            environmentId: scope.environmentId,
+            serviceId: scope.serviceId,
+            mountPath: scope.mountPath,
+            isPendingDeletion: false,
+          },
+        },
+      ],
+    },
+  };
+  const calls = [];
+  const railway = createRailway({
+    token: "private",
+    scope,
+    imagePattern: /^ghcr\.io\/copilotkit\/fixture@sha256:[a-f0-9]{64}$/,
+    removalBaseline,
+    fetch: async (_url, options) => {
+      const body = JSON.parse(options.body);
+      calls.push(body);
+      return Response.json({
+        data: {
+          ...value,
+          deployment: node,
+          deployments: { edges: [{ node }], pageInfo: { hasNextPage: false } },
+          deploymentRemove: true,
+          serviceInstanceUpdate: true,
+          serviceInstanceDeployV2: "dev-new",
+        },
+      });
+    },
+  });
+  scope.environmentId = "mutated";
+  removalBaseline.deploymentId = "mutated";
+  assert.equal((await railway.inspect()).volumeId, expectedScope.volumeId);
+  await railway.handoffInventory();
+  await railway.setImage(fixtureImage);
+  await railway.deploy();
+  await railway.deployment(node.id);
+  await railway.removeDeployment(node.id);
+  await assert.rejects(
+    railway.removeDeployment(REMOVAL_HANDOFF_BASELINE.deploymentId),
+  );
+  for (const call of calls) {
+    const variables = call.variables;
+    if (variables.e) assert.equal(variables.e, expectedScope.environmentId);
+    if (variables.environmentId)
+      assert.equal(variables.environmentId, expectedScope.environmentId);
+    if (variables.serviceId)
+      assert.equal(variables.serviceId, expectedScope.serviceId);
+    if (variables.input?.projectId)
+      assert.deepEqual(variables.input, {
+        projectId: expectedScope.projectId,
+        environmentId: expectedScope.environmentId,
+        serviceId: expectedScope.serviceId,
+      });
+    assert.equal(
+      JSON.stringify(variables).includes(JSON.stringify(STAGING.environmentId)),
+      false,
+    );
+  }
+  node.environmentId = STAGING.environmentId;
+  await assert.rejects(railway.readDeploymentStatus(node.id));
+  await assert.rejects(railway.inspect());
+});

@@ -90,7 +90,14 @@ function fixture() {
     receipts = [];
   let auth;
   const railway = {
-    inspect: async () => structuredClone(provider),
+    inspect: async () =>
+      structuredClone({
+        ...provider,
+        latest:
+          provider.latest?.id === row.id
+            ? { ...provider.latest, status: row.status }
+            : provider.latest,
+      }),
     handoffInventory: async () => structuredClone(rows),
     readDeploymentStatus: async () => structuredClone(row),
     removeDeployment: async () => {
@@ -498,6 +505,17 @@ test("release and variable adapters accept only the exact second incident with a
   ])
     await assert.rejects(railway.setRecoveryAuthorization(invalid));
   assert.equal(requests.length, 1);
+  const developmentRailway = createRailway({
+    token: "private",
+    scope: { ...STAGING, environmentId: "development-environment" },
+    fetch: async () => {
+      throw new Error("Staging authorization must not be sent");
+    },
+  });
+  await assert.rejects(
+    developmentRailway.setRecoveryAuthorization(authorization),
+    /staging scope/,
+  );
 });
 
 test("REMOVED readback permits handoff even when deploymentStopped remains false", async () => {
@@ -727,3 +745,30 @@ for (const boundary of ["authorize", "image"]) {
     });
   }
 }
+
+for (const restart of [false, true])
+  test(`second recovery ${restart ? "resumes removed checkpoint" : "completes"} with provider latestDeployment null`, async () => {
+    const h = fixture();
+    const remove = h.railway.removeDeployment;
+    h.railway.removeDeployment = async () => {
+      await remove();
+      h.provider.latest = null;
+    };
+    if (restart) {
+      const authorize = h.railway.setRecoveryAuthorization;
+      h.railway.setRecoveryAuthorization = async () => {
+        throw Error("interrupted");
+      };
+      await assert.rejects(
+        deploySecondRecoveryRunner(h.options),
+        /interrupted/,
+      );
+      const previousCheckpoint = h.receipts.at(-1).checkpoint;
+      assert.equal(previousCheckpoint.stage, "removed");
+      h.railway.setRecoveryAuthorization = authorize;
+      h.options.previousCheckpoint = previousCheckpoint;
+    }
+    const result = await deploySecondRecoveryRunner(h.options);
+    assert.equal(result.finalState.verified, true);
+    assert.equal(h.calls.filter((call) => call === "remove").length, 1);
+  });
