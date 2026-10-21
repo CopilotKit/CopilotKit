@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { acceptanceVerdict } from "./acceptance-verdict.mjs";
 import { milestone } from "./contract.mjs";
 import { reportCleanupVerified } from "./cleanup-verdict.mjs";
+import {
+  observeVolumeRetirement,
+  retainedVolumeRecord,
+} from "./lifecycle/railway/volume-retirement.mjs";
 const report = () => ({
   milestone,
   provider: "railway",
@@ -79,6 +83,77 @@ function pendingReport() {
   };
   return value;
 }
+test("actual acknowledged volume retirement with no attachments passes exported acceptance", async () => {
+  const value = pendingReport();
+  const item = value.cleanupEvidence.retainedVolumes[0];
+  const journal = {
+    projectId: item.projectId,
+    environmentId: item.environmentId,
+  };
+  const resource = {
+    id: item.volumeId,
+    serviceId: item.serviceId,
+    mountPath: item.mountPath,
+  };
+  const environment = {
+    id: item.environmentId,
+    projectId: item.projectId,
+    volumeInstances: [],
+  };
+  const evidence = await observeVolumeRetirement({
+    journal,
+    resource,
+    receipt: item.receipt,
+    now: Date.parse(item.firstVerifiedAt),
+    api: {
+      list: async (kind) =>
+        kind === "environments"
+          ? [environment]
+          : [
+              {
+                id: item.volumeId,
+                projectId: item.projectId,
+                volumeInstances: {
+                  pageInfo: { hasNextPage: false },
+                  edges: [],
+                },
+              },
+            ],
+      environment: async () => environment,
+    },
+  });
+  value.cleanupEvidence.retainedVolumes = [
+    retainedVolumeRecord({
+      journal,
+      resource,
+      receipt: item.receipt,
+      evidence,
+    }),
+  ];
+  assert.equal(reportCleanupVerified(value), true);
+  assert.equal(acceptanceVerdict({ report: value, supervisorExit: 0 }), true);
+  for (const alter of [
+    (r) => {
+      r.receipt.outcome = "unknown";
+    },
+    (r) => {
+      delete r.receipt.response;
+    },
+    (r) => {
+      r.receipt.requestSent = false;
+    },
+    (r) => {
+      r.evidence.inventoryComplete = false;
+    },
+    (r) => {
+      r.evidence.environmentReferences.push({});
+    },
+  ]) {
+    const dirty = structuredClone(value);
+    alter(dirty.cleanupEvidence.retainedVolumes[0]);
+    assert.equal(reportCleanupVerified(dirty), false);
+  }
+});
 test("acceptance distinguishes verified pending detachment from physical deletion", () => {
   const value = pendingReport();
   assert.equal(acceptanceVerdict({ report: value, supervisorExit: 0 }), true);
