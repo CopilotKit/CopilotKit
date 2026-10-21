@@ -30,6 +30,10 @@ choose. The
 serves that agent over [AG-UI](https://docs.ag-ui.com/), so a [CopilotKit](https://www.copilotkit.ai/) app can chat
 with it.
 
+<Callout type="info" title="Antigravity in OpenBot">
+[OpenBot](https://github.com/CopilotKit/OpenBot) ships Google Antigravity as one of its Bots, built on the same Antigravity AG-UI SDK. If you want Antigravity in a ready-to-run, self-hosted app, start with [`agent-antigravity`](https://github.com/CopilotKit/OpenBot/tree/main/agent-antigravity).
+</Callout>
+
 This recipe walks through **Repo Doctor**, an app that fixes broken CI on GitHub repos. It reads the CI results,
 runs the tests, reproduces the failure, then fixes the code, shows the change as a diff and proves the fix before
 pushing it. You approve or deny each risky step, or let auto-approve handle it, then download a report of the whole
@@ -67,6 +71,14 @@ A chat that takes a repository from failing CI to a pushed fix:
 - At the end you get a pushed fix branch and a report you can download.
 
 The side panel keeps track of the repository, the check, every test run and every decision you made.
+
+<Image
+  src="/images/cookbook/antigravity-repo-doctor-architecture.webp"
+  alt="Repo Doctor architecture: in the browser, the CopilotKit chat, approval card, diff card, test results and side panel talk to the CopilotKit runtime on Cloud Run; the runtime streams AG-UI events to the Python agent, whose Antigravity harness calls Gemini, edits the per-conversation workspace and runs the CI tools against GitHub; the runtime sends threads and analytics to CopilotKit Intelligence; workspaces are snapshotted to Cloud Storage and keys come from Secret Manager."
+  width={1858}
+  height={1720}
+  className="w-full rounded-xl border border-[var(--border)]"
+/>
 
 ## Before you start
 
@@ -265,7 +277,7 @@ Start the agent from `agent/` with `uv run python -m repo_doctor.server`. It lis
 ### Connect the runtime
 
 The runtime route connects the chat to the Python agent over AG-UI. `HttpAgent` sends each run to the agent's URL,
-and the `a2ui` option turns on the A2UI middleware that draws the test results card:
+and the `a2ui` option turns on the A2UI middleware, which passes the agent's test results cards to the chat:
 
 ```ts title="src/app/api/copilotkit/[[...slug]]/route.ts"
 import { HttpAgent } from "@ag-ui/client";
@@ -316,6 +328,14 @@ The agent's own tools live in [`tools.py`](https://github.com/CopilotKit/Copilot
 
 Each one is a plain async function with a docstring. The SDK reads the signature and the docstring and offers the
 function to the model next to Antigravity's built-in file tools.
+
+<Image
+  src="/images/cookbook/antigravity-ci-tools.webp"
+  alt="The chat after asking 'Why is CI failing on google-gemini/genai-processors?': tool rows for the clone of main, a CI check showing Python package failing on build (3.11), build (3.12) and build (3.13), a read of .github/workflows/python-tests.yml, and the installed dependencies listed as package chips."
+  width={1896}
+  height={1626}
+  className="w-full rounded-xl border border-[var(--border)]"
+/>
 
 Tools keep a record of what happened in shared state, which the side panel reads later.
 `experimental_set_state` replaces that state and streams it to the browser right away, so this helper merges each
@@ -424,6 +444,14 @@ async def run_check(command: str, label: str) -> dict[str, Any]:
 - The exit code decides passed or failed. A check that runs past two minutes counts as failed.
 - Every check is added to `checks` in shared state, so the side panel lists the failed run and the passed run
   together.
+
+<Image
+  src="/images/cookbook/antigravity-prove-fix.webp"
+  alt="Two run_check cards for 'pytest genai_processors/tests/sql_cache_test.py': Check 1 failed with exit 2 before the fix, and Check 2 passed with exit 0 after it, its output ending in '7 passed in 1.19s'."
+  width={1092}
+  height={1117}
+  className="w-full rounded-xl border border-[var(--border)]"
+/>
 
 </Step>
 <Step>
