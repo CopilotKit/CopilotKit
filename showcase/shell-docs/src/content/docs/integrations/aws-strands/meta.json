@@ -28,6 +28,7 @@
     "---Deploy---",
     "deploy-agentcore",
     "---Intelligence---",
+    "threads-import",
     "---Troubleshooting---",
     "...troubleshooting",
     "---Other---",
