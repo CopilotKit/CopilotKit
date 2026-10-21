@@ -97,6 +97,21 @@ test("reviewed immutable build verifies even when artifact approved is false", a
   validateRelease(h.release);
   await verifyBuild(h.release, h.github, { verifyImage: async () => {} });
 });
+test("upgraded inspector policy supports ordinary deployments without permitting policy changes", () => {
+  const { release } = fixture();
+  const upgraded =
+    "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751";
+  for (const target of [release.baseline, release.candidate])
+    target.runtimeIdentity = {
+      ...target.runtimeIdentity,
+      policySha256: upgraded,
+    };
+  assert.doesNotThrow(() => validateRelease(release));
+  release.candidate.runtimeIdentity.policySha256 = POLICY;
+  assert.throws(() => validateRelease(release), /Incompatible runner update/);
+  release.candidate.runtimeIdentity.policySha256 = "f".repeat(64);
+  assert.throws(() => validateRelease(release), /Invalid runtime identity/);
+});
 for (const field of [
   "attempt",
   "repository",

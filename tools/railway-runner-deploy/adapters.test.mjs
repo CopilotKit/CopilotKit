@@ -185,6 +185,30 @@ test("rollback probe distinguishes temporary unavailability from auth failures w
   });
   await assert.rejects(forbidden.probe());
 });
+test("runner waits for its route after Railway reports deployment success", async () => {
+  let calls = 0;
+  let now = 0;
+  const runner = createRunner({
+    token: "private",
+    clock: () => now,
+    deadline: 5000,
+    sleep: async (ms) => {
+      now += ms;
+    },
+    fetch: async () =>
+      ++calls === 1
+        ? new Response("", { status: 404 })
+        : Response.json({ phase: "drained" }),
+  });
+  assert.deepEqual(await runner.get(), { phase: "drained" });
+  assert.equal(calls, 2);
+  const unavailable = createRunner({
+    token: "private",
+    fetch: async () => new Response("", { status: 404 }),
+  });
+  assert.equal(await unavailable.probe(), null);
+  await assert.rejects(unavailable.resume({ operationId: "owner" }));
+});
 test("early failed deployment needs pinned source image but not an unavailable pulled-image digest", async () => {
   const value = data();
   value.serviceInstance.latestDeployment = {

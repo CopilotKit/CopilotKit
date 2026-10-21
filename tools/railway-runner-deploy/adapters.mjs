@@ -357,7 +357,7 @@ export function createRailway({
     },
   };
 }
-const retryStatus = new Set([408, 429, 500, 502, 503, 504]);
+const retryStatus = new Set([404, 408, 429, 500, 502, 503, 504]);
 const retryCode = new Set([
   "ECONNRESET",
   "ECONNREFUSED",
