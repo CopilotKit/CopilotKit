@@ -4,13 +4,17 @@ description: Capture clicks, form edits, page changes, and network requests as A
 icon: "lucide/Network"
 frontend: universal
 doc_type: how-to
+earlyAccess: trajectories
+search: false
 ---
 
 ## Overview
 
-`@copilotkit/learning` captures clicks, form edits, page changes, and network requests as AG-UI `CUSTOM` events. It sends batches to a sink you provide. This standalone integration is experimental and self-hosted.
+`@copilotkit/learning` captures clicks, form edits, page changes, and network requests as AG-UI `CUSTOM` events. This collector is part of the Trajectories early access feature.
 
-Capture retains browser-visible text, values, headers, bounded body snapshots, and full URLs by default. See [Captured data](/intelligence/captured-data) for fields, limits, and explicit exclusions.
+The standalone collector sends batches to a sink you provide. It does not authenticate with CopilotKit Intelligence or automatically save events there. To capture directly into Intelligence, use the [React provider](/intelligence/capture-interactions) or [Docker guide](/intelligence/trajectories-docker).
+
+Capture retains browser-visible text, values, headers, bounded body snapshots, and URLs by default. Recognized credential fields are redacted. See [Captured data](/intelligence/captured-data) for redaction limits and controls.
 
 When you are done, your app sends batches of events to your own endpoint. You can also add events for the outcomes that matter to you.
 
@@ -26,6 +30,14 @@ When you are done, your app sends batches of events to your own endpoint. You ca
 
   </Step>
   <Step>
+    ### Prepare your receiving endpoint
+
+    Create an endpoint that accepts JSON batches with `trajectoryId`, `events`, and `dropped`. The optional `learningContainerIds` field contains application-supplied IDs. Your endpoint owns authentication and storage.
+
+    The example uses `/api/learning-events`. Replace this path with your endpoint.
+
+  </Step>
+  <Step>
     ### Create a collector and start it
 
     ```ts title="src/capture.ts"
@@ -38,19 +50,19 @@ When you are done, your app sends batches of events to your own endpoint. You ca
     collector.start({ trajectoryId: crypto.randomUUID() });
     ```
 
-    Before `start()`, the collector installs nothing. Call `start()` only after the person allows capture.
+    Before `start()`, the collector installs nothing. Connect `start()` and `stop()` to your application's capture control.
 
   </Step>
   <Step>
     ### Add events for outcomes
 
-    Clicks show what a person did. They do not show whether it worked. Emit an event when the outcome is known:
+    Clicks show what a person did. They do not show whether it worked. After an operation succeeds, emit its outcome:
 
     ```ts
     collector.emit("report.exported", { format: "csv", rows: 120 });
     ```
 
-    Use your own names. Built-in names such as `click` are reserved.
+    Use your own names. Built-in names such as `click` are reserved. Your application controls the payload. Automatic credential redaction does not inspect developer events.
 
   </Step>
   <Step>
@@ -65,7 +77,7 @@ When you are done, your app sends batches of events to your own endpoint. You ca
   </Step>
 </Steps>
 
-Your endpoint now receives batches such as `{ "trajectoryId": "...", "events": [...], "dropped": 0 }`.
+Your endpoint receives batches such as `{ "trajectoryId": "...", "events": [...], "dropped": 0 }`. Click a control and check your endpoint for the event after two seconds. The collector does not create an Intelligence Trajectory through this endpoint.
 
 ## Send events somewhere else
 

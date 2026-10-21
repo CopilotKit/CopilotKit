@@ -1,0 +1,312 @@
+---
+title: Try Trajectories with Docker
+nav_title: Docker quickstart
+description: Run CopilotKit Intelligence locally with Docker and record your first Trajectory from a React app.
+icon: "lucide/Container"
+frontend:
+  kind: frontend-variant
+  fallback: hide
+doc_type: how-to
+earlyAccess: trajectories
+search: false
+---
+
+## Overview
+
+This guide runs CopilotKit Intelligence on your machine and connects an existing React app. You will record browser activity and find the saved Trajectory in Intelligence.
+
+Trajectories are in early access. This setup uses Docker Desktop for a local evaluation. It is not a production deployment.
+
+The setup uses k3d to run a small Kubernetes cluster inside Docker. The commands below create and configure that cluster. You do not need an existing cluster or access to the Intelligence source repository.
+
+## Before you start
+
+- Your self-hosted Intelligence license with Trajectories enabled.
+- macOS with Docker Desktop running. Allow at least 4 CPUs, 12 GiB of Docker memory, and 40 GiB of free storage.
+- Helm, kubectl, and k3d 5.8.3 or later. These tools install and manage the local containers.
+- An existing React app with a TypeScript CopilotKit Runtime, plus Node.js 22 or later.
+- Free local ports: `6550`, `8080`, `8081`, `8082`, and `4401`.
+
+If you use Homebrew, install the command-line tools:
+
+```bash
+brew install helm kubectl k3d
+```
+
+This guide uses Intelligence chart `0.15.0-rc.1` and CopilotKit packages `1.79.1`. The containers include the database, local sign-in service, and realtime gateway. You do not need a model for the first browser capture.
+
+## 1. Prepare the local files
+
+Create a directory outside your app repository:
+
+```bash
+mkdir trajectories-poc
+cd trajectories-poc
+umask 077
+```
+
+Save your existing license token in `license.txt`. Keep the token on one line without surrounding quotes.
+
+Download the chart and the [local configuration](/config/trajectories-local.yaml):
+
+```bash
+helm pull oci://ghcr.io/copilotkit/charts/intelligence \
+  --version 0.15.0-rc.1 --untar
+
+curl --fail --location \
+  https://docs.copilotkit.ai/config/trajectories-local.yaml \
+  --output trajectories-local.yaml
+```
+
+The configuration enables Trajectories and connects the gateway to Intelligence. It also selects the container images for this local setup. Keep the license and generated credentials out of source control.
+
+## 2. Create the Docker environment
+
+Create a separate cluster named `trajectories-poc`:
+
+```bash
+k3d cluster create trajectories-poc \
+  --servers 1 --agents 0 --no-lb \
+  --kubeconfig-update-default=false --kubeconfig-switch-context=false \
+  --api-port 127.0.0.1:6550 \
+  --k3s-arg '--disable=traefik@server:0' \
+  --port '127.0.0.1:8080:8080@server:0:direct' \
+  --port '127.0.0.1:8081:8081@server:0:direct' \
+  --port '127.0.0.1:8082:8082@server:0:direct' \
+  --port '127.0.0.1:4401:4401@server:0:direct' \
+  --timeout 180s
+
+k3d kubeconfig get trajectories-poc > kubeconfig
+kubectl --kubeconfig ./kubeconfig create namespace trajectories-poc
+```
+
+The published ports accept connections only from your machine. Each command uses the new cluster's `kubeconfig` file.
+
+Add the license:
+
+```bash
+kubectl --kubeconfig ./kubeconfig -n trajectories-poc \
+  create secret generic trajectories-license \
+  --from-file=license-token=license.txt
+```
+
+Create the credential that connects the gateway to Intelligence:
+
+```bash
+node -e 'require("node:fs").writeFileSync("internal-token.txt", require("node:crypto").randomBytes(32).toString("hex"))'
+
+kubectl --kubeconfig ./kubeconfig -n trajectories-poc \
+  create secret generic trajectories-internal \
+  --from-file=token=internal-token.txt
+```
+
+## 3. Start Intelligence
+
+Install the database and local sign-in service first:
+
+```bash
+helm upgrade --install cpki ./intelligence \
+  --kubeconfig ./kubeconfig -n trajectories-poc \
+  -f intelligence/values-quickstart-local.yaml \
+  -f intelligence/values-self-hosted-eval.yaml.example \
+  -f trajectories-local.yaml \
+  --set appApi.replicaCount=0 \
+  --set appFrontend.replicaCount=0 \
+  --set realtimeGateway.replicaCount=0 \
+  --wait --timeout 15m
+```
+
+This step also creates the database tables, the **Trajectories POC** organization, and the local evaluation user. The first installation downloads the container images.
+
+After the command completes, start the app and gateway:
+
+```bash
+helm upgrade cpki ./intelligence \
+  --kubeconfig ./kubeconfig -n trajectories-poc \
+  -f intelligence/values-quickstart-local.yaml \
+  -f intelligence/values-self-hosted-eval.yaml.example \
+  -f trajectories-local.yaml \
+  --no-hooks --wait --timeout 10m
+
+curl --fail http://localhost:8082/api/health
+```
+
+The health request must succeed before you continue.
+
+## 4. Open Intelligence
+
+Open [local Intelligence](http://localhost:8080). Select **Enterprise SSO** and use the local evaluation account:
+
+| Field | Value |
+| --- | --- |
+| Username | `engineer` |
+| Password | `engineer` |
+
+This account belongs to the local sign-in service. It does not sign you into cloud-hosted Intelligence.
+
+1. Open the **Trajectories POC** organization.
+2. Open the project selector and select **Create project**.
+3. Enter a **Project name**, such as `Browser capture`, and select **Create**.
+4. In the project, open **API keys** and select **Create API key**.
+5. Enter a **Name** for the key and select **Create API key**.
+6. Copy the full token from **API key created**. Intelligence shows the full token only once.
+
+Use this project key in your Runtime server in the next step.
+
+## 5. Connect your app
+
+Run this command in your app directory:
+
+```bash
+npm install @copilotkit/react-core@1.79.1 @copilotkit/runtime@1.79.1
+```
+
+Add these values to the environment file that your Runtime server loads:
+
+```dotenv title="Runtime server environment"
+INTELLIGENCE_API_URL=http://localhost:8082
+INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401
+CPK_INTELLIGENCE_API_KEY=cpk-your-local-project-key
+```
+
+Replace the example key with the key from your local project. Keep this key on the server.
+
+Configure the Intelligence client in your existing Runtime:
+
+```ts title="Your CopilotKit Runtime"
+import {
+  CopilotKitIntelligence,
+  CopilotRuntime,
+} from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  apiUrl: process.env.INTELLIGENCE_API_URL!,
+  wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL!,
+});
+
+const runtime = new CopilotRuntime({
+  agents,
+  intelligence,
+  identifyUser,
+});
+```
+
+Keep your existing `agents`, handler, and application authentication. `identifyUser` returns the user from your verified application session. Remove an explicit `runner` option because Intelligence provides the runner.
+
+If your Runtime does not have `identifyUser`, use the [Runtime connection example](/intelligence/quickstart#connect-your-runtime).
+
+These URLs assume that your app runs directly on your Mac. Restart your Runtime after the environment change.
+
+## 6. Record a Trajectory
+
+Add manual capture to your existing provider:
+
+```tsx title="Your CopilotKit provider"
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  learning={{ autoStart: false }}
+>
+  {children}
+</CopilotKitProvider>
+```
+
+Keep your existing `runtimeUrl` and authentication props. If your Runtime uses a single endpoint, keep `useSingleEndpoint` too.
+
+Render these controls inside the provider:
+
+```tsx title="app/capture-controls.tsx"
+"use client";
+
+import { useState } from "react";
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+export function CaptureControls() {
+  const { copilotkit } = useCopilotKit();
+  const [trajectoryId, setTrajectoryId] = useState("");
+  const [error, setError] = useState("");
+
+  async function startCapture() {
+    const result = await copilotkit.startTrajectory();
+    if (result.status === "error") {
+      setError(result.code);
+      return;
+    }
+    setError("");
+    setTrajectoryId(result.trajectoryId);
+  }
+
+  return (
+    <div data-copilotkit-ignore>
+      <button onClick={startCapture}>Start capture</button>
+      <button onClick={() => copilotkit.stopTrajectory()}>Stop capture</button>
+      <p>Trajectory ID: {trajectoryId || "Not started"}</p>
+      {error && <p role="alert">Capture error: {error}</p>}
+    </div>
+  );
+}
+```
+
+Before capture, read [Captured data](/intelligence/captured-data). Start capture only after the person agrees to it.
+
+1. Open your app and select **Start capture**.
+2. Copy the displayed Trajectory ID.
+3. Click a control outside the capture controls, or edit a form field.
+4. Wait at least two seconds for the next batch.
+5. Select **Stop capture**.
+
+A successful start means that capture connected. It does not prove that Intelligence saved the events. The next step checks the saved data.
+
+If start fails, the controls show the error code. Check the browser console for later capture warnings.
+
+To link a conversation, send a message through your agent while capture is active. Browser capture also works without a conversation.
+
+## 7. Find the saved Trajectory
+
+1. Open your project in [local Intelligence](http://localhost:8080).
+2. Select **Trajectories**.
+3. Refresh the list and find the ID that you copied.
+4. Open the Trajectory and find your click or form edit in its AG-UI Stream.
+5. Reload the page and check that the event remains.
+
+The event is now part of the saved Trajectory. A model and live viewing are not required for this check.
+
+## Next steps
+
+- [Capture interactions](/intelligence/capture-interactions) explains automatic capture, custom events, and error handling.
+- [Captured data](/intelligence/captured-data) describes fields, delivery limits, and controls that exclude data.
+- [Automatic Learning](/learning#assign-browser-activity-to-a-learning-space) explains how to use Trajectories as evidence in a Learning Space.
+
+## Stop and restart
+
+From the local installation directory, stop the cluster:
+
+```bash
+k3d cluster stop trajectories-poc
+```
+
+This keeps the local data. To continue later:
+
+```bash
+k3d cluster start trajectories-poc
+```
+
+## Troubleshooting
+
+| Problem | Action |
+| --- | --- |
+| Docker does not respond | Start Docker Desktop. Check that Docker has the resources listed under **Before you start**. |
+| A local port is already in use | Stop the service that uses the port before you create this cluster. |
+| The installation stops during an image download | Run `kubectl --kubeconfig ./kubeconfig -n trajectories-poc get pods`. Describe the failing pod to find the image error. |
+| The browser cannot open the sign-in page | Check that `http://localhost:8081` responds. Keep the local sign-in URLs from `trajectories-local.yaml`. |
+| `TRAJECTORIES_NOT_ENABLED` | Check that the installed license enables Trajectories. The deployment also needs the Trajectories configuration from this guide. |
+| Capture reports a connection error | Check both Runtime URLs, the local project key, and the gateway credential from step 2. |
+| A Trajectory has no visible events | Wait for the saved data to update, then refresh. Check the capture error and the selected project. |
+| A Trajectory has no linked conversation | Start an agent conversation while capture is active. Earlier conversations do not link automatically. |
+
+For installation diagnostics, run these commands from the local installation directory:
+
+```bash
+kubectl --kubeconfig ./kubeconfig -n trajectories-poc get pods
+kubectl --kubeconfig ./kubeconfig -n trajectories-poc get jobs
+```

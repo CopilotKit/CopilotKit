@@ -66,9 +66,16 @@
     "intelligence/memories",
     "learning",
     "intelligence/learned-skills",
-    "intelligence/capture-interactions",
-    "intelligence/standalone-collector",
-    "intelligence/captured-data",
+    {
+      "title": "Trajectories",
+      "pages": [
+        "intelligence/trajectories",
+        "intelligence/trajectories-docker",
+        "intelligence/capture-interactions",
+        "intelligence/standalone-collector",
+        "intelligence/captured-data"
+      ]
+    },
     "intelligence/analytics",
     "intelligence/channels",
     "intelligence/managed-intelligence-platform",

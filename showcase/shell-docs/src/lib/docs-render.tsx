@@ -1231,6 +1231,17 @@ export function normalizeSidebarNav(
     "intelligence/captured-data",
     "Captured data",
   );
+  const intelligenceTrajectories = sidebarTopicGroup(
+    "Trajectories",
+    "intelligence/trajectories",
+    [
+      intelligencePage("intelligence/trajectories", "Overview"),
+      intelligencePage("intelligence/trajectories-docker", "Docker quickstart"),
+      intelligenceCapture,
+      intelligenceStandaloneCollector,
+      intelligenceCapturedData,
+    ].filter((node): node is NavNode => node !== null),
+  );
   // Skill delivery is a step inside Automatic Learning, so it nests under
   // that page. The group shares the page's slug, and page-tree-bridge lifts
   // the matching child onto the folder so the folder title links to /learning.
@@ -1357,9 +1368,7 @@ export function normalizeSidebarNav(
           intelligenceStreams,
           intelligenceLearningGroup,
           intelligenceMemory,
-          intelligenceCapture,
-          intelligenceStandaloneCollector,
-          intelligenceCapturedData,
+          intelligenceTrajectories,
           intelligenceAnalytics,
           intelligenceChannels,
         ].filter((node): node is NavNode => node !== null),

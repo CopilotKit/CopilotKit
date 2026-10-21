@@ -292,3 +292,40 @@ it("keeps the existing-thread guide discoverable in root and framework sidebars"
     ).toContainEqual(expected);
   }
 });
+
+it("groups Trajectories guides without moving the other Intelligence features", () => {
+  const expectedSlugs = [
+    "intelligence/trajectories",
+    "intelligence/trajectories-docker",
+    "intelligence/capture-interactions",
+    "intelligence/standalone-collector",
+    "intelligence/captured-data",
+  ];
+  for (const slug of expectedSlugs) {
+    expect(loadDoc(slug)?.fm.earlyAccess, slug).toBe("trajectories");
+  }
+  for (const nav of [
+    buildRootSurfaceNav("built-in-agent"),
+    buildFrameworkNav("langgraph", "LangGraph (Python)", "langgraph-python"),
+    buildFrameworkOnlyNav("ag2"),
+  ]) {
+    const normalized = normalizeSidebarNav(nav);
+    expect(
+      groupPageEntries(normalized, "Trajectories").map(({ slug }) => slug),
+    ).toEqual(expectedSlugs);
+    expect(
+      groupPageEntries(normalized, "Automatic Learning").map(
+        ({ slug }) => slug,
+      ),
+    ).toEqual(["learning", "intelligence/learned-skills"]);
+    expect(hasSectionPage(normalized, "Intelligence", "User Memories")).toBe(
+      true,
+    );
+    expect(
+      navAncestorBreadcrumbsForSlug(
+        normalized,
+        "intelligence/capture-interactions",
+      )?.map(({ label }) => label),
+    ).toEqual(["Intelligence", "Features", "Trajectories"]);
+  }
+});
