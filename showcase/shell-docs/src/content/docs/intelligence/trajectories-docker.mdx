@@ -131,11 +131,12 @@ helm upgrade cpki ./intelligence \
 curl --fail http://localhost:8082/api/health
 ```
 
-The health request must succeed before you continue.
+The health response must show `"status":"ok"` before you continue.
+If it shows `degraded`, stop and inspect the pod logs.
 
 ## 4. Open Intelligence
 
-Open [local Intelligence](http://localhost:8080). Select **Enterprise SSO** and use the local evaluation account:
+Open [local Intelligence](http://localhost:8080). Select **Sign In** and use the local evaluation account:
 
 | Field | Value |
 | --- | --- |
@@ -145,9 +146,9 @@ Open [local Intelligence](http://localhost:8080). Select **Enterprise SSO** and 
 This account belongs to the local sign-in service. It does not sign you into cloud-hosted Intelligence.
 
 1. Open the **Trajectories POC** organization.
-2. Open the project selector and select **Create project**.
+2. On the organization home page, select **New Project**.
 3. Enter a **Project name**, such as `Browser capture`, and select **Create**.
-4. In the project, open **API keys** and select **Create API key**.
+4. In the project, open **API Keys** and select **Create API key**.
 5. Enter a **Name** for the key and select **Create API key**.
 6. Copy the full token from **API key created**. Intelligence shows the full token only once.
 
@@ -229,6 +230,7 @@ export function CaptureControls() {
   async function startCapture() {
     const result = await copilotkit.startTrajectory();
     if (result.status === "error") {
+      setTrajectoryId("");
       setError(result.code);
       return;
     }

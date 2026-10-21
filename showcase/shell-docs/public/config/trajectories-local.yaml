@@ -37,6 +37,8 @@ appApi:
   env:
     - name: FF_LEARNING_TRAJECTORIES
       value: "true"
+    - name: FF_MANAGED_CHANNELS
+      value: "false"
 appFrontend:
   apiProxy:
     enabled: true
@@ -69,6 +71,8 @@ realtimeGateway:
   env:
     - name: FF_LEARNING_TRAJECTORIES
       value: "true"
+    - name: FF_MANAGED_CHANNELS
+      value: "false"
 learning:
   enabled: false
 embeddings:
