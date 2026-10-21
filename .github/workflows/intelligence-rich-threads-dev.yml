@@ -49,12 +49,12 @@ jobs:
         with:
           node-version: "24.18.0"
           package-manager-cache: false
-      - name: Run the existing staging deployment controller
+      - name: Install the reviewed trial image once
         env:
           GITHUB_TOKEN: ${{ github.token }}
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RICH_RUNNER_TOKEN: ${{ secrets.RICH_RUNNER_TOKEN }}
-        run: node tools/railway-runner-deploy/run.mjs --development
+        run: node tools/railway-runner-deploy/install-guard-once.mjs
       - name: Retain redacted deployment receipt
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
