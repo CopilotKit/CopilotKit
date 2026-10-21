@@ -269,8 +269,8 @@ export const SHIMMER_HIGHLIGHT =
 /** Hover band behind a chart column. */
 export const CHART_CURSOR = "var(--a2ui-color-chart-cursor, rgba(0,0,0,.04))";
 /**
- * Soft blue family first (a single light-blue hue with a
- * darker emphasis), then muted companions so stacked/multi-series charts stay
+ * Soft blue family first (a single light-blue hue with a darker
+ * emphasis), then muted companions so stacked/multi-series charts stay
  * readable without shouting. Overridable per series as `--a2ui-chart-1` …
  */
 const CHART_PALETTE_FALLBACK = [

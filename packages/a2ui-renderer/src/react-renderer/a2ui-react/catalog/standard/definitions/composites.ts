@@ -8,7 +8,7 @@ import type { CatalogDefinitions } from "../../../../create-catalog";
 import { bindable, sizeValue } from "./layout";
 
 /**
- * Composite components: the prebuilt widgets that sit next to its
+ * Composite components: prebuilt widgets that sit next to the
  * primitives (LinkCard, Citation, FollowUp pills, entity cards, image grids),
  * expressed as single catalog components so a model can place them with one
  * object instead of assembling eight primitives.
