@@ -36,19 +36,17 @@ import {
 export const FEEDBACK_STYLE_ID = "a2ui-standard-feedback";
 
 /**
- * The keyframes of the feedback components, and the rules for reduced
+ * The keyframes of the feedback components, and the rule for reduced
  * motion. Reduced is not none: the pulse ring keeps fading but no longer
  * grows (`data-a2ui-pulse`; `!important`, because the ring sets its
- * animation inline), because a status that does not move says nothing. The confetti layer
- * (`data-a2ui-celebration`) is hidden, because still confetti has no
- * meaning. An element that moves has `data-a2ui-motion`.
+ * animation inline), because a status that does not move says nothing.
+ * An element that moves has `data-a2ui-motion`.
  */
 export const FEEDBACK_CSS = [
   "@keyframes a2ui-pulse{0%{transform:scale(1);opacity:var(--a2ui-pulse-opacity,.6)}100%{transform:scale(var(--a2ui-pulse-scale,2.4));opacity:0}}",
   "@keyframes a2ui-pulse-fade{0%{opacity:var(--a2ui-pulse-opacity,.6)}100%{opacity:0}}",
-  "@keyframes a2ui-confetti{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(var(--a2ui-dx),var(--a2ui-dy)) rotate(var(--a2ui-rot));opacity:0}}",
   "[data-a2ui-feedback-button]:focus-visible{outline:2px solid var(--a2ui-color-focus, #0285ff);outline-offset:2px}",
-  "@media (prefers-reduced-motion: reduce){[data-a2ui-pulse]{animation-name:a2ui-pulse-fade !important}[data-a2ui-celebration]{display:none}}",
+  "@media (prefers-reduced-motion: reduce){[data-a2ui-pulse]{animation-name:a2ui-pulse-fade !important}}",
 ].join("\n");
 
 // There is no document on the server, so nothing is added there.
@@ -96,12 +94,6 @@ const pulseIndicatorSchema = z.object({
   endScale: z.number().optional().describe("Default 2.4"),
   startOpacity: z.number().optional().describe("Default 0.6"),
 });
-const celebrationSchema = z.object({
-  trigger: z
-    .string()
-    .optional()
-    .describe("Each new value plays the confetti again"),
-});
 const flashcardSchema = z.object({
   front: z.string().optional().describe("The text on the front"),
   back: z.string().optional().describe("The text on the back"),
@@ -139,7 +131,6 @@ const popoverContentSchema = z.object({
 
 type WithChildren<Props> = Props & { children?: ReactNode };
 type PulseIndicatorProps = z.output<typeof pulseIndicatorSchema>;
-type CelebrationProps = WithChildren<z.output<typeof celebrationSchema>>;
 type FlashcardProps = z.output<typeof flashcardSchema>;
 type PopoverProps = WithChildren<
   z.output<typeof popoverSchema> & { setOpen: (value: boolean) => void }
@@ -193,68 +184,6 @@ function PulseIndicator(props: PulseIndicatorProps) {
         }}
       />
     </span>
-  );
-}
-
-// ---- Celebration ----
-
-const CONFETTI = ["🎉", "✨", "🎊", "⭐", "💫", "🥳"];
-const PARTICLES = 24;
-/** How long one confetti burst plays, in milliseconds. */
-export const CELEBRATION_MS = 1200;
-
-/** The CSS of one confetti particle, spread on a circle around the center. */
-function particleStyle(index: number) {
-  const angle = (index / PARTICLES) * Math.PI * 2;
-  const distance = 60 + (index % 4) * 20;
-  const style: CSSProperties & Record<`--a2ui-${string}`, string> = {
-    position: "absolute",
-    left: "50%",
-    top: "50%",
-    fontSize: 14,
-    "--a2ui-dx": `${Math.round(Math.cos(angle) * distance)}px`,
-    "--a2ui-dy": `${Math.round(Math.sin(angle) * distance)}px`,
-    "--a2ui-rot": `${(index * 47) % 360}deg`,
-    animation: `a2ui-confetti ${CELEBRATION_MS}ms ease-out forwards`,
-  };
-  return style;
-}
-
-function Celebration(props: CelebrationProps) {
-  useFeedbackStyles();
-  const [burst, setBurst] = useState(0);
-  useEffect(() => {
-    setBurst((count) => count + 1);
-    const timer = setTimeout(() => setBurst(0), CELEBRATION_MS);
-    return () => clearTimeout(timer);
-  }, [props.trigger]);
-  const particles = Array.from({ length: PARTICLES }, (_, index) => index);
-  return (
-    <div
-      data-a2ui-std=""
-      style={{ position: "relative", display: "flex", flexDirection: "column" }}
-    >
-      {props.children}
-      {burst > 0 ? (
-        <div
-          key={burst}
-          aria-hidden="true"
-          data-a2ui-celebration=""
-          style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            overflow: "visible",
-          }}
-        >
-          {particles.map((index) => (
-            <span key={index} data-a2ui-motion="" style={particleStyle(index)}>
-              {CONFETTI[index % CONFETTI.length]}
-            </span>
-          ))}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -763,10 +692,10 @@ function Modal(props: ModalProps) {
 
 /**
  * The standard feedback components: loading states, a pulse dot, a
- * confetti burst, a flashcard and a popover. Give them to
+ * a flashcard and a popover. Give them to
  * `createGenerativeUI({ components: { ...feedbackComponents } })`.
  *
- * Celebration, Popover, PopoverTrigger and PopoverContent have a
+ * Popover, PopoverTrigger and PopoverContent have a
  * "multiple" `children` slot. Popover `open` is writable, so the component
  * gets a `setOpen` prop.
  */
@@ -776,13 +705,6 @@ export const feedbackComponents = {
     description:
       'A small dot that pulses, for example next to the text "Live". Set label when no text next to the dot says what it means.',
     props: pulseIndicatorSchema,
-  },
-  Celebration: {
-    component: Celebration,
-    description:
-      "Shows its children and plays a confetti burst over them when it appears. Set trigger to a new value to play the burst again.",
-    props: celebrationSchema,
-    slots: CHILDREN_SLOT,
   },
   FlashcardFlip: {
     component: FlashcardFlip,

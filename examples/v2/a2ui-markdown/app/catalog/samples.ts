@@ -1500,15 +1500,15 @@ export const SAMPLES: CatalogSample[] = [
   },
   {
     group: "Feedback",
-    title: "FlashcardFlip and Celebration",
-    covers: ["FlashcardFlip", "Celebration"],
+    title: "FlashcardFlip",
+    covers: ["FlashcardFlip"],
     components: [
       {
         id: "root",
         component: "Grid",
         columns: 2,
         gap: 3,
-        children: ["f1", "f2", "cel"],
+        children: ["f1", "f2"],
       },
       {
         id: "f1",
@@ -1523,8 +1523,6 @@ export const SAMPLES: CatalogSample[] = [
         front: "Buenos días",
         back: "Good morning",
       },
-      { id: "cel", component: "Celebration", children: ["ct"] },
-      txt("ct", "Celebration: confetti on mount"),
     ],
   },
   {
