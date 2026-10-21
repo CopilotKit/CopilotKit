@@ -1156,6 +1156,10 @@ describe("MCP Apps Activity Renderer E2E", () => {
   });
 
   describe("Sandbox isolation", () => {
+    /**
+     * Render a chat with the given `mcpApps` provider config, emit one MCP Apps
+     * activity, and resolve with the sandbox iframe once the session configured it.
+     */
     async function mountSandbox(
       mcpApps?: Parameters<typeof renderWithCopilotKit>[0]["mcpApps"],
     ) {

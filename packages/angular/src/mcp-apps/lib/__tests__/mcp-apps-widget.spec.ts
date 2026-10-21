@@ -93,6 +93,10 @@ function createAgent(resourceText = "<h1>MCP App</h1>"): AgentHarness {
   return agent as unknown as AgentHarness;
 }
 
+/**
+ * Reset TestBed with `provideMCPApps` (timeouts and `allowSameOriginFallback`)
+ * and a `CopilotKit` stub whose core runs follow-ups through `runAgent`.
+ */
 function configureTestingModule(
   runAgent = vi.fn(async () => ({ result: undefined, newMessages: [] })),
   idleTimeoutMs = 30_000,

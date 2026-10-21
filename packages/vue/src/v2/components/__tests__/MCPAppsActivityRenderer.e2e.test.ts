@@ -193,6 +193,10 @@ function mcpAppsActivityContent(overrides: {
   };
 }
 
+/**
+ * Render `CopilotChat` inside a provider wired to the mock agent. Optionally
+ * registers a custom `activity-mcp-apps` slot and passes `mcpApps` provider config.
+ */
 function renderChatWithAgent(
   agent: MockMCPProxyAgent,
   {
@@ -263,6 +267,10 @@ describe("MCP Apps Activity Renderer E2E", () => {
   });
 
   describe("Sandbox isolation", () => {
+    /**
+     * Render a chat with the given `mcpApps` provider config, emit one MCP Apps
+     * activity, and resolve with the sandbox iframe once the session configured it.
+     */
     async function mountSandbox(mcpApps?: {
       allowSameOriginFallback?: boolean;
     }) {
