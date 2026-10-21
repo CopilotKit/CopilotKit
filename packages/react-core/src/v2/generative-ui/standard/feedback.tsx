@@ -29,7 +29,6 @@ import {
   textColor,
   textFont,
   SHADOW_MD,
-  SHIMMER_HIGHLIGHT,
 } from "./tokens";
 
 // ---- Styles ----
@@ -37,18 +36,17 @@ import {
 export const FEEDBACK_STYLE_ID = "a2ui-standard-feedback";
 
 /**
- * The keyframes of the feedback components, and the rules that stop their
- * motion when the user asks for reduced motion. An element that moves has
- * `data-a2ui-motion`. The confetti layer has `data-a2ui-celebration`, and
- * it is hidden, because still confetti has no meaning.
+ * The keyframes of the feedback components, and the rule for reduced
+ * motion. Reduced is not none: the pulse ring keeps fading but no longer
+ * grows (`data-a2ui-pulse`; `!important`, because the ring sets its
+ * animation inline), because a status that does not move says nothing.
+ * An element that moves has `data-a2ui-motion`.
  */
 export const FEEDBACK_CSS = [
-  "@keyframes a2ui-spin{to{transform:rotate(360deg)}}",
   "@keyframes a2ui-pulse{0%{transform:scale(1);opacity:var(--a2ui-pulse-opacity,.6)}100%{transform:scale(var(--a2ui-pulse-scale,2.4));opacity:0}}",
-  "@keyframes a2ui-block-shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}",
-  "@keyframes a2ui-confetti{0%{transform:translate(0,0) rotate(0);opacity:1}100%{transform:translate(var(--a2ui-dx),var(--a2ui-dy)) rotate(var(--a2ui-rot));opacity:0}}",
+  "@keyframes a2ui-pulse-fade{0%{opacity:var(--a2ui-pulse-opacity,.6)}100%{opacity:0}}",
   "[data-a2ui-feedback-button]:focus-visible{outline:2px solid var(--a2ui-color-focus, #0285ff);outline-offset:2px}",
-  "@media (prefers-reduced-motion: reduce){[data-a2ui-motion]{animation:none !important}[data-a2ui-celebration]{display:none}}",
+  "@media (prefers-reduced-motion: reduce){[data-a2ui-pulse]{animation-name:a2ui-pulse-fade !important}}",
 ].join("\n");
 
 // There is no document on the server, so nothing is added there.
@@ -68,19 +66,6 @@ function useFeedbackStyles() {
   }, []);
 }
 
-/** Text that only screen readers read. */
-const VISUALLY_HIDDEN: CSSProperties = {
-  position: "absolute",
-  width: 1,
-  height: 1,
-  padding: 0,
-  margin: -1,
-  overflow: "hidden",
-  clip: "rect(0 0 0 0)",
-  whiteSpace: "nowrap",
-  border: 0,
-};
-
 /** A native button without the browser look. */
 const BUTTON_RESET: CSSProperties = {
   margin: 0,
@@ -95,29 +80,6 @@ const BUTTON_RESET: CSSProperties = {
 
 // ---- Schemas ----
 
-const SPINNER_SIZES = ["sm", "md", "lg"] as const;
-
-const loadingSchema = z.object({
-  label: z.string().optional().describe('Default "Loading"'),
-  size: z.enum(SPINNER_SIZES).optional().describe('Default "md"'),
-});
-const loadingIndicatorSchema = z.object({
-  label: z
-    .string()
-    .optional()
-    .describe('What is loading, for screen readers. Default "Loading"'),
-  color: z.string().optional().describe('Text color token. Default "prose"'),
-  size: z.enum(SPINNER_SIZES).optional().describe('Default "md"'),
-});
-const loadingBlockSchema = z.object({
-  label: z.string().optional(),
-  background: z
-    .string()
-    .optional()
-    .describe('Background token. Default "surface-tertiary"'),
-  duration: z.number().optional().describe("Milliseconds. Default 1500"),
-  reducedMotion: z.boolean().optional().describe("No shimmer animation"),
-});
 const pulseIndicatorSchema = z.object({
   label: z
     .string()
@@ -131,12 +93,6 @@ const pulseIndicatorSchema = z.object({
   duration: z.number().optional().describe("Milliseconds. Default 1500"),
   endScale: z.number().optional().describe("Default 2.4"),
   startOpacity: z.number().optional().describe("Default 0.6"),
-});
-const celebrationSchema = z.object({
-  trigger: z
-    .string()
-    .optional()
-    .describe("Each new value plays the confetti again"),
 });
 const flashcardSchema = z.object({
   front: z.string().optional().describe("The text on the front"),
@@ -173,13 +129,8 @@ const popoverContentSchema = z.object({
   width: sizeValue.optional().describe("4px steps when a number"),
 });
 
-type SpinnerSize = (typeof SPINNER_SIZES)[number];
 type WithChildren<Props> = Props & { children?: ReactNode };
-type LoadingProps = z.output<typeof loadingSchema>;
-type LoadingIndicatorProps = z.output<typeof loadingIndicatorSchema>;
-type LoadingBlockProps = z.output<typeof loadingBlockSchema>;
 type PulseIndicatorProps = z.output<typeof pulseIndicatorSchema>;
-type CelebrationProps = WithChildren<z.output<typeof celebrationSchema>>;
 type FlashcardProps = z.output<typeof flashcardSchema>;
 type PopoverProps = WithChildren<
   z.output<typeof popoverSchema> & { setOpen: (value: boolean) => void }
@@ -187,94 +138,9 @@ type PopoverProps = WithChildren<
 type PopoverTriggerProps = WithChildren<z.output<typeof popoverTriggerSchema>>;
 type PopoverContentProps = WithChildren<z.output<typeof popoverContentSchema>>;
 
-// ---- Loading ----
-
-const SPINNER_PX: Record<SpinnerSize, number> = { sm: 14, md: 20, lg: 28 };
+// ---- Status ----
 
 /** A spinning ring. It is decoration: the caller names the status. */
-function Spinner({ size, color }: { size?: SpinnerSize; color?: string }) {
-  const px = SPINNER_PX[size ?? "md"];
-  return (
-    <span
-      aria-hidden="true"
-      data-a2ui-motion=""
-      style={{
-        display: "inline-block",
-        flex: "none",
-        width: px,
-        height: px,
-        boxSizing: "border-box",
-        borderRadius: "9999px",
-        border: `2px solid ${borderColor("default")}`,
-        borderTopColor: textColor(color ?? "prose"),
-        animation: "a2ui-spin 0.8s linear infinite",
-      }}
-    />
-  );
-}
-
-function Loading(props: LoadingProps) {
-  useFeedbackStyles();
-  return (
-    <div
-      role="status"
-      data-a2ui-std=""
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: spacing(2),
-        ...textFont(props.size === "lg" ? "md" : "sm"),
-        color: textColor("secondary"),
-      }}
-    >
-      <Spinner size={props.size} />
-      <span>{props.label ?? "Loading"}</span>
-    </div>
-  );
-}
-
-function LoadingIndicator(props: LoadingIndicatorProps) {
-  useFeedbackStyles();
-  return (
-    <span role="status" data-a2ui-std="" style={{ display: "inline-flex" }}>
-      <Spinner size={props.size} color={props.color} />
-      <span style={VISUALLY_HIDDEN}>{props.label ?? "Loading"}</span>
-    </span>
-  );
-}
-
-function LoadingBlock(props: LoadingBlockProps) {
-  useFeedbackStyles();
-  return (
-    <div
-      role="status"
-      aria-busy="true"
-      data-a2ui-std=""
-      data-a2ui-motion=""
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: 64,
-        width: "100%",
-        borderRadius: radius("lg"),
-        backgroundColor: backgroundColor(
-          props.background ?? "surface-tertiary",
-        ),
-        backgroundImage: `linear-gradient(90deg, transparent 0%, ${SHIMMER_HIGHLIGHT} 50%, transparent 100%)`,
-        backgroundSize: "200% 100%",
-        animation: props.reducedMotion
-          ? undefined
-          : `a2ui-block-shimmer ${props.duration ?? 1500}ms linear infinite`,
-        ...textFont("sm"),
-        color: textColor("secondary"),
-      }}
-    >
-      {props.label ?? <span style={VISUALLY_HIDDEN}>Loading</span>}
-    </div>
-  );
-}
-
 function PulseIndicator(props: PulseIndicatorProps) {
   useFeedbackStyles();
   const size = props.size ?? 12;
@@ -296,6 +162,7 @@ function PulseIndicator(props: PulseIndicatorProps) {
     >
       <span
         data-a2ui-motion=""
+        data-a2ui-pulse=""
         style={
           {
             position: "absolute",
@@ -317,68 +184,6 @@ function PulseIndicator(props: PulseIndicatorProps) {
         }}
       />
     </span>
-  );
-}
-
-// ---- Celebration ----
-
-const CONFETTI = ["🎉", "✨", "🎊", "⭐", "💫", "🥳"];
-const PARTICLES = 24;
-/** How long one confetti burst plays, in milliseconds. */
-export const CELEBRATION_MS = 1200;
-
-/** The CSS of one confetti particle, spread on a circle around the center. */
-function particleStyle(index: number) {
-  const angle = (index / PARTICLES) * Math.PI * 2;
-  const distance = 60 + (index % 4) * 20;
-  const style: CSSProperties & Record<`--a2ui-${string}`, string> = {
-    position: "absolute",
-    left: "50%",
-    top: "50%",
-    fontSize: 14,
-    "--a2ui-dx": `${Math.round(Math.cos(angle) * distance)}px`,
-    "--a2ui-dy": `${Math.round(Math.sin(angle) * distance)}px`,
-    "--a2ui-rot": `${(index * 47) % 360}deg`,
-    animation: `a2ui-confetti ${CELEBRATION_MS}ms ease-out forwards`,
-  };
-  return style;
-}
-
-function Celebration(props: CelebrationProps) {
-  useFeedbackStyles();
-  const [burst, setBurst] = useState(0);
-  useEffect(() => {
-    setBurst((count) => count + 1);
-    const timer = setTimeout(() => setBurst(0), CELEBRATION_MS);
-    return () => clearTimeout(timer);
-  }, [props.trigger]);
-  const particles = Array.from({ length: PARTICLES }, (_, index) => index);
-  return (
-    <div
-      data-a2ui-std=""
-      style={{ position: "relative", display: "flex", flexDirection: "column" }}
-    >
-      {props.children}
-      {burst > 0 ? (
-        <div
-          key={burst}
-          aria-hidden="true"
-          data-a2ui-celebration=""
-          style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            overflow: "visible",
-          }}
-        >
-          {particles.map((index) => (
-            <span key={index} data-a2ui-motion="" style={particleStyle(index)}>
-              {CONFETTI[index % CONFETTI.length]}
-            </span>
-          ))}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -887,44 +692,19 @@ function Modal(props: ModalProps) {
 
 /**
  * The standard feedback components: loading states, a pulse dot, a
- * confetti burst, a flashcard and a popover. Give them to
+ * a flashcard and a popover. Give them to
  * `createGenerativeUI({ components: { ...feedbackComponents } })`.
  *
- * Celebration, Popover, PopoverTrigger and PopoverContent have a
+ * Popover, PopoverTrigger and PopoverContent have a
  * "multiple" `children` slot. Popover `open` is writable, so the component
  * gets a `setOpen` prop.
  */
 export const feedbackComponents = {
-  Loading: {
-    component: Loading,
-    description:
-      'A spinner with a text label. Use it while a result is not ready. The default label is "Loading".',
-    props: loadingSchema,
-  },
-  LoadingIndicator: {
-    component: LoadingIndicator,
-    description:
-      "A small spinner without visible text. Use it inside a Row or a Button where a label is already present.",
-    props: loadingIndicatorSchema,
-  },
-  LoadingBlock: {
-    component: LoadingBlock,
-    description:
-      "A shimmering placeholder block. Use it where content will show after it loads.",
-    props: loadingBlockSchema,
-  },
   PulseIndicator: {
     component: PulseIndicator,
     description:
       'A small dot that pulses, for example next to the text "Live". Set label when no text next to the dot says what it means.',
     props: pulseIndicatorSchema,
-  },
-  Celebration: {
-    component: Celebration,
-    description:
-      "Shows its children and plays a confetti burst over them when it appears. Set trigger to a new value to play the burst again.",
-    props: celebrationSchema,
-    slots: CHILDREN_SLOT,
   },
   FlashcardFlip: {
     component: FlashcardFlip,

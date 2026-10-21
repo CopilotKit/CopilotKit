@@ -4,11 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createGenerativeUI } from "../../catalog";
-import {
-  CELEBRATION_MS,
-  FEEDBACK_STYLE_ID,
-  feedbackComponents,
-} from "../feedback";
+import { FEEDBACK_STYLE_ID, feedbackComponents } from "../feedback";
 import { SURFACE_ID, renderSurface } from "./render";
 import { standardUI } from "../index";
 
@@ -52,11 +48,6 @@ async function renderPopover(popover: PopoverOpen = {}) {
   return { view, trigger };
 }
 
-const celebrationNodes = (trigger: string) => [
-  { id: "root", component: "Celebration", trigger, children: ["t"] },
-  { id: "t", component: "Label", text: "Yay" },
-];
-
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -65,11 +56,7 @@ describe("feedbackComponents", () => {
   it("is valid input for createGenerativeUI, with a description for every component", () => {
     const names = Object.keys(feedbackComponents);
     expect(names).toEqual([
-      "Loading",
-      "LoadingIndicator",
-      "LoadingBlock",
       "PulseIndicator",
-      "Celebration",
       "FlashcardFlip",
       "Popover",
       "PopoverTrigger",
@@ -79,12 +66,7 @@ describe("feedbackComponents", () => {
     for (const name of names) {
       expect(ui.manifestComponents[name].description).toMatch(/\S/);
     }
-    for (const name of [
-      "Celebration",
-      "Popover",
-      "PopoverTrigger",
-      "PopoverContent",
-    ]) {
+    for (const name of ["Popover", "PopoverTrigger", "PopoverContent"]) {
       expect(ui.manifestComponents[name].slots).toEqual({
         children: "multiple",
       });
@@ -287,14 +269,9 @@ describe("standard feedback", () => {
       {
         id: "root",
         component: "Group",
-        children: ["l", "i", "b", "p", "c", "f", "o"],
+        children: ["p", "f", "o"],
       },
-      { id: "l", component: "Loading", label: "Loading plans" },
-      { id: "i", component: "LoadingIndicator" },
-      { id: "b", component: "LoadingBlock", label: "Fetching" },
       { id: "p", component: "PulseIndicator" },
-      { id: "c", component: "Celebration", trigger: "done", children: ["t"] },
-      { id: "t", component: "Label", text: "Yay" },
       { id: "f", component: "FlashcardFlip", front: "Q", back: "A" },
       { id: "o", component: "Popover", children: ["pt", "pc"] },
       { id: "pt", component: "PopoverTrigger", children: ["tt"] },
@@ -302,29 +279,10 @@ describe("standard feedback", () => {
       { id: "pc", component: "PopoverContent", children: ["cc"] },
       { id: "cc", component: "Label", text: "Hidden content" },
     ]);
-    expect(await view.findByText("Loading plans")).toBeTruthy();
-    expect(view.getByText("Fetching")).toBeTruthy();
-    expect(view.getByText("Yay")).toBeTruthy();
-    expect(view.getByText("Q")).toBeTruthy();
+    expect(await view.findByText("Q")).toBeTruthy();
     expect(view.queryByText("Hidden content")).toBeNull();
     fireEvent.click(view.getByText("Open"));
     expect(await view.findByText("Hidden content")).toBeTruthy();
-  });
-
-  it("names every loading status for screen readers", async () => {
-    const view = renderSurface(ui, [
-      { id: "root", component: "Group", children: ["l", "i", "b"] },
-      { id: "l", component: "Loading" },
-      { id: "i", component: "LoadingIndicator", label: "Saving" },
-      { id: "b", component: "LoadingBlock" },
-    ]);
-    await view.findByText("Saving");
-    const statuses = view.getAllByRole("status");
-    expect(statuses.map((status) => status.textContent)).toEqual([
-      "Loading",
-      "Saving",
-      "Loading",
-    ]);
   });
 
   it("names a PulseIndicator only when it has a label", async () => {
@@ -337,38 +295,17 @@ describe("standard feedback", () => {
     expect(view.getAllByRole("img")).toHaveLength(1);
   });
 
-  it("stops the motion when the user asks for reduced motion", async () => {
+  it("keeps a pulse under reduced motion, as a fade without growth", async () => {
     const view = renderSurface(ui, [
-      { id: "root", component: "Loading", label: "Wait" },
+      { id: "root", component: "PulseIndicator", label: "Live" },
     ]);
-    const status = await view.findByRole("status");
-    expect(status.querySelector("[data-a2ui-motion]")).not.toBeNull();
+    const pulse = await view.findByRole("img", { name: "Live" });
+    expect(pulse.querySelector("[data-a2ui-pulse]")).not.toBeNull();
     const css = document.getElementById(FEEDBACK_STYLE_ID)?.textContent;
     expect(css).toContain(
-      "@media (prefers-reduced-motion: reduce){[data-a2ui-motion]{animation:none !important}[data-a2ui-celebration]{display:none}}",
+      "@media (prefers-reduced-motion: reduce){[data-a2ui-pulse]{animation-name:a2ui-pulse-fade !important}}",
     );
-  });
-});
-
-describe("Celebration", () => {
-  const confetti = (view: ReturnType<typeof renderSurface>) =>
-    view.container.querySelector("[data-a2ui-celebration]");
-
-  it("plays the confetti on mount, removes it after the burst, and plays it again for a new trigger", () => {
-    vi.useFakeTimers();
-    const view = renderSurface(ui, celebrationNodes("done"));
-    expect(view.getByText("Yay")).toBeTruthy();
-    expect(confetti(view)?.getAttribute("aria-hidden")).toBe("true");
-    act(() => vi.advanceTimersByTime(CELEBRATION_MS));
-    expect(confetti(view)).toBeNull();
-    view.update({
-      version: "v1.0",
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: celebrationNodes("again"),
-      },
-    });
-    expect(confetti(view)).not.toBeNull();
+    expect(css).toContain("@keyframes a2ui-pulse-fade{0%{opacity:");
   });
 });
 
