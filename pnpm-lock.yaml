@@ -1195,6 +1195,9 @@ importers:
 
   examples/v2/a2ui-markdown:
     dependencies:
+      '@ag-ui/client':
+        specifier: 1.0.2
+        version: 1.0.2
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../../packages/react-core

@@ -1,46 +1,41 @@
-"""Server"""
+"""Serve each ADK model/format/transport combination through the AG-UI adapter."""
 
+import itertools
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()  # pylint: disable=wrong-import-position
+# Share the Next.js example's GOOGLE_API_KEY without relying on the launch cwd.
+load_dotenv(Path(__file__).resolve().parent.parent / ".env.local")
 
 import uvicorn
-from ag_ui_langgraph import add_langgraph_fastapi_endpoint
-from copilotkit import LangGraphAGUIAgent
-from fastapi import FastAPI
+from ag_ui_adk import add_adk_fastapi_endpoint
+from fastapi import APIRouter, FastAPI
 
-from src.agent import graph
+from src.agent import FORMATS, MODELS, TRANSPORTS, create_agent
 
 app = FastAPI()
-add_langgraph_fastapi_endpoint(
-    app=app,
-    agent=LangGraphAGUIAgent(
-        name="langgraph",
-        description="A chat agent that renders generative UI surfaces.",
-        graph=graph,
-    ),
-    path="/copilotkit",
-)
+for model, format, transport in itertools.product(MODELS, FORMATS, TRANSPORTS):
+    router = APIRouter(prefix=f"/copilotkit/{model}/{format}/{transport}")
+    # The released wrapper handles streaming disconnects and cancellation. Each
+    # router also namespaces the adapter's capabilities and thread-state routes.
+    add_adk_fastapi_endpoint(
+        app=router,
+        agent=create_agent(model, format, transport),
+        path="",
+    )
+    app.include_router(router)
 
 
 def main():
-    """Run the uvicorn server."""
-    port = int(os.getenv("PORT", "8011"))
+    """Run the local development server."""
     uvicorn.run(
         "main:app",
         host="localhost",
-        port=port,
+        port=int(os.getenv("PORT", "8011")),
         reload=True,
-        reload_dirs=(
-            ["."]
-            + (
-                ["../../../../sdk-python/copilotkit"]
-                if os.path.exists("../../../../sdk-python/copilotkit")
-                else []
-            )
-        ),
+        reload_dirs=[str(Path(__file__).resolve().parent)],
     )
 
 

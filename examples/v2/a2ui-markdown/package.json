@@ -7,14 +7,20 @@
     "example-build": "next build",
     "example-start": "next start -p 3011",
     "dev:agent": "cd agent && uv run main.py",
-    "install:agent": "cd agent && uv sync"
+    "install:agent": "cd agent && uv sync",
+    "test:agent": "cd agent && uv run pytest",
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint app",
+    "lint:agent": "cd agent && uv run ruff check src tests main.py",
+    "format:agent": "cd agent && uv run ruff format src tests main.py"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "next": "15.5.15",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "@ag-ui/client": "1.0.2"
   },
   "devDependencies": {
     "@types/node": "^20",

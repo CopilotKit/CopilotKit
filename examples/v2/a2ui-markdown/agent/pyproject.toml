@@ -1,17 +1,23 @@
 [project]
 name = "a2ui-markdown-agent"
 version = "0.1.0"
-description = "LangGraph agent for the CopilotKit A2UI markdown-mode example"
+description = "Google ADK agent for the CopilotKit generative UI example"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
-  "ag-ui-langgraph",
-  "copilotkit",
+  "ag-ui-adk==0.11.0",
+  "google-adk==2.12.0",
+  "a2ui-agent-sdk==0.9.0",
+  "a2ui-core==0.4.0",
   "fastapi",
-  "langchain",
-  "langchain-core",
-  "langchain-openai",
-  "langgraph",
   "python-dotenv",
   "uvicorn",
 ]
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "httpx>=0.28", "ruff==0.17.1"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]

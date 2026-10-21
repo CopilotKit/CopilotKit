@@ -1,89 +1,141 @@
 # Generative UI example
 
-A Next.js app where the agent renders interactive surfaces inline in the chat.
-The surfaces use the standard components (`standardUI`). The provider turns
-generative UI on with one prop:
-
-```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  useSingleEndpoint={false}
-  generativeUI={{ ui: standardUI, transport: "markdown" }}
->
-```
+A generic Google ADK assistant that renders interactive UI from your prompt,
+using CopilotKit's standard catalog. Choose the Gemini model, inference format,
+and transport in the header. UI can appear in chat or in the `dashboard` and
+`notes` page surfaces. The `/catalog` gallery works without an agent or API key.
 
 ## Setup
 
-1. Install the dependencies. Run this command from the repo root:
-
-   ```bash
-   pnpm install
-   ```
-
-2. Build the CopilotKit packages. Run this command from the repo root:
-
-   ```bash
-   pnpm nx run-many -t build --projects=@copilotkit/react-core,@copilotkit/runtime
-   ```
-
-3. Copy the env file, then set `OPENAI_API_KEY` in `.env.local`:
-
-   ```bash
-   cp examples/v2/a2ui-markdown/.env.example examples/v2/a2ui-markdown/.env.local
-   ```
-
-## Run
-
-Start the app with the built-in agent:
+Install Node dependencies from the repository root, then build the packages:
 
 ```bash
-pnpm --filter @copilotkit/example-a2ui-markdown example-dev
+pnpm install
+pnpm nx run-many -t build --projects=@copilotkit/react-core,@copilotkit/runtime
+cp examples/v2/a2ui-markdown/.env.example examples/v2/a2ui-markdown/.env.local
 ```
 
-Open `http://localhost:3011` and click a suggestion below the chat.
-
-The page has two surfaces outside the chat: `dashboard` and `notes`. The first
-three suggestions render into them:
-
-1. "Dashboard on the page" fills `dashboard`.
-2. "Checklist in the notes" fills `notes`.
-3. "Update the dashboard" changes the dashboard in place, in a later reply.
-
-To use the LangGraph Python agent in [`agent/`](./agent), you need `uv`. In a
-second terminal, run these commands from `examples/v2/a2ui-markdown`:
+Set `GOOGLE_API_KEY` in `.env.local` to a Google AI Studio API key. This demo
+uses API-key authentication only, with Vertex AI explicitly disabled. No OpenAI
+key is needed. Install [uv](https://docs.astral.sh/uv/) and Python 3.12 or 3.13,
+then install the locked Python dependencies:
 
 ```bash
-pnpm install:agent
-pnpm dev:agent                     # serves http://localhost:8011/copilotkit
+pnpm nx run @copilotkit/example-a2ui-markdown:install:agent
 ```
 
-Then open `http://localhost:3011/?agent=langgraph`.
+Run these in two terminals from the repository root:
 
-## URL parameters
+```bash
+pnpm nx run @copilotkit/example-a2ui-markdown:dev:agent
+pnpm nx run @copilotkit/example-a2ui-markdown:example-dev
+```
 
-The links in the page header set these parameters:
+Open `http://localhost:3011`. The Python server listens on port 8011 and reads
+this example's `.env.local`. `ADK_AGENT_URL` can override its base URL in Next.js;
+`PORT` overrides the Python server's port.
 
-| Parameter             | What it does                                                                     |
-| --------------------- | -------------------------------------------------------------------------------- |
-| `?transport=markdown` | The default. The agent writes the operations in ` ```a2ui ` fences in its reply. |
-| `?transport=tool`     | The agent calls the `render_ui` tool. The runtime streams the surfaces.          |
-| `?agent=langgraph`    | The chat talks to the LangGraph Python agent instead of the built-in agent.      |
+## Settings
 
-Neither agent has code for generative UI. With the markdown transport, the
-provider sends the component schema and the fence guideline as context. With
-the tool transport, the runtime (`generativeUI: true` in
-`app/api/copilotkit/[[...slug]]/route.ts`) gives the agent the `render_ui`
-tool.
+| URL parameter | Choices                                | Default            |
+| ------------- | -------------------------------------- | ------------------ |
+| `model`       | `gemini-3.6-flash`, `gemini-3.8-flash` | `gemini-3.8-flash` |
+| `format`      | `express`, `json`                      | `express`          |
+| `transport`   | `markdown`, `tool`                     | `markdown`         |
+| `layout`      | `page`, `chat`                         | `page`             |
 
-## The `/catalog` page
+For example: `/?model=gemini-3.6-flash&format=json&transport=tool`.
+All eight model/format/transport combinations use Python ADK. Changing any of
+those three settings stops the previous run and starts a fresh conversation,
+clearing generated surfaces. The page/chat layout switch keeps the conversation.
 
-Open `http://localhost:3011/catalog` to see every standard component. Each
-sample shows:
+Try **Dashboard on the page**, then **Update the dashboard** to exercise an
+update across turns. **Sign-up with validation** exercises data bindings,
+validation, and a button that sends user-entered values back to the agent.
+These are optional user prompts, not an agent-specific flow or system prompt.
 
-- The live surface.
-- The description and props that the model sees.
-- The operations that render the sample.
+## Formats and streaming
 
-The page needs no model and no API key. A scripted agent streams the
-surfaces in the browser (`app/catalog/catalog-agent.ts`). If a component has
-no sample, the page names it at the top.
+- **JSON** is the existing A2UI v1.0 operation format. “Legacy” refers to the
+  inference format, not an older A2UI protocol version.
+- **Express** lets the model describe the same components with compact source.
+  The Python agent derives its Express instructions from the frontend's catalog
+  and compiles the source into A2UI v1.0 JSON using the released A2UI SDK.
+  This support is local to the demo; it does not add a public CopilotKit API.
+- **Markdown** streams model text. JSON runs use `a2ui` fences. Express runs use
+  `a2ui-express target=chat` (or a named page target) fences; the Python adapter
+  recompiles valid prefixes into JSON UI updates before the fence closes.
+  Incomplete syntax waits for more text. Invalid final output produces an error.
+- **Tool** uses genuine Gemini `render_ui` calls: JSON operations in JSON mode,
+  or `{target, source}` in Express mode. Python compiles Express arguments and
+  preserves the original call ID. With API-key access, tool arguments may be
+  buffered until the call is complete; this demo does not enable the ADK
+  middleware's Vertex-specific argument-streaming option or simulate tool calls
+  from streamed text. Markdown is the progressive-streaming comparison.
+
+The frontend supplies the available components, functions, targets, and current
+surface context on each run. The agent has a minimal generic instruction and
+uses the ADK middleware's frontend tool bridge. The runtime's existing generative
+UI middleware validates and renders tool operations; the existing markdown
+renderer handles compiled fences. Inspector surfaces remain inspectable. Its
+prompt view shows the frontend/runtime guide, before Python's Express adaptation.
+
+The Express prefix-compilation approach and catalog-generated instructions are
+informed by [travel-a2ui](https://github.com/vpm238/travel-a2ui), especially its
+[streaming adapter](https://github.com/vpm238/travel-a2ui/blob/main/apps/server/src/travel_a2ui/brain/express.py)
+and [generated skills](https://github.com/vpm238/travel-a2ui/tree/main/skills).
+The demo uses the current SDK APIs and its own standard catalog, without the
+travel domain's flow or prompts.
+
+## Verification
+
+```bash
+pnpm nx run @copilotkit/example-a2ui-markdown:test:agent
+pnpm nx run @copilotkit/example-a2ui-markdown:check-types
+pnpm nx run @copilotkit/example-a2ui-markdown:example-build
+```
+
+The Python suite uses controlled model responses and real ADK/compiler code;
+it needs no API key. To check provider behavior, run the demo with a real key,
+try the same prompt across all eight settings, and compare time to the first UI
+update. Include a second-turn surface update and a form submission. Deterministic
+tests do not establish live model availability, output quality, or provider-side
+streaming behavior.
+
+## Upstream workaround notes
+
+Search the Python source for `WORKAROUND` to find the temporary adaptations.
+These observations were reproduced with `a2ui-agent-sdk==0.9.0` and
+`a2ui-core==0.4.0`; they are candidates for a Google/A2UI follow-up, not issues
+filed by this change.
+
+1. **Express has no incremental parser API.** The released parser reports
+   `supports_streaming == False`; `parse_chunk('root = Text(text="Hello")')`
+   raises `NotImplementedError`. The demo recompiles accumulated valid prefixes
+   and diffs snapshots. Remove this bridge when the SDK can emit incremental
+   v1.0 operations. Tests: `test_transport.py` and `test_snapshots.py` cover early
+   rendering, split delimiters, operation deduplication, and later updates.
+2. **Open-ended function arguments are rejected.** For a function with an
+   `expression` property and `additionalProperties: true`, the SDK rejects
+   `calc(expression="x+1", x=2)` because `x` is not a declared parameter.
+   Instructions teach the equivalent function-value map
+   `{"@call":"calc", args:{expression:"x+1", x:2}}`. Remove that instruction when
+   Express respects open-ended argument schemas. The compiler tests retain a
+   successful map-form example.
+3. **Generated positional guidance is unsuitable for this catalog's ordering.**
+   The SDK-generated skill recommends positional arguments, but the frontend's
+   common styling properties precede semantic properties: `Text("Hello")` binds
+   the first property, `color`, rather than `text`. The demo recommends
+   `Text(text="Hello")` and other named arguments. This is an interoperability
+   improvement request for configurable skill generation, not a compiler defect.
+   Remove the override when keyword guidance can be requested upstream.
+
+Converting CopilotKit's manifest entries into SDK catalog schemas and choosing
+markdown fences instead of SDK sentinel tags are ordinary application
+integration. Fixes for repeated deletions, stale snapshot caches, and delimiters
+split inside quoted strings are fixes to this demo's adapter, not upstream bugs.
+
+Separately, `ag-ui-adk==0.11.0` documents argument streaming for Gemini through
+Vertex AI. This API-key-only demo leaves that option disabled and explains the
+resulting tool-mode behavior in the UI. Live Gemini behavior needs verification
+with a configured key before making a stronger provider-support claim.

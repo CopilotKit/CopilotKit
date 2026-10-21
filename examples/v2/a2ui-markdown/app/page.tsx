@@ -9,7 +9,14 @@ import {
 import { GenerativeUISurface } from "@copilotkit/react-core/v2/generative-ui";
 import Link from "next/link";
 import { Providers } from "./providers";
-import type { ExampleAgent, ExampleTransport } from "./providers";
+import {
+  FORMATS,
+  MODELS,
+  TRANSPORTS,
+  getAgentId,
+  readSettings,
+} from "./settings";
+import type { ExampleSettings } from "./settings";
 
 /** "page": the chat next to two page surfaces. "chat": the chat alone, full width. */
 type ExampleLayout = "page" | "chat";
@@ -96,7 +103,7 @@ function Suggestions({
   agent,
   layout,
 }: {
-  agent: ExampleAgent;
+  agent: string;
   layout: ExampleLayout;
 }) {
   // The prompts that target a page surface only make sense when the page
@@ -179,21 +186,24 @@ function PageSurfaces() {
 
 function Chat() {
   const searchParams = useSearchParams();
-  const agent: ExampleAgent =
-    searchParams.get("agent") === "langgraph" ? "langgraph" : "default";
-  const transport: ExampleTransport =
-    searchParams.get("transport") === "tool" ? "tool" : "markdown";
+  const settings = readSettings(searchParams);
+  const { model, format, transport } = settings;
+  const agent = getAgentId(settings);
   const layout: ExampleLayout =
     searchParams.get("layout") === "chat" ? "chat" : "page";
   const href = (
-    a: ExampleAgent,
-    t: ExampleTransport,
+    changes: Partial<ExampleSettings>,
     l: ExampleLayout = layout,
-  ) => `/?agent=${a}&transport=${t}${l === "chat" ? "&layout=chat" : ""}`;
+  ) => {
+    const params = new URLSearchParams({ ...settings, ...changes, layout: l });
+    return `/?${params}`;
+  };
   const current = (active: boolean) => (active ? "page" : undefined);
 
   return (
-    <Providers agent={agent} transport={transport}>
+    // A new provider owns a new core, thread, chat, and surface manager.
+    // Returning to an earlier combination also creates a fresh instance.
+    <Providers key={agent} settings={settings}>
       <main className="ex-shell">
         <header className="ex-topbar">
           <div className="ex-brand">
@@ -201,7 +211,7 @@ function Chat() {
             <img src="/copilotkit-logo.svg" alt="CopilotKit" />
             <span className="ex-brand-divider" aria-hidden="true" />
             <div>
-              <h1 className="ex-title">Generative UI</h1>
+              <h1 className="ex-title">Generative UI with Google ADK</h1>
               <p className="ex-subtitle">
                 {transport === "tool"
                   ? "The agent calls the render_ui tool."
@@ -210,52 +220,59 @@ function Chat() {
             </div>
           </div>
           <nav className="ex-controls" aria-label="Example settings">
-            <div className="ex-segment" role="group" aria-label="Agent">
-              <span className="ex-segment-label">Agent</span>
-              <Link
-                className="ex-pill"
-                href={href("default", transport)}
-                aria-current={current(agent === "default")}
-              >
-                Built-in
-              </Link>
-              <Link
-                className="ex-pill"
-                href={href("langgraph", transport)}
-                aria-current={current(agent === "langgraph")}
-              >
-                LangGraph
-              </Link>
+            <div className="ex-segment" role="group" aria-label="Model">
+              <span className="ex-segment-label">Model</span>
+              {MODELS.map((value) => (
+                <Link
+                  key={value}
+                  className="ex-pill"
+                  href={href({ model: value })}
+                  aria-current={current(model === value)}
+                >
+                  {value === "gemini-3.6-flash"
+                    ? "Gemini 3.6 Flash"
+                    : "Gemini 3.8 Flash"}
+                </Link>
+              ))}
+            </div>
+            <div className="ex-segment" role="group" aria-label="Format">
+              <span className="ex-segment-label">Format</span>
+              {FORMATS.map((value) => (
+                <Link
+                  key={value}
+                  className="ex-pill"
+                  href={href({ format: value })}
+                  aria-current={current(format === value)}
+                >
+                  {value === "express" ? "Express" : "JSON"}
+                </Link>
+              ))}
             </div>
             <div className="ex-segment" role="group" aria-label="Transport">
               <span className="ex-segment-label">Transport</span>
-              <Link
-                className="ex-pill"
-                href={href(agent, "markdown")}
-                aria-current={current(transport === "markdown")}
-              >
-                Markdown
-              </Link>
-              <Link
-                className="ex-pill"
-                href={href(agent, "tool")}
-                aria-current={current(transport === "tool")}
-              >
-                Tool
-              </Link>
+              {TRANSPORTS.map((value) => (
+                <Link
+                  key={value}
+                  className="ex-pill"
+                  href={href({ transport: value })}
+                  aria-current={current(transport === value)}
+                >
+                  {value === "markdown" ? "Markdown" : "Tool"}
+                </Link>
+              ))}
             </div>
             <div className="ex-segment" role="group" aria-label="Layout">
               <span className="ex-segment-label">Layout</span>
               <Link
                 className="ex-pill"
-                href={href(agent, transport, "page")}
+                href={href({}, "page")}
                 aria-current={current(layout === "page")}
               >
                 Page
               </Link>
               <Link
                 className="ex-pill"
-                href={href(agent, transport, "chat")}
+                href={href({}, "chat")}
                 aria-current={current(layout === "chat")}
               >
                 Chat
@@ -266,6 +283,12 @@ function Chat() {
             </Link>
           </nav>
         </header>
+        <p className="ex-settings-note">
+          Markdown streams with a Google API key. Tool mode uses real tool calls
+          and may render only after their arguments are complete. This demo uses
+          the Gemini API, with no Vertex AI setup. Changing model, format, or
+          transport starts a fresh chat and clears all surfaces.
+        </p>
         <div
           className={
             layout === "chat" ? "ex-layout ex-layout-chat" : "ex-layout"

@@ -113,6 +113,13 @@ a {
   color: var(--ex-text-2);
 }
 
+.ex-settings-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ex-text-2);
+}
+
 /* ---- Segmented mono pills ------------------------------------------- */
 
 .ex-controls {
@@ -124,6 +131,7 @@ a {
 
 .ex-segment {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 2px;
   padding: 3px;
