@@ -38,18 +38,13 @@ function timeout(deadline, clock) {
   requireThat(remaining > 0, "Deployment deadline exceeded");
   return AbortSignal.timeout(Math.min(30000, remaining));
 }
-/** Bind operations to one captured scope and an explicit removal baseline. */
+/** Expose fixed staging operations and the incident-bound remove capability. */
 export function createRailway({
   token,
   fetch = globalThis.fetch,
   deadline = Date.now() + 210 * 60000,
   clock = Date.now,
-  scope: suppliedScope = STAGING,
-  imagePattern = IMAGE,
-  removalBaseline: suppliedBaseline = REMOVAL_HANDOFF_BASELINE,
 }) {
-  const scope = Object.freeze({ ...suppliedScope });
-  const removalBaseline = Object.freeze({ ...suppliedBaseline });
   requireThat(
     typeof token === "string" && token.length > 0,
     "Railway credential required",
@@ -76,26 +71,26 @@ export function createRailway({
       );
     }
   };
-  const validateScope = (state) => {
+  const scope = (state) => {
     for (const key of ["projectId", "environmentId", "serviceId"])
-      requireThat(state?.[key] === scope[key], "Railway scope mismatch");
+      requireThat(state?.[key] === STAGING[key], "Railway scope mismatch");
   };
   const deployment = (state, requireMount = true) => {
-    validateScope(state);
+    scope(state);
     const meta = state.meta;
     requireThat(
       meta &&
-        imagePattern.test(meta.image) &&
+        IMAGE.test(meta.image) &&
         ((!requireMount && meta.imageDigest == null) ||
           meta.imageDigest === meta.image.split("@")[1]) &&
-        (!requireMount || equal(meta.volumeMounts, [scope.mountPath])),
+        (!requireMount || equal(meta.volumeMounts, ["/data"])),
       "Active deployment metadata mismatch",
     );
     return { id: state.id, status: state.status, image: meta.image };
   };
   /** Validate scope and expose only bounded deployment status/image evidence. */
   const handoffDeployment = (state) => {
-    validateScope(state);
+    scope(state);
     requireThat(
       typeof state.id === "string" &&
         state.id.length > 0 &&
@@ -105,7 +100,7 @@ export function createRailway({
     );
     const image = state.meta?.image ?? null;
     requireThat(
-      image === null || imagePattern.test(image),
+      image === null || IMAGE.test(image),
       "Invalid deployment image evidence",
     );
     return {
@@ -135,13 +130,14 @@ export function createRailway({
     /** Issue at most one removal request for the reviewed active baseline. */
     async removeDeployment(id) {
       requireThat(
-        id === removalBaseline.deploymentId,
+        id === REMOVAL_HANDOFF_BASELINE.deploymentId,
         "Unauthorized deployment removal",
       );
       requireThat(!removeAttempted, "Deployment removal already attempted");
       const state = await readDeploymentStatus(id);
       requireThat(
-        state.image === removalBaseline.image && state.status === "SUCCESS",
+        state.image === REMOVAL_HANDOFF_BASELINE.image &&
+          state.status === "SUCCESS",
         "Removal baseline image mismatch",
       );
       // A lost or negative response is ambiguous: never repeat this mutation.
@@ -162,7 +158,7 @@ export function createRailway({
       // Acknowledgement is not finality; callers must independently read status REMOVED.
       return { removeAcknowledged: true };
     },
-    /** Enumerate every deployment in the captured scope, failing on incomplete pages. */
+    /** Enumerate every deployment in the fixed staging scope, failing on incomplete pages. */
     async handoffInventory() {
       const rows = [];
       const ids = new Set();
@@ -173,9 +169,9 @@ export function createRailway({
           "query($input:DeploymentListInput!,$first:Int!,$after:String){deployments(input:$input,first:$first,after:$after){pageInfo{hasNextPage endCursor} edges{node{id status projectId environmentId serviceId deploymentStopped meta}}}}",
           {
             input: {
-              projectId: scope.projectId,
-              environmentId: scope.environmentId,
-              serviceId: scope.serviceId,
+              projectId: STAGING.projectId,
+              environmentId: STAGING.environmentId,
+              serviceId: STAGING.serviceId,
             },
             first: 100,
             after,
@@ -212,12 +208,12 @@ export function createRailway({
     async inspect({ allowNoActive = false, allowMissingLatest = false } = {}) {
       const { serviceInstance: service } = await query(
         "query($e:String!,$s:String!){serviceInstance(environmentId:$e,serviceId:$s){id serviceId environmentId source{image} activeDeployments{id status projectId environmentId serviceId meta} latestDeployment{id status projectId environmentId serviceId meta}}}",
-        { e: scope.environmentId, s: scope.serviceId },
+        { e: STAGING.environmentId, s: STAGING.serviceId },
       );
       requireThat(
-        service?.id === scope.instanceId &&
-          service.serviceId === scope.serviceId &&
-          service.environmentId === scope.environmentId,
+        service?.id === STAGING.instanceId &&
+          service.serviceId === STAGING.serviceId &&
+          service.environmentId === STAGING.environmentId,
         "Railway instance mismatch",
       );
       requireThat(
@@ -245,24 +241,24 @@ export function createRailway({
           );
       const { environment } = await query(
         "query($e:String!){environment(id:$e){id projectId volumeInstances(first:100){pageInfo{hasNextPage endCursor} edges{node{id volumeId environmentId serviceId mountPath isPendingDeletion}}}}}",
-        { e: scope.environmentId },
+        { e: STAGING.environmentId },
       );
       requireThat(
-        environment?.id === scope.environmentId &&
-          environment.projectId === scope.projectId &&
+        environment?.id === STAGING.environmentId &&
+          environment.projectId === STAGING.projectId &&
           environment.volumeInstances?.pageInfo?.hasNextPage === false,
         "Railway environment proof incomplete",
       );
       const volumes = environment.volumeInstances.edges
         .map((edge) => edge.node)
-        .filter((volume) => volume.serviceId === scope.serviceId);
+        .filter((volume) => volume.serviceId === STAGING.serviceId);
       requireThat(volumes.length === 1, "Ambiguous service volume");
       const volume = volumes[0];
       requireThat(
-        volume.id === scope.volumeInstanceId &&
-          volume.volumeId === scope.volumeId &&
-          volume.environmentId === scope.environmentId &&
-          volume.mountPath === scope.mountPath &&
+        volume.id === STAGING.volumeInstanceId &&
+          volume.volumeId === STAGING.volumeId &&
+          volume.environmentId === STAGING.environmentId &&
+          volume.mountPath === "/data" &&
           volume.isPendingDeletion === false,
         "Retained volume mismatch",
       );
@@ -276,10 +272,6 @@ export function createRailway({
       };
     },
     async setRecoveryAuthorization(value) {
-      requireThat(
-        equal(scope, STAGING),
-        "Recovery authorization requires staging scope",
-      );
       const {
         operationId,
         baselineIdentity,
@@ -327,12 +319,12 @@ export function createRailway({
       );
     },
     async setImage(image) {
-      requireThat(imagePattern.test(image), "Immutable runner image required");
+      requireThat(IMAGE.test(image), "Immutable runner image required");
       const data = await query(
         "mutation($serviceId:String!,$environmentId:String!,$input:ServiceInstanceUpdateInput!){serviceInstanceUpdate(serviceId:$serviceId,environmentId:$environmentId,input:$input)}",
         {
-          serviceId: scope.serviceId,
-          environmentId: scope.environmentId,
+          serviceId: STAGING.serviceId,
+          environmentId: STAGING.environmentId,
           input: { source: { image } },
         },
       );
@@ -344,7 +336,7 @@ export function createRailway({
     async deploy() {
       const data = await query(
         "mutation($serviceId:String!,$environmentId:String!){serviceInstanceDeployV2(serviceId:$serviceId,environmentId:$environmentId)}",
-        { serviceId: scope.serviceId, environmentId: scope.environmentId },
+        { serviceId: STAGING.serviceId, environmentId: STAGING.environmentId },
       );
       requireThat(
         typeof data.serviceInstanceDeployV2 === "string" &&
@@ -358,7 +350,7 @@ export function createRailway({
         "query($id:String!){deployment(id:$id){id status projectId environmentId serviceId meta}}",
         { id },
       );
-      validateScope(state);
+      scope(state);
       requireThat(state.id === id, "Railway deployment identity mismatch");
       if (state.status === "SUCCESS") deployment(state);
       return { id: state.id, status: state.status };

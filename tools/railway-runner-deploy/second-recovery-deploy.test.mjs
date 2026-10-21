@@ -505,17 +505,6 @@ test("release and variable adapters accept only the exact second incident with a
   ])
     await assert.rejects(railway.setRecoveryAuthorization(invalid));
   assert.equal(requests.length, 1);
-  const developmentRailway = createRailway({
-    token: "private",
-    scope: { ...STAGING, environmentId: "development-environment" },
-    fetch: async () => {
-      throw new Error("Staging authorization must not be sent");
-    },
-  });
-  await assert.rejects(
-    developmentRailway.setRecoveryAuthorization(authorization),
-    /staging scope/,
-  );
 });
 
 test("REMOVED readback permits handoff even when deploymentStopped remains false", async () => {
