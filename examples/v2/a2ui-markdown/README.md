@@ -184,6 +184,35 @@ Its guidance needs these qualifications when applied here:
   Its comments about cheap prefix compilation are workload-specific, not a
   performance guarantee for our 69-component catalog.
 
+#### Verified renderer differences
+
+The travel React client uses its own
+[`SurfaceStore`](https://github.com/vpm238/travel-a2ui/blob/f2ffedac87040699f4e528a47c08dc0250c2e1ea/renderers/react/src/store.ts).
+Its `apply` method accepts intermediate states that CopilotKit's
+[operation validator](../../../packages/shared/src/generative-ui/validate-operation.ts)
+and [surface manager](../../../packages/react-core/src/v2/generative-ui/surface-manager.ts)
+reject:
+
+| Incoming operation                    | Travel React store                                                           | CopilotKit renderer                                                   |
+| ------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Update before `createSurface`         | Calls `ensure`, implicitly creating a surface for component or data updates. | Rejects updates to an unknown surface.                                |
+| Create containing an empty event name | Stores the component without validating the event name.                      | Rejects the create operation because the event name must be nonempty. |
+| Later component revision              | Replaces the component by id, allowing a later snapshot to complete it.      | Applies updates only after the surface has been successfully created. |
+
+Both the implicit creation and acceptance of an empty-event component were
+confirmed by calling the travel store directly. This checks store acceptance,
+not whether an incomplete button is usable. In CopilotKit, a rejected create
+leaves the surface nonexistent, so later updates cannot repair it on their own.
+That is why the demo bridge waits for an acceptable create snapshot rather than
+forwarding every compiled prefix.
+
+The travel stream adapter validates payloads only when a block finishes; it has
+no explicit empty-event-name guard for partial snapshots. Its permissive store
+helps explain why that approach cannot be copied unchanged into this demo.
+These renderer differences are verified. Whether the older SDK produces the
+same empty-name placeholder has not been established; the version difference
+alone is not evidence of a compiler regression.
+
 Separately, `ag-ui-adk==0.11.0` documents argument streaming for Gemini through
 Vertex AI. This API-key-only demo leaves that option disabled and explains the
 resulting tool-mode behavior in the UI. Live Gemini behavior needs verification
