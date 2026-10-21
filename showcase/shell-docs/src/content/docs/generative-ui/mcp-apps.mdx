@@ -122,9 +122,11 @@ no `renderActivityMessages` prop, no manual
 ## Sandbox and widget storage
 
 Each MCP App runs in a sandboxed iframe with an opaque origin. A widget can't
-read your page's cookies, storage or DOM, or the responses from your APIs. It
-can still send requests, though, so protect state-changing endpoints against
-cross-site request forgery as you would for any other site. The trade-off is
+read your page's cookies, storage or DOM. It can't read responses from your
+APIs either, unless an API allows cross-origin requests (for example with
+`Access-Control-Allow-Origin: *`). It can still send requests, though, so
+protect state-changing endpoints against cross-site request forgery as you
+would for any other site. The trade-off is
 that the widget can't use `localStorage`, `sessionStorage`, `IndexedDB` or
 cookies of its own either.
 
