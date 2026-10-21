@@ -126,13 +126,15 @@ A declaration can carry the A2UI 1.0 interface fields. `allowedCallers` is `"ren
 
 ```ts
 functions: {
-  addToCart: { parameters: z.object({ productId: z.string() }), returnType: "object" },
-  track: { parameters: z.object({ event: z.string() }), allowedCallers: "rendererOnly", returnType: "void" },
+  addToCart: { parameters: z.object({ productId: z.string() }), allowedCallers: "rendererOrAgent", returnType: "object" },
+  track: { parameters: z.object({ event: z.string() }), returnType: "void" },
   reload: { parameters: z.object({}), allowedCallers: "agentOnly" },
 },
 ```
 
-Left out, both may call the function: CopilotKit's default is `"rendererOrAgent"`, so `callRendererFunction` works without a declaration, where A2UI 1.0 defaults to `"rendererOnly"`. The manifest and the exported catalog always write the value out, so a 1.0 reader sees the same thing. The dispatcher and the runtime refuse the other caller with `invalid_function_call`, and an event cannot match an `"agentOnly"` function. The built-in functions are value functions of the UI: the agent cannot call them.
+Left out, only the UI may call the function, as in A2UI 1.0. The manifest and the exported catalog always write the value out, so a 1.0 reader sees the same thing. An event cannot match an `"agentOnly"` function, and the built-in functions are value functions of the UI.
+
+In this version the agent cannot call renderer functions at all, whatever `allowedCallers` says: a `callRendererFunction` operation is rejected and never mentioned to the model, because its result would travel back as a developer message, and not every backend keeps that message where the model reads it in order. The declaration fields are kept for the catalog export and for when the path is on.
 
 ## Send a click to the agent
 

@@ -3,6 +3,7 @@ import {
   buildGenerativeUIMarkdownGuidelines,
   generativeUIGuideFeatures,
   GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS,
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
   childRefKind,
   functionCallers,
@@ -239,8 +240,8 @@ export function buildCompactGenerativeUISchema(
   }
   // A built-in function carries its short signature in the description of
   // its parameters (see `builtInFunctionManifests`); an app function gets
-  // its JSON Schema made short. A function that not both the UI and the
-  // agent may call says who may.
+  // its JSON Schema made short. A function is for the UI unless it says
+  // that the agent may call it too, or only the agent.
   const functions = Object.fromEntries(
     Object.entries(manifest.functions).map(([name, fn]) => {
       const signature = fn.parameters.description;
@@ -254,9 +255,9 @@ export function buildCompactGenerativeUISchema(
         {
           ...(fn.description ? { description: fn.description } : {}),
           parameters: hasSignature ? signature : compactType(fn.parameters, 0),
-          ...(callers.renderer && callers.agent
-            ? {}
-            : { callers: callers.agent ? "agent only" : "UI only" }),
+          ...(callers.agent && GENERATIVE_UI_AGENT_FUNCTION_CALLS
+            ? { callers: callers.renderer ? "UI or agent" : "agent only" }
+            : {}),
         },
       ];
     }),
