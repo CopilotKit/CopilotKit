@@ -602,7 +602,7 @@ function Button(props: ButtonProps) {
         // Outside of a form, it sends its own onClick.
         const submitsForm = props.submit && event.currentTarget.form !== null;
         if (submitsForm) return;
-        // The client-side verbs (ChatGPT's openUrl and copy) never reach the
+        // The client-side verbs (open a URL, copy text) never reach the
         // agent.
         if (props.href) {
           openUrl(props.href);

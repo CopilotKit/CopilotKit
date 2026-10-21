@@ -612,7 +612,7 @@ describe("extractCompleteArrayItems component repair", () => {
 });
 
 describe("classifySurfaceCards / flattenInformationalCards", () => {
-  // Shaped like ChatGPT's estimator: one configurator panel, the rest
+  // Shaped like a price estimator: one configurator panel, the rest
   // informational sections (a table, a nested breakdown).
   const components = [
     {

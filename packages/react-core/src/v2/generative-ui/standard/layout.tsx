@@ -118,7 +118,7 @@ type EventProp = (
 
 /**
  * The `onVisible` event of every container: sent once, the first time the
- * container scrolls into view (ChatGPT's `onVisible`).
+ * container scrolls into view.
  */
 export const VISIBLE_EVENT = {
   onVisible: {

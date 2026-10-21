@@ -24,8 +24,8 @@ import {
 } from "./tokens";
 
 /**
- * The composite components: the prebuilt widgets that ChatGPT ships next to
- * its primitives (LinkCard, Citation, FollowUp pills, entity cards, image
+ * The composite components: prebuilt widgets that sit next to the
+ * primitives (LinkCard, Citation, FollowUp pills, entity cards, image
  * grids). Each one is a single component, so the model places it with one
  * object instead of eight primitives.
  */
