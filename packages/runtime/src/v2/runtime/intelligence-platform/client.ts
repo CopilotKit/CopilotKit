@@ -1984,6 +1984,36 @@ export class CopilotKitIntelligence {
     );
   }
 
+  /**
+   * @internal Fetch only the ids of a thread's persisted messages.
+   *
+   * Sends `fields=id` so the platform can omit message content. Platform
+   * versions that do not know the parameter ignore it and return the full
+   * transcript; ids are read from `messages[].id` either way.
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async ɵgetThreadMessageIds(params: {
+    threadId: string;
+    userId: string;
+    /** Internal managed-Channel delivery context for shared Thread access. */
+    channelDeliveryId?: string;
+  }): Promise<string[]> {
+    const qs = new URLSearchParams({
+      userId: params.userId,
+      fields: "id",
+    }).toString();
+    const response = await this.#request<{ messages: { id: string }[] }>(
+      "GET",
+      `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
+      undefined,
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
+    );
+    return response.messages.map((message) => message.id);
+  }
+
   /** @internal Fetches one authorized managed Channel asset for history hydration. */
   async ɵgetManagedChannelAsset(assetId: string): Promise<{
     bytes: Uint8Array;

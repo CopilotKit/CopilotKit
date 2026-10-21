@@ -5,6 +5,7 @@ import {
   requireThat,
   validateVolume,
 } from "./contract.mjs";
+import { validateRemovalProof } from "./second-recovery-contract.mjs";
 import { validateRun } from "./provenance.mjs";
 
 const stages = [
@@ -12,6 +13,13 @@ const stages = [
   "candidate-deployed",
   "rollback-requested",
   "rollback-deployed",
+  "resume-requested",
+];
+const removedStages = [
+  "remove-requested",
+  "removed",
+  "candidate-requested",
+  "candidate-deployed",
   "resume-requested",
 ];
 /** Validate the exact saved drain proof; an unverified final state is never authority. */
@@ -35,19 +43,20 @@ export function validateCheckpoint(value, { run, releaseSha256, operationId }) {
           "volumeId",
           "volumeInstanceId",
           "mountPath",
+          ...(value.version === 3 ? ["removalProof", "removalRequest"] : []),
         ].sort(),
       ),
     "Invalid deployment checkpoint",
   );
   requireThat(
-    value.version === 1 &&
+    [1, 3].includes(value.version) &&
       value.operationId === operationId &&
       value.runId === run.id &&
       value.controlRevision === run.sha &&
       value.workflowSha256 === run.workflowSha256 &&
       value.releaseSha256 === releaseSha256 &&
       SHA256.test(value.templateSha256) &&
-      stages.includes(value.stage),
+      (value.version === 3 ? removedStages : stages).includes(value.stage),
     "Deployment checkpoint provenance mismatch",
   );
   requireThat(
@@ -63,6 +72,37 @@ export function validateCheckpoint(value, { run, releaseSha256, operationId }) {
           value[key] !== value.baselineDeploymentId),
       "Invalid checkpoint deployment identity",
     );
+  if (value.version === 3)
+    requireThat(
+      value.rollbackDeploymentId === null &&
+        (!["remove-requested", "removed"].includes(value.stage) ||
+          value.candidateDeploymentId === null) &&
+        (!["candidate-deployed", "resume-requested"].includes(value.stage) ||
+          value.candidateDeploymentId !== null),
+      "Invalid removal handoff checkpoint",
+    );
+  if (value.version === 3) {
+    const request = value.removalRequest;
+    requireThat(
+      request && equal(Object.keys(request).sort(), ["outcome", "response"]),
+      "Removal request receipt required",
+    );
+    requireThat(
+      ["pending", "acknowledged", "unknown", "refused"].includes(
+        request.outcome,
+      ) &&
+        request.response ===
+          (request.outcome === "acknowledged"
+            ? true
+            : request.outcome === "refused"
+              ? false
+              : null),
+      "Invalid removal request outcome",
+    );
+    if (value.stage === "remove-requested")
+      requireThat(value.removalProof === null, "Unconfirmed removal proof");
+    else validateRemovalProof(value.removalProof);
+  }
   validateVolume(value);
   return value;
 }
