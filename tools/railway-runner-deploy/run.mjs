@@ -1,4 +1,7 @@
-import { readAttemptCheckpoint } from "./checkpoint.mjs";
+import {
+  readAttemptCheckpoint,
+  readOneTimeStagingCheckpoint,
+} from "./checkpoint.mjs";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -110,10 +113,22 @@ async function main(env = process.env) {
   await verifyBuild(release, github, {
     verifyImage: (image) => verifyRegistryImage(image, { token }),
   });
-  const previousCheckpoint = await readAttemptCheckpoint(github, {
+  const checkpointContext = {
     ...provenance,
     operationId: `github-${REPOSITORY_ID}-${env.GITHUB_RUN_ID}`,
-  });
+  };
+  let previousCheckpoint = await readAttemptCheckpoint(
+    github,
+    checkpointContext,
+  );
+  if (values.development && !previousCheckpoint) {
+    previousCheckpoint = await readOneTimeStagingCheckpoint(
+      github,
+      checkpointContext,
+      env.GITHUB_REF,
+    );
+    provenance.continuedFromRun = 39522351205;
+  }
   const deadline = Date.now() + 210 * 60000;
   const deploy =
     release.recovery?.version === 2

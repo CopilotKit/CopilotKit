@@ -6,7 +6,10 @@ import {
   requireThat,
   validateVolume,
 } from "./contract.mjs";
-import { validateRemovalProof } from "./second-recovery-contract.mjs";
+import {
+  bindingDigest,
+  validateRemovalProof,
+} from "./second-recovery-contract.mjs";
 import { validateRun } from "./provenance.mjs";
 
 const stages = [
@@ -142,4 +145,62 @@ export async function readAttemptCheckpoint(github, context) {
     if (receipt.providerWorkStarted !== false) return undefined;
   }
   return undefined;
+}
+
+/** Temporary continuation of this one interrupted staging operation; revert after live proof. */
+export async function readOneTimeStagingCheckpoint(github, context, ref) {
+  requireThat(
+    ref === "refs/heads/dev/railway-runner-controlled-test-once" &&
+      context.run.workflowPath === DEV_DEPLOY_WORKFLOW &&
+      context.run.attempt === 1,
+    "One-time staging continuation context refused",
+  );
+  const source = {
+    operationId: "github-655515393-39522351205",
+    releaseSha256:
+      "a15a28af25a2c3844547e7c9b1655876dca903f4591581ef31a91d26fcc1f2a7",
+    run: {
+      id: 39522351205,
+      attempt: 1,
+      sha: "abc6807f35865e043c498398e3080f137ddbdad9",
+      workflowPath: DEPLOY_WORKFLOW,
+      workflowSha256:
+        "f5b6763923082c953ddcb5462cd72d202045304413ebc69a17cbdaad85330f89",
+    },
+  };
+  const run = await github.run(source.run.id, source.run.attempt);
+  validateRun(run, {
+    runId: source.run.id,
+    runAttempt: source.run.attempt,
+    sourceRevision: source.run.sha,
+    workflowPath: DEPLOY_WORKFLOW,
+    success: false,
+  });
+  requireThat(
+    run.head_branch === "main" && run.conclusion === "failure",
+    "Interrupted source run changed",
+  );
+  // The existing reader authenticates the artifact and the source workflow bytes.
+  const receipt = await github.receipt(run);
+  requireThat(
+    receipt.schemaVersion === 1 &&
+      receipt.operationId === source.operationId &&
+      receipt.releaseSha256 === source.releaseSha256 &&
+      context.releaseSha256 === source.releaseSha256 &&
+      equal(receipt.run, source.run) &&
+      bindingDigest(receipt.checkpoint) ===
+        "505a5f32c2425f6069a2e384e7f4dccf13947d76dbcff29e0a8233e648f882ff",
+    "Exact interrupted checkpoint required",
+  );
+  validateCheckpoint(receipt.checkpoint, source);
+  return validateCheckpoint(
+    {
+      ...receipt.checkpoint,
+      operationId: context.operationId,
+      runId: context.run.id,
+      controlRevision: context.run.sha,
+      workflowSha256: context.run.workflowSha256,
+    },
+    context,
+  );
 }
