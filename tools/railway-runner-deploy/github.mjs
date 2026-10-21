@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import {
   REPOSITORY,
   DEPLOY_WORKFLOW,
+  DEV_DEPLOY_WORKFLOW,
   IMAGE,
   requireThat,
   sha256,
@@ -127,6 +128,10 @@ export function createGithub({
       return unzip(archive);
     },
     async receipt(run) {
+      requireThat(
+        [DEPLOY_WORKFLOW, DEV_DEPLOY_WORKFLOW].includes(run.path),
+        "Unsupported receipt workflow",
+      );
       const artifacts = await api.artifacts(run.id);
       const matches = artifacts.filter(
         (item) => item.name === `runner-deployment-receipt-${run.run_attempt}`,
@@ -149,8 +154,9 @@ export function createGithub({
       );
       const receipt = JSON.parse(archive["deployment-receipt.json"]);
       requireThat(
-        receipt.run?.workflowSha256 ===
-          sha256(await api.workflow(DEPLOY_WORKFLOW, run.head_sha)),
+        receipt.run?.workflowPath === run.path &&
+          receipt.run.workflowSha256 ===
+            sha256(await api.workflow(run.path, run.head_sha)),
         "Deployment workflow digest mismatch",
       );
       return receipt;
