@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body,
+html {
+  height: 100%;
+}
+
+/* Compact chat input in the sidebar (CopilotKit's default spacing is roomy). */
+/* On the welcome screen, line the input up with the suggestion pills above it.
+   In the chat view (input overlay) keep CopilotKit's inset so it lines up
+   with the messages. */
+.app-chat-input:not([data-testid="copilot-input-overlay"] *) > div:first-child {
+  padding-inline: 0;
+}
+
+.app-chat-input .copilotKitInput > div {
+  padding: 6px;
+  column-gap: 8px;
+}
+
+.app-chat-input div:has(> textarea) {
+  min-height: 36px;
+}
+
+.app-chat-input textarea {
+  padding: 6px 8px 6px 0;
+}
+
+.app-chat-input [data-testid="copilot-add-menu-button"],
+.app-chat-input div:has(> [data-testid="copilot-send-button"]) {
+  margin: 0;
+}
+
+/* CopilotKit adds an extra side margin to the suggestions on wide screens,
+   which leaves them out of line with the input. Remove it in the sidebar. */
+.copilotKitSidebar [data-testid="copilot-suggestions"] {
+  margin-inline: 0;
+  padding-right: 0;
+}
