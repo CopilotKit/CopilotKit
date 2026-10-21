@@ -1154,4 +1154,70 @@ describe("MCP Apps Activity Renderer E2E", () => {
       );
     });
   });
+
+  describe("Sandbox isolation", () => {
+    async function mountSandbox(
+      mcpApps?: Parameters<typeof renderWithCopilotKit>[0]["mcpApps"],
+    ) {
+      const agent = new MockMCPProxyAgent();
+      const agentId = "mcp-test-agent";
+      agent.agentId = agentId;
+      agent.setRunAgentResponse("resources/read", {
+        contents: [
+          {
+            uri: "ui://test/sandbox",
+            mimeType: "text/html",
+            text: "<html><body>Sandbox</body></html>",
+          },
+        ],
+      });
+
+      renderWithCopilotKit({ agents: { [agentId]: agent }, agentId, mcpApps });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Sandbox app" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(screen.getByText("Sandbox app")).toBeDefined();
+      });
+
+      agent.emit(runStartedEvent());
+      agent.emit(
+        activitySnapshotEvent({
+          messageId: testId("mcp-activity"),
+          activityType: MCPAppsActivityType,
+          content: mcpAppsActivityContent({
+            resourceUri: "ui://test/sandbox",
+            serverHash: "sandbox-hash",
+          }),
+        }),
+      );
+      agent.emit(runFinishedEvent());
+
+      return waitFor(
+        () => {
+          const iframe = document.querySelector(
+            'iframe[data-testid="mcp-app-iframe"]',
+          );
+          expect(iframe?.getAttribute("sandbox")).toBeTruthy();
+          return iframe!;
+        },
+        { timeout: 3000 },
+      );
+    }
+
+    // The proxy is loaded via srcdoc, which inherits the host origin, so
+    // allow-same-origin would hand the widget the host's cookies and DOM.
+    it("gives the widget an opaque origin by default", async () => {
+      const iframe = await mountSandbox();
+      expect(iframe.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
+    });
+
+    it("restores allow-same-origin with mcpApps.allowSameOriginFallback", async () => {
+      const iframe = await mountSandbox({ allowSameOriginFallback: true });
+      expect(iframe.getAttribute("sandbox")).toBe(
+        "allow-scripts allow-same-origin allow-forms",
+      );
+    });
+  });
 });

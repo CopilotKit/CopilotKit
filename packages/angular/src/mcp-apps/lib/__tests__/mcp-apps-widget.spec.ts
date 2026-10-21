@@ -97,6 +97,7 @@ function configureTestingModule(
   runAgent = vi.fn(async () => ({ result: undefined, newMessages: [] })),
   idleTimeoutMs = 30_000,
   initializationTimeoutMs = 30_000,
+  allowSameOriginFallback?: boolean,
 ): void {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
@@ -104,6 +105,7 @@ function configureTestingModule(
       provideMCPApps({
         idleTimeoutMs,
         initializationTimeoutMs,
+        allowSameOriginFallback,
       }),
       {
         provide: CopilotKit,
@@ -505,6 +507,21 @@ test("matches the React SDK sandbox and resource CSP contract", async () => {
     method: "ui/notifications/sandbox-resource-ready",
     params: { html: "<h1>MCP App</h1>", sandbox: "allow-scripts allow-forms" },
   });
+});
+
+test("restores allow-same-origin with allowSameOriginFallback", async () => {
+  configureTestingModule(undefined, undefined, undefined, true);
+  const { frame, postMessage } = await bootWidget(createAgent());
+
+  const sameOrigin = "allow-scripts allow-same-origin allow-forms";
+  expect(frame.getAttribute("sandbox")).toBe(sameOrigin);
+  expect(postMessage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      method: "ui/notifications/sandbox-resource-ready",
+      params: { html: "<h1>MCP App</h1>", sandbox: sameOrigin },
+    }),
+    "*",
+  );
 });
 
 test("shows accessible loading and missing-resource errors", async () => {

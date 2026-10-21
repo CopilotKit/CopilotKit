@@ -195,7 +195,13 @@ function mcpAppsActivityContent(overrides: {
 
 function renderChatWithAgent(
   agent: MockMCPProxyAgent,
-  { withCustomRenderer = false }: { withCustomRenderer?: boolean } = {},
+  {
+    withCustomRenderer = false,
+    mcpApps,
+  }: {
+    withCustomRenderer?: boolean;
+    mcpApps?: { allowSameOriginFallback?: boolean };
+  } = {},
 ) {
   const agentId = "mcp-test-agent";
   const threadId = `test-thread-${Math.random().toString(36).slice(2)}`;
@@ -213,10 +219,11 @@ function renderChatWithAgent(
         threadId,
         agents: { [agentId]: agent },
         withCustomRenderer,
+        mcpApps,
       };
     },
     template: `
-      <CopilotKitProvider runtimeUrl="/api/copilotkit" :agents__unsafe_dev_only="agents">
+      <CopilotKitProvider runtimeUrl="/api/copilotkit" :agents__unsafe_dev_only="agents" :mcp-apps="mcpApps">
         <CopilotChatConfigurationProvider :thread-id="threadId" :agent-id="agentId">
           <div style="height: 400px;">
             <CopilotChat :welcome-screen="false">
@@ -253,6 +260,63 @@ describe("MCP Apps Activity Renderer E2E", () => {
   afterEach(() => {
     cleanup();
     document.body.innerHTML = "";
+  });
+
+  describe("Sandbox isolation", () => {
+    async function mountSandbox(mcpApps?: {
+      allowSameOriginFallback?: boolean;
+    }) {
+      const agent = new MockMCPProxyAgent();
+      agent.setRunAgentResponse("resources/read", {
+        contents: [
+          {
+            uri: "ui://test/sandbox",
+            mimeType: "text/html",
+            text: "<html><body>Sandbox</body></html>",
+          },
+        ],
+      });
+      renderChatWithAgent(agent, { mcpApps });
+      await submitMessageAndWaitForRun("Sandbox app");
+      await agent.emit(runStartedEvent());
+      await agent.emit(
+        activitySnapshotEvent({
+          messageId: "mcp-activity",
+          activityType: MCPAppsActivityType,
+          content: mcpAppsActivityContent({
+            resourceUri: "ui://test/sandbox",
+            serverHash: "sandbox-hash",
+          }),
+        }),
+      );
+      await agent.emit(runFinishedEvent());
+
+      let iframe: Element | null = null;
+      await waitFor(
+        () => {
+          iframe = document.querySelector(
+            'iframe[data-testid="mcp-app-iframe"]',
+          );
+          expect(iframe?.getAttribute("sandbox")).toBeTruthy();
+        },
+        { timeout: 10_000 },
+      );
+      return iframe!;
+    }
+
+    // The proxy is loaded via srcdoc, which inherits the host origin, so
+    // allow-same-origin would hand the widget the host's cookies and DOM.
+    it("gives the widget an opaque origin by default", async () => {
+      const iframe = await mountSandbox();
+      expect(iframe.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
+    });
+
+    it("restores allow-same-origin with mcpApps.allowSameOriginFallback", async () => {
+      const iframe = await mountSandbox({ allowSameOriginFallback: true });
+      expect(iframe.getAttribute("sandbox")).toBe(
+        "allow-scripts allow-same-origin allow-forms",
+      );
+    });
   });
 
   describe("Resource Fetching", () => {
