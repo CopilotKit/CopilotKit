@@ -8,6 +8,8 @@ import {
   compatibleIdentity,
   sameIdentity,
   templateDigest,
+  retainedWatchBinding,
+  validateWatchingDeployment,
 } from "./deployment.mjs";
 import {
   recoveryReceipt,
@@ -163,7 +165,14 @@ export async function createScheduler({
   const deploymentPath = join(root, "deployment.json");
   let operation = await optionalJson(deploymentPath);
   let recovery = await effectiveRecovery(root);
-  if (recovery) {
+  if (recovery && operation?.recoveryBindingSha256) {
+    assert.equal(
+      scheduleEnabled,
+      false,
+      "Retained recovery requires scheduling off",
+    );
+    validateWatchingDeployment(recovery, operation, runtimeIdentity, config);
+  } else if (recovery) {
     assert.equal(
       scheduleEnabled,
       false,
@@ -266,7 +275,7 @@ export async function createScheduler({
   /** Persist readiness only after fresh recovery has proved ownership is clear. */
   async function certifyDrain() {
     if (
-      recovery ||
+      (recovery && operation?.kind === "bounded-environment-retry") ||
       !fenced ||
       closing ||
       resuming ||
@@ -285,8 +294,8 @@ export async function createScheduler({
   async function drain({ operationId, targetIdentity }) {
     assert.ok(!closing, "Runner stopping; deployment transition refused");
     assert.ok(
-      !recovery,
-      "Retained recovery cannot certify ordinary clean drain",
+      !recovery || recovery.status === "watching",
+      "Established recovery watch required",
     );
     assert.match(operationId, /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/);
     compatibleIdentity(runtimeIdentity, targetIdentity);
@@ -311,6 +320,9 @@ export async function createScheduler({
       targetIdentity: structuredClone(targetIdentity),
       templateSha256: templateDigest(config),
       requestedAt: new Date(clock()).toISOString(),
+      ...(recovery
+        ? { recoveryBindingSha256: retainedWatchBinding(recovery) }
+        : {}),
     };
     await persist(operation);
     await recoverIdle();
@@ -424,7 +436,7 @@ export async function createScheduler({
       "Deployment persistence failed or resume in progress",
     );
     if (!fenced) return deployment();
-    if (recovery)
+    if (recovery && operation.kind === "bounded-environment-retry")
       assert.equal(
         operation.status,
         "recovery-ready",

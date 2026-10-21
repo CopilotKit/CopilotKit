@@ -298,10 +298,24 @@ failed/overdue verdict and `providerFinality: "unknown"`.
 This is bounded operational recovery under the recorded decision, not proof that
 the original request is terminal. Detection can be delayed by an active run,
 provider outage or visibility lag. The original intent remains tracked during
-that interval. Ordinary clean deployment drain remains unavailable while this
-watch is retained; further compatibility changes require an explicitly reviewed
-transition. Scheduling stays off. A recovery authorization records the decision;
+that interval. Once a watch is established, ordinary deployment operations bind
+its immutable authorization, original journal and failed receipt. Drain and resume
+reconcile the watches and require every other cleanup owner to be clear. Draining
+current execution does not make the original failed request terminal; its failed
+verdict and unknown provider finality remain visible. Further compatibility
+changes require an explicitly reviewed transition. Scheduling stays off.
+A recovery authorization records the decision;
 it does not itself execute a deployment, recovery request, or fresh test run.
+
+An older runner whose guard pins the recovery image requires a reviewed initial
+upgrade through `RICH_RUNNER_UPGRADE_JSON`. It binds exact baseline/target build
+identities, both template hashes, immutable watch ownership and independently
+verified removal of the old deployment in the permanent service/volume scope.
+Only the inspector image may change in the template, and its digest requires
+independent registry approval. Startup retains the original private template for
+historical watch validation, atomically installs the approved current template,
+and stays fenced until normal reconciliation and resume succeed. Interrupted
+startup replays the same operation; it never clears an unrelated failed-run lease.
 
 Every new environment-create request is followed by at most three complete CLI
 inventory observations, even when its response fails or is lost. Returned IDs

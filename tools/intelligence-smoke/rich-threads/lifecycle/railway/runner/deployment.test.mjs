@@ -115,7 +115,7 @@ test("real staged policy identity matches the authenticated registry policy dige
   assert.equal(built.policySha256, policyDigest());
   assert.equal(
     built.policySha256,
-    "7eb39aa628b77c30efa88a00c4ad0695de89ac2bb919e7e25f550a4ab2f2c765",
+    "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751",
   );
 });
 

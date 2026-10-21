@@ -12,6 +12,8 @@ import {
   sameIdentity,
   templateDigest,
   validateIdentity,
+  recoveryTemplate,
+  validateWatchingDeployment,
 } from "./runner/deployment.mjs";
 
 export const recoveryCase = Object.freeze({
@@ -174,7 +176,24 @@ export async function prepareRetainedRecovery(
   const prior = await optionalMetadata(statePath(root));
   authorization ??= prior?.authorization;
   assert.ok(authorization, "Reviewed recovery authorization required");
-  validateAuthorization(authorization, config);
+  validateAuthorization(authorization, await recoveryTemplate(root, config));
+  if (prior?.status === "watching" && operation?.recoveryBindingSha256) {
+    const historical = await recoveryTemplate(root, config);
+    validateAuthorization(authorization, historical);
+    assert.equal(
+      templateDigest(prior.authorization),
+      templateDigest(authorization),
+    );
+    await loadState(root, historical);
+    validateWatchingDeployment(prior, operation, runtimeIdentity, config);
+    await assertOwnersStopped(
+      root,
+      historical,
+      prior.originalJournal,
+      dependencies.ownerAlive ?? ownerAlive,
+    );
+    return prior;
+  }
   assert.ok(
     sameIdentity(runtimeIdentity, authorization.targetIdentity),
     "Recovery target identity mismatch",
@@ -262,6 +281,7 @@ export async function prepareRetainedRecovery(
   return state;
 }
 export async function loadState(root, config) {
+  config = await recoveryTemplate(root, config);
   const state = await optionalMetadata(statePath(root));
   if (!state) return null;
   assert.equal(state.version, 1, "Invalid original recovery version");

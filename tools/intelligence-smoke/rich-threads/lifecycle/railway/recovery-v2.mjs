@@ -8,6 +8,8 @@ import {
   templateDigest,
   sameIdentity,
   validateIdentity,
+  recoveryTemplate,
+  validateWatchingDeployment,
 } from "./runner/deployment.mjs";
 import {
   loadState,
@@ -213,6 +215,7 @@ function validateJournal(journal, auth) {
   assert.ok(Number.isFinite(Date.parse(journal.expiresAt)));
 }
 async function validated(root, config, state) {
+  config = await recoveryTemplate(root, config);
   assert.equal(state.version, 2, "Invalid repeated recovery version");
   assert.equal(
     state.originalWatch.version,
@@ -273,9 +276,24 @@ export async function prepareRepeatedRecovery(
   await authority(config.controlDirectory);
   let state = await optionalMetadata(statePath(root));
   authorization ??= state?.authorization;
-  validateAuth(authorization, config, {
+  validateAuth(authorization, await recoveryTemplate(root, config), {
     legacyWatching: state?.status === "watching",
   });
+  if (state?.status === "watching" && operation?.recoveryBindingSha256) {
+    assert.equal(
+      templateDigest(state.authorization),
+      templateDigest(authorization),
+    );
+    await validated(root, config, state);
+    validateWatchingDeployment(state, operation, runtimeIdentity, config);
+    await assertOwnersStopped(
+      root,
+      config,
+      state.originalJournal,
+      dependencies.ownerAlive ?? ownerAlive,
+    );
+    return state;
+  }
   assert.ok(sameIdentity(runtimeIdentity, authorization.targetIdentity));
   const initialized = await optionalMetadata(join(root, "initialized.json"));
   assert.equal(initialized?.serviceId, config.permanentRunner.serviceId);

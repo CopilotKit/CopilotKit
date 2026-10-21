@@ -732,7 +732,7 @@ test("bounded recovery retains its journal, fences restart, and watches every ad
       operationId: "ordinary",
       targetIdentity: options.runtimeIdentity,
     }),
-    /ordinary clean drain/,
+    /Deployment owner conflict/,
   );
   await scheduler.close();
   const restarted = await createScheduler(options);

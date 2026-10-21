@@ -31,6 +31,17 @@ async function fixture(t, options = {}) {
       serviceId: "4922b45b-6981-4559-be2f-fbbca9123323",
       volumeId: options.volumeId ?? "permanent-volume",
     },
+    ...(options.inspectorImage
+      ? {
+          services: [
+            {
+              key: "inspector",
+              roles: ["inspection-worker"],
+              image: options.inspectorImage,
+            },
+          ],
+        }
+      : {}),
   };
   for (const path of [
     "control",
@@ -391,13 +402,12 @@ test("real recovery module and scheduler keep watch across restart and fresh adm
     (await f.read(`results/${f.receipt.id}/run.json`)).status,
     "failed",
   );
-  await assert.rejects(
-    scheduler.drain({
-      operationId: "ordinary",
-      targetIdentity: f.runtimeIdentity,
-    }),
-    /Retained recovery/,
-  );
+  const drained = await scheduler.drain({
+    operationId: "ordinary",
+    targetIdentity: f.runtimeIdentity,
+  });
+  assert.equal(drained.phase, "drained");
+  assert.equal(drained.recovery.originalStatus, "failed");
 });
 
 test("restart closes pending delete evidence only after complete absence readback", async (t) => {
@@ -454,11 +464,12 @@ test("post-delete inventory also rejects other tracked IDs reappearing renamed",
 
 // Second incident tests keep the original source watch active while ownership
 // of a distinct recorded source and ambiguous fork transfers to a second watch.
-async function repeatedFixture(t) {
+async function repeatedFixture(t, options = {}) {
   const v2 = await import("./recovery-v2.mjs");
   const f = await fixture(t, {
     volumeId: "2a70e47d-85d4-4a8a-b17b-b6788c91b1c7",
     sourceRevision: v2.repeatedCase.baselineRevision,
+    ...options,
   });
   await f.prepare();
   await f.recover();
@@ -597,6 +608,272 @@ async function repeatedFixture(t) {
     recoverSecond: recover,
   };
 }
+
+const image = (c) =>
+  `ghcr.io/copilotkit/rich-thread-inspector@sha256:${c === "1" ? "e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981" : "1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71"}`;
+
+for (const second of [false, true])
+  test(`established ${second ? "two" : "one"} watch upgrade preserves evidence and supports ordinary drain/resume`, async (t) => {
+    const f = await (second ? repeatedFixture : fixture)(t, {
+      inspectorImage: image("1"),
+    });
+    if (second) {
+      await f.prepareSecond();
+      await f.recoverSecond();
+    } else {
+      await f.prepare();
+      await f.recover();
+    }
+    const path = second ? "recovery-v2.json" : "recovery.json";
+    const state = await f.read(path);
+    const baseline = second ? f.secondRuntime : f.runtimeIdentity;
+    const auth = second ? f.secondAuthorization : f.authorization;
+    const operation = {
+      version: 1,
+      kind: "bounded-environment-retry",
+      status: "resumed",
+      operationId: auth.operationId,
+      baselineIdentity: auth.baselineIdentity,
+      targetIdentity: baseline,
+      templateSha256: templateDigest(f.config),
+    };
+    await durableJson(join(f.root, "deployment.json"), operation);
+    await durableJson(join(f.root, "runtime.json"), {
+      runtimeIdentity: baseline,
+      templateSha256: templateDigest(f.config),
+    });
+    await durableJson(join(f.root, "scheduler.json"), {
+      version: 1,
+      active: null,
+      blocked: false,
+    });
+    const template = structuredClone(f.config);
+    template.services[0].image = image("2");
+    const target = {
+      ...baseline,
+      sourceRevision: "2".repeat(40),
+      compatibilitySha256: "3".repeat(64),
+      policySha256: "4".repeat(64),
+    };
+    const upgradeAuthorization = {
+      operationId: "reviewed-watch-upgrade",
+      baselineIdentity: baseline,
+      targetIdentity: target,
+      baselineTemplateSha256: templateDigest(f.config),
+      targetTemplateSha256: templateDigest(template),
+      recoveryBindingSha256: templateDigest({
+        operationId: auth.operationId,
+        lifecycleRunId: auth.lifecycleRunId,
+        runnerRunId: auth.runnerRunId,
+        oldJournalSha256: state.oldJournalSha256,
+        authorizationSha256: templateDigest(state.authorization),
+        originalReceiptSha256: state.originalReceiptSha256,
+        originalWatchSnapshotSha256: state.originalWatch
+          ? templateDigest(state.originalWatch)
+          : undefined,
+      }),
+      removalProof: {
+        version: 1,
+        method: "deploymentRemove",
+        status: "REMOVED",
+        deploymentId: "old-deployment",
+        image: `ghcr.io/copilotkit/rich-thread-runner@sha256:${"1".repeat(64)}`,
+        ...f.config.permanentRunner,
+        volumeInstanceId: second
+          ? f.v2.repeatedCase.volumeInstanceId
+          : "retained-attachment",
+        mountPath: "/data",
+        observedAt: new Date().toISOString(),
+      },
+    };
+    await assert.rejects(
+      checkStartup({ root: f.root, template, runtimeIdentity: target }),
+    );
+    for (const mutate of [
+      (a) => {
+        a.recoveryBindingSha256 = "0".repeat(64);
+      },
+      (a) => {
+        a.baselineIdentity = target;
+      },
+      (a) => {
+        a.removalProof.status = "SUCCESS";
+      },
+      (a) => {
+        a.removalProof.volumeId = "other-volume";
+      },
+      (a) => {
+        a.targetTemplateSha256 = "0".repeat(64);
+      },
+    ]) {
+      const bad = structuredClone(upgradeAuthorization);
+      mutate(bad);
+      await assert.rejects(
+        checkStartup({
+          root: f.root,
+          template,
+          runtimeIdentity: target,
+          upgradeAuthorization: bad,
+        }),
+      );
+      assert.deepEqual(await f.read(path), state);
+      assert.deepEqual(await f.read("private/template.json"), f.config);
+    }
+    const changed = structuredClone(template);
+    changed.controlDirectory += "-other";
+    await assert.rejects(
+      checkStartup({
+        root: f.root,
+        template: changed,
+        runtimeIdentity: target,
+        upgradeAuthorization: {
+          ...upgradeAuthorization,
+          targetTemplateSha256: templateDigest(changed),
+        },
+      }),
+    );
+    const unapproved = structuredClone(template);
+    unapproved.services[0].image = `ghcr.io/copilotkit/rich-thread-inspector@sha256:${"0".repeat(64)}`;
+    await assert.rejects(
+      checkStartup({
+        root: f.root,
+        template: unapproved,
+        runtimeIdentity: target,
+        upgradeAuthorization: {
+          ...upgradeAuthorization,
+          targetTemplateSha256: templateDigest(unapproved),
+        },
+      }),
+      /registry approval/,
+    );
+    const marker = await f.read("initialized.json");
+    await durableJson(join(f.root, "initialized.json"), {
+      ...marker,
+      volumeId: "foreign",
+    });
+    await assert.rejects(
+      checkStartup({
+        root: f.root,
+        template,
+        runtimeIdentity: target,
+        upgradeAuthorization,
+      }),
+    );
+    await durableJson(join(f.root, "initialized.json"), marker);
+    const { processOwner } = await import("./process-owner.mjs");
+    await mkdir(join(f.root, "scheduler-lock"));
+    await durableJson(
+      join(f.root, "scheduler-lock/owner.json"),
+      await processOwner(),
+    );
+    await assert.rejects(
+      checkStartup({
+        root: f.root,
+        template,
+        runtimeIdentity: target,
+        upgradeAuthorization,
+      }),
+      /alive/,
+    );
+    await rm(join(f.root, "scheduler-lock"), { recursive: true });
+    const metadata = await checkStartup({
+      root: f.root,
+      template,
+      runtimeIdentity: target,
+      upgradeAuthorization,
+    });
+    // Replay both crash boundaries: operation written, then current template written,
+    // while runtime metadata still belongs to the previous deployment.
+    for (const current of [f.config, template]) {
+      await durableJson(join(f.root, "private/template.json"), current);
+      await checkStartup({
+        root: f.root,
+        template,
+        runtimeIdentity: target,
+        upgradeAuthorization,
+      });
+      assert.equal((await f.read("deployment.json")).status, "draining");
+    }
+    await durableJson(join(f.root, "runtime.json"), metadata);
+    assert.deepEqual(await f.read(path), state);
+    assert.deepEqual(await f.read("private/recovery-template.json"), f.config);
+    assert.deepEqual(await f.read("private/template.json"), template);
+    await checkStartup({ root: f.root, template, runtimeIdentity: target });
+    for (const alter of [
+      (s) => {
+        s.authorization.targetIdentity.sourceRevision = "0".repeat(40);
+      },
+      (s) => {
+        s.originalReceipt.status = "passed";
+      },
+      (s) => {
+        s.originalJournal.lease.token = "changed";
+      },
+    ]) {
+      const corrupt = structuredClone(state);
+      alter(corrupt);
+      await durableJson(join(f.root, path), corrupt);
+      await assert.rejects(
+        checkStartup({ root: f.root, template, runtimeIdentity: target }),
+      );
+      await durableJson(join(f.root, path), state);
+    }
+    const watch = (args) => reconcileRetainedIntent(args, f.dependencies);
+    const scheduler = await createScheduler({
+      root: f.root,
+      config: template,
+      runtimeIdentity: target,
+      recover: async () => {},
+      reconcileRetained: watch,
+    });
+    assert.equal(scheduler.deployment().phase, "drained");
+    assert.equal(scheduler.deployment().recovery.originalStatus, "failed");
+    await scheduler.resume({
+      operationId: upgradeAuthorization.operationId,
+      expectedRuntimeIdentity: target,
+    });
+    assert.equal(scheduler.deployment().phase, "running");
+    const next = { ...target, sourceRevision: "5".repeat(40) };
+    await scheduler.drain({
+      operationId: "next-branch-image",
+      targetIdentity: next,
+    });
+    assert.equal(scheduler.deployment().phase, "drained");
+    await scheduler.close();
+    const nextOperation = await f.read("deployment.json");
+    await durableJson(join(f.root, "deployment.json"), {
+      ...nextOperation,
+      status: "draining",
+    });
+    await assert.rejects(
+      checkStartup({ root: f.root, template, runtimeIdentity: next }),
+    );
+    await durableJson(join(f.root, "deployment.json"), nextOperation);
+    await checkStartup({
+      root: f.root,
+      template,
+      runtimeIdentity: next,
+      upgradeAuthorization,
+    });
+    const restarted = await createScheduler({
+      root: f.root,
+      config: template,
+      runtimeIdentity: next,
+      recover: async () => {},
+      reconcileRetained: watch,
+    });
+    f.cleanup.push(() => restarted.close());
+    await restarted.resume({
+      operationId: "next-branch-image",
+      expectedRuntimeIdentity: next,
+    });
+    assert.equal(restarted.deployment().phase, "running");
+    assert.equal(restarted.deployment().recovery.providerFinality, "unknown");
+    const after = await f.read(path);
+    assert.deepEqual(after.authorization, state.authorization);
+    assert.deepEqual(after.originalJournal, state.originalJournal);
+    assert.deepEqual(after.originalReceipt, state.originalReceipt);
+  });
 
 test("second incident startup fences admission, preserves both watches and cleans late forks without deleting source", async (t) => {
   const f = await repeatedFixture(t);

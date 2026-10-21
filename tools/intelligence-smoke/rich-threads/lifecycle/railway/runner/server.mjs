@@ -286,6 +286,9 @@ export async function main(env = process.env) {
     recoveryAuthorization: env.RICH_RECOVERY_AUTHORIZATION_JSON
       ? JSON.parse(env.RICH_RECOVERY_AUTHORIZATION_JSON)
       : undefined,
+    upgradeAuthorization: env.RICH_RUNNER_UPGRADE_JSON
+      ? JSON.parse(env.RICH_RUNNER_UPGRADE_JSON)
+      : undefined,
   });
   for (const path of ["private", "control", "results"])
     await mkdir(join(root, path), { recursive: true, mode: 0o700 });
