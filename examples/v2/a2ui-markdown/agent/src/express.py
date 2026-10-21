@@ -61,7 +61,17 @@ def _component(entry: dict[str, Any]) -> dict[str, Any]:
             else "#/$defs/Child"
         }
     for name, event in entry.get("events", {}).items():
-        schema["properties"][name] = {"$ref": "#/$defs/Action"}
+        # FIX(demo-bridge): match CopilotKit's nonempty event-name requirement.
+        # SDK 0.9.0 can fill an unfinished Event("sub with an empty name in a
+        # multiline prefix. Reject that snapshot before recording a create
+        # which the frontend would reject. This is host validation, not an SDK
+        # patch; keep it even when upstream gains incremental parsing.
+        schema["properties"][name] = {
+            "allOf": [
+                {"$ref": "#/$defs/Action"},
+                {"properties": {"event": {"properties": {"name": {"minLength": 1}}}}},
+            ]
+        }
         if event.get("description"):
             schema["properties"][name]["description"] = event["description"]
     if entry.get("description"):

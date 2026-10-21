@@ -135,6 +135,55 @@ markdown fences instead of SDK sentinel tags are ordinary application
 integration. Fixes for repeated deletions, stale snapshot caches, and delimiters
 split inside quoted strings are fixes to this demo's adapter, not upstream bugs.
 
+### Bridge ordering fix and travel reference audit
+
+`FIX(demo-bridge)` in `agent/src/transport.py` marks a local lifecycle defect:
+the SDK can compile a rootless prefix into `updateComponents` and
+`updateDataModel` without a `createSurface`. The bridge previously forwarded
+these updates to a renderer that correctly rejects unknown surfaces. It now
+waits for the create snapshot, which includes the prefix's components and data.
+Known surfaces still accept updates immediately. A finished program that only
+updates an unknown surface raises an actionable error; a failed batch does not
+advance the bridge's bookkeeping. `test_snapshots.py` and `test_transport.py`
+cover these cases, deletion/recreation, and one-character markdown chunks.
+This fixes our adaptation of the SDK; it is not a Google SDK patch.
+
+The replay also exposed a validation mismatch: an unfinished multiline
+`Event("sub` can compile to an event with an empty name. The SDK accepts that
+snapshot, but CopilotKit rejects it, including its create operation. The
+`FIX(demo-bridge)` in `agent/src/express.py` adds the host's nonempty-name
+constraint to event schemas. Partial snapshots wait; a final empty name errors.
+`test_express.py` reproduces both. This is host validation we must retain, not
+a dependency monkeypatch. The SDK's placeholder behavior is worth including
+in upstream feedback about incremental parsing.
+
+The reference was audited at travel-a2ui commit
+[`f2ffeda`](https://github.com/vpm238/travel-a2ui/tree/f2ffedac87040699f4e528a47c08dc0250c2e1ea).
+Its guidance needs these qualifications when applied here:
+
+- **Prefix compilation is not a complete lifecycle adapter.**
+  [`ExpressStream._compile`](https://github.com/vpm238/travel-a2ui/blob/f2ffedac87040699f4e528a47c08dc0250c2e1ea/apps/server/src/travel_a2ui/brain/express.py)
+  emits compiled batches into its own application's processing path. Our
+  bridge must additionally enforce creation before updates and diff repeated
+  snapshots. Assuming every successfully compiled prefix could be forwarded
+  directly was our mistake; this audit does not establish a travel-app bug.
+- **The positional advice assumes a different catalog order.** Its
+  [catalog builder](https://github.com/vpm238/travel-a2ui/blob/f2ffedac87040699f4e528a47c08dc0250c2e1ea/scripts/build_catalog.py)
+  explicitly moves semantic properties ahead of shared styling properties and
+  documents the failure caused by `weight` becoming the first argument. Its
+  [generated skill](https://github.com/vpm238/travel-a2ui/blob/f2ffedac87040699f4e528a47c08dc0250c2e1ea/skills/express-modular/a2ui-travel/SKILL.md)
+  places `children` first for `Column`. Our style-first catalog does not satisfy
+  that assumption. The reference already warned about this; we did not carry
+  its ordering invariant into our integration. This bridge fix does not change
+  catalog ordering or resolve the remaining model-generation failures.
+- **Version and latency assumptions differ.** Its
+  [dependency pins](https://github.com/vpm238/travel-a2ui/blob/f2ffedac87040699f4e528a47c08dc0250c2e1ea/apps/server/pyproject.toml)
+  are agent-sdk 0.7.0/core 0.2.0; this demo uses 0.9.0/0.4.0. Its generated skill
+  declares protocol 0.9.1; this demo emits v1.0. Streaming text alone does not
+  guarantee early visible UI: a new surface still needs a compilable root.
+  Its comments about cheap prefix compilation are workload-specific, not a
+  performance guarantee for our 69-component catalog.
+
 Separately, `ag-ui-adk==0.11.0` documents argument streaming for Gemini through
 Vertex AI. This API-key-only demo leaves that option disabled and explains the
 resulting tool-mode behavior in the UI. Live Gemini behavior needs verification

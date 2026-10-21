@@ -1,4 +1,5 @@
 import json
+import re
 
 import pytest
 from ag_ui.core import (
@@ -224,3 +225,33 @@ async def test_truncated_express_header_does_not_leak_into_chat():
         await transformed(
             [text("```a2ui-express target=notes"), TextMessageEndEvent(message_id="m")]
         )
+
+
+@pytest.mark.parametrize("size", [1, 7, 99])
+async def test_root_last_stream_never_updates_an_unknown_surface(size):
+    source = (
+        '```a2ui-express target=notes\nsurface("s")\n'
+        '$/label = "Hello"\nlabel = Text(text=$/label)\n'
+        'root = Text(text="Ready")\n```'
+    )
+    output = await transformed(
+        [
+            *[text(source[i : i + size]) for i in range(0, len(source), size)],
+            TextMessageEndEvent(message_id="m"),
+        ]
+    )
+    content = "".join(e.delta for e in output if e.type == "TEXT_MESSAGE_CONTENT")
+    operations = [
+        operation
+        for body in re.findall(r"```a2ui target=notes\n(.*?)\n```", content, re.DOTALL)
+        for operation in json.loads(body)
+    ]
+    assert operations
+    created = set()
+    for operation in operations:
+        if "createSurface" in operation:
+            created.add(operation["createSurface"]["surfaceId"])
+        for kind in ("updateComponents", "updateDataModel"):
+            if kind in operation:
+                assert operation[kind]["surfaceId"] in created
+    assert operations[0]["createSurface"]["dataModel"] == {"label": "Hello"}

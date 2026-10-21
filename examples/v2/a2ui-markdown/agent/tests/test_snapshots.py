@@ -82,3 +82,78 @@ def test_recompiling_create_then_explicit_update_does_not_revert_the_update():
     first = state.compile(source, final=True)
     assert first[-1]["updateComponents"]["components"][0]["text"] == "B"
     assert state.compile(source, final=True) == []
+
+
+def test_new_surface_waits_for_root_without_losing_prefix_components_or_data():
+    state = snapshots()
+    prefix = 'surface("s")\n$/label = "Hello"\nlabel = Text(text=$/label)\n'
+    assert state.compile(prefix) == []
+    result = state.compile(prefix + 'root = Text(text="Ready")', final=True)
+    assert len(result) == 1
+    created = result[0]["createSurface"]
+    assert created["surfaceId"] == "s"
+    assert created["dataModel"] == {"label": "Hello"}
+    assert created["components"] == [
+        {"id": "label", "component": "Text", "text": {"@path": "/label"}},
+        {"id": "root", "component": "Text", "text": "Ready"},
+    ]
+
+
+def test_known_surface_streams_component_and_data_updates_without_root():
+    incoming = make_input()
+    incoming.forwarded_props["copilotkit"]["ui"]["metadata"]["extensions"][
+        "copilotkit_surfaces"
+    ] = {"s": {}}
+    _, compiler = prepare_express_input(incoming, "markdown")
+    state = _Snapshots(compiler)
+    source = (
+        'surface("s", update=true)\nlabel = Text(text="Updated")\n$/label = "Updated"'
+    )
+    result = state.compile(source)
+    assert [next(key for key in op if key != "version") for op in result] == [
+        "updateComponents",
+        "updateDataModel",
+    ]
+    assert result[0]["updateComponents"]["components"][0]["text"] == "Updated"
+    assert result[1]["updateDataModel"]["value"] == {"label": "Updated"}
+    assert state.compile(source, final=True) == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'surface("missing")\nlabel = Text(text="Hello")',
+        'surface("missing", update=true)\n$/label = "Hello"',
+    ],
+)
+def test_final_update_to_unknown_surface_reports_error_instead_of_disappearing(source):
+    state = snapshots()
+    assert state.compile(source) == []
+    with pytest.raises(ValueError, match="missing.*createSurface"):
+        state.compile(source, final=True)
+
+
+def test_deleted_surface_waits_for_recreation_before_more_updates():
+    state = snapshots()
+    program(state, 'surface("s")\nroot = Text(text="Old")')
+    prefix = 'deleteSurface("s")\nsurface("s")\n$/label = "New"\n'
+    state.begin()
+    assert state.compile(prefix) == [
+        {"version": "v1.0", "deleteSurface": {"surfaceId": "s"}},
+    ]
+    result = state.compile(prefix + "root = Text(text=$/label)", final=True)
+    assert len(result) == 1
+    assert result[0]["createSurface"]["dataModel"] == {"label": "New"}
+
+
+def test_failed_final_program_does_not_remember_an_unemitted_create():
+    state = snapshots()
+    with pytest.raises(ValueError, match="missing.*createSurface"):
+        program(
+            state,
+            'surface("s")\nroot = Text(text="Ready")\n'
+            'surface("missing", update=true)\n$/label = "Hello"',
+        )
+    result = program(state, 'surface("s")\nroot = Text(text="Ready")')
+    assert len(result) == 1
+    assert "createSurface" in result[0]

@@ -204,3 +204,23 @@ def test_instructions_use_keyword_arguments_for_long_standard_signatures():
     instructions = ExpressCompiler(envelope()).instructions()
     assert "Do not output property keys" not in instructions
     assert 'Text(text={"@call"' in instructions
+
+
+def test_partial_event_waits_for_a_nonempty_name():
+    compiler = ExpressCompiler(envelope())
+    prefix = 'root = Column(\nchildren=[\nButton(\nlabel="Go",\nonClick=Event("cho'
+    assert compiler.compile(prefix) == []
+    result = compiler.compile(prefix + 'ose"))])', final=True)
+    button = next(
+        node
+        for node in result[0]["createSurface"]["components"]
+        if node["component"] == "Button"
+    )
+    assert button["onClick"] == {"event": {"name": "choose"}}
+
+
+def test_empty_event_name_is_rejected_on_final():
+    with pytest.raises(ValueError):
+        ExpressCompiler(envelope()).compile(
+            'root = Button(label="Go", onClick=Event(""))', final=True
+        )

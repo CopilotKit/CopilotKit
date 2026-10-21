@@ -105,40 +105,60 @@ class _Snapshots:
 
     def compile(self, source, final=False):
         operations = self.compiler.compile(source, final=final)
+        # Commit bookkeeping only when the whole batch can be emitted. A final
+        # error must not remember creates that the caller never received.
+        created = self.created.copy()
+        components_by_surface = self.components.copy()
+        data_by_surface = self.data.copy()
+        previous_operations = self.previous_operations.copy()
         result = []
         for index, operation in enumerate(operations):
             # Invalid/incomplete prefixes can compile to no operations or only
             # an earlier subset. Keep every already-emitted statement until
             # begin(), including creates preceding explicit update statements.
-            if self.previous_operations.get(index) == operation:
+            if previous_operations.get(index) == operation:
                 continue
-            self.previous_operations[index] = operation
+            update = operation.get("updateComponents") or operation.get(
+                "updateDataModel"
+            )
+            if update is not None and update["surfaceId"] not in created:
+                # FIX(demo-bridge): SDK 0.9.0 emits updates for rootless prefixes.
+                # A later create snapshot includes their components and data.
+                # Do not emit or deduplicate them before that create arrives;
+                # known surfaces can still stream updates without a new root.
+                if final:
+                    raise ValueError(
+                        f'Surface "{update["surfaceId"]}" needs createSurface before updates; '
+                        "define root for a new surface or use an existing surface id."
+                    )
+                continue
+            previous_operations[index] = operation
             create = operation.get("createSurface")
             if create is None:
                 result.append(operation)
                 if "deleteSurface" in operation:
                     surface_id = operation["deleteSurface"]["surfaceId"]
-                    self.created.discard(surface_id)
-                    self.components.pop(surface_id, None)
-                    self.data.pop(surface_id, None)
+                    created.discard(surface_id)
+                    components_by_surface.pop(surface_id, None)
+                    data_by_surface.pop(surface_id, None)
                 elif "updateComponents" in operation:
                     surface_id = operation["updateComponents"]["surfaceId"]
-                    self.components.pop(surface_id, None)
+                    components_by_surface.pop(surface_id, None)
                 elif "updateDataModel" in operation:
                     # The write may address any JSON pointer, including a
                     # deletion. Invalidate the cached snapshot rather than
                     # treating its old data as the renderer's current data.
                     surface_id = operation["updateDataModel"]["surfaceId"]
-                    self.data.pop(surface_id, None)
+                    data_by_surface.pop(surface_id, None)
                 continue
             surface_id = create["surfaceId"]
             components = create.get("components", [])
             data = create.get("dataModel", {})
-            if surface_id not in self.created:
+            if surface_id not in created:
                 result.append(operation)
-                self.created.add(surface_id)
+                created.add(surface_id)
             else:
-                previous = self.components.get(surface_id, {})
+                previous = components_by_surface.get(surface_id, {})
                 changed = [
                     node for node in components if previous.get(node["id"]) != node
                 ]
@@ -152,7 +172,7 @@ class _Snapshots:
                             },
                         }
                     )
-                if "dataModel" in create and data != self.data.get(surface_id):
+                if "dataModel" in create and data != data_by_surface.get(surface_id):
                     result.append(
                         {
                             "version": "v1.0",
@@ -163,9 +183,15 @@ class _Snapshots:
                             },
                         }
                     )
-            self.components[surface_id] = {node["id"]: node for node in components}
+            components_by_surface[surface_id] = {
+                node["id"]: node for node in components
+            }
             if "dataModel" in create:
-                self.data[surface_id] = data
+                data_by_surface[surface_id] = data
+        self.created = created
+        self.components = components_by_surface
+        self.data = data_by_surface
+        self.previous_operations = previous_operations
         return result
 
 
