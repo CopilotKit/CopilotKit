@@ -152,9 +152,13 @@ export function ɵrepairToolCallPairs(
  *   two independent slots, including an assistant call the merge duplicated,
  *   so a duplicated call can be left unanswered. Nothing is dropped,
  *   deduplicated, or added, and only tool-role messages ever change position.
- * - Transparent entries are `activity` messages and anything that is not a
- *   plain object (`null`, arrays, primitives). They are never the anchor,
- *   never separate a call from its result, and stay in place.
+ * - Transparent entries are `activity` and `reasoning` messages and anything
+ *   that is not a plain object (`null`, arrays, primitives). They are never
+ *   the anchor, never separate a call from its result, and stay in place.
+ *   Reasoning stored between a call and its result is the next step's: in a
+ *   multi-step turn whose calls share one assistant message, Mastra leaves
+ *   `assistant(c1, c2), tool(c1), reasoning, tool(c2)`. Moving the result in
+ *   front of it leaves the reasoning trailing, and Mastra drops it.
  * - The anchor is the last non-transparent message so far that is not `tool`.
  *   Each tool call an assistant issues opens a slot for its call id, and a
  *   result pairs with slots for its `toolCallId` alone. `subagentRunId` is
@@ -191,9 +195,8 @@ export function ɵrepairToolCallPairs(
  * - A moved result goes behind its issuer, after the tool and transparent
  *   entries already following it; results moved behind one issuer keep their
  *   stored order. Any other message between a call and its result separates
- *   them, so a backward-moved result moves before it (reasoning stored
- *   between the two ends up after the result) and a forward-moved result
- *   moves past it.
+ *   them, so a backward-moved result moves before it and a forward-moved
+ *   result moves past it.
  * - The rule cannot tell a duplicate result from a detached one. A second
  *   result for an already-answered call moves back to an older still-open
  *   slot for its id if there is one, even across user turns; it never moves
@@ -337,15 +340,16 @@ function push<K, T>(map: Map<K, T[]>, key: K, value: T): void {
 }
 
 /**
- * Activity messages and anything that is not a plain object (`null`, arrays,
- * primitives) never anchor or separate.
+ * Activity and reasoning messages and anything that is not a plain object
+ * (`null`, arrays, primitives) never anchor or separate.
  */
 function isTransparent(message: unknown): boolean {
   return (
     typeof message !== "object" ||
     message === null ||
     Array.isArray(message) ||
-    (message as { role?: unknown }).role === "activity"
+    (message as { role?: unknown }).role === "activity" ||
+    (message as { role?: unknown }).role === "reasoning"
   );
 }
 

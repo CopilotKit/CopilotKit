@@ -556,15 +556,42 @@ describe("ɵkeepToolResultsWithCalls", () => {
     expect(ɵkeepToolResultsWithCalls([a, x, t1, t2])).toEqual([a, t2, x, t1]);
   });
 
-  it("moves a result past reasoning stored between it and its call, but not past activity", () => {
+  it("leaves a result behind reasoning or activity stored between it and its call", () => {
     const u = userMsg("u");
     const a = callsMsg("a", "c");
-    const r = reasoningMsg("r");
     const t = toolMsg("t", "c");
-    expect(ɵkeepToolResultsWithCalls([u, a, r, t])).toEqual([u, a, t, r]);
+
+    const viaReasoning = [u, a, reasoningMsg("r"), t];
+    expect(ɵkeepToolResultsWithCalls(viaReasoning)).toBe(viaReasoning);
 
     const viaActivity = [u, a, activityMsg("act"), t];
     expect(ɵkeepToolResultsWithCalls(viaActivity)).toBe(viaActivity);
+  });
+
+  it("keeps a multi-step turn's later reasoning ahead of the frontend result appended after it", () => {
+    // Mastra merges both steps' calls into one assistant message and stores
+    // step 2's reasoning after step 1's result; CopilotKit appends the
+    // frontend tool's result at the end. Moving that result in front of the
+    // reasoning leaves it trailing, and Mastra drops it on the next run.
+    const thread = [
+      userMsg("u"),
+      reasoningMsg("r1"),
+      callsMsg("a", "c-lookup", "c-chart"),
+      toolMsg("t-lookup", "c-lookup"),
+      reasoningMsg("r2"),
+      toolMsg("t-chart", "c-chart"),
+    ];
+
+    expect(ɵkeepToolResultsWithCalls(thread)).toBe(thread);
+  });
+
+  it("still moves a detached result back past text, and leaves reasoning where it is", () => {
+    const a = callsMsg("a", "c");
+    const r = reasoningMsg("r");
+    const x = textMsg("x");
+    const t = toolMsg("t", "c");
+
+    expect(ɵkeepToolResultsWithCalls([a, r, x, t])).toEqual([a, r, t, x]);
   });
 
   it("places a moved result after the results already following its call", () => {
@@ -667,7 +694,8 @@ describe("ɵkeepToolResultsWithCalls", () => {
     const isBoundary = (message: Message) =>
       isEntry(message) &&
       roleOf(message) !== "tool" &&
-      roleOf(message) !== "activity";
+      roleOf(message) !== "activity" &&
+      roleOf(message) !== "reasoning";
     const counts = (messages: Message[]) => {
       const tally = new Map<Message, number>();
       for (const m of messages) tally.set(m, (tally.get(m) ?? 0) + 1);
@@ -821,7 +849,9 @@ describe("ɵkeepToolResultsWithCalls", () => {
           // issuer and the result is tool, activity, or a transparent entry.
           for (let between = anchor + 1; between < index; between++) {
             if (!isEntry(out[between]!)) continue;
-            expect(["tool", "activity"]).toContain(roleOf(out[between]!));
+            expect(["tool", "activity", "reasoning"]).toContain(
+              roleOf(out[between]!),
+            );
           }
           expect(callsFor(out[anchor]!, m)).toBeGreaterThan(0);
         });
