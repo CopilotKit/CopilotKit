@@ -102,8 +102,10 @@ const graphql = async (query, variables) => {
     redirect: "error",
     signal: AbortSignal.timeout(30000),
   });
+  if (response.status !== 200) receipt.providerHttpStatus = response.status;
   assert.equal(response.status, 200, "Provider request failed");
   const value = await response.json();
+  if (!value?.data || value.errors) receipt.providerGraphqlRefused = true;
   assert.ok(value.data && !value.errors, "Provider request refused");
   return value.data;
 };
@@ -136,6 +138,7 @@ try {
   await verifyRegistryImage(intent.candidate.image, {
     token: env.GITHUB_TOKEN,
   });
+  await save("verify-trusted-baseline");
   const trustedBaseline = await readBaselineReceipt(39555213358, github);
   assert.deepEqual(trustedBaseline, intent.baseline);
   const baselineRun = await github.run(39555213358, 1);
@@ -147,6 +150,7 @@ try {
   assert.equal(prior.finalState.templateSha256, intent.baselineTemplateSha256);
   assert.deepEqual(REMOVAL_HANDOFF_BASELINE, intent.removalBaseline);
   const railway = createRailway({ token: env.RAILWAY_TOKEN, deadline });
+  await save("verify-staging-template");
   const vars = (
     await graphql(
       "query($p:String!,$e:String!,$s:String!){variables(projectId:$p,environmentId:$e,serviceId:$s)}",
@@ -164,6 +168,7 @@ try {
   assert.equal(workers.length, 1);
   workers[0].image = intent.inspector;
   assert.equal(hash(target), intent.targetTemplateSha256);
+  await save("verify-provider-instance");
   const provider = await railway.inspect();
   assert.deepEqual(provider.active, {
     id: intent.removalBaseline.deploymentId,
@@ -172,6 +177,7 @@ try {
   });
   assert.deepEqual(provider.latest, provider.active);
   assert.equal(provider.configuredImage, intent.baseline.image);
+  await save("verify-idle-runner");
   let old = await runner.get();
   while (old.busy && Date.now() < deadline) {
     await sleep(1000);
@@ -188,6 +194,7 @@ try {
   assert.equal(old.recovery.status, "watching");
   assert.equal(binding(old.recovery), intent.recoveryBindingSha256);
   assert.deepEqual(watchIds(old.recovery), intent.watches);
+  await save("verify-complete-inventory");
   const inventory = await railway.handoffInventory();
   assert.equal(
     inventory.filter(
