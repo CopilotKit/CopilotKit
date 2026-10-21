@@ -21,6 +21,8 @@ Connect your existing app to Intelligence and add AG-UI streams around your curr
 - [Import LangGraph threads](/langgraph-python/threads-import) from LangGraph Server / LangSmith deployments or Python FastAPI apps with durable persistence.
 - [Import Google ADK sessions](/google-adk/threads-import) from supported ADK database session stores or Vertex/Agent Engine session history.
 - Import AWS Strands conversations for [Python](/strands/threads-import) or [TypeScript](/strands-typescript/threads-import) from local session files or S3, plus native AgentCore Memory sessions for Python.
+- Import Claude Agent SDK conversations for [Python](/claude-sdk-python/threads-import) or [TypeScript](/claude-sdk-typescript/threads-import) from saved native transcripts or SessionStore exports.
+- [Import Claude Managed Agents sessions](/cookbook/claude-managed-agents-import) from Anthropic’s saved session history.
 
 Import copies history; it does not establish ongoing database replication. Future CopilotKit-mediated runs persist to Intelligence and continue through native persistence when your agent remains connected to its durable framework storage. Keep that native persistence in place.
 
