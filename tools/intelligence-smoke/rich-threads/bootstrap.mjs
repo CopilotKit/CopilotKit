@@ -17,6 +17,24 @@ import {
   reportCleanupVerified,
 } from "./cleanup-verdict.mjs";
 
+/** Resolve the production drivers from the pinned standalone dependency bundle. */
+export async function loadDriverDependencies(dependenciesDirectory) {
+  const require = createRequire(
+    join(
+      resolve(
+        dependenciesDirectory ??
+          fileURLToPath(new URL("./dependencies", import.meta.url)),
+      ),
+      "package.json",
+    ),
+  );
+  const load = (name) => import(pathToFileURL(require.resolve(name)));
+  const { chromium } = require("playwright");
+  const { AbstractAgent } = await load("@ag-ui/client");
+  const { from } = await load("rxjs");
+  return { chromium, AbstractAgent, from };
+}
+
 /** One environment for all selected frameworks; rows and frameworks serialize. */
 export async function runConfiguredSuite({
   config,
@@ -50,19 +68,9 @@ export async function runConfiguredSuite({
     report.preflight = prepared.checks;
     if (!prepared.ready) return report;
     const { rows, factories } = prepared;
-    const require = createRequire(
-      join(
-        resolve(
-          config.dependenciesDirectory ??
-            fileURLToPath(new URL("./dependencies", import.meta.url)),
-        ),
-        "package.json",
-      ),
+    const { chromium, AbstractAgent, from } = await loadDriverDependencies(
+      config.dependenciesDirectory,
     );
-    const load = (name) => import(pathToFileURL(require.resolve(name)));
-    const { chromium } = await load("playwright");
-    const { AbstractAgent } = await load("@ag-ui/client");
-    const { from } = await load("rxjs");
     const { createEnvironment } = await import("./lifecycle/environment.mjs");
     environment = await createEnvironment({
       config,

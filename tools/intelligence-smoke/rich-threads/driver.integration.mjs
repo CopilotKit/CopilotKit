@@ -10,13 +10,14 @@ import { createBrowser } from "./browser/session.mjs";
 import { runtimeSocket } from "./capture/socket.mjs";
 import { Socket as EsmSocket } from "./dependencies/node_modules/phoenix/priv/static/phoenix.mjs";
 import { captureFramework, readCapture } from "./capture/runtime-agent.mjs";
+import { loadDriverDependencies } from "./bootstrap.mjs";
 
 const require = createRequire(
   new URL("./dependencies/package.json", import.meta.url),
 );
-const { AbstractAgent, HttpAgent } = require("@ag-ui/client");
-const { from, tap } = require("rxjs");
-const { chromium } = require("playwright");
+const { HttpAgent } = require("@ag-ui/client");
+const { tap } = require("rxjs");
+const { chromium, AbstractAgent, from } = await loadDriverDependencies();
 
 test("ingestion hook selects the runtime's ESM Socket, never the separate CJS class", async () => {
   const Socket = await runtimeSocket(
@@ -134,9 +135,9 @@ test("real browser awaits native absence hook before POST and retains its screen
     );
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  let browser;
-  const instance = await chromium.launch({ headless: true });
+  let browser, instance;
   try {
+    instance = await chromium.launch({ headless: true });
     browser = await createBrowser({
       chromium,
       instance,
@@ -172,7 +173,7 @@ test("real browser awaits native absence hook before POST and retains its screen
     );
   } finally {
     await browser?.close();
-    await instance.close();
+    await instance?.close();
     await new Promise((resolve) => server.close(resolve));
     await rm(outputDir, { recursive: true });
   }
