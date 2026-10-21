@@ -61,14 +61,14 @@ function warnNoMessageId(platform: string): void {
   );
 }
 
-async function defaultRenderImage(
-  node: unknown,
-  cfg: ResolvedRenderConfig,
-): Promise<Uint8Array> {
-  // The render module loads the optional peers itself, at call time, and
-  // reports them by name when they are not installed.
-  const { renderJsxToPng } = await import("./render/takumi.js");
-  return renderJsxToPng(node, cfg);
+// Image rendering is opt-in. Nothing here imports the Takumi renderer: app
+// bundlers follow every literal import, so a default import would put Takumi's
+// native binary (or an unresolvable optional peer) into every app that loads
+// the runtime. Apps that post images pass `render.renderer` instead.
+async function missingRenderer(): Promise<Uint8Array> {
+  throw new Error(
+    "Posting JSX as an image needs a renderer. Install `react` and `takumi-js`, then pass `render: { renderer: takumiRenderer }` to createChannel, with `takumiRenderer` from `@copilotkit/channels/takumi`.",
+  );
 }
 
 /**
@@ -187,8 +187,7 @@ export interface ThreadDeps {
   /** Channel-wide image-render config (fonts + compiled CSS), from createChannel({ render }). */
   render?: RenderConfig;
   /**
-   * Test seam: override the image renderer. Defaults to a lazy import of the
-   * Takumi render module, so `takumi-js` loads only when an image is posted.
+   * Test seam: override the image renderer. Defaults to `render.renderer`.
    */
   renderImage?: (
     node: unknown,
@@ -257,7 +256,7 @@ export class Thread implements ThreadInterface {
     }
     const g = this.deps.render ?? {};
     return resolveRenders(roots, {
-      renderJsxToPng: this.deps.renderImage ?? defaultRenderImage,
+      renderJsxToPng: this.deps.renderImage ?? g.renderer ?? missingRenderer,
       stageFile: (args) =>
         this.deps.adapter.stageFile!(this.deps.replyTarget, args),
       defaultWidth: g.width ?? 720,
@@ -328,8 +327,8 @@ export class Thread implements ThreadInterface {
   }
 
   /**
-   * Render a resolved React element to a PNG via the configured (or default
-   * lazy Takumi) renderer, then upload it through `postFile`.
+   * Render a resolved React element to a PNG via the configured renderer,
+   * then upload it through `postFile`.
    */
   private async postImage(
     node: unknown,
@@ -358,7 +357,7 @@ export class Thread implements ThreadInterface {
       // would reach for.
       allowImageUrl: g.allowImageUrl ?? defaultAllowImageUrl,
     };
-    const renderFn = this.deps.renderImage ?? defaultRenderImage;
+    const renderFn = this.deps.renderImage ?? g.renderer ?? missingRenderer;
     const bytes = await renderFn(node, cfg);
     // post() already tracks this operation; calling postFile() would track it twice.
     const res = await this.deps.adapter.postFile(this.deps.replyTarget, {

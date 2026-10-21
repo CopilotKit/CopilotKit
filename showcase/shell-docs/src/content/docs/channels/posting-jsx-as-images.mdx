@@ -8,35 +8,28 @@ Managed Slack and Teams can post static JSX cards as PNGs with `thread.post(<Mrr
 
 Existing apps do not need to migrate. Native messages, actions, and `<Chart>` keep their existing APIs. Rendering runs only when you post host JSX or use the new `<Render>` component. Start with the [managed Slack or Teams setup](/channels), then use the examples below in a thread handler.
 
-Image rendering is opt-in at install time too. React and Takumi, the rasterizer, are optional peer dependencies, so apps that only post native messages don't download them. The renderer loads only when an image is requested; existing native messages do not rasterize anything.
+Image rendering is opt-in. React and Takumi, the rasterizer, are optional peer dependencies, and only the `@copilotkit/channels/takumi` entry point imports them. Apps that only post native messages do not install them, and their bundles never include Takumi.
 
-<Callout type="warn" title="Install react and takumi-js first">
+<Callout type="warn" title="Install react and takumi-js, then pass the renderer">
   The image path renders through React and [Takumi](https://github.com/takumi-rs/takumi). Both are **optional peer dependencies** of `@copilotkit/channels`, so they are not pulled in automatically. Add them before posting images:
 
   ```bash
   pnpm add react takumi-js
   ```
 
-  Without them, posting JSX as an image throws an error that names both packages.
+  Then pass `takumiRenderer` from `@copilotkit/channels/takumi` as `render.renderer` (see the setup step below). Without a renderer, posting JSX as an image throws an error that names this setting.
 </Callout>
 
-<Callout type="warn" title="Ship them with your server">
-  The renderer loads `react` and `takumi-js` only when an image is posted, so bundlers and output file tracing do not see them. A traced deployment, such as Next.js with `output: "standalone"` or Vercel, can leave them out even though they are installed, and posting an image then fails with the same error. In Next.js, include them for the routes that render images:
+<Callout type="info" title="Next.js: keep Takumi's native binary out of the bundle">
+  Takumi's native backend, `@takumi-rs/core`, contains a `.node` addon that Next.js cannot bundle. Add it to `serverExternalPackages`:
 
   ```ts title="next.config.ts"
   const nextConfig = {
-    outputFileTracingIncludes: {
-      // Routes that render images, for example your channel route.
-      "/api/**": [
-        "./node_modules/takumi-js/**",
-        "./node_modules/@takumi-rs/**",
-        "./node_modules/react/**",
-      ],
-    },
+    serverExternalPackages: ["@takumi-rs/core"],
   };
   ```
 
-  Other bundled or traced deploy targets need the same: ship `takumi-js` and its platform package (`@takumi-rs/core-<platform>`) with the server.
+  If you use pnpm, or the build or the deployment reports a missing native binding, see the Takumi [Next.js guide](https://takumi.kane.tw/docs/integration/nextjs) and [troubleshooting page](https://takumi.kane.tw/docs/troubleshooting).
 </Callout>
 
 <Steps>
@@ -75,18 +68,20 @@ Image rendering is opt-in at install time too. React and Takumi, the rasterizer,
     </Callout>
   </Step>
   <Step>
-    ### Configure fonts and styling once
+    ### Configure the renderer, fonts, and styling once
 
-    Takumi is a static, browser-free rasterizer with no system fonts, only a built-in Latin (Geist) fallback. Register your fonts and compiled CSS once on `createChannel({ render })`, and every image post picks them up:
+    Takumi is a static, browser-free rasterizer with no system fonts, only a built-in Latin (Geist) fallback. Register the renderer, your fonts, and your compiled CSS once on `createChannel({ render })`, and every image post picks them up:
 
     ```ts title="bot.ts"
     import { createChannel } from "@copilotkit/channels";
+    import { takumiRenderer } from "@copilotkit/channels/takumi";
     import { readFileSync } from "node:fs";
 
     const bot = createChannel({
       name: "support", // managed channel configured in Intelligence
       agent: (threadId) => /* ... */,
       render: {
+        renderer: takumiRenderer, // required to post images
         fonts: [
           { name: "Inter", data: readFileSync("./fonts/Inter-Regular.woff2"), weight: 400 },
           { name: "Inter", data: readFileSync("./fonts/Inter-SemiBold.woff2"), weight: 600 },
