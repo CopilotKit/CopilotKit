@@ -936,7 +936,14 @@ export function CopilotChat({
       // for an active run, and mention edits during that wait belong to the
       // next message rather than this accepted submission.
       const capturedMentions = consumeMentions();
+      const capturedSelection = previousThreadRef.current;
       const restoreCapturedSubmission = () => {
+        if (
+          !capturedSelection?.active ||
+          previousThreadRef.current !== capturedSelection
+        ) {
+          return;
+        }
         setInputValue(value);
         capturedMentions.forEach(selectMention);
       };
