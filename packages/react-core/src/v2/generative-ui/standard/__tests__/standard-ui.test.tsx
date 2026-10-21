@@ -48,7 +48,7 @@ describe("standardUI", () => {
     ].flatMap((group) => Object.keys(group));
     // A name in two groups would collapse into one entry here.
     expect([...standardUI.components.keys()]).toEqual(groupNames);
-    expect(standardUI.components.size).toBe(70);
+    expect(standardUI.components.size).toBe(69);
     for (const [name, manifest] of Object.entries(
       standardUI.manifestComponents,
     )) {

@@ -4,11 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createGenerativeUI } from "../../catalog";
-import {
-  CELEBRATION_MS,
-  FEEDBACK_STYLE_ID,
-  feedbackComponents,
-} from "../feedback";
+import { FEEDBACK_STYLE_ID, feedbackComponents } from "../feedback";
 import { SURFACE_ID, renderSurface } from "./render";
 import { standardUI } from "../index";
 
@@ -52,11 +48,6 @@ async function renderPopover(popover: PopoverOpen = {}) {
   return { view, trigger };
 }
 
-const celebrationNodes = (trigger: string) => [
-  { id: "root", component: "Celebration", trigger, children: ["t"] },
-  { id: "t", component: "Label", text: "Yay" },
-];
-
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -66,7 +57,6 @@ describe("feedbackComponents", () => {
     const names = Object.keys(feedbackComponents);
     expect(names).toEqual([
       "PulseIndicator",
-      "Celebration",
       "FlashcardFlip",
       "Popover",
       "PopoverTrigger",
@@ -76,12 +66,7 @@ describe("feedbackComponents", () => {
     for (const name of names) {
       expect(ui.manifestComponents[name].description).toMatch(/\S/);
     }
-    for (const name of [
-      "Celebration",
-      "Popover",
-      "PopoverTrigger",
-      "PopoverContent",
-    ]) {
+    for (const name of ["Popover", "PopoverTrigger", "PopoverContent"]) {
       expect(ui.manifestComponents[name].slots).toEqual({
         children: "multiple",
       });
@@ -284,11 +269,9 @@ describe("standard feedback", () => {
       {
         id: "root",
         component: "Group",
-        children: ["p", "c", "f", "o"],
+        children: ["p", "f", "o"],
       },
       { id: "p", component: "PulseIndicator" },
-      { id: "c", component: "Celebration", trigger: "done", children: ["t"] },
-      { id: "t", component: "Label", text: "Yay" },
       { id: "f", component: "FlashcardFlip", front: "Q", back: "A" },
       { id: "o", component: "Popover", children: ["pt", "pc"] },
       { id: "pt", component: "PopoverTrigger", children: ["tt"] },
@@ -296,8 +279,7 @@ describe("standard feedback", () => {
       { id: "pc", component: "PopoverContent", children: ["cc"] },
       { id: "cc", component: "Label", text: "Hidden content" },
     ]);
-    expect(await view.findByText("Yay")).toBeTruthy();
-    expect(view.getByText("Q")).toBeTruthy();
+    expect(await view.findByText("Q")).toBeTruthy();
     expect(view.queryByText("Hidden content")).toBeNull();
     fireEvent.click(view.getByText("Open"));
     expect(await view.findByText("Hidden content")).toBeTruthy();
@@ -321,31 +303,9 @@ describe("standard feedback", () => {
     expect(pulse.querySelector("[data-a2ui-pulse]")).not.toBeNull();
     const css = document.getElementById(FEEDBACK_STYLE_ID)?.textContent;
     expect(css).toContain(
-      "@media (prefers-reduced-motion: reduce){[data-a2ui-pulse]{animation-name:a2ui-pulse-fade !important}[data-a2ui-celebration]{display:none}}",
+      "@media (prefers-reduced-motion: reduce){[data-a2ui-pulse]{animation-name:a2ui-pulse-fade !important}}",
     );
     expect(css).toContain("@keyframes a2ui-pulse-fade{0%{opacity:");
-  });
-});
-
-describe("Celebration", () => {
-  const confetti = (view: ReturnType<typeof renderSurface>) =>
-    view.container.querySelector("[data-a2ui-celebration]");
-
-  it("plays the confetti on mount, removes it after the burst, and plays it again for a new trigger", () => {
-    vi.useFakeTimers();
-    const view = renderSurface(ui, celebrationNodes("done"));
-    expect(view.getByText("Yay")).toBeTruthy();
-    expect(confetti(view)?.getAttribute("aria-hidden")).toBe("true");
-    act(() => vi.advanceTimersByTime(CELEBRATION_MS));
-    expect(confetti(view)).toBeNull();
-    view.update({
-      version: "v1.0",
-      updateComponents: {
-        surfaceId: SURFACE_ID,
-        components: celebrationNodes("again"),
-      },
-    });
-    expect(confetti(view)).not.toBeNull();
   });
 });
 

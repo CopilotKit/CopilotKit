@@ -499,17 +499,6 @@
       "color": "info"
     },
     {
-      "id": "celeb",
-      "component": "Celebration",
-      "trigger": "done",
-      "children": ["celeb-t"]
-    },
-    {
-      "id": "celeb-t",
-      "component": "Text",
-      "text": "Celebrate"
-    },
-    {
       "id": "flash",
       "component": "FlashcardFlip",
       "front": "Front side",
@@ -567,7 +556,6 @@
       "children": [
         "s-feedback-title",
         "pulse",
-        "celeb",
         "flash",
         "pop",
         "modal"
