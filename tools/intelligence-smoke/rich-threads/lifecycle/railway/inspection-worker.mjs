@@ -117,7 +117,16 @@ export function createInspectionOperations({
               )
             ).rows.map((row) => row.audit)
           : undefined;
-        return { counts, ...(bootstrapAudit ? { bootstrapAudit } : {}) };
+        const bootstrapSchedules = (
+          await client.query(
+            "SELECT 'cpki.learning_schedules' AS name, to_jsonb(s) - 'revision' - 'next_run_at' - 'updated_at' AS row FROM cpki.learning_schedules s UNION ALL SELECT 'cpki.learning_project_schedules' AS name, to_jsonb(s) - 'revision' - 'next_run_at' - 'updated_at' AS row FROM cpki.learning_project_schedules s",
+          )
+        ).rows;
+        return {
+          counts,
+          bootstrapSchedules,
+          ...(bootstrapAudit ? { bootstrapAudit } : {}),
+        };
       } finally {
         try {
           await client.query("ROLLBACK");

@@ -67,9 +67,20 @@ test("private native helper scans actual WAL and opaque files, rejects arbitrary
 
 test("worker reads whole database in one read-only snapshot and binds thread scopes", async () => {
   const calls = [];
+  const schedules = [
+    {
+      name: "cpki.learning_schedules",
+      row: {
+        organization_id: "org_owned",
+        local_time: "02:00",
+        time_zone: "Etc/UTC",
+      },
+    },
+  ];
   const client = {
     query: async (sql, args) => {
       calls.push({ sql, args });
+      if (sql.includes("UNION ALL")) return { rows: schedules };
       if (sql.includes("pg_catalog"))
         return {
           rows: [
@@ -101,6 +112,15 @@ test("worker reads whole database in one read-only snapshot and binds thread sco
     ready: true,
   });
   const snapshot = await execute("database-snapshot", {});
+  assert.deepEqual(snapshot.bootstrapSchedules, schedules);
+  const scheduleQuery = calls.findIndex((c) => c.sql.includes("UNION ALL"));
+  assert.ok(scheduleQuery > calls.findIndex((c) => c.sql.startsWith("BEGIN")));
+  assert.ok(scheduleQuery < calls.findIndex((c) => c.sql === "ROLLBACK"));
+  assert.match(
+    calls[scheduleQuery].sql,
+    /FROM cpki\.learning_schedules s UNION ALL.*FROM cpki\.learning_project_schedules s/,
+  );
+  assert.doesNotMatch(calls[scheduleQuery].sql, /WHERE|LIMIT/i);
   assert.deepEqual(snapshot.counts, [
     { name: "cpki.threads", count: 0 },
     { name: "public.old_data", count: 3 },

@@ -71,7 +71,10 @@ export async function observeVolumeRetirement({
   );
   const instances = volume.volumeInstances.edges.map((e) => e.node);
   assert.ok(
-    instances.length > 0,
+    instances.length > 0 ||
+      (references.length === 0 &&
+        receipt.outcome === "acknowledged" &&
+        receipt.response === true),
     "Retained volume has no pending-deletion evidence",
   );
   for (const instance of [...instances, ...references]) {

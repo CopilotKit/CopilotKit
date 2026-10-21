@@ -1,5 +1,44 @@
 import assert from "node:assert/strict";
 
+// Organization/project INSERT triggers create these configuration defaults.
+// Inspect their contents; Learning runs, receipts and other data stay zero-only.
+export function inspectBootstrapSchedules(rows, identity) {
+  const expected = [
+    {
+      name: "cpki.learning_schedules",
+      row: {
+        organization_id: identity.organizationId,
+        local_time: "02:00",
+        time_zone: "Etc/UTC",
+      },
+    },
+    {
+      name: "cpki.learning_project_schedules",
+      row: {
+        organization_id: identity.organizationId,
+        project_id: Number(identity.projectId),
+        local_time: null,
+        time_zone: null,
+      },
+    },
+  ];
+  try {
+    assert.deepEqual(
+      [...rows].sort((a, b) => a.name.localeCompare(b.name)),
+      expected.sort((a, b) => a.name.localeCompare(b.name)),
+    );
+    return {
+      status: "passed",
+      method: "exact-canonical-bootstrap-schedule-content",
+    };
+  } catch {
+    return {
+      status: "failed",
+      method: "exact-canonical-bootstrap-schedule-content",
+    };
+  }
+}
+
 export function bootstrapInput(config) {
   const database = config.services.find(
     (s) => s.key === config.bootstrap.serviceKey,

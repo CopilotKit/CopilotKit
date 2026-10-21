@@ -47,6 +47,62 @@ test("unknown receipt reconciles only with independent pending and detachment ev
     "pending-detached",
   );
 });
+
+test("acknowledged deletion with no references retains the unattached volume record for up to 48 hours", async () => {
+  const f = fixture();
+  f.volume.volumeInstances.edges = [];
+  f.env.volumeInstances = [];
+  f.args.receipt.outcome = "acknowledged";
+  f.args.receipt.response = true;
+  const result = await observeVolumeRetirement(f.args);
+  assert.equal(result.state, "pending-detached");
+  assert.equal(result.inventoryComplete, true);
+  assert.deepEqual(result.instances, []);
+  assert.deepEqual(result.environmentReferences, []);
+  assert.deepEqual(result.inspectedEnvironmentIds, ["e"]);
+});
+
+for (const [name, alter] of [
+  [
+    "unknown deletion",
+    (f) => {
+      f.args.receipt.outcome = "unknown";
+    },
+  ],
+  [
+    "missing acknowledgement",
+    (f) => {
+      delete f.args.receipt.response;
+    },
+  ],
+  [
+    "unsent deletion",
+    (f) => {
+      f.args.receipt.requestSent = false;
+    },
+  ],
+  [
+    "incomplete references",
+    (f) => {
+      f.volume.volumeInstances.pageInfo.hasNextPage = true;
+    },
+  ],
+  [
+    "remaining environment reference",
+    (f) => {
+      f.env.volumeInstances = [f.instance];
+    },
+  ],
+])
+  test(`unattached retained volume rejects ${name}`, async () => {
+    const f = fixture();
+    f.volume.volumeInstances.edges = [];
+    f.env.volumeInstances = [];
+    f.args.receipt.outcome = "acknowledged";
+    f.args.receipt.response = true;
+    alter(f);
+    await assert.rejects(observeVolumeRetirement(f.args));
+  });
 for (const [name, alter] of [
   ["unsent intent", (f) => (f.args.receipt.requestSent = false)],
   ["still attached", (f) => (f.instance.serviceId = "service")],

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { evaluateDatabaseTables, inspectRedis } from "../clean-scope.mjs";
-import { inspectBootstrapAudit } from "./bootstrap-audit.mjs";
+import {
+  inspectBootstrapAudit,
+  inspectBootstrapSchedules,
+} from "./bootstrap-audit.mjs";
 import { requestInspection } from "./inspection-channel.mjs";
 
 /** Only controller-created fixed operations enter the private worker channel. */
@@ -125,6 +128,8 @@ export async function inspectRemoteStores({
     : [];
   let counts = snapshot.counts;
   let bootstrapAudit;
+  let bootstrapSchedules;
+  let scheduleCounts = [];
   if (journal.bootstrap) {
     assert.equal(audits.length, 1, "Bootstrap audit inspection required");
     assert.ok(
@@ -144,6 +149,29 @@ export async function inspectRemoteStores({
       "Audit/count snapshot mismatch",
     );
     counts = counts.filter((row) => row.name !== "cpki.product_audit_events");
+    const names = [
+      "cpki.learning_schedules",
+      "cpki.learning_project_schedules",
+    ];
+    for (const name of names)
+      assert.ok(
+        !config.bootstrapTables?.[name],
+        "Schedules cannot be count-exempted",
+      );
+    bootstrapSchedules = inspectBootstrapSchedules(
+      snapshot.bootstrapSchedules,
+      journal.bootstrap,
+    );
+    scheduleCounts = names.map((name) => {
+      const matches = counts.filter((row) => row.name === name);
+      assert.equal(
+        matches.length,
+        1,
+        "Schedule/count snapshot missing or ambiguous",
+      );
+      return { ...matches[0], expected: 1 };
+    });
+    counts = counts.filter((row) => !names.includes(row.name));
   }
   const database = evaluateDatabaseTables(counts, config.bootstrapTables);
   if (bootstrapAudit) {
@@ -154,6 +182,13 @@ export async function inspectRemoteStores({
       expected: 2,
     });
     if (bootstrapAudit.status !== "passed") database.status = "failed";
+    database.bootstrapSchedules = bootstrapSchedules;
+    database.tables.push(...scheduleCounts);
+    if (
+      bootstrapSchedules.status !== "passed" ||
+      scheduleCounts.some((row) => row.count !== 1)
+    )
+      database.status = "failed";
   }
   const cacheSnapshot = await execute({
     journal,
