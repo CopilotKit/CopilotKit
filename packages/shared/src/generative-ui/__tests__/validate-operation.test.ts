@@ -126,6 +126,24 @@ describe("validateOperation: createSurface", () => {
     );
   });
 
+  it("accepts every listed catalog, and names them all when it rejects one", () => {
+    const options = {
+      manifest: { ...manifest, catalogIds: ["shop", "copilotkit/standard@1"] },
+      knownSurfaces: new Set<string>(),
+    };
+    const check = (catalogId: string) =>
+      validateOperation(
+        { version: "v1.0", createSurface: { surfaceId: "s2", catalogId } },
+        options,
+      );
+    expect(check("copilotkit/standard@1")).toEqual({ ok: true });
+    expect(check("other")).toEqual({
+      ok: false,
+      reason:
+        'unknown catalog "other"; leave out catalogId or use one of: "shop", "copilotkit/standard@1"',
+    });
+  });
+
   it("rejects a createSurface without a surfaceId", () => {
     expect(
       reasonOf({ version: "v1.0", createSurface: { catalogId: "shop" } }),

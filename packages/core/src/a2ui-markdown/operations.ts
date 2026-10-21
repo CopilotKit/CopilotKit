@@ -748,7 +748,7 @@ export function extractFenceOperations(fenceText: string) {
 /**
  * Normalise a fence's operations for the renderer: drop unknown messages, fill
  * in `version` and missing `surfaceId`s, keep only the first `createSurface`,
- * force its `catalogId` to the client's `catalogId`, synthesize
+ * keep its `catalogId` when `catalogIds` lists it (else use `catalogId`), synthesize
  * `createSurface` when the model omitted it, and report the
  * surfaceId (the first one found, else `fallbackSurfaceId`).
  *
@@ -759,8 +759,10 @@ export function extractFenceOperations(fenceText: string) {
  * @param input.operations - Operations from `extractFenceOperations`.
  * @param input.fallbackSurfaceId - The surfaceId to use when no operation
  * names one.
- * @param input.catalogId - The client catalog. It replaces any catalogId the
- * model wrote.
+ * @param input.catalogId - The client catalog. It replaces a catalogId of the
+ * model that `catalogIds` does not list.
+ * @param input.catalogIds - The catalogs that the model can name. Left out,
+ * only `catalogId`.
  * @returns `{ surfaceId, operations, functionCalls }`.
  *
  * @example
@@ -776,8 +778,10 @@ export function prepareSurfaceOperations(input: {
   operations: A2UIMarkdownOperation[];
   fallbackSurfaceId: string;
   catalogId: string;
+  catalogIds?: readonly string[];
 }) {
   const { operations, fallbackSurfaceId, catalogId } = input;
+  const catalogIds = input.catalogIds ?? [catalogId];
   const surfaceId =
     operations
       .map(getMarkdownOperationSurfaceId)
@@ -802,8 +806,11 @@ export function prepareSurfaceOperations(input: {
       // fence for the same surface) would throw "Surface already exists".
       if (hasCreate) continue;
       hasCreate = true;
-      // The catalog is client-owned: whatever the model wrote is replaced.
-      inner.catalogId = catalogId;
+      // The catalog is client-owned: a catalog that the client does not
+      // list is replaced.
+      if (!catalogIds.includes(inner.catalogId as string)) {
+        inner.catalogId = catalogId;
+      }
     }
     out.push({ version, [key]: inner });
   }

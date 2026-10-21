@@ -453,6 +453,34 @@ describe("buildMarkdownSurfaces", () => {
     },
   );
 
+  it("keeps the catalog id of a base catalog, on the operation and on the surface", () => {
+    const shop = createGenerativeUI({
+      id: "shop",
+      extends: [ui],
+      components: { Badge: { component: Noop } },
+    });
+    const message = assistant(
+      "m1",
+      fence([
+        {
+          version: "v1.0",
+          createSurface: { surfaceId: "s1", catalogId: "app" },
+        },
+        components("s1", button("root", "Buy")),
+      ]),
+    );
+
+    const [surface] = buildMarkdownSurfaces([message], {
+      ui: shop,
+      functions: {},
+      running: false,
+    }).surfaces;
+
+    expect(surface.rejected).toEqual([]);
+    expect(surface.catalogId).toBe("app");
+    expect(surface.operations[0]).toEqual(create("s1"));
+  });
+
   it("leaves out an invalid operation and lists it in rejected", () => {
     const message = assistant(
       "m1",

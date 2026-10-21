@@ -26,6 +26,7 @@ import type {
   GenerativeUISurfaceContent,
   ValidateOperationOptions,
 } from "@copilotkit/shared";
+import { catalogIdsOf } from "../catalog";
 import type { GenerativeUI } from "../catalog";
 import { toJsonSchema } from "../json-schema";
 import type { GenerativeUISurfaceManager } from "../surface-manager";
@@ -357,7 +358,11 @@ function surfaceContent(
 ) {
   const { ui, functions } = options;
   const knownSurfaces = new Set<string>();
-  const manifest = { catalogId: ui.id, components: ui.manifestComponents };
+  const manifest = {
+    catalogId: ui.id,
+    catalogIds: catalogIdsOf(ui),
+    components: ui.manifestComponents,
+  };
   const valid: A2UIOperation[] = [];
   const rejected: GenerativeUIRejectedOperation[] = [];
   operations.forEach((op, index) => {
@@ -371,10 +376,14 @@ function surfaceContent(
     if (kind === "createSurface") knownSurfaces.add(surfaceId);
     if (kind === "deleteSurface") knownSurfaces.delete(surfaceId);
   });
+  const create = valid.find(
+    (op): op is Extract<A2UIOperation, { createSurface: unknown }> =>
+      "createSurface" in op,
+  );
   const content: GenerativeUISurfaceContent = {
     surfaceId,
     target: draft.target,
-    catalogId: ui.id,
+    catalogId: create?.createSurface.catalogId ?? ui.id,
     operations: valid,
     status: draft.streaming ? "streaming" : "ready",
     rejected,
@@ -528,6 +537,7 @@ export function buildMarkdownSurfaces(
       operations: draft.operations,
       fallbackSurfaceId: draft.surfaceId,
       catalogId: ui.id,
+      catalogIds: catalogIdsOf(ui),
     });
     const operations = splitComponentUpdates(
       expandInlineCreate(createSurfaceFirst(prepared.operations)),

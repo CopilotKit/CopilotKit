@@ -29,7 +29,10 @@ export const COPILOTKIT_UI_ENVELOPE_FORMAT = 3;
 export interface CopilotKitUIEnvelope {
   /** The A2UI v1.0 renderer capabilities. */
   "v1.0": {
-    /** The catalog that the client renders comes first. */
+    /**
+     * The catalog that the client renders comes first, then the catalogs of
+     * its `extends`. An operation can name any of them.
+     */
     supportedCatalogIds: string[];
     inlineCatalogs?: Array<{
       catalogId: string;
@@ -241,8 +244,9 @@ export function readCopilotKitUIEnvelope(forwardedProps: unknown) {
 /**
  * Turns an envelope into the manifest that the runtime and the prompts use.
  *
- * The catalog is the first of `supportedCatalogIds`. Its components,
- * functions, and instructions come from the inline catalog with that id.
+ * The catalog is the first of `supportedCatalogIds`, and `catalogIds` lists
+ * all of them. The components, functions, and instructions come from the
+ * inline catalog of the first id.
  * With no such inline catalog, there are no components and no functions.
  *
  * The result also has:
@@ -273,6 +277,7 @@ export function envelopeToManifest(envelope: CopilotKitUIEnvelope) {
   const extensions = envelope.metadata.extensions;
   const manifest: GenerativeUIManifest = {
     catalogId,
+    catalogIds: supportedCatalogIds,
     components: catalog?.components ?? {},
     functions: catalog?.functions ?? {},
     targets: extensions.copilotkit_targets,

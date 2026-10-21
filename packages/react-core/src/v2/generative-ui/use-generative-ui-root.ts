@@ -30,6 +30,7 @@ import { createGenerativeUIDispatcher } from "./dispatcher";
 import type { GenerativeUIDispatcher } from "./dispatcher";
 import { GenerativeUIError } from "./errors";
 import type { GenerativeUIErrorCode, GenerativeUIErrorInfo } from "./errors";
+import { catalogIdsOf } from "./catalog";
 import { buildGenerativeUIEnvelope } from "./manifest";
 import type { GenerativeUIEnvelopeOptions } from "./manifest";
 import type {
@@ -488,7 +489,11 @@ export function useGenerativeUIRoot(
     const functionCalls = createFunctionCallRunner({
       copilotkit,
       dispatcher,
-      manifest: { catalogId: ui.id, components: ui.manifestComponents },
+      manifest: {
+        catalogId: ui.id,
+        catalogIds: catalogIdsOf(ui),
+        components: ui.manifestComponents,
+      },
     });
     // The agents with an event on its way to a run. Set before the run
     // starts, so a repeat click in the same tick is caught too.

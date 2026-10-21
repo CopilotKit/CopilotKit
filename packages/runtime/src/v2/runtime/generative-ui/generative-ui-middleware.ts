@@ -216,18 +216,19 @@ function processStream(
     };
 
     /**
-     * A run has one catalog, so the model does not have to name it. A
-     * createSurface gets the catalog id of the envelope, whatever the model
-     * wrote. The whole operation, with its inline components and data model,
-     * stays in the snapshot.
+     * The model does not have to name the catalog. A createSurface keeps a
+     * catalogId that the envelope lists, and gets the catalog id of the run
+     * for any other value. The whole operation, with its inline components
+     * and data model, stays in the snapshot.
      */
+    const catalogIds = manifest.catalogIds ?? [manifest.catalogId];
     const withCatalogId = (op: Record<string, unknown>) => {
       const create = op.createSurface;
       if (!isRecord(create)) return op;
-      return {
-        ...op,
-        createSurface: { ...create, catalogId: manifest.catalogId },
-      };
+      const catalogId = catalogIds.includes(create.catalogId as string)
+        ? create.catalogId
+        : manifest.catalogId;
+      return { ...op, createSurface: { ...create, catalogId } };
     };
 
     /**
@@ -302,7 +303,9 @@ function processStream(
       const content: GenerativeUISurfaceContent = {
         surfaceId,
         target,
-        catalogId: manifest.catalogId,
+        catalogId:
+          ("createSurface" in op && op.createSurface.catalogId) ||
+          manifest.catalogId,
         operations: [op],
         status: "streaming",
         rejected: [],

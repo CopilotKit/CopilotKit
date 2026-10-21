@@ -1,7 +1,11 @@
 import React from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { componentCatalogIds, createGenerativeUI } from "../catalog";
+import {
+  catalogIdsOf,
+  componentCatalogIds,
+  createGenerativeUI,
+} from "../catalog";
 
 const Card = () => <div />;
 const Grid = () => <div />;
@@ -476,6 +480,21 @@ describe("overrides and omit", () => {
       Hero: "middle@1",
       Footer: "app@1",
     });
+  });
+
+  it("lists the catalogs that an operation can name: the UI first, then its bases", () => {
+    const middle = createGenerativeUI({
+      id: "middle@1",
+      extends: [base],
+      components: { Hero: { component: Grid } },
+    });
+    const app = createGenerativeUI({
+      id: "app@1",
+      extends: [middle],
+      components: {},
+    });
+    expect(catalogIdsOf(app)).toEqual(["app@1", "base@1", "middle@1"]);
+    expect(catalogIdsOf(base)).toEqual(["base@1"]);
   });
 
   it("throws when omit names an unknown component", () => {

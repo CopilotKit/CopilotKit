@@ -114,6 +114,38 @@ function listen(manager: GenerativeUISurfaceManager) {
 }
 
 describe("GenerativeUISurfaceManager", () => {
+  it("accepts the catalog id of a base catalog, and rejects an unknown one", () => {
+    const shop = createGenerativeUI({
+      id: "acme/shop@1",
+      extends: [ui],
+      components: {},
+    });
+    const onOperationRejected = vi.fn();
+    const manager = new GenerativeUISurfaceManager(shop, {
+      onOperationRejected,
+    });
+    manager.ingest("t1", "default", content([create]));
+    manager.ingest(
+      "t1",
+      "default",
+      content(
+        [
+          {
+            version: "v1.0",
+            createSurface: { surfaceId: "other", catalogId: "made/up@1" },
+          },
+        ],
+        { surfaceId: "other" },
+      ),
+    );
+
+    expect(manager.getSurface("t1", "recs")).toBeDefined();
+    expect(onOperationRejected).toHaveBeenCalledTimes(1);
+    expect(onOperationRejected.mock.calls[0][0]).toMatchObject({
+      reason: expect.stringContaining('unknown catalog "made/up@1"'),
+    });
+  });
+
   it("applies operations and only the new tail on later ingests", () => {
     const { manager, surface } = managerWith([
       create,

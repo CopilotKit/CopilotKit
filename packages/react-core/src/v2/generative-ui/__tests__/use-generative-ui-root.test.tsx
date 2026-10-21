@@ -297,6 +297,7 @@ describe("useGenerativeUIRoot", () => {
 
       expect(envelope && envelopeToManifest(envelope)).toEqual({
         catalogId: "shop",
+        catalogIds: ["shop"],
         components: {
           Box: expect.any(Object),
           Button: {

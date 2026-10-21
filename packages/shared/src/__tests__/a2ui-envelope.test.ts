@@ -301,6 +301,7 @@ describe("envelopeToManifest", () => {
   it("returns the manifest, the transport, the context flag, and the instructions", () => {
     expect(envelopeToManifest(createEnvelope())).toEqual({
       catalogId: "acme/app@1",
+      catalogIds: ["acme/app@1"],
       components: { ProductGrid: productGrid },
       functions: { addToCart },
       targets,
@@ -347,6 +348,21 @@ describe("envelopeToManifest", () => {
       hasComponents: false,
     });
     expect(manifest.instructions).toBeUndefined();
+  });
+
+  it("lists every supported catalog id, the first one as the catalog of the run", () => {
+    const envelope: CopilotKitUIEnvelope = {
+      ...createEnvelope(),
+      "v1.0": {
+        supportedCatalogIds: ["acme/app@1", "copilotkit/standard@1"],
+        inlineCatalogs: [createCatalog()],
+      },
+    };
+    expect(envelopeToManifest(envelope)).toMatchObject({
+      catalogId: "acme/app@1",
+      catalogIds: ["acme/app@1", "copilotkit/standard@1"],
+      components: { ProductGrid: productGrid },
+    });
   });
 
   it("uses only the inline catalog of the first supported catalog id", () => {

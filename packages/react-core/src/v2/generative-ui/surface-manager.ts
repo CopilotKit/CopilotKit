@@ -25,6 +25,7 @@ import type {
   GenerativeUISurfaceSummary,
   OperationKind,
 } from "@copilotkit/shared";
+import { catalogIdsOf } from "./catalog";
 import type { GenerativeUI } from "./catalog";
 import {
   formatIssues,
@@ -676,6 +677,7 @@ export class GenerativeUISurfaceManager {
     const validation = validateOperation(op, {
       manifest: {
         catalogId: this.ui.id,
+        catalogIds: catalogIdsOf(this.ui),
         components: this.ui.manifestComponents,
       },
       ...this.surfacesFor(surface, kind, position),

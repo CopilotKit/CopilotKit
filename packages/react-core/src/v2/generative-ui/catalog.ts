@@ -621,6 +621,16 @@ export function componentCatalogIds(
 }
 
 /**
+ * The catalogs that an operation can name: the id of `ui`, then the ids of
+ * the catalogs in its `extends` that declared a component. Not exported
+ * from the package.
+ */
+export function catalogIdsOf(ui: Pick<AnyGenerativeUI, "id">): string[] {
+  const declared = componentCatalogs.get(ui)?.values() ?? [];
+  return [...new Set([ui.id, ...declared])];
+}
+
+/**
  * Experimental. Declares the components the model can render, the app state
  * they read, and the functions they call.
  *

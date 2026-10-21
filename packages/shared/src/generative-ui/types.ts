@@ -191,7 +191,13 @@ export interface GenerativeUIFunctionManifest extends A2UIFunctionPermissions {
 
 /** Serializable description of what the browser can render and call. */
 export interface GenerativeUIManifest {
+  /** The catalog of the run. A surface with no `catalogId` gets this one. */
   catalogId: string;
+  /**
+   * Every catalog that a `catalogId` can name: `catalogId` first, then the
+   * catalogs of `extends`. Left out, only `catalogId`.
+   */
+  catalogIds?: string[];
   components: Record<string, GenerativeUIComponentManifest>;
   functions: Record<string, GenerativeUIFunctionManifest>;
   /**

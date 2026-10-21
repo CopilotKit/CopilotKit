@@ -31,7 +31,10 @@ const OPERATION_KINDS = [
 export type OperationKind = (typeof OPERATION_KINDS)[number];
 
 export interface ValidateOperationOptions {
-  manifest: Pick<GenerativeUIManifest, "catalogId" | "components">;
+  manifest: Pick<
+    GenerativeUIManifest,
+    "catalogId" | "catalogIds" | "components"
+  >;
   /**
    * Surfaces that exist before this operation is applied. `updateComponents`,
    * `updateDataModel`, and `deleteSurface` need their surface in this set.
@@ -221,9 +224,18 @@ function versionProblem(version: unknown) {
     : `operation needs "version":"${A2UI_VERSION}"`;
 }
 
-function catalogProblem(catalogId: unknown, expected: string) {
-  if (catalogId === undefined || catalogId === expected) return undefined;
-  return `unknown catalog "${String(catalogId)}"; leave out catalogId or use "${expected}"`;
+/** A `catalogId` can name the catalog of the run or one of its bases. */
+function catalogProblem(
+  catalogId: unknown,
+  manifest: ValidateOperationOptions["manifest"],
+) {
+  const ids = manifest.catalogIds ?? [manifest.catalogId];
+  if (catalogId === undefined || ids.includes(catalogId as string)) {
+    return undefined;
+  }
+  const names = ids.map((id) => `"${id}"`).join(", ");
+  const use = ids.length === 1 ? names : `one of: ${names}`;
+  return `unknown catalog "${String(catalogId)}"; leave out catalogId or use ${use}`;
 }
 
 function validateCreateSurface(
@@ -239,10 +251,7 @@ function validateCreateSurface(
       `surface id "${surfaceId}" was used before; use a new surfaceId`,
     );
   }
-  const catalogReason = catalogProblem(
-    payload.catalogId,
-    options.manifest.catalogId,
-  );
+  const catalogReason = catalogProblem(payload.catalogId, options.manifest);
   if (catalogReason) return fail(catalogReason);
   const { dataModel, components } = payload;
   if (dataModel !== undefined && !isRecord(dataModel)) {
@@ -360,7 +369,7 @@ function nodeProblem(
   for (const [key, value] of props) {
     if (key === "id" || key === "component") continue;
     if (key === "catalogId") {
-      const reason = catalogProblem(value, options.manifest.catalogId);
+      const reason = catalogProblem(value, options.manifest);
       if (reason) return `${key}: ${reason}`;
       continue;
     }
@@ -481,10 +490,7 @@ function functionCallProblem(
   if (args !== undefined && !isRecord(args)) {
     return `${label}.args must be an object`;
   }
-  const catalogReason = catalogProblem(
-    call.catalogId,
-    options.manifest.catalogId,
-  );
+  const catalogReason = catalogProblem(call.catalogId, options.manifest);
   if (catalogReason) return `${label}: ${catalogReason}`;
   const argEntries = Object.entries(args ?? {});
   for (const [key, arg] of argEntries) {

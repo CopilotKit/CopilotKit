@@ -35,6 +35,7 @@ export function builtInFunctionManifests(): Record<
     ]),
   );
 }
+import { catalogIdsOf } from "./catalog";
 import type { GenerativeUIRuntime } from "./runtime-context";
 
 /**
@@ -56,6 +57,7 @@ export function buildGenerativeUIManifest(
     .map(({ id, ...rest }) => ({ id, kind: "inline" as const, ...rest }));
   const manifest: GenerativeUIManifest = {
     catalogId: ui.id,
+    catalogIds: catalogIdsOf(ui),
     components: ui.manifestComponents,
     // A name the app declares is the app's, also while its handler is not
     // mounted: the dispatcher never runs the built-in in its place.
@@ -136,7 +138,7 @@ export function buildGenerativeUIEnvelope(
   const omitComponents = transport === "markdown" && !includeCatalog;
   const envelope: CopilotKitUIEnvelope = {
     "v1.0": {
-      supportedCatalogIds: [manifest.catalogId],
+      supportedCatalogIds: manifest.catalogIds ?? [manifest.catalogId],
       inlineCatalogs: [
         {
           catalogId: manifest.catalogId,

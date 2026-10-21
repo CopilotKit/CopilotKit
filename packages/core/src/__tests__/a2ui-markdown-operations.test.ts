@@ -50,7 +50,11 @@ const OPEN_CART = {
 /** `prepareSurfaceOperations` with fallback surface "f" and catalog "cat". */
 function prepare(
   operations: A2UIMarkdownOperation[],
-  overrides?: { fallbackSurfaceId?: string; catalogId?: string },
+  overrides?: {
+    fallbackSurfaceId?: string;
+    catalogId?: string;
+    catalogIds?: string[];
+  },
 ) {
   return prepareSurfaceOperations({
     operations,
@@ -230,7 +234,31 @@ describe("prepareSurfaceOperations createSurface handling", () => {
     expect(res.operations[0]).toHaveProperty("createSurface");
     expect(res.operations).toHaveLength(3);
   });
-  it("always uses the client-provided catalogId", () => {
+  it("keeps a catalogId that the client lists, and replaces any other", () => {
+    const options = {
+      catalogId: "client-cat",
+      catalogIds: ["client-cat", "base"],
+    };
+    expect(
+      prepare(
+        [{ createSurface: { surfaceId: "a", catalogId: "base" } }],
+        options,
+      ).operations[0],
+    ).toEqual({
+      version: "v1.0",
+      createSurface: { surfaceId: "a", catalogId: "base" },
+    });
+    expect(
+      prepare(
+        [{ createSurface: { surfaceId: "a", catalogId: "made-up" } }],
+        options,
+      ).operations[0],
+    ).toEqual({
+      version: "v1.0",
+      createSurface: { surfaceId: "a", catalogId: "client-cat" },
+    });
+  });
+  it("uses the client-provided catalogId when no list is given", () => {
     const res = prepare(
       [{ createSurface: { surfaceId: "a", catalogId: "model-made-this-up" } }],
       { catalogId: "client-cat" },

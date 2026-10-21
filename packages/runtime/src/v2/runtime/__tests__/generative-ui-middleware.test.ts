@@ -623,6 +623,42 @@ describe("GenerativeUIMiddleware", () => {
     },
   );
 
+  it("keeps a catalogId of a base catalog that the envelope lists", async () => {
+    const envelope = uiEnvelope();
+    envelope["v1.0"].supportedCatalogIds = ["shop", "copilotkit/standard@1"];
+    const { output } = await run(
+      renderCall({
+        target: "recommendations",
+        operations: [
+          {
+            version: "v1.0",
+            createSurface: {
+              surfaceId: "recs",
+              catalogId: "copilotkit/standard@1",
+            },
+          },
+        ],
+      }),
+      { copilotkit: { ui: envelope } },
+    );
+    const [snapshot] = activity(output);
+    expect(snapshot).toMatchObject({
+      content: {
+        catalogId: "copilotkit/standard@1",
+        operations: [
+          {
+            version: "v1.0",
+            createSurface: {
+              surfaceId: "recs",
+              catalogId: "copilotkit/standard@1",
+            },
+          },
+        ],
+      },
+    });
+    expect(toolResult(output)).toMatchObject({ applied: 1, rejected: [] });
+  });
+
   it("does not ask the model for a catalogId in the guide", async () => {
     const { input } = await run([]);
     const guide = input.context.map((entry) => entry.value).join("\n");
