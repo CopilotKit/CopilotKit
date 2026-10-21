@@ -52,6 +52,10 @@
       "types": "./dist/ui.d.ts",
       "import": "./dist/ui.js"
     },
+    "./takumi": {
+      "types": "./dist/takumi.d.ts",
+      "import": "./dist/takumi.js"
+    },
     "./slack": {
       "types": "./dist/slack.d.ts",
       "import": "./dist/slack.js"

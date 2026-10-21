@@ -35,6 +35,10 @@
       "types": "./dist/testing/state-store-conformance.d.ts",
       "import": "./dist/testing/state-store-conformance.js"
     },
+    "./takumi": {
+      "types": "./dist/render/takumi.d.ts",
+      "import": "./dist/render/takumi.js"
+    },
     "./jsx-runtime": {
       "types": "./dist/jsx-runtime.d.ts",
       "import": "./dist/jsx-runtime.js"
