@@ -1,5 +1,6 @@
 import { isA2UIBasicFunction } from "./generative-ui/basic-functions";
 import { A2UI_CHILD_LIST_REF } from "./generative-ui/child-refs";
+import { GENERATIVE_UI_AGENT_FUNCTION_CALLS } from "./generative-ui/types";
 import type { GenerativeUIManifest } from "./generative-ui/types";
 /**
  * Default A2UI generation and design guideline prompts.
@@ -221,7 +222,7 @@ const MARKDOWN_BASE_RULES = [
   "Use unique ids. Do not make cycles. A component cannot be its own child.",
   'Write a component as one flat object: {"id":"title","component":"<Name>","text":"Hello"}.',
   'Put the component name in "component" (never "type"). Put props next to it, never inside a "props" object.',
-  'Any component also takes "accessibility":{"label":"<1 to 3 words>","description":"<what it does>","live":"polite"} for screen readers. Set "label" when nothing visible names the component.',
+  'A component may take "accessibility":{"label":"<1 to 3 words>","description":"<what it does>"} for screen readers: on the component it describes, when nothing visible names it. Not on every component, and "live":"polite" only on text that changes by itself.',
   'Use only the components, props, events, and slots in the schema. A component with "includesCommonProps" also takes every prop in "commonProps".',
   'Give a prop a literal value, or bind it to the data model with {"@path":"/x"}. Never write {"path":"/x"} as a binding.',
   'A prop can also be a function value that updates with the data: {"@call":"formatCurrency","args":{"value":{"@path":"/total"},"currency":"EUR"}}. Use only the functions under "functions" in the schema. Write a literal when the value never changes.',
@@ -262,7 +263,7 @@ export function buildGenerativeUIMarkdownGuidelines(
       functions
         ? 'Use {"functionCall": ...} to run a function in the browser when the user clicks: an app function from the schema, or openUrl: {"functionCall":{"@call":"openUrl","args":{"url":"https://example.com"}}}. You are not told about the call.'
         : 'Use {"functionCall": ...} to open a URL when the user clicks: {"functionCall":{"@call":"openUrl","args":{"url":"https://example.com"}}}. You are not told about the call.',
-      'Use {"event": ...} to send the interaction back to you as a user message. Put the text of that message in "userMessage": {"event":{"name":"choose","userMessage":"Show me the Team plan"}}.',
+      'Use {"event": ...} to send the interaction back to you as a user message. Put the text of that message in "userMessage": {"event":{"name":"choose","userMessage":"Show me the Team plan"}}. "userMessage" is plain text: ${...} is not interpolated in it; put values in "context".',
       'To send input values with an event, bind them in the context: "context":{"email":{"@path":"/form/email"}}.',
       "A button or other event prop without an event or functionCall does nothing.",
     );
@@ -287,10 +288,10 @@ export function buildGenerativeUIMarkdownGuidelines(
     "To change a surface in this reply, write another fence with the same surfaceId. Do not send createSurface again. The surface changes where it already is. A surface in a target can also be changed from a later reply; a chat surface cannot, because the chat is a transcript: a later reply with the same surfaceId makes a new surface.",
     "Use a new surfaceId for a different view. Never use a surfaceId again, also after the surface is deleted.",
   );
-  if (functions) {
+  if (functions && GENERATIVE_UI_AGENT_FUNCTION_CALLS) {
     rules.push(
       'To run an app function now, with no click, write a callRendererFunction line in a fence: {"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}. It needs no surface.',
-      'Give every callRendererFunction a new functionCallId. Use only functions from the schema, and never one with "callers": "UI only". A function with "callers": "agent only" is only for callRendererFunction: do not bind an event to it.',
+      'Give every callRendererFunction a new functionCallId. Call only a function from the schema with "callers": "UI or agent" or "agent only"; a function without "callers" is for the UI only. A function with "callers": "agent only" is only for callRendererFunction: do not bind an event to it.',
       'The result of a callRendererFunction comes back to you as a developer message: {"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}. If the call failed, it has "error" in place of "value". Then you get a new turn.',
       "Do not guess the result of a callRendererFunction. Wait for the developer message.",
     );

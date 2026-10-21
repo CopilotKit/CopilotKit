@@ -10,6 +10,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { Message, RunAgentInput } from "@ag-ui/client";
 import {
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS,
   GENERATIVE_UI_FUNCTION_CALL_ACTIVITY_TYPE,
   generativeUIFunctionCallMessageId,
 } from "@copilotkit/shared";
@@ -53,7 +54,10 @@ function Button({ label }: { label: string }) {
 const ui = createGenerativeUI({
   id: "shop",
   functions: {
-    addToCart: { parameters: z.object({ sku: z.string() }) },
+    addToCart: {
+      parameters: z.object({ sku: z.string() }),
+      allowedCallers: "rendererOrAgent",
+    },
   },
   components: {
     Button: { component: Button, props: z.object({ label: z.string() }) },
@@ -225,7 +229,14 @@ const errorOf = (functionCallId: string, code: string) => ({
   },
 });
 
-describe.each([toolTransport, markdownTransport])(
+// The agent path is off for now (GENERATIVE_UI_AGENT_FUNCTION_CALLS): the
+// validator rejects every callRendererFunction. These describe the path for
+// when it is on.
+const describeAgentCalls = GENERATIVE_UI_AGENT_FUNCTION_CALLS
+  ? describe
+  : describe.skip;
+
+describeAgentCalls.each([toolTransport, markdownTransport])(
   "agent-called functions ($name transport)",
   (transport) => {
     it("runs the call once and sends its result as a developer message in one follow-up run", async () => {
@@ -416,7 +427,7 @@ describe.each([toolTransport, markdownTransport])(
   },
 );
 
-describe("agent-called functions, markdown transport only", () => {
+describeAgentCalls("agent-called functions, markdown transport only", () => {
   it("answers a call line with a wrong shape with invalid_arguments and the reason", async () => {
     const handler = vi.fn();
     const { agent, copilotkit } = setup(markdownTransport, [handler]);
@@ -498,7 +509,7 @@ const wildcardRenderers: ReactActivityMessageRenderer<unknown>[] = [
   },
 ];
 
-describe("agent-called functions in the chat", () => {
+describeAgentCalls("agent-called functions in the chat", () => {
   const T = "thread-1";
 
   function setupChat(transport: Transport) {

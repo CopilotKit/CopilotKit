@@ -92,7 +92,7 @@ The engine takes A2UI 1.0 operations only. A v0.9 shape is rejected with a reaso
 | `"action": { "name": "buy", "context": { ... } }` | `"onClick": { "event": { "name": "buy", "userMessage": "Buy it", "context": { ... } } }` or `{ "functionCall": { "@call": "addToCart", "args": { ... } } }` |
 | `"children": ["a", "b"]` | The same, or a template `{ "componentId": "row", "path": "/items" }` with `{ "@call": "@index" }` inside |
 | Validation in the agent | `"checks": [{ "condition": { "@call": "email", "args": { ... } }, "message": "..." }]` |
-| An agent tool call per function | `callRendererFunction` in the operations, answered with a `rendererFunctionResponse` developer message |
+| An agent tool call per function | Not in this version: the agent cannot call renderer functions; see [Who may call a function](/generative-ui/components/state-and-actions#who-may-call-a-function) |
 
 A2UI 1.0 has no arithmetic. CopilotKit adds `calc` and `series` as catalog functions, listed like the others, so a renderer without them rejects the call rather than misrendering. See [Compute values in the browser](/generative-ui/components/state-and-actions#compute-values-in-the-browser).
 
@@ -100,7 +100,7 @@ A2UI 1.0 has no arithmetic. CopilotKit adds `calc` and `series` as catalog funct
 
 A click on an `{ "event" }` action becomes a visible user message: the `userMessage`, then the context as lines. The run also carries the structured A2UI action message (`name`, `surfaceId`, `sourceComponentId`, `timestamp`, `userMessage`, `context`) in `forwardedProps.copilotkit.ui.metadata.extensions.copilotkit_action`; `envelopeToManifest` from `@copilotkit/shared` gives it back as `action`. A second click while the agent runs is dropped, so a double click does not start two runs.
 
-The result of a `callRendererFunction` comes back as a developer message in a follow-up run. A function the agent may not call (`allowedCallers: "rendererOnly"`, or every built-in) answers with an `invalid_function_call` error; see [Who may call a function](/generative-ui/components/state-and-actions#who-may-call-a-function).
+The agent cannot call renderer functions in this version: a `callRendererFunction` operation is rejected with a reason, and the prompts do not mention it. See [Who may call a function](/generative-ui/components/state-and-actions#who-may-call-a-function).
 
 ## What changes in markdown mode
 
@@ -118,12 +118,12 @@ See [Markdown mode](/generative-ui/components/markdown-mode).
 
 ## Support matrix
 
-A2UI 1.0 is still a candidate on [a2ui.org](https://a2ui.org/), so this table can change.
+The integration is experimental and implements A2UI 1.0 as of spec revision [`cbaa5ee`](https://github.com/a2ui-project/a2ui/tree/cbaa5ee62c737b50d0695c1e5794d0f648b61dca/specification/v1_0) (October 2026); upstream still calls 1.0 a candidate on [a2ui.org](https://a2ui.org/), so this table can change. This table is the supported scope. A 1.0 catalog and a complete 1.0 runtime are different claims: the catalog export is conforming, the runtime covers the rows marked Yes and nothing more.
 
 | A2UI 1.0 | Components and surfaces |
 | --- | --- |
 | `createSurface`, `updateComponents`, `updateDataModel`, `deleteSurface` | Yes |
-| `callRendererFunction` and `rendererFunctionResponse` | Yes, with the `allowedCallers` of each function |
+| `callRendererFunction` and `rendererFunctionResponse` | Not in this version: rejected, until results can be sent back to the model reliably |
 | `callAgentFunction` and `agentFunctionResponse` | No: a user event starts a new run, with the action message in its envelope |
 | The basic catalog (18 components) | Yes, with their 1.0 names, plus 55 more |
 | The basic functions (14) | Yes; `calc` and `series` are CopilotKit extensions |
@@ -131,7 +131,7 @@ A2UI 1.0 is still a candidate on [a2ui.org](https://a2ui.org/), so this table ca
 | `checks` and `ValidationResult` (`code`, `severity`) | Yes |
 | The action event message (`sourceComponentId`, `timestamp`) | Yes, in the envelope of the run, next to the visible user message |
 | Component envelope: `catalogId`, `accessibility`, `metadata` | Yes; `catalogId` must be the id of the UI |
-| Function definitions: `returnType`, `allowedCallers`, `requiresUserActivation` | Yes; the default is `rendererOrAgent`, where A2UI defaults to `rendererOnly` |
+| Function definitions: `returnType`, `allowedCallers`, `requiresUserActivation` | Yes, written to the manifest and the export; the agent path is off regardless |
 | Catalog definition JSON | Yes, `exportA2UICatalog(ui)` |
 | Several catalogs in one surface | No: one UI per provider; combine catalogs with `extends` |
 | `allowedParents` and `allowedChildren` | Not enforced |

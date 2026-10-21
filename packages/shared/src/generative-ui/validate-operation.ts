@@ -8,7 +8,11 @@ import {
 import type { A2UIFunctionPermissions } from "./basic-functions";
 import { collectChildRefs } from "./child-refs";
 import type { ChildRef } from "./child-refs";
-import { A2UI_VERSION } from "./types";
+import {
+  A2UI_VERSION,
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS,
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS_OFF_REASON,
+} from "./types";
 import type {
   GenerativeUIActionBinding,
   GenerativeUIJSONSchema,
@@ -176,6 +180,9 @@ export function validateOperation(
   }
   const payload = op[kind];
   if (kind === "callRendererFunction") {
+    if (!GENERATIVE_UI_AGENT_FUNCTION_CALLS) {
+      return fail(GENERATIVE_UI_AGENT_FUNCTION_CALLS_OFF_REASON);
+    }
     return validateRendererFunctionCall(payload, options);
   }
   if (

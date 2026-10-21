@@ -9,6 +9,7 @@ import {
   buildGenerativeUIMarkdownGuidelines,
   buildGenerativeUIPrompt,
   envelopeToManifest,
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS,
   randomUUID,
   readCopilotKitUIEnvelope,
 } from "@copilotkit/shared";
@@ -311,7 +312,7 @@ describe("useGenerativeUIRoot", () => {
             parameters: expect.objectContaining({
               properties: { code: expect.objectContaining({ type: "string" }) },
             }),
-            allowedCallers: "rendererOrAgent",
+            allowedCallers: "rendererOnly",
           },
           formatCurrency: expect.any(Object),
         }),
@@ -383,7 +384,16 @@ describe("useGenerativeUIRoot", () => {
       expect(catalogOf(before)?.instructions).not.toContain(
         "callRendererFunction",
       );
-      expect(catalogOf(after)?.instructions).toContain("callRendererFunction");
+      // While the agent path is off, mounting a function adds no rule.
+      if (GENERATIVE_UI_AGENT_FUNCTION_CALLS) {
+        expect(catalogOf(after)?.instructions).toContain(
+          "callRendererFunction",
+        );
+      } else {
+        expect(catalogOf(after)?.instructions).not.toContain(
+          "callRendererFunction",
+        );
+      }
     });
 
     it("sends the envelope only to the agents in agentIds", async () => {

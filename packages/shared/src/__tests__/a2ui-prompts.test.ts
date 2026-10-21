@@ -6,6 +6,7 @@ import {
   GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
 } from "../a2ui-prompts";
+import { GENERATIVE_UI_AGENT_FUNCTION_CALLS } from "../generative-ui/types";
 
 const guide = GENERATIVE_UI_MARKDOWN_GUIDELINES;
 
@@ -132,19 +133,30 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     );
   });
 
-  it("describes callRendererFunction, its unique id, and the developer-message response", () => {
-    expect(guide).toContain(
-      '{"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}',
-    );
-    expect(guide).toContain(
-      "Give every callRendererFunction a new functionCallId.",
-    );
-    expect(guide).toContain('never one with "callers": "UI only"');
-    expect(guide).toContain(
-      '{"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}',
-    );
-    expect(guide).toContain("Then you get a new turn.");
-  });
+  it.skipIf(GENERATIVE_UI_AGENT_FUNCTION_CALLS)(
+    "does not mention callRendererFunction while the agent path is off",
+    () => {
+      expect(guide).not.toContain("callRendererFunction");
+      expect(guide).not.toContain("rendererFunctionResponse");
+    },
+  );
+
+  it.skipIf(!GENERATIVE_UI_AGENT_FUNCTION_CALLS)(
+    "describes callRendererFunction, its unique id, and the developer-message response",
+    () => {
+      expect(guide).toContain(
+        '{"version":"v1.0","callRendererFunction":{"functionCallId":"<unique id>","callFunction":{"@call":"<function>","args":{...}}}}',
+      );
+      expect(guide).toContain(
+        "Give every callRendererFunction a new functionCallId.",
+      );
+      expect(guide).toContain('"callers": "UI or agent" or "agent only"');
+      expect(guide).toContain(
+        '{"version":"v1.0","rendererFunctionResponse":{"functionCallId":"<id>","value":...}}',
+      );
+      expect(guide).toContain("Then you get a new turn.");
+    },
+  );
 
   it("keeps prose outside the fences and Card for interactive panels", () => {
     expect(guide).toContain("Never make a surface that is only prose.");

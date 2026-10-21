@@ -8,6 +8,10 @@ import {
 } from "../validate-operation";
 import type { ValidateOperationOptions } from "../validate-operation";
 import { A2UI_COMPONENT_ID_REF } from "../child-refs";
+import {
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS,
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS_OFF_REASON,
+} from "../types";
 import type { GenerativeUIManifest } from "../types";
 
 const manifest: Pick<GenerativeUIManifest, "catalogId" | "components"> = {
@@ -49,7 +53,12 @@ const manifest: Pick<GenerativeUIManifest, "catalogId" | "components"> = {
     },
   },
 };
-const functions = { addToCart: { parameters: { type: "object" } } };
+const functions = {
+  addToCart: {
+    parameters: { type: "object" },
+    allowedCallers: "rendererOrAgent" as const,
+  },
+};
 const knownSurfaces = new Set(["s1"]);
 
 const update = (...components: unknown[]) => ({
@@ -711,154 +720,189 @@ describe("validateOperation: updateDataModel", () => {
   });
 });
 
-describe("validateOperation: callRendererFunction", () => {
-  it("accepts a call of a declared function, with no surface", () => {
-    expect(
-      reasonOf(
+describe("validateOperation: callRendererFunction while the agent path is off", () => {
+  it.skipIf(GENERATIVE_UI_AGENT_FUNCTION_CALLS)(
+    "rejects every callRendererFunction with the reason, whatever it names",
+    () => {
+      for (const op of [
         callFunction({
           callFunction: { "@call": "addToCart", args: { productId: "p1" } },
         }),
-        { functions, knownSurfaces: new Set() },
-      ),
-    ).toBe("ok");
-  });
+        callFunction({ callFunction: { "@call": "formatNumber" } }),
+        callFunction({ callFunction: {} }),
+      ]) {
+        expect(reasonOf(op, { functions, knownSurfaces: new Set() })).toBe(
+          GENERATIVE_UI_AGENT_FUNCTION_CALLS_OFF_REASON,
+        );
+      }
+    },
+  );
+});
 
-  it("requires a non-empty functionCallId", () => {
-    for (const functionCallId of [undefined, "", 7]) {
+// The agent path is off for now (GENERATIVE_UI_AGENT_FUNCTION_CALLS); these
+// describe it for when it is on.
+describe.skipIf(!GENERATIVE_UI_AGENT_FUNCTION_CALLS)(
+  "validateOperation: callRendererFunction",
+  () => {
+    it("accepts a call of a declared function, with no surface", () => {
       expect(
         reasonOf(
           callFunction({
-            functionCallId,
-            callFunction: { "@call": "addToCart" },
+            callFunction: { "@call": "addToCart", args: { productId: "p1" } },
+          }),
+          { functions, knownSurfaces: new Set() },
+        ),
+      ).toBe("ok");
+    });
+
+    it("requires a non-empty functionCallId", () => {
+      for (const functionCallId of [undefined, "", 7]) {
+        expect(
+          reasonOf(
+            callFunction({
+              functionCallId,
+              callFunction: { "@call": "addToCart" },
+            }),
+          ),
+        ).toBe(
+          "callRendererFunction.functionCallId must be a non-empty string",
+        );
+      }
+    });
+
+    it("leaves the openUrl restriction to the dispatcher when the app functions are not known", () => {
+      expect(
+        reasonOf(
+          callFunction({
+            callFunction: { "@call": "openUrl", args: { url: "https://x" } },
           }),
         ),
-      ).toBe("callRendererFunction.functionCallId must be a non-empty string");
-    }
-  });
+      ).toBe("ok");
+    });
 
-  it("leaves the openUrl restriction to the dispatcher when the app functions are not known", () => {
-    expect(
-      reasonOf(
-        callFunction({
-          callFunction: { "@call": "openUrl", args: { url: "https://x" } },
-        }),
-      ),
-    ).toBe("ok");
-  });
+    it("lets the agent call an openUrl that the app declared itself", () => {
+      expect(
+        reasonOf(
+          callFunction({
+            callFunction: { "@call": "openUrl", args: { url: "https://x" } },
+          }),
+          {
+            functions: {
+              openUrl: {
+                parameters: { type: "object" },
+                allowedCallers: "rendererOrAgent",
+              },
+            },
+          },
+        ),
+      ).toBe("ok");
+    });
 
-  it("lets the agent call an openUrl that the app declared itself", () => {
-    expect(
-      reasonOf(
-        callFunction({
-          callFunction: { "@call": "openUrl", args: { url: "https://x" } },
-        }),
-        { functions: { openUrl: { parameters: { type: "object" } } } },
-      ),
-    ).toBe("ok");
-  });
+    it("refuses a user-gesture function and every other built-in from the agent: they are value functions of the UI", () => {
+      expect(
+        reasonOf(
+          callFunction({
+            callFunction: { "@call": "openUrl", args: { url: "https://x" } },
+          }),
+          { functions },
+        ),
+      ).toBe(
+        'function "openUrl" runs only from a user gesture; the agent cannot call it',
+      );
+      expect(
+        reasonOf(
+          callFunction({
+            callFunction: { "@call": "formatNumber", args: { value: 1 } },
+          }),
+          { functions },
+        ),
+      ).toBe(
+        'function "formatNumber" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it',
+      );
+    });
 
-  it("refuses a user-gesture function and every other built-in from the agent: they are value functions of the UI", () => {
-    expect(
-      reasonOf(
-        callFunction({
-          callFunction: { "@call": "openUrl", args: { url: "https://x" } },
-        }),
-        { functions },
-      ),
-    ).toBe(
-      'function "openUrl" runs only from a user gesture; the agent cannot call it',
-    );
-    expect(
-      reasonOf(
-        callFunction({
-          callFunction: { "@call": "formatNumber", args: { value: 1 } },
-        }),
-        { functions },
-      ),
-    ).toBe(
-      'function "formatNumber" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it',
-    );
-  });
+    it("applies the allowedCallers of an app function, to the agent and to event bindings", () => {
+      const permissions = {
+        ...functions,
+        track: {
+          parameters: { type: "object" },
+          allowedCallers: "rendererOnly" as const,
+        },
+        reload: {
+          parameters: { type: "object" },
+          allowedCallers: "agentOnly" as const,
+        },
+        share: {
+          parameters: { type: "object" },
+          requiresUserActivation: true,
+        },
+      };
+      const agentCall = (name: string) =>
+        reasonOf(callFunction({ callFunction: { "@call": name } }), {
+          functions: permissions,
+        });
+      if (GENERATIVE_UI_AGENT_FUNCTION_CALLS) {
+        expect(agentCall("addToCart")).toBe("ok");
+        expect(agentCall("reload")).toBe("ok");
+        expect(agentCall("track")).toBe(
+          'function "track" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it',
+        );
+        expect(agentCall("share")).toBe(
+          'function "share" runs only from a user gesture; the agent cannot call it',
+        );
+      }
+      const binding = (name: string) =>
+        reasonOf(card({ onAddToCart: { functionCall: { "@call": name } } }), {
+          functions: permissions,
+        });
+      expect(binding("track")).toBe("ok");
+      expect(binding("share")).toBe("ok");
+      expect(binding("reload")).toBe(
+        'component "c1": onAddToCart: function "reload" runs only for the agent (allowedCallers "agentOnly"); the UI cannot call it',
+      );
+    });
 
-  it("applies the allowedCallers of an app function, to the agent and to event bindings", () => {
-    const permissions = {
-      ...functions,
-      track: {
-        parameters: { type: "object" },
-        allowedCallers: "rendererOnly" as const,
-      },
-      reload: {
-        parameters: { type: "object" },
-        allowedCallers: "agentOnly" as const,
-      },
-      share: {
-        parameters: { type: "object" },
-        requiresUserActivation: true,
-      },
-    };
-    const agentCall = (name: string) =>
-      reasonOf(callFunction({ callFunction: { "@call": name } }), {
-        functions: permissions,
-      });
-    expect(agentCall("addToCart")).toBe("ok");
-    expect(agentCall("reload")).toBe("ok");
-    expect(agentCall("track")).toBe(
-      'function "track" runs only in the UI (allowedCallers "rendererOnly"); the agent cannot call it',
-    );
-    expect(agentCall("share")).toBe(
-      'function "share" runs only from a user gesture; the agent cannot call it',
-    );
-    const binding = (name: string) =>
-      reasonOf(card({ onAddToCart: { functionCall: { "@call": name } } }), {
-        functions: permissions,
-      });
-    expect(binding("track")).toBe("ok");
-    expect(binding("share")).toBe("ok");
-    expect(binding("reload")).toBe(
-      'component "c1": onAddToCart: function "reload" runs only for the agent (allowedCallers "agentOnly"); the UI cannot call it',
-    );
-  });
+    it("requires a function name in @call", () => {
+      expect(reasonOf(callFunction({ callFunction: {} }))).toBe(
+        'callRendererFunction.callFunction["@call"] must be a function name',
+      );
+      expect(reasonOf(callFunction({}))).toBe(
+        'callRendererFunction.callFunction must be { "@call": "<function>", "args": { ... } }',
+      );
+    });
 
-  it("requires a function name in @call", () => {
-    expect(reasonOf(callFunction({ callFunction: {} }))).toBe(
-      'callRendererFunction.callFunction["@call"] must be a function name',
-    );
-    expect(reasonOf(callFunction({}))).toBe(
-      'callRendererFunction.callFunction must be { "@call": "<function>", "args": { ... } }',
-    );
-  });
+    it("rejects an undeclared function when the function list is provided", () => {
+      const op = callFunction({ callFunction: { "@call": "removeFromCart" } });
+      expect(reasonOf(op, { functions })).toBe(
+        'function "removeFromCart" is not exposed to generative UI',
+      );
+      expect(reasonOf(op)).toBe("ok");
+    });
 
-  it("rejects an undeclared function when the function list is provided", () => {
-    const op = callFunction({ callFunction: { "@call": "removeFromCart" } });
-    expect(reasonOf(op, { functions })).toBe(
-      'function "removeFromCart" is not exposed to generative UI',
-    );
-    expect(reasonOf(op)).toBe("ok");
-  });
+    it("rejects args that are not an object and a foreign catalog", () => {
+      expect(
+        reasonOf(
+          callFunction({ callFunction: { "@call": "addToCart", args: 1 } }),
+        ),
+      ).toBe("callRendererFunction.callFunction.args must be an object");
+      expect(
+        reasonOf(
+          callFunction({
+            callFunction: { "@call": "addToCart", catalogId: "other" },
+          }),
+        ),
+      ).toBe(
+        'callRendererFunction.callFunction: unknown catalog "other"; leave out catalogId or use "shop"',
+      );
+    });
 
-  it("rejects args that are not an object and a foreign catalog", () => {
-    expect(
-      reasonOf(
-        callFunction({ callFunction: { "@call": "addToCart", args: 1 } }),
-      ),
-    ).toBe("callRendererFunction.callFunction.args must be an object");
-    expect(
-      reasonOf(
-        callFunction({
-          callFunction: { "@call": "addToCart", catalogId: "other" },
-        }),
-      ),
-    ).toBe(
-      'callRendererFunction.callFunction: unknown catalog "other"; leave out catalogId or use "shop"',
-    );
-  });
-
-  it("has a kind but no surface id", () => {
-    const op = callFunction({ callFunction: { "@call": "addToCart" } });
-    expect(getOperationKind(op)).toBe("callRendererFunction");
-    expect(getOperationSurfaceId(op)).toBeUndefined();
-  });
-});
+    it("has a kind but no surface id", () => {
+      const op = callFunction({ callFunction: { "@call": "addToCart" } });
+      expect(getOperationKind(op)).toBe("callRendererFunction");
+      expect(getOperationSurfaceId(op)).toBeUndefined();
+    });
+  },
+);
 
 describe("validateOperation: Object.prototype keys", () => {
   it("rejects component types that only exist on Object.prototype without throwing", () => {

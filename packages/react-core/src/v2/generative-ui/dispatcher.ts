@@ -1,6 +1,8 @@
 import {
   callerProblem,
   functionCallers,
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS,
+  GENERATIVE_UI_AGENT_FUNCTION_CALLS_OFF_REASON,
   GENERATIVE_UI_FUNCTIONS,
 } from "@copilotkit/shared";
 import type {
@@ -265,6 +267,12 @@ export function createGenerativeUIDispatcher(
     origin: GenerativeUICallOrigin,
   ) => {
     const isComponent = "componentId" in origin;
+    if (!isComponent && !GENERATIVE_UI_AGENT_FUNCTION_CALLS) {
+      return new GenerativeUIError(
+        "invalid_function_call",
+        GENERATIVE_UI_AGENT_FUNCTION_CALLS_OFF_REASON,
+      );
+    }
     const problem = callerProblem(name, fn, isComponent ? "renderer" : "agent");
     if (problem !== undefined) {
       return new GenerativeUIError("invalid_function_call", problem);
@@ -372,11 +380,14 @@ export function createGenerativeUIDispatcher(
         // If the declared functions cannot be read, advertise nothing.
         return {};
       }
-      // Advertise exactly the names invoke would accept.
+      // Advertise exactly the names invoke would accept. While the agent
+      // path is off, a function for the agent only has no caller at all.
       const listed: Record<string, GenerativeUIFunctionManifest> = {};
       for (const name of names) {
         const resolved = resolve(name);
         if (!resolved.ok) continue;
+        const isAgentOnly = !functionCallers(resolved.declared).renderer;
+        if (isAgentOnly && !GENERATIVE_UI_AGENT_FUNCTION_CALLS) continue;
         const { description, parameters, returnType } = resolved.declared;
         try {
           listed[name] = {
