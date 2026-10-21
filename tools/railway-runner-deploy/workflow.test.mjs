@@ -96,7 +96,7 @@ test("development push gate binds the exact opted-in branch commit and workflow"
     }),
   );
 });
-test("temporary guard install shares staging opt-in and concurrency", async () => {
+test("development workflow invokes existing controller behind opt-in and shares staging concurrency", async () => {
   const source = await readFile(
     ".github/workflows/intelligence-rich-threads-dev.yml",
     "utf8",
@@ -112,7 +112,7 @@ test("temporary guard install shares staging opt-in and concurrency", async () =
   );
   assert.match(
     source,
-    /node tools\/railway-runner-deploy\/install-guard-once.mjs/,
+    /node tools\/railway-runner-deploy\/run.mjs --development/,
   );
   assert.equal((source.match(/secrets.RAILWAY_TOKEN/g) || []).length, 1);
   assert.equal((source.match(/secrets.RICH_RUNNER_TOKEN/g) || []).length, 1);
