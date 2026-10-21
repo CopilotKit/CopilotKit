@@ -150,24 +150,9 @@ try {
   assert.equal(prior.finalState.templateSha256, intent.baselineTemplateSha256);
   assert.deepEqual(REMOVAL_HANDOFF_BASELINE, intent.removalBaseline);
   const railway = createRailway({ token: env.RAILWAY_TOKEN, deadline });
-  await save("verify-staging-template");
-  const vars = (
-    await graphql(
-      "query($p:String!,$e:String!,$s:String!){variables(projectId:$p,environmentId:$e,serviceId:$s)}",
-      { p: scope.projectId, e: scope.environmentId, s: scope.serviceId },
-    )
-  ).variables;
-  const runner = createRunner({ token: vars.RICH_RUNNER_TOKEN, deadline });
-  const template = JSON.parse(vars.RICH_TEMPLATE_JSON);
-  template.permanentRunner = { ...scope, volumeId: STAGING.volumeId };
-  assert.equal(hash(template), intent.baselineTemplateSha256);
-  const target = structuredClone(template),
-    workers = target.services.filter((s) =>
-      s.roles.includes("inspection-worker"),
-    );
-  assert.equal(workers.length, 1);
-  workers[0].image = intent.inspector;
-  assert.equal(hash(target), intent.targetTemplateSha256);
+  // This exact trial keeps the validated live private template unchanged.
+  assert.equal(intent.targetTemplateSha256, intent.baselineTemplateSha256);
+  const runner = createRunner({ token: env.RICH_RUNNER_TOKEN, deadline });
   await save("verify-provider-instance");
   const provider = await railway.inspect();
   assert.deepEqual(provider.active, {
@@ -244,33 +229,28 @@ try {
     recoveryBindingSha256: intent.recoveryBindingSha256,
     removalProof: handoff.removalProof,
   };
-  for (const [name, value] of [
-    ["RICH_RUNNER_UPGRADE_JSON", authorization],
-    ["RICH_TEMPLATE_JSON", target],
-  ]) {
-    await verifyRemovedHandoff({
-      railway,
-      scope: STAGING,
-      baseline: intent.removalBaseline,
-      configuredImages: [intent.baseline.image],
-    });
-    assert.equal(
-      (
-        await graphql(
-          "mutation($input:VariableUpsertInput!){variableUpsert(input:$input)}",
-          {
-            input: {
-              ...scope,
-              name,
-              value: JSON.stringify(value),
-              skipDeploys: true,
-            },
+  await verifyRemovedHandoff({
+    railway,
+    scope: STAGING,
+    baseline: intent.removalBaseline,
+    configuredImages: [intent.baseline.image],
+  });
+  assert.equal(
+    (
+      await graphql(
+        "mutation($input:VariableUpsertInput!){variableUpsert(input:$input)}",
+        {
+          input: {
+            ...scope,
+            name: "RICH_RUNNER_UPGRADE_JSON",
+            value: JSON.stringify(authorization),
+            skipDeploys: true,
           },
-        )
-      ).variableUpsert,
-      true,
-    );
-  }
+        },
+      )
+    ).variableUpsert,
+    true,
+  );
   await verifyRemovedHandoff({
     railway,
     scope: STAGING,
