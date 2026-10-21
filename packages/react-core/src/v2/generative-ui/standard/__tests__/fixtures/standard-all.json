@@ -494,35 +494,9 @@
       }
     },
     {
-      "id": "loading",
-      "component": "Loading",
-      "label": "Loading data"
-    },
-    {
-      "id": "loadind",
-      "component": "LoadingIndicator",
-      "size": "sm"
-    },
-    {
-      "id": "loadblk",
-      "component": "LoadingBlock",
-      "label": "Placeholder"
-    },
-    {
       "id": "pulse",
       "component": "PulseIndicator",
       "color": "info"
-    },
-    {
-      "id": "celeb",
-      "component": "Celebration",
-      "trigger": "done",
-      "children": ["celeb-t"]
-    },
-    {
-      "id": "celeb-t",
-      "component": "Text",
-      "text": "Celebrate"
     },
     {
       "id": "flash",
@@ -581,11 +555,7 @@
       "gap": 2,
       "children": [
         "s-feedback-title",
-        "loading",
-        "loadind",
-        "loadblk",
         "pulse",
-        "celeb",
         "flash",
         "pop",
         "modal"

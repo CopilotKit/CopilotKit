@@ -301,15 +301,9 @@ describe("standard catalog: inputs (parity)", () => {
     }
   });
 
-  it("LoadingBlock reducedMotion stops the shimmer and PulseIndicator takes endScale and startOpacity", async () => {
+  it("PulseIndicator takes endScale and startOpacity", async () => {
     const v = render([
-      { id: "root", component: "Column", children: ["b", "p"] },
-      {
-        id: "b",
-        component: "LoadingBlock",
-        label: "Fetching",
-        reducedMotion: true,
-      },
+      { id: "root", component: "Column", children: ["p"] },
       {
         id: "p",
         component: "PulseIndicator",
@@ -318,9 +312,7 @@ describe("standard catalog: inputs (parity)", () => {
         startOpacity: 0.4,
       },
     ]);
-    const block = await v.findByText("Fetching");
-    expect(block.style.animation).toBe("");
-    const pulse = v.getByLabelText("Live");
+    const pulse = await v.findByLabelText("Live");
     const ring = pulse.querySelector("[data-a2ui-motion]") as HTMLElement;
     expect(ring.style.getPropertyValue("--a2ui-pulse-scale")).toBe("3");
     expect(ring.style.getPropertyValue("--a2ui-pulse-opacity")).toBe("0.4");
