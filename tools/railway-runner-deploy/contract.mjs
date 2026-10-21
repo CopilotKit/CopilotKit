@@ -20,6 +20,8 @@ export const BUILD_WORKFLOW =
   ".github/workflows/intelligence-rich-threads-build.yml";
 export const DEPLOY_WORKFLOW =
   ".github/workflows/intelligence-rich-threads-deploy.yml";
+export const DEV_DEPLOY_WORKFLOW =
+  ".github/workflows/intelligence-rich-threads-dev.yml";
 export const IMAGE =
   /^ghcr\.io\/copilotkit\/rich-thread-runner@sha256:[a-f0-9]{64}$/;
 export const SHA256 = /^[a-f0-9]{64}$/;

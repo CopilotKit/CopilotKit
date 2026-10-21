@@ -40,6 +40,17 @@ tests, and Markdown. The invocation CLI is not a staged runtime input.
 
 ## Retry and recovery
 
+For branch development, push `dev/railway-runner-*` with `[runner-staging-dev]` in
+the head commit message. `intelligence-rich-threads-dev.yml` validates control
+tests/lint and invokes this same fixed-staging controller with `--development`.
+It uses the reviewed `releases/staging.json`, the same credentials, concurrency,
+provenance verification and same-run checkpoint/rerun rules. Receipts bind the
+actual development workflow bytes. No merge to `main` is needed for this entrypoint.
+The existing image build workflow on `test/pni-596-rich-intelligence-persistence`
+already builds branch images; generate release records with the existing tool.
+The current staging incident remains a separate recovery blocker: this entrypoint
+does not transfer a prior run's checkpoint or bypass recovery requirements.
+
 The workflow keeps a durable drain owner across deployment restarts. Before it
 changes the image, it saves the verified drain, baseline deployment, template,
 and volume proof in the redacted receipt. It also records candidate and rollback

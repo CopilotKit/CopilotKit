@@ -8,6 +8,7 @@ import {
 import {
   BUILD_WORKFLOW,
   DEPLOY_WORKFLOW,
+  DEV_DEPLOY_WORKFLOW,
   POLICY,
   sha256,
   STAGING,
@@ -164,6 +165,45 @@ test("baseline uses verified actual final state from failed rollback run", async
   assert.deepEqual(await readBaselineReceipt(7, h.github), h.release.baseline);
   receipt.finalState.verified = false;
   await assert.rejects(readBaselineReceipt(7, h.github));
+});
+test("development baselines require the exact development workflow and branch prefix", async () => {
+  const h = fixture();
+  h.run.path = DEV_DEPLOY_WORKFLOW;
+  h.run.head_branch = "dev/railway-runner-branch-deploy";
+  h.github.receipt = async () => ({
+    schemaVersion: 1,
+    operationId: "github-655515393-7",
+    releaseSha256: "d".repeat(64),
+    run: {
+      id: 7,
+      attempt: 1,
+      sha: h.run.head_sha,
+      workflowPath: DEV_DEPLOY_WORKFLOW,
+    },
+    outcome: "deployed",
+    finalState: {
+      verified: true,
+      phase: "running",
+      deploymentId: "deployment",
+      image: h.release.baseline.image,
+      runtimeIdentity: h.release.baseline.runtimeIdentity,
+      templateSha256: "e".repeat(64),
+      volumeId: STAGING.volumeId,
+      volumeInstanceId: STAGING.volumeInstanceId,
+      mountPath: "/data",
+    },
+  });
+  assert.deepEqual(await readBaselineReceipt(7, h.github), h.release.baseline);
+  for (const [path, branch] of [
+    [DEV_DEPLOY_WORKFLOW, "main"],
+    [DEV_DEPLOY_WORKFLOW, "feature"],
+    [DEPLOY_WORKFLOW, "dev/railway-runner-branch-deploy"],
+    [".github/workflows/foreign.yml", "dev/railway-runner-branch-deploy"],
+  ]) {
+    h.run.path = path;
+    h.run.head_branch = branch;
+    await assert.rejects(readBaselineReceipt(7, h.github));
+  }
 });
 test("artifact created before selected run attempt is rejected", async () => {
   const h = fixture();

@@ -378,3 +378,32 @@ test("remove mutation is exact and readback preserves the stale stop flag withou
   assert.equal(state.deploymentStopped, false);
   assert.equal(calls.filter((c) => c.query.startsWith("mutation")).length, 1);
 });
+
+test("missing latest is exposed only with both removed-handoff flags and no active deployment", async () => {
+  const value = data();
+  value.serviceInstance.activeDeployments = [];
+  value.serviceInstance.latestDeployment = null;
+  const railway = createRailway({
+    token: "private",
+    fetch: async () => Response.json({ data: value }),
+  });
+  await assert.rejects(railway.inspect());
+  await assert.rejects(railway.inspect({ allowNoActive: true }));
+  await assert.rejects(railway.inspect({ allowMissingLatest: true }));
+  await assert.rejects(
+    railway.inspect({ allowNoActive: "true", allowMissingLatest: true }),
+  );
+  await assert.rejects(
+    railway.inspect({ allowNoActive: true, allowMissingLatest: "true" }),
+  );
+  assert.equal(
+    (await railway.inspect({ allowNoActive: true, allowMissingLatest: true }))
+      .latest,
+    null,
+  );
+  value.serviceInstance.activeDeployments =
+    data().serviceInstance.activeDeployments;
+  await assert.rejects(
+    railway.inspect({ allowNoActive: true, allowMissingLatest: true }),
+  );
+});

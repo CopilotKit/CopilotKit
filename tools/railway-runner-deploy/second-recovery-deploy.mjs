@@ -1,3 +1,4 @@
+import { verifyRemovedHandoff } from "./removal-handoff.mjs";
 import {
   equal,
   requireThat,
@@ -73,6 +74,22 @@ export async function deploySecondRecoveryRunner({
     const value = await railway.inspect({ allowNoActive: true });
     validateVolume(value);
     return value;
+  };
+  const removedHandoff = async (configuredImages, message) => {
+    checkTime();
+    try {
+      return await verifyRemovedHandoff({
+        railway,
+        scope: STAGING,
+        baseline: { deploymentId: baselineId, image: baseline.image },
+        configuredImages,
+        clock,
+      });
+    } catch (error) {
+      if (message && error.message === "Removed baseline configuration changed")
+        throw new Error(message, { cause: error });
+      throw error;
+    }
   };
   const get = async () => {
     checkTime();
@@ -282,56 +299,17 @@ export async function deploySecondRecoveryRunner({
         );
         await sleep(Math.min(1000, deadline - clock()));
       }
-      await inventory(null, true);
-      const provider = await inspect();
-      requireThat(
-        provider.active === null && provider.latest?.id === baselineId,
-        "Removed baseline still active or replaced",
-      );
-      const removalProof = {
-        version: 1,
-        method: "deploymentRemove",
-        deploymentId: baselineId,
-        status: "REMOVED",
-        image: baseline.image,
-        projectId: STAGING.projectId,
-        environmentId: STAGING.environmentId,
-        serviceId: STAGING.serviceId,
-        volumeId: provider.volumeId,
-        volumeInstanceId: provider.volumeInstanceId,
-        mountPath: provider.mountPath,
-        observedAt: new Date(clock()).toISOString(),
-      };
+      const { removalProof } = await removedHandoff([baseline.image]);
       validateRemovalProof(removalProof);
       await save("removed", { removalProof });
     }
     if (checkpoint.stage === "removed") {
-      await inventory(null, true);
-      const provider = await inspect();
-      requireThat(
-        [baseline.image, candidate.image].includes(provider.configuredImage) &&
-          provider.latest?.id === baselineId &&
-          provider.active === null,
-        "Removed baseline configuration changed",
-      );
+      await removedHandoff([baseline.image, candidate.image]);
       await railway.setRecoveryAuthorization(authorization);
-      await inventory(null, true);
-      const authorizedProvider = await inspect();
-      requireThat(
-        [baseline.image, candidate.image].includes(
-          authorizedProvider.configuredImage,
-        ) &&
-          authorizedProvider.latest?.id === baselineId &&
-          authorizedProvider.active === null,
-        "Removed baseline configuration changed",
-      );
+      await removedHandoff([baseline.image, candidate.image]);
       await railway.setImage(candidate.image);
-      await inventory(null, true);
-      const candidateProvider = await inspect();
-      requireThat(
-        candidateProvider.configuredImage === candidate.image &&
-          candidateProvider.latest?.id === baselineId &&
-          candidateProvider.active === null,
+      await removedHandoff(
+        [candidate.image],
         "Candidate configuration unverified",
       );
       await save("candidate-requested");
