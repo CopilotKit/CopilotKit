@@ -1484,27 +1484,18 @@ export const SAMPLES: CatalogSample[] = [
   // -------------------------------------------------------------- Feedback
   {
     group: "Feedback",
-    title: "Loading, LoadingIndicator, LoadingBlock, PulseIndicator",
-    covers: ["Loading", "LoadingIndicator", "LoadingBlock", "PulseIndicator"],
+    title: "PulseIndicator",
+    covers: ["PulseIndicator"],
     components: [
       {
         id: "root",
-        component: "Column",
-        gap: 3,
-        children: ["l", "row", "blk"],
-      },
-      { id: "l", component: "Loading", label: "Loading your plan" },
-      {
-        id: "row",
         component: "Row",
         gap: 3,
         align: "center",
-        children: ["li", "pulse", "pt"],
+        children: ["pulse", "pt"],
       },
-      { id: "li", component: "LoadingIndicator", size: "sm" },
-      { id: "pulse", component: "PulseIndicator" },
-      txt("pt", "PulseIndicator next to text"),
-      { id: "blk", component: "LoadingBlock", label: "Fetching prices…" },
+      { id: "pulse", component: "PulseIndicator", label: "Live" },
+      txt("pt", "Live"),
     ],
   },
   {

@@ -494,21 +494,6 @@
       }
     },
     {
-      "id": "loading",
-      "component": "Loading",
-      "label": "Loading data"
-    },
-    {
-      "id": "loadind",
-      "component": "LoadingIndicator",
-      "size": "sm"
-    },
-    {
-      "id": "loadblk",
-      "component": "LoadingBlock",
-      "label": "Placeholder"
-    },
-    {
       "id": "pulse",
       "component": "PulseIndicator",
       "color": "info"
@@ -581,9 +566,6 @@
       "gap": 2,
       "children": [
         "s-feedback-title",
-        "loading",
-        "loadind",
-        "loadblk",
         "pulse",
         "celeb",
         "flash",
