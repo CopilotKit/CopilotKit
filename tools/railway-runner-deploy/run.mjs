@@ -1,4 +1,7 @@
-import { readAttemptCheckpoint } from "./checkpoint.mjs";
+import {
+  readAttemptCheckpoint,
+  readOneTimeStagingCheckpoint,
+} from "./checkpoint.mjs";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -74,6 +77,12 @@ async function main(env = process.env) {
     development: values.development,
     event,
   });
+  // Temporary continuation retains the existing candidate's owner and records this execution's actual provenance.
+  const operationId =
+    values.development &&
+    env.GITHUB_REF === "refs/heads/dev/railway-runner-watch-test-once"
+      ? "github-655515393-39540863388"
+      : `github-${REPOSITORY_ID}-${env.GITHUB_RUN_ID}`;
   requireThat(env.RUNNER_TEMP, "Runner temporary directory required");
   const directory = join(env.RUNNER_TEMP, "runner-deployment-receipt");
   await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -99,7 +108,7 @@ async function main(env = process.env) {
   await receipt({
     schemaVersion: 1,
     ...provenance,
-    operationId: `github-${REPOSITORY_ID}-${env.GITHUB_RUN_ID}`,
+    operationId,
     outcome: "unknown",
     providerWorkStarted: false,
     finalState: { verified: false },
@@ -110,10 +119,22 @@ async function main(env = process.env) {
   await verifyBuild(release, github, {
     verifyImage: (image) => verifyRegistryImage(image, { token }),
   });
-  const previousCheckpoint = await readAttemptCheckpoint(github, {
+  const checkpointContext = {
     ...provenance,
-    operationId: `github-${REPOSITORY_ID}-${env.GITHUB_RUN_ID}`,
-  });
+    operationId,
+  };
+  let previousCheckpoint = await readAttemptCheckpoint(
+    github,
+    checkpointContext,
+  );
+  if (values.development && !previousCheckpoint) {
+    previousCheckpoint = await readOneTimeStagingCheckpoint(
+      github,
+      checkpointContext,
+      env.GITHUB_REF,
+    );
+    provenance.continuedFromRun = 39540863388;
+  }
   const deadline = Date.now() + 210 * 60000;
   const deploy =
     release.recovery?.version === 2
@@ -123,7 +144,7 @@ async function main(env = process.env) {
         : deployReviewedRunner;
   const result = await deploy({
     release,
-    operationId: `github-${REPOSITORY_ID}-${env.GITHUB_RUN_ID}`,
+    operationId,
     railway: createRailway({ token: env.RAILWAY_TOKEN, deadline }),
     runner: createRunner({ token: env.RICH_RUNNER_TOKEN, deadline }),
     sleep,
