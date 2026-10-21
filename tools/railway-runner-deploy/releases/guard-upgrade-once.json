@@ -1,0 +1,57 @@
+{
+  "sourceRevision": "70f54b309c3c926367801374c581a375c4d599d2",
+  "build": {
+    "runId": 39550117034,
+    "runAttempt": 1,
+    "workflowPath": ".github/workflows/intelligence-rich-threads-build.yml",
+    "workflowSha256": "4337e0e43f7598ff19171ad3a73a250e404e7a8e138ae149cb30e75bda6224bf",
+    "artifactId": 12323735464,
+    "artifactSha256": "d9b88a4311851726df4baa953b34add87c8ae1c9ebdcbfd2218c2144b4a22ea7"
+  },
+  "baseline": {
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:5b64700afc0000d8e2bad1fef1dee1046d9cac68b84041bc6eb794f6700774fe",
+    "runtimeIdentity": {
+      "protocolVersion": 1,
+      "sourceRevision": "549a1fd8b2dde4b87254a0de99cc831a5d5ee5dc",
+      "sourceManifestSha256": "13ddf1e1a70b7c16740f506e243e8a6d4616a846b5cab18f77a66b1a76a08a10",
+      "compatibilitySha256": "4a3287909ee9a6bf9bc278d82b7b503c8dd865d5bd66a82f07b40e462fd9ca7b",
+      "policySha256": "7eb39aa628b77c30efa88a00c4ad0695de89ac2bb919e7e25f550a4ab2f2c765"
+    }
+  },
+  "removalBaseline": {
+    "deploymentId": "63b508a4-beda-4f78-8a91-591a9aa32e0b",
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:5b64700afc0000d8e2bad1fef1dee1046d9cac68b84041bc6eb794f6700774fe"
+  },
+  "inspector": "ghcr.io/copilotkit/rich-thread-inspector@sha256:1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71",
+  "baselineTemplateSha256": "ba76d57e7311faf9b9cb988851b23f34ad1e17285bdd2208e3680fdf527a03c9",
+  "targetTemplateSha256": "020fbeb669a5a0fa0d3da5f120348770721a2c2f9c4e997bccae01792c6a8020",
+  "recoveryBindingSha256": "e58f5ea6d3b660085649f4fd136af40bea9bcab633c16dadcf89bfad75115bc4",
+  "watches": [
+    {
+      "operationId": "github-655515393-39238052933",
+      "lifecycleRunId": "rich-f091f87b-e90b-4dd1-bef2-6ae873a774a3",
+      "runnerRunId": "run-7d05705a-0b83-4cdb-9d32-9f054ae24d11",
+      "oldJournalSha256": "7e9f0ef079ce1c504d6614623413f95ac2908bef009b33a77aec1fbad4d17025",
+      "originalStatus": "failed",
+      "deadlineExceeded": true
+    },
+    {
+      "operationId": "github-655515393-39540863388",
+      "lifecycleRunId": "rich-f6c38ef4-145e-44d0-8075-1e56e5818fe5",
+      "runnerRunId": "run-7d2602d4-8b10-40b9-aaff-3c6a0029afad",
+      "oldJournalSha256": "08ee202932fdea2f560787d52ba269ea377fe55c0aec931244163ce795b0f548",
+      "originalStatus": "failed",
+      "deadlineExceeded": true
+    }
+  ],
+  "candidate": {
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:0e2a6ac69b529b4f01c443de4fed340d5c826fecaf79f97e85bfb43bc0c50966",
+    "runtimeIdentity": {
+      "protocolVersion": 1,
+      "sourceRevision": "70f54b309c3c926367801374c581a375c4d599d2",
+      "sourceManifestSha256": "7d898f9b3106ef1d38993cb9210c3695c06ca5bd49e615f4b7bbaa10d6dcadba",
+      "compatibilitySha256": "9d80fc2c8426381642c9f7734b1d4c6658104b43a7a83b476d1d1c67b4c143a0",
+      "policySha256": "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751"
+    }
+  }
+}

@@ -14,11 +14,11 @@ import {
   SECOND_TEMPLATE,
 } from "./second-recovery-contract.mjs";
 
-// This remove capability is deliberately limited to the reviewed second incident.
+// Temporary exact baseline for the reviewed guard installation; reverted after the test.
 export const REMOVAL_HANDOFF_BASELINE = Object.freeze({
-  deploymentId: "41d9b023-1870-444f-8889-c369e26faa54",
+  deploymentId: "63b508a4-beda-4f78-8a91-591a9aa32e0b",
   image:
-    "ghcr.io/copilotkit/rich-thread-runner@sha256:8db845b5d2b427317524254ff58b3e18db69046b9e75d950b6dc967c004a0019",
+    "ghcr.io/copilotkit/rich-thread-runner@sha256:5b64700afc0000d8e2bad1fef1dee1046d9cac68b84041bc6eb794f6700774fe",
 });
 
 /** Consume a bounded remote body without including it in an error. */
