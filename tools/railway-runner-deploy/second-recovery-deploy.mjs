@@ -356,7 +356,7 @@ export async function deploySecondRecoveryRunner({
         "Second recovery fence not ready",
       );
       if (state.operation.status !== "recovery-ready") {
-        originalWatch(state.recovery);
+        originalWatch(state.recovery?.watches?.[0]);
         await runner.recover({
           operationId,
           expectedRuntimeIdentity: candidate.runtimeIdentity,
