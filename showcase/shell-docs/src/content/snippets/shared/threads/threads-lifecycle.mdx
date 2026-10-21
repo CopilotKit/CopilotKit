@@ -216,8 +216,8 @@ The bridge between the two is the `threadId`: when you pass an explicit CopilotK
 
 ### Future runs can remain durable in both places
 
-After historical import, future conversations that run through CopilotKit are
-written to CopilotKit Intelligence as threads. If your LangGraph agent
+Once Intelligence is connected, conversations that run through that runtime are
+recorded automatically in Intelligence. Historical import is optional. If your LangGraph agent
 continues using a durable checkpointer or LangGraph Platform, those same runs
 also continue through LangGraph's native persistence. The same applies to an ADK
 agent that remains connected to a durable session service with retained
@@ -233,6 +233,10 @@ rename, archive, or delete records in the native framework store.
 <Callout type="info">
   See [LangGraph persistence](/integrations/langgraph/advanced/persistence/message-persistence) for the framework-native (checkpointer) side, and [Importing and synchronizing thread history](/threads-import) for bringing existing framework conversations into the platform store. (LangGraph *Platform* requires thread ids to be UUIDs, which CopilotKit's auto-minted ids already are.)
 </Callout>
+
+## Example: keep an existing LangGraph conversation
+
+Follow [Bring your own thread system](/intelligence/bring-your-own-thread-system#example-keep-an-existing-langgraph-conversation) for an example that keeps native persistence and continues the same conversation.
 
 ## MCP Apps activity and history
 

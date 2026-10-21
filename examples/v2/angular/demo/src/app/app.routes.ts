@@ -16,6 +16,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: "mcp-apps",
+    title: "MCP Apps Demo",
+    loadComponent: () =>
+      import("./routes/mcp-apps/mcp-apps.component").then(
+        (m) => m.MCPAppsComponent,
+      ),
+  },
+  {
     path: "a2ui-angular",
     title: "Angular A2UI",
     loadComponent: () =>

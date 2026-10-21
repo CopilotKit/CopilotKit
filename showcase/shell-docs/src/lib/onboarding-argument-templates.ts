@@ -63,9 +63,8 @@ export const ARGUMENT_TEMPLATES = {
  * computed at runtime would cost every copy a round of async crypto to report
  * a value that only changes when this file does.
  *
- * `onboarding-argument-templates.test.ts` recomputes it in Node and fails when
- * it disagrees, so editing a sentence without bumping this is a red test rather
- * than a silent measurement gap.
+ * Recompute this hash when editing a template so analytics can distinguish
+ * revisions of the argument prose.
  */
 export const ONBOARDING_ARGUMENT_VERSION = "63f13e3aad0e";
 

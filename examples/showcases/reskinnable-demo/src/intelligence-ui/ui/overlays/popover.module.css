@@ -1,0 +1,65 @@
+.root {
+  position: relative;
+  display: inline-block;
+}
+
+.trigger {
+  min-height: 32px;
+  border: 1px solid var(--cpki-color-border, #b8c7d1);
+  border-radius: 2px;
+  background: var(--cpki-color-surface, #ffffff);
+  color: var(--cpki-color-foreground, #023047);
+  cursor: pointer;
+  font: inherit;
+  padding: 6px 10px;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.trigger:hover {
+  background: var(--cpki-color-surface-muted, #f2f7f9);
+}
+
+.trigger:focus-visible {
+  border-color: var(--cpki-color-focus-ring, #219ebc);
+  outline: 2px solid var(--cpki-color-focus-ring, #219ebc);
+  outline-offset: 2px;
+}
+
+.content {
+  position: absolute;
+  z-index: var(--cpki-z-popover, 900);
+  top: calc(100% + 6px);
+  left: 0;
+  box-sizing: border-box;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 32px));
+  border: 1px solid var(--cpki-color-border, #b8c7d1);
+  border-radius: 2px;
+  background: var(--cpki-color-surface, #ffffff);
+  box-shadow: none;
+  color: var(--cpki-color-foreground, #023047);
+  padding: 8px;
+  animation: cpkiPopoverEnter 150ms ease-out;
+  outline: none;
+}
+
+@keyframes cpkiPopoverEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger {
+    transition-duration: 1ms;
+  }
+
+  .content {
+    animation-duration: 1ms;
+    transform: none;
+  }
+}

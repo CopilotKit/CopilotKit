@@ -41,7 +41,7 @@ def _run(coro):
 
 @pytest.fixture
 def _patched_impl(monkeypatch):
-    """Patch ``manage_sales_todos_impl`` with a deterministic pass-through
+    """Patch ``manage_todos_impl`` with a deterministic pass-through
     so the test doesn't depend on the shared tool's real filtering logic.
 
     The real impl is covered by tests in the shared-python tools package.
@@ -52,7 +52,7 @@ def _patched_impl(monkeypatch):
         # Return a list of dicts (the real impl returns the same shape).
         return [dict(t) for t in todos]
 
-    monkeypatch.setattr(agent_mod, "manage_sales_todos_impl", _identity)
+    monkeypatch.setattr(agent_mod, "manage_todos_impl", _identity)
     return agent_mod
 
 
@@ -154,7 +154,7 @@ def test_empty_todos_list_returns_empty_snapshot(_patched_impl):
 
 def test_processed_todos_pass_through_shared_impl(monkeypatch):
     """Confirms the function actually routes through
-    ``manage_sales_todos_impl`` (not just returning the raw input)."""
+    ``manage_todos_impl`` (not just returning the raw input)."""
     import agents.agent as agent_mod
     from agents.agent import sales_state_from_args
 
@@ -162,7 +162,7 @@ def test_processed_todos_pass_through_shared_impl(monkeypatch):
         # Simulate the real impl adding an index or filtering.
         return [{"id": t.get("id"), "normalized": True} for t in todos]
 
-    monkeypatch.setattr(agent_mod, "manage_sales_todos_impl", _transformer)
+    monkeypatch.setattr(agent_mod, "manage_todos_impl", _transformer)
 
     ctx = SimpleNamespace(tool_input={"todos": [{"id": "x"}, {"id": "y"}]})
 

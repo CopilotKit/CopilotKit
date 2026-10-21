@@ -233,7 +233,11 @@ export function CopilotChatAssistantMessage({
 
   if (children) {
     return (
-      <div data-copilotkit style={{ display: "contents" }}>
+      <div
+        data-copilotkit
+        data-message-id={message.id}
+        style={{ display: "contents" }}
+      >
         {children({
           markdownRenderer: boundMarkdownRenderer,
           toolbar: boundToolbar,

@@ -1,4 +1,8 @@
 import { loadNotificationFeed } from "./lib/notification-loader.js";
+import { loadHudFeed } from "./lib/hud-loader.js";
+import { resolveHudContent } from "./lib/hud-config.js";
+import type { HudContent, HudFeed } from "./lib/hud-config.js";
+import { HUD_DEFAULT_CONTENT } from "./lib/hud-defaults.js";
 import {
   emptyNotificationState,
   reconcileNotifications,
@@ -80,6 +84,7 @@ import {
   loadInspectorState,
   hasNotificationPulsed,
   saveNotificationPulsedId,
+  saveInspectorDismissedForever,
   saveInspectorDismissedUntil,
   saveInspectorState,
   isValidAnchor,
@@ -123,6 +128,7 @@ import type {
 } from "./lib/home-briefing.js";
 import {
   INSPECTOR_GROUPS,
+  INSPECTOR_MENU_KEYS,
   INSPECTOR_NAV_SECTIONS,
   getGroupForMenu,
   isInspectorMenuKey,
@@ -221,6 +227,19 @@ export type InspectorOpenOptions = {
   /** Scroll the selected thread timeline to this message when available. */
   messageId?: string;
 };
+
+/**
+ * Resolve the attached core's request headers at send time. A core released
+ * before `resolveHeaders()` existed has only the static `headers` map, so an
+ * inspector attached to it falls back to a copy of that map.
+ */
+function resolveAttachedCoreHeaders(
+  core: CopilotKitCore,
+): Record<string, string> | Promise<Record<string, string>> {
+  return typeof core.resolveHeaders === "function"
+    ? core.resolveHeaders()
+    : { ...core.headers };
+}
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
@@ -420,17 +439,18 @@ type LauncherHudRowId = "threads" | "learning";
 
 const HUD_INSPECTOR_LABEL = "CopilotKit Inspector";
 const HUD_ANNOUNCEMENT_TITLE_LIMIT = 80;
-const HUD_THREADS_LABEL = "Rich Threads";
-const HUD_LEARNING_LABEL = "Automatic Learning";
-const HUD_LEARN_MORE_LABEL = "Click to learn more";
 
-type InspectorDismissalDuration = "day" | "week";
+type InspectorDismissalDuration = "day" | "week" | "forever";
 const INSPECTOR_DISMISSAL_MS: Readonly<
   Record<InspectorDismissalDuration, number>
 > = {
   day: 24 * 60 * 60 * 1000,
-  week: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+  week: 7 * 24 * 60 * 60 * 1000,
+  // Renewed to a full window on every load; see saveInspectorDismissedForever.
+  forever: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
 };
+// setTimeout fires immediately for delays above 2^31-1 ms (~24.8 days).
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 
 type HomeFeaturePromptId = HomeServiceId;
 type HomeFeaturePromptTarget = Readonly<{
@@ -1698,10 +1718,124 @@ function coerceJsonValue(value: unknown): unknown {
   }
 }
 
+/**
+ * Draws one JSON value of the inspector into a container that the host page
+ * owns. `value` is the raw value: a JSON string or an already-parsed value.
+ * Return a function to run when the inspector removes or replaces the value.
+ */
+export type InspectorJsonRenderer = (
+  container: HTMLElement,
+  value: unknown,
+) => (() => void) | void;
+
+let inspectorJsonRenderer: InspectorJsonRenderer | null = null;
+let inspectorJsonSlotCount = 0;
+
+const JSON_BLOCK_TAG = "cpk-json-block";
+
+/**
+ * Replaces the inspector's built-in JSON blocks (tool arguments and results,
+ * state, events, and context) with a host renderer. Pass `null` to restore the
+ * built-in blocks. Set it before the inspector renders: a block that is
+ * already on screen changes at the inspector's next render.
+ *
+ * @example
+ * ```ts
+ * setInspectorJsonRenderer((container, value) => {
+ *   const root = createRoot(container);
+ *   root.render(<JsonView value={value} />);
+ *   return () => root.unmount();
+ * });
+ * ```
+ */
+export function setInspectorJsonRenderer(
+  renderer: InspectorJsonRenderer | null,
+): void {
+  inspectorJsonRenderer = renderer;
+}
+
+/**
+ * Hosts one value drawn by the host renderer. Inside a shadow root, the
+ * container lives in the shadow host's light DOM and shows here through a
+ * named slot, so the host page's own styles apply to what the renderer draws.
+ */
+// The fallback keeps module import safe where no DOM exists (server render).
+class CpkJsonBlock extends ((globalThis.HTMLElement ??
+  class {}) as typeof HTMLElement) {
+  #value: unknown = undefined;
+  #hasValue = false;
+  #cleanup: (() => void) | undefined;
+  #container: HTMLElement | undefined;
+
+  get value(): unknown {
+    return this.#value;
+  }
+
+  set value(next: unknown) {
+    if (this.#hasValue && Object.is(next, this.#value)) return;
+    this.#value = next;
+    this.#hasValue = true;
+    if (this.isConnected) this.#render();
+  }
+
+  connectedCallback(): void {
+    this.style.display = "block";
+    this.#render();
+  }
+
+  disconnectedCallback(): void {
+    this.#teardown();
+  }
+
+  #render(): void {
+    this.#teardown();
+    const renderer = inspectorJsonRenderer;
+    if (!renderer) return;
+    const root = this.getRootNode();
+    const container = this.ownerDocument.createElement("div");
+    // `instanceof ShadowRoot` fails across realms (the pop-out window).
+    if (root.nodeType === Node.DOCUMENT_FRAGMENT_NODE && "host" in root) {
+      inspectorJsonSlotCount += 1;
+      const name = `cpk-json-${inspectorJsonSlotCount}`;
+      const slot = this.ownerDocument.createElement("slot");
+      slot.name = name;
+      this.replaceChildren(slot);
+      container.slot = name;
+      (root as ShadowRoot).host.append(container);
+    } else {
+      this.replaceChildren(container);
+    }
+    this.#container = container;
+    const cleanup = renderer(container, this.#value);
+    this.#cleanup = typeof cleanup === "function" ? cleanup : undefined;
+  }
+
+  #teardown(): void {
+    const cleanup = this.#cleanup;
+    this.#cleanup = undefined;
+    cleanup?.();
+    this.#container?.remove();
+    this.#container = undefined;
+    this.replaceChildren();
+  }
+}
+
 function renderHighlightedJsonBlock(
   value: unknown,
   options: { maxHeight?: string } = {},
 ) {
+  if (inspectorJsonRenderer) {
+    // The raw value keeps its identity across renders, so an unchanged
+    // value does not draw again.
+    return html`<cpk-json-block
+      .value=${value}
+      style=${
+        options.maxHeight
+          ? `overflow:auto;max-height:${options.maxHeight}`
+          : nothing
+      }
+    ></cpk-json-block>`;
+  }
   const parsed = coerceJsonValue(value);
   const style = options.maxHeight
     ? `max-height:${options.maxHeight}`
@@ -2209,6 +2343,8 @@ export class CpkThreadInspector extends PortableLitElement {
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
+    resolveHeaders: { attribute: false },
+    headersGeneration: { attribute: false },
     threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
@@ -2251,7 +2387,27 @@ export class CpkThreadInspector extends PortableLitElement {
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
+  /**
+   * @deprecated Set `resolveHeaders` instead — it resolves fresh headers at
+   * send time (#1937), so a rotated token is never stale. This is a
+   * fallback used only when `resolveHeaders` is left unset (its default
+   * no-op); when both are set, `resolveHeaders` wins. Never part of the
+   * load key — see `headersGeneration`.
+   */
   headers: Record<string, string> = {};
+  // Resolved at send time (#1937): a builder can return a fresh token on every
+  // call, so this must be invoked per-request rather than snapshotted once.
+  // The default value is a sentinel: `ɵresolveInspectorHeaders` compares
+  // against it to know whether a host actually set `resolveHeaders`, so it
+  // can fall back to the deprecated `headers` field when not.
+  resolveHeaders: () =>
+    | Record<string, string>
+    | Promise<Record<string, string>> =
+    CpkThreadInspector.ɵdefaultResolveHeaders;
+  // Bumped only by an actual header-source change (never by a builder
+  // returning a new value). Never key the load signature on header VALUES —
+  // that would reload thread inspection on every token rotation.
+  headersGeneration = 0;
   threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
@@ -2263,8 +2419,8 @@ export class CpkThreadInspector extends PortableLitElement {
   /**
    * Monotonic per-thread counter the parent inspector ticks every time the
    * agent currently running on this thread emits a message change. When this
-   * prop changes for the same `threadId`, we re-fetch `/threads/:id/messages`
-   * so the conversation view reflects live streaming output.
+   * prop changes for the same `threadId`, we queue a bounded refresh of
+   * `/threads/:id/messages` so the conversation reflects streaming output.
    */
   liveMessageVersion = 0;
   viewInAppMode: "hidden" | "view" | "stop" = "hidden";
@@ -2358,6 +2514,9 @@ export class CpkThreadInspector extends PortableLitElement {
   private _lastSeenLiveMessageVersion = 0;
   private _metadataAbort: AbortController | null = null;
   private _messagesAbort: AbortController | null = null;
+  private _messagesRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private _messagesRefreshPending = false;
+  private _lastMessagesFetchAt = 0;
   private _eventsAbort: AbortController | null = null;
   private _stateAbort: AbortController | null = null;
   private _hasConnectedOnce = false;
@@ -2367,8 +2526,14 @@ export class CpkThreadInspector extends PortableLitElement {
   private _dividerStartWidth = 0;
   private static nextDomId = 1;
   private readonly domIdPrefix = `cpk-thread-detail-${CpkThreadInspector.nextDomId++}`;
+  /** Sentinel identity for `resolveHeaders`'s default value; see its field doc. */
+  private static readonly ɵdefaultResolveHeaders = (): Record<
+    string,
+    string
+  > => ({});
 
   static readonly COLLAPSE_THRESHOLD = 800;
+  private static readonly MESSAGE_REFRESH_INTERVAL_MS = 1_000;
   static readonly TAB_LIST: ReadonlyArray<{
     id: ThreadDetailsTab;
     label: string;
@@ -2398,19 +2563,6 @@ export class CpkThreadInspector extends PortableLitElement {
       provider.getEvents ? "events:1" : "events:0",
       provider.getState ? "state:1" : "state:0",
     ].join("|");
-  }
-
-  /**
-   * Build a deterministic signature for runtime fetch headers so auth/CSRF
-   * changes invalidate cached thread data even when the selected thread is
-   * otherwise unchanged.
-   */
-  private static headersLoadKey(headers: Record<string, string>): string {
-    return JSON.stringify(
-      Object.entries(headers).sort(([leftKey], [rightKey]) =>
-        leftKey.localeCompare(rightKey),
-      ),
-    );
   }
 
   private renderConversationActions() {
@@ -2893,6 +3045,13 @@ export class CpkThreadInspector extends PortableLitElement {
       flex-direction: column;
       gap: 12px;
     }
+    .cpk-td__panel--conversation {
+      width: 100%;
+      max-width: 800px;
+      min-width: 0;
+      margin-inline: auto;
+    }
+
     .cpk-td__panel > * {
       flex-shrink: 0;
     }
@@ -3011,123 +3170,148 @@ export class CpkThreadInspector extends PortableLitElement {
       border: 0;
     }
 
-    /* ── Tool call blocks ────────────────────────────────────────────── */
+    /* Tool activity stays compact in the conversation; raw data is opt-in. */
     .cpk-td__tool-block {
-      border: 1px solid #e9e9ef;
-      border-radius: 12px;
-      overflow: hidden;
+      min-width: 0;
     }
-
+    .cpk-td__tool-block:has(> .cpk-td__tool-header[aria-expanded="true"]) {
+      border-radius: 10px;
+      overflow: hidden;
+      background: #ffffff;
+      box-shadow: 0 0 0 1px oklch(0 0 0 / 0.08);
+    }
     .cpk-td__tool-header {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 12px;
-      background: #ffffff;
-      color: #71717a;
+      gap: 10px;
+      padding: 10px 12px;
+      background: transparent;
+      color: #68686e;
       cursor: pointer;
       width: 100%;
       border: 0;
       font-family: inherit;
       text-align: left;
-      font-size: 11px;
-      user-select: none;
+      font-size: 12px;
     }
-
+    .cpk-td__tool-header > svg {
+      flex-shrink: 0;
+    }
     .cpk-td__tool-header:focus-visible {
       outline: 2px solid var(--cpk-primary-color, #7076b3);
       outline-offset: -2px;
     }
-
     .cpk-td__tool-header:hover {
-      background: #fafafa;
+      background: #f7f7f9;
+      border-radius: 8px;
     }
-
+    .cpk-td__tool-block:has(> .cpk-td__tool-header[aria-expanded="true"])
+      .cpk-td__tool-header:hover {
+      border-radius: 0;
+    }
+    .cpk-td__tool-copy {
+      flex: 1;
+      min-width: 0;
+    }
+    .cpk-td__tool-title {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      min-width: 0;
+    }
     .cpk-td__tool-name {
       font-size: 13px;
       font-weight: 500;
-      color: #18181b;
+      line-height: 1.6;
+      color: #57575b;
       overflow-wrap: anywhere;
-      min-width: 0;
-      flex: 1;
     }
-
     .cpk-td__tool-status {
-      font-size: 10px;
-      font-weight: 500;
-      padding: 3px 7px;
-      border-radius: 999px;
-      background: #d1fae5;
-      color: #065f46;
+      display: block;
+      font-size: 11px;
+      line-height: 1.6;
+      color: #68686e;
     }
-
     .cpk-td__tool-status--pending {
-      background: #fef3c7;
       color: #8a5900;
     }
-
     .cpk-td__tool-chevron {
-      color: #68686e;
-      font-size: 10px;
+      flex-shrink: 0;
+      transition: transform 150ms;
     }
-
+    .cpk-td__tool-header[aria-expanded="true"] .cpk-td__tool-chevron {
+      transform: rotate(90deg);
+    }
+    .cpk-td__tool-name--streaming {
+      width: fit-content;
+      background: linear-gradient(100deg, #68686e 35%, #c9c9d5 50%, #68686e 65%);
+      background-size: 250% 100%;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      animation: cpk-tool-shimmer 2s linear infinite;
+    }
+    @keyframes cpk-tool-shimmer {
+      from {
+        background-position: 150% 0;
+      }
+      to {
+        background-position: -100% 0;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cpk-td__tool-name--streaming {
+        animation: none;
+        background: none;
+        color: inherit;
+      }
+      .cpk-td__tool-chevron {
+        transition: none;
+      }
+    }
     .cpk-td__tool-body {
-      padding: 8px 10px;
+      min-width: 0;
+      padding-top: 4px;
       border-top: 1px solid #e9e9ef;
-      background: #ffffff;
     }
-
-    .cpk-td__tool-section-label {
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
-      font-weight: 500;
+    .cpk-td__tool-identifier {
+      margin-left: 0.35em;
       color: #68686e;
-      text-transform: uppercase;
-      margin-bottom: 4px;
-      letter-spacing: 0.3px;
-    }
-
-    .cpk-td__tool-pre {
-      margin: 0;
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 12px;
-      background: #f7f7f9;
-      padding: 10px 12px;
-      border-radius: 6px;
-      overflow-x: auto;
-      white-space: pre-wrap;
+      font:
+        11px/1.6 "Spline Sans Mono",
+        monospace;
       overflow-wrap: anywhere;
-      word-break: normal;
-      color: #010507;
+    }
+    .cpk-td__tool-data {
+      display: grid;
+      gap: 0;
+    }
+    .cpk-td__tool-section-label {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.65;
+      color: #68686e;
+      margin: 0;
+      padding: 8px 12px;
+    }
+    .cpk-td__tool-body .cpk-json-block {
+      font-size: 12px;
       line-height: 1.65;
     }
-
-    /* ── Tool call group ─────────────────────────────────────────────── */
+    .cpk-td__tool-result {
+      border-top: 1px solid #e9e9ef;
+    }
     .cpk-td__tool-group {
-      border: 1px solid #e9e9ef;
-      border-radius: 7px;
-      overflow: hidden;
+      min-width: 0;
     }
-
     .cpk-td__tool-group-header {
-      padding: 5px 10px;
-      background: rgba(133, 236, 206, 0.15);
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
-      color: #087653;
-      text-transform: uppercase;
-      font-weight: 500;
-      border-bottom: 1px solid #e9e9ef;
+      padding: 4px 12px;
+      font-size: 11px;
+      color: #68686e;
     }
-
     .cpk-td__tool-group .cpk-td__tool-block {
-      border: none;
-      border-bottom: 1px solid #e9e9ef;
-      border-radius: 0;
-    }
-
-    .cpk-td__tool-group .cpk-td__tool-block:last-child {
-      border-bottom: none;
+      margin-left: 12px;
     }
 
     /* ── Inline chips (reasoning / state update) ─────────────────────── */
@@ -3413,17 +3597,24 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__tool-header {
+      background: transparent;
+    }
+    :host([data-color-scheme="dark"])
+      .cpk-td__tool-block:has(> .cpk-td__tool-header[aria-expanded="true"]) {
       background: #191c24;
+      box-shadow: 0 0 0 1px oklch(1 0 0 / 0.12);
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-body,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-result {
+      border-top-color: #343742;
     }
     :host([data-color-scheme="dark"]) .cpk-td__tool-name {
       color: #f4f4f5;
     }
     :host([data-color-scheme="dark"]) .cpk-td__tool-status {
-      background: #17392e;
-      color: #6ee7b7;
+      color: #a1a1aa;
     }
     :host([data-color-scheme="dark"]) .cpk-td__tool-status--pending {
-      background: #3d3019;
       color: #fbbf24;
     }
 
@@ -3646,9 +3837,6 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
     :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-block,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-header,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-body,
     :host([data-color-scheme="dark"]) .cpk-td__event,
     :host([data-color-scheme="dark"]) .cpk-td__event-payload,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-item,
@@ -3664,7 +3852,6 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
     :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__event,
     :host([data-color-scheme="dark"]) .cpk-td__genui-card,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-item,
@@ -3674,14 +3861,8 @@ export class CpkThreadInspector extends PortableLitElement {
       background: #191c24;
     }
 
-    :host([data-color-scheme="dark"]) .cpk-td__timeline-header,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-body {
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-header {
       background: #171a22;
-    }
-
-    :host([data-color-scheme="dark"]) .cpk-td__tool-pre {
-      background: #111319;
-      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle:hover,
@@ -3817,13 +3998,34 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__tab--active,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-value,
     :host([data-color-scheme="dark"]) .cpk-td__tool-name,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-pre,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-title,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-tdp__value {
       color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__tool-status,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-section-label,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-identifier,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-group-header {
+      color: #aeb1bd;
+    }
+    :host([data-color-scheme="dark"]) .cpk-td__tool-name--streaming {
+      color: transparent;
+      background-image: linear-gradient(
+        100deg,
+        #aeb1bd 35%,
+        #ffffff 50%,
+        #aeb1bd 65%
+      );
+    }
+    @media (prefers-reduced-motion: reduce) {
+      :host([data-color-scheme="dark"]) .cpk-td__tool-name--streaming {
+        background: none;
+        color: #f3f4f8;
+      }
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__event-payload,
@@ -3868,17 +4070,12 @@ export class CpkThreadInspector extends PortableLitElement {
       this.threadId &&
       this.liveMessageVersion !== this._lastSeenLiveMessageVersion
     ) {
-      // Same thread, but the parent inspector signalled new agent-emitted
-      // messages on this thread (via `liveMessageVersion`). Re-fetch the
-      // canonical conversation from the runtime so streaming output flows
-      // into the view without us reimplementing AG-UI → ConversationItem
-      // mapping in the parent. `silent: true` so the loading-state indicator
-      // doesn't flash between every streaming chunk and we keep the
-      // last-good view on transient fetch errors.
+      // Streaming chunks can arrive faster than a transcript can load.
+      // Keep one pending refresh instead of aborting and replacing every
+      // request: browser aborts need not cancel work already on the server.
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
-      this._messagesAbort?.abort();
-      this._messagesAbort = null;
-      void this.fetchMessages(this.threadId, true);
+      this._messagesRefreshPending = true;
+      this.scheduleMessagesRefresh();
     }
 
     const focusedContentChanged =
@@ -3966,12 +4163,18 @@ export class CpkThreadInspector extends PortableLitElement {
       this.threadId ?? "thread:none",
       CpkThreadInspector.providerLoadKey(this.provider),
       `runtime:${this.runtimeUrl}`,
-      `headers:${CpkThreadInspector.headersLoadKey(this.headers)}`,
+      `headersGen:${this.headersGeneration}`,
       `inspect:${this.threadInspectionAvailable ? "1" : "0"}`,
     ].join("||");
   }
 
   private resetLoadedThreadData(): void {
+    if (this._messagesRefreshTimer !== null) {
+      clearTimeout(this._messagesRefreshTimer);
+      this._messagesRefreshTimer = null;
+    }
+    this._messagesRefreshPending = false;
+    this._lastMessagesFetchAt = 0;
     this._tab = "timeline";
     this._activatedTabs = new Set(["timeline"]);
     this._panelTplCache = new Map();
@@ -4027,6 +4230,40 @@ export class CpkThreadInspector extends PortableLitElement {
     }
   }
 
+  /** Coalesces live updates without overlapping requests or starving the final update. */
+  private scheduleMessagesRefresh(): void {
+    if (
+      !this._messagesRefreshPending ||
+      this._messagesRefreshTimer !== null ||
+      this._messagesAbort ||
+      !this.isConnected ||
+      !this.threadId ||
+      !this.canFetchMessages()
+    ) {
+      return;
+    }
+    const threadId = this.threadId;
+    const loadKey = this.currentLoadKey();
+    if (loadKey !== this._lastLoadKey) return;
+    const delay = Math.max(
+      0,
+      CpkThreadInspector.MESSAGE_REFRESH_INTERVAL_MS -
+        (Date.now() - this._lastMessagesFetchAt),
+    );
+    this._messagesRefreshTimer = setTimeout(() => {
+      this._messagesRefreshTimer = null;
+      if (
+        !this.isConnected ||
+        this.currentLoadKey() !== loadKey ||
+        this._lastLoadKey !== loadKey ||
+        this._messagesAbort
+      ) {
+        return;
+      }
+      void this.fetchMessages(threadId, true);
+    }, delay);
+  }
+
   /**
    * Fetch the canonical conversation for `threadId` from the runtime.
    *
@@ -4045,8 +4282,15 @@ export class CpkThreadInspector extends PortableLitElement {
       if (!silent) this._conversation = [];
       return;
     }
+    if (this._messagesRefreshTimer !== null) {
+      clearTimeout(this._messagesRefreshTimer);
+      this._messagesRefreshTimer = null;
+    }
+    this._messagesRefreshPending = false;
+    this._lastMessagesFetchAt = Date.now();
     this._messagesAbort?.abort();
     const controller = new AbortController();
+    const loadKey = this.currentLoadKey();
     this._messagesAbort = controller;
     if (!silent) {
       this._loadingMessages = true;
@@ -4059,12 +4303,14 @@ export class CpkThreadInspector extends PortableLitElement {
             signal: controller.signal,
           })
         : await this.fetchRuntimeMessages(threadId, controller.signal);
-      if (controller.signal.aborted || this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.currentLoadKey() !== loadKey)
+        return;
       this._conversation = this.mapMessages(messages);
       this._messagesError = null;
       this._messageRefreshError = null;
     } catch (err) {
-      if (controller.signal.aborted || this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.currentLoadKey() !== loadKey)
+        return;
       if (err instanceof Error && err.name === "AbortError") return;
       if (!silent || this._conversation.length === 0) {
         this._messagesError =
@@ -4075,9 +4321,13 @@ export class CpkThreadInspector extends PortableLitElement {
           "Could not refresh messages. Showing the last loaded conversation.";
       }
     } finally {
-      // A live refresh can replace the initial request before it finishes.
-      if (!controller.signal.aborted && this.threadId === threadId) {
-        this._loadingMessages = false;
+      // A stale provider may ignore abort and settle after a new source loads.
+      if (this._messagesAbort === controller) {
+        this._messagesAbort = null;
+        if (!controller.signal.aborted && this.currentLoadKey() === loadKey) {
+          this._loadingMessages = false;
+          this.scheduleMessagesRefresh();
+        }
       }
     }
   }
@@ -4165,12 +4415,24 @@ export class CpkThreadInspector extends PortableLitElement {
     }
   }
 
+  /**
+   * `resolveHeaders` when a host actually set it; otherwise the deprecated
+   * `headers` fallback. Never both — see the `headers` field's doc.
+   */
+  private ɵresolveInspectorHeaders():
+    | Record<string, string>
+    | Promise<Record<string, string>> {
+    return this.resolveHeaders === CpkThreadInspector.ɵdefaultResolveHeaders
+      ? this.headers
+      : this.resolveHeaders();
+  }
+
   private async fetchRuntimeMessages(
     threadId: string,
     signal: AbortSignal,
   ): Promise<ThreadDebuggerMessage[]> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "messages"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -4183,7 +4445,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeEventsFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "events"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (res.status === 501) {
@@ -4201,7 +4463,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeStateFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "state"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (res.status === 501) {
@@ -4938,7 +5200,7 @@ export class CpkThreadInspector extends PortableLitElement {
               this._activatedTabs.has(tab.id)
                 ? html`<div
                     id=${this.panelDomId(tab.id)}
-                    class="cpk-td__panel"
+                    class="cpk-td__panel ${tab.id === "timeline" && !this._showEventTimeline && this._conversation.length > 0 ? "cpk-td__panel--conversation" : ""}"
                     role="tabpanel"
                     aria-labelledby=${this.tabDomId(tab.id)}
                     ?hidden=${this._tab !== tab.id || this._panelInitializing}
@@ -5318,8 +5580,9 @@ export class CpkThreadInspector extends PortableLitElement {
     }
     const items = this.renderItems;
     const errors = this.conversationRunErrors(items);
+    const streamingTools = this.streamingToolCallIds();
     // Event chunks must not rebuild a long conversation. Only the error rows
-    // and their placement are relevant to this panel, not the full event list.
+    // and tool streaming transitions are relevant, not the full event list.
     return this.cachedPanelTpl(
       "timeline-fallback",
       [
@@ -5327,6 +5590,7 @@ export class CpkThreadInspector extends PortableLitElement {
         this._expandedTools,
         this._expandedMessages,
         JSON.stringify(errors),
+        JSON.stringify([...streamingTools]),
         this._expandedTimelineDetails,
       ],
       () => {
@@ -5340,10 +5604,40 @@ export class CpkThreadInspector extends PortableLitElement {
           errorsAfter.get(after)?.map((item) => this.renderTimelineItem(item));
         return html`
           ${renderErrors(-1)}
-          ${items.map((item, index) => html`${this.renderRenderItem(item)}${renderErrors(index)}`)}
+          ${items.map((item, index) => html`${this.renderRenderItem(item, streamingTools)}${renderErrors(index)}`)}
         `;
       },
     );
+  }
+
+  private streamingToolCallIds(): Set<string> {
+    const streaming = new Set<string>();
+    let currentThread = false;
+    // The parent's live event buffer is newest first. Scope by RUN_STARTED
+    // because this buffer is per agent and may contain other threads.
+    for (let i = this.agentEventsInput.length - 1; i >= 0; i--) {
+      const event = this.agentEventsInput[i]!;
+      const payload =
+        event.payload.event && typeof event.payload.event === "object"
+          ? (event.payload.event as Record<string, unknown>)
+          : event.payload;
+      if (event.type === "RUN_STARTED") {
+        streaming.clear();
+        currentThread = payload.threadId === this.threadId;
+      } else if (event.type === "RUN_FINISHED" || event.type === "RUN_ERROR") {
+        streaming.clear();
+        currentThread = false;
+      } else if (currentThread && typeof payload.toolCallId === "string") {
+        if (event.type === "TOOL_CALL_START") streaming.add(payload.toolCallId);
+        if (
+          event.type === "TOOL_CALL_END" ||
+          event.type === "TOOL_CALL_RESULT"
+        ) {
+          streaming.delete(payload.toolCallId);
+        }
+      }
+    }
+    return streaming;
   }
 
   private conversationRunErrors(items: RenderItem[]) {
@@ -5422,15 +5716,15 @@ export class CpkThreadInspector extends PortableLitElement {
     return null;
   }
 
-  private renderRenderItem(item: RenderItem) {
+  private renderRenderItem(item: RenderItem, streamingTools: Set<string>) {
     switch (item.type) {
       case "user":
       case "assistant":
         return this.renderBubble(item);
       case "tool_call":
-        return this.renderToolBlock(item);
+        return this.renderToolBlock(item, streamingTools.has(item.toolCallId));
       case "tool_call_group":
-        return this.renderToolGroup(item);
+        return this.renderToolGroup(item, streamingTools);
       case "reasoning":
         return html`<div class="cpk-td__inline-chip">
           <span>Reasoned for ${item.duration}</span>
@@ -5488,7 +5782,12 @@ export class CpkThreadInspector extends PortableLitElement {
     `;
   }
 
-  private renderToolBlock(item: ConversationToolCall) {
+  private renderToolBlock(item: ConversationToolCall, streaming = false) {
+    streaming = streaming && !item.hasResult;
+    const label = item.toolName
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/[_-]+/g, " ");
+    const readableName = label.charAt(0).toUpperCase() + label.slice(1);
     const expanded = this._expandedTools.has(item.id);
     return html`
       <div class="cpk-td__tool-block">
@@ -5507,45 +5806,43 @@ export class CpkThreadInspector extends PortableLitElement {
               stroke-linejoin="round"
             />
           </svg>
-          <span class="cpk-td__tool-name">${item.toolName}</span>
-          ${
-            item.resultUnreadable
-              ? html`
-                  <span class="cpk-td__tool-status cpk-td__tool-status--pending"
-                    >Result unreadable</span
-                  >
-                `
-              : item.hasResult
-                ? html`
-                    <span class="cpk-td__tool-status">Result received</span>
-                  `
-                : html`
-                    <span class="cpk-td__tool-status cpk-td__tool-status--pending"
-                      >No result recorded</span
-                    >
-                  `
-          }
-          <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
+          <span class="cpk-td__tool-copy">
+            <span class="cpk-td__tool-title">
+              <span class="cpk-td__tool-name ${streaming ? "cpk-td__tool-name--streaming" : ""}">${readableName}</span><code class="cpk-td__tool-identifier">(${item.toolName})</code>
+            </span>
+            <span class="cpk-td__tool-status ${item.resultUnreadable || (!item.hasResult && !streaming) ? "cpk-td__tool-status--pending" : ""}">${
+              streaming
+                ? "Receiving arguments"
+                : item.resultUnreadable
+                  ? "Result unreadable"
+                  : item.hasResult
+                    ? "Result received"
+                    : "No result recorded"
+            }</span>
+          </span>
+          <svg class="cpk-td__tool-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </button>
         ${
           expanded
             ? html`
               <div class="cpk-td__tool-body">
-                <div class="cpk-td__tool-section-label">Arguments</div>
-                ${renderHighlightedJsonBlock(item.arguments)}
-                ${
-                  item.hasResult
-                    ? html`
-                      <div
-                        class="cpk-td__tool-section-label"
-                        style="margin-top:8px"
-                      >
-                        Result
-                      </div>
+                <div class="cpk-td__tool-data">
+                  <section>
+                    <div class="cpk-td__tool-section-label">Arguments</div>
+                    ${renderHighlightedJsonBlock(item.arguments)}
+                  </section>
+                  ${
+                    item.hasResult
+                      ? html`
+                    <section class="cpk-td__tool-result">
+                      <div class="cpk-td__tool-section-label">Result</div>
                       ${renderHighlightedJsonBlock(item.result)}
-                    `
-                    : nothing
-                }
+                    </section>`
+                      : nothing
+                  }
+                </div>
               </div>
             `
             : nothing
@@ -5554,13 +5851,13 @@ export class CpkThreadInspector extends PortableLitElement {
     `;
   }
 
-  private renderToolGroup(group: ToolCallGroup) {
+  private renderToolGroup(group: ToolCallGroup, streamingTools: Set<string>) {
     return html`
       <div class="cpk-td__tool-group">
         <div class="cpk-td__tool-group-header">
           ${group.items.length} tool call${group.items.length !== 1 ? "s" : ""}
         </div>
-        ${group.items.map((tc) => this.renderToolBlock(tc))}
+        ${group.items.map((tc) => this.renderToolBlock(tc, streamingTools.has(tc.toolCallId)))}
       </div>
     `;
   }
@@ -6592,6 +6889,17 @@ export class WebInspectorElement extends LitElement {
   } as const;
 
   private _core: CopilotKitCore | null = null;
+  // Memoized so `<cpk-thread-details>`'s `.resolveHeaders=` binding gets a
+  // STABLE function reference across renders. A fresh closure every render
+  // (e.g. an inline arrow in the template) would look like a changed
+  // reactive property on every host update and force a full
+  // `CpkThreadInspector` update cycle each time, regardless of whether
+  // headers actually changed. Reads `this._core` at CALL time, so it always
+  // resolves against whichever core is currently attached.
+  private readonly resolveCoreHeaders = ():
+    | Record<string, string>
+    | Promise<Record<string, string>> =>
+    this._core ? resolveAttachedCoreHeaders(this._core) : {};
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
   private _memories: Memory[] = [];
@@ -6827,6 +7135,10 @@ export class WebInspectorElement extends LitElement {
   private announcementId: string | null = null;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
+  private hudFeed: HudFeed | null = null;
+  private hudFeedPromise: Promise<void> | null = null;
+  /** Launcher HUD copy and destinations: built-ins until a feed rule matches. */
+  private hudContent: HudContent = HUD_DEFAULT_CONTENT;
   private newsSignalArmed = false;
   /** Which signal's beat is in flight, or null between beats. */
   private pulsingSignal: LauncherSignalKey | null = null;
@@ -7564,15 +7876,19 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
-    const runtimeFetch =
-      typeof core.ɵruntimeFetch === "function"
-        ? core.ɵruntimeFetch
-        : globalThis.fetch;
-    const store = ɵcreateThreadStore({ fetch: runtimeFetch });
+    // `ɵruntimeFetch` already resolves and overlays the current core headers
+    // at send time (#1937), so the context below must NOT also carry a
+    // `headers` snapshot — that would let a header the source no longer
+    // returns keep riding along. Only the defensive fallback for a core
+    // without `ɵruntimeFetch` needs a static snapshot here.
+    const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
+    const store = ɵcreateThreadStore({
+      fetch: hasRuntimeFetch ? core.ɵruntimeFetch : globalThis.fetch,
+    });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: { ...core.headers },
+      ...(hasRuntimeFetch ? {} : { headers: { ...core.headers } }),
       wsUrl: core.intelligence?.wsUrl,
       agentId,
     });
@@ -7628,18 +7944,24 @@ export class WebInspectorElement extends LitElement {
 
   // Keep inspector-owned thread stores in sync when the host updates headers
   // at runtime (e.g. a refreshed auth/CSRF token via core.setHeaders). Mirrors
-  // useThreads(), which re-dispatches the context whenever core.headers change,
-  // so the owned stores' /threads requests stay authorized.
+  // useThreads(), which re-dispatches the context whenever `onHeadersChanged`
+  // fires, so the owned stores' /threads requests stay authorized. The
+  // re-dispatched context omits `headers` (see `ensureOwnedThreadStore`) —
+  // `ɵruntimeFetch` resolves the current headers at send time, so this only
+  // needs to trigger the store's refetch, not carry a snapshot. A token
+  // rotation alone doesn't call `onHeadersChanged`/this method, so it doesn't
+  // trigger a refetch either.
   private updateOwnedThreadStoreHeaders(
     headers: Readonly<Record<string, string>>,
   ): void {
     if (!this.areThreadEndpointsAvailable()) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
+    const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
     for (const [agentId, store] of this._ownedThreadStores) {
       store.setContext({
         runtimeUrl: core.runtimeUrl,
-        headers: { ...headers },
+        ...(hasRuntimeFetch ? {} : { headers: { ...headers } }),
         wsUrl: core.intelligence?.wsUrl,
         agentId,
       });
@@ -8167,8 +8489,11 @@ export class WebInspectorElement extends LitElement {
             this.learningSnapshot?.insightsPage.page ??
             1,
         },
+        // `ɵruntimeFetch` already resolves and overlays the current core
+        // headers at send time (#1937). Passing a separately resolved
+        // `headers` snapshot here would call the builder twice per request
+        // and could let a header the source no longer returns ride along.
         fetch: core.ɵruntimeFetch,
-        headers: core.headers,
         credentials: core.credentials,
         signal: controller.signal,
       });
@@ -10706,6 +11031,8 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud__label {
         min-width: 0;
+        /* Remote copy can be one long word; wrap it inside the row. */
+        overflow-wrap: anywhere;
       }
 
       .cpk-launcher-hud__feature-icon {
@@ -11599,7 +11926,8 @@ export class WebInspectorElement extends LitElement {
       : this.renderButton();
   }
 
-  protected willUpdate(): void {
+  protected willUpdate(changed: Map<string, unknown>): void {
+    if (changed.has("notificationContext")) this.refreshHudContent();
     // Before the render that paints the dot: every mutation of the underlying
     // connection / thread state already requests an update, so mirroring the
     // latches here keeps the resting dot in step with the state it reports.
@@ -11912,7 +12240,10 @@ export class WebInspectorElement extends LitElement {
   private scheduleInspectorDismissalExpiry(): void {
     this.clearInspectorDismissalTimer();
     if (this.inspectorDismissedUntil === null) return;
-    const delay = Math.max(0, this.inspectorDismissedUntil - Date.now() + 25);
+    const delay = Math.min(
+      MAX_TIMER_DELAY_MS,
+      Math.max(0, this.inspectorDismissedUntil - Date.now() + 25),
+    );
     this.inspectorDismissalTimer = setTimeout(() => {
       this.inspectorDismissalTimer = null;
       this.refreshInspectorDismissalState();
@@ -11949,7 +12280,8 @@ export class WebInspectorElement extends LitElement {
   private dismissInspectorFor(duration: InspectorDismissalDuration): void {
     const now = Date.now();
     const until = now + INSPECTOR_DISMISSAL_MS[duration];
-    saveInspectorDismissedUntil(until, now);
+    if (duration === "forever") saveInspectorDismissedForever(now);
+    else saveInspectorDismissedUntil(until, now);
     this.inspectorDismissedUntil = until;
     this.scheduleInspectorDismissalExpiry();
     this.settingsOpen = false;
@@ -12187,8 +12519,16 @@ export class WebInspectorElement extends LitElement {
         ? trackHudFeatureToggleClicked({ feature: row, trigger })
         : trackHudFeatureClicked({ feature: row, control, trigger }),
     );
+    const destination = this.hudContent[row].destination;
+    // A known screen can still be hidden (e.g. no frontend tools); opening it
+    // would silently keep the last screen, so use the built-in row instead.
     this.hudLandingMenu =
-      row === "threads" ? "threads" : row === "learning" ? "memories" : "home";
+      isInspectorMenuKey(destination) &&
+      this.menuItems.some((item) => item.key === destination)
+        ? destination
+        : row === "threads"
+          ? "threads"
+          : "memories";
     this.closeLauncherHud();
     this.openInspector("floating_button");
   };
@@ -12273,13 +12613,14 @@ export class WebInspectorElement extends LitElement {
 
   private renderHudRow(args: {
     id: LauncherHudRowId;
-    label: string;
     icon: LucideIconName;
     connected?: boolean;
     introIndex: number;
   }): TemplateResult | typeof nothing {
     if (args.connected) return nothing;
     const detailId = `cpk-hud-detail-${args.id}`;
+    // Feed text is bound as text, never as markup.
+    const { label, description } = this.hudContent[args.id];
     return html`
       <li
         class="cpk-launcher-hud__row"
@@ -12297,7 +12638,7 @@ export class WebInspectorElement extends LitElement {
             type="button"
             class="cpk-launcher-hud__action"
             data-cpk-hud-action
-            aria-label=${`Open ${args.label} in Inspector`}
+            aria-label=${`Open ${label} in Inspector`}
             @click=${(event: Event) =>
               this.handleHudActionClick(event, args.id, "action")}
             @pointerdown=${(event: Event) => event.stopPropagation()}
@@ -12308,13 +12649,13 @@ export class WebInspectorElement extends LitElement {
               aria-hidden="true"
               >${this.renderIcon(args.icon)}</span
             >
-            <span class="cpk-launcher-hud__label">${args.label}</span>
+            <span class="cpk-launcher-hud__label">${label}</span>
           </button>
           <span
             class="cpk-launcher-hud__tooltip"
             id=${detailId}
             role="tooltip"
-            >${HUD_LEARN_MORE_LABEL}</span
+            >${description}</span
           >
         </span>
         <span class="cpk-launcher-hud__controls">
@@ -12322,7 +12663,7 @@ export class WebInspectorElement extends LitElement {
             type="button"
             class="cpk-launcher-hud__learn-more"
             data-cpk-hud-learn-more=${args.id}
-            aria-label=${`Learn more about ${args.label}`}
+            aria-label=${`Learn more about ${label}`}
             aria-describedby=${detailId}
             @click=${(event: Event) =>
               this.handleHudActionClick(event, args.id, "learn_more")}
@@ -12337,8 +12678,8 @@ export class WebInspectorElement extends LitElement {
             data-enabled=${args.connected ? "true" : "false"}
             aria-label=${
               args.connected
-                ? `${args.label} is enabled`
-                : `Open ${args.label} in Inspector`
+                ? `${label} is enabled`
+                : `Open ${label} in Inspector`
             }
             ?disabled=${args.connected}
             @click=${(event: Event) =>
@@ -12451,14 +12792,12 @@ export class WebInspectorElement extends LitElement {
                   >
                     ${this.renderHudRow({
                       id: "threads",
-                      label: HUD_THREADS_LABEL,
                       icon: "MessageSquare",
                       connected: threadsOn,
                       introIndex: featureBlockIntroIndex + 1,
                     })}
                     ${this.renderHudRow({
                       id: "learning",
-                      label: HUD_LEARNING_LABEL,
                       icon: "Brain",
                       connected: learningOn,
                       introIndex: featureBlockIntroIndex + (threadsOn ? 1 : 2),
@@ -16347,12 +16686,13 @@ export class WebInspectorElement extends LitElement {
     }
     const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
     const encodedThreadId = encodeURIComponent(thread.id);
+    const headers = { ...(await resolveAttachedCoreHeaders(core)) };
     const [messagesResponse, stateResponse] = await Promise.all([
       fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
-        headers: { ...core.headers },
+        headers,
       }),
       fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
-        headers: { ...core.headers },
+        headers,
       }),
     ]);
     if (!messagesResponse.ok) {
@@ -17278,7 +17618,7 @@ export class WebInspectorElement extends LitElement {
             </span>
             <div>
               <h2 id="inspector-settings-visibility-title">Visibility</h2>
-              <p>Temporarily hide the Inspector on this domain.</p>
+              <p>Hide the Inspector on this domain.</p>
             </div>
           </div>
 
@@ -17298,6 +17638,27 @@ export class WebInspectorElement extends LitElement {
             >
               <span aria-hidden="true">${this.renderIcon("Clock")}</span>
               Hide Inspector for one week
+            </button>
+          </div>
+
+          <div class="inspector-settings-visibility">
+            <div>
+              <h3>Hide the Inspector indefinitely</h3>
+              <p>
+                Keep the Inspector hidden on this domain until you bring it
+                back. To restore it, delete the
+                <code>cpk_inspector_dismissed_until</code> cookie and the
+                <code>cpk:inspector:dismissed_until</code> localStorage entry.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="inspector-settings-dismiss"
+              data-cpk-dismiss-inspector="forever"
+              @click=${() => this.dismissInspectorFor("forever")}
+            >
+              <span aria-hidden="true">${this.renderIcon("EyeOff")}</span>
+              Always hide Inspector
             </button>
           </div>
         </section>
@@ -18688,7 +19049,7 @@ export class WebInspectorElement extends LitElement {
         }}
         @learning-web-link=${(
           event: CustomEvent<{
-            category: "learning" | "runs" | "candidates";
+            category: "learning" | "runs" | "candidates" | "trajectory";
           }>,
         ) => {
           if (!this.core?.telemetryDisabled) {
@@ -19195,7 +19556,10 @@ export class WebInspectorElement extends LitElement {
                             ? ""
                             : (this._core?.runtimeUrl ?? "")
                         }
-                        .headers=${this._core?.headers ?? {}}
+                        .resolveHeaders=${this.resolveCoreHeaders}
+                        .headersGeneration=${
+                          this._core?.ɵheadersGeneration ?? 0
+                        }
                         .threadInspectionAvailable=${
                           selectedThreadIsLocalExample ||
                           (this.areThreadEndpointsAvailable() &&
@@ -22093,18 +22457,37 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
+  /** Start the development-only remote feeds; neither blocks rendering. */
   private ensureAnnouncementLoading(): void {
     if (
       this.isInspectorDismissed ||
       !this.notificationContext.development ||
       !this.isConnected ||
-      this.announcementPromise ||
       typeof window === "undefined" ||
       typeof fetch === "undefined"
     ) {
       return;
     }
-    this.announcementPromise = this.fetchAnnouncement();
+    this.announcementPromise ??= this.fetchAnnouncement();
+    this.hudFeedPromise ??= this.fetchHudFeed();
+  }
+
+  private async fetchHudFeed(): Promise<void> {
+    this.hudFeed = await loadHudFeed();
+    this.refreshHudContent();
+    this.requestUpdate();
+  }
+
+  /** Overlay the matching feed rule on the built-in HUD content. */
+  private refreshHudContent(): void {
+    this.hudContent = resolveHudContent(
+      this.hudFeed,
+      this.notificationContext,
+      {
+        defaults: HUD_DEFAULT_CONTENT,
+        supportedDestinations: INSPECTOR_MENU_KEYS,
+      },
+    );
   }
 
   private async fetchAnnouncement(): Promise<void> {
@@ -22414,6 +22797,7 @@ export function defineWebInspector(
   defineElementOnce(registry, THREAD_INSPECTOR_TAG, CpkThreadInspector);
   defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);
   defineElementOnce(registry, "cpk-memory-list", CpkMemoryList);
+  defineElementOnce(registry, JSON_BLOCK_TAG, CpkJsonBlock);
   defineElementOnce(registry, WEB_INSPECTOR_TAG, WebInspectorElement);
 }
 

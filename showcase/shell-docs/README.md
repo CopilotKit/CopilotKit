@@ -41,6 +41,22 @@ For repo-level CI parity, prefer Nx when a shell-docs target is available in the
 checkout and root dependencies are installed. For normal shell-docs local development, the
 npm commands above are the canonical path.
 
+### Test scope
+
+Keep the unit suite small and focused on reader actions: internal links and navigation
+entries resolve, redirects preserve old links, search results navigate by click and
+keyboard, framework selectors switch routes, tabs switch and persist, and prompt/page
+buttons copy usable text. Preserve parser/rendering error cases, auth/runtime-config
+safety, and dependency compatibility checks that keep documented commands usable.
+
+Do not add tests that pin prose, CSS classes, spacing, icons, page composition, search
+ranking, telemetry event detail, or every framework's example. Review content and appearance
+when changing them. Keep guidance checks tied to real API/version relationships.
+
+Local `test` and CI `test:ci` run the same suite with two workers. There is no quarantine
+manifest. The path-scoped `test_unit-shell-docs.yml` workflow installs only ShellDocs and
+the content generators, generates data once, typechecks, and runs the smoke suite.
+
 ### Channels package compatibility
 
 After changing the shared Channels install recommendation, run

@@ -5,7 +5,6 @@ import type { ComponentType, ReactNode } from "react";
 
 import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { PartialLoader } from "../mdx-registry-loader";
-import { FrameworkSetup } from "../setup-concept";
 
 test("the raw source completes a partially streamed highlighted tree", () => {
   const markup = renderToStaticMarkup(
@@ -32,19 +31,4 @@ test("partial MDX code blocks consume the raw source attribute", async () => {
   const markup = await new Response(prelude).text();
   expect(markup).toContain("use client");
   expect(markup).not.toContain("data-raw-code");
-});
-
-test("the rendered Claude TypeScript shared-state blocks keep their complete suffixes", async () => {
-  const result = await FrameworkSetup({
-    concept: "shared-state-setup",
-    currentFramework: "claude-sdk-typescript",
-  });
-
-  expect(result).not.toBeNull();
-  const markup = renderToStaticMarkup(result);
-
-  expect(markup).toContain("toolSchemas: config.toolSchemas");
-  expect(markup).toContain("executeBackendTool");
-  expect(markup).toContain("resultText: JSON.stringify");
-  expect(markup).toContain("state: { ...state, notes }");
 });

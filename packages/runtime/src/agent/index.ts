@@ -129,9 +129,9 @@ export type BuiltInAgentModel =
   | "anthropic/claude-opus-4-8"
   | "anthropic/claude-haiku-4-5"
   // Google (Gemini) models
-  | "google/gemini-2.5-pro"
-  | "google/gemini-2.5-flash"
-  | "google/gemini-2.5-flash-lite"
+  | "google/gemini-3.8-flash"
+  | "google/gemini-3.5-flash"
+  | "google/gemini-3.5-flash-lite"
   // MiniMax models
   | "minimax/MiniMax-M3"
   | "minimax/MiniMax-M2.7"
@@ -276,6 +276,84 @@ function toolResultOutput(
   };
 }
 
+/**
+ * Split a model string into provider and model id. The provider is the text
+ * before the FIRST ":" or "/"; everything after it is the model id, unchanged.
+ * So "openai:meta-llama/llama-3.3-70b" keeps the slash in its model id, and
+ * "openai/ft:gpt-4o-mini:org::id" keeps its colons. Empty strings mean the
+ * part is missing.
+ */
+function parseModelSpec(spec: string): { provider: string; model: string } {
+  const trimmed = spec.trim();
+  const separator = trimmed.search(/[:/]/);
+  if (separator === -1) {
+    return { provider: trimmed.toLowerCase(), model: "" };
+  }
+  return {
+    provider: trimmed.slice(0, separator).toLowerCase(),
+    model: trimmed.slice(separator + 1).trim(),
+  };
+}
+
+/**
+ * Whether an `OPENAI_BASE_URL` should get Chat Completions instead of the
+ * Responses API. OpenAI's own hosts (including `*.api.openai.com`, such as the
+ * EU data-residency host) and Azure serve `/responses`, so they keep it, as
+ * does an unset value. Any other host gets `/chat/completions`, which is what
+ * most OpenAI-compatible servers implement. The host rule is
+ * `classifyModelHost`, the same one telemetry uses.
+ *
+ * A value `new URL` throws on keeps the Responses route; the request will
+ * fail on that base URL either way. A schemeless value such as
+ * `localhost:11434/v1` does not throw (it parses with scheme `localhost:` and
+ * an empty host), so it classifies as `other` and gets Chat Completions.
+ */
+function usesChatCompletions(baseURL: string | undefined): boolean {
+  const trimmed = baseURL?.trim();
+  if (!trimmed) return false;
+  try {
+    new URL(trimmed);
+  } catch {
+    return false;
+  }
+  const host = classifyModelHost(trimmed, "openai");
+  return host !== "openai" && host !== "azure";
+}
+
+/** Whether the Chat Completions notice below was already logged. */
+let loggedChatCompletionsRoute = false;
+
+/**
+ * Which OpenAI API an `openai/...` model string targets.
+ *
+ * `COPILOTKIT_OPENAI_API` (`responses` or `chat`) wins when set, so a proxy in
+ * front of OpenAI can keep the Responses API, and an OpenAI host can use Chat
+ * Completions. Unset or blank, `usesChatCompletions` decides from
+ * `OPENAI_BASE_URL`.
+ *
+ * When that rule picks Chat Completions, this logs once per process. Through a
+ * proxy, Chat Completions drops Responses-only features (such as reasoning
+ * summaries) without an error, and the notice names the way back.
+ */
+function openAIApiFor(baseURL: string | undefined): "responses" | "chat" {
+  const raw = process.env.COPILOTKIT_OPENAI_API;
+  const override = raw?.trim().toLowerCase();
+  if (override === "responses" || override === "chat") return override;
+  if (override) {
+    throw new Error(
+      `Invalid COPILOTKIT_OPENAI_API "${raw}". Use "responses" or "chat", or leave it unset.`,
+    );
+  }
+  if (!usesChatCompletions(baseURL)) return "responses";
+  if (!loggedChatCompletionsRoute) {
+    loggedChatCompletionsRoute = true;
+    console.info(
+      '[CopilotKit] OPENAI_BASE_URL is not an OpenAI or Azure host, so "openai/..." models use the Chat Completions API. To use the Responses API instead, set COPILOTKIT_OPENAI_API=responses.',
+    );
+  }
+  return "chat";
+}
+
 export function resolveModel(
   spec: ModelSpecifier,
   apiKey?: string,
@@ -285,24 +363,17 @@ export function resolveModel(
     return spec;
   }
 
-  // Normalize "provider/model" or "provider:model" format
-  const normalized = spec.replace("/", ":").trim();
-  const parts = normalized.split(":");
-  const rawProvider = parts[0];
-  const rest = parts.slice(1);
+  const { provider, model } = parseModelSpec(spec);
 
-  if (!rawProvider) {
+  if (!provider) {
     throw new Error(
-      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-2.5-pro".`,
+      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-3.8-flash".`,
     );
   }
 
-  const provider = rawProvider.toLowerCase();
-  const model = rest.join(":").trim();
-
   if (!model) {
     throw new Error(
-      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-2.5-pro".`,
+      `Invalid model string "${spec}". Use "openai/gpt-5", "anthropic/claude-sonnet-4.5", or "google/gemini-3.8-flash".`,
     );
   }
 
@@ -318,8 +389,14 @@ export function resolveModel(
         // (api.openai.com) — fully backward compatible.
         baseURL: process.env.OPENAI_BASE_URL,
       });
-      // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini"
-      return openai(model);
+      // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini".
+      // `openai(model)` targets the Responses API (`{base}/responses`), which
+      // most OpenAI-compatible hosts do not serve. Off OpenAI and Azure hosts,
+      // use Chat Completions (`{base}/chat/completions`) instead, unless
+      // COPILOTKIT_OPENAI_API says otherwise.
+      return openAIApiFor(process.env.OPENAI_BASE_URL) === "chat"
+        ? openai.chat(model)
+        : openai(model);
     }
 
     case "anthropic": {
@@ -344,7 +421,7 @@ export function resolveModel(
         // Honor a custom Google-compatible endpoint via GOOGLE_GENERATIVE_AI_BASE_URL (see OpenAI note).
         baseURL: process.env.GOOGLE_GENERATIVE_AI_BASE_URL,
       });
-      // Accepts any Gemini id, e.g. "gemini-2.5-pro", "gemini-2.5-flash"
+      // Accepts any Gemini id, e.g. "gemini-3.8-flash", "gemini-3.5-flash-lite"
       return google(model);
     }
 
@@ -374,8 +451,9 @@ export function resolveModel(
  *
  * `resolveModel` above is the only place this runtime builds a provider, so it
  * is the only place that knows the endpoint. Once built, the endpoint is gone:
- * an AI SDK model reports `provider: "openai.responses"` whether it points at
- * api.openai.com, Azure, OpenRouter or a laptop, and its base URL survives
+ * an AI SDK model's `provider` names only the wire API (`"openai.responses"`
+ * on OpenAI and Azure, `"openai.chat"` on any other host), so it cannot tell
+ * OpenRouter from a laptop, and its base URL survives
  * only inside a closure that the public `LanguageModelV3` type does not
  * expose. Azure's own migration guide tells customers to use that same OpenAI
  * client, so the case we are blindest to is the common one.
@@ -392,7 +470,7 @@ export function classifyModelSpec(spec: ModelSpecifier): ModelHostClass {
   // A pre-built model: the endpoint was decided before it reached us.
   if (typeof spec !== "string") return "unknown";
 
-  const provider = spec.replace("/", ":").trim().split(":")[0]?.toLowerCase();
+  const { provider } = parseModelSpec(spec);
 
   switch (provider) {
     case "openai":

@@ -5,8 +5,11 @@ icon: "lucide/Server"
 ---
 
 import AgentNameBinding from "@/snippets/agent-name-binding.mdx";
+import RuntimeLanguages from "@/snippets/runtime-languages.mdx";
 
 The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](/quickstart) and is the recommended way to use CopilotKit.
+
+<RuntimeLanguages />
 
 ## Setting up the runtime
 
@@ -271,7 +274,7 @@ const runtime = new CopilotRuntime({
 
 Each server entry optionally accepts an `agentId` field to scope that server to a single agent. Without it, the server is available to all agents.
 
-Per-tool filtering belongs to `@ag-ui/mcp-apps-middleware`. The runtime currently pins version `0.0.3`, which does not support `includeTools` or `excludeTools`. Supplying either key raises a configuration error instead of silently ignoring it; use a compatible middleware release when that upstream policy contract is available.
+Per-tool filtering belongs to `@ag-ui/mcp-apps-middleware`. The release the runtime depends on does not support `includeTools` or `excludeTools`. Supplying either key raises a configuration error instead of silently ignoring it. A newer middleware release alone does not change this: the runtime has to adopt the policy first. Follow [#5930](https://github.com/CopilotKit/CopilotKit/issues/5930) for that work.
 
 ## Forwarding request headers to your agent
 

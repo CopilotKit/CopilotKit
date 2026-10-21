@@ -1,0 +1,136 @@
+.panel {
+  background: var(--cpki-color-surface, #ffffff);
+  border: 0;
+  border-radius: 2px;
+  box-sizing: border-box;
+  color: var(--cpki-color-foreground, #023047);
+  padding: 1rem 0;
+}
+
+.panelHeader {
+  display: grid;
+  gap: 0.25rem;
+  margin-block-end: 0.75rem;
+}
+
+.panelTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.panelDescription {
+  color: var(--cpki-color-muted-foreground, #4f6b7a);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-block-size: 2.5rem;
+}
+
+.stack,
+.inline,
+.cluster {
+  box-sizing: border-box;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.inline,
+.cluster {
+  align-items: center;
+  display: flex;
+}
+
+.inline {
+  flex-wrap: nowrap;
+}
+
+.cluster {
+  flex-wrap: wrap;
+}
+
+.stack[data-gap="none"],
+.inline[data-gap="none"],
+.cluster[data-gap="none"] {
+  gap: 0;
+}
+
+.stack[data-gap="xs"],
+.inline[data-gap="xs"],
+.cluster[data-gap="xs"] {
+  gap: 0.25rem;
+}
+
+.stack[data-gap="sm"],
+.inline[data-gap="sm"],
+.cluster[data-gap="sm"] {
+  gap: 0.5rem;
+}
+
+.stack[data-gap="md"],
+.inline[data-gap="md"],
+.cluster[data-gap="md"] {
+  gap: 0.75rem;
+}
+
+.stack[data-gap="lg"],
+.inline[data-gap="lg"],
+.cluster[data-gap="lg"] {
+  gap: 1rem;
+}
+
+.stack[data-gap="xl"],
+.inline[data-gap="xl"],
+.cluster[data-gap="xl"] {
+  gap: 1.5rem;
+}
+
+.inline[data-align="start"],
+.cluster[data-align="start"] {
+  align-items: flex-start;
+}
+
+.inline[data-align="center"],
+.cluster[data-align="center"] {
+  align-items: center;
+}
+
+.inline[data-align="end"],
+.cluster[data-align="end"] {
+  align-items: flex-end;
+}
+
+.inline[data-align="stretch"],
+.cluster[data-align="stretch"] {
+  align-items: stretch;
+}
+
+.separator {
+  background: var(--cpki-color-border, #78919d);
+  border: 0;
+  flex: none;
+  margin: 0;
+}
+
+.separator[data-orientation="horizontal"] {
+  block-size: 1px;
+  inline-size: 100%;
+}
+
+.separator[data-orientation="vertical"] {
+  align-self: stretch;
+  block-size: auto;
+  inline-size: 1px;
+  min-block-size: 1rem;
+}

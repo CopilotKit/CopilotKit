@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "description": "ENT-658 regression fixture for google-antigravity /demos/threadid-frontend-tool-roundtrip. First turn emits a frontend tool call; follow-up turn confirms the tool result without changing threads.",
+    "created": "2026-05-27",
+    "copiedFrom": "langgraph-python",
+    "googleAntigravityStaging": "google-antigravity staging: the Antigravity Go harness owns the conversation history and never sends role:\"tool\" messages -- a completed tool call comes back as an assistant message whose text is 'Tool response for <name>: ...'. hasToolResult/toolCallId therefore never fire here, so every leg is staged on turnIndex (aimock's count of assistant messages; +2 per tool round-trip, +1 per text answer). turnIndex is a POSITION disambiguator, not a reject gate (aimock selectByTurnIndex): the candidate with the highest turnIndex <= assistantCount wins, so a leg must carry EVERY absolute position a test can reach it from -- a fresh thread (0/2) AND its slot in a multi-pill single-thread sequence."
+  },
+  "fixtures": [
+    {
+      "_comment": "Turn 1: emit the frontend tool call. Staged at turnIndex 0 — the previous follow-up entry was gated on toolCallId, which never fires on this integration (the Go harness sends no role:\"tool\" messages), so its untagged leg-1 partner re-emitted testFrontendToolCalling on every iteration.",
+      "match": {
+        "userMessage": "invoke testFrontendToolCalling with label X",
+        "context": "google-antigravity",
+        "turnIndex": 0
+      },
+      "response": {
+        "content": "Calling frontend tool.",
+        "toolCalls": [
+          {
+            "id": "call_ent_658_test_frontend_tool_x",
+            "name": "testFrontendToolCalling",
+            "arguments": {
+              "label": "X"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Turn 2: confirm the tool result, one round-trip later.",
+      "match": {
+        "userMessage": "invoke testFrontendToolCalling with label X",
+        "context": "google-antigravity",
+        "turnIndex": 2
+      },
+      "response": {
+        "content": "Frontend tool finished for X."
+      }
+    }
+  ]
+}

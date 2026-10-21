@@ -35,6 +35,7 @@ const READ_COOKIE_NAME = "cpk_inspector_notifications_v1";
 const DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
+const YEAR_MS = 365 * DAY_MS;
 
 const TIMESTAMP = "2026-08-01T09:00:00.000Z";
 const NEXT_TIMESTAMP = "2026-08-14T09:00:00.000Z";
@@ -1265,6 +1266,36 @@ test("Settings offers the longer one-week dismissal", async () => {
   expect(root(context.inspector).querySelector(".inspector-window")).toBeNull();
   expect(dismissalDeadline()).toBeGreaterThanOrEqual(clickedAt + WEEK_MS);
   expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + WEEK_MS);
+});
+
+test("Settings offers an always-hide dismissal that never expires", async () => {
+  const context = await setup({ persistedMenu: "threads" });
+  await click(context.inspector, launcherButton(context.inspector));
+  await click(
+    context.inspector,
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      'button[aria-label="Settings"]',
+    ),
+  );
+  const action = requireElement(
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="forever"]',
+    ),
+  );
+  expect(action.textContent?.replace(/\s+/g, " ").trim()).toBe(
+    "Always hide Inspector",
+  );
+
+  const clickedAt = Date.now();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+  await click(context.inspector, action);
+  const delays = setTimeoutSpy.mock.calls.map((call) => Number(call[1] ?? 0));
+  setTimeoutSpy.mockRestore();
+  // A delay above 2^31-1 ms fires immediately and would re-arm in a loop.
+  expect(Math.max(...delays)).toBeLessThanOrEqual(2 ** 31 - 1);
+  expect(root(context.inspector).querySelector(".console-button")).toBeNull();
+  expect(dismissalDeadline()).toBeGreaterThanOrEqual(clickedAt + YEAR_MS);
+  expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + YEAR_MS);
 });
 
 test("the HUD omits a read announcement", async () => {

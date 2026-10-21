@@ -64,6 +64,10 @@ Before you begin, you'll need the following:
         The components used below (`CopilotKitProvider`, `CopilotSidebar`) and the
         stylesheet all come from `@copilotkit/react-core/v2`, so
         `@copilotkit/react-ui` is not needed for this setup.
+
+        <Callout type="info" title="TypeScript: use bundler module resolution">
+          CopilotKit's `/v2` subpaths are published through the package `exports` map, which TypeScript's legacy `"moduleResolution": "node"` (`node10`) ignores. Under that setting, type checking fails with `Cannot find module '@copilotkit/react-core/v2'` even though the app runs. Set `"moduleResolution": "bundler"` in `tsconfig.json`; if `module` is `commonjs` or unset, also set `"module": "esnext"`. `create-next-app` already uses `bundler`.
+        </Callout>
     </Step>
     <Step>
         ### Configure your environment

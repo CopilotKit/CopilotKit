@@ -18,18 +18,18 @@ import React from "react";
 import {
   CopilotKit,
   CopilotChat,
+  CopilotChatView,
   useRenderTool,
   useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import { WeatherCard } from "./weather-card";
-import { FlightListCard, type Flight } from "./flight-list-card";
+import { FlightListCard } from "./flight-list-card";
+import type { Flight } from "./flight-list-card";
 import { StockCard } from "./stock-card";
 import { D20Card } from "./d20-card";
-import {
-  CustomCatchallRenderer,
-  type CatchallToolStatus,
-} from "./custom-catchall-renderer";
+import { CustomCatchallRenderer } from "./custom-catchall-renderer";
+import type { CatchallToolStatus } from "./custom-catchall-renderer";
 import { parseJsonResult } from "../_shared/parse-json-result";
 import { useSuggestions } from "./suggestions";
 
@@ -39,6 +39,81 @@ interface WeatherResult {
   humidity?: number;
   wind_speed?: number;
   conditions?: string;
+}
+
+const weatherResultSchema = z.object({
+  city: z.string(),
+  temperature: z.number(),
+  humidity: z.number(),
+  wind_speed: z.number(),
+  conditions: z.string(),
+});
+
+type ViewProps = React.ComponentProps<typeof CopilotChatView>;
+const RetryContext = React.createContext<{
+  retry: (toolCallId: string) => void;
+  canRetry: (toolCallId: string) => boolean;
+}>({ retry: () => {}, canRetry: () => false });
+
+function promptForTool(
+  messages: NonNullable<ViewProps["messages"]>,
+  id: string,
+) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (
+      message.role !== "assistant" ||
+      !message.toolCalls?.some((call) => call.id === id)
+    ) {
+      continue;
+    }
+    for (let j = i - 1; j >= 0; j--) {
+      const user = messages[j];
+      if (user.role === "user") {
+        return typeof user.content === "string" ? user.content : undefined;
+      }
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
+const RetryChatView = Object.assign(function RetryChatView(props: ViewProps) {
+  const prompt = (id: string) => promptForTool(props.messages ?? [], id);
+  const canRetry = (id: string) =>
+    !props.isRunning && !!props.onSubmitMessage && !!prompt(id)?.trim();
+  const retry = (id: string) => {
+    const value = prompt(id);
+    if (canRetry(id) && value) props.onSubmitMessage?.(value);
+  };
+  return (
+    <RetryContext.Provider value={{ retry, canRetry }}>
+      <CopilotChatView {...props} />
+    </RetryContext.Provider>
+  );
+}, CopilotChatView);
+
+function WeatherFailure({ toolCallId }: { toolCallId: string }) {
+  const { retry, canRetry } = React.useContext(RetryContext);
+  return (
+    <div
+      role="alert"
+      className="my-4 w-full max-w-md rounded-2xl border border-[#DBDBE5] bg-[#EDEDF5] p-5 text-[#010507]"
+    >
+      <p className="font-semibold">Weather lookup failed.</p>
+      <p className="mt-1 text-sm text-[#57575B]">
+        Retry to request the weather again.
+      </p>
+      <button
+        type="button"
+        className="mt-3 rounded-lg border border-[#57575B] px-4 py-2 text-sm font-medium disabled:opacity-50"
+        disabled={!canRetry(toolCallId)}
+        onClick={() => retry(toolCallId)}
+      >
+        Retry
+      </button>
+    </div>
+  );
 }
 
 interface FlightSearchResult {
@@ -79,9 +154,12 @@ function Chat() {
       parameters: z.object({
         location: z.string(),
       }),
-      render: ({ parameters, result, status }) => {
+      render: ({ parameters, result, status, toolCallId }) => {
         const loading = status !== "complete";
         const parsed = parseJsonResult<WeatherResult>(result);
+        if (!loading && !weatherResultSchema.safeParse(parsed).success) {
+          return <WeatherFailure toolCallId={toolCallId} />;
+        }
         return (
           <WeatherCard
             loading={loading}
@@ -190,6 +268,10 @@ function Chat() {
   useSuggestions();
 
   return (
-    <CopilotChat agentId="tool-rendering" className="h-full rounded-2xl" />
+    <CopilotChat
+      agentId="tool-rendering"
+      chatView={RetryChatView}
+      className="h-full rounded-2xl"
+    />
   );
 }

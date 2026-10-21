@@ -757,7 +757,7 @@ export function trackLearningPageChanged(props: {
 }
 
 export function trackLearningWebAppOpened(props: {
-  category: "learning" | "runs" | "candidates";
+  category: "learning" | "runs" | "candidates" | "trajectory";
 }): void {
   track(TELEMETRY_EVENTS.learningWebAppOpened, props);
 }

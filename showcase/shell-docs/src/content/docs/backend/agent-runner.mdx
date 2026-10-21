@@ -4,11 +4,15 @@ icon: "lucide/Database"
 description: "Control how the runtime starts, reconnects to, and stops agent runs with AgentRunner."
 ---
 
-Every CopilotKit runtime delegates agent execution and persistence to an
+The TypeScript CopilotKit runtime delegates agent execution and persistence to an
 `AgentRunner`. The runner turns `POST /agent/:id/run` into a live stream of
 AG-UI events, remembers a thread so `POST /agent/:id/connect` can attach to it,
 and stops a run on demand. Pick or subclass a runner when you need to control
 where conversation state lives.
+
+<Callout type="info" title="TypeScript runner APIs">
+The runner classes and customization examples on this page belong to the TypeScript runtime. Python, Go, Ruby, and C#/.NET runtimes use Intelligence for persistence and do not expose these runner classes. See the [Intelligence quickstart](/intelligence/quickstart#connect-your-runtime) for their setup.
+</Callout>
 
 ## The abstraction
 

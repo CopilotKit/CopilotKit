@@ -4,6 +4,10 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
   Follow [Self-host Intelligence on AWS ECS/Fargate](/intelligence/self-hosting-ecs) for the versioned CloudFormation bundle, configuration, deployment, and verification steps. This page covers Kubernetes and Helm.
 </Callout>
 
+<Callout type="info" title="Just evaluating?">
+  To try Intelligence on your own Mac first, [evaluate it locally](/intelligence/self-hosting-local) (preview). The CLI runs it in Docker Desktop; you do not need a cluster.
+</Callout>
+
 ## Overview
 
 CopilotKit Intelligence — the platform that powers threads, shared state, and the inspector — can be self-hosted on your own Kubernetes cluster using the `copilot-intelligence` Helm chart. You run the control plane and data plane inside your own network boundary; the chart leaves you in charge of identity, storage, and secrets.

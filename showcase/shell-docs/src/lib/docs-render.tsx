@@ -661,7 +661,7 @@ export function buildFrameworkOnlyNav(
   };
   return normalizeSidebarNav(
     dropEmptySections(
-      appendSharedThreadArchitecturePage(
+      appendSharedThreadPages(
         appendSharedRootSections(nodes.map(rewrite), sharedSections),
       ),
     ),
@@ -1050,6 +1050,7 @@ export function normalizeSidebarNav(
     authoredThreads?.type === "group" ? authoredThreads.children : [];
   const threadDeliverySlugs = [
     "threads",
+    "intelligence/bring-your-own-thread-system",
     "threads-import",
     "threads-lifecycle",
     "intelligence/threads-explained",
@@ -1177,6 +1178,10 @@ export function normalizeSidebarNav(
     "sidebar#ag-ui-streams",
     [
       intelligencePage("threads", "Overview"),
+      intelligencePage(
+        "intelligence/bring-your-own-thread-system",
+        "Bring your own thread system",
+      ),
       intelligencePage("threads-import", "Add to Existing Threads"),
       intelligencePage("threads-lifecycle", "Thread & History Lifecycle"),
       intelligencePage(
@@ -1198,6 +1203,10 @@ export function normalizeSidebarNav(
     "intelligence/self-hosting-ecs",
     "AWS ECS/Fargate",
   );
+  const intelligenceLocal = intelligencePage(
+    "intelligence/self-hosting-local",
+    "Local evaluation",
+  );
   const intelligenceLearning = intelligencePage(
     "learning",
     "Automatic Learning",
@@ -1209,6 +1218,18 @@ export function normalizeSidebarNav(
   const intelligenceSkillDelivery = intelligencePage(
     "intelligence/learned-skills",
     "Skill delivery",
+  );
+  const intelligenceCapture = intelligencePage(
+    "intelligence/capture-interactions",
+    "Capture interactions",
+  );
+  const intelligenceStandaloneCollector = intelligencePage(
+    "intelligence/standalone-collector",
+    "Standalone collector",
+  );
+  const intelligenceCapturedData = intelligencePage(
+    "intelligence/captured-data",
+    "Captured data",
   );
   // Skill delivery is a step inside Automatic Learning, so it nests under
   // that page. The group shares the page's slug, and page-tree-bridge lifts
@@ -1279,6 +1300,13 @@ export function normalizeSidebarNav(
         node.type === "page" &&
         withoutRouteGroupSlug(node.slug) === "telemetry",
     ) ?? findPage("telemetry");
+  const communityFrameworks =
+    findNavNode(
+      [...inputOther, ...canonicalOther],
+      (node) =>
+        node.type === "page" &&
+        withoutRouteGroupSlug(node.slug) === "community-frameworks",
+    ) ?? findPage("community-frameworks");
 
   return [
     ...startLinks,
@@ -1329,6 +1357,9 @@ export function normalizeSidebarNav(
           intelligenceStreams,
           intelligenceLearningGroup,
           intelligenceMemory,
+          intelligenceCapture,
+          intelligenceStandaloneCollector,
+          intelligenceCapturedData,
           intelligenceAnalytics,
           intelligenceChannels,
         ].filter((node): node is NavNode => node !== null),
@@ -1337,9 +1368,12 @@ export function normalizeSidebarNav(
       sidebarTopicGroup(
         "Hosting",
         "sidebar#intelligence-hosting",
-        [intelligenceCloud, intelligenceSelfHosted, intelligenceEcs].filter(
-          (node): node is NavNode => node !== null,
-        ),
+        [
+          intelligenceCloud,
+          intelligenceSelfHosted,
+          intelligenceEcs,
+          intelligenceLocal,
+        ].filter((node): node is NavNode => node !== null),
       ),
     ]),
     ...sidebarSection("Backend", [
@@ -1403,6 +1437,9 @@ export function normalizeSidebarNav(
             icon: undefined,
           }
         : null,
+      communityFrameworks?.type === "page"
+        ? { ...withoutRouteGroupSegments(communityFrameworks), icon: undefined }
+        : null,
     ]),
   ];
 }
@@ -1417,24 +1454,27 @@ function isRichThreadsGroup(
   );
 }
 
-function appendSharedThreadArchitecturePage(navTree: NavNode[]): NavNode[] {
+function appendSharedThreadPages(navTree: NavNode[]): NavNode[] {
   const rootGroup = buildNavTree(CONTENT_DIR).find(
     (node): node is Extract<NavNode, { type: "group" }> =>
       isRichThreadsGroup(node),
   );
   if (!rootGroup) return navTree;
 
-  const architecturePage = findPageBySlug(
-    rootGroup.children,
+  const sharedPages = [
+    "intelligence/bring-your-own-thread-system",
     "intelligence/threads-explained",
-  );
-  if (architecturePage?.type !== "page") return navTree;
+  ].flatMap((slug) => {
+    const page = findPageBySlug(rootGroup.children, slug);
+    return page?.type === "page" ? [page] : [];
+  });
 
   return navTree.map((node) => {
     if (!isRichThreadsGroup(node)) return node;
-    if (hasPageSlug(node.children, architecturePage.slug)) return node;
-
-    return { ...node, children: [...node.children, architecturePage] };
+    const missing = sharedPages.filter(
+      (page) => !hasPageSlug(node.children, page.slug),
+    );
+    return { ...node, children: [...node.children, ...missing] };
   });
 }
 

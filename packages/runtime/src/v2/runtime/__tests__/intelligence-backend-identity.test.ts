@@ -32,9 +32,7 @@ function setup() {
     thread: { id: threadId, name: "Imported" },
     created: false,
   });
-  vi.spyOn(intelligence, "getThreadMessages").mockResolvedValue({
-    messages: [],
-  });
+  vi.spyOn(intelligence, "ɵgetThreadMessageIds").mockResolvedValue([]);
   const agent = new TestAgent({ threadId });
   const runtime = new CopilotIntelligenceRuntime({
     agents: { test: agent },

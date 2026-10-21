@@ -13,6 +13,10 @@ them for you. When you self-host behind a reverse proxy, lock down auth, or debu
 a connection failure with `curl`, use this page to confirm what the runtime
 exposes.
 
+<Callout type="info" title="Other runtime languages">
+Python, Go, Ruby, and C#/.NET runtimes require Intelligence and serve multi-route endpoints. Use `useSingleEndpoint={false}` with the React provider; do not send a single-route envelope to those servers. The JavaScript handler factories, legacy endpoints, and optional TypeScript features below are specific to the TypeScript runtime. See the [Intelligence quickstart](/intelligence/quickstart#connect-your-runtime) for native server setup.
+</Callout>
+
 ## Provider and handler pairs
 
 The browser provider and the Runtime handler have to agree on the **transport**.

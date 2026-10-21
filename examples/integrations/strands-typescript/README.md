@@ -86,7 +86,9 @@ npm run channel
 
 ## Customize the starter
 
-Edit `agent/src/agent.ts` to change the model, prompt, tools, or shared state.
+Set `COPILOTKIT_AGENT_MODEL` in `.env` to choose the model, for example
+`anthropic:claude-sonnet-4-5`. Edit `agent/src/agent.ts` to change the prompt,
+tools, or shared state.
 Edit files under `src/` to change the application UI.
 
 ## License

@@ -5,6 +5,7 @@ import {
 } from "./channel-activation-config";
 import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
+import { startThreadLockHeartbeat } from "../intelligence-platform/thread-lock-heartbeat";
 import { telemetry } from "../telemetry";
 import type { AnalyticsEvents } from "../telemetry";
 import type { TelemetryCapture } from "../telemetry/telemetry-client";
@@ -694,6 +695,9 @@ async function runCanonicalChannelAgent(
         userId: args.userId,
         deliveryId: args.deliveryId,
       });
+  // The platform starts the lock's TTL when it handles the request, so time
+  // the lifetime from the send rather than from the response.
+  const lockRequestedAt = Date.now();
   const lock = await intelligence.ɵacquireThreadLock({
     threadId: args.threadId,
     runId: args.runId,
@@ -718,7 +722,6 @@ async function runCanonicalChannelAgent(
   );
   let stopPromise: Promise<boolean | undefined> | undefined;
   let heartbeatError: unknown;
-  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   const stopCanonicalRun = (): void => {
     stopPromise ??= Promise.resolve()
       .then(() =>
@@ -738,28 +741,33 @@ async function runCanonicalChannelAgent(
     stopCanonicalRun();
   };
   args.signal?.addEventListener("abort", abortCanonicalRun, { once: true });
-  heartbeatTimer = setInterval(() => {
-    intelligence
-      .ɵrenewThreadLock({
+  const heartbeat = startThreadLockHeartbeat({
+    renew: (signal) =>
+      intelligence.ɵrenewThreadLock({
         threadId: canonicalThreadId,
         runId: canonicalRunId,
         ttlSeconds: lockTtlSeconds,
         ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
-      })
-      .catch((error: unknown) => {
-        if (heartbeatTimer === undefined) return;
-        clearInterval(heartbeatTimer);
-        heartbeatTimer = undefined;
-        heartbeatError = error;
-        try {
-          args.agent.abortRun();
-        } catch {
-          // The runner stop below remains the authoritative cancellation path.
-        }
-        stopCanonicalRun();
-      });
-  }, lockHeartbeatIntervalSeconds * 1_000);
-  heartbeatTimer.unref?.();
+        signal,
+      }),
+    intervalMs: lockHeartbeatIntervalSeconds * 1_000,
+    fallbackTtlSeconds: lockTtlSeconds,
+    initialTtlSeconds:
+      lock.ttlSeconds === undefined
+        ? undefined
+        : lock.ttlSeconds - (Date.now() - lockRequestedAt) / 1_000,
+
+    unref: true,
+    onLost: (error) => {
+      heartbeatError = error;
+      try {
+        args.agent.abortRun();
+      } catch {
+        // The runner stop below remains the authoritative cancellation path.
+      }
+      stopCanonicalRun();
+    },
+  });
 
   try {
     await new Promise<void>((resolve, reject) => {
@@ -834,10 +842,7 @@ async function runCanonicalChannelAgent(
     });
   } finally {
     args.signal?.removeEventListener("abort", abortCanonicalRun);
-    if (heartbeatTimer !== undefined) {
-      clearInterval(heartbeatTimer);
-      heartbeatTimer = undefined;
-    }
+    heartbeat.stop();
     // Always release the product thread lock from the Runtime side. Gateway
     // may also release on terminal AG-UI ingestion; cleanup is idempotent and
     // covers runner paths that never stream terminal events (or lose them).

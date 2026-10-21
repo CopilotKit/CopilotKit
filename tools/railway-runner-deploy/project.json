@@ -1,0 +1,18 @@
+{
+  "name": "railway-runner-deploy",
+  "root": "tools/railway-runner-deploy",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --test --test-concurrency=2 tools/railway-runner-deploy/*.test.mjs"
+      },
+      "cache": false
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": { "command": "oxlint tools/railway-runner-deploy" }
+    }
+  }
+}

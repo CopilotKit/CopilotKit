@@ -535,6 +535,45 @@ describe("CopilotChatInput", () => {
     });
   });
 
+  // The send button shows only an icon, so its accessible name comes from the
+  // labels config; that is also what lets an app translate it.
+  it("names the send button with the default label", () => {
+    renderWithProvider({
+      props: { modelValue: "" },
+      listeners: { onSubmitMessage: mockOnSubmitMessage },
+    });
+
+    expect(screen.getByRole("button", { name: "Send message" })).toBe(
+      getSendButton(),
+    );
+  });
+
+  it("names the send button Stop while it stops the run", () => {
+    renderWithProvider({
+      props: { modelValue: "", isRunning: true },
+      listeners: { onSubmitMessage: mockOnSubmitMessage, onStop: vi.fn() },
+    });
+
+    expect(screen.getByRole("button", { name: "Stop" })).toBe(getSendButton());
+  });
+
+  it("names the send button with the configured labels", () => {
+    renderWithProvider({
+      template: `
+        <CopilotChatConfigurationProvider
+          :thread-id="TEST_THREAD_ID"
+          :labels="{ chatInputToolbarSendButtonLabel: 'Nachricht senden' }"
+        >
+          <CopilotChatInput model-value="" />
+        </CopilotChatConfigurationProvider>
+      `,
+    });
+
+    expect(screen.getByRole("button", { name: "Nachricht senden" })).toBe(
+      getSendButton(),
+    );
+  });
+
   it("shows cancel and finish buttons in transcribe mode", () => {
     renderWithProvider({
       props: {

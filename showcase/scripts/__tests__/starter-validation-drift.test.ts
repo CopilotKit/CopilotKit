@@ -187,10 +187,10 @@ describe("starter_validation drift", () => {
   // cell for it, renders NOTHING rather than a not-supported claim, so silence
   // can never become a rendered claim.
   //
-  // MUTATION: delete the block from any one of the 21 manifests.
-  it("3 — all 21 columns declare a block; the 5 unsupported ones declare a reason", () => {
+  // MUTATION: delete the block from any one of the 22 manifests.
+  it("3 — all 22 columns declare a block; the 5 unsupported ones declare a reason", () => {
     const cols = columns();
-    expect(cols).toHaveLength(21);
+    expect(cols).toHaveLength(22);
     expect(
       cols.filter((c) => !c.block).map((c) => c.slug),
       "columns with no starter_validation block",
@@ -261,14 +261,14 @@ describe("starter_validation drift", () => {
   // Non-vacuity: assertions 1a/1b/2 all quantify over the declared set. If that
   // set were ever empty they would pass by construction, so the shape of the
   // declaration set is pinned directly.
-  it("non-vacuity: the declared set is 12 provisioned + 4 in-repo-only + 5 unsupported", () => {
+  it("non-vacuity: the declared set is 12 provisioned + 5 in-repo-only + 5 unsupported", () => {
     const cols = columns();
     const supported = cols.filter((c) => c.block && isSupported(c.block));
     const provisioned = supported.filter(
       (c) => (c.block as { service?: string }).service,
     );
     expect(provisioned).toHaveLength(12);
-    expect(supported.length - provisioned.length).toBe(4);
+    expect(supported.length - provisioned.length).toBe(5);
     expect(cols.filter((c) => c.block && !isSupported(c.block))).toHaveLength(
       5,
     );

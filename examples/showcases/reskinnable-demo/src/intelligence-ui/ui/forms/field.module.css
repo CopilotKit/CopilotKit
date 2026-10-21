@@ -1,0 +1,42 @@
+.field {
+  display: grid;
+  gap: 6px;
+  color: var(--cpki-color-foreground, #023047);
+}
+
+.label {
+  color: var(--cpki-color-foreground, #023047);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.requiredMark {
+  color: var(--cpki-color-danger, #b42318);
+}
+
+.description {
+  color: var(--cpki-color-muted-foreground, #57575b);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.error {
+  color: var(--cpki-color-danger, #b42318);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Workspace field type (preview parity): 12px labels, 11px hints and errors. */
+:global(:root[data-cpki-design="workspace"]) .field {
+  gap: 0.5rem;
+}
+:global(:root[data-cpki-design="workspace"]) .label {
+  font-size: var(--text-control);
+  line-height: 1.2;
+}
+:global(:root[data-cpki-design="workspace"]) :is(.description, .error) {
+  font-size: var(--text-caption);
+  line-height: 1.6;
+}

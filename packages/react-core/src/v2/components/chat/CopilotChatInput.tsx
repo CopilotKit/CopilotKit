@@ -125,6 +125,11 @@ export type CopilotChatInputProps = Omit<
 const SLASH_MENU_MAX_VISIBLE_ITEMS = 5;
 const SLASH_MENU_ITEM_HEIGHT_PX = 40;
 
+/**
+ * The chat composer: a text area with the add-menu, voice and send/stop
+ * buttons, and a slash-command menu that lists `toolsMenu` items once the text
+ * starts with "/".
+ */
 export function CopilotChatInput({
   mode = "input",
   onSubmitMessage,
@@ -537,13 +542,16 @@ export function CopilotChatInput({
     },
   );
 
+  const showsStop = isProcessing && canStop;
   const BoundSendButton = renderSlot(sendButton, CopilotChatInput.SendButton, {
     onClick: handleSendButtonClick,
     disabled: isProcessing ? !canStop : !canSend,
-    children:
-      isProcessing && canStop ? (
-        <Square className="cpk:size-[18px] cpk:fill-current" />
-      ) : undefined,
+    "aria-label": showsStop
+      ? labels.chatInputToolbarStopButtonLabel
+      : labels.chatInputToolbarSendButtonLabel,
+    children: showsStop ? (
+      <Square className="cpk:size-[18px] cpk:fill-current" />
+    ) : undefined,
   });
 
   const BoundStartTranscribeButton = renderSlot(
@@ -1143,23 +1151,38 @@ export function CopilotChatInput({
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatInput {
+  /**
+   * The icon-only send button. Its accessible name is
+   * `labels.chatInputToolbarSendButtonLabel` unless an `aria-label` is passed;
+   * the input passes `labels.chatInputToolbarStopButtonLabel` while the button
+   * stops a run.
+   */
   export const SendButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
-  > = ({ className, children, ...props }) => (
-    <div className="cpk:mr-[10px]">
-      <Button
-        type="button"
-        data-testid="copilot-send-button"
-        variant="chatInputToolbarPrimary"
-        size="chatInputToolbarIcon"
-        className={className}
-        {...props}
-      >
-        {children ?? <ArrowUp className="cpk:size-[18px]" />}
-      </Button>
-    </div>
-  );
+  > = ({ className, children, ...props }) => {
+    const config = useCopilotChatConfiguration();
+    const labels = config?.labels ?? CopilotChatDefaultLabels;
+    return (
+      <div className="cpk:mr-[10px]">
+        <Button
+          type="button"
+          data-testid="copilot-send-button"
+          variant="chatInputToolbarPrimary"
+          size="chatInputToolbarIcon"
+          className={className}
+          aria-label={labels.chatInputToolbarSendButtonLabel}
+          {...props}
+        >
+          {children ?? <ArrowUp className="cpk:size-[18px]" />}
+        </Button>
+      </div>
+    );
+  };
 
+  /**
+   * An icon-only toolbar button. `labels[labelKey]` is both its accessible
+   * name and its tooltip text.
+   */
   export const ToolbarButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement> & {
       icon: React.ReactNode;
@@ -1177,6 +1200,7 @@ export namespace CopilotChatInput {
             variant="chatInputToolbarSecondary"
             size="chatInputToolbarIcon"
             className={twMerge(defaultClassName, className)}
+            aria-label={labels[labelKey]}
             {...props}
           >
             {icon}
@@ -1225,6 +1249,10 @@ export namespace CopilotChatInput {
     />
   );
 
+  /**
+   * The "+" button that opens the attachment and tools menu. Its accessible
+   * name and tooltip come from `labels.chatInputToolbarAddButtonLabel`.
+   */
   export const AddMenuButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement> & {
       toolsMenu?: (ToolsMenuItem | "-")[];
@@ -1310,6 +1338,7 @@ export namespace CopilotChatInput {
         size="chatInputToolbarIcon"
         className={twMerge("cpk:ml-1", className)}
         disabled={isDisabled}
+        aria-label={labels.chatInputToolbarAddButtonLabel}
         {...props}
       >
         <Plus className="cpk:size-[20px]" />

@@ -12,7 +12,7 @@ import type {
   RunFinishedEvent,
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { Subject, from, delay } from "rxjs";
+import { Subject, from, delay, takeWhile } from "rxjs";
 import type {
   ReactActivityMessageRenderer,
   ReactToolCallRenderer,
@@ -90,7 +90,16 @@ export class MockStepwiseAgent extends AbstractAgent {
   async detachActiveRun(): Promise<void> {}
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
-    return this.subject.asObservable();
+    // Finish each run's subscription at its terminal event, while keeping the
+    // shared subject available for the next run in a multi-turn test.
+    return this.subject.pipe(
+      takeWhile(
+        (event) =>
+          event.type !== EventType.RUN_FINISHED &&
+          event.type !== EventType.RUN_ERROR,
+        true,
+      ),
+    );
   }
 }
 
