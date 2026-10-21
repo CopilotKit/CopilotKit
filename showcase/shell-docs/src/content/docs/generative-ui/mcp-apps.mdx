@@ -131,6 +131,9 @@ cookies of its own either.
 Requests a widget makes that need CORS, such as `<script type="module">` and
 `fetch`, are sent with `Origin: null`. Serve public widget assets with
 `Access-Control-Allow-Origin: *`. Classic `<script src>` tags don't need CORS.
+To avoid CORS entirely, bundle the widget into a single HTML file, as the
+[ext-apps examples](https://github.com/modelcontextprotocol/ext-apps/tree/main/examples)
+do with `vite-plugin-singlefile`.
 
 The MCP Apps spec pairs `allow-same-origin` with a sandbox served from a
 separate origin. CopilotKit loads the sandbox inline, so it leaves
