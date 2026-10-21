@@ -8,6 +8,7 @@ import {
   createRailway,
   createRunner,
   REMOVAL_HANDOFF_BASELINE,
+  boundedBytes,
 } from "./adapters.mjs";
 import { createGithub, verifyRegistryImage } from "./github.mjs";
 import {
@@ -149,7 +150,61 @@ try {
   );
   assert.equal(prior.finalState.templateSha256, intent.baselineTemplateSha256);
   assert.deepEqual(REMOVAL_HANDOFF_BASELINE, intent.removalBaseline);
-  const railway = createRailway({ token: env.RAILWAY_TOKEN, deadline });
+  const railway = createRailway({
+    token: env.RAILWAY_TOKEN,
+    deadline,
+    fetch: async (url, options) => {
+      const removing = JSON.parse(options.body).query.includes(
+        "deploymentRemove(",
+      );
+      if (removing) {
+        receipt.removalRequestSent = true;
+        await save("removal-request-sent");
+      }
+      const response = await fetch(url, options);
+      receipt.providerHttpStatus = response.status;
+      let value;
+      try {
+        value = JSON.parse(await boundedBytes(response.clone()));
+      } catch {
+        receipt.providerFailure = {
+          status: response.status,
+          operation: removing ? "deploymentRemove" : "read",
+          errors: ["unreadable provider response"],
+        };
+      }
+      if (value !== undefined && (!response.ok || value?.errors)) {
+        receipt.providerFailure = {
+          status: response.status,
+          operation: removing ? "deploymentRemove" : "read",
+          errors: Array.isArray(value?.errors)
+            ? value.errors
+                .slice(0, 10)
+                .map((error) =>
+                  ["Problem processing request", "Not Authorized"].includes(
+                    error?.message,
+                  )
+                    ? error.message
+                    : "other provider error",
+                )
+            : ["other provider error"],
+        };
+      }
+      if (removing) {
+        const result = value?.data?.deploymentRemove;
+        receipt.removalResponse =
+          result === true || result === false ? result : null;
+        receipt.removalOutcome =
+          receipt.removalResponse === true
+            ? "acknowledged"
+            : receipt.removalResponse === false
+              ? "refused"
+              : "unknown";
+        await save("removal-response-recorded");
+      }
+      return response;
+    },
+  });
   // This exact trial keeps the validated live private template unchanged.
   assert.equal(intent.targetTemplateSha256, intent.baselineTemplateSha256);
   const runner = createRunner({ token: env.RICH_RUNNER_TOKEN, deadline });
