@@ -9,6 +9,22 @@ import {
   rewriteScopedDocsLinks,
 } from "../llm-text";
 
+test("omits early-access guides from the public aggregate without removing public Learning docs", () => {
+  const urls = new Set(getAllLlmPages().map(({ url }) => url));
+  for (const slug of [
+    "trajectories",
+    "trajectories-docker",
+    "capture-interactions",
+    "standalone-collector",
+    "captured-data",
+  ]) {
+    expect(urls.has(`intelligence/${slug}`)).toBe(false);
+  }
+  expect(urls.has("learning")).toBe(true);
+  expect(urls.has("intelligence/memories")).toBe(true);
+  expect(urls.has("intelligence/learned-skills")).toBe(true);
+});
+
 test("Hashbrown guide exports each bundled framework's complete source", () => {
   const doc = loadDoc("generative-ui/hashbrown");
   expect(doc).not.toBeNull();
