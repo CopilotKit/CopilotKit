@@ -1,8 +1,5 @@
 import type { Server } from "node:http";
-import {
-  authorizeJWT,
-  getAuthConfigWithDefaults,
-} from "@microsoft/agents-hosting";
+import { authorizeJWT } from "@microsoft/agents-hosting";
 import type {
   AuthConfiguration,
   CloudAdapter,
@@ -14,6 +11,11 @@ import {
   resolveAllowedServiceUrls,
   sameOrigin,
 } from "./service-url.js";
+import {
+  assertNotLegacyOnlyCredentials,
+  resolveTeamsAuth,
+} from "./auth-config.js";
+import { createEndorsementCheck } from "./endorsements.js";
 
 export interface TeamsServerConfig {
   adapter: CloudAdapter;
@@ -31,7 +33,9 @@ export interface TeamsServerConfig {
    * Without a `clientId` the endpoint runs in anonymous mode (local M365
    * Agents Playground only).
    *
-   * Defaults to the auth configuration the `adapter` was constructed with.
+   * Defaults to the auth configuration the `adapter` was constructed with. An
+   * override must resolve to the adapter's own app id: one that drops it (for
+   * example `{}`) or names another app makes `start()` fail.
    */
   authConfig?: AuthConfiguration;
   /**
@@ -40,6 +44,14 @@ export interface TeamsServerConfig {
    * Only enforced when `authConfig` has a `clientId`.
    */
   allowedServiceUrls?: readonly string[];
+  /**
+   * Interface to listen on. Without credentials the endpoint is
+   * unauthenticated, so it defaults to `127.0.0.1` (local Playground only);
+   * setting a non-loopback host such as `0.0.0.0` then exposes an
+   * unauthenticated bot to the network and is an explicit opt-in. With
+   * credentials it defaults to all interfaces, as before.
+   */
+  host?: string;
 }
 
 export interface TeamsServer {
@@ -101,45 +113,71 @@ async function loadExpress() {
   }
 }
 
+/** The app id a `CloudAdapter` acts as (`authConfig` is protected in its types). */
+function adapterAuthConfig(
+  adapter: CloudAdapter,
+): AuthConfiguration | undefined {
+  return (adapter as unknown as { authConfig?: AuthConfiguration }).authConfig;
+}
+
 /**
- * The auth configuration to verify inbound requests with: the explicit one, or
- * the one the adapter was built with (`CloudAdapter.authConfig`, protected in
- * the SDK's types, so read structurally). Resolved through the SDK so the
- * `connections` map `authorizeJWT` matches the token audience against exists.
+ * The auth configuration to verify inbound requests with, or `undefined` for
+ * anonymous mode. The adapter's own identity is read independently and an
+ * explicit `authConfig` can never remove or change it: an override that
+ * resolves to no app id or another app id fails startup (an empty override is
+ * not silently replaced by the adapter's settings, because it most likely
+ * means the caller's credentials did not load). Resolved through the SDK so
+ * the `connections` map `authorizeJWT` matches the token audience against
+ * exists.
  */
 function inboundAuthConfig(
   config: TeamsServerConfig,
 ): AuthConfiguration | undefined {
-  const raw =
-    config.authConfig ??
-    (config.adapter as unknown as { authConfig?: AuthConfiguration })
-      .authConfig;
-  if (!raw) return undefined;
-  // Decide on the resolved settings, not the raw ones: the SDK can supply the
-  // app id from its own env vars, and then the adapter is credentialed too.
-  const resolved = raw.connections?.size ? raw : getAuthConfigWithDefaults(raw);
-  assertResolvedAppId(raw.clientId, resolved);
+  const fromAdapter = adapterAuthConfig(config.adapter);
+  const adapterAppId = fromAdapter?.clientId || undefined;
+  if (config.authConfig === undefined) {
+    if (!fromAdapter) {
+      assertNotLegacyOnlyCredentials(undefined);
+      return undefined;
+    }
+    const resolved = resolveTeamsAuth(fromAdapter);
+    return resolved.clientId ? resolved : undefined;
+  }
+  let resolved: AuthConfiguration;
+  try {
+    resolved = resolveTeamsAuth(config.authConfig);
+  } catch (err) {
+    if (adapterAppId) throw overrideConflict(adapterAppId, undefined, err);
+    throw err;
+  }
+  if (adapterAppId && resolved.clientId !== adapterAppId) {
+    throw overrideConflict(adapterAppId, resolved.clientId);
+  }
   return resolved.clientId ? resolved : undefined;
 }
 
-/**
- * Fail closed when the SDK resolved a different app id than the one asked
- * for. When any `Connections__*` env var exists, the SDK builds its settings
- * from those alone and drops an explicit `clientId`, which would otherwise
- * leave the endpoint anonymous (or acting as another app) without a word.
- */
-export function assertResolvedAppId(
-  requested: string | undefined,
-  resolved: AuthConfiguration,
-): void {
-  if (!requested || resolved.clientId === requested) return;
-  throw new Error(
-    `[bot-teams] clientId "${requested}" is configured (option or clientId ` +
-      `env var), but the M365 Agents SDK resolved ` +
-      (resolved.clientId ? `app id "${resolved.clientId}"` : "no app id") +
-      " because Connections__* environment settings take precedence over " +
-      "it. Remove the Connections__* variables, or set " +
-      "Connections__<id>__Settings__ClientId (and its secret) to the same app.",
+function overrideConflict(
+  adapterAppId: string,
+  overrideAppId: string | undefined,
+  cause?: unknown,
+): Error {
+  return new Error(
+    "[bot-teams] createTeamsServer: the authConfig override resolves " +
+      (overrideAppId ? `app id "${overrideAppId}"` : "no app id") +
+      `, but the adapter acts as app "${adapterAppId}". An override cannot ` +
+      "remove or change the adapter's app id: omit authConfig to use the " +
+      "adapter's own settings, or pass settings for the same app.",
+    cause === undefined ? undefined : { cause },
+  );
+}
+
+/** Loopback interface names, which keep an anonymous endpoint local. */
+function isLoopbackHost(host: string): boolean {
+  return (
+    host === "localhost" ||
+    host === "::1" ||
+    host === "[::1]" ||
+    /^127\.\d+\.\d+\.\d+$/.test(host)
   );
 }
 
@@ -246,10 +284,32 @@ export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
           }
           next();
         });
-        // 3. Parse the body only for authenticated callers. 4. Only reply to a
-        //    connector we trust, and to the one the token was issued for. This
-        //    runs before any app token is minted or sent.
+        // 3. Parse the body only for authenticated callers, and check that a
+        //    Bot Connector signing key is endorsed for the claimed channel.
+        const checkEndorsement = createEndorsementCheck();
         app.post("/api/messages", express.json(), (req, res, next) => {
+          const iss = String((req as unknown as AgentsRequest).user?.iss);
+          const channelId: unknown = (
+            req.body as { channelId?: unknown } | undefined
+          )?.channelId;
+          checkEndorsement(iss, req.headers.authorization, channelId).then(
+            (result) => {
+              if (result.ok) {
+                next();
+                return;
+              }
+              console.warn(`[bot-teams] rejected activity: ${result.reason}`);
+              res.status(result.status).send({ error: result.reason });
+            },
+            (err: unknown) => {
+              console.error("[bot-teams] could not check endorsements:", err);
+              if (!res.headersSent) res.status(503).end();
+            },
+          );
+        });
+        // 4. Only reply to a connector we trust, and to the one the token was
+        //    issued for. This runs before any app token is minted or sent.
+        app.post("/api/messages", (req, res, next) => {
           const serviceUrl: unknown = (
             req.body as { serviceUrl?: unknown } | undefined
           )?.serviceUrl;
@@ -275,13 +335,24 @@ export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
           next();
         });
       } else {
-        console.warn(
-          "[bot-teams] no clientId configured: POST /api/messages accepts " +
-            "unauthenticated requests (local M365 Agents Playground mode). " +
-            "Do not expose this endpoint to a network.",
-        );
+        if (config.host && !isLoopbackHost(config.host)) {
+          console.warn(
+            `[bot-teams] no clientId configured and host "${config.host}" ` +
+              "is not loopback: POST /api/messages accepts UNAUTHENTICATED " +
+              "requests from the network. Anyone who can reach it can drive " +
+              "the bot.",
+          );
+        } else {
+          console.warn(
+            "[bot-teams] no clientId configured: POST /api/messages accepts " +
+              "unauthenticated requests (local M365 Agents Playground mode), " +
+              `listening on ${config.host ?? "127.0.0.1"} only.`,
+          );
+        }
         app.post("/api/messages", express.json());
       }
+      // Anonymous mode stays on loopback unless a host is chosen explicitly.
+      const host = config.host ?? (authConfig ? undefined : "127.0.0.1");
 
       app.post("/api/messages", (req, res) => {
         config.adapter
@@ -313,8 +384,19 @@ export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
         res.status(200).send("ok");
       });
 
-      return new Promise<Server>((resolve) => {
-        server = app.listen(config.port, () => resolve(server as Server));
+      return new Promise<Server>((resolve, reject) => {
+        // Express 5 passes a listen error (e.g. EADDRINUSE) to this callback;
+        // Express 4 only emits it. Either way, don't report a server that
+        // isn't listening as started.
+        const ready = (err?: Error) => {
+          if (err) reject(err);
+          else resolve(server as Server);
+        };
+        server =
+          host === undefined
+            ? app.listen(config.port, ready)
+            : app.listen(config.port, host, ready);
+        server.once("error", reject);
       });
     },
     stop() {

@@ -2,7 +2,6 @@ import {
   CloudAdapter,
   CardFactory,
   MessageFactory,
-  getAuthConfigWithDefaults,
 } from "@microsoft/agents-hosting";
 import type { AuthConfiguration, TurnContext } from "@microsoft/agents-hosting";
 import { ActivityTypes, Activity } from "@microsoft/agents-activity";
@@ -30,7 +29,8 @@ import { buildFileContentParts } from "./download-files.js";
 import type { TeamsAttachmentRef } from "./download-files.js";
 import { buildChannelFileContentParts } from "./graph-files.js";
 import type { GraphCredentials, ChannelMessageRef } from "./graph-files.js";
-import { assertResolvedAppId, createTeamsServer } from "./listener.js";
+import { createTeamsServer } from "./listener.js";
+import { resolveTeamsAuth } from "./auth-config.js";
 import {
   isAllowedServiceUrl,
   resolveAllowedServiceUrls,
@@ -119,8 +119,9 @@ export class TeamsAdapter implements PlatformAdapter {
     // as, the token audience it accepts, and whether the endpoint requires a
     // token at all come from the same settings, including credentials that
     // only arrive through the SDK's own env vars (`Connections__*`).
-    const authConfig = getAuthConfigWithDefaults(configured);
-    assertResolvedAppId(clientId, authConfig);
+    // Fails startup when env settings drop or change the configured app id,
+    // or when only legacy (MicrosoftApp*) credentials are set.
+    const authConfig = resolveTeamsAuth(configured);
     this.resolvedAuth = authConfig;
     this.cloud = new CloudAdapter(authConfig);
     // Contain turn-handler failures at the SDK boundary. Without this the M365
@@ -134,6 +135,7 @@ export class TeamsAdapter implements PlatformAdapter {
     this.server = createTeamsServer({
       adapter: this.cloud,
       port: this.opts.port ?? 3978,
+      host: this.opts.host,
       // With a clientId, inbound requests must carry a valid token for it and
       // name an allowed `serviceUrl`; without one the endpoint is anonymous.
       authConfig,

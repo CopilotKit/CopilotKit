@@ -32,6 +32,14 @@ export interface TeamsAdapterOptions {
    */
   port?: number;
   /**
+   * Interface the endpoint listens on. Without credentials the endpoint is
+   * unauthenticated, so it defaults to `127.0.0.1`; setting a non-loopback
+   * host (such as `0.0.0.0`) exposes an UNAUTHENTICATED bot to the network
+   * and is an explicit opt-in. With credentials it defaults to all
+   * interfaces.
+   */
+  host?: string;
+  /**
    * Microsoft app (client) id. Omit for anonymous local development with the
    * M365 Agents Playground; required to talk to real Teams via Azure Bot
    * Service. Falls back to the `clientId` env var.

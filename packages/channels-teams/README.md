@@ -186,6 +186,7 @@ use the same serializer and Bot Framework attachment shape.
 ```ts
 teams({
   port: 3978, // POST /api/messages port (Playground default)
+  host, // interface to listen on (see below)
   clientId, // Microsoft app id; omit for anonymous local dev
   clientSecret, // omit for anonymous local dev
   tenantId, // omit for multi-tenant / anonymous
@@ -195,7 +196,11 @@ teams({
 ```
 
 Credentials also resolve from the `clientId` / `clientSecret` / `tenantId`
-environment variables (the names the M365 Agents SDK reads).
+environment variables, or from `Connections__<id>__Settings__ClientId` /
+`ClientSecret` / `TenantId` (the names the M365 Agents SDK reads). The Bot
+Framework SDK's `MicrosoftAppId` / `MicrosoftAppPassword` variables are not
+read; if any of them is set and no app id resolves, `start` fails instead of
+running unauthenticated. Rename them to one of the supported forms.
 
 ### Request authentication
 
@@ -206,8 +211,9 @@ checks the signature, audience and expiry. The listener then requires the bot's
 own app id as the audience, and an issuer the SDK configured for the app (Bot
 Framework, `https://api.botframework.com`, or your tenant's Azure AD issuers;
 the botframework.com tenant when no `tenantId` is set). A Bot Framework token
-must also carry a `serviceurl` claim. Anything else gets `401` and never
-reaches your handlers. Settings such as `authorityEndpoint`, or a custom issuer
+must also carry a `serviceurl` claim, and its signing key must be endorsed for
+the activity's `channelId` (see below). Anything else gets `401` or `403` and
+never reaches your handlers. Settings such as `authorityEndpoint`, or a custom issuer
 list (`Connections__<id>__Settings__Issuers`), resolve from the environment the
 same way the SDK reads them.
 
@@ -242,12 +248,31 @@ To test a credentialed bot with the Bot Framework Emulator, allow the
 Emulator's local connector, for example
 `allowedServiceUrls: ["http://localhost:<port>"]`.
 
-Without a `clientId` the endpoint is **anonymous**: anyone who can reach it can
-drive a turn. That mode is for the local M365 Agents Playground only; the
-adapter logs a warning at start. Do not expose an anonymous bot to a network.
+**Channel endorsements.** Each key in the Bot Connector's signing-key document
+lists the channels it may sign for. For a Bot Framework token
+(`iss: https://api.botframework.com`) whose key lists endorsements, the
+activity's `channelId` must be one of them, or the request gets `403`. Like the
+Bot Framework SDK, keys without endorsements are not checked; Azure AD keys
+(single-tenant Azure Bot Service, the Bot Framework Emulator) have none. The
+key document is cached for an hour.
+
+**Anonymous mode.** Without a `clientId` the endpoint is **anonymous**: anyone
+who can reach it can drive a turn. That mode is for the local M365 Agents
+Playground only, so the listener binds to `127.0.0.1` unless you set `host`.
+Setting a non-loopback `host` (for example `host: "0.0.0.0"`) exposes an
+unauthenticated bot to the network; the adapter logs a warning. With a
+`clientId` the listener binds all interfaces unless `host` says otherwise.
+
+**`createTeamsServer`.** Called directly, it uses the auth settings of the
+`CloudAdapter` you pass. An `authConfig` override must resolve to that
+adapter's app id: one that resolves to no app id (for example `{}`) or to
+another app makes `start()` fail, so an override can never turn a credentialed
+adapter anonymous or switch its identity.
+
 If you serve `POST /api/messages` yourself instead of using
 `createTeamsServer`, do the same checks before `CloudAdapter.process`: run
-`authorizeJWT`, accept only your app's issuers, and check that the activity's
+`authorizeJWT`, accept only your app id as the audience and only its issuers,
+check endorsements for Bot Framework tokens, and check that the activity's
 `serviceUrl` is a connector you trust and matches the token's `serviceurl`
 claim. `authorizeJWT` alone accepts any issuer and does not look at
 `serviceUrl`, and the bot will send its app token there.

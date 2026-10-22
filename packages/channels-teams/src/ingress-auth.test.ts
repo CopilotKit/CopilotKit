@@ -151,12 +151,12 @@ function sinkSpy() {
   return { sink, onTurn };
 }
 
-function activity(serviceUrl: string) {
+function activity(serviceUrl: string, channelId: string | null = "msteams") {
   return {
     type: "message",
     id: `m-${randomUUID()}`,
     text: "hi",
-    channelId: "msteams",
+    ...(channelId === null ? {} : { channelId }),
     serviceUrl,
     conversation: { id: "conv-1" },
     from: { id: "user-1", role: "user", name: "User" },
@@ -173,21 +173,37 @@ function setEnvConnection(name: string, settings: Record<string, string>) {
 
 const settle = () => new Promise((r) => setTimeout(r, 300));
 
+/** Every non-production NODE_ENV the startup checks must hold under. */
+const NODE_ENVS = [undefined, "development", "production"] as const;
+
+function withNodeEnv<T>(
+  value: (typeof NODE_ENVS)[number],
+  fn: () => Promise<T>,
+): Promise<T> {
+  const saved = process.env.NODE_ENV;
+  if (value === undefined) delete process.env.NODE_ENV;
+  else process.env.NODE_ENV = value;
+  return fn().finally(() => {
+    if (saved === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = saved;
+  });
+}
+
 describe("POST /api/messages trust boundary", () => {
-  const idp = http.createServer((_req, res) => {
+  /** Endorsements on the Bot Framework key; `undefined` omits the field. */
+  let botFrameworkEndorsements: string[] | undefined;
+  const idp = http.createServer((req, res) => {
+    const key = {
+      ...publicKey.export({ format: "jwk" }),
+      kid: KID,
+      use: "sig",
+      alg: "RS256",
+      ...(req.url?.startsWith("/botframework/") && botFrameworkEndorsements
+        ? { endorsements: botFrameworkEndorsements }
+        : {}),
+    };
     res.setHeader("content-type", "application/json");
-    res.end(
-      JSON.stringify({
-        keys: [
-          {
-            ...publicKey.export({ format: "jwk" }),
-            kid: KID,
-            use: "sig",
-            alg: "RS256",
-          },
-        ],
-      }),
-    );
+    res.end(JSON.stringify({ keys: [key] }));
   });
   const attacker = recorder();
   const connector = recorder();
@@ -208,6 +224,7 @@ describe("POST /api/messages trust boundary", () => {
   let adapter: TeamsAdapter | undefined;
   let getAccessToken: ReturnType<typeof vi.spyOn>;
   let createClient: ReturnType<typeof vi.spyOn>;
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
   const origGetKeys = jwksRsa.JwksClient.prototype.getKeys;
 
   beforeAll(async () => {
@@ -230,6 +247,26 @@ describe("POST /api/messages trust boundary", () => {
       }
       return origGetKeys.call(this);
     };
+    // The endorsement check fetches the Bot Framework key document itself:
+    // serve it locally, and refuse any other non-loopback request.
+    const realFetch = globalThis.fetch;
+    fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input, init) => {
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (url === BOT_FRAMEWORK_KEYS) {
+          return realFetch(`${idpUrl}/botframework/keys`, init);
+        }
+        if (!["127.0.0.1", "localhost"].includes(new URL(url).hostname)) {
+          return Promise.reject(new Error(`non-local fetch blocked: ${url}`));
+        }
+        return realFetch(input, init);
+      });
     const realCreate =
       ConnectorClient.createClientWithToken.bind(ConnectorClient);
     createClient = vi
@@ -250,6 +287,10 @@ describe("POST /api/messages trust boundary", () => {
     connector.hits.length = 0;
     getAccessToken.mockClear();
     createClient.mockClear();
+    botFrameworkEndorsements = undefined;
+    for (const k of Object.keys(process.env)) {
+      if (/^microsoft_?app/i.test(k)) delete process.env[k];
+    }
     for (const k of Object.keys(process.env)) {
       if (/^Connections(Map)?__/i.test(k)) delete process.env[k];
     }
@@ -258,6 +299,7 @@ describe("POST /api/messages trust boundary", () => {
   afterAll(async () => {
     getAccessToken.mockRestore();
     createClient.mockRestore();
+    fetchSpy.mockRestore();
     jwksRsa.JwksClient.prototype.getKeys = origGetKeys;
     for (const k of envKeys) {
       if (savedEnv[k] === undefined) delete process.env[k];
@@ -575,6 +617,313 @@ describe("POST /api/messages trust boundary", () => {
     const res = await post(
       connectorUrl,
       signToken({ serviceurl: connectorUrl }),
+    );
+    await settle();
+    expect(res.status).toBe(200);
+    expect(onTurn).toHaveBeenCalledTimes(1);
+  });
+  // -- createTeamsServer auth overrides --------------------------------------
+
+  const credentialedCloud = () =>
+    new CloudAdapter({
+      clientId: APP_ID,
+      clientSecret: "local-secret",
+      tenantId: TENANT,
+    });
+
+  async function serveDirect(
+    adapterArg: CloudAdapter,
+    extra: Partial<Parameters<typeof createTeamsServer>[0]> = {},
+  ) {
+    const onTurnContext = vi.fn().mockResolvedValue(undefined);
+    const server = createTeamsServer({
+      adapter: adapterArg,
+      port: 0,
+      allowedServiceUrls: [connectorUrl],
+      onTurnContext,
+      ...extra,
+    });
+    const httpServer = await server.start();
+    const { port, address } = httpServer.address() as AddressInfo;
+    const post = (token?: string, host = "127.0.0.1") =>
+      fetch(`http://${host}:${port}/api/messages`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(activity(connectorUrl)),
+      });
+    return { server, post, onTurnContext, address };
+  }
+
+  describe.each(NODE_ENVS)("createTeamsServer with NODE_ENV=%s", (nodeEnv) => {
+    it("keeps a credentialed adapter authenticated when authConfig is omitted", () =>
+      withNodeEnv(nodeEnv, async () => {
+        const { server, post, onTurnContext } =
+          await serveDirect(credentialedCloud());
+        try {
+          expect((await post()).status).toBe(401);
+          expect((await post("not.a.jwt")).status).toBe(401);
+          expect(onTurnContext).not.toHaveBeenCalled();
+        } finally {
+          await server.stop();
+        }
+      }));
+
+    it.each([
+      ["an empty override", {}],
+      ["an override without clientId", { tenantId: TENANT }],
+      ["an override with an empty clientId", { clientId: "" }],
+    ])("refuses %s that would drop the adapter's app id", (_l, authConfig) =>
+      withNodeEnv(nodeEnv, async () => {
+        await expect(
+          serveDirect(credentialedCloud(), { authConfig }),
+        ).rejects.toThrow(
+          /override resolves no app id, but the adapter acts as/,
+        );
+      }),
+    );
+
+    it.each([
+      [
+        "a different clientId",
+        { clientId: OTHER_APP, clientSecret: "s", tenantId: TENANT },
+      ],
+      [
+        "a pre-resolved connections map for another app",
+        {
+          clientId: OTHER_APP,
+          connections: new Map([
+            [
+              "serviceConnection",
+              { clientId: OTHER_APP, clientSecret: "s", tenantId: TENANT },
+            ],
+          ]),
+          connectionsMap: [
+            { serviceUrl: "*", connection: "serviceConnection" },
+          ],
+        },
+      ],
+    ])("refuses %s than the adapter's", (_l, authConfig) =>
+      withNodeEnv(nodeEnv, async () => {
+        await expect(
+          serveDirect(credentialedCloud(), { authConfig }),
+        ).rejects.toThrow(
+          new RegExp(`resolves app id "${OTHER_APP}", but the adapter acts as`),
+        );
+      }),
+    );
+
+    it("accepts matching explicit settings", () =>
+      withNodeEnv(nodeEnv, async () => {
+        const { server, post, onTurnContext } = await serveDirect(
+          credentialedCloud(),
+          {
+            authConfig: {
+              clientId: APP_ID,
+              clientSecret: "local-secret",
+              tenantId: TENANT,
+            },
+          },
+        );
+        try {
+          expect((await post()).status).toBe(401);
+          const ok = await post(signToken({ serviceurl: connectorUrl }));
+          expect(ok.status).toBe(200);
+          expect(onTurnContext).toHaveBeenCalledTimes(1);
+        } finally {
+          await server.stop();
+        }
+      }));
+
+    it.each([
+      [
+        "MicrosoftAppId and MicrosoftAppPassword",
+        ["MicrosoftAppId", "MicrosoftAppPassword"],
+      ],
+      ["only MicrosoftAppId", ["MicrosoftAppId"]],
+      ["only MicrosoftAppPassword", ["MicrosoftAppPassword"]],
+    ])("fails before listening with %s set and no app id", (_l, vars) =>
+      withNodeEnv(nodeEnv, async () => {
+        const secret = "legacy-secret-value";
+        for (const v of vars) {
+          process.env[v] = v === "MicrosoftAppId" ? APP_ID : secret;
+        }
+        const port = await freePort();
+        adapter = new TeamsAdapter({ port });
+        const viaAdapter = adapter.start(sinkSpy().sink);
+        await expect(viaAdapter).rejects.toThrow(
+          /does not read these variables.*clientId \/ clientSecret \/ tenantId options.*Connections__<id>__Settings__ClientId/s,
+        );
+        await expect(viaAdapter).rejects.not.toThrow(secret);
+        const viaServer = createTeamsServer({
+          adapter: { process: vi.fn() } as unknown as CloudAdapter,
+          port,
+          onTurnContext: vi.fn(),
+        }).start();
+        await expect(viaServer).rejects.toThrow(
+          /does not read these variables/,
+        );
+        // Nothing is listening on the port.
+        await expect(
+          fetch(`http://127.0.0.1:${port}/healthz`),
+        ).rejects.toThrow();
+      }),
+    );
+  });
+
+  it("keeps working with modern credentials while a legacy variable is also set", async () => {
+    process.env.MicrosoftAppId = APP_ID;
+    const { post, onTurn } = await start("credentialed");
+    expect((await post(connectorUrl)).status).toBe(401);
+    const ok = await post(
+      connectorUrl,
+      signToken({ serviceurl: connectorUrl }),
+    );
+    await settle();
+    expect(ok.status).toBe(200);
+    expect(onTurn).toHaveBeenCalledTimes(1);
+  });
+
+  // -- bind address ------------------------------------------------------------
+
+  it("binds an anonymous endpoint to 127.0.0.1 by default, and the Playground path still works", async () => {
+    const { server, post, onTurnContext, address } = await serveDirect(
+      new CloudAdapter(),
+    );
+    try {
+      expect(address).toBe("127.0.0.1");
+      expect((await post()).status).toBe(200);
+      expect(onTurnContext).toHaveBeenCalledTimes(1);
+    } finally {
+      await server.stop();
+    }
+  });
+
+  it("binds an anonymous endpoint publicly only when a host is given", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { server, post, address } = await serveDirect(new CloudAdapter(), {
+      host: "0.0.0.0",
+    });
+    try {
+      expect(address).toBe("0.0.0.0");
+      expect((await post()).status).toBe(200);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("UNAUTHENTICATED"),
+      );
+    } finally {
+      warn.mockRestore();
+      await server.stop();
+    }
+  });
+
+  it("passes the adapter's host option through to the listener", async () => {
+    const listenSpy = vi.spyOn(http.Server.prototype, "listen");
+    try {
+      const port = await freePort();
+      adapter = new TeamsAdapter({ port, host: "0.0.0.0" });
+      await adapter.start(sinkSpy().sink);
+      const server = listenSpy.mock.contexts.at(-1) as http.Server;
+      expect((server.address() as AddressInfo).address).toBe("0.0.0.0");
+    } finally {
+      listenSpy.mockRestore();
+    }
+  });
+
+  it("rejects start() when the port is already taken", async () => {
+    const blocker = http.createServer();
+    const url = await listen(blocker);
+    const port = Number(new URL(url).port);
+    try {
+      const server = createTeamsServer({
+        adapter: new CloudAdapter(),
+        port,
+        onTurnContext: vi.fn(),
+      });
+      await expect(server.start()).rejects.toThrow(/EADDRINUSE/);
+    } finally {
+      await new Promise((r) => blocker.close(r));
+    }
+  });
+
+  it("keeps the credentialed listener on all interfaces, with every gate", async () => {
+    const { server, post, address } = await serveDirect(credentialedCloud());
+    try {
+      expect(["::", "0.0.0.0"]).toContain(address);
+      expect((await post()).status).toBe(401);
+      expect(
+        (await post(signToken({ iss: "https://evil.example/" }))).status,
+      ).toBe(401);
+      expect((await post(signToken({ serviceurl: connectorUrl }))).status).toBe(
+        200,
+      );
+    } finally {
+      await server.stop();
+    }
+  });
+
+  // -- channel endorsements ------------------------------------------------
+
+  async function postBotConnector(channelId: string | null) {
+    const port = await freePort();
+    const { sink, onTurn } = sinkSpy();
+    adapter = new TeamsAdapter({
+      port,
+      ...credentials.credentialed,
+    });
+    await adapter.start(sink);
+    const res = await fetch(`http://127.0.0.1:${port}/api/messages`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${signToken({
+          iss: "https://api.botframework.com",
+          serviceurl: SMBA,
+        })}`,
+      },
+      body: JSON.stringify(activity(SMBA, channelId)),
+    });
+    await settle();
+    return { res, onTurn };
+  }
+
+  it("accepts a Bot Connector key endorsed for msteams", async () => {
+    botFrameworkEndorsements = ["msteams", "webchat"];
+    const { res, onTurn } = await postBotConnector("msteams");
+    expect(res.status).toBe(200);
+    expect(onTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a Bot Connector key endorsed only for another channel", async () => {
+    botFrameworkEndorsements = ["webchat"];
+    const { res, onTurn } = await postBotConnector("msteams");
+    expect(res.status).toBe(403);
+    expect(onTurn).not.toHaveBeenCalled();
+  });
+
+  it("rejects an activity without a channelId when the key is endorsed", async () => {
+    botFrameworkEndorsements = ["msteams"];
+    const { res, onTurn } = await postBotConnector(null);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "activity has no channelId" });
+    expect(onTurn).not.toHaveBeenCalled();
+  });
+
+  it("does not require endorsements when the key metadata has none", async () => {
+    botFrameworkEndorsements = undefined;
+    const { res } = await postBotConnector("msteams");
+    expect(res.status).toBe(200);
+  });
+
+  it("does not apply endorsements to Azure AD tokens (Emulator, single-tenant)", async () => {
+    botFrameworkEndorsements = ["webchat"];
+    const { post, onTurn } = await start("multiTenant");
+    const res = await post(
+      connectorUrl,
+      signToken({
+        iss: "https://sts.windows.net/d6d49420-f39b-4df7-a1dc-d59a935871db/",
+      }),
     );
     await settle();
     expect(res.status).toBe(200);
