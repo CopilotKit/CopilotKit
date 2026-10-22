@@ -1,5 +1,5 @@
 // packages/react-native/src/hooks/use-attachments.ts
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useInsertionEffect, useRef, useState } from "react";
 import {
   randomUUID,
   getModalityFromMimeType,
@@ -100,11 +100,16 @@ export function useAttachments({
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
-  // Refs for stable callbacks to read latest values
+  // Refs for stable callbacks to read latest values. Written in an insertion
+  // effect (not during render) so a discarded render can't leak its values;
+  // they are only read from the callbacks below. Same pattern as react-core's
+  // internal useLatestRef (src/v2/lib/use-latest-ref.ts), which isn't exported.
   const configRef = useRef(config);
-  configRef.current = config;
-  const attachmentsRef = useRef<Attachment[]>([]);
-  attachmentsRef.current = attachments;
+  const attachmentsRef = useRef<Attachment[]>(attachments);
+  useInsertionEffect(() => {
+    configRef.current = config;
+    attachmentsRef.current = attachments;
+  });
 
   /**
    * Simple MIME accept filter for NativeFileInput.

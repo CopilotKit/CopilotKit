@@ -1,11 +1,12 @@
 import {
   createContext,
   useContext,
+  useInsertionEffect,
   useRef,
   useState,
   useMemo,
-  type ReactNode,
 } from "react";
+import type { ReactNode } from "react";
 import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import { basicCatalog } from "../a2ui-react";
 import type { A2UIContextValue, A2UIActions } from "./store";
@@ -52,33 +53,38 @@ export function A2UIProvider({
   catalog,
   children,
 }: A2UIProviderProps) {
-  // Store onAction in a ref so callbacks always have the latest value
+  // Store onAction in a ref so callbacks always have the latest value.
+  // Written in an insertion effect (not during render) so a discarded render
+  // can't leak its value; it is only read from action callbacks. Same pattern
+  // as react-core's internal useLatestRef (lib/use-latest-ref.ts), inlined
+  // because this package doesn't depend on react-core.
   const onActionRef = useRef<OnActionCallback | null>(onAction ?? null);
-  onActionRef.current = onAction ?? null;
+  useInsertionEffect(() => {
+    onActionRef.current = onAction ?? null;
+  });
 
-  // Create v0.9 MessageProcessor only once using ref
-  const processorRef = useRef<MessageProcessor<any> | null>(null);
-  if (!processorRef.current) {
-    processorRef.current = new MessageProcessor(
-      [catalog ?? basicCatalog],
-      // Action handler: convert v0.9 Action to A2UIClientEventMessage format
-      (action: any) => {
-        if (onActionRef.current) {
-          const message: A2UIClientEventMessage = {
-            userAction: {
-              name: action?.name ?? "unknown",
-              surfaceId: action?.surfaceId ?? "default",
-              sourceComponentId: action?.sourceComponentId,
-              context: action?.context,
-              timestamp: action?.timestamp ?? new Date().toISOString(),
-            },
-          };
-          onActionRef.current(message);
-        }
-      },
-    );
-  }
-  const processor = processorRef.current;
+  // Create v0.9 MessageProcessor only once
+  const [processor] = useState(
+    () =>
+      new MessageProcessor<any>(
+        [catalog ?? basicCatalog],
+        // Action handler: convert v0.9 Action to A2UIClientEventMessage format
+        (action: any) => {
+          if (onActionRef.current) {
+            const message: A2UIClientEventMessage = {
+              userAction: {
+                name: action?.name ?? "unknown",
+                surfaceId: action?.surfaceId ?? "default",
+                sourceComponentId: action?.sourceComponentId,
+                context: action?.context,
+                timestamp: action?.timestamp ?? new Date().toISOString(),
+              },
+            };
+            onActionRef.current(message);
+          }
+        },
+      ),
+  );
 
   // Version counter for triggering re-renders
   const [version, setVersion] = useState(0);
@@ -86,45 +92,41 @@ export function A2UIProvider({
   // Error state for graceful error handling
   const [error, setError] = useState<string | null>(null);
 
-  // Create stable actions object once - stored in ref, never changes
-  const actionsRef = useRef<A2UIActions | null>(null);
-  if (!actionsRef.current) {
-    actionsRef.current = {
-      processMessages: (messages: Array<Record<string, unknown>>) => {
-        try {
-          processor.processMessages(messages as any[]);
-        } catch (err) {
-          console.warn("[A2UI] processMessages error:", err);
-          setError(err instanceof Error ? err.message : String(err));
-          return;
-        }
-        setError(null);
-        setVersion((v) => v + 1);
-      },
+  // Create stable actions object once - never changes
+  const [actions] = useState<A2UIActions>(() => ({
+    processMessages: (messages: Array<Record<string, unknown>>) => {
+      try {
+        processor.processMessages(messages as any[]);
+      } catch (err) {
+        console.warn("[A2UI] processMessages error:", err);
+        setError(err instanceof Error ? err.message : String(err));
+        return;
+      }
+      setError(null);
+      setVersion((v) => v + 1);
+    },
 
-      dispatch: (message: any) => {
-        if (onActionRef.current) {
-          onActionRef.current(message);
-        }
-      },
+    dispatch: (message: any) => {
+      if (onActionRef.current) {
+        onActionRef.current(message);
+      }
+    },
 
-      getSurface: (surfaceId: string) => {
-        return processor.model.getSurface(surfaceId);
-      },
+    getSurface: (surfaceId: string) => {
+      return processor.model.getSurface(surfaceId);
+    },
 
-      clearSurfaces: () => {
-        // Process a deleteSurface for all known surfaces
-        const surfaces = processor.model.surfacesMap;
-        for (const [id] of surfaces) {
-          processor.processMessages([
-            { version: "v0.9", deleteSurface: { surfaceId: id } } as any,
-          ]);
-        }
-        setVersion((v) => v + 1);
-      },
-    };
-  }
-  const actions = actionsRef.current;
+    clearSurfaces: () => {
+      // Process a deleteSurface for all known surfaces
+      const surfaces = processor.model.surfacesMap;
+      for (const [id] of surfaces) {
+        processor.processMessages([
+          { version: "v0.9", deleteSurface: { surfaceId: id } } as any,
+        ]);
+      }
+      setVersion((v) => v + 1);
+    },
+  }));
 
   // State context value - changes when version or error changes
   const stateValue = useMemo(() => ({ version, error }), [version, error]);
