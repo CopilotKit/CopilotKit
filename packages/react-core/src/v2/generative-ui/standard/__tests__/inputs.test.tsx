@@ -4,7 +4,13 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { A2UIComponentNode } from "@copilotkit/shared";
 import { createGenerativeUI } from "../../catalog";
-import { describeDateTime, inputComponents, splitDateTime } from "../inputs";
+import {
+  describeDateTime,
+  inputComponents,
+  splitDateTime,
+  timeInRange,
+  timeSlots,
+} from "../inputs";
 import { layoutComponents } from "../layout";
 import { SURFACE_ID, renderSurface } from "./render";
 
@@ -562,6 +568,22 @@ describe("standard inputs: DateTimeInput", () => {
     ).toBeUndefined();
   });
 
+  it("lists the times of a day step minutes apart within the bounds, keeping a current off-step time", () => {
+    expect(timeSlots(360)).toEqual(["00:00", "06:00", "12:00", "18:00"]);
+    expect(timeSlots(30, "09:00", "10:30")).toEqual([
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30",
+    ]);
+    expect(timeSlots(60, "09:00", "11:00", "09:45")).toEqual([
+      "09:00",
+      "09:45",
+      "10:00",
+      "11:00",
+    ]);
+  });
+
   it("shows a date and a time as two named fields under one label and writes the value once both are set", async () => {
     const view = renderInputs(
       [
@@ -645,6 +667,37 @@ describe("standard inputs: DateTimeInput", () => {
     expect([time.min, time.max]).toEqual(["", "17:00"]);
   });
 
+  it("offers the times as a list with timeStep, named in words", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Call time",
+          enableTime: true,
+          timeStep: 30,
+          min: "09:00",
+          max: "10:00",
+          value: { "@path": "/at" },
+        },
+      ],
+      { at: "" },
+    );
+    const select = (await view.findByLabelText(
+      "Call time",
+    )) as HTMLSelectElement;
+    expect(select.tagName).toBe("SELECT");
+    expect([...select.options].map((o) => o.value)).toEqual([
+      "",
+      "09:00",
+      "09:30",
+      "10:00",
+    ]);
+    expect(select.options[2].textContent).toBe(inWords("", "09:30", "time"));
+    fireEvent.change(select, { target: { value: "09:30" } });
+    expect(view.dataAt("/at")).toBe("09:30");
+  });
+
   it("formats the value as written, not shifted by a daylight-saving gap of the viewer", () => {
     const zone = process.env.TZ;
     process.env.TZ = "Europe/Vienna";
@@ -660,6 +713,75 @@ describe("standard inputs: DateTimeInput", () => {
     } finally {
       process.env.TZ = zone;
     }
+  });
+
+  it("lists a range over midnight from its start", () => {
+    expect(timeInRange("23:00", "22:00", "02:00")).toBe(true);
+    expect(timeInRange("01:00", "22:00", "02:00")).toBe(true);
+    expect(timeInRange("12:00", "22:00", "02:00")).toBe(false);
+    expect(timeSlots(60, "22:00", "02:00")).toEqual([
+      "22:00",
+      "23:00",
+      "00:00",
+      "01:00",
+      "02:00",
+    ]);
+  });
+
+  it("marks a listed time that the date moved out of range as invalid, so a form does not submit it", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "Form",
+          label: "Booking",
+          children: ["when"],
+        },
+        {
+          id: "when",
+          component: "DateTimeInput",
+          label: "Call",
+          enableDate: true,
+          enableTime: true,
+          timeStep: 30,
+          min: "2026-11-02T09:00",
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "2026-11-03T08:30" },
+    );
+    const form = (await view.findByRole("form")) as HTMLFormElement;
+    const time = view.getByLabelText("Time") as HTMLSelectElement;
+    // The day after the bound: 08:30 is fine.
+    expect(form.checkValidity()).toBe(true);
+    fireEvent.change(view.getByLabelText("Date"), {
+      target: { value: "2026-11-02" },
+    });
+    expect(time.value).toBe("08:30");
+    expect(time.getAttribute("aria-invalid")).toBe("true");
+    expect(form.checkValidity()).toBe(false);
+    expect(view.getByRole("alert").textContent).toBe(
+      `Pick a time from ${inWords("", "09:00", "time")} to the end of the day`,
+    );
+    fireEvent.change(time, { target: { value: "09:30" } });
+    expect(form.checkValidity()).toBe(true);
+    expect(view.queryByRole("alert")).toBeNull();
+  });
+
+  it("steps the slots from the range start, and compares bounds with their seconds", () => {
+    expect(timeSlots(30, "09:15", "10:15")).toEqual([
+      "09:15",
+      "09:45",
+      "10:15",
+    ]);
+    expect(timeSlots(30, "09:15", "09:20")).toEqual(["09:15"]);
+    expect(timeSlots(90, "23:00", "02:00")).toEqual([
+      "23:00",
+      "00:30",
+      "02:00",
+    ]);
+    expect(timeInRange("10:00:30", undefined, "10:00")).toBe(false);
+    expect(timeInRange("10:00", undefined, "10:00:30")).toBe(true);
   });
 
   it("gives an impossible date no summary rather than a rolled-over one", () => {

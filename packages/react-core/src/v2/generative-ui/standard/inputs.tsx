@@ -336,6 +336,15 @@ const dateTimeInputSchema = z.object({
       "The user picks a date. Default true unless only enableTime is set",
     ),
   enableTime: z.boolean().optional().describe("The user picks a time"),
+  timeStep: z
+    .number()
+    .int()
+    .min(1)
+    .max(720)
+    .optional()
+    .describe(
+      "Minutes between the times the user can pick, e.g. 15 or 30. Shows the time as a list",
+    ),
   weight: weightProp,
   min: z.string().optional().describe("The earliest value, ISO 8601"),
   max: z.string().optional().describe("The latest value, ISO 8601"),
@@ -953,11 +962,79 @@ export function describeDateTime(
   }).format(at);
 }
 
+/** "HH:MM" of a minute of the day. */
+function minuteToTime(minute: number) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(Math.floor(minute / 60))}:${pad(minute % 60)}`;
+}
+
+/** "HH:MM:SS" of a time, seconds "00" when left out, so times compare as text. */
+function fullTime(time: string) {
+  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(time);
+  if (!match) return time;
+  return `${match[1].padStart(2, "0")}:${match[2]}:${match[3] ?? "00"}`;
+}
+
+/** The minute of the day of a time, rounded up to a whole minute. */
+function timeToMinute(time: string) {
+  const [hours, minutes, seconds] = fullTime(time).split(":").map(Number);
+  return hours * 60 + minutes + (seconds > 0 ? 1 : 0);
+}
+
+/**
+ * True when `time` lies within `min`..`max`, seconds included. A `min`
+ * after `max` is a range over midnight, such as 22:00 to 02:00.
+ */
+export function timeInRange(time: string, min?: string, max?: string) {
+  const at = fullTime(time);
+  const from = min ? fullTime(min) : undefined;
+  const to = max ? fullTime(max) : undefined;
+  if (from && to && from > to) return at >= from || at <= to;
+  return (!from || at >= from) && (!to || at <= to);
+}
+
+/**
+ * The times `step` minutes apart from `min` (or midnight) up to `max` (or
+ * the end of the day), "HH:MM". A range over midnight continues after
+ * 23:59. `current` is added when it is set and not one of them, so the list
+ * shows the value it holds even when that value is out of range.
+ */
+export function timeSlots(
+  step: number,
+  min?: string,
+  max?: string,
+  current?: string,
+): string[] {
+  const day = 24 * 60;
+  const start = min ? timeToMinute(min) : 0;
+  let end = max
+    ? timeToMinute(max) - (fullTime(max).endsWith(":00") ? 0 : 1)
+    : day - 1;
+  if (end < start) end += day;
+  const slots: string[] = [];
+  for (
+    let minute = start;
+    minute <= end && minute < start + day;
+    minute += step
+  ) {
+    slots.push(minuteToTime(minute % day));
+  }
+  const shown = current?.slice(0, 5);
+  if (shown && !slots.includes(shown)) {
+    // In order from the start of the range.
+    const offset = (time: string) => (timeToMinute(time) - start + day) % day;
+    const index = slots.findIndex((slot) => offset(slot) > offset(shown));
+    slots.splice(index === -1 ? slots.length : index, 0, shown);
+  }
+  return slots;
+}
+
 /**
  * A date, a time, or both. A date and a time are two fields under one
  * label, so each stays short and readable in every browser; the value is
  * written once both are set. Under the fields, the value in words makes the
- * date and the time (AM/PM included) unambiguous.
+ * date and the time (AM/PM included) unambiguous. `timeStep` shows the time
+ * as a list of times instead of a typed field.
  */
 function DateTimeInput(props: DateTimeInputProps) {
   useStandardStyles();
@@ -999,6 +1076,26 @@ function DateTimeInput(props: DateTimeInputProps) {
       ? max.time || undefined
       : undefined;
 
+  // A list does not enforce min and max like a time field does: a time
+  // left out of range (the date moved to the day of a bound) is invalid.
+  const slotList = useRef<HTMLSelectElement>(null);
+  const slotOutOfRange =
+    props.timeStep !== undefined &&
+    parts.time !== "" &&
+    !timeInRange(parts.time, timeMin, timeMax);
+  const rangeError: FailedCheck | undefined = slotOutOfRange
+    ? {
+        message: `Pick a time from ${
+          (timeMin && describeDateTime({ date: "", time: timeMin }, "time")) ||
+          "the start of the day"
+        } to ${
+          (timeMax && describeDateTime({ date: "", time: timeMax }, "time")) ||
+          "the end of the day"
+        }`,
+        severity: "error",
+        code: "TIME_OUT_OF_RANGE",
+      }
+    : undefined;
   // Half a date and time is no value: the empty field is invalid, so a
   // form does not drop what the user entered. Both empty stays valid.
   const dateField = useRef<HTMLInputElement>(null);
@@ -1006,11 +1103,14 @@ function DateTimeInput(props: DateTimeInputProps) {
   const halfFilled =
     mode === "datetime" && (parts.date === "") !== (parts.time === "");
   const dateMessage = halfFilled && parts.date === "" ? "Pick a date too" : "";
-  const timeMessage = halfFilled && parts.time === "" ? "Pick a time too" : "";
+  const timeMessage =
+    rangeError?.message ??
+    (halfFilled && parts.time === "" ? "Pick a time too" : "");
   useEffect(() => {
     dateField.current?.setCustomValidity(dateMessage);
+    slotList.current?.setCustomValidity(timeMessage);
     timeInput.current?.setCustomValidity(timeMessage);
-  }, [dateMessage, timeMessage]);
+  }, [dateMessage, timeMessage, props.timeStep]);
 
   const summary = describeDateTime(parts, mode);
   const isSplit = mode === "datetime";
@@ -1049,21 +1149,40 @@ function DateTimeInput(props: DateTimeInputProps) {
       style={{ ...style, flex: "1 1 10em", width: "auto" }}
     />
   );
-  const timeField = (
-    <input
-      {...common}
-      {...single}
-      ref={timeInput}
-      type="time"
-      aria-label={isSplit ? "Time" : singleLabel}
-      min={timeMin}
-      max={timeMax}
-      placeholder={props.placeholder}
-      value={parts.time}
-      onChange={(event) => write({ ...parts, time: event.target.value })}
-      style={{ ...style, flex: "1 1 8em", width: "auto" }}
-    />
-  );
+  const timeField =
+    props.timeStep !== undefined ? (
+      <select
+        {...common}
+        {...single}
+        ref={slotList}
+        aria-label={isSplit ? "Time" : singleLabel}
+        aria-invalid={check.invalid || slotOutOfRange || undefined}
+        value={parts.time.slice(0, 5)}
+        onChange={(event) => write({ ...parts, time: event.target.value })}
+        style={{ ...style, ...SELECT_STYLE, flex: "1 1 8em", width: "auto" }}
+      >
+        <option value="">{props.placeholder ?? "Time"}</option>
+        {timeSlots(props.timeStep, timeMin, timeMax, parts.time).map((slot) => (
+          <option key={slot} value={slot}>
+            {describeDateTime({ date: "", time: slot }, "time") ?? slot}
+          </option>
+        ))}
+      </select>
+    ) : (
+      <input
+        {...common}
+        {...single}
+        ref={timeInput}
+        type="time"
+        aria-label={isSplit ? "Time" : singleLabel}
+        min={timeMin}
+        max={timeMax}
+        placeholder={props.placeholder}
+        value={parts.time}
+        onChange={(event) => write({ ...parts, time: event.target.value })}
+        style={{ ...style, flex: "1 1 8em", width: "auto" }}
+      />
+    );
 
   return (
     <Field
@@ -1071,7 +1190,7 @@ function DateTimeInput(props: DateTimeInputProps) {
       htmlFor={isSplit ? undefined : id}
       labelId={isSplit ? labelId : undefined}
       weight={props.weight}
-      error={check.error}
+      error={check.error ?? rangeError}
       onBlur={check.onBlur}
     >
       <div
@@ -1900,7 +2019,7 @@ export const inputComponents = {
   DateTimeInput: {
     component: DateTimeInput,
     description:
-      'A date picker, or a time picker with enableTime, or both. The value is ISO 8601. Bind value with { "@path": "/x" } to read it. Give it a label.',
+      'A date picker, or a time picker with enableTime, or both. Set timeStep (minutes) to offer fixed times, e.g. 30 for a booking. The value is ISO 8601. Bind value with { "@path": "/x" } to read it. Give it a label.',
     props: dateTimeInputSchema,
     writable: VALUE_WRITABLE,
   },
