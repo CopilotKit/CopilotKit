@@ -12,12 +12,43 @@ import {
 const MAX_REDIRECTS = 5;
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
-function limit(value: number | undefined, fallback: number): number {
+function limit(
+  name: string,
+  value: number | undefined,
+  fallback: number,
+): number {
   const result = value ?? fallback;
   if (!Number.isSafeInteger(result) || result < 0) {
-    throw new Error("Attachment limits must be nonnegative safe integers");
+    throw new Error(`files.${name} must be a nonnegative safe integer`);
   }
   return result;
+}
+
+/** Validate options without starting a message's download deadline. */
+export function resolveDownloadLimits(config: FileDeliveryConfig = {}) {
+  return {
+    maxBytesPerFile: limit(
+      "maxBytesPerFile",
+      config.maxBytesPerFile,
+      8 * 1024 * 1024,
+    ),
+    maxFiles: limit("maxFiles", config.maxFiles, 5),
+    maxBytesPerMessage: limit(
+      "maxBytesPerMessage",
+      config.maxBytesPerMessage,
+      40 * 1024 * 1024,
+    ),
+    downloadTimeoutMs: limit(
+      "downloadTimeoutMs",
+      config.downloadTimeoutMs,
+      30_000,
+    ),
+    maxDownloadTimeMs: limit(
+      "maxDownloadTimeMs",
+      config.maxDownloadTimeMs,
+      60_000,
+    ),
+  };
 }
 
 /** One budget per inbound message, shared with Graph fallback. Not a public export. */
@@ -31,11 +62,12 @@ export class DownloadBudget {
   private files = 0;
 
   constructor(config: FileDeliveryConfig = {}) {
-    this.maxBytesPerFile = limit(config.maxBytesPerFile, 8 * 1024 * 1024);
-    this.maxFiles = limit(config.maxFiles, 5);
-    this.maxBytes = limit(config.maxBytesPerMessage, 40 * 1024 * 1024);
-    this.timeoutMs = limit(config.downloadTimeoutMs, 30_000);
-    this.deadline = performance.now() + limit(config.maxDownloadTimeMs, 60_000);
+    const limits = resolveDownloadLimits(config);
+    this.maxBytesPerFile = limits.maxBytesPerFile;
+    this.maxFiles = limits.maxFiles;
+    this.maxBytes = limits.maxBytesPerMessage;
+    this.timeoutMs = limits.downloadTimeoutMs;
+    this.deadline = performance.now() + limits.maxDownloadTimeMs;
   }
 
   get remainingBytes(): number {

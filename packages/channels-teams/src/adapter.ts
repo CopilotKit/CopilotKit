@@ -26,7 +26,10 @@ import type {
 import type { ConversationReference } from "@microsoft/agents-activity";
 import { TeamsConversationStore } from "./conversation-store.js";
 import { buildFileContentParts } from "./download-files.js";
-import { DownloadBudget } from "./attachment-download.js";
+import {
+  DownloadBudget,
+  resolveDownloadLimits,
+} from "./attachment-download.js";
 import type { TeamsAttachmentRef } from "./download-files.js";
 import { buildChannelFileContentParts } from "./graph-files.js";
 import type { GraphCredentials, ChannelMessageRef } from "./graph-files.js";
@@ -93,6 +96,8 @@ export class TeamsAdapter implements PlatformAdapter {
   private readonly allowedServiceUrls: readonly string[];
 
   constructor(private readonly opts: TeamsAdapterOptions = {}) {
+    // Fail on invalid limits before accepting turns; budgets remain per-message.
+    resolveDownloadLimits(opts.files);
     this.allowedServiceUrls = resolveAllowedServiceUrls(
       opts.allowedServiceUrls,
     );

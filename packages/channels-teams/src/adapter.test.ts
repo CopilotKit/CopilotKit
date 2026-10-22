@@ -40,6 +40,25 @@ function mockSink() {
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
+describe("TeamsAdapter file-limit configuration", () => {
+  describe.each([
+    "maxBytesPerFile",
+    "maxFiles",
+    "maxBytesPerMessage",
+    "downloadTimeoutMs",
+    "maxDownloadTimeMs",
+  ] as const)("files.%s", (option) => {
+    it.each([Infinity, -Infinity, NaN, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+      "rejects %s at construction with the option name",
+      (value) => {
+        expect(() => new TeamsAdapter({ files: { [option]: value } })).toThrow(
+          `files.${option} must be a nonnegative safe integer`,
+        );
+      },
+    );
+  });
+});
+
 describe("TeamsAdapter card interactions", () => {
   let prevClientId: string | undefined;
   beforeEach(() => {
@@ -134,6 +153,50 @@ describe("TeamsAdapter inbound files", () => {
   beforeEach(() => delete process.env.clientId);
   afterEach(() => {
     if (prevClientId !== undefined) process.env.clientId = prevClientId;
+  });
+
+  it("starts fresh file, byte, and time budgets for each message after construction", async () => {
+    let now = 0;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    try {
+      const adapter = new TeamsAdapter({
+        files: {
+          maxFiles: 1,
+          maxBytesPerFile: 3,
+          maxBytesPerMessage: 3,
+          downloadTimeoutMs: 10,
+          maxDownloadTimeMs: 10,
+        },
+      });
+      const sink = mockSink();
+      const handler = adapter as unknown as {
+        handleActivity(
+          context: TurnContext,
+          ingress: ReturnType<typeof mockSink>,
+        ): Promise<void>;
+      };
+      for (const payload of ["one", "two"]) {
+        now += 100; // Exceeds both the construction time and the previous message's deadline.
+        await handler.handleActivity(
+          messageContext("hi", [
+            {
+              contentType: "text/plain",
+              name: "file.txt",
+              contentUrl: `data:text/plain,${payload}`,
+            },
+          ]),
+          sink,
+        );
+        await flush();
+        expect(sink.onTurn.mock.calls.at(-1)![0].contentParts).toContainEqual({
+          type: "text",
+          text: expect.stringContaining(payload),
+        });
+      }
+      expect(sink.onTurn).toHaveBeenCalledTimes(2);
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   it("delivers an uploaded CSV to the agent as a content part on the turn", async () => {
@@ -231,8 +294,17 @@ describe("TeamsAdapter inbound files", () => {
     },
   );
 
-  it("leaves contentParts undefined when there are no attachments", async () => {
-    const adapter = new TeamsAdapter({});
+  it.each([
+    undefined,
+    {
+      maxFiles: 0,
+      maxBytesPerFile: 0,
+      maxBytesPerMessage: 0,
+      downloadTimeoutMs: 0,
+      maxDownloadTimeMs: 0,
+    },
+  ])("delivers text-only turns with file limits %j", async (files) => {
+    const adapter = new TeamsAdapter({ files });
     const sink = mockSink();
     const ctx = messageContext("hi");
 
@@ -240,7 +312,9 @@ describe("TeamsAdapter inbound files", () => {
     await (adapter as any).handleActivity(ctx, sink);
     await flush();
 
+    expect(sink.onTurn).toHaveBeenCalledTimes(1);
     const turn = sink.onTurn.mock.calls[0]![0];
+    expect(turn.userText).toBe("hi");
     expect(turn.contentParts).toBeUndefined();
   });
 });

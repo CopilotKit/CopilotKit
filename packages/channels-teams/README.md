@@ -312,6 +312,10 @@ with the adapter's `files` option:
 | `downloadTimeoutMs`  | 30,000  | DNS, connection, redirects, and body of each download; each Graph metadata/token operation |
 | `maxDownloadTimeMs`  | 60,000  | Shared elapsed download time for the message                                               |
 
+The adapter validates download-budget limits when constructed. They must be
+nonnegative safe integers; invalid values such as `Infinity` fail immediately
+with an error naming the option. Each message gets a fresh budget.
+
 The inline and Graph fallback paths share one budget. Failed downloads produce
 short skip notes without including preauthenticated URLs or transport error
 details. The Graph channel fallback uses the commercial Graph endpoint.
