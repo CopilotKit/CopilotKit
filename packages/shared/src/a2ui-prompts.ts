@@ -118,6 +118,14 @@ Design principles:
 
 Use the SAME surfaceId as the main surface. Match action names to button action event names.`;
 
+/**
+ * When UI helps the user, for both transports: a light nudge to reach for UI
+ * where it conveys the answer better than prose, and to stay in prose
+ * otherwise.
+ */
+export const GENERATIVE_UI_WHEN_TO_SHOW =
+  "Show UI when it conveys the answer better than prose: to illustrate a concept (a diagram, a chart of how something changes), to compare options side by side, to let the user explore or adjust values, or to collect input. A small, focused surface next to your explanation often lands better than a long description. Reply in prose alone for a quick fact, a short answer, or conversation, and never add UI only as decoration.";
+
 /** Description of the context entry that carries `GENERATIVE_UI_MARKDOWN_GUIDELINES`. */
 export const GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION =
   "Generative UI markdown guide: how to write UI surfaces inside ```a2ui code fences in a normal markdown reply.";
@@ -298,6 +306,8 @@ export function buildGenerativeUIMarkdownGuidelines(
   }
   rules.push(...MARKDOWN_CLOSING_RULES);
   return `You can show interactive UI in your reply. Write A2UI operations inside a fenced code block tagged a2ui.
+
+${GENERATIVE_UI_WHEN_TO_SHOW}
 
 RULES
 ${rules.map((rule) => `- ${rule}`).join("\n")}

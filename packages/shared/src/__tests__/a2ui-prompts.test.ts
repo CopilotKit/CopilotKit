@@ -5,7 +5,9 @@ import {
   GENERATIVE_UI_MARKDOWN_GUIDELINES,
   GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
+  GENERATIVE_UI_WHEN_TO_SHOW,
 } from "../a2ui-prompts";
+import { buildGenerativeUIPrompt } from "../generative-ui/prompt";
 import { GENERATIVE_UI_AGENT_FUNCTION_CALLS } from "../generative-ui/types";
 
 const guide = GENERATIVE_UI_MARKDOWN_GUIDELINES;
@@ -273,5 +275,25 @@ describe("buildGenerativeUIMarkdownGuidelines", () => {
     });
     expect(text).toContain("@index");
     expect(text).toContain("componentId");
+  });
+});
+
+describe("GENERATIVE_UI_WHEN_TO_SHOW", () => {
+  it("encourages UI where it conveys the answer better, and prose otherwise, on both transports", () => {
+    expect(GENERATIVE_UI_WHEN_TO_SHOW).toContain("illustrate a concept");
+    expect(GENERATIVE_UI_WHEN_TO_SHOW).toContain("prose alone");
+    expect(GENERATIVE_UI_WHEN_TO_SHOW).toContain("decoration");
+    expect(buildGenerativeUIMarkdownGuidelines()).toContain(
+      GENERATIVE_UI_WHEN_TO_SHOW,
+    );
+    expect(
+      buildGenerativeUIPrompt({
+        catalogId: "test",
+        targets: [],
+        components: {},
+        functions: {},
+        surfaces: {},
+      }),
+    ).toContain(GENERATIVE_UI_WHEN_TO_SHOW);
   });
 });
