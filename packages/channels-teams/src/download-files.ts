@@ -19,6 +19,7 @@
  * lets the app decide what to do with them. Anything it can't represent is
  * skipped with a short note so the agent knows a file was dropped and why.
  */
+import { BlockList, isIP } from "node:net";
 import type { AgentContentPart } from "@copilotkit/channels-ui";
 
 /** The subset of a Teams `Attachment` we read (matches @microsoft/agents-activity). */
@@ -202,8 +203,58 @@ function resolveSource(att: TeamsAttachmentRef): ResolvedSource | null {
   return { url: att.contentUrl, mime, label };
 }
 
-/** Fetch a source's bytes. Decodes `data:` URIs in-process; fetches http(s). */
-async function fetchBytes(url: string): Promise<Buffer> {
+/** Loopback, private, link-local (cloud metadata), CGNAT and unspecified ranges. */
+const BLOCKED_ADDRESSES = new BlockList();
+for (const [net, prefix] of [
+  ["0.0.0.0", 8],
+  ["10.0.0.0", 8],
+  ["100.64.0.0", 10],
+  ["127.0.0.0", 8],
+  ["169.254.0.0", 16],
+  ["172.16.0.0", 12],
+  ["192.168.0.0", 16],
+] as const) {
+  BLOCKED_ADDRESSES.addSubnet(net, prefix, "ipv4");
+}
+for (const [net, prefix] of [
+  ["::", 128],
+  ["::1", 128],
+  ["::ffff:0:0", 96],
+  ["fc00::", 7],
+  ["fe80::", 10],
+] as const) {
+  BLOCKED_ADDRESSES.addSubnet(net, prefix, "ipv6");
+}
+
+/**
+ * Attachment URLs come from the inbound activity, so only fetch https URLs
+ * that don't name localhost or a private/link-local IP literal.
+ * ponytail: checks the URL, not DNS; a public name resolving to a private
+ * address still passes. Pin the resolved address if that matters.
+ */
+function assertFetchableUrl(raw: string): URL {
+  const url = new URL(raw);
+  if (url.protocol !== "https:") throw new Error("only https URLs are fetched");
+  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  const family = isIP(host);
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    (family !== 0 &&
+      BLOCKED_ADDRESSES.check(host, family === 4 ? "ipv4" : "ipv6"))
+  ) {
+    throw new Error("refusing to fetch a local or private address");
+  }
+  return url;
+}
+
+const MAX_REDIRECTS = 5;
+
+/**
+ * Fetch a source's bytes, at most `maxBytes` of them. Decodes `data:` URIs
+ * in-process; fetches https, re-checking every redirect hop.
+ */
+async function fetchBytes(url: string, maxBytes: number): Promise<Buffer> {
   if (url.startsWith("data:")) {
     const comma = url.indexOf(",");
     if (comma < 0) throw new Error("malformed data URI");
@@ -213,9 +264,38 @@ async function fetchBytes(url: string): Promise<Buffer> {
       ? Buffer.from(payload, "base64")
       : Buffer.from(decodeURIComponent(payload), "utf8");
   }
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`download failed (HTTP ${res.status})`);
-  return Buffer.from(await res.arrayBuffer());
+  let next = assertFetchableUrl(url);
+  for (let hop = 0; ; hop++) {
+    const res = await fetch(next, { redirect: "manual" });
+    const location = res.headers.get("location");
+    if (res.status >= 300 && res.status < 400 && location) {
+      if (hop >= MAX_REDIRECTS) throw new Error("too many redirects");
+      next = assertFetchableUrl(new URL(location, next).href);
+      continue;
+    }
+    if (!res.ok) throw new Error(`download failed (HTTP ${res.status})`);
+    return readCapped(res, maxBytes);
+  }
+}
+
+/** Read a response body, aborting as soon as it exceeds `maxBytes`. */
+async function readCapped(res: Response, maxBytes: number): Promise<Buffer> {
+  const tooBig = () => new Error(`exceeds the ${maxBytes}-byte cap`);
+  if (Number(res.headers.get("content-length")) > maxBytes) throw tooBig();
+  if (!res.body) return Buffer.alloc(0);
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return Buffer.concat(chunks);
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw tooBig();
+    }
+    chunks.push(value);
+  }
 }
 
 /**
@@ -254,7 +334,10 @@ export async function buildFileContentParts(
     const { url, mime, label } = source;
     let bytes: Buffer;
     try {
-      bytes = await fetchBytes(url);
+      bytes = await fetchBytes(
+        url,
+        config.maxBytesPerFile ?? DEFAULTS.maxBytesPerFile,
+      );
     } catch (err) {
       notes.push(`skipped "${label}": ${(err as Error).message}`);
       continue;

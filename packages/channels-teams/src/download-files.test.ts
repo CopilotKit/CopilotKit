@@ -12,11 +12,12 @@ function mockFetch(
     typeof body === "string" ? new TextEncoder().encode(body) : body;
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockResolvedValue({
-      ok: init.ok ?? true,
-      status: init.status ?? 200,
-      arrayBuffer: async () => bytes.buffer,
-    }),
+    vi
+      .fn()
+      .mockImplementation(
+        async () =>
+          new Response(new Uint8Array(bytes), { status: init.status ?? 200 }),
+      ),
   );
 }
 
@@ -44,7 +45,10 @@ describe("buildFileContentParts (Teams)", () => {
     const text = (parts[0] as { text: string }).text;
     expect(text).toContain('Attached file "data.csv" (text/csv)');
     expect(text).toContain("a,b\n1,2");
-    expect(fetch).toHaveBeenCalledWith("https://files.example/data.csv");
+    expect(fetch).toHaveBeenCalledWith(
+      new URL("https://files.example/data.csv"),
+      { redirect: "manual" },
+    );
   });
 
   it("decodes a base64 data: URI image into an image part without fetching", async () => {
@@ -121,5 +125,66 @@ describe("buildFileContentParts (Teams)", () => {
 
     expect(parts).toHaveLength(3);
     expect(notes.some((n) => n.includes("only the first 3 of 7"))).toBe(true);
+  });
+
+  it("refuses attachment URLs that point at local or private hosts", async () => {
+    mockFetch("secret");
+    const urls = [
+      "http://files.example/a.txt",
+      "https://169.254.169.254/latest/meta-data/",
+      "https://127.0.0.1/a.txt",
+      "https://[::1]/a.txt",
+      "https://[::ffff:10.0.0.1]/a.txt",
+      "https://localhost/a.txt",
+    ];
+    const { parts, notes } = await buildFileContentParts(
+      urls.map((contentUrl) => ({ contentType: "text/plain", contentUrl })),
+      { maxFiles: urls.length },
+    );
+
+    expect(parts).toEqual([]);
+    expect(notes).toHaveLength(urls.length);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("re-checks redirects and stops reading past maxBytesPerFile", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://10.0.0.5/internal" },
+        }),
+      ),
+    );
+    const redirected = await buildFileContentParts([
+      { contentType: "text/plain", contentUrl: "https://files.example/a.txt" },
+    ]);
+    expect(redirected.parts).toEqual([]);
+    expect(redirected.notes[0]).toContain("local or private");
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    // No content-length: the cap must hold while streaming.
+    const chunk = new Uint8Array(1024);
+    let pulled = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled++;
+        controller.enqueue(chunk);
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body)));
+    const big = await buildFileContentParts(
+      [
+        {
+          contentType: "text/plain",
+          contentUrl: "https://files.example/b.txt",
+        },
+      ],
+      { maxBytesPerFile: 4096 },
+    );
+    expect(big.parts).toEqual([]);
+    expect(big.notes[0]).toContain("exceeds the 4096-byte cap");
+    expect(pulled).toBeLessThan(10);
   });
 });
