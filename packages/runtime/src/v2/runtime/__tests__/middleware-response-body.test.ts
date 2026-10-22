@@ -8,6 +8,7 @@ import type { AfterRequestMiddlewareParameters } from "../core/middleware";
 import { callAfterRequestMiddleware } from "../core/middleware";
 import { CopilotRuntime } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
+import { logger } from "@copilotkit/shared";
 
 class TestAgent extends AbstractAgent {
   run(): Observable<BaseEvent> {
@@ -23,6 +24,7 @@ const messages = [
   { id: "assistant-1", role: "assistant", content: "Report ready." },
 ];
 
+/** Emit a completed run with a message snapshot for the handler-level tests. */
 function createRunner(): AgentRunner {
   return {
     run: () =>
@@ -50,6 +52,74 @@ function createRunner(): AgentRunner {
 }
 
 describe("afterRequestMiddleware response body", () => {
+  it("preserves raw SSE bytes and fetched response metadata", async () => {
+    // A text round trip would discard the BOM and replace the invalid UTF-8
+    // byte in this SSE comment, changing the body available to the callback.
+    const url = "data:text/event-stream,%EF%BB%BF%3A%20%FF%0A%0A";
+    const response = await fetch(url);
+    const expectedBytes = new Uint8Array([
+      0xef, 0xbb, 0xbf, 0x3a, 0x20, 0xff, 0x0a, 0x0a,
+    ]);
+    const after = vi.fn();
+    const runtime = new CopilotRuntime({
+      agents: { default: new TestAgent() },
+      afterRequestMiddleware: after,
+    });
+
+    await callAfterRequestMiddleware({ runtime, response, path: "/info" });
+
+    const observed = after.mock.calls[0][0] as AfterRequestMiddlewareParameters;
+    expect(observed.messages).toEqual([]);
+    expect(observed.response.bodyUsed).toBe(false);
+    expect(observed.response.url).toBe(url);
+    expect(observed.response.type).toBe(response.type);
+    expect(observed.response.redirected).toBe(response.redirected);
+    expect(observed.response.status).toBe(response.status);
+    expect(observed.response.statusText).toBe(response.statusText);
+    expect([...observed.response.headers]).toEqual([...response.headers]);
+    expect(new Uint8Array(await observed.response.arrayBuffer())).toEqual(
+      expectedBytes,
+    );
+  });
+
+  it("still invokes middleware when reading the SSE stream fails", async () => {
+    const error = new Error("SSE connection lost");
+    const response = new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.error(error);
+        },
+      }),
+      { headers: { "Content-Type": "text/event-stream" } },
+    );
+    const after = vi.fn();
+    const runtime = new CopilotRuntime({
+      agents: { default: new TestAgent() },
+      afterRequestMiddleware: after,
+    });
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
+
+    try {
+      await callAfterRequestMiddleware({ runtime, response, path: "/info" });
+
+      expect(after).toHaveBeenCalledOnce();
+      const observed = after.mock
+        .calls[0][0] as AfterRequestMiddlewareParameters;
+      expect(observed.messages).toEqual([]);
+      expect(observed.threadId).toBeUndefined();
+      expect(observed.runId).toBeUndefined();
+      expect(observed.response.bodyUsed).toBe(false);
+      await expect(observed.response.text()).rejects.toThrow(
+        "SSE connection lost",
+      );
+      expect(warn).toHaveBeenCalledWith(
+        "Failed to read SSE response body in afterRequestMiddleware",
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it.each(["application/json", "application/octet-stream", undefined])(
     "propagates cancellation of non-SSE bodies with content type %s",
     async (contentType) => {
