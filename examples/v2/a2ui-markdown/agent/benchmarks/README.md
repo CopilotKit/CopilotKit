@@ -2,7 +2,11 @@
 
 The completed [60-attempt report](ordering-results.md) includes reliability,
 latency, token usage and browser checks. [Per-attempt data](ordering-runs.csv)
-retains failures as well as successes.
+retains failures as well as successes. That report measured the earlier Python
+policy experiment; the policy now lives in the shared standard catalog. See
+[shared-catalog verification](shared-catalog-results.md) for the follow-up checks.
+Capture new frontend inputs including each component's `parameterOrder` when
+running the current compiler; old captures without it retain their original order.
 
 `parameter_order.py` compares the current Express compiler with a frozen copy of
 the compiler before ordering changed. It uses real API-key Gemini requests via
@@ -65,3 +69,17 @@ Report counts and denominators, latency distributions, failures and study
 limitations. Do not combine these fresh runs with the earlier thinking study:
 that older study had a different bridge and a different distribution of thinking
 levels. Treat server first-model timing separately from browser visibility.
+
+## Verify the portable catalog directly
+
+Export `exportA2UICatalog(standardUI)` as JSON using the workspace React package,
+then run from `agent/`:
+
+```bash
+uv run python benchmarks/verify_catalog.py /tmp/standard-catalog.json
+```
+
+This checks six positional/named call pairs with the released Express SDK and
+validates their emitted components. It does not import the demo compiler or an
+ordering policy. The exported JSON property order is the SDK's only ordering
+input.

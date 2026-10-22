@@ -12,8 +12,6 @@ from a2ui.core import Catalog, PayloadValidator
 from a2ui.inference_formats.express import ExpressFormat
 from a2ui.skill import SkillGenerator
 
-from .parameter_order import order_parameters
-
 
 def _nested_values(schema: Any) -> Any:
     if not isinstance(schema, dict):
@@ -76,6 +74,21 @@ def _component(entry: dict[str, Any]) -> dict[str, Any]:
         }
         if event.get("description"):
             schema["properties"][name]["description"] = event["description"]
+    # The shared catalog owns the calling convention. This adapter only
+    # preserves received metadata when combining props, slots and events.
+    # Portable exportA2UICatalog JSON already encodes this property order.
+    order = entry.get("parameterOrder")
+    if "parameterOrder" in entry:
+        properties = schema["properties"]
+        if (
+            not isinstance(order, list)
+            or any(not isinstance(key, str) or key not in properties for key in order)
+            or len(set(order)) != len(order)
+        ):
+            raise ValueError("parameterOrder must contain unique declared field names")
+        schema["properties"] = {
+            key: properties[key] for key in dict.fromkeys([*order, *properties])
+        }
     if entry.get("description"):
         schema["description"] = entry["description"]
     return schema
@@ -111,7 +124,7 @@ class ExpressCompiler:
                 "catalogId": inline["catalogId"],
                 "protocolVersion": "1.0",
                 "components": {
-                    name: order_parameters(inline["catalogId"], name, _component(entry))
+                    name: _component(entry)
                     for name, entry in inline["components"].items()
                 },
                 "functions": {

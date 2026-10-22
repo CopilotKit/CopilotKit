@@ -5,14 +5,14 @@ from copy import deepcopy
 import pytest
 
 from src.express import ExpressCompiler, _component
-from src.parameter_order import order_parameters
 
 
 @pytest.mark.parametrize(
-    "name,props,slots,events,positional,named,expected",
+    "name,order,props,slots,events,positional,named,expected",
     [
         (
             "Text",
+            ["text"],
             {"color": {"type": "string"}, "text": {"type": "string"}},
             {},
             {},
@@ -22,6 +22,7 @@ from src.parameter_order import order_parameters
         ),
         (
             "Column",
+            ["children"],
             {"gap": {"type": "number"}},
             {"children": "multiple"},
             {},
@@ -31,6 +32,7 @@ from src.parameter_order import order_parameters
         ),
         (
             "Button",
+            ["label", "onClick"],
             {"checks": {"type": "array"}, "label": {"type": "string"}},
             {},
             {"onClick": {}},
@@ -40,6 +42,7 @@ from src.parameter_order import order_parameters
         ),
         (
             "TextField",
+            ["label", "value"],
             {
                 "checks": {"type": "array"},
                 "value": {"type": "string"},
@@ -53,6 +56,7 @@ from src.parameter_order import order_parameters
         ),
         (
             "Chart",
+            ["data", "xKey", "series"],
             {
                 "chartType": {"type": "string"},
                 "data": {"type": "array"},
@@ -68,15 +72,16 @@ from src.parameter_order import order_parameters
     ],
 )
 def test_positional_and_named_calls_compile_identically(
-    name, props, slots, events, positional, named, expected
+    name, order, props, slots, events, positional, named, expected
 ):
     envelope = {
         "v1.0": {
             "inlineCatalogs": [
                 {
-                    "catalogId": "copilotkit/standard@1",
+                    "catalogId": "acme/custom",
                     "components": {
                         name: {
+                            "parameterOrder": order,
                             "props": {"type": "object", "properties": props},
                             "slots": slots,
                             "events": events,
@@ -97,7 +102,7 @@ def test_positional_and_named_calls_compile_identically(
     assert expected.items() <= render(positional)[0].items()
 
 
-def test_order_changes_only_key_order_and_preserves_custom_catalogs():
+def test_received_order_changes_only_key_order_and_leaves_input_untouched():
     entry = {
         "props": {
             "type": "object",
@@ -106,40 +111,23 @@ def test_order_changes_only_key_order_and_preserves_custom_catalogs():
         },
         "slots": {"children": "multiple"},
     }
-    schema = _component(entry)
-    original = deepcopy(schema)
-    ordered = order_parameters("copilotkit/standard@1", "Text", schema)
-    assert ordered == original
+    original = deepcopy(entry)
+    before = _component(entry)
+    ordered = _component({**entry, "parameterOrder": ["text", "children"]})
+    assert ordered == before
     assert list(ordered["properties"]) == ["text", "children", "color"]
-    assert schema == original and list(schema["properties"]) == [
-        "color",
-        "text",
-        "children",
-    ]
-    assert order_parameters("acme/custom", "Text", schema) is schema
-    assert order_parameters("copilotkit/standard@1", "NewComponent", schema) is schema
+    assert list(before["properties"]) == ["color", "text", "children"]
+    assert entry == original
 
 
-def test_primary_action_precedes_presentation_and_secondary_events():
-    schema = {
-        "properties": {
-            key: {}
-            for key in [
-                "background",
-                "disabled",
-                "href",
-                "children",
-                "onVisible",
-                "onClick",
-            ]
-        }
-    }
-    ordered = order_parameters("copilotkit/standard@1", "Pressable", schema)
-    assert list(ordered["properties"]) == [
-        "children",
-        "onClick",
-        "href",
-        "disabled",
-        "onVisible",
-        "background",
-    ]
+@pytest.mark.parametrize(
+    "order", [None, "text", ["missing"], ["text", "text"], [1], [{}]]
+)
+def test_invalid_received_order_fails_loudly(order):
+    with pytest.raises(ValueError, match="parameterOrder"):
+        _component(
+            {
+                "props": {"type": "object", "properties": {"text": {}}},
+                "parameterOrder": order,
+            }
+        )

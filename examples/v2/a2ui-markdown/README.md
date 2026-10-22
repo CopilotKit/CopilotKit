@@ -180,10 +180,12 @@ split inside quoted strings are fixes to this demo's adapter, not upstream bugs.
 
 ### Standard catalog parameter order
 
-`agent/src/parameter_order.py` defines short, explicit positional prefixes for all
-69 standard components. The Express adapter applies them **after combining props,
-slots and events**, before creating both the SDK parser and its generated guide.
-For example:
+The shared standard catalog defines explicit positional prefixes for all
+69 components in `packages/react-core/src/v2/generative-ui/standard/parameter-order.ts`.
+`exportA2UICatalog(standardUI)` encodes these in the actual JSON Schema property
+order. The browser manifest carries the same `parameterOrder` metadata, which
+this demo preserves **after combining props, slots and events** for the SDK.
+There is no demo-specific ordering table or catalog-ID special case. For example:
 
 ```text
 Text("Hello", color="secondary")
@@ -199,11 +201,17 @@ for parameters beyond the documented prefix. Requiredness alone is insufficient:
 `Text.text`, for example, is optional but still belongs first. The file enumerates
 every prefix, including components whose ordering was already suitable.
 
-This is a demo catalog convention, **not an SDK workaround**. It changes 52 of
-the 69 Express signatures. It preserves property schemas, required fields,
-functions, JSON behavior, React renderers and catalogs with other IDs. Only
-`copilotkit/standard@1` gets this policy. The browser's catalog remains the source
-of property definitions; the adapter owns the combined Express argument order.
+This is a shared catalog API convention, **not an SDK workaround**. It changes
+52 of the 69 standard Express signatures. It preserves property schemas, required
+fields, functions, named JSON behavior and React renderers. Custom catalogs can
+also declare `parameterOrder`; without it, the adapter retains its existing
+props/slots/events order. The browser's catalog owns both field definitions and
+the combined Express argument order.
+
+The [official Express proposal](https://a2ui.org/specification/proposals/express/a2ui_express/#schema-driven-key-mapping)
+defines positional mapping from JSON property order. The particular component
+prefixes are CopilotKit API design, not a list mandated by the specification.
+`parameterOrder` is CopilotKit metadata; it is not a portable A2UI schema keyword.
 
 **Compatibility:** old positional Express programs can change meaning. Start a
 fresh conversation after changing this policy. Named arguments retain their
