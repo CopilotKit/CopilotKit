@@ -14,12 +14,13 @@
       "title": "Trajectories",
       "pages": [
         "trajectories",
-        "trajectories-docker",
+        "trajectories-quickstart",
         "capture-interactions",
-        "standalone-collector",
-        "captured-data"
+        "captured-data",
+        "trajectories-reference"
       ]
     },
+    "standalone-collector",
     "analytics",
     "channels",
     "managed-intelligence-platform",

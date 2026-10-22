@@ -296,10 +296,10 @@ it("keeps the existing-thread guide discoverable in root and framework sidebars"
 it("groups Trajectories guides without moving the other Intelligence features", () => {
   const expectedSlugs = [
     "intelligence/trajectories",
-    "intelligence/trajectories-docker",
+    "intelligence/trajectories-quickstart",
     "intelligence/capture-interactions",
-    "intelligence/standalone-collector",
     "intelligence/captured-data",
+    "intelligence/trajectories-reference",
   ];
   for (const slug of expectedSlugs) {
     expect(loadDoc(slug)?.fm.earlyAccess, slug).toBe("trajectories");
@@ -321,6 +321,11 @@ it("groups Trajectories guides without moving the other Intelligence features", 
     expect(hasSectionPage(normalized, "Intelligence", "User Memories")).toBe(
       true,
     );
+    // Angular capture routes to the standalone collector, so it stays in the
+    // Intelligence nav, outside the Trajectories group pinned above.
+    expect(
+      hasSectionPage(normalized, "Intelligence", "Standalone collector"),
+    ).toBe(true);
     expect(
       navAncestorBreadcrumbsForSlug(
         normalized,

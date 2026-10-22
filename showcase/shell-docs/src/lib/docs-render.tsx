@@ -1236,10 +1236,10 @@ export function normalizeSidebarNav(
     "intelligence/trajectories",
     [
       intelligencePage("intelligence/trajectories", "Overview"),
-      intelligencePage("intelligence/trajectories-docker", "Docker quickstart"),
+      intelligencePage("intelligence/trajectories-quickstart", "Quickstart"),
       intelligenceCapture,
-      intelligenceStandaloneCollector,
       intelligenceCapturedData,
+      intelligencePage("intelligence/trajectories-reference", "API reference"),
     ].filter((node): node is NavNode => node !== null),
   );
   // Skill delivery is a step inside Automatic Learning, so it nests under
@@ -1369,6 +1369,7 @@ export function normalizeSidebarNav(
           intelligenceLearningGroup,
           intelligenceMemory,
           intelligenceTrajectories,
+          intelligenceStandaloneCollector,
           intelligenceAnalytics,
           intelligenceChannels,
         ].filter((node): node is NavNode => node !== null),

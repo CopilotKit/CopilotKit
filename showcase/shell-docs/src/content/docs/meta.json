@@ -70,12 +70,13 @@
       "title": "Trajectories",
       "pages": [
         "intelligence/trajectories",
-        "intelligence/trajectories-docker",
+        "intelligence/trajectories-quickstart",
         "intelligence/capture-interactions",
-        "intelligence/standalone-collector",
-        "intelligence/captured-data"
+        "intelligence/captured-data",
+        "intelligence/trajectories-reference"
       ]
     },
+    "intelligence/standalone-collector",
     "intelligence/analytics",
     "intelligence/channels",
     "intelligence/managed-intelligence-platform",

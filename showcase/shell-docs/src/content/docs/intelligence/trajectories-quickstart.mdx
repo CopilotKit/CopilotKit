@@ -1,8 +1,8 @@
 ---
-title: Try Trajectories with Docker
-nav_title: Docker quickstart
-description: Use the CopilotKit CLI to run Intelligence locally with Docker and record your first Trajectory from a React app.
-icon: "lucide/Container"
+title: Quickstart
+nav_title: Quickstart
+description: Run Intelligence locally with the CopilotKit CLI and record your first Trajectory from a React app.
+icon: "lucide/Play"
 frontend:
   kind: frontend-variant
   fallback: hide
@@ -102,67 +102,24 @@ Restart your Runtime and app after the configuration change.
 
 ## 4. Record a Trajectory
 
-Add manual capture to your existing provider:
+Before you turn on capture, read [Captured data](/intelligence/captured-data).
+
+Add `learning` to your existing provider:
 
 ```tsx title="Your CopilotKit provider"
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  learning={{ autoStart: false }}
->
+<CopilotKitProvider runtimeUrl="/api/copilotkit" learning>
   {children}
 </CopilotKitProvider>
 ```
 
-Keep your existing `runtimeUrl` and authentication props. If your Runtime uses a single endpoint, keep `useSingleEndpoint` too.
+Keep your existing `runtimeUrl` and authentication props. If your Runtime uses a single endpoint, keep `useSingleEndpoint` too. Capture starts when the provider mounts.
 
-Render these controls inside the provider:
-
-```tsx title="app/capture-controls.tsx"
-"use client";
-
-import { useState } from "react";
-import { useCopilotKit } from "@copilotkit/react-core/v2";
-
-export function CaptureControls() {
-  const { copilotkit } = useCopilotKit();
-  const [trajectoryId, setTrajectoryId] = useState("");
-  const [error, setError] = useState("");
-
-  async function startCapture() {
-    const result = await copilotkit.startTrajectory();
-    if (result.status === "error") {
-      setTrajectoryId("");
-      setError(result.code);
-      return;
-    }
-    setError("");
-    setTrajectoryId(result.trajectoryId);
-  }
-
-  return (
-    <div data-copilotkit-ignore>
-      <button onClick={startCapture}>Start capture</button>
-      <button onClick={() => copilotkit.stopTrajectory()}>Stop capture</button>
-      <p>Trajectory ID: {trajectoryId || "Not started"}</p>
-      {error && <p role="alert">Capture error: {error}</p>}
-    </div>
-  );
-}
-```
-
-Before capture, read [Captured data](/intelligence/captured-data). Start capture only after the person agrees to it.
-
-1. Open your app and select **Start capture**.
-2. Copy the displayed Trajectory ID.
-3. Click a control outside the capture controls, or edit a form field.
+1. Open your app.
+2. Click a few controls and edit a form field.
+3. Send a message to your agent to link the conversation. Browser capture also works without a conversation.
 4. Wait at least two seconds for the next batch.
-5. Select **Stop capture**.
 
-A successful start means that capture connected. It does not prove that Intelligence saved the events. The next step checks the saved data.
-
-If start fails, the controls show the error code. Check the browser console for later capture warnings.
-
-To link a conversation, send a message through your agent while capture is active. Browser capture also works without a conversation.
+If capture cannot connect, the browser console shows a warning with an error code. See [Error codes](/intelligence/trajectories-reference#error-codes).
 
 ## 5. Find the saved Trajectory
 
@@ -176,16 +133,17 @@ The CLI opens the dashboard and signs you in.
 
 1. Open the project connected to your app.
 2. Select **Trajectories**.
-3. Refresh the list and find the ID that you copied.
-4. Open the Trajectory and find your click or form edit in its AG-UI Stream.
+3. Refresh the list and open the newest Trajectory.
+4. Find your click or form edit in its AG-UI Stream.
 5. Reload the page and check that the event remains.
 
 The event is now part of the saved Trajectory. A model and live viewing are not required for this check.
 
 ## Next steps
 
-- [Capture interactions](/intelligence/capture-interactions) explains automatic capture, custom events, and error handling.
+- [Capture interactions](/intelligence/capture-interactions) explains consent, manual start and stop, outcome events, and error handling.
 - [Captured data](/intelligence/captured-data) describes fields, delivery limits, and controls that exclude data.
+- [API reference](/intelligence/trajectories-reference) lists every `learning` option and Core method.
 - [Automatic Learning](/learning#assign-browser-activity-to-a-learning-space) explains how to use Trajectories as evidence in a Learning Space.
 
 ## Stop and restart
@@ -209,8 +167,8 @@ npx copilotkit@latest local start
 | Docker does not respond | Start Docker Desktop. Check that Docker has the resources listed under **Before you start**. |
 | The installation stops | Read the CLI error. Run `npx copilotkit@latest local status` to inspect the stack. After you resolve the error, repeat the setup command to resume. |
 | The dashboard needs a new sign-in | Run `npx copilotkit@latest local login` from your app's folder. |
-| Capture reports a connection error | Check that your Runtime loads the `.env` values from `local connect`. Restart the Runtime after a configuration change. |
-| A Trajectory has no visible events | Wait for the saved data to update, then refresh. Check the capture error and the selected project. |
+| The browser console shows a capture error | Check that your Runtime loads the `.env` values from `local connect`. Restart the Runtime after a configuration change. For each error code, see [Error codes](/intelligence/trajectories-reference#error-codes). |
+| A Trajectory has no visible events | Wait for the saved data to update, then refresh. Check the browser console and the selected project. |
 | A Trajectory has no linked conversation | Start an agent conversation while capture is active. Earlier conversations do not link automatically. |
 
 For more CLI commands and recovery steps, see [Manage the stack](/intelligence/self-hosting-local#manage-the-stack).

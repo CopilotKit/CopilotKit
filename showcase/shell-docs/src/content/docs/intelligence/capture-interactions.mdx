@@ -14,7 +14,7 @@ search: false
 
 Trajectories capture browser interactions as AG-UI `CUSTOM` events in CopilotKit Intelligence. This feature is in early access.
 
-This guide connects an existing React app to Intelligence. To start the local environment, use [Try Trajectories with Docker](/intelligence/trajectories-docker).
+This guide connects an existing React app to Intelligence. To start the local environment, use the [Trajectories quickstart](/intelligence/trajectories-quickstart).
 
 Capture includes URLs, page titles, referrers, element text, attributes, form values, browser-visible headers, and bounded body snapshots. Recognized credential fields are redacted in the browser. Redaction has limits. Read [Captured data](/intelligence/captured-data) before you enable capture.
 
@@ -24,7 +24,7 @@ Capture includes URLs, page titles, referrers, element text, attributes, form va
   <Step>
     ### Connect your Runtime to Intelligence
 
-    Complete the [Docker guide](/intelligence/trajectories-docker) or the [Intelligence quickstart](/intelligence/quickstart).
+    Complete the [Trajectories quickstart](/intelligence/trajectories-quickstart) or the [Intelligence quickstart](/intelligence/quickstart).
 
     The TypeScript Runtime needs `intelligence` and `identifyUser`, with Trajectories enabled for its project. `identifyUser` must return the user from your verified application session. Keep the project API key on the server.
 
@@ -32,7 +32,7 @@ Capture includes URLs, page titles, referrers, element text, attributes, form va
   <Step>
     ### Pass `learning` to the provider
 
-    A Trajectory groups captured interactions. Add `learning` to your existing provider:
+    Add `learning` to your existing provider:
 
     ```tsx title="app/providers.tsx"
     "use client";
@@ -48,75 +48,42 @@ Capture includes URLs, page titles, referrers, element text, attributes, form va
     }
     ```
 
-    Keep your existing Runtime URL and application authentication configuration. Capture starts after the provider mounts, authenticates through Runtime, and joins the connection to Intelligence. A chat is not required. Capture excludes requests to the configured Runtime endpoint.
-
-    The provider generates a Trajectory UUID. It stays the same across rerenders and reconnects while capture is on. Set `learning={false}` to stop capture. Turning capture on again generates a new ID. Unmounting the provider also stops capture.
-
-    To connect capture to an application consent control, pass `learning={hasConsent}`. Read the active ID from `copilotkit.trajectoryId`.
-
-  </Step>
-  <Step>
-    ### Name the actions that matter
-
-    Click events include element details and a short control name in `target.label`, such as `Approve`. See [Click labels](/intelligence/captured-data#click-labels) for the sources and redaction rules.
-
-    Add `data-copilotkit-action` for a stable, explicit action name:
-
-    ```tsx
-    <button data-copilotkit-action="deal.approve" onClick={approve}>
-      Approve
-    </button>
-    ```
+    Keep your existing Runtime URL and application authentication configuration. Capture starts after the provider mounts. A chat is not required.
 
   </Step>
   <Step>
     ### Open the saved Trajectory
 
-    Click an action in your app. Wait at least two seconds for the next batch.
+    Click a control in your app. Wait at least two seconds for the next batch.
 
-    Open **Trajectories** in the same Intelligence project. Open the new Trajectory and find the click in its AG-UI Stream. Refresh the page and check that the event remains.
+    Open **Trajectories** in the same Intelligence project. Open the newest Trajectory and find the click in its AG-UI Stream. Refresh the page and check that the event remains.
 
-    To add a Thread link, start an agent conversation while capture is active. Core sends `thread.linked` after Runtime starts a run in that Thread.
+    To link a Thread, start an agent conversation while capture is active.
 
   </Step>
 </Steps>
 
-Connected capture links each Thread once. It does not add Thread, message, or tool fields to individual clicks. A Trajectory can contain interactions without any Thread.
+Capture is on. The rest of this guide is optional.
 
-## Record outcomes
+## Control capture programmatically
 
-A click shows what a person did. It does not show whether the work succeeded. After your application operation succeeds, emit the outcome:
+The sections below change when capture runs and what it records. For every option and method, see the [API reference](/intelligence/trajectories-reference).
+
+### Capture only after consent
+
+Pass a boolean to tie capture to your application's consent control:
 
 ```tsx
-import { useCopilotKit } from "@copilotkit/react-core/v2";
-
-function ApproveButton({
-  dealId,
-  approveDeal,
-}: {
-  dealId: string;
-  approveDeal: (id: string) => Promise<void>;
-}) {
-  const { copilotkit } = useCopilotKit();
-
-  async function approve() {
-    await approveDeal(dealId);
-    copilotkit.emitTrajectoryEvent("deal.approved", { dealId });
-  }
-
-  return (
-    <button onClick={approve}>
-      Approve
-    </button>
-  );
-}
+<CopilotKitProvider runtimeUrl="/api/copilotkit" learning={hasConsent}>
+  {children}
+</CopilotKitProvider>
 ```
 
-The event belongs to the active Trajectory. Built-in names such as `click` are reserved. Your application controls the event payload. Automatic credential redaction does not inspect developer events.
+The provider generates a Trajectory UUID. It stays the same across rerenders and reconnects while capture is on. When `hasConsent` becomes `false`, capture stops. Turning capture on again generates a new ID. Unmounting the provider also stops capture. Read the active ID from `copilotkit.trajectoryId`.
 
-## Start and stop a Trajectory yourself
+### Start and stop a Trajectory yourself
 
-Set `autoStart: false` on the prop. The provider then waits for your app to start capture:
+Set `autoStart: false`. The provider then waits for your app to start capture:
 
 ```tsx
 <CopilotKitProvider
@@ -148,11 +115,52 @@ function StartCaptureButton() {
 }
 ```
 
-`startTrajectory()` generates a UUID. To supply a UUID, call `startTrajectory({ trajectoryId: crypto.randomUUID() })`. With `autoStart: false`, the provider ignores `learning.trajectoryId` and logs a warning.
+One Trajectory runs at a time. `copilotkit.stopTrajectory()` ends it and attempts a final batch. It does not wait for delivery or guarantee that the last events are saved.
 
-One Trajectory runs at a time. A start with the same ID reuses the current start. `copilotkit.stopTrajectory()` removes capture listeners and attempts a final batch. It does not wait for delivery or guarantee that the last events are saved.
+### Record outcomes
 
-## Capture errors
+A click shows what a person did. It does not show whether the work succeeded. After your application operation succeeds, emit the outcome:
+
+```tsx
+import { useCopilotKit } from "@copilotkit/react-core/v2";
+
+function ApproveButton({
+  dealId,
+  approveDeal,
+}: {
+  dealId: string;
+  approveDeal: (id: string) => Promise<void>;
+}) {
+  const { copilotkit } = useCopilotKit();
+
+  async function approve() {
+    await approveDeal(dealId);
+    copilotkit.emitTrajectoryEvent("deal.approved", { dealId });
+  }
+
+  return (
+    <button onClick={approve}>
+      Approve
+    </button>
+  );
+}
+```
+
+The event belongs to the active Trajectory. Built-in names such as `click` are reserved. Your application controls the event payload. Automatic credential redaction does not inspect developer events.
+
+### Name the actions that matter
+
+Click events include a short control name in `target.label`, such as `Approve`. See [Click labels](/intelligence/captured-data#click-labels) for the sources and redaction rules.
+
+Add `data-copilotkit-action` for a stable, explicit action name:
+
+```tsx
+<button data-copilotkit-action="deal.approve" onClick={approve}>
+  Approve
+</button>
+```
+
+### Handle capture errors
 
 By default, Core logs setup errors with a code and a configuration hint. Pass `onError` to handle them in your app:
 
@@ -167,39 +175,4 @@ By default, Core logs setup errors with a code and a configuration hint. Pass `o
 </CopilotKitProvider>
 ```
 
-Capture pauses during a connection loss and reconnects with fresh credentials. It does not buffer developer events during recovery or resend failed batches. See [Batches](/intelligence/captured-data#batches) for delivery limits.
-
-## Advanced: send events to your own sink
-
-A custom sink receives batches through an endpoint that you own. It replaces the connection to Intelligence. A sink endpoint does not automatically import events into Intelligence.
-
-Install the collector package:
-
-```bash
-npm install @copilotkit/learning
-```
-
-Add your receiving endpoint as `sink`:
-
-```tsx
-import { httpSink } from "@copilotkit/learning";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-
-const sink = httpSink("/api/learning-events");
-
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" learning={{ sink }}>
-      {children}
-    </CopilotKitProvider>
-  );
-}
-```
-
-The endpoint receives `{ trajectoryId, learningContainerIds, events, dropped }`. `learningContainerIds` is optional. Implement storage and authentication for your endpoint.
-
-The custom-sink integration also captures agent messages and tool events. It adds Thread context to clicks inside chat messages. Outside a message, it uses the single open Thread. With multiple open Threads, it returns `threadId: null` and lists the candidates in `threadAmbiguity`.
-
-These chat fields belong to custom sinks. See [Captured data](/intelligence/captured-data#events) for the fields available in each integration.
-
-Need capture in an app without CopilotKit? Use the [standalone collector](/intelligence/standalone-collector).
+Capture pauses during a connection loss and reconnects with fresh credentials. It does not buffer developer events during recovery or resend failed batches. See [Batches](/intelligence/captured-data#batches) for delivery limits and [Error codes](/intelligence/trajectories-reference#error-codes) for each code.

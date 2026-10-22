@@ -13,10 +13,10 @@ test("omits early-access guides from the public aggregate without removing publi
   const urls = new Set(getAllLlmPages().map(({ url }) => url));
   for (const slug of [
     "trajectories",
-    "trajectories-docker",
+    "trajectories-quickstart",
     "capture-interactions",
-    "standalone-collector",
     "captured-data",
+    "trajectories-reference",
   ]) {
     expect(urls.has(`intelligence/${slug}`)).toBe(false);
   }
