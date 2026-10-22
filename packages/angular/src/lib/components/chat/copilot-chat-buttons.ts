@@ -76,7 +76,7 @@ const chatInputToolbarSecondary = cn(
     <div class="cpk:mr-[10px]">
       <button
         type="button"
-        aria-label="Send message"
+        [attr.aria-label]="labels.chatInputToolbarSendButtonLabel"
         [disabled]="disabled()"
         [class]="buttonClass"
         (click)="onClick()"
@@ -90,6 +90,7 @@ const chatInputToolbarSecondary = cn(
 export class CopilotChatSendButton {
   disabled = input(false);
   clicked = output<void>();
+  readonly labels = injectChatLabels();
 
   readonly ArrowUpIcon = ArrowUp;
   buttonClass = cn(buttonBase, chatInputToolbarPrimary);

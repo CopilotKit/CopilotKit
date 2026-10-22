@@ -290,8 +290,8 @@ onBeforeUnmount(() => {
                   :class="toolbarButtonClass"
                   class="cpk:h-6 cpk:w-6 cpk:p-0"
                   :disabled="!canGoPrev"
-                  aria-label="Previous branch"
-                  title="Previous branch"
+                  :aria-label="labels.userMessageToolbarPreviousBranchLabel"
+                  :title="labels.userMessageToolbarPreviousBranchLabel"
                   @click="goPrev"
                 >
                   <IconChevronLeft class="cpk:size-[20px]" />
@@ -306,8 +306,8 @@ onBeforeUnmount(() => {
                   :class="toolbarButtonClass"
                   class="cpk:h-6 cpk:w-6 cpk:p-0"
                   :disabled="!canGoNext"
-                  aria-label="Next branch"
-                  title="Next branch"
+                  :aria-label="labels.userMessageToolbarNextBranchLabel"
+                  :title="labels.userMessageToolbarNextBranchLabel"
                   @click="goNext"
                 >
                   <IconChevronRight class="cpk:size-[20px]" />
