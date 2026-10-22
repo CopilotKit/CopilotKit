@@ -269,6 +269,13 @@ describe("open-link policies", () => {
     expect(denyDangerousSchemes("/docs")).toContain("/docs");
   });
 
+  it("refuses relative links that resolve to a foreign origin", () => {
+    // A path like "/\\evil.com" or "//evil.com" normalises to a protocol-relative
+    // authority under WHATWG URL rules, escaping the host origin (issue #7632).
+    expect(denyDangerousSchemes("/\\evil.com")).toBeUndefined();
+    expect(denyDangerousSchemes("//evil.com")).toBeUndefined();
+  });
+
   it("uses the supplied policy for ui/open-link", async () => {
     // A host CAN still override; nothing in CopilotKit does.
     const iframe = mount();

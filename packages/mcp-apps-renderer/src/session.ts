@@ -323,6 +323,12 @@ export const denyDangerousSchemes: McpAppOpenLinkPolicy = (url) => {
     } catch {
       return undefined;
     }
+    // A relative URL that resolves to a different origin is a protocol confusion
+    // (e.g. "/\\evil.com" where WHATWG normalises \\ to / in special schemes, turning
+    // it into a protocol-relative authority "//evil.com"). Rule 3 guarantees that
+    // relative links only reach a path of the HOST application, so refuse any
+    // resolution that leaves window.location.origin.
+    if (parsed.origin !== window.location.origin) return undefined;
   }
   if (MCP_OPEN_LINK_BLOCKED_SCHEMES.has(parsed.protocol)) return undefined;
   if (parsed.username || parsed.password) return undefined;
