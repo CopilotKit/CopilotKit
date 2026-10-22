@@ -12,7 +12,7 @@ import { makeChatOpenAI } from "./openai-headers";
 // region: setup
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
-import { MemorySaver, START, StateGraph } from "@langchain/langgraph";
+import { START, StateGraph } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import {
   convertActionsToDynamicStructuredTools,
@@ -55,11 +55,12 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
 }
 
 function compileGraph(node: typeof chatNode) {
+  // No checkpointer: the LangGraph server supplies persistence.
   return new StateGraph(AgentStateAnnotation)
     .addNode("chat_node", node)
     .addEdge(START, "chat_node")
     .addEdge("chat_node", "__end__")
-    .compile({ checkpointer: new MemorySaver() });
+    .compile();
 }
 
 export const graph = compileGraph(chatNode);
