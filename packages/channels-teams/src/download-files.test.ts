@@ -147,6 +147,34 @@ describe("buildFileContentParts (Teams)", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("cancels each redirect body before following it", async () => {
+    let cancelled = 0;
+    const redirectBody = () =>
+      new ReadableStream<Uint8Array>({
+        cancel() {
+          cancelled++;
+        },
+      });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(redirectBody(), {
+            status: 302,
+            headers: { location: "https://cdn.example/a.txt" },
+          }),
+        )
+        .mockResolvedValueOnce(new Response("hello")),
+    );
+    const { parts } = await buildFileContentParts([
+      { contentType: "text/plain", contentUrl: "https://files.example/a.txt" },
+    ]);
+    expect(cancelled).toBe(1);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect((parts[0] as { text: string }).text).toContain("hello");
+  });
+
   it("re-checks redirects and stops reading past maxBytesPerFile", async () => {
     vi.stubGlobal(
       "fetch",

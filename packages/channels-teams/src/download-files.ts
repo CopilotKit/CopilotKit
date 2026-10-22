@@ -269,11 +269,16 @@ async function fetchBytes(url: string, maxBytes: number): Promise<Buffer> {
     const res = await fetch(next, { redirect: "manual" });
     const location = res.headers.get("location");
     if (res.status >= 300 && res.status < 400 && location) {
+      // Release the redirect's connection before the next hop.
+      await res.body?.cancel().catch(() => {});
       if (hop >= MAX_REDIRECTS) throw new Error("too many redirects");
       next = assertFetchableUrl(new URL(location, next).href);
       continue;
     }
-    if (!res.ok) throw new Error(`download failed (HTTP ${res.status})`);
+    if (!res.ok) {
+      await res.body?.cancel().catch(() => {});
+      throw new Error(`download failed (HTTP ${res.status})`);
+    }
     return readCapped(res, maxBytes);
   }
 }
