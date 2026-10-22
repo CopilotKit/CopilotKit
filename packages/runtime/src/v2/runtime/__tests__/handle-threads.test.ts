@@ -762,6 +762,7 @@ describe("thread handlers", () => {
         { type: "TEXT_MESSAGE_CONTENT", messageId: "m1", delta: "hello" },
       ];
       const intelligence = {
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadEvents: vi.fn().mockResolvedValue({
           events: platformEvents,
           decodeErrorRowIds: [],
@@ -778,6 +779,10 @@ describe("thread handlers", () => {
       });
 
       expect(response.status).toBe(200);
+      expect(intelligence.getThread).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        userId: "user-1",
+      });
       expect(intelligence.getThreadEvents).toHaveBeenCalledWith({
         threadId: "thread-1",
       });
@@ -788,6 +793,7 @@ describe("thread handlers", () => {
 
     it("returns 500 when intelligence.getThreadEvents throws", async () => {
       const intelligence = {
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadEvents: vi
           .fn()
           .mockRejectedValue(new Error("platform unavailable")),
@@ -865,6 +871,7 @@ describe("thread handlers", () => {
       // same shape as the in-memory branch.
       const snapshot = { counter: 7, label: "intel" };
       const intelligence = {
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadState: vi.fn().mockResolvedValue({
           kind: "snapshot",
           state: snapshot,
@@ -891,6 +898,7 @@ describe("thread handlers", () => {
 
     it("returns state:null for the no-snapshot kind from intelligence", async () => {
       const intelligence = {
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadState: vi.fn().mockResolvedValue({ kind: "no-snapshot" }),
       };
       const runtime = createIntelligenceRuntime({ intelligence });
@@ -911,6 +919,7 @@ describe("thread handlers", () => {
       // the inspector's perspective, "no readable state" is the same UX as
       // "no snapshot yet."
       const intelligence = {
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadState: vi
           .fn()
           .mockResolvedValue({ kind: "snapshot-decode-error" }),
@@ -930,6 +939,7 @@ describe("thread handlers", () => {
 
     it("returns 500 when intelligence.getThreadState throws", async () => {
       const intelligence = {
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadState: vi
           .fn()
           .mockRejectedValue(new Error("platform unavailable")),
@@ -981,7 +991,9 @@ describe("thread handlers", () => {
         .mockRejectedValue(new PlatformRequestError("Thread not found.", 404));
 
     it("forwards the 404 on a events read rather than a server error", async () => {
-      const intelligence = { getThreadEvents: notFound() };
+      // The ownership lookup 404s for a missing or foreign thread, and the
+      // unscoped `_inspect` read must never run.
+      const intelligence = { getThread: notFound(), getThreadEvents: vi.fn() };
       const runtime = createIntelligenceRuntime({
         intelligence,
         identifyUser: createIdentifyUser(),
@@ -994,6 +1006,7 @@ describe("thread handlers", () => {
       });
 
       expect(response.status).toBe(404);
+      expect(intelligence.getThreadEvents).not.toHaveBeenCalled();
     });
 
     it("forwards the 404 on a messages read rather than a server error", async () => {
@@ -1013,7 +1026,7 @@ describe("thread handlers", () => {
     });
 
     it("forwards the 404 on a state read rather than a server error", async () => {
-      const intelligence = { getThreadState: notFound() };
+      const intelligence = { getThread: notFound(), getThreadState: vi.fn() };
       const runtime = createIntelligenceRuntime({
         intelligence,
         identifyUser: createIdentifyUser(),
@@ -1026,6 +1039,7 @@ describe("thread handlers", () => {
       });
 
       expect(response.status).toBe(404);
+      expect(intelligence.getThreadState).not.toHaveBeenCalled();
     });
 
     /**
@@ -1034,6 +1048,7 @@ describe("thread handlers", () => {
      */
     it("still reports a platform outage, as 502", async () => {
       const intelligence = {
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadEvents: vi
           .fn()
           .mockRejectedValue(new PlatformRequestError("boom", 500)),
@@ -1063,6 +1078,7 @@ describe("thread handlers", () => {
       [403, 403],
     ])("reports a platform %i as %i", async (status, expected) => {
       const intelligence = {
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadEvents: vi
           .fn()
           .mockRejectedValue(new PlatformRequestError("denied", status)),
@@ -1083,6 +1099,7 @@ describe("thread handlers", () => {
 
     it("still reports a non-platform failure, as 500", async () => {
       const intelligence = {
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadEvents: vi.fn().mockRejectedValue(new Error("unexpected")),
       };
       const runtime = createIntelligenceRuntime({

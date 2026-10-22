@@ -349,12 +349,15 @@ export async function handleGetThreadEvents({
 }: ThreadMutationParams): Promise<Response> {
   // CopilotKit Intelligence path. Delegates to the platform's `_inspect`
   // endpoint (Intelligence PR #144). Auth still flows through the standard
-  // identifyUser → API key path; threadId scoping happens server-side.
+  // identifyUser → API key path; ownership is checked via getThread below.
   if (isIntelligenceRuntime(runtime)) {
     try {
       const user = await resolveIntelligenceUser({ runtime, request });
       if (isHandlerResponse(user)) return user;
 
+      // `_inspect` takes no user context, so prove ownership first: the
+      // user-scoped lookup 404s for another user's thread.
+      await runtime.intelligence.getThread({ threadId, userId: user.id });
       const data = await runtime.intelligence.getThreadEvents({ threadId });
       // Strip platform-internal fields (`decodeErrorRowIds`, `truncated`)
       // before returning to the inspector — those describe persistence-side
@@ -397,6 +400,9 @@ export async function handleGetThreadState({
       const user = await resolveIntelligenceUser({ runtime, request });
       if (isHandlerResponse(user)) return user;
 
+      // `_inspect` takes no user context, so prove ownership first: the
+      // user-scoped lookup 404s for another user's thread.
+      await runtime.intelligence.getThread({ threadId, userId: user.id });
       const data = await runtime.intelligence.getThreadState({ threadId });
       // Flatten the discriminated `ThreadStateResult` to the wire shape the
       // inspector consumes (`{ state: <value> | null }`). Missing snapshot
