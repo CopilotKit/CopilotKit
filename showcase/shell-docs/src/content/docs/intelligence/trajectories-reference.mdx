@@ -121,6 +121,10 @@ if (result.status === "error") console.warn(result.code);
 
 `startTrajectory()` returns these codes in `StartResult`, and `onError` receives them, except where noted.
 
+<Callout type="info" title="Early access support">
+  During early access, our engineering team helps with Trajectories licenses, project access, and deployment support. For errors related to these requirements, [book time with our engineers](https://www.copilotkit.ai/talk-to-an-engineer).
+</Callout>
+
 | Code | Meaning | Action |
 | --- | --- | --- |
 | `LEARNING_DISABLED` | No `learning` config is set. Start result only. | Pass the `learning` prop. |
@@ -133,10 +137,10 @@ if (result.status === "error") console.warn(result.code);
 | `CONNECTION_TIMEOUT` | The Runtime or Intelligence did not answer within 10 seconds. | Check the network and the Runtime. |
 | `INVALID_GRANT` | The Runtime response was not a capture grant. | Check that `runtimeUrl` points to a `CopilotRuntime`. |
 | `JOIN_FAILED` | Intelligence refused the connection without a known reason. | Check the Intelligence deployment. |
-| `TRAJECTORIES_NOT_ENABLED` | Trajectories are off for this Intelligence project. | Enable Trajectories for the project. |
-| `TRAJECTORIES_UNAVAILABLE` | This Intelligence deployment does not serve Trajectory capture. | Enable Trajectories on the deployment. |
-| `TRAJECTORIES_ENTITLEMENT_UNAVAILABLE` | Intelligence could not confirm that Trajectories are enabled. | Try again later. |
-| `MARKETPLACE_LICENSE_REQUIRED` | The project has no CopilotKit license for capture. | Add a license to the project. |
+| `TRAJECTORIES_NOT_ENABLED` | Trajectories are off for this Intelligence project. | Ask our engineering team to enable project access. |
+| `TRAJECTORIES_UNAVAILABLE` | This Intelligence deployment does not serve Trajectory capture. | Ask our engineering team to check deployment support. |
+| `TRAJECTORIES_ENTITLEMENT_UNAVAILABLE` | Intelligence could not confirm that Trajectories are enabled. | Try again later. If the error continues, contact our engineering team. |
+| `MARKETPLACE_LICENSE_REQUIRED` | The project has no CopilotKit license for capture. | Ask our engineering team to check the license. |
 | `RATE_LIMIT_EXCEEDED` | Intelligence rate-limited the connection request. | Try again later. |
 | `TRAJECTORY_APP_USER_CONFLICT` | Intelligence refused this Trajectory ID for this user. | Start with a new UUID. |
 | `CONNECTION_LOST` | The connection closed, or the browser went offline. | None after start: Core reconnects. Before start, start again. |
