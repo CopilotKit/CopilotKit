@@ -1,10 +1,16 @@
 import React from "react";
-import { fireEvent } from "@testing-library/react";
+import { act, fireEvent, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { A2UIComponentNode } from "@copilotkit/shared";
 import { createGenerativeUI } from "../../catalog";
-import { inputComponents } from "../inputs";
+import {
+  describeDateTime,
+  inputComponents,
+  splitDateTime,
+  timeInRange,
+  timeSlots,
+} from "../inputs";
 import { layoutComponents } from "../layout";
 import { SURFACE_ID, renderSurface } from "./render";
 
@@ -519,5 +525,339 @@ describe("standard inputs: events", () => {
     expect(view.forwardEvent).not.toHaveBeenCalled();
     fireEvent.keyDown(pressable, { key: "Enter" });
     expect(sentEventNames(view)).toEqual(["outer"]);
+  });
+});
+
+describe("standard inputs: DateTimeInput", () => {
+  const inWords = (
+    date: string,
+    time: string,
+    mode: "date" | "time" | "datetime",
+  ) => describeDateTime({ date, time }, mode);
+
+  it("splits an ISO value into its date and its time", () => {
+    expect(splitDateTime("2026-10-23T14:30")).toEqual({
+      date: "2026-10-23",
+      time: "14:30",
+    });
+    expect(splitDateTime("2026-10-23")).toEqual({
+      date: "2026-10-23",
+      time: "",
+    });
+    expect(splitDateTime("09:15")).toEqual({ date: "", time: "09:15" });
+    expect(splitDateTime("")).toEqual({ date: "", time: "" });
+  });
+
+  it("says the value in words with the hour of the day, and nothing for an incomplete value", () => {
+    const text = describeDateTime(
+      { date: "2026-10-23", time: "14:30" },
+      "datetime",
+      "en-US",
+    );
+    expect(text).toContain("Oct 23, 2026");
+    expect(text).toContain("2:30");
+    expect(text).toContain("PM");
+    expect(describeDateTime({ date: "", time: "09:05" }, "time", "en-US")).toBe(
+      "9:05 AM",
+    );
+    expect(
+      describeDateTime({ date: "2026-10-23", time: "" }, "datetime"),
+    ).toBeUndefined();
+    expect(
+      describeDateTime({ date: "soon", time: "" }, "date"),
+    ).toBeUndefined();
+  });
+
+  it("lists the times of a day step minutes apart within the bounds, keeping a current off-step time", () => {
+    expect(timeSlots(360)).toEqual(["00:00", "06:00", "12:00", "18:00"]);
+    expect(timeSlots(30, "09:00", "10:30")).toEqual([
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30",
+    ]);
+    expect(timeSlots(60, "09:00", "11:00", "09:45")).toEqual([
+      "09:00",
+      "09:45",
+      "10:00",
+      "11:00",
+    ]);
+  });
+
+  it("shows a date and a time as two named fields under one label and writes the value once both are set", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Pickup",
+          enableDate: true,
+          enableTime: true,
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "" },
+    );
+    const group = await view.findByRole("group", { name: "Pickup" });
+    const date = within(group).getByLabelText("Date") as HTMLInputElement;
+    const time = within(group).getByLabelText("Time") as HTMLInputElement;
+    expect(date.type).toBe("date");
+    expect(time.type).toBe("time");
+    fireEvent.change(date, { target: { value: "2026-10-23" } });
+    // Half a value is not a value.
+    expect(view.dataAt("/when")).toBe("");
+    expect(date.value).toBe("2026-10-23");
+    fireEvent.change(time, { target: { value: "14:30" } });
+    expect(view.dataAt("/when")).toBe("2026-10-23T14:30");
+    expect(
+      view.getByText(inWords("2026-10-23", "14:30", "datetime")!),
+    ).toBeTruthy();
+    // Clearing the time clears the value and keeps the date.
+    fireEvent.change(time, { target: { value: "" } });
+    expect(view.dataAt("/when")).toBe("");
+    expect(date.value).toBe("2026-10-23");
+  });
+
+  it("shows a value the agent writes, and clears both fields with the clear button", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Pickup",
+          enableDate: true,
+          enableTime: true,
+          clearable: true,
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "2026-10-23T09:00" },
+    );
+    const date = (await view.findByLabelText("Date")) as HTMLInputElement;
+    const time = view.getByLabelText("Time") as HTMLInputElement;
+    expect([date.value, time.value]).toEqual(["2026-10-23", "09:00"]);
+    act(() => view.update(agentWrite("/when", "2026-11-02T17:15")));
+    expect([date.value, time.value]).toEqual(["2026-11-02", "17:15"]);
+    fireEvent.click(view.getByRole("button", { name: "Clear" }));
+    expect(view.dataAt("/when")).toBe("");
+    expect([date.value, time.value]).toEqual(["", ""]);
+  });
+
+  it("applies a time bound only on the day of that bound", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Pickup",
+          enableDate: true,
+          enableTime: true,
+          min: "2026-10-23T09:00",
+          max: "2026-10-30T17:00",
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "2026-10-23T10:00" },
+    );
+    const date = (await view.findByLabelText("Date")) as HTMLInputElement;
+    const time = view.getByLabelText("Time") as HTMLInputElement;
+    expect([date.min, date.max]).toEqual(["2026-10-23", "2026-10-30"]);
+    expect([time.min, time.max]).toEqual(["09:00", ""]);
+    fireEvent.change(date, { target: { value: "2026-10-30" } });
+    expect([time.min, time.max]).toEqual(["", "17:00"]);
+  });
+
+  it("offers the times as a list with timeStep, named in words", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Call time",
+          enableTime: true,
+          timeStep: 30,
+          min: "09:00",
+          max: "10:00",
+          value: { "@path": "/at" },
+        },
+      ],
+      { at: "" },
+    );
+    const select = (await view.findByLabelText(
+      "Call time",
+    )) as HTMLSelectElement;
+    expect(select.tagName).toBe("SELECT");
+    expect([...select.options].map((o) => o.value)).toEqual([
+      "",
+      "09:00",
+      "09:30",
+      "10:00",
+    ]);
+    expect(select.options[2].textContent).toBe(inWords("", "09:30", "time"));
+    fireEvent.change(select, { target: { value: "09:30" } });
+    expect(view.dataAt("/at")).toBe("09:30");
+  });
+
+  it("formats the value as written, not shifted by a daylight-saving gap of the viewer", () => {
+    const zone = process.env.TZ;
+    process.env.TZ = "Europe/Vienna";
+    try {
+      // 02:30 on 29 March 2026 does not exist in Vienna.
+      const text = describeDateTime(
+        { date: "2026-03-29", time: "02:30" },
+        "datetime",
+        "en-US",
+      );
+      expect(text).toContain("2:30");
+      expect(text).not.toContain("3:30");
+    } finally {
+      process.env.TZ = zone;
+    }
+  });
+
+  it("lists a range over midnight from its start", () => {
+    expect(timeInRange("23:00", "22:00", "02:00")).toBe(true);
+    expect(timeInRange("01:00", "22:00", "02:00")).toBe(true);
+    expect(timeInRange("12:00", "22:00", "02:00")).toBe(false);
+    expect(timeSlots(60, "22:00", "02:00")).toEqual([
+      "22:00",
+      "23:00",
+      "00:00",
+      "01:00",
+      "02:00",
+    ]);
+  });
+
+  it("marks a listed time that the date moved out of range as invalid, so a form does not submit it", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "Form",
+          label: "Booking",
+          children: ["when"],
+        },
+        {
+          id: "when",
+          component: "DateTimeInput",
+          label: "Call",
+          enableDate: true,
+          enableTime: true,
+          timeStep: 30,
+          min: "2026-11-02T09:00",
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "2026-11-03T08:30" },
+    );
+    const form = (await view.findByRole("form")) as HTMLFormElement;
+    const time = view.getByLabelText("Time") as HTMLSelectElement;
+    // The day after the bound: 08:30 is fine.
+    expect(form.checkValidity()).toBe(true);
+    fireEvent.change(view.getByLabelText("Date"), {
+      target: { value: "2026-11-02" },
+    });
+    expect(time.value).toBe("08:30");
+    expect(time.getAttribute("aria-invalid")).toBe("true");
+    expect(form.checkValidity()).toBe(false);
+    expect(view.getByRole("alert").textContent).toBe(
+      `Pick a time from ${inWords("", "09:00", "time")} to the end of the day`,
+    );
+    fireEvent.change(time, { target: { value: "09:30" } });
+    expect(form.checkValidity()).toBe(true);
+    expect(view.queryByRole("alert")).toBeNull();
+  });
+
+  it("steps the slots from the range start, and compares bounds with their seconds", () => {
+    expect(timeSlots(30, "09:15", "10:15")).toEqual([
+      "09:15",
+      "09:45",
+      "10:15",
+    ]);
+    expect(timeSlots(30, "09:15", "09:20")).toEqual(["09:15"]);
+    expect(timeSlots(90, "23:00", "02:00")).toEqual([
+      "23:00",
+      "00:30",
+      "02:00",
+    ]);
+    expect(timeInRange("10:00:30", undefined, "10:00")).toBe(false);
+    expect(timeInRange("10:00", undefined, "10:00:30")).toBe(true);
+  });
+
+  it("gives an impossible date no summary rather than a rolled-over one", () => {
+    expect(
+      describeDateTime({ date: "2026-02-30", time: "" }, "date"),
+    ).toBeUndefined();
+    expect(
+      describeDateTime({ date: "", time: "25:00" }, "time"),
+    ).toBeUndefined();
+  });
+
+  it("does not let a form submit half a date and time, and allows both empty", async () => {
+    const view = renderInputs(
+      [
+        { id: "root", component: "Form", label: "Booking", children: ["when"] },
+        {
+          id: "when",
+          component: "DateTimeInput",
+          label: "Pickup",
+          enableDate: true,
+          enableTime: true,
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "" },
+    );
+    const form = (await view.findByRole("form")) as HTMLFormElement;
+    expect(form.checkValidity()).toBe(true);
+    const time = view.getByLabelText("Time") as HTMLInputElement;
+    fireEvent.change(view.getByLabelText("Date"), {
+      target: { value: "2026-10-23" },
+    });
+    expect(form.checkValidity()).toBe(false);
+    expect(time.validationMessage).toBe("Pick a time too");
+    fireEvent.change(time, { target: { value: "14:30" } });
+    expect(form.checkValidity()).toBe(true);
+  });
+
+  it("keeps a half-filled date and time when the agent writes the value afterwards", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Pickup",
+          enableDate: true,
+          enableTime: true,
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "" },
+    );
+    const date = (await view.findByLabelText("Date")) as HTMLInputElement;
+    fireEvent.change(date, { target: { value: "2026-10-23" } });
+    act(() => view.update(agentWrite("/when", "2026-12-01T08:00")));
+    expect(date.value).toBe("2026-10-23");
+    expect(view.dataAt("/when")).toBe("");
+  });
+
+  it("keeps a single time field named by its label", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Alarm",
+          enableTime: true,
+          value: { "@path": "/alarm" },
+        },
+      ],
+      { alarm: "07:45" },
+    );
+    const time = (await view.findByLabelText("Alarm")) as HTMLInputElement;
+    expect(time.type).toBe("time");
+    expect(time.value).toBe("07:45");
+    expect(view.queryByRole("group")).toBeNull();
+    expect(view.getByText(inWords("", "07:45", "time")!)).toBeTruthy();
   });
 });
