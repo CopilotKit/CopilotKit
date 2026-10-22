@@ -79,8 +79,9 @@ export function createSseEventResponse({
   const writer = stream.writable.getWriter();
   const encoder = new EventEncoder();
   let streamClosed = false;
-  // Set once RUN_FINISHED or RUN_ERROR has been queued for the client. AG-UI
-  // allows nothing after either, so a later failure must not add a RUN_ERROR.
+  // Set once the current run's RUN_FINISHED or RUN_ERROR has been queued for
+  // the client. AG-UI allows nothing after either until the next RUN_STARTED,
+  // so a later failure must not add a RUN_ERROR.
   let terminalEventWritten = false;
   let debugThreadId = "";
   let debugRunId = "";
@@ -250,7 +251,11 @@ export function createSseEventResponse({
                 );
               }
             }
-            if (
+            // /connect replays finished runs before the live one, so a new
+            // RUN_STARTED reopens the stream for a RUN_ERROR.
+            if (event.type === EventType.RUN_STARTED) {
+              terminalEventWritten = false;
+            } else if (
               event.type === EventType.RUN_FINISHED ||
               event.type === EventType.RUN_ERROR
             ) {

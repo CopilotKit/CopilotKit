@@ -113,6 +113,36 @@ describe("createSseEventResponse surfaces failures as RUN_ERROR", () => {
     expect(await readEvents(response)).toEqual([runStarted, runFinished]);
   });
 
+  it("ends a later run with RUN_ERROR after earlier runs finished", async () => {
+    // /connect replays finished runs before the live one. A failure in the
+    // live run must still reach the client.
+    const secondRunStarted = { ...runStarted, runId: "r-2" } as BaseEvent;
+    const textStart = {
+      type: EventType.TEXT_MESSAGE_START,
+      messageId: "m-1",
+      role: "assistant",
+    } as BaseEvent;
+    const response = createSseEventResponse({
+      request: createMockRequest(),
+      observableFactory: () =>
+        new Observable<BaseEvent>((subscriber) => {
+          subscriber.next(runStarted);
+          subscriber.next(runFinished);
+          subscriber.next(secondRunStarted);
+          subscriber.next(textStart);
+          subscriber.error(new Error("late failure"));
+        }),
+    });
+
+    expect(await readEvents(response)).toEqual([
+      runStarted,
+      runFinished,
+      secondRunStarted,
+      textStart,
+      { type: EventType.RUN_ERROR, message: "Agent run failed" },
+    ]);
+  });
+
   it("does not add a second RUN_ERROR when the stream already sent one", async () => {
     const runError = {
       type: EventType.RUN_ERROR,
