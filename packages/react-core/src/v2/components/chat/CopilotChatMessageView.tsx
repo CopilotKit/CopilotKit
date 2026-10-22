@@ -11,6 +11,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import { ScrollElementContext } from "./scroll-element-context";
 import { ScrollPinnedContext } from "./scroll-pinned-context";
+import { useLatestRef } from "../../lib/use-latest-ref";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
@@ -702,24 +703,24 @@ export function CopilotChatMessageView({
   // when the thread changes; pruned to the groups still on the list. One
   // setter per group, kept with its state, so a wrapper that depends on
   // `setState` in an effect or memo sees the same function every render.
-  const groupStateRef = useRef<Map<string, unknown>>(new Map());
-  const groupSettersRef = useRef<Map<string, (next: unknown) => void>>(
-    new Map(),
+  // Derived from the thread id, so the render that switches threads already
+  // reads the new thread's (empty) store.
+  const groupStore = useMemo(
+    () => ({
+      threadId: config?.threadId,
+      state: new Map<string, unknown>(),
+      setters: new Map<string, (next: unknown) => void>(),
+    }),
+    [config?.threadId],
   );
-  const groupStateThreadRef = useRef(config?.threadId);
-  if (groupStateThreadRef.current !== config?.threadId) {
-    groupStateThreadRef.current = config?.threadId;
-    groupStateRef.current = new Map();
-    groupSettersRef.current = new Map();
-  }
   const groupSetter = (key: string): ((next: unknown) => void) => {
-    let setter = groupSettersRef.current.get(key);
+    let setter = groupStore.setters.get(key);
     if (!setter) {
       setter = (next) => {
-        groupStateRef.current.set(key, next);
+        groupStore.state.set(key, next);
         forceUpdate();
       };
-      groupSettersRef.current.set(key, setter);
+      groupStore.setters.set(key, setter);
     }
     return setter;
   };
@@ -728,7 +729,7 @@ export function CopilotChatMessageView({
     for (const row of rows) {
       if (row.type === "group") live.add(stableGroupKey(row.key));
     }
-    for (const store of [groupStateRef.current, groupSettersRef.current]) {
+    for (const store of [groupStore.state, groupStore.setters]) {
       for (const key of store.keys()) if (!live.has(key)) store.delete(key);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- stableGroupKey reads rowRenderKeys
@@ -871,48 +872,51 @@ export function CopilotChatMessageView({
   // re-measured every time its ResizeObserver fires — a streaming message
   // reports a new height on every chunk — and treating each of those as a
   // fresh sample would drag the mean toward whatever that one row happened to
-  // be mid-stream. Held in a ref because feeding it back through state would
-  // re-render on every measure.
-  const measuredRef = React.useRef({
-    total: 0,
-    sizes: new Map<number, number>(),
-  });
-
-  // The measurements describe one thread, so drop them when the thread
-  // changes (detected by the first message ID changing, same as the
-  // scroll-to-bottom effect below). Done during render rather than in that
+  // be mid-stream. Mutated in place rather than kept in state because feeding
+  // it back through state would re-render on every measure.
+  //
+  // The measurements describe one thread, so a new thread (detected by the
+  // first message ID changing, same as the scroll-to-bottom effect below)
+  // starts a new store. Derived during render rather than reset in that
   // effect because rows are measured from ref callbacks, which run before
-  // layout effects — resetting there would discard the new thread's first
+  // layout effects, and the virtualizer estimates unmeasured rows during
+  // render — resetting in the effect would discard the new thread's first
   // measurements instead of the old thread's. Read from the untransformed
   // list: a transform that hides or reorders the head is not a thread change.
   const firstMessageId = deduplicatedMessages[0]?.id;
-  const measuredThreadRef = React.useRef(firstMessageId);
-  if (measuredThreadRef.current !== firstMessageId) {
-    measuredThreadRef.current = firstMessageId;
-    measuredRef.current = { total: 0, sizes: new Map() };
-  }
+  const measured = useMemo(
+    () => ({
+      firstMessageId,
+      total: 0,
+      sizes: new Map<number, number>(),
+    }),
+    [firstMessageId],
+  );
 
   const estimateRowSize = React.useCallback(() => {
-    const { total, sizes } = measuredRef.current;
+    const { total, sizes } = measured;
     return sizes.size > 0 ? Math.max(1, Math.round(total / sizes.size)) : 100;
-  }, []);
+  }, [measured]);
 
-  const measureRowElement = React.useCallback((el: Element) => {
-    const height = el?.getBoundingClientRect().height ?? 0;
-    // `data-index` is set on every virtual row below, and is what the
-    // virtualizer itself uses to identify a measured element.
-    const index = Number((el as HTMLElement | null)?.dataset?.index);
-    if (height > 0 && Number.isInteger(index)) {
-      const { total, sizes } = measuredRef.current;
-      measuredRef.current.total = total - (sizes.get(index) ?? 0) + height;
-      sizes.set(index, height);
-    }
-    // display:none is not a new row measurement. Keep its last visible size
-    // until the host has a layout again.
-    return height > 0 ? height : (measuredRef.current.sizes.get(index) ?? 100);
-  }, []);
+  const measureRowElement = React.useCallback(
+    (el: Element) => {
+      const height = el?.getBoundingClientRect().height ?? 0;
+      // `data-index` is set on every virtual row below, and is what the
+      // virtualizer itself uses to identify a measured element.
+      const index = Number((el as HTMLElement | null)?.dataset?.index);
+      if (height > 0 && Number.isInteger(index)) {
+        const { total, sizes } = measured;
+        measured.total = total - (sizes.get(index) ?? 0) + height;
+        sizes.set(index, height);
+      }
+      // display:none is not a new row measurement. Keep its last visible size
+      // until the host has a layout again.
+      return height > 0 ? height : (measured.sizes.get(index) ?? 100);
+    },
+    [measured],
+  );
 
-  const isPinnedToBottomRef = React.useRef(isPinnedToBottom);
+  const isPinnedToBottomRef = useLatestRef(isPinnedToBottom);
   const shouldAdjustScrollOnResize = React.useCallback(
     (
       item: VirtualItem,
@@ -935,7 +939,7 @@ export function CopilotChatMessageView({
           .scrollAdjustments ?? 0;
       return item.start < (instance.scrollOffset ?? 0) + scrollAdjustments;
     },
-    [],
+    [isPinnedToBottomRef],
   );
 
   const virtualizer = useVirtualizer({
@@ -963,8 +967,9 @@ export function CopilotChatMessageView({
   // This is an instance property on the virtualizer rather than one of its
   // options, so it has to be assigned. Assigned during render (not in an
   // effect) because a row can be measured before effects run. The read goes
-  // through a ref so the assigned function stays referentially stable.
-  isPinnedToBottomRef.current = isPinnedToBottom;
+  // through a ref so the assigned function stays referentially stable; that
+  // ref is updated in an insertion effect, which runs before the ref
+  // callbacks that measure rows.
   virtualizer.shouldAdjustScrollPositionOnItemSizeChange =
     shouldAdjustScrollOnResize;
 
@@ -1119,7 +1124,7 @@ export function CopilotChatMessageView({
         key={rowKey(row)}
         groupKey={row.key}
         messages={row.messages}
-        state={groupStateRef.current.get(stateKey)}
+        state={groupStore.state.get(stateKey)}
         setState={groupSetter(stateKey)}
       >
         {row.messages.flatMap(renderMessageBlock)}
@@ -1127,10 +1132,8 @@ export function CopilotChatMessageView({
     ];
   };
 
-  const rowKeysRef = useRef<string[]>([]);
-  rowKeysRef.current = rows.map(rowKey);
-  const virtualModeRef = useRef(shouldVirtualize);
-  virtualModeRef.current = shouldVirtualize;
+  const rowKeysRef = useLatestRef(rows.map(rowKey));
+  const virtualModeRef = useLatestRef(shouldVirtualize);
 
   // Re-entering virtual mode can re-estimate rows above the viewport. A pixel
   // scrollTop then identifies different content, so retain the first visible
@@ -1230,7 +1233,14 @@ export function CopilotChatMessageView({
       element.removeEventListener("touchstart", interrupt);
       element.removeEventListener("keydown", interrupt);
     };
-  }, [scrollElementFromCtx, virtualizer, firstMessageId]);
+  }, [
+    scrollElementFromCtx,
+    virtualizer,
+    firstMessageId,
+    isPinnedToBottomRef,
+    rowKeysRef,
+    virtualModeRef,
+  ]);
 
   // Build the flat element list only when we're not virtualizing (avoids
   // creating 500 React elements that we'd immediately discard).
