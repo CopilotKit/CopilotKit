@@ -1,4 +1,4 @@
-import React, { useId, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import { z } from "zod";
 import type { GenerativeUIInvokeResult } from "../errors";
@@ -878,58 +878,176 @@ type DateTimeInputProps = z.output<typeof dateTimeInputSchema> & {
   setValue: (value: string) => void;
 };
 
-/** The input type: a date by default, a time, or both. */
-function dateTimeInputType(props: DateTimeInputProps) {
+type DateTimeMode = "date" | "time" | "datetime";
+
+/** What the user picks: a date by default, a time, or both. */
+function dateTimeMode(props: DateTimeInputProps): DateTimeMode {
   const hasTime = props.enableTime === true;
   const hasDate = props.enableDate ?? !hasTime;
-  return hasDate && hasTime ? "datetime-local" : hasTime ? "time" : "date";
+  return hasDate && hasTime ? "datetime" : hasTime ? "time" : "date";
 }
 
+interface DateTimeParts {
+  /** "YYYY-MM-DD", or "" */
+  date: string;
+  /** "HH:MM" (seconds kept when given), or "" */
+  time: string;
+}
+
+/** The date and the time of an ISO 8601 value: a date, a time, or both. */
+export function splitDateTime(value: string): DateTimeParts {
+  const [head, tail] = value.split("T");
+  if (tail !== undefined) return { date: head, time: tail };
+  if (/^\d{4}-/.test(value)) return { date: value, time: "" };
+  if (/^\d{1,2}:\d{2}/.test(value)) return { date: "", time: value };
+  return { date: "", time: "" };
+}
+
+/** The value of the parts, or "" while a part the mode needs is missing. */
+function joinDateTime(parts: DateTimeParts, mode: DateTimeMode): string {
+  if (mode === "date") return parts.date;
+  if (mode === "time") return parts.time;
+  return parts.date && parts.time ? `${parts.date}T${parts.time}` : "";
+}
+
+/**
+ * A date, a time, or both. A date and a time are two fields under one
+ * label, so each stays short and readable in every browser; the value is
+ * written once both are set.
+ */
 function DateTimeInput(props: DateTimeInputProps) {
   useStandardStyles();
   const aria = useGenerativeUIAccessibility();
   const id = useId();
+  const labelId = useId();
+  const mode = dateTimeMode(props);
   const value = asText(props.value);
-  const showClear = props.clearable && value !== "";
   const check = useChecks(props.checks, props.value);
+  const [parts, setParts] = useState(() => splitDateTime(value));
+  // The last value this control wrote. A different value comes from the
+  // data model (the agent, a binding) and replaces the parts; the control's
+  // own write keeps a half-filled date and time as they are.
+  const written = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (value === written.current) return;
+    written.current = undefined;
+    setParts(splitDateTime(value));
+  }, [value]);
+  const write = (next: DateTimeParts) => {
+    setParts(next);
+    const nextValue = joinDateTime(next, mode);
+    written.current = nextValue;
+    // Written even when unchanged: the write makes the value the user's, so
+    // a later agent write does not replace a half-filled date and time.
+    props.setValue(nextValue);
+  };
+
+  const min = splitDateTime(asText(props.min));
+  const max = splitDateTime(asText(props.max));
+  // A bound on the time applies on its own day only, when there is a date.
+  const timeMin =
+    mode === "time" || (min.time && parts.date === min.date)
+      ? min.time || undefined
+      : undefined;
+  const timeMax =
+    mode === "time" || (max.time && parts.date === max.date)
+      ? max.time || undefined
+      : undefined;
+
+  // Half a date and time is no value: the empty field is invalid, so a
+  // form does not drop what the user entered. Both empty stays valid.
+  const dateField = useRef<HTMLInputElement>(null);
+  const timeInput = useRef<HTMLInputElement>(null);
+  const halfFilled =
+    mode === "datetime" && (parts.date === "") !== (parts.time === "");
+  const dateMessage = halfFilled && parts.date === "" ? "Pick a date too" : "";
+  const timeMessage = halfFilled && parts.time === "" ? "Pick a time too" : "";
+  useEffect(() => {
+    dateField.current?.setCustomValidity(dateMessage);
+    timeInput.current?.setCustomValidity(timeMessage);
+  }, [dateMessage, timeMessage]);
+
+  const isSplit = mode === "datetime";
+  const showClear = props.clearable && (parts.date !== "" || parts.time !== "");
+  const style = controlStyle({ ...props, pill: false }, "xl");
+  const common = {
+    "data-a2ui-input": "",
+    disabled: props.disabled,
+    required: props.required,
+    "aria-invalid": check.invalid || undefined,
+  };
+  // One field names itself after the label; two fields are named "Date"
+  // and "Time" inside a group the label names.
+  const singleAria = isSplit ? {} : controlAria(aria);
+  const singleLabel = isSplit
+    ? undefined
+    : (singleAria["aria-label"] ??
+      (props.label ? undefined : props.placeholder));
+  const single = isSplit
+    ? {}
+    : { id, "aria-description": singleAria["aria-description"] };
+
+  const dateControl = (
+    <input
+      {...common}
+      {...single}
+      ref={dateField}
+      type="date"
+      aria-label={isSplit ? "Date" : singleLabel}
+      min={min.date || undefined}
+      max={max.date || undefined}
+      placeholder={props.placeholder}
+      value={parts.date}
+      onChange={(event) => write({ ...parts, date: event.target.value })}
+      style={{ ...style, flex: "1 1 10em", width: "auto" }}
+    />
+  );
+  const timeField = (
+    <input
+      {...common}
+      {...single}
+      ref={timeInput}
+      type="time"
+      aria-label={isSplit ? "Time" : singleLabel}
+      min={timeMin}
+      max={timeMax}
+      placeholder={props.placeholder}
+      value={parts.time}
+      onChange={(event) => write({ ...parts, time: event.target.value })}
+      style={{ ...style, flex: "1 1 8em", width: "auto" }}
+    />
+  );
+
   return (
     <Field
       label={props.label}
-      htmlFor={id}
+      htmlFor={isSplit ? undefined : id}
+      labelId={isSplit ? labelId : undefined}
       weight={props.weight}
       error={check.error}
       onBlur={check.onBlur}
     >
       <div
+        role={isSplit ? "group" : undefined}
+        aria-labelledby={isSplit && props.label ? labelId : undefined}
+        {...(isSplit ? controlAria(aria) : {})}
         style={{
           display: props.block ? "flex" : "inline-flex",
+          flexWrap: "wrap",
           width: props.block ? "100%" : undefined,
+          maxWidth: "100%",
           gap: spacing(2),
           alignItems: "center",
         }}
       >
-        <input
-          id={id}
-          type={dateTimeInputType(props)}
-          data-a2ui-input=""
-          min={props.min}
-          max={props.max}
-          placeholder={props.placeholder}
-          aria-label={props.label ? undefined : props.placeholder}
-          disabled={props.disabled}
-          required={props.required}
-          aria-invalid={check.invalid || undefined}
-          value={value}
-          onChange={(event) => props.setValue(event.target.value)}
-          style={controlStyle(props, "xl")}
-          {...controlAria(aria)}
-        />
+        {mode !== "time" ? dateControl : null}
+        {mode !== "date" ? timeField : null}
         {showClear ? (
           <button
             type="button"
             data-a2ui-input=""
             aria-label="Clear"
-            onClick={() => props.setValue("")}
+            onClick={() => write({ date: "", time: "" })}
             style={{
               minWidth: 24,
               minHeight: 24,

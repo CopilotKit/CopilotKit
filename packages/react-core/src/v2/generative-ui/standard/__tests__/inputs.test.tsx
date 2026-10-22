@@ -1,10 +1,10 @@
 import React from "react";
-import { fireEvent } from "@testing-library/react";
+import { act, fireEvent, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { A2UIComponentNode } from "@copilotkit/shared";
 import { createGenerativeUI } from "../../catalog";
-import { inputComponents } from "../inputs";
+import { inputComponents, splitDateTime } from "../inputs";
 import { layoutComponents } from "../layout";
 import { SURFACE_ID, renderSurface } from "./render";
 
@@ -519,5 +519,167 @@ describe("standard inputs: events", () => {
     expect(view.forwardEvent).not.toHaveBeenCalled();
     fireEvent.keyDown(pressable, { key: "Enter" });
     expect(sentEventNames(view)).toEqual(["outer"]);
+  });
+});
+
+describe("standard inputs: DateTimeInput", () => {
+  it("splits an ISO value into its date and its time", () => {
+    expect(splitDateTime("2026-10-23T14:30")).toEqual({
+      date: "2026-10-23",
+      time: "14:30",
+    });
+    expect(splitDateTime("2026-10-23")).toEqual({
+      date: "2026-10-23",
+      time: "",
+    });
+    expect(splitDateTime("09:15")).toEqual({ date: "", time: "09:15" });
+    expect(splitDateTime("")).toEqual({ date: "", time: "" });
+  });
+
+  it("shows a date and a time as two named fields under one label and writes the value once both are set", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Pickup",
+          enableDate: true,
+          enableTime: true,
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "" },
+    );
+    const group = await view.findByRole("group", { name: "Pickup" });
+    const date = within(group).getByLabelText("Date") as HTMLInputElement;
+    const time = within(group).getByLabelText("Time") as HTMLInputElement;
+    expect(date.type).toBe("date");
+    expect(time.type).toBe("time");
+    fireEvent.change(date, { target: { value: "2026-10-23" } });
+    // Half a value is not a value.
+    expect(view.dataAt("/when")).toBe("");
+    expect(date.value).toBe("2026-10-23");
+    fireEvent.change(time, { target: { value: "14:30" } });
+    expect(view.dataAt("/when")).toBe("2026-10-23T14:30");
+    // Clearing the time clears the value and keeps the date.
+    fireEvent.change(time, { target: { value: "" } });
+    expect(view.dataAt("/when")).toBe("");
+    expect(date.value).toBe("2026-10-23");
+  });
+
+  it("shows a value the agent writes, and clears both fields with the clear button", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Pickup",
+          enableDate: true,
+          enableTime: true,
+          clearable: true,
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "2026-10-23T09:00" },
+    );
+    const date = (await view.findByLabelText("Date")) as HTMLInputElement;
+    const time = view.getByLabelText("Time") as HTMLInputElement;
+    expect([date.value, time.value]).toEqual(["2026-10-23", "09:00"]);
+    act(() => view.update(agentWrite("/when", "2026-11-02T17:15")));
+    expect([date.value, time.value]).toEqual(["2026-11-02", "17:15"]);
+    fireEvent.click(view.getByRole("button", { name: "Clear" }));
+    expect(view.dataAt("/when")).toBe("");
+    expect([date.value, time.value]).toEqual(["", ""]);
+  });
+
+  it("applies a time bound only on the day of that bound", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Pickup",
+          enableDate: true,
+          enableTime: true,
+          min: "2026-10-23T09:00",
+          max: "2026-10-30T17:00",
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "2026-10-23T10:00" },
+    );
+    const date = (await view.findByLabelText("Date")) as HTMLInputElement;
+    const time = view.getByLabelText("Time") as HTMLInputElement;
+    expect([date.min, date.max]).toEqual(["2026-10-23", "2026-10-30"]);
+    expect([time.min, time.max]).toEqual(["09:00", ""]);
+    fireEvent.change(date, { target: { value: "2026-10-30" } });
+    expect([time.min, time.max]).toEqual(["", "17:00"]);
+  });
+
+  it("does not let a form submit half a date and time, and allows both empty", async () => {
+    const view = renderInputs(
+      [
+        { id: "root", component: "Form", label: "Booking", children: ["when"] },
+        {
+          id: "when",
+          component: "DateTimeInput",
+          label: "Pickup",
+          enableDate: true,
+          enableTime: true,
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "" },
+    );
+    const form = (await view.findByRole("form")) as HTMLFormElement;
+    expect(form.checkValidity()).toBe(true);
+    const time = view.getByLabelText("Time") as HTMLInputElement;
+    fireEvent.change(view.getByLabelText("Date"), {
+      target: { value: "2026-10-23" },
+    });
+    expect(form.checkValidity()).toBe(false);
+    expect(time.validationMessage).toBe("Pick a time too");
+    fireEvent.change(time, { target: { value: "14:30" } });
+    expect(form.checkValidity()).toBe(true);
+  });
+
+  it("keeps a half-filled date and time when the agent writes the value afterwards", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Pickup",
+          enableDate: true,
+          enableTime: true,
+          value: { "@path": "/when" },
+        },
+      ],
+      { when: "" },
+    );
+    const date = (await view.findByLabelText("Date")) as HTMLInputElement;
+    fireEvent.change(date, { target: { value: "2026-10-23" } });
+    act(() => view.update(agentWrite("/when", "2026-12-01T08:00")));
+    expect(date.value).toBe("2026-10-23");
+    expect(view.dataAt("/when")).toBe("");
+  });
+
+  it("keeps a single time field named by its label", async () => {
+    const view = renderInputs(
+      [
+        {
+          id: "root",
+          component: "DateTimeInput",
+          label: "Alarm",
+          enableTime: true,
+          value: { "@path": "/alarm" },
+        },
+      ],
+      { alarm: "07:45" },
+    );
+    const time = (await view.findByLabelText("Alarm")) as HTMLInputElement;
+    expect(time.type).toBe("time");
+    expect(time.value).toBe("07:45");
+    expect(view.queryByRole("group")).toBeNull();
   });
 });
