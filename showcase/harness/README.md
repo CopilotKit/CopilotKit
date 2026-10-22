@@ -49,6 +49,7 @@ All read at boot unless marked otherwise. See `showcase/harness/src/orchestrator
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SHARED_SECRET_PREV`     | Accepted during rotation. See `docs/rotation-drill.md`.                                                                                                                            |
 | `AIMOCK_URL`             | Public aimock URL for the aimock-wiring probe to compare against. Probe disables itself if unset.                                                                                  |
+| `AIMOCK_API_KEY`         | aimock client credential, sent as `Authorization: Bearer` on the D6 journal read. Railway: `${{aimock.AIMOCK_CLIENT_KEY}}`. Unset for a local aimock. A 401 logs at error level.   |
 | `RAILWAY_TOKEN`          | Service token with read scope on the `showcase` project. Required by aimock-wiring probe to query service env vars.                                                                |
 | `RAILWAY_PROJECT_ID`     | Paired with token.                                                                                                                                                                 |
 | `RAILWAY_ENVIRONMENT_ID` | Paired with token.                                                                                                                                                                 |
