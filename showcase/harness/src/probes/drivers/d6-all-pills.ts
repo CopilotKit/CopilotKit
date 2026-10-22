@@ -2227,8 +2227,10 @@ function readHeaderCI(
  * Strictly best-effort: the whole body is wrapped so a journal-fetch failure
  * (endpoint missing, network error, parse error) emits a CVDIAG status=error
  * line and a swallowed `writeDiagEvent`, but NEVER throws into the probe.
+ *
+ * Exported for tests.
  */
-async function joinAimockJournal(opts: {
+export async function joinAimockJournal(opts: {
   ctx: ProbeContext;
   diagPb?: DiagSinkClient;
   aimockBaseUrl?: string;
@@ -2275,26 +2277,40 @@ async function joinAimockJournal(opts: {
 
     const fetchImpl = ctx.fetchImpl ?? globalThis.fetch;
     const journalUrl = `${aimockBaseUrl.replace(/\/+$/, "")}/__aimock/journal`;
+    // The deployed aimock enforces inbound auth (AIMOCK_API_KEYS) on every
+    // route except GET /health, /ready and /metrics, the control API
+    // included. AIMOCK_API_KEY is the aimock client credential; it is unset
+    // for a local aimock, which runs without inbound auth.
+    const aimockApiKey = ctx.env.AIMOCK_API_KEY?.trim();
     // Bound the journal fetch: a reachable-but-hung aimock journal endpoint
     // must not stall the probe run. On timeout the fetch rejects with a
     // TimeoutError, which the surrounding catch turns into a status=error
     // CVDIAG line (pure instrumentation — never breaks the probe).
     const res = await fetchImpl(journalUrl, {
-      headers: { accept: "application/json" },
+      headers: {
+        accept: "application/json",
+        ...(aimockApiKey ? { authorization: `Bearer ${aimockApiKey}` } : {}),
+      },
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) {
-      ctx.logger.warn(
-        formatCvdiag({
-          component: cvComponent,
-          boundary: "cv-verdict",
-          runId,
-          aimockContext: slug,
-          testId,
-          status: "error",
-          error: `journal fetch ${res.status}`,
-        }),
-      );
+      // A rejected credential silently disables every CV verdict join, so it
+      // is logged at error level (and names the cause) instead of joining the
+      // routine best-effort warnings below.
+      const authRejected = res.status === 401 || res.status === 403;
+      const line = formatCvdiag({
+        component: cvComponent,
+        boundary: "cv-verdict",
+        runId,
+        aimockContext: slug,
+        testId,
+        status: "error",
+        error: authRejected
+          ? `journal fetch ${res.status}: aimock rejected the control credential (AIMOCK_API_KEY ${aimockApiKey ? "rejected" : "unset"})`
+          : `journal fetch ${res.status}`,
+      });
+      if (authRejected) ctx.logger.error(line);
+      else ctx.logger.warn(line);
       return;
     }
 
