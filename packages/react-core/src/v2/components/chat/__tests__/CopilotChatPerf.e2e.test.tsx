@@ -200,9 +200,15 @@ describe("CopilotChat perf — re-render regression", () => {
       expect(renderCounts.get(newMsgId)).toBeGreaterThan(0);
     });
 
-    // None of the original 20 assistant messages should have re-rendered
-    for (const [id, count] of baselineCounts) {
-      expect(renderCounts.get(id)).toBe(count);
+    // With no user message in between, the new message joins the same reply,
+    // so the reply's previous last message re-renders exactly once to hand
+    // over the toolbar. No other original message re-renders.
+    const rerendered = [...baselineCounts].filter(
+      ([id, count]) => renderCounts.get(id) !== count,
+    );
+    expect(rerendered.length).toBeLessThanOrEqual(1);
+    for (const [id, count] of rerendered) {
+      expect(renderCounts.get(id)).toBe(count + 1);
     }
   });
 
