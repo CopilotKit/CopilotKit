@@ -502,7 +502,9 @@ const buildMiddlewareInput = (
         ...request,
         modelSettings: {
           ...existingSettings,
-          headers: { ...existingHeaders, ...forwardedHeaders },
+          // Developer-set headers win: a caller must not override provider
+          // auth (e.g. `x-api-key`) by sending a same-named `x-*` header.
+          headers: { ...forwardedHeaders, ...existingHeaders },
         },
       };
     }
