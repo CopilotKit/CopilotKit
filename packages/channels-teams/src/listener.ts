@@ -54,8 +54,10 @@ export interface TeamsServer {
  * JSON. `CloudAdapter.process` does NOT authenticate the request: it trusts
  * `req.user` and treats a request without one as anonymous. So when a
  * `clientId` is configured this route first runs the SDK's `authorizeJWT`
- * (401 unless the request carries a valid Bot Framework / Azure AD token for
- * the app), then checks the activity's `serviceUrl`: it must be an allowed
+ * (401 unless the request carries a validly signed, unexpired token for the
+ * app), then requires an issuer configured for the app and, on a Bot
+ * Connector token, a `serviceurl` claim (401), then checks the activity's
+ * `serviceUrl`: it must be an allowed
  * Microsoft connector host and, when the token has a `serviceurl` claim, the
  * same origin as that claim (403 otherwise). The bot later sends its app token
  * to that `serviceUrl`, so an unchecked one would leak the token.
@@ -112,8 +114,58 @@ function inboundAuthConfig(
     config.authConfig ??
     (config.adapter as unknown as { authConfig?: AuthConfiguration })
       .authConfig;
-  if (!raw?.clientId) return undefined;
-  return raw.connections?.size ? raw : getAuthConfigWithDefaults(raw);
+  if (!raw) return undefined;
+  // Decide on the resolved settings, not the raw ones: the SDK can supply the
+  // app id from its own env vars, and then the adapter is credentialed too.
+  const resolved = raw.connections?.size ? raw : getAuthConfigWithDefaults(raw);
+  return resolved.clientId ? resolved : undefined;
+}
+
+/** The botframework.com tenant, as it appears in Microsoft-issued tokens. */
+const BOT_FRAMEWORK_TENANT_IDS = [
+  "d6d49420-f39b-4df7-a1dc-d59a935871db",
+  "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+];
+
+/**
+ * Token issuers accepted for the app the token was issued to: the `issuers`
+ * the SDK resolved for that connection (Bot Framework, plus the configured
+ * tenant's Azure AD v1 and v2 issuers; overridable through the SDK's
+ * `Connections__<id>__Settings__Issuers`). `authorizeJWT` checks the
+ * signature, audience and expiry but not the issuer, and Azure AD signing keys
+ * are shared by every tenant, so without this any tenant could mint an
+ * accepted token for a multi-tenant app.
+ *
+ * Without a `tenantId` the SDK names the tenant `botframework.com`, but real
+ * tokens carry that tenant's id, so both ids are accepted in its place.
+ */
+function acceptedIssuers(
+  authConfig: AuthConfiguration,
+  audience: unknown,
+): Set<string> {
+  const aud = Array.isArray(audience) ? audience[0] : audience;
+  const connection = [...(authConfig.connections?.values() ?? [])].find(
+    (c) => c.clientId === aud,
+  );
+  const accepted = new Set<string>();
+  for (const iss of connection?.issuers ?? authConfig.issuers ?? []) {
+    accepted.add(iss);
+    if (iss.includes("/botframework.com/")) {
+      for (const id of BOT_FRAMEWORK_TENANT_IDS) {
+        accepted.add(iss.replace("/botframework.com/", `/${id}/`));
+      }
+    }
+  }
+  return accepted;
+}
+
+/**
+ * A Bot Connector token (issued by Bot Framework rather than Azure AD). The
+ * Bot Connector auth spec requires these to carry a `serviceurl` claim that
+ * matches the activity's `serviceUrl`.
+ */
+function isBotConnectorIssuer(iss: string): boolean {
+  return iss.startsWith("https://api.botframework.");
 }
 
 export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
@@ -143,7 +195,30 @@ export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
             if (!res.headersSent) res.status(401).end();
           });
         });
-        // 2. Parse the body only for authenticated callers. 3. Only reply to a
+        // 2. Accept only the issuers configured for this app, and require the
+        //    `serviceurl` claim on Bot Connector tokens.
+        app.post("/api/messages", (req, res, next) => {
+          const user = (req as unknown as AgentsRequest).user;
+          const iss: unknown = user?.iss;
+          if (
+            typeof iss !== "string" ||
+            !acceptedIssuers(authConfig, user?.aud).has(iss)
+          ) {
+            console.warn("[bot-teams] rejected token: issuer not accepted");
+            res.status(401).send({ error: "token issuer not accepted" });
+            return;
+          }
+          if (
+            isBotConnectorIssuer(iss) &&
+            typeof user?.serviceurl !== "string"
+          ) {
+            console.warn("[bot-teams] rejected token: no serviceurl claim");
+            res.status(401).send({ error: "token has no serviceurl claim" });
+            return;
+          }
+          next();
+        });
+        // 3. Parse the body only for authenticated callers. 4. Only reply to a
         //    connector we trust, and to the one the token was issued for. This
         //    runs before any app token is minted or sent.
         app.post("/api/messages", express.json(), (req, res, next) => {

@@ -2,6 +2,7 @@ import {
   CloudAdapter,
   CardFactory,
   MessageFactory,
+  getAuthConfigWithDefaults,
 } from "@microsoft/agents-hosting";
 import type { AuthConfiguration, TurnContext } from "@microsoft/agents-hosting";
 import { ActivityTypes, Activity } from "@microsoft/agents-activity";
@@ -86,8 +87,14 @@ export class TeamsAdapter implements PlatformAdapter {
   private cloud: CloudAdapter | undefined;
   private server: TeamsServer | undefined;
   private sink: IngressSink | undefined;
+  /** Auth settings as the SDK resolved them at `start` (see `appId`). */
+  private resolvedAuth: AuthConfiguration | undefined;
+  private readonly allowedServiceUrls: readonly string[];
 
   constructor(private readonly opts: TeamsAdapterOptions = {}) {
+    this.allowedServiceUrls = resolveAllowedServiceUrls(
+      opts.allowedServiceUrls,
+    );
     this.capabilities = {
       supportsModals: false,
       supportsTyping: true,
@@ -101,11 +108,19 @@ export class TeamsAdapter implements PlatformAdapter {
   async start(sink: IngressSink): Promise<void> {
     this.sink = sink;
 
-    const authConfig: AuthConfiguration = {
-      clientId: this.opts.clientId ?? process.env.clientId,
-      clientSecret: this.opts.clientSecret ?? process.env.clientSecret,
-      tenantId: this.opts.tenantId ?? process.env.tenantId,
-    };
+    const configured: AuthConfiguration = {};
+    const clientId = this.opts.clientId ?? process.env.clientId;
+    const clientSecret = this.opts.clientSecret ?? process.env.clientSecret;
+    const tenantId = this.opts.tenantId ?? process.env.tenantId;
+    if (clientId) configured.clientId = clientId;
+    if (clientSecret) configured.clientSecret = clientSecret;
+    if (tenantId) configured.tenantId = tenantId;
+    // Resolve the way `CloudAdapter` does, once, so the app id the bot sends
+    // as, the token audience it accepts, and whether the endpoint requires a
+    // token at all come from the same settings, including credentials that
+    // only arrive through the SDK's own env vars (`Connections__*`).
+    const authConfig = getAuthConfigWithDefaults(configured);
+    this.resolvedAuth = authConfig;
     this.cloud = new CloudAdapter(authConfig);
     // Contain turn-handler failures at the SDK boundary. Without this the M365
     // adapter rethrows (e.g. a Bot Connector 401 surfaces as "Unknown error
@@ -121,7 +136,7 @@ export class TeamsAdapter implements PlatformAdapter {
       // With a clientId, inbound requests must carry a valid token for it and
       // name an allowed `serviceUrl`; without one the endpoint is anonymous.
       authConfig,
-      allowedServiceUrls: this.opts.allowedServiceUrls,
+      allowedServiceUrls: this.allowedServiceUrls,
       onTurnContext: (context) => this.handleActivity(context, sink),
     });
     await this.server.start();
@@ -372,9 +387,18 @@ export class TeamsAdapter implements PlatformAdapter {
     );
   }
 
+  /**
+   * The Microsoft app id the bot acts as: the SDK-resolved one once started,
+   * else the configured option / env var.
+   */
+  private appId(): string | undefined {
+    if (this.resolvedAuth) return this.resolvedAuth.clientId || undefined;
+    return this.opts.clientId ?? process.env.clientId;
+  }
+
   /** Whether we can send proactively (out-of-turn). Requires a Microsoft app id. */
   private canGoProactive(): boolean {
-    return Boolean(this.opts.clientId ?? process.env.clientId);
+    return Boolean(this.appId());
   }
 
   /**
@@ -414,13 +438,10 @@ export class TeamsAdapter implements PlatformAdapter {
     reference: Partial<ConversationReference>,
     fn: (context: TurnContext) => Promise<void>,
   ): Promise<void> {
-    const appId = this.opts.clientId ?? process.env.clientId ?? "";
+    const appId = this.appId() ?? "";
     if (
       appId &&
-      !isAllowedServiceUrl(
-        reference.serviceUrl,
-        resolveAllowedServiceUrls(this.opts.allowedServiceUrls),
-      )
+      !isAllowedServiceUrl(reference.serviceUrl, this.allowedServiceUrls)
     ) {
       throw new Error(
         "[bot-teams] refusing to send to a serviceUrl that is not an allowed connector host",
@@ -654,7 +675,7 @@ export class TeamsAdapter implements PlatformAdapter {
           "unknown",
       },
       installation: {
-        id: this.opts.clientId ?? process.env.clientId ?? "anonymous",
+        id: this.appId() ?? "anonymous",
       },
       conversation: {
         id: value.conversation?.id ?? conversationKey,

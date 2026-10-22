@@ -62,13 +62,17 @@ returns 500 instead of crashing the process.
 
 `CloudAdapter.process` does not authenticate anything: it trusts `req.user` and
 treats a request without one as anonymous. So with a `clientId` the listener
-first runs the SDK's `authorizeJWT` (401 without a valid token for the app),
-then requires the activity's `serviceUrl` to be an allowed Microsoft connector
+first runs the SDK's `authorizeJWT` (401 without a validly signed token for
+the app), then requires an issuer configured for the app, and a `serviceurl`
+claim on Bot Connector tokens (401; `authorizeJWT` checks neither), then
+requires the activity's `serviceUrl` to be an allowed Microsoft connector
 origin (`service-url.ts`) and, when the token has a `serviceurl` claim, the
 same origin as that claim (403 otherwise). The bot sends its app token to that
 `serviceUrl`, and `continueConversation` does not check it, so the adapter
 re-checks the allowlist before every out-of-turn send. Without a `clientId` the
-endpoint is anonymous, for the local Playground only.
+endpoint is anonymous, for the local Playground only. Whether a `clientId`
+exists is decided from the SDK-resolved auth settings, so credentials supplied
+only through the SDK's env vars also turn the checks on.
 
 ### Proactive vs in-turn (the credentialed split)
 

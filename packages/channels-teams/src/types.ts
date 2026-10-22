@@ -43,10 +43,13 @@ export interface TeamsAdapterOptions {
   tenantId?: string;
   /**
    * Extra Bot Connector origins the bot may reply to, on top of the built-in
-   * Microsoft hosts (Teams commercial, GCC, GCC High and DoD, plus
-   * `https://*.botframework.com`). Entries are origins such as
-   * `https://smba.example.net`; a leading `*.` on the host allows any
-   * subdomain. Only applies when a `clientId` is configured: an inbound
+   * Microsoft hosts (Teams commercial, GCC, GCC High, DoD and 21Vianet, plus
+   * `https://*.botframework.com` and `https://*.botframework.azure.us`).
+   * Entries are origins such as `https://smba.example.net`; a leading `*.` on
+   * the host allows any subdomain (at least two labels must follow it). Plain
+   * `http` is accepted only for `localhost`, `127.0.0.1` and `[::1]`, for
+   * example the Bot Framework Emulator; other entries are ignored with a
+   * warning. Only applies when a `clientId` is configured: an inbound
    * activity whose `serviceUrl` is not allowed is rejected with 403, and the
    * bot never sends its app token to it.
    */

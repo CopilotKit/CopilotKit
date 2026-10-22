@@ -199,11 +199,17 @@ environment variables (the names the M365 Agents SDK reads).
 
 ### Request authentication
 
-With a `clientId` configured, `POST /api/messages` only accepts requests that
-carry a valid Bot Framework / Azure AD token for that app (the M365 Agents SDK's
-`authorizeJWT`). Anything else gets `401` and never reaches your handlers.
-Settings such as `authorityEndpoint` resolve from the environment the same way
-the SDK reads them.
+With a `clientId` configured (as an option, or through any of the env vars the
+M365 Agents SDK reads, including `Connections__*`), `POST /api/messages` only
+accepts requests that carry a valid token for that app. The SDK's `authorizeJWT`
+checks the signature, audience and expiry; the listener then requires an issuer
+the SDK configured for the app (Bot Framework, `https://api.botframework.com`,
+or your tenant's Azure AD issuers; the botframework.com tenant when no
+`tenantId` is set). A Bot Framework token must also carry a `serviceurl` claim.
+Anything else gets `401` and never reaches your handlers. Settings such as
+`authorityEndpoint`, or a custom issuer list
+(`Connections__<id>__Settings__Issuers`), resolve from the environment the same
+way the SDK reads them.
 
 The bot sends its app token to the activity's `serviceUrl` when it replies, so
 that URL is checked too. It must be one of the Microsoft connector hosts below
@@ -215,16 +221,29 @@ claim. Otherwise the request gets `403`, and the bot never sends to it:
 - `https://smba.infra.gov.teams.microsoft.us` (Teams GCC High)
 - `https://smba.infra.dod.teams.microsoft.us` (Teams DoD)
 - `https://*.botframework.com` (Bot Framework channels such as Web Chat)
+- `https://msteams.botframework.azure.cn` (Teams operated by 21Vianet)
+- `https://*.botframework.azure.us` (Azure Government)
 
-Add any other connector origin, for example a sovereign cloud, with
+Add any other connector origin with
 `allowedServiceUrls: ["https://connector.example"]`. A leading `*.` on the host
-allows any subdomain.
+allows any subdomain, and needs at least two labels after it
+(`https://*.example.com`, not `https://*.com`). Plain `http` is accepted only
+for `localhost`, `127.0.0.1` and `[::1]`. An entry that breaks these rules is
+ignored with a warning.
+
+To test a credentialed bot with the Bot Framework Emulator, allow the
+Emulator's local connector, for example
+`allowedServiceUrls: ["http://localhost:<port>"]`.
 
 Without a `clientId` the endpoint is **anonymous**: anyone who can reach it can
 drive a turn. That mode is for the local M365 Agents Playground only; the
 adapter logs a warning at start. Do not expose an anonymous bot to a network.
 If you serve `POST /api/messages` yourself instead of using
-`createTeamsServer`, run `authorizeJWT` in front of `CloudAdapter.process`.
+`createTeamsServer`, do the same checks before `CloudAdapter.process`: run
+`authorizeJWT`, accept only your app's issuers, and check that the activity's
+`serviceUrl` is a connector you trust and matches the token's `serviceurl`
+claim. `authorizeJWT` alone accepts any issuer and does not look at
+`serviceUrl`, and the bot will send its app token there.
 
 ## Status & roadmap
 
