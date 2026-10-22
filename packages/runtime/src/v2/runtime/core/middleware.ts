@@ -99,8 +99,9 @@ export async function callAfterRequestMiddleware({
   const mw = runtime.afterRequestMiddleware;
   if (!mw) return;
 
+  const contentType = response.headers.get("content-type") ?? "";
   const { messages, threadId, runId } = await parseSSEResponse(
-    response.clone(),
+    contentType.includes("text/event-stream") ? response.clone() : response,
   );
 
   if (typeof mw === "function") {

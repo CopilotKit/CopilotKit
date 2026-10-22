@@ -1,10 +1,11 @@
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { EMPTY, Observable } from "rxjs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import type { AfterRequestMiddlewareParameters } from "../core/middleware";
+import { callAfterRequestMiddleware } from "../core/middleware";
 import { CopilotRuntime } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 
@@ -49,6 +50,35 @@ function createRunner(): AgentRunner {
 }
 
 describe("afterRequestMiddleware response body", () => {
+  it.each(["application/json", "application/octet-stream", undefined])(
+    "propagates cancellation of non-SSE bodies with content type %s",
+    async (contentType) => {
+      const cancel = vi.fn();
+      const clientResponse = new Response(new ReadableStream({ cancel }), {
+        headers: contentType ? { "Content-Type": contentType } : undefined,
+      });
+      let middlewareCancellation: Promise<void> | undefined;
+      const runtime = new CopilotRuntime({
+        agents: { default: new TestAgent() },
+        afterRequestMiddleware: ({ response }) => {
+          middlewareCancellation = response.body!.cancel("middleware done");
+        },
+      });
+
+      await callAfterRequestMiddleware({
+        runtime,
+        response: clientResponse.clone(),
+        path: "/info",
+      });
+      const clientCancellation = clientResponse.body!.cancel("client done");
+
+      // Both consumers have cancelled; an unread parser clone would keep the
+      // source alive and prevent these cancellation promises from settling.
+      expect(cancel).toHaveBeenCalledOnce();
+      await Promise.all([middlewareCancellation, clientCancellation]);
+    },
+  );
+
   it.each(["text", "clone"] as const)(
     "lets SSE middleware use response.%s() without consuming the client body",
     async (readMethod) => {
