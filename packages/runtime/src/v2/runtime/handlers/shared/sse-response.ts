@@ -18,6 +18,9 @@ import type {
   RuntimeErrorReporter,
 } from "../../core/runtime-error-reporter";
 
+/** Runner errors whose message is safe to show the client as-is. */
+const PUBLIC_RUN_ERROR_MESSAGES = new Set(["Thread already running"]);
+
 interface CreateSseEventResponseParams {
   request: Request;
   observableFactory: () =>
@@ -101,7 +104,9 @@ export function createSseEventResponse({
   // Report a failure to the client as a terminal RUN_ERROR. Without it the
   // client sees an empty stream that ends normally, so its run "succeeds"
   // with no reply and no error (e.g. "Thread already running" on a busy
-  // thread).
+  // thread). Only known messages reach the client verbatim; anything else
+  // may carry internal detail, so the client gets a generic message and the
+  // full error stays in the server log.
   const writeRunError = async (error: unknown) => {
     if (terminalEventWritten || streamClosed || request.signal.aborted) {
       return;
@@ -111,7 +116,11 @@ export function createSseEventResponse({
       await writer.write(
         encoder.encodeBinary({
           type: EventType.RUN_ERROR,
-          message: error instanceof Error ? error.message : "Unknown error",
+          message:
+            error instanceof Error &&
+            PUBLIC_RUN_ERROR_MESSAGES.has(error.message)
+              ? error.message
+              : "Agent run failed",
         } as BaseEvent),
       );
     } catch {

@@ -82,7 +82,20 @@ describe("createSseEventResponse surfaces failures as RUN_ERROR", () => {
 
     expect(await readEvents(response)).toEqual([
       runStarted,
-      { type: EventType.RUN_ERROR, message: "Timed out joining channel" },
+      { type: EventType.RUN_ERROR, message: "Agent run failed" },
+    ]);
+  });
+
+  it("does not send an unknown error's message to the client", async () => {
+    const response = createSseEventResponse({
+      request: createMockRequest(),
+      observableFactory: () => {
+        throw new Error("connect ECONNREFUSED 10.0.0.12:5432");
+      },
+    });
+
+    expect(await readEvents(response)).toEqual([
+      { type: EventType.RUN_ERROR, message: "Agent run failed" },
     ]);
   });
 

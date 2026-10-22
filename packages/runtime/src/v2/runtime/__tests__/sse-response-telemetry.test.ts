@@ -249,7 +249,7 @@ describe("sse-response.ts — telemetry lifecycle", () => {
     expect(response.status).toBe(200);
     // The stream closes after telling the client the run failed.
     await expect(response.text()).resolves.toBe(
-      'data: {"type":"RUN_ERROR","message":"factory failed"}\n\n',
+      'data: {"type":"RUN_ERROR","message":"Agent run failed"}\n\n',
     );
     await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
     expect(onError.mock.calls[0][0].context.request.headers).toEqual({
@@ -271,7 +271,7 @@ describe("sse-response.ts — telemetry lifecycle", () => {
     expect(response.status).toBe(200);
     // The stream closes after telling the client the run failed.
     await expect(response.text()).resolves.toBe(
-      'data: {"type":"RUN_ERROR","message":"subscription failed"}\n\n',
+      'data: {"type":"RUN_ERROR","message":"Agent run failed"}\n\n',
     );
     await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
     expect(captureSpy).toHaveBeenCalledWith(
