@@ -195,9 +195,13 @@ export const COPILOTKIT_FUNCTIONS: Readonly<
     returnType: "any",
     extension: true,
   },
+  // WORKAROUND(a2ui-agent-sdk 0.9.0): examples omit `variable` and use default i
+  // because the Express compiler mistakes a literal `variable` key for its AST.
+  // Runtime support for custom variable names is unchanged.
+  // https://github.com/a2ui-project/a2ui/issues/3410
   series: {
     description:
-      "A list of count copies of item; ${expression} in the item uses the loop variable (default i, counting from start, default 1) and the other args. For chart data and template lists",
+      'A list of count copies of item, for chart data and template lists. Put arithmetic in ${expression} strings in item, using the loop variable (default i, counting from start, default 1) and other named args. A whole-expression string retains the result type, so "${i * monthlyCost}" yields a number. Arguments, including nested calc or formatString calls in item, resolve before the series loop; those calls cannot use the loop variable. Example: {"@call":"series","args":{"count":6,"item":{"month":"${i}","cost":"${i * monthlyCost}"},"monthlyCost":{"@path":"/monthlyCost"}}}. Omit variable to use i.',
     parameters:
       "{ count: number; item: unknown; variable?: string; start?: number; [name: string]: unknown }",
     returnType: "array",

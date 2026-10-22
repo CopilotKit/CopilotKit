@@ -56,7 +56,9 @@ export const chartSchema = z.object({
       width: z.number().optional().describe("Pixels"),
     })
     .optional()
-    .describe("The value axis"),
+    .describe(
+      'The value axis configuration object: {label?: string, min?: number, max?: number, width?: number}. Example: {label: "Revenue (USD)", min: 0, max: 100, width: 64}. In horizontal charts this controls the horizontal value axis.',
+    ),
   showDots: z.boolean().optional().describe("Point markers on a line or area"),
   barRadius: z
     .number()
@@ -83,7 +85,12 @@ export const chartSchema = z.object({
   showGrid: z.boolean().optional().describe("Default true"),
   showTooltip: z.boolean().optional().describe("Default true"),
   showValueLabels: z.boolean().optional(),
-  format: z.enum(["number", "currency", "percent"]).optional(),
+  format: z
+    .enum(["number", "currency", "percent"])
+    .optional()
+    .describe(
+      'Number formatting. With "percent", data values and axis min/max are fractions: 0.4 displays as 40%. For 0% to 10%, use min: 0 and max: 0.1.',
+    ),
   currency: z.string().optional().describe('ISO code. Default "USD"'),
   title: z.string().optional(),
 });

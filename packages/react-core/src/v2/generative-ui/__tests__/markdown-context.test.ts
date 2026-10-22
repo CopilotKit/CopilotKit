@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   GENERATIVE_UI_AGENT_FUNCTION_CALLS,
+  GENERATIVE_UI_FUNCTIONS,
   GENERATIVE_UI_MARKDOWN_GUIDELINES,
 } from "@copilotkit/shared";
 import { createGenerativeUIDispatcher } from "../dispatcher";
+import { exportA2UICatalog } from "../catalog-export";
 import { buildGenerativeUIManifest } from "../manifest";
 import { standardUI } from "../standard";
 import { GenerativeUISurfaceManager } from "../surface-manager";
@@ -184,6 +186,40 @@ function compactStandardSchema() {
 }
 
 describe("buildCompactGenerativeUISchema with standardUI", () => {
+  it("preserves chart and series guidance in the exported catalog and compact schema", () => {
+    const catalog = exportA2UICatalog(standardUI);
+    const compact = compactStandardSchema();
+    const properties = catalog.components.Chart.properties as Record<
+      string,
+      GenerativeUIJSONSchema
+    >;
+    const axis = properties.yAxis.description as string;
+    for (const field of [
+      "label?: string",
+      "min?: number",
+      "max?: number",
+      "width?: number",
+    ]) {
+      expect(axis).toContain(field);
+    }
+    expect(axis).toContain('label: "Revenue (USD)"');
+    expect(axis).toContain("horizontal value axis");
+    expect(compact.components.Chart.props["yAxis?"]).toContain(axis);
+
+    const format = properties.format.description as string;
+    expect(format).toContain("data values and axis min/max");
+    expect(format).toContain("0.4");
+    expect(format).toContain("40%");
+    expect(format).toContain("max: 0.1");
+    expect(compact.components.Chart.props["format?"]).toContain(format);
+    expect(catalog.functions.series.description).toBe(
+      GENERATIVE_UI_FUNCTIONS.series.description,
+    );
+    expect(compact.functions.series.description).toBe(
+      GENERATIVE_UI_FUNCTIONS.series.description,
+    );
+  });
+
   it("lists the props that many components share once, in commonProps", () => {
     const schema = compactStandardSchema();
     const common = schema.commonProps ?? {};

@@ -7,6 +7,7 @@ import {
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
   GENERATIVE_UI_WHEN_TO_SHOW,
 } from "../a2ui-prompts";
+import { COPILOTKIT_FUNCTIONS } from "../generative-ui/basic-functions";
 import { buildGenerativeUIPrompt } from "../generative-ui/prompt";
 import { GENERATIVE_UI_AGENT_FUNCTION_CALLS } from "../generative-ui/types";
 
@@ -96,13 +97,13 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
       'Use only the functions under "functions" in the schema.',
     );
     expect(guide).toContain("formatString interpolates ${...}");
-    expect(guide).toContain("There are no operators in ${...}");
+    expect(guide).toContain(
+      "Inside formatString, ${...} does not support operators",
+    );
     expect(guide).toContain(
       '{"@call":"calc","args":{"expression":"seats * 29 * (annual ? 0.8 : 1)"',
     );
-    expect(guide).toContain(
-      '{"@call":"series","args":{"count":12,"variable":"m"',
-    );
+    expect(guide).toContain(COPILOTKIT_FUNCTIONS.series.description);
     expect(guide).toContain('the "items" of a List');
     expect(guide).not.toContain("template path of a list");
     expect(guide).toContain('{"@call":"@index","args":{"offset":1}}');
@@ -296,4 +297,38 @@ describe("GENERATIVE_UI_WHEN_TO_SHOW", () => {
       }),
     ).toContain(GENERATIVE_UI_WHEN_TO_SHOW);
   });
+});
+
+describe("computed data guidance", () => {
+  it.each([
+    ["markdown", buildGenerativeUIMarkdownGuidelines()],
+    [
+      "tool",
+      buildGenerativeUIPrompt({
+        catalogId: "test",
+        targets: [],
+        components: {},
+        functions: {},
+        surfaces: {},
+      }),
+    ],
+  ])(
+    "uses the catalog series guidance in the %s transport",
+    (_transport, prompt) => {
+      expect(prompt).toContain(COPILOTKIT_FUNCTIONS.series.description);
+      expect(prompt).toContain('"month":"${i}"');
+      expect(prompt).toContain('"monthlyCost":{"@path":"/monthlyCost"}');
+      expect(prompt).toContain(
+        "whole-expression string retains the result type",
+      );
+      expect(prompt).toContain("resolve before the series loop");
+      expect(prompt).toContain(
+        "Inside formatString, ${...} does not support operators",
+      );
+      expect(prompt).not.toContain('"variable":"m"');
+      expect(prompt).not.toContain("There are no operators in ${...}");
+      expect(prompt).not.toContain("WORKAROUND");
+      expect(prompt).not.toContain("a2ui-agent-sdk");
+    },
+  );
 });
