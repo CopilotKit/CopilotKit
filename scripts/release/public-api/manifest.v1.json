@@ -351,6 +351,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/channels/takumi",
+          "exportKey": "./takumi",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/takumi.d.ts",
+            "import": "./dist/takumi.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels/package.json",
+            "selector": "exports[\"./takumi\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/channels/teams",
           "exportKey": "./teams",
           "kind": "code",
@@ -526,6 +540,20 @@
             "kind": "package-json",
             "path": "packages/channels-core/package.json",
             "selector": "exports[\"./jsx-runtime\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/channels-core/takumi",
+          "exportKey": "./takumi",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/render/takumi.d.ts",
+            "import": "./dist/render/takumi.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels-core/package.json",
+            "selector": "exports[\"./takumi\"]"
           }
         },
         {

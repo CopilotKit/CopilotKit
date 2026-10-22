@@ -19,6 +19,12 @@ export const INTELLIGENCE_FEATURES = [
     icon: "learning",
   },
   {
+    title: "Trajectories",
+    body: "Capture browser activity and connect it to agent conversations.",
+    href: "/intelligence/trajectories",
+    icon: "trajectories",
+  },
+  {
     title: "Product Analytics",
     body: "See what people do with your agent.",
     href: "/intelligence/analytics",

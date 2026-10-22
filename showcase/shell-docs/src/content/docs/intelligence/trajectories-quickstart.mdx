@@ -1,0 +1,174 @@
+---
+title: Quickstart
+nav_title: Quickstart
+description: Run Intelligence locally with the CopilotKit CLI and record your first Trajectory from a React app.
+icon: "lucide/Play"
+frontend:
+  kind: frontend-variant
+  fallback: hide
+doc_type: how-to
+earlyAccess: trajectories
+search: false
+---
+
+## Overview
+
+This guide uses the CopilotKit CLI to run CopilotKit Intelligence on your machine and connect an existing React app. You will record browser activity and find the saved Trajectory in Intelligence.
+
+Trajectories are in early access. This guide is for a demo with our team. It assumes that your license and Trajectories access are ready.
+
+The CLI installs and manages the local stack. You do not need to install its internal tools or create installation configuration files. This setup is for local evaluation, not a production deployment.
+
+## Before you start
+
+- macOS with Docker Desktop running. Allow at least 4 CPUs, 12 GiB of Docker memory, and 40 GiB of free storage.
+- An existing React app with a TypeScript CopilotKit Runtime, plus Node.js 22 or later.
+- Your existing CopilotKit sign-in for the CLI.
+
+You do not need a model for browser capture. The steps below skip model configuration and sample conversations.
+
+## 1. Install Intelligence with the CLI
+
+Run all CLI commands in your existing app's folder. Sign in with your existing account:
+
+```bash
+npx copilotkit@latest login
+```
+
+Choose the organization for this demo. Then install the local stack:
+
+```bash
+npx copilotkit@latest local setup --defer-model --no-samples
+```
+
+The CLI checks Docker, downloads the release, and installs Intelligence. When setup finishes, it opens the local dashboard and signs you in. Wait for setup to finish before you continue.
+
+For more about the CLI installation, see [Evaluate Intelligence locally](/intelligence/self-hosting-local).
+
+## 2. Connect your app
+
+Preview the connection changes:
+
+```bash
+npx copilotkit@latest local connect
+```
+
+Apply them:
+
+```bash
+npx copilotkit@latest local connect --approve-connection
+```
+
+The CLI writes the local API URL, gateway URL, and project key to your app's `.env`. It also writes `SL_ENABLED=true`. Keep the project key on the server.
+
+Make sure your Runtime server loads this `.env` file. The CLI chooses the local ports, so keep the URLs it writes.
+
+The CLI saves the previous configuration before it makes changes. It refuses to write a key if Git tracks `.env`.
+
+## 3. Configure your Runtime
+
+Install the packages used by the examples:
+
+```bash
+npm install @copilotkit/react-core@1.79.1 @copilotkit/runtime@1.79.1
+```
+
+Use the values from `.env` to configure the Intelligence client in your existing Runtime:
+
+```ts title="Your CopilotKit Runtime"
+import {
+  CopilotKitIntelligence,
+  CopilotRuntime,
+} from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  apiUrl: process.env.INTELLIGENCE_API_URL!,
+  wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL!,
+});
+
+const runtime = new CopilotRuntime({
+  agents,
+  intelligence,
+  identifyUser,
+});
+```
+
+Keep your existing `agents`, handler, and application authentication. `identifyUser` returns the user from your verified application session. Remove an explicit `runner` option because Intelligence provides the runner.
+
+If your Runtime does not have `identifyUser`, use the [Runtime connection example](/intelligence/quickstart#connect-your-runtime).
+
+Restart your Runtime and app after the configuration change.
+
+## 4. Record a Trajectory
+
+Before you turn on capture, read [Captured data](/intelligence/captured-data).
+
+Add `learning` to your existing provider:
+
+```tsx title="Your CopilotKit provider"
+<CopilotKitProvider runtimeUrl="/api/copilotkit" learning>
+  {children}
+</CopilotKitProvider>
+```
+
+Keep your existing `runtimeUrl` and authentication props. If your Runtime uses a single endpoint, keep `useSingleEndpoint` too. Capture starts when the provider mounts.
+
+1. Open your app.
+2. Click a few controls and edit a form field.
+3. Send a message to your agent to link the conversation. Browser capture also works without a conversation.
+4. Wait at least two seconds for the next batch.
+
+If capture cannot connect, the browser console shows a warning with an error code. See [Error codes](/intelligence/trajectories-reference#error-codes).
+
+## 5. Find the saved Trajectory
+
+Open the local dashboard from your app's folder:
+
+```bash
+npx copilotkit@latest local login
+```
+
+The CLI opens the dashboard and signs you in.
+
+1. Open the project connected to your app.
+2. Select **Trajectories**.
+3. Refresh the list and open the newest Trajectory.
+4. On its **Timeline**, expand **Product trajectory** and find your click or form edit.
+5. Reload the page and check that the event remains.
+
+The event is now part of the saved Trajectory. A model and live viewing are not required for this check.
+
+## Next steps
+
+- [Capture interactions](/intelligence/capture-interactions) explains consent, manual start and stop, outcome events, and error handling.
+- [Captured data](/intelligence/captured-data) describes fields, delivery limits, and controls that exclude data.
+- [API reference](/intelligence/trajectories-reference) lists every `learning` option and Core method.
+- [Automatic Learning](/learning#assign-browser-activity-to-a-learning-space) explains how to use Trajectories as evidence in a Learning Space.
+
+## Stop and restart
+
+From your app's folder, stop the local stack:
+
+```bash
+npx copilotkit@latest local stop
+```
+
+This keeps the local data. To continue later:
+
+```bash
+npx copilotkit@latest local start
+```
+
+## Troubleshooting
+
+| Problem | Action |
+| --- | --- |
+| Docker does not respond | Start Docker Desktop. Check that Docker has the resources listed under **Before you start**. |
+| The installation stops | Read the CLI error. Run `npx copilotkit@latest local status` to inspect the stack. After you resolve the error, repeat the setup command to resume. |
+| The dashboard needs a new sign-in | Run `npx copilotkit@latest local login` from your app's folder. |
+| The browser console shows a capture error | Check that your Runtime loads the `.env` values from `local connect`. Restart the Runtime after a configuration change. For each error code, see [Error codes](/intelligence/trajectories-reference#error-codes). |
+| A Trajectory has no visible events | Wait for the saved data to update, then refresh. Check the browser console and the selected project. |
+| A Trajectory has no linked conversation | Start an agent conversation while capture is active. Earlier conversations do not link automatically. |
+
+For more CLI commands and recovery steps, see [Manage the stack](/intelligence/self-hosting-local#manage-the-stack).
