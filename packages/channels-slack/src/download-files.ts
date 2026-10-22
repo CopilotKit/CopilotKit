@@ -64,6 +64,20 @@ const TEXT_MIME_EXACT = new Set([
   "application/yaml",
 ]);
 
+/** Only send the bot token to Slack's own file hosts (incl. GovSlack). */
+function isSlackFileUrl(raw: string): boolean {
+  try {
+    const u = new URL(raw);
+    return (
+      u.protocol === "https:" &&
+      (u.hostname.endsWith(".slack.com") ||
+        u.hostname.endsWith(".slack-gov.com"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function isText(mime: string): boolean {
   return (
     TEXT_MIME_PREFIXES.some((p) => mime.startsWith(p)) ||
@@ -128,6 +142,11 @@ export async function buildFileContentParts(
       notes.push(
         `skipped "${label}": ${f.size} bytes exceeds the ${maxBytes}-byte cap`,
       );
+      continue;
+    }
+
+    if (!isSlackFileUrl(f.url_private)) {
+      notes.push(`skipped "${label}": download URL is not a Slack file host`);
       continue;
     }
 

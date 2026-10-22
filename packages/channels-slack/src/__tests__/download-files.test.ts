@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildFileContentParts, type SlackFileRef } from "../download-files.js";
+import { buildFileContentParts } from "../download-files.js";
+import type { SlackFileRef } from "../download-files.js";
 
 function fakeFetch(
   bodyByUrl: Record<string, { ok?: boolean; status?: number; bytes?: Buffer }>,
@@ -34,6 +35,22 @@ const csv: SlackFileRef = {
 };
 
 describe("buildFileContentParts", () => {
+  it("never sends the bot token to a non-Slack host", async () => {
+    const fetchSpy = fakeFetch({});
+    vi.stubGlobal("fetch", fetchSpy);
+    const { parts, notes } = await buildFileContentParts(
+      [
+        { ...img, url_private: "https://attacker.example/x.png" },
+        { ...img, url_private: "http://files.slack.com/x.png" },
+        { ...img, url_private: "https://files.slack.com.attacker.example/x" },
+      ],
+      "xoxb-tok",
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(parts).toEqual([]);
+    expect(notes).toHaveLength(3);
+  });
+
   it("turns an image into a base64 image part", async () => {
     const bytes = Buffer.from([1, 2, 3, 4]);
     vi.stubGlobal("fetch", fakeFetch({ [img.url_private!]: { bytes } }));
@@ -153,7 +170,7 @@ describe("buildFileContentParts", () => {
   it("caps the number of files processed", async () => {
     const files = Array.from({ length: 8 }, (_, i) => ({
       ...csv,
-      url_private: `u${i}`,
+      url_private: `https://files.slack.com/u${i}`,
     }));
     vi.stubGlobal(
       "fetch",
