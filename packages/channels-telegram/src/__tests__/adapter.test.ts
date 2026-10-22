@@ -301,7 +301,7 @@ describe("TelegramAdapter", () => {
     }
   });
 
-  it("binds webhook mode to a generated secret when none is configured", async () => {
+  it("binds webhook mode to a token-derived secret when none is configured", async () => {
     const a = telegram({
       token: "t",
       mode: "webhook",
@@ -320,6 +320,13 @@ describe("TelegramAdapter", () => {
     try {
       const secret = (setWebhook.mock.calls[0] as any[])[1]?.secret_token;
       expect(secret).toMatch(/^[0-9a-f]{64}$/);
+      // Stable per bot, so multiple instances agree on it.
+      const { createHmac } = await import("node:crypto");
+      expect(secret).toBe(
+        createHmac("sha256", "t")
+          .update("copilotkit-telegram-webhook")
+          .digest("hex"),
+      );
       const { port } = server.address() as { port: number };
       const res = await fetch(`http://127.0.0.1:${port}/telegram`, {
         method: "POST",

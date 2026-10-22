@@ -185,9 +185,15 @@ export class TelegramAdapter implements PlatformAdapter {
       : "/telegram";
     const url = `${webhook.domain.replace(/\/$/, "")}${normalizedPath}`;
     // We register the webhook ourselves, so always bind it to a secret: without
-    // one, anyone who can reach the port could forge updates as any user.
-    const { randomBytes } = await import("node:crypto");
-    const secretToken = webhook.secretToken || randomBytes(32).toString("hex");
+    // one, anyone who can reach the port could forge updates as any user. The
+    // fallback is derived from the bot token, so every instance of the same
+    // bot agrees on it and a later setWebhook doesn't lock the others out.
+    const { createHmac } = await import("node:crypto");
+    const secretToken =
+      webhook.secretToken ||
+      createHmac("sha256", this.opts.token)
+        .update("copilotkit-telegram-webhook")
+        .digest("hex");
     await this.bot.api.setWebhook(url, { secret_token: secretToken });
     const { webhookCallback } = await import("grammy");
     const { createServer } = await import("node:http");
