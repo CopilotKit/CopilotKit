@@ -1021,3 +1021,75 @@ test("restart exports cleanup only for the interrupted run's lifecycle IDs", asy
   );
   assert.equal(receipt.deadlineExceeded, false);
 });
+
+test("volume watch transfer preserves failed receipt and excludes only its retained journal", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "volume-watch-scheduler-"));
+  const config = { controlDirectory: join(root, "control") };
+  const lifecycleRunId = "rich-92c9b050-5fd0-4f13-b4e5-96df2c40a20c";
+  const runnerRunId = "run-60c27d73-0562-406d-b6b9-cb738b768eb5";
+  await mkdir(join(config.controlDirectory, lifecycleRunId), {
+    recursive: true,
+  });
+  await mkdir(join(root, "results", runnerRunId), { recursive: true });
+  await durableJson(
+    join(config.controlDirectory, lifecycleRunId, "journal.json"),
+    {
+      runId: lifecycleRunId,
+      phase: "interrupted",
+      intents: [],
+      cleanup: { status: "failed" },
+    },
+  );
+  await durableJson(join(root, "results", runnerRunId, "run.json"), {
+    id: runnerRunId,
+    status: "failed",
+    cleanup: "retained-watch",
+  });
+  await durableJson(join(root, "scheduler.json"), {
+    version: 1,
+    active: runnerRunId,
+    blocked: true,
+    nextRunAt: 100,
+  });
+  let watches = 0;
+  const scheduler = await createScheduler({
+    root,
+    config,
+    execute: async () => 0,
+    recoverVolumeCreate: async (args, deps) => {
+      watches++;
+      if (args.expectedBinding === undefined)
+        await deps.beforeTransfer("a".repeat(64));
+      else assert.equal(args.expectedBinding, "a".repeat(64));
+      return {
+        lifecycleRunId,
+        runnerRunId,
+        bindingSha256: "a".repeat(64),
+        status: "watching",
+        providerFinality: "unknown",
+        originalStatus: "failed",
+      };
+    },
+    recover: async (_config, { retainedIds }) =>
+      assert.deepEqual(retainedIds, [lifecycleRunId]),
+  });
+  t.after(async () => {
+    await scheduler.close();
+    await rm(root, { recursive: true, force: true });
+  });
+  assert.equal(scheduler.status().blocked, false);
+  assert.equal(scheduler.status().active, null);
+  assert.equal(
+    scheduler.deployment().volumeCreateRecovery.bindingSha256,
+    "a".repeat(64),
+  );
+  assert.equal(
+    JSON.parse(await readFile(join(root, "results", runnerRunId, "run.json")))
+      .status,
+    "failed",
+  );
+  const run = await scheduler.start();
+  assert.equal(run.accepted, true);
+  await run.completion;
+  assert.equal(watches, 3);
+});

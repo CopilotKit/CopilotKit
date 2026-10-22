@@ -424,3 +424,18 @@ and exposes a separate 48-hour retention deadline and overdue flag. Eventual
 absence clears the retention entry without resending deletion. Overdue records
 require operator/provider follow-up; they do not retroactively change the active
 cleanup deadline or invent physical deletion.
+
+### October 22 Redis creation recovery
+
+The exact failed Redis volume-create attempt may transfer its lease to a retained
+watch through `volumeRecovery` on the existing verified removed-deployment upgrade.
+The authorization binds its original journal, pending intent, lease and failed
+receipt. The original journal remains unchanged; the original result remains
+failed and overdue, and provider finality remains unknown. A durable watch and
+scheduler binding precede lease release. The two empty owned environments remain
+retained as provenance for late storage. Complete inventory and the existing
+volume-retirement verifier must pass before transfer and every admission. A late
+volume, ambiguous new unattached storage, missing watch, or changed namespace
+blocks admission for explicit cleanup. This watch sends no creation or deletion
+requests. Existing 48-hour detached-volume handling and both earlier environment
+watches remain in place. Healthy idle observations use the 15-minute cadence.

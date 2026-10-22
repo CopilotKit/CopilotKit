@@ -19,6 +19,7 @@ import {
   reconcileRetainedIntent,
 } from "../recovery.mjs";
 import { recoverSupervisor } from "../supervisor.mjs";
+import { reconcileVolumeCreateRecovery } from "../volume-create-recovery.mjs";
 import {
   recoverRailwayEnvironment,
   reconcileRetainedRailwayVolumes,
@@ -146,6 +147,7 @@ export async function createScheduler({
   recover = reconcile,
   recoverRetained = recoverRetainedIntent,
   reconcileRetained = reconcileRetainedIntent,
+  recoverVolumeCreate = reconcileVolumeCreateRecovery,
   clock = Date.now,
   scheduleEnabled = false,
   runtimeIdentity,
@@ -273,6 +275,9 @@ export async function createScheduler({
     active: state.active,
     blocked: state.blocked,
     lastRecovery: state.lastRecovery,
+    ...(state.volumeCreateRecovery
+      ? { volumeCreateRecovery: state.volumeCreateRecovery }
+      : {}),
   });
   /** Persist readiness only after fresh recovery has proved ownership is clear. */
   async function certifyDrain() {
@@ -379,6 +384,28 @@ export async function createScheduler({
     return deployment();
   }
   async function reconcileOwnership() {
+    const volumeWatch = await recoverVolumeCreate(
+      {
+        root,
+        config,
+        operation,
+        expectedBinding: state.volumeCreateRecoveryBindingSha256,
+      },
+      {
+        beforeTransfer: async (binding) => {
+          if (state.volumeCreateRecoveryBindingSha256 !== undefined)
+            assert.equal(state.volumeCreateRecoveryBindingSha256, binding);
+          else {
+            state.volumeCreateRecoveryBindingSha256 = binding;
+            await save();
+          }
+        },
+      },
+    );
+    if (volumeWatch) {
+      state.volumeCreateRecovery = volumeWatch;
+      if (state.active === volumeWatch.runnerRunId) state.active = null;
+    }
     if (recovery)
       assert.equal(recovery.status, "watching", "Explicit recovery required");
     const retainedRunId = await reconcileRetained({ root, config });
@@ -386,7 +413,10 @@ export async function createScheduler({
       assert.equal(retainedRunId, recovery.authorization.lifecycleRunId);
     else assert.equal(retainedRunId, null);
     recovery = await effectiveRecovery(root);
-    const retainedIds = retainedRunIds(recovery);
+    const retainedIds = [
+      ...retainedRunIds(recovery),
+      ...(volumeWatch ? [volumeWatch.lifecycleRunId] : []),
+    ];
     await recover(config, { retainedRunId, retainedIds });
     if (config.controlDirectory) {
       for (const path of [

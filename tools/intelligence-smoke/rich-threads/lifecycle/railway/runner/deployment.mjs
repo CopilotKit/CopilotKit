@@ -230,6 +230,9 @@ async function prepareWatchingUpgrade({
     recoveryBindingSha256: authorization.recoveryBindingSha256,
     removalProof: proof,
     status: "draining",
+    ...(authorization.volumeRecovery
+      ? { volumeRecovery: authorization.volumeRecovery }
+      : {}),
   };
   const { prepareRetainedRecovery, assertOwnersStopped } =
     await import("../recovery.mjs");
