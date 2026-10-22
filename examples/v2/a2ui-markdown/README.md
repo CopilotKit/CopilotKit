@@ -165,11 +165,11 @@ filed by this change.
    `{"@call":"calc", args:{expression:"x+1", x:2}}`. Remove that instruction when
    Express respects open-ended argument schemas. The compiler tests retain a
    successful map-form example.
-3. **Generated positional guidance is unsuitable for this catalog's ordering.**
-   The SDK-generated skill recommends positional arguments, but the frontend's
-   common styling properties precede semantic properties: `Text("Hello")` binds
-   the first property, `color`, rather than `text`. The demo recommends
-   `Text(text="Hello")` and other named arguments. This is an interoperability
+3. **Generated guidance forbids named component arguments.** The SDK-generated
+   skill recommends positional arguments and says not to output property keys.
+   The demo recommends named arguments, particularly for optional styling.
+   Content-first ordering now makes short positional calls useful too; it does
+   not make long positional signatures easy to count. This is an interoperability
    improvement request for configurable skill generation, not a compiler defect.
    Remove the override when keyword guidance can be requested upstream.
 
@@ -177,6 +177,41 @@ Converting CopilotKit's manifest entries into SDK catalog schemas and choosing
 markdown fences instead of SDK sentinel tags are ordinary application
 integration. Fixes for repeated deletions, stale snapshot caches, and delimiters
 split inside quoted strings are fixes to this demo's adapter, not upstream bugs.
+
+### Standard catalog parameter order
+
+`agent/src/parameter_order.py` defines short, explicit positional prefixes for all
+69 standard components. The Express adapter applies them **after combining props,
+slots and events**, before creating both the SDK parser and its generated guide.
+For example:
+
+```text
+Text("Hello", color="secondary")
+Column([heading, body], gap=4)
+Button("Save", Event("save"), disabled=false)
+TextField("Email", $/email, variant="email")
+Chart($/revenue, "month", ["amount"], chartType="line")
+```
+
+Content, children, labels/values and common actions lead. Other component-specific
+parameters follow; shared layout and typography parameters come last. Use names
+for parameters beyond the documented prefix. Requiredness alone is insufficient:
+`Text.text`, for example, is optional but still belongs first. The file enumerates
+every prefix, including components whose ordering was already suitable.
+
+This is a demo catalog convention, **not an SDK workaround**. It changes 52 of
+the 69 Express signatures. It preserves property schemas, required fields,
+functions, JSON behavior, React renderers and catalogs with other IDs. Only
+`copilotkit/standard@1` gets this policy. The browser's catalog remains the source
+of property definitions; the adapter owns the combined Express argument order.
+
+**Compatibility:** old positional Express programs can change meaning. Start a
+fresh conversation after changing this policy. Named arguments retain their
+meaning. Treat the selected prefixes as a stable calling convention going
+forward; review new components explicitly instead of sorting fields implicitly.
+Regression tests compare positional calls with named calls, including slots,
+actions, bindings and optional primary values. Live comparisons are described in
+`agent/benchmarks/README.md`.
 
 ### Bridge ordering fix and travel reference audit
 
@@ -215,10 +250,11 @@ Its guidance needs these qualifications when applied here:
   explicitly moves semantic properties ahead of shared styling properties and
   documents the failure caused by `weight` becoming the first argument. Its
   [generated skill](https://github.com/vpm238/travel-a2ui/blob/f2ffedac87040699f4e528a47c08dc0250c2e1ea/skills/express-modular/a2ui-travel/SKILL.md)
-  places `children` first for `Column`. Our style-first catalog does not satisfy
-  that assumption. The reference already warned about this; we did not carry
-  its ordering invariant into our integration. This bridge fix does not change
-  catalog ordering or resolve the remaining model-generation failures.
+  places `children` first for `Column`. Our original style-first catalog did not
+  satisfy that assumption. The reference already warned about this; we did not
+  initially carry its ordering invariant into our integration. The later
+  parameter-order policy above addresses that mismatch separately from the
+  create-before-update bridge fix. Neither guarantees valid model output.
 - **Version and latency assumptions differ.** Its
   [dependency pins](https://github.com/vpm238/travel-a2ui/blob/f2ffedac87040699f4e528a47c08dc0250c2e1ea/apps/server/pyproject.toml)
   are agent-sdk 0.7.0/core 0.2.0; this demo uses 0.9.0/0.4.0. Its generated skill

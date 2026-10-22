@@ -12,6 +12,8 @@ from a2ui.core import Catalog, PayloadValidator
 from a2ui.inference_formats.express import ExpressFormat
 from a2ui.skill import SkillGenerator
 
+from .parameter_order import order_parameters
+
 
 def _nested_values(schema: Any) -> Any:
     if not isinstance(schema, dict):
@@ -109,7 +111,7 @@ class ExpressCompiler:
                 "catalogId": inline["catalogId"],
                 "protocolVersion": "1.0",
                 "components": {
-                    name: _component(entry)
+                    name: order_parameters(inline["catalogId"], name, _component(entry))
                     for name, entry in inline["components"].items()
                 },
                 "functions": {
@@ -135,7 +137,7 @@ class ExpressCompiler:
         )
         # WORKAROUND (agent-sdk 0.9.0/core 0.4.0): generated catalog prose
         # forbids property keys although Express accepts keyword arguments.
-        # Our standard Text has color before text, so Text("Hello") sets color.
+        # Keep optional styling named even with our content-first ordering.
         # Repro: test_instructions_use_keyword_arguments_for_long_standard_signatures.
         # Remove when skill generation supports keyword-oriented guidance;
         # property order itself is valid catalog behavior, not a compiler bug.
