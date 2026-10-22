@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { pollRunStatus } from "./status-poll.mjs";
+import { reportCleanupVerified } from "./rich-threads/cleanup-verdict.mjs";
 
 function harness(sequence, duration = 60000) {
   let now = 0;
@@ -140,6 +141,54 @@ const pendingCleanup = {
     },
   ],
 };
+const acknowledgedWithoutInstances = structuredClone(pendingCleanup);
+Object.assign(acknowledgedWithoutInstances.retainedVolumes[0].receipt, {
+  outcome: "acknowledged",
+  response: true,
+  returnedAt: "2026-10-19T12:00:00.500Z",
+});
+Object.assign(acknowledgedWithoutInstances.retainedVolumes[0].evidence, {
+  instances: [],
+  inspectedEnvironmentIds: ["environment"],
+});
+test("accepts acknowledged retained volumes with no remaining attachments or references", () => {
+  assert.equal(
+    reportCleanupVerified({
+      cleanup: "passed-pending-provider-deletion",
+      cleanupEvidence: [acknowledgedWithoutInstances],
+    }),
+    true,
+  );
+});
+for (const invalid of [
+  { name: "unknown deletion", receipt: { outcome: "unknown" } },
+  { name: "pending deletion", receipt: { outcome: "pending" } },
+  { name: "refused deletion", receipt: { response: false } },
+  { name: "unsent deletion", receipt: { requestSent: false } },
+  { name: "missing acknowledgement time", receipt: { returnedAt: null } },
+  {
+    name: "remaining environment reference",
+    evidence: { environmentReferences: [pendingInstance] },
+  },
+  { name: "incomplete inventory", evidence: { inventoryComplete: false } },
+  {
+    name: "remaining service attachment",
+    evidence: { instances: [{ ...pendingInstance, serviceId: "service" }] },
+  },
+]) {
+  test(`rejects retained volume proof with ${invalid.name}`, () => {
+    const cleanup = structuredClone(acknowledgedWithoutInstances);
+    Object.assign(cleanup.retainedVolumes[0].receipt, invalid.receipt);
+    Object.assign(cleanup.retainedVolumes[0].evidence, invalid.evidence);
+    assert.equal(
+      reportCleanupVerified({
+        cleanup: "passed-pending-provider-deletion",
+        cleanupEvidence: [cleanup],
+      }),
+      false,
+    );
+  });
+}
 for (const cleanup of [completeCleanup, pendingCleanup]) {
   test(`waits for cleanup recovery on the same failed run: ${cleanup.status}`, async () => {
     const failed = {
@@ -193,6 +242,12 @@ for (const cleanupCase of [
   {
     name: "verified pending detachment",
     cleanup: pendingCleanup,
+    status: "passed-pending-provider-deletion",
+    accepted: true,
+  },
+  {
+    name: "acknowledged deletion without attachment records",
+    cleanup: acknowledgedWithoutInstances,
     status: "passed-pending-provider-deletion",
     accepted: true,
   },

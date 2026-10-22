@@ -94,7 +94,6 @@ export function activeCleanupVerified(cleanup) {
       Date.parse(evidence.observedAt) < first ||
       Date.parse(evidence.observedAt) > latest ||
       !Array.isArray(evidence.instances) ||
-      evidence.instances.length === 0 ||
       !Array.isArray(evidence.environmentReferences) ||
       !Array.isArray(evidence.inspectedEnvironmentIds) ||
       !evidence.inspectedEnvironmentIds.every(text)
@@ -110,6 +109,10 @@ export function activeCleanupVerified(cleanup) {
       instance.serviceId === null &&
       instance.isPendingDeletion === true;
     return (
+      (evidence.instances.length > 0 ||
+        (receipt.outcome === "acknowledged" &&
+          receipt.response === true &&
+          evidence.environmentReferences.length === 0)) &&
       evidence.instances.every(detached) &&
       evidence.environmentReferences.every(
         (instance) =>
