@@ -232,6 +232,13 @@ export class RunHandler {
   private _runDepths = new WeakMap<AbstractAgent, number>();
 
   /**
+   * Each agent's own `abortRun`, saved while RunHandler's intercept is
+   * installed. Restored only once none of the agent's runs is in flight, so an
+   * overlapping run keeps the intercept after an earlier run finishes.
+   */
+  private _originalAbortRuns = new WeakMap<AbstractAgent, () => void>();
+
+  /**
    * Keeps tools that opt in via `webmcp` registered on the page's WebMCP model
    * context (`document.modelContext`), in addition to the normal agent
    * registration. Reconciled on every tool registry mutation.
@@ -744,7 +751,6 @@ export class RunHandler {
     // top-level call. Recursive follow-up calls from processAgentResult
     // reuse the same controller.
     const isTopLevel = (this._runDepths.get(agent) ?? 0) === 0;
-    let originalAbortRun: (() => void) | undefined;
     const controller = isTopLevel ? new AbortController() : undefined;
 
     if (controller) {
@@ -753,10 +759,11 @@ export class RunHandler {
       // Intercept agent.abortRun() so that calling it directly (not via
       // stopAgent) also aborts in-flight tool execution and prevents
       // follow-up runs.
-      originalAbortRun = agent.abortRun.bind(agent);
+      const originalAbortRun = agent.abortRun;
+      this._originalAbortRuns.set(agent, originalAbortRun);
       agent.abortRun = () => {
         controller.abort();
-        originalAbortRun!();
+        originalAbortRun.call(agent);
       };
 
       // Notify subscribers (e.g. the inspector) about the agent that is about
@@ -852,16 +859,16 @@ export class RunHandler {
     } finally {
       const remainingDepth = (this._runDepths.get(agent) ?? 1) - 1;
       this._runDepths.set(agent, remainingDepth);
-      // Restore original abortRun when the entire chain (including recursive
-      // follow-ups) is complete.
-      if (isTopLevel && originalAbortRun) {
-        agent.abortRun = originalAbortRun;
-      }
-      // Drop the agent's controller only once none of its runs is in flight:
-      // an overlapping call on the same agent may still be using it. Dropping
-      // it then means a finished, aborted run does not mark later errors as
-      // user-aborted.
+      // Restore the original abortRun and drop the agent's controller only
+      // once none of its runs is in flight: an overlapping call on the same
+      // agent may still be using both. Dropping the controller then means a
+      // finished, aborted run does not mark later errors as user-aborted.
       if (remainingDepth === 0) {
+        const originalAbortRun = this._originalAbortRuns.get(agent);
+        if (originalAbortRun) {
+          agent.abortRun = originalAbortRun;
+          this._originalAbortRuns.delete(agent);
+        }
         this._runAbortControllers.delete(agent);
       }
     }

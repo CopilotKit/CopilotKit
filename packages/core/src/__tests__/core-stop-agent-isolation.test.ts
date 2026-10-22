@@ -179,37 +179,7 @@ describe("CopilotKitCore - stopAgent is scoped to one agent", () => {
   });
 
   it("stopAgent still aborts an overlapping run on the same agent after the first run ends", async () => {
-    const core = new CopilotKitCore({});
-    const agent = new MockAgent({ agentId: "A", threadId: "thread-A" });
-    core.addAgent__unsafe_dev_only({ id: "A", agent: agent as any });
-    let calls = 0;
-    agent.runAgentCallback = () => {
-      calls++;
-      agent.setNewMessages([
-        createToolCallMessage(calls === 1 ? "first" : "second"),
-      ]);
-    };
-
-    const release = { first: deferred(), second: deferred() };
-    const entered = { first: deferred(), second: deferred() };
-    const signals: Record<"first" | "second", AbortSignal | undefined> = {
-      first: undefined,
-      second: undefined,
-    };
-    for (const name of ["first", "second"] as const) {
-      core.addTool(
-        createTool({
-          name,
-          followUp: false,
-          handler: async (_args: unknown, context: any) => {
-            signals[name] = context.signal;
-            entered[name].resolve();
-            await release[name].promise;
-            return "ok";
-          },
-        }),
-      );
-    }
+    const { core, agent, release, entered, signals } = sameAgentSetup();
 
     const firstRun = core.runAgent({ agent: agent as any });
     await entered.first.promise;
@@ -225,4 +195,60 @@ describe("CopilotKitCore - stopAgent is scoped to one agent", () => {
 
     expect(secondAborted).toBe(true);
   });
+
+  it("agent.abortRun() still aborts an overlapping run on the same agent after the first run ends", async () => {
+    const { core, agent, release, entered, signals } = sameAgentSetup();
+    const originalAbortRun = agent.abortRun;
+
+    const firstRun = core.runAgent({ agent: agent as any });
+    await entered.first.promise;
+    const secondRun = core.runAgent({ agent: agent as any });
+    await entered.second.promise;
+    release.first.resolve();
+    await firstRun;
+
+    (agent as any).abortRun();
+    const secondAborted = signals.second!.aborted;
+    release.second.resolve();
+    await secondRun;
+
+    expect(secondAborted).toBe(true);
+    expect(agent.abortRun).toBe(originalAbortRun);
+  });
 });
+
+/** One agent whose first run calls `first` and whose second run calls `second`. */
+function sameAgentSetup() {
+  const core = new CopilotKitCore({});
+  const agent = new MockAgent({ agentId: "A", threadId: "thread-A" });
+  core.addAgent__unsafe_dev_only({ id: "A", agent: agent as any });
+  let calls = 0;
+  agent.runAgentCallback = () => {
+    calls++;
+    agent.setNewMessages([
+      createToolCallMessage(calls === 1 ? "first" : "second"),
+    ]);
+  };
+
+  const release = { first: deferred(), second: deferred() };
+  const entered = { first: deferred(), second: deferred() };
+  const signals: Record<"first" | "second", AbortSignal | undefined> = {
+    first: undefined,
+    second: undefined,
+  };
+  for (const name of ["first", "second"] as const) {
+    core.addTool(
+      createTool({
+        name,
+        followUp: false,
+        handler: async (_args: unknown, context: any) => {
+          signals[name] = context.signal;
+          entered[name].resolve();
+          await release[name].promise;
+          return "ok";
+        },
+      }),
+    );
+  }
+  return { core, agent, release, entered, signals };
+}
