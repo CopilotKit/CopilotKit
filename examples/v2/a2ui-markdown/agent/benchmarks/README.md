@@ -1,5 +1,9 @@
 # Live parameter-order study
 
+The completed [60-attempt report](ordering-results.md) includes reliability,
+latency, token usage and browser checks. [Per-attempt data](ordering-runs.csv)
+retains failures as well as successes.
+
 `parameter_order.py` compares the current Express compiler with a frozen copy of
 the compiler before ordering changed. It uses real API-key Gemini requests via
 ADK, fresh sessions, and the same frontend context and prompts in both arms.
