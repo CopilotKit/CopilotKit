@@ -4,6 +4,9 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import type { WebhookBody } from "./types.js";
 
+/** Meta webhook bodies are small JSON; media is fetched separately. */
+const MAX_BODY_BYTES = 1024 * 1024;
+
 export interface WebhookServerArgs {
   path: string;
   verifyToken: string;
@@ -18,6 +21,14 @@ export class WebhookServer {
   private server: Server | undefined;
 
   constructor(args: WebhookServerArgs) {
+    // An empty secret makes the HMAC key public (forgeable signatures) and an
+    // empty verify token matches a bare `hub.verify_token=`; fail closed.
+    if (!args.appSecret) {
+      throw new Error("WhatsApp webhook requires a non-empty appSecret");
+    }
+    if (!args.verifyToken) {
+      throw new Error("WhatsApp webhook requires a non-empty verifyToken");
+    }
     this.args = args;
   }
 
@@ -70,7 +81,7 @@ export class WebhookServer {
     const mode = url.searchParams.get("hub.mode");
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge") ?? "";
-    if (mode === "subscribe" && token === this.args.verifyToken) {
+    if (mode === "subscribe" && safeEqual(token ?? "", this.args.verifyToken)) {
       res.statusCode = 200;
       res.end(challenge);
     } else {
@@ -81,7 +92,17 @@ export class WebhookServer {
 
   private handlePost(req: IncomingMessage, res: ServerResponse): void {
     const chunks: Buffer[] = [];
-    req.on("data", (c) => chunks.push(c as Buffer));
+    let size = 0;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > MAX_BODY_BYTES) {
+        res.statusCode = 413;
+        res.end();
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
     req.on("end", () => {
       const rawBuf = Buffer.concat(chunks);
       const raw = rawBuf.toString("utf8");
@@ -113,8 +134,12 @@ export class WebhookServer {
     const expected =
       "sha256=" +
       createHmac("sha256", this.args.appSecret).update(raw).digest("hex");
-    const a = Buffer.from(signature);
-    const b = Buffer.from(expected);
-    return a.length === b.length && timingSafeEqual(a, b);
+    return safeEqual(signature, expected);
   }
+}
+
+function safeEqual(actual: string, expected: string): boolean {
+  const a = Buffer.from(actual);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
