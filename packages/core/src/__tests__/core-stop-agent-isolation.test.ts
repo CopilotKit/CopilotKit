@@ -255,6 +255,43 @@ describe("CopilotKitCore - stopAgent is scoped to one agent", () => {
     expect(signals.second!.aborted).toBe(false);
   });
 
+  it("reports a connect RUN_ERROR on an agent whose overlapping run was stopped", async () => {
+    const { core, agent, release, entered } = sameAgentSetup();
+    const errors: string[] = [];
+    core.subscribe({ onError: (event) => void errors.push(event.code) });
+    let code = "bad_request";
+    (agent as any).connectAgent = async (_input: unknown, subscriber?: any) => {
+      await subscriber?.onRunErrorEvent?.({
+        event: { type: "RUN_ERROR", message: "connect failed", code },
+        messages: [],
+        state: {},
+        agent,
+        input: {},
+      });
+      return { newMessages: [] };
+    };
+    (agent as any).detachActiveRun = async () => {};
+
+    const stoppedRun = core.runAgent({ agent: agent as any });
+    await entered.first.promise;
+    core.stopAgent({ agent: agent as any });
+
+    await core.connectAgent({ agent: agent as any });
+    const reported = errors.filter(
+      (c) => c === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
+    ).length;
+    code = "abort";
+    await core.connectAgent({ agent: agent as any });
+    const reportedAfterAbortCode = errors.filter(
+      (c) => c === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
+    ).length;
+    release.first.resolve();
+    await stoppedRun;
+
+    expect(reported).toBe(1);
+    expect(reportedAfterAbortCode).toBe(1);
+  });
+
   it("stopAgent aborts the stopped run and a newer overlapping run on the same agent", async () => {
     const { core, agent, release, entered, signals } = sameAgentSetup();
 

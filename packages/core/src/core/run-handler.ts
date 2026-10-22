@@ -1848,11 +1848,9 @@ export class RunHandler {
         // it. Prefer the abort controller (the client's own record that it
         // initiated the stop) over the agent-supplied `code`, which is not
         // standardized across agents.
-        const runWasAborted = runSignal
-          ? runSignal.aborted
-          : [...(this._runAbortControllers.get(agent) ?? [])].some(
-              (controller) => controller.signal.aborted,
-            );
+        // Only this run's own signal counts: a connect has none, and another
+        // run on the same agent being stopped says nothing about this error.
+        const runWasAborted = runSignal?.aborted ?? false;
         if (runWasAborted || event?.code === "abort") {
           return;
         }
