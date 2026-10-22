@@ -106,3 +106,34 @@ test("third attempt retains first attempt authority through a verified preflight
   second.providerWorkStarted = true;
   assert.equal(await readAttemptCheckpoint(h.github, h.context), undefined);
 });
+
+test("removal handoff checkpoints preserve provenance without borrowing ordinary rollback authority", async () => {
+  const h = fixture();
+  h.checkpoint.version = 3;
+  h.checkpoint.stage = "remove-requested";
+  h.checkpoint.removalProof = null;
+  h.checkpoint.removalRequest = { outcome: "pending", response: null };
+  h.checkpoint.candidateDeploymentId = null;
+  assert.deepEqual(
+    await readAttemptCheckpoint(h.github, h.context),
+    h.checkpoint,
+  );
+  for (const stage of [
+    "rollback-requested",
+    "rollback-deployed",
+    "candidate-deployed",
+    "resume-requested",
+  ])
+    assert.throws(() =>
+      validateCheckpoint({ ...h.checkpoint, stage }, h.context),
+    );
+  assert.throws(() =>
+    validateCheckpoint(
+      { ...h.checkpoint, rollbackDeploymentId: "rollback" },
+      h.context,
+    ),
+  );
+  assert.throws(() =>
+    validateCheckpoint({ ...h.checkpoint, version: 1 }, h.context),
+  );
+});

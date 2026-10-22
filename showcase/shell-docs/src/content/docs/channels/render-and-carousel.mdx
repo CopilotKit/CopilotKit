@@ -44,7 +44,7 @@ Use `thread.post()` or `thread.update()` for messages containing `<Render>`. The
   A Channels `<Button>` inside `<Render>` throws. A host HTML button is fine. The snapshot is a PNG, so that HTML button does not receive clicks.
 </Callout>
 
-Set fonts and styles once on `createChannel({ render })`. See [Posting JSX as images](/channels/posting-jsx-as-images).
+Set the renderer, fonts, and styles once on `createChannel({ render })`. `<Render>` needs `render.renderer`, the same as an image post. See [Posting JSX as images](/channels/posting-jsx-as-images).
 
 The Slack example posts this mix with `/carousel` or by asking the bot to show a carousel (`render_carousel` in `examples/slack`).
 

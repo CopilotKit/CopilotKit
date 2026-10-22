@@ -16,6 +16,7 @@ import { createGithub, verifyRegistryImage } from "./github.mjs";
 import { createRailway, createRunner } from "./adapters.mjs";
 import { deployReviewedRunner } from "./deploy.mjs";
 import { deployRecoveryRunner } from "./recovery-deploy.mjs";
+import { deploySecondRecoveryRunner } from "./second-recovery-deploy.mjs";
 
 /** Require a trusted main dispatch, or the one exact reviewed bootstrap commit. */
 export function validateWorkflowContext(env) {
@@ -84,7 +85,12 @@ async function main(env = process.env) {
     operationId: `github-${REPOSITORY_ID}-${env.GITHUB_RUN_ID}`,
   });
   const deadline = Date.now() + 210 * 60000;
-  const deploy = release.recovery ? deployRecoveryRunner : deployReviewedRunner;
+  const deploy =
+    release.recovery?.version === 2
+      ? deploySecondRecoveryRunner
+      : release.recovery
+        ? deployRecoveryRunner
+        : deployReviewedRunner;
   const result = await deploy({
     release,
     operationId: `github-${REPOSITORY_ID}-${env.GITHUB_RUN_ID}`,

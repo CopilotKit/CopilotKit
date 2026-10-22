@@ -1,7 +1,13 @@
 import type { RenderFont } from "@copilotkit/channels-ui";
 
-/** Channel-wide image-render configuration (fonts + compiled CSS). */
+/** Channel-wide image-render configuration (renderer, fonts, compiled CSS). */
 export interface RenderConfig {
+  /**
+   * Rasterizes JSX to PNG bytes. Required to post JSX as an image: pass
+   * `takumiRenderer` from `@copilotkit/channels/takumi` (needs the optional
+   * peers `react` and `takumi-js`). Without it, image posts throw.
+   */
+  renderer?: (node: unknown, cfg: ResolvedRenderConfig) => Promise<Uint8Array>;
   /** Fonts registered for rendering (Takumi has no system fonts). Also accepts `googleFonts()` output. */
   fonts?: ReadonlyArray<RenderFont>;
   /** Compiled CSS strings (e.g. your Tailwind/global.css). Resolves class selectors, `var()`, oklch. */
