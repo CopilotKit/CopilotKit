@@ -585,13 +585,53 @@ describe("ɵkeepToolResultsWithCalls", () => {
     expect(ɵkeepToolResultsWithCalls(thread)).toBe(thread);
   });
 
-  it("still moves a detached result back past text, and leaves reasoning where it is", () => {
+  it("moves a detached result back in front of reasoning, which stays with the message after it", () => {
+    // Converters give reasoning to the message after it. Landing the result
+    // between r and x would hand r to the result: LangGraph drops it, and
+    // Mastra moves encrypted reasoning onto a's call.
+    const u = userMsg("u");
     const a = callsMsg("a", "c");
     const r = reasoningMsg("r");
     const x = textMsg("x");
     const t = toolMsg("t", "c");
 
-    expect(ɵkeepToolResultsWithCalls([a, r, x, t])).toEqual([a, r, t, x]);
+    expect(ɵkeepToolResultsWithCalls([u, a, r, x, t])).toEqual([u, a, t, r, x]);
+  });
+
+  it("moves a detached result in front of reasoning that follows its call's other results", () => {
+    const u = userMsg("u");
+    const a = callsMsg("a", "c1", "c2");
+    const t1 = toolMsg("t1", "c1");
+    const r2 = reasoningMsg("r2");
+    const x = textMsg("x");
+    const t2 = toolMsg("t2", "c2");
+
+    expect(ɵkeepToolResultsWithCalls([u, a, t1, r2, x, t2])).toEqual([
+      u,
+      a,
+      t1,
+      t2,
+      r2,
+      x,
+    ]);
+  });
+
+  it("looks past activity after reasoning when placing a moved result", () => {
+    // Activity is stripped before sending, so `a r act t x` would go out as
+    // `a r t x`.
+    const a = callsMsg("a", "c");
+    const r = reasoningMsg("r");
+    const act = activityMsg("act");
+    const x = textMsg("x");
+    const t = toolMsg("t", "c");
+
+    expect(ɵkeepToolResultsWithCalls([a, r, act, x, t])).toEqual([
+      a,
+      t,
+      r,
+      act,
+      x,
+    ]);
   });
 
   it("places a moved result after the results already following its call", () => {
@@ -835,6 +875,22 @@ describe("ɵkeepToolResultsWithCalls", () => {
         inWithoutMoved.forEach((m, index) =>
           expect(outWithoutMoved[index]).toBe(m),
         );
+      }
+    });
+
+    it("never lands a moved result right after reasoning, looking past activity and non-object entries", () => {
+      for (const history of histories) {
+        const { out, moved } = runTagged(history);
+        out.forEach((m, index) => {
+          if (!isEntry(m) || !moved.has(slotOf(m))) return;
+          for (let before = index - 1; before >= 0; before--) {
+            const entry = out[before]!;
+            if (isEntry(entry) && roleOf(entry) !== "activity") {
+              expect(roleOf(entry)).not.toBe("reasoning");
+              break;
+            }
+          }
+        });
       }
     });
 
