@@ -41,7 +41,6 @@ export default defineConfig([
         "@ag-ui/core": "AgUICore",
         "@ag-ui/client": "AgUIClient",
         "@segment/analytics-node": "SegmentAnalyticsNode",
-        chalk: "chalk",
         "partial-json": "PartialJSON",
       };
       return options;
