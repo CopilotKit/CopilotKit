@@ -118,12 +118,25 @@ function isPropsSchema(value: unknown): value is Record<string, unknown> {
 function isComponentManifest(
   value: unknown,
 ): value is GenerativeUIComponentManifest {
+  if (
+    !isRecord(value) ||
+    !isPropsSchema(value.props) ||
+    !isOptionalString(value.description) ||
+    (value.events !== undefined && !isRecordOf(value.events, isSchemaEntry)) ||
+    (value.slots !== undefined && !isRecordOf(value.slots, isSlotKind))
+  )
+    return false;
+  const order = value.parameterOrder;
+  if (order === undefined) return true;
+  const keys = new Set([
+    ...Object.keys(value.props.properties ?? {}),
+    ...Object.keys(value.slots ?? {}),
+    ...Object.keys(value.events ?? {}),
+  ]);
   return (
-    isRecord(value) &&
-    isPropsSchema(value.props) &&
-    isOptionalString(value.description) &&
-    (value.events === undefined || isRecordOf(value.events, isSchemaEntry)) &&
-    (value.slots === undefined || isRecordOf(value.slots, isSlotKind))
+    Array.isArray(order) &&
+    new Set(order).size === order.length &&
+    order.every((key) => typeof key === "string" && keys.has(key))
   );
 }
 
