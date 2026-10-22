@@ -441,4 +441,14 @@ describe("DiscordAdapter", () => {
       repliedUser: true,
     });
   });
+  it("lets an app opt into role mentions via allowedMentions", () => {
+    const a = new DiscordAdapter({
+      botToken: "t",
+      allowedMentions: { parse: ["users", "roles"] },
+    } as never);
+    const opts = (
+      a as unknown as { client: { options: Record<string, unknown> } }
+    ).client.options;
+    expect(opts.allowedMentions).toEqual({ parse: ["users", "roles"] });
+  });
 });

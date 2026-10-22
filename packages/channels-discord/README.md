@@ -246,6 +246,13 @@ Inbound file attachments can be downloaded and delivered to the agent
 as multimodal content parts (`buildFileContentParts`); a tool can post a file
 back out via `thread.postFile(...)`.
 
+### Mentions
+
+Agent output can ping users but not roles or everyone/here: the adapter's
+default `allowedMentions` is `{ parse: ["users"], repliedUser: true }`. A bot
+that is meant to ping roles can widen it, e.g.
+`discord({ ..., allowedMentions: { parse: ["users", "roles"] } })`.
+
 ### Built-ins
 
 - `defaultDiscordTools` — ships `lookup_discord_user` so the agent can resolve

@@ -5,6 +5,7 @@ import {
   Partials,
   REST,
 } from "discord.js";
+import type { MessageMentionOptions } from "discord.js";
 import type {
   PlatformAdapter,
   SurfaceCapabilities,
@@ -54,7 +55,20 @@ export interface DiscordAdapterOptions {
   /** When set, slash commands register to this guild instantly (dev); else global. */
   guildId?: string;
   interruptEventNames?: ReadonlySet<string>;
+  /**
+   * Which mentions in the bot's messages actually notify. Defaults to
+   * `{ parse: ["users"], repliedUser: true }`: agent output is untrusted text,
+   * so it can ping users but not roles or everyone/here. Widen it (e.g.
+   * `{ parse: ["users", "roles"] }`) only if the bot is meant to ping roles.
+   */
+  allowedMentions?: MessageMentionOptions;
 }
+
+/** Default mention policy: users notify; roles and everyone/here don't. */
+const DISCORD_DEFAULT_ALLOWED_MENTIONS: MessageMentionOptions = {
+  parse: ["users"],
+  repliedUser: true,
+};
 
 /**
  * A discord.js channel/thread surface — only the members the adapter calls.
@@ -155,9 +169,10 @@ export class DiscordAdapter implements PlatformAdapter {
       new Client({
         intents: [...DISCORD_DEFAULT_INTENTS],
         partials: [...DISCORD_DEFAULT_PARTIALS],
-        // Agent output is untrusted text: never let it ping @everyone/@here or
-        // roles. Plain user mentions still notify.
-        allowedMentions: { parse: ["users"], repliedUser: true },
+        // Agent output is untrusted text: by default it can't ping roles or
+        // everyone/here. Plain user mentions still notify.
+        allowedMentions:
+          opts.allowedMentions ?? DISCORD_DEFAULT_ALLOWED_MENTIONS,
       });
     this.rest =
       injected?.rest ??
