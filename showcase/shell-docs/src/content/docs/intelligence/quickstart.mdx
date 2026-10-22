@@ -100,7 +100,7 @@ Before you start, have a working CopilotKit frontend and agent. The TypeScript t
     If no trusted user identity exists, add authentication before you continue. A fixed identity is suitable only for a local, single-user demo.
 
     <Callout type="warn" title="Protect every Runtime route before production">
-      `identifyUser` names the caller, but it is not an authentication gate. Use the handler's `onRequest` hook to reject unauthenticated requests. You must also enforce thread ownership for `threads/events`, `threads/state`, and `agent/stop`. Follow the [thread authorization guide](/auth#thread-authorization) for the complete pattern.
+      `identifyUser` names the caller, but it is not an authentication gate. Use the handler's `onRequest` hook to reject unauthenticated requests. See the [thread authorization guide](/auth#thread-authorization) for how thread routes are scoped.
     </Callout>
 
     A web runtime requires `identifyUser`. A Channels-only runtime has no web surface. Pass a non-empty `channels` array instead.

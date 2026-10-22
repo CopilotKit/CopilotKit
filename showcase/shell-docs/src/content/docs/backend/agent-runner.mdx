@@ -73,9 +73,8 @@ Changing runner narrows the exposure rather than removing it. A runner serves
 the thread routes from its local store only when it opts in, and only
 `InMemoryAgentRunner` does, along with anything extending it such as
 `AgentCoreRunner`. `SqliteAgentRunner` opts out, so its read routes answer
-`422`. `IntelligenceAgentRunner` scopes most thread operations to the user your
-`identifyUser` returns, but `threads/events`, `threads/state` and `agent/stop`
-still read the thread by id alone.
+`422`. `IntelligenceAgentRunner` scopes thread operations to the user your
+`identifyUser` returns.
 </Callout>
 
 ## Choosing a runner

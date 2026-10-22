@@ -275,10 +275,8 @@ user at all: any caller that reaches the route reads the thread it names, `GET
 them all. A runner that keeps no local store, such as `SqliteAgentRunner`,
 answers the four read routes with a `422` instead.
 
-An Intelligence runtime scopes **most** of them to the user your `identifyUser`
-returns, but not all: `threads/events`, `threads/state` and
-`POST /agent/:agentId/stop/:threadId` read the thread by id alone. Guard those
-three yourself even on the platform.
+An Intelligence runtime scopes all of them to the user your `identifyUser`
+returns.
 
 `:threadId` is chosen by the client on the run, so it is not a secret. If more
 than one person uses your deployment, authorize these routes yourself — see
