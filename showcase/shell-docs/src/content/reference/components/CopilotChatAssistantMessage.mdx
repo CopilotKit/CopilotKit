@@ -7,6 +7,20 @@ description: "Component for displaying assistant messages with Markdown, tool ca
 
 `CopilotChatAssistantMessage` displays assistant messages with Markdown support, tool call rendering, and an action toolbar. The Markdown renderer uses `remark-gfm`, `remark-math`, syntax highlighting via `rehype-pretty-code`, and KaTeX support for mathematical expressions. The toolbar provides copy, rating (thumbs up/down), read aloud, and regenerate buttons with localized tooltips sourced from `CopilotChatConfigurationProvider`.
 
+## Upgrading: one toolbar per reply
+
+The default has changed from one toolbar per assistant message to one toolbar per
+reply (`toolbarScope="turn"`). In a reply containing multiple assistant messages,
+feedback and regenerate actions now receive only the last assistant message, so
+apps that track those actions by message ID will receive fewer and different IDs.
+Copy and read aloud include the whole reply's text.
+
+To keep the previous per-message behavior, configure the assistant-message slot:
+
+```tsx
+<CopilotChat assistantMessage={{ toolbarScope: "message" }} />
+```
+
 ## Import
 
 ```tsx
