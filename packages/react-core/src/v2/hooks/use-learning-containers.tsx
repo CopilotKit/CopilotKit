@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useCopilotKit } from "../context";
 import { recordAnnotation } from "../lib/record-annotation";
+import { useLatestRef } from "../lib/use-latest-ref";
 
 /** The default learning containers value. Matches the backend default. */
 const DEFAULT_CONTAINERS: string[] = ["project"];
@@ -78,12 +79,10 @@ export function useLearningContainers({
   // Keep a ref to the latest transport values so the cleanup effect can read
   // them without being added to its dep array (which would cause it to re-run
   // and re-register on every render).
-  const runtimeUrlRef = useRef<string | null | undefined>(
+  const runtimeUrlRef = useLatestRef<string | null | undefined>(
     copilotkit.runtimeUrl,
   );
-  const runtimeFetchRef = useRef(copilotkit.ɵruntimeFetch);
-  runtimeUrlRef.current = copilotkit.runtimeUrl;
-  runtimeFetchRef.current = copilotkit.ɵruntimeFetch;
+  const runtimeFetchRef = useLatestRef(copilotkit.ɵruntimeFetch);
 
   // Content-stable dependency: same items in same order → same key string.
   const key = JSON.stringify(learningContainers);

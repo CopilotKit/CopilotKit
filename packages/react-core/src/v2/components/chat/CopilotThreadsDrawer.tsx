@@ -33,6 +33,7 @@ import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
 import { useDefaultAgentId } from "../../context";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
+import { useLatestRef } from "../../lib/use-latest-ref";
 
 /**
  * Per-row content render function. Receives a thread and returns the React
@@ -469,7 +470,7 @@ export function CopilotThreadsDrawer({
 
   // Keep a ref to the live handlers so the addEventListener effect can stay
   // stable (bind once) while still calling the freshest closures.
-  const handlersRef = useRef({
+  const handlersRef = useLatestRef({
     handleThreadSelected,
     handleNewThread,
     handleArchive,
@@ -482,19 +483,6 @@ export function CopilotThreadsDrawer({
     handleLoadMore,
     handleCollapseChange,
   });
-  handlersRef.current = {
-    handleThreadSelected,
-    handleNewThread,
-    handleArchive,
-    handleUnarchive,
-    handleDelete,
-    handleFilterChange,
-    handleRetry,
-    handleOpenChange,
-    handleLicensed,
-    handleLoadMore,
-    handleCollapseChange,
-  };
 
   // Bind the outbound DOM events once the element exists. Listeners are
   // bound a single time and cleaned up on unmount; they dispatch through the
@@ -564,8 +552,8 @@ export function CopilotThreadsDrawer({
       el.removeEventListener("collapse-change", onCollapseChangeEvent);
     };
     // Re-bind only after the first client mount (deps: [mounted]); the element
-    // ref is stable thereafter.
-  }, [mounted]);
+    // ref and handlersRef are stable thereafter.
+  }, [mounted, handlersRef]);
 
   // Assign object/array/boolean PROPERTIES imperatively. React would otherwise
   // set these as string attributes, which a custom element cannot accept for

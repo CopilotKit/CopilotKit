@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useInsertionEffect, useRef } from "react";
 
 /**
  * Deps comparison shared by `useFrontendTool` (and through it
@@ -83,12 +83,21 @@ export function depsEqual(
  * deps change, by the rules of {@link depsEqual}. Put the number, not the
  * array, in the registration effect's dependency list: that keeps the list a
  * constant length and never serializes a value.
+ *
+ * Deps are compared with the last COMMITTED render's. The ref is written in an
+ * insertion effect rather than during render, so a render React discards can't
+ * move the baseline and make the next commit re-register for nothing.
  */
 export function useDepsVersion(deps?: ReadonlyArray<unknown>): number {
   const next = deps ?? EMPTY_DEPS;
-  const ref = useRef({ deps: next, version: 0 });
-  if (ref.current.deps !== next && !depsEqual(ref.current.deps, next)) {
-    ref.current = { deps: next, version: ref.current.version + 1 };
-  }
-  return ref.current.version;
+  const committedRef = useRef({ deps: next, version: 0 });
+  const committed = committedRef.current;
+  const current =
+    committed.deps === next || depsEqual(committed.deps, next)
+      ? committed
+      : { deps: next, version: committed.version + 1 };
+  useInsertionEffect(() => {
+    committedRef.current = current;
+  });
+  return current.version;
 }

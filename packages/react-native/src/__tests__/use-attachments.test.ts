@@ -255,6 +255,52 @@ describe("useAttachments (React Native)", () => {
         mimeType: "image/jpeg",
       });
     });
+
+    it("keeps processFiles stable and uses the latest config after a re-render", async () => {
+      const firstOnUploadFailed = vi.fn();
+      const latestOnUploadFailed = vi.fn();
+
+      const { result, rerender } = renderHook(
+        ({ config }) => useAttachments({ config }),
+        {
+          initialProps: {
+            config: {
+              enabled: true,
+              maxSize: 5000,
+              onUploadFailed: firstOnUploadFailed,
+            },
+          },
+        },
+      );
+      const initialProcessFiles = result.current.processFiles;
+
+      rerender({
+        config: {
+          enabled: true,
+          maxSize: 500,
+          onUploadFailed: latestOnUploadFailed,
+        },
+      });
+
+      expect(result.current.processFiles).toBe(initialProcessFiles);
+
+      const file: NativeFileInput = {
+        uri: "file:///tmp/medium.jpg",
+        name: "medium.jpg",
+        size: 1000,
+        mimeType: "image/jpeg",
+      };
+
+      await act(async () => {
+        await result.current.processFiles([file]);
+      });
+
+      expect(result.current.attachments).toHaveLength(0);
+      expect(firstOnUploadFailed).not.toHaveBeenCalled();
+      expect(latestOnUploadFailed).toHaveBeenCalledWith(
+        expect.objectContaining({ reason: "file-too-large" }),
+      );
+    });
   });
 
   // ── removeAttachment ──────────────────────────────────────────────────

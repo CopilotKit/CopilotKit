@@ -388,6 +388,30 @@ describe("useInterrupt", () => {
     expect(screen.queryByTestId("interrupt")).toBeNull();
   });
 
+  it("resolve called while rendering the interrupt (auto-approve) resumes the agent once", () => {
+    render(
+      <ManualHarness
+        render={({ event, resolve }) => {
+          resolve({ approved: true, value: event.value });
+          return <span data-testid="auto-approved">{String(event.value)}</span>;
+        }}
+      />,
+    );
+
+    emitInterrupt("auto");
+
+    expect(runAgentMock).toHaveBeenCalledTimes(1);
+    expect(runAgentMock).toHaveBeenCalledWith({
+      agent: mockAgent,
+      forwardedProps: {
+        command: {
+          resume: { approved: true, value: "auto" },
+          interruptEvent: "auto",
+        },
+      },
+    });
+  });
+
   it("resolve resumes agent with response payload and keeps card mounted until run starts", () => {
     // The card MUST stay mounted across resolve() so the resume-run's first
     // tokens stream into the interrupt UI; onRunStartedEvent (fired by the
@@ -786,6 +810,34 @@ describe("useInterrupt", () => {
     expect(screen.queryByTestId("interrupt")).toBeNull();
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
+  });
+
+  it("builds the element with the render and enabled callbacks from the same render", () => {
+    // The element memo runs during render, so it must call this render's
+    // `render`/`enabled`, not the ones from the previous commit.
+    let setLabel!: (label: string) => void;
+    function LabelHarness() {
+      const [label, set] = React.useState("blocked");
+      setLabel = set;
+      const element = useInterrupt({
+        renderInChat: false,
+        enabled: () => label !== "blocked",
+        render: () => <span data-testid="interrupt-label">{label}</span>,
+      });
+      return <div>{element}</div>;
+    }
+
+    render(<LabelHarness />);
+
+    act(() => {
+      setLabel("open");
+      handlers.onCustomEvent?.({
+        event: { name: "on_interrupt", value: "same-render" },
+      });
+      finalizeRun();
+    });
+
+    expect(screen.getByTestId("interrupt-label").textContent).toBe("open");
   });
 
   // RESUME-PATH regression: `resolve()` MUST return a Promise that settles

@@ -173,9 +173,18 @@ export function CopilotChatInput({
   const resolvedValue = isControlled ? (value ?? "") : internalValue;
 
   const [layout, setLayout] = useState<"compact" | "expanded">("compact");
+  // The most recently requested layout, including a `setLayout` React hasn't
+  // rendered yet. `updateLayout` compares against it so the `setLayout` call
+  // stays a plain value and has no side effect inside an updater.
+  const requestedLayoutRef = useRef<"compact" | "expanded">("compact");
   const ignoreResizeRef = useRef(false);
   const resizeEvaluationRafRef = useRef<number | null>(null);
-  const isExpanded = mode === "input" && layout === "expanded";
+  // With a `children` render prop the caller owns the layout, so the default
+  // grid (and its measurement/resize effects below) isn't rendered and the
+  // layout stays compact.
+  const hasCustomLayout = Boolean(children);
+  const isExpanded =
+    !hasCustomLayout && mode === "input" && layout === "expanded";
   const [commandQuery, setCommandQuery] = useState<string | null>(null);
   const [slashHighlightIndex, setSlashHighlightIndex] = useState(0);
 
@@ -186,6 +195,10 @@ export function CopilotChatInput({
   const audioRecorderRef =
     useRef<React.ElementRef<typeof CopilotChatAudioRecorder>>(null);
   const slashMenuRef = useRef<HTMLDivElement>(null);
+  // Track whether an IME composition is active so we can avoid
+  // resetting textarea.value during measurement (which would break
+  // the composition session).
+  const isComposingRef = useRef(false);
   const config = useCopilotChatConfiguration();
   const labels = config?.labels ?? CopilotChatDefaultLabels;
 
@@ -339,6 +352,7 @@ export function CopilotChatInput({
 
   useEffect(() => {
     if (mode !== "input") {
+      requestedLayoutRef.current = "compact";
       setLayout("compact");
       setCommandQuery(null);
     }
@@ -614,39 +628,6 @@ export function CopilotChatInput({
   // Determine whether to show disclaimer based on prop or positioning default
   const shouldShowDisclaimer = showDisclaimer ?? positioning === "absolute";
 
-  if (children) {
-    const childProps = {
-      textArea: BoundTextArea,
-      audioRecorder: BoundAudioRecorder,
-      sendButton: BoundSendButton,
-      startTranscribeButton: BoundStartTranscribeButton,
-      cancelTranscribeButton: BoundCancelTranscribeButton,
-      finishTranscribeButton: BoundFinishTranscribeButton,
-      addMenuButton: BoundAddMenuButton,
-      disclaimer: BoundDisclaimer,
-      onSubmitMessage,
-      onStop,
-      isRunning,
-      onStartTranscribe,
-      onCancelTranscribe,
-      onFinishTranscribe,
-      onAddFile,
-      mode,
-      toolsMenu,
-      autoFocus,
-      positioning,
-      keyboardHeight,
-      showDisclaimer: shouldShowDisclaimer,
-      containerRef,
-    } as CopilotChatInputChildrenArgs;
-
-    return (
-      <div data-copilotkit style={{ display: "contents" }}>
-        {children(childProps)}
-      </div>
-    );
-  }
-
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // Don't focus if clicking on buttons or other interactive elements
     const target = e.target as HTMLElement;
@@ -659,11 +640,6 @@ export function CopilotChatInput({
       inputRef.current.focus();
     }
   };
-
-  // Track whether an IME composition is active so we can avoid
-  // resetting textarea.value during measurement (which would break
-  // the composition session).
-  const isComposingRef = useRef(false);
 
   const ensureMeasurements = useCallback(() => {
     const textarea = inputRef.current;
@@ -727,13 +703,12 @@ export function CopilotChatInput({
   }, [ensureMeasurements]);
 
   const updateLayout = useCallback((nextLayout: "compact" | "expanded") => {
-    setLayout((prev) => {
-      if (prev === nextLayout) {
-        return prev;
-      }
-      ignoreResizeRef.current = true;
-      return nextLayout;
-    });
+    if (requestedLayoutRef.current === nextLayout) {
+      return;
+    }
+    requestedLayoutRef.current = nextLayout;
+    ignoreResizeRef.current = true;
+    setLayout(nextLayout);
   }, []);
 
   const updateContainerCache = useCallback((): {
@@ -887,11 +862,14 @@ export function CopilotChatInput({
   ]);
 
   useLayoutEffect(() => {
+    if (hasCustomLayout) {
+      return;
+    }
     evaluateLayout();
-  }, [evaluateLayout]);
+  }, [evaluateLayout, hasCustomLayout]);
 
   useEffect(() => {
-    if (typeof ResizeObserver === "undefined") {
+    if (hasCustomLayout || typeof ResizeObserver === "undefined") {
       return;
     }
 
@@ -967,7 +945,7 @@ export function CopilotChatInput({
         resizeEvaluationRafRef.current = null;
       }
     };
-  }, [evaluateLayout]);
+  }, [evaluateLayout, hasCustomLayout]);
 
   const slashMenuVisible = commandQuery !== null && commandItems.length > 0;
 
@@ -981,6 +959,41 @@ export function CopilotChatInput({
     );
     active?.scrollIntoView({ block: "nearest" });
   }, [slashMenuVisible, slashHighlightIndex]);
+
+  // Every hook above runs in both modes so toggling `children` between
+  // renders keeps the hook order stable.
+  if (children) {
+    const childProps = {
+      textArea: BoundTextArea,
+      audioRecorder: BoundAudioRecorder,
+      sendButton: BoundSendButton,
+      startTranscribeButton: BoundStartTranscribeButton,
+      cancelTranscribeButton: BoundCancelTranscribeButton,
+      finishTranscribeButton: BoundFinishTranscribeButton,
+      addMenuButton: BoundAddMenuButton,
+      disclaimer: BoundDisclaimer,
+      onSubmitMessage,
+      onStop,
+      isRunning,
+      onStartTranscribe,
+      onCancelTranscribe,
+      onFinishTranscribe,
+      onAddFile,
+      mode,
+      toolsMenu,
+      autoFocus,
+      positioning,
+      keyboardHeight,
+      showDisclaimer: shouldShowDisclaimer,
+      containerRef,
+    } as CopilotChatInputChildrenArgs;
+
+    return (
+      <div data-copilotkit style={{ display: "contents" }}>
+        {children(childProps)}
+      </div>
+    );
+  }
 
   const slashMenu = slashMenuVisible ? (
     <div

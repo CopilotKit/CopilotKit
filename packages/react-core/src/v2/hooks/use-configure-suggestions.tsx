@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
+import { useLatestRef } from "../lib/use-latest-ref";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import type {
   DynamicSuggestionsConfig,
@@ -42,23 +43,13 @@ export function useConfigureSuggestions(
     [config],
   );
 
-  const normalizationCacheRef = useRef<{
-    serialized: string | null;
-    config: SuggestionsConfig | null;
-  }>({
-    serialized: null,
-    config: null,
-  });
-
-  const { normalizedConfig, serializedConfig } = useMemo(() => {
+  const { builtConfig, serializedConfig } = useMemo(() => {
     if (!config) {
-      normalizationCacheRef.current = { serialized: null, config: null };
-      return { normalizedConfig: null, serializedConfig: null };
+      return { builtConfig: null, serializedConfig: null };
     }
 
     if (config.available === "disabled") {
-      normalizationCacheRef.current = { serialized: null, config: null };
-      return { normalizedConfig: null, serializedConfig: null };
+      return { builtConfig: null, serializedConfig: null };
     }
 
     let built: SuggestionsConfig;
@@ -77,17 +68,16 @@ export function useConfigureSuggestions(
       built = baseConfig;
     }
 
-    const serialized = JSON.stringify(built);
-    const cache = normalizationCacheRef.current;
-    if (cache.serialized === serialized && cache.config) {
-      return { normalizedConfig: cache.config, serializedConfig: serialized };
-    }
-
-    normalizationCacheRef.current = { serialized, config: built };
-    return { normalizedConfig: built, serializedConfig: serialized };
+    return { builtConfig: built, serializedConfig: JSON.stringify(built) };
   }, [config, resolvedConsumerAgentId, ...extraDeps]);
-  const latestConfigRef = useRef<SuggestionsConfig | null>(null);
-  latestConfigRef.current = normalizedConfig;
+
+  // Keep the config object from the first render that produced this content,
+  // so a fresh inline config with the same content keeps the same identity
+  // (and the memos, callback and effects below don't re-run). Keyed on the
+  // serialized content; `null` (no config, or disabled) resets it.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const normalizedConfig = useMemo(() => builtConfig, [serializedConfig]);
+  const latestConfigRef = useLatestRef(normalizedConfig);
   const previousSerializedConfigRef = useRef<string | null>(null);
 
   const targetAgentId = useMemo(() => {
@@ -159,7 +149,7 @@ export function useConfigureSuggestions(
     return () => {
       copilotkit.removeSuggestionsConfig(id);
     };
-  }, [copilotkit, serializedConfig, requestReload]);
+  }, [copilotkit, serializedConfig, requestReload, latestConfigRef]);
 
   useEffect(() => {
     if (!normalizedConfig) {

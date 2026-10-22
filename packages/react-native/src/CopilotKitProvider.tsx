@@ -132,11 +132,15 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     [JSON.stringify(properties)],
   );
 
-  const copilotkitRef = useRef<CopilotKitCoreReactInstance | null>(null);
-
-  if (copilotkitRef.current === null) {
+  // Stable instance: created once for the provider lifetime. In React 19
+  // StrictMode (dev only) the initializer runs twice and one instance is
+  // discarded; `deferInitialConnection` keeps the discarded one (and any render
+  // React throws away) from fetching `/info`. `connect()` in the sync effect
+  // below starts the single request. Same approach as the web provider (#5801).
+  const [copilotkit] = useState<CopilotKitCoreReactInstance>(() => {
     const instance: CopilotKitCoreReactInstance = new CopilotKitCoreReact({
       runtimeUrl,
+      deferInitialConnection: true,
       runtimeTransport:
         useSingleEndpoint === true
           ? "single"
@@ -154,10 +158,8 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     if (defaultThrottleMs !== undefined) {
       instance.setDefaultThrottleMs(defaultThrottleMs);
     }
-    copilotkitRef.current = instance;
-  }
-
-  const copilotkit = copilotkitRef.current;
+    return instance;
+  });
 
   // Sync props to core instance
   useEffect(() => {
@@ -174,6 +176,10 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     copilotkit.setMessageFilter(messageFilter);
     copilotkit.setProperties(stableProperties);
     copilotkit.setDebug(debug);
+    // Start the runtime `/info` connection now that we're in the commit phase.
+    // `connect()` is idempotent, so StrictMode's double-invoked effect and
+    // re-runs on prop changes collapse to a single request.
+    copilotkit.connect();
   }, [
     runtimeUrl,
     useSingleEndpoint,

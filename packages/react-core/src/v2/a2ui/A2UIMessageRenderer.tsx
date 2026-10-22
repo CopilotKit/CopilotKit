@@ -1,6 +1,13 @@
 import { useCopilotKit } from "../providers";
 import type { ReactActivityMessageRenderer } from "../types/react-activity-message-renderer";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useInsertionEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { z } from "zod";
 import {
   A2UIProvider,
@@ -20,7 +27,11 @@ import {
   A2UIRecoveryFailure,
   resolveDebugExposure,
 } from "./A2UIRecoveryStates";
-import type { A2UIRecoveryRendererOptions } from "./A2UIRecoveryStates";
+import type {
+  A2UIRecoveryRendererOptions,
+  DebugExposure,
+} from "./A2UIRecoveryStates";
+import { useLatestRef } from "../lib/use-latest-ref";
 
 /**
  * The container key used to wrap A2UI operations for explicit detection.
@@ -251,175 +262,215 @@ export function createA2UIMessageRenderer(
   return {
     activityType: "a2ui-surface",
     content: A2UISurfaceContentSchema,
-    render: ({ content, agent }) => {
-      ensureInitialized();
-
-      const [operations, setOperations] = useState<any[]>([]);
-      const { copilotkit } = useCopilotKit();
-
-      const lastContentRef = useRef<unknown>(null);
-      useEffect(() => {
-        // Skip if same content reference
-        if (content === lastContentRef.current) return;
-        lastContentRef.current = content;
-
-        const incoming = content?.[A2UI_OPERATIONS_KEY];
-        if (!content || !Array.isArray(incoming)) {
-          setOperations([]);
-          return;
-        }
-
-        setOperations(incoming);
-      }, [content]);
-
-      // Group operations by surface ID
-      const groupedOperations = useMemo(() => {
-        const groups = new Map<string, any[]>();
-
-        for (const operation of operations) {
-          const surfaceId =
-            getOperationSurfaceId(operation) ?? DEFAULT_SURFACE_ID;
-
-          if (!groups.has(surfaceId)) {
-            groups.set(surfaceId, []);
-          }
-          groups.get(surfaceId)!.push(operation);
-        }
-
-        return groups;
-      }, [operations]);
-
-      const hasOps = groupedOperations.size > 0;
-
-      // Read by the paint-fallback timer below, whose effect deliberately does
-      // not depend on the grouping (see there). Assigned during render, like
-      // `lastLoaderContentRef` further down.
-      const groupedOperationsRef = useRef(groupedOperations);
-      groupedOperationsRef.current = groupedOperations;
-
-      // Renders the pre-paint lifecycle state for a given content snapshot.
-      const renderLifecycle = (c: any) => {
-        const status = c?.status;
-        const debugExposure = resolveDebugExposure(c, optionDebugExposure);
-        if (status === "failed") {
-          return (
-            <A2UIRecoveryFailure content={c} debugExposure={debugExposure} />
-          );
-        }
-        if (status === "retrying") {
-          return (
-            <A2UIRetryingState
-              content={c}
-              showAfterMs={showAfterMs}
-              showAfterAttempts={showAfterAttempts}
-              debugExposure={debugExposure}
-            />
-          );
-        }
-        // "building" / default: a host-supplied loader wins; else the skeleton.
-        if (loadingComponent) {
-          const LoadingComponent = loadingComponent;
-          return <LoadingComponent />;
-        }
-        return <A2UIBuildingState content={c} />;
-      };
-
-      // Remember the last pre-paint snapshot so the hand-off below keeps showing
-      // exactly what was on screen (building skeleton w/ its count, or the retry
-      // status) instead of flickering to a generic one.
-      const lastLoaderContentRef = useRef<any>(null);
-      // Track from the CONTENT (not the lagging operations state) so a paint
-      // snapshot never clobbers the last genuine pre-paint snapshot.
-      const contentHasOps =
-        Array.isArray(content?.[A2UI_OPERATIONS_KEY]) &&
-        content[A2UI_OPERATIONS_KEY].length > 0;
-      if (!contentHasOps) lastLoaderContentRef.current = content;
-
-      // Cross-over: hold the loader in-flow while the surface mounts + paints
-      // OFFSCREEN, then swap the instant the surface reports its first painted
-      // content (onReady). That makes the card REPLACE the skeleton with no gap,
-      // independent of stream latency / payload size / machine speed — a fixed
-      // delay can't, since the "right" delay varies with all of those. The timer
-      // below is only a safety fallback if onReady never fires. (OSS-162)
-      const [surfaceReady, setSurfaceReady] = useState(false);
-      const readyRef = useRef(false);
-      const markSurfaceReady = useCallback(() => {
-        if (readyRef.current) return;
-        readyRef.current = true;
-        // One frame so the painted surface is on-screen before the loader drops.
-        requestAnimationFrame(() => setSurfaceReady(true));
-      }, []);
-      useEffect(() => {
-        if (!hasOps) {
-          setSurfaceReady(false);
-          readyRef.current = false;
-          return;
-        }
-        const t = setTimeout(() => {
-          setSurfaceReady(true); // fallback only
-          // Reaching the fallback means `onReady` never fired. The timer is not
-          // cleared when a surface does paint, so `readyRef` is what separates a
-          // late tick after a healthy paint from a surface that never painted.
-          if (IS_DEVELOPMENT && !readyRef.current) {
-            warnAboutUnpaintedSurfaces(groupedOperationsRef.current);
-          }
-        }, PAINT_FALLBACK_MS);
-        return () => clearTimeout(t);
-      }, [hasOps]);
-
-      if (!hasOps) {
-        // No painted surface yet → render the pre-paint lifecycle state. These
-        // share this activity's messageId, so the painted surface below replaces
-        // them in place once operations arrive.
-        return renderLifecycle(content);
-      }
-
-      const surfaces = (
-        <div className="cpk:flex cpk:min-h-0 cpk:flex-1 cpk:flex-col cpk:gap-6 cpk:overflow-auto cpk:py-6">
-          {Array.from(groupedOperations.entries()).map(([surfaceId, ops]) => (
-            <ReactSurfaceHost
-              key={surfaceId}
-              surfaceId={surfaceId}
-              operations={ops}
-              theme={theme}
-              agent={agent}
-              copilotkit={copilotkit}
-              catalog={catalog}
-              onAction={onAction}
-              onReady={markSurfaceReady}
-            />
-          ))}
-        </div>
-      );
-
-      // Stable tree: ReactSurfaceHost stays MOUNTED in the same position across
-      // the hold→ready swap (only its wrapper styling toggles), so the surface
-      // painted OFFSCREEN during the hold is preserved — not remounted, which
-      // would reintroduce the very gap we're closing. The loader sits on top
-      // until ready, then is removed and the surface drops into normal flow.
-      return (
-        <div style={{ position: "relative" }}>
-          <div
-            aria-hidden={!surfaceReady}
-            style={
-              surfaceReady
-                ? undefined
-                : {
-                    position: "absolute",
-                    inset: 0,
-                    opacity: 0,
-                    pointerEvents: "none",
-                  }
-            }
-          >
-            {surfaces}
-          </div>
-          {!surfaceReady &&
-            renderLifecycle(lastLoaderContentRef.current ?? content)}
-        </div>
-      );
-    },
+    render: (props) => (
+      <A2UISurfaceActivity
+        {...props}
+        theme={theme}
+        catalog={catalog}
+        loadingComponent={loadingComponent}
+        onAction={onAction}
+        showAfterMs={showAfterMs}
+        showAfterAttempts={showAfterAttempts}
+        optionDebugExposure={optionDebugExposure}
+      />
+    ),
   };
+}
+
+type A2UISurfaceActivityProps = {
+  content: any;
+  agent: any;
+  theme: Theme;
+  catalog?: any;
+  loadingComponent?: React.ComponentType;
+  onAction?: A2UIActionInterceptor;
+  showAfterMs: number;
+  showAfterAttempts: number;
+  optionDebugExposure: DebugExposure;
+};
+
+/**
+ * Renders one `a2ui-surface` activity: the pre-paint lifecycle state, then the
+ * painted surfaces. The options from {@link createA2UIMessageRenderer} arrive
+ * as props, already resolved.
+ */
+function A2UISurfaceActivity({
+  content,
+  agent,
+  theme,
+  catalog,
+  loadingComponent,
+  onAction,
+  showAfterMs,
+  showAfterAttempts,
+  optionDebugExposure,
+}: A2UISurfaceActivityProps) {
+  ensureInitialized();
+
+  const [operations, setOperations] = useState<any[]>([]);
+  const { copilotkit } = useCopilotKit();
+
+  const lastContentRef = useRef<unknown>(null);
+  useEffect(() => {
+    // Skip if same content reference
+    if (content === lastContentRef.current) return;
+    lastContentRef.current = content;
+
+    const incoming = content?.[A2UI_OPERATIONS_KEY];
+    if (!content || !Array.isArray(incoming)) {
+      setOperations([]);
+      return;
+    }
+
+    setOperations(incoming);
+  }, [content]);
+
+  // Group operations by surface ID
+  const groupedOperations = useMemo(() => {
+    const groups = new Map<string, any[]>();
+
+    for (const operation of operations) {
+      const surfaceId = getOperationSurfaceId(operation) ?? DEFAULT_SURFACE_ID;
+
+      if (!groups.has(surfaceId)) {
+        groups.set(surfaceId, []);
+      }
+      groups.get(surfaceId)!.push(operation);
+    }
+
+    return groups;
+  }, [operations]);
+
+  const hasOps = groupedOperations.size > 0;
+
+  // Read by the paint-fallback timer below, whose effect deliberately does
+  // not depend on the grouping (see there).
+  const groupedOperationsRef = useLatestRef(groupedOperations);
+
+  // Renders the pre-paint lifecycle state for a given content snapshot.
+  const renderLifecycle = (c: any) => {
+    const status = c?.status;
+    const debugExposure = resolveDebugExposure(c, optionDebugExposure);
+    if (status === "failed") {
+      return <A2UIRecoveryFailure content={c} debugExposure={debugExposure} />;
+    }
+    if (status === "retrying") {
+      return (
+        <A2UIRetryingState
+          content={c}
+          showAfterMs={showAfterMs}
+          showAfterAttempts={showAfterAttempts}
+          debugExposure={debugExposure}
+        />
+      );
+    }
+    // "building" / default: a host-supplied loader wins; else the skeleton.
+    if (loadingComponent) {
+      const LoadingComponent = loadingComponent;
+      return <LoadingComponent />;
+    }
+    return <A2UIBuildingState content={c} />;
+  };
+
+  // Remember the last pre-paint snapshot so the hand-off below keeps showing
+  // exactly what was on screen (building skeleton w/ its count, or the retry
+  // status) instead of flickering to a generic one.
+  const lastLoaderContentRef = useRef<any>(null);
+  // Track from the CONTENT (not the lagging operations state) so a paint
+  // snapshot never clobbers the last genuine pre-paint snapshot.
+  const contentHasOps =
+    Array.isArray(content?.[A2UI_OPERATIONS_KEY]) &&
+    content[A2UI_OPERATIONS_KEY].length > 0;
+  // This render's pre-paint snapshot: the content itself while it carries no
+  // operations, else the last committed one. Recorded on commit, so a render
+  // React discards cannot replace what the hand-off shows.
+  const loaderContent = contentHasOps ? lastLoaderContentRef.current : content;
+  useInsertionEffect(() => {
+    lastLoaderContentRef.current = loaderContent;
+  });
+
+  // Cross-over: hold the loader in-flow while the surface mounts + paints
+  // OFFSCREEN, then swap the instant the surface reports its first painted
+  // content (onReady). That makes the card REPLACE the skeleton with no gap,
+  // independent of stream latency / payload size / machine speed — a fixed
+  // delay can't, since the "right" delay varies with all of those. The timer
+  // below is only a safety fallback if onReady never fires. (OSS-162)
+  const [surfaceReady, setSurfaceReady] = useState(false);
+  const readyRef = useRef(false);
+  const markSurfaceReady = useCallback(() => {
+    if (readyRef.current) return;
+    readyRef.current = true;
+    // One frame so the painted surface is on-screen before the loader drops.
+    requestAnimationFrame(() => setSurfaceReady(true));
+  }, []);
+  useEffect(() => {
+    if (!hasOps) {
+      setSurfaceReady(false);
+      readyRef.current = false;
+      return;
+    }
+    const t = setTimeout(() => {
+      setSurfaceReady(true); // fallback only
+      // Reaching the fallback means `onReady` never fired. The timer is not
+      // cleared when a surface does paint, so `readyRef` is what separates a
+      // late tick after a healthy paint from a surface that never painted.
+      if (IS_DEVELOPMENT && !readyRef.current) {
+        warnAboutUnpaintedSurfaces(groupedOperationsRef.current);
+      }
+    }, PAINT_FALLBACK_MS);
+    return () => clearTimeout(t);
+  }, [hasOps, groupedOperationsRef]);
+
+  if (!hasOps) {
+    // No painted surface yet → render the pre-paint lifecycle state. These
+    // share this activity's messageId, so the painted surface below replaces
+    // them in place once operations arrive.
+    return renderLifecycle(content);
+  }
+
+  const surfaces = (
+    <div className="cpk:flex cpk:min-h-0 cpk:flex-1 cpk:flex-col cpk:gap-6 cpk:overflow-auto cpk:py-6">
+      {Array.from(groupedOperations.entries()).map(([surfaceId, ops]) => (
+        <ReactSurfaceHost
+          key={surfaceId}
+          surfaceId={surfaceId}
+          operations={ops}
+          theme={theme}
+          agent={agent}
+          copilotkit={copilotkit}
+          catalog={catalog}
+          onAction={onAction}
+          onReady={markSurfaceReady}
+        />
+      ))}
+    </div>
+  );
+
+  // Stable tree: ReactSurfaceHost stays MOUNTED in the same position across
+  // the hold→ready swap (only its wrapper styling toggles), so the surface
+  // painted OFFSCREEN during the hold is preserved — not remounted, which
+  // would reintroduce the very gap we're closing. The loader sits on top
+  // until ready, then is removed and the surface drops into normal flow.
+  return (
+    <div style={{ position: "relative" }}>
+      <div
+        aria-hidden={!surfaceReady}
+        style={
+          surfaceReady
+            ? undefined
+            : {
+                position: "absolute",
+                inset: 0,
+                opacity: 0,
+                pointerEvents: "none",
+              }
+        }
+      >
+        {surfaces}
+      </div>
+      {!surfaceReady && renderLifecycle(loaderContent ?? content)}
+    </div>
+  );
 }
 
 type ReactSurfaceHostProps = {

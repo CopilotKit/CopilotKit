@@ -41,6 +41,7 @@ import { InlineFeatureWarning } from "../../components/license-warning-banner";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { SlotValue } from "../../lib/slots";
 import { renderSlot, useShallowStableRef } from "../../lib/slots";
+import { useLatestRef } from "../../lib/use-latest-ref";
 import {
   transcribeAudio,
   TranscriptionError,
@@ -374,8 +375,7 @@ export function CopilotChat({
 
   // Latest explicitness, readable from an async connect that may resolve after
   // the user has already switched threads (see the stale-connect guard below).
-  const hasExplicitThreadIdRef = useRef(hasExplicitThreadId);
-  hasExplicitThreadIdRef.current = hasExplicitThreadId;
+  const hasExplicitThreadIdRef = useLatestRef(hasExplicitThreadId);
 
   const rememberRecentlyLocalRunId = useCallback((runId: string) => {
     const existingTimeout = recentlyLocalRunIdsRef.current.get(runId);

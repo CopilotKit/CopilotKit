@@ -14,6 +14,7 @@ import { CopilotKitContext, useDefaultAgentId } from "../context";
 // Import from the tailwind-free leaf module (not ../lib/slots, which pulls
 // tailwind-merge) so this provider stays lean in the headless entry (issue #4893).
 import { useShallowStableRef } from "../lib/shallow-stable-ref";
+import { useLatestRef } from "../lib/use-latest-ref";
 
 // Default labels
 export const CopilotChatDefaultLabels = {
@@ -273,8 +274,7 @@ export const CopilotChatConfigurationProvider: React.FC<
   // CopilotKitProvider, and then there is nothing to register with.
   const copilotkit = useContext(CopilotKitContext)?.copilotkit;
   const openThreadRef = useRef<OpenThreadRegistration | null>(null);
-  const latestThreadIdRef = useRef(resolvedThreadId);
-  latestThreadIdRef.current = resolvedThreadId;
+  const latestThreadIdRef = useLatestRef(resolvedThreadId);
   useEffect(() => {
     if (copilotkit === undefined) return;
     const registration = copilotkit.registerOpenThread({
@@ -286,7 +286,7 @@ export const CopilotChatConfigurationProvider: React.FC<
       registration.unregister();
       openThreadRef.current = null;
     };
-  }, [copilotkit, resolvedAgentId]);
+  }, [copilotkit, resolvedAgentId, latestThreadIdRef]);
   useEffect(() => {
     openThreadRef.current?.update(resolvedThreadId);
   }, [resolvedThreadId]);
@@ -357,12 +357,12 @@ export const CopilotChatConfigurationProvider: React.FC<
   // The modal-close path used by the drawer's mobile mutual-exclusion. Held in
   // a ref so the drawer setter (owned by the top-most provider) can reach the
   // resolved modal setter without recreating its identity on every render.
-  const modalCloseRef = useRef<(open: boolean) => void>(() => {});
   // Default to this provider's own resolved modal setter. When a DESCENDANT
   // provider owns the rendered modal (it supplied `isModalDefaultOpen`), it
   // registers its closer via `ɵregisterModalCloser` below, which overrides this
   // so the drawer closes the modal that is actually on screen.
-  modalCloseRef.current = resolvedSetModalOpen;
+  const modalCloseRef =
+    useLatestRef<(open: boolean) => void>(resolvedSetModalOpen);
 
   // Stack of descendant-registered modal closers. The most recently registered
   // closer (the deepest/last-rendered modal owner) is preferred, mirroring how
@@ -382,20 +382,23 @@ export const CopilotChatConfigurationProvider: React.FC<
     [],
   );
 
-  const ownSetDrawerOpen = useCallback((open: boolean) => {
-    setOwnDrawerOpen(open);
-    // Mobile mutual-exclusion: opening the drawer closes the chat modal. Prefer
-    // a descendant-registered closer (the actually-rendered modal) over this
-    // provider's own resolved modal setter.
-    if (open && isMobileViewport()) {
-      const registered = registeredModalClosersRef.current;
-      const closeModal =
-        registered.length > 0
-          ? registered[registered.length - 1]
-          : modalCloseRef.current;
-      closeModal(false);
-    }
-  }, []);
+  const ownSetDrawerOpen = useCallback(
+    (open: boolean) => {
+      setOwnDrawerOpen(open);
+      // Mobile mutual-exclusion: opening the drawer closes the chat modal. Prefer
+      // a descendant-registered closer (the actually-rendered modal) over this
+      // provider's own resolved modal setter.
+      if (open && isMobileViewport()) {
+        const registered = registeredModalClosersRef.current;
+        const closeModal =
+          registered.length > 0
+            ? registered[registered.length - 1]
+            : modalCloseRef.current;
+        closeModal(false);
+      }
+    },
+    [modalCloseRef],
+  );
 
   const ownRegisterDrawer = useCallback(() => {
     setOwnDrawerCount((count) => count + 1);
@@ -442,8 +445,7 @@ export const CopilotChatConfigurationProvider: React.FC<
   // uncontrolled top-most provider with a controlled nested provider. Guarding
   // only the owner would let the set silently no-op (the nested `threadId` prop
   // wins at render) while the documented warning never fired.
-  const isThreadIdControlledRef = useRef(isThreadIdControlled);
-  isThreadIdControlledRef.current = isThreadIdControlled;
+  const isThreadIdControlledRef = useLatestRef(isThreadIdControlled);
 
   const ownSetActiveThreadId = useCallback(
     (id: string, options?: { explicit?: boolean }) => {
@@ -480,7 +482,7 @@ export const CopilotChatConfigurationProvider: React.FC<
       }
       ownSetActiveThreadId(id, options);
     },
-    [parentSetActiveThreadId, ownSetActiveThreadId],
+    [parentSetActiveThreadId, ownSetActiveThreadId, isThreadIdControlledRef],
   );
 
   const resolvedStartNewThread = useCallback(() => {
@@ -496,7 +498,7 @@ export const CopilotChatConfigurationProvider: React.FC<
       return;
     }
     ownStartNewThread();
-  }, [parentStartNewThread, ownStartNewThread]);
+  }, [parentStartNewThread, ownStartNewThread, isThreadIdControlledRef]);
 
   // Mobile mutual-exclusion (other direction): opening the chat modal closes
   // the drawer. Layered over whichever modal setter we resolved above so the

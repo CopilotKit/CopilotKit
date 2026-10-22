@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { AbstractAgent } from "@ag-ui/client";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useLatestRef } from "../lib/use-latest-ref";
 
 // The app<->host protocol (ext-apps AppBridge, sandbox proxy, request queue,
 // ui/message + open-link handlers, tool input/result) lives in the shared,
@@ -76,10 +77,9 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
 
     // Latest content/agent for the session's live getters (they must read the
     // current values on every proxied request, not the values at bind time).
-    const contentRef = useRef(content);
-    contentRef.current = content;
-    const agentRef = useRef(agent);
-    agentRef.current = agent;
+    // Only read after commit: by the session and by the effects below.
+    const contentRef = useLatestRef(content);
+    const agentRef = useLatestRef(agent);
 
     // Effect 1: create the sandbox iframe and bind the MCP session. Re-binds
     // only when the widget identity (resourceUri/serverHash/serverId) or the
@@ -223,7 +223,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     // so the agent-driven path never double-sends.
     useEffect(() => {
       sessionRef.current?.syncContent(contentRef.current);
-    }, [content.toolInput, content.result]);
+    }, [content.toolInput, content.result, contentRef]);
 
     // Determine border styling based on prefersBorder metadata from fetched resource
     // true = show border/background, false = none, undefined = host decides (we default to none)

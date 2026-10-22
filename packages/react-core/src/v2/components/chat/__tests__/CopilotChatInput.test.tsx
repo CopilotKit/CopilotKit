@@ -107,6 +107,37 @@ Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
   },
 });
 
+/** A custom layout for the `children` render prop. */
+const renderCustomLayout: NonNullable<
+  React.ComponentProps<typeof CopilotChatInput>["children"]
+> = ({ textArea, sendButton }) => (
+  <div data-testid="custom-layout">
+    {textArea}
+    {sendButton}
+  </div>
+);
+
+/**
+ * Markup with generated ids dropped and attributes sorted: a remount gets new
+ * Radix ids, and React keeps a reused element's original attribute order.
+ */
+const normalizedMarkup = (root: HTMLElement) => {
+  const clone = root.cloneNode(true) as HTMLElement;
+  for (const element of Array.from(clone.querySelectorAll("*"))) {
+    const attributes = Array.from(element.attributes)
+      .filter((attribute) => attribute.name !== "id")
+      .map((attribute) => [attribute.name, attribute.value] as const)
+      .sort(([a], [b]) => a.localeCompare(b));
+    for (const attribute of Array.from(element.attributes)) {
+      element.removeAttribute(attribute.name);
+    }
+    for (const [name, value] of attributes) {
+      element.setAttribute(name, value);
+    }
+  }
+  return clone.innerHTML;
+};
+
 // Clear mocks before each test
 beforeEach(() => {
   mockOnSubmitMessage.mockClear();
@@ -368,6 +399,67 @@ describe("CopilotChatInput", () => {
     const container = screen.getByTestId("custom-container");
     expect(container).toBeDefined();
     expect(ref.current).toBe(container);
+  });
+
+  it("toggles between the children render prop and the default layout without changing hook order", () => {
+    // A line break expands the default layout, so the toggle also covers
+    // leaving an expanded default layout.
+    const renderInput = (withChildren: boolean) => (
+      <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>
+        <CopilotChatInput value={"hello\nworld"} onChange={vi.fn()}>
+          {withChildren ? renderCustomLayout : undefined}
+        </CopilotChatInput>
+      </CopilotChatConfigurationProvider>
+    );
+    // Markup of a fresh mount in each mode, to compare the toggled renders
+    // against.
+    const freshDefault = render(renderInput(false));
+    const defaultMarkup = normalizedMarkup(freshDefault.container);
+    freshDefault.unmount();
+    const freshCustom = render(renderInput(true));
+    const customMarkup = normalizedMarkup(freshCustom.container);
+    freshCustom.unmount();
+
+    const { container, rerender } = render(renderInput(false));
+    expect(
+      screen.getByTestId("copilot-chat-input").getAttribute("data-layout"),
+    ).toBe("expanded");
+
+    rerender(renderInput(true));
+    expect(screen.queryByTestId("copilot-chat-input")).toBeNull();
+    expect(normalizedMarkup(container)).toBe(customMarkup);
+
+    rerender(renderInput(false));
+    expect(screen.queryByTestId("custom-layout")).toBeNull();
+    expect(normalizedMarkup(container)).toBe(defaultMarkup);
+
+    rerender(renderInput(true));
+    expect(normalizedMarkup(container)).toBe(customMarkup);
+  });
+
+  it("tracks IME composition on the text area passed to the children render prop", () => {
+    renderWithProvider(
+      <CopilotChatInput value="" onChange={vi.fn()}>
+        {({ textArea }) => <div>{textArea}</div>}
+      </CopilotChatInput>,
+    );
+
+    // React reports errors thrown by event handlers to window "error"
+    // listeners instead of rethrowing them from fireEvent.
+    const errors: unknown[] = [];
+    const onError = (event: ErrorEvent) => {
+      errors.push(event.error);
+      event.preventDefault();
+    };
+    window.addEventListener("error", onError);
+    try {
+      const textarea = screen.getByRole("textbox");
+      fireEvent.compositionStart(textarea);
+      fireEvent.compositionEnd(textarea);
+    } finally {
+      window.removeEventListener("error", onError);
+    }
+    expect(errors).toEqual([]);
   });
 
   it("updates its internal layout data attribute when content expands", async () => {

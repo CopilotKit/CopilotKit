@@ -17,6 +17,7 @@ import {
   useMemo,
   useCallback,
   useEffect,
+  useInsertionEffect,
   useLayoutEffect,
   useReducer,
   useRef,
@@ -68,6 +69,7 @@ import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { viewerTheme, filterCatalog, Catalog } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
+import { useLatestRef } from "../lib/use-latest-ref";
 import type {
   ReactActivityMessageRenderer,
   ReactToolCallRenderer,
@@ -507,11 +509,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     ReactActivityMessageRenderer<any>
   >(renderActivityMessages, "renderActivityMessages must be a stable array.");
 
-  // Stable core instance ref, declared here (before the activity-renderer memo)
-  // so the filtered-catalog memo can read enablement off the current instance.
-  // The instance itself is created in the ref-init block below; on the very
-  // first render `current` is still null (nothing is disabled yet), so the
-  // filtered catalog correctly equals the full catalog.
+  // Core instance ref, declared here (before the activity-renderer memo) so the
+  // filtered-catalog memo can read enablement off the instance. The instance is
+  // created further down and written here on commit; on the very first render
+  // `current` is still null (nothing is disabled yet), so the filtered catalog
+  // correctly equals the full catalog.
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
 
   // Raw catalog provided by the caller (typed loosely to match `a2ui.catalog?: any`).
@@ -602,13 +604,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
-  // The latest builder, read when a request is sent (never during render).
-  // Assigned during render itself (not in a `useEffect`) so a child effect
-  // that fires in the SAME commit as a new builder closure — e.g. a run
-  // kicked off from an effect right after a token changed — reads the new
-  // closure rather than the previous commit's.
-  const headersRef = useRef(headersProp);
-  headersRef.current = headersProp;
+  // The latest committed builder, read when a request is sent (never during
+  // render). Assigned in an insertion effect (not a `useEffect`) so a child's
+  // layout or passive effect that fires in the SAME commit as a new builder
+  // closure (e.g. a run kicked off from an effect right after a token changed)
+  // reads the new closure rather than the previous commit's. A request sent
+  // while a token change is still uncommitted (e.g. a suspended transition)
+  // uses the last committed builder.
+  const headersRef = useLatestRef(headersProp);
   const isHeadersBuilder = typeof headersProp === "function";
   // The read below can return a sync record or an async promise depending on
   // what `headersRef.current` happens to be at call time, which
@@ -618,7 +621,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const stableHeadersBuilder = useCallback(() => {
     const current = headersRef.current;
     return typeof current === "function" ? current() : current;
-  }, []) as () => Record<string, string>;
+  }, [headersRef]) as () => Record<string, string>;
   // A record keeps today's identity semantics; a builder is stable.
   const headersInput = isHeadersBuilder ? stableHeadersBuilder : headersProp;
   const headersSource = useMemo(
@@ -823,11 +826,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     processedHumanInTheLoopTools,
   ]);
 
-  // Stable instance: created once for the provider lifetime (ref declared above
-  // so the filtered-catalog memo can read enablement off it).
-  // Updates are applied via setter effects below rather than recreating the instance.
-  if (copilotkitRef.current === null) {
-    copilotkitRef.current = new CopilotKitCoreReact({
+  // Stable instance: created once for the provider lifetime. Updates are applied
+  // via setter effects below rather than recreating the instance. In React 19
+  // StrictMode (dev only) the initializer runs twice and one instance is
+  // discarded, as React 18 already did with a lazily filled ref; the discarded
+  // one has made no request (`deferInitialConnection`).
+  const [copilotkit] = useState(() => {
+    const core = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
       // Defer the `/info` fetch out of construction. The core is constructed
       // during render, and React can start-and-discard renders (concurrent
@@ -856,10 +861,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // Set initial defaultThrottleMs synchronously so child hooks see the
     // correct value on their first render (before useEffect fires).
     if (defaultThrottleMs !== undefined) {
-      copilotkitRef.current.setDefaultThrottleMs(defaultThrottleMs);
+      core.setDefaultThrottleMs(defaultThrottleMs);
     }
-  }
-  const copilotkit = copilotkitRef.current;
+    return core;
+  });
+  useInsertionEffect(() => {
+    copilotkitRef.current = copilotkit;
+  }, [copilotkit]);
 
   // Register the full A2UI catalog component list onto core so the inspector can
   // read `core.catalogComponents`, and re-derive the filtered catalog whenever

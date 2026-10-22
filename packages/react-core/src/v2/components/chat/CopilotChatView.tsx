@@ -6,6 +6,7 @@ import React, {
   useLayoutEffect,
 } from "react";
 import { ScrollElementContext } from "./scroll-element-context";
+import { useLatestRef } from "../../lib/use-latest-ref";
 import type { WithSlots, SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
@@ -222,36 +223,37 @@ export function CopilotChatView({
       return;
     }
 
+    // Set initial height. `lastHeight` mirrors the latest height this effect
+    // has stored, so the observer can skip unchanged sizes without a side
+    // effect inside a state updater.
+    let lastHeight = element.offsetHeight;
+    setInputContainerHeight(lastHeight);
+
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const newHeight = entry.contentRect.height;
+        if (newHeight === lastHeight) {
+          continue;
+        }
+        lastHeight = newHeight;
 
         // Update height and set resizing state
-        setInputContainerHeight((prevHeight) => {
-          if (newHeight !== prevHeight) {
-            setIsResizing(true);
+        setInputContainerHeight(newHeight);
+        setIsResizing(true);
 
-            // Clear existing timeout
-            if (resizeTimeoutRef.current) {
-              clearTimeout(resizeTimeoutRef.current);
-            }
+        // Clear existing timeout
+        if (resizeTimeoutRef.current) {
+          clearTimeout(resizeTimeoutRef.current);
+        }
 
-            // Set isResizing to false after a short delay
-            resizeTimeoutRef.current = setTimeout(() => {
-              setIsResizing(false);
-            }, 250);
-
-            return newHeight;
-          }
-          return prevHeight;
-        });
+        // Set isResizing to false after a short delay
+        resizeTimeoutRef.current = setTimeout(() => {
+          setIsResizing(false);
+        }, 250);
       }
     });
 
     resizeObserver.observe(element);
-
-    // Set initial height
-    setInputContainerHeight(element.offsetHeight);
 
     return () => {
       resizeObserver.disconnect();
@@ -488,8 +490,7 @@ export namespace CopilotChatView {
     const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
     const readingOffsetRef = useRef<number | null>(null);
     const pinIntentRef = useRef(false);
-    const stateRef = useRef(state);
-    stateRef.current = state;
+    const stateRef = useLatestRef(state);
     useLayoutEffect(() => {
       setScrollEl(scrollRef.current ?? null);
       // scrollRef is a stable object; omitting from deps is intentional.
@@ -593,7 +594,7 @@ export namespace CopilotChatView {
         cancelAnimationFrame(settleFrame);
         resizeObserver.disconnect();
       };
-    }, [scrollEl, scrollToBottom, stopScroll, scrollThreadId]);
+    }, [scrollEl, scrollToBottom, stopScroll, scrollThreadId, stateRef]);
 
     const startBottomPin = useCallback(
       (instant = false) => {

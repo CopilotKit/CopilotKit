@@ -1,8 +1,8 @@
 "use client";
 
 import React, {
-  useCallback,
   useEffect,
+  useInsertionEffect,
   useMemo,
   useRef,
   useState,
@@ -10,6 +10,7 @@ import React, {
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useSandboxFunctions } from "../providers/SandboxFunctionsContext";
+import { useLatestRef } from "../lib/use-latest-ref";
 import {
   processPartialHtml,
   extractCompleteStyles,
@@ -90,55 +91,40 @@ function shouldFlushImmediately(
  */
 export const OpenGenerativeUIActivityRenderer: React.FC<OpenGenerativeUIActivityRendererProps> =
   function OpenGenerativeUIActivityRenderer({ content }) {
-    const latestContentRef = useRef(content);
-    latestContentRef.current = content;
+    // Read only by the throttle timer below, which fires after commit.
+    const latestContentRef = useLatestRef(content);
 
     const [throttledContent, setThrottledContent] =
       useState<OpenGenerativeUIContent>(content);
-    const throttledContentRef = useRef(throttledContent);
-    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Synchronous state adjustment during render (React-approved pattern).
     // When shouldFlushImmediately is true, update state before commit so the
     // inner component sees the new content in the same render pass — no extra
-    // async cycle that would break test timing.
-    if (throttledContentRef.current !== content) {
-      if (shouldFlushImmediately(throttledContentRef.current, content)) {
-        if (timerRef.current !== null) {
-          clearTimeout(timerRef.current);
-          timerRef.current = null;
-        }
-        throttledContentRef.current = content;
-        setThrottledContent(content);
-      }
+    // async cycle that would break test timing. The flush also makes `isStale`
+    // false, so the effect below cancels any pending throttled flush.
+    if (
+      throttledContent !== content &&
+      shouldFlushImmediately(throttledContent, content)
+    ) {
+      setThrottledContent(content);
     }
 
-    const flush = useCallback(() => {
-      timerRef.current = null;
-      const latest = latestContentRef.current;
-      throttledContentRef.current = latest;
-      setThrottledContent(latest);
-    }, []);
+    const isStale = throttledContent !== content;
 
-    // Schedule throttled updates for non-immediate content changes
+    // Throttle (not debounce) non-immediate content changes: the first change
+    // opens a THROTTLE_MS window and further changes inside it keep that window,
+    // because neither dep changes and the effect does not re-run. When the
+    // window ends the inner component gets whatever content is latest then.
+    // `throttledContent` is a dep so a flush re-arms the window if the content
+    // changed again in the same render. The cleanup cancels the window on an
+    // immediate flush and on unmount.
     useEffect(() => {
-      // Already up to date (initial render or synchronous flush above)
-      if (throttledContentRef.current === content) return;
-
-      // Schedule a throttled flush if none pending
-      if (timerRef.current === null) {
-        timerRef.current = setTimeout(flush, THROTTLE_MS);
-      }
-    }, [content, flush]);
-
-    // Cleanup timer on unmount
-    useEffect(() => {
-      return () => {
-        if (timerRef.current !== null) {
-          clearTimeout(timerRef.current);
-        }
-      };
-    }, []);
+      if (!isStale) return;
+      const timer = setTimeout(() => {
+        setThrottledContent(latestContentRef.current);
+      }, THROTTLE_MS);
+      return () => clearTimeout(timer);
+    }, [isStale, throttledContent, latestContentRef]);
 
     return <OpenGenerativeUIActivityRendererInner content={throttledContent} />;
   };
@@ -173,6 +159,18 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     const initialHeight = content.initialHeight ?? 200;
     const [autoHeight, setAutoHeight] = useState<number | null>(null);
     const sandboxFunctions = useSandboxFunctions();
+
+    // False from the commit that unmounts this component. React removes the DOM
+    // and runs insertion-effect cleanups before passive cleanups, so the sandbox
+    // effects below check this to skip a websandbox import that resolves after
+    // unmount but before their own cleanup has set `cancelled`.
+    const mountedRef = useRef(false);
+    useInsertionEffect(() => {
+      mountedRef.current = true;
+      return () => {
+        mountedRef.current = false;
+      };
+    }, []);
 
     const localApi = useMemo(() => {
       const api: Record<string, Function> = {};
@@ -232,7 +230,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
 
       import("@jetbrains/websandbox")
         .then((mod: any) => {
-          if (cancelled) return;
+          if (cancelled || !mountedRef.current) return;
 
           const Websandbox = mod.default?.default ?? mod.default;
           const sandbox = Websandbox.create(
@@ -330,7 +328,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       const htmlContent = css ? injectCssIntoHtml(fullHtml, css) : fullHtml;
       import("@jetbrains/websandbox")
         .then((mod: any) => {
-          if (cancelled) return;
+          if (cancelled || !mountedRef.current) return;
 
           // websandbox ships a UMD bundle with its own webpack `default` export.
           // Consumer bundlers (e.g. Next.js webpack) wrap CJS under another `.default`,

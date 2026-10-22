@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useInsertionEffect, useRef } from "react";
 
 // Tailwind-free reference-stability helpers. Kept in their own leaf module (not
 // in ./slots, which imports `tailwind-merge`) so that DOM/CSS-free consumers —
@@ -49,19 +49,30 @@ function isPlainObject(obj: unknown): obj is Record<string, unknown> {
  *
  * Typical use: stabilize inline slot props so MemoizedSlotWrapper's shallow
  * equality check isn't defeated by a new object reference on every render.
+ *
+ * The comparison baseline is the value the last COMMITTED render returned. The
+ * ref is written in an insertion effect rather than during render, so a render
+ * React discards (a suspended transition, an interrupted concurrent render)
+ * can't replace the baseline with a value that never reached the screen.
  */
 export function useShallowStableRef<T>(value: T): T {
-  const ref = useRef(value);
+  const committedRef = useRef(value);
+  const committed = committedRef.current;
 
-  // 1. Identical reference — bail early, no comparison needed.
-  if (ref.current === value) return ref.current;
-
+  // 1. Identical reference — no comparison needed.
   // 2. Both are plain objects — shallow-compare to detect structural equality.
-  if (isPlainObject(ref.current) && isPlainObject(value)) {
-    if (shallowEqual(ref.current, value)) return ref.current;
-  }
+  // 3. Different values (or non-comparable types) — return the new value.
+  const stable =
+    committed === value ||
+    (isPlainObject(committed) &&
+      isPlainObject(value) &&
+      shallowEqual(committed, value))
+      ? committed
+      : value;
 
-  // 3. Different values (or non-comparable types) — update the ref.
-  ref.current = value;
-  return ref.current;
+  useInsertionEffect(() => {
+    committedRef.current = stable;
+  });
+
+  return stable;
 }
