@@ -51,7 +51,7 @@ describe("buildFileContentParts", () => {
     expect(notes).toHaveLength(3);
   });
 
-  it("accepts Slack's apex file host and refuses redirects", async () => {
+  it("accepts Slack's apex file host and handles redirects itself", async () => {
     const apex = {
       ...img,
       url_private: "https://slack.com/files-pri/T1-F1/x.png",
@@ -66,6 +66,50 @@ describe("buildFileContentParts", () => {
       apex.url_private,
       expect.objectContaining({ redirect: "manual" }),
     );
+  });
+
+  it("follows Slack-hosted redirects with the token and refuses others", async () => {
+    const redirect = (location: string) =>
+      new Response(null, { status: 302, headers: { location } });
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce(redirect("https://files-edge.slack.com/x.png"))
+      .mockResolvedValueOnce(new Response(new Uint8Array([7])))
+      .mockResolvedValueOnce(redirect("https://cdn.attacker.example/x.png"));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const ok = await buildFileContentParts([img], "xoxb-tok");
+    expect(ok.parts).toHaveLength(1);
+    expect(fetchSpy).toHaveBeenNthCalledWith(
+      2,
+      "https://files-edge.slack.com/x.png",
+      expect.objectContaining({
+        headers: { Authorization: "Bearer xoxb-tok" },
+      }),
+    );
+
+    const off = await buildFileContentParts([img], "xoxb-tok");
+    expect(off.parts).toEqual([]);
+    expect(off.notes[0]).toContain("redirected off Slack");
+    // The off-Slack location is never requested.
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("gives up after three redirects", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(null, {
+            status: 302,
+            headers: { location: "https://files.slack.com/again" },
+          }),
+      ),
+    );
+    const { parts, notes } = await buildFileContentParts([img], "xoxb-tok");
+    expect(parts).toEqual([]);
+    expect(notes[0]).toContain("too many redirects");
+    expect(fetch).toHaveBeenCalledTimes(4);
   });
 
   it("turns an image into a base64 image part", async () => {

@@ -80,6 +80,31 @@ function isSlackFileUrl(raw: string): boolean {
   }
 }
 
+const MAX_REDIRECTS = 3;
+
+/**
+ * GET a Slack file with the bot token, following up to {@link MAX_REDIRECTS}
+ * redirects by hand so the token is only ever sent to Slack file hosts. A
+ * redirect anywhere else fails the download instead of leaking the token.
+ */
+async function fetchSlackFile(url: string, botToken: string) {
+  let next = url;
+  for (let hop = 0; ; hop++) {
+    const res = await fetch(next, {
+      headers: { Authorization: `Bearer ${botToken}` },
+      redirect: "manual",
+    });
+    const location = res.headers?.get("location");
+    if (res.status < 300 || res.status >= 400 || !location) return res;
+    await res.body?.cancel().catch(() => {});
+    if (hop >= MAX_REDIRECTS) throw new Error("too many redirects");
+    next = new URL(location, next).href;
+    if (!isSlackFileUrl(next)) {
+      throw new Error("download redirected off Slack's file hosts");
+    }
+  }
+}
+
 function isText(mime: string): boolean {
   return (
     TEXT_MIME_PREFIXES.some((p) => mime.startsWith(p)) ||
@@ -154,12 +179,7 @@ export async function buildFileContentParts(
 
     let bytes: Buffer;
     try {
-      const res = await fetch(f.url_private, {
-        headers: { Authorization: `Bearer ${botToken}` },
-        // The host check covers this URL only; a redirect is a failed
-        // download (Slack redirects unauthenticated requests to a login page).
-        redirect: "manual",
-      });
+      const res = await fetchSlackFile(f.url_private, botToken);
       if (!res.ok) {
         notes.push(`skipped "${label}": download failed (HTTP ${res.status})`);
         continue;
