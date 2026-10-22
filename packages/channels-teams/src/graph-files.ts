@@ -19,11 +19,8 @@
  * Returns nothing (with a note) when Graph isn't configured or a step fails, so
  * the bot degrades to asking the user to paste the data rather than crashing.
  */
-import {
-  decodeFileBytes,
-  mimeFromName,
-  type FileDeliveryConfig,
-} from "./download-files.js";
+import { decodeFileBytes, mimeFromName } from "./download-files.js";
+import type { FileDeliveryConfig } from "./download-files.js";
 import type { AgentContentPart } from "@copilotkit/channels-ui";
 
 /** The Microsoft credentials needed for an app-only Graph token. */
@@ -99,16 +96,25 @@ function shareIdFor(url: string): string {
   return "u!" + b64.replace(/=+$/, "").replace(/\//g, "_").replace(/\+/g, "-");
 }
 
+/**
+ * Encode an id from the inbound activity as one Graph path segment. `.`/`..`
+ * survive `encodeURIComponent` and would be resolved as dot-segments.
+ */
+function segment(id: string): string {
+  if (id === "." || id === "..") throw new Error(`invalid Graph id "${id}"`);
+  return encodeURIComponent(id);
+}
+
 /** Read a channel message and return its file-reference attachments. */
 async function getMessageFileRefs(
   ref: ChannelMessageRef,
   token: string,
 ): Promise<GraphFileRef[]> {
-  const channel = encodeURIComponent(ref.channelId);
+  const base = `${GRAPH}/teams/${segment(ref.teamId)}/channels/${segment(ref.channelId)}/messages`;
   const url =
     ref.rootId && ref.rootId !== ref.messageId
-      ? `${GRAPH}/teams/${ref.teamId}/channels/${channel}/messages/${ref.rootId}/replies/${ref.messageId}`
-      : `${GRAPH}/teams/${ref.teamId}/channels/${channel}/messages/${ref.messageId}`;
+      ? `${base}/${segment(ref.rootId)}/replies/${segment(ref.messageId)}`
+      : `${base}/${segment(ref.messageId)}`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });

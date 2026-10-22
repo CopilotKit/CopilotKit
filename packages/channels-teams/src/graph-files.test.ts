@@ -131,4 +131,34 @@ describe("buildChannelFileContentParts (Graph)", () => {
     expect(parts).toEqual([]);
     expect(notes[0]).toContain("ChannelMessage.Read.Group");
   });
+
+  it("keeps attacker-supplied ids inside their Graph path segments", async () => {
+    routeFetch({ message: { attachments: [] } });
+    await buildChannelFileContentParts(
+      {
+        ...ref,
+        teamId: "../../users/victim",
+        messageId: "1?$x=1#",
+        rootId: "1?$x=1#",
+      },
+      creds,
+    );
+    const messageUrl = vi
+      .mocked(fetch)
+      .mock.calls.map(([u]) => String(u))
+      .find((u) => u.includes("/messages/"));
+    expect(messageUrl).toBe(
+      "https://graph.microsoft.com/v1.0/teams/..%2F..%2Fusers%2Fvictim/channels/19%3Aabc%40thread.tacv2/messages/1%3F%24x%3D1%23",
+    );
+
+    vi.mocked(fetch).mockClear();
+    const { notes } = await buildChannelFileContentParts(
+      { ...ref, teamId: ".." },
+      creds,
+    );
+    expect(notes[0]).toContain('invalid Graph id ".."');
+    expect(
+      vi.mocked(fetch).mock.calls.some(([u]) => String(u).includes("/teams/")),
+    ).toBe(false);
+  });
 });
