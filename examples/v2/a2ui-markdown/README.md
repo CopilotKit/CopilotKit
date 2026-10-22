@@ -43,11 +43,31 @@ this example's `.env.local`. `ADK_AGENT_URL` can override its base URL in Next.j
 | `format`      | `express`, `json`                      | `express`          |
 | `transport`   | `markdown`, `tool`                     | `markdown`         |
 | `layout`      | `page`, `chat`                         | `page`             |
+| `demo`        | `general`, `charting`                  | `general`          |
 
 For example: `/?model=gemini-3.6-flash&format=json&transport=tool`.
 All eight model/format/transport combinations use Python ADK. Changing any of
-those three settings stops the previous run and starts a fresh conversation,
+those settings or the selected demo stops the previous run and starts a fresh conversation,
 clearing generated surfaces. The page/chat layout switch keeps the conversation.
+
+### Focused charting demo
+
+Open `http://localhost:3011/?demo=charting`, or select **Demo → Charting**.
+Try revenue trends, regional comparisons, expense breakdowns, traffic mix,
+scatter plots, or comparing chart types. Each suggestion uses illustrative data;
+you can also provide your own data and describe the chart you want.
+
+The provider uses `demo/charting@1`, derived from the standard catalog with an
+explicit 11-component allowlist: Chart, Box, Column, Row, Grid, GridItem, Divider,
+Title, Text, Caption and Badge. Media, maps, forms, inputs and tables are excluded
+from the catalog sent to the agent. The shared built-in expression/formatting
+function catalog remains available. The same selection applies to Express/JSON
+and markdown/tool transport; it is not a backend-only prompt instruction.
+
+Charting has one page target (`dashboard`) or can render inside chat. Switching
+between General and Charting creates a fresh conversation and clears surfaces.
+General retains the full standard catalog, and `/catalog` remains the full
+offline component gallery.
 
 Try **Dashboard on the page**, then **Update the dashboard** to exercise an
 update across turns. **Sign-up with validation** exercises data bindings,

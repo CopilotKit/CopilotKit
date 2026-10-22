@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { CopilotKitProvider, useCopilotKit } from "@copilotkit/react-core/v2";
-import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+import { DEMO_CATALOGS } from "./demo-catalogs";
 import { getAgentId } from "./settings";
 import type { ExampleSettings } from "./settings";
 import { DemoTiming } from "./timing";
@@ -36,7 +36,10 @@ export function Providers({
       runtimeUrl="/api/copilotkit"
       useSingleEndpoint={false}
       agentId={agentId}
-      generativeUI={{ ui: standardUI, transport: settings.transport }}
+      generativeUI={{
+        ui: DEMO_CATALOGS[settings.demo],
+        transport: settings.transport,
+      }}
     >
       <StopRunOnUnmount agentId={agentId} />
       <DemoTiming agentId={agentId} />

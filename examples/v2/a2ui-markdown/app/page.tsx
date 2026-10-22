@@ -11,12 +11,14 @@ import Link from "next/link";
 import { Providers } from "./providers";
 import {
   FORMATS,
+  DEMOS,
   MODELS,
   TRANSPORTS,
   getAgentId,
   readSettings,
 } from "./settings";
-import type { ExampleSettings } from "./settings";
+import type { ExampleDemo, ExampleSettings } from "./settings";
+import { CHARTING_SUGGESTIONS } from "./demo-catalogs";
 
 /** "page": the chat next to two page surfaces. "chat": the chat alone, full width. */
 type ExampleLayout = "page" | "chat";
@@ -102,18 +104,26 @@ const SUGGESTIONS: Suggestion[] = [
 function Suggestions({
   agent,
   layout,
+  demo,
 }: {
   agent: string;
   layout: ExampleLayout;
+  demo: ExampleDemo;
 }) {
   // The prompts that target a page surface only make sense when the page
   // surfaces are there.
-  const suggestions = SUGGESTIONS.filter(
-    ({ layouts }) => layouts === undefined || layouts.includes(layout),
-  ).map(({ title, message }) => ({ title, message }));
+  const suggestions =
+    demo === "charting"
+      ? CHARTING_SUGGESTIONS.map(({ title, message }) => ({
+          title,
+          message: `${layout === "page" ? 'Render in the "dashboard" surface on the page, not in the chat.' : "Render the chart in the chat."} ${message}`,
+        }))
+      : SUGGESTIONS.filter(
+          ({ layouts }) => layouts === undefined || layouts.includes(layout),
+        ).map(({ title, message }) => ({ title, message }));
   useConfigureSuggestions(
     { suggestions, available: "always", consumerAgentId: agent },
-    [agent, layout],
+    [agent, layout, demo],
   );
   return null;
 }
@@ -129,65 +139,78 @@ function EmptySurface({ title, hint }: { title: string; hint: string }) {
 }
 
 /**
- * Two named surfaces outside the chat. The model learns their ids and
+ * Named surfaces outside the chat. The model learns their ids and
  * descriptions from the manifest, and renders into them with a target.
  */
-function PageSurfaces() {
+function PageSurfaces({ demo }: { demo: ExampleDemo }) {
+  const charting = demo === "charting";
   return (
     <section className="ex-panel" aria-labelledby="page-surfaces-title">
       <div className="ex-panel-header">
         <div>
           <h2 id="page-surfaces-title" className="ex-panel-title">
-            On the page
+            {charting ? "Charts on the page" : "On the page"}
           </h2>
           <p className="ex-panel-hint">
             Surfaces outside the chat. The agent renders into them by id.
           </p>
         </div>
-        <span className="ex-tag">2 targets</span>
+        <span className="ex-tag">{charting ? "1 target" : "2 targets"}</span>
       </div>
       <div className="ex-panel-body">
         <div className="ex-slot ex-slot-main">
           <div className="ex-slot-label">
-            Dashboard <code>dashboard</code>
+            {charting ? "Charts" : "Dashboard"} <code>dashboard</code>
           </div>
           <GenerativeUISurface
             id="dashboard"
             className="ex-slot-surface"
-            description="The main panel of the page, to the left of the chat. Use it for dashboards, charts, and tables that the user asks to show on the page."
+            description={
+              charting
+                ? "The main chart panel, to the left of the chat. Use it for charts and supporting labels that the user asks to show on the page."
+                : "The main panel of the page, to the left of the chat. Use it for dashboards, charts, and tables that the user asks to show on the page."
+            }
             fallback={
               <EmptySurface
                 title="Nothing here yet"
-                hint='Try the "Dashboard on the page" suggestion.'
+                hint={
+                  charting
+                    ? 'Try the "Revenue trend" suggestion, or describe a chart.'
+                    : 'Try the "Dashboard on the page" suggestion.'
+                }
               />
             }
           />
         </div>
-        <div className="ex-slot">
-          <div className="ex-slot-label">
-            Notes <code>notes</code>
+        {!charting ? (
+          <div className="ex-slot">
+            <div className="ex-slot-label">
+              Notes <code>notes</code>
+            </div>
+            <GenerativeUISurface
+              id="notes"
+              className="ex-slot-surface"
+              description="A small card under the dashboard. Use it for short notes, checklists, and summaries that the user asks to keep on the page."
+              fallback={
+                <EmptySurface
+                  title="Nothing here yet"
+                  hint='Try the "Checklist in the notes" suggestion.'
+                />
+              }
+            />
           </div>
-          <GenerativeUISurface
-            id="notes"
-            className="ex-slot-surface"
-            description="A small card under the dashboard. Use it for short notes, checklists, and summaries that the user asks to keep on the page."
-            fallback={
-              <EmptySurface
-                title="Nothing here yet"
-                hint='Try the "Checklist in the notes" suggestion.'
-              />
-            }
-          />
-        </div>
+        ) : null}
       </div>
     </section>
   );
 }
 
+const current = (active: boolean) => (active ? "page" : undefined);
+
 function Chat() {
   const searchParams = useSearchParams();
   const settings = readSettings(searchParams);
-  const { model, format, transport } = settings;
+  const { model, format, transport, demo } = settings;
   const agent = getAgentId(settings);
   const layout: ExampleLayout =
     searchParams.get("layout") === "chat" ? "chat" : "page";
@@ -198,12 +221,11 @@ function Chat() {
     const params = new URLSearchParams({ ...settings, ...changes, layout: l });
     return `/?${params}`;
   };
-  const current = (active: boolean) => (active ? "page" : undefined);
 
   return (
     // A new provider owns a new core, thread, chat, and surface manager.
     // Returning to an earlier combination also creates a fresh instance.
-    <Providers key={agent} settings={settings}>
+    <Providers key={`${agent}-${demo}`} settings={settings}>
       <main className="ex-shell">
         <header className="ex-topbar">
           <div className="ex-brand">
@@ -211,7 +233,11 @@ function Chat() {
             <img src="/copilotkit-logo.svg" alt="CopilotKit" />
             <span className="ex-brand-divider" aria-hidden="true" />
             <div>
-              <h1 className="ex-title">Generative UI with Google ADK</h1>
+              <h1 className="ex-title">
+                {demo === "charting"
+                  ? "Charting with Google ADK"
+                  : "Generative UI with Google ADK"}
+              </h1>
               <p className="ex-subtitle">
                 {transport === "tool"
                   ? "The agent calls the render_ui tool."
@@ -220,6 +246,19 @@ function Chat() {
             </div>
           </div>
           <nav className="ex-controls" aria-label="Example settings">
+            <div className="ex-segment" role="group" aria-label="Demo">
+              <span className="ex-segment-label">Demo</span>
+              {DEMOS.map((value) => (
+                <Link
+                  key={value}
+                  className="ex-pill"
+                  href={href({ demo: value })}
+                  aria-current={current(demo === value)}
+                >
+                  {value === "charting" ? "Charting" : "General"}
+                </Link>
+              ))}
+            </div>
             <div className="ex-segment" role="group" aria-label="Model">
               <span className="ex-segment-label">Model</span>
               {MODELS.map((value) => (
@@ -286,8 +325,8 @@ function Chat() {
         <p className="ex-settings-note">
           Markdown streams with a Google API key. Tool mode uses real tool calls
           and may render only after their arguments are complete. This demo uses
-          the Gemini API, with no Vertex AI setup. Changing model, format, or
-          transport starts a fresh chat and clears all surfaces.
+          the Gemini API, with no Vertex AI setup. Changing demo, model, format,
+          or transport starts a fresh chat and clears all surfaces.
         </p>
         <div
           className={
@@ -296,10 +335,10 @@ function Chat() {
         >
           {/* Without the page surfaces, the manifest lists only the chat as
               a target, so the agent renders everything in the reply. */}
-          {layout === "page" ? <PageSurfaces /> : null}
+          {layout === "page" ? <PageSurfaces demo={demo} /> : null}
           <section className="ex-panel ex-panel-chat" aria-label="Chat">
             <div className="ex-chat">
-              <Suggestions agent={agent} layout={layout} />
+              <Suggestions agent={agent} layout={layout} demo={demo} />
               <CopilotChat />
             </div>
           </section>
