@@ -91,7 +91,7 @@ pre-commit:
       # hit them while they build instead of after CI. Packages in scope are
       # listed in doctor.config.jsonc. Takes about a second.
       glob: "packages/**/*.{ts,tsx,js,jsx}"
-      run: pnpm -C tools/react-doctor install --frozen-lockfile && tools/react-doctor/node_modules/.bin/react-doctor . --staged --scope lines --base HEAD --no-telemetry
+      run: pnpm exec react-doctor . --staged --scope lines --base HEAD --no-telemetry
     test-and-check-packages:
       tags: test-packages
       env:

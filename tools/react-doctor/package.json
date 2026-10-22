@@ -1,8 +1,0 @@
-{
-  "name": "react-doctor-runner",
-  "private": true,
-  "description": "Pinned React Doctor install for `pnpm run doctor:react` and the static / quality CI gate.",
-  "devDependencies": {
-    "react-doctor": "0.9.18"
-  }
-}
