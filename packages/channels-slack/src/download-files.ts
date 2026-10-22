@@ -70,7 +70,9 @@ function isSlackFileUrl(raw: string): boolean {
     const u = new URL(raw);
     return (
       u.protocol === "https:" &&
-      (u.hostname.endsWith(".slack.com") ||
+      (u.hostname === "slack.com" ||
+        u.hostname === "slack-gov.com" ||
+        u.hostname.endsWith(".slack.com") ||
         u.hostname.endsWith(".slack-gov.com"))
     );
   } catch {
@@ -154,6 +156,9 @@ export async function buildFileContentParts(
     try {
       const res = await fetch(f.url_private, {
         headers: { Authorization: `Bearer ${botToken}` },
+        // The host check covers this URL only; a redirect is a failed
+        // download (Slack redirects unauthenticated requests to a login page).
+        redirect: "manual",
       });
       if (!res.ok) {
         notes.push(`skipped "${label}": download failed (HTTP ${res.status})`);

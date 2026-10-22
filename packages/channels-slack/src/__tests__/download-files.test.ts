@@ -51,6 +51,23 @@ describe("buildFileContentParts", () => {
     expect(notes).toHaveLength(3);
   });
 
+  it("accepts Slack's apex file host and refuses redirects", async () => {
+    const apex = {
+      ...img,
+      url_private: "https://slack.com/files-pri/T1-F1/x.png",
+    };
+    const fetchSpy = fakeFetch({
+      [apex.url_private]: { bytes: Buffer.from([1]) },
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+    const { parts } = await buildFileContentParts([apex], "xoxb-tok");
+    expect(parts).toHaveLength(1);
+    expect(fetchSpy).toHaveBeenCalledWith(
+      apex.url_private,
+      expect.objectContaining({ redirect: "manual" }),
+    );
+  });
+
   it("turns an image into a base64 image part", async () => {
     const bytes = Buffer.from([1, 2, 3, 4]);
     vi.stubGlobal("fetch", fakeFetch({ [img.url_private!]: { bytes } }));
