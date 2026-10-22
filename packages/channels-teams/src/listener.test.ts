@@ -97,6 +97,18 @@ describe("createTeamsServer authentication", () => {
     expect(isTrustedServiceUrl("https://attacker.example/")).toBe(false);
     expect(isTrustedServiceUrl(undefined)).toBe(false);
     expect(
+      isTrustedServiceUrl("https://smba.infra.gcc.teams.microsoft.com/"),
+    ).toBe(true);
+    // Sovereign clouds are opt-in: the SDK doesn't verify their tokens.
+    expect(
+      isTrustedServiceUrl("https://smba.infra.gov.teams.microsoft.us/"),
+    ).toBe(false);
+    expect(
+      isTrustedServiceUrl("https://smba.infra.gov.teams.microsoft.us/", [
+        ".teams.microsoft.us",
+      ]),
+    ).toBe(true);
+    expect(
       isTrustedServiceUrl("https://bot.sovereign.example/", [
         ".sovereign.example",
       ]),

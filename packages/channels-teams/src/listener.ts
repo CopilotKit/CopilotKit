@@ -31,17 +31,18 @@ export interface TeamsServerConfig {
 }
 
 /**
- * Hosts the Bot Framework delivers `serviceUrl`s from (public, GCC/GCC High/DoD,
- * and China clouds). Exact names, or suffixes when they start with a dot.
+ * Public-cloud Bot Connector hosts (including GCC, which uses the public Bot
+ * Framework token issuer). Exact names, or suffixes when they start with a dot.
+ *
+ * Sovereign clouds (GCC High, DoD, China) are deliberately absent: the SDK's
+ * `authorizeJWT` only resolves signing keys for the public Bot Framework
+ * issuer, so their tokens are not verified here. Add their hosts through
+ * `allowedServiceUrlHosts` once your token validation covers them.
  */
 const TRUSTED_SERVICE_URL_HOSTS = [
   "smba.trafficmanager.net",
   ".botframework.com",
-  ".botframework.us",
-  ".botframework.azure.us",
-  ".botframework.azure.cn",
   ".teams.microsoft.com",
-  ".teams.microsoft.us",
 ];
 
 /**

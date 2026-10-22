@@ -43,9 +43,13 @@ export interface TeamsAdapterOptions {
   tenantId?: string;
   /**
    * Extra hosts to accept as an activity's `serviceUrl` when credentials are
-   * configured, on top of the built-in Bot Framework / Teams hosts. Exact host
-   * names, or suffixes starting with a dot (e.g. `".example-sovereign.cloud"`).
-   * The bot sends its access token to this URL, so list only hosts you trust.
+   * configured, on top of the built-in public-cloud Bot Framework / Teams
+   * hosts. Exact host names, or suffixes starting with a dot (e.g.
+   * `".teams.microsoft.us"`). Sovereign-cloud hosts (GCC High, DoD, China) are
+   * not built in, because the SDK's JWT check only resolves the public Bot
+   * Framework signing keys; list them here only if your token validation
+   * covers that cloud. The bot sends its access token to this URL, so list
+   * only hosts you trust.
    */
   allowedServiceUrlHosts?: readonly string[];
   /**
