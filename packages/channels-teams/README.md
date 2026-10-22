@@ -252,13 +252,17 @@ Emulator's local connector, for example
 lists the channels it may sign for. For a Bot Framework token
 (`iss: https://api.botframework.com`) whose key lists endorsements, the
 activity's `channelId` must be one of them, or the request gets `403`. Like the
-Bot Framework SDK, keys without endorsements are not checked; Azure AD keys
-(single-tenant Azure Bot Service, the Bot Framework Emulator) have none. The
-key document is cached for an hour.
+Bot Framework SDK, keys without an `endorsements` field are not checked;
+Azure AD keys (single-tenant Azure Bot Service, the Bot Framework Emulator)
+have none. A key with an empty list is endorsed for no channel and is
+rejected. The key document is cached for an hour; fetching it times out after
+5 seconds, and a failed fetch rejects the request (`503`).
 
 **Anonymous mode.** Without a `clientId` the endpoint is **anonymous**: anyone
 who can reach it can drive a turn. That mode is for the local M365 Agents
-Playground only, so the listener binds to `127.0.0.1` unless you set `host`.
+Playground only, so the listener binds to `127.0.0.1` unless you set `host`. That
+is IPv4 only: a client that connects to `localhost` over IPv6 (`::1`) without
+falling back to IPv4 needs `host: "localhost"` or `host: "::1"`.
 Setting a non-loopback `host` (for example `host: "0.0.0.0"`) exposes an
 unauthenticated bot to the network; the adapter logs a warning. With a
 `clientId` the listener binds all interfaces unless `host` says otherwise.

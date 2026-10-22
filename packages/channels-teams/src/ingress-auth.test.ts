@@ -9,6 +9,7 @@ import {
 } from "vitest";
 import http from "node:http";
 import net from "node:net";
+import { networkInterfaces } from "node:os";
 import type { AddressInfo } from "node:net";
 import { generateKeyPairSync, sign as rsaSign, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
@@ -192,6 +193,8 @@ function withNodeEnv<T>(
 describe("POST /api/messages trust boundary", () => {
   /** Endorsements on the Bot Framework key; `undefined` omits the field. */
   let botFrameworkEndorsements: string[] | undefined;
+  /** How the stand-in for the Bot Framework key document answers. */
+  let botFrameworkKeys: "ok" | "throw" | "http500" | "empty" = "ok";
   const idp = http.createServer((req, res) => {
     const key = {
       ...publicKey.export({ format: "jwk" }),
@@ -260,9 +263,20 @@ describe("POST /api/messages trust boundary", () => {
               ? input.href
               : input.url;
         if (url === BOT_FRAMEWORK_KEYS) {
+          if (botFrameworkKeys === "throw") {
+            return Promise.reject(new Error("key fetch failed"));
+          }
+          if (botFrameworkKeys === "http500") {
+            return Promise.resolve(new Response("", { status: 500 }));
+          }
+          if (botFrameworkKeys === "empty") {
+            return Promise.resolve(Response.json({ keys: [] }));
+          }
           return realFetch(`${idpUrl}/botframework/keys`, init);
         }
-        if (!["127.0.0.1", "localhost"].includes(new URL(url).hostname)) {
+        // Loopback, plus this machine's own interface address (item tests).
+        const host = new URL(url).hostname;
+        if (!["127.0.0.1", "localhost", lanAddress].includes(host)) {
           return Promise.reject(new Error(`non-local fetch blocked: ${url}`));
         }
         return realFetch(input, init);
@@ -288,6 +302,7 @@ describe("POST /api/messages trust boundary", () => {
     getAccessToken.mockClear();
     createClient.mockClear();
     botFrameworkEndorsements = undefined;
+    botFrameworkKeys = "ok";
     for (const k of Object.keys(process.env)) {
       if (/^microsoft_?app/i.test(k)) delete process.env[k];
     }
@@ -929,4 +944,48 @@ describe("POST /api/messages trust boundary", () => {
     expect(res.status).toBe(200);
     expect(onTurn).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    ["the key fetch throws", "throw", 503],
+    ["the key document answers HTTP 500", "http500", 503],
+    ["the key document has no keys", "empty", 401],
+  ] as const)("fails closed when %s", async (_l, mode, status) => {
+    botFrameworkKeys = mode;
+    const { res, onTurn } = await postBotConnector("msteams");
+    expect(res.status).toBe(status);
+    expect(onTurn).not.toHaveBeenCalled();
+  });
+
+  const lanAddress = Object.values(networkInterfaces())
+    .flat()
+    .find((i) => i?.family === "IPv4" && !i.internal)?.address;
+
+  it.skipIf(!lanAddress)(
+    "keeps the default anonymous endpoint off the machine's network interface",
+    async () => {
+      const { server, post } = await serveDirect(new CloudAdapter());
+      try {
+        expect((await post()).status).toBe(200);
+        await expect(post(undefined, lanAddress)).rejects.toThrow();
+      } finally {
+        await server.stop();
+      }
+    },
+  );
+
+  it.skipIf(!lanAddress)(
+    "serves the machine's network interface when a public host is chosen",
+    async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const { server, post } = await serveDirect(new CloudAdapter(), {
+        host: "0.0.0.0",
+      });
+      try {
+        expect((await post(undefined, lanAddress)).status).toBe(200);
+      } finally {
+        warn.mockRestore();
+        await server.stop();
+      }
+    },
+  );
 });

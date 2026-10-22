@@ -84,9 +84,12 @@ export function resolveTeamsAuth(raw: AuthConfiguration): AuthConfiguration {
   try {
     resolved = raw.connections?.size ? raw : getAuthConfigWithDefaults(raw);
   } catch (err) {
-    // e.g. the SDK's "ClientId required in production": explain legacy-only
-    // credentials when that is why, otherwise surface the SDK's own error.
-    assertNotLegacyOnlyCredentials(undefined, err);
+    // The SDK's "ClientId required in production" means no app id resolved:
+    // explain legacy-only credentials when that is why. Any other SDK error
+    // (e.g. a bad ConnectionsMap) is surfaced as is.
+    if (err instanceof Error && /ClientId required/i.test(err.message)) {
+      assertNotLegacyOnlyCredentials(undefined, err);
+    }
     throw err;
   }
   assertResolvedAppId(raw.clientId, resolved);
