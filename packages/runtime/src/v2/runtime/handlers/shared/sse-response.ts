@@ -6,6 +6,7 @@ import {
   keepAliveSse,
   resolveSseKeepAliveIntervalSeconds,
 } from "./sse-keep-alive";
+import { THREAD_ALREADY_RUNNING_ERROR_CODE } from "@copilotkit/shared";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
 import { createLogger } from "../../../../v1-deprecated/lib/logger";
 import type { CopilotRuntimeLogger } from "../../../../v1-deprecated/lib/logger";
@@ -18,8 +19,18 @@ import type {
   RuntimeErrorReporter,
 } from "../../core/runtime-error-reporter";
 
-/** Runner errors whose message is safe to show the client as-is. */
-const PUBLIC_RUN_ERROR_MESSAGES = new Set(["Thread already running"]);
+/**
+ * Whether a runner rejected the run because the thread is busy. Matches the
+ * `code` of {@link ThreadAlreadyRunningError}, and the plain message that
+ * custom runners copied from the built-in ones still throw.
+ */
+function isThreadAlreadyRunning(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    ((error as { code?: unknown }).code === THREAD_ALREADY_RUNNING_ERROR_CODE ||
+      error.message === "Thread already running")
+  );
+}
 
 interface CreateSseEventResponseParams {
   request: Request;
@@ -105,25 +116,23 @@ export function createSseEventResponse({
   // Report a failure to the client as a terminal RUN_ERROR. Without it the
   // client sees an empty stream that ends normally, so its run "succeeds"
   // with no reply and no error (e.g. "Thread already running" on a busy
-  // thread). Only known messages reach the client verbatim; anything else
-  // may carry internal detail, so the client gets a generic message and the
-  // full error stays in the server log.
+  // thread). Only a busy thread is named, with a code clients can branch on;
+  // anything else may carry internal detail, so the client gets a generic
+  // message and the full error stays in the server log.
   const writeRunError = async (error: unknown) => {
     if (terminalEventWritten || streamClosed || request.signal.aborted) {
       return;
     }
     terminalEventWritten = true;
-    try {
-      await writer.write(
-        encoder.encodeBinary({
+    const event = isThreadAlreadyRunning(error)
+      ? {
           type: EventType.RUN_ERROR,
-          message:
-            error instanceof Error &&
-            PUBLIC_RUN_ERROR_MESSAGES.has(error.message)
-              ? error.message
-              : "Agent run failed",
-        } as BaseEvent),
-      );
+          message: "Thread already running",
+          code: THREAD_ALREADY_RUNNING_ERROR_CODE,
+        }
+      : { type: EventType.RUN_ERROR, message: "Agent run failed" };
+    try {
+      await writer.write(encoder.encodeBinary(event as BaseEvent));
     } catch {
       // The client is already gone; closeStream() handles the rest.
     }

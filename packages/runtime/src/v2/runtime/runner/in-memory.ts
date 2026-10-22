@@ -3,7 +3,7 @@ import type {
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
 } from "./agent-runner";
-import { AgentRunner } from "./agent-runner";
+import { AgentRunner, ThreadAlreadyRunningError } from "./agent-runner";
 import type { AgentRunnerStopRequest } from "./agent-runner";
 import type { Observable } from "rxjs";
 import { ReplaySubject } from "rxjs";
@@ -618,7 +618,7 @@ export class InMemoryAgentRunner extends AgentRunner {
     // bridge from the dying run's subject.
     if (store.isRunning || store.stopRequested) {
       if (this.onConcurrentRun !== "supersede") {
-        throw new Error("Thread already running");
+        throw new ThreadAlreadyRunningError();
       }
       // Supersede: abort the prior (possibly wedged) run so this one can start.
       // Mirrors stop(). Record the prior run's OWN finalize intent on its

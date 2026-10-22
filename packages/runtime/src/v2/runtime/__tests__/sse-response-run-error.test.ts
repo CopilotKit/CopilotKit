@@ -1,13 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Observable } from "rxjs";
 import { EventType, HttpAgent } from "@ag-ui/client";
-import type { BaseEvent } from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { THREAD_ALREADY_RUNNING_ERROR_CODE } from "@copilotkit/shared";
 
 vi.mock("../../telemetry", () => ({
   telemetry: { capture: vi.fn() },
 }));
 
 import { createSseEventResponse } from "../handlers/shared/sse-response";
+import { InMemoryAgentRunner, ThreadAlreadyRunningError } from "../runner";
+
+const busyThreadRunError = {
+  type: EventType.RUN_ERROR,
+  message: "Thread already running",
+  code: THREAD_ALREADY_RUNNING_ERROR_CODE,
+};
 
 function createMockRequest(): Request {
   return new Request("https://example.com/agent/test/run", {
@@ -48,26 +56,56 @@ describe("createSseEventResponse surfaces failures as RUN_ERROR", () => {
     const response = createSseEventResponse({
       request: createMockRequest(),
       observableFactory: () => {
-        throw new Error("Thread already running");
+        throw new ThreadAlreadyRunningError();
       },
     });
 
-    expect(await readEvents(response)).toEqual([
-      { type: EventType.RUN_ERROR, message: "Thread already running" },
-    ]);
+    expect(await readEvents(response)).toEqual([busyThreadRunError]);
   });
 
   it("writes RUN_ERROR when the observable factory rejects", async () => {
     const response = createSseEventResponse({
       request: createMockRequest(),
       observableFactory: async () => {
-        throw new Error("Thread already running");
+        throw new ThreadAlreadyRunningError();
       },
     });
 
-    expect(await readEvents(response)).toEqual([
-      { type: EventType.RUN_ERROR, message: "Thread already running" },
-    ]);
+    expect(await readEvents(response)).toEqual([busyThreadRunError]);
+  });
+
+  it("sends the busy-thread code for the in-memory runner's guard", async () => {
+    const runner = new InMemoryAgentRunner();
+    const threadId = `busy-${Math.random()}`;
+    let release!: () => void;
+    const agent = {
+      agentId: "slow",
+      messages: [],
+      runAgent: () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+      abortRun: () => {},
+    } as unknown as AbstractAgent;
+    const input = (runId: string) =>
+      ({
+        threadId,
+        runId,
+        messages: [],
+        state: {},
+        tools: [],
+        context: [],
+      }) as unknown as RunAgentInput;
+    runner.run({ threadId, agent, input: input("r-1") });
+
+    const response = createSseEventResponse({
+      request: createMockRequest(),
+      observableFactory: () =>
+        runner.run({ threadId, agent, input: input("r-2") }),
+    });
+
+    expect(await readEvents(response)).toEqual([busyThreadRunError]);
+    release();
   });
 
   it("ends a started run with RUN_ERROR when the stream errors", async () => {
@@ -175,7 +213,7 @@ describe("createSseEventResponse surfaces failures as RUN_ERROR", () => {
             signal: init.signal ?? undefined,
           }),
           observableFactory: () => {
-            throw new Error("Thread already running");
+            throw new ThreadAlreadyRunningError();
           },
         }),
     } as ConstructorParameters<typeof HttpAgent>[0]);
@@ -189,6 +227,7 @@ describe("createSseEventResponse surfaces failures as RUN_ERROR", () => {
         event: expect.objectContaining({
           type: EventType.RUN_ERROR,
           message: "Thread already running",
+          code: THREAD_ALREADY_RUNNING_ERROR_CODE,
         }),
       }),
     );
