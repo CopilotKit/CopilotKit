@@ -39,6 +39,7 @@ export function defineToolCallRenderer(def: {
   name: "*";
   render: (props: RenderProps<any>) => React.ReactElement | null;
   agentId?: string;
+  group?: boolean;
 }): ReactToolCallRenderer<any>;
 
 // Overload for regular tools with args
@@ -49,6 +50,7 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
     props: RenderProps<InferSchemaOutput<S>>,
   ) => React.ReactElement | null;
   agentId?: string;
+  group?: boolean;
 }): ReactToolCallRenderer<InferSchemaOutput<S>>;
 
 // Implementation
@@ -57,6 +59,7 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   args?: S;
   render: (props: any) => React.ReactElement | null;
   agentId?: string;
+  group?: boolean;
 }): ReactToolCallRenderer<any> {
   // For wildcard tools, default to z.any() if no args provided
   const argsSchema = def.name === "*" && !def.args ? z.any() : def.args;
@@ -66,5 +69,6 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
     args: argsSchema,
     render: def.render as React.ComponentType<any>,
     ...(def.agentId ? { agentId: def.agentId } : {}),
+    ...(def.group ? { group: true } : {}),
   };
 }
