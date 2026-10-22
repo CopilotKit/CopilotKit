@@ -3,11 +3,25 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "vitest";
 import { loadDoc } from "../docs-render";
+import { getVueDocsPageRoutes } from "../frontend-page-content";
 import {
   getAllLlmPages,
   renderPageToLlmText,
   rewriteScopedDocsLinks,
 } from "../llm-text";
+
+test("publishes canonical Vue guides and reference in the exhaustive corpus", () => {
+  const urls = new Set(getAllLlmPages().map((page) => page.url));
+  expect(urls.has("vue")).toBe(true);
+  expect(urls.has("reference/vue/hooks/useThreads")).toBe(true);
+  expect(urls.has("reference/vue/components/CopilotThreadsDrawer")).toBe(true);
+  for (const { canonicalSlugPath } of getVueDocsPageRoutes()) {
+    if (canonicalSlugPath)
+      expect(urls.has(`vue/${canonicalSlugPath}`), canonicalSlugPath).toBe(
+        true,
+      );
+  }
+});
 
 test("Hashbrown guide exports each bundled framework's complete source", () => {
   const doc = loadDoc("generative-ui/hashbrown");
