@@ -81,7 +81,7 @@ const nonPublicV6 = new BlockList();
 for (const [address, prefix] of [
   ["2001::", 23], // Special-purpose space, including Teredo / ORCHID.
   ["2001:db8::", 32],
-  ["2002::", 16], // Documentation and 6to4.
+  ["2002::", 16], // 6to4.
   ["3fff::", 20], // Documentation.
 ] as const)
   nonPublicV6.addSubnet(address, prefix, "ipv6");

@@ -56,6 +56,135 @@ describe("createEndorsementCheck", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("suppresses sequential unknown-key refreshes after a warm-cache refresh fails", async () => {
+    let now = 1000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const fetchSpy = stubFetch(async () => keysResponse([], 503));
+    fetchSpy.mockResolvedValueOnce(
+      keysResponse([{ kid: "cached-key", endorsements: ["msteams"] }]),
+    );
+    const check = createEndorsementCheck();
+    await expect(
+      check(BOT_FRAMEWORK_ISSUER, bearer("cached-key"), "msteams"),
+    ).resolves.toEqual({ ok: true });
+
+    now += 30_001;
+    const fetchCounts: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      await expect(
+        check(BOT_FRAMEWORK_ISSUER, bearer("rotated-key"), "msteams"),
+      ).rejects.toThrow("HTTP 503");
+      fetchCounts.push(fetchSpy.mock.calls.length);
+    }
+    expect(fetchCounts).toEqual([2, 2, 2]);
+  });
+
+  it("keeps enforcing endorsements and the original cache TTL during failure cooldown", async () => {
+    let now = 1000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const fetchSpy = stubFetch(async () => keysResponse([], 503));
+    fetchSpy.mockResolvedValueOnce(
+      keysResponse([{ kid: "cached-key", endorsements: ["msteams"] }]),
+    );
+    const check = createEndorsementCheck();
+    await check(BOT_FRAMEWORK_ISSUER, bearer("cached-key"), "msteams");
+
+    now += 60 * 60 * 1000 - 1000;
+    await expect(
+      check(BOT_FRAMEWORK_ISSUER, bearer("rotated-key"), "msteams"),
+    ).rejects.toThrow("HTTP 503");
+    await expect(
+      check(BOT_FRAMEWORK_ISSUER, bearer("cached-key"), "msteams"),
+    ).resolves.toEqual({ ok: true });
+    await expect(
+      check(BOT_FRAMEWORK_ISSUER, bearer("cached-key"), "webchat"),
+    ).resolves.toMatchObject({ ok: false, status: 403 });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    now += 1001;
+    await expect(
+      check(BOT_FRAMEWORK_ISSUER, bearer("cached-key"), "msteams"),
+    ).rejects.toThrow("HTTP 503");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["cold", "expired"])(
+    "fails closed on a %s cache during cooldown, then shares one retry",
+    async (cacheState) => {
+      let now = 1000;
+      vi.spyOn(Date, "now").mockImplementation(() => now);
+      const fetchSpy = stubFetch(async () => keysResponse([], 503));
+      const check = createEndorsementCheck();
+      if (cacheState === "expired") {
+        fetchSpy.mockResolvedValueOnce(
+          keysResponse([{ kid: "cached-key", endorsements: ["msteams"] }]),
+        );
+        await check(BOT_FRAMEWORK_ISSUER, bearer("cached-key"), "msteams");
+        now += 60 * 60 * 1000 + 1;
+      }
+      const expectedFetches = cacheState === "expired" ? 2 : 1;
+      for (let i = 0; i < 3; i++) {
+        await expect(
+          check(BOT_FRAMEWORK_ISSUER, bearer("cached-key"), "msteams"),
+        ).rejects.toThrow("HTTP 503");
+        expect(fetchSpy).toHaveBeenCalledTimes(expectedFetches);
+      }
+
+      now += 29_999;
+      await expect(
+        check(BOT_FRAMEWORK_ISSUER, bearer("rotated-key"), "msteams"),
+      ).rejects.toThrow("HTTP 503");
+      expect(fetchSpy).toHaveBeenCalledTimes(expectedFetches);
+
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      fetchSpy.mockImplementationOnce(async () => {
+        await gate;
+        return keysResponse([
+          { kid: "rotated-key", endorsements: ["msteams"] },
+        ]);
+      });
+      now += 1;
+      const results = Array.from({ length: 10 }, () =>
+        check(BOT_FRAMEWORK_ISSUER, bearer("rotated-key"), "msteams"),
+      );
+      expect(fetchSpy).toHaveBeenCalledTimes(expectedFetches + 1);
+      release();
+      expect((await Promise.all(results)).every((result) => result.ok)).toBe(
+        true,
+      );
+
+      now += 29_999;
+      await expect(
+        check(BOT_FRAMEWORK_ISSUER, bearer("missing-key"), "msteams"),
+      ).resolves.toMatchObject({ ok: false, status: 401 });
+      expect(fetchSpy).toHaveBeenCalledTimes(expectedFetches + 1);
+    },
+  );
+
+  it.each(["network", "timeout", "JSON"])(
+    "starts the cooldown when a %s failure completes",
+    async (failure) => {
+      let now = 1000;
+      vi.spyOn(Date, "now").mockImplementation(() => now);
+      const fetchSpy = stubFetch(async () => {
+        now += 5000;
+        if (failure === "JSON") return new Response("invalid JSON");
+        throw new Error(failure);
+      });
+      const check = createEndorsementCheck();
+      await expect(
+        check(BOT_FRAMEWORK_ISSUER, bearer(), "msteams"),
+      ).rejects.toThrow();
+
+      now += 29_999;
+      await expect(
+        check(BOT_FRAMEWORK_ISSUER, bearer(), "msteams"),
+      ).rejects.toThrow();
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it("fails (rejects) instead of hanging when the key fetch does not answer", async () => {
     stubFetch(
       (init) =>

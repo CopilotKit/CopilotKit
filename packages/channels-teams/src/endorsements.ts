@@ -64,6 +64,8 @@ export function createEndorsementCheck(
 ) {
   const timeoutMs = options.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
   let cached: { keys: SigningKey[]; fetchedAt: number } | undefined;
+  /** Failed refreshes have their own cooldown without extending cache validity. */
+  let failed: { failedAt: number; error: unknown } | undefined;
   /** The fetch in progress, shared by every check that needs fresh keys. */
   let inFlight: Promise<SigningKey[]> | undefined;
 
@@ -75,13 +77,23 @@ export function createEndorsementCheck(
     const body = (await res.json()) as { keys?: unknown };
     const keys = Array.isArray(body.keys) ? (body.keys as SigningKey[]) : [];
     cached = { keys, fetchedAt: Date.now() };
+    failed = undefined;
     return keys;
   }
 
   function load(): Promise<SigningKey[]> {
-    inFlight ??= fetchKeys().finally(() => {
-      inFlight = undefined;
-    });
+    if (inFlight) return inFlight;
+    if (failed && Date.now() - failed.failedAt < MIN_REFRESH_MS) {
+      return Promise.reject(failed.error);
+    }
+    inFlight = fetchKeys()
+      .catch((error: unknown) => {
+        failed = { failedAt: Date.now(), error };
+        throw error;
+      })
+      .finally(() => {
+        inFlight = undefined;
+      });
     return inFlight;
   }
 
