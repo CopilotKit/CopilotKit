@@ -1,7 +1,7 @@
 /**
  * Shared status/priority → glyph mapping for the Linear components. The
  * functions return unicode glyphs (not Slack `:shortcode:` strings), so the
- * components render identically on Slack and Telegram.
+ * components render identically across platforms.
  */
 
 /** Unicode glyph for a Linear workflow-state name. */

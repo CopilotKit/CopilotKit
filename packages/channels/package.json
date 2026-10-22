@@ -19,9 +19,6 @@
     "microsoft-teams",
     "teams",
     "intelligence",
-    "discord",
-    "telegram",
-    "whatsapp",
     "copilotkit",
     "ag-ui"
   ],
@@ -75,18 +72,6 @@
     "./teams/render": {
       "types": "./dist/teams/render.d.ts",
       "import": "./dist/teams/render.js"
-    },
-    "./discord": {
-      "types": "./dist/discord.d.ts",
-      "import": "./dist/discord.js"
-    },
-    "./telegram": {
-      "types": "./dist/telegram.d.ts",
-      "import": "./dist/telegram.js"
-    },
-    "./whatsapp": {
-      "types": "./dist/whatsapp.d.ts",
-      "import": "./dist/whatsapp.js"
     }
   },
   "files": [
@@ -104,10 +89,7 @@
     "@copilotkit/channels-core": "workspace:*",
     "@copilotkit/channels-ui": "workspace:*",
     "@copilotkit/channels-slack": "workspace:*",
-    "@copilotkit/channels-teams": "workspace:*",
-    "@copilotkit/channels-discord": "workspace:*",
-    "@copilotkit/channels-telegram": "workspace:*",
-    "@copilotkit/channels-whatsapp": "workspace:*"
+    "@copilotkit/channels-teams": "workspace:*"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",

@@ -35,11 +35,11 @@ describe("normalizePlatform allow-list coverage (monorepo invariant)", () => {
   it("covers every official channel adapter's declared platform", () => {
     const discovered = discoverAdapterPlatforms();
     // Guard against a broken scan path silently passing: we ship at least
-    // slack/discord/telegram/whatsapp.
+    // slack/teams.
     expect(
       discovered.length,
       `expected to discover the official channel adapters under ${packagesDir}`,
-    ).toBeGreaterThanOrEqual(4);
+    ).toBeGreaterThanOrEqual(2);
 
     const missing = discovered.filter(
       ({ platform }) => normalizePlatform(platform) !== platform,
