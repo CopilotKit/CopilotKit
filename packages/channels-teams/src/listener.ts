@@ -118,7 +118,29 @@ function inboundAuthConfig(
   // Decide on the resolved settings, not the raw ones: the SDK can supply the
   // app id from its own env vars, and then the adapter is credentialed too.
   const resolved = raw.connections?.size ? raw : getAuthConfigWithDefaults(raw);
+  assertResolvedAppId(raw.clientId, resolved);
   return resolved.clientId ? resolved : undefined;
+}
+
+/**
+ * Fail closed when the SDK resolved a different app id than the one asked
+ * for. When any `Connections__*` env var exists, the SDK builds its settings
+ * from those alone and drops an explicit `clientId`, which would otherwise
+ * leave the endpoint anonymous (or acting as another app) without a word.
+ */
+export function assertResolvedAppId(
+  requested: string | undefined,
+  resolved: AuthConfiguration,
+): void {
+  if (!requested || resolved.clientId === requested) return;
+  throw new Error(
+    `[bot-teams] clientId "${requested}" is configured (option or clientId ` +
+      `env var), but the M365 Agents SDK resolved ` +
+      (resolved.clientId ? `app id "${resolved.clientId}"` : "no app id") +
+      " because Connections__* environment settings take precedence over " +
+      "it. Remove the Connections__* variables, or set " +
+      "Connections__<id>__Settings__ClientId (and its secret) to the same app.",
+  );
 }
 
 /** The botframework.com tenant, as it appears in Microsoft-issued tokens. */
@@ -128,8 +150,9 @@ const BOT_FRAMEWORK_TENANT_IDS = [
 ];
 
 /**
- * Token issuers accepted for the app the token was issued to: the `issuers`
- * the SDK resolved for that connection (Bot Framework, plus the configured
+ * Token issuers accepted for the bot's own app id (lowercased; issuer hosts
+ * and tenant ids are case-insensitive): the `issuers` the SDK resolved for
+ * that connection (Bot Framework, plus the configured
  * tenant's Azure AD v1 and v2 issuers; overridable through the SDK's
  * `Connections__<id>__Settings__Issuers`). `authorizeJWT` checks the
  * signature, audience and expiry but not the issuer, and Azure AD signing keys
@@ -139,16 +162,13 @@ const BOT_FRAMEWORK_TENANT_IDS = [
  * Without a `tenantId` the SDK names the tenant `botframework.com`, but real
  * tokens carry that tenant's id, so both ids are accepted in its place.
  */
-function acceptedIssuers(
-  authConfig: AuthConfiguration,
-  audience: unknown,
-): Set<string> {
-  const aud = Array.isArray(audience) ? audience[0] : audience;
+function acceptedIssuers(authConfig: AuthConfiguration): Set<string> {
   const connection = [...(authConfig.connections?.values() ?? [])].find(
-    (c) => c.clientId === aud,
+    (c) => c.clientId === authConfig.clientId,
   );
   const accepted = new Set<string>();
-  for (const iss of connection?.issuers ?? authConfig.issuers ?? []) {
+  for (const configured of connection?.issuers ?? authConfig.issuers ?? []) {
+    const iss = configured.toLowerCase();
     accepted.add(iss);
     if (iss.includes("/botframework.com/")) {
       for (const id of BOT_FRAMEWORK_TENANT_IDS) {
@@ -165,7 +185,7 @@ function acceptedIssuers(
  * matches the activity's `serviceUrl`.
  */
 function isBotConnectorIssuer(iss: string): boolean {
-  return iss.startsWith("https://api.botframework.");
+  return iss.toLowerCase().startsWith("https://api.botframework.");
 }
 
 export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
@@ -181,6 +201,8 @@ export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
       const authConfig = inboundAuthConfig(config);
       if (authConfig) {
         const verifyJwt = authorizeJWT(authConfig);
+        const appId = authConfig.clientId;
+        const issuers = acceptedIssuers(authConfig);
         const allowed = resolveAllowedServiceUrls(config.allowedServiceUrls);
         // 1. Authenticate. `authorizeJWT` answers 401 itself on a missing or
         //    invalid token and only calls `next` once `req.user` is set.
@@ -195,15 +217,21 @@ export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
             if (!res.headersSent) res.status(401).end();
           });
         });
-        // 2. Accept only the issuers configured for this app, and require the
-        //    `serviceurl` claim on Bot Connector tokens.
+        // 2. Accept only tokens for the bot's own app id (`authorizeJWT` also
+        //    accepts any other configured connection's app id), from the
+        //    issuers configured for it, and require the `serviceurl` claim on
+        //    Bot Connector tokens.
         app.post("/api/messages", (req, res, next) => {
           const user = (req as unknown as AgentsRequest).user;
+          if (user?.aud !== appId) {
+            console.warn(
+              "[bot-teams] rejected token: audience is not this bot",
+            );
+            res.status(401).send({ error: "token audience not accepted" });
+            return;
+          }
           const iss: unknown = user?.iss;
-          if (
-            typeof iss !== "string" ||
-            !acceptedIssuers(authConfig, user?.aud).has(iss)
-          ) {
+          if (typeof iss !== "string" || !issuers.has(iss.toLowerCase())) {
             console.warn("[bot-teams] rejected token: issuer not accepted");
             res.status(401).send({ error: "token issuer not accepted" });
             return;

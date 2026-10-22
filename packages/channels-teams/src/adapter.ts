@@ -30,7 +30,7 @@ import { buildFileContentParts } from "./download-files.js";
 import type { TeamsAttachmentRef } from "./download-files.js";
 import { buildChannelFileContentParts } from "./graph-files.js";
 import type { GraphCredentials, ChannelMessageRef } from "./graph-files.js";
-import { createTeamsServer } from "./listener.js";
+import { assertResolvedAppId, createTeamsServer } from "./listener.js";
 import {
   isAllowedServiceUrl,
   resolveAllowedServiceUrls,
@@ -120,6 +120,7 @@ export class TeamsAdapter implements PlatformAdapter {
     // token at all come from the same settings, including credentials that
     // only arrive through the SDK's own env vars (`Connections__*`).
     const authConfig = getAuthConfigWithDefaults(configured);
+    assertResolvedAppId(clientId, authConfig);
     this.resolvedAuth = authConfig;
     this.cloud = new CloudAdapter(authConfig);
     // Contain turn-handler failures at the SDK boundary. Without this the M365

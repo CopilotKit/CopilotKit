@@ -202,14 +202,21 @@ environment variables (the names the M365 Agents SDK reads).
 With a `clientId` configured (as an option, or through any of the env vars the
 M365 Agents SDK reads, including `Connections__*`), `POST /api/messages` only
 accepts requests that carry a valid token for that app. The SDK's `authorizeJWT`
-checks the signature, audience and expiry; the listener then requires an issuer
-the SDK configured for the app (Bot Framework, `https://api.botframework.com`,
-or your tenant's Azure AD issuers; the botframework.com tenant when no
-`tenantId` is set). A Bot Framework token must also carry a `serviceurl` claim.
-Anything else gets `401` and never reaches your handlers. Settings such as
-`authorityEndpoint`, or a custom issuer list
-(`Connections__<id>__Settings__Issuers`), resolve from the environment the same
-way the SDK reads them.
+checks the signature, audience and expiry. The listener then requires the bot's
+own app id as the audience, and an issuer the SDK configured for the app (Bot
+Framework, `https://api.botframework.com`, or your tenant's Azure AD issuers;
+the botframework.com tenant when no `tenantId` is set). A Bot Framework token
+must also carry a `serviceurl` claim. Anything else gets `401` and never
+reaches your handlers. Settings such as `authorityEndpoint`, or a custom issuer
+list (`Connections__<id>__Settings__Issuers`), resolve from the environment the
+same way the SDK reads them.
+
+The `Connections__*` env settings take precedence: when any of them is set, the
+SDK builds its auth settings from those env vars alone and ignores the
+`clientId` / `clientSecret` / `tenantId` options. If the app id it resolves is
+missing or differs from the `clientId` you configured, `start` fails with an
+error that names the conflict, rather than running anonymously or as another
+app.
 
 The bot sends its app token to the activity's `serviceUrl` when it replies, so
 that URL is checked too. It must be one of the Microsoft connector hosts below

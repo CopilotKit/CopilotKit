@@ -164,6 +164,13 @@ function activity(serviceUrl: string) {
   };
 }
 
+/** Set one `Connections__<name>__Settings__*` env connection for the SDK. */
+function setEnvConnection(name: string, settings: Record<string, string>) {
+  for (const [k, v] of Object.entries(settings)) {
+    process.env[`Connections__${name}__Settings__${k}`] = v;
+  }
+}
+
 const settle = () => new Promise((r) => setTimeout(r, 300));
 
 describe("POST /api/messages trust boundary", () => {
@@ -243,8 +250,8 @@ describe("POST /api/messages trust boundary", () => {
     connector.hits.length = 0;
     getAccessToken.mockClear();
     createClient.mockClear();
-    for (const k of envKeys.filter((key) => key.startsWith(ENV_CONNECTION))) {
-      delete process.env[k];
+    for (const k of Object.keys(process.env)) {
+      if (/^Connections(Map)?__/i.test(k)) delete process.env[k];
     }
   });
 
@@ -263,12 +270,17 @@ describe("POST /api/messages trust boundary", () => {
     );
   });
 
-  type Mode = "credentialed" | "multiTenant" | "anonymous";
+  type Mode = "credentialed" | "upperTenant" | "multiTenant" | "anonymous";
   const credentials: Record<Mode, object> = {
     credentialed: {
       clientId: APP_ID,
       clientSecret: "local-secret",
       tenantId: TENANT,
+    },
+    upperTenant: {
+      clientId: APP_ID,
+      clientSecret: "local-secret",
+      tenantId: TENANT.toUpperCase(),
     },
     multiTenant: { clientId: APP_ID, clientSecret: "local-secret" },
     anonymous: {},
@@ -493,5 +505,79 @@ describe("POST /api/messages trust boundary", () => {
     } finally {
       await server.stop();
     }
+  });
+  const OTHER_APP = "11111111-2222-3333-4444-555555555555";
+
+  it("fails to start when Connections__ env settings drop the configured clientId", async () => {
+    setEnvConnection("serviceConnection", { TenantId: TENANT });
+    await expect(start("credentialed")).rejects.toThrow(
+      /clientId .* is configured .* resolved no app id .*Connections__/s,
+    );
+  });
+
+  it("fails to start when Connections__ env settings resolve a different app id", async () => {
+    setEnvConnection("serviceConnection", {
+      ClientId: OTHER_APP,
+      ClientSecret: "s",
+      TenantId: TENANT,
+    });
+    await expect(start("credentialed")).rejects.toThrow(
+      new RegExp(`resolved app id "${OTHER_APP}"`),
+    );
+  });
+
+  it("fails closed in createTeamsServer when the explicit clientId is dropped", async () => {
+    setEnvConnection("serviceConnection", { TenantId: TENANT });
+    const server = createTeamsServer({
+      adapter: { process: vi.fn() } as unknown as CloudAdapter,
+      authConfig: { clientId: APP_ID, clientSecret: "s", tenantId: TENANT },
+      port: await freePort(),
+      onTurnContext: vi.fn(),
+    });
+    await expect(server.start()).rejects.toThrow(/Connections__/);
+  });
+
+  it("accepts only the bot's own app id as the token audience", async () => {
+    const authority = process.env.authorityEndpoint ?? "";
+    setEnvConnection("serviceConnection", {
+      ClientId: APP_ID,
+      ClientSecret: "s",
+      TenantId: TENANT,
+      AuthorityEndpoint: authority,
+    });
+    setEnvConnection("graph", {
+      ClientId: OTHER_APP,
+      ClientSecret: "s",
+      TenantId: TENANT,
+      AuthorityEndpoint: authority,
+    });
+    process.env.ConnectionsMap__0__ServiceUrl = "*";
+    process.env.ConnectionsMap__0__Connection = "serviceConnection";
+    const { post, onTurn } = await start("anonymous");
+    const res = await post(
+      connectorUrl,
+      signToken({ aud: OTHER_APP, serviceurl: connectorUrl }),
+    );
+    await settle();
+    expect(res.status).toBe(401);
+    expect(onTurn).not.toHaveBeenCalled();
+
+    const ok = await post(
+      connectorUrl,
+      signToken({ serviceurl: connectorUrl }),
+    );
+    await settle();
+    expect(ok.status).toBe(200);
+  });
+
+  it("matches issuers case-insensitively (uppercase tenantId, lowercase token)", async () => {
+    const { post, onTurn } = await start("upperTenant");
+    const res = await post(
+      connectorUrl,
+      signToken({ serviceurl: connectorUrl }),
+    );
+    await settle();
+    expect(res.status).toBe(200);
+    expect(onTurn).toHaveBeenCalledTimes(1);
   });
 });
