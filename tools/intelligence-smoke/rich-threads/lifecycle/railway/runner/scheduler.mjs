@@ -34,6 +34,7 @@ function activeCleanupComplete(cleanup) {
   );
 }
 const intervalMs = 4 * 60 * 60 * 1000;
+const idleReconciliationMs = 15 * 60 * 1000;
 async function optionalJson(path) {
   try {
     return JSON.parse(await readFile(path, "utf8"));
@@ -234,6 +235,7 @@ export async function createScheduler({
     return write;
   };
   let busy = false;
+  let lastReconciledAt;
   let closing = false;
   let unlocked = false;
   let abort;
@@ -412,6 +414,7 @@ export async function createScheduler({
     state.retentionOverdue = state.retainedVolumes.some(
       (volume) => volume.overdue,
     );
+    lastReconciledAt = clock();
     return retainedRunId;
   }
   /** Restore admission only for the same owner and the verified running image. */
@@ -713,6 +716,18 @@ export async function createScheduler({
         recovering ||
         recovery?.status === "prepared" ||
         (recovery && state.active === recovery.authorization.runnerRunId)
+      )
+        return;
+      const elapsed = clock() - lastReconciledAt;
+      // Passive watches and detached volumes can wait; admission and unfinished
+      // cleanup always require fresh ownership evidence. Restart checks eagerly.
+      if (
+        !state.active &&
+        !state.blocked &&
+        !fenced &&
+        !(scheduleEnabled && clock() >= state.nextRunAt) &&
+        elapsed >= 0 &&
+        elapsed < idleReconciliationMs
       )
         return;
       if (!(await recoverIdle())) return;

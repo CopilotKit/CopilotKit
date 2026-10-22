@@ -21,7 +21,7 @@ async function setup(t, overrides = {}) {
   });
   return { root, scheduler };
 }
-test("manual-only startup keeps recovery active without scheduling tests", async (t) => {
+test("healthy idle ticks reconcile every 15 minutes without scheduling tests", async (t) => {
   let now = 100;
   let recoveries = 0;
   let executions = 0;
@@ -35,18 +35,59 @@ test("manual-only startup keeps recovery active without scheduling tests", async
       return 0;
     },
   });
+  now += 30_000;
   await scheduler.tick();
   assert.equal(executions, 0);
+  assert.equal(recoveries, 1);
+  now = 100 + 15 * 60_000 - 1;
+  await scheduler.tick();
+  assert.equal(recoveries, 1);
+  now++;
+  await scheduler.tick();
   assert.equal(recoveries, 2);
   assert.equal(scheduler.status().scheduleEnabled, false);
   const manual = await scheduler.start("single");
   assert.equal(manual.accepted, true);
   await manual.completion;
+  assert.equal(
+    recoveries,
+    4,
+    "Manual admission and completion need fresh checks",
+  );
   assert.equal(executions, 1);
   now += 8 * 60 * 60 * 1000;
   await scheduler.tick();
   assert.equal(executions, 1);
   assert.equal(scheduler.status().scheduleEnabled, false);
+});
+
+test("manual admission checks ownership even within the idle cooldown", async (t) => {
+  let fails = false;
+  const { scheduler } = await setup(t, {
+    recover: async () => {
+      if (fails) throw new Error("ownership changed while idle");
+    },
+  });
+  fails = true;
+  assert.deepEqual(await scheduler.start(), {
+    accepted: false,
+    reason: "cleanup-blocked",
+  });
+  assert.equal(scheduler.status().blocked, true);
+});
+
+test("clock rollback cannot postpone healthy idle reconciliation", async (t) => {
+  let now = 100;
+  let recoveries = 0;
+  const { scheduler } = await setup(t, {
+    clock: () => now,
+    recover: async () => {
+      recoveries++;
+    },
+  });
+  now--;
+  await scheduler.tick();
+  assert.equal(recoveries, 2);
 });
 
 test(
@@ -77,16 +118,31 @@ test(
 );
 
 test("manual-only ticks still block runs when cleanup fails", async (t) => {
+  let now = 100;
   let fails = false;
+  let recoveries = 0;
   const { scheduler } = await setup(t, {
+    clock: () => now,
     recover: async () => {
+      recoveries++;
       if (fails) throw new Error("cleanup unavailable");
     },
   });
   fails = true;
+  now += 15 * 60_000;
   await scheduler.tick();
   assert.equal(scheduler.status().blocked, true);
   assert.equal((await scheduler.start("single")).accepted, false);
+  const before = recoveries;
+  fails = false;
+  now += 30_000;
+  await scheduler.tick();
+  assert.equal(
+    recoveries,
+    before + 1,
+    "Blocked recovery keeps the fast cadence",
+  );
+  assert.equal(scheduler.status().blocked, false);
 });
 test("permanent scheduler serializes manual/timer runs and retains failed results", async (t) => {
   let finish, entered;
@@ -715,8 +771,34 @@ async function recoverySetup(t, overrides = {}) {
   };
 }
 
+test("healthy idle watches wait 15 minutes and still check every admission", async (t) => {
+  let now = 100;
+  const { scheduler, request, watches } = await recoverySetup(t, {
+    clock: () => now,
+  });
+  await scheduler.recover(request);
+  await scheduler.resume(request);
+  const before = watches();
+  now += 30_000;
+  await scheduler.tick();
+  assert.equal(watches(), before);
+  now = 100 + 15 * 60_000;
+  await scheduler.tick();
+  assert.equal(watches(), before + 1);
+  const run = await scheduler.start();
+  assert.equal(run.accepted, true);
+  await run.completion;
+  assert.equal(watches(), before + 3);
+});
+
 test("bounded recovery retains its journal, fences restart, and watches every admission and completion", async (t) => {
-  const { root, scheduler, request, options, watches } = await recoverySetup(t);
+  let now = 100;
+  const { root, scheduler, request, options, watches } = await recoverySetup(
+    t,
+    {
+      clock: () => now,
+    },
+  );
   assert.equal(watches(), 0);
   await scheduler.tick();
   assert.equal(watches(), 0);
@@ -749,6 +831,9 @@ test("bounded recovery retains its journal, fences restart, and watches every ad
       .cleanup.status,
     "failed",
   );
+  await restarted.tick();
+  assert.equal(watches(), before + 2);
+  now += 15 * 60_000;
   await restarted.tick();
   assert.equal(watches(), before + 3);
   await restarted.close();

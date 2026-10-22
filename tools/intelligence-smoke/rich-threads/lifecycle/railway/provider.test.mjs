@@ -425,6 +425,86 @@ test("three consumer mirrors; one physical composite restart; exact resource abs
       "complete",
     );
 });
+test("bootstrap volumes wait the creation window before recording each intent", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider();
+  const sent = [];
+  const request = p.api.request;
+  p.api.request = async (operation, args) => {
+    if (operation === "createVolume")
+      sent.push(f.dependencies.pacingTime.clock());
+    return request(operation, args);
+  };
+  const sleep = f.dependencies.pacingTime.sleep;
+  f.dependencies.pacingTime.sleep = async (ms) => {
+    const journal = JSON.parse(
+      await readFile(join(f.directory, "paced-volumes/journal.json")),
+    );
+    assert.equal(
+      journal.intents.some(
+        (intent) =>
+          intent.kind === "createVolume" && intent.status === "pending",
+      ),
+      false,
+      "Waiting for quota must not leave a creation intent",
+    );
+    await sleep(ms);
+  };
+  const env = await createRailwayEnvironment(
+    { ...f, runId: "paced-volumes", frameworks: ["mastra"] },
+    { ...f.dependencies, api: p.api },
+  );
+  try {
+    assert.equal(sent.length, 3);
+    for (let i = 1; i < sent.length; i++)
+      assert.ok(sent[i] - sent[i - 1] >= 32000, "Volume creates are too close");
+    assert.equal(
+      p.state.calls.filter((op) => op === "creationLimits").length,
+      5,
+    );
+  } finally {
+    await env.cleanup();
+  }
+});
+
+test("cancellation during volume pacing sends no volume request or intent", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider();
+  const abort = new AbortController();
+  const request = p.api.request;
+  p.api.request = async (operation, args) => {
+    if (operation === "creationLimits" && p.state.services.length > 0)
+      abort.abort(new Error("Interrupted volume pacing"));
+    return request(operation, args);
+  };
+  let env;
+  try {
+    await assert.rejects(async () => {
+      env = await createRailwayEnvironment(
+        {
+          ...f,
+          runId: "cancel-volume-wait",
+          frameworks: ["mastra"],
+          signal: abort.signal,
+        },
+        { ...f.dependencies, api: p.api },
+      );
+    }, /Interrupted volume pacing/);
+  } finally {
+    await env?.cleanup();
+  }
+  assert.equal(p.state.calls.includes("createVolume"), false);
+  const journal = JSON.parse(
+    await readFile(join(f.directory, "cancel-volume-wait/journal.json")),
+  );
+  assert.equal(
+    journal.intents.some((intent) => intent.kind === "createVolume"),
+    false,
+  );
+  assert.equal(journal.cleanup.status, "passed");
+  assert.equal(p.state.services.length + p.state.environments.length, 0);
+});
+
 test("long run IDs and service keys keep distinct bounded provider names", async (t) => {
   const f = await fixture(t);
   const p = fakeProvider({ nameLimit: 32 });

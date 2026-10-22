@@ -1358,37 +1358,45 @@ async function controllerFor({
       await save();
       await publish();
       if (spec.volume) {
-        await check();
-        const beforeVolumes = await api.list("volumes", journal.projectId);
-        const volumeIntent = {
-          kind: "createVolume",
-          name: `${name}-data`,
-          scope: service.id,
-          mountPath: spec.volume.mountPath,
-          startedAt: new Date().toISOString(),
-          beforeIds: beforeVolumes.map((v) => v.id),
-          status: "pending",
-        };
-        journal.intents.push(volumeIntent);
-        await save();
-        const volume = await requestCreation(volumeIntent, {
-          input: {
-            projectId: journal.projectId,
-            environmentId: fork.id,
-            serviceId: service.id,
-            mountPath: spec.volume.mountPath,
+        const volume = await pace(
+          "createVolume",
+          { check, deadline: Date.parse(journal.expiresAt) - 5 * 60 * 1000 },
+          async () => {
+            await check();
+            const beforeVolumes = await api.list("volumes", journal.projectId);
+            await check();
+            const volumeIntent = {
+              kind: "createVolume",
+              name: `${name}-data`,
+              scope: service.id,
+              mountPath: spec.volume.mountPath,
+              startedAt: new Date().toISOString(),
+              beforeIds: beforeVolumes.map((v) => v.id),
+              status: "pending",
+            };
+            journal.intents.push(volumeIntent);
+            await save();
+            const created = await requestCreation(volumeIntent, {
+              input: {
+                projectId: journal.projectId,
+                environmentId: fork.id,
+                serviceId: service.id,
+                mountPath: spec.volume.mountPath,
+              },
+            });
+            id(created.id);
+            assert.equal(created.projectId, journal.projectId);
+            journal.volumes.push({
+              id: created.id,
+              serviceId: service.id,
+              mountPath: spec.volume.mountPath,
+            });
+            volumeIntent.resultId = created.id;
+            volumeIntent.status = "recorded";
+            await save();
+            return created;
           },
-        });
-        id(volume.id);
-        assert.equal(volume.projectId, journal.projectId);
-        journal.volumes.push({
-          id: volume.id,
-          serviceId: service.id,
-          mountPath: spec.volume.mountPath,
-        });
-        volumeIntent.resultId = volume.id;
-        volumeIntent.status = "recorded";
-        await save();
+        );
         await publish();
         if (process.env.RICH_CRASH_AFTER_RESOURCE === "1") {
           const runnerPid = Number(process.env.RICH_RUNNER_PID);

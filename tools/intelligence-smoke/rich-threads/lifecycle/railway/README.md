@@ -122,8 +122,11 @@ set it to `true` to run `controller.mjs --mode=single` every four hours. Other
 values fail startup. An enabled schedule with no prior run is due on the first
 idle tick; a retained overdue schedule is also due immediately.
 `GET /status` includes `scheduleEnabled` so callers can distinguish manual mode
-from an enabled schedule. Both modes serialize requests and reconcile unfinished
-ownership on startup and every 30 seconds while idle. Disabling scheduling does
+from an enabled schedule. Both modes serialize requests and reconcile ownership
+on startup, before every run, and after completion. Healthy idle runners check
+retained watches and detached volumes every 15 minutes. Blocked cleanup and
+deployment drains remain eligible for recovery on each 30-second tick; a due
+scheduled run also checks immediately. Disabling scheduling does
 not disable recovery, cancel an active run, or block authenticated manual runs.
 Cleanup failures block new work. Linux ownership
 locks include boot ID and process start ticks so PID reuse after container
