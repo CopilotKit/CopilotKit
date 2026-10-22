@@ -1361,6 +1361,7 @@ export class RunHandler {
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: handlerResult.content,
+        ...(handlerResult.error ? { error: handlerResult.error } : {}),
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1520,6 +1521,7 @@ export class RunHandler {
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: toolCallResult,
+        ...(errorMessage ? { error: errorMessage } : {}),
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1611,6 +1613,7 @@ export class RunHandler {
       role: "tool",
       toolCallId,
       content: handlerResult.content,
+      ...(handlerResult.error ? { error: handlerResult.error } : {}),
     };
 
     const assistantIndex = agent.messages.findIndex(
