@@ -1,0 +1,66 @@
+{
+  "name": "omnara-starter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "agent:plan": "tsx scripts/profile.ts --dry-run",
+    "agent:apply": "tsx scripts/profile.ts",
+    "doctor": "tsx scripts/doctor.ts",
+    "dev:mock": "node scripts/mock.mjs",
+    "test": "tsx --test tests/*.test.ts",
+    "lint": "oxlint app lib scripts tests",
+    "test:e2e": "playwright test",
+    "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts",
+    "typecheck:channel": "tsc -p tsconfig.channel.json --noEmit"
+  },
+  "dependencies": {
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
+    "@ag-ui/omnara": "0.0.1",
+    "@copilotkit/channels": "0.11.1",
+    "@copilotkit/react-core": "1.79.0",
+    "@copilotkit/runtime": "1.79.0",
+    "@copilotkit/shared": "1.79.0",
+    "@fontsource-variable/plus-jakarta-sans": "^5.2.8",
+    "@fontsource-variable/spline-sans-mono": "^5.2.8",
+    "@omnara/sdk": "0.1.34",
+    "dotenv": "^16.4.7",
+    "next": "16.3.8",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.1",
+    "@copilotkit/aimock": "1.43.0",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "oxlint": "^1.58.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.15.0"
+  },
+  "overrides": {
+    "@ag-ui/client": "1.0.2",
+    "@ag-ui/core": "1.0.2",
+    "@ag-ui/encoder": "1.0.2",
+    "@ag-ui/proto": "1.0.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "@ag-ui/client": "1.0.2",
+      "@ag-ui/core": "1.0.2",
+      "@ag-ui/encoder": "1.0.2",
+      "@ag-ui/proto": "1.0.2"
+    }
+  }
+}
