@@ -67,7 +67,7 @@ const followUpSchema = z.object({
   items: z
     .array(followUpItem)
     .optional()
-    .describe('Strings or { "label", "message"? }, or { "path": "/x" }'),
+    .describe('Strings or { "label", "message"? }, or { "@path": "/x" }'),
   title: text("A caption above the pills"),
 });
 const followUpArgs = z.object({
