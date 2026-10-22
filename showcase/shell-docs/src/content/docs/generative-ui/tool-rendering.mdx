@@ -41,7 +41,8 @@ The simplest entry point: call `useDefaultRenderTool()` with no arguments.
 CopilotKit registers its built-in `DefaultToolCallRenderer` as the `*`
 wildcard: every tool call renders as a tidy status card (tool name, live
 **Running → Done** pill, collapsible arguments/result) without you writing
-any UI.
+any UI. Calls the agent makes in a row are grouped into one card; see
+[Grouping tool calls](#grouping-tool-calls).
 
 Without this hook the runtime has no `*` renderer and tool calls are
 invisible; the user only sees the assistant's final text summary.
@@ -72,6 +73,49 @@ tool call, named or not:
 Here's the branded catch-all in action, where every tool call gets the same on-brand card:
 
 <InlineDemo demo="tool-rendering-custom-catchall" />
+
+## Grouping tool calls
+
+Agents often call several tools in a row. By default, CopilotKit collapses
+each run of calls drawn by the built-in card from `useDefaultRenderTool()` into
+one card that reads "Used 3 tools". While a call runs, the card names it
+("Running read_file src/app.ts"), and opening it shows a row per call. Calls
+drawn by your own renderers always show on their own and split the group
+around them, unless the renderer opts in with `group: true`:
+
+```tsx title="page.tsx"
+useDefaultRenderTool({ render: MyToolRow, group: true });
+```
+
+Pick how calls show with `toolCallDisplay` on the message view:
+
+```tsx title="page.tsx"
+// "grouped" (default) | "line" | "stacked" | "turn" | "separate"
+<CopilotChat messageView={{ toolCallDisplay: "line" }} />
+```
+
+| Display      | What the user sees                                                                        |
+| ------------ | ----------------------------------------------------------------------------------------- |
+| `"grouped"`  | One card per run of calls, collapsed to "Used 3 tools". Opens to a row per call.          |
+| `"line"`     | The same grouping as a quiet line of text, like "Thought for 4 seconds".                  |
+| `"stacked"`  | The latest call on top of a stack of the earlier ones. Opens into a card per call.        |
+| `"turn"`     | The agent works in the open, then everything before the reply folds into "Worked for 9s". |
+| `"separate"` | Every call gets its own card.                                                             |
+
+To restyle or replace the group, use the `group` slot of the tool-calls view
+(it applies to the grouped, line and stacked displays):
+
+```tsx title="page.tsx"
+// ToolTimeline: your component, given the group's `calls` and a `renderCall` function
+<CopilotChat
+  messageView={{
+    assistantMessage: { toolCallsView: { group: ToolTimeline } },
+  }}
+/>
+```
+
+See [`CopilotChatToolCallGroup`](/reference/components/CopilotChatToolCallGroup)
+for its props and an example replacement.
 
 ## Per-tool renderers
 
