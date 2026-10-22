@@ -56,6 +56,7 @@ describe("createTeamsServer", () => {
 describe("createTeamsServer authentication", () => {
   it("rejects a request without a Bot Framework token when credentialed", async () => {
     const process = vi.fn();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const server = createTeamsServer({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       adapter: { process } as any,
@@ -79,7 +80,25 @@ describe("createTeamsServer authentication", () => {
 
     expect(res.status).toBe(401);
     expect(process).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("Agents Playground"),
+    );
+    warn.mockRestore();
     await server.stop();
+  });
+
+  it("accepts a loopback serviceUrl only outside production", () => {
+    const prev = globalThis.process.env.NODE_ENV;
+    try {
+      globalThis.process.env.NODE_ENV = "development";
+      expect(isTrustedServiceUrl("http://localhost:56150")).toBe(true);
+      expect(isTrustedServiceUrl("http://127.0.0.1:56150/")).toBe(true);
+      expect(isTrustedServiceUrl("http://localhost.evil.example/")).toBe(false);
+      globalThis.process.env.NODE_ENV = "production";
+      expect(isTrustedServiceUrl("http://localhost:56150")).toBe(false);
+    } finally {
+      globalThis.process.env.NODE_ENV = prev;
+    }
   });
 
   it("only trusts https Bot Connector serviceUrl hosts", () => {

@@ -45,8 +45,11 @@ const TRUSTED_SERVICE_URL_HOSTS = [
   ".teams.microsoft.com",
 ];
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
 /**
- * Whether an activity's `serviceUrl` points at a Microsoft Bot Connector host.
+ * Whether an activity's `serviceUrl` points at a Microsoft Bot Connector host
+ * (or, outside production, at a local tool on loopback).
  *
  * The adapter sends replies, and therefore the bot's access token, to this URL.
  * The SDK only compares it with the token's `serviceurl` claim, and skips that
@@ -63,8 +66,17 @@ export function isTrustedServiceUrl(
   } catch {
     return false;
   }
-  if (url.protocol !== "https:") return false;
   const host = url.hostname.toLowerCase();
+  // Local tools (Agents Playground, Bot Framework Emulator) serve their
+  // connector on loopback over http. Allowed outside production only.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    (url.protocol === "http:" || url.protocol === "https:") &&
+    LOOPBACK_HOSTS.has(host)
+  ) {
+    return true;
+  }
+  if (url.protocol !== "https:") return false;
   return [...TRUSTED_SERVICE_URL_HOSTS, ...extraHosts].some((entry) => {
     const e = entry.toLowerCase();
     return e.startsWith(".") ? host.endsWith(e) : host === e;
@@ -134,7 +146,25 @@ export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
         typeof app.post
       >[1];
 
-      app.post("/api/messages", requireJwt, (req, res) => {
+      // The usual cause of a 401 in local development: credentials are set
+      // (e.g. `clientId` in .env for a deploy) but the Agents Playground runs
+      // anonymously and sends no token. Say so once instead of a bare 401.
+      let hinted = false;
+      const hintMissingToken = (
+        req: { headers: Record<string, unknown> },
+        _res: unknown,
+        next: () => void,
+      ) => {
+        if (!hinted && authConfig.clientId && !req.headers.authorization) {
+          hinted = true;
+          console.warn(
+            "[bot-teams] rejecting a request with no Authorization header because clientId is set; for the anonymous Agents Playground, unset clientId (and clientSecret/tenantId).",
+          );
+        }
+        next();
+      };
+
+      app.post("/api/messages", hintMissingToken, requireJwt, (req, res) => {
         if (
           authConfig.clientId &&
           !isTrustedServiceUrl(

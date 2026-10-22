@@ -33,6 +33,10 @@ In a second terminal:
 pnpm playground   # opens the M365 Agents Playground at http://localhost:56150
 ```
 
+> Leave `clientId` / `clientSecret` / `tenantId` unset for the Playground. With
+> `clientId` set, the bot requires a Bot Framework token on every request, and
+> the anonymous Playground sends none, so every message gets a 401.
+
 Then, in the Playground:
 
 - Ask anything → the agent replies, **streaming in by message edit** (a typing
