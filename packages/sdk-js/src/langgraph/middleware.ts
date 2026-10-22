@@ -498,13 +498,21 @@ const buildMiddlewareInput = (
       const existingSettings = request.modelSettings ?? {};
       const existingHeaders =
         (existingSettings.headers as Record<string, string>) ?? {};
+      // Developer-set headers win: a caller must not override provider auth
+      // (e.g. `x-api-key`) by sending a same-named `x-*` header, in any case.
+      const taken = new Set(
+        Object.keys(existingHeaders).map((k) => k.toLowerCase()),
+      );
+      const extra = Object.fromEntries(
+        Object.entries(forwardedHeaders).filter(
+          ([k]) => !taken.has(k.toLowerCase()),
+        ),
+      );
       request = {
         ...request,
         modelSettings: {
           ...existingSettings,
-          // Developer-set headers win: a caller must not override provider
-          // auth (e.g. `x-api-key`) by sending a same-named `x-*` header.
-          headers: { ...forwardedHeaders, ...existingHeaders },
+          headers: { ...extra, ...existingHeaders },
         },
       };
     }

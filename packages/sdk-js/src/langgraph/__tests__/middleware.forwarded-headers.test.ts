@@ -30,4 +30,27 @@ describe("forwarded request headers", () => {
       "x-aimock-test": "1",
     });
   });
+
+  it("resolves header conflicts regardless of case", async () => {
+    const middleware = createCopilotkitMiddleware();
+    const request = {
+      state: {},
+      model: {},
+      tools: [],
+      messages: [],
+      runtime: {},
+      modelSettings: { headers: { "X-Api-Key": "developer-key" } },
+    };
+    let received: { modelSettings?: { headers?: Record<string, string> } } =
+      request;
+    await withForwardedHeaders({ "x-api-key": "caller-key" }, () =>
+      middleware.wrapModelCall(request as never, async (req) => {
+        received = req;
+        return new AIMessage("ok");
+      }),
+    );
+    expect(received.modelSettings?.headers).toEqual({
+      "X-Api-Key": "developer-key",
+    });
+  });
 });
