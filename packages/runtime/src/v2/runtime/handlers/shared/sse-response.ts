@@ -1,3 +1,4 @@
+import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import type { Observable, Subscription } from "rxjs";
@@ -75,6 +76,9 @@ export function createSseEventResponse({
   const writer = stream.writable.getWriter();
   const encoder = new EventEncoder();
   let streamClosed = false;
+  // Set once RUN_FINISHED or RUN_ERROR has been queued for the client. AG-UI
+  // allows nothing after either, so a later failure must not add a RUN_ERROR.
+  let terminalEventWritten = false;
   let debugThreadId = "";
   let debugRunId = "";
 
@@ -91,6 +95,27 @@ export function createSseEventResponse({
       } catch {
         // Stream already closed.
       }
+    }
+  };
+
+  // Report a failure to the client as a terminal RUN_ERROR. Without it the
+  // client sees an empty stream that ends normally, so its run "succeeds"
+  // with no reply and no error (e.g. "Thread already running" on a busy
+  // thread).
+  const writeRunError = async (error: unknown) => {
+    if (terminalEventWritten || streamClosed || request.signal.aborted) {
+      return;
+    }
+    terminalEventWritten = true;
+    try {
+      await writer.write(
+        encoder.encodeBinary({
+          type: EventType.RUN_ERROR,
+          message: error instanceof Error ? error.message : "Unknown error",
+        } as BaseEvent),
+      );
+    } catch {
+      // The client is already gone; closeStream() handles the rest.
     }
   };
 
@@ -216,6 +241,12 @@ export function createSseEventResponse({
                 );
               }
             }
+            if (
+              event.type === EventType.RUN_FINISHED ||
+              event.type === EventType.RUN_ERROR
+            ) {
+              terminalEventWritten = true;
+            }
             await writer.write(encoder.encodeBinary(event));
           } catch (error) {
             if (error instanceof Error && error.name === "AbortError") {
@@ -247,6 +278,7 @@ export function createSseEventResponse({
           );
         }
         logError(error);
+        await writeRunError(error);
         await closeStream();
       },
       complete: async () => {
@@ -274,6 +306,7 @@ export function createSseEventResponse({
   })().catch(async (error) => {
     reportAgentError(error, "sse.factory");
     logError(error);
+    await writeRunError(error);
     await closeStream();
   });
 

@@ -247,7 +247,10 @@ describe("sse-response.ts — telemetry lifecycle", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.text()).resolves.toBe("");
+    // The stream closes after telling the client the run failed.
+    await expect(response.text()).resolves.toBe(
+      'data: {"type":"RUN_ERROR","message":"factory failed"}\n\n',
+    );
     await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
     expect(onError.mock.calls[0][0].context.request.headers).toEqual({
       "x-user-id": "issue-2716-user",
@@ -266,7 +269,10 @@ describe("sse-response.ts — telemetry lifecycle", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.text()).resolves.toBe("");
+    // The stream closes after telling the client the run failed.
+    await expect(response.text()).resolves.toBe(
+      'data: {"type":"RUN_ERROR","message":"subscription failed"}\n\n',
+    );
     await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
     expect(captureSpy).toHaveBeenCalledWith(
       "oss.runtime.agent_execution_stream_errored",
