@@ -91,6 +91,26 @@ When you are done, your Runtime will send selected Threads to a Learning contain
 
     Keep each container focused on one kind of work, such as expense review, support quality, or customer onboarding. Stable IDs contain 1–64 lowercase letters, numbers, or single hyphens; for example, `expense-review`.
 
+    You can also use the CLI. Run these commands in the folder where you selected the project. First, list the containers that already exist:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest learning containers list
+    ```
+
+    If a container for this kind of work exists, reuse its ID. Do not create a second container for the same work.
+
+    If no container fits, print the default container ID for your project. The CLI makes this ID from your project slug. It does not check whether the container exists.
+
+    ```bash title="Terminal"
+    npx copilotkit@latest learning containers default-id
+    ```
+
+    Then create the container with that ID and a name. Add `--prompt-context` to give guidance about what good work looks like.
+
+    ```bash title="Terminal"
+    npx copilotkit@latest learning containers create --id <container-id> --name "<container name>"
+    ```
+
   </Step>
 
   <Step>
