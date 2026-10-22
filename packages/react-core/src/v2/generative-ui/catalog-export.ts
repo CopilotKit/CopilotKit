@@ -187,11 +187,20 @@ function componentDefinition(
       { $ref: kind === "single" ? A2UI_COMPONENT_ID_REF : A2UI_CHILD_LIST_REF },
     ]),
   );
+  const fields = { ...props, ...events, ...slots };
+  const orderedFields =
+    manifest.parameterOrder === undefined
+      ? fields
+      : Object.fromEntries(
+          [...new Set([...manifest.parameterOrder, ...Object.keys(fields)])]
+            .filter((key) => Object.hasOwn(fields, key))
+            .map((key) => [key, fields[key]]),
+        );
   const text = manifest.description ?? description;
   return {
     type: "object",
     ...(typeof text === "string" ? { description: text } : {}),
-    properties: { component: { const: name }, ...props, ...events, ...slots },
+    properties: { component: { const: name }, ...orderedFields },
     required: [
       "component",
       ...(Array.isArray(required) ? required.filter(isString) : []),

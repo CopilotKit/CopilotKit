@@ -381,3 +381,36 @@ describe("envelopeToManifest", () => {
     });
   });
 });
+
+describe("component parameter order", () => {
+  it("preserves ordering through the capability envelope", () => {
+    const component = {
+      ...productGrid,
+      parameterOrder: ["children", "onSelect", "title"],
+    };
+    const envelope = createEnvelope({
+      catalog: { components: { ProductGrid: component } },
+    });
+    const parsed = readUI(JSON.parse(JSON.stringify(envelope)))!;
+    expect(
+      envelopeToManifest(parsed).components.ProductGrid.parameterOrder,
+    ).toEqual(component.parameterOrder);
+  });
+  it.each(["title", ["title", "title"], ["unknown"], [42], ["__proto__"]])(
+    "rejects invalid metadata %j",
+    (parameterOrder) => {
+      const envelope = createEnvelope();
+      const catalog = envelope["v1.0"].inlineCatalogs![0];
+      const invalid = {
+        ...catalog,
+        components: { ProductGrid: { ...productGrid, parameterOrder } },
+      };
+      expect(
+        readUI({
+          ...envelope,
+          "v1.0": { ...envelope["v1.0"], inlineCatalogs: [invalid] },
+        }),
+      ).toBeUndefined();
+    },
+  );
+});

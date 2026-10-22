@@ -89,6 +89,12 @@ type RuntimeSelector = {
 export interface GenerativeUIComponentDefinition {
   component: ComponentType<any>;
   description?: string;
+  /**
+   * Positional prefix across props, slots and events for catalog consumers.
+   * Remaining visible keys follow in declaration order (props, slots, events).
+   * A2UI exports encode this as property order, not a protocol field.
+   */
+  parameterOrder?: readonly string[];
   /** All data props: the props the model sets and the bound props. */
   props?: PropsSchema;
   /** Explicit selectors for bound props. */
@@ -487,6 +493,7 @@ type ComponentsConfig<Props, Events, Slots, Writable, State, Functions> = {
   [Name in keyof Props]: {
     component: AnyComponent;
     description?: string;
+    parameterOrder?: readonly string[];
     props?: Props[Name];
     accessibility?: "wrapper" | "self";
   } & NoInfer<PropsCheck<Props[Name]> & BindField<Props[Name], State>>;
@@ -652,7 +659,9 @@ export function catalogIdsOf(ui: Pick<AnyGenerativeUI, "id">): string[] {
  *   twice on a component, an event matches two functions, an unmatched event
  *   has no `parameters`, a `bind` key is not a prop, a `writable` key is not
  *   a prop or is a bound prop, or a setter name is already a key of the
- *   component.
+ *   component. Also throws when `parameterOrder` contains duplicate or unknown
+ *   keys, or an ordered component declares integer-index keys whose JSON object
+ *   enumeration order cannot be controlled.
  *
  * @example
  * ```ts
@@ -829,6 +838,7 @@ function resolveComponent(
   const propsJson = propsJsonSchema(name, definition, context.where);
   const propKeys = Object.keys(propsJson.properties);
   assertDisjointKeys(name, definition, propKeys);
+  assertParameterOrder(name, definition, propKeys);
 
   const selectors: Record<string, GenerativeUISelector> = {};
   for (const key of propKeys) {
@@ -876,6 +886,7 @@ function resolveComponent(
     // the renderer needs the React type.
     component: definition.component as ComponentType<any>,
     description: definition.description,
+    parameterOrder: definition.parameterOrder?.slice(),
     props: definition.props,
     bind: definition.bind,
     events: definition.events,
@@ -1052,6 +1063,44 @@ function assertDisjointKeys(
   }
 }
 
+function assertParameterOrder(
+  name: string,
+  definition: RuntimeComponentDefinition,
+  propKeys: readonly string[],
+) {
+  const order = definition.parameterOrder;
+  if (order === undefined) return;
+  const keys = new Set([
+    ...propKeys,
+    ...Object.keys(definition.slots ?? {}),
+    ...Object.keys(definition.events ?? {}),
+  ]);
+  if (
+    [...keys].some((key) => {
+      const index = Number(key);
+      return (
+        Number.isInteger(index) &&
+        index >= 0 &&
+        index < 2 ** 32 - 1 &&
+        String(index) === key
+      );
+    })
+  ) {
+    throw new Error(
+      `[generativeUI] Component "${name}" with parameterOrder cannot declare integer-index keys: JSON object enumeration sorts them numerically before other keys, ignoring the requested order.`,
+    );
+  }
+  if (
+    !Array.isArray(order) ||
+    new Set(order).size !== order.length ||
+    order.some((key) => !keys.has(key))
+  ) {
+    throw new Error(
+      `[generativeUI] parameterOrder of component "${name}" must contain unique declared prop, slot or event names.`,
+    );
+  }
+}
+
 function toManifest(
   definition: RuntimeComponentDefinition,
   modelProps: GenerativeUIJSONSchema,
@@ -1061,5 +1110,18 @@ function toManifest(
   if (definition.description) manifest.description = definition.description;
   if (Object.keys(modelEvents).length > 0) manifest.events = modelEvents;
   if (definition.slots) manifest.slots = { ...definition.slots };
+  if (definition.parameterOrder !== undefined) {
+    const visible = new Set([
+      ...Object.keys(modelProps.properties ?? {}),
+      ...Object.keys(definition.slots ?? {}),
+      ...Object.keys(modelEvents),
+    ]);
+    manifest.parameterOrder = [
+      ...new Set([
+        ...definition.parameterOrder.filter((key) => visible.has(key)),
+        ...visible,
+      ]),
+    ];
+  }
   return manifest;
 }

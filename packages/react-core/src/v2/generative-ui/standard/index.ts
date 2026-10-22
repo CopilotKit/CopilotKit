@@ -6,7 +6,44 @@ import { inputComponents } from "./inputs";
 import { layoutComponents } from "./layout";
 import { mediaComponents } from "./media";
 import { textComponents } from "./text";
+import {
+  standardParameterOrder,
+  STANDARD_ARGUMENT_PREFIXES,
+} from "./parameter-order";
 import { STANDARD_CATALOG_ID } from "./tokens";
+
+const components = {
+  ...layoutComponents,
+  ...textComponents,
+  ...inputComponents,
+  ...feedbackComponents,
+  ...dataComponents,
+  ...mediaComponents,
+  ...compositeComponents,
+};
+
+// Every standard component needs an intentional positional calling convention.
+STANDARD_ARGUMENT_PREFIXES satisfies Record<
+  keyof typeof components,
+  readonly string[]
+>;
+
+const orderedComponents = Object.fromEntries(
+  Object.entries(components).map(([name, definition]) => [
+    name,
+    {
+      ...definition,
+      parameterOrder: standardParameterOrder(
+        name as keyof typeof components,
+        definition,
+      ),
+    },
+  ]),
+) as {
+  [Name in keyof typeof components]: (typeof components)[Name] & {
+    parameterOrder: string[];
+  };
+};
 
 /**
  * Experimental. The standard components: layout, text, inputs, feedback,
@@ -34,13 +71,5 @@ import { STANDARD_CATALOG_ID } from "./tokens";
  */
 export const standardUI = createGenerativeUI({
   id: STANDARD_CATALOG_ID,
-  components: {
-    ...layoutComponents,
-    ...textComponents,
-    ...inputComponents,
-    ...feedbackComponents,
-    ...dataComponents,
-    ...mediaComponents,
-    ...compositeComponents,
-  },
+  components: orderedComponents,
 });
