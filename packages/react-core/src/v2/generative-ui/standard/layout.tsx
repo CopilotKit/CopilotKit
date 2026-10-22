@@ -194,7 +194,7 @@ const carouselSchema = z.object({
     .number()
     .optional()
     .describe(
-      'The index of the slide in view. Bind it with { "path": "/x" } to read or set it',
+      'The index of the slide in view. Bind it with { "@path": "/x" } to read or set it',
     ),
   previousLabel: z.string().optional().describe('Default "Previous"'),
   nextLabel: z.string().optional().describe('Default "Next"'),
@@ -1237,7 +1237,7 @@ export const layoutComponents = {
   Carousel: {
     component: Carousel,
     description:
-      'A row that scrolls horizontally and snaps to its slides, with previous and next arrows. Put CarouselItem or CarouselMediaItem children in it. Bind activeIndex with { "path": "/x" } to read or set the slide in view.',
+      'A row that scrolls horizontally and snaps to its slides, with previous and next arrows. Put CarouselItem or CarouselMediaItem children in it. Bind activeIndex with { "@path": "/x" } to read or set the slide in view.',
     props: carouselSchema,
     events: VISIBLE_EVENT,
     slots: CHILDREN_SLOT,
