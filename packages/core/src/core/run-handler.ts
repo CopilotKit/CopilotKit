@@ -215,19 +215,21 @@ export class RunHandler {
   private _warnedMissingToolParameters = new Set<string>();
 
   /**
-   * Tracks whether the current run (including in-flight tool execution)
-   * has been aborted via `stopAgent()` or `agent.abortRun()`. Created
-   * fresh in `runAgent()`, aborted by `abortCurrentRun()`.
+   * Per-agent record of whether the agent's current run (including in-flight
+   * tool execution) has been aborted via `stopAgent()` or `agent.abortRun()`.
+   * Created fresh in `runAgent()`, aborted by `abortCurrentRun(agent)`, and
+   * removed when the run chain ends. Keyed by agent so that stopping one
+   * agent never cancels another agent's run on the same core.
    */
-  private _runAbortController: AbortController | null = null;
+  private _runAbortControllers = new WeakMap<AbstractAgent, AbortController>();
 
   /**
-   * Tracks recursive `runAgent` depth so that the abort controller and
-   * `agent.abortRun()` intercept are only set up / torn down at the
+   * Per-agent recursive `runAgent` depth, so that the abort controller and
+   * `agent.abortRun()` intercept are only set up / torn down at the agent's
    * top-level call, not on follow-up recursive calls from
    * `processAgentResult`.
    */
-  private _runDepth = 0;
+  private _runDepths = new WeakMap<AbstractAgent, number>();
 
   /**
    * Keeps tools that opt in via `webmcp` registered on the page's WebMCP model
@@ -278,7 +280,7 @@ export class RunHandler {
    * not start a follow-up run.
    */
   abortCurrentRun(agent: AbstractAgent): void {
-    this._runAbortController?.abort();
+    this._runAbortControllers.get(agent)?.abort();
     const replay = this._interactionAbortControllers.get(agent);
     if (replay) {
       for (const controller of replay.controllers) controller.abort();
@@ -741,16 +743,16 @@ export class RunHandler {
     // Set up abort controller and agent.abortRun() intercept only for the
     // top-level call. Recursive follow-up calls from processAgentResult
     // reuse the same controller.
-    const isTopLevel = this._runDepth === 0;
+    const isTopLevel = (this._runDepths.get(agent) ?? 0) === 0;
     let originalAbortRun: (() => void) | undefined;
+    const controller = isTopLevel ? new AbortController() : undefined;
 
-    if (isTopLevel) {
-      this._runAbortController = new AbortController();
+    if (controller) {
+      this._runAbortControllers.set(agent, controller);
 
       // Intercept agent.abortRun() so that calling it directly (not via
       // stopAgent) also aborts in-flight tool execution and prevents
       // follow-up runs.
-      const controller = this._runAbortController;
       originalAbortRun = agent.abortRun.bind(agent);
       agent.abortRun = () => {
         controller.abort();
@@ -772,7 +774,7 @@ export class RunHandler {
       );
     }
 
-    this._runDepth++;
+    this._runDepths.set(agent, (this._runDepths.get(agent) ?? 0) + 1);
 
     try {
       let logicalRunId = resumedRunId ?? runId;
@@ -848,11 +850,17 @@ export class RunHandler {
       });
       return { result: undefined, newMessages: [] };
     } finally {
-      this._runDepth--;
-      // Restore original abortRun when the entire chain (including
-      // recursive follow-ups) is complete.
-      if (isTopLevel && originalAbortRun) {
-        agent.abortRun = originalAbortRun;
+      this._runDepths.set(agent, (this._runDepths.get(agent) ?? 1) - 1);
+      // Restore original abortRun and drop the run's controller when the
+      // entire chain (including recursive follow-ups) is complete, so a
+      // finished, aborted run does not mark later errors as user-aborted.
+      if (isTopLevel) {
+        if (originalAbortRun) {
+          agent.abortRun = originalAbortRun;
+        }
+        if (this._runAbortControllers.get(agent) === controller) {
+          this._runAbortControllers.delete(agent);
+        }
       }
     }
   }
@@ -865,7 +873,7 @@ export class RunHandler {
     agent,
     runId,
     toolExecutionMode = "all",
-    signal = this._runAbortController?.signal,
+    signal = this._runAbortControllers.get(agent)?.signal,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
@@ -1083,13 +1091,13 @@ export class RunHandler {
 
     if (needsFollowUp && agent.threadId === threadId && !signal?.aborted) {
       // Circuit breaker: bail out instead of recursing once the follow-up
-      // chain exceeds an absolute safety cap. `_runDepth` reflects the current
-      // depth of nested runAgent calls (it is incremented in runAgent and
+      // chain exceeds an absolute safety cap. `_runDepths` holds this agent's
+      // current depth of nested runAgent calls (it is incremented in runAgent and
       // decremented in its finally block), so a runaway loop — repeated
       // identical tool calls, a backend that keeps erroring after tool
       // results, reprocessed tool messages, etc. — eventually trips this
       // guard rather than looping forever and exhausting API quota.
-      if (this._runDepth >= MAX_FOLLOW_UP_DEPTH) {
+      if ((this._runDepths.get(agent) ?? 0) >= MAX_FOLLOW_UP_DEPTH) {
         logger.warn(
           `[CopilotKit] Follow-up depth limit (${MAX_FOLLOW_UP_DEPTH}) reached for agent "${agentId}". ` +
             `Stopping recursive follow-up runs to prevent an infinite loop. ` +
@@ -1181,7 +1189,7 @@ export class RunHandler {
     handlerArgs,
     toolType,
     messageId,
-    signal = this._runAbortController?.signal,
+    signal = this._runAbortControllers.get(agent)?.signal,
     discardOnAbort = false,
     isReplay = false,
   }: {
@@ -1779,7 +1787,8 @@ export class RunHandler {
         // it. Prefer the abort controller (the client's own record that it
         // initiated the stop) over the agent-supplied `code`, which is not
         // standardized across agents.
-        const runWasAborted = this._runAbortController?.signal.aborted === true;
+        const runWasAborted =
+          this._runAbortControllers.get(agent)?.signal.aborted === true;
         if (runWasAborted || event?.code === "abort") {
           return;
         }
