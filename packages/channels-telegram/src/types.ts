@@ -70,6 +70,7 @@ export interface TelegramAdapterOptions {
     domain: string;
     path?: string;
     port?: number;
+    /** Webhook secret; a random one is generated per start when omitted. */
     secretToken?: string;
   };
   /** AG-UI event names that should interrupt the running agent. */

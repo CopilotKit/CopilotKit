@@ -301,6 +301,38 @@ describe("TelegramAdapter", () => {
     }
   });
 
+  it("binds webhook mode to a generated secret when none is configured", async () => {
+    const a = telegram({
+      token: "t",
+      mode: "webhook",
+      webhook: { domain: "https://bot.example", port: 0 },
+    });
+    const setWebhook = vi.fn(async () => true);
+    const handleUpdate = vi.fn(async () => {});
+    (a as any).bot = {
+      api: { setWebhook },
+      handleUpdate,
+      isRunning: () => false,
+      init: async () => {},
+    };
+    await (a as any).startWebhook();
+    const server = (a as any).webhookServer as import("node:http").Server;
+    try {
+      const secret = (setWebhook.mock.calls[0] as any[])[1]?.secret_token;
+      expect(secret).toMatch(/^[0-9a-f]{64}$/);
+      const { port } = server.address() as { port: number };
+      const res = await fetch(`http://127.0.0.1:${port}/telegram`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ update_id: 1 }),
+      });
+      expect(res.status).toBe(401);
+      expect(handleUpdate).not.toHaveBeenCalled();
+    } finally {
+      server.close();
+    }
+  });
+
   it("stop() deletes the webhook BEFORE closing the server, then stops the bot", async () => {
     const a = telegram({ token: "t" });
     const callOrder: string[] = [];

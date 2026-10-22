@@ -184,17 +184,14 @@ export class TelegramAdapter implements PlatformAdapter {
         : `/${webhook.path}`
       : "/telegram";
     const url = `${webhook.domain.replace(/\/$/, "")}${normalizedPath}`;
-    await this.bot.api.setWebhook(
-      url,
-      webhook.secretToken ? { secret_token: webhook.secretToken } : undefined,
-    );
+    // We register the webhook ourselves, so always bind it to a secret: without
+    // one, anyone who can reach the port could forge updates as any user.
+    const { randomBytes } = await import("node:crypto");
+    const secretToken = webhook.secretToken || randomBytes(32).toString("hex");
+    await this.bot.api.setWebhook(url, { secret_token: secretToken });
     const { webhookCallback } = await import("grammy");
     const { createServer } = await import("node:http");
-    const handler = webhookCallback(
-      this.bot,
-      "http",
-      webhook.secretToken ? { secretToken: webhook.secretToken } : undefined,
-    );
+    const handler = webhookCallback(this.bot, "http", { secretToken });
     const server = createServer((req, res) => {
       if (req.url && req.url.split("?")[0] === normalizedPath) {
         void (handler as (req: unknown, res: unknown) => Promise<void>)(
