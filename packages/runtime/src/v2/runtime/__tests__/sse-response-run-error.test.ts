@@ -3,6 +3,7 @@ import { Observable } from "rxjs";
 import { EventType, HttpAgent } from "@ag-ui/client";
 import type { AbstractAgent, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { THREAD_ALREADY_RUNNING_ERROR_CODE } from "@copilotkit/shared";
+import type { DebugEventEnvelope } from "@copilotkit/shared";
 
 vi.mock("../../telemetry", () => ({
   telemetry: { capture: vi.fn() },
@@ -10,6 +11,7 @@ vi.mock("../../telemetry", () => ({
 
 import { createSseEventResponse } from "../handlers/shared/sse-response";
 import { InMemoryAgentRunner, ThreadAlreadyRunningError } from "../runner";
+import { DebugEventBus } from "../core/debug-event-bus";
 
 const busyThreadRunError = {
   type: EventType.RUN_ERROR,
@@ -122,6 +124,49 @@ describe("createSseEventResponse surfaces failures as RUN_ERROR", () => {
       runStarted,
       { type: EventType.RUN_ERROR, message: "Agent run failed" },
     ]);
+  });
+
+  it("sends the synthesized RUN_ERROR to the debug event bus", async () => {
+    const debugEventBus = new DebugEventBus();
+    const envelopes: DebugEventEnvelope[] = [];
+    debugEventBus.subscribe((envelope) => envelopes.push(envelope));
+    const response = createSseEventResponse({
+      request: createMockRequest(),
+      debugEventBus,
+      agentId: "agent-1",
+      observableFactory: () =>
+        new Observable<BaseEvent>((subscriber) => {
+          subscriber.next(runStarted);
+          subscriber.error(new Error("boom"));
+        }),
+    });
+    await readEvents(response);
+
+    expect(envelopes.map((e) => e.event)).toEqual([
+      runStarted,
+      { type: EventType.RUN_ERROR, message: "Agent run failed" },
+    ]);
+    expect(envelopes[1]).toMatchObject({
+      agentId: "agent-1",
+      threadId: "t-1",
+      runId: "r-1",
+    });
+  });
+
+  it("sends nothing to the debug event bus for a run that never started", async () => {
+    const debugEventBus = new DebugEventBus();
+    const envelopes: DebugEventEnvelope[] = [];
+    debugEventBus.subscribe((envelope) => envelopes.push(envelope));
+    const response = createSseEventResponse({
+      request: createMockRequest(),
+      debugEventBus,
+      observableFactory: () => {
+        throw new ThreadAlreadyRunningError();
+      },
+    });
+
+    expect(await readEvents(response)).toEqual([busyThreadRunError]);
+    expect(envelopes).toEqual([]);
   });
 
   it("does not send an unknown error's message to the client", async () => {

@@ -131,6 +131,20 @@ export function createSseEventResponse({
           code: THREAD_ALREADY_RUNNING_ERROR_CODE,
         }
       : { type: EventType.RUN_ERROR, message: "Agent run failed" };
+    // The inspector sees every streamed event, so it needs this one too or
+    // the run it saw start never ends there. A run that never started has
+    // no ids to file it under, so it is not sent.
+    if (debugEventBus && debugRunId) {
+      try {
+        debugEventBus.broadcast(event as BaseEvent, {
+          agentId: agentId ?? "",
+          threadId: debugThreadId,
+          runId: debugRunId,
+        });
+      } catch (broadcastError) {
+        logError(broadcastError);
+      }
+    }
     try {
       await writer.write(encoder.encodeBinary(event as BaseEvent));
     } catch {
