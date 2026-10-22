@@ -20,6 +20,16 @@ describe("buildSandboxHTML", () => {
     expect(html).toContain("ui/notifications/sandbox-resource-ready");
   });
 
+  it("never grants the widget frame allow-same-origin", () => {
+    const html = buildSandboxHTML();
+    expect(html).toContain(
+      'inner.setAttribute("sandbox","allow-scripts allow-forms")',
+    );
+    // Host-supplied sandbox overrides are filtered before they reach the frame.
+    expect(html).toContain('t.toLowerCase()!=="allow-same-origin"');
+    expect(html).not.toContain("allow-scripts allow-same-origin");
+  });
+
   it("appends extra CSP domains to script-src and frame-src", () => {
     const html = buildSandboxHTML(["https://example.com"]);
     expect(html).toContain("https://example.com");

@@ -1,4 +1,11 @@
 /**
+ * Sandbox flags for both the proxy and the widget iframe. Deliberately omits
+ * `allow-same-origin`: both frames are srcdoc documents, which would otherwise
+ * run as the host page's origin.
+ */
+export const MCP_APP_SANDBOX = "allow-scripts allow-forms";
+
+/**
  * Build the sandbox-proxy HTML document loaded into the outer iframe.
  *
  * The proxy relays postMessage between the host and the inner sandboxed widget
@@ -29,13 +36,13 @@ export function buildSandboxHTML(extraCspDomains?: string[]): string {
 if(window.self===window.top){throw new Error("This file must be used in an iframe.")}
 const inner=document.createElement("iframe");
 inner.style="width:100%;height:100%;border:none;";
-inner.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms");
+inner.setAttribute("sandbox",${JSON.stringify(MCP_APP_SANDBOX)});
 document.body.appendChild(inner);
 window.addEventListener("message",async(event)=>{
 if(event.source===window.parent){
 if(event.data&&event.data.method==="ui/notifications/sandbox-resource-ready"){
 const{html,sandbox}=event.data.params;
-if(typeof sandbox==="string")inner.setAttribute("sandbox",sandbox);
+if(typeof sandbox==="string")inner.setAttribute("sandbox",sandbox.split(/\\s+/).filter((t)=>t&&t.toLowerCase()!=="allow-same-origin").join(" "));
 if(typeof html==="string")inner.srcdoc=html;
 }else if(inner&&inner.contentWindow){
 inner.contentWindow.postMessage(event.data,"*");

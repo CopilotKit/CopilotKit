@@ -7,7 +7,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { randomUUID } from "@copilotkit/shared";
-import { buildSandboxHTML } from "./sandbox";
+import { buildSandboxHTML, MCP_APP_SANDBOX } from "./sandbox";
 import {
   mcpAppsRequestQueue,
   MCP_APPS_QUEUE_IDLE_TIMEOUT_MS,
@@ -630,10 +630,11 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       hooks?.onResource?.(resource);
 
       // Configure the sandbox iframe (contract shared across frontends).
-      iframe.setAttribute(
-        "sandbox",
-        "allow-scripts allow-same-origin allow-forms",
-      );
+      // No `allow-same-origin`: a srcdoc frame inherits the host's origin, so
+      // that flag would hand the widget the host page's cookies, storage and
+      // DOM. The proxy only relays postMessage, which works from an opaque
+      // origin, and sandbox flags cascade so the widget frame stays opaque too.
+      iframe.setAttribute("sandbox", MCP_APP_SANDBOX);
       // Cross-frontend MCP-apps surface contract: every frontend must expose the
       // sandbox iframe under the SAME testid so one shared probe (harness
       // `d5-mcp-apps`) and one shared e2e spec can assert the surface mounted

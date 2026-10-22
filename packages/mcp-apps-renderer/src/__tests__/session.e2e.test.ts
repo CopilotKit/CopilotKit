@@ -162,6 +162,8 @@ describe("bindMcpApp", () => {
     );
     expect(readCall).toBeDefined();
     expect(iframe.getAttribute("data-testid")).toBe("mcp-app-iframe");
+    // A srcdoc frame with allow-same-origin would run as the host's origin.
+    expect(iframe.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
     expect(iframe.srcdoc).toContain("sandbox-proxy-ready");
   });
 

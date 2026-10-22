@@ -208,9 +208,7 @@ test("loads the resource through the selected agent and boots the sandbox", asyn
       },
     },
   });
-  expect(frame.getAttribute("sandbox")).toBe(
-    "allow-scripts allow-same-origin allow-forms",
-  );
+  expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
   expect(frame.srcdoc).toContain("Content-Security-Policy");
   expect(postMessage).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -491,15 +489,13 @@ test("matches the React SDK sandbox and resource CSP contract", async () => {
       "ui/notifications/sandbox-resource-ready",
   )?.[0];
 
-  expect(frame.getAttribute("sandbox")).toBe(
-    "allow-scripts allow-same-origin allow-forms",
-  );
+  expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
   expect(frame.getAttribute("src")).toBeNull();
   expect(frame.srcdoc).toContain(
     "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:* https://cdn.example.com",
   );
   expect(frame.srcdoc).toContain(
-    'inner.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms")',
+    'inner.setAttribute("sandbox","allow-scripts allow-forms")',
   );
   expect(resourceReady).toEqual({
     jsonrpc: "2.0",
