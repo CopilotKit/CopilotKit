@@ -850,17 +850,19 @@ export class RunHandler {
       });
       return { result: undefined, newMessages: [] };
     } finally {
-      this._runDepths.set(agent, (this._runDepths.get(agent) ?? 1) - 1);
-      // Restore original abortRun and drop the run's controller when the
-      // entire chain (including recursive follow-ups) is complete, so a
-      // finished, aborted run does not mark later errors as user-aborted.
-      if (isTopLevel) {
-        if (originalAbortRun) {
-          agent.abortRun = originalAbortRun;
-        }
-        if (this._runAbortControllers.get(agent) === controller) {
-          this._runAbortControllers.delete(agent);
-        }
+      const remainingDepth = (this._runDepths.get(agent) ?? 1) - 1;
+      this._runDepths.set(agent, remainingDepth);
+      // Restore original abortRun when the entire chain (including recursive
+      // follow-ups) is complete.
+      if (isTopLevel && originalAbortRun) {
+        agent.abortRun = originalAbortRun;
+      }
+      // Drop the agent's controller only once none of its runs is in flight:
+      // an overlapping call on the same agent may still be using it. Dropping
+      // it then means a finished, aborted run does not mark later errors as
+      // user-aborted.
+      if (remainingDepth === 0) {
+        this._runAbortControllers.delete(agent);
       }
     }
   }
