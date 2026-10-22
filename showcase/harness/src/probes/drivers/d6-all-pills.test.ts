@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
+  AIMOCK_JOURNAL_AUTH_ERROR_CLASS,
   BrowserDisconnectedError,
   createE2eFullDriver,
   createPooledE2eFullLauncher,
@@ -402,6 +403,103 @@ describe("e2e-full driver", () => {
         (r) => r.key === "d6:test-slug/agentic-chat",
       );
       expect(sideRow).toBeDefined();
+      expect(sideRow!.state).toBe("green");
+    });
+  });
+
+  // The deployed aimock enforces inbound auth on the /__aimock control API.
+  // A journal read rejected for auth (key missing or wrong) must FAIL the
+  // feature verdict; other journal problems stay best-effort.
+  describe("aimock journal auth gates the verdict", () => {
+    const AIMOCK = "http://aimock.test:4010";
+
+    async function runWithJournal(
+      journalStatus: number,
+      env: Record<string, string>,
+    ) {
+      registerD5Script(makeScript(["agentic-chat"]));
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+      const journalCalls: Headers[] = [];
+      const fetchImpl = vi.fn<typeof fetch>(async (input, init) => {
+        if (String(input) === `${AIMOCK}/__aimock/journal`) {
+          journalCalls.push(new Headers(init?.headers));
+          return journalStatus === 200
+            ? Response.json([])
+            : new Response("{}", { status: journalStatus });
+        }
+        return new Response(null, { status: 204 });
+      });
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      const result = await driver.run(
+        {
+          ...makeCtx({ writer }),
+          env: { AIMOCK_URL: AIMOCK, ...env },
+          fetchImpl,
+        },
+        {
+          key: "e2e_d6:showcase-test-slug",
+          backendUrl: "https://test.example.com",
+          features: ["agentic-chat"],
+        },
+      );
+      const sideRow = sideEmits.find(
+        (r) => r.key === "d6:test-slug/agentic-chat",
+      ) as ProbeResult<E2eFullFeatureSignal> | undefined;
+      return { result, sideRow, journalCalls };
+    }
+
+    it("fails the verdict when the journal read is rejected because the key is missing", async () => {
+      const { result, sideRow, journalCalls } = await runWithJournal(401, {});
+
+      expect(journalCalls).toHaveLength(1);
+      expect(journalCalls[0].has("authorization")).toBe(false);
+      expect(result.state).toBe("red");
+      expect((result.signal as E2eFullAggregateSignal).passed).toBe(0);
+      expect(sideRow!.state).toBe("red");
+      expect(sideRow!.signal.errorClass).toBe(AIMOCK_JOURNAL_AUTH_ERROR_CLASS);
+      expect(sideRow!.signal.errorDesc).toContain("AIMOCK_API_KEY unset");
+    });
+
+    it("fails the verdict when aimock rejects the configured key", async () => {
+      const { result, sideRow, journalCalls } = await runWithJournal(403, {
+        AIMOCK_API_KEY: "wrong-client-credential",
+      });
+
+      expect(journalCalls[0].get("authorization")).toBe(
+        "Bearer wrong-client-credential",
+      );
+      expect(result.state).toBe("red");
+      expect(sideRow!.state).toBe("red");
+      expect(sideRow!.signal.errorClass).toBe(AIMOCK_JOURNAL_AUTH_ERROR_CLASS);
+      expect(sideRow!.signal.errorDesc).toContain("AIMOCK_API_KEY rejected");
+    });
+
+    it("stays green when the keyed journal read succeeds", async () => {
+      const { result, sideRow, journalCalls } = await runWithJournal(200, {
+        AIMOCK_API_KEY: "good-client-credential",
+      });
+
+      expect(journalCalls[0].get("authorization")).toBe(
+        "Bearer good-client-credential",
+      );
+      expect(result.state).toBe("green");
+      expect(sideRow!.state).toBe("green");
+    });
+
+    it("keeps non-auth journal failures best-effort (verdict unchanged)", async () => {
+      const { result, sideRow } = await runWithJournal(500, {
+        AIMOCK_API_KEY: "good-client-credential",
+      });
+
+      expect(result.state).toBe("green");
       expect(sideRow!.state).toBe("green");
     });
   });
