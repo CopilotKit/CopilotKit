@@ -31,6 +31,7 @@ function createMockCore() {
     setMessageFilter: vi.fn(),
     setDebug: vi.fn(),
     setDefaultThrottleMs: vi.fn(),
+    connect: vi.fn(),
   };
 }
 
@@ -142,6 +143,21 @@ describe("CopilotKitProvider (React Native)", () => {
       );
 
       expect(hoisted.MockCoreConstructor).toHaveBeenCalledTimes(1);
+    });
+
+    it("defers the runtime connection to an effect instead of construction", () => {
+      render(
+        <CopilotKitProvider runtimeUrl="https://api.test">
+          <div />
+        </CopilotKitProvider>,
+      );
+
+      // Constructing during render must not fetch /info (a render React
+      // discards would fetch too); the provider connects once mounted.
+      expect(hoisted.MockCoreConstructor).toHaveBeenCalledWith(
+        expect.objectContaining({ deferInitialConnection: true }),
+      );
+      expect(mockCoreInstance.connect).toHaveBeenCalled();
     });
 
     it("maps useSingleEndpoint=true to transport 'single'", () => {

@@ -88,6 +88,7 @@ function createMockCore() {
     setMessageFilter: vi.fn(),
     setDebug: vi.fn(),
     setDefaultThrottleMs: vi.fn(),
+    connect: vi.fn(),
     getAgent: vi.fn(() => undefined),
     runtimeUrl: "https://api.test",
     runtimeTransport: "auto",

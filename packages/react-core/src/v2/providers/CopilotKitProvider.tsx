@@ -17,6 +17,7 @@ import {
   useMemo,
   useCallback,
   useEffect,
+  useInsertionEffect,
   useLayoutEffect,
   useReducer,
   useRef,
@@ -508,11 +509,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     ReactActivityMessageRenderer<any>
   >(renderActivityMessages, "renderActivityMessages must be a stable array.");
 
-  // Stable core instance ref, declared here (before the activity-renderer memo)
-  // so the filtered-catalog memo can read enablement off the current instance.
-  // The instance itself is created in the ref-init block below; on the very
-  // first render `current` is still null (nothing is disabled yet), so the
-  // filtered catalog correctly equals the full catalog.
+  // Core instance ref, declared here (before the activity-renderer memo) so the
+  // filtered-catalog memo can read enablement off the instance. The instance is
+  // created further down and written here on commit; on the very first render
+  // `current` is still null (nothing is disabled yet), so the filtered catalog
+  // correctly equals the full catalog.
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
 
   // Raw catalog provided by the caller (typed loosely to match `a2ui.catalog?: any`).
@@ -825,14 +826,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     processedHumanInTheLoopTools,
   ]);
 
-  // Stable instance: created once for the provider lifetime (ref declared above
-  // so the filtered-catalog memo can read enablement off it).
-  // Updates are applied via setter effects below rather than recreating the instance.
-  if (copilotkitRef.current === null) {
-    // Lazy init, once per mount. Stays a ref: the filteredCatalog memo above reads it, and
-    // useState(() => new ...) would run this ctor twice on a StrictMode mount (React 19).
-    // react-doctor-disable-next-line react-doctor/no-ref-current-in-render
-    copilotkitRef.current = new CopilotKitCoreReact({
+  // Stable instance: created once for the provider lifetime. Updates are applied
+  // via setter effects below rather than recreating the instance. In React 19
+  // StrictMode (dev only) the initializer runs twice and one instance is
+  // discarded, as React 18 already did with a lazily filled ref; the discarded
+  // one has made no request (`deferInitialConnection`).
+  const [copilotkit] = useState(() => {
+    const core = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
       // Defer the `/info` fetch out of construction. The core is constructed
       // during render, and React can start-and-discard renders (concurrent
@@ -861,10 +861,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // Set initial defaultThrottleMs synchronously so child hooks see the
     // correct value on their first render (before useEffect fires).
     if (defaultThrottleMs !== undefined) {
-      copilotkitRef.current.setDefaultThrottleMs(defaultThrottleMs);
+      core.setDefaultThrottleMs(defaultThrottleMs);
     }
-  }
-  const copilotkit = copilotkitRef.current;
+    return core;
+  });
+  useInsertionEffect(() => {
+    copilotkitRef.current = copilotkit;
+  }, [copilotkit]);
 
   // Register the full A2UI catalog component list onto core so the inspector can
   // read `core.catalogComponents`, and re-derive the filtered catalog whenever
