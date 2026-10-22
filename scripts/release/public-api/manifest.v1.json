@@ -393,20 +393,6 @@
           }
         },
         {
-          "importPath": "@copilotkit/channels/telegram",
-          "exportKey": "./telegram",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/telegram.d.ts",
-            "import": "./dist/telegram.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels/package.json",
-            "selector": "exports[\"./telegram\"]"
-          }
-        },
-        {
           "importPath": "@copilotkit/channels/testing",
           "exportKey": "./testing",
           "kind": "code",
@@ -829,47 +815,6 @@
         "version": {
           "kind": "package-json",
           "path": "packages/channels-teams/package.json",
-          "selector": "version"
-        },
-        "releaseScope": {
-          "kind": "release-config",
-          "path": "release.config.json",
-          "selector": "scopes.channels.packages"
-        }
-      }
-    },
-    {
-      "name": "@copilotkit/channels-telegram",
-      "version": "0.11.1",
-      "sourceDirectory": "packages/channels-telegram",
-      "entrypoints": [
-        {
-          "importPath": "@copilotkit/channels-telegram",
-          "exportKey": ".",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels-telegram/package.json",
-            "selector": "exports[\".\"]"
-          }
-        }
-      ],
-      "compatibility": {
-        "provenance": []
-      },
-      "provenance": {
-        "name": {
-          "kind": "package-json",
-          "path": "packages/channels-telegram/package.json",
-          "selector": "name"
-        },
-        "version": {
-          "kind": "package-json",
-          "path": "packages/channels-telegram/package.json",
           "selector": "version"
         },
         "releaseScope": {
