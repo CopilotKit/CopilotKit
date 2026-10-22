@@ -1085,6 +1085,16 @@ export function createChannel<
         // platforms whose callback payload can't carry the value (Telegram),
         // where `evt.value` is undefined.
         let dispatchedValue: unknown;
+        // A pending picker's actions belong to its initiator: refuse anyone
+        // else before dispatch, so they can't trigger the handler either.
+        const waiter = waiters.get(evt.conversationKey);
+        const picker = waiter?.actionIds.has(evt.id) ? waiter : undefined;
+        if (
+          picker?.actorId !== undefined &&
+          picker.actorId !== identityContext.actor.id
+        ) {
+          return;
+        }
         try {
           const explicit = interactionHandlers.get(evt.id);
           if (explicit) {
@@ -1102,14 +1112,9 @@ export function createChannel<
         // one of the picker's own actions by the actor allowed to answer it.
         // Prefer the value carried in the event (Slack), falling back to the
         // value the registry recovered from the rendered element (Telegram).
-        const w = waiters.get(evt.conversationKey);
-        if (
-          w &&
-          w.actionIds.has(evt.id) &&
-          (w.actorId === undefined || w.actorId === identityContext.actor.id)
-        ) {
+        if (picker && waiters.get(evt.conversationKey) === picker) {
           waiters.delete(evt.conversationKey);
-          w.resolve(evt.value !== undefined ? evt.value : dispatchedValue);
+          picker.resolve(evt.value !== undefined ? evt.value : dispatchedValue);
         }
       },
       async onCommand(cmd: IncomingCommand) {

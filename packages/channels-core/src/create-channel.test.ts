@@ -874,13 +874,16 @@ describe("createChannel", () => {
     });
 
     let chosen: unknown = "pending";
+    let clicks = 0;
     channel.onMention(async ({ thread }) => {
       chosen = await thread.awaitChoice(
         Actions({
           children: [
             Button({
               value: { approved: true },
-              onClick: () => {},
+              onClick: () => {
+                clicks++;
+              },
               children: "Approve",
             }),
           ],
@@ -909,6 +912,8 @@ describe("createChannel", () => {
     fake.emitInteraction({ id, conversationKey: "c1", actor: mallory });
     await tick();
     expect(chosen).toBe("pending");
+    // ...nor run the button's handler.
+    expect(clicks).toBe(0);
 
     fake.emitInteraction({ id, conversationKey: "c1", actor: alice });
     await tick();
