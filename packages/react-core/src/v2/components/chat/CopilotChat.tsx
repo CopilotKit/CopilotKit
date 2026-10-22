@@ -897,25 +897,20 @@ export function CopilotChat({
     return isCurrentSelection();
   }, [agent]);
 
-  const enqueueSubmission = useCallback(
-    (submit: () => Promise<void>, onSkipped?: () => void) => {
-      const selection = previousThreadRef.current;
-      const pending = submissionQueueRef.current
-        .then(async () => {
-          if (selection?.active && previousThreadRef.current === selection) {
-            await submit();
-          } else {
-            onSkipped?.();
-          }
-        })
-        .catch((error) => {
-          console.error("CopilotChat: queued submission failed", error);
-        });
-      submissionQueueRef.current = pending;
-      return pending;
-    },
-    [],
-  );
+  const enqueueSubmission = useCallback((submit: () => Promise<void>) => {
+    const selection = previousThreadRef.current;
+    const pending = submissionQueueRef.current
+      .then(async () => {
+        if (selection?.active && previousThreadRef.current === selection) {
+          await submit();
+        }
+      })
+      .catch((error) => {
+        console.error("CopilotChat: queued submission failed", error);
+      });
+    submissionQueueRef.current = pending;
+    return pending;
+  }, []);
 
   const onSubmitInput = useCallback(
     async (value: string) => {
@@ -1039,7 +1034,7 @@ export function CopilotChat({
             }
           }
         }
-      }, restoreCapturedSubmission);
+      });
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps

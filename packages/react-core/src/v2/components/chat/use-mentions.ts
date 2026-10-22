@@ -7,6 +7,7 @@ export function useMentions() {
   const mentionsRef = useRef(mentions);
   mentionsRef.current = mentions;
 
+  /** Adds a mention to the next message unless it is already selected. */
   const selectMention = useCallback((item: CopilotChatMentionItem) => {
     setMentions((current) =>
       current.some((mention) => mention.id === item.id)
@@ -15,10 +16,12 @@ export function useMentions() {
     );
   }, []);
 
+  /** Removes a selected mention from the next message. */
   const removeMention = useCallback((id: string) => {
     setMentions((current) => current.filter((mention) => mention.id !== id));
   }, []);
 
+  /** Drains and returns all mentions selected for the accepted submission. */
   const consumeMentions = useCallback(() => {
     const selected = mentionsRef.current;
     if (selected.length === 0) return selected;
