@@ -39,6 +39,14 @@ A few things to know:
 
 To see every component with sample data, run [`examples/v2/a2ui-markdown`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/v2/a2ui-markdown) and open `/catalog`.
 
+## Express calling conventions
+
+The standard catalog exports content, children, labels/values and common actions before presentation parameters. For example, the short prefixes are `Text(text?, children?)`, `Column(children?)`, `Button(label?, onClick?)`, `TextField(label?, value?)` and `Chart(data?, xKey?, series?, chartType?)`. Other component-specific fields follow, then shared layout and typography fields. Optional styling is easiest to pass by name.
+
+This is CopilotKit's catalog design, not a prescribed list of signatures from A2UI. The official Express specification defines how JSON property order becomes argument order. The standard catalog applies that rule through [`exportA2UICatalog`](/generative-ui/components/catalogs#positional-parameter-order), so agents consuming the exported catalog receive the same calling convention regardless of framework.
+
+Compared with the initial experimental style-first catalog, this changes positional meanings. Start a fresh conversation when moving to this catalog and regenerate saved positional Express source against its signatures. Named arguments and JSON property values keep their meaning.
+
 ## Add your own components
 
 Put your components on top of the standard ones with `extends`:

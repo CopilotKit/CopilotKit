@@ -141,6 +141,32 @@ fs.writeFileSync("acme-catalog.json", JSON.stringify(catalog, null, 2));
 
 Every component is an entry with `component` as a `const`, its model-set props, its events as `Action` references and its slots as `ComponentId` or `ChildList` references. A prop takes its literal schema, a `DataBinding` or a `FunctionCall`, because the renderer resolves dynamic values in any prop. Every function, built-in or declared, states `returnType` and `allowedCallers`; `calc` and `series` are listed like the others, so a reader without them knows what it cannot run.
 
+## Positional parameter order
+
+A2UI Express maps positional arguments using the order of properties in the catalog's JSON Schema. Its [schema-driven key mapping specification](https://a2ui.org/specification/proposals/express/a2ui_express/#schema-driven-key-mapping) defines that behavior. The choice of which parameters come first belongs to the catalog author.
+
+Declare `parameterOrder` to put a component's main content, children or actions first, across `props`, `slots` and `events`:
+
+```tsx
+const ui = createGenerativeUI({
+  id: "acme/panel@1",
+  components: {
+    Panel: {
+      component: Panel,
+      props: z.object({ title: z.string(), color: z.string().optional() }),
+      slots: { children: "multiple" },
+      parameterOrder: ["title", "children"],
+    },
+  },
+});
+```
+
+`exportA2UICatalog(ui)` emits `Panel.properties` in the order `component`, `title`, `children`, `color`. Express ignores the structural `component` discriminator, so the first positional argument is the title. `parameterOrder` is CopilotKit authoring/manifest metadata, **not an A2UI JSON Schema keyword**: the portable export applies it to the actual JSON property order.
+
+Names must be unique declared props, slots or events. An ordered component cannot declare canonical integer-index names (`"0"` through `"4294967294"`): JavaScript sorts those keys numerically before other keys regardless of the requested order. Unlisted names follow in their existing declaration order: props, then slots, then events. Bound props and matched events are omitted from the model-facing signature. Catalogs without `parameterOrder` retain their existing export order. `extends`, `omit` and React-component `overrides` preserve the declared convention.
+
+Treat positional order as an API contract. Changing it can change the meaning of existing Express programs; named arguments keep their meaning. Keep short prefixes stable and use named arguments for optional styling. Preserve property order when serializing or transforming a catalog for Express.
+
 ## What the agent sees
 
 The agent gets each component with its description and the props that it can set. It does not see:

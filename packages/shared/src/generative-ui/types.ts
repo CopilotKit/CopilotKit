@@ -168,6 +168,9 @@ export type GenerativeUITemplateChildren = {
 };
 
 export interface GenerativeUIComponentManifest {
+  /** CopilotKit positional order across model-visible props, slots and events.
+   * Exporters encode this as JSON Schema property order; it is not an A2UI keyword. */
+  parameterOrder?: readonly string[];
   description?: string;
   props: GenerativeUIJSONSchema;
   events?: Record<
