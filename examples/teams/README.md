@@ -173,9 +173,10 @@ which the bot listens on for `/api/messages`.
 > `@microsoft/agents-*` dependencies too: `@copilotkit/channels` declares them
 > as **optional** peer dependencies, so a package manager does not install them
 > for you. The self-hosted Teams adapter requires them, and without them the bot
-> fails at import with `Cannot find package '@microsoft/agents-hosting'`. This
-> bot serves `/api/messages` from its own `node:http` server rather than the
-> adapter's `createTeamsServer`, so it does not need `express`.
+> fails at import with `Cannot find package '@microsoft/agents-hosting'`. The
+> adapter serves `/api/messages` through `createTeamsServer`, which verifies the
+> Bot Framework JWT on every request and only accepts Bot Connector
+> `serviceUrl`s once `clientId` is set. That listener needs `express` installed.
 
 Set the environment for wherever you deploy:
 

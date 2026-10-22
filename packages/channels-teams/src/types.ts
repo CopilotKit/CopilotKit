@@ -42,6 +42,13 @@ export interface TeamsAdapterOptions {
   /** Microsoft tenant (directory) id. Omit for multi-tenant / anonymous. Falls back to `tenantId`. */
   tenantId?: string;
   /**
+   * Extra hosts to accept as an activity's `serviceUrl` when credentials are
+   * configured, on top of the built-in Bot Framework / Teams hosts. Exact host
+   * names, or suffixes starting with a dot (e.g. `".example-sovereign.cloud"`).
+   * The bot sends its access token to this URL, so list only hosts you trust.
+   */
+  allowedServiceUrlHosts?: readonly string[];
+  /**
    * Custom-event names treated as interrupts by the run renderer (captured for
    * an `onInterrupt` handler). Defaults to `on_interrupt`, the name
    * LangGraph's AG-UI adapter emits.

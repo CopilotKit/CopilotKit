@@ -102,7 +102,11 @@ export class TeamsAdapter implements PlatformAdapter {
       clientSecret: this.opts.clientSecret ?? process.env.clientSecret,
       tenantId: this.opts.tenantId ?? process.env.tenantId,
     };
-    this.cloud = new CloudAdapter(authConfig);
+    // Reject activities whose serviceUrl host differs from the token's
+    // `serviceurl` claim (the SDK only warns by default).
+    this.cloud = new CloudAdapter(authConfig, undefined, undefined, {
+      validateServiceUrl: true,
+    });
     // Contain turn-handler failures at the SDK boundary. Without this the M365
     // adapter rethrows (e.g. a Bot Connector 401 surfaces as "Unknown error
     // type"), which becomes an unhandled rejection and crashes the process,
@@ -114,6 +118,8 @@ export class TeamsAdapter implements PlatformAdapter {
     this.server = createTeamsServer({
       adapter: this.cloud,
       port: this.opts.port ?? 3978,
+      authConfig,
+      allowedServiceUrlHosts: this.opts.allowedServiceUrlHosts,
       onTurnContext: (context) => this.handleActivity(context, sink),
     });
     await this.server.start();

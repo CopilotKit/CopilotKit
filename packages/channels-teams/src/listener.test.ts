@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type { AddressInfo } from "node:net";
-import { createTeamsServer } from "./listener.js";
+import { createTeamsServer, isTrustedServiceUrl } from "./listener.js";
 
 /**
  * Regression coverage for the crash-resilience fix: a failed turn (e.g. a Bot
@@ -45,5 +45,61 @@ describe("createTeamsServer", () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toBe("ok");
     await server.stop();
+  });
+});
+
+/**
+ * Security: with credentials configured, an unauthenticated POST must never
+ * reach `adapter.process`, because a forged activity's `serviceUrl` is where
+ * the bot would send its own access token.
+ */
+describe("createTeamsServer authentication", () => {
+  it("rejects a request without a Bot Framework token when credentialed", async () => {
+    const process = vi.fn();
+    const server = createTeamsServer({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      adapter: { process } as any,
+      port: 0,
+      authConfig: { clientId: "app-id", clientSecret: "s", tenantId: "t" },
+      onTurnContext: async () => {},
+    });
+    const httpServer = await server.start();
+    const { port } = httpServer.address() as AddressInfo;
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        type: "message",
+        text: "hi",
+        serviceUrl: "https://attacker.example",
+        conversation: { id: "c" },
+      }),
+    });
+
+    expect(res.status).toBe(401);
+    expect(process).not.toHaveBeenCalled();
+    await server.stop();
+  });
+
+  it("only trusts https Bot Connector serviceUrl hosts", () => {
+    expect(isTrustedServiceUrl("https://smba.trafficmanager.net/amer/")).toBe(
+      true,
+    );
+    expect(isTrustedServiceUrl("https://directline.botframework.com/")).toBe(
+      true,
+    );
+    expect(isTrustedServiceUrl("https://evil.trafficmanager.net/")).toBe(false);
+    expect(isTrustedServiceUrl("https://botframework.com.evil.example/")).toBe(
+      false,
+    );
+    expect(isTrustedServiceUrl("http://smba.trafficmanager.net/")).toBe(false);
+    expect(isTrustedServiceUrl("https://attacker.example/")).toBe(false);
+    expect(isTrustedServiceUrl(undefined)).toBe(false);
+    expect(
+      isTrustedServiceUrl("https://bot.sovereign.example/", [
+        ".sovereign.example",
+      ]),
+    ).toBe(true);
   });
 });

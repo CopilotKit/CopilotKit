@@ -51,6 +51,16 @@ that serves `POST /api/messages` from its own HTTP server does not install it:
 pnpm add express   # only for createTeamsServer
 ```
 
+> **Security: serving `/api/messages` yourself.** `createTeamsServer` verifies
+> every request's Bot Framework JWT with the SDK's `authorizeJWT` middleware
+> and, when credentials are configured, only accepts an activity whose
+> `serviceUrl` is a Microsoft Bot Connector host (see `allowedServiceUrlHosts`).
+> A server of your own must do both before calling `CloudAdapter.process`: the
+> adapter sends replies, and the bot's access token, to the activity's
+> `serviceUrl`, so an unauthenticated endpoint lets anyone who can reach it
+> redirect that token to a host they choose. Also construct the `CloudAdapter`
+> with `{ validateServiceUrl: true }`.
+
 They are optional because the managed path does not need them. Managed Channels
 reach this package only through the `./render` subpath, which never touches the
 Microsoft SDK, so an app that installs `@copilotkit/runtime` for a plain chat UI

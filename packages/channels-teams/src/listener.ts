@@ -1,5 +1,10 @@
 import type { Server } from "node:http";
+import {
+  authorizeJWT,
+  getAuthConfigWithDefaults,
+} from "@microsoft/agents-hosting";
 import type {
+  AuthConfiguration,
   CloudAdapter,
   TurnContext,
   Request as AgentsRequest,
@@ -14,6 +19,55 @@ export interface TeamsServerConfig {
    * is surfaced through the adapter's `onTurnError`.
    */
   onTurnContext: (context: TurnContext) => Promise<void>;
+  /**
+   * Auth settings used to verify each request's Bot Framework JWT. Defaults to
+   * the same environment-derived settings `CloudAdapter` uses. Without a
+   * `clientId` (and outside production) requests are accepted anonymously,
+   * which is what the M365 Agents Playground needs for local development.
+   */
+  authConfig?: AuthConfiguration;
+  /** Extra trusted `serviceUrl` host suffixes; see {@link isTrustedServiceUrl}. */
+  allowedServiceUrlHosts?: readonly string[];
+}
+
+/**
+ * Hosts the Bot Framework delivers `serviceUrl`s from (public, GCC/GCC High/DoD,
+ * and China clouds). Exact names, or suffixes when they start with a dot.
+ */
+const TRUSTED_SERVICE_URL_HOSTS = [
+  "smba.trafficmanager.net",
+  ".botframework.com",
+  ".botframework.us",
+  ".botframework.azure.us",
+  ".botframework.azure.cn",
+  ".teams.microsoft.com",
+  ".teams.microsoft.us",
+];
+
+/**
+ * Whether an activity's `serviceUrl` points at a Microsoft Bot Connector host.
+ *
+ * The adapter sends replies, and therefore the bot's access token, to this URL.
+ * The SDK only compares it with the token's `serviceurl` claim, and skips that
+ * check when the claim is absent, so the host is pinned here as well.
+ */
+export function isTrustedServiceUrl(
+  serviceUrl: unknown,
+  extraHosts: readonly string[] = [],
+): boolean {
+  if (typeof serviceUrl !== "string") return false;
+  let url: URL;
+  try {
+    url = new URL(serviceUrl);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  const host = url.hostname.toLowerCase();
+  return [...TRUSTED_SERVICE_URL_HOSTS, ...extraHosts].some((entry) => {
+    const e = entry.toLowerCase();
+    return e.startsWith(".") ? host.endsWith(e) : host === e;
+  });
 }
 
 export interface TeamsServer {
@@ -25,9 +79,12 @@ export interface TeamsServer {
  * Stand up the bot's `POST /api/messages` endpoint.
  *
  * The M365 Agents Playground (and Azure Bot Service) deliver activities here as
- * JSON; `CloudAdapter.process` authenticates the request (anonymous in local
- * Playground mode), builds the `TurnContext`, runs the middleware pipeline, and
- * writes the HTTP response once `onTurnContext` resolves.
+ * JSON. The SDK's `authorizeJWT` middleware verifies the Bot Framework token
+ * first (anonymous only in local Playground mode, with no `clientId`), and when
+ * credentials are configured the activity's `serviceUrl` must be a Bot
+ * Connector host. Only then does `CloudAdapter.process` build the
+ * `TurnContext`, run the middleware pipeline, and write the HTTP response once
+ * `onTurnContext` resolves.
  *
  * `express` is imported lazily, inside `start()`, and this function is the only
  * place the package uses it. It is an OPTIONAL peer dependency (OSS-1177), so a
@@ -63,6 +120,7 @@ async function loadExpress() {
 
 export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
   let server: Server | undefined;
+  const authConfig = getAuthConfigWithDefaults(config.authConfig);
 
   return {
     async start() {
@@ -70,7 +128,23 @@ export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
       const app = express();
       app.use(express.json());
 
-      app.post("/api/messages", (req, res) => {
+      // Cast across HTTP-layer types, as for `process` below.
+      const requireJwt = authorizeJWT(authConfig) as unknown as Parameters<
+        typeof app.post
+      >[1];
+
+      app.post("/api/messages", requireJwt, (req, res) => {
+        if (
+          authConfig.clientId &&
+          !isTrustedServiceUrl(
+            (req.body as { serviceUrl?: unknown } | undefined)?.serviceUrl,
+            config.allowedServiceUrlHosts,
+          )
+        ) {
+          console.error("[bot-teams] rejected activity: untrusted serviceUrl");
+          res.status(400).end();
+          return;
+        }
         config.adapter
           .process(
             // Cast across HTTP-layer types: the M365 SDK types `process` against
