@@ -81,18 +81,14 @@ describe("createEndorsementCheck", () => {
     expect(signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("rejects a key whose endorsements list is empty", async () => {
+  it("skips the check for a key whose endorsements list is empty, like the Bot Framework SDK", async () => {
     stubFetch(async () => keysResponse([{ kid: "k1", endorsements: [] }]));
     const result = await createEndorsementCheck()(
       BOT_FRAMEWORK_ISSUER,
       bearer(),
       "msteams",
     );
-    expect(result).toEqual({
-      ok: false,
-      status: 403,
-      reason: "signing key is not endorsed for this channel",
-    });
+    expect(result).toEqual({ ok: true });
   });
 
   it("accepts a key without an endorsements field", async () => {

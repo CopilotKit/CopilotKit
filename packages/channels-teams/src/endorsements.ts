@@ -11,12 +11,11 @@
  *
  * Scope follows the Bot Framework SDK's reference implementation
  * (botframework-connector `JwtTokenExtractor` / `EndorsementsValidator`): a key
- * without an `endorsements` field is not checked. Azure AD keys (single-tenant
- * Azure Bot Service, the Bot Framework Emulator) have none, so tokens verified
- * with them are not affected. Two cases are stricter than that reference: an
- * empty `endorsements` list is read as "endorsed for no channel" and rejected
- * (the reference skips the check), and an activity without a `channelId` is
- * rejected when the key lists endorsements (the reference lets it pass).
+ * whose `endorsements` field is absent or an empty list is not checked. Azure
+ * AD keys (single-tenant Azure Bot Service, the Bot Framework Emulator) have
+ * none, so tokens verified with them are not affected. One case is stricter
+ * than that reference: an activity without a `channelId` is rejected when the
+ * key lists endorsements (the reference lets it pass).
  */
 
 /** The issuer the SDK verifies against the Bot Connector's own keys. */
@@ -115,7 +114,9 @@ export function createEndorsementCheck(
     if (!key)
       return { ok: false, status: 401, reason: "signing key not found" };
     const endorsements = key.endorsements;
-    if (!Array.isArray(endorsements)) return { ok: true };
+    if (!Array.isArray(endorsements) || endorsements.length === 0) {
+      return { ok: true };
+    }
     if (typeof channelId !== "string" || channelId === "") {
       return { ok: false, status: 403, reason: "activity has no channelId" };
     }

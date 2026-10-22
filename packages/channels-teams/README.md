@@ -252,10 +252,9 @@ Emulator's local connector, for example
 lists the channels it may sign for. For a Bot Framework token
 (`iss: https://api.botframework.com`) whose key lists endorsements, the
 activity's `channelId` must be one of them, or the request gets `403`. Like the
-Bot Framework SDK, keys without an `endorsements` field are not checked;
-Azure AD keys (single-tenant Azure Bot Service, the Bot Framework Emulator)
-have none. A key with an empty list is endorsed for no channel and is
-rejected. The key document is cached for an hour; fetching it times out after
+Bot Framework SDK, keys whose `endorsements` field is absent or empty are not
+checked; Azure AD keys (single-tenant Azure Bot Service, the Bot Framework
+Emulator) have none. The key document is cached for an hour; fetching it times out after
 5 seconds, and a failed fetch rejects the request (`503`).
 
 **Anonymous mode.** Without a `clientId` the endpoint is **anonymous**: anyone
