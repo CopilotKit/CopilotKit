@@ -911,15 +911,60 @@ function joinDateTime(parts: DateTimeParts, mode: DateTimeMode): string {
 }
 
 /**
+ * The value in words, in the user's locale: "Thu, Oct 23, 2026, 2:30 PM".
+ * Undefined for an incomplete or unparsable value.
+ */
+export function describeDateTime(
+  parts: DateTimeParts,
+  mode: DateTimeMode,
+  locale?: string,
+): string | undefined {
+  const date = /^(\d{4})-(\d{2})-(\d{2})$/.exec(parts.date);
+  const time = /^(\d{1,2}):(\d{2})/.exec(parts.time);
+  if ((mode !== "time" && !date) || (mode !== "date" && !time)) return;
+  // The value has no time zone: it is formatted as written, in UTC, so a
+  // daylight-saving gap of the viewer cannot shift it.
+  const at = new Date(
+    Date.UTC(
+      date ? Number(date[1]) : 2000,
+      date ? Number(date[2]) - 1 : 0,
+      date ? Number(date[3]) : 1,
+      time ? Number(time[1]) : 0,
+      time ? Number(time[2]) : 0,
+    ),
+  );
+  // Date.UTC rolls an impossible value over (February 30 to March 2); such
+  // a value gets no summary rather than a different one.
+  const exact =
+    (!date ||
+      (at.getUTCFullYear() === Number(date[1]) &&
+        at.getUTCMonth() === Number(date[2]) - 1 &&
+        at.getUTCDate() === Number(date[3]))) &&
+    (!time ||
+      (at.getUTCHours() === Number(time[1]) &&
+        at.getUTCMinutes() === Number(time[2])));
+  if (Number.isNaN(at.getTime()) || !exact) return;
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: "UTC",
+    ...(mode === "time"
+      ? {}
+      : { weekday: "short", year: "numeric", month: "short", day: "numeric" }),
+    ...(mode === "date" ? {} : { hour: "numeric", minute: "2-digit" }),
+  }).format(at);
+}
+
+/**
  * A date, a time, or both. A date and a time are two fields under one
  * label, so each stays short and readable in every browser; the value is
- * written once both are set.
+ * written once both are set. Under the fields, the value in words makes the
+ * date and the time (AM/PM included) unambiguous.
  */
 function DateTimeInput(props: DateTimeInputProps) {
   useStandardStyles();
   const aria = useGenerativeUIAccessibility();
   const id = useId();
   const labelId = useId();
+  const summaryId = useId();
   const mode = dateTimeMode(props);
   const value = asText(props.value);
   const check = useChecks(props.checks, props.value);
@@ -967,6 +1012,7 @@ function DateTimeInput(props: DateTimeInputProps) {
     timeInput.current?.setCustomValidity(timeMessage);
   }, [dateMessage, timeMessage]);
 
+  const summary = describeDateTime(parts, mode);
   const isSplit = mode === "datetime";
   const showClear = props.clearable && (parts.date !== "" || parts.time !== "");
   const style = controlStyle({ ...props, pill: false }, "xl");
@@ -975,6 +1021,7 @@ function DateTimeInput(props: DateTimeInputProps) {
     disabled: props.disabled,
     required: props.required,
     "aria-invalid": check.invalid || undefined,
+    "aria-describedby": summary ? summaryId : undefined,
   };
   // One field names itself after the label; two fields are named "Date"
   // and "Time" inside a group the label names.
@@ -1061,6 +1108,15 @@ function DateTimeInput(props: DateTimeInputProps) {
           </button>
         ) : null}
       </div>
+      {summary ? (
+        <span
+          id={summaryId}
+          data-a2ui-datetime-summary=""
+          style={{ ...textFont("sm"), color: textColor("secondary") }}
+        >
+          {summary}
+        </span>
+      ) : null}
     </Field>
   );
 }

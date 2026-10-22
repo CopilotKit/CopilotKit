@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { A2UIComponentNode } from "@copilotkit/shared";
 import { createGenerativeUI } from "../../catalog";
-import { inputComponents, splitDateTime } from "../inputs";
+import { describeDateTime, inputComponents, splitDateTime } from "../inputs";
 import { layoutComponents } from "../layout";
 import { SURFACE_ID, renderSurface } from "./render";
 
@@ -523,6 +523,12 @@ describe("standard inputs: events", () => {
 });
 
 describe("standard inputs: DateTimeInput", () => {
+  const inWords = (
+    date: string,
+    time: string,
+    mode: "date" | "time" | "datetime",
+  ) => describeDateTime({ date, time }, mode);
+
   it("splits an ISO value into its date and its time", () => {
     expect(splitDateTime("2026-10-23T14:30")).toEqual({
       date: "2026-10-23",
@@ -534,6 +540,26 @@ describe("standard inputs: DateTimeInput", () => {
     });
     expect(splitDateTime("09:15")).toEqual({ date: "", time: "09:15" });
     expect(splitDateTime("")).toEqual({ date: "", time: "" });
+  });
+
+  it("says the value in words with the hour of the day, and nothing for an incomplete value", () => {
+    const text = describeDateTime(
+      { date: "2026-10-23", time: "14:30" },
+      "datetime",
+      "en-US",
+    );
+    expect(text).toContain("Oct 23, 2026");
+    expect(text).toContain("2:30");
+    expect(text).toContain("PM");
+    expect(describeDateTime({ date: "", time: "09:05" }, "time", "en-US")).toBe(
+      "9:05 AM",
+    );
+    expect(
+      describeDateTime({ date: "2026-10-23", time: "" }, "datetime"),
+    ).toBeUndefined();
+    expect(
+      describeDateTime({ date: "soon", time: "" }, "date"),
+    ).toBeUndefined();
   });
 
   it("shows a date and a time as two named fields under one label and writes the value once both are set", async () => {
@@ -561,6 +587,9 @@ describe("standard inputs: DateTimeInput", () => {
     expect(date.value).toBe("2026-10-23");
     fireEvent.change(time, { target: { value: "14:30" } });
     expect(view.dataAt("/when")).toBe("2026-10-23T14:30");
+    expect(
+      view.getByText(inWords("2026-10-23", "14:30", "datetime")!),
+    ).toBeTruthy();
     // Clearing the time clears the value and keeps the date.
     fireEvent.change(time, { target: { value: "" } });
     expect(view.dataAt("/when")).toBe("");
@@ -614,6 +643,32 @@ describe("standard inputs: DateTimeInput", () => {
     expect([time.min, time.max]).toEqual(["09:00", ""]);
     fireEvent.change(date, { target: { value: "2026-10-30" } });
     expect([time.min, time.max]).toEqual(["", "17:00"]);
+  });
+
+  it("formats the value as written, not shifted by a daylight-saving gap of the viewer", () => {
+    const zone = process.env.TZ;
+    process.env.TZ = "Europe/Vienna";
+    try {
+      // 02:30 on 29 March 2026 does not exist in Vienna.
+      const text = describeDateTime(
+        { date: "2026-03-29", time: "02:30" },
+        "datetime",
+        "en-US",
+      );
+      expect(text).toContain("2:30");
+      expect(text).not.toContain("3:30");
+    } finally {
+      process.env.TZ = zone;
+    }
+  });
+
+  it("gives an impossible date no summary rather than a rolled-over one", () => {
+    expect(
+      describeDateTime({ date: "2026-02-30", time: "" }, "date"),
+    ).toBeUndefined();
+    expect(
+      describeDateTime({ date: "", time: "25:00" }, "time"),
+    ).toBeUndefined();
   });
 
   it("does not let a form submit half a date and time, and allows both empty", async () => {
@@ -681,5 +736,6 @@ describe("standard inputs: DateTimeInput", () => {
     expect(time.type).toBe("time");
     expect(time.value).toBe("07:45");
     expect(view.queryByRole("group")).toBeNull();
+    expect(view.getByText(inWords("", "07:45", "time")!)).toBeTruthy();
   });
 });
