@@ -69,7 +69,51 @@ describe("CopilotKitCore error handling", () => {
       )!;
       expect(evt.context.agentId).toBe("agent1");
       expect(evt.context.event).toBeDefined();
+      expect(evt.context.phase).toBe("live");
 
+      sub.unsubscribe();
+    });
+
+    it("reports an unknown phase for a connect RUN_ERROR without replay boundaries", async () => {
+      const core = new CopilotKitCore({});
+      const errors: Array<{
+        code: CopilotKitCoreErrorCode;
+        error: Error;
+        context: any;
+      }> = [];
+      const sub = core.subscribe({ onError: (e) => void errors.push(e) });
+      const agent = {
+        agentId: "agent1",
+        threadId: "t1",
+        messages: [] as any[],
+        state: {},
+        addMessages: (_m: any[]) => {},
+        addMessage: (_m: any) => {},
+        abortRun: () => {},
+        clone: () => agent,
+        subscribe: () => ({ unsubscribe() {} }),
+        detachActiveRun: async () => {},
+        setMessages: () => {},
+        setState: () => {},
+        async connectAgent(_params: any, subscriber?: any) {
+          await subscriber?.onRunErrorEvent?.({
+            event: { type: "RUN_ERROR", message: "old failure" },
+            agent: this,
+            messages: this.messages,
+            state: this.state,
+            input: { threadId: this.threadId, runId: "r1", messages: [] },
+          });
+          return { newMessages: [] };
+        },
+      } as any;
+      core.addAgent__unsafe_dev_only({ id: agent.agentId, agent });
+
+      await core.connectAgent({ agent });
+
+      const evt = errors.find(
+        (e) => e.code === CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
+      )!;
+      expect(evt.context.phase).toBe("unknown");
       sub.unsubscribe();
     });
 

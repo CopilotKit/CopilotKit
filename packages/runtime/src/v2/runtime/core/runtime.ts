@@ -31,6 +31,7 @@ import { logRuntimeTelemetryDisclosure } from "../../../v1-deprecated/lib/teleme
 import type { TranscriptionService } from "../transcription-service/transcription-service";
 import { DebugEventBus, isDebugEventFeedEnabled } from "./debug-event-bus";
 import type { AgentRunner } from "../runner/agent-runner";
+import type { IntelligenceAgentRunnerOptions } from "../runner/intelligence";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
@@ -296,6 +297,8 @@ interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOption
    * @default 15_000
    */
   heartbeatIntervalMs?: number;
+  /** Called each time Intelligence acknowledges a batch of runner events. */
+  onEventDeliveryStats?: IntelligenceAgentRunnerOptions["onEventDeliveryStats"];
   /** Lock TTL in seconds. Clamped to a maximum of 3600 (1 hour). @default 20 */
   lockTtlSeconds?: number;
   /** Custom Redis key prefix for the thread lock. */
@@ -664,6 +667,7 @@ export class CopilotIntelligenceRuntime
         maxReconnectMs: options.maxReconnectMs,
         maxRejoinMs: options.maxRejoinMs,
         heartbeatIntervalMs: options.heartbeatIntervalMs,
+        onEventDeliveryStats: options.onEventDeliveryStats,
       }),
     );
     this.intelligence = options.intelligence;

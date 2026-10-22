@@ -139,6 +139,12 @@ export enum CopilotKitCoreErrorCode {
   AGENT_CONNECT_FAILED = "agent_connect_failed",
   AGENT_RUN_FAILED = "agent_run_failed",
   AGENT_RUN_FAILED_EVENT = "agent_run_failed_event",
+  /**
+   * An agent emitted RUN_ERROR. `context.phase` (`RunErrorPhase`) is
+   * `"replay"` when the error belongs to stored thread history replayed on
+   * connect, `"live"` when the run is happening now, and `"unknown"` when the
+   * transport cannot tell. Show a live-failure notice only for `"live"`.
+   */
   AGENT_RUN_ERROR_EVENT = "agent_run_error_event",
   TOOL_ARGUMENT_PARSE_FAILED = "tool_argument_parse_failed",
   TOOL_HANDLER_FAILED = "tool_handler_failed",

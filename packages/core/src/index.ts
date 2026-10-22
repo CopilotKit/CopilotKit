@@ -11,3 +11,4 @@ export * from "./memory";
 export * from "./features";
 export * from "./interrupt-state";
 export * from "./inspector-thread-bridge";
+export type { RunErrorPhase } from "./utils/connect-replay";

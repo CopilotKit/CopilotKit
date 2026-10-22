@@ -54,6 +54,30 @@ describe("CopilotKitCore.runTool", () => {
     expect(result.toolCallId).toBeDefined();
   });
 
+  it("replaces agent.messages instead of editing the array it held", async () => {
+    copilotKitCore.addTool(
+      createTool({
+        name: "ArrayTool",
+        handler: vi.fn(async () => "tool-result"),
+        followUp: false,
+      }),
+    );
+    const agent = new MockAgent({ agentId: "default" });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "default",
+      agent: agent as any,
+    });
+    // The array the agent last emitted, which subscribers may still hold.
+    const before = agent.messages;
+    const beforeLength = before.length;
+
+    await copilotKitCore.runTool({ name: "ArrayTool", parameters: {} });
+
+    expect(agent.messages).not.toBe(before);
+    expect(before).toHaveLength(beforeLength);
+    expect(agent.messages.length).toBe(beforeLength + 2);
+  });
+
   it("should add assistant and tool messages to agent.messages", async () => {
     const tool = createTool({
       name: "MsgTool",

@@ -4,7 +4,11 @@ import type { Message } from "@ag-ui/core";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import type * as ReactVirtual from "@tanstack/react-virtual";
 import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
-import { CopilotChatMessageView } from "../CopilotChatMessageView";
+import {
+  CopilotChatMessageView,
+  messageGroup,
+  messageRow,
+} from "../CopilotChatMessageView";
 import { ScrollPinnedContext } from "../scroll-pinned-context";
 
 /**
@@ -78,18 +82,27 @@ function message(id: string): Message {
 
 let setMessages: ((messages: Message[]) => void) | null = null;
 
+type GroupMessages = React.ComponentProps<
+  typeof CopilotChatMessageView
+>["groupMessages"];
+
 function Harness({
   isPinnedToBottom,
   initialMessages = [],
+  groupMessages,
 }: {
   isPinnedToBottom: boolean;
   initialMessages?: Message[];
+  groupMessages?: GroupMessages;
 }) {
   const [messages, updateMessages] = React.useState(initialMessages);
   setMessages = updateMessages;
   return (
     <ScrollPinnedContext.Provider value={isPinnedToBottom}>
-      <CopilotChatMessageView messages={messages} />
+      <CopilotChatMessageView
+        messages={messages}
+        groupMessages={groupMessages}
+      />
     </ScrollPinnedContext.Provider>
   );
 }
@@ -97,6 +110,7 @@ function Harness({
 function renderMessageView(options: {
   isPinnedToBottom: boolean;
   initialMessages?: Message[];
+  groupMessages?: GroupMessages;
 }) {
   renderWithCopilotKit({ children: <Harness {...options} /> });
 }
@@ -144,6 +158,114 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     });
   });
 
+  describe("row identity", () => {
+    it("keys the virtualizer by row, so an inserted row does not shift the rest", () => {
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a"), message("b")],
+      });
+      expect(virtualizer().options.getItemKey(0)).toBe("a");
+
+      act(() => {
+        setMessages!([message("a"), message("inserted"), message("b")]);
+      });
+
+      // Keyed by index, row 2 would inherit whatever was measured for index
+      // 2 before, and "b" would take the height cached for index 1.
+      expect(virtualizer().options.getItemKey(1)).toBe("inserted");
+      expect(virtualizer().options.getItemKey(2)).toBe("b");
+    });
+
+    it("keeps a row's measured height with the row when rows shift", () => {
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a"), message("b")],
+      });
+      const measure = (index: number, height: number) =>
+        virtualizer().options.measureElement(
+          measuredRow(index, height),
+          undefined,
+          virtualizer(),
+        );
+      measure(0, 300);
+      measure(1, 100);
+      expect(virtualizer().options.estimateSize(2)).toBe(200);
+
+      act(() => {
+        setMessages!([message("a"), message("inserted"), message("b")]);
+      });
+      // "b" re-reports from its new index at the same height.
+      measure(2, 100);
+
+      // Still two rows at 300 and 100. Keyed by index, index 2 would count
+      // as a third row: mean(300, 100, 100) = 167.
+      expect(virtualizer().options.estimateSize(3)).toBe(200);
+    });
+
+    it("keeps rows after a group on their own keys as the group absorbs messages", () => {
+      // Folds every message whose id starts with "tool-" into one row.
+      const Wrapper = ({ children }: { children: React.ReactNode }) => (
+        <div>{children}</div>
+      );
+      const groupMessages: GroupMessages = (list) => {
+        const tools = list.filter((m) => m.id.startsWith("tool-"));
+        const rest = list.filter((m) => !m.id.startsWith("tool-"));
+        return [
+          ...(tools.length > 0
+            ? [
+                messageGroup({
+                  key: tools[0]!.id,
+                  messages: tools,
+                  wrapper: Wrapper,
+                }),
+              ]
+            : []),
+          ...rest.map(messageRow),
+        ];
+      };
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("tool-1"), message("answer")],
+        groupMessages,
+      });
+      const keyOfAnswer = () => {
+        const { options } = virtualizer();
+        for (let i = 0; i < 4; i++) {
+          if (options.getItemKey(i) === "answer") return i;
+        }
+        return -1;
+      };
+      expect(keyOfAnswer()).toBe(1);
+
+      // A second tool call streams in. It joins the group, so the row count
+      // and the answer's index stay put, and the group keeps its key.
+      act(() => {
+        setMessages!([message("tool-1"), message("tool-2"), message("answer")]);
+      });
+      expect(virtualizer().options.getItemKey(0)).toBe(
+        "copilotkit-group:tool-1",
+      );
+      expect(keyOfAnswer()).toBe(1);
+    });
+
+    it("forgets rows that leave the list", () => {
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a"), message("b"), message("c")],
+      });
+      const { options } = virtualizer();
+      options.measureElement(measuredRow(0, 300), undefined, virtualizer());
+      options.measureElement(measuredRow(1, 100), undefined, virtualizer());
+      options.measureElement(measuredRow(2, 500), undefined, virtualizer());
+
+      act(() => {
+        setMessages!([message("a"), message("c")]);
+      });
+
+      expect(virtualizer().options.estimateSize(2)).toBe(400);
+    });
+  });
+
   describe("estimateSize", () => {
     it("falls back to a flat estimate before anything is measured", () => {
       renderMessageView({ isPinnedToBottom: false });
@@ -151,7 +273,10 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     });
 
     it("counts a row once however often it is re-measured", () => {
-      renderMessageView({ isPinnedToBottom: false });
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a"), message("b"), message("c")],
+      });
       const { options } = virtualizer();
 
       // Row 0 is streaming: the ResizeObserver reports it repeatedly as it
@@ -167,7 +292,10 @@ describe("CopilotChatMessageView virtual-scroll tuning", () => {
     });
 
     it("ignores rows that report no height", () => {
-      renderMessageView({ isPinnedToBottom: false });
+      renderMessageView({
+        isPinnedToBottom: false,
+        initialMessages: [message("a"), message("b"), message("c")],
+      });
       const { options } = virtualizer();
 
       options.measureElement(measuredRow(0, 300), undefined, virtualizer());
