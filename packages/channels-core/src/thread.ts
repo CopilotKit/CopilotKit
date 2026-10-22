@@ -134,10 +134,7 @@ export interface ThreadDeps {
   tools: Map<string, ChannelTool>;
   toolDescriptors: AgentToolDescriptor[];
   context: ContextEntry[];
-  registerWaiter: (
-    conversationKey: string,
-    resolve: (value: unknown) => void,
-  ) => void;
+  registerWaiter: (conversationKey: string, waiter: ChoiceWaiter) => void;
   interruptHandlers: Map<
     string,
     (args: {
@@ -661,11 +658,15 @@ export class Thread implements ThreadInterface {
         );
       }
       const ir = await this.prepareNative(bound.root);
+      // Only a click on one of this picker's own actions, by the actor who
+      // started the turn (when known), may resolve it.
+      const initiator = this.deps.actor.id;
       const p = new Promise<T>((resolve) =>
-        this.deps.registerWaiter(
-          this.deps.conversationKey,
-          resolve as (value: unknown) => void,
-        ),
+        this.deps.registerWaiter(this.deps.conversationKey, {
+          resolve: resolve as (value: unknown) => void,
+          actionIds: collectActionIds(bound.root),
+          actorId: initiator && initiator !== "unknown" ? initiator : undefined,
+        }),
       );
       const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
       await this.bindReaction(ref.id, bound);
@@ -1112,6 +1113,35 @@ function promptMatchesInbound(
     message.contentParts !== undefined &&
     JSON.stringify(prompt) === JSON.stringify(message.contentParts)
   );
+}
+
+/** A pending `awaitChoice`: the action ids it posted and who may answer it. */
+export interface ChoiceWaiter {
+  resolve: (value: unknown) => void;
+  actionIds: ReadonlySet<string>;
+  actorId?: string;
+}
+
+function collectActionIds(
+  nodes: readonly ChannelNode[],
+  ids = new Set<string>(),
+): Set<string> {
+  for (const node of nodes) {
+    for (const ep of ["onClick", "onSelect", "onSubmit"]) {
+      const ref = node.props[ep] as { id?: unknown } | undefined;
+      if (typeof ref?.id === "string") ids.add(ref.id);
+    }
+    const raw = node.props.children;
+    const kids = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
+    collectActionIds(
+      kids.filter(
+        (k): k is ChannelNode =>
+          typeof k === "object" && k !== null && "type" in k,
+      ),
+      ids,
+    );
+  }
+  return ids;
 }
 
 function containsType(nodes: readonly ChannelNode[], type: string): boolean {

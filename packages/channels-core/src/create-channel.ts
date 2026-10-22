@@ -21,7 +21,7 @@ import type { ChannelTool, ContextEntry } from "./tools.js";
 import { normalizeCommandName, toCommandSpec } from "./commands.js";
 import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
-import type { ThreadDeps } from "./thread.js";
+import type { ChoiceWaiter, ThreadDeps } from "./thread.js";
 import type { RenderConfig } from "./render/config.js";
 import type { AbstractAgent } from "@ag-ui/client";
 import { sanitizeAgentEventStream } from "./sanitize-agent-events.js";
@@ -842,7 +842,7 @@ export function createChannel<
   }[] = [];
   const modalSubmitHandlers = new Map<string, ModalSubmitHandler>();
   const modalCloseHandlers = new Map<string, ModalCloseHandler>();
-  const waiters = new Map<string, (value: unknown) => void>();
+  const waiters = new Map<string, ChoiceWaiter>();
   let intelligenceMemoryAvailable = false;
 
   // Recomputed on start() so tools added via channel.tool() before start are picked up.
@@ -1095,14 +1095,21 @@ export function createChannel<
         } catch (err) {
           // v1: swallow expired-action dispatches; surface anything else.
           if (!(err instanceof ActionExpiredError)) throw err;
+          // An expired or unknown action must not answer a pending choice.
+          return;
         }
-        // Resolve any HITL waiter awaiting a choice in this conversation. Prefer
-        // the value carried in the event (Slack), falling back to the value the
-        // registry recovered from the rendered element (Telegram).
+        // Resolve the HITL waiter in this conversation, but only for a click on
+        // one of the picker's own actions by the actor allowed to answer it.
+        // Prefer the value carried in the event (Slack), falling back to the
+        // value the registry recovered from the rendered element (Telegram).
         const w = waiters.get(evt.conversationKey);
-        if (w) {
+        if (
+          w &&
+          w.actionIds.has(evt.id) &&
+          (w.actorId === undefined || w.actorId === identityContext.actor.id)
+        ) {
           waiters.delete(evt.conversationKey);
-          w(evt.value !== undefined ? evt.value : dispatchedValue);
+          w.resolve(evt.value !== undefined ? evt.value : dispatchedValue);
         }
       },
       async onCommand(cmd: IncomingCommand) {

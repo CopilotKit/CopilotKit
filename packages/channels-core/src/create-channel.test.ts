@@ -864,6 +864,57 @@ describe("createChannel", () => {
     await expect(choicePromise!).resolves.toEqual({ confirmed: true });
   });
 
+  it("only lets the initiator answer awaitChoice via the picker's own action", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => agent,
+    });
+
+    let chosen: unknown = "pending";
+    channel.onMention(async ({ thread }) => {
+      chosen = await thread.awaitChoice(
+        Actions({
+          children: [
+            Button({
+              value: { approved: true },
+              onClick: () => {},
+              children: "Approve",
+            }),
+          ],
+        }),
+      );
+    });
+
+    const alice = { id: "U_ALICE", kind: "human" as const };
+    const mallory = { id: "U_MALLORY", kind: "human" as const };
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "deploy", conversationKey: "c1", actor: alice });
+    await tick();
+
+    const button = findNode(fake.posted[0]!, "button")!;
+    const id = (button.props.onClick as { id: string }).id;
+
+    // An unknown action id must not resolve the waiter with a forged value.
+    fake.emitInteraction({
+      id: "ck:forged",
+      conversationKey: "c1",
+      actor: alice,
+      value: { approved: "forged" },
+    });
+    await tick();
+    // Another participant clicking the real button must not answer it either.
+    fake.emitInteraction({ id, conversationKey: "c1", actor: mallory });
+    await tick();
+    expect(chosen).toBe("pending");
+
+    fake.emitInteraction({ id, conversationKey: "c1", actor: alice });
+    await tick();
+    expect(chosen).toEqual({ approved: true });
+  });
+
   it("drops an overlapping turn on the same conversation (onLockConflict: drop)", async () => {
     const state = new MemoryStore();
     let runs = 0;
