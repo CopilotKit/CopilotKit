@@ -3,14 +3,10 @@ name: static / quality
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "README.md"
-      - "examples/**"
+  # No path filters: react-doctor is a required check, and a required check
+  # from a workflow that never starts leaves the PR waiting forever.
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "README.md"
-      - "examples/**"
   # Only the react-doctor job runs in the merge queue; it is a required check,
   # and required checks must report on merge_group or queued PRs time out.
   merge_group:

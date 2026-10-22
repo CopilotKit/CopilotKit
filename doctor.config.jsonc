@@ -2,6 +2,8 @@
   // React Doctor config. Run it with `pnpm run react-doctor`; the
   // static / quality workflow runs the same command on every PR.
   "$schema": "https://react.doctor/schema/config.json",
+  // Non-deprecated React packages only. react-ui (whose only v2 export is CSS)
+  // and react-textarea are v1, and v1-deprecated/ code is ignored below.
   "projects": [
     "@copilotkit/a2ui-renderer",
     "@copilotkit/channels",
@@ -9,8 +11,6 @@
     "@copilotkit/channels-ui",
     "@copilotkit/react-core",
     "@copilotkit/react-native",
-    "@copilotkit/react-textarea",
-    "@copilotkit/react-ui",
   ],
   // The oxlint job already enforces .oxlintrc.json; adopting it here would
   // report every oxlint finding a second time.
@@ -20,6 +20,8 @@
   "supplyChain": { "enabled": false },
   // Keep scans local: no score API, share URL, or crash reporting.
   "noScore": true,
+  // Inline `react-doctor-disable` comments are ignored: fix the code instead.
+  "respectInlineDisables": false,
   "share": false,
   "ignore": {
     "files": [
