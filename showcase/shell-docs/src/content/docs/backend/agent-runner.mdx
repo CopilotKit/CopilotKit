@@ -74,7 +74,8 @@ the thread routes from its local store only when it opts in, and only
 `InMemoryAgentRunner` does, along with anything extending it such as
 `AgentCoreRunner`. `SqliteAgentRunner` opts out, so its read routes answer
 `422`. `IntelligenceAgentRunner` scopes thread operations to the user your
-`identifyUser` returns.
+`identifyUser` returns (`threads/events` and `threads/state` only in
+`@copilotkit/runtime` releases after 1.79.1).
 </Callout>
 
 ## Choosing a runner

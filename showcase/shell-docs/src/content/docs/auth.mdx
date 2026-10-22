@@ -492,10 +492,10 @@ Verifying *who* the caller is doesn't yet stop them reaching *someone else's con
 
 | Runtime | Who scopes threads to a user |
 | --- | --- |
-| `CopilotRuntime` with `intelligence` | Mostly the runtime, via [`identifyUser`](#copilotkit-intelligence-scopes-most-thread-routes) — with three routes you still have to guard. |
+| `CopilotRuntime` with `intelligence` | The runtime, via [`identifyUser`](#copilotkit-intelligence-scopes-every-thread-route). |
 | Anything else — SSE runtime, custom store, local in-memory runner | You do. See [Scope threads yourself](#scope-threads-yourself). |
 
-### CopilotKit Intelligence scopes most thread routes
+### CopilotKit Intelligence scopes every thread route
 
 The Intelligence runtime requires an `identifyUser` callback — construction throws without one (or without at least one Channel). It runs on the server, once per request, and the id it returns is the scope the runtime hands to the platform. (`intelligence` below is a `CopilotKitIntelligence` instance; [Connect your runtime to Intelligence](/intelligence/quickstart) covers building it.)
 
@@ -529,7 +529,7 @@ Where a route does resolve the caller, what matters next is whether that id is a
 | `threads/messages` | Yes |
 | `threads/update` (rename via `PATCH`, delete via `DELETE`), `threads/archive` | Yes |
 | Thread subscription token | Yes |
-| `threads/events`, `threads/state` | Yes — the thread is fetched as the caller before the platform's `_inspect` read |
+| `threads/events`, `threads/state` | Yes, in `@copilotkit/runtime` releases after 1.79.1 — the thread is fetched as the caller before the platform's `_inspect` read. On 1.79.1 and earlier these two routes read the thread by id alone; guard them with an ownership check in `onBeforeHandler`, as in [Enforce it in `onBeforeHandler`](#enforce-it-in-onbeforehandler), or upgrade |
 | `agent/stop` | Yes — the thread is fetched as the caller before the run is aborted |
 
 For everything in the Yes rows there is no ownership table to build. What you own is `identifyUser` itself:

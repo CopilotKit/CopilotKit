@@ -276,10 +276,12 @@ them all. A runner that keeps no local store, such as `SqliteAgentRunner`,
 answers the four read routes with a `422` instead.
 
 An Intelligence runtime scopes all of them to the user your `identifyUser`
-returns.
+returns (`threads/events` and `threads/state` only in `@copilotkit/runtime`
+releases after 1.79.1).
 
-`:threadId` is chosen by the client on the run, so it is not a secret. If more
-than one person uses your deployment, authorize these routes yourself — see
+`:threadId` is chosen by the client on the run, so it is not a secret. On a
+runner without Intelligence, if more than one person uses your deployment,
+authorize these routes yourself — see
 [Thread authorization](/auth#thread-authorization).
 </Callout>
 
