@@ -966,6 +966,39 @@ describe("createChannel", () => {
     },
   );
 
+  it("does not lock awaitChoice to a bot that started the turn", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
+    let chosen: unknown = "pending";
+    channel.onMention(async ({ thread }) => {
+      chosen = await thread.awaitChoice(
+        Actions({
+          children: [Button({ value: { ok: true }, children: "OK" })],
+        }),
+      );
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({
+      userText: "deploy",
+      conversationKey: "c1",
+      actor: { id: "B_WORKFLOW", kind: "bot" },
+    });
+    await tick();
+
+    fake.emitInteraction({
+      id: JSON.stringify({ ok: true }),
+      conversationKey: "c1",
+      actor: { id: "U_ALICE", kind: "human" },
+      value: { ok: true },
+    });
+    await tick();
+    expect(chosen).toEqual({ ok: true });
+  });
+
   it("resolves awaitChoice from a value-only select (Slack id shape)", async () => {
     const fake = new FakeAdapter();
     const channel = createChannel({

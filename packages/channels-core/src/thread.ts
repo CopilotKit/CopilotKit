@@ -659,13 +659,18 @@ export class Thread implements ThreadInterface {
       }
       const ir = await this.prepareNative(bound.root);
       // Only a click on one of this picker's own actions, by the actor who
-      // started the turn (when known), may resolve it.
-      const initiator = this.deps.actor.id;
+      // started the turn (when known), may resolve it. A turn started by a bot,
+      // app or system principal is not locked to it: no human could answer.
+      const { id: initiator, kind } = this.deps.actor;
+      const lockable = kind !== "bot" && kind !== "app" && kind !== "system";
       const p = new Promise<T>((resolve) =>
         this.deps.registerWaiter(this.deps.conversationKey, {
           resolve: resolve as (value: unknown) => void,
           actionIds: collectActionIds(bound.root),
-          actorId: initiator && initiator !== "unknown" ? initiator : undefined,
+          actorId:
+            lockable && initiator && initiator !== "unknown"
+              ? initiator
+              : undefined,
         }),
       );
       const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
