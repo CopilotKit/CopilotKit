@@ -5,7 +5,7 @@ import { defineChannelCommand } from "./commands.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 import { FakeAgent } from "./testing/fake-agent.js";
 import { MemoryStore } from "./state/memory-store.js";
-import { Section, Actions, Button } from "@copilotkit/channels-ui";
+import { Section, Actions, Button, Select } from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { PlatformAdapter } from "./platform-adapter.js";
 import type { AgentSubscriber } from "@ag-ui/client";
@@ -918,6 +918,100 @@ describe("createChannel", () => {
     fake.emitInteraction({ id, conversationKey: "c1", actor: alice });
     await tick();
     expect(chosen).toEqual({ approved: true });
+  });
+
+  it.each([
+    ["Slack/Telegram", (json: string) => json],
+    ["Discord", (json: string) => `v:${json}`],
+    ["WhatsApp", () => "wa:choice"],
+  ])(
+    "resolves awaitChoice from a value-only button (%s id shape)",
+    async (_platform, idFor) => {
+      const fake = new FakeAdapter();
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [fake],
+        agent: () => new FakeAgent(),
+      });
+      let chosen: unknown = "pending";
+      channel.onMention(async ({ thread }) => {
+        chosen = await thread.awaitChoice(
+          Actions({
+            children: [
+              Button({ value: { confirmed: true }, children: "Approve" }),
+            ],
+          }),
+        );
+      });
+      const alice = { id: "U_ALICE", kind: "human" as const };
+      const mallory = { id: "U_MALLORY", kind: "human" as const };
+      await channel.ɵruntime.start();
+      fake.emitTurn({ userText: "go", conversationKey: "c1", actor: alice });
+      await tick();
+
+      const id = idFor(JSON.stringify({ confirmed: true }));
+      const value = { confirmed: true };
+      fake.emitInteraction({
+        id,
+        conversationKey: "c1",
+        actor: mallory,
+        value,
+      });
+      await tick();
+      expect(chosen).toBe("pending");
+
+      fake.emitInteraction({ id, conversationKey: "c1", actor: alice, value });
+      await tick();
+      expect(chosen).toEqual({ confirmed: true });
+    },
+  );
+
+  it("resolves awaitChoice from a value-only select (Slack id shape)", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+    });
+    let chosen: unknown = "pending";
+    channel.onMention(async ({ thread }) => {
+      chosen = await thread.awaitChoice(
+        Actions({
+          children: [
+            Select({
+              placeholder: "Pick",
+              options: [
+                { label: "A", value: "a" },
+                { label: "B", value: "b" },
+              ],
+            }),
+          ],
+        }),
+      );
+    });
+    const alice = { id: "U_ALICE", kind: "human" as const };
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "go", conversationKey: "c1", actor: alice });
+    await tick();
+
+    // An id the picker never rendered still can't answer it.
+    fake.emitInteraction({
+      id: "ck:other",
+      conversationKey: "c1",
+      actor: alice,
+      value: "a",
+    });
+    await tick();
+    expect(chosen).toBe("pending");
+
+    fake.emitInteraction({
+      id: "select",
+      conversationKey: "c1",
+      actor: alice,
+      value: "b",
+    });
+    await tick();
+    expect(chosen).toBe("b");
   });
 
   it("drops an overlapping turn on the same conversation (onLockConflict: drop)", async () => {

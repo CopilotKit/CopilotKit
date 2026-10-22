@@ -66,6 +66,28 @@ describe("renderComponents", () => {
     expect(btn.style).toBe(ButtonStyle.Primary);
   });
 
+  it("packs a value-only button's value into a v:<json> custom_id", () => {
+    // channels-core's collectActionIds (thread.ts) mirrors this id so a
+    // value-only HITL button resolves awaitChoice; keep the two in sync.
+    const ir: ChannelNode[] = [
+      node("message", {
+        children: node("actions", {
+          children: node("button", {
+            children: text("Approve"),
+            value: { confirmed: true },
+          }),
+        }),
+      }),
+    ];
+    const json = renderComponents(ir).toJSON();
+    const row = json.components.find(
+      (c: any) => c.type === ComponentType.ActionRow,
+    );
+    expect((row as any).components[0].custom_id).toBe(
+      `v:${JSON.stringify({ confirmed: true })}`,
+    );
+  });
+
   it("renders a url button as a Link-style button with no custom_id", () => {
     const ir: ChannelNode[] = [
       node("message", {

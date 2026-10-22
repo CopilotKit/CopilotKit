@@ -133,6 +133,27 @@ describe("renderBlockKit", () => {
     ]);
   });
 
+  it("gives a value-only button the JSON fallback action_id awaitChoice expects", () => {
+    // channels-core's collectActionIds (thread.ts) mirrors this fallback so a
+    // value-only HITL button resolves awaitChoice; keep the two in sync.
+    const blocks = renderBlockKit([
+      {
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "button",
+              props: { value: { confirmed: true }, children: [] },
+            },
+          ],
+        },
+      },
+    ]);
+    const button = (blocks[0] as { elements: { action_id: string }[] })
+      .elements[0]!;
+    expect(button.action_id).toBe(JSON.stringify({ confirmed: true }));
+  });
+
   it("gives a static_select a fallback action_id when onSelect is absent", () => {
     const blocks = renderBlockKit([
       {

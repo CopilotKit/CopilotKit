@@ -1122,24 +1122,59 @@ export interface ChoiceWaiter {
   actorId?: string;
 }
 
+const EVENT_PROPS = ["onClick", "onSelect", "onSubmit"];
+
+/** The id under which WhatsApp reports a value-only button (`render/message.ts`). */
+const WHATSAPP_VALUE_ONLY_ID = "wa:choice";
+
+/**
+ * Every action id a click on this picker can arrive with. Handler-bound
+ * controls carry their registry-minted id. A control without a handler has no
+ * minted id, so each renderer derives a fallback; these MUST match:
+ *   - Slack / Telegram button: `JSON.stringify(value)` (`buttonActionId`, `actionIdOf`)
+ *   - Discord button: `"v:" + JSON.stringify(value)` (`packValueId`)
+ *   - WhatsApp button: `"wa:choice"` (`VALUE_ONLY_ID`)
+ *   - Slack select: `"select"`
+ * Walks every prop, not just `children`, so provider-native slots
+ * (`accessory`, `elements`, ...) are covered as the action registry does.
+ */
 function collectActionIds(
-  nodes: readonly ChannelNode[],
+  value: unknown,
   ids = new Set<string>(),
 ): Set<string> {
-  for (const node of nodes) {
-    for (const ep of ["onClick", "onSelect", "onSubmit"]) {
-      const ref = node.props[ep] as { id?: unknown } | undefined;
-      if (typeof ref?.id === "string") ids.add(ref.id);
+  if (Array.isArray(value)) {
+    for (const v of value) collectActionIds(v, ids);
+    return ids;
+  }
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("type" in value) ||
+    !("props" in value) ||
+    typeof value.props !== "object" ||
+    value.props === null
+  ) {
+    return ids;
+  }
+  const node = value as ChannelNode;
+  let bound = false;
+  for (const ep of EVENT_PROPS) {
+    const ref = node.props[ep] as { id?: unknown } | undefined;
+    if (typeof ref?.id === "string") {
+      ids.add(ref.id);
+      bound = true;
     }
-    const raw = node.props.children;
-    const kids = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
-    collectActionIds(
-      kids.filter(
-        (k): k is ChannelNode =>
-          typeof k === "object" && k !== null && "type" in k,
-      ),
-      ids,
-    );
+  }
+  if (!bound && node.type === "button" && node.props.value !== undefined) {
+    const json = JSON.stringify(node.props.value);
+    ids.add(json);
+    ids.add(`v:${json}`);
+    ids.add(WHATSAPP_VALUE_ONLY_ID);
+  } else if (!bound && node.type === "select") {
+    ids.add("select");
+  }
+  for (const [name, v] of Object.entries(node.props)) {
+    if (!EVENT_PROPS.includes(name)) collectActionIds(v, ids);
   }
   return ids;
 }

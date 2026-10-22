@@ -1105,8 +1105,10 @@ export function createChannel<
         } catch (err) {
           // v1: swallow expired-action dispatches; surface anything else.
           if (!(err instanceof ActionExpiredError)) throw err;
-          // An expired or unknown action must not answer a pending choice.
-          return;
+          // An expired or unknown action must not answer a pending choice. A
+          // value-only picker control has no handler, so it lands here too,
+          // but its id is one of the picker's own: let it resolve below.
+          if (!picker) return;
         }
         // Resolve the HITL waiter in this conversation, but only for a click on
         // one of the picker's own actions by the actor allowed to answer it.
