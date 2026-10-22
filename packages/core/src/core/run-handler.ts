@@ -215,19 +215,24 @@ export class RunHandler {
   private _warnedMissingToolParameters = new Set<string>();
 
   /**
-   * Per-agent record of whether the agent's current run (including in-flight
-   * tool execution) has been aborted via `stopAgent()` or `agent.abortRun()`.
-   * Created fresh in `runAgent()`, aborted by `abortCurrentRun(agent)`, and
-   * removed when the run chain ends. Keyed by agent so that stopping one
-   * agent never cancels another agent's run on the same core.
+   * Abort controllers of each agent's in-flight run chains (a run plus its
+   * recursive follow-ups), recording whether a chain, including its tool
+   * execution, was aborted via `stopAgent()` or `agent.abortRun()`. Every run
+   * that is not a follow-up gets a fresh controller, so a run started after
+   * Stop is not born aborted while the stopped chain is still settling. Keyed
+   * by agent so that stopping one agent never cancels another agent's run on
+   * the same core.
    */
-  private _runAbortControllers = new WeakMap<AbstractAgent, AbortController>();
+  private _runAbortControllers = new WeakMap<
+    AbstractAgent,
+    Set<AbortController>
+  >();
 
   /**
-   * Per-agent recursive `runAgent` depth, so that the abort controller and
-   * `agent.abortRun()` intercept are only set up / torn down at the agent's
-   * top-level call, not on follow-up recursive calls from
-   * `processAgentResult`.
+   * Per-agent `runAgent` depth (in-flight runs plus their recursive
+   * follow-ups), so that the `agent.abortRun()` intercept is installed while
+   * any of the agent's runs is in flight and removed once none is, and so
+   * that runaway follow-up chains trip `MAX_FOLLOW_UP_DEPTH`.
    */
   private _runDepths = new WeakMap<AbstractAgent, number>();
 
@@ -287,7 +292,7 @@ export class RunHandler {
    * not start a follow-up run.
    */
   abortCurrentRun(agent: AbstractAgent): void {
-    this._runAbortControllers.get(agent)?.abort();
+    this.abortAgentRuns(agent);
     const replay = this._interactionAbortControllers.get(agent);
     if (replay) {
       for (const controller of replay.controllers) controller.abort();
@@ -296,6 +301,21 @@ export class RunHandler {
       // reconnect restore it without waiting for its execution marker to clear.
       this._executingToolCalls.delete(agent);
     }
+  }
+
+  private abortAgentRuns(agent: AbstractAgent): void {
+    for (const controller of this._runAbortControllers.get(agent) ?? []) {
+      controller.abort();
+    }
+  }
+
+  /** Signal of the agent's most recently started in-flight run, if any. */
+  private latestRunSignal(agent: AbstractAgent): AbortSignal | undefined {
+    let latest: AbortController | undefined;
+    for (const controller of this._runAbortControllers.get(agent) ?? []) {
+      latest = controller;
+    }
+    return latest?.signal;
   }
 
   /**
@@ -689,6 +709,11 @@ export class RunHandler {
   async runAgent(
     { agent, forwardedProps, resume, runId }: CopilotKitCoreRunAgentParams,
     continuationHandoff?: CopilotKitCoreContinuationHandoff,
+    /**
+     * Set only by `processAgentResult` for a recursive follow-up: the
+     * controller of the run being followed up, which the follow-up shares.
+     */
+    followUpOf?: AbortController,
   ): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
@@ -747,36 +772,45 @@ export class RunHandler {
           )
         : undefined);
 
-    // Set up abort controller and agent.abortRun() intercept only for the
-    // top-level call. Recursive follow-up calls from processAgentResult
-    // reuse the same controller. The depth is claimed in the same synchronous
-    // step as the top-level decision, so two runs started in one tick cannot
-    // both see depth 0 across the await below.
-    const isTopLevel = (this._runDepths.get(agent) ?? 0) === 0;
-    this._runDepths.set(agent, (this._runDepths.get(agent) ?? 0) + 1);
-    const controller = isTopLevel ? new AbortController() : undefined;
+    // Every run that is not a recursive follow-up gets its own controller;
+    // follow-ups share the controller of the run they continue. Whether a
+    // call is a follow-up is passed explicitly rather than inferred from the
+    // depth, because a run started after Stop, while the stopped run's tool
+    // handlers are still settling, must not inherit the aborted controller.
+    const isFollowUp = followUpOf !== undefined;
+    const controller = followUpOf ?? new AbortController();
+    // The depth is claimed in the same synchronous step as the intercept
+    // decision, so two runs started in one tick cannot both see depth 0.
+    const depth = this._runDepths.get(agent) ?? 0;
+    this._runDepths.set(agent, depth + 1);
 
-    if (controller) {
-      this._runAbortControllers.set(agent, controller);
+    if (!isFollowUp) {
+      const controllers =
+        this._runAbortControllers.get(agent) ?? new Set<AbortController>();
+      controllers.add(controller);
+      this._runAbortControllers.set(agent, controllers);
+    }
 
+    if (depth === 0) {
       // Intercept agent.abortRun() so that calling it directly (not via
       // stopAgent) also aborts in-flight tool execution and prevents
       // follow-up runs.
       const originalAbortRun = agent.abortRun;
       this._originalAbortRuns.set(agent, originalAbortRun);
       agent.abortRun = () => {
-        controller.abort();
+        this.abortAgentRuns(agent);
         originalAbortRun.call(agent);
       };
     }
 
     try {
-      if (controller) {
+      if (depth === 0) {
         // Notify subscribers (e.g. the inspector) about the agent that is
         // about to run. Per-thread clones are not in the agent registry, so
         // onAgentsChanged never fires for them and they would otherwise be
-        // invisible to subscribers. Fired once per top-level run; recursive
-        // follow-up runs reuse the same instance and need no re-notification.
+        // invisible to subscribers. Fired once while the agent has runs in
+        // flight; follow-ups and overlapping runs reuse the same instance and
+        // need no re-notification.
         await this._internal.notifySubscribers(
           (subscriber) =>
             subscriber.onAgentRunStarted?.({
@@ -788,7 +822,10 @@ export class RunHandler {
       }
 
       let logicalRunId = resumedRunId ?? runId;
-      const agentSubscriber = this.createAgentErrorSubscriber(agent);
+      const agentSubscriber = this.createAgentErrorSubscriber(
+        agent,
+        controller.signal,
+      );
       let started = false;
       const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
       const onRunInitialized = agentSubscriber.onRunInitialized;
@@ -844,6 +881,7 @@ export class RunHandler {
         runAgentResult,
         agent,
         runId: logicalRunId,
+        runController: controller,
       });
     } catch (error) {
       logicalHandoff?.cancel();
@@ -862,17 +900,21 @@ export class RunHandler {
     } finally {
       const remainingDepth = (this._runDepths.get(agent) ?? 1) - 1;
       this._runDepths.set(agent, remainingDepth);
-      // Restore the original abortRun and drop the agent's controller only
-      // once none of its runs is in flight: an overlapping call on the same
-      // agent may still be using both. Dropping the controller then means a
-      // finished, aborted run does not mark later errors as user-aborted.
+      // Drop this chain's controller once the chain ends, so a finished,
+      // aborted run does not mark later errors as user-aborted.
+      if (!isFollowUp) {
+        const controllers = this._runAbortControllers.get(agent);
+        controllers?.delete(controller);
+        if (controllers?.size === 0) this._runAbortControllers.delete(agent);
+      }
+      // Restore the original abortRun only once none of the agent's runs is
+      // in flight: an overlapping run on the same agent still needs it.
       if (remainingDepth === 0) {
         const originalAbortRun = this._originalAbortRuns.get(agent);
         if (originalAbortRun) {
           agent.abortRun = originalAbortRun;
           this._originalAbortRuns.delete(agent);
         }
-        this._runAbortControllers.delete(agent);
       }
     }
   }
@@ -885,12 +927,15 @@ export class RunHandler {
     agent,
     runId,
     toolExecutionMode = "all",
-    signal = this._runAbortControllers.get(agent)?.signal,
+    runController,
+    signal = runController?.signal,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
     runId?: string;
     toolExecutionMode?: "all" | "restore";
+    /** Controller of the run that produced this result; follow-ups share it. */
+    runController?: AbortController;
     signal?: AbortSignal;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
@@ -1138,6 +1183,7 @@ export class RunHandler {
             ...(runId !== undefined ? { runId } : {}),
           },
           continuationHandoff,
+          runController,
         );
       }
     }
@@ -1201,7 +1247,7 @@ export class RunHandler {
     handlerArgs,
     toolType,
     messageId,
-    signal = this._runAbortControllers.get(agent)?.signal,
+    signal = this.latestRunSignal(agent),
     discardOnAbort = false,
     isReplay = false,
   }: {
@@ -1763,7 +1809,10 @@ export class RunHandler {
   /**
    * Create an agent error subscriber
    */
-  private createAgentErrorSubscriber(agent: AbstractAgent): AgentSubscriber {
+  private createAgentErrorSubscriber(
+    agent: AbstractAgent,
+    runSignal?: AbortSignal,
+  ): AgentSubscriber {
     const emitAgentError = async (
       error: Error,
       code: CopilotKitCoreErrorCode,
@@ -1799,8 +1848,11 @@ export class RunHandler {
         // it. Prefer the abort controller (the client's own record that it
         // initiated the stop) over the agent-supplied `code`, which is not
         // standardized across agents.
-        const runWasAborted =
-          this._runAbortControllers.get(agent)?.signal.aborted === true;
+        const runWasAborted = runSignal
+          ? runSignal.aborted
+          : [...(this._runAbortControllers.get(agent) ?? [])].some(
+              (controller) => controller.signal.aborted,
+            );
         if (runWasAborted || event?.code === "abort") {
           return;
         }

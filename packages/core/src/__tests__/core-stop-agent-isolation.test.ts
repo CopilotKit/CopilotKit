@@ -234,6 +234,43 @@ describe("CopilotKitCore - stopAgent is scoped to one agent", () => {
     expect(originalAbortRun).toHaveBeenCalledTimes(1);
     expect(agent.abortRun).toBe(originalAbortRun);
   });
+
+  it("a new run after Stop gets a fresh controller while the stopped run's tool is still pending", async () => {
+    const { core, agent, release, entered, signals } = sameAgentSetup();
+
+    // The first tool ignores its signal, so the stopped run is still in
+    // flight when the user sends the next message.
+    const stoppedRun = core.runAgent({ agent: agent as any });
+    await entered.first.promise;
+    core.stopAgent({ agent: agent as any });
+
+    release.second.resolve();
+    await core.runAgent({ agent: agent as any });
+    release.first.resolve();
+    await stoppedRun;
+
+    expect(signals.first!.aborted).toBe(true);
+    // The next run's tool executed, under a signal the old Stop did not abort.
+    expect(signals.second).toBeDefined();
+    expect(signals.second!.aborted).toBe(false);
+  });
+
+  it("stopAgent aborts the stopped run and a newer overlapping run on the same agent", async () => {
+    const { core, agent, release, entered, signals } = sameAgentSetup();
+
+    const firstRun = core.runAgent({ agent: agent as any });
+    await entered.first.promise;
+    const secondRun = core.runAgent({ agent: agent as any });
+    await entered.second.promise;
+
+    core.stopAgent({ agent: agent as any });
+    const aborted = [signals.first!.aborted, signals.second!.aborted];
+    release.first.resolve();
+    release.second.resolve();
+    await Promise.all([firstRun, secondRun]);
+
+    expect(aborted).toEqual([true, true]);
+  });
 });
 
 /** One agent whose first run calls `first` and whose second run calls `second`. */
