@@ -93,17 +93,24 @@ export class WebhookServer {
   private handlePost(req: IncomingMessage, res: ServerResponse): void {
     const chunks: Buffer[] = [];
     let size = 0;
+    let tooLarge = false;
     req.on("data", (c: Buffer) => {
+      if (tooLarge) return;
       size += c.length;
       if (size > MAX_BODY_BYTES) {
+        // Stop buffering and answer 413. The rest of the body is drained and
+        // discarded rather than the socket destroyed, so the client reads
+        // the status instead of a connection reset.
+        tooLarge = true;
+        chunks.length = 0;
         res.statusCode = 413;
         res.end();
-        req.destroy();
         return;
       }
       chunks.push(c);
     });
     req.on("end", () => {
+      if (tooLarge) return;
       const rawBuf = Buffer.concat(chunks);
       const raw = rawBuf.toString("utf8");
       const sig = req.headers["x-hub-signature-256"];

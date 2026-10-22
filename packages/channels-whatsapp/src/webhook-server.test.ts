@@ -192,13 +192,8 @@ describe("WebhookServer", () => {
     await server.start(0);
     try {
       const big = JSON.stringify({ pad: "x".repeat(2 * 1024 * 1024) });
-      const res = await post(
-        server,
-        "/webhook",
-        big,
-        sign("SECRET", big),
-      ).catch(() => undefined);
-      if (res) expect(res.status).toBe(413);
+      const res = await post(server, "/webhook", big, sign("SECRET", big));
+      expect(res.status).toBe(413);
       expect(onEvent).not.toHaveBeenCalled();
     } finally {
       await server.stop();
