@@ -11,6 +11,9 @@ on:
     paths-ignore:
       - "README.md"
       - "examples/**"
+  # Only the react-doctor job runs in the merge queue; it is a required check,
+  # and required checks must report on merge_group or queued PRs time out.
+  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -208,6 +211,7 @@ jobs:
           git push
 
   oxlint:
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -241,7 +245,7 @@ jobs:
     # Fails the PR on React Doctor errors in lines the PR adds or changes, in
     # the React packages listed in doctor.config.jsonc. Warnings are printed
     # but don't block, and existing findings on untouched lines are ignored.
-    if: github.event_name == 'pull_request'
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -271,6 +275,7 @@ jobs:
         run: pnpm run react-doctor
 
   package-quality:
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -328,6 +333,7 @@ jobs:
         run: pnpm run check:packages
 
   check-types:
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -381,6 +387,7 @@ jobs:
         run: npx nx run-many -t check-types --parallel=1
 
   commitlint:
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

@@ -84,6 +84,14 @@ pre-commit:
           done
         fi
       stage_fixed: true
+    react-doctor:
+      tags: react-doctor
+      # Local twin of the static / quality react-doctor job: React Doctor
+      # errors on the lines staged in this commit fail the commit, so agents
+      # hit them while they build instead of after CI. Packages in scope are
+      # listed in doctor.config.jsonc. Takes about a second.
+      glob: "packages/**/*.{ts,tsx,js,jsx}"
+      run: pnpm -C tools/react-doctor install --frozen-lockfile && tools/react-doctor/node_modules/.bin/react-doctor . --staged --scope lines --base HEAD --no-telemetry
     test-and-check-packages:
       tags: test-packages
       env:
