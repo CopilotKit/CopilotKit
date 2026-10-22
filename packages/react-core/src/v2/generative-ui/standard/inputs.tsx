@@ -422,6 +422,24 @@ function controlStyle(
   } satisfies CSSProperties;
 }
 
+/**
+ * A native select without its native look, so it takes the height,
+ * padding and corners of the other fields (Safari keeps a fixed, compact
+ * height otherwise), with a chevron drawn on the right. The option list
+ * stays native.
+ */
+const SELECT_STYLE = {
+  appearance: "none",
+  WebkitAppearance: "none",
+  paddingRight: 32,
+  backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#8e8e93" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5 6 7.5 9 4.5"/></svg>',
+  )}")`,
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 12px center",
+  backgroundSize: "12px 12px",
+} satisfies CSSProperties;
+
 const FIELD_LABEL_STYLE = {
   ...textFont("sm"),
   fontWeight: FONT_WEIGHT.medium,
@@ -1110,6 +1128,7 @@ function Select(props: SelectProps) {
       onChange={(event) => props.setValue(event.target.value)}
       style={{
         ...controlStyle(props, "xl"),
+        ...SELECT_STYLE,
         width: props.block === false ? undefined : "100%",
         paddingLeft: props.icon
           ? `${PAD_X[props.size ?? "xl"] + 24}px`
