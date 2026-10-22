@@ -4,10 +4,13 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createDeclarativeGenUIAgent } from "@/lib/factory/a2ui-factory";
+// @doc-replace
 // Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
 // into ALS for the factory's `forwardingFetch` to re-attach on outbound
 // LLM calls. See @/lib/header-forwarding for the full rationale.
 import { withForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 // Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic
 // Schema) demo.
@@ -38,6 +41,7 @@ const handler = createCopilotRuntimeHandler({
   mode: "single-route",
 });
 
+// @doc-replace
 async function withProbeCompat(req: Request): Promise<Response> {
   const res = await handler(req);
   if (res.status === 404) {
@@ -46,10 +50,18 @@ async function withProbeCompat(req: Request): Promise<Response> {
   }
   return res;
 }
+// @doc-as
+// @doc-end
 
+// @doc-replace
 export const GET = (req: Request) =>
   withForwardedHeaders(req, () => handler(req));
 export const POST = (req: Request) =>
   withForwardedHeaders(req, () => withProbeCompat(req));
 export const OPTIONS = (req: Request) =>
   withForwardedHeaders(req, () => handler(req));
+// @doc-as
+// export const GET = (req: Request) => handler(req);
+// export const POST = (req: Request) => handler(req);
+// export const OPTIONS = (req: Request) => handler(req);
+// @doc-end

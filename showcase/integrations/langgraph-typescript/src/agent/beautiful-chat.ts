@@ -38,7 +38,11 @@ import {
   START,
   StateGraph,
 } from "@langchain/langgraph";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// import { ChatOpenAI } from "@langchain/openai";
+// @doc-end
 import { getA2UITools } from "@ag-ui/langgraph";
 import { a2uiContext } from "../../_shared/ts/a2ui/context";
 import {
@@ -261,7 +265,11 @@ function toolsForRun(state: BeautifulChatState, config: RunnableConfig) {
     );
   if (!enabled) return { context, actions, localTools: tools };
   const generator = getA2UITools({
+    // @doc-replace
     model: makeChatOpenAI(config, { model: "gpt-5-mini" }),
+    // @doc-as
+    // model: new ChatOpenAI({ model: "gpt-5-mini" }),
+    // @doc-end
     defaultCatalogId: context.catalogId ?? CATALOG_ID,
     catalog: context.catalog,
   });
@@ -311,10 +319,17 @@ Tool guidance:
 `;
 
 async function chatNode(state: BeautifulChatState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     model: "gpt-5-mini",
     modelKwargs: { parallel_tool_calls: false },
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //   model: "gpt-5-mini",
+  //   modelKwargs: { parallel_tool_calls: false },
+  // });
+  // @doc-end
 
   const { context, actions, localTools } = toolsForRun(state, config);
   const modelWithTools = model.bindTools!([

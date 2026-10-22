@@ -58,6 +58,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import yaml from "yaml";
+import { applyDocSwaps } from "./doc-swap";
 import {
   findUnexpectedMultiFileRegions,
   findOversizeRegions,
@@ -337,7 +338,10 @@ function collectDemoFiles(
       }
       if (!entry.isFile()) continue;
       if (SKIP_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) continue;
-      const raw = fs.readFileSync(abs, "utf-8");
+      const raw = applyDocSwaps(
+        fs.readFileSync(abs, "utf-8"),
+        `${demoKey}:${rel}`,
+      );
       // Extract & strip region markers before anything else sees the text.
       const { cleaned, regions: fileRegions } = extractRegions(
         raw,
@@ -461,7 +465,10 @@ function main() {
               `${key}: highlight path "${hlPath}" exists but is not a regular file.`,
             );
           }
-          const raw = fs.readFileSync(absExternal, "utf-8");
+          const raw = applyDocSwaps(
+            fs.readFileSync(absExternal, "utf-8"),
+            `${key}:${hlPath}`,
+          );
           const { cleaned, regions: fileRegions } = extractRegions(
             raw,
             `${key}:${hlPath}`,

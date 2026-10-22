@@ -20,7 +20,10 @@ import {
   BaseMessage,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 const SYSTEM_PROMPT =
   "You are a travel & lifestyle concierge. When a user asks a question, " +
@@ -130,9 +133,14 @@ const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5-mini";
 
 const tools = [getWeather, searchFlights, getStockPrice, rollDice];
 
+// @doc-replace
 // Custom StateGraph rather than `createReactAgent` so the per-invocation
 // `config` (with `copilotkit_forwarded_headers`) reaches the `ChatOpenAI`
 // construction — required for `x-aimock-context` propagation.
+// @doc-as
+// // Custom StateGraph rather than `createReactAgent` so the per-invocation
+// // `config` reaches the `ChatOpenAI` construction.
+// @doc-end
 const AgentStateAnnotation = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
     reducer: messagesStateReducer,
@@ -143,11 +151,19 @@ const AgentStateAnnotation = Annotation.Root({
 type AgentState = typeof AgentStateAnnotation.State;
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     model: REASONING_MODEL,
     useResponsesApi: true,
     reasoning: { effort: "low", summary: "auto" },
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //   model: REASONING_MODEL,
+  //   useResponsesApi: true,
+  //   reasoning: { effort: "low", summary: "auto" },
+  // });
+  // @doc-end
 
   const modelWithTools = model.bindTools!(tools);
 

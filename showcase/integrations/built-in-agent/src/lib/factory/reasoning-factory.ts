@@ -4,11 +4,14 @@ import type { BaseEvent } from "@ag-ui/client";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { baseServerTools } from "./server-tools";
+// @doc-replace
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+// @doc-as
+// @doc-end
 import { DEMO_AGENT_LOOP_STRATEGY, throwOnRunError } from "./demo-stream";
 
 /**
@@ -192,9 +195,13 @@ export function createAgenticChatReasoningAgent() {
     factory: ({ input, abortController }) => {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       const stream = chat({
+        // @doc-replace
         adapter: openaiText(REASONING_MODEL as "gpt-5.2", {
           fetch: forwardingFetch,
         }),
+        // @doc-as
+        // adapter: openaiText(REASONING_MODEL as "gpt-5.2"),
+        // @doc-end
         messages,
         systemPrompts,
         tools: [...baseServerTools],

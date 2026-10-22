@@ -2,11 +2,14 @@ import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
+// @doc-replace
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+// @doc-as
+// @doc-end
 import { DEMO_AGENT_LOOP_STRATEGY } from "./demo-stream";
 
 const CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog";
@@ -196,7 +199,11 @@ async function runA2uiDesignAttempt(
   // use. `stripJsonFences` below defensively unwraps a ```json … ``` block in
   // case the model adds one anyway.
   const text = await chat({
+    // @doc-replace
     adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+    // @doc-as
+    // adapter: openaiText("gpt-5.4"),
+    // @doc-end
     messages: [{ role: "user", content: brief }],
     systemPrompts: [systemPrompt],
     stream: false,
@@ -441,7 +448,11 @@ function createA2uiAgent(recovery?: A2uiRecoveryConfig) {
       );
 
       return chat({
+        // @doc-replace
         adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+        // @doc-as
+        // adapter: openaiText("gpt-5.4"),
+        // @doc-end
         messages,
         systemPrompts: recovery
           ? [SYSTEM_PROMPT, SINGLE_CALL_ADDENDUM, ...systemPrompts]
