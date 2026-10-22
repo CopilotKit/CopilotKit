@@ -41,7 +41,8 @@ TeamsAdapter (`@copilotkit/channels-teams`)
 
 ```
 Teams ──HTTP──▶ POST /api/messages (listener.ts, express)
-              │   CloudAdapter.process  ── authenticates, builds TurnContext
+              │   authorizeJWT + serviceUrl check (credentialed only)
+              │   CloudAdapter.process  ── builds TurnContext
               ▼
           handleActivity (adapter.ts; `PlatformAdapter` from `@copilotkit/channels-core`)
               │   message?      → sink.onTurn(...)        → engine runs handlers / agent
@@ -55,9 +56,19 @@ Teams ──HTTP──▶ POST /api/messages (listener.ts, express)
 
 `createTeamsServer` (`listener.ts`) stands up `POST /api/messages` (+ a
 `/healthz` liveness probe) and hands each inbound activity to
-`CloudAdapter.process`, which authenticates the request and invokes
+`CloudAdapter.process`, which builds the `TurnContext` and invokes
 `handleActivity`. The `process` promise is `.catch`-contained so a failed turn
 returns 500 instead of crashing the process.
+
+`CloudAdapter.process` does not authenticate anything: it trusts `req.user` and
+treats a request without one as anonymous. So with a `clientId` the listener
+first runs the SDK's `authorizeJWT` (401 without a valid token for the app),
+then requires the activity's `serviceUrl` to be an allowed Microsoft connector
+origin (`service-url.ts`) and, when the token has a `serviceurl` claim, the
+same origin as that claim (403 otherwise). The bot sends its app token to that
+`serviceUrl`, and `continueConversation` does not check it, so the adapter
+re-checks the allowlist before every out-of-turn send. Without a `clientId` the
+endpoint is anonymous, for the local Playground only.
 
 ### Proactive vs in-turn (the credentialed split)
 

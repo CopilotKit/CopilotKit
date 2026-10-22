@@ -42,6 +42,16 @@ export interface TeamsAdapterOptions {
   /** Microsoft tenant (directory) id. Omit for multi-tenant / anonymous. Falls back to `tenantId`. */
   tenantId?: string;
   /**
+   * Extra Bot Connector origins the bot may reply to, on top of the built-in
+   * Microsoft hosts (Teams commercial, GCC, GCC High and DoD, plus
+   * `https://*.botframework.com`). Entries are origins such as
+   * `https://smba.example.net`; a leading `*.` on the host allows any
+   * subdomain. Only applies when a `clientId` is configured: an inbound
+   * activity whose `serviceUrl` is not allowed is rejected with 403, and the
+   * bot never sends its app token to it.
+   */
+  allowedServiceUrls?: readonly string[];
+  /**
    * Custom-event names treated as interrupts by the run renderer (captured for
    * an `onInterrupt` handler). Defaults to `on_interrupt`, the name
    * LangGraph's AG-UI adapter emits.

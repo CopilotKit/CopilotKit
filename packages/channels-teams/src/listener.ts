@@ -1,9 +1,19 @@
 import type { Server } from "node:http";
+import {
+  authorizeJWT,
+  getAuthConfigWithDefaults,
+} from "@microsoft/agents-hosting";
 import type {
+  AuthConfiguration,
   CloudAdapter,
   TurnContext,
   Request as AgentsRequest,
 } from "@microsoft/agents-hosting";
+import {
+  isAllowedServiceUrl,
+  resolveAllowedServiceUrls,
+  sameOrigin,
+} from "./service-url.js";
 
 export interface TeamsServerConfig {
   adapter: CloudAdapter;
@@ -14,6 +24,22 @@ export interface TeamsServerConfig {
    * is surfaced through the adapter's `onTurnError`.
    */
   onTurnContext: (context: TurnContext) => Promise<void>;
+  /**
+   * Auth settings used to verify inbound requests. When it has a `clientId`,
+   * every `POST /api/messages` must carry a valid Bot Framework / Azure AD JWT
+   * for that app, or it is rejected with 401 before it reaches the adapter.
+   * Without a `clientId` the endpoint runs in anonymous mode (local M365
+   * Agents Playground only).
+   *
+   * Defaults to the auth configuration the `adapter` was constructed with.
+   */
+  authConfig?: AuthConfiguration;
+  /**
+   * Connector origins accepted as an inbound activity's `serviceUrl` in
+   * addition to the built-in Microsoft hosts (see `TeamsAdapterOptions`).
+   * Only enforced when `authConfig` has a `clientId`.
+   */
+  allowedServiceUrls?: readonly string[];
 }
 
 export interface TeamsServer {
@@ -25,9 +51,21 @@ export interface TeamsServer {
  * Stand up the bot's `POST /api/messages` endpoint.
  *
  * The M365 Agents Playground (and Azure Bot Service) deliver activities here as
- * JSON; `CloudAdapter.process` authenticates the request (anonymous in local
- * Playground mode), builds the `TurnContext`, runs the middleware pipeline, and
- * writes the HTTP response once `onTurnContext` resolves.
+ * JSON. `CloudAdapter.process` does NOT authenticate the request: it trusts
+ * `req.user` and treats a request without one as anonymous. So when a
+ * `clientId` is configured this route first runs the SDK's `authorizeJWT`
+ * (401 unless the request carries a valid Bot Framework / Azure AD token for
+ * the app), then checks the activity's `serviceUrl`: it must be an allowed
+ * Microsoft connector host and, when the token has a `serviceurl` claim, the
+ * same origin as that claim (403 otherwise). The bot later sends its app token
+ * to that `serviceUrl`, so an unchecked one would leak the token.
+ *
+ * Without a `clientId` the route is anonymous, for the local M365 Agents
+ * Playground only: any caller can drive a turn, and no app token exists to
+ * leak. Do not expose an anonymous bot to a network.
+ *
+ * `CloudAdapter.process` then builds the `TurnContext`, runs the middleware
+ * pipeline, and writes the HTTP response once `onTurnContext` resolves.
  *
  * `express` is imported lazily, inside `start()`, and this function is the only
  * place the package uses it. It is an OPTIONAL peer dependency (OSS-1177), so a
@@ -61,6 +99,23 @@ async function loadExpress() {
   }
 }
 
+/**
+ * The auth configuration to verify inbound requests with: the explicit one, or
+ * the one the adapter was built with (`CloudAdapter.authConfig`, protected in
+ * the SDK's types, so read structurally). Resolved through the SDK so the
+ * `connections` map `authorizeJWT` matches the token audience against exists.
+ */
+function inboundAuthConfig(
+  config: TeamsServerConfig,
+): AuthConfiguration | undefined {
+  const raw =
+    config.authConfig ??
+    (config.adapter as unknown as { authConfig?: AuthConfiguration })
+      .authConfig;
+  if (!raw?.clientId) return undefined;
+  return raw.connections?.size ? raw : getAuthConfigWithDefaults(raw);
+}
+
 export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
   let server: Server | undefined;
 
@@ -68,7 +123,62 @@ export function createTeamsServer(config: TeamsServerConfig): TeamsServer {
     async start() {
       const express = await loadExpress();
       const app = express();
-      app.use(express.json());
+
+      // Express runs same-path handlers in registration order, so the gates
+      // below run before the `adapter.process` handler at the end.
+      const authConfig = inboundAuthConfig(config);
+      if (authConfig) {
+        const verifyJwt = authorizeJWT(authConfig);
+        const allowed = resolveAllowedServiceUrls(config.allowedServiceUrls);
+        // 1. Authenticate. `authorizeJWT` answers 401 itself on a missing or
+        //    invalid token and only calls `next` once `req.user` is set.
+        app.post("/api/messages", (req, res, next) => {
+          verifyJwt(
+            // Same cross-`express`-types cast as `adapter.process` below.
+            req as unknown as AgentsRequest,
+            res as unknown as Parameters<typeof verifyJwt>[1],
+            next,
+          ).catch((err: unknown) => {
+            console.error("[bot-teams] token validation failed:", err);
+            if (!res.headersSent) res.status(401).end();
+          });
+        });
+        // 2. Parse the body only for authenticated callers. 3. Only reply to a
+        //    connector we trust, and to the one the token was issued for. This
+        //    runs before any app token is minted or sent.
+        app.post("/api/messages", express.json(), (req, res, next) => {
+          const serviceUrl: unknown = (
+            req.body as { serviceUrl?: unknown } | undefined
+          )?.serviceUrl;
+          const claim: unknown = (req as unknown as AgentsRequest).user
+            ?.serviceurl;
+          if (!isAllowedServiceUrl(serviceUrl, allowed)) {
+            console.warn(
+              "[bot-teams] rejected activity: serviceUrl is not an allowed connector host",
+            );
+            res.status(403).send({ error: "serviceUrl not allowed" });
+            return;
+          }
+          if (
+            typeof claim === "string" &&
+            !sameOrigin(claim, serviceUrl as string)
+          ) {
+            console.warn(
+              "[bot-teams] rejected activity: serviceUrl does not match the token's serviceurl claim",
+            );
+            res.status(403).send({ error: "serviceUrl does not match token" });
+            return;
+          }
+          next();
+        });
+      } else {
+        console.warn(
+          "[bot-teams] no clientId configured: POST /api/messages accepts " +
+            "unauthenticated requests (local M365 Agents Playground mode). " +
+            "Do not expose this endpoint to a network.",
+        );
+        app.post("/api/messages", express.json());
+      }
 
       app.post("/api/messages", (req, res) => {
         config.adapter

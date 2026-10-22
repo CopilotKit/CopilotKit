@@ -23,7 +23,7 @@ function cardClickContext(): TurnContext {
     replyToId: "card-activity-1",
     getConversationReference: () => ({
       conversation: { id: "conv-1" },
-      serviceUrl: "https://smba.example/",
+      serviceUrl: "https://smba.trafficmanager.net/amer/",
     }),
   };
   return { activity } as unknown as TurnContext;
@@ -122,7 +122,7 @@ function messageContext(
     removeRecipientMention: () => text,
     getConversationReference: () => ({
       conversation: { id: "conv-1" },
-      serviceUrl: "https://smba.example/",
+      serviceUrl: "https://smba.trafficmanager.net/amer/",
     }),
   };
   return { activity } as unknown as TurnContext;

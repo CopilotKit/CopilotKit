@@ -30,6 +30,10 @@ import type { TeamsAttachmentRef } from "./download-files.js";
 import { buildChannelFileContentParts } from "./graph-files.js";
 import type { GraphCredentials, ChannelMessageRef } from "./graph-files.js";
 import { createTeamsServer } from "./listener.js";
+import {
+  isAllowedServiceUrl,
+  resolveAllowedServiceUrls,
+} from "./service-url.js";
 import type { TeamsServer } from "./listener.js";
 import { conversationKeyOf, parseCardAction } from "./interaction.js";
 import { createRunRenderer } from "./event-renderer.js";
@@ -114,6 +118,10 @@ export class TeamsAdapter implements PlatformAdapter {
     this.server = createTeamsServer({
       adapter: this.cloud,
       port: this.opts.port ?? 3978,
+      // With a clientId, inbound requests must carry a valid token for it and
+      // name an allowed `serviceUrl`; without one the endpoint is anonymous.
+      authConfig,
+      allowedServiceUrls: this.opts.allowedServiceUrls,
       onTurnContext: (context) => this.handleActivity(context, sink),
     });
     await this.server.start();
@@ -390,8 +398,35 @@ export class TeamsAdapter implements PlatformAdapter {
     fn: (context: TurnContext) => Promise<void>,
   ): Promise<void> {
     if (!this.cloud) return;
+    await this.continueConversation(this.cloud, reference, fn);
+  }
+
+  /**
+   * `CloudAdapter.continueConversation`, but only toward an allowed connector.
+   * The SDK sends the bot's app token to `reference.serviceUrl` without
+   * checking it, and a reference can come from an inbound activity, so with
+   * credentials configured an unknown host is refused before any token is
+   * requested or sent. (Anonymous mode has no app token, and the SDK refuses
+   * `continueConversation` without an app id anyway.)
+   */
+  private async continueConversation(
+    cloud: CloudAdapter,
+    reference: Partial<ConversationReference>,
+    fn: (context: TurnContext) => Promise<void>,
+  ): Promise<void> {
     const appId = this.opts.clientId ?? process.env.clientId ?? "";
-    await this.cloud.continueConversation(
+    if (
+      appId &&
+      !isAllowedServiceUrl(
+        reference.serviceUrl,
+        resolveAllowedServiceUrls(this.opts.allowedServiceUrls),
+      )
+    ) {
+      throw new Error(
+        "[bot-teams] refusing to send to a serviceUrl that is not an allowed connector host",
+      );
+    }
+    await cloud.continueConversation(
       appId,
       reference as Parameters<CloudAdapter["continueConversation"]>[1],
       (context) => fn(context),
@@ -512,10 +547,9 @@ export class TeamsAdapter implements PlatformAdapter {
       }
       if (this.cloud && t.reference) {
         let fileId: string | undefined;
-        const appId = this.opts.clientId ?? process.env.clientId ?? "";
-        await this.cloud.continueConversation(
-          appId,
-          t.reference as Parameters<CloudAdapter["continueConversation"]>[1],
+        await this.continueConversation(
+          this.cloud,
+          t.reference,
           async (context) => {
             const res = await context.sendActivity(activity);
             fileId = res?.id;
@@ -659,10 +693,9 @@ export class TeamsAdapter implements PlatformAdapter {
     // Out-of-turn (proactive) send: re-enter the conversation by reference.
     if (this.cloud && t.reference) {
       let id = "";
-      const appId = this.opts.clientId ?? process.env.clientId ?? "";
-      await this.cloud.continueConversation(
-        appId,
-        t.reference as Parameters<CloudAdapter["continueConversation"]>[1],
+      await this.continueConversation(
+        this.cloud,
+        t.reference,
         async (context) => {
           const res = await context.sendActivity(trimmed);
           id = res?.id ?? "";
@@ -685,10 +718,9 @@ export class TeamsAdapter implements PlatformAdapter {
     }
     if (this.cloud && t.reference) {
       let id = "";
-      const appId = this.opts.clientId ?? process.env.clientId ?? "";
-      await this.cloud.continueConversation(
-        appId,
-        t.reference as Parameters<CloudAdapter["continueConversation"]>[1],
+      await this.continueConversation(
+        this.cloud,
+        t.reference,
         async (context) => {
           const res = await context.sendActivity(activity);
           id = res?.id ?? "";

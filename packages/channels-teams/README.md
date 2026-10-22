@@ -190,11 +190,41 @@ teams({
   clientSecret, // omit for anonymous local dev
   tenantId, // omit for multi-tenant / anonymous
   interruptEventNames, // custom-event names treated as agent interrupts
+  allowedServiceUrls, // extra Bot Connector origins to accept (see below)
 });
 ```
 
 Credentials also resolve from the `clientId` / `clientSecret` / `tenantId`
 environment variables (the names the M365 Agents SDK reads).
+
+### Request authentication
+
+With a `clientId` configured, `POST /api/messages` only accepts requests that
+carry a valid Bot Framework / Azure AD token for that app (the M365 Agents SDK's
+`authorizeJWT`). Anything else gets `401` and never reaches your handlers.
+Settings such as `authorityEndpoint` resolve from the environment the same way
+the SDK reads them.
+
+The bot sends its app token to the activity's `serviceUrl` when it replies, so
+that URL is checked too. It must be one of the Microsoft connector hosts below
+and, when the token carries a `serviceurl` claim, have the same origin as that
+claim. Otherwise the request gets `403`, and the bot never sends to it:
+
+- `https://smba.trafficmanager.net` (Teams)
+- `https://smba.infra.gcc.teams.microsoft.com` (Teams GCC)
+- `https://smba.infra.gov.teams.microsoft.us` (Teams GCC High)
+- `https://smba.infra.dod.teams.microsoft.us` (Teams DoD)
+- `https://*.botframework.com` (Bot Framework channels such as Web Chat)
+
+Add any other connector origin, for example a sovereign cloud, with
+`allowedServiceUrls: ["https://connector.example"]`. A leading `*.` on the host
+allows any subdomain.
+
+Without a `clientId` the endpoint is **anonymous**: anyone who can reach it can
+drive a turn. That mode is for the local M365 Agents Playground only; the
+adapter logs a warning at start. Do not expose an anonymous bot to a network.
+If you serve `POST /api/messages` yourself instead of using
+`createTeamsServer`, run `authorizeJWT` in front of `CloudAdapter.process`.
 
 ## Status & roadmap
 
