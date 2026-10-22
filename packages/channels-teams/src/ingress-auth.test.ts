@@ -352,17 +352,54 @@ describe("POST /api/messages trust boundary", () => {
       allowedServiceUrls: [connectorUrl],
     });
     await adapter.start(sink);
-    const post = (serviceUrl: string, token?: string) =>
+    const post = (
+      serviceUrl: string,
+      token?: string,
+      attachments?: unknown[],
+    ) =>
       fetch(`http://127.0.0.1:${port}/api/messages`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
           ...(token ? { authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(activity(serviceUrl)),
+        body: JSON.stringify({
+          ...activity(serviceUrl),
+          ...(attachments ? { attachments } : {}),
+        }),
       });
     return { post, onTurn };
   }
+
+  it.each(["contentUrl", "downloadUrl"])(
+    "authenticated Teams traffic cannot fetch a loopback attachment through %s",
+    async (field) => {
+      const { post, onTurn } = await start("credentialed");
+      const attachment =
+        field === "contentUrl"
+          ? {
+              contentType: "text/plain",
+              name: "file.txt",
+              contentUrl: attackerUrl,
+            }
+          : {
+              contentType: "application/vnd.microsoft.teams.file.download.info",
+              name: "file.txt",
+              content: { downloadUrl: attackerUrl },
+            };
+      const res = await post(
+        SMBA,
+        signToken({ iss: "https://api.botframework.com", serviceurl: SMBA }),
+        [attachment],
+      );
+      await settle();
+      expect(res.status).toBe(200);
+      expect(onTurn).toHaveBeenCalledTimes(1);
+      expect(attacker.hits).toEqual([]);
+      expect(onTurn.mock.calls[0]![0].contentParts).toBeUndefined();
+      expect(connector.hits[0]?.authorization).toBe(`Bearer ${FAKE_TOKEN}`);
+    },
+  );
 
   it("rejects an unauthenticated request with 401 when credentialed", async () => {
     const { post, onTurn } = await start("credentialed");

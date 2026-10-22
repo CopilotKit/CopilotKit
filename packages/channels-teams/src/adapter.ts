@@ -26,6 +26,7 @@ import type {
 import type { ConversationReference } from "@microsoft/agents-activity";
 import { TeamsConversationStore } from "./conversation-store.js";
 import { buildFileContentParts } from "./download-files.js";
+import { DownloadBudget } from "./attachment-download.js";
 import type { TeamsAttachmentRef } from "./download-files.js";
 import { buildChannelFileContentParts } from "./graph-files.js";
 import type { GraphCredentials, ChannelMessageRef } from "./graph-files.js";
@@ -322,9 +323,16 @@ export class TeamsAdapter implements PlatformAdapter {
       activity.conversation as { conversationType?: string } | undefined
     )?.conversationType;
 
+    const budget = new DownloadBudget(this.opts.files);
+    const notes: string[] = [];
     // Inline path (personal chat, or any direct file/media attachment).
     if (attachments.length > 0) {
-      const result = await buildFileContentParts(attachments, this.opts.files);
+      const result = await buildFileContentParts(
+        attachments,
+        this.opts.files,
+        budget,
+      );
+      notes.push(...result.notes);
       this.logFileParts("attachment", result);
       if (result.parts.length > 0) return result;
     }
@@ -338,12 +346,13 @@ export class TeamsAdapter implements PlatformAdapter {
           ref,
           creds,
           this.opts.files,
+          budget,
         );
         this.logFileParts("graph", result);
-        return result;
+        return { parts: result.parts, notes: [...notes, ...result.notes] };
       }
     }
-    return { parts: [], notes: [] };
+    return { parts: [], notes };
   }
 
   /** App-only Graph credentials, when all three are configured. */

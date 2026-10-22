@@ -280,6 +280,42 @@ check endorsements for Bot Framework tokens, and check that the activity's
 claim. `authorizeJWT` alone accepts any issuer and does not look at
 `serviceUrl`, and the bot will send its app token there.
 
+### Inbound attachment downloads
+
+Remote attachments require HTTPS on port 443 and a recognized Microsoft file
+host. The built-in policy accepts tenant subdomains of SharePoint
+(`sharepoint.com`, `sharepoint.us`, `sharepoint.cn`, `sharepoint.de`),
+Teams (`teams.microsoft.com`, `teams.microsoft.us`), `asm.skype.com`,
+`botframework.com`, `botframework.azure.us`, `files.1drv.com`, and `svc.ms`,
+plus `graph.microsoft.com` and the exact Teams connector hosts listed above.
+URLs containing credentials or pointing elsewhere are skipped. For local
+Playground uploads, use bounded `data:` attachments.
+
+Every download and redirect resolves DNS and rejects the destination if any
+address is private, loopback, link-local, reserved, or an unsupported IPv6
+transition address. The TLS connection uses only the validated addresses and
+still verifies the original hostname. Redirects are limited to five. Graph
+file-content redirects use their preauthenticated URL; the Graph bearer token
+is never forwarded to a redirect destination. Connector `allowedServiceUrls`
+does not extend this attachment policy.
+
+The downloader enforces size limits while reading and cancels oversized or
+timed-out requests. Inline data is bounded before decoding. Configure limits
+with the adapter's `files` option:
+
+| Option               | Default | Scope                                                                                      |
+| -------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `maxBytesPerFile`    | 8 MiB   | Each attachment                                                                            |
+| `maxFiles`           | 5       | Download attempts per message, including failed attempts                                   |
+| `maxTextBytes`       | 200 KiB | Decoded text passed to the agent                                                           |
+| `maxBytesPerMessage` | 40 MiB  | Combined download bytes, including Graph metadata                                          |
+| `downloadTimeoutMs`  | 30,000  | DNS, connection, redirects, and body of each download; each Graph metadata/token operation |
+| `maxDownloadTimeMs`  | 60,000  | Shared elapsed download time for the message                                               |
+
+The inline and Graph fallback paths share one budget. Failed downloads produce
+short skip notes without including preauthenticated URLs or transport error
+details. The Graph channel fallback uses the commercial Graph endpoint.
+
 ## Status & roadmap
 
 Implemented: message ingress; **Adaptive Card rendering** of the bot-ui

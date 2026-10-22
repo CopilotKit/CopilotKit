@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ActivityTypes } from "@microsoft/agents-activity";
 import type { TurnContext } from "@microsoft/agents-hosting";
 import { TeamsAdapter } from "./adapter.js";
+import type { FileDeliveryConfig } from "./download-files.js";
 
 /**
  * Regression coverage for the card-interaction auth fix.
@@ -177,6 +178,58 @@ describe("TeamsAdapter inbound files", () => {
     expect(csvPart.type).toBe("text");
     expect(csvPart.text).toContain("month,sev1");
   });
+
+  it.each([
+    {
+      files: { maxFiles: 1 },
+      url: "https://attacker.example/file",
+      reason: "file limit",
+    },
+    {
+      files: { maxBytesPerMessage: 3 },
+      url: "data:application/octet-stream,abc",
+      reason: "byte cap",
+    },
+  ])(
+    "shares the $reason with Graph fallback",
+    async ({ files, url, reason }) => {
+      const adapter = new TeamsAdapter({
+        clientId: "app",
+        clientSecret: "secret",
+        tenantId: "tenant",
+        files: files as FileDeliveryConfig,
+      });
+      const fetchSpy = vi.fn(() => {
+        throw new Error("Graph must not run after budget exhaustion");
+      });
+      vi.stubGlobal("fetch", fetchSpy);
+      const ctx = messageContext("hi", [
+        { contentType: "application/octet-stream", contentUrl: url },
+      ]);
+      Object.assign(ctx.activity.conversation!, {
+        conversationType: "channel",
+      });
+      Object.assign(ctx.activity, {
+        channelData: {
+          team: { aadGroupId: "team" },
+          teamsChannelId: "channel",
+        },
+      });
+      try {
+        const collect = adapter as unknown as {
+          collectInboundFileParts(
+            activity: TurnContext["activity"],
+          ): Promise<{ parts: unknown[]; notes: string[] }>;
+        };
+        const result = await collect.collectInboundFileParts(ctx.activity);
+        expect(fetchSpy).not.toHaveBeenCalled();
+        expect(result.parts).toEqual([]);
+        expect(result.notes.join(" ")).toContain(reason);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
 
   it("leaves contentParts undefined when there are no attachments", async () => {
     const adapter = new TeamsAdapter({});
