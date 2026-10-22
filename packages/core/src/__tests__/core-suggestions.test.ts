@@ -211,7 +211,7 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
   });
 
   describe("Error handling", () => {
-    it("should handle error when provider agent not found", async () => {
+    it("should log and settle loading when provider agent not found", async () => {
       const consumerAgent = new MockAgent({ agentId: "consumer" });
       copilotKitCore.addAgent__unsafe_dev_only({
         id: "consumer",
@@ -224,22 +224,44 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
       });
       copilotKitCore.addSuggestionsConfig(config);
 
-      // reloadSuggestions is fire-and-forget, so it doesn't throw
-      // The error is caught and logged inside generateSuggestions
-      expect(() => {
+      const onLoadingStart = vi.fn();
+      const onLoadingEnd = vi.fn();
+      copilotKitCore.subscribe({
+        onSuggestionsStartedLoading: onLoadingStart,
+        onSuggestionsFinishedLoading: onLoadingEnd,
+      });
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      try {
+        // reloadSuggestions is fire-and-forget: the failure is logged, not thrown
         copilotKitCore.reloadSuggestions("consumer");
-      }).not.toThrow();
 
-      // Give async operation time to complete
-      await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(warnSpy).toHaveBeenCalledWith(
+          "Error generating suggestions:",
+          expect.objectContaining({
+            message: "Suggestions provider agent not found: nonexistent",
+          }),
+        );
 
-      // Verify no suggestions were generated
-      const result = copilotKitCore.getSuggestions("consumer");
-      expect(result.suggestions).toEqual([]);
-      expect(result.isLoading).toBe(false);
+        // A subscriber that saw "started" must also see "finished"
+        await vi.waitFor(() => {
+          expect(onLoadingEnd).toHaveBeenCalledWith(
+            expect.objectContaining({ agentId: "consumer" }),
+          );
+        });
+        expect(onLoadingStart).toHaveBeenCalledWith(
+          expect.objectContaining({ agentId: "consumer" }),
+        );
+
+        const result = copilotKitCore.getSuggestions("consumer");
+        expect(result.suggestions).toEqual([]);
+        expect(result.isLoading).toBe(false);
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
 
-    it("should not generate suggestions when consumer agent not found", async () => {
+    it("should skip dynamic generation when consumer agent not found", () => {
       const providerAgent = new MockAgent({ agentId: "provider" });
       copilotKitCore.addAgent__unsafe_dev_only({
         id: "provider",
@@ -252,32 +274,45 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
       });
       copilotKitCore.addSuggestionsConfig(config);
 
-      // Since generateSuggestions is fire-and-forget (void), errors are logged but not thrown
-      // The method should complete without throwing
-      expect(() => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      try {
         copilotKitCore.reloadSuggestions("nonexistent");
-      }).not.toThrow();
 
-      // Give async operation time to complete
-      await new Promise((resolve) => setTimeout(resolve, 50));
+        // Generation is skipped up front, not attempted and failed: an attempt
+        // would log "consumer agent not found" synchronously.
+        expect(warnSpy).not.toHaveBeenCalledWith(
+          "Error generating suggestions:",
+          expect.anything(),
+        );
 
-      // Verify no suggestions were generated
-      const result = copilotKitCore.getSuggestions("nonexistent");
-      expect(result.suggestions).toEqual([]);
-      expect(result.isLoading).toBe(false);
+        const result = copilotKitCore.getSuggestions("nonexistent");
+        expect(result.suggestions).toEqual([]);
+        expect(result.isLoading).toBe(false);
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
   });
 
   describe("Initialization with configs", () => {
-    it("should accept suggestions configs in constructor", () => {
-      const config1 = createSuggestionsConfig({ instructions: "First" });
-      const config2 = createSuggestionsConfig({ instructions: "Second" });
+    it("should use suggestions configs passed to the constructor", () => {
+      const staticConfig: StaticSuggestionsConfig = {
+        suggestions: [
+          { title: "Test 1", message: "test1" },
+          { title: "Test 2", message: "test2" },
+        ],
+      };
 
       const core = new CopilotKitCore({
-        suggestionsConfig: [config1, config2],
+        suggestionsConfig: [staticConfig],
       });
+      core.reloadSuggestions("any-agent");
 
-      expect(core).toBeDefined();
+      expect(core.getSuggestions("any-agent").suggestions).toEqual([
+        { title: "Test 1", message: "test1", isLoading: false },
+        { title: "Test 2", message: "test2", isLoading: false },
+      ]);
     });
   });
 
