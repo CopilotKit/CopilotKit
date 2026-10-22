@@ -939,7 +939,11 @@ export function CopilotChat({
         ) {
           return;
         }
-        setInputValue(value);
+        setInputValue((currentValue) => {
+          if (!value) return currentValue;
+          if (!currentValue) return value;
+          return `${value}\n${currentValue}`;
+        });
         capturedMentions.forEach(selectMention);
       };
 

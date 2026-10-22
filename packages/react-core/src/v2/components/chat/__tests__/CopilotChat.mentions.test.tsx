@@ -34,6 +34,7 @@ const mentionItem = {
   value: '{"title":"Quarterly plan","body":"private raw value"}',
 };
 
+/** Renders CopilotChat with the supplied mock agent and optional props. */
 function renderChat(
   agent: NoopAgent,
   props: React.ComponentProps<typeof CopilotChat> = {},
@@ -44,6 +45,7 @@ function renderChat(
   });
 }
 
+/** Selects a mention through the default input and returns its textarea. */
 async function selectMention(query = "@cur", label = "Current document") {
   const textarea = await screen.findByRole("textbox");
   fireEvent.change(textarea, {
