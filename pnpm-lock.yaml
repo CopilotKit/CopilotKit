@@ -2462,9 +2462,6 @@ importers:
       '@copilotkit/channels-teams':
         specifier: workspace:*
         version: link:../channels-teams
-      '@copilotkit/channels-telegram':
-        specifier: workspace:*
-        version: link:../channels-telegram
       '@copilotkit/channels-ui':
         specifier: workspace:*
         version: link:../channels-ui
@@ -2711,34 +2708,6 @@ importers:
       express:
         specifier: '>=4.20.0'
         version: 5.2.1
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.3
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
-
-  packages/channels-telegram:
-    dependencies:
-      '@ag-ui/client':
-        specifier: 1.0.2
-        version: 1.0.2
-      '@copilotkit/channels-core':
-        specifier: workspace:^
-        version: link:../channels-core
-      '@copilotkit/channels-ui':
-        specifier: workspace:^
-        version: link:../channels-ui
-      grammy:
-        specifier: ^1.30.0
-        version: 1.44.0(encoding@0.1.13)
-    devDependencies:
-      '@copilotkit/typescript-config':
-        specifier: workspace:^
-        version: link:../typescript-config
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.19.11
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -8155,9 +8124,6 @@ packages:
     peerDependencies:
       react: 19.2.3
       react-native: '*'
-
-  '@grammyjs/types@3.28.0':
-    resolution: {integrity: sha512-4JvXCdxRZHCje0M4gHzLwtB4bLno3WD28xd8CNfk4POWIu73BFnSvGeW6OQ5gPem4eYTEwkD9yDaXssixl6tMQ==}
 
   '@graphql-codegen/add@5.0.3':
     resolution: {integrity: sha512-SxXPmramkth8XtBlAHu4H4jYcYXM/o3p01+psU+0NADQowA8jtYkK6MW5rV6T+CxkEaNZItfSmZRPgIuypcqnA==}
@@ -19951,10 +19917,6 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
-
-  grammy@1.44.0:
-    resolution: {integrity: sha512-gGVykS5+c5f1tPV97LuU6IDRMawE2NzpwM9pNz58HQ35IZXDnYL3VOLvNzYognPSeBIOSzQXRu5w96V0aY8y8A==}
-    engines: {node: ^12.20.0 || >=14.13.1}
 
   graphemer@1.4.0:
     resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
@@ -34890,8 +34852,6 @@ snapshots:
       react: 19.2.3
       react-native: 0.85.2(@babel/core@8.0.1)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@8.0.1)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@8.0.1))(@types/react@19.1.8)(react@19.2.3)
 
-  '@grammyjs/types@3.28.0': {}
-
   '@graphql-codegen/add@5.0.3(graphql@16.12.0)':
     dependencies:
       '@graphql-codegen/plugin-helpers': 5.1.1(graphql@16.12.0)
@@ -49782,16 +49742,6 @@ snapshots:
       responselike: 3.0.0
 
   graceful-fs@4.2.11: {}
-
-  grammy@1.44.0(encoding@0.1.13):
-    dependencies:
-      '@grammyjs/types': 3.28.0
-      abort-controller: 3.0.0
-      debug: 4.4.3(supports-color@5.5.0)
-      node-fetch: 2.7.0(encoding@0.1.13)
-    transitivePeerDependencies:
-      - encoding
-      - supports-color
 
   graphemer@1.4.0: {}
 
