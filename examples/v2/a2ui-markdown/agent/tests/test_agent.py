@@ -142,7 +142,8 @@ async def test_json_passes_input_and_events_through_unchanged(monkeypatch, trans
     events = [event async for event in agent.run(incoming)]
     assert received == [incoming]
     assert received[0] is incoming
-    assert events[0] is outgoing
+    assert events[-1] is outgoing
+    assert events[0].name == "adk_demo_timing"
 
 
 @pytest.mark.parametrize("transport", TRANSPORTS)
@@ -179,7 +180,8 @@ async def test_express_prepares_input_and_transforms_output(monkeypatch, transpo
     agent = create_agent(MODELS[0], "express", transport)
     events = [event async for event in agent.run(incoming)]
     assert calls == [("prepare", incoming, transport)]
-    assert events == [transformed]
+    assert events[-1] is transformed
+    assert events[0].name == "adk_demo_timing"
 
 
 async def test_express_preparation_error_emits_a_terminal_ag_ui_error(monkeypatch):
@@ -196,8 +198,10 @@ async def test_express_preparation_error_emits_a_terminal_ag_ui_error(monkeypatc
     events = [event async for event in agent.run(incoming)]
     assert [event.type for event in events] == [
         EventType.RUN_STARTED,
+        EventType.CUSTOM,
         EventType.RUN_ERROR,
     ]
+    assert events[1].name == "adk_demo_timing"
     assert events[0].thread_id == incoming.thread_id
     assert events[0].run_id == incoming.run_id
     assert "Invalid frontend schema" in events[-1].message

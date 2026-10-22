@@ -6,6 +6,7 @@ import { CopilotKitProvider, useCopilotKit } from "@copilotkit/react-core/v2";
 import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 import { getAgentId } from "./settings";
 import type { ExampleSettings } from "./settings";
+import { DemoTiming } from "./timing";
 
 /** Stop the old run when changing settings or leaving the demo. */
 function StopRunOnUnmount({ agentId }: { agentId: string }) {
@@ -38,6 +39,7 @@ export function Providers({
       generativeUI={{ ui: standardUI, transport: settings.transport }}
     >
       <StopRunOnUnmount agentId={agentId} />
+      <DemoTiming agentId={agentId} />
       {children}
     </CopilotKitProvider>
   );

@@ -13,8 +13,9 @@ from ag_ui.core import BaseEvent, RunAgentInput, RunErrorEvent, RunStartedEvent
 from ag_ui_adk import CONTEXT_STATE_KEY, ADKAgent, AGUIToolset
 from google.adk.agents import Agent
 from google.adk.agents.readonly_context import ReadonlyContext
-from google.adk.models.google_llm import Gemini
 from google.adk.sessions import InMemorySessionService
+
+from .timing import TimedGemini, trace_run
 
 MODELS = ("gemini-3.6-flash", "gemini-3.8-flash")
 FORMATS = ("express", "json")
@@ -48,6 +49,19 @@ class DemoAgent(ADKAgent):
         self.transport = transport
 
     async def run(self, input: RunAgentInput) -> AsyncGenerator[BaseEvent, None]:
+        async with aclosing(
+            trace_run(
+                self._run(input),
+                input,
+                self._adk_agent.model.model,
+                self.format,
+                self.transport,
+            )
+        ) as events:
+            async for event in events:
+                yield event
+
+    async def _run(self, input: RunAgentInput) -> AsyncGenerator[BaseEvent, None]:
         if self.format == "json":
             async with aclosing(super().run(input)) as events:
                 async for event in events:
@@ -95,7 +109,7 @@ def create_agent(model: str, format: str, transport: str) -> DemoAgent:
         transport=transport,
         adk_agent=Agent(
             name=namespace,
-            model=Gemini(model=model, client_kwargs={"vertexai": False}),
+            model=TimedGemini(model=model, client_kwargs={"vertexai": False}),
             instruction=instruction,
             tools=[AGUIToolset()],
         ),

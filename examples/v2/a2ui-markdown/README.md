@@ -54,6 +54,49 @@ update across turns. **Sign-up with validation** exercises data bindings,
 validation, and a button that sends user-entered values back to the agent.
 These are optional user prompts, not an agent-specific flow or system prompt.
 
+## Timing diagnostics
+
+Every run emits `CUSTOM` events named `adk_demo_timing`, visible in the Inspector.
+They contain metadata only: IDs, configuration, elapsed milliseconds, model-call
+timings, and text-chunk counts. No prompts, generated text, or credentials are
+recorded. This is demo instrumentation, not a Google SDK workaround or patch.
+
+Server times use one monotonic clock, starting at entry to the demo agent:
+
+- `run_started_ms`: the adapter emits `RUN_STARTED`.
+- `model_calls[].request_ms`: entry to ADK's Gemini model method, before SDK
+  preprocessing and network I/O; this is not an HTTP wire timestamp.
+- `model_calls[].first_response_ms`: first SDK response, including metadata-only
+  or thought chunks. `first_text_ms` excludes thoughts; `first_tool_call_ms`
+  tracks tool output separately. Each model invocation gets its own entry.
+- `ag_ui_first_text_ms` / `ag_ui_last_text_ms`: text leaving the demo adapter,
+  after Express conversion when selected. JSON text passes through directly.
+
+The browser records a separate monotonic clock starting at run initialization.
+Open DevTools and inspect `window.adkDemoTimings` (last 20 runs) or filter the
+console for `[adk-demo timing]`. Copy a report with
+`copy(JSON.stringify(window.adkDemoTimings, null, 2))`.
+The report joins server and browser observations by `runId`:
+
+- `browser.run_started_ms`: receipt of `RUN_STARTED`.
+- `browser.first_text_ms` / `last_text_ms`: receipt of AG-UI text.
+- `browser.first_surface_paint_ms`: first changed surface containing visible
+  text or a control/media element in the viewport, checked after two animation
+  frames. Empty layouts, styles, and error panels do not count. This is a paint
+  opportunity proxy, not a GPU presentation timestamp or proof the whole UI is
+  ready. Existing surfaces count only after their DOM changes. Background tabs
+  can delay animation frames; use a foreground tab for measurements.
+- `browser.finished_ms`: client run finalization. Missing paint means no visible
+  content was observed before finalization plus the final paint opportunity.
+
+Subtract timestamps **within the same clock**: model `first_text_ms - request_ms`
+measures model/SDK wait; `ag_ui_first_text_ms - model first_text_ms` measures the
+adapter/Express delay; browser `first_surface_paint_ms - first_text_ms` measures
+the remaining stream/render wait. Do not subtract browser timestamps from server
+timestamps. Completion and the first text each produce a server snapshot; run
+errors also produce a snapshot. Cancellation cleans up observers and model
+streams, but may not deliver a final server event to a disconnected client.
+
 ## Formats and streaming
 
 - **JSON** is the existing A2UI v1.0 operation format. “Legacy” refers to the
