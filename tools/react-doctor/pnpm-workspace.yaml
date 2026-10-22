@@ -1,0 +1,10 @@
+# This directory is its OWN pnpm root so React Doctor's dependency tree
+# (Sentry, OpenTelemetry, eslint-plugin-react-hooks) stays out of the repo's
+# root lockfile. Adding it there re-resolved @opentelemetry/api and
+# @babel/core peers across the whole workspace (~3k lockfile lines).
+#
+# Without this file pnpm walks up to the repo's workspace root and installs
+# the monorepo instead of this package (see the same note in
+# examples/showcases/reskinnable-demo/pnpm-workspace.yaml).
+packages:
+  - "."

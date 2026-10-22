@@ -1,0 +1,33 @@
+{
+  // React Doctor config. Run it with `pnpm run react-doctor`; the
+  // static / quality workflow runs the same command on every PR.
+  "$schema": "https://react.doctor/schema/config.json",
+  "projects": [
+    "@copilotkit/a2ui-renderer",
+    "@copilotkit/channels",
+    "@copilotkit/channels-core",
+    "@copilotkit/channels-ui",
+    "@copilotkit/react-core",
+    "@copilotkit/react-native",
+    "@copilotkit/react-textarea",
+    "@copilotkit/react-ui",
+  ],
+  // The oxlint job already enforces .oxlintrc.json; adopting it here would
+  // report every oxlint finding a second time.
+  "adoptExistingLintConfig": false,
+  // Dependency vetting is out of scope for a code-quality gate, and the
+  // Socket.dev lookup makes the result depend on a network call.
+  "supplyChain": { "enabled": false },
+  // Keep scans local: no score API, share URL, or crash reporting.
+  "noScore": true,
+  "share": false,
+  "ignore": {
+    "files": [
+      "**/v1-deprecated/**",
+      "**/__tests__/**",
+      "**/__mocks__/**",
+      "**/*.test.{ts,tsx}",
+      "**/*.spec.{ts,tsx}",
+    ],
+  },
+}
