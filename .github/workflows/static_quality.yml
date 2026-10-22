@@ -3,14 +3,13 @@ name: static / quality
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "README.md"
-      - "examples/**"
+  # No path filters: react-doctor is a required check, and a required check
+  # from a workflow that never starts leaves the PR waiting forever.
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "README.md"
-      - "examples/**"
+  # Only the react-doctor job runs in the merge queue; it is a required check,
+  # and required checks must report on merge_group or queued PRs time out.
+  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -208,6 +207,7 @@ jobs:
           git push
 
   oxlint:
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -237,7 +237,44 @@ jobs:
       - name: Run oxlint check
         run: pnpm run lint
 
+  react-doctor:
+    # Fails the PR on React Doctor errors in lines the PR adds or changes, in
+    # the React packages listed in doctor.config.jsonc. Warnings are printed
+    # but don't block, and existing findings on untouched lines are ignored.
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          # Full history so React Doctor can diff the PR against origin/main.
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 20.x
+          # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run React Doctor on lines changed in this PR
+        run: pnpm run react-doctor
+
   package-quality:
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -295,6 +332,7 @@ jobs:
         run: pnpm run check:packages
 
   check-types:
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -348,6 +386,7 @@ jobs:
         run: npx nx run-many -t check-types --parallel=1
 
   commitlint:
+    if: github.event_name != 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
