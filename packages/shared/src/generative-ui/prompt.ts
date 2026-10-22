@@ -1,4 +1,7 @@
-import { generativeUIGuideFeatures } from "../a2ui-prompts";
+import {
+  GENERATIVE_UI_WHEN_TO_SHOW,
+  generativeUIGuideFeatures,
+} from "../a2ui-prompts";
 import { functionCallers } from "./basic-functions";
 import {
   GENERATIVE_UI_AGENT_FUNCTION_CALLS,
@@ -148,6 +151,8 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
   return [
     `## Generative UI
 Call \`${GENERATIVE_UI_RENDER_TOOL}\` to show UI. Arguments: \`target\` first, then \`operations\` (A2UI v1.0 operations, applied in order).
+
+${GENERATIVE_UI_WHEN_TO_SHOW}
 
 Every operation has "version":"v1.0" and exactly one of:
 ${operations.map((op) => `- ${op}`).join("\n")}
