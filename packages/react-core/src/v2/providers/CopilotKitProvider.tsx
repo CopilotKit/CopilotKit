@@ -603,12 +603,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
-  // The latest builder, read when a request is sent (never during render).
-  // Assigned in an insertion effect (not a `useEffect`): those run before
-  // every layout and passive effect in the commit, so a child effect that
-  // fires in the SAME commit as a new builder closure — e.g. a run kicked off
-  // from an effect right after a token changed — reads the new closure rather
-  // than the previous commit's.
+  // The latest committed builder, read when a request is sent (never during
+  // render). Assigned in an insertion effect (not a `useEffect`) so a child's
+  // layout or passive effect that fires in the SAME commit as a new builder
+  // closure (e.g. a run kicked off from an effect right after a token changed)
+  // reads the new closure rather than the previous commit's. A request sent
+  // while a token change is still uncommitted (e.g. a suspended transition)
+  // uses the last committed builder.
   const headersRef = useLatestRef(headersProp);
   const isHeadersBuilder = typeof headersProp === "function";
   // The read below can return a sync record or an async promise depending on

@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useInsertionEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useSandboxFunctions } from "../providers/SandboxFunctionsContext";
@@ -154,6 +160,18 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     const [autoHeight, setAutoHeight] = useState<number | null>(null);
     const sandboxFunctions = useSandboxFunctions();
 
+    // False from the commit that unmounts this component. React removes the DOM
+    // and runs insertion-effect cleanups before passive cleanups, so the sandbox
+    // effects below check this to skip a websandbox import that resolves after
+    // unmount but before their own cleanup has set `cancelled`.
+    const mountedRef = useRef(false);
+    useInsertionEffect(() => {
+      mountedRef.current = true;
+      return () => {
+        mountedRef.current = false;
+      };
+    }, []);
+
     const localApi = useMemo(() => {
       const api: Record<string, Function> = {};
       for (const fn of sandboxFunctions) {
@@ -212,9 +230,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
 
       import("@jetbrains/websandbox")
         .then((mod: any) => {
-          // React removes the DOM before it runs effect cleanups, so a
-          // detached container means this effect is about to be cleaned up.
-          if (cancelled || !container.isConnected) return;
+          if (cancelled || !mountedRef.current) return;
 
           const Websandbox = mod.default?.default ?? mod.default;
           const sandbox = Websandbox.create(
@@ -312,9 +328,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       const htmlContent = css ? injectCssIntoHtml(fullHtml, css) : fullHtml;
       import("@jetbrains/websandbox")
         .then((mod: any) => {
-          // React removes the DOM before it runs effect cleanups, so a
-          // detached container means this effect is about to be cleaned up.
-          if (cancelled || !container.isConnected) return;
+          if (cancelled || !mountedRef.current) return;
 
           // websandbox ships a UMD bundle with its own webpack `default` export.
           // Consumer bundlers (e.g. Next.js webpack) wrap CJS under another `.default`,

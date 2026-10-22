@@ -388,6 +388,30 @@ describe("useInterrupt", () => {
     expect(screen.queryByTestId("interrupt")).toBeNull();
   });
 
+  it("resolve called while rendering the interrupt (auto-approve) resumes the agent once", () => {
+    render(
+      <ManualHarness
+        render={({ event, resolve }) => {
+          resolve({ approved: true, value: event.value });
+          return <span data-testid="auto-approved">{String(event.value)}</span>;
+        }}
+      />,
+    );
+
+    emitInterrupt("auto");
+
+    expect(runAgentMock).toHaveBeenCalledTimes(1);
+    expect(runAgentMock).toHaveBeenCalledWith({
+      agent: mockAgent,
+      forwardedProps: {
+        command: {
+          resume: { approved: true, value: "auto" },
+          interruptEvent: "auto",
+        },
+      },
+    });
+  });
+
   it("resolve resumes agent with response payload and keeps card mounted until run starts", () => {
     // The card MUST stay mounted across resolve() so the resume-run's first
     // tokens stream into the interrupt UI; onRunStartedEvent (fired by the

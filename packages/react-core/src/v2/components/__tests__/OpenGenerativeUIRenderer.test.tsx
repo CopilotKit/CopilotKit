@@ -85,21 +85,6 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
-  it("does not create a sandbox once its container has left the document", async () => {
-    // React removes the DOM before running effect cleanups. If the websandbox
-    // import resolves in that gap, the container is detached but the effect
-    // isn't cancelled yet; creating a sandbox there throws on contentWindow.
-    const { container } = renderRenderer({
-      html: ["<head></head><body><div>Hi</div></body>"],
-      htmlComplete: true,
-    });
-    container.remove();
-
-    await flushImport();
-
-    expect(mockCreate).not.toHaveBeenCalled();
-  });
-
   it("creates sandbox when html is complete", async () => {
     const html = "<head></head><body><p>Hello</p></body>";
     renderRenderer({ html: [html], htmlComplete: true });

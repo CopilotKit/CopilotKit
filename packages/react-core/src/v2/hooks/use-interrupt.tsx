@@ -192,7 +192,6 @@ export function useInterrupt<
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: config.agentId, updates: [] });
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
-  const pendingRef = useLatestRef(pending);
   const [handlerResult, setHandlerResult] =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useState<InterruptResult<any, TResult>>(null);
@@ -249,7 +248,10 @@ export function useInterrupt<
 
   const resolve: InterruptResolveFn = useCallback(
     async (payload, interruptId) => {
-      const current = pendingRef.current;
+      // Read the interrupt state, not the `pending` React state: it is updated
+      // before `setPending`, so this also works when `render` calls resolve()/
+      // cancel() while the interrupt is first rendering (auto-approve).
+      const current = interruptStateRef.current.pending;
       if (!current) return;
 
       if (
@@ -314,12 +316,15 @@ export function useInterrupt<
         throw err;
       }
     },
-    [agent, copilotkit, pendingRef],
+    [agent, copilotkit],
   );
 
   const cancel: InterruptCancelFn = useCallback(
     async (interruptId) => {
-      const current = pendingRef.current;
+      // Read the interrupt state, not the `pending` React state: it is updated
+      // before `setPending`, so this also works when `render` calls resolve()/
+      // cancel() while the interrupt is first rendering (auto-approve).
+      const current = interruptStateRef.current.pending;
       if (!current) return;
 
       if (
@@ -373,7 +378,7 @@ export function useInterrupt<
         throw err;
       }
     },
-    [agent, copilotkit, pendingRef],
+    [agent, copilotkit],
   );
 
   // Keep consumer-supplied callbacks out of the handler effect's deps so

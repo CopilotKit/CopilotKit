@@ -7,10 +7,13 @@ import type { MutableRefObject } from "react";
  *
  * The ref is updated in an insertion effect rather than during render, so a
  * render React discards (Suspense, concurrent rendering, StrictMode) can't
- * leak its value. Insertion effects run before every layout and passive
- * effect in the commit, so effects and event handlers see the same value they
- * saw when the ref was assigned during render. Don't read the ref during
- * render: on updates it still holds the previous committed value there.
+ * leak its value. In the commit, the insertion effect runs before layout
+ * effect setups, ref attaches and passive effects anywhere in the tree, so
+ * those, plus event handlers and async callbacks, see the new value.
+ *
+ * Earlier in the same commit the ref still holds the previous value: during
+ * render, and in descendants' (or earlier siblings') insertion effects,
+ * layout effect cleanups and ref detaches. Don't read it from those.
  */
 export function useLatestRef<T>(value: T): MutableRefObject<T> {
   const ref = useRef(value);
