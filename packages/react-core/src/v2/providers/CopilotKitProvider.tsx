@@ -68,6 +68,7 @@ import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { viewerTheme, filterCatalog, Catalog } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
+import { useLatestRef } from "../lib/use-latest-ref";
 import type {
   ReactActivityMessageRenderer,
   ReactToolCallRenderer,
@@ -603,12 +604,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
   // The latest builder, read when a request is sent (never during render).
-  // Assigned during render itself (not in a `useEffect`) so a child effect
-  // that fires in the SAME commit as a new builder closure — e.g. a run
-  // kicked off from an effect right after a token changed — reads the new
-  // closure rather than the previous commit's.
-  const headersRef = useRef(headersProp);
-  headersRef.current = headersProp;
+  // Assigned in an insertion effect (not a `useEffect`): those run before
+  // every layout and passive effect in the commit, so a child effect that
+  // fires in the SAME commit as a new builder closure — e.g. a run kicked off
+  // from an effect right after a token changed — reads the new closure rather
+  // than the previous commit's.
+  const headersRef = useLatestRef(headersProp);
   const isHeadersBuilder = typeof headersProp === "function";
   // The read below can return a sync record or an async promise depending on
   // what `headersRef.current` happens to be at call time, which
@@ -618,7 +619,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const stableHeadersBuilder = useCallback(() => {
     const current = headersRef.current;
     return typeof current === "function" ? current() : current;
-  }, []) as () => Record<string, string>;
+  }, [headersRef]) as () => Record<string, string>;
   // A record keeps today's identity semantics; a builder is stable.
   const headersInput = isHeadersBuilder ? stableHeadersBuilder : headersProp;
   const headersSource = useMemo(
@@ -827,6 +828,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // so the filtered-catalog memo can read enablement off it).
   // Updates are applied via setter effects below rather than recreating the instance.
   if (copilotkitRef.current === null) {
+    // Lazy init, once per mount. Stays a ref: the filteredCatalog memo above reads it, and
+    // useState(() => new ...) would run this ctor twice on a StrictMode mount (React 19).
+    // react-doctor-disable-next-line react-doctor/no-ref-current-in-render
     copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
       // Defer the `/info` fetch out of construction. The core is constructed

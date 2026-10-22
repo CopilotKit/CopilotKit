@@ -788,6 +788,34 @@ describe("useInterrupt", () => {
     errorSpy.mockRestore();
   });
 
+  it("builds the element with the render and enabled callbacks from the same render", () => {
+    // The element memo runs during render, so it must call this render's
+    // `render`/`enabled`, not the ones from the previous commit.
+    let setLabel!: (label: string) => void;
+    function LabelHarness() {
+      const [label, set] = React.useState("blocked");
+      setLabel = set;
+      const element = useInterrupt({
+        renderInChat: false,
+        enabled: () => label !== "blocked",
+        render: () => <span data-testid="interrupt-label">{label}</span>,
+      });
+      return <div>{element}</div>;
+    }
+
+    render(<LabelHarness />);
+
+    act(() => {
+      setLabel("open");
+      handlers.onCustomEvent?.({
+        event: { name: "on_interrupt", value: "same-render" },
+      });
+      finalizeRun();
+    });
+
+    expect(screen.getByTestId("interrupt-label").textContent).toBe("open");
+  });
+
   // RESUME-PATH regression: `resolve()` MUST return a Promise that settles
   // only when the underlying `copilotkit.runAgent` call settles. Callers
   // (e.g. the showcase `interrupt-headless` demo's `useHeadlessInterrupt`,

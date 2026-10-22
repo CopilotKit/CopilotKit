@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   emitInspectorActiveThread,
   emitInspectorViewThreadResult,
@@ -6,6 +6,7 @@ import {
   onInspectorStopViewing,
   onInspectorViewThread,
 } from "@copilotkit/core";
+import { useLatestRef } from "../lib/use-latest-ref";
 
 type InspectorOverride = {
   requestId: string;
@@ -23,8 +24,7 @@ export function useInspectorThreadOverride(args: {
   failInspectorOverride: (requestId: string) => void;
 } {
   const [override, setOverride] = useState<InspectorOverride | null>(null);
-  const latestRef = useRef({ ...args, override });
-  latestRef.current = { ...args, override };
+  const latestRef = useLatestRef({ ...args, override });
 
   const restoreOverride = useCallback(
     (current: InspectorOverride, nextThreadId: string) => {
@@ -52,7 +52,7 @@ export function useInspectorThreadOverride(args: {
       });
       restoreOverride(current, current.previousThreadId);
     },
-    [restoreOverride],
+    [restoreOverride, latestRef],
   );
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export function useInspectorThreadOverride(args: {
       offView();
       offStop();
     };
-  }, [restoreOverride]);
+  }, [restoreOverride, latestRef]);
 
   useEffect(() => {
     if (!override) return;

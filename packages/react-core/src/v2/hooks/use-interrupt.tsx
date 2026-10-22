@@ -12,6 +12,7 @@ import type { ɵPendingInterrupt } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useAgent } from "./use-agent";
 import { INTERRUPT_EVENT_NAME } from "../types/interrupt";
+import { useLatestRef } from "../lib/use-latest-ref";
 import type {
   InterruptEvent,
   InterruptRenderProps,
@@ -72,6 +73,23 @@ export function isPromiseLike<TValue>(
 function toLegacyEvent(pending: PendingInterrupt): InterruptEvent {
   if (pending.kind === "legacy") return pending.event;
   return { name: INTERRUPT_EVENT_NAME, value: pending.interrupts[0] };
+}
+
+/** Evaluate an `enabled` predicate. A throw counts as "disabled" and is logged. */
+function isInterruptEnabled(
+  predicate: ((event: InterruptEvent) => boolean) | undefined,
+  event: InterruptEvent,
+): boolean {
+  if (!predicate) return true;
+  try {
+    return predicate(event);
+  } catch (err) {
+    console.error(
+      "[CopilotKit] useInterrupt enabled predicate threw; treating interrupt as disabled:",
+      err,
+    );
+    return false;
+  }
 }
 
 /**
@@ -174,8 +192,7 @@ export function useInterrupt<
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: config.agentId, updates: [] });
   const [pending, setPending] = useState<PendingInterrupt | null>(null);
-  const pendingRef = useRef(pending);
-  pendingRef.current = pending;
+  const pendingRef = useLatestRef(pending);
   const [handlerResult, setHandlerResult] =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useState<InterruptResult<any, TResult>>(null);
@@ -297,7 +314,7 @@ export function useInterrupt<
         throw err;
       }
     },
-    [agent, copilotkit],
+    [agent, copilotkit, pendingRef],
   );
 
   const cancel: InterruptCancelFn = useCallback(
@@ -356,36 +373,15 @@ export function useInterrupt<
         throw err;
       }
     },
-    [agent, copilotkit],
+    [agent, copilotkit, pendingRef],
   );
 
-  // Stabilize consumer-supplied callbacks behind refs so inline lambdas do not
-  // churn the element memo identity or the handler effect.
-  const renderRef = useRef(config.render);
-  renderRef.current = config.render;
-  const enabledRef = useRef(config.enabled);
-  enabledRef.current = config.enabled;
-  const handlerRef = useRef(config.handler);
-  handlerRef.current = config.handler;
-  const resolveRef = useRef(resolve);
-  resolveRef.current = resolve;
-  const cancelRef = useRef(cancel);
-  cancelRef.current = cancel;
-
-  // Predicate evaluator: a throw is treated as "disabled" (false) and logged.
-  const isEnabled = (event: InterruptEvent): boolean => {
-    const predicate = enabledRef.current;
-    if (!predicate) return true;
-    try {
-      return predicate(event);
-    } catch (err) {
-      console.error(
-        "[CopilotKit] useInterrupt enabled predicate threw; treating interrupt as disabled:",
-        err,
-      );
-      return false;
-    }
-  };
+  // Keep consumer-supplied callbacks out of the handler effect's deps so
+  // inline lambdas do not re-run it. The effect reads the latest ones here.
+  const enabledRef = useLatestRef(config.enabled);
+  const handlerRef = useLatestRef(config.handler);
+  const resolveRef = useLatestRef(resolve);
+  const cancelRef = useLatestRef(cancel);
 
   useEffect(() => {
     if (!pending) {
@@ -393,7 +389,7 @@ export function useInterrupt<
       return;
     }
     const legacyEvent = toLegacyEvent(pending);
-    if (!isEnabled(legacyEvent)) {
+    if (!isInterruptEnabled(enabledRef.current, legacyEvent)) {
       setHandlerResult(null);
       return;
     }
@@ -446,12 +442,15 @@ export function useInterrupt<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending]);
 
+  // `render` and `enabled` are left out of the deps on purpose, so inline
+  // lambdas do not churn the element identity. When the memo does recompute,
+  // it calls the ones from this render.
   const element = useMemo(() => {
     if (!pending) return null;
     const legacyEvent = toLegacyEvent(pending);
-    if (!isEnabled(legacyEvent)) return null;
+    if (!isInterruptEnabled(config.enabled, legacyEvent)) return null;
 
-    return renderRef.current({
+    return config.render({
       event: legacyEvent,
       interrupt: pending.kind === "standard" ? pending.interrupts[0] : null,
       interrupts: pending.kind === "standard" ? [...pending.interrupts] : [],

@@ -9,6 +9,7 @@ import {
   formatFileSize,
 } from "@copilotkit/shared";
 import type { Attachment, AttachmentsConfig } from "@copilotkit/shared";
+import { useLatestRef } from "../lib/use-latest-ref";
 
 export interface UseAttachmentsProps {
   config?: AttachmentsConfig;
@@ -91,11 +92,9 @@ export function useAttachments({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Keep refs to the latest values so stable callbacks can read current
-  // state without appearing in dependency arrays.
-  const configRef = useRef(config);
-  configRef.current = config;
-  const attachmentsRef = useRef<Attachment[]>([]);
-  attachmentsRef.current = attachments;
+  // state without depending on it (the refs themselves never change).
+  const configRef = useLatestRef(config);
+  const attachmentsRef = useLatestRef(attachments);
 
   // The upload queue is the hook's, not one `processFiles` call's, so a paste landing while a
   // drop is still uploading shares the same slots instead of opening its own set.
@@ -263,7 +262,7 @@ export function useAttachments({
 
       await Promise.all(settled);
     },
-    [drainUploadQueue],
+    [drainUploadQueue, configRef],
   );
 
   const handleFileUpload = useCallback(
@@ -278,12 +277,15 @@ export function useAttachments({
     [processFiles],
   );
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    if (!configRef.current?.enabled) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(true);
-  }, []);
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!configRef.current?.enabled) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setDragOver(true);
+    },
+    [configRef],
+  );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -307,7 +309,7 @@ export function useAttachments({
         }
       }
     },
-    [processFiles],
+    [processFiles, configRef],
   );
 
   // Clipboard paste handler — scoped to the container
@@ -343,7 +345,7 @@ export function useAttachments({
 
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [enabled, processFiles]);
+  }, [enabled, processFiles, configRef]);
 
   const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
@@ -357,7 +359,7 @@ export function useAttachments({
       fileInputRef.current.value = "";
     }
     return ready;
-  }, []);
+  }, [attachmentsRef]);
 
   return {
     attachments,
