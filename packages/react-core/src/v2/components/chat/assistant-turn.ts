@@ -55,8 +55,8 @@ export function getAssistantTurns(
       const turn: AssistantTurn = {
         lastMessageId: last.id,
         content: assistantMessages
-          .map((m) => m.content?.trim())
-          .filter(Boolean)
+          .map((m) => m.content)
+          .filter((content) => content?.trim())
           .join("\n\n"),
         isLatest: end === messages.length,
       };

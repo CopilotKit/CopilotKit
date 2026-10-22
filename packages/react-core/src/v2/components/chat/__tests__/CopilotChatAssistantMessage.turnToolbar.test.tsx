@@ -89,6 +89,33 @@ describe("assistant toolbar scope", () => {
     );
   });
 
+  it("preserves Markdown whitespace when copying a reply", async () => {
+    renderView({
+      messages: [
+        { id: "u1", role: "user", content: "Show an example" },
+        {
+          id: "a1",
+          role: "assistant",
+          content: "    first line\n    second line",
+        },
+        { id: "a2", role: "assistant", content: " \n\t " },
+        { id: "a3", role: "assistant", content: "A hard break  \nNext line\n" },
+      ],
+    });
+
+    fireEvent.click(
+      within(screen.getByTestId("copilot-assistant-toolbar")).getByRole(
+        "button",
+        { name: /copy/i },
+      ),
+    );
+    await waitFor(() =>
+      expect(mockWriteText).toHaveBeenCalledWith(
+        "    first line\n    second line\n\nA hard break  \nNext line\n",
+      ),
+    );
+  });
+
   it("copies a message once when the list holds it twice", async () => {
     // Streaming can deliver two copies of one message; the view shows one.
     renderView({
