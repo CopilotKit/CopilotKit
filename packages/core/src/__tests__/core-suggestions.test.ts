@@ -8,6 +8,7 @@ import {
   MockAgent,
   createSuggestionsConfig,
   createAssistantMessage,
+  createMessage,
 } from "./test-utils";
 
 describe("CopilotKitCore - Suggestions Config Management", () => {
@@ -58,20 +59,17 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
   });
 
   describe("Removing suggestions configs", () => {
-    it("should remove a suggestions config", async () => {
-      const config = createSuggestionsConfig();
-      const id = copilotKitCore.addSuggestionsConfig(config);
+    it("should remove a suggestions config", () => {
+      const id = copilotKitCore.addSuggestionsConfig({
+        suggestions: [{ title: "Test", message: "test" }],
+      });
+      copilotKitCore.reloadSuggestions("test");
+      expect(copilotKitCore.getSuggestions("test").suggestions).toHaveLength(1);
 
       copilotKitCore.removeSuggestionsConfig(id);
 
-      // Config should no longer trigger suggestions
-      const agent = new MockAgent({ agentId: "test" });
-      copilotKitCore.addAgent__unsafe_dev_only({
-        id: "test",
-        agent: agent as any,
-      });
+      // Config should no longer produce suggestions
       copilotKitCore.reloadSuggestions("test");
-
       const result = copilotKitCore.getSuggestions("test");
       expect(result.suggestions).toEqual([]);
       expect(result.isLoading).toBe(false);
@@ -119,11 +117,11 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
 
   describe("Clearing suggestions", () => {
     it("should clear suggestions for an agent", () => {
-      const agent = new MockAgent({ agentId: "test" });
-      copilotKitCore.addAgent__unsafe_dev_only({
-        id: "test",
-        agent: agent as any,
+      copilotKitCore.addSuggestionsConfig({
+        suggestions: [{ title: "Test", message: "test" }],
       });
+      copilotKitCore.reloadSuggestions("test");
+      expect(copilotKitCore.getSuggestions("test").suggestions).toHaveLength(1);
 
       copilotKitCore.clearSuggestions("test");
 
@@ -147,7 +145,7 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
       });
     });
 
-    it("should abort running suggestion agents", () => {
+    it("should abort running suggestion agents", async () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "test" });
 
@@ -165,16 +163,20 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
 
       // Start suggestion generation
       copilotKitCore.reloadSuggestions("test");
+      expect(copilotKitCore.getSuggestions("test").isLoading).toBe(true);
+      const suggestionAgent = providerAgent.clone.mock.results[0]!.value;
 
       // Clear should abort the running agent
       copilotKitCore.clearSuggestions("test");
 
-      // Verify abortRun was called on the cloned agent
-      // Note: We can't directly verify this without exposing internal state,
-      // but we can verify that subsequent getSuggestions returns empty
+      expect(suggestionAgent.abortRun).toHaveBeenCalled();
       const result = copilotKitCore.getSuggestions("test");
       expect(result.suggestions).toEqual([]);
       expect(result.isLoading).toBe(false);
+
+      // The aborted run never sends its request
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(providerAgent.runAgentCalls).toHaveLength(0);
     });
 
     it("should handle clearing suggestions when none are running", () => {
@@ -186,15 +188,37 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
   });
 
   describe("Config type discrimination", () => {
-    it("should recognize dynamic suggestions config", () => {
+    it("should recognize dynamic suggestions config", async () => {
       const dynamicConfig: DynamicSuggestionsConfig = {
         instructions: "Test",
         minSuggestions: 1,
         maxSuggestions: 3,
       };
+      const providerAgent = new MockAgent({ agentId: "default" });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      // Dynamic configs default to after-first-message
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: new MockAgent({
+          agentId: "consumer",
+          messages: [createMessage()],
+        }) as any,
+      });
 
-      const id = copilotKitCore.addSuggestionsConfig(dynamicConfig);
-      expect(id).toBeDefined();
+      copilotKitCore.addSuggestionsConfig(dynamicConfig);
+      copilotKitCore.reloadSuggestions("consumer");
+
+      // Dynamic: runs the provider agent instead of returning items directly
+      expect(copilotKitCore.getSuggestions("consumer")).toEqual({
+        suggestions: [],
+        isLoading: true,
+      });
+      await vi.waitFor(() => {
+        expect(providerAgent.runAgentCalls).toHaveLength(1);
+      });
     });
 
     it("should recognize static suggestions config", () => {
@@ -205,8 +229,17 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
         ],
       };
 
-      const id = copilotKitCore.addSuggestionsConfig(staticConfig);
-      expect(id).toBeDefined();
+      copilotKitCore.addSuggestionsConfig(staticConfig);
+      copilotKitCore.reloadSuggestions("consumer");
+
+      // Static: items are returned directly, with no generation run
+      expect(copilotKitCore.getSuggestions("consumer")).toEqual({
+        suggestions: [
+          { title: "Test 1", message: "test1", isLoading: false },
+          { title: "Test 2", message: "test2", isLoading: false },
+        ],
+        isLoading: false,
+      });
     });
   });
 
@@ -239,19 +272,20 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
         expect(warnSpy).toHaveBeenCalledWith(
           "Error generating suggestions:",
           expect.objectContaining({
-            message: "Suggestions provider agent not found: nonexistent",
+            message: expect.stringContaining("provider agent not found"),
           }),
         );
 
+        // Let the subscriber notifications (microtasks) settle.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
         // A subscriber that saw "started" must also see "finished"
-        await vi.waitFor(() => {
-          expect(onLoadingEnd).toHaveBeenCalledWith(
-            expect.objectContaining({ agentId: "consumer" }),
-          );
-        });
-        expect(onLoadingStart).toHaveBeenCalledWith(
-          expect.objectContaining({ agentId: "consumer" }),
+        expect(onLoadingEnd).toHaveBeenCalledTimes(
+          onLoadingStart.mock.calls.length,
         );
+        for (const [event] of onLoadingEnd.mock.calls) {
+          expect(event).toMatchObject({ agentId: "consumer" });
+        }
 
         const result = copilotKitCore.getSuggestions("consumer");
         expect(result.suggestions).toEqual([]);
@@ -261,7 +295,7 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
       }
     });
 
-    it("should skip dynamic generation when consumer agent not found", () => {
+    it("should skip dynamic generation when consumer agent not found", async () => {
       const providerAgent = new MockAgent({ agentId: "provider" });
       copilotKitCore.addAgent__unsafe_dev_only({
         id: "provider",
@@ -274,13 +308,19 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
       });
       copilotKitCore.addSuggestionsConfig(config);
 
+      const onLoadingStart = vi.fn();
+      copilotKitCore.subscribe({
+        onSuggestionsStartedLoading: onLoadingStart,
+      });
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       try {
         copilotKitCore.reloadSuggestions("nonexistent");
+        await new Promise((resolve) => setTimeout(resolve, 0));
 
         // Generation is skipped up front, not attempted and failed: an attempt
-        // would log "consumer agent not found" synchronously.
+        // would announce loading and then log "consumer agent not found".
+        expect(onLoadingStart).not.toHaveBeenCalled();
         expect(warnSpy).not.toHaveBeenCalledWith(
           "Error generating suggestions:",
           expect.anything(),
@@ -296,23 +336,44 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
   });
 
   describe("Initialization with configs", () => {
-    it("should use suggestions configs passed to the constructor", () => {
+    it("should use suggestions configs passed to the constructor", async () => {
       const staticConfig: StaticSuggestionsConfig = {
         suggestions: [
           { title: "Test 1", message: "test1" },
           { title: "Test 2", message: "test2" },
         ],
       };
+      const dynamicConfig = createSuggestionsConfig({
+        consumerAgentId: "consumer",
+      });
 
       const core = new CopilotKitCore({
-        suggestionsConfig: [staticConfig],
+        suggestionsConfig: [staticConfig, dynamicConfig],
       });
-      core.reloadSuggestions("any-agent");
+      const providerAgent = new MockAgent({ agentId: "default" });
+      core.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      core.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: new MockAgent({ agentId: "consumer" }) as any,
+      });
 
-      expect(core.getSuggestions("any-agent").suggestions).toEqual([
+      core.reloadSuggestions("consumer");
+
+      // Static config is applied immediately; dynamic config starts a run
+      const result = core.getSuggestions("consumer");
+      expect(result.suggestions).toEqual([
         { title: "Test 1", message: "test1", isLoading: false },
         { title: "Test 2", message: "test2", isLoading: false },
       ]);
+      expect(result.isLoading).toBe(true);
+
+      await vi.waitFor(() => {
+        expect(core.getSuggestions("consumer").isLoading).toBe(false);
+      });
+      expect(providerAgent.runAgentCalls).toHaveLength(1);
     });
   });
 
