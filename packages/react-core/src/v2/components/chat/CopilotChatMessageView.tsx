@@ -516,6 +516,20 @@ export type CopilotChatMessageViewProps = Omit<
 // worth it and the simpler flat render is faster.
 const VIRTUALIZE_THRESHOLD = 50;
 
+/** Per-thread state for message groups; see `groupStore` in the view. */
+function createGroupStore(threadId: string | undefined) {
+  return {
+    threadId,
+    state: new Map<string, unknown>(),
+    setters: new Map<string, (next: unknown) => void>(),
+  };
+}
+
+/** Per-thread row measurements; see `measured` in the view. */
+function createMeasurementStore(firstMessageId: string | undefined) {
+  return { firstMessageId, total: 0, sizes: new Map<number, number>() };
+}
+
 export function CopilotChatMessageView({
   messages = [],
   assistantMessage,
@@ -703,16 +717,17 @@ export function CopilotChatMessageView({
   // when the thread changes; pruned to the groups still on the list. One
   // setter per group, kept with its state, so a wrapper that depends on
   // `setState` in an effect or memo sees the same function every render.
-  // Derived from the thread id, so the render that switches threads already
-  // reads the new thread's (empty) store.
-  const groupStore = useMemo(
-    () => ({
-      threadId: config?.threadId,
-      state: new Map<string, unknown>(),
-      setters: new Map<string, (next: unknown) => void>(),
-    }),
-    [config?.threadId],
+  // Kept in state (not a memo) so Fast Refresh doesn't wipe it, and replaced
+  // during the render that switches threads, so that render already reads the
+  // new thread's (empty) store.
+  const [committedGroupStore, setGroupStore] = useState(() =>
+    createGroupStore(config?.threadId),
   );
+  let groupStore = committedGroupStore;
+  if (groupStore.threadId !== config?.threadId) {
+    groupStore = createGroupStore(config?.threadId);
+    setGroupStore(groupStore);
+  }
   const groupSetter = (key: string): ((next: unknown) => void) => {
     let setter = groupStore.setters.get(key);
     if (!setter) {
@@ -883,15 +898,16 @@ export function CopilotChatMessageView({
   // render — resetting in the effect would discard the new thread's first
   // measurements instead of the old thread's. Read from the untransformed
   // list: a transform that hides or reorders the head is not a thread change.
+  // Kept in state (not a memo) so Fast Refresh doesn't reset it.
   const firstMessageId = deduplicatedMessages[0]?.id;
-  const measured = useMemo(
-    () => ({
-      firstMessageId,
-      total: 0,
-      sizes: new Map<number, number>(),
-    }),
-    [firstMessageId],
+  const [committedMeasured, setMeasured] = useState(() =>
+    createMeasurementStore(firstMessageId),
   );
+  let measured = committedMeasured;
+  if (measured.firstMessageId !== firstMessageId) {
+    measured = createMeasurementStore(firstMessageId);
+    setMeasured(measured);
+  }
 
   const estimateRowSize = React.useCallback(() => {
     const { total, sizes } = measured;
