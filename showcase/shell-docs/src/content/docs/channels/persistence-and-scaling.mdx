@@ -50,7 +50,7 @@ const workflowState = z.object({
 });
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: required("INTELLIGENCE_CHANNEL_NAME"),
   identifyUser: "platform",
   agent: makeAgent,
   store: {
@@ -86,7 +86,7 @@ const workflowState = z.object({
 });
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: required("INTELLIGENCE_CHANNEL_NAME"),
   identifyUser: "platform",
   agent: makeAgent,
   store: {
@@ -167,7 +167,7 @@ A callback survives only when both conditions are true:
 
 ```tsx title="channel.tsx"
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: required("INTELLIGENCE_CHANNEL_NAME"),
   identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
@@ -181,7 +181,7 @@ const channel = createChannel({
 
 ```tsx title="channel.tsx"
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: required("INTELLIGENCE_CHANNEL_NAME"),
   identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],

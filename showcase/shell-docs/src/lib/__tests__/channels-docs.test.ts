@@ -47,7 +47,7 @@ it("keeps required environment reads self-contained in provider snippets", () =>
         expect(block, `${slug} ${frontend} required helper`).toContain(
           "function required(name: string): string",
         );
-        expect(block).toContain('required("CHANNEL_CODE")');
+        expect(block).toContain('required("INTELLIGENCE_CHANNEL_NAME")');
       }
     }
   }
