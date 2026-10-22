@@ -215,6 +215,25 @@ describe("CopilotKitCore - stopAgent is scoped to one agent", () => {
     expect(secondAborted).toBe(true);
     expect(agent.abortRun).toBe(originalAbortRun);
   });
+
+  it("two runs started in the same tick on one agent install the abortRun intercept once", async () => {
+    const { core, agent, release, entered, signals } = sameAgentSetup();
+    const originalAbortRun = agent.abortRun;
+
+    const firstRun = core.runAgent({ agent: agent as any });
+    const secondRun = core.runAgent({ agent: agent as any });
+    await Promise.all([entered.first.promise, entered.second.promise]);
+
+    (agent as any).abortRun();
+    const aborted = [signals.first!.aborted, signals.second!.aborted];
+    release.first.resolve();
+    release.second.resolve();
+    await Promise.all([firstRun, secondRun]);
+
+    expect(aborted).toEqual([true, true]);
+    expect(originalAbortRun).toHaveBeenCalledTimes(1);
+    expect(agent.abortRun).toBe(originalAbortRun);
+  });
 });
 
 /** One agent whose first run calls `first` and whose second run calls `second`. */

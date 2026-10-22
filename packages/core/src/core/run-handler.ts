@@ -749,8 +749,11 @@ export class RunHandler {
 
     // Set up abort controller and agent.abortRun() intercept only for the
     // top-level call. Recursive follow-up calls from processAgentResult
-    // reuse the same controller.
+    // reuse the same controller. The depth is claimed in the same synchronous
+    // step as the top-level decision, so two runs started in one tick cannot
+    // both see depth 0 across the await below.
     const isTopLevel = (this._runDepths.get(agent) ?? 0) === 0;
+    this._runDepths.set(agent, (this._runDepths.get(agent) ?? 0) + 1);
     const controller = isTopLevel ? new AbortController() : undefined;
 
     if (controller) {
@@ -765,25 +768,25 @@ export class RunHandler {
         controller.abort();
         originalAbortRun.call(agent);
       };
-
-      // Notify subscribers (e.g. the inspector) about the agent that is about
-      // to run. Per-thread clones are not in the agent registry, so
-      // onAgentsChanged never fires for them and they would otherwise be
-      // invisible to subscribers. Fired once per top-level run; recursive
-      // follow-up runs reuse the same instance and need no re-notification.
-      await this._internal.notifySubscribers(
-        (subscriber) =>
-          subscriber.onAgentRunStarted?.({
-            copilotkit: this.core,
-            agent,
-          }),
-        "Subscriber onAgentRunStarted error:",
-      );
     }
 
-    this._runDepths.set(agent, (this._runDepths.get(agent) ?? 0) + 1);
-
     try {
+      if (controller) {
+        // Notify subscribers (e.g. the inspector) about the agent that is
+        // about to run. Per-thread clones are not in the agent registry, so
+        // onAgentsChanged never fires for them and they would otherwise be
+        // invisible to subscribers. Fired once per top-level run; recursive
+        // follow-up runs reuse the same instance and need no re-notification.
+        await this._internal.notifySubscribers(
+          (subscriber) =>
+            subscriber.onAgentRunStarted?.({
+              copilotkit: this.core,
+              agent,
+            }),
+          "Subscriber onAgentRunStarted error:",
+        );
+      }
+
       let logicalRunId = resumedRunId ?? runId;
       const agentSubscriber = this.createAgentErrorSubscriber(agent);
       let started = false;
