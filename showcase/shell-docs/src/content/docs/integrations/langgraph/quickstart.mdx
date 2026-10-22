@@ -78,7 +78,13 @@ An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zo
             <Step>
                 ### Configure your environment
 
-                Create a `.env` file in your agent directory and add your OpenAI API key:
+                Copy the example file in the project root. The agent reads this file too, because its `langgraph.json` points at `../.env`.
+
+                ```bash
+                cp .env.example .env
+                ```
+
+                Then add your OpenAI API key to `.env`:
 
                 ```plaintext title=".env"
                 OPENAI_API_KEY=your_openai_api_key
@@ -86,8 +92,17 @@ An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zo
 
                 <ApiKeyHint provider="openai" />
 
-                <Callout type="info" title="What about other models?">
-                  The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangGraph.
+                <Callout type="info" title="Using Anthropic or Google instead">
+                  Both starters (Python and JavaScript) read the model from `COPILOTKIT_AGENT_MODEL` as `<provider>:<model>`. The provider is `openai`, `anthropic` or `google`. The starters already install the Anthropic and Google model packages, so you do not change any code. To use Claude, set these two values in `.env`:
+
+                  ```plaintext title=".env"
+                  ANTHROPIC_API_KEY=your_anthropic_api_key
+                  COPILOTKIT_AGENT_MODEL=anthropic:claude-sonnet-4-6
+                  ```
+
+                  <ApiKeyHint provider="anthropic" />
+
+                  For Google, set `GOOGLE_API_KEY` and use `google:<model>`. `COPILOTKIT_AGENT_MODEL` applies to every model call in the agent.
                 </Callout>
             </Step>
             <Step>
