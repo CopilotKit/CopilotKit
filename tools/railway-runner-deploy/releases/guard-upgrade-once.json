@@ -1,0 +1,67 @@
+{
+  "sourceRevision": "42840d929699af60cddd9ddee9b65aa4e8cb9e81",
+  "build": {
+    "runId": 39870814023,
+    "runAttempt": 1,
+    "workflowPath": ".github/workflows/intelligence-rich-threads-build.yml",
+    "workflowSha256": "4337e0e43f7598ff19171ad3a73a250e404e7a8e138ae149cb30e75bda6224bf",
+    "artifactId": 12466158169,
+    "artifactSha256": "fbcda50627648eca2f51f5ead45b616c81d4e2dc2ebcb502390a6b6c0db3692b"
+  },
+  "baseline": {
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:1b575e602c42ae3b66a176e7a1e22fffca22cd4c45e905c46fe693df5261a4ac",
+    "runtimeIdentity": {
+      "protocolVersion": 1,
+      "sourceRevision": "3265f81e51702394b2cc1a215d113889eb83e07c",
+      "sourceManifestSha256": "5b49e8555774bee950010ecbaea34236f95b07de16e2c622e51f5a49c7340d24",
+      "compatibilitySha256": "7d1c438cea161631ac6848acfc34cc1ab990294267b9a7b8bf4c354d8bcc6e60",
+      "policySha256": "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751"
+    }
+  },
+  "removalBaseline": {
+    "deploymentId": "d47318f1-314b-4ed5-a448-2f983248798e",
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:1b575e602c42ae3b66a176e7a1e22fffca22cd4c45e905c46fe693df5261a4ac"
+  },
+  "inspector": "ghcr.io/copilotkit/rich-thread-inspector@sha256:1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71",
+  "baselineTemplateSha256": "020fbeb669a5a0fa0d3da5f120348770721a2c2f9c4e997bccae01792c6a8020",
+  "targetTemplateSha256": "020fbeb669a5a0fa0d3da5f120348770721a2c2f9c4e997bccae01792c6a8020",
+  "recoveryBindingSha256": "e58f5ea6d3b660085649f4fd136af40bea9bcab633c16dadcf89bfad75115bc4",
+  "watches": [
+    {
+      "operationId": "github-655515393-39238052933",
+      "lifecycleRunId": "rich-f091f87b-e90b-4dd1-bef2-6ae873a774a3",
+      "runnerRunId": "run-7d05705a-0b83-4cdb-9d32-9f054ae24d11",
+      "oldJournalSha256": "7e9f0ef079ce1c504d6614623413f95ac2908bef009b33a77aec1fbad4d17025",
+      "originalStatus": "failed",
+      "deadlineExceeded": true
+    },
+    {
+      "operationId": "github-655515393-39540863388",
+      "lifecycleRunId": "rich-f6c38ef4-145e-44d0-8075-1e56e5818fe5",
+      "runnerRunId": "run-7d2602d4-8b10-40b9-aaff-3c6a0029afad",
+      "oldJournalSha256": "08ee202932fdea2f560787d52ba269ea377fe55c0aec931244163ce795b0f548",
+      "originalStatus": "failed",
+      "deadlineExceeded": true
+    }
+  ],
+  "candidate": {
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:e98b7b1285ceae52b9f7b61a271cbb34b94018c6c3c3cb57ddb8eacf20d1a5ef",
+    "runtimeIdentity": {
+      "protocolVersion": 1,
+      "sourceRevision": "42840d929699af60cddd9ddee9b65aa4e8cb9e81",
+      "sourceManifestSha256": "4b7684939cc918232738b54d88a18f413dcb6adcc9111b914c45c6f88fce8db4",
+      "compatibilitySha256": "c34013ee8f659d85655a85730ac3a5f8d9a3b1bce2edd1830cd0c26d7a7cc737",
+      "policySha256": "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751"
+    }
+  },
+  "priorVerifiedDeploymentId": "d47318f1-314b-4ed5-a448-2f983248798e",
+  "volumeRecovery": {
+    "version": 1,
+    "kind": "redis-volume-create-retained-watch",
+    "decision": "operator-2026-10-22-one-time-recovery",
+    "journalBindingSha256": "9a24a37b865907317c665ceae11b76c50695cf440556915b58c2e2405f9f461e",
+    "intentSha256": "2cdda05ef2c2c19d6cf438322f2bbc5c746b8a941d19cdddf1d4b39311423fbd",
+    "leaseSha256": "27590b62cbbf213ad0c6652f70d3d1c0611eab34edd968e5460834e47d80f485",
+    "originalReceiptSha256": "294e9ebe05ceb653acc7fb91c62334d3ffeb4789614d9e4a629544c01e96d6a3"
+  }
+}
