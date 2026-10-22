@@ -85,6 +85,21 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
+  it("does not create a sandbox once its container has left the document", async () => {
+    // React removes the DOM before running effect cleanups. If the websandbox
+    // import resolves in that gap, the container is detached but the effect
+    // isn't cancelled yet; creating a sandbox there throws on contentWindow.
+    const { container } = renderRenderer({
+      html: ["<head></head><body><div>Hi</div></body>"],
+      htmlComplete: true,
+    });
+    container.remove();
+
+    await flushImport();
+
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
   it("creates sandbox when html is complete", async () => {
     const html = "<head></head><body><p>Hello</p></body>";
     renderRenderer({ html: [html], htmlComplete: true });
@@ -653,6 +668,197 @@ describe("OpenGenerativeUIActivityRenderer", () => {
 
       // No preview — only head content, no body
       expect(mockCreate).not.toHaveBeenCalled();
+    });
+
+    it("throttles content updates: the latest content lands 1s after the first change, not after the last", () => {
+      vi.useFakeTimers();
+      try {
+        const { container, rerender } = render(
+          <OpenGenerativeUIActivityRenderer
+            activityType="open-generative-ui"
+            content={{ initialHeight: 100 }}
+            message={{}}
+            agent={{}}
+          />,
+        );
+        const rerenderWith = (content: OpenGenerativeUIContent) =>
+          rerender(
+            <OpenGenerativeUIActivityRenderer
+              activityType="open-generative-ui"
+              content={content}
+              message={{}}
+              agent={{}}
+            />,
+          );
+        const height = () =>
+          (container.firstElementChild as HTMLElement).style.height;
+
+        expect(height()).toBe("100px");
+
+        rerenderWith({ initialHeight: 200 });
+        expect(height()).toBe("100px");
+
+        act(() => {
+          vi.advanceTimersByTime(600);
+        });
+        // A second change inside the window must not restart it.
+        rerenderWith({ initialHeight: 300 });
+        expect(height()).toBe("100px");
+
+        act(() => {
+          vi.advanceTimersByTime(399);
+        });
+        expect(height()).toBe("100px");
+
+        act(() => {
+          vi.advanceTimersByTime(1);
+        });
+        expect(height()).toBe("300px");
+
+        // The next change opens a fresh window.
+        rerenderWith({ initialHeight: 400 });
+        act(() => {
+          vi.advanceTimersByTime(999);
+        });
+        expect(height()).toBe("300px");
+        act(() => {
+          vi.advanceTimersByTime(1);
+        });
+        expect(height()).toBe("400px");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("an immediate flush applies at once and cancels the pending throttled flush", () => {
+      vi.useFakeTimers();
+      try {
+        const { container, rerender } = render(
+          <OpenGenerativeUIActivityRenderer
+            activityType="open-generative-ui"
+            content={{ initialHeight: 100 }}
+            message={{}}
+            agent={{}}
+          />,
+        );
+        const rerenderWith = (content: OpenGenerativeUIContent) =>
+          rerender(
+            <OpenGenerativeUIActivityRenderer
+              activityType="open-generative-ui"
+              content={content}
+              message={{}}
+              agent={{}}
+            />,
+          );
+        const height = () =>
+          (container.firstElementChild as HTMLElement).style.height;
+
+        // Opens a throttle window that would flush at t=1000.
+        rerenderWith({ initialHeight: 200 });
+        act(() => {
+          vi.advanceTimersByTime(500);
+        });
+
+        // jsExpressions grew → flushed in the same render, no waiting.
+        rerenderWith({ initialHeight: 300, jsExpressions: ["a()"] });
+        expect(height()).toBe("300px");
+
+        act(() => {
+          vi.advanceTimersByTime(300);
+        });
+        // Not an immediate change, so it needs a window of its own.
+        rerenderWith({ initialHeight: 400, jsExpressions: ["a()"] });
+
+        // t=1000: the window opened at t=0 was cancelled by the flush.
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        expect(height()).toBe("300px");
+
+        // t=1800: the window opened at t=800 flushes.
+        act(() => {
+          vi.advanceTimersByTime(799);
+        });
+        expect(height()).toBe("300px");
+        act(() => {
+          vi.advanceTimersByTime(1);
+        });
+        expect(height()).toBe("400px");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("clears a pending throttled flush on unmount", () => {
+      vi.useFakeTimers();
+      try {
+        const { rerender, unmount } = render(
+          <OpenGenerativeUIActivityRenderer
+            activityType="open-generative-ui"
+            content={{ initialHeight: 100 }}
+            message={{}}
+            agent={{}}
+          />,
+        );
+        rerender(
+          <OpenGenerativeUIActivityRenderer
+            activityType="open-generative-ui"
+            content={{ initialHeight: 200 }}
+            message={{}}
+            agent={{}}
+          />,
+        );
+        const pendingBeforeUnmount = vi.getTimerCount();
+        expect(pendingBeforeUnmount).toBeGreaterThanOrEqual(1);
+
+        unmount();
+        expect(vi.getTimerCount()).toBe(pendingBeforeUnmount - 1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("re-arms the throttle when its flush and a new content change land in one render", () => {
+      vi.useFakeTimers();
+      try {
+        const { container, rerender } = render(
+          <OpenGenerativeUIActivityRenderer
+            activityType="open-generative-ui"
+            content={{ initialHeight: 100 }}
+            message={{}}
+            agent={{}}
+          />,
+        );
+        const rerenderWith = (content: OpenGenerativeUIContent) =>
+          rerender(
+            <OpenGenerativeUIActivityRenderer
+              activityType="open-generative-ui"
+              content={content}
+              message={{}}
+              agent={{}}
+            />,
+          );
+        const height = () =>
+          (container.firstElementChild as HTMLElement).style.height;
+
+        rerenderWith({ initialHeight: 200 });
+
+        // The window's flush (to 200) and the next change (to 300) are batched
+        // into a single render, so the content is still stale afterwards.
+        act(() => {
+          vi.advanceTimersByTime(1000);
+          rerenderWith({ initialHeight: 300 });
+        });
+        expect(height()).toBe("200px");
+
+        // A new window must open for 300; otherwise it would never land.
+        act(() => {
+          vi.advanceTimersByTime(1000);
+        });
+        expect(height()).toBe("300px");
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("skips preview entirely for fast completion", async () => {

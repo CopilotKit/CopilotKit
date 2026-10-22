@@ -3,6 +3,7 @@ import * as React from "react";
 import type { CopilotKitCore } from "@copilotkit/core";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
 import type { CopilotKitInspectorOpenRequest } from "./CopilotKitInspectorContext";
+import { useLatestRef } from "../lib/use-latest-ref";
 
 export interface CopilotKitInspectorProps {
   core?: CopilotKitCore | null;
@@ -17,14 +18,11 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
 }) => {
   const mountRef = React.useRef<HTMLSpanElement | null>(null);
   const inspectorRef = React.useRef<WebInspectorElement | null>(null);
-  const latestCoreRef = React.useRef(core ?? null);
-  const latestOpenRequestRef = React.useRef(openRequest);
-
-  const visibilityCallbackRef = React.useRef(onVisibilityChange);
-  visibilityCallbackRef.current = onVisibilityChange;
-
-  latestCoreRef.current = core ?? null;
-  latestOpenRequestRef.current = openRequest;
+  // Latest props for the lazy-load callback, the visibility listener and the
+  // unmount cleanup below; none of them reads these during render.
+  const latestCoreRef = useLatestRef(core ?? null);
+  const latestOpenRequestRef = useLatestRef(openRequest);
+  const visibilityCallbackRef = useLatestRef(onVisibilityChange);
 
   React.useEffect(() => {
     let mounted = true;
@@ -79,7 +77,8 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
         inspectorRef.current = null;
       }
     };
-  }, []);
+    // The refs are stable, so this still runs once per mount.
+  }, [latestCoreRef, latestOpenRequestRef, visibilityCallbackRef]);
 
   React.useEffect(() => {
     if (inspectorRef.current) {

@@ -238,6 +238,52 @@ describe("A2UIMessageRenderer rendering integration", () => {
       expect(container.querySelector("[data-surface-id='s2']")).not.toBeNull();
     });
   });
+
+  it("keeps showing the last pre-paint state while the surface is still painting", async () => {
+    const RenderComponent = createA2UIMessageRenderer({ theme: {} as Theme })
+      .render as React.FC<any>;
+
+    const { container, rerender } = render(
+      <RenderComponent
+        content={{ status: "retrying", attempt: 3, maxAttempts: 3 }}
+        agent={null}
+      />,
+    );
+    expect(container.textContent).toContain(
+      "Retrying generation… (3/3 attempts)",
+    );
+
+    // Operations arrive, but nothing renderable yet (no updateComponents), so
+    // the surface never reports ready and the loader stays up.
+    rerender(
+      <RenderComponent
+        content={{
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: {
+                surfaceId: "pending",
+                catalogId:
+                  "https://a2ui.org/specification/v0_9/basic_catalog.json",
+              },
+            },
+          ],
+        }}
+        agent={null}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-surface-id='pending']"),
+      ).not.toBeNull();
+    });
+    // The hand-off shows the retry state it replaced, not a generic skeleton.
+    expect(container.textContent).toContain(
+      "Retrying generation… (3/3 attempts)",
+    );
+    expect(container.textContent).not.toContain("Building interface");
+  });
 });
 
 describe("runA2UIAction onAction interceptor", () => {
