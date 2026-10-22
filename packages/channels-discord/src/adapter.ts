@@ -155,6 +155,9 @@ export class DiscordAdapter implements PlatformAdapter {
       new Client({
         intents: [...DISCORD_DEFAULT_INTENTS],
         partials: [...DISCORD_DEFAULT_PARTIALS],
+        // Agent output is untrusted text: never let it ping @everyone/@here or
+        // roles. Plain user mentions still notify.
+        allowedMentions: { parse: ["users"], repliedUser: true },
       });
     this.rest =
       injected?.rest ??

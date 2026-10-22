@@ -431,4 +431,14 @@ describe("DiscordAdapter", () => {
       expect.objectContaining({ name: "agent", description: "x" }),
     ]);
   });
+  it("never lets agent output ping @everyone, @here or roles", () => {
+    const a = new DiscordAdapter({ botToken: "t" } as never);
+    const opts = (
+      a as unknown as { client: { options: Record<string, unknown> } }
+    ).client.options;
+    expect(opts.allowedMentions).toEqual({
+      parse: ["users"],
+      repliedUser: true,
+    });
+  });
 });
