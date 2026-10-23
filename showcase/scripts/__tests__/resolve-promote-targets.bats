@@ -439,3 +439,24 @@ run_resolve_hold() {
   [ "$status" -ne 0 ] || fail "expected non-zero exit for a multi-line digest, got $status: $output"
   [ ! -s "$GITHUB_OUTPUT" ] || fail "nothing may be emitted: $(cat "$GITHUB_OUTPUT")"
 }
+
+# --- step summary names the ACTUAL mutation plan (review finding on #7955) --
+# The workflow promotes from closure_plan (promote-fleet.sh prefers it), so the
+# summary must say the filtered tiered closure is what this run mutates — not
+# the leaf — list the requested leaves separately, and list held services.
+
+@test "summary: requested leaves listed separately; filtered closure labeled as the actual mutation plan; held listed" {
+  run_resolve_hold "agent-a" "harness"
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run cat "$GITHUB_STEP_SUMMARY"
+  [[ "$output" == *'**Requested service(s)**: `agent-a`'* ]] \
+    || fail "summary must list the requested leaf separately: $output"
+  [[ "$output" == *"**Mutation plan** (what this run ACTUALLY promotes in prod, in tier order"* ]] \
+    || fail "summary must label the filtered closure as the actual mutation plan: $output"
+  [[ "$output" == *'| 1 | tier 0 | `aimock` |'* && "$output" == *'| 4 | tier 2 | `agent-a` |'* ]] \
+    || fail "mutation plan table must list the filtered closure: $output"
+  [[ "$output" != *'| `harness` |'* ]] || fail "held harness must not be in the mutation plan table: $output"
+  [[ "$output" == *"**Held, unchanged**"*'- `harness`'* ]] || fail "summary must list harness as held: $output"
+  [[ "$output" != *"what actually promotes now"* ]] || fail "stale leaf-only wording still present: $output"
+  [[ "$output" != *"surfaced for the equivalence gate"* ]] || fail "stale equivalence-only caption still present: $output"
+}

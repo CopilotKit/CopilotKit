@@ -309,16 +309,17 @@ fi
 # ---------------------------------------------------------------------------
 # 3. Surface the closure plan + skips into the step summary (operators SEE it).
 # ---------------------------------------------------------------------------
-# Phase-1 note for the operator: the closure is INFORMATIONAL here; the actual
-# promote still runs the leaf set (services_csv). U4 will enforce tier ordering
-# and dependent-gating off this same closure.
+# The promote job runs promote-fleet.sh with CLOSURE_PLAN, which it prefers over
+# services_csv, so the filtered tiered closure IS the mutation plan: every
+# service in it is promoted in prod, by tier. The requested leaves are listed
+# separately so the operator can see what the closure pulled in on top of them.
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
   {
     echo "### Promote closure (\`$INPUT\`)"
     echo ""
-    echo "**Leaf promote set** (Phase 1 — what actually promotes now): \`$CSV\`"
+    echo "**Requested service(s)**: \`$CSV\`"
     echo ""
-    echo "**Tiered closure** (transitive deps ∪ Tier-1 verification — surfaced for the equivalence gate; U4 promotes by tier):"
+    echo "**Mutation plan** (what this run ACTUALLY promotes in prod, in tier order: the requested service(s) ∪ transitive deps ∪ Tier-1 verification, minus held services):"
     echo ""
     echo "| order | tier | service |"
     echo "| ----- | ---- | ------- |"
