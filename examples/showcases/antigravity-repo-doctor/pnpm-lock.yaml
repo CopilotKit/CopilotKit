@@ -29,9 +29,6 @@ importers:
       clsx:
         specifier: 2.1.1
         version: 2.1.1
-      hono:
-        specifier: 4.13.13
-        version: 4.13.13
       lucide-react:
         specifier: 1.57.0
         version: 1.57.0(@types/react@19.3.0)(react@19.3.1)

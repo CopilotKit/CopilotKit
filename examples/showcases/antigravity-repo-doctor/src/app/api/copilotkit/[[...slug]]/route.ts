@@ -3,9 +3,8 @@ import {
   CopilotKitIntelligence,
   CopilotRuntime,
   InMemoryAgentRunner,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
-import { handle } from "hono/vercel";
 import { AGENT_ID } from "@/lib/agent-id";
 import { serverEnv } from "@/lib/env";
 import { userFromCookieHeader } from "@/lib/user";
@@ -51,9 +50,12 @@ const runtime = new CopilotRuntime({
     : { runner: new InMemoryAgentRunner() }),
 });
 
-const app = createCopilotEndpoint({ runtime, basePath: "/api/copilotkit" });
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 
-export const GET = handle(app);
-export const POST = handle(app);
-export const PATCH = handle(app);
-export const DELETE = handle(app);
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;

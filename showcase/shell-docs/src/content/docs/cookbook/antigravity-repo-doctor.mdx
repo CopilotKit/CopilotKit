@@ -7,7 +7,7 @@ doc_type: how-to
 agentPrompt: |
   Add the Repo Doctor pattern described in the walkthrough linked below to my existing CopilotKit app: a Python agent on Google Antigravity, served with the Antigravity AG-UI SDK (`ag-ui-antigravity`), that asks before risky tools run and shows its work in the chat. Build only what the walkthrough builds, and copy the helper files it links from the example. Don't add another agent framework, and don't make the agent push to GitHub.
 
-  1. Create the web app. Add `@copilotkit/react-core@1.79.0`, `@copilotkit/runtime@1.79.0`, `@copilotkit/a2ui-renderer@1.79.0`, `@ag-ui/client@1.0.2`, `hono@4.13.13` and `zod@3.25.76` to my Next.js app with pnpm. Wrap the app in `<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog }} enableInspector={process.env.NODE_ENV === "development"}>` and render `<CopilotChat agentId=... />`.
+  1. Create the web app. Add `@copilotkit/react-core@1.79.0`, `@copilotkit/runtime@1.79.0`, `@copilotkit/a2ui-renderer@1.79.0`, `@ag-ui/client@1.0.2` and `zod@3.25.76` to my Next.js app with pnpm. Wrap the app in `<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog }} enableInspector={process.env.NODE_ENV === "development"}>` and render `<CopilotChat agentId=... />`.
   2. Create the agent. Run `uv init --package` in `agent/` and `uv add ag-ui-antigravity==0.2.1 google-antigravity==0.1.22 ag-ui-protocol==1.0.0 fastapi uvicorn[standard] pydantic pydantic-settings`. Create it with `AntigravityAgent` from `ag_ui_antigravity`: a Gemini `model`, `system_instructions`, `capabilities=CapabilitiesConfig(enabled_tools=[...])` with only the built-ins you need (always keep `BuiltinTools.FINISH`), `workspaces=[<a short absolute path>]`, `tool_approval=True`, and `auto_approve_tools` for the read-only tools. Serve it with `create_antigravity_app(agent, path="/")` on 127.0.0.1:8000. Put `GEMINI_API_KEY`, `GITHUB_TOKEN` and `AGENT_URL` in `.env` and ask me for the Gemini key.
   3. Connect the runtime. In my CopilotKit runtime route, add an `HttpAgent` from `@ag-ui/client` pointed at `AGENT_URL`, and add `a2ui: { injectA2UITool: false }` to `new CopilotRuntime(...)`. Start both servers and check that the agent answers "hello".
   4. Give the agent its CI tools: plain async functions with docstrings, returned from `build_tools(workspace, settings)` and bound to one folder: `clone_repo`, `ci_status`, `install_dependencies`, `run_tests`, `run_check`, `show_diff` and `git_push` (pushes only to a local bare repository, never to GitHub). Tools record their results with `experimental_set_state` from `ag_ui_antigravity`.
@@ -118,11 +118,11 @@ in `agent/`. Start with the Next.js app and the CopilotKit packages, at the vers
 ```bash
 pnpm create next-app@16.4.1 repo-doctor --yes
 cd repo-doctor
-pnpm add @copilotkit/react-core@1.79.0 @copilotkit/runtime@1.79.0 @copilotkit/a2ui-renderer@1.79.0 @ag-ui/client@1.0.2 hono@4.13.13 zod@3.25.76
+pnpm add @copilotkit/react-core@1.79.0 @copilotkit/runtime@1.79.0 @copilotkit/a2ui-renderer@1.79.0 @ag-ui/client@1.0.2 zod@3.25.76
 ```
 
-`@copilotkit/a2ui-renderer` draws the test results card, `@ag-ui/client` connects the runtime to the Python agent,
-and `hono` serves the runtime route. The A2UI catalog needs zod 3, so `zod` stays on 3.25.76.
+`@copilotkit/a2ui-renderer` draws the test results card, and `@ag-ui/client` connects the runtime to the Python agent.
+The A2UI catalog needs zod 3, so `zod` stays on 3.25.76.
 
 The provider wraps the app. It points at the runtime route, registers the A2UI catalog for the test results card
 (you'll build it in a later step), and turns on the CopilotKit Inspector in development:
@@ -283,9 +283,8 @@ and the `a2ui` option turns on the A2UI middleware, which passes the agent's tes
 import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
-import { handle } from "hono/vercel";
 // ...
 
 const agent = new HttpAgent({ url: env.AGENT_URL }); // [!code highlight]
@@ -296,12 +295,15 @@ const runtime = new CopilotRuntime({
   // ...
 });
 
-const app = createCopilotEndpoint({ runtime, basePath: "/api/copilotkit" });
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 
-export const GET = handle(app);
-export const POST = handle(app);
-export const PATCH = handle(app);
-export const DELETE = handle(app);
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
 ```
 
 The harness calls Gemini, so the runtime never calls a model itself. `injectA2UITool: false` tells the runtime that
