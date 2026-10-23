@@ -25,6 +25,12 @@ function labelLines(container: HTMLElement) {
   );
 }
 
+function categoryLabels(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll(".recharts-yAxis-tick-labels text"),
+  );
+}
+
 beforeEach(() => {
   // Recharts measures its responsive container; jsdom has no layout engine.
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(
@@ -144,3 +150,51 @@ describe.each(["donut", "pie"] as const)(
     });
   },
 );
+
+describe("Chart horizontal bar labels", () => {
+  const regions = [
+    "North",
+    "South",
+    "East",
+    "West",
+    "Central",
+    "Northern Europe and Scandinavia",
+  ];
+
+  it("names every bar on one line and shortens long labels", async () => {
+    const { container } = render(
+      <Chart
+        chartType="bar"
+        layout="horizontal"
+        data={regions.map((region, index) => ({ region, sales: index + 1 }))}
+        xKey="region"
+        series={["sales"]}
+        yAxis={{ label: "Sales" }}
+        showLegend={false}
+        showTooltip={false}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(categoryLabels(container)).toHaveLength(regions.length);
+    });
+    const labels = categoryLabels(container);
+    // The full text stays available as a tooltip.
+    expect(
+      labels.map((label) => label.querySelector("title")?.textContent),
+    ).toEqual(regions);
+    const shown = labels.map((label) => label.lastChild?.textContent ?? "");
+    expect(shown.slice(0, -1)).toEqual(regions.slice(0, -1));
+    // The axis widens for the long label, so it keeps "Northern Europe".
+    expect(shown.at(-1)).toMatch(/^Northern Europe.*…$/);
+    expect(shown.at(-1)!.length).toBeLessThan(regions.at(-1)!.length);
+
+    // The value-axis label sits below its tick labels, not on them.
+    const tick = container.querySelector(".recharts-xAxis-tick-labels text");
+    const label = container.querySelector(".recharts-label");
+    expect(label?.textContent).toBe("Sales");
+    expect(
+      Number(label?.getAttribute("y")) - Number(tick?.getAttribute("y")),
+    ).toBeGreaterThanOrEqual(24);
+  });
+});
