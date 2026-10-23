@@ -21,70 +21,74 @@ interface Suggestion {
   layouts?: ExampleLayout[];
 }
 
-/** Everyday requests: the agent chooses the components and interactions. */
+/**
+ * Click-to-try prompts. Each one leans on a different part of the standard
+ * components so the pills double as a quick tour: inputs and bindings, tables,
+ * charts, forms, maps, SVG drawings, and flip cards.
+ */
 const SUGGESTIONS: Suggestion[] = [
   {
     layouts: ["page"],
     title: "Dashboard on the page",
     message:
-      "Keep a sales overview on the page. Our revenue was $18,000 in January, $21,000 in February, $19,000 in March, $26,000 in April, $28,000 in May, and $34,000 in June. How are we doing?",
+      'Show a sales dashboard in the "dashboard" surface on the page, not in the chat: three stat cards (revenue, orders, average order value), a line chart of revenue over the last 6 months, and a table of the top 5 products.',
   },
   {
     layouts: ["page"],
     title: "Checklist in the notes",
     message:
-      "Keep a launch checklist in the notes area so I can tick off the work as I go.",
+      'Put a launch checklist in the "notes" surface on the page, not in the chat: a title and five checkboxes for the launch steps.',
   },
   {
     layouts: ["page"],
     title: "Update the dashboard",
     message:
-      "Which month grew fastest? Focus the sales overview on month-to-month growth.",
+      'Change the dashboard on the page: replace the line chart with a bar chart of orders per month, and add a badge "Best month" to the top month. Update the same surface; do not make a new one.',
   },
   {
     title: "Team plan estimator",
     message:
-      "We pay $29 per person each month, or 20% less with annual billing. Help me work out the cost for a group of 1 to 50 people.",
+      "Build me an interactive team plan estimator: a slider for number of seats (1-50) at $29 per seat and a checkbox for annual billing with 20% discount. The monthly price, shown as formatted money, and a bar chart of the cumulative cost over 12 months must both update live as I move the slider or toggle the checkbox, without asking you again. Add a small comparison table of Starter/Team/Enterprise and a form with name and email plus a Request quote button that only works once the name is filled in and the email is valid.",
   },
   {
     title: "Table booking",
     message:
-      "Help me prepare a dinner reservation request for Friday, for 2 to 8 people. You will need my name and preferred time.",
+      "Make a table booking card: a field for my name, a date picker, a slider for the number of guests (1-8), and a sentence under them that reads like 'Table for 3 guests on Friday, Nov 7 for Ada' and updates live as I change the inputs, without asking you again. Add a Book button that sends the booking to you.",
   },
   {
-    title: "Request access",
+    title: "Sign-up with validation",
     message:
-      "Help me draft a request to join a community. Ask for my name, email, and whether I accept the terms, then summarize my answers.",
+      "Build a sign-up form: name (at least 2 characters), email (must be valid), password (at least 8 characters), and a checkbox to accept the terms. Each field shows its own error message, and the Create account button stays disabled until everything is valid. When I click it, tell me what I entered.",
   },
   {
     title: "Compare laptops",
     message:
-      "Help me choose a laptop for video editing. My options are a $900 model with 16 GB RAM and 512 GB storage, a $1,300 model with 32 GB and 1 TB, and a $1,700 model with 64 GB and 2 TB. My budget is $1,400.",
+      "Compare three laptops for video editing in a table (price, CPU, RAM, screen, battery). Mark the best value with a badge and add a button under each one that tells you which I picked.",
   },
   {
-    title: "Trip budget",
+    title: "Trip budget chart",
     message:
-      "Help me plan five days in Lisbon on about €100 a day. Use rough estimates and let me adjust the budget.",
+      "Plan a 5-day trip to Lisbon: a day-by-day itinerary list, and a bar chart of the estimated daily budget split into food, transport and activities.",
   },
   {
     title: "Workout planner",
     message:
-      "Help me plan workouts that fit my goal and the time I have each week.",
+      "Build a weekly workout planner: a select for my goal (strength, endurance, mobility), a radio group for days per week, a slider for minutes per session, and a Create plan button that sends my choices back to you.",
   },
   {
-    title: "Vienna coffee houses",
+    title: "Cafés on a map",
     message:
-      "I would like to explore Vienna's historic coffee houses. Help me choose a few to visit.",
+      "Show four famous coffee houses in Vienna on a map with markers, and a short list underneath with one line about each.",
   },
   {
     title: "How an engine works",
     message:
-      "Help me understand the four strokes of a car engine. Let me explore what happens at each stage.",
+      "Explain how a four-stroke car engine works with an interactive SVG drawing of one cylinder in cross-section: cylinder wall, piston, connecting rod, crankshaft, intake and exhaust valves, spark plug. Add four buttons for the strokes (intake, compression, power, exhaust). When I click one, redraw the piston, valves and crank in that position, highlight the moving parts in a different colour, and explain in two sentences what happens in that stroke.",
   },
   {
-    title: "Spanish practice",
+    title: "Spanish flashcards",
     message:
-      "Help me practice basic Spanish greetings, and let me ask for more when I am ready.",
+      "Make me five flashcards to learn Spanish greetings. Show them as flip cards in a grid and add a button that asks you for five more.",
   },
 ];
 
