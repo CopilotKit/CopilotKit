@@ -1,5 +1,5 @@
 import type { AssistantMessage, Message } from "@ag-ui/core";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import {
   Copy,
   Check,
@@ -25,6 +25,8 @@ import { renderSlot } from "../../lib/slots";
 import { Streamdown } from "streamdown";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
+import { Collapsible } from "./CopilotChatToolCallGroup";
+import { ToolCallDisplayContext } from "./tool-call-display-context";
 import { useCopilotKitInspector } from "../CopilotKitInspectorContext";
 import {
   CopilotChatInspectorButton,
@@ -67,6 +69,35 @@ export type CopilotChatAssistantMessageProps = WithSlots<
     toolbarVisible?: boolean;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
+
+/**
+ * In the `"turn"` tool-call display, text in a reply's working phase was
+ * narration: it fades to muted once a call follows it, and folds away with the
+ * rest of the work when the reply is done. The wrapper is there for every
+ * message in that display, so text that turns into narration keeps its node
+ * (and its place) rather than remounting.
+ */
+function WorkText({
+  messageId,
+  children,
+}: {
+  messageId: string;
+  children: React.ReactElement;
+}) {
+  const context = useContext(ToolCallDisplayContext);
+  if (context?.display !== "turn") return children;
+  const open = context.workTextOpen.get(messageId);
+  return (
+    <Collapsible open={open ?? true} className="cpk:-mx-2">
+      <div
+        className="cpk:px-2"
+        data-work-text={open === undefined ? "reply" : "narration"}
+      >
+        {children}
+      </div>
+    </Collapsible>
+  );
+}
 
 /**
  * Binds the Inspector action to the active chat without making the full
@@ -273,9 +304,11 @@ export function CopilotChatAssistantMessage({
       {...props}
       data-message-id={message.id}
     >
-      <div className="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert">
-        {boundMarkdownRenderer}
-      </div>
+      <WorkText messageId={message.id}>
+        <div className="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert">
+          {boundMarkdownRenderer}
+        </div>
+      </WorkText>
       {boundToolCallsView}
       {shouldShowToolbar && boundToolbar}
     </div>

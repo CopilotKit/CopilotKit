@@ -168,19 +168,20 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
   type="SlotProp<typeof CopilotChatToolCallsView>"
 >
   Slot for rendering tool calls embedded in the assistant message. Defaults to
-  [`CopilotChatToolCallsView`](#copilotchattoolcallsview), which iterates over
-  the message's tool calls and renders each using the closest registered tool
-  renderer.
+  [`CopilotChatToolCallsView`](#copilotchattoolcallsview), which renders each
+  call with the closest registered tool renderer and groups calls made in a row.
 </PropertyReference>
 
 ## CopilotChatToolCallsView
 
-A companion component that renders the tool calls contained in an assistant message. Given an assistant message, it iterates over each tool call and renders it using the closest registered tool renderer (registered via `useFrontendTool`, `useHumanInTheLoop`, or `renderToolCalls` on the provider).
+A companion component that renders the tool calls contained in an assistant message. Each call is drawn by the closest registered tool renderer (registered via `useFrontendTool`, `useHumanInTheLoop`, `useRenderTool` or `renderToolCalls` on the provider).
+
+Calls the agent makes in a row are collapsed into one group, drawn by the `group` slot, when their renderer opts into grouping. The built-in card from `useDefaultRenderTool()` does; a custom renderer opts in with `group: true`. Any other call always shows on its own. Inside a [`CopilotChatMessageView`](/reference/components/CopilotChatMessageView), groups span messages and follow the view's `toolCallDisplay`; used on its own, this component groups the calls of `message`.
 
 ### Import
 
 ```tsx
-
+import { CopilotChatToolCallsView } from "@copilotkit/react-core/v2";
 ```
 
 ### Props
@@ -193,6 +194,68 @@ A companion component that renders the tool calls contained in an assistant mess
   The full conversation message array. Provides context for tool call renderers
   that need to reference other messages (e.g., to find the corresponding tool
   result message).
+</PropertyReference>
+
+<PropertyReference
+  name="display"
+  type='"grouped" | "line" | "stacked" | "turn" | "separate"'
+>
+  How to show the calls. Inside a message view it defaults to the view's
+  [`toolCallDisplay`](/reference/components/CopilotChatMessageView#toolcalldisplay);
+  on its own it defaults to `"grouped"`. `"separate"` renders every call on its
+  own, without a group.
+</PropertyReference>
+
+### Slots
+
+<PropertyReference name="group" type="SlotProp<typeof CopilotChatToolCallGroup>">
+  Draws a group of calls made in a row in the `"grouped"`, `"line"` and
+  `"stacked"` displays. The `"turn"` display draws its calls as rows inside the
+  reply and doesn't use it. Defaults to
+  [`CopilotChatToolCallGroup`](/reference/components/CopilotChatToolCallGroup).
+  Like every slot, it accepts a className, props for the default, or a
+  replacement component, which receives the group's `calls` and a
+  `renderCall` function.
+
+**Through `CopilotChat`:**
+
+```tsx
+<CopilotChat
+  messageView={{
+    assistantMessage: {
+      toolCallsView: { group: "rounded-2xl shadow-sm" },
+    },
+  }}
+/>
+```
+
+**As props for the default group:**
+
+```tsx
+<CopilotChatToolCallsView
+  message={message}
+  messages={messages}
+  group={{ appearance: "line" }}
+/>
+```
+
+**As a replacement component:**
+
+```tsx
+<CopilotChatToolCallsView
+  message={message}
+  messages={messages}
+  group={({ calls, renderCall }) => (
+    <details>
+      <summary>Ran {calls.length} tools</summary>
+      {calls.map((call) => (
+        <div key={call.toolCall.id}>{renderCall(call)}</div>
+      ))}
+    </details>
+  )}
+/>
+```
+
 </PropertyReference>
 
 ## Usage
