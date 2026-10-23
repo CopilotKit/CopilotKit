@@ -223,11 +223,15 @@ describe("resolveDocsHref", () => {
     expect(resolveDocsHref("/human-in-the-loop", builtInSlack)).toBe(
       "/human-in-the-loop",
     );
-    expect(resolveDocsHref("/threads", builtInSlack)).toBe("/threads");
+    expect(resolveDocsHref("/AG-UI-Streams", builtInSlack)).toBe(
+      "/AG-UI-Streams",
+    );
     expect(resolveDocsHref("/human-in-the-loop#approval", builtInTeams)).toBe(
       "/human-in-the-loop#approval",
     );
-    expect(resolveDocsHref("/threads", builtInTeams)).toBe("/threads");
+    expect(resolveDocsHref("/AG-UI-Streams", builtInTeams)).toBe(
+      "/AG-UI-Streams",
+    );
 
     expect(resolveDocsHref("/slack", builtInSlack)).toBe("/slack");
     expect(resolveDocsHref("/channels/interactive", builtInSlack)).toBe(
@@ -248,12 +252,12 @@ describe("resolveDocsHref", () => {
       }),
     ).toBe("/slack/mastra/human-in-the-loop");
     expect(
-      resolveDocsHref("/threads", {
+      resolveDocsHref("/AG-UI-Streams", {
         slugHrefPrefix: "/slack/mastra",
         frameworkOverride: "mastra",
         frontendOverride: "slack",
       }),
-    ).toBe("/slack/mastra/threads");
+    ).toBe("/slack/mastra/AG-UI-Streams");
     expect(
       resolveDocsHref("/human-in-the-loop#approval", {
         slugHrefPrefix: "/teams/mastra",
@@ -262,12 +266,12 @@ describe("resolveDocsHref", () => {
       }),
     ).toBe("/teams/mastra/human-in-the-loop#approval");
     expect(
-      resolveDocsHref("/threads", {
+      resolveDocsHref("/AG-UI-Streams", {
         slugHrefPrefix: "/teams/mastra",
         frameworkOverride: "mastra",
         frontendOverride: "teams",
       }),
-    ).toBe("/teams/mastra/threads");
+    ).toBe("/teams/mastra/AG-UI-Streams");
   });
 
   it("keeps universal protocol links unscoped in channel guides", () => {
@@ -404,7 +408,9 @@ describe("resolveDocsHref", () => {
     expect(resolveDocsHref("/custom-look-and-feel/slots", options)).toBe(
       "/mastra/custom-look-and-feel/slots",
     );
-    expect(resolveDocsHref("/threads", options)).toBe("/mastra/threads");
+    expect(resolveDocsHref("/AG-UI-Streams", options)).toBe(
+      "/mastra/AG-UI-Streams",
+    );
     expect(resolveDocsHref("/headless-threads", options)).toBe(
       "/mastra/headless-threads",
     );

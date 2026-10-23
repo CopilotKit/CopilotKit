@@ -70,7 +70,7 @@ export const CURATED_LLM_PAGES = [
       "Choose how an agent pauses for user input, review, or approval before continuing.",
   },
   {
-    url: "threads",
+    url: "AG-UI-Streams",
     title: "AG-UI Streams",
     description:
       "Keep framework threads and add Intelligence’s AG-UI streams for reconnection, catch-up, and delivery across devices.",

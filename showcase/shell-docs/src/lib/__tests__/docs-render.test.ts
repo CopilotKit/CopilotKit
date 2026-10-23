@@ -171,6 +171,18 @@ describe("inlineSnippets", () => {
 });
 
 describe("loadDoc", () => {
+  it("resolves the AG-UI Streams overview at its canonical root and authored framework paths", () => {
+    for (const slug of [
+      "AG-UI-Streams",
+      "integrations/built-in-agent/AG-UI-Streams",
+      "integrations/mastra/AG-UI-Streams",
+      "integrations/deepagents/AG-UI-Streams",
+    ]) {
+      expect(loadDoc(slug)?.fm.title, slug).toBe("AG-UI Streams");
+    }
+    expect(loadDoc("threads")).toBeNull();
+  });
+
   it("resolves clean URLs to files stored under route-group folders", () => {
     // llamaindex is an `authored` integration, so this file is served content
     // rather than a copy the root page shadows. The aws-strands equivalent
@@ -199,7 +211,7 @@ describe("readTitle", () => {
     );
 
     expect(readTitle(filePath)).toBe("Overview");
-    expect(loadDoc("threads")?.fm.title).toBe("AG-UI Streams");
+    expect(loadDoc("AG-UI-Streams")?.fm.title).toBe("AG-UI Streams");
   });
 });
 
@@ -210,7 +222,7 @@ describe("framework nav", () => {
     expect(navAncestorBreadcrumbsForSlug(navTree, "frontend-tools")).toEqual([
       { label: "Basics", href: null },
     ]);
-    expect(navAncestorBreadcrumbsForSlug(navTree, "threads")).toEqual([
+    expect(navAncestorBreadcrumbsForSlug(navTree, "AG-UI-Streams")).toEqual([
       { label: "Intelligence", href: null },
       { label: "Features", href: null },
       { label: "AG-UI Streams", href: null },
