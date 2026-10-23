@@ -2,9 +2,11 @@ import { readAttemptCheckpoint } from "./checkpoint.mjs";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 import { setTimeout as sleep } from "node:timers/promises";
 import {
   DEPLOY_WORKFLOW,
+  DEV_DEPLOY_WORKFLOW,
   REPOSITORY,
   REPOSITORY_ID,
   REVISION,
@@ -16,13 +18,17 @@ import { createGithub, verifyRegistryImage } from "./github.mjs";
 import { createRailway, createRunner } from "./adapters.mjs";
 import { deployReviewedRunner } from "./deploy.mjs";
 import { deployRecoveryRunner } from "./recovery-deploy.mjs";
+import { deploySecondRecoveryRunner } from "./second-recovery-deploy.mjs";
 
 /** Require a trusted main dispatch, or the one exact reviewed bootstrap commit. */
-export function validateWorkflowContext(env) {
+export function validateWorkflowContext(
+  env,
+  { development = false, event } = {},
+) {
   requireThat(
     env.GITHUB_REPOSITORY === REPOSITORY &&
       env.GITHUB_REPOSITORY_ID === String(REPOSITORY_ID) &&
-      env.GITHUB_EVENT_NAME === "workflow_dispatch",
+      env.GITHUB_EVENT_NAME === (development ? "push" : "workflow_dispatch"),
     "Untrusted deployment context",
   );
   requireThat(
@@ -31,6 +37,21 @@ export function validateWorkflowContext(env) {
       /^[1-9]\d*$/.test(env.GITHUB_RUN_ATTEMPT ?? ""),
     "Invalid workflow identity",
   );
+  if (development) {
+    requireThat(
+      /^refs\/heads\/dev\/railway-runner-[A-Za-z0-9._/-]+$/.test(
+        env.GITHUB_REF ?? "",
+      ) &&
+        env.GITHUB_WORKFLOW_REF ===
+          `${REPOSITORY}/${DEV_DEPLOY_WORKFLOW}@${env.GITHUB_REF}` &&
+        env.GITHUB_WORKFLOW_SHA === env.GITHUB_SHA &&
+        event?.head_commit?.id === env.GITHUB_SHA &&
+        typeof event.head_commit.message === "string" &&
+        event.head_commit.message.includes("[runner-staging-dev]"),
+      "Development requires the exact opted-in branch push workflow",
+    );
+    return DEV_DEPLOY_WORKFLOW;
+  }
   const bootstrap =
     env.GITHUB_REF === "refs/heads/fix/PNI-605-registry-activation" &&
     REVISION.test(env.RICH_RUNNER_DEPLOY_BOOTSTRAP_SHA ?? "") &&
@@ -39,10 +60,20 @@ export function validateWorkflowContext(env) {
     env.GITHUB_REF === "refs/heads/main" || bootstrap,
     "Deployment requires main or the exact bootstrap commit",
   );
+  return DEPLOY_WORKFLOW;
 }
 /** Execute only reviewed control code; candidate artifacts remain data throughout the credential step. */
 async function main(env = process.env) {
-  validateWorkflowContext(env);
+  const { values } = parseArgs({
+    options: { development: { type: "boolean", default: false } },
+  });
+  const event = values.development
+    ? JSON.parse(await readFile(env.GITHUB_EVENT_PATH, "utf8"))
+    : undefined;
+  const workflowPath = validateWorkflowContext(env, {
+    development: values.development,
+    event,
+  });
   requireThat(env.RUNNER_TEMP, "Runner temporary directory required");
   const directory = join(env.RUNNER_TEMP, "runner-deployment-receipt");
   await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -61,8 +92,8 @@ async function main(env = process.env) {
       id: Number(env.GITHUB_RUN_ID),
       attempt: Number(env.GITHUB_RUN_ATTEMPT),
       sha: env.GITHUB_SHA,
-      workflowPath: DEPLOY_WORKFLOW,
-      workflowSha256: sha256(await readFile(DEPLOY_WORKFLOW)),
+      workflowPath,
+      workflowSha256: sha256(await readFile(workflowPath)),
     },
   };
   await receipt({
@@ -84,7 +115,12 @@ async function main(env = process.env) {
     operationId: `github-${REPOSITORY_ID}-${env.GITHUB_RUN_ID}`,
   });
   const deadline = Date.now() + 210 * 60000;
-  const deploy = release.recovery ? deployRecoveryRunner : deployReviewedRunner;
+  const deploy =
+    release.recovery?.version === 2
+      ? deploySecondRecoveryRunner
+      : release.recovery
+        ? deployRecoveryRunner
+        : deployReviewedRunner;
   const result = await deploy({
     release,
     operationId: `github-${REPOSITORY_ID}-${env.GITHUB_RUN_ID}`,

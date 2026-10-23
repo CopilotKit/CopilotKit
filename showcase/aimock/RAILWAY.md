@@ -200,7 +200,35 @@ Railway routes the public domain to whatever port the container listens on.
 
 ## 6. Environment variables
 
-None are required for the default configuration. Notes:
+Inbound auth is required in both environments, because the service runs
+`--proxy-only` with real provider keys:
+
+| Variable                | Value                    | Purpose                                                                                                                                              |
+| ----------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AIMOCK_CLIENT_KEY`     | 1Password secret         | The client credential for this environment. Every caller references it as `${{aimock.AIMOCK_CLIENT_KEY}}`.                                           |
+| `AIMOCK_API_KEYS`       | `${{AIMOCK_CLIENT_KEY}}` | Turns on inbound auth. Every route needs a matching key, except `GET /health`, `/ready` and `/metrics`. This includes the `/__aimock/*` control API. |
+| `AIMOCK_PROVIDER_*_KEY` | 1Password secret         | The upstream provider keys. With auth on, aimock strips the caller's credential and always sends these keys upstream.                                |
+
+Callers:
+
+- Each demo backend sets `OPENAI_API_KEY`, `ANTHROPIC_API_KEY` and
+  `GOOGLE_API_KEY` to `${{aimock.AIMOCK_CLIENT_KEY}}`. The SDKs send the
+  key in `Authorization`, `x-api-key` or `x-goog-api-key`. aimock accepts all
+  of these headers. When a request carries more than one of them, they must
+  all hold the same key.
+- `harness` and `harness-workers` set `AIMOCK_API_KEY` to
+  `${{aimock.AIMOCK_CLIENT_KEY}}` for the D6 journal read.
+- All callers use the private URL `http://showcase-aimock.railway.internal:4010`.
+  Use the public domain only for health probes.
+- The key starts with `sk-aimock-`, which is aimock's dummy-key marker. If
+  auth is ever off, aimock still swaps it for its own provider key on the
+  OpenAI and Gemini paths. It does not do this on every path, so keep auth on.
+- A key opens inference and the control API. Keys have no roles.
+- Rotate the key: set a new `AIMOCK_CLIENT_KEY`, then redeploy aimock and
+  all callers. To rotate with no downtime, set
+  `AIMOCK_API_KEYS=<old>,<new>` for one deploy cycle first.
+
+Other notes:
 
 - `AIMOCK_ALLOW_PRIVATE_URLS=1` would only be needed if fixtures were loaded
   from private URLs (RFC1918, loopback, etc.). Not applicable here — fixtures
@@ -243,7 +271,7 @@ GraphQL directly.
    `input: { startCommand: "..." }`. Remember Railway's startCommand overrides
    the image's Docker ENTRYPOINT, so the full `node /app/dist/cli.js` bin
    invocation must appear explicitly in the command string.
-4. No env vars needed for default setup (see section 6).
+4. Set the section 6 variables (`AIMOCK_CLIENT_KEY`, `AIMOCK_API_KEYS`, provider keys) before the first deploy.
 5. Generate a public domain (`serviceDomainCreate` mutation, or the UI's
    "Generate Domain" button). The historical domain pattern is
    `showcase-aimock-production.<railway-edge>` — the current domain is in the

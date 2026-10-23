@@ -1,6 +1,25 @@
 import { setTimeout as delay } from "node:timers/promises";
-import { STAGING, RUNNER_URL, IMAGE, equal, requireThat } from "./contract.mjs";
+import {
+  STAGING,
+  RUNNER_URL,
+  IMAGE,
+  equal,
+  requireThat,
+  validateIdentity,
+} from "./contract.mjs";
 import { BOUNDED_RECOVERY, validateRecovery } from "./recovery-contract.mjs";
+import {
+  SECOND_RECOVERY,
+  SECOND_BASELINE,
+  SECOND_TEMPLATE,
+} from "./second-recovery-contract.mjs";
+
+// This remove capability is deliberately limited to the reviewed second incident.
+export const REMOVAL_HANDOFF_BASELINE = Object.freeze({
+  deploymentId: "41d9b023-1870-444f-8889-c369e26faa54",
+  image:
+    "ghcr.io/copilotkit/rich-thread-runner@sha256:8db845b5d2b427317524254ff58b3e18db69046b9e75d950b6dc967c004a0019",
+});
 
 /** Consume a bounded remote body without including it in an error. */
 export async function boundedBytes(response, limit = 2 * 1024 * 1024) {
@@ -19,7 +38,7 @@ function timeout(deadline, clock) {
   requireThat(remaining > 0, "Deployment deadline exceeded");
   return AbortSignal.timeout(Math.min(30000, remaining));
 }
-/** Expose only fixed staging queries and the two authorized image mutations. */
+/** Expose fixed staging operations and the incident-bound remove capability. */
 export function createRailway({
   token,
   fetch = globalThis.fetch,
@@ -69,8 +88,124 @@ export function createRailway({
     );
     return { id: state.id, status: state.status, image: meta.image };
   };
+  /** Validate scope and expose only bounded deployment status/image evidence. */
+  const handoffDeployment = (state) => {
+    scope(state);
+    requireThat(
+      typeof state.id === "string" &&
+        state.id.length > 0 &&
+        typeof state.status === "string" &&
+        /^[A-Z_]{1,40}$/.test(state.status),
+      "Incomplete deployment removal evidence",
+    );
+    const image = state.meta?.image ?? null;
+    requireThat(
+      image === null || IMAGE.test(image),
+      "Invalid deployment image evidence",
+    );
+    return {
+      id: state.id,
+      status: state.status,
+      image,
+      deploymentStopped: state.deploymentStopped,
+    };
+  };
+  /** Read the exact deployment without interpreting the unreliable stopped flag. */
+  const readDeploymentStatus = async (id) => {
+    requireThat(
+      typeof id === "string" && id.length > 0,
+      "Deployment identity required",
+    );
+    const { deployment: state } = await query(
+      "query($id:String!){deployment(id:$id){id status projectId environmentId serviceId deploymentStopped meta}}",
+      { id },
+    );
+    const result = handoffDeployment(state);
+    requireThat(result.id === id, "Railway deployment identity mismatch");
+    return result;
+  };
+  let removeAttempted = false;
   return {
-    async inspect({ allowNoActive = false } = {}) {
+    readDeploymentStatus,
+    /** Issue at most one removal request for the reviewed active baseline. */
+    async removeDeployment(id) {
+      requireThat(
+        id === REMOVAL_HANDOFF_BASELINE.deploymentId,
+        "Unauthorized deployment removal",
+      );
+      requireThat(!removeAttempted, "Deployment removal already attempted");
+      const state = await readDeploymentStatus(id);
+      requireThat(
+        state.image === REMOVAL_HANDOFF_BASELINE.image &&
+          state.status === "SUCCESS",
+        "Removal baseline image mismatch",
+      );
+      // A lost or negative response is ambiguous: never repeat this mutation.
+      requireThat(!removeAttempted, "Deployment removal already attempted");
+      removeAttempted = true;
+      const result = await query(
+        "mutation($id:String!){deploymentRemove(id:$id)}",
+        { id },
+      );
+      if (result.deploymentRemove !== true) {
+        const error = new Error("Deployment removal unconfirmed");
+        error.removalOutcome =
+          result.deploymentRemove === false ? "refused" : "unknown";
+        error.removalResponse =
+          result.deploymentRemove === false ? false : null;
+        throw error;
+      }
+      // Acknowledgement is not finality; callers must independently read status REMOVED.
+      return { removeAcknowledged: true };
+    },
+    /** Enumerate every deployment in the fixed staging scope, failing on incomplete pages. */
+    async handoffInventory() {
+      const rows = [];
+      const ids = new Set();
+      const cursors = new Set();
+      let after = null;
+      for (let page = 0; page < 20; page++) {
+        const { deployments: connection } = await query(
+          "query($input:DeploymentListInput!,$first:Int!,$after:String){deployments(input:$input,first:$first,after:$after){pageInfo{hasNextPage endCursor} edges{node{id status projectId environmentId serviceId deploymentStopped meta}}}}",
+          {
+            input: {
+              projectId: STAGING.projectId,
+              environmentId: STAGING.environmentId,
+              serviceId: STAGING.serviceId,
+            },
+            first: 100,
+            after,
+          },
+        );
+        requireThat(
+          Array.isArray(connection?.edges) &&
+            connection.edges.length <= 100 &&
+            typeof connection.pageInfo?.hasNextPage === "boolean",
+          "Incomplete deployment inventory",
+        );
+        for (const edge of connection.edges) {
+          const row = handoffDeployment(edge.node);
+          requireThat(
+            !ids.has(row.id),
+            "Duplicate deployment inventory identity",
+          );
+          ids.add(row.id);
+          rows.push(row);
+        }
+        if (!connection.pageInfo.hasNextPage) return rows;
+        const cursor = connection.pageInfo.endCursor;
+        requireThat(
+          typeof cursor === "string" &&
+            cursor.length > 0 &&
+            !cursors.has(cursor),
+          "Incomplete deployment inventory cursor",
+        );
+        cursors.add(cursor);
+        after = cursor;
+      }
+      throw new Error("Deployment inventory pagination bound exceeded");
+    },
+    async inspect({ allowNoActive = false, allowMissingLatest = false } = {}) {
       const { serviceInstance: service } = await query(
         "query($e:String!,$s:String!){serviceInstance(environmentId:$e,serviceId:$s){id serviceId environmentId source{image} activeDeployments{id status projectId environmentId serviceId meta} latestDeployment{id status projectId environmentId serviceId meta}}}",
         { e: STAGING.environmentId, s: STAGING.serviceId },
@@ -90,10 +225,20 @@ export function createRailway({
       const active = service.activeDeployments.length
         ? deployment(service.activeDeployments[0])
         : null;
-      const latest = deployment(
-        service.latestDeployment,
-        service.latestDeployment.status === "SUCCESS",
+      const missingLatest = service.latestDeployment === null;
+      requireThat(
+        !missingLatest ||
+          (allowNoActive === true &&
+            allowMissingLatest === true &&
+            active === null),
+        "Missing latest deployment",
       );
+      const latest = missingLatest
+        ? null
+        : deployment(
+            service.latestDeployment,
+            service.latestDeployment?.status === "SUCCESS",
+          );
       const { environment } = await query(
         "query($e:String!){environment(id:$e){id projectId volumeInstances(first:100){pageInfo{hasNextPage endCursor} edges{node{id volumeId environmentId serviceId mountPath isPendingDeletion}}}}}",
         { e: STAGING.environmentId },
@@ -134,13 +279,27 @@ export function createRailway({
         templateSha256,
         ...fixed
       } = value;
-      validateRecovery(fixed, baselineIdentity, targetIdentity);
+      if (fixed.version === 2) {
+        requireThat(
+          equal(fixed, SECOND_RECOVERY) &&
+            equal(baselineIdentity, SECOND_BASELINE.runtimeIdentity) &&
+            templateSha256 === SECOND_TEMPLATE,
+          "Unknown second recovery case",
+        );
+        validateIdentity(targetIdentity);
+        requireThat(
+          targetIdentity.sourceRevision !== baselineIdentity.sourceRevision,
+          "New second recovery runtime required",
+        );
+      } else {
+        validateRecovery(fixed, baselineIdentity, targetIdentity);
+        requireThat(equal(fixed, BOUNDED_RECOVERY), "Unknown recovery case");
+      }
       requireThat(
         /^github-655515393-\d+$/.test(operationId) &&
           /^[a-f0-9]{64}$/.test(templateSha256),
         "Invalid recovery binding",
       );
-      requireThat(equal(fixed, BOUNDED_RECOVERY), "Unknown recovery case");
       const data = await query(
         "mutation($input:VariableUpsertInput!){variableUpsert(input:$input)}",
         {
@@ -198,7 +357,7 @@ export function createRailway({
     },
   };
 }
-const retryStatus = new Set([408, 429, 500, 502, 503, 504]);
+const retryStatus = new Set([404, 408, 429, 500, 502, 503, 504]);
 const retryCode = new Set([
   "ECONNRESET",
   "ECONNREFUSED",

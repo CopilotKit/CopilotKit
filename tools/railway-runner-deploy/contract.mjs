@@ -14,12 +14,18 @@ export const RUNNER_URL =
   "https://showcase-intelligence-test-runner-staging.up.railway.app";
 export const POLICY =
   "7eb39aa628b77c30efa88a00c4ad0695de89ac2bb919e7e25f550a4ab2f2c765";
+const approvedPolicies = new Set([
+  POLICY,
+  "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751",
+]);
 export const REPOSITORY = "CopilotKit/CopilotKit";
 export const REPOSITORY_ID = 655515393;
 export const BUILD_WORKFLOW =
   ".github/workflows/intelligence-rich-threads-build.yml";
 export const DEPLOY_WORKFLOW =
   ".github/workflows/intelligence-rich-threads-deploy.yml";
+export const DEV_DEPLOY_WORKFLOW =
+  ".github/workflows/intelligence-rich-threads-dev.yml";
 export const IMAGE =
   /^ghcr\.io\/copilotkit\/rich-thread-runner@sha256:[a-f0-9]{64}$/;
 export const SHA256 = /^[a-f0-9]{64}$/;
@@ -54,7 +60,7 @@ export function validateIdentity(value) {
       REVISION.test(value.sourceRevision) &&
       SHA256.test(value.sourceManifestSha256) &&
       SHA256.test(value.compatibilitySha256) &&
-      value.policySha256 === POLICY,
+      approvedPolicies.has(value.policySha256),
     "Invalid runtime identity",
   );
 }

@@ -135,6 +135,41 @@ class RunnerTest < Minitest::Test
     gateway&.close
   end
 
+  class HistoryPlatform
+    attr_reader :history_paths
+    def initialize(history)
+      @history, @history_paths = history, Queue.new
+    end
+    def request(method, path, body = nil, *_headers)
+      return { 'threadId' => 'thread', 'runId' => 'run', 'joinToken' => 'join' } if method == 'POST' && path.end_with?('/lock')
+      return {} unless path.include?('/messages?')
+      @history_paths << path
+      { 'messages' => @history }
+    end
+  end
+
+  def test_history_lookup_requests_only_ids_and_skips_persisted_messages
+    {
+      'ids only' => [{ 'id' => 'old' }],
+      'full transcript from a server that ignores fields' => [
+        { 'id' => 'old', 'role' => 'user', 'content' => 'First turn' },
+        { 'id' => 'reply', 'role' => 'assistant', 'content' => 'Reply' }
+      ]
+    }.each do |name, history|
+      gateway, platform = PhoenixFixture.new, HistoryPlatform.new(history)
+      runtime = startup_runtime(platform, gateway)
+      fresh = { 'id' => 'new', 'role' => 'user', 'content' => 'Second turn' }
+      runtime.send(:run, { 'threadId' => 'thread', 'runId' => 'run', 'messages' => [{ 'id' => 'old', 'role' => 'user', 'content' => 'First turn' }, fresh] }, { 'id' => 'user' }, 'default')
+      path = Timeout.timeout(1) { platform.history_paths.pop }
+      assert_equal [%w[userId user], %w[fields id]], URI.decode_www_form(URI(path).query), name
+      runner = runtime.instance_variable_get(:@runs).fetch('run')
+      assert_equal [fresh], runner.instance_variable_get(:@messages), name
+    ensure
+      runtime&.close(timeout: 0.2)
+      gateway&.close
+    end
+  end
+
   def test_rejected_lock_does_not_release_an_existing_run
     gateway, platform = PhoenixFixture.new, StartupPlatform.new
     platform.define_singleton_method(:request) do |method, path, *args|

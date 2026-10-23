@@ -17,10 +17,6 @@ permissions:
   actions: read
   packages: read
 
-concurrency:
-  group: intelligence-runner-staging-deploy
-  cancel-in-progress: false
-
 jobs:
   validate:
     runs-on: ubuntu-24.04
@@ -53,6 +49,9 @@ jobs:
        (github.ref == 'refs/heads/fix/PNI-605-registry-activation' &&
         vars.RICH_RUNNER_DEPLOY_BOOTSTRAP_SHA != '' &&
         github.sha == vars.RICH_RUNNER_DEPLOY_BOOTSTRAP_SHA))
+    concurrency:
+      group: intelligence-runner-staging-deploy
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 240
     steps:

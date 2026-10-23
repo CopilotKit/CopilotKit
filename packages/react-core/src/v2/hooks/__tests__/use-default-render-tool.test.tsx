@@ -44,6 +44,27 @@ describe("useDefaultRenderTool", () => {
     expect(typeof config.render).toBe("function");
   });
 
+  const drawNothing = () => null;
+  it.each<[string, Parameters<typeof useDefaultRenderTool>[0], boolean]>([
+    ["the built-in card", undefined, true],
+    ["a custom render", { render: drawNothing }, false],
+    [
+      "a custom render that opts in",
+      { render: drawNothing, group: true },
+      true,
+    ],
+  ])("groups calls drawn by %s", (_, config, group) => {
+    const Harness: React.FC = () => {
+      useDefaultRenderTool(config);
+      return null;
+    };
+    render(<Harness />);
+    const [registered] = mockUseRenderTool.mock.calls[0] as [
+      { group?: boolean },
+    ];
+    expect(registered.group).toBe(group);
+  });
+
   it("forwards toolCallId to custom wildcard render function", () => {
     // Verifies the registered render — when invoked with the framework-internal
     // RawRendererProps shape that useRenderToolCall actually passes — adapts

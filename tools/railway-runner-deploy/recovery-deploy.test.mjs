@@ -184,7 +184,7 @@ test("release accepts only the exact incident exception and schema keeps that bi
   const schema = JSON.parse(
     await readFile(new URL("./release.schema.json", import.meta.url)),
   );
-  assert.deepEqual(schema.properties.recovery.const, BOUNDED_RECOVERY);
+  assert.deepEqual(schema.properties.recovery.oneOf[0].const, BOUNDED_RECOVERY);
   assert.equal(
     schema.allOf[0].then.properties.baseline.properties.image.const,
     RECOVERY_BASELINE_IMAGE,
