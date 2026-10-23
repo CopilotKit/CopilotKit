@@ -3,8 +3,10 @@ import { render } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 // ─── Mock react-native ───────────────────────────────────────────────────────
-// jsdom doesn't have react-native, so we provide lightweight stand-ins.
-vi.mock("react-native", () => {
+// jsdom doesn't have react-native: DOM-backed View/Text on top of the shared
+// stub (animation, theme and accessibility primitives).
+vi.mock("react-native", async () => {
+  const actual = await vi.importActual<any>("../../../__mocks__/react-native");
   const React = require("react");
 
   const View = React.forwardRef(
@@ -39,57 +41,6 @@ vi.mock("react-native", () => {
   );
   Text.displayName = "Text";
 
-  const AnimatedValue = class {
-    _value: number;
-    constructor(value: number) {
-      this._value = value;
-    }
-    interpolate({ outputRange }: any) {
-      return outputRange[0];
-    }
-  };
-
-  const AnimatedView = React.forwardRef(
-    ({ children, style, ...rest }: any, ref: any) =>
-      React.createElement("div", { ref, style, ...rest }, children),
-  );
-  AnimatedView.displayName = "Animated.View";
-
-  const timing = (_value: any, _config: any) => ({
-    start: vi.fn(),
-    stop: vi.fn(),
-  });
-
-  const sequence = (animations: any[]) => ({
-    start: vi.fn(),
-    stop: vi.fn(),
-  });
-
-  const loop = (animation: any) => ({
-    start: vi.fn(),
-    stop: vi.fn(),
-  });
-
-  const parallel = (animations: any[]) => ({
-    start: vi.fn(),
-    stop: vi.fn(),
-  });
-
-  const delay = (_ms: number) => ({
-    start: vi.fn(),
-    stop: vi.fn(),
-  });
-
-  const Animated = {
-    Value: AnimatedValue,
-    View: AnimatedView,
-    timing,
-    sequence,
-    loop,
-    parallel,
-    delay,
-  };
-
   const StyleSheet = {
     create: (styles: any) => styles,
     flatten: (style: any) =>
@@ -97,9 +48,9 @@ vi.mock("react-native", () => {
   };
 
   return {
+    ...actual,
     View,
     Text,
-    Animated,
     StyleSheet,
   };
 });
@@ -143,6 +94,44 @@ describe("AssistantMessage", () => {
     expect(queryByTestId("copilot-markdown")).toBeNull();
   });
 
+  it("shows the text with the typing indicator below while it streams", () => {
+    const { getByTestId, getByLabelText } = render(
+      <AssistantMessage content="Hello" isLoading />,
+    );
+    expect(getByTestId("copilot-markdown").textContent).toBe("Hello");
+    expect(getByLabelText("Typing indicator")).toBeTruthy();
+  });
+
+  it("rides the cursor at the end of the text with inlineCursor", () => {
+    const { getByTestId, queryByLabelText } = render(
+      <AssistantMessage
+        content={"Hello\n\n- first\n- sec"}
+        isLoading
+        inlineCursor
+      />,
+    );
+    expect(getByTestId("copilot-markdown").textContent).toBe(
+      "Hello\n\n- first\n- sec\u00A0●",
+    );
+    expect(queryByLabelText("Typing indicator")).toBeNull();
+  });
+
+  it("keeps the cursor below a reply that ends in a code block", () => {
+    const content = "Here:\n\n```ts\nconst a = 1;";
+    const { getByTestId, getByLabelText } = render(
+      <AssistantMessage content={content} isLoading inlineCursor />,
+    );
+    expect(getByTestId("copilot-markdown").textContent).toBe(content);
+    expect(getByLabelText("Typing indicator")).toBeTruthy();
+  });
+
+  it("drops the cursor once the reply is complete", () => {
+    const { getByTestId } = render(
+      <AssistantMessage content="Done." inlineCursor />,
+    );
+    expect(getByTestId("copilot-markdown").textContent).toBe("Done.");
+  });
+
   it("displays a timestamp when provided", () => {
     const date = new Date(2025, 0, 15, 14, 30); // Jan 15 2025, 2:30 PM
     const { container } = render(
@@ -179,11 +168,11 @@ describe("UserMessage", () => {
 });
 
 describe("TypingIndicator", () => {
-  it("renders three animated dots", () => {
+  it("renders a single pulsing dot", () => {
     const { getByLabelText } = render(<TypingIndicator />);
     const indicator = getByLabelText("Typing indicator");
     expect(indicator).toBeTruthy();
-    // Three Animated.View dots inside the container
-    expect(indicator.children.length).toBe(3);
+    // One Animated.View dot inside the container
+    expect(indicator.children.length).toBe(1);
   });
 });

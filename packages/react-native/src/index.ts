@@ -47,6 +47,7 @@ export type {
 } from "./CopilotSidebar";
 export { CopilotPopup } from "./CopilotPopup";
 export type { CopilotPopupProps, CopilotPopupHandle } from "./CopilotPopup";
+export type { CopilotColorScheme } from "./components/theme";
 
 // The provider, platform-agnostic hooks (useAgent / useFrontendTool / ...),
 // core + AG-UI types, and the render-tool hooks are re-exported from "./headless"

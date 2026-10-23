@@ -8,8 +8,15 @@ export type { CopilotChatProps } from "./CopilotChat";
 export { CopilotModal } from "./CopilotModal";
 export type { CopilotModalProps, CopilotModalRef } from "./CopilotModal";
 
-export { CopilotMarkdown, defaultMarkdownStyles } from "./Markdown";
+export {
+  CopilotMarkdown,
+  darkMarkdownStyles,
+  defaultMarkdownStyles,
+} from "./Markdown";
 export type { CopilotMarkdownProps } from "./Markdown";
+
+export { CopilotColorSchemeProvider } from "./theme";
+export type { CopilotColorScheme } from "./theme";
 
 export { AssistantMessage } from "./messages/AssistantMessage";
 export type { AssistantMessageProps } from "./messages/AssistantMessage";

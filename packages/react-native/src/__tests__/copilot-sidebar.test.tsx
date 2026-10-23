@@ -144,8 +144,10 @@ vi.mock("expo-file-system", () => ({
   EncodingType: { Base64: "base64" },
 }));
 
-// Mock react-native since tests run in jsdom
-vi.mock("react-native", () => {
+// Mock react-native since tests run in jsdom, on top of the shared stub
+// (theme and animation primitives).
+vi.mock("react-native", async () => {
+  const actual = await vi.importActual<any>("../__mocks__/react-native");
   const _React = require("react");
 
   // Minimal Animated.Value mock
@@ -160,6 +162,7 @@ vi.mock("react-native", () => {
   }
 
   return {
+    ...actual,
     Animated: {
       View: _React.forwardRef((props: any, ref: any) => {
         const { testID, ...rest } = props;
@@ -216,6 +219,7 @@ vi.mock("react-native", () => {
 // Import after mocks
 import { CopilotKitProvider } from "../CopilotKitProvider";
 import { CopilotSidebar } from "../CopilotSidebar";
+import { useCopilotTheme } from "../components/theme";
 import type { CopilotSidebarHandle } from "../CopilotSidebar";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -436,6 +440,30 @@ describe("CopilotSidebar", () => {
     fireEvent.click(getByTestId("copilot-sidebar-backdrop"));
 
     expect(queryByTestId("copilot-sidebar-drawer")).toBeNull();
+  });
+
+  describe("colorScheme", () => {
+    function ThemeProbe() {
+      return <span data-testid="probe">{useCopilotTheme().background}</span>;
+    }
+    const renderWith = (colorScheme?: "light" | "dark" | "system") =>
+      render(
+        <CopilotKitProvider runtimeUrl="https://api.test">
+          <CopilotSidebar defaultOpen colorScheme={colorScheme}>
+            <ThemeProbe />
+          </CopilotSidebar>
+        </CopilotKitProvider>,
+      );
+
+    it("is light by default", () => {
+      expect(renderWith().getByTestId("probe").textContent).toBe("#ffffff");
+    });
+
+    it("applies to CopilotKit components inside the drawer", () => {
+      expect(renderWith("dark").getByTestId("probe").textContent).toBe(
+        "#0a0a0a",
+      );
+    });
   });
 
   it("renders children inside the drawer", () => {

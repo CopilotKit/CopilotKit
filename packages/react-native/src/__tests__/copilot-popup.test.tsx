@@ -144,8 +144,10 @@ vi.mock("expo-file-system", () => ({
   EncodingType: { Base64: "base64" },
 }));
 
-// Mock React Native components for jsdom environment
-vi.mock("react-native", () => {
+// Mock React Native components for jsdom environment, on top of the shared
+// stub (theme and animation primitives).
+vi.mock("react-native", async () => {
+  const actual = await vi.importActual<any>("../__mocks__/react-native");
   const _React = require("react");
 
   // Simple mock components that render as divs with testIDs
@@ -217,6 +219,7 @@ vi.mock("react-native", () => {
   const useWindowDimensions = () => ({ width: 375, height: 812 });
 
   return {
+    ...actual,
     Modal,
     View,
     Text,
@@ -232,6 +235,7 @@ vi.mock("react-native", () => {
 // Import after mocks
 import { CopilotKitProvider } from "../CopilotKitProvider";
 import { CopilotPopup } from "../CopilotPopup";
+import { useCopilotTheme } from "../components/theme";
 import type { CopilotPopupHandle } from "../CopilotPopup";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -453,6 +457,30 @@ describe("CopilotPopup", () => {
       );
 
       expect(capturedAgentId).toBe("default");
+    });
+  });
+
+  describe("colorScheme", () => {
+    function ThemeProbe() {
+      return <span data-testid="probe">{useCopilotTheme().background}</span>;
+    }
+    const renderWith = (colorScheme?: "light" | "dark" | "system") =>
+      render(
+        <CopilotKitProvider runtimeUrl="https://api.test">
+          <CopilotPopup defaultOpen={true} colorScheme={colorScheme}>
+            <ThemeProbe />
+          </CopilotPopup>
+        </CopilotKitProvider>,
+      );
+
+    it("is light by default", () => {
+      expect(renderWith().getByTestId("probe").textContent).toBe("#ffffff");
+    });
+
+    it("applies to CopilotKit components inside the popup", () => {
+      expect(renderWith("dark").getByTestId("probe").textContent).toBe(
+        "#0a0a0a",
+      );
     });
   });
 
