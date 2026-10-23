@@ -2194,6 +2194,33 @@ test("a failed agent run names itself on the pill and lands on AG-UI Events", as
   ).toContain("model refused the run");
 });
 
+test("a failed history replay raises the run signal and opens its error details", async () => {
+  const context = await setup();
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.AGENT_HISTORY_REPLAY_FAILED,
+    "Thread history could not be restored: history_read_timeout",
+    { agentId: AGENT_ID, reason: "history_read_timeout" },
+  );
+
+  expect(dotSubject(context.inspector)).toBe("run");
+  expect(launcherName(context.inspector)).toContain("agent run failed");
+  await context.advance(ERROR_BEAT_MS);
+  expect(pillHeading(context.inspector)).toBe("Agent run failed");
+
+  await context.activate(pill(context.inspector));
+  expect(currentMenu(context.inspector)).toBe("ag-ui-events");
+  const banner = root(context.inspector).querySelector(
+    '[data-cpk-event-error="run"]',
+  )?.textContent;
+  expect(banner).toContain(
+    "Thread history could not be restored: history_read_timeout",
+  );
+  expect(banner).not.toContain("highlighted below");
+  expect(
+    root(context.inspector).querySelector("[data-cpk-failed-run-event]"),
+  ).toBeNull();
+});
+
 test("a run error with no run to point at claims no highlight", async () => {
   const context = await setup();
   // AGENT_RUN_FAILED with an empty event buffer is the ordinary shape for

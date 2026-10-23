@@ -214,7 +214,11 @@ export function CopilotChat({
     const expectedThreadId = resolvedThreadId;
     const subscription = copilotkit.subscribe({
       onError: (event) => {
-        if (event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) return;
+        if (
+          event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED &&
+          event.code !== CopilotKitCoreErrorCode.AGENT_HISTORY_REPLAY_FAILED
+        )
+          return;
         if (event.context?.agentId !== resolvedAgentId) return;
         if (event.context?.threadId !== expectedThreadId) return;
         failInspectorOverride(requestId);
@@ -304,6 +308,8 @@ export function CopilotChat({
             (!event.context.threadId ||
               event.context.threadId === connectingThreadId) &&
             (event.code === CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED ||
+              event.code ===
+                CopilotKitCoreErrorCode.AGENT_HISTORY_REPLAY_FAILED ||
               event.code === CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT)
           ) {
             failed = true;

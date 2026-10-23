@@ -325,7 +325,11 @@ watch(
     if (!requestId) return;
     const subscription = core.subscribe({
       onError: (event) => {
-        if (event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) return;
+        if (
+          event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED &&
+          event.code !== CopilotKitCoreErrorCode.AGENT_HISTORY_REPLAY_FAILED
+        )
+          return;
         if (event.context?.agentId !== agentId) return;
         if (event.context?.threadId !== threadId) return;
         failInspectorOverride(requestId);

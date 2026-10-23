@@ -13,6 +13,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventType } from "@ag-ui/client";
 import type { Message } from "@ag-ui/client";
 import {
+  AgentHistoryReplayError,
+  CopilotKitCoreErrorCode,
   ProxiedCopilotRuntimeAgent,
   isRunCompletionAware,
 } from "@copilotkit/core";
@@ -69,7 +71,9 @@ function SuggestionChatView(props: CopilotChatViewProps) {
   );
 }
 
-function SwitchableChat() {
+function SwitchableChat({
+  onError,
+}: Pick<React.ComponentProps<typeof CopilotChat>, "onError">) {
   const [threadId, setThreadId] = React.useState("test-thread");
   return (
     <>
@@ -83,6 +87,7 @@ function SwitchableChat() {
         Switch thread
       </button>
       <CopilotChat
+        onError={onError}
         threadId={threadId}
         welcomeScreen={false}
         chatView={SuggestionChatView}
@@ -140,6 +145,7 @@ async function setupReplay(
     intelligence: { wsUrl: "ws://localhost/client" },
   });
   const handler = vi.fn(async () => "approved");
+  const onError = vi.fn();
   const tool: ReactFrontendTool = {
     name: "approval",
     parameters: z.object({}),
@@ -150,7 +156,7 @@ async function setupReplay(
   const view = renderWithCopilotKit({
     agent,
     frontendTools: [tool],
-    children: <SwitchableChat />,
+    children: <SwitchableChat onError={onError} />,
   });
   const call: Message = {
     id: "approval-message",
@@ -241,6 +247,7 @@ async function setupReplay(
     handler,
     finishRun,
     failReplay,
+    onError,
     ...view,
   };
 }
@@ -285,6 +292,41 @@ it("does not dispatch a queued prompt after the chat unmounts", async () => {
   await act(async () => unmount());
   expect(runs).toHaveLength(0);
 });
+
+it.each(["queued", "after failure"] as const)(
+  "blocks a %s prompt after a typed history replay failure",
+  async (timing) => {
+    const { runs, submit, channel, onError } = await setupReplay();
+    if (timing === "queued") await submit();
+    await act(async () => {
+      channel.serverPush("replay_failed", {
+        reason: "history_read_timeout",
+        retryable: false,
+        latestEventId: null,
+      });
+    });
+    await waitFor(() =>
+      expect(onError).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          code: CopilotKitCoreErrorCode.AGENT_HISTORY_REPLAY_FAILED,
+          error: new AgentHistoryReplayError("history_read_timeout"),
+        }),
+      ),
+    );
+    if (timing === "after failure") await submit();
+    await screen.findByText(
+      "Could not load saved conversation. Reopen the thread and try again.",
+    );
+    expect(
+      screen.getByDisplayValue("Read saved todos without modifying them"),
+    ).toBeDefined();
+    await submit();
+    expect(runs).toHaveLength(0);
+    expect(
+      screen.getByDisplayValue("Read saved todos without modifying them"),
+    ).toBeDefined();
+  },
+);
 
 it("keeps a queued prompt in the composer when replay fails", async () => {
   const { runs, submit } = await setupReplay();

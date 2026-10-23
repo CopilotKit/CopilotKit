@@ -341,9 +341,14 @@ export class MockChannel {
   private errorHandlers: Array<(reason?: any) => void> = [];
   private nextRef = 1;
 
-  constructor(topic: string = "", params: Record<string, any> = {}) {
+  constructor(
+    topic: string = "",
+    private readonly paramsSource:
+      | Record<string, any>
+      | (() => Record<string, any>) = {},
+  ) {
     this.topic = topic;
-    this.params = params;
+    this.params = typeof paramsSource === "function" ? {} : paramsSource;
   }
 
   on(event: string, callback: (payload: any) => void): number {
@@ -370,6 +375,10 @@ export class MockChannel {
   }
 
   join(payload?: Record<string, any>): MockPush {
+    this.params =
+      typeof this.paramsSource === "function"
+        ? this.paramsSource()
+        : this.paramsSource;
     this.joinCount += 1;
     this.joinPayload = payload ?? null;
     return this.joinPush;
@@ -439,7 +448,10 @@ export class MockSocket {
     this.closeHandlers.push(callback);
   }
 
-  channel(topic: string, params: Record<string, any> = {}): MockChannel {
+  channel(
+    topic: string,
+    params: Record<string, any> | (() => Record<string, any>) = {},
+  ): MockChannel {
     const ch = new MockChannel(topic, params);
     this.channels.push(ch);
     return ch;
