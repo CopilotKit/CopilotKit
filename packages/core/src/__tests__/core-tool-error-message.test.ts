@@ -95,4 +95,29 @@ describe("tool messages for failed tool calls", () => {
     );
     expect(toolMessage.error).toBe("Handler exploded");
   });
+
+  it("still sets error when a tool throws an error with no message", async () => {
+    copilotKitCore.addTool(
+      createTool({
+        name: "silent",
+        handler: vi.fn(async () => {
+          throw new Error("");
+        }),
+        followUp: false,
+      }),
+    );
+    const agent = new MockAgent({
+      agentId: "default",
+      newMessages: [createToolCallMessage("silent")],
+    });
+    addAgent(agent);
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    const toolMessage = getToolMessage(
+      agent.messages.find((m) => m.role === "tool"),
+    );
+    expect(toolMessage.error).toBe("Tool call failed");
+    expect(toolMessage.content).toBe("Error: Tool call failed");
+  });
 });
