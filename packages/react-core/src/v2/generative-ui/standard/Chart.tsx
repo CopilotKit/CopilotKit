@@ -288,7 +288,13 @@ function createRechartsChart(R: RechartsModule) {
                 endAngle={props.endAngle ?? -270}
                 cornerRadius={props.cornerRadius}
                 paddingAngle={props.paddingAngle}
-                label={props.showValueLabels ? true : undefined}
+                label={
+                  props.showValueLabels
+                    ? format
+                      ? ({ value }) => format(value)
+                      : true
+                    : undefined
+                }
                 labelLine={
                   props.showValueLabels ? (props.showLabelLines ?? true) : false
                 }
@@ -312,6 +318,16 @@ function createRechartsChart(R: RechartsModule) {
     const CartesianChart = cartesianChartOf(R, chartType);
     const stackId = props.stacked ? "stack" : undefined;
     const isHorizontal = props.layout === "horizontal";
+    const xKey = props.xKey;
+    // Scatter uses numeric distances when all x values are numbers. Preserve
+    // category spacing for string/mixed data and for the other chart types.
+    const isNumericScatter =
+      chartType === "scatter" &&
+      xKey !== undefined &&
+      data.length > 0 &&
+      data.every(
+        (row) => typeof row[xKey] === "number" && Number.isFinite(row[xKey]),
+      );
     const domain: [number | "auto", number | "auto"] = [
       props.yAxis?.min ?? "auto",
       props.yAxis?.max ?? "auto",
@@ -416,7 +432,7 @@ function createRechartsChart(R: RechartsModule) {
                 label={valueAxisLabel}
               />
               <R.YAxis
-                type="category"
+                type={isNumericScatter ? "number" : "category"}
                 dataKey={props.xKey}
                 tick={axisTick}
                 tickLine={false}
@@ -427,6 +443,7 @@ function createRechartsChart(R: RechartsModule) {
           ) : (
             <>
               <R.XAxis
+                type={isNumericScatter ? "number" : "category"}
                 dataKey={props.xKey}
                 tick={axisTick}
                 tickLine={false}
