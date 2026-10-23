@@ -3309,3 +3309,37 @@ samp {
     gap: 0.5rem;
   }
 }
+
+/* Navigation progress bar (components/navigation-progress.tsx). Drawn along
+ * the bottom edge of whichever nav is showing (BrandNav from xl up, the fixed
+ * MobileTopNav below), never over the purple banner, and kept at that nav's
+ * layer so menus and the mobile sidebar drawer cover it.
+ *
+ * bprogress gives its custom parent `overflow: hidden` (which clips a 2px bar
+ * in this 0-height anchor) and the bar a 99999 z-index; the anchor's own
+ * z-index contains the latter. The rotated "peg" glow is hidden: it is meant
+ * for a bar at the top edge of the viewport and shows as a detached slanted
+ * shadow here. */
+#shell-docs-nav-progress {
+  overflow: visible;
+  z-index: 0;
+}
+
+#shell-docs-nav-progress .bprogress .bar {
+  position: absolute;
+}
+
+#shell-docs-nav-progress .bprogress .peg {
+  display: none;
+}
+
+@media (max-width: 1279px) {
+  #shell-docs-nav-progress {
+    position: fixed;
+    top: calc(var(--fd-banner-height, 0px) + var(--fd-nav-height));
+    right: 0;
+    left: 0;
+    /* MobileTopNav's layer (z-30). */
+    z-index: 30;
+  }
+}
