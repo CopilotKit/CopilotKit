@@ -1,0 +1,13 @@
+{
+  "name": "rich-thread-railway",
+  "projectType": "library",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node --import tsx --test tools/intelligence-smoke/rich-threads/lifecycle/railway/*.test.mjs tools/intelligence-smoke/rich-threads/lifecycle/railway/runner/*.test.mjs tools/railway-disposable-proof/snapshot-publisher.test.ts"
+      },
+      "cache": false
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "rich-threads-browser-driver",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "@ag-ui/client": "1.0.2",
+    "ioredis": "5.9.3",
+    "pg": "8.18.0",
+    "phoenix": "1.8.8",
+    "playwright": "1.63.0",
+    "rxjs": "7.8.1"
+  }
+}
