@@ -83,7 +83,7 @@ on:
           - webhooks
         # <<< END GENERATED service options
       digest:
-        description: "Optional digest override (default: snapshot from staging)"
+        description: "Optional digest override for the selected service ONLY (default: snapshot from staging). Other closure members always promote from staging."
         required: false
         type: string
 
@@ -116,6 +116,8 @@ jobs:
       closure_csv: ${{ steps.resolve.outputs.closure_csv }}
       # Machine-readable `tier:name` form of the closure for U4 to consume.
       closure_plan: ${{ steps.resolve.outputs.closure_plan }}
+      # The one service the `digest` input applies to (empty without a digest).
+      digest_service: ${{ steps.resolve.outputs.digest_service }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -306,6 +308,9 @@ jobs:
           # ONLY when CLOSURE_PLAN is empty (e.g. an older resolve step).
           SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
           DIGEST: ${{ inputs.digest }}
+          # promote-fleet.sh forwards DIGEST to this service ONLY; every other
+          # closure member promotes from its own staging running digest.
+          DIGEST_SERVICE: ${{ needs.resolve-targets.outputs.digest_service }}
         run: |
           set -euo pipefail
           if [ -z "$RAILWAY_TOKEN" ]; then

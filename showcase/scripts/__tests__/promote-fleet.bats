@@ -908,3 +908,51 @@ STUB
   run cat "$GITHUB_OUTPUT"
   [[ "$output" == *"svc-docs"* ]] || fail "standalone svc-docs should be in succeeded_csv: $output"
 }
+
+# --- digest scoping: --digest goes ONLY to DIGEST_SERVICE --------------------
+# A digest identifies ONE image. Forwarding it to every closure member would pin
+# aimock / harness / dashboard to the requested service's image. promote-fleet
+# must forward --digest only to DIGEST_SERVICE, and promote every other closure
+# member from its own staging running digest (no --digest).
+
+_args_stub() {
+  cat > "$STUB_DIR/railway-args" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
+echo "ARGS: $*"
+exit 0
+STUB
+  chmod +x "$STUB_DIR/railway-args"
+  export RAILWAY_BIN="$STUB_DIR/railway-args"
+}
+
+@test "digest scope: --digest is forwarded only to DIGEST_SERVICE on a multi-service closure" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h,2:svc-i1" DIGEST="sha256:deadbeef" DIGEST_SERVICE="svc-i1" bash "$SCRIPT"
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+  [[ "$output" == *"ARGS: promote svc-i1 --yes --non-interactive --digest sha256:deadbeef"* ]] \
+    || fail "digest not forwarded to the requested service: $output"
+  [[ "$output" == *"ARGS: promote svc-a --yes --non-interactive"* ]] || fail "svc-a not promoted: $output"
+  [[ "$output" == *"ARGS: promote svc-h --yes --non-interactive"* ]] || fail "svc-h not promoted: $output"
+  [[ "$output" != *"ARGS: promote svc-a --yes --non-interactive --digest"* ]] \
+    || fail "digest leaked onto closure member svc-a: $output"
+  [[ "$output" != *"ARGS: promote svc-h --yes --non-interactive --digest"* ]] \
+    || fail "digest leaked onto closure member svc-h: $output"
+}
+
+@test "digest scope: DIGEST on a multi-service plan without DIGEST_SERVICE is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,2:svc-i1" DIGEST="sha256:deadbeef" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted on an unscoped digest: $output"
+}
+
+@test "digest scope: DIGEST_SERVICE not in the plan is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,2:svc-i1" DIGEST="sha256:deadbeef" DIGEST_SERVICE="svc-zzz" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted when the digest target is absent: $output"
+}
+

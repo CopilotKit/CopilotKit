@@ -46,6 +46,9 @@
 #   services_csv   leaf-set CSV (backward-compat promote target).
 #   closure_csv    tier-ordered closure SSOT-name CSV.
 #   closure_plan   tier-annotated `tier:name` CSV for U4.
+#   digest_service SSOT name the DIGEST override applies to (empty when DIGEST
+#                  is unset). promote-fleet.sh forwards --digest to ONLY this
+#                  service, never to the rest of the closure.
 
 set -euo pipefail
 
@@ -115,7 +118,19 @@ else
   REQUESTED="$MATCHES"
 fi
 
-echo "services_csv=$CSV" >> "$GITHUB_OUTPUT"
+# A digest identifies ONE image: the requested service's. Emit that service's
+# SSOT name so promote-fleet.sh forwards --digest to it ONLY, and never pins the
+# rest of the closure (aimock, harness, dashboard, ...) to that image. The 'all'
+# branch already rejected DIGEST, so CSV is a single name here.
+DIGEST_SERVICE=""
+if [ -n "$DIGEST" ]; then
+  DIGEST_SERVICE="$CSV"
+fi
+
+{
+  echo "services_csv=$CSV"
+  echo "digest_service=$DIGEST_SERVICE"
+} >> "$GITHUB_OUTPUT"
 
 # ---------------------------------------------------------------------------
 # 2. Tiered promote CLOSURE (computed from the generated `closure` block).

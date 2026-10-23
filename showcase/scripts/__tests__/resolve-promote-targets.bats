@@ -262,3 +262,19 @@ JSON
   [[ "$output" != *"s:docs"* ]] || fail "all plan must not mark docs: $output"
   [[ "$output" == *"1:harness"* ]] || fail "all plan must keep harness: $output"
 }
+
+# --- digest_service: the digest applies ONLY to the requested service --------
+
+@test "DIGEST emits digest_service = the requested SSOT name only" {
+  run_resolve "a" "sha256:deadbeef"
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^digest_service=' "$GITHUB_OUTPUT"
+  [ "$output" = "digest_service=agent-a" ] || fail "digest_service wrong: $output"
+}
+
+@test "no DIGEST emits an empty digest_service" {
+  run_resolve "agent-a"
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^digest_service=' "$GITHUB_OUTPUT"
+  [ "$output" = "digest_service=" ] || fail "digest_service must be empty without DIGEST: $output"
+}

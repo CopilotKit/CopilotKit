@@ -38,10 +38,18 @@
 #   SERVICES_CSV  (optional*) comma-separated service names to promote, flat /
 #                             best-effort with NO tier gating (the legacy leaf
 #                             path). Required when CLOSURE_PLAN is unset.
-#   DIGEST        (optional)  digest override; forwarded as `--digest <ref>`.
-#                             Upstream resolve-targets already rejects
-#                             --digest + 'all', so a populated DIGEST here
-#                             always pairs with a single-service set.
+#   DIGEST        (optional)  digest override; forwarded as `--digest <ref>` to
+#                             DIGEST_SERVICE ONLY. A digest identifies one
+#                             image, so forwarding it to every closure member
+#                             would pin aimock / harness / dashboard to the
+#                             requested service's image. Every other member is
+#                             promoted from its own staging running digest.
+#   DIGEST_SERVICE (optional) the one service DIGEST applies to (resolve-targets
+#                             `digest_service` output). When DIGEST is set and
+#                             DIGEST_SERVICE is unset, it defaults to the only
+#                             service in the plan; a multi-service plan without
+#                             it, or a DIGEST_SERVICE absent from the plan, is
+#                             rejected BEFORE any promote runs.
 #   RAILWAY_BIN   (optional)  path to the railway CLI (default: sibling
 #                             ../bin/railway). Overridable for testing.
 #
@@ -173,7 +181,8 @@ promote_one() {
   slot="$(svc_slot "$svc")"
 
   args=(promote "$svc" --yes --non-interactive)
-  if [ -n "${DIGEST:-}" ]; then
+  # The digest belongs to DIGEST_SERVICE alone (validated by preflight_scope).
+  if [ -n "${DIGEST:-}" ] && [ "$svc" = "${DIGEST_SERVICE:-}" ]; then
     args+=(--digest "$DIGEST")
   fi
 
@@ -326,6 +335,33 @@ reap_tier() {
   done
 }
 
+# preflight_scope <svc...> — validate the parsed plan BEFORE any promote runs.
+# Exits non-zero (nothing promoted) when DIGEST is set but cannot be scoped to
+# exactly one service in the plan.
+# When DIGEST is set and DIGEST_SERVICE is unset, DIGEST_SERVICE defaults to the
+# only service in the plan (the legacy single-service call shape).
+preflight_scope() {
+  local svc n=0 only="" found=0
+  for svc in "$@"; do
+    [ -n "$svc" ] || continue
+    n=$(( n + 1 ))
+    only="$svc"
+    [ "$svc" = "${DIGEST_SERVICE:-}" ] && found=1
+  done
+  if [ -n "${DIGEST:-}" ]; then
+    if [ -z "${DIGEST_SERVICE:-}" ]; then
+      if [ "$n" -ne 1 ]; then
+        echo "::error::promote-fleet: DIGEST is set but DIGEST_SERVICE is not, and the plan has $n services; a digest identifies one image, refusing to promote anything." >&2
+        exit 1
+      fi
+      DIGEST_SERVICE="$only"
+    elif [ "$found" -ne 1 ]; then
+      echo "::error::promote-fleet: DIGEST_SERVICE '$DIGEST_SERVICE' is not in the promote plan; refusing to promote anything." >&2
+      exit 1
+    fi
+  fi
+}
+
 if [ -n "${CLOSURE_PLAN:-}" ]; then
   # ── Tier-ordered closure path (U4) ──────────────────────────────────────────
   # Parse `tier:name` tokens into per-tier service lists, then promote tier 0,
@@ -367,6 +403,7 @@ if [ -n "${CLOSURE_PLAN:-}" ]; then
   # ANY earlier-tier failure. `${arr[@]:-}` keeps the empty-array expansion safe
   # under `set -u` on bash 3.2 (an empty tier expands to a single empty arg,
   # which promote_tier skips via promote_one's no-op on "" — see below).
+  preflight_scope "${standalone_svcs[@]:-}" "${tier0[@]:-}" "${tier1[@]:-}" "${tier2[@]:-}"
   gated=0
   tier_had_failure=0
   # Standalone services FIRST and ALWAYS ungated. Their failures still land in
@@ -398,6 +435,7 @@ else
     [ -n "$svc" ] || continue
     flat_svcs+=("$svc")
   done
+  preflight_scope "${flat_svcs[@]:-}"
   tier_had_failure=0
   promote_tier 0 "${flat_svcs[@]:-}"
 fi
