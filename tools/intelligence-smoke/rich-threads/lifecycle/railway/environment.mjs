@@ -529,11 +529,18 @@ async function controllerFor({
     assert.ok(found, "Owned service instance missing");
     assert.equal(found.serviceName, service.name);
     assert.equal(found.environmentId, journal.environmentId);
-    assert.equal(
-      found.source?.image,
-      service.image,
-      "Owned service image drift",
-    );
+    if (service.sourcePending === true && !found.source?.image) {
+      assert.ok(
+        !found.source?.repo && !found.latestDeployment && !service.deploymentId,
+        "Unconfigured owned service must remain inert",
+      );
+    } else {
+      assert.equal(
+        found.source?.image,
+        service.image,
+        "Owned service image drift",
+      );
+    }
     const projectService = (await api.list("services", journal.projectId)).find(
       (s) => s.id === service.id,
     );
@@ -633,6 +640,8 @@ async function controllerFor({
       await check();
       const found = await ownedService(service);
       const d = found.latestDeployment;
+      if (d && service.deploymentId)
+        assert.equal(d.id, service.deploymentId, "Unexpected owned deployment");
       const instances =
         d?.instances
           ?.filter((i) => i.status === "RUNNING")
@@ -1294,6 +1303,7 @@ async function controllerFor({
         key: spec.key,
         name,
         image: spec.image,
+        sourcePending: true,
         roles: spec.roles,
         framework: spec.framework,
         healthchecks: spec.healthchecks,
@@ -1318,7 +1328,6 @@ async function controllerFor({
           projectId: journal.projectId,
           environmentId: fork.id,
           name,
-          source: { image: spec.image },
           variables: {
             ...(await inspectionVariables(spec, specs)),
             ...Object.fromEntries(
@@ -1424,7 +1433,6 @@ async function controllerFor({
         serviceId: service.id,
         environmentId: fork.id,
         input: {
-          source: { image: spec.image },
           numReplicas: 1,
           restartPolicyType: "NEVER",
           ...(spec.startCommand ? { startCommand: spec.startCommand } : {}),
@@ -1514,10 +1522,39 @@ async function controllerFor({
         await publish();
       }
       await check();
-      await api.request("deploy", {
-        serviceId: service.id,
-        environmentId: fork.id,
-      });
+      await ownedService(service);
+      id(
+        (
+          await api.request("stageSource", {
+            environmentId: fork.id,
+            input: {
+              services: { [service.id]: { source: { image: spec.image } } },
+            },
+          })
+        ).id,
+      );
+      await check();
+      id(await api.request("commitSource", { environmentId: fork.id }));
+      const configured = await ownedService(service);
+      assert.equal(
+        configured.source?.image,
+        service.image,
+        "Owned service image not configured",
+      );
+      assert.ok(
+        !configured.latestDeployment,
+        "Service deployed before explicit startup",
+      );
+      service.sourcePending = false;
+      await save();
+      await check();
+      service.deploymentId = id(
+        await api.request("deploy", {
+          serviceId: service.id,
+          environmentId: fork.id,
+        }),
+      );
+      await save();
       if (!service.roles.some((r) => ["database", "cache"].includes(r)))
         service.ready = await health(service);
       if (service.roles.includes("inspection-worker")) {

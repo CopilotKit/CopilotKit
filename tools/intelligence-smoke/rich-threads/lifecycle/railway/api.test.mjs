@@ -12,6 +12,45 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { railwayApi, RailwayRequestError } from "./api.mjs";
 
+test("source staging commits in its environment without deploying", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "railway-source-commit-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const executable = join(root, "fake-railway");
+  await writeFile(
+    executable,
+    `#!${process.execPath}
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const query = fs.readFileSync(process.argv[process.argv.indexOf('--file') + 1], 'utf8');
+const variables = JSON.parse(fs.readFileSync(process.argv[process.argv.indexOf('--variables') + 1].slice(1), 'utf8'));
+assert.equal(variables.environmentId, 'owned-fork');
+if (query.includes('environmentStageChanges')) {
+  assert.deepEqual(variables.input, {services:{'owned-service':{source:{image:'pinned-image'}}}});
+  assert.ok(query.includes('merge:true'));
+  process.stdout.write(JSON.stringify({data:{environmentStageChanges:{id:'patch-id'}}}));
+} else {
+  assert.ok(query.includes('environmentPatchCommitStaged(environmentId:$environmentId,skipDeploys:true)'));
+  process.stdout.write(JSON.stringify({data:{environmentPatchCommitStaged:'patch-id'}}));
+}
+`,
+    { mode: 0o700 },
+  );
+  const api = railwayApi({ executable });
+  assert.deepEqual(
+    await api.request("stageSource", {
+      environmentId: "owned-fork",
+      input: {
+        services: { "owned-service": { source: { image: "pinned-image" } } },
+      },
+    }),
+    { id: "patch-id" },
+  );
+  assert.equal(
+    await api.request("commitSource", { environmentId: "owned-fork" }),
+    "patch-id",
+  );
+});
+
 test("service deletion requires scope and sends the environment in the GraphQL mutation", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "railway-scoped-delete-"));
   t.after(() => rm(root, { recursive: true, force: true }));

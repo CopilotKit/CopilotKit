@@ -21,6 +21,7 @@ function fakeProvider(options = {}) {
     proxies: [],
     calls: [],
     serviceInputs: [],
+    deployments: [],
   };
   let serial = 0;
 
@@ -102,11 +103,13 @@ function fakeProvider(options = {}) {
           environmentId: env.id,
           source: input.source,
           domains: { serviceDomains: [] },
-          latestDeployment: {
-            id: `deployment-${serial}`,
-            status: "SUCCESS",
-            instances: [{ id: `instance-${serial}`, status: "RUNNING" }],
-          },
+          latestDeployment: input.source?.image
+            ? {
+                id: `deployment-${serial}`,
+                status: "SUCCESS",
+                instances: [{ id: `instance-${serial}`, status: "RUNNING" }],
+              }
+            : null,
         };
         env.serviceInstances.push(instance);
         if (options.escape)
@@ -232,7 +235,47 @@ function fakeProvider(options = {}) {
         state.environments = state.environments.filter((e) => e.id !== args.id);
         return true;
       }
-      if (["configure", "deploy"].includes(op)) return true;
+      if (op === "configure") {
+        assert.equal(
+          input.source,
+          undefined,
+          "Settings must not attach an image",
+        );
+        return true;
+      }
+      if (op === "stageSource") {
+        assert.equal(Object.keys(input.services).length, 1);
+        env.stagedSource = clone(input.services);
+        return { id: `patch-${++serial}` };
+      }
+      if (op === "commitSource") {
+        for (const [serviceId, patch] of Object.entries(env.stagedSource))
+          env.serviceInstances.find((s) => s.serviceId === serviceId).source =
+            patch.source;
+        delete env.stagedSource;
+        return `patch-${serial}`;
+      }
+      if (op === "deploy") {
+        const instance = env.serviceInstances.find(
+          (s) => s.serviceId === args.serviceId,
+        );
+        assert.ok(instance.source?.image);
+        assert.equal(
+          instance.latestDeployment,
+          null,
+          "Duplicate deployment requested",
+        );
+        instance.latestDeployment = {
+          id: `deployment-${++serial}`,
+          status: "SUCCESS",
+          instances: [{ id: `instance-${serial}`, status: "RUNNING" }],
+        };
+        state.deployments.push({
+          serviceId: args.serviceId,
+          id: instance.latestDeployment.id,
+        });
+        return instance.latestDeployment.id;
+      }
       throw new Error(`Unexpected operation ${op}`);
     },
   };
@@ -425,6 +468,91 @@ test("three consumer mirrors; one physical composite restart; exact resource abs
       "complete",
     );
 });
+test("bootstrap configures inert services before one explicit deployment each", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider();
+  const env = await createRailwayEnvironment(
+    { ...f, runId: "single-deployment", frameworks: ["mastra"] },
+    { ...f.dependencies, api: p.api },
+  );
+  try {
+    assert.ok(
+      p.state.serviceInputs.every((input) => input.source === undefined),
+      "Creation must not start an image before configuration is complete",
+    );
+    const journal = JSON.parse(
+      await readFile(join(f.directory, "single-deployment/journal.json")),
+    );
+    assert.equal(p.state.deployments.length, f.config.services.length);
+    for (const service of journal.services) {
+      assert.equal(service.sourcePending, false);
+      assert.equal(service.ready.deploymentId, service.deploymentId);
+      assert.equal(
+        p.state.deployments.filter((d) => d.serviceId === service.id).length,
+        1,
+      );
+    }
+  } finally {
+    await env.cleanup();
+  }
+});
+
+for (const committed of [false, true]) {
+  test(`source commit failure cleans owned service, applied=${committed}`, async (t) => {
+    const f = await fixture(t);
+    const p = fakeProvider();
+    const request = p.api.request;
+    p.api.request = async (operation, args) => {
+      if (operation === "commitSource") {
+        if (committed) await request(operation, args);
+        throw new Error("Source commit response lost");
+      }
+      return request(operation, args);
+    };
+    await assert.rejects(
+      createRailwayEnvironment(
+        { ...f, runId: "source-failed", frameworks: ["mastra"] },
+        { ...f.dependencies, api: p.api },
+      ),
+      /Source commit response lost/,
+    );
+    assert.equal(p.state.calls.includes("deploy"), false);
+    assert.equal(
+      p.state.services.length +
+        p.state.volumes.length +
+        p.state.environments.length,
+      0,
+    );
+    const journal = JSON.parse(
+      await readFile(join(f.directory, "source-failed/journal.json")),
+    );
+    assert.equal(journal.cleanup.status, "passed");
+  });
+}
+
+test("readiness rejects a different deployment and cleans up", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider();
+  const request = p.api.request;
+  p.api.request = async (operation, args) => {
+    const result = await request(operation, args);
+    return operation === "deploy" ? `different-${result}` : result;
+  };
+  await assert.rejects(
+    createRailwayEnvironment(
+      { ...f, runId: "different-deployment", frameworks: ["mastra"] },
+      { ...f.dependencies, api: p.api },
+    ),
+    /Unexpected owned deployment/,
+  );
+  assert.equal(
+    p.state.services.length +
+      p.state.volumes.length +
+      p.state.environments.length,
+    0,
+  );
+});
+
 test("bootstrap volumes wait the creation window before recording each intent", async (t) => {
   const f = await fixture(t);
   const p = fakeProvider();

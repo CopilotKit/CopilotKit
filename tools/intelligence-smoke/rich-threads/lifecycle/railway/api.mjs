@@ -24,7 +24,7 @@ export const operations = {
   environments: `query($projectId:String!,$after:String){project(id:$projectId){environments(first:100,after:$after){${page} {id name projectId createdAt isEphemeral sourceEnvironment{id}}}}}}`,
   services: `query($projectId:String!,$after:String){project(id:$projectId){services(first:100,after:$after){${page} {id name projectId createdAt}}}}}`,
   volumes: `query($projectId:String!,$after:String){project(id:$projectId){volumes(first:100,after:$after){${page} {id name projectId createdAt volumeInstances(first:100){pageInfo{hasNextPage} edges{node{id volumeId serviceId environmentId mountPath state isPendingDeletion}}}}}}}}`,
-  environment: `query($id:String!){environment(id:$id){id name projectId createdAt isEphemeral sourceEnvironment{id} serviceInstances(first:100){pageInfo{hasNextPage} edges{node{serviceId serviceName environmentId source{image} latestDeployment{id status instances{id status}} domains{serviceDomains{id domain targetPort}}}}} volumeInstances(first:100){pageInfo{hasNextPage} edges{node{id volumeId serviceId environmentId mountPath state isPendingDeletion}}}}}`,
+  environment: `query($id:String!){environment(id:$id){id name projectId createdAt isEphemeral sourceEnvironment{id} serviceInstances(first:100){pageInfo{hasNextPage} edges{node{serviceId serviceName environmentId source{image repo} latestDeployment{id status instances{id status}} domains{serviceDomains{id domain targetPort}}}}} volumeInstances(first:100){pageInfo{hasNextPage} edges{node{id volumeId serviceId environmentId mountPath state isPendingDeletion}}}}}`,
   createEnvironment:
     "mutation($input:EnvironmentCreateInput!){environmentCreate(input:$input){id name projectId createdAt isEphemeral sourceEnvironment{id}}}",
   createService:
@@ -33,6 +33,10 @@ export const operations = {
     "mutation($input:VolumeCreateInput!){volumeCreate(input:$input){id projectId name}}",
   configure:
     "mutation($serviceId:String!,$environmentId:String!,$input:ServiceInstanceUpdateInput!){serviceInstanceUpdate(serviceId:$serviceId,environmentId:$environmentId,input:$input)}",
+  stageSource:
+    "mutation($environmentId:String!,$input:EnvironmentConfig!){environmentStageChanges(environmentId:$environmentId,input:$input,merge:true){id}}",
+  commitSource:
+    "mutation($environmentId:String!){environmentPatchCommitStaged(environmentId:$environmentId,skipDeploys:true)}",
   variables:
     "mutation($input:VariableCollectionUpsertInput!){variableCollectionUpsert(input:$input)}",
   domain:
@@ -56,6 +60,8 @@ const resultFields = {
   createService: "serviceCreate",
   createVolume: "volumeCreate",
   configure: "serviceInstanceUpdate",
+  stageSource: "environmentStageChanges",
+  commitSource: "environmentPatchCommitStaged",
   variables: "variableCollectionUpsert",
   domain: "serviceDomainCreate",
   deploy: "serviceInstanceDeployV2",
