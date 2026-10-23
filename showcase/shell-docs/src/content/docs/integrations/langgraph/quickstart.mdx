@@ -420,7 +420,7 @@ An unversioned `zod` install selects Zod 4, which does not satisfy the SDK's `zo
               <ApiKeyHint provider="openai" />
 
               <Callout type="info" title="What about other models?">
-                The starter template is configured to use OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LangGraph.
+                The agent code above uses OpenAI's `gpt-4.1-mini`. To use another provider, replace `ChatOpenAI` with that provider's LangChain chat model and set its API key in `.env`.
               </Callout>
           </Step>
           <Step>
