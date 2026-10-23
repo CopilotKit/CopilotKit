@@ -49,6 +49,16 @@ describe("buildCatalogContextValue", () => {
     expect(value).not.toContain('"airline"');
     expect(value).not.toContain('"innerRadius"');
     expect(value).not.toContain('"type"');
+    expect(value).toBe(
+      [
+        "Available A2UI catalog:",
+        "- copilotkit://custom-catalog",
+        "  Custom catalog (does NOT include all basic components).",
+        "  Custom components:",
+        "  - FlightCard",
+        "  - PieChart",
+      ].join("\n"),
+    );
   });
 
   it("describes the basic catalog the same way regardless of includeSchema", () => {
