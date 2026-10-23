@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { CopilotChatAttachmentQueue } from "@copilotkit/react-core/v2";
 import type { Attachment } from "@copilotkit/react-core/v2";
@@ -26,6 +26,8 @@ const QueueDemo: React.FC<{ attachments: Attachment[] }> = ({
   attachments: initial,
 }) => {
   const [attachments, setAttachments] = useState(initial);
+  // Storybook controls replace the list; start over from the new one.
+  useEffect(() => setAttachments(initial), [initial]);
   if (attachments.length === 0) {
     return (
       <button
@@ -79,16 +81,20 @@ type Story = StoryObj<typeof meta>;
 /** Every modality side by side. */
 export const Mixed: Story = {
   loaders: [async () => ({ videoUrl: await recordSampleVideoUrl() })],
-  render: (args, { loaded }) => (
-    <QueueDemo
-      attachments={[
-        imageAttachment("image-1", [260, 320]),
-        videoAttachment(loaded.videoUrl as string | undefined),
-        pdfAttachment,
-        audioAttachment,
-      ]}
-    />
-  ),
+  render: (args, { loaded }) => {
+    const videoUrl = loaded.videoUrl as string | undefined;
+    return (
+      <QueueDemo
+        attachments={[
+          imageAttachment("image-1", [260, 320]),
+          // Left out where this browser can't record the sample video.
+          ...(videoUrl ? [videoAttachment(videoUrl)] : []),
+          pdfAttachment,
+          audioAttachment,
+        ]}
+      />
+    );
+  },
 };
 
 export const Images: Story = {

@@ -82,7 +82,12 @@ const sampleTextBase64 = toBase64(
 export async function recordSampleVideoUrl(
   durationMs = 600,
 ): Promise<string | undefined> {
-  if (typeof MediaRecorder === "undefined") return undefined;
+  if (
+    typeof MediaRecorder === "undefined" ||
+    !MediaRecorder.isTypeSupported("video/webm")
+  ) {
+    return undefined;
+  }
   const canvas = document.createElement("canvas");
   canvas.width = 320;
   canvas.height = 180;
@@ -193,7 +198,7 @@ export const audioAttachment: Attachment = {
 };
 
 /** A video attachment; the queue shows its thumbnail, the lightbox plays `url`. */
-export const videoAttachment = (url = ""): Attachment => ({
+export const videoAttachment = (url: string): Attachment => ({
   id: "video",
   type: "video",
   source: { type: "url", value: url, mimeType: "video/webm" },

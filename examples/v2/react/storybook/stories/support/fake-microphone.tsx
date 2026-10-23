@@ -30,7 +30,12 @@ function install(): () => void {
   tone.connect(destination);
   tone.start();
 
-  mediaDevices.getUserMedia = async () => destination.stream;
+  // A fresh stream per call: the recorder stops the tracks it was given when a
+  // recording ends, so handing back the same stream would break the next one.
+  mediaDevices.getUserMedia = async () =>
+    new MediaStream(
+      destination.stream.getAudioTracks().map((track) => track.clone()),
+    );
   AnalyserNode.prototype.getByteTimeDomainData = function (array) {
     const t = performance.now() / 1000;
     const level = Math.max(
