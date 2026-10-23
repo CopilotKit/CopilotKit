@@ -1,4 +1,5 @@
 import { logger } from "@copilotkit/shared";
+import type { ToolCall as SnapshotToolCall } from "@ag-ui/core";
 
 export interface ParsedSSEResult {
   messages: Message[];
@@ -15,7 +16,9 @@ export interface Message {
   toolCallId?: string;
 }
 
-interface ToolCall {
+type ToolCall = SnapshotToolCall | ReconstructedToolCall;
+
+interface ReconstructedToolCall {
   id: string;
   name: string;
   args: string;
@@ -50,7 +53,6 @@ export async function parseSSEResponse(
   const messagesById = new Map<string, Message>();
   const toolCallsById = new Map<string, ToolCall>();
   const toolCallParent = new Map<string, string>(); // toolCallId → messageId
-  let snapshotMessages: Message[] | undefined;
 
   // Link a tool call to its assistant message the way @ag-ui/client does. A
   // tool-only turn streams no TEXT_MESSAGE_START, so the parent may not exist
@@ -89,16 +91,29 @@ export async function parseSSEResponse(
 
       case "MESSAGES_SNAPSHOT":
         if (Array.isArray(event.messages)) {
-          snapshotMessages = event.messages;
+          // A snapshot replaces the history at this point in the stream;
+          // subsequent events must still contribute to the final messages.
+          messagesById.clear();
+          toolCallsById.clear();
+          toolCallParent.clear();
+          for (const message of event.messages) {
+            messagesById.set(message.id, message);
+            for (const toolCall of message.toolCalls ?? []) {
+              toolCallsById.set(toolCall.id, toolCall);
+              toolCallParent.set(toolCall.id, message.id);
+            }
+          }
         }
         break;
 
       case "TEXT_MESSAGE_START":
-        messagesById.set(event.messageId, {
-          id: event.messageId,
-          role: event.role ?? "assistant",
-          content: "",
-        });
+        if (!messagesById.has(event.messageId)) {
+          messagesById.set(event.messageId, {
+            id: event.messageId,
+            role: event.role ?? "assistant",
+            content: "",
+          });
+        }
         break;
 
       case "TEXT_MESSAGE_CONTENT": {
@@ -128,7 +143,7 @@ export async function parseSSEResponse(
       }
 
       case "TOOL_CALL_START": {
-        const tc: ToolCall = {
+        const tc: ToolCall = toolCallsById.get(event.toolCallId) ?? {
           id: event.toolCallId,
           name: event.toolCallName,
           args: "",
@@ -141,7 +156,11 @@ export async function parseSSEResponse(
       case "TOOL_CALL_ARGS": {
         const tc = toolCallsById.get(event.toolCallId);
         if (tc) {
-          tc.args += event.delta ?? "";
+          if ("function" in tc) {
+            tc.function.arguments += event.delta ?? "";
+          } else {
+            tc.args += event.delta ?? "";
+          }
         }
         break;
       }
@@ -161,9 +180,17 @@ export async function parseSSEResponse(
             linkToolCallParent(event.toolCallId, event.parentMessageId);
           }
           if (event.toolCallName) {
-            tc.name = event.toolCallName;
+            if ("function" in tc) {
+              tc.function.name = event.toolCallName;
+            } else {
+              tc.name = event.toolCallName;
+            }
           }
-          tc.args += event.delta ?? "";
+          if ("function" in tc) {
+            tc.function.arguments += event.delta ?? "";
+          } else {
+            tc.args += event.delta ?? "";
+          }
         }
         break;
       }
@@ -175,7 +202,9 @@ export async function parseSSEResponse(
           const parent = messagesById.get(parentId);
           if (parent) {
             parent.toolCalls = parent.toolCalls ?? [];
-            parent.toolCalls.push(tc);
+            if (!parent.toolCalls.some((toolCall) => toolCall.id === tc.id)) {
+              parent.toolCalls.push(tc);
+            }
           }
         }
         break;
@@ -216,9 +245,7 @@ export async function parseSSEResponse(
     }
   }
 
-  // Prefer MESSAGES_SNAPSHOT if present (contains full history).
-  // Otherwise reconstruct from individual events.
-  const messages = snapshotMessages ?? [...messagesById.values()];
+  const messages = [...messagesById.values()];
 
   return { messages, threadId, runId };
 }
