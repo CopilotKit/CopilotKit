@@ -105,11 +105,13 @@ When you are done, your Runtime will send selected Threads to a Learning contain
     npx copilotkit@latest learning containers default-id
     ```
 
-    Then create the container with that ID and a name. Add `--prompt-context` to give guidance about what good work looks like.
+    Then create the container with that ID and a name:
 
     ```bash title="Terminal"
     npx copilotkit@latest learning containers create --id <container-id> --name "<container name>"
     ```
+
+    To give guidance about what good work looks like, you can also add `--prompt-context` with a text value, for example `--prompt-context "Use approved answers."`.
 
   </Step>
 
