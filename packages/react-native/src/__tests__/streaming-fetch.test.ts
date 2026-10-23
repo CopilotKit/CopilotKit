@@ -250,6 +250,8 @@ describe("installStreamingFetch", () => {
       return { resp: await fetchPromise, xhr };
     }
 
+    // MockXHR does not model the native total timeout, so this also passes
+    // without the idle timer. It guards that progress events reset the timer.
     it("keeps a stream open past 60 seconds while data keeps arriving", async () => {
       const { resp, xhr } = await openStream();
       let text = "";
@@ -278,6 +280,26 @@ describe("installStreamingFetch", () => {
       await vi.advanceTimersByTimeAsync(1);
       await read;
       expect(xhr.abort).toHaveBeenCalled();
+    });
+
+    it("clears the idle timer when the response finishes", async () => {
+      const { resp, xhr } = await openStream();
+      xhr.readyState = 4;
+      xhr.onload?.();
+      await vi.advanceTimersByTimeAsync(0);
+      await resp.text();
+
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(xhr.abort).not.toHaveBeenCalled();
+    });
+
+    it("clears the idle timer when the stream is cancelled", async () => {
+      const { resp, xhr } = await openStream();
+      await resp.body!.getReader().cancel();
+      expect(xhr.abort).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(xhr.abort).toHaveBeenCalledTimes(1);
     });
   });
 
