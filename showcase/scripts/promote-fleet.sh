@@ -58,6 +58,14 @@
 #                             runs when it holds a CR / LF / tab / character
 #                             outside [a-z0-9, -] or a non-name token, or when
 #                             a held service is still in the plan.
+#   GENERATED     (optional)  SSOT artifact used by the input guard to check
+#                             every service name (default: sibling
+#                             railway-envs.generated.json). Every input above is
+#                             validated WHOLE by promote-input-guard.sh before
+#                             any CLI call: [a-z0-9-] SSOT names joined by
+#                             commas, no empty entry, no leading '-', no
+#                             CR/LF/tab/space. Each service is passed to the CLI
+#                             after `--`.
 #   RAILWAY_BIN   (optional)  path to the railway CLI (default: sibling
 #                             ../bin/railway). Overridable for testing.
 #
@@ -122,6 +130,50 @@ if [ ! -x "$RAILWAY_BIN" ] && ! command -v "$RAILWAY_BIN" >/dev/null 2>&1; then
   echo "::error::promote-fleet: RAILWAY_BIN '$RAILWAY_BIN' is missing or not executable; cannot promote." >&2
   exit 1
 fi
+
+# ── Input guard (promote-input-guard.sh) ───────────────────────────────────
+# Every input is validated WHOLE, before it is parsed, and the run fails closed
+# before any CLI call. Each service name becomes an argv element of
+# `bin/railway promote`: a token like `--yes` would be read as a FLAG, the
+# positional service would vanish, and the CLI would promote the WHOLE fleet
+# (held services included). Names must be [a-z0-9-] SSOT names joined by
+# commas: no CR/LF/tab/space, no empty entry, no leading '-'.
+# shellcheck source=SCRIPTDIR/promote-input-guard.sh disable=SC1091
+. "$HERE/promote-input-guard.sh"
+GENERATED="${GENERATED:-$HERE/railway-envs.generated.json}"
+SSOT_NAMES=$(guard_ssot_names "$GENERATED" name) || exit 1
+if [ -n "${CLOSURE_PLAN:-}" ]; then
+  case "$CLOSURE_PLAN" in
+    *[!abcdefghijklmnopqrstuvwxyz0123456789:,-]*)
+      echo "::error::promote-fleet: CLOSURE_PLAN may contain only 'tier:name' entries ([0-2s]:[a-z0-9-]) joined by commas. Got: $(printf '%q' "$CLOSURE_PLAN")" >&2
+      exit 1
+      ;;
+  esac
+  case ",$CLOSURE_PLAN," in
+    *",,"*)
+      echo "::error::promote-fleet: CLOSURE_PLAN has an empty entry (leading, trailing or doubled comma). Got: $(printf '%q' "$CLOSURE_PLAN")" >&2
+      exit 1
+      ;;
+  esac
+  plan_names=""
+  IFS=',' read -ra GUARD_TOKENS <<< "$CLOSURE_PLAN"
+  for tok in "${GUARD_TOKENS[@]}"; do
+    case "$tok" in
+      0:*|1:*|2:*|s:*) ;;
+      *)
+        echo "::error::promote-fleet: CLOSURE_PLAN token '$tok' is not 'tier:name' with tier 0, 1, 2 or s." >&2
+        exit 1
+        ;;
+    esac
+    plan_names="${plan_names:+$plan_names,}${tok#*:}"
+  done
+  guard_service_csv "promote-fleet: CLOSURE_PLAN" "$plan_names" "$SSOT_NAMES" || exit 1
+else
+  guard_service_csv "promote-fleet: SERVICES_CSV" "$SERVICES_CSV" "$SSOT_NAMES" || exit 1
+fi
+guard_service_csv "promote-fleet: HELD_CSV" "${HELD_CSV:-}" "$SSOT_NAMES" allow_empty || exit 1
+guard_service_csv "promote-fleet: DIGEST_SERVICE" "${DIGEST_SERVICE:-}" "$SSOT_NAMES" allow_empty || exit 1
+guard_digest "promote-fleet: DIGEST" "${DIGEST:-}" || exit 1
 
 succeeded=()       # service names that actually pinned (the closure subset)
 failed=()          # "svc=exitcode" entries
@@ -188,11 +240,15 @@ promote_one() {
   local slot args out rc line
   slot="$(svc_slot "$svc")"
 
-  args=(promote "$svc" --yes --non-interactive)
+  args=(promote --yes --non-interactive)
   # The digest belongs to DIGEST_SERVICE alone (validated by preflight_scope).
   if [ -n "${DIGEST:-}" ] && [ "$svc" = "${DIGEST_SERVICE:-}" ]; then
     args+=(--digest "$DIGEST")
   fi
+  # `--` ends option parsing in bin/railway's OptionParser, so the service is
+  # ALWAYS the positional argument and can never be read as a flag (a name like
+  # `--yes` would otherwise drop the positional and promote the whole fleet).
+  args+=(-- "$svc")
 
   # Capture this service's full output into its own log file. We do NOT tee to
   # the live terminal here: under fan-out, N services stream at once and their
@@ -346,30 +402,13 @@ reap_tier() {
 # Held services (HELD_CSV), trimmed, empty tokens dropped. Used by
 # preflight_scope, verify_csv and the summary.
 #
-# Validate the WHOLE value before parsing and fail CLOSED: a single `IFS=, read`
-# stops at the first LF, so $'svc-outside,\nsvc-h' would hold only svc-outside
-# and promote svc-h. Same rule as resolve-promote-targets.sh: only lowercase
-# letters, digits, comma, space and hyphen (the set is spelled out so collation
-# order cannot widen it), and each token must be a plain service name. This
-# script has no SSOT input; resolve-targets checks names against the SSOT.
+# HELD_CSV was validated WHOLE by the input guard above (a single `IFS=, read`
+# stops at the first LF, so $'svc-outside,\nsvc-h' would otherwise hold only
+# svc-outside and promote svc-h), so it is one line of SSOT names here.
 held=()
-case "${HELD_CSV:-}" in
-  *[!abcdefghijklmnopqrstuvwxyz0123456789,\ -]*)
-    echo "::error::promote-fleet: HELD_CSV may contain only lowercase service names, commas and spaces (no CR, LF, tab or other characters); refusing to promote anything. Got: $(printf '%q' "$HELD_CSV")" >&2
-    exit 1
-    ;;
-esac
 IFS=',' read -ra HELD_TOKENS <<< "${HELD_CSV:-}"
 for tok in "${HELD_TOKENS[@]:-}"; do
-  tok="$(trim "$tok")"
-  [ -n "$tok" ] || continue
-  case "$tok" in
-    *" "*)
-      echo "::error::promote-fleet: HELD_CSV token '$tok' is not a service name; refusing to promote anything." >&2
-      exit 1
-      ;;
-  esac
-  held+=("$tok")
+  [ -n "$tok" ] && held+=("$tok")
 done
 
 # preflight_scope <svc...> — validate the parsed plan BEFORE any promote runs.

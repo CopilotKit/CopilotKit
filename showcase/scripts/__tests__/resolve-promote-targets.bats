@@ -290,8 +290,8 @@ run_resolve_hold() {
     || fail "step summary must list harness as held, unchanged: $output"
 }
 
-@test "HOLD accepts dispatch_names, trims whitespace, and normalizes to SSOT names" {
-  run_resolve_hold "agent-a" " showcase-harness , shell-dashboard "
+@test "HOLD accepts dispatch_names and normalizes to SSOT names" {
+  run_resolve_hold "agent-a" "showcase-harness,shell-dashboard"
   [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
   run grep '^closure_csv=' "$GITHUB_OUTPUT"
   [ "$output" = "closure_csv=aimock,pocketbase,agent-a" ] || fail "closure wrong: $output"
@@ -393,4 +393,49 @@ run_resolve_hold() {
   [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
   [[ "$output" == *"::error::"*"agent-b"* ]] || fail "error must name the not-in-closure service: $output"
   [ ! -s "$GITHUB_OUTPUT" ] || fail "nothing may be emitted on a rejected HOLD: $(cat "$GITHUB_OUTPUT")"
+}
+
+# --- the one input guard (promote-input-guard.sh) ----------------------------
+# Every value is validated WHOLE before parsing: only [a-z0-9-] SSOT names
+# joined by commas. A token like `--yes` would otherwise reach bin/railway as a
+# FLAG, drop the positional service, and promote the WHOLE fleet.
+
+@test "guard: HOLD with spaces is rejected (names joined by commas only)" {
+  run_resolve_hold "agent-a" "harness, dashboard"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on a space in HOLD, got $status: $output"
+  [ ! -s "$GITHUB_OUTPUT" ] || fail "nothing may be emitted: $(cat "$GITHUB_OUTPUT")"
+}
+
+@test "guard: HOLD with an empty entry (doubled / trailing comma) is rejected" {
+  run_resolve_hold "agent-a" "harness,,dashboard"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on ',,', got $status: $output"
+  run_resolve_hold "agent-a" "harness,"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on a trailing comma, got $status: $output"
+}
+
+@test "guard: option-like tokens (--yes, --foo, -x) are rejected in HOLD" {
+  for tok in "--yes" "--foo" "-x" "harness,--yes"; do
+    : > "$GITHUB_OUTPUT"
+    run_resolve_hold "agent-a" "$tok"
+    [ "$status" -ne 0 ] || fail "expected non-zero exit for HOLD='$tok', got $status: $output"
+    [[ "$output" == *"::error::"* ]] || fail "expected ::error:: for HOLD='$tok': $output"
+    [ ! -s "$GITHUB_OUTPUT" ] || fail "nothing may be emitted for HOLD='$tok': $(cat "$GITHUB_OUTPUT")"
+  done
+}
+
+@test "guard: option-like service input (--yes, --foo, -x) is rejected" {
+  for tok in "--yes" "--foo" "-x"; do
+    : > "$GITHUB_OUTPUT"
+    run_resolve "$tok"
+    [ "$status" -ne 0 ] || fail "expected non-zero exit for service='$tok', got $status: $output"
+    [ ! -s "$GITHUB_OUTPUT" ] || fail "nothing may be emitted for service='$tok': $(cat "$GITHUB_OUTPUT")"
+  done
+}
+
+@test "guard: an option-like or whitespace digest is rejected" {
+  run_resolve "agent-a" "--yes"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for digest='--yes', got $status: $output"
+  run_resolve "agent-a" $'sha256:abc\n--yes'
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for a multi-line digest, got $status: $output"
+  [ ! -s "$GITHUB_OUTPUT" ] || fail "nothing may be emitted: $(cat "$GITHUB_OUTPUT")"
 }

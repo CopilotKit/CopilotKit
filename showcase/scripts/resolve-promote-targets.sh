@@ -46,8 +46,10 @@
 #                          exercise a held service (equivalence re-sweep on the
 #                          prod harness, lint-prod) see its current prod image.
 #                          Fails CLOSED (rejected loud, nothing emitted) on: any
-#                          character outside [a-z0-9, -] (CR/LF included), an
-#                          unknown name, a name not in this promote's closure,
+#                          value promote-input-guard.sh rejects (anything but
+#                          [a-z0-9-] names joined by commas: CR/LF/tab/space,
+#                          an empty entry, a leading '-', or a name not in the
+#                          SSOT), a name not in this promote's closure,
 #                          the requested service itself, or a hold that empties
 #                          the promote set.
 #   GENERATED  (optional)  path to railway-envs.generated.json
@@ -82,30 +84,38 @@ if [ "$INPUT" = "__select_a_service__" ] || [ -z "$INPUT" ]; then
   exit 1
 fi
 
+# --- guard: the one input-validation guard (promote-input-guard.sh) ----------
+# Validate every human-supplied value WHOLE before it is parsed; fail closed.
+# shellcheck source=SCRIPTDIR/promote-input-guard.sh disable=SC1091
+. "$SCRIPT_DIR/promote-input-guard.sh"
+SSOT_NAMES_OR_DISPATCH=$(guard_ssot_names "$GENERATED" name_or_dispatch) || exit 1
+if [ "$INPUT" != "all" ]; then
+  guard_service_csv "'service'" "$INPUT" "$SSOT_NAMES_OR_DISPATCH" || exit 1
+  case "$INPUT" in
+    *,*)
+      echo "::error::'service' must be ONE service (or 'all'), got a list: '$INPUT'"
+      exit 1
+      ;;
+  esac
+fi
+guard_digest "'digest'" "$DIGEST" || exit 1
+
 # ---------------------------------------------------------------------------
 # 0. HOLD — resolve each held name to exactly one SSOT name. Fail loud on a
 #    typo: an unrecognised name would otherwise silently promote the service
 #    the operator meant to hold.
 # ---------------------------------------------------------------------------
 HELD=""
-# Fail CLOSED on any character outside lowercase letters, digits, comma, space
-# and hyphen. In particular a CR or LF must never get through: `read` stops at
-# the first newline, so a pasted multi-line list would silently drop every held
-# name after line one and promote services the operator meant to hold. The set
-# is spelled out (not a-z) so collation order cannot widen it.
-case "$HOLD" in
-  *[!abcdefghijklmnopqrstuvwxyz0123456789,\ -]*)
-    echo "::error::'hold' may contain only lowercase service names, commas and spaces (no newlines, carriage returns, tabs or other characters). Got: $(printf '%q' "$HOLD")"
-    exit 1
-    ;;
-esac
+# The WHOLE value is validated before it is split (promote-input-guard.sh): only
+# known SSOT names / dispatch_names of [a-z0-9-] joined by commas, no empty
+# entry, no leading '-'. In particular a CR or LF never gets through — `read`
+# stops at the first newline, so a pasted multi-line list would otherwise drop
+# every held name after line one and promote services the operator meant to
+# hold.
+guard_service_csv "'hold'" "$HOLD" "$SSOT_NAMES_OR_DISPATCH" allow_empty || exit 1
 if [ -n "$HOLD" ]; then
   IFS=',' read -ra HOLD_TOKENS <<< "$HOLD"
   for tok in "${HOLD_TOKENS[@]}"; do
-    # Trim leading/trailing whitespace (`IFS=, read` does not trim).
-    tok="${tok#"${tok%%[![:space:]]*}"}"
-    tok="${tok%"${tok##*[![:space:]]}"}"
-    [ -n "$tok" ] || continue
     HMATCH=$(jq -r --arg s "$tok" '.services[] | select(.name == $s or .dispatchName == $s) | .name' "$GENERATED")
     HCOUNT=$(printf '%s' "$HMATCH" | grep -c . || true)
     if [ "$HCOUNT" -ne 1 ]; then
