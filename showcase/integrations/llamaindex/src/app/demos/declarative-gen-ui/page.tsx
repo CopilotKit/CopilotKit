@@ -10,14 +10,9 @@
  *      `myCatalog`).
  *   2. Pass that catalog to the provider via
  *      `<CopilotKit a2ui={{ catalog: myCatalog }}>`.
- *   3. The dedicated runtime at `/api/copilotkit-declarative-gen-ui` is
- *      configured with `injectA2UITool: true`. That populates the A2UI
- *      middleware's watched-names set, so the middleware mounts the surface
- *      from a STREAMED `render_a2ui` tool-call that the backend agent
- *      (`src/agents/a2ui_dynamic.py`) re-emits on the outbound AG-UI stream
- *      (via its `aggregate_tool_calls` override). The middleware also
- *      serialises the registered catalog schema into `copilotkit.context` so
- *      the agent knows which components are available.
+ *   3. The runtime watches the backend's streamed `render_a2ui` call
+ *      without injecting another tool. The backend's `generate_a2ui` tool
+ *      creates the components, and the middleware mounts the surface.
  *
  * Reference:
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui
