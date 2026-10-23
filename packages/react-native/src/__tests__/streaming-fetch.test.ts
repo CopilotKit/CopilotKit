@@ -221,9 +221,63 @@ describe("installStreamingFetch", () => {
       expect(xhr.send).toHaveBeenCalledWith('{"key":"value"}');
     });
 
-    it("sets XHR timeout to 60 seconds", async () => {
+    it("does not set a total XHR timeout", async () => {
       const { xhr } = await fetchAndCapture();
-      expect(xhr.timeout).toBe(60_000);
+      expect(xhr.timeout).toBe(0);
+    });
+  });
+
+  // ── Idle timeout ──────────────────────────────────────────────────────────
+
+  describe("idle timeout", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    async function openStream() {
+      const { fetchPromise, xhr } = await fetchAndCapture();
+      xhr.readyState = 2;
+      xhr.status = 200;
+      xhr.getAllResponseHeaders.mockReturnValue(
+        "content-type: text/event-stream\r\n",
+      );
+      xhr.onreadystatechange?.();
+      await vi.advanceTimersByTimeAsync(0);
+      return { resp: await fetchPromise, xhr };
+    }
+
+    it("keeps a stream open past 60 seconds while data keeps arriving", async () => {
+      const { resp, xhr } = await openStream();
+      let text = "";
+      for (let i = 1; i <= 4; i++) {
+        await vi.advanceTimersByTimeAsync(50_000);
+        text += `: tick ${i}\n\n`;
+        xhr.responseText = text;
+        xhr.onprogress?.();
+        await vi.advanceTimersByTimeAsync(0);
+      }
+      xhr.readyState = 4;
+      xhr.onload?.();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(await resp.text()).toBe(text);
+      expect(xhr.abort).not.toHaveBeenCalled();
+    });
+
+    it("fails the stream after 60 seconds without data", async () => {
+      const { resp, xhr } = await openStream();
+      const read = expect(resp.body!.getReader().read()).rejects.toThrow(
+        "Network request timed out",
+      );
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(xhr.abort).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      await read;
+      expect(xhr.abort).toHaveBeenCalled();
     });
   });
 
