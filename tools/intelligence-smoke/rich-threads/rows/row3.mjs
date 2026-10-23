@@ -1,0 +1,137 @@
+import assert from "node:assert/strict";
+import { aggregate } from "../contract.mjs";
+import {
+  categories,
+  assertReplay,
+  assertAnswered,
+} from "../import/assertions.mjs";
+import { prepareImport } from "../import/prepare.mjs";
+
+export const row = {
+  id: 3,
+  title: "Import and replay native-only rich conversations",
+  async run(context) {
+    const service = context.services.importReplay;
+    if (!service)
+      return {
+        status: "blocked",
+        checks: [
+          {
+            name: "fixture",
+            status: "blocked",
+            evidence: [],
+            detail: "No native import/replay fixture configured",
+          },
+        ],
+        limitations: ["No native import/replay fixture configured"],
+      };
+    const sources = structuredClone(await service.sources());
+    assert.ok(sources.length, "At least one native-only source is required");
+    assert.equal(
+      new Set(sources.map((s) => s.id)).size,
+      sources.length,
+      "Duplicate source IDs",
+    );
+    const checks = [];
+    const limitations = [];
+    const covered = new Set();
+    for (const source of sources) {
+      const expectedSource = structuredClone(source);
+      const evidence = `${source.id}-import-replay.json`;
+      const record = {
+        source: expectedSource,
+        baseline: context.baseline,
+        framework: context.framework,
+      };
+      try {
+        await prepareImport(service, source, record);
+        record.replay = await service.replay(source, record.imported);
+        assertReplay(expectedSource, record.imported, record.replay);
+        record.answers = [];
+        // Sources with multiple pending interactions need explicit serial expectations.
+        assert.ok(
+          expectedSource.expected.pending.length <= 1,
+          "Use separate source histories for independent pending controls",
+        );
+        for (const pending of expectedSource.expected.pending) {
+          const answered = await service.answer(
+            source,
+            record.imported,
+            structuredClone(pending),
+          );
+          record.answers.push(answered);
+          assertAnswered(expectedSource, record.imported, pending, answered);
+        }
+        for (const category of expectedSource.coverage) {
+          assert.ok(
+            categories.includes(category),
+            `Unknown category ${category}`,
+          );
+          covered.add(category);
+        }
+        checks.push({
+          name: source.id,
+          status: "passed",
+          evidence: [evidence],
+          detail:
+            "Native source, CLI import, replay and applicable responses matched",
+        });
+      } catch (error) {
+        record.error = error.message;
+        const code = error.code ?? error.cause?.code;
+        if (
+          ![
+            "ECONNREFUSED",
+            "ENOTFOUND",
+            "ETIMEDOUT",
+            "EHOSTUNREACH",
+            "ENOSPC",
+            "RICH_IMPORT_SETUP",
+          ].includes(code)
+        )
+          throw error;
+        record.failureClass = "setup";
+        checks.push({
+          name: source.id,
+          status: "blocked",
+          evidence: [evidence],
+          detail: `Setup failure (${code}): ${error.message}`,
+        });
+        limitations.push(
+          `Source ${source.id} could not complete because its configured environment is unavailable`,
+        );
+      } finally {
+        await context.writeArtifact(evidence, record);
+      }
+    }
+    for (const category of categories) {
+      if (covered.has(category)) continue;
+      const limitation = context.fixture.importLimitations?.[category];
+      if (
+        limitation?.kind === "source-limitation" &&
+        limitation.detail &&
+        limitation.evidence?.length
+      ) {
+        checks.push({
+          name: category,
+          status: "not-applicable",
+          detail: limitation.detail,
+          evidence: limitation.evidence,
+        });
+        limitations.push(`${category}: ${limitation.detail}`);
+      } else {
+        checks.push({
+          name: category,
+          status: "unvalidated",
+          detail: "Applicable category not exercised",
+          evidence: [],
+        });
+      }
+    }
+    return {
+      status: aggregate(checks),
+      checks,
+      limitations,
+    };
+  },
+};
