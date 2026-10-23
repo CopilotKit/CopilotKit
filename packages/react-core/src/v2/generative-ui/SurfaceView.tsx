@@ -31,6 +31,7 @@ import {
   isAsyncIssue,
   issueKey,
   validateSchemaSync,
+  withoutRejectedNulls,
 } from "./schema";
 import {
   DefaultNodeFallback,
@@ -531,7 +532,16 @@ function checkModelProps(
   modelData: Record<string, unknown>,
 ): ModelCheck {
   if (!definition.props) return { ok: true, values: {} };
-  const result = validateSchemaSync(definition.props, modelData);
+  let values = modelData;
+  let result = validateSchemaSync(definition.props, values);
+  if (!result.success) {
+    // A null the schema rejects is an unset prop: check again without it.
+    const unset = withoutRejectedNulls(values, result.issues);
+    if (unset) {
+      values = unset;
+      result = validateSchemaSync(definition.props, values);
+    }
+  }
   if (!result.success) {
     const issues = result.issues.filter((issue) => {
       const key = issueKey(issue);
@@ -541,7 +551,7 @@ function checkModelProps(
     });
     if (issues.length > 0) return { ok: false, problem: formatIssues(issues) };
   }
-  return { ok: true, values: modelData };
+  return { ok: true, values };
 }
 
 /**
@@ -579,10 +589,13 @@ function useDataProps(
     if (!modelCheck.ok) return modelCheck;
     if (!selection.ok) return selection;
     if (!definition.props) return { ok: true, props: {}, accessibility };
-    const parsed = validateSchemaSync(definition.props, {
-      ...modelCheck.values,
-      ...selection.values,
-    });
+    const input = { ...modelCheck.values, ...selection.values };
+    let parsed = validateSchemaSync(definition.props, input);
+    if (!parsed.success) {
+      // A null the schema rejects is an unset prop: validate without it.
+      const unset = withoutRejectedNulls(input, parsed.issues);
+      if (unset) parsed = validateSchemaSync(definition.props, unset);
+    }
     if (!parsed.success) {
       return { ok: false, problem: formatIssues(parsed.issues) };
     }
