@@ -493,6 +493,48 @@ async function visibleAnchor(page) {
 }
 
 for (const mode of ["pin-to-bottom", "none"]) {
+  for (const hidden of [false, true]) {
+    test(`${mode} preserves the reading message through width changes (hidden: ${hidden})`, async () => {
+      const page = await openChat({ count: 80, mode, variedRows: true });
+      try {
+        await scrollAway(page);
+        const before = await visibleAnchor(page);
+        assert.ok(before?.message);
+        for (const width of ["narrow", "wide", "narrow"]) {
+          if (hidden) {
+            await page.locator("#hide").click();
+            await page.waitForFunction(
+              () => document.querySelector("#host").clientHeight === 0,
+            );
+            await page.waitForTimeout(120);
+          }
+          await page.locator(`#${width}`).click();
+          if (hidden) {
+            await page.locator("#rerender").click();
+            await page.locator("#show").click();
+            await page.waitForFunction(
+              () => document.querySelector("#host").clientHeight > 0,
+            );
+            await page.locator("#rerender").click();
+          }
+          await page.waitForTimeout(1100);
+          const after = await visibleAnchor(page);
+          assert.equal(
+            after?.message,
+            before.message,
+            JSON.stringify({ width, before, after }),
+          );
+          assert.ok(
+            Math.abs(after.offset - before.offset) < 3,
+            JSON.stringify({ width, before, after }),
+          );
+        }
+      } finally {
+        await page.close();
+      }
+    });
+  }
+
   test(`${mode} preserves the same message over repeated hide/show with varied row heights`, async () => {
     const page = await openChat({ count: 80, mode, variedRows: true });
     try {
@@ -520,3 +562,91 @@ for (const mode of ["pin-to-bottom", "none"]) {
     }
   });
 }
+
+test("width changes preserve the bottom lock, including changes while hidden", async () => {
+  const page = await openChat({
+    count: 80,
+    mode: "pin-to-bottom",
+    variedRows: true,
+  });
+  // A hidden or not-yet-measured spacer can briefly report zero distance.
+  // Wait for a visible, stable layout while the resize animation settles.
+  const waitForBottom = async () => {
+    await page.evaluate(() => {
+      window.__bottomLayout = null;
+    });
+    await page.waitForFunction(() => {
+      const el = window.__chatScroll;
+      const previous = window.__bottomLayout;
+      const atBottom =
+        el.clientHeight > 0 &&
+        el.scrollHeight > el.clientHeight &&
+        el.scrollHeight - el.clientHeight - el.scrollTop <= 2;
+      const frames =
+        atBottom &&
+        previous?.height === el.scrollHeight &&
+        previous?.width === el.clientWidth
+          ? previous.frames + 1
+          : 0;
+      window.__bottomLayout = {
+        height: el.scrollHeight,
+        width: el.clientWidth,
+        frames,
+      };
+      return frames >= 6;
+    });
+  };
+  try {
+    await waitForBottom();
+    await page.locator("#narrow").click();
+    await waitForBottom();
+    const afterNarrow = await metrics(page);
+    assert.ok(afterNarrow.fromBottom <= 2, JSON.stringify(afterNarrow));
+    await page.locator("#hide").click();
+    await page.waitForFunction(
+      () => document.querySelector("#host").clientHeight === 0,
+    );
+    await page.waitForTimeout(120);
+    await page.locator("#wide").click();
+    await page.locator("#show").click();
+    await page.locator("#rerender").click();
+    await waitForBottom();
+    const afterShow = await metrics(page);
+    assert.ok(afterShow.fromBottom <= 2, JSON.stringify(afterShow));
+  } finally {
+    await page.close();
+  }
+});
+
+test("user scrolling interrupts restoration after a hidden width change", async () => {
+  const page = await openChat({ count: 80, mode: "none", variedRows: true });
+  try {
+    await scrollAway(page);
+    await page.locator("#hide").click();
+    await page.waitForFunction(
+      () => document.querySelector("#host").clientHeight === 0,
+    );
+    await page.waitForTimeout(120);
+    await page.locator("#narrow").click();
+    await page.locator("#show").click();
+    await page.locator("#rerender").click();
+    await page.mouse.move(180, 260);
+    await page.mouse.wheel(0, -1000);
+    await page.waitForTimeout(350);
+    const before = await visibleAnchor(page);
+    assert.ok(before?.message);
+    await page.waitForTimeout(900);
+    const after = await visibleAnchor(page);
+    assert.equal(
+      after?.message,
+      before?.message,
+      JSON.stringify({ before, after }),
+    );
+    assert.ok(
+      Math.abs(after.offset - before.offset) < 3,
+      JSON.stringify({ before, after }),
+    );
+  } finally {
+    await page.close();
+  }
+});
