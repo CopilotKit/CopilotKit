@@ -59,6 +59,27 @@ const runtime = new CopilotRuntime({
 app.use("/api/copilotkit", createCopilotEndpointExpress({ runtime }));
 ```
 
+### Agent IDs and Display Names
+
+An agent's ID is the key used to register it in the runtime. This ID determines how the agent is addressed and routed. A built-in agent can also have an optional human-readable `name` that differs from its ID.
+
+For example:
+
+```typescript
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    research: new BuiltInAgent({
+      model: "openai/gpt-5-mini",
+      name: "Research Assistant",
+    }),
+  },
+});
+```
+
+Here, `research` remains the agent ID used for routing, while `Research Assistant` is the display name returned by runtime information. If no display name is configured, the runtime uses the agent ID as the name.
+
 The runtime exposes each agent at its own endpoint:
 
 | Agent ID   | Run Endpoint               |

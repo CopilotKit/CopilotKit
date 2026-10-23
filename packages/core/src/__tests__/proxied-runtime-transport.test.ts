@@ -449,6 +449,19 @@ describe("ProxiedCopilotRuntimeAgent cloning", () => {
     global.fetch = originalFetch;
   });
 
+  it("preserves the display name when cloning", () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "test-agent",
+      name: "Test Assistant",
+    });
+
+    const cloned = agent.clone();
+
+    expect(cloned.name).toBe("Test Assistant");
+    expect(cloned.agentId).toBe("test-agent");
+  });
+
   it("preserves single-endpoint envelope on cloned agents", async () => {
     const agentId = "clone-agent";
     const agent = new ProxiedCopilotRuntimeAgent({
