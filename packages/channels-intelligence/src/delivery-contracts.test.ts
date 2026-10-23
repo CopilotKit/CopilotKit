@@ -150,6 +150,34 @@ test("accepts a provider reaction at the shared UTF-8 byte boundary", () => {
   ).not.toThrow();
 });
 
+test("accepts a destination-free Discord message create", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "discord.message.create",
+        text: "hello from discord",
+        components: [
+          { type: 17, components: [{ type: 10, content: "hello" }] },
+        ],
+      },
+    }),
+  ).not.toThrow();
+});
+
+test("accepts a destination-free Discord reaction effect", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "discord.reaction.add",
+        providerReference: "pref_v1_reference_01",
+        reaction: "👍",
+      },
+    }),
+  ).not.toThrow();
+});
+
 test("accepts a destination-free Teams delete effect", () => {
   expect(() =>
     assertDeliveryPacket({

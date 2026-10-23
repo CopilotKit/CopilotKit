@@ -2588,6 +2588,9 @@ importers:
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
+      '@copilotkit/channels-discord':
+        specifier: workspace:^
+        version: link:../channels-discord
       '@copilotkit/channels-slack':
         specifier: workspace:^
         version: link:../channels-slack
