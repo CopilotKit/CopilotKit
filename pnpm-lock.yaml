@@ -3837,9 +3837,6 @@ importers:
       '@standard-schema/spec':
         specifier: ^1.0.0
         version: 1.1.0
-      chalk:
-        specifier: 4.1.2
-        version: 4.1.2
       clarinet:
         specifier: ^0.12.4
         version: 0.12.6
