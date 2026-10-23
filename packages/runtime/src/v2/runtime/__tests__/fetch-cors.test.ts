@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { handleCors, addCorsHeaders } from "../core/fetch-cors";
+import {
+  handleCors,
+  addCorsHeaders,
+  assertValidCorsConfig,
+} from "../core/fetch-cors";
 import type { CopilotCorsConfig } from "../core/fetch-cors";
 
 describe("fetch-cors", () => {
@@ -138,21 +142,21 @@ describe("fetch-cors", () => {
       expect(response.headers.get("Access-Control-Max-Age")).toBe("86400");
     });
 
-    it("auto-resolves wildcard to request origin when credentials enabled", () => {
+    it("emits no CORS headers for a wildcard origin with credentials", () => {
       const request = new Request("http://localhost/api", {
         method: "OPTIONS",
         headers: { Origin: "https://example.com" },
       });
       const config: CopilotCorsConfig = { origin: "*", credentials: true };
       const response = handleCors(request, config)!;
-      // Per Fetch spec, wildcard + credentials is invalid. We auto-resolve
-      // the wildcard to the actual request origin when credentials are enabled.
-      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
-        "https://example.com",
-      );
-      expect(response.headers.get("Access-Control-Allow-Credentials")).toBe(
-        "true",
-      );
+      // Wildcard plus credentials is invalid per the Fetch spec.
+      // `assertValidCorsConfig` refuses it when the handler is built; if one
+      // reaches here anyway, fail closed. Echoing the request origin would
+      // allow every site to send credentials.
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+      expect(
+        response.headers.get("Access-Control-Allow-Credentials"),
+      ).toBeNull();
     });
   });
 
@@ -201,5 +205,54 @@ describe("fetch-cors", () => {
       const result = addCorsHeaders(response, config, null);
       expect(result.headers.get("Vary")).toBeNull();
     });
+  });
+});
+
+describe("assertValidCorsConfig", () => {
+  it("rejects credentials with no origin", () => {
+    expect(() => assertValidCorsConfig({ credentials: true })).toThrow(
+      /requires an explicit `origin`/,
+    );
+  });
+
+  it("rejects credentials with a wildcard origin", () => {
+    expect(() =>
+      assertValidCorsConfig({ origin: "*", credentials: true }),
+    ).toThrow(/requires an explicit `origin`/);
+  });
+
+  it("allows credentials with a string origin", () => {
+    expect(() =>
+      assertValidCorsConfig({
+        origin: "https://app.example.com",
+        credentials: true,
+      }),
+    ).not.toThrow();
+  });
+
+  it("allows credentials with a list of origins", () => {
+    expect(() =>
+      assertValidCorsConfig({
+        origin: ["https://a.example.com", "https://b.example.com"],
+        credentials: true,
+      }),
+    ).not.toThrow();
+  });
+
+  it("allows credentials with a function origin", () => {
+    expect(() =>
+      assertValidCorsConfig({
+        origin: (origin: string) => origin,
+        credentials: true,
+      }),
+    ).not.toThrow();
+  });
+
+  it("allows a wildcard origin without credentials", () => {
+    expect(() => assertValidCorsConfig({ origin: "*" })).not.toThrow();
+    expect(() => assertValidCorsConfig({})).not.toThrow();
+    expect(() =>
+      assertValidCorsConfig({ origin: "*", credentials: false }),
+    ).not.toThrow();
   });
 });
