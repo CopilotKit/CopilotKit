@@ -79,7 +79,7 @@ describe("resolveModel — custom baseURL via env", () => {
     );
   });
 
-  it.each(["MiniMax-M3", "MiniMax-M2.7"])(
+  it.each(["MiniMax-M3.1-Flash", "MiniMax-M3", "MiniMax-M2.7"])(
     "resolves MiniMax model %s with the global endpoint",
     (modelId) => {
       const model = resolveModel(`minimax/${modelId}`);
