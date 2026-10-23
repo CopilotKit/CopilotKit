@@ -1139,7 +1139,7 @@
     },
     {
       "name": "@copilotkit/learning",
-      "version": "0.0.1",
+      "version": "1.79.1",
       "sourceDirectory": "packages/learning",
       "entrypoints": [
         {
@@ -1194,7 +1194,7 @@
         "releaseScope": {
           "kind": "release-config",
           "path": "release.config.json",
-          "selector": "scopes.learning.packages"
+          "selector": "scopes.monorepo.packages"
         }
       }
     },
