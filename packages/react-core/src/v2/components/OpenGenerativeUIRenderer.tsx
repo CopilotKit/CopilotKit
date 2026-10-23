@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useSandboxFunctions } from "../providers/SandboxFunctionsContext";
 import {
