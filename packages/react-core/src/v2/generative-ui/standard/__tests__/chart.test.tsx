@@ -2,6 +2,7 @@ import React from "react";
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Chart } from "../Chart";
+import { textColor } from "../tokens";
 
 const data = [
   { name: "First", amount: 0.4 },
@@ -29,6 +30,10 @@ function categoryLabels(container: HTMLElement) {
   return Array.from(
     container.querySelectorAll(".recharts-yAxis-tick-labels text"),
   );
+}
+
+function attr(element: Element, name: string) {
+  return Number(element.getAttribute(name));
 }
 
 beforeEach(() => {
@@ -196,5 +201,41 @@ describe("Chart horizontal bar labels", () => {
     expect(
       Number(label?.getAttribute("y")) - Number(tick?.getAttribute("y")),
     ).toBeGreaterThanOrEqual(24);
+  });
+
+  it("puts value labels beside the bars in the secondary text color", async () => {
+    const { container } = render(
+      <Chart
+        chartType="bar"
+        layout="horizontal"
+        data={regions.map((region, index) => ({ region, sales: index + 1 }))}
+        xKey="region"
+        series={["sales"]}
+        showValueLabels
+        showLegend={false}
+        showTooltip={false}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        container.querySelectorAll(".recharts-label-list text"),
+      ).toHaveLength(regions.length);
+    });
+    const valueLabels = container.querySelectorAll(".recharts-label-list text");
+    const bars = container.querySelectorAll(".recharts-bar-rectangle path");
+    expect(bars).toHaveLength(regions.length);
+    bars.forEach((bar, index) => {
+      const label = valueLabels[index]!;
+      // Past the end of its own bar, not above it on the bar before.
+      expect(attr(label, "x")).toBeGreaterThan(
+        attr(bar, "x") + attr(bar, "width"),
+      );
+      expect(attr(label, "y")).toBeGreaterThanOrEqual(attr(bar, "y"));
+      expect(attr(label, "y")).toBeLessThanOrEqual(
+        attr(bar, "y") + attr(bar, "height"),
+      );
+      expect(label.getAttribute("fill")).toBe(textColor("secondary"));
+    });
   });
 });

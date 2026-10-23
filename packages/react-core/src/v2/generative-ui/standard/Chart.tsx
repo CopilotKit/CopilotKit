@@ -291,8 +291,16 @@ function createRechartsChart(R: RechartsModule) {
     const showTooltip = props.showTooltip ?? true;
     const height = props.height ?? DEFAULT_HEIGHT;
     const axisTick = { fontSize: 12, fill: textColor("secondary") };
+    // Value labels sit past the end of each bar: above a vertical bar, to the
+    // right of a horizontal one (above it they land on the bar before).
+    const isHorizontal = props.layout === "horizontal";
     const valueLabel = props.showValueLabels
-      ? { position: "top" as const, fontSize: 11, formatter: format }
+      ? {
+          position: isHorizontal ? ("right" as const) : ("top" as const),
+          fontSize: 11,
+          fill: textColor("secondary"),
+          formatter: format,
+        }
       : undefined;
     const tooltip = showTooltip ? (
       <R.Tooltip formatter={format} {...TOOLTIP_PROPS} />
@@ -349,7 +357,6 @@ function createRechartsChart(R: RechartsModule) {
 
     const CartesianChart = cartesianChartOf(R, chartType);
     const stackId = props.stacked ? "stack" : undefined;
-    const isHorizontal = props.layout === "horizontal";
     const xKey = props.xKey;
     // Scatter uses numeric distances when all x values are numbers. Preserve
     // category spacing for string/mixed data and for the other chart types.
@@ -453,7 +460,13 @@ function createRechartsChart(R: RechartsModule) {
           data={data}
           // recharts calls the axis layout of a horizontal bar chart "vertical".
           layout={isHorizontal ? "vertical" : "horizontal"}
-          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+          // A horizontal bar's value label needs room past the longest bar.
+          margin={{
+            top: 8,
+            right: isHorizontal && props.showValueLabels ? 48 : 8,
+            bottom: 0,
+            left: 0,
+          }}
         >
           {showGrid ? (
             <R.CartesianGrid
