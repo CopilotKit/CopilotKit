@@ -92,6 +92,18 @@ export interface CopilotKitProviderProps {
     loadingComponent?: Component;
     includeSchema?: boolean;
   };
+  /** Configuration for the built-in MCP Apps renderer. */
+  mcpApps?: {
+    /**
+     * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
+     *
+     * **Unsafe.** The widget then runs with your page's origin: it can read
+     * your cookies, storage and DOM, and call your APIs as the signed-in user.
+     * Only set it for widgets you wrote and trust that need `localStorage`,
+     * `IndexedDB` or cookies. By default widgets get an opaque origin.
+     */
+    allowSameOriginFallback?: boolean;
+  };
   /**
    * Enable debug logging for the client-side event pipeline.
    *
