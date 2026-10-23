@@ -6,10 +6,15 @@ import type { Plugin } from "vite";
 // @ts-expect-error -- untyped .mjs build script shared with react-core's build:css
 import { scopePreflight } from "../../../../../packages/react-core/scripts/scope-preflight.mjs";
 
-const reactCoreSrc = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../../../../packages/react-core/src/v2",
-);
+// Forward slashes, like the module ids Vite passes to `transform`, so the
+// prefix check below also matches on Windows.
+const reactCoreSrc = path
+  .resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../../../../packages/react-core/src/v2",
+  )
+  .split(path.sep)
+  .join("/");
 
 // Stories render react-core from source so component and CSS edits hot-reload.
 // The published CSS scopes Tailwind's preflight under [data-copilotkit] after

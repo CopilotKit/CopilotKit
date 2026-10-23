@@ -59,12 +59,22 @@ export const Audio: Story = {
 export const Video: Story = {
   args: { type: "video" },
   loaders: [async () => ({ videoUrl: await recordSampleVideoUrl() })],
-  render: (args, { loaded }) => (
-    <CopilotChatAttachmentRenderer
-      {...args}
-      source={videoAttachment(loaded.videoUrl as string | undefined).source}
-    />
-  ),
+  render: (args, { loaded }) => {
+    const videoUrl = loaded.videoUrl as string | undefined;
+    if (!videoUrl) {
+      return (
+        <p className="text-sm text-muted-foreground">
+          This browser can't record the sample video.
+        </p>
+      );
+    }
+    return (
+      <CopilotChatAttachmentRenderer
+        {...args}
+        source={videoAttachment(videoUrl).source}
+      />
+    );
+  },
 };
 
 /** How the types sit together in a user message. */
@@ -82,11 +92,11 @@ export const AllTypes: Story = {
       </div>
       <CopilotChatAttachmentRenderer {...rendererProps(pdfAttachment)} />
       <CopilotChatAttachmentRenderer {...rendererProps(audioAttachment)} />
-      <CopilotChatAttachmentRenderer
-        {...rendererProps(
-          videoAttachment(loaded.videoUrl as string | undefined),
-        )}
-      />
+      {typeof loaded.videoUrl === "string" && (
+        <CopilotChatAttachmentRenderer
+          {...rendererProps(videoAttachment(loaded.videoUrl))}
+        />
+      )}
     </div>
   ),
 };
