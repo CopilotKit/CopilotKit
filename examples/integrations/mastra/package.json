@@ -33,7 +33,7 @@
     "libsql": "^0.5.22",
     "lucide-react": "^0.525.0",
     "mastra": "1.1.0-alpha.3",
-    "next": "16.1.2",
+    "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "tailwind-merge": "^3.5.0",

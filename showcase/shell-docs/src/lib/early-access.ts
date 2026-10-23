@@ -4,7 +4,7 @@
 //
 // This is a soft gate: the password lives in the client bundle and the
 // gated content is still server-rendered behind the blur (and remains
-// reachable via the raw-MDX / llms.txt routes). It exists to keep
+// reachable via the per-page raw-Markdown routes). It exists to keep
 // early-access docs out of casual view, not to be a security boundary.
 
 export interface EarlyAccessGateConfig {
@@ -20,22 +20,28 @@ export interface EarlyAccessGateConfig {
    *  string per paragraph. */
   description: string[];
   /** Lead-in before the request-access link, e.g. "Don't have the password?" */
-  requestPrompt: string;
+  requestPrompt?: string;
   /** Link text for the request-access CTA. */
-  requestLinkLabel: string;
+  requestLinkLabel?: string;
   /** Where the request-access CTA points (early-access form). */
-  requestUrl: string;
+  requestUrl?: string;
   /** Optional product visual shown in the card body, per theme. The
    *  card renders it with `fill`, so no intrinsic dimensions needed. */
   image?: { alt: string; lightSrc: string; darkSrc: string };
 }
 
-// No Channels provider currently uses an early-access docs gate. WhatsApp is a
-// coming-soon roadmap item, while Slack and Teams are production ready.
-export const EARLY_ACCESS_GATES = {} as const satisfies Record<
-  string,
-  EarlyAccessGateConfig
->;
+export const EARLY_ACCESS_GATES = {
+  trajectories: {
+    storageKey: "copilotkit.docs.trajectories.access",
+    password: "earlyaccess",
+    eyebrow: "Early access",
+    title: "Trajectories",
+    description: [
+      "Capture browser activity and save it in your self-hosted Intelligence project.",
+      "Enter your early-access password to open the setup and reference guides.",
+    ],
+  },
+} as const satisfies Record<string, EarlyAccessGateConfig>;
 
 export function getEarlyAccessGate(
   id: string | undefined,

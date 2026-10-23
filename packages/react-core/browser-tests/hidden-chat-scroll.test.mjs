@@ -569,16 +569,37 @@ test("width changes preserve the bottom lock, including changes while hidden", a
     mode: "pin-to-bottom",
     variedRows: true,
   });
+  // A hidden or not-yet-measured spacer can briefly report zero distance.
+  // Wait for a visible, stable layout while the resize animation settles.
+  const waitForBottom = async () => {
+    await page.evaluate(() => {
+      window.__bottomLayout = null;
+    });
+    await page.waitForFunction(() => {
+      const el = window.__chatScroll;
+      const previous = window.__bottomLayout;
+      const atBottom =
+        el.clientHeight > 0 &&
+        el.scrollHeight > el.clientHeight &&
+        el.scrollHeight - el.clientHeight - el.scrollTop <= 2;
+      const frames =
+        atBottom &&
+        previous?.height === el.scrollHeight &&
+        previous?.width === el.clientWidth
+          ? previous.frames + 1
+          : 0;
+      window.__bottomLayout = {
+        height: el.scrollHeight,
+        width: el.clientWidth,
+        frames,
+      };
+      return frames >= 6;
+    });
+  };
   try {
-    await page.waitForFunction(() => {
-      const el = window.__chatScroll;
-      return el.scrollHeight - el.clientHeight - el.scrollTop <= 2;
-    });
+    await waitForBottom();
     await page.locator("#narrow").click();
-    await page.waitForFunction(() => {
-      const el = window.__chatScroll;
-      return el.scrollHeight - el.clientHeight - el.scrollTop <= 2;
-    });
+    await waitForBottom();
     const afterNarrow = await metrics(page);
     assert.ok(afterNarrow.fromBottom <= 2, JSON.stringify(afterNarrow));
     await page.locator("#hide").click();
@@ -589,10 +610,7 @@ test("width changes preserve the bottom lock, including changes while hidden", a
     await page.locator("#wide").click();
     await page.locator("#show").click();
     await page.locator("#rerender").click();
-    await page.waitForFunction(() => {
-      const el = window.__chatScroll;
-      return el.scrollHeight - el.clientHeight - el.scrollTop <= 2;
-    });
+    await waitForBottom();
     const afterShow = await metrics(page);
     assert.ok(afterShow.fromBottom <= 2, JSON.stringify(afterShow));
   } finally {

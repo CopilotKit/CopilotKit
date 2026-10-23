@@ -44,6 +44,8 @@ interface GhContext {
   needs: Record<string, unknown>;
   /** Whether the WORKFLOW RUN was cancelled (drives `cancelled()`). */
   runCancelled: boolean;
+  /** Repository variables (`vars.*`). Omitted = none set. */
+  vars?: Record<string, string>;
 }
 
 /**
@@ -60,6 +62,11 @@ function anyDepFailed(ctx: GhContext): boolean {
 
 function resolvePath(path: string, ctx: GhContext): string {
   const segs = path.split(".");
+  // GitHub resolves an unset repository variable to the empty string, so
+  // `vars.X != 'false'` is true when X is not set.
+  if (segs[0] === "vars" && segs.length === 2) {
+    return ctx.vars?.[segs[1]] ?? "";
+  }
   let cur: unknown = { needs: ctx.needs };
   for (const seg of segs) {
     if (cur == null || typeof cur !== "object" || !(seg in (cur as object))) {
@@ -407,6 +414,17 @@ describe("redeploy-staging guard — matrix cancellation regression", () => {
     const legs = Array(28).fill("success");
     expect(jobRuns(guard, contextFor(legs, { hasChanges: false }))).toBe(false);
   });
+
+  it("skips when SHOWCASE_AUTO_REDEPLOY is 'false', runs otherwise", () => {
+    const legs = Array(28).fill("success");
+    const withVar = (v?: string): GhContext => ({
+      ...contextFor(legs),
+      vars: v === undefined ? {} : { SHOWCASE_AUTO_REDEPLOY: v },
+    });
+    expect(jobRuns(guard, withVar("false"))).toBe(false);
+    expect(jobRuns(guard, withVar("true"))).toBe(true);
+    expect(jobRuns(guard, withVar())).toBe(true);
+  });
 });
 
 describe("redeploy-staging-starters guard — matrix cancellation regression", () => {
@@ -447,6 +465,17 @@ describe("redeploy-staging-starters guard — matrix cancellation regression", (
     expect(runStarters(starterContextFor(legs, { hasChanges: false }))).toBe(
       false,
     );
+  });
+
+  it("skips when SHOWCASE_AUTO_REDEPLOY is 'false', runs otherwise", () => {
+    const legs = Array(6).fill("success");
+    const withVar = (v?: string): GhContext => ({
+      ...starterContextFor(legs),
+      vars: v === undefined ? {} : { SHOWCASE_AUTO_REDEPLOY: v },
+    });
+    expect(runStarters(withVar("false"))).toBe(false);
+    expect(runStarters(withVar("true"))).toBe(true);
+    expect(runStarters(withVar())).toBe(true);
   });
 });
 

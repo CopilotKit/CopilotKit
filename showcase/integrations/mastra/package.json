@@ -26,7 +26,7 @@
     "@json-render/core": "0.18.0",
     "@json-render/react": "0.18.0",
     "@libsql/client": "^0.15.15",
-    "@mastra/client-js": "1.29.0",
+    "@mastra/client-js": "1.47.0",
     "@mastra/core": "1.68.0",
     "@mastra/libsql": "1.14.3",
     "@mastra/memory": "1.22.0",

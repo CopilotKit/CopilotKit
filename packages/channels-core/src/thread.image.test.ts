@@ -78,6 +78,37 @@ describe("Thread.post image routing", () => {
     expect(ref.id).toBe("M1");
   });
 
+  it("renders through the renderer configured on render.renderer", async () => {
+    const adapter = new FakeAdapter();
+    const filePosts: Array<{ bytes: Uint8Array }> = [];
+    adapter.postFile = async (_t, args) => {
+      filePosts.push(args);
+      return { ok: true, messageId: "M1" };
+    };
+    const renderer = vi.fn(
+      async (_node: unknown, _cfg: unknown) => new Uint8Array([7]),
+    );
+    const thread = makeThread(adapter, undefined, { renderer, width: 300 });
+
+    await thread.post(createElement("div", null, "hi"));
+
+    expect(renderer).toHaveBeenCalledTimes(1);
+    expect(renderer.mock.calls[0]![1]).toMatchObject({ width: 300 });
+    expect(filePosts[0]!.bytes).toEqual(new Uint8Array([7]));
+  });
+
+  it("names the opt-in renderer when none is configured", async () => {
+    const adapter = new FakeAdapter();
+    const postFile = vi.fn(async () => ({ ok: true, messageId: "M1" }));
+    adapter.postFile = postFile;
+    const thread = makeThread(adapter, undefined, {});
+
+    await expect(thread.post(createElement("div"))).rejects.toThrow(
+      "Posting JSX as an image needs a renderer. Install `react` and `takumi-js`, then pass `render: { renderer: takumiRenderer }` to createChannel, with `takumiRenderer` from `@copilotkit/channels/takumi`.",
+    );
+    expect(postFile).not.toHaveBeenCalled();
+  });
+
   it("preserves the adapter's full image message reference for deletion", async () => {
     const adapter = new FakeAdapter();
     const deleteMessage = vi.spyOn(adapter, "delete");

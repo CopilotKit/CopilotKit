@@ -205,7 +205,7 @@ export function createRailway({
       }
       throw new Error("Deployment inventory pagination bound exceeded");
     },
-    async inspect({ allowNoActive = false } = {}) {
+    async inspect({ allowNoActive = false, allowMissingLatest = false } = {}) {
       const { serviceInstance: service } = await query(
         "query($e:String!,$s:String!){serviceInstance(environmentId:$e,serviceId:$s){id serviceId environmentId source{image} activeDeployments{id status projectId environmentId serviceId meta} latestDeployment{id status projectId environmentId serviceId meta}}}",
         { e: STAGING.environmentId, s: STAGING.serviceId },
@@ -225,10 +225,20 @@ export function createRailway({
       const active = service.activeDeployments.length
         ? deployment(service.activeDeployments[0])
         : null;
-      const latest = deployment(
-        service.latestDeployment,
-        service.latestDeployment.status === "SUCCESS",
+      const missingLatest = service.latestDeployment === null;
+      requireThat(
+        !missingLatest ||
+          (allowNoActive === true &&
+            allowMissingLatest === true &&
+            active === null),
+        "Missing latest deployment",
       );
+      const latest = missingLatest
+        ? null
+        : deployment(
+            service.latestDeployment,
+            service.latestDeployment?.status === "SUCCESS",
+          );
       const { environment } = await query(
         "query($e:String!){environment(id:$e){id projectId volumeInstances(first:100){pageInfo{hasNextPage endCursor} edges{node{id volumeId environmentId serviceId mountPath isPendingDeletion}}}}}",
         { e: STAGING.environmentId },
@@ -347,7 +357,7 @@ export function createRailway({
     },
   };
 }
-const retryStatus = new Set([408, 429, 500, 502, 503, 504]);
+const retryStatus = new Set([404, 408, 429, 500, 502, 503, 504]);
 const retryCode = new Set([
   "ECONNRESET",
   "ECONNREFUSED",

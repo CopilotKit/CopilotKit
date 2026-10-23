@@ -1,0 +1,208 @@
+---
+title: "CopilotChatToolCallGroup"
+description: "Collapses tool calls the agent makes in a row into one summary"
+---
+
+## Overview
+
+`CopilotChatToolCallGroup` draws tool calls the agent makes in a row as one collapsed summary instead of a card per call. While a call runs, the summary names it ("Running read_file src/app.ts"). Once every call has finished, it reads "Used 3 tools" with the tools it used, and how many failed, and opens to the calls.
+
+It is the default `group` slot of [`CopilotChatToolCallsView`](/reference/components/CopilotChatAssistantMessage#copilotchattoolcallsview). [`CopilotChatMessageView`](/reference/components/CopilotChatMessageView) chooses its appearance from `toolCallDisplay`: `"grouped"` draws a card, `"line"` a line of text and `"stacked"` a stack.
+
+Only calls drawn by a renderer that opts into grouping join a group. CopilotKit's built-in card, from [`useDefaultRenderTool()`](/reference/hooks/useDefaultRenderTool), does, and draws itself as a compact row inside the card and line appearances: status, tool name and main argument, opening to the arguments and result. A custom renderer opts in with `group: true` and draws whatever it draws inside the group:
+
+```tsx
+useDefaultRenderTool({ render: MyToolRow, group: true });
+// or, for one tool
+useRenderTool({
+  name: "run_command",
+  parameters,
+  render: CommandRow,
+  group: true,
+});
+```
+
+The group is the `group` slot in the `"grouped"`, `"line"` and `"stacked"` displays. The `"turn"` display draws calls as rows inside the reply and doesn't use it.
+
+## Import
+
+```tsx
+import { CopilotChatToolCallGroup } from "@copilotkit/react-core/v2";
+import type {
+  CopilotChatToolCallGroupProps,
+  ToolCallEntry,
+} from "@copilotkit/react-core/v2";
+```
+
+## Props
+
+<PropertyReference name="calls" type="ToolCallEntry[]" required>
+  The calls in the group, in order. Each entry holds the `toolCall` and, once
+  the call has finished, the `toolMessage` carrying its result. A call whose
+  tool message has an `error` counts as failed.
+</PropertyReference>
+
+<PropertyReference
+  name="renderCall"
+  type="(call: ToolCallEntry) => React.ReactNode"
+  required
+>
+  Renders one call through the registered tool renderers, the same way the chat
+  renders a call on its own.
+</PropertyReference>
+
+<PropertyReference name="appearance" type='"card" | "line" | "stack"' default='"card"'>
+  - `"card"`: one card with a summary header and a row per call.
+  - `"line"`: a quiet line of text that opens to a list of rows.
+  - `"stack"`: the latest call on top of a stack of the earlier ones. Opening
+    it fans the stack out into a card per call.
+
+A group of one call is drawn as that call's own card (or, in the line
+appearance, its row).
+
+</PropertyReference>
+
+<PropertyReference name="isActive" type="boolean" default="false">
+  Whether the agent is running and nothing follows the group, so more calls may
+  join it. While active, the summary keeps naming the latest call between calls
+  instead of switching to "Used 3 tools" and back.
+</PropertyReference>
+
+<PropertyReference name="className" type="string">
+  Additional classes for the group's root element.
+</PropertyReference>
+
+## Usage
+
+### Choosing an Appearance
+
+The usual way is the message view's `toolCallDisplay`:
+
+```tsx
+<CopilotChat messageView={{ toolCallDisplay: "stacked" }} />
+```
+
+The `group` slot sets it directly, for example on a standalone tool-calls view:
+
+```tsx
+<CopilotChatToolCallsView
+  message={message}
+  messages={messages}
+  group={{ appearance: "line" }}
+/>
+```
+
+### Restyling the Group
+
+```tsx
+<CopilotChat
+  messageView={{
+    assistantMessage: {
+      toolCallsView: { group: "rounded-2xl border-dashed" },
+    },
+  }}
+/>
+```
+
+### Replacing the Group
+
+A replacement receives the same props as the default. Use `renderCall` to keep each call drawn by its registered renderer.
+
+```tsx
+import type { CopilotChatToolCallGroupProps } from "@copilotkit/react-core/v2";
+
+function ToolTimeline({ calls, renderCall }: CopilotChatToolCallGroupProps) {
+  const running = calls.some((call) => !call.toolMessage);
+  return (
+    <details className="my-3">
+      <summary>{running ? "Working…" : `Ran ${calls.length} tools`}</summary>
+      {calls.map((call) => (
+        <div key={call.toolCall.id}>{renderCall(call)}</div>
+      ))}
+    </details>
+  );
+}
+
+<CopilotChat
+  messageView={{
+    assistantMessage: { toolCallsView: { group: ToolTimeline } },
+  }}
+/>;
+```
+
+## Behavior
+
+- **What Groups**: Calls drawn by a renderer with `group: true` join the open group. Assistant text, a user, reasoning or activity message, or any other call ends it. A custom renderer that leaves `group` unset always shows its calls on their own, since it may draw nothing. Calls with no renderer at all render nothing and don't end it.
+- **Collapsed by Default**: Groups start closed and stay as the user leaves them.
+- **Failures**: A call whose tool message has an `error` shows a failed icon, and the summary shows the failed count in place of "Done" ("1 failed").
+- **Stopped Runs**: A call that never got a result before the run ended (the user pressed Stop, or the run errored) shows as stopped, not running, and the summary reads "Stopped".
+- **Accessibility**: The summary is a button with `aria-expanded` and `aria-controls`. Closed content stays mounted but is `inert`. Expand and collapse animations are off when the user prefers reduced motion.
+- **Test Hooks**: The root carries `data-testid="copilot-tool-call-group"`, `data-appearance` and `data-state` (`"running"`, `"done"`, `"failed"` or `"stopped"`). Rows drawn by the built-in renderer keep `data-testid="copilot-tool-render"` and its `data-tool-name`, `data-status`, `data-args` and `data-result` attributes.
+
+## CopilotChatWorkSummary
+
+The line at the top of each reply when the message view's `toolCallDisplay` is `"turn"`. While the agent works it reads "Working" with a timer, and it stands in for the cursor. Once the reply is done it reads "Worked for 9s · 7 tools" and toggles the narration and calls that were folded away. It is the message view's `workSummary` slot.
+
+### Import
+
+```tsx
+import { CopilotChatWorkSummary } from "@copilotkit/react-core/v2";
+import type { CopilotChatWorkSummaryProps } from "@copilotkit/react-core/v2";
+```
+
+### Props
+
+Also accepts every `<button>` attribute; the message view passes `onClick` to toggle the work.
+
+<PropertyReference name="isWorking" type="boolean" required>
+  The agent is still working on this reply.
+</PropertyReference>
+
+<PropertyReference name="isOpen" type="boolean" required>
+  Whether the work (narration and tool calls) is showing.
+</PropertyReference>
+
+<PropertyReference name="calls" type="ToolCallEntry[]" required>
+  The tool calls the reply made.
+</PropertyReference>
+
+<PropertyReference name="elapsedMs" type="number">
+  How long the agent has worked on the reply, in milliseconds, summed over its
+  runs so time spent waiting between them doesn't count. Only set for replies
+  this client watched start; without it, the summary shows the tool count ("Used
+  7 tools") instead of how long it took.
+</PropertyReference>
+
+<PropertyReference name="workingSince" type="number">
+  When the current run started, in milliseconds since the epoch. Set while the
+  agent is working, so the live timer can add the current run to `elapsedMs`.
+</PropertyReference>
+
+### Replacing the Summary
+
+```tsx
+import type { CopilotChatWorkSummaryProps } from "@copilotkit/react-core/v2";
+
+function WorkLine({
+  isWorking,
+  isOpen,
+  calls,
+  onClick,
+}: CopilotChatWorkSummaryProps) {
+  return (
+    <button onClick={onClick} aria-expanded={isOpen}>
+      {isWorking ? "Thinking it through…" : `Checked ${calls.length} sources`}
+    </button>
+  );
+}
+
+<CopilotChat
+  messageView={{ toolCallDisplay: "turn", workSummary: WorkLine }}
+/>;
+```
+
+## Related
+
+- [`CopilotChatMessageView`](/reference/components/CopilotChatMessageView) -- Sets `toolCallDisplay` and renders the work summary
+- [`CopilotChatAssistantMessage`](/reference/components/CopilotChatAssistantMessage#copilotchattoolcallsview) -- `CopilotChatToolCallsView`, which renders groups through its `group` slot
+- [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool) -- Registers the built-in card that groups draw as rows

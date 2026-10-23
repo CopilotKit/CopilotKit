@@ -38,6 +38,7 @@ import matter from "gray-matter";
 import { frameworkOverviews } from "@/data/frameworks";
 import { ONBOARDING_PROMPT_ORIGIN } from "./intelligence-onboarding-prompt";
 import { INTELLIGENCE_FEATURES } from "./intelligence-features";
+import { getEarlyAccessGate } from "./early-access";
 import {
   isV1ReferenceUrl,
   renderV1DeprecationNoticeUseV2InsteadMarkdown,
@@ -201,6 +202,9 @@ export function getAllLlmPages(
   const push = (page: LlmPage): void => {
     if (seenUrls.has(page.url)) return;
     seenUrls.add(page.url);
+    // Keep early-access guides out of the public aggregate. Direct Markdown
+    // URLs remain public for page-copy tools: this is a visibility gate.
+    if (getEarlyAccessGate(readMetaFromFile(page.filePath).earlyAccess)) return;
     pages.push(page);
   };
 
@@ -411,6 +415,7 @@ export function getAllLlmPages(
 function readMetaFromFile(absPath: string): {
   title?: string;
   description?: string;
+  earlyAccess?: string;
 } {
   try {
     const raw = fs.readFileSync(absPath, "utf-8");
@@ -419,6 +424,8 @@ function readMetaFromFile(absPath: string): {
       title: typeof data.title === "string" ? data.title : undefined,
       description:
         typeof data.description === "string" ? data.description : undefined,
+      earlyAccess:
+        typeof data.earlyAccess === "string" ? data.earlyAccess : undefined,
     };
   } catch (err) {
     // Log so an author whose page has malformed YAML / unreadable file
