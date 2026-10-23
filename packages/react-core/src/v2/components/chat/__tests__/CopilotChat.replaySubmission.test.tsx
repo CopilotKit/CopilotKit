@@ -279,6 +279,44 @@ describe.each(["completed", "pending", "ordinary"] as const)(
   },
 );
 
+it.each(["onRunFinalized", "onRunFailed"] as const)(
+  "waits for a generic active agent run until %s",
+  async (eventName) => {
+    const { agent, runs, finish, submit, finishRun } = await setupReplay(
+      "ordinary",
+      true,
+    );
+    await finish();
+    agent.isRunning = true;
+    expect(isRunCompletionAware(agent as unknown)).toBe(false);
+
+    const subscribe = agent.subscribe.bind(agent);
+    let release: (() => void) | undefined;
+    vi.spyOn(agent, "subscribe").mockImplementation((observer) => {
+      if (observer.onRunFinalized && observer.onRunFailed) {
+        release = () => {
+          agent.isRunning = false;
+          if (eventName === "onRunFinalized") {
+            observer.onRunFinalized?.({} as never);
+          } else {
+            observer.onRunFailed?.({} as never);
+          }
+        };
+        return { unsubscribe: vi.fn() } as ReturnType<typeof subscribe>;
+      }
+      return subscribe(observer);
+    });
+
+    await submit("Send after replay");
+    expect(runs).toHaveLength(0);
+
+    await act(async () => release?.());
+    await waitFor(() => expect(runs).toHaveLength(1));
+    expect(runs[0]?.messages.at(-1)?.content).toBe("Send after replay");
+    await finishRun();
+  },
+);
+
 it("does not dispatch a queued prompt after the chat unmounts", async () => {
   const { runs, submit, unmount } = await setupReplay();
   await submit();

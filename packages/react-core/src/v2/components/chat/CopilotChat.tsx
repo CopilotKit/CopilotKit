@@ -869,6 +869,26 @@ export function CopilotChat({
           error,
         );
       }
+    } else if (agent.isRunning) {
+      // Generic AG-UI agents (including HttpAgent) do not expose the
+      // completion-promise contract. Wait for the public lifecycle. A failed
+      // run emits onRunFailed and does not emit onRunFinalized, so a wait on
+      // finalized alone never releases the queued send.
+      await new Promise<void>((resolve) => {
+        let subscription: { unsubscribe: () => void } | undefined;
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          subscription?.unsubscribe();
+          resolve();
+        };
+        subscription = agent.subscribe({
+          onRunFinalized: finish,
+          onRunFailed: finish,
+        });
+        if (!agent.isRunning) finish();
+      });
     }
     return isCurrentSelection();
   }, [agent]);
