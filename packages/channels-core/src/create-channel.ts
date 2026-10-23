@@ -490,7 +490,7 @@ export interface CreateChannelOptions<
   commands?: ChannelCommand[];
   /** Persistence, per-thread state schema, transcripts, and lock/dedup tuning. */
   store?: StoreConfig<TStateSchema>;
-  /** Image-render config (fonts + compiled CSS) for posting arbitrary JSX as images. */
+  /** Image-render config (renderer, fonts, compiled CSS) for posting arbitrary JSX as images. */
   render?: RenderConfig;
 }
 

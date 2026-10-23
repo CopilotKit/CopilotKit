@@ -1135,6 +1135,72 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  describe("ɵgetThreadMessageIds", () => {
+    it("requests only message ids from the thread messages endpoint", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ messages: [{ id: "m-1" }, { id: "m-2" }] }),
+      );
+
+      const ids = await client.ɵgetThreadMessageIds({
+        threadId: "t 1",
+        userId: "user-1",
+      });
+
+      expect(ids).toEqual(["m-1", "m-2"]);
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe(
+        "https://api.example.com/api/threads/t%201/messages?userId=user-1&fields=id",
+      );
+      expect(opts.method).toBe("GET");
+      expect(opts.headers).not.toHaveProperty("X-Cpki-Channel-Delivery-Id");
+    });
+
+    it("reads ids from a full transcript returned by servers that ignore fields=id", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          messages: [
+            { id: "m-1", role: "user", content: "Persisted" },
+            { id: "m-2", role: "assistant", content: "Reply" },
+          ],
+        }),
+      );
+
+      const ids = await client.ɵgetThreadMessageIds({
+        threadId: "t-1",
+        userId: "user-1",
+      });
+
+      expect(ids).toEqual(["m-1", "m-2"]);
+    });
+
+    it("forwards the channel delivery header when provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ messages: [] }));
+
+      await client.ɵgetThreadMessageIds({
+        threadId: "t-1",
+        userId: "user-1",
+        channelDeliveryId: "dlv_delivery_1",
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(opts.headers).toMatchObject({
+        "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
+      });
+    });
+
+    it("throws PlatformRequestError on non-2xx responses", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock.mockReturnValueOnce(jsonResponse({ code: "INTERNAL" }, 503));
+
+      await expect(
+        client.ɵgetThreadMessageIds({ threadId: "t-1", userId: "user-1" }),
+      ).rejects.toBeInstanceOf(PlatformRequestError);
+      loggerError.mockRestore();
+    });
+  });
+
   describe("archiveThread", () => {
     it("patches the thread with archived=true", async () => {
       fetchMock.mockReturnValue(

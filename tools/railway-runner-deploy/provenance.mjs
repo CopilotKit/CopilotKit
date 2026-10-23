@@ -2,6 +2,7 @@ import {
   validateRecovery,
   RECOVERY_BASELINE_IMAGE,
 } from "./recovery-contract.mjs";
+import { validateSecondRecovery } from "./second-recovery-contract.mjs";
 import {
   BUILD_WORKFLOW,
   DEPLOY_WORKFLOW,
@@ -50,16 +51,24 @@ export function validateRelease(release) {
     validateIdentity(item.runtimeIdentity);
   }
   if (Object.hasOwn(release, "recovery")) {
-    requireThat(
-      release.baseline.image === RECOVERY_BASELINE_IMAGE &&
-        release.candidate.image !== RECOVERY_BASELINE_IMAGE,
-      "Recovery image mismatch",
-    );
-    validateRecovery(
-      release.recovery,
-      release.baseline.runtimeIdentity,
-      release.candidate.runtimeIdentity,
-    );
+    if (release.recovery?.version === 2)
+      validateSecondRecovery(
+        release.recovery,
+        release.baseline,
+        release.candidate,
+      );
+    else {
+      requireThat(
+        release.baseline.image === RECOVERY_BASELINE_IMAGE &&
+          release.candidate.image !== RECOVERY_BASELINE_IMAGE,
+        "Recovery image mismatch",
+      );
+      validateRecovery(
+        release.recovery,
+        release.baseline.runtimeIdentity,
+        release.candidate.runtimeIdentity,
+      );
+    }
   } else
     compatible(
       release.baseline.runtimeIdentity,

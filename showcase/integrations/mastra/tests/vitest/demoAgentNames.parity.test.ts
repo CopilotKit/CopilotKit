@@ -1,17 +1,17 @@
 /**
  * Parity test: every `agent="..."` literal used by a demo page under
  * `src/app/demos/**\/page.tsx` MUST appear in the exported `demoAgentNames`
- * registry in `src/app/api/copilotkit/route.ts`. Otherwise the runtime will
- * return agent-not-found errors for that demo at runtime.
+ * registry in `src/app/api/copilotkit/route.ts`, or in the dedicated handler
+ * selected by that page's runtimeUrl. Otherwise the runtime will return
+ * agent-not-found errors for that demo at runtime.
  *
  * This test is skip-safe: it only asserts what it can actually find. If the
  * demos directory doesn't exist (e.g. in a stripped-down test checkout) the
  * test is a no-op. If a page.tsx doesn't reference CopilotKit at all, it's
  * ignored.
  *
- * Well-known excludes: none today. Add here if some demo intentionally uses
- * an agent name that is NOT in `demoAgentNames` (e.g. a demo that talks to a
- * different backend directly). Each entry needs a justification comment.
+ * Dedicated endpoints are checked against their handler's agent map. Existing
+ * well-known excludes document other independently configured demo runtimes.
  */
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -33,7 +33,7 @@ vi.mock("@copilotkit/runtime/v2", () => ({
   ),
 }));
 vi.mock("next/server", () => ({
-  NextRequest: class {},
+  NextRequest: Request,
   NextResponse: {
     json: (body: unknown, init?: ResponseInit) =>
       new Response(JSON.stringify(body), {
@@ -46,6 +46,19 @@ vi.mock("next/server", () => ({
 import { demoAgentNames } from "../../src/app/api/copilotkit/route";
 
 const DEMOS_DIR = path.resolve(__dirname, "../../src/app/demos");
+const API_DIR = path.resolve(__dirname, "../../src/app/api");
+
+// These pages use independently configured runtimes. Check both the page's
+// endpoint and the handler's registration instead of excluding their aliases.
+const DEDICATED_ROUTES: Record<string, string> = {
+  "agent-config-demo": "copilotkit-agent-config/route.ts",
+  "beautiful-chat": "copilotkit-beautiful-chat/route.ts",
+  "byoc-hashbrown-demo": "copilotkit-byoc-hashbrown/route.ts",
+  "multimodal-demo": "copilotkit-multimodal/route.ts",
+  "open-gen-ui": "copilotkit-ogui/route.ts",
+  "open-gen-ui-advanced": "copilotkit-ogui/route.ts",
+  "voice-demo": "copilotkit-voice/[[...slug]]/route.ts",
+};
 
 // Agent names that appear in demo page.tsx files but intentionally do NOT
 // need to be registered in `demoAgentNames` (e.g. demos that talk to a
@@ -124,6 +137,24 @@ describe("demoAgentNames parity with src/app/demos/", () => {
 
       const referenced = extractAgentNames(source);
       for (const name of referenced) {
+        const dedicatedRoute = DEDICATED_ROUTES[name];
+        if (dedicatedRoute) {
+          const runtimeUrl = `/api/${dedicatedRoute.split("/")[0]}`;
+          expect(source, `${name} must use its dedicated runtime`).toContain(
+            `runtimeUrl="${runtimeUrl}"`,
+          );
+          const handler = readFileSync(
+            path.join(API_DIR, dedicatedRoute),
+            "utf8",
+          );
+          const agentMap =
+            handler.match(/\bagents\s*:\s*\{([^}]+)\}/s)?.[1] ?? "";
+          expect(
+            agentMap,
+            `${name} must be registered in ${dedicatedRoute}`,
+          ).toContain(`"${name}":`);
+          continue;
+        }
         if (WELL_KNOWN_EXCLUDES.has(name)) continue;
         if (!registry.has(name)) {
           missing.push({ demoDir: path.basename(demoDir), agentName: name });
