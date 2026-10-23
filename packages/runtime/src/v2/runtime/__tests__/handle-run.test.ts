@@ -886,6 +886,63 @@ describe("handleRunAgent", () => {
       });
     });
 
+    it.each([
+      ["a request id", { __copilotkitRequestId: "request-1" }, "request-1"],
+      ["an empty request id", { __copilotkitRequestId: "" }, undefined],
+      ["a non-string request id", { __copilotkitRequestId: 42 }, undefined],
+    ])(
+      "sends the lock call the request id for %s",
+      async (_case, forwardedProps, expectedRequestId) => {
+        const agent = createAgentForIntelligence();
+        const platform = {
+          getOrCreateThread: vi.fn().mockResolvedValue({
+            thread: { id: "thread-1", name: null },
+            created: false,
+          }),
+          ɵgetThreadMessageIds: vi.fn().mockResolvedValue([]),
+          ɵacquireThreadLock: vi.fn().mockResolvedValue({
+            threadId: "thread-1",
+            runId: "run-1",
+            joinToken: "jt-123",
+          }),
+          ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+        };
+        const runtime = createIntelligenceRuntime(agent, platform);
+        const request = new Request("https://example.com/agent/my-agent/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            threadId: "thread-1",
+            runId: "run-1",
+            state: {},
+            messages: [],
+            tools: [],
+            context: [],
+            forwardedProps,
+          }),
+        });
+
+        const response = await handleRunAgent({
+          runtime,
+          request,
+          agentId: "my-agent",
+        });
+
+        expect(response.status).toBe(200);
+        expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
+          supportsBackendThreadId: true,
+          threadId: "thread-1",
+          runId: "run-1",
+          userId: "user-1",
+          agentId: "my-agent",
+          ttlSeconds: 20,
+          ...(expectedRequestId === undefined
+            ? {}
+            : { requestId: expectedRequestId }),
+        });
+      },
+    );
+
     it("starts the runner with canonical threadId and runId from the lock response", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
