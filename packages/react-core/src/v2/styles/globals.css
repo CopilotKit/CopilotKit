@@ -726,7 +726,7 @@
 
 @keyframes cpk-stack-fan {
   from {
-    transform: translateY(-10px);
+    transform: translateY(-6px) scale(0.985);
     opacity: 0;
   }
 }

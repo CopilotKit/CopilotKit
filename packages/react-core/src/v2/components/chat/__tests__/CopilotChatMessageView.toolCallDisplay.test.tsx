@@ -165,6 +165,45 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(group.textContent).toContain("1 done");
   });
 
+  it("draws a lone call in the same card a group uses", () => {
+    const { rerender } = renderView([question, callMessage("a")], {
+      isRunning: true,
+    });
+    const group = screen.getByTestId("copilot-tool-call-group");
+    const toggle = within(group).getAllByRole("button")[0]!;
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.textContent).toContain("Running run_command");
+    // Nothing has finished yet, so there's no count.
+    expect(toggle.textContent).not.toContain("done");
+
+    rerender(view([question, callMessage("a"), result("a")]));
+    expect(toggle.textContent).toContain("Used 1 tool");
+    expect(toggle.textContent).toContain("Done");
+  });
+
+  it("draws a lone call as the top card of a stack", () => {
+    renderView([question, callMessage("a"), result("a")], {
+      toolCallDisplay: "stacked",
+    });
+    const group = screen.getByTestId("copilot-tool-call-group");
+    const toggle = within(group).getAllByRole("button")[0]!;
+    expect(toggle.textContent).toContain("run_command");
+    expect(toggle.textContent).toContain("1 call");
+  });
+
+  it("opens a stack into the same compact cards, with Collapse", () => {
+    renderView(burst, { toolCallDisplay: "stacked" });
+    const group = screen.getByTestId("copilot-tool-call-group");
+    fireEvent.click(within(group).getAllByRole("button")[0]!);
+    expect(within(group).getByText("Collapse")).toBeTruthy();
+    const statuses = within(group).getAllByTestId("copilot-tool-render-status");
+    expect(statuses).toHaveLength(2);
+    // Compact rows, not the standalone card with its status badge.
+    for (const status of statuses) {
+      expect(status.className).toContain("sr-only");
+    }
+  });
+
   it.each([
     ["line", "line"],
     ["stacked", "stack"],
