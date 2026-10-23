@@ -37,6 +37,8 @@ export const operations = {
     "mutation($environmentId:String!,$input:EnvironmentConfig!){environmentStageChanges(environmentId:$environmentId,input:$input,merge:true){id}}",
   commitSource:
     "mutation($environmentId:String!){environmentPatchCommitStaged(environmentId:$environmentId,skipDeploys:true)}",
+  sourceStatus:
+    "query($id:String!){environmentPatch(id:$id){id environmentId status}}",
   variables:
     "mutation($input:VariableCollectionUpsertInput!){variableCollectionUpsert(input:$input)}",
   domain:
@@ -62,6 +64,7 @@ const resultFields = {
   configure: "serviceInstanceUpdate",
   stageSource: "environmentStageChanges",
   commitSource: "environmentPatchCommitStaged",
+  sourceStatus: "environmentPatch",
   variables: "variableCollectionUpsert",
   domain: "serviceDomainCreate",
   deploy: "serviceInstanceDeployV2",

@@ -1523,7 +1523,7 @@ async function controllerFor({
       }
       await check();
       await ownedService(service);
-      id(
+      const sourcePatchId = id(
         (
           await api.request("stageSource", {
             environmentId: fork.id,
@@ -1535,6 +1535,27 @@ async function controllerFor({
       );
       await check();
       id(await api.request("commitSource", { environmentId: fork.id }));
+      // Committing starts an asynchronous workflow, even with skipDeploys.
+      const sourceDeadline = Math.min(
+        Date.now() + 120_000,
+        Date.parse(journal.expiresAt) - 5 * 60 * 1000,
+      );
+      while (true) {
+        await check();
+        assert.ok(
+          Date.now() < sourceDeadline,
+          "Source configuration workflow timed out",
+        );
+        const patch = await api.request("sourceStatus", { id: sourcePatchId });
+        assert.equal(patch.id, sourcePatchId);
+        assert.equal(patch.environmentId, fork.id);
+        if (patch.status === "COMMITTED") break;
+        assert.ok(
+          patch.status === "APPLYING" || patch.status === "STAGED",
+          "Source configuration workflow failed",
+        );
+        await delay(1000, undefined, { signal });
+      }
       const configured = await ownedService(service);
       assert.equal(
         configured.source?.image,

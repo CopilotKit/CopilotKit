@@ -23,14 +23,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const query = fs.readFileSync(process.argv[process.argv.indexOf('--file') + 1], 'utf8');
 const variables = JSON.parse(fs.readFileSync(process.argv[process.argv.indexOf('--variables') + 1].slice(1), 'utf8'));
-assert.equal(variables.environmentId, 'owned-fork');
-if (query.includes('environmentStageChanges')) {
+if (query.includes('environmentPatch(id:')) {
+  assert.deepEqual(variables, {id:'patch-id'});
+  process.stdout.write(JSON.stringify({data:{environmentPatch:{id:'patch-id',environmentId:'owned-fork',status:'COMMITTED'}}}));
+} else if (query.includes('environmentStageChanges')) {
+  assert.equal(variables.environmentId, 'owned-fork');
   assert.deepEqual(variables.input, {services:{'owned-service':{source:{image:'pinned-image'}}}});
   assert.ok(query.includes('merge:true'));
   process.stdout.write(JSON.stringify({data:{environmentStageChanges:{id:'patch-id'}}}));
 } else {
+  assert.equal(variables.environmentId, 'owned-fork');
   assert.ok(query.includes('environmentPatchCommitStaged(environmentId:$environmentId,skipDeploys:true)'));
-  process.stdout.write(JSON.stringify({data:{environmentPatchCommitStaged:'patch-id'}}));
+  process.stdout.write(JSON.stringify({data:{environmentPatchCommitStaged:'commitChanges/owned-fork/patch-id'}}));
 }
 `,
     { mode: 0o700 },
@@ -47,7 +51,13 @@ if (query.includes('environmentStageChanges')) {
   );
   assert.equal(
     await api.request("commitSource", { environmentId: "owned-fork" }),
-    "patch-id",
+    "commitChanges/owned-fork/patch-id",
+  );
+  assert.deepEqual(
+    await api.request("sourceStatus", {
+      id: "patch-id",
+    }),
+    { id: "patch-id", environmentId: "owned-fork", status: "COMMITTED" },
   );
 });
 

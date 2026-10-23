@@ -24,6 +24,7 @@ function fakeProvider(options = {}) {
     deployments: [],
   };
   let serial = 0;
+  const sourceWorkflows = new Map();
 
   const api = {
     list: async (kind) => clone(state[kind]),
@@ -50,6 +51,17 @@ function fakeProvider(options = {}) {
           outcome: "not-executed",
           codes: ["GRAPHQL_VALIDATION_FAILED"],
         });
+      if (op === "sourceStatus") {
+        const workflow = sourceWorkflows.get(args.id);
+        assert.ok(workflow, "Must poll the committed source workflow");
+        const status = options.sourceWorkflowError
+          ? "FAILED"
+          : (options.delayedSource &&
+              ["STAGED", "APPLYING"][workflow.polls++]) ||
+            "COMMITTED";
+        if (status === "COMMITTED") await workflow.apply();
+        return { id: args.id, environmentId: workflow.environmentId, status };
+      }
       const input = args.input;
       if (
         options.nameLimit &&
@@ -246,14 +258,25 @@ function fakeProvider(options = {}) {
       if (op === "stageSource") {
         assert.equal(Object.keys(input.services).length, 1);
         env.stagedSource = clone(input.services);
-        return { id: `patch-${++serial}` };
+        env.stagedPatchId = `patch-${++serial}`;
+        return { id: env.stagedPatchId };
       }
       if (op === "commitSource") {
-        for (const [serviceId, patch] of Object.entries(env.stagedSource))
-          env.serviceInstances.find((s) => s.serviceId === serviceId).source =
-            patch.source;
+        const staged = env.stagedSource;
+        const workflowId = `commitChanges/${env.id}/patch-${serial}`;
+        const apply = () => {
+          for (const [serviceId, patch] of Object.entries(staged))
+            env.serviceInstances.find((s) => s.serviceId === serviceId).source =
+              patch.source;
+        };
+        sourceWorkflows.set(env.stagedPatchId, {
+          polls: 0,
+          apply,
+          environmentId: env.id,
+        });
+        if (!options.delayedSource && !options.sourceWorkflowError) apply();
         delete env.stagedSource;
-        return `patch-${serial}`;
+        return workflowId;
       }
       if (op === "deploy") {
         const instance = env.serviceInstances.find(
@@ -468,9 +491,9 @@ test("three consumer mirrors; one physical composite restart; exact resource abs
       "complete",
     );
 });
-test("bootstrap configures inert services before one explicit deployment each", async (t) => {
+test("bootstrap waits for source workflows before one explicit deployment each", async (t) => {
   const f = await fixture(t);
-  const p = fakeProvider();
+  const p = fakeProvider({ delayedSource: true });
   const env = await createRailwayEnvironment(
     { ...f, runId: "single-deployment", frameworks: ["mastra"] },
     { ...f.dependencies, api: p.api },
@@ -484,6 +507,10 @@ test("bootstrap configures inert services before one explicit deployment each", 
       await readFile(join(f.directory, "single-deployment/journal.json")),
     );
     assert.equal(p.state.deployments.length, f.config.services.length);
+    assert.equal(
+      p.state.calls.filter((call) => call === "sourceStatus").length,
+      f.config.services.length * 3,
+    );
     for (const service of journal.services) {
       assert.equal(service.sourcePending, false);
       assert.equal(service.ready.deploymentId, service.deploymentId);
@@ -495,6 +522,24 @@ test("bootstrap configures inert services before one explicit deployment each", 
   } finally {
     await env.cleanup();
   }
+});
+
+test("failed source workflow stops bootstrap before deployment and cleans up", async (t) => {
+  const f = await fixture(t);
+  const p = fakeProvider({ sourceWorkflowError: true });
+  await assert.rejects(
+    createRailwayEnvironment(
+      { ...f, runId: "source-workflow-failed", frameworks: ["mastra"] },
+      { ...f.dependencies, api: p.api },
+    ),
+    /Source configuration workflow failed/,
+  );
+  assert.equal(p.state.deployments.length, 0);
+  assert.equal(
+    p.state.calls.filter((call) => call === "commitSource").length,
+    1,
+  );
+  assert.equal(p.state.services.length + p.state.environments.length, 0);
 });
 
 for (const committed of [false, true]) {
