@@ -52,6 +52,11 @@ import {
   CopilotKitInspectorContextProvider,
   useCopilotKitInspector,
 } from "../CopilotKitInspectorContext";
+import type { CopilotChatMentionItem } from "./mentions";
+import { createMentionPart } from "./mentions";
+import { useMentions } from "./use-mentions";
+
+export type { CopilotChatMentionItem } from "./mentions";
 
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
@@ -68,6 +73,11 @@ export type CopilotChatProps = Omit<
   | "onDragOver"
   | "onDragLeave"
   | "onDrop"
+  // Mention state props — managed internally from the `mentionItems` source
+  | "mentionItems"
+  | "selectedMentions"
+  | "onSelectMention"
+  | "onRemoveMention"
 > & {
   agentId?: string;
   threadId?: string;
@@ -83,6 +93,11 @@ export type CopilotChatProps = Omit<
   isModalDefaultOpen?: boolean;
   /** Enable multimodal file attachments (images, audio, video, documents). */
   attachments?: AttachmentsConfig;
+  /**
+   * Items offered by the default chat input when the user types `@`.
+   * Selected items are persisted on the user message as text parts.
+   */
+  mentionItems?: CopilotChatMentionItem[];
   /**
    * Error handler scoped to this chat's agent. Fires in addition to the
    * provider-level onError (does not suppress it). Receives only errors
@@ -106,6 +121,7 @@ export type CopilotChatProps = Omit<
    */
   throttleMs?: number;
 };
+/** Renders the v2 chat surface and coordinates its message lifecycle. */
 export function CopilotChat({
   agentId,
   threadId,
@@ -114,6 +130,7 @@ export function CopilotChat({
   chatView,
   isModalDefaultOpen,
   attachments: attachmentsConfig,
+  mentionItems,
   onError,
   throttleMs,
   ...props
@@ -252,6 +269,13 @@ export function CopilotChat({
     removeAttachment,
     consumeAttachments,
   } = useAttachments({ config: attachmentsConfig });
+
+  const {
+    mentions: selectedMentions,
+    selectMention,
+    removeMention,
+    consumeMentions,
+  } = useMentions();
 
   // onSubmitInput awaits an in-flight run before sending the new message, so
   // it must re-check the "uploading" guard against FRESH state AFTER the await
@@ -903,6 +927,26 @@ export function CopilotChat({
         return;
       }
 
+      // Capture mentions at the same time as the text. A queued send may wait
+      // for an active run, and mention edits during that wait belong to the
+      // next message rather than this accepted submission.
+      const capturedMentions = consumeMentions();
+      const capturedSelection = previousThreadRef.current;
+      const restoreCapturedSubmission = () => {
+        if (
+          !capturedSelection?.active ||
+          previousThreadRef.current !== capturedSelection
+        ) {
+          return;
+        }
+        setInputValue((currentValue) => {
+          if (!value) return currentValue;
+          if (!currentValue) return value;
+          return `${value}\n${currentValue}`;
+        });
+        capturedMentions.forEach(selectMention);
+      };
+
       // Clear the input immediately so the composer reflects the accepted send
       // even though the actual dispatch may be deferred behind the in-flight
       // run. If the post-await guard later BLOCKS the send (e.g. an upload
@@ -915,7 +959,7 @@ export function CopilotChat({
         // message instead of pre-empting it (see waitForActiveRunToSettle).
         const ready = await waitForActiveRunToSettle();
         if (ready !== true) {
-          if (ready === "failed") setInputValue(value);
+          restoreCapturedSubmission();
           return;
         }
 
@@ -933,16 +977,19 @@ export function CopilotChat({
             "[CopilotKit] Cannot send while attachments are uploading (post-await re-check)",
           );
           setTranscriptionError("Cannot send while attachments are uploading.");
-          setInputValue(value);
+          restoreCapturedSubmission();
           return;
         }
 
         const readyAttachments = consumeAttachments();
 
-        if (readyAttachments.length > 0) {
+        if (capturedMentions.length > 0 || readyAttachments.length > 0) {
           const contentParts: InputContent[] = [];
           if (value.trim()) {
             contentParts.push({ type: "text", text: value });
+          }
+          for (const mention of capturedMentions) {
+            contentParts.push(createMentionPart(mention));
           }
           for (const att of readyAttachments) {
             contentParts.push(createAttachmentContent(att));
@@ -997,6 +1044,8 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       agent,
+      consumeMentions,
+      selectMention,
       consumeAttachments,
       waitForActiveRunToSettle,
       enqueueSubmission,
@@ -1322,6 +1371,10 @@ export function CopilotChat({
     inputMode: effectiveMode,
     inputValue,
     onInputChange: setInputValue,
+    mentionItems,
+    selectedMentions,
+    onSelectMention: selectMention,
+    onRemoveMention: removeMention,
     // Only provide transcription handlers if feature is available
     onStartTranscribe: showTranscription ? handleStartTranscribe : undefined,
     onCancelTranscribe: showTranscription ? handleCancelTranscribe : undefined,
