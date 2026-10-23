@@ -142,10 +142,10 @@ assuming them.
 
 Then read the app's **own** environment contract instead of assuming variable
 names. They differ between apps, and so does the vocabulary for the _same_
-concept: OpenTag uses `INTELLIGENCE_CHANNEL_NAME`, the Channels SDK README's
-quickstart calls it `CHANNEL_CODE`, and it is also referred to as the Channel's
-**slug**. All of them mean the `name` passed to `createChannel()`, which must
-match the Channel in the dashboard character for character. Read the app's
+concept: OpenTag uses `INTELLIGENCE_CHANNEL_NAME`, the dashboard calls it the
+Channel's **Code**, and it is also referred to as the Channel's **slug**. All
+of them mean the `name` passed to `createChannel()`, which must match the
+Channel in the dashboard character for character. Read the app's
 parser; do not guess which word this codebase uses.
 
 ```bash

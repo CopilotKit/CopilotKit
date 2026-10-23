@@ -272,14 +272,14 @@ for both Slack and Microsoft Teams.
     npx copilotkit@latest project select
     ```
 
-    Set `CHANNEL_CODE` to the Code from this Channel. If the process does not
-    load that `.env` file, store the key in your secret manager. The project
-    **API Keys** page is the other way to copy a key. Configure the process
-    with:
+    Set `INTELLIGENCE_CHANNEL_NAME` to this Channel's name: the exact Code
+    from this Channel. If the process does not load that `.env` file, store
+    the key in your secret manager. The project **API Keys** page is the other
+    way to copy a key. Configure the process with:
 
     ```dotenv title=".env"
     CPK_INTELLIGENCE_API_KEY=<project-api-key>
-    CHANNEL_CODE=<your-channel-code>
+    INTELLIGENCE_CHANNEL_NAME=<your-channel-name>
 
     # Optional paired overrides for self-hosted or non-production Intelligence:
     # INTELLIGENCE_API_URL=https://intelligence.example.com
@@ -296,10 +296,11 @@ for both Slack and Microsoft Teams.
     Open **API Keys** in the project sidebar to create and copy the
     project-scoped runtime key.
 
-    You choose `CHANNEL_CODE` from the exact Code above, and the selected agent
-    framework adds its own backend variables. The SDK receives the Intelligence
-    values through the `apiKey` constructor property and optional `apiUrl` /
-    `wsUrl` overrides shown in the platform connection guides.
+    You take `INTELLIGENCE_CHANNEL_NAME` from the exact Code above, and the
+    selected agent framework adds its own backend variables. The SDK receives
+    the Intelligence values through the `apiKey` constructor property and
+    optional `apiUrl` / `wsUrl` overrides shown in the platform connection
+    guides.
 
     Never expose the Intelligence key, Slack tokens, or Teams client secret in
     browser code or source control.
@@ -312,15 +313,15 @@ for both Slack and Microsoft Teams.
 <FrontendOnly frontend="slack">
 
 Your Slack Channel should now be **Waiting for runtime**. Continue to
-[Connect and run your agent](/slack/connect) with `CHANNEL_CODE` and
-`CPK_INTELLIGENCE_API_KEY`.
+[Connect and run your agent](/slack/connect) with `INTELLIGENCE_CHANNEL_NAME`
+and `CPK_INTELLIGENCE_API_KEY`.
 
 </FrontendOnly>
 
 <FrontendOnly frontend="teams">
 
 Your Microsoft Teams Channel should now be **Waiting for runtime**. Continue to
-[Connect and run your agent](/teams/connect) with `CHANNEL_CODE` and
-`CPK_INTELLIGENCE_API_KEY`.
+[Connect and run your agent](/teams/connect) with `INTELLIGENCE_CHANNEL_NAME`
+and `CPK_INTELLIGENCE_API_KEY`.
 
 </FrontendOnly>

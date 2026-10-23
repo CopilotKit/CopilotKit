@@ -131,7 +131,7 @@ function required(name: string): string {
 }
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: required("INTELLIGENCE_CHANNEL_NAME"),
   identifyUser: "platform",
   agent: makeAgent,
   components: [Decision],

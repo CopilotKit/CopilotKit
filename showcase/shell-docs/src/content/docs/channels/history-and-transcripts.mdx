@@ -80,7 +80,7 @@ import { createChannel } from "@copilotkit/channels";
 import { durableStateStore } from "./state-store.js";
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: required("INTELLIGENCE_CHANNEL_NAME"),
   identifyUser: async ({ provider, actor }) => {
     const account = await accounts.findByExternalIdentity({
       provider,
@@ -108,7 +108,7 @@ import { createChannel } from "@copilotkit/channels";
 import { durableStateStore } from "./state-store.js";
 
 const channel = createChannel({
-  name: required("CHANNEL_CODE"),
+  name: required("INTELLIGENCE_CHANNEL_NAME"),
   identifyUser: async ({ provider, actor }) => {
     const account = await accounts.findByExternalIdentity({
       provider,

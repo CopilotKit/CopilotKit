@@ -72,7 +72,7 @@ check all four rather than assuming:
    code, not from memory:
 
    ```bash
-   grep -rn "CHANNEL_NAME\|CHANNEL_CODE\|createChannel(" app/ server.ts .env.example
+   grep -rn "CHANNEL_NAME\|createChannel(" app/ server.ts .env.example
    ```
 
    Naming it after the display name instead of the code's name is a common and

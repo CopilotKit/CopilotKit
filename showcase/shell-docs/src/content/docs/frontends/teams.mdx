@@ -20,7 +20,7 @@ New to the product? Start with the [Channels overview](/channels) to understand
 how the SDK, Runtime, Intelligence, and provider connection fit together.
 
 Before you continue, [configure the Channel in Intelligence](/channels/intelligence).
-You should have `CHANNEL_CODE` and `CPK_INTELLIGENCE_API_KEY`.
+You should have `INTELLIGENCE_CHANNEL_NAME` and `CPK_INTELLIGENCE_API_KEY`.
 
 ## Start with your coding agent
 
@@ -132,7 +132,7 @@ re-installing.
     }
 
     const channel = createChannel({
-      name: required("CHANNEL_CODE"),
+      name: required("INTELLIGENCE_CHANNEL_NAME"),
       identifyUser: "platform",
       agent: makeAgent,
     });
@@ -221,7 +221,7 @@ re-installing.
 
     ```dotenv title=".env"
     CPK_INTELLIGENCE_API_KEY=<project-api-key>
-    CHANNEL_CODE=support-teams
+    INTELLIGENCE_CHANNEL_NAME=support-teams
     # Add the agent variables shown for your selected backend.
     PORT=3001
 
@@ -241,8 +241,9 @@ re-installing.
       This one is yours to create and paste.
     - `CPK_INTELLIGENCE_API_KEY` is written for you by
       `copilotkit project select`, which provisions the project and its key.
-    - `CHANNEL_CODE` is written for you by the onboarding run once it has
-      declared the Channel; the run knows the Code it just created.
+    - `INTELLIGENCE_CHANNEL_NAME` is written for you by the onboarding run once
+      it has declared the Channel; the run knows the Channel name it just
+      created.
 
     So both Intelligence values land in the environment file your app loads and
     you never copy either one by hand. Setting them yourself still works: see
@@ -307,9 +308,10 @@ re-installing.
 
 <Accordions>
   <Accordion title="The Channel stays at Waiting for runtime">
-    Confirm the Code matches `CHANNEL_CODE` and the API key belongs to the same
-    Intelligence project. Provider routing comes from the Teams connection
-    attached in Intelligence, not from a `createChannel` option.
+    Confirm the Code matches `INTELLIGENCE_CHANNEL_NAME` and the API key
+    belongs to the same Intelligence project. Provider routing comes from the
+    Teams connection attached in Intelligence, not from a `createChannel`
+    option.
   </Accordion>
   <Accordion title="Teams cannot reach the bot">
     In Teams Developer Portal, open **Tools → Bot management**, select the bot,
