@@ -112,7 +112,8 @@ export function installStreamingFetch(): void {
       // connections (WiFi→cellular transitions, tunnels, serverless cold
       // starts). This is an idle timeout, not xhr.timeout: a total limit would
       // also cut a healthy stream that runs longer than a minute (#7951).
-      // Callers can still use AbortSignal.timeout() to cap the total time.
+      // To cap the total time, callers can pass the signal of an AbortController
+      // and abort it from a timer (React Native's polyfill has no AbortSignal.timeout()).
       let idleTimer: ReturnType<typeof setTimeout> | undefined;
       function resetIdleTimer() {
         clearTimeout(idleTimer);
