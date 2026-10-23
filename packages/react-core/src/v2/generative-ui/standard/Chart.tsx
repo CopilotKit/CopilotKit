@@ -288,7 +288,13 @@ function createRechartsChart(R: RechartsModule) {
                 endAngle={props.endAngle ?? -270}
                 cornerRadius={props.cornerRadius}
                 paddingAngle={props.paddingAngle}
-                label={props.showValueLabels ? true : undefined}
+                label={
+                  props.showValueLabels
+                    ? format
+                      ? ({ value }) => format(value)
+                      : true
+                    : undefined
+                }
                 labelLine={
                   props.showValueLabels ? (props.showLabelLines ?? true) : false
                 }
