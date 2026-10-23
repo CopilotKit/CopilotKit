@@ -151,6 +151,7 @@ export async function createBrowser({
     const url = new URL(scope.applicationUrl);
     assert.match(mode, /^[a-z][a-z0-9-]+$/);
     url.searchParams.set("mode", mode);
+    url.searchParams.set("framework", scope.framework);
     await page.goto(url.href, {
       waitUntil: "domcontentloaded",
       timeout: 180_000,
