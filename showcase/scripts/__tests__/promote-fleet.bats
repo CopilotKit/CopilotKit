@@ -956,3 +956,20 @@ STUB
   [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted when the digest target is absent: $output"
 }
 
+# --- HELD_CSV defense in depth: a held service is never promoted -------------
+
+@test "held: a plan that still contains a HELD_CSV service is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h,2:svc-i1" HELD_CSV="svc-h" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted when a held service is in the plan: $output"
+}
+
+@test "held: the summary lists HELD_CSV services as held, unchanged" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,2:svc-i1" HELD_CSV="svc-h,svc-w" bash "$SCRIPT"
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+  [[ "$output" == *"HELD (2): svc-h svc-w"* ]] || fail "summary must list held services: $output"
+  [[ "$output" != *"ARGS: promote svc-h"* ]] || fail "held svc-h must not be promoted: $output"
+}

@@ -263,6 +263,80 @@ JSON
   [[ "$output" == *"1:harness"* ]] || fail "all plan must keep harness: $output"
 }
 
+# --- HOLD: leave named prod services untouched (CPK-8652 recovery) -----------
+# HOLD is a comma-separated list of SSOT names / dispatch_names. Each held
+# service is removed from services_csv, closure_csv and closure_plan, emitted as
+# held_csv, and listed in the step summary as "held, unchanged" so the operator
+# sees that prod keeps its CURRENT image for it.
+
+run_resolve_hold() {
+  # run_resolve_hold <INPUT> <HOLD> [DIGEST]
+  INPUT="$1" HOLD="$2" DIGEST="${3:-}" GENERATED="$GENERATED" run bash "$SCRIPT"
+}
+
+@test "HOLD removes harness from the closure and reports it as held" {
+  run_resolve_hold "agent-a" "harness"
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^closure_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "closure_csv=aimock,pocketbase,dashboard,agent-a" ] \
+    || fail "held harness must be removed from closure_csv: $output"
+  run grep '^closure_plan=' "$GITHUB_OUTPUT"
+  [ "$output" = "closure_plan=0:aimock,0:pocketbase,1:dashboard,2:agent-a" ] \
+    || fail "held harness must be removed from closure_plan: $output"
+  run grep '^held_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "held_csv=harness" ] || fail "held_csv wrong: $output"
+  run cat "$GITHUB_STEP_SUMMARY"
+  [[ "$output" == *"Held"* && "$output" == *'`harness`'* && "$output" == *"unchanged"* ]] \
+    || fail "step summary must list harness as held, unchanged: $output"
+}
+
+@test "HOLD accepts dispatch_names, trims whitespace, and normalizes to SSOT names" {
+  run_resolve_hold "agent-a" " showcase-harness , shell-dashboard "
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^closure_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "closure_csv=aimock,pocketbase,agent-a" ] || fail "closure wrong: $output"
+  run grep '^held_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "held_csv=harness,dashboard" ] || fail "held_csv must be SSOT names: $output"
+}
+
+@test "empty HOLD leaves the closure unchanged and emits an empty held_csv" {
+  run_resolve_hold "agent-a" ""
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^closure_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "closure_csv=aimock,pocketbase,harness,dashboard,agent-a" ] \
+    || fail "closure must be unchanged without HOLD: $output"
+  run grep '^held_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "held_csv=" ] || fail "held_csv must be empty: $output"
+}
+
+@test "HOLD with all removes held services from the leaf set and the closure" {
+  run_resolve_hold "all" "harness"
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^services_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "services_csv=agent-a,agent-b,aimock,dashboard,pocketbase" ] \
+    || fail "held harness must be removed from the all leaf set: $output"
+  run grep '^closure_csv=' "$GITHUB_OUTPUT"
+  [[ ",${output#closure_csv=}," != *",harness,"* ]] || fail "held harness still in closure: $output"
+}
+
+@test "HOLD of an unknown service name is rejected loud (a typo must not promote it)" {
+  run_resolve_hold "agent-a" "harnes"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on unknown held service, got $status"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error:: on unknown held service: $output"
+}
+
+@test "HOLD of the requested service itself is rejected loud" {
+  run_resolve_hold "agent-a" "a"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit when holding the requested service, got $status"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error:: when holding the requested service: $output"
+}
+
+@test "HOLD that removes every service in the all leaf set is rejected loud" {
+  run_resolve_hold "all" "agent-a,agent-b,aimock,dashboard,harness,pocketbase"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit when HOLD empties the all set, got $status"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error:: when HOLD empties the all set: $output"
+}
+
 # --- digest_service: the digest applies ONLY to the requested service --------
 
 @test "DIGEST emits digest_service = the requested SSOT name only" {

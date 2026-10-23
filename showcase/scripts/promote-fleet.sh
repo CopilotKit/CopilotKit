@@ -50,6 +50,11 @@
 #                             service in the plan; a multi-service plan without
 #                             it, or a DIGEST_SERVICE absent from the plan, is
 #                             rejected BEFORE any promote runs.
+#   HELD_CSV      (optional)  services the operator held out of this promote
+#                             (resolve-targets `held_csv` output). They are
+#                             listed in the summary as held, unchanged. Defense
+#                             in depth: if any held service is still in the
+#                             plan, the run is rejected BEFORE any promote runs.
 #   RAILWAY_BIN   (optional)  path to the railway CLI (default: sibling
 #                             ../bin/railway). Overridable for testing.
 #
@@ -335,17 +340,34 @@ reap_tier() {
   done
 }
 
+# Held services (HELD_CSV), trimmed, empty tokens dropped. Used by
+# preflight_scope and the summary.
+held=()
+IFS=',' read -ra HELD_TOKENS <<< "${HELD_CSV:-}"
+for tok in "${HELD_TOKENS[@]:-}"; do
+  tok="$(trim "$tok")"
+  [ -n "$tok" ] && held+=("$tok")
+done
+
 # preflight_scope <svc...> — validate the parsed plan BEFORE any promote runs.
-# Exits non-zero (nothing promoted) when DIGEST is set but cannot be scoped to
-# exactly one service in the plan.
+# Exits non-zero (nothing promoted) when:
+#   * a HELD_CSV service is still in the plan (defense in depth: resolve-targets
+#     already removed it, so its presence means the inputs are inconsistent);
+#   * DIGEST is set but cannot be scoped to exactly one service in the plan.
 # When DIGEST is set and DIGEST_SERVICE is unset, DIGEST_SERVICE defaults to the
 # only service in the plan (the legacy single-service call shape).
 preflight_scope() {
-  local svc n=0 only="" found=0
+  local svc h n=0 only="" found=0
   for svc in "$@"; do
     [ -n "$svc" ] || continue
     n=$(( n + 1 ))
     only="$svc"
+    for h in "${held[@]:-}"; do
+      if [ -n "$h" ] && [ "$svc" = "$h" ]; then
+        echo "::error::promote-fleet: held service '$svc' (HELD_CSV) is in the promote plan; refusing to promote anything." >&2
+        exit 1
+      fi
+    done
     [ "$svc" = "${DIGEST_SERVICE:-}" ] && found=1
   done
   if [ -n "${DIGEST:-}" ]; then
@@ -568,6 +590,11 @@ if [ "${#succeeded[@]}" -gt 0 ]; then
   emit "SUCCEEDED (${#succeeded[@]}): ${succeeded[*]}"
 else
   emit "SUCCEEDED (0): (none)"
+fi
+
+if [ "${#held[@]}" -gt 0 ]; then
+  emit "HELD (${#held[@]}): ${held[*]}"
+  emit "Held by the 'hold' input: NOT promoted, prod keeps its current image."
 fi
 
 if [ "${#drift[@]}" -gt 0 ]; then

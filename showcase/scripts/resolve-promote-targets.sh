@@ -38,6 +38,15 @@
 #   INPUT      (required)  the workflow_dispatch `service` value (SSOT key,
 #                          dispatch_name, or 'all').
 #   DIGEST     (optional)  the workflow_dispatch `digest` override.
+#   HOLD       (optional)  the workflow_dispatch `hold` value: comma-separated
+#                          SSOT keys / dispatch_names to leave UNTOUCHED in prod.
+#                          Each held service is removed from services_csv,
+#                          closure_csv and closure_plan, so prod keeps its
+#                          CURRENT image. No gate is skipped: the prod gates that
+#                          exercise a held service (equivalence re-sweep on the
+#                          prod harness, lint-prod) see its current prod image.
+#                          An unknown name, or holding the requested service
+#                          itself, is rejected loud.
 #   GENERATED  (optional)  path to railway-envs.generated.json
 #                          (default: showcase/scripts/railway-envs.generated.json,
 #                          resolved relative to this script).
@@ -46,6 +55,7 @@
 #   services_csv   leaf-set CSV (backward-compat promote target).
 #   closure_csv    tier-ordered closure SSOT-name CSV.
 #   closure_plan   tier-annotated `tier:name` CSV for U4.
+#   held_csv       SSOT names held out of this promote (empty when HOLD unset).
 #   digest_service SSOT name the DIGEST override applies to (empty when DIGEST
 #                  is unset). promote-fleet.sh forwards --digest to ONLY this
 #                  service, never to the rest of the closure.
@@ -55,6 +65,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INPUT="${INPUT:-}"
 DIGEST="${DIGEST:-}"
+HOLD="${HOLD:-}"
 GENERATED="${GENERATED:-$SCRIPT_DIR/railway-envs.generated.json}"
 
 if [ ! -f "$GENERATED" ]; then
@@ -69,6 +80,33 @@ if [ "$INPUT" = "__select_a_service__" ] || [ -z "$INPUT" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# 0. HOLD — resolve each held name to exactly one SSOT name. Fail loud on a
+#    typo: an unrecognised name would otherwise silently promote the service
+#    the operator meant to hold.
+# ---------------------------------------------------------------------------
+HELD=""
+if [ -n "$HOLD" ]; then
+  IFS=',' read -ra HOLD_TOKENS <<< "$HOLD"
+  for tok in "${HOLD_TOKENS[@]}"; do
+    # Trim leading/trailing whitespace (`IFS=, read` does not trim).
+    tok="${tok#"${tok%%[![:space:]]*}"}"
+    tok="${tok%"${tok##*[![:space:]]}"}"
+    [ -n "$tok" ] || continue
+    HMATCH=$(jq -r --arg s "$tok" '.services[] | select(.name == $s or .dispatchName == $s) | .name' "$GENERATED")
+    HCOUNT=$(printf '%s' "$HMATCH" | grep -c . || true)
+    if [ "$HCOUNT" -ne 1 ]; then
+      echo "::error::Cannot hold '$tok': it does not match exactly one SSOT service (key or dispatch_name)."
+      exit 1
+    fi
+    case ",$HELD," in
+      *",$HMATCH,"*) ;;
+      *) HELD="${HELD:+$HELD,}$HMATCH" ;;
+    esac
+  done
+fi
+HELD_JSON=$(jq -nc --arg h "$HELD" '$h | split(",") | map(select(length > 0))')
+
+# ---------------------------------------------------------------------------
 # 1. Leaf-set services_csv (BACKWARD-COMPAT — identical to the prior inline path)
 # ---------------------------------------------------------------------------
 if [ "$INPUT" = "all" ]; then
@@ -80,12 +118,18 @@ if [ "$INPUT" = "all" ]; then
     echo "::error::--digest cannot be combined with 'all' (a single digest is meaningless across multiple services); pick one service."
     exit 1
   fi
-  CSV=$(jq -r '.services[] | select(.probe.prod == true and .standalone != true) | .name' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
+  # Held services are dropped from the leaf set too.
+  CSV=$(jq -r --argjson held "$HELD_JSON" '
+    .services[]
+    | select(.probe.prod == true and .standalone != true)
+    | .name
+    | select(. as $n | $held | index([$n]) | not)
+  ' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
   # Fail loud if 'all' resolved to nothing (e.g. an SSOT regression dropped every
   # probe.prod entry). An empty CSV would otherwise propagate downstream with
   # exit 0; mirror the single-service branch's fail-loud style.
   if [ -z "$CSV" ]; then
-    echo "::error::'all' resolved to zero prod-eligible services"
+    echo "::error::'all' resolved to zero prod-eligible services (held: '${HELD:-none}')"
     exit 1
   fi
   # The requested SSOT set for closure computation = the full prod-eligible leaf
@@ -114,6 +158,12 @@ else
     echo "::error::Ambiguous service '$INPUT' matches multiple SSOT entries: $LIST"
     exit 1
   fi
+  case ",$HELD," in
+    *",$MATCHES,"*)
+      echo "::error::Cannot hold '$MATCHES': it is the service this run promotes. Remove it from 'hold' or pick another service."
+      exit 1
+      ;;
+  esac
   CSV="$MATCHES"
   REQUESTED="$MATCHES"
 fi
@@ -129,6 +179,7 @@ fi
 
 {
   echo "services_csv=$CSV"
+  echo "held_csv=$HELD"
   echo "digest_service=$DIGEST_SERVICE"
 } >> "$GITHUB_OUTPUT"
 
@@ -150,7 +201,8 @@ REQUESTED_JSON=$(printf '%s\n' "$REQUESTED" | jq -R . | jq -s 'map(select(length
 
 CLOSURE_PLAN_JSON=$(jq -n \
   --slurpfile gen "$GENERATED" \
-  --argjson requested "$REQUESTED_JSON" '
+  --argjson requested "$REQUESTED_JSON" \
+  --argjson held "$HELD_JSON" '
   ($gen[0]) as $g
   # name -> tier from the authoritative closure ordering.
   | ($g.closure.services) as $ordered
@@ -183,6 +235,9 @@ CLOSURE_PLAN_JSON=$(jq -n \
   # known tier — e.g. a runtimeDep that is itself not promotable), then sort by
   # the closure tier order, and within a tier preserve the closure listing order.
   | map(select($tierOf[.] != null))
+  # HOLD: drop held services AFTER the dependency walk, so a held dependency is
+  # left on its CURRENT prod image instead of being promoted.
+  | map(select(. as $n | $held | index([$n]) | not))
   | unique
   | sort_by([ $tierOf[.], $posOf[.] ])
   | map({ name: ., tier: $tierOf[.], standalone: ($standaloneOf[.] == true) })
@@ -228,6 +283,15 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     printf '%s' "$CLOSURE_PLAN_JSON" \
       | jq -r 'to_entries[] | "| \(.key + 1) | tier \(.value.tier) | `\(.value.name)` |"'
     echo ""
+    # Held members (`hold` input) — NEVER silent.
+    if [ -n "$HELD" ]; then
+      echo "**Held, unchanged** (\`hold\` input — NOT promoted; prod keeps its current image and the prod gates run against it):"
+      echo ""
+      printf '%s\n' "$HELD" | tr ',' '\n' | while IFS= read -r h; do
+        echo "- \`$h\`"
+      done
+      echo ""
+    fi
     # Skipped members (no prod env, §4.3) — NEVER silent.
     SKIPPED_COUNT=$(jq -r '(.closure.skipped // []) | length' "$GENERATED")
     if [ "$SKIPPED_COUNT" -gt 0 ]; then
