@@ -242,6 +242,8 @@ export class PlatformRequestError extends Error {
     public readonly status: number,
     /** Whether retrying may succeed without changing client configuration. */
     public readonly retryable?: boolean,
+    /** Seconds the platform asked the client to wait (`Retry-After`). */
+    public readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = "PlatformRequestError";
@@ -266,6 +268,66 @@ function readErrorBodyRetryable(text: string): boolean | undefined {
     return undefined;
   }
 }
+
+/**
+ * Read a `Retry-After` header given in whole seconds. An HTTP-date or any
+ * other value yields `undefined`.
+ */
+function readRetryAfterSeconds(response: Response): number | undefined {
+  const value = response.headers.get("retry-after")?.trim();
+  if (!value || !/^\d+$/.test(value)) return undefined;
+  return Number(value);
+}
+
+/** Tries of {@link CopilotKitIntelligence.getThreadMessages} on a 429. */
+const THREAD_MESSAGES_MAX_ATTEMPTS = 3;
+/** Wait before a retry when a 429 names no `Retry-After`. */
+const THREAD_MESSAGES_DEFAULT_RETRY_AFTER_MS = 1_000;
+/** Longest wait before one retry, whatever `Retry-After` asks for. */
+const THREAD_MESSAGES_MAX_RETRY_AFTER_MS = 5_000;
+/** Shortest wait before one retry, so `Retry-After: 0` cannot spin. */
+const THREAD_MESSAGES_MIN_RETRY_AFTER_MS = 250;
+
+/**
+ * Resolves after `ms`, or rejects with the signal's reason once `signal`
+ * aborts.
+ */
+function waitOrAbort(
+  ms: number,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+/** Parameters of a `GET /api/threads/:threadId/messages` read. */
+interface TranscriptReadParams {
+  threadId: string;
+  userId: string;
+  /** Internal managed-Channel delivery context for shared Thread access. */
+  channelDeliveryId?: string;
+  /** Stops the request and any wait for a retry. */
+  signal?: AbortSignal;
+  /**
+   * Epoch milliseconds after which no retry may start, for a caller that
+   * holds something with a lifetime, such as a thread lock.
+   */
+  retryDeadline?: number;
+}
+/** Statuses the transcript read retries instead of logging as failures. */
+const THREAD_MESSAGES_RETRIED_STATUSES: ReadonlySet<number> = new Set([429]);
 
 /** Copy a public Runtime entitlement so callers cannot mutate cached authority. */
 function cloneRuntimeEntitlementResponse(
@@ -1585,6 +1647,7 @@ export class CopilotKitIntelligence {
         `Intelligence platform error ${response.status}: ${text || response.statusText}`,
         response.status,
         readErrorBodyRetryable(text),
+        readRetryAfterSeconds(response),
       );
     }
 
@@ -1964,24 +2027,17 @@ export class CopilotKitIntelligence {
   /**
    * Fetch the full message history for a thread.
    *
+   * A 429 is retried, as described on {@link CopilotKitIntelligence.#readTranscript}.
+   *
    * @returns All persisted messages in chronological order.
-   * @throws {@link PlatformRequestError} on non-2xx responses.
+   * @throws {@link PlatformRequestError} on non-2xx responses, including the
+   *   last 429 once the tries run out.
    */
-  async getThreadMessages(params: {
-    threadId: string;
-    userId: string;
-    /** Internal managed-Channel delivery context for shared Thread access. */
-    channelDeliveryId?: string;
-  }): Promise<ThreadMessagesResponse> {
+  async getThreadMessages(
+    params: TranscriptReadParams,
+  ): Promise<ThreadMessagesResponse> {
     const qs = new URLSearchParams({ userId: params.userId }).toString();
-    return this.#request<ThreadMessagesResponse>(
-      "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
-      undefined,
-      params.channelDeliveryId
-        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
-        : undefined,
-    );
+    return this.#readTranscript<ThreadMessagesResponse>(params, qs);
   }
 
   /**
@@ -1989,29 +2045,83 @@ export class CopilotKitIntelligence {
    *
    * Sends `fields=id` so the platform can omit message content. Platform
    * versions that do not know the parameter ignore it and return the full
-   * transcript; ids are read from `messages[].id` either way.
+   * transcript; ids are read from `messages[].id` either way. The platform
+   * still rebuilds the whole transcript for this read, so it shares the
+   * transcript read limit and the 429 retry of
+   * {@link CopilotKitIntelligence.#readTranscript}.
    *
-   * @throws {@link PlatformRequestError} on non-2xx responses.
+   * @throws {@link PlatformRequestError} on non-2xx responses, including the
+   *   last 429 once the tries run out.
    */
-  async ɵgetThreadMessageIds(params: {
-    threadId: string;
-    userId: string;
-    /** Internal managed-Channel delivery context for shared Thread access. */
-    channelDeliveryId?: string;
-  }): Promise<string[]> {
+  async ɵgetThreadMessageIds(params: TranscriptReadParams): Promise<string[]> {
     const qs = new URLSearchParams({
       userId: params.userId,
       fields: "id",
     }).toString();
-    const response = await this.#request<{ messages: { id: string }[] }>(
-      "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
-      undefined,
-      params.channelDeliveryId
-        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
-        : undefined,
-    );
+    const response = await this.#readTranscript<{
+      messages: { id: string }[];
+    }>(params, qs);
     return response.messages.map((message) => message.id);
+  }
+
+  /**
+   * Read `GET /api/threads/:threadId/messages`.
+   *
+   * The platform limits how many transcripts one project reads at once and
+   * answers 429 with `Retry-After` past that limit. A run fails when this
+   * read fails, so a 429 is retried: up to three tries in all, each after
+   * `Retry-After` seconds (1 second when absent, from 250 ms to 5 seconds).
+   * No retry starts when its wait would end after `retryDeadline`, and an
+   * aborted `signal` stops the wait and the request.
+   */
+  async #readTranscript<T>(
+    params: TranscriptReadParams,
+    qs: string,
+  ): Promise<T> {
+    const path = `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`;
+    const headers = params.channelDeliveryId
+      ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+      : undefined;
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.#request<T>(
+          "GET",
+          path,
+          undefined,
+          headers,
+          params.signal,
+          THREAD_MESSAGES_RETRIED_STATUSES,
+        );
+      } catch (error) {
+        if (
+          !(error instanceof PlatformRequestError) ||
+          error.status !== 429 ||
+          attempt >= THREAD_MESSAGES_MAX_ATTEMPTS
+        ) {
+          throw error;
+        }
+        const waitMs = Math.max(
+          THREAD_MESSAGES_MIN_RETRY_AFTER_MS,
+          Math.min(
+            error.retryAfterSeconds === undefined
+              ? THREAD_MESSAGES_DEFAULT_RETRY_AFTER_MS
+              : error.retryAfterSeconds * 1_000,
+            THREAD_MESSAGES_MAX_RETRY_AFTER_MS,
+          ),
+        );
+        if (
+          params.retryDeadline !== undefined &&
+          Date.now() + waitMs > params.retryDeadline
+        ) {
+          throw error;
+        }
+        logger.warn(
+          { status: 429, path, attempt, waitMs },
+          "Intelligence platform limited a thread transcript read; retrying",
+        );
+        await waitOrAbort(waitMs, params.signal);
+      }
+    }
   }
 
   /** @internal Fetches one authorized managed Channel asset for history hydration. */

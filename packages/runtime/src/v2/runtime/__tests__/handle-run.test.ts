@@ -731,6 +731,8 @@ describe("handleRunAgent", () => {
       expect(platform.ɵgetThreadMessageIds).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
+        signal: expect.any(AbortSignal),
+        retryDeadline: expect.any(Number),
       });
     });
 
@@ -1323,6 +1325,56 @@ describe("handleRunAgent", () => {
         }),
       );
     });
+
+    it.each([
+      ["with", 7, "7"],
+      ["without", undefined, null],
+    ])(
+      "returns 429 %s Retry-After when the history lookup stays rate-limited",
+      async (_label, retryAfterSeconds, expectedRetryAfter) => {
+        const agent = createAgentForIntelligence();
+        const platform = {
+          getOrCreateThread: vi.fn().mockResolvedValue({
+            thread: { id: "thread-1", name: null },
+            created: false,
+          }),
+          ɵgetThreadMessageIds: vi
+            .fn()
+            .mockRejectedValue(
+              new PlatformRequestError(
+                "Intelligence platform error 429",
+                429,
+                true,
+                retryAfterSeconds,
+              ),
+            ),
+          ɵacquireThreadLock: vi.fn().mockResolvedValue({
+            threadId: "thread-1",
+            runId: "run-1",
+            joinToken: "jt-123",
+          }),
+          ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+        };
+        const runtime = createIntelligenceRuntime(agent, platform);
+
+        const response = await handleRunAgent({
+          runtime,
+          request: createRunRequest(),
+          agentId: "my-agent",
+        });
+
+        expect(response.status).toBe(429);
+        expect(response.headers.get("retry-after")).toBe(expectedRetryAfter);
+        expect(await response.json()).toEqual({
+          error: "Thread history lookup failed",
+        });
+        expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
+          threadId: "thread-1",
+          runId: "run-1",
+        });
+        expect(runtime.runner.run).not.toHaveBeenCalled();
+      },
+    );
 
     it("returns 502 when durable thread history lookup fails", async () => {
       const agent = createAgentForIntelligence();

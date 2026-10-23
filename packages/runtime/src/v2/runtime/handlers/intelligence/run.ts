@@ -20,6 +20,7 @@ import {
   resolveLearningContainerSelector,
 } from "../../core/learning";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
+import { PlatformRequestError } from "../../intelligence-platform/client";
 import { startThreadLockHeartbeat } from "../../intelligence-platform/thread-lock-heartbeat";
 import type { ThreadSummary } from "../../intelligence-platform";
 
@@ -281,6 +282,12 @@ export async function handleIntelligenceRun({
         await runtime.intelligence.ɵgetThreadMessageIds({
           threadId: canonicalThreadId,
           userId,
+          signal: request.signal,
+          // Nothing renews the lock until the heartbeat starts below, so a
+          // rate-limited read may retry for at most half the lock's lifetime.
+          retryDeadline:
+            lockRequestedAt +
+            ((lockTtlSeconds ?? runtime.lockTtlSeconds) * 1_000) / 2,
         }),
       );
       persistedInputMessages = input.messages.filter(
@@ -289,6 +296,23 @@ export async function handleIntelligenceRun({
     } catch (error) {
       logger.error("Thread history lookup failed:", error);
       await cleanupLock("thread-history-lookup-failed");
+      // The platform still limits transcript reads after the retries, so pass
+      // the 429 and its Retry-After on: the client can wait and try again.
+      if (getPlatformErrorStatus(error) === 429) {
+        const retryAfterSeconds =
+          error instanceof PlatformRequestError
+            ? error.retryAfterSeconds
+            : undefined;
+        return Response.json(
+          { error: "Thread history lookup failed" },
+          {
+            status: 429,
+            ...(retryAfterSeconds !== undefined
+              ? { headers: { "Retry-After": String(retryAfterSeconds) } }
+              : {}),
+          },
+        );
+      }
       return Response.json(
         {
           error: "Thread history lookup failed",
