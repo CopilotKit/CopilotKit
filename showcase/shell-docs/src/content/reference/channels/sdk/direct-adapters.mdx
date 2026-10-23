@@ -109,13 +109,32 @@ import {
 } from "@copilotkit/channels/teams";
 ```
 
-`TeamsAdapterOptions` accepts `clientId`, `clientSecret`, `tenantId`, and
-`port`. `clientId` and `clientSecret` are required for real Teams;
+`TeamsAdapterOptions` accepts `clientId`, `clientSecret`, `tenantId`,
+`port`, `host`, and `allowedServiceUrls`. `clientId` and `clientSecret` are required for real Teams;
 `tenantId` may be omitted for a multi-tenant deployment. These values fall
 back to the lowercase `clientId`, `clientSecret`, and `tenantId` environment
 variables. All three may be omitted only for anonymous local development with
 the Microsoft 365 Agents Playground. The adapter serves
 `POST /api/messages` on port `3978` by default.
+
+With a `clientId`, every request to `POST /api/messages` must carry a valid
+Bot Framework or Azure AD token for the app, from an issuer configured for it,
+or it is rejected with `401`. The activity's `serviceUrl` must be a Microsoft
+connector host (Teams commercial, GCC, GCC High, DoD and 21Vianet,
+`*.botframework.com`, `*.botframework.azure.us`) and, when the token has a
+`serviceurl` claim, match it, or it is rejected with `403`; the bot sends its app token
+to that URL. Use `allowedServiceUrls` to add other connector origins, such as
+`http://localhost:<port>` for the Bot Framework Emulator. Plain `http` is
+accepted only for loopback hosts. A Bot Framework token's signing key must
+also be endorsed for the activity's `channelId`.
+
+Without a `clientId` the endpoint is unauthenticated, so it listens on
+`127.0.0.1` only. Setting `host` to a non-loopback address such as `0.0.0.0`
+exposes that unauthenticated endpoint to the network. Startup fails when the
+configured `clientId` conflicts with the `Connections__*` environment settings,
+or when only the Bot Framework SDK's `MicrosoftAppId` / `MicrosoftAppPassword`
+variables are set; use `clientId` / `clientSecret` / `tenantId` or
+`Connections__<id>__Settings__*` instead.
 
 The Teams entry point also exports its server, Adaptive Card renderer,
 conversation store, message stream, interaction helpers, file helpers, and
