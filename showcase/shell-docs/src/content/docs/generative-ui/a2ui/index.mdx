@@ -123,6 +123,27 @@ where you set the model, default catalog id, and more. An explicit
 This is also how the [Fixed Schema](./a2ui/fixed-schema) approach
 works: your agent owns a data-only tool and no subagent is injected.
 
+## Colors and dark mode
+
+The built-in basic catalog takes its colors from CSS variables. In dark mode
+(`.dark` on an ancestor of the chat) CopilotKit's stylesheet sets them from the
+chat theme, so cards, chips and buttons stay readable. To use your own colors,
+set the variables on the surface: `.a2ui-surface` in React and Vue,
+`copilot-a2ui-surface` in Angular.
+
+```css
+.a2ui-surface {
+  --a2ui-color-surface: #fafafa; /* card, modal, chip and button backgrounds */
+  --a2ui-color-border: #e5e5e5; /* borders, tab rule, divider */
+  --a2ui-color-muted: #737373; /* captions and secondary text */
+  --a2ui-color-error: #dc2626; /* validation errors */
+  --a2ui-primary-color: #2563eb; /* primary buttons, selected chips, active tab */
+}
+```
+
+Values you set on the surface apply in both light and dark mode. Scope them
+with `.dark .a2ui-surface` to set dark colors only.
+
 ## Choose your approach
 
 <Cards>

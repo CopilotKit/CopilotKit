@@ -17,7 +17,7 @@
 import React from "react";
 import { createReactComponent } from "../../../adapter";
 import { ButtonApi } from "@a2ui/web_core/v0_9/basic_catalog";
-import { LEAF_MARGIN } from "../utils";
+import { LEAF_MARGIN, STANDARD_BORDER } from "../utils";
 
 export const Button = createReactComponent(
   ButtonApi,
@@ -26,13 +26,13 @@ export const Button = createReactComponent(
       margin: LEAF_MARGIN,
       padding: "8px 16px",
       cursor: "pointer",
-      border: props.variant === "borderless" ? "none" : "1px solid #ccc",
+      border: props.variant === "borderless" ? "none" : STANDARD_BORDER,
       backgroundColor:
         props.variant === "primary"
           ? "var(--a2ui-primary-color, #007bff)"
           : props.variant === "borderless"
             ? "transparent"
-            : "#fff",
+            : "var(--a2ui-color-surface, #fff)",
       color: props.variant === "primary" ? "#fff" : "inherit",
       borderRadius: "4px",
       display: "inline-flex",
