@@ -274,6 +274,27 @@ describe("standard inputs: options", () => {
     );
   });
 
+  it("keeps the left padding of a Select without an icon", async () => {
+    const view = renderInputs([
+      { id: "root", component: "Column", children: ["plain", "iconed"] },
+      { id: "plain", component: "Select", label: "Plain", options: ["a"] },
+      {
+        id: "iconed",
+        component: "Select",
+        label: "Iconed",
+        icon: "search",
+        options: ["a"],
+      },
+    ]);
+    const plain = narrow(
+      await view.findByLabelText("Plain"),
+      HTMLSelectElement,
+    );
+    const iconed = narrow(view.getByLabelText("Iconed"), HTMLSelectElement);
+    expect(plain.style.paddingLeft).toBe("18px");
+    expect(iconed.style.paddingLeft).toBe("42px");
+  });
+
   it("moves the SegmentedControl selection and focus with the arrow keys, as one tab stop", async () => {
     const view = renderInputs(planControls, {
       plan: "team",
