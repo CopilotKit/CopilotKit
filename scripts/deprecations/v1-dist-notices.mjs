@@ -10,11 +10,8 @@ import {
   repoRoot,
 } from "./v1-public-api.mjs";
 
+/** Adds missing per-export notices while preserving matching deprecation tags. */
 export function annotateDeclarationText(source, items, file = "index.d.mts") {
-  if (items.every((item) => source.includes(renderDeprecationJsDoc(item)))) {
-    return source;
-  }
-
   const sourceFile = ts.createSourceFile(
     file,
     source,
@@ -48,10 +45,28 @@ export function annotateDeclarationText(source, items, file = "index.d.mts") {
     if (!node) {
       throw new Error(`${file} does not export ${item.name}`);
     }
+    const notice = renderDeprecationJsDoc(item);
+    const noticeText = notice
+      .split("\n")
+      .slice(1, -1)
+      .map((line) => line.replace(/^ \* ?/, "").trimStart())
+      .join("\n")
+      .replace(/^@deprecated /, "");
+    if (
+      ts
+        .getJSDocTags(node)
+        .some(
+          (tag) =>
+            tag.tagName.text === "deprecated" &&
+            ts.getTextOfJSDocComment(tag.comment) === noticeText,
+        )
+    ) {
+      continue;
+    }
     const start = node.getStart(sourceFile);
     const lineStart = source.lastIndexOf("\n", start - 1) + 1;
     const indent = source.slice(lineStart, start).match(/^\s*/)?.[0] ?? "";
-    const warning = renderDeprecationJsDoc(item)
+    const warning = notice
       .split("\n")
       .map((line) => `${indent}${line}`)
       .join("\n");
