@@ -1,27 +1,18 @@
-name: "CPK-8652 Verify Published Candidate"
+name: "CPK-8652 Recovery Registry Audit"
 
 on:
   workflow_dispatch: {}
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
-  verify-published-candidate:
+  registry-metadata:
     if: github.repository == 'CopilotKit/CopilotKit' && github.ref == 'refs/heads/contextablemark/cpk-8652-publish-candidate'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     permissions:
-      contents: read
       packages: read
     steps:
-      - name: Check out exact production source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          ref: ff1178a6a08ec9cc55dd2cce678e27d07e26a27a
-          persist-credentials: false
-          lfs: false
-
       - name: Authenticate for package reads only
         shell: bash
         env:
@@ -30,215 +21,57 @@ jobs:
           set -euo pipefail
           printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 
-      - name: Verify immutable candidate in isolated fixtures
+      - name: Inspect only shell and webhook latest metadata
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
+          python3 - <<'PYTHON'
           import json
           import os
-          from pathlib import Path
           import re
-          import secrets
           import subprocess
-          import time
 
-          IMAGE = "ghcr.io/copilotkit/showcase-harness-candidates@sha256:29cf8f574dcc733d8b9b961c5ffb6658c70e96da06e02d5cdbff6b2cf84f580a"
-          PB_IMAGE = "ghcr.io/copilotkit/showcase-pocketbase@sha256:abe284ea1c011f593cb303bbf2bfa1a2faa6a5ef228f0641973f55cae2e6c72e"
-          SOURCE = "ff1178a6a08ec9cc55dd2cce678e27d07e26a27a"
-          OWNER = os.environ["GITHUB_RUN_ID"] + "-" + os.environ["GITHUB_RUN_ATTEMPT"]
-          assert re.fullmatch(r"[0-9]+-[0-9]+", OWNER)
-          PREFIX = "cpk8652-verify-" + OWNER
-          LABEL = "ai.copilotkit.cpk8652.verify-run"
-          NETWORK = PREFIX
-          NAMES = {role: PREFIX + "-" + role for role in ["pb", "cp", "worker", "browser"]}
-          created = []
-          network_created = False
-          report = {"scope": "Published-digest isolated local CI fixture acceptance only", "image": IMAGE, "source": SOURCE, "status": "RUNNING", "roles": [], "limitations": ["No real remote job, in-flight drain/requeue, six-replica replacement, or production acceptance."]}
+          targets = {
+              "ghcr.io/copilotkit/showcase-shell:latest": "sha256:160bd5456e567de81cd041a22077bb0844aa7436c3b823f5cd59b0a6df4942ab",
+              "ghcr.io/copilotkit/showcase-eval-webhook:latest": "sha256:6f76f7fd6091f52d2cd150b9f26690b0b63221073093b9d22a9e2afe82f3fb59",
+          }
+          report = {"scope": "Registry metadata reads only; no container execution or deployment", "images": []}
 
+          def digest(value):
+              if not isinstance(value, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", value):
+                  raise ValueError("Invalid registry digest")
+              return value
 
-          def command(args, *, timeout=60, required=True):
-              result = subprocess.run(args, text=True, capture_output=True, timeout=timeout)
-              if required and result.returncode:
-                  # Never print command arguments: fixture passwords may be passed to docker.
-                  raise RuntimeError("Command failed (" + args[0] + "): " + result.stderr[-1500:])
-              return result
+          for name, configured in targets.items():
+              result = subprocess.run(
+                  ["docker", "buildx", "imagetools", "inspect", name, "--format", "{{json .Manifest}}"],
+                  check=True, text=True, capture_output=True, timeout=90,
+              )
+              manifest = json.loads(result.stdout)
+              platforms = []
+              for item in manifest.get("manifests", []):
+                  platform = item.get("platform", {})
+                  platforms.append({
+                      "digest": digest(item["digest"]),
+                      "mediaType": item["mediaType"],
+                      "platform": {key: platform[key] for key in ("os", "architecture", "variant") if key in platform},
+                  })
+              report["images"].append({
+                  "name": name,
+                  "mediaType": manifest["mediaType"],
+                  "digest": digest(manifest["digest"]),
+                  "platforms": platforms,
+                  "stagingConfiguredDigest": digest(configured),
+                  "latestDigestEqualsStagingConfigured": manifest["digest"] == configured,
+                  "stagingConfiguredMatchesPlatforms": [item["platform"] for item in platforms if item["digest"] == configured],
+              })
+          encoded = json.dumps(report, indent=2)
+          print(encoded, flush=True)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write("## Read-only registry digest comparison\n\n```json\n" + encoded + "\n```\n")
+          PYTHON
 
-
-          def docker(*args, **kw):
-              return command(["docker", *args], **kw)
-
-
-          def inspect_container(name):
-              # The full inspect document is never printed or retained.
-              data = json.loads(docker("inspect", name).stdout)[0]
-              return {"running": data["State"]["Running"], "exitCode": data["State"]["ExitCode"], "oomKilled": data["State"]["OOMKilled"], "imageId": data["Image"], "user": data["Config"]["User"], "entrypoint": data["Config"]["Entrypoint"], "command": data["Config"]["Cmd"]}
-
-
-          def role_health(name):
-              code = 'const r=await fetch("http://127.0.0.1:8080/health",{signal:AbortSignal.timeout(5000)}); console.log(JSON.stringify({http:r.status,body:await r.json()}));'
-              result = docker("exec", name, "node", "--input-type=module", "-e", code, timeout=15, required=False)
-              return json.loads(result.stdout) if result.returncode == 0 else None
-
-
-          def roster():
-              code = '''const base=process.env.POCKETBASE_URL;
-          const a=await fetch(base+"/api/admins/auth-with-password",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({identity:process.env.POCKETBASE_SUPERUSER_EMAIL,password:process.env.POCKETBASE_SUPERUSER_PASSWORD}),signal:AbortSignal.timeout(5000)});
-          if(!a.ok)throw Error("Fixture PB authentication failed: "+a.status);
-          const {token}=await a.json();
-          const r=await fetch(base+"/api/collections/workers/records?perPage=100",{headers:{Authorization:token},signal:AbortSignal.timeout(5000)});
-          if(!r.ok)throw Error("Fixture roster read failed: "+r.status);
-          const d=await r.json(); console.log(JSON.stringify({totalItems:d.totalItems,workers:d.items.map(x=>({id:x.id,worker_id:x.worker_id}))}));'''
-              return json.loads(docker("exec", NAMES["cp"], "node", "--input-type=module", "-e", code, timeout=20).stdout)
-
-
-          def stop_and_check(role, marker):
-              name = NAMES[role]
-              before = time.monotonic()
-              docker("stop", "--time", "180", name, timeout=195)
-              state = inspect_container(name)
-              elapsed = round(time.monotonic() - before, 3)
-              logs = docker("logs", "--tail", "300", name).stdout
-              # Only the marker result is retained; logs are not dumped with fixture env data.
-              assert not state["running"] and state["exitCode"] == 0 and not state["oomKilled"], state
-              assert marker in logs, "Required signal-drain log missing for " + role
-              return {"elapsedSeconds": elapsed, "stopTimeoutSeconds": 180, "exitCode": state["exitCode"], "oomKilled": state["oomKilled"], "signalDrainLogPresent": True}
-
-
-          try:
-              assert command(["git", "rev-parse", "HEAD"]).stdout.strip() == SOURCE
-              for name in [*NAMES.values(), NETWORK]:
-                  # Containers and networks are distinct namespaces; check both before mutation.
-                  assert docker("container", "inspect", name, required=False).returncode != 0, "Existing fixture name: " + name
-                  assert docker("network", "inspect", name, required=False).returncode != 0, "Existing network name: " + name
-              docker("pull", "--platform", "linux/amd64", IMAGE, timeout=180)
-              docker("pull", "--platform", "linux/amd64", PB_IMAGE, timeout=120)
-              raw = json.loads(docker("image", "inspect", IMAGE).stdout)[0]
-              image_config = {"id": raw["Id"], "repoDigests": raw["RepoDigests"], "os": raw["Os"], "architecture": raw["Architecture"], "user": raw["Config"]["User"], "entrypoint": raw["Config"]["Entrypoint"], "command": raw["Config"]["Cmd"], "labels": {k: v for k, v in (raw["Config"].get("Labels") or {}).items() if k in ["org.opencontainers.image.source", "org.opencontainers.image.revision", "ai.copilotkit.hotfix.patch.sha256", "ai.copilotkit.hotfix.issue"]}}
-              assert IMAGE in image_config["repoDigests"]
-              assert image_config["os"] == "linux" and image_config["architecture"] == "amd64"
-              assert image_config["user"] == "node" and image_config["entrypoint"] == ["/usr/bin/tini", "--"]
-              assert image_config["command"] == ["/bin/bash", "-c", "ulimit -u $(ulimit -Hu) 2>/dev/null || true; exec node dist/orchestrator.js"]
-              assert image_config["labels"]["org.opencontainers.image.revision"] == SOURCE
-              assert image_config["labels"]["ai.copilotkit.hotfix.patch.sha256"] == "c28825af3fac91ab29f5c0ce8d1f7ee9ff7e0ae381a7d4e52ef1daf4e1c5de3c"
-              report["imageConfig"] = image_config
-              docker("network", "create", "--internal", "--label", LABEL + "=" + OWNER, NETWORK)
-              network_created = True
-              net = json.loads(docker("network", "inspect", NETWORK).stdout)[0]
-              assert net["Internal"] is True
-              report["networkInternal"] = True
-              email = "fixture@cpk8652.test"
-              password = secrets.token_hex(24)
-              dummy_secret = secrets.token_hex(32)
-              auth = ["-e", "POCKETBASE_SUPERUSER_EMAIL=" + email, "-e", "POCKETBASE_SUPERUSER_PASSWORD=" + password]
-              root = Path.cwd() / "showcase/pocketbase"
-              assert (root / "pb_migrations").is_dir() and (root / "pb_hooks").is_dir()
-              # Mark ownership BEFORE create: even a timeout/partial create is cleaned by exact label/name.
-              created.append(NAMES["pb"])
-              docker("run", "-d", "--name", NAMES["pb"], "--label", LABEL + "=" + OWNER, "--platform", "linux/amd64", "--network", NETWORK, "--network-alias", "pocketbase", "--memory", "512m", "--cpus", "1", "--pids-limit", "256", "--tmpfs", "/pb_data:rw,size=134217728", "--mount", "type=bind,source=" + str(root / "pb_migrations") + ",target=/pb_migrations,readonly", "--mount", "type=bind,source=" + str(root / "pb_hooks") + ",target=/pb_hooks,readonly", *auth, PB_IMAGE)
-              for _ in range(30):
-                  response = docker("exec", NAMES["pb"], "wget", "-qO-", "http://127.0.0.1:8090/api/health", required=False, timeout=10)
-                  if response.returncode == 0 and json.loads(response.stdout).get("code") == 200:
-                      break
-                  assert inspect_container(NAMES["pb"])["running"], "PocketBase exited before ready"
-                  time.sleep(2)
-              else:
-                  raise RuntimeError("PocketBase readiness timed out")
-              pb_version = docker("exec", NAMES["pb"], "pocketbase", "--version").stdout.strip()
-              assert "0.22.21" in pb_version, pb_version
-              report["pocketbaseVersion"] = pb_version
-              for role, env_role in [("cp", "control-plane"), ("worker", "worker")]:
-                  created.append(NAMES[role])
-                  docker("run", "-d", "--name", NAMES[role], "--label", LABEL + "=" + OWNER, "--platform", "linux/amd64", "--network", NETWORK, "--memory", "1536m", "--cpus", "1", "--pids-limit", "1000", "--shm-size", "256m", "--stop-timeout", "180", *auth, "-e", "POCKETBASE_URL=http://pocketbase:8090", "-e", "SHARED_SECRET=" + dummy_secret, "-e", "NODE_ENV=production", "-e", "SHOWCASE_ENV=cpk8652-local", "-e", "HARNESS_POOL_COUNT=1", "-e", "PORT=8080", "-e", "LOCAL_SERVICES_JSON=[]", "-e", "FLEET_PRODUCER_CRON=0 0 1 1 *", "-e", "HARNESS_ROLE=" + env_role, IMAGE)
-                  for _ in range(30):
-                      health = role_health(NAMES[role])
-                      if health and health["http"] == 200:
-                          break
-                      assert inspect_container(NAMES[role])["running"], role + " exited before ready"
-                      time.sleep(2)
-                  else:
-                      raise RuntimeError(role + " readiness timed out")
-                  body = health["body"]
-                  assert body["status"] == "ok" and body["pb"] == "ok", health
-                  if role == "cp":
-                      assert body["loop"] == "ok" and body["rules"] > 0 and body["schedulerJobs"] > 0, health
-                  else:
-                      assert body["role"] == "worker" and body["loop"] == "alive" and body["registered"] is True, health
-                  version = docker("exec", NAMES[role], "node", "--version").stdout.strip()
-                  assert version == "v22.23.4", version
-                  state = inspect_container(NAMES[role])
-                  assert state["user"] == image_config["user"] and state["entrypoint"] == image_config["entrypoint"] and state["command"] == image_config["command"] and state["imageId"] == image_config["id"]
-                  report["roles"].append({"role": env_role, "nodeVersion": version, "health": health, "container": state})
-              created.append(NAMES["browser"])
-              browser_code = 'import {chromium} from "playwright";const b=await chromium.launch({headless:true,args:["--no-sandbox"]});try{const p=await b.newPage();await p.setContent("<title>CPK-8652 runtime smoke</title>");console.log(JSON.stringify({node:process.version,chromium:b.version(),title:await p.title()}));}finally{await b.close();}'
-              browser = json.loads(docker("run", "--rm", "--name", NAMES["browser"], "--label", LABEL + "=" + OWNER, "--platform", "linux/amd64", "--network", "none", "--memory", "1536m", "--cpus", "1", "--pids-limit", "1000", "--shm-size", "256m", IMAGE, "node", "--input-type=module", "-e", browser_code, timeout=60).stdout)
-              assert browser["node"] == "v22.23.4" and browser["title"] == "CPK-8652 runtime smoke" and browser["chromium"]
-              report["chromium"] = browser
-              report["rosterBefore"] = roster()
-              assert report["rosterBefore"]["totalItems"] == 1, report["rosterBefore"]
-              report["workerIdleDrain"] = stop_and_check("worker", "showcase-harness.fleet.worker.signal-drain")
-              report["rosterAfter"] = roster()
-              assert report["rosterAfter"]["totalItems"] == 0, report["rosterAfter"]
-              report["controlPlaneIdleDrain"] = stop_and_check("cp", "showcase-harness.fleet.control-plane.signal-drain")
-              report["status"] = "PASS"
-          except Exception as error:
-              report["status"] = "FAIL"
-              report["error"] = str(error)
-          finally:
-              cleanup_errors = []
-              for name in reversed(created):
-                  check = docker("inspect", "--format", '{{ index .Config.Labels "' + LABEL + '" }}', name, required=False)
-                  if check.returncode == 0:
-                      if check.stdout.strip() != OWNER:
-                          cleanup_errors.append("Refused foreign container " + name)
-                      elif docker("rm", "-f", name, required=False).returncode:
-                          cleanup_errors.append("Could not remove " + name)
-              if network_created:
-                  if docker("network", "rm", NETWORK, required=False).returncode:
-                      cleanup_errors.append("Could not remove owned network")
-              for name in created:
-                  if docker("container", "inspect", name, required=False).returncode == 0:
-                      cleanup_errors.append("Container still present: " + name)
-              if network_created and docker("network", "inspect", NETWORK, required=False).returncode == 0:
-                  cleanup_errors.append("Network still present")
-              report["cleanup"] = {"complete": not cleanup_errors, "errors": cleanup_errors}
-              if cleanup_errors:
-                  report["status"] = "FAIL"
-              encoded = json.dumps(report, indent=2)
-              print(encoded, flush=True)
-              with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
-                  summary.write("## Published candidate fixture acceptance\n\n```json\n" + encoded + "\n```\n")
-          if report["status"] != "PASS":
-              raise SystemExit(1)
-          PY
-
-      - name: Remove only owned fixtures and log out
+      - name: Log out
         if: always()
         shell: bash
-        run: |
-          set -euo pipefail
-          owner="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          prefix="cpk8652-verify-${owner}"
-          label="ai.copilotkit.cpk8652.verify-run"
-          failed=0
-          for role in browser worker cp pb; do
-            name="${prefix}-${role}"
-            if actual="$(docker inspect --format "{{ index .Config.Labels \"$label\" }}" "$name" 2>/dev/null)"; then
-              if [ "$actual" = "$owner" ]; then
-                docker rm -f "$name" || failed=1
-              else
-                echo "::error::Refusing to remove foreign container $name"
-                failed=1
-              fi
-            fi
-          done
-          if actual="$(docker network inspect --format "{{ index .Labels \"$label\" }}" "$prefix" 2>/dev/null)"; then
-            if [ "$actual" = "$owner" ]; then
-              docker network rm "$prefix" || failed=1
-            else
-              echo "::error::Refusing to remove foreign network $prefix"
-              failed=1
-            fi
-          fi
-          docker logout ghcr.io || failed=1
-          exit "$failed"
+        run: docker logout ghcr.io
