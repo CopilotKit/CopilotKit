@@ -8,7 +8,11 @@ import type {
   ToolCall,
   ContentPart,
 } from "@ag-ui/client";
-import { randomUUID, logger } from "@copilotkit/shared";
+import {
+  randomUUID,
+  logger,
+  THREAD_ALREADY_RUNNING_ERROR_CODE,
+} from "@copilotkit/shared";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
@@ -1793,6 +1797,18 @@ export class RunHandler {
         // standardized across agents.
         const runWasAborted = this._runAbortController?.signal.aborted === true;
         if (runWasAborted || event?.code === "abort") {
+          return;
+        }
+
+        // The SSE runtime rejected the run because the thread already has
+        // one in flight. Report it like Intelligence's 409 so one onError
+        // branch covers both transports.
+        if (event?.code === THREAD_ALREADY_RUNNING_ERROR_CODE) {
+          await emitAgentError(
+            new AgentThreadLockedError(agent.threadId),
+            CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED,
+            { source: "onRunErrorEvent", event },
+          );
           return;
         }
 
