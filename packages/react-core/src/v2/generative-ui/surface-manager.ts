@@ -32,6 +32,7 @@ import {
   isAsyncIssue,
   issueKey,
   validateSchemaSync,
+  withoutRejectedNulls,
 } from "./schema";
 
 export function surfaceKey(threadId: string, surfaceId: string): string {
@@ -776,7 +777,13 @@ export class GenerativeUISurfaceManager {
       if (containsDynamicValue(value)) unknownNow.add(key);
       else literals[key] = value;
     }
-    const result = validateSchemaSync(definition.props, literals);
+    let result = validateSchemaSync(definition.props, literals);
+    if (!result.success) {
+      // A null the schema rejects is an unset prop (the render check reads
+      // it so too): check again without it.
+      const unset = withoutRejectedNulls(literals, result.issues);
+      if (unset) result = validateSchemaSync(definition.props, unset);
+    }
     if (result.success) return undefined;
     // ponytail: an issue with no path (a check over several props) is left to the render check too, because it can depend on the values above. Only a schema that cannot validate synchronously is reported here.
     const issues = result.issues.filter((issue) => {

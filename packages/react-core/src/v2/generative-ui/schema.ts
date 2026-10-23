@@ -65,6 +65,30 @@ export function issueKey(issue: StandardSchemaV1.Issue) {
   return key === undefined ? undefined : String(key);
 }
 
+/**
+ * `props` without the top-level props whose `null` the schema rejected, or
+ * `undefined` when there are none. A model writes `null` for "not set" (an
+ * empty selection, a value it has not filled yet), and A2UI deletes a data
+ * model key that is set to `null`, so a rejected `null` is read as an unset
+ * prop. A prop whose schema accepts `null` keeps it.
+ */
+export function withoutRejectedNulls(
+  props: Record<string, unknown>,
+  issues: readonly StandardSchemaV1.Issue[],
+): Record<string, unknown> | undefined {
+  const rejected = new Set<string>();
+  for (const issue of issues) {
+    const key = issueKey(issue);
+    if (key !== undefined && issue.path?.length === 1 && props[key] === null) {
+      rejected.add(key);
+    }
+  }
+  if (rejected.size === 0) return undefined;
+  return Object.fromEntries(
+    Object.entries(props).filter(([key]) => !rejected.has(key)),
+  );
+}
+
 /** `"a.b: message; c: message"`. A path-less issue gets `fallback`. */
 export function formatIssues(
   issues: readonly StandardSchemaV1.Issue[],

@@ -28,8 +28,12 @@ const FADE_STYLE_ID = "a2ui-markdown-fade";
 const FADE_CSS = [
   // Opacity only, so it also runs when the user asks for reduced motion:
   // that setting is about movement, and a short fade is not movement.
-  "@keyframes a2ui-fade-in{from{opacity:0}to{opacity:1}}",
-  "[data-a2ui-markdown-surface] .a2ui-surface *:not(svg):not(svg *){animation:a2ui-fade-in .35s ease-out both}",
+  // The keyframes give only the start, so each element fades to its own
+  // opacity (a disabled control to its dimmed one), and no fill holds the
+  // end: a finished fade must not pin opacity, or an element that hides
+  // itself with opacity (the map's zoom hint) stays visible forever.
+  "@keyframes a2ui-fade-in{from{opacity:0}}",
+  "[data-a2ui-markdown-surface] .a2ui-surface *:not(svg):not(svg *){animation:a2ui-fade-in .35s ease-out backwards}",
 ].join("\n");
 
 // There is no document on the server, so nothing is added there.
