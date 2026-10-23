@@ -29,6 +29,11 @@ export interface BeforeRequestMiddlewareParameters {
 }
 export interface AfterRequestMiddlewareParameters {
   runtime: CopilotRuntimeLike;
+  /**
+   * A clone of the client response whose body remains readable by the callback.
+   * SSE callbacks wait for the stream to end; preserving the raw response
+   * buffers its complete body until the callback reads it or releases it.
+   */
   response: Response;
   path: string;
   /** Reconstructed messages from the SSE stream (empty for non-SSE responses). */
@@ -86,6 +91,7 @@ export async function callBeforeRequestMiddleware({
   return;
 }
 
+/** Invoke after-request middleware with parsed SSE messages and a readable response. */
 export async function callAfterRequestMiddleware({
   runtime,
   response,
@@ -98,7 +104,10 @@ export async function callAfterRequestMiddleware({
   const mw = runtime.afterRequestMiddleware;
   if (!mw) return;
 
-  const { messages, threadId, runId } = await parseSSEResponse(response);
+  const contentType = response.headers.get("content-type") ?? "";
+  const { messages, threadId, runId } = await parseSSEResponse(
+    contentType.includes("text/event-stream") ? response.clone() : response,
+  );
 
   if (typeof mw === "function") {
     return (mw as AfterRequestMiddlewareFn)({
