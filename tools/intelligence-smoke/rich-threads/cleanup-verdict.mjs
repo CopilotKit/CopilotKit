@@ -99,6 +99,15 @@ export function activeCleanupVerified(cleanup) {
       !evidence.inspectedEnvironmentIds.every(text)
     )
       return false;
+    if (
+      evidence.instances.length === 0 &&
+      !(
+        receipt.outcome === "acknowledged" &&
+        receipt.response === true &&
+        evidence.environmentReferences.length === 0
+      )
+    )
+      return false;
     /** Match a retained instance to its owner and require explicit pending detachment. */
     const detached = (instance) =>
       instance &&
@@ -109,10 +118,6 @@ export function activeCleanupVerified(cleanup) {
       instance.serviceId === null &&
       instance.isPendingDeletion === true;
     return (
-      (evidence.instances.length > 0 ||
-        (receipt.outcome === "acknowledged" &&
-          receipt.response === true &&
-          evidence.environmentReferences.length === 0)) &&
       evidence.instances.every(detached) &&
       evidence.environmentReferences.every(
         (instance) =>
