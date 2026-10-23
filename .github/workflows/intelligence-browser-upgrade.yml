@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - tools/railway-runner-deploy/**
+      - tools/railway-runner-deploy/browser-upgrade*.mjs
+      - tools/railway-runner-deploy/releases/browser-upgrade.json
       - .github/workflows/intelligence-browser-upgrade.yml
 
 permissions:
