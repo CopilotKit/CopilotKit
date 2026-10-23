@@ -236,7 +236,9 @@ async function prepareWatchingUpgrade({
   };
   const { prepareRetainedRecovery, assertOwnersStopped } =
     await import("../recovery.mjs");
-  if (operation?.operationId === next.operationId) {
+  const adoptingDrain =
+    operation?.operationId === next.operationId && operation.kind === undefined;
+  if (operation?.operationId === next.operationId && !adoptingDrain) {
     assert.equal(
       templateDigest({ ...operation, status: "draining" }),
       templateDigest(next),
@@ -251,11 +253,35 @@ async function prepareWatchingUpgrade({
       authorization: recoveryAuthorization,
     });
   } else {
-    assert.equal(
-      operation?.status,
-      "resumed",
-      "Previous deployment must be resumed",
-    );
+    if (adoptingDrain) {
+      assert.equal(
+        operation.status,
+        "drained",
+        "Completed baseline drain required",
+      );
+      assert.ok(
+        sameIdentity(
+          operation.baselineIdentity,
+          authorization.baselineIdentity,
+        ) &&
+          sameIdentity(
+            operation.targetIdentity,
+            authorization.baselineIdentity,
+          ),
+        "Upgrade requires a same-image baseline drain",
+      );
+      assert.equal(
+        operation.templateSha256,
+        authorization.baselineTemplateSha256,
+      );
+      assert.equal(operation.recoveryBindingSha256, next.recoveryBindingSha256);
+    } else {
+      assert.equal(
+        operation?.status,
+        "resumed",
+        "Previous deployment must be resumed",
+      );
+    }
     assert.ok(
       sameIdentity(metadata.runtimeIdentity, authorization.baselineIdentity),
     );

@@ -612,8 +612,13 @@ async function repeatedFixture(t, options = {}) {
 const image = (c) =>
   `ghcr.io/copilotkit/rich-thread-inspector@sha256:${c === "1" ? "e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981" : "1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71"}`;
 
-for (const second of [false, true])
-  test(`established ${second ? "two" : "one"} watch upgrade preserves evidence and supports ordinary drain/resume`, async (t) => {
+for (const [second, drained] of [
+  [false, false],
+  [false, true],
+  [true, false],
+  [true, true],
+])
+  test(`established ${second ? "two" : "one"} watch upgrade from ${drained ? "same-image drain" : "resumed recovery"} preserves evidence and supports ordinary drain/resume`, async (t) => {
     const f = await (second ? repeatedFixture : fixture)(t, {
       inspectorImage: image("1"),
     });
@@ -686,6 +691,43 @@ for (const second of [false, true])
         observedAt: new Date().toISOString(),
       },
     };
+    if (drained) {
+      await durableJson(join(f.root, "deployment.json"), {
+        version: 1,
+        operationId: upgradeAuthorization.operationId,
+        baselineIdentity: baseline,
+        targetIdentity: baseline,
+        templateSha256: templateDigest(f.config),
+        recoveryBindingSha256: upgradeAuthorization.recoveryBindingSha256,
+        requestedAt: new Date().toISOString(),
+        status: "drained",
+      });
+      const drain = await f.read("deployment.json");
+      for (const patch of [
+        { status: "draining" },
+        { status: "resumed" },
+        { targetIdentity: target },
+        { baselineIdentity: target },
+        { templateSha256: "0".repeat(64) },
+        { recoveryBindingSha256: "0".repeat(64) },
+        { operationId: "other-drain" },
+      ]) {
+        const invalid = { ...drain, ...patch };
+        await durableJson(join(f.root, "deployment.json"), invalid);
+        await assert.rejects(
+          checkStartup({
+            root: f.root,
+            template,
+            runtimeIdentity: target,
+            upgradeAuthorization,
+          }),
+        );
+        assert.deepEqual(await f.read("deployment.json"), invalid);
+        assert.deepEqual(await f.read(path), state);
+        assert.deepEqual(await f.read("private/template.json"), f.config);
+      }
+      await durableJson(join(f.root, "deployment.json"), drain);
+    }
     await assert.rejects(
       checkStartup({ root: f.root, template, runtimeIdentity: target }),
     );
