@@ -1094,3 +1094,15 @@ STUB
   [[ "$output" == *"ARGS: promote --yes --non-interactive --digest sha256:deadbeef -- svc-a"* ]] \
     || fail "service must be the last argv element, after --: $output"
 }
+
+@test "guard: a CLOSURE_PLAN member with an empty name fails closed with zero CLI calls (leading, repeated, trailing)" {
+  # Review finding on #7955: `0:,2:svc-a` passed the tier check, the empty name
+  # vanished when the names were joined, and svc-a promoted with exit 0.
+  _args_stub
+  for plan in "0:,2:svc-a" "0:svc-a,1:,2:svc-c" "0:svc-a,2:svc-c,2:" "s:,2:svc-a"; do
+    run env CLOSURE_PLAN="$plan" bash "$SCRIPT"
+    [ "$status" -ne 0 ] || fail "expected non-zero exit for CLOSURE_PLAN='$plan', got $status: $output"
+    [[ "$output" == *"::error::"* ]] || fail "expected ::error:: for CLOSURE_PLAN='$plan': $output"
+    [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may reach the CLI for CLOSURE_PLAN='$plan': $output"
+  done
+}

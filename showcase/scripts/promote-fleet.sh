@@ -165,6 +165,10 @@ if [ -n "${CLOSURE_PLAN:-}" ]; then
         exit 1
         ;;
     esac
+    # Validate EACH member's name on its own, BEFORE joining: an empty name
+    # (`0:`) would otherwise vanish from the joined list (`${x:+x,}` drops a
+    # leading empty) and the rest of the plan would still promote.
+    guard_service_csv "promote-fleet: CLOSURE_PLAN entry '$tok'" "${tok#*:}" "$SSOT_NAMES" || exit 1
     plan_names="${plan_names:+$plan_names,}${tok#*:}"
   done
   guard_service_csv "promote-fleet: CLOSURE_PLAN" "$plan_names" "$SSOT_NAMES" || exit 1
