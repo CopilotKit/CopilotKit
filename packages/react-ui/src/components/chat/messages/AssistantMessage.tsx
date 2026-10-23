@@ -24,10 +24,17 @@ import { Markdown } from "../Markdown";
 import { useState } from "react";
 import React from "react";
 import { copyToClipboard } from "@copilotkit/shared";
+import { MessageTimestamp } from "./MessageTimestamp";
 import { isActivatingClick } from "../feedback";
 
+/**
+ * Renders an assistant message, its actions, and its optional timestamp.
+ *
+ * The timestamp is shown only when enabled in chat context and present on the
+ * message.
+ */
 export const AssistantMessage = (props: AssistantMessageProps) => {
-  const { icons, labels } = useChatContext();
+  const { icons, labels, showTimestamps } = useChatContext();
   const {
     message,
     isLoading,
@@ -89,6 +96,10 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
         <div className="copilotKitMessage copilotKitAssistantMessage">
           {content && (
             <Markdown content={content} components={markdownTagRenderers} />
+          )}
+
+          {showTimestamps && (
+            <MessageTimestamp timestamp={message?.timestamp} />
           )}
 
           {content && !isLoading && (
