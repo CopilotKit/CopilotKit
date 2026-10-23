@@ -14,11 +14,11 @@ import {
   SECOND_TEMPLATE,
 } from "./second-recovery-contract.mjs";
 
-// Temporary trial: remove only the exact verified idle staging baseline.
+// This remove capability is deliberately limited to the reviewed second incident.
 export const REMOVAL_HANDOFF_BASELINE = Object.freeze({
-  deploymentId: "4ff4b9fe-404a-4279-b6a0-687a024ee8aa",
+  deploymentId: "41d9b023-1870-444f-8889-c369e26faa54",
   image:
-    "ghcr.io/copilotkit/rich-thread-runner@sha256:5f9e8ceb5eafe7a0d8229ae0c10ff3ea85b18f81009a73d0408c8ad31355d02f",
+    "ghcr.io/copilotkit/rich-thread-runner@sha256:8db845b5d2b427317524254ff58b3e18db69046b9e75d950b6dc967c004a0019",
 });
 
 /** Consume a bounded remote body without including it in an error. */
