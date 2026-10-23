@@ -17,6 +17,11 @@ import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import type { CopilotChatFeedbackMessage } from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
+import {
+  MessageFeedbackScopeContext,
+  useLearningFeedbackEnabled,
+} from "./message-feedback";
+import type { MessageFeedbackScope } from "./message-feedback";
 import CopilotChatWorkSummary from "./CopilotChatWorkSummary";
 import { Collapsible } from "./CopilotChatToolCallGroup";
 import { ToolCallDisplayContext } from "./tool-call-display-context";
@@ -512,6 +517,12 @@ export type CopilotChatMessageViewProps = Omit<
        */
       groupMessages?: (messages: Message[]) => MessageRow[];
       /**
+       * Whether reply thumbs record ratings for Automatic Learning once a
+       * Trajectory has started. Defaults to `true`; set `false` to keep the
+       * thumbs to your own `onThumbsUp` / `onThumbsDown` handlers and slots.
+       */
+      messageFeedback?: boolean;
+      /**
        * How tool calls show. Defaults to `"grouped"`: calls made in a row
        * share one card that opens to a row per call. `"line"` and `"stacked"`
        * group them too; `"turn"` folds a reply's whole working phase into
@@ -547,6 +558,7 @@ export function CopilotChatMessageView({
   isRunning = false,
   transformMessages,
   groupMessages,
+  messageFeedback = true,
   toolCallDisplay = "grouped",
   children,
   className,
@@ -904,6 +916,17 @@ export function CopilotChatMessageView({
     );
   const agentId = config?.agentId;
   const threadId = config?.threadId;
+  const learningFeedbackEnabled = useLearningFeedbackEnabled(copilotkit);
+  const feedbackScope = useMemo<MessageFeedbackScope | null>(
+    () =>
+      messageFeedback &&
+      learningFeedbackEnabled &&
+      agentId !== undefined &&
+      threadId !== undefined
+        ? { copilotkit, agentId, threadId }
+        : null,
+    [messageFeedback, learningFeedbackEnabled, copilotkit, agentId, threadId],
+  );
   const assistantSlotPropsWithFeedback = useMemo(() => {
     const onThumbsUp = assistantSlotProps?.onThumbsUp as
       | ((message: CopilotChatFeedbackMessage) => void)
@@ -1408,11 +1431,18 @@ export function CopilotChatMessageView({
   // ---------------------------------------------------------------------------
   if (children) {
     return (
-      <ToolCallDisplayContext.Provider value={toolCallDisplayContext}>
-        <div data-copilotkit style={{ display: "contents" }}>
-          {children({ messageElements, messages, isRunning, interruptElement })}
-        </div>
-      </ToolCallDisplayContext.Provider>
+      <MessageFeedbackScopeContext.Provider value={feedbackScope}>
+        <ToolCallDisplayContext.Provider value={toolCallDisplayContext}>
+          <div data-copilotkit style={{ display: "contents" }}>
+            {children({
+              messageElements,
+              messages,
+              isRunning,
+              interruptElement,
+            })}
+          </div>
+        </ToolCallDisplayContext.Provider>
+      </MessageFeedbackScopeContext.Provider>
     );
   }
 
@@ -1434,55 +1464,60 @@ export function CopilotChatMessageView({
   // Render — shared wrapper, conditional inner content (virtual vs flat)
   // ---------------------------------------------------------------------------
   return (
-    <ToolCallDisplayContext.Provider value={toolCallDisplayContext}>
-      <div
-        data-copilotkit
-        data-testid="copilot-message-list"
-        className={twMerge(
-          "copilotKitMessages cpk:flex cpk:flex-col",
-          className,
-        )}
-        {...props}
-      >
-        {shouldVirtualize ? (
-          // Virtual path: only visible items are in the DOM; outer div maintains
-          // total scroll height so the scrollbar reflects the full list size.
-          <div
-            style={{ height: virtualizer.getTotalSize(), position: "relative" }}
-          >
-            {virtualizer.getVirtualItems().map((virtualItem) => {
-              const row = rows[virtualItem.index]!;
-              return (
-                <div
-                  key={rowKey(row)}
-                  data-index={virtualItem.index}
-                  data-scroll-anchor={rowKey(row)}
-                  ref={virtualizer.measureElement}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    transform: `translateY(${virtualItem.start}px)`,
-                  }}
-                >
-                  {renderRow(row)}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          messageElements
-        )}
-        {interruptElement}
-        {pendingWorkSummary && renderWorkSummary(latestTurnKey, [])}
-        {showCursor && (
-          <div className="cpk:mt-2">
-            {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
-          </div>
-        )}
-      </div>
-    </ToolCallDisplayContext.Provider>
+    <MessageFeedbackScopeContext.Provider value={feedbackScope}>
+      <ToolCallDisplayContext.Provider value={toolCallDisplayContext}>
+        <div
+          data-copilotkit
+          data-testid="copilot-message-list"
+          className={twMerge(
+            "copilotKitMessages cpk:flex cpk:flex-col",
+            className,
+          )}
+          {...props}
+        >
+          {shouldVirtualize ? (
+            // Virtual path: only visible items are in the DOM; outer div maintains
+            // total scroll height so the scrollbar reflects the full list size.
+            <div
+              style={{
+                height: virtualizer.getTotalSize(),
+                position: "relative",
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const row = rows[virtualItem.index]!;
+                return (
+                  <div
+                    key={rowKey(row)}
+                    data-index={virtualItem.index}
+                    data-scroll-anchor={rowKey(row)}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                  >
+                    {renderRow(row)}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            messageElements
+          )}
+          {interruptElement}
+          {pendingWorkSummary && renderWorkSummary(latestTurnKey, [])}
+          {showCursor && (
+            <div className="cpk:mt-2">
+              {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
+            </div>
+          )}
+        </div>
+      </ToolCallDisplayContext.Provider>
+    </MessageFeedbackScopeContext.Provider>
   );
 }
 

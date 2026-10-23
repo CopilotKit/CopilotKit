@@ -53,6 +53,13 @@ import "@copilotkit/react-core/v2/styles.css";
   See [Grouping messages into one row](/custom-look-and-feel/slots#grouping-messages-into-one-row).
 </PropertyReference>
 
+<PropertyReference name="messageFeedback" type="boolean" default="true">
+  Whether reply thumbs record ratings for Automatic Learning once a Trajectory
+  has started. Set `false` to keep the thumbs to your own `onThumbsUp` /
+  `onThumbsDown` handlers and slots. See
+  [Collect reply ratings](/intelligence/capture-interactions#collect-reply-ratings).
+</PropertyReference>
+
 <PropertyReference name="toolCallDisplay" type='"grouped" | "line" | "stacked" | "turn" | "separate"' default='"grouped"'>
   How tool calls show in the list.
 

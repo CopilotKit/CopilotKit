@@ -21,6 +21,7 @@ Capture records browser-visible data by default. Your app can exclude or change 
 - A short, cleaned name of each clicked control in `target.label`. See [Click labels](#click-labels).
 - Input, select, text area, and editable element values on input and change events.
 - Browser-visible request and response headers and bounded body snapshots.
+- Reply ratings with their comment and the first 500 characters of the rated reply. See [`message.feedback`](#events) below.
 
 ## Credential redaction
 
@@ -64,8 +65,11 @@ Sequence numbers start from the Core instance's creation time in microseconds. T
 | `input` | `eventType`, `target` (element details and control values), `route`, `url` | Browser |
 | `network` | `transport`, `method`, `url`, `origin`, `route`, `status`, `durationMs`, `outcome`, `request`, `response` | Browser |
 | `thread.linked` | `threadId` | Core |
+| `message.feedback` | `feedbackId`, `threadId`, `messageId`, `agentId`, `runId`, `rating`, `comment`, `response` | Chat, when a user rates a reply, changes the comment, or removes the rating |
 
 Core emits `thread.linked` once for each Thread, when Runtime starts a run in it. Clicks do not carry Thread, message, or tool fields. A Trajectory can contain interactions without any Thread.
+
+A `message.feedback` event records a [reply rating](/intelligence/capture-interactions#collect-reply-ratings). `rating` is `"up"`, `"down"`, or `null` when the user removed the rating. `comment` is trimmed, cut at 1,000 characters, and omitted when empty. `response` holds the first 500 characters of the rated reply. `runId` is omitted when the chat does not know the reply's run. `feedbackId` is `threadId:messageId`; the newest event for a `feedbackId` is the current rating.
 
 Control values include `value`, `checked` for checkboxes and radio buttons, `selectedValues` for select elements, and file metadata for file inputs.
 
