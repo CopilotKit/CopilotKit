@@ -300,8 +300,38 @@ function Table(props: TableProps) {
     maxHeight: props.stickyHeader ? 480 : undefined,
     overflowY: props.stickyHeader ? "auto" : undefined,
   };
-  const isChildrenMode =
-    props.children !== undefined && rows.length === 0 && columns.length === 0;
+  // Children mode: the rows are TableRow (or TableSection) components. The
+  // columns, when given, still head the table.
+  const isChildrenMode = props.children !== undefined && rows.length === 0;
+  const stickyStyle: CSSProperties = props.stickyHeader
+    ? { position: "sticky", top: 0, background: backgroundColor("surface") }
+    : {};
+  const header =
+    columns.length > 0 ? (
+      <thead>
+        <tr>
+          {columns.map((column, index) => {
+            const cell = cellAttributes({
+              isHeader: true,
+              hasDivider: true,
+              align: column.align,
+              width: column.width,
+            });
+            return (
+              <th
+                key={`${column.label ?? column.componentId}-${index}`}
+                scope="col"
+                {...cell}
+                style={{ ...cell.style, ...stickyStyle }}
+              >
+                {column.label}
+                {column.componentId ? components.get(column.componentId) : null}
+              </th>
+            );
+          })}
+        </tr>
+      </thead>
+    ) : null;
 
   if (isChildrenMode) {
     return (
@@ -315,6 +345,7 @@ function Table(props: TableProps) {
         >
           <table className="a2ui-std-table" style={tableStyle}>
             <Caption text={props.caption} />
+            {header}
             {props.children}
           </table>
         </TableContext.Provider>
@@ -324,41 +355,12 @@ function Table(props: TableProps) {
 
   const rowLengths = rows.map((row) => row.length);
   const columnCount = Math.max(columns.length, ...rowLengths, 1);
-  const stickyStyle: CSSProperties = props.stickyHeader
-    ? { position: "sticky", top: 0, background: backgroundColor("surface") }
-    : {};
 
   return (
     <div className="a2ui-std-table-wrap" data-a2ui-std="" style={wrapperStyle}>
       <table className="a2ui-std-table" style={tableStyle}>
         <Caption text={props.caption} />
-        {columns.length > 0 ? (
-          <thead>
-            <tr>
-              {columns.map((column, index) => {
-                const cell = cellAttributes({
-                  isHeader: true,
-                  hasDivider: true,
-                  align: column.align,
-                  width: column.width,
-                });
-                return (
-                  <th
-                    key={`${column.label ?? column.componentId}-${index}`}
-                    scope="col"
-                    {...cell}
-                    style={{ ...cell.style, ...stickyStyle }}
-                  >
-                    {column.label}
-                    {column.componentId
-                      ? components.get(column.componentId)
-                      : null}
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-        ) : null}
+        {header}
         <tbody>
           {rows.length === 0 ? (
             <tr>
