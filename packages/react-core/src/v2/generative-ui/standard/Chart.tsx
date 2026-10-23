@@ -108,6 +108,38 @@ export const VISUALLY_HIDDEN: CSSProperties = {
   border: 0,
 };
 
+/**
+ * A category label on the side axis of a horizontal bar chart: one line,
+ * shortened to fit the axis, with the full text as a tooltip. Wrapped labels
+ * there run into the labels of the neighbouring bars.
+ */
+function CategoryTick(props: {
+  x?: number;
+  y?: number;
+  payload?: { value?: unknown };
+  width: number;
+  fill?: string;
+}) {
+  const text = String(props.payload?.value ?? "");
+  // About 0.55em per character at 12px.
+  const fits = Math.max(4, Math.floor((props.width - 8) / 6.6));
+  const shown =
+    text.length > fits ? `${text.slice(0, fits - 1).trimEnd()}…` : text;
+  return (
+    <text
+      x={props.x}
+      y={props.y}
+      dy="0.35em"
+      textAnchor="end"
+      fontSize={12}
+      fill={props.fill}
+    >
+      <title>{text}</title>
+      {shown}
+    </text>
+  );
+}
+
 /** Legend labels use the text color, not the series color. */
 function legendFormatter(value: string) {
   return (
@@ -259,8 +291,16 @@ function createRechartsChart(R: RechartsModule) {
     const showTooltip = props.showTooltip ?? true;
     const height = props.height ?? DEFAULT_HEIGHT;
     const axisTick = { fontSize: 12, fill: textColor("secondary") };
+    // Value labels sit past the end of each bar: above a vertical bar, to the
+    // right of a horizontal one (above it they land on the bar before).
+    const isHorizontal = props.layout === "horizontal";
     const valueLabel = props.showValueLabels
-      ? { position: "top" as const, fontSize: 11, formatter: format }
+      ? {
+          position: isHorizontal ? ("right" as const) : ("top" as const),
+          fontSize: 11,
+          fill: textColor("secondary"),
+          formatter: format,
+        }
       : undefined;
     const tooltip = showTooltip ? (
       <R.Tooltip formatter={format} {...TOOLTIP_PROPS} />
@@ -317,7 +357,6 @@ function createRechartsChart(R: RechartsModule) {
 
     const CartesianChart = cartesianChartOf(R, chartType);
     const stackId = props.stacked ? "stack" : undefined;
-    const isHorizontal = props.layout === "horizontal";
     const xKey = props.xKey;
     // Scatter uses numeric distances when all x values are numbers. Preserve
     // category spacing for string/mixed data and for the other chart types.
@@ -332,6 +371,17 @@ function createRechartsChart(R: RechartsModule) {
       props.yAxis?.min ?? "auto",
       props.yAxis?.max ?? "auto",
     ];
+    // The side axis of a horizontal bar chart fits its longest label, up to
+    // a cap; longer labels are shortened by CategoryTick.
+    const longestCategory = Math.max(
+      0,
+      ...data.map((row) =>
+        props.xKey ? String(row[props.xKey] ?? "").length : 0,
+      ),
+    );
+    const categoryWidth =
+      props.yAxis?.width ??
+      Math.min(168, Math.max(64, Math.ceil(longestCategory * 6.6) + 12));
     const valueAxisLabel = props.yAxis?.label
       ? {
           value: props.yAxis.label,
@@ -410,7 +460,13 @@ function createRechartsChart(R: RechartsModule) {
           data={data}
           // recharts calls the axis layout of a horizontal bar chart "vertical".
           layout={isHorizontal ? "vertical" : "horizontal"}
-          margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+          // A horizontal bar's value label needs room past the longest bar.
+          margin={{
+            top: 8,
+            right: isHorizontal && props.showValueLabels ? 48 : 8,
+            bottom: 0,
+            left: 0,
+          }}
         >
           {showGrid ? (
             <R.CartesianGrid
@@ -430,14 +486,22 @@ function createRechartsChart(R: RechartsModule) {
                 axisLine={{ stroke: borderColor("default") }}
                 tickFormatter={format}
                 label={valueAxisLabel}
+                // Room under the ticks for the label; at the default height
+                // it sits on top of them.
+                height={valueAxisLabel ? 48 : undefined}
               />
               <R.YAxis
                 type={isNumericScatter ? "number" : "category"}
                 dataKey={props.xKey}
-                tick={axisTick}
+                // Every bar gets its label; recharts' default drops labels
+                // that would touch, which leaves bars unnamed.
+                interval={0}
+                tick={
+                  <CategoryTick width={categoryWidth} fill={axisTick.fill} />
+                }
                 tickLine={false}
                 axisLine={false}
-                width={props.yAxis?.width ?? 96}
+                width={categoryWidth}
               />
             </>
           ) : (
