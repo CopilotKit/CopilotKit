@@ -352,3 +352,45 @@ run_resolve_hold() {
   run grep '^digest_service=' "$GITHUB_OUTPUT"
   [ "$output" = "digest_service=" ] || fail "digest_service must be empty without DIGEST: $output"
 }
+
+# --- HOLD fails CLOSED on malformed input (review finding on #7955) ----------
+# `read` stops at the first newline, so a pasted multi-line hold list used to
+# hold only the first line and silently promote the rest. Any CR / LF / other
+# character outside [a-z0-9, -] must now be rejected before anything is emitted.
+
+@test "HOLD containing a newline is rejected loud and emits nothing" {
+  run_resolve_hold "agent-a" $'harness,\ndashboard'
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on a newline in HOLD, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error:: on a newline in HOLD: $output"
+  [ ! -s "$GITHUB_OUTPUT" ] || fail "nothing may be emitted on a rejected HOLD: $(cat "$GITHUB_OUTPUT")"
+}
+
+@test "HOLD containing a carriage return is rejected loud and emits nothing" {
+  run_resolve_hold "agent-a" $'harness,\rdashboard'
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on a CR in HOLD, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error:: on a CR in HOLD: $output"
+  [ ! -s "$GITHUB_OUTPUT" ] || fail "nothing may be emitted on a rejected HOLD: $(cat "$GITHUB_OUTPUT")"
+}
+
+@test "HOLD containing a tab or other character is rejected loud" {
+  run_resolve_hold "agent-a" $'harness,\tdashboard'
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on a tab in HOLD, got $status: $output"
+  run_resolve_hold "agent-a" "harness;dashboard"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on ';' in HOLD, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error:: on ';' in HOLD: $output"
+}
+
+@test "HOLD of an unknown name alongside a valid one is rejected and emits nothing" {
+  run_resolve_hold "agent-a" "harness,not-a-service"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"*"not-a-service"* ]] || fail "error must name the unknown service: $output"
+  [ ! -s "$GITHUB_OUTPUT" ] || fail "nothing may be emitted on a rejected HOLD: $(cat "$GITHUB_OUTPUT")"
+}
+
+@test "HOLD of a real SSOT service that is not in this closure is rejected (no silent no-op)" {
+  # agent-b is a valid prod SSOT service but is not in agent-a's closure.
+  run_resolve_hold "agent-a" "harness,agent-b"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"*"agent-b"* ]] || fail "error must name the not-in-closure service: $output"
+  [ ! -s "$GITHUB_OUTPUT" ] || fail "nothing may be emitted on a rejected HOLD: $(cat "$GITHUB_OUTPUT")"
+}

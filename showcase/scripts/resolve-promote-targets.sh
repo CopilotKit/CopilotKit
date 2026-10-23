@@ -45,8 +45,11 @@
 #                          CURRENT image. No gate is skipped: the prod gates that
 #                          exercise a held service (equivalence re-sweep on the
 #                          prod harness, lint-prod) see its current prod image.
-#                          An unknown name, or holding the requested service
-#                          itself, is rejected loud.
+#                          Fails CLOSED (rejected loud, nothing emitted) on: any
+#                          character outside [a-z0-9, -] (CR/LF included), an
+#                          unknown name, a name not in this promote's closure,
+#                          the requested service itself, or a hold that empties
+#                          the promote set.
 #   GENERATED  (optional)  path to railway-envs.generated.json
 #                          (default: showcase/scripts/railway-envs.generated.json,
 #                          resolved relative to this script).
@@ -85,6 +88,17 @@ fi
 #    the operator meant to hold.
 # ---------------------------------------------------------------------------
 HELD=""
+# Fail CLOSED on any character outside lowercase letters, digits, comma, space
+# and hyphen. In particular a CR or LF must never get through: `read` stops at
+# the first newline, so a pasted multi-line list would silently drop every held
+# name after line one and promote services the operator meant to hold. The set
+# is spelled out (not a-z) so collation order cannot widen it.
+case "$HOLD" in
+  *[!abcdefghijklmnopqrstuvwxyz0123456789,\ -]*)
+    echo "::error::'hold' may contain only lowercase service names, commas and spaces (no newlines, carriage returns, tabs or other characters). Got: $(printf '%q' "$HOLD")"
+    exit 1
+    ;;
+esac
 if [ -n "$HOLD" ]; then
   IFS=',' read -ra HOLD_TOKENS <<< "$HOLD"
   for tok in "${HOLD_TOKENS[@]}"; do
@@ -118,18 +132,12 @@ if [ "$INPUT" = "all" ]; then
     echo "::error::--digest cannot be combined with 'all' (a single digest is meaningless across multiple services); pick one service."
     exit 1
   fi
-  # Held services are dropped from the leaf set too.
-  CSV=$(jq -r --argjson held "$HELD_JSON" '
-    .services[]
-    | select(.probe.prod == true and .standalone != true)
-    | .name
-    | select(. as $n | $held | index([$n]) | not)
-  ' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
+  CSV=$(jq -r '.services[] | select(.probe.prod == true and .standalone != true) | .name' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
   # Fail loud if 'all' resolved to nothing (e.g. an SSOT regression dropped every
   # probe.prod entry). An empty CSV would otherwise propagate downstream with
   # exit 0; mirror the single-service branch's fail-loud style.
   if [ -z "$CSV" ]; then
-    echo "::error::'all' resolved to zero prod-eligible services (held: '${HELD:-none}')"
+    echo "::error::'all' resolved to zero prod-eligible services"
     exit 1
   fi
   # The requested SSOT set for closure computation = the full prod-eligible leaf
@@ -176,12 +184,6 @@ DIGEST_SERVICE=""
 if [ -n "$DIGEST" ]; then
   DIGEST_SERVICE="$CSV"
 fi
-
-{
-  echo "services_csv=$CSV"
-  echo "held_csv=$HELD"
-  echo "digest_service=$DIGEST_SERVICE"
-} >> "$GITHUB_OUTPUT"
 
 # ---------------------------------------------------------------------------
 # 2. Tiered promote CLOSURE (computed from the generated `closure` block).
@@ -235,13 +237,43 @@ CLOSURE_PLAN_JSON=$(jq -n \
   # known tier — e.g. a runtimeDep that is itself not promotable), then sort by
   # the closure tier order, and within a tier preserve the closure listing order.
   | map(select($tierOf[.] != null))
-  # HOLD: drop held services AFTER the dependency walk, so a held dependency is
-  # left on its CURRENT prod image instead of being promoted.
-  | map(select(. as $n | $held | index([$n]) | not))
   | unique
-  | sort_by([ $tierOf[.], $posOf[.] ])
-  | map({ name: ., tier: $tierOf[.], standalone: ($standaloneOf[.] == true) })
+  # HOLD: every held name must be in the UNFILTERED closure; a hold that would
+  # change nothing is an operator mistake, so it is reported (not ignored).
+  | . as $full
+  | {
+      not_in_closure: [ $held[] | select(. as $h | $full | index([$h]) | not) ],
+      # Drop held services AFTER the dependency walk, so a held dependency is
+      # left on its CURRENT prod image instead of being promoted.
+      plan: ($full
+        | map(select(. as $n | $held | index([$n]) | not))
+        | sort_by([ $tierOf[.], $posOf[.] ])
+        | map({ name: ., tier: $tierOf[.], standalone: ($standaloneOf[.] == true) }))
+    }
 ')
+
+NOT_IN_CLOSURE=$(printf '%s' "$CLOSURE_PLAN_JSON" | jq -r '.not_in_closure | join(",")')
+if [ -n "$NOT_IN_CLOSURE" ]; then
+  echo "::error::Cannot hold '$NOT_IN_CLOSURE': not in this promote's closure, so holding it would change nothing. Remove it from 'hold'."
+  exit 1
+fi
+CLOSURE_PLAN_JSON=$(printf '%s' "$CLOSURE_PLAN_JSON" | jq -c '.plan')
+
+# Held services also leave the leaf set (only possible for 'all'; holding the
+# requested single service was rejected above).
+CSV=$(printf '%s' "$CSV" | jq -Rr --argjson held "$HELD_JSON" '
+  split(",") | map(select(length > 0) | select(. as $n | $held | index([$n]) | not)) | join(",")
+')
+if [ -z "$CSV" ]; then
+  echo "::error::'hold' removes every service from the promote set (held: '$HELD'); nothing to promote."
+  exit 1
+fi
+
+{
+  echo "services_csv=$CSV"
+  echo "held_csv=$HELD"
+  echo "digest_service=$DIGEST_SERVICE"
+} >> "$GITHUB_OUTPUT"
 
 # closure_csv — tier-ordered SSOT-name CSV.
 CLOSURE_CSV=$(printf '%s' "$CLOSURE_PLAN_JSON" | jq -r 'map(.name) | join(",")')
