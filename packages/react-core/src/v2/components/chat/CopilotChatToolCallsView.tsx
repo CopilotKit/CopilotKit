@@ -123,6 +123,11 @@ export function CopilotChatToolCallsView({
   }
 
   const workOpen = context?.workOpen.get(message.id);
+  // Whether the agent may still finish a trailing group's calls. Without a
+  // message view there's no run state, so a call with no result is assumed to
+  // be running, as the built-in card has always shown it.
+  const groupActive = (trailing: boolean) =>
+    trailing && (context ? context.isRunning : true);
 
   return (
     <>
@@ -154,7 +159,7 @@ export function CopilotChatToolCallsView({
                   value={{
                     appearance: "line",
                     failedIds,
-                    active: !!context?.isRunning && segment.trailing,
+                    active: groupActive(segment.trailing),
                   }}
                 >
                   {segment.calls.map((call) => (
@@ -174,7 +179,7 @@ export function CopilotChatToolCallsView({
               calls: segment.calls,
               renderCall,
               appearance: appearances[display] ?? "card",
-              isActive: !!context?.isRunning && segment.trailing,
+              isActive: groupActive(segment.trailing),
             })}
           </React.Fragment>
         );

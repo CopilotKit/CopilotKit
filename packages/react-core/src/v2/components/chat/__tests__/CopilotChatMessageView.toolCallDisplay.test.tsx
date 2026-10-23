@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { z } from "zod";
 import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
+import { CopilotChatToolCallsView } from "../CopilotChatToolCallsView";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { WildcardToolCallRender } from "../../WildcardToolCallRender";
@@ -366,5 +367,27 @@ describe("CopilotChatWorkSummary timing", () => {
     vi.setSystemTime(190_000);
     rerender(view(finished, { toolCallDisplay: "turn", isRunning: false }));
     expect(summary()).toContain("Worked for 10s");
+  });
+});
+
+describe("CopilotChatToolCallsView on its own", () => {
+  it("shows a call without a result as running, with no run state to say otherwise", () => {
+    const message: AssistantMessage = {
+      id: "standalone",
+      role: "assistant",
+      content: "",
+      toolCalls: [
+        ...callMessage("a").toolCalls!,
+        ...callMessage("b").toolCalls!,
+      ],
+    };
+    render(
+      <CopilotKitProvider renderToolCalls={[WildcardToolCallRender]}>
+        <CopilotChatToolCallsView message={message} messages={[result("a")]} />
+      </CopilotKitProvider>,
+    );
+    const group = screen.getByTestId("copilot-tool-call-group");
+    expect(group.getAttribute("data-state")).toBe("running");
+    expect(group.textContent).toContain("Running run_command");
   });
 });
