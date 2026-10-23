@@ -16,6 +16,7 @@ import {
   createMessage,
   createToolCallMessage,
   createToolResultMessage,
+  getToolMessage,
 } from "./test-utils";
 
 const encoder = new TextEncoder();
@@ -112,6 +113,39 @@ describe("ɵrepairToolCallPairs", () => {
       resultA.id,
       resultB.id,
     ]);
+  });
+
+  it.each([true, false])(
+    "preserves a retained result's edits when its call is kept: %s",
+    (keepCall) => {
+      const call = createToolCallMessage("lookup");
+      const result = createToolResultMessage(toolCallIdOf(call), "secret");
+      const redacted = { ...getToolMessage(result), content: "[REDACTED]" };
+      const kept = keepCall ? [structuredClone(call), redacted] : [redacted];
+
+      const repaired = ɵrepairToolCallPairs(kept, [call, result]);
+
+      expect(repaired).toEqual([call, redacted]);
+      expect(repaired[1]).toBe(redacted);
+      expect(result.content).toBe("secret");
+    },
+  );
+
+  it("preserves a retained result's edits while restoring its call and sibling", () => {
+    const call = createMultipleToolCallsMessage([
+      { name: "lookupA" },
+      { name: "lookupB" },
+    ]);
+    const [callA, callB] = toolCallIdsOf(call);
+    const resultA = createToolResultMessage(callA!, "a");
+    const resultB = createToolResultMessage(callB!, "secret");
+    const redacted = { ...getToolMessage(resultB), content: "[REDACTED]" };
+
+    const repaired = ɵrepairToolCallPairs([redacted], [call, resultA, resultB]);
+
+    expect(repaired).toEqual([call, resultA, redacted]);
+    expect(repaired[1]).toBe(resultA);
+    expect(repaired[2]).toBe(redacted);
   });
 
   it("restores the result of a kept call, directly after the call", () => {
@@ -1080,6 +1114,53 @@ describe("ProxiedCopilotRuntimeAgent messageFilter", () => {
       result.id,
     ]);
   });
+
+  it.each([
+    ["rest", "run"],
+    ["rest", "connect"],
+    ["single", "run"],
+    ["single", "connect"],
+  ] as const)(
+    "preserves tool-result redaction on %s %s without changing the transcript",
+    async (transport, operation) => {
+      const call = createToolCallMessage("lookup");
+      const result = createToolResultMessage(toolCallIdOf(call), "secret");
+      const thread = [createMessage({ id: "u1" }), call, result];
+      const agent = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: "https://runtime.example",
+        agentId: "a",
+        transport,
+        messageFilter: (messages) =>
+          messages
+            .filter((m) => m.role === "tool")
+            .map((m) => ({ ...m, content: "[REDACTED]" })),
+      });
+      agent.setMessages(thread);
+      let transcriptAtDispatch: Message[] | undefined;
+      fetchMock.mockImplementation(() => {
+        // connect resets local messages when processing the response, so
+        // inspect the transcript before any backend events are applied.
+        transcriptAtDispatch = structuredClone(agent.messages);
+        return Promise.resolve(createSseResponse());
+      });
+
+      if (operation === "run") await agent.runAgent();
+      else await agent.connectAgent();
+
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      const payload = JSON.parse(init.body as string);
+      if (transport === "single") {
+        expect(payload.method).toBe(`agent/${operation}`);
+      } else {
+        expect(url).toContain(`/${operation}`);
+      }
+      const sent =
+        transport === "single" ? payload.body.messages : payload.messages;
+      expect(sent).toEqual([call, { ...result, content: "[REDACTED]" }]);
+      expect(transcriptAtDispatch).toEqual(thread);
+      expect(result.content).toBe("secret");
+    },
+  );
 
   it("trims below run(), so the transport fork never hands a delegate a trimmed thread", async () => {
     // Placement is the Intelligence exemption. `run()` is the fork between the

@@ -70,6 +70,9 @@ function resultCallIdOf(message: Message): string | undefined {
  * result whose call is nowhere in `full` is left alone too: it was already
  * unpaired before the filter ran, so it is not this function's to fix.
  *
+ * A retained tool result with the same message and call ids as its stored
+ * counterpart keeps the filter's edits, even when its call is restored.
+ *
  * The filter's own ordering is preserved. Restorations are the only insertions,
  * and messages the filter synthesized (absent from `full`) pass through
  * untouched.
@@ -90,6 +93,17 @@ export function ɵrepairToolCallPairs(
     const resultCallId = resultCallIdOf(message);
     if (resultCallId !== undefined) {
       callIdToResult.set(resultCallId, message);
+    }
+  }
+
+  // Prefer the filter's copy of the same result, without changing which
+  // stored result answers a call (call ids may be reused across turns).
+  for (const message of kept) {
+    const callId = resultCallIdOf(message);
+    if (callId === undefined) continue;
+    const stored = callIdToResult.get(callId);
+    if (stored && stored.id === message.id) {
+      callIdToResult.set(callId, message);
     }
   }
 
