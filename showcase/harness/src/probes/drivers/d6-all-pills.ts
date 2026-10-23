@@ -49,6 +49,10 @@ import type { ProbeDriver } from "../types.js";
 import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
 import { clearRemoteThreads } from "../helpers/clear-remote-threads.js";
+import {
+  captureProbeThreads,
+  cleanupProbeThreads,
+} from "../helpers/probe-langgraph-threads.js";
 import type playwright from "playwright";
 
 /**
@@ -223,7 +227,7 @@ export interface E2eFullPage extends Page {
   route?(
     url: string | RegExp,
     handler: (
-      route: { continue(): Promise<void> },
+      route: { continue(options?: { postData?: string }): Promise<void> },
       request: { url(): string; method(): string; postData(): string | null },
     ) => void | Promise<void>,
   ): Promise<unknown>;
@@ -1397,6 +1401,58 @@ export function createE2eFullDriver(
               abort.signal.removeEventListener("abort", onParentAbort);
             }
 
+            // CVDIAG: post-run aimock-journal join. Best-effort (never
+            // throws into the probe), EXCEPT that a journal read rejected for
+            // auth fails the verdict below: the deployed aimock requires
+            // AIMOCK_API_KEY, and a green without the journal is unproven.
+            // The join runs BEFORE the green side-emit so a rejected read can
+            // still turn the row red.
+            const journal = await joinAimockJournal({
+              ctx,
+              diagPb,
+              aimockBaseUrl,
+              runId,
+              slug,
+              featureType: ft,
+              rowPrefix,
+              cvComponent,
+              testId: buildE2eTestId(slug, runId),
+              featureOk: featureResult.ok,
+              featureError: featureResult.ok
+                ? undefined
+                : featureResult.errorDesc,
+            });
+
+            if (featureResult.ok && journal.authFailure) {
+              const errorDesc = `aimock journal auth failed: ${journal.authFailure}`;
+              await sideEmit(ctx, {
+                key: sideKey,
+                state: "red",
+                signal: {
+                  slug,
+                  featureType: ft,
+                  backendUrl,
+                  url,
+                  fixtureFile: script.fixtureFile,
+                  turns_completed: featureResult.conversation.turns_completed,
+                  total_turns: featureResult.conversation.total_turns,
+                  turn_durations_ms:
+                    featureResult.conversation.turn_durations_ms,
+                  errorDesc,
+                  errorClass: AIMOCK_JOURNAL_AUTH_ERROR_CLASS,
+                },
+                observedAt: ctx.now().toISOString(),
+              });
+              ctx.logger.info("probe.e2e-full.feature-complete", {
+                slug,
+                featureType: ft,
+                pass: false,
+                errorDesc,
+                durationMs: Date.now() - featureStart,
+              });
+              return { ft, ok: false as const, errorDesc };
+            }
+
             if (featureResult.ok) {
               await sideEmit(ctx, {
                 key: sideKey,
@@ -1419,20 +1475,6 @@ export function createE2eFullDriver(
                 featureType: ft,
                 pass: true,
                 durationMs: Date.now() - featureStart,
-              });
-              // CVDIAG: post-run aimock-journal join. Best-effort; never
-              // throws into the probe (own try/catch inside).
-              await joinAimockJournal({
-                ctx,
-                diagPb,
-                aimockBaseUrl,
-                runId,
-                slug,
-                featureType: ft,
-                rowPrefix,
-                cvComponent,
-                testId: buildE2eTestId(slug, runId),
-                featureOk: true,
               });
               return { ft, ok: true as const };
             } else {
@@ -1480,23 +1522,10 @@ export function createE2eFullDriver(
                 errorDesc: featureResult.errorDesc,
                 durationMs: Date.now() - featureStart,
               });
-              // CVDIAG: post-run aimock-journal join. On the failure path
-              // this is the load-bearing case — it reveals whether the
+              // The journal join above already ran; on the failure path it
+              // is the load-bearing case — it reveals whether the
               // x-aimock-context header actually ARRIVED at aimock (vs the
-              // 503 no_fixture_match the incident shows). Best-effort.
-              await joinAimockJournal({
-                ctx,
-                diagPb,
-                aimockBaseUrl,
-                runId,
-                slug,
-                featureType: ft,
-                rowPrefix,
-                cvComponent,
-                testId: buildE2eTestId(slug, runId),
-                featureOk: false,
-                featureError: featureResult.errorDesc,
-              });
+              // 503 no_fixture_match the incident shows).
               return {
                 ft,
                 ok: false as const,
@@ -1743,6 +1772,7 @@ async function runFeature(opts: {
 
   let context: E2eFullBrowserContext | undefined;
   let page: E2eFullPage | undefined;
+  let threadIds = new Set<string>();
   try {
     // D6 sets per-feature context headers: X-AIMock-Context and X-Test-Id.
     //
@@ -1778,6 +1808,7 @@ async function runFeature(opts: {
       }),
     );
     page = await context.newPage();
+    threadIds = await captureProbeThreads(page, testId);
 
     logger.debug("probe.e2e-full.runFeature.navigating", {
       url,
@@ -2027,6 +2058,7 @@ async function runFeature(opts: {
         /* browser.close() in outer finally picks up remnants */
       }
     }
+    await cleanupProbeThreads(buildCtx.baseUrl, testId, threadIds, logger);
   }
 }
 
@@ -2207,6 +2239,20 @@ function readHeaderCI(
 }
 
 /**
+ * Result of the post-run journal join. `authFailure` is set only when aimock
+ * rejected the journal read for auth (401/403: key missing or wrong). Every
+ * other journal problem stays best-effort and leaves it unset.
+ */
+export interface AimockJournalJoinOutcome {
+  authFailure?: string;
+}
+
+const NO_JOURNAL_AUTH_FAILURE: AimockJournalJoinOutcome = {};
+
+/** errorClass on a feature row failed only because the journal read was rejected for auth. */
+export const AIMOCK_JOURNAL_AUTH_ERROR_CLASS = "aimock-journal-auth";
+
+/**
  * CVDIAG post-run aimock-journal join. After a feature run completes, fetch
  * the aimock journal and find the entry for THIS run (matched by
  * `x-aimock-context === slug` AND `x-diag-run-id === runId`). Determine
@@ -2220,8 +2266,12 @@ function readHeaderCI(
  * Strictly best-effort: the whole body is wrapped so a journal-fetch failure
  * (endpoint missing, network error, parse error) emits a CVDIAG status=error
  * line and a swallowed `writeDiagEvent`, but NEVER throws into the probe.
+ * The one exception to best-effort: a journal read rejected for auth is
+ * returned as `authFailure`, and the caller fails the feature verdict.
+ *
+ * Exported for tests.
  */
-async function joinAimockJournal(opts: {
+export async function joinAimockJournal(opts: {
   ctx: ProbeContext;
   diagPb?: DiagSinkClient;
   aimockBaseUrl?: string;
@@ -2233,7 +2283,7 @@ async function joinAimockJournal(opts: {
   testId: string;
   featureOk: boolean;
   featureError?: string;
-}): Promise<void> {
+}): Promise<AimockJournalJoinOutcome> {
   const {
     ctx,
     diagPb,
@@ -2263,32 +2313,52 @@ async function joinAimockJournal(opts: {
           error: "aimock base url unset (AIMOCK_URL / AIMOCK_URL_LOCAL)",
         }),
       );
-      return;
+      return NO_JOURNAL_AUTH_FAILURE;
     }
 
     const fetchImpl = ctx.fetchImpl ?? globalThis.fetch;
     const journalUrl = `${aimockBaseUrl.replace(/\/+$/, "")}/__aimock/journal`;
+    // The deployed aimock enforces inbound auth (AIMOCK_API_KEYS) on every
+    // route except GET /health, /ready and /metrics, the control API
+    // included. AIMOCK_API_KEY is the aimock client credential; it is unset
+    // for a local aimock, which runs without inbound auth.
+    const aimockApiKey = ctx.env.AIMOCK_API_KEY?.trim();
     // Bound the journal fetch: a reachable-but-hung aimock journal endpoint
     // must not stall the probe run. On timeout the fetch rejects with a
     // TimeoutError, which the surrounding catch turns into a status=error
     // CVDIAG line (pure instrumentation — never breaks the probe).
     const res = await fetchImpl(journalUrl, {
-      headers: { accept: "application/json" },
+      headers: {
+        accept: "application/json",
+        ...(aimockApiKey ? { authorization: `Bearer ${aimockApiKey}` } : {}),
+      },
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) {
-      ctx.logger.warn(
-        formatCvdiag({
-          component: cvComponent,
-          boundary: "cv-verdict",
-          runId,
-          aimockContext: slug,
-          testId,
-          status: "error",
-          error: `journal fetch ${res.status}`,
-        }),
-      );
-      return;
+      // A rejected credential silently disables every CV verdict join, so it
+      // is logged at error level (and names the cause) instead of joining the
+      // routine best-effort warnings below.
+      const authRejected = res.status === 401 || res.status === 403;
+      const authFailure = authRejected
+        ? `journal fetch ${res.status}: aimock rejected the control credential (AIMOCK_API_KEY ${aimockApiKey ? "rejected" : "unset"})`
+        : undefined;
+      const line = formatCvdiag({
+        component: cvComponent,
+        boundary: "cv-verdict",
+        runId,
+        aimockContext: slug,
+        testId,
+        status: "error",
+        error: authFailure ?? `journal fetch ${res.status}`,
+      });
+      if (authFailure) {
+        ctx.logger.error(line);
+        // Missing or rejected journal auth fails the feature verdict: without
+        // the journal the CV join cannot run, so a green would be unproven.
+        return { authFailure };
+      }
+      ctx.logger.warn(line);
+      return NO_JOURNAL_AUTH_FAILURE;
     }
 
     const body = (await res.json()) as unknown;
@@ -2344,7 +2414,7 @@ async function joinAimockJournal(opts: {
           error: "no aimock journal entry for run",
         });
       }
-      return;
+      return NO_JOURNAL_AUTH_FAILURE;
     }
 
     const headerValue = readHeaderCI(entry.headers, X_AIMOCK_CONTEXT);
@@ -2416,6 +2486,7 @@ async function joinAimockJournal(opts: {
       }),
     );
   }
+  return NO_JOURNAL_AUTH_FAILURE;
 }
 
 async function sideEmit(

@@ -191,7 +191,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client@1.0.2
                 ```
             </Step>
             <Step>
@@ -272,18 +272,18 @@ Before you begin, you'll need the following:
                 ```
 
                 `app/layout.tsx` is a server component and cannot import the provider
-                directly, so it renders your client file instead:
+                directly, so it renders your client file instead. Keep the scaffold's
+                `globals.css` import and add the CopilotKit stylesheet once:
 
                 ```tsx title="app/layout.tsx"
-                import { Providers } from "./providers"; // [!code highlight]
+                import { Providers } from "./providers";
+                import "@copilotkit/react-core/v2/styles.css";
+                import "./globals.css";
 
-                // ...
-
-                export default function RootLayout({ children }: {children: React.ReactNode}) {
+                export default function RootLayout({ children }: { children: React.ReactNode }) {
                   return (
                     <html lang="en">
                       <body>
-                        {/* [!code highlight:3] */}
                         <Providers>
                           {children}
                         </Providers>

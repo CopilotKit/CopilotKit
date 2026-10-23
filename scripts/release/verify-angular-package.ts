@@ -17,6 +17,7 @@ import {
   readAngularSupportContract,
   validateAngularPackageManifest,
 } from "./lib/angular-package.js";
+import { createConsumerWorkspaceYaml } from "./lib/channels-umbrella.js";
 import type { DependencyNode } from "./lib/angular-package.js";
 import {
   packAngularArtifacts,
@@ -65,6 +66,13 @@ function writeConsumer(
   writeFileSync(
     join(consumerDir, "package.json"),
     `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  // The consumer installs outside the repo, so the root .npmrc's release-age
+  // exemptions do not reach it: a just-published @ag-ui or @copilotkit version
+  // would fail pnpm's 24h gate here while installing fine everywhere else.
+  writeFileSync(
+    join(consumerDir, "pnpm-workspace.yaml"),
+    createConsumerWorkspaceYaml(),
   );
   for (const [relativePath, contents] of createAngularConsumerSources()) {
     const output = join(consumerDir, relativePath);

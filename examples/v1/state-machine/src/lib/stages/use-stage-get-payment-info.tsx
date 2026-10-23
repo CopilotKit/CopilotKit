@@ -1,10 +1,8 @@
 import { PaymentCards } from "@/components/generative-ui/payment-cards";
-import { CardInfo } from "@/lib/types";
+import type { CardInfo } from "@/lib/types";
 import { useGlobalState } from "@/lib/stages";
-import {
-  useCopilotAction,
-  useCopilotAdditionalInstructions,
-} from "@copilotkit/react-core";
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { z } from "zod";
 
 export interface UseGetPaymentInfoStateOptions {
   enabled: boolean;
@@ -20,36 +18,30 @@ export interface UseGetPaymentInfoStateOptions {
 export function useStageGetPaymentInfo() {
   const { setCardInfo, stage, setStage } = useGlobalState();
 
-  // Conditionally add additional instructions for the agent's prompt.
-  useCopilotAdditionalInstructions(
-    {
-      instructions:
-        "CURRENT STATE: You are now getting the payment information of the user. Say, 'Great! Now I need to get your payment information.' and MAKE SURE to then call the 'getPaymentInformation' action.",
-      available: stage === "getPaymentInfo" ? "enabled" : "disabled",
-    },
-    [stage],
-  );
-
   // Render the PaymentCards component and wait for the user's response.
-  useCopilotAction(
+  useHumanInTheLoop(
     {
       name: "getPaymentInformation",
       description: "Get the payment information of the user",
-      available: stage === "getPaymentInfo" ? "enabled" : "disabled",
-      renderAndWaitForResponse: ({ respond }) => {
+      available: stage === "getPaymentInfo",
+      parameters: z.object({}),
+      render: ({ status, respond }) => {
         return (
           <PaymentCards
-            onSubmit={(cardInfo: CardInfo) => {
+            status={status}
+            onSubmit={async (cardInfo: CardInfo) => {
+              if (!respond) return;
+
               // Store the payment information in the global state.
               setCardInfo(cardInfo);
 
-              // Let the agent know that the user has submitted their payment information.
-              respond?.(
-                "User has submitted their payment information, you are now moving to the next state",
-              );
-
               // Move to the next stage, confirmOrder.
               setStage("confirmOrder");
+
+              // Let the agent know that the user has submitted their payment information.
+              await respond(
+                "User has submitted their payment information, you are now moving to the next state",
+              );
             }}
           />
         );

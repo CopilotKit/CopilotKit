@@ -6,15 +6,23 @@ import type {
   ResumeEntry,
   Tool,
   ToolCall,
+  ContentPart,
 } from "@ag-ui/client";
-import { randomUUID, logger } from "@copilotkit/shared";
+import {
+  randomUUID,
+  logger,
+  THREAD_ALREADY_RUNNING_ERROR_CODE,
+} from "@copilotkit/shared";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 import { isAbortError } from "../utils/abort-error";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
-import { isForwardedToClientPlaceholder } from "./tool-result-content";
+import {
+  isForwardedToClientPlaceholder,
+  toToolResultContent,
+} from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
 import { WebMCPRegistry } from "./webmcp";
 
@@ -31,6 +39,15 @@ const liveHITLStops = new WeakMap<AbortSignal, () => boolean>();
 
 // Explicitly stopping a live approval must retain its error result. History
 // restoration and thread-switch cancellation instead discard the old result.
+/**
+ * The message a failed tool call reports. An error thrown with an empty
+ * message still means the call failed, so it gets a fallback rather than an
+ * empty string, which everything downstream reads as success.
+ */
+function toolFailureMessage(error: Error): string {
+  return error.message || "Tool call failed";
+}
+
 function discardAbortedResult(
   signal: AbortSignal | undefined,
   discardOnAbort: boolean,
@@ -102,6 +119,9 @@ export interface CopilotKitCoreRunToolResult {
  * Internal result from the shared tool handler execution logic.
  */
 interface ExecuteToolHandlerResult {
+  /** The tool message content: a string, or content parts from the handler. */
+  content: string | ContentPart[];
+  /** The string form of `content`, for surfaces typed as `result: string`. */
   result: string;
   error?: string;
   isArgumentError: boolean;
@@ -246,6 +266,7 @@ export class RunHandler {
    * inspector and intermittent "Message not found" toasts.
    */
   private _lastConnectedThreadIdsByAgent = new Map<string, string | null>();
+  private _lastActiveThreadIdsByAgent = new Map<string, string | null>();
   private _anonymousAgentIds = new WeakMap<AbstractAgent, string>();
   private _nextAnonymousAgentId = 0;
 
@@ -509,7 +530,8 @@ export class RunHandler {
   async connectAgent({
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
-    this._connectionGenerations.set(agent, {});
+    const connection = {};
+    this._connectionGenerations.set(agent, connection);
     const incomingThreadId = agent.threadId ?? null;
     const previousReplay = this._interactionAbortControllers.get(agent);
     if (previousReplay && previousReplay.threadId !== incomingThreadId) {
@@ -521,16 +543,26 @@ export class RunHandler {
     }
     try {
       const restoreKey = this.getConnectRestoreKey(agent);
+      const previousThreadId = this._lastActiveThreadIdsByAgent.get(restoreKey);
       const isFreshRestore =
         incomingThreadId !==
-        (this._lastConnectedThreadIdsByAgent.get(restoreKey) ?? null);
-      this._lastConnectedThreadIdsByAgent.set(restoreKey, incomingThreadId);
+        (previousThreadId ??
+          this._lastConnectedThreadIdsByAgent.get(restoreKey) ??
+          null);
 
       // Detach any active run before connecting to avoid previous runs
       // interfering. This stays unconditional — both fresh restores and
       // churn re-connects need the previous socket torn down before a new
       // one can open.
       await agent.detachActiveRun();
+      if (
+        this._connectionGenerations.get(agent) !== connection ||
+        (agent.threadId ?? null) !== incomingThreadId
+      ) {
+        return { result: undefined, newMessages: [] };
+      }
+      this._lastConnectedThreadIdsByAgent.set(restoreKey, incomingThreadId);
+      this._lastActiveThreadIdsByAgent.set(restoreKey, incomingThreadId);
 
       // State reset + replay-cursor clear are gated on actually moving
       // to a different thread. On same-thread churn, the local
@@ -540,6 +572,12 @@ export class RunHandler {
       if (isFreshRestore) {
         agent.setMessages([]);
         agent.setState({});
+        if (
+          previousThreadId !== undefined &&
+          previousThreadId !== incomingThreadId
+        ) {
+          agent.pendingInterrupts = [];
+        }
         const cursorAware = agent as {
           clearReconnectCursor?: (id: string) => void;
           clearReplayCursor?: (id: string) => void;
@@ -554,9 +592,11 @@ export class RunHandler {
         }
       }
 
-      // Re-apply core headers (merged on top of the agent's own headers) so a
-      // late header update is picked up without clobbering per-agent headers.
-      this._internal.applyHeadersToAgent(agent);
+      // Re-apply current headers (merged on top of the agent's own headers)
+      // so the token in effect right now is what this connect carries — not
+      // a value resolved earlier (#1937).
+      const headersApplied = this._internal.prepareAgentHeadersForRun(agent);
+      if (headersApplied) await headersApplied;
 
       // Notify subscribers (e.g. the inspector) about the agent that is about
       // to run. Per-thread clones are not in the agent registry, so
@@ -570,6 +610,12 @@ export class RunHandler {
           }),
         "Subscriber onAgentRunStarted error:",
       );
+      if (
+        this._connectionGenerations.get(agent) !== connection ||
+        (agent.threadId ?? null) !== incomingThreadId
+      ) {
+        return { result: undefined, newMessages: [] };
+      }
 
       const runAgentResult = await agent.connectAgent(
         {
@@ -583,7 +629,11 @@ export class RunHandler {
       // Connecting ends when history is restored, not when a human answers.
       // Keeping this promise open would block run-activity reconnects while
       // another client answers the same interaction.
-      if ((agent.threadId ?? null) !== incomingThreadId) return runAgentResult;
+      if (
+        this._connectionGenerations.get(agent) !== connection ||
+        (agent.threadId ?? null) !== incomingThreadId
+      )
+        return runAgentResult;
       const controller = new AbortController();
       const replay = this._interactionAbortControllers.get(agent) ?? {
         threadId: incomingThreadId,
@@ -594,7 +644,7 @@ export class RunHandler {
       void this.processAgentResult({
         runAgentResult,
         agent,
-        toolExecutionMode: "human-in-the-loop",
+        toolExecutionMode: "restore",
         signal: controller.signal,
       })
         .catch(async (error: unknown) => {
@@ -649,9 +699,17 @@ export class RunHandler {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
     }
 
-    // Re-apply core headers (merged on top of the agent's own headers) so a
-    // late header update is picked up without clobbering per-agent headers.
-    this._internal.applyHeadersToAgent(agent);
+    // Re-apply current headers (merged on top of the agent's own headers) so
+    // the token in effect right now is what this run carries — not a value
+    // resolved earlier (#1937).
+    try {
+      const headersApplied = this._internal.prepareAgentHeadersForRun(agent);
+      if (headersApplied) await headersApplied;
+    } catch {
+      // Already reported as HEADER_RESOLUTION_FAILED by the resolver.
+      continuationHandoff?.cancel();
+      return { result: undefined, newMessages: [] };
+    }
 
     // Detach any active run (e.g. a long-lived connectAgent pipeline) before
     // starting a new run.  We await the detach to ensure the previous pipeline
@@ -675,6 +733,23 @@ export class RunHandler {
         throw error;
       }
     }
+
+    const resumedRunId = this._internal.stateManager.getContinuationRunId(
+      agent,
+      {
+        threadId: agent.threadId,
+        resume,
+        forwardedProps,
+      },
+    );
+    const logicalHandoff =
+      continuationHandoff ??
+      (resumedRunId
+        ? this._internal.stateManager.markNextRunAsContinuation(
+            agent,
+            resumedRunId,
+          )
+        : undefined);
 
     // Set up abort controller and agent.abortRun() intercept only for the
     // top-level call. Recursive follow-up calls from processAgentResult
@@ -713,20 +788,24 @@ export class RunHandler {
     this._runDepth++;
 
     try {
-      let logicalRunId = runId;
+      let logicalRunId = resumedRunId ?? runId;
       const agentSubscriber = this.createAgentErrorSubscriber(agent);
       let started = false;
       const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
       const onRunInitialized = agentSubscriber.onRunInitialized;
       agentSubscriber.onRunInitialized = async (params) => {
-        continuationHandoff?.bind(params.input);
+        this._lastActiveThreadIdsByAgent.set(
+          this.getConnectRestoreKey(agent),
+          params.input.threadId,
+        );
+        logicalHandoff?.bind(params.input);
         return onRunInitialized?.(params);
       };
       agentSubscriber.onRunStartedEvent = async (params) => {
         started = true;
         // A continuation keeps reporting under the run it continues; only an
         // ordinary run adopts the id the transport assigned it.
-        if (!continuationHandoff) {
+        if (!logicalHandoff) {
           logicalRunId = params.input.runId;
         }
         return onRunStartedEvent?.(params);
@@ -760,7 +839,7 @@ export class RunHandler {
         agentSubscriber,
       );
       if (!started) {
-        continuationHandoff?.cancel();
+        logicalHandoff?.cancel();
       }
       return await this.processAgentResult({
         runAgentResult,
@@ -768,7 +847,7 @@ export class RunHandler {
         runId: logicalRunId,
       });
     } catch (error) {
-      continuationHandoff?.cancel();
+      logicalHandoff?.cancel();
       const runError =
         error instanceof Error ? error : new Error(String(error));
       const context: Record<string, any> = {};
@@ -804,7 +883,7 @@ export class RunHandler {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
     runId?: string;
-    toolExecutionMode?: "all" | "human-in-the-loop";
+    toolExecutionMode?: "all" | "restore";
     signal?: AbortSignal;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
@@ -817,12 +896,25 @@ export class RunHandler {
     const executing = this._executingToolCalls.get(agent) ?? new Set<string>();
     this._executingToolCalls.set(agent, executing);
 
+    // Reconnect deltas omit messages hydrated by earlier replays. Restore only
+    // the latest user turn: an unanswered call before a later user message is
+    // historical, not permission to resume work. Keep every assistant message
+    // in that turn, and snapshot because handlers insert results.
+    const messagesToProcess =
+      toolExecutionMode === "restore"
+        ? agent.messages.filter(
+            (message) =>
+              message.role === "assistant" &&
+              this.isInLatestUserTurn(agent.messages, message.id),
+          )
+        : newMessages;
+
     // One restoration pass owns the pending sequence. Skipping only the first
     // executing call would start later calls concurrently and replace a HITL
     // hook's response resolver. A saved remote answer releases this barrier.
     if (
-      toolExecutionMode === "human-in-the-loop" &&
-      agent.messages.some(
+      toolExecutionMode === "restore" &&
+      messagesToProcess.some(
         (message) =>
           message.role === "assistant" &&
           message.toolCalls?.some(
@@ -840,13 +932,6 @@ export class RunHandler {
       return runAgentResult;
     }
 
-    // Reconnect deltas omit messages already hydrated by earlier replays.
-    // Reconcile the current history so a remote answer can unblock a pending
-    // call that was already present. Snapshot it because handlers insert results.
-    const messagesToProcess =
-      toolExecutionMode === "human-in-the-loop"
-        ? [...agent.messages]
-        : newMessages;
     for (const message of messagesToProcess) {
       if (message.role === "assistant") {
         for (const toolCall of message.toolCalls || []) {
@@ -868,10 +953,16 @@ export class RunHandler {
           };
 
           const executableTool = tool ?? getWildcardTool();
+          // Handlerless frontend tools (e.g. chart components) must recreate
+          // missing empty results using their original call IDs. Handlers still
+          // run only for HITL prompts or an explicit "resume-pending" opt-in,
+          // so restoring history never repeats other tools' side effects.
           if (
-            toolExecutionMode === "human-in-the-loop" &&
-            (executableTool?.type !== "human-in-the-loop" ||
-              !executableTool.handler)
+            toolExecutionMode === "restore" &&
+            (!executableTool ||
+              (executableTool.handler &&
+                executableTool.type !== "human-in-the-loop" &&
+                executableTool.reconnectBehavior !== "resume-pending"))
           ) {
             continue;
           }
@@ -879,6 +970,8 @@ export class RunHandler {
           if (
             signal?.aborted ||
             agent.threadId !== threadId ||
+            (toolExecutionMode === "restore" &&
+              !this.isInLatestUserTurn(agent.messages, message.id)) ||
             executing.has(executionKey)
           ) {
             continue;
@@ -896,8 +989,8 @@ export class RunHandler {
 
           if (
             existingResult &&
-            executableTool?.handler &&
-            this.isFrontendPlaceholderResult(existingResult)
+            this.isFrontendPlaceholderResult(existingResult) &&
+            (toolExecutionMode === "restore" || executableTool?.handler)
           ) {
             if (existingResultIndex !== -1)
               newMessages.splice(existingResultIndex, 1);
@@ -948,8 +1041,7 @@ export class RunHandler {
             }
             const executionSignal = interactionController?.signal ?? signal;
             const discardOnAbort =
-              toolExecutionMode === "human-in-the-loop" ||
-              !!interactionController;
+              toolExecutionMode === "restore" || !!interactionController;
             try {
               if (tool) {
                 const followUp = await this.executeSpecificTool(
@@ -960,6 +1052,7 @@ export class RunHandler {
                   agentId,
                   executionSignal,
                   discardOnAbort,
+                  toolExecutionMode === "restore",
                 );
                 if (followUp) {
                   needsFollowUp = true;
@@ -975,6 +1068,7 @@ export class RunHandler {
                     agentId,
                     executionSignal,
                     discardOnAbort,
+                    toolExecutionMode === "restore",
                   );
                   if (followUp) {
                     needsFollowUp = true;
@@ -1021,6 +1115,14 @@ export class RunHandler {
         // complete and write fresh values into the context store before runAgent
         // reads it. The base implementation is a no-op; React overrides this.
         await this._internal.waitForPendingFrameworkUpdates();
+        if (
+          toolExecutionMode === "restore" &&
+          !messagesToProcess.some((message) =>
+            this.isInLatestUserTurn(agent.messages, message.id),
+          )
+        ) {
+          return runAgentResult;
+        }
         const continuationHandoff =
           this._internal.stateManager.markNextRunAsContinuation(agent, runId);
         return await this.runAgent(
@@ -1038,6 +1140,41 @@ export class RunHandler {
     return runAgentResult;
   }
 
+  /** A later user message supersedes pending work from an older turn. */
+  private isInLatestUserTurn(messages: Message[], messageId: string): boolean {
+    for (let index = messages.length - 1; index >= 0; index--) {
+      const message = messages[index];
+      if (message?.role === "user") return false;
+      if (message?.id === messageId) return true;
+    }
+    return false;
+  }
+
+  /** Locate a missing result before saved results for later calls in its batch. */
+  private toolResultInsertionIndex(
+    messages: Message[],
+    messageIndex: number,
+    toolCallId: string,
+  ): number {
+    const parent = messages[messageIndex];
+    const calls = parent?.role === "assistant" ? (parent.toolCalls ?? []) : [];
+    const callIndex = calls.findIndex((call) => call.id === toolCallId);
+    let insertAt = messageIndex + 1;
+    while (insertAt < messages.length) {
+      const result = messages[insertAt];
+      if (result?.role !== "tool") break;
+      const resultIndex = calls.findIndex(
+        (call) => call.id === result.toolCallId,
+      );
+      // Results from earlier batches may follow this assistant in replayed
+      // history. Preserve their position; only stop for a later sibling call.
+      if (resultIndex > callIndex) break;
+      insertAt++;
+    }
+    return insertAt;
+  }
+
+  /** Identify transport placeholders that must not count as completed answers. */
   private isFrontendPlaceholderResult(message: Message): boolean {
     return (
       message.role === "tool" && isForwardedToClientPlaceholder(message.content)
@@ -1059,6 +1196,7 @@ export class RunHandler {
     messageId,
     signal = this._runAbortController?.signal,
     discardOnAbort = false,
+    isReplay = false,
   }: {
     tool: FrontendTool<any>;
     toolCall: { id: string; function: { name: string; arguments: string } };
@@ -1069,8 +1207,10 @@ export class RunHandler {
     messageId?: string;
     signal?: AbortSignal;
     discardOnAbort?: boolean;
+    isReplay?: boolean;
   }): Promise<ExecuteToolHandlerResult> {
-    let toolCallResult = "";
+    let toolCallResult: string | ContentPart[] = "";
+    let toolCallText = "";
     let errorMessage: string | undefined;
     let isArgumentError = false;
 
@@ -1080,7 +1220,7 @@ export class RunHandler {
     } catch (error) {
       const parseError =
         error instanceof Error ? error : new Error(String(error));
-      errorMessage = parseError.message;
+      errorMessage = toolFailureMessage(parseError);
       isArgumentError = true;
       await this._internal.emitError({
         error: parseError,
@@ -1114,18 +1254,14 @@ export class RunHandler {
           toolCall: toolCall as any,
           agent,
           signal,
+          ...(isReplay ? { isReplay } : {}),
         });
-        if (result === undefined || result === null) {
-          toolCallResult = "";
-        } else if (typeof result === "string") {
-          toolCallResult = result;
-        } else {
-          toolCallResult = JSON.stringify(result);
-        }
+        ({ content: toolCallResult, text: toolCallText } =
+          toToolResultContent(result));
       } catch (error) {
         const handlerError =
           error instanceof Error ? error : new Error(String(error));
-        errorMessage = handlerError.message;
+        errorMessage = toolFailureMessage(handlerError);
         if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
           await this._internal.emitError({
             error: handlerError,
@@ -1144,7 +1280,7 @@ export class RunHandler {
     }
 
     if (errorMessage) {
-      toolCallResult = `Error: ${errorMessage}`;
+      toolCallResult = toolCallText = `Error: ${errorMessage}`;
     }
 
     await this._internal.notifySubscribers(
@@ -1154,13 +1290,18 @@ export class RunHandler {
           toolCallId: toolCall.id,
           agentId,
           toolName: toolCall.function.name,
-          result: errorMessage ? "" : toolCallResult,
+          result: errorMessage ? "" : toolCallText,
           error: errorMessage,
         }),
       "Subscriber onToolExecutionEnd error:",
     );
 
-    return { result: toolCallResult, error: errorMessage, isArgumentError };
+    return {
+      content: toolCallResult,
+      result: toolCallText,
+      error: errorMessage,
+      isArgumentError,
+    };
   }
 
   /**
@@ -1174,6 +1315,7 @@ export class RunHandler {
     agentId: string,
     signal?: AbortSignal,
     discardOnAbort = false,
+    isReplay = false,
   ): Promise<boolean> {
     const threadId = agent.threadId;
     // Check if tool is constrained to a specific agent
@@ -1183,6 +1325,7 @@ export class RunHandler {
     }
 
     let handlerResult: ExecuteToolHandlerResult = {
+      content: "",
       result: "",
       error: undefined,
       isArgumentError: false,
@@ -1199,6 +1342,7 @@ export class RunHandler {
         messageId: message.id,
         signal,
         discardOnAbort,
+        isReplay,
       });
     }
 
@@ -1208,6 +1352,7 @@ export class RunHandler {
         discardAbortedResult(signal, discardOnAbort, handlerResult.error) ||
         agent.threadId !== threadId ||
         messageIndex === -1 ||
+        (isReplay && !this.isInLatestUserTurn(agent.messages, message.id)) ||
         agent.messages.some(
           (m) =>
             m.role === "tool" &&
@@ -1219,22 +1364,17 @@ export class RunHandler {
         // already answered. Do not insert a stale answer or start a follow-up.
         return false;
       }
-      // Find the correct insertion point: after the parent assistant message
-      // and any tool-result messages already inserted for earlier tool calls
-      // in the same batch. This preserves tool-result ordering relative to
-      // the toolCalls array, which some providers (OpenAI) require.
-      let insertAt = messageIndex + 1;
-      while (
-        insertAt < agent.messages.length &&
-        agent.messages[insertAt]?.role === "tool"
-      ) {
-        insertAt++;
-      }
+      const insertAt = this.toolResultInsertionIndex(
+        agent.messages,
+        messageIndex,
+        toolCall.id,
+      );
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
-        content: handlerResult.result,
+        content: handlerResult.content,
+        ...(handlerResult.error ? { error: handlerResult.error } : {}),
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1260,6 +1400,7 @@ export class RunHandler {
     agentId: string,
     signal?: AbortSignal,
     discardOnAbort = false,
+    isReplay = false,
   ): Promise<boolean> {
     const threadId = agent.threadId;
     // Check if wildcard tool is constrained to a specific agent
@@ -1268,7 +1409,8 @@ export class RunHandler {
       return false;
     }
 
-    let toolCallResult = "";
+    let toolCallResult: string | ContentPart[] = "";
+    let toolCallText = "";
     let errorMessage: string | undefined;
 
     if (wildcardTool?.handler) {
@@ -1281,7 +1423,7 @@ export class RunHandler {
       } catch (error) {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
-        errorMessage = parseError.message;
+        errorMessage = toolFailureMessage(parseError);
         await this._internal.emitError({
           error: parseError,
           code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
@@ -1321,18 +1463,14 @@ export class RunHandler {
             // Use the same execution signal as named tools, including the
             // replay-specific signal when restoring a wildcard HITL handler.
             signal,
+            ...(isReplay ? { isReplay } : {}),
           });
-          if (result === undefined || result === null) {
-            toolCallResult = "";
-          } else if (typeof result === "string") {
-            toolCallResult = result;
-          } else {
-            toolCallResult = JSON.stringify(result);
-          }
+          ({ content: toolCallResult, text: toolCallText } =
+            toToolResultContent(result));
         } catch (error) {
           const handlerError =
             error instanceof Error ? error : new Error(String(error));
-          errorMessage = handlerError.message;
+          errorMessage = toolFailureMessage(handlerError);
           if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
             await this._internal.emitError({
               error: handlerError,
@@ -1351,7 +1489,7 @@ export class RunHandler {
       }
 
       if (errorMessage) {
-        toolCallResult = `Error: ${errorMessage}`;
+        toolCallResult = toolCallText = `Error: ${errorMessage}`;
       }
 
       await this._internal.notifySubscribers(
@@ -1361,7 +1499,7 @@ export class RunHandler {
             toolCallId: toolCall.id,
             agentId: agentId,
             toolName: toolCall.function.name,
-            result: errorMessage ? "" : toolCallResult,
+            result: errorMessage ? "" : toolCallText,
             error: errorMessage,
           }),
         "Subscriber onToolExecutionEnd error:",
@@ -1374,6 +1512,7 @@ export class RunHandler {
         discardAbortedResult(signal, discardOnAbort, errorMessage) ||
         agent.threadId !== threadId ||
         messageIndex === -1 ||
+        (isReplay && !this.isInLatestUserTurn(agent.messages, message.id)) ||
         agent.messages.some(
           (m) =>
             m.role === "tool" &&
@@ -1385,22 +1524,17 @@ export class RunHandler {
         // already answered. Do not insert a stale answer or start a follow-up.
         return false;
       }
-      // Find the correct insertion point: after the parent assistant message
-      // and any tool-result messages already inserted for earlier tool calls
-      // in the same batch. This preserves tool-result ordering relative to
-      // the toolCalls array, which some providers (OpenAI) require.
-      let insertAt = messageIndex + 1;
-      while (
-        insertAt < agent.messages.length &&
-        agent.messages[insertAt]?.role === "tool"
-      ) {
-        insertAt++;
-      }
+      const insertAt = this.toolResultInsertionIndex(
+        agent.messages,
+        messageIndex,
+        toolCall.id,
+      );
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: toolCallResult,
+        ...(errorMessage ? { error: errorMessage } : {}),
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1469,6 +1603,7 @@ export class RunHandler {
 
     // 5. Execute the tool handler (if it has one)
     let handlerResult: ExecuteToolHandlerResult = {
+      content: "",
       result: "",
       error: undefined,
       isArgumentError: false,
@@ -1490,7 +1625,8 @@ export class RunHandler {
       id: randomUUID(),
       role: "tool",
       toolCallId,
-      content: handlerResult.result,
+      content: handlerResult.content,
+      ...(handlerResult.error ? { error: handlerResult.error } : {}),
     };
 
     const assistantIndex = agent.messages.findIndex(
@@ -1661,6 +1797,18 @@ export class RunHandler {
         // standardized across agents.
         const runWasAborted = this._runAbortController?.signal.aborted === true;
         if (runWasAborted || event?.code === "abort") {
+          return;
+        }
+
+        // The SSE runtime rejected the run because the thread already has
+        // one in flight. Report it like Intelligence's 409 so one onError
+        // branch covers both transports.
+        if (event?.code === THREAD_ALREADY_RUNNING_ERROR_CODE) {
+          await emitAgentError(
+            new AgentThreadLockedError(agent.threadId),
+            CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED,
+            { source: "onRunErrorEvent", event },
+          );
           return;
         }
 

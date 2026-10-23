@@ -190,7 +190,7 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("cross-join produces 1050 cells (50 features x 21 integrations); metadata.total_cells excludes docs-only", () => {
+  it("cross-join produces 1100 cells (50 features x 22 integrations); metadata.total_cells excludes docs-only", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -204,7 +204,7 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    // 50 features × 21 integrations = 1050 cells. The catalog emits cells
+    // 50 features × 22 integrations = 1100 cells. The catalog emits cells
     // uniformly for all (integration × feature) pairs; deprecated-feature
     // visibility is controlled at the dashboard layer via the "Show
     // deprecated" toggle in feature-grid.tsx so the catalog stays
@@ -216,14 +216,14 @@ describe("Catalog Generator", () => {
     // and the 3 Mastra-only features (`background-agents`,
     // `observational-memory`, `browser-use`; unshipped for every other
     // integration).
-    expect(integrated.length).toBe(1050);
+    expect(integrated.length).toBe(1100);
     // Step 5 is gated by SHOWCASE_STARTER_CELLS, which is UNSET in CI — this
     // case pins the DEFAULT build. Its flag-on sibling is directly below.
     expect(starters.length).toBe(0);
-    expect(catalog.cells.length).toBe(1050);
-    // total_cells excludes docs-only features (currently 1 feature x 21 integrations = 21)
-    expect(catalog.metadata.total_cells).toBe(1029);
-    expect(catalog.metadata.docs_only).toBe(21);
+    expect(catalog.cells.length).toBe(1100);
+    // total_cells excludes docs-only features (currently 1 feature x 22 integrations = 22)
+    expect(catalog.metadata.total_cells).toBe(1078);
+    expect(catalog.metadata.docs_only).toBe(22);
   });
 
   // The flag-on sibling. Its ONLY job is the pairing: the starter cells appear
@@ -231,12 +231,12 @@ describe("Catalog Generator", () => {
   // the whole point of Step 6's starter exclusion — `total_cells` is the
   // single most-read number on the dashboard, and starter cells carry
   // `feature: null` + `status: "wired"`, so the docs-only predicate ADMITS
-  // them and would raise it by 21, unflagged.
+  // them and would raise it by 22, unflagged.
   //
   // MUTATION THAT REDS THIS CASE: drop `c.manifestation !== "starter"` from
   // `countableCells` in `catalog-flatten.ts` Step 6 — `total_cells` becomes
-  // 1050 and `wired` moves by the 16 non-`supported:false` columns.
-  it("with SHOWCASE_STARTER_CELLS=1: 21 starter cells appear and the rollups do NOT move", () => {
+  // 1100 and `wired` moves by the 17 non-`supported:false` columns.
+  it("with SHOWCASE_STARTER_CELLS=1: 22 starter cells appear and the rollups do NOT move", () => {
     runGenerator();
     const flagOff = readCatalog();
 
@@ -246,16 +246,16 @@ describe("Catalog Generator", () => {
     const starters = flagOn.cells.filter(
       (c: any) => c.manifestation === "starter",
     );
-    // One cell per column, all 21 — including the 5 `supported: false` ones,
+    // One cell per column, all 22 — including the 5 `supported: false` ones,
     // each of which mints exactly one "not supported" cell rather than nothing.
-    expect(starters.length).toBe(21);
-    expect(flagOn.cells.length).toBe(1071);
+    expect(starters.length).toBe(22);
+    expect(flagOn.cells.length).toBe(1122);
 
     // Status is DERIVED from the block, not hardcoded "wired".
     expect(starters.filter((c: any) => c.status === "unsupported").length).toBe(
       5,
     );
-    expect(starters.filter((c: any) => c.status === "wired").length).toBe(16);
+    expect(starters.filter((c: any) => c.status === "wired").length).toBe(17);
     // The axis's uniform ceiling, on every starter cell.
     expect(new Set(starters.map((c: any) => c.max_depth))).toEqual(
       new Set([3]),
@@ -273,8 +273,8 @@ describe("Catalog Generator", () => {
     expect(flagOn.metadata.docs_only).toBe(flagOff.metadata.docs_only);
     // And the same absolute numbers the flag-off case pins, restated so a
     // drift in BOTH modes cannot pass by moving together.
-    expect(flagOn.metadata.total_cells).toBe(1029);
-    expect(flagOn.metadata.docs_only).toBe(21);
+    expect(flagOn.metadata.total_cells).toBe(1078);
+    expect(flagOn.metadata.docs_only).toBe(22);
   });
 
   it("LGP has 50 cells: 37 wired + 1 stub + 10 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
@@ -387,7 +387,7 @@ describe("Catalog Generator", () => {
 
     expect(catalog.metadata).toBeDefined();
     // total_cells excludes docs-only features
-    expect(catalog.metadata.total_cells).toBe(1029);
+    expect(catalog.metadata.total_cells).toBe(1078);
 
     // Headline counts exclude docs-only cells; must sum to total_cells.
     expect(
@@ -406,7 +406,7 @@ describe("Catalog Generator", () => {
     ).toBe(catalog.cells.length);
     expect(catalog.metadata.wired).toBeGreaterThanOrEqual(490);
     expect(catalog.metadata.unsupported).toBeGreaterThanOrEqual(0);
-    expect(catalog.metadata.docs_only).toBe(21);
+    expect(catalog.metadata.docs_only).toBe(22);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped/unsupported", () => {

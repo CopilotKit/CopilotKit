@@ -127,6 +127,71 @@ describe("v1 `mcpServers` execute against the MCP client", () => {
   });
 });
 
+describe("v1 MCP tool names that collide", () => {
+  const searchTool = (from: string) => ({
+    description: `search on ${from}`,
+    schema: { parameters: { properties: { q: { type: "string" } } } },
+    execute: vi.fn().mockResolvedValue(`result from ${from}`),
+  });
+
+  it("keeps both servers' copies of a shared tool name, and each calls its own server", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const createMCPClient = vi.fn(async (config: { endpoint: string }) => ({
+      tools: async () => ({ search: searchTool(config.endpoint) }),
+    }));
+
+    const runtime = new CopilotRuntime({
+      agents: agents(),
+      mcpServers: [
+        { endpoint: "https://staging.example.com/mcp" },
+        { endpoint: "https://prod.example.com/mcp" },
+      ],
+      createMCPClient,
+    } as any);
+
+    const tools = await toolsOf(runtime);
+    const names = tools.map((t: any) => t.name);
+    expect(names).toContain("mcp1_search");
+    expect(names).toContain("mcp2_search");
+    expect(names).not.toContain("search");
+
+    const prod = tools.find((t: any) => t.name === "mcp2_search");
+    expect(await prod.execute({ q: "x" })).toBe(
+      "result from https://prod.example.com/mcp",
+    );
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"search"'));
+    warn.mockRestore();
+  });
+
+  it("never lets an MCP tool replace a v1 action of the same name", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const createMCPClient = vi.fn(async () => ({
+      tools: async () => ({ search: searchTool("mcp") }),
+    }));
+
+    const runtime = new CopilotRuntime({
+      agents: agents(),
+      actions: [
+        {
+          name: "search",
+          description: "the app's search",
+          parameters: [],
+          handler: async () => "from action",
+        },
+      ],
+      mcpServers: [{ endpoint: "https://mcp.example.com" }],
+      createMCPClient,
+    } as any);
+
+    const tools = await toolsOf(runtime);
+    const byName = Object.fromEntries(tools.map((t: any) => [t.name, t]));
+    expect(tools.filter((t: any) => t.name === "search")).toHaveLength(1);
+    expect(await byName.search.execute({})).toBe("from action");
+    expect(byName.mcp1_search).toBeDefined();
+    warn.mockRestore();
+  });
+});
+
 describe("attaching tools is idempotent", () => {
   // The endpoint factory calls `handleServiceAdapter` every time it runs, and
   // the documented v1 route builds the endpoint inside the request handler. A

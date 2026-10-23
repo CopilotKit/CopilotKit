@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import type { Overlay, OverlaySet } from "@/lib/overlay-types";
 import {
   ALL_OVERLAYS,
@@ -15,6 +15,7 @@ import {
 const STORAGE_KEY = "dashboard:overlays";
 const HASH_PREFIX = "matrix:";
 const OPS_PROBE_PREFIX = "ops:probe=";
+type DashboardTab = "matrix" | "compatibility" | "baseline" | "ops";
 
 // ---------------------------------------------------------------------------
 // URL hash helpers
@@ -22,13 +23,17 @@ const OPS_PROBE_PREFIX = "ops:probe=";
 
 /** Parse the current URL hash into tab + overlay set + optional probe ID. */
 function parseHash(): {
-  tab: "matrix" | "baseline" | "ops";
+  tab: DashboardTab;
   overlays: OverlaySet | null;
   probeId: string | null;
 } {
   const raw =
     typeof window !== "undefined" ? window.location.hash.slice(1) : "";
   if (!raw) return { tab: "matrix", overlays: null, probeId: null };
+
+  if (raw === "compatibility") {
+    return { tab: "compatibility", overlays: null, probeId: null };
+  }
 
   // #ops:probe=<id> — ops tab with probe detail drilldown
   if (raw.startsWith(OPS_PROBE_PREFIX)) {
@@ -86,13 +91,18 @@ function parseHash(): {
  * replaceState (used for initial mount sync to avoid polluting history).
  */
 function writeHash(
-  tab: "matrix" | "baseline" | "ops",
+  tab: DashboardTab,
   overlays?: OverlaySet,
   probeId?: string | null,
   push = false,
 ): void {
   if (typeof window === "undefined") return;
   const method = push ? "pushState" : "replaceState";
+
+  if (tab === "compatibility") {
+    window.history[method](null, "", "#compatibility");
+    return;
+  }
 
   if (tab === "baseline") {
     window.history[method](null, "", "#baseline");
@@ -149,10 +159,10 @@ function saveToStorage(overlays: OverlaySet): void {
 
 export interface UseOverlaysReturn {
   overlays: OverlaySet;
-  activeTab: "matrix" | "baseline" | "ops";
+  activeTab: DashboardTab;
   toggle: (overlay: Overlay) => void;
   applyPreset: (presetId: string) => void;
-  setTab: (tab: "matrix" | "baseline" | "ops") => void;
+  setTab: (tab: DashboardTab) => void;
   activePreset: string | null;
   showFilters: boolean;
   has: (overlay: Overlay) => boolean;
@@ -161,14 +171,10 @@ export interface UseOverlaysReturn {
 }
 
 export function useOverlays(): UseOverlaysReturn {
-  const initialized = useRef(false);
-
   const [overlays, setOverlays] = useState<OverlaySet>(
     () => new Set(DEFAULT_OVERLAYS) as OverlaySet,
   );
-  const [activeTab, setActiveTabRaw] = useState<"matrix" | "baseline" | "ops">(
-    "matrix",
-  );
+  const [activeTab, setActiveTabRaw] = useState<DashboardTab>("matrix");
   const [selectedProbeId, setSelectedProbeIdRaw] = useState<string | null>(
     null,
   );
@@ -183,16 +189,10 @@ export function useOverlays(): UseOverlaysReturn {
     setOverlays(resolved);
     setActiveTabRaw(tab);
     setSelectedProbeIdRaw(probeId);
+    // Normalize the resolved URL, not the pre-hydration default tab. Writing
+    // "matrix" from a second mount effect would erase direct tab links.
+    writeHash(tab, resolved, probeId, false);
   }, []);
-
-  // On mount, write hash to reflect actual state (handles legacy redirects
-  // and fallback from localStorage where the URL had no hash).
-  useEffect(() => {
-    if (!initialized.current) {
-      initialized.current = true;
-      writeHash(activeTab, overlays, selectedProbeId, false);
-    }
-  }, [activeTab, overlays, selectedProbeId]);
 
   // Listen for browser back/forward navigation
   useEffect(() => {
@@ -245,7 +245,7 @@ export function useOverlays(): UseOverlaysReturn {
   );
 
   const setTab = useCallback(
-    (tab: "matrix" | "baseline" | "ops") => {
+    (tab: DashboardTab) => {
       setActiveTabRaw(tab);
       setSelectedProbeIdRaw(null);
       writeHash(tab, overlays, null, true);

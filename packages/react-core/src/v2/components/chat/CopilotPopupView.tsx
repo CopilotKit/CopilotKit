@@ -190,6 +190,15 @@ function CopilotPopupViewInternal({
         return;
       }
 
+      // Popovers of the chat, such as a reply rating's comment, render in a
+      // portal outside the container.
+      if (
+        target instanceof Element &&
+        target.closest("[data-copilotkit-popover]")
+      ) {
+        return;
+      }
+
       setModalOpen?.(false);
     };
 
@@ -233,7 +242,7 @@ function CopilotPopupViewInternal({
     <div
       data-copilotkit
       className={cn(
-        "cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch",
+        "cpk:fixed cpk:inset-0 cpk:z-[1200] cpk:flex cpk:max-w-full cpk:flex-col cpk:items-stretch cpk:bg-transparent",
         "cpk:md:inset-auto cpk:md:bottom-24 cpk:md:right-6 cpk:md:items-end cpk:md:gap-4",
       )}
     >

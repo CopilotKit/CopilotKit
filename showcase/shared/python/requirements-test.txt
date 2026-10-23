@@ -1,0 +1,6 @@
+# Dependencies for showcase/shared/python/tests (CI: showcase_validate.yml).
+pytest
+pydantic
+jsonschema
+typing_extensions
+ag-ui-a2ui-toolkit==0.0.4

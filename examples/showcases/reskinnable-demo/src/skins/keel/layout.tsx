@@ -29,6 +29,7 @@ import { keelNav } from "@/skins/keel/nav";
 import { keelIdentity } from "@/skins/keel/identity";
 import { useKeelHref, useKeelSegments } from "@/skins/keel/href";
 import { PresenterResetButton } from "@/skins/keel/components/presenter-reset-button";
+import { GovernancePopover } from "@/shell/governance-popover";
 
 /** Per-segment nav icon. keelNav carries labels only, so the chrome owns the
  *  glyphs — dense, monochrome, utilitarian, in keeping with the theme. */
@@ -223,6 +224,12 @@ export function KeelLayout({ children }: { children: ReactNode }) {
               </span>
             </div>
             <RoleSwitcher />
+            {/* Which CUSTOMER is signed in, and how much memory they are
+                allowed. Shell-owned (every skin scopes memory through the same
+                two runtime callbacks) but placed HERE, beside the persona
+                switcher, because the two answer one question together: the
+                memory bucket is <organization>:<persona>. */}
+            <GovernancePopover />
             {/* Renders null unless PRESENTER_RESET_ENABLED is set (or the env is
                 non-production) — the SAME gate `POST /dev/reset` enforces. Gate
                 them differently and a booth shows a control that 403s. */}

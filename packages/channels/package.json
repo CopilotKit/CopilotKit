@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/channels",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Batteries-included CopilotKit Channels package with the core engine, JSX UI, and every supported platform adapter.",
   "license": "MIT",
   "repository": {
@@ -20,7 +20,6 @@
     "teams",
     "intelligence",
     "discord",
-    "telegram",
     "whatsapp",
     "copilotkit",
     "ag-ui"
@@ -52,6 +51,10 @@
       "types": "./dist/ui.d.ts",
       "import": "./dist/ui.js"
     },
+    "./takumi": {
+      "types": "./dist/takumi.d.ts",
+      "import": "./dist/takumi.js"
+    },
     "./slack": {
       "types": "./dist/slack.d.ts",
       "import": "./dist/slack.js"
@@ -76,10 +79,6 @@
       "types": "./dist/discord.d.ts",
       "import": "./dist/discord.js"
     },
-    "./telegram": {
-      "types": "./dist/telegram.d.ts",
-      "import": "./dist/telegram.js"
-    },
     "./whatsapp": {
       "types": "./dist/whatsapp.d.ts",
       "import": "./dist/whatsapp.js"
@@ -102,7 +101,6 @@
     "@copilotkit/channels-slack": "workspace:*",
     "@copilotkit/channels-teams": "workspace:*",
     "@copilotkit/channels-discord": "workspace:*",
-    "@copilotkit/channels-telegram": "workspace:*",
     "@copilotkit/channels-whatsapp": "workspace:*"
   },
   "devDependencies": {
@@ -118,7 +116,8 @@
     "@microsoft/agents-activity": "^1.5.3",
     "@microsoft/agents-hosting": "^1.5.3",
     "express": "^4.18.0 || ^5.0.0",
-    "vitest": "^4.0.0"
+    "react": ">=18",
+    "takumi-js": "^2.7.3"
   },
   "peerDependenciesMeta": {
     "@microsoft/agents-activity": {
@@ -130,7 +129,10 @@
     "express": {
       "optional": true
     },
-    "vitest": {
+    "react": {
+      "optional": true
+    },
+    "takumi-js": {
       "optional": true
     }
   },

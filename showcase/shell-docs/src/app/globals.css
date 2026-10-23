@@ -1855,6 +1855,15 @@ samp {
   margin-bottom: 0;
 }
 
+/* Fumadocs sizes the Callout icon (20px) for its own text-sm line (20px). The
+ * unlayered `.reference-content p` rule above gives the callout's first line
+ * 1rem x 1.75 = 28px, so the icon sat 4px above the text. Center it on that
+ * line. The inline --callout-color property is the only stable hook, because
+ * the fumadocs Callout renders no class or data attribute of its own. */
+.reference-content [style*="--callout-color"] > svg {
+  margin-top: calc((1rem * 1.75 - 1.25rem) / 2);
+}
+
 /* Framework landing sections (<FrameworkOverview> and its Intelligence block).
  *
  * The same component reaches the page through two routes: the data-record

@@ -34,4 +34,5 @@ Happy contributing!
 
 - [ ] I have read the [Contribution Guide](https://github.com/copilotkit/copilotkit/blob/master/CONTRIBUTING.md)
 - [ ] If the PR changes or adds functionality, I have updated the relevant documentation
+- [ ] If the PR contains a breaking change, the title has `!` (for example `feat(react-core)!: ...`) and the description has a `BREAKING CHANGE:` line with migration steps. See [VERSIONING.md](https://github.com/CopilotKit/CopilotKit/blob/main/VERSIONING.md)
 - [ ] "Allow edits by maintainers" is checked (lets us help iterate on your PR directly — faster turnaround for everyone)

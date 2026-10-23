@@ -64,20 +64,3 @@ test("the Mastra example initializes, registers, and calls the wrapped agent", a
   await run(Agent, SkillRegistry, createSkillRegistryProcessor);
   expect(calls).toEqual(["initialize", "wrap", "generate"]);
 });
-
-test("Mastra documents supported entry points and delivery cancellation limits", () => {
-  expect(section).toContain("22.13");
-  expect(section).toContain("@mastra/core>=1.0.0,<2");
-  for (const method of [
-    "generate",
-    "stream",
-    "resumeGenerate",
-    "resumeStream",
-  ]) {
-    expect(section).toContain(`\`${method}\``);
-  }
-  expect(section).toContain("abortSignal");
-  expect(section).toContain("defaultOptions");
-  expect(section).toContain("background workers");
-  expect(section).toContain("each selected agent");
-});

@@ -4,6 +4,36 @@ import test from "node:test";
 import { WebSocket } from "ws";
 import { startPlatform } from "../platform.mjs";
 
+test("connect credentials reflect the current lock without retaining a completed run", async (t) => {
+  const platform = await startPlatform();
+  t.after(() => platform.close());
+  platform.seedThread("owned");
+  const connect = async () => {
+    const response = await fetch(`${platform.url}/api/threads/owned/connect`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${platform.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId: "test-user",
+        agentId: "default",
+        runId: "client-invented-run",
+      }),
+    });
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  const idle = { threadId: "owned", joinToken: "connect-token-owned" };
+  assert.deepEqual(await connect(), idle);
+  platform.locks.set("owned", { runId: "first-run" });
+  assert.deepEqual(await connect(), { ...idle, runId: "first-run" });
+  platform.locks.set("owned", { runId: "replacement-run" });
+  assert.deepEqual(await connect(), { ...idle, runId: "replacement-run" });
+  platform.locks.delete("owned");
+  assert.deepEqual(await connect(), idle);
+});
+
 test("MCP fixture preserves UI metadata and enforces configured server auth", async (t) => {
   const platform = await startPlatform();
   t.after(() => platform.close());

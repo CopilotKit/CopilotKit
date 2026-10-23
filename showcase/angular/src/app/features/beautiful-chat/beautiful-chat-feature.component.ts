@@ -1,8 +1,15 @@
-import type { AttachmentsConfig } from "@copilotkit/angular";
 import type {
+  AttachmentsConfig,
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
+} from "@copilotkit/angular";
+import {
+  injectAgentStore,
+  registerFrontendTool,
+  registerHumanInTheLoop,
+  registerRenderActivityMessage,
+  registerRenderToolCall,
 } from "@copilotkit/angular";
 import type { Type } from "@angular/core";
 import {
@@ -11,13 +18,6 @@ import {
   computed,
   signal,
 } from "@angular/core";
-import {
-  injectAgentStore,
-  registerFrontendTool,
-  registerHumanInTheLoop,
-  registerRenderActivityMessage,
-  registerRenderToolCall,
-} from "@copilotkit/angular";
 import { mcpAppsActivityRendererConfig } from "@copilotkit/angular/mcp-apps";
 import { z } from "zod";
 
@@ -28,16 +28,15 @@ import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import {
   BarChartCard,
   BeautifulToolReasoningCard,
-  FlightSearchCard,
   MeetingTimePickerCard,
   PieChartCard,
 } from "./beautiful-chat-cards";
 import { toggleDocumentTheme } from "./beautiful-chat-model";
+import type { BeautifulTodo } from "./beautiful-todo-canvas";
 import {
   BeautifulTodoCanvas,
   readBeautifulTodos,
 } from "./beautiful-todo-canvas";
-import type { BeautifulTodo } from "./beautiful-todo-canvas";
 
 type ToolArgs = Record<string, unknown>;
 
@@ -206,11 +205,6 @@ export class BeautifulChatFeatureComponent {
     registerRenderActivityMessage(mcpAppsActivityRendererConfig);
     this.registerChart("pieChart", PieChartCard);
     this.registerChart("barChart", BarChartCard);
-    registerRenderToolCall({
-      name: "search_flights",
-      args: z.object({ flights: z.array(z.record(z.unknown())) }),
-      component: asRenderer(FlightSearchCard),
-    });
     this.registerMeetingPicker();
     this.registerThemeTool();
     this.registerModeTool("enableAppMode", "app");

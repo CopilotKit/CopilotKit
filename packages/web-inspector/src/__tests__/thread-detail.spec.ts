@@ -119,6 +119,14 @@ async function flushDetail(detail: CpkThreadInspector): Promise<void> {
   }
 }
 
+async function flushLiveMessageRefresh(
+  detail: CpkThreadInspector,
+): Promise<void> {
+  await flushDetail(detail);
+  await vi.advanceTimersByTimeAsync(1_000);
+  await flushDetail(detail);
+}
+
 async function flushInspector(inspector: WebInspectorElement): Promise<void> {
   for (let turn = 0; turn < 7; turn += 1) {
     await Promise.resolve();
@@ -952,11 +960,22 @@ test("conversation preserves long replies, tool details, and generative UI while
     ).toContain("End of reply.");
     root.querySelector<HTMLElement>(".cpk-td__tool-header")!.click();
     await flushDetail(detail);
+    expect(
+      root.querySelector(".cpk-td__tool-header .cpk-td__tool-name")
+        ?.textContent,
+    ).toBe("Check calendars");
+    expect(
+      root.querySelector(".cpk-td__tool-header .cpk-td__tool-identifier")
+        ?.textContent,
+    ).toBe("(check_calendars)");
     expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
       "Thursday",
     );
     expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
       "available",
+    );
+    expect(root.querySelector(".cpk-td__tool-body")?.textContent).not.toContain(
+      "check_calendars",
     );
     const timelineToggle = requireButton(root, "Show event timeline");
     expect(timelineToggle.closest(".cpk-td__thread-header")).not.toBeNull();
@@ -1228,6 +1247,7 @@ test("Sam's tour uses the new labels while preserving step bodies, storage, navi
 });
 
 test("tool disclosures distinguish missing, null, and unreadable results", async () => {
+  vi.useFakeTimers();
   prepareDom();
   const getMessages = vi
     .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
@@ -1252,9 +1272,18 @@ test("tool disclosures distinguish missing, null, and unreadable results", async
     if (!disclosure) throw new Error("Missing tool disclosure button");
     expect(disclosure.getAttribute("aria-expanded")).toBe("false");
     expect(disclosure.textContent).toContain("No result recorded");
+    expect(disclosure.querySelector(".cpk-td__tool-name")?.textContent).toBe(
+      "Lookup",
+    );
+    expect(
+      disclosure.querySelector(".cpk-td__tool-identifier")?.textContent,
+    ).toBe("(lookup)");
     disclosure.click();
     await flushDetail(detail);
     expect(disclosure.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      disclosure.querySelector(".cpk-td__tool-identifier")?.textContent,
+    ).toBe("(lookup)");
     expect(root.querySelector(".cpk-td__tool-body")?.textContent).toContain(
       "test",
     );
@@ -1268,7 +1297,7 @@ test("tool disclosures distinguish missing, null, and unreadable results", async
       { id: "result", role: "tool", toolCallId: "lookup", content: "null" },
     ]);
     detail.liveMessageVersion += 1;
-    await flushDetail(detail);
+    await flushLiveMessageRefresh(detail);
     expect(root.querySelector(".cpk-td__tool-header")?.textContent).toContain(
       "Result received",
     );
@@ -1285,7 +1314,7 @@ test("tool disclosures distinguish missing, null, and unreadable results", async
       { id: "result", role: "tool", toolCallId: "lookup", content: "{broken" },
     ]);
     detail.liveMessageVersion += 1;
-    await flushDetail(detail);
+    await flushLiveMessageRefresh(detail);
     expect(root.querySelector(".cpk-td__tool-header")?.textContent).toContain(
       "Result unreadable",
     );
@@ -1298,12 +1327,14 @@ test("tool disclosures distinguish missing, null, and unreadable results", async
     expect(parseError).toHaveBeenCalledOnce();
   } finally {
     detail.remove();
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   }
 });
 
 test("conversation shows run errors and keeps last-good messages when refresh fails", async () => {
+  vi.useFakeTimers();
   prepareDom();
   const getMessages = vi
     .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
@@ -1335,7 +1366,7 @@ test("conversation shows run errors and keeps last-good messages when refresh fa
       root.querySelector('[role="tabpanel"]:not([hidden])')?.textContent,
     ).toContain("Calendar service unavailable");
     detail.liveMessageVersion += 1;
-    await flushDetail(detail);
+    await flushLiveMessageRefresh(detail);
     expect(root.textContent).toContain("Partial answer");
     expect(root.textContent).toContain(
       "Could not refresh messages. Showing the last loaded conversation.",
@@ -1347,8 +1378,12 @@ test("conversation shows run errors and keeps last-good messages when refresh fa
     );
     requireButton(root, "Show conversation").click();
     await flushDetail(detail);
+    let resolveRetry!: (messages: ThreadDebuggerMessage[]) => void;
     getMessages.mockImplementationOnce(
-      () => new Promise<ThreadDebuggerMessage[]>(() => {}),
+      () =>
+        new Promise<ThreadDebuggerMessage[]>((resolve) => {
+          resolveRetry = resolve;
+        }),
     );
     // Exercise a non-silent retry while the prior refresh warning is visible.
     void detail["fetchMessages"]("failed-run");
@@ -1356,24 +1391,36 @@ test("conversation shows run errors and keeps last-good messages when refresh fa
     expect(root.textContent).toContain("Loading messages…");
     expect(root.textContent).not.toContain("Could not refresh messages");
     detail.liveMessageVersion += 1;
-    await flushDetail(detail);
+    await flushLiveMessageRefresh(detail);
+    expect(getMessages).toHaveBeenCalledTimes(3);
+    expect(getMessages.mock.calls[2]?.[1]?.signal?.aborted).toBe(false);
+    expect(root.textContent).toContain("Loading messages…");
+    resolveRetry([]);
+    await flushLiveMessageRefresh(detail);
+    expect(getMessages).toHaveBeenCalledTimes(4);
     expect(root.textContent).toContain("Recovered answer");
     expect(root.textContent).not.toContain("Could not refresh messages");
   } finally {
     detail.remove();
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   }
 });
 
 test.each([false, true])(
-  "live refresh replacing the first message request clears loading (failure=%s)",
+  "live refresh waits for the first message request and clears loading (failure=%s)",
   async (fails) => {
+    vi.useFakeTimers();
     prepareDom();
+    let resolveInitial!: (messages: ThreadDebuggerMessage[]) => void;
     const getMessages = vi
       .fn<NonNullable<ThreadDebuggerProvider["getMessages"]>>()
       .mockImplementationOnce(
-        () => new Promise<ThreadDebuggerMessage[]>(() => {}),
+        () =>
+          new Promise<ThreadDebuggerMessage[]>((resolve) => {
+            resolveInitial = resolve;
+          }),
       );
     if (fails) getMessages.mockRejectedValue(new Error("Messages unavailable"));
     else
@@ -1388,13 +1435,20 @@ test.each([false, true])(
       await flushDetail(detail);
       expect(detail.shadowRoot?.textContent).toContain("Loading messages…");
       detail.liveMessageVersion += 1;
-      await flushDetail(detail);
+      await flushLiveMessageRefresh(detail);
+      expect(getMessages).toHaveBeenCalledOnce();
+      expect(getMessages.mock.calls[0]?.[1]?.signal?.aborted).toBe(false);
+      expect(detail.shadowRoot?.textContent).toContain("Loading messages…");
+      resolveInitial([]);
+      await flushLiveMessageRefresh(detail);
+      expect(getMessages).toHaveBeenCalledTimes(2);
       expect(detail.shadowRoot?.textContent).not.toContain("Loading messages…");
       expect(detail.shadowRoot?.textContent).toContain(
         fails ? "Messages unavailable" : "Latest answer",
       );
     } finally {
       detail.remove();
+      vi.useRealTimers();
       vi.restoreAllMocks();
       vi.unstubAllGlobals();
     }
@@ -1538,6 +1592,86 @@ test("long conversations place run errors in context without rebuilding on unrel
     requireButton(root, "Show details").click();
     await flushDetail(detail);
     expect(requireButton(root, "Hide details")).toBeDefined();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("tool shimmer requires live argument streaming for this thread", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "tool-streaming",
+    provider: {
+      getMessages: async () => [
+        {
+          id: "call",
+          role: "assistant",
+          toolCalls: [{ id: "lookup", name: "search_support_cases", args: {} }],
+        },
+      ],
+    },
+  });
+  const start = {
+    type: "TOOL_CALL_START",
+    timestamp: 2,
+    payload: { toolCallId: "lookup" },
+  };
+  const run = {
+    type: "RUN_STARTED",
+    timestamp: 1,
+    payload: { threadId: "tool-streaming" },
+  };
+  try {
+    await flushDetail(detail);
+    const root = detail.shadowRoot!;
+    const streaming = () => root.querySelector(".cpk-td__tool-name--streaming");
+    expect(streaming()).toBeNull();
+    expect(root.querySelector(".cpk-td__tool-name")?.textContent).toBe(
+      "Search support cases",
+    );
+
+    detail.agentEventsInput = [
+      start,
+      { ...run, payload: { threadId: "another-thread" } },
+    ];
+    await flushDetail(detail);
+    expect(streaming()).toBeNull();
+
+    detail.agentEventsInput = [start, run];
+    await flushDetail(detail);
+    expect(streaming()).not.toBeNull();
+    expect(root.querySelector(".cpk-td__tool-status")?.textContent).toContain(
+      "Receiving arguments",
+    );
+
+    // The subscriber wraps TOOL_CALL_END alongside parsed arguments.
+    detail.agentEventsInput = [
+      {
+        type: "TOOL_CALL_END",
+        timestamp: 3,
+        payload: { event: { toolCallId: "lookup" }, toolCallArgs: {} },
+      },
+      start,
+      run,
+    ];
+    await flushDetail(detail);
+    expect(streaming()).toBeNull();
+    expect(root.querySelector(".cpk-td__tool-status")?.textContent).toContain(
+      "No result recorded",
+    );
+
+    detail.agentEventsInput = [start, run];
+    await flushDetail(detail);
+    expect(streaming()).not.toBeNull();
+    detail.agentEventsInput = [
+      { type: "RUN_ERROR", timestamp: 4, payload: { message: "Disconnected" } },
+      start,
+      run,
+    ];
+    await flushDetail(detail);
+    expect(streaming()).toBeNull();
   } finally {
     detail.remove();
     vi.restoreAllMocks();

@@ -6,15 +6,29 @@
   "pages": [
     "overview",
     "quickstart",
+    "bring-your-own-thread-system",
     "intelligence-platform",
     "memories",
     "learned-skills",
+    {
+      "title": "Trajectories",
+      "pages": [
+        "trajectories",
+        "trajectories-quickstart",
+        "capture-interactions",
+        "captured-data",
+        "trajectories-reference"
+      ]
+    },
+    "standalone-collector",
     "analytics",
     "channels",
     "managed-intelligence-platform",
     "plans",
     "self-hosting",
+    "self-hosting-local",
     "self-hosting-ecs",
+    "self-hosting-observability",
     "threads-explained"
   ]
 }

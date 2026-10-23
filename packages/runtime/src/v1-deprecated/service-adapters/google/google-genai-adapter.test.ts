@@ -148,4 +148,31 @@ describe("GoogleGenerativeAIAdapter", () => {
     expect(filteredMessages[0]).toBeInstanceOf(HumanMessage);
     expect(filteredMessages[1]).toBeInstanceOf(SystemMessage);
   });
+
+  // Google limits the Gemini 2.5 models to keys that used them before, so a
+  // new key gets a 404 on them. The default must be a model a new key can call.
+  it("defaults to gemini-3.5-flash when no model is given", async () => {
+    const adapter = new GoogleGenerativeAIAdapter();
+
+    expect(adapter.model).toBe("gemini-3.5-flash");
+
+    await (adapter as any).options.chainFn({
+      messages: [new HumanMessage("Hello")],
+      tools: [],
+      threadId: "test-thread",
+    });
+
+    expect(MockChatGoogle).toHaveBeenCalledWith(
+      expect.objectContaining({ modelName: "gemini-3.5-flash" }),
+    );
+  });
+
+  it("uses the model the caller passes instead of the default", () => {
+    const adapter = new GoogleGenerativeAIAdapter({
+      model: "gemini-3.8-flash",
+      apiVersion: "v1",
+    });
+
+    expect(adapter.model).toBe("gemini-3.8-flash");
+  });
 });

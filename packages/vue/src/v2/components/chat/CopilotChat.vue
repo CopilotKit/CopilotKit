@@ -1,9 +1,5 @@
 <script setup lang="ts">
-import {
-  AGUIConnectNotImplementedError,
-  AbstractAgent,
-  HttpAgent,
-} from "@ag-ui/client";
+import { AGUIConnectNotImplementedError, AbstractAgent } from "@ag-ui/client";
 import {
   createAttachmentContent,
   DEFAULT_AGENT_ID,
@@ -21,7 +17,7 @@ import {
   useSlots,
   watch,
 } from "vue";
-import { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import { CopilotKitCoreErrorCode, ɵisHttpAgent } from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
@@ -111,9 +107,15 @@ type ActiveConnectCycle = {
   inspectorRequestId: string | null;
   abortController: AbortController;
   detached: boolean;
+  clearDiscardedBaseline?: () => void;
 };
 
 const activeConnectCycle = shallowRef<ActiveConnectCycle | null>(null);
+let lastConnectCycle: ActiveConnectCycle | null = null;
+const detachPromises = new WeakMap<AbstractAgent, Promise<void>>();
+// Agent clones can share cursors. Finish every old reset before connecting again.
+let pendingTeardown = Promise.resolve();
+const baselineThreadIds = new WeakMap<AbstractAgent, string>();
 
 const resolvedAgentId = computed(
   () => props.agentId ?? existingConfig.value?.agentId ?? DEFAULT_AGENT_ID,
@@ -379,6 +381,7 @@ watch(
     // React does — makes the ordering unconditional instead of depending on
     // watcher scheduling. Non-explicit threads skip /connect below, but the first
     // runAgent still has to ship the thread the UI is rendering.
+    baselineThreadIds.set(currentAgent, currentAgent.threadId);
     currentAgent.threadId = threadId;
 
     // When the caller hasn't picked a specific thread, resolvedThreadId is
@@ -421,10 +424,6 @@ watch(
       cycle = existingCycle;
     } else {
       const connectAbortController = new AbortController();
-      if (currentAgent instanceof HttpAgent) {
-        currentAgent.abortController = connectAbortController;
-      }
-
       cycle = {
         core: core as object,
         agent: currentAgent,
@@ -434,11 +433,18 @@ watch(
         detached: false,
       };
       activeConnectCycle.value = cycle;
+      lastConnectCycle = cycle;
 
-      void core
-        .connectAgent({ agent: currentAgent })
+      void pendingTeardown
+        .then(() => {
+          if (cycle.detached) return;
+          if (ɵisHttpAgent(currentAgent))
+            currentAgent.abortController = connectAbortController;
+          return core.connectAgent({ agent: currentAgent });
+        })
         .catch((error: unknown) => {
           if (cycle.detached) {
+            cycle.clearDiscardedBaseline?.();
             return;
           }
           if (error instanceof AGUIConnectNotImplementedError) {
@@ -460,6 +466,7 @@ watch(
           // can briefly render against an incompletely-laid-out message
           // tree and visibly snap once the last text chunk lands.
           if (cycle.detached) {
+            cycle.clearDiscardedBaseline?.();
             return;
           }
           const raf =
@@ -490,7 +497,17 @@ watch(
 
       activeCycle.detached = true;
       activeCycle.abortController.abort();
-      void activeCycle.agent.detachActiveRun?.();
+      const detach = activeCycle.agent
+        .detachActiveRun()
+        .catch((error: unknown) => {
+          console.error("CopilotChat: detachActiveRun failed", error);
+        });
+      detachPromises.set(activeCycle.agent, detach);
+      pendingTeardown = Promise.all([pendingTeardown, detach]).then(() => {});
+      void detach.then(() => {
+        if (detachPromises.get(activeCycle.agent) === detach)
+          detachPromises.delete(activeCycle.agent);
+      });
       activeConnectCycle.value = null;
     });
   },
@@ -502,17 +519,80 @@ watch(
 // replay their history via the /connect cycle above, and the very first
 // resolution (mount) or an agent-store swap that keeps the same thread id
 // must never clear — only a real fresh-thread transition does.
-const lastFreshThreadId = ref<string | undefined>(undefined);
+let lastFreshSelection:
+  | { threadId: string; agent: AbstractAgent | null }
+  | undefined;
 watch(
   [resolvedThreadId, hasExplicitThreadId, () => agent.value],
-  ([threadId, isExplicit, currentAgent]) => {
-    const previous = lastFreshThreadId.value;
-    lastFreshThreadId.value = threadId;
+  ([threadId, isExplicit, currentAgent], _old, onCleanup) => {
+    const previous = lastFreshSelection;
+    const selection = { threadId, agent: currentAgent };
+    lastFreshSelection = selection;
     if (!currentAgent) return;
     if (isExplicit) return;
     if (previous === undefined) return;
-    if (threadId === previous) return;
-    currentAgent.setMessages([]);
+    if (threadId === previous.threadId) return;
+    let active = true;
+    let resetPending = true;
+    onCleanup(() => {
+      active = false;
+    });
+    const discardedThreadId =
+      previous.agent === currentAgent
+        ? previous.threadId
+        : baselineThreadIds.get(currentAgent);
+    const clearCursor = () => {
+      if (!discardedThreadId) return;
+      if (
+        "clearReplayCursor" in currentAgent &&
+        typeof currentAgent.clearReplayCursor === "function"
+      )
+        currentAgent.clearReplayCursor(discardedThreadId);
+      if (
+        "clearReconnectCursor" in currentAgent &&
+        typeof currentAgent.clearReconnectCursor === "function"
+      )
+        currentAgent.clearReconnectCursor(discardedThreadId);
+    };
+    const clearDiscardedBaseline = () => {
+      if (
+        !active ||
+        !resetPending ||
+        isUnmounting.value ||
+        lastFreshSelection !== selection ||
+        agent.value !== currentAgent
+      )
+        return;
+      currentAgent.setMessages([]);
+      currentAgent.setState({});
+      currentAgent.pendingInterrupts = [];
+      clearCursor();
+    };
+    if (
+      lastConnectCycle?.agent === currentAgent &&
+      lastConnectCycle.threadId === discardedThreadId
+    )
+      lastConnectCycle.clearDiscardedBaseline = clearDiscardedBaseline;
+    const detach =
+      detachPromises.get(currentAgent) ?? currentAgent.detachActiveRun();
+    detachPromises.set(currentAgent, detach);
+    const finishReset = () => {
+      if (!resetPending) return;
+      // The cursor belongs to the discarded view, even after a fast reopen.
+      clearCursor();
+      clearDiscardedBaseline();
+      resetPending = false;
+    };
+    clearDiscardedBaseline();
+    pendingTeardown = Promise.all([pendingTeardown, detach])
+      .then(finishReset)
+      .catch((error: unknown) => {
+        console.error("CopilotChat: detachActiveRun failed", error);
+      })
+      .finally(() => {
+        if (detachPromises.get(currentAgent) === detach)
+          detachPromises.delete(currentAgent);
+      });
   },
   { immediate: true },
 );

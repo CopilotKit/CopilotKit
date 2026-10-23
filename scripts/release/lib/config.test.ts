@@ -5,7 +5,11 @@ import {
   loadConfig,
   resolveScopes,
 } from "./config.js";
-import { getPackagesForScope } from "./versions.js";
+import {
+  findCrossScopePins,
+  getCurrentVersion,
+  getPackagesForScope,
+} from "./versions.js";
 import { getScopePathspecs } from "./changes.js";
 
 const CHANNELS_PACKAGES = [
@@ -15,10 +19,40 @@ const CHANNELS_PACKAGES = [
   "@copilotkit/channels-teams",
   "@copilotkit/channels-intelligence",
   "@copilotkit/channels-discord",
-  "@copilotkit/channels-telegram",
   "@copilotkit/channels-whatsapp",
   "@copilotkit/channels",
 ];
+
+describe("Learning in the monorepo release", () => {
+  it("versions and publishes Learning with the monorepo packages", () => {
+    expect(() => resolveScopes("learning")).toThrow(/Unknown scope/);
+    expect(getScopeConfig("monorepo").packages).toContain(
+      "@copilotkit/learning",
+    );
+    expect(
+      Object.values(loadConfig().scopes)
+        .flatMap((scope) => scope.packages)
+        .filter((name) => name === "@copilotkit/learning"),
+    ).toHaveLength(1);
+    const learning = getPackagesForScope("monorepo").find(
+      (pkg) => pkg.name === "@copilotkit/learning",
+    );
+    expect(learning?.pkg.version).toBe(getCurrentVersion("monorepo"));
+    expect(getScopePathspecs("monorepo")).toContain("packages/learning");
+  });
+
+  it("pins Core to the same-release Learning version", () => {
+    const core = getPackagesForScope("monorepo").find(
+      (pkg) => pkg.name === "@copilotkit/core",
+    );
+    expect(core?.pkg.dependencies["@copilotkit/learning"]).toBe("workspace:*");
+    expect(
+      findCrossScopePins(["monorepo"]).filter(
+        (pin) => pin.dep === "@copilotkit/learning",
+      ),
+    ).toEqual([]);
+  });
+});
 
 describe("Channels release scope", () => {
   it("publishes the complete Channels family from one shared scope", () => {

@@ -1,0 +1,73 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "PNI555 create tasks",
+        "toolCallId": "call_PNI555_create_tasks"
+      },
+      "response": {
+        "content": "Board saved."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "PNI555 create tasks"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_PNI555_create_tasks",
+            "name": "manage_sales_todos",
+            "arguments": "{\"todos\": [{\"id\": \"pni555-first\", \"title\": \"Send proposal\", \"description\": \"Include pricing\", \"emoji\": \"\\ud83d\\udce8\", \"status\": \"pending\"}, {\"id\": \"pni555-old\", \"title\": \"Existing task\", \"notes\": \"Keep this note\", \"completed\": false}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "PNI555 persist board",
+        "toolCallId": "call_PNI555_persist_board"
+      },
+      "response": {
+        "content": "Board saved."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "PNI555 persist board"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_PNI555_persist_board",
+            "name": "get_sales_todos",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "PNI555 recall board",
+        "toolCallId": "call_PNI555_recall_board"
+      },
+      "response": {
+        "content": "Board saved."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "PNI555 recall board"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_PNI555_recall_board",
+            "name": "get_sales_todos",
+            "arguments": "{}"
+          }
+        ]
+      }
+    }
+  ]
+}

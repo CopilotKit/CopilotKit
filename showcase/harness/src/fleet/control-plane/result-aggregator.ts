@@ -1,3 +1,5 @@
+import { selectedObservationFingerprint } from "../../writers/selected-observation.js";
+import type { PbClient } from "../../storage/pb-client.js";
 /**
  * Control-plane RESULT AGGREGATOR (BLITZ S5).
  *
@@ -324,7 +326,47 @@ export type AggregatorPriorStateResolver = (
   aggregateKey: string,
 ) => Promise<State | null | undefined> | State | null | undefined;
 
+export function createJobFeatureScopeResolver(pb: Pick<PbClient, "getOne">) {
+  return async (jobId: string): Promise<readonly string[] | undefined> => {
+    const row = await pb.getOne<{ id: string; payload: unknown }>(
+      "probe_jobs",
+      jobId,
+    );
+    if (
+      !row ||
+      row.id !== jobId ||
+      row.payload === null ||
+      typeof row.payload !== "object" ||
+      Array.isArray(row.payload)
+    ) {
+      throw new Error(`fleet.aggregator: unknown scope for job ${jobId}`);
+    }
+    const payload = row.payload as Record<string, unknown>;
+    if (
+      typeof payload.driverKind !== "string" ||
+      !payload.driverKind ||
+      (payload.cellIds !== undefined &&
+        (!Array.isArray(payload.cellIds) ||
+          payload.cellIds.some((id) => typeof id !== "string")))
+    ) {
+      throw new Error(`fleet.aggregator: invalid scope for job ${jobId}`);
+    }
+    if (
+      payload.driverKind !== "e2e_d6" ||
+      !Array.isArray(payload.cellIds) ||
+      payload.cellIds.length === 0
+    )
+      return undefined;
+    return payload.cellIds;
+  };
+}
+
 export interface ResultAggregatorDeps {
+  /** Read the authoritative persisted selection before any effects. */
+  resolveFeatureScope?: (
+    jobId: string,
+  ) => Promise<readonly string[] | undefined>;
+
   statusWriter: StatusWriter;
   runWriter: ProbeRunWriter;
   logger: Logger;
@@ -432,6 +474,28 @@ export function createResultAggregator(
 
   return {
     async aggregate(result) {
+      const featureScope = await deps.resolveFeatureScope?.(result.jobId);
+      const selectedKeys = featureScope
+        ? new Set(
+            featureScope.map(
+              (id) =>
+                `${result.aggregateKey.trim().replace(/^d5-single-pill-e2e:/, "d5:")}/${id}`,
+            ),
+          )
+        : undefined;
+      if (
+        selectedKeys &&
+        (!result.aggregateKey.trim() || !statusWriter.writeSelected)
+      )
+        throw new Error(
+          "fleet.aggregator: selected atomic writer and aggregate key are required",
+        );
+      let selectedCertificate: string | undefined;
+      let reopenSelectedRun = false;
+
+      // Selected runs require a matching summary fingerprint before terminal
+      // skip; otherwise receipts repair the same run. The ordinary gate below
+      // retains its existing best-effort behavior and single-flight assumption.
       // ── IDEMPOTENCY GATE ────────────────────────────────────────────────
       // The consumer aggregates-then-latches `result_processed`. If that latch
       // write fails (or the process crashes before it), the SAME job's result
@@ -480,7 +544,7 @@ export function createResultAggregator(
       let dedupLookupFailed = false;
       try {
         const prior = await runWriter.findByJobId(result.jobId);
-        if (prior && prior.terminal) {
+        if (prior && prior.terminal && !selectedKeys) {
           logger.debug("fleet.aggregator.dedup-skip", {
             probeKey: result.aggregateKey,
             jobId: result.jobId,
@@ -496,8 +560,13 @@ export function createResultAggregator(
             corruptStateSkippedKeys: [],
           };
         }
-        if (prior) resumeRunRowId = prior.id;
+        if (prior) {
+          resumeRunRowId = prior.id;
+          reopenSelectedRun = !!selectedKeys && prior.terminal;
+          selectedCertificate = prior.selectedObservationFingerprint;
+        }
       } catch (err) {
+        if (selectedKeys) throw err;
         const info = errorInfo(err);
         dedupLookupFailed = true;
         logger.warn("fleet.aggregator.dedup-lookup-failed", {
@@ -662,6 +731,7 @@ export function createResultAggregator(
           });
           runRowId = created.id;
         } catch (err) {
+          if (selectedKeys) throw err;
           const info = errorInfo(err);
           logger.error("fleet.aggregator.run-start-failed", {
             probeKey: result.aggregateKey,
@@ -739,7 +809,29 @@ export function createResultAggregator(
             ),
           )
         : undefined;
+      if (selectedKeys) {
+        // Missing selected cells carry diagnostics, never synthetic passes.
+        const returnedKeys = new Set(
+          result.cells.map((cell) => cell.cellKey.trim()),
+        );
+        if (
+          result.commError ||
+          (result.aggregateState === "error" && result.cells.length === 0)
+        ) {
+          for (const key of selectedKeys) {
+            if (returnedKeys.has(key)) continue;
+            probeResults.push({
+              key,
+              state: "error",
+              signal: result.commError ? {} : result.aggregateSignal,
+              observedAt: result.commError?.observedAt ?? result.finishedAt,
+            });
+          }
+        }
+      }
       for (const [i, rawPr] of probeResults.entries()) {
+        if (selectedKeys && (i === 0 || !selectedKeys.has(rawPr.key.trim())))
+          continue;
         // G2r8: a drifted primary (identity check above) is refused outright
         // — its identity is unknown, so neither a durable write nor an
         // overlay may touch it (already error-logged + surfaced via
@@ -897,7 +989,56 @@ export function createResultAggregator(
             "every projected row was skipped (blank/whitespace keys), so the comm error reaches neither a status row nor status_history — a permanent drop, surfaced to callers via droppedCommError on the outcome",
         });
       }
+      const selectedFingerprint = selectedKeys
+        ? selectedObservationFingerprint({
+            result,
+            selectedKeys: [...selectedKeys].sort(),
+            planned,
+          })
+        : undefined;
+      if (selectedKeys && reopenSelectedRun) {
+        if (selectedCertificate === selectedFingerprint) {
+          return {
+            runRowId,
+            statusOutcomes,
+            overlayOutcomes,
+            skipped: true,
+            outageSkippedKeys,
+            droppedCommError,
+            corruptStateSkippedKeys,
+          };
+        }
+        await runWriter.update({
+          id: runRowId!,
+          summary: runSummaryForServiceJobResult(result),
+          reopen: true,
+        });
+      }
       for (const { pr, overlayFirst } of planned) {
+        if (selectedKeys) {
+          const selected = await statusWriter.writeSelected!({
+            jobId: result.jobId,
+            result: result.commError
+              ? {
+                  ...pr,
+                  state: overlayFirst ? "error" : pr.state,
+                  signal: withCommErrorOverlay(pr.signal, result),
+                }
+              : pr,
+            ...(result.commError && overlayFirst
+              ? {
+                  overlay: {
+                    key: pr.key,
+                    signal: commErrorToStatusSignal(result.commError),
+                    observedAt: pr.observedAt,
+                  },
+                }
+              : {}),
+          });
+          if (selected.kind === "overlay") overlayOutcomes.push(selected.value);
+          else statusOutcomes.push(selected.value);
+          continue;
+        }
         if (result.commError) {
           if (overlayFirst) {
             const overlayOutcome = await statusWriter.writeOverlay({
@@ -1037,13 +1178,18 @@ export function createResultAggregator(
             id: runRowId,
             finishedAt: now(),
             state: runState,
+            ...(selectedKeys ? { required: true as const } : {}),
             summary: {
+              ...(selectedFingerprint
+                ? { selectedObservationFingerprint: selectedFingerprint }
+                : {}),
               ...runSummaryForServiceJobResult(result),
               redsIntroduced,
               redsCleared,
             },
           });
         } catch (err) {
+          if (selectedKeys) throw err;
           const info = errorInfo(err);
           logger.error("fleet.aggregator.run-finish-failed", {
             probeKey: result.aggregateKey,

@@ -1,0 +1,244 @@
+/* A neutral, generic eval tool: deliberately not Intelligence's look and not any real vendor's. */
+.app {
+  min-height: 100vh;
+  background: #f6f7f9;
+  color: #1f2328;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  font-size: 14px;
+}
+.top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 52px;
+  padding: 0 20px;
+  background: #1f2937;
+  color: #e5e7eb;
+}
+.top b {
+  color: #fff;
+  font-size: 15px;
+}
+.logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  background: #f59e0b;
+  color: #1f2937;
+  font-weight: 800;
+}
+.crumb {
+  color: #9ca3af;
+  font-size: 13px;
+}
+.workspace {
+  margin-left: auto;
+  font-size: 12px;
+  color: #9ca3af;
+}
+.body {
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr);
+  min-height: calc(100vh - 52px);
+}
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 10px;
+  border-right: 1px solid #e5e7eb;
+  background: #fff;
+  color: #6b7280;
+}
+.nav span {
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+.navOn {
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 600;
+}
+.main {
+  padding: 20px 24px 40px;
+  min-width: 0;
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px 8px 0 0;
+}
+.head h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+}
+.head p {
+  margin: 2px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+.kpi {
+  display: grid;
+}
+.kpi b {
+  font-size: 24px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.kpi span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+}
+.bad b {
+  color: #b42318;
+}
+.run {
+  margin-left: auto;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: #fff;
+}
+.table {
+  width: 100%;
+  min-width: 52rem;
+  border-collapse: collapse;
+}
+.table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  padding: 9px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+.table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid #f0f1f3;
+  vertical-align: top;
+}
+.q {
+  font-weight: 550;
+}
+.exp {
+  color: #4b5563;
+}
+.note {
+  color: #6b7280;
+  font-size: 12px;
+  margin-top: 2px;
+}
+.failing td {
+  background: #fff7f6;
+}
+.failing td:first-child {
+  box-shadow: inset 3px 0 0 #d92d20;
+}
+.imported td {
+  background: #fffbeb;
+}
+.imported td:first-child {
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+.importBadge {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  padding: 1px 7px;
+}
+.checks {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+  font-size: 12.5px;
+}
+.dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.pass {
+  background: #16a34a;
+}
+.fail {
+  background: #dc2626;
+}
+.pr {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #15803d;
+}
+.prBad {
+  color: #b42318;
+}
+.resPass,
+.resFail,
+.notRun {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.resPass {
+  background: #dcfce7;
+  color: #15803d;
+}
+.resFail {
+  background: #fee4e2;
+  color: #b42318;
+}
+.notRun {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+.footer {
+  margin-top: 14px;
+  color: #9ca3af;
+  font-size: 12px;
+}
+@media (max-width: 820px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .nav {
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1px solid #e5e7eb;
+  }
+}

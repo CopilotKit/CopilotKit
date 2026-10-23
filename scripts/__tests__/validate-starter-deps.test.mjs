@@ -5,6 +5,8 @@ import * as path from "node:path";
 import { after, describe, it } from "node:test";
 
 import {
+  parseUvLockVersions,
+  pep440Satisfies,
   parsePyprojectDeps,
   parseUvSources,
   splitRequirement,
@@ -22,17 +24,26 @@ after(() => {
   for (const dir of tmpRoots) fs.rmSync(dir, { recursive: true, force: true });
 });
 
-/** Build a throwaway `examples/integrations`-shaped tree and validate it. */
-function check(starters) {
+/**
+ * Build a throwaway `examples/integrations`-shaped tree and validate it.
+ * `repoFiles` are written relative to the repository root, for manifests that
+ * live outside the starters (the Intelligence adapters under `packages/`).
+ */
+function check(starters, repoFiles = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "starter-deps-"));
   tmpRoots.push(root);
   const integrations = path.join(root, "examples", "integrations");
+  const write = (full, content) => {
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content);
+  };
   for (const [starter, files] of Object.entries(starters)) {
     for (const [rel, content] of Object.entries(files)) {
-      const full = path.join(integrations, starter, rel);
-      fs.mkdirSync(path.dirname(full), { recursive: true });
-      fs.writeFileSync(full, content);
+      write(path.join(integrations, starter, rel), content);
     }
+  }
+  for (const [rel, content] of Object.entries(repoFiles)) {
+    write(path.join(root, rel), content);
   }
   return validateStarterDeps(integrations, root);
 }
@@ -366,5 +377,357 @@ dependencies = [
         constraint: ">=4.6",
       },
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PE-369 — adding the Intelligence adapter to a LangGraph starter failed.
+//
+// `langgraph-python` and `langgraph-fastapi` pinned `langgraph==1.1.6` and
+// `langchain==1.2.15`, below `copilotkit-intelligence-langgraph`'s
+// `langgraph>=1.1.10` and `langchain>=1.2.16`, so `uv add` was unsatisfiable.
+// `langgraph-js` locked `@langchain/langgraph` 1.3.0 against the JS adapter's
+// `>=1.4.14 <2` peer, so `npm install` failed with ERESOLVE.
+// ---------------------------------------------------------------------------
+
+const JS_ADAPTER = {
+  "packages/intelligence-langgraph/package.json": JSON.stringify({
+    name: "@copilotkit/intelligence-langgraph",
+    peerDependencies: {
+      "@langchain/langgraph": ">=1.4.14 <2",
+      zod: "^3.25.76 || ^4.0.0",
+    },
+  }),
+};
+
+const PY_ADAPTER = {
+  "packages/intelligence-langgraph-python/pyproject.toml": `[project]
+name = "copilotkit-intelligence-langgraph"
+dependencies = ["copilotkit-intelligence-runtime>=0.1.0,<0.2", "langgraph>=1.1.10,<2"]
+`,
+};
+
+const npmLock = (versions) =>
+  JSON.stringify({
+    lockfileVersion: 3,
+    packages: {
+      "": { name: "agent" },
+      ...Object.fromEntries(
+        Object.entries(versions).map(([name, version]) => [
+          `node_modules/${name}`,
+          { version },
+        ]),
+      ),
+    },
+  });
+
+const uvLock = (versions) =>
+  Object.entries(versions)
+    .map(
+      ([name, version]) =>
+        `[[package]]\nname = "${name}"\nversion = "${version}"\nsource = { registry = "https://pypi.org/simple" }\n`,
+    )
+    .join("\n");
+
+describe("PE-369: starter lock outside the Intelligence adapter range", () => {
+  it("flags the pre-fix langgraph-js lock", () => {
+    const violations = check(
+      {
+        "langgraph-js": {
+          "agent/package-lock.json": npmLock({
+            "@langchain/langgraph": "1.3.0",
+          }),
+        },
+      },
+      JS_ADAPTER,
+    );
+    const hits = of(violations, "adapter-floor");
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0].starter, "langgraph-js");
+    assert.equal(hits[0].subject, "@langchain/langgraph");
+    assert.match(hits[0].detail, /1\.3\.0/);
+    assert.match(hits[0].detail, />=1\.4\.14 <2/);
+  });
+
+  it("flags the pre-fix langgraph-python lock", () => {
+    const violations = check(
+      {
+        "langgraph-python": {
+          "agent/uv.lock": uvLock({ langgraph: "1.1.6" }),
+        },
+      },
+      PY_ADAPTER,
+    );
+    const hits = of(violations, "adapter-floor");
+    assert.equal(hits.length, 1);
+    assert.equal(hits[0].subject, "langgraph");
+    assert.match(hits[0].detail, /1\.1\.6/);
+  });
+
+  it("flags a lock above the adapter's upper bound", () => {
+    const violations = check(
+      {
+        "langgraph-fastapi": {
+          "agent/uv.lock": uvLock({ langgraph: "2.0.0" }),
+        },
+      },
+      PY_ADAPTER,
+    );
+    assert.equal(of(violations, "adapter-floor").length, 1);
+  });
+
+  it("passes when every locked version is inside the adapter range", () => {
+    const violations = check(
+      {
+        "langgraph-js": {
+          "agent/package-lock.json": npmLock({
+            "@langchain/langgraph": "1.4.18",
+          }),
+        },
+        "langgraph-python": {
+          "agent/uv.lock": uvLock({ langgraph: "1.2.11" }),
+        },
+      },
+      { ...JS_ADAPTER, ...PY_ADAPTER },
+    );
+    assert.deepEqual(of(violations, "adapter-floor"), []);
+  });
+
+  it("ignores an adapter dependency the starter does not lock", () => {
+    // zod and copilotkit-intelligence-runtime arrive with the adapter itself,
+    // so a starter without them has nothing to conflict with.
+    const violations = check(
+      {
+        "langgraph-js": {
+          "agent/package-lock.json": npmLock({
+            "@langchain/langgraph": "1.4.18",
+          }),
+        },
+      },
+      JS_ADAPTER,
+    );
+    assert.deepEqual(of(violations, "adapter-floor"), []);
+  });
+
+  it("fails when a mapped starter's lockfile or adapter manifest is missing", () => {
+    // A rename must not turn the rule into a silent pass.
+    const noLock = check(
+      { "langgraph-js": { "agent/package.json": "{}" } },
+      JS_ADAPTER,
+    );
+    assert.equal(of(noLock, "adapter-floor").length, 1);
+    assert.match(of(noLock, "adapter-floor")[0].detail, /package-lock\.json/);
+
+    const noAdapter = check({
+      "langgraph-python": { "agent/uv.lock": uvLock({ langgraph: "1.2.11" }) },
+    });
+    assert.equal(of(noAdapter, "adapter-floor").length, 1);
+    assert.match(
+      of(noAdapter, "adapter-floor")[0].detail,
+      /intelligence-langgraph-python/,
+    );
+  });
+
+  it("reads every locked version of a package from uv.lock", () => {
+    assert.deepEqual(
+      parseUvLockVersions(
+        uvLock({ langgraph: "1.2.11", langchain: "1.4.0" }) +
+          '\n[[package]]\nname = "langgraph"\nversion = "1.1.6"\n',
+        "langgraph",
+      ),
+      ["1.2.11", "1.1.6"],
+    );
+  });
+
+  it("compares PEP 440 versions by release segment, not as strings", () => {
+    assert.equal(pep440Satisfies("1.1.10", ">=1.1.10,<2"), true);
+    assert.equal(pep440Satisfies("1.1.9", ">=1.1.10,<2"), false);
+    assert.equal(pep440Satisfies("1.10.0", ">=1.9"), true);
+    assert.equal(pep440Satisfies("2", "<2.0"), false);
+    assert.equal(pep440Satisfies("1.4.0", "==1.4"), true);
+    assert.equal(pep440Satisfies("1.4.0", "!=1.4.0"), false);
+    assert.throws(() => pep440Satisfies("1.0", "~=1.0"), /unsupported/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PE-970 — the Turbopack dev server leaks PostCSS workers.
+//
+// On Next.js 16 below 16.3.1, `next dev` (Turbopack) runs PostCSS in a pool of
+// Node.js workers that can grow without a limit. The langgraph-js starter on
+// 16.1.6 reached about 74 GB of RAM. Next.js 16.3.1 fixes it.
+// ---------------------------------------------------------------------------
+
+const nextLock = (version) =>
+  JSON.stringify({
+    lockfileVersion: 3,
+    packages: {
+      "": { dependencies: { next: version } },
+      "node_modules/next": { version },
+    },
+  });
+
+const nextStarter = (range, lockedVersion) => ({
+  "package.json": JSON.stringify({ dependencies: { next: range } }),
+  ...(lockedVersion === undefined
+    ? {}
+    : { "package-lock.json": nextLock(lockedVersion) }),
+});
+
+describe("PE-970: Next.js with the Turbopack PostCSS worker leak", () => {
+  it("flags a lock that installs an affected Next.js 16 release", () => {
+    const violations = of(
+      check({
+        "langgraph-js": nextStarter("16.1.6", "16.1.6"),
+        agno: nextStarter("16.0.7", "16.0.7"),
+        "crewai-crews": nextStarter("16.2.9", "16.2.9"),
+      }),
+      "next-turbopack-worker-leak",
+    );
+    assert.deepEqual(
+      violations.map((v) => [v.starter, v.subject]),
+      [
+        ["agno", "next@16.0.7"],
+        ["crewai-crews", "next@16.2.9"],
+        ["langgraph-js", "next@16.1.6"],
+      ],
+    );
+    assert.match(violations[0].fix, /16\.3\.1/);
+  });
+
+  it("reads the locked version, so a caret range does not hide it", () => {
+    const violations = of(
+      check({ "a2a-a2ui": nextStarter("^16.0.10", "16.0.10") }),
+      "next-turbopack-worker-leak",
+    );
+    assert.deepEqual(
+      violations.map((v) => v.subject),
+      ["next@16.0.10"],
+    );
+  });
+
+  it("passes on 16.3.1 and later, and on Next.js 15", () => {
+    const violations = of(
+      check({
+        fixed: nextStarter("16.3.8", "16.3.8"),
+        floor: nextStarter("16.3.1", "16.3.1"),
+        newer: nextStarter("16.4.2", "16.4.2"),
+        "a2a-middleware": nextStarter("15.5.15", "15.5.15"),
+      }),
+      "next-turbopack-worker-leak",
+    );
+    assert.deepEqual(violations, []);
+  });
+
+  it("falls back to the lowest version package.json allows when there is no lockfile", () => {
+    const violations = of(
+      check({
+        unlocked: nextStarter("^16.1.0"),
+        "unlocked-fixed": nextStarter("^16.3.1"),
+      }),
+      "next-turbopack-worker-leak",
+    );
+    assert.deepEqual(
+      violations.map((v) => [v.starter, v.subject]),
+      [["unlocked", "next@16.1.0"]],
+    );
+  });
+
+  it("ignores a starter that does not use Next.js", () => {
+    const violations = of(
+      check({
+        angular: {
+          "package.json": JSON.stringify({
+            dependencies: { "@angular/core": "20.0.0" },
+          }),
+        },
+      }),
+      "next-turbopack-worker-leak",
+    );
+    assert.deepEqual(violations, []);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PE-970 — `next dev` writes agent files into the scaffolded project.
+//
+// From 16.3, `next dev` writes AGENTS.md and CLAUDE.md into the project root
+// when it detects an AI coding agent, which is how most users run a starter.
+// The starters set `agentRules: false` so a project stays as it was scaffolded.
+// ---------------------------------------------------------------------------
+
+const withConfig = (version, configText, file = "next.config.ts") => ({
+  ...nextStarter(version, version),
+  [file]: configText,
+});
+
+describe("PE-970: next dev must not write agent files into a starter", () => {
+  it("flags a Next.js 16.3 starter whose next.config leaves agentRules on", () => {
+    const violations = of(
+      check({
+        "langgraph-js": withConfig(
+          "16.3.8",
+          'const nextConfig: NextConfig = {\n  output: "standalone",\n};\nexport default nextConfig;\n',
+        ),
+        "a2a-a2ui": withConfig(
+          "16.3.8",
+          "const nextConfig = {\n  agentRules: true,\n};\nmodule.exports = nextConfig;\n",
+          "next.config.js",
+        ),
+      }),
+      "next-agent-rules",
+    );
+    assert.deepEqual(
+      violations.map((v) => [v.starter, v.subject]),
+      [
+        ["a2a-a2ui", "next.config.js"],
+        ["langgraph-js", "next.config.ts"],
+      ],
+    );
+    assert.match(violations[0].fix, /agentRules: false/);
+  });
+
+  it("flags a Next.js 16.3 starter with no next.config at all", () => {
+    const violations = of(
+      check({ bare: nextStarter("16.3.8", "16.3.8") }),
+      "next-agent-rules",
+    );
+    assert.deepEqual(
+      violations.map((v) => v.subject),
+      ["next.config"],
+    );
+  });
+
+  it("passes when next.config sets agentRules: false", () => {
+    const violations = of(
+      check({
+        ts: withConfig(
+          "16.3.8",
+          "const nextConfig = {\n  agentRules: false,\n};\n",
+        ),
+        mjs: withConfig(
+          "16.4.2",
+          "const nextConfig = { agentRules : false };\nexport default nextConfig;\n",
+          "next.config.mjs",
+        ),
+      }),
+      "next-agent-rules",
+    );
+    assert.deepEqual(violations, []);
+  });
+
+  it("ignores Next.js releases before 16.3 and starters without Next.js", () => {
+    const violations = of(
+      check({
+        old: withConfig("15.5.15", "const nextConfig = {};\n"),
+        angular: {
+          "package.json": JSON.stringify({
+            dependencies: { "@angular/core": "20.0.0" },
+          }),
+        },
+      }),
+      "next-agent-rules",
+    );
+    assert.deepEqual(violations, []);
   });
 });

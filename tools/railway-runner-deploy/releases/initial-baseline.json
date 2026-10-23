@@ -1,0 +1,10 @@
+{
+  "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:984f616acffebca0c393a54294b4366a33214221782a7192b4761bb84325e79d",
+  "runtimeIdentity": {
+    "protocolVersion": 1,
+    "sourceRevision": "1c9f51ca5d3180079e5a43369a3bb7573d46d806",
+    "sourceManifestSha256": "42f3f61c34d61f81948c66136cab2b784ed09822e1bf2a355049513ee45e7403",
+    "compatibilitySha256": "423d1f8af5c05530e4d31feba1d0f1c7ad0a215e52fa0748aee1690d5191a74a",
+    "policySha256": "7eb39aa628b77c30efa88a00c4ad0695de89ac2bb919e7e25f550a4ab2f2c765"
+  }
+}

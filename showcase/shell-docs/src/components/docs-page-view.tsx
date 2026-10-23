@@ -294,6 +294,7 @@ export async function DocsPageView({
                     githubUrl={buildGitHubUrl(doc.filePath)}
                     onboardingFramework={onboardingFramework}
                     onboardingFrontend={onboardingFrontend}
+                    pagePrompt={doc.fm.agentPrompt}
                   />
                 )}
             </DocsContentHeader>
@@ -365,6 +366,7 @@ export async function DocsPageView({
                               githubUrl={buildGitHubUrl(doc.filePath)}
                               onboardingFramework={onboardingFramework}
                               onboardingFrontend={onboardingFrontend}
+                              pagePrompt={doc.fm.agentPrompt}
                             />
                           </div>
                         ),

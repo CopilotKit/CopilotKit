@@ -51,6 +51,28 @@
  *                        type-only, never resolved at runtime, and tsc finds
  *                        them through its own `@types` root lookup.
  *
+ *   adapter-floor        A LangGraph starter's lockfile installs a version
+ *                        outside the range that the matching CopilotKit
+ *                        Intelligence adapter (`packages/intelligence-langgraph*`)
+ *                        declares. Adding the adapter to that starter then
+ *                        fails to resolve (PE-369). The ranges are read from
+ *                        the adapter manifests, so raising an adapter floor
+ *                        fails the starters that fall below it.
+ *
+ *   next-turbopack-worker-leak
+ *                        A starter's lockfile installs Next.js 16 below
+ *                        16.3.1 (PE-970). On those releases `next dev` runs
+ *                        PostCSS in a Turbopack worker pool that can grow
+ *                        without a limit, and one starter reached about 74 GB
+ *                        of RAM. With no lockfile, the lowest version that the
+ *                        package.json range allows is checked instead.
+ *
+ *   next-agent-rules     A starter on Next.js 16.3 or later whose next.config
+ *                        does not set `agentRules: false` (PE-970). From 16.3,
+ *                        `next dev` writes AGENTS.md and CLAUDE.md into the
+ *                        project when it detects an AI coding agent, which is
+ *                        how most users run a starter.
+ *
  * ALLOWLIST
  * ---------
  * Pre-existing violations are listed in ALLOWLIST below with the ticket that
@@ -62,6 +84,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import semver from "semver";
 
 const FLOATING_TAGS = new Set(["latest", "next", "*", "x", "X", ""]);
 const VERSION_OPERATOR = /[=<>~!]/;
@@ -379,7 +402,220 @@ function checkPythonConstraints(starter, dir, repoRoot, violations) {
   }
 }
 
+/**
+ * LangGraph starters that a developer can add a CopilotKit Intelligence
+ * adapter to, keyed by the adapter manifest that declares the ranges.
+ */
+const ADAPTER_FLOORS = [
+  {
+    adapter: "packages/intelligence-langgraph/package.json",
+    kind: "npm",
+    starters: { "langgraph-js": "agent/package-lock.json" },
+  },
+  {
+    adapter: "packages/intelligence-langgraph-python/pyproject.toml",
+    kind: "python",
+    starters: {
+      "langgraph-python": "agent/uv.lock",
+      "langgraph-fastapi": "agent/uv.lock",
+    },
+  },
+];
+
+/** Every `version` uv.lock records for `name` (resolution markers can split one package). */
+export function parseUvLockVersions(text, name) {
+  const versions = [];
+  for (const block of text.split(/^\[\[package\]\]\s*$/m)) {
+    const blockName = block.match(/^name = "([^"]+)"/m)?.[1];
+    const version = block.match(/^version = "([^"]+)"/m)?.[1];
+    if (blockName === name && version) versions.push(version);
+  }
+  return versions;
+}
+
+function compareRelease(a, b) {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+/**
+ * PEP 440 check for the comparison operators the adapters use. Release
+ * segments only. An operator outside this set throws, so a new adapter
+ * constraint style fails the check instead of passing it unread.
+ */
+export function pep440Satisfies(version, constraint) {
+  const ops = {
+    ">=": (d) => d >= 0,
+    "<=": (d) => d <= 0,
+    ">": (d) => d > 0,
+    "<": (d) => d < 0,
+    "==": (d) => d === 0,
+    "!=": (d) => d !== 0,
+  };
+  return constraint
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean)
+    .every((clause) => {
+      const m = clause.match(/^(>=|<=|==|!=|>|<)\s*([0-9][0-9.]*)$/);
+      if (!m) throw new Error(`unsupported PEP 440 clause "${clause}"`);
+      return ops[m[1]](compareRelease(version, m[2]));
+    });
+}
+
+function adapterRanges(kind, manifestPath) {
+  if (kind === "npm") return readJson(manifestPath).peerDependencies ?? {};
+  const ranges = {};
+  for (const spec of parsePyprojectDeps(
+    fs.readFileSync(manifestPath, "utf8"),
+  )) {
+    const { name, constraint } = splitRequirement(spec);
+    ranges[name] = constraint;
+  }
+  return ranges;
+}
+
+function lockedVersions(kind, lockText, name) {
+  if (kind === "python") return parseUvLockVersions(lockText, name);
+  // Top-level entry only: that is the copy the adapter's peer resolves to.
+  const entry = JSON.parse(lockText).packages?.[`node_modules/${name}`];
+  return entry?.version ? [entry.version] : [];
+}
+
+function checkAdapterFloors(integrationsDir, repoRoot, violations) {
+  for (const { adapter, kind, starters } of ADAPTER_FLOORS) {
+    for (const [starter, lockRel] of Object.entries(starters)) {
+      const dir = path.join(integrationsDir, starter);
+      if (!fs.existsSync(dir)) continue;
+      const manifest = path.join("examples/integrations", starter, lockRel);
+      const missing = [path.join(repoRoot, adapter), path.join(dir, lockRel)]
+        .filter((p) => !fs.existsSync(p))
+        .map((p) => path.relative(repoRoot, p));
+      if (missing.length > 0) {
+        violations.push({
+          starter,
+          rule: "adapter-floor",
+          subject: "manifest",
+          manifest,
+          detail: `Cannot compare the starter with its Intelligence adapter: ${missing.join(", ")} does not exist.`,
+          fix: "Update ADAPTER_FLOORS in scripts/validate-starter-deps.mjs to the moved path.",
+        });
+        continue;
+      }
+      const lockText = fs.readFileSync(path.join(dir, lockRel), "utf8");
+      const ranges = adapterRanges(kind, path.join(repoRoot, adapter));
+      for (const [name, range] of Object.entries(ranges)) {
+        for (const version of lockedVersions(kind, lockText, name)) {
+          const ok =
+            kind === "npm"
+              ? semver.satisfies(version, range)
+              : pep440Satisfies(version, range);
+          if (ok) continue;
+          violations.push({
+            starter,
+            rule: "adapter-floor",
+            subject: name,
+            manifest,
+            detail: `The starter locks ${name} ${version}, but ${adapter} requires "${range}". Adding the Intelligence adapter to this starter fails to resolve.`,
+            fix: `Raise the ${name} pin in examples/integrations/${starter} into "${range}" and refresh the lockfile.`,
+          });
+        }
+      }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
+// Next.js Turbopack worker leak (PE-970)
+// ---------------------------------------------------------------------------
+
+/** The first Next.js 16 release whose Turbopack dev server bounds its PostCSS workers. */
+const NEXT_WORKER_LEAK_FIXED = "16.3.1";
+
+/** The first Next.js release whose `next dev` writes AGENTS.md and CLAUDE.md. */
+const NEXT_AGENT_RULES_FROM = "16.3.0";
+
+/**
+ * The Next.js version a starter installs: the lockfile's, or with no lockfile
+ * the lowest version its package.json range allows.
+ *
+ * @returns `{ version, locked }`, or undefined when the starter has no Next.js.
+ */
+function nextVersion(dir) {
+  const pkgPath = path.join(dir, "package.json");
+  if (!fs.existsSync(pkgPath)) return undefined;
+  const pkg = readJson(pkgPath);
+  const range = pkg.dependencies?.next ?? pkg.devDependencies?.next;
+  if (range === undefined) return undefined;
+
+  const lockPath = path.join(dir, "package-lock.json");
+  const locked = fs.existsSync(lockPath)
+    ? readJson(lockPath).packages?.["node_modules/next"]?.version
+    : undefined;
+  const version = locked ?? semver.minVersion(String(range))?.version;
+  return version === undefined
+    ? undefined
+    : { version, locked: locked !== undefined };
+}
+
+function checkNextWorkerLeak(starter, dir, violations) {
+  const next = nextVersion(dir);
+  if (next === undefined) return;
+  const { version, locked } = next;
+  if (
+    semver.major(version) !== 16 ||
+    semver.gte(version, NEXT_WORKER_LEAK_FIXED)
+  ) {
+    return;
+  }
+
+  violations.push({
+    starter,
+    rule: "next-turbopack-worker-leak",
+    subject: `next@${version}`,
+    manifest: path.join("examples/integrations", starter, "package.json"),
+    detail:
+      `${locked ? "package-lock.json installs" : "package.json allows"} next@${version}. ` +
+      `Its Turbopack dev server can start PostCSS workers until the machine runs out of memory.`,
+    fix: `Pin next to ${NEXT_WORKER_LEAK_FIXED} or later in examples/integrations/${starter}/package.json and refresh the lockfile.`,
+  });
+}
+
+function checkNextAgentRules(starter, dir, violations) {
+  const next = nextVersion(dir);
+  if (next === undefined || semver.lt(next.version, NEXT_AGENT_RULES_FROM))
+    return;
+
+  const config = [
+    "next.config.ts",
+    "next.config.mjs",
+    "next.config.js",
+    "next.config.cjs",
+  ].find((name) => fs.existsSync(path.join(dir, name)));
+  const text = config ? fs.readFileSync(path.join(dir, config), "utf8") : "";
+  if (/\bagentRules\s*:\s*false\b/.test(text)) return;
+
+  violations.push({
+    starter,
+    rule: "next-agent-rules",
+    subject: config ?? "next.config",
+    manifest: path.join(
+      "examples/integrations",
+      starter,
+      config ?? "next.config.ts",
+    ),
+    detail:
+      `next@${next.version} writes AGENTS.md and CLAUDE.md into the project when \`next dev\` detects an AI coding agent, ` +
+      `so a user's project changes after its first run.`,
+    fix: `Set agentRules: false in examples/integrations/${starter}/${config ?? "next.config.ts"}.`,
+  });
+}
+
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -393,8 +629,11 @@ export function validateStarterDeps(integrationsDir, repoRoot = process.cwd()) {
     const dir = path.join(integrationsDir, entry.name);
     checkNpmFloatingTags(entry.name, dir, violations);
     checkUndeclaredPeers(entry.name, dir, violations);
+    checkNextWorkerLeak(entry.name, dir, violations);
+    checkNextAgentRules(entry.name, dir, violations);
     checkPythonConstraints(entry.name, dir, repoRoot, violations);
   }
+  checkAdapterFloors(integrationsDir, repoRoot, violations);
   return violations;
 }
 

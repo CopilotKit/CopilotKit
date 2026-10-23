@@ -17,6 +17,22 @@ import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
 import type { CopilotChatFeedbackMessage } from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
+import {
+  MessageFeedbackScopeContext,
+  useLearningFeedbackEnabled,
+} from "./message-feedback";
+import type { MessageFeedbackScope } from "./message-feedback";
+import CopilotChatWorkSummary from "./CopilotChatWorkSummary";
+import { Collapsible } from "./CopilotChatToolCallGroup";
+import { ToolCallDisplayContext } from "./tool-call-display-context";
+import type { ToolCallDisplayContextValue } from "./tool-call-display-context";
+import { getToolCallLayouts, getTurnWork } from "./tool-call-layout";
+import type {
+  CopilotChatToolCallDisplay,
+  ToolCallEntry,
+  TurnWork,
+} from "./tool-call-layout";
+import { useToolCallRendererNames } from "../../hooks/use-render-tool-call";
 import type {
   ActivityMessage,
   AssistantMessage,
@@ -78,12 +94,14 @@ const MemoizedAssistantMessage = React.memo(
     message,
     messages,
     isRunning,
+    isLatest,
     AssistantMessageComponent,
     slotProps,
   }: {
     message: AssistantMessage;
     messages: Message[];
     isRunning: boolean;
+    isLatest: boolean;
     AssistantMessageComponent: typeof CopilotChatAssistantMessage;
     slotProps?: Partial<
       React.ComponentProps<typeof CopilotChatAssistantMessage>
@@ -94,6 +112,7 @@ const MemoizedAssistantMessage = React.memo(
         message={message}
         messages={messages}
         isRunning={isRunning}
+        isLatest={isLatest}
         {...slotProps}
       />
     );
@@ -139,12 +158,14 @@ const MemoizedAssistantMessage = React.memo(
       }
     }
 
-    // Only care about isRunning if this message is CURRENTLY the latest
-    // (we don't need to re-render just because a message stopped being the latest)
-    const nextIsLatest =
-      nextProps.messages[nextProps.messages.length - 1]?.id ===
-      nextProps.message.id;
-    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning)
+    // A message renders as in-progress (toolbar hidden) only while it is the
+    // latest one and the run is going. Re-render when that flips, including a
+    // message that stops being the latest mid-run; not for every change in
+    // either flag, so earlier messages stay put while a new one streams in.
+    if (
+      (prevProps.isRunning && prevProps.isLatest) !==
+      (nextProps.isRunning && nextProps.isLatest)
+    )
       return false;
 
     // Check if component reference changed
@@ -230,12 +251,14 @@ const MemoizedReasoningMessage = React.memo(
     message,
     messages,
     isRunning,
+    isLatest,
     ReasoningMessageComponent,
     slotProps,
   }: {
     message: ReasoningMessage;
     messages: Message[];
     isRunning: boolean;
+    isLatest: boolean;
     ReasoningMessageComponent: typeof CopilotChatReasoningMessage;
     slotProps?: Partial<
       React.ComponentProps<typeof CopilotChatReasoningMessage>
@@ -246,6 +269,7 @@ const MemoizedReasoningMessage = React.memo(
         message={message}
         messages={messages}
         isRunning={isRunning}
+        isLatest={isLatest}
         {...slotProps}
       />
     );
@@ -257,16 +281,10 @@ const MemoizedReasoningMessage = React.memo(
 
     // Re-render when "latest" status changes (e.g. reasoning message is no longer the last message
     // because a text message was added after it — this transitions isStreaming from true to false)
-    const prevIsLatest =
-      prevProps.messages[prevProps.messages.length - 1]?.id ===
-      prevProps.message.id;
-    const nextIsLatest =
-      nextProps.messages[nextProps.messages.length - 1]?.id ===
-      nextProps.message.id;
-    if (prevIsLatest !== nextIsLatest) return false;
+    if (prevProps.isLatest !== nextProps.isLatest) return false;
 
     // Only care about isRunning if this message is CURRENTLY the latest
-    if (nextIsLatest && prevProps.isRunning !== nextProps.isRunning)
+    if (nextProps.isLatest && prevProps.isRunning !== nextProps.isRunning)
       return false;
 
     // Check if component reference changed
@@ -403,6 +421,61 @@ export function deduplicateMessages(messages: Message[]): Message[] {
   return [...acc.values()];
 }
 
+/** What the view passes the wrapper of a message group. */
+export interface MessageGroupWrapperProps<S = unknown> {
+  /** The group's key, as returned by `groupMessages`. */
+  groupKey: string;
+  /** The messages in the group, in order. */
+  messages: Message[];
+  /** The default rendering of the group's messages. */
+  children: React.ReactNode;
+  /**
+   * State the view keeps for this group, keyed by `groupKey`. It survives the
+   * row leaving the window and the wrapper remounting, is dropped once the key
+   * no longer appears, and is cleared when the thread changes. `undefined`
+   * until first set.
+   */
+  state: S | undefined;
+  setState: (next: S) => void;
+}
+
+/** Several messages rendered as one row, inside an app-provided wrapper. */
+export interface MessageGroup<S = unknown> {
+  type: "group";
+  /**
+   * Identifies the group across renders: its React key and the key its state
+   * is held under. Keep it stable while the thread streams, e.g. the id of the
+   * group's first message.
+   */
+  key: string;
+  messages: Message[];
+  /**
+   * Define it once at module level. A component created inside
+   * `groupMessages` is a new type on every call and remounts each time.
+   */
+  wrapper: React.ComponentType<MessageGroupWrapperProps<S>>;
+}
+
+/** One row of the message list: a single message, or a group of them. */
+export type MessageRow = { type: "message"; message: Message } | MessageGroup;
+
+/** A row holding a single message, rendered as it would be ungrouped. */
+export function messageRow(message: Message): MessageRow {
+  return { type: "message", message };
+}
+
+/** A row holding a group of messages, rendered inside `wrapper`. */
+export function messageGroup<S>(
+  group: Omit<MessageGroup<S>, "type">,
+): MessageRow {
+  // A group's state type is between it and its own wrapper; the row list only
+  // hands back what that wrapper set. Erased once here so groups with
+  // different state types can share one array.
+  return { type: "group", ...group } as unknown as MessageGroup;
+}
+
+const GROUP_ROW_KEY_PREFIX = "copilotkit-group:";
+
 export type CopilotChatMessageViewProps = Omit<
   WithSlots<
     {
@@ -411,10 +484,52 @@ export type CopilotChatMessageViewProps = Omit<
       reasoningMessage: typeof CopilotChatReasoningMessage;
       cursor: typeof CopilotChatMessageView.Cursor;
       intelligenceIndicator: typeof IntelligenceIndicatorView;
+      /** The "Working… / Worked for 9s" line of the `"turn"` tool-call display. */
+      workSummary: typeof CopilotChatWorkSummary;
     },
     {
       isRunning?: boolean;
       messages?: Message[];
+      /**
+       * Reshapes the message list before it renders: drop, replace or reorder
+       * messages with the whole list in view. Receives the list after duplicate
+       * ids are merged. Row keys, virtualization and rendering all work off
+       * the returned list, so a dropped message takes no row.
+       *
+       * Tool-call cards still look up their results in the full list, so
+       * hiding tool-result messages here does not strip results from them.
+       *
+       * Memoized on the input list and this function — pass a stable function
+       * (e.g. `useCallback`) or it reruns on every render.
+       */
+      transformMessages?: (messages: Message[]) => Message[];
+      /**
+       * Splits the message list into rows. Return `messageRow(message)` for a
+       * message that renders on its own, and `messageGroup({ key, messages,
+       * wrapper })` for messages that render together inside `wrapper` — a
+       * collapsible block of tool calls, say. Receives the list after
+       * `transformMessages`. Each row is one virtualized row.
+       *
+       * Return each message in at most one row. Tool-call cards still find
+       * their results in the full list.
+       *
+       * Memoized on its input and this function — pass a stable function.
+       */
+      groupMessages?: (messages: Message[]) => MessageRow[];
+      /**
+       * Whether reply thumbs record ratings for Automatic Learning once a
+       * Trajectory has started. Defaults to `true`; set `false` to keep the
+       * thumbs to your own `onThumbsUp` / `onThumbsDown` handlers and slots.
+       */
+      messageFeedback?: boolean;
+      /**
+       * How tool calls show. Defaults to `"grouped"`: calls made in a row
+       * share one card that opens to a row per call. `"line"` and `"stacked"`
+       * group them too; `"turn"` folds a reply's whole working phase into
+       * "Worked for 9s" once it's done; `"separate"` gives every call its own
+       * card. Calls with a renderer of their own always show on their own.
+       */
+      toolCallDisplay?: CopilotChatToolCallDisplay;
     } & React.HTMLAttributes<HTMLDivElement>
   >,
   "children"
@@ -439,7 +554,12 @@ export function CopilotChatMessageView({
   reasoningMessage,
   cursor,
   intelligenceIndicator,
+  workSummary,
   isRunning = false,
+  transformMessages,
+  groupMessages,
+  messageFeedback = true,
+  toolCallDisplay = "grouped",
   children,
   className,
   ...props
@@ -447,7 +567,7 @@ export function CopilotChatMessageView({
   const isPinnedToBottom = useContext(ScrollPinnedContext);
   const renderCustomMessage = useRenderCustomMessages();
   const { renderActivityMessage } = useRenderActivityMessage();
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, showIntelligenceIndicator = true } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -501,6 +621,218 @@ export function CopilotChatMessageView({
     [messages],
   );
 
+  // What actually renders. Everything below — row keys, virtualization,
+  // rendering — works off this list. Tool-result lookups keep using the full
+  // `messages`, so a transform that hides tool results cannot break the cards
+  // that display them.
+  const transformedMessages = useMemo(
+    () =>
+      transformMessages
+        ? transformMessages(deduplicatedMessages)
+        : deduplicatedMessages,
+    [deduplicatedMessages, transformMessages],
+  );
+
+  // One entry per virtualized row. Without grouping, every message is its own.
+  const rows = useMemo<MessageRow[]>(
+    () =>
+      groupMessages
+        ? groupMessages(transformedMessages)
+        : transformedMessages.map(messageRow),
+    [transformedMessages, groupMessages],
+  );
+
+  // Every message that renders, in the order it renders, whether on its own
+  // row or inside a group. The message-level machinery below (row keys, the
+  // latest message, Intelligence anchors) reads this, not `rows`.
+  const renderedMessages = useMemo(
+    () =>
+      groupMessages
+        ? rows.flatMap((row) =>
+            row.type === "group" ? row.messages : [row.message],
+          )
+        : transformedMessages,
+    [rows, groupMessages, transformedMessages],
+  );
+
+  // "Latest" means the last row on screen, not the last entry of `messages`:
+  // a transform can drop, replace or reorder the tail. Streaming state and the
+  // assistant toolbar key off this.
+  const latestRenderedId = renderedMessages[renderedMessages.length - 1]?.id;
+
+  // ---------------------------------------------------------------------------
+  // Tool-call display
+  // ---------------------------------------------------------------------------
+  // Groups of calls can span messages (an agent often sends each call as its
+  // own message), so they're laid out here for the whole list and handed to
+  // each message's tool-call view through context.
+  const rendererNames = useToolCallRendererNames();
+  const toolCallLayouts = useMemo(
+    () =>
+      toolCallDisplay === "separate"
+        ? new Map()
+        : getToolCallLayouts(renderedMessages, messages, rendererNames),
+    [toolCallDisplay, renderedMessages, messages, rendererNames],
+  );
+  const turnWork = useMemo(
+    () =>
+      toolCallDisplay === "turn"
+        ? getTurnWork(renderedMessages, toolCallLayouts)
+        : undefined,
+    [toolCallDisplay, renderedMessages, toolCallLayouts],
+  );
+  const turnByFirstMessage = useMemo(() => {
+    const byFirst = new Map<string, TurnWork>();
+    for (const turn of turnWork?.values() ?? []) {
+      byFirst.set(turn.firstMessageId, turn);
+    }
+    return byFirst;
+  }, [turnWork]);
+
+  // The latest reply is keyed by the user message it answers (see getTurnWork).
+  let latestTurnKey = "start";
+  for (let i = renderedMessages.length - 1; i >= 0; i--) {
+    if (renderedMessages[i]!.role === "user") {
+      latestTurnKey = renderedMessages[i]!.id;
+      break;
+    }
+  }
+  const isWorkingOn = (turnKey: string) =>
+    isRunning && turnKey === latestTurnKey;
+
+  // Work shows while the agent is on it and folds once the reply is done,
+  // unless the user has opened or closed it themselves.
+  const [toggledTurns, setToggledTurns] = useState<
+    ReadonlyMap<string, boolean>
+  >(() => new Map());
+  const isWorkOpen = (turnKey: string) =>
+    toggledTurns.get(turnKey) ?? isWorkingOn(turnKey);
+
+  // How long the agent worked, for "Worked for 9s": the sum of its runs on
+  // the reply, so waiting between them (say, for an approval) doesn't count.
+  // Only known for replies this client watched start from the user's
+  // message; a restored thread shows the tool count instead. Written during
+  // render: each write records a run starting or ending once, so repeating a
+  // render changes nothing.
+  const workTimesRef = useRef(
+    new Map<string, { elapsedMs: number; workingSince?: number }>(),
+  );
+  if (toolCallDisplay === "turn") {
+    const now = Date.now();
+    const workTimes = workTimesRef.current;
+    if (isRunning) {
+      const times = workTimes.get(latestTurnKey);
+      if (times) times.workingSince ??= now;
+      else if (renderedMessages[renderedMessages.length - 1]?.role === "user")
+        workTimes.set(latestTurnKey, { elapsedMs: 0, workingSince: now });
+    } else {
+      for (const times of workTimes.values()) {
+        if (times.workingSince === undefined) continue;
+        times.elapsedMs += now - times.workingSince;
+        times.workingSince = undefined;
+      }
+    }
+  }
+
+  // Whether each working-phase message's work shows. Text that ends the reply
+  // stays out even when its message also calls a tool: it's the answer.
+  const { workOpen, workTextOpen } = useMemo(() => {
+    const open = new Map<string, boolean>();
+    const textOpen = new Map<string, boolean>();
+    for (const turn of turnWork?.values() ?? []) {
+      const turnOpen =
+        toggledTurns.get(turn.key) ?? (isRunning && turn.key === latestTurnKey);
+      for (const id of turn.workMessageIds) {
+        open.set(id, turnOpen);
+        if (id !== turn.replyTextMessageId) textOpen.set(id, turnOpen);
+      }
+    }
+    return { workOpen: open, workTextOpen: textOpen };
+  }, [turnWork, toggledTurns, isRunning, latestTurnKey]);
+
+  const toolCallDisplayContext = useMemo<ToolCallDisplayContextValue>(
+    () => ({
+      display: toolCallDisplay,
+      isRunning,
+      layouts: toolCallLayouts,
+      workOpen,
+      workTextOpen,
+    }),
+    [toolCallDisplay, isRunning, toolCallLayouts, workOpen, workTextOpen],
+  );
+
+  const renderWorkSummary = (turnKey: string, calls: ToolCallEntry[]) => {
+    const working = isWorkingOn(turnKey);
+    const open = isWorkOpen(turnKey);
+    const times = workTimesRef.current.get(turnKey);
+    return (
+      <Collapsible
+        key={`work-summary-${turnKey}`}
+        open={working || calls.length > 0}
+      >
+        <div className="cpk:pt-1 cpk:pb-2">
+          {renderSlot(workSummary, CopilotChatWorkSummary, {
+            isWorking: working,
+            isOpen: open,
+            calls,
+            elapsedMs: times?.elapsedMs,
+            workingSince: times?.workingSince,
+            onClick: () =>
+              setToggledTurns((toggled) =>
+                new Map(toggled).set(turnKey, !open),
+              ),
+          })}
+        </div>
+      </Collapsible>
+    );
+  };
+
+  // Row keys are looked up by message id, so two rendered messages sharing an
+  // id would share a React key. Deduplication already ran on the input, so a
+  // repeat here can only come from the transform.
+  const transformDuplicateId = useMemo(() => {
+    if (
+      process.env.NODE_ENV === "production" ||
+      (!transformMessages && !groupMessages)
+    ) {
+      return;
+    }
+    const seen = new Set<string>();
+    for (const message of renderedMessages) {
+      if (seen.has(message.id)) return message.id;
+      seen.add(message.id);
+    }
+  }, [renderedMessages, transformMessages, groupMessages]);
+  useEffect(() => {
+    if (transformDuplicateId === undefined) return;
+    console.warn(
+      groupMessages
+        ? `[CopilotKit] CopilotChatMessageView: the message with id "${transformDuplicateId}" renders more than once. ` +
+            "`groupMessages` should place each message in at most one row, and `transformMessages` return each id at most once."
+        : `[CopilotKit] CopilotChatMessageView: \`transformMessages\` returned more than one message with id "${transformDuplicateId}". ` +
+            "Return each id at most once; a message you create needs its own id, stable across renders.",
+    );
+  }, [transformDuplicateId, groupMessages]);
+
+  // Group keys are React keys and state keys, so two groups sharing one would
+  // share both.
+  const duplicateGroupKey = useMemo(() => {
+    if (process.env.NODE_ENV === "production" || !groupMessages) return;
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (row.type !== "group") continue;
+      if (seen.has(row.key)) return row.key;
+      seen.add(row.key);
+    }
+  }, [rows, groupMessages]);
+  useEffect(() => {
+    if (duplicateGroupKey === undefined) return;
+    console.warn(
+      `[CopilotKit] CopilotChatMessageView: \`groupMessages\` returned more than one group with key "${duplicateGroupKey}". ` +
+        "Give each group its own key, stable across renders.",
+    );
+  }, [duplicateGroupKey]);
+
   // Stable per-row React keys. Backends can re-key a message mid-stream, and
   // keying rows by the canonical id remounts the row on that swap (the HITL
   // chat flash). See @copilotkit/shared row-render-keys for the mechanism.
@@ -509,8 +841,8 @@ export function CopilotChatMessageView({
   const rowKeyStore = rowKeyStoreRef.current;
 
   const rowRenderKeys = useMemo(
-    () => resolveRowRenderKeysById(rowKeyStore, deduplicatedMessages),
-    [rowKeyStore, deduplicatedMessages],
+    () => resolveRowRenderKeysById(rowKeyStore, renderedMessages),
+    [rowKeyStore, renderedMessages],
   );
 
   // Record what this commit rendered, never what a render merely proposed: an
@@ -518,8 +850,51 @@ export function CopilotChatMessageView({
   // and remount it. Layout phase, so the store is current before any later
   // render reads it.
   useLayoutEffect(() => {
-    commitRowKeyStore(rowKeyStore, deduplicatedMessages);
-  }, [rowKeyStore, deduplicatedMessages]);
+    commitRowKeyStore(rowKeyStore, renderedMessages);
+  }, [rowKeyStore, renderedMessages]);
+
+  // A group's key, made stable the same way: a key that is a message id (the
+  // documented choice is the group's first message) resolves through
+  // `rowRenderKeys`, so a backend renaming that message mid-stream neither
+  // remounts the group nor loses its state.
+  const stableGroupKey = (key: string): string => rowRenderKeys.get(key) ?? key;
+
+  // State each group's wrapper keeps here rather than in itself, so it
+  // survives the row being windowed out and the wrapper remounting. Cleared
+  // when the thread changes; pruned to the groups still on the list. One
+  // setter per group, kept with its state, so a wrapper that depends on
+  // `setState` in an effect or memo sees the same function every render.
+  const groupStateRef = useRef<Map<string, unknown>>(new Map());
+  const groupSettersRef = useRef<Map<string, (next: unknown) => void>>(
+    new Map(),
+  );
+  const groupStateThreadRef = useRef(config?.threadId);
+  if (groupStateThreadRef.current !== config?.threadId) {
+    groupStateThreadRef.current = config?.threadId;
+    groupStateRef.current = new Map();
+    groupSettersRef.current = new Map();
+  }
+  const groupSetter = (key: string): ((next: unknown) => void) => {
+    let setter = groupSettersRef.current.get(key);
+    if (!setter) {
+      setter = (next) => {
+        groupStateRef.current.set(key, next);
+        forceUpdate();
+      };
+      groupSettersRef.current.set(key, setter);
+    }
+    return setter;
+  };
+  useLayoutEffect(() => {
+    const live = new Set<string>();
+    for (const row of rows) {
+      if (row.type === "group") live.add(stableGroupKey(row.key));
+    }
+    for (const store of [groupStateRef.current, groupSettersRef.current]) {
+      for (const key of store.keys()) if (!live.has(key)) store.delete(key);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stableGroupKey reads rowRenderKeys
+  }, [rows, rowRenderKeys]);
 
   if (
     process.env.NODE_ENV === "development" &&
@@ -541,6 +916,17 @@ export function CopilotChatMessageView({
     );
   const agentId = config?.agentId;
   const threadId = config?.threadId;
+  const learningFeedbackEnabled = useLearningFeedbackEnabled(copilotkit);
+  const feedbackScope = useMemo<MessageFeedbackScope | null>(
+    () =>
+      messageFeedback &&
+      learningFeedbackEnabled &&
+      agentId !== undefined &&
+      threadId !== undefined
+        ? { copilotkit, agentId, threadId }
+        : null,
+    [messageFeedback, learningFeedbackEnabled, copilotkit, agentId, threadId],
+  );
   const assistantSlotPropsWithFeedback = useMemo(() => {
     const onThumbsUp = assistantSlotProps?.onThumbsUp as
       | ((message: CopilotChatFeedbackMessage) => void)
@@ -616,7 +1002,37 @@ export function CopilotChatMessageView({
   const shouldVirtualize =
     !!scrollElement &&
     !children &&
-    deduplicatedMessages.length > VIRTUALIZE_THRESHOLD;
+    renderedMessages.length > VIRTUALIZE_THRESHOLD;
+
+  // Warn once in dev when the `children` render prop is the only thing keeping
+  // a long thread off the virtual path. Nothing else signals it: the chat just
+  // mounts every message and gets slower as the thread grows.
+  const childrenDisabledVirtualization =
+    !!children &&
+    !!scrollElement &&
+    renderedMessages.length > VIRTUALIZE_THRESHOLD;
+  const warnedChildrenRef = useRef(false);
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV === "production" ||
+      !childrenDisabledVirtualization ||
+      warnedChildrenRef.current
+    ) {
+      return;
+    }
+    warnedChildrenRef.current = true;
+    console.warn(
+      `[CopilotKit] CopilotChatMessageView: the \`children\` render prop disables virtualization, ` +
+        `so all ${renderedMessages.length} messages are mounted. ` +
+        (transformMessages || groupMessages
+          ? "`transformMessages` and `groupMessages` keep virtualization on by themselves; drop `children` to use them."
+          : "To reshape the list and keep virtualization, use `transformMessages` instead, or `groupMessages` to render several messages as one row."),
+    );
+  }, [
+    childrenDisabledVirtualization,
+    renderedMessages.length,
+    transformMessages,
+  ]);
 
   // Mean of the rows measured so far in this thread, used as the estimate for
   // rows that have not been measured yet. A flat 100 px estimate is off by
@@ -640,7 +1056,8 @@ export function CopilotChatMessageView({
   // scroll-to-bottom effect below). Done during render rather than in that
   // effect because rows are measured from ref callbacks, which run before
   // layout effects — resetting there would discard the new thread's first
-  // measurements instead of the old thread's.
+  // measurements instead of the old thread's. Read from the untransformed
+  // list: a transform that hides or reorders the head is not a thread change.
   const firstMessageId = deduplicatedMessages[0]?.id;
   const measuredThreadRef = React.useRef(firstMessageId);
   if (measuredThreadRef.current !== firstMessageId) {
@@ -663,7 +1080,9 @@ export function CopilotChatMessageView({
       measuredRef.current.total = total - (sizes.get(index) ?? 0) + height;
       sizes.set(index, height);
     }
-    return height;
+    // display:none is not a new row measurement. Keep its last visible size
+    // until the host has a layout again.
+    return height > 0 ? height : (measuredRef.current.sizes.get(index) ?? 100);
   }, []);
 
   const isPinnedToBottomRef = React.useRef(isPinnedToBottom);
@@ -694,8 +1113,10 @@ export function CopilotChatMessageView({
 
   const virtualizer = useVirtualizer({
     // count=0 disables the virtualizer without changing hook call order.
-    count: shouldVirtualize ? deduplicatedMessages.length : 0,
-    getScrollElement: () => scrollElement,
+    count: shouldVirtualize ? rows.length : 0,
+    // A disabled virtualizer must not reconnect and reset a flat list's
+    // scroll offset when a hidden host becomes visible again.
+    getScrollElement: () => (shouldVirtualize ? scrollElement : null),
     estimateSize: estimateRowSize,
     overscan: 5,
     measureElement: measureRowElement,
@@ -724,11 +1145,18 @@ export function CopilotChatMessageView({
   // (detected by the first message ID changing). For streaming new messages,
   // use-stick-to-bottom handles auto-scroll via content height growth detection
   // on the virtualizer's total-size div — same as the flat path. Adding
-  // deduplicatedMessages.length here would forcibly yank the user to the bottom
+  // renderedMessages.length here would forcibly yank the user to the bottom
   // on every streaming chunk even if they've scrolled up to read history.
+  const lastEndAlignedFirstMessageRef = React.useRef<string | undefined>(
+    undefined,
+  );
   useLayoutEffect(() => {
-    if (!shouldVirtualize || !deduplicatedMessages.length) return;
-    virtualizer.scrollToIndex(deduplicatedMessages.length - 1, {
+    if (!shouldVirtualize || !rows.length) return;
+    // Resizing a hidden host can temporarily disable virtualization. Do not
+    // align again when the same message list becomes measurable once more.
+    if (lastEndAlignedFirstMessageRef.current === firstMessageId) return;
+    lastEndAlignedFirstMessageRef.current = firstMessageId;
+    virtualizer.scrollToIndex(rows.length - 1, {
       align: "end",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -741,8 +1169,8 @@ export function CopilotChatMessageView({
   // non-Intelligence turns naturally produce an empty map (and the indicator
   // itself also hard-gates on intelligence mode).
   const intelligenceTurnAnchors = useMemo(
-    () => getIntelligenceTurnAnchors(deduplicatedMessages),
-    [deduplicatedMessages],
+    () => getIntelligenceTurnAnchors(deduplicatedMessages, renderedMessages),
+    [deduplicatedMessages, renderedMessages],
   );
 
   // ---------------------------------------------------------------------------
@@ -760,6 +1188,9 @@ export function CopilotChatMessageView({
     // Row key only — everything keyed to message identity (state snapshots,
     // tool lookups) must keep using message.id.
     const rowKey = rowRenderKeys.get(message.id) ?? message.id;
+
+    const turn = turnByFirstMessage.get(message.id);
+    if (turn) elements.push(renderWorkSummary(turn.key, turn.calls));
 
     if (renderCustomMessage) {
       elements.push(
@@ -780,6 +1211,7 @@ export function CopilotChatMessageView({
           message={message as AssistantMessage}
           messages={messages}
           isRunning={isRunning}
+          isLatest={message.id === latestRenderedId}
           AssistantMessageComponent={AssistantComponent}
           slotProps={assistantSlotPropsWithFeedback}
         />,
@@ -802,15 +1234,28 @@ export function CopilotChatMessageView({
         />,
       );
     } else if (message.role === "reasoning") {
-      elements.push(
+      const reasoning = (
         <MemoizedReasoningMessage
           key={rowKey}
           message={message as ReasoningMessage}
           messages={messages}
           isRunning={isRunning}
+          isLatest={message.id === latestRenderedId}
           ReasoningMessageComponent={ReasoningComponent}
           slotProps={reasoningSlotProps}
-        />,
+        />
+      );
+      // Reasoning during a reply's working phase folds away with the work.
+      // Always wrapped in this display, so reasoning that turns into work
+      // keeps its node (and its "Thought for" timer) instead of remounting.
+      elements.push(
+        toolCallDisplay === "turn" ? (
+          <Collapsible key={rowKey} open={workOpen.get(message.id) ?? true}>
+            {reasoning}
+          </Collapsible>
+        ) : (
+          reasoning
+        ),
       );
     }
 
@@ -831,7 +1276,9 @@ export function CopilotChatMessageView({
     // the stable turn id. Keying by turn (not message) means the indicator
     // moves with the anchor across a hand-off without remounting, and past
     // turns keep their own indicator.
-    const intelligenceTurnId = intelligenceTurnAnchors.get(message.id);
+    const intelligenceTurnId = showIntelligenceIndicator
+      ? intelligenceTurnAnchors.get(message.id)
+      : undefined;
     if (intelligenceTurnId !== undefined) {
       elements.push(
         <IntelligenceIndicator
@@ -846,74 +1293,231 @@ export function CopilotChatMessageView({
     return elements.filter(Boolean) as React.ReactElement[];
   };
 
+  const rowKey = (row: MessageRow): string =>
+    row.type === "group"
+      ? `${GROUP_ROW_KEY_PREFIX}${stableGroupKey(row.key)}`
+      : (rowRenderKeys.get(row.message.id) ?? row.message.id);
+
+  const renderRow = (row: MessageRow): React.ReactElement[] => {
+    if (row.type === "message") return renderMessageBlock(row.message);
+    const Wrapper = row.wrapper;
+    const stateKey = stableGroupKey(row.key);
+    return [
+      <Wrapper
+        key={rowKey(row)}
+        groupKey={row.key}
+        messages={row.messages}
+        state={groupStateRef.current.get(stateKey)}
+        setState={groupSetter(stateKey)}
+      >
+        {row.messages.flatMap(renderMessageBlock)}
+      </Wrapper>,
+    ];
+  };
+
+  const rowKeysRef = useRef<string[]>([]);
+  rowKeysRef.current = rows.map(rowKey);
+  const virtualModeRef = useRef(shouldVirtualize);
+  virtualModeRef.current = shouldVirtualize;
+
+  // Re-entering virtual mode can re-estimate rows above the viewport. A pixel
+  // scrollTop then identifies different content, so retain the first visible
+  // row and its offset within the viewport instead.
+  useEffect(() => {
+    const element = scrollElementFromCtx;
+    if (!element) return;
+    let anchor: { key: string; offset: number } | null = null;
+    let suspended = false;
+    let frame = 0;
+
+    const visibleRows = () =>
+      Array.from(element.querySelectorAll<HTMLElement>("[data-scroll-anchor]"));
+    const remember = () => {
+      if (suspended || element.clientHeight === 0 || !virtualModeRef.current)
+        return;
+      if (isPinnedToBottomRef.current) {
+        anchor = null;
+        return;
+      }
+      const viewport = element.getBoundingClientRect();
+      const row = visibleRows().find((row) => {
+        const bounds = row.getBoundingClientRect();
+        return bounds.bottom > viewport.top && bounds.top < viewport.bottom;
+      });
+      if (row) {
+        anchor = {
+          key: row.dataset.scrollAnchor!,
+          offset: row.getBoundingClientRect().top - viewport.top,
+        };
+      }
+    };
+    const observer = new ResizeObserver(() => {
+      if (element.clientHeight === 0) {
+        suspended = true;
+        cancelAnimationFrame(frame);
+        return;
+      }
+      if (!suspended || !anchor) {
+        suspended = false;
+        remember();
+        return;
+      }
+      let attempts = 0;
+      let stableFrames = 0;
+      const restore = () => {
+        if (!anchor || element.clientHeight === 0) return;
+        const index = rowKeysRef.current.indexOf(anchor.key);
+        if (index < 0) {
+          anchor = null;
+          suspended = false;
+          return;
+        }
+        const row = visibleRows().find(
+          (row) => row.dataset.scrollAnchor === anchor!.key,
+        );
+        if (row) {
+          const delta =
+            row.getBoundingClientRect().top -
+            element.getBoundingClientRect().top -
+            anchor.offset;
+          element.scrollTop += delta;
+          stableFrames = Math.abs(delta) < 1 ? stableFrames + 1 : 0;
+        } else {
+          // Bring an unmounted anchor into range, then refine its measured
+          // position on the next frame rather than using an estimated height.
+          const offset = virtualizer.getOffsetForIndex(index, "start")?.[0];
+          if (offset !== undefined)
+            virtualizer.scrollToOffset(offset - anchor.offset);
+          stableFrames = 0;
+        }
+        if (++attempts < 60 && stableFrames < 3) {
+          frame = requestAnimationFrame(restore);
+        } else {
+          suspended = false;
+          remember();
+        }
+      };
+      frame = requestAnimationFrame(restore);
+    });
+    const interrupt = () => {
+      cancelAnimationFrame(frame);
+      anchor = null;
+      suspended = false;
+    };
+    element.addEventListener("scroll", remember, { passive: true });
+    element.addEventListener("wheel", interrupt, { passive: true });
+    element.addEventListener("touchstart", interrupt, { passive: true });
+    element.addEventListener("keydown", interrupt);
+    observer.observe(element);
+    remember();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      element.removeEventListener("scroll", remember);
+      element.removeEventListener("wheel", interrupt);
+      element.removeEventListener("touchstart", interrupt);
+      element.removeEventListener("keydown", interrupt);
+    };
+  }, [scrollElementFromCtx, virtualizer, firstMessageId]);
+
   // Build the flat element list only when we're not virtualizing (avoids
   // creating 500 React elements that we'd immediately discard).
   const messageElements: React.ReactElement[] = shouldVirtualize
     ? []
-    : deduplicatedMessages.flatMap(renderMessageBlock);
+    : rows.flatMap(renderRow);
 
   // ---------------------------------------------------------------------------
   // children render prop (custom layout, always non-virtual)
   // ---------------------------------------------------------------------------
   if (children) {
     return (
-      <div data-copilotkit style={{ display: "contents" }}>
-        {children({ messageElements, messages, isRunning, interruptElement })}
-      </div>
+      <MessageFeedbackScopeContext.Provider value={feedbackScope}>
+        <ToolCallDisplayContext.Provider value={toolCallDisplayContext}>
+          <div data-copilotkit style={{ display: "contents" }}>
+            {children({
+              messageElements,
+              messages,
+              isRunning,
+              interruptElement,
+            })}
+          </div>
+        </ToolCallDisplayContext.Provider>
+      </MessageFeedbackScopeContext.Provider>
     );
   }
 
-  // Hide the chat-level loading cursor when the last message is a reasoning
-  // message — the reasoning card already shows its own loading indicator.
-  const lastMessage = messages[messages.length - 1];
-  const showCursor = isRunning && lastMessage?.role !== "reasoning";
+  // Hide the chat-level loading cursor when the last rendered message is a
+  // reasoning message — the reasoning card already shows its own loading
+  // indicator. A reasoning message the transform hid shows no indicator.
+  const lastMessage = renderedMessages[renderedMessages.length - 1];
+  // In the "turn" display the "Working" line at the top of the reply is the
+  // progress indicator; before the reply's first message it sits where the
+  // cursor would.
+  const showCursor =
+    isRunning &&
+    lastMessage?.role !== "reasoning" &&
+    toolCallDisplay !== "turn";
+  const pendingWorkSummary =
+    toolCallDisplay === "turn" && isRunning && lastMessage?.role === "user";
 
   // ---------------------------------------------------------------------------
   // Render — shared wrapper, conditional inner content (virtual vs flat)
   // ---------------------------------------------------------------------------
   return (
-    <div
-      data-copilotkit
-      data-testid="copilot-message-list"
-      className={twMerge("copilotKitMessages cpk:flex cpk:flex-col", className)}
-      {...props}
-    >
-      {shouldVirtualize ? (
-        // Virtual path: only visible items are in the DOM; outer div maintains
-        // total scroll height so the scrollbar reflects the full list size.
+    <MessageFeedbackScopeContext.Provider value={feedbackScope}>
+      <ToolCallDisplayContext.Provider value={toolCallDisplayContext}>
         <div
-          style={{ height: virtualizer.getTotalSize(), position: "relative" }}
+          data-copilotkit
+          data-testid="copilot-message-list"
+          className={twMerge(
+            "copilotKitMessages cpk:flex cpk:flex-col",
+            className,
+          )}
+          {...props}
         >
-          {virtualizer.getVirtualItems().map((virtualItem) => {
-            const message = deduplicatedMessages[virtualItem.index]!;
-            return (
-              <div
-                key={rowRenderKeys.get(message.id) ?? message.id}
-                data-index={virtualItem.index}
-                ref={virtualizer.measureElement}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  transform: `translateY(${virtualItem.start}px)`,
-                }}
-              >
-                {renderMessageBlock(message)}
-              </div>
-            );
-          })}
+          {shouldVirtualize ? (
+            // Virtual path: only visible items are in the DOM; outer div maintains
+            // total scroll height so the scrollbar reflects the full list size.
+            <div
+              style={{
+                height: virtualizer.getTotalSize(),
+                position: "relative",
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const row = rows[virtualItem.index]!;
+                return (
+                  <div
+                    key={rowKey(row)}
+                    data-index={virtualItem.index}
+                    data-scroll-anchor={rowKey(row)}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                  >
+                    {renderRow(row)}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            messageElements
+          )}
+          {interruptElement}
+          {pendingWorkSummary && renderWorkSummary(latestTurnKey, [])}
+          {showCursor && (
+            <div className="cpk:mt-2">
+              {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
+            </div>
+          )}
         </div>
-      ) : (
-        messageElements
-      )}
-      {interruptElement}
-      {showCursor && (
-        <div className="cpk:mt-2">
-          {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
-        </div>
-      )}
-    </div>
+      </ToolCallDisplayContext.Provider>
+    </MessageFeedbackScopeContext.Provider>
   );
 }
 

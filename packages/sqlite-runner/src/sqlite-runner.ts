@@ -1,20 +1,23 @@
 import {
   AgentRunner,
+  ThreadAlreadyRunningError,
   finalizeRunEvents,
-  type AgentRunnerConnectRequest,
-  type AgentRunnerIsRunningRequest,
-  type AgentRunnerRunRequest,
-  type AgentRunnerStopRequest,
 } from "@copilotkit/runtime/v2";
-import { Observable, ReplaySubject } from "rxjs";
-import {
+import type {
+  AgentRunnerConnectRequest,
+  AgentRunnerIsRunningRequest,
+  AgentRunnerRunRequest,
+  AgentRunnerStopRequest,
+} from "@copilotkit/runtime/v2";
+import type { Observable } from "rxjs";
+import { ReplaySubject } from "rxjs";
+import type {
   AbstractAgent,
   BaseEvent,
   RunAgentInput,
-  EventType,
   RunStartedEvent,
-  compactEvents,
 } from "@ag-ui/client";
+import { EventType, compactEvents } from "@ag-ui/client";
 import Database from "better-sqlite3";
 
 const SCHEMA_VERSION = 1;
@@ -227,7 +230,7 @@ export class SqliteAgentRunner extends AgentRunner {
     // Check if thread is already running in database
     const runState = this.getRunState(request.threadId);
     if (runState.isRunning) {
-      throw new Error("Thread already running");
+      throw new ThreadAlreadyRunningError();
     }
 
     // Mark thread as running in database
@@ -277,6 +280,30 @@ export class SqliteAgentRunner extends AgentRunner {
       // Get parent run ID for chaining
       const parentRunId = this.getLatestRunId(request.threadId);
 
+      const ensureStoppedRunStarted = (stopRequested: boolean) => {
+        if (
+          !stopRequested ||
+          currentRunEvents.some((event) => event.type === EventType.RUN_STARTED)
+        ) {
+          return;
+        }
+        // Stop can arrive before the agent sends its first event.
+        const started: RunStartedEvent = {
+          type: EventType.RUN_STARTED,
+          threadId: request.threadId,
+          runId: request.input.runId,
+          input: {
+            ...request.input,
+            messages: request.input.messages.filter(
+              (message) => !historicMessageIds.has(message.id),
+            ),
+          },
+        };
+        currentRunEvents.unshift(started);
+        runSubject.next(started);
+        nextSubject.next(started);
+      };
+
       try {
         await request.agent.runAgent(request.input, {
           onEvent: ({ event }) => {
@@ -325,8 +352,10 @@ export class SqliteAgentRunner extends AgentRunner {
         });
 
         const connection = ACTIVE_CONNECTIONS.get(request.threadId);
+        ensureStoppedRunStarted(connection?.stopRequested ?? false);
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: connection?.stopRequested ?? false,
+          protocolVersion: request.input.protocolVersion,
         });
         for (const event of appendedEvents) {
           runSubject.next(event);
@@ -359,8 +388,10 @@ export class SqliteAgentRunner extends AgentRunner {
         ACTIVE_CONNECTIONS.delete(request.threadId);
       } catch {
         const connection = ACTIVE_CONNECTIONS.get(request.threadId);
+        ensureStoppedRunStarted(connection?.stopRequested ?? false);
         const appendedEvents = finalizeRunEvents(currentRunEvents, {
           stopRequested: connection?.stopRequested ?? false,
+          protocolVersion: request.input.protocolVersion,
         });
         for (const event of appendedEvents) {
           runSubject.next(event);

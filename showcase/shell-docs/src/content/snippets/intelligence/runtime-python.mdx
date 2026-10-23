@@ -1,0 +1,60 @@
+Use Python 3.11 or later. Install the [Python runtime](https://pypi.org/project/copilotkit-intelligence-runtime/) and Uvicorn in your application's virtual environment:
+
+```bash
+python -m pip install copilotkit-intelligence-runtime==0.1.0 uvicorn
+```
+
+Set these variables in the server environment. `AG_UI_AGENT_URL` must point to a running AG-UI endpoint that accepts run requests and streams events:
+
+```bash
+export CPK_INTELLIGENCE_API_KEY="your-project-api-key"
+export AG_UI_AGENT_URL="http://localhost:8001/agent"
+export APP_AUTH_TOKEN="replace-with-a-random-local-development-token"
+export APP_USER_ID="local-user"
+```
+
+This local example verifies one application token and maps it to a server-owned user ID. Use a different value for the application token and the Intelligence API key. For production, replace this lookup with your application's verified session or token lookup; never trust a user ID supplied by the browser.
+
+Save this as `app.py`:
+
+```python
+import hmac
+import os
+
+from starlette.requests import Request
+from copilotkit_runtime import HttpAgent, IntelligenceRuntime, RuntimeConfig, User
+
+app_token = os.environ["APP_AUTH_TOKEN"]
+user_id = os.environ["APP_USER_ID"]
+if not app_token or not user_id:
+    raise ValueError("APP_AUTH_TOKEN and APP_USER_ID must not be empty")
+
+
+async def identify_user(request: Request) -> User | None:
+    supplied = request.headers.get("authorization", "").encode()
+    expected = f"Bearer {app_token}".encode()
+    if not hmac.compare_digest(supplied, expected):
+        return None
+    return User(id=user_id)
+
+
+app = IntelligenceRuntime(
+    RuntimeConfig(
+        api_key=os.environ["CPK_INTELLIGENCE_API_KEY"],
+        base_path="/api/copilotkit",
+        allowed_origins=("http://localhost:3000",),
+    ),
+    agents={"default": HttpAgent(os.environ["AG_UI_AGENT_URL"])},
+    identify_user=identify_user,
+)
+```
+
+Start the server:
+
+```bash
+python -m uvicorn app:app --host 127.0.0.1 --port 8200
+```
+
+The multi-route runtime URL is `http://localhost:8200/api/copilotkit`. Send `Authorization: Bearer <APP_AUTH_TOKEN>` with frontend requests. Keep `CPK_INTELLIGENCE_API_KEY` on the server. The CORS configuration allows a frontend at `http://localhost:3000`; replace that origin for your deployment.
+
+Uvicorn runs the ASGI lifespan, which closes the runtime on shutdown. If you mount it inside a host that manages lifespan separately, call `await app.aclose()` from that host's shutdown handler. `HttpAgent` does not forward browser credentials; configure its `headers` explicitly if your agent requires authentication.

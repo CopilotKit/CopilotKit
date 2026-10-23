@@ -312,6 +312,39 @@ describe("IntelligenceAgentRunner", () => {
     sub.unsubscribe();
   });
 
+  it("sends Phoenix heartbeats every 15s on the runner socket by default", () => {
+    const threadId = "t-heartbeat-default";
+    const input = createRunInput({ threadId, runId: "r-heartbeat-default" });
+    const agent = new MockAgent();
+
+    const sub = runner.run({ threadId, agent, input }).subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      heartbeatIntervalMs: 15_000,
+    });
+
+    sub.unsubscribe();
+  });
+
+  it("passes a configured heartbeatIntervalMs to the runner socket", () => {
+    runner = new IntelligenceAgentRunner({
+      url: "ws://localhost:4000/runner",
+      heartbeatIntervalMs: 5_000,
+    });
+
+    const threadId = "t-heartbeat-override";
+    const input = createRunInput({ threadId, runId: "r-heartbeat-override" });
+    const agent = new MockAgent();
+
+    const sub = runner.run({ threadId, agent, input }).subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      heartbeatIntervalMs: 5_000,
+    });
+
+    sub.unsubscribe();
+  });
+
   it("uses a per-run Phoenix authToken instead of the configured token", () => {
     runner = new IntelligenceAgentRunner({
       url: "ws://localhost:4000/runner",

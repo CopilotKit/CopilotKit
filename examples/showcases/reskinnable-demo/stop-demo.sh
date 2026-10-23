@@ -90,6 +90,11 @@ kill_port 3000 "dev server"
 say "Stopping banking's Python agent (:8124)"
 kill_port 8124 "banking agent"
 
+# --- Myelin's ADK agent -----------------------------------------------------
+# Same reasoning as banking's: run-demo.sh adopts a live :8125, stale code and all.
+say "Stopping myelin's ADK agent (:8125)"
+kill_port 8125 "myelin agent"
+
 # --- Docker stack -----------------------------------------------------------
 # run-demo.sh may have brought the stack up with or without the cpu-fallback
 # `tei` profile. `down` ignores unknown profiles, but pass --profile so the

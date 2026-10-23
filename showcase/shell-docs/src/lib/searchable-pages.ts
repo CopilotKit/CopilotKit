@@ -126,7 +126,7 @@ const FRONTEND_SEGMENTS: string[] = FRONTEND_PAGE_IDS;
  * Sidebar titles that identify nothing once the surrounding group is gone.
  *
  * A page can set `nav_title: Overview` so the sidebar reads
- * "Rich Threads › Overview" while the page itself is titled "Rich Threads".
+ * "AG-UI Streams › Overview" while the page itself is titled "AG-UI Streams".
  * Search results are a flat list with no parent to lean on, so a bare
  * "Overview" row is useless — the page's own title is kept instead.
  */

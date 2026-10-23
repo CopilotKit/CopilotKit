@@ -6,12 +6,14 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import type { ToolCall, ToolMessage } from "@ag-ui/core";
+import { contentToText } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { partialJSONParse } from "@copilotkit/shared";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
+import type { ToolCallRendererNames } from "../components/chat/tool-call-layout";
 
 export interface UseRenderToolCallProps {
   toolCall: ToolCall;
@@ -56,7 +58,10 @@ const ToolCallRenderer = React.memo(
           toolCallId={toolCall.id}
           args={args}
           status={ToolCallStatus.Complete}
-          result={toolMessage.content}
+          // AG-UI 1.0 lets a tool result carry content parts; the renderer
+          // contract is `result: string`, so it gets the text parts (media is
+          // not something a string can hold — the message itself keeps it).
+          result={contentToText(toolMessage.content)}
         />
       );
     } else if (isExecuting) {
@@ -151,6 +156,43 @@ function warnAboutUnrenderedToolCalls(
 }
 
 /**
+ * The tool-call renderers registered on the provider, kept current.
+ * @internal
+ */
+export function useToolCallRenderers() {
+  const { copilotkit } = useCopilotKit();
+  // useSyncExternalStore so the value is current even if subscriptions run in
+  // any order.
+  return useSyncExternalStore(
+    (callback) =>
+      copilotkit.subscribe({ onRenderToolCallsChanged: callback }).unsubscribe,
+    () => copilotkit.renderToolCalls,
+    () => copilotkit.renderToolCalls,
+  );
+}
+
+/**
+ * Which tool names have a renderer of their own, whether a wildcard (`"*"`)
+ * renderer is registered, and which of them opted into grouping.
+ * @internal
+ */
+export function useToolCallRendererNames(): ToolCallRendererNames {
+  const renderers = useToolCallRenderers();
+  return useMemo(() => {
+    const named = renderers.filter((rc) => rc.name !== "*");
+    const wildcards = renderers.filter((rc) => rc.name === "*");
+    return {
+      named: new Set(named.map((rc) => rc.name)),
+      groupedNames: new Set(
+        named.filter((rc) => rc.group).map((rc) => rc.name),
+      ),
+      wildcard: wildcards.length > 0,
+      wildcardGroups: wildcards.some((rc) => rc.group),
+    };
+  }, [renderers]);
+}
+
+/**
  * Hook that returns a function to render tool calls based on the render functions
  * defined in CopilotKitProvider.
  *
@@ -166,17 +208,7 @@ export function useRenderToolCall() {
   const unrenderedToolNames = useRef<Set<string>>(new Set());
   const warnedToolNames = useRef<Set<string>>(new Set());
 
-  // Subscribe to render tool calls changes using useSyncExternalStore
-  // This ensures we always have the latest value, even if subscriptions run in any order
-  const renderToolCalls = useSyncExternalStore(
-    (callback) => {
-      return copilotkit.subscribe({
-        onRenderToolCallsChanged: callback,
-      }).unsubscribe;
-    },
-    () => copilotkit.renderToolCalls,
-    () => copilotkit.renderToolCalls,
-  );
+  const renderToolCalls = useToolCallRenderers();
 
   // Note: executingToolCallIds is now provided by CopilotKitProvider context.
   // This is critical for HITL reconnection: when connecting to a thread with

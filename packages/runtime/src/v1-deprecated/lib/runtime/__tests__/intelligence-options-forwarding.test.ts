@@ -34,6 +34,7 @@ test("forwards Intelligence options through the package-root runtime", () => {
     generateThreadNames: false,
     maxReconnectMs: 2_500,
     maxRejoinMs: 3_500,
+    heartbeatIntervalMs: 7_500,
     lockTtlSeconds: 45,
     lockKeyPrefix: "test-lock",
     lockHeartbeatIntervalSeconds: 12,
@@ -54,5 +55,6 @@ test("forwards Intelligence options through the package-root runtime", () => {
   expect(Reflect.get(runtime.runner, "options")).toMatchObject({
     maxReconnectMs: 2_500,
     maxRejoinMs: 3_500,
+    heartbeatIntervalMs: 7_500,
   });
 });

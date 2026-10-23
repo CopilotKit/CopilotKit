@@ -44,6 +44,8 @@ interface GhContext {
   needs: Record<string, unknown>;
   /** Whether the WORKFLOW RUN was cancelled (drives `cancelled()`). */
   runCancelled: boolean;
+  /** Repository variables (`vars.*`). Omitted = none set. */
+  vars?: Record<string, string>;
 }
 
 /**
@@ -60,6 +62,11 @@ function anyDepFailed(ctx: GhContext): boolean {
 
 function resolvePath(path: string, ctx: GhContext): string {
   const segs = path.split(".");
+  // GitHub resolves an unset repository variable to the empty string, so
+  // `vars.X != 'false'` is true when X is not set.
+  if (segs[0] === "vars" && segs.length === 2) {
+    return ctx.vars?.[segs[1]] ?? "";
+  }
   let cur: unknown = { needs: ctx.needs };
   for (const seg of segs) {
     if (cur == null || typeof cur !== "object" || !(seg in (cur as object))) {
@@ -252,29 +259,36 @@ function rollupBuildResult(legResults: readonly string[]): string {
  */
 function contextFor(
   legResults: readonly string[],
-  opts: { runCancelled?: boolean; hasChanges?: boolean } = {},
+  opts: {
+    runCancelled?: boolean;
+    hasChanges?: boolean;
+    buildResult?: string;
+  } = {},
 ): GhContext {
   const anySuccess = legResults.includes("success");
+  const buildResult = opts.buildResult ?? rollupBuildResult(legResults);
   // `any_cancelled` / `cancelled_services` are derived from the per-slot
   // outcomes exactly as `aggregate-build-results` does.
   //
-  // Crucially, model WHEN THE AGGREGATOR ITSELF IS SKIPPED. Its guard is
-  // `!cancelled() && detect-changes.outputs.has_changes == 'true'`, so on a
-  // RUN-level cancellation OR a no-changes push it never runs, and a skipped
+  // Crucially, model WHEN THE AGGREGATOR ITSELF IS SKIPPED.
+  // It requires an uncancelled run, detected changes, and a build matrix
+  // that was not skipped. Otherwise it never runs, and a skipped
   // job's outputs resolve to the EMPTY STRING — not 'false'. That distinction
   // is load-bearing twice over: it is what keeps an intentional run-level
   // cancel silent, and it is what stops `any_success == 'false'` from firing
   // the alert on every routine push that builds nothing.
   const cancelledLegs = legResults.filter((r) => r === "cancelled");
   const aggregatorRan =
-    !(opts.runCancelled ?? false) && (opts.hasChanges ?? true);
+    !(opts.runCancelled ?? false) &&
+    (opts.hasChanges ?? true) &&
+    buildResult !== "skipped";
   return {
     runCancelled: opts.runCancelled ?? false,
     needs: {
       "detect-changes": {
         outputs: { has_changes: String(opts.hasChanges ?? true) },
       },
-      build: { result: rollupBuildResult(legResults) },
+      build: { result: buildResult },
       "aggregate-build-results": {
         outputs: aggregatorRan
           ? {
@@ -307,11 +321,32 @@ function jobRuns(
   const buildResult = String(
     (ctx.needs[buildJobKey] as { result: string }).result,
   );
-  const depFailedOrCancelled =
-    buildResult === "failure" || buildResult === "cancelled";
-  if (depFailedOrCancelled && !hasStatusFn) return false;
+  const depUnsuccessful = buildResult !== "success";
+  if (depUnsuccessful && !hasStatusFn) return false;
   return evalGuard(guard, ctx);
 }
+
+describe("aggregate-build-results upstream gate", () => {
+  it.each(["success", "failure", "cancelled", "skipped"])(
+    "handles build result %s without collecting artifacts from a skipped matrix",
+    (result) => {
+      const ctx = contextFor([result], { buildResult: result });
+      expect(jobRuns(readJobGuard("aggregate-build-results"), ctx)).toBe(
+        result !== "skipped",
+      );
+    },
+  );
+
+  it("does not collect on run cancellation or a no-change push", () => {
+    const guard = readJobGuard("aggregate-build-results");
+    expect(
+      jobRuns(guard, contextFor(["success"], { runCancelled: true })),
+    ).toBe(false);
+    expect(jobRuns(guard, contextFor(["success"], { hasChanges: false }))).toBe(
+      false,
+    );
+  });
+});
 
 /**
  * Build a GH context for the `redeploy-staging-starters` guard. Unlike the
@@ -379,6 +414,17 @@ describe("redeploy-staging guard — matrix cancellation regression", () => {
     const legs = Array(28).fill("success");
     expect(jobRuns(guard, contextFor(legs, { hasChanges: false }))).toBe(false);
   });
+
+  it("skips when SHOWCASE_AUTO_REDEPLOY is 'false', runs otherwise", () => {
+    const legs = Array(28).fill("success");
+    const withVar = (v?: string): GhContext => ({
+      ...contextFor(legs),
+      vars: v === undefined ? {} : { SHOWCASE_AUTO_REDEPLOY: v },
+    });
+    expect(jobRuns(guard, withVar("false"))).toBe(false);
+    expect(jobRuns(guard, withVar("true"))).toBe(true);
+    expect(jobRuns(guard, withVar())).toBe(true);
+  });
 });
 
 describe("redeploy-staging-starters guard — matrix cancellation regression", () => {
@@ -419,6 +465,17 @@ describe("redeploy-staging-starters guard — matrix cancellation regression", (
     expect(runStarters(starterContextFor(legs, { hasChanges: false }))).toBe(
       false,
     );
+  });
+
+  it("skips when SHOWCASE_AUTO_REDEPLOY is 'false', runs otherwise", () => {
+    const legs = Array(6).fill("success");
+    const withVar = (v?: string): GhContext => ({
+      ...starterContextFor(legs),
+      vars: v === undefined ? {} : { SHOWCASE_AUTO_REDEPLOY: v },
+    });
+    expect(runStarters(withVar("false"))).toBe(false);
+    expect(runStarters(withVar("true"))).toBe(true);
+    expect(runStarters(withVar())).toBe(true);
   });
 });
 

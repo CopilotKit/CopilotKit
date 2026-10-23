@@ -1,0 +1,32 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+.map-view {
+  position: relative;
+  height: 100%;
+  min-height: 360px;
+}
+.map-view .leaflet-container {
+  height: 100%;
+}
+.map-title {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff;
+  font:
+    600 12px system-ui,
+    sans-serif;
+}
+.map-status {
+  padding: 16px;
+  font:
+    14px system-ui,
+    sans-serif;
+}

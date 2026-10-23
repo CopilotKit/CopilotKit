@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from "@angular/common";
-import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,47 +10,15 @@ import {
   inject,
   input,
   signal,
+  untracked,
   viewChild,
 } from "@angular/core";
 import { CopilotKit } from "@copilotkit/angular";
-import { randomUUID } from "@copilotkit/shared";
+import type { McpAppSession } from "@copilotkit/mcp-apps-renderer";
 import { type MCPAppsSnapshotContent } from "./mcp-apps-content";
-import {
-  MCPAppsQueueCancelledError,
-  MCPAppsQueueThreadChangedError,
-  MCPAppsRequestQueue,
-} from "./mcp-apps-request-queue";
 import { MCP_APPS_CONFIG } from "./mcp-apps-config";
 
-const PROTOCOL_VERSION = "2025-06-18";
-
-const queuesByIdleTimeout = new Map<number, MCPAppsRequestQueue>();
-
-interface FetchedResource {
-  uri: string;
-  mimeType?: string;
-  text?: string;
-  blob?: string;
-  _meta?: {
-    ui?: {
-      prefersBorder?: boolean;
-      csp?: { resourceDomains?: string[] };
-    };
-  };
-}
-
-interface JSONRPCMessage {
-  jsonrpc: "2.0";
-  id?: string | number;
-  method: string;
-  params?: Record<string, unknown>;
-}
-
-/**
- * Renders one MCP App snapshot through the same agent-mediated protocol used
- * by the other CopilotKit frontends. Each instance owns its queued work and
- * sandbox listener, while requests remain serialized per agent thread.
- */
+/** Angular owns the DOM and reactive state; the shared session owns MCP. */
 @Component({
   selector: "copilot-mcp-apps-widget",
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -61,8 +29,10 @@ interface JSONRPCMessage {
           Loading MCP App…
         </p>
       }
-      @if (error()) {
-        <p class="copilot-mcp-apps-error" role="alert">{{ error() }}</p>
+      @if (error() || contentError()) {
+        <p class="copilot-mcp-apps-error" role="alert">
+          {{ error() || contentError() }}
+        </p>
       }
       <iframe
         #appFrame
@@ -107,19 +77,23 @@ export class CopilotMCPAppsWidget {
   private readonly config = inject(MCP_APPS_CONFIG);
   private readonly copilotKit = inject(CopilotKit);
   private readonly platformId = inject(PLATFORM_ID);
-  private readonly ownerId = randomUUID();
-  private readonly queue = queueForTimeout(this.config.idleTimeoutMs);
-  private renderVersion = 0;
+  private session: McpAppSession | undefined;
 
   readonly data = input.required<MCPAppsSnapshotContent>();
   readonly agent = input<AbstractAgent | undefined>();
+  /** Omitted for direct widget use with external, prop-driven content. */
+  readonly messageId = input<string>();
 
-  private readonly renderSession = computed(
-    () => ({ agent: this.agent(), data: this.data() }),
+  private readonly identity = computed(
+    () => {
+      const { resourceUri, serverHash, serverId } = this.data();
+      return { resourceUri, serverHash, serverId };
+    },
     {
-      equal: (previous, current) =>
-        previous.agent === current.agent &&
-        areStructurallyEqual(previous.data, current.data),
+      equal: (a, b) =>
+        a.resourceUri === b.resourceUri &&
+        a.serverHash === b.serverHash &&
+        a.serverId === b.serverId,
     },
   );
 
@@ -127,535 +101,108 @@ export class CopilotMCPAppsWidget {
     viewChild.required<ElementRef<HTMLIFrameElement>>("appFrame");
   protected readonly loading = signal(true);
   protected readonly error = signal("");
+  protected readonly contentError = signal("");
 
   constructor() {
     afterRenderEffect((onCleanup) => {
+      this.identity();
+      const agent = this.agent();
+      const messageId = this.messageId();
       const frame = this.appFrame().nativeElement;
-      const { data, agent } = this.renderSession();
-      const version = ++this.renderVersion;
-      const controller = new AbortController();
-
-      this.queue.cancelOwner(this.ownerId);
-      this.resetFrame(frame);
-
+      let active = true;
+      let session: McpAppSession | undefined;
+      this.loading.set(true);
+      this.error.set("");
+      this.contentError.set("");
+      frame.style.removeProperty("height");
+      frame.removeAttribute("src");
+      frame.removeAttribute("srcdoc");
+      frame.removeAttribute("data-mcp-app-initialized");
       onCleanup(() => {
-        controller.abort();
-        this.queue.cancelOwner(this.ownerId);
+        active = false;
+        session?.teardown();
+        if (this.session === session) this.session = undefined;
         frame.removeAttribute("srcdoc");
         frame.removeAttribute("src");
         frame.removeAttribute("data-mcp-app-initialized");
       });
-
       if (!isPlatformBrowser(this.platformId)) {
         this.loading.set(false);
         return;
       }
-
-      void this.renderApp(frame, data, agent, controller, version);
-    });
-  }
-
-  private async renderApp(
-    frame: HTMLIFrameElement,
-    data: MCPAppsSnapshotContent,
-    agent: AbstractAgent | undefined,
-    controller: AbortController,
-    version: number,
-  ): Promise<void> {
-    if (!agent) {
-      this.fail("No agent is available to load this MCP App.", frame, version);
-      return;
-    }
-
-    try {
-      const runResult = await this.queue.enqueue({
-        agent,
-        ownerId: this.ownerId,
-        execute: () =>
-          agent.runAgent({
-            forwardedProps: {
-              __proxiedMCPRequest: {
-                serverHash: data.serverHash,
-                serverId: data.serverId,
-                method: "resources/read",
-                params: { uri: data.resourceUri },
-              },
-            },
-          }),
-      });
-      this.throwIfStale(controller.signal, version);
-
-      const resource = findResource(runResult, data.resourceUri);
-      const html = resource.text
-        ? resource.text
-        : resource.blob
-          ? decodeBase64(resource.blob)
-          : undefined;
-      if (!html) {
-        throw new Error("The MCP App resource has no text or blob content.");
+      if (!agent) {
+        this.loading.set(false);
+        this.error.set("No agent is available to load this MCP App.");
+        return;
       }
-
-      frame.removeAttribute("data-mcp-app-initialized");
-      const sandboxReady = this.connectSandbox(
-        frame,
-        data,
-        agent,
-        controller.signal,
-        version,
-      );
-      frame.setAttribute(
-        "sandbox",
-        "allow-scripts allow-same-origin allow-forms",
-      );
-      frame.removeAttribute("src");
-      frame.srcdoc = buildSandboxHTML(resource._meta?.ui?.csp?.resourceDomains);
-
-      await sandboxReady;
-      this.throwIfStale(controller.signal, version);
-      this.sendNotification(frame, "ui/notifications/sandbox-resource-ready", {
-        html,
-      });
-      this.loading.set(false);
-    } catch (error) {
-      if (isCancellation(error)) return;
-      this.fail(asError(error).message, frame, version);
-    }
-  }
-
-  private connectSandbox(
-    frame: HTMLIFrameElement,
-    data: MCPAppsSnapshotContent,
-    agent: AbstractAgent,
-    abortSignal: AbortSignal,
-    version: number,
-  ): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      let ready = false;
-      const timeout = setTimeout(() => {
-        cleanup();
-        reject(
-          new Error(
-            `Timed out waiting ${this.config.initializationTimeoutMs}ms for the MCP App sandbox.`,
-          ),
-        );
-      }, this.config.initializationTimeoutMs);
-      const cancel = () => {
-        cleanup();
-        reject(new MCPAppsQueueCancelledError());
+      const fail = (error: Error) => {
+        if (!active) return;
+        this.loading.set(false);
+        this.error.set(error.message);
+        session?.teardown();
+        frame.removeAttribute("srcdoc");
+        frame.removeAttribute("data-mcp-app-initialized");
       };
-      const onMessage = (event: MessageEvent) => {
-        if (event.source !== frame.contentWindow) return;
-        const message = parseJSONRPCMessage(event.data);
-        if (!message) return;
-
-        if (message.method === "ui/notifications/sandbox-proxy-ready") {
-          if (!ready) {
-            ready = true;
-            clearTimeout(timeout);
-            resolve();
-          }
-          return;
-        }
-
-        void this.handleMessage(
-          frame,
-          data,
-          agent,
-          message,
-          abortSignal,
-          version,
-        );
-      };
-      const cleanup = () => {
-        clearTimeout(timeout);
-        window.removeEventListener("message", onMessage);
-        abortSignal.removeEventListener("abort", cancel);
-      };
-
-      window.addEventListener("message", onMessage);
-      abortSignal.addEventListener("abort", cancel, { once: true });
-      if (abortSignal.aborted) cancel();
-
-      // Keep protocol messages connected after initialization. Cleanup occurs
-      // when this render session's abort signal fires.
-      abortSignal.addEventListener(
-        "abort",
-        () => window.removeEventListener("message", onMessage),
-        { once: true },
-      );
-    });
-  }
-
-  private async handleMessage(
-    frame: HTMLIFrameElement,
-    data: MCPAppsSnapshotContent,
-    agent: AbstractAgent,
-    message: JSONRPCMessage,
-    abortSignal: AbortSignal,
-    version: number,
-  ): Promise<void> {
-    if (abortSignal.aborted || version !== this.renderVersion) return;
-
-    if (message.id !== undefined) {
-      switch (message.method) {
-        case "ui/initialize":
-          frame.setAttribute("data-mcp-app-initialized", "true");
-          this.sendResponse(frame, message.id, {
-            protocolVersion: PROTOCOL_VERSION,
-            hostInfo: this.config.hostInfo,
-            hostCapabilities: this.config.hostCapabilities,
-            hostContext: this.config.hostContext,
-          });
-          return;
-        case "ui/message":
-          await this.handleUIMessage(frame, agent, message, version);
-          return;
-        case "ui/open-link":
-          this.handleOpenLink(frame, message);
-          return;
-        case "tools/call":
-          await this.handleToolCall(frame, data, agent, message, abortSignal);
-          return;
-        default:
-          this.sendError(
-            frame,
-            message.id,
-            -32601,
-            `Method not found: ${message.method}`,
+      // Cleanup is registered before importing, so an obsolete bind never starts.
+      void import("@copilotkit/mcp-apps-renderer")
+        .catch((importErr: unknown) => {
+          // Name the packages and the fix: the raw module-resolution error
+          // ("Failed to fetch dynamically imported module...") tells a user
+          // nothing about what to install. Same message as React and Vue.
+          throw new Error(
+            "MCP Apps require '@copilotkit/mcp-apps-renderer' and its " +
+              "'@modelcontextprotocol/ext-apps' dependency. Reinstall your " +
+              "dependencies if this package is missing.",
+            { cause: importErr },
           );
-          return;
-      }
-    }
-
-    switch (message.method) {
-      case "ui/notifications/initialized":
-        if (data.toolInput) {
-          this.sendNotification(frame, "ui/notifications/tool-input", {
-            arguments: data.toolInput,
-          });
-        }
-        this.sendNotification(
-          frame,
-          "ui/notifications/tool-result",
-          data.result as Record<string, unknown>,
-        );
-        break;
-      case "ui/notifications/size-changed": {
-        const height = message.params?.height;
-        if (
-          typeof height === "number" &&
-          Number.isFinite(height) &&
-          height > 0
-        ) {
-          frame.style.height = `${Math.ceil(Math.min(height, 5000))}px`;
-        }
-        break;
-      }
-      case "notifications/message":
-        console.info("[CopilotKit MCP App]", message.params ?? {});
-        break;
-    }
-  }
-
-  private async handleUIMessage(
-    frame: HTMLIFrameElement,
-    agent: AbstractAgent,
-    message: JSONRPCMessage & { id?: string | number },
-    version: number,
-  ): Promise<void> {
-    const id = message.id!;
-    const role = message.params?.role === "assistant" ? "assistant" : "user";
-    const content = Array.isArray(message.params?.content)
-      ? message.params.content
-          .filter(isTextContent)
-          .map((part) => part.text)
-          .join("\n")
-      : "";
-
-    if (content) {
-      agent.addMessage({ id: randomUUID(), role, content });
-    }
-    this.sendResponse(frame, id, { isError: false });
-
-    const shouldFollowUp =
-      typeof message.params?.followUp === "boolean"
-        ? message.params.followUp
-        : role === "user";
-    if (!shouldFollowUp || !content) return;
-
-    try {
-      await this.queue.enqueue({
-        agent,
-        ownerId: this.ownerId,
-        dropAfterThreadSwitch: true,
-        execute: () => this.copilotKit.core.runAgent({ agent }),
-      });
-    } catch (error) {
-      if (isCancellation(error)) return;
-      this.fail(
-        `MCP App follow-up failed: ${asError(error).message}`,
-        frame,
-        version,
-      );
-    }
-  }
-
-  private handleOpenLink(
-    frame: HTMLIFrameElement,
-    message: JSONRPCMessage,
-  ): void {
-    const id = message.id!;
-    const url = safeExternalURL(message.params?.url);
-    if (!url) {
-      this.sendError(frame, id, -32602, "A valid HTTP(S) URL is required.");
-      return;
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
-    this.sendResponse(frame, id, { isError: false });
-  }
-
-  private async handleToolCall(
-    frame: HTMLIFrameElement,
-    data: MCPAppsSnapshotContent,
-    agent: AbstractAgent,
-    message: JSONRPCMessage,
-    abortSignal: AbortSignal,
-  ): Promise<void> {
-    const id = message.id!;
-    try {
-      const runResult = await this.queue.enqueue({
-        agent,
-        ownerId: this.ownerId,
-        execute: () =>
-          agent.runAgent({
-            forwardedProps: {
-              __proxiedMCPRequest: {
-                serverHash: data.serverHash,
-                serverId: data.serverId,
-                method: "tools/call",
-                params: message.params,
+        })
+        .then((mcp) => {
+          if (!active) return;
+          session = mcp.bindMcpApp({
+            iframe: frame,
+            getContent: () => untracked(this.data),
+            getAgent: () => agent,
+            messageId,
+            host: this.copilotKit.core,
+            options: this.config,
+            cancelFollowUpsOnTeardown: true,
+            requireExactResourceUri: true,
+            cancelRunningWaitOnTeardown: true,
+            hooks: {
+              onSandboxReady: () => {
+                if (active) this.loading.set(false);
               },
+              onInitialized: () => {
+                if (!active) return;
+                this.loading.set(false);
+                frame.setAttribute("data-mcp-app-initialized", "true");
+              },
+              onSizeChanged: ({ height }) => {
+                if (
+                  active &&
+                  typeof height === "number" &&
+                  Number.isFinite(height) &&
+                  height > 0
+                ) {
+                  frame.style.height = `${Math.ceil(Math.min(height, 5000))}px`;
+                }
+              },
+              onError: fail,
+              onContentError: (err) => {
+                if (active) this.contentError.set(err?.message ?? "");
+              },
+              onFollowUpError: fail,
             },
-          }),
-      });
-      if (!abortSignal.aborted)
-        this.sendResponse(frame, id, runResult.result ?? {});
-    } catch (error) {
-      if (isCancellation(error)) return;
-      this.sendError(frame, id, -32603, asError(error).message);
-    }
+          });
+          this.session = session;
+          session.syncContent(untracked(this.data));
+        })
+        .catch(fail);
+    });
+    // Content updates feed the existing session and never reload its iframe.
+    afterRenderEffect(() => {
+      const data = this.data();
+      untracked(() => this.session?.syncContent(data));
+    });
   }
-
-  private sendResponse(
-    frame: HTMLIFrameElement,
-    id: string | number,
-    result: unknown,
-  ): void {
-    frame.contentWindow?.postMessage({ jsonrpc: "2.0", id, result }, "*");
-  }
-
-  private sendError(
-    frame: HTMLIFrameElement,
-    id: string | number,
-    code: number,
-    message: string,
-  ): void {
-    frame.contentWindow?.postMessage(
-      { jsonrpc: "2.0", id, error: { code, message } },
-      "*",
-    );
-  }
-
-  private sendNotification(
-    frame: HTMLIFrameElement,
-    method: string,
-    params: Record<string, unknown>,
-  ): void {
-    frame.contentWindow?.postMessage({ jsonrpc: "2.0", method, params }, "*");
-  }
-
-  private fail(
-    message: string,
-    frame: HTMLIFrameElement,
-    version: number,
-  ): void {
-    if (version !== this.renderVersion) return;
-    this.loading.set(false);
-    this.error.set(message);
-    frame.removeAttribute("srcdoc");
-    frame.removeAttribute("src");
-    frame.removeAttribute("data-mcp-app-initialized");
-  }
-
-  private resetFrame(frame: HTMLIFrameElement): void {
-    this.loading.set(true);
-    this.error.set("");
-    frame.style.removeProperty("height");
-    frame.removeAttribute("srcdoc");
-    frame.removeAttribute("src");
-    frame.removeAttribute("data-mcp-app-initialized");
-  }
-
-  private throwIfStale(abortSignal: AbortSignal, version: number): void {
-    if (abortSignal.aborted || version !== this.renderVersion) {
-      throw new MCPAppsQueueCancelledError();
-    }
-  }
-}
-
-function queueForTimeout(idleTimeoutMs: number): MCPAppsRequestQueue {
-  let queue = queuesByIdleTimeout.get(idleTimeoutMs);
-  if (!queue) {
-    queue = new MCPAppsRequestQueue({ idleTimeoutMs });
-    queuesByIdleTimeout.set(idleTimeoutMs, queue);
-  }
-  return queue;
-}
-
-function findResource(
-  runResult: RunAgentResult,
-  resourceUri: string,
-): FetchedResource {
-  const result = runResult.result as
-    | { contents?: FetchedResource[] }
-    | undefined;
-  const resource = result?.contents?.find(
-    (candidate) => candidate.uri === resourceUri,
-  );
-  if (!resource) {
-    throw new Error(
-      `No matching MCP App resource was returned for "${resourceUri}".`,
-    );
-  }
-  return resource;
-}
-
-function parseJSONRPCMessage(value: unknown): JSONRPCMessage | undefined {
-  if (
-    !isRecord(value) ||
-    value.jsonrpc !== "2.0" ||
-    typeof value.method !== "string"
-  ) {
-    return undefined;
-  }
-  if (
-    value.id !== undefined &&
-    typeof value.id !== "string" &&
-    typeof value.id !== "number"
-  ) {
-    return undefined;
-  }
-  if (value.params !== undefined && !isRecord(value.params)) return undefined;
-  return value as unknown as JSONRPCMessage;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-function isTextContent(
-  value: unknown,
-): value is { type: "text"; text: string } {
-  return (
-    isRecord(value) && value.type === "text" && typeof value.text === "string"
-  );
-}
-
-function safeExternalURL(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  try {
-    const url = new URL(value, window.location.href);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
-    if (url.username || url.password) return undefined;
-    return url.href;
-  } catch {
-    return undefined;
-  }
-}
-
-function decodeBase64(value: string): string {
-  try {
-    const binary = atob(value);
-    const bytes = Uint8Array.from(binary, (character) =>
-      character.charCodeAt(0),
-    );
-    return new TextDecoder().decode(bytes);
-  } catch {
-    throw new Error("The MCP App resource contains invalid base64 content.");
-  }
-}
-
-function isCancellation(error: unknown): boolean {
-  return (
-    error instanceof MCPAppsQueueCancelledError ||
-    error instanceof MCPAppsQueueThreadChangedError
-  );
-}
-
-function asError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error));
-}
-
-/** Compares JSON-compatible activity snapshots without relying on object identity. */
-function areStructurallyEqual(left: unknown, right: unknown): boolean {
-  if (Object.is(left, right)) return true;
-  if (Array.isArray(left) || Array.isArray(right)) {
-    return (
-      Array.isArray(left) &&
-      Array.isArray(right) &&
-      left.length === right.length &&
-      left.every((value, index) => areStructurallyEqual(value, right[index]))
-    );
-  }
-  if (!isRecord(left) || !isRecord(right)) return false;
-
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  return (
-    leftKeys.length === rightKeys.length &&
-    leftKeys.every(
-      (key) =>
-        Object.prototype.hasOwnProperty.call(right, key) &&
-        areStructurallyEqual(left[key], right[key]),
-    )
-  );
-}
-
-function buildSandboxHTML(extraCspDomains?: string[]): string {
-  const baseScriptSrc =
-    "'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:*";
-  const baseFrameSrc = "* blob: data: http://localhost:* https://localhost:*";
-  const extra = extraCspDomains?.length ? ` ${extraCspDomains.join(" ")}` : "";
-  const scriptSrc = baseScriptSrc + extra;
-  const frameSrc = baseFrameSrc + extra;
-
-  return `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: blob: 'unsafe-inline'; media-src * blob: data:; font-src * blob: data:; script-src ${scriptSrc}; style-src * blob: data: 'unsafe-inline'; connect-src *; frame-src ${frameSrc}; base-uri 'self';" />
-<style>html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden}*{box-sizing:border-box}iframe{background-color:transparent;border:none;padding:0;overflow:hidden;width:100%;height:100%}</style>
-</head>
-<body>
-<script>
-if(window.self===window.top){throw new Error("This file must be used in an iframe.")}
-const inner=document.createElement("iframe");
-inner.style="width:100%;height:100%;border:none;";
-inner.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms");
-document.body.appendChild(inner);
-window.addEventListener("message",async(event)=>{
-if(event.source===window.parent){
-if(event.data&&event.data.method==="ui/notifications/sandbox-resource-ready"){
-const{html,sandbox}=event.data.params;
-if(typeof sandbox==="string")inner.setAttribute("sandbox",sandbox);
-if(typeof html==="string")inner.srcdoc=html;
-}else if(inner&&inner.contentWindow){
-inner.contentWindow.postMessage(event.data,"*");
-}
-}else if(event.source===inner.contentWindow){window.parent.postMessage(event.data,"*")}
-});
-window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/sandbox-proxy-ready",params:{}},"*");
-</script>
-</body>
-</html>`;
 }

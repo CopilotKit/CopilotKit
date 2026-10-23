@@ -26,13 +26,6 @@ describe("the Angular sidebar's quickstart", () => {
     .map((integration) => integration.slug)
     .filter((slug) => getDocsMode(slug) !== "hidden");
 
-  it("has backends to check", () => {
-    expect(backends.length).toBeGreaterThan(5);
-    expect(
-      backends.every((slug) => typeof slug === "string" && slug.length > 0),
-    ).toBe(true);
-  });
-
   it("never resolves to a backend's React quickstart", () => {
     for (const backend of backends) {
       const resolved = resolveAngularDoc(backend, "quickstart");

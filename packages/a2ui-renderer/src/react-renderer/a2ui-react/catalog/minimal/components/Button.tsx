@@ -43,7 +43,7 @@ export const Button = createReactComponent(
     };
 
     return (
-      <button style={style} onClick={props.action}>
+      <button type="button" style={style} onClick={props.action}>
         {props.child ? buildChild(props.child) : null}
       </button>
     );

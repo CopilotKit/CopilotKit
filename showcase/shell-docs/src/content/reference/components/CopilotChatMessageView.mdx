@@ -26,8 +26,72 @@ import "@copilotkit/react-core/v2/styles.css";
   an `id`, `role` (`"user"` or `"assistant"`), and `content`.
 </PropertyReference>
 
+<PropertyReference name="transformMessages" type="(messages: Message[]) => Message[]">
+  Reshapes the list before it renders: drop, replace or reorder messages with
+  the whole list in view. Receives the messages after duplicate ids are merged
+  and returns the list to render. Virtualization, row keys, scroll-to-bottom
+  and the "latest message" all follow the returned list, so a dropped message
+  takes no row. Tool-call cards still look up their results in the full
+  `messages`, so hiding tool-result messages does not empty them. Return each
+  id at most once, and give any message you build an id that stays the same
+  while the thread streams. The transform reruns when `messages` or the
+  function change, so pass a stable function (for example with `useCallback`).
+  See [Reshaping the Message List](/custom-look-and-feel/slots#reshaping-the-message-list).
+</PropertyReference>
+
+<PropertyReference name="groupMessages" type="(messages: Message[]) => MessageRow[]">
+  Splits the list into rows. Return `messageRow(message)` for a message that
+  renders on its own and `messageGroup({ key, messages, wrapper })` for messages
+  that render together inside `wrapper`, which receives `groupKey`, `messages`,
+  `children` (the default rendering of those messages), and `state` /
+  `setState`. Each row is one virtualized row. The chat keeps a group's state
+  under its `key`, so it survives the row leaving the window; it is dropped
+  when the key stops appearing and cleared when the thread changes. Receives
+  the list after `transformMessages`. Place each message in at most one row,
+  keep keys stable while the thread streams, define wrappers at module level,
+  and pass a stable function.
+  See [Grouping messages into one row](/custom-look-and-feel/slots#grouping-messages-into-one-row).
+</PropertyReference>
+
+<PropertyReference name="messageFeedback" type="boolean" default="true">
+  Whether reply thumbs record ratings for Automatic Learning once a Trajectory
+  has started. Set `false` to keep the thumbs to your own `onThumbsUp` /
+  `onThumbsDown` handlers and slots. See
+  [Collect reply ratings](/intelligence/capture-interactions#collect-reply-ratings).
+</PropertyReference>
+
+<PropertyReference name="toolCallDisplay" type='"grouped" | "line" | "stacked" | "turn" | "separate"' default='"grouped"'>
+  How tool calls show in the list.
+
+- `"grouped"` (default): calls the agent makes in a row share one card,
+  collapsed to a summary ("Used 3 tools · run_command ×2, read_file"). While a
+  call runs, the summary names it. Opening the card shows a row per call, and
+  each row opens to its arguments and result.
+- `"line"`: the same grouping as a quiet line of text, like the reasoning
+  message's "Thought for 4 seconds". It opens to a list of rows.
+- `"stacked"`: the latest call on top of a stack of the earlier ones. Clicking
+  the stack fans it out into a card per call.
+- `"turn"`: the agent works in the open. A "Working" line sits at the top of
+  the reply, narration fades to muted once a call follows it, and calls appear
+  as rows. When the reply is done, everything before it folds into "Worked for
+  9s", leaving only the reply. The line is the
+  [`workSummary`](#worksummary) slot.
+- `"separate"`: every call gets its own card. This was the behavior before
+  grouping.
+
+Grouping applies to calls drawn by a renderer that opts into it, which the
+built-in card from [`useDefaultRenderTool()`](/reference/hooks/useDefaultRenderTool)
+does. A custom catch-all opts in with `group: true`; until then its calls show
+on their own, since the chat can't tell what it draws (it may draw nothing).
+Any call that isn't grouped splits the group around it, and so do text,
+reasoning and activity messages. Calls with no renderer at all still render
+nothing. To restyle or replace the group itself, use the `group` slot of
+[`CopilotChatToolCallsView`](/reference/components/CopilotChatAssistantMessage#copilotchattoolcallsview).
+See [Grouping tool calls](/generative-ui/tool-rendering#grouping-tool-calls).
+</PropertyReference>
+
 <PropertyReference name="children" type="(props: { isRunning: boolean; messages: Message[]; messageElements: React.ReactElement[] }) => React.ReactElement">
-Optional render-prop function that receives the resolved state and pre-built message elements. When provided, the component calls this function instead of rendering the default message list layout. The callback receives `isRunning` (current running state), `messages` (the raw message array), and `messageElements` (an array of React elements built from the `assistantMessage` and `userMessage` slots).
+Optional render-prop function that receives the resolved state and pre-built message elements. When provided, the component calls this function instead of rendering the default message list layout. The callback receives `isRunning` (current running state), `messages` (the raw message array), and `messageElements` (an array of React elements built from the `assistantMessage` and `userMessage` slots). Providing `children` turns virtualization off, so every message is mounted; for list-level changes, prefer `transformMessages`.
 </PropertyReference>
 
 ## Slots
@@ -101,6 +165,35 @@ All slot props follow the CopilotKit slot system: each accepts a replacement Rea
 
 </PropertyReference>
 
+<PropertyReference name="workSummary" type="SlotProp<typeof CopilotChatWorkSummary>">
+  Slot for the line at the top of each reply in the `"turn"` tool-call
+  display. Defaults to
+  [`CopilotChatWorkSummary`](/reference/components/CopilotChatToolCallGroup#copilotchatworksummary).
+  It reads "Working" with a timer while the agent works, then "Worked for 9s"
+  once the reply is done, and toggles the work it folded away. Only rendered
+  when `toolCallDisplay` is `"turn"`.
+
+**As a className:**
+
+```tsx
+<CopilotChatMessageView toolCallDisplay="turn" workSummary="text-xs" />
+```
+
+**As a replacement component:**
+
+```tsx
+<CopilotChatMessageView
+  toolCallDisplay="turn"
+  workSummary={({ isWorking, isOpen, calls, onClick }) => (
+    <button onClick={onClick} aria-expanded={isOpen}>
+      {isWorking ? "Thinking it through…" : `Checked ${calls.length} sources`}
+    </button>
+  )}
+/>
+```
+
+</PropertyReference>
+
 ## Usage
 
 ### Basic Message List
@@ -167,6 +260,35 @@ function CustomLayout() {
 }
 ```
 
+### Choosing How Tool Calls Show
+
+```tsx
+function AgentChat() {
+  const { agent } = useAgent();
+
+  return (
+    <CopilotChatMessageView
+      messages={agent.messages}
+      isRunning={agent.isRunning}
+      toolCallDisplay="turn"
+    />
+  );
+}
+```
+
+From `CopilotChat`, `CopilotSidebar` or `CopilotPopup`, set it through the
+`messageView` slot:
+
+```tsx
+<CopilotChat messageView={{ toolCallDisplay: "line" }} />
+```
+
+To give every call its own card again:
+
+```tsx
+<CopilotChat messageView={{ toolCallDisplay: "separate" }} />
+```
+
 ### Hiding the Toolbar on Assistant Messages
 
 ```tsx
@@ -186,7 +308,11 @@ function MinimalChat() {
 ## Behavior
 
 - **Message Rendering**: Each message in the `messages` array is rendered using the corresponding slot component based on its `role`. Assistant messages use the `assistantMessage` slot; user messages use the `userMessage` slot.
-- **Cursor Display**: The `cursor` slot is only rendered when `isRunning` is `true`. It appears after the last message in the list.
+- **Cursor Display**: The `cursor` slot is only rendered when `isRunning` is `true`. It appears after the last message in the list, and is hidden when the last rendered message is a reasoning message, which shows its own indicator.
+- **Virtualization**: Inside a chat scroll container, once more than 50 messages render, only the rows on screen are mounted. The count is of the messages that render: the ones `transformMessages` returns or, with `groupMessages`, the ones in the rows it returns. The window itself moves by rows, and each group is one row. Providing `children` turns virtualization off; in development the component warns once when that is what keeps a long thread mounted in full.
+- **Latest Message**: The last rendered message is passed to its slot as `isLatest`. While `isRunning` is `true`, the latest assistant message hides its toolbar and a latest reasoning message shows as streaming.
+- **Tool-Call Groups**: Groups can span messages, since agents often send each call as its own assistant message. The group belongs to the message where it starts, and the later messages whose calls joined it render no tool calls of their own. While the agent is running and nothing follows a group, its summary names the call in progress.
+- **Work Summary**: In the `"turn"` display, the summary replaces the cursor while the reply is in progress. "Worked for 9s" adds up the agent's runs on the reply, so waiting between them (for an approval, say) doesn't count. It needs a reply this component watched start, so a restored thread shows the tool count ("Used 7 tools") instead. Text that ends the reply stays visible after the fold, even when its message also calls a tool. Opening or closing a reply's work sticks, even when later runs update it.
 - **Render-Prop Override**: When `children` is provided as a function, the component delegates all layout to that function. The `messageElements` array is pre-built from the slot components, so custom layouts still benefit from slot customization.
 - **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
 
@@ -194,4 +320,5 @@ function MinimalChat() {
 
 - [`CopilotChatAssistantMessage`](/reference/components/CopilotChatAssistantMessage) -- Default assistant message slot component
 - [`CopilotChatUserMessage`](/reference/components/CopilotChatUserMessage) -- Default user message slot component
+- [`CopilotChatToolCallGroup`](/reference/components/CopilotChatToolCallGroup) -- Default group for tool calls made in a row
 - [`CopilotChatView`](/reference/components/CopilotChatView) -- Higher-level chat view that composes this component

@@ -432,4 +432,62 @@ describe("mcpServers — real MCP server integration", () => {
       await llm2.stop().catch(() => {});
     }
   });
+
+  it("two named servers that expose the same tool keep both, and each calls its own server", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const staging = new MCPMock();
+    const production = new MCPMock();
+    for (const [mock, label] of [
+      [staging, "staging"],
+      [production, "production"],
+    ] as const) {
+      mock.addTool({
+        name: "search",
+        description: `search on ${label}`,
+        inputSchema: {
+          type: "object",
+          properties: { query: { type: "string" } },
+        },
+      });
+      mock.onToolCall("search", () => `result from ${label}`);
+    }
+
+    llm = new LLMock({ port: 0 });
+    llm.mount("/staging", staging);
+    llm.mount("/production", production);
+    await llm.start();
+
+    const agent = new BasicAgent({
+      model: "openai/gpt-4o",
+      mcpServers: [
+        { type: "http", url: `${llm.url}/staging`, name: "staging" },
+        { type: "http", url: `${llm.url}/production`, name: "production" },
+      ],
+    });
+
+    // Call the tool while the stream is open: the agent closes its MCP
+    // clients as soon as the run ends.
+    let prodResult: unknown;
+    vi.mocked(streamText).mockImplementation(
+      (params: any) =>
+        ({
+          fullStream: (async function* () {
+            prodResult = await params.tools.production_search.execute(
+              { query: "q" },
+              { toolCallId: "tc1", messages: [] },
+            );
+            yield finish();
+          })(),
+        }) as any,
+    );
+
+    await collectEvents(agent["run"](baseInput));
+
+    const callArgs = vi.mocked(streamText).mock.calls[0][0];
+    expect(callArgs.tools).toHaveProperty("staging_search");
+    expect(callArgs.tools).toHaveProperty("production_search");
+    expect(callArgs.tools).not.toHaveProperty("search");
+    expect(JSON.stringify(prodResult)).toContain("result from production");
+    warn.mockRestore();
+  });
 });

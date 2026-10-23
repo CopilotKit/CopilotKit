@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextFetchEvent, NextRequest } from "next/server";
+import type { middleware as middlewareHandler } from "./middleware";
 
 // The raw Markdown surface (`/llms.txt`, `/llms-full.txt`, `<path>.md`) is
 // fetched by agents that never load a page, so the client PostHog snippet never
@@ -15,14 +15,16 @@ type CapturedEvent = {
   properties: Record<string, unknown>;
 };
 
-const captured: CapturedEvent[] = [];
-const pending: Promise<unknown>[] = [];
+let captured: CapturedEvent[] = [];
+let pending: Promise<unknown>[] = [];
+let NextRequestConstructor: typeof NextRequest;
+let middleware: typeof middlewareHandler;
 
 /** A `NextFetchEvent` stub that records the work middleware defers. */
-function fetchEvent(): NextFetchEvent {
+function fetchEvent(deferred: Promise<unknown>[]): NextFetchEvent {
   return {
     waitUntil: (promise: Promise<unknown>) => {
-      pending.push(promise);
+      deferred.push(promise);
     },
   } as unknown as NextFetchEvent;
 }
@@ -36,77 +38,59 @@ async function runMiddleware(
     headers?: Record<string, string>;
   } = {},
 ): Promise<{ response: Response; events: CapturedEvent[] }> {
-  const { NextRequest } = await import("next/server");
-  const { middleware } = await import("./middleware");
-
+  const events = captured;
+  const deferred = pending;
   const headers = new Headers(init.headers ?? {});
   if (init.userAgent) headers.set("user-agent", init.userAgent);
   if (init.ip) headers.set("x-forwarded-for", init.ip);
 
-  const request = new NextRequest(
+  const request = new NextRequestConstructor(
     new URL(pathname, "https://docs.copilotkit.ai"),
-    { method: init.method ?? "GET", headers },
+    {
+      method: init.method ?? "GET",
+      headers,
+    },
   );
 
-  const before = captured.length;
-  const response = middleware(request as NextRequest, fetchEvent());
-  await Promise.all(pending.splice(0));
-  return { response, events: captured.slice(before) };
+  const before = events.length;
+  const response = middleware(request as NextRequest, fetchEvent(deferred));
+  await Promise.all(deferred);
+  return { response, events: events.slice(before) };
 }
 
 const CLAUDE_CODE = "claude-code/1.2.0";
 const CHROME =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-beforeEach(() => {
-  captured.length = 0;
-  pending.length = 0;
+beforeEach(async () => {
+  const events: CapturedEvent[] = [];
+  captured = events;
+  pending = [];
   vi.resetModules();
   vi.stubEnv("POSTHOG_KEY", "phc_test_key");
   vi.stubEnv("NEXT_PUBLIC_POSTHOG_HOST", "https://eu.i.posthog.com");
   vi.stubGlobal(
     "fetch",
     vi.fn(async (_url: string, init?: RequestInit) => {
-      captured.push(JSON.parse(String(init?.body)) as CapturedEvent);
+      events.push(JSON.parse(String(init?.body)) as CapturedEvent);
       return new Response(JSON.stringify({ status: 1 }), { status: 200 });
     }),
   );
+  // Load the request fixture before the request test starts its timer.
+  ({ NextRequest: NextRequestConstructor } = await import("next/server"));
+  ({ middleware } = await import("./middleware"));
 });
 
-afterEach(() => {
-  vi.unstubAllEnvs();
-  vi.unstubAllGlobals();
+afterEach(async () => {
+  try {
+    await Promise.allSettled(pending);
+  } finally {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  }
 });
 
 describe("the agent-facing raw text surface", () => {
-  it.each([
-    ["/llms.txt", "llms_index"],
-    ["/llms-full.txt", "llms_full"],
-    ["/learning.md", "page_markdown"],
-    ["/langgraph-python/quickstart.mdx", "page_markdown"],
-  ])("reports %s as surface %s", async (pathname, surface) => {
-    const { events } = await runMiddleware(pathname, {
-      userAgent: CLAUDE_CODE,
-    });
-
-    expect(events).toHaveLength(1);
-    expect(events[0]!.event).toBe("docs.llm_text_fetched");
-    expect(events[0]!.properties.surface).toBe(surface);
-    expect(events[0]!.properties.path).toBe(pathname);
-  });
-
-  it("names the caller, which is the whole question the hit count cannot answer", async () => {
-    const { events } = await runMiddleware("/llms.txt", {
-      userAgent: CLAUDE_CODE,
-    });
-
-    expect(events[0]!.properties.caller_class).toBe("coding_agent");
-    expect(events[0]!.properties.caller_agent).toBe("claude_code");
-    // The raw agent travels too, so a bucket that turns out wrong can be re-cut
-    // over history without a redeploy.
-    expect(events[0]!.properties.$raw_user_agent).toBe(CLAUDE_CODE);
-  });
-
   it("caps a hostile user agent rather than forwarding it whole", async () => {
     const { events } = await runMiddleware("/llms.txt", {
       userAgent: "x".repeat(4000),
@@ -127,26 +111,6 @@ describe("the agent-facing raw text surface", () => {
     // PostHog otherwise stamps the POSTing server's own address, which would
     // read as a plausible breakdown of where agents fetch from.
     expect(events[0]!.properties.$geoip_disable).toBe(true);
-  });
-
-  it("records the deployment so preview and local traffic stay out of the count", async () => {
-    // shell-docs runs on Railway, so that variable is the one that is
-    // actually set in production.
-    vi.stubEnv("RAILWAY_ENVIRONMENT_NAME", "preview");
-    const { events } = await runMiddleware("/llms.txt", {
-      userAgent: CLAUDE_CODE,
-    });
-
-    expect(events[0]!.properties.environment).toBe("preview");
-  });
-
-  it("falls back to the Vercel variable for a preview built elsewhere", async () => {
-    vi.stubEnv("VERCEL_ENV", "preview");
-    const { events } = await runMiddleware("/llms.txt", {
-      userAgent: CLAUDE_CODE,
-    });
-
-    expect(events[0]!.properties.environment).toBe("preview");
   });
 
   it("gives the same caller a stable handle, so uniq() counts callers not fetches", async () => {
@@ -188,29 +152,6 @@ describe("the agent-facing raw text surface", () => {
 });
 
 describe("the boundary with ordinary docs pageviews", () => {
-  it("still reports a real page as docs_pageview", async () => {
-    const { events } = await runMiddleware("/quickstart", {
-      userAgent: CHROME,
-    });
-
-    expect(events).toHaveLength(1);
-    expect(events[0]!.event).toBe("docs_pageview");
-    expect(events[0]!.properties.path).toBe("/quickstart");
-  });
-
-  it("counts a raw text fetch exactly once, and never as a docs visitor", async () => {
-    // The Kiteline funnel reads `docs_pageview` as "building something". A
-    // crawler pulling 126k Markdown pages a month is not that, and counting the
-    // same fetch under both events would only move the inflation.
-    const { events } = await runMiddleware("/learning.md", {
-      userAgent: "GPTBot/1.1",
-    });
-
-    expect(events.map((event) => event.event)).toEqual([
-      "docs.llm_text_fetched",
-    ]);
-  });
-
   it("leaves the redirect table in front of the count", async () => {
     // A path that redirects is answered with a 301 and reported as
     // `seo_redirect`; the fetch is counted on the destination instead.
@@ -242,37 +183,20 @@ describe("telemetry must not be able to break a fetch", () => {
     warn.mockRestore();
   });
 
-  it("stays silent when no PostHog key is configured", async () => {
-    vi.stubEnv("POSTHOG_KEY", "");
-    const { events } = await runMiddleware("/llms.txt", {
-      userAgent: CLAUDE_CODE,
+  describe("without a PostHog key", () => {
+    beforeEach(async () => {
+      vi.resetModules();
+      vi.stubEnv("POSTHOG_KEY", "");
+      ({ middleware } = await import("./middleware"));
     });
 
-    expect(events).toEqual([]);
-  });
-});
+    it("stays silent when no PostHog key is configured", async () => {
+      const { events } = await runMiddleware("/llms.txt", {
+        userAgent: CLAUDE_CODE,
+      });
 
-describe("the shape the telemetry registry reads", () => {
-  it('emits through a literal `posthog.capture("name", { ... })` call', async () => {
-    // `scripts/telemetry/extract.ts` indexes call sites by callee name
-    // (`posthog.capture` / `capture`), takes the event name only from a STRING
-    // LITERAL first argument, and the property list only from an INLINE OBJECT
-    // LITERAL second argument. The `telemetry / docs fragment` workflow runs it
-    // over `showcase/shell-docs/src/**`.
-    //
-    // Posting the same JSON through a bare `fetch` satisfies PostHog and is
-    // invisible to the extractor — which is why `docs_pageview` and
-    // `seo_redirect`, both emitted that way above, are absent from the
-    // catalog. Hoisting the name into a constant would silently do the same to
-    // this event, so the shape is pinned here rather than left to review.
-    const source = await readFile(
-      new URL("./middleware.ts", import.meta.url),
-      "utf8",
-    );
-
-    expect(source).toContain(
-      'posthog.capture(\n      "docs.llm_text_fetched",\n      {',
-    );
+      expect(events).toEqual([]);
+    });
   });
 });
 

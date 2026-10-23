@@ -1,4 +1,4 @@
-import { SearchProgress as SearchProgressType } from "@/lib/types";
+import type { SearchProgress as SearchProgressType } from "@/lib/types";
 import { Card } from "./ui/card";
 import { LoaderCircle, CheckIcon } from "lucide-react";
 import { cn } from "@/lib/utils";

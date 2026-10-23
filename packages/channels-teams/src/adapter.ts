@@ -26,10 +26,19 @@ import type {
 import type { ConversationReference } from "@microsoft/agents-activity";
 import { TeamsConversationStore } from "./conversation-store.js";
 import { buildFileContentParts } from "./download-files.js";
+import {
+  DownloadBudget,
+  resolveDownloadLimits,
+} from "./attachment-download.js";
 import type { TeamsAttachmentRef } from "./download-files.js";
 import { buildChannelFileContentParts } from "./graph-files.js";
 import type { GraphCredentials, ChannelMessageRef } from "./graph-files.js";
 import { createTeamsServer } from "./listener.js";
+import { resolveTeamsAuth } from "./auth-config.js";
+import {
+  isAllowedServiceUrl,
+  resolveAllowedServiceUrls,
+} from "./service-url.js";
 import type { TeamsServer } from "./listener.js";
 import { conversationKeyOf, parseCardAction } from "./interaction.js";
 import { createRunRenderer } from "./event-renderer.js";
@@ -82,8 +91,16 @@ export class TeamsAdapter implements PlatformAdapter {
   private cloud: CloudAdapter | undefined;
   private server: TeamsServer | undefined;
   private sink: IngressSink | undefined;
+  /** Auth settings as the SDK resolved them at `start` (see `appId`). */
+  private resolvedAuth: AuthConfiguration | undefined;
+  private readonly allowedServiceUrls: readonly string[];
 
   constructor(private readonly opts: TeamsAdapterOptions = {}) {
+    // Fail on invalid limits before accepting turns; budgets remain per-message.
+    resolveDownloadLimits(opts.files);
+    this.allowedServiceUrls = resolveAllowedServiceUrls(
+      opts.allowedServiceUrls,
+    );
     this.capabilities = {
       supportsModals: false,
       supportsTyping: true,
@@ -97,11 +114,21 @@ export class TeamsAdapter implements PlatformAdapter {
   async start(sink: IngressSink): Promise<void> {
     this.sink = sink;
 
-    const authConfig: AuthConfiguration = {
-      clientId: this.opts.clientId ?? process.env.clientId,
-      clientSecret: this.opts.clientSecret ?? process.env.clientSecret,
-      tenantId: this.opts.tenantId ?? process.env.tenantId,
-    };
+    const configured: AuthConfiguration = {};
+    const clientId = this.opts.clientId ?? process.env.clientId;
+    const clientSecret = this.opts.clientSecret ?? process.env.clientSecret;
+    const tenantId = this.opts.tenantId ?? process.env.tenantId;
+    if (clientId) configured.clientId = clientId;
+    if (clientSecret) configured.clientSecret = clientSecret;
+    if (tenantId) configured.tenantId = tenantId;
+    // Resolve the way `CloudAdapter` does, once, so the app id the bot sends
+    // as, the token audience it accepts, and whether the endpoint requires a
+    // token at all come from the same settings, including credentials that
+    // only arrive through the SDK's own env vars (`Connections__*`).
+    // Fails startup when env settings drop or change the configured app id,
+    // or when only legacy (MicrosoftApp*) credentials are set.
+    const authConfig = resolveTeamsAuth(configured);
+    this.resolvedAuth = authConfig;
     this.cloud = new CloudAdapter(authConfig);
     // Contain turn-handler failures at the SDK boundary. Without this the M365
     // adapter rethrows (e.g. a Bot Connector 401 surfaces as "Unknown error
@@ -114,6 +141,11 @@ export class TeamsAdapter implements PlatformAdapter {
     this.server = createTeamsServer({
       adapter: this.cloud,
       port: this.opts.port ?? 3978,
+      host: this.opts.host,
+      // With a clientId, inbound requests must carry a valid token for it and
+      // name an allowed `serviceUrl`; without one the endpoint is anonymous.
+      authConfig,
+      allowedServiceUrls: this.allowedServiceUrls,
       onTurnContext: (context) => this.handleActivity(context, sink),
     });
     await this.server.start();
@@ -296,9 +328,16 @@ export class TeamsAdapter implements PlatformAdapter {
       activity.conversation as { conversationType?: string } | undefined
     )?.conversationType;
 
+    const budget = new DownloadBudget(this.opts.files);
+    const notes: string[] = [];
     // Inline path (personal chat, or any direct file/media attachment).
     if (attachments.length > 0) {
-      const result = await buildFileContentParts(attachments, this.opts.files);
+      const result = await buildFileContentParts(
+        attachments,
+        this.opts.files,
+        budget,
+      );
+      notes.push(...result.notes);
       this.logFileParts("attachment", result);
       if (result.parts.length > 0) return result;
     }
@@ -312,12 +351,13 @@ export class TeamsAdapter implements PlatformAdapter {
           ref,
           creds,
           this.opts.files,
+          budget,
         );
         this.logFileParts("graph", result);
-        return result;
+        return { parts: result.parts, notes: [...notes, ...result.notes] };
       }
     }
-    return { parts: [], notes: [] };
+    return { parts: [], notes };
   }
 
   /** App-only Graph credentials, when all three are configured. */
@@ -364,9 +404,18 @@ export class TeamsAdapter implements PlatformAdapter {
     );
   }
 
+  /**
+   * The Microsoft app id the bot acts as: the SDK-resolved one once started,
+   * else the configured option / env var.
+   */
+  private appId(): string | undefined {
+    if (this.resolvedAuth) return this.resolvedAuth.clientId || undefined;
+    return this.opts.clientId ?? process.env.clientId;
+  }
+
   /** Whether we can send proactively (out-of-turn). Requires a Microsoft app id. */
   private canGoProactive(): boolean {
-    return Boolean(this.opts.clientId ?? process.env.clientId);
+    return Boolean(this.appId());
   }
 
   /**
@@ -390,8 +439,32 @@ export class TeamsAdapter implements PlatformAdapter {
     fn: (context: TurnContext) => Promise<void>,
   ): Promise<void> {
     if (!this.cloud) return;
-    const appId = this.opts.clientId ?? process.env.clientId ?? "";
-    await this.cloud.continueConversation(
+    await this.continueConversation(this.cloud, reference, fn);
+  }
+
+  /**
+   * `CloudAdapter.continueConversation`, but only toward an allowed connector.
+   * The SDK sends the bot's app token to `reference.serviceUrl` without
+   * checking it, and a reference can come from an inbound activity, so with
+   * credentials configured an unknown host is refused before any token is
+   * requested or sent. (Anonymous mode has no app token, and the SDK refuses
+   * `continueConversation` without an app id anyway.)
+   */
+  private async continueConversation(
+    cloud: CloudAdapter,
+    reference: Partial<ConversationReference>,
+    fn: (context: TurnContext) => Promise<void>,
+  ): Promise<void> {
+    const appId = this.appId() ?? "";
+    if (
+      appId &&
+      !isAllowedServiceUrl(reference.serviceUrl, this.allowedServiceUrls)
+    ) {
+      throw new Error(
+        "[bot-teams] refusing to send to a serviceUrl that is not an allowed connector host",
+      );
+    }
+    await cloud.continueConversation(
       appId,
       reference as Parameters<CloudAdapter["continueConversation"]>[1],
       (context) => fn(context),
@@ -512,10 +585,9 @@ export class TeamsAdapter implements PlatformAdapter {
       }
       if (this.cloud && t.reference) {
         let fileId: string | undefined;
-        const appId = this.opts.clientId ?? process.env.clientId ?? "";
-        await this.cloud.continueConversation(
-          appId,
-          t.reference as Parameters<CloudAdapter["continueConversation"]>[1],
+        await this.continueConversation(
+          this.cloud,
+          t.reference,
           async (context) => {
             const res = await context.sendActivity(activity);
             fileId = res?.id;
@@ -620,7 +692,7 @@ export class TeamsAdapter implements PlatformAdapter {
           "unknown",
       },
       installation: {
-        id: this.opts.clientId ?? process.env.clientId ?? "anonymous",
+        id: this.appId() ?? "anonymous",
       },
       conversation: {
         id: value.conversation?.id ?? conversationKey,
@@ -659,10 +731,9 @@ export class TeamsAdapter implements PlatformAdapter {
     // Out-of-turn (proactive) send: re-enter the conversation by reference.
     if (this.cloud && t.reference) {
       let id = "";
-      const appId = this.opts.clientId ?? process.env.clientId ?? "";
-      await this.cloud.continueConversation(
-        appId,
-        t.reference as Parameters<CloudAdapter["continueConversation"]>[1],
+      await this.continueConversation(
+        this.cloud,
+        t.reference,
         async (context) => {
           const res = await context.sendActivity(trimmed);
           id = res?.id ?? "";
@@ -685,10 +756,9 @@ export class TeamsAdapter implements PlatformAdapter {
     }
     if (this.cloud && t.reference) {
       let id = "";
-      const appId = this.opts.clientId ?? process.env.clientId ?? "";
-      await this.cloud.continueConversation(
-        appId,
-        t.reference as Parameters<CloudAdapter["continueConversation"]>[1],
+      await this.continueConversation(
+        this.cloud,
+        t.reference,
         async (context) => {
           const res = await context.sendActivity(activity);
           id = res?.id ?? "";

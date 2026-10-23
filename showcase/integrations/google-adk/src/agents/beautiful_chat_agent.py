@@ -17,7 +17,7 @@ Tool surface matches the LP reference at
 showcase/integrations/langgraph-python/src/agents/beautiful_chat.py:
 - query_data           — financial rows for pie/bar charts
 - manage_todos         — exposed as `manage_sales_todos` on ADK to reuse
-                         the shared sales-pipeline impl (Task Manager pill)
+                         the shared board impl (Task Manager pill)
 - get_todos            — exposed as `get_sales_todos`
 - search_flights       — A2UI fixed-schema flight cards
 - generate_a2ui        — A2UI dynamic-schema sales dashboard (auto-injected)
@@ -44,9 +44,9 @@ from agents.shared_chat import get_a2ui_model, get_model, stop_on_terminal_text
 from tools import (
     query_data_impl,
     search_flights_impl,
-    manage_sales_todos_impl,
-    get_sales_todos_impl,
 )
+
+from tools.todos import manage_todos_impl
 
 load_dotenv()
 
@@ -87,15 +87,21 @@ def manage_sales_todos(tool_context: ToolContext, todos: list[dict]) -> dict:
     agent to overwrite `state["todos"]` wholesale on every invocation —
     pass the COMPLETE list, never a delta. Returns `{status, count}` so
     the LLM can craft a brief follow-up summary.
+
+    Each todo has id, title, description (the user's note), emoji, and
+    status ("pending" or "completed"). Preserve every existing item and its
+    description when adding, completing, or reopening a task.
     """
-    result = manage_sales_todos_impl(todos)
+    result = manage_todos_impl(todos)
     tool_context.state["todos"] = result
     return {"status": "updated", "count": len(result)}
 
 
 def get_sales_todos(tool_context: ToolContext) -> list:
     """Get the current Task Manager todos for the Beautiful Chat demo."""
-    return get_sales_todos_impl(tool_context.state.get("todos"))
+    todos = manage_todos_impl(tool_context.state.get("todos", []))
+    tool_context.state["todos"] = todos
+    return todos
 
 
 # Ported (with light adaptation for ADK tool naming) from LP's
@@ -113,7 +119,9 @@ _INSTRUCTION = """
         - Charts: call query_data first, then render with the chart component.
         - Todos / Task Manager: call manage_sales_todos to update the complete todo
           list, or get_sales_todos to read the current list before discussing them.
-          Always pass the COMPLETE list to manage_sales_todos.
+          Read the current list first, then pass the COMPLETE list to manage_sales_todos.
+          Each todo has id, title, description (preserve the user's notes), emoji,
+          and status ("pending" or "completed"). Keep existing IDs and descriptions.
         - Interactive / sandboxed widgets (calculator, custom forms, mini-apps):
           call generateSandboxedUi to create a self-contained HTML+CSS+JS widget
           rendered inside a sandboxed iframe. Use this when the user asks for

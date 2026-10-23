@@ -48,6 +48,7 @@ export const Tabs = createReactComponent(TabsApi, ({ props, buildChild }) => {
       >
         {tabs.map((tab: _Tab, i: number) => (
           <button
+            type="button"
             key={i}
             onClick={() => setSelectedIndex(i)}
             style={{
