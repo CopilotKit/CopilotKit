@@ -35,6 +35,15 @@ const liveHITLStops = new WeakMap<AbortSignal, () => boolean>();
 
 // Explicitly stopping a live approval must retain its error result. History
 // restoration and thread-switch cancellation instead discard the old result.
+/**
+ * The message a failed tool call reports. An error thrown with an empty
+ * message still means the call failed, so it gets a fallback rather than an
+ * empty string, which everything downstream reads as success.
+ */
+function toolFailureMessage(error: Error): string {
+  return error.message || "Tool call failed";
+}
+
 function discardAbortedResult(
   signal: AbortSignal | undefined,
   discardOnAbort: boolean,
@@ -1207,7 +1216,7 @@ export class RunHandler {
     } catch (error) {
       const parseError =
         error instanceof Error ? error : new Error(String(error));
-      errorMessage = parseError.message;
+      errorMessage = toolFailureMessage(parseError);
       isArgumentError = true;
       await this._internal.emitError({
         error: parseError,
@@ -1248,7 +1257,7 @@ export class RunHandler {
       } catch (error) {
         const handlerError =
           error instanceof Error ? error : new Error(String(error));
-        errorMessage = handlerError.message;
+        errorMessage = toolFailureMessage(handlerError);
         if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
           await this._internal.emitError({
             error: handlerError,
@@ -1361,6 +1370,7 @@ export class RunHandler {
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: handlerResult.content,
+        ...(handlerResult.error ? { error: handlerResult.error } : {}),
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1409,7 +1419,7 @@ export class RunHandler {
       } catch (error) {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
-        errorMessage = parseError.message;
+        errorMessage = toolFailureMessage(parseError);
         await this._internal.emitError({
           error: parseError,
           code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
@@ -1456,7 +1466,7 @@ export class RunHandler {
         } catch (error) {
           const handlerError =
             error instanceof Error ? error : new Error(String(error));
-          errorMessage = handlerError.message;
+          errorMessage = toolFailureMessage(handlerError);
           if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
             await this._internal.emitError({
               error: handlerError,
@@ -1520,6 +1530,7 @@ export class RunHandler {
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: toolCallResult,
+        ...(errorMessage ? { error: errorMessage } : {}),
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1611,6 +1622,7 @@ export class RunHandler {
       role: "tool",
       toolCallId,
       content: handlerResult.content,
+      ...(handlerResult.error ? { error: handlerResult.error } : {}),
     };
 
     const assistantIndex = agent.messages.findIndex(

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import type { Meta, StoryObj } from "@storybook/react";
+import type { Meta, StoryObj } from "@storybook/react-vite";
 import { IntelligenceIndicatorView } from "@copilotkit/react-core/v2";
 import type { IntelligenceIndicatorViewProps } from "@copilotkit/react-core/v2";
 
@@ -69,6 +69,16 @@ export const WithCustomLabel: Story = {
   args: { status: "finished", label: "Recalling memory" },
 };
 
+const RestartButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="rounded-md border border-border px-3.5 py-1.5 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+  >
+    Restart
+  </button>
+);
+
 /**
  * Animated timeline: enter as `in-progress`, then flip to `finished`
  * after ~1.5s. The face's built-in opacity cross-fade swaps the
@@ -95,18 +105,7 @@ export const Playground: Story = {
         }}
       >
         <IntelligenceIndicatorView {...args} status={status} />
-        <button
-          onClick={() => setTick((n) => n + 1)}
-          style={{
-            padding: "6px 14px",
-            borderRadius: 6,
-            border: "1px solid #d4d4d8",
-            background: "#fafafa",
-            cursor: "pointer",
-          }}
-        >
-          Restart
-        </button>
+        <RestartButton onClick={() => setTick((n) => n + 1)} />
       </div>
     );
   },
@@ -125,18 +124,12 @@ const CustomFace: React.FC<IntelligenceIndicatorViewProps> = ({
   const isFinished = status === "finished";
   return (
     <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 8,
-        padding: "6px 14px",
-        borderRadius: 999,
-        background: isFinished ? "#dcfce7" : "#fef3c7",
-        color: isFinished ? "#166534" : "#92400e",
-        fontSize: 13,
-        fontWeight: 600,
-        transition: "background 360ms ease-out, color 360ms ease-out",
-      }}
+      className={
+        "inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors duration-300 " +
+        (isFinished
+          ? "bg-primary text-primary-foreground"
+          : "bg-muted text-muted-foreground")
+      }
     >
       <span>{isFinished ? "✅" : "⏳"}</span>
       <span>{isFinished ? `${label} — done` : `${label}…`}</span>
@@ -165,18 +158,7 @@ export const FullyCustomFace: Story = {
         }}
       >
         <CustomFace {...args} status={status} />
-        <button
-          onClick={() => setTick((n) => n + 1)}
-          style={{
-            padding: "6px 14px",
-            borderRadius: 6,
-            border: "1px solid #d4d4d8",
-            background: "#fafafa",
-            cursor: "pointer",
-          }}
-        >
-          Restart
-        </button>
+        <RestartButton onClick={() => setTick((n) => n + 1)} />
       </div>
     );
   },
