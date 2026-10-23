@@ -88,6 +88,7 @@ describe("IntelligenceOverview", () => {
       ["User Memories", "/intelligence/memories"],
       ["Product Analytics", "/intelligence/analytics"],
       ["Automatic Learning", "/learning"],
+      ["Trajectories", "/intelligence/trajectories"],
       ["Inspector", "/inspector"],
     ];
     for (const [title, href] of expected) {

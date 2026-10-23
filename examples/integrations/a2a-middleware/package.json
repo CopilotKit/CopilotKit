@@ -21,7 +21,7 @@
     "@ag-ui/a2a-middleware": "0.0.2",
     "@ag-ui/client": "1.0.2",
     "@ag-ui/core": "1.0.2",
-    "@copilotkit/channels": "0.11.0",
+    "@copilotkit/channels": "0.11.1",
     "@copilotkit/react-core": "1.79.0",
     "@copilotkit/runtime": "1.79.0",
     "dotenv": "^16.4.7",

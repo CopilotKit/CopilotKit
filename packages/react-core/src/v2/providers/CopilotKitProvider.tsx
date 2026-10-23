@@ -401,7 +401,7 @@ function useStableArrayProp<T>(
   return value;
 }
 
-// Provider component
+/** Provide a shared core instance and synchronize runtime, tool, and UI configuration. */
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,
@@ -795,6 +795,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         description: GENERATE_SANDBOXED_UI_DESCRIPTION,
         parameters: GenerateSandboxedUiArgsSchema,
         handler: async () => "UI generated",
+        // This acknowledgement has no side effects and is safe to reconstruct.
+        reconnectBehavior: "resume-pending",
         followUp: true,
         render: OpenGenerativeUIToolRenderer,
       },

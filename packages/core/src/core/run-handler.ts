@@ -35,6 +35,15 @@ const liveHITLStops = new WeakMap<AbortSignal, () => boolean>();
 
 // Explicitly stopping a live approval must retain its error result. History
 // restoration and thread-switch cancellation instead discard the old result.
+/**
+ * The message a failed tool call reports. An error thrown with an empty
+ * message still means the call failed, so it gets a fallback rather than an
+ * empty string, which everything downstream reads as success.
+ */
+function toolFailureMessage(error: Error): string {
+  return error.message || "Tool call failed";
+}
+
 function discardAbortedResult(
   signal: AbortSignal | undefined,
   discardOnAbort: boolean,
@@ -883,12 +892,25 @@ export class RunHandler {
     const executing = this._executingToolCalls.get(agent) ?? new Set<string>();
     this._executingToolCalls.set(agent, executing);
 
+    // Reconnect deltas omit messages hydrated by earlier replays. Restore only
+    // the latest user turn: an unanswered call before a later user message is
+    // historical, not permission to resume work. Keep every assistant message
+    // in that turn, and snapshot because handlers insert results.
+    const messagesToProcess =
+      toolExecutionMode === "restore"
+        ? agent.messages.filter(
+            (message) =>
+              message.role === "assistant" &&
+              this.isInLatestUserTurn(agent.messages, message.id),
+          )
+        : newMessages;
+
     // One restoration pass owns the pending sequence. Skipping only the first
     // executing call would start later calls concurrently and replace a HITL
     // hook's response resolver. A saved remote answer releases this barrier.
     if (
       toolExecutionMode === "restore" &&
-      agent.messages.some(
+      messagesToProcess.some(
         (message) =>
           message.role === "assistant" &&
           message.toolCalls?.some(
@@ -906,11 +928,6 @@ export class RunHandler {
       return runAgentResult;
     }
 
-    // Reconnect deltas omit messages already hydrated by earlier replays.
-    // Reconcile the current history so a remote answer can unblock a pending
-    // call that was already present. Snapshot it because handlers insert results.
-    const messagesToProcess =
-      toolExecutionMode === "restore" ? [...agent.messages] : newMessages;
     for (const message of messagesToProcess) {
       if (message.role === "assistant") {
         for (const toolCall of message.toolCalls || []) {
@@ -932,14 +949,15 @@ export class RunHandler {
           };
 
           const executableTool = tool ?? getWildcardTool();
-          // Restoring history runs only handlers that are safe to run again:
-          // human-in-the-loop prompts, and tools that opt in with
-          // reconnectBehavior "resume-pending" (#6101). Every other tool stays
-          // passive, so a reload never repeats its side effects.
+          // Handlerless frontend tools (e.g. chart components) must recreate
+          // missing empty results using their original call IDs. Handlers still
+          // run only for HITL prompts or an explicit "resume-pending" opt-in,
+          // so restoring history never repeats other tools' side effects.
           if (
             toolExecutionMode === "restore" &&
-            (!executableTool?.handler ||
-              (executableTool.type !== "human-in-the-loop" &&
+            (!executableTool ||
+              (executableTool.handler &&
+                executableTool.type !== "human-in-the-loop" &&
                 executableTool.reconnectBehavior !== "resume-pending"))
           ) {
             continue;
@@ -948,6 +966,8 @@ export class RunHandler {
           if (
             signal?.aborted ||
             agent.threadId !== threadId ||
+            (toolExecutionMode === "restore" &&
+              !this.isInLatestUserTurn(agent.messages, message.id)) ||
             executing.has(executionKey)
           ) {
             continue;
@@ -965,8 +985,8 @@ export class RunHandler {
 
           if (
             existingResult &&
-            executableTool?.handler &&
-            this.isFrontendPlaceholderResult(existingResult)
+            this.isFrontendPlaceholderResult(existingResult) &&
+            (toolExecutionMode === "restore" || executableTool?.handler)
           ) {
             if (existingResultIndex !== -1)
               newMessages.splice(existingResultIndex, 1);
@@ -1091,6 +1111,14 @@ export class RunHandler {
         // complete and write fresh values into the context store before runAgent
         // reads it. The base implementation is a no-op; React overrides this.
         await this._internal.waitForPendingFrameworkUpdates();
+        if (
+          toolExecutionMode === "restore" &&
+          !messagesToProcess.some((message) =>
+            this.isInLatestUserTurn(agent.messages, message.id),
+          )
+        ) {
+          return runAgentResult;
+        }
         const continuationHandoff =
           this._internal.stateManager.markNextRunAsContinuation(agent, runId);
         return await this.runAgent(
@@ -1108,6 +1136,41 @@ export class RunHandler {
     return runAgentResult;
   }
 
+  /** A later user message supersedes pending work from an older turn. */
+  private isInLatestUserTurn(messages: Message[], messageId: string): boolean {
+    for (let index = messages.length - 1; index >= 0; index--) {
+      const message = messages[index];
+      if (message?.role === "user") return false;
+      if (message?.id === messageId) return true;
+    }
+    return false;
+  }
+
+  /** Locate a missing result before saved results for later calls in its batch. */
+  private toolResultInsertionIndex(
+    messages: Message[],
+    messageIndex: number,
+    toolCallId: string,
+  ): number {
+    const parent = messages[messageIndex];
+    const calls = parent?.role === "assistant" ? (parent.toolCalls ?? []) : [];
+    const callIndex = calls.findIndex((call) => call.id === toolCallId);
+    let insertAt = messageIndex + 1;
+    while (insertAt < messages.length) {
+      const result = messages[insertAt];
+      if (result?.role !== "tool") break;
+      const resultIndex = calls.findIndex(
+        (call) => call.id === result.toolCallId,
+      );
+      // Results from earlier batches may follow this assistant in replayed
+      // history. Preserve their position; only stop for a later sibling call.
+      if (resultIndex > callIndex) break;
+      insertAt++;
+    }
+    return insertAt;
+  }
+
+  /** Identify transport placeholders that must not count as completed answers. */
   private isFrontendPlaceholderResult(message: Message): boolean {
     return (
       message.role === "tool" && isForwardedToClientPlaceholder(message.content)
@@ -1153,7 +1216,7 @@ export class RunHandler {
     } catch (error) {
       const parseError =
         error instanceof Error ? error : new Error(String(error));
-      errorMessage = parseError.message;
+      errorMessage = toolFailureMessage(parseError);
       isArgumentError = true;
       await this._internal.emitError({
         error: parseError,
@@ -1194,7 +1257,7 @@ export class RunHandler {
       } catch (error) {
         const handlerError =
           error instanceof Error ? error : new Error(String(error));
-        errorMessage = handlerError.message;
+        errorMessage = toolFailureMessage(handlerError);
         if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
           await this._internal.emitError({
             error: handlerError,
@@ -1285,6 +1348,7 @@ export class RunHandler {
         discardAbortedResult(signal, discardOnAbort, handlerResult.error) ||
         agent.threadId !== threadId ||
         messageIndex === -1 ||
+        (isReplay && !this.isInLatestUserTurn(agent.messages, message.id)) ||
         agent.messages.some(
           (m) =>
             m.role === "tool" &&
@@ -1296,22 +1360,17 @@ export class RunHandler {
         // already answered. Do not insert a stale answer or start a follow-up.
         return false;
       }
-      // Find the correct insertion point: after the parent assistant message
-      // and any tool-result messages already inserted for earlier tool calls
-      // in the same batch. This preserves tool-result ordering relative to
-      // the toolCalls array, which some providers (OpenAI) require.
-      let insertAt = messageIndex + 1;
-      while (
-        insertAt < agent.messages.length &&
-        agent.messages[insertAt]?.role === "tool"
-      ) {
-        insertAt++;
-      }
+      const insertAt = this.toolResultInsertionIndex(
+        agent.messages,
+        messageIndex,
+        toolCall.id,
+      );
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: handlerResult.content,
+        ...(handlerResult.error ? { error: handlerResult.error } : {}),
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1360,7 +1419,7 @@ export class RunHandler {
       } catch (error) {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
-        errorMessage = parseError.message;
+        errorMessage = toolFailureMessage(parseError);
         await this._internal.emitError({
           error: parseError,
           code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
@@ -1407,7 +1466,7 @@ export class RunHandler {
         } catch (error) {
           const handlerError =
             error instanceof Error ? error : new Error(String(error));
-          errorMessage = handlerError.message;
+          errorMessage = toolFailureMessage(handlerError);
           if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
             await this._internal.emitError({
               error: handlerError,
@@ -1449,6 +1508,7 @@ export class RunHandler {
         discardAbortedResult(signal, discardOnAbort, errorMessage) ||
         agent.threadId !== threadId ||
         messageIndex === -1 ||
+        (isReplay && !this.isInLatestUserTurn(agent.messages, message.id)) ||
         agent.messages.some(
           (m) =>
             m.role === "tool" &&
@@ -1460,22 +1520,17 @@ export class RunHandler {
         // already answered. Do not insert a stale answer or start a follow-up.
         return false;
       }
-      // Find the correct insertion point: after the parent assistant message
-      // and any tool-result messages already inserted for earlier tool calls
-      // in the same batch. This preserves tool-result ordering relative to
-      // the toolCalls array, which some providers (OpenAI) require.
-      let insertAt = messageIndex + 1;
-      while (
-        insertAt < agent.messages.length &&
-        agent.messages[insertAt]?.role === "tool"
-      ) {
-        insertAt++;
-      }
+      const insertAt = this.toolResultInsertionIndex(
+        agent.messages,
+        messageIndex,
+        toolCall.id,
+      );
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: toolCallResult,
+        ...(errorMessage ? { error: errorMessage } : {}),
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1567,6 +1622,7 @@ export class RunHandler {
       role: "tool",
       toolCallId,
       content: handlerResult.content,
+      ...(handlerResult.error ? { error: handlerResult.error } : {}),
     };
 
     const assistantIndex = agent.messages.findIndex(

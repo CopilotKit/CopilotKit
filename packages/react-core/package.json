@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-core",
-  "version": "1.79.0",
+  "version": "1.79.1",
   "private": false,
   "keywords": [
     "ai",
@@ -77,6 +77,7 @@
     "publint": "publint .",
     "attw": "attw --pack . --profile node16",
     "generate:external-reexports": "node scripts/generate-external-reexports.mjs",
+    "test:browser-scroll": "node --test browser-tests/hidden-chat-scroll.test.mjs",
     "test:browser": "playwright test --config browser/playwright.config.ts"
   },
   "dependencies": {
@@ -131,6 +132,7 @@
     "jsdom": "^26.1.0",
     "maplibre-gl": "^5.0.0",
     "phoenix": "^1.8.4",
+    "playwright": "1.59.1",
     "postcss": "^8.5.6",
     "react": "^19.1.0",
     "react-dom": "^19.2.0",

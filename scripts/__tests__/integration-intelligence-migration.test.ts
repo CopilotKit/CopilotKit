@@ -2700,6 +2700,7 @@ function expectIntegrationParityWorkflowContract(contents: string): void {
   const expectedPaths = [
     "examples/integrations/**",
     "scripts/__tests__/integration-intelligence-migration.test.ts",
+    "scripts/__tests__/starter-model-env-contract.test.ts",
     ".github/workflows/integrations_parity.yml",
   ];
   expect(workflowEventPaths(contents, "pull_request")).toEqual(expectedPaths);

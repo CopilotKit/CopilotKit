@@ -8,6 +8,7 @@ export interface CopilotChatLabels {
   chatInputToolbarFinishTranscribeButtonLabel: string;
   chatInputToolbarAddButtonLabel: string;
   chatInputToolbarToolsButtonLabel: string;
+  chatInputToolbarSendButtonLabel: string;
   assistantMessageToolbarCopyCodeLabel: string;
   assistantMessageToolbarCopyCodeCopiedLabel: string;
   assistantMessageToolbarCopyMessageLabel: string;
@@ -17,7 +18,10 @@ export interface CopilotChatLabels {
   assistantMessageToolbarRegenerateLabel: string;
   userMessageToolbarCopyMessageLabel: string;
   userMessageToolbarEditMessageLabel: string;
+  userMessageToolbarPreviousBranchLabel: string;
+  userMessageToolbarNextBranchLabel: string;
   chatDisclaimerText: string;
+  chatScrollToBottomLabel: string;
   welcomeMessageText: string;
 }
 
@@ -29,6 +33,7 @@ export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
   chatInputToolbarFinishTranscribeButtonLabel: "Finish",
   chatInputToolbarAddButtonLabel: "Add photos or files",
   chatInputToolbarToolsButtonLabel: "Tools",
+  chatInputToolbarSendButtonLabel: "Send message",
   assistantMessageToolbarCopyCodeLabel: "Copy",
   assistantMessageToolbarCopyCodeCopiedLabel: "Copied",
   assistantMessageToolbarCopyMessageLabel: "Copy",
@@ -38,8 +43,11 @@ export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
   assistantMessageToolbarRegenerateLabel: "Regenerate",
   userMessageToolbarCopyMessageLabel: "Copy",
   userMessageToolbarEditMessageLabel: "Edit",
+  userMessageToolbarPreviousBranchLabel: "Previous message branch",
+  userMessageToolbarNextBranchLabel: "Next message branch",
   chatDisclaimerText:
     "AI can make mistakes. Please verify important information.",
+  chatScrollToBottomLabel: "Scroll to bottom",
   welcomeMessageText: "How can I help you today?",
 };
 

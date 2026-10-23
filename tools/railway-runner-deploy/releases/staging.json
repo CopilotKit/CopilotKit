@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "70f54b309c3c926367801374c581a375c4d599d2",
+  "build": {
+    "runId": 39550117034,
+    "runAttempt": 1,
+    "workflowPath": ".github/workflows/intelligence-rich-threads-build.yml",
+    "workflowSha256": "4337e0e43f7598ff19171ad3a73a250e404e7a8e138ae149cb30e75bda6224bf",
+    "artifactId": 12323735464,
+    "artifactSha256": "d9b88a4311851726df4baa953b34add87c8ae1c9ebdcbfd2218c2144b4a22ea7"
+  },
+  "baseline": {
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:0e2a6ac69b529b4f01c443de4fed340d5c826fecaf79f97e85bfb43bc0c50966",
+    "runtimeIdentity": {
+      "protocolVersion": 1,
+      "sourceRevision": "70f54b309c3c926367801374c581a375c4d599d2",
+      "sourceManifestSha256": "7d898f9b3106ef1d38993cb9210c3695c06ca5bd49e615f4b7bbaa10d6dcadba",
+      "compatibilitySha256": "9d80fc2c8426381642c9f7734b1d4c6658104b43a7a83b476d1d1c67b4c143a0",
+      "policySha256": "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751"
+    }
+  },
+  "candidate": {
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:0e2a6ac69b529b4f01c443de4fed340d5c826fecaf79f97e85bfb43bc0c50966",
+    "runtimeIdentity": {
+      "protocolVersion": 1,
+      "sourceRevision": "70f54b309c3c926367801374c581a375c4d599d2",
+      "sourceManifestSha256": "7d898f9b3106ef1d38993cb9210c3695c06ca5bd49e615f4b7bbaa10d6dcadba",
+      "compatibilitySha256": "9d80fc2c8426381642c9f7734b1d4c6658104b43a7a83b476d1d1c67b4c143a0",
+      "policySha256": "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751"
+    }
+  }
+}
