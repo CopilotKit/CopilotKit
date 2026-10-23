@@ -973,3 +973,65 @@ STUB
   [[ "$output" == *"HELD (2): svc-h svc-w"* ]] || fail "summary must list held services: $output"
   [[ "$output" != *"ARGS: promote svc-h"* ]] || fail "held svc-h must not be promoted: $output"
 }
+
+# --- HELD_CSV fails CLOSED on malformed input (review finding on #7955) ------
+# A single `IFS=, read` stops at the first LF, so HELD_CSV=$'svc-outside,\nsvc-h'
+# used to hold only svc-outside and PROMOTE svc-h. The whole value is validated
+# before parsing: any CR / LF / tab / character outside [a-z0-9, -], or a token
+# that is not a plain service name, rejects the run before any promote.
+
+@test "held: HELD_CSV containing a newline is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h" HELD_CSV=$'svc-outside,\nsvc-h' bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on a newline in HELD_CSV, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted on a malformed HELD_CSV: $output"
+}
+
+@test "held: HELD_CSV containing a carriage return or tab is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h" HELD_CSV=$'svc-outside,\rsvc-h' bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on a CR in HELD_CSV, got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted on a CR in HELD_CSV: $output"
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h" HELD_CSV=$'svc-outside,\tsvc-h' bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on a tab in HELD_CSV, got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted on a tab in HELD_CSV: $output"
+}
+
+@test "held: a HELD_CSV token that is not a plain service name is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h" HELD_CSV="svc outside,svc-h" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on 'svc outside', got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted: $output"
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h" HELD_CSV="SVC-H" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on 'SVC-H', got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted: $output"
+}
+
+# --- verify_csv: verification covers succeeded + held (review finding) -------
+# Held services are not promoted, but prod must still be verified for them
+# against their CURRENT image. verify_csv = succeeded set + held set; failed
+# and not-attempted services stay out.
+
+@test "verify_csv: succeeded plus held, failed excluded" {
+  run env CLOSURE_PLAN="2:svc-a,2:svc-b,2:svc-c" HELD_CSV="svc-h1,svc-h2" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit (svc-b fails), got $status: $output"
+  run grep '^verify_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "verify_csv=svc-a,svc-c,svc-h1,svc-h2" ] || fail "verify_csv wrong: $output"
+  run grep '^succeeded_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "succeeded_csv=svc-a,svc-c" ] || fail "succeeded_csv must stay the mutation set: $output"
+}
+
+@test "verify_csv: equals succeeded_csv when nothing is held" {
+  run env CLOSURE_PLAN="0:svc-a,2:svc-c" bash "$SCRIPT"
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+  run grep '^verify_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "verify_csv=svc-a,svc-c" ] || fail "verify_csv wrong without HELD_CSV: $output"
+}
+
+@test "verify_csv: not-attempted (gated) services are excluded, held kept" {
+  run env CLOSURE_PLAN="0:svc-b,2:svc-a" HELD_CSV="svc-h" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit (tier-0 svc-b fails), got $status: $output"
+  run grep '^verify_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "verify_csv=svc-h" ] || fail "gated svc-a must not be verified; held svc-h must: $output"
+}

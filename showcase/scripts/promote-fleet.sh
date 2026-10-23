@@ -52,9 +52,12 @@
 #                             rejected BEFORE any promote runs.
 #   HELD_CSV      (optional)  services the operator held out of this promote
 #                             (resolve-targets `held_csv` output). They are
-#                             listed in the summary as held, unchanged. Defense
-#                             in depth: if any held service is still in the
-#                             plan, the run is rejected BEFORE any promote runs.
+#                             listed in the summary as held, unchanged, and are
+#                             added to the verify_csv output so prod is still
+#                             verified for them. Rejected BEFORE any promote
+#                             runs when it holds a CR / LF / tab / character
+#                             outside [a-z0-9, -] or a non-name token, or when
+#                             a held service is still in the plan.
 #   RAILWAY_BIN   (optional)  path to the railway CLI (default: sibling
 #                             ../bin/railway). Overridable for testing.
 #
@@ -341,12 +344,32 @@ reap_tier() {
 }
 
 # Held services (HELD_CSV), trimmed, empty tokens dropped. Used by
-# preflight_scope and the summary.
+# preflight_scope, verify_csv and the summary.
+#
+# Validate the WHOLE value before parsing and fail CLOSED: a single `IFS=, read`
+# stops at the first LF, so $'svc-outside,\nsvc-h' would hold only svc-outside
+# and promote svc-h. Same rule as resolve-promote-targets.sh: only lowercase
+# letters, digits, comma, space and hyphen (the set is spelled out so collation
+# order cannot widen it), and each token must be a plain service name. This
+# script has no SSOT input; resolve-targets checks names against the SSOT.
 held=()
+case "${HELD_CSV:-}" in
+  *[!abcdefghijklmnopqrstuvwxyz0123456789,\ -]*)
+    echo "::error::promote-fleet: HELD_CSV may contain only lowercase service names, commas and spaces (no CR, LF, tab or other characters); refusing to promote anything. Got: $(printf '%q' "$HELD_CSV")" >&2
+    exit 1
+    ;;
+esac
 IFS=',' read -ra HELD_TOKENS <<< "${HELD_CSV:-}"
 for tok in "${HELD_TOKENS[@]:-}"; do
   tok="$(trim "$tok")"
-  [ -n "$tok" ] && held+=("$tok")
+  [ -n "$tok" ] || continue
+  case "$tok" in
+    *" "*)
+      echo "::error::promote-fleet: HELD_CSV token '$tok' is not a service name; refusing to promote anything." >&2
+      exit 1
+      ;;
+  esac
+  held+=("$tok")
 done
 
 # preflight_scope <svc...> — validate the parsed plan BEFORE any promote runs.
@@ -500,6 +523,21 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
   # unreliable (an absent succeeded_csv key it depends on).
   if ! echo "succeeded_csv=$succeeded_csv" >> "$GITHUB_OUTPUT"; then
     echo "::error::promote-fleet: failed to write succeeded_csv to \$GITHUB_OUTPUT ('$GITHUB_OUTPUT')." >&2
+    exit 1
+  fi
+  # verify_csv — the prod VERIFICATION set: every service that pinned PLUS every
+  # held service. A held service was not promoted, but the promoted services now
+  # run against it, so prod health / compatibility / equivalence must still
+  # check it on its CURRENT image. Failed and not-attempted services stay out
+  # (held services are never attempted, so they can never be in failed[]).
+  # succeeded_csv stays the MUTATION set.
+  verify_csv="$succeeded_csv"
+  if [ "${#held[@]}" -gt 0 ]; then
+    held_joined=$(IFS=,; echo "${held[*]}")
+    verify_csv="${verify_csv:+$verify_csv,}$held_joined"
+  fi
+  if ! echo "verify_csv=$verify_csv" >> "$GITHUB_OUTPUT"; then
+    echo "::error::promote-fleet: failed to write verify_csv to \$GITHUB_OUTPUT ('$GITHUB_OUTPUT')." >&2
     exit 1
   fi
   # Aggregated staging-drift payload (one line, services semicolon-joined) so

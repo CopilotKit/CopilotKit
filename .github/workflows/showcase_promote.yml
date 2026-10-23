@@ -241,6 +241,12 @@ jobs:
       # prod verification to exactly this set so a single failed service can't
       # red the verification of the services that did promote.
       succeeded_csv: ${{ steps.promote.outputs.succeeded_csv }}
+      # The prod VERIFICATION set: succeeded_csv PLUS the services held by the
+      # `hold` input (failed / not-attempted services excluded). Held services are
+      # not promoted, but the promoted services now run against them, so prod
+      # health, compatibility and equivalence must still check them on their
+      # CURRENT image. Equals succeeded_csv when nothing is held.
+      verify_csv: ${{ steps.promote.outputs.verify_csv }}
       # Aggregated staging-drift payload: non-empty when any promoted service's
       # staging RUNNING digest differed from the current GHCR :latest (i.e.
       # staging was NOT serving :latest). Folded into the Slack notify payload
@@ -350,7 +356,7 @@ jobs:
 
   compatibility-refresh:
     needs: [promote]
-    if: ${{ !cancelled() && inputs.validate_registry_only != true && needs.promote.outputs.succeeded_csv != '' }}
+    if: ${{ !cancelled() && inputs.validate_registry_only != true && needs.promote.outputs.verify_csv != '' }}
     permissions:
       contents: read
       packages: read
@@ -360,7 +366,7 @@ jobs:
     uses: $/.github/workflows/showcase_compatibility.yml
     with:
       environment: prod
-      services_csv: ${{ needs.promote.outputs.succeeded_csv }}
+      services_csv: ${{ needs.promote.outputs.verify_csv }}
     secrets:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       SHOWCASE_HARNESS_SHARED_SECRET: ${{ secrets.SHOWCASE_HARNESS_SHARED_SECRET }}
@@ -408,8 +414,10 @@ jobs:
           # promote job's best-effort succeeded set), NOT the full requested set
           # (resolve-targets) — verifying a service that failed to promote would
           # guarantee a red verify and mask the health of the ones that did
-          # promote.
-          SERVICES_CSV: ${{ needs.promote.outputs.succeeded_csv }}
+          # promote. Held services (`hold` input) are included: verify_csv =
+          # succeeded set + held set, so prod is checked for them on their current
+          # image.
+          SERVICES_CSV: ${{ needs.promote.outputs.verify_csv }}
           # The promote job's result, so the empty-CSV branch can tell a genuine
           # all-failed run (empty succeeded set is expected) apart from a
           # contract violation (promote reported success yet emitted no CSV).
@@ -433,10 +441,10 @@ jobs:
           # is violated — fail loud instead of silently exiting 0.
           if [ -z "$SERVICES_CSV" ]; then
             if [ "$PROMOTE_RESULT" = "success" ]; then
-              echo "::error::promote reported success but succeeded_csv is empty — contract violation"
+              echo "::error::promote reported success but verify_csv is empty — contract violation"
               exit 1
             fi
-            echo "::notice::succeeded_csv is empty (no services promoted, or promote did not run); skipping prod verification. The run is red via the promote job result if anything failed."
+            echo "::notice::verify_csv is empty (no services promoted or held, or promote did not run); skipping prod verification. The run is red via the promote job result if anything failed."
             # Record that prod was SKIPPED, not verified. The job still exits 0
             # (its `result` is `success`), so the notify job reads this `status`
             # output to render `verify-prod=skipped` instead of a misleading
@@ -484,8 +492,9 @@ jobs:
         working-directory: showcase/scripts
         env:
           # The promoted closure subset that ACTUALLY pinned (best-effort) —
-          # the set to re-sweep + compare. Same scope as the prod probe above.
-          PROMOTED_CLOSURE_CSV: ${{ needs.promote.outputs.succeeded_csv }}
+          # the set to re-sweep + compare, plus the held services on their current
+          # prod image. Same scope as the prod probe above (verify_csv).
+          PROMOTED_CLOSURE_CSV: ${{ needs.promote.outputs.verify_csv }}
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ vars.SHOWCASE_RAILWAY_PROJECT_ID }}
           RAILWAY_ENVIRONMENT_ID_PROD: ${{ vars.SHOWCASE_RAILWAY_ENV_ID_PROD }}
