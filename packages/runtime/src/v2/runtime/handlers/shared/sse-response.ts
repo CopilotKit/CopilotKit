@@ -347,8 +347,12 @@ export function createSseEventResponse({
     await closeStream();
   });
 
+  // Unsubscribing stops the agent, but its complete/error callbacks then never
+  // fire, so close the stream here. Otherwise it stays open: the keep-alive
+  // timer re-arms forever and afterRequestMiddleware never sees the end.
   request.signal.addEventListener("abort", () => {
     subscription?.unsubscribe();
+    void closeStream();
   });
 
   const body =
