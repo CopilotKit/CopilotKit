@@ -1377,17 +1377,22 @@ export class BuiltInAgent extends AbstractAgent {
         systemPrompt = parts.join("");
       }
 
-      // Convert messages and prepend system message if we have a prompt
-      const messages = convertMessagesToVercelAISDKMessages(input.messages, {
-        forwardSystemMessages: config.forwardSystemMessages,
-        forwardDeveloperMessages: config.forwardDeveloperMessages,
-      });
+      // The agent's own system messages go through streamText's `system`
+      // option rather than `messages`: the AI SDK warns about system messages
+      // in `messages` (prompt-injection risk), and keeping them apart leaves
+      // `messages` with only what the client sent.
+      const systemMessages: SystemModelMessage[] = [];
       if (systemPrompt) {
-        messages.unshift({
+        systemMessages.push({
           role: "system",
           content: systemPrompt,
         });
       }
+
+      const messages = convertMessagesToVercelAISDKMessages(input.messages, {
+        forwardSystemMessages: config.forwardSystemMessages,
+        forwardDeveloperMessages: config.forwardDeveloperMessages,
+      });
 
       // Resume injection: each ResumeEntry maps to the interrupt tool call it
       // addresses (interruptId === toolCallId) and is appended as that call's
@@ -1605,7 +1610,7 @@ export class BuiltInAgent extends AbstractAgent {
           );
           abortController.signal.throwIfAborted();
           if (learnedSkills.catalog) {
-            messages.unshift({
+            systemMessages.unshift({
               role: "system",
               content: learnedSkills.catalog,
             });
@@ -1772,9 +1777,18 @@ export class BuiltInAgent extends AbstractAgent {
           }
           abortController.signal.throwIfAborted();
 
-          // Call streamText and process the stream
+          // Call streamText and process the stream. The AI SDK rejects an
+          // empty `messages` even when `system` is set, so a run with no
+          // conversation yet (e.g. started without a user message) sends the
+          // system messages as the conversation instead.
           const response = streamText({
             ...streamTextParams,
+            ...(messages.length > 0
+              ? {
+                  system:
+                    systemMessages.length > 0 ? systemMessages : undefined,
+                }
+              : { messages: systemMessages }),
             abortSignal: abortController.signal,
           });
 
