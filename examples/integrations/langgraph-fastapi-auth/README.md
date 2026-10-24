@@ -1,14 +1,6 @@
-# CopilotKit <> LangGraph Auth & File Upload Example
+# CopilotKit <> LangGraph Auth Starter
 
-This is an example of building an authenticated AI agent using [LangGraph](https://www.langchain.com/langgraph) and [CopilotKit](https://copilotkit.ai). It provides a Next.js application with a LangGraph agent served by FastAPI, and shows how to pass the signed-in user to the agent, gate tools by user identity, and let the agent answer questions about uploaded files.
-
-Features include:
-
-- 🔐 Authenticate users before agent interaction
-- 🛡️ Secure agent tools based on user identity
-- 👤 Access user information within LangGraph agents
-- 🎯 Conditionally enable/disable agent capabilities
-- 📁 Upload and process files (PDF, Excel, CSV) with the agent
+This is a starter template for building authenticated AI agents using [LangGraph](https://www.langchain.com/langgraph) and [CopilotKit](https://copilotkit.ai). It provides a modern Next.js application with an integrated LangGraph agent, served by FastAPI, that knows who the signed-in user is, only offers its backend tools to authenticated users, and answers questions about uploaded PDF, Excel, and CSV files.
 
 ## Prerequisites
 
@@ -54,12 +46,7 @@ Then edit the `.env` file and add your OpenAI API key:
 OPENAI_API_KEY=your-openai-api-key-here
 ```
 
-To use another model or an OpenAI-compatible API (a proxy, gateway or local server), also set:
-
-```bash
-OPENAI_MODEL=gpt-4o
-OPENAI_BASE_URL=https://your-openai-compatible-api.example.com/v1
-```
+To use a different model or any OpenAI-compatible API, also set `OPENAI_MODEL` (default `gpt-4o`) and `OPENAI_BASE_URL`.
 
 3. Start the development server:
 
@@ -77,9 +64,7 @@ yarn dev
 bun run dev
 ```
 
-This will start both the UI (http://localhost:3000) and agent (http://localhost:8000) servers concurrently.
-
-4. Pick a user from the menu in the top-left corner to sign in, then chat with the agent. Signed-in users get the backend tools (weather, file handling); anonymous users only get the frontend tools.
+This will start both the UI and agent servers concurrently. Open [http://localhost:3000](http://localhost:3000), pick a demo user from the menu in the top-left corner, and try the suggested prompts.
 
 ## Available Scripts
 
@@ -94,53 +79,48 @@ The following scripts can also be run using your preferred package manager:
 - `lint` - Runs ESLint
 - `install:agent` - Installs Python dependencies for the agent
 
-## Documentation
+## Project Structure
+
+```
+├── src/                                  # Next.js frontend source
+│   ├── app/
+│   │   ├── page.tsx                      # Main page: shared state, frontend tools, tool rendering
+│   │   ├── layout.tsx                    # Root layout with the auth provider
+│   │   ├── api/copilotkit/[[...slug]]/   # CopilotKit runtime route (LangGraphHttpAgent → :8000)
+│   │   └── components/
+│   │       ├── fake-auth-provider.tsx    # Demo auth + <CopilotKit> provider
+│   │       ├── user-menu.tsx             # Sign-in / switch-user menu
+│   │       └── copilot-input.tsx         # Chat input with file upload
+│   └── lib/                              # Demo users and token helpers
+├── agent/                                # LangGraph Python agent
+│   ├── main.py                           # FastAPI server (AG-UI endpoint + file routes)
+│   ├── agent.py                          # Graph, auth node and tools
+│   ├── file_routes.py                    # PDF, Excel and CSV processing endpoints
+│   └── pyproject.toml                    # Agent dependencies (managed by uv)
+├── public/                               # Static assets
+├── next.config.ts
+├── tsconfig.json
+└── package.json
+```
+
+## How it works
+
+- **Authentication:** the frontend passes the signed-in user's token to CopilotKit through the `properties` prop. CopilotKit forwards it to the agent as AG-UI `forwardedProps`, and `CustomLangGraphAGUIAgent` in `agent/agent.py` merges it into `config.configurable`. The graph's `auth_node` decodes the token and stores the user in state.
+- **Identity-gated tools:** `chat_node` binds the backend tools (`get_weather`, `list_uploaded_files`, `get_file_content`) only for authenticated users. Anonymous users get the frontend tools only.
+- **File uploads:** click **+** in the chat input to upload PDF, Excel, or CSV files. `agent/file_routes.py` extracts their content per conversation thread, and the agent reads it through its file tools.
+- **Frontend:** `src/app/page.tsx` uses the CopilotKit v2 hooks `useAgent` (shared proverbs state), `useFrontendTool` (`setThemeColor`, `addProverb`), and `useRenderTool` (renders `get_weather` as a weather card).
+
+The demo token is not signed. To use real auth, replace `fake-auth-provider.tsx` with your auth system (NextAuth.js, Auth0, Clerk, Supabase, etc.) and verify the token signature in `agent/agent.py`.
+
+## 📚 Documentation
 
 The main UI component is in `src/app/page.tsx`. You can:
 
 - Modify the theme colors and styling
-- Add new frontend tools (`useFrontendTool`) and tool renderers (`useRenderTool`)
+- Add new frontend tools and tool renderers
 - Customize the CopilotKit sidebar appearance
 
-### Project Structure
-
-- **Frontend** (`src/app/`)
-  - `page.tsx` - Main UI with the authenticated agent (CopilotKit v2 hooks: `useAgent`, `useFrontendTool`, `useRenderTool`)
-  - `components/fake-auth-provider.tsx` - Auth provider and `<CopilotKit>` setup (replace with real auth)
-  - `components/copilot-input.tsx` - Chat input with file upload (wraps the v2 `CopilotChatInput`)
-  - `components/user-menu.tsx` - Login/logout menu
-  - `api/copilotkit/[[...slug]]/route.ts` - CopilotKit v2 runtime endpoint forwarding to the agent
-- **Agent** (`agent/`)
-  - `agent.py` - LangGraph agent with auth-aware tools
-  - `main.py` - FastAPI server exposing the agent over AG-UI
-  - `file_routes.py` - File upload and processing endpoints
-
-### Authentication Flow
-
-1. The user signs in via the frontend auth provider
-2. The user token is passed to CopilotKit via the `properties` prop
-3. CopilotKit forwards it to the agent as AG-UI `forwardedProps`
-4. `CustomLangGraphAGUIAgent` (`agent/agent.py`) merges it into `config.configurable`
-5. The agent reads the user identity and enables tools accordingly
-
-To use your own auth, replace `fake-auth-provider.tsx` with your auth system (NextAuth.js, Auth0, Clerk, Supabase, etc.) and verify the token signature in `agent/agent.py`. The demo token is not signed.
-
-### File Upload Support
-
-Click **+** in the chat input to upload files. They are processed and stored per conversation thread, so the agent can answer questions about them:
-
-- **PDF Files** - Text extraction with page-by-page content
-- **Excel Files** (.xlsx, .xls) - Sheet parsing, column analysis, and data preview
-- **CSV Files** (.csv) - Data parsing, column analysis, and data preview
-
-File processing endpoints:
-
-- `POST /process-file` - Upload and process a PDF, Excel, or CSV file
-- `GET /files/{thread_id}` - List all uploaded files for a thread
-- `GET /file/{thread_id}/{file_id}` - Retrieve file content
-- `DELETE /file/{thread_id}/{file_id}` - Remove an uploaded file
-
-## 📚 Documentation
+Otherwise, check out the documentation relevant to your task:
 
 - [LangGraph Documentation](https://langchain-ai.github.io/langgraph/) - Learn more about LangGraph and its features
 - [CopilotKit Documentation](https://docs.copilotkit.ai) - Explore CopilotKit's capabilities
@@ -149,7 +129,7 @@ File processing endpoints:
 
 ## Contributing
 
-Feel free to submit issues and enhancement requests! This example is designed to be easily extensible.
+Feel free to submit issues and enhancement requests! This starter is designed to be easily extensible.
 
 ## License
 
@@ -159,13 +139,13 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ### Agent Connection Issues
 
-If the agent doesn't respond, make sure:
+If you see "I'm having trouble connecting to my tools", make sure:
 
-1. The LangGraph agent is running on port 8000 (override with `AGENT_PORT`)
-2. Your OpenAI API key is set correctly in `.env`
+1. The LangGraph agent is running on port 8000
+2. Your OpenAI API key is set correctly
 3. Both servers started successfully
 
-### Authentication Issues
+### Authentication
 
 If the agent says you're not signed in, pick a user from the menu in the top-left corner and send the message again.
 
