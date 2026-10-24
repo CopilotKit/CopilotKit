@@ -44,7 +44,7 @@ jobs:
           # landed; manual dispatch instead reads the explicitly selected ref.
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
 
-      - uses: ruby/setup-ruby@651ff0d62c5c79bed6d53ec518387aae20e72c1a # v1.329.0
+      - uses: ruby/setup-ruby@7f797815d8adceb1c412e7abefdd1ab4abc47a5f # v1.335.0
         with:
           ruby-version: "3.3"
           bundler-cache: false
@@ -77,7 +77,7 @@ jobs:
         run: ruby showcase/scripts/validate-registry.rb "$RUNNER_TEMP/registry-validation.json"
       - name: Retain safe registry validation receipt
         if: ${{ inputs.validate_registry_only == true }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: docs_promote-registry-validation
           path: ${{ runner.temp }}/registry-validation.json
