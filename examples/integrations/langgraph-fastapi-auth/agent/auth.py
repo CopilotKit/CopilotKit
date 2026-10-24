@@ -6,7 +6,6 @@ Authorization header) use these, so the same user identity guards both.
 """
 
 import base64
-import binascii
 import json
 from typing import Any, Dict, Optional
 
@@ -46,7 +45,8 @@ def get_user_info_from_token(token: str) -> Optional[Dict[str, Any]]:
             "email": user_data.get("email"),
             "role": user_data.get("role"),
         }
-    except (binascii.Error, json.JSONDecodeError, UnicodeDecodeError, AttributeError) as e:
+    # ValueError also covers binascii.Error, JSONDecodeError and UnicodeDecodeError.
+    except (ValueError, AttributeError) as e:
         print(f"Failed to decode token: {e}")
         return None
 

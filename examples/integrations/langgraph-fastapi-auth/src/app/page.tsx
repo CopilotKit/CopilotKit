@@ -34,6 +34,9 @@ function CopilotKitPageContent() {
   const isAuthenticated = !!authContext?.user;
   const token = authContext?.token ?? null;
   const threadId = useCopilotChatConfiguration()?.threadId;
+  // Bumped for every file-list request (and on cleanup) so a slow response for a
+  // previous user or thread can't overwrite the current list.
+  const fileRequestGeneration = useRef(0);
 
   // The agent's file routes only accept signed-in users.
   const authHeaders = useMemo(() => {
@@ -43,6 +46,7 @@ function CopilotKitPageContent() {
   }, [token]);
 
   const fetchUploadedFiles = useCallback(async () => {
+    const generation = ++fileRequestGeneration.current;
     if (!threadId || !token) {
       setUploadedFiles([]);
       return;
@@ -51,7 +55,9 @@ function CopilotKitPageContent() {
       const response = await fetch(`http://localhost:8000/files/${threadId}`, { headers: authHeaders });
       if (response.ok) {
         const files = await response.json();
-        setUploadedFiles(files);
+        if (generation === fileRequestGeneration.current) {
+          setUploadedFiles(files);
+        }
       }
     } catch (error) {
       console.error('Error fetching uploaded files:', error);
@@ -63,6 +69,9 @@ function CopilotKitPageContent() {
       await fetchUploadedFiles();
     };
     fetchFiles();
+    return () => {
+      fileRequestGeneration.current += 1;
+    };
   }, [fetchUploadedFiles]);
 
   // 🪁 Frontend Tools: https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool

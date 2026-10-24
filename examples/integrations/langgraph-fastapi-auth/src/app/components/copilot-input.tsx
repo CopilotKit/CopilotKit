@@ -44,11 +44,10 @@ const CopilotInputBase = (props: CopilotChatInputProps) => {
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
-        // Filter supported files (PDF and Excel)
-        const supportedFiles = Array.from(files).filter(file => 
-            file.type === 'application/pdf' || 
-            file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-            file.type === 'text/csv'
+        // Filter supported files by extension, like the agent's file routes do
+        // (browsers report inconsistent MIME types, e.g. CSV as an Excel type on Windows)
+        const supportedFiles = Array.from(files).filter(file =>
+            /\.(pdf|xlsx|csv)$/i.test(file.name)
         );
         
         if (supportedFiles.length === 0) {
