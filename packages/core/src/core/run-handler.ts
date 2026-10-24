@@ -621,7 +621,10 @@ export class RunHandler {
         {
           forwardedProps: this._internal.properties,
           tools: this.buildFrontendTools(agent.agentId),
-          context: this._internal.getContextForAgent(agent.agentId),
+          context: this._internal.getContextForAgent(
+            agent.agentId,
+            agent.threadId,
+          ),
         },
         this.createAgentErrorSubscriber(agent),
       );
@@ -832,7 +835,11 @@ export class RunHandler {
         ...(resume !== undefined ? { resume } : {}),
         ...(pinRunIdOnWire ? { runId } : {}),
         tools: this.buildFrontendTools(agent.agentId),
-        context: this._internal.getContextForAgent(agent.agentId),
+        // The thread actually run: a per-thread clone carries its own.
+        context: this._internal.getContextForAgent(
+          agent.agentId,
+          agent.threadId,
+        ),
       };
       const runAgentResult = await agent.runAgent(
         agentRunInput,

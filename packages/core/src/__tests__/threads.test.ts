@@ -1086,6 +1086,100 @@ describe("thread store", () => {
     expect(ɵselectIsMutating(store.getState())).toBe(false);
   });
 
+  describe("subscribeToThreadDeletions", () => {
+    const listFetch = () =>
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ joinToken: "jt-1" }),
+        });
+
+    async function startStore(fetchMock: Mock) {
+      vi.stubGlobal("fetch", fetchMock);
+      const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+      stores.push(store);
+      store.start();
+      store.setContext({
+        runtimeUrl: "https://runtime.example.com",
+        headers: {},
+        wsUrl: "ws://localhost:4000/client",
+        agentId: "agent-1",
+      });
+      await flushEffects();
+      return store;
+    }
+
+    it("reports a deletion once the server confirmed it", async () => {
+      const fetchMock = listFetch().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}),
+      });
+      const store = await startStore(fetchMock);
+      const deleted: string[] = [];
+      const subscription = store.subscribeToThreadDeletions!((id) =>
+        deleted.push(id),
+      );
+
+      await store.deleteThread("thread-1");
+      await flushEffects();
+
+      expect(deleted).toEqual(["thread-1"]);
+      subscription.unsubscribe();
+    });
+
+    it("does not report a deletion the server rejected", async () => {
+      const fetchMock = listFetch().mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      });
+      const store = await startStore(fetchMock);
+      const deleted: string[] = [];
+      const subscription = store.subscribeToThreadDeletions!((id) =>
+        deleted.push(id),
+      );
+
+      await expect(store.deleteThread("thread-1")).rejects.toThrow();
+      await flushEffects();
+
+      expect(deleted).toEqual([]);
+      subscription.unsubscribe();
+    });
+
+    it("reports a realtime deletion but not a realtime archive", async () => {
+      const store = await startStore(listFetch());
+      const deleted: string[] = [];
+      const subscription = store.subscribeToThreadDeletions!((id) =>
+        deleted.push(id),
+      );
+
+      getChannel().serverPush("thread_metadata", {
+        operation: "archived",
+        threadId: "thread-1",
+        userId: "user-1",
+        organizationId: "org-1",
+        occurredAt: "2026-01-03T00:00:00Z",
+        thread: { ...sampleThreads[0], archived: true },
+      });
+      getChannel().serverPush("thread_metadata", {
+        operation: "deleted",
+        threadId: "thread-2",
+        userId: "user-2",
+        organizationId: "org-1",
+        occurredAt: "2026-01-03T00:00:00Z",
+        deleted: { id: "thread-2" },
+      });
+      await flushEffects();
+
+      expect(deleted).toEqual(["thread-2"]);
+      subscription.unsubscribe();
+    });
+  });
+
   it("rolls back an optimistically-deleted thread when the server rejects", async () => {
     const fetchMock = vi
       .fn()
