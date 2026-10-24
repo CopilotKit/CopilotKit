@@ -4,6 +4,7 @@ The SDK compiles complete snapshots, including partial programs. The transport
 owns chunk buffering and the diff between successive snapshots.
 """
 
+import json
 import re
 from copy import deepcopy
 from typing import Any
@@ -12,6 +13,19 @@ from a2ui.core import Catalog, ComponentModel, PayloadValidator, ValidationConfi
 from a2ui.core.state.surface_components_model import SurfaceComponentsModel
 from a2ui.inference_formats.express import ExpressFormat
 from a2ui.skill import SkillGenerator
+
+
+def _structured_schema(schema: Any) -> bool:
+    """Find literal object/array contracts, including nullable/union branches."""
+    return isinstance(schema, dict) and (
+        schema.get("type") in ("object", "array")
+        or any(key in schema for key in ("properties", "items", "additionalProperties"))
+        or any(
+            _structured_schema(branch)
+            for keyword in ("anyOf", "oneOf", "allOf")
+            for branch in schema.get(keyword, [])
+        )
+    )
 
 
 def _nested_values(schema: Any) -> Any:
@@ -120,7 +134,23 @@ class ExpressCompiler:
         if not received or not received[0].get("components"):
             raise ValueError("Express requires the browser's inline component catalog")
         self.catalogs = []
+        self.property_contracts = []
         for inline in received:
+            nested_props = {
+                name: props
+                for name, entry in inline["components"].items()
+                if (
+                    props := {
+                        key: deepcopy(schema)
+                        for key, schema in entry["props"].get("properties", {}).items()
+                        if _structured_schema(schema)
+                    }
+                )
+            }
+            if nested_props:
+                self.property_contracts.append(
+                    {"catalogId": inline["catalogId"], "components": nested_props}
+                )
             document = {
                 "catalogId": inline["catalogId"],
                 "protocolVersion": "1.0",
@@ -160,6 +190,22 @@ class ExpressCompiler:
             'Use keyword arguments matching these component signatures, for example Text(text="Hello"). '
             "Keyword arguments avoid counting optional styling parameters:",
         )
+        # PROMPT TUNING (tracked separately): SDK 0.9.0's compact signatures
+        # omit nested field contracts. Preserve the received literal schemas so
+        # the model sees required keys and closed objects before validation.
+        # Do not infer fields, weaken validation, or special-case components.
+        if self.property_contracts:
+            grammar += """
+
+Nested property contracts (JSON Schema for literal object/array values):
+Use these exact nested keys and value types, including required fields and enums.
+An object with additionalProperties: false accepts only its declared keys.
+These schemas describe literal values, not component or Express source syntax;
+Express data bindings and catalog function values remain available as documented.
+""" + "\n".join(
+                json.dumps(contract, ensure_ascii=False, separators=(",", ":"))
+                for contract in self.property_contracts
+            )
         # WORKAROUND (agent-sdk 0.9.0/core 0.4.0): calc(expression="x+1", x=2)
         # rejects x even when the args schema has additionalProperties=true.
         # Function-value maps preserve open-ended args; repro coverage:
