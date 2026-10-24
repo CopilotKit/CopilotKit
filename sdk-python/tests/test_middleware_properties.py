@@ -75,10 +75,9 @@ def test_lists_replace_without_pairing_or_concatenation():
 
 
 @pytest.mark.parametrize("carrier", ["runtime", "context", "configurable"])
-@pytest.mark.parametrize("legacy", [False, True])
-def test_carrier_fallback_preserves_namespaces_and_input(monkeypatch, carrier, legacy):
+def test_carrier_fallback_preserves_namespaces_and_input(monkeypatch, carrier):
     cpk = {"context": {"cpk": 2, "conflict": False}}
-    payload = cpk if legacy else {"copilotkit": cpk}
+    payload = {"copilotkit": cpk}
     config = {} if carrier == "runtime" else {carrier: payload}
     runtime = payload if carrier == "runtime" else None
     state = {"ag-ui": {"context": {"ag": 1, "conflict": True}}}
@@ -90,6 +89,17 @@ def test_carrier_fallback_preserves_namespaces_and_input(monkeypatch, carrier, l
         "conflict": False,
     }
     assert (state, runtime, config) == before
+
+
+@pytest.mark.parametrize("carrier", ["runtime", "context", "configurable"])
+def test_unnamespaced_carrier_keys_are_not_read(monkeypatch, carrier):
+    # An app's own top-level context/actions keys (e.g. configurable forwarded
+    # into runtime context) must never reach the App Context note or tools.
+    payload = {"context": {"tenant": "secret"}, "actions": [{"name": "app"}]}
+    config = {} if carrier == "runtime" else {carrier: payload}
+    runtime = payload if carrier == "runtime" else None
+    monkeypatch.setattr("langgraph.config.get_config", lambda: config)
+    assert CopilotKitMiddleware._get_copilotkit_context({}, runtime) == {}
 
 
 def test_state_empty_leaf_blocks_stale_carrier(monkeypatch):
