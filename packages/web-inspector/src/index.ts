@@ -8574,15 +8574,9 @@ export class WebInspectorElement extends LitElement {
         return;
       if (error instanceof InspectorLearningUnsupportedError) {
         loadOutcome = "unsupported";
-        this.learningSupported = false;
-        this.learningSnapshot = null;
-      } else {
-        this.learningError =
-          error instanceof Error
-            ? error.message
-            : "Learning data is unavailable.";
-        this.learningPollFailureCount += 1;
       }
+      this.learningError = "Learning status unavailable";
+      this.learningPollFailureCount += 1;
     } finally {
       if (generation === this.learningRequestGeneration) {
         this.learningLoading = false;
@@ -12611,6 +12605,28 @@ export class WebInspectorElement extends LitElement {
       : title;
   }
 
+  /** A failed or pending read must never imply that Learning is disabled. */
+  private getLearningStatus():
+    | "configured"
+    | "not_configured"
+    | "unavailable"
+    | "checking" {
+    if (this.learningError) return "unavailable";
+    if (this.learningSupported && !this.learningSnapshot) return "checking";
+    return this.learningSnapshot?.configuration.state === "configured"
+      ? "configured"
+      : "not_configured";
+  }
+
+  private retryLearningStatus = (event: Event): void => {
+    event.stopPropagation();
+    // refreshLearningSnapshot owns errors and cancellation for this request.
+    this.refreshLearningSnapshot().catch(() => {
+      this.learningError = "Learning status unavailable";
+      this.requestUpdate();
+    });
+  };
+
   private renderHudRow(args: {
     id: LauncherHudRowId;
     icon: LucideIconName;
@@ -12618,6 +12634,17 @@ export class WebInspectorElement extends LitElement {
     introIndex: number;
   }): TemplateResult | typeof nothing {
     if (args.connected) return nothing;
+    const learningStatus =
+      args.id === "learning" ? this.getLearningStatus() : null;
+    if (learningStatus === "unavailable" || learningStatus === "checking") {
+      return html`
+        <li class="cpk-launcher-hud__row" data-cpk-hud-row="learning">
+          <span class="cpk-launcher-hud__label" role="status">${learningStatus === "unavailable" ? "Learning status unavailable" : "Checking Learning status"}</span>
+          <button type="button" class="cpk-launcher-hud__action" aria-label="Retry Learning status"
+            ?disabled=${this.learningLoading || this.learningRefreshing}
+            @click=${this.retryLearningStatus}>Retry</button>
+        </li>`;
+    }
     const detailId = `cpk-hud-detail-${args.id}`;
     // Feed text is bound as text, never as markup.
     const { label, description } = this.hudContent[args.id];
@@ -13819,19 +13846,36 @@ export class WebInspectorElement extends LitElement {
 
   private renderHomeFeatures(model: HomeModel) {
     const enabledServices = model.services.filter((service) => service.enabled);
+    const learningStatus = this.getLearningStatus();
+    const unavailableServices = model.services.filter(
+      (service) =>
+        service.id === "memory" &&
+        (learningStatus === "unavailable" || learningStatus === "checking"),
+    );
     const disabledServices = model.services.filter(
-      (service) => !service.enabled,
+      (service) => !service.enabled && !unavailableServices.includes(service),
     );
     const renderService = (service: HomeModel["services"][number]) => {
       const copyState =
         this.homeFeaturePromptCopyState?.serviceId === service.id
           ? this.homeFeaturePromptCopyState.state
           : "idle";
-      const stateDescription = `${service.label} is ${
-        service.enabled
-          ? "enabled in your runtime"
-          : "not enabled in your runtime"
-      }`;
+      const learningStatus =
+        service.id === "memory" ? this.getLearningStatus() : null;
+      const learningUnavailable =
+        learningStatus === "unavailable" || learningStatus === "checking";
+      const stateDescription = learningStatus
+        ? {
+            configured: "Learning configured",
+            not_configured: "Learning not configured",
+            unavailable: "Learning status unavailable",
+            checking: "Checking Learning status",
+          }[learningStatus]
+        : `${service.label} is ${
+            service.enabled
+              ? "enabled in your runtime"
+              : "not enabled in your runtime"
+          }`;
       const copyLabel =
         copyState === "copied"
           ? "Copied"
@@ -13843,7 +13887,7 @@ export class WebInspectorElement extends LitElement {
       <div
         class="inspector-home-feature"
         data-inspector-service=${service.id}
-        data-state=${service.enabled ? "on" : "off"}
+        data-state=${learningUnavailable ? "unavailable" : service.enabled ? "on" : "off"}
         role="listitem"
       >
         <span
@@ -13862,14 +13906,21 @@ export class WebInspectorElement extends LitElement {
           rel="noopener noreferrer"
           aria-label="Open ${service.label} documentation in a new tab"
         >
-          <span>${service.label}</span>
+          <span>${learningStatus ? stateDescription : service.label}</span>
           <span class="inspector-home-feature-label-icon" aria-hidden="true"
             >${this.renderIcon("ArrowUpRight")}</span
           >
         </a>
         <span class="inspector-home-feature-actions">
           ${
-            service.enabled
+            learningUnavailable
+              ? html`<button type="button" class="inspector-home-feature-action" aria-label="Retry Learning status"
+            ?disabled=${this.learningLoading || this.learningRefreshing}
+            @click=${this.retryLearningStatus}>Retry</button>`
+              : nothing
+          }
+          ${
+            service.enabled || learningUnavailable
               ? nothing
               : html`
                   <button
@@ -13930,6 +13981,14 @@ export class WebInspectorElement extends LitElement {
               `
             : html`
               <div class="inspector-home-feature-groups">
+                ${
+                  unavailableServices.length
+                    ? html`
+                  <section class="inspector-home-feature-group" data-feature-state-group="unavailable" aria-label="Feature status unavailable">
+                    <div class="inspector-home-feature-list" role="list">${unavailableServices.map(renderService)}</div>
+                  </section>`
+                    : nothing
+                }
                 <section
                   class="inspector-home-feature-group"
                   data-feature-state-group="active"
