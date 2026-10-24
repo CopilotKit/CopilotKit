@@ -17,20 +17,20 @@ generative_ui:
   - constrained-explicit
   - a2ui-fixed-schema
   - a2ui-dynamic-schema
+# Re-checked against AG2 1.1.2 (ag2[ag-ui]):
+# - shared-state-streaming needs per-token STATE_DELTA streaming from tool-call
+#   arguments (predictive state); AGUIStream only emits full STATE_SNAPSHOTs
+#   at tool boundaries (agents/_state.py::publish_state), so the document
+#   cannot stream token by token.
+# - gen-ui-interrupt / interrupt-headless are frontend-tool adaptations
+#   (useHumanInTheLoop); AG2 1.x has a native interrupt primitive (ctx.input /
+#   approval_required) but the shared useInterrupt frontend path is not wired.
+# Reasoning demos (reasoning-default/custom, tool-rendering-reasoning-chain)
+# are supported: AG2 1.x maps model reasoning to REASONING_MESSAGE_* events.
 not_supported_features:
   - shared-state-streaming
   - gen-ui-interrupt
   - interrupt-headless
-  # AG2's ConversableAgent/AGUIStream does not emit AG-UI REASONING_MESSAGE_*
-  # events (documented in src/agents/tool_rendering_reasoning_chain.py) — the
-  # reasoning-block can never mount, so any reasoning-bearing pill is
-  # upstream-incapable until autogen maps reasoning deltas to AG-UI events.
-  # The reasoning-default-render / agentic-chat-reasoning demos remain wired
-  # on disk but cannot stream reasoning text; tool-rendering-reasoning-chain's
-  # tool loop works, but its reasoning slot is degraded for the same reason.
-  - reasoning-default-render
-  - agentic-chat-reasoning
-  - tool-rendering-reasoning-chain
 interaction_modalities:
   - sidebar
   - embedded

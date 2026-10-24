@@ -3,22 +3,29 @@ AG2 scheduling agent -- interrupt-adapted.
 
 This agent powers two demos (gen-ui-interrupt, interrupt-headless) that in the
 LangGraph showcase rely on the native `interrupt()` primitive with
-checkpoint/resume. AG2 does NOT have that primitive, so we adapt using the
+checkpoint/resume. We adapt that flow using the
 same "Strategy B" pattern as the MS Agent Framework port: the backend agent's
 system prompt tells the LLM to call `schedule_meeting`, but no local
 implementation is registered -- the tool is provided entirely by the frontend
 via `useFrontendTool` with an async handler that returns a Promise resolving
-only once the user picks a time slot (or cancels).
+only once the user picks a time slot (or cancels). AG2 1.x's `AGUIStream`
+turns every tool the client declares into a client-side tool, so the run
+pauses on the frontend call exactly as the demo needs.
 
-See `src/agents/agent.py` for the shared ConversableAgent used by most other
-AG2 demos.
+Note: AG2 1.x does have a native interrupt primitive (`ctx.input()` and the
+`approval_required` tool middleware surface as AG-UI interrupt outcomes that a
+client resumes), but the demos here use the frontend-tool flow, which the
+shared frontend already implements.
+
+See `src/agents/agent.py` for the shared Agent used by most other AG2 demos.
 """
 
 # @region[backend-interrupt-tool]
 from __future__ import annotations
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
+from ag2 import Agent
+from ag2.ag_ui import AGUIStream
+from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 
 
@@ -38,19 +45,16 @@ SYSTEM_PROMPT = (
     "the message persists."
 )
 
-interrupt_agent = ConversableAgent(
-    name="scheduling_agent",
-    system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
-    human_input_mode="NEVER",
-    max_consecutive_auto_reply=5,
+interrupt_agent = Agent(
+    "scheduling_agent",
+    prompt=SYSTEM_PROMPT,
+    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
     # No backend tools. `schedule_meeting` is registered on the frontend
     # via `useFrontendTool` and dispatched through the CopilotKit runtime.
     # When the agent calls `schedule_meeting`, the request is routed to
     # the frontend handler, which returns a Promise that only resolves
     # once the user picks a slot -- equivalent to `interrupt()` in the
     # LangGraph reference.
-    functions=[],
 )
 # @endregion[backend-tool-call]
 # @endregion[backend-interrupt-tool]

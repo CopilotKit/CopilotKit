@@ -1,4 +1,4 @@
-// Dedicated runtime for the BYOC json-render demo (AG2).
+// Dedicated runtime for the declarative-json-render demo (AG2).
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -26,7 +26,7 @@ export const POST = async (req: NextRequest) => {
   try {
     const copilotHandler = createCopilotRuntimeHandler({
       runtime,
-      basePath: "/api/copilotkit-byoc-json-render",
+      basePath: "/api/copilotkit-declarative-json-render",
       mode: "single-route",
     });
     return await copilotHandler(req);

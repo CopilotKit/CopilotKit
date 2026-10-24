@@ -6,10 +6,9 @@ Mirrors `langgraph-python/src/agents/gen_ui_agent.py` and
 `agent.state.steps` via `useAgent` and renders a live progress card; the
 backend's job is to plan exactly 3 steps and walk each
 pending -> in_progress -> completed by calling the `set_steps` tool.
-Every call to `set_steps` returns a `ReplyResult` whose
-`context_variables` carry the updated `steps` array, which AG2's
-`AGUIStream` surfaces back to the UI as a state snapshot so the
-progress card re-renders in-place after every transition.
+Every call to `set_steps` writes the updated `steps` array into the run's
+variables and publishes a state snapshot, so the progress card re-renders
+in-place after every transition.
 
 State shape (mirrors LGP `GenUiAgentState.steps`):
     [
@@ -18,40 +17,44 @@ State shape (mirrors LGP `GenUiAgentState.steps`):
     ]
 
 AG2 specifics:
-- Uses `ContextVariables` + `ReplyResult` (same mechanism as
-  `shared_state_read_write.py`) to publish state. AG2's AG-UI adapter
-  emits a STATE_SNAPSHOT event after every `ReplyResult` so the
-  frontend sees the full `steps` list on each `set_steps` call.
-- Mounts a dedicated FastAPI sub-app so this demo gets its own
-  ContextVariables slot, isolated from the shared default agent.
+- State lives in the run's variables (`ctx.variables`), which `AGUIStream`
+  maps to and from AG-UI state. `publish_state` (see `_state.py`) sends a
+  STATE_SNAPSHOT mid-run so the frontend sees the full `steps` list on each
+  `set_steps` call.
+- Mounts a dedicated FastAPI sub-app so this demo gets its own agent,
+  isolated from the shared default agent.
 """
 
 import logging
 from textwrap import dedent
 from typing import Annotated, List
 
-from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
-from autogen.agentchat import ContextVariables, ReplyResult
-from autogen.tools import tool
+from ag2 import Agent, Context, tool
+from ag2.ag_ui import AGUIStream
+from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
+from pydantic import Field
+
+from ._state import publish_state
 
 logger = logging.getLogger(__name__)
 
 
-@tool()
+@tool
 async def set_steps(
-    context_variables: ContextVariables,
+    ctx: Context,
     steps: Annotated[
         List[dict],
-        (
-            "The complete source of truth for the plan: every step "
-            "with `id`, `title`, and `status` ('pending' | "
-            "'in_progress' | 'completed'). Always include the FULL "
-            "list on every call, never a diff."
+        Field(
+            description=(
+                "The complete source of truth for the plan: every step "
+                "with `id`, `title`, and `status` ('pending' | "
+                "'in_progress' | 'completed'). Always include the FULL "
+                "list on every call, never a diff."
+            )
         ),
     ],
-) -> ReplyResult:
+) -> str:
     """Publish the current plan and step statuses.
 
     Call this every time a step transitions (including the first
@@ -72,11 +75,9 @@ async def set_steps(
                 "status": str(step.get("status", "pending")),
             }
         )
-    context_variables.update({"steps": cleaned})
-    return ReplyResult(
-        message=f"Published {len(cleaned)} step(s).",
-        context_variables=context_variables,
-    )
+    ctx.variables["steps"] = cleaned
+    await publish_state(ctx)
+    return f"Published {len(cleaned)} step(s)."
 
 
 SYSTEM_PROMPT = dedent(
@@ -109,16 +110,11 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
-agent = ConversableAgent(
-    name="gen_ui_agent",
-    system_message=SYSTEM_PROMPT,
-    llm_config=LLMConfig({"model": "gpt-5-mini", "stream": True}),
-    human_input_mode="NEVER",
-    # Nominal cost is ~7 set_steps cycles + 1 final model turn.
-    # 15 gives ~2x headroom for retries inside the LLM loop while still
-    # bounding pathological runaway behavior (Railway log-rate limits).
-    max_consecutive_auto_reply=15,
-    functions=[set_steps],
+agent = Agent(
+    "gen_ui_agent",
+    prompt=SYSTEM_PROMPT,
+    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    tools=[set_steps],
 )
 
 stream = AGUIStream(agent)
