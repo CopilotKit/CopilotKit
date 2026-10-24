@@ -12431,13 +12431,22 @@ export class WebInspectorElement extends LitElement {
 
   private handleLauncherHudKeydown = (event: KeyboardEvent): void => {
     if (event.key !== "Escape") return;
-    if (!this.launcherHudOpen) return;
-    event.preventDefault();
-    event.stopPropagation();
-    this.closeLauncherHud();
-    this.activeRoot
-      .querySelector<HTMLButtonElement>(".console-button")
-      ?.focus();
+
+    if (this.launcherHudOpen) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeLauncherHud();
+      this.activeRoot
+        .querySelector<HTMLButtonElement>(".console-button")
+        ?.focus();
+      return;
+    }
+
+    if (this.isOpen) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeInspector();
+    }
   };
 
   private queueHudTelemetry(send: () => void): void {
@@ -14680,6 +14689,7 @@ export class WebInspectorElement extends LitElement {
         data-docked=${isDocked}
         data-transitioning=${isTransitioning}
         data-color-scheme=${this.colorScheme}
+        @keydown=${this.handleLauncherHudKeydown}
       >
         ${
           isDocked && !isPoppedOut
