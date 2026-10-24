@@ -63,6 +63,16 @@ export const MCPAppsActivityRenderer = defineComponent({
       required: false,
       default: undefined,
     },
+    /**
+     * Restore `allow-same-origin` on the sandbox. Unsafe: the widget runs with
+     * the host page's origin. Set via `mcpApps.allowSameOriginFallback` on
+     * `CopilotKitProvider`.
+     */
+    allowSameOriginFallback: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
   },
   setup(props) {
     const { copilotkit } = useCopilotKit();
@@ -104,6 +114,7 @@ export const MCPAppsActivityRenderer = defineComponent({
         () => props.content.resourceUri,
         () => props.content.serverHash,
         () => props.content.serverId,
+        () => props.allowSameOriginFallback,
       ],
       ([container, agent], _old, onCleanup) => {
         if (!agent) {
@@ -174,6 +185,9 @@ export const MCPAppsActivityRenderer = defineComponent({
               // activities. It still calls syncContent for activities rendered
               // from an external messages list (see the seed below).
               messageId: messageId.value,
+              options: {
+                allowSameOriginFallback: props.allowSameOriginFallback,
+              },
               hooks: {
                 onResource: (resource) => {
                   if (!mounted) return;

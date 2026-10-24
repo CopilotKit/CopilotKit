@@ -93,10 +93,15 @@ function createAgent(resourceText = "<h1>MCP App</h1>"): AgentHarness {
   return agent as unknown as AgentHarness;
 }
 
+/**
+ * Reset TestBed with `provideMCPApps` (timeouts and `allowSameOriginFallback`)
+ * and a `CopilotKit` stub whose core runs follow-ups through `runAgent`.
+ */
 function configureTestingModule(
   runAgent = vi.fn(async () => ({ result: undefined, newMessages: [] })),
   idleTimeoutMs = 30_000,
   initializationTimeoutMs = 30_000,
+  allowSameOriginFallback?: boolean,
 ): void {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
@@ -104,6 +109,7 @@ function configureTestingModule(
       provideMCPApps({
         idleTimeoutMs,
         initializationTimeoutMs,
+        allowSameOriginFallback,
       }),
       {
         provide: CopilotKit,
@@ -208,15 +214,16 @@ test("loads the resource through the selected agent and boots the sandbox", asyn
       },
     },
   });
-  expect(frame.getAttribute("sandbox")).toBe(
-    "allow-scripts allow-same-origin allow-forms",
-  );
+  expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
   expect(frame.srcdoc).toContain("Content-Security-Policy");
   expect(postMessage).toHaveBeenCalledWith(
     expect.objectContaining({
       jsonrpc: "2.0",
       method: "ui/notifications/sandbox-resource-ready",
-      params: { html: "<h1>MCP App</h1>" },
+      params: {
+        html: "<h1>MCP App</h1>",
+        sandbox: "allow-scripts allow-forms",
+      },
     }),
     "*",
   );
@@ -491,21 +498,34 @@ test("matches the React SDK sandbox and resource CSP contract", async () => {
       "ui/notifications/sandbox-resource-ready",
   )?.[0];
 
-  expect(frame.getAttribute("sandbox")).toBe(
-    "allow-scripts allow-same-origin allow-forms",
-  );
+  expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-forms");
   expect(frame.getAttribute("src")).toBeNull();
   expect(frame.srcdoc).toContain(
     "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:* https://cdn.example.com",
   );
   expect(frame.srcdoc).toContain(
-    'inner.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms")',
+    'inner.setAttribute("sandbox","allow-scripts allow-forms")',
   );
   expect(resourceReady).toEqual({
     jsonrpc: "2.0",
     method: "ui/notifications/sandbox-resource-ready",
-    params: { html: "<h1>MCP App</h1>" },
+    params: { html: "<h1>MCP App</h1>", sandbox: "allow-scripts allow-forms" },
   });
+});
+
+test("restores allow-same-origin with allowSameOriginFallback", async () => {
+  configureTestingModule(undefined, undefined, undefined, true);
+  const { frame, postMessage } = await bootWidget(createAgent());
+
+  const sameOrigin = "allow-scripts allow-same-origin allow-forms";
+  expect(frame.getAttribute("sandbox")).toBe(sameOrigin);
+  expect(postMessage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      method: "ui/notifications/sandbox-resource-ready",
+      params: { html: "<h1>MCP App</h1>", sandbox: sameOrigin },
+    }),
+    "*",
+  );
 });
 
 test("shows accessible loading and missing-resource errors", async () => {

@@ -124,6 +124,11 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
 // Provider props interface
+/** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
+const SameOriginMCPAppsActivityRenderer: typeof MCPAppsActivityRenderer = (
+  props,
+) => <MCPAppsActivityRenderer {...props} allowSameOriginFallback />;
+
 export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
@@ -297,6 +302,27 @@ export interface CopilotKitProviderProps {
     recovery?: A2UIRecoveryRendererOptions;
   };
   /**
+   * Configuration for the built-in MCP Apps renderer.
+   *
+   * @example
+   * ```tsx
+   * <CopilotKit runtimeUrl="/api/copilotkit" mcpApps={{ allowSameOriginFallback: true }}>
+   *   {children}
+   * </CopilotKit>
+   * ```
+   */
+  mcpApps?: {
+    /**
+     * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
+     *
+     * **Unsafe.** The widget then runs with your page's origin: it can read
+     * your cookies, storage and DOM, and call your APIs as the signed-in user.
+     * Only set it for widgets you wrote and trust that need `localStorage`,
+     * `IndexedDB` or cookies. By default widgets get an opaque origin.
+     */
+    allowSameOriginFallback?: boolean;
+  };
+  /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
    * triggered by `OnMessagesChanged` notifications. This value is used as
    * a fallback when neither the `useAgent()` hook nor `<CopilotChat>` /
@@ -410,6 +436,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint,
   onError,
   a2ui,
+  mcpApps,
   defaultThrottleMs,
   debug,
   learning,
@@ -535,6 +562,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawCatalog, catalogToggleVersion]);
 
+  const mcpAppsAllowSameOrigin = mcpApps?.allowSameOriginFallback === true;
+
   // Built-in activity renderers that are always included
   const builtInActivityRenderers = useMemo<
     ReactActivityMessageRenderer<any>[]
@@ -543,7 +572,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       {
         activityType: MCPAppsActivityType,
         content: MCPAppsActivityContentSchema,
-        render: MCPAppsActivityRenderer,
+        render: mcpAppsAllowSameOrigin
+          ? SameOriginMCPAppsActivityRenderer
+          : MCPAppsActivityRenderer,
       },
     ];
 
@@ -571,7 +602,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     return renderers;
-  }, [a2uiActive, openGenUIActive, a2ui, filteredCatalog]);
+  }, [
+    a2uiActive,
+    openGenUIActive,
+    a2ui,
+    filteredCatalog,
+    mcpAppsAllowSameOrigin,
+  ]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
