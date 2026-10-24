@@ -1,9 +1,18 @@
+import {
+  CopilotChatUserMessage,
+  UseAgentUpdate,
+  useAgent,
+} from "@copilotkit/react-core/v2";
 import type {
   CopilotChatAssistantMessageProps,
   CopilotChatMessageViewProps,
+  CopilotChatUserMessageProps,
 } from "@copilotkit/react-core/v2";
 import { useMemo } from "react";
+import { AGENT_ID } from "../lib/agent";
 import { useDesk } from "../lib/desk-store";
+import type { ViewKind } from "../lib/view-catalog";
+import { requestedView } from "../lib/view-request-messages";
 
 type AnswerParts = Parameters<
   NonNullable<CopilotChatAssistantMessageProps["children"]>
@@ -31,8 +40,43 @@ function Answer({
 }
 
 /** A reader turn: the question as typed, on a sand slip. */
-function Question({ content }: { content: string }) {
-  return <div className="question">{content}</div>;
+function Question({ content, view }: { content: string; view?: ViewKind }) {
+  const label = view ? `Requested ${view.label.toLowerCase()} view` : undefined;
+  return (
+    <div className="question" data-view={view?.id}>
+      {content}
+      {view && (
+        <span
+          className="question__view"
+          style={{ color: view.tone }}
+          role="img"
+          aria-label={label}
+          title={label}
+        >
+          <view.icon size={16} strokeWidth={1.75} aria-hidden />
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Keep the SDK's attachments and toolbar while giving the bubble its marker. */
+function QuestionMessage(props: CopilotChatUserMessageProps) {
+  const { agent } = useAgent({
+    agentId: AGENT_ID,
+    updates: [UseAgentUpdate.OnMessagesChanged],
+  });
+  // The SDK memoizes user rows by content, so metadata added just before a run
+  // can leave the slot's message prop stale. Read the canonical turn by ID.
+  const message = agent.messages.find((item) => item.id === props.message.id);
+  const view = requestedView(message ?? props.message);
+  const messageRenderer = useMemo(
+    () => (parts: { content: string }) => <Question {...parts} view={view} />,
+    [view],
+  );
+  return (
+    <CopilotChatUserMessage {...props} messageRenderer={messageRenderer} />
+  );
 }
 
 /**
@@ -48,7 +92,7 @@ export function useMessageView(): Partial<CopilotChatMessageViewProps> {
         onThumbsUp: () => announce("Thanks, noted as helpful"),
         onThumbsDown: () => announce("Thanks, noted as not helpful"),
       },
-      userMessage: { messageRenderer: Question },
+      userMessage: QuestionMessage as typeof CopilotChatUserMessage,
     }),
     [announce],
   );
