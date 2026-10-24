@@ -8,4 +8,5 @@
 // dynamic import so a non-MCP app never pays for the bridge.
 export * from "./constants";
 export * from "./content-schema";
+export * from "./display-mode";
 export * from "./follow-up";
