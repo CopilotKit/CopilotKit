@@ -69,8 +69,11 @@ function CopilotKitPageContent() {
       await fetchUploadedFiles();
     };
     fetchFiles();
+    // Runs when the token or thread changes (and on unmount): the list belongs to
+    // the previous owner, so drop it and ignore any of its in-flight responses.
     return () => {
       fileRequestGeneration.current += 1;
+      setUploadedFiles([]);
     };
   }, [fetchUploadedFiles]);
 
