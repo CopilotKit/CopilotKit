@@ -32,27 +32,28 @@ export type AngularToolCall<
 
 export type HumanInTheLoopToolCall<
   Args extends Record<string, unknown> = Record<string, unknown>,
+  Response = unknown,
 > =
   | {
       name?: string;
       args: Partial<Args>;
       status: "in-progress";
       result: undefined;
-      respond: (result: unknown) => void;
+      respond: (result: Response) => void;
     }
   | {
       name?: string;
       args: Args;
       status: "executing";
       result: undefined;
-      respond: (result: unknown) => void;
+      respond: (result: Response) => void;
     }
   | {
       name?: string;
       args: Args;
       status: "complete";
       result: string;
-      respond: (result: unknown) => void;
+      respond: (result: Response) => void;
     };
 
 export interface ToolRenderer<
@@ -64,8 +65,9 @@ export interface ToolRenderer<
 
 export interface HumanInTheLoopToolRenderer<
   Args extends Record<string, unknown> = Record<string, unknown>,
+  Response = unknown,
 > {
-  toolCall: Signal<HumanInTheLoopToolCall<Args>>;
+  toolCall: Signal<HumanInTheLoopToolCall<Args, Response>>;
 }
 
 export type ClientTool<
@@ -142,11 +144,23 @@ export interface RegisterComponentConfig<
 
 export interface HumanInTheLoopConfig<
   Args extends Record<string, unknown> = Record<string, unknown>,
+  Response = unknown,
 > {
   name: string;
   description: string;
   parameters: StandardSchemaV1<unknown, Args>;
-  component: Type<HumanInTheLoopToolRenderer<Args>>;
+  component: Type<HumanInTheLoopToolRenderer<Args, Response>>;
+  /**
+   * Application logic to run after the component calls `toolCall.respond`.
+   * Awaited before the agent resumes; the returned value becomes the tool result.
+   * Without this callback, the component's response is returned unchanged.
+   * Errors reject the tool call. Use `context.signal` to cancel async work.
+   */
+  onResponse?: (
+    args: Args,
+    response: Response,
+    context: FrontendToolHandlerContext,
+  ) => unknown | Promise<unknown>;
   agentId?: string;
 }
 
@@ -228,7 +242,8 @@ export function registerComponent<
 
 export function registerHumanInTheLoop<
   Args extends Record<string, unknown> = Record<string, unknown>,
->(humanInTheLoop: HumanInTheLoopConfig<Args>): void {
+  Response = unknown,
+>(humanInTheLoop: HumanInTheLoopConfig<Args, Response>): void {
   const destroyRef = inject(DestroyRef);
   const copilotKit = inject(CopilotKit);
 
