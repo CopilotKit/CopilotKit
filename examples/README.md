@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 64 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 65 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -18,7 +18,7 @@ cd examples/<category>/<name>
 
 > The Intelligence dashboard also links to [Project Manager](./canvas/mastra-pm/), a maintained v2 example covered by the public-example tests.
 
-## Integrations (24)
+## Integrations (25)
 
 Framework integration starters demonstrating CopilotKit with various agent frameworks.
 
@@ -48,6 +48,7 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [claude-sdk-python](./integrations/claude-sdk-python/)                 | Starter template using the Claude Agent SDK (Python) and CopilotKit                  |
 | [claude-sdk-typescript](./integrations/claude-sdk-typescript/)         | Starter template using the Claude Agent SDK (TypeScript) and CopilotKit              |
 | [claude-managed-agents](./integrations/claude-managed-agents/)         | Beautiful Chat starter with Claude Managed Agents and Intelligence Skills            |
+| [omnara](./integrations/omnara/)                                       | Beautiful Chat starter with Omnara agents and Intelligence threads                   |
 
 ## Canvas (7)
 
