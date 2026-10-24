@@ -10,7 +10,6 @@ import {
 } from "@copilotkit/core";
 import type { A2UIMarkdownOperation, ChildIdsOf } from "@copilotkit/core";
 import {
-  A2UI_VERSION,
   GENERATIVE_UI_CHAT_TARGET,
   GENERATIVE_UI_ROOT_ID,
   getOperationKind,
@@ -614,22 +613,6 @@ function startsWith(list: string[], prefix: string[]) {
   );
 }
 
-/** A content that deletes a surface that the fences no longer write. */
-function removalContent(surfaceId: string, catalogId: string) {
-  const content: GenerativeUISurfaceContent = {
-    surfaceId,
-    target: GENERATIVE_UI_CHAT_TARGET,
-    catalogId,
-    status: "ready",
-    rejected: [],
-    operations: [
-      { version: A2UI_VERSION, createSurface: { surfaceId, catalogId } },
-      { version: A2UI_VERSION, deleteSurface: { surfaceId } },
-    ],
-  };
-  return content;
-}
-
 /**
  * The markdown transport source of one surface manager. It turns the
  * messages of a thread into surfaces in the manager, and keeps the blocks
@@ -696,12 +679,7 @@ export class MarkdownSurfaceSource {
       next.set(content.surfaceId, fingerprints);
     }
     for (const surfaceId of previous.keys()) {
-      if (next.has(surfaceId)) continue;
-      this.manager.ingest(
-        threadId,
-        agentId,
-        removalContent(surfaceId, this.ui.id),
-      );
+      if (!next.has(surfaceId)) this.manager.forgetSurface(threadId, surfaceId);
     }
     this.ingested.set(threadId, next);
     return result.functionCalls;

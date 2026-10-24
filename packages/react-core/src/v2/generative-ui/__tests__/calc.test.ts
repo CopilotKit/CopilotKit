@@ -58,6 +58,16 @@ describe("calc", () => {
     expect(evaluateCalc("floor(2.9) + ceil(2.1) + abs(-1)", {})).toBe(6);
   });
 
+  it("has pow, for growth and loan payments", () => {
+    expect(evaluateCalc("pow(2, 10)", {})).toBe(1024);
+    // A 30-year, 6% loan of 100,000: the standard monthly payment.
+    const payment = evaluateCalc(
+      "p * r * pow(1 + r, n) / (pow(1 + r, n) - 1)",
+      { p: 100000, r: 0.005, n: 360 },
+    ) as number;
+    expect(payment).toBeCloseTo(599.55, 2);
+  });
+
   it("concatenates text with +", () => {
     expect(evaluateCalc("'M' + m", { m: 3 })).toBe("M3");
     expect(evaluateCalc("name + ' x' + 2", { name: "Ada" })).toBe("Ada x2");
