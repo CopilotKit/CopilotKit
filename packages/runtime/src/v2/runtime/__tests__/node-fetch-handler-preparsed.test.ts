@@ -1,7 +1,13 @@
+import { createServer } from "node:http";
+import type { IncomingMessage, Server, ServerResponse } from "node:http";
+import type { AddressInfo } from "node:net";
 import express from "express";
 import request from "supertest";
 import { describe, it, expect, vi } from "vitest";
-import { createExpressNodeHandler } from "../endpoints/express-fetch-bridge";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createCopilotNodeHandler } from "../endpoints/node-fetch-handler";
+import { createCopilotExpressHandler } from "../endpoints/express";
+import { CopilotRuntime } from "../core/runtime";
 import type { CopilotRuntimeFetchHandler } from "../core/fetch-handler";
 
 /* ------------------------------------------------------------------------------------------------
@@ -17,7 +23,7 @@ function createApp(
   opts: { bodyParserFirst?: boolean } = {},
 ) {
   const app = express();
-  const nodeHandler = createExpressNodeHandler(fetchHandler);
+  const nodeHandler = createCopilotNodeHandler(fetchHandler);
 
   if (opts.bodyParserFirst) {
     app.use(express.json());
@@ -31,7 +37,7 @@ function createApp(
  * Pre-parsed body (express.json() before handler)
  * --------------------------------------------------------------------------------------------- */
 
-describe("express-fetch-bridge — pre-parsed body", () => {
+describe("createCopilotNodeHandler (pre-parsed bodies) — pre-parsed body", () => {
   it("receives JSON body when express.json() runs first", async () => {
     const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
       const body = await req.json();
@@ -165,10 +171,10 @@ const echoBody: CopilotRuntimeFetchHandler = async (req) => {
   );
 };
 
-describe("express-fetch-bridge — req.body set but stream not consumed", () => {
+describe("createCopilotNodeHandler (pre-parsed bodies) — req.body set but stream not consumed", () => {
   function createLegacyApp(fetchHandler: CopilotRuntimeFetchHandler) {
     const app = express();
-    const nodeHandler = createExpressNodeHandler(fetchHandler);
+    const nodeHandler = createCopilotNodeHandler(fetchHandler);
 
     app.use(legacyParserThatDeclinesToParse());
     app.use(async (_req, _res, next) => {
@@ -210,7 +216,7 @@ describe("express-fetch-bridge — req.body set but stream not consumed", () => 
  * URL reconstruction
  * --------------------------------------------------------------------------------------------- */
 
-describe("express-fetch-bridge — URL reconstruction", () => {
+describe("createCopilotNodeHandler (pre-parsed bodies) — URL reconstruction", () => {
   it("preserves pathname in reconstructed URL", async () => {
     const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
       const url = new URL(req.url);
@@ -259,7 +265,7 @@ describe("express-fetch-bridge — URL reconstruction", () => {
  * Header preservation
  * --------------------------------------------------------------------------------------------- */
 
-describe("express-fetch-bridge — header preservation", () => {
+describe("createCopilotNodeHandler (pre-parsed bodies) — header preservation", () => {
   it("preserves custom headers from original request", async () => {
     const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
       return new Response(
@@ -309,7 +315,7 @@ describe("express-fetch-bridge — header preservation", () => {
  * HTTP method handling
  * --------------------------------------------------------------------------------------------- */
 
-describe("express-fetch-bridge — HTTP methods", () => {
+describe("createCopilotNodeHandler (pre-parsed bodies) — HTTP methods", () => {
   it("GET requests bypass pre-parsed body logic", async () => {
     const fetchHandler: CopilotRuntimeFetchHandler = async (req) => {
       return new Response(JSON.stringify({ method: req.method }), {
@@ -343,7 +349,7 @@ describe("express-fetch-bridge — HTTP methods", () => {
  * Error handling
  * --------------------------------------------------------------------------------------------- */
 
-describe("express-fetch-bridge — error handling", () => {
+describe("createCopilotNodeHandler (pre-parsed bodies) — error handling", () => {
   it("returns 500 when fetch handler throws", async () => {
     const fetchHandler: CopilotRuntimeFetchHandler = async () => {
       throw new Error("handler exploded");
@@ -381,7 +387,7 @@ describe("express-fetch-bridge — error handling", () => {
  * Streaming responses
  * --------------------------------------------------------------------------------------------- */
 
-describe("express-fetch-bridge — streaming responses", () => {
+describe("createCopilotNodeHandler (pre-parsed bodies) — streaming responses", () => {
   it("streams SSE response through pre-parsed body path", async () => {
     const fetchHandler: CopilotRuntimeFetchHandler = async () => {
       const stream = new ReadableStream({
@@ -407,5 +413,182 @@ describe("express-fetch-bridge — streaming responses", () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain("data: event1");
     expect(res.text).toContain("data: event2");
+  });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Servers that are not the Express adapter (#6838)
+ *
+ * NestJS, a plain `http` server behind a body parser, or any framework that
+ * hands us its Node request after reading the body. Before the pre-parsed path
+ * moved into `createCopilotNodeHandler`, only the Express adapter handled this
+ * and every other server hung waiting on the drained stream.
+ * --------------------------------------------------------------------------------------------- */
+
+/** A plain Node server whose "framework" reads the whole body before the handler. */
+function createDrainingServer(
+  nodeHandler: (req: IncomingMessage, res: ServerResponse) => Promise<void>,
+  parse: (raw: Buffer) => unknown,
+): Server {
+  return createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      (req as IncomingMessage & { body?: unknown }).body = parse(
+        Buffer.concat(chunks),
+      );
+      void nodeHandler(req, res);
+    });
+  });
+}
+
+async function withServer<T>(
+  server: Server,
+  fn: (baseUrl: string) => Promise<T>,
+): Promise<T> {
+  await new Promise<void>((resolve) => server.listen(0, resolve));
+  const { port } = server.address() as AddressInfo;
+  try {
+    return await fn(`http://127.0.0.1:${port}`);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
+describe("createCopilotNodeHandler (pre-parsed bodies) — non-Express servers", () => {
+  it("answers a POST whose body a framework already parsed, instead of hanging", async () => {
+    const server = createDrainingServer(
+      createCopilotNodeHandler(echoBody),
+      (raw) => JSON.parse(raw.toString("utf8")),
+    );
+
+    const out = await withServer(server, async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/api/copilotkit/agent/default/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threadId: "t1" }),
+        // Fail fast: the bug is a hang, not an error response.
+        signal: AbortSignal.timeout(4000),
+      });
+      return { status: res.status, body: await res.json() };
+    });
+
+    expect(out.status).toBe(200);
+    expect(JSON.parse(out.body.text)).toEqual({ threadId: "t1" });
+    expect(out.body.contentType).toBe("application/json");
+  });
+
+  it("passes a Buffer body through unchanged", async () => {
+    const server = createDrainingServer(
+      createCopilotNodeHandler(echoBody),
+      (raw) => raw,
+    );
+
+    const out = await withServer(server, async (baseUrl) => {
+      const res = await fetch(`${baseUrl}/upload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: "raw-bytes",
+        signal: AbortSignal.timeout(4000),
+      });
+      return res.json();
+    });
+
+    expect(out.text).toBe("raw-bytes");
+    expect(out.contentType).toBe("application/octet-stream");
+  });
+});
+
+describe("createCopilotNodeHandler (pre-parsed bodies) — express.text()", () => {
+  it("passes a string body through unchanged", async () => {
+    const app = express();
+    const nodeHandler = createCopilotNodeHandler(echoBody);
+    app.use(express.text());
+    app.all(/.*/, (req, res) => nodeHandler(req, res));
+
+    const res = await request(app)
+      .post("/test")
+      .set("Content-Type", "text/plain")
+      .send("hello");
+
+    expect(res.status).toBe(200);
+    expect(res.body.text).toBe("hello");
+  });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * A router mounted under a prefix
+ *
+ * Express strips the mount prefix from `req.url` and keeps it in `originalUrl`.
+ * The streaming path builds its URL from `req.url`; the pre-parsed path used
+ * `originalUrl`, so behind `app.use("/api/v1", router)` a parsed POST carried
+ * the prefix, missed the handler's `basePath`, and returned 404.
+ * --------------------------------------------------------------------------------------------- */
+
+const echoPath: CopilotRuntimeFetchHandler = async (req) =>
+  new Response(JSON.stringify({ path: new URL(req.url).pathname }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+
+describe("createCopilotNodeHandler (pre-parsed bodies) — mounted router", () => {
+  it("gives a parsed POST the same path as a GET and an unparsed POST", async () => {
+    const nodeHandler = createCopilotNodeHandler(echoPath);
+    const router = express.Router();
+    router.all(/.*/, (req, res) => nodeHandler(req, res));
+
+    const parsedApp = express();
+    parsedApp.use(express.json());
+    parsedApp.use("/api/v1", router);
+
+    const plainApp = express();
+    plainApp.use("/api/v1", router);
+
+    const parsedPost = await request(parsedApp)
+      .post("/api/v1/copilotkit/info")
+      .set("Content-Type", "application/json")
+      .send({ a: 1 });
+    const plainPost = await request(plainApp)
+      .post("/api/v1/copilotkit/info")
+      .set("Content-Type", "application/json")
+      .send({ a: 1 });
+    const get = await request(parsedApp).get("/api/v1/copilotkit/info");
+
+    expect(get.body.path).toBe("/copilotkit/info");
+    expect(plainPost.body.path).toBe("/copilotkit/info");
+    expect(parsedPost.body.path).toBe("/copilotkit/info");
+  });
+
+  it("routes a parsed POST through createCopilotExpressHandler mounted under a prefix", async () => {
+    const agent = {
+      clone: () => agent,
+      description: "test agent",
+    } as unknown as AbstractAgent;
+    const runtime = new CopilotRuntime({ agents: { default: agent } });
+
+    const statusFor = async (parseFirst: boolean) => {
+      const app = express();
+      if (parseFirst) app.use(express.json());
+      app.use(
+        "/api/v1",
+        createCopilotExpressHandler({
+          runtime,
+          basePath: "/copilotkit",
+          cors: false,
+        }),
+      );
+      const res = await request(app)
+        .post("/api/v1/copilotkit/agent/default/stop/t1")
+        .set("Content-Type", "application/json")
+        .send({});
+      return res.status;
+    };
+
+    const parsed = await statusFor(true);
+    const unparsed = await statusFor(false);
+
+    // Both reach the stop route; neither falls through to "Not found".
+    expect(parsed).not.toBe(404);
+    expect(parsed).toBe(unparsed);
   });
 });
