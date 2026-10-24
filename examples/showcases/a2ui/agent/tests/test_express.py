@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from research_desk.express import ExpressCompiler
 
@@ -50,6 +52,67 @@ def test_catalog_instruction_uses_received_props_slots_and_events():
     assert "children" in instructions and "onClick" in instructions
     assert "formatCurrency(value, currency)" in instructions
     assert "<a2ui>" not in instructions
+
+
+def test_instructions_preserve_nested_literal_contracts_and_validation():
+    catalog = envelope()
+    # The same shape that rejected an Aral Sea Map's invented description.
+    # Use a custom component name so guidance cannot depend on Map hardcoding.
+    markers = {
+        "type": "array",
+        "description": "A list of places",
+        "items": {
+            "type": "object",
+            "properties": {
+                "label": {"type": "string"},
+                "lat": {"type": "number"},
+                "lng": {"type": "number"},
+                "category": {"type": "string"},
+            },
+            "required": ["label", "lat", "lng"],
+            "additionalProperties": False,
+        },
+    }
+    center = {
+        "anyOf": [
+            {"type": "null"},
+            {
+                "type": "object",
+                "properties": {"lat": {"type": "number"}, "lng": {"type": "number"}},
+                "required": ["lat", "lng"],
+                "additionalProperties": False,
+            },
+        ]
+    }
+    catalog["v1.0"]["inlineCatalogs"][0]["components"]["LocationView"] = {
+        "props": {
+            "type": "object",
+            "properties": {"markers": markers, "center": center},
+            "additionalProperties": False,
+        }
+    }
+    compiler = ExpressCompiler(catalog)
+    instructions = compiler.instructions()
+    # Read the machine-readable contracts supplied to the model, and require
+    # every nested constraint (not merely the property description) to survive.
+    contracts = next(
+        json.loads(line)
+        for line in instructions.splitlines()
+        if line.startswith('{"catalogId":')
+    )
+    assert contracts["catalogId"] == "demo"
+    assert contracts["components"]["LocationView"] == {
+        "markers": markers,
+        "center": center,
+    }
+    assert "Text" not in contracts["components"]
+    assert "additionalProperties: false" in instructions
+    valid = 'root = LocationView(markers=[{label:"North Aral Sea",lat:46.5,lng:60.7,category:"Kazakhstan"}])'
+    assert compiler.compile(valid, final=True)[0]["createSurface"]["components"][0][
+        "markers"
+    ][0]["category"] == "Kazakhstan"
+    with pytest.raises(ValueError, match="markers"):
+        compiler.compile(valid.replace("category:", "description:"), final=True)
 
 
 def test_compiles_v1_children_bindings_function_and_event():
