@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { matchesGlob } from "node:path";
 import { readFile } from "node:fs/promises";
 import { validateWorkflowContext } from "./run.mjs";
 const context = {
@@ -154,4 +155,38 @@ test("workflow has fixed dispatch, concurrency, no environment setup, and creden
   assert.equal((source.match(/secrets.RAILWAY_TOKEN/g) || []).length, 1);
   assert.equal((source.match(/secrets.RICH_RUNNER_TOKEN/g) || []).length, 1);
   assert.match(source, /node tools\/railway-runner-deploy\/run.mjs/);
+});
+
+test("one-time browser provenance only runs for transition changes", async () => {
+  const workflow = ".github/workflows/intelligence-browser-upgrade.yml";
+  const source = await readFile(workflow, "utf8");
+  const paths = source
+    .match(/    paths:\n((?:      - .+\n)+)/)[1]
+    .trim()
+    .split("\n")
+    .map((line) => line.trim().slice(2));
+  const triggers = (file) =>
+    paths.some((pattern) => matchesGlob(file, pattern));
+  for (const file of [
+    workflow,
+    "browser-upgrade.mjs",
+    "browser-upgrade-cli.mjs",
+    "browser-upgrade.test.mjs",
+    "releases/browser-upgrade.json",
+  ])
+    assert.equal(
+      triggers(
+        file === workflow ? file : `tools/railway-runner-deploy/${file}`,
+      ),
+      true,
+      file,
+    );
+  for (const file of [
+    "adapters.mjs",
+    "provenance.mjs",
+    "releases/staging.json",
+    "workflow.test.mjs",
+  ])
+    assert.equal(triggers(`tools/railway-runner-deploy/${file}`), false, file);
+  assert.match(source, /workflow_dispatch:/);
 });
