@@ -1719,3 +1719,24 @@ describe("CopilotChatInput", () => {
     });
   });
 });
+
+describe("CopilotChatInput with a custom layout", () => {
+  it("grows the textarea with its content", () => {
+    renderWithProvider(
+      <CopilotChatInput>
+        {({ textArea, sendButton }) => (
+          <div>
+            {textArea}
+            {sendButton}
+          </div>
+        )}
+      </CopilotChatInput>,
+    );
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "one\ntwo\nthree" } });
+
+    // Three 24px lines, under the five-line cap.
+    expect(textarea.style.height).toBe("72px");
+  });
+});

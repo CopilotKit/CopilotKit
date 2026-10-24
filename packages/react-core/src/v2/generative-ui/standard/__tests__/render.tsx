@@ -46,6 +46,7 @@ export function renderSurface(
   ui: GenerativeUI,
   components: A2UIComponentNode[],
   data?: Record<string, unknown>,
+  options?: Pick<GenerativeUIRuntime, "errorFallback">,
 ): SurfaceRender {
   const manager = new GenerativeUISurfaceManager(ui);
   const reportError = vi.fn<(info: GenerativeUIErrorInfo) => void>();
@@ -63,6 +64,7 @@ export function renderSurface(
     dispatcher: createGenerativeUIDispatcher({
       getDeclared: () => ui.functions,
     }),
+    errorFallback: options?.errorFallback,
   };
   let operations: A2UIOperation[] = [
     {

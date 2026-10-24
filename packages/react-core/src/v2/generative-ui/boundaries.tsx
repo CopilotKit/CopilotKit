@@ -40,6 +40,42 @@ export function DefaultNodeFallback({
 }
 
 /**
+ * What a node shows when it cannot render: the app's fallback
+ * (`errorBoundary.fallback`) when it set one, else the default notice.
+ */
+export function NodeFallback({
+  runtime,
+  surfaceId,
+  componentId,
+  error,
+  retry,
+}: {
+  runtime: GenerativeUIRuntime;
+  surfaceId: string;
+  componentId: string;
+  error: Error;
+  retry?: () => void;
+}) {
+  const fallback = runtime.errorFallback;
+  if (fallback) {
+    return (
+      <>
+        {fallback({ error, retry: retry ?? noRetry, surfaceId, componentId })}
+      </>
+    );
+  }
+  return (
+    <DefaultNodeFallback
+      message={error.message}
+      componentId={componentId}
+      retry={retry}
+    />
+  );
+}
+
+const noRetry = () => {};
+
+/**
  * A child that has not streamed yet renders nothing. The prose keeps
  * streaming above the surface, and each component appears as soon as it is
  * complete. A grey block in its place would read as a broken layout.
@@ -98,13 +134,12 @@ export class NodeBoundary extends Component<
     const { error } = this.state;
     if (!error) return this.props.children;
     const { runtime, surfaceId, componentId } = this.props;
-    const fallback = runtime.errorFallback;
-    return fallback ? (
-      fallback({ error, retry: this.retry, surfaceId, componentId })
-    ) : (
-      <DefaultNodeFallback
-        message={error.message}
+    return (
+      <NodeFallback
+        runtime={runtime}
+        surfaceId={surfaceId}
         componentId={componentId}
+        error={error}
         retry={this.retry}
       />
     );

@@ -1423,9 +1423,11 @@ function Select(props: SelectProps) {
         ...controlStyle(props, "xl"),
         ...SELECT_STYLE,
         width: props.block === false ? undefined : "100%",
-        paddingLeft: props.icon
-          ? `${PAD_X[props.size ?? "xl"] + 24}px`
-          : undefined,
+        // Only with an icon: an undefined paddingLeft would clear the left
+        // padding that controlStyle sets.
+        ...(props.icon
+          ? { paddingLeft: `${PAD_X[props.size ?? "xl"] + 24}px` }
+          : {}),
       }}
       {...controlAria(aria)}
     >

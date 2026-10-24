@@ -34,7 +34,7 @@ import {
   withoutRejectedNulls,
 } from "./schema";
 import {
-  DefaultNodeFallback,
+  NodeFallback,
   NodeBoundary,
   NodePlaceholder,
   SurfaceBoundary,
@@ -179,9 +179,11 @@ const NodeView = memo(function NodeView({
   const properties = useComponentProperties(runtime.manager, component);
   if (ancestors.includes(scopedId(componentId, basePath))) {
     return (
-      <DefaultNodeFallback
-        message={`cyclic reference to ${componentId}`}
+      <NodeFallback
+        runtime={runtime}
+        surfaceId={surface.surfaceId}
         componentId={componentId}
+        error={new Error(`cyclic reference to ${componentId}`)}
       />
     );
   }
@@ -190,9 +192,11 @@ const NodeView = memo(function NodeView({
   const definition = runtime.ui.components.get(component.type);
   if (!definition) {
     return (
-      <DefaultNodeFallback
-        message={`unknown component "${component.type}"`}
+      <NodeFallback
+        runtime={runtime}
+        surfaceId={surface.surfaceId}
         componentId={componentId}
+        error={new Error(`unknown component "${component.type}"`)}
       />
     );
   }
@@ -907,9 +911,11 @@ function ResolvedNode({
 
   if (!dataProps.ok) {
     return (
-      <DefaultNodeFallback
-        message={`invalid props (${problem})`}
+      <NodeFallback
+        runtime={runtime}
+        surfaceId={surface.surfaceId}
         componentId={componentId}
+        error={new Error(`invalid props (${problem})`)}
       />
     );
   }
