@@ -509,7 +509,7 @@ wheels = [
 
 [[package]]
 name = "google-adk"
-version = "2.12.0"
+version = "2.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiosqlite" },
@@ -537,9 +537,9 @@ dependencies = [
     { name = "watchdog" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a5/c7/52dcd19f95d412a60b2e42bc4fc586f48106778d03de7c250840d6a40ba1/google_adk-2.12.0.tar.gz", hash = "sha256:93dfb7ff5e27d18f96520f59939faa8a7b6c21c7908161022702a3c208a37b25", size = 4305241, upload-time = "2026-10-13T16:42:58.223Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/2b/9616b2a498b8f247c1a9bef8c630e16151dd3a8ed768fa3118a961b19689/google_adk-2.13.0.tar.gz", hash = "sha256:bc2389c9d41bfadd9f0c87d6bfd8d5c7eaf1c449e8906079600b8f3752ddaa88", size = 4444119, upload-time = "2026-10-23T18:26:34.717Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d3/65/3706e52bac2f8ac1328caa7da28dfff8a9086fce5004619960f91c7f7bb4/google_adk-2.12.0-py3-none-any.whl", hash = "sha256:79f89ea94ccd87e4ac8c893e81c44ed2ce5568d05406a95c1d10bcef0ce0ff5d", size = 4998446, upload-time = "2026-10-13T16:42:55.26Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/1a/6da4a8048b7cd47681928daed5d4d1c3ef971b3847fcc3cbc63f94df39d2/google_adk-2.13.0-py3-none-any.whl", hash = "sha256:bec4c4ee0aa3e63a2243c23365c5aef666ea539bc48c78dfbbf004dbddfc5f00", size = 5157034, upload-time = "2026-10-23T18:26:31.805Z" },
 ]
 
 [[package]]
@@ -1096,9 +1096,13 @@ name = "research-desk-agent"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "a2ui-agent-sdk" },
+    { name = "a2ui-core" },
     { name = "ag-ui-adk" },
+    { name = "ag-ui-protocol" },
     { name = "fastapi" },
     { name = "google-adk" },
+    { name = "google-genai" },
     { name = "json-repair" },
     { name = "python-dotenv" },
     { name = "uvicorn" },
@@ -1112,9 +1116,13 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "a2ui-agent-sdk", specifier = "==0.9.0" },
+    { name = "a2ui-core", specifier = "==0.4.0" },
     { name = "ag-ui-adk", specifier = "==0.11.0" },
+    { name = "ag-ui-protocol", specifier = "==1.0.0" },
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "google-adk", specifier = "==2.12.0" },
+    { name = "google-adk", specifier = "==2.13.0" },
+    { name = "google-genai", specifier = "==2.33.0" },
     { name = "json-repair", specifier = "==0.64.0" },
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "uvicorn", specifier = ">=0.30" },

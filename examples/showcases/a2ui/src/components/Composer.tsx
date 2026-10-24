@@ -5,9 +5,11 @@ import { useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
 import { useDesk } from "../lib/desk-store";
 import type { ModelId } from "../lib/models";
+import type { UIFormat } from "../lib/ui-format";
 import type { ViewKind } from "../lib/view-catalog";
 import { AddMenu } from "./AddMenu";
 import { ModelPicker } from "./ModelPicker";
+import { UIFormatPicker } from "./UIFormatPicker";
 
 /** The parts CopilotChatInput hands to its `children` render prop. */
 type ComposerParts = Parameters<
@@ -33,10 +35,14 @@ export function Composer({
   parts,
   model,
   onModelChange,
+  uiFormat,
+  onUIFormatChange,
 }: {
   parts: ComposerParts;
   model: ModelId;
   onModelChange: (model: ModelId) => void;
+  uiFormat: UIFormat;
+  onUIFormatChange: (format: UIFormat) => void;
 }) {
   const { viewRequest, requestView } = useDesk();
   const pinned = parts.positioning === "absolute";
@@ -68,6 +74,11 @@ export function Composer({
               value={model}
               onChange={onModelChange}
               placement="up"
+            />
+            <UIFormatPicker
+              value={uiFormat}
+              onChange={onUIFormatChange}
+              disabled={parts.isRunning ?? false}
             />
             {viewRequest && (
               <span

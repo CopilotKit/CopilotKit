@@ -632,6 +632,21 @@ table,
   color: var(--ink-muted);
   font-size: var(--text-xs);
 }
+.ui-format-picker .model-picker__menu {
+  min-width: 10rem;
+}
+.ui-format-picker__note {
+  margin: var(--s-1) var(--s-3) var(--s-2);
+}
+.ui-format-picker button:disabled {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+}
+.composer .ui-format-picker .model-picker__button:disabled,
+.ui-format-picker .model-picker__item:disabled {
+  background: transparent;
+  border-color: transparent;
+}
 
 /* ------------------------------------------------------- CopilotKit chat */
 
@@ -1681,6 +1696,10 @@ table,
 }
 .composer__start {
   min-width: 0;
+  flex-wrap: wrap;
+}
+.composer__end {
+  flex-shrink: 0;
 }
 /* on the left, the model menu opens from its own left edge */
 .composer__start .model-picker__menu {

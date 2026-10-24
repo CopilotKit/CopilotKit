@@ -20,6 +20,8 @@ import { DEFAULT_MODEL, isModelId } from "../lib/models";
 import type { ModelId } from "../lib/models";
 import { DISCLAIMER, STARTERS } from "../lib/starters";
 import { ThreadIcon } from "../lib/thread-icons";
+import { DEFAULT_UI_FORMAT, isUIFormat } from "../lib/ui-format";
+import type { UIFormat } from "../lib/ui-format";
 import { useCatalogPage } from "../lib/use-catalog-page";
 import { useDeskFunctions } from "../lib/use-desk-functions";
 import { useDrawer } from "../lib/use-drawer";
@@ -74,6 +76,7 @@ function DeskChatView(props: CopilotChatViewProps) {
 }
 
 const MODEL_KEY = "research-desk:model";
+const UI_FORMAT_KEY = "research-desk:ui-format";
 
 export function Desk() {
   const [model, setModel] = useStoredState<ModelId>(
@@ -81,8 +84,13 @@ export function Desk() {
     DEFAULT_MODEL,
     isModelId,
   );
-  // The ADK agent reads `forwardedProps.model` on every run.
-  const properties = useMemo(() => ({ model }), [model]);
+  const [uiFormat, setUIFormat] = useStoredState<UIFormat>(
+    UI_FORMAT_KEY,
+    DEFAULT_UI_FORMAT,
+    isUIFormat,
+  );
+  // The agent reads the selected model and UI format on every run.
+  const properties = useMemo(() => ({ model, uiFormat }), [model, uiFormat]);
   // The CopilotKit Inspector (with its Generative UI pane) stays out of demos
   // unless the URL asks for it: http://localhost:3014/?inspector
   const [inspector, setInspector] = useState(false);
@@ -104,7 +112,12 @@ export function Desk() {
     >
       <DeskProvider>
         <CopilotChatConfigurationProvider agentId={AGENT_ID}>
-          <Shell model={model} onModelChange={setModel} />
+          <Shell
+            model={model}
+            onModelChange={setModel}
+            uiFormat={uiFormat}
+            onUIFormatChange={setUIFormat}
+          />
         </CopilotChatConfigurationProvider>
       </DeskProvider>
     </CopilotKitProvider>
@@ -115,13 +128,25 @@ export function Desk() {
 function Shell({
   model,
   onModelChange,
+  uiFormat,
+  onUIFormatChange,
 }: {
   model: ModelId;
   onModelChange: (model: ModelId) => void;
+  uiFormat: UIFormat;
+  onUIFormatChange: (format: UIFormat) => void;
 }) {
   useDeskFunctions();
   useResearchSteps();
-  const threadId = useCopilotChatConfiguration()?.threadId;
+  const config = useCopilotChatConfiguration();
+  const threadId = config?.threadId;
+  const changeUIFormat = (format: UIFormat) => {
+    if (format === uiFormat) return;
+    onUIFormatChange(format);
+    // Keep each conversation's format consistent. Reset only on a reader's
+    // choice, never when the saved preference hydrates after mount.
+    config?.startNewThread();
+  };
   // Passing the thread id reloads the starters on every new thread, so they
   // are back each time the reader starts a new question.
   useConfigureSuggestions(
@@ -238,6 +263,8 @@ function Shell({
                 parts={parts}
                 model={model}
                 onModelChange={onModelChange}
+                uiFormat={uiFormat}
+                onUIFormatChange={changeUIFormat}
               />
             ),
           }}

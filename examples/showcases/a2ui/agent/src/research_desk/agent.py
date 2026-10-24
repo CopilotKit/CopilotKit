@@ -10,9 +10,9 @@ What reaches the model on each run:
 - Tools: `web_research` and `find_images`, plus any frontend tools the app
   registers, exposed through `AGUIToolset`.
 
-Generative UI uses CopilotKit's markdown transport: the model writes A2UI
-operations in ```a2ui fences inside its reply, `FenceRepairer` fixes what it
-gets wrong on the way out, and the app renders each component as it arrives.
+Generative UI uses CopilotKit's markdown transport. JSON runs use
+`FenceRepairer`; Express runs compile through the demo's transport bridge.
+Both deliver A2UI JSON fences for the app to render as components arrive.
 
 Per run, the app sends the model the person picked in `forwardedProps.model`.
 `ResearchDeskAgent.run` copies it into session state and `use_selected_model`
@@ -33,6 +33,7 @@ from contextlib import aclosing
 from ag_ui.core import (
     BaseEvent,
     RunAgentInput,
+    RunErrorEvent,
     RunFinishedEvent,
     RunStartedEvent,
     StateDeltaEvent,
@@ -53,7 +54,7 @@ from google.genai import types
 from .fences import FenceRepairer
 from .icons import DEFAULT_ICON, THREAD_ICONS
 from .images import find_images
-from .prompt import SYSTEM_PROMPT
+from .prompt import EXPRESS_SYSTEM_PROMPT, SYSTEM_PROMPT
 from .research import genai_client, web_research
 
 logger = logging.getLogger(__name__)
@@ -64,17 +65,24 @@ DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemini-3.8-flash")
 HELPER_MODEL = os.getenv("HELPER_MODEL", "gemini-3.5-flash-lite")
 
 MODEL_STATE_KEY = "model"
+UI_FORMAT_STATE_KEY = "_ui_format"
 ICON_STATE_KEY = "icon"
 # How long the end of a run waits for an icon pick that is still running.
 ICON_WAIT_SECONDS = 5
 
 
 def instruction(context: ReadonlyContext) -> str:
+    # Research and presentation stay the same; only authoring syntax changes.
+    prompt = (
+        EXPRESS_SYSTEM_PROMPT
+        if context.state.get(UI_FORMAT_STATE_KEY) == "express"
+        else SYSTEM_PROMPT
+    )
     entries = context.state.get(CONTEXT_STATE_KEY) or []
     if not entries:
-        return SYSTEM_PROMPT
+        return prompt
     app_context = "\n\n".join(f"{e['description']}:\n{e['value']}" for e in entries)
-    return f"{SYSTEM_PROMPT}\n\nApp Context:\n{app_context}"
+    return f"{prompt}\n\nApp Context:\n{app_context}"
 
 
 def use_selected_model(
@@ -130,11 +138,28 @@ class ResearchDeskAgent(ADKAgent):
         forwarded = (
             input.forwarded_props if isinstance(input.forwarded_props, dict) else {}
         )
+        ui_format = "express" if forwarded.get("uiFormat") == "express" else "json"
+        state = dict(input.state) if isinstance(input.state, dict) else {}
+        # Set this on every run so switching back to JSON replaces stored Express
+        # guidance. The underscore keeps this instruction detail off the client.
+        state[UI_FORMAT_STATE_KEY] = ui_format
         model = forwarded.get("model")
         if model in MODELS:
-            state = dict(input.state) if isinstance(input.state, dict) else {}
             state[MODEL_STATE_KEY] = model
-            input = input.model_copy(update={"state": state})
+        input = input.model_copy(update={"state": state})
+
+        compiler = None
+        if ui_format == "express":
+            try:
+                # JSON runs do not initialize the Express SDK or its catalog.
+                from .transport import prepare_express_input, transform_express_events
+
+                input, compiler = prepare_express_input(input)
+            except Exception as exc:  # noqa: BLE001 - malformed catalogs fail the run
+                logger.warning("Express preparation failed: %s", exc)
+                yield RunStartedEvent(thread_id=input.thread_id, run_id=input.run_id)
+                yield RunErrorEvent(message=str(exc), code="EXPRESS_PREPARATION_ERROR")
+                return
 
         # A thread without an icon gets one, picked alongside the answer: the
         # pick goes out as soon as it is ready, and the run waits for it (at
@@ -147,22 +172,45 @@ class ResearchDeskAgent(ADKAgent):
             else None
         )
 
-        fences = FenceRepairer()
+        fences = FenceRepairer() if ui_format == "json" else None
         try:
             async with aclosing(super().run(input)) as events:
-                async for event in events:
-                    if icon_pick and isinstance(event, RunFinishedEvent):
-                        try:
-                            icon = await asyncio.wait_for(icon_pick, ICON_WAIT_SECONDS)
-                        except Exception:  # noqa: BLE001 - includes the timeout
-                            icon = DEFAULT_ICON
-                        icon_pick = None
-                        yield _icon_delta(icon)
-                    for out in fences.feed(_without_internal_state(event)):
-                        yield out
-                    if icon_pick and icon_pick.done():
-                        yield _icon_delta(icon_pick.result())
-                        icon_pick = None
+                stream = (
+                    transform_express_events(events, compiler)
+                    if compiler is not None
+                    else events
+                )
+                async with aclosing(stream):
+                    async for event in stream:
+                        if isinstance(event, RunErrorEvent):
+                            # A provider failure is terminal, including for the
+                            # parallel icon task. Do not append state afterward.
+                            yield event
+                            return
+                        if icon_pick and isinstance(event, RunFinishedEvent):
+                            try:
+                                icon = await asyncio.wait_for(
+                                    icon_pick, ICON_WAIT_SECONDS
+                                )
+                            except Exception:  # noqa: BLE001 - includes the timeout
+                                icon = DEFAULT_ICON
+                            icon_pick = None
+                            yield _icon_delta(icon)
+                        event = _without_internal_state(event)
+                        for out in (
+                            fences.feed(event) if fences is not None else [event]
+                        ):
+                            yield out
+                        if icon_pick and icon_pick.done():
+                            yield _icon_delta(icon_pick.result())
+                            icon_pick = None
+        except ValueError as exc:
+            if compiler is None:
+                raise
+            # Keep validated previews visible, but never report a failed final
+            # compilation as success or silently retry with a different format.
+            logger.warning("Express compilation failed: %s", exc)
+            yield RunErrorEvent(message=str(exc), code="EXPRESS_COMPILATION_ERROR")
         finally:
             if icon_pick:
                 icon_pick.cancel()

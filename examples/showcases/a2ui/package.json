@@ -17,7 +17,7 @@
     "test:agent": "cd agent && uv run --group dev pytest -q"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "1.0.3",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@fontsource-variable/atkinson-hyperlegible-mono": "5.3.0",
