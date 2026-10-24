@@ -129,6 +129,14 @@ The Express guide includes the following compatibility instructions for SDK 0.9.
 
 The SDK-specific guidance can be removed when the corresponding constructor, skill-generation, or style behavior is supported upstream. The Action wrapper and catalog adaptation remain host contracts. Compilation and validation do not execute browser functions.
 
+### Nested catalog guidance
+
+The Express integration also carries a separately tracked prompt fix. SDK 0.9.0's generated signatures omit nested field contracts for object and array properties wrapped in dynamic-value unions. For example, a Map marker is described as a place without showing its allowed fields. The model can then invent a `description` field that the compiler rejects.
+
+`ExpressCompiler.instructions()` appends the received literal JSON Schemas for structured properties, including nullable and union branches. The guide retains required fields, enums, nested types, and closed-object restrictions for every component. It does not change component schemas, weaken validation, or change the shared research/presentation policy. Data bindings and function values remain available.
+
+For the captured standard catalog, this adds 20,389 characters: the complete Express guide grows from 63,258 to 83,647 characters. The regression test uses a custom component name and nullable object, verifies the received contracts are present, and proves that an invented nested field is still rejected. A live Express Map also rendered three markers with the existing keyless MapLibre/OpenFreeMap renderer. The compact-shape experiment is not included here.
+
 ### Published dependency baseline
 
 The following published versions were checked on **2026-10-24** and are pinned directly so imports and compatibility workarounds have an explicit baseline. The lockfiles record the resolved dependency graph. CopilotKit packages deliberately remain `workspace:*`.
