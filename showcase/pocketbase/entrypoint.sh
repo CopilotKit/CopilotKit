@@ -14,9 +14,48 @@
 # graceful Railway shutdowns.
 set -eu
 
+# The data directory, as compact-swap.sh reads it: PB_DATA_DIR, default
+# /pb_data. The crash check below must look where the swap works.
+pb_data="${PB_DATA_DIR:-/pb_data}"
+
 # Make the volume writable for the pocketbase uid. Idempotent — running
 # chown on an already-correctly-owned tree is cheap (no-op per inode).
-chown -R pocketbase:pocketbase /pb_data
+chown -R pocketbase:pocketbase "$pb_data"
+
+# Copy-and-swap compaction cutover (PB_COMPACT_SWAP=1) and its rollback
+# (PB_COMPACT_ROLLBACK=1). It runs here because PocketBase must not have the
+# database open, and before `migrate up` so migrations run on the file PB will
+# serve. It runs on every boot; with no flag set and no interrupted swap it
+# exits 0 at once. A failed check does not stop the boot: the script leaves
+# data.db as it was, logs loudly and exits 0. See scripts/compact-swap.sh.
+#
+#   exit 3      data.db is missing and could not be put back (an interrupted
+#               swap or rollback, or data.db gone while compaction backups
+#               exist). PB must not start: it would create an empty database
+#               in place of the real one.
+#   any other   the script itself crashed. That must not block the boot when
+#               data.db is intact: PB starts on it if data.db exists and no
+#               rename was in progress. The swap writes compact/swap-in-progress
+#               before its first rename and removes it after the last, and it
+#               empties each file's -wal before renaming it, so with no marker
+#               the -wal next to data.db is data.db's own.
+swap_rc=0
+/usr/local/lib/pb-compact/compact-swap.sh || swap_rc=$?
+case "$swap_rc" in
+  0) ;;
+  3)
+    echo "entrypoint: compact-swap.sh: data.db is missing or could not be restored — refusing to start PocketBase" >&2
+    exit 1
+    ;;
+  *)
+    if [ -f "$pb_data/data.db" ] && [ ! -e "$pb_data/compact/swap-in-progress" ] && [ ! -L "$pb_data/compact/swap-in-progress" ]; then
+      echo "entrypoint: !!! compact-swap.sh CRASHED (exit $swap_rc); see its log above. data.db is in place and no compaction rename was in progress, so PocketBase starts on data.db as it is." >&2
+    else
+      echo "entrypoint: compact-swap.sh crashed (exit $swap_rc) and data.db is missing or a compaction rename was in progress ($pb_data/compact/swap-in-progress) — refusing to start PocketBase" >&2
+      exit 1
+    fi
+    ;;
+esac
 
 # Bootstrap the admin/superuser on a FRESH volume so the harness can
 # authenticate. A fresh local volume (and any new Railway volume) has no

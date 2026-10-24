@@ -106,7 +106,12 @@ describe("CopilotKitProvider", () => {
       );
     });
 
-    it("supports function-valued headers and refreshes runtime headers", async () => {
+    it("supports function-valued headers and resolves the builder's current token at send time (#1937)", async () => {
+      // The builder is evaluated when a request is actually sent, never
+      // eagerly during render/setup — so this asserts through
+      // `resolveHeaders()` (the resolving call a run/connect makes) rather
+      // than the passive `headers` snapshot, which stays empty until
+      // something has actually resolved it.
       const authToken = ref("initial");
       const { getCore } = mountWithProvider(() => h("div"), {
         runtimeUrl: "/api/copilotkit",
@@ -115,7 +120,7 @@ describe("CopilotKitProvider", () => {
         }),
       });
 
-      expect(getCore().headers).toMatchObject({
+      expect(await getCore().resolveHeaders()).toMatchObject({
         Authorization: "Bearer initial",
       });
 
@@ -123,7 +128,7 @@ describe("CopilotKitProvider", () => {
       await nextTick();
       await nextTick();
 
-      expect(getCore().headers).toMatchObject({
+      expect(await getCore().resolveHeaders()).toMatchObject({
         Authorization: "Bearer updated",
       });
     });

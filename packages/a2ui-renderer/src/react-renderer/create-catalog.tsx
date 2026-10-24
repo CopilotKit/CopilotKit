@@ -1,9 +1,10 @@
-import { z, type ZodObject, type ZodRawShape } from "zod";
+import type { z } from "zod";
+import { type ZodObject, type ZodRawShape } from "zod";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import { BASIC_FUNCTIONS } from "@a2ui/web_core/v0_9/basic_catalog";
 import { basicCatalog, createReactComponent } from "./a2ui-react";
 import type { ReactComponentImplementation } from "./a2ui-react";
-import type { ComponentApi } from "@a2ui/web_core/v0_9";
+import type { ComponentApi, ResolveA2uiProps } from "@a2ui/web_core/v0_9";
 
 // ─── Catalog Definitions (platform-agnostic) ─────────────────────────
 
@@ -42,10 +43,23 @@ export type PropsOf<D extends CatalogDefinitions, K extends keyof D> = z.infer<
  * Props passed to a renderer function.
  */
 export interface RendererProps<T = Record<string, unknown>> {
-  /** Resolved prop values from the A2UI data model */
+  /**
+   * Resolved prop values from the A2UI data model: bound values arrive as
+   * their current value, Action props as functions that dispatch the action,
+   * and each bindable prop also gets a `set<Prop>` setter that writes the
+   * data model (two-way binding).
+   */
   props: T;
-  /** Render a child component by ID */
-  children: (id: string) => React.ReactNode;
+  /**
+   * Render a child component by ID.
+   *
+   * Without `basePath`, the child inherits this component's data-context
+   * path. List templates need each item's own path: a `ChildList` bound to
+   * `{ componentId, path }` resolves to `{ id, basePath }` items, so call
+   * `children(item.id, item.basePath)`. Omitting it resolves every item's
+   * relative bindings against the list's path instead of the item's.
+   */
+  children: (id: string, basePath?: string) => React.ReactNode;
   /** Dispatch an A2UI action from this component (e.g., on button click) */
   dispatch?: (action: any) => void;
 }
@@ -59,10 +73,11 @@ export type ComponentRenderer<T = Record<string, unknown>> = React.FC<
 
 /**
  * A record mapping component names to React renderer functions.
- * Type-checked against the catalog definitions.
+ * Type-checked against the catalog definitions, with each renderer's props
+ * typed as the binder resolves them (see {@link RendererProps.props}).
  */
 export type CatalogRenderers<D extends CatalogDefinitions> = {
-  [K in keyof D]: ComponentRenderer<z.infer<D[K]["props"]>>;
+  [K in keyof D]: ComponentRenderer<ResolveA2uiProps<z.infer<D[K]["props"]>>>;
 };
 
 // ─── Create Catalog ──────────────────────────────────────────────────
@@ -184,7 +199,7 @@ function zodSchemaToSimpleObject(
 export interface A2UIComponentDefinition<T extends ZodRawShape = ZodRawShape> {
   props: ZodObject<T>;
   description?: string;
-  render: React.FC<RendererProps<z.infer<ZodObject<T>>>>;
+  render: React.FC<RendererProps<ResolveA2uiProps<z.infer<ZodObject<T>>>>>;
 }
 
 export type A2UIComponentMap = Record<string, A2UIComponentDefinition<any>>;

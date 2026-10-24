@@ -42,6 +42,74 @@ resource and emits an `activity` event that the built-in
   threads.
 </Callout>
 
+## MCP Apps with Intelligence
+
+The `mcpApps` option works the same way on a runtime connected to
+[Intelligence](/intelligence/quickstart). The two options do different jobs:
+
+- `mcpApps` configures the agent side. On every run, the runtime attaches the
+  MCP Apps middleware to the agent.
+- `intelligence` replaces the runner. Intelligence stores the threads and runs,
+  so the MCP Apps in a conversation are restored when the thread is loaded.
+
+To move an existing MCP Apps runtime to Intelligence, keep `mcpApps` as it is.
+Remove `runner`, then add `intelligence` and `identifyUser`:
+
+```typescript title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
+import {
+  BuiltInAgent,
+  CopilotKitIntelligence,
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+
+const agent = new BuiltInAgent({
+  model: "openai/gpt-5.4",
+  prompt: "You are a helpful assistant.",
+});
+
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  // Intelligence stores threads and runs. Do not pass `runner` as well.
+  intelligence: new CopilotKitIntelligence({
+    apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  }),
+  // Replace this fixed user with the user from your verified session.
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  // Unchanged from the in-memory setup.
+  mcpApps: {
+    servers: [
+      {
+        type: "http",
+        url: "https://mcp.excalidraw.com/mcp",
+        serverId: "excalidraw",
+      },
+    ],
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
+```
+
+Keep the same `serverId` values when you move to Intelligence. The stored MCP
+Apps in a thread refer to the server by that ID.
+
+To give a server to one agent only, add `agentId` to its entry in
+`mcpApps.servers`. On an Intelligence runtime, prefer this to attaching
+`MCPAppsMiddleware` to the agent yourself: the runtime then checks each request
+from an MCP App against the servers of that agent.
+
+For the API key, user identity, and route protection, follow the
+[Intelligence quickstart](/intelligence/quickstart).
+
 ## No frontend renderer needed
 
 Unlike custom activity types, the MCP Apps renderer is already registered by

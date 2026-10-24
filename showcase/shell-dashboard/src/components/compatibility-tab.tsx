@@ -4,19 +4,21 @@ import { useMemo, useState } from "react";
 import { getIntegrations } from "@/lib/registry";
 import type { CompatibilityFilter } from "@/lib/compatibility";
 import {
-  COMPATIBILITY_SNAPSHOT,
   filterCompatibilityPlatforms,
   getCompatibilityPlatforms,
 } from "@/lib/compatibility";
 import { CompatibilityGrid } from "./compatibility-grid";
+import { useCompatibilitySnapshot } from "@/hooks/use-compatibility-snapshot";
 
 const buttonStyle =
   "cursor-pointer rounded-md border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]";
 
 export function CompatibilityTab() {
+  const { snapshot, saved, loading, readError, lastAttemptStatus, runUrl } =
+    useCompatibilitySnapshot();
   const platforms = useMemo(
-    () => getCompatibilityPlatforms(getIntegrations()),
-    [],
+    () => getCompatibilityPlatforms(getIntegrations(), snapshot),
+    [snapshot],
   );
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<CompatibilityFilter>("all");
@@ -69,12 +71,55 @@ export function CompatibilityTab() {
       <div className="shrink-0 border-b border-[var(--border)] bg-[var(--bg-surface)] px-4 py-5 sm:px-8">
         <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] font-medium">
           <span className="rounded border border-[var(--border)] bg-[var(--bg-muted)] px-2 py-0.5 uppercase tracking-wider text-[var(--text-secondary)]">
-            Snapshot
+            {saved ? "Saved snapshot" : "Bundled snapshot"}
           </span>
           <span className="text-[var(--text-secondary)]">
-            {COMPATIBILITY_SNAPSHOT.date} snapshot
+            {snapshot.date} snapshot
           </span>
         </div>
+        {lastAttemptStatus === "failed" && (
+          <p role="alert" className="mb-2 text-xs text-[var(--amber)]">
+            The latest audit failed.{" "}
+            {saved
+              ? "Showing the last successful assessment."
+              : "Showing the bundled snapshot."}
+            {runUrl && (
+              <>
+                {" "}
+                <a
+                  href={runUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  View audit run
+                </a>
+                .
+              </>
+            )}
+          </p>
+        )}
+        {readError && (
+          <p
+            role="status"
+            className="mb-2 text-xs text-[var(--text-secondary)]"
+          >
+            Saved results are unavailable.{" "}
+            {saved
+              ? "Showing the last loaded assessment."
+              : "Showing the bundled snapshot."}
+          </p>
+        )}
+        {!saved && !readError && lastAttemptStatus !== "failed" && (
+          <p
+            role="status"
+            className="mb-2 text-xs text-[var(--text-secondary)]"
+          >
+            {loading
+              ? "Loading saved results…"
+              : "No automated assessment has been published yet."}
+          </p>
+        )}
         <h1 className="text-xl font-semibold tracking-tight">Compatibility</h1>
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-[var(--text-secondary)]">
           Current library compatibility for Showcase integrations. Expand a

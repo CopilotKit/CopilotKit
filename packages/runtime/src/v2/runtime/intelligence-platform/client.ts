@@ -11,10 +11,15 @@ import type {
 } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
 import { z } from "zod";
-import type { GetLearningContainerId } from "../core/learning";
+import { resolveTrajectoryLearningContainerIds } from "../core/learning";
+import type {
+  GetLearningContainerId,
+  GetTrajectoryLearningContainerIds,
+} from "../core/learning";
 import {
   parseTrajectoryConnectionGrant,
   trajectoryResponseError,
+  TrajectoryConnectionError,
 } from "./trajectories";
 import type { TrajectoryConnectionGrant } from "./trajectories";
 
@@ -207,6 +212,12 @@ const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 const INSPECTOR_LEARNING_REQUEST_TIMEOUT_MS = 5_000;
 
+/** A 404 the caller expects: a thread lookup made before the thread exists. */
+const NOT_FOUND: ReadonlySet<number> = new Set([404]);
+
+/** A 409 the caller expects: another request created the thread first. */
+const CONFLICT: ReadonlySet<number> = new Set([409]);
+
 /**
  * Error thrown when a CopilotKit Intelligence HTTP request returns a non-2xx
  * status. Carries the HTTP {@link status} code so callers can branch on
@@ -328,6 +339,13 @@ export interface CopilotKitIntelligenceConfig {
    * Return `null` or `undefined` to leave the Thread unassigned.
    */
   getLearningContainerId?: GetLearningContainerId;
+  /**
+   * Assigns a Trajectory to existing Learning Spaces using server-resolved user
+   * identity. Browser-supplied assignments are ignored. Return null or undefined
+   * to leave activity unassigned. Reconnects call the selector again; keep the
+   * selection stable for a Trajectory because assignments are additive.
+   */
+  getTrajectoryLearningContainerIds?: GetTrajectoryLearningContainerIds;
   /**
    * Enable Enterprise Learning — expose CopilotKit Intelligence's
    * built-in tools (bash + thread/memory tools) to agent runs on an
@@ -740,6 +758,7 @@ export class CopilotKitIntelligence {
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
   #getLearningContainerId?: GetLearningContainerId;
+  #getTrajectoryLearningContainerIds?: GetTrajectoryLearningContainerIds;
   #runtimeEntitlementsCache?: RuntimeEntitlementCacheEntry;
   #runtimeEntitlementsFailure?: RuntimeEntitlementFailureEntry;
   #runtimeEntitlementsInFlight?: Promise<RuntimeEntitlementResponse>;
@@ -757,6 +776,14 @@ export class CopilotKitIntelligence {
       );
     }
     assertConfiguredApiKey(config.apiKey);
+    if (
+      config.getTrajectoryLearningContainerIds !== undefined &&
+      typeof config.getTrajectoryLearningContainerIds !== "function"
+    ) {
+      throw new Error(
+        "CopilotKitIntelligence `getTrajectoryLearningContainerIds` must be a callback",
+      );
+    }
     const configuredApiUrl = configuredUrl(config.apiUrl);
     const configuredWsUrl = configuredUrl(config.wsUrl);
     warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
@@ -775,6 +802,8 @@ export class CopilotKitIntelligence {
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
     this.#getLearningContainerId = config.getLearningContainerId;
+    this.#getTrajectoryLearningContainerIds =
+      config.getTrajectoryLearningContainerIds;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -1405,12 +1434,61 @@ export class CopilotKitIntelligence {
     }
   }
 
-  /** Mint a browser capture grant using only the Runtime's project and user. */
+  /**
+   * Mint a browser capture grant using only the Runtime's project and user.
+   *
+   * Learning Container assignment never stops capture: a failed selection or
+   * an unknown Container is logged, and the Trajectory connects without
+   * assignments.
+   */
   async ɵconnectTrajectory(params: {
     trajectoryId: string;
     user: { id: string; name: string };
     signal?: AbortSignal;
   }): Promise<TrajectoryConnectionGrant> {
+    let learningContainerIds: readonly string[] | undefined;
+    try {
+      learningContainerIds = await resolveTrajectoryLearningContainerIds(
+        this.#getTrajectoryLearningContainerIds,
+        { trajectoryId: params.trajectoryId, user: params.user },
+        params.signal,
+      );
+    } catch (error) {
+      if (params.signal?.aborted) throw params.signal.reason;
+      logger.error(
+        { err: error, trajectoryId: params.trajectoryId },
+        "Failed to resolve Trajectory Learning Containers; connecting the Trajectory without Learning Container assignments",
+      );
+    }
+    params.signal?.throwIfAborted();
+    try {
+      return await this.#joinTrajectory(params, learningContainerIds);
+    } catch (error) {
+      if (
+        learningContainerIds === undefined ||
+        !(error instanceof TrajectoryConnectionError) ||
+        error.code !== "LEARNING_CONTAINER_NOT_FOUND"
+      ) {
+        throw error;
+      }
+      params.signal?.throwIfAborted();
+      logger.warn(
+        { trajectoryId: params.trajectoryId, learningContainerIds },
+        "A selected Learning Container does not exist in this project; connecting the Trajectory without Learning Container assignments",
+      );
+      return this.#joinTrajectory(params, undefined);
+    }
+  }
+
+  /** Requests one Trajectory join token, optionally with Container assignments. */
+  async #joinTrajectory(
+    params: {
+      trajectoryId: string;
+      user: { id: string; name: string };
+      signal?: AbortSignal;
+    },
+    learningContainerIds: readonly string[] | undefined,
+  ): Promise<TrajectoryConnectionGrant> {
     let response: Response;
     try {
       response = await fetch(`${this.#apiUrl}/api/trajectories/join`, {
@@ -1419,11 +1497,13 @@ export class CopilotKitIntelligence {
           Authorization: `Bearer ${this.#apiKey}`,
           "Content-Type": "application/json",
         },
-        // Project scope comes from the API key. Containers remain unassigned
-        // until there is a server-side selector with Trajectory context.
+        // Project scope comes from the API key; Space selection comes from server code.
         body: JSON.stringify({
           trajectoryId: params.trajectoryId,
           appUserId: params.user.id,
+          ...(learningContainerIds === undefined
+            ? {}
+            : { learningContainerIds }),
         }),
         signal: params.signal,
         redirect: "error",
@@ -1457,12 +1537,21 @@ export class CopilotKitIntelligence {
     );
   }
 
+  /**
+   * Sends one request to the platform and parses its JSON body.
+   *
+   * @param expectedStatuses - Non-2xx statuses the caller handles as a normal
+   *   outcome, such as the 404 of a thread that does not exist yet. They are
+   *   logged at debug instead of error, and still throw.
+   * @throws {@link PlatformRequestError} on every non-2xx response.
+   */
   async #request<T>(
     method: string,
     path: string,
     body?: unknown,
     extraHeaders?: Record<string, string>,
     signal?: AbortSignal,
+    expectedStatuses?: ReadonlySet<number>,
   ): Promise<T> {
     const url = `${this.#apiUrl}${path}`;
 
@@ -1481,10 +1570,17 @@ export class CopilotKitIntelligence {
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
-      logger.error(
-        { status: response.status, body: text, path },
-        "Intelligence platform request failed",
-      );
+      if (expectedStatuses?.has(response.status)) {
+        logger.debug(
+          { status: response.status, path },
+          "Intelligence platform request returned an expected status",
+        );
+      } else {
+        logger.error(
+          { status: response.status, body: text, path },
+          "Intelligence platform request failed",
+        );
+      }
       throw new PlatformRequestError(
         `Intelligence platform error ${response.status}: ${text || response.statusText}`,
         response.status,
@@ -1754,6 +1850,17 @@ export class CopilotKitIntelligence {
    *   same `threadId` already exists.
    */
   async createThread(params: CreateThreadRequest): Promise<ThreadSummary> {
+    return this.#createThread(params);
+  }
+
+  /**
+   * Creates a thread. {@link getOrCreateThread} passes 409 as expected,
+   * because there it means another request created the thread first.
+   */
+  async #createThread(
+    params: CreateThreadRequest,
+    expectedStatuses?: ReadonlySet<number>,
+  ): Promise<ThreadSummary> {
     const response = await this.#request<ThreadEnvelope>(
       "POST",
       `/api/threads`,
@@ -1766,6 +1873,9 @@ export class CopilotKitIntelligence {
           ? { learningContainerId: params.learningContainerId }
           : {}),
       },
+      undefined,
+      undefined,
+      expectedStatuses,
     );
     this.#invokeLifecycleCallback("onThreadCreated", response.thread);
     return response.thread;
@@ -1782,10 +1892,25 @@ export class CopilotKitIntelligence {
     threadId: string;
     userId: string;
   }): Promise<ThreadSummary> {
+    return this.#getThread(params);
+  }
+
+  /**
+   * Fetches a thread. {@link getOrCreateThread} passes 404 as expected,
+   * because there it means the thread is about to be created (PE-678).
+   */
+  async #getThread(
+    params: { threadId: string; userId: string },
+    expectedStatuses?: ReadonlySet<number>,
+  ): Promise<ThreadSummary> {
     const qs = new URLSearchParams({ userId: params.userId }).toString();
     const response = await this.#request<ThreadEnvelope>(
       "GET",
       `/api/threads/${encodeURIComponent(params.threadId)}?${qs}`,
+      undefined,
+      undefined,
+      undefined,
+      expectedStatuses,
     );
     return response.thread;
   }
@@ -1809,10 +1934,10 @@ export class CopilotKitIntelligence {
     params: CreateThreadRequest,
   ): Promise<{ thread: ThreadSummary; created: boolean }> {
     try {
-      const thread = await this.getThread({
-        threadId: params.threadId,
-        userId: params.userId,
-      });
+      const thread = await this.#getThread(
+        { threadId: params.threadId, userId: params.userId },
+        NOT_FOUND,
+      );
       return { thread, created: false };
     } catch (error) {
       if (!(error instanceof PlatformRequestError && error.status === 404)) {
@@ -1821,7 +1946,7 @@ export class CopilotKitIntelligence {
     }
 
     try {
-      const thread = await this.createThread(params);
+      const thread = await this.#createThread(params, CONFLICT);
       return { thread, created: true };
     } catch (error) {
       // Another request created the thread between our get and create — retry get.
@@ -1857,6 +1982,36 @@ export class CopilotKitIntelligence {
         ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
         : undefined,
     );
+  }
+
+  /**
+   * @internal Fetch only the ids of a thread's persisted messages.
+   *
+   * Sends `fields=id` so the platform can omit message content. Platform
+   * versions that do not know the parameter ignore it and return the full
+   * transcript; ids are read from `messages[].id` either way.
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async ɵgetThreadMessageIds(params: {
+    threadId: string;
+    userId: string;
+    /** Internal managed-Channel delivery context for shared Thread access. */
+    channelDeliveryId?: string;
+  }): Promise<string[]> {
+    const qs = new URLSearchParams({
+      userId: params.userId,
+      fields: "id",
+    }).toString();
+    const response = await this.#request<{ messages: { id: string }[] }>(
+      "GET",
+      `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
+      undefined,
+      params.channelDeliveryId
+        ? { "X-Cpki-Channel-Delivery-Id": params.channelDeliveryId }
+        : undefined,
+    );
+    return response.messages.map((message) => message.id);
   }
 
   /** @internal Fetches one authorized managed Channel asset for history hydration. */

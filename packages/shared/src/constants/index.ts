@@ -6,5 +6,12 @@ export const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER =
 
 export const DEFAULT_AGENT_ID = "default";
 
+/**
+ * `RUN_ERROR` code the runtime sends when a run is rejected because the
+ * thread already has one in flight. CopilotKit core reports it as
+ * `agent_thread_locked`.
+ */
+export const THREAD_ALREADY_RUNNING_ERROR_CODE = "THREAD_ALREADY_RUNNING";
+
 /** Phoenix channel event name used for all AG-UI events. */
 export const AG_UI_CHANNEL_EVENT = "ag-ui";

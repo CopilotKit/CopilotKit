@@ -1026,6 +1026,84 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  describe("getOrCreateThread", () => {
+    const thread = { id: "t-1", name: null };
+    const params = { threadId: "t-1", userId: "user-1", agentId: "agent-1" };
+
+    it("creates a thread its lookup did not find without logging an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      const loggerDebug = vi
+        .spyOn(logger, "debug")
+        .mockImplementation(() => {});
+      fetchMock
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_NOT_FOUND" }, 404))
+        .mockReturnValueOnce(jsonResponse({ thread }));
+
+      const result = await client.getOrCreateThread(params);
+
+      expect(result).toEqual({ thread, created: true });
+      expect(loggerError).not.toHaveBeenCalled();
+      expect(loggerDebug).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 404 }),
+        "Intelligence platform request returned an expected status",
+      );
+      loggerError.mockRestore();
+      loggerDebug.mockRestore();
+    });
+
+    it("reads the thread another request created without logging an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_NOT_FOUND" }, 404))
+        .mockReturnValueOnce(jsonResponse({ code: "THREAD_EXISTS" }, 409))
+        .mockReturnValueOnce(jsonResponse({ thread }));
+
+      const result = await client.getOrCreateThread(params);
+
+      expect(result).toEqual({ thread, created: false });
+      expect(loggerError).not.toHaveBeenCalled();
+      loggerError.mockRestore();
+    });
+
+    it("still logs a lookup that fails for another reason as an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock.mockReturnValueOnce(jsonResponse({ code: "INTERNAL" }, 500));
+
+      await expect(client.getOrCreateThread(params)).rejects.toMatchObject({
+        status: 500,
+      });
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 500 }),
+        "Intelligence platform request failed",
+      );
+      loggerError.mockRestore();
+    });
+
+    it("still logs a 404 from a direct getThread call as an error", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock.mockReturnValueOnce(
+        jsonResponse({ code: "THREAD_NOT_FOUND" }, 404),
+      );
+
+      await expect(
+        client.getThread({ threadId: "t-1", userId: "user-1" }),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(loggerError).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 404 }),
+        "Intelligence platform request failed",
+      );
+      loggerError.mockRestore();
+    });
+  });
+
   describe("getThreadMessages", () => {
     it("sends GET to thread messages endpoint and returns the durable transcript", async () => {
       const payload = {
@@ -1054,6 +1132,72 @@ describe("CopilotKitIntelligence", () => {
       expect(opts.headers).toMatchObject({
         "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
       });
+    });
+  });
+
+  describe("ɵgetThreadMessageIds", () => {
+    it("requests only message ids from the thread messages endpoint", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ messages: [{ id: "m-1" }, { id: "m-2" }] }),
+      );
+
+      const ids = await client.ɵgetThreadMessageIds({
+        threadId: "t 1",
+        userId: "user-1",
+      });
+
+      expect(ids).toEqual(["m-1", "m-2"]);
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe(
+        "https://api.example.com/api/threads/t%201/messages?userId=user-1&fields=id",
+      );
+      expect(opts.method).toBe("GET");
+      expect(opts.headers).not.toHaveProperty("X-Cpki-Channel-Delivery-Id");
+    });
+
+    it("reads ids from a full transcript returned by servers that ignore fields=id", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          messages: [
+            { id: "m-1", role: "user", content: "Persisted" },
+            { id: "m-2", role: "assistant", content: "Reply" },
+          ],
+        }),
+      );
+
+      const ids = await client.ɵgetThreadMessageIds({
+        threadId: "t-1",
+        userId: "user-1",
+      });
+
+      expect(ids).toEqual(["m-1", "m-2"]);
+    });
+
+    it("forwards the channel delivery header when provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ messages: [] }));
+
+      await client.ɵgetThreadMessageIds({
+        threadId: "t-1",
+        userId: "user-1",
+        channelDeliveryId: "dlv_delivery_1",
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(opts.headers).toMatchObject({
+        "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
+      });
+    });
+
+    it("throws PlatformRequestError on non-2xx responses", async () => {
+      const loggerError = vi
+        .spyOn(logger, "error")
+        .mockImplementation(() => {});
+      fetchMock.mockReturnValueOnce(jsonResponse({ code: "INTERNAL" }, 503));
+
+      await expect(
+        client.ɵgetThreadMessageIds({ threadId: "t-1", userId: "user-1" }),
+      ).rejects.toBeInstanceOf(PlatformRequestError);
+      loggerError.mockRestore();
     });
   });
 

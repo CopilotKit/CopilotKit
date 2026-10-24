@@ -4,17 +4,14 @@
  * into the host application.
  *
  * Run after `tailwindcss` CLI: node scripts/scope-preflight.mjs <file>
+ * Also imported by the React Storybook so dev CSS matches the published build.
  */
 
-import { readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, realpathSync, writeFileSync } from "fs";
+import { fileURLToPath } from "url";
 import postcss from "postcss";
 
 const SCOPE = "[data-copilotkit]";
-const file = process.argv[2];
-if (!file) {
-  console.error("Usage: node scripts/scope-preflight.mjs <css-file>");
-  process.exit(1);
-}
 
 /** Selectors that are already scoped and should be left alone. */
 function isAlreadyScoped(selector) {
@@ -88,13 +85,31 @@ function scopeChildren(node) {
   });
 }
 
+/** Scope every rule inside `@layer base` under [data-copilotkit]. */
+export function scopePreflight(css) {
+  const root = postcss.parse(css);
+
+  root.walkAtRules("layer", (layer) => {
+    if (layer.params !== "base") return;
+    scopeChildren(layer);
+  });
+
+  return root.toString();
+}
+
 // --- Main ---
-const css = readFileSync(file, "utf8");
-const root = postcss.parse(css);
+// Real paths on both sides, so running it through a symlink still counts.
+const entry = process.argv[1];
+const runAsScript =
+  !!entry &&
+  existsSync(entry) &&
+  realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
 
-root.walkAtRules("layer", (layer) => {
-  if (layer.params !== "base") return;
-  scopeChildren(layer);
-});
-
-writeFileSync(file, root.toString());
+if (runAsScript) {
+  const file = process.argv[2];
+  if (!file) {
+    console.error("Usage: node scripts/scope-preflight.mjs <css-file>");
+    process.exit(1);
+  }
+  writeFileSync(file, scopePreflight(readFileSync(file, "utf8")));
+}

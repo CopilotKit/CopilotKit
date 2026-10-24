@@ -128,6 +128,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "shared-state/agent-readonly": "guides/shared-state",
   "agent-app-context": "guides/shared-state",
   threads: "guides/threads-memory-attachments-headless",
+  "AG-UI-Streams": "guides/threads-memory-attachments-headless",
   "prebuilt-components/copilot-threads-drawer":
     "guides/threads-memory-attachments-headless",
   "headless-threads": "guides/threads-memory-attachments-headless",

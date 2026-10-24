@@ -1,14 +1,17 @@
 import { useLayoutEffect } from "react";
 import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
-
-const EMPTY_DEPS: ReadonlyArray<unknown> = [];
+import { useDepsVersion } from "./tool-registration";
 
 export function useFrontendTool<
   T extends Record<string, unknown> = Record<string, unknown>,
 >(tool: ReactFrontendTool<T>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
-  const extraDeps = deps ?? EMPTY_DEPS;
+  // Plain data in `deps` compares by value, everything else by identity; see
+  // useDepsVersion. Only the resulting number enters the effect's dependency
+  // list, so `deps` is never serialized and may hold a circular value such as
+  // the agent from useAgent.
+  const depsVersion = useDepsVersion(deps);
 
   useLayoutEffect(() => {
     const name = tool.name;
@@ -48,7 +51,7 @@ export function useFrontendTool<
     tool.name,
     tool.available,
     copilotkit,
-    JSON.stringify(extraDeps),
+    depsVersion,
     JSON.stringify(tool.webmcp ?? null),
   ]);
 }

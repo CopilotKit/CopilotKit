@@ -27,7 +27,8 @@ export type TrajectoryStartOptions = {
   trajectoryId?: string;
   /**
    * Used only by explicit custom sinks. Authenticated capture warns and ignores
-   * this option; it does not assign Learning Containers.
+   * this option; assign Learning Spaces on the server with
+   * `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
    */
   learningContainerIds?: string[];
 };
@@ -104,6 +105,23 @@ export class LearningBridge {
     return this.config !== undefined;
   }
 
+  /**
+   * Whether events may carry agent message text: not when the capture's config
+   * sets `capture.agentText` to false. A running custom-sink capture keeps the
+   * choice it started with; otherwise the current config decides.
+   */
+  get capturesAgentText() {
+    const config = this.activeConfig ?? this.config;
+    if (config === undefined) return false;
+    // Typed for custom sinks only, but honored for authenticated capture too.
+    const capture: unknown = config.capture;
+    return !(
+      typeof capture === "object" &&
+      capture !== null &&
+      (capture as { agentText?: unknown }).agentText === false
+    );
+  }
+
   private get isLegacyCaptureActive() {
     return this.collector !== null && this.collector.trajectoryId !== null;
   }
@@ -151,7 +169,7 @@ export class LearningBridge {
     if (config.sink === undefined) {
       if (options.learningContainerIds !== undefined) {
         console.warn(
-          "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture does not assign Learning Containers; remove learningContainerIds from the capture options.",
+          "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture ignores it; assign Learning Spaces on the server with getTrajectoryLearningContainerIds on CopilotKitIntelligence, and remove learningContainerIds from the capture options.",
         );
       }
       this.stopLegacy();
@@ -216,11 +234,16 @@ export class LearningBridge {
     this.executingTools.clear();
   }
 
-  /** A developer event. Only an explicit legacy sink adds open-Thread context. */
+  /**
+   * A developer event. Only an explicit legacy sink adds open-Thread context;
+   * an event that names its own Thread gets no ambiguity next to it.
+   */
   emit(name: string, value: JsonValue) {
     this.connection.emit(name, value);
     if (value !== null && typeof value === "object" && !Array.isArray(value)) {
-      this.collector?.emit(name, { ...this.openThreadContext(), ...value });
+      const context =
+        typeof value["threadId"] === "string" ? {} : this.openThreadContext();
+      this.collector?.emit(name, { ...context, ...value });
     }
   }
 
@@ -348,8 +371,7 @@ export class LearningBridge {
     // `tool.call` events carry the tool name and this `messageId`.
     const content = typeof message.content === "string" ? message.content : "";
     const includeText =
-      this.activeConfig?.capture?.agentText !== false &&
-      typeof message.content === "string";
+      this.capturesAgentText && typeof message.content === "string";
     this.collector?.ɵemit("agent.message", {
       messageId: message.id,
       runId: this.runIdForMessage(agent, message.id),
