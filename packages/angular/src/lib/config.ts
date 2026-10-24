@@ -101,7 +101,7 @@ export interface CopilotKitConfig {
   renderActivityMessages?: RenderActivityMessageConfig[];
   suggestionsConfig?: SuggestionsConfig[];
   frontendTools?: FrontendToolConfig[];
-  humanInTheLoop?: HumanInTheLoopConfig[];
+  humanInTheLoop?: HumanInTheLoopConfig<any, any>[];
   /** Opt in to a text-only renderer for otherwise unknown tool calls. */
   defaultToolRendering?: boolean;
   a2ui?: A2UIConfig;

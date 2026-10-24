@@ -35,7 +35,7 @@ type ClientToolCallHandler = {
 };
 type HumanInTheLoopToolCallHandler = {
   type: "humanInTheLoopTool";
-  config: HumanInTheLoopConfig;
+  config: HumanInTheLoopConfig<any, any>;
 };
 type BuiltInToolCallHandler = {
   type: "builtIn";
@@ -77,7 +77,7 @@ interface PickToolCallHandlerOptions {
   agentId?: string;
   application: readonly RenderToolCallConfig[];
   frontend: readonly FrontendToolConfig[];
-  humanInTheLoop: readonly HumanInTheLoopConfig[];
+  humanInTheLoop: readonly HumanInTheLoopConfig<any, any>[];
   builtInFallback: boolean;
 }
 
