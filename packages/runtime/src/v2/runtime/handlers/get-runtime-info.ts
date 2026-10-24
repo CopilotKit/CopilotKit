@@ -146,7 +146,7 @@ export async function handleGetRuntimeInfo({
         }
 
         const description: AgentDescription = {
-          name,
+          name: (agent as { name?: string }).name ?? name,
           description: agent.description,
           className: agent.constructor.name,
           ...(capabilities ? { capabilities } : {}),

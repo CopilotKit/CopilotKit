@@ -1,5 +1,6 @@
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { CopilotRuntime } from "../core/runtime";
+import { BuiltInAgent } from "../../../agent";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type {
   CopilotIntelligenceRuntimeLike,
@@ -695,6 +696,55 @@ describe("handleGetRuntimeInfo", () => {
 
     const data = await response.json();
     expect(data.a2uiEnabled).toBe(false);
+  });
+
+  it("should allow an agent name to differ from its registry ID", async () => {
+    const agent = new BuiltInAgent({
+      model: "openai/gpt-5-mini",
+      name: "Research Assistant",
+    });
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        research_agent_v2: agent,
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+
+    expect(data.agents.research_agent_v2).toBeDefined();
+    expect(data.agents.research_agent_v2.name).toBe("Research Assistant");
+  });
+
+  it("should default the agent name to its registry ID", async () => {
+    const mockAgent = {
+      description: "Helps with research",
+      constructor: { name: "ResearchAgent" },
+    };
+
+    const runtime = new CopilotRuntime({
+      agents: {
+        research_agent_v2: mockAgent as unknown as AbstractAgent,
+      },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+
+    expect(data.agents.research_agent_v2.name).toBe("research_agent_v2");
   });
 
   it("should include capabilities when agent implements getCapabilities", async () => {
