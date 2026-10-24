@@ -664,6 +664,8 @@ describe("IntelligenceAgent", () => {
       });
       expect(getChannel(agent)!.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: false,
         last_seen_event_id: "event-2",
       });
     });
@@ -1086,6 +1088,8 @@ describe("IntelligenceAgent", () => {
       expect(channel.topic).toBe("thread:thread-1");
       expect(channel.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: null,
       });
 
@@ -1125,6 +1129,8 @@ describe("IntelligenceAgent", () => {
       const connectChannel = getChannel(agent)!;
       expect(connectChannel.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: "event-1",
       });
     });
@@ -1159,6 +1165,8 @@ describe("IntelligenceAgent", () => {
       const connectChannel = getChannel(agent)!;
       expect(connectChannel.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: null,
       });
     });
@@ -1250,6 +1258,8 @@ describe("IntelligenceAgent", () => {
       });
       expect(secondThreadAChannel.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: null,
       });
 
@@ -1534,6 +1544,8 @@ describe("IntelligenceAgent", () => {
       });
       expect(secondChannel.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: "event-snake",
       });
 
@@ -1769,6 +1781,8 @@ describe("IntelligenceAgent", () => {
       });
       expect(getChannel(agent)!.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: "event-3",
       });
 
@@ -1822,6 +1836,8 @@ describe("IntelligenceAgent", () => {
       });
       expect(getChannel(agent)!.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: "event-1073",
       });
 
@@ -1920,6 +1936,8 @@ describe("IntelligenceAgent", () => {
       });
       expect(getChannel(agent)!.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: "zzzz-runner-event",
       });
 
@@ -1967,6 +1985,8 @@ describe("IntelligenceAgent", () => {
       });
       expect(getChannel(agent)!.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: null,
       });
 
@@ -2107,6 +2127,7 @@ describe("IntelligenceAgent", () => {
       });
       expect(getChannel(agent)!.params).toMatchObject({
         stream_mode: "connect",
+        supports_replay_errors: true,
         last_seen_event_id: "event-before-refresh",
       });
     });
@@ -2190,6 +2211,8 @@ describe("IntelligenceAgent", () => {
       const connectChannel = getChannel(cloned)!;
       expect(connectChannel.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: null,
       });
     });
@@ -2226,6 +2249,8 @@ describe("IntelligenceAgent", () => {
       const connectChannel = getChannel(cloned)!;
       expect(connectChannel.params).toEqual({
         stream_mode: "connect",
+        supports_replay_errors: true,
+        supports_replay_reset: true,
         last_seen_event_id: "event-2",
       });
     });

@@ -602,6 +602,7 @@ function eventErrorKeyForCode(
     case CopilotKitCoreErrorCode.AGENT_NOT_FOUND:
       return "tool";
     case CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED:
+    case CopilotKitCoreErrorCode.AGENT_HISTORY_REPLAY_FAILED:
     case CopilotKitCoreErrorCode.AGENT_RUN_FAILED:
     case CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT:
     case CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT:

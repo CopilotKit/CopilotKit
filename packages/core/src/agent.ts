@@ -580,6 +580,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     const bridgeSub = delegate.subscribe({
       onMessagesChanged: () => {
         if (!isCurrentConnection()) return;
+        this.pendingInterrupts = structuredClone_(delegate.pendingInterrupts);
         this.setMessages([...delegate.messages]);
       },
       onStateChanged: () => {

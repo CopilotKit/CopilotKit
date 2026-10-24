@@ -15,8 +15,14 @@ import {
   transformChunks,
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
-import { EMPTY, Subject, defer, lastValueFrom } from "rxjs";
-import { catchError, finalize, takeUntil, tap } from "rxjs/operators";
+import { EMPTY, Subject, defer, lastValueFrom, throwError } from "rxjs";
+import {
+  catchError,
+  concatWith,
+  finalize,
+  takeUntil,
+  tap,
+} from "rxjs/operators";
 
 /** Internal connection callbacks; HTTP connections keep their EOF behavior. */
 export interface ConnectionReplayLifecycle {
@@ -179,8 +185,31 @@ export async function ɵconnectWithoutEventVerification(
       takeUntil(activeRunDetach$),
     );
 
-    const applied$ = self.apply(input, source$, subscribers);
-    const processed$ = self.processApplyEvents(input, applied$, subscribers);
+    // Match the base pipeline: drain delivered events before surfacing a source
+    // error, so a saved replay checkpoint never skips queued reducer work.
+    const processed$: Observable<unknown> = defer(() => {
+      let sourceFailure: { error: unknown } | undefined;
+      const delivered$ = source$.pipe(
+        catchError((error: unknown) => {
+          sourceFailure = { error };
+          return EMPTY;
+        }),
+      );
+      return self
+        .processApplyEvents(
+          input,
+          self.apply(input, delivered$, subscribers),
+          subscribers,
+        )
+        .pipe(
+          concatWith(
+            defer(() => {
+              const failure = sourceFailure;
+              return failure ? throwError(() => failure.error) : EMPTY;
+            }),
+          ),
+        );
+    });
 
     await lastValueFrom(
       processed$.pipe(

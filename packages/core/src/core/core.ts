@@ -137,6 +137,7 @@ export type CopilotKitCoreGetSuggestionsResult = {
 export enum CopilotKitCoreErrorCode {
   RUNTIME_INFO_FETCH_FAILED = "runtime_info_fetch_failed",
   AGENT_CONNECT_FAILED = "agent_connect_failed",
+  AGENT_HISTORY_REPLAY_FAILED = "agent_history_replay_failed",
   AGENT_RUN_FAILED = "agent_run_failed",
   AGENT_RUN_FAILED_EVENT = "agent_run_failed_event",
   AGENT_RUN_ERROR_EVENT = "agent_run_error_event",

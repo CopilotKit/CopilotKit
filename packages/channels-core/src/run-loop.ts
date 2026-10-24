@@ -23,6 +23,7 @@ import type {
   ContextEntry,
 } from "./tools.js";
 import { parseToolArgs, stringifyHandlerResult } from "./tools.js";
+import { modelToolHistory } from "./model-tool-history.js";
 import type { ChannelActorIdentity } from "./identity.js";
 import {
   channelDeliveryErrorDetails,
@@ -344,6 +345,8 @@ async function emitCanonicalLifecycleEvent(
   }
 }
 
+const agentsWithModelHistory = new WeakSet<AbstractAgent>();
+
 /**
  * Drive the agent, executing frontend-tool calls and re-invoking until the
  * agent stops calling them (or we hit the iteration cap). On a captured
@@ -365,6 +368,14 @@ export async function runAgentLoop(
     isAborted,
     initialResume,
   } = args;
+  // Keep canonical history intact for frontend tools and HITL resume. Only the
+  // outgoing model copy needs completed, adjacent tool exchanges.
+  if (!agentsWithModelHistory.has(agent)) {
+    agent.use((input, next) =>
+      next.run({ ...input, messages: modelToolHistory(input.messages) }),
+    );
+    agentsWithModelHistory.add(agent);
+  }
   let innerRunError: Error | undefined;
   const innerRunUsage: TokenUsage[] = [];
   let innerRunMetadata: RunFinishedEvent["metadata"];

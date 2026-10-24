@@ -15,6 +15,7 @@ import {
 } from "@copilotkit/shared";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
+import { AgentHistoryReplayError } from "../history-replay-error";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 import { isAbortError } from "../utils/abort-error";
@@ -679,7 +680,10 @@ export class RunHandler {
         }
         await this._internal.emitError({
           error: connectError,
-          code: CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
+          code:
+            connectError instanceof AgentHistoryReplayError
+              ? CopilotKitCoreErrorCode.AGENT_HISTORY_REPLAY_FAILED
+              : CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED,
           context,
         });
       }
@@ -856,7 +860,10 @@ export class RunHandler {
       }
       await this._internal.emitError({
         error: runError,
-        code: CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
+        code:
+          runError instanceof AgentHistoryReplayError
+            ? CopilotKitCoreErrorCode.AGENT_HISTORY_REPLAY_FAILED
+            : CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
         context,
       });
       return { result: undefined, newMessages: [] };
@@ -1778,6 +1785,9 @@ export class RunHandler {
 
     return {
       onRunFailed: async ({ error }: { error: Error }) => {
+        // The outer catch reports history failures with their dedicated code.
+        // Other subscribers still need onRunFailed for cleanup and mutations.
+        if (error instanceof AgentHistoryReplayError) return;
         const code =
           error instanceof AgentThreadLockedError
             ? CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED

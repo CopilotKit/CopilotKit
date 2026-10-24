@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  AgentHistoryReplayError,
   emitInspectorStopViewing,
   emitInspectorViewThread,
   onInspectorActiveThread,
@@ -78,10 +79,16 @@ function ThreadControls() {
 
 function renderChat(
   agent: TrackingAgent,
-  options: { threadId?: string; withControls?: boolean } = {},
+  options: {
+    threadId?: string;
+    withControls?: boolean;
+    onError?: React.ComponentProps<typeof CopilotChat>["onError"];
+  } = {},
 ) {
   agent.agentId = DEFAULT_AGENT_ID;
-  const chat = <CopilotChat threadId={options.threadId} />;
+  const chat = (
+    <CopilotChat threadId={options.threadId} onError={options.onError} />
+  );
   return render(
     <CopilotKitProvider agents__unsafe_dev_only={{ [DEFAULT_AGENT_ID]: agent }}>
       {options.withControls ? (
@@ -103,6 +110,77 @@ function viewRequest(requestId: string, threadId = "saved-thread") {
     agentId: DEFAULT_AGENT_ID,
   });
 }
+
+it("rolls back when typed history replay fails", async () => {
+  class HistoryFailureAgent extends TrackingAgent {
+    async connectAgent(params: unknown, subscriber: unknown) {
+      if (this.threadId === "saved-thread")
+        throw new AgentHistoryReplayError("history_read_timeout");
+      return super.connectAgent(params, subscriber);
+    }
+  }
+  const agent = new HistoryFailureAgent();
+  const results: boolean[] = [];
+  const unsubscribe = onInspectorViewThreadResult((payload) => {
+    if (payload.requestId === "history-failure") results.push(payload.ok);
+  });
+  try {
+    renderChat(agent, { threadId: "pinned-thread" });
+    await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));
+    act(() => void viewRequest("history-failure"));
+    await waitFor(() => expect(results).toEqual([true, false]));
+    await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));
+  } finally {
+    unsubscribe();
+  }
+});
+
+it("keeps the current override when another thread's history replay fails", async () => {
+  let rejectHistory: (error: Error) => void = () => {
+    throw new Error("History not connected");
+  };
+  class DelayedHistoryFailureAgent extends TrackingAgent {
+    async connectAgent(params: unknown, subscriber: unknown) {
+      if (this.threadId === "failed-thread") {
+        this.connectCalls.push(this.threadId);
+        return new Promise<{ result: unknown; newMessages: [] }>(
+          (_resolve, reject) => {
+            rejectHistory = reject;
+          },
+        );
+      }
+      return super.connectAgent(params, subscriber);
+    }
+  }
+  const agent = new DelayedHistoryFailureAgent();
+  const onError = vi.fn();
+  const failures: string[] = [];
+  const unsubscribe = onInspectorViewThreadResult((payload) => {
+    if (!payload.ok) failures.push(payload.requestId);
+  });
+  try {
+    renderChat(agent, { threadId: "pinned-thread", onError });
+    await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));
+    act(() => void viewRequest("old-history", "failed-thread"));
+    await waitFor(() => expect(agent.connectCalls).toContain("failed-thread"));
+    act(() => void viewRequest("current-history"));
+    await waitFor(() => expect(agent.threadId).toBe("saved-thread"));
+    await act(async () =>
+      rejectHistory(new AgentHistoryReplayError("history_read_timeout")),
+    );
+    await waitFor(() =>
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: expect.objectContaining({ threadId: "failed-thread" }),
+        }),
+      ),
+    );
+    expect(failures).toEqual([]);
+    expect(agent.threadId).toBe("saved-thread");
+  } finally {
+    unsubscribe();
+  }
+});
 
 describe("inspector thread override", () => {
   const cleanups: Array<() => void> = [];
