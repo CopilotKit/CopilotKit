@@ -2,20 +2,66 @@ import os
 import base64
 import io
 import uuid
-from fastapi import APIRouter, HTTPException
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
-# In-memory storage for processed files (in production, use a database)
-file_storage = {}
+from auth import get_user_info_from_authorization
+
+# In-memory storage for processed files (in production, use a database):
+# file_storage[thread_id][file_id] = {..., "owner_id": <user_id of the uploader>}
+file_storage: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
 class FileUploadRequest(BaseModel):
     filename: str
     content: str  # base64 encoded
     thread_id: str
 
-router = APIRouter()
 
-async def process_pdf(request: FileUploadRequest):
+def require_user_id(authorization: Optional[str] = Header(default=None)) -> str:
+    """Rejects requests without a valid user token and returns the caller's user_id."""
+    user = get_user_info_from_authorization(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="Sign in to upload and read files.")
+    return user["user_id"]
+
+
+# Every file route requires a signed-in user.
+router = APIRouter(dependencies=[Depends(require_user_id)])
+
+
+def store_file(thread_id: str, owner_id: str, record: Dict[str, Any]) -> str:
+    """Stores a processed file for a thread, owned by the uploading user, and returns its id."""
+    file_id = str(uuid.uuid4())
+    file_storage.setdefault(thread_id, {})[file_id] = {**record, "owner_id": owner_id}
+    return file_id
+
+
+def list_files(thread_id: str, owner_id: str) -> List[Dict[str, Any]]:
+    """Returns metadata for the files the user uploaded to a thread."""
+    return [
+        {
+            "fileId": file_id,
+            "name": data["filename"],
+            "fileType": data["file_type"],
+            "pageCount": data.get("page_count"),
+            "sheetCount": data.get("sheet_count"),
+            "totalRows": data.get("total_rows"),
+        }
+        for file_id, data in file_storage.get(thread_id, {}).items()
+        if data["owner_id"] == owner_id
+    ]
+
+
+def get_file(thread_id: str, owner_id: str, file_id: str) -> Optional[Dict[str, Any]]:
+    """Returns a stored file if it belongs to the user, otherwise None."""
+    data = file_storage.get(thread_id, {}).get(file_id)
+    if not data or data["owner_id"] != owner_id:
+        return None
+    return data
+
+async def process_pdf(request: FileUploadRequest, owner_id: str):
     """Process a PDF file and store the extracted text."""
     try:
         from pypdf import PdfReader
@@ -47,21 +93,13 @@ async def process_pdf(request: FileUploadRequest):
         except PdfReadError:
             raise HTTPException(status_code=400, detail=f"File '{request.filename}' is corrupted or not a valid PDF.")
         
-        # Generate a unique ID for this PDF
-        file_id = str(uuid.uuid4())
-
-        # Get thread_id from request
-        thread_id = request.thread_id
-        if thread_id not in file_storage:
-            file_storage[thread_id] = {}
-        
         # Store the extracted text
-        file_storage[thread_id][file_id] = {
+        file_id = store_file(request.thread_id, owner_id, {
             "filename": request.filename,
             "text": full_text,
             "page_count": len(reader.pages),
             "file_type": "pdf"
-        }
+        })
         
         return {
             "success": True,
@@ -79,7 +117,7 @@ async def process_pdf(request: FileUploadRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred while processing '{request.filename}': {str(e)}")
 
-async def process_excel(request: FileUploadRequest):
+async def process_excel(request: FileUploadRequest, owner_id: str):
     """Process an Excel file and store the extracted content."""
     try:
         import pandas as pd
@@ -101,7 +139,7 @@ async def process_excel(request: FileUploadRequest):
             
             text_content.append(f"=== Sheet: {sheet_name} ===")
             text_content.append(f"Rows: {len(df)}, Columns: {len(df.columns)}")
-            text_content.append(f"Column Names: {', '.join(df.columns.tolist())}")
+            text_content.append(f"Column Names: {', '.join(map(str, df.columns))}")
             text_content.append("\nData Preview (first 10 rows):")
             text_content.append(df.head(10).to_string(index=False))
             text_content.append("\n")
@@ -111,22 +149,14 @@ async def process_excel(request: FileUploadRequest):
         if not full_text.strip():
             full_text = "The Excel file appears to be empty."
         
-        # Generate a unique ID for this file
-        file_id = str(uuid.uuid4())
-        
-        # Get thread_id from request
-        thread_id = request.thread_id
-        if thread_id not in file_storage:
-            file_storage[thread_id] = {}
-
         # Store the extracted text
-        file_storage[thread_id][file_id] = {
+        file_id = store_file(request.thread_id, owner_id, {
             "filename": request.filename,
             "text": full_text,
             "sheet_count": len(sheet_names),
             "total_rows": total_rows,
             "file_type": "excel"
-        }
+        })
         
         return {
             "success": True,
@@ -143,7 +173,7 @@ async def process_excel(request: FileUploadRequest):
         raise HTTPException(status_code=500, detail=f"Error processing Excel: {str(e)}")
 
 
-async def process_csv(request: FileUploadRequest):
+async def process_csv(request: FileUploadRequest, owner_id: str):
     """Process a CSV file and store the extracted content."""
     try:
         import pandas as pd
@@ -159,7 +189,7 @@ async def process_csv(request: FileUploadRequest):
         text_content = []
         text_content.append(f"=== CSV File: {request.filename} ===")
         text_content.append(f"Rows: {total_rows}, Columns: {len(df.columns)}")
-        text_content.append(f"Column Names: {', '.join(df.columns.tolist())}")
+        text_content.append(f"Column Names: {', '.join(map(str, df.columns))}")
         text_content.append("\nData Preview (first 10 rows):")
         text_content.append(df.head(10).to_string(index=False))
         
@@ -168,21 +198,13 @@ async def process_csv(request: FileUploadRequest):
         if not full_text.strip():
             full_text = "The CSV file appears to be empty."
         
-        # Generate a unique ID for this file
-        file_id = str(uuid.uuid4())
-        
-        # Get thread_id from request
-        thread_id = request.thread_id
-        if thread_id not in file_storage:
-            file_storage[thread_id] = {}
-
         # Store the extracted text
-        file_storage[thread_id][file_id] = {
+        file_id = store_file(request.thread_id, owner_id, {
             "filename": request.filename,
             "text": full_text,
             "total_rows": total_rows,
             "file_type": "csv"
-        }
+        })
         
         return {
             "success": True,
@@ -199,51 +221,38 @@ async def process_csv(request: FileUploadRequest):
 
 
 @router.post("/process-file")
-async def process_file_endpoint(request: FileUploadRequest):
-    """Process a file (PDF or Excel) and store the extracted content."""
+async def process_file_endpoint(request: FileUploadRequest, user_id: str = Depends(require_user_id)):
+    """Process a file (PDF, Excel or CSV) and store the extracted content."""
     file_extension = os.path.splitext(request.filename)[1].lower()
     if file_extension == '.pdf':
-        return await process_pdf(request)
-    elif file_extension in ['.xlsx', '.xls']:
-        return await process_excel(request)
+        return await process_pdf(request, user_id)
+    elif file_extension == '.xlsx':
+        return await process_excel(request, user_id)
     elif file_extension == '.csv':
-        return await process_csv(request)
+        return await process_csv(request, user_id)
     else:
         raise HTTPException(status_code=400, detail="Unsupported file type")
 
 
 @router.get("/files/{thread_id}")
-async def get_files(thread_id: str):
-    """Retrieve metadata for all uploaded files."""
-    if thread_id not in file_storage:
-        return []
-        
-    files_metadata = []
-    for file_id, data in file_storage[thread_id].items():
-        files_metadata.append({
-            "fileId": file_id,
-            "name": data["filename"],
-            "fileType": data["file_type"],
-            "pageCount": data.get("page_count"),
-            "sheetCount": data.get("sheet_count"),
-            "totalRows": data.get("total_rows"),
-        })
-    return files_metadata
+async def get_files(thread_id: str, user_id: str = Depends(require_user_id)):
+    """Retrieve metadata for the caller's uploaded files in a thread."""
+    return list_files(thread_id, user_id)
 
 
 @router.delete("/file/{thread_id}/{file_id}")
-async def delete_file(thread_id: str, file_id: str):
-    """Delete an uploaded file."""
-    if thread_id not in file_storage or file_id not in file_storage[thread_id]:
+async def delete_file(thread_id: str, file_id: str, user_id: str = Depends(require_user_id)):
+    """Delete one of the caller's uploaded files."""
+    if not get_file(thread_id, user_id, file_id):
         raise HTTPException(status_code=404, detail="File not found")
     del file_storage[thread_id][file_id]
     return {"status": "ok", "file_id": file_id}
 
 
 @router.get("/file/{thread_id}/{file_id}")
-async def get_file_content(thread_id: str, file_id: str):
-    """Retrieve the extracted text for a given file ID (PDF or Excel)."""
-    if thread_id not in file_storage or file_id not in file_storage[thread_id]:
+async def get_file_content(thread_id: str, file_id: str, user_id: str = Depends(require_user_id)):
+    """Retrieve the extracted text for one of the caller's files."""
+    data = get_file(thread_id, user_id, file_id)
+    if not data:
         raise HTTPException(status_code=404, detail="File not found")
-    
-    return file_storage[thread_id][file_id]
+    return {key: value for key, value in data.items() if key != "owner_id"}

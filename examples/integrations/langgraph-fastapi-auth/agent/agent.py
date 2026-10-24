@@ -18,6 +18,9 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from copilotkit import LangGraphAGUIAgent
 
+from auth import get_user_info_from_authorization
+from file_routes import get_file, list_files
+
 # This custom agent is used to forward the authorization token from the client to the agent's config.
 # It is a necessary component for the authentication to work in a self-hosted environment.
 class CustomLangGraphAGUIAgent(LangGraphAGUIAgent):
@@ -62,77 +65,63 @@ def get_weather(location: str):
     """
     return f"The weather for {location} is 70 degrees."
 
+def _thread_and_user_id(config: RunnableConfig):
+    """Returns the run's thread_id and the signed-in user's id from the run config, never from the model."""
+    thread_id = config.get("configurable", {}).get("thread_id")
+    user = get_user_info_from_config(config)
+    return thread_id, (user or {}).get("user_id")
+
+
 @tool
-def get_file_content(file_id: str, thread_id: str):
+def get_file_content(file_id: str, config: RunnableConfig):
     """
     Retrieve and return the extracted content from a previously uploaded file (PDF, Excel, or CSV).
     Use this tool when a user references an uploaded file.
-    Both file_id and thread_id are required.
     """
-    if not thread_id:
-        return "Error: thread_id is missing. Cannot retrieve file."
-    try:
-        import requests
-        
-        # Get the file content from storage
-        response = requests.get(f"http://localhost:8000/file/{thread_id}/{file_id}")
-        
-        if response.status_code == 404:
-            return f"File with ID {file_id} not found in thread {thread_id}. The file might have been deleted or the session expired. Please ask the user to upload the file again."
-        
-        if response.status_code != 200:
-            return f"Error retrieving file: {response.text}"
-        
-        data = response.json()
-        filename = data.get("filename", "Unknown")
-        text = data.get("text", "")
-        file_type = data.get("file_type", "unknown")
-        
-        if file_type == "pdf":
-            page_count = data.get("page_count", 0)
-            return f"PDF Content Retrieved:\n- Filename: {filename}\n- Total Pages: {page_count}\n- Text Length: {len(text)} characters\n\nExtracted Text:\n{text}"
-        elif file_type == "excel":
-            sheet_count = data.get("sheet_count", 0)
-            total_rows = data.get("total_rows", 0)
-            return f"Excel Content Retrieved:\n- Filename: {filename}\n- Total Sheets: {sheet_count}\n- Total Rows: {total_rows}\n- Text Length: {len(text)} characters\n\nExtracted Content:\n{text}"
-        elif file_type == "csv":
-            total_rows = data.get("total_rows", 0)
-            return f"CSV Content Retrieved:\n- Filename: {filename}\n- Total Rows: {total_rows}\n- Text Length: {len(text)} characters\n\nExtracted Content:\n{text}"
-        else:
-            return f"File Content Retrieved:\n- Filename: {filename}\n- Text Length: {len(text)} characters\n\nExtracted Content:\n{text}"
-        
-    except Exception as e:
-        return f"An unexpected error occurred while retrieving file {file_id}: {str(e)}"
+    thread_id, user_id = _thread_and_user_id(config)
+    if not thread_id or not user_id:
+        return "Error: no signed-in user or conversation thread. Cannot retrieve files."
+
+    data = get_file(thread_id, user_id, file_id)
+    if not data:
+        return f"File with ID {file_id} was not found. The file might have been deleted or the session expired. Please ask the user to upload the file again."
+
+    filename = data.get("filename", "Unknown")
+    text = data.get("text", "")
+    file_type = data.get("file_type", "unknown")
+
+    if file_type == "pdf":
+        page_count = data.get("page_count", 0)
+        return f"PDF Content Retrieved:\n- Filename: {filename}\n- Total Pages: {page_count}\n- Text Length: {len(text)} characters\n\nExtracted Text:\n{text}"
+    elif file_type == "excel":
+        sheet_count = data.get("sheet_count", 0)
+        total_rows = data.get("total_rows", 0)
+        return f"Excel Content Retrieved:\n- Filename: {filename}\n- Total Sheets: {sheet_count}\n- Total Rows: {total_rows}\n- Text Length: {len(text)} characters\n\nExtracted Content:\n{text}"
+    elif file_type == "csv":
+        total_rows = data.get("total_rows", 0)
+        return f"CSV Content Retrieved:\n- Filename: {filename}\n- Total Rows: {total_rows}\n- Text Length: {len(text)} characters\n\nExtracted Content:\n{text}"
+    else:
+        return f"File Content Retrieved:\n- Filename: {filename}\n- Text Length: {len(text)} characters\n\nExtracted Content:\n{text}"
 
 @tool
-def list_uploaded_files(thread_id: str):
+def list_uploaded_files(config: RunnableConfig):
     """
-    Get information about all currently uploaded files (PDF, Excel, and CSV) for a given thread_id.
+    Get information about all files (PDF, Excel, and CSV) the user uploaded to this conversation.
     This includes the file_ids needed to retrieve their content.
     """
-    if not thread_id:
-        return "Error: thread_id is missing. Cannot list files."
-    try:
-        import requests
-        
-        response = requests.get(f"http://localhost:8000/files/{thread_id}")
-        
-        if response.status_code != 200:
-            return f"Error listing files: {response.text}"
-        
-        files = response.json()
-        
-        if not files:
-            return "No files are currently uploaded."
-            
-        return {
-            "count": len(files),
-            "files": files,
-            "message": f"{len(files)} file(s) found. Use the 'get_file_content' tool with a file_id to retrieve content."
-        }
-        
-    except Exception as e:
-        return f"An unexpected error occurred while listing files: {str(e)}"
+    thread_id, user_id = _thread_and_user_id(config)
+    if not thread_id or not user_id:
+        return "Error: no signed-in user or conversation thread. Cannot list files."
+
+    files = list_files(thread_id, user_id)
+    if not files:
+        return "No files are currently uploaded."
+
+    return {
+        "count": len(files),
+        "files": files,
+        "message": f"{len(files)} file(s) found. Use the 'get_file_content' tool with a file_id to retrieve content."
+    }
 
 # @tool
 # def your_tool_here(your_arg: str):
@@ -151,45 +140,6 @@ backend_tools = [
 backend_tool_names = [tool.name for tool in backend_tools]
 
 
-def get_user_info_from_token(token: str) -> Optional[Dict[str, Any]]:
-    """
-    Decodes user information from a JWT-like token.
-
-    NOTE: This is a simplified decoder for demonstration purposes and does NOT
-    perform signature verification. In a production environment, always use a
-    trusted JWT library (e.g., PyJWT) to validate the token's signature
-    and claims.
-    """
-    if not token:
-        return None
-    
-    try:
-        import base64
-        import json
-
-        parts = token.split('.')
-        if len(parts) != 3:
-            # Not a valid JWT format
-            return None
-            
-        payload = parts[1]
-        
-        # Add padding if necessary and decode
-        padded_payload = payload + '=' * (-len(payload) % 4)
-        decoded_payload = base64.b64decode(padded_payload).decode('utf-8')
-        user_data = json.loads(decoded_payload)
-        
-        return {
-            "user_id": user_data.get("sub") or user_data.get("user_id"),
-            "name": user_data.get("name"),
-            "email": user_data.get("email"),
-            "role": user_data.get("role"),
-        }
-    except (IndexError, base64.binascii.Error, json.JSONDecodeError, UnicodeDecodeError) as e:
-        print(f"Failed to decode token: {e}")
-        return None
-
-
 def get_user_info_from_config(config: RunnableConfig) -> Optional[Dict[str, Any]]:
     """
     Extracts user information from the RunnableConfig by looking for an authorization token.
@@ -200,14 +150,7 @@ def get_user_info_from_config(config: RunnableConfig) -> Optional[Dict[str, Any]
     if not auth_token:
         return None
 
-    # Handle bearer token format
-    token = (
-        auth_token.replace("Bearer ", "")
-        if isinstance(auth_token, str) and auth_token.startswith("Bearer ")
-        else auth_token
-    )
-    
-    user_info = get_user_info_from_token(token)
+    user_info = get_user_info_from_authorization(auth_token)
     
     if user_info:
         print(f"✅ Authenticated user: {user_info.get('name')} (ID: {user_info.get('user_id')})")
@@ -279,8 +222,7 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
         user_name = user_data.get("name") or "Unknown"
         user_email = user_data.get("email") or "not provided"
         user_role = user_data.get("role") or "user"
-        thread_id = config.get("configurable", {}).get("thread_id")
-        user_info = f"The current user is {user_name} (ID: {user_id}, Email: {user_email}, Role: {user_role}). The current conversation thread_id is {thread_id}."
+        user_info = f"The current user is {user_name} (ID: {user_id}, Email: {user_email}, Role: {user_role})."
     else:
         user_info = "The user is not authenticated. Certain tools like file handling are unavailable. If asked about files or to perform actions requiring login, inform the user they need to sign in."
     
@@ -292,16 +234,15 @@ The current proverbs are {state.get('proverbs', [])}.
 
 IMPORTANT FILE HANDLING:
 - You have access to tools for file handling: `list_uploaded_files` and `get_file_content`.
-- `list_uploaded_files` gets a list of all uploaded files (PDF, Excel, and CSV). It requires the `thread_id`.
-- `get_file_content` retrieves content from a specific file. It requires both a `file_id` and the `thread_id`.
-- The `thread_id` is available in the user information context.
-- Supported file types: PDF documents, Excel spreadsheets (.xlsx, .xls), and CSV files (.csv).
+- `list_uploaded_files` gets a list of the files the user uploaded to this conversation (PDF, Excel, and CSV).
+- `get_file_content` retrieves the content of one file by its `file_id`.
+- Supported file types: PDF documents, Excel spreadsheets (.xlsx), and CSV files (.csv).
 - If the user asks about files, documents, PDFs, Excel, spreadsheets, you MUST:
-  1. First, call the `list_uploaded_files` tool with the current `thread_id` to get the list of file metadata (file_id, name, type).
-  2. Then, call `get_file_content` with the appropriate `file_id` and `thread_id` to retrieve the content.
+  1. First, call the `list_uploaded_files` tool to get the list of file metadata (file_id, name, type).
+  2. Then, call `get_file_content` with the appropriate `file_id` to retrieve the content.
   3. If multiple files are uploaded and the user is vague, ask for clarification on which file to analyze.
   4. Finally, answer the user's question based on the retrieved content.
-- Never ask the user for the file_id or thread_id - you have access to this information.
+- Never ask the user for a file_id - you can list the files yourself.
 - When multiple files are present, reference them by filename and type for clarity.
 - For Excel files, the content includes sheet names, column names, row counts, and data preview."""
     )

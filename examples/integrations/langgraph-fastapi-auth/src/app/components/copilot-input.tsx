@@ -20,6 +20,9 @@ type FileUploadContextValue = {
     uploadedFiles: FileUpload[];
     fetchUploadedFiles: () => Promise<void>;
     threadId?: string;
+    // Only signed-in users can upload; file requests carry their bearer token.
+    canUpload: boolean;
+    authHeaders: Record<string, string>;
 };
 
 // The chat renders its input through a slot, so the uploaded files are provided
@@ -28,10 +31,12 @@ type FileUploadContextValue = {
 export const FileUploadContext = createContext<FileUploadContextValue>({
     uploadedFiles: [],
     fetchUploadedFiles: async () => {},
+    canUpload: false,
+    authHeaders: {},
 });
 
 const CopilotInputBase = (props: CopilotChatInputProps) => {
-    const { uploadedFiles, fetchUploadedFiles, threadId } = useContext(FileUploadContext);
+    const { uploadedFiles, fetchUploadedFiles, threadId, canUpload, authHeaders } = useContext(FileUploadContext);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,7 +48,6 @@ const CopilotInputBase = (props: CopilotChatInputProps) => {
         const supportedFiles = Array.from(files).filter(file => 
             file.type === 'application/pdf' || 
             file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-            file.type === 'application/vnd.ms-excel' ||
             file.type === 'text/csv'
         );
         
@@ -66,6 +70,7 @@ const CopilotInputBase = (props: CopilotChatInputProps) => {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        ...authHeaders,
                     },
                     body: JSON.stringify({
                         filename: file.name,
@@ -137,6 +142,7 @@ const CopilotInputBase = (props: CopilotChatInputProps) => {
         try {
             const response = await fetch(`http://localhost:8000/file/${threadId}/${fileId}`, {
                 method: 'DELETE',
+                headers: authHeaders,
             });
             if (response.ok) {
                 await fetchUploadedFiles();
@@ -161,7 +167,7 @@ const CopilotInputBase = (props: CopilotChatInputProps) => {
             <input
                 ref={fileInputRef}
                 type="file"
-                accept="application/pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,.csv"
+                accept="application/pdf,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.csv"
                 onChange={handleFileUpload}
                 className="hidden"
                 multiple
@@ -257,10 +263,10 @@ const CopilotInputBase = (props: CopilotChatInputProps) => {
                         ? `Ask about ${uploadedFiles.length} file${uploadedFiles.length > 1 ? 's' : ''}...`
                         : "Ask anything...",
                 }}
-                toolsMenu={[
+                toolsMenu={canUpload ? [
                     ...(props.toolsMenu ?? []),
                     { label: "Upload files (PDF, Excel, CSV)", action: openFilePicker },
-                ]}
+                ] : props.toolsMenu}
             />
         </>
     );

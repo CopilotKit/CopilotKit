@@ -76,8 +76,11 @@ The following scripts can also be run using your preferred package manager:
 - `dev:agent` - Starts only the LangGraph agent server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
+- `start:agent` - Starts the LangGraph agent server without auto-reload, for production
 - `lint` - Runs ESLint
 - `install:agent` - Installs Python dependencies for the agent
+
+To run in production, build the UI with `build`, then run `start` and `start:agent` side by side.
 
 ## Project Structure
 
@@ -95,6 +98,7 @@ The following scripts can also be run using your preferred package manager:
 ├── agent/                                # LangGraph Python agent
 │   ├── main.py                           # FastAPI server (AG-UI endpoint + file routes)
 │   ├── agent.py                          # Graph, auth node and tools
+│   ├── auth.py                           # Demo token decoding, shared by the agent and file routes
 │   ├── file_routes.py                    # PDF, Excel and CSV processing endpoints
 │   └── pyproject.toml                    # Agent dependencies (managed by uv)
 ├── public/                               # Static assets
@@ -107,10 +111,10 @@ The following scripts can also be run using your preferred package manager:
 
 - **Authentication:** the frontend passes the signed-in user's token to CopilotKit through the `properties` prop. CopilotKit forwards it to the agent as AG-UI `forwardedProps`, and `CustomLangGraphAGUIAgent` in `agent/agent.py` merges it into `config.configurable`. The graph's `auth_node` decodes the token and stores the user in state.
 - **Identity-gated tools:** `chat_node` binds the backend tools (`get_weather`, `list_uploaded_files`, `get_file_content`) only for authenticated users. Anonymous users get the frontend tools only.
-- **File uploads:** click **+** in the chat input to upload PDF, Excel, or CSV files. `agent/file_routes.py` extracts their content per conversation thread, and the agent reads it through its file tools.
+- **File uploads:** signed-in users can click **+** in the chat input to upload PDF, Excel (`.xlsx`), or CSV files. The file routes in `agent/file_routes.py` require the user's bearer token, store each file per conversation thread and owner, and only return the caller's own files. The agent's file tools read the thread and user from the run config, never from model-generated arguments.
 - **Frontend:** `src/app/page.tsx` uses the CopilotKit v2 hooks `useAgent` (shared proverbs state), `useFrontendTool` (`setThemeColor`, `addProverb`), and `useRenderTool` (renders `get_weather` as a weather card).
 
-The demo token is not signed. To use real auth, replace `fake-auth-provider.tsx` with your auth system (NextAuth.js, Auth0, Clerk, Supabase, etc.) and verify the token signature in `agent/agent.py`.
+The demo token is not signed. To use real auth, replace `fake-auth-provider.tsx` with your auth system (NextAuth.js, Auth0, Clerk, Supabase, etc.) and verify the token signature in `agent/auth.py`.
 
 ## 📚 Documentation
 

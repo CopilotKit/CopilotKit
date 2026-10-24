@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -48,7 +49,7 @@ add_langgraph_fastapi_endpoint(
 )
 
 def main():
-    """Run the uvicorn server."""
+    """Run the uvicorn server. Pass --no-reload to run without the dev auto-reloader."""
     if not os.getenv("OPENAI_API_KEY"):
         raise SystemExit("OPENAI_API_KEY is required. Copy .env.example to .env and set it.")
 
@@ -57,7 +58,7 @@ def main():
         "main:app", # the path to your FastAPI file
         host="0.0.0.0",
         port=port,
-        reload=True,
+        reload="--no-reload" not in sys.argv[1:],
     )
 
 if __name__ == "__main__":

@@ -32,12 +32,23 @@ function CopilotKitPageContent() {
   const [uploadedFiles, setUploadedFiles] = useState<FileUpload[]>([]);
   const authContext = useContext(AuthContext);
   const isAuthenticated = !!authContext?.user;
+  const token = authContext?.token ?? null;
   const threadId = useCopilotChatConfiguration()?.threadId;
 
+  // The agent's file routes only accept signed-in users.
+  const authHeaders = useMemo(() => {
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return headers;
+  }, [token]);
+
   const fetchUploadedFiles = useCallback(async () => {
-    if (!threadId) return;
+    if (!threadId || !token) {
+      setUploadedFiles([]);
+      return;
+    }
     try {
-      const response = await fetch(`http://localhost:8000/files/${threadId}`);
+      const response = await fetch(`http://localhost:8000/files/${threadId}`, { headers: authHeaders });
       if (response.ok) {
         const files = await response.json();
         setUploadedFiles(files);
@@ -45,16 +56,14 @@ function CopilotKitPageContent() {
     } catch (error) {
       console.error('Error fetching uploaded files:', error);
     }
-  }, [threadId]);
+  }, [threadId, token, authHeaders]);
 
   useEffect(() => {
     const fetchFiles = async () => {
-      if (threadId) {
-        await fetchUploadedFiles();
-      }
+      await fetchUploadedFiles();
     };
     fetchFiles();
-  }, [fetchUploadedFiles, threadId]);
+  }, [fetchUploadedFiles]);
 
   // 🪁 Frontend Tools: https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
   useFrontendTool({
@@ -83,8 +92,8 @@ function CopilotKitPageContent() {
   }, [isAuthenticated]);
 
   const fileUploadContext = useMemo(
-    () => ({ uploadedFiles, fetchUploadedFiles, threadId }),
-    [uploadedFiles, fetchUploadedFiles, threadId],
+    () => ({ uploadedFiles, fetchUploadedFiles, threadId, canUpload: isAuthenticated, authHeaders }),
+    [uploadedFiles, fetchUploadedFiles, threadId, isAuthenticated, authHeaders],
   );
 
   return (

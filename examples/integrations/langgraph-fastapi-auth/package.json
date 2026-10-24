@@ -9,6 +9,7 @@
     "dev:ui": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
+    "start:agent": "cd agent && uv run main.py --no-reload",
     "lint": "eslint .",
     "install:agent": "cd agent && uv sync",
     "postinstall": "npm run install:agent"
