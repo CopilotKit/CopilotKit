@@ -784,6 +784,18 @@ table,
   color: var(--ink-strong);
   white-space: pre-wrap;
 }
+.copilotKitUserMessage .question[data-view] {
+  position: relative;
+  padding-bottom: var(--s-3);
+}
+.question__view {
+  position: absolute;
+  right: var(--s-4);
+  bottom: 0;
+  display: inline-flex;
+  line-height: 1;
+  transform: translateY(50%);
+}
 
 .welcome {
   display: flex;

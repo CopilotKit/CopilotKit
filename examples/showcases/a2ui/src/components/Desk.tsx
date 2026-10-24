@@ -26,6 +26,7 @@ import { useDrawer } from "../lib/use-drawer";
 import { useStoredState } from "../lib/use-stored-state";
 import { useThreadIcons } from "../lib/use-thread-icons";
 import { useThreadInUrl } from "../lib/use-thread-in-url";
+import { useViewRequestMessages } from "../lib/use-view-request-messages";
 import { CatalogPage } from "./CatalogPage";
 import { Composer } from "./Composer";
 import { useMessageView } from "./Messages";
@@ -68,8 +69,23 @@ const ATTACHMENTS = {
  * drop anywhere in its view.
  */
 function DeskChatView(props: CopilotChatViewProps) {
+  const submitWithView = useViewRequestMessages();
   return (
-    <CopilotChatView {...props} data-drag-over={props.dragOver || undefined} />
+    <CopilotChatView
+      {...props}
+      data-drag-over={props.dragOver || undefined}
+      onSubmitMessage={
+        props.onSubmitMessage
+          ? (value) => submitWithView(() => props.onSubmitMessage!(value))
+          : undefined
+      }
+      onSelectSuggestion={
+        props.onSelectSuggestion
+          ? (suggestion, index) =>
+              submitWithView(() => props.onSelectSuggestion!(suggestion, index))
+          : undefined
+      }
+    />
   );
 }
 
