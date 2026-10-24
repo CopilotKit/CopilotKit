@@ -17,7 +17,7 @@
     "test:agent": "cd agent && uv run --group dev pytest -q"
   },
   "dependencies": {
-    "@ag-ui/client": "1.0.2",
+    "@ag-ui/client": "1.0.3",
     "@clerk/tanstack-react-start": "1.7.6",
     "@composio/core": "0.27.0",
     "@copilotkit/react-core": "workspace:*",

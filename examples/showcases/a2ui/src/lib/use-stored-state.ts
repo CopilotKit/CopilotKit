@@ -23,7 +23,12 @@ export function useStoredState<T>(
   }, [key, accept]);
   const update = (next: T) => {
     setValue(next);
-    window.localStorage.setItem(key, JSON.stringify(next));
+    try {
+      window.localStorage.setItem(key, JSON.stringify(next));
+    } catch {
+      // Blocked or full storage must not interrupt the current choice or the
+      // caller's next action, such as starting a question in the new format.
+    }
   };
   return [value, update] as const;
 }
