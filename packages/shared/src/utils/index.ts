@@ -27,16 +27,16 @@ export function parseJson(json: string, fallback: any = "unset") {
   }
 }
 
-/**
- * Parses a partial/incomplete JSON string, returning as much valid data as possible.
- * Falls back to an empty object if parsing fails entirely.
- */
 // Allow partial values of every type except unterminated numbers. A cut-off
 // number is a *different* number (`{"max":1` is about to become 100, not 1),
 // while a cut-off string is still the beginning of the final string. Numbers
 // therefore only appear once terminated by `,`, `}` or `]`.
 const PARTIAL_JSON_ALLOW = PartialJSON.Allow.ALL & ~PartialJSON.Allow.NUM;
 
+/**
+ * Parses a partial/incomplete JSON string, returning as much valid data as possible.
+ * Falls back to an empty object if parsing fails entirely.
+ */
 export function partialJSONParse(json: string) {
   try {
     const parsed = PartialJSON.parse(json, PARTIAL_JSON_ALLOW);
