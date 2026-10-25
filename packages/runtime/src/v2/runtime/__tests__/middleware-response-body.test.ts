@@ -52,7 +52,7 @@ function createRunner(): AgentRunner {
 }
 
 describe("afterRequestMiddleware response body", () => {
-  it("preserves raw SSE bytes and fetched response metadata", async () => {
+  it("preserves raw SSE bytes and metadata returned by an onResponse hook", async () => {
     // A text round trip would discard the BOM and replace the invalid UTF-8
     // byte in this SSE comment, changing the body available to the callback.
     const url = "data:text/event-stream,%EF%BB%BF%3A%20%FF%0A%0A";
@@ -60,15 +60,24 @@ describe("afterRequestMiddleware response body", () => {
     const expectedBytes = new Uint8Array([
       0xef, 0xbb, 0xbf, 0x3a, 0x20, 0xff, 0x0a, 0x0a,
     ]);
-    const after = vi.fn();
+    let observe!: (parameters: AfterRequestMiddlewareParameters) => void;
+    const observation = new Promise<AfterRequestMiddlewareParameters>(
+      (resolve) => {
+        observe = resolve;
+      },
+    );
     const runtime = new CopilotRuntime({
       agents: { default: new TestAgent() },
-      afterRequestMiddleware: after,
+      afterRequestMiddleware: observe,
+    });
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/",
+      hooks: { onResponse: () => response },
     });
 
-    await callAfterRequestMiddleware({ runtime, response, path: "/info" });
-
-    const observed = after.mock.calls[0][0] as AfterRequestMiddlewareParameters;
+    const clientResponse = await handler(new Request("http://localhost/info"));
+    const observed = await observation;
     expect(observed.messages).toEqual([]);
     expect(observed.response.bodyUsed).toBe(false);
     expect(observed.response.url).toBe(url);
@@ -77,9 +86,12 @@ describe("afterRequestMiddleware response body", () => {
     expect(observed.response.status).toBe(response.status);
     expect(observed.response.statusText).toBe(response.statusText);
     expect([...observed.response.headers]).toEqual([...response.headers]);
-    expect(new Uint8Array(await observed.response.arrayBuffer())).toEqual(
-      expectedBytes,
-    );
+    const [clientBytes, middlewareBytes] = await Promise.all([
+      clientResponse.arrayBuffer(),
+      observed.response.arrayBuffer(),
+    ]);
+    expect(new Uint8Array(clientBytes)).toEqual(expectedBytes);
+    expect(new Uint8Array(middlewareBytes)).toEqual(expectedBytes);
   });
 
   it("still invokes middleware when reading the SSE stream fails", async () => {

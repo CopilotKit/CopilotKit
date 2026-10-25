@@ -1,6 +1,7 @@
 import { logger } from "@copilotkit/shared";
 
 export interface ParsedSSEResult {
+  response: Response;
   messages: Message[];
   threadId?: string;
   runId?: string;
@@ -22,28 +23,28 @@ interface ToolCall {
 }
 
 /**
- * Parse a cloned SSE Response body into structured messages.
- * Returns empty results for non-SSE responses.
+ * Consume an SSE response incrementally and retain a readable response for middleware.
+ * Non-SSE responses are returned without consuming their bodies.
  */
 export async function parseSSEResponse(
   response: Response,
 ): Promise<ParsedSSEResult> {
   const contentType = response.headers.get("content-type") ?? "";
-  if (!contentType.includes("text/event-stream")) {
-    return { messages: [] };
+  if (!contentType.includes("text/event-stream") || !response.body) {
+    return { response, messages: [] };
   }
 
-  let text: string;
-  try {
-    text = await response.text();
-  } catch {
-    logger.warn("Failed to read SSE response body in afterRequestMiddleware");
-    return { messages: [] };
-  }
-
-  if (!text.trim()) {
-    return { messages: [] };
-  }
+  // onResponse hooks can supply fetched responses. Preserve their native
+  // metadata, which ResponseInit cannot reproduce, without buffering decoded text.
+  const preserveMetadata =
+    response.url !== "" || response.type !== "default" || response.redirected;
+  const parserResponse = preserveMetadata ? response.clone() : response;
+  const responseInit = {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  };
+  const chunks: BlobPart[] = [];
 
   let threadId: string | undefined;
   let runId: string | undefined;
@@ -70,15 +71,15 @@ export async function parseSSEResponse(
     toolCallParent.set(toolCallId, parentId);
   };
 
-  for (const line of text.split("\n")) {
+  const processLine = (line: string) => {
     const trimmed = line.trim();
-    if (!trimmed.startsWith("data:")) continue;
+    if (!trimmed.startsWith("data:")) return;
 
     let event: Record<string, any>;
     try {
       event = JSON.parse(trimmed.slice(5).trim());
     } catch {
-      continue;
+      return;
     }
 
     switch (event.type) {
@@ -200,7 +201,55 @@ export async function parseSSEResponse(
         break;
       }
     }
+  };
+
+  const decoder = new TextDecoder();
+  let pendingLine = "";
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  try {
+    reader = parserResponse.body!.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!preserveMetadata) {
+        // Copy the view, not its backing buffer, in case the producer reuses it.
+        chunks.push(new Uint8Array(value));
+      }
+      pendingLine += decoder.decode(value, { stream: true });
+      let start = 0;
+      let end: number;
+      while ((end = pendingLine.indexOf("\n", start)) !== -1) {
+        processLine(pendingLine.slice(start, end));
+        start = end + 1;
+      }
+      pendingLine = pendingLine.slice(start);
+    }
+    processLine(pendingLine + decoder.decode());
+    pendingLine = "";
+  } catch (error) {
+    logger.warn("Failed to read SSE response body in afterRequestMiddleware");
+    chunks.length = 0;
+    return {
+      response: preserveMetadata
+        ? response
+        : new Response(
+            new ReadableStream({
+              start(controller) {
+                controller.error(error);
+              },
+            }),
+            responseInit,
+          ),
+      messages: [],
+    };
+  } finally {
+    reader?.releaseLock();
   }
+
+  const middlewareResponse = preserveMetadata
+    ? response
+    : new Response(new Blob(chunks), responseInit);
+  chunks.length = 0;
 
   // Attach any tool calls not yet linked to their parent message.
   // This handles TOOL_CALL_CHUNK flows which don't emit TOOL_CALL_END.
@@ -220,5 +269,5 @@ export async function parseSSEResponse(
   // Otherwise reconstruct from individual events.
   const messages = snapshotMessages ?? [...messagesById.values()];
 
-  return { messages, threadId, runId };
+  return { response: middlewareResponse, messages, threadId, runId };
 }
