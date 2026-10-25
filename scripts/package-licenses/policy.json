@@ -54,12 +54,6 @@
     "notice": "LICENSE"
   },
   {
-    "directory": "packages/channels-telegram",
-    "names": ["@copilotkit/channels-telegram"],
-    "license": "MIT",
-    "notice": "LICENSE"
-  },
-  {
     "directory": "packages/channels-ui",
     "names": ["@copilotkit/channels-ui"],
     "license": "MIT",

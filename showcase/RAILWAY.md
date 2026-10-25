@@ -170,8 +170,10 @@ flipping the SSOT gate.
    a secret value in the SSOT or in a commit. If the agent routes 100% to
    aimock (the `serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }]`
    case), `OPENAI_BASE_URL` points at the **prod** aimock origin and the
-   `OPENAI_API_KEY` is the non-secret `sk-aim…` aimock placeholder — so no real
-   prod secret is sourced. The `OPENAI_BASE_URL` service-ref is asserted
+   `OPENAI_API_KEY` (and any `ANTHROPIC_API_KEY` / `GOOGLE_API_KEY`) is the
+   reference `${{aimock.AIMOCK_CLIENT_KEY}}`, the aimock inbound credential
+   (see `showcase/aimock/RAILWAY.md` section 6). No provider secret is sourced,
+   but a fixed placeholder no longer works: aimock rejects it with a 401. The `OPENAI_BASE_URL` service-ref is asserted
    prod→prod by the promote preflight (never copied across envs).
 
 5. **Verify GREEN.** After the prod instance is up:

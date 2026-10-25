@@ -17,7 +17,7 @@
       "title": "AG-UI Streams",
       "defaultOpen": true,
       "pages": [
-        "threads",
+        "AG-UI-Streams",
         "headless-threads",
         "threads-lifecycle",
         "threads-import"

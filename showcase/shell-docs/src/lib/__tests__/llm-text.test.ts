@@ -9,6 +9,28 @@ import {
   rewriteScopedDocsLinks,
 } from "../llm-text";
 
+test("publishes the canonical AG-UI Streams URL in the LLM page index", () => {
+  const urls = new Set(getAllLlmPages().map(({ url }) => url));
+  expect(urls.has("AG-UI-Streams")).toBe(true);
+  expect(urls.has("threads")).toBe(false);
+});
+
+test("omits early-access guides from the public aggregate without removing public Learning docs", () => {
+  const urls = new Set(getAllLlmPages().map(({ url }) => url));
+  for (const slug of [
+    "trajectories",
+    "trajectories-quickstart",
+    "capture-interactions",
+    "captured-data",
+    "trajectories-reference",
+  ]) {
+    expect(urls.has(`intelligence/${slug}`)).toBe(false);
+  }
+  expect(urls.has("learning")).toBe(true);
+  expect(urls.has("intelligence/memories")).toBe(true);
+  expect(urls.has("intelligence/learned-skills")).toBe(true);
+});
+
 test("Hashbrown guide exports each bundled framework's complete source", () => {
   const doc = loadDoc("generative-ui/hashbrown");
   expect(doc).not.toBeNull();
@@ -137,7 +159,7 @@ test("expands Intelligence capability cards into readable Markdown links", () =>
   const output = renderPageToLlmText(page!);
 
   for (const href of [
-    "/threads",
+    "/AG-UI-Streams",
     "/intelligence/memories",
     "/learning",
     "/intelligence/analytics",

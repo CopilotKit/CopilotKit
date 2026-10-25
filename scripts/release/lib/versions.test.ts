@@ -10,8 +10,10 @@ import {
   bumpPackages,
   findCrossScopePins,
   getPackagesForScope,
+  orderByDependencies,
   pinPrereleaseDependencies,
 } from "./versions.js";
+import type { PublishablePackage } from "./versions.js";
 
 let tmpDir: string;
 
@@ -260,6 +262,14 @@ describe("bumpPackages", () => {
     ]);
   });
 
+  it("publishes in-scope dependencies before the packages that pin them", () => {
+    expect(
+      orderByDependencies(getPackagesForScope("monorepo")).map(
+        (pkg) => pkg.name,
+      ),
+    ).toEqual(["@copilotkit/shared", "@copilotkit/react-core"]);
+  });
+
   it("exact-pins only packages included in the canary publish set", () => {
     const packages = getPackagesForScope("monorepo");
     packages[0].pkg.version = "1.55.3-canary.123";
@@ -277,6 +287,45 @@ describe("bumpPackages", () => {
     expect(reactCore.dependencies["@copilotkit/shared"]).toBe(
       "1.55.3-canary.123",
     );
+  });
+});
+
+describe("orderByDependencies", () => {
+  const pkg = (name: string, dependencies: Record<string, string> = {}) =>
+    ({
+      name,
+      dir: `/mock/${name}`,
+      pkgJsonPath: `/mock/${name}/package.json`,
+      pkg: { name, dependencies },
+    }) as PublishablePackage;
+  const names = (packages: PublishablePackage[]) =>
+    orderByDependencies(packages).map((p) => p.name);
+
+  it("keeps the configured order when nothing in the list depends on later entries", () => {
+    expect(
+      names([
+        pkg("a"),
+        pkg("b", { a: "workspace:*" }),
+        pkg("c", { react: "^19" }),
+      ]),
+    ).toEqual(["a", "b", "c"]);
+  });
+
+  it("moves transitive dependencies ahead of their dependents", () => {
+    expect(
+      names([
+        pkg("core", { learning: "workspace:*", shared: "workspace:*" }),
+        pkg("learning"),
+        pkg("react", { core: "workspace:*" }),
+        pkg("shared"),
+      ]),
+    ).toEqual(["learning", "shared", "core", "react"]);
+  });
+
+  it("returns every package once when dependencies form a cycle", () => {
+    expect(
+      names([pkg("a", { b: "workspace:*" }), pkg("b", { a: "workspace:*" })]),
+    ).toEqual(["b", "a"]);
   });
 });
 

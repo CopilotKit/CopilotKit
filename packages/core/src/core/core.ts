@@ -1050,6 +1050,16 @@ export class CopilotKitCore {
     return this.learningBridge.isConfigured;
   }
 
+  /**
+   * @internal Whether captured events may carry agent message text: false
+   * without a `learning` config, or when a custom sink sets
+   * `capture.agentText` to false. A running custom-sink capture keeps the
+   * choice it started with.
+   */
+  get ɵlearningCapturesAgentText(): boolean {
+    return this.learningBridge.capturesAgentText;
+  }
+
   /** @internal Calls `listener` when {@link ɵlearningConfigured} changes. */
   ɵsubscribeToLearningConfigured(listener: () => void): () => void {
     this.learningConfiguredListeners.add(listener);

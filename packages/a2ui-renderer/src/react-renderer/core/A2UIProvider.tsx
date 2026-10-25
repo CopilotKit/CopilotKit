@@ -73,7 +73,7 @@ export function A2UIProvider({
               timestamp: action?.timestamp ?? new Date().toISOString(),
             },
           };
-          onActionRef.current(message);
+          return onActionRef.current(message);
         }
       },
     );
@@ -102,11 +102,7 @@ export function A2UIProvider({
         setVersion((v) => v + 1);
       },
 
-      dispatch: (message: any) => {
-        if (onActionRef.current) {
-          onActionRef.current(message);
-        }
-      },
+      dispatch: (message: any) => onActionRef.current?.(message),
 
       getSurface: (surfaceId: string) => {
         return processor.model.getSurface(surfaceId);
