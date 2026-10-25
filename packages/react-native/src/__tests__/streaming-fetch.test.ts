@@ -531,6 +531,7 @@ describe("installStreamingFetch", () => {
 
     it("removes abort listener after terminal XHR event (onload)", async () => {
       const controller = new AbortController();
+      const addSpy = vi.spyOn(controller.signal, "addEventListener");
       const removeSpy = vi.spyOn(controller.signal, "removeEventListener");
 
       const { fetchPromise, xhr } = await fetchAndCapture("https://api.test", {
@@ -542,7 +543,10 @@ describe("installStreamingFetch", () => {
       xhr.responseText = "done";
       await simulateLoad(xhr);
 
-      expect(removeSpy).toHaveBeenCalledWith("abort", expect.any(Function));
+      const abortAddCall = addSpy.mock.calls.find(([type]) => type === "abort");
+      expect(abortAddCall).toBeDefined();
+      const registeredCallback = abortAddCall![1];
+      expect(removeSpy).toHaveBeenCalledWith("abort", registeredCallback);
     });
   });
 
