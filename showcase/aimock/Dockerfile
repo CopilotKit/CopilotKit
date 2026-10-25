@@ -1,5 +1,5 @@
-# Keep the inherited app fixed; the executable is the accepted Node security version.
-FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS node-runtime
+# Keep the inherited Alpine app fixed; use its musl-compatible Node executable.
+FROM node:22.23.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS node-runtime
 FROM ghcr.io/copilotkit/aimock@sha256:fcc5010317ade699c96474f80f938722950f3877fb2b58848fca33111ac57b44
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 

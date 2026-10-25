@@ -44,10 +44,15 @@ test.each(recipes)("%s cannot silently rebuild with an older Node", (path) => {
   expect(finalStage).toContain('test "$(node --version)" = "v22.23.4"');
 });
 
-test("aimock has an immutable upstream and replaces its inherited Node", () => {
+test("aimock replaces its inherited Node with an Alpine-compatible executable", () => {
   const dockerfile = read("showcase/aimock/Dockerfile");
   expect(dockerfile).toMatch(
     /^FROM ghcr\.io\/copilotkit\/aimock@sha256:[a-f0-9]{64}$/m,
+  );
+  // The pinned upstream is Alpine/musl: a Debian/glibc executable cannot run
+  // in its filesystem, even when the Node version matches.
+  expect(dockerfile).toMatch(
+    /^FROM node:22\.23\.4-alpine@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914 AS node-runtime$/m,
   );
   expect(dockerfile).toMatch(/COPY --from=node-runtime .*\/node .*\/node/);
 });
