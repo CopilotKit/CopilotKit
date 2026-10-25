@@ -22,7 +22,10 @@ import type {
   DocumentInputPart,
 } from "@copilotkit/shared";
 import { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
+import type { CopilotChatMentionMetadata } from "./mentions";
+import { getMentionMetadata, isMentionPart } from "./mentions";
 
+/** Flattens ordinary text parts while excluding metadata-tagged mentions. */
 function flattenUserMessageContent(content?: UserMessage["content"]): string {
   if (!content) {
     return "";
@@ -39,7 +42,8 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
         typeof part === "object" &&
         "type" in part &&
         (part as { type?: unknown }).type === "text" &&
-        typeof (part as { text?: unknown }).text === "string"
+        typeof (part as { text?: unknown }).text === "string" &&
+        !isMentionPart(part)
       ) {
         return (part as { text: string }).text;
       }
@@ -47,6 +51,16 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
     })
     .filter((text) => text.length > 0)
     .join("\n");
+}
+
+/** Extracts validated mention metadata from multipart user-message content. */
+function getMentions(
+  content?: UserMessage["content"],
+): CopilotChatMentionMetadata[] {
+  if (!content || typeof content === "string") return [];
+  return content
+    .map((part) => getMentionMetadata(part))
+    .filter((mention): mention is CopilotChatMentionMetadata => !!mention);
 }
 
 type MediaPart =
@@ -109,6 +123,7 @@ export type CopilotChatUserMessageProps = WithSlots<
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
+/** Renders a persisted user message, including mention and attachment parts. */
 export function CopilotChatUserMessage({
   message,
   onEditMessage,
@@ -135,11 +150,17 @@ export function CopilotChatUserMessage({
     [message.content],
   );
 
+  const mentions = useMemo(
+    () => getMentions(message.content),
+    [message.content],
+  );
+
   const BoundMessageRenderer = renderSlot(
     messageRenderer,
     CopilotChatUserMessage.MessageRenderer,
     {
       content: flattenedContent,
+      mentions,
     },
   );
 
@@ -148,8 +169,14 @@ export function CopilotChatUserMessage({
     CopilotChatUserMessage.CopyButton,
     {
       onClick: async () => {
-        if (flattenedContent) {
-          return await copyToClipboard(flattenedContent);
+        const visibleContent = [
+          flattenedContent,
+          ...mentions.map((mention) => `@${mention.label}`),
+        ]
+          .filter(Boolean)
+          .join("\n");
+        if (visibleContent) {
+          return await copyToClipboard(visibleContent);
         }
         return false;
       },
@@ -254,15 +281,35 @@ export namespace CopilotChatUserMessage {
 
   export const MessageRenderer: React.FC<{
     content: string;
+    mentions?: CopilotChatMentionMetadata[];
     className?: string;
-  }> = ({ content, className }) => (
+  }> = ({ content, mentions = [], className }) => (
     <div
       className={twMerge(
         "cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:relative cpk:max-w-[80%] cpk:rounded-[18px] cpk:px-4 cpk:py-1.5 cpk:data-[multiline]:py-3 cpk:inline-block cpk:whitespace-pre-wrap",
         className,
       )}
     >
-      {content}
+      {content && <span>{content}</span>}
+      {mentions.length > 0 && (
+        <span
+          className={twMerge(
+            "cpk:flex cpk:flex-wrap cpk:gap-1",
+            content ? "cpk:mt-2" : undefined,
+          )}
+        >
+          {mentions.map((mention) => (
+            <span
+              key={mention.id}
+              data-testid="copilot-user-mention"
+              data-mention-id={mention.id}
+              className="cpk:inline-flex cpk:items-center cpk:rounded-full cpk:bg-primary/10 cpk:px-2 cpk:py-1 cpk:text-xs cpk:font-medium cpk:text-primary"
+            >
+              @{mention.label}
+            </span>
+          ))}
+        </span>
+      )}
     </div>
   );
 

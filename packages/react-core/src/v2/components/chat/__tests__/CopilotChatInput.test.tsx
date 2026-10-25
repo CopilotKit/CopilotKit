@@ -425,6 +425,87 @@ describe("CopilotChatInput", () => {
     expect((textarea as HTMLTextAreaElement).value).toBe("");
   });
 
+  it("uses the shared trigger menu for slash commands and mentions", async () => {
+    const handleCommand = vi.fn();
+    const handleMention = vi.fn();
+    const { rerender } = renderWithProvider(
+      <CopilotChatInput
+        onSubmitMessage={mockOnSubmitMessage}
+        toolsMenu={[{ label: "Open docs", action: handleCommand }]}
+        mentionItems={[
+          { id: "docs", label: "Documentation", value: "docs content" },
+        ]}
+        onSelectMention={handleMention}
+      />,
+    );
+
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "/op" } });
+    expect(await screen.findByTestId("copilot-slash-menu")).toBeDefined();
+
+    fireEvent.change(textarea, {
+      target: { value: "Ask @doc", selectionStart: 8 },
+    });
+    await screen.findByTestId("copilot-mention-menu");
+    expect(screen.queryByTestId("copilot-slash-menu")).toBeNull();
+    fireEvent.keyDown(textarea, { key: "Enter", code: "Enter" });
+
+    expect(handleCommand).not.toHaveBeenCalled();
+    expect(handleMention).toHaveBeenCalledWith({
+      id: "docs",
+      label: "Documentation",
+      value: "docs content",
+    });
+
+    rerender(
+      <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>
+        <CopilotChatInput
+          onSubmitMessage={mockOnSubmitMessage}
+          toolsMenu={[{ label: "Open docs", action: handleCommand }]}
+          mentionItems={[
+            { id: "docs", label: "Documentation", value: "docs content" },
+          ]}
+          selectedMentions={[
+            { id: "docs", label: "Documentation", value: "docs content" },
+          ]}
+          onSelectMention={handleMention}
+        />
+      </CopilotChatConfigurationProvider>,
+    );
+    expect(screen.getByText("@Documentation")).toBeDefined();
+  });
+
+  it("updates the active mention when the caret moves", async () => {
+    const handleMention = vi.fn();
+    renderWithProvider(
+      <CopilotChatInput
+        onSubmitMessage={mockOnSubmitMessage}
+        mentionItems={[
+          { id: "docs", label: "Documentation", value: "docs content" },
+        ]}
+        onSelectMention={handleMention}
+      />,
+    );
+
+    const textarea = screen.getByRole("textbox");
+    fireEvent.change(textarea, {
+      target: { value: "@doc and @doc", selectionStart: 4 },
+    });
+    await screen.findByTestId("copilot-mention-menu");
+
+    fireEvent.select(textarea, {
+      target: { selectionStart: 13, selectionEnd: 13 },
+    });
+    fireEvent.keyDown(textarea, { key: "Enter", code: "Enter" });
+
+    expect(handleMention).toHaveBeenCalledWith({
+      id: "docs",
+      label: "Documentation",
+      value: "docs content",
+    });
+    expect((textarea as HTMLTextAreaElement).value).toBe("@doc and ");
+  });
+
   it("prioritizes prefix matches when filtering slash commands", async () => {
     renderWithProvider(
       <CopilotChatInput

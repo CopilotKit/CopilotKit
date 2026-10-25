@@ -40,6 +40,7 @@ import { ScrollPinnedContext } from "./scroll-pinned-context";
 import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type { AutoScrollMode } from "./normalize-auto-scroll";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
+import type { CopilotChatMentionItem } from "./mentions";
 
 // Vertical gap between the scroll-to-bottom button and the input container.
 const SCROLL_BUTTON_OFFSET = 16;
@@ -80,6 +81,10 @@ export type CopilotChatViewProps = WithSlots<
     onCancelTranscribe?: () => void;
     onFinishTranscribe?: () => void;
     onFinishTranscribeWithAudio?: (audioBlob: Blob) => Promise<void>;
+    mentionItems?: CopilotChatMentionItem[];
+    selectedMentions?: CopilotChatMentionItem[];
+    onSelectMention?: (item: CopilotChatMentionItem) => void;
+    onRemoveMention?: (id: string) => void;
     // Attachment props
     attachments?: Attachment[];
     onRemoveAttachment?: (id: string) => void;
@@ -137,6 +142,7 @@ function DropOverlay() {
   );
 }
 
+/** Renders the configured chat view, including the default or custom input. */
 export function CopilotChatView({
   messageView,
   input,
@@ -159,6 +165,10 @@ export function CopilotChatView({
   onCancelTranscribe,
   onFinishTranscribe,
   onFinishTranscribeWithAudio,
+  mentionItems,
+  selectedMentions,
+  onSelectMention,
+  onRemoveMention,
   // Attachment props
   attachments,
   onRemoveAttachment,
@@ -278,6 +288,10 @@ export function CopilotChatView({
     onCancelTranscribe,
     onFinishTranscribe,
     onFinishTranscribeWithAudio,
+    mentionItems,
+    selectedMentions,
+    onSelectMention,
+    onRemoveMention,
     onAddFile,
     positioning: "static",
     keyboardHeight: isKeyboardOpen ? keyboardHeight : 0,
@@ -357,6 +371,10 @@ export function CopilotChatView({
       onCancelTranscribe,
       onFinishTranscribe,
       onFinishTranscribeWithAudio,
+      mentionItems,
+      selectedMentions,
+      onSelectMention,
+      onRemoveMention,
       onAddFile,
       positioning: "static",
       showDisclaimer: true,

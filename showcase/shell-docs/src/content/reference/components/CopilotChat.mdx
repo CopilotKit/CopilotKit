@@ -37,6 +37,33 @@ import "@copilotkit/react-core/v2/styles.css";
   back to the built-in default.
 </PropertyReference>
 
+<PropertyReference name="mentionItems" type="CopilotChatMentionItem[]">
+  Enables the default input's `@` picker with application-provided items. Each
+  item has a stable `id`, a short display `label`, and a string `value` for the
+  agent. Selecting an item adds it to the current message; selected mentions
+  are stored as AG-UI text parts and displayed as chips in the user-message
+  bubble. Omit this prop to keep the existing input behavior unchanged.
+
+```tsx
+<CopilotChat
+  mentionItems={[
+    {
+      id: "current-document",
+      label: "Current document",
+      value: JSON.stringify({ title: "Quarterly plan", body: "..." }),
+    },
+  ]}
+/>
+```
+
+The persisted text part includes a readable `Mention: <label>` line before
+the value so agents can identify the selected resource even when an adapter
+does not forward text-part metadata. Its `metadata.copilotkit` object carries
+`{ type: "mention", id, label }` for UI and custom-renderer use. The default
+renderer shows only the label chip, never the raw value.
+
+</PropertyReference>
+
 <PropertyReference name="chatView" type="SlotValue<typeof CopilotChatView>">
   Slot override for the inner `CopilotChatView` component. Accepts a replacement
   component, a `className` string merged into the default, or a partial props

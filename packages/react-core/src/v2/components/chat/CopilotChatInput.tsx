@@ -38,6 +38,7 @@ import { CopilotChatAudioRecorder } from "./CopilotChatAudioRecorder";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import { cn } from "../../lib/utils";
+import type { CopilotChatMentionItem } from "./mentions";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";
 
@@ -77,6 +78,10 @@ type CopilotChatInputRestProps = {
   onFinishTranscribe?: () => void;
   onFinishTranscribeWithAudio?: (audioBlob: Blob) => Promise<void>;
   onAddFile?: () => void;
+  mentionItems?: CopilotChatMentionItem[];
+  selectedMentions?: CopilotChatMentionItem[];
+  onSelectMention?: (item: CopilotChatMentionItem) => void;
+  onRemoveMention?: (id: string) => void;
   value?: string;
   onChange?: (value: string) => void;
   /** Positioning mode for the input container. Default: 'static' */
@@ -122,8 +127,18 @@ export type CopilotChatInputProps = Omit<
   children?: (props: CopilotChatInputChildrenArgs) => React.ReactNode;
 };
 
-const SLASH_MENU_MAX_VISIBLE_ITEMS = 5;
-const SLASH_MENU_ITEM_HEIGHT_PX = 40;
+const TRIGGER_MENU_MAX_VISIBLE_ITEMS = 5;
+const TRIGGER_MENU_ITEM_HEIGHT_PX = 40;
+
+type TriggerMenuState =
+  | { trigger: "/"; query: string }
+  | { trigger: "@"; query: string; start: number; end: number };
+
+type TriggerMenuItem = {
+  key: string;
+  label: string;
+  select: () => void;
+};
 
 /**
  * The chat composer: a text area with the add-menu, voice and send/stop
@@ -140,6 +155,10 @@ export function CopilotChatInput({
   onFinishTranscribe,
   onFinishTranscribeWithAudio,
   onAddFile,
+  mentionItems,
+  selectedMentions = [],
+  onSelectMention,
+  onRemoveMention,
   onChange,
   value,
   toolsMenu,
@@ -176,8 +195,8 @@ export function CopilotChatInput({
   const ignoreResizeRef = useRef(false);
   const resizeEvaluationRafRef = useRef<number | null>(null);
   const isExpanded = mode === "input" && layout === "expanded";
-  const [commandQuery, setCommandQuery] = useState<string | null>(null);
-  const [slashHighlightIndex, setSlashHighlightIndex] = useState(0);
+  const [triggerMenu, setTriggerMenu] = useState<TriggerMenuState | null>(null);
+  const [triggerHighlightIndex, setTriggerHighlightIndex] = useState(0);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -185,7 +204,7 @@ export function CopilotChatInput({
   const actionsContainerRef = useRef<HTMLDivElement>(null);
   const audioRecorderRef =
     useRef<React.ElementRef<typeof CopilotChatAudioRecorder>>(null);
-  const slashMenuRef = useRef<HTMLDivElement>(null);
+  const triggerMenuRef = useRef<HTMLDivElement>(null);
   const config = useCopilotChatConfiguration();
   const labels = config?.labels ?? CopilotChatDefaultLabels;
 
@@ -242,23 +261,33 @@ export function CopilotChatInput({
     return entries;
   }, [labels.chatInputToolbarAddButtonLabel, onAddFile, toolsMenu]);
 
-  const filteredCommands = useMemo(() => {
-    if (commandQuery === null) {
-      return [] as ToolsMenuItem[];
-    }
+  const availableMentionItems = useMemo(() => {
+    const selectedIds = new Set(selectedMentions.map((item) => item.id));
+    return (mentionItems ?? []).filter((item) => !selectedIds.has(item.id));
+  }, [mentionItems, selectedMentions]);
 
-    if (commandItems.length === 0) {
-      return [] as ToolsMenuItem[];
-    }
+  const filteredTriggerItems = useMemo(() => {
+    if (!triggerMenu) return [] as TriggerMenuItem[];
 
-    const query = commandQuery.trim().toLowerCase();
-    if (query.length === 0) {
-      return commandItems;
-    }
+    const source: TriggerMenuItem[] =
+      triggerMenu.trigger === "/"
+        ? commandItems.map((item) => ({
+            key: item.label,
+            label: item.label,
+            select: () => item.action?.(),
+          }))
+        : availableMentionItems.map((item) => ({
+            key: item.id,
+            label: item.label,
+            select: () => onSelectMention?.(item),
+          }));
 
-    const startsWith: ToolsMenuItem[] = [];
-    const contains: ToolsMenuItem[] = [];
-    for (const item of commandItems) {
+    const query = triggerMenu.query.trim().toLowerCase();
+    if (query.length === 0) return source;
+
+    const startsWith: TriggerMenuItem[] = [];
+    const contains: TriggerMenuItem[] = [];
+    for (const item of source) {
       const label = item.label.toLowerCase();
       if (label.startsWith(query)) {
         startsWith.push(item);
@@ -268,7 +297,7 @@ export function CopilotChatInput({
     }
 
     return [...startsWith, ...contains];
-  }, [commandItems, commandQuery]);
+  }, [availableMentionItems, commandItems, onSelectMention, triggerMenu]);
 
   useEffect(() => {
     if (!autoFocus) {
@@ -283,41 +312,38 @@ export function CopilotChatInput({
     previousModalStateRef.current = config?.isModalOpen;
   }, [config?.isModalOpen, autoFocus]);
 
-  useEffect(() => {
-    if (commandItems.length === 0 && commandQuery !== null) {
-      setCommandQuery(null);
-    }
-  }, [commandItems.length, commandQuery]);
-
-  const previousCommandQueryRef = useRef<string | null>(null);
+  const previousTriggerQueryRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const triggerQuery = triggerMenu
+      ? `${triggerMenu.trigger}${triggerMenu.query}`
+      : null;
     if (
-      commandQuery !== null &&
-      commandQuery !== previousCommandQueryRef.current &&
-      filteredCommands.length > 0
+      triggerQuery !== null &&
+      triggerQuery !== previousTriggerQueryRef.current &&
+      filteredTriggerItems.length > 0
     ) {
-      setSlashHighlightIndex(0);
+      setTriggerHighlightIndex(0);
     }
 
-    previousCommandQueryRef.current = commandQuery;
-  }, [commandQuery, filteredCommands.length]);
+    previousTriggerQueryRef.current = triggerQuery;
+  }, [filteredTriggerItems.length, triggerMenu]);
 
   useEffect(() => {
-    if (commandQuery === null) {
-      setSlashHighlightIndex(0);
+    if (triggerMenu === null) {
+      setTriggerHighlightIndex(0);
       return;
     }
 
-    if (filteredCommands.length === 0) {
-      setSlashHighlightIndex(-1);
+    if (filteredTriggerItems.length === 0) {
+      setTriggerHighlightIndex(-1);
     } else if (
-      slashHighlightIndex < 0 ||
-      slashHighlightIndex >= filteredCommands.length
+      triggerHighlightIndex < 0 ||
+      triggerHighlightIndex >= filteredTriggerItems.length
     ) {
-      setSlashHighlightIndex(0);
+      setTriggerHighlightIndex(0);
     }
-  }, [commandQuery, filteredCommands, slashHighlightIndex]);
+  }, [filteredTriggerItems, triggerHighlightIndex, triggerMenu]);
 
   // Handle recording based on mode changes
   useEffect(() => {
@@ -340,31 +366,47 @@ export function CopilotChatInput({
   useEffect(() => {
     if (mode !== "input") {
       setLayout("compact");
-      setCommandQuery(null);
+      setTriggerMenu(null);
     }
   }, [mode]);
 
-  const updateSlashState = useCallback(
-    (value: string) => {
-      if (commandItems.length === 0) {
-        setCommandQuery((prev) => (prev === null ? prev : null));
+  const updateTriggerMenu = useCallback(
+    (inputValue: string, selectionStart = inputValue.length) => {
+      if (commandItems.length > 0 && inputValue.startsWith("/")) {
+        const firstLine = inputValue.split(/\r?\n/, 1)[0] ?? "";
+        const query = firstLine.slice(1);
+        setTriggerMenu({ trigger: "/", query });
         return;
       }
 
-      if (value.startsWith("/")) {
-        const firstLine = value.split(/\r?\n/, 1)[0] ?? "";
-        const query = firstLine.slice(1);
-        setCommandQuery((prev) => (prev === query ? prev : query));
-      } else {
-        setCommandQuery((prev) => (prev === null ? prev : null));
+      if ((mentionItems?.length ?? 0) > 0) {
+        const beforeCursor = inputValue.slice(0, selectionStart);
+        const match = beforeCursor.match(/(^|\s)@([^\s@]*)$/);
+        if (match?.index !== undefined) {
+          const boundary = match[1] ?? "";
+          const query = match[2] ?? "";
+          const start = match.index + boundary.length;
+          setTriggerMenu({
+            trigger: "@",
+            query,
+            start,
+            end: selectionStart,
+          });
+          return;
+        }
       }
+
+      setTriggerMenu(null);
     },
-    [commandItems.length],
+    [commandItems.length, mentionItems?.length],
   );
 
   useEffect(() => {
-    updateSlashState(resolvedValue);
-  }, [resolvedValue, updateSlashState]);
+    updateTriggerMenu(
+      resolvedValue,
+      inputRef.current?.selectionStart ?? resolvedValue.length,
+    );
+  }, [resolvedValue, updateTriggerMenu]);
 
   // Handlers
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -373,7 +415,7 @@ export function CopilotChatInput({
       setInternalValue(nextValue);
     }
     onChange?.(nextValue);
-    updateSlashState(nextValue);
+    updateTriggerMenu(nextValue, e.target.selectionStart);
   };
 
   const clearInputValue = useCallback(() => {
@@ -386,20 +428,35 @@ export function CopilotChatInput({
     }
   }, [isControlled, onChange]);
 
-  const runCommand = useCallback(
-    (item: ToolsMenuItem) => {
-      clearInputValue();
+  const selectTriggerItem = useCallback(
+    (item: TriggerMenuItem) => {
+      if (triggerMenu?.trigger === "/") {
+        clearInputValue();
+        item.select();
+      } else if (triggerMenu?.trigger === "@") {
+        const nextValue =
+          resolvedValue.slice(0, triggerMenu.start) +
+          resolvedValue.slice(triggerMenu.end);
+        if (!isControlled) setInternalValue(nextValue);
+        onChange?.(nextValue);
+        item.select();
 
-      item.action?.();
+        requestAnimationFrame(() => {
+          inputRef.current?.setSelectionRange(
+            triggerMenu.start,
+            triggerMenu.start,
+          );
+        });
+      }
 
-      setCommandQuery(null);
-      setSlashHighlightIndex(0);
+      setTriggerMenu(null);
+      setTriggerHighlightIndex(0);
 
       requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
     },
-    [clearInputValue],
+    [clearInputValue, isControlled, onChange, resolvedValue, triggerMenu],
   );
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -409,15 +466,16 @@ export function CopilotChatInput({
       return;
     }
 
-    if (commandQuery !== null && mode === "input") {
+    if (triggerMenu !== null && mode === "input") {
       if (e.key === "ArrowDown") {
-        if (filteredCommands.length > 0) {
+        if (filteredTriggerItems.length > 0) {
           e.preventDefault();
-          setSlashHighlightIndex((prev) => {
-            if (filteredCommands.length === 0) {
+          setTriggerHighlightIndex((prev) => {
+            if (filteredTriggerItems.length === 0) {
               return prev;
             }
-            const next = prev === -1 ? 0 : (prev + 1) % filteredCommands.length;
+            const next =
+              prev === -1 ? 0 : (prev + 1) % filteredTriggerItems.length;
             return next;
           });
         }
@@ -425,16 +483,16 @@ export function CopilotChatInput({
       }
 
       if (e.key === "ArrowUp") {
-        if (filteredCommands.length > 0) {
+        if (filteredTriggerItems.length > 0) {
           e.preventDefault();
-          setSlashHighlightIndex((prev) => {
-            if (filteredCommands.length === 0) {
+          setTriggerHighlightIndex((prev) => {
+            if (filteredTriggerItems.length === 0) {
               return prev;
             }
             if (prev === -1) {
-              return filteredCommands.length - 1;
+              return filteredTriggerItems.length - 1;
             }
-            return prev <= 0 ? filteredCommands.length - 1 : prev - 1;
+            return prev <= 0 ? filteredTriggerItems.length - 1 : prev - 1;
           });
         }
         return;
@@ -442,19 +500,19 @@ export function CopilotChatInput({
 
       if (e.key === "Enter") {
         const selected =
-          slashHighlightIndex >= 0
-            ? filteredCommands[slashHighlightIndex]
+          triggerHighlightIndex >= 0
+            ? filteredTriggerItems[triggerHighlightIndex]
             : undefined;
         if (selected) {
           e.preventDefault();
-          runCommand(selected);
+          selectTriggerItem(selected);
           return;
         }
       }
 
       if (e.key === "Escape") {
         e.preventDefault();
-        setCommandQuery(null);
+        setTriggerMenu(null);
         return;
       }
     }
@@ -482,7 +540,7 @@ export function CopilotChatInput({
       return;
     }
     const trimmed = resolvedValue.trim();
-    if (!trimmed) {
+    if (!trimmed && selectedMentions.length === 0) {
       return;
     }
 
@@ -504,6 +562,11 @@ export function CopilotChatInput({
     ref: inputRef,
     value: resolvedValue,
     onChange: handleChange,
+    onSelect: (event) =>
+      updateTriggerMenu(
+        event.currentTarget.value,
+        event.currentTarget.selectionStart,
+      ),
     onKeyDown: handleKeyDown,
     onCompositionStart: () => {
       isComposingRef.current = true;
@@ -519,7 +582,9 @@ export function CopilotChatInput({
   });
 
   const isProcessing = mode !== "transcribe" && isRunning;
-  const canSend = resolvedValue.trim().length > 0 && !!onSubmitMessage;
+  const canSend =
+    (resolvedValue.trim().length > 0 || selectedMentions.length > 0) &&
+    !!onSubmitMessage;
   const canStop = !!onStop;
 
   const handleSendButtonClick = () => {
@@ -631,6 +696,10 @@ export function CopilotChatInput({
       onCancelTranscribe,
       onFinishTranscribe,
       onAddFile,
+      mentionItems,
+      selectedMentions,
+      onSelectMention,
+      onRemoveMention,
       mode,
       toolsMenu,
       autoFocus,
@@ -969,45 +1038,55 @@ export function CopilotChatInput({
     };
   }, [evaluateLayout]);
 
-  const slashMenuVisible = commandQuery !== null && commandItems.length > 0;
+  const triggerMenuVisible =
+    triggerMenu !== null &&
+    (triggerMenu.trigger === "/"
+      ? commandItems.length > 0
+      : (mentionItems?.length ?? 0) > 0);
 
   useEffect(() => {
-    if (!slashMenuVisible || slashHighlightIndex < 0) {
+    if (!triggerMenuVisible || triggerHighlightIndex < 0) {
       return;
     }
 
-    const active = slashMenuRef.current?.querySelector<HTMLElement>(
-      `[data-slash-index="${slashHighlightIndex}"]`,
+    const active = triggerMenuRef.current?.querySelector<HTMLElement>(
+      `[data-trigger-index="${triggerHighlightIndex}"]`,
     );
     active?.scrollIntoView({ block: "nearest" });
-  }, [slashMenuVisible, slashHighlightIndex]);
+  }, [triggerHighlightIndex, triggerMenuVisible]);
 
-  const slashMenu = slashMenuVisible ? (
+  const triggerMenuElement = triggerMenuVisible ? (
     <div
-      data-testid="copilot-slash-menu"
+      data-testid={
+        triggerMenu?.trigger === "/"
+          ? "copilot-slash-menu"
+          : "copilot-mention-menu"
+      }
       role="listbox"
-      aria-label="Slash commands"
-      ref={slashMenuRef}
+      aria-label={triggerMenu?.trigger === "/" ? "Slash commands" : "Mentions"}
+      ref={triggerMenuRef}
       className="cpk:absolute cpk:bottom-full cpk:left-0 cpk:right-0 cpk:z-30 cpk:mb-2 cpk:max-h-64 cpk:overflow-y-auto cpk:rounded-lg cpk:border cpk:border-border cpk:bg-white cpk:shadow-lg cpk:dark:border-[#3a3a3a] cpk:dark:bg-[#1f1f1f]"
       style={{
-        maxHeight: `${SLASH_MENU_MAX_VISIBLE_ITEMS * SLASH_MENU_ITEM_HEIGHT_PX}px`,
+        maxHeight: `${TRIGGER_MENU_MAX_VISIBLE_ITEMS * TRIGGER_MENU_ITEM_HEIGHT_PX}px`,
       }}
     >
-      {filteredCommands.length === 0 ? (
+      {filteredTriggerItems.length === 0 ? (
         <div className="cpk:px-3 cpk:py-2 cpk:text-sm cpk:text-muted-foreground">
-          No commands found
+          {triggerMenu?.trigger === "/"
+            ? "No commands found"
+            : "No mentions found"}
         </div>
       ) : (
-        filteredCommands.map((item, index) => {
-          const isActive = index === slashHighlightIndex;
+        filteredTriggerItems.map((item, index) => {
+          const isActive = index === triggerHighlightIndex;
           return (
             <button
-              key={`${item.label}-${index}`}
+              key={item.key}
               type="button"
               role="option"
               aria-selected={isActive}
               data-active={isActive ? "true" : undefined}
-              data-slash-index={index}
+              data-trigger-index={index}
               className={twMerge(
                 "cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors",
                 "cpk:hover:bg-muted cpk:dark:hover:bg-[#2f2f2f]",
@@ -1015,10 +1094,10 @@ export function CopilotChatInput({
                   ? "cpk:bg-muted cpk:dark:bg-[#2f2f2f]"
                   : "cpk:bg-transparent",
               )}
-              onMouseEnter={() => setSlashHighlightIndex(index)}
+              onMouseEnter={() => setTriggerHighlightIndex(index)}
               onMouseDown={(event) => {
                 event.preventDefault();
-                runCommand(item);
+                selectTriggerItem(item);
               }}
             >
               {item.label}
@@ -1086,8 +1165,33 @@ export function CopilotChatInput({
             </div>
           ) : (
             <>
+              {selectedMentions.length > 0 && (
+                <div
+                  data-testid="copilot-selected-mentions"
+                  className="cpk:flex cpk:flex-wrap cpk:gap-1 cpk:px-5 cpk:pt-2"
+                >
+                  {selectedMentions.map((mention) => (
+                    <span
+                      key={mention.id}
+                      className="cpk:inline-flex cpk:items-center cpk:gap-1 cpk:rounded-full cpk:bg-muted cpk:px-2 cpk:py-1 cpk:text-xs cpk:text-foreground"
+                    >
+                      @{mention.label}
+                      {onRemoveMention && (
+                        <button
+                          type="button"
+                          aria-label={`Remove ${mention.label}`}
+                          className="cpk:rounded-full cpk:text-muted-foreground cpk:hover:text-foreground"
+                          onClick={() => onRemoveMention(mention.id)}
+                        >
+                          <X className="cpk:size-3" />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              )}
               {BoundTextArea}
-              {slashMenu}
+              {triggerMenuElement}
             </>
           )}
         </div>
