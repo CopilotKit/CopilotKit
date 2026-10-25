@@ -30,6 +30,7 @@
 #     up --abort-on-container-exit --exit-code-from tests
 services:
   aimock:
+    networks: [mock]
     image: ghcr.io/copilotkit/aimock:latest
     volumes:
       - ./${STARTER:?STARTER must be set to a starter slug}/fixtures:/fixtures:ro
@@ -41,6 +42,7 @@ services:
   # does not also get: the moment this service needs an env var that
   # production lacks, the gate has stopped gating production.
   app:
+    networks: [mock]
     build:
       context: ./${STARTER:?STARTER must be set to a starter slug}
       dockerfile: Dockerfile
@@ -60,6 +62,8 @@ services:
         condition: service_started
 
   tests:
+    # Only the test runner needs package/browser download access.
+    networks: [mock, default]
     image: mcr.microsoft.com/playwright:v1.52.0-noble
     working_dir: /tests
     volumes:
@@ -81,3 +85,8 @@ services:
 
 volumes:
   test-results:
+
+networks:
+  mock:
+    internal: true
+  default: {}

@@ -1,5 +1,6 @@
 services:
   aimock:
+    networks: [mock]
     image: ghcr.io/copilotkit/aimock:latest
     volumes:
       - ./fixtures:/fixtures:ro
@@ -7,6 +8,7 @@ services:
       ["--fixtures", "/fixtures", "--host", "0.0.0.0", "--validate-on-load"]
 
   agent:
+    networks: [mock]
     build:
       context: ./agent
       dockerfile: ../docker/Dockerfile.agent
@@ -32,6 +34,7 @@ services:
       start_period: 30s
 
   app:
+    networks: [mock]
     build:
       context: .
       dockerfile: docker/Dockerfile.app
@@ -54,6 +57,8 @@ services:
       start_period: 60s
 
   tests:
+    # Only the test runner needs package/browser download access.
+    networks: [mock, default]
     image: mcr.microsoft.com/playwright:v1.52.0-noble
     working_dir: /tests
     volumes:
@@ -74,3 +79,8 @@ services:
 
 volumes:
   test-results:
+
+networks:
+  mock:
+    internal: true
+  default: {}

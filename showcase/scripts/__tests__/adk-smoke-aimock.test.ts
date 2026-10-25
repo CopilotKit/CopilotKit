@@ -31,4 +31,26 @@ describe("ADK smoke provider isolation", () => {
       }
     }
   });
+
+  it.each([
+    [
+      "examples/integrations/adk/docker-compose.test.yml",
+      ["aimock", "agent", "app"],
+    ],
+    [
+      "examples/integrations/docker-compose.production-image.yml",
+      ["aimock", "app"],
+    ],
+  ])(
+    "%s prevents application fallback to an external provider",
+    (path, services) => {
+      const stack = yaml.parse(read(path));
+      expect(stack.networks.mock.internal).toBe(true);
+      for (const service of services) {
+        expect(stack.services[service].networks).toEqual(["mock"]);
+      }
+      expect(stack.services.tests.networks).toEqual(["mock", "default"]);
+      expect(stack.networks.default).toEqual({});
+    },
+  );
 });
