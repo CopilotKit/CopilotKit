@@ -7,14 +7,14 @@ import logging
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from uuid import uuid4
 
-_log = logging.getLogger(__name__)
-
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import WebSocketException
 from websockets.typing import Subprotocol
 
 from .models import Json, RuntimeConfig
 from .telemetry import Telemetry
+
+_log = logging.getLogger(__name__)
 
 
 class DeliveryRejected(ConnectionError):
