@@ -1,0 +1,60 @@
+name: "Staging Node security: isolated images"
+
+on:
+  push:
+    branches: [codex/staging-node-security-20261024]
+    paths:
+      - ".github/workflows/staging_node_security.yml"
+      - ".github/node-security/**"
+
+concurrency:
+  group: staging-node-security-publication-20261024
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: matrix
+        run: |
+          python3 - <<'PY'
+          import json, os
+          rows = json.load(open('.github/node-security/manifest.json'))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('matrix=' + json.dumps({'include': [{'name': r['name']} for r in rows]}) + '\n')
+          PY
+  images:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - name: Compare inherited files, runtime and native addons; publish unique tag
+        env:
+          TARGET: ${{ matrix.name }}
+        run: python3 .github/node-security/publish.py "$TARGET"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: node-security-${{ matrix.name }}
+          path: node-security-receipt.json
+          if-no-files-found: error

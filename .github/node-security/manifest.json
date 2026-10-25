@@ -1,0 +1,673 @@
+[
+  {
+    "name": "aimock",
+    "base": "ghcr.io/copilotkit/showcase-aimock@sha256:fcec62b9298582e7ae2a2c194ee8811dcb1a994444ae76c9fcea0f512fb0b070",
+    "oldNode": "v22.23.3",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-alpine3.24@sha256:fe4f6d74e20370acb04ad889077d14d0f64a9c8ea6a42bc60cddf1e844699914",
+    "target": "ghcr.io/copilotkit/showcase-aimock:node-security-staging-20261024-fcec62b92985",
+    "addons": []
+  },
+  {
+    "name": "dashboard",
+    "base": "ghcr.io/copilotkit/showcase-shell-dashboard@sha256:1facfd66de44774e7fa73dd3173d83a0a65475d7302734c4b7e37da166a9977c",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-shell-dashboard:node-security-staging-20261024-1facfd66de44",
+    "addons": [
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node"
+    ]
+  },
+  {
+    "name": "docs",
+    "base": "ghcr.io/copilotkit/showcase-shell-docs@sha256:9b13b8161e38ad8ed289255399b5c30ea0faf586d2206ddc09f48c7e4e95a5b2",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-shell-docs:node-security-staging-20261024-9b13b8161e38",
+    "addons": [
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@oxlint/binding-linux-x64-musl/oxlint.linux-x64-musl.node",
+      "/app/node_modules/@oxlint/binding-linux-x64-gnu/oxlint.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@rolldown/binding-linux-x64-musl/rolldown-binding.linux-x64-musl.node",
+      "/app/node_modules/@rolldown/binding-linux-x64-gnu/rolldown-binding.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node"
+    ]
+  },
+  {
+    "name": "dojo",
+    "base": "ghcr.io/copilotkit/showcase-shell-dojo@sha256:3d07693d679e1106bb01bd3a5e1676fc302d996adb5cdf6fe2dcf4d323c90f01",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-shell-dojo:node-security-staging-20261024-3d07693d679e",
+    "addons": [
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node"
+    ]
+  },
+  {
+    "name": "shell",
+    "base": "ghcr.io/copilotkit/showcase-shell@sha256:160bd5456e567de81cd041a22077bb0844aa7436c3b823f5cd59b0a6df4942ab",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-shell:node-security-staging-20261024-160bd5456e56",
+    "addons": [
+      "/app/node_modules/@rolldown/binding-linux-x64-gnu/rolldown-binding.linux-x64-gnu.node",
+      "/app/node_modules/@rolldown/binding-linux-x64-musl/rolldown-binding.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node"
+    ]
+  },
+  {
+    "name": "showcase-ag2",
+    "base": "ghcr.io/copilotkit/showcase-ag2@sha256:7398c587a435ae112386b7c2e1da101fab90dc5b73b5293dfdbbbb0583d0d556",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-ag2:node-security-staging-20261024-7398c587a435",
+    "addons": [
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node"
+    ]
+  },
+  {
+    "name": "showcase-agno",
+    "base": "ghcr.io/copilotkit/showcase-agno@sha256:0f26db74505d4e8ba18fe8f55f304826ceaa9cf202337a2b6842efad060e398d",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-agno:node-security-staging-20261024-0f26db74505d",
+    "addons": [
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "showcase-built-in-agent",
+    "base": "ghcr.io/copilotkit/showcase-built-in-agent@sha256:c68920d5e153922d8a1131477fa3fbab2b984df622e5fbce5542a91cb170f361",
+    "oldNode": "v22.23.3",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-built-in-agent:node-security-staging-20261024-c68920d5e153",
+    "addons": [
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "showcase-claude-sdk-python",
+    "base": "ghcr.io/copilotkit/showcase-claude-sdk-python@sha256:25e9de804dc4925c7c80ced03a86ac55dc0a9a8c647197b71fac2b43d59fb25d",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-claude-sdk-python:node-security-staging-20261024-25e9de804dc4",
+    "addons": [
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node"
+    ]
+  },
+  {
+    "name": "showcase-claude-sdk-typescript",
+    "base": "ghcr.io/copilotkit/showcase-claude-sdk-typescript@sha256:1c2cce3e5b9694e7c0095b476c9e08b93a2bedb50c9c5fc21f729884dc6b371c",
+    "oldNode": "v22.23.3",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-claude-sdk-typescript:node-security-staging-20261024-1c2cce3e5b96",
+    "addons": [
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@anthropic-ai/claude-agent-sdk/vendor/ripgrep/arm64-linux/ripgrep.node",
+      "/app/node_modules/@anthropic-ai/claude-agent-sdk/vendor/ripgrep/x64-darwin/ripgrep.node",
+      "/app/node_modules/@anthropic-ai/claude-agent-sdk/vendor/ripgrep/arm64-darwin/ripgrep.node",
+      "/app/node_modules/@anthropic-ai/claude-agent-sdk/vendor/ripgrep/x64-win32/ripgrep.node",
+      "/app/node_modules/@anthropic-ai/claude-agent-sdk/vendor/ripgrep/x64-linux/ripgrep.node",
+      "/app/node_modules/@anthropic-ai/claude-agent-sdk/vendor/ripgrep/arm64-win32/ripgrep.node"
+    ]
+  },
+  {
+    "name": "showcase-crewai-conversational-flows",
+    "base": "ghcr.io/copilotkit/showcase-crewai-conversational-flows@sha256:75fedf87950dfeb10a5209b3451e1af98a37c029b744003a16dd2c1c5e589a12",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-crewai-conversational-flows:node-security-staging-20261024-75fedf87950d",
+    "addons": [
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "showcase-crewai-crews",
+    "base": "ghcr.io/copilotkit/showcase-crewai-crews@sha256:1f4e7adf2b1b70343090f97c138d2f677b575d96be962ab29f340437bb3460a4",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-crewai-crews:node-security-staging-20261024-1f4e7adf2b1b",
+    "addons": [
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "showcase-google-adk",
+    "base": "ghcr.io/copilotkit/showcase-google-adk@sha256:f910fdfe586462820bf56a52bd8408f2c6e3ce5d80715af53f2ee6e49d7e3bdb",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-google-adk:node-security-staging-20261024-f910fdfe5864",
+    "addons": [
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node"
+    ]
+  },
+  {
+    "name": "showcase-google-antigravity",
+    "base": "ghcr.io/copilotkit/showcase-google-antigravity@sha256:32bd3afaa3c14172c7710296f100310e84894245ecf19d7d5b1a4c95fa4bdf90",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-google-antigravity:node-security-staging-20261024-32bd3afaa3c1",
+    "addons": [
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.4.node"
+    ]
+  },
+  {
+    "name": "showcase-langgraph-fastapi",
+    "base": "ghcr.io/copilotkit/showcase-langgraph-fastapi@sha256:d98b57b1907a610503435c608a924597a320a19118d8ad6c49391e4837ff5b32",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-langgraph-fastapi:node-security-staging-20261024-d98b57b1907a",
+    "addons": [
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "showcase-langgraph-python",
+    "base": "ghcr.io/copilotkit/showcase-langgraph-python@sha256:6b7f3a71cb92875adf19095f0ba8c943a6c5eedd08362e8636f2c15ee31d7fbe",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-langgraph-python:node-security-staging-20261024-6b7f3a71cb92",
+    "addons": [
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "showcase-langgraph-typescript",
+    "base": "ghcr.io/copilotkit/showcase-langgraph-typescript@sha256:3968828b5d64fc12485355229e036e6076cbc32d29b2210c6ecb17759992388a",
+    "oldNode": "v22.23.3",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-langgraph-typescript:node-security-staging-20261024-3968828b5d64",
+    "addons": [
+      "/app/src/agent/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/src/agent/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/src/agent/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/src/agent/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node"
+    ]
+  },
+  {
+    "name": "showcase-langroid",
+    "base": "ghcr.io/copilotkit/showcase-langroid@sha256:dbfb9795ab1a9db39ee82e7be85ccd11cfae71113a7856efeddb525b1e3cf65e",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-langroid:node-security-staging-20261024-dbfb9795ab1a",
+    "addons": [
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node"
+    ]
+  },
+  {
+    "name": "showcase-llamaindex",
+    "base": "ghcr.io/copilotkit/showcase-llamaindex@sha256:74630039e0a500045e96e16b536f2c3bac0d5e7e9976387cf04d6d081fa96d8e",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-llamaindex:node-security-staging-20261024-74630039e0a5",
+    "addons": [
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "showcase-mastra",
+    "base": "ghcr.io/copilotkit/showcase-mastra@sha256:d570e55365bf40d3ff48a72b160b7391e53a73b3a58b6de11c32bbf0863b4464",
+    "oldNode": "v22.23.3",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-mastra:node-security-staging-20261024-d570e55365bf",
+    "addons": [
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@libsql/linux-x64-musl/index.node",
+      "/app/node_modules/@libsql/linux-x64-gnu/index.node",
+      "/app/node_modules/@rollup/rollup-linux-x64-gnu/rollup.linux-x64-gnu.node",
+      "/app/node_modules/@rollup/rollup-linux-x64-musl/rollup.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node"
+    ]
+  },
+  {
+    "name": "showcase-ms-agent-dotnet",
+    "base": "ghcr.io/copilotkit/showcase-ms-agent-dotnet@sha256:dc0bd3708a637d93e07b53929a242c59f7deaceffe5ed17ecb225a84ff36b42f",
+    "oldNode": "v22.23.3",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-ms-agent-dotnet:node-security-staging-20261024-dc0bd3708a63",
+    "addons": [
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "showcase-ms-agent-harness-dotnet",
+    "base": "ghcr.io/copilotkit/showcase-ms-agent-harness-dotnet@sha256:f89bd7495e9da4fcd12fca35fe0ea8472b468551975eff1603c8122907bb5850",
+    "oldNode": "v22.23.3",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-ms-agent-harness-dotnet:node-security-staging-20261024-f89bd7495e9d",
+    "addons": [
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node"
+    ]
+  },
+  {
+    "name": "showcase-ms-agent-python",
+    "base": "ghcr.io/copilotkit/showcase-ms-agent-python@sha256:83f9d256dcf7407cdcf566d22d17135229dad30568f26a8feb8b8c36d8469361",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-ms-agent-python:node-security-staging-20261024-83f9d256dcf7",
+    "addons": [
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node"
+    ]
+  },
+  {
+    "name": "showcase-pydantic-ai",
+    "base": "ghcr.io/copilotkit/showcase-pydantic-ai@sha256:d0d6942d5991a8dba198095199b5ed49a314445cc3245489f7629b885a957e23",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-pydantic-ai:node-security-staging-20261024-d0d6942d5991",
+    "addons": [
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "showcase-spring-ai",
+    "base": "ghcr.io/copilotkit/showcase-spring-ai@sha256:a1e5b0009a61e99c1f5a46d38b1a1675defc34d3281f55e9c23654110154b8b7",
+    "oldNode": "v22.23.3",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-spring-ai:node-security-staging-20261024-a1e5b0009a61",
+    "addons": [
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node"
+    ]
+  },
+  {
+    "name": "showcase-strands",
+    "base": "ghcr.io/copilotkit/showcase-strands@sha256:29bb2b7e6f1b691602087a2a374ae132c769974701d10d5f21a4ec2085a82f21",
+    "oldNode": "v22.23.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-strands:node-security-staging-20261024-29bb2b7e6f1b",
+    "addons": [
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "showcase-strands-typescript",
+    "base": "ghcr.io/copilotkit/showcase-strands-typescript@sha256:fcec9c1f94efd51c1240822292e9c642eb2901d7b3d476059219d9c75e193714",
+    "oldNode": "v22.23.3",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-strands-typescript:node-security-staging-20261024-fcec9c1f94ef",
+    "addons": [
+      "/app/src/agent/node_modules/@reflink/reflink-linux-x64-musl/reflink.linux-x64-musl.node",
+      "/app/src/agent/node_modules/@reflink/reflink-linux-x64-gnu/reflink.linux-x64-gnu.node",
+      "/app/src/agent/node_modules/@node-llama-cpp/linux-arm64/bins/linux-arm64/llama-addon.node",
+      "/app/src/agent/node_modules/@node-llama-cpp/linux-x64-vulkan/bins/linux-x64-vulkan/llama-addon.node",
+      "/app/src/agent/node_modules/@node-llama-cpp/linux-armv7l/bins/linux-armv7l/llama-addon.node",
+      "/app/src/agent/node_modules/@node-llama-cpp/linux-x64-cuda/bins/linux-x64-cuda/llama-addon.node",
+      "/app/src/agent/node_modules/@node-llama-cpp/linux-x64/bins/linux-x64/llama-addon.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-musl/next-swc.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "starter-adk",
+    "base": "ghcr.io/copilotkit/starter-adk@sha256:913ce18f9fda64d56acc4bad257fa0b3339ab1791e9b70a87f8e6d2808b13b96",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/starter-adk:node-security-staging-20261024-913ce18f9fda",
+    "addons": [
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node"
+    ]
+  },
+  {
+    "name": "starter-agno",
+    "base": "ghcr.io/copilotkit/starter-agno@sha256:08b1a099a34d38735eb602b03bb4b77329877ac65393cd4dfc7655b568020ee1",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/starter-agno:node-security-staging-20261024-08b1a099a34d",
+    "addons": [
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64-0.35.5.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node"
+    ]
+  },
+  {
+    "name": "starter-crewai-crews",
+    "base": "ghcr.io/copilotkit/starter-crewai-crews@sha256:c2abb5f1a6c5638eb00628d30321efa92e2859edebc0443d3ab77785e72285eb",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/starter-crewai-crews:node-security-staging-20261024-c2abb5f1a6c5",
+    "addons": [
+      "/app/.next/standalone/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node"
+    ]
+  },
+  {
+    "name": "starter-langgraph-fastapi",
+    "base": "ghcr.io/copilotkit/starter-langgraph-fastapi@sha256:18c22245a243f95aeb5842e8d6f553d8557017b7ad7d2a003b29f80ead5c2990",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/starter-langgraph-fastapi:node-security-staging-20261024-18c22245a243",
+    "addons": [
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64-0.35.5.node"
+    ]
+  },
+  {
+    "name": "starter-langgraph-python",
+    "base": "ghcr.io/copilotkit/starter-langgraph-python@sha256:53464e14d4ab537e56c5886f3648b7037ef93b77229f48bc0285d95d95f3d675",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/starter-langgraph-python:node-security-staging-20261024-53464e14d4ab",
+    "addons": [
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64-0.35.5.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node"
+    ]
+  },
+  {
+    "name": "starter-llamaindex",
+    "base": "ghcr.io/copilotkit/starter-llamaindex@sha256:2c5d9fcd385abb9a63e252a3416f4ae564753717ee79a7c07353b1283cfd0112",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/starter-llamaindex:node-security-staging-20261024-2c5d9fcd385a",
+    "addons": [
+      "/app/.next/standalone/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/.next/standalone/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64-0.35.5.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64-0.35.5.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node"
+    ]
+  },
+  {
+    "name": "starter-mastra",
+    "base": "ghcr.io/copilotkit/starter-mastra@sha256:9ecde0ad4f31b14842c6b795fb33d0a9aae04fc9e5c83eb10f44f0af414a5d2c",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/starter-mastra:node-security-staging-20261024-9ecde0ad4f31",
+    "addons": [
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/node_modules/@libsql/linux-x64-gnu/index.node",
+      "/app/node_modules/@libsql/linux-x64-musl/index.node"
+    ]
+  },
+  {
+    "name": "starter-ms-agent-framework-dotnet",
+    "base": "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet@sha256:b3da669aedb07342ea342810b7058e646c51a61447da53c5f10afd1afd180cc5",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet:node-security-staging-20261024-b3da669aedb0",
+    "addons": [
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64-0.35.5.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node"
+    ]
+  },
+  {
+    "name": "starter-ms-agent-framework-python",
+    "base": "ghcr.io/copilotkit/starter-ms-agent-framework-python@sha256:dcf44785dc0ff50d8d91416a36fb795478495bcdf5843ce54504070b38c8d284",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/starter-ms-agent-framework-python:node-security-staging-20261024-dcf44785dc0f",
+    "addons": [
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64-0.35.5.node"
+    ]
+  },
+  {
+    "name": "starter-pydantic-ai",
+    "base": "ghcr.io/copilotkit/starter-pydantic-ai@sha256:5e5c9eac545889468ad1d93637517bd8cc529c7949c7a1c2017cc5bceac16c11",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/starter-pydantic-ai:node-security-staging-20261024-5e5c9eac5458",
+    "addons": [
+      "/app/.next/standalone/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/.next/standalone/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64-0.35.5.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64-0.35.5.node"
+    ]
+  },
+  {
+    "name": "starter-strands-python",
+    "base": "ghcr.io/copilotkit/starter-strands-python@sha256:7c5c529ffda822ba6360af4f4b59207045e564dd8829daf8c66eac905e60f8d8",
+    "oldNode": "v20.20.2",
+    "nodePath": "/usr/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/starter-strands-python:node-security-staging-20261024-7c5c529ffda8",
+    "addons": [
+      "/app/.next/standalone/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64-0.35.5.node",
+      "/app/.next/standalone/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/node_modules/lightningcss-linux-x64-musl/lightningcss.linux-x64-musl.node",
+      "/app/node_modules/@img/sharp-linuxmusl-x64/lib/sharp-linuxmusl-x64-0.35.5.node",
+      "/app/node_modules/@img/sharp-linux-x64/lib/sharp-linux-x64-0.35.5.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-gnu/tailwindcss-oxide.linux-x64-gnu.node",
+      "/app/node_modules/@tailwindcss/oxide-linux-x64-musl/tailwindcss-oxide.linux-x64-musl.node",
+      "/app/node_modules/@next/swc-linux-x64-gnu/next-swc.linux-x64-gnu.node",
+      "/app/node_modules/lightningcss-linux-x64-gnu/lightningcss.linux-x64-gnu.node"
+    ]
+  },
+  {
+    "name": "webhooks",
+    "base": "ghcr.io/copilotkit/showcase-eval-webhook@sha256:6f76f7fd6091f52d2cd150b9f26690b0b63221073093b9d22a9e2afe82f3fb59",
+    "oldNode": "v22.22.3",
+    "nodePath": "/usr/local/bin/node",
+    "donor": "node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d",
+    "target": "ghcr.io/copilotkit/showcase-eval-webhook:node-security-staging-20261024-6f76f7fd6091",
+    "addons": []
+  }
+]
