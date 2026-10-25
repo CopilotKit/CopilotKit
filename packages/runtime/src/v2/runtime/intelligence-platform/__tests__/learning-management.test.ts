@@ -279,3 +279,29 @@ test("bounds a stalled response body with the request deadline", async () => {
     teardown();
   }
 });
+
+test("preserves typed Learning memberships when reading an existing conversation", async () => {
+  const { client, fetchMock, teardown } = setup();
+  try {
+    fetchMock.mockResolvedValueOnce(
+      Response.json({
+        thread: {
+          id: "thread-1",
+          name: "Existing work",
+          learningContainerId: "original-space",
+          learningContainerIds: ["original-space"],
+        },
+      }),
+    );
+    const thread = await client.getThread({
+      threadId: "thread-1",
+      userId: "local-developer",
+    });
+    const assignment: string | null | undefined = thread.learningContainerId;
+    const memberships: string[] | undefined = thread.learningContainerIds;
+    expect(assignment).toBe("original-space");
+    expect(memberships).toEqual(["original-space"]);
+  } finally {
+    teardown();
+  }
+});

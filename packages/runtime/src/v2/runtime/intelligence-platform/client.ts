@@ -412,6 +412,10 @@ export interface CopilotKitIntelligenceConfig {
  * {@link CopilotKitIntelligence.getThreadMessages} for that.
  */
 export interface ThreadSummary {
+  /** Existing Learning membership for single-container Threads; null for zero or multiple memberships. */
+  learningContainerId?: string | null;
+  /** Existing Learning memberships. Absent on older platform responses; do not infer a new assignment from absence. */
+  learningContainerIds?: string[];
   /** Platform-assigned unique identifier. */
   id: string;
   /** Human-readable display name, or `null` if the thread has not been named. */
