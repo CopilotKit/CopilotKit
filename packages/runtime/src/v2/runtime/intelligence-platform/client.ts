@@ -1281,7 +1281,7 @@ export class CopilotKitIntelligence {
       options.cursor === undefined
         ? ""
         : `?cursor=${encodeURIComponent(z.string().min(1).max(128).parse(options.cursor))}`;
-    return this.#learningRequest(
+    return this.#learningRequest<LearningContainerPage>(
       "GET",
       `/api/v1/learning/containers${query}`,
       learningContainerPageSchema,
@@ -1293,7 +1293,9 @@ export class CopilotKitIntelligence {
   async getLearningContainer(
     options: LearningContainerRequest,
   ): Promise<LearningContainer> {
-    const response = await this.#learningRequest(
+    const response = await this.#learningRequest<{
+      container: LearningContainer;
+    }>(
       "GET",
       learningContainerPath(options.containerId),
       z.object({ container: learningContainerSchema }),
@@ -1306,7 +1308,7 @@ export class CopilotKitIntelligence {
   async listLearningRuns(
     options: LearningContainerRequest,
   ): Promise<LearningRun[]> {
-    const response = await this.#learningRequest(
+    const response = await this.#learningRequest<{ runs: LearningRun[] }>(
       "GET",
       `${learningContainerPath(options.containerId)}/runs`,
       z.object({ runs: z.array(learningRunSchema).max(100) }),
@@ -1319,7 +1321,7 @@ export class CopilotKitIntelligence {
   async startLearningRun(
     options: LearningContainerRequest,
   ): Promise<LearningRun> {
-    const response = await this.#learningRequest(
+    const response = await this.#learningRequest<{ run: LearningRun }>(
       "POST",
       `${learningContainerPath(options.containerId)}/runs`,
       z.object({ run: learningRunSchema }),
@@ -1332,7 +1334,9 @@ export class CopilotKitIntelligence {
   async listLearningCandidates(
     options: LearningContainerRequest,
   ): Promise<LearningCandidate[]> {
-    const response = await this.#learningRequest(
+    const response = await this.#learningRequest<{
+      candidates: LearningCandidate[];
+    }>(
       "GET",
       `${learningContainerPath(options.containerId)}/candidates`,
       z.object({ candidates: z.array(learningCandidateSchema).max(500) }),
@@ -1345,7 +1349,9 @@ export class CopilotKitIntelligence {
   async getLearningCandidate(
     options: LearningCandidateRequest,
   ): Promise<LearningCandidateDetail> {
-    const response = await this.#learningRequest(
+    const response = await this.#learningRequest<{
+      candidate: LearningCandidateDetail;
+    }>(
       "GET",
       `${learningContainerPath(options.containerId)}/candidates/${learningObjectId(options.candidateId)}`,
       z.object({ candidate: learningCandidateDetailSchema }),
@@ -1358,7 +1364,9 @@ export class CopilotKitIntelligence {
   async getLearningInsightEvidence(
     options: LearningContainerRequest & { readonly insightId: string },
   ): Promise<LearningInsightEvidence[]> {
-    const response = await this.#learningRequest(
+    const response = await this.#learningRequest<{
+      evidence: LearningInsightEvidence[];
+    }>(
       "GET",
       `${learningContainerPath(options.containerId)}/insights/${learningObjectId(options.insightId)}/evidence`,
       z.object({ evidence: z.array(learningInsightEvidenceSchema) }),
@@ -1374,7 +1382,9 @@ export class CopilotKitIntelligence {
     },
   ): Promise<LearningCandidateReview> {
     const action = z.enum(["approve", "reject"]).parse(options.action);
-    const response = await this.#learningRequest(
+    const response = await this.#learningRequest<{
+      review: LearningCandidateReview;
+    }>(
       "POST",
       `${learningContainerPath(options.containerId)}/candidates/${learningObjectId(options.candidateId)}/${action}`,
       z.object({ review: learningCandidateReviewSchema }),
@@ -1384,12 +1394,12 @@ export class CopilotKitIntelligence {
   }
 
   /** Uses server credentials, bounded JSON, and a deadline without retrying mutations. */
-  async #learningRequest<TSchema extends z.ZodTypeAny>(
+  async #learningRequest<T>(
     method: "GET" | "POST",
     path: string,
-    schema: TSchema,
+    schema: z.ZodTypeAny,
     signal?: AbortSignal,
-  ): Promise<z.infer<TSchema>> {
+  ): Promise<T> {
     signal?.throwIfAborted();
     const controller = new AbortController();
     const abort = () => controller.abort(signal?.reason);
@@ -1433,9 +1443,11 @@ export class CopilotKitIntelligence {
         );
       }
       try {
+        // Runtime schemas validate first. Explicit wire types avoid Zod inference
+        // losing required/null fields when this package emits non-strict declarations.
         return schema.parse(
           await readLearningJson(response, undefined, controller.signal),
-        );
+        ) as T;
       } catch {
         if (controller.signal.aborted) throw controller.signal.reason;
         throw new PlatformRequestError("Invalid Learning response.", 502, true);

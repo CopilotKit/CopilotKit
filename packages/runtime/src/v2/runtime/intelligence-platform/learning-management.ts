@@ -18,8 +18,19 @@ export const learningContainerPageSchema = z.object({
   containers: z.array(learningContainerSchema).max(500),
   nextCursor: z.string().min(1).nullable(),
 });
-export type LearningContainer = z.infer<typeof learningContainerSchema>;
-export type LearningContainerPage = z.infer<typeof learningContainerPageSchema>;
+/** Explicit wire types preserve required/null fields in declarations emitted with strictNullChecks disabled. */
+export interface LearningContainer {
+  id: string;
+  name: string;
+  projectId: number;
+  promptContext: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface LearningContainerPage {
+  containers: LearningContainer[];
+  nextCursor: string | null;
+}
 export interface LearningRequestOptions {
   readonly signal?: AbortSignal;
 }
@@ -157,13 +168,43 @@ export const learningCandidateReviewSchema = z.object({
   status: z.enum(["approved", "rejected"]),
 });
 
-export type LearningCandidate = z.infer<typeof learningCandidateSchema>;
-export type LearningCandidateDetail = z.infer<
-  typeof learningCandidateDetailSchema
->;
-export type LearningCandidateReview = z.infer<
-  typeof learningCandidateReviewSchema
->;
+export interface LearningCandidate {
+  id: string;
+  bundleSha256: string;
+  createdAt: string;
+  description: string;
+  operation: "add" | "update" | "remove";
+  publishedRegistryRevision: number | null;
+  publishedSkillId: string | null;
+  reason: string;
+  registryBaseRevision: number;
+  reviewedAt: string | null;
+  runId: string;
+  status: "pending_review" | "approved" | "rejected";
+  subjectSha256: string;
+  targetSkillId: string | null;
+  targetSkillRevision: number | null;
+  title: string;
+}
+export interface LearningCandidateDetail extends LearningCandidate {
+  bundle: {
+    schemaVersion: 1;
+    files: Array<{ path: string; content: string; sha256: string }>;
+  };
+  supportingInsights: Array<{
+    alias: string;
+    id: string;
+    impact: string;
+    statement: string;
+  }>;
+}
+export interface LearningCandidateReview {
+  candidateId: string;
+  operation: "add" | "update" | "remove";
+  publishedRegistryRevision: number | null;
+  publishedSkillId: string | null;
+  status: "approved" | "rejected";
+}
 export interface LearningCandidateRequest extends LearningContainerRequest {
   readonly candidateId: string;
 }
@@ -193,7 +234,30 @@ export const learningRunSchema = z.object({
   failureCode: z.string().nullable(),
   kubernetesJobName: z.string().nullable(),
 });
-export type LearningRun = z.infer<typeof learningRunSchema>;
+export interface LearningRun {
+  id: string;
+  learningContainerId: string;
+  projectId: number;
+  status:
+    | "queued"
+    | "freezing"
+    | "batching"
+    | "reducing"
+    | "finalizing"
+    | "succeeded"
+    | "failed";
+  triggerSource: "automatic" | "manual";
+  attemptCount: number;
+  candidateCount: number | null;
+  insightCount: number | null;
+  evidenceThreadCount?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  failureCode: string | null;
+  kubernetesJobName: string | null;
+}
 const unavailableSchema = z
   .enum(["snapshot-missing", "snapshot-unreadable"])
   .nullable();
@@ -229,9 +293,33 @@ export const learningInsightEvidenceSchema = z.union([
     unavailable: unavailableSchema,
   }),
 ]);
-export type LearningInsightEvidence = z.infer<
-  typeof learningInsightEvidenceSchema
->;
+export type LearningInsightEvidence =
+  | {
+      cited: Array<{
+        id: string;
+        content: string;
+        role: "assistant" | "tool" | "user";
+      }>;
+      messageCount: number;
+      threadId: string;
+      threadName: string | null;
+      threadPresent: boolean;
+      unavailable: "snapshot-missing" | "snapshot-unreadable" | null;
+    }
+  | {
+      kind: "trajectory";
+      trajectoryId: string;
+      trajectoryPresent: boolean;
+      eventCount: number;
+      events: Array<{
+        seq: number;
+        name: string;
+        offsetMs: number;
+        value?: unknown;
+        eventId: string | null;
+      }>;
+      unavailable: "snapshot-missing" | "snapshot-unreadable" | null;
+    };
 
 /** Validates object IDs independently from container IDs; neither may alter the path. */
 export function learningObjectId(id: string): string {
