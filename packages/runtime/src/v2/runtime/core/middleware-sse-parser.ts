@@ -21,6 +21,25 @@ interface ToolCall {
   args: string;
 }
 
+/** Events that end every open chunk stream, as in @ag-ui/client. */
+const RUN_BOUNDARY_EVENTS = new Set([
+  "RUN_STARTED",
+  "RUN_FINISHED",
+  "RUN_ERROR",
+  "MESSAGES_SNAPSHOT",
+]);
+
+/** Events that pass between chunks without ending the open chunk stream. */
+const CHUNK_TRANSPARENT_EVENTS = new Set([
+  "TEXT_MESSAGE_CHUNK",
+  "TOOL_CALL_CHUNK",
+  "RAW",
+  "ACTIVITY_SNAPSHOT",
+  "ACTIVITY_DELTA",
+  "REASONING_ENCRYPTED_VALUE",
+  "SUBAGENT_STARTED",
+]);
+
 /**
  * Parse a cloned SSE Response body into structured messages.
  * Returns empty results for non-SSE responses.
@@ -52,6 +71,12 @@ export async function parseSSEResponse(
   const toolCallParent = new Map<string, string>(); // toolCallId → messageId
   let snapshotMessages: Message[] | undefined;
 
+  // The chunk stream still open in each subagent lane. As in @ag-ui/client, a
+  // TEXT_MESSAGE_CHUNK or TOOL_CALL_CHUNK without an id continues the open
+  // chunk of the same kind; OpenAI-style streams send the tool call id only on
+  // the first delta.
+  const openChunks = new Map<string, { kind: "text" | "tool"; id: string }>();
+
   // Link a tool call to its assistant message the way @ag-ui/client does. A
   // tool-only turn streams no TEXT_MESSAGE_START, so the parent may not exist
   // yet; create it, keyed by toolCallId when parentMessageId is missing or
@@ -79,6 +104,13 @@ export async function parseSSEResponse(
       event = JSON.parse(trimmed.slice(5).trim());
     } catch {
       continue;
+    }
+
+    const lane: string = event.subagentRunId ?? "";
+    if (RUN_BOUNDARY_EVENTS.has(event.type)) {
+      openChunks.clear();
+    } else if (!CHUNK_TRANSPARENT_EVENTS.has(event.type)) {
+      openChunks.delete(lane);
     }
 
     switch (event.type) {
@@ -112,17 +144,21 @@ export async function parseSSEResponse(
       case "TEXT_MESSAGE_CHUNK": {
         // Chunk format: combined start+content. First chunk creates the
         // message, subsequent chunks append delta to content.
-        if (event.messageId) {
-          const existing = messagesById.get(event.messageId);
+        const open = openChunks.get(lane);
+        const messageId: string | undefined =
+          event.messageId ?? (open?.kind === "text" ? open.id : undefined);
+        if (messageId) {
+          const existing = messagesById.get(messageId);
           if (existing) {
             existing.content = (existing.content ?? "") + (event.delta ?? "");
           } else {
-            messagesById.set(event.messageId, {
-              id: event.messageId,
+            messagesById.set(messageId, {
+              id: messageId,
               role: event.role ?? "assistant",
               content: event.delta ?? "",
             });
           }
+          openChunks.set(lane, { kind: "text", id: messageId });
         }
         break;
       }
@@ -149,21 +185,25 @@ export async function parseSSEResponse(
       case "TOOL_CALL_CHUNK": {
         // Chunk format: combined start+args. First chunk for a given
         // toolCallId creates the tool call, subsequent chunks append delta.
-        if (event.toolCallId) {
-          let tc = toolCallsById.get(event.toolCallId);
+        const open = openChunks.get(lane);
+        const toolCallId: string | undefined =
+          event.toolCallId ?? (open?.kind === "tool" ? open.id : undefined);
+        if (toolCallId) {
+          let tc = toolCallsById.get(toolCallId);
           if (!tc) {
             tc = {
-              id: event.toolCallId,
+              id: toolCallId,
               name: event.toolCallName ?? "",
               args: "",
             };
-            toolCallsById.set(event.toolCallId, tc);
-            linkToolCallParent(event.toolCallId, event.parentMessageId);
+            toolCallsById.set(toolCallId, tc);
+            linkToolCallParent(toolCallId, event.parentMessageId);
           }
           if (event.toolCallName) {
             tc.name = event.toolCallName;
           }
           tc.args += event.delta ?? "";
+          openChunks.set(lane, { kind: "tool", id: toolCallId });
         }
         break;
       }
