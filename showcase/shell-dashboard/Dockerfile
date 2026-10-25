@@ -1,4 +1,4 @@
-FROM node:20-slim AS builder
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS builder
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 # Starter-ladder feature flag. `catalog.json` is a BUILD artifact (see the
@@ -78,7 +78,7 @@ RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
 # gives us a deterministic, prod-only tree without needing Next's
 # `output: 'standalone'` mode (which requires a next.config.ts change in a
 # package owned by another workstream).
-FROM node:20-slim AS prod-deps
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS prod-deps
 WORKDIR /app/shell-dashboard
 COPY showcase/shell-dashboard/package.json showcase/shell-dashboard/package-lock.json ./
 # `--ignore-scripts` skips the package.json `postinstall` hook, which
@@ -86,7 +86,7 @@ COPY showcase/shell-dashboard/package.json showcase/shell-dashboard/package-lock
 # the generator scripts. Runtime has no need for sibling packages.
 RUN npm ci --omit=dev --ignore-scripts --silent
 
-FROM node:20-slim AS runner
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=10000
@@ -109,3 +109,6 @@ USER node
 
 EXPOSE 10000
 CMD ["npx", "next", "start", "-p", "10000"]
+
+# Fail the build if any base or install path regresses the accepted Node runtime.
+RUN test "$(node --version)" = "v22.23.4"
