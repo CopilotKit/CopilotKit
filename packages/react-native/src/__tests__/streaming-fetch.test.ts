@@ -514,6 +514,7 @@ describe("installStreamingFetch", () => {
 
     it("removes abort listener when stream is cancelled mid-stream", async () => {
       const controller = new AbortController();
+      const addSpy = vi.spyOn(controller.signal, "addEventListener");
       const removeSpy = vi.spyOn(controller.signal, "removeEventListener");
 
       const { fetchPromise, xhr } = await fetchAndCapture("https://api.test", {
@@ -526,7 +527,10 @@ describe("installStreamingFetch", () => {
       // Cancel mid-stream (after headers, settled = true)
       await reader.cancel();
 
-      expect(removeSpy).toHaveBeenCalledWith("abort", expect.any(Function));
+      const abortAddCall = addSpy.mock.calls.find(([type]) => type === "abort");
+      expect(abortAddCall).toBeDefined();
+      const registeredCallback = abortAddCall![1];
+      expect(removeSpy).toHaveBeenCalledWith("abort", registeredCallback);
     });
 
     it("removes abort listener after terminal XHR event (onload)", async () => {
