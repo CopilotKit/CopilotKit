@@ -40,7 +40,7 @@ export function MobileTopNav() {
   return (
     <header
       id="nd-subnav"
-      className="shell-docs-mobile-nav xl:hidden fixed top-(--fd-banner-height) left-0 right-0 z-30 border-b border-[var(--border)] bg-[var(--bg)]"
+      className="shell-docs-mobile-nav xl:hidden fixed top-[var(--fd-banner-height,0px)] left-0 right-0 z-30 border-b border-[var(--border)] bg-[var(--bg)]"
     >
       <div className="shell-docs-mobile-nav-top">
         <Link

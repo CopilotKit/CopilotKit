@@ -32,6 +32,7 @@
  * --fd-banner-height is set dynamically by Banners (40px / 0px). */
 :root {
   --fd-nav-height: 64px;
+  --fd-banner-height: 40px;
   /* Keep the desktop docs shell inside one centered editorial frame. This is
    * wide enough for comfortable prose, demos, and a TOC without returning the
    * sidebar to the browser edge like the previous 97rem default did. */
@@ -470,6 +471,14 @@
 
 .shell-docs-cta-stripe {
   background: var(--accent-fill);
+}
+
+.banner-dismissed {
+  --fd-banner-height: 0px !important;
+}
+
+.banner-dismissed #shell-docs-course-banner {
+  display: none !important;
 }
 
 .shell-docs-course-banner {
