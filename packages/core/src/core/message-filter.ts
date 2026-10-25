@@ -25,14 +25,23 @@ export type CopilotKitMessageFilter = (
   context: { agentId: string },
 ) => Message[];
 
-interface AssistantToolCall {
-  id: string;
-}
-
+/**
+ * The string ids of a message's tool calls.
+ *
+ * Malformed entries are ignored rather than thrown on, matching
+ * {@link ɵkeepToolResultsWithCalls}: a null or primitive entry, or an entry
+ * without a string `id`, opens no pair instead of failing the repair.
+ */
 function toolCallIdsOf(message: Message): string[] {
-  const calls = (message as { toolCalls?: AssistantToolCall[] }).toolCalls;
+  const calls = (message as { toolCalls?: unknown }).toolCalls;
   if (!Array.isArray(calls)) return [];
-  return calls.map((call) => call.id).filter((id): id is string => Boolean(id));
+  const ids: string[] = [];
+  for (const call of calls) {
+    if (typeof call !== "object" || call === null) continue;
+    const id = (call as { id?: unknown }).id;
+    if (typeof id === "string" && id) ids.push(id);
+  }
+  return ids;
 }
 
 function resultCallIdOf(message: Message): string | undefined {
