@@ -29,7 +29,7 @@ RUN dotnet publish -c Release -o /agent/out
 # Stage 3: Production image
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runner
 
-# Install Node.js 20
+# Install Node.js 22
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates && \
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \

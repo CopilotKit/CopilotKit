@@ -19,7 +19,7 @@ RUN npm run build
 # Stage 2: Production image with Python + Node
 FROM python:3.12-slim AS runner
 
-# Install Node.js 20 + uv
+# Install Node.js 22 + uv
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates && \
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \

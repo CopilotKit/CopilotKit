@@ -302,8 +302,8 @@ jobs:
   build-check:
     needs: [detect-changes, build-angular]
     if: needs.detect-changes.outputs.has_changes == 'true'
-    # The image builds on Depot's remote builder. This runner only waits for
-    # it, so a free GitHub-hosted runner does the job.
+    # Depot builds the image remotely; this GitHub-hosted runner loads it
+    # locally and verifies the resulting Node runtime without starting the app.
     runs-on: ubuntu-26.04
     timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
     permissions:

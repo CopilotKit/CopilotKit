@@ -98,7 +98,7 @@ ENV PORT=10000
 
 # Copy build artifacts with `node:node` ownership so the runtime process
 # (dropped to USER node below) can read them. The `node` user/group ships
-# in the node:20-slim base image at uid/gid 1000 — no useradd needed.
+# in the pinned official Node 22 base at uid/gid 1000 — no useradd needed.
 COPY --chown=node:node --from=builder /app/shell-dashboard/.next ./.next
 COPY --chown=node:node --from=prod-deps /app/shell-dashboard/node_modules ./node_modules
 COPY --chown=node:node --from=builder /app/shell-dashboard/package.json ./
