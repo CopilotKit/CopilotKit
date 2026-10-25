@@ -22,12 +22,15 @@ class PublisherGuards(unittest.TestCase):
 
     def test_manifest_is_exact_and_excludes_intelligence_and_patched_services(self):
         rows = json.loads((ROOT / 'manifest.json').read_text())
-        self.assertEqual(len(rows), 39)
-        self.assertEqual(len({row['name'] for row in rows}), 39)
+        self.assertEqual([row['name'] for row in rows], ['showcase-langgraph-typescript'])
+        self.assertEqual(rows[0]['base'],
+                         'ghcr.io/copilotkit/showcase-langgraph-typescript@sha256:'
+                         '686b79d6b183f9a688fca359e96cacc8c6517bfe3b462ee45622c61e764871f9')
+        self.assertEqual(rows[0]['oldNode'], 'v22.23.2')
         for row in rows:
             publisher.validate(row)
             self.assertNotIn('intelligence', row['name'])
-            self.assertNotIn(row['name'], ['pocketbase', 'showcase-langgraph-typescript', 'dashboard', 'webhooks'])
+            self.assertNotIn(row['name'], ['pocketbase', 'dashboard', 'webhooks'])
 
     def test_mutable_base_and_wrong_repository_are_rejected(self):
         for field, value in [('base', self.row['base'].split('@')[0] + ':latest'),
