@@ -120,7 +120,7 @@ class Gateway:
                 elif event in ("phx_close", "phx_error") and topic == self.topic:
                     raise ConnectionError("Phoenix channel closed")
         except (ValueError, ConnectionError, OSError, WebSocketException) as exc:
-            _log.debug("Gateway receiver stopped: %s", exc)
+            _log.debug("Gateway receiver stopped: %s", type(exc).__name__)
         finally:
             if self.socket is socket:
                 self._disconnected.set()
