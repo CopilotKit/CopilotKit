@@ -22,6 +22,7 @@ on:
       # PR that could break it — a change re-adding `:latest` to the push
       # would sail through untested.
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
   push:
     branches: [main]
     paths:
@@ -37,6 +38,7 @@ on:
       - ".github/workflows/docs_promote.yml"
       - ".github/workflows/showcase_promote.yml"
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:
