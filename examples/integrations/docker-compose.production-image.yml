@@ -45,14 +45,13 @@ services:
       context: ./${STARTER:?STARTER must be set to a starter slug}
       dockerfile: Dockerfile
     environment:
-      # Offline LLM interception. Every starter's agent reads these (adk's
-      # google-genai SDK ignores endpoint overrides, hence GOOGLE_API_KEY —
-      # same escape hatch docker-compose.test.yml uses).
+      # Offline LLM interception, including google-genai's Gemini override.
       - OPENAI_API_KEY=test-key-for-aimock
       - OPENAI_BASE_URL=http://aimock:4010/v1
       - ANTHROPIC_API_KEY=test-key-for-aimock
       - ANTHROPIC_BASE_URL=http://aimock:4010
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-test-key-for-aimock}
+      - GOOGLE_GEMINI_BASE_URL=http://aimock:4010
+      - GOOGLE_API_KEY=test-key-for-aimock
       - GOOGLE_GENAI_USE_VERTEXAI=false
       # Railway supplies PORT; mirror it so the gate runs the same code path.
       - PORT=3000
