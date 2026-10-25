@@ -103,9 +103,12 @@ describe("ɵrepairToolCallPairs", () => {
     } as unknown as Message;
     const result = createToolResultMessage("c", "done");
     const full = [createMessage({ id: "u1" }), call, result];
+    const kept = [full[0]!, call];
 
-    expect(() => ɵrepairToolCallPairs(full, full)).not.toThrow();
-    expect(ɵrepairToolCallPairs(full, full)).toEqual(full);
+    expect(() => ɵrepairToolCallPairs(kept, full)).not.toThrow();
+    // The malformed entries are ignored, but the valid "c" pair is still
+    // restored from the untrimmed thread.
+    expect(ɵrepairToolCallPairs(kept, full)).toEqual(full);
   });
 
   it("restores every sibling result when it restores a parallel call", () => {
