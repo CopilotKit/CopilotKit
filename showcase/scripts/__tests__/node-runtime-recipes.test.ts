@@ -84,11 +84,16 @@ type BuildStep = {
   env?: Record<string, string>;
   with?: { filters?: string };
   run?: string;
+  uses?: string;
 };
 const buildCheck = load(read(".github/workflows/showcase_build_check.yml")) as {
   on: Record<string, unknown>;
   concurrency: { group: string };
-  jobs: Record<string, { steps: BuildStep[] }>;
+  permissions: Record<string, string>;
+  jobs: Record<
+    string,
+    { steps: BuildStep[]; permissions?: Record<string, string> }
+  >;
 };
 const detectSteps = buildCheck.jobs["detect-changes"].steps;
 const matrixStep = detectSteps.find((step) => step.id === "build-matrix")!;
@@ -214,4 +219,18 @@ test("PR starter filter executes Bash/jq with its exact standalone context", () 
   ]);
   expect(result.has_changes).toBe("true");
   expect(result.needs_angular).toBe("false");
+});
+
+test("PR path detection has job-local read access to pull request files", () => {
+  const detection = buildCheck.jobs["detect-changes"];
+  expect(detection.steps.find((step) => step.id === "filter")?.uses).toMatch(
+    /^dorny\/paths-filter@/,
+  );
+  // Explicit job permissions replace the workflow defaults. The REST API
+  // that paths-filter uses for pull_request events needs this read scope.
+  expect(detection.permissions).toEqual({
+    contents: "read",
+    "pull-requests": "read",
+  });
+  expect(buildCheck.permissions).toEqual({ contents: "read" });
 });
