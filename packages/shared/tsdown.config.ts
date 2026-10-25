@@ -1,5 +1,10 @@
 import { defineConfig } from "tsdown";
 
+// `partial-json` only ships CommonJS, which makes Angular's esbuild warn about
+// optimization bailouts (#7654). Bundle it into every format so consumers get
+// ESM, and keep it out of the published `dependencies`.
+const bundled = ["partial-json"];
+
 export default defineConfig([
   {
     // Node-only telemetry and event transforms have separate entries.
@@ -16,6 +21,8 @@ export default defineConfig([
     outDir: "dist",
     unbundle: true,
     exports: true,
+    noExternal: bundled,
+    inlineOnly: bundled,
   },
   {
     entry: ["src/index.ts"],
@@ -24,14 +31,9 @@ export default defineConfig([
     sourcemap: true,
     target: "es2018",
     outDir: "dist",
-    external: [
-      "zod",
-      "graphql",
-      "uuid",
-      "@ag-ui/core",
-      "@ag-ui/client",
-      "partial-json",
-    ],
+    external: ["zod", "graphql", "uuid", "@ag-ui/core", "@ag-ui/client"],
+    noExternal: bundled,
+    inlineOnly: bundled,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
       options.globals = {
@@ -41,7 +43,6 @@ export default defineConfig([
         "@ag-ui/core": "AgUICore",
         "@ag-ui/client": "AgUIClient",
         "@segment/analytics-node": "SegmentAnalyticsNode",
-        "partial-json": "PartialJSON",
       };
       return options;
     },

@@ -3843,9 +3843,6 @@ importers:
       graphql:
         specifier: ^16.8.1
         version: 16.12.0
-      partial-json:
-        specifier: ^0.1.7
-        version: 0.1.7
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
@@ -3877,6 +3874,9 @@ importers:
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      partial-json:
+        specifier: ^0.1.7
+        version: 0.1.7
       tsconfig:
         specifier: workspace:*
         version: link:../tsconfig
@@ -4142,9 +4142,6 @@ importers:
       marked:
         specifier: ^12.0.2
         version: 12.0.2
-      semver:
-        specifier: ^7.8.5
-        version: 7.8.5
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:*
@@ -4164,6 +4161,9 @@ importers:
       concurrently:
         specifier: ^9.1.0
         version: 9.2.1
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
       tailwindcss:
         specifier: ^4.0.8
         version: 4.1.18

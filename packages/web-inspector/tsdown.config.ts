@@ -1,5 +1,10 @@
 import { defineConfig } from "tsdown";
 
+// `semver` only ships CommonJS, which makes Angular's esbuild warn about
+// optimization bailouts (#7654). Bundle it so consumers get ESM, and keep it
+// out of the published `dependencies`.
+const bundled = ["semver"];
+
 export default defineConfig([
   {
     entry: ["src/index.ts"],
@@ -14,6 +19,8 @@ export default defineConfig([
       ".svg": "dataurl",
     },
     exports: true,
+    noExternal: bundled,
+    inlineOnly: bundled,
   },
   {
     entry: ["src/index.ts"],
@@ -23,6 +30,8 @@ export default defineConfig([
     target: "es2018",
     outDir: "dist",
     external: ["lit", "lit/decorators.js"],
+    noExternal: bundled,
+    inlineOnly: bundled,
     loader: {
       ".css": "text",
       ".svg": "dataurl",
