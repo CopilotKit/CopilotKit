@@ -863,18 +863,29 @@ export class RunHandler {
       // mistake. An interrupted run leaves its calls for the interrupt's
       // answer, a stopped run ends with a `cancelled` outcome, and a failed
       // run never finished. The state manager tracks interrupts too, but only
-      // for registered agents, not the per-thread clones that runs use.
+      // for registered agents, not the per-thread clones that runs use. A
+      // stream can carry more than one run, so one that ends any other way
+      // keeps every call open, even if a later run finishes cleanly.
       let finishedCleanly = false;
-      let legacyInterrupted = false;
+      let leftCallsOpen = false;
       const onRunFinishedEvent = agentSubscriber.onRunFinishedEvent;
+      const onRunErrorEvent = agentSubscriber.onRunErrorEvent;
       const onCustomEvent = agentSubscriber.onCustomEvent;
       agentSubscriber.onRunFinishedEvent = (params) => {
         const outcome = params.event.outcome?.type;
-        finishedCleanly = outcome === undefined || outcome === "success";
+        if (outcome === undefined || outcome === "success") {
+          finishedCleanly = true;
+        } else {
+          leftCallsOpen = true;
+        }
         return onRunFinishedEvent?.(params);
       };
+      agentSubscriber.onRunErrorEvent = (params) => {
+        leftCallsOpen = true;
+        return onRunErrorEvent?.(params);
+      };
       agentSubscriber.onCustomEvent = (params) => {
-        if (params.event.name === "on_interrupt") legacyInterrupted = true;
+        if (params.event.name === "on_interrupt") leftCallsOpen = true;
         return onCustomEvent?.(params);
       };
       // An internal continuation (a human-in-the-loop tool resolved and this is
@@ -915,7 +926,7 @@ export class RunHandler {
         runId: logicalRunId,
         runController: controller,
         advertisedToolNames:
-          finishedCleanly && !legacyInterrupted
+          finishedCleanly && !leftCallsOpen
             ? new Set(tools.map((tool) => tool.name))
             : undefined,
       });
@@ -1081,15 +1092,21 @@ export class RunHandler {
               (m) => m.role === "tool" && m.toolCallId === toolCall.id,
             ) ?? newMessages[existingResultIndex];
 
+          // An advertised tool that is gone can never replace the
+          // placeholder, so clear it for the not-found answer below, unless
+          // the run result already carries a real answer.
+          const runResult = newMessages[existingResultIndex];
+          const answersRemovedTool =
+            !executableTool &&
+            !!advertisedToolNames?.has(toolCall.function.name) &&
+            (!runResult || this.isFrontendPlaceholderResult(runResult));
+
           if (
             existingResult &&
             this.isFrontendPlaceholderResult(existingResult) &&
             (toolExecutionMode === "restore" ||
               executableTool?.handler ||
-              // An advertised tool that is gone can never replace the
-              // placeholder, so clear it for the not-found answer below.
-              (!executableTool &&
-                advertisedToolNames?.has(toolCall.function.name)))
+              answersRemovedTool)
           ) {
             if (existingResultIndex !== -1)
               newMessages.splice(existingResultIndex, 1);

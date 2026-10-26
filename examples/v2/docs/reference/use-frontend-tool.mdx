@@ -255,7 +255,8 @@ function TemporaryTool() {
   });
 
   // When this component unmounts:
-  // - The tool handler is removed (agent can't call it anymore)
+  // - The tool handler is removed (later runs no longer offer it, and a call
+  //   still in flight is answered with a "Tool not found" error result)
   // - The renderer persists (previous executions still visible in chat)
 
   return null;
