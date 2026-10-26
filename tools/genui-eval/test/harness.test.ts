@@ -122,6 +122,24 @@ describe("runSample with a rejected operation", () => {
   });
 });
 
+describe("runSample with a named target", () => {
+  it("rejects a surface for a target the page does not have", async () => {
+    const out = await runSample({
+      case: cases["color-palette"],
+      transport: "markdown",
+      entry,
+      model: createFakeModel(
+        "fake:unit",
+        new URL("./fixtures/", import.meta.url).pathname,
+      ),
+    });
+    expect(out.surfaces).toEqual([]);
+    expect(out.rejected[0]?.reason).toContain(
+      'targets "sidebar", which is not mounted',
+    );
+  });
+});
+
 describe("applyPatch", () => {
   it("adds to a list, replaces a field, and removes a key", () => {
     const target = { operations: [1], status: "streaming", extra: true };

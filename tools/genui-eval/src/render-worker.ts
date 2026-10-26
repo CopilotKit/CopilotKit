@@ -106,52 +106,80 @@ const TEXT_COMPONENTS = new Set([
   "FlowItem",
 ]);
 
-/** The ids in one slot or reference value: an id, a list of ids, or a template. */
-function idsIn(value: unknown): string[] {
-  if (typeof value === "string") return [value];
-  if (Array.isArray(value))
-    return value.filter((v): v is string => typeof v === "string");
-  if (
-    value &&
-    typeof value === "object" &&
-    typeof (value as { componentId?: unknown }).componentId === "string"
-  ) {
-    return [(value as { componentId: string }).componentId];
-  }
-  return [];
+/** A data path read against the scope of a template item: absolute, or relative to `base`. */
+function resolvePath(path: string, base: string | undefined) {
+  if (path.startsWith("/") || base === undefined)
+    return path.startsWith("/") ? path : `/${path}`;
+  return `${base.replace(/\/$/, "")}/${path}`;
 }
 
-/** `value` with every absolute `{"@path"}` binding replaced by the data it points to. */
+/** `value` with every `{"@path"}` binding replaced by the data it points to. */
 function resolveBound(
   value: unknown,
   data: { get(path: string): unknown },
+  base: string | undefined,
   depth = 0,
 ): unknown {
   if (depth > 8) return value;
   if (Array.isArray(value))
-    return value.map((v) => resolveBound(v, data, depth + 1));
+    return value.map((v) => resolveBound(v, data, base, depth + 1));
   if (!value || typeof value !== "object") return value;
   const record = value as Record<string, unknown>;
   const path = record["@path"];
-  if (
-    typeof path === "string" &&
-    path.startsWith("/") &&
-    Object.keys(record).length === 1
-  ) {
-    return resolveBound(data.get(path), data, depth + 1);
+  if (typeof path === "string" && Object.keys(record).length === 1) {
+    return resolveBound(
+      data.get(resolvePath(path, base)),
+      data,
+      base,
+      depth + 1,
+    );
   }
   return Object.fromEntries(
     Object.entries(record).map(([k, v]) => [
       k,
-      resolveBound(v, data, depth + 1),
+      resolveBound(v, data, base, depth + 1),
     ]),
   );
 }
 
 /**
- * The component types reachable from "root" through slots and child
- * references: what can actually render. A component no slot references is
- * never shown, so it must not count.
+ * The children one slot or reference value renders, each with the data
+ * scope it renders in: an id or a list of ids in the same scope, or a
+ * template, which renders its component once per item of its list (none
+ * for an empty list) in the scope of the item.
+ */
+function childrenOf(
+  value: unknown,
+  data: { get(path: string): unknown },
+  base: string | undefined,
+) {
+  if (typeof value === "string") return [{ id: value, base }];
+  if (Array.isArray(value)) {
+    return value
+      .filter((v): v is string => typeof v === "string")
+      .map((id) => ({ id, base }));
+  }
+  if (value && typeof value === "object") {
+    const { componentId, path } = value as {
+      componentId?: unknown;
+      path?: unknown;
+    };
+    if (typeof componentId === "string" && typeof path === "string") {
+      const listPath = resolvePath(path, base);
+      const list = data.get(listPath);
+      return Array.isArray(list) && list.length > 0
+        ? [{ id: componentId, base: `${listPath}/0` }]
+        : [];
+    }
+    if (typeof componentId === "string") return [{ id: componentId, base }];
+  }
+  return [];
+}
+
+/**
+ * The component types that render from "root": through slots and child
+ * references, with bindings read from the data and templates expanded over
+ * their items. A component nothing renders must not count.
  */
 function reachableTypes(
   model: {
@@ -169,30 +197,51 @@ function reachableTypes(
 ) {
   const types: string[] = [];
   const seen = new Set<string>();
-  const queue = ["root"];
+  const queue: Array<{ id: string; base: string | undefined }> = [
+    { id: "root", base: undefined },
+  ];
   while (queue.length > 0) {
-    const id = queue.shift()!;
-    if (seen.has(id)) continue;
-    seen.add(id);
+    const { id, base } = queue.shift()!;
+    const key = `${id}@${base ?? ""}`;
+    if (seen.has(key) || seen.size > 2000) continue;
+    seen.add(key);
     const found = model.get(id);
     if (!found) continue;
-    // Child references can be bound to the data ({"@path":"/tabs"}): read
-    // them as the renderer does.
-    const component = {
-      type: found.type,
-      properties: resolveBound(found.properties, data) as Record<
-        string,
-        unknown
-      >,
-    };
-    types.push(component.type);
-    const definition = ui.components.get(component.type);
+    if (!types.includes(found.type)) types.push(found.type);
+    const definition = ui.components.get(found.type);
     if (!definition) continue;
     const slots = Object.keys(
       (definition.slots as Record<string, unknown> | undefined) ?? {},
     );
-    for (const slot of slots) queue.push(...idsIn(component.properties[slot]));
-    queue.push(...childIdsAtRefs(component.properties, definition.childRefs));
+    for (const slot of slots) {
+      queue.push(
+        ...childrenOf(
+          resolveBound(found.properties[slot], data, base),
+          data,
+          base,
+        ),
+      );
+    }
+    const resolved = resolveBound(found.properties, data, base) as Record<
+      string,
+      unknown
+    >;
+    for (const ref of definition.childRefs) {
+      // childIdsAtRefs gives the ids; templates at a ref are expanded here.
+      const at = ref.path.reduce<unknown>(
+        (value, k) =>
+          value && typeof value === "object" && k !== "*"
+            ? (value as Record<string, unknown>)[k]
+            : value,
+        resolved,
+      );
+      if (ref.path.includes("*")) {
+        for (const childId of childIdsAtRefs(resolved, [ref]))
+          queue.push({ id: childId, base });
+      } else {
+        queue.push(...childrenOf(at, data, base));
+      }
+    }
   }
   return types;
 }

@@ -419,6 +419,7 @@ export async function runSample(input: {
     if (result.reason) parseErrors.push(`render_ui rejected: ${result.reason}`);
   }
   let surfaces: GenerativeUISurfaceContent[];
+  const targetRejections: GenerativeUIRejectedOperation[] = [];
   if (input.transport === "markdown") {
     parseErrors.push(...fenceParseErrors(collected.text));
     const message = {
@@ -426,11 +427,23 @@ export async function runSample(input: {
       role: "assistant",
       content: collected.text,
     } as Message;
-    surfaces = buildMarkdownSurfaces([message], {
+    const built = buildMarkdownSurfaces([message], {
       ui: catalog.ui,
       functions: {},
       running: false,
     }).surfaces;
+    // A fence for a target the page does not have shows nothing in the
+    // client, so it is a rejected surface, not rendered UI.
+    const targets = new Set(
+      catalog.manifest.targets.map((target) => target.id),
+    );
+    surfaces = built.filter((s) => targets.has(s.target));
+    for (const s of built.filter((s) => !targets.has(s.target))) {
+      targetRejections.push({
+        index: -1,
+        reason: `surface "${s.surfaceId}" targets "${s.target}", which is not mounted`,
+      });
+    }
   } else {
     surfaces = [...collected.surfaces.values()];
   }
@@ -439,6 +452,7 @@ export async function runSample(input: {
     toolCalls,
     surfaces,
     rejected: dedupeRejections([
+      ...targetRejections,
       ...collected.toolResults.flatMap((r) => r.rejected),
       ...surfaces.flatMap((s) => s.rejected ?? []),
     ]),
