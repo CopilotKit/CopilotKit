@@ -55,7 +55,15 @@ jobs:
               per_page: 100,
             });
 
-            const allShowcases = files.every(f =>
+            // The endpoint returns at most 3,000 files. If the list is short
+            // of the PR's own count, some files were never checked: fail closed.
+            const complete =
+              files.length === context.payload.pull_request.changed_files;
+            if (!complete) {
+              core.info(`Listed ${files.length} of ${context.payload.pull_request.changed_files} changed files`);
+            }
+
+            const allShowcases = complete && files.every(f =>
               f.filename.startsWith('examples/showcases/')
             );
 
