@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "scope": "pni-blocker-completion-20261026",
+  "accepted": false,
+  "images": [
+    {
+      "image": "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet",
+      "digest": "sha256:c21c7daa96f691737764d16255f93c3240cf2e67900c1c318bc34784c4b312f8",
+      "revision": "a446e1178d8803ea18921c8b5addca40d9bf4407",
+      "previousLatest": "sha256:b3da669aedb07342ea342810b7058e646c51a61447da53c5f10afd1afd180cc5"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-harness",
+      "digest": "sha256:797a40e2f7d7ae1ef5a55210a2e5de407aa831eae9e9fc708a9964c2f4fe970a",
+      "revision": "362cd1319c7a610137c0d84e4f74155021e561c0",
+      "previousLatest": "sha256:6cb970079b8888c843f6e93c50a732f81d959328aa536c04c50189990ccf46e1"
+    }
+  ],
+  "held": [
+    "ghcr.io/copilotkit/showcase-ag2",
+    "ghcr.io/copilotkit/showcase-agno",
+    "ghcr.io/copilotkit/showcase-aimock",
+    "ghcr.io/copilotkit/showcase-built-in-agent",
+    "ghcr.io/copilotkit/showcase-claude-sdk-python",
+    "ghcr.io/copilotkit/showcase-claude-sdk-typescript",
+    "ghcr.io/copilotkit/showcase-crewai-conversational-flows",
+    "ghcr.io/copilotkit/showcase-crewai-crews",
+    "ghcr.io/copilotkit/showcase-eval-webhook",
+    "ghcr.io/copilotkit/showcase-google-adk",
+    "ghcr.io/copilotkit/showcase-google-antigravity",
+    "ghcr.io/copilotkit/showcase-langgraph-fastapi",
+    "ghcr.io/copilotkit/showcase-langgraph-python",
+    "ghcr.io/copilotkit/showcase-langgraph-typescript",
+    "ghcr.io/copilotkit/showcase-langroid",
+    "ghcr.io/copilotkit/showcase-llamaindex",
+    "ghcr.io/copilotkit/showcase-mastra",
+    "ghcr.io/copilotkit/showcase-ms-agent-dotnet",
+    "ghcr.io/copilotkit/showcase-ms-agent-harness-dotnet",
+    "ghcr.io/copilotkit/showcase-ms-agent-python",
+    "ghcr.io/copilotkit/showcase-pydantic-ai",
+    "ghcr.io/copilotkit/showcase-shell",
+    "ghcr.io/copilotkit/showcase-shell-dashboard",
+    "ghcr.io/copilotkit/showcase-shell-docs",
+    "ghcr.io/copilotkit/showcase-shell-dojo",
+    "ghcr.io/copilotkit/showcase-spring-ai",
+    "ghcr.io/copilotkit/showcase-strands",
+    "ghcr.io/copilotkit/showcase-strands-typescript",
+    "ghcr.io/copilotkit/starter-adk",
+    "ghcr.io/copilotkit/starter-agno",
+    "ghcr.io/copilotkit/starter-crewai-crews",
+    "ghcr.io/copilotkit/starter-langgraph-fastapi",
+    "ghcr.io/copilotkit/starter-langgraph-js",
+    "ghcr.io/copilotkit/starter-langgraph-python",
+    "ghcr.io/copilotkit/starter-llamaindex",
+    "ghcr.io/copilotkit/starter-mastra",
+    "ghcr.io/copilotkit/starter-ms-agent-framework-python",
+    "ghcr.io/copilotkit/starter-pydantic-ai",
+    "ghcr.io/copilotkit/starter-strands-python"
+  ],
+  "heldLatest": {}
+}
