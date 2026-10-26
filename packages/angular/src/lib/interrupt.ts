@@ -253,7 +253,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     if (!id) return;
     return this.#handleStandardDecision(
       agent,
-      this.#interruptState.resolve(payload, id),
+      this.#interruptState.resolve(payload, id, agent.messages),
     );
   };
 
@@ -280,7 +280,10 @@ export class InterruptController<TValue = unknown, TResult = never> {
 
     const id = this.#targetId(current.interrupts, interruptId);
     if (!id) return;
-    return this.#handleStandardDecision(agent, this.#interruptState.cancel(id));
+    return this.#handleStandardDecision(
+      agent,
+      this.#interruptState.cancel(id, agent.messages),
+    );
   };
 
   /** Alias retained for parity with other CopilotKit framework adapters. */

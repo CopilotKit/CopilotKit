@@ -81,6 +81,38 @@ function finalizeLegacy(agent: FakeAgent, value: unknown): void {
 }
 
 describe("InterruptController", () => {
+  it.each(["resolve", "cancel"])(
+    "%s preserves existing frontend results in a mixed interrupt batch",
+    async (action) => {
+      const { agent, controller, run, startResume } = setup();
+      agent.messages.push({
+        id: "saved",
+        role: "tool",
+        toolCallId: "chart",
+        content: "",
+      });
+      finalizeStandard(agent, [
+        makeInterrupt("chart-i", { reason: "tool_call", toolCallId: "chart" }),
+        makeInterrupt("approval"),
+      ]);
+      const resumed =
+        action === "resolve"
+          ? controller.resolve("allow", "approval")
+          : controller.cancel("approval");
+      expect(agent.addMessage).not.toHaveBeenCalled();
+      expect(run).toHaveBeenCalledExactlyOnceWith(agent, {
+        resume: [
+          { interruptId: "chart-i", status: "resolved", payload: "" },
+          action === "resolve"
+            ? { interruptId: "approval", status: "resolved", payload: "allow" }
+            : { interruptId: "approval", status: "cancelled" },
+        ],
+      });
+      startResume();
+      await resumed;
+    },
+  );
+
   it("prefers standard interrupts and exposes the primary and complete set", () => {
     const { agent, controller } = setup();
     agent.subscriber?.onCustomEvent?.({

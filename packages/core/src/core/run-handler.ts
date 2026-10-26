@@ -24,6 +24,7 @@ import {
   toToolResultContent,
 } from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
+import { ɵInterruptState } from "../interrupt-state";
 import { WebMCPRegistry } from "./webmcp";
 
 /**
@@ -1069,6 +1070,19 @@ export class RunHandler {
             }
           }
 
+          if (
+            existingResult &&
+            executableTool?.followUp !== false &&
+            executableTool &&
+            agent.pendingInterrupts?.some(
+              (interrupt) =>
+                interrupt.reason === "tool_call" &&
+                interrupt.toolCallId === toolCall.id,
+            )
+          ) {
+            needsFollowUp = true;
+          }
+
           if (!existingResult) {
             executing.add(executionKey);
             // Live HITL handlers need the same thread-switch cancellation as
@@ -1188,12 +1202,23 @@ export class RunHandler {
         ) {
           return runAgentResult;
         }
+        let resume: ResumeEntry[] | undefined;
+        if (agent.pendingInterrupts?.length) {
+          const interrupts = new ɵInterruptState();
+          interrupts.setStandard(agent.pendingInterrupts);
+          const decision = interrupts.resumeWithToolResults(agent.messages);
+          // A completed frontend call is not permission to answer a native
+          // approval or a child question. Keep the full interrupt set pending.
+          if (decision.kind !== "resume") return runAgentResult;
+          resume = decision.resume;
+        }
         const continuationHandoff =
           this._internal.stateManager.markNextRunAsContinuation(agent, runId);
         return await this.runAgent(
           {
             agent,
             ...(runId !== undefined ? { runId } : {}),
+            ...(resume ? { resume } : {}),
           },
           continuationHandoff,
           runController,

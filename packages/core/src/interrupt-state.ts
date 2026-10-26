@@ -1,5 +1,7 @@
 import { buildResumeArray, isInterruptExpired } from "@ag-ui/client";
-import type { Interrupt, ResumeEntry } from "@ag-ui/client";
+import type { Interrupt, ResumeEntry, Message } from "@ag-ui/client";
+
+import { isForwardedToClientPlaceholder } from "./core/tool-result-content";
 
 type ResumeResponse =
   | { status: "resolved"; payload?: unknown }
@@ -85,7 +87,11 @@ export class ɵInterruptState<TValue = unknown> {
   }
 
   /** Record a resolved response and return the next framework action. */
-  resolve(payload?: unknown, interruptId?: string): ɵInterruptDecision {
+  resolve(
+    payload?: unknown,
+    interruptId?: string,
+    messages: readonly Message[] = [],
+  ): ɵInterruptDecision {
     const pending = this.#pending;
     if (!pending || this.#sealed) return { kind: "ignored" };
     if (pending.kind === "legacy") {
@@ -96,23 +102,44 @@ export class ɵInterruptState<TValue = unknown> {
         interruptValue: pending.event.value,
       };
     }
-    return this.#respond(pending.interrupts, interruptId, {
-      status: "resolved",
-      payload,
-    });
+    return this.#respond(
+      pending.interrupts,
+      interruptId,
+      {
+        status: "resolved",
+        payload,
+      },
+      messages,
+    );
   }
 
   /** Record a cancelled response and return the next framework action. */
-  cancel(interruptId?: string): ɵInterruptDecision {
+  cancel(
+    interruptId?: string,
+    messages: readonly Message[] = [],
+  ): ɵInterruptDecision {
     const pending = this.#pending;
     if (!pending || this.#sealed) return { kind: "ignored" };
     if (pending.kind === "legacy") {
       this.#sealed = true;
       return { kind: "dismiss" };
     }
-    return this.#respond(pending.interrupts, interruptId, {
-      status: "cancelled",
-    });
+    return this.#respond(
+      pending.interrupts,
+      interruptId,
+      {
+        status: "cancelled",
+      },
+      messages,
+    );
+  }
+
+  /** Resume only when saved frontend results answer every pending interrupt. */
+  resumeWithToolResults(messages: readonly Message[]): ɵInterruptDecision {
+    const pending = this.#pending;
+    if (pending?.kind !== "standard" || this.#sealed)
+      return { kind: "ignored" };
+    return this.#decide(pending.interrupts, { ...this.#responses }, messages);
   }
 
   #replace(pending: ɵPendingInterrupt<TValue>): void {
@@ -124,13 +151,55 @@ export class ɵInterruptState<TValue = unknown> {
     interrupts: readonly Interrupt[],
     interruptId: string | undefined,
     response: ResumeResponse,
+    messages: readonly Message[],
   ): ɵInterruptDecision {
     const id = interruptId ?? interrupts[0]?.id;
     if (!id || !interrupts.some((interrupt) => interrupt.id === id)) {
       return { kind: "ignored" };
     }
-    this.#responses[id] = response;
-    if (!interrupts.every((interrupt) => this.#responses[interrupt.id])) {
+    return this.#decide(
+      interrupts,
+      { ...this.#responses, [id]: response },
+      messages,
+    );
+  }
+
+  #decide(
+    interrupts: readonly Interrupt[],
+    responses: Record<string, ResumeResponse>,
+    messages: readonly Message[],
+  ): ɵInterruptDecision {
+    const completed = new Set<string>();
+    for (const interrupt of interrupts) {
+      if (interrupt.reason !== "tool_call" || !interrupt.toolCallId) continue;
+      const results = messages.filter(
+        (message) =>
+          message.role === "tool" &&
+          message.toolCallId === interrupt.toolCallId &&
+          !isForwardedToClientPlaceholder(message.content),
+      );
+      if (results.length > 1)
+        throw new Error(`Duplicate tool results for ${interrupt.toolCallId}`);
+      const result = results[0];
+      if (!result) continue;
+      const response = responses[interrupt.id];
+      if (
+        response &&
+        (response.status !== "resolved" ||
+          (response.payload !== result.content &&
+            toolResultContent(response) !== result.content))
+      ) {
+        throw new Error(
+          `Interrupt response conflicts with existing tool result for ${interrupt.toolCallId}`,
+        );
+      }
+      // Preserve actual result bytes, including the empty string. Never create
+      // another tool message for a call already answered by a frontend handler.
+      responses[interrupt.id] = { status: "resolved", payload: result.content };
+      completed.add(interrupt.id);
+    }
+    Object.assign(this.#responses, responses);
+    if (!interrupts.every((interrupt) => responses[interrupt.id])) {
       return { kind: "waiting" };
     }
 
@@ -143,13 +212,18 @@ export class ɵInterruptState<TValue = unknown> {
     }
 
     const mutableInterrupts = [...interrupts];
-    const resume = buildResumeArray(mutableInterrupts, this.#responses);
+    const resume = buildResumeArray(mutableInterrupts, responses);
     const toolResults = mutableInterrupts.flatMap((interrupt) => {
-      if (!interrupt.toolCallId || interrupt.reason !== "tool_call") return [];
+      if (
+        !interrupt.toolCallId ||
+        interrupt.reason !== "tool_call" ||
+        completed.has(interrupt.id)
+      )
+        return [];
       return [
         {
           toolCallId: interrupt.toolCallId,
-          content: toolResultContent(this.#responses[interrupt.id]!),
+          content: toolResultContent(responses[interrupt.id]!),
         },
       ];
     });

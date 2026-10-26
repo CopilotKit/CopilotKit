@@ -991,6 +991,60 @@ describe("useInterrupt", () => {
       expect(lastCall.interrupts).toEqual([INT]);
     });
 
+    it.each(["resolve", "cancel"])(
+      "%s preserves saved frontend results when answering the remaining approval",
+      async (action) => {
+        mockAgent.messages = [
+          { id: "saved", role: "tool", toolCallId: "chart", content: "" },
+        ];
+        const renderSpy = vi.fn();
+        render(<StandardHarness renderSpy={renderSpy} />);
+        fireStandardInterrupt([
+          { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
+          { id: "approval", reason: "approval" },
+        ]);
+        const callbacks = renderSpy.mock.calls.at(-1)![0];
+        await act(async () => {
+          if (action === "resolve")
+            await callbacks.resolve("allow", "approval");
+          else await callbacks.cancel("approval");
+        });
+        expect(mockAgent.addMessage).not.toHaveBeenCalled();
+        expect(runAgentMock).toHaveBeenCalledExactlyOnceWith({
+          agent: mockAgent,
+          resume: [
+            { interruptId: "chart-i", status: "resolved", payload: "" },
+            action === "resolve"
+              ? {
+                  interruptId: "approval",
+                  status: "resolved",
+                  payload: "allow",
+                }
+              : { interruptId: "approval", status: "cancelled" },
+          ],
+        });
+      },
+    );
+
+    it("resolving an already completed empty result adds no duplicate", async () => {
+      mockAgent.messages = [
+        { id: "saved", role: "tool", toolCallId: "chart", content: "" },
+      ];
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      fireStandardInterrupt([
+        { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
+      ]);
+      await act(async () => {
+        await renderSpy.mock.calls.at(-1)![0].resolve("", "chart-i");
+      });
+      expect(mockAgent.addMessage).not.toHaveBeenCalled();
+      expect(runAgentMock).toHaveBeenCalledExactlyOnceWith({
+        agent: mockAgent,
+        resume: [{ interruptId: "chart-i", status: "resolved", payload: "" }],
+      });
+    });
+
     it("resolve() resumes with a resolved ResumeEntry", async () => {
       runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
       const renderSpy = vi.fn();

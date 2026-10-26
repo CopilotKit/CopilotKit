@@ -244,7 +244,11 @@ export function useInterrupt<
           `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
         );
       }
-      const decision = interruptStateRef.current.resolve(payload, interruptId);
+      const decision = interruptStateRef.current.resolve(
+        payload,
+        interruptId,
+        agent.messages,
+      );
       if (decision.kind === "legacy-resume") {
         try {
           return await copilotkit.runAgent({
@@ -314,7 +318,10 @@ export function useInterrupt<
           `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
         );
       }
-      const decision = interruptStateRef.current.cancel(interruptId);
+      const decision = interruptStateRef.current.cancel(
+        interruptId,
+        agent.messages,
+      );
       if (decision.kind === "dismiss") {
         // Legacy interrupts have no cancel semantics; dismiss without resuming.
         console.warn(
