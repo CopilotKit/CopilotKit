@@ -189,6 +189,13 @@ backend that stores threads in process memory. To understand the runner
 abstraction and how to swap in durable persistence, see
 [AgentRunner & persistence](/backend/agent-runner).
 
+<Callout type="info" title="Using CopilotKit Intelligence? Replace runner with intelligence">
+  With Intelligence, Intelligence stores the runs, so remove `runner` and pass
+  `intelligence` (and `identifyUser`) to `CopilotRuntime` instead. The custom
+  agent and its `factory` do not change. See
+  [An existing runtime that already has a runner](/intelligence/quickstart#an-existing-runtime-that-already-has-a-runner).
+</Callout>
+
 The factory can be async. Return a `Promise` if you need to do setup before streaming:
 
 ```typescript
