@@ -22,6 +22,7 @@ on:
       # PR that could break it — a change re-adding `:latest` to the push
       # would sail through untested.
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
   push:
     branches: [main]
     paths:
@@ -37,6 +38,7 @@ on:
       - ".github/workflows/docs_promote.yml"
       - ".github/workflows/showcase_promote.yml"
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:
@@ -863,8 +865,10 @@ jobs:
             # langroid: tests import `typing.Self` (3.11+); on 3.10 the import fails
             # at collection time. typing_extensions.Self would fix it but the tests
             # are tightly coupled to the modern typing module.
+            # google-adk: the pinned google-adk==2.12.0 declares `requires-python >=3.11`;
+            # the package Dockerfile uses Python 3.12.
             # Revisit when ag_ui_strands relaxes its floor or when 3.10 is dropped.
-            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "claude-sdk-python" ] || [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
+            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "claude-sdk-python" ] || [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ] || [ "$pkg" = "google-adk" ]; }; then
               echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (requires >=3.11/3.12)"
               continue
             fi

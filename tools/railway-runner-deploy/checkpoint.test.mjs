@@ -59,6 +59,22 @@ test("only exact prior attempt checkpoint carries drain authority across reruns"
     h.checkpoint,
   );
 });
+test("development reruns retain only the same allowlisted workflow and operation checkpoint", async () => {
+  const h = fixture();
+  h.context.run.workflowPath =
+    ".github/workflows/intelligence-rich-threads-dev.yml";
+  h.receipt.run.workflowPath = h.context.run.workflowPath;
+  h.remote.path = h.context.run.workflowPath;
+  assert.deepEqual(
+    await readAttemptCheckpoint(h.github, h.context),
+    h.checkpoint,
+  );
+  h.remote.path = DEPLOY_WORKFLOW;
+  await assert.rejects(readAttemptCheckpoint(h.github, h.context));
+  h.context.run.workflowPath = ".github/workflows/foreign.yml";
+  h.context.run.attempt = 1;
+  await assert.rejects(readAttemptCheckpoint(h.github, h.context), /workflow/);
+});
 for (const mismatch of [
   "run",
   "sha",
@@ -105,4 +121,35 @@ test("third attempt retains first attempt authority through a verified preflight
   );
   second.providerWorkStarted = true;
   assert.equal(await readAttemptCheckpoint(h.github, h.context), undefined);
+});
+
+test("removal handoff checkpoints preserve provenance without borrowing ordinary rollback authority", async () => {
+  const h = fixture();
+  h.checkpoint.version = 3;
+  h.checkpoint.stage = "remove-requested";
+  h.checkpoint.removalProof = null;
+  h.checkpoint.removalRequest = { outcome: "pending", response: null };
+  h.checkpoint.candidateDeploymentId = null;
+  assert.deepEqual(
+    await readAttemptCheckpoint(h.github, h.context),
+    h.checkpoint,
+  );
+  for (const stage of [
+    "rollback-requested",
+    "rollback-deployed",
+    "candidate-deployed",
+    "resume-requested",
+  ])
+    assert.throws(() =>
+      validateCheckpoint({ ...h.checkpoint, stage }, h.context),
+    );
+  assert.throws(() =>
+    validateCheckpoint(
+      { ...h.checkpoint, rollbackDeploymentId: "rollback" },
+      h.context,
+    ),
+  );
+  assert.throws(() =>
+    validateCheckpoint({ ...h.checkpoint, version: 1 }, h.context),
+  );
 });

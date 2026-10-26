@@ -83,8 +83,13 @@ on:
           - webhooks
         # <<< END GENERATED service options
       digest:
-        description: "Optional digest override (default: snapshot from staging)"
+        description: "Optional digest override for the selected service ONLY (default: snapshot from staging). Other closure members always promote from staging."
         required: false
+        type: string
+      hold:
+        description: "Optional comma-separated services to leave UNCHANGED in prod (e.g. harness,harness-workers). Removed from the promote closure; prod gates still run against their current prod image."
+        required: false
+        default: ""
         type: string
 
 # Serialize ALL promotes on a single input-agnostic group so concurrent runs
@@ -116,6 +121,10 @@ jobs:
       closure_csv: ${{ steps.resolve.outputs.closure_csv }}
       # Machine-readable `tier:name` form of the closure for U4 to consume.
       closure_plan: ${{ steps.resolve.outputs.closure_plan }}
+      # Services removed from the closure by the `hold` input (prod unchanged).
+      held_csv: ${{ steps.resolve.outputs.held_csv }}
+      # The one service the `digest` input applies to (empty without a digest).
+      digest_service: ${{ steps.resolve.outputs.digest_service }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -152,6 +161,7 @@ jobs:
         env:
           INPUT: ${{ inputs.service }}
           DIGEST: ${{ inputs.digest }}
+          HOLD: ${{ inputs.hold }}
           GENERATED: showcase/scripts/railway-envs.generated.json
         run: showcase/scripts/resolve-promote-targets.sh
 
@@ -231,6 +241,12 @@ jobs:
       # prod verification to exactly this set so a single failed service can't
       # red the verification of the services that did promote.
       succeeded_csv: ${{ steps.promote.outputs.succeeded_csv }}
+      # The prod VERIFICATION set: succeeded_csv PLUS the services held by the
+      # `hold` input (failed / not-attempted services excluded). Held services are
+      # not promoted, but the promoted services now run against them, so prod
+      # health, compatibility and equivalence must still check them on their
+      # CURRENT image. Equals succeeded_csv when nothing is held.
+      verify_csv: ${{ steps.promote.outputs.verify_csv }}
       # Aggregated staging-drift payload: non-empty when any promoted service's
       # staging RUNNING digest differed from the current GHCR :latest (i.e.
       # staging was NOT serving :latest). Folded into the Slack notify payload
@@ -306,6 +322,12 @@ jobs:
           # ONLY when CLOSURE_PLAN is empty (e.g. an older resolve step).
           SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
           DIGEST: ${{ inputs.digest }}
+          # promote-fleet.sh forwards DIGEST to this service ONLY; every other
+          # closure member promotes from its own staging running digest.
+          DIGEST_SERVICE: ${{ needs.resolve-targets.outputs.digest_service }}
+          # Held services: reported as held, and the run is refused if any of
+          # them is still in the plan (defense in depth).
+          HELD_CSV: ${{ needs.resolve-targets.outputs.held_csv }}
         run: |
           set -euo pipefail
           if [ -z "$RAILWAY_TOKEN" ]; then
@@ -334,7 +356,7 @@ jobs:
 
   compatibility-refresh:
     needs: [promote]
-    if: ${{ !cancelled() && inputs.validate_registry_only != true && needs.promote.outputs.succeeded_csv != '' }}
+    if: ${{ !cancelled() && inputs.validate_registry_only != true && needs.promote.outputs.verify_csv != '' }}
     permissions:
       contents: read
       packages: read
@@ -344,7 +366,7 @@ jobs:
     uses: $/.github/workflows/showcase_compatibility.yml
     with:
       environment: prod
-      services_csv: ${{ needs.promote.outputs.succeeded_csv }}
+      services_csv: ${{ needs.promote.outputs.verify_csv }}
     secrets:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
       SHOWCASE_HARNESS_SHARED_SECRET: ${{ secrets.SHOWCASE_HARNESS_SHARED_SECRET }}
@@ -392,8 +414,10 @@ jobs:
           # promote job's best-effort succeeded set), NOT the full requested set
           # (resolve-targets) — verifying a service that failed to promote would
           # guarantee a red verify and mask the health of the ones that did
-          # promote.
-          SERVICES_CSV: ${{ needs.promote.outputs.succeeded_csv }}
+          # promote. Held services (`hold` input) are included: verify_csv =
+          # succeeded set + held set, so prod is checked for them on their current
+          # image.
+          SERVICES_CSV: ${{ needs.promote.outputs.verify_csv }}
           # The promote job's result, so the empty-CSV branch can tell a genuine
           # all-failed run (empty succeeded set is expected) apart from a
           # contract violation (promote reported success yet emitted no CSV).
@@ -417,10 +441,10 @@ jobs:
           # is violated — fail loud instead of silently exiting 0.
           if [ -z "$SERVICES_CSV" ]; then
             if [ "$PROMOTE_RESULT" = "success" ]; then
-              echo "::error::promote reported success but succeeded_csv is empty — contract violation"
+              echo "::error::promote reported success but verify_csv is empty — contract violation"
               exit 1
             fi
-            echo "::notice::succeeded_csv is empty (no services promoted, or promote did not run); skipping prod verification. The run is red via the promote job result if anything failed."
+            echo "::notice::verify_csv is empty (no services promoted or held, or promote did not run); skipping prod verification. The run is red via the promote job result if anything failed."
             # Record that prod was SKIPPED, not verified. The job still exits 0
             # (its `result` is `success`), so the notify job reads this `status`
             # output to render `verify-prod=skipped` instead of a misleading
@@ -468,8 +492,9 @@ jobs:
         working-directory: showcase/scripts
         env:
           # The promoted closure subset that ACTUALLY pinned (best-effort) —
-          # the set to re-sweep + compare. Same scope as the prod probe above.
-          PROMOTED_CLOSURE_CSV: ${{ needs.promote.outputs.succeeded_csv }}
+          # the set to re-sweep + compare, plus the held services on their current
+          # prod image. Same scope as the prod probe above (verify_csv).
+          PROMOTED_CLOSURE_CSV: ${{ needs.promote.outputs.verify_csv }}
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ vars.SHOWCASE_RAILWAY_PROJECT_ID }}
           RAILWAY_ENVIRONMENT_ID_PROD: ${{ vars.SHOWCASE_RAILWAY_ENV_ID_PROD }}

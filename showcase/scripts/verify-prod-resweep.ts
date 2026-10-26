@@ -51,11 +51,11 @@ import {
   keyFor,
   CATALOG_TO_D5_KEY,
   STARTER_ROW_LEVELS,
-} from "../shell-dashboard/src/lib/live-status";
+} from "../harness/src/shared/cell-model/live-status.js";
 import type {
   LiveStatusMap,
   StatusRow,
-} from "../shell-dashboard/src/lib/live-status";
+} from "../harness/src/shared/cell-model/live-status.js";
 import { STARTER_TO_COLUMN } from "../harness/src/probes/helpers/starter-mapping";
 
 /** Default re-sweep ceiling (spec §6.2): 20 minutes → REFUSE on timeout. */

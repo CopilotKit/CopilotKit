@@ -108,10 +108,15 @@ export type OverridableProperty =
   | "providerOptions";
 
 /**
- * Supported model identifiers for BuiltInAgent
+ * Model identifiers for BuiltInAgent. The named entries are editor
+ * suggestions, not an allowlist: any provider model id is sent through
+ * unchanged.
  */
 export type BuiltInAgentModel =
   // OpenAI models
+  | "openai/gpt-5.5"
+  | "openai/gpt-5.4"
+  | "openai/gpt-5.4-mini"
   | "openai/gpt-5"
   | "openai/gpt-5-mini"
   | "openai/gpt-4.1"

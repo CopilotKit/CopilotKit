@@ -13,7 +13,7 @@
       "title": "AG-UI Streams",
       "defaultOpen": true,
       "pages": [
-        "threads",
+        "AG-UI-Streams",
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
         "threads-lifecycle",

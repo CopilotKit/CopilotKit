@@ -1,4 +1,8 @@
-import { AgentRunner, finalizeRunEvents } from "@copilotkit/runtime/v2";
+import {
+  AgentRunner,
+  ThreadAlreadyRunningError,
+  finalizeRunEvents,
+} from "@copilotkit/runtime/v2";
 import type {
   AgentRunnerConnectRequest,
   AgentRunnerIsRunningRequest,
@@ -226,7 +230,7 @@ export class SqliteAgentRunner extends AgentRunner {
     // Check if thread is already running in database
     const runState = this.getRunState(request.threadId);
     if (runState.isRunning) {
-      throw new Error("Thread already running");
+      throw new ThreadAlreadyRunningError();
     }
 
     // Mark thread as running in database

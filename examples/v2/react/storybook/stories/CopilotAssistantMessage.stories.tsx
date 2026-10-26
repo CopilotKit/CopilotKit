@@ -1,10 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import {
-  CopilotChatAssistantMessage,
-  CopilotChatConfigurationProvider,
-  CopilotKitProvider,
-  type CopilotChatAssistantMessageProps,
-} from "@copilotkit/react-core/v2";
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+import type { CopilotChatAssistantMessageProps } from "@copilotkit/react-core/v2";
+import { withMessageColumn } from "./support/layouts";
 
 // Simple default message
 const simpleMessage = {
@@ -128,27 +125,7 @@ $$
 const meta = {
   title: "UI/CopilotChatAssistantMessage",
   component: CopilotChatAssistantMessage,
-  decorators: [
-    (Story) => (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "flex-start",
-          minHeight: "100vh",
-          padding: "16px",
-        }}
-      >
-        <div style={{ width: "100%", maxWidth: "640px" }}>
-          <CopilotKitProvider runtimeUrl="https://copilotkit.ai">
-            <CopilotChatConfigurationProvider threadId="storybook-thread">
-              <Story />
-            </CopilotChatConfigurationProvider>
-          </CopilotKitProvider>
-        </div>
-      </div>
-    ),
-  ],
+  decorators: [withMessageColumn],
   args: {
     message: simpleMessage,
     onThumbsUp: () => console.log("Thumbs up clicked!"),
