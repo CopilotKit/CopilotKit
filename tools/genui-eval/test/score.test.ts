@@ -237,6 +237,30 @@ describe("scoreCode with real rendering", () => {
     );
   });
 
+  it("treats a surface the reply deleted as gone, not as a crash", async () => {
+    const [check] = await checker.check([
+      {
+        surfaceId: "gone",
+        target: "chat",
+        catalogId: "copilotkit://standard",
+        status: "ready",
+        rejected: [],
+        operations: [
+          {
+            version: "v1.0",
+            createSurface: {
+              surfaceId: "gone",
+              components: [{ id: "root", component: "Text", text: "x" }],
+            },
+          },
+          { version: "v1.0", deleteSurface: { surfaceId: "gone" } },
+        ],
+      } as never,
+    ]);
+    expect(check).toMatchObject({ deleted: true, rendered: true });
+    expect(check.crash).toBeUndefined();
+  });
+
   it("flags a surface made only of text", async () => {
     const out = {
       text: "",

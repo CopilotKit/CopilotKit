@@ -16,6 +16,8 @@ export interface SurfaceCheck {
   proseOnly: boolean;
   /** A render or ingest failure that took the whole surface down. */
   crash?: string;
+  /** The reply deleted the surface on purpose: it is not part of the final UI. */
+  deleted?: boolean;
 }
 
 export interface RenderRequest {

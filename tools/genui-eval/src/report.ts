@@ -104,6 +104,7 @@ function modelReport(
     }
   }
   const valid = samples.filter((s) => s.surfaces > 0 && s.tiers.validity.pass);
+  const validSurfaces = valid.reduce((sum, s) => sum + s.surfaces, 0);
   const cost = samples.reduce((sum, s) => sum + s.costUsd + s.judgeCostUsd, 0);
   return {
     model,
@@ -134,7 +135,7 @@ function modelReport(
       ]),
     ),
     costUsd: cost,
-    costPerValidSurfaceUsd: valid.length > 0 ? cost / valid.length : null,
+    costPerValidSurfaceUsd: validSurfaces > 0 ? cost / validSurfaces : null,
   };
 }
 

@@ -169,12 +169,10 @@ function childrenOf(
       const list = data.get(listPath);
       // Every item: items can bind different children. At most 50, enough to see each type.
       return Array.isArray(list)
-        ? list
-            .slice(0, 50)
-            .map((_, index) => ({
-              id: componentId,
-              base: `${listPath}/${index}`,
-            }))
+        ? list.slice(0, 50).map((_, index) => ({
+            id: componentId,
+            base: `${listPath}/${index}`,
+          }))
         : [];
     }
     if (typeof componentId === "string") return [{ id: componentId, base }];
@@ -320,6 +318,21 @@ async function check(
     const surface = manager.getSurface(THREAD, content.surfaceId);
     const described = manager.describeSurfaces(THREAD)[content.surfaceId];
     const rejected = described?.rejected ?? [];
+    const deletedOnPurpose = (
+      content.operations as Array<Record<string, any>>
+    ).some((op) => op.deleteSurface?.surfaceId === content.surfaceId);
+    if (!surface && deletedOnPurpose) {
+      results.push({
+        surfaceId: content.surfaceId,
+        rendered: true,
+        errors: [],
+        rejected,
+        components: [],
+        proseOnly: false,
+        deleted: true,
+      });
+      continue;
+    }
     if (!surface) {
       results.push({
         surfaceId: content.surfaceId,

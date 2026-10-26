@@ -199,6 +199,8 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
   const judgeModel = createLanguageModel({ model: plan.judge });
   const checker = new RenderChecker();
   let reserved = 0;
+  // Counted apart from `reserved`: money sums leave float remainders.
+  let inFlight = 0;
   let done = 0;
   // Resolves when an in-flight sample finishes and its reservation is freed.
   let settled: () => void = () => {};
@@ -225,7 +227,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
         !run.stopped &&
         run.totals.costUsd + reserved + estimate > options.budgetUsd
       ) {
-        if (reserved === 0) {
+        if (inFlight === 0) {
           run.stopped = "budget";
           break;
         }
@@ -233,6 +235,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
       }
       if (run.stopped) return;
       reserved += estimate;
+      inFlight++;
       try {
         const sample = await runTask(task, {
           config,
@@ -247,6 +250,8 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
         options.onProgress?.(++done, tasks.length, sample);
       } finally {
         reserved -= estimate;
+        inFlight--;
+        if (inFlight === 0) reserved = 0;
         const wake = settled;
         nextSettle = new Promise<void>((resolve) => (settled = resolve));
         wake();
