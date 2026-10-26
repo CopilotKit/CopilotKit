@@ -180,9 +180,34 @@ def repo_size(root: Path) -> int:
 
 
 def _tar(root: Path, dest: Path, files: Iterator[Path] | None = None) -> None:
+    """Archives `files` (default: everything under root) for `_untar`.
+
+    Each entry passes the same "data" filter `_untar` extracts with, so a link
+    that restore would refuse (absolute, or pointing out of root) is left out
+    here instead of saving an archive that cannot be restored.
+    """
+    skipped: list[str] = []
     with tarfile.open(dest, "w:gz", compresslevel=6) as tar:
         for path in files if files is not None else _all(root):
-            tar.add(path, arcname=str(path.relative_to(root)), recursive=False)
+            info = tar.gettarinfo(path, arcname=str(path.relative_to(root)))
+            if info is None:  # a socket or other type tar cannot store
+                continue
+            try:
+                tarfile.data_filter(info, str(root))
+            except tarfile.FilterError:
+                skipped.append(info.name)
+                continue
+            if info.isreg():
+                with path.open("rb") as file:
+                    tar.addfile(info, file)
+            else:
+                tar.addfile(info)
+    if skipped:
+        logger.warning(
+            "Not saved, because restoring them is refused (links out of %s): %s",
+            root.name,
+            ", ".join(sorted(skipped)[:20]),
+        )
 
 
 def _all(root: Path) -> Iterator[Path]:

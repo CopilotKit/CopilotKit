@@ -5,7 +5,7 @@
 //   GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:4010 GEMINI_API_KEY=mock pnpm dev
 //   pnpm e2e
 //
-// It clicks the first repository card (tqdm/tqdm), approves every approval
+// It clicks the first repository card (google-gemini/genai-processors), approves every approval
 // card as it appears, and checks that a passing test report, the diff card and
 // the push render. Pass --beets to type the beets-filetote prompt instead,
 // which also requires a failing test report before the green one. Pass --deny

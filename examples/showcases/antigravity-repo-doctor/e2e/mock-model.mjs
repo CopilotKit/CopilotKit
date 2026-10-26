@@ -4,9 +4,10 @@
 // Point that here and the real harness, real tools, real shell and the real
 // CopilotKit UI all run; only the model's decisions are scripted. Each request
 // gets the next step of the playbook, picked by how many tool calls the model
-// has already made in the current turn. The main playbook is tqdm/tqdm (the
-// first card on the empty state); a message naming beets-filetote replays the
-// older beets-filetote run, and "python version" drives the shell command path.
+// has already made in the current turn. The main playbook is
+// google-gemini/genai-processors (the first card on the empty state); tqdm/tqdm
+// and beets-filetote replay older runs when a message names them, and
+// "python version" drives the shell command path.
 //
 //   pnpm mock-model                 # serves on :4010
 //   GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:4010 GEMINI_API_KEY=mock pnpm dev

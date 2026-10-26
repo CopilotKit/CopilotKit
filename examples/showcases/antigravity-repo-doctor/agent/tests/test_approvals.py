@@ -1,4 +1,6 @@
+import pytest
 from ag_ui.core import Interrupt, ResumeEntry
+from ag_ui_antigravity.ui_bridge import _read_approval
 
 from repo_doctor.approvals import ApprovalLog, summarize_call
 
@@ -94,3 +96,52 @@ def test_auto_approvals_are_noted() -> None:
 
     assert record["decision"] == "approved"
     assert record["note"] == "auto"
+
+
+@pytest.mark.parametrize(
+    ("payload", "runs"),
+    [
+        ({"approved": True}, True),
+        ({"approved": False, "message": "not now"}, False),
+        ({"approved": True, "auto": True}, True),
+        (True, True),
+        (False, False),
+        ({"approved": "false"}, False),
+        ({"approved": "true"}, False),
+        ({"approved": 1}, False),
+        ({"allow": True}, False),
+        ("yes", False),
+        (None, False),
+        ([], False),
+    ],
+)
+def test_the_logged_decision_matches_what_the_adapter_runs(payload: object, runs: bool) -> None:
+    """The adapter reads `approved` with bool(): "false" would run the call."""
+    log = ApprovalLog()
+    log.remember("t1", [_interrupt("a", "git_push", {"branch": "b"})], "k")
+    answers = log.sanitize(
+        "t1", [ResumeEntry(interrupt_id="a", status="resolved", payload=payload)]
+    )
+
+    adapter_allows, _, understood = _read_approval(answers[0].payload)
+    (record,) = log.decide("t1", answers)
+
+    assert understood
+    assert (record["decision"] == "approved") is adapter_allows
+    assert adapter_allows is runs
+
+
+def test_an_answer_the_log_never_recorded_is_still_checked() -> None:
+    """After a restart the log is empty, but the adapter would still bool() the answer."""
+    log = ApprovalLog()
+    answer = ResumeEntry(interrupt_id="x", status="resolved", payload={"approved": "false"})
+
+    (cleaned,) = log.sanitize("t1", [answer])
+
+    assert _read_approval(cleaned.payload)[0] is False
+
+
+def test_a_cancelled_answer_is_left_as_it_is() -> None:
+    answer = ResumeEntry(interrupt_id="a", status="cancelled", payload=None)
+
+    assert ApprovalLog().sanitize("t1", [answer]) == [answer]

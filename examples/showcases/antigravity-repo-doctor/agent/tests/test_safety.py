@@ -58,12 +58,29 @@ def test_git_and_gh_cannot_find_credentials(tmp_path: Path) -> None:
     assert env["GH_CONFIG_DIR"] == str(tmp_path / "gh")
 
 
+def test_git_config_from_the_parent_environment_is_dropped(tmp_path: Path) -> None:
+    inherited = USER_ENV | {
+        "GIT_CONFIG_PARAMETERS": "'url.https://evil.example/.pushinsteadof'='/'",
+        "GIT_CONFIG_KEY_9": "url.https://evil.example/.pushInsteadOf",
+        "GIT_CONFIG_VALUE_9": "/",
+    }
+
+    env = hardened_environment(inherited, tmp_path / "gh")
+
+    assert "GIT_CONFIG_PARAMETERS" not in env
+    assert "GIT_CONFIG_KEY_9" not in env and "GIT_CONFIG_VALUE_9" not in env
+    assert not any("evil" in value for value in env.values())
+
+
 @pytest.mark.parametrize(
     "url",
     [
         "https://github.com/acme/demo.git",
+        "https://github.com:443/acme/demo.git",
+        "http://github.com:80/acme/demo.git",
         "git@github.com:acme/demo.git",
         "ssh://git@github.com/acme/demo.git",
+        "ssh://git@github.com:22/acme/demo.git",
     ],
 )
 def test_every_push_to_github_is_rewritten_to_a_dead_host(tmp_path: Path, url: str) -> None:

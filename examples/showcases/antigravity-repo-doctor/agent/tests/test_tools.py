@@ -1,5 +1,6 @@
 """Tool behaviour against a real local git repository (no network, no model)."""
 
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -109,6 +110,138 @@ async def test_push_commits_tracked_changes_only(
 
     assert pushed["ok"] is True
     assert pushed["files"] == ["app.py"]
+
+
+async def test_push_stays_local_when_origin_is_repointed(
+    bound: dict[str, tools.Tool], workspace: Workspace, tmp_path: Path, state: dict
+) -> None:
+    """An approved shell command can change `origin`; the push still goes local."""
+    elsewhere = tmp_path / "elsewhere.git"
+    _git(tmp_path, "init", "--bare", "--quiet", str(elsewhere))
+    _git(workspace.path, "remote", "set-url", "origin", str(elsewhere))
+    _git(workspace.path, "remote", "set-url", "--push", "origin", str(elsewhere))
+    (workspace.path / "app.py").write_text("def add(a, b):\n    return a + b\n")
+
+    pushed = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+
+    assert pushed["ok"] is True
+    assert pushed["remote"] == "local"
+    assert _git(workspace.push_remote, "log", "-1", "--format=%s", "fix/add") == "Fix add"
+    assert _git(elsewhere, "for-each-ref") == ""
+
+
+async def test_push_refuses_a_url_rewrite_in_the_repo_config(
+    bound: dict[str, tools.Tool], workspace: Workspace, tmp_path: Path, state: dict
+) -> None:
+    elsewhere = tmp_path / "elsewhere.git"
+    _git(tmp_path, "init", "--bare", "--quiet", str(elsewhere))
+    _git(workspace.path, "config", f"url.{elsewhere}.pushInsteadOf", str(workspace.push_remote))
+    (workspace.path / "app.py").write_text("def add(a, b):\n    return a + b\n")
+    head = _git(workspace.path, "rev-parse", "HEAD")
+
+    pushed = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+
+    assert pushed["ok"] is False
+    assert "rewrites remote URLs" in pushed["error"]
+    assert _git(workspace.path, "rev-parse", "HEAD") == head
+    assert _git(elsewhere, "for-each-ref") == ""
+    assert _git(workspace.push_remote, "for-each-ref") == ""
+
+
+async def test_push_refuses_a_url_rewrite_in_the_worktree_config(
+    bound: dict[str, tools.Tool], workspace: Workspace, tmp_path: Path, state: dict
+) -> None:
+    elsewhere = tmp_path / "elsewhere.git"
+    _git(tmp_path, "init", "--bare", "--quiet", str(elsewhere))
+    _git(workspace.path, "config", "extensions.worktreeConfig", "true")
+    _git(
+        workspace.path,
+        "config",
+        "--worktree",
+        f"url.{elsewhere}.pushInsteadOf",
+        str(workspace.push_remote),
+    )
+    (workspace.path / "app.py").write_text("def add(a, b):\n    return a + b\n")
+
+    pushed = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+
+    assert pushed["ok"] is False
+    assert "rewrites remote URLs" in pushed["error"]
+    assert _git(elsewhere, "for-each-ref") == ""
+
+
+async def test_push_runs_no_hooks_in_the_local_remote(
+    bound: dict[str, tools.Tool], workspace: Workspace, tmp_path: Path, state: dict
+) -> None:
+    """A hook in the bare repository could forward the push; it must not run."""
+    marker = tmp_path / "remote-hook-ran"
+    for name in ("pre-receive", "post-receive"):
+        hook = workspace.push_remote / "hooks" / name
+        hook.write_text(f"#!/bin/sh\ntouch {marker}\n")
+        hook.chmod(0o755)
+    (workspace.path / "app.py").write_text("def add(a, b):\n    return a + b\n")
+
+    pushed = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+
+    assert pushed["ok"] is True
+    assert not marker.exists()
+
+
+async def test_push_runs_no_git_hooks(
+    bound: dict[str, tools.Tool], workspace: Workspace, tmp_path: Path, state: dict
+) -> None:
+    marker = tmp_path / "hook-ran"
+    hooks = workspace.path / ".git" / "hooks"
+    for name in ("pre-commit", "pre-push"):
+        hook = hooks / name
+        hook.write_text(f"#!/bin/sh\ntouch {marker}\n")
+        hook.chmod(0o755)
+    (workspace.path / "app.py").write_text("def add(a, b):\n    return a + b\n")
+
+    pushed = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+
+    assert pushed["ok"] is True
+    assert not marker.exists()
+
+
+async def test_push_needs_the_local_remote(
+    bound: dict[str, tools.Tool], workspace: Workspace, state: dict
+) -> None:
+    shutil.rmtree(workspace.push_remote)
+    (workspace.path / "app.py").write_text("def add(a, b):\n    return a + b\n")
+
+    pushed = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+
+    assert pushed["ok"] is False
+    assert "local push remote is missing" in pushed["error"]
+
+
+async def test_a_push_that_failed_after_its_commit_can_be_retried(
+    bound: dict[str, tools.Tool], workspace: Workspace, state: dict
+) -> None:
+    (workspace.path / "app.py").write_text("def add(a, b):\n    return a + b\n")
+    workspace.push_remote.rename(workspace.push_remote.with_suffix(".away"))
+    _git(workspace.push_remote.parent, "init", "--bare", "--quiet", str(workspace.push_remote))
+    (workspace.push_remote / "objects").chmod(0o500)  # the push fails after the commit
+
+    failed = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+    (workspace.push_remote / "objects").chmod(0o700)
+    retried = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+    again = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+
+    assert failed["ok"] is False
+    assert retried["ok"] is True
+    assert _git(workspace.push_remote, "log", "-1", "--format=%s", "fix/add") == "Fix add"
+    assert again == {"ok": False, "error": "There is nothing to commit."}
+
+
+async def test_nothing_to_commit_on_a_fresh_branch(
+    bound: dict[str, tools.Tool], workspace: Workspace, state: dict
+) -> None:
+    result = await bound["git_push"](branch="fix/none", commit_message="x")
+
+    assert result == {"ok": False, "error": "There is nothing to commit."}
+    assert _git(workspace.push_remote, "for-each-ref") == ""
 
 
 async def test_push_refuses_the_default_branch_and_bad_names(
@@ -225,3 +358,37 @@ def test_run_check_needs_approval() -> None:
     from repo_doctor.agent import AUTO_APPROVED
 
     assert "run_check" not in AUTO_APPROVED
+
+
+async def test_a_project_whose_toolchain_is_missing_is_reported(
+    bound: dict[str, tools.Tool],
+    workspace: Workspace,
+    state: dict,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The image has no Bun: say so instead of failing halfway through an install."""
+    (workspace.path / "package.json").write_text('{"scripts": {"test": "bun test"}}')
+    (workspace.path / "bun.lock").write_text("")
+    real_which = shutil.which
+    monkeypatch.setattr(
+        tools.shutil,
+        "which",
+        lambda name, path=None: None if name == "bun" else real_which(name, path=path),
+    )
+
+    result = await bound["install_dependencies"](command="bun install --frozen-lockfile")
+
+    assert result["ok"] is False
+    assert "needs bun, which is not installed" in result["error"]
+
+
+def test_paths_the_install_creates_are_not_checked(monkeypatch: pytest.MonkeyPatch) -> None:
+    plan = tools.ProjectPlan(
+        language="python",
+        runner="unittest",
+        install_steps=(("uv", "venv"),),
+        test_args=(".venv/bin/python", "-m", "unittest"),
+    )
+    monkeypatch.setattr(tools.shutil, "which", lambda name, path=None: f"/bin/{name}")
+
+    assert tools.missing_programs(plan) == []

@@ -13,11 +13,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from ag_ui.core import Interrupt, ResumeEntry
 
 APPROVAL_REASON = "tool_approval"
+MALFORMED_ANSWER = "The approval answer was not a yes or no, so the call was blocked."
 MAX_SUMMARY_CHARS = 160
 
 
@@ -66,6 +67,61 @@ class ApprovalLog:
             args: dict[str, Any] = raw_args if isinstance(raw_args, dict) else {}
             summary = summarize_call(tool, args, workspace_key)
             asked[interrupt.id] = _Asked(tool=tool, summary=summary)
+
+    def sanitize(self, thread_id: str, answers: list[ResumeEntry]) -> list[ResumeEntry]:
+        """The answers, with every malformed approval turned into a deny.
+
+        The adapter reads `approved` with `bool()`, so `"false"` would run the
+        call while `decide` logs it as denied. Only a real boolean counts, in
+        `{"approved": ...}` or on its own; anything else is blocked, so the
+        call that runs and the decision that is logged always agree.
+
+        Every answer is treated as an approval, recorded here or not: the agent
+        turns off the adapter's other interrupts (questions and sub-agents).
+        """
+        cleaned: list[ResumeEntry] = []
+        for answer in answers:
+            if answer.status == "resolved":
+                payload = answer.payload
+                if isinstance(payload, bool):
+                    payload = {"approved": payload}
+                elif not (isinstance(payload, dict) and isinstance(payload.get("approved"), bool)):
+                    payload = {"approved": False, "message": MALFORMED_ANSWER}
+                if payload is not answer.payload:
+                    answer = answer.model_copy(update={"payload": payload})
+            cleaned.append(answer)
+        return cleaned
+
+    def command_as_answer(self, thread_id: str, command: Any) -> ResumeEntry | None:
+        """An answer sent as `forwardedProps.command`, as a `resume` entry.
+
+        CopilotKit Channels answers an interrupt that way, often with no id.
+        The adapter matches such an answer to the single parked interrupt; this
+        does the same with the open approvals, so the answer goes through
+        `sanitize` and `decide` like any other. None when it cannot be matched.
+        """
+        interrupt_id: str | None = None
+        payload: Any = command
+        status: Literal["resolved", "cancelled"] = "resolved"
+        if isinstance(command, dict):
+            for key in ("interruptId", "interrupt_id"):
+                candidate = command.get(key)
+                if isinstance(candidate, str) and candidate:
+                    interrupt_id = candidate
+                    payload = command.get("payload", command)
+                    break
+            if command.get("status") == "cancelled":
+                status = "cancelled"
+        if interrupt_id is None:
+            asked = self._open.get(thread_id, {})
+            if len(asked) != 1:
+                return None
+            interrupt_id = next(iter(asked))
+        return ResumeEntry(
+            interrupt_id=interrupt_id,
+            status=status,
+            payload=None if status == "cancelled" else payload,
+        )
 
     def forget(self, thread_id: str) -> None:
         self._open.pop(thread_id, None)

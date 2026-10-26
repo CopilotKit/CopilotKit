@@ -50,6 +50,8 @@ _GIT_IDENTITY = ("-c", "user.name=Repo Doctor", "-c", "user.email=repo-doctor@lo
 # The model needs tracebacks to diagnose a failure, not the whole log.
 _OUTPUT_TAIL_CHARS = 8_000
 _PUSH_DISABLED = "push-disabled-by-repo-doctor"
+# git_push runs no hooks: an approved shell command could have written one.
+_NO_HOOKS = ("-c", f"core.hooksPath={os.devnull}")
 # Above this many tracked files the agent reads CI config before installing.
 LARGE_REPO_FILES = 5_000
 # run_check: one reproduction command, so it must be quick and its output short.
@@ -106,9 +108,16 @@ def build_tools(
         if not workspace.has_repo:
             return _error("No repository yet. Call clone_repo first.")
         try:
-            return detect(repo)
+            plan = detect(repo)
         except UnsupportedProjectError as exc:
             return _error(str(exc))
+        if missing := missing_programs(plan):
+            return _error(
+                f"This {plan.language} project needs {', '.join(missing)}, which "
+                "is not installed where the agent runs, so it cannot be installed "
+                "or tested here."
+            )
+        return plan
 
     async def cloned_slug() -> str | None:
         """The GitHub repo this workspace holds, read from git rather than state."""
@@ -493,6 +502,26 @@ def build_tools(
         if not commit_message.strip():
             return _error("The commit message is empty.")
 
+        # The push goes to this thread's bare repository by path, not to
+        # `origin`: an approved shell command can repoint a remote, and a URL
+        # rewrite in the repo's config could still send a path elsewhere.
+        if not (workspace.push_remote / "HEAD").exists():
+            return _error("The local push remote is missing. Call clone_repo again.")
+        # Any URL rewrite in the repository's own config (local or worktree,
+        # includes followed) is refused. Rewrites from the environment are
+        # safety.py's GitHub block, and the global and system files are off.
+        rewrites = await git(
+            "config", "--show-scope", "--includes", "--get-regexp", r"^url\.", check=False
+        )
+        for line in rewrites.output.splitlines():
+            scope, _, rest = line.partition("\t")
+            if scope in ("local", "worktree"):
+                setting = rest.split(None, 1)[0]
+                return _error(
+                    f"This repository's git config rewrites remote URLs ({setting}), "
+                    "so the push cannot be kept local. Remove that setting and try again."
+                )
+
         current = (await git("rev-parse", "--abbrev-ref", "HEAD")).output.strip()
         if current != branch:
             exists = await git(
@@ -504,10 +533,32 @@ def build_tools(
         # (some suites write `:memory:*` databases) that must not be committed.
         await git("add", "--update")
         staged = await git("diff", "--cached", "--quiet", check=False)
-        if staged.exit_code == 0:
-            return _error("There is nothing to commit.")
-        await git(*_GIT_IDENTITY, "commit", "--quiet", "-m", commit_message.strip())
-        pushed = await git("push", "--quiet", "origin", f"{branch}:{branch}", check=False)
+        if staged.exit_code != 0:
+            await git(*_GIT_IDENTITY, *_NO_HOOKS, "commit", "--quiet", "-m", commit_message.strip())
+        else:
+            # Nothing new to commit. A commit an earlier push failed to send
+            # still goes out; otherwise there is nothing to do.
+            head = (await git("rev-parse", "HEAD")).output.strip()
+            ahead = await git("rev-list", "--count", f"{default}..HEAD", check=False)
+            sent = await shell.run(
+                ["git", "--git-dir", str(workspace.push_remote), "cat-file", "-e", head],
+                cwd=repo,
+                timeout=120,
+            )
+            if not default or ahead.output.strip() in ("", "0") or sent.ok:
+                return _error("There is nothing to commit.")
+        pushed = await git(
+            *_NO_HOOKS,
+            "push",
+            "--quiet",
+            "--no-recurse-submodules",
+            # The receiving side runs its own git, which reads the bare
+            # repository's hooks; it gets the same no-hooks setting.
+            f"--receive-pack=git -c core.hooksPath={os.devnull} receive-pack",
+            str(workspace.push_remote),
+            f"{branch}:{branch}",
+            check=False,
+        )
         if not pushed.ok:
             return _error(f"git push failed: {pushed.output.strip()[-600:]}")
         sha = (await git("rev-parse", "--short", "HEAD")).output.strip()
@@ -531,6 +582,18 @@ def build_tools(
 
 # pytest's exit code when it collected no tests.
 _PYTEST_NO_TESTS = 5
+
+
+def missing_programs(plan: ProjectPlan) -> list[str]:
+    """The plan's programs that are not on the PATH its commands run with.
+
+    Paths such as `.venv/bin/python` are left out: the install creates them.
+    """
+    path = shell.child_env()["PATH"]
+    programs = dict.fromkeys(
+        args[0] for args in (*plan.install_steps, plan.test_args) if "/" not in args[0]
+    )
+    return [program for program in programs if shutil.which(program, path=path) is None]
 
 
 def _no_tests(plan: ProjectPlan, exit_code: int, output: str) -> bool:

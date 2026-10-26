@@ -397,7 +397,9 @@ A few things to notice:
 - Errors come back as `{"ok": False, "error": ...}` instead of being raised, so the model reads them and decides
   what to do next.
 - `ensure_local_push_remote` renames the GitHub remote to `upstream`, turns off its push URL and adds a local bare
-  repository as `origin`. A push can never reach GitHub.
+  repository as `origin`. `git_push` then pushes to that bare repository by its path, not to `origin`, with git
+  hooks off, and refuses when the repository's config rewrites URLs. A push can never reach GitHub, even if a shell
+  command changes `origin`.
 - `ci_status` runs next. It lists the failed steps of each workflow, which is usually enough for the model to find
   the matching command in the workflow file ([`ci.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/ci.py)).
 
@@ -809,7 +811,8 @@ The steps above cover the core of the app. The example also has these, each in i
 - **Disk limits.** A conversation's Python venv is deleted when its session closes ([`venvs.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/venvs.py)).
   The agent's own uv cache is pruned at startup and cleared when it grows past a limit ([`uvcache.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/uvcache.py)).
 - **More than Python.** The install and test commands are worked out from the repository's own files for Python,
-  Node, Go and Rust projects ([`project.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/project.py)).
+  Node, Go and Rust projects. A project whose toolchain is not installed is reported as unsupported instead of
+  failing halfway; the Cloud Run image includes Python and Node (npm, pnpm and Yarn) ([`project.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/project.py)).
 - **Local-only pushes and a clean environment.** API keys and GitHub tokens are removed from the environment that
   shell commands and the cloned code inherit, and any push to a GitHub URL is sent to a host that does not exist ([`safety.py`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/antigravity-repo-doctor/agent/src/repo_doctor/safety.py)).
 - **The downloadable report.** A Markdown summary of the conversation, built in the browser from the messages and

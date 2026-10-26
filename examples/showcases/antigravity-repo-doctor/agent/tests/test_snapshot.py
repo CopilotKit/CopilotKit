@@ -141,6 +141,30 @@ def test_round_trip_restores_repo_remote_and_session(tmp_path: Path) -> None:
     assert rows == [("remember PELICAN",)]
 
 
+def test_links_restore_would_refuse_are_not_saved(tmp_path: Path, caplog: Any) -> None:
+    """Save and restore apply the same link policy, so a saved repo restores."""
+    settings = _settings(tmp_path)
+    snaps = Snapshots(DirStore(tmp_path / "bucket"), settings)
+    ws = _workspace(settings)
+    (ws.path / "outside.txt").symlink_to("/etc/hosts")
+    (ws.path / "up").symlink_to("../../..")
+    (ws.path / "src" / "inside.py").symlink_to("app.py")
+
+    with caplog.at_level(logging.WARNING, logger="repo_doctor.snapshot"):
+        result = snaps.save(THREAD, Conversation(None, frozenset()))
+    assert result is not None and result.saved_repo
+    assert "Not saved, because restoring them is refused" in caplog.text
+    assert "outside.txt, up" in caplog.text
+
+    _restart(settings)
+    snaps.restore(THREAD)
+    assert (ws.path / "src" / "app.py").read_text() == "print('fixed')\n"
+    assert (ws.path / "src" / "inside.py").is_symlink()
+    assert (ws.path / "src" / "inside.py").read_text() == "print('fixed')\n"
+    assert not (ws.path / "outside.txt").exists()
+    assert not (ws.path / "up").is_symlink()
+
+
 def test_restore_does_nothing_when_the_folder_is_still_here(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
     snaps = Snapshots(DirStore(tmp_path / "bucket"), settings)

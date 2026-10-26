@@ -24,6 +24,7 @@ from ag_ui.core import (
     TextMessageStartEvent,
 )
 from ag_ui_antigravity import AntigravityAgent
+from ag_ui_antigravity.ui_bridge import _read_approval
 
 from repo_doctor.agent import ThreadScopedAntigravityAgent, create_agent
 from repo_doctor.config import Settings
@@ -155,6 +156,80 @@ async def test_an_approval_is_logged_and_events_pass_through(
         EventType.RUN_FINISHED,
     ]
     assert events[1].snapshot["approvals"][0]["decision"] == "approved"
+
+
+def _capture(monkeypatch: pytest.MonkeyPatch, *runs: list[BaseEvent]) -> list[RunAgentInput]:
+    """Like _script, and records the input the adapter receives on each run."""
+    queue, seen = list(runs), []
+
+    async def fake_run(
+        self: AntigravityAgent, input_data: RunAgentInput
+    ) -> AsyncIterator[BaseEvent]:
+        seen.append(input_data)
+        for event in queue.pop(0):
+            yield event
+
+    monkeypatch.setattr(AntigravityAgent, "run", fake_run)
+    return seen
+
+
+@pytest.mark.parametrize(
+    ("answer", "decision"),
+    [
+        ({"approved": "false"}, "denied"),
+        ({"approved": False}, "denied"),
+        ({"approved": True}, "approved"),
+    ],
+)
+async def test_the_adapter_runs_what_the_log_records(
+    agent: ThreadScopedAntigravityAgent,
+    monkeypatch: pytest.MonkeyPatch,
+    answer: dict[str, Any],
+    decision: str,
+) -> None:
+    """`"false"` used to be logged as denied while the adapter ran the call."""
+    finished = RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=THREAD, run_id="run")
+    seen = _capture(monkeypatch, [_started(), _interrupted("i1")], [_started(), finished])
+    await _collect(agent, _input())
+
+    events = await _collect(
+        agent, _input(resume=[ResumeEntry(interrupt_id="i1", status="resolved", payload=answer)])
+    )
+
+    [entry] = seen[1].resume or []
+    assert _read_approval(entry.payload)[0] is (decision == "approved")
+    snapshot = next(e for e in events if e.type == EventType.STATE_SNAPSHOT)
+    assert snapshot.snapshot["approvals"][0]["decision"] == decision
+
+
+@pytest.mark.parametrize(
+    ("command", "decision"),
+    [
+        ({"approved": "false"}, "denied"),
+        ({"approved": True}, "approved"),
+        ({"interruptId": "i1", "payload": {"approved": "false"}}, "denied"),
+    ],
+)
+async def test_an_answer_in_forwarded_props_is_checked_and_logged(
+    agent: ThreadScopedAntigravityAgent,
+    monkeypatch: pytest.MonkeyPatch,
+    command: dict[str, Any],
+    decision: str,
+) -> None:
+    """CopilotKit Channels answers with forwardedProps.command, not resume."""
+    finished = RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=THREAD, run_id="run")
+    seen = _capture(monkeypatch, [_started(), _interrupted("i1")], [_started(), finished])
+    await _collect(agent, _input())
+    resumed = _input().model_copy(update={"forwarded_props": {"command": command, "other": 1}})
+
+    events = await _collect(agent, resumed)
+
+    assert seen[1].forwarded_props == {"other": 1}
+    [entry] = seen[1].resume or []
+    assert entry.interrupt_id == "i1"
+    assert _read_approval(entry.payload)[0] is (decision == "approved")
+    snapshot = next(e for e in events if e.type == EventType.STATE_SNAPSHOT)
+    assert snapshot.snapshot["approvals"][0]["decision"] == decision
 
 
 async def test_other_errors_are_not_rewritten(

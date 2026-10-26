@@ -255,9 +255,24 @@ class ThreadScopedAntigravityAgent(AntigravityAgent):  # type: ignore[misc]
     async def _run(self, input_data: RunAgentInput) -> AsyncIterator[BaseEvent]:
         thread_id = input_data.thread_id
         answers = list(input_data.resume or [])
-        if not answers:
+        forwarded = input_data.forwarded_props
+        answered = isinstance(forwarded, dict) and "command" in forwarded
+        if answered and isinstance(forwarded, dict):
+            # An answer sent as forwardedProps.command (CopilotKit Channels)
+            # moves into `resume`, so it is checked and logged like any other
+            # and the adapter reads that one value.
+            entry = self._approvals.command_as_answer(thread_id, forwarded["command"])
+            rest = {key: value for key, value in forwarded.items() if key != "command"}
+            input_data = input_data.model_copy(update={"forwarded_props": rest})
+            if entry is not None and not answers:
+                answers = [entry]
+        if not answers and not answered:
             # A new turn: anything still pending was abandoned by the user.
             self._approvals.forget(thread_id)
+        else:
+            # Before both the log and the adapter read them, so they agree.
+            answers = self._approvals.sanitize(thread_id, answers)
+            input_data = input_data.model_copy(update={"resume": answers})
         decisions = self._approvals.decide(thread_id, answers)
         denied = any(d["decision"] == "denied" for d in decisions)
         snapshot: dict[str, Any] | None = None

@@ -8,10 +8,15 @@ environment, so it is shaped once at startup:
 * git cannot prompt, read the user's git config, use an askpass helper, the SSH
   agent or SSH keys.
 * `gh` gets an empty config directory, so it has no stored login.
-* Every push to a GitHub URL, in any form, is rewritten to an unresolvable
-  host. That covers credentials git would otherwise still find (`~/.netrc`).
+* A push to a remote whose URL is a GitHub URL (https, http, ssh or scp form,
+  with or without the default port) is rewritten to an unresolvable host. That
+  covers credentials git would otherwise still find (`~/.netrc`). git does not
+  rewrite a remote's explicit push URL, which is one reason `git_push` never
+  pushes to a remote by name.
+* Git config inherited through the environment is dropped, so only these
+  entries apply.
 
-Pushes from `git_push` go to a local bare repository; see tools.py.
+Pushes from `git_push` go to a local bare repository by path; see tools.py.
 """
 
 from __future__ import annotations
@@ -36,15 +41,24 @@ REMOVED_VARIABLES = (
 BLOCKED_PUSH_URL = "https://push-blocked-by-repo-doctor.invalid/"
 _GITHUB_URL_FORMS = (
     "https://github.com/",
+    "https://github.com:443/",
     "http://github.com/",
+    "http://github.com:80/",
     "git@github.com:",
     "ssh://git@github.com/",
+    "ssh://git@github.com:22/",
 )
 
 
 def hardened_environment(environ: dict[str, str], gh_config_dir: Path) -> dict[str, str]:
     """A copy of `environ` with every route to the user's GitHub identity closed."""
-    env = {k: v for k, v in environ.items() if k not in REMOVED_VARIABLES}
+    env = {
+        k: v
+        for k, v in environ.items()
+        if k not in REMOVED_VARIABLES
+        and k != "GIT_CONFIG_PARAMETERS"
+        and not k.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))
+    }
     env.update(
         GIT_TERMINAL_PROMPT="0",
         GIT_CONFIG_GLOBAL=os.devnull,

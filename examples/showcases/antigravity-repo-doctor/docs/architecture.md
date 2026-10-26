@@ -55,13 +55,15 @@ Repo Doctor's own tools (`tools.py`):
 | `run_tests(target)`                | Runs the test command and returns an A2UI test report.                                                                                                                                               | no       |
 | `run_check(command, label)`        | Runs one shell command (120 s limit) to reproduce the failing CI step, before and after the fix.                                                                                                     | yes      |
 | `show_diff(summary)`               | The real `git diff`, rendered as the diff card.                                                                                                                                                      | no       |
-| `git_push(branch, commit_message)` | Commits tracked changes on a new branch and pushes it to the local remote.                                                                                                                           | yes      |
+| `git_push(branch, commit_message)` | Commits tracked changes on a new branch and pushes it to the local bare repository by path (not `origin`), with git hooks off. Refuses when the repo's config rewrites URLs.                         | yes      |
 
 Antigravity's built-in tools used: `view_file`, `list_dir`, `grep_search`, `find_by_name` (no approval),
 `replace_file_content` and `run_command` (approval). `finish` ends each turn.
 
 Install and test commands come from the project's own files (`project.py`): Python with uv (pytest when the project
-uses it, otherwise unittest), Node (pnpm, npm, yarn or bun from the lockfile or `packageManager`), Go and Rust.
+uses it, otherwise unittest), Node (pnpm, npm, yarn or bun from the lockfile or `packageManager`), Go and Rust. A
+project whose programs are not on the PATH is reported as unsupported. The Docker image has Python and Node with npm,
+pnpm and Yarn (Corepack shims), but not Bun, Go or Rust.
 pytest results come from its JUnit report; other runners from the summary they print.
 
 ## Approvals
