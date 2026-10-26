@@ -68,6 +68,7 @@ import {
 } from "./converters/usage";
 import type { AgentRunFinishedDetails } from "./converters/usage";
 import { createStateEventNormalizer } from "./state-delta";
+import { describeEndpoint } from "../v1-deprecated/lib/runtime/mcp-client-cache";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { randomUUID } from "@copilotkit/shared";
@@ -1734,7 +1735,7 @@ export class BuiltInAgent extends AbstractAgent {
                 } catch (err) {
                   abortController.signal.throwIfAborted();
                   console.error(
-                    `[CopilotKit] MCP server ${serverConfig.url} failed to connect — skipping it for this run:`,
+                    `[CopilotKit] MCP server ${describeEndpoint(serverConfig.url)} failed to connect — skipping it for this run:`,
                     err,
                   );
                   continue;
@@ -1753,7 +1754,7 @@ export class BuiltInAgent extends AbstractAgent {
                 } catch (err) {
                   abortController.signal.throwIfAborted();
                   console.error(
-                    `[CopilotKit] MCP server ${serverConfig.url} tools() failed — skipping its tools for this run:`,
+                    `[CopilotKit] MCP server ${describeEndpoint(serverConfig.url)} tools() failed — skipping its tools for this run:`,
                     err,
                   );
                 }
