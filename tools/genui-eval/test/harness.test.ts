@@ -90,6 +90,22 @@ describe("runSample", () => {
   });
 });
 
+describe("runSample with a broken tool call", () => {
+  it("records malformed render_ui arguments instead of failing the run", async () => {
+    const out = await runSample({
+      case: cases["budget-chart"],
+      transport: "tool",
+      entry,
+      model: createFakeModel(
+        "fake:unit",
+        new URL("./fixtures/", import.meta.url).pathname,
+      ),
+    });
+    expect(out.surfaces).toEqual([]);
+    expect(out.parseErrors.length + (out.error ? 1 : 0)).toBeGreaterThan(0);
+  });
+});
+
 describe("applyPatch", () => {
   it("adds to a list, replaces a field, and removes a key", () => {
     const target = { operations: [1], status: "streaming", extra: true };

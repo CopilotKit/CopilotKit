@@ -10,9 +10,10 @@ import { fileURLToPath } from "node:url";
 import type { Split } from "./cases";
 import type { Transport } from "./config";
 
-export const RESULTS_DIR = fileURLToPath(
-  new URL("../results/", import.meta.url),
-);
+/** Where runs are written: results/ next to the tool, or $GENUI_EVAL_RESULTS. */
+export const RESULTS_DIR = process.env.GENUI_EVAL_RESULTS
+  ? `${process.env.GENUI_EVAL_RESULTS.replace(/\/$/, "")}/`
+  : fileURLToPath(new URL("../results/", import.meta.url));
 
 /** The four tiers, in order of importance. */
 export const TIERS = ["validity", "fidelity", "judgement", "quality"] as const;
