@@ -5,7 +5,10 @@ import type {
 import { isIntelligenceRuntime } from "../../core/runtime";
 import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
-import { isValidIdentifier } from "../shared/intelligence-utils";
+import {
+  getPlatformErrorStatus,
+  isValidIdentifier,
+} from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { platformErrorResponse } from "../shared/platform-error";
 import { supportsLocalThreadEndpoints } from "../../runner/agent-runner";
@@ -70,6 +73,47 @@ async function resolveThreadMutationContext(
     userId: user.id,
     agentId,
   };
+}
+
+/**
+ * The platform's `_inspect` events and state endpoints are scoped by the
+ * project key only. Before calling them, confirm the thread is visible to the
+ * resolved user through the user-scoped thread lookup, and return its
+ * canonical id for the read, so the check and the read name the same thread.
+ *
+ * Returns the error Response instead when the lookup refuses: the platform's
+ * 4xx for a thread the user cannot see (an expected denial, logged as a
+ * warning), 502 for a malformed lookup result, and the mapped platform error
+ * for anything else (logged as an error).
+ */
+async function requireUserThread(
+  runtime: CopilotIntelligenceRuntimeLike,
+  threadId: string,
+  userId: string,
+  failure: string,
+): Promise<{ threadId: string } | Response> {
+  let thread: Awaited<ReturnType<typeof runtime.intelligence.getThread>>;
+  try {
+    thread = await runtime.intelligence.getThread({ threadId, userId });
+  } catch (error) {
+    const status = getPlatformErrorStatus(error);
+    if (
+      status !== undefined &&
+      status >= 400 &&
+      status < 500 &&
+      status !== 401
+    ) {
+      logger.warn({ threadId, status }, "Thread not visible to the user");
+    } else {
+      logger.error({ err: error, threadId }, "Error resolving thread");
+    }
+    return platformErrorResponse(error, failure);
+  }
+  if (!thread || typeof thread.id !== "string" || !thread.id.trim()) {
+    logger.error({ threadId }, "Invalid thread response from getThread");
+    return errorResponse("Invalid thread response", 502);
+  }
+  return { threadId: thread.id };
 }
 
 export async function handleListThreads({
@@ -389,13 +433,24 @@ export async function handleGetThreadEvents({
 }: ThreadMutationParams): Promise<Response> {
   // CopilotKit Intelligence path. Delegates to the platform's `_inspect`
   // endpoint (Intelligence PR #144). Auth still flows through the standard
-  // identifyUser → API key path; threadId scoping happens server-side.
+  // identifyUser → API key path. `_inspect` is not user-scoped, so the
+  // thread is first checked against the user (see `requireUserThread`).
   if (isIntelligenceRuntime(runtime)) {
     try {
       const user = await resolveIntelligenceUser({ runtime, request });
       if (isHandlerResponse(user)) return user;
+      const thread = await requireUserThread(
+        runtime,
+        threadId,
+        user.id,
+        "Failed to fetch thread events",
+      );
+      if (isHandlerResponse(thread)) return thread;
 
-      const data = await runtime.intelligence.getThreadEvents({ threadId });
+      const data = await runtime.intelligence.getThreadEvents({
+        threadId: thread.threadId,
+        userId: user.id,
+      });
       // Strip platform-internal fields (`decodeErrorRowIds`, `truncated`)
       // before returning to the inspector — those describe persistence-side
       // concerns the inspector currently has no UI for. The shape becomes
@@ -442,8 +497,18 @@ export async function handleGetThreadState({
     try {
       const user = await resolveIntelligenceUser({ runtime, request });
       if (isHandlerResponse(user)) return user;
+      const thread = await requireUserThread(
+        runtime,
+        threadId,
+        user.id,
+        "Failed to fetch thread state",
+      );
+      if (isHandlerResponse(thread)) return thread;
 
-      const data = await runtime.intelligence.getThreadState({ threadId });
+      const data = await runtime.intelligence.getThreadState({
+        threadId: thread.threadId,
+        userId: user.id,
+      });
       // Flatten the discriminated `ThreadStateResult` to the wire shape the
       // inspector consumes (`{ state: <value> | null }`). Missing snapshot
       // and decode-error both surface as `null`; the inspector renders an

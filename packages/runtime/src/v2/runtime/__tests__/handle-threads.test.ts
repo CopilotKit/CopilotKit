@@ -39,7 +39,16 @@ describe("thread handlers", () => {
       mode: "intelligence",
       generateThreadNames: false,
       identifyUser: options?.identifyUser ?? createIdentifyUser(),
-      intelligence: options?.intelligence,
+      // Events and state reads first confirm the thread through the
+      // user-scoped `getThread`; by default the user can see the thread.
+      intelligence: options?.intelligence && {
+        getThread: vi
+          .fn()
+          .mockImplementation(({ threadId }: { threadId: string }) =>
+            Promise.resolve({ id: threadId, name: null }),
+          ),
+        ...options.intelligence,
+      },
     }) as unknown as CopilotRuntime;
 
   const createMutationRequest = (
@@ -801,6 +810,7 @@ describe("thread handlers", () => {
       expect(response.status).toBe(200);
       expect(intelligence.getThreadEvents).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
       });
       expect(identifyUser).toHaveBeenCalledTimes(1);
       const body = await response.json();
@@ -915,6 +925,7 @@ describe("thread handlers", () => {
       expect(response.status).toBe(200);
       expect(intelligence.getThreadState).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
       });
       expect(identifyUser).toHaveBeenCalledTimes(1);
       const body = await response.json();
