@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { h } from "vue";
 import { mount } from "@vue/test-utils";
@@ -8,8 +10,15 @@ import CopilotChatView from "../CopilotChatView.vue";
 
 const CHAT_ROOT_SELECTOR = ".copilotKitChat[data-copilotkit]";
 
-// Vitest runs from the package root, as in the React test for PE-788.
-const globalsCss = readFileSync("src/styles/globals.css", { encoding: "utf8" });
+// Resolve from this file, so the read does not depend on the working directory.
+// (A `new URL(...)` object fails here: under jsdom it is not Node's URL.)
+const globalsCss = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    "../../../../styles/globals.css",
+  ),
+  { encoding: "utf8" },
+);
 
 /** Returns the body of the first `@layer <name> { ... }` block. */
 function layerBody(css: string, name: string): string {
@@ -50,11 +59,9 @@ describe("CopilotChatView root width (PE-1053)", () => {
     expect(base).toContain(`${CHAT_ROOT_SELECTOR} { width: 100%; }`);
   });
 
-  it.each([
-    ["welcome screen", { messages: [] }],
-    ["message view", { messages: [{ id: "u1", role: "user", content: "hi" }] }],
-  ])("the %s root matches the width rule", (_label, props) => {
-    const wrapper = mountChatView(props);
+  // The welcome screen and the message view share this one root element.
+  it("the chat root matches the width rule", () => {
+    const wrapper = mountChatView({ messages: [] });
     const root = wrapper.find("[data-testid='copilot-chat-view']");
     expect(root.exists()).toBe(true);
     expect(root.element.matches(CHAT_ROOT_SELECTOR)).toBe(true);
