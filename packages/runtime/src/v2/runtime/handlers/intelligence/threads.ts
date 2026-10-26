@@ -9,6 +9,7 @@ import { isValidIdentifier } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { platformErrorResponse } from "../shared/platform-error";
 import { supportsLocalThreadEndpoints } from "../../runner/agent-runner";
+import { resolveLocalThreadOwner } from "../shared/thread-access";
 
 interface ThreadsHandlerParams {
   runtime: CopilotRuntimeLike;
@@ -108,13 +109,24 @@ export async function handleListThreads({
 
   // Local in-memory fallback — useful for local development without Intelligence
   if (supportsLocalThreadEndpoints(runtime.runner)) {
-    const url = new URL(request.url);
-    const agentId = url.searchParams.get("agentId");
-    let threads = runtime.runner.listThreads();
-    if (agentId) {
-      threads = threads.filter((t) => t.agentId === agentId);
+    const ownerId = await resolveLocalThreadOwner({
+      runtime,
+      request,
+      operation: "list",
+    });
+    if (isHandlerResponse(ownerId)) return ownerId;
+    try {
+      const url = new URL(request.url);
+      const agentId = url.searchParams.get("agentId");
+      let threads = runtime.runner.listThreads({ ownerId });
+      if (agentId) {
+        threads = threads.filter((t) => t.agentId === agentId);
+      }
+      return Response.json({ threads, nextCursor: null });
+    } catch (error) {
+      logger.error({ err: error }, "Error listing threads");
+      return errorResponse("Failed to list threads", 500);
     }
-    return Response.json({ threads, nextCursor: null });
   }
 
   return errorResponse(
@@ -124,19 +136,34 @@ export async function handleListThreads({
 }
 
 /**
- * Clears all in-memory thread history for the local-dev InMemory fallback.
+ * Clears the caller's in-memory thread history for the local-dev fallback.
  *
  * The local-dev fallback exposes this so consumers (e.g. the demo's Clear
  * button) can wipe in-memory thread history without restarting the runtime.
+ * Only the caller's own threads are cleared, and a thread whose run is
+ * still active is kept. Without `identifyUser`, the access policy refuses it
+ * unless `threads: { access: "open" }` is set.
  * Intentionally a no-op when CopilotKit Intelligence is configured: real
  * thread history lives in the database and must not be wiped by a
  * client-side page load.
  */
-export function handleClearThreads({
+export async function handleClearThreads({
   runtime,
-}: ThreadsHandlerParams): Response {
+  request,
+}: ThreadsHandlerParams): Promise<Response> {
   if (supportsLocalThreadEndpoints(runtime.runner)) {
-    runtime.runner.clearThreads();
+    const ownerId = await resolveLocalThreadOwner({
+      runtime,
+      request,
+      operation: "clear",
+    });
+    if (isHandlerResponse(ownerId)) return ownerId;
+    try {
+      runtime.runner.clearThreads({ ownerId });
+    } catch (error) {
+      logger.error({ err: error }, "Error clearing threads");
+      return errorResponse("Failed to clear threads", 500);
+    }
   }
   return new Response(null, { status: 204 });
 }
@@ -292,7 +319,20 @@ export async function handleGetThreadMessages({
 
   // Local in-memory fallback — useful for local development without Intelligence
   if (supportsLocalThreadEndpoints(runtime.runner)) {
-    const messages = runtime.runner.getThreadMessages(threadId);
+    const ownerId = await resolveLocalThreadOwner({
+      runtime,
+      request,
+      operation: "read",
+    });
+    if (isHandlerResponse(ownerId)) return ownerId;
+    // Another owner's thread reads exactly like an unknown thread.
+    let messages: ReturnType<typeof runtime.runner.getThreadMessages>;
+    try {
+      messages = runtime.runner.getThreadMessages(threadId, { ownerId });
+    } catch (error) {
+      logger.error({ err: error, threadId }, "Error fetching thread messages");
+      return errorResponse("Failed to fetch thread messages", 500);
+    }
     // Map ag-ui Message objects to the same shape CopilotKit Intelligence
     // returns. Switching on the discriminant `role` lets each branch read
     // the narrowed message arm directly, instead of laundering through
@@ -369,8 +409,14 @@ export async function handleGetThreadEvents({
 
   // Local in-memory fallback
   if (supportsLocalThreadEndpoints(runtime.runner)) {
+    const ownerId = await resolveLocalThreadOwner({
+      runtime,
+      request,
+      operation: "read",
+    });
+    if (isHandlerResponse(ownerId)) return ownerId;
     try {
-      const events = runtime.runner.getThreadEvents(threadId);
+      const events = runtime.runner.getThreadEvents(threadId, { ownerId });
       return Response.json({ events });
     } catch (error) {
       logger.error({ err: error, threadId }, "Error fetching thread events");
@@ -412,8 +458,14 @@ export async function handleGetThreadState({
   }
 
   if (supportsLocalThreadEndpoints(runtime.runner)) {
+    const ownerId = await resolveLocalThreadOwner({
+      runtime,
+      request,
+      operation: "read",
+    });
+    if (isHandlerResponse(ownerId)) return ownerId;
     try {
-      const state = runtime.runner.getThreadState(threadId);
+      const state = runtime.runner.getThreadState(threadId, { ownerId });
       return Response.json({ state });
     } catch (error) {
       logger.error({ err: error, threadId }, "Error fetching thread state");

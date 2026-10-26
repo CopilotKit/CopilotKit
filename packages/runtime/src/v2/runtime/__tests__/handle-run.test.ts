@@ -1893,7 +1893,8 @@ describe("handleRunAgent", () => {
         if (done) break;
       }
 
-      const threads = runner.listThreads();
+      // The request carried no identity, so the thread is anonymous.
+      const threads = runner.listThreads({ ownerId: "" });
       const thisThread = threads.find((t) => t.id === threadId);
       expect(thisThread).toBeDefined();
       expect(thisThread!.agentId).toBe("tagged");
