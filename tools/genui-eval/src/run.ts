@@ -282,7 +282,14 @@ async function runTask(
       validity: code.validity,
       fidelity: code.fidelity,
       judgement: {
-        pass: judgementReasons.length === 0,
+        // The code part decides a fail; a pass also needs the judge, so a
+        // failed judge leaves it ungraded instead of counting as a pass.
+        pass:
+          judgementReasons.length > 0
+            ? false
+            : judgeScore === null
+              ? null
+              : true,
         reasons: judgementReasons,
         score: judgeScore,
       },

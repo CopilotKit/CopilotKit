@@ -7,7 +7,8 @@
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { parentPort } from "node:worker_threads";
-import type { GenerativeUISurfaceContent } from "@copilotkit/shared";
+import { childIdsAtRefs } from "@copilotkit/shared";
+import type { ChildRef, GenerativeUISurfaceContent } from "@copilotkit/shared";
 import type { RenderRequest, RenderResult, SurfaceCheck } from "./render-check";
 
 const reactCoreRequire = createRequire(
@@ -105,6 +106,60 @@ const TEXT_COMPONENTS = new Set([
   "FlowItem",
 ]);
 
+/** The ids in one slot or reference value: an id, a list of ids, or a template. */
+function idsIn(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value))
+    return value.filter((v): v is string => typeof v === "string");
+  if (
+    value &&
+    typeof value === "object" &&
+    typeof (value as { componentId?: unknown }).componentId === "string"
+  ) {
+    return [(value as { componentId: string }).componentId];
+  }
+  return [];
+}
+
+/**
+ * The component types reachable from "root" through slots and child
+ * references: what can actually render. A component no slot references is
+ * never shown, so it must not count.
+ */
+function reachableTypes(
+  model: {
+    get(
+      id: string,
+    ): { type: string; properties: Record<string, unknown> } | undefined;
+  },
+  ui: {
+    components: ReadonlyMap<
+      string,
+      { slots?: unknown; childRefs: readonly ChildRef[] }
+    >;
+  },
+) {
+  const types: string[] = [];
+  const seen = new Set<string>();
+  const queue = ["root"];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const component = model.get(id);
+    if (!component) continue;
+    types.push(component.type);
+    const definition = ui.components.get(component.type);
+    if (!definition) continue;
+    const slots = Object.keys(
+      (definition.slots as Record<string, unknown> | undefined) ?? {},
+    );
+    for (const slot of slots) queue.push(...idsIn(component.properties[slot]));
+    queue.push(...childIdsAtRefs(component.properties, definition.childRefs));
+  }
+  return types;
+}
+
 installDom();
 // Map and Chart load browser libraries after mount; their failures in jsdom
 // are not the model's fault and must not end the worker.
@@ -185,9 +240,7 @@ async function check(
       });
       continue;
     }
-    const components = [...surface.model.componentsModel.entries].map(
-      ([, component]) => component.type,
-    );
+    const components = reachableTypes(surface.model.componentsModel, ui);
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container, {

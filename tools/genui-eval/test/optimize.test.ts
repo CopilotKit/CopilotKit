@@ -192,3 +192,40 @@ describe("writeWinnerFiles", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 });
+
+describe("optimize budget", () => {
+  it("stops before a reflection the budget cannot cover", async () => {
+    const root = `${mkdtempSync(join(tmpdir(), "genui-eval-optb-"))}/`;
+    const config = defineEvalConfig({
+      models: [{ id: "fake", model: "fake:offline" }],
+      presets: {
+        offline: {
+          models: ["fake"],
+          cases: "tag:smoke",
+          samples: 1,
+          judge: "fake:judge",
+          reflection: "fake:reflect",
+        },
+      },
+      transports: ["markdown"],
+      budgetUsd: 1,
+      judge: { model: "fake:judge" },
+      reflection: { model: "fake:reflect" },
+      prices: { "fake:reflect": { input: 1_000_000, output: 1_000_000 } },
+    });
+    const lines: string[] = [];
+    const result = await optimize({
+      config,
+      plan: resolvePlan(config, "offline"),
+      budgetUsd: 1,
+      rounds: 3,
+      root,
+      log: (line) => lines.push(line),
+    });
+    expect(result.spentUsd).toBeLessThanOrEqual(1);
+    expect(lines.some((l) => l.includes("does not cover a reflection"))).toBe(
+      true,
+    );
+    rmSync(root, { recursive: true, force: true });
+  });
+});

@@ -175,6 +175,17 @@ export function applyPatch(
   return target;
 }
 
+/** Rejections without repeats (a surface's list and the tool result can name the same one). */
+function dedupeRejections(rejected: GenerativeUIRejectedOperation[]) {
+  const seen = new Set<string>();
+  return rejected.filter((r) => {
+    const key = `${r.index}|${r.reason}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /** The lines of each fence that are not valid JSON. */
 function fenceParseErrors(text: string) {
   const errors: string[] = [];
@@ -268,11 +279,20 @@ function collect(events: Observable<BaseEvent>) {
     text: string;
     toolArgs: string[];
     surfaces: Map<string, GenerativeUISurfaceContent>;
+    /** What the runtime told the model about each render_ui call. */
+    toolResults: Array<{
+      rejected: GenerativeUIRejectedOperation[];
+      reason?: string;
+    }>;
     error?: string;
   }>((resolve) => {
     let text = "";
     const args = new Map<string, string>();
     const surfaces = new Map<string, GenerativeUISurfaceContent>();
+    const toolResults: Array<{
+      rejected: GenerativeUIRejectedOperation[];
+      reason?: string;
+    }> = [];
     let error: string | undefined;
     events.subscribe({
       next: (event: any) => {
@@ -303,6 +323,24 @@ function collect(events: Observable<BaseEvent>) {
               );
             break;
           }
+          case EventType.TOOL_CALL_RESULT: {
+            try {
+              const result = JSON.parse(event.content) as {
+                status?: string;
+                rejected?: GenerativeUIRejectedOperation[];
+                reason?: string;
+              };
+              toolResults.push({
+                rejected: result.rejected ?? [],
+                ...(result.status === "error" && result.reason
+                  ? { reason: result.reason }
+                  : {}),
+              });
+            } catch {
+              // Not a generative UI result.
+            }
+            break;
+          }
           case EventType.RUN_ERROR:
             error = event.message ?? "run error";
             break;
@@ -313,10 +351,17 @@ function collect(events: Observable<BaseEvent>) {
           text,
           toolArgs: [...args.values()],
           surfaces,
+          toolResults,
           error: String((e as Error)?.message ?? e),
         }),
       complete: () =>
-        resolve({ text, toolArgs: [...args.values()], surfaces, error }),
+        resolve({
+          text,
+          toolArgs: [...args.values()],
+          surfaces,
+          toolResults,
+          error,
+        }),
     });
   });
 }
@@ -369,6 +414,9 @@ export async function runSample(input: {
       parseErrors.push(`invalid render_ui arguments: ${raw.slice(0, 160)}`);
     }
   }
+  for (const result of collected.toolResults) {
+    if (result.reason) parseErrors.push(`render_ui rejected: ${result.reason}`);
+  }
   let surfaces: GenerativeUISurfaceContent[];
   if (input.transport === "markdown") {
     parseErrors.push(...fenceParseErrors(collected.text));
@@ -389,7 +437,10 @@ export async function runSample(input: {
     text: collected.text,
     toolCalls,
     surfaces,
-    rejected: surfaces.flatMap((s) => s.rejected ?? []),
+    rejected: dedupeRejections([
+      ...collected.toolResults.flatMap((r) => r.rejected),
+      ...surfaces.flatMap((s) => s.rejected ?? []),
+    ]),
     parseErrors,
     error: collected.error,
     promptTokens: record.input,

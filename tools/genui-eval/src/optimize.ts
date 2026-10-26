@@ -10,7 +10,7 @@ import type { EvalConfig, ResolvedPlan, Transport } from "./config";
 import { costOf } from "./cost";
 import { renderedPrompts } from "./harness";
 import { createLanguageModel } from "./models";
-import { MAX_TOKEN_GROWTH, reflect } from "./reflect";
+import { MAX_TOKEN_GROWTH, reflect, reflectionPrompt } from "./reflect";
 import { overallScore, tierRates } from "./report";
 import type { TierRates } from "./report";
 import { RESULTS_DIR, newRunId, readRun } from "./results";
@@ -37,14 +37,17 @@ export interface Candidate {
   accepted?: { ok: boolean; reasons: string[] };
 }
 
-/** The score of one sample: the share of validity, fidelity and judgement it passed. */
+/** The score of one sample: the share of its graded validity, fidelity and judgement tiers it passed. */
 export function sampleScore(sample: SampleRecord) {
-  const tiers = [
+  // Tiers that could not be graded (a failed judge) count neither way.
+  const graded = [
     sample.tiers.validity,
     sample.tiers.fidelity,
     sample.tiers.judgement,
-  ];
-  return tiers.filter((t) => t.pass).length / tiers.length;
+  ].filter((t) => t.pass !== null);
+  return graded.length === 0
+    ? 0
+    : graded.filter((t) => t.pass).length / graded.length;
 }
 
 /** The mean sample score per case. */
@@ -317,6 +320,20 @@ export async function optimize(options: OptimizeOptions) {
       log(`round ${round}: ${parent.id} has no failures on its batch`);
       quiet++;
       continue;
+    }
+    // The reflection call is charged after it returns, so its estimate
+    // (the prompt in, a whole spec out) must fit the budget first.
+    const reflectionEstimate = costOf(
+      config,
+      plan.reflection,
+      Math.ceil(reflectionPrompt(parent.spec, failing, tokenLimits).length / 4),
+      Math.ceil(JSON.stringify(parent.spec).length / 4),
+    );
+    if (reflectionEstimate > remaining()) {
+      log(
+        `round ${round}: the budget left does not cover a reflection; stopping`,
+      );
+      break;
     }
     const reflected = await reflect(
       reflectionModel,

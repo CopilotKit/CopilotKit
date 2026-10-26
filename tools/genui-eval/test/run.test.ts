@@ -76,3 +76,37 @@ describe("runEval", () => {
     expect(stored.stopped).toBe("budget");
   });
 });
+
+describe("runEval with a failing judge", () => {
+  it("leaves judgement ungraded instead of counting it as a pass", async () => {
+    const broken = defineEvalConfig({
+      ...config,
+      presets: {
+        offline: {
+          models: ["fake"],
+          cases: "tag:smoke",
+          samples: 1,
+          judge: "fake:no-judge",
+          reflection: "fake:reflect",
+        },
+      },
+      judge: { model: "fake:no-judge" },
+    });
+    const run = await runEval({
+      config: broken,
+      plan: resolvePlan(broken, "offline"),
+      split: "train",
+      budgetUsd: 1,
+      root,
+    });
+    const { samples } = readRun(run.id, root);
+    const map = samples.find(
+      (s) => s.case === "cafes-map" && s.transport === "markdown",
+    );
+    expect(map?.tiers.judgement).toMatchObject({ pass: null, score: null });
+    const prose = samples.find(
+      (s) => s.case === "team-plan-estimator" && s.transport === "markdown",
+    );
+    expect(prose?.tiers.judgement.pass).toBe(false);
+  });
+});
