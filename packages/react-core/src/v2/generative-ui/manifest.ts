@@ -10,6 +10,8 @@ import type {
   CopilotKitUIEnvelope,
   GenerativeUIFunctionManifest,
   GenerativeUIManifest,
+  GenerativeUISurfaceSummary,
+  GenerativeUITarget,
 } from "@copilotkit/shared";
 
 /**
@@ -36,7 +38,57 @@ export function builtInFunctionManifests(): Record<
   );
 }
 import { catalogIdsOf } from "./catalog";
+import type { GenerativeUI } from "./catalog";
 import type { GenerativeUIRuntime } from "./runtime-context";
+
+/** What `buildCatalogManifest` adds to the catalog. */
+export interface CatalogManifestOptions {
+  /** The app functions with a mounted handler. A built-in of the same name is left out. */
+  functions?: Record<string, GenerativeUIFunctionManifest>;
+  /** The inline targets, after the chat target. */
+  targets?: GenerativeUITarget[];
+  /** The surfaces of the thread. */
+  surfaces?: Record<string, GenerativeUISurfaceSummary>;
+}
+
+/**
+ * The manifest of a catalog, with no React runtime: the components of `ui`,
+ * the built-in functions (minus the names the app declares) and
+ * `options.functions`, the chat target and `options.targets`, and
+ * `options.surfaces`. `buildGenerativeUIManifest` builds the per-run
+ * manifest with it; tools that run outside React use it directly.
+ *
+ * @example
+ * ```ts
+ * const manifest = buildCatalogManifest(standardUI);
+ * manifest.targets; // [{ id: "chat", kind: "chat" }]
+ * ```
+ */
+export function buildCatalogManifest(
+  ui: Pick<GenerativeUI, "id" | "manifestComponents" | "functions">,
+  options: CatalogManifestOptions = {},
+): GenerativeUIManifest {
+  return {
+    catalogId: ui.id,
+    catalogIds: catalogIdsOf(ui),
+    components: ui.manifestComponents,
+    // A name the app declares is the app's, also while its handler is not
+    // mounted: the dispatcher never runs the built-in in its place.
+    functions: {
+      ...Object.fromEntries(
+        Object.entries(builtInFunctionManifests()).filter(
+          ([name]) => !ui.functions.has(name),
+        ),
+      ),
+      ...options.functions,
+    },
+    targets: [
+      { id: GENERATIVE_UI_CHAT_TARGET, kind: "chat" },
+      ...(options.targets ?? []),
+    ],
+    surfaces: options.surfaces ?? {},
+  };
+}
 
 /**
  * Builds the per-run manifest. Never contains handlers or renderers.
@@ -55,27 +107,11 @@ export function buildGenerativeUIManifest(
     .getMountedTargets()
     .filter((target) => target.id !== GENERATIVE_UI_CHAT_TARGET)
     .map(({ id, ...rest }) => ({ id, kind: "inline" as const, ...rest }));
-  const manifest: GenerativeUIManifest = {
-    catalogId: ui.id,
-    catalogIds: catalogIdsOf(ui),
-    components: ui.manifestComponents,
-    // A name the app declares is the app's, also while its handler is not
-    // mounted: the dispatcher never runs the built-in in its place.
-    functions: {
-      ...Object.fromEntries(
-        Object.entries(builtInFunctionManifests()).filter(
-          ([name]) => !ui.functions.has(name),
-        ),
-      ),
-      ...dispatcher.listExposed(),
-    },
-    targets: [
-      { id: GENERATIVE_UI_CHAT_TARGET, kind: "chat" },
-      ...inlineTargets,
-    ],
+  return buildCatalogManifest(ui, {
+    functions: dispatcher.listExposed(),
+    targets: inlineTargets,
     surfaces: threadId ? manager.describeSurfaces(threadId) : {},
-  };
-  return manifest;
+  });
 }
 
 /** How to build the envelope of one run. */
