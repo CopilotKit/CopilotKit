@@ -4,3 +4,4 @@ export * from "./render-ui-args";
 export * from "./basic-functions";
 export * from "./child-refs";
 export * from "./prompt";
+export * from "./compact-schema";
