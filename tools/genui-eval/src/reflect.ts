@@ -74,6 +74,15 @@ export function reflectionPrompt(
   ].join("\n\n");
 }
 
+/**
+ * The output cap of a reflection: room for a whole spec half again as long
+ * as the parent, plus some reasoning. A reply cut at the cap is not valid
+ * JSON and is discarded, so the cap also bounds the cost.
+ */
+export function reflectionOutputCap(parent: GenerativeUIPromptSpec) {
+  return Math.ceil((JSON.stringify(parent).length / 4) * 1.5) + 2000;
+}
+
 /** Why a candidate spec cannot be scored. */
 export interface CandidateProblem {
   kind: "invalid" | "coverage" | "tokens" | "when";
@@ -165,6 +174,7 @@ export async function reflect(
   parent: GenerativeUIPromptSpec,
   failures: Array<{ sample: SampleRecord; message?: string }>,
   tokenLimits: Partial<Record<Transport, number>>,
+  maxOutputTokens = reflectionOutputCap(parent),
 ): Promise<{
   spec?: GenerativeUIPromptSpec;
   problems: CandidateProblem[];
@@ -174,6 +184,7 @@ export async function reflect(
     model,
     prompt: reflectionPrompt(parent, failures, tokenLimits),
     temperature: 0.7,
+    maxOutputTokens,
   });
   const tokens = {
     input: result.usage.inputTokens ?? 0,

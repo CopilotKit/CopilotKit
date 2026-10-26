@@ -82,6 +82,16 @@ describe("sampleScore", () => {
   });
 });
 
+describe("reflectionOutputCap", () => {
+  it("leaves room for a spec half again as long as the parent", async () => {
+    const { reflectionOutputCap } = await import("../src/reflect");
+    const spec = defaultGenerativeUIPromptSpec();
+    expect(reflectionOutputCap(spec)).toBe(
+      Math.ceil((JSON.stringify(spec).length / 4) * 1.5) + 2000,
+    );
+  });
+});
+
 describe("accept", () => {
   const baseline = candidate("base", {
     heldout: {

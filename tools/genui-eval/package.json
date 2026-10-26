@@ -5,7 +5,7 @@
   "version": "0.0.0",
   "description": "Measures and optimizes the A2UI output of the generative UI prompts across models",
   "scripts": {
-    "eval": "tsx src/cli.ts",
+    "eval": "nx run-many -t build -p @copilotkit/shared @copilotkit/core @copilotkit/runtime --output-style=static > /dev/null && tsx src/cli.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

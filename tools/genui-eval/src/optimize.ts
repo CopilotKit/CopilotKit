@@ -10,7 +10,12 @@ import type { EvalConfig, ResolvedPlan, Transport } from "./config";
 import { costOf } from "./cost";
 import { renderedPrompts } from "./harness";
 import { createLanguageModel } from "./models";
-import { MAX_TOKEN_GROWTH, reflect, reflectionPrompt } from "./reflect";
+import {
+  MAX_TOKEN_GROWTH,
+  reflect,
+  reflectionOutputCap,
+  reflectionPrompt,
+} from "./reflect";
 import { overallScore, tierRates } from "./report";
 import type { TierRates } from "./report";
 import { RESULTS_DIR, newRunId, readRun } from "./results";
@@ -321,12 +326,12 @@ export async function optimize(options: OptimizeOptions) {
       continue;
     }
     // The reflection call is charged after it returns, so its estimate
-    // (the prompt in, a whole spec out) must fit the budget first.
+    // at its worst (the prompt in, the capped reply out) must fit first.
     const reflectionEstimate = costOf(
       config,
       plan.reflection,
       Math.ceil(reflectionPrompt(parent.spec, failing, tokenLimits).length / 4),
-      Math.ceil(JSON.stringify(parent.spec).length / 4),
+      reflectionOutputCap(parent.spec),
     );
     if (reflectionEstimate > remaining()) {
       log(

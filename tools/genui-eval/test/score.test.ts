@@ -138,6 +138,53 @@ describe("scoreCode with real rendering", () => {
     expect(check.components).toEqual(["Tabs", "Slider"]);
   });
 
+  it("counts a template's component only when its list has items", async () => {
+    const surface = (items: unknown[]) =>
+      ({
+        surfaceId: `tpl-${items.length}`,
+        target: "chat",
+        catalogId: "copilotkit://standard",
+        status: "ready",
+        rejected: [],
+        operations: [
+          {
+            version: "v1.0",
+            createSurface: {
+              surfaceId: `tpl-${items.length}`,
+              dataModel: { items },
+            },
+          },
+          {
+            version: "v1.0",
+            updateComponents: {
+              surfaceId: `tpl-${items.length}`,
+              components: [
+                {
+                  id: "root",
+                  component: "Column",
+                  children: { componentId: "row", path: "/items" },
+                },
+                {
+                  id: "row",
+                  component: "Slider",
+                  label: "Seats",
+                  min: 1,
+                  max: 9,
+                  value: { "@path": "n" },
+                },
+              ],
+            },
+          },
+        ],
+      }) as never;
+    const [empty, filled] = await checker.check([
+      surface([]),
+      surface([{ n: 3 }]),
+    ]);
+    expect(empty.components).toEqual(["Column"]);
+    expect(filled.components).toEqual(["Column", "Slider"]);
+  });
+
   it("flags a surface made only of text", async () => {
     const out = {
       text: "",
