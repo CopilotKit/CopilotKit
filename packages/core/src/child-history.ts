@@ -548,7 +548,9 @@ export class ɵChildHistoryStore {
         if (
           metadata.source !== "claude-sdk-native-child" ||
           typeof metadata.childId !== "string" ||
+          metadata.childId.length === 0 ||
           typeof metadata.parentToolUseId !== "string" ||
+          metadata.parentToolUseId.length === 0 ||
           typeof metadata.toolName !== "string" ||
           typeof interrupt.id !== "string"
         )

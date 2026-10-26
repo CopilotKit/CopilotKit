@@ -435,6 +435,86 @@ describe("child-history presentation store", () => {
     ).toHaveLength(1);
   });
 
+  it.each([
+    { childId: "", parentToolUseId: "" },
+    { childId: "", parentToolUseId: "root-parent" },
+    { childId: "root-child", parentToolUseId: "" },
+  ])(
+    "keeps root interrupts outside real child histories with metadata %j",
+    async (rootMetadata) => {
+      const { agent, play, current, handler } = setup();
+      const histories = [
+        savedHistory(["leaf0"], "parent0"),
+        savedHistory(["leaf1"], "parent1"),
+      ];
+      for (const history of histories) history.runs[0]!.messages = [];
+      await play(snapshot(...histories));
+      expect(current().histories.map((history) => history.messages)).toEqual([
+        [],
+        [],
+      ]);
+
+      const calls = [
+        { id: "root-read", ...rootMetadata },
+        { id: "child-read0", childId: "leaf0", parentToolUseId: "parent0" },
+        { id: "child-read1", childId: "leaf1", parentToolUseId: "parent1" },
+      ];
+      const interrupt: RunFinishedEvent = {
+        type: EventType.RUN_FINISHED,
+        threadId: agent.threadId,
+        runId: "mixed-root-child",
+        outcome: {
+          type: "interrupt",
+          interrupts: calls.map(({ id, ...metadata }) => ({
+            id,
+            toolCallId: id,
+            reason: "tool_call",
+            metadata: {
+              source: "claude-sdk-native-child",
+              ...metadata,
+              toolName: "Read",
+              input: { file_path: "/saved/example.txt" },
+            },
+          })),
+        },
+      };
+      await play(interrupt);
+      await play(
+        ...calls.map((call) => ({
+          ...result(call.parentToolUseId, call.id),
+          rawEvent: {
+            parent_tool_use_id:
+              call.id === "root-read" ? null : call.parentToolUseId,
+            is_error: false,
+          },
+        })),
+      );
+
+      expect(current().histories.map((history) => history.namespace)).toEqual([
+        ["leaf0"],
+        ["leaf1"],
+      ]);
+      expect(
+        current().histories.map((history) => history.parentToolCallIds),
+      ).toEqual([["parent0"], ["parent1"]]);
+      for (const [index, history] of current().histories.entries()) {
+        expect(history.messages).toHaveLength(2);
+        expect(
+          getAssistantMessage(history.messages[0]!).toolCalls?.map(
+            (call) => call.id,
+          ),
+        ).toEqual([`child-read${index}`]);
+        expect(getToolMessage(history.messages[1]!).toolCallId).toBe(
+          `child-read${index}`,
+        );
+        expect(getToolMessage(history.messages[1]!).content).toContain(
+          '"status":"displayed"',
+        );
+      }
+      expect(handler).not.toHaveBeenCalled();
+    },
+  );
+
   it("extends ownership when the same native child resumes under a new parent call", async () => {
     const { agent, play, current } = setup();
     await play(snapshot(savedHistory()));
