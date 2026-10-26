@@ -203,7 +203,10 @@ export function applyDescriptionOverrides<
   const unknown: string[] = [];
   for (const [key, description] of Object.entries(overrides)) {
     const [name, prop, ...rest] = key.split(".");
-    const component = components[name];
+    // Own keys only: "__proto__" must never reach Object.prototype.
+    const component = Object.hasOwn(components, name)
+      ? components[name]
+      : undefined;
     if (!component || rest.length > 0) {
       unknown.push(key);
       continue;
@@ -212,9 +215,11 @@ export function applyDescriptionOverrides<
       component.description = description;
       continue;
     }
-    const property = isRecord(component.props.properties)
-      ? component.props.properties[prop]
-      : undefined;
+    const properties = component.props.properties;
+    const property =
+      isRecord(properties) && Object.hasOwn(properties, prop)
+        ? properties[prop]
+        : undefined;
     if (!isRecord(property)) {
       unknown.push(key);
       continue;
