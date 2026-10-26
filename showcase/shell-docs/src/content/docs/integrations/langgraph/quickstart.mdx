@@ -37,10 +37,10 @@ The SDK also has a peer dependency on `langchain`. If your agent pins `@langchai
 npm view langchain@1 peerDependencies
 ```
 
-For example, `langchain@1.5.9` requires `@langchain/core ^1.2.8`, so it is the newest release that works with `@langchain/core@1.2.8`:
+For example, `langchain@1.5.9` requires `@langchain/core ^1.2.8`, so it is the newest release that works with `@langchain/core@1.2.8`. Pin it exactly. A caret range such as `^1.5.9` lets a later install pick `langchain@1.5.19`, which requires `@langchain/core ^1.2.20`:
 
 ```bash
-npm install @copilotkit/sdk-js zod@3 langchain@1.5.9
+npm install --save-exact @copilotkit/sdk-js zod@3 langchain@1.5.9
 ```
 </Callout>
 
