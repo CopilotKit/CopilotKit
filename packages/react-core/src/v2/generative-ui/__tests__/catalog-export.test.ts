@@ -352,7 +352,7 @@ describe("exportA2UICatalog", () => {
         locate: {
           parameters: z.object({
             point: z.tuple([z.number(), z.number()]),
-            labels: z.record(z.string()),
+            labels: z.record(z.string(), z.string()),
           }),
         },
       },
