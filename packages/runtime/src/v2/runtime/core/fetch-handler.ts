@@ -516,17 +516,21 @@ export function createCopilotRuntimeHandler(
 
       // 9. Legacy afterRequestMiddleware (non-blocking)
       // Clone the response so middleware can read the body without consuming
-      // the original stream that will be sent to the client.
-      callAfterRequestMiddleware({
-        runtime,
-        response: response.clone(),
-        path: handlerPath,
-      }).catch((error: unknown) => {
-        logger.error(
-          { err: error, url: request.url, path: handlerPath },
-          "Error running after request middleware",
-        );
-      });
+      // the original stream that will be sent to the client. Only clone when
+      // middleware is set: an unread clone still buffers every streamed chunk
+      // until the response ends.
+      if (runtime.afterRequestMiddleware) {
+        callAfterRequestMiddleware({
+          runtime,
+          response: response.clone(),
+          path: handlerPath,
+        }).catch((error: unknown) => {
+          logger.error(
+            { err: error, url: request.url, path: handlerPath },
+            "Error running after request middleware",
+          );
+        });
+      }
 
       return response;
     } catch (error) {
