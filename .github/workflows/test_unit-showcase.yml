@@ -80,6 +80,10 @@ jobs:
         # `--ignore-scripts` install).
         run: pnpm install --frozen-lockfile --ignore-scripts
 
+      - name: Install Chromium for local signal regressions
+        working-directory: showcase/harness
+        run: pnpm exec playwright install chromium
+
       - name: Generate gitignored showcase data fixtures
         working-directory: showcase/scripts
         # HAZARD, handled here. `showcase/.gitignore` ignores
@@ -130,6 +134,12 @@ jobs:
         # NOT `vitest.ci.config.ts` or `vitest.quarantine.json`, so a cached
         # result could survive an edit to the quarantine list.
         run: npx nx run @copilotkit/showcase-harness:test:ci
+
+      - name: Audit signal consumer boundary and genuine test mutations
+        timeout-minutes: 10
+        env:
+          NX_DAEMON: "false"
+        run: pnpm exec nx run @copilotkit/showcase-harness:test:signal-boundary --skip-nx-cache
 
       - name: Quarantine ratchet (every quarantined test must STILL fail)
         # Keeps the exclusion above honest. Re-runs each quarantined file under
