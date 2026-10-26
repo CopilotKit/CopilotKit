@@ -132,8 +132,15 @@ interface RuntimeEventWithState {
 type EventSourceCallback = (eventStream$: RuntimeEventSubject) => Promise<void>;
 
 export class RuntimeEventSubject extends ReplaySubject<RuntimeEvent> {
-  constructor() {
+  /**
+   * Aborted when the consumer no longer wants events, for example when the
+   * user stops the run. A producer that holds a model stream should cancel it.
+   */
+  readonly signal?: AbortSignal;
+
+  constructor(signal?: AbortSignal) {
     super();
+    this.signal = signal;
   }
 
   sendTextMessageStart({
