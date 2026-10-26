@@ -3,6 +3,19 @@ import type {
   experimental,
 } from "@copilotkit/runtime/v2";
 
+type IsAny<T> = 0 extends 1 & T ? true : false;
+type ExpectFalse<T extends false> = T;
+/** The built client declaration must preserve inferred management response types. */
+export type InferredPageIsTyped = ExpectFalse<
+  IsAny<
+    Awaited<
+      ReturnType<
+        CopilotKitIntelligence["experimental"]["learning"]["listLearningContainers"]
+      >
+    >
+  >
+>;
+
 /** Compile the published declarations under a strict consumer's settings. */
 export async function consume(client: CopilotKitIntelligence) {
   const page = await client.experimental.learning.listLearningContainers();

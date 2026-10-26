@@ -10,6 +10,7 @@ import {
   learningContainerPath,
   readLearningJson,
 } from "./learning-management";
+import type { ExperimentalLearningManagement } from "./experimental";
 import type {
   LearningRun,
   LearningCandidate,
@@ -782,18 +783,19 @@ interface ThreadEnvelope {
  */
 export class CopilotKitIntelligence {
   /** Experimental server-side APIs; their contracts may change before release. */
-  readonly experimental = {
-    learning: {
-      listLearningContainers: this.#listLearningContainers.bind(this),
-      getLearningContainer: this.#getLearningContainer.bind(this),
-      listLearningRuns: this.#listLearningRuns.bind(this),
-      startLearningRun: this.#startLearningRun.bind(this),
-      listLearningCandidates: this.#listLearningCandidates.bind(this),
-      getLearningCandidate: this.#getLearningCandidate.bind(this),
-      getLearningInsightEvidence: this.#getLearningInsightEvidence.bind(this),
-      reviewLearningCandidate: this.#reviewLearningCandidate.bind(this),
-    },
-  };
+  readonly experimental: { readonly learning: ExperimentalLearningManagement } =
+    {
+      learning: {
+        listLearningContainers: this.#listLearningContainers.bind(this),
+        getLearningContainer: this.#getLearningContainer.bind(this),
+        listLearningRuns: this.#listLearningRuns.bind(this),
+        startLearningRun: this.#startLearningRun.bind(this),
+        listLearningCandidates: this.#listLearningCandidates.bind(this),
+        getLearningCandidate: this.#getLearningCandidate.bind(this),
+        getLearningInsightEvidence: this.#getLearningInsightEvidence.bind(this),
+        reviewLearningCandidate: this.#reviewLearningCandidate.bind(this),
+      },
+    };
 
   #apiUrl: string;
   #runnerWsUrl: string;
