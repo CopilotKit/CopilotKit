@@ -1084,7 +1084,12 @@ export class RunHandler {
           if (
             existingResult &&
             this.isFrontendPlaceholderResult(existingResult) &&
-            (toolExecutionMode === "restore" || executableTool?.handler)
+            (toolExecutionMode === "restore" ||
+              executableTool?.handler ||
+              // An advertised tool that is gone can never replace the
+              // placeholder, so clear it for the not-found answer below.
+              (!executableTool &&
+                advertisedToolNames?.has(toolCall.function.name)))
           ) {
             if (existingResultIndex !== -1)
               newMessages.splice(existingResultIndex, 1);

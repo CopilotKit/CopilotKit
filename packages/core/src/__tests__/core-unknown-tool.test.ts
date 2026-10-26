@@ -172,6 +172,26 @@ describe("tool calls to an advertised tool that is no longer registered", () => 
     );
   });
 
+  it("replaces a forwarded-to-client placeholder with the error", async () => {
+    const { core, agent, onError } = setup([
+      { calls: [{ name: "update_surface", result: "Forwarded to client" }] },
+    ]);
+
+    await core.runAgent({ agent });
+
+    expect(toolMessages(agent.messages)).toEqual([
+      expect.objectContaining({
+        toolCallId: "call-0-0",
+        content: "Error: Tool not found: update_surface",
+      }),
+    ]);
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: CopilotKitCoreErrorCode.TOOL_NOT_FOUND,
+      }),
+    );
+  });
+
   it("starts no follow-up run, and the next run sends the completed pair", async () => {
     const { core, agent } = setup([{ calls: [{ name: "update_surface" }] }]);
 
