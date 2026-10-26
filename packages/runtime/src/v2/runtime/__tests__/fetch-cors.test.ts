@@ -154,6 +154,48 @@ describe("fetch-cors", () => {
         "true",
       );
     });
+
+    it("echoes the requested headers when credentials are enabled", () => {
+      const request = new Request("http://localhost/api", {
+        method: "OPTIONS",
+        headers: {
+          Origin: "https://example.com",
+          "Access-Control-Request-Headers": "content-type,authorization",
+        },
+      });
+      const response = handleCors(request, {
+        origin: "https://example.com",
+        credentials: true,
+      })!;
+      // Per Fetch spec, "*" is a literal header name on credentialed requests,
+      // so a wildcard here would make the browser block the real request.
+      expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
+        "content-type,authorization",
+      );
+    });
+
+    it("keeps the wildcard header list without credentials", () => {
+      const request = new Request("http://localhost/api", {
+        method: "OPTIONS",
+        headers: { "Access-Control-Request-Headers": "content-type" },
+      });
+      const response = handleCors(request, {})!;
+      expect(response.headers.get("Access-Control-Allow-Headers")).toBe("*");
+    });
+
+    it("prefers configured allowHeaders over the requested headers", () => {
+      const request = new Request("http://localhost/api", {
+        method: "OPTIONS",
+        headers: { "Access-Control-Request-Headers": "x-other" },
+      });
+      const response = handleCors(request, {
+        credentials: true,
+        allowHeaders: ["Content-Type"],
+      })!;
+      expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
+        "Content-Type",
+      );
+    });
   });
 
   describe("addCorsHeaders (response decoration)", () => {
