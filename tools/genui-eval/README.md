@@ -51,7 +51,7 @@ run        [--preset full] [--models a,b] [--cases all|tag:<t>] [--samples n]
            [--budget usd] [--spec file.json] [--estimate]
 report     <run|latest> [--base <run>]
 failures   <run|latest> [--model id] [--tier ...] [--case id] [--limit n]
-prompt     [--transport markdown|tool] [--spec file.json]
+prompt     [--transport markdown|tool] [--spec file.json] [--export-spec]
 optimize   [--preset full] [--budget usd] [--rounds n] [--batch n] [--from spec.json]
 label      <run|latest> [--n 20]
 calibrate  <labels.jsonl>

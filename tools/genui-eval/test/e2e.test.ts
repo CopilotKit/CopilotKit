@@ -67,6 +67,20 @@ describe("the CLI, offline with no key", () => {
       true,
     );
 
+    // The exported spec round-trips through --spec.
+    const exported = await cli("prompt", "--export-spec");
+    const specFile = join(root, "spec.json");
+    writeFileSync(specFile, JSON.stringify(exported));
+    const fromSpec = await cli(
+      "prompt",
+      "--spec",
+      specFile,
+      "--transport",
+      "markdown",
+      "--json",
+    );
+    expect(fromSpec.markdown).toContain("Generative UI markdown guide");
+
     const prompts = await cli("prompt", "--transport", "tool", "--json");
     expect(prompts.tool).toContain("## Generative UI");
 

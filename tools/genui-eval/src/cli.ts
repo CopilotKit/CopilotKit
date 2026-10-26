@@ -10,6 +10,7 @@ import { calibrate, readLabels } from "./judge";
 import type { LabelRow } from "./judge";
 import { buildReport, failures, formatReport } from "./report";
 import { TIERS, readRun } from "./results";
+import { defaultGenerativeUIPromptSpec } from "@copilotkit/shared";
 import type { Tier } from "./results";
 import { estimateRun, runEval } from "./run";
 import { loadSpec } from "./spec";
@@ -24,7 +25,7 @@ const USAGE = `genui-eval: measure and improve the A2UI output of the generative
   report     <run|latest> [--base <run>]
   failures   <run|latest> [--model id] [--tier validity|fidelity|judgement|quality]
              [--case id] [--limit n]
-  prompt     [--transport markdown|tool] [--spec file.json]
+  prompt     [--transport markdown|tool] [--spec file.json] [--export-spec]
   optimize   [--preset full] [--budget usd] [--rounds n] [--batch n] [--models a,b]
              [--from spec.json]
   label      <run|latest> [--n 20]       write samples to grade by hand
@@ -46,6 +47,7 @@ const options = {
   budget: { type: "string" },
   spec: { type: "string" },
   estimate: { type: "boolean" },
+  "export-spec": { type: "boolean" },
   base: { type: "string" },
   model: { type: "string" },
   tier: { type: "string" },
@@ -190,6 +192,13 @@ function commandFailures(values: Values, positionals: string[]) {
 
 function commandPrompt(values: Values) {
   const spec = values.spec ? loadSpec(values.spec) : undefined;
+  // The spec itself, to edit and pass back with --spec.
+  if (values["export-spec"]) {
+    process.stdout.write(
+      `${JSON.stringify(spec ?? defaultGenerativeUIPromptSpec(), null, 2)}\n`,
+    );
+    return;
+  }
   const prompts = renderedPrompts(spec);
   const transport = values.transport as Transport | undefined;
   if (transport && !TRANSPORTS.includes(transport))

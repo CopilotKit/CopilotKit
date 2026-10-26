@@ -350,7 +350,8 @@ async function runTask(
       verdict.costTokens.output,
     ),
     components: [...new Set(checks.flatMap((c) => c.components))],
-    surfaces: out.surfaces.length,
+    // Surfaces the user ends up with: a deleted one is not UI.
+    surfaces: out.surfaces.length - checks.filter((c) => c.deleted).length,
     output: {
       text: out.text,
       toolCalls: out.toolCalls,
