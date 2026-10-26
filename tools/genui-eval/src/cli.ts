@@ -77,7 +77,8 @@ const list = (value?: string) =>
         .map((s) => s.trim())
         .filter(Boolean)
     : undefined;
-const num = (value: string | undefined, name: string) => {
+/** A non-negative number from a flag, or undefined when the flag is not set. Throws on anything else. */
+export const num = (value: string | undefined, name: string) => {
   if (value === undefined) return undefined;
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0)

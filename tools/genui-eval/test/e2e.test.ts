@@ -102,6 +102,12 @@ describe("the CLI, offline with no key", () => {
     expect(optimized.outDir).toContain(root);
   });
 
+  it("refuses a budget that is not a number", async () => {
+    await expect(
+      cli("optimize", "--preset", "offline", "--budget", "abc"),
+    ).rejects.toThrow('--budget must be a number, got "abc"');
+  });
+
   it("refuses a real model without a key before any call", async () => {
     await expect(
       cli("run", "--preset", "smoke", "--split", "train"),

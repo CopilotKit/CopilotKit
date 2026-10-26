@@ -66,6 +66,22 @@ describe("search helpers", () => {
   });
 });
 
+describe("sampleScore", () => {
+  it("counts a tier the judge could not grade as failed, so a broken judge never helps", async () => {
+    const { sampleScore } = await import("../src/optimize");
+    const tier = (pass: boolean | null) => ({ pass, reasons: [] });
+    const s = {
+      tiers: {
+        validity: tier(true),
+        fidelity: tier(true),
+        judgement: tier(null),
+        quality: tier(null),
+      },
+    };
+    expect(sampleScore(s as never)).toBeCloseTo(2 / 3, 5);
+  });
+});
+
 describe("accept", () => {
   const baseline = candidate("base", {
     heldout: {

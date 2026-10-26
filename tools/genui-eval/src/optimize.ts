@@ -37,17 +37,16 @@ export interface Candidate {
   accepted?: { ok: boolean; reasons: string[] };
 }
 
-/** The score of one sample: the share of its graded validity, fidelity and judgement tiers it passed. */
+/** The score of one sample: the share of validity, fidelity and judgement it passed (ungraded counts as failed). */
 export function sampleScore(sample: SampleRecord) {
-  // Tiers that could not be graded (a failed judge) count neither way.
-  const graded = [
+  // A tier the judge could not grade counts as failed: a failing judge
+  // must never make a candidate look better.
+  const tiers = [
     sample.tiers.validity,
     sample.tiers.fidelity,
     sample.tiers.judgement,
-  ].filter((t) => t.pass !== null);
-  return graded.length === 0
-    ? 0
-    : graded.filter((t) => t.pass).length / graded.length;
+  ];
+  return tiers.filter((t) => t.pass === true).length / tiers.length;
 }
 
 /** The mean sample score per case. */
@@ -104,10 +103,10 @@ function pooledRate(samples: readonly SampleRecord[]) {
   let passes = 0;
   let total = 0;
   for (const s of samples) {
+    // Ungraded counts as failed, as in sampleScore.
     for (const t of [s.tiers.validity, s.tiers.fidelity, s.tiers.judgement]) {
-      if (t.pass === null) continue;
       total++;
-      if (t.pass) passes++;
+      if (t.pass === true) passes++;
     }
   }
   return wilson(passes, total);

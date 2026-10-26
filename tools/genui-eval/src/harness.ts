@@ -37,6 +37,7 @@ import {
   standardUI,
 } from "./engine";
 import type { GenerativeUI } from "./engine";
+import { MAX_OUTPUT_TOKENS } from "./cost";
 import { isFakeModel } from "./models";
 
 /** What one model reply produced. */
@@ -390,7 +391,7 @@ export async function runSample(input: {
     model: recordingModel(input.model, record),
     maxSteps: 1,
     temperature: input.entry.params?.temperature,
-    maxOutputTokens: input.entry.params?.maxOutputTokens,
+    maxOutputTokens: input.entry.params?.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
   });
   const runInput = buildInput(
     input.case,
