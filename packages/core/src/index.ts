@@ -1,5 +1,9 @@
 export * from "./core";
-export type { ɵChildHistory, ɵChildHistorySnapshot } from "./child-history";
+export type {
+  ɵChildHistory,
+  ɵChildHistorySnapshot,
+  ɵChildMessage,
+} from "./child-history";
 export * from "./types";
 export * from "./agent";
 export * from "./utils/markdown";

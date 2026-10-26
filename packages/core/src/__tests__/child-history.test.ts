@@ -142,6 +142,169 @@ function setup() {
   return { agent, core, handler, current, play };
 }
 
+const mediaKinds = [
+  { modality: "image", mimeType: "image/png", filename: "image.png" },
+  { modality: "document", mimeType: "application/pdf", filename: "paper.pdf" },
+  { modality: "audio", mimeType: "audio/wav", filename: "sound.wav" },
+  { modality: "video", mimeType: "video/mp4", filename: "clip.mp4" },
+] as const;
+const mediaCases = (["user", "tool", "assistant"] as const).flatMap((role) =>
+  mediaKinds.flatMap((kind) =>
+    (["url", "file", "data"] as const).flatMap((sourceType) =>
+      (sourceType === "data"
+        ? ["block" as const]
+        : (["source", "block"] as const)
+      ).map((mimePlacement) => ({ role, ...kind, sourceType, mimePlacement })),
+    ),
+  ),
+);
+
+describe("child media presentation fidelity", () => {
+  it.each(mediaCases)(
+    "preserves $role $modality $sourceType with MIME at $mimePlacement",
+    async ({
+      role,
+      modality,
+      mimeType,
+      filename,
+      sourceType,
+      mimePlacement,
+    }) => {
+      const { agent, play, current, handler } = setup();
+      const root = structuredClone(agent.messages);
+      const value =
+        sourceType === "url"
+          ? `https://example.invalid/${filename}`
+          : sourceType === "file"
+            ? `opaque-${filename}`
+            : "U1lOVEhFVElD";
+      const source = {
+        type: sourceType,
+        value,
+        ...(sourceType === "file" ? { provider: "saved-provider" } : {}),
+        ...(mimePlacement === "source" ? { mimeType } : {}),
+      };
+      const block = {
+        type: "media",
+        modality,
+        filename,
+        ...(sourceType === "data" ? { dataBase64: value } : { source }),
+        ...(mimePlacement === "block" ? { mimeType } : {}),
+      };
+      const history = {
+        namespace: ["child"],
+        parentToolCallIds: ["delegate"],
+        runs: [
+          {
+            sourceRunId: "saved-run",
+            messages: [
+              {
+                sourceMessageId: "native-media",
+                role,
+                ...(role === "tool" ? { toolCallId: "media-call" } : {}),
+                content: [
+                  { type: "text", text: "Before" },
+                  block,
+                  { type: "text", text: "After" },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      const original = structuredClone(history);
+      const event = historyEvent({ version: 1, histories: [history] });
+      await play(event);
+      await play(event);
+      expect(current().error).toBeUndefined();
+      expect(current().histories).toHaveLength(1);
+      const child = current().histories[0]!;
+      expect(child.namespace).toEqual(["child"]);
+      expect(child.parentToolCallIds).toEqual(["delegate"]);
+      expect(child.messages).toHaveLength(1);
+      const message = child.messages[0]!;
+      expect(message.id).toBe("native-media");
+      expect(message.role).toBe(role);
+      const parts =
+        role === "assistant" ? message.contentParts : message.content;
+      expect(parts).toEqual([
+        { type: "text", text: "Before" },
+        {
+          type: modality,
+          source: { ...source, mimeType },
+          metadata: { filename },
+        },
+        { type: "text", text: "After" },
+      ]);
+      if (role === "assistant") {
+        expect(typeof message.content).toBe("string");
+        expect(message.content).toContain(value);
+        expect(message.content).toContain(filename);
+      }
+      if (message.role === "tool")
+        expect(message.toolCallId).toBe("media-call");
+      expect(agent.messages).toEqual(root);
+      expect(agent.inputs.map((input) => input.messages)).toEqual([root, root]);
+      expect(history).toEqual(original);
+      expect(handler).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps source MIME authoritative and assistant media scoped to sibling namespaces", async () => {
+    const { play, current } = setup();
+    await play(
+      historyEvent({
+        version: 1,
+        histories: ["left", "right"].map((namespace) => ({
+          namespace: [namespace],
+          parentToolCallIds: [`${namespace}-delegate`],
+          runs: [
+            {
+              sourceRunId: "saved-run",
+              messages: [
+                {
+                  sourceMessageId: "reused-native-id",
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "media",
+                      modality: "image",
+                      mimeType: "application/octet-stream",
+                      source: {
+                        type: "file",
+                        value: `${namespace}-file`,
+                        mimeType: "image/png",
+                        provider: "saved-provider",
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })),
+      }),
+    );
+    expect(current().error).toBeUndefined();
+    for (const [index, namespace] of ["left", "right"].entries()) {
+      const message = current().histories[index]!.messages[0]!;
+      expect(message.id).toBe("reused-native-id");
+      expect(message.contentParts).toEqual([
+        {
+          type: "image",
+          source: {
+            type: "file",
+            value: `${namespace}-file`,
+            mimeType: "image/png",
+            provider: "saved-provider",
+          },
+        },
+      ]);
+      expect(message.content).toBe(`[image: ${namespace}-file]`);
+    }
+  });
+});
+
 describe("child-history presentation store", () => {
   it("retains original calls separately from provider-facing messages and never executes them", async () => {
     const { agent, core, handler, current } = setup();

@@ -1,4 +1,5 @@
 import type { FrontendTool, ToolCallStatus } from "@copilotkit/core";
+import type { ToolMessage } from "@ag-ui/core";
 import React from "react";
 
 export type ReactHumanInTheLoop<
@@ -29,6 +30,7 @@ export type ReactHumanInTheLoop<
         args: Partial<T>;
         status: ToolCallStatus.InProgress;
         result: undefined;
+        resultContent?: undefined;
         respond: undefined;
       }
     | {
@@ -39,6 +41,7 @@ export type ReactHumanInTheLoop<
         args: T;
         status: ToolCallStatus.Executing;
         result: undefined;
+        resultContent?: undefined;
         respond: (result: unknown) => Promise<void>;
       }
     | {
@@ -49,6 +52,8 @@ export type ReactHumanInTheLoop<
         args: T;
         status: ToolCallStatus.Complete;
         result: string;
+        /** Original tool result, including ordered media parts when present. */
+        resultContent?: ToolMessage["content"];
         respond: undefined;
       }
   >;

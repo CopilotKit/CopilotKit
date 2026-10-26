@@ -168,6 +168,7 @@ export type {
   WebMCPToolConfig,
   ɵChildHistory,
   ɵChildHistorySnapshot,
+  ɵChildMessage,
   ɵCopilotKitFeature,
   ɵInterruptDecision,
   ɵInterruptEvent,

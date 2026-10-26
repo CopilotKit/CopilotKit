@@ -3,6 +3,7 @@ import type { Message } from "@ag-ui/core";
 import type { ɵChildHistory } from "@copilotkit/core";
 import { CopilotChatMessageView } from "./CopilotChatMessageView";
 import { ScrollElementContext } from "./scroll-element-context";
+import { ChildContentContext } from "./child-content-context";
 
 export const ChildHistoryContext = createContext<
   ReadonlyMap<string, ɵChildHistory>
@@ -86,6 +87,17 @@ export const AllChildHistoriesProvider = AllChildHistoriesContext.Provider;
 
 export function ChildHistoryView({ history }: { history: ɵChildHistory }) {
   const histories = useContext(AllChildHistoriesContext);
+  const contentParts = useMemo(
+    () =>
+      new Map(
+        history.messages.flatMap((message) =>
+          message.contentParts
+            ? [[message.id, message.contentParts] as const]
+            : [],
+        ),
+      ),
+    [history.messages],
+  );
   const projection = useMemo(() => {
     // Pending interactions belong to useInterrupt. Replaying a saved call must
     // not mount a second answer control or borrow an unrelated executing ID.
@@ -99,7 +111,12 @@ export function ChildHistoryView({ history }: { history: ɵChildHistory }) {
       const toolCalls = message.toolCalls?.filter((call) =>
         completed.has(call.id),
       );
-      if (!message.content && !toolCalls?.length) return [];
+      if (
+        !message.content &&
+        !message.contentParts?.length &&
+        !toolCalls?.length
+      )
+        return [];
       return [{ ...message, toolCalls }];
     });
     // Anchor nested children using all original calls, including delegations
@@ -131,15 +148,17 @@ export function ChildHistoryView({ history }: { history: ɵChildHistory }) {
         {history.name ?? "Child agent"}
       </div>
       <ChildHistoryContext.Provider value={projection.entries}>
-        <ChildHistoryReadOnlyContext.Provider value={true}>
-          <ScrollElementContext.Provider value={null}>
-            <CopilotChatMessageView
-              messages={projection.messages}
-              isRunning={false}
-              messageFeedback={false}
-            />
-          </ScrollElementContext.Provider>
-        </ChildHistoryReadOnlyContext.Provider>
+        <ChildContentContext.Provider value={contentParts}>
+          <ChildHistoryReadOnlyContext.Provider value={true}>
+            <ScrollElementContext.Provider value={null}>
+              <CopilotChatMessageView
+                messages={projection.messages}
+                isRunning={false}
+                messageFeedback={false}
+              />
+            </ScrollElementContext.Provider>
+          </ChildHistoryReadOnlyContext.Provider>
+        </ChildContentContext.Provider>
       </ChildHistoryContext.Provider>
     </section>
   );

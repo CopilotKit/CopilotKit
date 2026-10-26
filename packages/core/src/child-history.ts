@@ -81,11 +81,16 @@ const chunkSchema = z.object({
 type Chunk = z.infer<typeof chunkSchema>;
 
 /** Presentation-only messages. These must never be assigned to agent.messages. */
+export type ɵChildMessage = Message & {
+  /** Ordered assistant media and text, retained alongside the AG-UI text fallback. */
+  contentParts?: ContentPart[];
+};
+
 export interface ɵChildHistory {
   namespace: string[];
   name?: string;
   parentToolCallIds: string[];
-  messages: Message[];
+  messages: ɵChildMessage[];
   /** Native live message IDs whose calls are also in the root event stream. */
   rootMessageIds: string[];
 }
@@ -95,8 +100,8 @@ export interface ɵChildHistorySnapshot {
 }
 const EMPTY: ɵChildHistorySnapshot = { histories: [] };
 
-function toMessages(history: z.infer<typeof historySchema>): Message[] {
-  const messages: Message[] = [];
+function toMessages(history: z.infer<typeof historySchema>): ɵChildMessage[] {
+  const messages: ɵChildMessage[] = [];
   history.runs.forEach((run) =>
     run.messages.forEach((message, index) => {
       const id =
@@ -129,10 +134,10 @@ function toMessages(history: z.infer<typeof historySchema>): Message[] {
               text: `[Unavailable attachment: ${block.filename ?? block.unresolvedRef}]`,
             });
           else {
-            const mime =
-              block.mimeType ??
-              block.source?.mimeType ??
-              "application/octet-stream";
+            // A source's MIME describes its bytes; block MIME fills in older
+            // snapshots that stored this metadata only on the media block.
+            const declaredMime = block.source?.mimeType ?? block.mimeType;
+            const mime = declaredMime ?? "application/octet-stream";
             const type =
               block.modality ??
               (mime.startsWith("image/")
@@ -144,11 +149,16 @@ function toMessages(history: z.infer<typeof historySchema>): Message[] {
                     : "document");
             parts.push({
               type,
-              source: block.source ?? {
-                type: "data",
-                value: block.dataBase64!,
-                mimeType: mime,
-              },
+              source: block.source
+                ? {
+                    ...block.source,
+                    ...(declaredMime ? { mimeType: declaredMime } : {}),
+                  }
+                : {
+                    type: "data",
+                    value: block.dataBase64!,
+                    mimeType: mime,
+                  },
               ...(block.filename
                 ? { metadata: { filename: block.filename } }
                 : {}),
@@ -169,8 +179,8 @@ function toMessages(history: z.infer<typeof historySchema>): Message[] {
             ...(message.error ? { error: message.error } : {}),
           });
       } else if (message.role === "assistant") {
-        // AG-UI assistant content is text. Keep media as Markdown references;
-        // user/tool messages retain their structured content parts.
+        // AG-UI assistant content is text. Keep its Markdown fallback, with
+        // ordered structured parts for child renderers that support media.
         const assistantContent =
           typeof content === "string"
             ? content
@@ -194,6 +204,7 @@ function toMessages(history: z.infer<typeof historySchema>): Message[] {
             id,
             role: "assistant",
             content: assistantContent,
+            ...(typeof content === "string" ? {} : { contentParts: content }),
             ...(toolCalls.length ? { toolCalls } : {}),
           });
       } else if (message.role === "user")
@@ -240,7 +251,7 @@ interface ThreadData {
     {
       parent: string;
       messageId: string;
-      messages: Message[];
+      messages: ɵChildMessage[];
       records: Map<string, z.infer<typeof normalizedMessage>["content"]>;
     }
   >;
