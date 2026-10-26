@@ -104,11 +104,15 @@ describe("public CopilotChat child history replay", () => {
           : action === "Deny"
             ? '{"approved":false}'
             : "cancelled";
-      await waitFor(() =>
-        expect(screen.getByTestId("chart-8").textContent).toContain(expected),
-      );
+      // The result renders before the resumed run clears the interrupt controls.
+      // Wait for both updates before capturing the completed replay history.
+      await waitFor(() => {
+        expect(screen.getByTestId("chart-8").textContent).toContain(expected);
+        expect(
+          screen.queryByRole("button", { name: "Allow child" }),
+        ).toBeNull();
+      });
       expect(screen.getAllByTestId("chart-8")).toHaveLength(1);
-      expect(screen.queryByRole("button", { name: "Allow child" })).toBeNull();
       expect(first.handler).not.toHaveBeenCalled();
       expect(first.agent.inputs).toHaveLength(2);
       expect(

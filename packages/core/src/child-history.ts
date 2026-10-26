@@ -576,7 +576,7 @@ export class ɵChildHistoryStore {
           const previous = histories.find(
             (h) => JSON.stringify(h.namespace) === JSON.stringify(namespace),
           );
-          history = previous
+          const resumedHistory: ɵChildHistory = previous
             ? {
                 ...previous,
                 parentToolCallIds: [
@@ -593,8 +593,9 @@ export class ɵChildHistoryStore {
                 rootMessageIds: [],
               };
           histories = previous
-            ? histories.map((h) => (h === previous ? history : h))
-            : [...histories, history];
+            ? histories.map((h) => (h === previous ? resumedHistory : h))
+            : [...histories, resumedHistory];
+          history = resumedHistory;
         }
         if (
           !history.messages.some(
