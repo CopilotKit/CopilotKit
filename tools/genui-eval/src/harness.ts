@@ -397,3 +397,23 @@ export async function runSample(input: {
     systemPrompt: record.system,
   };
 }
+
+/**
+ * The guide text each transport sends for a spec, as the model reads it:
+ * the markdown guideline and the component schema (two context entries),
+ * or the render_ui guide. For `prompt`, hashing and the token trade-off.
+ */
+export function renderedPrompts(
+  spec: GenerativeUIPromptSpec = defaultGenerativeUIPromptSpec(),
+) {
+  const { manifest } = catalogFor(spec);
+  const guideline = buildGenerativeUIMarkdownGuidelines(
+    generativeUIGuideFeatures(manifest),
+    spec,
+  );
+  const schema = renderGenerativeUISchema(manifest, spec.schema.markdown);
+  return {
+    markdown: `${GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION}:\n${guideline}\n${GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION}:\n${schema}\n`,
+    tool: `${GENERATIVE_UI_CONTEXT_DESCRIPTION}:\n${buildGenerativeUIPrompt(manifest, spec)}\n`,
+  };
+}
