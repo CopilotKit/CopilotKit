@@ -102,6 +102,18 @@ describe("the CLI, offline with no key", () => {
     expect(optimized.outDir).toContain(root);
   });
 
+  it("only estimates with optimize --estimate", async () => {
+    const result = await cli(
+      "optimize",
+      "--preset",
+      "offline",
+      "--estimate",
+      "--json",
+    );
+    expect(result).toMatchObject({ rounds: 20 });
+    expect(typeof result.estimatedCostUsd).toBe("number");
+  });
+
   it("refuses a budget that is not a number", async () => {
     await expect(
       cli("optimize", "--preset", "offline", "--budget", "abc"),

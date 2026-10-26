@@ -197,6 +197,7 @@ function reachableTypes(
   data: { get(path: string): unknown },
 ) {
   const types: string[] = [];
+  let interactive = false;
   const seen = new Set<string>();
   const queue: Array<{ id: string; base: string | undefined }> = [
     { id: "root", base: undefined },
@@ -211,6 +212,12 @@ function reachableTypes(
     if (!types.includes(found.type)) types.push(found.type);
     const definition = ui.components.get(found.type);
     if (!definition) continue;
+    // A component with an event set (a List with an action) is a control, not prose.
+    const events = Object.keys(
+      (definition as { events?: unknown }).events ?? {},
+    );
+    if (events.some((event) => found.properties[event] !== undefined))
+      interactive = true;
     const slots = Object.keys(
       (definition.slots as Record<string, unknown> | undefined) ?? {},
     );
@@ -244,7 +251,7 @@ function reachableTypes(
       }
     }
   }
-  return types;
+  return { types, interactive };
 }
 
 installDom();
@@ -344,11 +351,12 @@ async function check(
       });
       continue;
     }
-    const components = reachableTypes(
+    const reach = reachableTypes(
       surface.model.componentsModel,
       ui,
       surface.model.dataModel,
     );
+    const components = reach.types;
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container, {
@@ -391,6 +399,7 @@ async function check(
       rejected,
       components,
       proseOnly:
+        !reach.interactive &&
         components.length > 0 &&
         components.every((c) => TEXT_COMPONENTS.has(c)),
       crash,

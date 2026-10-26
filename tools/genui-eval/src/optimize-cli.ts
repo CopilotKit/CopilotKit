@@ -1,7 +1,7 @@
 import { num } from "./cli";
 import type { Values } from "./cli";
 import type { EvalConfig, ResolvedPlan } from "./config";
-import { optimize } from "./optimize";
+import { estimateOptimize, optimize } from "./optimize";
 import { loadSpec } from "./spec";
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
@@ -13,12 +13,26 @@ export async function commandOptimize(
   plan: ResolvedPlan,
 ) {
   const budgetUsd = num(values.budget, "budget") ?? config.budgetUsd;
+  const rounds = num(values.rounds, "rounds") ?? 20;
+  const batchSize = num(values.batch, "batch") ?? 6;
+  const estimate = estimateOptimize({ config, plan, rounds, batchSize });
+  process.stderr.write(
+    `optimize: up to ${rounds} rounds, estimated up to $${estimate.toFixed(2)} (the search stops at the budget, $${budgetUsd.toFixed(2)})\n`,
+  );
+  if (values.estimate) {
+    process.stdout.write(
+      values.json
+        ? `${JSON.stringify({ estimatedCostUsd: estimate, budgetUsd, rounds }, null, 2)}\n`
+        : "",
+    );
+    return;
+  }
   const result = await optimize({
     config,
     plan,
     budgetUsd,
-    rounds: num(values.rounds, "rounds") ?? 20,
-    batchSize: num(values.batch, "batch") ?? 6,
+    rounds,
+    batchSize,
     from: values.from ? loadSpec(values.from) : undefined,
     log: values.json ? undefined : (line) => process.stderr.write(`${line}\n`),
   });
