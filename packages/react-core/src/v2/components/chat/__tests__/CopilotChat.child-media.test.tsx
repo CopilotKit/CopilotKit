@@ -16,6 +16,10 @@ afterEach(cleanup);
 class MediaReplayAgent extends AbstractAgent {
   inputs: RunAgentInput[] = [];
   revision = 1;
+  private markConnected!: () => void;
+  readonly connected = new Promise<void>((resolve) => {
+    this.markConnected = resolve;
+  });
   constructor() {
     super({
       agentId: "default",
@@ -24,6 +28,31 @@ class MediaReplayAgent extends AbstractAgent {
         { id: "root", role: "user", content: "Root unchanged" },
       ],
     });
+  }
+  connect(input: RunAgentInput) {
+    return from([
+      {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      },
+      {
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [{ id: "root", role: "user", content: "Root unchanged" }],
+      },
+      {
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      },
+    ]);
+  }
+  override async connectAgent(
+    ...args: Parameters<AbstractAgent["connectAgent"]>
+  ) {
+    const result = await super.connectAgent(...args);
+    this.markConnected();
+    return result;
   }
   run(input: RunAgentInput) {
     this.inputs.push(input);
@@ -140,9 +169,13 @@ it("replays ordered assistant media and structured tool results within each chil
     children: <CopilotChat welcomeScreen={false} />,
   });
   await act(async () => {
-    // Provider thread initialization clears constructor messages. Seed the
-    // retained root history after mounting, before the imported child replay.
-    agent.setMessages(root);
+    // The chat's initial connect clears constructor messages after awaiting
+    // detach, then restores the retained root snapshot. Wait for that boundary
+    // before starting a replay run, so it cannot race the fresh-restore reset.
+    await agent.connected;
+  });
+  expect(agent.messages).toEqual(root);
+  await act(async () => {
     await agent.runAgent();
   });
   for (const name of ["left", "right"]) {
