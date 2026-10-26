@@ -40,26 +40,40 @@ quality: is the reply good for the request?
 
 Reply with JSON only: {"judgement":{"score":<0..1>,"reason":"<one line>"},"quality":{"score":<0..1>,"reason":"<one line>"}}`;
 
-/** The surfaces as a short outline: one line per component with its props. */
+/**
+ * The surfaces as the user ends up seeing them: the operations replayed,
+ * so a replaced component shows once in its last version and a deleted
+ * surface is left out. One line per component with its props, then the
+ * data writes.
+ */
 export function outlineSurfaces(out: SampleOutput, limit = 6000) {
   const lines: string[] = [];
   for (const surface of out.surfaces) {
-    lines.push(`surface ${surface.surfaceId}:`);
+    const components = new Map<string, Record<string, unknown>>();
+    const data: string[] = [];
+    let deleted = false;
     for (const op of surface.operations as Array<Record<string, any>>) {
-      const components =
-        op.createSurface?.components ?? op.updateComponents?.components ?? [];
-      for (const { id, component, ...props } of components) {
-        lines.push(`  ${id}: ${component} ${JSON.stringify(props)}`);
+      for (const component of op.createSurface?.components ??
+        op.updateComponents?.components ??
+        []) {
+        components.set(component.id, component);
+      }
+      if (op.createSurface?.dataModel !== undefined) {
+        data.push(`data / = ${JSON.stringify(op.createSurface.dataModel)}`);
       }
       if (op.updateDataModel) {
-        lines.push(
-          `  data ${op.updateDataModel.path} = ${JSON.stringify(op.updateDataModel.value)}`,
+        data.push(
+          `data ${op.updateDataModel.path} = ${JSON.stringify(op.updateDataModel.value)}`,
         );
       }
-      if (op.createSurface?.dataModel) {
-        lines.push(`  data / = ${JSON.stringify(op.createSurface.dataModel)}`);
-      }
+      if (op.deleteSurface) deleted = true;
     }
+    if (deleted) continue;
+    lines.push(`surface ${surface.surfaceId}:`);
+    for (const { id, component, ...props } of components.values()) {
+      lines.push(`  ${id}: ${component} ${JSON.stringify(props)}`);
+    }
+    lines.push(...data.map((line) => `  ${line}`));
   }
   const text = lines.join("\n");
   return text.length > limit ? `${text.slice(0, limit)}\n…` : text;

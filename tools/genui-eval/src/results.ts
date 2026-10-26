@@ -144,14 +144,19 @@ export function readRun(
 /** The newest plain run (not an optimizer candidate). */
 export function latestRunId(root = RESULTS_DIR): string | undefined {
   if (!existsSync(root)) return undefined;
+  // By the recorded start time: ids of runs started in the same second do not sort.
   return readdirSync(root)
     .filter((name) => existsSync(`${root}${name}/run.json`))
-    .filter((name) => {
-      const run = JSON.parse(
-        readFileSync(`${root}${name}/run.json`, "utf8"),
-      ) as RunRecord;
-      return run.kind === "run";
-    })
-    .sort()
-    .at(-1);
+    .map(
+      (name) =>
+        JSON.parse(
+          readFileSync(`${root}${name}/run.json`, "utf8"),
+        ) as RunRecord,
+    )
+    .filter((run) => run.kind === "run")
+    .sort(
+      (a, b) =>
+        a.startedAt.localeCompare(b.startedAt) || a.id.localeCompare(b.id),
+    )
+    .at(-1)?.id;
 }
