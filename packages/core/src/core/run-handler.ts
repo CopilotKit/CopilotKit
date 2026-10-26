@@ -859,6 +859,24 @@ export class RunHandler {
         }
         return onRunStartedEvent?.(params);
       };
+      // Only a run that finished cleanly can leave an advertised call open by
+      // mistake. An interrupted run leaves its calls for the interrupt's
+      // answer, a stopped run ends with a `cancelled` outcome, and a failed
+      // run never finished. The state manager tracks interrupts too, but only
+      // for registered agents, not the per-thread clones that runs use.
+      let finishedCleanly = false;
+      let legacyInterrupted = false;
+      const onRunFinishedEvent = agentSubscriber.onRunFinishedEvent;
+      const onCustomEvent = agentSubscriber.onCustomEvent;
+      agentSubscriber.onRunFinishedEvent = (params) => {
+        const outcome = params.event.outcome?.type;
+        finishedCleanly = outcome === undefined || outcome === "success";
+        return onRunFinishedEvent?.(params);
+      };
+      agentSubscriber.onCustomEvent = (params) => {
+        if (params.event.name === "on_interrupt") legacyInterrupted = true;
+        return onCustomEvent?.(params);
+      };
       // An internal continuation (a human-in-the-loop tool resolved and this is
       // the recursive follow-up) deliberately does NOT pin the originating run
       // id on the wire. Pinning it made the transport treat the follow-up as a
@@ -873,6 +891,7 @@ export class RunHandler {
       // reported under it. So external tracing still gets a single run without
       // the wire having to lie about which invocation this is.
       const pinRunIdOnWire = runId !== undefined && !continuationHandoff;
+      const tools = this.buildFrontendTools(agent.agentId);
       const agentRunInput = {
         forwardedProps: {
           ...this._internal.properties,
@@ -880,7 +899,7 @@ export class RunHandler {
         },
         ...(resume !== undefined ? { resume } : {}),
         ...(pinRunIdOnWire ? { runId } : {}),
-        tools: this.buildFrontendTools(agent.agentId),
+        tools,
         context: this._internal.getContextForAgent(agent.agentId),
       };
       const runAgentResult = await agent.runAgent(
@@ -895,6 +914,10 @@ export class RunHandler {
         agent,
         runId: logicalRunId,
         runController: controller,
+        advertisedToolNames:
+          finishedCleanly && !legacyInterrupted
+            ? new Set(tools.map((tool) => tool.name))
+            : undefined,
       });
     } catch (error) {
       logicalHandoff?.cancel();
@@ -942,6 +965,7 @@ export class RunHandler {
     toolExecutionMode = "all",
     runController,
     signal = runController?.signal,
+    advertisedToolNames,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
@@ -950,6 +974,11 @@ export class RunHandler {
     /** Controller of the run that produced this result; follow-ups share it. */
     runController?: AbortController;
     signal?: AbortSignal;
+    /**
+     * Tools the run was offered, set only when it finished cleanly. A call to
+     * one of them that nothing handles any more is answered with an error.
+     */
+    advertisedToolNames?: ReadonlySet<string>;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
@@ -1138,6 +1167,13 @@ export class RunHandler {
                   if (followUp) {
                     needsFollowUp = true;
                   }
+                } else if (advertisedToolNames?.has(toolCall.function.name)) {
+                  await this.rejectUnregisteredTool(
+                    toolCall,
+                    message,
+                    agent,
+                    agentId,
+                  );
                 }
               }
             } finally {
@@ -1610,6 +1646,54 @@ export class RunHandler {
     }
 
     return false;
+  }
+
+  /**
+   * Answer a call to a tool the run was offered but that no frontend tool (and
+   * no wildcard) handles any more, e.g. because its component unmounted. Left
+   * open, the call has no result, and providers reject every later request in
+   * the thread. Like a failed handler, the error result starts no follow-up:
+   * the model sees it on the next turn.
+   */
+  private async rejectUnregisteredTool(
+    toolCall: ToolCall,
+    message: Message,
+    agent: AbstractAgent,
+    agentId: string,
+  ): Promise<void> {
+    const messageIndex = agent.messages.findIndex((m) => m.id === message.id);
+    if (
+      messageIndex === -1 ||
+      agent.messages.some(
+        (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+      )
+    ) {
+      return;
+    }
+
+    const error = new Error(`Tool not found: ${toolCall.function.name}`);
+    const errorMessage = toolFailureMessage(error);
+    agent.messages.splice(
+      this.toolResultInsertionIndex(agent.messages, messageIndex, toolCall.id),
+      0,
+      {
+        id: randomUUID(),
+        role: "tool",
+        toolCallId: toolCall.id,
+        content: `Error: ${errorMessage}`,
+        error: errorMessage,
+      },
+    );
+    await this._internal.emitError({
+      error,
+      code: CopilotKitCoreErrorCode.TOOL_NOT_FOUND,
+      context: {
+        agentId,
+        toolCallId: toolCall.id,
+        toolName: toolCall.function.name,
+        messageId: message.id,
+      },
+    });
   }
 
   /**
