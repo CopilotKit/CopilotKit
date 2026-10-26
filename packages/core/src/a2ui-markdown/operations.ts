@@ -803,8 +803,25 @@ export function prepareSurfaceOperations(input: {
     if (typeof inner.surfaceId !== "string") inner.surfaceId = surfaceId;
     if (key === "createSurface") {
       // A surface is created once; a repeated createSurface (e.g. a later
-      // fence for the same surface) would throw "Surface already exists".
-      if (hasCreate) continue;
+      // reply that rebuilds a page target) would throw "Surface already
+      // exists". Its data model and components become updates instead, so
+      // the new UI is not lost.
+      if (hasCreate) {
+        const { surfaceId: id, dataModel, components } = inner;
+        if (dataModel !== undefined) {
+          out.push({
+            version,
+            updateDataModel: { surfaceId: id, path: "/", value: dataModel },
+          });
+        }
+        if (Array.isArray(components) && components.length > 0) {
+          out.push({
+            version,
+            updateComponents: { surfaceId: id, components },
+          });
+        }
+        continue;
+      }
       hasCreate = true;
       // The catalog is client-owned: a catalog that the client does not
       // list is replaced.

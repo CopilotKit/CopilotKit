@@ -13,6 +13,7 @@ import type {
 } from "@copilotkit/shared";
 import type { GenerativeUI } from "./catalog";
 import { toJsonSchema } from "./json-schema";
+import { isRecord } from "./is-record";
 
 const COMMON = "common_types.json#/$defs/";
 const DATA_BINDING_REF = `${COMMON}DataBinding`;
@@ -154,10 +155,6 @@ function toDraft2020(schema: GenerativeUIJSONSchema): GenerativeUIJSONSchema {
       ...(additionalItems === undefined ? {} : { items: additionalItems }),
     };
   });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** One `components` entry: the props as the model sets them, with the A2UI common types. */

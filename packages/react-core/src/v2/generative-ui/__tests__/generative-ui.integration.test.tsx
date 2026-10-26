@@ -324,6 +324,30 @@ describe("generative UI integration", () => {
     expect(within(cardEl()!).queryByRole("alert")).toBeNull();
   });
 
+  it("shows the chat-card error when the createSurface itself is rejected", async () => {
+    const { agent } = setup();
+    await send("compare");
+    agent.emit(runStartedEvent({ threadId: T, runId: "r1" }));
+    agent.emit(
+      snapshot("cmp", "chat", [
+        {
+          version: "v1.0",
+          createSurface: {
+            surfaceId: "cmp",
+            catalogId: "shop",
+            components: [{ id: "root", component: "Nope" }],
+          },
+        },
+      ]),
+    );
+    agent.emit(runFinishedEvent({ threadId: T, runId: "r1" }));
+    await waitFor(() =>
+      expect(within(cardEl()!).getByRole("alert").textContent).toBe(
+        "Part of this UI couldn't be shown.",
+      ),
+    );
+  });
+
   it("passes the raw rejection list to a custom chat wrapper", async () => {
     CapturingAgent.inputs = [];
     const agent = new CapturingAgent();

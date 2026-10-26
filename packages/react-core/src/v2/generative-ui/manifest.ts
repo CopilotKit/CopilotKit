@@ -11,6 +11,8 @@ import type {
   GenerativeUIFunctionManifest,
   GenerativeUIManifest,
 } from "@copilotkit/shared";
+import { catalogIdsOf } from "./catalog";
+import type { GenerativeUIRuntime } from "./runtime-context";
 
 /**
  * The built-in functions (the A2UI basic catalog plus calc and series) as
@@ -35,8 +37,6 @@ export function builtInFunctionManifests(): Record<
     ]),
   );
 }
-import { catalogIdsOf } from "./catalog";
-import type { GenerativeUIRuntime } from "./runtime-context";
 
 /**
  * Builds the per-run manifest. Never contains handlers or renderers.

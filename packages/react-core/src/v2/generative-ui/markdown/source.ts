@@ -30,6 +30,7 @@ import { catalogIdsOf } from "../catalog";
 import type { GenerativeUI } from "../catalog";
 import { toJsonSchema } from "../json-schema";
 import type { GenerativeUISurfaceManager } from "../surface-manager";
+import { isRecord } from "../is-record";
 
 /** What renders in place of one ```a2ui fence, in order. */
 export type MarkdownFenceBlock =
@@ -49,6 +50,76 @@ export interface BuildMarkdownSurfacesOptions {
    * it creates has the status "streaming". Else an open fence is final.
    */
   running: boolean;
+  /**
+   * The results of the earlier builds of the same thread. A build then
+   * parses only the fences that changed, and builds only the surfaces whose
+   * operations changed. Left out, everything is built again.
+   */
+  cache?: MarkdownBuildCache;
+}
+
+/**
+ * Values by key, from the latest build. A value that a build does not use
+ * is dropped at the end of that build, so the cache does not grow.
+ */
+class BuildMemo<V> {
+  private previous = new Map<string, V>();
+  private current = new Map<string, V>();
+
+  /**
+   * The value of `key`. It is computed when no earlier value is there, or
+   * when `isFresh` says that the earlier value is out of date.
+   */
+  get(
+    key: string,
+    compute: () => V,
+    isFresh: (value: V) => boolean = () => true,
+  ) {
+    let value = this.current.get(key) ?? this.previous.get(key);
+    if (value === undefined || !isFresh(value)) value = compute();
+    this.current.set(key, value);
+    return value;
+  }
+
+  endBuild() {
+    this.previous = this.current;
+    this.current = new Map();
+  }
+}
+
+/** The surfaces that one draft gives, and the operations it was built from. */
+interface BuiltDraft {
+  operations: A2UIMarkdownOperation[];
+  target: string;
+  streaming: boolean;
+  parts: SurfacePart[];
+  contents: GenerativeUISurfaceContent[];
+}
+
+/** The results of the builds of one thread. See `BuildMarkdownSurfacesOptions.cache`. */
+export class MarkdownBuildCache {
+  readonly segments = new BuildMemo<ReturnType<typeof splitA2UIMarkdown>>();
+  readonly fences = new BuildMemo<{
+    operations: A2UIMarkdownOperation[];
+    functionCalls: A2UIMarkdownOperation[];
+  }>();
+  readonly drafts = new BuildMemo<BuiltDraft>();
+  /** The copies of an operation for other surface ids, by operation. */
+  readonly readdressed = new WeakMap<
+    object,
+    Map<string, A2UIMarkdownOperation>
+  >();
+
+  endBuild() {
+    this.segments.endBuild();
+    this.fences.endBuild();
+    this.drafts.endBuild();
+  }
+}
+
+/** True when both lists hold the same objects in the same order. */
+function sameItems<T>(a: readonly T[], b: readonly T[]) {
+  return a.length === b.length && a.every((item, index) => item === b[index]);
 }
 
 /** One surface, collected from the fences of all messages. */
@@ -68,10 +139,6 @@ type SurfacePart =
       surfaceId: string;
       operations: A2UIMarkdownOperation[];
     };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function isString(value: unknown): value is string {
   return typeof value === "string";
@@ -443,8 +510,24 @@ export function buildMarkdownSurfaces(
   messages: readonly Message[],
   options: BuildMarkdownSurfacesOptions,
 ) {
-  const { ui } = options;
+  const { ui, cache } = options;
   const drafts = new Map<string, SurfaceDraft>();
+  // The same copy for the same operation and surface, so an unchanged draft
+  // holds the same objects as in the last build.
+  const readdressOnce = (op: A2UIMarkdownOperation, surfaceId: string) => {
+    if (!cache) return readdress(op, surfaceId);
+    let copies = cache.readdressed.get(op);
+    if (!copies) {
+      copies = new Map();
+      cache.readdressed.set(op, copies);
+    }
+    let copy = copies.get(surfaceId);
+    if (!copy) {
+      copy = readdress(op, surfaceId);
+      copies.set(surfaceId, copy);
+    }
+    return copy;
+  };
   /** The surfaces that each fence created, in order. */
   const created = new Map<string, string[]>();
   const functionCalls: MarkdownFunctionCall[] = [];
@@ -476,21 +559,32 @@ export function buildMarkdownSurfaces(
   for (const message of messages) {
     if (message.role !== "assistant" || !isString(message.content)) continue;
     const isLastMessage = message === lastMessage;
-    const segments = splitA2UIMarkdown(message.content);
+    const content = message.content;
+    const segments = cache
+      ? cache.segments.get(content, () => splitA2UIMarkdown(content))
+      : splitA2UIMarkdown(content);
     for (const segment of segments) {
       if (segment.type !== "a2ui") continue;
       const isStreaming = !segment.closed && isLastMessage && options.running;
-      const operations = fenceOperations(segment.text, isStreaming);
+      const parseFence = () => {
+        const parsed = fenceOperations(segment.text, isStreaming);
+        // The function calls do not depend on the surface id.
+        const { functionCalls } = prepareSurfaceOperations({
+          operations: parsed,
+          fallbackSurfaceId: "",
+          catalogId: ui.id,
+        });
+        return { operations: parsed, functionCalls };
+      };
+      const fence = cache
+        ? cache.fences.get(`${isStreaming}:${segment.text}`, parseFence)
+        : parseFence();
+      const { operations } = fence;
       const key = fenceKey(message.id, segment.index);
       const fenceSurfaceId =
         operations.map(getMarkdownOperationSurfaceId).find(isString) ??
         `${message.id}-${segment.index}`;
-      const prepared = prepareSurfaceOperations({
-        operations,
-        fallbackSurfaceId: fenceSurfaceId,
-        catalogId: ui.id,
-      });
-      for (const operation of prepared.functionCalls) {
+      for (const operation of fence.functionCalls) {
         functionCalls.push({
           messageId: message.id,
           fenceIndex: segment.index,
@@ -521,7 +615,7 @@ export function buildMarkdownSurfaces(
           created.set(key, [...(created.get(key) ?? []), surfaceId]);
         }
         draft.operations.push(
-          surfaceId === requested ? op : readdress(op, surfaceId),
+          surfaceId === requested ? op : readdressOnce(op, surfaceId),
         );
       }
     }
@@ -532,7 +626,7 @@ export function buildMarkdownSurfaces(
   const surfaces: GenerativeUISurfaceContent[] = [];
   const partsBySurface = new Map<string, SurfacePart[]>();
   const childIds = childIdsReader(ui);
-  for (const draft of drafts.values()) {
+  const buildDraft = (draft: SurfaceDraft): BuiltDraft => {
     const prepared = prepareSurfaceOperations({
       operations: draft.operations,
       fallbackSurfaceId: draft.surfaceId,
@@ -552,14 +646,30 @@ export function buildMarkdownSurfaces(
           childIds,
         )
       : [{ kind: "surface", surfaceId: draft.surfaceId, operations }];
-    partsBySurface.set(draft.surfaceId, parts);
-    for (const part of parts) {
-      if (part.kind !== "surface") continue;
-      surfaces.push(
-        surfaceContent(part.surfaceId, draft, part.operations, options),
-      );
-    }
+    const contents = parts.flatMap((part) =>
+      part.kind === "surface"
+        ? [surfaceContent(part.surfaceId, draft, part.operations, options)]
+        : [],
+    );
+    return { ...draft, parts, contents };
+  };
+  for (const draft of drafts.values()) {
+    // A draft with the same operations, target and status as in the last
+    // build gives the same surfaces, so they are not built again.
+    const built = cache
+      ? cache.drafts.get(
+          draft.surfaceId,
+          () => buildDraft(draft),
+          (last) =>
+            last.target === draft.target &&
+            last.streaming === draft.streaming &&
+            sameItems(last.operations, draft.operations),
+        )
+      : buildDraft(draft);
+    partsBySurface.set(draft.surfaceId, built.parts);
+    surfaces.push(...built.contents);
   }
+  cache?.endBuild();
 
   /** The surface ids of the parts of each split surface, by surface id. */
   const parts = new Map<string, string[]>();
@@ -644,6 +754,13 @@ export class MarkdownSurfaceSource {
   >();
   /** By thread, then surface: the operations last ingested, as JSON. */
   private readonly ingested = new Map<string, Map<string, string[]>>();
+  /** By thread, then surface: the content last ingested. */
+  private readonly contents = new Map<
+    string,
+    Map<string, GenerativeUISurfaceContent>
+  >();
+  /** By thread: the results of the earlier builds. */
+  private readonly caches = new Map<string, MarkdownBuildCache>();
 
   constructor(
     private readonly manager: GenerativeUISurfaceManager,
@@ -670,10 +787,16 @@ export class MarkdownSurfaceSource {
     messages: readonly Message[],
     options: { running: boolean },
   ) {
+    let cache = this.caches.get(threadId);
+    if (!cache) {
+      cache = new MarkdownBuildCache();
+      this.caches.set(threadId, cache);
+    }
     const result = buildMarkdownSurfaces(messages, {
       ui: this.ui,
       functions: this.functions,
       running: options.running,
+      cache,
     });
     this.fences.set(threadId, result.fences);
     // The parts of a split surface share one data model, so an input in one
@@ -682,10 +805,21 @@ export class MarkdownSurfaceSource {
       this.manager.linkSurfaces(threadId, parts);
     }
     const previous = this.ingested.get(threadId) ?? new Map<string, string[]>();
+    const previousContents =
+      this.contents.get(threadId) ??
+      new Map<string, GenerativeUISurfaceContent>();
     const next = new Map<string, string[]>();
+    const nextContents = new Map<string, GenerativeUISurfaceContent>();
     for (const content of result.surfaces) {
-      const fingerprints = content.operations.map((op) => JSON.stringify(op));
+      nextContents.set(content.surfaceId, content);
       const before = previous.get(content.surfaceId);
+      // The cache gives the same content object for a surface that did not
+      // change, and the manager already has it.
+      if (before && previousContents.get(content.surfaceId) === content) {
+        next.set(content.surfaceId, before);
+        continue;
+      }
+      const fingerprints = content.operations.map((op) => JSON.stringify(op));
       // The manager checks only the last operation that it applied. When an
       // earlier one changed (for example, the prose lift moved a split), an
       // empty content makes it start the surface again.
@@ -704,6 +838,7 @@ export class MarkdownSurfaceSource {
       );
     }
     this.ingested.set(threadId, next);
+    this.contents.set(threadId, nextContents);
     return result.functionCalls;
   }
 

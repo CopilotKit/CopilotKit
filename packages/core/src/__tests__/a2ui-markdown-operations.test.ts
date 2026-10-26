@@ -234,6 +234,29 @@ describe("prepareSurfaceOperations createSurface handling", () => {
     expect(res.operations[0]).toHaveProperty("createSurface");
     expect(res.operations).toHaveLength(3);
   });
+  it("turns the data model and components of a later createSurface into updates", () => {
+    const components = [{ id: "root", component: "Text", text: "New" }];
+    const res = prepare([
+      { createSurface: { surfaceId: "a", catalogId: "cat" } },
+      {
+        version: "v1.0",
+        createSurface: {
+          surfaceId: "a",
+          catalogId: "cat",
+          dataModel: { plan: "pro" },
+          components,
+        },
+      },
+    ]);
+    expect(res.operations).toEqual([
+      { version: "v1.0", createSurface: { surfaceId: "a", catalogId: "cat" } },
+      {
+        version: "v1.0",
+        updateDataModel: { surfaceId: "a", path: "/", value: { plan: "pro" } },
+      },
+      { version: "v1.0", updateComponents: { surfaceId: "a", components } },
+    ]);
+  });
   it("keeps a catalogId that the client lists, and replaces any other", () => {
     const options = {
       catalogId: "client-cat",

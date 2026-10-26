@@ -246,6 +246,12 @@ export interface GenerativeUISurfaceSummary {
    * there are none.
    */
   rejected?: string[];
+  /**
+   * Left out while the surface exists. `"deleted"`: a deleteSurface removed
+   * it, and its id cannot be used again. `"failed"`: its createSurface was
+   * rejected, so it does not exist; a corrected createSurface can use the id.
+   */
+  status?: "deleted" | "failed";
 }
 
 /** A user interaction bound to `{ event }`, sent to the agent. */

@@ -15,16 +15,13 @@ import type {
 import type { CopilotKitCoreReact } from "../../lib/react-core";
 import { buildGenerativeUIManifest } from "../manifest";
 import type { GenerativeUIRuntime } from "../runtime-context";
+import { isRecord } from "../is-record";
 
 /** Objects nested deeper than this show as `object`. */
 const MAX_OBJECT_DEPTH = 2;
 
 /** A prop must appear verbatim in at least this many components to be hoisted. */
 const COMMON_PROP_MIN_COMPONENTS = 8;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 /** A JSON Schema of a list of schemas (`anyOf`, `oneOf`), else an empty list. */
 function schemaList(value: unknown) {

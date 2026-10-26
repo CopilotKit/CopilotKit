@@ -44,11 +44,14 @@ export interface ManagedSurface {
   readonly threadId: string;
   readonly surfaceId: string;
   readonly agentId: string | undefined;
-  readonly model: SurfaceModel<any>;
+  /** Replaced by an empty model when the surface closes, to free its data. */
+  model: SurfaceModel<any>;
   readonly createdAt: number;
   target: string;
   status: GenerativeUISurfaceStatus;
   deleted: boolean;
+  /** Its first createSurface was rejected, so it never existed. */
+  failed: boolean;
   /** Rejections reported by the runtime. */
   serverRejected: GenerativeUIRejectedOperation[];
   /** Rejections detected while applying operations in the browser. */
@@ -300,25 +303,48 @@ export class GenerativeUISurfaceManager {
   }
 
   /**
+   * A surface whose first createSurface was rejected, so the chat can show
+   * the error where the surface would be. `undefined` for any other surface.
+   */
+  getFailedSurface(
+    threadId: string,
+    surfaceId: string,
+  ): ManagedSurface | undefined {
+    const surface = this.surfaces.get(surfaceKey(threadId, surfaceId));
+    return surface?.failed ? surface : undefined;
+  }
+
+  /**
    * The surfaces of a thread, for the model. A surface with user-owned
    * values lists them in `dataModel`, so the model can read what the user
    * entered. A surface with dropped operations lists them in `rejected`, so
-   * the model can fix them on the next run.
+   * the model can fix them on the next run. A deleted surface, or one that
+   * was never created, has a `status`, so the model knows that the id is
+   * not a live surface.
    */
   describeSurfaces(threadId: string) {
     const described: Record<string, GenerativeUISurfaceSummary> = {};
     for (const surface of this.surfaces.values()) {
-      if (surface.threadId !== threadId || surface.deleted) continue;
+      if (surface.threadId !== threadId) continue;
       const owned = this.owned.get(surface.key);
       const rejections = [...surface.serverRejected, ...surface.clientRejected];
+      // ponytail: a deleted surface stays listed for the life of the thread, one short line each. Prune the oldest when long threads make the envelope too big.
+      // A deleted id stays deleted, also when a later createSurface used it
+      // again and failed: it can never be used again.
+      const status = this.deletedKeys.has(surface.key)
+        ? "deleted"
+        : surface.failed
+          ? "failed"
+          : undefined;
       described[surface.surfaceId] = {
         target: surface.target,
         ...(owned && owned.size > 0
           ? { dataModel: Object.fromEntries(owned) }
           : {}),
-        ...(rejections.length > 0
+        ...(rejections.length > 0 && status !== "deleted"
           ? { rejected: summarizeRejections(rejections) }
           : {}),
+        ...(status ? { status } : {}),
       };
     }
     return described;
@@ -560,6 +586,7 @@ export class GenerativeUISurfaceManager {
       target: content.target,
       status: content.status,
       deleted: false,
+      failed: false,
       serverRejected: content.rejected ?? [],
       clientRejected: [],
       operations: [],
@@ -571,6 +598,19 @@ export class GenerativeUISurfaceManager {
     this.surfaces.get(key)?.model.dispose();
     this.surfaces.delete(key);
     this.bookkeeping.delete(key);
+  }
+
+  /**
+   * Marks a surface deleted and frees its components and data. The record
+   * stays, so the model is still told about the id and the bookkeeping does
+   * not rebuild the surface for content that was already applied.
+   */
+  private closeSurface(surface: ManagedSurface) {
+    surface.deleted = true;
+    surface.model.dispose();
+    surface.model = new SurfaceModel(surface.surfaceId, this.webCoreCatalog);
+    this.owned.delete(surface.key);
+    this.linked.delete(surface.key);
   }
 
   /** The surfaces of a thread that a part of `surfaceId` reads, for tests. */
@@ -660,7 +700,10 @@ export class GenerativeUISurfaceManager {
     if (kind === "callRendererFunction") return;
     const reject = (reason: string) => {
       // A surface whose first createSurface fails does not exist.
-      if (kind === "createSurface" && index === 0) surface.deleted = true;
+      if (kind === "createSurface" && index === 0) {
+        this.closeSurface(surface);
+        surface.failed = true;
+      }
       surface.clientRejected.push({ index, reason });
       this.options.onOperationRejected?.({
         surfaceId: surface.surfaceId,
@@ -719,9 +762,8 @@ export class GenerativeUISurfaceManager {
       return;
     }
     if ("deleteSurface" in typed) {
-      surface.deleted = true;
+      this.closeSurface(surface);
       this.deletedKeys.add(surface.key);
-      this.owned.delete(surface.key);
     }
   }
 

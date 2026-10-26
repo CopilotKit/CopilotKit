@@ -12,6 +12,7 @@ import {
   givesValidationResult,
   requiresUserActivation,
 } from "./functions";
+import { isRecord } from "./is-record";
 
 // The CopilotKit value functions join the registry here, because calc.ts
 // uses the error type and truthOf of functions.ts.
@@ -77,10 +78,6 @@ export function templateIndex(basePath: string | undefined) {
   if (basePath === undefined) return undefined;
   const index = Number(basePath.slice(basePath.lastIndexOf("/") + 1));
   return Number.isInteger(index) ? index : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** The value of a ValidationResult where a boolean is expected. */

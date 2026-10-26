@@ -18,6 +18,7 @@ import type * as SharedModule from "@copilotkit/shared";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
+import { CopilotChatAssistantMessage } from "../../components/chat/CopilotChatAssistantMessage";
 import { useCopilotKit } from "../../context";
 import {
   MockStepwiseAgent,
@@ -182,6 +183,22 @@ describe("markdown transport", () => {
       "strong",
     );
     expect(screen.queryByText(/createSurface/)).toBeNull();
+  });
+
+  it("renders the fence as code when MarkdownRenderer gets no message id", async () => {
+    render(
+      <CopilotKitProvider generativeUI={{ ui, transport: "markdown" }}>
+        <CopilotChatAssistantMessage.MarkdownRenderer
+          content={fence([create("s1"), buttonRoot("s1", "Buy")])}
+        />
+      </CopilotKitProvider>,
+    );
+    // Without the id, the fences of the message cannot be found, so the
+    // fence stays visible instead of disappearing.
+    await waitFor(() =>
+      expect(document.body.textContent).toContain("createSurface"),
+    );
+    expect(chatSurfaces()).toHaveLength(0);
   });
 
   it("shows nothing for a half-streamed fence until its root operation is complete", async () => {

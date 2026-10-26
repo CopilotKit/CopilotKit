@@ -18,6 +18,7 @@ import type {
   GenerativeUISurfaceSummary,
   GenerativeUITarget,
 } from "./generative-ui/types";
+import { isRecord } from "./generative-ui/is-record";
 
 /** Top-level `forwardedProps` key that holds the CopilotKit run properties. */
 export const COPILOTKIT_FORWARDED_PROPS_KEY = "copilotkit";
@@ -68,10 +69,6 @@ type InlineCatalog = NonNullable<
   CopilotKitUIEnvelope["v1.0"]["inlineCatalogs"]
 >[number];
 type Extensions = CopilotKitUIEnvelope["metadata"]["extensions"];
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function isOptionalString(value: unknown) {
   return value === undefined || typeof value === "string";
@@ -201,7 +198,10 @@ function isSurfaceEntry(value: unknown): value is GenerativeUISurfaceSummary {
     isRecord(value) &&
     isNonEmptyString(value.target) &&
     (value.dataModel === undefined || isRecord(value.dataModel)) &&
-    (value.rejected === undefined || isRejectionList(value.rejected))
+    (value.rejected === undefined || isRejectionList(value.rejected)) &&
+    (value.status === undefined ||
+      value.status === "deleted" ||
+      value.status === "failed")
   );
 }
 

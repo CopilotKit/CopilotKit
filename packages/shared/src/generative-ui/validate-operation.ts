@@ -18,6 +18,7 @@ import type {
   GenerativeUIJSONSchema,
   GenerativeUIManifest,
 } from "./types";
+import { isRecord } from "./is-record";
 
 export type OperationValidation = { ok: true } | { ok: false; reason: string };
 
@@ -71,10 +72,6 @@ const fail = (reason: string): OperationValidation => ({ ok: false, reason });
 
 /** Models write the v0.9 binding from habit. The reason names the v1.0 form. */
 const V09_PATH_REASON = 'bind data with {"@path": "/x"}, not {"path": "/x"}';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function hasOwn(record: object, key: string) {
   return Object.prototype.hasOwnProperty.call(record, key);

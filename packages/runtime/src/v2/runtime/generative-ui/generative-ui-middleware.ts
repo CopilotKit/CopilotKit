@@ -160,12 +160,18 @@ function processStream(
   manifest: GenerativeUIManifest,
 ) {
   return new Observable<BaseEvent>((subscriber) => {
+    const entries = Object.entries(manifest.surfaces);
+    // Only live surfaces take updates. A surface that the client deleted, or
+    // that was never created, has a `status`.
     const surfaces = new Map<string, string>(
-      Object.entries(manifest.surfaces).map(([id, s]) => [id, s.target]),
+      entries.filter(([, s]) => !s.status).map(([id, s]) => [id, s.target]),
     );
     // A surface id is unique for the life of the page. Keep the ids that were
-    // created, also after deleteSurface, so a second createSurface is rejected.
-    const createdSurfaces = new Set(surfaces.keys());
+    // created, also after deleteSurface (in this run or an earlier one), so a
+    // second createSurface is rejected. A failed create can be sent again.
+    const createdSurfaces = new Set(
+      entries.filter(([, s]) => s.status !== "failed").map(([id]) => id),
+    );
     // The targets that limit their components, by target id.
     const targetComponents = new Map(
       manifest.targets

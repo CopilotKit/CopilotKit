@@ -665,13 +665,14 @@ export namespace CopilotChatAssistantMessage {
       messageId?: string;
     }
   > = ({ content, className, messageId, ...props }) => {
-    // With the markdown transport, ```a2ui fences render as surfaces.
+    // With the markdown transport, ```a2ui fences render as surfaces. The
+    // fences are found by the message id, so without one they stay code.
     const generativeUI = useGenerativeUIRuntime();
-    if (generativeUI?.transport === "markdown") {
+    if (generativeUI?.transport === "markdown" && messageId !== undefined) {
       return (
         <MarkdownSurfaces
           content={content ?? ""}
-          messageId={messageId ?? "message"}
+          messageId={messageId}
           className={className}
           {...props}
         />

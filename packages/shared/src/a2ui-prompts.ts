@@ -244,7 +244,7 @@ const MARKDOWN_BASE_RULES = [
 
 /** The last rules of every markdown guideline, after the optional groups. */
 const MARKDOWN_CLOSING_RULES = [
-  'The schema lists the surfaces that already exist under "surfaces". "dataModel" holds the values that the user entered: read them, and do not write those paths. "rejected" lists operations that the client dropped: send corrected operations in a new fence for that surfaceId.',
+  'The schema lists the surfaces that already exist under "surfaces". "dataModel" holds the values that the user entered: read them, and do not write those paths. "rejected" lists operations that the client dropped: send corrected operations in a new fence for that surfaceId. "status":"deleted" means the surface is gone: never use its id again. "status":"failed" means its createSurface was rejected: send a corrected createSurface with that id.',
   "Never make a surface that is only prose. Write headings, paragraphs, lists of text, intros, and summaries as markdown outside the fences, also between two fences.",
   "Put in a fence only what markdown cannot show: charts, tables, maps, images, badges, inputs, buttons, cards with controls.",
   "Use Card only for an interactive panel (controls, a form, a configurator). Put everything else in a plain layout component.",

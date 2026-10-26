@@ -5,6 +5,7 @@ import { createGenerativeUI } from "../catalog";
 import { child } from "../refs";
 import {
   buildMarkdownSurfaces,
+  MarkdownBuildCache,
   MarkdownSurfaceSource,
 } from "../markdown/source";
 import { GenerativeUISurfaceManager } from "../surface-manager";
@@ -432,6 +433,30 @@ describe("buildMarkdownSurfaces", () => {
     expect(surfaces[0].operations).toHaveLength(3);
   });
 
+  it("shows the new UI when a later reply sends a full createSurface for a page target", () => {
+    const first = assistant(
+      "m1",
+      fence([inlineCreate("panel", { n: 1 }, button("root", "Buy"))], {
+        info: " target=side",
+      }),
+    );
+    const later = assistant(
+      "m2",
+      fence([inlineCreate("panel", { n: 2 }, button("root", "Buy now"))], {
+        info: " target=side",
+      }),
+    );
+    const { manager, sync } = syncedSource();
+    sync("t1", [first, later]);
+
+    const surface = manager.getSurface("t1", "panel")!;
+    expect(surface.clientRejected).toEqual([]);
+    expect(surface.model.componentsModel.get("root")?.properties).toEqual({
+      label: "Buy now",
+    });
+    expect(surface.model.dataModel.get("/")).toEqual({ n: 2 });
+  });
+
   it.each([
     ["no catalogId", { surfaceId: "s1" }],
     ["another catalogId", { surfaceId: "s1", catalogId: "old/catalog@1" }],
@@ -682,6 +707,44 @@ describe("buildMarkdownSurfaces", () => {
       ["s1", [create("s1"), components("s1", button("root", "Buy"))]],
     ]);
     expect([...fences.keys()]).toEqual(["m1:0"]);
+  });
+});
+
+describe("buildMarkdownSurfaces with a cache", () => {
+  const earlier = assistant(
+    "m1",
+    `Plans:
+${fence([create("s1"), components("s1", ...mixedStack)])}`,
+  );
+  const reply = fence([create("s2"), components("s2", button("root", "Go"))]);
+  /** The last message cut after `length` characters, as it streams in. */
+  const streamed = (length: number) => assistant("m2", reply.slice(0, length));
+
+  it("gives the same results as a build without a cache, at each step of a stream", () => {
+    const cache = new MarkdownBuildCache();
+    for (let length = 0; length <= reply.length; length += 5) {
+      const messages = [earlier, streamed(length)];
+      const options = { ui, functions: {}, running: true };
+      expect(buildMarkdownSurfaces(messages, { ...options, cache })).toEqual(
+        buildMarkdownSurfaces(messages, options),
+      );
+    }
+  });
+
+  it("keeps the content objects of the surfaces of earlier messages while a reply streams", () => {
+    const cache = new MarkdownBuildCache();
+    const options = { ui, functions: {}, running: true, cache };
+    const first = buildMarkdownSurfaces([earlier, streamed(20)], options);
+    const second = buildMarkdownSurfaces([earlier, streamed(60)], options);
+    const earlierIds = first.surfaces
+      .map((s) => s.surfaceId)
+      .filter((id) => id.startsWith("s1"));
+    expect(earlierIds.length).toBeGreaterThan(0);
+    for (const id of earlierIds) {
+      expect(second.surfaces.find((s) => s.surfaceId === id)).toBe(
+        first.surfaces.find((s) => s.surfaceId === id),
+      );
+    }
   });
 });
 

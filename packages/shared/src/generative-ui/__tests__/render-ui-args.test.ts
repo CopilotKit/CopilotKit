@@ -138,6 +138,30 @@ describe("RenderUIArgsStream", () => {
     expect(stream.push(text.slice(cut)).newOperations).toEqual([inlineCreate]);
   });
 
+  it("keeps the parser state across deltas that split strings, escapes and braces", () => {
+    const tricky = {
+      version: "v1.0",
+      updateDataModel: { surfaceId: "s", path: "/q", value: 'a "}{" \\ ]' },
+    };
+    const text = JSON.stringify({
+      operations: [opA, tricky, opB],
+      target: 'chat "x"',
+    });
+    for (const size of [1, 2, 3, 7]) {
+      const stream = new RenderUIArgsStream();
+      const emitted: unknown[] = [];
+      let target: string | undefined;
+      for (let i = 0; i < text.length; i += size) {
+        const step = stream.push(text.slice(i, i + size));
+        emitted.push(...step.newOperations);
+        target = step.target;
+      }
+      expect(emitted).toEqual([opA, tricky, opB]);
+      expect(target).toBe('chat "x"');
+      expect(stream.hasIncompleteOperation).toBe(false);
+    }
+  });
+
   it("exposes the accumulated text and whether it ends mid-operation", () => {
     const text = JSON.stringify({ target: "chat", operations: [opA, opB] });
     const cut = text.indexOf("updateComponents");

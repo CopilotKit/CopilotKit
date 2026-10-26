@@ -1,4 +1,5 @@
 import type { GenerativeUIJSONSchema } from "./types";
+import { isRecord } from "./is-record";
 
 /**
  * How A2UI 1.0 marks a prop that holds a component reference: the JSON
@@ -40,10 +41,6 @@ export function childRefKind(
   if (ref === A2UI_COMPONENT_ID_REF) return "single";
   if (ref === A2UI_CHILD_LIST_REF) return "multiple";
   return undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**

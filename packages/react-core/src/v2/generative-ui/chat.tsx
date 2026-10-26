@@ -95,7 +95,10 @@ function GenerativeUIChatActivity({
 
   if (!runtime || !threadId || content.target !== GENERATIVE_UI_CHAT_TARGET)
     return null;
-  const surface = runtime.manager.getSurface(threadId, content.surfaceId);
+  // A surface whose createSurface was rejected shows only the error.
+  const surface =
+    runtime.manager.getSurface(threadId, content.surfaceId) ??
+    runtime.manager.getFailedSurface(threadId, content.surfaceId);
   if (!surface) return null;
   // Both lists cover only the latest render_ui call (see the manager's ingest).
   // Custom wrappers get the detailed reasons (`rejected`, `error.cause`), and
@@ -114,7 +117,7 @@ function GenerativeUIChatActivity({
       error={error}
       rejected={rejected}
     >
-      <SurfaceView surface={surface} />
+      {surface.failed ? null : <SurfaceView surface={surface} />}
     </Wrapper>
   );
 }

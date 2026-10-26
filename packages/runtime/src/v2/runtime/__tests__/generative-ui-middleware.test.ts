@@ -870,6 +870,66 @@ describe("GenerativeUIMiddleware", () => {
     );
   });
 
+  describe("closed surfaces from the client", () => {
+    const update = components("recs", {
+      id: "c2",
+      component: "ProductCard",
+      name: "B",
+    });
+
+    it("rejects a createSurface and an update for a surface that an earlier run deleted", async () => {
+      const { output } = await run(
+        renderCall({
+          target: "recommendations",
+          operations: [create("recs"), update],
+        }),
+        withSurfaces({
+          recs: { target: "recommendations", status: "deleted" },
+        }),
+      );
+      expect(activity(output)).toEqual([]);
+      expect(toolResult(output).rejected).toEqual([
+        {
+          index: 0,
+          reason: 'surface id "recs" was used before; use a new surfaceId',
+        },
+        { index: 1, reason: expect.stringMatching(/does not exist/) },
+      ]);
+    });
+
+    it("accepts a corrected createSurface for a surface whose create failed", async () => {
+      const { output } = await run(
+        renderCall({ target: "recommendations", operations: [create("recs")] }),
+        withSurfaces({
+          recs: {
+            target: "recommendations",
+            status: "failed",
+            rejected: ['operation 0: component "c1": price is required'],
+          },
+        }),
+      );
+      expect(toolResult(output)).toMatchObject({ applied: 1, rejected: [] });
+      expect(activity(output)[0].type).toBe(EventType.ACTIVITY_SNAPSHOT);
+    });
+
+    it("tells the model in the guide which ids are deleted or not created", async () => {
+      const { input } = await run(
+        [],
+        withSurfaces({
+          old: { target: "recommendations", status: "deleted" },
+          bad: { target: "recommendations", status: "failed" },
+        }),
+      );
+      const lines = guideText(input).split("\n");
+      expect(lines).toContain(
+        '- "old" (target "recommendations", deleted: never use this id again)',
+      );
+      expect(lines).toContain(
+        '- "bad" (target "recommendations", not created: send a corrected createSurface with this id)',
+      );
+    });
+  });
+
   it("updates an existing surface with deltas only", async () => {
     const op = components("recs", {
       id: "c2",

@@ -114,7 +114,7 @@ What the parts hold:
 - `components`: the JSON Schema of each component, with its events and slots.
 - `instructions`: the guide text.
 - `copilotkit_targets`: the targets on screen.
-- `copilotkit_surfaces`: the surfaces that already exist, with the values the user typed and the operations the browser rejected.
+- `copilotkit_surfaces`: the surfaces of the thread, with the values the user typed and the operations the browser rejected. A surface that was deleted has `"status": "deleted"`, and its id cannot be used again. A surface whose `createSurface` the browser rejected has `"status": "failed"`.
 - `copilotkit_contextSent`: `true` when the context entries were also sent, so a backend never adds the schema twice.
 
 Two more options for these backends:

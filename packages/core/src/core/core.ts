@@ -26,6 +26,7 @@ import type { CopilotKitMessageFilter } from "./message-filter";
 import { AgentRegistry } from "./agent-registry";
 import type { ScopedContext } from "./context-store";
 import { ContextStore } from "./context-store";
+import { isForAgent } from "./agent-scope";
 import { SuggestionEngine } from "./suggestion-engine";
 import type {
   CopilotKitCoreRunAgentParams,
@@ -1043,10 +1044,7 @@ export class CopilotKitCore {
     const merged: Record<string, unknown> = { ...this._properties };
     const entries = this._scopedProperties.values();
     for (const entry of entries) {
-      const isForOtherAgents =
-        entry.agentIds !== undefined &&
-        (agentId === undefined || !entry.agentIds.includes(agentId));
-      if (isForOtherAgents) continue;
+      if (!isForAgent(entry.agentIds, agentId)) continue;
 
       const properties = Object.entries(entry.properties);
       for (const [key, value] of properties) {

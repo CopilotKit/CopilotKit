@@ -101,9 +101,12 @@ function ChatSurface({
   surfaceId: string;
   Wrapper: ComponentType<GenerativeUIChatSurfaceProps>;
 }) {
-  const surface = runtime.manager.getSurface(threadId, surfaceId);
+  // A surface whose createSurface was rejected shows only the error.
+  const surface =
+    runtime.manager.getSurface(threadId, surfaceId) ??
+    runtime.manager.getFailedSurface(threadId, surfaceId);
   const root = surface?.model.componentsModel.get(GENERATIVE_UI_ROOT_ID);
-  if (!surface || !root) return null;
+  if (!surface || (!root && !surface.failed)) return null;
   const rejected = [...surface.serverRejected, ...surface.clientRejected];
   const error = rejected.length
     ? new Error(`${rejected.length} UI update(s) could not be shown`, {
@@ -117,7 +120,7 @@ function ChatSurface({
       error={error}
       rejected={rejected}
     >
-      <SurfaceView surface={surface} />
+      {surface.failed ? null : <SurfaceView surface={surface} />}
     </Wrapper>
   );
 }

@@ -627,6 +627,64 @@ describe("GenerativeUISurfaceManager", () => {
     expect(manager.getSurface("t1", "recs")).toBeUndefined();
   });
 
+  describe("closed surfaces in describeSurfaces", () => {
+    const badCreate = inlineCreate({
+      components: [{ id: "c1", component: "ProductCard", name: "A" }],
+    });
+
+    it("lists a surface whose createSurface was rejected as failed, with the reason", () => {
+      const manager = new GenerativeUISurfaceManager(ui);
+      manager.ingest("t1", "default", content([badCreate]));
+      expect(manager.getSurface("t1", "recs")).toBeUndefined();
+      expect(manager.getFailedSurface("t1", "recs")?.surfaceId).toBe("recs");
+      expect(manager.describeSurfaces("t1")).toEqual({
+        recs: {
+          target: "recommendations",
+          rejected: [expect.stringMatching(/^operation 0: .*price/)],
+          status: "failed",
+        },
+      });
+    });
+
+    it("builds a failed surface when a corrected createSurface comes", () => {
+      const manager = new GenerativeUISurfaceManager(ui);
+      manager.ingest("t1", "default", content([badCreate]));
+      manager.ingest("t1", "default", content([create, grid([])]));
+      expect(manager.getSurface("t1", "recs")).toBeDefined();
+      expect(manager.getFailedSurface("t1", "recs")).toBeUndefined();
+      expect(manager.describeSurfaces("t1")).toEqual({
+        recs: { target: "recommendations" },
+      });
+    });
+
+    it("lists a deleted surface as deleted and frees its components", () => {
+      const { manager, surface } = managerWith([create, grid([])]);
+      expect(surface.model.componentsModel.get("root")).toBeDefined();
+      manager.ingest("t1", "default", content([create, grid([]), remove]));
+      expect(manager.describeSurfaces("t1")).toEqual({
+        recs: { target: "recommendations", status: "deleted" },
+      });
+      expect(manager.getFailedSurface("t1", "recs")).toBeUndefined();
+      expect(surface.model.componentsModel.get("root")).toBeUndefined();
+    });
+
+    it("keeps a deleted id deleted when a createSurface uses it again, and shows the error", () => {
+      const manager = new GenerativeUISurfaceManager(ui);
+      manager.ingest("t1", "default", content([create, grid([]), remove]));
+      manager.ingest("t1", "default", content([create, grid([])]));
+      expect(manager.describeSurfaces("t1").recs).toEqual({
+        target: "recommendations",
+        status: "deleted",
+      });
+      expect(manager.getFailedSurface("t1", "recs")?.clientRejected[0]).toEqual(
+        {
+          index: 0,
+          reason: 'surface id "recs" was used before; use a new surfaceId',
+        },
+      );
+    });
+  });
+
   describe("targets", () => {
     it("reference-counts mounts, and a second unmount call does nothing", () => {
       const manager = new GenerativeUISurfaceManager(ui);

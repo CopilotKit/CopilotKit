@@ -164,6 +164,18 @@ describe("readCopilotKitUIEnvelope", () => {
     expect(readUI(envelope)).toEqual(envelope);
   });
 
+  it("reads a deleted surface and a surface whose create failed", () => {
+    const envelope = createEnvelope({
+      extensions: {
+        copilotkit_surfaces: {
+          old: { target: "chat", status: "deleted" },
+          bad: { target: "chat", status: "failed", rejected: ["operation 0"] },
+        },
+      },
+    });
+    expect(readUI(envelope)).toEqual(envelope);
+  });
+
   it("returns undefined when there is no envelope", () => {
     expect(readCopilotKitUIEnvelope(undefined)).toBeUndefined();
     expect(readCopilotKitUIEnvelope("copilotkit")).toBeUndefined();
@@ -265,6 +277,12 @@ describe("readCopilotKitUIEnvelope", () => {
       "more than 20 surface rejections",
       withExtension("copilotkit_surfaces", {
         cart: { target: "chat", rejected: Array(21).fill("operation 0: x") },
+      }),
+    ],
+    [
+      "an unknown surface status",
+      withExtension("copilotkit_surfaces", {
+        cart: { target: "chat", status: "closed" },
       }),
     ],
     [

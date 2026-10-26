@@ -78,7 +78,13 @@ export function buildGenerativeUIPrompt(manifest: GenerativeUIManifest) {
     .join("\n");
   const surfaces = Object.entries(manifest.surfaces)
     .map(([id, s]) => {
-      const lines = [`- "${id}" (target "${s.target}")`];
+      const state =
+        s.status === "deleted"
+          ? ", deleted: never use this id again"
+          : s.status === "failed"
+            ? ", not created: send a corrected createSurface with this id"
+            : "";
+      const lines = [`- "${id}" (target "${s.target}"${state})`];
       if (s.dataModel) {
         lines.push(`  user values: ${shorten(JSON.stringify(s.dataModel))}`);
       }

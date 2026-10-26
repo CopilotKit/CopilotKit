@@ -177,7 +177,7 @@ export const Markdown = ({
     () => ({ ...defaultComponents, ...components }),
     [components],
   );
-  const mergedRemarkPlugins = useMemo<Options["remarkPlugins"]>(
+  const mergedRemarkPlugins = useMemo<NonNullable<Options["remarkPlugins"]>>(
     () => [
       remarkGfm,
       [remarkMath, { singleDollarTextMath: false }],
@@ -185,14 +185,22 @@ export const Markdown = ({
     ],
     [remarkPlugins],
   );
-  const mergedRehypePlugins = useMemo<Options["rehypePlugins"]>(
+  const mergedRehypePlugins = useMemo<NonNullable<Options["rehypePlugins"]>>(
     () => [rehypeRaw, ...(rehypePlugins ?? []), rehypeSanitize],
     [rehypePlugins],
   );
   if (rendersSurfaces) {
     return (
       <div className="copilotKitMarkdown">
-        <MarkdownSurfaces content={content} messageId={messageId} />
+        {/* The prose between the fences keeps the app's tag renderers and
+            the same plugins and sanitizing as a message without fences. */}
+        <MarkdownSurfaces
+          content={content}
+          messageId={messageId}
+          components={mergedComponents}
+          remarkPlugins={mergedRemarkPlugins}
+          rehypePlugins={mergedRehypePlugins}
+        />
       </div>
     );
   }
