@@ -21,6 +21,10 @@ def validate_packet(packet, allowed, mode):
     # Their running images and shared latest pointers must remain unchanged.
     if not isinstance(held, list) or set(held) - {"ghcr.io/copilotkit/starter-ms-agent-framework-dotnet", "ghcr.io/copilotkit/showcase-harness"} or not set(held) <= allowed:
         raise ValueError("Only the explicitly held .NET and busy harness images may be omitted")
+    if mode == "promote":
+        held_latest = packet.get("heldLatest", {})
+        if set(held_latest) != set(held) or any(not isinstance(value, str) or not DIGEST.fullmatch(value) for value in held_latest.values()):
+            raise ValueError("Promotion requires exact unchanged latest guards for every held image")
     names = [r.get("image") for r in rows]
     if len(names) != len(set(names)) or set(names) != allowed - set(held):
         raise ValueError("Image set must exactly match the eligible staging Node fleet")
@@ -99,6 +103,14 @@ def main():
         temp.write_text(json.dumps(receipt, indent=2) + "\n")
         temp.replace(output)
 
+    receipt["heldLatest"] = {}
+    save()
+    for image in packet.get("held", []):
+        current = digest(image + ":latest")
+        if args.mode == "promote" and current != packet["heldLatest"][image]:
+            raise ValueError("Held latest moved since inspection: " + image)
+        receipt["heldLatest"][image] = current
+    save()
     # Read and validate the ENTIRE fleet before the first tag mutation.
     for row in rows:
         image = row["image"]
@@ -126,6 +138,10 @@ def main():
             if row["resultingLatest"] != row["digest"]:
                 raise ValueError("Retag did not preserve accepted digest: " + image)
             print(json.dumps({"image": image, "acceptedDigestPromoted": True}), flush=True)
+    for image, expected in receipt["heldLatest"].items():
+        if digest(image + ":latest") != expected:
+            raise ValueError("Held latest changed during the operation: " + image)
+    receipt["heldLatestUnchanged"] = True
     receipt["complete"] = True
     save()
 

@@ -49,6 +49,17 @@ class TransitionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.m.validate_packet({**packet, "images": [self.row, {**self.row, "image": harness}]}, self.allowed | {harness}, "inspect")
 
+    def test_promotion_requires_exact_held_latest_pointer_guards(self):
+        harness = "ghcr.io/copilotkit/showcase-harness"
+        packet = {**self.packet, "accepted": True, "held": [harness], "images": [{**self.row, "previousLatest": "sha256:" + "c" * 64}]}
+        with self.assertRaises(ValueError):
+            self.m.validate_packet(packet, self.allowed | {harness}, "promote")
+        packet["heldLatest"] = {harness: "sha256:" + "d" * 64}
+        self.assertEqual(self.m.validate_packet(packet, self.allowed | {harness}, "promote"), packet["images"])
+        for guards in [{}, {harness: "latest"}, {harness: "sha256:" + "d" * 64, self.row["image"]: "sha256:" + "c" * 64}]:
+            with self.subTest(guards=guards), self.assertRaises(ValueError):
+                self.m.validate_packet({**packet, "heldLatest": guards}, self.allowed | {harness}, "promote")
+
     def test_arbitrary_repository_or_tag_is_rejected(self):
         for field, value in [("image", "ghcr.io/other/project"), ("digest", "latest"), ("revision", "main")]:
             with self.subTest(field=field), self.assertRaises(ValueError):
@@ -85,10 +96,15 @@ class TransitionTest(unittest.TestCase):
         second = {**self.row, "image": "ghcr.io/copilotkit/showcase-other"}
         rows = [{**r, "previousLatest": "sha256:" + "c" * 64} for r in [self.row, second]]
         calls, reads = [], {}
+        held = ["ghcr.io/copilotkit/showcase-harness"] if failure in ["held-preflight", "held-read", "held-postread"] else []
         config = json.dumps({"architecture": "amd64", "os": "linux", "config": {"Labels": {"org.opencontainers.image.revision": self.row["revision"]}}})
 
         def inspect(ref):
             reads[ref] = reads.get(ref, 0) + 1
+            if ref == "ghcr.io/copilotkit/showcase-harness:latest":
+                if failure == "held-read":
+                    raise RuntimeError("held pointer read unavailable")
+                return "sha256:" + ("d" if failure == "held-preflight" or (failure == "held-postread" and reads[ref] > 1) else "c") * 64
             if failure == "preflight" and "showcase-other@" in ref:
                 raise RuntimeError("unresolvable second candidate")
             if ref.endswith(":latest"):
@@ -115,8 +131,8 @@ class TransitionTest(unittest.TestCase):
             os.chdir(directory)
             try:
                 Path("showcase/scripts").mkdir(parents=True)
-                Path("showcase/scripts/railway-envs.generated.json").write_text(json.dumps({"services": [{"name": name, "gateIgnore": False, "stagingInstanceId": "id", "repoNameOverride": {"staging": "showcase-" + name}} for name in ["shell", "other"]]}))
-                raw = json.dumps({"version": 1, "accepted": True, "images": rows}).encode()
+                Path("showcase/scripts/railway-envs.generated.json").write_text(json.dumps({"services": [{"name": name, "gateIgnore": False, "stagingInstanceId": "id", "repoNameOverride": {"staging": "showcase-" + name}} for name in ["shell", "other"] + (["harness"] if held else [])]}))
+                raw = json.dumps({"version": 1, "accepted": True, "images": rows, "held": held, "heldLatest": {image: "sha256:" + "c" * 64 for image in held}}).encode()
                 Path("packet.json").write_bytes(raw)
                 args = ["transition.py", "promote", "--packet", "packet.json", "--sha256", hashlib.sha256(raw).hexdigest()]
                 env = {"AUTO_DEPLOY": "false", "CONFIRM_ACCEPTED": "true", "GITHUB_REF": "refs/heads/codex/staging-latest-policy-transition"}
@@ -128,9 +144,20 @@ class TransitionTest(unittest.TestCase):
                         self.m.main()
                 receipt = json.loads(Path("transition-receipt.json").read_text())
                 self.assertEqual(receipt.get("complete", False), not bool(failure))
+                if failure in ["held-preflight", "held-read", "held-postread"]:
+                    self.assertFalse(receipt.get("heldLatestUnchanged", False))
                 return calls
             finally:
                 os.chdir(old)
+
+    def test_held_pointer_mismatch_precedes_all_retags(self):
+        self.assertEqual(self.orchestration("held-preflight"), [])
+
+    def test_held_pointer_read_failure_precedes_all_retags(self):
+        self.assertEqual(self.orchestration("held-read"), [])
+
+    def test_held_pointer_postread_change_cannot_complete(self):
+        self.assertEqual(len(self.orchestration("held-postread")), 2)
 
     def test_entire_fleet_preflight_precedes_any_write(self):
         self.assertEqual(self.orchestration("preflight"), [])
