@@ -204,6 +204,8 @@ describe("buildCompactGenerativeUISchema with standardUI", () => {
     }
     expect(axis).toContain('label: "Revenue (USD)"');
     expect(axis).toContain("horizontal value axis");
+    expect(axis).toContain("width sets the width of the category axis");
+    expect(axis).not.toContain("width: 64");
     expect(compact.components.Chart.props["yAxis?"]).toContain(axis);
 
     const format = properties.format.description as string;

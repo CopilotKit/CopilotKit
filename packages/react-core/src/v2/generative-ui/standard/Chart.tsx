@@ -57,7 +57,7 @@ export const chartSchema = z.object({
     })
     .optional()
     .describe(
-      'The value axis configuration object: {label?: string, min?: number, max?: number, width?: number}. Example: {label: "Revenue (USD)", min: 0, max: 100, width: 64}. In horizontal charts this controls the horizontal value axis.',
+      'The value axis configuration object: {label?: string, min?: number, max?: number, width?: number}. Example: {label: "Revenue (USD)", min: 0, max: 100}. In horizontal charts, label, min and max apply to the horizontal value axis, and width sets the width of the category axis on the left.',
     ),
   showDots: z.boolean().optional().describe("Point markers on a line or area"),
   barRadius: z

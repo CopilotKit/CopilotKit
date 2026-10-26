@@ -103,7 +103,9 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
     expect(guide).toContain(
       '{"@call":"calc","args":{"expression":"seats * 29 * (annual ? 0.8 : 1)"',
     );
-    expect(guide).toContain(COPILOTKIT_FUNCTIONS.series.description);
+    expect(guide).toContain(
+      'use series. Its description under "functions" in the schema',
+    );
     expect(guide).toContain('the "items" of a List');
     expect(guide).not.toContain("template path of a list");
     expect(guide).toContain('{"@call":"@index","args":{"offset":1}}');
@@ -300,35 +302,61 @@ describe("GENERATIVE_UI_WHEN_TO_SHOW", () => {
 });
 
 describe("computed data guidance", () => {
+  const series = COPILOTKIT_FUNCTIONS.series;
+  const markdownGuide = buildGenerativeUIMarkdownGuidelines();
+  const toolPrompt = buildGenerativeUIPrompt({
+    catalogId: "test",
+    targets: [],
+    components: {},
+    functions: {
+      series: {
+        description: series.description,
+        parameters: { type: "object", description: series.parameters },
+        returnType: series.returnType,
+      },
+    },
+    surfaces: {},
+  });
+
+  it("the series description carries the rules and the example", () => {
+    expect(series.description).toContain('"month":"${i}"');
+    expect(series.description).toContain(
+      '"monthlyCost":{"@path":"/monthlyCost"}',
+    );
+    expect(series.description).toContain(
+      "whole-expression string retains the result type",
+    );
+    expect(series.description).toContain("resolve before the series loop");
+    expect(series.description).not.toContain('"variable":"m"');
+    expect(series.description).not.toContain("WORKAROUND");
+    expect(series.description).not.toContain("a2ui-agent-sdk");
+  });
+
   it.each([
-    ["markdown", buildGenerativeUIMarkdownGuidelines()],
-    [
-      "tool",
-      buildGenerativeUIPrompt({
-        catalogId: "test",
-        targets: [],
-        components: {},
-        functions: {},
-        surfaces: {},
-      }),
-    ],
+    ["markdown", markdownGuide],
+    ["tool", toolPrompt],
   ])(
-    "uses the catalog series guidance in the %s transport",
+    "points to series and scopes ${...} in the %s transport",
     (_transport, prompt) => {
-      expect(prompt).toContain(COPILOTKIT_FUNCTIONS.series.description);
-      expect(prompt).toContain('"month":"${i}"');
-      expect(prompt).toContain('"monthlyCost":{"@path":"/monthlyCost"}');
       expect(prompt).toContain(
-        "whole-expression string retains the result type",
+        "For a computed list (chart data, template items) use series. Its description under",
       );
-      expect(prompt).toContain("resolve before the series loop");
+      expect(prompt).toContain(
+        "${...} is evaluated only in the value of formatString and in the item of series",
+      );
       expect(prompt).toContain(
         "Inside formatString, ${...} does not support operators",
       );
       expect(prompt).not.toContain('"variable":"m"');
       expect(prompt).not.toContain("There are no operators in ${...}");
-      expect(prompt).not.toContain("WORKAROUND");
-      expect(prompt).not.toContain("a2ui-agent-sdk");
     },
   );
+
+  it("gives the series description once, in the function list of the tool prompt", () => {
+    expect(toolPrompt.split(series.description)).toHaveLength(2);
+  });
+
+  it("leaves the series description to the schema in the markdown guide", () => {
+    expect(markdownGuide).not.toContain(series.description);
+  });
 });

@@ -1,7 +1,4 @@
-import {
-  COPILOTKIT_FUNCTIONS,
-  isA2UIBasicFunction,
-} from "./generative-ui/basic-functions";
+import { isA2UIBasicFunction } from "./generative-ui/basic-functions";
 import { A2UI_CHILD_LIST_REF } from "./generative-ui/child-refs";
 import { GENERATIVE_UI_AGENT_FUNCTION_CALLS } from "./generative-ui/types";
 import type { GenerativeUIManifest } from "./generative-ui/types";
@@ -238,8 +235,8 @@ const MARKDOWN_BASE_RULES = [
   'Give a prop a literal value, or bind it to the data model with {"@path":"/x"}. Never write {"path":"/x"} as a binding.',
   'A prop can also be a function value that updates with the data: {"@call":"formatCurrency","args":{"value":{"@path":"/total"},"currency":"EUR"}}. Use only the functions under "functions" in the schema. Write a literal when the value never changes.',
   'formatString interpolates ${...}: {"@call":"formatString","args":{"value":"${/qty} × ${formatCurrency(value: /price, currency: \'EUR\')}"}}. Inside ${...}, a path has no quotes, a string has single quotes, and a function takes named args.',
-  'Inside formatString, ${...} does not support operators. For arithmetic use calc, with the values as named args: {"@call":"calc","args":{"expression":"seats * 29 * (annual ? 0.8 : 1)","seats":{"@path":"/seats"},"annual":{"@path":"/annual"}}}. Inside formatString: ${formatCurrency(value: calc(expression: \'seats * 29\', seats: /seats), currency: \'USD\')}. The UI then follows the user\'s input with no round trip.',
-  `For a computed list use series. ${COPILOTKIT_FUNCTIONS.series.description} Bind the "data" of a Chart or the "items" of a List to it; a template path stays a literal path.`,
+  '${...} is evaluated only in the value of formatString and in the item of series; in other strings it stays literal text. Inside formatString, ${...} does not support operators. For arithmetic use calc, with the values as named args: {"@call":"calc","args":{"expression":"seats * 29 * (annual ? 0.8 : 1)","seats":{"@path":"/seats"},"annual":{"@path":"/annual"}}}. Inside formatString: ${formatCurrency(value: calc(expression: \'seats * 29\', seats: /seats), currency: \'USD\')}. The UI then follows the user\'s input with no round trip.',
+  'For a computed list (chart data, template items) use series. Its description under "functions" in the schema gives the rules and an example. Bind the "data" of a Chart or the "items" of a List to it; a template path stays a literal path.',
   'Bind a writable prop to let the user edit it: "value":{"@path":"/form/email"}. The user\'s input goes to that path.',
   'To change data, write updateDataModel with a "path" and a "value": {"version":"v1.0","updateDataModel":{"surfaceId":"plan-picker","path":"/seats","value":12}}. Always give "value".',
   'Set "value":null to delete the key at "path".',
