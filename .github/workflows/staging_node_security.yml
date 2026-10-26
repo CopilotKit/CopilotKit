@@ -1,0 +1,79 @@
+name: "Staging release: inspect and advance accepted images"
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Inspect published digests, or promote an accepted exact packet"
+        type: choice
+        options: [inspect, promote]
+        required: true
+      packet_sha256:
+        description: "SHA256 of the committed transition packet"
+        required: true
+        type: string
+      confirm_accepted:
+        description: "All exact staging candidates passed the authorized acceptance checks"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/codex/staging-latest-policy-transition' && inputs.operation == 'inspect' && vars.SHOWCASE_AUTO_REDEPLOY == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Inspect exact published candidates
+        env:
+          PACKET_SHA256: ${{ inputs.packet_sha256 }}
+          AUTO_DEPLOY: ${{ vars.SHOWCASE_AUTO_REDEPLOY }}
+        run: python3 .github/staging-release-transition/transition.py inspect --packet .github/staging-release-transition/packet.json --sha256 "$PACKET_SHA256"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: staging-transition-inspection
+          path: transition-receipt.json
+          if-no-files-found: error
+  promote:
+    if: github.ref == 'refs/heads/codex/staging-latest-policy-transition' && inputs.operation == 'promote' && inputs.confirm_accepted && vars.SHOWCASE_AUTO_REDEPLOY == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Advance accepted exact digests without deployment
+        env:
+          PACKET_SHA256: ${{ inputs.packet_sha256 }}
+          AUTO_DEPLOY: ${{ vars.SHOWCASE_AUTO_REDEPLOY }}
+          CONFIRM_ACCEPTED: ${{ inputs.confirm_accepted }}
+        run: python3 .github/staging-release-transition/transition.py promote --packet .github/staging-release-transition/packet.json --sha256 "$PACKET_SHA256"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: staging-transition-promotion
+          path: transition-receipt.json
+          if-no-files-found: error

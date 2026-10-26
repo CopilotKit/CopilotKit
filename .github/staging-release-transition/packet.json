@@ -1,0 +1,211 @@
+{
+  "version": 1,
+  "accepted": false,
+  "images": [
+    {
+      "image": "ghcr.io/copilotkit/showcase-ag2",
+      "digest": "sha256:46f16081242055ff4a1fc5b385e569748e843b79ce04f2209d3616caf90f65c1",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-agno",
+      "digest": "sha256:15b9ab7d8802ce423395921dd84e633a40f09e8e38d791a09887185663cad9cd",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-aimock",
+      "digest": "sha256:d668d494594b47c0847af1f3e7808a018e9a7d36a63e1e4691ff89fbb3de0ebf",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-built-in-agent",
+      "digest": "sha256:4828f2c9219634467fde5a14b191cea32e65f530d233d572ba9da47f8d65de59",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-claude-sdk-python",
+      "digest": "sha256:57b42e41a8fe2aed31834406c189ac5cc1e2dd014c2f567ed55709d80272a5c8",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-claude-sdk-typescript",
+      "digest": "sha256:9e880de74651c78d231381c1a3c922299518aa900d62befd67d3519774219846",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-crewai-conversational-flows",
+      "digest": "sha256:a98ae4012c35963dd37bcdf0e33d561ae8ccd9b837f0a228edbbee664b390d54",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-crewai-crews",
+      "digest": "sha256:3476fe0cfe5448c4ead4fc55ae064409d5b2a93a7daf30893f248ba8716e7e01",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-eval-webhook",
+      "digest": "sha256:9c8a38de8fc1ef070d1588bc7ff4d5c0e186d803df841c022ae712c1d85096e7",
+      "revision": "89629de0a26cb0965399c033894a2eed9bee52a2"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-google-adk",
+      "digest": "sha256:799139c0dc61ee79019afafdfb62e2f0fca86de52c03409729379b7329e76c32",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-google-antigravity",
+      "digest": "sha256:b55b87f05aa2bcd1ed384049d0e4c0ae92c134ee09063265184e5d8c25896625",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-harness",
+      "digest": "sha256:99c0192354d298671f0df6e16256959f426fe93bbf98fd1948ce50ff602e6fd6",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-langgraph-fastapi",
+      "digest": "sha256:10c5bddc3eb0938c16883c524af2653a73637a2aa7ee9d031e48d7e2a560e3bb",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-langgraph-python",
+      "digest": "sha256:a80cfd63c4c64ec997720f2caff1382baecd39a59c7e4bcf1ef18531762e0870",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-langgraph-typescript",
+      "digest": "sha256:fc469ef136b0b6cbe7ba483a11e39c5381691cd0d83c7fd9f76e52a6d6d14f83",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-langroid",
+      "digest": "sha256:1e86f66ae9f8d32727bbb7701b4c084612a4255f99216a26499116f8cac70ad7",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-llamaindex",
+      "digest": "sha256:bf20809f02ec4517249a6b70fca5def95787bcd49e98a248246a4f3c786cfcb7",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-mastra",
+      "digest": "sha256:d4ede6f4d4536a4d4296d743e515a2870c65c745d77f463bc3d9abd0559a2be5",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-ms-agent-dotnet",
+      "digest": "sha256:061d975c55d7c5be8e6c5667982a79af7372fd19c3c244f8afd460a70c3e6e3b",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-ms-agent-harness-dotnet",
+      "digest": "sha256:6d9e1414200abd12eb3e01e59285344b155f4306401d46874ddd4b3e8acf8b2c",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-ms-agent-python",
+      "digest": "sha256:b46e643b1a43f720688f8b12c1f6b2fca2cb544866060685157af61072cb6b12",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-pydantic-ai",
+      "digest": "sha256:9baa6d6f4382b79e5fb0c4b12c4604f433fb830f6ccb05a7f2e0526c01e7547a",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-shell",
+      "digest": "sha256:ef2d153b1db167ee06f3a168464b004c468200de9416523d6331a8a57adb48e7",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-shell-dashboard",
+      "digest": "sha256:df59264e9069f480037264daff8c9addc12fefbb9b9d4bd63481428e3e142eb9",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-shell-docs",
+      "digest": "sha256:29d9d4e88c947abe2a596cc99c6fb4e6b071566155dc28cf729311d662f92bab",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-shell-dojo",
+      "digest": "sha256:0950542c67ce9dd30061f776472189f6508aded3c216095230ba2aa183bc89ce",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-spring-ai",
+      "digest": "sha256:faf9792322e33cc4a6ce97ad940815a43143bb4457088521d7c27c139ff8ad57",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-strands",
+      "digest": "sha256:d965fd808ace6c866db0a4300abbe885c6bd5a7a4cc3c84634cc359f73326452",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/showcase-strands-typescript",
+      "digest": "sha256:644568fb7b54b059afc04dc0353d2def29c446f461ce63bec4613f2bf2b9e783",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-adk",
+      "digest": "sha256:8a9978a8d672652e0b4a181e3ad3ba2c0c9d83ff9de3e8b1519d6f2039eb8cdb",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-agno",
+      "digest": "sha256:b3f8956b5771fe670917a212fa8e9c3a506253a3ba4770592074b3f8f19d1e7f",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-crewai-crews",
+      "digest": "sha256:84ea37d482a99429d61c3ba80db6b9ff2901e9105faeade573552a0a3aa130c1",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-langgraph-fastapi",
+      "digest": "sha256:403bd4a69a65df12db98a7ae723fb3083adfb34a7c00c8f116af50c42c1631fe",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-langgraph-js",
+      "digest": "sha256:bdc452781195415f84fa70d37cf9fef22fdc164ca8924419790bf4a1e822b1d4",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-langgraph-python",
+      "digest": "sha256:02b2b3e2b415a4c1acc4037bd761ec99861b0cafb13439504902fe095aa84ddd",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-llamaindex",
+      "digest": "sha256:ce30001cf492a09879020a16dcca16e78ad7c476f5978c7f17d08781990ebad3",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-mastra",
+      "digest": "sha256:34b251551b232652988de1d86b769752ed53f61809d0743f7e2888365d9a6684",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet",
+      "digest": "sha256:b3d09f2efb09841c328a6412a5544e72f6d7df4ea1a49ff1efe0bdc3bde7a777",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-ms-agent-framework-python",
+      "digest": "sha256:235104a39f8ffad220be80f7bbeb67407116373e5e05422fe5ceccfed77b2cd8",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-pydantic-ai",
+      "digest": "sha256:ff06ac42cf943e576ce3f1cdc23f8e0707307817344ced35e02f4810c5a1bea4",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    },
+    {
+      "image": "ghcr.io/copilotkit/starter-strands-python",
+      "digest": "sha256:18e5778da57c230f510d4aaf760fdc02046297efa8109ba555bcf1590fed37ee",
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+    }
+  ]
+}
