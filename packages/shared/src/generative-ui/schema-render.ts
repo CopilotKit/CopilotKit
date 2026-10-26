@@ -17,6 +17,10 @@ type SchemaManifest = Pick<
   "catalogId" | "components" | "functions" | "targets" | "surfaces"
 >;
 
+/** An own key (shared compiles to ES2017, which has no Object.hasOwn). */
+const hasOwn = (target: object, key: string) =>
+  Object.prototype.hasOwnProperty.call(target, key);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -204,7 +208,7 @@ export function applyDescriptionOverrides<
   for (const [key, description] of Object.entries(overrides)) {
     const [name, prop, ...rest] = key.split(".");
     // Own keys only: "__proto__" must never reach Object.prototype.
-    const component = Object.hasOwn(components, name)
+    const component = hasOwn(components, name)
       ? components[name]
       : undefined;
     if (!component || rest.length > 0) {
@@ -217,7 +221,7 @@ export function applyDescriptionOverrides<
     }
     const properties = component.props.properties;
     const property =
-      isRecord(properties) && Object.hasOwn(properties, prop)
+      isRecord(properties) && hasOwn(properties, prop)
         ? properties[prop]
         : undefined;
     if (!isRecord(property)) {
