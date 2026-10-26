@@ -41,6 +41,7 @@ import {
   decodeViewSubmission,
   decodeViewClosed,
   conversationKeyOf,
+  postedMessageConversationKey,
 } from "./interaction.js";
 import {
   renderBlockKit,
@@ -413,7 +414,12 @@ export class SlackAdapter implements PlatformAdapter {
       ? { ...base, attachments: [{ color: accent, blocks }] }
       : { ...base, blocks };
     const res = await this.client.chat.postMessage(args);
-    return { id: res.ts as string, channel: t.channel, ts: res.ts };
+    return {
+      id: res.ts as string,
+      channel: t.channel,
+      ts: res.ts,
+      threadTs: postedThreadTs(res, t),
+    };
   }
 
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
@@ -785,6 +791,41 @@ export class SlackAdapter implements PlatformAdapter {
     }
   }
 
+  /**
+   * A click on a top-level message is keyed by that message's own ts, not by
+   * the turn that posted it (a slash command's `slash::<user>` scope, or the
+   * mention ts of a flat reply), and a click in a thread by the thread Slack
+   * actually filed the message under. So the engine re-scopes the message's
+   * actions to the key the click will carry. Uses the same scope rules as
+   * {@link decodeInteraction} and {@link decodeReaction}.
+   *
+   * Where the message landed is read off `posted.threadTs` (see
+   * {@link SlackMessageRef}): a thread ts, `null` for a top-level message, or
+   * absent when unknown. Unknown is the case for a ref the caller built, or
+   * one from a reaction (Slack reports no thread for a reacted message); the
+   * message is then taken to be in this turn's thread when it is in this
+   * channel, and top-level when it is in another one.
+   */
+  postedConversationKey(
+    target: BotReplyTarget,
+    posted: MessageRef,
+    kind: "action" | "reaction",
+  ): string | undefined {
+    const t = target as ReplyTarget;
+    const messageTs =
+      typeof posted.ts === "string" && posted.ts ? posted.ts : posted.id;
+    if (!t.channel || !messageTs) return undefined;
+    const postedChannel = channelOf(posted) || t.channel;
+    const threadTs = (posted as SlackMessageRef).threadTs;
+    const scopedTarget: ReplyTarget =
+      typeof threadTs === "string" && threadTs
+        ? { channel: postedChannel, threadTs }
+        : threadTs === null || postedChannel !== t.channel
+          ? { channel: postedChannel }
+          : t;
+    return postedMessageConversationKey(scopedTarget, messageTs, kind);
+  }
+
   decodeInteraction(raw: unknown): InteractionEvent | undefined {
     const event = decodeInteraction(raw);
     if (!event) return undefined;
@@ -1152,6 +1193,31 @@ export function slack(opts: SlackAdapterOptions): SlackAdapter {
 }
 
 /** Read the channel stashed on a MessageRef by `post`/`stream`. */
+/**
+ * A Slack message ref. `threadTs` records where Slack filed the message: the
+ * ts of its thread's root, or `null` for a top-level message. It is absent
+ * when that is not known.
+ */
+export interface SlackMessageRef extends MessageRef {
+  channel?: string;
+  ts?: string;
+  threadTs?: string | null;
+}
+
+/**
+ * The thread Slack filed a posted message under. Slack files a reply to a
+ * reply under its thread's root and reports that root as the posted
+ * message's `thread_ts`; a message posted without one is top-level.
+ */
+function postedThreadTs(
+  res: { message?: { thread_ts?: unknown } },
+  target: ReplyTarget,
+): string | null | undefined {
+  const reported = res.message?.thread_ts;
+  if (typeof reported === "string" && reported) return reported;
+  return target.threadTs ? undefined : null;
+}
+
 function channelOf(ref: MessageRef): string {
   const channel = (ref as { channel?: unknown }).channel;
   return typeof channel === "string" ? channel : "";
