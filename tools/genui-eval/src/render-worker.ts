@@ -240,13 +240,22 @@ async function check(
   return results;
 }
 
-parentPort?.on("message", async (request: RenderRequest) => {
-  let result: RenderResult;
-  try {
-    result = { id: request.id, surfaces: await check(request.surfaces) };
-  } catch (error) {
-    result = { id: request.id, surfaces: [], error: (error as Error).message };
-  }
-  parentPort?.postMessage(result);
+// One request at a time: React's act() scopes must not overlap, or a
+// render may not flush before the check reads the page.
+let queue = Promise.resolve();
+parentPort?.on("message", (request: RenderRequest) => {
+  queue = queue.then(async () => {
+    let result: RenderResult;
+    try {
+      result = { id: request.id, surfaces: await check(request.surfaces) };
+    } catch (error) {
+      result = {
+        id: request.id,
+        surfaces: [],
+        error: (error as Error).message,
+      };
+    }
+    parentPort?.postMessage(result);
+  });
 });
 parentPort?.postMessage({ ready: true });
