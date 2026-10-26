@@ -245,10 +245,15 @@ finds, in this order:
 
 1. The drawer's own `agentId` prop.
 2. The `agentId` of the nearest `<CopilotChatConfigurationProvider>`.
-3. The agent on the provider: `agentId` on `<CopilotKitProvider>`, or `agent`
-   on `<CopilotKit>`. The framework quickstarts use `<CopilotKit agent="...">`.
-   Both providers set the same agent, so the drawer works under either one.
+   `<CopilotKit>` renders one of these around your app with its `agent` prop,
+   so under `<CopilotKit agent="...">` the drawer stops here. Without `agent`,
+   it resolves to `"default"`.
+3. The `agentId` on `<CopilotKitProvider>`.
 4. `"default"`.
+
+Most framework quickstarts use `<CopilotKit agent="...">`. The built-in agent
+and LangGraph quickstarts use `<CopilotKitProvider agentId="...">`. The drawer
+finds the agent under either one.
 
 If your runtime registers several agents, the drawer shows only the threads of
 the agent it resolved. To list another agent's threads, pass that agent's ID:
@@ -267,7 +272,7 @@ the chat to another agent together, set `agentId` once on the shared
 
 | Prop | Description |
 |------|-------------|
-| `agentId` | Agent whose threads to list. Defaults to the chat configuration's agent, then the provider's agent, then `"default"`. See [Which agent's threads the drawer shows](#which-agents-threads-the-drawer-shows). |
+| `agentId` | Agent whose threads to list. Defaults to the chat configuration's agent, then `agentId` on `<CopilotKitProvider>`, then `"default"`. See [Which agent's threads the drawer shows](#which-agents-threads-the-drawer-shows). |
 | `label` | Accessible name for the drawer region and thread listbox. Defaults to `"Threads"`. The redesigned header has no visible title. |
 | `recentLabel` | Section heading shown above the thread list. Defaults to `"Recent Conversations"`. |
 | `onThreadSelect` | Escape hatch to take over thread selection yourself. |

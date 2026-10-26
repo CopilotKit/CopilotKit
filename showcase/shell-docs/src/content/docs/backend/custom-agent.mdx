@@ -190,7 +190,7 @@ abstraction and how to swap in durable persistence, see
 [AgentRunner & persistence](/backend/agent-runner).
 
 <Callout type="info" title="Using CopilotKit Intelligence? Replace runner with intelligence">
-  With Intelligence, Intelligence stores the runs, so remove `runner` and pass
+  Intelligence stores the threads and runs for you, so remove `runner` and pass
   `intelligence` (and `identifyUser`) to `CopilotRuntime` instead. The custom
   agent and its `factory` do not change. See
   [An existing runtime that already has a runner](/intelligence/quickstart#an-existing-runtime-that-already-has-a-runner).
