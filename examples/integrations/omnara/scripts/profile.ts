@@ -4,11 +4,15 @@
 // Omnara agent configs never change once created, so an update uploads a new
 // config and points the profile at it. Existing threads keep their config.
 
-import "dotenv/config";
 import { readFileSync } from "node:fs";
+import nextEnv from "@next/env";
 import { ApiError, bearerToken, createOmnaraClient, sdk } from "@omnara/sdk";
 import { omnaraConfig } from "../lib/omnara-config";
 import { findProfile } from "./omnara";
+
+// Read the env files the app reads: development ones like `npm run dev`, or
+// production ones like `npm start` when NODE_ENV=production.
+nextEnv.loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production");
 
 const dryRun = process.argv.includes("--dry-run");
 const file = "omnara/agent.yaml";

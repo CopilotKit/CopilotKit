@@ -19,6 +19,7 @@ These values stay on the server. Git ignores `.env`.
 | `OMNARA_PROFILE`                                      | Profile name or ID. Defaults to `copilotkit-assistant`                         |
 | `OMNARA_API_URL`                                      | API endpoint for self-hosted Omnara, such as `https://<your-host>/api/v1`      |
 | `CPK_INTELLIGENCE_API_KEY`                            | Project API key for Intelligence                                               |
+| `CPK_APP_USER_ID`                                     | Local developer identity. Intelligence stores your threads under it            |
 | `INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL` | Endpoint overrides for self-hosted Intelligence. Set both together             |
 | `INTELLIGENCE_CHANNEL_NAME`                           | Which declared Channel `npm run channel` hosts, when there are several         |
 | `AGENT_URL`                                           | Alternate AG-UI endpoint that bypasses Omnara and Intelligence                 |

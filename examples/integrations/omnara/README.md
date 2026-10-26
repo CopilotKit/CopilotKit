@@ -140,7 +140,7 @@ Run builds and browser tests separately. Both commands write to `.next`.
 ## Before deployment
 
 This starter uses one local developer identity.
-Every thread uses one anonymous Omnara user, so Omnara attributes messages to your token's account, and Intelligence uses a demo user.
+Every thread uses one anonymous Omnara user, so Omnara attributes messages to your token's account, and Intelligence uses the ID in `CPK_APP_USER_ID`.
 
 Before you deploy the app:
 

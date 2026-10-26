@@ -48,12 +48,18 @@ function Interaction({
 }) {
   const [picked, setPicked] = useState<number[][]>([]);
   const [details, setDetails] = useState<string[]>([]);
-  const [status, setStatus] = useState<string | null>(null);
+  // Omnara raises an interaction again when an answer doesn't reach it, as a
+  // new interrupt. Its card starts unanswered, so the user can retry.
+  const [answered, setAnswered] = useState<{
+    interrupt: Interrupt;
+    status: string;
+  }>();
+  const status = answered?.interrupt === interrupt ? answered.status : null;
   const form = formOf(interrupt);
   if (!form) return null;
   // The SDK logs a failed resume, and page.tsx recovers the thread.
   const done = (label: string, act: () => Promise<unknown>) => () => {
-    setStatus(label);
+    setAnswered({ interrupt, status: label });
     act().catch(() => {});
   };
   const context = form.context?.length ? (

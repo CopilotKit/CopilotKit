@@ -131,6 +131,42 @@ test("denying an Omnara approval resumes the agent", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("an approval raised again after a failed answer can be retried", async ({
+  page,
+}) => {
+  // When an answer doesn't reach Omnara, the adapter raises the still-open
+  // interaction again. Replay the approval run, delivered all at once.
+  let approvalRun: string | undefined;
+  let raisedAgain = false;
+  await page.route("**/agent/default/run", async (route) => {
+    if (!route.request().postDataJSON().resume) {
+      const response = await route.fetch();
+      approvalRun = await response.text();
+      return route.fulfill({ response, body: approvalRun });
+    }
+    if (raisedAgain) return route.fallback();
+    raisedAgain = true;
+    return route.fulfill({
+      contentType: "text/event-stream",
+      body: approvalRun,
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("textbox").fill("Run the tests");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  const approval = page.getByRole("group", {
+    name: "Permission requested for run_command",
+  });
+  await approval.getByRole("button", { name: "Allow", exact: true }).click();
+  await expect.poll(() => raisedAgain).toBe(true);
+  const allow = approval.getByRole("button", { name: "Allow", exact: true });
+  await expect(allow).toBeEnabled();
+  await allow.click();
+  await expect(
+    page.getByText("Approved. The command ran.", { exact: true }),
+  ).toBeVisible();
+});
+
 test("a failed resume doesn't block the next message", async ({ page }) => {
   // Fail the first resume, as a dropped connection or a server restart would.
   let failed = false;

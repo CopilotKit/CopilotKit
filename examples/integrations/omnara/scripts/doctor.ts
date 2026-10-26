@@ -1,12 +1,16 @@
 // `npm run doctor`: is everything this app needs actually in place?
 // Checks the same things the runtime relies on, in the same order it would fail.
 
-import "dotenv/config";
 import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createLicenseContextValue } from "@copilotkit/shared";
+import nextEnv from "@next/env";
 import { ApiError, bearerToken, createOmnaraClient, sdk } from "@omnara/sdk";
 import { DEFAULT_API_URL, DEFAULT_PROFILE } from "../lib/omnara-config";
 import { findProfile } from "./omnara";
+
+// Read the env files the app reads: development ones like `npm run dev`, or
+// production ones like `npm start` when NODE_ENV=production.
+nextEnv.loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production");
 
 const rows: { name: string; ok: boolean; detail: string }[] = [];
 const row = (name: string, ok: boolean, detail: string) =>
@@ -92,6 +96,12 @@ async function checkOmnara() {
 
 await checkOmnara().catch((error: unknown) =>
   row("Omnara API", false, failure(error)),
+);
+
+row(
+  "local app user",
+  Boolean(env.CPK_APP_USER_ID),
+  env.CPK_APP_USER_ID ? "configured" : "set CPK_APP_USER_ID in .env",
 );
 
 if (env.CPK_INTELLIGENCE_API_KEY) {
