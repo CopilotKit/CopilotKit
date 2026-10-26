@@ -194,6 +194,8 @@ describe("optimize offline", () => {
       readFileSync(`${result.outDir}leaderboard.json`, "utf8"),
     );
     expect(board.leaderboard[0].promptTokens.markdown).toBeGreaterThan(0);
+    // Both guides are measured, also when the search runs on one transport.
+    expect(board.leaderboard[0].promptTokens.tool).toBeGreaterThan(0);
     // The fake scores every prompt the same, so nothing is clearly better.
     expect(result.winner).toBeUndefined();
     expect(lines.some((l) => l.startsWith("round 1:"))).toBe(true);

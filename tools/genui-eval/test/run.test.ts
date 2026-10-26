@@ -128,7 +128,7 @@ describe("worstSampleCost", () => {
     });
     const cost = worstSampleCost(priced, "fake:offline", "fake:judge", 1000);
     const expected =
-      (1250 * 1 + MAX_OUTPUT_TOKENS * 2) / 1e6 +
+      (1000 * 1 + MAX_OUTPUT_TOKENS * 2) / 1e6 +
       (JUDGE_ATTEMPTS *
         (MAX_JUDGE_TOKENS.input * 3 + MAX_JUDGE_TOKENS.output * 4)) /
         1e6;

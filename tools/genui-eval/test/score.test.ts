@@ -333,6 +333,45 @@ describe("scoreCode with real rendering", () => {
     expect(check.proseOnly).toBe(false);
   });
 
+  it("fails a surface that references a component it never sent", async () => {
+    const [check] = await checker.check([
+      {
+        surfaceId: "hole",
+        target: "chat",
+        catalogId: "copilotkit://standard",
+        status: "ready",
+        rejected: [],
+        operations: [
+          {
+            version: "v1.0",
+            createSurface: {
+              surfaceId: "hole",
+              components: [
+                { id: "root", component: "Column", children: ["missing"] },
+              ],
+            },
+          },
+        ],
+      } as never,
+    ]);
+    expect(check.missing).toEqual(["missing"]);
+    expect(check.reachable).toEqual(["root"]);
+    const out = {
+      text: "",
+      visibleText: "",
+      toolCalls: [],
+      surfaces: [{ surfaceId: "hole" } as never],
+      rejected: [],
+      parseErrors: [],
+      promptTokens: 0,
+      outputTokens: 0,
+      systemPrompt: "",
+    };
+    expect(
+      scoreCode(cases["cafes-map"], out, [check]).validity.reasons[0],
+    ).toContain('missing component: "missing"');
+  });
+
   it("flags a surface made only of text", async () => {
     const out = {
       text: "",

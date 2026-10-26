@@ -8,6 +8,7 @@ import {
   MAX_OUTPUT_TOKENS,
   costOf,
   estimateSampleCost,
+  tokenBound,
   worstSampleCost,
 } from "./cost";
 import { catalogFor, renderedPrompts, runSample } from "./harness";
@@ -111,11 +112,14 @@ export function promptFingerprint(
   const prompts = renderedPrompts(spec);
   const hashes: RunRecord["promptHashes"] = {};
   const sizes: RunRecord["promptSizes"] = {};
+  /** Token upper bounds of each guide (its UTF-8 bytes), for the budget. */
+  const bounds: Partial<Record<Transport, number>> = {};
   for (const t of transports) {
     hashes[t] = shortHash(prompts[t]);
     sizes[t] = Math.ceil(prompts[t].length / 4);
+    bounds[t] = tokenBound(prompts[t]);
   }
-  return { hashes, sizes };
+  return { hashes, sizes, bounds };
 }
 
 /** The estimated cost of a whole run. */
@@ -152,7 +156,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
   requireKey([...plan.models.map((m) => m.model), plan.judge]);
   const cases = casesOf(options);
   const spec = options.spec;
-  const { hashes, sizes } = promptFingerprint(spec, plan.transports);
+  const { hashes, sizes, bounds } = promptFingerprint(spec, plan.transports);
   const unknownDescriptions = spec ? catalogFor(spec).unknownDescriptions : [];
   const estimatedCostUsd = estimateRun({
     config,
@@ -218,7 +222,9 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
         config,
         task.entry.model,
         plan.judge,
-        (sizes[task.transport] ?? 0) + Math.ceil(conversation.length / 4) + 500,
+        // Upper bounds: the guide and the conversation in bytes, plus room for
+        // the agent's own system text and tool schemas.
+        (bounds[task.transport] ?? 0) + tokenBound(conversation) + 4000,
         task.entry.params?.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
       );
       // While other samples hold reservations, wait for them: what they do
@@ -292,7 +298,7 @@ async function runTask(
     out.parseErrors.push(`render check failed: ${(error as Error).message}`);
   }
   const code = scoreCode(task.case, out, checks);
-  const verdict = await judgeSample(ctx.judgeModel, task.case, out);
+  const verdict = await judgeSample(ctx.judgeModel, task.case, out, checks);
   const judgeScore = verdict.judgement.score;
   const qualityScore = verdict.quality.score;
   const judgementReasons = [...code.judgement.reasons];
