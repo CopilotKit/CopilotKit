@@ -167,8 +167,14 @@ function childrenOf(
     if (typeof componentId === "string" && typeof path === "string") {
       const listPath = resolvePath(path, base);
       const list = data.get(listPath);
-      return Array.isArray(list) && list.length > 0
-        ? [{ id: componentId, base: `${listPath}/0` }]
+      // Every item: items can bind different children. At most 50, enough to see each type.
+      return Array.isArray(list)
+        ? list
+            .slice(0, 50)
+            .map((_, index) => ({
+              id: componentId,
+              base: `${listPath}/${index}`,
+            }))
         : [];
     }
     if (typeof componentId === "string") return [{ id: componentId, base }];

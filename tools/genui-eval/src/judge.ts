@@ -69,7 +69,8 @@ export function outlineSurfaces(out: SampleOutput, limit = 6000) {
 export function judgePrompt(c: EvalCase, out: SampleOutput) {
   // The judge's input is capped for the budget: about 4 characters a token.
   const limit = MAX_JUDGE_TOKENS.input * 4 - JUDGE_RUBRIC.length - 200;
-  const prose = out.text.replace(/```a2ui[\s\S]*?```/g, "[surface]").trim();
+  // What the user reads: fences become their lifted prose and surface markers.
+  const prose = out.visibleText.trim();
   const text = [
     `User request: ${c.message}`,
     `Reply prose:\n${prose.slice(0, Math.floor(limit / 3)) || "(none)"}`,

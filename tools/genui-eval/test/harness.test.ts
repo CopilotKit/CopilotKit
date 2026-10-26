@@ -140,6 +140,36 @@ describe("runSample with a named target", () => {
   });
 });
 
+describe("runSample, what the user sees", () => {
+  const unit = () =>
+    createFakeModel(
+      "fake:unit",
+      new URL("./fixtures/", import.meta.url).pathname,
+    );
+
+  it("keeps the prose the client lifts out of a fence", async () => {
+    const out = await runSample({
+      case: cases["capital-of-france"],
+      transport: "markdown",
+      entry,
+      model: unit(),
+    });
+    expect(out.visibleText).toContain("Paris is the capital of France.");
+  });
+
+  it("rejects a renderer function call from the model", async () => {
+    const out = await runSample({
+      case: cases["explain-closures"],
+      transport: "markdown",
+      entry,
+      model: unit(),
+    });
+    expect(out.rejected.map((r) => r.reason).join(" ")).toContain(
+      "callRendererFunction",
+    );
+  });
+});
+
 describe("applyPatch", () => {
   it("adds to a list, replaces a field, and removes a key", () => {
     const target = { operations: [1], status: "streaming", extra: true };

@@ -103,18 +103,19 @@ export function seededRandom(seed: number) {
   };
 }
 
-/** Pooled validity, fidelity and judgement passes of some samples, as one rate. */
+/**
+ * The share of samples that pass validity, fidelity and judgement all at
+ * once, with its interval. One trial per sample: the tiers of one answer go
+ * together, so counting them as three trials would overstate confidence.
+ * Ungraded counts as failed.
+ */
 function pooledRate(samples: readonly SampleRecord[]) {
-  let passes = 0;
-  let total = 0;
-  for (const s of samples) {
-    // Ungraded counts as failed, as in sampleScore.
-    for (const t of [s.tiers.validity, s.tiers.fidelity, s.tiers.judgement]) {
-      total++;
-      if (t.pass === true) passes++;
-    }
-  }
-  return wilson(passes, total);
+  const passes = samples.filter((s) =>
+    [s.tiers.validity, s.tiers.fidelity, s.tiers.judgement].every(
+      (t) => t.pass === true,
+    ),
+  ).length;
+  return wilson(passes, samples.length);
 }
 
 /**

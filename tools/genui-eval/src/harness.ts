@@ -16,6 +16,7 @@ import {
   generativeUIGuideFeatures,
   readCopilotKitUIEnvelope,
   renderGenerativeUISchema,
+  validateOperation,
 } from "@copilotkit/shared";
 import type {
   GenerativeUIPromptSpec,
@@ -34,6 +35,7 @@ import {
   buildGenerativeUIEnvelope,
   buildMarkdownSurfaces,
   createGenerativeUIDispatcher,
+  fenceKey,
   standardUI,
 } from "./engine";
 import type { GenerativeUI } from "./engine";
@@ -44,6 +46,11 @@ import { isFakeModel } from "./models";
 export interface SampleOutput {
   /** The text of the reply. */
   text: string;
+  /**
+   * The reply as the user reads it: prose, with each fence replaced by the
+   * prose the client lifts out of it and a marker per surface.
+   */
+  visibleText: string;
   /** The arguments of each render_ui call (tool transport). */
   toolCalls: unknown[];
   /** The surfaces as the client receives them. */
@@ -185,6 +192,32 @@ function dedupeRejections(rejected: GenerativeUIRejectedOperation[]) {
     seen.add(key);
     return true;
   });
+}
+
+/**
+ * The reply as the chat shows it: each a2ui fence becomes the prose the
+ * client lifts out of it and a marker for each surface it renders.
+ */
+function visibleReply(
+  text: string,
+  fences: ReadonlyMap<
+    string,
+    ReadonlyArray<{ kind: string; markdown?: string; surfaceId?: string }>
+  >,
+) {
+  return splitA2UIMarkdown(text)
+    .map((segment) => {
+      if (segment.type !== "a2ui") return segment.text;
+      const blocks = fences.get(fenceKey("reply", segment.index)) ?? [];
+      return blocks
+        .map((block) =>
+          block.kind === "markdown"
+            ? (block.markdown ?? "")
+            : `[surface ${block.surfaceId}]`,
+        )
+        .join("\n");
+    })
+    .join("");
 }
 
 /** The lines of each fence that are not valid JSON. */
@@ -419,6 +452,7 @@ export async function runSample(input: {
     if (result.reason) parseErrors.push(`render_ui rejected: ${result.reason}`);
   }
   let surfaces: GenerativeUISurfaceContent[];
+  let visibleText = collected.text;
   const targetRejections: GenerativeUIRejectedOperation[] = [];
   if (input.transport === "markdown") {
     parseErrors.push(...fenceParseErrors(collected.text));
@@ -427,11 +461,28 @@ export async function runSample(input: {
       role: "assistant",
       content: collected.text,
     } as Message;
-    const built = buildMarkdownSurfaces([message], {
+    const result = buildMarkdownSurfaces([message], {
       ui: catalog.ui,
       functions: {},
       running: false,
-    }).surfaces;
+    });
+    const built = result.surfaces;
+    visibleText = visibleReply(collected.text, result.fences);
+    // Calls of renderer functions from the model: the client validates
+    // them like any operation (today the agent path is off, so they fail).
+    for (const call of result.functionCalls) {
+      const check = validateOperation(call.operation, {
+        manifest: catalog.manifest,
+        knownSurfaces: new Set(),
+        functions: catalog.manifest.functions,
+      });
+      if (check.ok === false) {
+        targetRejections.push({
+          index: -1,
+          reason: `callRendererFunction: ${check.reason}`,
+        });
+      }
+    }
     // A fence for a target the page does not have shows nothing in the
     // client, so it is a rejected surface, not rendered UI.
     const targets = new Set(
@@ -449,6 +500,7 @@ export async function runSample(input: {
   }
   return {
     text: collected.text,
+    visibleText,
     toolCalls,
     surfaces,
     rejected: dedupeRejections([

@@ -13,6 +13,9 @@ export {
   buildCatalogManifest,
   buildGenerativeUIEnvelope,
 } from "../../../packages/react-core/src/v2/generative-ui/manifest";
-export { buildMarkdownSurfaces } from "../../../packages/react-core/src/v2/generative-ui/markdown/source";
+export {
+  buildMarkdownSurfaces,
+  fenceKey,
+} from "../../../packages/react-core/src/v2/generative-ui/markdown/source";
 export { GenerativeUISurfaceManager } from "../../../packages/react-core/src/v2/generative-ui/surface-manager";
 export { createGenerativeUIDispatcher } from "../../../packages/react-core/src/v2/generative-ui/dispatcher";
