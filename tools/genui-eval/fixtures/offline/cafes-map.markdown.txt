@@ -1,0 +1,10 @@
+Here are four classic Viennese coffee houses.
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"cafes","dataModel":{"selected":null},"components":[{"id":"root","component":"Map","markers":[{"label":"Café Central","lat":48.2104,"lng":16.3655},{"label":"Café Sacher","lat":48.2039,"lng":16.3693},{"label":"Café Landtmann","lat":48.2118,"lng":16.3614},{"label":"Café Hawelka","lat":48.2079,"lng":16.3708}],"selected":{"@path":"/selected"}}]}}
+```
+
+- **Café Central**: grand hall and literary history.
+- **Café Sacher**: home of the Sachertorte.
+- **Café Landtmann**: a Ringstrasse classic.
+- **Café Hawelka**: a bohemian favourite.
