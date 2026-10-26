@@ -111,7 +111,8 @@ async function commandRun(config: EvalConfig, values: Values) {
     throw new Error(`--split must be both, train or heldout`);
   const spec = values.spec ? loadSpec(values.spec) : undefined;
   const budgetUsd = num(values.budget, "budget") ?? config.budgetUsd;
-  const splits = split === "both" ? (["train", "heldout"] as const) : [split];
+  const splits: Array<"train" | "heldout"> =
+    split === "both" ? ["train", "heldout"] : [split];
   const caseCount = splits.reduce(
     (n, s) => n + selectCases(loadCases(s), plan.cases).length,
     0,
