@@ -1,0 +1,47 @@
+name: test / ms-agent-dotnet starter regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "examples/integrations/ms-agent-framework-dotnet/agent/**"
+      - "examples/integrations/ms-agent-framework-dotnet/agent-tests/**"
+      - ".github/workflows/test_ms-agent-dotnet-starter-regression.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: "9.0.x"
+      - name: Record tested source
+        run: |
+          git rev-parse HEAD
+          git hash-object examples/integrations/ms-agent-framework-dotnet/agent/SharedStateAgent.cs
+      - name: Restore regression executable
+        run: dotnet restore examples/integrations/ms-agent-framework-dotnet/agent-tests/SharedStateAgent.RegressionTests.csproj
+      - name: Compile regression executable
+        run: dotnet build examples/integrations/ms-agent-framework-dotnet/agent-tests/SharedStateAgent.RegressionTests.csproj --configuration Release --no-restore --maxcpucount:1
+      - name: Run wrapper regression assertions
+        run: dotnet run --project examples/integrations/ms-agent-framework-dotnet/agent-tests/SharedStateAgent.RegressionTests.csproj --configuration Release --no-build --no-restore
