@@ -39,6 +39,9 @@ export function scoreCode(
   for (const check of checks) {
     if (check.crash) validity.push(`render crash: ${check.crash}`);
     else if (!check.rendered) validity.push("surface did not render (no root)");
+    for (const id of check.missing ?? []) {
+      validity.push(`missing component: "${id}" is referenced but never sent`);
+    }
   }
 
   const fidelity: string[] = [];

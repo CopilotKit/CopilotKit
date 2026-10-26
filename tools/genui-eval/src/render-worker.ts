@@ -197,6 +197,8 @@ function reachableTypes(
   data: { get(path: string): unknown },
 ) {
   const types: string[] = [];
+  const missing: string[] = [];
+  const reached: string[] = [];
   let interactive = false;
   const seen = new Set<string>();
   const queue: Array<{ id: string; base: string | undefined }> = [
@@ -208,7 +210,11 @@ function reachableTypes(
     if (seen.has(key) || seen.size > 2000) continue;
     seen.add(key);
     const found = model.get(id);
-    if (!found) continue;
+    if (!found) {
+      if (!missing.includes(id)) missing.push(id);
+      continue;
+    }
+    if (!reached.includes(id)) reached.push(id);
     if (!types.includes(found.type)) types.push(found.type);
     const definition = ui.components.get(found.type);
     if (!definition) continue;
@@ -251,7 +257,7 @@ function reachableTypes(
       }
     }
   }
-  return { types, interactive };
+  return { types, interactive, missing, reachable: reached };
 }
 
 installDom();
@@ -398,6 +404,8 @@ async function check(
       errors,
       rejected,
       components,
+      missing: reach.missing,
+      reachable: reach.reachable,
       proseOnly:
         !reach.interactive &&
         components.length > 0 &&

@@ -18,6 +18,10 @@ export interface SurfaceCheck {
   crash?: string;
   /** The reply deleted the surface on purpose: it is not part of the final UI. */
   deleted?: boolean;
+  /** Ids a rendered component references that the reply never sent. */
+  missing?: string[];
+  /** The ids of the components that render (reachable from the root). */
+  reachable?: string[];
 }
 
 export interface RenderRequest {

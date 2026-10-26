@@ -7,7 +7,7 @@ import type { GenerativeUIPromptSpec } from "@copilotkit/shared";
 import { loadCases, selectCases } from "./cases";
 import type { EvalCase } from "./cases";
 import type { EvalConfig, ResolvedPlan, Transport } from "./config";
-import { costOf } from "./cost";
+import { costOf, tokenBound } from "./cost";
 import { renderedPrompts } from "./harness";
 import { createLanguageModel } from "./models";
 import {
@@ -303,7 +303,8 @@ export async function optimize(options: OptimizeOptions) {
       spec,
       perCase,
       trainScore: meanOf(perCase),
-      promptTokens: promptFingerprint(spec, plan.transports).sizes,
+      // Both guides, whatever the search runs on: a winner exports both.
+      promptTokens: promptFingerprint(spec, ["markdown", "tool"]).sizes,
       samples,
     };
     writeFileSync(
@@ -369,7 +370,7 @@ export async function optimize(options: OptimizeOptions) {
     const reflectionEstimate = costOf(
       config,
       plan.reflection,
-      Math.ceil(reflectionPrompt(parent.spec, failing, tokenLimits).length / 4),
+      tokenBound(reflectionPrompt(parent.spec, failing, tokenLimits)),
       reflectionOutputCap(parent.spec),
     );
     if (reflectionEstimate > remaining() - examReserve) {

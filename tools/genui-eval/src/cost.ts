@@ -8,12 +8,16 @@ export const EXPECTED_JUDGE_TOKENS = { input: 2500, output: 120 };
 
 /** The most a reply may take: every model call is capped, so a sample's worst case is known. */
 export const MAX_OUTPUT_TOKENS = 8000;
-/** The most a judge reply may take, and the most its prompt may be (the outline is cut). */
-export const MAX_JUDGE_TOKENS = { input: 6000, output: 400 };
+/** The most a judge reply may take, and the most its prompt may be in bytes (the prompt is cut to fit). */
+export const MAX_JUDGE_TOKENS = { input: 12000, output: 400 };
 /** Attempts of the judge per sample (one retry). */
 export const JUDGE_ATTEMPTS = 2;
-/** Margin on the prompt size, which is estimated from characters. */
-const PROMPT_MARGIN = 1.25;
+/**
+ * An upper bound on the tokens of a text: its UTF-8 byte length. A
+ * byte-level BPE token covers at least one byte, so no tokenizer of the
+ * models we use produces more tokens than bytes, whatever the language.
+ */
+export const tokenBound = (text: string) => Buffer.byteLength(text, "utf8");
 
 /** USD per million tokens of a model. Fakes are free unless the config prices them. */
 export function priceOf(config: EvalConfig, model: string) {
@@ -55,7 +59,7 @@ export function estimateSampleCost(
 }
 
 /**
- * The most one sample can cost: the prompt (with a margin), the capped
+ * The most one sample can cost: the prompt (its token upper bound), the capped
  * reply, and every judge attempt at its cap. The runner reserves this
  * before it starts a sample, so the budget holds even when replies run
  * long or the judge retries.
@@ -68,12 +72,7 @@ export function worstSampleCost(
   maxOutputTokens = MAX_OUTPUT_TOKENS,
 ) {
   return (
-    costOf(
-      config,
-      model,
-      Math.ceil(promptTokens * PROMPT_MARGIN),
-      maxOutputTokens,
-    ) +
+    costOf(config, model, promptTokens, maxOutputTokens) +
     JUDGE_ATTEMPTS *
       costOf(config, judge, MAX_JUDGE_TOKENS.input, MAX_JUDGE_TOKENS.output)
   );

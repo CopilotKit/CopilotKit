@@ -46,7 +46,11 @@ Reply with JSON only: {"judgement":{"score":<0..1>,"reason":"<one line>"},"quali
  * surface is left out. One line per component with its props, then the
  * data writes.
  */
-export function outlineSurfaces(out: SampleOutput, limit = 6000) {
+export function outlineSurfaces(
+  out: SampleOutput,
+  limit = 6000,
+  reachable?: ReadonlyMap<string, readonly string[]>,
+) {
   const lines: string[] = [];
   for (const surface of out.surfaces) {
     const components = new Map<string, Record<string, unknown>>();
@@ -70,7 +74,10 @@ export function outlineSurfaces(out: SampleOutput, limit = 6000) {
     }
     if (deleted) continue;
     lines.push(`surface ${surface.surfaceId}:`);
+    // Only what renders: components the root reaches, when the render check knows.
+    const shown = reachable?.get(surface.surfaceId);
     for (const { id, component, ...props } of components.values()) {
+      if (shown && !shown.includes(String(id))) continue;
       lines.push(`  ${id}: ${component} ${JSON.stringify(props)}`);
     }
     lines.push(...data.map((line) => `  ${line}`));
@@ -79,18 +86,39 @@ export function outlineSurfaces(out: SampleOutput, limit = 6000) {
   return text.length > limit ? `${text.slice(0, limit)}\n…` : text;
 }
 
-/** The judge prompt of one sample. */
-export function judgePrompt(c: EvalCase, out: SampleOutput) {
-  // The judge's input is capped for the budget: about 4 characters a token.
-  const limit = MAX_JUDGE_TOKENS.input * 4 - JUDGE_RUBRIC.length - 200;
+/** `text` cut to at most `maxBytes` UTF-8 bytes. */
+function cutToBytes(text: string, maxBytes: number) {
+  const bytes = Buffer.from(text, "utf8");
+  return bytes.length <= maxBytes
+    ? text
+    : bytes.subarray(0, maxBytes).toString("utf8");
+}
+
+/**
+ * The judge prompt of one sample. With the render checks, the outline shows
+ * only the components that render. The prompt with the rubric stays within
+ * MAX_JUDGE_TOKENS.input bytes, an upper bound on its tokens.
+ */
+export function judgePrompt(
+  c: EvalCase,
+  out: SampleOutput,
+  checks: ReadonlyArray<{ surfaceId: string; reachable?: string[] }> = [],
+) {
+  const limit =
+    MAX_JUDGE_TOKENS.input - Buffer.byteLength(JUDGE_RUBRIC, "utf8") - 200;
+  const reachable = new Map(
+    checks
+      .filter((check) => check.reachable)
+      .map((check) => [check.surfaceId, check.reachable!]),
+  );
   // What the user reads: fences become their lifted prose and surface markers.
   const prose = out.visibleText.trim();
   const text = [
-    `User request: ${c.message}`,
-    `Reply prose:\n${prose.slice(0, Math.floor(limit / 3)) || "(none)"}`,
-    `Surfaces:\n${out.surfaces.length > 0 ? outlineSurfaces(out, Math.floor(limit / 2)) : "(none)"}`,
+    `User request: ${cutToBytes(c.message, Math.floor(limit / 6))}`,
+    `Reply prose:\n${cutToBytes(prose, Math.floor(limit / 3)) || "(none)"}`,
+    `Surfaces:\n${out.surfaces.length > 0 ? cutToBytes(outlineSurfaces(out, limit, reachable), Math.floor(limit / 2)) : "(none)"}`,
   ].join("\n\n");
-  return text.slice(0, limit);
+  return cutToBytes(text, limit);
 }
 
 /** Parses the judge's JSON reply, also when it is wrapped in a fence. */
@@ -114,8 +142,9 @@ export async function judgeSample(
   model: LanguageModel,
   c: EvalCase,
   out: SampleOutput,
+  checks: ReadonlyArray<{ surfaceId: string; reachable?: string[] }> = [],
 ): Promise<JudgeResult & { costTokens: { input: number; output: number } }> {
-  const prompt = judgePrompt(c, out);
+  const prompt = judgePrompt(c, out, checks);
   let input = 0;
   let output = 0;
   for (let attempt = 0; attempt < 2; attempt++) {

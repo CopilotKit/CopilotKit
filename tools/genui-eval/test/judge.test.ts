@@ -119,6 +119,51 @@ describe("judge", () => {
     expect(text).not.toContain("gone");
   });
 
+  it("leaves components out of the outline that do not render", async () => {
+    const { outlineSurfaces } = await import("../src/judge");
+    const text = outlineSurfaces(
+      {
+        ...out,
+        surfaces: [
+          {
+            surfaceId: "s",
+            target: "chat",
+            catalogId: "x",
+            status: "ready",
+            rejected: [],
+            operations: [
+              {
+                version: "v1.0",
+                createSurface: {
+                  surfaceId: "s",
+                  components: [
+                    { id: "root", component: "Form", children: [] },
+                    { id: "orphan", component: "Slider" },
+                  ],
+                },
+              } as never,
+            ],
+          },
+        ],
+      },
+      6000,
+      new Map([["s", ["root"]]]),
+    );
+    expect(text).toContain("root: Form");
+    expect(text).not.toContain("Slider");
+  });
+
+  it("keeps the judge prompt within its byte budget, also for dense text", async () => {
+    const { MAX_JUDGE_TOKENS } = await import("../src/cost");
+    const prompt = judgePrompt(
+      { ...c, message: "汉".repeat(50_000) },
+      { ...out, visibleText: "字".repeat(50_000) },
+    );
+    expect(Buffer.byteLength(prompt, "utf8")).toBeLessThanOrEqual(
+      MAX_JUDGE_TOKENS.input,
+    );
+  });
+
   it("parses a verdict, also inside a fence", () => {
     const v = parseVerdict(
       '```json\n{"judgement":{"score":1,"reason":"a"},"quality":{"score":0.5,"reason":"b"}}\n```',
