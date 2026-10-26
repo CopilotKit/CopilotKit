@@ -5,16 +5,19 @@ on:
     branches: [main]
     paths:
       - "showcase/eval-webhook/**"
+      - ".github/workflows/showcase_eval-webhook_build.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -27,11 +30,81 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      # Commit publication is independent of live deployment eligibility.
+      - name: Build and push commit tag
+        id: publish
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: showcase/eval-webhook
           push: true
-          tags: |
-            ghcr.io/copilotkit/showcase-eval-webhook:latest
-            ghcr.io/copilotkit/showcase-eval-webhook:${{ github.sha }}
+          tags: ghcr.io/copilotkit/showcase-eval-webhook:${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+
+  verify-image-refs:
+    # An operator hold must not prevent commit-tag publication above.
+    if: github.ref == 'refs/heads/main' && vars.SHOWCASE_AUTO_REDEPLOY != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.x
+      - name: Verify Railway image refs
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: ${{ vars.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN: ${{ secrets.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN }}
+          SHOWCASE_REGISTRY_CONSUMER: image-gate
+        run: |
+          # Match the existing main workflow's static/dynamic registry binding.
+          if [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] && [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            unset SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE
+          elif [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] || [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            echo "::error::Configure both registry URL and token, or neither."
+            exit 1
+          fi
+          npx --yes tsx@4.21.0 showcase/scripts/verify-railway-image-refs.ts
+
+  advance-latest:
+    needs: [build, verify-image-refs]
+    # latest means eligible for deployment. Failed/skipped/cancelled policy,
+    # non-main dispatches and the operator kill switch must all hold the tag.
+    if: >-
+      ${{ !cancelled()
+          && github.ref == 'refs/heads/main'
+          && needs.build.result == 'success'
+          && needs['verify-image-refs'].result == 'success'
+          && vars.SHOWCASE_AUTO_REDEPLOY != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: showcase-eval-webhook-latest
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22.x
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Advance eligible webhook :latest
+        env:
+          IMAGES: ghcr.io/copilotkit/showcase-eval-webhook
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Reuse monotonic ancestry checks and digest-preserving retagging.
+        # This workflow never redeploys a Railway service.
+        run: npx --yes tsx@4.21.0 showcase/scripts/advance-latest-tag.ts
