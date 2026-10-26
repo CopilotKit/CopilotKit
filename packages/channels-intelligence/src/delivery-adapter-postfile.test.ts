@@ -461,7 +461,7 @@ describe("managed JSX delivery", () => {
       tools: new Map(),
       toolDescriptors: [],
       context: [],
-      registerWaiter: () => {},
+      registerWaiter: () => () => {},
       interruptHandlers: new Map(),
       state: new MemoryStore(),
       user: null,
