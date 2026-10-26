@@ -127,6 +127,48 @@ class TransitionTest(unittest.TestCase):
             with self.subTest(overrides=overrides), self.assertRaises(ValueError):
                 self.m.validate_packet({**original, **overrides}, allowed, "promote")
 
+    def dotnet_packet(self):
+        p = self.blocker_packet()
+        harness = p["images"].pop()
+        p["scope"] = "pni-dotnet-build-recovery-20261026"
+        p["held"].append(harness["image"])
+        p["heldLatest"][harness["image"]] = harness["previousLatest"]
+        p["acceptanceEvidence"] = {"serviceId": "1b4c5296-97f6-463d-90af-6e04d7919957", "deploymentId": "ca58cfa2-0f2a-4f30-a6e4-b84353e85d1e", "instanceId": "04901091-7d1f-4711-b50d-57bc8728baef", "runs": 3, "retries": 0, "outcomes": ["PASS", "PASS", "PASS"], "receiptSha256": "a" * 64, "operationsSha256": "b" * 64, "nodeVerificationSha256": "c" * 64}
+        return p
+
+    def test_exact_dotnet_recovery_preserves_harness_and_every_other_image(self):
+        p = self.dotnet_packet()
+        allowed = {p["images"][0]["image"]} | set(p["held"])
+        self.m.validate_branch(p, "refs/heads/codex/staging-wire-accepted-images")
+        for mode in ("inspect", "promote"):
+            self.assertEqual(self.m.validate_packet(p, allowed, mode), p["images"])
+
+    def test_dotnet_recovery_requires_all_held_images_and_pointer_guards(self):
+        p = self.dotnet_packet()
+        allowed = {p["images"][0]["image"]} | set(p["held"])
+        for change in [{"held": p["held"][:1]}, {"heldLatest": {}}, {"acceptanceEvidence": {}}]:
+            for mode in ("inspect", "promote"):
+                with self.subTest(change=change, mode=mode), self.assertRaises(ValueError):
+                    self.m.validate_packet({**p, **change}, allowed, mode)
+
+    def test_dotnet_recovery_rejects_wrong_fixed_candidate_and_harness_pointer(self):
+        p = self.dotnet_packet()
+        allowed = {p["images"][0]["image"]} | set(p["held"])
+        for field in ("digest", "revision", "previousLatest"):
+            q = copy.deepcopy(p)
+            q["images"][0][field] = "b" * 40 if field == "revision" else "sha256:" + "a" * 64
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                self.m.validate_packet(q, allowed, "inspect")
+        q = copy.deepcopy(p)
+        q["heldLatest"]["ghcr.io/copilotkit/showcase-harness"] = "sha256:" + "a" * 64
+        with self.assertRaises(ValueError): self.m.validate_packet(q, allowed, "inspect")
+
+    def test_dotnet_recovery_rejects_harness_promotion(self):
+        p = self.dotnet_packet()
+        allowed = {p["images"][0]["image"]} | set(p["held"])
+        p["images"] = self.blocker_packet()["images"]
+        with self.assertRaises(ValueError): self.m.validate_packet(p, allowed, "promote")
+
     def test_packet_scope_cannot_cross_reviewed_branches(self):
         cases = [(self.packet, "refs/heads/codex/staging-latest-policy-transition"), (self.blocker_packet(), "refs/heads/codex/staging-wire-accepted-images")]
         for packet, expected in cases:
