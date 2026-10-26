@@ -127,6 +127,20 @@ describe("applyDescriptionOverrides", () => {
   });
 });
 
+describe("applyDescriptionOverrides with inherited keys", () => {
+  it("treats __proto__ as unknown and never touches Object.prototype", () => {
+    const { unknown } = applyDescriptionOverrides(manifest, {
+      __proto__: "polluted",
+      "Text.__proto__": "polluted",
+      "Text.constructor": "polluted",
+    } as Record<string, string>);
+    expect(({} as { description?: string }).description).toBeUndefined();
+    expect(unknown).toEqual(
+      expect.arrayContaining(["Text.__proto__", "Text.constructor"]),
+    );
+  });
+});
+
 describe("schemaCoverage", () => {
   it("reports a prop that the text leaves out", () => {
     const text = renderGenerativeUISchema(
