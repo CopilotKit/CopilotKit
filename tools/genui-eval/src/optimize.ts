@@ -20,9 +20,35 @@ import { overallScore, tierRates } from "./report";
 import type { TierRates } from "./report";
 import { RESULTS_DIR, newRunId, readRun } from "./results";
 import type { SampleRecord } from "./results";
-import { promptFingerprint, runEval } from "./run";
+import { estimateRun, promptFingerprint, runEval } from "./run";
 import { clearlyDifferent, wilson } from "./stats";
 import type { Rate } from "./stats";
+
+/** Prompts scored on the held-out cases: the baseline and the best three. */
+export const FINALISTS = 4;
+
+/**
+ * The estimated cost of a search: the baseline on the training cases, each
+ * round's reflection, batch and full training run, and the exam.
+ */
+export function estimateOptimize(
+  options: Pick<OptimizeOptions, "config" | "plan" | "rounds" | "batchSize">,
+) {
+  const train = selectCases(loadCases("train"), options.plan.cases).length;
+  const heldout = selectCases(loadCases("heldout"), options.plan.cases).length;
+  const run = (caseCount: number) =>
+    estimateRun({ config: options.config, plan: options.plan, caseCount });
+  const spec = defaultGenerativeUIPromptSpec();
+  const reflection = costOf(
+    options.config,
+    options.plan.reflection,
+    Math.ceil(JSON.stringify(spec).length / 4) + 6000,
+    reflectionOutputCap(spec),
+  );
+  const perRound =
+    reflection + run(Math.min(options.batchSize ?? 6, train)) + run(train);
+  return run(train) + options.rounds * perRound + FINALISTS * run(heldout);
+}
 
 /** One prompt candidate of the search. */
 export interface Candidate {
@@ -228,6 +254,15 @@ export async function optimize(options: OptimizeOptions) {
   const reflectionModel = createLanguageModel({ model: plan.reflection });
   let spent = 0;
   const remaining = () => options.budgetUsd - spent;
+  // The exam (the baseline and three finalists on the held-out cases) is
+  // reserved up front, so training can never spend what acceptance needs.
+  const examReserve =
+    FINALISTS * estimateRun({ config, plan, caseCount: heldout.length });
+  if (examReserve >= options.budgetUsd) {
+    throw new Error(
+      `The budget ($${options.budgetUsd.toFixed(2)}) does not cover the held-out exam (about $${examReserve.toFixed(2)}).`,
+    );
+  }
 
   /** Scores a spec on some cases; returns the samples, or undefined when the budget ran out. */
   const evaluate = async (
@@ -235,12 +270,15 @@ export async function optimize(options: OptimizeOptions) {
     cases: EvalCase[],
     split: "train" | "heldout",
   ) => {
-    if (remaining() <= 0) return undefined;
+    // Training may use what the exam does not need; the exam may use it all.
+    const available =
+      split === "train" ? remaining() - examReserve : remaining();
+    if (available <= 0) return undefined;
     const run = await runEval({
       config,
       plan,
       split,
-      budgetUsd: remaining(),
+      budgetUsd: available,
       spec,
       kind: "optimize-candidate",
       root,
@@ -334,7 +372,7 @@ export async function optimize(options: OptimizeOptions) {
       Math.ceil(reflectionPrompt(parent.spec, failing, tokenLimits).length / 4),
       reflectionOutputCap(parent.spec),
     );
-    if (reflectionEstimate > remaining()) {
+    if (reflectionEstimate > remaining() - examReserve) {
       log(
         `round ${round}: the budget left does not cover a reflection; stopping`,
       );
@@ -395,7 +433,7 @@ export async function optimize(options: OptimizeOptions) {
     ...rankCandidates(
       pool.filter((c) => c !== baseline),
       (c) => c.trainScore,
-    ).slice(0, 3),
+    ).slice(0, FINALISTS - 1),
   ];
   for (const candidate of finalists) {
     const samples = await evaluate(candidate.spec, heldout, "heldout");

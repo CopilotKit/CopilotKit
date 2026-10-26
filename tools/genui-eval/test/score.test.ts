@@ -304,6 +304,35 @@ describe("scoreCode with real rendering", () => {
     expect(check.components).toEqual(["Tabs", "Slider"]);
   });
 
+  it("does not call a list with an action prose", async () => {
+    const [check] = await checker.check([
+      {
+        surfaceId: "pick",
+        target: "chat",
+        catalogId: "copilotkit://standard",
+        status: "ready",
+        rejected: [],
+        operations: [
+          {
+            version: "v1.0",
+            createSurface: {
+              surfaceId: "pick",
+              components: [
+                {
+                  id: "root",
+                  component: "List",
+                  items: ["Monthly", "Annual"],
+                  action: { event: { name: "pick" } },
+                },
+              ],
+            },
+          },
+        ],
+      } as never,
+    ]);
+    expect(check.proseOnly).toBe(false);
+  });
+
   it("flags a surface made only of text", async () => {
     const out = {
       text: "",

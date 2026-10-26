@@ -219,6 +219,37 @@ describe("writeWinnerFiles", () => {
   });
 });
 
+describe("optimize exam reserve", () => {
+  it("refuses a budget that cannot pay for the held-out exam", async () => {
+    const config = defineEvalConfig({
+      models: [{ id: "fake", model: "fake:offline" }],
+      presets: {
+        offline: {
+          models: ["fake"],
+          cases: "all",
+          samples: 1,
+          judge: "fake:judge",
+          reflection: "fake:reflect",
+        },
+      },
+      transports: ["markdown"],
+      budgetUsd: 1,
+      judge: { model: "fake:judge" },
+      reflection: { model: "fake:reflect" },
+      prices: { "fake:offline": { input: 100, output: 100 } },
+    });
+    await expect(
+      optimize({
+        config,
+        plan: resolvePlan(config, "offline"),
+        budgetUsd: 0.5,
+        rounds: 1,
+        root: tmpdir() + "/",
+      }),
+    ).rejects.toThrow("does not cover the held-out exam");
+  });
+});
+
 describe("optimize budget", () => {
   it("stops before a reflection the budget cannot cover", async () => {
     const root = `${mkdtempSync(join(tmpdir(), "genui-eval-optb-"))}/`;
