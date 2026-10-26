@@ -1019,19 +1019,6 @@ export class RunHandler {
           };
 
           const executableTool = tool ?? getWildcardTool();
-          // Handlerless frontend tools (e.g. chart components) must recreate
-          // missing empty results using their original call IDs. Handlers still
-          // run only for HITL prompts or an explicit "resume-pending" opt-in,
-          // so restoring history never repeats other tools' side effects.
-          if (
-            toolExecutionMode === "restore" &&
-            (!executableTool ||
-              (executableTool.handler &&
-                executableTool.type !== "human-in-the-loop" &&
-                executableTool.reconnectBehavior !== "resume-pending"))
-          ) {
-            continue;
-          }
           const executionKey = JSON.stringify([threadId, toolCall.id]);
           if (
             signal?.aborted ||
@@ -1052,6 +1039,22 @@ export class RunHandler {
             agent.messages.find(
               (m) => m.role === "tool" && m.toolCallId === toolCall.id,
             ) ?? newMessages[existingResultIndex];
+
+          // Reuse saved answers regardless of handler replay policy. Only
+          // missing or placeholder results need execution: handlerless tools
+          // recreate empty results, while handlers require HITL or opt-in.
+          // Leave passive placeholders intact when execution is not allowed.
+          if (
+            toolExecutionMode === "restore" &&
+            (!existingResult ||
+              this.isFrontendPlaceholderResult(existingResult)) &&
+            (!executableTool ||
+              (executableTool.handler &&
+                executableTool.type !== "human-in-the-loop" &&
+                executableTool.reconnectBehavior !== "resume-pending"))
+          ) {
+            continue;
+          }
 
           if (
             existingResult &&
