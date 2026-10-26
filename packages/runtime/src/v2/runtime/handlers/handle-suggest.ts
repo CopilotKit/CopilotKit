@@ -2,10 +2,7 @@ import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { createRunEventFinalizer } from "@copilotkit/shared";
 import { Observable } from "rxjs";
 import type { CopilotRuntimeLike } from "../core/runtime";
-import {
-  mergeForwardableHeaders,
-  resolveForwardHeadersPolicy,
-} from "./header-utils";
+import { mergeForwardableHeaders, policyFor } from "./header-utils";
 import { cloneAgentForRequest, parseRunRequest } from "./shared/agent-utils";
 import { createSseEventResponse } from "./shared/sse-response";
 
@@ -91,7 +88,7 @@ export async function handleSuggestAgent({
   headerCarryingAgent.headers = mergeForwardableHeaders(
     headerCarryingAgent.headers,
     request,
-    runtime.forwardHeadersPolicy ?? resolveForwardHeadersPolicy(undefined),
+    policyFor(runtime),
   );
 
   agent.setMessages(input.messages);
