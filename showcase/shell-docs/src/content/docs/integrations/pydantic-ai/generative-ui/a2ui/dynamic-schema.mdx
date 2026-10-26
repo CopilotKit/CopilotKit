@@ -1,0 +1,84 @@
+---
+title: "Dynamic Schema A2UI"
+icon: "lucide/Sparkles"
+description: "Let a PydanticAI agent generate A2UI surfaces from the conversation."
+snippet_cell: declarative-gen-ui
+---
+
+<InlineDemo demo="declarative-gen-ui" />
+
+The PydanticAI demo lets a secondary model design an A2UI surface from the
+conversation. The frontend registers a catalog of allowed components; the
+agent decides when to call its own `generate_a2ui` tool.
+
+## How this demo works
+
+1. The frontend passes its catalog through the provider. The runtime forwards
+   the catalog in `copilotkit.context` and keeps the A2UI middleware active.
+2. The PydanticAI agent registers `generate_a2ui` itself, so its runtime route
+   sets `injectA2UITool: false`. Injecting another tool would duplicate it.
+3. The agent's tool reads the forwarded user and assistant turns from
+   `ctx.messages`, then passes them to a secondary model. `ctx.deps` contains
+   state, not that conversation history.
+4. The secondary model returns a `render_a2ui` tool call. The agent converts
+   its arguments into `a2ui_operations`, which the middleware sends to the
+   frontend renderer.
+
+The conversion happens in
+[`build_a2ui_operations_from_tool_call()`](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/shared/python/tools/generate_a2ui.py#L140),
+defined in the shared Python helper. The code tab shows the agent's import and
+call; follow that link for the helper's implementation.
+
+## Register the frontend catalog
+
+The catalog has three parts. Keep the component definitions and renderers under
+the same names, then pass the catalog to the provider.
+
+<Steps>
+<Step>
+### Define the component schemas
+
+Each definition gives the model a Zod props schema and a description of when
+to use the component.
+
+<Snippet region="definitions-zod" />
+</Step>
+<Step>
+### Implement the renderers
+
+<Snippet region="renderers-react" />
+</Step>
+<Step>
+### Create and register the catalog
+
+`includeBasicCatalog: true` also allows CopilotKit's built-in A2UI components.
+
+<Snippet region="create-catalog" />
+
+<Snippet region="provider-a2ui-prop" />
+</Step>
+</Steps>
+
+## Configure the runtime and agent
+
+This demo's route sets `injectA2UITool: false` because the PydanticAI backend
+already defines `generate_a2ui`. It also sets `defaultCatalogId` to the catalog
+registered by the page, so a generated surface without a `catalogId` still
+uses the right components.
+
+<Snippet file="src/app/api/copilotkit-declarative-gen-ui/route.ts" lines="23-40" />
+
+If your backend does **not** define `generate_a2ui`, you can choose runtime
+injection with `injectA2UITool: true` instead. That is a different setup:
+remove the backend-owned tool, and ensure your PydanticAI adapter forwards the
+client catalog and conversation context required by the injected tool. Do not
+switch this demo's flag alone; its secondary model currently gets the real
+conversation from `ctx.messages` inside the backend-owned tool.
+
+## When should I use dynamic schemas?
+
+Use this approach when the agent must choose the layout and data for each
+request. For a known surface such as a product card, use a
+**[fixed schema](./fixed-schema)** instead.
+
+<IntegrationGrid path="generative-ui/a2ui" />
