@@ -2,7 +2,7 @@ name: test / ms-agent-dotnet starter regression
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "[0-9]+.[0-9]+.[0-9]+"]
     paths:
       - "examples/integrations/ms-agent-framework-dotnet/agent/**"
       - "examples/integrations/ms-agent-framework-dotnet/agent-tests/**"
