@@ -113,33 +113,30 @@ function resolvePath(path: string, base: string | undefined) {
   return `${base.replace(/\/$/, "")}/${path}`;
 }
 
-/** `value` with every `{"@path"}` binding replaced by the data it points to. */
+/** The production resolver of dynamic values, set once the engine is loaded. */
+let resolveDynamic:
+  | ((
+      value: unknown,
+      context: {
+        data: { get(path: string): unknown };
+        basePath: string | undefined;
+      },
+    ) => { ok: boolean; value?: unknown })
+  | undefined;
+
+/**
+ * `value` with its dynamic values (`{"@path"}`, `{"@call"}`, at any depth)
+ * resolved by the renderer's own resolver, so computed child references
+ * count like literal ones. A value that cannot be resolved stays as written.
+ */
 function resolveBound(
   value: unknown,
   data: { get(path: string): unknown },
   base: string | undefined,
-  depth = 0,
 ): unknown {
-  if (depth > 8) return value;
-  if (Array.isArray(value))
-    return value.map((v) => resolveBound(v, data, base, depth + 1));
-  if (!value || typeof value !== "object") return value;
-  const record = value as Record<string, unknown>;
-  const path = record["@path"];
-  if (typeof path === "string" && Object.keys(record).length === 1) {
-    return resolveBound(
-      data.get(resolvePath(path, base)),
-      data,
-      base,
-      depth + 1,
-    );
-  }
-  return Object.fromEntries(
-    Object.entries(record).map(([k, v]) => [
-      k,
-      resolveBound(v, data, base, depth + 1),
-    ]),
-  );
+  if (!resolveDynamic) return value;
+  const resolved = resolveDynamic(value, { data, basePath: base });
+  return resolved.ok ? resolved.value : value;
 }
 
 /**
@@ -261,17 +258,19 @@ const { createRoot } = reactCoreRequire(
   "react-dom/client",
 ) as ReactDomClientLike;
 const act = React.act;
-const [engine, { GenerativeUIRuntimeContext }, { SurfaceView }] =
+const [engine, { GenerativeUIRuntimeContext }, { SurfaceView }, resolveModule] =
   await Promise.all([
     import("./engine"),
     import("../../../packages/react-core/src/v2/generative-ui/runtime-context"),
     import("../../../packages/react-core/src/v2/generative-ui/SurfaceView"),
+    import("../../../packages/react-core/src/v2/generative-ui/resolve"),
   ]).catch((error: unknown) => {
     parentPort?.postMessage({
       fatal: String((error as Error)?.stack ?? error),
     });
     throw error;
   });
+resolveDynamic = resolveModule.tryResolveDynamicValue;
 
 const THREAD = "eval";
 

@@ -261,6 +261,49 @@ describe("scoreCode with real rendering", () => {
     expect(check.crash).toBeUndefined();
   });
 
+  it("follows child references computed by a function", async () => {
+    const [check] = await checker.check([
+      {
+        surfaceId: "calc",
+        target: "chat",
+        catalogId: "copilotkit://standard",
+        status: "ready",
+        rejected: [],
+        operations: [
+          { version: "v1.0", createSurface: { surfaceId: "calc" } },
+          {
+            version: "v1.0",
+            updateComponents: {
+              surfaceId: "calc",
+              components: [
+                {
+                  id: "root",
+                  component: "Tabs",
+                  tabs: {
+                    "@call": "series",
+                    args: {
+                      count: 1,
+                      item: { title: "T${i}", child: "seats" },
+                    },
+                  },
+                },
+                {
+                  id: "seats",
+                  component: "Slider",
+                  label: "Seats",
+                  min: 1,
+                  max: 9,
+                  value: 3,
+                },
+              ],
+            },
+          },
+        ],
+      } as never,
+    ]);
+    expect(check.components).toEqual(["Tabs", "Slider"]);
+  });
+
   it("flags a surface made only of text", async () => {
     const out = {
       text: "",

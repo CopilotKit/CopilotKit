@@ -73,6 +73,52 @@ describe("judge", () => {
     expect(prompt).toContain('root: Map {"markers":[]}');
   });
 
+  it("outlines the final UI: the last version of a component, no deleted surface", async () => {
+    const { outlineSurfaces } = await import("../src/judge");
+    const surface = (id: string, ops: unknown[]) => ({
+      surfaceId: id,
+      target: "chat",
+      catalogId: "x",
+      status: "ready" as const,
+      rejected: [],
+      operations: ops as never[],
+    });
+    const text = outlineSurfaces({
+      ...out,
+      surfaces: [
+        surface("kept", [
+          {
+            version: "v1.0",
+            createSurface: {
+              surfaceId: "kept",
+              components: [{ id: "root", component: "Text", text: "old" }],
+            },
+          },
+          {
+            version: "v1.0",
+            updateComponents: {
+              surfaceId: "kept",
+              components: [{ id: "root", component: "Text", text: "new" }],
+            },
+          },
+        ]),
+        surface("gone", [
+          {
+            version: "v1.0",
+            createSurface: {
+              surfaceId: "gone",
+              components: [{ id: "root", component: "Chart" }],
+            },
+          },
+          { version: "v1.0", deleteSurface: { surfaceId: "gone" } },
+        ]),
+      ],
+    });
+    expect(text).toContain('root: Text {"text":"new"}');
+    expect(text).not.toContain("old");
+    expect(text).not.toContain("gone");
+  });
+
   it("parses a verdict, also inside a fence", () => {
     const v = parseVerdict(
       '```json\n{"judgement":{"score":1,"reason":"a"},"quality":{"score":0.5,"reason":"b"}}\n```',
