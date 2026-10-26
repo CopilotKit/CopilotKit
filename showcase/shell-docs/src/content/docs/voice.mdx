@@ -67,16 +67,24 @@ For the Google ADK showcase, agent runs take one more hop: this Next.js route re
 
 `TranscriptionService` from `@copilotkit/runtime/v2` is an abstract class. Subclass it to plug in any transcription provider — Whisper, AssemblyAI, Deepgram, your own model. The library ships `TranscriptionServiceOpenAI` as the canonical reference implementation.
 
-<Callout type="info" title="TranscriptionServiceOpenAI takes an openai v5 client">
-`@copilotkit/voice` depends on `openai` v5, and the `openai` option of
-`TranscriptionServiceOpenAI` is typed against that version. If your app uses
-`openai` v4, TypeScript rejects your client. Upgrade your app's `openai` to v5,
-or subclass `TranscriptionService` and call your own client inside
-`transcribe`.
+<Callout type="info" title="TranscriptionServiceOpenAI takes an openai 5.x client">
+`@copilotkit/voice` depends on `openai` `^5.9.0`, and the `openai` option of
+`TranscriptionServiceOpenAI` is typed against the copy of `openai` that
+`@copilotkit/voice` resolves. Pass an `OpenAI` instance created from that same
+installed copy. The `OpenAI` class has private (`#private`) members, so an
+instance from another copy or another major version fails type-checking, even
+when it looks the same.
+
+If your app uses `openai` v4, v6 or v7 (npm's latest is 7.x), either:
+
+- align your app on `openai` 5.x, so your app and `@copilotkit/voice` share one
+  copy, or
+- subclass `TranscriptionService` and call your own client inside
+  `transcribeFile`.
 </Callout>
 
 <Callout type="warn" title="Return a string, and let provider errors through">
-`transcribe` returns the transcript as a string — the handler wraps it into
+`transcribeFile` returns the transcript as a string — the handler wraps it into
 `{ transcription }` itself, so returning a richer object is a type error.
 
 Let the provider's own errors propagate unchanged. The runtime classifies failures by reading
