@@ -232,3 +232,40 @@ for (const stage of ["before-resume", "after-resume"])
     assert.equal(f.receipts.at(-1).finalState.verified, false);
     if (stage === "before-resume") assert.ok(!f.calls.includes("resume"));
   });
+
+for (const field of [
+  "configuredImage",
+  "latest",
+  "volumeId",
+  "volumeInstanceId",
+  "mountPath",
+  "isPendingDeletion",
+]) {
+  test(`provider ${field} drift after drain prevents removal`, async () => {
+    const f = fixture();
+    const inspect = f.options.railway.inspect;
+    let inspections = 0;
+    f.options.railway.inspect = async () => {
+      const value = await inspect();
+      if (++inspections === 2) {
+        value[field] =
+          field === "latest"
+            ? { ...value.latest, id: "competitor" }
+            : field === "isPendingDeletion"
+              ? true
+              : "changed";
+      }
+      return value;
+    };
+    await assert.rejects(upgradeBrowser(f.options));
+    assert.ok(f.calls.includes("drain"));
+    for (const mutation of [
+      "remove",
+      "authorization",
+      "image",
+      "deploy",
+      "resume",
+    ])
+      assert.equal(f.calls.includes(mutation), false, mutation);
+  });
+}

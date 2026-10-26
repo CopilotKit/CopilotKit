@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { matchesGlob } from "node:path";
 import { readFile } from "node:fs/promises";
 import { validateWorkflowContext } from "./run.mjs";
 const context = {
@@ -165,28 +164,10 @@ test("one-time browser provenance only runs for transition changes", async () =>
     .trim()
     .split("\n")
     .map((line) => line.trim().slice(2));
-  const triggers = (file) =>
-    paths.some((pattern) => matchesGlob(file, pattern));
-  for (const file of [
+  assert.deepEqual(paths, [
+    "tools/railway-runner-deploy/browser-upgrade*.mjs",
+    "tools/railway-runner-deploy/releases/browser-upgrade.json",
     workflow,
-    "browser-upgrade.mjs",
-    "browser-upgrade-cli.mjs",
-    "browser-upgrade.test.mjs",
-    "releases/browser-upgrade.json",
-  ])
-    assert.equal(
-      triggers(
-        file === workflow ? file : `tools/railway-runner-deploy/${file}`,
-      ),
-      true,
-      file,
-    );
-  for (const file of [
-    "adapters.mjs",
-    "provenance.mjs",
-    "releases/staging.json",
-    "workflow.test.mjs",
-  ])
-    assert.equal(triggers(`tools/railway-runner-deploy/${file}`), false, file);
+  ]);
   assert.match(source, /workflow_dispatch:/);
 });

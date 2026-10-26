@@ -172,7 +172,13 @@ export async function upgradeBrowser({
     assert.equal(live.operation.operationId, operationId);
     assert.equal(live.operation.status, "drained");
     await verifyInventory(railway, provider.active);
-    assert.deepEqual((await railway.inspect()).active, provider.active);
+    const refreshed = await railway.inspect();
+    assert.deepEqual(refreshed.active, provider.active);
+    assert.deepEqual(refreshed.latest, refreshed.active);
+    assert.equal(refreshed.configuredImage, intent.baseline.image);
+    for (const key of ["volumeId", "volumeInstanceId", "mountPath"])
+      assert.equal(refreshed[key], STAGING[key]);
+    assert.notEqual(refreshed.isPendingDeletion, true);
     await verifyReceipts();
     // Persist the intent before the request; neither a rerun nor this call resends it.
     receipt.removalOutcome = "unknown";
