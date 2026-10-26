@@ -114,6 +114,10 @@ jobs:
         # generated, and 4 without them, all from that one missing import.
         run: pnpm exec tsc --noEmit
 
+      - name: Audit D4 consumer boundary and regression sensitivity
+        timeout-minutes: 10
+        run: pnpm exec nx run @copilotkit/showcase-harness:test:d4-boundary --skip-nx-cache
+
       - name: Run harness unit suite
         # THE GATE. Runs through nx per the repo's task convention (root
         # CLAUDE.md: prefer `nx run` over the underlying tooling).

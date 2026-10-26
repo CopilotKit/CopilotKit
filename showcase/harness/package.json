@@ -10,6 +10,7 @@
     "test:ci": "vitest run --config vitest.ci.config.ts",
     "test:signal-boundary:case": "vitest run --config vitest.ci.config.ts src/probes/helpers/browser-pool-signals.test.ts --reporter=verbose --reporter=json --retry=0 --maxWorkers=1 --no-file-parallelism",
     "test:signal-boundary": "python3 scripts/signal-boundary-audit.py",
+    "test:d4-boundary": "python3 scripts/d4-boundary-audit.py",
     "test:quarantine-ratchet": "tsx scripts/quarantine-ratchet.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -54,6 +55,10 @@
       },
       "test:ci": {
         "dependsOn": ["^build"],
+        "cache": false
+      },
+      "test:d4-boundary": {
+        "dependsOn": [],
         "cache": false
       },
       "test:quarantine-ratchet": {
