@@ -49,11 +49,19 @@ const shortHash = (text: string) =>
 export function gitState(): { gitSha: string; dirtyHash?: string } {
   try {
     const gitSha = execSync("git rev-parse HEAD", { encoding: "utf8" }).trim();
+    // Tracked changes plus the untracked files: either makes the prompt differ from the commit.
     const diff = execSync("git diff HEAD", {
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
     });
-    return diff ? { gitSha, dirtyHash: shortHash(diff) } : { gitSha };
+    const untracked = execSync("git status --porcelain --untracked-files=all", {
+      encoding: "utf8",
+    })
+      .split("\n")
+      .filter((line) => line.startsWith("??"))
+      .join("\n");
+    const changes = diff + untracked;
+    return changes ? { gitSha, dirtyHash: shortHash(changes) } : { gitSha };
   } catch {
     return { gitSha: "unknown" };
   }
