@@ -51,7 +51,8 @@ export function scoreCode(
     for (const error of check.errors) fidelity.push(error.message);
   }
   const used = new Set(checks.flatMap((check) => check.components));
-  if (c.expect.ui) {
+  // With no UI at all, judgement already fails; fidelity grades the UI there is.
+  if (c.expect.ui && out.surfaces.length > 0) {
     for (const name of c.expect.components ?? []) {
       if (!used.has(name))
         fidelity.push(`expected component not used: ${name}`);
