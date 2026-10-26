@@ -5,6 +5,8 @@ import {
   generativeUIGuideFeatures,
   GENERATIVE_UI_MARKDOWN_GUIDELINES_DESCRIPTION,
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
+  defaultGenerativeUIPromptSpec,
+  renderGenerativeUISchema,
 } from "@copilotkit/shared";
 import type { CopilotKitCoreReact } from "../../lib/react-core";
 import { buildGenerativeUIManifest } from "../manifest";
@@ -76,7 +78,10 @@ export function useGenerativeUIMarkdownContext(
           ...scope,
         });
       }
-      const value = JSON.stringify(buildCompactGenerativeUISchema(manifest));
+      const value = renderGenerativeUISchema(
+        manifest,
+        defaultGenerativeUIPromptSpec().schema.markdown,
+      );
       if (value === schemaValue) return;
       if (schemaId !== undefined) copilotkit.removeContext(schemaId);
       schemaValue = value;
