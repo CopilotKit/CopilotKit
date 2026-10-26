@@ -23,7 +23,7 @@ on:
     # services is confirmed, then retire in favour of the harness signal.
     - cron: "0 */6 * * *"
   workflow_run:
-    workflows: ["publish / release"]
+    workflows: ["release / publish"]
     types: [completed]
   pull_request:
     paths:
