@@ -106,6 +106,22 @@ describe("runSample with a broken tool call", () => {
   });
 });
 
+describe("runSample with a rejected operation", () => {
+  it("keeps the rejections the runtime only reports in its tool result", async () => {
+    const out = await runSample({
+      case: cases["laptop-compare"],
+      transport: "tool",
+      entry,
+      model: createFakeModel(
+        "fake:unit",
+        new URL("./fixtures/", import.meta.url).pathname,
+      ),
+    });
+    expect(out.surfaces).toHaveLength(1);
+    expect(out.rejected.map((r) => r.reason).join(" ")).toContain("ghost");
+  });
+});
+
 describe("applyPatch", () => {
   it("adds to a list, replaces a field, and removes a key", () => {
     const target = { operations: [1], status: "streaming", extra: true };

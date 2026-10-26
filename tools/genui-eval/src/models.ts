@@ -96,7 +96,11 @@ export function openRouterFetch(
     const type = response.headers.get("content-type") ?? "";
     if (response.body && type.includes("text/event-stream")) {
       const [forSdk, forMeta] = response.body.tee();
-      void readStreamMeta(forMeta, meta).then(() => report(meta));
+      // A broken stream fails the SDK's branch too, which records the error;
+      // this branch only reports what it read.
+      void readStreamMeta(forMeta, meta)
+        .catch(() => {})
+        .then(() => report(meta));
       return new Response(forSdk, {
         status: response.status,
         statusText: response.statusText,

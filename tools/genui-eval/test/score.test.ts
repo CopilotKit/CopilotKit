@@ -63,6 +63,41 @@ describe("scoreCode with real rendering", () => {
     expect(prose.fidelity.pass).toBe(true);
   });
 
+  it("counts only the components the root reaches", async () => {
+    const [check] = await checker.check([
+      {
+        surfaceId: "s",
+        target: "chat",
+        catalogId: "copilotkit://standard",
+        status: "ready",
+        rejected: [],
+        operations: [
+          { version: "v1.0", createSurface: { surfaceId: "s" } },
+          {
+            version: "v1.0",
+            updateComponents: {
+              surfaceId: "s",
+              components: [
+                { id: "root", component: "Column", children: ["t"] },
+                { id: "t", component: "Text", text: "Only text" },
+                {
+                  id: "orphan",
+                  component: "Chart",
+                  chartType: "bar",
+                  data: [],
+                  xKey: "x",
+                  series: [],
+                },
+              ],
+            },
+          },
+        ],
+      } as never,
+    ]);
+    expect(check.components).toEqual(["Column", "Text"]);
+    expect(check.proseOnly).toBe(true);
+  });
+
   it("flags a surface made only of text", async () => {
     const out = {
       text: "",

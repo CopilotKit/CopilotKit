@@ -62,6 +62,34 @@ describe("openRouterFetch", () => {
   });
 });
 
+describe("openRouterFetch with a broken stream", () => {
+  it("does not leave an unhandled rejection when the stream fails mid-response", async () => {
+    const encoder = new TextEncoder();
+    const base: typeof fetch = async () => {
+      let sent = false;
+      const body = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (!sent) {
+            sent = true;
+            controller.enqueue(encoder.encode('data: {"provider":"X"}\n\n'));
+          } else controller.error(new Error("connection reset"));
+        },
+      });
+      return new Response(body, {
+        headers: { "content-type": "text/event-stream" },
+      });
+    };
+    const reported = new Promise((resolve) => {
+      const wrapped = openRouterFetch({}, resolve, base);
+      void wrapped("https://x", { method: "POST", body: "{}" }).then((r) =>
+        r.text().catch(() => "failed"),
+      );
+    });
+    // The meta still arrives (an errored stream drops queued chunks, so it may be empty).
+    expect(await reported).toBeTypeOf("object");
+  });
+});
+
 describe("fake models", () => {
   it("reply from the fixture of the case and transport, or in prose", async () => {
     const model = createFakeModel("fake:unit", FIXTURES);
