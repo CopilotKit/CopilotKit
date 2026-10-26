@@ -5,3 +5,4 @@ export * from "./basic-functions";
 export * from "./child-refs";
 export * from "./prompt";
 export * from "./compact-schema";
+export * from "./prompt-spec";
