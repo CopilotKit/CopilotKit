@@ -29,10 +29,11 @@ export function ɵmcpAppSandboxFlags(allowSameOriginFallback = false): string {
 /**
  * A CSP host source: optional scheme, host (a leading `*.` allowed), optional
  * port and path. The domains come from the MCP server, so anything else (a
- * space, quote, `;` or `<`) could end the policy or the `<meta>` tag early.
+ * space, quote, `;`, `,`, `&` or `<`) could end the policy or the `<meta>` tag
+ * early. The path allows CSP's own path characters, such as `+` and `@`.
  */
 const CSP_HOST_SOURCE =
-  /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::(?:\d+|\*))?(?:\/[\w.~%/-]*)?$/i;
+  /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::(?:\d+|\*))?(?:\/[\w.~%/!$()*+=:@-]*)?$/i;
 
 /**
  * Build the sandbox-proxy HTML document loaded into the outer iframe.
