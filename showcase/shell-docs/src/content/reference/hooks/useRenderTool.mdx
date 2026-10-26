@@ -24,6 +24,7 @@ useRenderTool(
     name: "*",
     render: (props) => React.ReactElement | null,
     agentId?: string,
+    group?: boolean,
   },
   deps?: ReadonlyArray<unknown>,
 );
@@ -41,6 +42,7 @@ useRenderTool(
     parameters: z.ZodTypeAny,
     render: (props) => React.ReactElement | null,
     agentId?: string,
+    group?: boolean,
   },
   deps?: ReadonlyArray<unknown>,
 );
@@ -63,9 +65,11 @@ useRenderTool(
   `React.ComponentType`, a function component returns `ReactNode`, and `null` is
   a member of `ReactNode` — so only the build-side signature forbade it.
 - Builds a renderer entry with `defineToolCallRenderer`.
+- `group: true` lets the chat collapse calls this renderer draws into its tool-call groups (see [`toolCallDisplay`](/reference/components/CopilotChatMessageView#toolcalldisplay)). Leave it unset for renderers that are part of your UI, or that may draw nothing; their calls always show on their own.
 - Deduplicates by `agentId:name` key (latest registration wins).
 - Intentionally does not remove the renderer on cleanup so previous chat history can still render.
 - Tracks updates by `config.name` plus values in `deps` (include changing captures in `deps`).
+- **`deps` comparison**: compares plain data (strings, numbers, booleans, `null`, dates, and plain objects and arrays of those) by value, so an inline literal such as `[{ status }]` re-registers only when its contents change. A function never counts as changed, as before, so keep a changing callback in a ref. Class instances and other objects compare by identity, so a circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change.
 
 ## Usage
 

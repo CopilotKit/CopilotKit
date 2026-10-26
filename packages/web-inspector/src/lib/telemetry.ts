@@ -101,7 +101,7 @@ const PACKAGE_NAME = "@copilotkit/web-inspector";
 const PACKAGE_VERSION = packageJson.version;
 
 // 3-second cap so a slow gateway can't hang the host app. Matches the
-// runtime's existing scarf-client convention.
+// timeout used by the shared telemetry client (lambda-client.ts).
 const FETCH_TIMEOUT_MS = 3000;
 
 export type RuntimeUrlType =
@@ -758,7 +758,7 @@ export function trackLearningPageChanged(props: {
 }
 
 export function trackLearningWebAppOpened(props: {
-  category: "learning" | "runs" | "candidates";
+  category: "learning" | "runs" | "candidates" | "trajectory";
 }): void {
   track(TELEMETRY_EVENTS.learningWebAppOpened, props);
 }

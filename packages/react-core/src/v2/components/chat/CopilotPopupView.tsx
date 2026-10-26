@@ -190,6 +190,15 @@ function CopilotPopupViewInternal({
         return;
       }
 
+      // Popovers of the chat, such as a reply rating's comment, render in a
+      // portal outside the container.
+      if (
+        target instanceof Element &&
+        target.closest("[data-copilotkit-popover]")
+      ) {
+        return;
+      }
+
       setModalOpen?.(false);
     };
 

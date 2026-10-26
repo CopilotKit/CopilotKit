@@ -59,6 +59,20 @@
  *                        the adapter manifests, so raising an adapter floor
  *                        fails the starters that fall below it.
  *
+ *   next-turbopack-worker-leak
+ *                        A starter's lockfile installs Next.js 16 below
+ *                        16.3.1 (PE-970). On those releases `next dev` runs
+ *                        PostCSS in a Turbopack worker pool that can grow
+ *                        without a limit, and one starter reached about 74 GB
+ *                        of RAM. With no lockfile, the lowest version that the
+ *                        package.json range allows is checked instead.
+ *
+ *   next-agent-rules     A starter on Next.js 16.3 or later whose next.config
+ *                        does not set `agentRules: false` (PE-970). From 16.3,
+ *                        `next dev` writes AGENTS.md and CLAUDE.md into the
+ *                        project when it detects an AI coding agent, which is
+ *                        how most users run a starter.
+ *
  * ALLOWLIST
  * ---------
  * Pre-existing violations are listed in ALLOWLIST below with the ticket that
@@ -517,6 +531,91 @@ function checkAdapterFloors(integrationsDir, repoRoot, violations) {
 }
 
 // ---------------------------------------------------------------------------
+// Next.js Turbopack worker leak (PE-970)
+// ---------------------------------------------------------------------------
+
+/** The first Next.js 16 release whose Turbopack dev server bounds its PostCSS workers. */
+const NEXT_WORKER_LEAK_FIXED = "16.3.1";
+
+/** The first Next.js release whose `next dev` writes AGENTS.md and CLAUDE.md. */
+const NEXT_AGENT_RULES_FROM = "16.3.0";
+
+/**
+ * The Next.js version a starter installs: the lockfile's, or with no lockfile
+ * the lowest version its package.json range allows.
+ *
+ * @returns `{ version, locked }`, or undefined when the starter has no Next.js.
+ */
+function nextVersion(dir) {
+  const pkgPath = path.join(dir, "package.json");
+  if (!fs.existsSync(pkgPath)) return undefined;
+  const pkg = readJson(pkgPath);
+  const range = pkg.dependencies?.next ?? pkg.devDependencies?.next;
+  if (range === undefined) return undefined;
+
+  const lockPath = path.join(dir, "package-lock.json");
+  const locked = fs.existsSync(lockPath)
+    ? readJson(lockPath).packages?.["node_modules/next"]?.version
+    : undefined;
+  const version = locked ?? semver.minVersion(String(range))?.version;
+  return version === undefined
+    ? undefined
+    : { version, locked: locked !== undefined };
+}
+
+function checkNextWorkerLeak(starter, dir, violations) {
+  const next = nextVersion(dir);
+  if (next === undefined) return;
+  const { version, locked } = next;
+  if (
+    semver.major(version) !== 16 ||
+    semver.gte(version, NEXT_WORKER_LEAK_FIXED)
+  ) {
+    return;
+  }
+
+  violations.push({
+    starter,
+    rule: "next-turbopack-worker-leak",
+    subject: `next@${version}`,
+    manifest: path.join("examples/integrations", starter, "package.json"),
+    detail:
+      `${locked ? "package-lock.json installs" : "package.json allows"} next@${version}. ` +
+      `Its Turbopack dev server can start PostCSS workers until the machine runs out of memory.`,
+    fix: `Pin next to ${NEXT_WORKER_LEAK_FIXED} or later in examples/integrations/${starter}/package.json and refresh the lockfile.`,
+  });
+}
+
+function checkNextAgentRules(starter, dir, violations) {
+  const next = nextVersion(dir);
+  if (next === undefined || semver.lt(next.version, NEXT_AGENT_RULES_FROM))
+    return;
+
+  const config = [
+    "next.config.ts",
+    "next.config.mjs",
+    "next.config.js",
+    "next.config.cjs",
+  ].find((name) => fs.existsSync(path.join(dir, name)));
+  const text = config ? fs.readFileSync(path.join(dir, config), "utf8") : "";
+  if (/\bagentRules\s*:\s*false\b/.test(text)) return;
+
+  violations.push({
+    starter,
+    rule: "next-agent-rules",
+    subject: config ?? "next.config",
+    manifest: path.join(
+      "examples/integrations",
+      starter,
+      config ?? "next.config.ts",
+    ),
+    detail:
+      `next@${next.version} writes AGENTS.md and CLAUDE.md into the project when \`next dev\` detects an AI coding agent, ` +
+      `so a user's project changes after its first run.`,
+    fix: `Set agentRules: false in examples/integrations/${starter}/${config ?? "next.config.ts"}.`,
+  });
+}
+
 // Entry point
 // ---------------------------------------------------------------------------
 
@@ -530,6 +629,8 @@ export function validateStarterDeps(integrationsDir, repoRoot = process.cwd()) {
     const dir = path.join(integrationsDir, entry.name);
     checkNpmFloatingTags(entry.name, dir, violations);
     checkUndeclaredPeers(entry.name, dir, violations);
+    checkNextWorkerLeak(entry.name, dir, violations);
+    checkNextAgentRules(entry.name, dir, violations);
     checkPythonConstraints(entry.name, dir, repoRoot, violations);
   }
   checkAdapterFloors(integrationsDir, repoRoot, violations);

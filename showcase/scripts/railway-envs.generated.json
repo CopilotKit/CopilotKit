@@ -148,6 +148,10 @@
         "serviceId": "7b99fa95-2124-4d19-838a-652464e351da"
       },
       {
+        "name": "showcase-intelligence-test-runner",
+        "serviceId": "4922b45b-6981-4559-be2f-fbbca9123323"
+      },
+      {
         "name": "starter-adk",
         "serviceId": "37691009-c0b2-4af7-8960-9f0b3f0a6be3"
       },
@@ -200,7 +204,15 @@
         "serviceId": "ba6acc13-7585-41fe-a5ee-585b34a58fcd"
       }
     ],
-    "approvedImages": []
+    "approvedImages": [
+      "ghcr.io/copilotkit/intelligence/composite@sha256:1bc9dbc634a8b713af7dcf19266eb2b514cdfa3c7e7858476a6ebe5fced45f1d",
+      "ghcr.io/copilotkit/intelligence/postgres-pgvector@sha256:91c40627db16d6d6c4e3c284c69c01ccdfd9172fac89e1b7d453ebb01127c205",
+      "docker.io/bitnamilegacy/redis@sha256:a25b5d07a14ec13730022c7cd9bab6308d55ccd86b74af7315553c17be884889",
+      "ghcr.io/copilotkit/rich-thread-application@sha256:6b6d757e8c5c605c384673a4e8418cd7cd275de2b8b068ebb21856a1032fc71d",
+      "ghcr.io/copilotkit/rich-thread-strands@sha256:a24c58ee44b65fe723434027bf9f40e6b77e679db67ba6229f329676ead430b9",
+      "ghcr.io/copilotkit/rich-thread-inspector@sha256:e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981",
+      "ghcr.io/copilotkit/rich-thread-inspector@sha256:1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71"
+    ]
   },
   "projectId": "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
   "envIds": {
@@ -1000,6 +1012,33 @@
       "serviceId": "7b99fa95-2124-4d19-838a-652464e351da",
       "prodInstanceId": "7b99fa95-2124-4d19-838a-652464e351da",
       "stagingInstanceId": "4695150f-0de8-4b3b-b302-7a377621a200",
+      "ciBuilt": false,
+      "gateValidated": false,
+      "gateIgnore": true,
+      "gatePolicy": {
+        "presence": "optional",
+        "image": "ignored"
+      },
+      "onlyEnvironment": "staging",
+      "domains": {
+        "staging": "",
+        "prod": ""
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "unmanaged"
+      }
+    },
+    {
+      "name": "showcase-intelligence-test-runner",
+      "serviceId": "4922b45b-6981-4559-be2f-fbbca9123323",
+      "prodInstanceId": "4922b45b-6981-4559-be2f-fbbca9123323",
+      "stagingInstanceId": "f96bf2d4-f4f0-41b6-a7e9-547f33c38961",
       "ciBuilt": false,
       "gateValidated": false,
       "gateIgnore": true,
@@ -2229,6 +2268,10 @@
       },
       {
         "name": "showcase-intelligence-redis",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      },
+      {
+        "name": "showcase-intelligence-test-runner",
         "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
       }
     ]

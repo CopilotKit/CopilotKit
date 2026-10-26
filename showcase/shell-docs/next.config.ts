@@ -26,6 +26,8 @@ const CHANNEL_REDIRECT_GUIDE_SLUGS = [
   "tools",
   "identity-and-memory",
   "rich-messages",
+  "posting-jsx-as-images",
+  "render-and-carousel",
   "interactive",
   "commands-and-reactions",
   "files-and-multimodality",
@@ -52,6 +54,37 @@ function permanentRedirectsWithSuffixes(
 }
 
 const NON_REACT_DOCS_FRONTENDS = ["react-spa", "vue", "react-native"] as const;
+
+// Keep existing HTML and raw-doc links working when the Streams overview moves.
+// React is the unprefixed default; Angular keeps its native thread guide.
+const AG_UI_STREAMS_REDIRECTS: PermanentRedirect[] = [
+  ...["", "/built-in-agent", "/react", "/react/built-in-agent"].flatMap(
+    (prefix) =>
+      permanentRedirectsWithSuffixes(`${prefix}/threads`, "/AG-UI-Streams"),
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/react/:framework/threads",
+    "/:framework/AG-UI-Streams",
+  ),
+  ...[...NON_REACT_DOCS_FRONTENDS, "slack", "teams"].flatMap((frontend) => [
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/threads`,
+      `/${frontend}/AG-UI-Streams`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/:framework/threads`,
+      `/${frontend}/:framework/AG-UI-Streams`,
+    ),
+  ]),
+  ...permanentRedirectsWithSuffixes(
+    "/angular/threads",
+    "/angular/guides/threads-memory-attachments-headless",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/angular/:framework/threads",
+    "/angular/:framework/guides/threads-memory-attachments-headless",
+  ),
+];
 
 const OPEN_JSON_UI_RETIREMENT_REDIRECTS: PermanentRedirect[] = [
   ...permanentRedirectsWithSuffixes(
@@ -103,20 +136,23 @@ const OPEN_JSON_UI_RETIREMENT_REDIRECTS: PermanentRedirect[] = [
 ];
 
 // The self-managed thread persistence page is retired. Send every previously
-// published HTML and raw-doc URL to the Rich Threads overview in one hop
+// published HTML and raw-doc URL to the AG-UI Streams overview in one hop
 // (Angular to its native threads guide, matching ANGULAR_DOC_REDIRECTS).
 const ANGULAR_THREADS_GUIDE = "guides/threads-memory-attachments-headless";
 
 const THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS: PermanentRedirect[] = [
-  ...permanentRedirectsWithSuffixes("/threads-self-managed", "/threads"),
+  ...permanentRedirectsWithSuffixes("/threads-self-managed", "/AG-UI-Streams"),
   ...permanentRedirectsWithSuffixes(
     "/built-in-agent/threads-self-managed",
-    "/threads",
+    "/AG-UI-Streams",
   ),
-  ...permanentRedirectsWithSuffixes("/react/threads-self-managed", "/threads"),
+  ...permanentRedirectsWithSuffixes(
+    "/react/threads-self-managed",
+    "/AG-UI-Streams",
+  ),
   ...permanentRedirectsWithSuffixes(
     "/react/:framework/threads-self-managed",
-    "/:framework/threads",
+    "/:framework/AG-UI-Streams",
   ),
   ...permanentRedirectsWithSuffixes(
     "/angular/threads-self-managed",
@@ -129,16 +165,16 @@ const THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS: PermanentRedirect[] = [
   ...NON_REACT_DOCS_FRONTENDS.flatMap((frontend) => [
     ...permanentRedirectsWithSuffixes(
       `/${frontend}/threads-self-managed`,
-      `/${frontend}/threads`,
+      `/${frontend}/AG-UI-Streams`,
     ),
     ...permanentRedirectsWithSuffixes(
       `/${frontend}/:framework/threads-self-managed`,
-      `/${frontend}/:framework/threads`,
+      `/${frontend}/:framework/AG-UI-Streams`,
     ),
   ]),
   ...permanentRedirectsWithSuffixes(
     "/:framework/threads-self-managed",
-    "/:framework/threads",
+    "/:framework/AG-UI-Streams",
   ),
 ];
 
@@ -556,11 +592,12 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      ...AG_UI_STREAMS_REDIRECTS,
       // Open-JSON-UI is retired. Keep every previously published HTML and
       // raw-doc URL on a one-hop path to the matching A2UI landing page.
       ...OPEN_JSON_UI_RETIREMENT_REDIRECTS,
       // Self-managed thread persistence is retired; its URLs land on the
-      // Rich Threads overview.
+      // AG-UI Streams overview.
       ...THREADS_SELF_MANAGED_RETIREMENT_REDIRECTS,
       // OSS-615: legacy global, scoped, generated-reference, and Bots URLs
       // resolve directly to the canonical Slack/Teams guide trees.
@@ -873,11 +910,10 @@ const nextConfig: NextConfig = {
         destination: "/concepts/architecture",
         permanent: true,
       },
-      {
-        source: "/learn/threads",
-        destination: "/intelligence/threads-explained",
-        permanent: true,
-      },
+      ...permanentRedirectsWithSuffixes(
+        "/learn/threads",
+        "/intelligence/threads-explained",
+      ),
       {
         source: "/learn/intelligence-platform",
         destination: "/intelligence/intelligence-platform",
@@ -971,11 +1007,16 @@ const nextConfig: NextConfig = {
         destination: "/intelligence/intelligence-platform",
         permanent: true,
       },
-      {
-        source: "/concepts/threads",
-        destination: "/intelligence/threads-explained",
-        permanent: true,
-      },
+      ...permanentRedirectsWithSuffixes(
+        "/concepts/threads",
+        "/intelligence/threads-explained",
+      ),
+      // Keep the legacy Concepts/Learn redirects above more specific than
+      // this framework-scoped overview rename.
+      ...permanentRedirectsWithSuffixes(
+        "/:framework/threads",
+        "/:framework/AG-UI-Streams",
+      ),
       {
         source: "/concepts/three-types-of-gen-ui",
         destination: "/concepts/generative-ui-overview",

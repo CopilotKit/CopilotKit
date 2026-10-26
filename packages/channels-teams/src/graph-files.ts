@@ -19,11 +19,18 @@
  * Returns nothing (with a note) when Graph isn't configured or a step fails, so
  * the bot degrades to asking the user to paste the data rather than crashing.
  */
+import { decodeFileBytes, mimeFromName } from "./download-files.js";
+import type { FileDeliveryConfig } from "./download-files.js";
 import {
-  decodeFileBytes,
-  mimeFromName,
-  type FileDeliveryConfig,
-} from "./download-files.js";
+  DownloadBudget,
+  downloadAttachment,
+  downloadErrorMessage,
+  readGraphJson,
+} from "./attachment-download.js";
+import {
+  AttachmentDownloadError,
+  parseAttachmentUrl,
+} from "./attachment-url.js";
 import type { AgentContentPart } from "@copilotkit/channels-ui";
 
 /** The Microsoft credentials needed for an app-only Graph token. */
@@ -58,7 +65,10 @@ interface GraphFileRef {
 let cachedToken: { token: string; expiresAt: number } | undefined;
 
 /** Acquire (and cache) an app-only Graph token via the client-credentials grant. */
-async function acquireAppToken(creds: GraphCredentials): Promise<string> {
+async function acquireAppToken(
+  creds: GraphCredentials,
+  budget: DownloadBudget,
+): Promise<string> {
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt > now + 60_000) {
     return cachedToken.token;
@@ -69,23 +79,34 @@ async function acquireAppToken(creds: GraphCredentials): Promise<string> {
     scope: "https://graph.microsoft.com/.default",
     grant_type: "client_credentials",
   });
-  const res = await fetch(
-    `https://login.microsoftonline.com/${creds.tenantId}/oauth2/v2.0/token`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-    },
-  );
-  if (!res.ok) {
-    throw new Error(
-      `Graph token request failed (HTTP ${res.status}): ${(await res.text()).slice(0, 200)}`,
+  const json = await budget.run(async (signal) => {
+    const res = await fetch(
+      `https://login.microsoftonline.com/${encodeURIComponent(creds.tenantId)}/oauth2/v2.0/token`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+        signal,
+        redirect: "error",
+      },
     );
+    if (!res.ok) {
+      await res.body?.cancel();
+      throw new AttachmentDownloadError(
+        `Graph token request failed (HTTP ${res.status})`,
+      );
+    }
+    return readGraphJson<{ access_token: string; expires_in: number }>(
+      res,
+      budget,
+    );
+  });
+  if (
+    typeof json.access_token !== "string" ||
+    !Number.isFinite(json.expires_in)
+  ) {
+    throw new AttachmentDownloadError("invalid Graph token response");
   }
-  const json = (await res.json()) as {
-    access_token: string;
-    expires_in: number;
-  };
   cachedToken = {
     token: json.access_token,
     expiresAt: now + json.expires_in * 1000,
@@ -103,48 +124,49 @@ function shareIdFor(url: string): string {
 async function getMessageFileRefs(
   ref: ChannelMessageRef,
   token: string,
+  budget: DownloadBudget,
 ): Promise<GraphFileRef[]> {
-  const channel = encodeURIComponent(ref.channelId);
+  // Token acquisition can consume the last bytes of the shared message budget.
+  budget.assertAvailable();
+  const segment = (value: string) => {
+    if (value === "." || value === "..")
+      throw new AttachmentDownloadError("invalid channel-message identifier");
+    return encodeURIComponent(value);
+  };
+  const channel = segment(ref.channelId);
+  const team = segment(ref.teamId);
+  const message = segment(ref.messageId);
+  const root = segment(ref.rootId);
   const url =
     ref.rootId && ref.rootId !== ref.messageId
-      ? `${GRAPH}/teams/${ref.teamId}/channels/${channel}/messages/${ref.rootId}/replies/${ref.messageId}`
-      : `${GRAPH}/teams/${ref.teamId}/channels/${channel}/messages/${ref.messageId}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
+      ? `${GRAPH}/teams/${team}/channels/${channel}/messages/${root}/replies/${message}`
+      : `${GRAPH}/teams/${team}/channels/${channel}/messages/${message}`;
+  const msg = await budget.run(async (signal) => {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal,
+      redirect: "error",
+    });
+    if (!res.ok) {
+      await res.body?.cancel();
+      throw new AttachmentDownloadError(
+        `read channel message failed (HTTP ${res.status})`,
+      );
+    }
+    return readGraphJson<{
+      attachments?: Array<{
+        contentType?: string;
+        contentUrl?: string;
+        name?: string;
+      }>;
+    }>(res, budget);
   });
-  if (!res.ok) {
-    throw new Error(
-      `read channel message failed (HTTP ${res.status}): ${(await res.text()).slice(0, 200)}`,
-    );
-  }
-  const msg = (await res.json()) as {
-    attachments?: Array<{
-      contentType?: string;
-      contentUrl?: string;
-      name?: string;
-    }>;
-  };
   return (msg.attachments ?? [])
     .filter(
       (a): a is { contentType: string; contentUrl: string; name?: string } =>
         a.contentType === "reference" && typeof a.contentUrl === "string",
     )
     .map((a) => ({ name: a.name ?? "file", contentUrl: a.contentUrl }));
-}
-
-/** Download a SharePoint file by its sharing URL via the Graph `/shares` API. */
-async function downloadSharedFile(
-  contentUrl: string,
-  token: string,
-): Promise<Buffer> {
-  const res = await fetch(
-    `${GRAPH}/shares/${shareIdFor(contentUrl)}/driveItem/content`,
-    { headers: { Authorization: `Bearer ${token}` }, redirect: "follow" },
-  );
-  if (!res.ok) {
-    throw new Error(`download failed (HTTP ${res.status})`);
-  }
-  return Buffer.from(await res.arrayBuffer());
 }
 
 /**
@@ -156,36 +178,43 @@ export async function buildChannelFileContentParts(
   ref: ChannelMessageRef,
   creds: GraphCredentials,
   config: FileDeliveryConfig = {},
+  budget: DownloadBudget = new DownloadBudget(config),
 ): Promise<{ parts: AgentContentPart[]; notes: string[] }> {
   const parts: AgentContentPart[] = [];
   const notes: string[] = [];
 
   let token: string;
   try {
-    token = await acquireAppToken(creds);
+    budget.assertAvailable();
+    token = await acquireAppToken(creds, budget);
   } catch (err) {
-    notes.push(`couldn't get a Graph token: ${(err as Error).message}`);
+    notes.push(`couldn't get a Graph token: ${downloadErrorMessage(err)}`);
     return { parts, notes };
   }
 
   let refs: GraphFileRef[];
   try {
-    refs = await getMessageFileRefs(ref, token);
+    refs = await getMessageFileRefs(ref, token, budget);
   } catch (err) {
     notes.push(
-      `couldn't read channel-message files via Graph (is ChannelMessage.Read.Group granted?): ${(err as Error).message}`,
+      `couldn't read channel-message files via Graph (is ChannelMessage.Read.Group granted?): ${downloadErrorMessage(err)}`,
     );
     return { parts, notes };
   }
 
-  const maxFiles = config.maxFiles ?? 5;
+  const maxFiles = budget.maxFiles;
   for (const f of refs.slice(0, maxFiles)) {
     let bytes: Buffer;
     try {
-      bytes = await downloadSharedFile(f.contentUrl, token);
+      parseAttachmentUrl(f.contentUrl);
+      bytes = await downloadAttachment(
+        `${GRAPH}/shares/${shareIdFor(f.contentUrl)}/driveItem/content`,
+        budget,
+        token,
+      );
     } catch (err) {
       notes.push(
-        `skipped "${f.name}" (is Files.Read.All granted?): ${(err as Error).message}`,
+        `skipped "${f.name}" (is Files.Read.All granted?): ${downloadErrorMessage(err)}`,
       );
       continue;
     }

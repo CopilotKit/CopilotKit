@@ -215,6 +215,66 @@ describe("parseSSEResponse", () => {
     });
   });
 
+  it("creates the parent assistant message for a tool call with no text", async () => {
+    const response = buildSSEResponse([
+      { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
+      {
+        type: "TOOL_CALL_START",
+        toolCallId: "tc-1",
+        toolCallName: "get_weather",
+        parentMessageId: "m-1",
+      },
+      { type: "TOOL_CALL_ARGS", toolCallId: "tc-1", delta: '{"city":"NYC"}' },
+      { type: "TOOL_CALL_END", toolCallId: "tc-1" },
+      {
+        type: "TOOL_CALL_RESULT",
+        toolCallId: "tc-1",
+        messageId: "m-result",
+        content: "18C",
+      },
+      { type: "RUN_FINISHED", threadId: "t-1", runId: "r-1" },
+    ]);
+    const result = await parseSSEResponse(response);
+    expect(result.messages).toEqual([
+      {
+        id: "m-1",
+        role: "assistant",
+        toolCalls: [
+          { id: "tc-1", name: "get_weather", args: '{"city":"NYC"}' },
+        ],
+      },
+      {
+        id: "m-result",
+        role: "tool",
+        content: "18C",
+        toolCallId: "tc-1",
+      },
+    ]);
+  });
+
+  it("keys the assistant message by toolCallId when a tool call has no parentMessageId", async () => {
+    const response = buildSSEResponse([
+      { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
+      {
+        type: "TOOL_CALL_CHUNK",
+        toolCallId: "tc-1",
+        toolCallName: "getWeather",
+        delta: '{"location":"SF"}',
+      },
+      { type: "RUN_FINISHED", threadId: "t-1", runId: "r-1" },
+    ]);
+    const result = await parseSSEResponse(response);
+    expect(result.messages).toEqual([
+      {
+        id: "tc-1",
+        role: "assistant",
+        toolCalls: [
+          { id: "tc-1", name: "getWeather", args: '{"location":"SF"}' },
+        ],
+      },
+    ]);
+  });
+
   it("returns empty messages for non-SSE responses", async () => {
     const response = new Response(JSON.stringify({ version: "1.0" }), {
       status: 200,

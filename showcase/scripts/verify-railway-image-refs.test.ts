@@ -428,6 +428,36 @@ async function withRecords(
 }
 
 describe("image gate runner lifecycle orchestration", () => {
+  it("accepts the registered empty staging runner without requiring a prod instance", async () => {
+    const data = permanentInventory();
+    const name = "showcase-intelligence-test-runner";
+    addService(
+      data,
+      name,
+      SERVICES[name].serviceId,
+      [ENV_ID_BY_NAME.staging],
+      null,
+    );
+    const result = await withRecords(data, []);
+    expect(result.summary.shouldFail).toBe(false);
+    expect(result.untracked).toEqual([]);
+    expect(result.missingByEnv).toEqual({ prod: [], staging: [] });
+  });
+
+  it("does not grant the runner's inventory exemption to another service ID", async () => {
+    const data = permanentInventory();
+    const name = "showcase-intelligence-test-runner";
+    addService(
+      data,
+      name,
+      "unregistered-runner-id",
+      [ENV_ID_BY_NAME.staging],
+      null,
+    );
+    const result = await withRecords(data, []);
+    expect(result.summary.shouldFail).toBe(true);
+    expect(result.untracked).toContain(name);
+  });
   it("keeps no-run permanent checks and optional Intelligence absence unchanged", async () => {
     const result = await withRecords(permanentInventory(), []);
     expect(result.summary.shouldFail).toBe(false);
@@ -445,7 +475,7 @@ describe("image gate runner lifecycle orchestration", () => {
     expect(result.summary.shouldFail).toBe(true);
   });
 
-  it("the committed empty approval list refuses a record that approves its own pin", async () => {
+  it("the committed approval list refuses a record that approves its own pin", async () => {
     const dir = await mkdtemp(join(tmpdir(), "image-gate-empty-policy-"));
     try {
       const recordsFile = join(dir, "records.json");
@@ -482,6 +512,31 @@ describe("image gate runner lifecycle orchestration", () => {
     expect(result.summary.shouldFail).toBe(false);
     expect(result.skipped).toBe(1);
   });
+
+  it.each([
+    ["4922b45b-6981-4559-be2f-fbbca9123323", false],
+    ["fixture-unregistered-runner", true],
+  ])(
+    "checks the staging Intelligence runner identity %s",
+    async (id, shouldFail) => {
+      const data = permanentInventory();
+      const name = "showcase-intelligence-test-runner";
+      addService(
+        data,
+        name,
+        id,
+        [ENV_ID_BY_NAME.staging],
+        `ghcr.io/copilotkit/rich-thread-runner@sha256:${"a".repeat(64)}`,
+      );
+
+      const result = await runRailwayImageGate({ data, now: NOW });
+
+      expect(result.summary.shouldFail).toBe(shouldFail);
+      expect(result.untracked).toEqual(shouldFail ? [name] : []);
+      expect(result.missingByEnv).toEqual({ prod: [], staging: [] });
+      expect(result.violations).toEqual([]);
+    },
+  );
 
   it("still fails a required permanent service missing in one environment", async () => {
     const data = permanentInventory();

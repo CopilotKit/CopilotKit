@@ -9,6 +9,7 @@ export const APPROVED_LEARNING_STATES = [
   "threads-available",
   "success",
   "insights-only",
+  "trajectory-evidence",
   "multiple-skills",
   "new-threads",
   "empty-results",
@@ -62,6 +63,11 @@ export const LEARNING_WORKBENCH_SCENARIOS = [
     state: "insights-only",
     key: "learning-insights-only",
     label: "Insights only",
+  },
+  {
+    state: "trajectory-evidence",
+    key: "learning-trajectory-evidence",
+    label: "Trajectory evidence",
   },
   {
     state: "multiple-skills",
@@ -149,6 +155,49 @@ const evidence = (
   messageIds: [messageId],
   updatedAt: "2026-09-03T18:00:00.000Z",
 });
+
+const trajectoryEvidence = (trajectoryId: string, eventCount: number) => ({
+  status: "available" as const,
+  trajectoryId,
+  eventCount,
+  url: `${WEB_APP_ORIGIN}/o/acme/checkout/trajectories/${trajectoryId}`,
+});
+
+/** Insights citing Trajectories alone and next to Threads. */
+const trajectoryInsights: readonly InspectorLearningInsight[] = [
+  {
+    id: "theme-switch",
+    statement:
+      "Offer the dark theme before checkout starts. In the supporting Trajectories, shoppers switched the theme on the first screen before they added an item.",
+    impact:
+      "Future sessions should open in the theme the shopper picked last time, and the assistant should mention the theme switch when a shopper asks about readability.",
+    totalThreadCount: 0,
+    evidenceTruncated: false,
+    evidence: [],
+    totalTrajectoryCount: 3,
+    trajectoryEvidence: [
+      trajectoryEvidence("0190a3b4-0000-7000-8000-000000000001", 2),
+      trajectoryEvidence("0190a3b4-0000-7000-8000-000000000002", 1),
+      { status: "unavailable" },
+    ],
+  },
+  {
+    id: "coupon-field",
+    statement:
+      "Point to the coupon field when a shopper asks about discounts. Shoppers asked in chat and then searched the page for the field.",
+    impact:
+      "Future discount answers should name where the coupon field is before they explain which codes apply.",
+    totalThreadCount: 1,
+    evidenceTruncated: false,
+    evidence: [
+      evidence("thread-1934", "Discount code · #1934", "message-1934"),
+    ],
+    totalTrajectoryCount: 1,
+    trajectoryEvidence: [
+      trajectoryEvidence("0190a3b4-0000-7000-8000-000000000003", 4),
+    ],
+  },
+];
 
 const insights: readonly InspectorLearningInsight[] = [
   {
@@ -433,6 +482,21 @@ export function learningSnapshotForState(
       },
       skillsPage: page(skills, 3, requested.skillsPage),
       insightsPage: page(insights.slice(6), 4, requested.insightsPage),
+      links: links(true),
+    });
+  }
+  if (state === "trajectory-evidence") {
+    return base({
+      configuration: configured,
+      run: {
+        hasActiveRun: false,
+        hasEverSucceeded: true,
+        latest: {
+          status: "succeeded",
+          completedAt: "2026-09-03T18:30:00.000Z",
+        },
+      },
+      insightsPage: page(trajectoryInsights, 4, requested.insightsPage),
       links: links(true),
     });
   }

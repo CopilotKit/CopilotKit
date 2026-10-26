@@ -31,6 +31,14 @@ setup() {
   STUB_DIR="$BATS_TEST_TMPDIR/stub"
   mkdir -p "$STUB_DIR"
 
+  # SSOT fixture: promote-fleet validates every service name against the
+  # SSOT artifact (promote-input-guard.sh) before any CLI call. List every
+  # stub service name these tests use.
+  export GENERATED="$BATS_TEST_TMPDIR/generated.json"
+  printf '%s\n' svc-a svc-b svc-c svc-h svc-h1 svc-h2 svc-i1 svc-i2 svc-fail svc-docs svc-empty svc-w svc-zzz svc-outside t0-a t0-b t0-c t0-d t0-e t0-f t1-g t1-h \
+    | jq -R '{name: .}' | jq -s '{services: .}' > "$GENERATED"
+
+
   # Capture the per-step GitHub Actions output to a temp file so the script's
   # `$GITHUB_OUTPUT` append (succeeded_csv=...) runs exactly as it would in CI.
   # Each test reads this file to assert the exported succeeded set.
@@ -44,9 +52,9 @@ setup() {
   # regression in the script (e.g. dropping the subcommand) is caught.
   cat > "$STUB_DIR/railway" <<'STUB'
 #!/usr/bin/env bash
-# args: promote <svc> --yes --non-interactive [--digest REF]
+# args: promote --yes --non-interactive [--digest REF] -- <svc>
 [ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
-svc="$2"
+svc="${!#}"
 echo "STUB called for: $svc"
 case "$svc" in
   svc-b) exit 7 ;;   # chronically-red service (the abort trigger pre-fix)
@@ -60,7 +68,7 @@ STUB
   cat > "$STUB_DIR/railway-green" <<'STUB'
 #!/usr/bin/env bash
 [ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
-echo "STUB called for: $2"
+echo "STUB called for: ${!#}"
 exit 0
 STUB
   chmod +x "$STUB_DIR/railway-green"
@@ -104,22 +112,16 @@ STUB
   [[ "$output" == *"succeeded_csv=svc-a,svc-b,svc-c"* ]] || fail "wrong succeeded_csv: $output"
 }
 
-@test "stray/trailing commas in CSV are skipped; real services still attempted" {
+@test "stray/trailing commas in CSV fail closed before any promote" {
+  # An empty entry (svc-a,,svc-c) is rejected, not skipped.
+  # The input guard (promote-input-guard.sh) validates the WHOLE value and
+  # fails closed before any CLI call (it used to skip / trim these).
   export RAILWAY_BIN="$STUB_DIR/railway-green"
   run env SERVICES_CSV="svc-a,,svc-c" bash "$SCRIPT"
 
-  # Both non-empty services attempted; empty token between the commas ignored.
-  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
-  [[ "$output" == *"STUB called for: svc-a"* ]] || fail "svc-a not attempted: $output"
-  [[ "$output" == *"STUB called for: svc-c"* ]] || fail "svc-c not attempted: $output"
-  [[ "$output" == *"SUCCEEDED (2): svc-a svc-c"* ]] || fail "wrong SUCCEEDED summary line: $output"
-
-  # The "Attempted N" count must reflect services ACTUALLY attempted (2), not
-  # the raw CSV token count (3, including the empty token between the commas).
-  [[ "$output" == *"Attempted 2 service(s)"* ]] || fail "wrong Attempted count (should skip empty token): $output"
-
-  run cat "$GITHUB_OUTPUT"
-  [[ "$output" == *"succeeded_csv=svc-a,svc-c"* ]] || fail "wrong succeeded_csv: $output"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"STUB called for:"* ]] || fail "no service may be attempted: $output"
 }
 
 @test "single failing service still fails the run" {
@@ -206,32 +208,28 @@ STUB
   [[ "$output" != *"promote failed for"* ]] || fail "env error misattributed as per-service failure: $output"
 }
 
-@test "whitespace around tokens is trimmed; trimmed names are attempted" {
-  # `IFS=',' read` does not trim, so "svc-a, svc-c" yields a literal " svc-c"
-  # (leading space). The script must trim so the REAL service name is promoted.
+@test "whitespace around tokens fails closed before any promote" {
+  # A space (svc-a, svc-c) is rejected, not trimmed.
+  # The input guard (promote-input-guard.sh) validates the WHOLE value and
+  # fails closed before any CLI call (it used to skip / trim these).
   export RAILWAY_BIN="$STUB_DIR/railway-green"
   run env SERVICES_CSV="svc-a, svc-c" bash "$SCRIPT"
 
-  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
-  [[ "$output" == *"STUB called for: svc-a"* ]] || fail "svc-a not attempted: $output"
-  # Trimmed: stub receives `svc-c`, NOT ` svc-c`.
-  [[ "$output" == *"STUB called for: svc-c"* ]] || fail "svc-c not attempted (trimmed): $output"
-  [[ "$output" != *"STUB called for:  svc-c"* ]] || fail "leading space not trimmed from token: $output"
-  [[ "$output" == *"SUCCEEDED (2): svc-a svc-c"* ]] || fail "wrong SUCCEEDED summary line: $output"
-
-  run cat "$GITHUB_OUTPUT"
-  [[ "$output" == *"succeeded_csv=svc-a,svc-c"* ]] || fail "wrong succeeded_csv (trimmed): $output"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"STUB called for:"* ]] || fail "no service may be attempted: $output"
 }
 
-@test "whitespace-only token is correctly skipped" {
-  # A token of only whitespace (the middle " " in "svc-a, ,svc-c") must be
-  # treated like an empty token and skipped — not promoted as a blank service.
+@test "whitespace-only token fails closed before any promote" {
+  # A whitespace-only entry (svc-a, ,svc-c) is rejected, not skipped.
+  # The input guard (promote-input-guard.sh) validates the WHOLE value and
+  # fails closed before any CLI call (it used to skip / trim these).
   export RAILWAY_BIN="$STUB_DIR/railway-green"
   run env SERVICES_CSV="svc-a, ,svc-c" bash "$SCRIPT"
 
-  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
-  [[ "$output" == *"SUCCEEDED (2): svc-a svc-c"* ]] || fail "whitespace-only token not skipped: $output"
-  [[ "$output" == *"Attempted 2 service(s)"* ]] || fail "wrong Attempted count: $output"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"STUB called for:"* ]] || fail "no service may be attempted: $output"
 }
 
 @test "aggregates STAGING_DRIFT_MARKER lines into staging_drift output + summary" {
@@ -242,7 +240,7 @@ STUB
   cat > "$STUB_DIR/railway-drift" <<'STUB'
 #!/usr/bin/env bash
 [ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
-svc="$2"
+svc="${!#}"
 echo "STUB called for: $svc"
 if [ "$svc" = "svc-b" ]; then
   echo "STAGING_DRIFT_MARKER: svc-b(running=f9454e79fbf5,latest=261ccdef3f9a)"
@@ -273,7 +271,7 @@ STUB
   cat > "$STUB_DIR/railway-drift2" <<'STUB'
 #!/usr/bin/env bash
 [ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
-svc="$2"
+svc="${!#}"
 echo "STUB called for: $svc"
 if [ "$svc" = "svc-a" ]; then
   echo "STAGING_DRIFT_MARKER: svc-a(running=aaaaaaaaaaaa,latest=bbbbbbbbbbbb)"
@@ -402,7 +400,7 @@ setup_tier_stub() {
   cat > "$STUB_DIR/railway-tier" <<'STUB'
 #!/usr/bin/env bash
 [ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
-svc="$2"
+svc="${!#}"
 echo "STUB called for: $svc"
 case "$svc" in
   svc-fail) exit 7 ;;
@@ -527,7 +525,7 @@ STUB
   cat > "$STUB_DIR/railway-tier-drift" <<'STUB'
 #!/usr/bin/env bash
 [ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
-svc="$2"
+svc="${!#}"
 echo "STUB called for: $svc"
 if [ "$svc" = "svc-h" ]; then
   echo "STAGING_DRIFT_MARKER: svc-h(running=f9454e79fbf5,latest=261ccdef3f9a)"
@@ -547,18 +545,16 @@ STUB
     || fail "missing/wrong staging_drift on tier path: $output"
 }
 
-@test "U4: closure plan with empty/whitespace tokens within a tier skips them" {
-  setup_tier_stub
-  # A stray comma / whitespace token inside the tier-annotated plan must be
-  # skipped exactly like the flat-CSV path (preserve trim + empty-token skip).
+@test "U4: closure plan with an empty/whitespace token fails closed before any promote" {
+  # A blank tier entry (0: ) inside the plan is rejected, not skipped.
+  # The input guard (promote-input-guard.sh) validates the WHOLE value and
+  # fails closed before any CLI call (it used to skip / trim these).
+  export RAILWAY_BIN="$STUB_DIR/railway-green"
   run env CLOSURE_PLAN="0:svc-a,0: ,1:svc-h" bash "$SCRIPT"
 
-  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
-  [[ "$output" == *"STUB called for: svc-a"* ]] || fail "svc-a not attempted: $output"
-  [[ "$output" == *"STUB called for: svc-h"* ]] || fail "svc-h not attempted: $output"
-
-  run cat "$GITHUB_OUTPUT"
-  [[ "$output" == *"succeeded_csv=svc-a,svc-h"* ]] || fail "wrong succeeded_csv (whitespace token skipped): $output"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"STUB called for:"* ]] || fail "no service may be attempted: $output"
 }
 
 # ── Within-tier parallel fan-out ────────────────────────────────────────────
@@ -637,7 +633,7 @@ setup_timeline_stub() {
   cat > "$STUB_DIR/railway-timeline" <<STUB
 #!/usr/bin/env bash
 [ "\$1" = "promote" ] || { echo "expected first arg 'promote', got '\$1'" >&2; exit 99; }
-svc="\$2"
+svc="\${!#}"
 tier="\${svc%%-*}"   # leading t<N> field encodes the tier
 echo "STUB called for: \$svc"
 
@@ -819,7 +815,7 @@ max_concurrency() {
   cat > "$STUB_DIR/railway-emptyrc" <<'STUB'
 #!/usr/bin/env bash
 [ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
-svc="$2"
+svc="${!#}"
 echo "STUB called for: $svc"
 # Locate promote_one's scratch dir (the sole promote-fleet.* under TMPDIR) and
 # pre-seed an EMPTY .rc for this service, mimicking a write that began but never
@@ -907,4 +903,206 @@ STUB
   done
   run cat "$GITHUB_OUTPUT"
   [[ "$output" == *"svc-docs"* ]] || fail "standalone svc-docs should be in succeeded_csv: $output"
+}
+
+# --- digest scoping: --digest goes ONLY to DIGEST_SERVICE --------------------
+# A digest identifies ONE image. Forwarding it to every closure member would pin
+# aimock / harness / dashboard to the requested service's image. promote-fleet
+# must forward --digest only to DIGEST_SERVICE, and promote every other closure
+# member from its own staging running digest (no --digest).
+
+_args_stub() {
+  cat > "$STUB_DIR/railway-args" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
+echo "ARGS: $*"
+exit 0
+STUB
+  chmod +x "$STUB_DIR/railway-args"
+  export RAILWAY_BIN="$STUB_DIR/railway-args"
+}
+
+@test "digest scope: --digest is forwarded only to DIGEST_SERVICE on a multi-service closure" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h,2:svc-i1" DIGEST="sha256:deadbeef" DIGEST_SERVICE="svc-i1" bash "$SCRIPT"
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+  [[ "$output" == *"ARGS: promote --yes --non-interactive --digest sha256:deadbeef -- svc-i1"* ]] \
+    || fail "digest not forwarded to the requested service: $output"
+  [[ "$output" == *"ARGS: promote --yes --non-interactive -- svc-a"* ]] || fail "svc-a not promoted: $output"
+  [[ "$output" == *"ARGS: promote --yes --non-interactive -- svc-h"* ]] || fail "svc-h not promoted: $output"
+  [[ "$output" != *"ARGS: promote --yes --non-interactive --digest"*"-- svc-a"* ]] \
+    || fail "digest leaked onto closure member svc-a: $output"
+  [[ "$output" != *"ARGS: promote --yes --non-interactive --digest"*"-- svc-h"* ]] \
+    || fail "digest leaked onto closure member svc-h: $output"
+}
+
+@test "digest scope: DIGEST on a multi-service plan without DIGEST_SERVICE is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,2:svc-i1" DIGEST="sha256:deadbeef" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted on an unscoped digest: $output"
+}
+
+@test "digest scope: DIGEST_SERVICE not in the plan is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,2:svc-i1" DIGEST="sha256:deadbeef" DIGEST_SERVICE="svc-zzz" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted when the digest target is absent: $output"
+}
+
+# --- HELD_CSV defense in depth: a held service is never promoted -------------
+
+@test "held: a plan that still contains a HELD_CSV service is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h,2:svc-i1" HELD_CSV="svc-h" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted when a held service is in the plan: $output"
+}
+
+@test "held: the summary lists HELD_CSV services as held, unchanged" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,2:svc-i1" HELD_CSV="svc-h,svc-w" bash "$SCRIPT"
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+  [[ "$output" == *"HELD (2): svc-h svc-w"* ]] || fail "summary must list held services: $output"
+  [[ "$output" != *"ARGS: promote"*"-- svc-h"* ]] || fail "held svc-h must not be promoted: $output"
+}
+
+# --- HELD_CSV fails CLOSED on malformed input (review finding on #7955) ------
+# A single `IFS=, read` stops at the first LF, so HELD_CSV=$'svc-outside,\nsvc-h'
+# used to hold only svc-outside and PROMOTE svc-h. The whole value is validated
+# before parsing: any CR / LF / tab / character outside [a-z0-9, -], or a token
+# that is not a plain service name, rejects the run before any promote.
+
+@test "held: HELD_CSV containing a newline is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h" HELD_CSV=$'svc-outside,\nsvc-h' bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on a newline in HELD_CSV, got $status: $output"
+  [[ "$output" == *"::error::"* ]] || fail "expected ::error::: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted on a malformed HELD_CSV: $output"
+}
+
+@test "held: HELD_CSV containing a carriage return or tab is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h" HELD_CSV=$'svc-outside,\rsvc-h' bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on a CR in HELD_CSV, got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted on a CR in HELD_CSV: $output"
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h" HELD_CSV=$'svc-outside,\tsvc-h' bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on a tab in HELD_CSV, got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted on a tab in HELD_CSV: $output"
+}
+
+@test "held: a HELD_CSV token that is not a plain service name is rejected before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h" HELD_CSV="svc outside,svc-h" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on 'svc outside', got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted: $output"
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h" HELD_CSV="SVC-H" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on 'SVC-H', got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may be promoted: $output"
+}
+
+# --- verify_csv: verification covers succeeded + held (review finding) -------
+# Held services are not promoted, but prod must still be verified for them
+# against their CURRENT image. verify_csv = succeeded set + held set; failed
+# and not-attempted services stay out.
+
+@test "verify_csv: succeeded plus held, failed excluded" {
+  run env CLOSURE_PLAN="2:svc-a,2:svc-b,2:svc-c" HELD_CSV="svc-h1,svc-h2" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit (svc-b fails), got $status: $output"
+  run grep '^verify_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "verify_csv=svc-a,svc-c,svc-h1,svc-h2" ] || fail "verify_csv wrong: $output"
+  run grep '^succeeded_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "succeeded_csv=svc-a,svc-c" ] || fail "succeeded_csv must stay the mutation set: $output"
+}
+
+@test "verify_csv: equals succeeded_csv when nothing is held" {
+  run env CLOSURE_PLAN="0:svc-a,2:svc-c" bash "$SCRIPT"
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+  run grep '^verify_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "verify_csv=svc-a,svc-c" ] || fail "verify_csv wrong without HELD_CSV: $output"
+}
+
+@test "verify_csv: not-attempted (gated) services are excluded, held kept" {
+  run env CLOSURE_PLAN="0:svc-b,2:svc-a" HELD_CSV="svc-h" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit (tier-0 svc-b fails), got $status: $output"
+  run grep '^verify_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "verify_csv=svc-h" ] || fail "gated svc-a must not be verified; held svc-h must: $output"
+}
+
+# --- the one input guard: option-like tokens never reach the CLI -------------
+# Review finding on #7955: SERVICES_CSV=--yes HELD_CSV=shell made the fleet call
+# `promote --yes --yes --non-interactive`; bin/railway's OptionParser ate the
+# service and promoted the WHOLE fleet, including the held service, while the
+# wrapper reported it HELD. Every input is now validated WHOLE before parsing,
+# and the service is passed after `--`.
+
+@test "guard: option-like SERVICES_CSV tokens (--yes, --foo, -x) fail closed before any promote" {
+  _args_stub
+  for tok in "--yes" "--foo" "-x" "svc-a,--yes"; do
+    run env SERVICES_CSV="$tok" HELD_CSV="svc-h" bash "$SCRIPT"
+    [ "$status" -ne 0 ] || fail "expected non-zero exit for SERVICES_CSV='$tok', got $status: $output"
+    [[ "$output" == *"::error::"* ]] || fail "expected ::error:: for SERVICES_CSV='$tok': $output"
+    [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may reach the CLI for SERVICES_CSV='$tok': $output"
+  done
+}
+
+@test "guard: option-like CLOSURE_PLAN, HELD_CSV and DIGEST_SERVICE tokens fail closed before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="2:--yes" HELD_CSV="svc-h" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for CLOSURE_PLAN='2:--yes', got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may reach the CLI: $output"
+  run env CLOSURE_PLAN="2:svc-a" HELD_CSV="-x" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for HELD_CSV='-x', got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may reach the CLI: $output"
+  run env CLOSURE_PLAN="2:svc-a" DIGEST="sha256:deadbeef" DIGEST_SERVICE="--foo" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for DIGEST_SERVICE='--foo', got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may reach the CLI: $output"
+}
+
+@test "guard: an option-like or multi-line DIGEST fails closed before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="2:svc-a" DIGEST="--yes" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for DIGEST='--yes', got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may reach the CLI: $output"
+  run env CLOSURE_PLAN="2:svc-a" DIGEST=$'sha256:abc\n--yes' bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for a multi-line DIGEST, got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may reach the CLI: $output"
+}
+
+@test "guard: a service name not in the SSOT fails closed before any promote" {
+  _args_stub
+  run env CLOSURE_PLAN="0:svc-a,2:not-in-ssot" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit for an unknown service, got $status: $output"
+  [[ "$output" == *"::error::"*"not-in-ssot"* ]] || fail "error must name the unknown service: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may reach the CLI: $output"
+}
+
+@test "guard: a missing SSOT artifact fails closed before any promote" {
+  _args_stub
+  run env GENERATED="$BATS_TEST_TMPDIR/does-not-exist.json" CLOSURE_PLAN="2:svc-a" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit without an SSOT artifact, got $status: $output"
+  [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may reach the CLI: $output"
+}
+
+@test "guard: the service is passed after -- so the CLI always reads it as positional" {
+  _args_stub
+  run env CLOSURE_PLAN="2:svc-a" DIGEST="sha256:deadbeef" bash "$SCRIPT"
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+  [[ "$output" == *"ARGS: promote --yes --non-interactive --digest sha256:deadbeef -- svc-a"* ]] \
+    || fail "service must be the last argv element, after --: $output"
+}
+
+@test "guard: a CLOSURE_PLAN member with an empty name fails closed with zero CLI calls (leading, repeated, trailing)" {
+  # Review finding on #7955: `0:,2:svc-a` passed the tier check, the empty name
+  # vanished when the names were joined, and svc-a promoted with exit 0.
+  _args_stub
+  for plan in "0:,2:svc-a" "0:svc-a,1:,2:svc-c" "0:svc-a,2:svc-c,2:" "s:,2:svc-a"; do
+    run env CLOSURE_PLAN="$plan" bash "$SCRIPT"
+    [ "$status" -ne 0 ] || fail "expected non-zero exit for CLOSURE_PLAN='$plan', got $status: $output"
+    [[ "$output" == *"::error::"* ]] || fail "expected ::error:: for CLOSURE_PLAN='$plan': $output"
+    [[ "$output" != *"ARGS: promote"* ]] || fail "nothing may reach the CLI for CLOSURE_PLAN='$plan': $output"
+  done
 }

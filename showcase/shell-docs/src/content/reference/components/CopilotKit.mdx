@@ -204,6 +204,17 @@ needed if you want to override the default theme.
 
 </PropertyReference>
 
+<PropertyReference name="mcpApps" type="{ allowSameOriginFallback?: boolean }">
+Configuration for the built-in MCP Apps renderer.
+
+`allowSameOriginFallback` restores `allow-same-origin` on the MCP App sandbox.
+By default widgets get an opaque origin. **Unsafe:** with it set, a widget runs
+with your page's origin and can read your cookies, storage and DOM. Only use it
+for widgets you trust that need `localStorage`, `IndexedDB` or cookies. See
+[Sandbox and widget storage](/generative-ui/mcp-apps#sandbox-and-widget-storage).
+
+</PropertyReference>
+
 <PropertyReference name="openGenerativeUI" type="{ sandboxFunctions?: SandboxFunction[]; designSkill?: string }">
   Configuration for Open Generative UI. Use `sandboxFunctions` to expose host
   functions to generated sandboxed iframes, and `designSkill` to override the
