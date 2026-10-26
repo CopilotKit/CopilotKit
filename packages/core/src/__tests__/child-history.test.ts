@@ -479,16 +479,21 @@ describe("child-history presentation store", () => {
         },
       };
       await play(interrupt);
-      await play(
-        ...calls.map((call) => ({
-          ...result(call.parentToolUseId, call.id),
-          rawEvent: {
-            parent_tool_use_id:
-              call.id === "root-read" ? null : call.parentToolUseId,
-            is_error: false,
-          },
+      agent.events = calls.map((call) => ({
+        ...result(call.parentToolUseId, call.id),
+        rawEvent: {
+          parent_tool_use_id:
+            call.id === "root-read" ? null : call.parentToolUseId,
+          is_error: false,
+        },
+      }));
+      await agent.runAgent({
+        resume: calls.map(({ id }) => ({
+          interruptId: id,
+          status: "resolved",
+          payload: true,
         })),
-      );
+      });
 
       expect(current().histories.map((history) => history.namespace)).toEqual([
         ["leaf0"],
