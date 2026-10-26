@@ -28,7 +28,7 @@ import {
   useStickToBottom,
   useStickToBottomContext,
 } from "use-stick-to-bottom";
-import { ChevronDown, Upload } from "lucide-react";
+import { ChevronDown, Loader2, Upload } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
 import {
@@ -95,6 +95,15 @@ export type CopilotChatViewProps = WithSlots<
      * and the bootstrap messages arriving from /connect.
      */
     isConnecting?: boolean;
+    /**
+     * Indicator shown while `isConnecting` is `true` and no messages have
+     * arrived yet, so restoring a thread's history doesn't render as an
+     * empty panel. Pass `false` to disable it, or a component, className, or
+     * props object to customize it.
+     */
+    connectingIndicator?:
+      | SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>
+      | boolean;
     /**
      * When `true`, the caller has explicitly picked a thread (via `threadId`
      * prop or `CopilotChatConfigurationProvider`). Suppresses the welcome
@@ -168,6 +177,7 @@ export function CopilotChatView({
   onDragLeave,
   onDrop,
   isConnecting = false,
+  connectingIndicator,
   hasExplicitThreadId = false,
   // Deprecated — forwarded to input slot
   disclaimer,
@@ -308,6 +318,19 @@ export function CopilotChatView({
       })
     : null;
 
+  // Show a loading indicator while a thread's initial connect is in flight
+  // and nothing has been restored yet. Once the first message arrives the
+  // message view takes over, even if the bootstrap stream is still replaying.
+  const showConnectingIndicator =
+    isConnecting && messages.length === 0 && connectingIndicator !== false;
+  const BoundConnectingIndicator = showConnectingIndicator
+    ? renderSlot(
+        connectingIndicator === true ? undefined : connectingIndicator,
+        CopilotChatView.ConnectingIndicator,
+        {},
+      )
+    : null;
+
   const BoundScrollView = renderSlot(scrollView, CopilotChatView.ScrollView, {
     autoScroll,
     scrollThreadId,
@@ -321,6 +344,7 @@ export function CopilotChatView({
         }}
       >
         <div className="cpk:max-w-3xl cpk:mx-auto">
+          {BoundConnectingIndicator}
           {BoundMessageView}
           {hasSuggestions ? (
             <div className="cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0 cpk:mt-4">
@@ -395,6 +419,7 @@ export function CopilotChatView({
         data-copilotkit
         data-testid="copilot-chat"
         data-copilot-running={isRunning ? "true" : "false"}
+        data-copilot-connecting={isConnecting ? "true" : "false"}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
@@ -428,6 +453,7 @@ export function CopilotChatView({
       data-copilotkit
       data-testid="copilot-chat"
       data-copilot-running={isRunning ? "true" : "false"}
+      data-copilot-connecting={isConnecting ? "true" : "false"}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
@@ -999,6 +1025,30 @@ export namespace CopilotChatView {
     className,
     ...props
   }) => <div className={className} {...props} />;
+
+  export const ConnectingIndicator: React.FC<
+    React.HTMLAttributes<HTMLDivElement>
+  > = ({ className, ...props }) => {
+    const config = useCopilotChatConfiguration();
+    const labels = config?.labels ?? CopilotChatDefaultLabels;
+
+    return (
+      <div
+        data-testid="copilot-connecting-indicator"
+        role="status"
+        className={cn("cpk:flex cpk:justify-center cpk:py-8", className)}
+        {...props}
+      >
+        <Loader2
+          aria-hidden="true"
+          className="cpk:size-6 cpk:animate-spin cpk:text-muted-foreground"
+        />
+        {/* Screen readers announce a status region's text content, not its
+            aria-label, so the label is visually hidden text. */}
+        <span className="cpk:sr-only">{labels.chatConnectingLabel}</span>
+      </div>
+    );
+  };
 
   export const WelcomeMessage: React.FC<
     React.HTMLAttributes<HTMLDivElement>
