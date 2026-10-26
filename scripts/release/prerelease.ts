@@ -5,7 +5,8 @@
  * build job. Build and test also run there. This script receives pre-built,
  * correctly-versioned artifacts and only performs the npm publish step.
  *
- * Always publishes with the "canary" dist-tag.
+ * Publishes under the version's prerelease identifier as the dist-tag:
+ * `canary` for canaries, `rc` for release candidates.
  *
  * Multi-scope caveat (scope=all): packages publish scope by scope, and the
  * cross-scope dependency graph has cycles (runtime -> channels-intelligence,
@@ -24,6 +25,7 @@ import {
   getCurrentVersion,
   getPackagesForScope,
   pinPrereleaseDependencies,
+  prereleaseDistTag,
 } from "./lib/versions.js";
 import type { PublishablePackage } from "./lib/versions.js";
 import { ALL_SCOPES, ROOT, loadConfig, resolveScopes } from "./lib/config.js";
@@ -103,9 +105,6 @@ async function main() {
     process.exit(1);
   }
 
-  const config = loadConfig();
-  const distTag = config.prereleaseTag;
-
   // Read the versions from package.json — already bumped by bump-prerelease.ts
   // in the CI build job.
   const scopeVersions = scopes.map((scope) => {
@@ -142,6 +141,8 @@ async function main() {
   // the stable-shaped summary; `versions` carries every scope for a multi-scope
   // canary, where no single version describes the publish.
   const publishVersion = scopeVersions[0].version;
+  // Every scope in a run shares one prerelease id, so the first names the tag.
+  const distTag = prereleaseDistTag(publishVersion);
   const publishVersions = scopeVersions
     .map(({ scope, version }) => `${scope}@${version}`)
     .join(" ");

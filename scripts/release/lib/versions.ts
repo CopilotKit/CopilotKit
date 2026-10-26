@@ -146,6 +146,49 @@ export function computePrereleaseVersion(
   return `${base}-${tag}.${resolvePrereleaseId(suffix)}`;
 }
 
+/** Prerelease identifier, and npm dist-tag, of a release candidate. */
+export const RC_TAG = "rc";
+
+/**
+ * The next release candidate of `base`: one past the highest `<base>-rc.<n>`
+ * in `published`, or `<base>-rc.0` when there is none.
+ *
+ * `published` must cover every package in the scope, not just the version
+ * source. A run that dies partway leaves some packages on rc.N and others
+ * without it, and npm refuses to republish a version, so the next run has to
+ * move past N for all of them.
+ */
+export function computeNextRcVersion(
+  base: string,
+  published: Iterable<string>,
+): string {
+  const prefix = `${base}-${RC_TAG}.`;
+  let next = 0;
+  for (const version of published) {
+    if (!version.startsWith(prefix)) continue;
+    const n = version.slice(prefix.length);
+    if (/^\d+$/.test(n)) next = Math.max(next, Number(n) + 1);
+  }
+  return `${prefix}${next}`;
+}
+
+/**
+ * The dist-tag a prerelease publishes under: its prerelease identifier, so
+ * `1.80.1-canary.123` goes to `canary` and `2.0.0-rc.3` goes to `rc`.
+ *
+ * Throws on a stable version. The prerelease lane must never publish one: it
+ * would burn that version number under a non-`latest` tag.
+ */
+export function prereleaseDistTag(version: string): string {
+  const { prerelease } = parseSemver(version);
+  if (!prerelease) {
+    throw new Error(
+      `${version} is not a prerelease; refusing to publish it from the prerelease lane.`,
+    );
+  }
+  return prerelease.split(".")[0];
+}
+
 /** Get all publishable packages in the order configured for a release scope. */
 export function getPackagesForScope(scope: ReleaseScope): PublishablePackage[] {
   const scopeConfig = getScopeConfig(scope);

@@ -43,6 +43,12 @@ Always use a git worktree for non-trivial work. This keeps the main working tree
 
 **Detect drift and correct it.** If you notice a worktree accumulating uncommitted work for more than a single logical step, stop and commit before moving on. If you find yourself with a backlog of untracked files at the end of a session, split them into logical chunks and commit each — don't combine them just because they happened together.
 
+## Release-line Branches
+
+A branch named for a version, such as `2.0.0`, collects the breaking changes for that release before it ships. Breaking work branches from it and targets it (`gh pr create --base 2.0.0`); everything else still goes to `main`. PR checks run against it the same as `main`.
+
+Every merge into it that touches `packages/` publishes the next `2.0.0-rc.N` of the monorepo packages to npm under the `rc` dist-tag (`.github/workflows/rc.yml`). Keep it current by merging `main` into it; never rebase or force-push a shared release line.
+
 ## Creating a PR
 
 When the work is ready:
