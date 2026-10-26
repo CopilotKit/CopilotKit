@@ -7,6 +7,7 @@ import {
   GENERATIVE_UI_MARKDOWN_SCHEMA_CONTEXT_DESCRIPTION,
   GENERATIVE_UI_WHEN_TO_SHOW,
 } from "../a2ui-prompts";
+import { COPILOTKIT_FUNCTIONS } from "../generative-ui/basic-functions";
 import { buildGenerativeUIPrompt } from "../generative-ui/prompt";
 import { GENERATIVE_UI_AGENT_FUNCTION_CALLS } from "../generative-ui/types";
 
@@ -96,12 +97,14 @@ describe("GENERATIVE_UI_MARKDOWN_GUIDELINES", () => {
       'Use only the functions under "functions" in the schema.',
     );
     expect(guide).toContain("formatString interpolates ${...}");
-    expect(guide).toContain("There are no operators in ${...}");
+    expect(guide).toContain(
+      "Inside formatString, ${...} does not support operators",
+    );
     expect(guide).toContain(
       '{"@call":"calc","args":{"expression":"seats * 29 * (annual ? 0.8 : 1)"',
     );
     expect(guide).toContain(
-      '{"@call":"series","args":{"count":12,"variable":"m"',
+      'use series. Its description under "functions" in the schema',
     );
     expect(guide).toContain('the "items" of a List');
     expect(guide).not.toContain("template path of a list");
@@ -295,5 +298,65 @@ describe("GENERATIVE_UI_WHEN_TO_SHOW", () => {
         surfaces: {},
       }),
     ).toContain(GENERATIVE_UI_WHEN_TO_SHOW);
+  });
+});
+
+describe("computed data guidance", () => {
+  const series = COPILOTKIT_FUNCTIONS.series;
+  const markdownGuide = buildGenerativeUIMarkdownGuidelines();
+  const toolPrompt = buildGenerativeUIPrompt({
+    catalogId: "test",
+    targets: [],
+    components: {},
+    functions: {
+      series: {
+        description: series.description,
+        parameters: { type: "object", description: series.parameters },
+        returnType: series.returnType,
+      },
+    },
+    surfaces: {},
+  });
+
+  it("the series description carries the rules and the example", () => {
+    expect(series.description).toContain('"month":"${i}"');
+    expect(series.description).toContain(
+      '"monthlyCost":{"@path":"/monthlyCost"}',
+    );
+    expect(series.description).toContain(
+      "whole-expression string retains the result type",
+    );
+    expect(series.description).toContain("resolve before the series loop");
+    expect(series.description).not.toContain('"variable":"m"');
+    expect(series.description).not.toContain("WORKAROUND");
+    expect(series.description).not.toContain("a2ui-agent-sdk");
+  });
+
+  it.each([
+    ["markdown", markdownGuide],
+    ["tool", toolPrompt],
+  ])(
+    "points to series and scopes ${...} in the %s transport",
+    (_transport, prompt) => {
+      expect(prompt).toContain(
+        "For a computed list (chart data, template items) use series. Its description under",
+      );
+      expect(prompt).toContain(
+        "${...} is evaluated only in the value of formatString and in the item of series",
+      );
+      expect(prompt).toContain(
+        "Inside formatString, ${...} does not support operators",
+      );
+      expect(prompt).not.toContain('"variable":"m"');
+      expect(prompt).not.toContain("There are no operators in ${...}");
+    },
+  );
+
+  it("gives the series description once, in the function list of the tool prompt", () => {
+    expect(toolPrompt.split(series.description)).toHaveLength(2);
+  });
+
+  it("leaves the series description to the schema in the markdown guide", () => {
+    expect(markdownGuide).not.toContain(series.description);
   });
 });

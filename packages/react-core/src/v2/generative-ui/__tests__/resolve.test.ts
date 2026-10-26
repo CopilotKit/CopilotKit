@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { GENERATIVE_UI_FUNCTIONS } from "@copilotkit/shared";
 import { ExpressionError } from "../functions";
 import {
   containsDynamicValue,
@@ -81,6 +82,36 @@ describe("resolveDynamicValue: bindings", () => {
 });
 
 describe("resolveDynamicValue: function values", () => {
+  it("resolves the documented series example to numbers and recomputes from bound data", () => {
+    const example = {
+      "@call": "series",
+      args: {
+        count: 6,
+        item: { month: "${i}", cost: "${i * monthlyCost}" },
+        monthlyCost: { "@path": "/monthlyCost" },
+      },
+    };
+    expect(GENERATIVE_UI_FUNCTIONS.series.description).toContain(
+      JSON.stringify(example),
+    );
+    const state = { monthlyCost: 75 };
+    const context: ResolveContext = {
+      data: reader(state),
+      basePath: undefined,
+    };
+    for (const monthlyCost of [75, 150]) {
+      state.monthlyCost = monthlyCost;
+      const { value, paths } = resolve(example, context);
+      expect(value).toEqual(
+        Array.from({ length: 6 }, (_, index) => ({
+          month: index + 1,
+          cost: (index + 1) * monthlyCost,
+        })),
+      );
+      expect([...paths]).toEqual(["/monthlyCost"]);
+    }
+  });
+
   it("gives the @index of a template item, plus an offset, and nothing outside a template", () => {
     expect(
       resolve({ "@call": "@index" }, { data, basePath: "/items/1" }).value,
