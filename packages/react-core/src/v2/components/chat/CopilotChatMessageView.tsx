@@ -10,6 +10,11 @@ import React, {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import { ScrollElementContext } from "./scroll-element-context";
+import {
+  ChildHistoryContext,
+  ChildHistoryReadOnlyContext,
+  ChildHistoryView,
+} from "./child-history";
 import { ScrollPinnedContext } from "./scroll-pinned-context";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot, isReactComponentType } from "../../lib/slots";
@@ -568,6 +573,8 @@ export function CopilotChatMessageView({
   const renderCustomMessage = useRenderCustomMessages();
   const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit, showIntelligenceIndicator = true } = useCopilotKit();
+  const childHistories = useContext(ChildHistoryContext);
+  const readOnlyChild = useContext(ChildHistoryReadOnlyContext);
   const config = useCopilotChatConfiguration();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -587,6 +594,7 @@ export function CopilotChatMessageView({
   const [interruptElement, setInterruptElement] =
     useState<React.ReactElement | null>(null);
   useEffect(() => {
+    if (readOnlyChild) return;
     setInterruptElement(copilotkit.interruptElement);
     const subscription = copilotkit.subscribe({
       onInterruptElementChanged: ({ interruptElement }) => {
@@ -594,7 +602,7 @@ export function CopilotChatMessageView({
       },
     });
     return () => subscription.unsubscribe();
-  }, [copilotkit]);
+  }, [copilotkit, readOnlyChild]);
 
   // Helper to get state snapshot for a message (used for memoization)
   const getStateSnapshotForMessage = (messageId: string): unknown => {
@@ -1177,6 +1185,9 @@ export function CopilotChatMessageView({
   // Per-message rendering helper (shared by flat and virtual paths)
   // ---------------------------------------------------------------------------
   const renderMessageBlock = (message: Message): React.ReactElement[] => {
+    const childHistory = childHistories.get(message.id);
+    if (childHistory)
+      return [<ChildHistoryView key={message.id} history={childHistory} />];
     const elements: (React.ReactElement | null | undefined)[] = [];
     // Only custom message renderers consume the snapshot, and resolving it
     // deep-clones the agent's whole state (LangGraph's includes the `messages`

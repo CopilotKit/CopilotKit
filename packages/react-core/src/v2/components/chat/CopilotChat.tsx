@@ -31,7 +31,13 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
+import {
+  AllChildHistoriesProvider,
+  ChildHistoryContext,
+  projectChildHistories,
+} from "./child-history";
 import {
   useCopilotKit,
   useDefaultAgentId,
@@ -1274,6 +1280,15 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [messagesMemoKey],
   );
+  const childSnapshot = useSyncExternalStore(
+    copilotkit.ɵchildHistories.subscribe,
+    () => copilotkit.ɵchildHistories.get(agent, resolvedThreadId),
+    () => copilotkit.ɵchildHistories.get(agent, resolvedThreadId),
+  );
+  const childProjection = useMemo(
+    () => projectChildHistories(messages, childSnapshot.histories),
+    [messages, childSnapshot],
+  );
 
   // Compute the ID of the last user message for scroll-pinning logic.
   const lastUserMessageId = useMemo(() => {
@@ -1308,7 +1323,7 @@ export function CopilotChat({
 
   const finalProps: CopilotChatViewProps = {
     ...mergedProps,
-    messages,
+    messages: childProjection.messages,
     // Input behavior props
     // Gate submission on runtime readiness. While `isReady` is false the
     // `agent` returned by useAgent is a provisional stand-in that `/info` will
@@ -1385,7 +1400,14 @@ export function CopilotChat({
         )}
         <LastUserMessageContext.Provider value={lastUserMessageState}>
           <CopilotKitInspectorContextProvider value={inspectorContextValue}>
-            {RenderedChatView}
+            <AllChildHistoriesProvider value={childSnapshot.histories}>
+              <ChildHistoryContext.Provider value={childProjection.entries}>
+                {childSnapshot.error && (
+                  <div role="alert">{childSnapshot.error}</div>
+                )}
+                {RenderedChatView}
+              </ChildHistoryContext.Provider>
+            </AllChildHistoriesProvider>
           </CopilotKitInspectorContextProvider>
         </LastUserMessageContext.Provider>
       </div>

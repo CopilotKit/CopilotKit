@@ -12,7 +12,10 @@ import { AbstractAgent } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import type * as CopilotKitCoreModule from "@copilotkit/core";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  CopilotKitCore,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkit/core";
 import type {
   ThreadRunActivityNotification,
   ɵThreadStore,
@@ -164,6 +167,7 @@ function createTestCore(
     });
   });
   const core = {
+    ɵchildHistories: new CopilotKitCore({}).ɵchildHistories,
     agents,
     applyHeadersToAgent: vi.fn(),
     connectAgent,
