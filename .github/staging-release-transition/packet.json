@@ -1,7 +1,7 @@
 {
   "version": 1,
   "scope": "pni-harness-basic-completion-20261026",
-  "accepted": false,
+  "accepted": true,
   "images": [
     {
       "image": "ghcr.io/copilotkit/showcase-harness",
@@ -93,5 +93,25 @@
     "ghcr.io/copilotkit/starter-ms-agent-framework-python": "sha256:235104a39f8ffad220be80f7bbeb67407116373e5e05422fe5ceccfed77b2cd8",
     "ghcr.io/copilotkit/starter-pydantic-ai": "sha256:ff06ac42cf943e576ce3f1cdc23f8e0707307817344ced35e02f4810c5a1bea4",
     "ghcr.io/copilotkit/starter-strands-python": "sha256:18e5778da57c230f510d4aaf760fdc02046297efa8109ba555bcf1590fed37ee"
+  },
+  "acceptanceEvidence": {
+    "mode": "BASIC_STARTUP_AND_ONE_QUEUE_JOB",
+    "forcedShutdown": "DEFERRED_NOT_TESTED",
+    "outcome": "PASS",
+    "receiptSha256": "6681ea68efdc9327f3a53dc6b42fab4fb03ce80c1c0c09e101f3f8f46e1091c1",
+    "controlPlaneDeploymentId": "cf906b44-2db5-4a7f-9cfc-12a97c01f060",
+    "workerDeploymentId": "6178c93d-4cfe-4242-b395-d4ef8c263e99",
+    "controlPlaneInstanceId": "1cda0292-28b8-4f93-99c2-fec4456bceb4",
+    "workerInstanceIds": [
+      "2cd1d693-a670-42ea-8861-07593119efbd",
+      "683b0909-df76-41e5-ba61-864d438b66bb",
+      "a7751705-c2c6-4356-9070-272d77adf244",
+      "b7ced665-a1f5-47e2-91cc-c5de55d186ac",
+      "d6b8218d-0ff9-43fd-886f-4b4e512207da",
+      "e667920e-d1f2-44d2-a1df-4165ced63b8c"
+    ],
+    "jobId": "44f41efjy00gj2u",
+    "runId": "9f2e56cb-ebb9-4bf8-ab01-30c45ddfc197",
+    "workerId": "worker-c1d6b635e0d9"
   }
 }
