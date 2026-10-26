@@ -121,6 +121,52 @@ describe("frontend results alongside interrupts", () => {
 });
 
 describe("ɵInterruptState", () => {
+  it("allows cancellation of an expired interrupt", () => {
+    const state = new ɵInterruptState();
+    state.setStandard([
+      { ...interrupt("approval"), expiresAt: "2000-01-01T00:00:00Z" },
+    ]);
+
+    expect(state.cancel("approval")).toEqual({
+      kind: "resume",
+      resume: [{ interruptId: "approval", status: "cancelled" }],
+      toolResults: [],
+    });
+  });
+
+  it("cancels an expired approval alongside a saved frontend result", () => {
+    const state = new ɵInterruptState();
+    state.setStandard([
+      interrupt("chart-i", "chart", "tool_call"),
+      { ...interrupt("approval"), expiresAt: "2000-01-01T00:00:00Z" },
+    ]);
+
+    expect(
+      state.cancel("approval", [
+        { id: "saved", role: "tool", toolCallId: "chart", content: "" },
+      ]),
+    ).toEqual({
+      kind: "resume",
+      resume: [
+        { interruptId: "chart-i", status: "resolved", payload: "" },
+        { interruptId: "approval", status: "cancelled" },
+      ],
+      toolResults: [],
+    });
+  });
+
+  it("still rejects resolving an expired interrupt explicitly", () => {
+    const state = new ɵInterruptState();
+    state.setStandard([
+      { ...interrupt("approval"), expiresAt: "2000-01-01T00:00:00Z" },
+    ]);
+
+    expect(state.resolve("allow", "approval")).toMatchObject({
+      kind: "expired",
+      interrupt: { id: "approval" },
+    });
+  });
+
   it("waits for every interrupt and emits one resume decision", () => {
     const state = new ɵInterruptState();
     state.setStandard([
