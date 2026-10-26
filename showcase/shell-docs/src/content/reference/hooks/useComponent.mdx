@@ -48,6 +48,7 @@ function useComponent<TSchema extends z.ZodTypeAny | undefined = undefined>(
 
 - Prepends a default instruction to the description: _"Use this tool to display the \"&lt;name&gt;\" component in the chat..."_.
 - Calls `useFrontendTool` internally with a render function that spreads the tool parameters as component props.
+- **Props arrive partial while the tool call streams.** The component renders as soon as the agent starts the tool call, and again as each argument streams in. Until the call completes, any field can be missing. The props are the arguments the agent sent, not a parsed schema result, so schema defaults such as `.default("c")` are not filled in. The `render` type shows the complete parameters, so TypeScript does not warn you. Treat every prop as optional in the component and render a placeholder for missing fields.
 - Inherits `useFrontendTool` lifecycle behavior: duplicate-name override warning, tool removal on unmount, and renderer retention for chat history.
 - Tracks updates by `config.name` plus `deps` (include any changing captured values in `deps`).
 - **`deps` comparison**: compares plain data (strings, numbers, booleans, `null`, dates, and plain objects and arrays of those) by value, so an inline literal such as `[{ status }]` re-registers only when its contents change. A function never counts as changed, as before, so keep a changing callback in a ref. Class instances and other objects compare by identity, so a circular value such as the `agent` from `useAgent` is safe to pass. Adding or removing an entry counts as a change.
@@ -62,12 +63,13 @@ const weatherCardSchema = z.object({
 
 type WeatherCardProps = z.infer<typeof weatherCardSchema>;
 
-function WeatherCard({ city, unit }: WeatherCardProps) {
+// Props are partial while the tool call streams, so read each field as optional.
+function WeatherCard({ city, unit }: Partial<WeatherCardProps>) {
   return (
     <div className="rounded border p-3">
       <div className="text-sm text-zinc-500">Weather request</div>
       <div className="font-medium">
-        {city} ({unit.toUpperCase()})
+        {city ?? "…"} ({(unit ?? "c").toUpperCase()})
       </div>
     </div>
   );

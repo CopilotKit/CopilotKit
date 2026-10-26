@@ -43,6 +43,22 @@ The `OpenGenerativeUIMiddleware` then converts the agent's streamed
 which the built-in `OpenGenerativeUIActivityRenderer` mounts inside a
 sandboxed iframe.
 
+<Callout type="warn" title="Your agent must pass frontend tools to its model">
+  `generateSandboxedUi` reaches the agent as a frontend tool in the run input.
+  The agent calls it only if it gives the run's frontend tools to its model.
+  If it binds only its own tools, the model never sees `generateSandboxedUi`,
+  so nothing renders and no error appears.
+
+  - The built-in agent passes frontend tools already.
+  - A LangGraph agent built with `create_agent` (Python) or `createAgent`
+    (TypeScript) adds `CopilotKitMiddleware()` (Python, from `copilotkit`) or
+    `copilotkitMiddleware` (TypeScript, from `@copilotkit/sdk-js/langgraph`)
+    to its `middleware`. A hand-built graph uses `CopilotKitState` and binds
+    `state["copilotkit"]["actions"]` with its own tools.
+  - Other agents forward the frontend tools from the run input. See
+    [Frontend Tools](/frontend-tools).
+</Callout>
+
 ### Drop `<CopilotChat />` into the page
 
 Wrap your app in `CopilotKit` and render `<CopilotChat>` — no extra props needed:
