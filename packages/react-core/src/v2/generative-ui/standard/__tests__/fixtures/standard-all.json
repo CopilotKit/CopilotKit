@@ -553,13 +553,7 @@
       "component": "Card",
       "variant": "soft",
       "gap": 2,
-      "children": [
-        "s-feedback-title",
-        "pulse",
-        "flash",
-        "pop",
-        "modal"
-      ]
+      "children": ["s-feedback-title", "pulse", "flash", "pop", "modal"]
     },
     {
       "id": "s-feedback-title",
