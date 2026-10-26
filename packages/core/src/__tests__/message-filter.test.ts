@@ -81,6 +81,22 @@ function sentMessages(init: RequestInit): Message[] {
 }
 
 describe("ɵrepairToolCallPairs", () => {
+  const reusedToolCall = (id: string) =>
+    createToolCallMessage(
+      "lookup",
+      {},
+      {
+        id,
+        toolCalls: [
+          {
+            id: "call_0",
+            type: "function",
+            function: { name: "lookup", arguments: "{}" },
+          },
+        ],
+      },
+    );
+
   it("restores the assistant call in front of a kept tool result", () => {
     const call = createToolCallMessage("lookup");
     const result = createToolResultMessage(toolCallIdOf(call), "done");
@@ -163,6 +179,47 @@ describe("ɵrepairToolCallPairs", () => {
     ];
 
     expect(ɵrepairToolCallPairs(full, full)).toEqual(full);
+  });
+
+  it("pairs reused tool-call ids with the nearest preceding call", () => {
+    const firstCall = reusedToolCall("a1");
+    const firstResult = createToolResultMessage("call_0", "first", {
+      id: "t1",
+    });
+    const secondCall = reusedToolCall("a2");
+    const secondResult = createToolResultMessage("call_0", "second", {
+      id: "t2",
+    });
+    const full = [
+      createMessage({ id: "u1" }),
+      firstCall,
+      firstResult,
+      createAssistantMessage({ id: "x1" }),
+      createMessage({ id: "u2" }),
+      secondCall,
+      secondResult,
+      createAssistantMessage({ id: "x2" }),
+    ];
+
+    expect(
+      ɵrepairToolCallPairs(full, full).map((message) => message.id),
+    ).toEqual(full.map((message) => message.id));
+  });
+
+  it("restores the matching call when a filter keeps one of two reused-id results", () => {
+    const firstCall = reusedToolCall("a1");
+    const firstResult = createToolResultMessage("call_0", "first", {
+      id: "t1",
+    });
+    const secondCall = reusedToolCall("a2");
+    const secondResult = createToolResultMessage("call_0", "second", {
+      id: "t2",
+    });
+    const full = [firstCall, firstResult, secondCall, secondResult];
+
+    expect(
+      ɵrepairToolCallPairs([firstResult], full).map((message) => message.id),
+    ).toEqual([firstCall.id, firstResult.id]);
   });
 });
 
