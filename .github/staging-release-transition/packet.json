@@ -58,11 +58,6 @@
       "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
     },
     {
-      "image": "ghcr.io/copilotkit/showcase-harness",
-      "digest": "sha256:99c0192354d298671f0df6e16256959f426fe93bbf98fd1948ce50ff602e6fd6",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
-    },
-    {
       "image": "ghcr.io/copilotkit/showcase-langgraph-fastapi",
       "digest": "sha256:10c5bddc3eb0938c16883c524af2653a73637a2aa7ee9d031e48d7e2a560e3bb",
       "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
@@ -203,5 +198,8 @@
       "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
     }
   ],
-  "held": ["ghcr.io/copilotkit/starter-ms-agent-framework-dotnet"]
+  "held": [
+    "ghcr.io/copilotkit/showcase-harness",
+    "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet"
+  ]
 }

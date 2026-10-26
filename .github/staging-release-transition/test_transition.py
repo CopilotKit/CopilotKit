@@ -42,6 +42,13 @@ class TransitionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.m.validate_packet({**self.packet, "held": [self.row["image"]], "images": []}, self.allowed, "inspect")
 
+    def test_known_busy_harness_can_be_preserved_without_retagging(self):
+        harness = "ghcr.io/copilotkit/showcase-harness"
+        packet = {**self.packet, "held": [harness]}
+        self.assertEqual(self.m.validate_packet(packet, self.allowed | {harness}, "inspect"), [self.row])
+        with self.assertRaises(ValueError):
+            self.m.validate_packet({**packet, "images": [self.row, {**self.row, "image": harness}]}, self.allowed | {harness}, "inspect")
+
     def test_arbitrary_repository_or_tag_is_rejected(self):
         for field, value in [("image", "ghcr.io/other/project"), ("digest", "latest"), ("revision", "main")]:
             with self.subTest(field=field), self.assertRaises(ValueError):

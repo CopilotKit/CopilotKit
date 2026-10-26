@@ -16,10 +16,11 @@ def validate_packet(packet, allowed, mode):
         raise ValueError("Unsupported packet or operation")
     rows = packet.get("images", [])
     held = packet.get("held", [])
-    # Mark explicitly left PNI-700 out of scope and kept automation held.
-    # This one-time packet may preserve that image, never arbitrary omissions.
-    if not isinstance(held, list) or set(held) - {"ghcr.io/copilotkit/starter-ms-agent-framework-dotnet"} or not set(held) <= allowed:
-        raise ValueError("Only the explicitly user-held .NET image may be omitted")
+    # Preserve the user-held PNI-700 image and the busy harness fleet, whose
+    # known active-drain defect prevents safe acceptance in this transition.
+    # Their running images and shared latest pointers must remain unchanged.
+    if not isinstance(held, list) or set(held) - {"ghcr.io/copilotkit/starter-ms-agent-framework-dotnet", "ghcr.io/copilotkit/showcase-harness"} or not set(held) <= allowed:
+        raise ValueError("Only the explicitly held .NET and busy harness images may be omitted")
     names = [r.get("image") for r in rows]
     if len(names) != len(set(names)) or set(names) != allowed - set(held):
         raise ValueError("Image set must exactly match the eligible staging Node fleet")
