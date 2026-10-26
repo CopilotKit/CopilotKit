@@ -1,205 +1,248 @@
 {
   "version": 1,
-  "accepted": false,
+  "accepted": true,
   "images": [
     {
       "image": "ghcr.io/copilotkit/showcase-ag2",
       "digest": "sha256:46f16081242055ff4a1fc5b385e569748e843b79ce04f2209d3616caf90f65c1",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:7398c587a435ae112386b7c2e1da101fab90dc5b73b5293dfdbbbb0583d0d556"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-agno",
       "digest": "sha256:15b9ab7d8802ce423395921dd84e633a40f09e8e38d791a09887185663cad9cd",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:0f26db74505d4e8ba18fe8f55f304826ceaa9cf202337a2b6842efad060e398d"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-aimock",
       "digest": "sha256:d668d494594b47c0847af1f3e7808a018e9a7d36a63e1e4691ff89fbb3de0ebf",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:fcec62b9298582e7ae2a2c194ee8811dcb1a994444ae76c9fcea0f512fb0b070"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-built-in-agent",
       "digest": "sha256:4828f2c9219634467fde5a14b191cea32e65f530d233d572ba9da47f8d65de59",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:c68920d5e153922d8a1131477fa3fbab2b984df622e5fbce5542a91cb170f361"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-claude-sdk-python",
       "digest": "sha256:57b42e41a8fe2aed31834406c189ac5cc1e2dd014c2f567ed55709d80272a5c8",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:25e9de804dc4925c7c80ced03a86ac55dc0a9a8c647197b71fac2b43d59fb25d"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-claude-sdk-typescript",
       "digest": "sha256:9e880de74651c78d231381c1a3c922299518aa900d62befd67d3519774219846",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:1c2cce3e5b9694e7c0095b476c9e08b93a2bedb50c9c5fc21f729884dc6b371c"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-crewai-conversational-flows",
       "digest": "sha256:a98ae4012c35963dd37bcdf0e33d561ae8ccd9b837f0a228edbbee664b390d54",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:75fedf87950dfeb10a5209b3451e1af98a37c029b744003a16dd2c1c5e589a12"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-crewai-crews",
       "digest": "sha256:3476fe0cfe5448c4ead4fc55ae064409d5b2a93a7daf30893f248ba8716e7e01",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:1f4e7adf2b1b70343090f97c138d2f677b575d96be962ab29f340437bb3460a4"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-eval-webhook",
       "digest": "sha256:9c8a38de8fc1ef070d1588bc7ff4d5c0e186d803df841c022ae712c1d85096e7",
-      "revision": "89629de0a26cb0965399c033894a2eed9bee52a2"
+      "revision": "89629de0a26cb0965399c033894a2eed9bee52a2",
+      "previousLatest": "sha256:e4b22ebe11b12cf686328f5e8ec3d7b540daefa2658ea8d752bf2d6379c52219"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-google-adk",
       "digest": "sha256:799139c0dc61ee79019afafdfb62e2f0fca86de52c03409729379b7329e76c32",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:f910fdfe586462820bf56a52bd8408f2c6e3ce5d80715af53f2ee6e49d7e3bdb"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-google-antigravity",
       "digest": "sha256:b55b87f05aa2bcd1ed384049d0e4c0ae92c134ee09063265184e5d8c25896625",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:32bd3afaa3c14172c7710296f100310e84894245ecf19d7d5b1a4c95fa4bdf90"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-langgraph-fastapi",
       "digest": "sha256:10c5bddc3eb0938c16883c524af2653a73637a2aa7ee9d031e48d7e2a560e3bb",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:d98b57b1907a610503435c608a924597a320a19118d8ad6c49391e4837ff5b32"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-langgraph-python",
       "digest": "sha256:a80cfd63c4c64ec997720f2caff1382baecd39a59c7e4bcf1ef18531762e0870",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:6b7f3a71cb92875adf19095f0ba8c943a6c5eedd08362e8636f2c15ee31d7fbe"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-langgraph-typescript",
       "digest": "sha256:fc469ef136b0b6cbe7ba483a11e39c5381691cd0d83c7fd9f76e52a6d6d14f83",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:3968828b5d64fc12485355229e036e6076cbc32d29b2210c6ecb17759992388a"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-langroid",
       "digest": "sha256:1e86f66ae9f8d32727bbb7701b4c084612a4255f99216a26499116f8cac70ad7",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:dbfb9795ab1a9db39ee82e7be85ccd11cfae71113a7856efeddb525b1e3cf65e"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-llamaindex",
       "digest": "sha256:bf20809f02ec4517249a6b70fca5def95787bcd49e98a248246a4f3c786cfcb7",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:74630039e0a500045e96e16b536f2c3bac0d5e7e9976387cf04d6d081fa96d8e"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-mastra",
       "digest": "sha256:d4ede6f4d4536a4d4296d743e515a2870c65c745d77f463bc3d9abd0559a2be5",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:d570e55365bf40d3ff48a72b160b7391e53a73b3a58b6de11c32bbf0863b4464"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-ms-agent-dotnet",
       "digest": "sha256:061d975c55d7c5be8e6c5667982a79af7372fd19c3c244f8afd460a70c3e6e3b",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:dc0bd3708a637d93e07b53929a242c59f7deaceffe5ed17ecb225a84ff36b42f"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-ms-agent-harness-dotnet",
       "digest": "sha256:6d9e1414200abd12eb3e01e59285344b155f4306401d46874ddd4b3e8acf8b2c",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:f89bd7495e9da4fcd12fca35fe0ea8472b468551975eff1603c8122907bb5850"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-ms-agent-python",
       "digest": "sha256:b46e643b1a43f720688f8b12c1f6b2fca2cb544866060685157af61072cb6b12",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:83f9d256dcf7407cdcf566d22d17135229dad30568f26a8feb8b8c36d8469361"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-pydantic-ai",
       "digest": "sha256:9baa6d6f4382b79e5fb0c4b12c4604f433fb830f6ccb05a7f2e0526c01e7547a",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:d0d6942d5991a8dba198095199b5ed49a314445cc3245489f7629b885a957e23"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-shell",
       "digest": "sha256:ef2d153b1db167ee06f3a168464b004c468200de9416523d6331a8a57adb48e7",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:160bd5456e567de81cd041a22077bb0844aa7436c3b823f5cd59b0a6df4942ab"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-shell-dashboard",
       "digest": "sha256:df59264e9069f480037264daff8c9addc12fefbb9b9d4bd63481428e3e142eb9",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:1facfd66de44774e7fa73dd3173d83a0a65475d7302734c4b7e37da166a9977c"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-shell-docs",
       "digest": "sha256:29d9d4e88c947abe2a596cc99c6fb4e6b071566155dc28cf729311d662f92bab",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:9b13b8161e38ad8ed289255399b5c30ea0faf586d2206ddc09f48c7e4e95a5b2"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-shell-dojo",
       "digest": "sha256:0950542c67ce9dd30061f776472189f6508aded3c216095230ba2aa183bc89ce",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:3d07693d679e1106bb01bd3a5e1676fc302d996adb5cdf6fe2dcf4d323c90f01"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-spring-ai",
       "digest": "sha256:faf9792322e33cc4a6ce97ad940815a43143bb4457088521d7c27c139ff8ad57",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:a1e5b0009a61e99c1f5a46d38b1a1675defc34d3281f55e9c23654110154b8b7"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-strands",
       "digest": "sha256:d965fd808ace6c866db0a4300abbe885c6bd5a7a4cc3c84634cc359f73326452",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:29bb2b7e6f1b691602087a2a374ae132c769974701d10d5f21a4ec2085a82f21"
     },
     {
       "image": "ghcr.io/copilotkit/showcase-strands-typescript",
       "digest": "sha256:644568fb7b54b059afc04dc0353d2def29c446f461ce63bec4613f2bf2b9e783",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:fcec9c1f94efd51c1240822292e9c642eb2901d7b3d476059219d9c75e193714"
     },
     {
       "image": "ghcr.io/copilotkit/starter-adk",
       "digest": "sha256:8a9978a8d672652e0b4a181e3ad3ba2c0c9d83ff9de3e8b1519d6f2039eb8cdb",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:913ce18f9fda64d56acc4bad257fa0b3339ab1791e9b70a87f8e6d2808b13b96"
     },
     {
       "image": "ghcr.io/copilotkit/starter-agno",
       "digest": "sha256:b3f8956b5771fe670917a212fa8e9c3a506253a3ba4770592074b3f8f19d1e7f",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:08b1a099a34d38735eb602b03bb4b77329877ac65393cd4dfc7655b568020ee1"
     },
     {
       "image": "ghcr.io/copilotkit/starter-crewai-crews",
       "digest": "sha256:84ea37d482a99429d61c3ba80db6b9ff2901e9105faeade573552a0a3aa130c1",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:c2abb5f1a6c5638eb00628d30321efa92e2859edebc0443d3ab77785e72285eb"
     },
     {
       "image": "ghcr.io/copilotkit/starter-langgraph-fastapi",
       "digest": "sha256:403bd4a69a65df12db98a7ae723fb3083adfb34a7c00c8f116af50c42c1631fe",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:18c22245a243f95aeb5842e8d6f553d8557017b7ad7d2a003b29f80ead5c2990"
     },
     {
       "image": "ghcr.io/copilotkit/starter-langgraph-js",
       "digest": "sha256:bdc452781195415f84fa70d37cf9fef22fdc164ca8924419790bf4a1e822b1d4",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:68e11ae467e10d9ea3a3c5399fdbcec8ae551449775aaa6bfe739eaef776d53e"
     },
     {
       "image": "ghcr.io/copilotkit/starter-langgraph-python",
       "digest": "sha256:02b2b3e2b415a4c1acc4037bd761ec99861b0cafb13439504902fe095aa84ddd",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:53464e14d4ab537e56c5886f3648b7037ef93b77229f48bc0285d95d95f3d675"
     },
     {
       "image": "ghcr.io/copilotkit/starter-llamaindex",
       "digest": "sha256:ce30001cf492a09879020a16dcca16e78ad7c476f5978c7f17d08781990ebad3",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:2c5d9fcd385abb9a63e252a3416f4ae564753717ee79a7c07353b1283cfd0112"
     },
     {
       "image": "ghcr.io/copilotkit/starter-mastra",
       "digest": "sha256:34b251551b232652988de1d86b769752ed53f61809d0743f7e2888365d9a6684",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:9ecde0ad4f31b14842c6b795fb33d0a9aae04fc9e5c83eb10f44f0af414a5d2c"
     },
     {
       "image": "ghcr.io/copilotkit/starter-ms-agent-framework-python",
       "digest": "sha256:235104a39f8ffad220be80f7bbeb67407116373e5e05422fe5ceccfed77b2cd8",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:dcf44785dc0ff50d8d91416a36fb795478495bcdf5843ce54504070b38c8d284"
     },
     {
       "image": "ghcr.io/copilotkit/starter-pydantic-ai",
       "digest": "sha256:ff06ac42cf943e576ce3f1cdc23f8e0707307817344ced35e02f4810c5a1bea4",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:5e5c9eac545889468ad1d93637517bd8cc529c7949c7a1c2017cc5bceac16c11"
     },
     {
       "image": "ghcr.io/copilotkit/starter-strands-python",
       "digest": "sha256:18e5778da57c230f510d4aaf760fdc02046297efa8109ba555bcf1590fed37ee",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
+      "revision": "10328763c4617861dbd594b2bd11608691cdd29f",
+      "previousLatest": "sha256:7c5c529ffda822ba6360af4f4b59207045e564dd8829daf8c66eac905e60f8d8"
     }
   ],
   "held": [
     "ghcr.io/copilotkit/showcase-harness",
     "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet"
-  ]
+  ],
+  "heldLatest": {
+    "ghcr.io/copilotkit/showcase-harness": "sha256:6cb970079b8888c843f6e93c50a732f81d959328aa536c04c50189990ccf46e1",
+    "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet": "sha256:b3da669aedb07342ea342810b7058e646c51a61447da53c5f10afd1afd180cc5"
+  }
 }
