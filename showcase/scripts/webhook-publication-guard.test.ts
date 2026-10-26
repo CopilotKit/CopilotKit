@@ -38,6 +38,14 @@ function canAdvance({
 }
 
 describe("webhook publication eligibility", () => {
+  it("preserves every eligible pending latest advancement", () => {
+    // With A running and newer C pending, a slower older B entering a default
+    // concurrency group replaces C even when cancel-in-progress is false.
+    // Let every eligible build reach the existing monotonic tag helper.
+    expect(workflow.concurrency).toBeUndefined();
+    expect(latest?.concurrency).toBeUndefined();
+  });
+
   it("publishes the commit tag independently of live policy", () => {
     expect(build.needs).toBeUndefined();
     expect(build.if).toBeUndefined();

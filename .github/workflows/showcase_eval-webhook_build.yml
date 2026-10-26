@@ -85,9 +85,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    concurrency:
-      group: showcase-eval-webhook-latest
-      cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
