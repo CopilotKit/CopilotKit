@@ -1,0 +1,138 @@
+import { describe, expect, it } from "vitest";
+import { buildCompactGenerativeUISchema } from "../generative-ui/compact-schema";
+import { defaultGenerativeUIPromptSpec } from "../generative-ui/prompt-spec";
+import type { GenerativeUISchemaSettings } from "../generative-ui/prompt-spec";
+import {
+  applyDescriptionOverrides,
+  renderGenerativeUIComponentList,
+  renderGenerativeUISchema,
+  schemaCoverage,
+} from "../generative-ui/schema-render";
+import type { GenerativeUIManifest } from "../generative-ui/types";
+
+const manifest: GenerativeUIManifest = {
+  catalogId: "test/schema@1",
+  components: {
+    Text: {
+      description: "Shows text",
+      props: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "The text" },
+          size: { enum: ["sm", "md"] },
+        },
+        required: ["text"],
+      },
+    },
+    Button: {
+      description: "A button",
+      props: { type: "object", properties: { label: { type: "string" } } },
+      events: { onClick: { description: "Action" } },
+    },
+  },
+  functions: {
+    formatCurrency: {
+      description: "Formats money",
+      parameters: { type: "object", description: "{value: number}" },
+    },
+  },
+  targets: [{ id: "chat", kind: "chat" }],
+  surfaces: {},
+};
+
+const settings = (
+  notation: GenerativeUISchemaSettings["notation"],
+): GenerativeUISchemaSettings => ({
+  notation,
+  propDescriptions: true,
+  commonProps: true,
+});
+
+describe("renderGenerativeUISchema", () => {
+  it("writes the compact schema that ships by default", () => {
+    expect(
+      renderGenerativeUISchema(
+        manifest,
+        defaultGenerativeUIPromptSpec().schema.markdown,
+      ),
+    ).toBe(JSON.stringify(buildCompactGenerativeUISchema(manifest)));
+  });
+
+  it.each(["compact", "json-schema", "ts-signature"] as const)(
+    "covers every component and prop in %s notation",
+    (notation) => {
+      const text = renderGenerativeUISchema(manifest, settings(notation));
+      expect(schemaCoverage(manifest, text).missing).toEqual([]);
+    },
+  );
+
+  it("writes one signature line per component, with events", () => {
+    const text = renderGenerativeUISchema(manifest, settings("ts-signature"));
+    expect(text).toContain(
+      '- Text(text: string // The text, size?: "sm" | "md"): Shows text',
+    );
+    expect(text).toContain("  events: onClick(Action)");
+    expect(text).toContain("- formatCurrency{value: number}: Formats money");
+  });
+
+  it("leaves the prop descriptions out on request", () => {
+    for (const notation of [
+      "compact",
+      "json-schema",
+      "ts-signature",
+    ] as const) {
+      const text = renderGenerativeUISchema(manifest, {
+        ...settings(notation),
+        propDescriptions: false,
+      });
+      expect(text).not.toContain("The text");
+      expect(text).toContain("Shows text");
+    }
+  });
+});
+
+describe("renderGenerativeUIComponentList", () => {
+  it("writes each notation for the tool guide and covers the catalog", () => {
+    for (const notation of [
+      "compact",
+      "json-schema",
+      "ts-signature",
+    ] as const) {
+      const text = renderGenerativeUIComponentList(
+        manifest.components,
+        settings(notation),
+      );
+      expect(schemaCoverage(manifest, text).missing).toEqual([]);
+    }
+  });
+});
+
+describe("applyDescriptionOverrides", () => {
+  it("replaces only the named descriptions and reports unknown keys", () => {
+    const { manifest: next, unknown } = applyDescriptionOverrides(manifest, {
+      Text: "Prose in a surface",
+      "Text.size": "How big",
+      Nope: "x",
+      "Text.nope": "y",
+    });
+    expect(next.components.Text.description).toBe("Prose in a surface");
+    expect(next.components.Text.props.properties).toMatchObject({
+      size: { description: "How big" },
+      text: { description: "The text" },
+    });
+    expect(next.components.Button).toEqual(manifest.components.Button);
+    expect(unknown).toEqual(["Nope", "Text.nope"]);
+    // The input is not changed.
+    expect(manifest.components.Text.description).toBe("Shows text");
+  });
+});
+
+describe("schemaCoverage", () => {
+  it("reports a prop that the text leaves out", () => {
+    const text = renderGenerativeUISchema(
+      manifest,
+      settings("ts-signature"),
+    ).replace("size", "");
+    expect(schemaCoverage(manifest, text).missing).toEqual(["Text.size"]);
+  });
+});

@@ -35,7 +35,10 @@ function asArrayItem(type: string) {
  * A JSON Schema as a short TypeScript-like type, for example
  * `{ label: string; size?: "sm" | "md" }`.
  */
-function compactType(schema: GenerativeUIJSONSchema, depth: number): string {
+export function compactType(
+  schema: GenerativeUIJSONSchema,
+  depth: number,
+): string {
   const ref = childRefKind(schema);
   if (ref === "single") return "componentId";
   if (ref === "multiple")
@@ -97,15 +100,23 @@ function describedType(schema: GenerativeUIJSONSchema, depth: number) {
     : type;
 }
 
-/** The props of a component: `{ "label": "string", "size?": "..." }`. */
-function compactProps(schema: GenerativeUIJSONSchema) {
+/**
+ * The props of a component: `{ "label": "string", "size?": "..." }`. With
+ * `descriptions`, each type carries its description after `//`.
+ */
+export function compactProps(
+  schema: GenerativeUIJSONSchema,
+  descriptions = true,
+) {
   const properties = isRecord(schema.properties) ? schema.properties : {};
   const required = Array.isArray(schema.required) ? schema.required : [];
   const props: Record<string, string> = {};
   for (const [key, value] of Object.entries(properties)) {
     if (!isRecord(value)) continue;
     const name = required.includes(key) ? key : `${key}?`;
-    props[name] = describedType(value, 1);
+    props[name] = descriptions
+      ? describedType(value, 1)
+      : compactType(value, 1);
   }
   return props;
 }
@@ -179,6 +190,8 @@ interface CompactComponent {
  * values that the user set and the operations that the client dropped.
  *
  * @param manifest - The manifest from `buildGenerativeUIManifest`.
+ * @param options - `propDescriptions` (default true) writes each prop's
+ *   description; `commonProps` (default true) lists shared props once.
  * @returns A JSON-ready object.
  *
  * @example
@@ -193,7 +206,9 @@ export function buildCompactGenerativeUISchema(
     GenerativeUIManifest,
     "catalogId" | "components" | "functions" | "targets" | "surfaces"
   >,
+  options: { propDescriptions?: boolean; commonProps?: boolean } = {},
 ) {
+  const { propDescriptions = true, commonProps = true } = options;
   const components: Record<string, CompactComponent> = {};
   for (const [name, component] of Object.entries(manifest.components)) {
     const events = Object.entries(component.events ?? {}).map(
@@ -204,14 +219,16 @@ export function buildCompactGenerativeUISchema(
     );
     components[name] = {
       ...(component.description ? { description: component.description } : {}),
-      props: compactProps(component.props),
+      props: compactProps(component.props, propDescriptions),
       ...(events.length > 0 ? { events: Object.fromEntries(events) } : {}),
       ...(component.slots ? { slots: component.slots } : {}),
     };
   }
-  const common = findCommonProps(
-    Object.values(components).map((component) => component.props),
-  );
+  const common = commonProps
+    ? findCommonProps(
+        Object.values(components).map((component) => component.props),
+      )
+    : undefined;
   if (common) {
     const commonKeys = Object.keys(common);
     for (const component of Object.values(components)) {

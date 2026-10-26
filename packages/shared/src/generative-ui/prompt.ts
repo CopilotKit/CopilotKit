@@ -6,6 +6,7 @@ import {
   selectPromptItems,
 } from "./prompt-spec";
 import type { GenerativeUIPromptSpec } from "./prompt-spec";
+import { renderGenerativeUIComponentList } from "./schema-render";
 import { GENERATIVE_UI_AGENT_FUNCTION_CALLS } from "./types";
 import type { GenerativeUIManifest } from "./types";
 
@@ -44,18 +45,10 @@ export function buildGenerativeUIPrompt(
       return `- "${t.id}" (${place}${limit})${description}`;
     })
     .join("\n");
-  const components = Object.entries(manifest.components)
-    .map(([name, c]) => {
-      const lines = [
-        `- **${name}**${c.description ? `: ${c.description}` : ""}`,
-        `  props: ${JSON.stringify(c.props)}`,
-      ];
-      if (c.events) lines.push(`  event props: ${JSON.stringify(c.events)}`);
-      if (c.slots)
-        lines.push(`  slot props (component ids): ${JSON.stringify(c.slots)}`);
-      return lines.join("\n");
-    })
-    .join("\n");
+  const components = renderGenerativeUIComponentList(
+    manifest.components,
+    spec.schema.tool,
+  );
   const functions = Object.entries(manifest.functions)
     .map(([name, f]) => {
       // A built-in function carries its short signature in the description
