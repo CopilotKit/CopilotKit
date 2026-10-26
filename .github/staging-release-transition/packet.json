@@ -188,11 +188,6 @@
       "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
     },
     {
-      "image": "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet",
-      "digest": "sha256:b3d09f2efb09841c328a6412a5544e72f6d7df4ea1a49ff1efe0bdc3bde7a777",
-      "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
-    },
-    {
       "image": "ghcr.io/copilotkit/starter-ms-agent-framework-python",
       "digest": "sha256:235104a39f8ffad220be80f7bbeb67407116373e5e05422fe5ceccfed77b2cd8",
       "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
@@ -207,5 +202,6 @@
       "digest": "sha256:18e5778da57c230f510d4aaf760fdc02046297efa8109ba555bcf1590fed37ee",
       "revision": "10328763c4617861dbd594b2bd11608691cdd29f"
     }
-  ]
+  ],
+  "held": ["ghcr.io/copilotkit/starter-ms-agent-framework-dotnet"]
 }

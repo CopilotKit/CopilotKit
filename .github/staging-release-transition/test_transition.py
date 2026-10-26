@@ -31,6 +31,17 @@ class TransitionTest(unittest.TestCase):
             with self.subTest(rows=rows), self.assertRaises(ValueError):
                 self.m.validate_packet({**self.packet, "images": rows}, self.allowed, "inspect")
 
+    def test_only_the_explicit_user_held_dotnet_image_can_be_omitted(self):
+        dotnet = "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet"
+        packet = {**self.packet, "held": [dotnet]}
+        try:
+            result = self.m.validate_packet(packet, self.allowed | {dotnet}, "inspect")
+        except ValueError:
+            self.fail("Explicit user-held .NET image is not supported")
+        self.assertEqual(result, [self.row])
+        with self.assertRaises(ValueError):
+            self.m.validate_packet({**self.packet, "held": [self.row["image"]], "images": []}, self.allowed, "inspect")
+
     def test_arbitrary_repository_or_tag_is_rejected(self):
         for field, value in [("image", "ghcr.io/other/project"), ("digest", "latest"), ("revision", "main")]:
             with self.subTest(field=field), self.assertRaises(ValueError):

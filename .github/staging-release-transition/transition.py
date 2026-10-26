@@ -15,8 +15,13 @@ def validate_packet(packet, allowed, mode):
     if packet.get("version") != 1 or mode not in ("inspect", "promote"):
         raise ValueError("Unsupported packet or operation")
     rows = packet.get("images", [])
+    held = packet.get("held", [])
+    # Mark explicitly left PNI-700 out of scope and kept automation held.
+    # This one-time packet may preserve that image, never arbitrary omissions.
+    if not isinstance(held, list) or set(held) - {"ghcr.io/copilotkit/starter-ms-agent-framework-dotnet"} or not set(held) <= allowed:
+        raise ValueError("Only the explicitly user-held .NET image may be omitted")
     names = [r.get("image") for r in rows]
-    if len(names) != len(set(names)) or set(names) != allowed:
+    if len(names) != len(set(names)) or set(names) != allowed - set(held):
         raise ValueError("Image set must exactly match the eligible staging Node fleet")
     for row in rows:
         if not DIGEST.fullmatch(row.get("digest", "")) or not REVISION.fullmatch(row.get("revision", "")):
