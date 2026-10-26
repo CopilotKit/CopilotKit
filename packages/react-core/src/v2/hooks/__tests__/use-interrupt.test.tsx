@@ -981,6 +981,112 @@ describe("useInterrupt", () => {
       finalizeStandardRun(runId);
     }
 
+    it.each(["resolve", "cancel"] as const)(
+      "%s handles an interrupt restored before the hook mounts",
+      async (action) => {
+        const agent = new InterruptingAgent("standard");
+        const core = new CopilotKitCore({});
+        await core.runAgent({ agent, runId: "restored-run" });
+        expect(agent.pendingInterrupts).toEqual([
+          { id: "approve-action", reason: "approval" },
+        ]);
+        mockUseAgent.mockReturnValue({ agent });
+        mockUseCopilotKit.mockReturnValue({
+          copilotkit: {
+            runAgent: core.runAgent.bind(core),
+            setInterruptElement: setInterruptElementMock,
+          },
+        });
+        const renderSpy = vi.fn();
+
+        render(<StandardHarness renderSpy={renderSpy} />);
+
+        expect(renderSpy.mock.calls.at(-1)?.[0].interrupts).toEqual(
+          agent.pendingInterrupts,
+        );
+        await act(async () => {
+          screen.getByTestId(action).click();
+        });
+        await waitFor(() => expect(agent.inputs).toHaveLength(2));
+        expect(agent.inputs[1]!.resume).toEqual([
+          action === "resolve"
+            ? {
+                interruptId: "approve-action",
+                status: "resolved",
+                payload: { ok: true },
+              }
+            : { interruptId: "approve-action", status: "cancelled" },
+        ]);
+      },
+    );
+
+    it.each(["empty", "pending"] as const)(
+      "replaces the previous agent's interrupt when switching to an agent with %s interrupts",
+      async (destination) => {
+        const renderSpy = vi.fn();
+        const { rerender, unmount } = render(
+          <StandardHarness renderSpy={renderSpy} />,
+        );
+        fireStandardInterrupt([INT]);
+        const nextInterrupt: Interrupt = {
+          id: "next-approval",
+          reason: "approval",
+        };
+        const nextUnsubscribe = vi.fn();
+        const nextSubscribe = vi.fn(() => ({ unsubscribe: nextUnsubscribe }));
+        const nextAgent = {
+          ...mockAgent,
+          id: "next-agent",
+          pendingInterrupts: destination === "pending" ? [nextInterrupt] : [],
+          subscribe: nextSubscribe,
+        };
+        mockUseAgent.mockReturnValue({ agent: nextAgent });
+
+        rerender(<StandardHarness renderSpy={renderSpy} />);
+
+        expect(unsubscribeMock).toHaveBeenCalledOnce();
+        expect(nextSubscribe).toHaveBeenCalledOnce();
+        if (destination === "empty") {
+          expect(screen.queryByTestId("resolve")).toBeNull();
+          expect(runAgentMock).not.toHaveBeenCalled();
+        } else {
+          expect(renderSpy.mock.calls.at(-1)![0].interrupts).toEqual([
+            nextInterrupt,
+          ]);
+          await act(async () => {
+            screen.getByTestId("resolve").click();
+          });
+          expect(runAgentMock).toHaveBeenCalledExactlyOnceWith({
+            agent: nextAgent,
+            resume: [
+              {
+                interruptId: "next-approval",
+                status: "resolved",
+                payload: { ok: true },
+              },
+            ],
+          });
+        }
+        unmount();
+        expect(nextUnsubscribe).toHaveBeenCalledOnce();
+      },
+    );
+
+    it("prefers standard interrupts when a run also emits a legacy event", () => {
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      startStandardRun();
+      act(() => {
+        handlers.onCustomEvent?.({
+          event: { name: "on_interrupt", value: "legacy" },
+        });
+      });
+      finishStandardInterrupt([INT], "mixed-run");
+      finalizeStandardRun("mixed-run");
+
+      expect(renderSpy.mock.calls.at(-1)![0].interrupts).toEqual([INT]);
+    });
+
     it("surfaces the primary interrupt and full list from outcome:interrupt", () => {
       const renderSpy = vi.fn();
       render(<StandardHarness renderSpy={renderSpy} />);
