@@ -39,7 +39,7 @@ import {
   standardUI,
 } from "./engine";
 import type { GenerativeUI } from "./engine";
-import { MAX_OUTPUT_TOKENS } from "./cost";
+import { MAX_OUTPUT_TOKENS, tokenBound } from "./cost";
 import { isFakeModel } from "./models";
 
 /** What one model reply produced. */
@@ -511,7 +511,10 @@ export async function runSample(input: {
     parseErrors,
     error: collected.error,
     promptTokens: record.input,
-    outputTokens: record.output,
+    // A stream that ends before its usage chunk reports no output tokens;
+    // then bound them by the bytes received, so the cost is never undercounted.
+    outputTokens:
+      record.output || tokenBound(collected.text + collected.toolArgs.join("")),
     systemPrompt: record.system,
   };
 }

@@ -6,7 +6,7 @@ You can improve the generative UI prompts by running this loop. Read `README.md`
 
 1. Measure the current prompt: `run --preset <preset> --json`. Note the run id.
 2. Read what fails: `failures <run> --json`, optionally with `--model`, `--tier` or `--case`.
-3. Change the wording in a spec file (start from `prompt --json` or `defaultGenerativeUIPromptSpec()`), or edit `packages/shared/src/generative-ui/prompt-spec.ts` on a branch.
+3. Change the wording in a spec file (start from `prompt --export-spec > spec.json`), or edit `packages/shared/src/generative-ui/prompt-spec.ts` on a branch.
 4. Measure again: `run --preset <preset> --spec <file> --json`, then `report <new> --base <old> --json`.
 5. Repeat. Or let `optimize` do the search.
 
