@@ -27,6 +27,14 @@ export function ɵmcpAppSandboxFlags(allowSameOriginFallback = false): string {
 }
 
 /**
+ * A CSP host source: optional scheme, host (a leading `*.` allowed), optional
+ * port and path. The domains come from the MCP server, so anything else (a
+ * space, quote, `;` or `<`) could end the policy or the `<meta>` tag early.
+ */
+const CSP_HOST_SOURCE =
+  /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:\*\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::(?:\d+|\*))?(?:\/[\w.~%/-]*)?$/i;
+
+/**
  * Build the sandbox-proxy HTML document loaded into the outer iframe.
  *
  * The proxy relays postMessage between the host and the inner sandboxed widget
@@ -45,7 +53,10 @@ export function buildSandboxHTML(extraCspDomains?: string[]): string {
   const baseScriptSrc =
     "'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:*";
   const baseFrameSrc = "* blob: data: http://localhost:* https://localhost:*";
-  const extra = extraCspDomains?.length ? " " + extraCspDomains.join(" ") : "";
+  const domains = (extraCspDomains ?? []).filter(
+    (domain) => typeof domain === "string" && CSP_HOST_SOURCE.test(domain),
+  );
+  const extra = domains.length ? " " + domains.join(" ") : "";
   const scriptSrc = baseScriptSrc + extra;
   const frameSrc = baseFrameSrc + extra;
 
