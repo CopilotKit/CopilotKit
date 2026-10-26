@@ -42,6 +42,7 @@
     "@tanstack/pacer": "^0.20.1",
     "phoenix": "^1.8.4",
     "rxjs": "7.8.1",
+    "zod": "^3.25.75",
     "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
@@ -56,8 +57,7 @@
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "valibot": "^1.2.0",
-    "vitest": "^3.2.4",
-    "zod": "^3.25.75"
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=20"
