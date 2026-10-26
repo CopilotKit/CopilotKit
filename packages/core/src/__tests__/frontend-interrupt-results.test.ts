@@ -6,7 +6,6 @@ import type {
   RunAgentInput,
 } from "@ag-ui/client";
 import { from } from "rxjs";
-import { setImmediate } from "node:timers/promises";
 import { describe, expect, it, vi } from "vitest";
 import { CopilotKitCore } from "../core";
 import { createTool } from "./test-utils";
@@ -81,7 +80,6 @@ class FrontendInterruptAgent extends AbstractAgent {
 function setup(
   agent = new FrontendInterruptAgent(),
   handler: (() => Promise<string>) | undefined = undefined,
-  resumePending = true,
 ) {
   const core = new CopilotKitCore({});
   core.addAgent__unsafe_dev_only({ id: "frontend", agent });
@@ -90,9 +88,7 @@ function setup(
       name: "chart",
       handler,
       followUp: true,
-      ...(resumePending
-        ? { reconnectBehavior: "resume-pending" as const }
-        : {}),
+      reconnectBehavior: "resume-pending",
     }),
   );
   return { core, agent };
@@ -150,60 +146,24 @@ describe("frontend results satisfy only their own interrupts", () => {
     },
   );
 
-  it.each([true, false])(
-    "reuses saved results after reload without invoking handlers again (resume-pending %s)",
-    async (resumePending) => {
-      const history: Message[] = [
-        ...calls,
-        ...["one", "two"].map((id) => ({
-          id: `result-${id}`,
-          role: "tool" as const,
-          toolCallId: id,
-          content: "",
-        })),
-      ];
-      const handler = vi.fn(async () => "wrong");
-      const { core, agent } = setup(
-        new FrontendInterruptAgent(frontendInterrupts, history),
-        handler,
-        resumePending,
-      );
-      await core.connectAgent({ agent });
-      await vi.waitFor(() => expect(agent.inputs).toHaveLength(1));
-      expectResults(agent.inputs[0]!);
-      expect(handler).not.toHaveBeenCalled();
-    },
-  );
-
-  it.each([false, true])(
-    "keeps unanswered default passive calls pending (placeholder %s)",
-    async (hasPlaceholder) => {
-      const history: Message[] = [
-        ...calls,
-        { id: "result-one", role: "tool", toolCallId: "one", content: "" },
-        ...(hasPlaceholder
-          ? [
-              {
-                id: "placeholder-two",
-                role: "tool" as const,
-                toolCallId: "two",
-                content: "Forwarded to client",
-              },
-            ]
-          : []),
-      ];
-      const handler = vi.fn(async () => "wrong");
-      const { core, agent } = setup(
-        new FrontendInterruptAgent(frontendInterrupts, history),
-        handler,
-        false,
-      );
-      await core.connectAgent({ agent });
-      await setImmediate();
-      expect(agent.inputs).toHaveLength(0);
-      expect(agent.pendingInterrupts).toEqual(frontendInterrupts);
-      expect(agent.messages).toEqual(history);
-      expect(handler).not.toHaveBeenCalled();
-    },
-  );
+  it("reuses saved results after reload without invoking handlers again", async () => {
+    const history: Message[] = [
+      ...calls,
+      ...["one", "two"].map((id) => ({
+        id: `result-${id}`,
+        role: "tool" as const,
+        toolCallId: id,
+        content: "",
+      })),
+    ];
+    const handler = vi.fn(async () => "wrong");
+    const { core, agent } = setup(
+      new FrontendInterruptAgent(frontendInterrupts, history),
+      handler,
+    );
+    await core.connectAgent({ agent });
+    await vi.waitFor(() => expect(agent.inputs).toHaveLength(1));
+    expectResults(agent.inputs[0]!);
+    expect(handler).not.toHaveBeenCalled();
+  });
 });

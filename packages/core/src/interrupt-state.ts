@@ -203,10 +203,8 @@ export class ɵInterruptState<TValue = unknown> {
       return { kind: "waiting" };
     }
 
-    const expired = interrupts.find(
-      (interrupt) =>
-        responses[interrupt.id]?.status !== "cancelled" &&
-        isInterruptExpired(interrupt),
+    const expired = interrupts.find((interrupt) =>
+      isInterruptExpired(interrupt),
     );
     if (expired) {
       this.#sealed = true;

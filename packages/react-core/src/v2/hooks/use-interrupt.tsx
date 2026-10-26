@@ -186,12 +186,6 @@ export function useInterrupt<
     const interruptState = interruptStateRef.current;
     let localLegacy: InterruptEvent | null = null;
     let localStandard: Interrupt[] | null = null;
-    setPending(null);
-
-    const setStandardPending = (interrupts: readonly Interrupt[]) => {
-      interruptState.setStandard(interrupts);
-      setPending(interruptState.pending);
-    };
 
     const subscription = agent.subscribe({
       onCustomEvent: ({ event }) => {
@@ -213,7 +207,8 @@ export function useInterrupt<
       onRunFinalized: () => {
         // Standard wins if both somehow appear for one run.
         if (localStandard && localStandard.length > 0) {
-          setStandardPending(localStandard);
+          interruptState.setStandard(localStandard);
+          setPending(interruptState.pending);
         } else if (localLegacy) {
           interruptState.setLegacy(localLegacy);
           setPending(interruptState.pending);
@@ -228,11 +223,6 @@ export function useInterrupt<
         setPending(null);
       },
     });
-
-    // Restored interrupts may have finalized before this hook subscribed.
-    if (agent.pendingInterrupts.length > 0) {
-      setStandardPending(agent.pendingInterrupts);
-    }
 
     return () => {
       subscription.unsubscribe();
