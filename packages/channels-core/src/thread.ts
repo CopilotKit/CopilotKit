@@ -39,8 +39,14 @@ import { hasMemoryAccess, resolveMemoryGrant } from "./memory.js";
 import type { MemoryGrant, ResolvedChannelMemory } from "./memory.js";
 import type { ChannelComponentRenderContext } from "./channel-component.js";
 import type { RenderConfig, ResolvedRenderConfig } from "./render/config.js";
-import type { PostImageOptions } from "@copilotkit/channels-ui";
+import type {
+  AwaitChoiceOptions,
+  ChoiceAnswerableBy,
+  PostImageOptions,
+} from "@copilotkit/channels-ui";
+import { isHostElement } from "@copilotkit/channels-ui";
 import { resolveArbitraryElement } from "./render/detect.js";
+import { mintActionId, stableStringify } from "./mint-id.js";
 import { resolveRenders } from "./render/resolve-renders.js";
 import { validateRenderTree } from "./render/validate-render.js";
 import { defaultAllowImageUrl } from "./render/url-policy.js";
@@ -134,10 +140,12 @@ export interface ThreadDeps {
   tools: Map<string, ChannelTool>;
   toolDescriptors: AgentToolDescriptor[];
   context: ContextEntry[];
-  registerWaiter: (
-    conversationKey: string,
-    resolve: (value: unknown) => void,
-  ) => void;
+  /**
+   * Register a pending choice under `conversationKey`. Returns a function that
+   * retires it (unregisters it and revokes its controls) if it is still the
+   * pending choice there.
+   */
+  registerWaiter: (conversationKey: string, waiter: ChoiceWaiter) => () => void;
   interruptHandlers: Map<
     string,
     (args: {
@@ -193,6 +201,80 @@ export interface ThreadDeps {
     node: unknown,
     cfg: ResolvedRenderConfig,
   ) => Promise<Uint8Array>;
+}
+
+/**
+ * A pending `awaitChoice` was settled because a newer `awaitChoice` was posted
+ * in the same conversation. Its picker no longer answers anything.
+ */
+export class ChannelChoiceSupersededError extends Error {
+  readonly code = "channel_choice_superseded";
+
+  constructor() {
+    super(
+      "This awaitChoice was superseded by a newer awaitChoice in the same conversation",
+    );
+    this.name = "ChannelChoiceSupersededError";
+  }
+}
+
+/**
+ * How long `awaitChoice` waits for an answer by default: one hour. While it
+ * waits, the turn (and, with `concurrency: "serial"`, the conversation's turn
+ * queue) stays open; pass `timeoutMs` per call to change it.
+ */
+export const DEFAULT_AWAIT_CHOICE_TIMEOUT_MS = 60 * 60 * 1000;
+
+/**
+ * Longest finite `awaitChoice` timeout: 2^31-1 ms (about 24.8 days), the
+ * largest delay a timer holds. Node runs a longer delay after 1 ms, so a
+ * longer finite timeout is rejected with a `RangeError` when `awaitChoice` is
+ * called; pass `Infinity` for no limit.
+ */
+const MAX_AWAIT_CHOICE_TIMEOUT_MS = 2_147_483_647;
+
+/**
+ * Who may answer an `awaitChoice` picker when the call does not say: the
+ * actor who started the turn. This is the one place the default is defined;
+ * flip it here to make pickers answerable by anyone in the conversation.
+ */
+export const DEFAULT_AWAIT_CHOICE_ANSWERABLE_BY: ChoiceAnswerableBy =
+  "initiator";
+
+/**
+ * An `answerableBy: "initiator"` choice was requested in a turn whose actor
+ * has no usable id, so no click could ever be matched to it. Use
+ * `answerableBy: "conversation"` for such turns.
+ */
+export class ChannelChoiceInitiatorUnknownError extends Error {
+  readonly code = "channel_choice_initiator_unknown";
+
+  constructor() {
+    super(
+      'awaitChoice cannot be limited to the initiator: the turn\'s actor has no id. Pass answerableBy: "conversation" to let anyone in the conversation answer.',
+    );
+    this.name = "ChannelChoiceInitiatorUnknownError";
+  }
+}
+
+/** A pending `awaitChoice` got no answer within its timeout. */
+export class ChannelChoiceTimeoutError extends Error {
+  readonly code = "channel_choice_timeout";
+
+  constructor(readonly timeoutMs: number) {
+    super(`awaitChoice got no answer within ${timeoutMs} ms`);
+    this.name = "ChannelChoiceTimeoutError";
+  }
+}
+
+/** A pending `awaitChoice` was aborted through its `signal`. */
+export class ChannelChoiceAbortedError extends Error {
+  readonly code = "channel_choice_aborted";
+
+  constructor(reason: unknown) {
+    super("awaitChoice was aborted", { cause: reason });
+    this.name = "ChannelChoiceAbortedError";
+  }
 }
 
 /** Stable rejection for surfaces that cannot hold one run open for a choice. */
@@ -297,18 +379,73 @@ export class Thread implements ThreadInterface {
    * reaction after a restart re-derives it (parity with a component `onClick`).
    */
   private async bindReaction(
-    messageId: string,
+    ref: MessageRef,
     bound: Awaited<ReturnType<Thread["bindForPost"]>>,
   ): Promise<void> {
+    if (!bound.onReaction && !bound.reactionComponent) return;
+    const conversationKey = this.postedConversationKey(ref, "reaction");
     if (bound.onReaction) {
-      this.deps.registry.registerMessageReaction(messageId, bound.onReaction);
-    }
-    if (bound.reactionComponent) {
-      await this.deps.registry.persistMessageReaction(messageId, {
-        ...bound.reactionComponent,
-        conversationKey: this.deps.conversationKey,
+      this.deps.registry.registerMessageReaction(ref.id, bound.onReaction, {
+        conversationKey,
+        platform: this.platform,
       });
     }
+    if (bound.reactionComponent) {
+      await this.deps.registry.persistMessageReaction(ref.id, {
+        ...bound.reactionComponent,
+        conversationKey,
+      });
+    }
+  }
+
+  /**
+   * The conversation key a click (or reaction) on the posted message `ref`
+   * arrives with. The adapter decides when it differs from this turn's key.
+   */
+  private postedConversationKey(
+    ref: MessageRef,
+    kind: "action" | "reaction",
+  ): string {
+    return (
+      this.deps.adapter.postedConversationKey?.(
+        this.deps.replyTarget,
+        ref,
+        kind,
+      ) ?? this.deps.conversationKey
+    );
+  }
+
+  /**
+   * Move the actions bound in a posted message to the conversation a click on
+   * it arrives from, when the adapter keys that differently from this turn. A
+   * click's Thread takes that key as its thread id too unless the adapter
+   * resolves a canonical one, so a continuation's thread binding follows it
+   * then, and `resume()` from the click matches.
+   */
+  private async rescopePosted(
+    ref: MessageRef,
+    root: readonly ChannelNode[],
+  ): Promise<void> {
+    const actionKey = this.postedConversationKey(ref, "action");
+    if (actionKey === this.deps.conversationKey) return;
+    await this.deps.registry.rescopeActions(root, {
+      conversationKey: actionKey,
+      ...(this.deps.adapter.getCanonicalThreadId
+        ? {}
+        : { threadId: actionKey }),
+    });
+  }
+
+  /**
+   * Finish a post or update: scope the message's actions to the conversation a
+   * click on it will arrive from, then wire its reaction handler.
+   */
+  private async bindPosted(
+    ref: MessageRef,
+    bound: Awaited<ReturnType<Thread["bindForPost"]>>,
+  ): Promise<void> {
+    await this.rescopePosted(ref, bound.root);
+    await this.bindReaction(ref, bound);
   }
 
   post(
@@ -321,7 +458,7 @@ export class Thread implements ThreadInterface {
       if (el) return this.postImage(el, opts);
       const ir = await this.prepareNative(bound.root);
       const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
-      await this.bindReaction(ref.id, bound);
+      await this.bindPosted(ref, bound);
       return ref;
     });
   }
@@ -395,7 +532,7 @@ export class Thread implements ThreadInterface {
       );
       const ir = await this.prepareNative(bound.root);
       const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
-      await this.bindReaction(ref.id, bound);
+      await this.bindPosted(ref, bound);
       return ref;
     });
   }
@@ -410,7 +547,7 @@ export class Thread implements ThreadInterface {
       }
       const ir = await this.prepareNative(bound.root);
       await this.deps.adapter.update(ref, ir);
-      await this.bindReaction(ref.id, bound);
+      await this.bindPosted(ref, bound);
       return ref;
     });
   }
@@ -547,7 +684,16 @@ export class Thread implements ThreadInterface {
       // Ephemeral messages can't be reacted to, so any `onReaction` is dropped
       // (stripped by bindForPost) rather than registered.
       const { root } = bound;
-      return adapter.postEphemeral(this.deps.replyTarget, user, root, opts);
+      const result = await adapter.postEphemeral(
+        this.deps.replyTarget,
+        user,
+        root,
+        opts,
+      );
+      if (result?.ok && result.ref?.id) {
+        await this.rescopePosted(result.ref, root);
+      }
+      return result;
     });
   }
 
@@ -648,10 +794,61 @@ export class Thread implements ThreadInterface {
     return this.trackOperation(() => this.deps.adapter.lookupUser({ query }));
   }
 
-  /** Post a picker and wait until an interaction in this conversation resolves it. */
-  awaitChoice<T = unknown>(ui: Renderable): Promise<T> {
+  /**
+   * Post a picker and wait until a click on one of its own controls, in this
+   * conversation on this platform, answers it with the value the picker
+   * offered for that control.
+   *
+   * `options.answerableBy` decides who may answer (default
+   * {@link DEFAULT_AWAIT_CHOICE_ANSWERABLE_BY}): `"initiator"` accepts only
+   * the provider account that started the turn, matched by its id (its
+   * `kind` is never consulted), and rejects at once with
+   * {@link ChannelChoiceInitiatorUnknownError} when that actor has no id;
+   * `"conversation"` accepts anyone in the conversation.
+   *
+   * A conversation has at most one pending choice: a newer `awaitChoice`
+   * there rejects this one with {@link ChannelChoiceSupersededError}. It also
+   * rejects after `options.timeoutMs` ({@link ChannelChoiceTimeoutError};
+   * a finite timeout above 2^31-1 ms is rejected at once with a `RangeError`),
+   * when `options.signal` aborts ({@link ChannelChoiceAbortedError}), or with
+   * the error the clicked control's own handler throws. Once settled, the
+   * picker's controls neither run nor answer anything.
+   */
+  awaitChoice<T = unknown>(
+    ui: Renderable,
+    options: AwaitChoiceOptions = {},
+  ): Promise<T> {
     if (this.supportsBlockingChoice === false) {
       return Promise.reject(new ChannelAwaitChoiceNotSupportedError());
+    }
+    const timeoutMs = options.timeoutMs ?? DEFAULT_AWAIT_CHOICE_TIMEOUT_MS;
+    if (
+      !(timeoutMs > 0) ||
+      (Number.isFinite(timeoutMs) && timeoutMs > MAX_AWAIT_CHOICE_TIMEOUT_MS)
+    ) {
+      return Promise.reject(
+        new RangeError(
+          `awaitChoice timeoutMs must be a positive number of milliseconds no larger than ${MAX_AWAIT_CHOICE_TIMEOUT_MS} (about 24.8 days), or Infinity for no limit; got ${timeoutMs}`,
+        ),
+      );
+    }
+    const { signal } = options;
+    const answerableBy =
+      options.answerableBy ?? DEFAULT_AWAIT_CHOICE_ANSWERABLE_BY;
+    if (answerableBy !== "initiator" && answerableBy !== "conversation") {
+      return Promise.reject(
+        new RangeError(
+          'awaitChoice answerableBy must be "initiator" or "conversation"',
+        ),
+      );
+    }
+    const actorId =
+      answerableBy === "initiator" ? initiatorId(this.deps.actor) : undefined;
+    if (answerableBy === "initiator" && actorId === undefined) {
+      return Promise.reject(new ChannelChoiceInitiatorUnknownError());
+    }
+    if (signal?.aborted) {
+      return Promise.reject(new ChannelChoiceAbortedError(signal.reason));
     }
     return this.trackOperation(async () => {
       const bound = await this.bindForPost(ui);
@@ -660,16 +857,60 @@ export class Thread implements ThreadInterface {
           "thread.awaitChoice does not support arbitrary JSX — use native channel components.",
         );
       }
+      // Controls without a handler get a per-post id too, so every control of
+      // this picker round-trips on every platform, and no other control (a
+      // stale picker, an unrelated card) shares an id with it.
+      const unboundActionIds = stampUnboundPickerControls(bound.root);
       const ir = await this.prepareNative(bound.root);
-      const p = new Promise<T>((resolve) =>
-        this.deps.registerWaiter(
-          this.deps.conversationKey,
-          resolve as (value: unknown) => void,
-        ),
-      );
+      const controls = collectChoiceControls(ir, unboundActionIds);
       const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
-      await this.bindReaction(ref.id, bound);
-      return p;
+      await this.bindPosted(ref, bound);
+      // Registered only once the picker is posted (a failed post leaves no
+      // waiter behind), under the key a click on the posted picker carries.
+      return new Promise<T>((resolve, reject) => {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const onAbort = () =>
+          giveUp(new ChannelChoiceAbortedError(signal?.reason));
+        const cleanup = () => {
+          if (timer !== undefined) clearTimeout(timer);
+          signal?.removeEventListener("abort", onAbort);
+        };
+        const retire = this.deps.registerWaiter(
+          this.postedConversationKey(ref, "action"),
+          {
+            resolve: (value) => {
+              cleanup();
+              resolve(value as T);
+            },
+            reject: (reason) => {
+              cleanup();
+              reject(reason);
+            },
+            platform: this.platform,
+            controls,
+            actorId,
+          },
+        );
+        // Give up on the choice: retire the picker so it answers nothing more,
+        // then settle with `reason`.
+        const giveUp = (reason: Error) => {
+          cleanup();
+          retire();
+          reject(reason);
+        };
+        if (Number.isFinite(timeoutMs)) {
+          timer = setTimeout(
+            () => giveUp(new ChannelChoiceTimeoutError(timeoutMs)),
+            timeoutMs,
+          );
+          // A pending choice must not keep the process alive on its own.
+          if (typeof timer === "object" && "unref" in timer) timer.unref();
+        }
+        signal?.addEventListener("abort", onAbort, { once: true });
+        // An abort fires its event once: one that landed while the picker was
+        // being posted happened before this listener existed.
+        if (signal?.aborted) onAbort();
+      });
     });
   }
 
@@ -1112,6 +1353,260 @@ function promptMatchesInbound(
     message.contentParts !== undefined &&
     JSON.stringify(prompt) === JSON.stringify(message.contentParts)
   );
+}
+
+/** A pending `awaitChoice`: who may answer it, and with which controls. */
+export interface ChoiceWaiter {
+  resolve: (value: unknown) => void;
+  /**
+   * Settle the choice with an error: the picker's own handler threw, or a
+   * newer `awaitChoice` in the same conversation superseded it
+   * ({@link ChannelChoiceSupersededError}).
+   */
+  reject: (reason: unknown) => void;
+  /** Ingress platform the picker was posted on. */
+  platform: string;
+  /**
+   * The picker's own controls, by the per-post action id a click on each one
+   * arrives with. A click with any other id never answers the picker.
+   */
+  controls: ReadonlyMap<string, ChoiceControl>;
+  /**
+   * The only provider account allowed to answer (`answerableBy: "initiator"`),
+   * or `undefined` when anyone in the conversation may (`"conversation"`).
+   */
+  actorId?: string;
+}
+
+/**
+ * The provider id an `"initiator"` picker is locked to: the id of the actor
+ * who started the turn, as the platform's ingress event reported it. The
+ * actor's `kind` is untrusted metadata and is never consulted, so a bot, app,
+ * system or `kind: "unknown"` initiator with an id locks the picker to that id
+ * like any other. Returns `undefined` when the actor has no usable id (empty,
+ * or the `"unknown"` placeholder adapters use for an unidentified sender):
+ * nobody could then be matched against it.
+ */
+function initiatorId(actor: ProviderActor): string | undefined {
+  if (!actor.id || actor.id === "unknown") return undefined;
+  return actor.id;
+}
+
+/**
+ * One control of a pending picker, and what a click on it may answer with.
+ * `bound` is true when the control has its own handler in the registry; an
+ * unbound control only answers the picker.
+ */
+export type ChoiceControl =
+  | { kind: "button"; value: unknown; bound: boolean }
+  | {
+      kind: "select";
+      options: readonly unknown[];
+      multi: boolean;
+      bound: boolean;
+    }
+  | { kind: "input"; bound: boolean };
+
+/**
+ * The value a click on `control` answers the picker with, or `ok: false` when
+ * the clicked value is not one the control offers.
+ *
+ * - A button answers with its own `value` as rendered; the value a click
+ *   carries back is ignored.
+ * - A select answers with the picker's own option value(s) matching the
+ *   clicked one(s). When the platform delivered the clicked value as a raw
+ *   string (`raw`, see `InteractionEvent.rawValue`), a primitive option
+ *   matches when its string form equals that string exactly. Otherwise
+ *   platforms carry option values as strings, so a primitive matches by its
+ *   string form and an object by its stable JSON. A value that matches no
+ *   option (or an array for a single select) is refused. A multi select
+ *   also accepts a single value: a platform without multi select (WhatsApp,
+ *   Telegram) sends the one option the user picked.
+ * - An input answers with the text the user typed.
+ */
+export function choiceAnswer(
+  control: ChoiceControl,
+  clicked: unknown,
+  raw?: string | readonly string[],
+): { ok: true; value: unknown } | { ok: false } {
+  switch (control.kind) {
+    case "button":
+      return { ok: true, value: control.value };
+    case "input":
+      return clicked === undefined || typeof clicked === "string"
+        ? { ok: true, value: clicked }
+        : { ok: false };
+    case "select": {
+      const match = (v: unknown, r: string | undefined) =>
+        control.options.find((own) =>
+          r !== undefined && (own === null || typeof own !== "object")
+            ? String(own) === r
+            : sameChoiceValue(own, v),
+        );
+      if (control.multi) {
+        if (clicked === undefined) return { ok: false };
+        const values = Array.isArray(clicked) ? clicked : [clicked];
+        const raws = Array.isArray(raw)
+          ? raw
+          : typeof raw === "string"
+            ? [raw]
+            : undefined;
+        const chosen: unknown[] = [];
+        for (const [i, v] of values.entries()) {
+          const own = match(v, raws?.[i]);
+          if (own === undefined) return { ok: false };
+          chosen.push(own);
+        }
+        return { ok: true, value: chosen };
+      }
+      const own = match(clicked, typeof raw === "string" ? raw : undefined);
+      return own === undefined ? { ok: false } : { ok: true, value: own };
+    }
+  }
+}
+
+/** Whether a clicked option value is the picker's own option value `own`. */
+function sameChoiceValue(own: unknown, clicked: unknown): boolean {
+  if (Object.is(own, clicked)) return true;
+  if (clicked === undefined || clicked === null) return false;
+  if (own === null || typeof own !== "object") {
+    return typeof clicked !== "object" && String(own) === String(clicked);
+  }
+  return (
+    typeof clicked === "object" &&
+    stableStringify(own) === stableStringify(clicked)
+  );
+}
+
+const CHOICE_EVENT_PROPS = ["onClick", "onSelect", "onSubmit"];
+
+/** The event prop that carries each picker control's action id. */
+const PICKER_CONTROL_EVENT_PROP: Readonly<Record<string, string>> = {
+  button: "onClick",
+  select: "onSelect",
+  input: "onSubmit",
+};
+
+/**
+ * Give every picker control that has no handler its own per-post action id
+ * (`{ id }` on its event prop, unregistered: there is no handler to run).
+ * Without one, each renderer derives a fallback id that may not round-trip:
+ * Slack truncates a long JSON `action_id` and uses `"action"` / `"input"` for
+ * valueless buttons and inputs, and Teams sends no `ckActionId` at all, so the
+ * picker could never be answered. Link buttons never dispatch and are skipped.
+ * Returns the ids it minted. Walks every prop, so provider-native slots are
+ * covered; `<Render>` snapshots and host elements are not.
+ */
+function stampUnboundPickerControls(
+  value: unknown,
+  ids = new Set<string>(),
+): Set<string> {
+  if (Array.isArray(value)) {
+    for (const v of value) stampUnboundPickerControls(v, ids);
+    return ids;
+  }
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("type" in value) ||
+    !("props" in value) ||
+    typeof value.props !== "object" ||
+    value.props === null
+  ) {
+    return ids;
+  }
+  const node = value as ChannelNode;
+  // A <Render> snapshot becomes an image, and a host (React DOM) element is
+  // part of one: neither holds picker controls, and React freezes its props.
+  if (isOpaqueNode(node)) return ids;
+  const eventProp =
+    typeof node.type === "string"
+      ? PICKER_CONTROL_EVENT_PROP[node.type]
+      : undefined;
+  const isLink =
+    typeof node.props.url === "string" && node.props.url.length > 0;
+  if (eventProp && !isLink && !isActionRef(node.props[eventProp])) {
+    const id = mintActionId();
+    node.props[eventProp] = { id };
+    ids.add(id);
+  }
+  for (const [name, v] of Object.entries(node.props)) {
+    if (!CHOICE_EVENT_PROPS.includes(name)) stampUnboundPickerControls(v, ids);
+  }
+  return ids;
+}
+
+/**
+ * A node whose props are not channel IR: a `<Render>` snapshot or a host
+ * (React DOM) element. `ActionRegistry` skips the same nodes when it binds.
+ */
+function isOpaqueNode(node: ChannelNode): boolean {
+  return node.type === "render" || isHostElement(node);
+}
+
+/** A registry-minted `{ id }` reference on an event prop. */
+function isActionRef(ref: unknown): ref is { id: string } {
+  return (
+    typeof ref === "object" &&
+    ref !== null &&
+    "id" in ref &&
+    typeof ref.id === "string"
+  );
+}
+
+/**
+ * The picker's controls by the action id a click on each arrives with. After
+ * {@link stampUnboundPickerControls} every button, select and input carries a
+ * per-post `{ id }` on its event prop; `unbound` holds the ids that have no
+ * registered handler. Walks every prop, so provider-native slots are covered;
+ * `<Render>` snapshots and host elements are not.
+ */
+function collectChoiceControls(
+  value: unknown,
+  unbound: ReadonlySet<string>,
+  controls = new Map<string, ChoiceControl>(),
+): Map<string, ChoiceControl> {
+  if (Array.isArray(value)) {
+    for (const v of value) collectChoiceControls(v, unbound, controls);
+    return controls;
+  }
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("type" in value) ||
+    !("props" in value) ||
+    typeof value.props !== "object" ||
+    value.props === null
+  ) {
+    return controls;
+  }
+  const node = value as ChannelNode;
+  if (isOpaqueNode(node)) return controls;
+  for (const prop of CHOICE_EVENT_PROPS) {
+    const ref = node.props[prop];
+    if (!isActionRef(ref)) continue;
+    const bound = !unbound.has(ref.id);
+    if (node.type === "select") {
+      const options =
+        (node.props.options as { value: unknown }[] | undefined) ?? [];
+      controls.set(ref.id, {
+        kind: "select",
+        options: options.map((o) => o.value),
+        multi: node.props.multi === true,
+        bound,
+      });
+    } else if (node.type === "input") {
+      controls.set(ref.id, { kind: "input", bound });
+    } else {
+      controls.set(ref.id, { kind: "button", value: node.props.value, bound });
+    }
+  }
+  for (const [name, v] of Object.entries(node.props)) {
+    if (!CHOICE_EVENT_PROPS.includes(name)) {
+      collectChoiceControls(v, unbound, controls);
+    }
+  }
+  return controls;
 }
 
 function containsType(nodes: readonly ChannelNode[], type: string): boolean {

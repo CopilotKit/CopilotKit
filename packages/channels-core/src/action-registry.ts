@@ -13,11 +13,13 @@ import {
   isHostElement,
 } from "@copilotkit/channels-ui";
 import type { ChannelComponentRenderContext } from "./channel-component.js";
-import { mintId } from "./mint-id.js";
+import { mintActionId } from "./mint-id.js";
+import { BoundedCache } from "./bounded-cache.js";
 import type {
   ActionContinuationContext,
   ActionContinuationBinding,
   ActionContinuationSnapshot,
+  ActionSnapshot,
   ActionStore,
 } from "./action-store.js";
 
@@ -40,7 +42,53 @@ export class ActionContinuationMismatchError extends Error {
   }
 }
 
+/** An action id was presented from outside the conversation it was minted for. */
+export class ActionScopeMismatchError extends Error {
+  readonly code = "channel_action_scope_mismatch";
+
+  constructor() {
+    super("The action does not belong to this conversation");
+    this.name = "ActionScopeMismatchError";
+  }
+}
+
+/**
+ * Server-derived facts about where an interaction arrived, checked on dispatch.
+ * Both come from the ingress event, never from the action payload.
+ */
+export interface ActionDispatchScope {
+  /** Conversation the interaction arrived in. Must be non-empty. */
+  conversationKey: string;
+  /** Platform the interaction arrived on. */
+  platform: string;
+}
+
+/**
+ * Where an action or reaction handler was bound. `platform` is absent from
+ * snapshots written before actions were scoped by platform; such a snapshot
+ * matches on its conversation key alone.
+ */
+interface ActionBinding {
+  conversationKey: string;
+  platform?: string;
+}
+
 const EVENT_PROPS = ["onClick", "onSelect", "onSubmit"] as const;
+
+/**
+ * How long a bound action (and a message's reaction handler) stays
+ * dispatchable: 7 days. Applies to the durable snapshot and to the in-process
+ * cache alike.
+ */
+export const DEFAULT_ACTION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Most bound actions (and, separately, message reaction handlers) the
+ * in-process cache holds. Past it the least recently used entry is evicted; a
+ * registered component's action is then re-derived from its durable snapshot,
+ * and an inline handler reports {@link ActionExpiredError}.
+ */
+export const DEFAULT_MAX_HOT_ACTIONS = 10_000;
 
 function isComponentElement(
   ui: unknown,
@@ -62,34 +110,73 @@ export class ActionRegistry {
         context: ChannelComponentRenderContext,
       ) => Renderable | Promise<Renderable>;
       requireKeys: boolean;
+      /** What the name was registered for (see {@link registerComponent}). */
+      source: object;
     }
   >();
-  // Cache the handler AND the element's `value` per minted id. The value is
-  // needed to resolve HITL `awaitChoice` waiters on platforms whose callback
-  // payload can't carry it (e.g. Telegram's 64-byte callback_data only holds
-  // the action id), where `evt.value` arrives undefined.
-  private hot = new Map<
+  /** The registration name of each registered component function. */
+  private componentNames = new WeakMap<object, string>();
+  // Cache, per minted id, the handler, the element's `value` (dispatch returns
+  // it, since a platform may drop it from the callback payload: Discord drops
+  // a value too large for its custom_id), and the conversation and platform
+  // the action was bound in, which dispatch checks. Every render mints fresh
+  // ids, so the cache is bounded: entries expire with the retention window
+  // and the least recently used one is evicted past the size cap.
+  private hot: BoundedCache<
     string,
-    { handler: ClickHandler; value: unknown; continuation?: true }
-  >();
+    {
+      handler: ClickHandler;
+      value: unknown;
+      conversationKey: string;
+      platform: string;
+      continuation?: true;
+    }
+  >;
   // Same-process fast path for `<Message onReaction>` handlers, keyed by the
-  // posted message's id. Mirrors the `hot` action cache; the durable snapshot
-  // (below) is the cross-restart counterpart, exactly like onClick.
-  private messageReactions = new Map<string, MessageReactionHandler>();
+  // posted message's id, with the conversation the message was posted to.
+  // Mirrors the `hot` action cache; the durable snapshot (below) is the
+  // cross-restart counterpart, exactly like onClick.
+  private messageReactions: BoundedCache<
+    string,
+    { handler: MessageReactionHandler } & ActionBinding
+  >;
 
-  private readonly retentionMs?: number;
+  // Ids this process revoked or claimed, so a re-scope racing with either
+  // cannot write the action back (see `rescopeActions`).
+  private retired: BoundedCache<string, true>;
 
-  constructor(opts: { store: ActionStore; retentionMs?: number }) {
+  /** TTL of every stored snapshot and of every in-process cache entry. */
+  private readonly retentionMs: number;
+
+  /**
+   * @param opts.retentionMs How long a bound action stays dispatchable, in the
+   *   store and in process. Default {@link DEFAULT_ACTION_RETENTION_MS}.
+   * @param opts.maxHotActions Size cap of each in-process cache (actions, and
+   *   message reaction handlers). Default {@link DEFAULT_MAX_HOT_ACTIONS}.
+   */
+  constructor(opts: {
+    store: ActionStore;
+    retentionMs?: number;
+    maxHotActions?: number;
+  }) {
     this.store = opts.store;
-    this.retentionMs = opts.retentionMs;
+    this.retentionMs = opts.retentionMs ?? DEFAULT_ACTION_RETENTION_MS;
+    const limits = {
+      maxEntries: opts.maxHotActions ?? DEFAULT_MAX_HOT_ACTIONS,
+      ttlMs: this.retentionMs,
+    };
+    this.hot = new BoundedCache(limits);
+    this.messageReactions = new BoundedCache(limits);
+    this.retired = new BoundedCache(limits);
   }
 
   /** Cache a `<Message onReaction>` handler for the posted message (same-process). */
   registerMessageReaction(
     messageId: string,
     handler: MessageReactionHandler,
+    binding: { conversationKey: string; platform: string },
   ): void {
-    this.messageReactions.set(messageId, handler);
+    this.messageReactions.set(messageId, { handler, ...binding });
   }
 
   /**
@@ -107,13 +194,17 @@ export class ActionRegistry {
       platform?: string;
     },
   ): Promise<void> {
-    await this.store.put(reactionKey(messageId), {
-      component: snap.component,
-      props: snap.props,
-      path: [],
-      conversationKey: snap.conversationKey,
-      platform: snap.platform,
-    });
+    await this.store.put(
+      reactionKey(messageId),
+      {
+        component: snap.component,
+        props: snap.props,
+        path: [],
+        conversationKey: snap.conversationKey,
+        platform: snap.platform,
+      },
+      this.retentionMs,
+    );
   }
 
   /**
@@ -121,38 +212,81 @@ export class ActionRegistry {
    * the durable snapshot (re-rendering the named component and re-plucking the
    * root's handler). Returns `undefined` when neither resolves — e.g. an inline
    * handler whose closure can't be re-derived after a restart.
+   *
+   * `scope` is where the reaction arrived (server-derived). A handler bound in
+   * another conversation or on another platform is refused with
+   * {@link ActionScopeMismatchError}.
    */
   async resolveMessageReaction(
     messageId: string,
+    scope: ActionDispatchScope,
   ): Promise<MessageReactionHandler | undefined> {
+    assertDispatchScope(scope);
     const hot = this.messageReactions.get(messageId);
-    if (hot) return hot;
+    if (hot) {
+      assertActionScope(hot, scope);
+      return hot.handler;
+    }
     const snap = await this.store.get(reactionKey(messageId));
-    if (!snap?.component) return undefined;
+    if (!snap) return undefined;
+    if (lacksConversationBinding(snap)) {
+      // The message id is a provider id, so it stays out of the log.
+      warnLegacyBinding("a reaction");
+      return undefined;
+    }
+    assertActionScope(snap, scope);
+    if (!snap.component) return undefined;
     const registered = this.components.get(snap.component);
     if (!registered) return undefined;
     const root = renderToIR(
       await registered.render(snap.props as Record<string, unknown>, {
         platform: (snap.platform ??
-          "slack") as ChannelComponentRenderContext["platform"],
+          scope.platform) as ChannelComponentRenderContext["platform"],
         signal: new AbortController().signal,
       }),
     );
     return takeMessageReaction(root);
   }
 
+  /**
+   * Register a component under an explicit `name`, the identity its durable
+   * snapshots record. A cold dispatch (after a restart or an eviction)
+   * re-renders the component by this name, so a name stands for exactly one
+   * component: registering it for a different one throws, and so does
+   * registering one component under two names. Re-registering the same
+   * component under the same name is harmless.
+   *
+   * @param options.source The component the name identifies when `fn` wraps
+   *   it (defaults to `fn`). A posted element whose `type` is `source` binds
+   *   under `name`; an element of an unregistered function binds inline.
+   */
   registerComponent(
     name: string,
     fn: (
       props: Record<string, unknown>,
       context: ChannelComponentRenderContext,
     ) => Renderable | Promise<Renderable>,
-    options: { requireKeys?: boolean } = {},
+    options: { requireKeys?: boolean; source?: object } = {},
   ): void {
+    const source = options.source ?? fn;
+    const existing = this.components.get(name);
+    if (existing && existing.source !== source) {
+      throw new Error(
+        `Channel component "${name}" is already registered for a different component`,
+      );
+    }
+    const registeredAs = this.componentNames.get(source);
+    if (registeredAs !== undefined && registeredAs !== name) {
+      throw new Error(
+        `Channel component "${name}" is already registered as "${registeredAs}"`,
+      );
+    }
     this.components.set(name, {
       render: fn,
       requireKeys: options.requireKeys ?? false,
+      source,
     });
+    this.componentNames.set(source, name);
   }
 
   clearHotCache(): void {
@@ -224,13 +358,16 @@ export class ActionRegistry {
     };
   }
 
-  // Binds an arbitrary Renderable for posting. If `ui` is a component element
-  // (`{ type: fn, props }`), it is registered + bound by name (cold-path
-  // re-render supported). Otherwise the IR is bound inline with `component:""`,
-  // meaning a cold-cache dispatch throws ActionExpiredError (intended
-  // degradation for inline handlers that can't be re-derived). A top-level
-  // `<Message onReaction>` handler is pulled off the IR (so it never reaches the
-  // adapter) and returned for the caller to associate with the posted message.
+  // Binds an arbitrary Renderable for posting. If `ui` is an element of a
+  // component registered by name (`registerComponent`), it is bound under
+  // that name (cold-path re-render supported). Anything else, including an
+  // element of an unregistered function, is bound inline with `component:""`:
+  // a cold-cache dispatch then throws ActionExpiredError (intended
+  // degradation for handlers that can't be re-derived). A function's own
+  // `name` is never an identity: two functions can share one, and anonymous
+  // ones all would. A top-level `<Message onReaction>` handler is pulled off
+  // the IR (so it never reaches the adapter) and returned for the caller to
+  // associate with the posted message.
   async bindRenderable(
     ui: Renderable,
     conversationKey: string,
@@ -256,23 +393,18 @@ export class ActionRegistry {
     let root: ChannelNode[];
     let component: string | undefined;
     let props: Record<string, unknown> | undefined;
-    if (isComponentElement(ui)) {
-      const fn = ui.type;
-      component = fn.name || "anonymous";
+    const registeredName = isComponentElement(ui)
+      ? this.componentNames.get(ui.type)
+      : undefined;
+    if (isComponentElement(ui) && registeredName !== undefined) {
+      component = registeredName;
       props = (ui.props ?? {}) as Record<string, unknown>;
-      this.registerComponent(
-        component,
-        (componentProps) => fn(componentProps) as Renderable,
-      );
       root = await this.bindTree(
         component,
         props,
         conversationKey,
         continuation,
-        {
-          platform: renderContext.platform,
-          signal: renderContext.signal,
-        },
+        renderContext,
       );
     } else {
       root = renderToIR(ui);
@@ -341,16 +473,16 @@ export class ActionRegistry {
             requireKeys && node.key !== undefined
               ? { key: node.key, eventProp: ep }
               : undefined;
-          const id = continuation
-            ? `ck:${globalThis.crypto.randomUUID()}`
-            : mintId(
-                comp,
-                locator ? [locator.key, locator.eventProp] : fullPath,
-                props,
-              );
+          // Every id is random and bound to its conversation: a content-derived
+          // id would collide across conversations rendering the same card.
+          // Continuation ids use the same format; the snapshot's
+          // `continuation` record is what makes one a continuation.
+          const id = mintActionId();
           this.hot.set(id, {
             handler: handler as ClickHandler,
             value: node.props.value,
+            conversationKey: conv,
+            platform,
             ...(continuation ? { continuation: true as const } : {}),
           });
           await this.store.put(
@@ -368,7 +500,7 @@ export class ActionRegistry {
                 ? { continuation: { ...continuation, actionId: id } }
                 : {}),
             },
-            continuation ? this.retentionMs : undefined,
+            this.retentionMs,
           );
           node.props[ep] = { id };
         }
@@ -463,12 +595,28 @@ export class ActionRegistry {
    * (so callers can resolve a HITL `awaitChoice` waiter even when the platform
    * couldn't carry the value in its callback payload). Returns `undefined` when
    * the element has no `value`.
+   *
+   * `scope` is where the interaction actually arrived (server-derived from the
+   * ingress event); omitting it is a `TypeError`. An id bound to a different
+   * conversation or platform, or to an empty conversation key, is refused with
+   * {@link ActionScopeMismatchError} before any handler runs.
+   *
+   * Order of checks: the scope is checked first whenever the binding is known
+   * (a hot entry, or a stored snapshot — inline ones included). An id with no
+   * binding at all (never minted, or its snapshot has expired) has no scope to
+   * check and raises {@link ActionExpiredError}.
    */
-  async dispatch(id: string, ctx: InteractionContext): Promise<unknown> {
+  async dispatch(
+    id: string,
+    ctx: InteractionContext,
+    scope: ActionDispatchScope,
+  ): Promise<unknown> {
+    assertDispatchScope(scope);
     let handler: ClickHandler | undefined;
     let value: unknown;
     const hot = this.hot.get(id);
     if (hot) {
+      assertActionScope(hot, scope);
       if (hot.continuation && !(await this.store.get(id))) {
         this.hot.delete(id);
         throw new ActionExpiredError(id);
@@ -477,13 +625,19 @@ export class ActionRegistry {
       value = hot.value;
     } else {
       const snap = await this.store.get(id);
-      if (!snap || !snap.component) throw new ActionExpiredError(id);
+      if (!snap) throw new ActionExpiredError(id);
+      if (lacksConversationBinding(snap)) {
+        warnLegacyBinding(`action ${id}`);
+        throw new ActionExpiredError(id);
+      }
+      assertActionScope(snap, scope);
+      if (!snap.component) throw new ActionExpiredError(id);
       const registered = this.components.get(snap.component);
       if (!registered) throw new ActionExpiredError(id);
       const tree = renderToIR(
         await registered.render(snap.props as Record<string, unknown>, {
           platform: (snap.platform ??
-            ctx.platform) as ChannelComponentRenderContext["platform"],
+            scope.platform) as ChannelComponentRenderContext["platform"],
           signal: new AbortController().signal,
         }),
       );
@@ -499,6 +653,69 @@ export class ActionRegistry {
       action: { ...ctx.action, id, value: actionValue },
     });
     return value;
+  }
+
+  /**
+   * @internal Re-scope every action bound in `root` to the conversation a
+   * click on the posted message arrives from.
+   *
+   * Actions are bound before their message is posted, under the posting
+   * turn's key. Some platforms key a click on the posted message differently
+   * (Slack keys a click on a top-level message by that message's own ts), so
+   * once the message is posted the Thread moves the binding to the key the
+   * click will carry (see `PlatformAdapter.postedConversationKey`). A
+   * continuation's binding moves with it (to `threadId` too, when given), so
+   * `Thread.resume()` from that click matches it. The stored snapshot and the
+   * in-process entry both get a fresh retention window. An action revoked or
+   * consumed while it was being re-scoped stays gone.
+   */
+  async rescopeActions(
+    root: readonly ChannelNode[],
+    binding: { conversationKey: string; threadId?: string },
+  ): Promise<void> {
+    const { conversationKey, threadId } = binding;
+    for (const id of boundActionIds(root)) {
+      const hot = this.hot.get(id);
+      if (hot) this.hot.set(id, { ...hot, conversationKey });
+      const snap = await this.store.get(id);
+      if (!snap) continue;
+      await this.store.put(
+        id,
+        {
+          ...snap,
+          conversationKey,
+          ...(snap.continuation
+            ? {
+                continuation: {
+                  ...snap.continuation,
+                  conversationKey,
+                  ...(threadId !== undefined ? { threadId } : {}),
+                },
+              }
+            : {}),
+        },
+        this.retentionMs,
+      );
+      // The read and the write above are not atomic: an action revoked or
+      // claimed in between must not come back.
+      if (this.retired.get(id)) {
+        this.hot.delete(id);
+        await this.store.delete(id);
+      }
+    }
+  }
+
+  /**
+ * @internal Revoke actions
+ so they can never be dispatched again (an
+   * answered or abandoned picker's controls). Unknown ids are ignored.
+   */
+  async revokeActions(ids: Iterable<string>): Promise<void> {
+    for (const id of ids) {
+      this.retired.set(id, true);
+      this.hot.delete(id);
+      await this.store.delete(id);
+    }
   }
 
   /** Read and validate one continuation capability without consuming it. */
@@ -521,9 +738,63 @@ export class ActionRegistry {
 
     const claimed = await this.store.consume(id);
     if (!claimed?.continuation) throw new ActionExpiredError(id);
+    this.retired.set(id, true);
     assertContinuationBinding(claimed.continuation, id, expected);
     this.hot.delete(id);
     return claimed.continuation;
+  }
+}
+
+/** A missing or malformed scope is a programming error, not a mismatch. */
+function assertDispatchScope(
+  scope: unknown,
+): asserts scope is ActionDispatchScope {
+  if (
+    typeof scope !== "object" ||
+    scope === null ||
+    typeof (scope as { conversationKey?: unknown }).conversationKey !==
+      "string" ||
+    typeof (scope as { platform?: unknown }).platform !== "string"
+  ) {
+    throw new TypeError(
+      "ActionRegistry requires a dispatch scope { conversationKey, platform } derived from the ingress event",
+    );
+  }
+}
+
+/**
+ * Whether a stored snapshot predates conversation scoping: it has no
+ * conversation key, so no click or reaction can be checked against it.
+ */
+function lacksConversationBinding(snap: ActionSnapshot): boolean {
+  const key: unknown = snap.conversationKey;
+  return typeof key !== "string";
+}
+
+/** Log a refused pre-upgrade snapshot (it fails closed, as expired). */
+function warnLegacyBinding(what: string): void {
+  console.warn(
+    `[channel] refused ${what}: its stored snapshot has no conversation binding (legacy action, re-render required)`,
+  );
+}
+
+/**
+ * Refuse a binding presented outside the conversation and platform it was
+ * bound in. An empty conversation key never matches: it would put every
+ * conversation an adapter could not key into one shared scope. A binding
+ * without a platform (written before actions were scoped by platform) is
+ * checked on its conversation key alone.
+ */
+function assertActionScope(
+  bound: ActionBinding,
+  scope: ActionDispatchScope,
+): void {
+  if (
+    bound.conversationKey.length === 0 ||
+    scope.conversationKey !== bound.conversationKey ||
+    (bound.platform !== undefined && scope.platform !== bound.platform)
+  ) {
+    throw new ActionScopeMismatchError();
   }
 }
 
@@ -593,6 +864,33 @@ function findHandlerByLocator(
   };
   visit(tree);
   return matches.length === 1 ? matches[0] : undefined;
+}
+
+/** Every registry-minted `{ id }` reference in a bound tree, provider-native slots included. */
+function boundActionIds(root: readonly ChannelNode[]): string[] {
+  const ids: string[] = [];
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    if (!isChannelNode(value)) return;
+    for (const [propName, propValue] of Object.entries(value.props)) {
+      if (
+        (EVENT_PROPS as readonly string[]).includes(propName) &&
+        typeof propValue === "object" &&
+        propValue !== null &&
+        "id" in propValue &&
+        typeof propValue.id === "string"
+      ) {
+        ids.push(propValue.id);
+      } else {
+        visit(propValue);
+      }
+    }
+  };
+  visit(root);
+  return ids;
 }
 
 /** Store key for a message's durable reaction snapshot (distinct from minted action ids). */

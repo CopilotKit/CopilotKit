@@ -30,7 +30,7 @@ function makeThread(
     tools: new Map(),
     toolDescriptors: [],
     context: [],
-    registerWaiter: () => {},
+    registerWaiter: () => () => {},
     interruptHandlers: new Map(),
     state: store,
     user: null,

@@ -31,7 +31,7 @@ function makeThread(
     tools: new Map(),
     toolDescriptors: [],
     context: [],
-    registerWaiter: () => {},
+    registerWaiter: () => () => {},
     interruptHandlers: new Map(),
     state: store,
     user: null,
@@ -256,3 +256,32 @@ function collect(nodes: readonly ChannelNode[], type: string): ChannelNode[] {
   for (const n of nodes) walk(n);
   return out;
 }
+
+describe("awaitChoice with a <Render> snapshot", () => {
+  it("leaves the snapshot's authored elements alone and posts the picker", async () => {
+    const adapter = new FakeAdapter();
+    adapter.stageFile = async () => ({ fileId: "F-staged" });
+    const thread = makeThread(adapter);
+    // An HTML <button> inside a snapshot is part of the image, not a picker
+    // control. React freezes an element's props in development.
+    const element = createElement("button", null, "Looks like a button");
+    // <Render> takes host elements at runtime; its JSX type admits only IR.
+    const htmlButton = element as unknown as ChannelNode;
+    expect(Object.isFrozen(element.props)).toBe(true);
+    let error: unknown;
+    void thread
+      .awaitChoice(
+        <Message>
+          <Render alt="preview">{htmlButton}</Render>
+          <Button value="ok">OK</Button>
+        </Message>,
+      )
+      .catch((err: unknown) => {
+        error = err;
+      });
+    for (let i = 0; i < 10; i++) await new Promise((r) => setTimeout(r, 0));
+    expect(error).toBeUndefined();
+    expect(adapter.posted).toHaveLength(1);
+    expect("onClick" in element.props).toBe(false);
+  });
+});

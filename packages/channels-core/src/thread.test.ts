@@ -25,7 +25,7 @@ function makeTestThread(overrides: {
     tools: new Map(),
     toolDescriptors: [],
     context: [],
-    registerWaiter: () => {},
+    registerWaiter: () => () => {},
     interruptHandlers: new Map(),
     state: overrides.state,
     user: null,
