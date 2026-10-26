@@ -45,6 +45,7 @@ import { createMCPClient } from "@ai-sdk/mcp";
 import type { MCPClient, MCPTransport } from "@ai-sdk/mcp";
 import { Observable } from "rxjs";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createMiniMaxModel } from "./minimax";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
@@ -138,8 +139,8 @@ export type BuiltInAgentModel =
   | "google/gemini-3.5-flash"
   | "google/gemini-3.5-flash-lite"
   // MiniMax models
+  | "minimax/MiniMax-M3.1-Flash"
   | "minimax/MiniMax-M3"
-  | "minimax/MiniMax-M2.7"
   // Allow any LanguageModel instance
   | (string & {});
 
@@ -431,12 +432,11 @@ export function resolveModel(
     }
 
     case "minimax": {
-      const minimax = createOpenAI({
+      return createMiniMaxModel(model, {
         name: "minimax",
         apiKey: apiKey || process.env.MINIMAX_API_KEY!,
         baseURL: process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
       });
-      return minimax(model);
     }
 
     case "vertex": {
@@ -722,6 +722,8 @@ function convertUserMessageContent(
 export interface MessageConversionOptions {
   forwardSystemMessages?: boolean;
   forwardDeveloperMessages?: boolean;
+  /** Preserve MiniMax reasoning for subsequent tool turns. */
+  forwardReasoningMessages?: boolean;
 }
 
 /**
@@ -749,6 +751,14 @@ export function convertMessagesToVercelAISDKMessages(
         content: message.content ?? "",
       };
       result.push(systemMsg);
+    } else if (
+      message.role === "reasoning" &&
+      options.forwardReasoningMessages
+    ) {
+      result.push({
+        role: "assistant",
+        content: [{ type: "reasoning", text: message.content }],
+      });
     } else if (message.role === "assistant") {
       const parts: Array<TextPart | ToolCallPart> = message.content
         ? [{ type: "text", text: message.content }]
@@ -1335,7 +1345,16 @@ export class BuiltInAgent extends AbstractAgent {
       subscriber.next(startEvent);
 
       // Resolve the model, passing API key if provided
-      const model = resolveModel(config.model, config.apiKey);
+      let model = resolveModel(config.model, config.apiKey);
+      const forwardedModel = input.forwardedProps?.model;
+      if (
+        forwardedModel !== undefined &&
+        this.canOverride("model") &&
+        (typeof forwardedModel === "string" ||
+          typeof forwardedModel === "object")
+      ) {
+        model = resolveModel(forwardedModel as ModelSpecifier, config.apiKey);
+      }
 
       // Build prompt based on conditions
       let systemPrompt: string | undefined = undefined;
@@ -1386,6 +1405,8 @@ export class BuiltInAgent extends AbstractAgent {
       const messages = convertMessagesToVercelAISDKMessages(input.messages, {
         forwardSystemMessages: config.forwardSystemMessages,
         forwardDeveloperMessages: config.forwardDeveloperMessages,
+        forwardReasoningMessages:
+          typeof model !== "string" && model.provider === "minimax.chat",
       });
       if (systemPrompt) {
         messages.unshift({
@@ -1475,19 +1496,6 @@ export class BuiltInAgent extends AbstractAgent {
         const props = input.forwardedProps as Record<string, unknown>;
 
         // Check and apply each overridable property
-        if (props.model !== undefined && this.canOverride("model")) {
-          if (
-            typeof props.model === "string" ||
-            typeof props.model === "object"
-          ) {
-            // Accept any string or LanguageModel instance for model override
-            // Use the configured API key when resolving overridden models
-            streamTextParams.model = resolveModel(
-              props.model as string | LanguageModel,
-              config.apiKey,
-            );
-          }
-        }
         if (props.toolChoice !== undefined && this.canOverride("toolChoice")) {
           // ToolChoice can be 'auto', 'required', 'none', or { type: 'tool', toolName: string }
           const toolChoice = props.toolChoice;

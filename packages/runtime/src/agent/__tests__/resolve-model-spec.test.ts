@@ -67,8 +67,9 @@ describe("resolveModel — model string parsing and OpenAI API route", () => {
       "google.generative-ai",
       "gemini-3.8-flash",
     ],
-    ["minimax/MiniMax-M3", "minimax.responses", "MiniMax-M3"],
-    ["minimax:MiniMax-M3", "minimax.responses", "MiniMax-M3"],
+    ["minimax/MiniMax-M3.1-Flash", "minimax.chat", "MiniMax-M3.1-Flash"],
+    ["minimax/MiniMax-M3", "minimax.chat", "MiniMax-M3"],
+    ["minimax:MiniMax-M3", "minimax.chat", "MiniMax-M3"],
     ["vertex/gemini-2.5-pro", "google.vertex.chat", "gemini-2.5-pro"],
   ])("resolves %s the same way as before", (spec, provider, modelId) => {
     expect(resolved(spec)).toEqual({ provider, modelId });

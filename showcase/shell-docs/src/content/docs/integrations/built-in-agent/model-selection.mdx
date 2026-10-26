@@ -75,16 +75,25 @@ still call them, but a new key gets a 404. See Google's
 
 ### MiniMax
 
-| Model        | Specifier              |
-| ------------ | ---------------------- |
-| MiniMax M3   | `minimax:MiniMax-M3`   |
-| MiniMax M2.7 | `minimax:MiniMax-M2.7` |
+| Model             | Specifier                    |
+| ----------------- | ---------------------------- |
+| MiniMax M3.1 Flash | `minimax:MiniMax-M3.1-Flash`   |
+| MiniMax M3         | `minimax:MiniMax-M3`          |
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "minimax:MiniMax-M3",
+  model: "minimax:MiniMax-M3.1-Flash",
 });
 ```
+
+MiniMax uses the Chat Completions API. Explicit model IDs, including legacy IDs,
+are passed through unchanged. Flash uses adaptive thinking by default; it does
+not support disabling thinking. Omitting reasoning effort uses MiniMax's `max`
+default. See the [MiniMax API reference](https://platform.minimax.io/docs/api-reference/text-openai-api).
+
+The built-in MiniMax route preserves separate thinking across tool calls. If you
+persist conversation history yourself, retain reasoning messages along with
+assistant and tool messages so later turns keep the complete reasoning chain.
 
 ## Environment Variables
 
