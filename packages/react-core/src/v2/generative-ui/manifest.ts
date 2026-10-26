@@ -4,6 +4,8 @@ import {
   COPILOTKIT_UI_ENVELOPE_FORMAT,
   GENERATIVE_UI_CHAT_TARGET,
   GENERATIVE_UI_FUNCTIONS,
+  applyDescriptionOverrides,
+  defaultGenerativeUIPromptSpec,
 } from "@copilotkit/shared";
 import type {
   A2UIActionMessage,
@@ -71,7 +73,12 @@ export function buildCatalogManifest(
   return {
     catalogId: ui.id,
     catalogIds: catalogIdsOf(ui),
-    components: ui.manifestComponents,
+    // The description overrides of the default prompt spec (none today), so
+    // the client sends the descriptions that evaluations measure.
+    components: applyDescriptionOverrides(
+      { components: ui.manifestComponents },
+      defaultGenerativeUIPromptSpec().descriptions,
+    ).manifest.components,
     // A name the app declares is the app's, also while its handler is not
     // mounted: the dispatcher never runs the built-in in its place.
     functions: {
