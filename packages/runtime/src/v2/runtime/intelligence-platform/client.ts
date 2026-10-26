@@ -781,6 +781,20 @@ interface ThreadEnvelope {
  * ```
  */
 export class CopilotKitIntelligence {
+  /** Experimental server-side APIs; their contracts may change before release. */
+  readonly experimental = {
+    learning: {
+      listLearningContainers: this.#listLearningContainers.bind(this),
+      getLearningContainer: this.#getLearningContainer.bind(this),
+      listLearningRuns: this.#listLearningRuns.bind(this),
+      startLearningRun: this.#startLearningRun.bind(this),
+      listLearningCandidates: this.#listLearningCandidates.bind(this),
+      getLearningCandidate: this.#getLearningCandidate.bind(this),
+      getLearningInsightEvidence: this.#getLearningInsightEvidence.bind(this),
+      reviewLearningCandidate: this.#reviewLearningCandidate.bind(this),
+    },
+  };
+
   #apiUrl: string;
   #runnerWsUrl: string;
   #clientWsUrl: string;
@@ -1274,7 +1288,7 @@ export class CopilotKitIntelligence {
   }
 
   /** Lists a bounded page of Learning spaces owned by this server's project key. */
-  async listLearningContainers(
+  async #listLearningContainers(
     options: LearningRequestOptions & { readonly cursor?: string } = {},
   ): Promise<LearningContainerPage> {
     const query =
@@ -1290,7 +1304,7 @@ export class CopilotKitIntelligence {
   }
 
   /** Reads one Learning space; this does not assign or move any conversations. */
-  async getLearningContainer(
+  async #getLearningContainer(
     options: LearningContainerRequest,
   ): Promise<LearningContainer> {
     const response = await this.#learningRequest<{
@@ -1305,7 +1319,7 @@ export class CopilotKitIntelligence {
   }
 
   /** Reads the latest 100 Learning runs; queue admission is not completion. */
-  async listLearningRuns(
+  async #listLearningRuns(
     options: LearningContainerRequest,
   ): Promise<LearningRun[]> {
     const response = await this.#learningRequest<{ runs: LearningRun[] }>(
@@ -1318,7 +1332,7 @@ export class CopilotKitIntelligence {
   }
 
   /** Starts or recovers a manual run for all eligible evidence in this space. Never retries automatically. */
-  async startLearningRun(
+  async #startLearningRun(
     options: LearningContainerRequest,
   ): Promise<LearningRun> {
     const response = await this.#learningRequest<{ run: LearningRun }>(
@@ -1331,7 +1345,7 @@ export class CopilotKitIntelligence {
   }
 
   /** Reads the latest 500 proposed Skill changes, including completed reviews. */
-  async listLearningCandidates(
+  async #listLearningCandidates(
     options: LearningContainerRequest,
   ): Promise<LearningCandidate[]> {
     const response = await this.#learningRequest<{
@@ -1346,7 +1360,7 @@ export class CopilotKitIntelligence {
   }
 
   /** Reads proposed files and supporting Insights for an explicit review decision. */
-  async getLearningCandidate(
+  async #getLearningCandidate(
     options: LearningCandidateRequest,
   ): Promise<LearningCandidateDetail> {
     const response = await this.#learningRequest<{
@@ -1361,7 +1375,7 @@ export class CopilotKitIntelligence {
   }
 
   /** Reads scoped source evidence, including unavailable-source reasons. */
-  async getLearningInsightEvidence(
+  async #getLearningInsightEvidence(
     options: LearningContainerRequest & { readonly insightId: string },
   ): Promise<LearningInsightEvidence[]> {
     const response = await this.#learningRequest<{
@@ -1376,7 +1390,7 @@ export class CopilotKitIntelligence {
   }
 
   /** Publishes or rejects a proposal. The application must authorize its reviewer before calling. */
-  async reviewLearningCandidate(
+  async #reviewLearningCandidate(
     options: LearningCandidateRequest & {
       readonly action: "approve" | "reject";
     },

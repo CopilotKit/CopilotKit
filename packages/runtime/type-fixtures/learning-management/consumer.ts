@@ -1,33 +1,27 @@
 import type {
   CopilotKitIntelligence,
-  LearningContainer,
-  LearningContainerPage,
-  LearningCandidate,
-  LearningCandidateDetail,
-  LearningCandidateReview,
-  LearningInsightEvidence,
-  LearningRun,
+  experimental,
 } from "@copilotkit/runtime/v2";
 
 /** Compile the published declarations under a strict consumer's settings. */
 export async function consume(client: CopilotKitIntelligence) {
-  const page = await client.listLearningContainers();
+  const page = await client.experimental.learning.listLearningContainers();
   const cursor: string | null = page.nextCursor;
-  const space: LearningContainer = page.containers[0];
+  const space: experimental.LearningContainer = page.containers[0];
   const name: string = space.name;
   const prompt: string | null = space.promptContext;
   return { cursor, name, prompt };
 }
-export const empty: LearningContainerPage = {
+export const empty: experimental.LearningContainerPage = {
   containers: [],
   nextCursor: null,
 };
 export function inspect(
-  candidate: LearningCandidate,
-  detail: LearningCandidateDetail,
-  review: LearningCandidateReview,
-  run: LearningRun,
-  evidence: LearningInsightEvidence,
+  candidate: experimental.LearningCandidate,
+  detail: experimental.LearningCandidateDetail,
+  review: experimental.LearningCandidateReview,
+  run: experimental.LearningRun,
+  evidence: experimental.LearningInsightEvidence,
 ) {
   const title: string = candidate.title;
   const revision: number | null = candidate.publishedRegistryRevision;
@@ -40,7 +34,7 @@ export function inspect(
   return { title, revision, files, skill, count, source };
 }
 // @ts-expect-error Required container fields cannot be omitted.
-export const invalid: LearningContainer = {};
+export const invalid: experimental.LearningContainer = {};
 
 // Check explicit published contracts against runtime schemas under strict inference.
 import type { z } from "zod";
@@ -54,13 +48,13 @@ import {
   learningInsightEvidenceSchema,
 } from "../../src/v2/runtime/intelligence-platform/learning-management";
 export const schemas: [
-  z.ZodType<LearningContainer>,
-  z.ZodType<LearningContainerPage>,
-  z.ZodType<LearningRun>,
-  z.ZodType<LearningCandidate>,
-  z.ZodType<LearningCandidateDetail>,
-  z.ZodType<LearningCandidateReview>,
-  z.ZodType<LearningInsightEvidence>,
+  z.ZodType<experimental.LearningContainer>,
+  z.ZodType<experimental.LearningContainerPage>,
+  z.ZodType<experimental.LearningRun>,
+  z.ZodType<experimental.LearningCandidate>,
+  z.ZodType<experimental.LearningCandidateDetail>,
+  z.ZodType<experimental.LearningCandidateReview>,
+  z.ZodType<experimental.LearningInsightEvidence>,
 ] = [
   learningContainerSchema,
   learningContainerPageSchema,

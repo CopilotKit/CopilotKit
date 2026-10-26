@@ -182,7 +182,7 @@ When you are done, your Runtime will send selected Threads to a Learning contain
 ## Manage Learning from your server
 
 `CopilotKitIntelligence` can list containers, start manual runs, and review proposed Skills from your application server.
-These methods require an Intelligence deployment with the runtime Learning management API.
+The experimental Learning management methods require an Intelligence deployment with the runtime Learning management API. Their SDK contracts can change before release.
 They use the project API key from the existing client configuration.
 
 Keep the key on your server. Authorize each application user before you call these methods.
@@ -198,17 +198,17 @@ const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 
-const page = await intelligence.listLearningContainers();
+const page = await intelligence.experimental.learning.listLearningContainers();
 // Use page.nextCursor to request another page when it is not null.
-const container = await intelligence.getLearningContainer({
+const container = await intelligence.experimental.learning.getLearningContainer({
   containerId: "expense-review",
 });
 
 // Call only after the authorized user requests a manual run.
-const admittedRun = await intelligence.startLearningRun({
+const admittedRun = await intelligence.experimental.learning.startLearningRun({
   containerId: container.id,
 });
-const runs = await intelligence.listLearningRuns({
+const runs = await intelligence.experimental.learning.listLearningRuns({
   containerId: container.id,
 });
 const progress = runs.find((run) => run.id === admittedRun.id);
@@ -221,18 +221,18 @@ These methods do not upload workspace files, move Threads, or change their assig
 ### Review a proposed Skill
 
 ```ts title="Application server"
-const candidates = await intelligence.listLearningCandidates({
+const candidates = await intelligence.experimental.learning.listLearningCandidates({
   containerId: "expense-review",
 });
 const pending = candidates.find((item) => item.status === "pending_review");
 if (pending) {
-  const candidate = await intelligence.getLearningCandidate({
+  const candidate = await intelligence.experimental.learning.getLearningCandidate({
     containerId: "expense-review",
     candidateId: pending.id,
   });
   const evidence = await Promise.all(
     candidate.supportingInsights.map((insight) =>
-      intelligence.getLearningInsightEvidence({
+      intelligence.experimental.learning.getLearningInsightEvidence({
         containerId: "expense-review",
         insightId: insight.id,
       }),
@@ -248,7 +248,7 @@ Evidence includes availability fields for missing Threads and Trajectories.
 After the reviewer explicitly chooses **Approve** or **Reject**, call `reviewLearningCandidate` from your authorized server handler:
 
 ```ts title="Authorized review handler"
-const review = await intelligence.reviewLearningCandidate({
+const review = await intelligence.experimental.learning.reviewLearningCandidate({
   containerId: "expense-review",
   candidateId, // The candidate the reviewer inspected.
   action: "approve", // Use "reject" for an explicit rejection.

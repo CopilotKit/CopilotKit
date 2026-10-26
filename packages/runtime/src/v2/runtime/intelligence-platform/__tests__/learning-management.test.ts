@@ -21,6 +21,19 @@ function setup() {
   return { client, fetchMock, teardown: () => fetchMock.mockRestore() };
 }
 
+test("exposes management only through the experimental Learning namespace", () => {
+  const { client, teardown } = setup();
+  try {
+    expect(client.experimental.learning.listLearningContainers).toBeTypeOf(
+      "function",
+    );
+    expect(client).not.toHaveProperty("listLearningContainers");
+    expect(client).not.toHaveProperty("reviewLearningCandidate");
+  } finally {
+    teardown();
+  }
+});
+
 test("lists Learning spaces with a cursor and resolves one named space", async () => {
   const { client, fetchMock, teardown } = setup();
   try {
@@ -28,7 +41,9 @@ test("lists Learning spaces with a cursor and resolves one named space", async (
       Response.json({ containers: [container], nextCursor: "next" }),
     );
     expect(
-      await client.listLearningContainers({ cursor: "date|coding" }),
+      await client.experimental.learning.listLearningContainers({
+        cursor: "date|coding",
+      }),
     ).toEqual({ containers: [container], nextCursor: "next" });
     expect(fetchMock).toHaveBeenLastCalledWith(
       "http://127.0.0.1:3000/api/v1/learning/containers?cursor=date%7Ccoding",
@@ -39,7 +54,9 @@ test("lists Learning spaces with a cursor and resolves one named space", async (
     );
     fetchMock.mockResolvedValueOnce(Response.json({ container }));
     expect(
-      await client.getLearningContainer({ containerId: "coding" }),
+      await client.experimental.learning.getLearningContainer({
+        containerId: "coding",
+      }),
     ).toEqual(container);
   } finally {
     teardown();
@@ -86,17 +103,21 @@ test("starts Learning once and returns run progress without retrying writes", as
   const { client, fetchMock, teardown } = setup();
   try {
     fetchMock.mockResolvedValueOnce(Response.json({ run }, { status: 202 }));
-    expect(await client.startLearningRun({ containerId: "coding" })).toEqual(
-      run,
-    );
+    expect(
+      await client.experimental.learning.startLearningRun({
+        containerId: "coding",
+      }),
+    ).toEqual(run);
     expect(fetchMock).toHaveBeenLastCalledWith(
       "http://127.0.0.1:3000/api/v1/learning/containers/coding/runs",
       expect.objectContaining({ method: "POST", body: "{}" }),
     );
     fetchMock.mockResolvedValueOnce(Response.json({ runs: [run] }));
-    expect(await client.listLearningRuns({ containerId: "coding" })).toEqual([
-      run,
-    ]);
+    expect(
+      await client.experimental.learning.listLearningRuns({
+        containerId: "coding",
+      }),
+    ).toEqual([run]);
     fetchMock.mockResolvedValueOnce(
       Response.json(
         {
@@ -110,7 +131,7 @@ test("starts Learning once and returns run progress without retrying writes", as
       ),
     );
     await expect(
-      client.startLearningRun({ containerId: "coding" }),
+      client.experimental.learning.startLearningRun({ containerId: "coding" }),
     ).rejects.toMatchObject({
       status: 403,
       retryable: false,
@@ -160,25 +181,27 @@ test("reads proposed Skill content and evidence before an explicit review decisi
   try {
     fetchMock.mockResolvedValueOnce(Response.json({ candidates: [candidate] }));
     expect(
-      await client.listLearningCandidates({ containerId: "coding" }),
+      await client.experimental.learning.listLearningCandidates({
+        containerId: "coding",
+      }),
     ).toEqual([candidate]);
     fetchMock.mockResolvedValueOnce(Response.json({ candidate: detail }));
     expect(
-      await client.getLearningCandidate({
+      await client.experimental.learning.getLearningCandidate({
         containerId: "coding",
         candidateId: id,
       }),
     ).toEqual(detail);
     fetchMock.mockResolvedValueOnce(Response.json({ evidence }));
     expect(
-      await client.getLearningInsightEvidence({
+      await client.experimental.learning.getLearningInsightEvidence({
         containerId: "coding",
         insightId: id,
       }),
     ).toEqual(evidence);
     fetchMock.mockResolvedValueOnce(Response.json({ review }));
     expect(
-      await client.reviewLearningCandidate({
+      await client.experimental.learning.reviewLearningCandidate({
         containerId: "coding",
         candidateId: id,
         action: "approve",
@@ -197,10 +220,12 @@ test("rejects invalid paths and malformed response data without returning a part
   const { client, fetchMock, teardown } = setup();
   try {
     await expect(
-      client.getLearningContainer({ containerId: "../private" }),
+      client.experimental.learning.getLearningContainer({
+        containerId: "../private",
+      }),
     ).rejects.toThrow();
     await expect(
-      client.getLearningCandidate({
+      client.experimental.learning.getLearningCandidate({
         containerId: "coding",
         candidateId: "../private",
       }),
@@ -209,7 +234,9 @@ test("rejects invalid paths and malformed response data without returning a part
     fetchMock.mockResolvedValueOnce(
       Response.json({ containers: [{ id: "coding" }], nextCursor: null }),
     );
-    await expect(client.listLearningContainers()).rejects.toMatchObject({
+    await expect(
+      client.experimental.learning.listLearningContainers(),
+    ).rejects.toMatchObject({
       status: 502,
       retryable: true,
       message: "Invalid Learning response.",
@@ -217,7 +244,9 @@ test("rejects invalid paths and malformed response data without returning a part
     fetchMock.mockResolvedValueOnce(
       new Response("<private proxy error>", { status: 503 }),
     );
-    await expect(client.listLearningContainers()).rejects.toMatchObject({
+    await expect(
+      client.experimental.learning.listLearningContainers(),
+    ).rejects.toMatchObject({
       status: 503,
       retryable: true,
       message: "Learning request failed (503).",
@@ -235,7 +264,9 @@ test("honors caller cancellation before fetching and while reading the response 
     const already = new AbortController();
     already.abort(new Error("Caller stopped"));
     await expect(
-      client.listLearningContainers({ signal: already.signal }),
+      client.experimental.learning.listLearningContainers({
+        signal: already.signal,
+      }),
     ).rejects.toThrow("Caller stopped");
     expect(fetchMock).not.toHaveBeenCalled();
     fetchMock.mockResolvedValueOnce(
@@ -248,7 +279,9 @@ test("honors caller cancellation before fetching and while reading the response 
         }),
       ),
     );
-    const result = client.listLearningContainers({ signal: controller.signal });
+    const result = client.experimental.learning.listLearningContainers({
+      signal: controller.signal,
+    });
     await Promise.resolve();
     controller.abort(new Error("Caller stopped"));
     await expect(result).rejects.toThrow("Caller stopped");
@@ -266,7 +299,7 @@ test("bounds a stalled response body with the request deadline", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(new ReadableStream({ cancel })),
     );
-    const result = client.listLearningContainers();
+    const result = client.experimental.learning.listLearningContainers();
     const assertion = expect(result).rejects.toThrow(
       "Learning request timed out",
     );

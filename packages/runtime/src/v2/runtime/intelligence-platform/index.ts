@@ -19,15 +19,4 @@ export {
   type LearnedSkillsSnapshotResult,
 } from "./learned-skills";
 
-export type {
-  LearningContainer,
-  LearningContainerPage,
-  LearningRun,
-  LearningCandidate,
-  LearningCandidateDetail,
-  LearningCandidateReview,
-  LearningInsightEvidence,
-  LearningRequestOptions,
-  LearningContainerRequest,
-  LearningCandidateRequest,
-} from "./learning-management";
+export type * as experimental from "./experimental";

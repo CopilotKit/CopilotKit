@@ -62,15 +62,4 @@ export type CopilotKitRequestHandler = (params: {
   request: Request;
 }) => Promise<Response>;
 
-export type {
-  LearningContainer,
-  LearningContainerPage,
-  LearningRun,
-  LearningCandidate,
-  LearningCandidateDetail,
-  LearningCandidateReview,
-  LearningInsightEvidence,
-  LearningRequestOptions,
-  LearningContainerRequest,
-  LearningCandidateRequest,
-} from "./intelligence-platform";
+export type { experimental } from "./intelligence-platform";
