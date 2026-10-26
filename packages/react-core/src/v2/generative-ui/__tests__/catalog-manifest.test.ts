@@ -1,4 +1,9 @@
 import { describe, expect, it } from "vitest";
+import {
+  renderGenerativeUIComponentList,
+  renderGenerativeUISchema,
+  schemaCoverage,
+} from "@copilotkit/shared";
 import { z } from "zod";
 import { createGenerativeUI } from "../catalog";
 import { createGenerativeUIDispatcher } from "../dispatcher";
@@ -47,4 +52,24 @@ describe("buildCatalogManifest", () => {
     expect(manifest.targets.map((t) => t.id)).toEqual(["chat", "sidebar"]);
     expect(manifest.surfaces).toEqual({ s1: { target: "chat" } });
   });
+});
+
+describe("schema notations with the standard catalog", () => {
+  it.each(["compact", "json-schema", "ts-signature"] as const)(
+    "cover every standard component and prop in %s notation",
+    (notation) => {
+      const manifest = buildCatalogManifest(standardUI);
+      const settings = { notation, propDescriptions: true, commonProps: true };
+      expect(
+        schemaCoverage(manifest, renderGenerativeUISchema(manifest, settings))
+          .missing,
+      ).toEqual([]);
+      expect(
+        schemaCoverage(
+          manifest,
+          renderGenerativeUIComponentList(manifest.components, settings),
+        ).missing,
+      ).toEqual([]);
+    },
+  );
 });
