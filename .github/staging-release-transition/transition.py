@@ -11,6 +11,7 @@ DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 REVISION = re.compile(r"[0-9a-f]{40}\Z")
 BLOCKER_SCOPE = "pni-blocker-completion-20261026"
 DOTNET_SCOPE = "pni-dotnet-build-recovery-20261026"
+HARNESS_SCOPE = "pni-harness-basic-completion-20261026"
 BLOCKER_IMAGES = {
     "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet": {
         "digest": "sha256:c21c7daa96f691737764d16255f93c3240cf2e67900c1c318bc34784c4b312f8",
@@ -27,9 +28,9 @@ BLOCKER_IMAGES = {
 
 def validate_branch(packet, ref):
     scope = packet.get("scope")
-    if scope not in (None, BLOCKER_SCOPE, DOTNET_SCOPE):
+    if scope not in (None, BLOCKER_SCOPE, DOTNET_SCOPE, HARNESS_SCOPE):
         raise ValueError("Unsupported transition scope")
-    branch = "codex/staging-wire-accepted-images" if scope in (BLOCKER_SCOPE, DOTNET_SCOPE) else "codex/staging-latest-policy-transition"
+    branch = "codex/staging-wire-accepted-images" if scope in (BLOCKER_SCOPE, DOTNET_SCOPE, HARNESS_SCOPE) else "codex/staging-latest-policy-transition"
     if ref != "refs/heads/" + branch:
         raise ValueError("Packet scope is restricted to its reviewed branch")
 
@@ -42,8 +43,9 @@ def validate_packet(packet, allowed, mode):
     scope = packet.get("scope")
     # Legacy full-fleet mode preserves its explicit .NET/harness holds.
     # Completion mode selects only those fixed blockers and preserves all others.
-    if scope in (BLOCKER_SCOPE, DOTNET_SCOPE):
-        selected = BLOCKER_IMAGES if scope == BLOCKER_SCOPE else {"ghcr.io/copilotkit/starter-ms-agent-framework-dotnet": BLOCKER_IMAGES["ghcr.io/copilotkit/starter-ms-agent-framework-dotnet"]}
+    if scope in (BLOCKER_SCOPE, DOTNET_SCOPE, HARNESS_SCOPE):
+        image = "ghcr.io/copilotkit/showcase-harness" if scope == HARNESS_SCOPE else "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet"
+        selected = BLOCKER_IMAGES if scope == BLOCKER_SCOPE else {image: BLOCKER_IMAGES[image]}
         if not set(selected) <= allowed or not isinstance(held, list) or len(held) != len(set(held)) or set(held) != allowed - set(selected):
             raise ValueError("Blocker completion must preserve every other eligible image")
     elif scope is None:
@@ -51,7 +53,7 @@ def validate_packet(packet, allowed, mode):
             raise ValueError("Only the explicitly held .NET and busy harness images may be omitted")
     else:
         raise ValueError("Unsupported transition scope")
-    if mode == "promote" or scope == DOTNET_SCOPE:
+    if mode == "promote" or scope in (DOTNET_SCOPE, HARNESS_SCOPE):
         held_latest = packet.get("heldLatest", {})
         if set(held_latest) != set(held) or any(not isinstance(value, str) or not DIGEST.fullmatch(value) for value in held_latest.values()):
             raise ValueError("Promotion requires exact unchanged latest guards for every held image")
@@ -61,11 +63,21 @@ def validate_packet(packet, allowed, mode):
         evidence = packet.get("acceptanceEvidence", {})
         if any(evidence.get(key) != value for key, value in {"serviceId": "1b4c5296-97f6-463d-90af-6e04d7919957", "deploymentId": "ca58cfa2-0f2a-4f30-a6e4-b84353e85d1e", "instanceId": "04901091-7d1f-4711-b50d-57bc8728baef", "runs": 3, "retries": 0, "outcomes": ["PASS", "PASS", "PASS"]}.items()) or any(not re.fullmatch(r"[0-9a-f]{64}", evidence.get(key, "")) for key in ("receiptSha256", "operationsSha256", "nodeVerificationSha256")):
             raise ValueError(".NET recovery requires the actual accepted deployment and bound three-run evidence")
+    if scope == HARNESS_SCOPE:
+        if packet["heldLatest"].get("ghcr.io/copilotkit/starter-ms-agent-framework-dotnet") != BLOCKER_IMAGES["ghcr.io/copilotkit/starter-ms-agent-framework-dotnet"]["digest"]:
+            raise ValueError("Harness completion must preserve the accepted .NET latest")
+        if packet.get("accepted") is True:
+            evidence = packet.get("acceptanceEvidence", {})
+            if evidence.get("mode") != "BASIC_STARTUP_AND_ONE_QUEUE_JOB" or evidence.get("forcedShutdown") != "DEFERRED_NOT_TESTED" or evidence.get("outcome") != "PASS" or not re.fullmatch(r"[0-9a-f]{64}", evidence.get("receiptSha256", "")):
+                raise ValueError("Harness completion requires actual basic acceptance and truthful shutdown deferral")
+            ids = evidence.get("workerInstanceIds", [])
+            if len(ids) != 6 or len(set(ids)) != 6 or any(not re.fullmatch(r"[0-9a-f-]{36}", value) for value in [*ids, evidence.get("workerDeploymentId", ""), evidence.get("controlPlaneDeploymentId", ""), evidence.get("controlPlaneInstanceId", "")]) or any(not evidence.get(key) for key in ("jobId", "runId", "workerId")):
+                raise ValueError("Harness acceptance must bind actual six workers, control plane and one result")
     names = [r.get("image") for r in rows]
     if len(names) != len(set(names)) or set(names) != allowed - set(held):
         raise ValueError("Image set must exactly match the eligible staging Node fleet")
     for row in rows:
-        if scope in (BLOCKER_SCOPE, DOTNET_SCOPE) and any(row.get(key) != value for key, value in selected[row["image"]].items()):
+        if scope in (BLOCKER_SCOPE, DOTNET_SCOPE, HARNESS_SCOPE) and any(row.get(key) != value for key, value in selected[row["image"]].items()):
             raise ValueError("Blocker candidate or preserved latest differs from the exact authorization")
         if not DIGEST.fullmatch(row.get("digest", "")) or not REVISION.fullmatch(row.get("revision", "")):
             raise ValueError("Each candidate must have an exact published digest and revision")
@@ -144,7 +156,7 @@ def main():
     save()
     for image in packet.get("held", []):
         current = digest(image + ":latest")
-        if (args.mode == "promote" or packet.get("scope") == DOTNET_SCOPE) and current != packet["heldLatest"][image]:
+        if (args.mode == "promote" or packet.get("scope") in (DOTNET_SCOPE, HARNESS_SCOPE)) and current != packet["heldLatest"][image]:
             raise ValueError("Held latest moved since inspection: " + image)
         receipt["heldLatest"][image] = current
     save()
@@ -157,7 +169,7 @@ def main():
         config = json.loads(run("docker", "buildx", "imagetools", "inspect", candidate, "--format", "{{json .Image}}"))
         validate_config(config, row["revision"])
         previous = digest(image + ":latest")
-        if (args.mode == "promote" or packet.get("scope") in (BLOCKER_SCOPE, DOTNET_SCOPE)) and previous != row["previousLatest"]:
+        if (args.mode == "promote" or packet.get("scope") in (BLOCKER_SCOPE, DOTNET_SCOPE, HARNESS_SCOPE)) and previous != row["previousLatest"]:
             raise ValueError("Latest moved since the reviewed inspection: " + image)
         receipt["rows"].append({**row, "previousLatest": previous, "inspected": True, "tagWriteReserved": False})
         save()

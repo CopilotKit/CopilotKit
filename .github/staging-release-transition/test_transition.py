@@ -169,6 +169,44 @@ class TransitionTest(unittest.TestCase):
         p["images"] = self.blocker_packet()["images"]
         with self.assertRaises(ValueError): self.m.validate_packet(p, allowed, "promote")
 
+    def harness_packet(self):
+        p = self.blocker_packet()
+        dotnet = p["images"].pop(0)
+        p["scope"] = "pni-harness-basic-completion-20261026"
+        p["accepted"] = False
+        p["held"].append(dotnet["image"])
+        p["heldLatest"][dotnet["image"]] = dotnet["digest"]
+        return p
+
+    def test_harness_basic_scope_inspects_only_fixed_harness_and_preserves_dotnet(self):
+        p = self.harness_packet()
+        allowed = {p["images"][0]["image"]} | set(p["held"])
+        self.m.validate_branch(p, "refs/heads/codex/staging-wire-accepted-images")
+        self.assertEqual(self.m.validate_packet(p, allowed, "inspect"), p["images"])
+
+    def test_harness_basic_scope_rejects_missing_guards_or_changed_dotnet(self):
+        p = self.harness_packet()
+        allowed = {p["images"][0]["image"]} | set(p["held"])
+        for change in [{"held": p["held"][:1]}, {"heldLatest": {}}, {"heldLatest": {**p["heldLatest"], "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet": "sha256:" + "a" * 64}}]:
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                self.m.validate_packet({**p, **change}, allowed, "inspect")
+
+    def test_harness_basic_scope_rejects_changed_candidate_extra_image_and_unaccepted_promotion(self):
+        p = self.harness_packet()
+        allowed = {p["images"][0]["image"]} | set(p["held"])
+        for rows in [[{**p["images"][0], "digest": "sha256:" + "a" * 64}], self.blocker_packet()["images"]]:
+            with self.subTest(rows=rows), self.assertRaises(ValueError):
+                self.m.validate_packet({**p, "images": rows}, allowed, "inspect")
+        with self.assertRaises(ValueError): self.m.validate_packet(p, allowed, "promote")
+
+    def test_harness_basic_scope_promotes_only_receipted_basic_result_without_shutdown_claim(self):
+        p = self.harness_packet()
+        allowed = {p["images"][0]["image"]} | set(p["held"])
+        p.update(accepted=True, acceptanceEvidence={"mode": "BASIC_STARTUP_AND_ONE_QUEUE_JOB", "forcedShutdown": "DEFERRED_NOT_TESTED", "outcome": "PASS", "receiptSha256": "a" * 64, "workerInstanceIds": [str(i) * 8 + "-1111-1111-1111-111111111111" for i in range(1, 7)], "workerDeploymentId": "11111111-1111-1111-1111-111111111111", "controlPlaneDeploymentId": "22222222-2222-2222-2222-222222222222", "controlPlaneInstanceId": "33333333-3333-3333-3333-333333333333", "jobId": "job", "runId": "run", "workerId": "worker"})
+        self.assertEqual(self.m.validate_packet(p, allowed, "promote"), p["images"])
+        p["acceptanceEvidence"]["forcedShutdown"] = "PASS"
+        with self.assertRaises(ValueError): self.m.validate_packet(p, allowed, "promote")
+
     def test_packet_scope_cannot_cross_reviewed_branches(self):
         cases = [(self.packet, "refs/heads/codex/staging-latest-policy-transition"), (self.blocker_packet(), "refs/heads/codex/staging-wire-accepted-images")]
         for packet, expected in cases:

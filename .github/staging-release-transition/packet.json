@@ -1,13 +1,13 @@
 {
   "version": 1,
-  "scope": "pni-dotnet-build-recovery-20261026",
-  "accepted": true,
+  "scope": "pni-harness-basic-completion-20261026",
+  "accepted": false,
   "images": [
     {
-      "image": "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet",
-      "digest": "sha256:c21c7daa96f691737764d16255f93c3240cf2e67900c1c318bc34784c4b312f8",
-      "revision": "a446e1178d8803ea18921c8b5addca40d9bf4407",
-      "previousLatest": "sha256:b3da669aedb07342ea342810b7058e646c51a61447da53c5f10afd1afd180cc5"
+      "image": "ghcr.io/copilotkit/showcase-harness",
+      "digest": "sha256:797a40e2f7d7ae1ef5a55210a2e5de407aa831eae9e9fc708a9964c2f4fe970a",
+      "revision": "362cd1319c7a610137c0d84e4f74155021e561c0",
+      "previousLatest": "sha256:6cb970079b8888c843f6e93c50a732f81d959328aa536c04c50189990ccf46e1"
     }
   ],
   "held": [
@@ -22,7 +22,6 @@
     "ghcr.io/copilotkit/showcase-eval-webhook",
     "ghcr.io/copilotkit/showcase-google-adk",
     "ghcr.io/copilotkit/showcase-google-antigravity",
-    "ghcr.io/copilotkit/showcase-harness",
     "ghcr.io/copilotkit/showcase-langgraph-fastapi",
     "ghcr.io/copilotkit/showcase-langgraph-python",
     "ghcr.io/copilotkit/showcase-langgraph-typescript",
@@ -48,6 +47,7 @@
     "ghcr.io/copilotkit/starter-langgraph-python",
     "ghcr.io/copilotkit/starter-llamaindex",
     "ghcr.io/copilotkit/starter-mastra",
+    "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet",
     "ghcr.io/copilotkit/starter-ms-agent-framework-python",
     "ghcr.io/copilotkit/starter-pydantic-ai",
     "ghcr.io/copilotkit/starter-strands-python"
@@ -64,7 +64,6 @@
     "ghcr.io/copilotkit/showcase-eval-webhook": "sha256:9c8a38de8fc1ef070d1588bc7ff4d5c0e186d803df841c022ae712c1d85096e7",
     "ghcr.io/copilotkit/showcase-google-adk": "sha256:799139c0dc61ee79019afafdfb62e2f0fca86de52c03409729379b7329e76c32",
     "ghcr.io/copilotkit/showcase-google-antigravity": "sha256:b55b87f05aa2bcd1ed384049d0e4c0ae92c134ee09063265184e5d8c25896625",
-    "ghcr.io/copilotkit/showcase-harness": "sha256:6cb970079b8888c843f6e93c50a732f81d959328aa536c04c50189990ccf46e1",
     "ghcr.io/copilotkit/showcase-langgraph-fastapi": "sha256:10c5bddc3eb0938c16883c524af2653a73637a2aa7ee9d031e48d7e2a560e3bb",
     "ghcr.io/copilotkit/showcase-langgraph-python": "sha256:a80cfd63c4c64ec997720f2caff1382baecd39a59c7e4bcf1ef18531762e0870",
     "ghcr.io/copilotkit/showcase-langgraph-typescript": "sha256:fc469ef136b0b6cbe7ba483a11e39c5381691cd0d83c7fd9f76e52a6d6d14f83",
@@ -90,24 +89,9 @@
     "ghcr.io/copilotkit/starter-langgraph-python": "sha256:02b2b3e2b415a4c1acc4037bd761ec99861b0cafb13439504902fe095aa84ddd",
     "ghcr.io/copilotkit/starter-llamaindex": "sha256:ce30001cf492a09879020a16dcca16e78ad7c476f5978c7f17d08781990ebad3",
     "ghcr.io/copilotkit/starter-mastra": "sha256:34b251551b232652988de1d86b769752ed53f61809d0743f7e2888365d9a6684",
+    "ghcr.io/copilotkit/starter-ms-agent-framework-dotnet": "sha256:c21c7daa96f691737764d16255f93c3240cf2e67900c1c318bc34784c4b312f8",
     "ghcr.io/copilotkit/starter-ms-agent-framework-python": "sha256:235104a39f8ffad220be80f7bbeb67407116373e5e05422fe5ceccfed77b2cd8",
     "ghcr.io/copilotkit/starter-pydantic-ai": "sha256:ff06ac42cf943e576ce3f1cdc23f8e0707307817344ced35e02f4810c5a1bea4",
     "ghcr.io/copilotkit/starter-strands-python": "sha256:18e5778da57c230f510d4aaf760fdc02046297efa8109ba555bcf1590fed37ee"
-  },
-  "acceptanceEvidence": {
-    "serviceId": "1b4c5296-97f6-463d-90af-6e04d7919957",
-    "deploymentId": "ca58cfa2-0f2a-4f30-a6e4-b84353e85d1e",
-    "instanceId": "04901091-7d1f-4711-b50d-57bc8728baef",
-    "runs": 3,
-    "retries": 0,
-    "outcomes": [
-      "PASS",
-      "PASS",
-      "PASS"
-    ],
-    "receiptSha256": "70f5165c46fdaf2628a6a29973ea3078a9a3d1458d08d5093d6c008250a551b3",
-    "operationsSha256": "651b7db2cbe1cf1a4b25549ace3b4eadae3e4f8b759a3927d47d519508c1dd6e",
-    "nodeVerificationSha256": "9d4cd7ba55ef352f531a2d369735db2d1f27068320154ab0494a79ec132520be",
-    "fallbackExercise": "UNEXERCISED_SCHEMA_PATH_STATE_EVENT_OBSERVED"
   }
 }
