@@ -1,0 +1,31 @@
+// Training cases. The optimizer and agents may read these. One JSON object per line.
+{"id":"team-plan-estimator","message":"Build me a team plan estimator: seats, monthly or annual billing, and the total price that updates as I change them.","catalog":"standard","tags":["smoke","form","calc","interactive"],"expect":{"ui":true,"components":["Slider","SegmentedControl"]}}
+{"id":"cafes-map","message":"Show four famous coffee houses in Vienna on a map with markers, and a short list underneath with one line about each.","catalog":"standard","tags":["smoke","map","null-trap"],"expect":{"ui":true,"components":["Map"]}}
+{"id":"signup-validation","message":"Create a sign-up form with name, email and password, and validate the email before the user can submit.","catalog":"standard","tags":["smoke","form","validation"],"expect":{"ui":true,"components":["Form","TextField","Button"]}}
+{"id":"laptop-compare","message":"Compare the MacBook Air M4, Dell XPS 13 and Framework 13 on price, weight, battery and screen.","catalog":"standard","tags":["table","compare"],"expect":{"ui":true,"components":["Table"]}}
+{"id":"budget-chart","message":"Show my monthly budget as a chart: rent 1200, food 450, transport 120, fun 200, savings 500.","catalog":"standard","tags":["smoke","chart"],"expect":{"ui":true,"components":["Chart"]}}
+{"id":"capital-of-france","message":"What is the capital of France?","catalog":"standard","tags":["smoke","prose-only"],"expect":{"ui":false}}
+{"id":"explain-closures","message":"Explain what a closure is in JavaScript in two sentences.","catalog":"standard","tags":["prose-only"],"expect":{"ui":false}}
+{"id":"thanks","message":"Thanks, that was helpful!","catalog":"standard","tags":["prose-only","conversation"],"expect":{"ui":false}}
+{"id":"engine-strokes","message":"How does a four-stroke engine work? Show me the strokes.","catalog":"standard","tags":["illustrate","svg"],"expect":{"ui":true}}
+{"id":"compound-interest","message":"How does compound interest work? Let me play with the rate and the years.","catalog":"standard","tags":["illustrate","chart","calc","interactive"],"expect":{"ui":true,"components":["Slider","Chart"]}}
+{"id":"spanish-flashcards","message":"Make me five Spanish flashcards for kitchen words.","catalog":"standard","tags":["flashcard","interactive"],"expect":{"ui":true,"components":["FlashcardFlip"]}}
+{"id":"workout-planner","message":"Plan a three-day beginner workout week and let me tick off each exercise.","catalog":"standard","tags":["checklist","interactive"],"expect":{"ui":true,"components":["CheckBox"]}}
+{"id":"table-booking","message":"I want to book a table for dinner: pick a date, a time between 6 and 10 pm, and the number of guests.","catalog":"standard","tags":["form","datetime","validation"],"expect":{"ui":true,"components":["DateTimeInput"]}}
+{"id":"weather-week","message":"Show a seven-day weather forecast for Berlin with highs and lows. Make up plausible numbers.","catalog":"standard","tags":["chart","table"],"expect":{"ui":true}}
+{"id":"recipe-card","message":"Give me a pancake recipe with ingredients, steps and a serving size I can adjust.","catalog":"standard","tags":["calc","interactive","list"],"expect":{"ui":true}}
+{"id":"pricing-tiers","message":"Show three pricing tiers for a SaaS product side by side, each with a button to pick it.","catalog":"standard","tags":["layout","events"],"expect":{"ui":true,"components":["Button"]}}
+{"id":"survey-choices","message":"Make a short survey: favourite programming language (pick one) and the tools I use (pick several).","catalog":"standard","tags":["form","choices"],"expect":{"ui":true,"components":["ChoicePicker"]}}
+{"id":"quadratic-formula","message":"Show the quadratic formula and solve x^2 - 5x + 6 = 0 step by step.","catalog":"standard","tags":["math"],"expect":{"ui":true,"components":["Math"]}}
+{"id":"code-snippet","message":"Give me a Python function that reverses a string.","catalog":"standard","tags":["prose-only","code"],"expect":{"ui":false}}
+{"id":"travel-tabs","message":"Plan a weekend in Lisbon with one tab per day: morning, afternoon, evening.","catalog":"standard","tags":["tabs","layout"],"expect":{"ui":true,"components":["Tabs"]}}
+{"id":"news-sources","message":"Summarise three recent arguments for and against remote work and cite a source for each.","catalog":"standard","tags":["citation","links"],"expect":{"ui":true}}
+{"id":"unit-converter","message":"Build a converter from Celsius to Fahrenheit with a slider.","catalog":"standard","tags":["calc","interactive"],"expect":{"ui":true,"components":["Slider"]}}
+{"id":"project-status","message":"Show the status of five projects with a coloured badge each: on track, at risk or late.","catalog":"standard","tags":["badge","table"],"expect":{"ui":true,"components":["Badge"]}}
+{"id":"loan-calculator","message":"Make a loan calculator: amount, interest rate and term, and show the monthly payment.","catalog":"standard","tags":["form","calc","interactive","null-trap"],"expect":{"ui":true}}
+{"id":"timeline","message":"Show the history of the web in six milestones as a timeline.","catalog":"standard","tags":["layout","list"],"expect":{"ui":true}}
+{"id":"follow-up-questions","message":"Tell me about the solar system briefly and suggest questions I could ask next.","catalog":"standard","tags":["followup"],"expect":{"ui":true,"components":["FollowUp"]}}
+{"id":"contact-form-select","message":"Create a contact form with a topic dropdown (sales, support, other) and a message box.","catalog":"standard","tags":["form","select"],"expect":{"ui":true,"components":["Select","TextArea"]}}
+{"id":"sorting-algorithms","message":"Compare bubble sort, merge sort and quicksort: time complexity, memory and when to use each.","catalog":"standard","tags":["table","compare"],"expect":{"ui":true,"components":["Table"]}}
+{"id":"daily-standup","message":"Write a short daily stand-up update for me: yesterday I fixed the login bug, today I review PRs.","catalog":"standard","tags":["prose-only"],"expect":{"ui":false}}
+{"id":"color-palette","message":"Suggest a calm colour palette of five colours for a meditation app and show the swatches.","catalog":"standard","tags":["illustrate","layout"],"expect":{"ui":true}}

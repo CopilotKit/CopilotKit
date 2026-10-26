@@ -1,0 +1,28 @@
+{
+  "name": "genui-eval",
+  "root": "tools/genui-eval",
+  "projectType": "application",
+  "targets": {
+    "test": {
+      "executor": "nx:run-commands",
+      "options": { "command": "vitest run", "cwd": "tools/genui-eval" },
+      "dependsOn": ["^build"],
+      "inputs": ["{projectRoot}/**/*"],
+      "outputs": [],
+      "cache": false
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": { "command": "tsc --noEmit -p tsconfig.json", "cwd": "tools/genui-eval" },
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "eval": {
+      "executor": "nx:run-commands",
+      "options": { "command": "tsx src/cli.ts", "cwd": "tools/genui-eval" },
+      "dependsOn": ["^build"],
+      "cache": false
+    }
+  },
+  "tags": ["type:tooling"]
+}
