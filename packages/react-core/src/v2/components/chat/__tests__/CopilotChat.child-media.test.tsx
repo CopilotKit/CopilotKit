@@ -140,6 +140,9 @@ it("replays ordered assistant media and structured tool results within each chil
     children: <CopilotChat welcomeScreen={false} />,
   });
   await act(async () => {
+    // Provider thread initialization clears constructor messages. Seed the
+    // retained root history after mounting, before the imported child replay.
+    agent.setMessages(root);
     await agent.runAgent();
   });
   for (const name of ["left", "right"]) {
