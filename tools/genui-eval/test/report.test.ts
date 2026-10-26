@@ -117,6 +117,16 @@ describe("buildReport", () => {
   });
 });
 
+describe("cost per valid surface", () => {
+  it("divides by the surfaces, not the replies", () => {
+    const report = buildReport({
+      run: run("r3"),
+      samples: [sample({ surfaces: 3, costUsd: 0.09, judgeCostUsd: 0 })],
+    });
+    expect(report.models[0].costPerValidSurfaceUsd).toBeCloseTo(0.03, 6);
+  });
+});
+
 describe("failures", () => {
   it("lists failing training samples and never a held-out one", () => {
     const rows = failures([

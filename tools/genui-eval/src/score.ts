@@ -60,7 +60,9 @@ export function scoreCode(
   }
 
   const judgement: string[] = [];
-  const hasUI = out.surfaces.length > 0;
+  // A surface the reply deleted is not part of the UI the user ends up with.
+  const hasUI =
+    out.surfaces.length - checks.filter((check) => check.deleted).length > 0;
   if (c.expect.ui && !hasUI) judgement.push("no UI where UI helps");
   if (!c.expect.ui && hasUI) judgement.push("UI where prose alone is right");
   if (checks.some((check) => check.proseOnly))
