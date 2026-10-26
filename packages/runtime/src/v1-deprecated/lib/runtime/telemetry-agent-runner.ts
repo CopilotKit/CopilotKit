@@ -135,9 +135,10 @@ export class TelemetryAgentRunner implements AgentRunner {
       catchError((error) => {
         // Capture stream error event
         streamErrored = true;
+        // Outcome only: the message can quote prompts, arguments or URLs.
         this.telemetry.capture("oss.runtime.agent_execution_stream_errored", {
           ...streamInfo,
-          error: error instanceof Error ? error.message : String(error),
+          error: "AGENT_EXECUTION_FAILED",
         });
         throw error;
       }),
