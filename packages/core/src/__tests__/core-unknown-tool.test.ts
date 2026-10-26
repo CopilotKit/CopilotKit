@@ -7,6 +7,9 @@ import { FORWARDED_TO_CLIENT } from "../core/tool-result-content";
 import type { FrontendTool } from "../types";
 import { createTool, createToolCallMessage } from "./test-utils";
 
+const callId = (runIndex: number, callIndex: number) =>
+  `call-${runIndex}-${callIndex}`;
+
 type ScriptedCall = {
   name: string;
   /** Emit a TOOL_CALL_RESULT for the call, as a backend tool does. */
@@ -20,6 +23,12 @@ type ScriptedRun = {
    * `cancelled` outcome, the legacy `on_interrupt` custom event, or RUN_ERROR.
    */
   end?: "success" | "interrupt" | "legacy-interrupt" | "cancelled" | "error";
+  /**
+   * After the call events, emit a MESSAGES_SNAPSHOT of the thread plus one
+   * tool message per entry for the run's first call, so a thread can carry
+   * several results for one call id.
+   */
+  snapshotResults?: string[];
   /** Follow the run with a second, clean run in the same stream. */
   thenCleanRun?: boolean;
 };
@@ -59,7 +68,7 @@ class ScriptedAgent extends AbstractAgent {
       } as BaseEvent);
     }
     (step.calls ?? []).forEach((call, callIndex) => {
-      const toolCallId = `call-${runIndex}-${callIndex}`;
+      const toolCallId = callId(runIndex, callIndex);
       events.push(
         {
           type: EventType.TOOL_CALL_START,
@@ -83,6 +92,36 @@ class ScriptedAgent extends AbstractAgent {
         } as BaseEvent);
       }
     });
+    if (step.snapshotResults) {
+      const toolCallId = callId(runIndex, 0);
+      events.push({
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [
+          ...input.messages,
+          {
+            id: messageId,
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              {
+                id: toolCallId,
+                type: "function",
+                function: {
+                  name: step.calls?.[0]?.name ?? "",
+                  arguments: "{}",
+                },
+              },
+            ],
+          },
+          ...step.snapshotResults.map((content, i) => ({
+            id: `snapshot-result-${i}`,
+            role: "tool" as const,
+            toolCallId,
+            content,
+          })),
+        ],
+      } as BaseEvent);
+    }
     if (step.end === "error") {
       events.push({ type: EventType.RUN_ERROR, message: "boom" } as BaseEvent);
       return from(events);
@@ -102,7 +141,7 @@ class ScriptedAgent extends AbstractAgent {
               {
                 id: "interrupt-one",
                 reason: "tool_call",
-                toolCallId: `call-${runIndex}-0`,
+                toolCallId: callId(runIndex, 0),
               },
             ],
           }
@@ -402,6 +441,74 @@ describe("a forwarded-to-client placeholder for an advertised tool", () => {
       expect.objectContaining({
         toolCallId: "call-0-0",
         content: "real answer",
+      }),
+    ]);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("replaces every placeholder when a snapshot carries two", async () => {
+    const { core, agent, onError } = setup([
+      {
+        calls: [{ name: "update_surface" }],
+        snapshotResults: [FORWARDED_TO_CLIENT, FORWARDED_TO_CLIENT],
+      },
+    ]);
+
+    await core.runAgent({ agent });
+
+    expect(toolMessages(agent.messages)).toEqual([
+      expect.objectContaining({
+        toolCallId: "call-0-0",
+        content: "Error: Tool not found: update_surface",
+      }),
+    ]);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: CopilotKitCoreErrorCode.TOOL_NOT_FOUND,
+      }),
+    );
+  });
+
+  it("keeps a real answer that follows a placeholder in a snapshot", async () => {
+    const { core, agent, onError } = setup([
+      {
+        calls: [{ name: "update_surface" }],
+        snapshotResults: [FORWARDED_TO_CLIENT, "real answer"],
+      },
+    ]);
+
+    await core.runAgent({ agent });
+
+    expect(toolMessages(agent.messages).map((m) => m.content)).toEqual([
+      FORWARDED_TO_CLIENT,
+      "real answer",
+    ]);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("keeps a live remote answer for the call over the error", async () => {
+    const { core, agent, onError } = setup([
+      { calls: [{ name: "update_surface", result: FORWARDED_TO_CLIENT }] },
+    ]);
+    const runAgent = agent.runAgent.bind(agent);
+    agent.runAgent = async (...args) => {
+      const result = await runAgent(...args);
+      agent.messages.push({
+        id: "remote-answer",
+        role: "tool",
+        toolCallId: "call-0-0",
+        content: "remote answer",
+      });
+      return result;
+    };
+
+    await core.runAgent({ agent });
+
+    expect(toolMessages(agent.messages)).toEqual([
+      expect.objectContaining({
+        toolCallId: "call-0-0",
+        content: "remote answer",
       }),
     ]);
     expect(onError).not.toHaveBeenCalled();

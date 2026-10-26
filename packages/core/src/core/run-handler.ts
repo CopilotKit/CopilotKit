@@ -1093,13 +1093,16 @@ export class RunHandler {
             ) ?? newMessages[existingResultIndex];
 
           // An advertised tool that is gone can never replace the
-          // placeholder, so clear it for the not-found answer below, unless
-          // the run result already carries a real answer.
-          const runResult = newMessages[existingResultIndex];
+          // placeholder, so clear every placeholder for the not-found answer
+          // below, unless a run result already carries a real answer. A
+          // placeholder left behind would stay the call's only result.
+          const runResults = newMessages.filter(
+            (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+          );
           const answersRemovedTool =
             !executableTool &&
             !!advertisedToolNames?.has(toolCall.function.name) &&
-            (!runResult || this.isFrontendPlaceholderResult(runResult));
+            runResults.every((m) => this.isFrontendPlaceholderResult(m));
 
           if (
             existingResult &&
@@ -1108,16 +1111,23 @@ export class RunHandler {
               executableTool?.handler ||
               answersRemovedTool)
           ) {
-            if (existingResultIndex !== -1)
-              newMessages.splice(existingResultIndex, 1);
-            existingResult = undefined;
+            if (answersRemovedTool) {
+              // All placeholders go; the arms below remove only the first.
+              // One left behind would stay the call's only result.
+              this.removePlaceholderResults(newMessages, toolCall.id);
+              this.removePlaceholderResults(agent.messages, toolCall.id);
+            } else {
+              if (existingResultIndex !== -1)
+                newMessages.splice(existingResultIndex, 1);
 
-            const agentMsgIdx = agent.messages.findIndex(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            );
-            if (agentMsgIdx !== -1) {
-              agent.messages.splice(agentMsgIdx, 1);
+              const agentMsgIdx = agent.messages.findIndex(
+                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+              );
+              if (agentMsgIdx !== -1) {
+                agent.messages.splice(agentMsgIdx, 1);
+              }
             }
+            existingResult = undefined;
           }
 
           if (!existingResult) {
@@ -1296,6 +1306,23 @@ export class RunHandler {
       insertAt++;
     }
     return insertAt;
+  }
+
+  /** Removes, in place, every placeholder result for `toolCallId`. */
+  private removePlaceholderResults(
+    messages: Message[],
+    toolCallId: string,
+  ): void {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]!;
+      if (
+        m.role === "tool" &&
+        m.toolCallId === toolCallId &&
+        this.isFrontendPlaceholderResult(m)
+      ) {
+        messages.splice(i, 1);
+      }
+    }
   }
 
   /** Identify transport placeholders that must not count as completed answers. */
