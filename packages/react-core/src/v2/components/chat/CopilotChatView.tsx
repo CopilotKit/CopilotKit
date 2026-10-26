@@ -437,7 +437,11 @@ export function CopilotChatView({
 
   if (children) {
     return (
-      <div data-copilotkit style={{ display: "contents" }}>
+      <div
+        data-copilotkit
+        data-copilot-connecting={isConnecting ? "true" : "false"}
+        style={{ display: "contents" }}
+      >
         {children({
           messageView: BoundMessageView,
           input: BoundInput,
@@ -1026,6 +1030,12 @@ export namespace CopilotChatView {
     ...props
   }) => <div className={className} {...props} />;
 
+  /**
+   * Default indicator shown while a thread's history is being restored.
+   * Renders a spinner plus visually hidden `labels.chatConnectingLabel` text
+   * inside a `role="status"` region. Replace it via the `connectingIndicator`
+   * slot.
+   */
   export const ConnectingIndicator: React.FC<
     React.HTMLAttributes<HTMLDivElement>
   > = ({ className, ...props }) => {

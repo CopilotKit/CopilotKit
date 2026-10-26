@@ -142,4 +142,22 @@ describe("CopilotChatView connecting indicator", () => {
     expect(screen.getByTestId("custom-indicator")).toBeDefined();
     expect(screen.queryByTestId("copilot-connecting-indicator")).toBeNull();
   });
+
+  it("exposes data-copilot-connecting on the children render-prop root", () => {
+    const { container } = render(
+      <TestWrapper>
+        <CopilotChatView messages={[]} isConnecting hasExplicitThreadId>
+          {({ input }) => <div data-testid="custom-layout">{input}</div>}
+        </CopilotChatView>
+      </TestWrapper>,
+    );
+
+    // Custom layouts should get the same CSS hook as the default root.
+    expect(screen.getByTestId("custom-layout")).toBeDefined();
+    expect(
+      container
+        .querySelector("[data-copilot-connecting]")
+        ?.getAttribute("data-copilot-connecting"),
+    ).toBe("true");
+  });
 });
