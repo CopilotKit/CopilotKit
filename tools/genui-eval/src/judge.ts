@@ -3,6 +3,7 @@ import { generateText } from "ai";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
 import type { EvalCase } from "./cases";
+import { MAX_JUDGE_TOKENS } from "./cost";
 import type { SampleOutput } from "./harness";
 
 /** A judge score from 0 to 1 and its one-line reason. `null` when the judge failed. */
@@ -66,12 +67,15 @@ export function outlineSurfaces(out: SampleOutput, limit = 6000) {
 
 /** The judge prompt of one sample. */
 export function judgePrompt(c: EvalCase, out: SampleOutput) {
+  // The judge's input is capped for the budget: about 4 characters a token.
+  const limit = MAX_JUDGE_TOKENS.input * 4 - JUDGE_RUBRIC.length - 200;
   const prose = out.text.replace(/```a2ui[\s\S]*?```/g, "[surface]").trim();
-  return [
+  const text = [
     `User request: ${c.message}`,
-    `Reply prose:\n${prose || "(none)"}`,
-    `Surfaces:\n${out.surfaces.length > 0 ? outlineSurfaces(out) : "(none)"}`,
+    `Reply prose:\n${prose.slice(0, Math.floor(limit / 3)) || "(none)"}`,
+    `Surfaces:\n${out.surfaces.length > 0 ? outlineSurfaces(out, Math.floor(limit / 2)) : "(none)"}`,
   ].join("\n\n");
+  return text.slice(0, limit);
 }
 
 /** Parses the judge's JSON reply, also when it is wrapped in a fence. */
@@ -106,6 +110,7 @@ export async function judgeSample(
         system: JUDGE_RUBRIC,
         prompt,
         temperature: 0,
+        maxOutputTokens: MAX_JUDGE_TOKENS.output,
       });
       input += result.usage.inputTokens ?? 0;
       output += result.usage.outputTokens ?? 0;

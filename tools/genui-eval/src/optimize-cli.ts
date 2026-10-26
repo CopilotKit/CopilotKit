@@ -1,3 +1,4 @@
+import { num } from "./cli";
 import type { Values } from "./cli";
 import type { EvalConfig, ResolvedPlan } from "./config";
 import { optimize } from "./optimize";
@@ -11,14 +12,13 @@ export async function commandOptimize(
   values: Values,
   plan: ResolvedPlan,
 ) {
-  const budgetUsd =
-    values.budget !== undefined ? Number(values.budget) : config.budgetUsd;
+  const budgetUsd = num(values.budget, "budget") ?? config.budgetUsd;
   const result = await optimize({
     config,
     plan,
     budgetUsd,
-    rounds: values.rounds !== undefined ? Number(values.rounds) : 20,
-    batchSize: values.batch !== undefined ? Number(values.batch) : 6,
+    rounds: num(values.rounds, "rounds") ?? 20,
+    batchSize: num(values.batch, "batch") ?? 6,
     from: values.from ? loadSpec(values.from) : undefined,
     log: values.json ? undefined : (line) => process.stderr.write(`${line}\n`),
   });

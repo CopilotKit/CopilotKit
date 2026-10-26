@@ -121,6 +121,33 @@ function idsIn(value: unknown): string[] {
   return [];
 }
 
+/** `value` with every absolute `{"@path"}` binding replaced by the data it points to. */
+function resolveBound(
+  value: unknown,
+  data: { get(path: string): unknown },
+  depth = 0,
+): unknown {
+  if (depth > 8) return value;
+  if (Array.isArray(value))
+    return value.map((v) => resolveBound(v, data, depth + 1));
+  if (!value || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  const path = record["@path"];
+  if (
+    typeof path === "string" &&
+    path.startsWith("/") &&
+    Object.keys(record).length === 1
+  ) {
+    return resolveBound(data.get(path), data, depth + 1);
+  }
+  return Object.fromEntries(
+    Object.entries(record).map(([k, v]) => [
+      k,
+      resolveBound(v, data, depth + 1),
+    ]),
+  );
+}
+
 /**
  * The component types reachable from "root" through slots and child
  * references: what can actually render. A component no slot references is
@@ -138,6 +165,7 @@ function reachableTypes(
       { slots?: unknown; childRefs: readonly ChildRef[] }
     >;
   },
+  data: { get(path: string): unknown },
 ) {
   const types: string[] = [];
   const seen = new Set<string>();
@@ -146,8 +174,17 @@ function reachableTypes(
     const id = queue.shift()!;
     if (seen.has(id)) continue;
     seen.add(id);
-    const component = model.get(id);
-    if (!component) continue;
+    const found = model.get(id);
+    if (!found) continue;
+    // Child references can be bound to the data ({"@path":"/tabs"}): read
+    // them as the renderer does.
+    const component = {
+      type: found.type,
+      properties: resolveBound(found.properties, data) as Record<
+        string,
+        unknown
+      >,
+    };
     types.push(component.type);
     const definition = ui.components.get(component.type);
     if (!definition) continue;
@@ -240,7 +277,11 @@ async function check(
       });
       continue;
     }
-    const components = reachableTypes(surface.model.componentsModel, ui);
+    const components = reachableTypes(
+      surface.model.componentsModel,
+      ui,
+      surface.model.dataModel,
+    );
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container, {

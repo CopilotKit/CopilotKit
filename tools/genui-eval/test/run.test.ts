@@ -110,3 +110,28 @@ describe("runEval with a failing judge", () => {
     expect(prose?.tiers.judgement.pass).toBe(false);
   });
 });
+
+describe("worstSampleCost", () => {
+  it("bounds a sample by the capped reply and every judge attempt", async () => {
+    const {
+      worstSampleCost,
+      MAX_OUTPUT_TOKENS,
+      MAX_JUDGE_TOKENS,
+      JUDGE_ATTEMPTS,
+    } = await import("../src/cost");
+    const priced = defineEvalConfig({
+      ...config,
+      prices: {
+        "fake:offline": { input: 1, output: 2 },
+        "fake:judge": { input: 3, output: 4 },
+      },
+    });
+    const cost = worstSampleCost(priced, "fake:offline", "fake:judge", 1000);
+    const expected =
+      (1250 * 1 + MAX_OUTPUT_TOKENS * 2) / 1e6 +
+      (JUDGE_ATTEMPTS *
+        (MAX_JUDGE_TOKENS.input * 3 + MAX_JUDGE_TOKENS.output * 4)) /
+        1e6;
+    expect(cost).toBeCloseTo(expected, 10);
+  });
+});

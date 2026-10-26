@@ -6,6 +6,15 @@ export const EXPECTED_OUTPUT_TOKENS = 900;
 /** Tokens a judge call takes in and out, for the estimate. */
 export const EXPECTED_JUDGE_TOKENS = { input: 2500, output: 120 };
 
+/** The most a reply may take: every model call is capped, so a sample's worst case is known. */
+export const MAX_OUTPUT_TOKENS = 8000;
+/** The most a judge reply may take, and the most its prompt may be (the outline is cut). */
+export const MAX_JUDGE_TOKENS = { input: 6000, output: 400 };
+/** Attempts of the judge per sample (one retry). */
+export const JUDGE_ATTEMPTS = 2;
+/** Margin on the prompt size, which is estimated from characters. */
+const PROMPT_MARGIN = 1.25;
+
 /** USD per million tokens of a model. Fakes are free unless the config prices them. */
 export function priceOf(config: EvalConfig, model: string) {
   const listed = config.prices[model];
@@ -42,5 +51,30 @@ export function estimateSampleCost(
       EXPECTED_JUDGE_TOKENS.input,
       EXPECTED_JUDGE_TOKENS.output,
     )
+  );
+}
+
+/**
+ * The most one sample can cost: the prompt (with a margin), the capped
+ * reply, and every judge attempt at its cap. The runner reserves this
+ * before it starts a sample, so the budget holds even when replies run
+ * long or the judge retries.
+ */
+export function worstSampleCost(
+  config: EvalConfig,
+  model: string,
+  judge: string,
+  promptTokens: number,
+  maxOutputTokens = MAX_OUTPUT_TOKENS,
+) {
+  return (
+    costOf(
+      config,
+      model,
+      Math.ceil(promptTokens * PROMPT_MARGIN),
+      maxOutputTokens,
+    ) +
+    JUDGE_ATTEMPTS *
+      costOf(config, judge, MAX_JUDGE_TOKENS.input, MAX_JUDGE_TOKENS.output)
   );
 }

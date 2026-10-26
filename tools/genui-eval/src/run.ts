@@ -4,7 +4,12 @@ import type { GenerativeUIPromptSpec } from "@copilotkit/shared";
 import { loadCases, selectCases } from "./cases";
 import type { EvalCase, Split } from "./cases";
 import type { EvalConfig, ModelEntry, ResolvedPlan, Transport } from "./config";
-import { costOf, estimateSampleCost } from "./cost";
+import {
+  MAX_OUTPUT_TOKENS,
+  costOf,
+  estimateSampleCost,
+  worstSampleCost,
+} from "./cost";
 import { catalogFor, renderedPrompts, runSample } from "./harness";
 import { JUDGE_PASS, judgeSample } from "./judge";
 import { createLanguageModel, requireKey } from "./models";
@@ -197,11 +202,14 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
   let done = 0;
   try {
     await pool(tasks, config.concurrency, async (task) => {
-      const estimate = estimateSampleCost(
+      // Reserve the worst case, not the typical one: replies and judge
+      // calls are capped, so this bound holds.
+      const estimate = worstSampleCost(
         config,
         task.entry.model,
         plan.judge,
         sizes[task.transport] ?? 0,
+        task.entry.params?.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
       );
       if (
         run.stopped ||

@@ -98,6 +98,46 @@ describe("scoreCode with real rendering", () => {
     expect(check.proseOnly).toBe(true);
   });
 
+  it("follows child references bound to the data", async () => {
+    const [check] = await checker.check([
+      {
+        surfaceId: "t",
+        target: "chat",
+        catalogId: "copilotkit://standard",
+        status: "ready",
+        rejected: [],
+        operations: [
+          {
+            version: "v1.0",
+            createSurface: {
+              surfaceId: "t",
+              dataModel: { tabs: [{ title: "Seats", child: "seats" }] },
+            },
+          },
+          {
+            version: "v1.0",
+            updateComponents: {
+              surfaceId: "t",
+              components: [
+                { id: "root", component: "Tabs", tabs: { "@path": "/tabs" } },
+                {
+                  id: "seats",
+                  component: "Slider",
+                  label: "Seats",
+                  min: 1,
+                  max: 9,
+                  value: 3,
+                },
+              ],
+            },
+          },
+        ],
+      } as never,
+    ]);
+    expect(check.errors).toEqual([]);
+    expect(check.components).toEqual(["Tabs", "Slider"]);
+  });
+
   it("flags a surface made only of text", async () => {
     const out = {
       text: "",
