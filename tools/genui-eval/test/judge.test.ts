@@ -14,6 +14,7 @@ import type { SampleOutput } from "../src/harness";
 const c = loadCases("train").find((x) => x.id === "cafes-map")!;
 const out: SampleOutput = {
   text: "Here are the cafes.\n\n```a2ui\n{}\n```\n\nEnjoy.",
+  visibleText: "Here are the cafes.\n\n[surface cafes]\n\nEnjoy.",
   toolCalls: [],
   surfaces: [
     {
@@ -66,7 +67,9 @@ describe("judge", () => {
   it("shows the judge the request, the prose and an outline of the surfaces", () => {
     const prompt = judgePrompt(c, out);
     expect(prompt).toContain(c.message);
-    expect(prompt).toContain("Here are the cafes.\n\n[surface]\n\nEnjoy.");
+    expect(prompt).toContain(
+      "Here are the cafes.\n\n[surface cafes]\n\nEnjoy.",
+    );
     expect(prompt).toContain('root: Map {"markers":[]}');
   });
 

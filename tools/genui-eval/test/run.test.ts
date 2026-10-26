@@ -135,3 +135,58 @@ describe("worstSampleCost", () => {
     expect(cost).toBeCloseTo(expected, 10);
   });
 });
+
+describe("runEval budget with concurrency", () => {
+  const priced = () =>
+    defineEvalConfig({
+      ...config,
+      presets: {
+        offline: {
+          models: ["fake"],
+          cases: "tag:smoke",
+          samples: 1,
+          judge: "fake:judge",
+          reflection: "fake:reflect",
+        },
+      },
+      // The worst case of a sample (8000 output tokens) is about $0.04; real use is far less.
+      prices: { "fake:offline": { input: 0.001, output: 5 } },
+      concurrency: 4,
+    });
+
+  it("waits for in-flight samples to free their reservations instead of stopping", async () => {
+    const c = priced();
+    const run = await runEval({
+      config: c,
+      plan: resolvePlan(c, "offline"),
+      split: "train",
+      budgetUsd: 0.1,
+      root,
+    });
+    expect(run.stopped).toBeUndefined();
+    expect(run.totals.samples).toBe(10);
+  });
+
+  it("counts the conversation of a case in the reservation", async () => {
+    const c = priced();
+    const { loadCases } = await import("../src/cases");
+    const long = {
+      ...loadCases("train")[0],
+      history: [{ role: "user" as const, content: "x".repeat(400_000) }],
+    };
+    const pricedInput = defineEvalConfig({
+      ...c,
+      prices: { "fake:offline": { input: 1, output: 0 } },
+    });
+    const run = await runEval({
+      config: pricedInput,
+      plan: resolvePlan(pricedInput, "offline"),
+      split: "train",
+      budgetUsd: 0.05,
+      root,
+      cases: [{ case: long, split: "train" }],
+    });
+    expect(run.stopped).toBe("budget");
+    expect(run.totals.samples).toBe(0);
+  });
+});

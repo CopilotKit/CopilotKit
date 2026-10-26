@@ -185,9 +185,62 @@ describe("scoreCode with real rendering", () => {
     expect(filled.components).toEqual(["Column", "Slider"]);
   });
 
+  it("visits every template item, which can bind different children", async () => {
+    const [check] = await checker.check([
+      {
+        surfaceId: "items",
+        target: "chat",
+        catalogId: "copilotkit://standard",
+        status: "ready",
+        rejected: [],
+        operations: [
+          {
+            version: "v1.0",
+            createSurface: {
+              surfaceId: "items",
+              dataModel: {
+                rows: [
+                  { tabs: [{ title: "A", child: "label" }] },
+                  { tabs: [{ title: "B", child: "seats" }] },
+                ],
+              },
+            },
+          },
+          {
+            version: "v1.0",
+            updateComponents: {
+              surfaceId: "items",
+              components: [
+                {
+                  id: "root",
+                  component: "Column",
+                  children: { componentId: "row", path: "/rows" },
+                },
+                { id: "row", component: "Tabs", tabs: { "@path": "tabs" } },
+                { id: "label", component: "Text", text: "A" },
+                {
+                  id: "seats",
+                  component: "Slider",
+                  label: "Seats",
+                  min: 1,
+                  max: 9,
+                  value: 3,
+                },
+              ],
+            },
+          },
+        ],
+      } as never,
+    ]);
+    expect(check.components).toEqual(
+      expect.arrayContaining(["Column", "Tabs", "Text", "Slider"]),
+    );
+  });
+
   it("flags a surface made only of text", async () => {
     const out = {
       text: "",
+      visibleText: "",
       toolCalls: [],
       surfaces: [{ surfaceId: "s" } as never],
       rejected: [],

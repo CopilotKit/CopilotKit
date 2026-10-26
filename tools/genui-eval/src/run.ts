@@ -200,24 +200,38 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
   const checker = new RenderChecker();
   let reserved = 0;
   let done = 0;
+  // Resolves when an in-flight sample finishes and its reservation is freed.
+  let settled: () => void = () => {};
+  let nextSettle = new Promise<void>((resolve) => (settled = resolve));
   try {
     await pool(tasks, config.concurrency, async (task) => {
-      // Reserve the worst case, not the typical one: replies and judge
-      // calls are capped, so this bound holds.
+      // Reserve the worst case, not the typical one: the guide plus the
+      // whole conversation (with a margin), the capped reply and every
+      // judge attempt. Replies and judge calls are capped, so this holds.
+      const conversation = [
+        task.case.message,
+        ...(task.case.history ?? []).map((h) => h.content),
+      ].join("\n");
       const estimate = worstSampleCost(
         config,
         task.entry.model,
         plan.judge,
-        sizes[task.transport] ?? 0,
+        (sizes[task.transport] ?? 0) + Math.ceil(conversation.length / 4) + 500,
         task.entry.params?.maxOutputTokens ?? MAX_OUTPUT_TOKENS,
       );
-      if (
-        run.stopped ||
+      // While other samples hold reservations, wait for them: what they do
+      // not spend comes back. Stop only when nothing is in flight.
+      while (
+        !run.stopped &&
         run.totals.costUsd + reserved + estimate > options.budgetUsd
       ) {
-        run.stopped = "budget";
-        return;
+        if (reserved === 0) {
+          run.stopped = "budget";
+          break;
+        }
+        await nextSettle;
       }
+      if (run.stopped) return;
       reserved += estimate;
       try {
         const sample = await runTask(task, {
@@ -233,6 +247,9 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
         options.onProgress?.(++done, tasks.length, sample);
       } finally {
         reserved -= estimate;
+        const wake = settled;
+        nextSettle = new Promise<void>((resolve) => (settled = resolve));
+        wake();
       }
     });
   } finally {
