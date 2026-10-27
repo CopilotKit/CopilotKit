@@ -25,6 +25,7 @@ import {
   provideCopilotChatConfiguration,
 } from "../../../chat-configuration";
 import type { CopilotChatConfiguration } from "../../../chat-configuration";
+import { z } from "zod";
 
 @Component({
   selector: "test-assistant-message",
@@ -58,6 +59,17 @@ class TestReasoningMessage {
 class TestReasoningRunState {
   readonly message = input.required<{ content?: string }>();
   readonly isRunning = input(false);
+}
+
+@Component({
+  selector: "test-tool-status",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <p data-testid="tool-status">{{ toolCall().status }}</p>
+  `,
+})
+class TestToolStatus {
+  readonly toolCall = input.required<{ status: string }>();
 }
 
 @Component({
@@ -461,6 +473,58 @@ describe("CopilotChat", () => {
       fixture.detectChanges();
       expect(running()).toBe("false");
     });
+  });
+
+  test("keeps a tool call without a result executing while the agent runs", async () => {
+    const agent = new StreamingAgent();
+    TestBed.configureTestingModule({
+      teardown: { destroyAfterEach: true },
+      imports: [CopilotChat],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideCopilotKit({
+          licenseKey: "ck_pub_00000000000000000000000000000000",
+          agents: { default: agent },
+          renderToolCalls: [
+            {
+              name: "lookup",
+              args: z.object({ query: z.string() }),
+              component: TestToolStatus,
+            },
+          ],
+        }),
+        provideCopilotChatConfiguration(),
+      ],
+    });
+    const fixture = TestBed.createComponent(CopilotChat);
+    fixture.detectChanges();
+    agent.setMessages([
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "call-1",
+            type: "function",
+            function: { name: "lookup", arguments: '{"query":"orders"}' },
+          },
+        ],
+      },
+    ]);
+    const status = () =>
+      (fixture.nativeElement as HTMLElement)
+        .querySelector('[data-testid="tool-status"]')
+        ?.textContent?.trim();
+
+    const run = TestBed.inject(CopilotKit).core.runAgent({ agent });
+    await vi.waitFor(() => expect(agent.isRunning).toBe(true));
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    expect(status()).toBe("executing");
+
+    agent.finish();
+    await run;
   });
 
   describe("sending messages", () => {

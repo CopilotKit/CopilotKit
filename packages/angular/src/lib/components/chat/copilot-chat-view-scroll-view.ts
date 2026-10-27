@@ -76,7 +76,7 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();
   messageViewChildrenClass = input<string | undefined>();
   showCursor = input<boolean>(false);
-  /** Whether the agent is running, forwarded to the message view as `isLoading`. */
+  /** Whether the agent is running, forwarded to the message view's `isRunning` (read by reasoning messages). */
   isRunning = input<boolean>(false);
 
   // Handler availability flags removed in favor of DI service
@@ -197,7 +197,7 @@ export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
       agentId: this.agentId(),
       inputClass: this.messageViewClass(),
       showCursor: this.showCursor(),
-      isLoading: this.isRunning(),
+      isRunning: this.isRunning(),
       assistantMessageComponent: this.assistantMessageComponent(),
       assistantMessageTemplate: this.assistantMessageTemplate(),
       assistantMessageClass: this.assistantMessageClass(),
