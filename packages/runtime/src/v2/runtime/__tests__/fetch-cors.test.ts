@@ -155,24 +155,29 @@ describe("fetch-cors", () => {
       );
     });
 
-    it("echoes the requested headers when credentials are enabled", () => {
-      const request = new Request("http://localhost/api", {
-        method: "OPTIONS",
-        headers: {
-          Origin: "https://example.com",
-          "Access-Control-Request-Headers": "content-type,authorization",
-        },
-      });
-      const response = handleCors(request, {
-        origin: "https://example.com",
-        credentials: true,
-      })!;
-      // Per Fetch spec, "*" is a literal header name on credentialed requests,
-      // so a wildcard here would make the browser block the real request.
-      expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
-        "content-type,authorization",
-      );
-    });
+    it.each<[string, CopilotCorsConfig["origin"]]>([
+      ["a string", "https://example.com"],
+      ["an array", ["https://other.com", "https://example.com"]],
+      ["a function", (origin: string) => origin],
+    ])(
+      "echoes the requested headers when credentials are enabled and origin is %s",
+      (_, origin) => {
+        const request = new Request("http://localhost/api", {
+          method: "OPTIONS",
+          headers: {
+            Origin: "https://example.com",
+            "Access-Control-Request-Headers": "content-type,authorization",
+          },
+        });
+        const response = handleCors(request, { origin, credentials: true })!;
+        // Per Fetch spec, "*" is a literal header name on credentialed
+        // requests, so a wildcard here would make the browser block the real
+        // request.
+        expect(response.headers.get("Access-Control-Allow-Headers")).toBe(
+          "content-type,authorization",
+        );
+      },
+    );
 
     it("omits Allow-Headers on a credentialed preflight that requests none", () => {
       // Only safelisted headers are in play, and those need no Allow-Headers.
@@ -186,6 +191,30 @@ describe("fetch-cors", () => {
       })!;
       expect(response.headers.has("Access-Control-Allow-Headers")).toBe(false);
     });
+
+    it.each<[string, CopilotCorsConfig]>([
+      ["no origin", { credentials: true }],
+      ['origin "*"', { origin: "*", credentials: true }],
+      [
+        'an origin function returning "*"',
+        { origin: () => "*", credentials: true },
+      ],
+    ])(
+      "does not echo requested headers when credentials reflect %s",
+      (_, config) => {
+        // The wildcard is reflected as the request origin, so echoing would
+        // let any site send credentialed requests with arbitrary headers.
+        const request = new Request("http://localhost/api", {
+          method: "OPTIONS",
+          headers: {
+            Origin: "https://evil.example",
+            "Access-Control-Request-Headers": "content-type,authorization",
+          },
+        });
+        const response = handleCors(request, config)!;
+        expect(response.headers.get("Access-Control-Allow-Headers")).toBe("*");
+      },
+    );
 
     it("keeps the wildcard header list without credentials", () => {
       const request = new Request("http://localhost/api", {

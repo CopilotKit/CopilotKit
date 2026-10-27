@@ -107,13 +107,18 @@ export function handleCors(
   // On a credentialed request "*" means a header literally named "*", not
   // any header (Fetch spec), so echo back the headers the browser asked for.
   // With none asked for, the request uses only safelisted headers, which
-  // need no Allow-Headers at all, so leave it out.
+  // need no Allow-Headers at all, so leave it out. Echo only for an origin
+  // the config actually allows: when a wildcard is being reflected as the
+  // request origin, echoing would let any site send credentialed requests
+  // with arbitrary headers, so that case keeps the default list.
+  const echoRequestedHeaders =
+    config.credentials && resolveOrigin(config, requestOrigin) !== "*";
   const requestedHeaders = request.headers.get(
     "access-control-request-headers",
   );
   const allowHeaders =
     config.allowHeaders ??
-    (config.credentials
+    (echoRequestedHeaders
       ? requestedHeaders
         ? [requestedHeaders]
         : []
