@@ -62,6 +62,7 @@ type UseInterruptReturn<TRenderInChat extends InterruptRenderInChat> =
       ? void
       : React.ReactElement | null | void;
 
+/** Recognize thenables returned by interrupt preprocessing handlers. */
 export function isPromiseLike<TValue>(
   value: TValue | PromiseLike<TValue>,
 ): value is PromiseLike<TValue> {
@@ -239,12 +240,20 @@ export function useInterrupt<
       },
     });
 
+    // Subscribe before reading so an interrupt finalized during mounting is
+    // included. The shared state retains decisions made by another adapter.
+    interruptStateRef.current = agent.pendingInterrupts?.length
+      ? ɵgetAgentInterruptState(agent)
+      : new ɵInterruptState();
+    setPending(interruptStateRef.current.pending);
+
     return () => {
       subscription.unsubscribe();
       interruptStateRef.current = new ɵInterruptState();
     };
   }, [agent]);
 
+  /** Record an explicit answer and resume once the complete batch is addressed. */
   const resolve: InterruptResolveFn = useCallback(
     async (payload, interruptId) => {
       const current = pendingRef.current;
@@ -330,6 +339,7 @@ export function useInterrupt<
     [agent, copilotkit],
   );
 
+  /** Cancel a standard interrupt or dismiss a legacy interrupt locally. */
   const cancel: InterruptCancelFn = useCallback(
     async (interruptId) => {
       const current = pendingRef.current;
@@ -416,7 +426,7 @@ export function useInterrupt<
   const cancelRef = useRef(cancel);
   cancelRef.current = cancel;
 
-  // Predicate evaluator: a throw is treated as "disabled" (false) and logged.
+  /** Evaluate the consumer filter, logging failures and disabling their UI. */
   const isEnabled = (event: InterruptEvent): boolean => {
     const predicate = enabledRef.current;
     if (!predicate) return true;

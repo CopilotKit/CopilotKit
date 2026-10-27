@@ -256,6 +256,58 @@ describe("InterruptController", () => {
     expect(controller.hasInterrupt()).toBe(false);
   });
 
+  it.each(["resolve", "cancel"] as const)(
+    "forwards explicit %s for saved failed tools",
+    async (action) => {
+      const { agent, controller, run, startResume } = setup();
+      agent.messages.push({
+        id: "error",
+        role: "tool",
+        toolCallId: "failed-call",
+        content: "old failure",
+        error: "failure",
+      });
+      finalizeStandard(agent, [
+        makeInterrupt("failed", {
+          reason: "tool_call",
+          toolCallId: "failed-call",
+        }),
+      ]);
+      const resumed =
+        action === "resolve"
+          ? controller.resolve("replacement", "failed")
+          : controller.cancel("failed");
+      expect(run).toHaveBeenCalledWith(agent, {
+        resume: [
+          action === "resolve"
+            ? {
+                interruptId: "failed",
+                status: "resolved",
+                payload: "replacement",
+              }
+            : { interruptId: "failed", status: "cancelled" },
+        ],
+      });
+      expect(agent.addMessage).not.toHaveBeenCalled();
+      expect(agent.messages).toHaveLength(1);
+      startResume();
+      await resumed;
+    },
+  );
+
+  it("forwards cancellation after expiry", async () => {
+    const { agent, controller, run, startResume } = setup();
+    finalizeStandard(agent, [
+      makeInterrupt("expired", { expiresAt: "2000-01-01T00:00:00Z" }),
+    ]);
+    const resumed = controller.cancel("expired");
+    expect(run).toHaveBeenCalledWith(agent, {
+      resume: [{ interruptId: "expired", status: "cancelled" }],
+    });
+    startResume();
+    await resumed;
+  });
+
   it("rejects expired interrupts without starting a run", async () => {
     const { agent, controller, run } = setup();
     finalizeStandard(agent, [
@@ -380,16 +432,20 @@ describe("InterruptController", () => {
 /** Actual wire agent exercises the controller/core handoff, not a mocked runner. */
 class MixedInterruptAgent extends AbstractAgent {
   inputs: RunAgentInput[] = [];
+  /** Create an isolated wire agent with a stable thread identity. */
   constructor() {
     super({ agentId: "mixed", threadId: "thread" });
   }
+  /** Record resume input and emit the next scripted run. */
   run(input: RunAgentInput) {
     this.inputs.push(structuredClone(input));
     return this.events(input, this.inputs.length === 1 && !input.resume);
   }
+  /** Replay the interrupted run when reconnecting. */
   protected connect(input: RunAgentInput) {
     return this.events(input, true);
   }
+  /** Build the scripted mixed frontend-tool and approval event sequence. */
   private events(input: RunAgentInput, interrupted: boolean) {
     const events: BaseEvent[] = [
       {
@@ -543,9 +599,11 @@ it.each(["resolve", "cancel"])(
 it("resets shared decisions for direct SDK resumes reusing interrupt IDs", async () => {
   class RepeatingAgent extends AbstractAgent {
     inputs: RunAgentInput[] = [];
+    /** Create an isolated wire agent with a stable thread identity. */
     constructor() {
       super({ agentId: "repeat", threadId: "thread" });
     }
+    /** Record resume input and emit the next scripted run. */
     run(input: RunAgentInput) {
       this.inputs.push(input);
       return from<BaseEvent[]>([

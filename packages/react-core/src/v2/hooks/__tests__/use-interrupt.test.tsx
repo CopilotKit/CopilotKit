@@ -43,10 +43,12 @@ type SubscriptionHandlers = {
 class InterruptingAgent extends AbstractAgent {
   readonly inputs: RunAgentInput[] = [];
 
+  /** Configure the scripted agent outcome and stable thread identity. */
   constructor(private readonly kind: "standard" | "legacy" | "mixed") {
     super({ agentId: "test-agent", threadId: "test-thread" });
   }
 
+  /** Capture wire input and emit the configured initial interruption or continuation. */
   run(input: RunAgentInput): Observable<BaseEvent> {
     this.inputs.push(input);
     const events: BaseEvent[] = [
@@ -346,6 +348,7 @@ describe("useInterrupt", () => {
       resolve: (payload: unknown, id: string) => Promise<unknown>;
       cancel: (id: string) => Promise<unknown>;
     };
+    /** Render the mixed-batch hook and expose its actions to the integration test. */
     function MixedHarness() {
       return useInterrupt({
         renderInChat: false,
@@ -1084,6 +1087,81 @@ describe("useInterrupt", () => {
       finishStandardInterrupt(interrupts, runId);
       finalizeStandardRun(runId);
     }
+
+    it.each(["resolve", "cancel"] as const)(
+      "forwards explicit %s for saved failed tools",
+      async (action) => {
+        const saved = {
+          id: "error",
+          role: "tool",
+          toolCallId: "failed-call",
+          content: "failed",
+          error: "failure",
+        };
+        mockAgent.messages = [saved];
+        const renderSpy = vi.fn();
+        render(<StandardHarness renderSpy={renderSpy} />);
+        fireStandardInterrupt([
+          { id: "failed", reason: "tool_call", toolCallId: "failed-call" },
+        ]);
+        const props = renderSpy.mock.calls.at(-1)![0];
+        await act(async () => {
+          if (action === "resolve")
+            await props.resolve("replacement", "failed");
+          else await props.cancel("failed");
+        });
+        expect(runAgentMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            resume: [
+              action === "resolve"
+                ? {
+                    interruptId: "failed",
+                    status: "resolved",
+                    payload: "replacement",
+                  }
+                : { interruptId: "failed", status: "cancelled" },
+            ],
+          }),
+        );
+        expect(mockAgent.addMessage).not.toHaveBeenCalled();
+        expect(mockAgent.messages).toEqual([saved]);
+      },
+    );
+
+    it("forwards cancellation after expiry", async () => {
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      fireStandardInterrupt([{ ...INT, expiresAt: "2000-01-01T00:00:00Z" }]);
+      await act(async () => {
+        await renderSpy.mock.calls.at(-1)![0].cancel(INT.id);
+      });
+      expect(runAgentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resume: [{ interruptId: INT.id, status: "cancelled" }],
+        }),
+      );
+    });
+
+    it("hydrates an interrupt finalized before mounting and resumes it once", async () => {
+      mockAgent.pendingInterrupts = [INT];
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      await waitFor(() => expect(renderSpy).toHaveBeenCalled());
+      const props = renderSpy.mock.calls.at(-1)![0];
+      expect(props.interrupts).toEqual([INT]);
+      await act(async () => {
+        await props.resolve("late answer", INT.id);
+        await props.resolve("duplicate", INT.id);
+      });
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+      expect(runAgentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resume: [
+            { interruptId: INT.id, status: "resolved", payload: "late answer" },
+          ],
+        }),
+      );
+    });
 
     it("surfaces the primary interrupt and full list from outcome:interrupt", () => {
       const renderSpy = vi.fn();

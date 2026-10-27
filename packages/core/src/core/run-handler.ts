@@ -976,6 +976,7 @@ export class RunHandler {
     const interruptState = agent.pendingInterrupts?.length
       ? ɵgetAgentInterruptState(agent)
       : undefined;
+    interruptState?.validateToolCalls(agent.messages);
     const executing = this._executingToolCalls.get(agent) ?? new Set<string>();
     this._executingToolCalls.set(agent, executing);
 
@@ -1239,21 +1240,8 @@ export class RunHandler {
         }
         let resume: ResumeEntry[] | undefined;
         if (agent.pendingInterrupts?.length) {
-          // An error's presence (even an empty string) preserves failure/Stop.
-          if (
-            agent.pendingInterrupts.some(
-              (interrupt) =>
-                interrupt.reason === "tool_call" &&
-                agent.messages.some(
-                  (message) =>
-                    message.role === "tool" &&
-                    message.toolCallId === interrupt.toolCallId &&
-                    !this.isFrontendPlaceholderResult(message) &&
-                    message.error !== undefined,
-                ),
-            )
-          )
-            return runAgentResult;
+          // The shared state requires an explicit decision for failed results,
+          // including Stop, while retaining decisions made before handlers finish.
           const decision = ɵgetAgentInterruptState(agent).resumeWithToolResults(
             agent.messages,
           );

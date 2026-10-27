@@ -68,6 +68,7 @@ export type InterruptRunner = (
 
 /** Error surfaced when an application attempts to resume an expired interrupt. */
 export class InterruptExpiredError extends Error {
+  /** function Object() { [native code] } */
   constructor(readonly interrupt: Interrupt) {
     super(
       `Interrupt ${interrupt.id} expired at ${interrupt.expiresAt ?? "an unknown time"}.`,
@@ -150,6 +151,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     };
   });
 
+  /** function Object() { [native code] } */
   constructor(
     runner: InterruptRunner,
     options: InjectInterruptOptions<TValue, TResult> = {},
@@ -323,6 +325,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#clear();
   }
 
+  /** Adopt the shared batch and prepare the interrupt view for this controller. */
   #setPending(pending: PendingInterrupt<TValue>): void {
     this.#handlerGeneration += 1;
     const generation = this.#handlerGeneration;
@@ -502,6 +505,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     return false;
   }
 
+  /** Invalidate pending preparation and clear this controller without erasing shared decisions. */
   #clear(error: unknown | null = null): void {
     this.#handlerGeneration += 1;
     this.#pending.set(null);

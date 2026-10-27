@@ -62,7 +62,7 @@ function toolResultContent(response: ResumeResponse): string {
  * adapters. Application authors must not depend on this API.
  */
 export class ɵInterruptState<TValue = unknown> {
-  readonly #responses: Record<string, ResumeResponse> = {};
+  readonly #responses: Record<string, ResumeResponse> = Object.create(null);
   #pending: ɵPendingInterrupt<TValue> | null = null;
   #sealed = false;
 
@@ -82,6 +82,20 @@ export class ɵInterruptState<TValue = unknown> {
 
   /** Replace the current interrupt with an AG-UI standard interrupt set. */
   setStandard(interrupts: readonly Interrupt[]): void {
+    const ids = new Set<string>();
+    const callIds = new Set<string>();
+    for (const interrupt of interrupts) {
+      if (ids.has(interrupt.id))
+        throw new Error(`Duplicate interrupt id: ${interrupt.id}`);
+      ids.add(interrupt.id);
+      if (interrupt.reason === "tool_call" && interrupt.toolCallId) {
+        if (callIds.has(interrupt.toolCallId))
+          throw new Error(
+            `Duplicate interrupt tool call: ${interrupt.toolCallId}`,
+          );
+        callIds.add(interrupt.toolCallId);
+      }
+    }
     this.#replace({ kind: "standard", interrupts: [...interrupts] });
   }
 
@@ -138,6 +152,26 @@ export class ɵInterruptState<TValue = unknown> {
       },
       messages,
     );
+  }
+
+  /** Reject ambiguous assistant definitions before executing or answering a call. */
+  validateToolCalls(messages: readonly Message[]): void {
+    if (this.#pending?.kind !== "standard") return;
+    const pendingCalls = new Set(
+      this.#pending.interrupts
+        .filter((interrupt) => interrupt.reason === "tool_call")
+        .map((interrupt) => interrupt.toolCallId),
+    );
+    const seen = new Set<string>();
+    for (const message of messages) {
+      if (message.role !== "assistant") continue;
+      for (const call of message.toolCalls ?? []) {
+        if (!pendingCalls.has(call.id)) continue;
+        if (seen.has(call.id))
+          throw new Error(`Duplicate tool call definition: ${call.id}`);
+        seen.add(call.id);
+      }
+    }
   }
 
   /** Let UI adapters ignore answers for exactly one successful frontend result. */
@@ -204,6 +238,7 @@ export class ɵInterruptState<TValue = unknown> {
     responses: Record<string, ResumeResponse>,
     messages: readonly Message[],
   ): ɵInterruptDecision {
+    this.validateToolCalls(messages);
     const completed = new Set<string>();
     for (const interrupt of interrupts) {
       if (interrupt.reason !== "tool_call" || !interrupt.toolCallId) continue;
@@ -217,7 +252,18 @@ export class ɵInterruptState<TValue = unknown> {
         throw new Error(`Duplicate tool results for ${interrupt.toolCallId}`);
       const result = results[0];
       if (!result) continue;
-      const response = responses[interrupt.id];
+      const response = Object.prototype.hasOwnProperty.call(
+        responses,
+        interrupt.id,
+      )
+        ? responses[interrupt.id]
+        : undefined;
+      if (result.role === "tool" && result.error !== undefined) {
+        // Failure history remains intact; only an explicit decision can recover
+        // this call. Do not append a second result for the same call ID.
+        completed.add(interrupt.id);
+        continue;
+      }
       if (
         response &&
         (response.status !== "resolved" ||
@@ -234,12 +280,18 @@ export class ɵInterruptState<TValue = unknown> {
       completed.add(interrupt.id);
     }
     Object.assign(this.#responses, responses);
-    if (!interrupts.every((interrupt) => responses[interrupt.id])) {
+    if (
+      !interrupts.every((interrupt) =>
+        Object.prototype.hasOwnProperty.call(responses, interrupt.id),
+      )
+    ) {
       return { kind: "waiting" };
     }
 
-    const expired = interrupts.find((interrupt) =>
-      isInterruptExpired(interrupt),
+    const expired = interrupts.find(
+      (interrupt) =>
+        responses[interrupt.id]?.status !== "cancelled" &&
+        isInterruptExpired(interrupt),
     );
     if (expired) {
       this.#sealed = true;

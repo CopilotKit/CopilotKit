@@ -32,12 +32,14 @@ const calls: Message[] = [
 
 class FrontendInterruptAgent extends AbstractAgent {
   inputs: RunAgentInput[] = [];
+  /** Configure the pending batch and saved history for replay. */
   constructor(
     readonly interrupts = frontendInterrupts,
     readonly history = calls,
   ) {
     super({ agentId: "frontend", threadId: "thread" });
   }
+  /** Build a snapshot and interrupted outcome for the configured history. */
   private replay(input: RunAgentInput): BaseEvent[] {
     return [
       {
@@ -57,9 +59,11 @@ class FrontendInterruptAgent extends AbstractAgent {
       },
     ];
   }
+  /** Replay saved history through the actual AG-UI connection pipeline. */
   protected connect(input: RunAgentInput) {
     return from(this.replay(input));
   }
+  /** Capture resume inputs and finish subsequent continuation runs. */
   run(input: RunAgentInput) {
     this.inputs.push(structuredClone(input));
     if (this.inputs.length === 1 && !input.resume)
@@ -79,6 +83,7 @@ class FrontendInterruptAgent extends AbstractAgent {
   }
 }
 
+/** Register the wire agent and chart tool with optional handler replay behavior. */
 function setup(
   agent = new FrontendInterruptAgent(),
   handler: (() => Promise<string>) | undefined = undefined,
@@ -97,6 +102,7 @@ function setup(
   return { core, agent };
 }
 
+/** Assert each frontend call has one canonical result and matching resume entry. */
 function expectResults(input: RunAgentInput) {
   expect(input.resume).toEqual(
     frontendInterrupts.map((interrupt) => ({
@@ -116,6 +122,25 @@ function expectResults(input: RunAgentInput) {
 }
 
 describe("frontend results satisfy only their own interrupts", () => {
+  it("rejects duplicate assistant definitions before executing any frontend handler", async () => {
+    const history = structuredClone(calls);
+    const assistant = history[0];
+    if (assistant?.role !== "assistant" || !assistant.toolCalls)
+      throw new Error("Missing fixture calls");
+    assistant.toolCalls.push(assistant.toolCalls[0]!);
+    const handler = vi.fn(async () => "must not execute");
+    const { core, agent } = setup(
+      new FrontendInterruptAgent(frontendInterrupts, history),
+      handler,
+    );
+    await core.runAgent({ agent });
+    expect(handler).not.toHaveBeenCalled();
+    expect(agent.inputs).toHaveLength(1);
+    expect(agent.messages.filter((message) => message.role === "tool")).toEqual(
+      [],
+    );
+  });
+
   it.each([false, true])(
     "continues parallel frontend calls with their actual empty results (handler %s)",
     async (hasHandler) => {
@@ -171,6 +196,7 @@ describe("frontend results satisfy only their own interrupts", () => {
   });
 });
 
+/** Build replay history with the supplied saved tool results. */
 function savedHistory(error?: string): Message[] {
   return [
     ...calls,
@@ -185,6 +211,58 @@ function savedHistory(error?: string): Message[] {
 }
 
 describe("review regressions", () => {
+  it.each(["resolve", "cancel"] as const)(
+    "retains early %s of a failure until a sibling handler finishes",
+    async (action) => {
+      let finish!: (value: string) => void;
+      const pendingResult = new Promise<string>((resolve) => {
+        finish = resolve;
+      });
+      const handler = vi.fn(() => pendingResult);
+      const history: Message[] = [
+        ...calls,
+        {
+          id: "failed",
+          role: "tool",
+          toolCallId: "two",
+          content: "old failure",
+          error: "stopped",
+        },
+      ];
+      const { core, agent } = setup(
+        new FrontendInterruptAgent(frontendInterrupts, history),
+        handler,
+        "resume-pending",
+      );
+      await core.connectAgent({ agent });
+      await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+      const state = ɵgetAgentInterruptState(agent);
+      expect(
+        action === "resolve"
+          ? state.resolve("replacement", "interrupt-two", agent.messages)
+          : state.cancel("interrupt-two", agent.messages),
+      ).toEqual({ kind: "waiting" });
+      finish("done");
+      await vi.waitFor(() => expect(agent.inputs).toHaveLength(1));
+      expect(agent.inputs[0]!.resume).toEqual([
+        { interruptId: "interrupt-one", status: "resolved", payload: "done" },
+        action === "resolve"
+          ? {
+              interruptId: "interrupt-two",
+              status: "resolved",
+              payload: "replacement",
+            }
+          : { interruptId: "interrupt-two", status: "cancelled" },
+      ]);
+      expect(
+        agent.messages.filter(
+          (message) => message.role === "tool" && message.toolCallId === "two",
+        ),
+      ).toEqual([history[1]]);
+      expect(handler).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it.each(["failed", ""])(
     "does not automatically resume a saved failure %j alongside success",
     async (error) => {

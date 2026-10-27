@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { ɵInterruptState } from "../interrupt-state";
 
+/** Build a protocol interrupt with optional frontend call ownership. */
 function interrupt(
   id: string,
   toolCallId?: string,
@@ -19,6 +20,7 @@ describe("frontend results alongside interrupts", () => {
   const saved: Message[] = [
     { id: "result", role: "tool", toolCallId: "chart", content: "" },
   ];
+  /** Create a mixed frontend-call and native-approval batch. */
   function pending() {
     const state = new ɵInterruptState();
     state.setStandard([
@@ -270,5 +272,118 @@ describe("completed frontend UI answers", () => {
     expect(() => state.resolve("done", "chart-i", messages)).toThrow(
       /Duplicate tool results/,
     );
+  });
+});
+
+describe("remaining review regressions", () => {
+  it.each(["resolve", "cancel"] as const)(
+    "allows explicit %s of a saved failure without duplicating history",
+    (action) => {
+      const state = new ɵInterruptState();
+      state.setStandard([
+        interrupt("failed", "call", "tool_call"),
+        interrupt("approval"),
+      ]);
+      const messages: Message[] = [
+        {
+          id: "error",
+          role: "tool",
+          toolCallId: "call",
+          content: "old failure",
+          error: "",
+        },
+      ];
+      expect(state.resumeWithToolResults(messages)).toEqual({
+        kind: "waiting",
+      });
+      expect(
+        action === "resolve"
+          ? state.resolve("replacement", "failed", messages)
+          : state.cancel("failed", messages),
+      ).toEqual({ kind: "waiting" });
+      expect(state.resolve(true, "approval", messages)).toEqual({
+        kind: "resume",
+        toolResults: [],
+        resume: [
+          action === "resolve"
+            ? {
+                interruptId: "failed",
+                status: "resolved",
+                payload: "replacement",
+              }
+            : { interruptId: "failed", status: "cancelled" },
+          { interruptId: "approval", status: "resolved", payload: true },
+        ],
+      });
+      expect(messages[0]).toMatchObject({ content: "old failure", error: "" });
+    },
+  );
+
+  it("allows cancellation of an expired interrupt while retaining another decision", () => {
+    const state = new ɵInterruptState();
+    state.setStandard([
+      { ...interrupt("expired"), expiresAt: "2000-01-01T00:00:00Z" },
+      interrupt("approval"),
+    ]);
+    expect(state.cancel("expired")).toEqual({ kind: "waiting" });
+    expect(state.resolve(true, "approval")).toMatchObject({
+      kind: "resume",
+      resume: [
+        { interruptId: "expired", status: "cancelled" },
+        { interruptId: "approval", status: "resolved", payload: true },
+      ],
+    });
+  });
+
+  it.each(["__proto__", "constructor", "toString"])(
+    "requires an explicit decision for prototype-named id %s",
+    (id) => {
+      const state = new ɵInterruptState();
+      state.setStandard([interrupt(id), interrupt("approval")]);
+      expect(state.resolve(true, "approval")).toEqual({ kind: "waiting" });
+      expect(state.cancel(id)).toMatchObject({
+        kind: "resume",
+        resume: [
+          { interruptId: id, status: "cancelled" },
+          { interruptId: "approval", status: "resolved", payload: true },
+        ],
+      });
+      state.clear();
+      state.setStandard([interrupt(id)]);
+      expect(state.resumeWithToolResults([])).toEqual({ kind: "waiting" });
+    },
+  );
+
+  it.each([
+    [interrupt("same"), interrupt("same")],
+    [interrupt("a", "same", "tool_call"), interrupt("b", "same", "tool_call")],
+  ])(
+    "rejects duplicate interrupt definitions without discarding the current batch",
+    (a, b) => {
+      const state = new ɵInterruptState();
+      state.setStandard([interrupt("original")]);
+      expect(() => state.setStandard([a, b])).toThrow(/Duplicate/);
+      expect(state.cancel("original")).toMatchObject({ kind: "resume" });
+    },
+  );
+
+  it("rejects duplicate assistant call definitions before creating tool results", () => {
+    const state = new ɵInterruptState();
+    state.setStandard([interrupt("a", "same", "tool_call")]);
+    const call = {
+      id: "same",
+      type: "function" as const,
+      function: { name: "chart", arguments: "{}" },
+    };
+    const messages: Message[] = [
+      { id: "assistant", role: "assistant", toolCalls: [call, call] },
+    ];
+    expect(() => state.resolve(true, "a", messages)).toThrow(
+      /Duplicate tool call definition/,
+    );
+    expect(state.resolve(true, "a")).toMatchObject({
+      kind: "resume",
+      toolResults: [{ toolCallId: "same" }],
+    });
   });
 });
