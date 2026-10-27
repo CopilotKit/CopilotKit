@@ -9,8 +9,14 @@ import type { DrawerFilter, DrawerThread, LicensedDetail } from "./types";
 export const COPILOTKIT_THREADS_DRAWER_TAG =
   "copilotkit-threads-drawer" as const;
 
-/** Mobile breakpoint (px). At or below this width the drawer is a modal overlay. */
-const MOBILE_BREAKPOINT = 768;
+/**
+ * Mobile breakpoint (px). Strictly below this width the drawer is a modal
+ * overlay. Kept at 767 so the `(max-width: ...)` / `(min-width: 768px)` split
+ * matches the rest of CopilotKit (`MOBILE_MAX_WIDTH_PX` in react-core,
+ * `MOBILE_MAX_WIDTH_QUERY` in vue); at 768 the chat on the same page is
+ * already desktop, so the drawer must not become modal there.
+ */
+const MOBILE_BREAKPOINT = 767;
 
 /**
  * Whether an inbound error message should surface an error state. Only a
