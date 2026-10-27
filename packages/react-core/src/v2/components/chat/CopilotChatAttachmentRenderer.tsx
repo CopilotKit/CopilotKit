@@ -185,7 +185,7 @@ export const CopilotChatAttachmentRenderer: React.FC<
 
   switch (type) {
     case "image":
-      return <ImageAttachment src={src} className={className} />;
+      return <ImageAttachment key={src} src={src} className={className} />;
     case "audio":
       return (
         <AudioAttachment src={src} filename={filename} className={className} />

@@ -249,3 +249,27 @@ it("keeps safe relative document links available during server rendering", () =>
     vi.unstubAllGlobals();
   }
 });
+
+it("does not transfer image failure state to an inserted source after text normalization", () => {
+  const first: ContentPart = { type: "text", text: "Before" };
+  const second: ContentPart = { type: "text", text: "After" };
+  const failed: ContentPart = {
+    type: "image",
+    source: { type: "url", value: "https://example.test/failed.png" },
+  };
+  const fresh: ContentPart = {
+    type: "image",
+    source: { type: "url", value: "https://example.test/fresh.png" },
+  };
+  const view = render(
+    <CopilotChatContentParts content={[first, second, failed]} />,
+  );
+  fireEvent.error(screen.getByRole("img"));
+  expect(screen.getByText("Failed to load image")).toBeDefined();
+  view.rerender(
+    <CopilotChatContentParts content={[first, fresh, second, failed]} />,
+  );
+  expect(
+    view.container.querySelector('img[src="https://example.test/fresh.png"]'),
+  ).not.toBeNull();
+});
