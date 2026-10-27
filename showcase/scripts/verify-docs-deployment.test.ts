@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   readExpectedDocsImage,
@@ -21,6 +22,28 @@ const node = (status = "SUCCESS", digest = PLATFORM) => ({
 });
 const response = (deployment = node()) =>
   new Response(JSON.stringify({ data: { deployment } }));
+const docsPages = new Map([
+  [
+    "https://docs.staging.copilotkit.ai/generative-ui/components",
+    readFileSync(
+      new URL(
+        "../shell-docs/src/content/docs/generative-ui/components/index.mdx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ],
+  [
+    "https://docs.staging.copilotkit.ai/generative-ui/components/standard-catalog",
+    readFileSync(
+      new URL(
+        "../shell-docs/src/content/docs/generative-ui/components/standard-catalog.mdx",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ],
+]);
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -83,7 +106,9 @@ describe("verifyDocsDeployment", () => {
   function fetcher(deployment = node()) {
     return vi.fn<typeof fetch>().mockImplementation(async (url) => {
       if (String(url).includes("graphql")) return response(deployment);
-      return new Response("<html>createGenerativeUI standardUI</html>");
+      const content = docsPages.get(String(url));
+      if (!content) throw new Error(`Unexpected docs request: ${url}`);
+      return new Response(content);
     });
   }
 
@@ -206,6 +231,22 @@ describe("verifyDocsDeployment", () => {
     await expect(
       verifyDocsDeployment("test-token", "fresh-docs", expected, { fetchImpl }),
     ).rejects.toThrow(/expected content/);
+  });
+
+  it("rejects catalog content served at the overview URL even though both use standardUI", async () => {
+    const fetchImpl = fetcher();
+    fetchImpl
+      .mockResolvedValueOnce(response())
+      .mockResolvedValueOnce(
+        new Response(
+          docsPages.get(
+            "https://docs.staging.copilotkit.ai/generative-ui/components/standard-catalog",
+          ),
+        ),
+      );
+    await expect(
+      verifyDocsDeployment("test-token", "fresh-docs", expected, { fetchImpl }),
+    ).rejects.toThrow(/generative-ui\/components.*expected content/);
   });
 });
 

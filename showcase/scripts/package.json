@@ -27,6 +27,9 @@
       "test": {
         "inputs": [
           "test",
+          "{projectRoot}/verify-docs-deployment.ts",
+          "{workspaceRoot}/showcase/shell-docs/src/content/docs/generative-ui/components/index.mdx",
+          "{workspaceRoot}/showcase/shell-docs/src/content/docs/generative-ui/components/standard-catalog.mdx",
           "{workspaceRoot}/showcase/*/Dockerfile",
           "{workspaceRoot}/showcase/integrations/*/Dockerfile",
           "!{workspaceRoot}/showcase/pocketbase/Dockerfile",
