@@ -68,11 +68,44 @@ test("the Flutter runtime streams an AG-UI reply from an agent", async () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     assert(ready, "the runtime did not start");
+    const blockedInfo = await fetch(info, {
+      headers: { origin: "https://other.example" },
+    });
+    assert.equal(blockedInfo.headers.get("access-control-allow-origin"), null);
+    for (const origin of [
+      "http://localhost:51234",
+      "http://127.0.0.1:51234",
+      "https://localhost:51234",
+      "http://localhost.evil.example",
+    ]) {
+      const preflight = await fetch(
+        `http://127.0.0.1:${port}/api/copilotkit/agent/default/run`,
+        {
+          method: "OPTIONS",
+          headers: {
+            origin,
+            "access-control-request-method": "POST",
+          },
+        },
+      );
+      const expected =
+        origin.startsWith("http://localhost:") ||
+        origin.startsWith("http://127.0.0.1:")
+          ? origin
+          : null;
+      assert.equal(
+        preflight.headers.get("access-control-allow-origin"),
+        expected,
+      );
+    }
     const response = await fetch(
       `http://127.0.0.1:${port}/api/copilotkit/agent/default/run`,
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          origin: "http://localhost:51234",
+        },
         body: JSON.stringify({
           threadId: "thread-1",
           runId: "run-1",
@@ -84,6 +117,10 @@ test("the Flutter runtime streams an AG-UI reply from an agent", async () => {
       },
     );
     assert.equal(response.status, 200);
+    assert.equal(
+      response.headers.get("access-control-allow-origin"),
+      "http://localhost:51234",
+    );
     assert.match(await response.text(), /Hello from Claude\./);
   } finally {
     child.kill("SIGTERM");

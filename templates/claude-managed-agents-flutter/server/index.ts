@@ -59,7 +59,20 @@ createServer(
   createCopilotNodeListener({
     runtime: createRuntime(),
     basePath: "/api/copilotkit",
-    cors: true,
+    cors: {
+      origin: (origin) => {
+        try {
+          const url = new URL(origin);
+          return url.origin === origin &&
+            url.protocol === "http:" &&
+            (url.hostname === "localhost" || url.hostname === "127.0.0.1")
+            ? origin
+            : null;
+        } catch {
+          return null;
+        }
+      },
+    },
   }),
 ).listen(port, host, () => {
   console.log(
