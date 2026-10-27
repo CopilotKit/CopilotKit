@@ -18,6 +18,7 @@ import {
 import { isPlatformBrowser } from "@angular/common";
 import { randomUUID } from "@copilotkit/shared";
 
+import { injectChatLabels } from "../../chat-config";
 import { CopilotChat } from "../chat/copilot-chat";
 import { explicitEffect } from "../../explicit-effect";
 import { DockedSidebarRegistry } from "./docked-sidebar-registry";
@@ -41,7 +42,7 @@ export type CopilotSidebarPosition = "left" | "right";
       [class.position-left]="position() === 'left'"
       [attr.aria-controls]="sidebarId"
       [attr.aria-expanded]="open()"
-      [attr.aria-label]="open() ? 'Close Copilot sidebar' : 'Open Copilot sidebar'"
+      [attr.aria-label]="toggleLabel()"
       [tabIndex]="open() ? -1 : 0"
       (click)="toggle()"
     >
@@ -97,7 +98,7 @@ export type CopilotSidebarPosition = "left" | "right";
           #initialFocus
           type="button"
           cdkFocusInitial
-          aria-label="Close Copilot sidebar"
+          [attr.aria-label]="closeLabel"
           (click)="close()"
         >
           <span aria-hidden="true">×</span>
@@ -225,6 +226,14 @@ export class CopilotSidebar {
 
   protected readonly sidebarId = `copilot-sidebar-${randomUUID()}`;
   protected readonly titleId = `${this.sidebarId}-title`;
+  private readonly labels = injectChatLabels();
+  protected readonly toggleLabel = computed(() =>
+    this.open()
+      ? (this.labels.chatToggleCloseLabel ?? "Close Copilot sidebar")
+      : (this.labels.chatToggleOpenLabel ?? "Open Copilot sidebar"),
+  );
+  protected readonly closeLabel =
+    this.labels.modalHeaderCloseButtonLabel ?? "Close Copilot sidebar";
   protected readonly resolvedWidth = computed(() =>
     dimensionToCss(this.width(), 480),
   );
