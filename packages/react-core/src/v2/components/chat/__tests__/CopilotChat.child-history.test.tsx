@@ -12,6 +12,7 @@ import { z } from "zod";
 import type { CopilotKitCore } from "@copilotkit/core";
 import { useCopilotKit } from "../../../context";
 import { CopilotChat } from "../CopilotChat";
+import { CopilotChatMessageView } from "../CopilotChatMessageView";
 import { useInterrupt } from "../../../hooks/use-interrupt";
 import { defineToolCallRenderer } from "../../../types";
 import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
@@ -163,16 +164,21 @@ it("removes saved child regions after an explicit same-thread reset", async () =
 it("retains mirrored root calls for a direct custom messageView", async () => {
   const { agent } = setup(
     new ChildHistoryFixtureAgent(),
-    ({ messages = [] }) => (
-      <div>
-        {messages
-          .filter((m) => m.role === "assistant")
-          .map((m) => (
-            <pre key={m.id} data-testid={m.id}>
-              {JSON.stringify(m)}
-            </pre>
-          ))}
-      </div>
+    Object.assign(
+      ({
+        messages = [],
+      }: React.ComponentProps<typeof CopilotChatMessageView>) => (
+        <div>
+          {messages
+            .filter((m) => m.role === "assistant")
+            .map((m) => (
+              <pre key={m.id} data-testid={m.id}>
+                {JSON.stringify(m)}
+              </pre>
+            ))}
+        </div>
+      ),
+      { Cursor: CopilotChatMessageView.Cursor },
     ),
   );
   await act(async () => {
