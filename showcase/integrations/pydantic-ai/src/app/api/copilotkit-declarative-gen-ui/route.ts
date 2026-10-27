@@ -25,17 +25,11 @@ const runtime = new CopilotRuntime({
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
   a2ui: {
     // The backend PydanticAI agent owns the `generate_a2ui` tool
-    // explicitly (see src/agents/a2ui_dynamic.py). The A2UI middleware
-    // still runs — it serialises the registered client catalog into the
-    // agent's `copilotkit.context` so the secondary LLM inside
-    // `generate_a2ui` knows which components are available — and it
-    // still detects the `a2ui_operations` container in the tool result
-    // and streams rendered surfaces to the frontend.
+    // explicitly (see src/agents/a2ui_dynamic.py). The middleware
+    // detects the `a2ui_operations` container in the tool result and
+    // streams the surface to the frontend. The secondary LLM gets its
+    // component names from GEN_UI_SYSTEM_PROMPT, not the client catalog.
     injectA2UITool: false,
-    // Models follow the tool-usage guide and omit `catalogId`, and the
-    // middleware then falls back to the unregistered spec basic catalog
-    // ("Catalog not found" render error). Pin the catalog the page registers.
-    defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
 

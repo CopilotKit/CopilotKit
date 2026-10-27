@@ -2,9 +2,9 @@
  * A2UI catalog DEFINITIONS — platform-agnostic.
  *
  * Each entry declares a custom component name + Zod props schema + a short
- * description. The runtime's A2UI middleware serialises this schema into
- * the agent's `copilotkit.context` at request time, so the LLM knows which
- * components it may emit and what each prop expects.
+ * description. The frontend uses this catalog to render generated surfaces.
+ * The PydanticAI demo's secondary LLM instead gets component names from
+ * GEN_UI_SYSTEM_PROMPT in src/agents/a2ui_dynamic.py; keep them in sync.
  *
  * The React implementations live next to these definitions in
  * `./renderers.tsx`, where they are wired through `createCatalog(...)` with

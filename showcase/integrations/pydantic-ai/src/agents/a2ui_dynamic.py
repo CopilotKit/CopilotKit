@@ -5,8 +5,8 @@ Mirrors showcase/integrations/langgraph-python/src/agents/a2ui_dynamic.py.
 Pattern:
 - The agent binds an explicit `generate_a2ui` tool. When called,
   `generate_a2ui` invokes a secondary LLM bound to a `render_a2ui`
-  function-tool schema (tool_choice forced) using the client catalog
-  injected via `copilotkit.context` on the AG-UI payload.
+  function-tool schema (tool_choice forced). The secondary prompt lists
+  custom component names; it does not read the frontend catalog.
 - The tool returns an `a2ui_operations` container (via the shared
   `build_a2ui_operations_from_tool_call` helper) that the CopilotKit
   runtime's A2UI middleware detects in the tool result and forwards to

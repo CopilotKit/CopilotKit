@@ -8,15 +8,18 @@ snippet_cell: declarative-gen-ui
 <InlineDemo demo="declarative-gen-ui" />
 
 The PydanticAI demo lets a secondary model design an A2UI surface from the
-conversation. The frontend registers a catalog of allowed components; the
-agent decides when to call its own `generate_a2ui` tool.
+conversation. The frontend registers a catalog for rendering; the agent
+decides when to call its own `generate_a2ui` tool.
 
 ## How this demo works
 
-1. The frontend passes its catalog through the provider. The runtime forwards
-   the catalog in `copilotkit.context` and keeps the A2UI middleware active.
+1. The frontend registers the catalog used to render the surface. The secondary
+   model learns the available component names from `GEN_UI_SYSTEM_PROMPT` in
+   the Python agent, not from the frontend catalog. Update that prompt when
+   you add or rename components.
 2. The PydanticAI agent registers `generate_a2ui` itself, so its runtime route
-   sets `injectA2UITool: false`. Injecting another tool would duplicate it.
+   sets `injectA2UITool: false`. The middleware still processes the backend
+   tool result without injecting another drawing tool.
 3. The agent's tool reads the forwarded user and assistant turns from
    `ctx.messages`, then passes them to a secondary model. `ctx.deps` contains
    state, not that conversation history.
@@ -25,21 +28,24 @@ agent decides when to call its own `generate_a2ui` tool.
    frontend renderer.
 
 The conversion happens in
-[`build_a2ui_operations_from_tool_call()`](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/shared/python/tools/generate_a2ui.py#L140),
+[`build_a2ui_operations_from_tool_call()`](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/shared/python/tools/generate_a2ui.py),
 defined in the shared Python helper. The code tab shows the agent's import and
 call; follow that link for the helper's implementation.
 
 ## Register the frontend catalog
 
 The catalog has three parts. Keep the component definitions and renderers under
-the same names, then pass the catalog to the provider.
+the same names, then pass the catalog to the provider. This demo's secondary
+model does not read the catalog: keep its `GEN_UI_SYSTEM_PROMPT` in sync with
+the component names and usage rules you define here.
 
 <Steps>
 <Step>
 ### Define the component schemas
 
-Each definition gives the model a Zod props schema and a description of when
-to use the component.
+Each definition declares a Zod props schema and a description of when to use
+the component. The secondary model does not receive these definitions through
+the stock PydanticAI adapter.
 
 <Snippet region="definitions-zod" />
 </Step>
@@ -62,18 +68,18 @@ to use the component.
 ## Configure the runtime and agent
 
 This demo's route sets `injectA2UITool: false` because the PydanticAI backend
-already defines `generate_a2ui`. It also sets `defaultCatalogId` to the catalog
-registered by the page, so a generated surface without a `catalogId` still
-uses the right components.
+already defines `generate_a2ui`. The backend adds the registered catalog ID
+when the secondary model omits it; the shared helper also has that default.
+The route does not need `defaultCatalogId` for this backend tool-result path.
 
-<Snippet file="src/app/api/copilotkit-declarative-gen-ui/route.ts" lines="23-40" />
+<Snippet file="src/app/api/copilotkit-declarative-gen-ui/route.ts" lines="23-34" />
 
-If your backend does **not** define `generate_a2ui`, you can choose runtime
-injection with `injectA2UITool: true` instead. That is a different setup:
-remove the backend-owned tool, and ensure your PydanticAI adapter forwards the
-client catalog and conversation context required by the injected tool. Do not
-switch this demo's flag alone; its secondary model currently gets the real
-conversation from `ctx.messages` inside the backend-owned tool.
+Other integrations can set `injectA2UITool: true` to request a runtime-injected
+`render_a2ui` tool. This PydanticAI demo uses `false` because its backend owns
+the drawing tool. The stock PydanticAI adapter does not forward the frontend
+catalog context to that backend, so changing this flag alone is not a supported
+injection-mode setup. Such a setup would need explicit catalog and conversation
+context forwarding in the adapter.
 
 ## When should I use dynamic schemas?
 
