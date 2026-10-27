@@ -158,6 +158,43 @@ test("workflow selection maintenance is isolated, but build/deploy and global ch
   }
 });
 
+test("runtime metadata in selection jobs still forces a full rebuild", () => {
+  for (const [from, to] of [
+    [
+      '"dockerfile":"showcase/shell-docs/Dockerfile"',
+      '"dockerfile":"showcase/shell-docs/ReplacementDockerfile"',
+    ],
+    ['"build_args_sha":"__GH_SHA__"', '"build_args_sha":"replacement-sha"'],
+    [
+      "GITHUB_REF_NAME_ENV: ${{ github.ref_name }}",
+      "GITHUB_REF_NAME_ENV: replacement-branch",
+    ],
+    ['echo "matrix=$MATRIX"', 'echo "matrix=[]"'],
+  ]) {
+    const modified = source.replace(from, to);
+    assert.notEqual(modified, source, `fixture missing: ${from}`);
+    assert.equal(workflowRuntimeChanged(source, modified), true);
+  }
+});
+
+test("unfamiliar classifier step content refuses classification", () => {
+  for (const [from, to] of [
+    [
+      "run: node scripts/showcase-build-impact.mjs",
+      "run: node scripts/showcase-build-impact.mjs; echo changed",
+    ],
+    ["id: workflow-impact", "id: workflow-impact\n        if: false"],
+    ["BEFORE_SHA: ${{ github.event.before }}", "BEFORE_SHA: altered"],
+  ]) {
+    const modified = source.replace(from, to);
+    assert.notEqual(modified, source, `fixture missing: ${from}`);
+    assert.throws(
+      () => workflowRuntimeChanged(source, modified),
+      /Unsupported classifier step/,
+    );
+  }
+});
+
 test("both selectors consume the classifier", () => {
   for (const id of ["detect-changes", "detect-starter-changes"]) {
     const job = workflow.jobs[id];
