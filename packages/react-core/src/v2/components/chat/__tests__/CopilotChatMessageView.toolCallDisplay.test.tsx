@@ -193,6 +193,25 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(within(toggle).getByText("Done").className).toContain("sr-only");
   });
 
+  it("announces a closed stack's status as it changes", () => {
+    const { rerender } = renderView([question, callMessage("a")], {
+      toolCallDisplay: "stacked",
+      isRunning: true,
+    });
+    const group = screen.getByTestId("copilot-tool-call-group");
+    const live = group.querySelector('[aria-live="polite"]')!;
+    expect(live.textContent).toBe("Running");
+
+    rerender(
+      view([question, callMessage("a"), result("a")], {
+        toolCallDisplay: "stacked",
+      }),
+    );
+    // Same region, new text: that's what gets announced.
+    expect(group.querySelector('[aria-live="polite"]')).toBe(live);
+    expect(live.textContent).toBe("Done");
+  });
+
   it("opens a stack into the same compact cards, with Collapse", () => {
     renderView(burst, { toolCallDisplay: "stacked" });
     const group = screen.getByTestId("copilot-tool-call-group");

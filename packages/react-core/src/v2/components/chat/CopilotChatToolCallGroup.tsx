@@ -531,6 +531,11 @@ export function CopilotChatToolCallGroup({
               </>
             )}
           </button>
+          {/* Always mounted, so screen readers hear the closed stack's status
+              change (Running, then Done); the button only names it. */}
+          <span aria-live="polite" className="cpk:sr-only">
+            {open ? "" : statusLabels[latestStatus]}
+          </span>
         </div>
         {open && (
           // Each call gets the collapsed stack's card, easing out of the stack.
