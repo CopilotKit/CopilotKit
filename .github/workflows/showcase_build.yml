@@ -125,6 +125,12 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Classify build and deploy workflow changes
+        id: workflow-impact
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: node scripts/showcase-build-impact.mjs
+
       - name: Detect changed paths
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
@@ -135,7 +141,6 @@ jobs:
           # in the same filters block is easy to misread during review.
           filters: |
             workflow_config:
-              - '.github/workflows/showcase_build.yml'
               - '.github/workflows/showcase_build_check.yml'
             angular:
               - 'showcase/angular/**'
@@ -147,7 +152,9 @@ jobs:
             shell:
               - 'showcase/shell/**'
               - 'showcase/shared/**'
-              - 'showcase/scripts/**'
+              # The release verifier runs in the promotion workflow, not these services.
+              - 'showcase/scripts/!(verify-prod-resweep.ts|verify-prod-resweep.test.ts|verify-prod-resweep-cli.test.ts)'
+              - 'showcase/scripts/*/**'
               - 'showcase/integrations/*/manifest.yaml'
             langgraph_python:
               - 'showcase/integrations/langgraph-python/**'
@@ -196,12 +203,16 @@ jobs:
             shell_dojo:
               - 'showcase/shell-dojo/**'
               - 'showcase/shared/**'
-              - 'showcase/scripts/**'
+              # The release verifier runs in the promotion workflow, not these services.
+              - 'showcase/scripts/!(verify-prod-resweep.ts|verify-prod-resweep.test.ts|verify-prod-resweep-cli.test.ts)'
+              - 'showcase/scripts/*/**'
               - 'showcase/integrations/*/manifest.yaml'
             shell_dashboard:
               - 'showcase/shell-dashboard/**'
               - 'showcase/shared/**'
-              - 'showcase/scripts/**'
+              # The release verifier runs in the promotion workflow, not these services.
+              - 'showcase/scripts/!(verify-prod-resweep.ts|verify-prod-resweep.test.ts|verify-prod-resweep-cli.test.ts)'
+              - 'showcase/scripts/*/**'
               - 'showcase/integrations/*/manifest.yaml'
               # The dashboard re-exports the harness's shared cell-model fold
               # (src/lib/{cell-model,live-status,staleness,format-ts}.ts →
@@ -215,7 +226,9 @@ jobs:
             shell_docs:
               - 'showcase/shell-docs/**'
               - 'showcase/shared/**'
-              - 'showcase/scripts/**'
+              # The release verifier runs in the promotion workflow, not these services.
+              - 'showcase/scripts/!(verify-prod-resweep.ts|verify-prod-resweep.test.ts|verify-prod-resweep-cli.test.ts)'
+              - 'showcase/scripts/*/**'
               - 'showcase/integrations/*/manifest.yaml'
               - 'showcase/integrations/*/docs-links.json'
               - 'showcase/integrations/*/docs/setup/**'
@@ -223,7 +236,9 @@ jobs:
             showcase_harness:
               - 'showcase/harness/**'
               - 'showcase/shared/**'
-              - 'showcase/scripts/**'
+              # The release verifier runs in the promotion workflow, not these services.
+              - 'showcase/scripts/!(verify-prod-resweep.ts|verify-prod-resweep.test.ts|verify-prod-resweep-cli.test.ts)'
+              - 'showcase/scripts/*/**'
               - 'showcase/integrations/*/manifest.yaml'
             showcase_aimock:
               - 'showcase/aimock/**'
@@ -250,6 +265,7 @@ jobs:
           GITHUB_SHA_ENV: ${{ github.sha }}
           GITHUB_REF_NAME_ENV: ${{ github.ref_name }}
           FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
+          WORKFLOW_RUNTIME_CHANGED: ${{ steps.workflow-impact.outputs.changed }}
         run: |
           # Full service config as JSON
           # Fields: dispatch_name, filter_key, context, image, railway_id, timeout, lfs, build_args, build_args_sha, build_args_branch, dockerfile, health_path, skip_build
@@ -333,7 +349,7 @@ jobs:
           #   dispatch == <specific service>: narrow to that service only (skips paths-filter so
           #     drift-rebuild and manual single-service dispatches work regardless of $changes).
           #   dispatch == "": push event — include services whose filter_key appears in paths-filter CHANGES.
-          MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" --arg sha "$GITHUB_SHA_ENV" --arg ref "$GITHUB_REF_NAME_ENV" '
+          MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" --argjson workflow_changed "${WORKFLOW_RUNTIME_CHANGED:-false}" --arg sha "$GITHUB_SHA_ENV" --arg ref "$GITHUB_REF_NAME_ENV" '
             [.[] |
               if .build_args_sha == "__GH_SHA__" then .build_args_sha = $sha else . end |
               if .build_args_branch == "__GH_REF_NAME__" then .build_args_branch = $ref else . end |
@@ -341,7 +357,7 @@ jobs:
               $dispatch == "all" or
               ($dispatch != "" and $dispatch != "all" and $dispatch == .dispatch_name) or
               ($dispatch == "" and (
-                ($changes | index("workflow_config") != null) or
+                ($workflow_changed or ($changes | index("workflow_config") != null)) or
                 ($changes | index($fk) != null) or
                 (($changes | index("angular") != null) and (
                   (.context | startswith("showcase/integrations/")) or
@@ -727,13 +743,17 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Classify build and deploy workflow changes
+        id: workflow-impact
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: node scripts/showcase-build-impact.mjs
+
       - name: Detect changed starter paths
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
-            workflow_config:
-              - '.github/workflows/showcase_build.yml'
             langgraph_python:
               - 'examples/integrations/langgraph-python/**'
             mastra:
@@ -764,6 +784,7 @@ jobs:
         env:
           DISPATCH_SERVICE: ${{ github.event.inputs.service }}
           FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
+          WORKFLOW_RUNTIME_CHANGED: ${{ steps.workflow-impact.outputs.changed }}
         run: |
           set -euo pipefail
           # One slot per starter. `slug` is the examples/integrations/<slug>
@@ -789,19 +810,19 @@ jobs:
           #   "starter-<slug>"          → that one starter (strip "starter-" prefix to match .image).
           #   "<showcase service slug>" → no starters (this is a showcase-only dispatch).
           #   "" (push event)           → starters whose filter_key appears in CHANGES
-          #                               (or workflow_config touched → rebuild all).
+          #                               (or build/deploy workflow changed → rebuild all).
           DISPATCH="${DISPATCH_SERVICE:-}"
           CHANGES="${FILTER_CHANGES:-[]}"
 
           # `.image` is exactly "starter-<slug>", which is also the
           # workflow_dispatch choice value, so a specific-starter dispatch
           # matches `$dispatch == .image` directly.
-          MATRIX=$(echo "$ALL_STARTERS" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" '
+          MATRIX=$(echo "$ALL_STARTERS" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" --argjson workflow_changed "${WORKFLOW_RUNTIME_CHANGED:-false}" '
             [.[] |
               (.filter_key as $fk | select(
               $dispatch == "all" or
               ($dispatch != "" and $dispatch != "all" and $dispatch == .image) or
-              ($dispatch == "" and (($changes | index("workflow_config") != null) or ($changes | index($fk) != null)))
+              ($dispatch == "" and (($workflow_changed or ($changes | index("workflow_config") != null)) or ($changes | index($fk) != null)))
             ))]
           ')
 

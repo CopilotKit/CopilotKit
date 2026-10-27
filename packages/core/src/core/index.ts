@@ -10,3 +10,4 @@ export * from "./suggestion-engine";
 export * from "./run-handler";
 export * from "./state-manager";
 export * from "./webmcp";
+export type * from "./generative-ui-debug";
