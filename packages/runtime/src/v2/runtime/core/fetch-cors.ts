@@ -106,15 +106,21 @@ export function handleCors(
 
   // On a credentialed request "*" means a header literally named "*", not
   // any header (Fetch spec), so echo back the headers the browser asked for.
+  // With none asked for, the request uses only safelisted headers, which
+  // need no Allow-Headers at all, so leave it out.
   const requestedHeaders = request.headers.get(
     "access-control-request-headers",
   );
   const allowHeaders =
     config.allowHeaders ??
-    (config.credentials && requestedHeaders
-      ? [requestedHeaders]
+    (config.credentials
+      ? requestedHeaders
+        ? [requestedHeaders]
+        : []
       : DEFAULT_HEADERS);
-  headers.set("Access-Control-Allow-Headers", allowHeaders.join(", "));
+  if (allowHeaders.length) {
+    headers.set("Access-Control-Allow-Headers", allowHeaders.join(", "));
+  }
 
   if (config.maxAge != null) {
     headers.set("Access-Control-Max-Age", String(config.maxAge));

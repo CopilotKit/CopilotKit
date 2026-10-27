@@ -174,6 +174,19 @@ describe("fetch-cors", () => {
       );
     });
 
+    it("omits Allow-Headers on a credentialed preflight that requests none", () => {
+      // Only safelisted headers are in play, and those need no Allow-Headers.
+      const request = new Request("http://localhost/api", {
+        method: "OPTIONS",
+        headers: { Origin: "https://example.com" },
+      });
+      const response = handleCors(request, {
+        origin: "https://example.com",
+        credentials: true,
+      })!;
+      expect(response.headers.has("Access-Control-Allow-Headers")).toBe(false);
+    });
+
     it("keeps the wildcard header list without credentials", () => {
       const request = new Request("http://localhost/api", {
         method: "OPTIONS",
