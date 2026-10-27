@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="646" viewBox="0 0 880 646" role="img" aria-labelledby="t d" fill="none">
+<title id="t">How CopilotKit works</title>
+<desc id="d">Your users reach CopilotKit from apps built with React, Angular, Vue, React Native or Web Components, and from Slack and Microsoft Teams. CopilotKit is open source: Frontend SDKs (chat components, generative UI, shared state, human-in-the-loop, frontend tools) plus the Copilot Runtime. The runtime talks AG-UI, an open protocol of events over SSE, to your agents: LangGraph, CrewAI, Mastra, Google ADK, PydanticAI, LlamaIndex, Microsoft Agent Framework, AWS Strands, Claude Agent SDK, the Built-in Agent, or your own. MCP and A2A are supported for tools and agent-to-agent. Underneath, CopilotKit Intelligence, cloud-hosted or self-hosted, adds AG-UI Streams, User Memories, Automatic Learning, Product Analytics, Channels and Inspector for production.</desc>
+<defs>
+<linearGradient id="ck0" x1="171.825" y1="13.8344" x2="135.895" y2="112.635" gradientUnits="userSpaceOnUse"><stop stop-color="#6430AB"/><stop offset="1" stop-color="#AA89D8"/></linearGradient>
+<linearGradient id="ck1" x1="143.981" y1="69.5214" x2="97.7306" y2="158.891" gradientUnits="userSpaceOnUse"><stop stop-color="#005DBB"/><stop offset="1" stop-color="#3D92E8"/></linearGradient>
+<linearGradient id="ck2" x1="164.633" y1="13.8337" x2="150.706" y2="57.3959" gradientUnits="userSpaceOnUse"><stop stop-color="#1B70C4"/><stop offset="1" stop-color="#54A4F2"/></linearGradient>
+<linearGradient id="ck3" x1="60.8346" y1="213.57" x2="207.775" y2="213.57" gradientUnits="userSpaceOnUse"><stop stop-color="#4497EA"/><stop offset=".25" stop-color="#1463B2"/><stop offset=".5" stop-color="#0A437D"/><stop offset=".67" stop-color="#2476C8"/><stop offset=".97" stop-color="#0C549A"/></linearGradient>
+<radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#4a4c9a" stop-opacity="0.45"/><stop offset="1" stop-color="#4a4c9a" stop-opacity="0"/></radialGradient>
+<marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1 1.5 8 5 1 8.5" stroke="#8a8cff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/></marker>
+</defs>
+<style>.s{font-family:'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif}.m{font-family:'Spline Sans Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;letter-spacing:.08em}.flow{stroke-dasharray:4 10;animation:f 1.4s linear infinite}@keyframes f{to{stroke-dashoffset:-14}}@media (prefers-reduced-motion:reduce){*{animation:none!important}}</style>
+<text class="m" x="24" y="44" font-size="12" font-weight="500" fill="#a1a1ad">YOUR USERS</text>
+<text class="m" x="368.0" y="44" text-anchor="middle" font-size="12" font-weight="500" fill="#b4b6ff">OPEN SOURCE</text>
+<text class="m" x="628" y="44" font-size="12" font-weight="500" fill="#a1a1ad">YOUR AGENTS</text>
+<ellipse cx="368.0" cy="229.0" rx="214" ry="235" fill="url(#glow)"/>
+<path d="M188 103.0H198Q204 103.0 204 109.0V349.0Q204 355.0 198 355.0H188 M188 141.0H204 M188 179.0H204 M188 217.0H204 M188 255.0H204 M188 317.0H204" stroke="#8a8cff" stroke-width="1.5" stroke-linecap="round" stroke-opacity=".45" fill="none"/>
+<path d="M205 208.0H240" stroke="#8a8cff" stroke-width="1.5" stroke-linecap="round" stroke-opacity=".6" marker-start="url(#ah)" marker-end="url(#ah)"/>
+<path class="flow" d="M213 208.0H232" stroke="#8a8cff" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M628 81.0H618Q612 81.0 612 87.0V379.0Q612 385.0 618 385.0H628 M612 119.0H628 M612 157.0H628 M612 195.0H628 M612 233.0H628 M612 271.0H628 M612 309.0H628 M612 347.0H628" stroke="#8a8cff" stroke-width="1.5" stroke-linecap="round" stroke-opacity=".45" fill="none"/>
+<path d="M496 338.0H611" stroke="#8a8cff" stroke-width="1.5" stroke-linecap="round" stroke-opacity=".6" marker-start="url(#ah)" marker-end="url(#ah)"/>
+<path class="flow" d="M504 338.0H604" stroke="#8a8cff" stroke-width="1.5" stroke-linecap="round"/>
+<rect x="518.0" y="324.0" width="72" height="28" rx="14.0" fill="#24234a" stroke="#8a8cff" stroke-width="1.5"/>
+<text class="m" x="554.0" y="342.5" text-anchor="middle" font-size="13" font-weight="600" fill="#b4b6ff" style="letter-spacing:.04em">AG-UI</text>
+<text class="s" x="554.0" y="370.0" text-anchor="middle" font-size="13" font-weight="500" fill="#a1a1ad">events over SSE</text>
+<path d="M368.0 396V478" stroke="#8a8cff" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="0.5 6" stroke-opacity=".8"/>
+<circle cx="368.0" cy="482" r="3.5" fill="#8a8cff"/>
+<text class="m" x="26" y="78" font-size="12" font-weight="500" fill="#a1a1ad">APPS</text>
+<rect x="24.5" y="88.5" width="163" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="106.0" y="108.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">React</text>
+<rect x="24.5" y="126.5" width="163" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="106.0" y="146.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">Angular</text>
+<rect x="24.5" y="164.5" width="163" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="106.0" y="184.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">Vue</text>
+<rect x="24.5" y="202.5" width="163" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="106.0" y="222.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">React Native</text>
+<rect x="24.5" y="240.5" width="163" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="106.0" y="260.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">Web Components</text>
+<text class="m" x="26" y="292" font-size="12" font-weight="500" fill="#a1a1ad">CHANNELS</text>
+<rect x="24.5" y="302.5" width="163" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="106.0" y="322.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">Slack</text>
+<rect x="24.5" y="340.5" width="163" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="106.0" y="360.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">Microsoft Teams</text>
+<rect x="628.5" y="66.5" width="227" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="742.0" y="86.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">LangGraph</text>
+<rect x="628.5" y="104.5" width="227" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="742.0" y="124.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">CrewAI</text>
+<rect x="628.5" y="142.5" width="227" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="742.0" y="162.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">Mastra</text>
+<rect x="628.5" y="180.5" width="227" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="742.0" y="200.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">Google ADK</text>
+<rect x="628.5" y="218.5" width="227" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="742.0" y="238.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">PydanticAI</text>
+<rect x="628.5" y="256.5" width="227" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="742.0" y="276.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">Microsoft Agent Framework</text>
+<rect x="628.5" y="294.5" width="227" height="29" rx="15.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="742.0" y="314.0" text-anchor="middle" font-size="15" font-weight="500" fill="#f2f2f6">Claude Agent SDK</text>
+<rect x="628.5" y="332.5" width="227" height="29" rx="15.0" fill="#24234a" stroke="#4a4c9a"/>
+<text class="s" x="742.0" y="352.0" text-anchor="middle" font-size="15" font-weight="500" fill="#b4b6ff">Built-in Agent</text>
+<rect x="628.5" y="370.5" width="227" height="29" rx="15.0" stroke="#a1a1ad" stroke-opacity=".7" stroke-dasharray="3 4"/>
+<text class="s" x="742.0" y="390.0" text-anchor="middle" font-size="15" font-weight="500" fill="#a1a1ad">+ your own</text>
+<text class="m" x="742.0" y="426" text-anchor="middle" font-size="12" font-weight="500" fill="#a1a1ad">+ MCP TOOLS · A2A AGENTS</text>
+<rect x="242" y="66" width="252" height="326" rx="16" fill="#24234a" stroke="#8a8cff" stroke-width="1.5"/>
+<g transform="translate(260 82) scale(0.135)"><path d="M76.4556 75.7547C97.0552 48.81 114.152 22.1656 120.731 0.648813C120.908 0.0633572 121.594 -0.185355 122.103 0.152636C144.979 15.3013 186.646 25.2726 223.5 25.5066C224.134 25.5107 224.571 26.1359 224.342 26.7272C212.088 57.8146 197.122 113.518 196.54 177.128C196.54 178.073 195.21 178.412 194.742 177.59C173.768 140.886 106.586 89.3107 76.7986 77.138C76.2477 76.9114 76.0919 76.2307 76.4556 75.7547Z" fill="url(#ck0)"/><path d="M145.956 59.273C113.757 69.4674 84.3336 75.1349 77.3077 76.4226C76.8608 76.5047 76.7673 77.1231 77.1934 77.2977C107.209 89.777 174.059 141.202 194.835 177.757C194.877 177.837 194.981 177.867 195.064 177.83C195.147 177.791 195.189 177.687 195.158 177.597L145.956 59.273Z" fill="url(#ck1)"/><path d="M122.197 0.0860308C149.76 15.1211 181.615 21.8738 223.875 25.4319C224.135 25.4546 224.228 25.8103 223.989 25.9339C218.585 28.7116 187.623 44.4667 164.633 52.905C158.47 55.1657 152.275 57.263 146.174 59.1979C146.039 59.2402 145.894 59.1736 145.842 59.0446L121.563 0.655481C121.397 0.262302 121.823 -0.117886 122.197 0.0860308Z" fill="url(#ck2)"/><path d="M121.361 0.145972C121.761 -0.0218955 122.214 0.121754 122.45 0.467128L122.536 0.6264L196.496 177.058L196.548 177.233C196.628 177.642 196.415 178.065 196.015 178.233C195.615 178.401 195.162 178.257 194.926 177.912L194.838 177.753L120.881 1.32093L120.826 1.14599C120.745 0.736568 120.961 0.313703 121.361 0.145972Z" fill="#9a86f0"/><path d="M223.089 25.5869C223.52 25.3424 224.069 25.4925 224.313 25.9238C224.558 26.3552 224.406 26.9035 223.974 27.1483V27.1509H223.969C223.965 27.153 223.96 27.1575 223.953 27.1614C223.939 27.1695 223.916 27.1821 223.888 27.1979C223.832 27.2294 223.749 27.2755 223.64 27.3363C223.419 27.4593 223.091 27.6413 222.661 27.8768C221.8 28.3482 220.529 29.0371 218.885 29.9029C215.597 31.6348 210.813 34.0821 204.83 36.9423C192.865 42.6619 176.091 50.0388 156.86 56.6737C137.624 63.3089 117.782 68.4614 102.755 71.9534C95.2398 73.6998 88.9245 75.0317 84.4882 75.9274C82.2701 76.3752 80.5211 76.7135 79.3262 76.9405C78.7293 77.0538 78.2706 77.1391 77.9606 77.1963C77.8058 77.2249 77.6873 77.2472 77.6081 77.2616C77.5693 77.2687 77.5395 77.2737 77.5194 77.2773C77.5095 77.2791 77.501 77.2816 77.4959 77.2825H77.488L77.3052 77.2982C76.8881 77.2877 76.5205 76.9859 76.4436 76.5593C76.356 76.0711 76.6815 75.6027 77.1695 75.5149H77.1773C77.182 75.514 77.1888 75.5113 77.1982 75.5096C77.2176 75.5061 77.2481 75.501 77.287 75.494C77.3647 75.4798 77.4812 75.4595 77.6342 75.4313C77.9413 75.3746 78.3978 75.2882 78.992 75.1754C80.1806 74.9497 81.9227 74.6138 84.1331 74.1676C88.5551 73.2748 94.8521 71.9459 102.348 70.204C117.342 66.7197 137.119 61.5841 156.276 54.9766C175.426 48.3694 192.134 41.0193 204.055 35.3208C210.015 32.4718 214.777 30.0352 218.047 28.3128C219.682 27.4518 220.944 26.7694 221.796 26.3024C222.222 26.0693 222.546 25.8906 222.763 25.7697C222.871 25.7092 222.954 25.6619 223.008 25.6313C223.035 25.6163 223.055 25.6049 223.068 25.5974C223.075 25.5937 223.08 25.5914 223.084 25.5895L223.086 25.5869H223.089Z" fill="#9a86f0"/><path d="M2.77027 236.611C2.20838 237.273 1.21525 237.353 0.553517 236.792C-0.107154 236.23 -0.18789 235.239 0.373357 234.577L2.77027 236.611ZM132.306 21.7584C133.136 22.0085 133.607 22.8858 133.358 23.7167L106.569 112.86H169.57L169.886 112.891C170.602 113.037 171.142 113.672 171.142 114.431C171.142 115.191 170.602 115.825 169.886 115.972L169.57 116.003H105.182L2.77027 236.611L1.57181 235.593L0.373357 234.577L103.044 113.664L130.347 22.8133C130.597 21.9819 131.474 21.5086 132.306 21.7584Z" fill="#7a7a88"/><path d="M72.9636 210.65L60.8346 212.356C67.1226 228.985 80.0206 236.249 95.4131 236.249C133.141 236.249 121.625 193.585 143.482 193.585C159.342 193.585 152.899 228.165 187.02 228.165C207.848 228.165 209.927 207.183 206.372 198.156C206.351 198.101 206.331 198.051 206.299 198.002L200.718 189.455C200.355 188.887 199.471 189.101 199.409 189.776L198.369 200.135C198.297 200.856 198.317 201.574 198.401 202.293C199.253 209.45 199.804 226.818 187.02 226.818C173.54 226.818 170.297 192.686 143.482 192.686C112.032 192.686 116.075 234.902 96.7643 234.902C84.0221 234.902 74.3043 220.531 72.9636 210.65Z" fill="url(#ck3)"/></g>
+<text class="s" x="300" y="106" font-size="21" font-weight="600" fill="#f2f2f6" style="letter-spacing:-.02em">CopilotKit</text>
+<rect x="258" y="128" width="220" height="160" rx="12" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="276" y="156" font-size="16" font-weight="600" fill="#f2f2f6" style="letter-spacing:-.01em">Frontend SDKs</text>
+<circle cx="280" cy="177.5" r="2.5" fill="#8a8cff"/>
+<text class="s" x="292" y="182" font-size="14" font-weight="500" fill="#a1a1ad">Chat components</text>
+<circle cx="280" cy="201.5" r="2.5" fill="#8a8cff"/>
+<text class="s" x="292" y="206" font-size="14" font-weight="500" fill="#a1a1ad">Generative UI</text>
+<circle cx="280" cy="225.5" r="2.5" fill="#8a8cff"/>
+<text class="s" x="292" y="230" font-size="14" font-weight="500" fill="#a1a1ad">Shared state</text>
+<circle cx="280" cy="249.5" r="2.5" fill="#8a8cff"/>
+<text class="s" x="292" y="254" font-size="14" font-weight="500" fill="#a1a1ad">Human-in-the-loop</text>
+<circle cx="280" cy="273.5" r="2.5" fill="#8a8cff"/>
+<text class="s" x="292" y="278" font-size="14" font-weight="500" fill="#a1a1ad">Frontend tools</text>
+<rect x="258" y="300" width="220" height="76" rx="12" fill="#1a1a24" stroke="#2c2c3a"/>
+<text class="s" x="276" y="330" font-size="16" font-weight="600" fill="#f2f2f6" style="letter-spacing:-.01em">Copilot Runtime</text>
+<text class="s" x="276" y="354" font-size="14" font-weight="500" fill="#a1a1ad">Connects your app to agents</text>
+<rect x="24.75" y="482.75" width="830.5" height="138.5" rx="18" fill="#121218" fill-opacity="0.9" stroke="#8a8cff" stroke-opacity="0.7" stroke-width="1.5" stroke-dasharray="6 6"/>
+<text class="m" x="50" y="518" font-size="12" font-weight="500" fill="#b4b6ff">ADD FOR PRODUCTION</text>
+<text class="s" x="50" y="548" font-size="22" font-weight="600" fill="#f2f2f6" style="letter-spacing:-.02em">CopilotKit</text>
+<text class="s" x="50" y="574" font-size="22" font-weight="600" fill="#f2f2f6" style="letter-spacing:-.02em">Intelligence</text>
+<text class="s" x="50" y="599" font-size="14" font-weight="500" fill="#a1a1ad">Cloud-hosted or self-hosted</text>
+<rect x="280.5" y="513.5" width="177" height="33" rx="17.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<circle cx="297" cy="530.0" r="3.5" fill="#8a8cff"/>
+<text class="s" x="309" y="535.0" font-size="14" font-weight="500" fill="#f2f2f6">AG-UI Streams</text>
+<rect x="468.5" y="513.5" width="177" height="33" rx="17.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<circle cx="485" cy="530.0" r="3.5" fill="#8a8cff"/>
+<text class="s" x="497" y="535.0" font-size="14" font-weight="500" fill="#f2f2f6">User Memories</text>
+<rect x="656.5" y="513.5" width="177" height="33" rx="17.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<circle cx="673" cy="530.0" r="3.5" fill="#5ae4bb"/>
+<text class="s" x="685" y="535.0" font-size="14" font-weight="500" fill="#f2f2f6">Automatic Learning</text>
+<rect x="280.5" y="557.5" width="177" height="33" rx="17.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<circle cx="297" cy="574.0" r="3.5" fill="#8a8cff"/>
+<text class="s" x="309" y="579.0" font-size="14" font-weight="500" fill="#f2f2f6">Product Analytics</text>
+<rect x="468.5" y="557.5" width="177" height="33" rx="17.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<circle cx="485" cy="574.0" r="3.5" fill="#8a8cff"/>
+<text class="s" x="497" y="579.0" font-size="14" font-weight="500" fill="#f2f2f6">Channels</text>
+<rect x="656.5" y="557.5" width="177" height="33" rx="17.0" fill="#1a1a24" stroke="#2c2c3a"/>
+<circle cx="673" cy="574.0" r="3.5" fill="#8a8cff"/>
+<text class="s" x="685" y="579.0" font-size="14" font-weight="500" fill="#f2f2f6">Inspector</text>
+</svg>
