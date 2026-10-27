@@ -715,6 +715,104 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       copilotKitCore.removeContext(contextId);
     });
 
+    it("forwards thread-scoped context of the consumer's conversation only", async () => {
+      const providerAgent = new MockAgent({ agentId: "default" });
+      const consumerAgent = new MockAgent({ agentId: "consumer" });
+      (consumerAgent as { threadId?: string }).threadId = "thread-a";
+
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
+      copilotKitCore.upsertContext("this-thread", {
+        description: "Widget state",
+        value: "visible",
+        agentIds: ["consumer"],
+        threadId: "thread-a",
+      });
+      copilotKitCore.upsertContext("other-thread", {
+        description: "Other conversation",
+        value: "hidden",
+        agentIds: ["consumer"],
+        threadId: "thread-b",
+      });
+
+      copilotKitCore.addSuggestionsConfig(createSuggestionsConfig());
+      providerAgent.setNewMessages([
+        createAssistantMessage({
+          toolCalls: [
+            {
+              id: "s1",
+              type: "function",
+              function: {
+                name: "copilotkitSuggest",
+                arguments: [
+                  '{"suggestions":[{"title":"Test","message":"Test"}]}',
+                ] as any,
+              },
+            },
+          ],
+        }),
+      ]);
+
+      copilotKitCore.reloadSuggestions("consumer");
+
+      await vi.waitFor(() => {
+        expect(providerAgent.runAgentCalls.length).toBeGreaterThan(0);
+      });
+      expect(providerAgent.runAgentCalls[0].context).toEqual([
+        { description: "Widget state", value: "visible" },
+      ]);
+
+      copilotKitCore.removeContext("this-thread");
+      copilotKitCore.removeContext("other-thread");
+    });
+
+    it("drops the suggestion run when the consumer switches conversations while headers resolve", async () => {
+      const providerAgent = new MockAgent({ agentId: "default" });
+      const consumerAgent = new MockAgent({ agentId: "consumer" });
+      (consumerAgent as { threadId?: string }).threadId = "thread-a";
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: providerAgent as any,
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "consumer",
+        agent: consumerAgent as any,
+      });
+      copilotKitCore.upsertContext("thread-b-state", {
+        description: "Conversation B",
+        value: "b",
+        agentIds: ["consumer"],
+        threadId: "thread-b",
+      });
+      let releaseHeaders: () => void = () => {};
+      const headersGate = new Promise<void>((resolve) => {
+        releaseHeaders = resolve;
+      });
+      const prepare = vi
+        .spyOn(copilotKitCore as any, "prepareAgentHeadersForRun")
+        .mockImplementation(() => headersGate);
+
+      copilotKitCore.addSuggestionsConfig(createSuggestionsConfig());
+      copilotKitCore.reloadSuggestions("consumer");
+      await vi.waitFor(() => expect(prepare).toHaveBeenCalled());
+
+      // The user moves to conversation B while A's messages are being sent.
+      (consumerAgent as { threadId?: string }).threadId = "thread-b";
+      releaseHeaders();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // No run mixing A's messages with B's context.
+      expect(providerAgent.runAgentCalls).toHaveLength(0);
+      prepare.mockRestore();
+      copilotKitCore.removeContext("thread-b-state");
+    });
+
     it("should forward properties to suggestion provider agent", async () => {
       const providerAgent = new MockAgent({ agentId: "default" });
       const consumerAgent = new MockAgent({ agentId: "consumer" });

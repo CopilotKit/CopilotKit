@@ -21,6 +21,14 @@ import {
 } from "./constants";
 import { MCPAppsActivityContentSchema } from "./content-schema";
 import type { MCPAppsActivityContent } from "./content-schema";
+import {
+  MCP_APPS_MODEL_CONTEXT_CAPABILITY,
+  McpModelContextError,
+  ɵbuildModelContextEntry,
+  ɵmodelContextKey,
+  ɵsupportsModelContext,
+} from "./model-context";
+import type { McpModelContextStore } from "./model-context";
 
 /** Structural shape of an ag-ui activity message (avoids a hard type import). */
 interface ActivityLike {
@@ -192,8 +200,13 @@ export interface BindMcpAppOptions {
   getContent: () => MCPAppsActivityContent;
   /** Returns the current agent (may change across renders). */
   getAgent: () => AbstractAgent | undefined;
-  /** CopilotKit host, for ui/message follow-up runs (issue #5819). */
-  host: ɵMcpFollowUpHost;
+  /**
+   * CopilotKit host, for ui/message follow-up runs (issue #5819). When it can
+   * also store model context (`upsertContext` + `removeContext`, as
+   * `CopilotKitCore` does), the session announces `updateModelContext` and
+   * keeps the state widgets report through `ui/update-model-context`.
+   */
+  host: ɵMcpFollowUpHost & Partial<McpModelContextStore>;
   /**
    * The id of the activity message this session renders. When provided, the
    * session subscribes to the agent's message store, finds this activity, and
@@ -400,6 +413,32 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
   // time. The store subscription refuses to forward content for any other
   // identity (see `pushFromContent`).
   const boundIdentity = identityKeyOf(getContent());
+
+  // ui/update-model-context: the snapshot belongs to the agent and the
+  // conversation the widget was opened in, captured now. An iframe still
+  // mounted after the shared agent moved to another thread must not write
+  // into the new conversation. Without an activity message id, the instance
+  // gets an id of its own: a remount then starts from no snapshot.
+  const modelContextStore = ɵsupportsModelContext(host) ? host : undefined;
+  const boundAgent = getAgent();
+  const boundAgentId = boundAgent?.agentId;
+  const boundThreadId = boundAgent?.threadId;
+  const boundResource = (({ resourceUri, serverHash, serverId }) => ({
+    resourceUri,
+    serverHash,
+    serverId,
+  }))(getContent());
+  const modelContextInstanceId = messageId ?? `session:${randomUUID()}`;
+  // Announce the capability only when the context is really stored, and never
+  // keep one a frontend passed in its options without the storage behind it.
+  const { updateModelContext: _ignored, ...capabilitiesWithoutModelContext } =
+    settings.hostCapabilities as Record<string, unknown>;
+  const hostCapabilities = modelContextStore
+    ? {
+        ...capabilitiesWithoutModelContext,
+        updateModelContext: MCP_APPS_MODEL_CONTEXT_CAPABILITY,
+      }
+    : capabilitiesWithoutModelContext;
 
   // Ownership token for this session's queued work. Widget-scoped requests
   // (resources/read, tools/call) exist only to feed THIS iframe, so `teardown`
@@ -679,7 +718,7 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
       bridge = new AppBridge(
         null,
         settings.hostInfo,
-        settings.hostCapabilities,
+        hostCapabilities,
         // Seed the host context at construction so it is already in place when
         // the widget's ui/initialize is handled (deterministic, not a race).
         {
@@ -868,6 +907,51 @@ export function bindMcpApp(opts: BindMcpAppOptions): McpAppSession {
           runResult.result ?? {},
         );
       };
+
+      // ui/update-model-context: keep the widget's latest state for the next
+      // turns of its conversation. It adds no chat message, starts no run and
+      // goes through no queue. Only installed when the host can store it, so
+      // a host without storage answers "method not found" instead of
+      // acknowledging context it would drop.
+      if (modelContextStore) {
+        bridge.onupdatemodelcontext = async (params) => {
+          if (disposed) {
+            throw new McpModelContextError(
+              "The MCP App session is closed; the model context was not stored.",
+            );
+          }
+          const currentAgent = getAgent();
+          if (
+            boundAgentId === undefined ||
+            boundThreadId === undefined ||
+            currentAgent?.agentId !== boundAgentId ||
+            currentAgent.threadId !== boundThreadId
+          ) {
+            throw new McpModelContextError(
+              "The conversation this MCP App was opened in is no longer the current one; the model context was not stored.",
+            );
+          }
+          // Validates and serializes first: a refused update leaves the
+          // previous snapshot untouched.
+          const entry = ɵbuildModelContextEntry(params, boundResource);
+          const id = ɵmodelContextKey({
+            agentId: boundAgentId,
+            threadId: boundThreadId,
+            instanceId: modelContextInstanceId,
+            ...boundResource,
+          });
+          if (entry === null) {
+            modelContextStore.removeContext(id);
+          } else {
+            modelContextStore.upsertContext(id, {
+              ...entry,
+              agentIds: [boundAgentId],
+              threadId: boundThreadId,
+            });
+          }
+          return {};
+        };
+      }
 
       // --- App -> host notifications ---
       bridge.onsizechange = (p) => {
