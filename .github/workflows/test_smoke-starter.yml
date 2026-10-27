@@ -74,6 +74,16 @@ jobs:
   #     and there is nothing here to gate. Add them to both if that changes.
   detect-production-starters:
     runs-on: ubuntu-latest
+    # `release / publish` also runs on every closed PR to main (pull_request:
+    # closed), and those skipped runs report success — so a bare name match
+    # would start a full fleet run, and a Slack alert on failure, after almost
+    # every PR. On workflow_run, proceed only for an actual release: a build
+    # from a release/publish/* branch. Other triggers (PR, schedule, dispatch)
+    # are unaffected.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+        startsWith(github.event.workflow_run.head_branch, 'release/publish/'))
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
