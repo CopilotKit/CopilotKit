@@ -84,4 +84,15 @@ describe("props set to null", () => {
       ]),
     ).toBeUndefined();
   });
+
+  it("shows the app's fallback, when it set one, instead of the notice", async () => {
+    const view = renderSurface(
+      ui,
+      [{ id: "root", component: "Pick", selected: { "@path": "/selected" } }],
+      { selected: 42 },
+      { errorFallback: () => <span data-testid="app-fallback" /> },
+    );
+    expect(await view.findByTestId("app-fallback")).toBeTruthy();
+    expect(view.queryByText(/invalid props/)).toBeNull();
+  });
 });

@@ -7,8 +7,8 @@ import { ExpressionError, truthOf } from "./functions";
  * declare functions beyond the basic ones, and the model learns them from
  * the schema. The expression language is small and closed: numbers,
  * strings, booleans, the args by name, `+ - * / %`, comparisons, `&& || !`,
- * `cond ? a : b`, parentheses, and min, max, round, floor, ceil, abs. No
- * property access, no assignment, no code.
+ * `cond ? a : b`, parentheses, and min, max, round, floor, ceil, abs, pow.
+ * No property access, no assignment, no code.
  */
 
 type Value = number | string | boolean | null;
@@ -123,6 +123,8 @@ const MATH: Record<string, (args: number[]) => number> = {
   abs: ([x]) => Math.abs(x),
   floor: ([x]) => Math.floor(x),
   ceil: ([x]) => Math.ceil(x),
+  // Compound growth and loan payments need powers: (1 + r) ^ n is pow(1 + r, n).
+  pow: ([x, n]) => x ** n,
   round: ([x, decimals = 0]) => {
     const factor = 10 ** Math.trunc(decimals);
     return Math.round(x * factor) / factor;

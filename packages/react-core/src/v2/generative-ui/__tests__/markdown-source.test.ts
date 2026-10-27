@@ -839,4 +839,32 @@ describe("MarkdownSurfaceSource", () => {
       { kind: "surface", surfaceId: "new" },
     ]);
   });
+
+  it("shows a thread's surfaces again when the reader comes back to it", () => {
+    const { manager, sync } = syncedSource();
+    const threadA = [
+      assistant(
+        "a1",
+        fence([create("view"), components("view", button("root", "A"))]),
+      ),
+    ];
+    const threadB = [
+      assistant(
+        "b1",
+        fence([create("other"), components("other", button("root", "B"))]),
+      ),
+    ];
+    sync("A", threadA);
+    // Each switch first syncs the new thread id with the old thread's
+    // messages, so leaving A and coming back removes A's surface once.
+    sync("B", threadA);
+    sync("B", threadB);
+    sync("A", threadB);
+    sync("A", threadA);
+
+    expect(
+      manager.getSurface("A", "view")?.model.componentsModel.get("root")
+        ?.properties,
+    ).toEqual({ label: "A" });
+  });
 });
