@@ -14,6 +14,7 @@ export * from "./transcription-service/transcription-service";
 // Export CopilotKit Intelligence client and types
 export {
   CopilotKitIntelligence,
+  PlatformRequestError,
   LearnedSkillsError,
   type LearnedSkillsErrorCode,
   type GetLearnedSkillsSnapshotRequest,
@@ -64,3 +65,5 @@ export type { ChannelsControl, ChannelStatus } from "./core/channel-manager";
 export type CopilotKitRequestHandler = (params: {
   request: Request;
 }) => Promise<Response>;
+
+export type { experimental } from "./intelligence-platform";
