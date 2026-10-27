@@ -1,0 +1,194 @@
+---
+title: Posting JSX as images
+description: Post static JSX snapshots to managed Slack and Teams while keeping native channel messages interactive.
+icon: "lucide/Component"
+---
+
+Managed Slack and Teams can post static JSX cards as PNGs with `thread.post(<MrrCard />)`. The SDK uses Takumi to render fonts and compiled CSS without a browser, then uploads through the existing managed file path. Existing native channel components continue to render as Block Kit or Adaptive Cards.
+
+Existing apps do not need to migrate. Native messages, actions, and `<Chart>` keep their existing APIs. Rendering runs only when you post host JSX or use the new `<Render>` component. Start with the [managed Slack or Teams setup](/channels), then use the examples below in a thread handler.
+
+Image rendering is opt-in. React and Takumi, the rasterizer, are optional peer dependencies, and only the `@copilotkit/channels/takumi` entry point imports them. Apps that only post native messages do not install them, and their bundles never include Takumi.
+
+<Callout type="warn" title="Install react and takumi-js, then pass the renderer">
+  The image path renders through React and [Takumi](https://github.com/takumi-rs/takumi). Both are **optional peer dependencies** of `@copilotkit/channels`, so they are not pulled in automatically. Add them before posting images:
+
+  ```bash
+  pnpm add react takumi-js
+  ```
+
+  Then pass `takumiRenderer` from `@copilotkit/channels/takumi` as `render.renderer` (see the setup step below). Without a renderer, posting JSX as an image throws an error that names this setting.
+</Callout>
+
+<Callout type="info" title="Next.js: keep Takumi's native binary out of the bundle">
+  Takumi's native backend, `@takumi-rs/core`, contains a `.node` addon that Next.js cannot bundle. Add it to `serverExternalPackages`:
+
+  ```ts title="next.config.ts"
+  const nextConfig = {
+    serverExternalPackages: ["@takumi-rs/core"],
+  };
+  ```
+
+  If you use pnpm, or the build or the deployment reports a missing native binding, see the Takumi [Next.js guide](https://takumi.kane.tw/docs/integration/nextjs) and [troubleshooting page](https://takumi.kane.tw/docs/troubleshooting).
+</Callout>
+
+<Steps>
+  <Step>
+    ### How it's routed
+
+    `thread.post` expands component functions once per operation and classifies their output:
+
+    - Channel components such as `<Message>`, `<Header>`, and `<Button>` stay native, including when wrapped in your own component or a React fragment.
+    - Host markup such as `<div>`, `<span>`, and `<svg>` becomes a PNG through [Takumi](https://github.com/takumi-rs/takumi).
+    - To combine a snapshot with native text or buttons, put the snapshot inside `<Render>`.
+
+    ```tsx
+    /** @jsxImportSource @copilotkit/channels-ui */
+    import { Message, Header, Section } from "@copilotkit/channels-ui";
+
+    await thread.post(
+      <Message>
+        <Header>Deploy complete</Header>
+        <Section>Shipped v2.4.0 to production.</Section>
+      </Message>,
+    );
+
+    await thread.post(
+      <div style={{ display: "flex", padding: 32, backgroundColor: "white" }}>
+        <span style={{ fontSize: 48, color: "black" }}>MRR: $48,200</span>
+      </div>,
+      { altText: "Monthly recurring revenue is $48,200" },
+    );
+    ```
+
+    Use pure presentational components. Top-level component functions are expanded outside React's hook dispatcher, so hooks, browser APIs, and effects are unsupported. A reused native element renders again on each post or update; its output is not cached.
+
+    <Callout type="info" title="Image is URL-only">
+      `<Image url>` is a public URL image. It does not take children. To put a React snapshot inside native text, buttons, or a carousel, wrap it in `<Render>`. See [Render and carousel](/channels/render-and-carousel).
+    </Callout>
+  </Step>
+  <Step>
+    ### Configure the renderer, fonts, and styling once
+
+    Takumi is a static, browser-free rasterizer with no system fonts, only a built-in Latin (Geist) fallback. Register the renderer, your fonts, and your compiled CSS once on `createChannel({ render })`, and every image post picks them up:
+
+    ```ts title="bot.ts"
+    import { createChannel } from "@copilotkit/channels";
+    import { takumiRenderer } from "@copilotkit/channels/takumi";
+    import { readFileSync } from "node:fs";
+
+    const bot = createChannel({
+      name: "support", // managed channel configured in Intelligence
+      agent: (threadId) => /* ... */,
+      render: {
+        renderer: takumiRenderer, // required to post images
+        fonts: [
+          { name: "Inter", data: readFileSync("./fonts/Inter-Regular.woff2"), weight: 400 },
+          { name: "Inter", data: readFileSync("./fonts/Inter-SemiBold.woff2"), weight: 600 },
+        ],
+        stylesheets: [readFileSync("./styles/global.css", "utf8")], // compiled Tailwind
+        width: 720, // default canvas width; height defaults to 480
+      },
+    });
+    ```
+
+    `stylesheets` takes your compiled CSS as plain strings; class selectors, `var()`, and `@media` resolve. This example loads it with `node:fs` so it runs as-is under Node or tsx. If your build already emits the CSS as an importable string (Vite's `?inline` suffix, say), that is a bundler-only variant and will not run under plain `tsx`/`node`:
+
+    ```ts title="bot.ts (bundler-only variant, e.g. Vite)"
+    import appCss from "./styles/global.css?inline"; // compiled Tailwind, resolved by the bundler
+
+    // ...same createChannel call as above, with stylesheets: [appCss]
+    ```
+
+    <Callout type="warn" title="No fonts configured means Latin-only">
+      Takumi cannot detect missing glyphs before render, so the SDK warns once when no `fonts` are configured, and non-Latin text drops from the image. Any other Takumi render error is surfaced, not swallowed, so a broken font or stylesheet fails loudly.
+    </Callout>
+  </Step>
+  <Step>
+    ### Control what the renderer may fetch
+
+    **Remote resource fetching is disabled by default.** This includes remote images, CSS resources, and emoji sheets referenced by a snapshot. A blocked resource fails the entire snapshot with a URL-policy error. Plain text, inline markup, and configured font bytes can render without network access, but Takumi normally renders emoji through remote images: text such as `Success 🎉` also needs the emoji source to be explicitly allowed. Use text without emoji for an offline snapshot.
+
+    To include remote resources, opt in to an origin you control with `allowImageUrl`. This setting applies to server-side snapshot rendering; it does not restrict native `<Image url>` messages rendered by Slack or Teams.
+
+    ```ts title="bot.ts"
+    const bot = createChannel({
+      // ...
+      render: {
+        // Allow resources only from a trusted CDN.
+        allowImageUrl: (url) => new URL(url).origin === "https://cdn.example.com",
+      },
+    });
+    ```
+
+    <Callout type="warn" title="Trust the origins you allow">
+      The callback checks URLs and redirect targets, but cannot validate resolved IP addresses. If you enable fetching for untrusted content, also restrict network egress to prevent access to private services through DNS rebinding. `allowImageUrl` is channel-wide and cannot be overridden by a single post.
+    </Callout>
+  </Step>
+  <Step>
+    ### Override per post
+
+    Canvas dimensions, fonts, and stylesheets can be overridden for a single post, handy for a wider dashboard, a taller card, or an extra font just for that message:
+
+    ```tsx
+    await thread.post(<WideDashboard data={rows} />, { width: 1200 });
+    await thread.post(<CjkReport data={rows} />, { fonts: [notoSansJP] });
+    await thread.post(<MrrCard value="$48,200" delta={12} />, {
+      filename: "mrr.png",
+      title: "MRR",
+      altText: "Monthly recurring revenue card",
+    });
+    ```
+
+    `filename`, `title`, and `altText` are upload metadata passed straight through to `postFile`. They do not affect rendering.
+  </Step>
+  <Step>
+    ### Author cards with plain JSX
+
+    Write host tags (`<div>`, `<span>`, `<svg>`) and app or chart components (`<Sparkline/>`, `<BarChart/>`, your own components) as plain JSX. No `createElement` needed. The channels JSX runtime compiles the whole tree to nodes, and the image renderer materializes it back to React for Takumi.
+
+    A component nested inside a host card is resolved for you, so you can compose freely:
+
+    ```tsx
+    function Kpi({ label, value }: { label: string; value: string }) {
+      return (
+        <div className="flex flex-col gap-1.5 p-4 bg-card border rounded-xl">
+          <span className="text-sm text-muted-foreground">{label}</span>
+          <span className="text-3xl font-bold">{value}</span>
+        </div>
+      );
+    }
+
+    await thread.post(
+      <div className="flex gap-3 p-6 bg-background">
+        <Kpi label="Stars" value="22.4k" />
+        <Kpi label="Downloads" value="118k" />
+      </div>,
+    );
+    ```
+
+  </Step>
+  <Step>
+    ### Know the limits
+
+    Takumi is a static SSR rasterizer. It calls your components with server-render semantics, not a real browser. Keep this in mind:
+
+    - **No runtime-JS chart or diagram libraries.** Recharts, Chart.js, and Mermaid measure or paint the live DOM (`useEffect`, canvas, layout measurement), and none of that runs under Takumi. Use your own pure presentational markup instead.
+    - **`update()` and `postEphemeral()` do not accept arbitrary JSX.** An uploaded image cannot be edited in place, so both reject host image markup; React wrappers that return native channel components remain supported. Post a new image instead.
+    - **Snapshots inside native messages support `post()` and `update()`.** Use `<Render>` for this form. `postEphemeral()` rejects `<Render>` snapshots rather than silently dropping them.
+    - **Managed image uploads do not return an addressable message reference.** A successful image post currently returns `{ id: "" }` and warns once. Do not pass this reference to `update()`, `delete()`, or `react()`. Native messages, including messages containing `<Render>`, keep their normal references.
+    - **The canvas has a fixed size.** It defaults to 720 by 480. Pass `width`/`height` globally via `render`, or per post, for anything else.
+  </Step>
+</Steps>
+
+The new image feature targets managed Slack and Teams. Direct adapters and the other integrations are unchanged.
+
+## See it end to end
+
+The [`examples/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) app (`app/showcase/`) uses this for three "run it in your own Slack" features. Each one is a CopilotKit-branded card, and each is triggerable both by a slash command and by prompt (the agent calls the matching `render_*` tool; both share one `render*` fn):
+
+- **PR review radar** (`/prs`): a card of the oldest open PRs with age-colored badges, from GitHub's public API (no token).
+- **Weekly OSS pulse** (`/pulse`): a KPI card (stars, npm downloads, open issues) from GitHub and npm.
+- **Linear cycle standup** (`/standup`): a per-team progress card (one labelled bar per team) from Linear.
+
+The brand look is a compiled Tailwind stylesheet (`pnpm build:css`) plus Plus Jakarta Sans, fed once via `render.stylesheets` and `render.fonts`. Cards are authored with Tailwind classes and Takumi resolves them. Each feature reads live data and falls back to labelled sample data so it always runs. It is a concrete template for wiring your own dashboards.

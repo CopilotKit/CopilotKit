@@ -19,7 +19,7 @@
   "packages": [
     {
       "name": "@copilotkit/a2ui-renderer",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/a2ui-renderer",
       "entrypoints": [
         {
@@ -96,7 +96,7 @@
     },
     {
       "name": "@copilotkit/agentcore-runner",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/agentcore-runner",
       "entrypoints": [
         {
@@ -157,7 +157,7 @@
     },
     {
       "name": "@copilotkit/angular",
-      "version": "0.5.3",
+      "version": "0.6.0",
       "sourceDirectory": "packages/angular",
       "entrypoints": [
         {
@@ -249,7 +249,7 @@
     },
     {
       "name": "@copilotkit/channels",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "sourceDirectory": "packages/channels",
       "entrypoints": [
         {
@@ -351,6 +351,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/channels/takumi",
+          "exportKey": "./takumi",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/takumi.d.ts",
+            "import": "./dist/takumi.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels/package.json",
+            "selector": "exports[\"./takumi\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/channels/teams",
           "exportKey": "./teams",
           "kind": "code",
@@ -376,20 +390,6 @@
             "kind": "package-json",
             "path": "packages/channels/package.json",
             "selector": "exports[\"./teams/render\"]"
-          }
-        },
-        {
-          "importPath": "@copilotkit/channels/telegram",
-          "exportKey": "./telegram",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/telegram.d.ts",
-            "import": "./dist/telegram.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels/package.json",
-            "selector": "exports[\"./telegram\"]"
           }
         },
         {
@@ -440,13 +440,15 @@
           "@microsoft/agents-activity": "^1.5.3",
           "@microsoft/agents-hosting": "^1.5.3",
           "express": "^4.18.0 || ^5.0.0",
-          "vitest": "^4.0.0"
+          "react": ">=18",
+          "takumi-js": "^2.7.3"
         },
         "optionalPeerDependencies": [
           "@microsoft/agents-activity",
           "@microsoft/agents-hosting",
           "express",
-          "vitest"
+          "react",
+          "takumi-js"
         ],
         "provenance": [
           {
@@ -481,7 +483,7 @@
     },
     {
       "name": "@copilotkit/channels-core",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "sourceDirectory": "packages/channels-core",
       "entrypoints": [
         {
@@ -527,6 +529,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/channels-core/takumi",
+          "exportKey": "./takumi",
+          "kind": "code",
+          "conditions": {
+            "types": "./dist/render/takumi.d.ts",
+            "import": "./dist/render/takumi.js"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/channels-core/package.json",
+            "selector": "exports[\"./takumi\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/channels-core/testing",
           "exportKey": "./testing",
           "kind": "code",
@@ -543,10 +559,12 @@
       ],
       "compatibility": {
         "peerDependencies": {
-          "vitest": "^4.0.0"
+          "react": ">=18",
+          "takumi-js": "^2.7.3"
         },
         "optionalPeerDependencies": [
-          "vitest"
+          "react",
+          "takumi-js"
         ],
         "provenance": [
           {
@@ -581,7 +599,7 @@
     },
     {
       "name": "@copilotkit/channels-discord",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "sourceDirectory": "packages/channels-discord",
       "entrypoints": [
         {
@@ -622,7 +640,7 @@
     },
     {
       "name": "@copilotkit/channels-intelligence",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "sourceDirectory": "packages/channels-intelligence",
       "entrypoints": [
         {
@@ -663,7 +681,7 @@
     },
     {
       "name": "@copilotkit/channels-slack",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "sourceDirectory": "packages/channels-slack",
       "entrypoints": [
         {
@@ -732,7 +750,7 @@
     },
     {
       "name": "@copilotkit/channels-teams",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "sourceDirectory": "packages/channels-teams",
       "entrypoints": [
         {
@@ -807,49 +825,8 @@
       }
     },
     {
-      "name": "@copilotkit/channels-telegram",
-      "version": "0.11.0",
-      "sourceDirectory": "packages/channels-telegram",
-      "entrypoints": [
-        {
-          "importPath": "@copilotkit/channels-telegram",
-          "exportKey": ".",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels-telegram/package.json",
-            "selector": "exports[\".\"]"
-          }
-        }
-      ],
-      "compatibility": {
-        "provenance": []
-      },
-      "provenance": {
-        "name": {
-          "kind": "package-json",
-          "path": "packages/channels-telegram/package.json",
-          "selector": "name"
-        },
-        "version": {
-          "kind": "package-json",
-          "path": "packages/channels-telegram/package.json",
-          "selector": "version"
-        },
-        "releaseScope": {
-          "kind": "release-config",
-          "path": "release.config.json",
-          "selector": "scopes.channels.packages"
-        }
-      }
-    },
-    {
       "name": "@copilotkit/channels-ui",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "sourceDirectory": "packages/channels-ui",
       "entrypoints": [
         {
@@ -918,7 +895,7 @@
     },
     {
       "name": "@copilotkit/channels-whatsapp",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "sourceDirectory": "packages/channels-whatsapp",
       "entrypoints": [
         {
@@ -959,7 +936,7 @@
     },
     {
       "name": "@copilotkit/core",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/core",
       "entrypoints": [
         {
@@ -1020,7 +997,7 @@
     },
     {
       "name": "@copilotkit/intelligence-langgraph",
-      "version": "1.71.2",
+      "version": "1.72.0",
       "sourceDirectory": "packages/intelligence-langgraph",
       "entrypoints": [
         {
@@ -1092,7 +1069,7 @@
     },
     {
       "name": "@copilotkit/intelligence-mastra",
-      "version": "1.71.2",
+      "version": "1.72.0",
       "sourceDirectory": "packages/intelligence-mastra",
       "entrypoints": [
         {
@@ -1162,7 +1139,7 @@
     },
     {
       "name": "@copilotkit/learning",
-      "version": "0.0.1",
+      "version": "1.81.0",
       "sourceDirectory": "packages/learning",
       "entrypoints": [
         {
@@ -1217,13 +1194,13 @@
         "releaseScope": {
           "kind": "release-config",
           "path": "release.config.json",
-          "selector": "scopes.learning.packages"
+          "selector": "scopes.monorepo.packages"
         }
       }
     },
     {
       "name": "@copilotkit/mcp-apps-renderer",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/mcp-apps-renderer",
       "entrypoints": [
         {
@@ -1307,7 +1284,7 @@
     },
     {
       "name": "@copilotkit/react-core",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/react-core",
       "entrypoints": [
         {
@@ -1364,6 +1341,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/react-core/v2/generative-ui",
+          "exportKey": "./v2/generative-ui",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/v2/generative-ui.mjs",
+            "require": "./dist/v2/generative-ui.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "exports[\"./v2/generative-ui\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/react-core/v2/headless",
           "exportKey": "./v2/headless",
           "kind": "code",
@@ -1391,15 +1382,24 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "maplibre-gl": "^5.0.0",
           "react": "^18 || ^19 || ^19.0.0-rc",
           "react-dom": "^18 || ^19 || ^19.0.0-rc",
           "zod": ">=3.25"
         },
+        "optionalPeerDependencies": [
+          "maplibre-gl"
+        ],
         "provenance": [
           {
             "kind": "package-json",
             "path": "packages/react-core/package.json",
             "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/react-core/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
           }
         ]
       },
@@ -1423,7 +1423,7 @@
     },
     {
       "name": "@copilotkit/react-native",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/react-native",
       "entrypoints": [
         {
@@ -1618,7 +1618,7 @@
     },
     {
       "name": "@copilotkit/react-textarea",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/react-textarea",
       "entrypoints": [
         {
@@ -1691,7 +1691,7 @@
     },
     {
       "name": "@copilotkit/react-ui",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/react-ui",
       "entrypoints": [
         {
@@ -1774,7 +1774,7 @@
     },
     {
       "name": "@copilotkit/runtime",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/runtime",
       "entrypoints": [
         {
@@ -1953,7 +1953,7 @@
     },
     {
       "name": "@copilotkit/runtime-client-gql",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/runtime-client-gql",
       "entrypoints": [
         {
@@ -2014,7 +2014,7 @@
     },
     {
       "name": "@copilotkit/sdk-js",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/sdk-js",
       "entrypoints": [
         {
@@ -2121,7 +2121,7 @@
     },
     {
       "name": "@copilotkit/shared",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/shared",
       "entrypoints": [
         {
@@ -2210,7 +2210,7 @@
     },
     {
       "name": "@copilotkit/sqlite-runner",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/sqlite-runner",
       "entrypoints": [
         {
@@ -2287,7 +2287,7 @@
     },
     {
       "name": "@copilotkit/voice",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/voice",
       "entrypoints": [
         {
@@ -2356,7 +2356,7 @@
     },
     {
       "name": "@copilotkit/vue",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/vue",
       "entrypoints": [
         {
@@ -2462,7 +2462,7 @@
     },
     {
       "name": "@copilotkit/web-components",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/web-components",
       "entrypoints": [
         {
@@ -2557,7 +2557,7 @@
     },
     {
       "name": "@copilotkit/web-inspector",
-      "version": "1.79.0",
+      "version": "1.81.0",
       "sourceDirectory": "packages/web-inspector",
       "entrypoints": [
         {

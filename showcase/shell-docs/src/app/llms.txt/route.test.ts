@@ -25,3 +25,15 @@ test("exports unique curated links that resolve to published pages and the full 
     if (page.url) expect(published.has(page.url), page.url).toBe(true);
   }
 });
+
+test("keeps one canonical Vue entry in the curated index", async () => {
+  const body = await GET().text();
+  const vuePages = CURATED_LLM_PAGES.filter(
+    (page) => page.url === "vue" || page.url.startsWith("vue/"),
+  );
+
+  expect(vuePages).toEqual([
+    expect.objectContaining({ url: "vue", title: "Vue Frontend" }),
+  ]);
+  expect(body).toContain(`- [Vue Frontend](${getBaseUrl()}/vue):`);
+});

@@ -16,6 +16,98 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.81.0 - 2026-10-27
+
+### Features
+
+- feat: native generative UI (createGenerativeUI, tool and markdown transports, standard catalog, inspector pane) (#7819) (2aff26d)
+- feat(runtime): add server-side Learning management methods (#7977) (6960c50)
+
+### Fixes
+
+- fix(inspector): accept local dashboards and retry Learning status (#7966) (44247a4)
+- fix(runtime): run v1 service adapters through their own process() again (#7756) (2d7362b)
+- fix(vue): keep CopilotChat full width in a flex row (closes PE-1053) (#8008) (0c7efff)
+- fix(react-native): time out stalled streams, not long ones (#7954) (3b5617b)
+- fix(shared): withhold unterminated numbers in partialJSONParse (#7950) (d01d9c7)
+- fix(react-core): let a custom chat input layout grow its textarea (#7964) (3cc0e69)
+- fix(runtime): handle pre-parsed request bodies in createCopilotNodeHandler (#7970) (37ed094)
+
+### Breaking Changes
+
+None
+
+## 1.80.0 - 2026-10-24
+
+### Features
+
+- feat(react-core): collect reply ratings with comments for Automatic Learning (#7828) (4930320)
+- feat(react-core): collapse tool calls made in a row (#7938) (f0a2490)
+
+### Fixes
+
+- fix(mcp-apps)!: give MCP App widgets an opaque origin by default (#7896) (b0c1736)
+- fix(core): scope stopAgent and run aborts to one agent (#7920) (dd9f04b)
+- fix(release): release @copilotkit/learning with the monorepo packages (#7949) (56c1056)
+- fix(a2ui-renderer): return the onAction promise so dispatchAction waits for it (#7911) (6429c79)
+- fix(mcp-apps-renderer): refuse open-links that resolve off-origin (#7635) (4177870)
+- fix(a2ui-renderer)!: type createCatalog renderer props as the binder resolves them (#7815) (0ea6f28)
+- fix(runtime): send RUN_ERROR when an SSE run fails instead of an empty stream (#7917) (3f73c87)
+- fix(runtime): expose nested LangGraph tool metadata on copilotkit.actions (#7870) (08f41c8)
+- fix(core): keep the error on tool calls that throw without a message (b4cb0ef)
+- fix(core): set error on the tool message when a tool handler throws (59ba1aa)
+- fix(core): don't move a tool result in front of reasoning stored before it (#7901) (7e8e10b)
+- fix(core): always re-pair tool results with their calls before sending a run (#7877) (4225da2)
+- fix(core): restore missing frontend tool results on reopen (#7847) (99f29ee)
+- fix(react-core): preserve chat scroll after hidden host (#7425) (49c7f17)
+- fix(react-core): accept a render-only useCopilotAction, and name the action in its config error (closes PE-921) (#7875) (d65c046)
+- fix(react-core,vue,angular): name the chat's icon-only buttons from labels (#7865) (8c6620b)
+- fix(runtime): keep tool-only assistant turns in afterRequestMiddleware messages (#7861) (a1f9a2f)
+- fix(runtime-client-gql): declare the packages its published types import (#7818) (f46dcbb)
+- fix(web-inspector): show Trajectory evidence on Learning Insights (#7812) (7b446f8)
+- fix(react-core): don't stringify tool-hook deps (closes PE-848) (#7830) (d8a2ccb)
+
+### Other Changes
+
+- perf(core): avoid repeated tool-call repair (#7748) (2c19c57)
+- docs(runtime): mark BuiltInAgentModel ids as suggestions, list current GPT-5 ids (#7957) (25bdfe6)
+- refactor: remove unreachable modules from react-core, runtime and shared (#7918) (03198b0)
+- perf(runtime): request only message ids for the run-start history lookup (#7796) (e29aa9f)
+
+### Breaking Changes
+
+- fix(mcp-apps)!: give MCP App widgets an opaque origin by default (#7896) (b0c1736)
+  MCP App widgets now run in a sandbox without
+  allow-same-origin, so they get an opaque origin and cannot use
+  localStorage, sessionStorage, IndexedDB or cookies.
+  Requests from a widget that need CORS, such as module scripts and fetch,
+  are now sent with Origin: null. Serve public widget assets with
+- fix(a2ui-renderer)!: type createCatalog renderer props as the binder resolves them (#7815) (0ea6f28)
+  `createCatalog` renderers (and the deprecated
+  `createA2UICatalog` `render`) now get props typed as the A2UI binder
+  resolves them, so code written against the raw schema types can stop
+  compiling.
+  Call Action props as functions, for example `props.onPress()`, instead
+  of reading them as action objects.
+  Use bound props as plain values (`props.level` is a `number`) and drop
+  handling of the `{ path }` and `{ call }` shapes, which renderers never
+  receive at runtime.
+  A plain `z.array(z.string())` prop now resolves to `any` like a child
+  list, so annotate callback parameters, for example
+  `props.children.map((id: string) => …)`.
+
+## 1.79.1 - 2026-10-15
+
+### Features
+
+- feat(runtime): assign Trajectories to Learning Spaces on the server (#7601) (81ca993)
+
+### Fixes
+
+- fix(web-inspector): coalesce streaming transcript refreshes (#7832) (16a1b46)
+- fix(a2ui-renderer): type RendererProps.children as (id, basePath?) (#7801) (5bdb483)
+- fix(release): stop one scope's version line freezing another's (refs OSS-1107) (#6856) (93b2ecd)
+
 ## 1.79.0 - 2026-10-12
 
 ### Features

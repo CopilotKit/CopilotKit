@@ -14,6 +14,7 @@ on:
       # docs-release-workflows.test.ts must gate changes to these workflows.
       - ".github/workflows/docs_open_release_pr.yml"
       - ".github/workflows/docs_promote.yml"
+      - ".github/workflows/showcase_promote.yml"
       # This job runs showcase/scripts/advance-latest-tag.test.ts, which
       # asserts against the LIVE text of showcase_build.yml (that the build
       # step pushes no `:latest`, stamps the revision label, and runs the
@@ -21,6 +22,7 @@ on:
       # PR that could break it — a change re-adding `:latest` to the push
       # would sail through untested.
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
   push:
     branches: [main]
     paths:
@@ -34,7 +36,9 @@ on:
       - ".github/workflows/showcase_deploy.yml"
       - ".github/workflows/docs_open_release_pr.yml"
       - ".github/workflows/docs_promote.yml"
+      - ".github/workflows/showcase_promote.yml"
       - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
 
 # Least-privilege by default. Individual jobs/steps can widen when needed.
 permissions:
@@ -810,11 +814,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: Run showcase package Python unit tests
-        # Keep scope narrow: only showcase/integrations/*/tests/python/ directories
-        # (not e2e, not langgraph which has its own runtime). Each package has
-        # its own conftest.py that wires up import paths; we cd into the pkg
-        # dir so those apply.
+      - name: Run showcase package Python tests
+        # Keep scope narrow: showcase/integrations/*/tests/python/ directories
+        # and Strands tests/native/ (not e2e or langgraph's own runtime). Each
+        # package has its own conftest.py that wires up import paths; we cd into
+        # the pkg dir so those apply.
         #
         # Each package runs in its own virtual environment, which holds the
         # test deps plus that package's own `requirements.txt` (if present), so
@@ -861,8 +865,10 @@ jobs:
             # langroid: tests import `typing.Self` (3.11+); on 3.10 the import fails
             # at collection time. typing_extensions.Self would fix it but the tests
             # are tightly coupled to the modern typing module.
+            # google-adk: the pinned google-adk==2.12.0 declares `requires-python >=3.11`;
+            # the package Dockerfile uses Python 3.12.
             # Revisit when ag_ui_strands relaxes its floor or when 3.10 is dropped.
-            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "claude-sdk-python" ] || [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
+            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "claude-sdk-python" ] || [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ] || [ "$pkg" = "google-adk" ]; }; then
               echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (requires >=3.11/3.12)"
               continue
             fi
@@ -908,6 +914,12 @@ jobs:
             # a conftest.py omits the sys.path setup. Mirrors the local dev
             # convention (`PYTHONPATH=. python ...` in package.json scripts).
             (cd "$pkg_dir" && env $pkg_extra_env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/python/ -v) || failed=1
+            if [ "$pkg" = "strands" ]; then
+              # A fresh process keeps tests/python/conftest.py's SDK substitutes
+              # out of the real SDK tool execution and session persistence gate.
+              echo "--- pytest native: $pkg ---"
+              (cd "$pkg_dir" && env PYTHONPATH=".:src:${PYTHONPATH:-}" "$pkg_python" -m pytest tests/native/ -v) || failed=1
+            fi
           done
           if [ "$found" -eq 0 ]; then
             echo "::warning::No showcase/integrations/*/tests/python/ directories found"

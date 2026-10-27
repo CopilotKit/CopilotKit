@@ -277,7 +277,9 @@ onBeforeUnmount(() => {
     data-copilot-sidebar
     :class="asideClass"
     :style="asideStyle"
-    aria-label="Copilot chat sidebar"
+    :aria-label="
+      config?.labels.sidebarLabel ?? CopilotChatDefaultLabels.sidebarLabel
+    "
     :aria-hidden="!isSidebarOpen"
     role="complementary"
     v-bind="asideAttrs"

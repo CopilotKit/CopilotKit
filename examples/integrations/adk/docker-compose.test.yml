@@ -1,5 +1,6 @@
 services:
   aimock:
+    networks: [mock]
     image: ghcr.io/copilotkit/aimock:latest
     volumes:
       - ./fixtures:/fixtures:ro
@@ -7,17 +8,14 @@ services:
       ["--fixtures", "/fixtures", "--host", "0.0.0.0", "--validate-on-load"]
 
   agent:
+    networks: [mock]
     build:
       context: ./agent
       dockerfile: ../docker/Dockerfile.agent
     environment:
-      # google-genai SDK does not honor a custom endpoint the way the
-      # OpenAI / Anthropic clients do, so aimock can't intercept calls
-      # from the adk agent — the SDK hits generativelanguage.googleapis.com
-      # directly. Pass a real key via CI secret (see .github/workflows/
-      # test_smoke-starter.yml). Fall back to the placeholder for local
-      # dev runs where the local harness may provide its own stub.
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-test-key-for-aimock}
+      # google-genai reads this Gemini endpoint override before its default.
+      - GOOGLE_GEMINI_BASE_URL=http://aimock:4010
+      - GOOGLE_API_KEY=test-key-for-aimock
       - GOOGLE_GENAI_USE_VERTEXAI=false
     depends_on:
       aimock:
@@ -36,6 +34,7 @@ services:
       start_period: 30s
 
   app:
+    networks: [mock]
     build:
       context: .
       dockerfile: docker/Dockerfile.app
@@ -58,6 +57,8 @@ services:
       start_period: 60s
 
   tests:
+    # Only the test runner needs package/browser download access.
+    networks: [mock, default]
     image: mcr.microsoft.com/playwright:v1.52.0-noble
     working_dir: /tests
     volumes:
@@ -78,3 +79,8 @@ services:
 
 volumes:
   test-results:
+
+networks:
+  mock:
+    internal: true
+  default: {}

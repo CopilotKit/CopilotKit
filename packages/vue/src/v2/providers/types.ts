@@ -5,6 +5,8 @@ export const CopilotChatDefaultLabels = {
   chatInputToolbarFinishTranscribeButtonLabel: "Finish",
   chatInputToolbarAddButtonLabel: "Add photos or files",
   chatInputToolbarToolsButtonLabel: "Tools",
+  chatInputToolbarSendButtonLabel: "Send message",
+  chatInputToolbarStopButtonLabel: "Stop",
   assistantMessageToolbarCopyCodeLabel: "Copy",
   assistantMessageToolbarCopyCodeCopiedLabel: "Copied",
   assistantMessageToolbarCopyMessageLabel: "Copy",
@@ -14,12 +16,24 @@ export const CopilotChatDefaultLabels = {
   assistantMessageToolbarRegenerateLabel: "Regenerate",
   userMessageToolbarCopyMessageLabel: "Copy",
   userMessageToolbarEditMessageLabel: "Edit",
+  userMessageToolbarPreviousBranchLabel: "Previous branch",
+  userMessageToolbarNextBranchLabel: "Next branch",
   chatDisclaimerText:
     "AI can make mistakes. Please verify important information.",
   chatToggleOpenLabel: "Open chat",
   chatToggleCloseLabel: "Close chat",
+  chatScrollToBottomLabel: "Scroll to bottom",
   modalHeaderTitle: "CopilotKit Chat",
   welcomeMessageText: "How can I help you today?",
+  reasoningMessageThinkingLabel: "Thinking…",
+  chatInputSlashMenuLabel: "Slash commands",
+  chatInputSlashMenuEmptyText: "No commands found",
+  attachmentRemoveButtonLabel: "Remove attachment",
+  attachmentPlayVideoButtonLabel: "Play video",
+  attachmentPreviewCloseButtonLabel: "Close preview",
+  modalHeaderCloseButtonLabel: "Close",
+  modalHeaderThreadsButtonLabel: "Open threads",
+  sidebarLabel: "Copilot chat sidebar",
 } as const;
 
 export type CopilotChatLabels = typeof CopilotChatDefaultLabels;

@@ -69,15 +69,11 @@ export function partnerShowcaseDemos(
     )
     .flatMap((cell) => {
       const source = getDemo(integration, cell.feature);
-      if (!source?.demo.route || !source.integration.backend_url) return [];
+      if (!source?.integration.backend_url || !cell.demo_route) return [];
       return [
         {
-          embedHref: new URL(
-            frontend === "angular"
-              ? `/angular/${cell.feature}`
-              : source.demo.route,
-            source.integration.backend_url,
-          ).href,
+          embedHref: new URL(cell.demo_route, source.integration.backend_url)
+            .href,
           id: cell.feature,
           ...FEATURE_COPY[cell.feature],
           href: `https://showcase.copilotkit.ai/${frontend}/${integration}/${cell.feature}`,

@@ -74,6 +74,7 @@ export function installStreamingFetch(): void {
     }
   }
 
+  const IDLE_TIMEOUT_MS = 60_000;
   const originalFetch = global.fetch;
   const TextEncoder = global.TextEncoder;
 
@@ -107,10 +108,20 @@ export function installStreamingFetch(): void {
       const xhr = new XMLHttpRequest();
       xhr.open(method, url);
 
-      // Default 60s timeout to prevent hanging on stalled mobile connections
-      // (WiFi→cellular transitions, tunnels, serverless cold starts).
-      // Callers can still use AbortSignal.timeout() for finer control.
-      xhr.timeout = 60_000;
+      // Fail after 60s with no data, to avoid hanging on stalled mobile
+      // connections (WiFi→cellular transitions, tunnels, serverless cold
+      // starts). This is an idle timeout, not xhr.timeout: a total limit would
+      // also cut a healthy stream that runs longer than a minute (#7951).
+      // To cap the total time, callers can pass the signal of an AbortController
+      // and abort it from a timer (React Native's polyfill has no AbortSignal.timeout()).
+      let idleTimer: ReturnType<typeof setTimeout> | undefined;
+      function resetIdleTimer() {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          fail(new TypeError("Network request timed out"));
+          xhr.abort();
+        }, IDLE_TIMEOUT_MS);
+      }
 
       let headerEntries: [string, string][];
       if (headers instanceof Headers) {
@@ -172,6 +183,7 @@ export function installStreamingFetch(): void {
       /** Centralized error handler — errors the stream, rejects fullTextPromise,
        *  and rejects the outer fetch promise if not yet settled. */
       function fail(err: Error) {
+        clearTimeout(idleTimer);
         cleanupAbortListener();
         errorStream(err);
         rejectFullText(err);
@@ -201,6 +213,7 @@ export function installStreamingFetch(): void {
           streamController = controller;
         },
         cancel() {
+          clearTimeout(idleTimer);
           xhr.abort();
           rejectFullText(createAbortError());
         },
@@ -215,6 +228,7 @@ export function installStreamingFetch(): void {
       // in Hermes) with negligible latency — streaming still feels real-time.
 
       xhr.onprogress = function () {
+        resetIdleTimer();
         setTimeout(() => {
           try {
             flushChunks();
@@ -226,6 +240,7 @@ export function installStreamingFetch(): void {
       };
 
       xhr.onload = function () {
+        clearTimeout(idleTimer);
         setTimeout(() => {
           cleanupAbortListener();
           try {
@@ -259,6 +274,7 @@ export function installStreamingFetch(): void {
         // Capture XHR state synchronously before deferring — XHR properties
         // may change between now and when setTimeout fires.
         const readyState = xhr.readyState;
+        if (readyState < 4) resetIdleTimer();
         const xhrStatus = xhr.status;
         const xhrStatusText = xhr.statusText;
         const rawHeaders = xhr.getAllResponseHeaders() || "";
@@ -358,6 +374,7 @@ export function installStreamingFetch(): void {
         }, 0);
       };
 
+      resetIdleTimer();
       xhr.send(body ?? null);
     });
   };

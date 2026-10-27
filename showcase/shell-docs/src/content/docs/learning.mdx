@@ -10,7 +10,7 @@ import InspectorPaneLearning from "@/snippets/shared/inspector/open-inspector-pa
 
 ## Overview
 
-Automatic Learning turns patterns from real agent runs into skills you can publish. It reads completed conversations in [AG-UI Streams](/threads), writes insights, and proposes instructions you review before you publish them.
+Automatic Learning turns patterns from real agent runs into skills you can publish. It reads completed conversations in [AG-UI Streams](/AG-UI-Streams), writes insights, and proposes instructions you review before you publish them.
 
 <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
   <iframe
@@ -80,7 +80,7 @@ When you are done, your Runtime will send selected Threads to a Learning contain
   <Step>
     ### Connect CopilotKit Intelligence
 
-    Complete the [Intelligence quickstart](/intelligence/quickstart). That page signs you in with the CLI and selects the project. Then send a message and make sure that it appears in [AG-UI Streams](/threads). Open your project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and make sure that Learning is available.
+    Complete the [Intelligence quickstart](/intelligence/quickstart). That page signs you in with the CLI and selects the project. Then send a message and make sure that it appears in [AG-UI Streams](/AG-UI-Streams). Open your project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and make sure that Learning is available.
 
   </Step>
 
@@ -90,6 +90,28 @@ When you are done, your Runtime will send selected Threads to a Learning contain
     In your Intelligence project, open **Learning** and choose **Create Learning container**. Give the container a stable ID, a descriptive name, and optional guidance about what good work looks like.
 
     Keep each container focused on one kind of work, such as expense review, support quality, or customer onboarding. Stable IDs contain 1–64 lowercase letters, numbers, or single hyphens; for example, `expense-review`.
+
+    You can also use the CLI. Run these commands in the folder where you selected the project. First, list the containers that already exist:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest learning containers list
+    ```
+
+    If a container for this kind of work exists, reuse its ID. Do not create a second container for the same work.
+
+    If no container fits, print the default container ID for your project. The CLI makes this ID from your project slug. It does not check whether the container exists.
+
+    ```bash title="Terminal"
+    npx copilotkit@latest learning containers default-id
+    ```
+
+    Then create the container with that ID and a name:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest learning containers create --id <container-id> --name "<container name>"
+    ```
+
+    To give guidance about what good work looks like, you can also add `--prompt-context` with a text value, for example `--prompt-context "Use approved answers."`.
 
   </Step>
 
@@ -156,6 +178,95 @@ When you are done, your Runtime will send selected Threads to a Learning contain
 </Steps>
 
 <InspectorPaneLearning />
+
+## Manage Learning from your server
+
+`CopilotKitIntelligence` can list containers, start manual runs, and review proposed Skills from your application server.
+The experimental Learning management methods require an Intelligence deployment with the runtime Learning management API. Their SDK contracts can change before release.
+They use the project API key from the existing client configuration.
+
+Keep the key on your server. Authorize each application user before you call these methods.
+A project key can read evidence and publish Skills across that project.
+It does not represent the person who clicked a control in your application.
+
+### Select a container and start a run
+
+```ts title="Application server"
+import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+});
+
+const page = await intelligence.experimental.learning.listLearningContainers();
+// Use page.nextCursor to request another page when it is not null.
+const container = await intelligence.experimental.learning.getLearningContainer({
+  containerId: "expense-review",
+});
+
+// Call only after the authorized user requests a manual run.
+const admittedRun = await intelligence.experimental.learning.startLearningRun({
+  containerId: container.id,
+});
+const runs = await intelligence.experimental.learning.listLearningRuns({
+  containerId: container.id,
+});
+const progress = runs.find((run) => run.id === admittedRun.id);
+```
+
+A successful start response confirms admission, not completion. `listLearningRuns` returns the latest 100 runs, including their status and failure code.
+A manual run analyzes eligible evidence across the selected container, including evidence from other applications that share it.
+These methods do not upload workspace files, move Threads, or change their assignments.
+
+### Review a proposed Skill
+
+```ts title="Application server"
+const candidates = await intelligence.experimental.learning.listLearningCandidates({
+  containerId: "expense-review",
+});
+const pending = candidates.find((item) => item.status === "pending_review");
+if (pending) {
+  const candidate = await intelligence.experimental.learning.getLearningCandidate({
+    containerId: "expense-review",
+    candidateId: pending.id,
+  });
+  const evidence = await Promise.all(
+    candidate.supportingInsights.map((insight) =>
+      intelligence.experimental.learning.getLearningInsightEvidence({
+        containerId: "expense-review",
+        insightId: insight.id,
+      }),
+    ),
+  );
+  // Show candidate.bundle.files and evidence to the authorized reviewer.
+}
+```
+
+`listLearningCandidates` returns the latest 500 candidates, including completed reviews.
+Evidence includes availability fields for missing Threads and Trajectories.
+
+After the reviewer explicitly chooses **Approve** or **Reject**, call `reviewLearningCandidate` from your authorized server handler:
+
+```ts title="Authorized review handler"
+const review = await intelligence.experimental.learning.reviewLearningCandidate({
+  containerId: "expense-review",
+  candidateId, // The candidate the reviewer inspected.
+  action: "approve", // Use "reject" for an explicit rejection.
+});
+```
+
+Approval publishes the proposed change to the shared container. Rejection does not publish it.
+Published Skill content remains available through [Skill delivery](/intelligence/learned-skills).
+
+### Handle errors and cancellation
+
+All management methods accept an optional `signal: AbortSignal` and have a 30-second request deadline.
+Cancellation stops the request; it does not undo a run or review that the server already accepted.
+The SDK does not retry these requests automatically.
+
+HTTP errors use the exported `PlatformRequestError` with `status`, `retryable`, and an optional backend `code`.
+Error messages omit raw backend details. Invalid responses fail instead of returning partial data.
+If a write response is lost, read the current runs or candidate before you offer another action.
 
 ## Use published Skills
 
@@ -236,6 +347,6 @@ The output contains a directory and `SKILL.md` for each published Skill. Configu
 
 - [CopilotKit Intelligence overview](/intelligence/overview)
 - [Connect CopilotKit Intelligence](/intelligence/quickstart)
-- [AG-UI Streams](/threads)
+- [AG-UI Streams](/AG-UI-Streams)
 - [AG-UI Streams & Framework Threads](/intelligence/threads-explained)
 - [CopilotKit CLI](/cli)

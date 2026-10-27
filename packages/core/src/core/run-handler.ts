@@ -8,7 +8,11 @@ import type {
   ToolCall,
   ContentPart,
 } from "@ag-ui/client";
-import { randomUUID, logger } from "@copilotkit/shared";
+import {
+  randomUUID,
+  logger,
+  THREAD_ALREADY_RUNNING_ERROR_CODE,
+} from "@copilotkit/shared";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
@@ -35,6 +39,15 @@ const liveHITLStops = new WeakMap<AbortSignal, () => boolean>();
 
 // Explicitly stopping a live approval must retain its error result. History
 // restoration and thread-switch cancellation instead discard the old result.
+/**
+ * The message a failed tool call reports. An error thrown with an empty
+ * message still means the call failed, so it gets a fallback rather than an
+ * empty string, which everything downstream reads as success.
+ */
+function toolFailureMessage(error: Error): string {
+  return error.message || "Tool call failed";
+}
+
 function discardAbortedResult(
   signal: AbortSignal | undefined,
   discardOnAbort: boolean,
@@ -127,6 +140,9 @@ export interface CopilotKitCoreCatalogComponent {
   schema: unknown;
 }
 
+/** How many recent runs keep their request ID for a later approval resume. */
+const MAX_REMEMBERED_REQUEST_IDS = 100;
+
 /**
  * Absolute safety cap on the depth of recursive follow-up runs triggered by
  * `processAgentResult`. Without this, any scenario that keeps
@@ -215,19 +231,45 @@ export class RunHandler {
   private _warnedMissingToolParameters = new Set<string>();
 
   /**
-   * Tracks whether the current run (including in-flight tool execution)
-   * has been aborted via `stopAgent()` or `agent.abortRun()`. Created
-   * fresh in `runAgent()`, aborted by `abortCurrentRun()`.
+   * Abort controllers of each agent's in-flight run chains (a run plus its
+   * recursive follow-ups), recording whether a chain, including its tool
+   * execution, was aborted via `stopAgent()` or `agent.abortRun()`. Every run
+   * that is not a follow-up gets a fresh controller, so a run started after
+   * Stop is not born aborted while the stopped chain is still settling. Keyed
+   * by agent so that stopping one agent never cancels another agent's run on
+   * the same core.
    */
-  private _runAbortController: AbortController | null = null;
+  private _runAbortControllers = new WeakMap<
+    AbstractAgent,
+    Set<AbortController>
+  >();
 
   /**
-   * Tracks recursive `runAgent` depth so that the abort controller and
-   * `agent.abortRun()` intercept are only set up / torn down at the
-   * top-level call, not on follow-up recursive calls from
-   * `processAgentResult`.
+   * Per-agent `runAgent` depth (in-flight runs plus their recursive
+   * follow-ups), so that the `agent.abortRun()` intercept is installed while
+   * any of the agent's runs is in flight and removed once none is, and so
+   * that runaway follow-up chains trip `MAX_FOLLOW_UP_DEPTH`.
    */
-  private _runDepth = 0;
+  private _runDepths = new WeakMap<AbstractAgent, number>();
+
+  /**
+   * Each agent's own `abortRun`, saved while RunHandler's intercept is
+   * installed. Restored only once none of the agent's runs is in flight, so an
+   * overlapping run keeps the intercept after an earlier run finishes.
+   */
+  private _originalAbortRuns = new WeakMap<AbstractAgent, () => void>();
+
+  /**
+   * The request each agent's in-flight run belongs to. Its follow-up runs
+   * send the same ID, so Intelligence counts the chain as one request.
+   */
+  private _activeRequestIds = new WeakMap<AbstractAgent, string>();
+
+  /**
+   * Request IDs of recent logical runs, so an approval that resumes a paused
+   * run sends the ID of the request that paused. Oldest entries go first.
+   */
+  private _requestIdByRun = new Map<string, string>();
 
   /**
    * Keeps tools that opt in via `webmcp` registered on the page's WebMCP model
@@ -278,7 +320,7 @@ export class RunHandler {
    * not start a follow-up run.
    */
   abortCurrentRun(agent: AbstractAgent): void {
-    this._runAbortController?.abort();
+    this.abortAgentRuns(agent);
     const replay = this._interactionAbortControllers.get(agent);
     if (replay) {
       for (const controller of replay.controllers) controller.abort();
@@ -287,6 +329,21 @@ export class RunHandler {
       // reconnect restore it without waiting for its execution marker to clear.
       this._executingToolCalls.delete(agent);
     }
+  }
+
+  private abortAgentRuns(agent: AbstractAgent): void {
+    for (const controller of this._runAbortControllers.get(agent) ?? []) {
+      controller.abort();
+    }
+  }
+
+  /** Signal of the agent's most recently started in-flight run, if any. */
+  private latestRunSignal(agent: AbstractAgent): AbortSignal | undefined {
+    let latest: AbortController | undefined;
+    for (const controller of this._runAbortControllers.get(agent) ?? []) {
+      latest = controller;
+    }
+    return latest?.signal;
   }
 
   /**
@@ -606,7 +663,7 @@ export class RunHandler {
 
       const runAgentResult = await agent.connectAgent(
         {
-          forwardedProps: this._internal.properties,
+          forwardedProps: this._internal.getPropertiesForAgent(agent.agentId),
           tools: this.buildFrontendTools(agent.agentId),
           context: this._internal.getContextForAgent(agent.agentId),
         },
@@ -680,6 +737,11 @@ export class RunHandler {
   async runAgent(
     { agent, forwardedProps, resume, runId }: CopilotKitCoreRunAgentParams,
     continuationHandoff?: CopilotKitCoreContinuationHandoff,
+    /**
+     * Set only by `processAgentResult` for a recursive follow-up: the
+     * controller of the run being followed up, which the follow-up shares.
+     */
+    followUpOf?: AbortController,
   ): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
@@ -738,45 +800,74 @@ export class RunHandler {
           )
         : undefined);
 
-    // Set up abort controller and agent.abortRun() intercept only for the
-    // top-level call. Recursive follow-up calls from processAgentResult
-    // reuse the same controller.
-    const isTopLevel = this._runDepth === 0;
-    let originalAbortRun: (() => void) | undefined;
+    // Every run that is not a recursive follow-up gets its own controller;
+    // follow-ups share the controller of the run they continue. Whether a
+    // call is a follow-up is passed explicitly rather than inferred from the
+    // depth, because a run started after Stop, while the stopped run's tool
+    // handlers are still settling, must not inherit the aborted controller.
+    const isFollowUp = followUpOf !== undefined;
+    const controller = followUpOf ?? new AbortController();
+    // The depth is claimed in the same synchronous step as the intercept
+    // decision, so two runs started in one tick cannot both see depth 0.
+    const depth = this._runDepths.get(agent) ?? 0;
+    this._runDepths.set(agent, depth + 1);
 
-    if (isTopLevel) {
-      this._runAbortController = new AbortController();
+    // A follow-up or a resume continues the request that started it. Anything
+    // else is a new request.
+    const continuedRunId =
+      resumedRunId ?? (continuationHandoff ? runId : undefined);
+    const requestId =
+      (continuationHandoff ? this._activeRequestIds.get(agent) : undefined) ??
+      (continuedRunId !== undefined
+        ? this._requestIdByRun.get(continuedRunId)
+        : undefined) ??
+      randomUUID();
 
+    if (!isFollowUp) {
+      const controllers =
+        this._runAbortControllers.get(agent) ?? new Set<AbortController>();
+      controllers.add(controller);
+      this._runAbortControllers.set(agent, controllers);
+    }
+
+    if (depth === 0) {
       // Intercept agent.abortRun() so that calling it directly (not via
       // stopAgent) also aborts in-flight tool execution and prevents
       // follow-up runs.
-      const controller = this._runAbortController;
-      originalAbortRun = agent.abortRun.bind(agent);
+      const originalAbortRun = agent.abortRun;
+      this._originalAbortRuns.set(agent, originalAbortRun);
       agent.abortRun = () => {
-        controller.abort();
-        originalAbortRun!();
+        this.abortAgentRuns(agent);
+        originalAbortRun.call(agent);
       };
-
-      // Notify subscribers (e.g. the inspector) about the agent that is about
-      // to run. Per-thread clones are not in the agent registry, so
-      // onAgentsChanged never fires for them and they would otherwise be
-      // invisible to subscribers. Fired once per top-level run; recursive
-      // follow-up runs reuse the same instance and need no re-notification.
-      await this._internal.notifySubscribers(
-        (subscriber) =>
-          subscriber.onAgentRunStarted?.({
-            copilotkit: this.core,
-            agent,
-          }),
-        "Subscriber onAgentRunStarted error:",
-      );
     }
 
-    this._runDepth++;
+    const previousRequestId = this._activeRequestIds.get(agent);
+    this._activeRequestIds.set(agent, requestId);
 
     try {
+      if (depth === 0) {
+        // Notify subscribers (e.g. the inspector) about the agent that is
+        // about to run. Per-thread clones are not in the agent registry, so
+        // onAgentsChanged never fires for them and they would otherwise be
+        // invisible to subscribers. Fired once while the agent has runs in
+        // flight; follow-ups and overlapping runs reuse the same instance and
+        // need no re-notification.
+        await this._internal.notifySubscribers(
+          (subscriber) =>
+            subscriber.onAgentRunStarted?.({
+              copilotkit: this.core,
+              agent,
+            }),
+          "Subscriber onAgentRunStarted error:",
+        );
+      }
+
       let logicalRunId = resumedRunId ?? runId;
-      const agentSubscriber = this.createAgentErrorSubscriber(agent);
+      const agentSubscriber = this.createAgentErrorSubscriber(
+        agent,
+        controller.signal,
+      );
       let started = false;
       const onRunStartedEvent = agentSubscriber.onRunStartedEvent;
       const onRunInitialized = agentSubscriber.onRunInitialized;
@@ -813,8 +904,9 @@ export class RunHandler {
       const pinRunIdOnWire = runId !== undefined && !continuationHandoff;
       const agentRunInput = {
         forwardedProps: {
-          ...this._internal.properties,
+          ...this._internal.getPropertiesForAgent(agent.agentId),
           ...forwardedProps,
+          __copilotkitRequestId: requestId,
         },
         ...(resume !== undefined ? { resume } : {}),
         ...(pinRunIdOnWire ? { runId } : {}),
@@ -828,10 +920,14 @@ export class RunHandler {
       if (!started) {
         logicalHandoff?.cancel();
       }
+      if (logicalRunId !== undefined) {
+        this.rememberRequestId(logicalRunId, requestId);
+      }
       return await this.processAgentResult({
         runAgentResult,
         agent,
         runId: logicalRunId,
+        runController: controller,
       });
     } catch (error) {
       logicalHandoff?.cancel();
@@ -848,12 +944,38 @@ export class RunHandler {
       });
       return { result: undefined, newMessages: [] };
     } finally {
-      this._runDepth--;
-      // Restore original abortRun when the entire chain (including
-      // recursive follow-ups) is complete.
-      if (isTopLevel && originalAbortRun) {
-        agent.abortRun = originalAbortRun;
+      const remainingDepth = (this._runDepths.get(agent) ?? 1) - 1;
+      this._runDepths.set(agent, remainingDepth);
+      // Drop this chain's controller once the chain ends, so a finished,
+      // aborted run does not mark later errors as user-aborted.
+      if (!isFollowUp) {
+        const controllers = this._runAbortControllers.get(agent);
+        controllers?.delete(controller);
+        if (controllers?.size === 0) this._runAbortControllers.delete(agent);
       }
+      // Restore the original abortRun only once none of the agent's runs is
+      // in flight: an overlapping run on the same agent still needs it.
+      if (remainingDepth === 0) {
+        const originalAbortRun = this._originalAbortRuns.get(agent);
+        if (originalAbortRun) {
+          agent.abortRun = originalAbortRun;
+          this._originalAbortRuns.delete(agent);
+        }
+      }
+      if (previousRequestId === undefined) {
+        this._activeRequestIds.delete(agent);
+      } else {
+        this._activeRequestIds.set(agent, previousRequestId);
+      }
+    }
+  }
+
+  private rememberRequestId(runId: string, requestId: string): void {
+    this._requestIdByRun.delete(runId);
+    this._requestIdByRun.set(runId, requestId);
+    if (this._requestIdByRun.size > MAX_REMEMBERED_REQUEST_IDS) {
+      const oldest = this._requestIdByRun.keys().next().value;
+      if (oldest !== undefined) this._requestIdByRun.delete(oldest);
     }
   }
 
@@ -865,12 +987,15 @@ export class RunHandler {
     agent,
     runId,
     toolExecutionMode = "all",
-    signal = this._runAbortController?.signal,
+    runController,
+    signal = runController?.signal,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
     runId?: string;
     toolExecutionMode?: "all" | "restore";
+    /** Controller of the run that produced this result; follow-ups share it. */
+    runController?: AbortController;
     signal?: AbortSignal;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
@@ -883,12 +1008,25 @@ export class RunHandler {
     const executing = this._executingToolCalls.get(agent) ?? new Set<string>();
     this._executingToolCalls.set(agent, executing);
 
+    // Reconnect deltas omit messages hydrated by earlier replays. Restore only
+    // the latest user turn: an unanswered call before a later user message is
+    // historical, not permission to resume work. Keep every assistant message
+    // in that turn, and snapshot because handlers insert results.
+    const messagesToProcess =
+      toolExecutionMode === "restore"
+        ? agent.messages.filter(
+            (message) =>
+              message.role === "assistant" &&
+              this.isInLatestUserTurn(agent.messages, message.id),
+          )
+        : newMessages;
+
     // One restoration pass owns the pending sequence. Skipping only the first
     // executing call would start later calls concurrently and replace a HITL
     // hook's response resolver. A saved remote answer releases this barrier.
     if (
       toolExecutionMode === "restore" &&
-      agent.messages.some(
+      messagesToProcess.some(
         (message) =>
           message.role === "assistant" &&
           message.toolCalls?.some(
@@ -906,11 +1044,6 @@ export class RunHandler {
       return runAgentResult;
     }
 
-    // Reconnect deltas omit messages already hydrated by earlier replays.
-    // Reconcile the current history so a remote answer can unblock a pending
-    // call that was already present. Snapshot it because handlers insert results.
-    const messagesToProcess =
-      toolExecutionMode === "restore" ? [...agent.messages] : newMessages;
     for (const message of messagesToProcess) {
       if (message.role === "assistant") {
         for (const toolCall of message.toolCalls || []) {
@@ -932,14 +1065,15 @@ export class RunHandler {
           };
 
           const executableTool = tool ?? getWildcardTool();
-          // Restoring history runs only handlers that are safe to run again:
-          // human-in-the-loop prompts, and tools that opt in with
-          // reconnectBehavior "resume-pending" (#6101). Every other tool stays
-          // passive, so a reload never repeats its side effects.
+          // Handlerless frontend tools (e.g. chart components) must recreate
+          // missing empty results using their original call IDs. Handlers still
+          // run only for HITL prompts or an explicit "resume-pending" opt-in,
+          // so restoring history never repeats other tools' side effects.
           if (
             toolExecutionMode === "restore" &&
-            (!executableTool?.handler ||
-              (executableTool.type !== "human-in-the-loop" &&
+            (!executableTool ||
+              (executableTool.handler &&
+                executableTool.type !== "human-in-the-loop" &&
                 executableTool.reconnectBehavior !== "resume-pending"))
           ) {
             continue;
@@ -948,6 +1082,8 @@ export class RunHandler {
           if (
             signal?.aborted ||
             agent.threadId !== threadId ||
+            (toolExecutionMode === "restore" &&
+              !this.isInLatestUserTurn(agent.messages, message.id)) ||
             executing.has(executionKey)
           ) {
             continue;
@@ -965,8 +1101,8 @@ export class RunHandler {
 
           if (
             existingResult &&
-            executableTool?.handler &&
-            this.isFrontendPlaceholderResult(existingResult)
+            this.isFrontendPlaceholderResult(existingResult) &&
+            (toolExecutionMode === "restore" || executableTool?.handler)
           ) {
             if (existingResultIndex !== -1)
               newMessages.splice(existingResultIndex, 1);
@@ -1072,13 +1208,13 @@ export class RunHandler {
 
     if (needsFollowUp && agent.threadId === threadId && !signal?.aborted) {
       // Circuit breaker: bail out instead of recursing once the follow-up
-      // chain exceeds an absolute safety cap. `_runDepth` reflects the current
-      // depth of nested runAgent calls (it is incremented in runAgent and
+      // chain exceeds an absolute safety cap. `_runDepths` holds this agent's
+      // current depth of nested runAgent calls (it is incremented in runAgent and
       // decremented in its finally block), so a runaway loop — repeated
       // identical tool calls, a backend that keeps erroring after tool
       // results, reprocessed tool messages, etc. — eventually trips this
       // guard rather than looping forever and exhausting API quota.
-      if (this._runDepth >= MAX_FOLLOW_UP_DEPTH) {
+      if ((this._runDepths.get(agent) ?? 0) >= MAX_FOLLOW_UP_DEPTH) {
         logger.warn(
           `[CopilotKit] Follow-up depth limit (${MAX_FOLLOW_UP_DEPTH}) reached for agent "${agentId}". ` +
             `Stopping recursive follow-up runs to prevent an infinite loop. ` +
@@ -1091,6 +1227,14 @@ export class RunHandler {
         // complete and write fresh values into the context store before runAgent
         // reads it. The base implementation is a no-op; React overrides this.
         await this._internal.waitForPendingFrameworkUpdates();
+        if (
+          toolExecutionMode === "restore" &&
+          !messagesToProcess.some((message) =>
+            this.isInLatestUserTurn(agent.messages, message.id),
+          )
+        ) {
+          return runAgentResult;
+        }
         const continuationHandoff =
           this._internal.stateManager.markNextRunAsContinuation(agent, runId);
         return await this.runAgent(
@@ -1099,6 +1243,7 @@ export class RunHandler {
             ...(runId !== undefined ? { runId } : {}),
           },
           continuationHandoff,
+          runController,
         );
       }
     }
@@ -1108,6 +1253,41 @@ export class RunHandler {
     return runAgentResult;
   }
 
+  /** A later user message supersedes pending work from an older turn. */
+  private isInLatestUserTurn(messages: Message[], messageId: string): boolean {
+    for (let index = messages.length - 1; index >= 0; index--) {
+      const message = messages[index];
+      if (message?.role === "user") return false;
+      if (message?.id === messageId) return true;
+    }
+    return false;
+  }
+
+  /** Locate a missing result before saved results for later calls in its batch. */
+  private toolResultInsertionIndex(
+    messages: Message[],
+    messageIndex: number,
+    toolCallId: string,
+  ): number {
+    const parent = messages[messageIndex];
+    const calls = parent?.role === "assistant" ? (parent.toolCalls ?? []) : [];
+    const callIndex = calls.findIndex((call) => call.id === toolCallId);
+    let insertAt = messageIndex + 1;
+    while (insertAt < messages.length) {
+      const result = messages[insertAt];
+      if (result?.role !== "tool") break;
+      const resultIndex = calls.findIndex(
+        (call) => call.id === result.toolCallId,
+      );
+      // Results from earlier batches may follow this assistant in replayed
+      // history. Preserve their position; only stop for a later sibling call.
+      if (resultIndex > callIndex) break;
+      insertAt++;
+    }
+    return insertAt;
+  }
+
+  /** Identify transport placeholders that must not count as completed answers. */
   private isFrontendPlaceholderResult(message: Message): boolean {
     return (
       message.role === "tool" && isForwardedToClientPlaceholder(message.content)
@@ -1127,7 +1307,7 @@ export class RunHandler {
     handlerArgs,
     toolType,
     messageId,
-    signal = this._runAbortController?.signal,
+    signal = this.latestRunSignal(agent),
     discardOnAbort = false,
     isReplay = false,
   }: {
@@ -1153,7 +1333,7 @@ export class RunHandler {
     } catch (error) {
       const parseError =
         error instanceof Error ? error : new Error(String(error));
-      errorMessage = parseError.message;
+      errorMessage = toolFailureMessage(parseError);
       isArgumentError = true;
       await this._internal.emitError({
         error: parseError,
@@ -1194,7 +1374,7 @@ export class RunHandler {
       } catch (error) {
         const handlerError =
           error instanceof Error ? error : new Error(String(error));
-        errorMessage = handlerError.message;
+        errorMessage = toolFailureMessage(handlerError);
         if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
           await this._internal.emitError({
             error: handlerError,
@@ -1285,6 +1465,7 @@ export class RunHandler {
         discardAbortedResult(signal, discardOnAbort, handlerResult.error) ||
         agent.threadId !== threadId ||
         messageIndex === -1 ||
+        (isReplay && !this.isInLatestUserTurn(agent.messages, message.id)) ||
         agent.messages.some(
           (m) =>
             m.role === "tool" &&
@@ -1296,22 +1477,17 @@ export class RunHandler {
         // already answered. Do not insert a stale answer or start a follow-up.
         return false;
       }
-      // Find the correct insertion point: after the parent assistant message
-      // and any tool-result messages already inserted for earlier tool calls
-      // in the same batch. This preserves tool-result ordering relative to
-      // the toolCalls array, which some providers (OpenAI) require.
-      let insertAt = messageIndex + 1;
-      while (
-        insertAt < agent.messages.length &&
-        agent.messages[insertAt]?.role === "tool"
-      ) {
-        insertAt++;
-      }
+      const insertAt = this.toolResultInsertionIndex(
+        agent.messages,
+        messageIndex,
+        toolCall.id,
+      );
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: handlerResult.content,
+        ...(handlerResult.error ? { error: handlerResult.error } : {}),
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1360,7 +1536,7 @@ export class RunHandler {
       } catch (error) {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
-        errorMessage = parseError.message;
+        errorMessage = toolFailureMessage(parseError);
         await this._internal.emitError({
           error: parseError,
           code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
@@ -1407,7 +1583,7 @@ export class RunHandler {
         } catch (error) {
           const handlerError =
             error instanceof Error ? error : new Error(String(error));
-          errorMessage = handlerError.message;
+          errorMessage = toolFailureMessage(handlerError);
           if (!discardAbortedResult(signal, discardOnAbort, errorMessage)) {
             await this._internal.emitError({
               error: handlerError,
@@ -1449,6 +1625,7 @@ export class RunHandler {
         discardAbortedResult(signal, discardOnAbort, errorMessage) ||
         agent.threadId !== threadId ||
         messageIndex === -1 ||
+        (isReplay && !this.isInLatestUserTurn(agent.messages, message.id)) ||
         agent.messages.some(
           (m) =>
             m.role === "tool" &&
@@ -1460,22 +1637,17 @@ export class RunHandler {
         // already answered. Do not insert a stale answer or start a follow-up.
         return false;
       }
-      // Find the correct insertion point: after the parent assistant message
-      // and any tool-result messages already inserted for earlier tool calls
-      // in the same batch. This preserves tool-result ordering relative to
-      // the toolCalls array, which some providers (OpenAI) require.
-      let insertAt = messageIndex + 1;
-      while (
-        insertAt < agent.messages.length &&
-        agent.messages[insertAt]?.role === "tool"
-      ) {
-        insertAt++;
-      }
+      const insertAt = this.toolResultInsertionIndex(
+        agent.messages,
+        messageIndex,
+        toolCall.id,
+      );
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: toolCallResult,
+        ...(errorMessage ? { error: errorMessage } : {}),
       };
       agent.messages.splice(insertAt, 0, toolMessage);
 
@@ -1567,6 +1739,7 @@ export class RunHandler {
       role: "tool",
       toolCallId,
       content: handlerResult.content,
+      ...(handlerResult.error ? { error: handlerResult.error } : {}),
     };
 
     const assistantIndex = agent.messages.findIndex(
@@ -1699,7 +1872,10 @@ export class RunHandler {
   /**
    * Create an agent error subscriber
    */
-  private createAgentErrorSubscriber(agent: AbstractAgent): AgentSubscriber {
+  private createAgentErrorSubscriber(
+    agent: AbstractAgent,
+    runSignal?: AbortSignal,
+  ): AgentSubscriber {
     const emitAgentError = async (
       error: Error,
       code: CopilotKitCoreErrorCode,
@@ -1735,8 +1911,22 @@ export class RunHandler {
         // it. Prefer the abort controller (the client's own record that it
         // initiated the stop) over the agent-supplied `code`, which is not
         // standardized across agents.
-        const runWasAborted = this._runAbortController?.signal.aborted === true;
+        // Only this run's own signal counts: a connect has none, and another
+        // run on the same agent being stopped says nothing about this error.
+        const runWasAborted = runSignal?.aborted ?? false;
         if (runWasAborted || event?.code === "abort") {
+          return;
+        }
+
+        // The SSE runtime rejected the run because the thread already has
+        // one in flight. Report it like Intelligence's 409 so one onError
+        // branch covers both transports.
+        if (event?.code === THREAD_ALREADY_RUNNING_ERROR_CODE) {
+          await emitAgentError(
+            new AgentThreadLockedError(agent.threadId),
+            CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED,
+            { source: "onRunErrorEvent", event },
+          );
           return;
         }
 

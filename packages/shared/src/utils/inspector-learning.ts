@@ -1,3 +1,5 @@
+import { isSafeDashboardUrl } from "./dashboard-url";
+
 /** A bounded page in the Inspector Learning snapshot. */
 export interface InspectorLearningPage<T> {
   readonly page: number;
@@ -17,6 +19,16 @@ export type InspectorLearningEvidence =
     }
   | { readonly status: "unavailable" };
 
+/** A cited Trajectory, linked into the Intelligence web app. */
+export type InspectorLearningTrajectoryEvidence =
+  | {
+      readonly status: "available";
+      readonly trajectoryId: string;
+      readonly eventCount: number;
+      readonly url: string;
+    }
+  | { readonly status: "unavailable" };
+
 export interface InspectorLearningInsight {
   readonly id: string;
   readonly statement: string;
@@ -24,6 +36,10 @@ export interface InspectorLearningInsight {
   readonly totalThreadCount: number;
   readonly evidenceTruncated: boolean;
   readonly evidence: readonly InspectorLearningEvidence[];
+  /** Absent when Intelligence predates Trajectory evidence. */
+  readonly totalTrajectoryCount?: number;
+  /** Absent when Intelligence predates Trajectory evidence. */
+  readonly trajectoryEvidence?: readonly InspectorLearningTrajectoryEvidence[];
 }
 
 export interface InspectorLearningSkill {
@@ -118,9 +134,6 @@ export function parseInspectorLearningUrl(
   try {
     const parsed = new URL(value);
     const configured = new URL(trustedOrigin);
-    const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(
-      configured.hostname,
-    );
     if (
       parsed.username ||
       parsed.password ||
@@ -129,8 +142,7 @@ export function parseInspectorLearningUrl(
       configured.pathname !== "/" ||
       configured.search ||
       configured.hash ||
-      (configured.protocol !== "https:" &&
-        !(configured.protocol === "http:" && loopback)) ||
+      !isSafeDashboardUrl(configured) ||
       parsed.origin !== configured.origin
     ) {
       return undefined;
@@ -139,6 +151,26 @@ export function parseInspectorLearningUrl(
   } catch {
     return undefined;
   }
+}
+
+/** Validates the canonical dashboard route after the origin check. */
+function validLearningPath(
+  value: string,
+  kind: "learning" | "candidates" | "runs",
+): boolean {
+  const url = new URL(value);
+  if (url.search || url.hash) return false;
+  if (kind === "learning") {
+    return (
+      url.pathname === "/learning" ||
+      /^\/o\/[^/]+\/[^/]+\/learning(?:\/[^/]+)?$/u.test(url.pathname)
+    );
+  }
+  return kind === "candidates"
+    ? /^\/o\/[^/]+\/[^/]+\/learning\/[^/]+\/skills$/u.test(url.pathname)
+    : /^\/o\/[^/]+\/[^/]+\/learning\/[^/]+\/analysis-results$/u.test(
+        url.pathname,
+      );
 }
 
 function parseEvidence(value: unknown): InspectorLearningEvidence | undefined {
@@ -177,7 +209,37 @@ function parseEvidence(value: unknown): InspectorLearningEvidence | undefined {
   };
 }
 
-function parseInsight(value: unknown): InspectorLearningInsight | undefined {
+function parseTrajectoryEvidence(
+  value: unknown,
+  webAppOrigin: string,
+): InspectorLearningTrajectoryEvidence | undefined {
+  if (record(value) && value.status === "unavailable") {
+    return Object.keys(value).length === 1
+      ? { status: "unavailable" }
+      : undefined;
+  }
+  if (
+    !record(value) ||
+    value.status !== "available" ||
+    !string(value.trajectoryId, 128) ||
+    !integer(value.eventCount)
+  ) {
+    return undefined;
+  }
+  const url = parseInspectorLearningUrl(value.url, webAppOrigin);
+  if (!url) return undefined;
+  return {
+    status: "available",
+    trajectoryId: value.trajectoryId,
+    eventCount: value.eventCount,
+    url,
+  };
+}
+
+function parseInsight(
+  value: unknown,
+  webAppOrigin: string,
+): InspectorLearningInsight | undefined {
   if (
     !record(value) ||
     !string(value.id, 128) ||
@@ -192,7 +254,7 @@ function parseInsight(value: unknown): InspectorLearningInsight | undefined {
   }
   const evidence = value.evidence.map(parseEvidence);
   if (evidence.some((item) => item === undefined)) return undefined;
-  return {
+  const insight: InspectorLearningInsight = {
     id: value.id,
     statement: value.statement,
     impact: value.impact,
@@ -200,9 +262,38 @@ function parseInsight(value: unknown): InspectorLearningInsight | undefined {
     evidenceTruncated: value.evidenceTruncated,
     evidence: evidence as InspectorLearningEvidence[],
   };
+  // Each Trajectory field is optional on its own; a malformed one rejects
+  // the Insight, an absent one leaves the Thread-only shape untouched.
+  let totalTrajectoryCount: number | undefined;
+  if (value.totalTrajectoryCount !== undefined) {
+    if (!integer(value.totalTrajectoryCount)) return undefined;
+    totalTrajectoryCount = value.totalTrajectoryCount;
+  }
+  let trajectoryEvidence: InspectorLearningTrajectoryEvidence[] | undefined;
+  if (value.trajectoryEvidence !== undefined) {
+    if (
+      !Array.isArray(value.trajectoryEvidence) ||
+      value.trajectoryEvidence.length > 100
+    ) {
+      return undefined;
+    }
+    const parsed = value.trajectoryEvidence.map((item) =>
+      parseTrajectoryEvidence(item, webAppOrigin),
+    );
+    if (parsed.some((item) => item === undefined)) return undefined;
+    trajectoryEvidence = parsed as InspectorLearningTrajectoryEvidence[];
+  }
+  return {
+    ...insight,
+    ...(totalTrajectoryCount === undefined ? {} : { totalTrajectoryCount }),
+    ...(trajectoryEvidence === undefined ? {} : { trajectoryEvidence }),
+  };
 }
 
-function parseSkill(value: unknown): InspectorLearningSkill | undefined {
+function parseSkill(
+  value: unknown,
+  webAppOrigin: string,
+): InspectorLearningSkill | undefined {
   if (
     !record(value) ||
     !string(value.id, 128) ||
@@ -215,7 +306,9 @@ function parseSkill(value: unknown): InspectorLearningSkill | undefined {
     return undefined;
   }
   const sourceInsight =
-    value.sourceInsight === null ? null : parseInsight(value.sourceInsight);
+    value.sourceInsight === null
+      ? null
+      : parseInsight(value.sourceInsight, webAppOrigin);
   if (sourceInsight === undefined) return undefined;
   return {
     id: value.id,
@@ -329,9 +422,19 @@ export function parseInspectorLearningSnapshotV1(
   ) {
     return undefined;
   }
+  const originUrl = parseInspectorLearningUrl(
+    value.webAppOrigin,
+    value.webAppOrigin,
+  );
+  if (!originUrl || new URL(originUrl).pathname !== "/") return undefined;
+  const webAppOrigin = new URL(originUrl).origin;
   const configuration = parseConfiguration(value.configuration);
-  const skillsPage = parsePage(value.skillsPage, 3, parseSkill);
-  const insightsPage = parsePage(value.insightsPage, 4, parseInsight);
+  const skillsPage = parsePage(value.skillsPage, 3, (item) =>
+    parseSkill(item, webAppOrigin),
+  );
+  const insightsPage = parsePage(value.insightsPage, 4, (item) =>
+    parseInsight(item, webAppOrigin),
+  );
   if (!configuration || !skillsPage || !insightsPage) return undefined;
   let latest: InspectorLearningSnapshotV1["run"]["latest"] = null;
   if (value.run.latest !== null) {
@@ -352,12 +455,6 @@ export function parseInspectorLearningSnapshotV1(
     };
   }
   if (!record(value.links)) return undefined;
-  const originUrl = parseInspectorLearningUrl(
-    value.webAppOrigin,
-    value.webAppOrigin,
-  );
-  if (!originUrl || new URL(originUrl).pathname !== "/") return undefined;
-  const webAppOrigin = new URL(originUrl).origin;
   const learning = parseInspectorLearningUrl(
     value.links.learning,
     webAppOrigin,
@@ -374,6 +471,9 @@ export function parseInspectorLearningSnapshotV1(
     !learning ||
     candidates === undefined ||
     runs === undefined ||
+    !validLearningPath(learning, "learning") ||
+    (candidates !== null && !validLearningPath(candidates, "candidates")) ||
+    (runs !== null && !validLearningPath(runs, "runs")) ||
     (value.pendingThreadCount > 0 && runs === null) ||
     (value.pendingCandidateCount > 0 && candidates === null)
   )

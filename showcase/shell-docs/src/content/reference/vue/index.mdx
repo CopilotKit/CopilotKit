@@ -46,7 +46,7 @@ import "@copilotkit/vue/styles.css";
 
 A few patterns recur across this reference and differ from the React SDK:
 
-- **Composables return refs.** A composable such as [`useAgent`](/reference/vue/hooks/useAgent) returns reactive refs (for example `{ agent }`). Read them with `.value` in `<script setup>`, or unwrapped directly in templates.
+- **State-returning composables use refs.** A composable such as [`useAgent`](/reference/vue/hooks/useAgent) returns reactive refs (for example `{ agent }`). Read them with `.value` in `<script setup>`, or unwrapped directly in templates. Registration composables such as `useFrontendTool` return no value.
 - **Reactive arguments.** Many composables accept `MaybeRefOrGetter` arguments, so you can pass a plain value, a `ref`, or a getter and the composable stays reactive to changes.
 - **Props are kebab-case in templates.** Component props are documented with their camelCase names but are written as kebab-case attributes in templates (for example `runtimeUrl` becomes `runtime-url`).
 - **Slots replace render props.** Where the React SDK uses render props or `children`, the Vue components expose named [slots](https://vuejs.org/guide/components/slots) for the same customization.

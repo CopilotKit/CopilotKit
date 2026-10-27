@@ -5,7 +5,7 @@
 # image, one process, one port.
 
 # Stage 1: Build Next.js
-FROM node:22-slim AS builder
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
@@ -13,7 +13,7 @@ COPY . .
 RUN npx next build
 
 # Stage 2: Runtime
-FROM node:22-slim AS runner
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
@@ -41,3 +41,6 @@ EXPOSE 10000
 ENV PORT=10000
 ENV HOSTNAME=0.0.0.0
 CMD ["./entrypoint.sh"]
+
+# Fail the build if any base or install path regresses the accepted Node runtime.
+RUN test "$(node --version)" = "v22.23.4"

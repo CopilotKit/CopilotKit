@@ -98,6 +98,30 @@ describe("starter model env contract (PE-701)", () => {
     },
   );
 
+  test("crewai-flows streams with acompletion, which LiteLLM streams for every vendor", () => {
+    // copilotkit_stream reads the response with `async for`. LiteLLM 1.79.3
+    // supports that on a sync completion(stream=True) for OpenAI only, so
+    // every Anthropic and Gemini chat failed with MidStreamFallbackError.
+    const agent = fs.readFileSync(
+      path.join(integrationsDir, "crewai-flows", "agent", "src", "agent.py"),
+      "utf8",
+    );
+    expect(agent).toMatch(/await copilotkit_stream\(\s*await acompletion\(/);
+    expect(agent).not.toMatch(/from litellm import completion\b/);
+  });
+
+  test("llamaindex keeps the anthropic SDK below 1.0, which llama-index-llms-anthropic calls", () => {
+    // anthropic 1.x refuses the `temperature` argument that
+    // llama-index-llms-anthropic 0.12 passes to models such as
+    // claude-sonnet-4-5 and claude-haiku-4-5, so those chats failed before a
+    // request went out.
+    const pyproject = fs.readFileSync(
+      path.join(integrationsDir, "llamaindex", "agent", "pyproject.toml"),
+      "utf8",
+    );
+    expect(pyproject).toMatch(/"anthropic>=0\.108,<1"/);
+  });
+
   test("crewai-flows sends Gemini no parallel_tool_calls=False", () => {
     // LiteLLM refuses parallel_tool_calls=False for Gemini once a request
     // carries more than one tool, and this agent always sends three or more.

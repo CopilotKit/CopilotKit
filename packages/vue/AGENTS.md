@@ -4,14 +4,15 @@ This file defines contributor workflow for keeping `@copilotkit/vue` aligned wit
 
 ## Scope
 
-- Scope is limited to `packages/vue/**`.
-- Keep upstream changes outside the Vue package to a minimum until the Vue port is merged.
+- Package implementation scope is limited to `packages/vue/**`.
+- The documented integration exceptions are Vue docs and runnable examples under `showcase/**`, plus their registry, generated-catalog, and validation-workflow plumbing described in [Documentation ownership](#documentation-ownership).
+- Keep other upstream changes outside the Vue package to a minimum until the Vue port is merged.
 
 ## Parity source of truth
 
 - React remains the canonical behavioral reference: `packages/react-core/`, `packages/react-ui/`, and `packages/react-textarea/`.
 - Use [PARITY.md](./PARITY.md) as the canonical Vue-side parity policy, architectural translation guide, strict test-port rulebook, and living React-to-Vue implementation/test matrix.
-- Keep [README.md](./README.md) focused on user-facing package documentation.
+- Keep [README.md](./README.md) as the slim npm-facing package entry point.
 
 ## Required parity workflow
 
@@ -49,8 +50,8 @@ When touching integration/build behavior:
 
 1. `pnpm nx run @copilotkit/vue:build`
 
-## Documentation placement
+## Documentation ownership
 
-- Parity rules, architectural translation decisions, strict translatability criteria, checklist, and mapping matrix: [PARITY.md](./PARITY.md).
-- Public package usage and API examples: [README.md](./README.md).
-- User-facing visual docs/examples: `examples/v2/vue/storybook/**`.
+- Canonical long-form Vue guides and API reference live in `showcase/shell-docs/src/content/`.
+- Runnable Vue examples live in `showcase/vue/`; feature coverage is owned by `showcase/shared/frontend-registry.json`, generated frontend catalogs, and Showcase validation workflows. See [PARITY.md](./PARITY.md#package-boundary-and-documentation-placement) for the canonical policy.
+- [PARITY.md](./PARITY.md) records parity governance and intentional differences; it is not a duplicate coverage catalog.

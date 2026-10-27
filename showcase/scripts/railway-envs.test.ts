@@ -34,6 +34,24 @@ import type {
 } from "./railway-envs";
 
 describe("railway-envs SSOT", () => {
+  it("keeps the permanent Intelligence test runner confined to staging", () => {
+    const name = "showcase-intelligence-test-runner";
+    const entry = SERVICES[name];
+    expect(entry).toBeDefined();
+    expect(Object.keys(entry.environments)).toEqual(["staging"]);
+    expect(entry.autoUpdates).toEqual({ staging: "unmanaged" });
+    expect(entry.ciBuilt).toBe(false);
+    expect(effectiveStaticGatePolicy(entry)).toEqual({
+      presence: "optional",
+      image: "ignored",
+    });
+    expect(probeEnabled(name, "staging")).toBe(false);
+    expect(CI_BUILT_SERVICES).not.toContain(name);
+    expect(DISPOSABLE_LIFECYCLE_POLICY.permanentServices).toContainEqual({
+      name,
+      serviceId: entry.serviceId,
+    });
+  });
   it("exposes the canonical project id", () => {
     expect(PROJECT_ID).toBe("6f8c6bff-a80d-4f8f-b78d-50b32bcf4479");
   });
@@ -109,9 +127,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains 43 managed services plus four staging-only Intelligence services", () => {
+  it("contains 43 managed services plus seven staging-only Intelligence services", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(49);
+    expect(names.length).toBe(50);
   });
 
   it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {
@@ -1478,8 +1496,8 @@ describe("static gate and disposable approval policy", () => {
     ).toThrow(/gateValidated.*gateIgnore/);
   });
 
-  it("commits no approved pins and derives every permanent identity from the unchanged registry", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(49);
+  it("approves only the reviewed bounded milestone images and preserves permanent identities", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(50);
     expect(DISPOSABLE_LIFECYCLE_POLICY).toEqual({
       projectId: PROJECT_ID,
       forbiddenEnvironmentIds: [PRODUCTION_ENV_ID],
@@ -1487,12 +1505,20 @@ describe("static gate and disposable approval policy", () => {
         name,
         serviceId: entry.serviceId,
       })),
-      approvedImages: [],
+      approvedImages: [
+        "ghcr.io/copilotkit/intelligence/composite@sha256:1bc9dbc634a8b713af7dcf19266eb2b514cdfa3c7e7858476a6ebe5fced45f1d",
+        "ghcr.io/copilotkit/intelligence/postgres-pgvector@sha256:91c40627db16d6d6c4e3c284c69c01ccdfd9172fac89e1b7d453ebb01127c205",
+        "docker.io/bitnamilegacy/redis@sha256:a25b5d07a14ec13730022c7cd9bab6308d55ccd86b74af7315553c17be884889",
+        "ghcr.io/copilotkit/rich-thread-application@sha256:6b6d757e8c5c605c384673a4e8418cd7cd275de2b8b068ebb21856a1032fc71d",
+        "ghcr.io/copilotkit/rich-thread-strands@sha256:a24c58ee44b65fe723434027bf9f40e6b77e679db67ba6229f329676ead430b9",
+        "ghcr.io/copilotkit/rich-thread-inspector@sha256:e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981",
+        "ghcr.io/copilotkit/rich-thread-inspector@sha256:1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71",
+      ],
     });
     const independent = Object.entries(SERVICES).filter(([name]) =>
       name.startsWith("showcase-intelligence-"),
     );
-    expect(independent).toHaveLength(6);
+    expect(independent).toHaveLength(7);
     for (const [, entry] of independent) {
       expect(effectiveStaticGatePolicy(entry)).toEqual({
         presence: "optional",

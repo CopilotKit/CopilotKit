@@ -38,6 +38,7 @@ import matter from "gray-matter";
 import { frameworkOverviews } from "@/data/frameworks";
 import { ONBOARDING_PROMPT_ORIGIN } from "./intelligence-onboarding-prompt";
 import { INTELLIGENCE_FEATURES } from "./intelligence-features";
+import { getEarlyAccessGate } from "./early-access";
 import {
   isV1ReferenceUrl,
   renderV1DeprecationNoticeUseV2InsteadMarkdown,
@@ -71,6 +72,8 @@ import {
   filterFrontendScopedBlocks,
 } from "./toc";
 import type { FrontendId } from "./frontend-options";
+import { getVueDocsPageRoutes } from "./frontend-page-content";
+import { resolveFrontendDocPage } from "./frontend-doc-policy";
 import { resolveDocsHref } from "./docs-link-rewrite";
 import { resolveBundledSetupConcept } from "./setup-content";
 import type { SetupContentBundle } from "./setup-content";
@@ -201,6 +204,9 @@ export function getAllLlmPages(
   const push = (page: LlmPage): void => {
     if (seenUrls.has(page.url)) return;
     seenUrls.add(page.url);
+    // Keep early-access guides out of the public aggregate. Direct Markdown
+    // URLs remain public for page-copy tools: this is a visibility gate.
+    if (getEarlyAccessGate(readMetaFromFile(page.filePath).earlyAccess)) return;
     pages.push(page);
   };
 
@@ -227,6 +233,9 @@ export function getAllLlmPages(
     // here prevents the bare filesystem walk from claiming their canonical
     // URLs before the correctly annotated variants are pushed.
     if (slug === "frontends/slack" || slug === "frontends/teams") continue;
+    if (slug === "frontends/vue" || slug.startsWith("frontends/vue/")) {
+      continue;
+    }
     if (getChannelGuidePublicSlug(slug)) continue;
     // The root `built-in-agent.mdx` topic page's bare URL permanently
     // redirects to `/` (the retired framework prefix); it stays
@@ -357,7 +366,36 @@ export function getAllLlmPages(
     }
   }
 
-  // 4. Reference docs — all SDK versions at their canonical versioned URLs.
+  // 4. Include shared Vue routes and authored guides, including pages omitted
+  // from the sidebar, just as the root React documentation walk does.
+  const vueQuickstart = loadDoc("frontends/vue");
+  if (vueQuickstart) {
+    push({
+      url: "vue",
+      title: vueQuickstart.fm.title,
+      description: vueQuickstart.fm.description,
+      filePath: vueQuickstart.filePath,
+      loadSlug: "frontends/vue",
+      frontend: "vue",
+    });
+  }
+  for (const { slugPath, canonicalSlugPath } of getVueDocsPageRoutes()) {
+    if (!slugPath) continue;
+    const resolution = resolveFrontendDocPage("vue", slugPath);
+    if (resolution.status !== "found") continue;
+    const doc = loadDoc(resolution.contentSlugPath);
+    if (!doc) continue;
+    push({
+      url: `vue/${canonicalSlugPath}`,
+      title: doc.fm.title,
+      description: doc.fm.description,
+      filePath: doc.filePath,
+      loadSlug: resolution.contentSlugPath,
+      frontend: "vue",
+    });
+  }
+
+  // 5. Reference docs — all SDK versions at their canonical versioned URLs.
   //
   //    The v2 (current) API reference lives at the root of
   //    `src/content/reference/` (e.g. `hooks/useCopilotAction.mdx`) and is
@@ -411,6 +449,7 @@ export function getAllLlmPages(
 function readMetaFromFile(absPath: string): {
   title?: string;
   description?: string;
+  earlyAccess?: string;
 } {
   try {
     const raw = fs.readFileSync(absPath, "utf-8");
@@ -419,6 +458,8 @@ function readMetaFromFile(absPath: string): {
       title: typeof data.title === "string" ? data.title : undefined,
       description:
         typeof data.description === "string" ? data.description : undefined,
+      earlyAccess:
+        typeof data.earlyAccess === "string" ? data.earlyAccess : undefined,
     };
   } catch (err) {
     // Log so an author whose page has malformed YAML / unreadable file
@@ -1106,7 +1147,7 @@ export function renderLlmsIndex(
     "",
     `- **Connect an existing app and agent:** Read your framework's overview and quickstart below together with [Architecture](${baseUrl}/concepts/architecture) and the relevant frontend guide.`,
     `- **Build an interaction:** Read [Chat UI](${baseUrl}/agentic-chat-ui), [Generative UI](${baseUrl}/concepts/generative-ui-overview), and [Human-in-the-Loop](${baseUrl}/human-in-the-loop) together, then use your framework's implementation guides.`,
-    `- **Keep conversation history:** Read [AG-UI Streams](${baseUrl}/threads) and [Thread Lifecycle](${baseUrl}/threads-lifecycle) together; keep your existing thread provider or use CopilotKit's built-in thread store. To layer AG-UI Streams and Automatic Learning onto LangChain/LangGraph, Google ADK, or Mastra without migrating your stack, read [Add AG-UI Streams to Existing Threads](${baseUrl}/threads-import) and the available framework guides below to add Intelligence and optionally include earlier history, with supported sources and source-specific limits. Copying historical conversations does not establish ongoing database replication; configure future runs through CopilotKit separately.`,
+    `- **Keep conversation history:** Read [AG-UI Streams](${baseUrl}/AG-UI-Streams) and [Thread Lifecycle](${baseUrl}/threads-lifecycle) together; keep your existing thread provider or use CopilotKit's built-in thread store. To layer AG-UI Streams and Automatic Learning onto LangChain/LangGraph, Google ADK, or Mastra without migrating your stack, read [Add AG-UI Streams to Existing Threads](${baseUrl}/threads-import) and the available framework guides below to add Intelligence and optionally include earlier history, with supported sources and source-specific limits. Copying historical conversations does not establish ongoing database replication; configure future runs through CopilotKit separately.`,
     `- **Evaluate Intelligence:** Read [Open source vs Intelligence](${baseUrl}/concepts/oss-vs-enterprise) with the [Intelligence overview](${baseUrl}/intelligence/overview), then follow the capability and deployment guides relevant to your project.`,
     "",
   );

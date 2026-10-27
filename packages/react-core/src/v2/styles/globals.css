@@ -76,6 +76,13 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+
+  /* A2UI basic catalog from @copilotkit/a2ui-renderer; light values are its fallbacks. */
+  --a2ui-color-surface: var(--card);
+  /* rgb(64, 64, 64), the Angular stylesheet's dark A2UI border; --border is too faint on --card. */
+  --a2ui-color-border: oklch(0.371 0 0);
+  --a2ui-color-muted: var(--muted-foreground);
+  --a2ui-color-error: #f87171;
 }
 
 @theme inline {
@@ -656,5 +663,77 @@
   .cpk-intelligence-indicator__icon-arc,
   .cpk-intelligence-indicator__icon-check {
     transition: none;
+  }
+}
+
+/* Text shimmer for in-progress labels, such as a running tool call. */
+[data-copilotkit] .cpk-shimmer {
+  /* The base is pulled toward the background so the sweep reads clearly on
+     light surfaces as well as dark ones. */
+  --cpk-shimmer-base: color-mix(
+    in oklab,
+    var(--foreground) 38%,
+    var(--background)
+  );
+  background-image: linear-gradient(
+    90deg,
+    var(--cpk-shimmer-base) 0%,
+    var(--cpk-shimmer-base) 32%,
+    var(--foreground) 50%,
+    var(--cpk-shimmer-base) 68%,
+    var(--cpk-shimmer-base) 100%
+  );
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: cpk-shimmer 1.8s linear infinite;
+}
+
+@keyframes cpk-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-copilotkit] .cpk-shimmer {
+    animation: none;
+    color: var(--muted-foreground);
+    background: none;
+  }
+}
+
+/* "turn" tool-call display: text in a reply's working phase was narration, and
+   fades to muted in place once a call follows it. Higher specificity than the
+   markdown rules above, so it also mutes bold, links and inline code. */
+@layer utilities {
+  [data-copilotkit] [data-work-text] .cpk\:prose,
+  [data-copilotkit] [data-work-text] .cpk\:prose * {
+    transition: color 600ms ease;
+  }
+
+  [data-copilotkit] [data-work-text="narration"] .cpk\:prose,
+  [data-copilotkit] [data-work-text="narration"] .cpk\:prose * {
+    color: var(--muted-foreground);
+  }
+}
+
+/* "stacked" tool-call display: the newest call drops onto the stack, and the
+   stack fans out into its cards when opened. */
+@keyframes cpk-stack-drop {
+  from {
+    transform: translateY(-6px);
+    opacity: 0.2;
+  }
+}
+
+@keyframes cpk-stack-fan {
+  from {
+    transform: translateY(-6px) scale(0.985);
+    opacity: 0;
   }
 }

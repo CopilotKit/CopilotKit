@@ -817,6 +817,96 @@ describe("CopilotChatInput", () => {
     );
   });
 
+  // The toolbar buttons show only an icon, so their accessible name comes from
+  // the labels config; that is also what lets an app translate them.
+  describe("accessible names", () => {
+    it("names the send, add and transcribe buttons with the default labels", () => {
+      renderWithProvider(
+        <CopilotChatInput
+          onSubmitMessage={mockOnSubmitMessage}
+          onAddFile={vi.fn()}
+          onStartTranscribe={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "Send message" }),
+      ).toBeDefined();
+      expect(
+        screen.getByRole("button", { name: "Add attachments" }),
+      ).toBeDefined();
+      expect(screen.getByRole("button", { name: "Transcribe" })).toBeDefined();
+    });
+
+    it("names the cancel and finish buttons while transcribing", () => {
+      renderWithProvider(
+        <CopilotChatInput
+          mode="transcribe"
+          onSubmitMessage={mockOnSubmitMessage}
+          onCancelTranscribe={vi.fn()}
+          onFinishTranscribe={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeDefined();
+      expect(screen.getByRole("button", { name: "Finish" })).toBeDefined();
+    });
+
+    it("names the button Stop while it stops the run", () => {
+      renderWithProvider(
+        <CopilotChatInput
+          onSubmitMessage={mockOnSubmitMessage}
+          onStop={vi.fn()}
+          isRunning
+        />,
+      );
+
+      expect(getStopButton(document.body)).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Stop" })).toBeDefined();
+      expect(screen.queryByRole("button", { name: "Send message" })).toBeNull();
+    });
+
+    it("uses the configured labels", () => {
+      render(
+        <CopilotChatConfigurationProvider
+          threadId={TEST_THREAD_ID}
+          labels={{
+            chatInputToolbarSendButtonLabel: "Nachricht senden",
+            chatInputToolbarAddButtonLabel: "Anhänge hinzufügen",
+            chatInputToolbarStartTranscribeButtonLabel: "Diktieren",
+          }}
+        >
+          <CopilotChatInput
+            onSubmitMessage={mockOnSubmitMessage}
+            onAddFile={vi.fn()}
+            onStartTranscribe={vi.fn()}
+          />
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "Nachricht senden" }),
+      ).toBeDefined();
+      expect(
+        screen.getByRole("button", { name: "Anhänge hinzufügen" }),
+      ).toBeDefined();
+      expect(screen.getByRole("button", { name: "Diktieren" })).toBeDefined();
+    });
+
+    it("keeps an aria-label passed through a button slot", () => {
+      renderWithProvider(
+        <CopilotChatInput
+          onSubmitMessage={mockOnSubmitMessage}
+          sendButton={{ "aria-label": "Submit question" }}
+        />,
+      );
+
+      expect(
+        screen.getByRole("button", { name: "Submit question" }),
+      ).toBeDefined();
+    });
+  });
+
   // Controlled component tests
   describe("Controlled component behavior", () => {
     it("displays the provided value prop", () => {
@@ -1717,5 +1807,26 @@ describe("CopilotChatInput", () => {
       expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
       focusSpy.mockRestore();
     });
+  });
+});
+
+describe("CopilotChatInput with a custom layout", () => {
+  it("grows the textarea with its content", () => {
+    renderWithProvider(
+      <CopilotChatInput>
+        {({ textArea, sendButton }) => (
+          <div>
+            {textArea}
+            {sendButton}
+          </div>
+        )}
+      </CopilotChatInput>,
+    );
+    const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
+
+    fireEvent.change(textarea, { target: { value: "one\ntwo\nthree" } });
+
+    // Three 24px lines, under the five-line cap.
+    expect(textarea.style.height).toBe("72px");
   });
 });

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
-import { docCandidateOrder, loadDoc } from "@/lib/docs-render";
-import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
+import { loadDoc } from "@/lib/docs-render";
+import {
+  frontendAwareDocCandidateOrder,
+  resolveFrontendDocPage,
+} from "@/lib/frontend-doc-policy";
 import { resolveAngularDoc } from "@/lib/angular-doc-navigation";
 import {
   getFrontendContentSlug,
@@ -272,6 +275,7 @@ function resolvePage(slug: string[]): ResolvedPage | null {
         scopedBackendFramework,
         frontendRest || "index",
         url,
+        frontend,
       );
       return resolved
         ? {
@@ -362,20 +366,23 @@ function resolveFrameworkScopedPage(
   framework: string,
   tail: string,
   url: string,
+  frontend?: FrontendPageId,
 ): ResolvedPage | null {
   const docsFolder = getDocsFolder(framework);
   const docsMode = getDocsMode(framework);
   if (docsMode === "hidden") return null;
 
-  const rootSlugPath = tail;
-  const frameworkSlugPath = `integrations/${docsFolder}/${tail}`;
-
-  // Shared with the page route (docCandidateOrder) so raw Markdown and the
-  // rendered page never disagree. This previously treated only `quickstart`
+  // Shared with the page route so raw Markdown, metadata, and rendered content
+  // never disagree. This previously treated only `quickstart`
   // as framework-wins; the page route also gives `threads-import` to the
   // framework, so llms-mdx served root content for a URL the site renders
   // from the framework tree.
-  const candidateOrder = docCandidateOrder(docsMode, docsFolder, tail);
+  const candidateOrder = frontendAwareDocCandidateOrder(
+    frontend,
+    docsMode,
+    docsFolder,
+    tail,
+  );
   if (tail === "index") {
     candidateOrder.push(`integrations/${docsFolder}/quickstart`);
   }
