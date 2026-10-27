@@ -139,6 +139,41 @@ Override a specific button inside the assistant message toolbar:
 />
 ```
 
+### Tool calls
+
+The `assistantMessage` slot holds `toolCallsView`, which renders the tool calls
+of one assistant message. Wrap the default `CopilotChatToolCallsView` to change
+the container while keeping your registered tool renderers:
+
+```tsx title="page.tsx"
+import {
+  CopilotChat,
+  CopilotChatToolCallsView,
+  type CopilotChatToolCallsViewProps,
+} from "@copilotkit/react-core/v2";
+
+const CustomToolCallsView = (props: CopilotChatToolCallsViewProps) => (
+  <div className="rounded-lg border border-dashed p-2">
+    <CopilotChatToolCallsView {...props} />
+  </div>
+);
+
+export function Chat() {
+  return (
+    <CopilotChat
+      messageView={{
+        assistantMessage: { toolCallsView: CustomToolCallsView },
+      }}
+    />
+  );
+}
+```
+
+To see `CopilotChatToolCallsView` in progress, complete, expanded, and failed
+states, open the
+[`CopilotChatToolCallsView` stories](https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/react/storybook/stories/CopilotChatToolCallsView.stories.tsx)
+in the React Storybook.
+
 The `assistantMessage` slot also holds `markdownRenderer`, which controls how
 assistant markdown is rendered. It has its own guide:
 [Markdown Rendering](/custom-look-and-feel/markdown).
