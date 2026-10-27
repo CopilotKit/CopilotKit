@@ -307,6 +307,28 @@ const object = (value: unknown): Record<string, unknown> =>
 export class ɵChildHistoryStore {
   private agents = new WeakMap<AbstractAgent, Map<string, ThreadData>>();
   private listeners = new Set<() => void>();
+  private replayResets = new WeakSet<AbstractAgent>();
+  private replayResetMessages = new WeakSet<Message[]>();
+  /** Fresh connect clears root messages before replay; it is not a user reset. */
+  resetMessagesForReplay(agent: AbstractAgent) {
+    this.replayResets.add(agent);
+    try {
+      agent.setMessages([]);
+      // SDK callbacks may run after earlier async subscribers have yielded.
+      this.replayResetMessages.add(agent.messages);
+    } finally {
+      this.replayResets.delete(agent);
+    }
+  }
+  handleMessagesReset(agent: AbstractAgent, messages: Message[]) {
+    if (
+      !messages.length &&
+      !this.replayResets.has(agent) &&
+      !this.replayResetMessages.has(messages)
+    )
+      this.clear(agent, agent.threadId);
+  }
+
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     return () => {

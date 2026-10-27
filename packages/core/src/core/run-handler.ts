@@ -599,7 +599,9 @@ export class RunHandler {
       // gateway can resume from `lastSeenEventId` instead of replaying
       // the full history.
       if (isFreshRestore) {
-        agent.setMessages([]);
+        if (previousThreadId && previousThreadId !== incomingThreadId)
+          this.core.ɵchildHistories.clear(agent, previousThreadId);
+        this.core.ɵchildHistories.resetMessagesForReplay(agent);
         agent.setState({});
         if (
           previousThreadId !== undefined &&
