@@ -184,6 +184,8 @@ it("retains mirrored root calls for a direct custom messageView", async () => {
   await act(async () => {
     await agent.runAgent();
   });
+  expect(screen.getByTestId("root").textContent).toContain("parent-left");
+  expect(screen.getByTestId("root").textContent).toContain("parent-right");
   expect(screen.getByTestId("live-followup").textContent).toContain(
     '"id":"followup"',
   );
