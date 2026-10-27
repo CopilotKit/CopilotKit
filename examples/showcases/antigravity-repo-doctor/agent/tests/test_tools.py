@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from repo_doctor import tools
+from repo_doctor import shell, tools
 from repo_doctor.config import Settings
 from repo_doctor.workspace import Workspace, workspace_key
 
@@ -192,7 +192,7 @@ async def test_push_runs_no_git_hooks(
 ) -> None:
     marker = tmp_path / "hook-ran"
     hooks = workspace.path / ".git" / "hooks"
-    for name in ("pre-commit", "pre-push"):
+    for name in ("pre-commit", "pre-push", "post-checkout"):
         hook = hooks / name
         hook.write_text(f"#!/bin/sh\ntouch {marker}\n")
         hook.chmod(0o755)
@@ -233,6 +233,41 @@ async def test_a_push_that_failed_after_its_commit_can_be_retried(
     assert retried["ok"] is True
     assert _git(workspace.push_remote, "log", "-1", "--format=%s", "fix/add") == "Fix add"
     assert again == {"ok": False, "error": "There is nothing to commit."}
+
+
+async def test_a_push_whose_branch_is_missing_on_the_remote_is_retried(
+    bound: dict[str, tools.Tool], workspace: Workspace, state: dict
+) -> None:
+    """The commit's objects can be on the remote without the branch pointing at it."""
+    (workspace.path / "app.py").write_text("def add(a, b):\n    return a + b\n")
+    first = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+    _git(workspace.push_remote, "update-ref", "-d", "refs/heads/fix/add")
+
+    retried = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+
+    assert first["ok"] is True
+    assert retried["ok"] is True
+    assert _git(workspace.push_remote, "log", "-1", "--format=%s", "fix/add") == "Fix add"
+
+
+async def test_git_calls_only_allow_the_local_file_transport(
+    bound: dict[str, tools.Tool], workspace: Workspace, monkeypatch: pytest.MonkeyPatch, state: dict
+) -> None:
+    seen: list[dict[str, str] | None] = []
+    run = shell.run
+
+    async def spy(args, **kwargs):  # type: ignore[no-untyped-def]
+        if "push" in args:
+            seen.append(kwargs.get("env"))
+        return await run(args, **kwargs)
+
+    monkeypatch.setattr(shell, "run", spy)
+    (workspace.path / "app.py").write_text("def add(a, b):\n    return a + b\n")
+
+    pushed = await bound["git_push"](branch="fix/add", commit_message="Fix add")
+
+    assert pushed["ok"] is True
+    assert seen and all(env == {"GIT_ALLOW_PROTOCOL": "file"} for env in seen)
 
 
 async def test_nothing_to_commit_on_a_fresh_branch(

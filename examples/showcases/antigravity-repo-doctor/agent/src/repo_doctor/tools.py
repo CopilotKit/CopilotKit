@@ -99,7 +99,11 @@ def build_tools(
     timeout = float(settings.command_timeout_seconds)
 
     async def git(*args: str, check: bool = True) -> shell.CommandResult:
-        result = await shell.run(["git", *args], cwd=repo, timeout=120)
+        # Local transport only, so no URL rewrite can turn a push into a network one.
+        # Clone and fetch call shell.run directly and are not limited.
+        result = await shell.run(
+            ["git", *args], cwd=repo, timeout=120, env={"GIT_ALLOW_PROTOCOL": "file"}
+        )
         if check and not result.ok:
             raise RuntimeError(f"`{result.command}` failed: {result.output.strip()[-600:]}")
         return result
@@ -527,7 +531,7 @@ def build_tools(
             exists = await git(
                 "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}", check=False
             )
-            await git("switch", *([] if exists.ok else ["-c"]), branch)
+            await git(*_NO_HOOKS, "switch", *([] if exists.ok else ["-c"]), branch)
         # Tracked files only. The agent edits existing files (it has no
         # create-file tool), while test runs leave stray untracked files
         # (some suites write `:memory:*` databases) that must not be committed.
@@ -536,12 +540,21 @@ def build_tools(
         if staged.exit_code != 0:
             await git(*_GIT_IDENTITY, *_NO_HOOKS, "commit", "--quiet", "-m", commit_message.strip())
         else:
-            # Nothing new to commit. A commit an earlier push failed to send
-            # still goes out; otherwise there is nothing to do.
+            # Nothing new to commit. A commit that is not on the remote branch
+            # yet (an earlier push failed) still goes out; otherwise there is
+            # nothing to do.
             head = (await git("rev-parse", "HEAD")).output.strip()
             ahead = await git("rev-list", "--count", f"{default}..HEAD", check=False)
             sent = await shell.run(
-                ["git", "--git-dir", str(workspace.push_remote), "cat-file", "-e", head],
+                [
+                    "git",
+                    "--git-dir",
+                    str(workspace.push_remote),
+                    "merge-base",
+                    "--is-ancestor",
+                    head,
+                    f"refs/heads/{branch}",
+                ],
                 cwd=repo,
                 timeout=120,
             )
