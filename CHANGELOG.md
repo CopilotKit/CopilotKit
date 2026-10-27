@@ -35,9 +35,7 @@ history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
 ### Breaking Changes
 
-- feat: native generative UI (createGenerativeUI, tool and markdown transports, standard catalog, inspector pane) (#7819) (2aff26d)
-  the four motion components are no longer in standardUI.
-  They were experimental and never released.
+None
 
 ## 1.80.0 - 2026-10-24
 
