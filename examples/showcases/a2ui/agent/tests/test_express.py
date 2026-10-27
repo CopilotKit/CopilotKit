@@ -108,9 +108,12 @@ def test_instructions_preserve_nested_literal_contracts_and_validation():
     assert "Text" not in contracts["components"]
     assert "additionalProperties: false" in instructions
     valid = 'root = LocationView(markers=[{label:"North Aral Sea",lat:46.5,lng:60.7,category:"Kazakhstan"}])'
-    assert compiler.compile(valid, final=True)[0]["createSurface"]["components"][0][
-        "markers"
-    ][0]["category"] == "Kazakhstan"
+    assert (
+        compiler.compile(valid, final=True)[0]["createSurface"]["components"][0][
+            "markers"
+        ][0]["category"]
+        == "Kazakhstan"
+    )
     with pytest.raises(ValueError, match="markers"):
         compiler.compile(valid.replace("category:", "description:"), final=True)
 
