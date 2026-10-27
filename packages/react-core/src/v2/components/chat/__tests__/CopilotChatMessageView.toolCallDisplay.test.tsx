@@ -189,6 +189,8 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     const toggle = within(group).getAllByRole("button")[0]!;
     expect(toggle.textContent).toContain("run_command");
     expect(toggle.textContent).toContain("1 call");
+    // The status icon is decorative; screen readers get the status as text.
+    expect(within(toggle).getByText("Done").className).toContain("sr-only");
   });
 
   it("opens a stack into the same compact cards, with Collapse", () => {
@@ -303,6 +305,37 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
       defineToolCallRenderer({ name: "*", render: draw, group: true }),
     ]);
     expect(screen.getByTestId("copilot-tool-call-group")).toBeDefined();
+  });
+
+  it("tucks a single opted-in call into a closed group too", () => {
+    const draw = ({ name }: { name: string }) => (
+      <div data-testid="custom-call">{name}</div>
+    );
+    const grouped = defineToolCallRenderer({
+      name: "*",
+      render: draw,
+      group: true,
+    });
+    const messages = [question, callMessage("a"), result("a")];
+
+    // Grouped: a closed "Used 1 tool" card, like a bigger group.
+    const { unmount } = renderView(messages, {}, [grouped]);
+    const toggle = within(
+      screen.getByTestId("copilot-tool-call-group"),
+    ).getAllByRole("button")[0]!;
+    expect(toggle.textContent).toContain("Used 1 tool");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    unmount();
+
+    // Stacked: the call renders once the stack is opened.
+    renderView(messages, { toolCallDisplay: "stacked" }, [grouped]);
+    expect(screen.queryByTestId("custom-call")).toBeNull();
+    fireEvent.click(
+      within(screen.getByTestId("copilot-tool-call-group")).getAllByRole(
+        "button",
+      )[0]!,
+    );
+    expect(screen.getByTestId("custom-call").textContent).toBe("run_command");
   });
 
   it("shows a group the run left unfinished as stopped, not running", () => {

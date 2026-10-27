@@ -332,7 +332,8 @@ export interface CopilotChatToolCallGroupProps extends Omit<
  *
  * Each call is drawn by its registered renderer. CopilotKit's built-in card
  * (`useDefaultRenderTool`) draws a compact row inside the card and line
- * appearances; a custom wildcard renderer draws whatever it draws.
+ * appearances and an open stack; a custom wildcard renderer draws whatever it
+ * draws.
  */
 export function CopilotChatToolCallGroup({
   calls,
@@ -515,6 +516,10 @@ export function CopilotChatToolCallGroup({
                       {latestPreview}
                     </span>
                   )}
+                  {/* The status icon is decorative, so say the status. */}
+                  <span className="cpk:sr-only">
+                    {statusLabels[latestStatus]}
+                  </span>
                 </span>
                 <span className="cpk:ml-2 cpk:inline-flex cpk:shrink-0 cpk:items-center cpk:gap-2 cpk:text-xs cpk:text-muted-foreground">
                   <FailedCount calls={calls} />
