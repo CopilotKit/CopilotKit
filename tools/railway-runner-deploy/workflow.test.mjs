@@ -155,3 +155,19 @@ test("workflow has fixed dispatch, concurrency, no environment setup, and creden
   assert.equal((source.match(/secrets.RICH_RUNNER_TOKEN/g) || []).length, 1);
   assert.match(source, /node tools\/railway-runner-deploy\/run.mjs/);
 });
+
+test("one-time browser provenance only runs for transition changes", async () => {
+  const workflow = ".github/workflows/intelligence-browser-upgrade.yml";
+  const source = await readFile(workflow, "utf8");
+  const paths = source
+    .match(/    paths:\n((?:      - .+\n)+)/)[1]
+    .trim()
+    .split("\n")
+    .map((line) => line.trim().slice(2));
+  assert.deepEqual(paths, [
+    "tools/railway-runner-deploy/browser-upgrade*.mjs",
+    "tools/railway-runner-deploy/releases/browser-upgrade.json",
+    workflow,
+  ]);
+  assert.match(source, /workflow_dispatch:/);
+});

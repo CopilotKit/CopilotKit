@@ -648,7 +648,7 @@ export class RunHandler {
 
       const runAgentResult = await agent.connectAgent(
         {
-          forwardedProps: this._internal.properties,
+          forwardedProps: this._internal.getPropertiesForAgent(agent.agentId),
           tools: this.buildFrontendTools(agent.agentId),
           context: this._internal.getContextForAgent(agent.agentId),
         },
@@ -875,7 +875,7 @@ export class RunHandler {
       const pinRunIdOnWire = runId !== undefined && !continuationHandoff;
       const agentRunInput = {
         forwardedProps: {
-          ...this._internal.properties,
+          ...this._internal.getPropertiesForAgent(agent.agentId),
           ...forwardedProps,
         },
         ...(resume !== undefined ? { resume } : {}),

@@ -26,6 +26,7 @@ import type { CopilotKitMessageFilter } from "./message-filter";
 import { AgentRegistry } from "./agent-registry";
 import type { ScopedContext } from "./context-store";
 import { ContextStore } from "./context-store";
+import { isForAgent } from "./agent-scope";
 import { SuggestionEngine } from "./suggestion-engine";
 import type {
   CopilotKitCoreRunAgentParams,
@@ -40,6 +41,7 @@ import type {
   DebugConfig,
   RuntimeEntitlementResponse,
 } from "@copilotkit/shared";
+import { randomUUID } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import { ɵChildHistoryStore } from "../child-history";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
@@ -49,9 +51,31 @@ import type { LearningConfig, TrajectoryStartOptions } from "./learning-bridge";
 import type { JsonValue, StartResult } from "@copilotkit/learning";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
+import type { ɵGenerativeUIDebugSource } from "./generative-ui-debug";
 import type { ɵMemoryStore } from "../memory";
 import { HeaderSourceResolver, isHeaderResolutionError } from "./header-source";
 import type { CopilotKitHeadersSource } from "./header-source";
+
+/**
+ * Run properties that go only to the runs of some agents.
+ * See `CopilotKitCore.addScopedProperties`.
+ */
+export interface ScopedProperties {
+  /** The properties to merge on top of the base run properties. */
+  properties: Record<string, unknown>;
+  /** The agents that get these properties. When omitted, every agent gets them. */
+  agentIds?: string[];
+}
+
+/** True for an object literal. Arrays, `null`, and class instances are not plain objects. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.getPrototypeOf(value) === Object.prototype
+  );
+}
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -403,6 +427,7 @@ export interface CopilotKitCoreFriendsAccess {
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
   getContextForAgent(agentId?: string): Context[];
+  getPropertiesForAgent(agentId?: string): Record<string, unknown>;
   getAgent(id: string): AbstractAgent | undefined;
   /**
    * Re-apply the last resolved header snapshot to a single agent, merged on
@@ -455,6 +480,7 @@ export class CopilotKitCore {
   private _credentials?: RequestCredentials;
   private _messageFilter?: CopilotKitMessageFilter;
   private _properties: Record<string, unknown>;
+  private _scopedProperties: Map<string, ScopedProperties> = new Map();
   private _defaultThrottleMs?: number;
   private _debug?: DebugConfig;
 
@@ -470,6 +496,8 @@ export class CopilotKitCore {
   private learningBridge: LearningBridge;
   private notifiedTrajectoryId: string | null = null;
   private readonly learningConfiguredListeners = new Set<() => void>();
+  private _generativeUIDebugSource: ɵGenerativeUIDebugSource | undefined;
+  private readonly generativeUIDebugListeners = new Set<() => void>();
   /**
    * The single core-owned memory store, created lazily on first
    * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
@@ -974,6 +1002,65 @@ export class CopilotKitCore {
     );
   }
 
+  /**
+   * Add run properties that go only to the runs of `agentIds`. When
+   * `agentIds` is omitted, every agent gets them. They merge on top of the
+   * base `properties`.
+   *
+   * When an entry value and the existing value under the same key are both
+   * plain objects, their keys merge one level deep. So several entries can
+   * add keys under one namespace (for example `copilotkit`).
+   *
+   * @param entry - The properties and the optional agent ids.
+   * @returns The id to pass to `removeScopedProperties`.
+   *
+   * @example
+   * const id = copilotkit.addScopedProperties({
+   *   properties: { copilotkit: { theme: "dark" } },
+   *   agentIds: ["research"],
+   * });
+   * copilotkit.removeScopedProperties(id);
+   */
+  addScopedProperties({ properties, agentIds }: ScopedProperties) {
+    let id = randomUUID();
+    // An id source that repeats itself (a mock, say) must not replace an
+    // earlier entry: every call adds one.
+    for (let n = 1; this._scopedProperties.has(id); n++) id = `${id}-${n}`;
+    this._scopedProperties.set(id, {
+      properties,
+      ...(agentIds ? { agentIds } : {}),
+    });
+    return id;
+  }
+
+  /** Remove an entry that `addScopedProperties` added. An unknown id does nothing. */
+  removeScopedProperties(id: string) {
+    this._scopedProperties.delete(id);
+  }
+
+  /**
+   * Build the forwarded properties for a run of the given agent: the base
+   * properties plus every scoped entry that matches the agent. An entry with
+   * `agentIds` does not match when `agentId` is omitted.
+   */
+  getPropertiesForAgent(agentId?: string) {
+    const merged: Record<string, unknown> = { ...this._properties };
+    const entries = this._scopedProperties.values();
+    for (const entry of entries) {
+      if (!isForAgent(entry.agentIds, agentId)) continue;
+
+      const properties = Object.entries(entry.properties);
+      for (const [key, value] of properties) {
+        const base = merged[key];
+        merged[key] =
+          isPlainObject(base) && isPlainObject(value)
+            ? { ...base, ...value }
+            : value;
+      }
+    }
+    return merged;
+  }
+
   setProperties(properties: Record<string, unknown>): void {
     this._properties = properties;
     void this.notifySubscribers(
@@ -1068,6 +1155,35 @@ export class CopilotKitCore {
     this.learningConfiguredListeners.add(listener);
     return () => {
       this.learningConfiguredListeners.delete(listener);
+    };
+  }
+
+  /**
+   * @internal The generative UI of the framework package, for the inspector.
+   * `undefined` when no provider has a `generativeUI` config.
+   */
+  get ɵgenerativeUIDebugSource(): ɵGenerativeUIDebugSource | undefined {
+    return this._generativeUIDebugSource;
+  }
+
+  /** @internal Set by the framework package. `undefined` removes it. */
+  ɵsetGenerativeUIDebugSource(source: ɵGenerativeUIDebugSource | undefined) {
+    if (source === this._generativeUIDebugSource) return;
+    this._generativeUIDebugSource = source;
+    for (const listener of [...this.generativeUIDebugListeners]) {
+      try {
+        listener();
+      } catch (error) {
+        console.error("Generative UI debug listener error:", error);
+      }
+    }
+  }
+
+  /** @internal Calls `listener` when {@link ɵgenerativeUIDebugSource} is set or removed. */
+  ɵsubscribeToGenerativeUIDebugSource(listener: () => void): () => void {
+    this.generativeUIDebugListeners.add(listener);
+    return () => {
+      this.generativeUIDebugListeners.delete(listener);
     };
   }
 

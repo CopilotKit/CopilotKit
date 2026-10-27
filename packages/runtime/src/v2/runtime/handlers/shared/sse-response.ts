@@ -303,9 +303,11 @@ export function createSseEventResponse({
       error: async (error) => {
         reportAgentError(error, "sse.subscription");
         if (captureTelemetry) {
+          // Analytics gets the outcome, not the message: provider and tool
+          // errors can quote prompts, arguments or URLs. Same as Intelligence.
           telemetry.capture("oss.runtime.agent_execution_stream_errored", {
             ...executionInfo,
-            error: error instanceof Error ? error.message : String(error),
+            error: "AGENT_EXECUTION_FAILED",
           });
         }
         if (debug?.lifecycle) {

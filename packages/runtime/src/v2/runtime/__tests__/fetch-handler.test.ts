@@ -859,7 +859,7 @@ function setupInspectorLearningRoute(debug = false, configured = true) {
     links: {
       learning: "https://app.copilotkit.ai/learning",
       candidates: null,
-      runs: "https://app.copilotkit.ai/learning?tab=runs",
+      runs: "https://app.copilotkit.ai/o/acme/support/learning/quality/analysis-results",
     },
   } satisfies InspectorLearningSnapshotV1;
   const getInspectorLearning = vi

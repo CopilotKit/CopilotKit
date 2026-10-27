@@ -54,6 +54,8 @@ import {
 import { LastUserMessageContext } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
 import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
+import { GenerativeUIChatSlotContext } from "../../generative-ui/chat";
+import type { GenerativeUIChatSurfaceProps } from "../../generative-ui/chat";
 import {
   CopilotKitInspectorContextProvider,
   useCopilotKitInspector,
@@ -111,6 +113,11 @@ export type CopilotChatProps = Omit<
    * even when the provider specifies a non-zero `defaultThrottleMs`.
    */
   throttleMs?: number;
+  /**
+   * Experimental. Wrapper for generative UI surfaces rendered in this chat.
+   * Receives `{ surfaceId, isStreaming, error, children }`.
+   */
+  generativeUISurface?: React.ComponentType<GenerativeUIChatSurfaceProps>;
 };
 export function CopilotChat({
   agentId,
@@ -122,6 +129,7 @@ export function CopilotChat({
   attachments: attachmentsConfig,
   onError,
   throttleMs,
+  generativeUISurface,
   ...props
 }: CopilotChatProps) {
   // Check for existing configuration provider
@@ -1405,7 +1413,11 @@ export function CopilotChat({
                 {childSnapshot.error && (
                   <div role="alert">{childSnapshot.error}</div>
                 )}
-                {RenderedChatView}
+                <GenerativeUIChatSlotContext.Provider
+                  value={generativeUISurface}
+                >
+                  {RenderedChatView}
+                </GenerativeUIChatSlotContext.Provider>
               </ChildHistoryContext.Provider>
             </AllChildHistoriesProvider>
           </CopilotKitInspectorContextProvider>

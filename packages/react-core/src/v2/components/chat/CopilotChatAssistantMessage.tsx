@@ -42,6 +42,8 @@ import {
   useInspectorShortcutsHidden,
 } from "./CopilotChatInspectorButton";
 import type { CopilotKitInspectorOpenRequest } from "../CopilotKitInspectorContext";
+import { useGenerativeUIRuntime } from "../../generative-ui/runtime-context";
+import { MarkdownSurfaces } from "../../generative-ui/markdown/MarkdownSurfaces";
 import {
   Popover,
   PopoverAnchor,
@@ -471,13 +473,14 @@ export function CopilotChatAssistantMessage({
         renderSlot(
           markdownRenderer,
           CopilotChatAssistantMessage.MarkdownRenderer,
-          { content },
+          { content, messageId: message.id },
         )
       }
     />
   ) : (
     renderSlot(markdownRenderer, CopilotChatAssistantMessage.MarkdownRenderer, {
       content: message.content || "",
+      messageId: message.id,
     })
   );
 
@@ -670,12 +673,29 @@ export namespace CopilotChatAssistantMessage {
   export const MarkdownRenderer: React.FC<
     Omit<React.ComponentProps<typeof Streamdown>, "children"> & {
       content: string;
+      /** Id of the rendered message. The markdown transport finds its fences by it. */
+      messageId?: string;
     }
-  > = ({ content, className, ...props }) => (
-    <Streamdown className={className} {...props}>
-      {content ?? ""}
-    </Streamdown>
-  );
+  > = ({ content, className, messageId, ...props }) => {
+    // With the markdown transport, ```a2ui fences render as surfaces. The
+    // fences are found by the message id, so without one they stay code.
+    const generativeUI = useGenerativeUIRuntime();
+    if (generativeUI?.transport === "markdown" && messageId !== undefined) {
+      return (
+        <MarkdownSurfaces
+          content={content ?? ""}
+          messageId={messageId}
+          className={className}
+          {...props}
+        />
+      );
+    }
+    return (
+      <Streamdown className={className} {...props}>
+        {content ?? ""}
+      </Streamdown>
+    );
+  };
 
   export const Toolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
     className,

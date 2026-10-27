@@ -614,39 +614,6 @@ export function CopilotChatInput({
   // Determine whether to show disclaimer based on prop or positioning default
   const shouldShowDisclaimer = showDisclaimer ?? positioning === "absolute";
 
-  if (children) {
-    const childProps = {
-      textArea: BoundTextArea,
-      audioRecorder: BoundAudioRecorder,
-      sendButton: BoundSendButton,
-      startTranscribeButton: BoundStartTranscribeButton,
-      cancelTranscribeButton: BoundCancelTranscribeButton,
-      finishTranscribeButton: BoundFinishTranscribeButton,
-      addMenuButton: BoundAddMenuButton,
-      disclaimer: BoundDisclaimer,
-      onSubmitMessage,
-      onStop,
-      isRunning,
-      onStartTranscribe,
-      onCancelTranscribe,
-      onFinishTranscribe,
-      onAddFile,
-      mode,
-      toolsMenu,
-      autoFocus,
-      positioning,
-      keyboardHeight,
-      showDisclaimer: shouldShowDisclaimer,
-      containerRef,
-    } as CopilotChatInputChildrenArgs;
-
-    return (
-      <div data-copilotkit style={{ display: "contents" }}>
-        {children(childProps)}
-      </div>
-    );
-  }
-
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // Don't focus if clicking on buttons or other interactive elements
     const target = e.target as HTMLElement;
@@ -789,7 +756,15 @@ export function CopilotChatInput({
     const addContainer = addButtonContainerRef.current;
     const actionsContainer = actionsContainerRef.current;
 
-    if (!textarea || !grid || !addContainer || !actionsContainer) {
+    if (!textarea) {
+      return;
+    }
+
+    if (!grid || !addContainer || !actionsContainer) {
+      // A custom `children` layout renders none of the default containers, so
+      // there is no compact or expanded layout to pick; the textarea still
+      // grows with its content.
+      adjustTextareaHeight();
       return;
     }
 
@@ -1115,6 +1090,41 @@ export function CopilotChatInput({
       </div>
     </div>
   );
+
+  // A custom layout takes over the markup only. It returns after every hook
+  // above, so the textarea keeps its measuring and auto-grow.
+  if (children) {
+    const childProps = {
+      textArea: BoundTextArea,
+      audioRecorder: BoundAudioRecorder,
+      sendButton: BoundSendButton,
+      startTranscribeButton: BoundStartTranscribeButton,
+      cancelTranscribeButton: BoundCancelTranscribeButton,
+      finishTranscribeButton: BoundFinishTranscribeButton,
+      addMenuButton: BoundAddMenuButton,
+      disclaimer: BoundDisclaimer,
+      onSubmitMessage,
+      onStop,
+      isRunning,
+      onStartTranscribe,
+      onCancelTranscribe,
+      onFinishTranscribe,
+      onAddFile,
+      mode,
+      toolsMenu,
+      autoFocus,
+      positioning,
+      keyboardHeight,
+      showDisclaimer: shouldShowDisclaimer,
+      containerRef,
+    } as CopilotChatInputChildrenArgs;
+
+    return (
+      <div data-copilotkit style={{ display: "contents" }}>
+        {children(childProps)}
+      </div>
+    );
+  }
 
   return (
     <div

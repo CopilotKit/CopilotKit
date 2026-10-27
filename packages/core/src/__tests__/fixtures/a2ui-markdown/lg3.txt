@@ -1,0 +1,49 @@
+Here’s a compact 5-day Lisbon plan with a simple daily budget estimate. I’ve included an interactive chart for the budget split.
+
+## 5-day Lisbon itinerary
+
+### Day 1 — Baixa, Chiado, Alfama
+- Arrive and settle in
+- Walk Praça do Comércio and Rua Augusta
+- Explore Chiado cafés and shops
+- Ride Tram 28 or walk into Alfama
+- Sunset at Miradouro de Santa Luzia
+- Dinner with fado in Alfama
+
+### Day 2 — Belém
+- Visit Jerónimos Monastery
+- See Belém Tower and Monument to the Discoveries
+- Try pastéis de nata at Pastéis de Belém
+- Stroll the waterfront
+- Optional: MAAT or Coach Museum
+
+### Day 3 — Sintra day trip
+- Morning train to Sintra
+- Visit Pena Palace
+- Explore Sintra historic center
+- Optional: Quinta da Regaleira
+- Return to Lisbon for a relaxed dinner
+
+## Estimated daily budget
+
+Assumes a mid-range traveler using public transport and 1–2 paid attractions on most days.
+
+```a2ui
+{"version":"v0.9","createSurface":{"surfaceId":"lisbon-trip-budget"}}
+{"version":"v0.9","updateDataModel":{"surfaceId":"lisbon-trip-budget","path":"/","value":{"chart":[{"day":"Day 1","food":45,"transport":10,"activities":25},{"day":"Day 2","food":40,"transport":12,"activities":35},{"day":"Day 3","food":35,"transport":18,"activities":55},{"day":"Day 4","food":45,"transport":10,"activities":30},{"day":"Day 5","food":35,"transport":8,"activities":15}]}}}
+{"version":"v0.9","updateComponents":{"surfaceId":"lisbon-trip-budget","components":[{"id":"root","component":"Column","gap":3,"children":["chart"]},{"id":"chart","component":"Chart","chartType":"bar","data":{"path":"/chart"},"xKey":"day","series":[{"key":"food","label":"Food","color":"#f59e0b"},{"key":"transport","label":"Transport","color":"#3b82f6"},{"key":"activities","label":"Activities","color":"#10b981"}],"stacked":true,"height":320,"showLegend":true,"showGrid":true,"showTooltip":true,"format":"currency","currency":"EUR","title":"Estimated daily budget split"}]}}
+```
+
+## Approximate totals
+- **Day 1:** €80
+- **Day 2:** €87
+- **Day 3:** €108
+- **Day 4:** €85
+- **Day 5:** €58
+
+**Trip total:** **€418**
+
+If you want, I can also turn this into:
+- a **cheaper backpacker version**
+- a **luxury version**
+- or a **map-based itinerary by neighborhood**

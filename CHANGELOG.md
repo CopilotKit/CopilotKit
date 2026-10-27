@@ -16,6 +16,27 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.81.0 - 2026-10-27
+
+### Features
+
+- feat: native generative UI (createGenerativeUI, tool and markdown transports, standard catalog, inspector pane) (#7819) (2aff26d)
+- feat(runtime): add server-side Learning management methods (#7977) (6960c50)
+
+### Fixes
+
+- fix(inspector): accept local dashboards and retry Learning status (#7966) (44247a4)
+- fix(runtime): run v1 service adapters through their own process() again (#7756) (2d7362b)
+- fix(vue): keep CopilotChat full width in a flex row (closes PE-1053) (#8008) (0c7efff)
+- fix(react-native): time out stalled streams, not long ones (#7954) (3b5617b)
+- fix(shared): withhold unterminated numbers in partialJSONParse (#7950) (d01d9c7)
+- fix(react-core): let a custom chat input layout grow its textarea (#7964) (3cc0e69)
+- fix(runtime): handle pre-parsed request bodies in createCopilotNodeHandler (#7970) (37ed094)
+
+### Breaking Changes
+
+None
+
 ## 1.80.0 - 2026-10-24
 
 ### Features
