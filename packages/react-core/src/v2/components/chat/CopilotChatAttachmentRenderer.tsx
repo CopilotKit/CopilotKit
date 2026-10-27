@@ -149,7 +149,7 @@ export const CopilotChatAttachmentRenderer: React.FC<
 > = ({ type, source, filename, className }) => {
   const src = getSourceUrl(source);
 
-  if (!src) {
+  if (!/^(?:https?:\/\/|data:|blob:)/i.test(src)) {
     return (
       <span className={cn("cpk:text-sm cpk:text-muted-foreground", className)}>
         {filename || source.mimeType || `${type} attachment`}

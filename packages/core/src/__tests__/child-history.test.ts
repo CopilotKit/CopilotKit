@@ -238,7 +238,8 @@ describe("child media presentation fidelity", () => {
       ]);
       if (role === "assistant") {
         expect(typeof message.content).toBe("string");
-        expect(message.content).toContain(value);
+        if (sourceType !== "data") expect(message.content).toContain(value);
+        else expect(message.content).not.toContain(value);
         expect(message.content).toContain(filename);
       }
       if (message.role === "tool")
@@ -403,7 +404,9 @@ describe("child-history presentation store", () => {
     expect(observed).toHaveLength(incomplete.length);
     for (const partial of observed) expect(partial).toBe(previous);
     expect(current().histories).toBe(previous.histories);
-    expect(current().error).toMatch(/incomplete/i);
+    expect(current().error).toBe(
+      "Unable to display saved child history. Please reload to try again.",
+    );
     await play(...chunks([savedHistory(["complete"])]));
     expect(current().error).toBeUndefined();
     expect(current().histories[0]?.namespace).toEqual(["complete"]);
@@ -413,7 +416,9 @@ describe("child-history presentation store", () => {
     const { play, current } = setup();
     const events = chunks([savedHistory()]);
     await play(events[0]!);
-    expect(current().error).toMatch(/incomplete/i);
+    expect(current().error).toBe(
+      "Unable to display saved child history. Please reload to try again.",
+    );
     await play(...events);
     expect(current().error).toBeUndefined();
     expect(current().histories[0]?.namespace).toEqual(["research"]);
@@ -465,7 +470,7 @@ describe("child-history presentation store", () => {
     await play(replacement[0]!, replacement[2]!);
     expect(current().histories).toBe(before);
     expect(current().error).toContain(
-      "Incomplete or conflicting child snapshot",
+      "Unable to display saved child history. Please reload to try again.",
     );
     await play(snapshot(savedHistory(["valid"])));
     expect(current().error).toBeUndefined();
@@ -883,4 +888,128 @@ describe("child-history presentation store", () => {
       ),
     ).toEqual([["left-parent-call"], ["right-parent-call"]]);
   });
+});
+
+it.each([
+  "javascript:alert(1)",
+  " java\nscript:alert(1)",
+  "file:///etc/passwd",
+  "data:text/html,unsafe",
+  "blob:opaque",
+])(
+  "does not propagate unsafe snapshot URL %s into content or Markdown",
+  async (value) => {
+    const { play, current } = setup();
+    await play(
+      historyEvent({
+        version: 1,
+        histories: [
+          {
+            namespace: ["media"],
+            runs: [
+              {
+                sourceRunId: "run",
+                messages: ["assistant", "user", "tool"].map((role) => ({
+                  sourceMessageId: role,
+                  role,
+                  toolCallId: "call",
+                  content: [
+                    {
+                      type: "media",
+                      modality: "document",
+                      filename: "file.pdf",
+                      source: { type: "url", value },
+                    },
+                  ],
+                })),
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(current().histories[0]?.messages).toHaveLength(3);
+    for (const message of current().histories[0]!.messages) {
+      expect(message.content).toBe("[Unavailable attachment: file.pdf]");
+      expect(message.contentParts).toBeUndefined();
+    }
+  },
+);
+
+it("ignores future snapshot versions and keeps parse details out of the UI", async () => {
+  const { play, current } = setup();
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    await play(snapshot(savedHistory()));
+    const before = current();
+    await play(historyEvent({ version: 99, histories: "future format" }));
+    expect(current()).toBe(before);
+    expect(warn).toHaveBeenCalledWith(
+      "Ignoring unsupported child history version",
+      99,
+    );
+    await play(
+      historyEvent({ version: 1, histories: [{ namespace: "secret detail" }] }),
+    );
+    expect(current().histories).toBe(before.histories);
+    expect(current().error).toBe(
+      "Unable to display saved child history. Please reload to try again.",
+    );
+    expect(current().error).not.toContain("secret detail");
+  } finally {
+    warn.mockRestore();
+  }
+});
+
+it("combines assistant snapshot fragments sharing an ID without duplicating replayed records", async () => {
+  const { play, current } = setup();
+  const text = {
+    sourceMessageId: "shared",
+    role: "assistant",
+    content: [{ type: "text", text: "Before the chart" }],
+  };
+  const call = {
+    sourceMessageId: "shared",
+    role: "assistant",
+    content: [
+      { type: "tool_call", id: "chart", name: "chart", args: { value: 7 } },
+    ],
+  };
+  const event = historyEvent({
+    version: 1,
+    histories: [
+      {
+        namespace: ["child"],
+        runs: [{ sourceRunId: "run", messages: [text, text, call] }],
+      },
+    ],
+  });
+  await play(event);
+  await play(event);
+  expect(current().histories[0]?.messages).toEqual([
+    {
+      id: "shared",
+      role: "assistant",
+      content: "Before the chart",
+      toolCalls: [
+        {
+          id: "chart",
+          type: "function",
+          function: { name: "chart", arguments: '{"value":7}' },
+        },
+      ],
+    },
+  ]);
+});
+
+it("retains a child's original root turn when later snapshots arrive", async () => {
+  const { agent, play, current } = setup();
+  await play(snapshot(savedHistory()));
+  expect(current().histories[0]?.anchorMessageId).toBe("root-user");
+  agent.setMessages([
+    ...agent.messages,
+    createMessage({ id: "later-user", content: "Next question" }),
+  ]);
+  await play(snapshot(savedHistory()));
+  expect(current().histories[0]?.anchorMessageId).toBe("root-user");
 });

@@ -666,7 +666,10 @@ export function CopilotChatMessageView({
   // "Latest" means the last row on screen, not the last entry of `messages`:
   // a transform can drop, replace or reorder the tail. Streaming state and the
   // assistant toolbar key off this.
-  const latestRenderedId = renderedMessages[renderedMessages.length - 1]?.id;
+  const latestRenderedMessage = renderedMessages
+    .filter((message) => !childHistories.has(message.id))
+    .at(-1);
+  const latestRenderedId = latestRenderedMessage?.id;
 
   // ---------------------------------------------------------------------------
   // Tool-call display
@@ -1187,7 +1190,19 @@ export function CopilotChatMessageView({
   const renderMessageBlock = (message: Message): React.ReactElement[] => {
     const childHistory = childHistories.get(message.id);
     if (childHistory)
-      return [<ChildHistoryView key={message.id} history={childHistory} />];
+      return [
+        <ChildHistoryView
+          key={message.id}
+          history={childHistory}
+          messageViewProps={{
+            assistantMessage,
+            userMessage,
+            reasoningMessage,
+            toolCallDisplay,
+            cursor,
+          }}
+        />,
+      ];
     const elements: (React.ReactElement | null | undefined)[] = [];
     // Only custom message renderers consume the snapshot, and resolving it
     // deep-clones the agent's whole state (LangGraph's includes the `messages`
@@ -1460,7 +1475,7 @@ export function CopilotChatMessageView({
   // Hide the chat-level loading cursor when the last rendered message is a
   // reasoning message — the reasoning card already shows its own loading
   // indicator. A reasoning message the transform hid shows no indicator.
-  const lastMessage = renderedMessages[renderedMessages.length - 1];
+  const lastMessage = latestRenderedMessage;
   // In the "turn" display the "Working" line at the top of the reply is the
   // progress indicator; before the reply's first message it sits where the
   // cursor would.

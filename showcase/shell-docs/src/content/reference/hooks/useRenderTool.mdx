@@ -140,3 +140,16 @@ function App() {
 - [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool)
 - [`useRenderToolCall`](/reference/hooks/useRenderToolCall)
 - [`useFrontendTool`](/reference/hooks/useFrontendTool)
+
+## Structured tool results
+
+When `status` is `"complete"`, renderer props include the legacy `result` text
+fallback and optional `resultContent` containing the original AG-UI tool-message
+content: a string or an ordered array of text, image, document, audio, and video
+parts. The same contract applies to renderers created with
+`defineToolCallRenderer`. Before completion, `resultContent` is undefined.
+
+Use `result` for text-only displays. Use `resultContent` when your renderer needs
+media sources, MIME types, or filenames. Provider file handles remain opaque;
+rendering their bytes requires a provider-specific resolver. The default tool
+renderer displays available media and labels unresolved files.

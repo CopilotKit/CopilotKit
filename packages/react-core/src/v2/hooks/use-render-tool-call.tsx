@@ -59,6 +59,7 @@ const ToolCallRenderer = React.memo(
           args={args}
           status={ToolCallStatus.Complete}
           result={contentToText(toolMessage.content)}
+          // Keep the legacy text fallback alongside the full ordered content.
           resultContent={toolMessage.content}
         />
       );

@@ -1411,7 +1411,12 @@ export function CopilotChat({
             <AllChildHistoriesProvider value={childSnapshot.histories}>
               <ChildHistoryContext.Provider value={childProjection.entries}>
                 {childSnapshot.error && (
-                  <div role="alert">{childSnapshot.error}</div>
+                  <div
+                    role="status"
+                    className="cpk:m-3 cpk:rounded-lg cpk:border cpk:border-border cpk:bg-muted cpk:p-3 cpk:text-sm cpk:text-muted-foreground"
+                  >
+                    {childSnapshot.error}
+                  </div>
                 )}
                 <GenerativeUIChatSlotContext.Provider
                   value={generativeUISurface}

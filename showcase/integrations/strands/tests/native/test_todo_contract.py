@@ -112,7 +112,9 @@ def test_tools_automatically_persist_board_and_history(tmp_path):
             # Supplying expected todos here would mask a missing native write.
             state={},
             context=[],
-            messages=[UserMessage(id=run_id, role="user", content="Update the board")],
+            messages=[
+                UserMessage(id=run_id, role="user", content="Update the board")
+            ],
             tools=[],
         )
 

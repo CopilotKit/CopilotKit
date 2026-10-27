@@ -2,6 +2,7 @@ import React, { createContext, useContext, useMemo } from "react";
 import type { Message } from "@ag-ui/core";
 import type { ɵChildHistory } from "@copilotkit/core";
 import { CopilotChatMessageView } from "./CopilotChatMessageView";
+import type { CopilotChatMessageViewProps } from "./CopilotChatMessageView";
 import { ScrollElementContext } from "./scroll-element-context";
 import { ChildContentContext } from "./child-content-context";
 
@@ -61,11 +62,32 @@ export function projectChildHistories(
       id,
       role: "activity",
       activityType: "cpk-child-history",
-      content: { namespace: history.namespace },
+      content: { namespace: history.namespace, history },
     });
     pending.delete(history);
   };
+  const orphanBoundaries = new Map<ɵChildHistory, string | undefined>();
+  for (const child of children) {
+    if (
+      visible.some(
+        (m) =>
+          m.role === "assistant" &&
+          m.toolCalls?.some((c) => child.parentToolCallIds.includes(c.id)),
+      )
+    )
+      continue;
+    let anchor = messages.findIndex((m) => child.rootMessageIds.includes(m.id));
+    if (anchor < 0)
+      anchor = messages.findIndex((m) => m.id === child.anchorMessageId);
+    if (anchor < 0) anchor = messages.findIndex((m) => m.role === "user");
+    orphanBoundaries.set(
+      child,
+      messages.slice(anchor + 1).find((m) => m.role === "user")?.id,
+    );
+  }
   for (const message of visible) {
+    for (const child of pending)
+      if (orphanBoundaries.get(child) === message.id) insert(child);
     rows.push(message);
     if (message.role === "assistant") {
       for (const child of pending)
@@ -85,7 +107,13 @@ export function projectChildHistories(
 const AllChildHistoriesContext = createContext<readonly ɵChildHistory[]>([]);
 export const AllChildHistoriesProvider = AllChildHistoriesContext.Provider;
 
-export function ChildHistoryView({ history }: { history: ɵChildHistory }) {
+export function ChildHistoryView({
+  history,
+  messageViewProps,
+}: {
+  history: ɵChildHistory;
+  messageViewProps?: Partial<CopilotChatMessageViewProps>;
+}) {
   const histories = useContext(AllChildHistoriesContext);
   const contentParts = useMemo(
     () =>
@@ -152,6 +180,7 @@ export function ChildHistoryView({ history }: { history: ɵChildHistory }) {
           <ChildHistoryReadOnlyContext.Provider value={true}>
             <ScrollElementContext.Provider value={null}>
               <CopilotChatMessageView
+                {...messageViewProps}
                 messages={projection.messages}
                 isRunning={false}
                 messageFeedback={false}

@@ -6,6 +6,7 @@ import type {
   ToolMessage,
 } from "@ag-ui/client";
 import { z } from "zod";
+import { adaptChildHistoryEvent } from "./child-history-claude-adapter";
 
 const text = z.object({ type: z.literal("text"), text: z.string() });
 const reasoning = z.object({ type: z.literal("reasoning"), text: z.string() });
@@ -93,6 +94,8 @@ export interface ɵChildHistory {
   messages: ɵChildMessage[];
   /** Native live message IDs whose calls are also in the root event stream. */
   rootMessageIds: string[];
+  /** Root turn observed when this child first arrived, for missing delegation calls. */
+  anchorMessageId?: string;
 }
 export interface ɵChildHistorySnapshot {
   histories: readonly ɵChildHistory[];
@@ -128,10 +131,14 @@ function toMessages(history: z.infer<typeof historySchema>): ɵChildMessage[] {
             },
           });
         if (block.type === "media") {
-          if (block.unresolvedRef !== undefined)
+          if (
+            block.unresolvedRef !== undefined ||
+            (block.source?.type === "url" &&
+              !/^https?:\/\//i.test(block.source.value))
+          )
             parts.push({
               type: "text",
-              text: `[Unavailable attachment: ${block.filename ?? block.unresolvedRef}]`,
+              text: `[Unavailable attachment: ${block.filename ?? block.unresolvedRef ?? "Unsupported URL"}]`,
             });
           else {
             // A source's MIME describes its bytes; block MIME fills in older
@@ -190,12 +197,10 @@ function toMessages(history: z.infer<typeof historySchema>): ɵChildMessage[] {
                   const label = String(
                     part.metadata?.filename ?? part.type,
                   ).replace(/[[\]\\]/g, "\\$&");
+                  if (part.source.type === "data") return `[${label}]`;
                   if (part.source.type === "file")
                     return `[${label}: ${part.source.value}]`;
-                  const url =
-                    part.source.type === "data"
-                      ? `data:${part.source.mimeType};base64,${part.source.value}`
-                      : part.source.value;
+                  const url = part.source.value;
                   return `${part.type === "image" ? "!" : ""}[${label}](<${url.replace(/[<>\r\n]/g, encodeURIComponent)}>)`;
                 })
                 .join("");
@@ -225,12 +230,47 @@ function toMessages(history: z.infer<typeof historySchema>): ɵChildMessage[] {
   );
   // Native records may share a UUID across several results and a user text
   // block. Only repeated context for the same role/call is a duplicate.
-  const unique = new Map(
-    messages.map((m) => [
-      JSON.stringify([m.id, m.role, m.role === "tool" ? m.toolCallId : null]),
-      m,
-    ]),
-  );
+  const unique = new Map<string, ɵChildMessage>();
+  const seen = new Set<string>();
+  for (const message of messages) {
+    const key = JSON.stringify([
+      message.id,
+      message.role,
+      message.role === "tool" ? message.toolCallId : null,
+    ]);
+    const fingerprint = JSON.stringify(message);
+    if (seen.has(fingerprint)) continue;
+    seen.add(fingerprint);
+    const prior = unique.get(key);
+    if (prior?.role === "assistant" && message.role === "assistant") {
+      if (JSON.stringify(prior) === JSON.stringify(message)) continue;
+      const calls = new Map(
+        [...(prior.toolCalls ?? []), ...(message.toolCalls ?? [])].map((c) => [
+          c.id,
+          c,
+        ]),
+      );
+      unique.set(key, {
+        ...prior,
+        content: (prior.content ?? "") + (message.content ?? ""),
+        ...(calls.size ? { toolCalls: [...calls.values()] } : {}),
+        ...(prior.contentParts || message.contentParts
+          ? {
+              contentParts: [
+                ...(prior.contentParts ??
+                  (prior.content
+                    ? [{ type: "text" as const, text: prior.content }]
+                    : [])),
+                ...(message.contentParts ??
+                  (message.content
+                    ? [{ type: "text" as const, text: message.content }]
+                    : [])),
+              ],
+            }
+          : {}),
+      });
+    } else unique.set(key, message);
+  }
   const ids = new Set<string>();
   return [...unique.values()].map((message) => {
     let id = message.id;
@@ -242,6 +282,7 @@ function toMessages(history: z.infer<typeof historySchema>): ɵChildMessage[] {
 }
 
 interface ThreadData {
+  agent: AbstractAgent;
   snapshot: ɵChildHistorySnapshot;
   chunks: Chunk[];
   lastChunk?: Chunk;
@@ -290,6 +331,7 @@ export class ɵChildHistoryStore {
     let data = threads.get(threadId);
     if (!data) {
       data = {
+        agent,
         snapshot: EMPTY,
         chunks: [],
         bytes: 0,
@@ -305,32 +347,57 @@ export class ɵChildHistoryStore {
     histories: ɵChildHistory[],
     clearError = false,
   ) {
-    for (const { parent, result } of data.results.values()) {
-      const owners = histories.filter(
-        (h) =>
-          h.parentToolCallIds.includes(parent) &&
-          h.messages.some(
-            (m) =>
-              m.role === "assistant" &&
-              m.toolCalls?.some((c) => c.id === result.toolCallId),
-          ),
-      );
-      if (owners.length === 1)
-        histories = histories.map((h) =>
-          h !== owners[0]
-            ? h
-            : {
-                ...h,
-                messages: [
-                  ...h.messages.filter(
-                    (m) =>
-                      m.role !== "tool" || m.toolCallId !== result.toolCallId,
-                  ),
-                  result,
-                ],
-              },
-        );
+    const owners = new Map<string, ɵChildHistory | null>();
+    for (const history of histories)
+      for (const parent of history.parentToolCallIds)
+        for (const message of history.messages)
+          if (message.role === "assistant")
+            for (const call of message.toolCalls ?? []) {
+              const key = JSON.stringify([parent, call.id]);
+              const previous = owners.get(key);
+              owners.set(
+                key,
+                previous === undefined || previous === history ? history : null,
+              );
+            }
+    const results = new Map<ɵChildHistory, Map<string, ToolMessage>>();
+    for (const [key, { result }] of data.results) {
+      const owner = owners.get(key);
+      if (!owner) continue;
+      const owned = results.get(owner) ?? new Map<string, ToolMessage>();
+      owned.set(result.toolCallId, result);
+      results.set(owner, owned);
     }
+    histories = histories.map((history) => {
+      const owned = results.get(history);
+      return owned
+        ? {
+            ...history,
+            messages: [
+              ...history.messages.filter(
+                (m) => m.role !== "tool" || !owned.has(m.toolCallId),
+              ),
+              ...owned.values(),
+            ],
+          }
+        : history;
+    });
+    const previousAnchors = new Map(
+      data.snapshot.histories.map((h) => [
+        JSON.stringify(h.namespace),
+        h.anchorMessageId,
+      ]),
+    );
+    const currentTurn = data.agent.messages
+      .filter((m) => m.role === "user")
+      .at(-1)?.id;
+    histories = histories.map((h) => ({
+      ...h,
+      anchorMessageId:
+        h.anchorMessageId ??
+        previousAnchors.get(JSON.stringify(h.namespace)) ??
+        currentTurn,
+    }));
     data.snapshot = {
       histories,
       ...(!clearError && data.snapshot.error
@@ -343,14 +410,26 @@ export class ɵChildHistoryStore {
     data: ThreadData,
     histories: ɵChildHistory[],
   ): ɵChildHistory[] {
+    // Resolve ownership once, rather than rescanning every sibling for every record.
+    const owners = new Map<string, ɵChildHistory | null>();
+    for (const history of histories)
+      for (const parent of new Set(history.parentToolCallIds))
+        owners.set(parent, owners.has(parent) ? null : history);
+    const byHistory = new Map<
+      ɵChildHistory,
+      Array<
+        [string, ThreadData["live"] extends Map<string, infer V> ? V : never]
+      >
+    >();
+    for (const entry of data.live) {
+      const owner = owners.get(entry[1].parent);
+      if (!owner) continue;
+      const entries = byHistory.get(owner) ?? [];
+      entries.push(entry);
+      byHistory.set(owner, entries);
+    }
     return histories.map((h) => {
-      const owned = [...data.live.entries()].filter(
-        ([, live]) =>
-          h.parentToolCallIds.includes(live.parent) &&
-          histories.filter((candidate) =>
-            candidate.parentToolCallIds.includes(live.parent),
-          ).length === 1,
-      );
+      const owned = byHistory.get(h) ?? [];
       if (!owned.length) return h;
       const messages = new Map(h.messages.map((m) => [m.id, m]));
       for (const [, live] of owned)
@@ -384,7 +463,7 @@ export class ɵChildHistoryStore {
     });
   }
   accept(agent: AbstractAgent, threadId: string, event: BaseEvent): void {
-    const e = object(event);
+    const e = adaptChildHistoryEvent(object(event));
     if (e.type === "CUSTOM" && e.name === "cpki.child_histories") {
       const data = this.data(agent, threadId);
       try {
@@ -393,7 +472,7 @@ export class ɵChildHistoryStore {
         if (value.version === 1) {
           raw = value.histories;
           data.lastChunk = undefined;
-        } else {
+        } else if (value.version === 2) {
           const chunk = chunkSchema.parse(value);
           // An event may be delivered by both a replay and a live subscriber.
           // An identical retransmission is not a missing/out-of-order chunk.
@@ -407,7 +486,7 @@ export class ɵChildHistoryStore {
             data.chunks = [];
             data.bytes = 0;
           }
-          data.bytes += chunk.data.length;
+          data.bytes += new TextEncoder().encode(chunk.data).byteLength;
           if (data.bytes > 32 * 1024 * 1024)
             throw new Error("Child snapshot exceeds 32 MiB");
           const previous = data.chunks.at(-1);
@@ -448,6 +527,12 @@ export class ɵChildHistoryStore {
             }
           }
           raw = histories;
+        } else {
+          console.warn(
+            "Ignoring unsupported child history version",
+            value.version,
+          );
+          return;
         }
         const histories = historiesSchema.parse(raw).map((h) => ({
           namespace: h.namespace,
@@ -460,18 +545,20 @@ export class ɵChildHistoryStore {
         data.bytes = 0;
         this.publish(data, this.mergeLive(data, histories), true);
       } catch (error) {
+        console.warn("Unable to display saved child history", error);
         data.lastChunk = undefined;
         data.chunks = [];
         data.bytes = 0;
         data.snapshot = {
           ...data.snapshot,
-          error: `Unable to display saved child history: ${error instanceof Error ? error.message : String(error)}`,
+          error:
+            "Unable to display saved child history. Please reload to try again.",
         };
         this.emit();
       }
       return;
     }
-    if (e.type === "CUSTOM" && e.name === "claude:assistant_content") {
+    if (e.type === "CUSTOM" && e.name === "cpki.child_assistant_content") {
       const value = object(e.value);
       if (
         typeof value.parentToolUseId !== "string" ||
@@ -479,29 +566,9 @@ export class ɵChildHistoryStore {
         !Array.isArray(value.content)
       )
         return;
-      const content = value.content.flatMap(
-        (raw): z.infer<typeof normalizedMessage>["content"] => {
-          const b = object(raw);
-          if (b.type === "text" && typeof b.text === "string")
-            return [{ type: "text", text: b.text }];
-          if (b.type === "thinking" && typeof b.thinking === "string")
-            return [{ type: "reasoning", text: b.thinking }];
-          if (
-            b.type === "tool_use" &&
-            typeof b.id === "string" &&
-            typeof b.name === "string"
-          )
-            return [
-              {
-                type: "tool_call",
-                id: b.id,
-                name: b.name.replace(/^mcp__ag_ui__/, ""),
-                args: b.input,
-              },
-            ];
-          return [];
-        },
-      );
+      const parsed = normalizedMessage.shape.content.safeParse(value.content);
+      if (!parsed.success) return;
+      const content = parsed.data;
       const data = this.data(agent, threadId);
       const liveKey = JSON.stringify([value.parentToolUseId, value.messageId]);
       const prior = data.live.get(liveKey);
@@ -539,12 +606,16 @@ export class ɵChildHistoryStore {
     if (e.type === "RUN_FINISHED") {
       const pending = this.agents.get(agent)?.get(threadId);
       if (pending?.chunks.length) {
+        console.warn(
+          "Unable to display saved child history: incomplete snapshot",
+        );
         pending.lastChunk = undefined;
         pending.chunks = [];
         pending.bytes = 0;
         pending.snapshot = {
           ...pending.snapshot,
-          error: "Unable to display saved child history: incomplete snapshot",
+          error:
+            "Unable to display saved child history. Please reload to try again.",
         };
         this.emit();
       }
@@ -557,7 +628,7 @@ export class ɵChildHistoryStore {
         const interrupt = object(raw),
           metadata = object(interrupt.metadata);
         if (
-          metadata.source !== "claude-sdk-native-child" ||
+          metadata.source !== "cpki.child" ||
           typeof metadata.childId !== "string" ||
           metadata.childId.length === 0 ||
           typeof metadata.parentToolUseId !== "string" ||
@@ -629,7 +700,7 @@ export class ɵChildHistoryStore {
                     id: interrupt.id,
                     type: "function" as const,
                     function: {
-                      name: metadata.toolName.replace(/^mcp__ag_ui__/, ""),
+                      name: metadata.toolName,
                       arguments: JSON.stringify(metadata.input ?? {}),
                     },
                   },
@@ -644,7 +715,7 @@ export class ɵChildHistoryStore {
       return;
     }
     if (e.type === "TOOL_CALL_RESULT") {
-      const parent = object(e.rawEvent).parent_tool_use_id;
+      const parent = object(e.childHistory).parentToolCallId;
       if (typeof parent !== "string") return;
       const data = this.data(agent, threadId);
       const result = {
@@ -652,7 +723,7 @@ export class ɵChildHistoryStore {
         role: "tool",
         toolCallId: e.toolCallId,
         content: e.content,
-        ...(object(e.rawEvent).is_error === true
+        ...(object(e.childHistory).isError === true
           ? { error: "Tool execution failed" }
           : {}),
       } as ToolMessage;

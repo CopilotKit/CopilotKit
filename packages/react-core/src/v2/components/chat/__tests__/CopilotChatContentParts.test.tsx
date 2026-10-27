@@ -101,3 +101,48 @@ it.each(["card", "group"])(
     expect(screen.queryByText("Before result")).toBeNull();
   },
 );
+
+it.each([
+  "javascript:alert(1)",
+  "java\nscript:alert(1)",
+  "file:///etc/passwd",
+  "vbscript:evil",
+  "//example.test/file",
+])(
+  "does not put unsafe tool-result URL %s into a link or media element",
+  (value) => {
+    const { container } = render(
+      <CopilotChatContentParts
+        content={(["image", "document", "audio", "video"] as const).map(
+          (type) => ({
+            type,
+            source: { type: "url", value },
+            metadata: { filename: type },
+          }),
+        )}
+      />,
+    );
+    expect(container.querySelectorAll("a,img,audio,video")).toHaveLength(0);
+    expect(screen.getAllByText(/Attachment unavailable/)).toHaveLength(4);
+  },
+);
+
+it.each([
+  "https://example.test/file",
+  "http://example.test/file",
+  "blob:https://example.test/id",
+  "data:application/pdf;base64,SGk=",
+])("retains supported tool-result URL %s", (value) => {
+  render(
+    <CopilotChatContentParts
+      content={[
+        {
+          type: "document",
+          source: { type: "url", value },
+          metadata: { filename: "safe.pdf" },
+        },
+      ]}
+    />,
+  );
+  expect(screen.getByRole("link").getAttribute("href")).toBe(value);
+});
