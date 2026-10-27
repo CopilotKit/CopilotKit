@@ -385,6 +385,12 @@ class MixedInterruptAgent extends AbstractAgent {
   }
   run(input: RunAgentInput) {
     this.inputs.push(structuredClone(input));
+    return this.events(input, this.inputs.length === 1 && !input.resume);
+  }
+  protected connect(input: RunAgentInput) {
+    return this.events(input, true);
+  }
+  private events(input: RunAgentInput, interrupted: boolean) {
     const events: BaseEvent[] = [
       {
         type: EventType.RUN_STARTED,
@@ -392,7 +398,7 @@ class MixedInterruptAgent extends AbstractAgent {
         runId: input.runId,
       },
     ];
-    if (this.inputs.length === 1)
+    if (interrupted)
       events.push({
         type: EventType.MESSAGES_SNAPSHOT,
         messages: [
@@ -414,7 +420,7 @@ class MixedInterruptAgent extends AbstractAgent {
       type: EventType.RUN_FINISHED,
       threadId: input.threadId,
       runId: input.runId,
-      ...(this.inputs.length === 1
+      ...(interrupted
         ? {
             outcome: {
               type: "interrupt",
@@ -502,4 +508,102 @@ it("retains an early approval when its controller is destroyed before tool compl
     status: "resolved",
     payload: "allow",
   });
+});
+
+it.each(["resolve", "cancel"])(
+  "%s ignores an already completed default target and leaves the approval available",
+  async (action) => {
+    const { agent, controller, run, startResume } = setup();
+    agent.messages.push({
+      id: "saved",
+      role: "tool",
+      toolCallId: "chart",
+      content: "",
+    });
+    finalizeStandard(agent, [
+      makeInterrupt("chart-i", { reason: "tool_call", toolCallId: "chart" }),
+      makeInterrupt("approval"),
+    ]);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    if (action === "resolve") await controller.resolve("approve");
+    else await controller.cancel();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("already completed"),
+    );
+    expect(run).not.toHaveBeenCalled();
+    expect(agent.addMessage).not.toHaveBeenCalled();
+    const resumed = controller.resolve("allow", "approval");
+    expect(run).toHaveBeenCalledTimes(1);
+    startResume();
+    await resumed;
+    warn.mockRestore();
+  },
+);
+
+it("resets shared decisions for direct SDK resumes reusing interrupt IDs", async () => {
+  class RepeatingAgent extends AbstractAgent {
+    inputs: RunAgentInput[] = [];
+    constructor() {
+      super({ agentId: "repeat", threadId: "thread" });
+    }
+    run(input: RunAgentInput) {
+      this.inputs.push(input);
+      return from<BaseEvent[]>([
+        {
+          type: EventType.RUN_STARTED,
+          threadId: input.threadId,
+          runId: input.runId,
+        },
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: input.threadId,
+          runId: input.runId,
+          outcome: {
+            type: "interrupt",
+            interrupts: [makeInterrupt("approval")],
+          },
+        },
+      ]);
+    }
+  }
+  const agent = new RepeatingAgent();
+  const controller = new InterruptController((target, options) =>
+    target.runAgent(options),
+  );
+  controller.connect(agent);
+  await agent.runAgent();
+  await controller.resolve("first", "approval");
+  await controller.resolve("second", "approval");
+  expect(agent.inputs).toHaveLength(3);
+  expect(agent.inputs[2]!.resume).toEqual([
+    { interruptId: "approval", status: "resolved", payload: "second" },
+  ]);
+  controller.destroy();
+});
+
+it("preserves an early approval and the handler owner across same-thread replay", async () => {
+  const agent = new MixedInterruptAgent();
+  const core = new CopilotKitCore({});
+  let finish!: (value: string) => void;
+  const answer = new Promise<string>((resolve) => {
+    finish = resolve;
+  });
+  const handler = vi.fn(() => answer);
+  core.addTool({ name: "chart", type: "human-in-the-loop", handler });
+  const controller = new InterruptController((target, options) =>
+    core.runAgent({ agent: target, ...options }),
+  );
+  controller.connect(agent);
+  await core.connectAgent({ agent });
+  await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+  await controller.resolve("allow", "approval");
+  await core.connectAgent({ agent });
+  finish("");
+  await vi.waitFor(() => expect(agent.inputs).toHaveLength(1));
+  expect(agent.inputs[0]!.resume).toEqual([
+    { interruptId: "chart-i", status: "resolved", payload: "" },
+    { interruptId: "approval", status: "resolved", payload: "allow" },
+  ]);
+  expect(handler).toHaveBeenCalledTimes(1);
+  controller.destroy();
 });

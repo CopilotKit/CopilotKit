@@ -224,3 +224,51 @@ describe("structured saved results", () => {
     },
   );
 });
+
+describe("completed frontend UI answers", () => {
+  it.each(["failed", ""])("keeps explicit recovery for error %j", (error) => {
+    const state = new ɵInterruptState();
+    state.setStandard([interrupt("chart-i", "chart", "tool_call")]);
+    const messages: Message[] = [
+      {
+        id: "result",
+        role: "tool",
+        toolCallId: "chart",
+        content: "saved failure",
+        error,
+      },
+    ];
+    expect(state.isCompletedToolCall(undefined, messages)).toBe(false);
+    expect(state.isCompletedToolCall("chart-i", messages)).toBe(false);
+    expect(state.resolve("saved failure", "chart-i", messages)).toEqual({
+      kind: "resume",
+      resume: [
+        {
+          interruptId: "chart-i",
+          status: "resolved",
+          payload: "saved failure",
+        },
+      ],
+      toolResults: [],
+    });
+  });
+
+  it("does not hide duplicate success/error results", () => {
+    const state = new ɵInterruptState();
+    state.setStandard([interrupt("chart-i", "chart", "tool_call")]);
+    const messages: Message[] = [
+      { id: "success", role: "tool", toolCallId: "chart", content: "done" },
+      {
+        id: "failure",
+        role: "tool",
+        toolCallId: "chart",
+        content: "failed",
+        error: "",
+      },
+    ];
+    expect(state.isCompletedToolCall("chart-i", messages)).toBe(false);
+    expect(() => state.resolve("done", "chart-i", messages)).toThrow(
+      /Duplicate tool results/,
+    );
+  });
+});

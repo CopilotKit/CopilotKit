@@ -292,6 +292,7 @@ export class RunHandler {
   private _executingToolCalls = new WeakMap<AbstractAgent, Set<string>>();
 
   private _connectionGenerations = new WeakMap<AbstractAgent, object>();
+  private _runGenerations = new WeakMap<AbstractAgent, object>();
 
   private _interactionAbortControllers = new WeakMap<
     AbstractAgent,
@@ -734,6 +735,7 @@ export class RunHandler {
     followUpOf?: AbortController,
   ): Promise<RunAgentResult> {
     this._connectionGenerations.set(agent, {});
+    this._runGenerations.set(agent, {});
     ɵclearAgentInterruptState(agent);
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
@@ -965,6 +967,10 @@ export class RunHandler {
     const agentId = agent.agentId!;
 
     let needsFollowUp = false;
+    // Same-thread reconnects leave an executing handler in charge of its
+    // eventual follow-up; a new explicit run still supersedes that ownership.
+    let ownsHandlerFollowUp = false;
+    const runGeneration = this._runGenerations.get(agent);
 
     const threadId = agent.threadId;
     const interruptState = agent.pendingInterrupts?.length
@@ -1150,6 +1156,7 @@ export class RunHandler {
                   toolExecutionMode === "restore",
                 );
                 if (followUp) {
+                  ownsHandlerFollowUp ||= !!tool.handler;
                   needsFollowUp = true;
                 }
               } else {
@@ -1166,6 +1173,7 @@ export class RunHandler {
                     toolExecutionMode === "restore",
                   );
                   if (followUp) {
+                    ownsHandlerFollowUp ||= !!fallbackTool.handler;
                     needsFollowUp = true;
                   }
                 }
@@ -1213,7 +1221,9 @@ export class RunHandler {
         if (
           signal?.aborted ||
           agent.threadId !== threadId ||
+          this._runGenerations.get(agent) !== runGeneration ||
           (connectionGeneration &&
+            !ownsHandlerFollowUp &&
             this._connectionGenerations.get(agent) !== connectionGeneration) ||
           (interruptState && ɵgetAgentInterruptState(agent) !== interruptState)
         )

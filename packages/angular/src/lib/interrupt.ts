@@ -182,8 +182,15 @@ export class InterruptController<TValue = unknown, TResult = never> {
           standard = params.interrupts;
         }
       },
-      onRunStartedEvent: () => {
-        ɵclearAgentInterruptState(agent);
+      onRunStartedEvent: (params) => {
+        // A reconnect replays RUN_STARTED without answering pending interrupts.
+        // Genuine SDK runs either have no pending batch or carry resume entries.
+        if (
+          !agent.pendingInterrupts?.length ||
+          params?.input?.resume !== undefined
+        ) {
+          ɵclearAgentInterruptState(agent);
+        }
         legacy = null;
         standard = null;
         this.#threadId = agent.threadId;
@@ -256,6 +263,12 @@ export class InterruptController<TValue = unknown, TResult = never> {
 
     const id = this.#targetId(current.interrupts, interruptId);
     if (!id) return;
+    if (this.#interruptState.isCompletedToolCall(id, agent.messages)) {
+      console.warn(
+        "[CopilotKit] injectInterrupt: ignoring an answer for an already completed frontend tool call.",
+      );
+      return;
+    }
     return this.#handleStandardDecision(
       agent,
       this.#interruptState.resolve(payload, id, agent.messages),
@@ -285,6 +298,12 @@ export class InterruptController<TValue = unknown, TResult = never> {
 
     const id = this.#targetId(current.interrupts, interruptId);
     if (!id) return;
+    if (this.#interruptState.isCompletedToolCall(id, agent.messages)) {
+      console.warn(
+        "[CopilotKit] injectInterrupt: ignoring an answer for an already completed frontend tool call.",
+      );
+      return;
+    }
     return this.#handleStandardDecision(
       agent,
       this.#interruptState.cancel(id, agent.messages),

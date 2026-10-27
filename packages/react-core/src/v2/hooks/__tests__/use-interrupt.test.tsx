@@ -132,6 +132,7 @@ describe("useInterrupt", () => {
       subscribe: subscribeMock,
       id: "test-agent",
       pendingInterrupts: [] as Interrupt[],
+      messages: [],
       addMessage: vi.fn(),
     };
 
@@ -1129,24 +1130,40 @@ describe("useInterrupt", () => {
       },
     );
 
-    it("resolving an already completed empty result adds no duplicate", async () => {
-      mockAgent.messages = [
-        { id: "saved", role: "tool", toolCallId: "chart", content: "" },
-      ];
-      const renderSpy = vi.fn();
-      render(<StandardHarness renderSpy={renderSpy} />);
-      fireStandardInterrupt([
-        { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
-      ]);
-      await act(async () => {
-        await renderSpy.mock.calls.at(-1)![0].resolve("", "chart-i");
-      });
-      expect(mockAgent.addMessage).not.toHaveBeenCalled();
-      expect(runAgentMock).toHaveBeenCalledExactlyOnceWith({
-        agent: mockAgent,
-        resume: [{ interruptId: "chart-i", status: "resolved", payload: "" }],
-      });
-    });
+    it.each(["resolve", "cancel"])(
+      "%s ignores a completed first tool call without an unhandled rejection",
+      async (action) => {
+        mockAgent.messages = [
+          { id: "saved", role: "tool", toolCallId: "chart", content: "" },
+        ];
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const renderSpy = vi.fn();
+        render(<StandardHarness renderSpy={renderSpy} />);
+        fireStandardInterrupt([
+          { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
+          { id: "approval", reason: "approval" },
+        ]);
+        const callbacks = renderSpy.mock.calls.at(-1)![0];
+        await act(async () => {
+          if (action === "resolve") await callbacks.resolve("approve");
+          else await callbacks.cancel();
+        });
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining("already completed"),
+        );
+        expect(runAgentMock).not.toHaveBeenCalled();
+        expect(mockAgent.addMessage).not.toHaveBeenCalled();
+        await act(async () => {
+          await callbacks.resolve("allow", "approval");
+        });
+        expect(runAgentMock).toHaveBeenCalledTimes(1);
+        expect(runAgentMock.mock.calls[0]![0].resume).toEqual([
+          { interruptId: "chart-i", status: "resolved", payload: "" },
+          { interruptId: "approval", status: "resolved", payload: "allow" },
+        ]);
+        warn.mockRestore();
+      },
+    );
 
     it("resolve() resumes with a resolved ResumeEntry", async () => {
       runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });

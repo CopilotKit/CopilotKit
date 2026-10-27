@@ -377,3 +377,35 @@ it("starts a fresh batch for a new run even when interrupt IDs are reused", asyn
   expect(agent.inputs).toHaveLength(2);
   expectResults(agent.inputs[1]!);
 });
+
+it.each(["human-in-the-loop", "resume-pending"])(
+  "continues the owning %s handler after a same-thread reconnect",
+  async (mode) => {
+    const agent = new FrontendInterruptAgent();
+    const core = new CopilotKitCore({});
+    core.addAgent__unsafe_dev_only({ id: "frontend", agent });
+    let finish!: (value: string) => void;
+    const answer = new Promise<string>((resolve) => {
+      finish = resolve;
+    });
+    const handler = vi.fn(() => answer);
+    core.addTool(
+      createTool({
+        name: "chart",
+        handler,
+        followUp: true,
+        ...(mode === "human-in-the-loop"
+          ? { type: "human-in-the-loop" as const }
+          : { reconnectBehavior: "resume-pending" as const }),
+      }),
+    );
+    await core.connectAgent({ agent });
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    await core.connectAgent({ agent });
+    expect(handler).toHaveBeenCalledTimes(1);
+    finish("");
+    await vi.waitFor(() => expect(agent.inputs).toHaveLength(1));
+    expectResults(agent.inputs[0]!);
+    expect(handler).toHaveBeenCalledTimes(2); // one execution per original call
+  },
+);

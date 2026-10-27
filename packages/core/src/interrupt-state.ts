@@ -140,6 +140,32 @@ export class ɵInterruptState<TValue = unknown> {
     );
   }
 
+  /** Let UI adapters ignore answers for exactly one successful frontend result. */
+  isCompletedToolCall(
+    interruptId: string | undefined,
+    messages: readonly Message[],
+  ): boolean {
+    const pending = this.#pending;
+    if (pending?.kind !== "standard") return false;
+    const id = interruptId ?? pending.interrupts[0]?.id;
+    const interrupt = pending.interrupts.find((entry) => entry.id === id);
+    if (interrupt?.reason !== "tool_call" || !interrupt.toolCallId)
+      return false;
+    // Do not hide duplicate results: resolve/cancel still reaches #decide's error.
+    const results = messages.filter(
+      (message) =>
+        message.role === "tool" &&
+        message.toolCallId === interrupt.toolCallId &&
+        !isForwardedToClientPlaceholder(message.content),
+    );
+    const result = results[0];
+    return (
+      results.length === 1 &&
+      result?.role === "tool" &&
+      result.error === undefined
+    );
+  }
+
   /** Resume only when saved frontend results answer every pending interrupt. */
   resumeWithToolResults(messages: readonly Message[]): ɵInterruptDecision {
     const pending = this.#pending;

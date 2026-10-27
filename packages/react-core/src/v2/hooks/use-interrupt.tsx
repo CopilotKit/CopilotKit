@@ -201,8 +201,15 @@ export function useInterrupt<
           localStandard = params.interrupts;
         }
       },
-      onRunStartedEvent: () => {
-        ɵclearAgentInterruptState(agent);
+      onRunStartedEvent: (params) => {
+        // A reconnect replays RUN_STARTED without answering pending interrupts.
+        // Genuine SDK runs either have no pending batch or carry resume entries.
+        if (
+          !agent.pendingInterrupts?.length ||
+          params?.input?.resume !== undefined
+        ) {
+          ɵclearAgentInterruptState(agent);
+        }
         localLegacy = null;
         localStandard = null;
         interruptStateRef.current = new ɵInterruptState();
@@ -251,6 +258,17 @@ export function useInterrupt<
         console.warn(
           `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
         );
+      }
+      if (
+        interruptStateRef.current.isCompletedToolCall(
+          interruptId,
+          agent.messages,
+        )
+      ) {
+        console.warn(
+          "[CopilotKit] useInterrupt: ignoring an answer for an already completed frontend tool call.",
+        );
+        return;
       }
       const decision = interruptStateRef.current.resolve(
         payload,
@@ -325,6 +343,17 @@ export function useInterrupt<
         console.warn(
           `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
         );
+      }
+      if (
+        interruptStateRef.current.isCompletedToolCall(
+          interruptId,
+          agent.messages,
+        )
+      ) {
+        console.warn(
+          "[CopilotKit] useInterrupt: ignoring an answer for an already completed frontend tool call.",
+        );
+        return;
       }
       const decision = interruptStateRef.current.cancel(
         interruptId,
