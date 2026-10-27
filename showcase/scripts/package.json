@@ -16,6 +16,7 @@
     "create-integration": "tsx create-integration/index.ts",
     "bundle-content": "tsx bundle-demo-content.ts",
     "bundle-angular-content": "tsx bundle-angular-source-content.ts",
+    "bundle-vue-content": "tsx bundle-vue-source-content.ts",
     "bundle-setup-content": "tsx bundle-setup-content.ts",
     "extract-starter": "tsx extract-starter.ts",
     "test": "vitest run",

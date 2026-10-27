@@ -42,9 +42,12 @@ import {
   getAngularDocsNavTree,
   resolveAngularDoc,
 } from "@/lib/angular-doc-navigation";
-import { buildAngularBackendOverview } from "@/lib/angular-backend-overview";
+import { buildFrontendBackendOverview } from "@/lib/secondary-frontend-backend-overview";
 import { docsComponents } from "@/lib/mdx-registry";
-import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
+import {
+  frontendAwareDocCandidateOrder,
+  resolveFrontendDocPage,
+} from "@/lib/frontend-doc-policy";
 import {
   getFrontendGuidanceContentSlug,
   getFrontendContentSlug,
@@ -71,7 +74,6 @@ import {
   findFrameworksWithCell,
   findFrameworksWithPage,
   loadDoc,
-  docCandidateOrder,
 } from "@/lib/docs-render";
 import type { NavNode } from "@/lib/docs-render";
 import {
@@ -229,6 +231,7 @@ function frameworkMetadata(
   framework: string,
   slugPath: string,
   canonicalPath = slugPath ? `/${framework}/${slugPath}` : `/${framework}`,
+  frontend: FrontendPageId | null = null,
 ): Metadata {
   // Try to read frontmatter for the resolved page. Mirror the page's
   // own content-resolution order (authored vs generated, per-framework
@@ -254,11 +257,12 @@ function frameworkMetadata(
     title = doc?.fm.title ?? humanizeSlug(unscopedPath);
     description = doc?.fm.description;
   } else if (slugPath) {
-    // Use the SAME order the body resolver uses (docCandidateOrder). This
+    // Use the SAME frontend-aware order as the body resolver. This
     // branch previously loaded the framework-scoped doc unconditionally, so a
     // generated-mode page rendered the ROOT file's body under the FRAMEWORK
     // file's title and description.
-    const candidates = docCandidateOrder(
+    const candidates = frontendAwareDocCandidateOrder(
+      frontend,
       getDocsMode(framework),
       getDocsFolder(framework),
       slugPath,
@@ -445,6 +449,7 @@ export async function generateMetadata({
         activeBackendFramework,
         activeFrontendSlugPath,
         scopedRoutePath(slugHrefPrefix, activeFrontendSlugPath),
+        framework,
       );
     }
 
@@ -575,18 +580,25 @@ export default async function FrameworkScopedDocsPage({
         );
       }
 
-      if (framework === "angular" && activeBackendFramework) {
+      if (
+        (framework === "angular" || framework === "vue") &&
+        activeBackendFramework
+      ) {
         return (
           <FrameworkRootPage
             framework={activeBackendFramework}
             preferIndexMdx
-            frontendOverride="angular"
+            frontendOverride={framework}
             slugHrefPrefix={frontendRoutePath(
               framework,
               "",
               activeBackendFramework,
             )}
-            navTreeOverride={getAngularDocsNavTree(activeBackendFramework)}
+            navTreeOverride={
+              framework === "angular"
+                ? getAngularDocsNavTree(activeBackendFramework)
+                : getFrontendQuickstartNavTree(framework)
+            }
             sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
           />
         );
@@ -837,7 +849,8 @@ export default async function FrameworkScopedDocsPage({
   let contentSlugPath: string = slugPath;
   let doc: ReturnType<typeof loadDoc> = null;
 
-  // Content resolution order depends on docs_mode:
+  // Content resolution starts with an existing Vue variant on Vue routes,
+  // then follows the normal docs_mode order:
   //
   //   authored  — per-framework MDX wins for every slug. Authored pages
   //               can replace root pages while keeping the framework's
@@ -848,7 +861,12 @@ export default async function FrameworkScopedDocsPage({
   //               to the agnostic page, e.g. enterprise CTAs).
   //   generated — root MDX wins (Model 1, current behavior); the
   //               per-framework tree is a sparse override layer.
-  for (const candidate of docCandidateOrder(docsMode, docsFolder, slugPath)) {
+  for (const candidate of frontendAwareDocCandidateOrder(
+    activeFrontendPage,
+    docsMode,
+    docsFolder,
+    slugPath,
+  )) {
     const found = loadDoc(candidate);
     if (found) {
       doc = found;
@@ -1158,7 +1176,12 @@ async function FrameworkRootPage({
   const indexContentPath = `integrations/${docsFolder}/index`;
   const indexDoc = loadDoc(indexContentPath);
 
-  if (preferIndexMdx && docsMode !== "generated" && indexDoc) {
+  if (
+    preferIndexMdx &&
+    docsMode !== "generated" &&
+    indexDoc &&
+    frontendOverride !== "vue"
+  ) {
     return (
       <DocsPageView
         slugPath=""
@@ -1176,12 +1199,13 @@ async function FrameworkRootPage({
     );
   }
 
-  // Tier 1: data-driven FrameworkOverview. ONLY for `generated` mode —
-  // `authored` frameworks skip straight to Tier 2 so their ported
+  // Tier 1: data-driven FrameworkOverview. This is for `generated` mode,
+  // plus the catalog-backed Vue frontend overview on authored backends.
+  // Other `authored` frameworks skip straight to Tier 2 so their ported
   // index.mdx (not the auto-generated catalog landing) renders at
   // `/<framework>`.
   const overview = frameworkOverviews[framework];
-  if (overview && docsMode === "generated") {
+  if (overview && (docsMode === "generated" || frontendOverride === "vue")) {
     let afterFeatures: React.ReactNode = undefined;
     if (overview.hasAfterFeaturesMdx) {
       const mdxPath = path.join(
@@ -1270,8 +1294,8 @@ async function FrameworkRootPage({
       }
     }
     const scopedOverview =
-      frontendOverride === "angular"
-        ? buildAngularBackendOverview(overview, framework)
+      frontendOverride === "angular" || frontendOverride === "vue"
+        ? buildFrontendBackendOverview(frontendOverride, overview, framework)
         : overview;
 
     return (
