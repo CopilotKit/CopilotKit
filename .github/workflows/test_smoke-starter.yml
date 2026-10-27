@@ -78,12 +78,16 @@ jobs:
     # closed), and those skipped runs report success — so a bare name match
     # would start a full fleet run, and a Slack alert on failure, after almost
     # every PR. On workflow_run, proceed only for an actual release: a build
-    # from a release/publish/* branch. Other triggers (PR, schedule, dispatch)
-    # are unaffected.
+    # from a release/publish/* branch, or a manual dispatch from main (the
+    # stable-release retry path; the payload carries no inputs, so a canary
+    # dispatched from main also runs, which is harmless). Other triggers (PR,
+    # schedule, dispatch) are unaffected.
     if: >-
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.conclusion == 'success' &&
-        startsWith(github.event.workflow_run.head_branch, 'release/publish/'))
+        (startsWith(github.event.workflow_run.head_branch, 'release/publish/') ||
+          (github.event.workflow_run.event == 'workflow_dispatch' &&
+            github.event.workflow_run.head_branch == 'main')))
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
@@ -241,7 +245,9 @@ jobs:
     if: >-
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.conclusion == 'success' &&
-        startsWith(github.event.workflow_run.head_branch, 'release/publish/'))
+        (startsWith(github.event.workflow_run.head_branch, 'release/publish/') ||
+          (github.event.workflow_run.event == 'workflow_dispatch' &&
+            github.event.workflow_run.head_branch == 'main')))
     timeout-minutes: 20
     env:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
