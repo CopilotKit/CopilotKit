@@ -1,0 +1,384 @@
+{
+  "preservedRef": "refs/heads/chore/preserve-pni600-pni605-20261012",
+  "preservedHead": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+  "publishedBranch": "test/pni-600-restart-durability",
+  "uncommittedSourceFiles": [],
+  "freshMain": "087b1a678ba9ce0a378060e09406220024410d79",
+  "comparisonMergeBase": "1e9a2af00f8638c18e36862c96a4fd4592c73c50",
+  "publisherOriginalCommit": "6414d02de6",
+  "entries": [
+    {
+      "path": ".github/workflows/showcase_lint_prod.yml",
+      "sourceCommit": "3272ad43e862c427a4cf70efb6e3b4172aaf469c",
+      "ticket": "PNI-596 common dependency",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "showcase/bin/README.md",
+      "sourceCommit": "3272ad43e862c427a4cf70efb6e3b4172aaf469c",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/bin/railway",
+      "sourceCommit": "3272ad43e862c427a4cf70efb6e3b4172aaf469c",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/bin/spec/test_promote_disposable_lifecycle.rb",
+      "sourceCommit": "3272ad43e862c427a4cf70efb6e3b4172aaf469c",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/bin/spec/test_snapshot_ivar_lint.rb",
+      "sourceCommit": "3272ad43e862c427a4cf70efb6e3b4172aaf469c",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/harness/Dockerfile",
+      "sourceCommit": "d82ab9437160df7dd6565c6841a97f5123bb376a",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/harness/src/fleet/control-plane/catalog-enumerator.test.ts",
+      "sourceCommit": "d82ab9437160df7dd6565c6841a97f5123bb376a",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/harness/src/fleet/control-plane/catalog-enumerator.ts",
+      "sourceCommit": "d82ab9437160df7dd6565c6841a97f5123bb376a",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/harness/src/probes/discovery/caching-source.test.ts",
+      "sourceCommit": "d82ab9437160df7dd6565c6841a97f5123bb376a",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/harness/src/probes/discovery/caching-source.ts",
+      "sourceCommit": "d82ab9437160df7dd6565c6841a97f5123bb376a",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/harness/src/probes/discovery/railway-services.test.ts",
+      "sourceCommit": "d82ab9437160df7dd6565c6841a97f5123bb376a",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/harness/src/probes/discovery/railway-services.ts",
+      "sourceCommit": "d82ab9437160df7dd6565c6841a97f5123bb376a",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/harness/src/probes/types.ts",
+      "sourceCommit": "d82ab9437160df7dd6565c6841a97f5123bb376a",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/harness/src/shared/railway-lifecycle-records.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/harness/src/shared/railway-lifecycle.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/classify-railway-lifecycle.test.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/classify-railway-lifecycle.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/emit-railway-envs-json.test.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/emit-railway-envs-json.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/railway-envs.generated.json",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/railway-envs.test.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/railway-envs.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/railway-lifecycle-fleet.test.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/railway-lifecycle.md",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/railway-lifecycle.test.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/verify-railway-image-refs.test.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "showcase/scripts/verify-railway-image-refs.ts",
+      "sourceCommit": "a0bb4ad1087c099833d51c71936cf229ad98c35b",
+      "ticket": "PNI-607",
+      "disposition": "consume merged main; do not replay"
+    },
+    {
+      "path": "tools/intelligence-smoke/project.json",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-596 common dependency",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/contract.mjs",
+      "sourceCommit": "9b857c9fe840e951820e118c32d1925559ccb7ab",
+      "ticket": "PNI-596 common dependency",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/README.md",
+      "sourceCommit": "fa1dbea07ed360b4f400ab4ef49ac9f3431eec3a",
+      "ticket": "PNI-605",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/clean-scope.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/environment.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "replace with Railway-only entry; Docker preserved"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/README.md",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/api.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/contract.mts",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/distribution.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/environment.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/image-candidates.json",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/inspection.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/inspection.test.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/journal.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/provider.test.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/receiver.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/supervision.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/supervisor.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/lifecycle/railway/supervisor.test.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-605",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/row5/README.md",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-600",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/rows/row1.mjs",
+      "sourceCommit": "9b857c9fe840e951820e118c32d1925559ccb7ab",
+      "ticket": "PNI-596 common dependency",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/rows/row1.test.mjs",
+      "sourceCommit": "9b857c9fe840e951820e118c32d1925559ccb7ab",
+      "ticket": "PNI-596 common dependency",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/rows/row5-clean-scope.test.mjs",
+      "sourceCommit": "5f380b8cea1247924102d9a259da094f45e07ba9",
+      "ticket": "PNI-600",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/rows/row5-environment.test.mjs",
+      "sourceCommit": "fa1dbea07ed360b4f400ab4ef49ac9f3431eec3a",
+      "ticket": "PNI-600",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/rows/row5-process.mjs",
+      "sourceCommit": "973a7662f0a2d067c3f7c961e63f811840a2ada2",
+      "ticket": "PNI-600",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/rows/row5.mjs",
+      "sourceCommit": "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02",
+      "ticket": "PNI-600",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/rows/row5.test.mjs",
+      "sourceCommit": "a09a4e60a8f8a5cff94cc7925e2be2daeb0a8834",
+      "ticket": "PNI-600",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/run.mjs",
+      "sourceCommit": "9b857c9fe840e951820e118c32d1925559ccb7ab",
+      "ticket": "PNI-596 common dependency",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/runner.mjs",
+      "sourceCommit": "9b857c9fe840e951820e118c32d1925559ccb7ab",
+      "ticket": "PNI-596 common dependency",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/intelligence-smoke/rich-threads/runner.test.mjs",
+      "sourceCommit": "9b857c9fe840e951820e118c32d1925559ccb7ab",
+      "ticket": "PNI-596 common dependency",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/railway-disposable-proof/README.md",
+      "sourceCommit": "c9fcf7d6b78438ba795aa85e35eadbea73c999ca",
+      "ticket": "PNI-605 proof dependency",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/railway-disposable-proof/preflight.ts",
+      "sourceCommit": "c9fcf7d6b78438ba795aa85e35eadbea73c999ca",
+      "ticket": "PNI-605 proof dependency",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/railway-disposable-proof/project.json",
+      "sourceCommit": "c9fcf7d6b78438ba795aa85e35eadbea73c999ca",
+      "ticket": "PNI-605 proof dependency",
+      "disposition": "defer; preserved for original ticket or integration-owner extraction"
+    },
+    {
+      "path": "tools/railway-disposable-proof/snapshot-publisher.test.ts",
+      "sourceCommit": "c9fcf7d6b78438ba795aa85e35eadbea73c999ca",
+      "ticket": "PNI-605 proof dependency",
+      "disposition": "carry"
+    },
+    {
+      "path": "tools/railway-disposable-proof/snapshot-publisher.ts",
+      "sourceCommit": "c9fcf7d6b78438ba795aa85e35eadbea73c999ca",
+      "ticket": "PNI-605 proof dependency",
+      "disposition": "carry"
+    }
+  ],
+  "inventoryMain": "42228d50e0b669d5d82647e2b4105b4ed46500cd"
+}

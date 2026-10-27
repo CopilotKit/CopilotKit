@@ -1,0 +1,675 @@
+{
+  "milestone": "row1-text-query-data-v1",
+  "originalHeads": {
+    "PNI-596": [
+      "chore/preserve-pni596-six-rows-20261012",
+      "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8"
+    ],
+    "PNI-597": [
+      "chore/preserve-pni597-row2-20261012",
+      "9d6991c40e3295f5cdecacfeced61e49f5eba873"
+    ],
+    "PNI-598": [
+      "chore/preserve-pni598-row3-20261012",
+      "4b74d6d32464820b80d87d5f5c99281eb58bf313"
+    ],
+    "PNI-599": [
+      "chore/preserve-pni599-row4-20261012",
+      "c4c829c20914d034d69ec0efcad5208576be2911"
+    ],
+    "PNI-600 / PNI-605": [
+      "chore/preserve-pni600-pni605-20261012",
+      "5a2e4fb1ed29bb85791bfa3744b3fe9abc9e8e02"
+    ],
+    "PNI-601": [
+      "chore/preserve-pni601-row6-20261012",
+      "9e73e879dcf33a8e8a850f36016a51d7c1bfe49f"
+    ]
+  },
+  "uncommittedSourceFiles": [],
+  "inventory": [
+    {
+      "file": "tools/intelligence-smoke/rich-threads/README.md",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "de0407789fe520e95daa6feee1b5946d030d6faa",
+      "disposition": "carried-and-narrowed"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/application/.dockerignore",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "0eb9abe66dbc6aab40b6082801a252c6c4797513",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/application/Dockerfile",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "ba2ef808c113ff3354cee62b17656842f69588d1",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/application/layout.tsx",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "7afc2d05b24ac5c8c4915173b20b3e5b0400a6a3",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/application/next.config.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "a53e83c5a01bd35f5e322bfb7fba9ca7c209fce6",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/application/package-pins.json",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "8468cedd19e7821edf2266215165b37d8aae9a30",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/application/page.tsx",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "5b86f3655e4311cd47848976e68ea2fd54fe244a",
+      "disposition": "carried-and-narrowed"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/application/start.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "294c1d0789390baef417913c16a174fc8974becc",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/bootstrap.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "2faa3f726fbcb043e8e3543b951b9bcf31d2cab6",
+      "disposition": "carried-and-narrowed"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/browser/session.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "6a4215cea085b36a41fe6a067da827185091c92a",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/capture-transport.test.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "30f89a7dd61de05884db0fe3a50e262b1b29079d",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/capture.test.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "7ca2e2e7fbf89af7b3fe6b601b0f4ed9b9c734a8",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/capture/project.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "b5c3bffa3e60995c09df648fb0f7bdc867d705b9",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/capture/runtime-agent.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "0f8f766702cb62b9da54c967ec436c3bfe3fb1e8",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/capture/socket.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "c77e95307af4f3d97f3d926d575a358116eecd3a",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/capture/transport.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "b5dbfbf31995964c8fa28107fce6203e24dda086",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/contract.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "170c10364c5402896233bd6d0c30b898694d621f",
+      "disposition": "carried-and-narrowed"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/dependencies/package-lock.json",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "92c66da4773925a7caa0dcbde6370c894d4809ac",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/dependencies/package.json",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "5f6af454c606825711acef3dc20c5e3657baab00",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/driver.integration.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "978b152a94d27af8fb9a10e73a0e9146b16bb943",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/import/README.md",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "627031d27e1486f5454c9dd91aec112f50dc2e1e",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/import/assertions.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "bcb2597042e6c85a54801715296746654078afe3",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/import/browser.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "bce09d2ec6e1ebdad9bd9dc6285e501fd5e1a4f6",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/import/cli.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "7c1db9fe0f0c60e0598495f31042cf4ab0675a69",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/import/drivers/content.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "d7fcb30be90f371f1b681cbc1bc342f527c34e73",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/import/drivers/native-run.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "948d551fbf231c5445ac3ee61feb875f111b1cbb",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/import/fixtures/completed-native.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "0aeb7c14244f15ff5bc70c2f68494efeb00aaed5",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/import/fixtures/native-sources.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "851065a630ccc871d9916f7d926d77fc43f2a04f",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/import/prepare.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "a50d232e411c35a916b6f7a27888d47f4b9c444e",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/lifecycle/README.md",
+      "ticket": "PNI-605",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "7dd68d5537d2e2f676ea470a0c231bb7b1681a53",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/lifecycle/clean-scope.mjs",
+      "ticket": "PNI-605",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "82b03cfd648c96f208d7232e04c7a2ecd90bac25",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/lifecycle/environment.mjs",
+      "ticket": "PNI-605",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "4a0c2faf0dbb9cc1c6436d4281006fce77814b4b",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/preflight.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "2b71e573f97e37b8d2507ded7c8f945ebfc9dd42",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/preflight.test.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "12e4ff9e4d29466e34883938b85af3531c983fb5",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/prepare.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "ee0f1f230fbd6f82dfcff5c968e3e1d40497d97a",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/recover.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "f2636e91b63a883d45e0406cb56fabd1d2cef178",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row1/services.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "ad49f3118a8092566655316dfe98134e9d1e0f18",
+      "disposition": "carried-and-narrowed"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/README.md",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "b8fc4a566fef354f7024517f0eaff9b2c5f031f6",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/assertions.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "7acff771ba8de2cbaa4032d35511c3f7f61167c0",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/control-scenarios.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "5772abeb31218ca1af6fb25df85c9f872be8fbde",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/framework-source.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "95ea2cb57e53b24710c67fb3f229132f0a84fe5d",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/local-fixture.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "ee8b559f8c4c889528dd0071181cb930bd747720",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/mastra-backend.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "6a62453d45069e4beaeecb0af6b8f2c3f1a7c0d2",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/media-source.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "885aecfa98bf44a3de023557a08d54afaf79a155",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/native-store.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "9b0cb77a2825142b05cd3cf786d1d9fd0e95bb03",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/runtime-source.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "d27583a0d8b47973070b92f6e72cb6b6f9c2f35f",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/services.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "2e9c75dbed76bb6024ebd709b9166b9dd83ea38a",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/showcase-content.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "76ae1e500675ec3580e370f0c7ea1308173bf183",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/showcase-store.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "712e6142059068f3c87c9daca07bf62e54cab29e",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row2/tool-controls.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "78fcdb986c5e2d82e9c978b14e35735a76ab19e7",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row4/observations.mjs",
+      "ticket": "PNI-599",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "2b959a5c9fb581c05dd237a526e21c49840ab828",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row4/scenarios.mjs",
+      "ticket": "PNI-599",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "d0d22d267ab039bd8cef464a67f041bdcc5c6e2e",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row4/services.mjs",
+      "ticket": "PNI-599",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "04a831dc7a1873b109cb2dc53ae54f942a5b056e",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row5/README.md",
+      "ticket": "PNI-600",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "bca6195061e3fd0f2817dcb8049c240747869b61",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row6/README.md",
+      "ticket": "PNI-601",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "cf6192f34c37239e3d4415c8ddfeb05dc9d59378",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row6/command.mjs",
+      "ticket": "PNI-601",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "414a618e3fa135d0e9463199cd1a16f3bb01a772",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row6/destination.mjs",
+      "ticket": "PNI-601",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "75ecf99d7218c42b0993c6286438c053950b1949",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row6/importer.mjs",
+      "ticket": "PNI-601",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "37bb50686d38d6102d86e1358e0454f9ada1dd3d",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row6/native.mjs",
+      "ticket": "PNI-601",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "2e8ad971d642e6f585f85431248f03bed8848856",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/row6/services.mjs",
+      "ticket": "PNI-601",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "8a42b357b3484baf11823526f585f0cb796320ed",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row1.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "05e5004cea3f0cc7ce3e0117aa1becd2fb7b2840",
+      "disposition": "carried-and-narrowed"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row1.test.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "124674e6b8accb8973ddf7b9cc356d51519750cd",
+      "disposition": "carried-and-narrowed"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row2-showcase.test.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "8173543161a13e7f6d20419febb8a40248396d6d",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row2.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "9e7ad9607e90cde673aa041e851e103ea5b59201",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row2.test.mjs",
+      "ticket": "PNI-597",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "c4c75835b5ef2f5c1d404b0692fd5a9d0a4817ca",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row3-drivers.test.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "470c9adec34111da794ed7c97e1e3565ba4f89e9",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row3-fixtures.test.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "424f218b3023448fdd18d02338ba4a76bae75e0c",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row3.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "1ecefa15232b924b00c830ce78cc1c644302d625",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row3.test.mjs",
+      "ticket": "PNI-598",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "94b149ed508507323e3d201e625df80f4bf0746b",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row4-driver.test.mjs",
+      "ticket": "PNI-599",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "988aa02ab5eec30a4251862082d83f3a6f5c5b5d",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row4.md",
+      "ticket": "PNI-599",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "e79390098a9417f905d56c8f761f720edff7ced0",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row4.mjs",
+      "ticket": "PNI-599",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "e22f0b9a70854752a0c7ce9116e4ca70bd0f7558",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row4.test.mjs",
+      "ticket": "PNI-599",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "ad963609cfe90c40c1fb9fe4ad952e8d20b7ec19",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row5-clean-scope.test.mjs",
+      "ticket": "PNI-605",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "70097173289441722d08d269316b360d6d1e034e",
+      "disposition": "carried as clean-scope.test.mjs; generic empty-store controls"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row5-environment.test.mjs",
+      "ticket": "PNI-605",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "8f7af0a0b7b44ff2582d0b00eef7f4548d1005c3",
+      "disposition": "deferred Docker lifecycle controls; replaced by Railway provider controls"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row5-process.mjs",
+      "ticket": "PNI-600",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "fa78f0739e85ea4dc5c62a442b0d3cf33ec8f350",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row5.mjs",
+      "ticket": "PNI-600",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "0d814308d00b09bd9ced9b84a88d251413c2fdb5",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row5.test.mjs",
+      "ticket": "PNI-600",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "4aa6af33812a6ab8f1e99b5da54b88d6c392c888",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row6-adapters.test.mjs",
+      "ticket": "PNI-601",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "ec6263f5d4b68299d657ea161a5eb6289cb20dc4",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row6.mjs",
+      "ticket": "PNI-601",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "be7886f0c5c03ef44ae8488ee0ad3839f00e18cb",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/rows/row6.test.mjs",
+      "ticket": "PNI-601",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "a763e7cc0d0a6d0c5c018056ceff7111314d0d46",
+      "disposition": "deferred"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/run.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "76f6383e69e9a48005a0c47f1fb038914dc355f3",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/runner.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "98fb0368b34fb54fb453384fe7efe416ca269a2d",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/runner.test.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "2cdbfc910017dc5459a043f9af3723d513e2d4e5",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/runtime.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "1cda363cdd72c3251cc1ee72968751409445ee03",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/scenarios/row1.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "9db34401e3f1868918fcf93e2791badb2f31f070",
+      "disposition": "carried-and-narrowed"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/services.test.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "2bd3f963c7431e26dd062f885aec4a6cc2bdcdfa",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/storage.test.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "27a079d7390881811ac424d3a9b470ec11bbf778",
+      "disposition": "carried"
+    },
+    {
+      "file": "tools/intelligence-smoke/rich-threads/storage/intelligence.mjs",
+      "ticket": "PNI-596/606",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "4755960402de42d5d2cd9cb859383115e4d8398f",
+      "disposition": "carried"
+    },
+    {
+      "file": "showcase/integrations/strands-typescript/src/agent/interrupt-agent.ts",
+      "ticket": "PNI-596 expanded row1",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "7a9befb26ef7d5c3ada3ea63ce28c4c10cc46051",
+      "disposition": "deferred; restored to main"
+    },
+    {
+      "file": "showcase/integrations/strands-typescript/src/agent/reasoning-agent.ts",
+      "ticket": "PNI-596 expanded row1",
+      "sourceCommit": "4f92a6a0c135d87d0c3155afbf5bedbc90a6e9e8",
+      "blob": "da3866cb2a4a741f5f7f8919ffda553e5e0fe3ec",
+      "disposition": "deferred; restored to main"
+    }
+  ],
+  "notes": [
+    "All six original worktrees were clean before narrowing. Published preservation refs retain all original files.",
+    "row2/mastra-backend.mjs moves to application/mastra-backend.mjs as the actual bounded Mastra service.",
+    "Strands interrupt-agent.ts and reasoning-agent.ts are restored to current main; their earlier edits remain on the integrated preservation ref.",
+    "PNI-605 infrastructure has a separate provider preservation inventory."
+  ]
+}

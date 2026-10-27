@@ -1,0 +1,7 @@
+node_modules
+**/node_modules
+.next
+.env
+.env.*
+*.log
+app-response.html
