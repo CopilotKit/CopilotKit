@@ -647,6 +647,9 @@ export class ActionRegistry {
       value = snap.locator ? snap.actionValue : pluckValue(tree, snap.path);
       if (!handler) throw new ActionExpiredError(id);
     }
+    // Revoked while it was being resolved (its snapshot may outlive a failed
+    // or still-pending delete): it never runs.
+    if (this.retired.get(id)) throw new ActionExpiredError(id);
     const actionValue = value === undefined ? ctx.action.value : value;
     await handler({
       ...ctx,
@@ -706,15 +709,33 @@ export class ActionRegistry {
   }
 
   /**
- * @internal Revoke actions
- so they can never be dispatched again (an
+   * @internal Revoke actions so they can never be dispatched again (an
    * answered or abandoned picker's controls). Unknown ids are ignored.
+   *
+   * Every id is retired, in process, before this returns its promise: a
+   * dispatch that starts after the call refuses all of them, whatever the
+   * store is doing. Each stored snapshot is then deleted; one delete failing
+   * does not stop the others, and the promise rejects once they have all
+   * settled if any failed. A retired id stays refused here even while its
+   * snapshot survives a failed delete.
    */
   async revokeActions(ids: Iterable<string>): Promise<void> {
-    for (const id of ids) {
+    const revoked = [...ids];
+    for (const id of revoked) {
       this.retired.set(id, true);
       this.hot.delete(id);
-      await this.store.delete(id);
+    }
+    const results = await Promise.allSettled(
+      revoked.map(async (id) => this.store.delete(id)),
+    );
+    const failures = results.filter(
+      (r): r is PromiseRejectedResult => r.status === "rejected",
+    );
+    if (failures.length > 0) {
+      throw new AggregateError(
+        failures.map((f) => f.reason),
+        `could not delete ${failures.length} of ${revoked.length} revoked action snapshot(s)`,
+      );
     }
   }
 

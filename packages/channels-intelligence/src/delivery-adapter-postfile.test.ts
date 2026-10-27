@@ -462,6 +462,7 @@ describe("managed JSX delivery", () => {
       toolDescriptors: [],
       context: [],
       registerWaiter: () => () => {},
+      reserveChoiceControls: () => () => {},
       interruptHandlers: new Map(),
       state: new MemoryStore(),
       user: null,

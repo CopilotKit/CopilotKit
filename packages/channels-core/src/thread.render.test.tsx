@@ -32,6 +32,7 @@ function makeThread(
     toolDescriptors: [],
     context: [],
     registerWaiter: () => () => {},
+    reserveChoiceControls: () => () => {},
     interruptHandlers: new Map(),
     state: store,
     user: null,

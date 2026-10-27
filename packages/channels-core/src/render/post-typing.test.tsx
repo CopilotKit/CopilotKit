@@ -34,6 +34,7 @@ function makeThread(adapter: FakeAdapter) {
     toolDescriptors: [],
     context: [],
     registerWaiter: () => () => {},
+    reserveChoiceControls: () => () => {},
     interruptHandlers: new Map(),
     state: store,
     user: null,

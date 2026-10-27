@@ -93,6 +93,7 @@ test("an inbound message outranks the thread's default prompt", async () => {
     toolDescriptors: [],
     context: [],
     registerWaiter: () => () => {},
+    reserveChoiceControls: () => () => {},
     interruptHandlers: new Map(),
     state: new MemoryStore(),
     message: {

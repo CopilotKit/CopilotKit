@@ -25,6 +25,7 @@ function setupThreadWithSyncDeleteFailure(failure: Error): Thread {
     toolDescriptors: [],
     context: [],
     registerWaiter: () => () => {},
+    reserveChoiceControls: () => () => {},
     interruptHandlers: new Map(),
     state: new MemoryStore(),
     user: null,

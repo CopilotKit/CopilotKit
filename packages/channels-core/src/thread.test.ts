@@ -26,6 +26,7 @@ function makeTestThread(overrides: {
     toolDescriptors: [],
     context: [],
     registerWaiter: () => () => {},
+    reserveChoiceControls: () => () => {},
     interruptHandlers: new Map(),
     state: overrides.state,
     user: null,

@@ -672,7 +672,20 @@ const INTERACTION_REFUSALS = {
     log: "the action has expired",
     tell: "This action has expired.",
   },
+  "not-open": {
+    log: "the awaitChoice picker is still being posted",
+    tell: "This choice is not open yet. Try again in a moment.",
+  },
 } as const;
+
+/** Who owns one awaitChoice picker control, and whether it is open (see `choiceControlOwners`). */
+interface ChoiceControlOwner {
+  state: "reserved" | "open" | "retired";
+  /** The only provider account allowed to click it, or `undefined` for anyone. */
+  actorId: string | undefined;
+  /** The pending choice it answers, once registered. */
+  waiter?: ChoiceWaiter;
+}
 
 type InteractionRefusal = keyof typeof INTERACTION_REFUSALS;
 
@@ -932,6 +945,59 @@ export function createChannel<
   const modalSubmitHandlers = new Map<string, ModalSubmitHandler>();
   const modalCloseHandlers = new Map<string, ModalCloseHandler>();
   const waiters = new Map<string, ChoiceWaiter>();
+  /**
+   * Who owns each awaitChoice picker control, by action id, from before the
+   * picker is posted until its controls are all invalidated. A control is
+   * `reserved` while its picker is being posted (no click may run it yet),
+   * `open` once its choice is registered, and `retired` while its revocation
+   * is in flight; the owner check applies in every state.
+   */
+  const choiceControlOwners = new Map<string, ChoiceControlOwner>();
+
+  /**
+   * Claim a picker's controls before their ids are published, so that no click
+   * can run one before its choice exists. Returns a function that gives the
+   * claim up when the picker never became a pending choice (its post failed):
+   * every control is then revoked, since its ids may have reached the
+   * platform anyway.
+   */
+  function reserveChoiceControls(
+    controlIds: Iterable<string>,
+    actorId: string | undefined,
+  ): () => void {
+    const ids = [...controlIds];
+    const owner: ChoiceControlOwner = { state: "reserved", actorId };
+    for (const id of ids) choiceControlOwners.set(id, owner);
+    return () => {
+      if (owner.state === "reserved") invalidateChoiceControls(ids, owner);
+    };
+  }
+
+  /**
+   * Revoke picker controls. They are retired synchronously (see
+   * `ActionRegistry.revokeActions`), and their owner check stays in force until
+   * the revocation has settled.
+   */
+  function invalidateChoiceControls(
+    ids: readonly string[],
+    owner: ChoiceControlOwner | undefined,
+  ): void {
+    if (owner) owner.state = "retired";
+    const revocation = registry?.revokeActions(ids) ?? Promise.resolve();
+    void revocation
+      .catch((err: unknown) => {
+        console.warn(
+          "[channel] could not revoke a settled picker's actions",
+          err,
+        );
+      })
+      .finally(() => {
+        for (const id of ids) {
+          if (owner && choiceControlOwners.get(id) === owner)
+            choiceControlOwners.delete(id);
+        }
+      });
+  }
 
   /**
    * Remove a settled picker and revoke its controls, so they never run or
@@ -940,17 +1006,17 @@ export function createChannel<
   function retireWaiter(conversationKey: string, waiter: ChoiceWaiter): void {
     if (waiters.get(conversationKey) === waiter)
       waiters.delete(conversationKey);
-    registry?.revokeActions(waiter.controls.keys()).catch((err: unknown) => {
-      console.warn(
-        "[channel] could not revoke a settled picker's actions",
-        err,
-      );
-    });
+    const ids = [...waiter.controls.keys()];
+    const owner = ids
+      .map((id) => choiceControlOwners.get(id))
+      .find((o) => o?.waiter === waiter);
+    invalidateChoiceControls(ids, owner);
   }
 
   /**
    * Register a pending choice; a newer one supersedes (and settles) the old.
-   * Returns a function that retires this one (for a timeout or an abort).
+   * The picker's reserved controls open for clicks from here on. Returns a
+   * function that retires this one (for a timeout or an abort).
    */
   function registerWaiter(
     conversationKey: string,
@@ -958,6 +1024,13 @@ export function createChannel<
   ): () => void {
     const previous = waiters.get(conversationKey);
     waiters.set(conversationKey, waiter);
+    for (const id of waiter.controls.keys()) {
+      const owner = choiceControlOwners.get(id);
+      if (owner?.state === "reserved") {
+        owner.state = "open";
+        owner.waiter = waiter;
+      }
+    }
     if (previous) {
       retireWaiter(conversationKey, previous);
       previous.reject(new ChannelChoiceSupersededError());
@@ -998,6 +1071,7 @@ export function createChannel<
       toolDescriptors,
       context,
       registerWaiter,
+      reserveChoiceControls,
       interruptHandlers,
       state: backend,
       // Tie the retained interrupt value's lifetime to the action that resumes
@@ -1205,6 +1279,35 @@ export function createChannel<
         // controls, from this conversation on this platform. When the picker is
         // locked to the account that started the turn, refuse anyone else
         // here, before dispatch, so they cannot run the picker's handlers either.
+        // A control of a picker that is still being posted, or whose
+        // revocation is in flight, keeps its owner check; one whose choice is
+        // not open yet runs nothing at all.
+        const owner = choiceControlOwners.get(evt.id);
+        if (owner) {
+          if (
+            owner.actorId !== undefined &&
+            owner.actorId !== identityContext.actor.id
+          ) {
+            await refuseInteraction(
+              adapter,
+              platform,
+              evt,
+              identityContext.actor,
+              "not-initiator",
+            );
+            return;
+          }
+          if (owner.state === "reserved") {
+            await refuseInteraction(
+              adapter,
+              platform,
+              evt,
+              identityContext.actor,
+              "not-open",
+            );
+            return;
+          }
+        }
         const waiter = waiters.get(evt.conversationKey);
         const control =
           waiter?.platform === platform

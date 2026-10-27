@@ -146,6 +146,16 @@ export interface ThreadDeps {
    * pending choice there.
    */
   registerWaiter: (conversationKey: string, waiter: ChoiceWaiter) => () => void;
+  /**
+   * Claim a picker's controls for `actorId` (`undefined`: anyone) before the
+   * picker is posted: until {@link registerWaiter} opens its choice, no click
+   * runs them. Returns a function that abandons the claim (and revokes the
+   * controls) if the picker never became a pending choice.
+   */
+  reserveChoiceControls: (
+    controlIds: Iterable<string>,
+    actorId: string | undefined,
+  ) => () => void;
   interruptHandlers: Map<
     string,
     (args: {
@@ -863,8 +873,17 @@ export class Thread implements ThreadInterface {
       const unboundActionIds = stampUnboundPickerControls(bound.root);
       const ir = await this.prepareNative(bound.root);
       const controls = collectChoiceControls(ir, unboundActionIds);
-      const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
-      await this.bindPosted(ref, bound);
+      // The controls' ids can reach the platform as soon as the post starts:
+      // claim them for this choice first, and revoke them if the post fails.
+      const abandon = this.deps.reserveChoiceControls(controls.keys(), actorId);
+      let ref: MessageRef;
+      try {
+        ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
+        await this.bindPosted(ref, bound);
+      } catch (err) {
+        abandon();
+        throw err;
+      }
       // Registered only once the picker is posted (a failed post leaves no
       // waiter behind), under the key a click on the posted picker carries.
       return new Promise<T>((resolve, reject) => {
