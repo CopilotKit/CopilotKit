@@ -174,6 +174,10 @@ states, open the
 [`CopilotChatToolCallsView` stories](https://github.com/CopilotKit/CopilotKit/blob/main/examples/v2/react/storybook/stories/CopilotChatToolCallsView.stories.tsx)
 in the React Storybook.
 
+To change how calls are grouped (a card, a line of text, a stack, or one
+summary per turn) without writing a component, set `toolCallDisplay` on the
+message view. See [Tool Rendering](/generative-ui/tool-rendering).
+
 The `assistantMessage` slot also holds `markdownRenderer`, which controls how
 assistant markdown is rendered. It has its own guide:
 [Markdown Rendering](/custom-look-and-feel/markdown).
