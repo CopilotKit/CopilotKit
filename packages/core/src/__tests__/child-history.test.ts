@@ -31,6 +31,22 @@ class ChildReplayAgent extends AbstractAgent {
     });
   }
 
+  connect(input: RunAgentInput) {
+    return from([
+      {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      },
+      { type: EventType.MESSAGES_SNAPSHOT, messages: [] },
+      {
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      },
+    ]);
+  }
+
   run(input: RunAgentInput) {
     this.inputs.push(input);
     return from([
@@ -1090,20 +1106,6 @@ it("escapes untrusted attachment labels and provider handles in assistant fallba
 
 it("preserves saved children during the internal fresh-connect message reset", async () => {
   const { agent, core, current } = setup();
-  agent.connect = (input) =>
-    from([
-      {
-        type: EventType.RUN_STARTED,
-        threadId: input.threadId,
-        runId: input.runId,
-      },
-      { type: EventType.MESSAGES_SNAPSHOT, messages: [] },
-      {
-        type: EventType.RUN_FINISHED,
-        threadId: input.threadId,
-        runId: input.runId,
-      },
-    ]);
   core.ɵchildHistories.accept(agent, agent.threadId, snapshot(savedHistory()));
   await core.connectAgent({ agent });
   expect(current().histories).toHaveLength(1);

@@ -308,7 +308,7 @@ export class ɵChildHistoryStore {
   private agents = new WeakMap<AbstractAgent, Map<string, ThreadData>>();
   private listeners = new Set<() => void>();
   private replayResets = new WeakSet<AbstractAgent>();
-  private replayResetMessages = new WeakSet<Message[]>();
+  private replayResetMessages = new WeakSet<readonly Readonly<Message>[]>();
   /** Fresh connect clears root messages before replay; it is not a user reset. */
   resetMessagesForReplay(agent: AbstractAgent) {
     this.replayResets.add(agent);
@@ -320,7 +320,10 @@ export class ɵChildHistoryStore {
       this.replayResets.delete(agent);
     }
   }
-  handleMessagesReset(agent: AbstractAgent, messages: Message[]) {
+  handleMessagesReset(
+    agent: AbstractAgent,
+    messages: readonly Readonly<Message>[],
+  ) {
     if (
       !messages.length &&
       !this.replayResets.has(agent) &&
