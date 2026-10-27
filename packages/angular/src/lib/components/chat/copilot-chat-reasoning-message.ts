@@ -1,10 +1,14 @@
+import { NgTemplateOutlet } from "@angular/common";
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  contentChild,
+  effect,
   input,
   linkedSignal,
   signal,
+  TemplateRef,
   untracked,
 } from "@angular/core";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
@@ -13,9 +17,24 @@ import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-me
 import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils";
 import { injectChatLabels } from "../../chat-config";
 
+/** Context of the `#label` template projected into the reasoning header. */
+export interface CopilotChatReasoningMessageLabelContext {
+  /** The default label, the same as `label`. */
+  $implicit: string;
+  /** `labels.reasoningMessageThinkingLabel` while streaming, then "Thought for …". */
+  label: string;
+  isStreaming: boolean;
+  /**
+   * Seconds spent reasoning: counts up while streaming, then holds the total.
+   * The default label formats it in English; a template can build a localised,
+   * pluralised label from it.
+   */
+  elapsedSeconds: number;
+}
+
 @Component({
   selector: "copilot-chat-reasoning-message",
-  imports: [CopilotChatAssistantMessageRenderer],
+  imports: [CopilotChatAssistantMessageRenderer, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -31,7 +50,13 @@ import { injectChatLabels } from "../../chat-config";
         [attr.aria-expanded]="hasContent() ? open() : null"
         (click)="toggle()"
       >
-        <span class="cpk:font-medium">{{ label() }}</span>
+        <span class="cpk:font-medium">
+          @if (labelTemplate(); as template) {
+            <ng-container *ngTemplateOutlet="template; context: labelContext()" />
+          } @else {
+            {{ label() }}
+          }
+        </span>
         @if (isStreaming() && !hasContent()) {
           <span class="cpk:inline-flex cpk:items-center cpk:ml-1">
             <span
@@ -92,6 +117,15 @@ export class CopilotChatReasoningMessage {
   readonly inputClass = input<string | undefined>();
   private readonly labels = injectChatLabels();
 
+  /**
+   * An app's own header label, e.g. a localised duration:
+   * `<ng-template #label let-elapsedSeconds="elapsedSeconds">…</ng-template>`.
+   */
+  protected readonly labelTemplate = contentChild<
+    string,
+    TemplateRef<CopilotChatReasoningMessageLabelContext>
+  >("label", { read: TemplateRef });
+
   private readonly userToggled = signal(false);
 
   protected readonly isLatest = computed(() => {
@@ -104,12 +138,31 @@ export class CopilotChatReasoningMessage {
   );
 
   // Captures the wall-clock start the moment streaming begins and holds it
-  // afterwards. `label` reads this in both branches, keeping the linkedSignal
-  // warm so it recomputes across the streaming transition (no effect needed).
+  // afterwards. `elapsedSeconds` reads this in both branches, keeping the
+  // linkedSignal warm so it recomputes across the streaming transition.
   private readonly startTime = linkedSignal<boolean, number | undefined>({
     source: this.isStreaming,
     computation: (streaming, prev) =>
       streaming ? (prev?.value ?? Date.now()) : prev?.value,
+  });
+
+  // Ticks once a second while streaming, so `elapsedSeconds` counts up.
+  private readonly now = signal(Date.now());
+
+  constructor() {
+    effect((onCleanup) => {
+      if (!this.isStreaming()) return;
+      const timer = setInterval(() => this.now.set(Date.now()), 1000);
+      onCleanup(() => clearInterval(timer));
+    });
+  }
+
+  /** Seconds spent reasoning: counts up while streaming, then holds the total. */
+  protected readonly elapsedSeconds = computed(() => {
+    const start = this.startTime();
+    if (start === undefined) return 0;
+    const end = this.isStreaming() ? this.now() : Date.now();
+    return Math.max(0, (end - start) / 1000);
   });
 
   // Opens automatically while streaming. Once the user toggles, their choice is
@@ -135,11 +188,18 @@ export class CopilotChatReasoningMessage {
 
   /** `labels.reasoningMessageThinkingLabel` while streaming, then "Thought for …". */
   protected readonly label = computed(() => {
-    const start = this.startTime();
+    const seconds = this.elapsedSeconds();
     if (this.isStreaming()) return this.labels.reasoningMessageThinkingLabel;
-    const seconds = start === undefined ? 0 : (Date.now() - start) / 1000;
     return `Thought for ${formatReasoningDuration(seconds)}`;
   });
+
+  protected readonly labelContext =
+    computed<CopilotChatReasoningMessageLabelContext>(() => ({
+      $implicit: this.label(),
+      label: this.label(),
+      isStreaming: this.isStreaming(),
+      elapsedSeconds: this.elapsedSeconds(),
+    }));
 
   protected readonly computedClass = computed(() =>
     cn("cpk:my-1", this.inputClass()),

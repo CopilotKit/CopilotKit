@@ -108,6 +108,8 @@ function provideCopilotChatLabels(
   </PropertyReference>
 </PropertyReference>
 
+The "Thought for …" duration in the reasoning header carries a number and plural rules, so it is not a label. To translate it, project a `#label` template into the reasoning message; see [`CopilotChat`](/reference/angular/components/CopilotChat#localize-the-reasoning-duration).
+
 ## Return Value
 
 Returns an Angular `Provider` that binds the merged labels to the `COPILOT_CHAT_LABELS` injection token.

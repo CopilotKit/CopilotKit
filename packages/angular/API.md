@@ -94,6 +94,7 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotChatMessageViewCursor`
 - `CopilotChatMessageViewProps`
 - `CopilotChatReasoningMessage`
+- `CopilotChatReasoningMessageLabelContext`
 - `CopilotChatSendButton`
 - `CopilotChatStartTranscribeButton`
 - `CopilotChatSuggestionPill`
