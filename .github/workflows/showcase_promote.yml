@@ -30,6 +30,11 @@ on:
         required: false
         default: false
         type: boolean
+      verify_only:
+        description: "Verify current production images without promoting or redeploying services"
+        required: false
+        default: false
+        type: boolean
       service:
         description: "Service to promote (dispatch_name or SSOT key). 'all' = whole fleet. Leave the placeholder to abort."
         required: true
@@ -166,7 +171,7 @@ jobs:
         run: showcase/scripts/resolve-promote-targets.sh
 
   verify-staging-precondition:
-    if: ${{ inputs.validate_registry_only != true }}
+    if: ${{ inputs.validate_registry_only != true && inputs.verify_only != true }}
     needs: [resolve-targets]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -246,7 +251,7 @@ jobs:
       # not promoted, but the promoted services now run against them, so prod
       # health, compatibility and equivalence must still check them on their
       # CURRENT image. Equals succeeded_csv when nothing is held.
-      verify_csv: ${{ steps.promote.outputs.verify_csv }}
+      verify_csv: ${{ steps.promote.outputs.verify_csv || steps.verification-scope.outputs.verify_csv }}
       # Aggregated staging-drift payload: non-empty when any promoted service's
       # staging RUNNING digest differed from the current GHCR :latest (i.e.
       # staging was NOT serving :latest). Folded into the Slack notify payload
@@ -261,6 +266,11 @@ jobs:
       # total-failure blob in that case).
       results_b64: ${{ steps.promote.outputs.results_b64 }}
     steps:
+      - name: Reject conflicting validation modes
+        if: ${{ inputs.validate_registry_only == true && inputs.verify_only == true }}
+        run: |
+          echo "::error::Choose registry validation or production verification, not both."
+          exit 1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
@@ -303,8 +313,21 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Resolve current production verification scope
+        id: verification-scope
+        if: ${{ inputs.verify_only == true && inputs.validate_registry_only != true }}
+        env:
+          CLOSURE_CSV: ${{ needs.resolve-targets.outputs.closure_csv }}
+          HELD_CSV: ${{ needs.resolve-targets.outputs.held_csv }}
+        run: |
+          set -euo pipefail
+          test -n "$CLOSURE_CSV"
+          VERIFY_CSV="${CLOSURE_CSV}${HELD_CSV:+,$HELD_CSV}"
+          echo "verify_csv=$VERIFY_CSV" >> "$GITHUB_OUTPUT"
+          echo "Verification only: checking current production images for $VERIFY_CSV. No promotion or redeployment." >> "$GITHUB_STEP_SUMMARY"
+
       - name: bin/railway promote
-        if: ${{ inputs.validate_registry_only != true }}
+        if: ${{ inputs.validate_registry_only != true && inputs.verify_only != true }}
         id: promote
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
@@ -507,6 +530,8 @@ jobs:
           # §4.4 annotation: flip to "false" once prod harness-workers are
           # provisioned-but-degraded is the default-true full-throughput path.
           PROD_HARNESS_WORKERS_PROVISIONED: ${{ vars.SHOWCASE_PROD_HARNESS_WORKERS_PROVISIONED }}
+          PROD_HARNESS_BASE_URL: ${{ vars.SHOWCASE_PROD_HARNESS_BASE_URL }}
+          PROD_HARNESS_TRIGGER_TOKEN: ${{ secrets.SHOWCASE_PROD_HARNESS_TRIGGER_TOKEN }}
         run: |
           set -euo pipefail
           # OUT-OF-PR PREREQ GATE: the equivalence gate is inert until the prod
@@ -572,7 +597,7 @@ jobs:
     #                                  service failed).
     #   verify-prod                  = verifies the succeeded subset.
     needs: [resolve-targets, verify-staging-precondition, promote, verify-prod]
-    if: ${{ always() && inputs.validate_registry_only != true }}
+    if: ${{ always() && inputs.validate_registry_only != true && inputs.verify_only != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
