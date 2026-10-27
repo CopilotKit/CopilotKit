@@ -289,16 +289,23 @@ export class SqliteAgentRunner extends AgentRunner {
    * Owner of a thread: the recorded owner, {@link LEGACY_THREAD_OWNER} for a
    * thread whose runs predate owner records, or `undefined` for an unknown
    * thread.
+   *
+   * The owner record and the run check are read by one statement, so they
+   * come from one snapshot of the database. With two reads, another runner on
+   * the same file could claim the thread and store its first run in between,
+   * and this call would see runs but no owner and take that thread for a
+   * legacy one, open to every caller.
    */
   private getThreadOwner(threadId: string): string | undefined {
     const row = this.db
-      .prepare("SELECT owner_id FROM thread_owners WHERE thread_id = ?")
-      .get(threadId) as { owner_id: string } | undefined;
-    if (row) return row.owner_id;
-    const legacy = this.db
-      .prepare("SELECT 1 FROM agent_runs WHERE thread_id = ? LIMIT 1")
-      .get(threadId);
-    return legacy ? LEGACY_THREAD_OWNER : undefined;
+      .prepare(
+        "SELECT (SELECT owner_id FROM thread_owners WHERE thread_id = ?) AS owner_id, EXISTS (SELECT 1 FROM agent_runs WHERE thread_id = ?) AS has_runs",
+      )
+      .get(threadId, threadId) as
+      | { owner_id: string | null; has_runs: number }
+      | undefined;
+    if (row?.owner_id != null) return row.owner_id;
+    return row?.has_runs ? LEGACY_THREAD_OWNER : undefined;
   }
 
   /**

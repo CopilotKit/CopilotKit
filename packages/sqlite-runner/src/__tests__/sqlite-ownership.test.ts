@@ -522,6 +522,79 @@ describe("SqliteAgentRunner runners that share one database file", () => {
     expect(replay).not.toContain("BOB_INJECTED");
     expect(loser.isThreadAccessible(threadId, { ownerId: "bob" })).toBe(false);
   });
+
+  it("never replays a thread claimed by another runner mid-lookup as legacy", async () => {
+    const dbPath = tempDbPath("shared.db");
+    const reader = newRunner(dbPath);
+    const writer = newRunner(dbPath);
+    const threadId = threadIdFor("sqlite-classify-race");
+
+    // The writer (another connection on the same file) claims the thread for
+    // alice and stores her run right after the reader's first read of the
+    // owner tables, before the reader can read anything else.
+    const writerInternals = writer as unknown as {
+      claimThread(threadId: string, owner: string): boolean;
+      storeRun(
+        threadId: string,
+        runId: string,
+        events: BaseEvent[],
+        input: RunAgentInput,
+      ): void;
+    };
+    const readerDb = (reader as unknown as { db: Database.Database }).db;
+    const prepare = readerDb.prepare.bind(readerDb);
+    let interleaved = false;
+    vi.spyOn(readerDb, "prepare").mockImplementation((sql: string) => {
+      const stmt = prepare(sql);
+      if (interleaved || !sql.includes("thread_owners")) return stmt;
+      const get = stmt.get.bind(stmt);
+      return Object.assign(stmt, {
+        get: (...params: unknown[]) => {
+          const row = get(...params);
+          if (!interleaved) {
+            interleaved = true;
+            expect(writerInternals.claimThread(threadId, "alice")).toBe(true);
+            writerInternals.storeRun(
+              threadId,
+              `run-${threadId}-alice`,
+              [
+                {
+                  type: EventType.RUN_STARTED,
+                  threadId,
+                  runId: "alice-run",
+                } as BaseEvent,
+                {
+                  type: EventType.STATE_SNAPSHOT,
+                  snapshot: { secret: "ALICE_SECRET" },
+                } as BaseEvent,
+                {
+                  type: EventType.RUN_FINISHED,
+                  threadId,
+                  runId: "alice-run",
+                } as BaseEvent,
+              ],
+              inputFor(threadId, "ALICE_SECRET", "alice-run"),
+            );
+          }
+          return row;
+        },
+      });
+    });
+
+    const replay = JSON.stringify(
+      await collect(reader.connect({ threadId, ownerId: "bob" })),
+    );
+    expect(interleaved).toBe(true);
+    expect(replay).not.toContain("ALICE_SECRET");
+    // Once the race is over, the thread is alice's alone.
+    vi.restoreAllMocks();
+    expect(reader.isThreadAccessible(threadId, { ownerId: "bob" })).toBe(false);
+    expect(
+      JSON.stringify(
+        await collect(reader.connect({ threadId, ownerId: "alice" })),
+      ),
+    ).toContain("ALICE_SECRET");
+  });
 });
 
 describe("SqliteAgentRunner instances in one process", () => {
