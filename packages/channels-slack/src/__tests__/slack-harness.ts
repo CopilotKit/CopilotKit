@@ -112,6 +112,8 @@ export interface SlackHarness {
   ephemerals: Array<{ channel: string; user: string; blocks: unknown }>;
   /** Errors thrown by fired ingress handlers. */
   errors: unknown[];
+  /** Every `conversations.replies` read: the conversation store's history. */
+  threadReads: Array<{ channel: string; ts: string }>;
   /** Fire a `/deploy` slash command from `user` in `channel`. */
   slash(opts: { channel: string; user: string; text?: string }): Promise<void>;
   /** Fire an `app_mention` from `user` in `channel` at `ts`. */
@@ -178,6 +180,7 @@ export async function startSlackHarness(opts: {
   // Thread root of every known reply, as Slack tracks it.
   const threadRoots = new Map<string, string>();
   const ephemerals: SlackHarness["ephemerals"] = [];
+  const threadReads: SlackHarness["threadReads"] = [];
   let nextTs = 1000;
   const postMessage = vi.fn(
     async (args: { channel: string; thread_ts?: string; blocks?: unknown }) => {
@@ -229,8 +232,32 @@ export async function startSlackHarness(opts: {
       ),
     },
     users: { info: vi.fn().mockResolvedValue({ user: { id: "U1" } }) },
+    conversations: {
+      // A thread read returns the message at `ts` (and its thread's root),
+      // filed where Slack tracks it. No message text: history stays empty.
+      replies: vi.fn(async (args: { channel: string; ts: string }) => {
+        threadReads.push({ channel: args.channel, ts: args.ts });
+        const root =
+          threadRoots.get(args.ts) ??
+          ([...threadRoots.values()].includes(args.ts) ? args.ts : undefined);
+        const messages = !root
+          ? [{ ts: args.ts }]
+          : root === args.ts
+            ? [{ ts: root, thread_ts: root }]
+            : [
+                { ts: root, thread_ts: root },
+                { ts: args.ts, thread_ts: root },
+              ];
+        return { ok: true, messages };
+      }),
+      history: vi.fn().mockResolvedValue({ ok: true, messages: [] }),
+    },
   };
+  // The adapter hands its Web API client to the conversation store at
+  // construction, so the store must get the fake too: otherwise every turn's
+  // history read goes to the real Slack API with a fake token.
   (adapter as unknown as { client: unknown }).client = client;
+  (adapter as unknown as { store: { client: unknown } }).store.client = client;
 
   const channel = createChannel({
     identifyUser: "platform",
@@ -256,6 +283,7 @@ export async function startSlackHarness(opts: {
     updates,
     ephemerals,
     errors,
+    threadReads,
     async slash({ channel: channelId, user, text }) {
       fire(
         fakeApp.command({

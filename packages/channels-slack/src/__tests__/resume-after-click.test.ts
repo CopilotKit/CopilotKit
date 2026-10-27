@@ -132,6 +132,11 @@ describe("Slack resume() from a click on an interrupt card", () => {
     await untilPosted(slack, 1);
     const card = slack.posts.at(-1)!;
     expect(card.threadTs).toBe("600.0001");
+    // The turn read its thread history from the fake, never the real API.
+    expect(slack.threadReads).toContainEqual({
+      channel: "C1",
+      ts: "600.0001",
+    });
 
     await slack.click({
       message: card,
