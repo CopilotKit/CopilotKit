@@ -36,6 +36,20 @@ function siteOf(source: { title: string; url: string }) {
 }
 
 /** One chip per site, linking its first source. */
+/**
+ * A search the agent asked for after its round of research came back: the
+ * agent answered it at once with "research is done" (agent.py,
+ * `one_research_round`), so there is nothing to show for it.
+ */
+function isRepeat(result: unknown) {
+  const parsed = parseResult<{
+    note?: string;
+    sources?: unknown;
+    images?: unknown;
+  }>(result);
+  return Boolean(parsed?.note && !parsed.sources && !parsed.images);
+}
+
 function bySite(sources: { title: string; url: string }[]) {
   const seen = new Map<string, { site: string; url: string }>();
   for (const source of sources) {
@@ -55,6 +69,7 @@ export function useResearchSteps() {
     parameters: z.object({ query: z.string(), count: z.number().optional() }),
     render: ({ status, parameters, result }) => {
       const done = status === "complete";
+      if (done && isRepeat(result)) return <></>;
       const images = done
         ? (parseResult<ImagesResult>(result)?.images ?? [])
         : [];
@@ -96,6 +111,7 @@ export function useResearchSteps() {
     parameters: z.object({ query: z.string() }),
     render: ({ status, parameters, result }) => {
       const done = status === "complete";
+      if (done && isRepeat(result)) return <></>;
       const parsed = done ? parseResult<ResearchResult>(result) : undefined;
       const sites = bySite(parsed?.sources ?? []);
       return (

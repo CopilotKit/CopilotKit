@@ -29,14 +29,33 @@ function Answer({
   toolCallsView,
   toolbar,
   toolbarVisible,
+  message,
+  messages,
 }: AnswerParts) {
   return (
     <div className="copilotKitMessage copilotKitAssistantMessage answer">
       <div className="answer__text">{markdownRenderer}</div>
       {toolCallsView}
-      {toolbarVisible && toolbar}
+      {toolbarVisible && endsTheTurn(message.id, messages) && toolbar}
     </div>
   );
+}
+
+/**
+ * Whether no other agent message follows this one before the reader's next
+ * question. The agent says what it will look into before it researches; the
+ * copy and thumbs belong under the answer, not under that sentence.
+ */
+function endsTheTurn(
+  id: string,
+  messages: readonly { id: string; role: string }[] = [],
+) {
+  const index = messages.findIndex((m) => m.id === id);
+  for (const next of messages.slice(index + 1)) {
+    if (next.role === "user") return true;
+    if (next.role === "assistant") return false;
+  }
+  return true;
 }
 
 /** A reader turn: the question as typed, on a sand slip. */
