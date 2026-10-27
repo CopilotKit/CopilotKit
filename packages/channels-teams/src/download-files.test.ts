@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { buildFileContentParts } from "./download-files.js";
+import { incoming, mockHttps, publicDns } from "./attachment-test-helpers.js";
 import type { TeamsAttachmentRef } from "./download-files.js";
 
 const FILE_DOWNLOAD_INFO = "application/vnd.microsoft.teams.file.download.info";
@@ -7,31 +8,24 @@ const FILE_DOWNLOAD_INFO = "application/vnd.microsoft.teams.file.download.info";
 function mockFetch(
   body: string | Uint8Array,
   init: { ok?: boolean; status?: number } = {},
-): void {
-  const bytes =
-    typeof body === "string" ? new TextEncoder().encode(body) : body;
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({
-      ok: init.ok ?? true,
-      status: init.status ?? 200,
-      arrayBuffer: async () => bytes.buffer,
-    }),
-  );
+) {
+  publicDns();
+  return mockHttps(() => incoming(body, init.status ?? 200));
 }
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("buildFileContentParts (Teams)", () => {
   it("downloads a CSV file.download.info attachment as a decoded text part", async () => {
-    mockFetch("a,b\n1,2\n");
+    const request = mockFetch("a,b\n1,2\n");
     const att: TeamsAttachmentRef = {
       contentType: FILE_DOWNLOAD_INFO,
       name: "data.csv",
       content: {
-        downloadUrl: "https://files.example/data.csv",
+        downloadUrl: "https://contoso.sharepoint.com/data.csv",
         fileType: "csv",
       },
     };
@@ -44,7 +38,13 @@ describe("buildFileContentParts (Teams)", () => {
     const text = (parts[0] as { text: string }).text;
     expect(text).toContain('Attached file "data.csv" (text/csv)');
     expect(text).toContain("a,b\n1,2");
-    expect(fetch).toHaveBeenCalledWith("https://files.example/data.csv");
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostname: "contoso.sharepoint.com",
+        path: "/data.csv",
+      }),
+      expect.any(Function),
+    );
   });
 
   it("decodes a base64 data: URI image into an image part without fetching", async () => {
@@ -71,7 +71,7 @@ describe("buildFileContentParts (Teams)", () => {
     const att: TeamsAttachmentRef = {
       contentType: "image/jpeg",
       name: "photo.jpg",
-      contentUrl: "https://smba.example/v3/attachments/123",
+      contentUrl: "https://smba.trafficmanager.net/v3/attachments/123",
     };
 
     const { parts } = await buildFileContentParts([att]);
@@ -87,13 +87,31 @@ describe("buildFileContentParts (Teams)", () => {
     const att: TeamsAttachmentRef = {
       contentType: FILE_DOWNLOAD_INFO,
       name: "data.csv",
-      content: { downloadUrl: "https://files.example/missing.csv" },
+      content: { downloadUrl: "https://contoso.sharepoint.com/missing.csv" },
     };
 
     const { parts, notes } = await buildFileContentParts([att]);
 
     expect(parts).toEqual([]);
     expect(notes[0]).toContain("download failed (HTTP 404)");
+  });
+
+  it("does not expose signed URLs from DNS/transport errors in skip notes", async () => {
+    publicDns().mockRejectedValue(
+      new Error(
+        "TLS failure https://contoso.sharepoint.com/file?sig=synthetic-secret",
+      ),
+    );
+    const result = await buildFileContentParts([
+      {
+        contentType: "text/plain",
+        contentUrl: "https://contoso.sharepoint.com/file?sig=synthetic-secret",
+      },
+    ]);
+    expect(result.parts).toEqual([]);
+    expect(result.notes[0]).toContain("attachment download failed");
+    expect(result.notes.join(" ")).not.toContain("synthetic-secret");
+    expect(result.notes.join(" ")).not.toContain("sharepoint");
   });
 
   it("skips an Adaptive Card attachment (no downloadable source)", async () => {
@@ -113,7 +131,7 @@ describe("buildFileContentParts (Teams)", () => {
     const make = (i: number): TeamsAttachmentRef => ({
       contentType: FILE_DOWNLOAD_INFO,
       name: `f${i}.txt`,
-      content: { downloadUrl: `https://files.example/f${i}.txt` },
+      content: { downloadUrl: `https://contoso.sharepoint.com/f${i}.txt` },
     });
     const atts = Array.from({ length: 7 }, (_, i) => make(i));
 

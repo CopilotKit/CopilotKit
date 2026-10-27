@@ -1,0 +1,15 @@
+{
+  "title": "Components and surfaces",
+  "icon": "lucide/LayoutTemplate",
+  "pages": [
+    "index",
+    "surfaces",
+    "catalogs",
+    "standard-catalog",
+    "state-and-actions",
+    "theming",
+    "transports",
+    "markdown-mode",
+    "from-a2ui"
+  ]
+}

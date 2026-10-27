@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider     = "prisma-client"
+  moduleFormat = "esm"
+  engineType   = "client"
+  output       = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./data.db"
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  imageUrl    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  price       Float
+  reviewScore Float    @default(0)
+  category    Category @relation(fields: [categoryId], references: [id])
+  categoryId  String
+
+  brand   Brand  @relation(fields: [brandId], references: [id])
+  brandId String
+
+  variations Variation[]
+  reviews    ProductReview[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  imageUrl  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+}
+
+model Brand {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+}
+
+model Variation {
+  id        String   @id @default(cuid())
+  color     String
+  size      String
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  productReviews ProductReview[]
+
+  @@unique([productId, color, size])
+}
+
+model ProductReview {
+  id        String   @id @default(cuid())
+  rating    Float
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  variation   Variation? @relation(fields: [variationId], references: [id], onDelete: Cascade)
+  variationId String?
+  product     Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId   String
+
+  @@unique([productId, variationId])
+}

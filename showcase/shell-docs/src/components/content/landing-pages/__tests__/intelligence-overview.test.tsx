@@ -83,11 +83,12 @@ describe("IntelligenceOverview", () => {
     render(<IntelligenceFeatureCards />);
 
     const expected: Array<[string, string]> = [
-      ["AG-UI Streams", "/threads"],
+      ["AG-UI Streams", "/AG-UI-Streams"],
       ["Channels", "/intelligence/channels"],
       ["User Memories", "/intelligence/memories"],
       ["Product Analytics", "/intelligence/analytics"],
       ["Automatic Learning", "/learning"],
+      ["Trajectories", "/intelligence/trajectories"],
       ["Inspector", "/inspector"],
     ];
     for (const [title, href] of expected) {

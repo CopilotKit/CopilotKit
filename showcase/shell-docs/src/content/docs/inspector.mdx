@@ -123,13 +123,14 @@ fallback for the updated Inspector when the cohort feed is empty or unavailable.
 Send a message in your application, then use these views to answer the next
 debugging question:
 
-| Question                                      | Open                                                                | Related guide                                              |
-| --------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Which agent ran, and what did it do?          | **Agent**                                                           | [Agent configuration](/agent-config)                       |
-| Which events crossed the AG-UI connection?    | **AG-UI Events**                                                    | [AG-UI protocol](/agentic-protocols/ag-ui)                 |
-| Which browser-side tools are registered?      | **Frontend Tools**                                                  | [Frontend Tools](/frontend-tools)                          |
-| What readable or document context was shared? | **Context**                                                         | [Agent read-only context](/shared-state/agent-readonly)    |
-| What did a saved conversation contain?        | **Rich Threads** → **Conversation**, **AG-UI Events**, or **State** | [AG-UI Streams](/threads) and [Shared State](/shared-state) |
+| Question                                                    | Open                                                                | Related guide                                               |
+| ----------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Which agent ran, and what did it do?                        | **Agent**                                                           | [Agent configuration](/agent-config)                        |
+| Which events crossed the AG-UI connection?                  | **AG-UI Events**                                                    | [AG-UI protocol](/agentic-protocols/ag-ui)                  |
+| Which browser-side tools are registered?                    | **Frontend Tools**                                                  | [Frontend Tools](/frontend-tools)                           |
+| What readable or document context was shared?               | **Context**                                                         | [Agent read-only context](/shared-state/agent-readonly)     |
+| Which components can the agent render, and what did it see? | **Generative UI**                                                   | [Components and surfaces](/generative-ui/components)        |
+| What did a saved conversation contain?                      | **Rich Threads** → **Conversation**, **AG-UI Events**, or **State** | [AG-UI Streams](/AG-UI-Streams) and [Shared State](/shared-state) |
 
 In an official React `CopilotChat`, open an assistant message's toolbar and
 choose **View in Inspector** to jump directly to that message in its Thread.
@@ -143,6 +144,23 @@ for its configuration.
 tool. **Capabilities** appears only when an A2UI catalog is present; use it to
 toggle tools and catalog components while experimenting.
 
+**Generative UI** appears only when the provider has a `generativeUI` config.
+It has three tabs:
+
+- **Surfaces**: the targets on the page, and each surface with its status, data
+  model, user values, operations, and rejected operations. A tree shows the
+  components that rendered, with their props. Hover over the card of a page
+  surface to outline the surface and scroll to it.
+- **Catalog**: the components and functions with their schemas, grouped by the
+  catalog that declared them. The search filters both lists. A function with
+  no handler gets a warning.
+- **Prompt**: the envelope and the generative UI text of the last run, or of
+  the next run.
+
+If a surface does not render, see
+[When something does not render](/generative-ui/components#when-something-does-not-render)
+for the tab to open.
+
 On narrow windows, or when Inspector is docked left, the sidebar collapses to
 icons. **Talk to an Engineer** remains in the sidebar footer.
 
@@ -150,7 +168,7 @@ icons. **Talk to an Engineer** remains in the sidebar footer.
 
 Use **Playground** when you have already observed a problem and want to vary the
 prompt, state, or next message without touching the original [Rich
-Thread](/threads). Its messages and state stay separate from your application
+Thread](/AG-UI-Streams). Its messages and state stay separate from your application
 chat and stored Threads, so you can run, stop, retry, and continue an experiment
 safely.
 

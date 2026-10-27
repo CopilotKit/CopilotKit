@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/ext-apps";
 import { buildSandboxHTML } from "../sandbox";
 import {
@@ -23,6 +23,113 @@ describe("buildSandboxHTML", () => {
   it("appends extra CSP domains to script-src and frame-src", () => {
     const html = buildSandboxHTML(["https://example.com"]);
     expect(html).toContain("https://example.com");
+  });
+
+  it("keeps CSP host sources the server declares", () => {
+    const domains = [
+      "https://cdn.example.com",
+      "*.example.org",
+      "https://assets.example.net:8443/static",
+      "wss://live.example.com",
+      "https://cdn.example.com/app+v1.js",
+      "https://cdn.example.com/@scope/pkg$1/(x)=y:z!*",
+    ];
+    const html = buildSandboxHTML(domains);
+    for (const domain of domains) expect(html).toContain(` ${domain}`);
+  });
+
+  it("drops server-supplied domains that would break out of the CSP", () => {
+    const html = buildSandboxHTML([
+      'https://cdn.example.com" /><b id="injected">x</b><meta x="',
+      "https://a.example.com; script-src *",
+      "https://a.example.com/a,b",
+      "https://a.example.com/x'y",
+      "https://a.example.com/x&lt;y",
+      "https://ok.example.com",
+    ]);
+    expect(html).not.toContain("injected");
+    expect(html).not.toContain("script-src *");
+    for (const fragment of ["/a,b", "/x'y", "/x&lt;y"]) {
+      expect(html).not.toContain(fragment);
+    }
+    expect(
+      html.match(/<meta http-equiv="Content-Security-Policy"/g),
+    ).toHaveLength(1);
+    expect(html).toContain(" https://ok.example.com");
+  });
+
+  it("defaults the widget frame to an opaque origin", () => {
+    expect(buildSandboxHTML()).not.toContain("allow-same-origin");
+  });
+
+  describe("relay", () => {
+    /**
+     * Run the proxy's own script against stub window/document objects, so the
+     * relay rules are tested as shipped rather than by string matching.
+     */
+    function bootProxy() {
+      const script = /<script>([\s\S]*)<\/script>/.exec(buildSandboxHTML())![1];
+      const parent = { postMessage: vi.fn() };
+      const inner = {
+        style: {},
+        setAttribute: vi.fn(),
+        contentWindow: { postMessage: vi.fn() },
+      };
+      let onMessage!: (event: { source: unknown; data: unknown }) => void;
+      const win = {
+        parent,
+        top: parent,
+        addEventListener: (_: string, fn: typeof onMessage) => {
+          onMessage = fn;
+        },
+      };
+      const doc = {
+        createElement: () => inner,
+        body: { appendChild: () => {} },
+      };
+      new Function("window", "document", script)({ ...win, self: win }, doc);
+      parent.postMessage.mockClear(); // drop the proxy's own ready notice
+      const fromWidget = (data: unknown) =>
+        onMessage({ source: inner.contentWindow, data });
+      return { parent, inner, onMessage, fromWidget };
+    }
+
+    it("relays widget messages to the host", () => {
+      const { parent, fromWidget } = bootProxy();
+      const msg = { jsonrpc: "2.0", id: 1, method: "ui/initialize" };
+      fromWidget(msg);
+      expect(parent.postMessage).toHaveBeenCalledWith(msg, "*");
+    });
+
+    it("drops sandbox-* notifications a widget tries to forge", () => {
+      const { parent, fromWidget } = bootProxy();
+      fromWidget({
+        jsonrpc: "2.0",
+        method: "ui/notifications/sandbox-proxy-ready",
+        params: {},
+      });
+      fromWidget({
+        jsonrpc: "2.0",
+        method: "ui/notifications/sandbox-resource-ready",
+        params: { html: "<p>forged</p>" },
+      });
+      expect(parent.postMessage).not.toHaveBeenCalled();
+    });
+
+    it("applies the sandbox flags the host sends with the widget HTML", () => {
+      const { inner, onMessage, parent } = bootProxy();
+      onMessage({
+        source: parent,
+        data: {
+          method: "ui/notifications/sandbox-resource-ready",
+          params: { html: "<p>w</p>", sandbox: "allow-scripts" },
+        },
+      });
+      expect(inner.setAttribute).toHaveBeenLastCalledWith(
+        "sandbox",
+        "allow-scripts",
+      );
+    });
   });
 });
 

@@ -23,6 +23,7 @@ import { join, relative } from "node:path";
 import {
   getCurrentVersion,
   getPackagesForScope,
+  orderByDependencies,
   parseSemver,
 } from "./lib/versions.js";
 import { ROOT, getScopeConfig, loadConfig } from "./lib/config.js";
@@ -110,7 +111,9 @@ async function main() {
   // Resolve packages before any version/registry safety checks so that a
   // misconfigured scope fails with a clear "no packages" error instead of a
   // misleading "not greater than published" one.
-  const packages = getPackagesForScope(scope);
+  // Dependencies first: a failed publish must not strand a package on npm
+  // that pins a same-release version which never shipped.
+  const packages = orderByDependencies(getPackagesForScope(scope));
   if (packages.length === 0) {
     console.error(
       `No packages found for scope "${scope}" — refusing to emit a version for a publish that did nothing.`,

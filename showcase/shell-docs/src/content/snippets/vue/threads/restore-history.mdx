@@ -1,0 +1,24 @@
+```vue title="src/components/RestoreHistory.vue"
+<script setup lang="ts">
+import { watch } from "vue";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const props = defineProps<{ threadId: string }>();
+const { agent } = useAgent({ agentId: "my-agent" });
+
+watch(
+  [() => agent.value, () => props.threadId],
+  async ([current, threadId], _previous, onCleanup) => {
+    if (!current) return;
+    let cancelled = false;
+    onCleanup(() => { cancelled = true; });
+
+    const messages = await myApi.getMessages(threadId);
+    if (!cancelled) current.setMessages(messages);
+  },
+  { immediate: true },
+);
+</script>
+
+<template />
+```

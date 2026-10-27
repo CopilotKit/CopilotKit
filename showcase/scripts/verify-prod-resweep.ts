@@ -51,11 +51,11 @@ import {
   keyFor,
   CATALOG_TO_D5_KEY,
   STARTER_ROW_LEVELS,
-} from "../shell-dashboard/src/lib/live-status";
+} from "../harness/src/shared/cell-model/live-status.js";
 import type {
   LiveStatusMap,
   StatusRow,
-} from "../shell-dashboard/src/lib/live-status";
+} from "../harness/src/shared/cell-model/live-status.js";
 import { STARTER_TO_COLUMN } from "../harness/src/probes/helpers/starter-mapping";
 
 /** Default re-sweep ceiling (spec §6.2): 20 minutes → REFUSE on timeout. */
@@ -121,7 +121,7 @@ export type AgentEnqueueFn = (
 /**
  * The STARTER-axis enqueue seam: TRIGGER the prod `starter_smoke` CRON probe,
  * scoped to the given `starter_smoke:starter-<rawSlug>` filter keys. Defaults
- * to an HTTP POST to the prod harness `/api/probes/starter_smoke/trigger`
+ * to an HTTP POST to the prod harness `/api/probes/probe%3Astarter_smoke/trigger`
  * endpoint; tests inject a fake.
  */
 export type StarterEnqueueFn = (
@@ -643,7 +643,7 @@ function makeAgentEnqueue(args: {
  * starter_smoke probe is NOT a control-plane producer family (the d6 discovery
  * filter EXCLUDES `starter-*` services), so it never flows through the
  * `createJobProducer` path. Its operator-trigger seam is the prod harness
- * `POST /api/probes/starter_smoke/trigger` route (`harness/src/http/probes.ts`),
+ * `POST /api/probes/probe%3Astarter_smoke/trigger` route (`harness/src/http/probes.ts`),
  * which accepts a `{ filter: { slugs } }` body and narrows the probe's
  * discovered targets to the post-`key_template` keys before fan-out. Triggering
  * it makes the prod starter_smoke driver re-probe ONLY the promoted starters and
@@ -662,7 +662,7 @@ function makeStarterEnqueue(args: {
     if (starterTriggerKeys.length === 0) {
       return { enqueued: 0, enqueueFailures: 0 };
     }
-    const url = `${args.prodHarnessBaseUrl.replace(/\/$/, "")}/api/probes/${STARTER_SMOKE_PROBE_ID}/trigger`;
+    const url = `${args.prodHarnessBaseUrl.replace(/\/$/, "")}/api/probes/${encodeURIComponent(`probe:${STARTER_SMOKE_PROBE_ID}`)}/trigger`;
     let res: Response;
     try {
       res = await fetch(url, {

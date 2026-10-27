@@ -9,7 +9,7 @@
     {
       "title": "Threads",
       "defaultOpen": true,
-      "pages": ["threads", "headless-threads"]
+      "pages": ["AG-UI-Streams", "headless-threads"]
     }
   ]
 }

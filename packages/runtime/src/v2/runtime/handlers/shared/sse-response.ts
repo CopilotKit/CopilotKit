@@ -1,3 +1,4 @@
+import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import type { Observable, Subscription } from "rxjs";
@@ -5,6 +6,7 @@ import {
   keepAliveSse,
   resolveSseKeepAliveIntervalSeconds,
 } from "./sse-keep-alive";
+import { THREAD_ALREADY_RUNNING_ERROR_CODE } from "@copilotkit/shared";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
 import { createLogger } from "../../../../v1-deprecated/lib/logger";
 import type { CopilotRuntimeLogger } from "../../../../v1-deprecated/lib/logger";
@@ -16,6 +18,19 @@ import type {
   RuntimeErrorPhase,
   RuntimeErrorReporter,
 } from "../../core/runtime-error-reporter";
+
+/**
+ * Whether a runner rejected the run because the thread is busy. Matches the
+ * `code` of {@link ThreadAlreadyRunningError}, and the plain message that
+ * custom runners copied from the built-in ones still throw.
+ */
+function isThreadAlreadyRunning(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    ((error as { code?: unknown }).code === THREAD_ALREADY_RUNNING_ERROR_CODE ||
+      error.message === "Thread already running")
+  );
+}
 
 interface CreateSseEventResponseParams {
   request: Request;
@@ -75,6 +90,10 @@ export function createSseEventResponse({
   const writer = stream.writable.getWriter();
   const encoder = new EventEncoder();
   let streamClosed = false;
+  // Set once the current run's RUN_FINISHED or RUN_ERROR has been queued for
+  // the client. AG-UI allows nothing after either until the next RUN_STARTED,
+  // so a later failure must not add a RUN_ERROR.
+  let terminalEventWritten = false;
   let debugThreadId = "";
   let debugRunId = "";
 
@@ -91,6 +110,45 @@ export function createSseEventResponse({
       } catch {
         // Stream already closed.
       }
+    }
+  };
+
+  // Report a failure to the client as a terminal RUN_ERROR. Without it the
+  // client sees an empty stream that ends normally, so its run "succeeds"
+  // with no reply and no error (e.g. "Thread already running" on a busy
+  // thread). Only a busy thread is named, with a code clients can branch on;
+  // anything else may carry internal detail, so the client gets a generic
+  // message and the full error stays in the server log.
+  const writeRunError = async (error: unknown) => {
+    if (terminalEventWritten || streamClosed || request.signal.aborted) {
+      return;
+    }
+    terminalEventWritten = true;
+    const event = isThreadAlreadyRunning(error)
+      ? {
+          type: EventType.RUN_ERROR,
+          message: "Thread already running",
+          code: THREAD_ALREADY_RUNNING_ERROR_CODE,
+        }
+      : { type: EventType.RUN_ERROR, message: "Agent run failed" };
+    // The inspector sees every streamed event, so it needs this one too or
+    // the run it saw start never ends there. A run that never started has
+    // no ids to file it under, so it is not sent.
+    if (debugEventBus && debugRunId) {
+      try {
+        debugEventBus.broadcast(event as BaseEvent, {
+          agentId: agentId ?? "",
+          threadId: debugThreadId,
+          runId: debugRunId,
+        });
+      } catch (broadcastError) {
+        logError(broadcastError);
+      }
+    }
+    try {
+      await writer.write(encoder.encodeBinary(event as BaseEvent));
+    } catch {
+      // The client is already gone; closeStream() handles the rest.
     }
   };
 
@@ -216,6 +274,16 @@ export function createSseEventResponse({
                 );
               }
             }
+            // /connect replays finished runs before the live one, so a new
+            // RUN_STARTED reopens the stream for a RUN_ERROR.
+            if (event.type === EventType.RUN_STARTED) {
+              terminalEventWritten = false;
+            } else if (
+              event.type === EventType.RUN_FINISHED ||
+              event.type === EventType.RUN_ERROR
+            ) {
+              terminalEventWritten = true;
+            }
             await writer.write(encoder.encodeBinary(event));
           } catch (error) {
             if (error instanceof Error && error.name === "AbortError") {
@@ -235,9 +303,11 @@ export function createSseEventResponse({
       error: async (error) => {
         reportAgentError(error, "sse.subscription");
         if (captureTelemetry) {
+          // Analytics gets the outcome, not the message: provider and tool
+          // errors can quote prompts, arguments or URLs. Same as Intelligence.
           telemetry.capture("oss.runtime.agent_execution_stream_errored", {
             ...executionInfo,
-            error: error instanceof Error ? error.message : String(error),
+            error: "AGENT_EXECUTION_FAILED",
           });
         }
         if (debug?.lifecycle) {
@@ -247,6 +317,7 @@ export function createSseEventResponse({
           );
         }
         logError(error);
+        await writeRunError(error);
         await closeStream();
       },
       complete: async () => {
@@ -274,6 +345,7 @@ export function createSseEventResponse({
   })().catch(async (error) => {
     reportAgentError(error, "sse.factory");
     logError(error);
+    await writeRunError(error);
     await closeStream();
   });
 

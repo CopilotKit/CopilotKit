@@ -34,8 +34,11 @@ export function A2UICatalogContext({
   const { copilotkit } = useCopilotKit();
 
   const capabilitiesValue = useMemo(
-    () => buildCatalogContextValue(catalog),
-    [catalog],
+    () =>
+      buildCatalogContextValue(catalog, {
+        includeSchema: includeSchema !== false,
+      }),
+    [catalog, includeSchema],
   );
 
   // When includeSchema is true, send full component schemas in the same format

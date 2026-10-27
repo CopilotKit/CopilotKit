@@ -2,6 +2,7 @@ import type { Context } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
 import type { CopilotKitCoreFriendsAccess } from "./core";
+import { isForAgent } from "./agent-scope";
 
 /**
  * A context entry with optional per-agent scoping.
@@ -51,11 +52,7 @@ export class ContextStore {
    */
   getContextForAgent(agentId?: string): Context[] {
     return Object.values(this._context)
-      .filter(
-        (entry) =>
-          !entry.agentIds ||
-          (agentId !== undefined && entry.agentIds.includes(agentId)),
-      )
+      .filter((entry) => isForAgent(entry.agentIds, agentId))
       .map(({ description, value }) => ({ description, value }));
   }
 
