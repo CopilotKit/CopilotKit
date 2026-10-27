@@ -200,7 +200,7 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     });
     const group = screen.getByTestId("copilot-tool-call-group");
     const live = group.querySelector('[aria-live="polite"]')!;
-    expect(live.textContent).toBe("Running");
+    expect(live.textContent).toBe("run_command: Running");
 
     rerender(
       view([question, callMessage("a"), result("a")], {
@@ -209,7 +209,7 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     );
     // Same region, new text: that's what gets announced.
     expect(group.querySelector('[aria-live="polite"]')).toBe(live);
-    expect(live.textContent).toBe("Done");
+    expect(live.textContent).toBe("run_command: Done");
   });
 
   it("opens a stack into the same compact cards, with Collapse", () => {

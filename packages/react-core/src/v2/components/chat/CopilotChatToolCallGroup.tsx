@@ -531,10 +531,13 @@ export function CopilotChatToolCallGroup({
               </>
             )}
           </button>
-          {/* Always mounted, so screen readers hear the closed stack's status
-              change (Running, then Done); the button only names it. */}
+          {/* Always mounted, so screen readers hear the closed stack's latest
+              call change ("read_file: Running", then "read_file: Done"); the
+              button only names it. */}
           <span aria-live="polite" className="cpk:sr-only">
-            {open ? "" : statusLabels[latestStatus]}
+            {open
+              ? ""
+              : `${latest.toolCall.function.name}: ${statusLabels[latestStatus]}`}
           </span>
         </div>
         {open && (
