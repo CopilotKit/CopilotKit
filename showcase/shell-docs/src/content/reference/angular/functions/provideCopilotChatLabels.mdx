@@ -9,7 +9,7 @@ description: "Angular provider that overrides the default text labels used by th
 
 Add it to an application or component `providers` array. Components read the merged labels through [`injectChatLabels`](/reference/angular/functions/injectChatLabels).
 
-The full set of defaults lives in `COPILOT_CHAT_DEFAULT_LABELS`. Any field you omit falls back to its default value.
+The full set of defaults lives in `COPILOT_CHAT_DEFAULT_LABELS`. Any field you omit falls back to its default value, except the popup and sidebar keys (`chatToggleOpenLabel`, `chatToggleCloseLabel`, `modalHeaderCloseButtonLabel`), which have no default there: when omitted, each surface keeps its own name.
 
 ## Signature
 
