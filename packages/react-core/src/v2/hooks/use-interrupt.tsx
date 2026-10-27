@@ -7,7 +7,11 @@ import React, {
 } from "react";
 import { randomUUID } from "@ag-ui/client";
 import type { Interrupt, Message } from "@ag-ui/client";
-import { ɵInterruptState } from "@copilotkit/core";
+import {
+  ɵInterruptState,
+  ɵgetAgentInterruptState,
+  ɵclearAgentInterruptState,
+} from "@copilotkit/core";
 import type { ɵPendingInterrupt } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useAgent } from "./use-agent";
@@ -183,7 +187,6 @@ export function useInterrupt<
   const interruptStateRef = useRef(new ɵInterruptState());
 
   useEffect(() => {
-    const interruptState = interruptStateRef.current;
     let localLegacy: InterruptEvent | null = null;
     let localStandard: Interrupt[] | null = null;
 
@@ -199,19 +202,24 @@ export function useInterrupt<
         }
       },
       onRunStartedEvent: () => {
+        ɵclearAgentInterruptState(agent);
         localLegacy = null;
         localStandard = null;
-        interruptState.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
       },
       onRunFinalized: () => {
         // Standard wins if both somehow appear for one run.
         if (localStandard && localStandard.length > 0) {
-          interruptState.setStandard(localStandard);
-          setPending(interruptState.pending);
+          interruptStateRef.current = ɵgetAgentInterruptState(
+            agent,
+            localStandard,
+          );
+          setPending(interruptStateRef.current.pending);
         } else if (localLegacy) {
-          interruptState.setLegacy(localLegacy);
-          setPending(interruptState.pending);
+          interruptStateRef.current = new ɵInterruptState();
+          interruptStateRef.current.setLegacy(localLegacy);
+          setPending(interruptStateRef.current.pending);
         }
         localLegacy = null;
         localStandard = null;
@@ -219,14 +227,14 @@ export function useInterrupt<
       onRunFailed: () => {
         localLegacy = null;
         localStandard = null;
-        interruptState.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
       },
     });
 
     return () => {
       subscription.unsubscribe();
-      interruptState.clear();
+      interruptStateRef.current = new ɵInterruptState();
     };
   }, [agent]);
 
@@ -273,7 +281,7 @@ export function useInterrupt<
         console.error(
           `[CopilotKit] useInterrupt: interrupt ${decision.interrupt.id} expired at ${decision.interrupt.expiresAt}; not resuming.`,
         );
-        interruptStateRef.current.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
         return;
       }
@@ -296,7 +304,7 @@ export function useInterrupt<
           "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
           err,
         );
-        interruptStateRef.current.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
         throw err;
       }
@@ -327,7 +335,7 @@ export function useInterrupt<
         console.warn(
           "[CopilotKit] useInterrupt: cancel() is not supported for legacy on_interrupt interrupts; dismissing.",
         );
-        interruptStateRef.current.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
         return;
       }
@@ -335,7 +343,7 @@ export function useInterrupt<
         console.error(
           `[CopilotKit] useInterrupt: interrupt ${decision.interrupt.id} expired at ${decision.interrupt.expiresAt}; not resuming.`,
         );
-        interruptStateRef.current.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
         return;
       }
@@ -358,7 +366,7 @@ export function useInterrupt<
           "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
           err,
         );
-        interruptStateRef.current.clear();
+        interruptStateRef.current = new ɵInterruptState();
         setPending(null);
         throw err;
       }

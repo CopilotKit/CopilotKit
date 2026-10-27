@@ -43,7 +43,7 @@ type SubscriptionHandlers = {
 class InterruptingAgent extends AbstractAgent {
   readonly inputs: RunAgentInput[] = [];
 
-  constructor(private readonly kind: "standard" | "legacy") {
+  constructor(private readonly kind: "standard" | "legacy" | "mixed") {
     super({ agentId: "test-agent", threadId: "test-thread" });
   }
 
@@ -63,15 +63,44 @@ class InterruptingAgent extends AbstractAgent {
         value: { question: "Proceed?" },
       });
     }
+    if (this.inputs.length === 1 && this.kind === "mixed")
+      events.push({
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [
+          {
+            id: "call",
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              {
+                id: "chart",
+                type: "function",
+                function: { name: "chart", arguments: "{}" },
+              },
+            ],
+          },
+        ],
+      });
     events.push({
       type: EventType.RUN_FINISHED,
       threadId: input.threadId,
       runId: input.runId,
-      ...(this.inputs.length === 1 && this.kind === "standard"
+      ...(this.inputs.length === 1 && this.kind !== "legacy"
         ? {
             outcome: {
               type: "interrupt",
-              interrupts: [{ id: "approve-action", reason: "approval" }],
+              interrupts: [
+                ...(this.kind === "mixed"
+                  ? [
+                      {
+                        id: "chart-i",
+                        reason: "tool_call",
+                        toolCallId: "chart",
+                      },
+                    ]
+                  : []),
+                { id: "approve-action", reason: "approval" },
+              ],
             },
           }
         : {}),
@@ -291,6 +320,80 @@ describe("useInterrupt", () => {
     },
   );
 
+  it.each([
+    ["resolve", "approval-first"],
+    ["cancel", "approval-first"],
+    ["resolve", "frontend-first"],
+    ["cancel", "frontend-first"],
+  ])("%s continues once with %s completion", async (action, order) => {
+    const agent = new InterruptingAgent("mixed");
+    const core = new CopilotKitCore({});
+    let finish!: (value: string) => void;
+    const answer = new Promise<string>((resolve) => {
+      finish = resolve;
+    });
+    const handler = vi.fn(() => answer);
+    core.addTool({ name: "chart", description: "chart", handler });
+    mockUseAgent.mockReturnValue({ agent });
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runAgent: core.runAgent.bind(core),
+        setInterruptElement: setInterruptElementMock,
+      },
+    });
+    let callbacks!: {
+      resolve: (payload: unknown, id: string) => Promise<unknown>;
+      cancel: (id: string) => Promise<unknown>;
+    };
+    function MixedHarness() {
+      return useInterrupt({
+        renderInChat: false,
+        render: (props) => {
+          callbacks = props;
+          return <div>Approval</div>;
+        },
+      });
+    }
+    render(<MixedHarness />);
+    let running!: Promise<unknown>;
+    await act(async () => {
+      running = core.runAgent({ agent });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    if (order === "frontend-first")
+      await act(async () => {
+        finish("");
+        await running;
+      });
+    await act(async () => {
+      if (action === "resolve")
+        await callbacks.resolve("allow", "approve-action");
+      else await callbacks.cancel("approve-action");
+    });
+    if (order === "approval-first") {
+      expect(agent.inputs).toHaveLength(1);
+      await act(async () => {
+        finish("");
+        await running;
+      });
+    }
+    expect(agent.inputs).toHaveLength(2);
+    expect(agent.inputs[1]!.resume).toEqual([
+      { interruptId: "chart-i", status: "resolved", payload: "" },
+      action === "resolve"
+        ? {
+            interruptId: "approve-action",
+            status: "resolved",
+            payload: "allow",
+          }
+        : { interruptId: "approve-action", status: "cancelled" },
+    ]);
+    expect(
+      agent.inputs[1]!.messages.filter((m) => m.role === "tool"),
+    ).toHaveLength(1);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
   it("uses a fresh run ID for legacy command.resume", async () => {
     const agent = new InterruptingAgent("legacy");
     const core = new CopilotKitCore({});

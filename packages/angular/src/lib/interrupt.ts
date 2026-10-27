@@ -8,7 +8,11 @@ import type {
   ResumeEntry,
   RunAgentResult,
 } from "@ag-ui/client";
-import { ɵInterruptState } from "@copilotkit/core";
+import {
+  ɵInterruptState,
+  ɵgetAgentInterruptState,
+  ɵclearAgentInterruptState,
+} from "@copilotkit/core";
 import type { ɵInterruptDecision, ɵPendingInterrupt } from "@copilotkit/core";
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
@@ -103,7 +107,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
   readonly #accepted = signal(false);
   readonly #result = signal<TResult | null>(null);
   readonly #error = signal<unknown | null>(null);
-  readonly #interruptState = new ɵInterruptState<TValue>();
+  #interruptState = new ɵInterruptState<TValue>();
   readonly #runner: InterruptRunner;
   readonly #options: InjectInterruptOptions<TValue, TResult>;
   #agent?: AbstractAgent;
@@ -179,6 +183,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
         }
       },
       onRunStartedEvent: () => {
+        ɵclearAgentInterruptState(agent);
         legacy = null;
         standard = null;
         this.#threadId = agent.threadId;
@@ -307,8 +312,12 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#result.set(null);
     this.#error.set(null);
     if (pending.kind === "standard") {
-      this.#interruptState.setStandard(pending.interrupts);
+      this.#interruptState = ɵgetAgentInterruptState(
+        this.#agent!,
+        pending.interrupts,
+      ) as ɵInterruptState<TValue>;
     } else {
+      this.#interruptState = new ɵInterruptState<TValue>();
       this.#interruptState.setLegacy(pending.event);
     }
 
@@ -481,6 +490,6 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#result.set(null);
     this.#error.set(error);
     this.#resumePromise = undefined;
-    this.#interruptState.clear();
+    this.#interruptState = new ɵInterruptState<TValue>();
   }
 }

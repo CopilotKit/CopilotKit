@@ -176,3 +176,51 @@ describe("ɵInterruptState", () => {
     });
   });
 });
+
+describe("structured saved results", () => {
+  it.each(["clone", "keys", "text", "media", "order"])(
+    "compares %s by protocol value",
+    (change) => {
+      const content = [
+        { type: "text" as const, text: "saved" },
+        {
+          type: "image" as const,
+          source: {
+            type: "url" as const,
+            value: "https://example.com/image.png",
+            mimeType: "image/png",
+          },
+          metadata: { filename: "image.png", extra: { a: 1, b: 2 } },
+        },
+      ];
+      const messages: Message[] = [
+        { id: "saved", role: "tool", toolCallId: "chart", content },
+      ];
+      const state = new ɵInterruptState();
+      state.setStandard([
+        interrupt("chart-i", "chart", "tool_call"),
+        interrupt("a"),
+        interrupt("b"),
+      ]);
+      expect(state.resolve("yes", "a", messages)).toEqual({ kind: "waiting" });
+      const cloned = structuredClone(content);
+      if (change === "keys")
+        cloned[1]!.metadata = { extra: { b: 2, a: 1 }, filename: "image.png" };
+      if (change === "text") cloned[0]!.text = "changed";
+      if (change === "media")
+        cloned[1]!.source!.value = "https://example.com/other.png";
+      if (change === "order") cloned.reverse();
+      const updated: Message[] = [
+        { id: "saved", role: "tool", toolCallId: "chart", content: cloned },
+      ];
+      if (["text", "media", "order"].includes(change))
+        expect(() => state.resolve("yes", "b", updated)).toThrow(/conflict/i);
+      else {
+        const decision = state.resolve("yes", "b", updated);
+        expect(decision).toMatchObject({ kind: "resume", toolResults: [] });
+        if (decision.kind === "resume")
+          expect(decision.resume[0]!.payload).toBe(cloned);
+      }
+    },
+  );
+});

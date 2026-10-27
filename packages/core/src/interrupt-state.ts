@@ -1,5 +1,10 @@
 import { buildResumeArray, isInterruptExpired } from "@ag-ui/client";
-import type { Interrupt, ResumeEntry, Message } from "@ag-ui/client";
+import type {
+  AbstractAgent,
+  Interrupt,
+  ResumeEntry,
+  Message,
+} from "@ag-ui/client";
 
 import { isForwardedToClientPlaceholder } from "./core/tool-result-content";
 
@@ -44,6 +49,7 @@ export type ɵInterruptDecision =
       toolResults: ɵInterruptToolResult[];
     };
 
+/** Serialize a newly answered frontend call for the canonical message history. */
 function toolResultContent(response: ResumeResponse): string {
   if (response.status === "cancelled") {
     return JSON.stringify({ status: "cancelled" });
@@ -142,11 +148,13 @@ export class ɵInterruptState<TValue = unknown> {
     return this.#decide(pending.interrupts, { ...this.#responses }, messages);
   }
 
+  /** Start a new batch with no decisions retained from the preceding run. */
   #replace(pending: ɵPendingInterrupt<TValue>): void {
     this.clear();
     this.#pending = pending;
   }
 
+  /** Record one explicit answer and reconcile it with saved frontend results. */
   #respond(
     interrupts: readonly Interrupt[],
     interruptId: string | undefined,
@@ -164,6 +172,7 @@ export class ɵInterruptState<TValue = unknown> {
     );
   }
 
+  /** Claim a complete batch once, preserving saved results and partial answers. */
   #decide(
     interrupts: readonly Interrupt[],
     responses: Record<string, ResumeResponse>,
@@ -186,7 +195,7 @@ export class ɵInterruptState<TValue = unknown> {
       if (
         response &&
         (response.status !== "resolved" ||
-          (response.payload !== result.content &&
+          (!sameValue(response.payload, result.content) &&
             toolResultContent(response) !== result.content))
       ) {
         throw new Error(
@@ -230,4 +239,66 @@ export class ɵInterruptState<TValue = unknown> {
     this.#sealed = true;
     return { kind: "resume", resume, toolResults };
   }
+}
+
+/** Compare JSON protocol values without depending on object key insertion order. */
+function sameValue(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (!left || !right || typeof left !== "object" || typeof right !== "object")
+    return false;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => sameValue(value, right[index]))
+    );
+  }
+  const a = left as Record<string, unknown>;
+  const b = right as Record<string, unknown>;
+  return (
+    Object.keys(a).length === Object.keys(b).length &&
+    Object.keys(a).every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(b, key) &&
+        sameValue(a[key], b[key]),
+    )
+  );
+}
+
+const agentInterruptStates = new WeakMap<
+  AbstractAgent,
+  {
+    threadId: string;
+    interrupts: readonly Interrupt[];
+    state: ɵInterruptState;
+  }
+>();
+
+/** @internal Share decisions and the single resume claim for an agent's pending batch. */
+export function ɵgetAgentInterruptState(
+  agent: AbstractAgent,
+  interrupts: readonly Interrupt[] = agent.pendingInterrupts,
+): ɵInterruptState {
+  const current = agentInterruptStates.get(agent);
+  if (
+    current &&
+    current.threadId === agent.threadId &&
+    current.state.pending &&
+    sameValue(current.interrupts, interrupts)
+  )
+    return current.state;
+  const state = new ɵInterruptState();
+  state.setStandard(interrupts);
+  agentInterruptStates.set(agent, {
+    threadId: agent.threadId,
+    interrupts: structuredClone(interrupts),
+    state,
+  });
+  return state;
+}
+
+/** @internal A new run owns a new batch, even if the server reuses interrupt IDs. */
+export function ɵclearAgentInterruptState(agent: AbstractAgent): void {
+  agentInterruptStates.delete(agent);
 }

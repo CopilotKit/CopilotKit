@@ -24,7 +24,10 @@ import {
   toToolResultContent,
 } from "./tool-result-content";
 import { createToolSchema } from "./tool-schema";
-import { ɵInterruptState } from "../interrupt-state";
+import {
+  ɵgetAgentInterruptState,
+  ɵclearAgentInterruptState,
+} from "../interrupt-state";
 import { WebMCPRegistry } from "./webmcp";
 
 /**
@@ -675,6 +678,7 @@ export class RunHandler {
         runAgentResult,
         agent,
         toolExecutionMode: "restore",
+        connectionGeneration: connection,
         signal: controller.signal,
       })
         .catch(async (error: unknown) => {
@@ -729,6 +733,8 @@ export class RunHandler {
      */
     followUpOf?: AbortController,
   ): Promise<RunAgentResult> {
+    this._connectionGenerations.set(agent, {});
+    ɵclearAgentInterruptState(agent);
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
@@ -943,6 +949,7 @@ export class RunHandler {
     toolExecutionMode = "all",
     runController,
     signal = runController?.signal,
+    connectionGeneration,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
@@ -951,6 +958,7 @@ export class RunHandler {
     /** Controller of the run that produced this result; follow-ups share it. */
     runController?: AbortController;
     signal?: AbortSignal;
+    connectionGeneration?: object;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
@@ -959,6 +967,9 @@ export class RunHandler {
     let needsFollowUp = false;
 
     const threadId = agent.threadId;
+    const interruptState = agent.pendingInterrupts?.length
+      ? ɵgetAgentInterruptState(agent)
+      : undefined;
     const executing = this._executingToolCalls.get(agent) ?? new Set<string>();
     this._executingToolCalls.set(agent, executing);
 
@@ -1019,19 +1030,6 @@ export class RunHandler {
           };
 
           const executableTool = tool ?? getWildcardTool();
-          // Handlerless frontend tools (e.g. chart components) must recreate
-          // missing empty results using their original call IDs. Handlers still
-          // run only for HITL prompts or an explicit "resume-pending" opt-in,
-          // so restoring history never repeats other tools' side effects.
-          if (
-            toolExecutionMode === "restore" &&
-            (!executableTool ||
-              (executableTool.handler &&
-                executableTool.type !== "human-in-the-loop" &&
-                executableTool.reconnectBehavior !== "resume-pending"))
-          ) {
-            continue;
-          }
           const executionKey = JSON.stringify([threadId, toolCall.id]);
           if (
             signal?.aborted ||
@@ -1053,6 +1051,37 @@ export class RunHandler {
               (m) => m.role === "tool" && m.toolCallId === toolCall.id,
             ) ?? newMessages[existingResultIndex];
 
+          // Reusing a completed result is not handler execution. Passive tools
+          // may resume saved successes but must keep unanswered placeholders.
+          if (
+            existingResult &&
+            !this.isFrontendPlaceholderResult(existingResult)
+          ) {
+            if (
+              executableTool &&
+              executableTool.followUp !== false &&
+              agent.pendingInterrupts?.some(
+                (interrupt) =>
+                  interrupt.reason === "tool_call" &&
+                  interrupt.toolCallId === toolCall.id,
+              )
+            )
+              needsFollowUp = true;
+            continue;
+          }
+          // Handlerless frontend tools (e.g. chart components) must recreate
+          // missing empty results using their original call IDs. Handlers still
+          // run only for HITL prompts or an explicit "resume-pending" opt-in,
+          // so restoring history never repeats other tools' side effects.
+          if (
+            toolExecutionMode === "restore" &&
+            (!executableTool ||
+              (executableTool.handler &&
+                executableTool.type !== "human-in-the-loop" &&
+                executableTool.reconnectBehavior !== "resume-pending"))
+          ) {
+            continue;
+          }
           if (
             existingResult &&
             this.isFrontendPlaceholderResult(existingResult) &&
@@ -1068,19 +1097,6 @@ export class RunHandler {
             if (agentMsgIdx !== -1) {
               agent.messages.splice(agentMsgIdx, 1);
             }
-          }
-
-          if (
-            existingResult &&
-            executableTool?.followUp !== false &&
-            executableTool &&
-            agent.pendingInterrupts?.some(
-              (interrupt) =>
-                interrupt.reason === "tool_call" &&
-                interrupt.toolCallId === toolCall.id,
-            )
-          ) {
-            needsFollowUp = true;
           }
 
           if (!existingResult) {
@@ -1195,6 +1211,15 @@ export class RunHandler {
         // reads it. The base implementation is a no-op; React overrides this.
         await this._internal.waitForPendingFrameworkUpdates();
         if (
+          signal?.aborted ||
+          agent.threadId !== threadId ||
+          (connectionGeneration &&
+            this._connectionGenerations.get(agent) !== connectionGeneration) ||
+          (interruptState && ɵgetAgentInterruptState(agent) !== interruptState)
+        )
+          return runAgentResult;
+
+        if (
           toolExecutionMode === "restore" &&
           !messagesToProcess.some((message) =>
             this.isInLatestUserTurn(agent.messages, message.id),
@@ -1204,13 +1229,31 @@ export class RunHandler {
         }
         let resume: ResumeEntry[] | undefined;
         if (agent.pendingInterrupts?.length) {
-          const interrupts = new ɵInterruptState();
-          interrupts.setStandard(agent.pendingInterrupts);
-          const decision = interrupts.resumeWithToolResults(agent.messages);
+          // An error's presence (even an empty string) preserves failure/Stop.
+          if (
+            agent.pendingInterrupts.some(
+              (interrupt) =>
+                interrupt.reason === "tool_call" &&
+                agent.messages.some(
+                  (message) =>
+                    message.role === "tool" &&
+                    message.toolCallId === interrupt.toolCallId &&
+                    !this.isFrontendPlaceholderResult(message) &&
+                    message.error !== undefined,
+                ),
+            )
+          )
+            return runAgentResult;
+          const decision = ɵgetAgentInterruptState(agent).resumeWithToolResults(
+            agent.messages,
+          );
           // A completed frontend call is not permission to answer a native
           // approval or a child question. Keep the full interrupt set pending.
           if (decision.kind !== "resume") return runAgentResult;
           resume = decision.resume;
+          for (const result of decision.toolResults) {
+            agent.addMessage({ id: randomUUID(), role: "tool", ...result });
+          }
         }
         const continuationHandoff =
           this._internal.stateManager.markNextRunAsContinuation(agent, runId);

@@ -1,5 +1,8 @@
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { CopilotKitCore } from "@copilotkit/core";
+import { from } from "rxjs";
 import type {
-  AbstractAgent,
   AgentSubscriber,
   Interrupt,
   Message,
@@ -371,5 +374,132 @@ describe("InterruptController", () => {
     } as never);
     expect(controller.hasInterrupt()).toBe(false);
     expect(controller.error()).toEqual(new Error("run failed"));
+  });
+});
+
+/** Actual wire agent exercises the controller/core handoff, not a mocked runner. */
+class MixedInterruptAgent extends AbstractAgent {
+  inputs: RunAgentInput[] = [];
+  constructor() {
+    super({ agentId: "mixed", threadId: "thread" });
+  }
+  run(input: RunAgentInput) {
+    this.inputs.push(structuredClone(input));
+    const events: BaseEvent[] = [
+      {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      },
+    ];
+    if (this.inputs.length === 1)
+      events.push({
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [
+          {
+            id: "call",
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              {
+                id: "chart",
+                type: "function",
+                function: { name: "chart", arguments: "{}" },
+              },
+            ],
+          },
+        ],
+      });
+    events.push({
+      type: EventType.RUN_FINISHED,
+      threadId: input.threadId,
+      runId: input.runId,
+      ...(this.inputs.length === 1
+        ? {
+            outcome: {
+              type: "interrupt",
+              interrupts: [
+                { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
+                { id: "approval", reason: "approval" },
+              ],
+            },
+          }
+        : {}),
+    });
+    return from(events);
+  }
+}
+
+describe("controller/core batch ownership", () => {
+  it.each([
+    ["resolve", "approval-first"],
+    ["cancel", "approval-first"],
+    ["resolve", "frontend-first"],
+    ["cancel", "frontend-first"],
+  ])("%s continues once with %s completion", async (action, order) => {
+    const agent = new MixedInterruptAgent();
+    const core = new CopilotKitCore({});
+    let finish!: (value: string) => void;
+    const answer = new Promise<string>((resolve) => {
+      finish = resolve;
+    });
+    const handler = vi.fn(() => answer);
+    core.addTool({ name: "chart", description: "chart", handler });
+    const controller = new InterruptController((targetAgent, options) =>
+      core.runAgent({ agent: targetAgent, ...options }),
+    );
+    controller.connect(agent);
+    const running = core.runAgent({ agent });
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    if (order === "frontend-first") {
+      finish("");
+      await running;
+    }
+    if (action === "resolve") await controller.resolve("allow", "approval");
+    else await controller.cancel("approval");
+    if (order === "approval-first") {
+      expect(agent.inputs).toHaveLength(1);
+      finish("");
+      await running;
+    }
+    expect(agent.inputs).toHaveLength(2);
+    expect(agent.inputs[1]!.resume).toEqual([
+      { interruptId: "chart-i", status: "resolved", payload: "" },
+      action === "resolve"
+        ? { interruptId: "approval", status: "resolved", payload: "allow" }
+        : { interruptId: "approval", status: "cancelled" },
+    ]);
+    expect(
+      agent.inputs[1]!.messages.filter((m) => m.role === "tool"),
+    ).toHaveLength(1);
+    expect(handler).toHaveBeenCalledTimes(1);
+    controller.destroy();
+  });
+});
+
+it("retains an early approval when its controller is destroyed before tool completion", async () => {
+  const agent = new MixedInterruptAgent();
+  const core = new CopilotKitCore({});
+  let finish!: (value: string) => void;
+  const answer = new Promise<string>((resolve) => {
+    finish = resolve;
+  });
+  const handler = vi.fn(() => answer);
+  core.addTool({ name: "chart", handler });
+  const controller = new InterruptController((targetAgent, options) =>
+    core.runAgent({ agent: targetAgent, ...options }),
+  );
+  controller.connect(agent);
+  const running = core.runAgent({ agent });
+  await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+  await controller.resolve("allow", "approval");
+  controller.destroy();
+  finish("");
+  await running;
+  expect(agent.inputs).toHaveLength(2);
+  expect(agent.inputs[1]!.resume).toContainEqual({
+    interruptId: "approval",
+    status: "resolved",
+    payload: "allow",
   });
 });
