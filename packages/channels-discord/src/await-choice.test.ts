@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { createChannel, FakeAdapter } from "@copilotkit/channels-core";
 import type { Channel } from "@copilotkit/channels-core";
-import { Actions, Button } from "@copilotkit/channels-ui";
+import { Actions, Button, Select } from "@copilotkit/channels-ui";
 import type { ProviderActor, Renderable } from "@copilotkit/channels-ui";
 import { renderDiscordMessage } from "./render/components-v2.js";
 import { decodeInteraction } from "./interaction.js";
@@ -55,6 +55,63 @@ function clickButton(fake: FakeAdapter, customId: string, messageId: string) {
     user: { id: alice.id, username: "alice" },
   });
   if (!evt) throw new Error("decoder rejected the click");
+  fake.emitInteraction({ ...evt, platform: "discord" });
+}
+
+/** Every string select rendered for post `index`, as Discord would see it. */
+function selectMenus(
+  fake: FakeAdapter,
+  index: number,
+): { customId: string; minValues?: number; maxValues?: number }[] {
+  const json = renderDiscordMessage(fake.posted[index]!).components.map((c) =>
+    c.toJSON(),
+  );
+  const menus: { customId: string; minValues?: number; maxValues?: number }[] =
+    [];
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    if (typeof value !== "object" || value === null) return;
+    const el = value as {
+      type?: unknown;
+      custom_id?: unknown;
+      min_values?: number;
+      max_values?: number;
+    };
+    // Component type 3 is a string select.
+    if (el.type === 3 && typeof el.custom_id === "string") {
+      menus.push({
+        customId: el.custom_id,
+        minValues: el.min_values,
+        maxValues: el.max_values,
+      });
+    }
+    for (const child of Object.values(value)) visit(child);
+  };
+  visit(json);
+  return menus;
+}
+
+/** Pick select option value(s) the way discord.js delivers it, through the real decoder. */
+function pickSelect(
+  fake: FakeAdapter,
+  menu: { customId: string; minValues?: number; maxValues?: number },
+  values: string[],
+  messageId: string,
+) {
+  const evt = decodeInteraction({
+    isButton: () => false,
+    isStringSelectMenu: () => true,
+    customId: menu.customId,
+    values,
+    component: { minValues: menu.minValues, maxValues: menu.maxValues },
+    channelId: CHANNEL_ID,
+    message: { id: messageId },
+    user: { id: alice.id, username: "alice" },
+  });
+  if (!evt) throw new Error("decoder rejected the pick");
   fake.emitInteraction({ ...evt, platform: "discord" });
 }
 
@@ -113,5 +170,93 @@ describe("Discord awaitChoice", () => {
     clickButton(fake, ownId!, "msg-2");
     await tick();
     expect(state.chosen).toEqual(value);
+  });
+});
+
+describe("Discord awaitChoice: option values the decoder would parse as JSON", () => {
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    while (activeChannels.length > 0) {
+      await activeChannels.pop()!.ɵruntime.stop();
+    }
+  });
+
+  const tricky = ["9.90", "null", "1e2", " true "];
+  const picker = (offered: string, multi: boolean) => () =>
+    Actions({
+      children: [
+        Select({
+          placeholder: "Pick",
+          multi,
+          options: [
+            { label: "Other", value: "other" },
+            { label: "Tricky", value: offered },
+          ],
+        }),
+      ],
+    });
+
+  it.each(tricky)(
+    "single select answers with the offered option %j",
+    async (offered) => {
+      const { fake, state } = await startPicker(picker(offered, false));
+      const [menu] = selectMenus(fake, 0);
+      pickSelect(fake, menu!, [offered], "msg-1");
+      await tick();
+      expect(state.chosen).toBe(offered);
+    },
+  );
+
+  it.each(tricky)(
+    "multi select answers with the offered option %j",
+    async (offered) => {
+      const { fake, state } = await startPicker(picker(offered, true));
+      const [menu] = selectMenus(fake, 0);
+      pickSelect(fake, menu!, ["other", offered], "msg-1");
+      await tick();
+      expect(state.chosen).toEqual(["other", offered]);
+    },
+  );
+
+  it("tells apart two options whose values decode to the same JSON", async () => {
+    const { fake, state } = await startPicker(() =>
+      Actions({
+        children: [
+          Select({
+            placeholder: "Pick",
+            options: [
+              { label: "Short", value: "9.9" },
+              { label: "Long", value: "9.90" },
+            ],
+          }),
+        ],
+      }),
+    );
+    const [menu] = selectMenus(fake, 0);
+    pickSelect(fake, menu!, ["9.90"], "msg-1");
+    await tick();
+    expect(state.chosen).toBe("9.90");
+  });
+
+  it("still refuses a single-select value the picker does not offer", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "debug").mockImplementation(() => {});
+    const { fake, state } = await startPicker(picker("9.90", false));
+    const [menu] = selectMenus(fake, 0);
+    // "9.9" decodes to the same number as the offered "9.90" but is not offered.
+    pickSelect(fake, menu!, ["9.9"], "msg-1");
+    await tick();
+    expect(state.chosen).toBe(PENDING);
+  });
+
+  it("still refuses a multi-select value the picker does not offer", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "debug").mockImplementation(() => {});
+    const { fake, state } = await startPicker(picker("true", true));
+    const [menu] = selectMenus(fake, 0);
+    // " true " decodes to the same boolean as the offered "true" but is not offered.
+    pickSelect(fake, menu!, ["other", " true "], "msg-1");
+    await tick();
+    expect(state.chosen).toBe(PENDING);
   });
 });
