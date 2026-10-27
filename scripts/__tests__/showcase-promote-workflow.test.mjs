@@ -20,7 +20,9 @@ const enabled = (condition, inputs, needs = {}) =>
     "needs",
     "always",
     "cancelled",
-    `return (${condition.replace(/^\$\{\{\s*|\s*\}\}$/g, "")});`,
+    `return (${condition
+      .replace(/^\$\{\{\s*|\s*\}\}$/g, "")
+      .replace(/\bneeds\.([\w-]+)/g, 'needs["$1"]')});`,
   )(
     inputs,
     needs,
@@ -140,6 +142,24 @@ test("default promotion and registry-only dispatch retain their existing paths",
     );
   }
   assert.equal(promote.steps[0].name, "Reject conflicting validation modes");
+});
+
+test("verification-only skips staging while preserving the normal promotion precondition", () => {
+  const staging = workflow.jobs["verify-staging-precondition"];
+  assert.equal(enabled(staging.if, {}), true);
+  assert.equal(enabled(staging.if, { verify_only: true }), false);
+  assert.equal(enabled(staging.if, { validate_registry_only: true }), false);
+  assert.equal(
+    enabled(
+      promote.if,
+      { verify_only: true },
+      {
+        "resolve-targets": { result: "success" },
+        "verify-staging-precondition": { result: "skipped" },
+      },
+    ),
+    true,
+  );
 });
 
 test("verification-only scope reaches compatibility, health and equivalence checks", () => {

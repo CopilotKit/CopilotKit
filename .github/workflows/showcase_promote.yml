@@ -171,7 +171,7 @@ jobs:
         run: showcase/scripts/resolve-promote-targets.sh
 
   verify-staging-precondition:
-    if: ${{ inputs.validate_registry_only != true }}
+    if: ${{ inputs.validate_registry_only != true && inputs.verify_only != true }}
     needs: [resolve-targets]
     runs-on: ubuntu-latest
     timeout-minutes: 15
