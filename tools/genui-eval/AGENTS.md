@@ -1,6 +1,6 @@
 # Improving the A2UI prompts with genui-eval
 
-You can improve the generative UI prompts by running this loop. Read `README.md` first for the commands.
+You can improve the generative UI prompts by running this loop. Read `README.md` first for the commands. Run them as `pnpm -s --filter genui-eval eval <command>`: the `-s` keeps pnpm's script line out of stdout, so `--json` output parses.
 
 ## The loop
 

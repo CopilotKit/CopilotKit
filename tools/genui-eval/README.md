@@ -9,17 +9,17 @@ It runs the code that ships. For each case it builds what the client sends (the 
 No key is needed to try it: the `offline` preset uses scripted fake models.
 
 ```sh
-pnpm --filter genui-eval eval run --preset offline
-pnpm --filter genui-eval eval report latest
+pnpm -s --filter genui-eval eval run --preset offline
+pnpm -s --filter genui-eval eval report latest
 ```
 
 Real models go through [OpenRouter](https://openrouter.ai). Set the key, check the model ids and prices in `eval.config.ts`, and start with a cost estimate:
 
 ```sh
 export OPENROUTER_API_KEY=sk-or-...
-pnpm --filter genui-eval eval run --preset smoke --estimate
-pnpm --filter genui-eval eval run --preset smoke
-pnpm --filter genui-eval eval run --preset full --budget 20     # the baseline
+pnpm -s --filter genui-eval eval run --preset smoke --estimate
+pnpm -s --filter genui-eval eval run --preset smoke
+pnpm -s --filter genui-eval eval run --preset full --budget 20     # the baseline
 ```
 
 ## How a sample is scored
@@ -36,9 +36,9 @@ Each tier is reported on its own, with a 95% Wilson interval. Every case runs `s
 Before trusting the judge, grade about 20 samples by hand:
 
 ```sh
-pnpm --filter genui-eval eval label latest --n 20     # writes labels/<run>.jsonl
+pnpm -s --filter genui-eval eval label latest --n 20     # writes labels/<run>.jsonl
 # set "human" to 0 or 1 for judgement and quality in that file
-pnpm --filter genui-eval eval calibrate labels/<run>.jsonl
+pnpm -s --filter genui-eval eval calibrate labels/<run>.jsonl
 ```
 
 Aim for at least 80% agreement before relying on the judge's tiers.
@@ -57,7 +57,7 @@ label      <run|latest> [--n 20]
 calibrate  <labels.jsonl>
 ```
 
-Every command takes `--json` (for agents) and `--config <file>`.
+Every command takes `--json` (for agents) and `--config <file>`. Keep `-s` in `pnpm -s --filter genui-eval eval`: without it pnpm prints the script line on stdout, so `--json` output and `prompt --export-spec > spec.json` are no longer valid JSON.
 
 ## Improving the prompt
 
