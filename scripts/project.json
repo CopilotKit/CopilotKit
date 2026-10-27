@@ -8,7 +8,7 @@
       "executor": "nx:run-commands",
       "cache": false,
       "options": {
-        "command": "node --test scripts/__tests__/showcase-promote-workflow.test.mjs"
+        "command": "node --test scripts/__tests__/showcase-promote-workflow.test.mjs scripts/__tests__/showcase-build-impact.test.mjs"
       }
     },
     "validate-starter-deps": {
