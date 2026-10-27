@@ -214,6 +214,24 @@ describe("v1 TelemetryClient", () => {
     });
   });
 
+  test("an opt-out set after the client is created stops both sinks", async () => {
+    // e.g. dotenv.config() placed below the import that creates the client.
+    vi.stubEnv("COPILOTKIT_TELEMETRY_DISABLED", "");
+    vi.stubEnv("DO_NOT_TRACK", "");
+    try {
+      vi.spyOn(Math, "random").mockReturnValue(0);
+      const client = makeClient({ sampleRate: 0.05 });
+      vi.stubEnv("DO_NOT_TRACK", "1");
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(lambdaSpy).not.toHaveBeenCalled();
+      expect(segmentTrackMock).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   test("an anonymous event sampled out of Segment still reaches the lambda sink", async () => {
     // Math.random=0.99 vs sampleRate=0.05. The gate is Segment's alone now:
     // the lambda sink is ours and takes every event, so a rate that drops
