@@ -18,6 +18,18 @@ function listMdxFiles(dir: string): string[] {
 }
 
 describe("resolveDocsHref", () => {
+  it("keeps component reference pages global while preserving scoped generative UI guides", () => {
+    const options = { slugHrefPrefix: "/mastra", frameworkOverride: "mastra" };
+    expect(
+      resolveDocsHref(
+        "/generative-ui/components/standard-catalog/grid#grid-item",
+        options,
+      ),
+    ).toBe("/generative-ui/components/standard-catalog/grid#grid-item");
+    expect(resolveDocsHref("/generative-ui/components/catalogs", options)).toBe(
+      "/mastra/generative-ui/components/catalogs",
+    );
+  });
   it("scopes root-relative links under the active framework", () => {
     expect(
       resolveDocsHref("/quickstart#install", {

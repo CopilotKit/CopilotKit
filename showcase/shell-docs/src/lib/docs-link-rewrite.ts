@@ -14,6 +14,7 @@ import {
   RESERVED_ROUTE_SLUGS,
 } from "@/lib/reserved-route-slugs";
 import { matchesSeoRedirectSource } from "@/lib/seo-redirects";
+import { CATALOG_REFERENCE_PATH } from "@/components/standard-catalog/catalog-reference";
 
 const CROSS_FRAMEWORK_SLUGS: ReadonlySet<string> = new Set<string>([
   ...getIntegrations().map((i) => i.slug),
@@ -84,6 +85,12 @@ export function resolveDocsHref(
 ): string | undefined {
   if (!href) return href;
   if (!href.startsWith("/") || href.startsWith("//")) return href;
+  const referencePath = href.split(/[?#]/)[0];
+  if (
+    referencePath === CATALOG_REFERENCE_PATH ||
+    referencePath.startsWith(`${CATALOG_REFERENCE_PATH}/`)
+  )
+    return href;
 
   const rootFrameworkPath = stripPathPrefix(href, `/${ROOT_FRAMEWORK}`);
   if (rootFrameworkPath !== null) return rootFrameworkPath;
