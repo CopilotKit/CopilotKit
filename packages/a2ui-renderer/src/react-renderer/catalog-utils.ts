@@ -134,7 +134,7 @@ export function extractCatalogComponentSchemas(
         {
           properties: {
             component: { const: name },
-            ...(zodSchema.properties ?? {}),
+            ...zodSchema.properties,
           },
           required: ["component", ...(zodSchema.required ?? [])],
         },

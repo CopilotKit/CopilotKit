@@ -698,6 +698,11 @@ export interface AcquireThreadLockRequest {
   learningContainerId?: string;
   /** Internal managed-Channel delivery context for shared Thread access. */
   channelDeliveryId?: string;
+  /**
+   * The user request this run belongs to. Follow-up runs and resumes of one
+   * request send the same ID, so the platform counts the request once.
+   */
+  requestId?: string;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -2427,6 +2432,9 @@ export class CopilotKitIntelligence {
           : { supportsBackendThreadId: params.supportsBackendThreadId }),
         ...(params.learningContainerId !== undefined
           ? { learningContainerId: params.learningContainerId }
+          : {}),
+        ...(params.requestId !== undefined
+          ? { requestId: params.requestId }
           : {}),
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }

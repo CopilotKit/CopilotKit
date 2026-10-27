@@ -704,6 +704,8 @@ async function runCanonicalChannelAgent(
     userId: args.userId,
     agentId: args.agentId,
     channelDeliveryId: args.deliveryId,
+    // A Channels delivery is one request, so its delivery ID is the request ID.
+    requestId: args.deliveryId,
     ...(learningContainerId !== undefined ? { learningContainerId } : {}),
     ttlSeconds: lockTtlSeconds,
     ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
