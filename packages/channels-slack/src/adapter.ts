@@ -307,6 +307,7 @@ export class SlackAdapter implements PlatformAdapter {
       if (event.user === this.botUserId) return;
       const evt = decodeReaction(event, true);
       if (!evt) return;
+      await this.recordReactedThread(evt.messageRef);
       // Enrich the reactor to parity with onTurn/onCommand so per-user
       // attribution (e.g. senderContext(evt.user) → filter by email) works
       // for reaction-triggered runs, not just mentions and commands.
@@ -324,6 +325,7 @@ export class SlackAdapter implements PlatformAdapter {
       if (event.user === this.botUserId) return;
       const evt = decodeReaction(event, false);
       if (!evt) return;
+      await this.recordReactedThread(evt.messageRef);
       if (event.user) evt.actor = { id: event.user, kind: "human" };
       evt.identityContext = this.identityContext({
         conversationKey: evt.conversationKey,
@@ -801,10 +803,11 @@ export class SlackAdapter implements PlatformAdapter {
    *
    * Where the message landed is read off `posted.threadTs` (see
    * {@link SlackMessageRef}): a thread ts, `null` for a top-level message, or
-   * absent when unknown. Unknown is the case for a ref the caller built, or
-   * one from a reaction (Slack reports no thread for a reacted message); the
-   * message is then taken to be in this turn's thread when it is in this
-   * channel, and top-level when it is in another one.
+   * absent when unknown. A reaction's ref has it read from Slack (see
+   * {@link recordReactedThread}); unknown is the case for a ref the caller
+   * built, or one whose lookup failed. The message is then taken to be in this
+   * turn's thread when it is in this channel, and top-level when it is in
+   * another one.
    */
   postedConversationKey(
     target: BotReplyTarget,
@@ -824,6 +827,43 @@ export class SlackAdapter implements PlatformAdapter {
           ? { channel: postedChannel }
           : t;
     return postedMessageConversationKey(scopedTarget, messageTs, kind);
+  }
+
+  /**
+   * Record on a reacted message's ref the thread Slack filed it under.
+   *
+   * A reaction event names only the reacted message, never its thread, so a
+   * handler that updates a threaded reply in place would bind the new controls
+   * under the reply's own ts while a click on it carries the thread root.
+   * Slack's own record of the message is read instead, and the ref is left as
+   * it was (thread unknown) when that read fails.
+   */
+  private async recordReactedThread(
+    ref: MessageRef | undefined,
+  ): Promise<void> {
+    const slackRef = ref as SlackMessageRef | undefined;
+    const channel = slackRef ? channelOf(slackRef) : "";
+    const ts = slackRef?.id;
+    if (!slackRef || !channel || !ts) return;
+    try {
+      const r = (await this.client.conversations.replies({
+        channel,
+        ts,
+        limit: 1,
+      })) as { messages?: Array<{ ts?: string; thread_ts?: string }> };
+      const messages = r.messages ?? [];
+      const message = messages.find((m) => m.ts === ts) ?? messages[0];
+      if (typeof message?.thread_ts === "string" && message.thread_ts) {
+        slackRef.threadTs = message.thread_ts;
+      } else if (message?.ts === ts) {
+        slackRef.threadTs = null;
+      }
+    } catch (err) {
+      console.warn(
+        "[slack-adapter] reacted message thread lookup failed:",
+        err,
+      );
+    }
   }
 
   decodeInteraction(raw: unknown): InteractionEvent | undefined {

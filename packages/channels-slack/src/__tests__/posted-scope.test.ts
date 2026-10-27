@@ -64,6 +64,52 @@ describe("Slack actions are scoped to where the message landed", () => {
     expect(slack.errors).toEqual([]);
   });
 
+  it("keeps a threaded bot reply clickable after a reaction updates it", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const clicks: string[] = [];
+    const slack = await startSlackHarness({
+      setup: (channel) => {
+        channel.onMention(async ({ thread }) => {
+          await thread.post(card("original", clicks));
+        });
+        channel.onReaction(async ({ thread, messageRef }) => {
+          await thread.update(messageRef, card("updated", clicks));
+        });
+      },
+    });
+    await slack.mention({ channel: "C1", user: "U1", ts: "900.0001" });
+    const reply = slack.posts.at(-1)!;
+    expect(reply.threadTs).toBe("900.0001");
+
+    // A reaction on the bot's reply carries no thread ts; its handler swaps
+    // the reply's controls in place.
+    await slack.react({ channel: "C1", user: "U1", ts: reply.ts });
+    const update = slack.updates.at(-1)!;
+    expect(update.ts).toBe(reply.ts);
+
+    // The controls are scoped to the thread only: a click keyed by the reply's
+    // own ts is still refused.
+    await slack.click({
+      message: { channel: "C1", ts: reply.ts },
+      element: update.elements[0]!,
+      user: "U1",
+    });
+    expect(refusals(warn)).toHaveLength(1);
+    expect(clicks).toEqual([]);
+    warn.mockClear();
+
+    // The click comes from the reply, in the thread rooted at the mention.
+    await slack.click({
+      message: reply,
+      element: update.elements[0]!,
+      user: "U1",
+    });
+
+    expect(refusals(warn)).toEqual([]);
+    expect(clicks).toEqual(["updated"]);
+    expect(slack.errors).toEqual([]);
+  });
+
   it("keeps a top-level card clickable after a turn in a thread updates it", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const clicks: string[] = [];
