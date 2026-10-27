@@ -154,12 +154,13 @@ function safeAttachmentUrl(value: string): string | undefined {
     /[\\\x00-\x20]/.test(value)
   )
     return undefined;
-  if (typeof window === "undefined") return undefined;
+  // Keep the relative href stable during SSR/hydration; the browser resolves it.
+  if (typeof window === "undefined") return value;
   try {
     const url = new URL(value, window.location.href);
     return /^https?:$/.test(url.protocol) &&
       url.origin === window.location.origin
-      ? url.href
+      ? value
       : undefined;
   } catch {
     return undefined;

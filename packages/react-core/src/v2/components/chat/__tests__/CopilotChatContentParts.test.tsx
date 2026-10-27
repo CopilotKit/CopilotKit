@@ -1,4 +1,5 @@
 import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { ChildHistoryReadOnlyContext } from "../child-content-context";
@@ -167,7 +168,8 @@ it.each(["/uploads/report.pdf", "./uploads/report.pdf", "../report.pdf"])(
         ]}
       />,
     );
-    expect(screen.getByRole("link").getAttribute("href")).toBe(
+    expect(screen.getByRole("link").getAttribute("href")).toBe(value);
+    expect((screen.getByRole("link") as HTMLAnchorElement).href).toBe(
       new URL(value, window.location.href).href,
     );
   },
@@ -227,3 +229,23 @@ it.each(["card", "group"])(
     expect(screen.queryByRole("link")).toBeNull();
   },
 );
+
+it("keeps safe relative document links available during server rendering", () => {
+  vi.stubGlobal("window", undefined);
+  try {
+    const html = renderToStaticMarkup(
+      <CopilotChatContentParts
+        content={[
+          {
+            type: "document",
+            source: { type: "url", value: "/uploads/report.pdf" },
+          },
+        ]}
+      />,
+    );
+    expect(html).toContain('href="/uploads/report.pdf"');
+    expect(html).not.toContain("Attachment unavailable");
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
