@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import { type ZodObject, type ZodRawShape } from "zod";
+import type { ZodObject, ZodRawShape } from "zod";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import { BASIC_FUNCTIONS } from "@a2ui/web_core/v0_9/basic_catalog";
 import { basicCatalog, createReactComponent } from "./a2ui-react";
