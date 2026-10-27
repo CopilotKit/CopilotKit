@@ -58,6 +58,7 @@ import { explicitEffect } from "../../explicit-effect";
         [autoScroll]="true"
         [messageViewClass]="'cpk:w-full'"
         [showCursor]="showCursor()"
+        [isRunning]="isRunning()"
         [inputComponent]="inputComponent()"
         [assistantMessageComponent]="assistantMessageComponent()"
         [assistantMessageTemplate]="assistantMessageTemplate()"
@@ -132,6 +133,7 @@ export class CopilotChat extends ChatState {
   protected readonly showCursor = computed(
     () => this.connecting() || this.agentStore().isRunning(),
   );
+  protected readonly isRunning = computed(() => this.agentStore().isRunning());
 
   protected messages = computed(() => this.agentStore().messages());
   protected agentState = computed(() => this.agentStore().state());

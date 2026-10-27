@@ -49,6 +49,18 @@ class TestReasoningMessage {
 }
 
 @Component({
+  selector: "test-reasoning-run-state",
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <p data-testid="reasoning-running">{{ isRunning() }}</p>
+  `,
+})
+class TestReasoningRunState {
+  readonly message = input.required<{ content?: string }>();
+  readonly isRunning = input(false);
+}
+
+@Component({
   selector: "test-transcript-children",
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -416,6 +428,38 @@ describe("CopilotChat", () => {
       ).querySelector<HTMLElement>('[data-testid="transcript-children"]');
       expect(children?.textContent).toContain("1 messages");
       expect(children?.textContent).toContain("streamed");
+    });
+  });
+
+  test("tells a reasoning message whether the agent is running", async () => {
+    const agent = new StreamingAgent();
+    const { fixture, core } = createChatFixture(agent);
+    fixture.componentRef.setInput(
+      "reasoningMessageComponent",
+      TestReasoningRunState,
+    );
+    agent.setMessages([
+      { id: "reasoning-1", role: "reasoning", content: "Comparing" },
+    ]);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    const running = () =>
+      (fixture.nativeElement as HTMLElement)
+        .querySelector('[data-testid="reasoning-running"]')
+        ?.textContent?.trim();
+    expect(running()).toBe("false");
+
+    const run = core.runAgent({ agent });
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(running()).toBe("true");
+    });
+
+    agent.finish();
+    await run;
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(running()).toBe("false");
     });
   });
 

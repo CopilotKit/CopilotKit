@@ -72,6 +72,10 @@ export class ChatComponent extends ChatState {
   Whether to show a streaming cursor at the end of the feed while the agent is responding.
 </PropertyReference>
 
+<PropertyReference name="isRunning" type="boolean" default="false">
+  Whether the agent is running. Forwarded to the message list as [`CopilotChatMessageView`](/reference/angular/components/CopilotChatMessageView)'s `isLoading`, so reasoning messages stream and tool calls without a result show as in progress. [`CopilotChat`](/reference/angular/components/CopilotChat) sets it from the agent.
+</PropertyReference>
+
 <PropertyReference name="hasExplicitThreadId" type="boolean" default="false">
   Whether an explicit thread id was provided. When true, the welcome screen is suppressed even with no messages (the conversation is being resumed).
 </PropertyReference>
