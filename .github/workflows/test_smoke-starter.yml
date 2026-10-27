@@ -232,6 +232,16 @@ jobs:
 
   smoke-starter:
     runs-on: ubuntu-latest
+    # Same workflow_run gate as detect-production-starters: this job (and only
+    # this one) carries the Slack alert and the full-fleet matrix, so without
+    # it a skipped `release / publish` run from any closed PR to main would
+    # fire the fleet and, on failure, alert. GitHub Actions has no YAML anchors,
+    # so the condition is repeated rather than shared. PR, schedule and dispatch
+    # runs are unaffected.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+        startsWith(github.event.workflow_run.head_branch, 'release/publish/'))
     timeout-minutes: 20
     env:
       SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
