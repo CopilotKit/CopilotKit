@@ -4,6 +4,13 @@
   "sourceRoot": "scripts",
   "projectType": "library",
   "targets": {
+    "validate-production-verification": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "node --test scripts/__tests__/showcase-promote-workflow.test.mjs"
+      }
+    },
     "validate-starter-deps": {
       "executor": "nx:run-commands",
       "cache": false,
