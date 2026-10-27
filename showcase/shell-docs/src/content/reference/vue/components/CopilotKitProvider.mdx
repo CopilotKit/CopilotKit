@@ -227,6 +227,8 @@ function handleError(event: {
 <PropertyReference name="a2ui" type="{ theme?: A2UITheme; catalog?: any; loadingComponent?: Component; includeSchema?: boolean }">
   Configuration for the A2UI (Agent-to-UI) renderer. The built-in A2UI renderer activates automatically when the runtime reports that `a2ui` is configured in `CopilotRuntime`, so this prop is optional and only needed to override the theme, supply a custom component `catalog`, set a `loadingComponent`, or toggle whether the schema is included (`includeSchema`).
 
+  `includeSchema` defaults to `true`, which sends the catalog's component schemas and the A2UI generation and design guidelines to the agent as context. With `includeSchema: false`, the agent still receives the catalog ID and the names of the catalog's custom components, without their JSON schemas or the guidelines. A LangGraph agent that uses the CopilotKit middleware's injected A2UI tool then gives its A2UI subagent the component names only. To give the subagent more detail, pass a composition guide through the middleware's A2UI guidelines: `a2uiParams.guidelines.compositionGuide` in TypeScript, or `a2ui_params["guidelines"]["composition_guide"]` in Python.
+
 ```vue
 <template>
   <CopilotKitProvider
