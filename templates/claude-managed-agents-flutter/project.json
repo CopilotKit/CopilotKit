@@ -7,7 +7,7 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "cwd": "examples/integrations/claude-managed-agents-flutter",
+        "cwd": "templates/claude-managed-agents-flutter",
         "command": "npm test"
       },
       "dependsOn": []
@@ -15,7 +15,7 @@
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
-        "cwd": "examples/integrations/claude-managed-agents-flutter",
+        "cwd": "templates/claude-managed-agents-flutter",
         "command": "npm run typecheck"
       },
       "dependsOn": []
@@ -23,7 +23,7 @@
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "cwd": "examples/integrations/claude-managed-agents-flutter",
+        "cwd": "templates/claude-managed-agents-flutter",
         "command": "npm run lint"
       },
       "dependsOn": []
@@ -31,7 +31,7 @@
     "flutter-analyze": {
       "executor": "nx:run-commands",
       "options": {
-        "cwd": "examples/integrations/claude-managed-agents-flutter/flutter",
+        "cwd": "templates/claude-managed-agents-flutter/flutter",
         "command": "flutter analyze"
       },
       "dependsOn": []
@@ -39,7 +39,7 @@
     "flutter-test": {
       "executor": "nx:run-commands",
       "options": {
-        "cwd": "examples/integrations/claude-managed-agents-flutter/flutter",
+        "cwd": "templates/claude-managed-agents-flutter/flutter",
         "command": "flutter test"
       },
       "dependsOn": []

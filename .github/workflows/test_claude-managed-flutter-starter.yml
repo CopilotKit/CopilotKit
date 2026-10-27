@@ -3,7 +3,7 @@ name: test / Claude Managed Agents Flutter template
 on:
   pull_request:
     paths:
-      - examples/integrations/claude-managed-agents-flutter/**
+      - templates/claude-managed-agents-flutter/**
       - .github/workflows/test_claude-managed-flutter-starter.yml
   workflow_dispatch:
 
@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        working-directory: examples/integrations/claude-managed-agents-flutter
+        working-directory: templates/claude-managed-agents-flutter
     env:
       COPILOTKIT_TELEMETRY_DISABLED: "true"
     steps:
@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: examples/integrations/claude-managed-agents-flutter/package-lock.json
+          cache-dependency-path: templates/claude-managed-agents-flutter/package-lock.json
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: "3.47.0"
@@ -42,8 +42,8 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: flutter analyze
-        working-directory: examples/integrations/claude-managed-agents-flutter/flutter
+        working-directory: templates/claude-managed-agents-flutter/flutter
       - run: flutter test
-        working-directory: examples/integrations/claude-managed-agents-flutter/flutter
+        working-directory: templates/claude-managed-agents-flutter/flutter
       - run: flutter build web --dart-define=RUNTIME_URL=http://localhost:8200/api/copilotkit
-        working-directory: examples/integrations/claude-managed-agents-flutter/flutter
+        working-directory: templates/claude-managed-agents-flutter/flutter
