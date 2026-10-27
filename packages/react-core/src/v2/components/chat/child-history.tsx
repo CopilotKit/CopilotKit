@@ -4,51 +4,63 @@ import type { ɵChildHistory } from "@copilotkit/core";
 import { CopilotChatMessageView } from "./CopilotChatMessageView";
 import type { CopilotChatMessageViewProps } from "./CopilotChatMessageView";
 import { ScrollElementContext } from "./scroll-element-context";
-import { ChildContentContext } from "./child-content-context";
+import {
+  ChildContentContext,
+  ChildHistoryReadOnlyContext,
+} from "./child-content-context";
+export { ChildHistoryReadOnlyContext } from "./child-content-context";
 
 export const ChildHistoryContext = createContext<
   ReadonlyMap<string, ɵChildHistory>
 >(new Map());
-export const ChildHistoryReadOnlyContext = createContext(false);
+
+/** Only the built-in view suppresses root copies; direct custom views keep their input. */
+export function filterMirroredRootMessages(
+  messages: Message[],
+  histories: readonly ɵChildHistory[],
+): Message[] {
+  return messages.flatMap((message): Message[] => {
+    if (message.role !== "assistant") return [message];
+    const copies = histories
+      .filter((h) => h.rootMessageIds.includes(message.id))
+      .flatMap((h) => h.messages)
+      .filter((m) => m.id === message.id && m.role === "assistant");
+    if (!copies.length) return [message];
+    const toolCalls = message.toolCalls?.filter(
+      (call) =>
+        !copies.some(
+          (copy) =>
+            copy.role === "assistant" &&
+            copy.toolCalls?.some(
+              (c) => c.id === call.id && c.function.name === call.function.name,
+            ),
+        ),
+    );
+    const content = copies.some((copy) => copy.content === message.content)
+      ? undefined
+      : message.content;
+    // Preserve any root content the child snapshot does not actually mirror.
+    return content || toolCalls?.length
+      ? [{ ...message, content, toolCalls }]
+      : [];
+  });
+}
 
 /** Insert presentation rows at the owning delegation, without modifying model input. */
 export function projectChildHistories(
   messages: Message[],
   histories: readonly ɵChildHistory[],
   namespace: string[] = [],
+  preserveMirroredRoot = false,
 ) {
   const prefix = JSON.stringify(namespace);
   const children = histories.filter(
     (h) => JSON.stringify(h.namespace.slice(0, -1)) === prefix,
   );
-  const visible = namespace.length
-    ? messages
-    : messages.flatMap((message): Message[] => {
-        if (message.role !== "assistant") return [message];
-        const copies = histories
-          .filter((h) => h.rootMessageIds.includes(message.id))
-          .flatMap((h) => h.messages)
-          .filter((m) => m.id === message.id && m.role === "assistant");
-        if (!copies.length) return [message];
-        const toolCalls = message.toolCalls?.filter(
-          (call) =>
-            !copies.some(
-              (copy) =>
-                copy.role === "assistant" &&
-                copy.toolCalls?.some(
-                  (c) =>
-                    c.id === call.id && c.function.name === call.function.name,
-                ),
-            ),
-        );
-        const content = copies.some((copy) => copy.content === message.content)
-          ? undefined
-          : message.content;
-        // Preserve any root content the child snapshot does not actually mirror.
-        return content || toolCalls?.length
-          ? [{ ...message, content, toolCalls }]
-          : [];
-      });
+  const visible =
+    namespace.length || preserveMirroredRoot
+      ? messages
+      : filterMirroredRootMessages(messages, histories);
   const pending = new Set(children);
   const rows: Message[] = [];
   const occupied = new Set(messages.map((m) => m.id));
@@ -104,7 +116,9 @@ export function projectChildHistories(
   return { messages: rows, entries };
 }
 
-const AllChildHistoriesContext = createContext<readonly ɵChildHistory[]>([]);
+export const AllChildHistoriesContext = createContext<readonly ɵChildHistory[]>(
+  [],
+);
 export const AllChildHistoriesProvider = AllChildHistoriesContext.Provider;
 
 export function ChildHistoryView({

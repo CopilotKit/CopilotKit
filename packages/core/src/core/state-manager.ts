@@ -420,6 +420,9 @@ export class StateManager {
       onMessagesChanged: ({ messages, input }) => {
         if (revoked) return;
         if (!input) {
+          // SDK replay mutations include input; direct setMessages([]) is an explicit reset.
+          if (messages.length === 0)
+            this.core.ɵchildHistories.clear(agent, agent.threadId);
           this.pruneRawEvents(agent.agentId!, agent.threadId, messages);
         }
       },

@@ -17,7 +17,9 @@ import { defineToolCallRenderer } from "../../../types";
 import { renderWithCopilotKit } from "../../../__tests__/utils/test-helpers";
 import { ChildHistoryFixtureAgent } from "../../../__tests__/utils/child-history-fixture";
 
-function Chat() {
+function Chat({
+  messageView,
+}: Pick<React.ComponentProps<typeof CopilotChat>, "messageView">) {
   useInterrupt({
     render: ({ resolve, cancel }) => (
       <div>
@@ -27,13 +29,16 @@ function Chat() {
       </div>
     ),
   });
-  return <CopilotChat welcomeScreen={false} />;
+  return <CopilotChat welcomeScreen={false} messageView={messageView} />;
 }
-function setup(agent = new ChildHistoryFixtureAgent()) {
+function setup(
+  agent = new ChildHistoryFixtureAgent(),
+  messageView?: React.ComponentProps<typeof CopilotChat>["messageView"],
+) {
   let core: CopilotKitCore;
   function Capture() {
     core = useCopilotKit().copilotkit;
-    return <Chat />;
+    return <Chat messageView={messageView} />;
   }
   const handler = vi.fn();
   const renderToolCalls = ["chart", "meeting"].map((name) =>
@@ -140,5 +145,70 @@ describe("public CopilotChat child history replay", () => {
       expect(second.handler).not.toHaveBeenCalled();
       expect(reloaded.inputs).toHaveLength(0);
     },
+  );
+});
+
+it("removes saved child regions after an explicit same-thread reset", async () => {
+  const { agent } = setup();
+  await act(async () => {
+    await agent.runAgent();
+  });
+  expect(screen.getByRole("region", { name: "Child 1" })).toBeDefined();
+  await act(async () => {
+    agent.setMessages([]);
+  });
+  expect(screen.queryByRole("region", { name: "Child 1" })).toBeNull();
+});
+
+it("retains mirrored root calls for a direct custom messageView", async () => {
+  const { agent } = setup(
+    new ChildHistoryFixtureAgent(),
+    ({ messages = [] }) => (
+      <div>
+        {messages
+          .filter((m) => m.role === "assistant")
+          .map((m) => (
+            <pre key={m.id} data-testid={m.id}>
+              {JSON.stringify(m)}
+            </pre>
+          ))}
+      </div>
+    ),
+  );
+  await act(async () => {
+    await agent.runAgent();
+  });
+  expect(screen.getByTestId("live-followup").textContent).toContain(
+    '"id":"followup"',
+  );
+});
+
+it("releases the discarded thread when the public chat switches threads", async () => {
+  const agent = new ChildHistoryFixtureAgent();
+  let core!: CopilotKitCore;
+  function ThreadHarness() {
+    core = useCopilotKit().copilotkit;
+    const [threadId, setThreadId] = React.useState("test-thread");
+    return (
+      <>
+        <button onClick={() => setThreadId("next-thread")}>
+          Switch thread
+        </button>
+        <CopilotChat threadId={threadId} welcomeScreen={false} />
+      </>
+    );
+  }
+  renderWithCopilotKit({ agent, children: <ThreadHarness /> });
+  await act(async () => {
+    await agent.runAgent();
+  });
+  expect(core.ɵchildHistories.get(agent, "test-thread").histories).toHaveLength(
+    3,
+  );
+  await act(async () => {
+    fireEvent.click(screen.getByText("Switch thread"));
+  });
+  expect(core.ɵchildHistories.get(agent, "test-thread").histories).toHaveLength(
+    0,
   );
 });

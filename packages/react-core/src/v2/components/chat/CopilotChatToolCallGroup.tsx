@@ -1,5 +1,6 @@
 import React, {
   createContext,
+  useContext,
   useId,
   useLayoutEffect,
   useRef,
@@ -10,6 +11,7 @@ import { twMerge } from "tailwind-merge";
 import { partialJSONParse } from "@copilotkit/shared";
 import type { ToolCallEntry } from "./tool-call-layout";
 import type { ToolMessage } from "@ag-ui/core";
+import { ChildHistoryReadOnlyContext } from "./child-content-context";
 import { CopilotChatContentParts } from "./CopilotChatContentParts";
 
 export type CopilotChatToolCallGroupAppearance = "card" | "line" | "stack";
@@ -211,10 +213,12 @@ export function ToolCallPayloads({
   resultContent?: ToolMessage["content"];
   className?: string;
 }) {
+  const isChildHistory = useContext(ChildHistoryReadOnlyContext);
   return (
     <div className={twMerge("cpk:grid cpk:gap-3", className)}>
       <Payload label="Arguments" value={parameters ?? {}} />
-      {Array.isArray(resultContent) &&
+      {isChildHistory &&
+      Array.isArray(resultContent) &&
       resultContent.some((part) => part.type !== "text") ? (
         <div aria-label="Result">
           <CopilotChatContentParts content={resultContent} />

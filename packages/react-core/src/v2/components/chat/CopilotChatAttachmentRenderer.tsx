@@ -144,12 +144,34 @@ const DocumentAttachment = memo(function DocumentAttachment({
   );
 });
 
+function safeAttachmentUrl(value: string): string | undefined {
+  if (/^(?:https?:\/\/|data:|blob:)/i.test(value)) return value;
+  // Do not let URL parsing normalize a dangerous scheme, backslash host, or control byte.
+  if (
+    !value ||
+    /^[a-z][a-z0-9+.-]*:/i.test(value) ||
+    value.startsWith("//") ||
+    /[\\\x00-\x20]/.test(value)
+  )
+    return undefined;
+  if (typeof window === "undefined") return undefined;
+  try {
+    const url = new URL(value, window.location.href);
+    return /^https?:$/.test(url.protocol) &&
+      url.origin === window.location.origin
+      ? url.href
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export const CopilotChatAttachmentRenderer: React.FC<
   CopilotChatAttachmentRendererProps
 > = ({ type, source, filename, className }) => {
-  const src = getSourceUrl(source);
+  const src = safeAttachmentUrl(getSourceUrl(source));
 
-  if (!/^(?:https?:\/\/|data:|blob:)/i.test(src)) {
+  if (!src) {
     return (
       <span className={cn("cpk:text-sm cpk:text-muted-foreground", className)}>
         {filename || source.mimeType || `${type} attachment`}

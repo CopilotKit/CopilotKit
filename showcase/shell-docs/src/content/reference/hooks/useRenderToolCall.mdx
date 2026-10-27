@@ -214,5 +214,6 @@ parts. The same contract applies to renderers created with
 
 Use `result` for text-only displays. Use `resultContent` when your renderer needs
 media sources, MIME types, or filenames. Provider file handles remain opaque;
-rendering their bytes requires a provider-specific resolver. The default tool
-renderer displays available media and labels unresolved files.
+rendering their bytes requires a provider-specific resolver. Within saved child histories, the default tool
+renderer displays available media and labels unresolved files. Root tool results
+keep their text rendering; custom renderers can opt into `resultContent`.

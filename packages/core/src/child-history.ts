@@ -102,6 +102,8 @@ export interface ɵChildHistorySnapshot {
   error?: string;
 }
 const EMPTY: ɵChildHistorySnapshot = { histories: [] };
+const escapeMarkdown = (value: string) => value.replace(/[\\[\]]/g, "\\$&");
+const MAX_RETAINED_THREADS = 4;
 
 function toMessages(history: z.infer<typeof historySchema>): ɵChildMessage[] {
   const messages: ɵChildMessage[] = [];
@@ -138,7 +140,7 @@ function toMessages(history: z.infer<typeof historySchema>): ɵChildMessage[] {
           )
             parts.push({
               type: "text",
-              text: `[Unavailable attachment: ${block.filename ?? block.unresolvedRef ?? "Unsupported URL"}]`,
+              text: `[Unavailable attachment: ${escapeMarkdown(block.filename ?? block.unresolvedRef ?? "Unsupported URL")}]`,
             });
           else {
             // A source's MIME describes its bytes; block MIME fills in older
@@ -199,7 +201,7 @@ function toMessages(history: z.infer<typeof historySchema>): ɵChildMessage[] {
                   ).replace(/[[\]\\]/g, "\\$&");
                   if (part.source.type === "data") return `[${label}]`;
                   if (part.source.type === "file")
-                    return `[${label}: ${part.source.value}]`;
+                    return `[${label}: ${escapeMarkdown(part.source.value)}]`;
                   const url = part.source.value;
                   return `${part.type === "image" ? "!" : ""}[${label}](<${url.replace(/[<>\r\n]/g, encodeURIComponent)}>)`;
                 })
@@ -338,6 +340,11 @@ export class ɵChildHistoryStore {
         live: new Map(),
         results: new Map(),
       };
+      threads.set(threadId, data);
+      while (threads.size > MAX_RETAINED_THREADS)
+        threads.delete(threads.keys().next().value!);
+    } else {
+      threads.delete(threadId);
       threads.set(threadId, data);
     }
     return data;

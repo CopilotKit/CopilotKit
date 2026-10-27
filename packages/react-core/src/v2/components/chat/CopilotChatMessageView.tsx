@@ -12,6 +12,8 @@ import type { VirtualItem, Virtualizer } from "@tanstack/react-virtual";
 import { ScrollElementContext } from "./scroll-element-context";
 import {
   ChildHistoryContext,
+  AllChildHistoriesContext,
+  filterMirroredRootMessages,
   ChildHistoryReadOnlyContext,
   ChildHistoryView,
 } from "./child-history";
@@ -574,6 +576,7 @@ export function CopilotChatMessageView({
   const { renderActivityMessage } = useRenderActivityMessage();
   const { copilotkit, showIntelligenceIndicator = true } = useCopilotKit();
   const childHistories = useContext(ChildHistoryContext);
+  const allChildHistories = useContext(AllChildHistoriesContext);
   const readOnlyChild = useContext(ChildHistoryReadOnlyContext);
   const config = useCopilotChatConfiguration();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
@@ -625,8 +628,13 @@ export function CopilotChatMessageView({
   };
 
   const deduplicatedMessages = useMemo(
-    () => deduplicateMessages(messages),
-    [messages],
+    () =>
+      deduplicateMessages(
+        readOnlyChild
+          ? messages
+          : filterMirroredRootMessages(messages, allChildHistories),
+      ),
+    [messages, readOnlyChild, allChildHistories],
   );
 
   // What actually renders. Everything below — row keys, virtualization,

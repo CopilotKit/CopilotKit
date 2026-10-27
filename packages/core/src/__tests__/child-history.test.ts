@@ -1013,3 +1013,77 @@ it("retains a child's original root turn when later snapshots arrive", async () 
   await play(snapshot(savedHistory()));
   expect(current().histories[0]?.anchorMessageId).toBe("root-user");
 });
+
+it("clears imported children on an explicit same-thread message reset", async () => {
+  const { agent, play, current } = setup();
+  await play(snapshot(savedHistory()), result());
+  expect(current().histories).toHaveLength(1);
+  agent.setMessages([]);
+  await Promise.resolve();
+  expect(current().histories).toHaveLength(0);
+});
+
+it("does not mistake an empty replay snapshot for an explicit reset", async () => {
+  const { play, current } = setup();
+  await play(snapshot(savedHistory()), {
+    type: EventType.MESSAGES_SNAPSHOT,
+    messages: [],
+  } as BaseEvent);
+  expect(current().histories).toHaveLength(1);
+});
+
+it("bounds retained thread histories for headless agents", () => {
+  const { agent, core } = setup();
+  for (let i = 0; i < 8; i++)
+    core.ɵchildHistories.accept(agent, `thread-${i}`, snapshot(savedHistory()));
+  for (let i = 0; i < 4; i++)
+    expect(
+      core.ɵchildHistories.get(agent, `thread-${i}`).histories,
+    ).toHaveLength(0);
+  for (let i = 4; i < 8; i++)
+    expect(
+      core.ɵchildHistories.get(agent, `thread-${i}`).histories,
+    ).toHaveLength(1);
+});
+
+it("escapes untrusted attachment labels and provider handles in assistant fallbacks", async () => {
+  const { play, current } = setup();
+  const value = "x](https://attacker.example) [\\file";
+  await play(
+    historyEvent({
+      version: 1,
+      histories: [
+        {
+          namespace: ["child"],
+          runs: [
+            {
+              sourceRunId: "run",
+              messages: [
+                {
+                  sourceMessageId: "unsafe-labels",
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "media",
+                      filename: value,
+                      unresolvedRef: "missing",
+                    },
+                    {
+                      type: "media",
+                      filename: "opaque",
+                      source: { type: "file", value },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  const escaped = "x\\](https://attacker.example) \\[\\\\file";
+  expect(current().histories[0]?.messages[0]?.content).toBe(
+    `[Unavailable attachment: ${escaped}][opaque: ${escaped}]`,
+  );
+});

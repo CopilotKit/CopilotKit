@@ -61,3 +61,12 @@ existing deployments can replay persisted native events without a migration.
 When a delegation is missing, the store retains the root user turn observed on
 first arrival. Without any root-turn evidence, the view uses the first retained
 turn as a fallback rather than moving the child below each new turn.
+
+## Retention and reset
+
+Direct `agent.setMessages([])` clears the current thread's child store. AG-UI
+replay message snapshots carry run input and do not trigger this reset. Chat
+thread switches release the discarded thread. Headless consumers retain at
+most four recently updated threads per agent; older threads must replay when
+reopened. Live overlays remain available within retained threads so an older
+snapshot cannot silently erase a just-completed call.

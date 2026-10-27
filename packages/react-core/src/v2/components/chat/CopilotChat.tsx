@@ -486,6 +486,13 @@ export function CopilotChat({
 
     // Non-explicit threads skip /connect, but the first runAgent still has to
     // ship the same SDK-generated threadId that the chat UI is rendering.
+    if (
+      threadChanged &&
+      previousThread !== null &&
+      discardedThreadId !== resolvedThreadId
+    ) {
+      copilotkit.ɵchildHistories.clear(agent, discardedThreadId);
+    }
     agent.threadId = resolvedThreadId;
 
     // When the caller hasn't picked a specific thread, resolvedThreadId is a
@@ -1294,7 +1301,7 @@ export function CopilotChat({
     () => copilotkit.ɵchildHistories.get(agent, resolvedThreadId),
   );
   const childProjection = useMemo(
-    () => projectChildHistories(messages, childSnapshot.histories),
+    () => projectChildHistories(messages, childSnapshot.histories, [], true),
     [messages, childSnapshot],
   );
 

@@ -1,6 +1,7 @@
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
+import { ChildHistoryReadOnlyContext } from "../child-content-context";
 import { CopilotChatContentParts } from "../CopilotChatContentParts";
 import { ToolCallPayloads } from "../CopilotChatToolCallGroup";
 import { DefaultToolCallRenderer } from "../../../hooks/use-default-render-tool";
@@ -89,14 +90,19 @@ it.each(["card", "group"])(
           resultContent={parts}
         />
       );
-    const view = render(renderPayload(content));
+    const wrap = (parts: ContentPart[]) => (
+      <ChildHistoryReadOnlyContext.Provider value={true}>
+        {renderPayload(parts)}
+      </ChildHistoryReadOnlyContext.Provider>
+    );
+    const view = render(wrap(content));
     if (mode === "card") fireEvent.click(screen.getByRole("button"));
     expect(
       screen.getByRole("link", { name: "result.pdf" }).getAttribute("href"),
     ).toBe("https://example.test/result.pdf");
     expect(screen.getByText("Before result")).toBeDefined();
     expect(screen.getByText("After result")).toBeDefined();
-    view.rerender(renderPayload([content[1]!]));
+    view.rerender(wrap([content[1]!]));
     expect(screen.getByRole("link", { name: "result.pdf" })).toBeDefined();
     expect(screen.queryByText("Before result")).toBeNull();
   },
@@ -146,3 +152,78 @@ it.each([
   );
   expect(screen.getByRole("link").getAttribute("href")).toBe(value);
 });
+
+it.each(["/uploads/report.pdf", "./uploads/report.pdf", "../report.pdf"])(
+  "resolves same-origin relative attachment %s",
+  (value) => {
+    render(
+      <CopilotChatContentParts
+        content={[
+          {
+            type: "document",
+            source: { type: "url", value },
+            metadata: { filename: "report.pdf" },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("link").getAttribute("href")).toBe(
+      new URL(value, window.location.href).href,
+    );
+  },
+);
+
+it("joins adjacent Markdown fragments but preserves media boundaries and caller data", () => {
+  const content: ContentPart[] = [
+    { type: "text", text: "**hel" },
+    { type: "text", text: "lo**" },
+    {
+      type: "image",
+      source: { type: "url", value: "https://example.test/p.png" },
+    },
+    { type: "text", text: "[li" },
+    { type: "text", text: "nk](https://example.test)" },
+  ];
+  const before = structuredClone(content);
+  const renderText = vi.fn((text: string) => <span>{text}</span>);
+  render(<CopilotChatContentParts content={content} renderText={renderText} />);
+  expect(renderText.mock.calls.map(([text]) => text)).toEqual([
+    "**hello**",
+    "[link](https://example.test)",
+  ]);
+  expect(content).toEqual(before);
+});
+
+it.each(["card", "group"])(
+  "keeps root %s tool-result rendering text-only",
+  (mode) => {
+    const resultContent: ContentPart[] = [
+      { type: "text", text: "Legacy result" },
+      {
+        type: "document",
+        source: { type: "url", value: "https://example.test/result.pdf" },
+      },
+    ];
+    render(
+      mode === "card" ? (
+        <DefaultToolCallRenderer
+          name="media"
+          toolCallId="call"
+          parameters={{}}
+          status="complete"
+          result="Legacy result"
+          resultContent={resultContent}
+        />
+      ) : (
+        <ToolCallPayloads
+          parameters={{}}
+          result="Legacy result"
+          resultContent={resultContent}
+        />
+      ),
+    );
+    if (mode === "card") fireEvent.click(screen.getByRole("button"));
+    expect(screen.getByText("Legacy result")).toBeDefined();
+    expect(screen.queryByRole("link")).toBeNull();
+  },
+);

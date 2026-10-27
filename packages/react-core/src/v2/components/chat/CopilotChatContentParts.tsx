@@ -12,9 +12,16 @@ export function CopilotChatContentParts({
   content: ContentPart[];
   renderText?: (text: string, index: number) => React.ReactNode;
 }) {
+  const normalized: ContentPart[] = [];
+  for (const part of content) {
+    const previous = normalized.at(-1);
+    if (part.type === "text" && previous?.type === "text")
+      previous.text += part.text;
+    else normalized.push({ ...part });
+  }
   return (
     <>
-      {content.map((part, index) => (
+      {normalized.map((part, index) => (
         <Fragment key={index}>
           {part.type === "text" ? (
             renderText(part.text, index)

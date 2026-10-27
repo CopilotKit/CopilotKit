@@ -5,3 +5,5 @@ import type { ContentPart } from "@ag-ui/core";
 export const ChildContentContext = createContext<
   ReadonlyMap<string, ContentPart[]>
 >(new Map());
+
+export const ChildHistoryReadOnlyContext = createContext(false);

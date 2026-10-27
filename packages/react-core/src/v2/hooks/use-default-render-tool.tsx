@@ -1,5 +1,6 @@
 import React, { useContext, useState } from "react";
 import type { ToolMessage } from "@ag-ui/core";
+import { ChildHistoryReadOnlyContext } from "../components/chat/child-content-context";
 import { CopilotChatContentParts } from "../components/chat/CopilotChatContentParts";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useRenderTool } from "./use-render-tool";
@@ -208,6 +209,7 @@ export function DefaultToolCallRenderer({
   resultContent,
 }: DefaultRenderProps): React.ReactElement {
   const group = useContext(ToolCallGroupContext);
+  const isChildHistory = useContext(ChildHistoryReadOnlyContext);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const isActive = status === "inProgress" || status === "executing";
@@ -328,7 +330,8 @@ export function DefaultToolCallRenderer({
                 <div className="cpk:text-[10px] cpk:uppercase cpk:text-zinc-500 cpk:dark:text-zinc-400">
                   Result
                 </div>
-                {Array.isArray(resultContent) &&
+                {isChildHistory &&
+                Array.isArray(resultContent) &&
                 resultContent.some((part) => part.type !== "text") ? (
                   <CopilotChatContentParts content={resultContent} />
                 ) : (
