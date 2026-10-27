@@ -44,6 +44,7 @@ from tools import (
 )
 from tools.todos import manage_todos_impl
 
+from agents._loop_cap import loop_cap
 from agents._state import publish_state
 from agents.agent import query_data, search_flights
 
@@ -177,6 +178,7 @@ agent = Agent(
     prompt=SYSTEM_PROMPT,
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
     tools=[generate_a2ui, query_data, search_flights, manage_todos, get_todos],
+    middleware=[loop_cap(8)],
 )
 
 stream = AGUIStream(agent)

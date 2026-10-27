@@ -27,6 +27,7 @@ from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from ._loop_cap import loop_cap
 from ._state import publish_state
 
 logger = logging.getLogger(__name__)
@@ -153,6 +154,7 @@ agent = Agent(
     ).strip(),
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
     tools=[get_current_preferences, set_notes],
+    middleware=[loop_cap(10)],
 )
 
 stream = AGUIStream(agent)

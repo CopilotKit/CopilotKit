@@ -6,11 +6,15 @@ AG2 1.1.2's ``normalize_responses_usage`` dereferences
 always returns both objects, but aimock's Responses handler omits them, which
 crashes every mocked run with ``AttributeError`` after the text has streamed.
 Replace the mapper with a None-safe equivalent until AG2 guards it upstream.
+
+Targets AG2 1.1.2 (pinned in requirements.txt). The client module imports the
+mapper by name, so the patch rebinds it there; rebinding it on ``mappers``
+would have no effect. Re-check the binding when the pin moves.
 """
 
 from __future__ import annotations
 
-from ag2.config.openai import mappers, openai_responses_client
+from ag2.config.openai import openai_responses_client
 from ag2.events import Usage
 
 
@@ -27,5 +31,4 @@ def _normalize_responses_usage(usage):
 
 
 def install_usage_compat() -> None:
-    mappers.normalize_responses_usage = _normalize_responses_usage
     openai_responses_client.normalize_responses_usage = _normalize_responses_usage

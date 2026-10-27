@@ -11,6 +11,8 @@ from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 
+from ._loop_cap import loop_cap
+
 
 SYSTEM_PROMPT = """
 You are a sales-dashboard UI generator for a BYOC json-render demo.
@@ -103,6 +105,7 @@ byoc_json_render_agent = Agent(
     "byoc_json_render_assistant",
     prompt=SYSTEM_PROMPT.strip(),
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    middleware=[loop_cap(3)],
 )
 
 byoc_json_render_stream = AGUIStream(byoc_json_render_agent)

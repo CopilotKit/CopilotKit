@@ -23,6 +23,8 @@ from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 from pydantic import Field
 
+from ._loop_cap import loop_cap
+
 
 SYSTEM_PROMPT = (
     "You are a helpful, concise assistant wired into a headless chat "
@@ -81,6 +83,7 @@ agent = Agent(
     prompt=SYSTEM_PROMPT,
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
     tools=[get_weather, get_stock_price],
+    middleware=[loop_cap(8)],
 )
 
 stream = AGUIStream(agent)

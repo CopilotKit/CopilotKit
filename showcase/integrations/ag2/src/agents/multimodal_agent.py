@@ -20,6 +20,8 @@ from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 
+from ._loop_cap import loop_cap
+
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant. The user may attach images or documents "
@@ -33,6 +35,7 @@ multimodal_agent = Agent(
     "multimodal_assistant",
     prompt=SYSTEM_PROMPT,
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    middleware=[loop_cap(5)],
 )
 
 multimodal_stream = AGUIStream(multimodal_agent)

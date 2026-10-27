@@ -19,6 +19,8 @@ from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 
+from ._loop_cap import loop_cap
+
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
@@ -63,6 +65,7 @@ agent = Agent(
     prompt=SYSTEM_PROMPT,
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
     tools=[generate_a2ui],
+    middleware=[loop_cap(8)],
 )
 
 stream = AGUIStream(agent)

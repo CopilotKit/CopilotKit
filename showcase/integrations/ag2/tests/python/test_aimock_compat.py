@@ -12,12 +12,13 @@ import asyncio
 from types import SimpleNamespace
 
 import httpx2
+from ag2.config.openai import openai_responses_client
 
 from agents._header_forwarding import (
     install_global_httpx_hook,
     set_forwarded_headers,
 )
-from agents._usage_compat import _normalize_responses_usage
+from agents._usage_compat import _normalize_responses_usage, install_usage_compat
 
 
 def test_global_hook_forwards_headers_on_httpx2_clients():
@@ -50,3 +51,8 @@ def test_usage_mapper_tolerates_missing_token_details():
     assert normalized.completion_tokens == 4
     assert normalized.cache_read_input_tokens is None
     assert normalized.thinking_tokens is None
+
+
+def test_usage_compat_rebinds_the_mapper_the_client_calls():
+    install_usage_compat()
+    assert openai_responses_client.normalize_responses_usage is _normalize_responses_usage

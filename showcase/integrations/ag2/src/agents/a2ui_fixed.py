@@ -24,6 +24,8 @@ from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 from pydantic import Field
 
+from ._loop_cap import loop_cap
+
 
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
@@ -105,6 +107,7 @@ agent = Agent(
     prompt=SYSTEM_PROMPT,
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
     tools=[display_flight],
+    middleware=[loop_cap(4)],
 )
 
 stream = AGUIStream(agent)

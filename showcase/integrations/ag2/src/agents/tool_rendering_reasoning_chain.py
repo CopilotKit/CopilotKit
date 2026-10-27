@@ -5,8 +5,9 @@ when relevant. The frontend wires renderers for `get_weather` and
 `search_flights` plus a custom catch-all for the rest.
 
 Note: AG2 1.x's `AGUIStream` maps the model's reasoning to AG-UI
-REASONING_MESSAGE_* events, so the custom reasoning slot fills whenever the
-model (or the mocked fixture) returns reasoning text.
+REASONING_MESSAGE_* events. The config from `_reasoning_summary.py` asks the
+model for a reasoning summary, so the custom reasoning slot fills against a
+real model as well as the mocked fixture.
 """
 
 from __future__ import annotations
@@ -17,9 +18,11 @@ from typing import Annotated
 
 from ag2 import Agent
 from ag2.ag_ui import AGUIStream
-from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 from pydantic import Field
+
+from ._loop_cap import loop_cap
+from ._reasoning_summary import reasoning_config
 
 
 async def get_weather(
@@ -99,8 +102,9 @@ SYSTEM_PROMPT = (
 agent = Agent(
     "tool_rendering_reasoning_chain_assistant",
     prompt=SYSTEM_PROMPT,
-    config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    config=reasoning_config("gpt-5-mini"),
     tools=[get_weather, search_flights, get_stock_price, roll_dice],
+    middleware=[loop_cap(10)],
 )
 
 stream = AGUIStream(agent)

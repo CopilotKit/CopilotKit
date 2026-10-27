@@ -163,19 +163,26 @@ Supported on AG2 1.x. `AGUIStream` maps model reasoning to AG-UI
 built-in `CopilotChatReasoningMessage` (`reasoning-default`) and the custom
 `reasoningMessage` slot (`reasoning-custom`, `tool-rendering-reasoning-chain`)
 fill in. The agents use the Responses API (`OpenAIResponsesConfig`); the
-reasoning stream is built from reasoning _summary_ text, so against real
-`gpt-5-mini` the slot only fills when the model returns a summary. The
-`OpenAIResponsesConfig` in AG2 1.1.2 has no `reasoning.summary` option, so this
-cannot be requested from the showcase. The aimock Responses handler emits
-reasoning summaries, so the fixtures drive the slot deterministically.
+reasoning stream is built from reasoning _summary_ text, which OpenAI only
+returns when the request sets `reasoning.summary`. The `OpenAIResponsesConfig`
+in AG2 1.1.2 has no such option, so both reasoning backends (`reasoning_agent.py`
+and `tool_rendering_reasoning_chain.py`) take their config from
+`src/agents/_reasoning_summary.py`, which adds it to the request body through
+the config's `http_client`. The aimock Responses handler emits reasoning
+summaries, so the fixtures drive the slot deterministically.
 
-Verified against `ag2` 1.1.2 (`requirements.txt`: `ag2[openai,ag-ui]>=1.1.2`).
+Verified against `ag2` 1.1.2 (`requirements.txt`: `ag2[openai,ag-ui,mcp]==1.1.2`).
+The compat patches (`_reasoning_summary.py`, `_usage_compat.py`) target that
+exact version; re-check them when the pin moves.
 
 ## Known gaps on AG2 1.x
 
-- No loop-cap equivalent of the old `max_consecutive_auto_reply`: AG2 1.x core
-  has no such option, so a model that keeps calling tools is bounded only by the
-  model.
+- AG2 1.x has no `max_consecutive_auto_reply`. `src/agents/_loop_cap.py`
+  replaces it with a middleware that allows at most N model calls per run and
+  then ends the turn with a short text reply; every agent sets it, with the
+  same N its 0.x cap had. Unlike the 0.x option it counts model calls, not
+  auto-replies, so a single model call that requests several tools in parallel
+  still counts once.
 - `byoc-hashbrown` / `byoc-json-render` no longer set
   `response_format: json_object` (the Responses config has no such option) and
   rely on the system prompt for JSON output.

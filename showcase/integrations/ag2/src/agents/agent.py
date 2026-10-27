@@ -35,6 +35,7 @@ from tools import (
 from tools.types import Flight
 
 from ._header_forwarding import get_forwarded_headers
+from ._loop_cap import loop_cap
 from ._request_context import get_latest_user_message
 
 logger = logging.getLogger(__name__)
@@ -246,6 +247,7 @@ agent = Agent(
         search_flights,
         generate_a2ui,
     ],
+    middleware=[loop_cap(15)],
 )
 
 # AG-UI stream wrapper

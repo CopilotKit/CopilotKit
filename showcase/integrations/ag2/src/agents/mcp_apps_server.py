@@ -137,8 +137,10 @@ async def create_view(elements: list[dict[str, Any]]) -> CallToolResult:
 
 
 # MCPServer wraps an Agent and exposes it as a conversational `ask` tool next to
-# the app's tools. The demo never routes through it: the runtime's chat agent
-# (agents/mcp_apps_agent.py) calls `create_view` directly.
+# the app's tools. AG2 1.1.2 always registers it and the runtime's `mcpApps`
+# config has no per-server tool filter, so `ask` reaches the chat agent's tool
+# list; agents/mcp_apps_agent.py's prompt tells the model not to call it, and
+# the demo has no fixture for it. The chat agent calls `create_view` directly.
 _helper_agent = Agent(
     "mcp_apps_server",
     prompt="You draw simple diagrams.",

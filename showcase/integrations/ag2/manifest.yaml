@@ -45,6 +45,9 @@ features:
   - tool-rendering
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
+  - tool-rendering-reasoning-chain
+  - reasoning-custom
+  - reasoning-default
   - gen-ui-agent
   - gen-ui-tool-based
   - declarative-gen-ui

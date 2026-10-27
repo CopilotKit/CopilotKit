@@ -28,6 +28,8 @@ from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 
+from ._loop_cap import loop_cap
+
 
 # @region[backend-tool-call]
 SYSTEM_PROMPT = (
@@ -55,6 +57,7 @@ interrupt_agent = Agent(
     # the frontend handler, which returns a Promise that only resolves
     # once the user picks a slot -- equivalent to `interrupt()` in the
     # LangGraph reference.
+    middleware=[loop_cap(5)],
 )
 # @endregion[backend-tool-call]
 # @endregion[backend-interrupt-tool]

@@ -30,6 +30,7 @@ from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from ._loop_cap import loop_cap
 from ._state import publish_state
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,7 @@ _research_agent = Agent(
         """
     ).strip(),
     config=_SUB_LLM_CONFIG,
+    middleware=[loop_cap(1)],
 )
 
 _writing_agent = Agent(
@@ -86,6 +88,7 @@ _writing_agent = Agent(
         """
     ).strip(),
     config=_SUB_LLM_CONFIG,
+    middleware=[loop_cap(1)],
 )
 
 _critique_agent = Agent(
@@ -97,6 +100,7 @@ _critique_agent = Agent(
         """
     ).strip(),
     config=_SUB_LLM_CONFIG,
+    middleware=[loop_cap(1)],
 )
 # @endregion[subagent-setup]
 
@@ -288,6 +292,7 @@ supervisor = Agent(
     ).strip(),
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
     tools=[research_agent, writing_agent, critique_agent],
+    middleware=[loop_cap(8)],
 )
 
 stream = AGUIStream(supervisor)

@@ -19,6 +19,8 @@ from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 
+from ._loop_cap import loop_cap
+
 
 SYSTEM_PROMPT = """\
 You draw simple diagrams via the `create_view` MCP tool.
@@ -45,6 +47,7 @@ Every element needs a unique string `id` (e.g. `"b1"`, `"a1"`,
 
 Do NOT:
 - Make multiple `create_view` calls.
+- Call `ask`. It hands the request to another model; you draw directly.
 - Iterate or refine. Ship on the first shot.
 - Add decorative colors / fills / zone backgrounds unless the user
   explicitly asks for them.
@@ -62,6 +65,7 @@ agent = Agent(
     # tools — MCP server tools are injected by the runtime middleware at
     # request time.
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    middleware=[loop_cap(6)],
 )
 
 stream = AGUIStream(agent)

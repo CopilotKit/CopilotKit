@@ -20,6 +20,8 @@ from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 
+from ._loop_cap import loop_cap
+
 
 SYSTEM_PROMPT = """You are a UI-generating assistant for the Open Generative UI (Advanced) demo.
 
@@ -72,6 +74,7 @@ agent = Agent(
     "open_gen_ui_advanced_assistant",
     prompt=SYSTEM_PROMPT,
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    middleware=[loop_cap(4)],
 )
 
 stream = AGUIStream(agent)

@@ -28,6 +28,8 @@ from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 
+from ._loop_cap import loop_cap
+
 
 BYOC_HASHBROWN_SYSTEM_PROMPT = """\
 You are a sales analytics assistant that replies by emitting a single JSON
@@ -88,6 +90,7 @@ byoc_hashbrown_agent = Agent(
     "byoc_hashbrown_assistant",
     prompt=BYOC_HASHBROWN_SYSTEM_PROMPT,
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
+    middleware=[loop_cap(3)],
 )
 
 byoc_hashbrown_stream = AGUIStream(byoc_hashbrown_agent)

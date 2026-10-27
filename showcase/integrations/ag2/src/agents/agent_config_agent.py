@@ -25,6 +25,8 @@ from ag2.ag_ui import AGUIStream
 from ag2.config.openai import OpenAIResponsesConfig
 from fastapi import FastAPI
 
+from ._loop_cap import loop_cap
+
 logger = logging.getLogger(__name__)
 
 VALID_TONES = {"professional", "casual", "enthusiastic"}
@@ -99,6 +101,7 @@ agent_config_agent = Agent(
     prompt=SYSTEM_PROMPT,
     config=OpenAIResponsesConfig(model="gpt-5-mini", streaming=True),
     tools=[get_current_config],
+    middleware=[loop_cap(5)],
 )
 
 agent_config_stream = AGUIStream(agent_config_agent)
