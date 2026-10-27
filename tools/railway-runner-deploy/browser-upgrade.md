@@ -2,7 +2,7 @@
 
 This record authorizes exactly one staging runner transition after this PR is reviewed and merged. It does not authorize a live run, relax the ordinary compatibility guard, or activate scheduling.
 
-- Baseline source: `855fb75ec8fd5bfbd0102ffe83765fe03a3953fb`, deployment `5816a613-4b0a-425f-ae82-f6a44ed53a42`, runner digest `fd82c29daf293aa0e59c77d7678ff0df45a769c9802109976d94a5b09b37227e`.
+- Baseline source: `855fb75ec8fd5bfbd0102ffe83765fe03a3953fb`, deployment `27f7ec23-6b79-429f-9574-90da478b3985`, runner digest `fd82c29daf293aa0e59c77d7678ff0df45a769c9802109976d94a5b09b37227e`.
 - Candidate source: `b6f89b83d4b6dd4efd2a1bc04f999cf38ff7233b`, build [39939536423](https://github.com/CopilotKit/CopilotKit/actions/runs/39939536423), runner digest `08990847c406a71dd0424ae6f58e91bcaeee500b7e3a1a9d2d032e08f6d27b6f`.
 - Runtime changes: add the selected framework to the browser URL and permit adoption of the exact authorized same-image drained checkpoint. The other two changed manifest inputs are their browser and startup regression tests. Adoption requires the matching operation ID, drained status, baseline identities, template and watch binding; existing stopped-owner and crash-replay checks still apply. Both old and new build artifacts are independently validated; any other input difference refuses the handoff.
 - Existing application, native backend, inspector images, private template, cleanup policy, persistent volume and attachment remain fixed. No additional build candidate is approved.
@@ -16,3 +16,11 @@ Never rerun a failed/uncertain handoff. Download its receipt and reconcile the e
 `releases/staging.json` describes the same-image baseline after this transition. The ordinary main deploy workflow refuses the old855 baseline; use only the dedicated reviewed workflow for the transition. Following verified success, run the ordinary main workflow once with this same-image record to establish a receipt accepted by the normal release generator; the dedicated upgrade receipt is deliberately not accepted as ordinary baseline authority. Subsequent compatible updates can use that ordinary receipt. Retained provider-deletion expectations continue independently of this deployment.
 
 This PR is deployment approval only. #7709 still needs a fresh single Mastra/Strands run with browser/source/persistence evidence, then acceptance and crash recovery. Unit tests and successful image builds are not that proof.
+
+## Baseline reconciliation on October 26
+
+Railway records deployment `27f7ec23-6b79-429f-9574-90da478b3985` as a redeploy created at `2026-10-24T23:21:48.191Z`, using the same immutable baseline image. The previous deployment `5816a613-4b0a-425f-ae82-f6a44ed53a42` is `REMOVED`, updated at `2026-10-24T23:22:01.618Z`. This establishes the replacement history, not a new deployment approval or finality for any retained create request.
+
+Read-only preflight found the replacement as the sole non-removed deployment, with active and latest both `SUCCESS` and configured image equal to the baseline. The live runtime still reports source `855fb75ec8fd5bfbd0102ffe83765fe03a3953fb`, the bound template and resumed operation `github-655515393-39914784012`, no active work, scheduling disabled, and all three retained watch bindings unchanged. Volume `2a70e47d-85d4-4a8a-b17b-b6788c91b1c7` remains attached as `f3187181-2fb7-4d3e-a9dc-c80eac894895` at `/data`.
+
+This correction changes only the reviewed removal deployment ID and its CLI guard. Baseline/candidate images, build provenance, operation binding, template, watches, and volume constraints remain fixed. The workflow must repeat its full preflight after this correction is reviewed and merged. Any further replacement, including one using the same image, refuses before drain; there is no automatic selection of the latest deployment.
