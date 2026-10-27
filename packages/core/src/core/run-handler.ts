@@ -1116,13 +1116,13 @@ export class RunHandler {
             };
             const abortInteraction = () => {
               if (!interactionController) return;
-              const connectionGeneration =
+              const stopConnectionGeneration =
                 this._connectionGenerations.get(agent);
               liveHITLStops.set(
                 interactionController.signal,
                 () =>
                   this._connectionGenerations.get(agent) ===
-                    connectionGeneration && agent.threadId === threadId,
+                    stopConnectionGeneration && agent.threadId === threadId,
               );
               interactionController.abort();
             };
