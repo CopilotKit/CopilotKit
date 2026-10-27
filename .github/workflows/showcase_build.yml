@@ -1190,6 +1190,9 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           SERVICES_CSV: ${{ steps.changed.outputs.services }}
+          # Fresh docs deployment must select this build's image, then prove
+          # its exact deployment reaches SUCCESS and serves the new routes.
+          DOCS_EXPECTED_IMAGE: ghcr.io/copilotkit/showcase-shell-docs:${{ github.sha }}
           # Bridge the per-service redeploy summary to showcase_deploy.yml's
           # `enforce-redeploy-gate` (consumed via the `redeploy-summary`
           # artifact, extracted to `.redeploy/summary.json`). redeploy-env.ts
@@ -1197,52 +1200,16 @@ jobs:
           # parent dirs, so the step below mkdir's `.redeploy` first.
           REDEPLOY_SUMMARY_JSON: .redeploy/summary.json
         run: |
-          # Staging is non-blocking by design: the script always exits 0
-          # and writes per-service failures into $GITHUB_STEP_SUMMARY. The
-          # verify-deploy workflow is the real release gate.
+          # Docs verifies its exact deployment/image/routes and fails loud.
+          # Ordinary staging services still use verify-deploy as their gate.
           mkdir -p .redeploy
           npx tsx showcase/scripts/redeploy-env.ts staging --services "$SERVICES_CSV"
 
       - name: Upload redeploy summary
-        # Upload is MANDATORY whenever a redeploy was attempted (services
-        # != ''). Both failure modes red the build — no false-green path:
-        #
-        #   (A) HARD crash inside redeploy-env.ts BEFORE summary.json is
-        #       written. redeploy-env.ts writes the summary atomically
-        #       (.tmp → rename) AFTER the per-service loop completes, so
-        #       a crash leaves no file. The redeploy step itself exits
-        #       non-zero on that crash and fails the redeploy-staging
-        #       job; this upload step is then skipped entirely by
-        #       step-failure propagation. Build → red.
-        #
-        #   (B) redeploy step exits 0 but summary.json is absent (e.g. a
-        #       logic bug skipped the write). `if-no-files-found: error`
-        #       reds this step → reds the redeploy-staging job → reds the
-        #       build. The deploy workflow's resolve-matrix.if
-        #       (workflow_run.conclusion == 'success') then blocks the
-        #       deploy run from starting at all.
-        #
-        # Do NOT add hashFiles() guards here: that would silently skip
-        # the upload on (B), the deploy workflow would see "artifact
-        # absent" via check-redeploy-summary, treat it as "nothing
-        # redeployed", skip the gate, and ship a false-green.
-        # The legitimate "services == '' → nothing redeployed → no upload"
-        # path is preserved by the services != '' guard.
-        #
-        # If a future change ever switches this step to `if: always()`,
-        # `if-no-files-found: error` STILL reds path (A): the redeploy
-        # step's non-zero exit on a HARD crash is independent of upload
-        # gating, and `if-no-files-found: error` on `always()` then trips
-        # because summary.json was never written. So neither relaxation
-        # alone opens a false-green window.
-        #
-        # However, swapping the guard to `if: always()` would ALSO red the
-        # legitimate `services == ''` (nothing-to-redeploy) path — no
-        # summary.json is written there either, so `if-no-files-found:
-        # error` would trip on every push that didn't redeploy anything.
-        # Net effect: trades the (already-closed) false-green risk for a
-        # false-red on every non-buildable push. Don't do it.
-        if: steps.changed.outputs.services != ''
+        # Retain per-service receipts even when docs verification fails.
+        # An attempted deploy without a summary still fails the upload;
+        # an empty service set legitimately produces no artifact.
+        if: ${{ !cancelled() && steps.changed.outputs.services != '' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # Artifact name MUST stay `redeploy-summary`: showcase_deploy.yml's
