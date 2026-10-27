@@ -97,6 +97,47 @@ def use_selected_model(
     llm_request.model = model if model in MODELS else DEFAULT_MODEL
 
 
+RESEARCH_TOOLS = frozenset({"web_research", "find_images"})
+
+
+def _came_back_empty(response: object) -> bool:
+    if not isinstance(response, dict) or response.get("error"):
+        return True
+    return not (response.get("sources") or response.get("images"))
+
+
+# Session state under "temp:" lasts for one invocation: one reader turn.
+RESEARCHED_STATE_KEY = "temp:researched"
+RESEARCH_DONE = {
+    "note": (
+        "Research for this question is already done; the results are above. "
+        "Do not research again. Write the answer now from those results."
+    )
+}
+
+
+def one_research_round(tool, args, tool_context):
+    """Research happens in one round per turn.
+
+    The prompt asks for this, but Gemini often researched a second or third
+    time, each round keeping the reader waiting another 6-8 seconds for the
+    first word. Neither hiding the tools nor the API's function-calling mode
+    stops Gemini 3 from calling one it used earlier in the turn, so a call
+    after a round with results returns at once and says to write. Calls made
+    in parallel in the first round all run: none has come back yet.
+    """
+    if tool.name in RESEARCH_TOOLS and tool_context.state.get(RESEARCHED_STATE_KEY):
+        return RESEARCH_DONE
+    return None
+
+
+def note_research(tool, args, tool_context, tool_response):
+    """Marks the turn researched once a round brings back results."""
+    if tool.name in RESEARCH_TOOLS and not _came_back_empty(tool_response):
+        tool_context.state[RESEARCHED_STATE_KEY] = True
+    return None
+
+
 async def _pick_icon(question: str) -> str:
     """Asks the helper model for the thread icon that fits a question."""
     options = "\n".join(f"- {name}: {topics}" for name, topics in THREAD_ICONS.items())
@@ -319,8 +360,12 @@ def create_agent() -> ResearchDeskAgent:
             instruction=instruction,
             # Low thinking: with the generative UI guide in context, higher
             # levels doubled latency without better views in our runs.
+            # Thought summaries stream to the chat as reasoning, so the reader
+            # sees the agent working while it plans a view after research.
             planner=BuiltInPlanner(
-                thinking_config=types.ThinkingConfig(thinking_level="low")
+                thinking_config=types.ThinkingConfig(
+                    thinking_level="low", include_thoughts=True
+                )
             ),
             tools=[
                 web_research,
@@ -329,6 +374,8 @@ def create_agent() -> ResearchDeskAgent:
                 AGUIToolset(),
             ],
             before_model_callback=use_selected_model,
+            before_tool_callback=one_research_round,
+            after_tool_callback=note_research,
         ),
         app_name="research_desk",
         # The signed-in reader, from the runtime's header (see identity.py).

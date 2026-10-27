@@ -17,7 +17,10 @@ from google.genai import types
 
 logger = logging.getLogger(__name__)
 
-RESEARCH_MODEL = os.getenv("RESEARCH_MODEL", "gemini-3.5-flash")
+# Flash-Lite grounds as well for this (facts, figures, sources) at about a
+# third of Flash's time: ~3s against 5-14s per search in our runs, and the
+# reader waits on the slowest search before the answer starts.
+RESEARCH_MODEL = os.getenv("RESEARCH_MODEL", "gemini-3.5-flash-lite")
 MAX_SOURCES = 8
 
 
