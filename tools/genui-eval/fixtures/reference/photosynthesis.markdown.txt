@@ -1,0 +1,39 @@
+Imagine if you could make your own lunch just by standing in the sun. Plants do exactly that, and the trick is called **photosynthesis**. The word means "putting together with light": *photo* = light, *synthesis* = putting together.
+
+### 🌱 The three ingredients
+
+A plant needs three things, and it collects each one in a different way:
+
+1. **Sunlight ☀️** is the energy. A green substance in the leaves called **chlorophyll** catches it. Chlorophyll is also what makes leaves green.
+2. **Water 💧** comes up from the soil through the roots, travels up the stem and into the leaves, a bit like drinking through a straw.
+3. **Carbon dioxide 🌬️** is a gas in the air, the same one we breathe out. It gets into the leaf through tiny holes on the underside called **stomata**.
+
+### 🏭 What happens inside the leaf
+
+Think of every leaf as a little solar-powered kitchen. It uses the sunlight's energy to cook water and carbon dioxide into **sugar** (called glucose). The plant uses that sugar as food to grow roots, leaves, flowers and fruit. Left over is **oxygen**, which the plant lets out into the air, and that's the oxygen we breathe!
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"photosynthesis-diagram","components":[{"id":"root","component":"Column","gap":2,"children":["diagram","diagram-caption"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"photosynthesis-diagram","components":[{"id":"diagram","component":"Svg","viewBox":"0 0 360 250","width":"100%","height":260,"label":"A plant in the sun: sunlight and carbon dioxide go into the leaf, water comes up from the roots, oxygen comes out and sugar is made inside the leaf","rects":[{"x":0,"y":205,"width":360,"height":45,"rx":6,"fill":"#B08968"}],"circles":[{"cx":48,"cy":48,"r":24,"fill":"#F5B301"}],"paths":[{"d":"M48 12 L48 4 M48 84 L48 92 M12 48 L4 48 M84 48 L92 48 M23 23 L17 17 M73 73 L79 79 M73 23 L79 17 M23 73 L17 79","fill":"none","stroke":"#F5B301","strokeWidth":3},{"d":"M190 205 L190 112","fill":"none","stroke":"#3A7D44","strokeWidth":6},{"d":"M190 122 C 225 82, 290 88, 312 112 C 285 142, 228 146, 190 122 Z","fill":"#5BAA4A","stroke":"#3A7D44","strokeWidth":2},{"d":"M190 158 C 160 128, 118 132, 104 150 C 124 172, 165 175, 190 158 Z","fill":"#5BAA4A","stroke":"#3A7D44","strokeWidth":2},{"d":"M190 205 C 180 220, 165 228, 150 240 M190 205 C 192 222, 196 232, 198 246 M190 205 C 205 218, 222 226, 238 238","fill":"none","stroke":"#7F5539","strokeWidth":3},{"d":"M80 68 L226 108","fill":"none","stroke":"#E09F00","strokeWidth":3},{"d":"M226 108 L214 98 L211 111 Z","fill":"#E09F00"},{"d":"M352 150 L300 124","fill":"none","stroke":"#6C757D","strokeWidth":3},{"d":"M300 124 L315 124 L309 136 Z","fill":"#6C757D"},{"d":"M270 96 L304 40","fill":"none","stroke":"#2F80ED","strokeWidth":3},{"d":"M304 40 L292 48 L304 54 Z","fill":"#2F80ED"},{"d":"M178 236 L178 172","fill":"none","stroke":"#2F80ED","strokeWidth":3},{"d":"M178 170 L172 182 L184 182 Z","fill":"#2F80ED"}],"texts":[{"x":120,"y":74,"text":"sunlight","size":13,"fill":"#B07D00"},{"x":352,"y":168,"text":"carbon dioxide in","size":13,"fill":"#495057","anchor":"end"},{"x":310,"y":32,"text":"oxygen out","size":13,"fill":"#2F80ED"},{"x":170,"y":196,"text":"water up","size":13,"fill":"#2F80ED","anchor":"end"},{"x":252,"y":122,"text":"sugar","size":13,"fill":"#FFFFFF","anchor":"middle"}]},{"id":"diagram-caption","component":"Caption","text":"Sunlight and carbon dioxide go into the leaf, water comes up from the roots, the leaf makes sugar and lets oxygen out.","color":"secondary","textAlign":"center"}]}}
+```
+
+### ✍️ The recipe in one line
+
+> carbon dioxide + water + light energy → sugar + oxygen
+
+Scientists write it like this. You don't need to memorise it, but it's fun to see that everything is balanced: six of each go in, and six oxygen molecules come out.
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"photosynthesis-equation","components":[{"id":"root","component":"Math","block":true,"value":"6\\,\\mathrm{CO_2} + 6\\,\\mathrm{H_2O} \\xrightarrow{\\text{light}} \\mathrm{C_6H_{12}O_6} + 6\\,\\mathrm{O_2}"}]}}
+```
+
+### 🧠 Quick quiz
+
+Three questions to check it stuck:
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"photosynthesis-quiz","dataModel":{"q1":"","q2":"","q3":""},"components":[{"id":"root","component":"Card","children":["quiz-title","quiz-caption","q1","q1-feedback","q2","q2-feedback","q3","q3-feedback","divider","score"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"photosynthesis-quiz","components":[{"id":"quiz-title","component":"Title","text":"Photosynthesis quiz"},{"id":"quiz-caption","component":"Caption","text":"Pick an answer to see if you're right"},{"id":"q1","component":"RadioGroup","label":"1. Where does a plant get its energy from?","direction":"col","options":[{"value":"soil","label":"The soil"},{"value":"sun","label":"Sunlight"},{"value":"water","label":"Water"}],"value":{"@path":"/q1"}},{"id":"q1-feedback","component":"Text","size":"sm","text":{"@call":"calc","args":{"expression":"a == '' ? '' : (a == 'sun' ? '✅ Right! Chlorophyll catches the sunlight.' : '❌ Not quite. The energy comes from sunlight.')","a":{"@path":"/q1"}}}},{"id":"q2","component":"RadioGroup","label":"2. Which gas does a leaf take in from the air?","direction":"col","options":[{"value":"oxygen","label":"Oxygen"},{"value":"co2","label":"Carbon dioxide"},{"value":"helium","label":"Helium"}],"value":{"@path":"/q2"}},{"id":"q2-feedback","component":"Text","size":"sm","text":{"@call":"calc","args":{"expression":"a == '' ? '' : (a == 'co2' ? '✅ Yes! It enters through the stomata.' : '❌ Not quite. Leaves take in carbon dioxide and give out oxygen.')","a":{"@path":"/q2"}}}},{"id":"q3","component":"RadioGroup","label":"3. What does photosynthesis make?","direction":"col","options":[{"value":"sugar-oxygen","label":"Sugar and oxygen"},{"value":"water-soil","label":"Water and soil"},{"value":"co2-light","label":"Carbon dioxide and light"}],"value":{"@path":"/q3"}},{"id":"q3-feedback","component":"Text","size":"sm","text":{"@call":"calc","args":{"expression":"a == '' ? '' : (a == 'sugar-oxygen' ? '✅ Correct! Sugar feeds the plant, oxygen goes into the air.' : '❌ Not quite. It makes sugar and oxygen.')","a":{"@path":"/q3"}}}},{"id":"divider","component":"Divider"},{"id":"score","component":"Text","fontWeight":"medium","text":{"@call":"calc","args":{"expression":"'Score: ' + ((a == 'sun' ? 1 : 0) + (b == 'co2' ? 1 : 0) + (c == 'sugar-oxygen' ? 1 : 0)) + ' of 3'","a":{"@path":"/q1"},"b":{"@path":"/q2"},"c":{"@path":"/q3"}}}}]}}
+```
+
+**One sentence to remember for school:** plants use the energy of sunlight to turn water and carbon dioxide into sugar for food, and they give off oxygen for us to breathe.

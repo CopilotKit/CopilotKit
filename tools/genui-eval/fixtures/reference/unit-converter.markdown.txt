@@ -1,0 +1,33 @@
+**20 °C is 68 °F**, a pleasant room temperature or a mild spring day.
+
+### How to convert it yourself
+
+Multiply the Celsius value by 1.8 (that's 9/5), then add 32:
+
+**°F = °C × 1.8 + 32**
+
+For 20 °C: 20 × 1.8 = 36, and 36 + 32 = **68 °F**.
+
+**Quick mental version:** double the number, knock off a tenth, then add 32. For 20: double it to 40, minus 4 is 36, plus 32 is 68. If you only need a rough idea, "double it and add 30" gets you to 70 °F, close enough for deciding on a jacket.
+
+Try any other temperature here:
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"c-to-f","dataModel":{"c":20},"components":[{"id":"root","component":"Card","children":["title","caption","slider","divider","result","feel","steps"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"c-to-f","components":[{"id":"title","component":"Title","text":"Celsius to Fahrenheit"},{"id":"caption","component":"Caption","text":"Drag the slider and the Fahrenheit value follows"},{"id":"slider","component":"Slider","label":"Temperature","min":-30,"max":45,"step":1,"unit":" °C","value":{"@path":"/c"},"marks":[{"value":-30,"label":"−30"},{"value":0,"label":"0"},{"value":20,"label":"20"},{"value":45,"label":"45"}]},{"id":"divider","component":"Divider"},{"id":"result","component":"Title","size":"2xl","accessibility":{"label":"Fahrenheit","live":"polite"},"text":{"@call":"formatString","args":{"value":"${/c} °C = ${calc(expression: 'round(c * 1.8 + 32, 1)', c: /c)} °F"}}},{"id":"feel","component":"Text","color":"secondary","text":{"@call":"calc","args":{"expression":"c < 0 ? 'Below freezing: ice and frost' : c < 10 ? 'Cold: coat weather' : c < 16 ? 'Cool: bring a jacket' : c < 24 ? 'Mild and comfortable' : c < 30 ? 'Warm: T-shirt weather' : c < 37 ? 'Hot' : 'Very hot: above body temperature'","c":{"@path":"/c"}}}},{"id":"steps","component":"Row","gap":2,"align":"center","wrap":"wrap","padding":3,"radius":"lg","background":"surface-secondary","children":["steps-label","steps-math"]},{"id":"steps-label","component":"Caption","text":"Worked out:"},{"id":"steps-math","component":"Text","fontWeight":"medium","tabularNums":true,"text":{"@call":"formatString","args":{"value":"${/c} × 1.8 = ${calc(expression: 'round(c * 1.8, 1)', c: /c)}, then + 32 = ${calc(expression: 'round(c * 1.8 + 32, 1)', c: /c)} °F"}}}]}}
+```
+
+### Handy reference points
+
+| °C | °F | What it feels like |
+|---|---|---|
+| −40 | −40 | The one point where both scales agree |
+| 0 | 32 | Water freezes |
+| 10 | 50 | Cool autumn day |
+| 20 | 68 | Room temperature |
+| 25 | 77 | Warm summer day |
+| 30 | 86 | Hot |
+| 37 | 98.6 | Normal body temperature |
+| 100 | 212 | Water boils at sea level |
+
+**Going the other way:** subtract 32, then divide by 1.8. So 68 °F − 32 = 36, and 36 ÷ 1.8 = 20 °C.

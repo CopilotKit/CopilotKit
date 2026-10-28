@@ -13,6 +13,7 @@ import {
 } from "./cost";
 import { catalogFor, renderedPrompts, runSample } from "./harness";
 import { JUDGE_PASS, judgeSample } from "./judge";
+import { referenceOutput } from "./reference";
 import { createLanguageModel, requireKey } from "./models";
 import type { CallMeta } from "./models";
 import { RenderChecker } from "./render-check";
@@ -299,7 +300,13 @@ async function runTask(
     out.parseErrors.push(`render check failed: ${(error as Error).message}`);
   }
   const code = scoreCode(task.case, out, checks);
-  const verdict = await judgeSample(ctx.judgeModel, task.case, out, checks);
+  const verdict = await judgeSample(
+    ctx.judgeModel,
+    task.case,
+    out,
+    checks,
+    await referenceOutput(task.case),
+  );
   const judgeScore = verdict.judgement.score;
   const qualityScore = verdict.quality.score;
   const judgementReasons = [...code.judgement.reasons];

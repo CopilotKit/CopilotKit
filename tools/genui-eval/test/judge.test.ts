@@ -99,6 +99,17 @@ describe("judge", () => {
     expect(prompt).not.toContain("(context cut)");
   });
 
+  it("shows the judge the case's reference answer as the bar", async () => {
+    const { referenceOutput } = await import("../src/reference");
+    const reference = await referenceOutput(c);
+    expect(reference?.surfaces.length).toBeGreaterThan(0);
+    const prompt = judgePrompt(c, out, [], reference);
+    expect(prompt).toContain("Reference answer (one great answer");
+    expect(prompt).toContain("Reference surfaces:");
+    expect(prompt).toContain("Café Diglas");
+    expect(judgePrompt(c, out)).not.toContain("Reference answer");
+  });
+
   it("outlines the final UI: the last version of a component, no deleted surface", async () => {
     const { outlineSurfaces } = await import("../src/judge");
     const surface = (id: string, ops: unknown[]) => ({

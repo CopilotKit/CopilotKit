@@ -4,12 +4,12 @@ import { isFakeModel } from "./models";
 /** Tokens a reply is expected to take, for the estimate. */
 export const EXPECTED_OUTPUT_TOKENS = 900;
 /** Tokens a judge call takes in and out, for the estimate. */
-export const EXPECTED_JUDGE_TOKENS = { input: 2500, output: 120 };
+export const EXPECTED_JUDGE_TOKENS = { input: 5000, output: 600 };
 
 /** The most a reply may take: every model call is capped, so a sample's worst case is known. */
 export const MAX_OUTPUT_TOKENS = 8000;
 /** The most a judge reply may take, and the most its prompt may be in bytes (the prompt is cut to fit). */
-export const MAX_JUDGE_TOKENS = { input: 18000, output: 2000 };
+export const MAX_JUDGE_TOKENS = { input: 40000, output: 2000 };
 /** Attempts of the judge per sample (one retry). */
 export const JUDGE_ATTEMPTS = 2;
 /**

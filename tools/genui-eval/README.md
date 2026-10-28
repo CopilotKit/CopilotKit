@@ -30,7 +30,7 @@ pnpm -s --filter genui-eval eval run --preset full --budget 40     # all five mo
 | validity  | Does it parse, follow A2UI 1.0, and render from a root?           | code         |
 | fidelity  | No rejected operation, no invalid props, the expected components? | code         |
 | judgement | UI exactly where it helps, no surface that only holds text?       | code + judge |
-| quality   | Does the UI fit the request?                                      | judge        |
+| quality   | How good is the UI, measured against the case's reference answer? | judge        |
 
 Each tier is reported on its own, with a 95% Wilson interval. Every case runs `samples` times per model and transport, because models are not deterministic.
 
@@ -76,6 +76,7 @@ A candidate is accepted only if no model gets worse at validity on the held-out 
 - `eval.config.ts`: models, presets, judge, reflection model, prices, budget.
 - `cases/train.jsonl`: training cases. `cases/heldout.jsonl`: the held-out exam, never used to change the prompt. A case can carry `context`: what the app or its tools would hand the agent (places, a forecast, the product's plans), sent as agent context entries and shown to the judge. Facts the model cannot know from the request belong there, and a case expects a component like `Image` only when its context provides what it needs. An expected entry can require a prop (`EntityCard.image`) or allow alternatives (`Image|EntityCard.image`: a photo either way).
 - `fixtures/offline/`: replies of the offline fake model.
+- `fixtures/reference/`: one great answer per case (`<id>.markdown.txt`, and the same operations as a tool call in `<id>.tool.txt`). The judge gets it as the bar for quality. `eval run --config reference.config.ts --preset reference` checks that every reference passes the code tiers.
 - `results/` (git-ignored): `run.json` and `samples.jsonl` per run. Query them with DuckDB if the CLI does not answer a question:
 
   ```sql

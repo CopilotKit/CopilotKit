@@ -35,9 +35,12 @@ judgement: was UI used exactly where it helps?
 - 1: UI where it conveys the answer better than prose (to illustrate, compare, explore, or collect input), prose alone for a quick fact, a short answer, or conversation.
 - 0: UI for something prose says better, UI only as decoration, a surface that only holds text, or no UI where the user clearly needed it.
 
-quality: is the reply good for the request?
-- 1: the UI fits the request, is complete, sensibly laid out, and the prose around it is short and useful.
-- 0: the UI misses what was asked, is confusing, or the reply is wrong.
+quality: how good is the reply as a generative UI answer?
+When a reference answer is given, it is one great answer to this request: the reply does not have to look like it, but it is measured against its bar.
+- 1: as good as the reference or better. The UI makes the answer clearer or lets the user explore it: interactive where they would want to try values, visual where it explains, structured where it compares or collects input. It is complete, correct and well laid out, and the prose around it is short.
+- 0.5: correct but clearly weaker than the reference: plainer UI, missing interactivity, or missing parts the reference shows are useful.
+- 0: wrong, broken or confusing, or prose alone where the reference shows that UI helps.
+- When the reference is prose alone (a quick fact, a greeting), grade the prose: correct, direct and the right length.
 - When app context is given, a good reply uses its data where it helps and does not contradict it or invent other facts in its place.
 
 Reply with JSON only: {"judgement":{"score":<0..1>,"reason":"<one line>"},"quality":{"score":<0..1>,"reason":"<one line>"}}`;
@@ -105,6 +108,7 @@ export function judgePrompt(
   c: EvalCase,
   out: SampleOutput,
   checks: ReadonlyArray<{ surfaceId: string; reachable?: string[] }> = [],
+  reference?: SampleOutput,
 ) {
   const limit =
     MAX_JUDGE_TOKENS.input - Buffer.byteLength(JUDGE_RUBRIC, "utf8") - 200;
@@ -128,12 +132,25 @@ export function judgePrompt(
     contextRoom < Buffer.byteLength(context, "utf8")
       ? `${cutToBytes(context, contextRoom - 20)} … (context cut)`
       : context;
-  const rest = limit - contextRoom;
+  // The reference gets the room it needs, up to a third.
+  const referenceText = reference
+    ? `Reference answer (one great answer; the reply need not look like it):\n${reference.visibleText.trim() || "(no prose)"}${
+        reference.surfaces.length > 0
+          ? `\nReference surfaces:\n${outlineSurfaces(reference, limit)}`
+          : ""
+      }`
+    : "";
+  const referenceRoom = Math.min(
+    Buffer.byteLength(referenceText, "utf8"),
+    Math.floor(limit / 3),
+  );
+  const rest = limit - contextRoom - referenceRoom;
   const text = [
     `User request: ${cutToBytes(c.message, Math.floor(rest / 6))}`,
     ...(context ? [contextText] : []),
     `Reply prose:\n${cutToBytes(prose, Math.floor(rest / 3)) || "(none)"}`,
     `Surfaces:\n${out.surfaces.length > 0 ? cutToBytes(outlineSurfaces(out, limit, reachable), Math.floor(rest / 2)) : "(none)"}`,
+    ...(referenceText ? [cutToBytes(referenceText, referenceRoom)] : []),
   ].join("\n\n");
   return cutToBytes(text, limit);
 }
@@ -160,8 +177,9 @@ export async function judgeSample(
   c: EvalCase,
   out: SampleOutput,
   checks: ReadonlyArray<{ surfaceId: string; reachable?: string[] }> = [],
+  reference?: SampleOutput,
 ): Promise<JudgeResult & { costTokens: { input: number; output: number } }> {
-  const prompt = judgePrompt(c, out, checks);
+  const prompt = judgePrompt(c, out, checks, reference);
   let input = 0;
   let output = 0;
   for (let attempt = 0; attempt < 2; attempt++) {

@@ -1,0 +1,32 @@
+**For most students, get the MacBook Air.** It's light, completely silent and easily lasts a full day of lectures. Pick the **Framework 13** if you study computer science or engineering, want Linux, or want a laptop you can upgrade and repair for years. The **XPS 13** is the one to get if you need Windows on a tight budget.
+
+One thing to know first: Apple replaced the M4 Air with the M5 in March 2026, and the XPS 13 you can buy today is Dell's cheaper 2026 redesign, so check what's actually on the shelf.
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"laptop-picks","dataModel":{},"components":[{"id":"root","component":"Grid","columns":3,"minChildWidth":"200px","gap":3,"children":["mba","fw","xps"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"laptop-picks","components":[{"id":"mba","component":"EntityCard","title":"MacBook Air 13 (M4)","badge":{"label":"Best for most students","color":"success"},"meta":"1.24 kg · up to 18 h video","description":"macOS. Silent, superb battery and trackpad. Nothing can be upgraded later.","href":"https://support.apple.com/en-us/122209"},{"id":"fw","component":"EntityCard","title":"Framework Laptop 13","badge":{"label":"Best for CS and tinkerers","color":"info"},"meta":"1.3 kg · upgradeable RAM and SSD","description":"Windows or Linux. Swap or repair any part, pick your ports. Weaker battery.","href":"https://frame.work/laptop13"},{"id":"xps","component":"EntityCard","title":"Dell XPS 13 (2026)","badge":{"label":"Best budget Windows","color":"secondary"},"meta":"1.0 kg · from $699","description":"Windows 11. Very light, 120 Hz touchscreen. Modest chip, only two ports.","href":"https://www.notebookcheck.net/Dell-XPS-13-2026-DX13260-Reviews-and-Specs.1334015.0.html"}]}}
+```
+
+### Side by side
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"laptop-table","dataModel":{},"components":[{"id":"root","component":"Column","children":["specs"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"laptop-table","components":[{"id":"specs","component":"Table","caption":"MacBook Air M4, Framework Laptop 13 and Dell XPS 13 (2026) compared","columns":["","MacBook Air M4","Framework 13","Dell XPS 13 (2026)"],"rows":[["Processor","Apple M4, 10-core","AMD Ryzen AI 5 340 to AI 9 HX 370","Intel Core 5 320, 6-core"],["Memory","16 GB (up to 32 GB), soldered","Up to 96 GB DDR5, upgradeable","16 GB, soldered"],["Screen","13.6\" 2560×1664, 60 Hz","13.5\" 3:2, 2256×1504 or 2880×1920 at 120 Hz","13.4\" 2560×1440 touch, 120 Hz"],["Weight","1.24 kg","1.3 kg","1.0 kg"],["Battery","53.8 Wh, up to 18 h video (Apple)","61 Wh","52 Wh"],["Ports","2× Thunderbolt 4, MagSafe, headphone jack","4 swappable cards (USB-C, USB-A, HDMI…), headphone jack","2× USB-C"],["Repair & upgrades","None","Almost every part","SSD only"],["Starting price (US)","$999 at launch; now replaced by the M5 at $1,099","$849 DIY, $1,049 pre-built","$699 ($599 for students)"]],"stickyHeader":true}]}}
+```
+
+### What I'd buy
+
+- **General studies:** MacBook Air with 16 GB and 512 GB. If you find the M4 discounted, it's a great deal; the M5 is the same laptop with a faster chip and 512 GB as standard.
+- **Computer science, engineering, Linux:** Framework 13 with a Ryzen AI 7 350 and 32 GB. Lots of memory helps with virtual machines, Docker and big IDEs, and you can add more later.
+- **Windows on a budget:** XPS 13 (2026). Check with your faculty first that its chip handles the software you need, like CAD tools, because it's the slowest of the three.
+
+Before you buy, check whether your course requires Windows-only software (some engineering and CAD programs do), and look at your university's student discounts: Apple, Dell and many campus shops offer them.
+
+Sources: [Apple MacBook Air M4 specs](https://support.apple.com/en-us/122209), [Framework Laptop 13 specs](https://frame.work/laptop13), [Notebookcheck on the XPS 13 (2026)](https://www.notebookcheck.net/Dell-XPS-13-2026-DX13260-Reviews-and-Specs.1334015.0.html). Prices are US list prices and have moved a lot with the 2026 memory shortage; check local prices in euros.
+
+Two answers would sharpen my recommendation:
+
+```a2ui
+{"version":"v1.0","createSurface":{"surfaceId":"laptop-questions","dataModel":{"field":"","budget":""},"components":[{"id":"root","component":"Column","gap":4,"children":["field","budget","go"]}]}}
+{"version":"v1.0","updateComponents":{"surfaceId":"laptop-questions","components":[{"id":"field","component":"RadioGroup","label":"What are you studying?","variant":"pills","options":[{"value":"cs","label":"Computer science"},{"value":"engineering","label":"Engineering"},{"value":"business","label":"Business or economics"},{"value":"humanities","label":"Humanities or social sciences"},{"value":"design","label":"Design or media"}],"value":{"@path":"/field"}},{"id":"budget","component":"SegmentedControl","label":"Your budget","value":{"@path":"/budget"},"options":[{"value":"low","label":"Under €900"},{"value":"mid","label":"€900–1,300"},{"value":"high","label":"Over €1,300"}]},{"id":"go","component":"Button","label":"Get my recommendation","variant":"primary","checks":[{"condition":{"@call":"required","args":{"value":{"@path":"/field"}}},"message":"Pick what you study"},{"condition":{"@call":"required","args":{"value":{"@path":"/budget"}}},"message":"Pick a budget"}],"onClick":{"event":{"name":"recommend_laptop","userMessage":"Which laptop fits my studies and budget?","context":{"field":{"@path":"/field"},"budget":{"@path":"/budget"}}}}}]}}
+```
