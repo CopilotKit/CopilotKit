@@ -1033,7 +1033,7 @@ export class RunHandler {
           }
           const executionKey = JSON.stringify([threadId, toolCall.id]);
           if (
-            signal?.aborted ||
+            (signal?.aborted && toolExecutionMode === "restore") ||
             agent.threadId !== threadId ||
             (toolExecutionMode === "restore" &&
               !this.isInLatestUserTurn(agent.messages, message.id)) ||
@@ -1049,27 +1049,102 @@ export class RunHandler {
           // earlier handler awaited input; never replace it with stale replay.
           let existingResult =
             agent.messages.find(
+              (m) =>
+                m.role === "tool" &&
+                m.toolCallId === toolCall.id &&
+                !this.isFrontendPlaceholderResult(m),
+            ) ??
+            newMessages.find(
+              (m) =>
+                m.role === "tool" &&
+                m.toolCallId === toolCall.id &&
+                !this.isFrontendPlaceholderResult(m),
+            ) ??
+            agent.messages.find(
               (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            ) ?? newMessages[existingResultIndex];
+            ) ??
+            newMessages[existingResultIndex];
+
+          const isPlaceholder =
+            existingResult && this.isFrontendPlaceholderResult(existingResult);
 
           if (
-            existingResult &&
-            this.isFrontendPlaceholderResult(existingResult) &&
-            (toolExecutionMode === "restore" || executableTool?.handler)
+            isPlaceholder &&
+            (signal?.aborted ||
+              toolExecutionMode === "restore" ||
+              executableTool?.handler)
           ) {
-            if (existingResultIndex !== -1)
-              newMessages.splice(existingResultIndex, 1);
+            for (let i = newMessages.length - 1; i >= 0; i--) {
+              const m = newMessages[i];
+              if (
+                m?.role === "tool" &&
+                m.toolCallId === toolCall.id &&
+                this.isFrontendPlaceholderResult(m)
+              ) {
+                newMessages.splice(i, 1);
+              }
+            }
+            for (let i = agent.messages.length - 1; i >= 0; i--) {
+              const m = agent.messages[i];
+              if (
+                m?.role === "tool" &&
+                m.toolCallId === toolCall.id &&
+                this.isFrontendPlaceholderResult(m)
+              ) {
+                agent.messages.splice(i, 1);
+              }
+            }
             existingResult = undefined;
-
-            const agentMsgIdx = agent.messages.findIndex(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            );
-            if (agentMsgIdx !== -1) {
-              agent.messages.splice(agentMsgIdx, 1);
+          } else if (existingResult && !isPlaceholder) {
+            for (let i = newMessages.length - 1; i >= 0; i--) {
+              const m = newMessages[i];
+              if (
+                m?.role === "tool" &&
+                m.toolCallId === toolCall.id &&
+                this.isFrontendPlaceholderResult(m)
+              ) {
+                newMessages.splice(i, 1);
+              }
+            }
+            for (let i = agent.messages.length - 1; i >= 0; i--) {
+              const m = agent.messages[i];
+              if (
+                m?.role === "tool" &&
+                m.toolCallId === toolCall.id &&
+                this.isFrontendPlaceholderResult(m)
+              ) {
+                agent.messages.splice(i, 1);
+              }
             }
           }
 
           if (!existingResult) {
+            if (signal?.aborted) {
+              let messageIndex = agent.messages.findIndex(
+                (m) => m.id === message.id,
+              );
+              if (messageIndex === -1) {
+                agent.messages.push(message);
+                messageIndex = agent.messages.length - 1;
+              }
+              const insertAt = this.toolResultInsertionIndex(
+                agent.messages,
+                messageIndex,
+                toolCall.id,
+              );
+              const toolMessage: Message = {
+                id: randomUUID(),
+                role: "tool",
+                toolCallId: toolCall.id,
+                content: JSON.stringify({
+                  status: "stopped",
+                  reason: "stop_requested",
+                  message: "Run stopped by user",
+                }),
+              };
+              agent.messages.splice(insertAt, 0, toolMessage);
+              continue;
+            }
             executing.add(executionKey);
             // Live HITL handlers need the same thread-switch cancellation as
             // restored ones, so returning to this thread can open a fresh UI.
