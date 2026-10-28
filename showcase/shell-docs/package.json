@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@bprogress/next": "^3.2.12",
     "@clerk/nextjs": "^7.6.2",
     "@radix-ui/react-popover": "^1.1.15",
     "class-variance-authority": "^0.7.1",
