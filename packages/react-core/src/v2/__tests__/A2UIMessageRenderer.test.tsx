@@ -986,7 +986,9 @@ describe("surface model continuity", () => {
         agent={agent}
       />,
     );
-    const field = await view.findByLabelText("Name");
+    // Wait for the paint handoff: label queries also match the offscreen
+    // aria-hidden surface before its requestAnimationFrame makes it visible.
+    const field = await view.findByRole("textbox", { name: "Name" });
     fireEvent.change(field, { target: { value: "Bob" } });
     expect(view.getByRole("textbox")).toHaveProperty("value", "Bob");
     await act(async () => {
