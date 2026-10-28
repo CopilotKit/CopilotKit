@@ -15,10 +15,10 @@ const bytes = await readFile(
   "tools/railway-runner-deploy/releases/browser-upgrade.json",
 );
 const intent = JSON.parse(bytes);
-assert.equal(intent.sourceRevision, "b6f89b83d4b6dd4efd2a1bc04f999cf38ff7233b");
+assert.equal(intent.sourceRevision, "db74e5ea90b6f44323bce30011a234776f733116");
 assert.equal(
   intent.baseline.runtimeIdentity.sourceRevision,
-  "855fb75ec8fd5bfbd0102ffe83765fe03a3953fb",
+  "b6f89b83d4b6dd4efd2a1bc04f999cf38ff7233b",
 );
 const github = createGithub({ token: env.GITHUB_TOKEN });
 async function verifyProvenance() {
@@ -59,8 +59,6 @@ async function verifyProvenance() {
   assert.deepEqual(changed, [
     "tools/intelligence-smoke/rich-threads/browser/session.mjs",
     "tools/intelligence-smoke/rich-threads/driver.integration.mjs",
-    "tools/intelligence-smoke/rich-threads/lifecycle/railway/recovery.test.mjs",
-    "tools/intelligence-smoke/rich-threads/lifecycle/railway/runner/deployment.mjs",
   ]);
 }
 if (process.argv.includes("--validate")) {
@@ -98,7 +96,7 @@ if (process.argv.includes("--validate")) {
   const railway = createRailway({ token: env.RAILWAY_TOKEN, deadline });
   let removalSent = false;
   railway.removeDeployment = async (id) => {
-    assert.equal(id, "27f7ec23-6b79-429f-9574-90da478b3985");
+    assert.equal(id, "fe7e30b4-213a-403c-994b-40c1066274ce");
     assert.equal(id, intent.removalBaseline.deploymentId);
     assert.equal(removalSent, false);
     const old = await railway.readDeploymentStatus(id);
