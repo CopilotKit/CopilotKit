@@ -12,23 +12,35 @@ no changelog before that.
 
 ## 0.12.0 - 2026-10-28
 
+### Security
+
+- Includes security fixes for Teams and other Channels integrations.
+
+We recommend upgrading the supported `@copilotkit/channels*` packages used by
+your application to `0.12.0`, including `@copilotkit/channels` and
+`@copilotkit/channels-teams` where installed. If you use Telegram, review the
+migration guidance below before upgrading.
+
 ### Features
 
-- feat(channels): add managed Slack and Teams JSX images (#6146) (6e4cb6a)
+- Render static JSX as images in managed Slack and Teams messages. (#6146)
+- Combine rendered cards with native buttons and carousel layouts. (#6146)
 
 ### Fixes
 
-- fix(channels): make JSX image rendering opt-in so Takumi stays out of app bundles (#7874) (aaca4e3)
+- Keep Takumi out of native-only app bundles to avoid Next.js build failures. (#7874)
 
-### Other Changes
-
-- Merge commit from fork (4693af4)
-- Merge commit from fork (3521bb0)
-- refactor(channels)!: retire the Telegram adapter (#7928) (de4998c)
+Image rendering is opt-in: import `takumiRenderer` from
+`@copilotkit/channels/takumi` and configure
+`render: { renderer: takumiRenderer }` when creating your channel.
 
 ### Breaking Changes
 
-- refactor(channels)!: retire the Telegram adapter (#7928) (de4998c)
+- Remove the built-in Telegram adapter and umbrella export. (#7928)
+
+`@copilotkit/channels-telegram` and `@copilotkit/channels/telegram` are no longer
+included. Applications using either must migrate to a custom adapter or another
+supported channel before upgrading.
 
 ## 0.11.1 - 2026-10-16
 
