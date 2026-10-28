@@ -68,7 +68,7 @@ export type InterruptRunner = (
 
 /** Error surfaced when an application attempts to resume an expired interrupt. */
 export class InterruptExpiredError extends Error {
-  /** function Object() { [native code] } */
+  /** Describe the interrupt whose expiry prevents resolution. */
   constructor(readonly interrupt: Interrupt) {
     super(
       `Interrupt ${interrupt.id} expired at ${interrupt.expiresAt ?? "an unknown time"}.`,
@@ -151,7 +151,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     };
   });
 
-  /** function Object() { [native code] } */
+  /** Configure the runner and optional interrupt filtering and preprocessing. */
   constructor(
     runner: InterruptRunner,
     options: InjectInterruptOptions<TValue, TResult> = {},
