@@ -2,10 +2,8 @@
 
 <br />
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/logo-dark.svg">
-  <img alt="CopilotKit" src="assets/readme/logo-light.svg" width="400">
-</picture>
+<img alt="CopilotKit" src="assets/readme/logo-light.svg#gh-light-mode-only" width="400">
+<img alt="CopilotKit" src="assets/readme/logo-dark.svg#gh-dark-mode-only" width="400">
 
 <br />
 
@@ -141,10 +139,8 @@ https://github.com/user-attachments/assets/7372b27b-8def-40fb-a11d-1f6585f556ad
 
 ## How it works
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/architecture-dark.svg">
-  <img alt="Your users on React, Angular, Vue, React Native, Slack and Teams connect through CopilotKit's frontend SDKs and Copilot Runtime, over AG-UI, to your agents on LangGraph, CrewAI, Mastra, Google ADK, PydanticAI and more. CopilotKit Intelligence sits underneath for production." src="assets/readme/architecture-light.svg" width="880">
-</picture>
+<img alt="Your users on React, Angular, Vue, React Native, Slack and Teams connect through CopilotKit's frontend SDKs and Copilot Runtime, over AG-UI, to your agents on LangGraph, CrewAI, Mastra, Google ADK, PydanticAI and more. CopilotKit Intelligence sits underneath for production." src="assets/readme/architecture-light.svg#gh-light-mode-only" width="880">
+<img alt="Your users on React, Angular, Vue, React Native, Slack and Teams connect through CopilotKit's frontend SDKs and Copilot Runtime, over AG-UI, to your agents on LangGraph, CrewAI, Mastra, Google ADK, PydanticAI and more. CopilotKit Intelligence sits underneath for production." src="assets/readme/architecture-dark.svg#gh-dark-mode-only" width="880">
 
 Your agent handles reasoning and execution. CopilotKit turns its work into a product experience. Events stream over **AG-UI**, so the agent can show its work as it happens, read what the user is looking at, call tools that render UI, and pause for a person to approve the next step. Your agent logic stays the same on every surface.
 
@@ -215,10 +211,8 @@ One agent backend. Every frontend.
 
 ## CopilotKit Intelligence
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/learning-loop-dark.svg">
-  <img alt="The Continual Learning loop: users and agents work together, full-stack trajectories are captured over AG-UI, they become evidence-backed insights, you review and publish Skills, and Skill delivery brings them to the agent on the next task." src="assets/readme/learning-loop-light.svg" width="880">
-</picture>
+<img alt="The Continual Learning loop: users and agents work together, full-stack trajectories are captured over AG-UI, they become evidence-backed insights, you review and publish Skills, and Skill delivery brings them to the agent on the next task." src="assets/readme/learning-loop-light.svg#gh-light-mode-only" width="880">
+<img alt="The Continual Learning loop: users and agents work together, full-stack trajectories are captured over AG-UI, they become evidence-backed insights, you review and publish Skills, and Skill delivery brings them to the agent on the next task." src="assets/readme/learning-loop-dark.svg#gh-dark-mode-only" width="880">
 
 Most agents plateau at launch quality. **CopilotKit Intelligence** is the production layer that keeps yours improving. It works with the CopilotKit app and agent framework you already run, cloud-hosted or self-hosted on your own infrastructure.
 
@@ -233,10 +227,8 @@ The Developer plan is free. 👉 **[Connect Intelligence in 5 minutes →](https
 
 ## AI coworkers, built on CopilotKit
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/stack-dark.svg">
-  <img alt="The agentic product stack, bottom to top: the AG-UI protocol, the open-source CopilotKit SDKs, CopilotKit Intelligence, and on top OpenBot (MIT) and CopilotKit Soar (commercial)." src="assets/readme/stack-light.svg" width="880">
-</picture>
+<img alt="The agentic product stack, bottom to top: the AG-UI protocol, the open-source CopilotKit SDKs, CopilotKit Intelligence, and on top OpenBot (MIT) and CopilotKit Soar (commercial)." src="assets/readme/stack-light.svg#gh-light-mode-only" width="880">
+<img alt="The agentic product stack, bottom to top: the AG-UI protocol, the open-source CopilotKit SDKs, CopilotKit Intelligence, and on top OpenBot (MIT) and CopilotKit Soar (commercial)." src="assets/readme/stack-dark.svg#gh-dark-mode-only" width="880">
 
 We build real products on this stack, and open-source them.
 
