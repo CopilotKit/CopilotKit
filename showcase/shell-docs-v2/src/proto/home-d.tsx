@@ -57,13 +57,13 @@ export function DHome() {
             className="flex flex-wrap items-center gap-x-5 gap-y-3"
             data-docs-copy-surface="docs_landing_hero"
           >
+            <CopyPromptD />
             <a
               href="#start-building"
               className={`inline-flex min-h-11 items-center text-sm font-medium ${textLink}`}
             >
               Go to the quickstart ↓
             </a>
-            <CopyPromptD />
           </div>
         </div>
         <div className="flex min-w-0 flex-col gap-3">
