@@ -6,21 +6,27 @@ after this release is reviewed and merged. Scheduling stays off.
 
 ## Change and evidence
 
-Source `db74e5ea90b6f44323bce30011a234776f733116` fixes a cold-browser race:
+Source `6903d804df6857e7e92fd4547a2de573236350b3` fixes a cold-browser race:
 the server-rendered textarea becomes visible before React hydration and runtime
 discovery. The previous driver filled that textarea and pressed Enter immediately.
 Hydration could clear the input without any agent request. The driver now prepares
 the input until the real send control becomes enabled, clicks once, and retains
 the existing captured-terminal-run requirement. It never retries submission.
+All composer actions share one 90-second deadline and forward cancellation to
+Playwright. Request admission checks cancellation before and after the awaited
+pre-request hook, so cancelling a held hook cannot forward a late POST.
 
 The exact public `@copilotkit/react-core@1.77.0` UI reproduced the empty composer
 and absent POST with delayed hydration; the fixed driver produced one POST and
 captured its thread and terminal event. Both framework browser regressions fail
 with the previous driver and pass with this change. The source passed 142 smoke
-tests, five browser tests, and independent review. These local checks do not prove
+tests, twelve browser tests, and independent review. Seven new browser regressions
+cover blocked fill, missing send controls, covered buttons, deadline expiry, caller
+cancellation, and a held pre-request hook; unblocking after rejection produces no
+late POST. These local checks do not prove
 live model output or Intelligence persistence.
 
-Build [40670386191](https://github.com/CopilotKit/CopilotKit/actions/runs/40670386191)
+Build [40726621354](https://github.com/CopilotKit/CopilotKit/actions/runs/40726621354)
 provides the immutable candidate record. Provenance must verify that its packaged
 source differs from baseline only in `browser/session.mjs` and
 `driver.integration.mjs`. Application, native backend and inspector images,
