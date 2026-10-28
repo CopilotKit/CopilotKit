@@ -151,7 +151,13 @@ export function configureAgentForRequest(params: {
     );
     if (mcpServers.length > 0 || isMcpProxyRequest) {
       agent.use(
-        new MCPAppsMiddleware({ mcpServers, discoveryFailureMode: "throw" }),
+        new MCPAppsMiddleware({
+          mcpServers,
+          discoveryFailureMode: "throw",
+          continuationInput: runtime.nativeHistoryAgents?.includes(agentId)
+            ? "tool-results"
+            : "full-history",
+        }),
       );
     }
   } else if (runtime.mcpApps?.servers?.length) {
