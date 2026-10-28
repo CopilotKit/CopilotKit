@@ -181,6 +181,8 @@ export function useInterrupt<
     useState<InterruptResult<any, TResult>>(null);
 
   const interruptStateRef = useRef(new ɵInterruptState());
+  // The state object is reused, so identify ownership by batch generation instead.
+  const interruptGenerationRef = useRef(0);
 
   useEffect(() => {
     const interruptState = interruptStateRef.current;
@@ -207,9 +209,11 @@ export function useInterrupt<
       onRunFinalized: () => {
         // Standard wins if both somehow appear for one run.
         if (localStandard && localStandard.length > 0) {
+          interruptGenerationRef.current += 1;
           interruptState.setStandard(localStandard);
           setPending(interruptState.pending);
         } else if (localLegacy) {
+          interruptGenerationRef.current += 1;
           interruptState.setLegacy(localLegacy);
           setPending(interruptState.pending);
         }
@@ -234,6 +238,7 @@ export function useInterrupt<
     async (payload, interruptId) => {
       const current = pendingRef.current;
       if (!current) return;
+      const generation = interruptGenerationRef.current;
 
       if (
         current.kind === "standard" &&
@@ -258,10 +263,13 @@ export function useInterrupt<
           });
         } catch (err) {
           console.error(
-            "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
+            "[CopilotKit] useInterrupt resolve: runAgent rejected",
             err,
           );
-          setPending(null);
+          if (interruptGenerationRef.current === generation) {
+            interruptStateRef.current.clear();
+            setPending(null);
+          }
           throw err;
         }
       }
@@ -289,11 +297,13 @@ export function useInterrupt<
         });
       } catch (err) {
         console.error(
-          "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
+          "[CopilotKit] useInterrupt resolve: runAgent rejected",
           err,
         );
-        interruptStateRef.current.clear();
-        setPending(null);
+        if (interruptGenerationRef.current === generation) {
+          interruptStateRef.current.clear();
+          setPending(null);
+        }
         throw err;
       }
     },
@@ -304,6 +314,7 @@ export function useInterrupt<
     async (interruptId) => {
       const current = pendingRef.current;
       if (!current) return;
+      const generation = interruptGenerationRef.current;
 
       if (
         current.kind === "standard" &&
@@ -348,11 +359,13 @@ export function useInterrupt<
         });
       } catch (err) {
         console.error(
-          "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
+          "[CopilotKit] useInterrupt cancel: runAgent rejected",
           err,
         );
-        interruptStateRef.current.clear();
-        setPending(null);
+        if (interruptGenerationRef.current === generation) {
+          interruptStateRef.current.clear();
+          setPending(null);
+        }
         throw err;
       }
     },

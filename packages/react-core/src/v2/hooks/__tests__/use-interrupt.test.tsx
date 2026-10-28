@@ -2,6 +2,7 @@ import React from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useInterrupt } from "../use-interrupt";
+import type { InterruptRenderProps } from "../use-interrupt";
 import { useCopilotKit } from "../../context";
 import { useAgent } from "../use-agent";
 import { AbstractAgent, EventType } from "@ag-ui/client";
@@ -912,6 +913,221 @@ describe("useInterrupt", () => {
     // Popup MUST be unmounted — pendingEvent cleared by the catch.
     expect(screen.queryByTestId("interrupt")).toBeNull();
 
+    errorSpy.mockRestore();
+  });
+
+  describe.each([
+    { name: "standard resolve", kind: "standard", action: "resolve" },
+    { name: "standard cancel", kind: "standard", action: "cancel" },
+    { name: "legacy resolve", kind: "legacy", action: "resolve" },
+  ] as const)("$name rejection ownership", ({ kind, action }) => {
+    beforeEach(() => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      vi.mocked(console.error).mockRestore();
+    });
+
+    function FailureHarness({
+      renderSpy,
+    }: {
+      renderSpy: ReturnType<typeof vi.fn>;
+    }) {
+      return useInterrupt({
+        renderInChat: false,
+        handler: ({ event, interrupt }) =>
+          `prepared:${interrupt?.id ?? event.value}`,
+        render: (props) => {
+          renderSpy(props);
+          return (
+            <div data-testid="owned-interrupt">
+              {props.interrupt?.id ?? String(props.event.value)}:{props.result}
+            </div>
+          );
+        },
+      });
+    }
+
+    function emitBatch(id: string, startRun = true) {
+      act(() => {
+        if (startRun) handlers.onRunStartedEvent?.();
+        if (kind === "standard") {
+          const interrupts: Interrupt[] = [{ id, reason: "confirmation" }];
+          mockAgent.pendingInterrupts = interrupts;
+          handlers.onRunFinishedEvent?.({
+            outcome: "interrupt",
+            interrupts,
+            input: { runId: id },
+          });
+        } else {
+          handlers.onCustomEvent?.({
+            event: { name: "on_interrupt", value: id },
+          });
+        }
+        finalizeRun(id);
+      });
+    }
+
+    it.each([
+      "later run",
+      "reconnect",
+      "agent change",
+      "thread change",
+      "before render",
+    ])(
+      "preserves a newer batch after %s when the old resume rejects",
+      async (transition) => {
+        const rejection = new Error("old resume failed");
+        let rejectRun!: (error: Error) => void;
+        runAgentMock.mockReturnValueOnce(
+          new Promise((_, reject) => {
+            rejectRun = reject;
+          }),
+        );
+        runAgentMock.mockResolvedValue({ newMessages: [] });
+        const renderSpy = vi.fn();
+        const { rerender } = render(<FailureHarness renderSpy={renderSpy} />);
+        emitBatch("old");
+        const oldProps = renderSpy.mock.calls.at(
+          -1,
+        )![0] as InterruptRenderProps;
+        const resumed = oldProps[action]();
+
+        if (transition === "agent change") {
+          mockAgent = { ...mockAgent, id: "new-agent", pendingInterrupts: [] };
+          mockUseAgent.mockReturnValue({ agent: mockAgent });
+          rerender(<FailureHarness renderSpy={renderSpy} />);
+        } else if (transition === "thread change") {
+          mockAgent.threadId = "new-thread";
+        }
+
+        if (transition !== "before render") {
+          emitBatch("new", transition !== "reconnect");
+          expect(screen.getByTestId("owned-interrupt").textContent).toBe(
+            "new:prepared:new",
+          );
+        }
+        await act(async () => {
+          // Deliver and reject in one turn too: the new state need not have rendered yet.
+          if (transition === "before render") emitBatch("new");
+          rejectRun(rejection);
+          await expect(resumed).rejects.toBe(rejection);
+        });
+
+        expect(screen.getByTestId("owned-interrupt").textContent).toBe(
+          "new:prepared:new",
+        );
+        if (kind === "standard") {
+          expect(mockAgent.pendingInterrupts).toEqual([
+            { id: "new", reason: "confirmation" },
+          ]);
+        }
+        const newProps = renderSpy.mock.calls.at(
+          -1,
+        )![0] as InterruptRenderProps;
+        await act(async () => {
+          await newProps.resolve({ approved: true });
+        });
+        expect(runAgentMock).toHaveBeenCalledTimes(2);
+        expect(runAgentMock).toHaveBeenLastCalledWith(
+          kind === "standard"
+            ? {
+                agent: mockAgent,
+                resume: [
+                  {
+                    interruptId: "new",
+                    status: "resolved",
+                    payload: { approved: true },
+                  },
+                ],
+              }
+            : {
+                agent: mockAgent,
+                forwardedProps: {
+                  command: {
+                    resume: { approved: true },
+                    interruptEvent: "new",
+                  },
+                },
+              },
+        );
+      },
+    );
+
+    it.each(["throw", "reject"])(
+      "clears its own batch and rethrows when runAgent fails via %s",
+      async (failure) => {
+        const rejection = new Error("current resume failed");
+        runAgentMock.mockImplementationOnce(() => {
+          if (failure === "throw") throw rejection;
+          return Promise.reject(rejection);
+        });
+        const renderSpy = vi.fn();
+        render(<FailureHarness renderSpy={renderSpy} />);
+        emitBatch("current");
+        const props = renderSpy.mock.calls.at(-1)![0] as InterruptRenderProps;
+
+        await act(async () => {
+          await expect(props[action]()).rejects.toBe(rejection);
+        });
+
+        expect(screen.queryByTestId("owned-interrupt")).toBeNull();
+        expect(console.error).toHaveBeenCalledWith(
+          expect.stringContaining("runAgent rejected"),
+          rejection,
+        );
+        await act(async () => {
+          await props[action]();
+        });
+        expect(runAgentMock).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it("preserves a newer batch delivered before runAgent throws synchronously", async () => {
+      const rejection = new Error("synchronous resume failure");
+      runAgentMock.mockImplementationOnce(() => {
+        emitBatch("new");
+        throw rejection;
+      });
+      const renderSpy = vi.fn();
+      render(<FailureHarness renderSpy={renderSpy} />);
+      emitBatch("old");
+      const props = renderSpy.mock.calls.at(-1)![0] as InterruptRenderProps;
+
+      await act(async () => {
+        await expect(props[action]()).rejects.toBe(rejection);
+      });
+
+      expect(screen.getByTestId("owned-interrupt").textContent).toBe(
+        "new:prepared:new",
+      );
+    });
+  });
+
+  it("ignores a stale legacy preparation rejection after a newer interrupt", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    let rejectPreparation!: (error: Error) => void;
+    const handler = vi
+      .fn()
+      .mockReturnValueOnce(
+        new Promise((_, reject) => {
+          rejectPreparation = reject;
+        }),
+      )
+      .mockReturnValue("prepared:new");
+    render(<Harness renderInChat={false} handler={handler} />);
+    emitInterrupt("old");
+    emitInterrupt("new");
+
+    await act(async () => {
+      rejectPreparation(new Error("old preparation failed"));
+    });
+
+    expect(screen.getByTestId("interrupt").textContent).toBe(
+      "prepared:new:new",
+    );
+    expect(runAgentMock).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });
 
