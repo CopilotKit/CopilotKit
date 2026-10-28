@@ -115,16 +115,23 @@ export function judgePrompt(
   );
   // What the user reads: fences become their lifted prose and surface markers.
   const prose = out.visibleText.trim();
-  // The app context gets a fifth of the room, shared by its entries.
-  const context = caseContext(c);
-  const contextRoom = context.length > 0 ? Math.floor(limit / 5) : 0;
+  // The app context gets the room it needs, up to a third: a judge that sees
+  // only part of it would take the facts it cannot see for invented ones.
+  const context = caseContext(c)
+    .map((entry) => `App context "${entry.description}":\n${entry.value}`)
+    .join("\n\n");
+  const contextRoom = Math.min(
+    Buffer.byteLength(context, "utf8"),
+    Math.floor(limit / 3),
+  );
+  const contextText =
+    contextRoom < Buffer.byteLength(context, "utf8")
+      ? `${cutToBytes(context, contextRoom - 20)} … (context cut)`
+      : context;
   const rest = limit - contextRoom;
   const text = [
     `User request: ${cutToBytes(c.message, Math.floor(rest / 6))}`,
-    ...context.map(
-      (entry) =>
-        `App context "${entry.description}":\n${cutToBytes(entry.value, Math.floor(contextRoom / context.length))}`,
-    ),
+    ...(context ? [contextText] : []),
     `Reply prose:\n${cutToBytes(prose, Math.floor(rest / 3)) || "(none)"}`,
     `Surfaces:\n${out.surfaces.length > 0 ? cutToBytes(outlineSurfaces(out, limit, reachable), Math.floor(rest / 2)) : "(none)"}`,
   ].join("\n\n");

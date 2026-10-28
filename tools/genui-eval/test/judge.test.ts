@@ -87,6 +87,18 @@ describe("judge", () => {
     );
   });
 
+  it("shows the judge the whole context of a real case, not a cut of it", () => {
+    const prompt = judgePrompt(c, out);
+    for (const entry of c.context ?? []) {
+      const value =
+        typeof entry.value === "string"
+          ? entry.value
+          : JSON.stringify(entry.value);
+      expect(prompt).toContain(value);
+    }
+    expect(prompt).not.toContain("(context cut)");
+  });
+
   it("outlines the final UI: the last version of a component, no deleted surface", async () => {
     const { outlineSurfaces } = await import("../src/judge");
     const surface = (id: string, ops: unknown[]) => ({
