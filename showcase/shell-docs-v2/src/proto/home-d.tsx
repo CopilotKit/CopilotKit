@@ -34,8 +34,8 @@ export function DHome() {
             in your app
           </h1>
           <p className="text-lg leading-[1.5] text-muted-foreground">
-            Open-source APIs and components that connect app state, agent
-            actions, and user input.
+            An open-source platform connecting agents, app state, and user
+            input.
           </p>
           <div
             className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3"
