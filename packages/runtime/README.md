@@ -222,6 +222,13 @@ saved importer provenance. The API must support `supportsNativeHistoryDelta: 1`
 and return `inputPolicy: "native-history-delta-v1"`. Deploy that API before
 allowing imported continuation; it rejects runtimes missing this capability.
 
+Native continuation also requires an API supporting
+`GET /api/threads/:id/messages?consistency=runner-accepted`. Deploy that API
+before this runtime: it waits for Redis-accepted events to reach the SQL transcript
+and returns `consistency: "runner-accepted"`. The runtime fails before execution
+if the API does not confirm this boundary. Projection timeout is retryable; a
+partial transcript must never be used to decide which messages are new.
+
 The runtime reads saved Intelligence messages after admission and forwards new
 replay occurrences, including new identical-text messages and changed tool
 results. It preserves state, tools, context, and forwarded properties. Replay IDs
