@@ -10,6 +10,26 @@ To change what ships, edit the section on the release PR branch before merging.
 Entries begin with the first release cut after this file was added. The lane had
 no changelog before that.
 
+## 0.12.0 - 2026-10-28
+
+### Features
+
+- feat(channels): add managed Slack and Teams JSX images (#6146) (6e4cb6a)
+
+### Fixes
+
+- fix(channels): make JSX image rendering opt-in so Takumi stays out of app bundles (#7874) (aaca4e3)
+
+### Other Changes
+
+- Merge commit from fork (4693af4)
+- Merge commit from fork (3521bb0)
+- refactor(channels)!: retire the Telegram adapter (#7928) (de4998c)
+
+### Breaking Changes
+
+- refactor(channels)!: retire the Telegram adapter (#7928) (de4998c)
+
 ## 0.11.1 - 2026-10-16
 
 ### Features
