@@ -15,7 +15,6 @@ import {
 } from "@copilotkit/react-core/v2";
 import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
 import Link from "fumadocs-core/link";
-import { useSpaciousLayout } from "fumadocs-ui/layouts/spacious";
 import { ArrowUp, Plus } from "lucide-react";
 import { STAGE_WINDOW, Stage } from "@/components/brand/stage";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
@@ -28,7 +27,7 @@ import {
 import { brandDark, brandLight } from "@/proto/code-theme";
 import { cn } from "@/lib/cn";
 import answerStyles from "./chat-answer.module.css";
-import { SIDE_BY_SIDE } from "./docs-agent";
+import { useDocsChatSession } from "./chat-session";
 
 /*
  * The "Ask CopilotKit" chat's own pieces, passed to CopilotChat through its
@@ -79,6 +78,22 @@ export function ChatWelcome({ input }: WelcomeProps) {
       <div className={cn("mt-6", RISE_IN)} style={{ animationDelay: "140ms" }}>
         {input}
       </div>
+    </div>
+  );
+}
+
+/** Homepage uses CopilotChat's own input and suggestion submission lifecycle. */
+export function HomeChatWelcome({ input, suggestionView }: WelcomeProps) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto py-6">
+      <h2 className="px-4 text-center text-2xl font-medium tracking-tight">
+        Hi, I’m Kite <span aria-hidden="true">🪁</span>
+      </h2>
+      <p className="mt-2 px-4 text-center text-sm text-muted-foreground">
+        CopilotKit in action. Ask me anything about the docs.
+      </p>
+      <div className="mt-6">{input}</div>
+      <div className="mt-3 px-4">{suggestionView}</div>
     </div>
   );
 }
@@ -245,7 +260,7 @@ export function ChatLink({
   rel: _rel,
   ...props
 }: AnchorHTMLAttributes<HTMLAnchorElement> & { node?: unknown }) {
-  const { props: layout } = useSpaciousLayout();
+  const session = useDocsChatSession();
   const path = sitePath(href);
   if (!path) {
     return (
@@ -255,15 +270,7 @@ export function ChatLink({
     );
   }
   return (
-    <Link
-      {...props}
-      href={path}
-      onClick={() => {
-        if (!window.matchMedia(SIDE_BY_SIDE).matches) {
-          layout.aiChat?.onOpenChange(false);
-        }
-      }}
-    >
+    <Link {...props} href={path} onClick={() => session?.followLink()}>
       {children}
     </Link>
   );

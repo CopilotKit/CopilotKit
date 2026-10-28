@@ -20,6 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 export const SIDE_BY_SIDE = "(min-width: 80rem)";
 
 const TOOL_LABELS: Record<string, [running: string, done: string]> = {
+  update_onboarding: ["Updating your guide", "Updated your guide"],
   list_pages: ["Listing the pages", "Listed the pages"],
   search_pages: ["Searching these docs", "Searched these docs"],
   get_page: ["Reading", "Read"],
@@ -151,6 +152,11 @@ export function DocsAgent() {
     [sidebarPages, router, setChatOpen],
   );
 
+  return null;
+}
+
+/** Shared by the homepage and the docs panel. */
+export function DocsToolStatuses() {
   // The agent's server and MCP tools: one quiet status line each.
   useRenderTool({
     name: "*",

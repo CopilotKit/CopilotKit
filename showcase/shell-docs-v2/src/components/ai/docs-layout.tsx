@@ -13,8 +13,9 @@ import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   CopilotChat,
-  CopilotKitProvider,
   useAgent,
+  useCopilotChatConfiguration,
+  useCopilotKit,
 } from "@copilotkit/react-core/v2";
 import {
   DocsLayout as SpaciousLayout,
@@ -35,12 +36,15 @@ import {
   ChatComposer,
   ChatSendButton,
   ChatWelcome,
+  HomeChatWelcome,
   KiteMark,
   RatingsContext,
   type Rating,
 } from "./chat-parts";
 import { sendAnswerFeedback } from "@/lib/feedback";
 import { DocsAgent } from "./docs-agent";
+import { DocsChatProvider, useDocsChatSession } from "./chat-session";
+import { DocsChatWorkspace } from "./docs-chat-workspace";
 
 /**
  * Spacious' DocsLayout with CopilotKit in its `aiChat` slot, following
@@ -48,6 +52,19 @@ import { DocsAgent } from "./docs-agent";
  * Used by `/docs` and the prototypes' docs pages.
  */
 export function DocsLayout({
+  ...props
+}: DocsLayoutProps & { agent?: ReactNode }) {
+  const session = useDocsChatSession();
+  return session ? (
+    <DocsLayoutContent {...props} />
+  ) : (
+    <DocsChatProvider>
+      <DocsLayoutContent {...props} />
+    </DocsChatProvider>
+  );
+}
+
+function DocsLayoutContent({
   agent,
   children,
   ...props
@@ -55,25 +72,18 @@ export function DocsLayout({
   /** Where this layout keeps the reader's stack, for the agent. */
   agent?: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen } = useDocsChatSession()!;
 
   return (
-    <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
-      useSingleEndpoint
-      // Its floating button would sit over the chat's close button.
-      enableInspector={false}
+    <SpaciousLayout
+      {...props}
+      aiChat={{ open, onOpenChange: setOpen, panel: <ChatPanel /> }}
     >
-      <SpaciousLayout
-        {...props}
-        aiChat={{ open, onOpenChange: setOpen, panel: <ChatPanel /> }}
-      >
-        <DocsAgent />
-        {agent}
-        {children}
-        {open ? null : <AskAITrigger onOpen={() => setOpen(true)} />}
-      </SpaciousLayout>
-    </CopilotKitProvider>
+      <DocsAgent />
+      {agent}
+      {children}
+      {open ? null : <AskAITrigger onOpen={() => setOpen(true)} />}
+    </SpaciousLayout>
   );
 }
 
@@ -271,7 +281,27 @@ const HEADER_BUTTON =
 
 function ChatPanel() {
   const { props } = useSpaciousLayout();
+  return (
+    <>
+      <ResizeHandle />
+      <DocsChatWorkspace>
+        <DocsChat onClose={() => props.aiChat?.onOpenChange(false)} />
+      </DocsChatWorkspace>
+    </>
+  );
+}
+
+/** Layout-neutral chat using the same built-in slots on home and docs. */
+export function DocsChat({
+  home = false,
+  onClose,
+}: {
+  home?: boolean;
+  onClose?: () => void;
+}) {
   const { agent } = useAgent();
+  const { copilotkit } = useCopilotKit();
+  const chatConfiguration = useCopilotChatConfiguration();
   const [error, setError] = useState<string | null>(null);
 
   // A new run clears the last error.
@@ -315,10 +345,11 @@ function ChatPanel() {
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col bg-fd-background">
-      <ResizeHandle />
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-fd-border bg-fd-background ps-4 pe-2">
         <KiteMark />
-        <h2 className="text-sm font-medium">Ask CopilotKit</h2>
+        <h2 className="text-sm font-medium">
+          {started ? "Ask Kite" : "Explore the docs"}
+        </h2>
         <div className="ms-auto flex items-center gap-0.5">
           {started ? (
             <Tooltip>
@@ -329,8 +360,11 @@ function ChatPanel() {
                     size="icon"
                     aria-label="New chat"
                     onClick={() => {
-                      if (agent.isRunning) agent.abortRun();
-                      agent.setMessages([]);
+                      // CopilotChat owns the old run's teardown and message
+                      // reset when the shared configuration changes thread.
+                      copilotkit.stopAgent({ agent });
+                      chatConfiguration?.startNewThread();
+                      setRatings({});
                       setError(null);
                     }}
                     className={HEADER_BUTTON}
@@ -342,15 +376,17 @@ function ChatPanel() {
               <TooltipContent>New chat</TooltipContent>
             </Tooltip>
           ) : null}
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Close"
-            onClick={() => props.aiChat?.onOpenChange(false)}
-            className={HEADER_BUTTON}
-          >
-            <X />
-          </Button>
+          {onClose ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Close chat"
+              onClick={onClose}
+              className={HEADER_BUTTON}
+            >
+              <X />
+            </Button>
+          ) : null}
         </div>
       </header>
       {error && (
@@ -368,10 +404,30 @@ function ChatPanel() {
             if ("error" in event) setError(readableError(event.error));
           }}
           labels={{
-            chatInputPlaceholder: "Ask anything",
-            welcomeMessageText: "How can we help?",
+            chatInputPlaceholder: "Ask Kite anything",
+            welcomeMessageText: home
+              ? "Hi, I’m Kite, your guide to CopilotKit. How can I help?"
+              : "How can we help?",
           }}
-          welcomeScreen={ChatWelcome}
+          welcomeScreen={home ? HomeChatWelcome : ChatWelcome}
+          suggestionView={{
+            children: ({ suggestions, onSelectSuggestion, loadingIndexes }) => (
+              <div className="flex flex-wrap justify-center gap-2">
+                {suggestions.map((suggestion, index) => (
+                  <Button
+                    key={suggestion.title}
+                    variant="outline"
+                    size="sm"
+                    className="h-auto min-h-11 whitespace-normal text-xs"
+                    disabled={loadingIndexes?.includes(index)}
+                    onClick={() => onSelectSuggestion?.(suggestion, index)}
+                  >
+                    {suggestion.title}
+                  </Button>
+                ))}
+              </div>
+            ),
+          }}
           // Screenshots of an error or a UI: "+" picks one, or drop or paste it.
           attachments={{
             enabled: true,
@@ -380,7 +436,7 @@ function ChatPanel() {
             onUploadFailed: (e) => setError(e.message),
           }}
           input={{
-            textArea: CHAT_TEXTAREA,
+            textArea: { ...CHAT_TEXTAREA, "aria-label": "Your question" },
             sendButton: ChatSendButton,
             children: ({ textArea, sendButton, onAddFile }) => (
               <ChatComposer

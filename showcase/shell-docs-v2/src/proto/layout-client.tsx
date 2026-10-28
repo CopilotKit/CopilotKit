@@ -26,6 +26,7 @@ import type { LinkItemType } from "fumadocs-ui/layouts/shared";
 // Spacious' DocsLayout with the CopilotKit "Ask AI" chat in its aiChat slot.
 import { DocsLayout as SpaciousLayout } from "@/components/ai/docs-layout";
 import { ProtoStackAgent } from "@/components/ai/stack-agents";
+import { DocsChatProvider } from "@/components/ai/chat-session";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { FullSearchTrigger } from "fumadocs-ui/layouts/shared/slots/search-trigger";
 import { CopilotKitLogo } from "@/components/copilotkit-logo";
@@ -221,6 +222,7 @@ function MenuRow({
 function DHomeLayout({ children }: { children: ReactNode }) {
   const [framework] = useLastFramework();
   const links: LinkItemType[] = [
+    { text: "Ask Kite", url: "/kite" },
     {
       type: "menu",
       text: "Guides",
@@ -331,6 +333,20 @@ function DHomeLayout({ children }: { children: ReactNode }) {
 }
 
 export function ProtoLayout({
+  ...props
+}: {
+  variant: VariantId;
+  liveNav?: LiveNav;
+  children: ReactNode;
+}) {
+  return (
+    <DocsChatProvider>
+      <ProtoLayoutContent {...props} />
+    </DocsChatProvider>
+  );
+}
+
+function ProtoLayoutContent({
   variant,
   liveNav,
   children,
@@ -356,7 +372,9 @@ export function ProtoLayout({
 
   if (
     variant === "d" &&
-    ((loc?.kind === "docs" && !loc.slug) || loc?.kind === "examples")
+    (pathname === "/kite" ||
+      (loc?.kind === "docs" && !loc.slug) ||
+      loc?.kind === "examples")
   ) {
     return <DHomeLayout>{children}</DHomeLayout>;
   }
@@ -414,7 +432,7 @@ function liveLocation(
   loc: ReturnType<typeof locationFromPathname>["location"],
   pathname: string | null,
 ) {
-  if (loc || !pathname) return loc;
+  if (loc || !pathname || pathname === "/kite") return loc;
   const path = pathname.split("/").filter(Boolean);
   if (!path.length || path[0] === "reference") return loc;
   const scope = scopeFromPath(path);

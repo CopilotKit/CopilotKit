@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useStack } from "@/components/stack/stack-provider";
 import {
   BACKENDS,
@@ -18,6 +18,7 @@ import {
   type FrontendId as ProtoFrontendId,
 } from "@/proto/data";
 import { frameworkHref, type VariantId } from "@/proto/routes";
+import { liveFramework, scopedHref, scopeFromPath } from "@/lib/live-scope";
 import { StackAgent } from "./docs-agent";
 
 /** `/docs`: the stack is the sidebar picker's choice. */
@@ -61,12 +62,27 @@ export function ProtoStackAgent({
   slug?: string;
 }) {
   const router = useRouter();
-  const { frontend, setFrontend } = useFrontend();
+  const pathname = usePathname();
+  const { frontend: selectedFrontend, setFrontend } = useFrontend();
+  const frontend =
+    variant === "d"
+      ? scopeFromPath(pathname.split("/").filter(Boolean)).frontend
+      : selectedFrontend;
 
   const onSwitch = useCallback(
     (nextFrontend: string, nextFramework: string) => {
+      if (variant === "d" && !liveFramework(nextFramework)) {
+        return "This agent framework does not have live docs yet.";
+      }
       setFrontend(nextFrontend as ProtoFrontendId);
-      router.push(frameworkHref(variant, nextFramework, slug));
+      router.push(
+        variant === "d"
+          ? scopedHref(`/${slug || "quickstart"}`, {
+              frontend: nextFrontend as ProtoFrontendId,
+              framework: nextFramework,
+            })!
+          : frameworkHref(variant, nextFramework, slug),
+      );
       const name = FRAMEWORKS.find((f) => f.id === nextFramework)?.name;
       return `Opened the docs for ${name} on ${nextFrontend}.`;
     },
@@ -78,7 +94,11 @@ export function ProtoStackAgent({
       frontend={frontend}
       agentFramework={framework ?? null}
       frontends={PROTO_FRONTENDS}
-      frameworks={FRAMEWORKS}
+      frameworks={
+        variant === "d"
+          ? FRAMEWORKS.filter((item) => liveFramework(item.id))
+          : FRAMEWORKS
+      }
       onSwitch={onSwitch}
     />
   );
