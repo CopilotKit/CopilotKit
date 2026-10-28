@@ -86,9 +86,9 @@ describe("CopilotChat attachments", () => {
       expect(error.reason).toBe("invalid-type");
       expect(error.file).toBe(pdfFile);
       expect(error.message).toContain("document.pdf");
-      expect(screen.getByRole("alert")).toHaveTextContent(error.message);
+      expect(screen.getByRole("alert").textContent).toContain(error.message);
       fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.queryByRole("alert")).toBeNull();
     });
 
     it("fires with 'file-too-large' when file exceeds maxSize", async () => {
@@ -357,13 +357,13 @@ describe("configured attachment capabilities", () => {
       expect(
         onUploadFailed.mock.calls.map(([error]) => error.file.name),
       ).toEqual(["notes.txt", "audio.wav", "video.mp4"]);
-      expect(screen.getByRole("alert")).toHaveTextContent(
+      expect(screen.getByRole("alert").textContent).toContain(
         'File "video.mp4" is not accepted',
       );
       await waitFor(() =>
-        expect(screen.getByText("document.pdf")).toBeInTheDocument(),
+        expect(screen.getByText("document.pdf")).toBeTruthy(),
       );
-      expect(screen.queryByText("notes.txt")).not.toBeInTheDocument();
+      expect(screen.queryByText("notes.txt")).toBeNull();
     },
   );
 
@@ -430,7 +430,7 @@ describe("configured attachment capabilities", () => {
       fireEvent.paste(screen.getByRole("textbox"), { clipboardData }),
     ).toBe(false);
     await waitFor(() => expect(onUploadFailed).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole("alert")).toHaveTextContent("notes.txt");
-    expect(container.querySelector('input[type="file"]')).toBeInTheDocument();
+    expect(screen.getByRole("alert").textContent).toContain("notes.txt");
+    expect(container.querySelector('input[type="file"]')).toBeTruthy();
   });
 });
