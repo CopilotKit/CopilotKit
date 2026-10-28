@@ -334,7 +334,7 @@ Supporting entry points:
 
 | Import | Description |
 |--------|-------------|
-| `@copilotkit/react-native/polyfills` | Barrel that installs every polyfill (streams, encoding, crypto, dom, location) plus the streaming-fetch shim |
+| `@copilotkit/react-native/polyfills` | Barrel that installs missing Web API polyfills and checks whether fetch needs the streaming shim |
 | `@copilotkit/react-native/polyfills/{streams,encoding,crypto,dom,location}` | Granular subpaths for installing a single polyfill |
 | `@copilotkit/runtime` | Server-side runtime (`CopilotRuntime` / `BuiltInAgent` / `createCopilotNodeListener`) used to host your agent |
 
@@ -426,11 +426,13 @@ On Expo, swap in `getDefaultConfig` from `expo/metro-config`; the `resolver` blo
 
 ## Polyfills
 
-Hermes lacks several Web APIs CopilotKit relies on: `ReadableStream` / `WritableStream` / `TransformStream`, `TextEncoder` / `TextDecoder`, `DOMException` and `Headers`, `crypto.getRandomValues`, and `window.location`. It also lacks streaming `fetch` bodies (`response.body.getReader()`), which AG-UI's SSE transport needs.
+React Native environments may need polyfills for Web APIs CopilotKit relies on: `ReadableStream` / `WritableStream` / `TransformStream`, `TextEncoder` / `TextDecoder`, `DOMException` and `Headers`, `crypto.getRandomValues`, and `window.location`. React Native's default `fetch` may also lack readable response bodies (`response.body.getReader()`), which AG-UI's SSE transport needs. Expo can provide a streaming `fetch` even when the global `Response` constructor has no readable body.
 
-Importing the provider installs these automatically: `/headless` runs the polyfill barrel as its first statement (and the root barrel gets it through `/headless`), also installing an XHR-based streaming-fetch shim on load. The `/components` surface does **not** install them on its own, so it relies on the provider imported alongside it. Each polyfill is skipped if the global it defines already exists, so importing more than once is safe.
+Importing the provider installs missing APIs automatically: `/headless` runs the polyfill barrel as its first statement, and the root barrel gets it through `/headless`. The `/components` surface does **not** install them on its own, so it relies on the provider imported alongside it. Each API polyfill is skipped if the global it defines already exists.
 
-Keep the explicit `import "@copilotkit/react-native/polyfills"` from the quickstart at the top of your entry point anyway. Because every polyfill is **first writer wins**, the entry point is the only place you control what gets installed before CopilotKit's own defaults do — which is what makes the secure-RNG ordering below work.
+For streaming support, the barrel checks a response from the installed `fetch` using local URLs, without an HTTP probe. If that response has a readable body, the original `fetch` is restored, including Expo's relative-URL wrapper. Otherwise, or if the check fails or stalls, an XHR-based streaming shim is installed. Requests started during the check wait for the result and are sent once through the selected implementation. Repeated imports reuse the initialization.
+
+Keep the explicit `import "@copilotkit/react-native/polyfills"` from the quickstart at the top of your entry point anyway. Because the Web API polyfills are **first writer wins**, the entry point is the only place you control what gets installed before CopilotKit's own defaults do — which is what makes the secure-RNG ordering below work.
 
 For granular control — for example, if you already polyfill `ReadableStream` yourself — import only the pieces you need instead of the barrel:
 
