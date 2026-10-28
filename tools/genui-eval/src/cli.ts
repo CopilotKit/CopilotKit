@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -304,7 +304,21 @@ export async function main(argv = process.argv.slice(2)) {
   }
 }
 
+/**
+ * Keys from tools/genui-eval/.env (git-ignored), one KEY=value per line.
+ * They win over the shell, so the key kept for the eval is the one used.
+ */
+function loadDotEnv() {
+  const file = `${TOOL_ROOT}.env`;
+  if (!existsSync(file)) return;
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    const match = /^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line);
+    if (match) process.env[match[1]] = match[2];
+  }
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  loadDotEnv();
   main().catch((error: unknown) => {
     process.stderr.write(`genui-eval: ${(error as Error).message}\n`);
     process.exit(1);

@@ -16,7 +16,7 @@ pnpm -s --filter genui-eval eval report latest
 Real models go through [OpenRouter](https://openrouter.ai). Set the key, check the model ids and prices in `eval.config.ts`, and start with a cost estimate:
 
 ```sh
-export OPENROUTER_API_KEY=sk-or-...
+echo 'OPENROUTER_API_KEY=sk-or-...' > tools/genui-eval/.env   # git-ignored; wins over the shell
 pnpm -s --filter genui-eval eval run --preset smoke --estimate
 pnpm -s --filter genui-eval eval run --preset smoke
 pnpm -s --filter genui-eval eval run --preset gpt                 # the first baseline: gpt only
