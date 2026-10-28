@@ -261,7 +261,6 @@ npx create-ag-ui-app my-agent-app
 
 **[Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)** · **[Docs](https://docs.copilotkit.ai/?ref=github_readme)** · **[X](https://x.com/copilotkit)** · **[LinkedIn](https://www.linkedin.com/company/copilotkit/)** · **[Blog](https://www.copilotkit.ai/blog?ref=github_readme)**
 
-
 ## Contributing
 
 Thanks for your interest in contributing to CopilotKit! 💜 We value every contribution, whether it's code, docs, a demo app, or spreading the word.
