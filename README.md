@@ -222,7 +222,7 @@ One agent backend. Every frontend.
 
 Most agents plateau at launch quality. **CopilotKit Intelligence** is the production layer that keeps yours improving. It works with the CopilotKit app and agent framework you already run, cloud-hosted or self-hosted on your own infrastructure.
 
-- **[Continual Learning](https://docs.copilotkit.ai/learning?ref=github_readme)**: real use of your app becomes evidence-backed insights, then Skills you review and publish. Every learned behavior traces back to its source. No fine-tuning pipeline.
+- **[Continual Learning](https://docs.copilotkit.ai/learning?ref=github_readme)**: real use of your app becomes evidence-backed insights, then Skills you review and publish. Every learned behavior traces back to its source.
 - **[AG-UI Streams](https://docs.copilotkit.ai/threads?ref=github_readme)**: conversations pick up where users left off, with messages, generative UI, and live runs restored as they were.
 - **[User Memories](https://docs.copilotkit.ai/intelligence/memories?ref=github_readme)**: durable facts and preferences carried across conversations, recalled semantically.
 - **[Product Analytics](https://docs.copilotkit.ai/intelligence/analytics?ref=github_readme)**: see what users ask for, what agents do, and where people get value.
