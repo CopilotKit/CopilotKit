@@ -22,11 +22,11 @@ import { KiteFrameworkMenu } from "./kite-framework-menu";
 
 export function KiteHome() {
   return (
-    <div className="mx-auto w-full max-w-[72rem] px-5 pt-6 pb-10 md:px-8">
-      <section className="flex flex-col gap-5">
-        <div className="flex flex-col items-center gap-4 text-center xl:flex-row xl:justify-between xl:gap-8 xl:text-left">
-          <div className="flex min-w-0 flex-col gap-3">
-            <h1 className="text-[2rem] leading-[1.1] font-normal tracking-[-0.03em] text-balance md:text-[2.5rem]">
+    <div className="mx-auto w-full max-w-[60rem] px-5 pt-4 pb-10 md:px-8">
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <div className="flex min-w-0 flex-col gap-2">
+            <h1 className="text-[2rem] leading-[1.1] font-normal tracking-[-0.03em] text-balance">
               Let agents <span aria-hidden="true">🤝</span>
               <span className="sr-only">and</span> users
               <br />
@@ -36,7 +36,7 @@ export function KiteHome() {
               in your app
             </h1>
             <p className="text-base leading-[1.5] text-muted-foreground">
-              An open-source platform connecting agents, app state, and user
+              An open-source platform for connecting agents, app state, and user
               input.
             </p>
           </div>

@@ -215,7 +215,7 @@ The system stays on stock Fumadocs. `global.css` loads Fumadocs' own **shadcn br
 
 Fumadocs' Spacious layout, unmodified, as on fumadocs.dev: a 268px sidebar with the logo, the stack picker, search, and the page tree, and the page in a rounded panel with the TOC on the right and Discord, GitHub, and the theme switch in the panel's corner (Spacious' `actions` slot, `src/components/layout/panel-actions.tsx`). The docs home and the examples playground use Fumadocs' Home Layout (navbar only).
 
-The **Ask Kite** header link, before Guides, opens `/kite`. This separate onboarding page keeps a compact 32px/40px headline and 16px description above the assistant. On wide screens, the copy sits on the left and the actions on the right; smaller screens stack them. It retains the line break after “users” and places Copy prompt before the quickstart picker. The assistant spans the content width; no static directory follows it. Its header starts as “Explore the docs” and becomes “Ask Kite” when the conversation starts.
+The **Ask Kite** header link, before Guides, opens `/kite`. This separate onboarding page uses a centered, stacked hero within a 60rem page width, with a compact 32px headline and 16px description above the assistant. It retains the line break after “users” and places Copy prompt before the quickstart picker beneath the copy. The assistant spans the content width; no static directory follows it. Its header starts as “Explore the docs” and becomes “Ask Kite” when the conversation starts.
 
 ## Elevation & Depth
 
