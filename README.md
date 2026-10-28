@@ -32,13 +32,13 @@ We're also the team behind **[AG-UI](https://github.com/ag-ui-protocol/ag-ui)**,
 
 ## What's new
 
-|                                                                                                                                                                            |                                                                                                                |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 🪁 **[CopilotKit Soar](https://www.copilotkit.ai/soar?ref=github_readme)**                                                                                                 | AI coworkers your company owns, running on your own servers. Powered by OpenBot.                               |
-| 🔁 **[Continual learning](https://www.copilotkit.ai/clif?ref=github_readme)**                                                                                              | Agents learn from full-stack trajectories (what the agent did _and_ what your users did), captured over AG-UI. |
-| 🤖 **[OpenBot](https://github.com/CopilotKit/OpenBot)**                                                                                                                    | Open-source AI coworkers that each get a computer of their own. MIT licensed.                                  |
-| 🧩 **[AG-UI 1.0](https://docs.copilotkit.ai/agentic-protocols/ag-ui?ref=github_readme)** + **[A2UI 1.0](https://docs.copilotkit.ai/generative-ui/a2ui?ref=github_readme)** | CopilotKit now speaks AG-UI 1.0 and the A2UI 1.0 spec for declarative generative UI.                           |
-| 💬 **[Channels](https://docs.copilotkit.ai/slack?ref=github_readme)**                                                                                                      | Write Channels JSX once. Render native Block Kit in Slack and Adaptive Cards in Microsoft Teams.               |
+|                                                                                                                                                                            |                                                                                                                                                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🪁 **[CopilotKit Soar](https://www.copilotkit.ai/soar?ref=github_readme)**                                                                                                 | AI coworkers your company owns, running on your own servers. Powered by OpenBot. **[Now in early access →](https://intelligence.copilotkit.ai/?early_access=soar&ref=github_readme)** |
+| 🔁 **[Continual learning](https://www.copilotkit.ai/clif?ref=github_readme)**                                                                                              | Agents learn from full-stack trajectories (what the agent did _and_ what your users did), captured over AG-UI.                                                                        |
+| 🤖 **[OpenBot](https://github.com/CopilotKit/OpenBot)**                                                                                                                    | Open-source AI coworkers that each get a computer of their own. MIT licensed.                                                                                                         |
+| 🧩 **[AG-UI 1.0](https://docs.copilotkit.ai/agentic-protocols/ag-ui?ref=github_readme)** + **[A2UI 1.0](https://docs.copilotkit.ai/generative-ui/a2ui?ref=github_readme)** | CopilotKit now speaks AG-UI 1.0 and the A2UI 1.0 spec for declarative generative UI.                                                                                                  |
+| 💬 **[Channels](https://docs.copilotkit.ai/slack?ref=github_readme)**                                                                                                      | Write Channels JSX once. Render native Block Kit in Slack and Adaptive Cards in Microsoft Teams.                                                                                      |
 
 Full changelog in **[What's New](https://docs.copilotkit.ai/whats-new?ref=github_readme)**.
 
@@ -232,6 +232,8 @@ We build real products on this stack, and open-source them.
 **[OpenBot](https://github.com/CopilotKit/OpenBot)** is an open-source agent workspace for your employees. Every AI coworker gets a computer of its own, with a browser, files, and tools, and every action is decided before it happens and recorded after. Bring any AG-UI agent and any model.
 
 **[CopilotKit Soar](https://www.copilotkit.ai/soar?ref=github_readme)** turns that core into one business-ready product. It gives each employee an AI coworker that works in your company's tools, learns new tasks from the people it works with, and runs on your own servers. Our engineers set it up with you, then hand you the keys.
+
+Soar is in early access today. 👉 **[Get early access →](https://intelligence.copilotkit.ai/?early_access=soar&ref=github_readme)**
 
 <table>
   <tr>
