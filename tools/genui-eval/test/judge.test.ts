@@ -82,7 +82,9 @@ describe("judge", () => {
       out,
     );
     expect(prompt).toContain('App context "Forecast":\nSat 11°C, sunny');
-    expect(judgePrompt(c, out)).not.toContain("App context");
+    expect(judgePrompt({ ...c, context: undefined }, out)).not.toContain(
+      "App context",
+    );
   });
 
   it("outlines the final UI: the last version of a component, no deleted surface", async () => {
