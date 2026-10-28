@@ -5,6 +5,7 @@ import { CopilotIntelligenceRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { handleIntelligenceRun } from "../handlers/intelligence/run";
+import { handleRunAgent } from "../handlers/handle-run";
 
 class TestAgent extends AbstractAgent {
   run() {
@@ -317,3 +318,65 @@ test("native history rejects an API that silently ignores the consistency requir
     fixture.teardown();
   }
 });
+
+test.each(["imported", "fresh", "stateless"] as const)(
+  "%s: public A2UI action survives native delta selection and persistence",
+  async (mode) => {
+    const fixture = setup(
+      mode === "imported" ? "native-history-delta-v1" : undefined,
+      mode === "fresh" ? ["test"] : undefined,
+    );
+    vi.spyOn(
+      fixture.runtime.intelligence,
+      "getThreadMessages",
+    ).mockResolvedValue({ messages: [], consistency: "runner-accepted" });
+    try {
+      fixture.runtime.a2ui = {
+        actionTransport: "user-message",
+        agents: ["test"],
+      };
+      const action = {
+        version: "v0.9",
+        userAction: {
+          name: "book_flight",
+          surfaceId: "flight-search-results",
+          sourceComponentId: "flight-card",
+          context: { flightNumber: "EA707", price: "$349" },
+          timestamp: "2026-10-28T17:42:24.743Z",
+        },
+      };
+      const response = await handleRunAgent({
+        runtime: fixture.runtime,
+        agentId: "test",
+        request: new Request("https://runtime.example/agent/test/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            threadId: fixture.threadId,
+            runId: "click-1",
+            messages: [],
+            tools: [],
+            context: [],
+            state: {},
+            forwardedProps: { a2uiAction: action, backendThreadId: "forged" },
+          }),
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(fixture.run).toHaveBeenCalledOnce();
+      const request = fixture.run.mock.calls[0][0];
+      expect(request.threadId).toBe(fixture.threadId);
+      expect(request.backendThreadId).toBe("native/session");
+      expect(request.input.messages).toEqual([
+        expect.objectContaining({
+          role: "user",
+          content: JSON.stringify({ a2uiAction: action }),
+        }),
+      ]);
+      expect(request.persistedInputMessages).toEqual(request.input.messages);
+      expect(request.input.forwardedProps.a2uiAction).toBeUndefined();
+    } finally {
+      fixture.teardown();
+    }
+  },
+);
