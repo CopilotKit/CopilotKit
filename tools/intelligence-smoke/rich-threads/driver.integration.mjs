@@ -105,10 +105,11 @@ test("source projection consumes real AG-UI text/state streams without a destina
 });
 
 for (const framework of ["mastra", "strands-typescript"]) {
-  test(`real ${framework} browser selects its framework and awaits native absence hook before POST`, async () => {
+  test(`real ${framework} browser waits for cold composer readiness and awaits native absence hook before POST`, async () => {
     const outputDir = await mkdtemp(join(tmpdir(), "rich-browser-control-"));
     let permitted = false;
     let posted = false;
+    let posts = 0;
     const events = [];
     const server = createServer(async (req, res) => {
       if (req.method === "POST") {
@@ -118,6 +119,7 @@ for (const framework of ["mastra", "strands-typescript"]) {
           "Framework request raced the absence check",
         );
         posted = true;
+        posts++;
         for await (const chunk of req) void chunk;
         events.push(
           { type: "RUN_STARTED", runId: "run", threadId: "thread" },
@@ -128,11 +130,18 @@ for (const framework of ["mastra", "strands-typescript"]) {
       }
       res.setHeader("content-type", "text/html");
       res.end(
-        `<textarea></textarea><div data-testid="thread-selection"></div><input data-testid="open-thread-id"><button data-testid="open-thread">Open thread</button><script>
+        `<textarea data-testid="copilot-chat-textarea"></textarea><button data-testid="copilot-send-button" disabled>Send</button><div data-testid="thread-selection"></div><input data-testid="open-thread-id"><button data-testid="open-thread">Open thread</button><script>
       const selected=document.querySelector('[data-testid="thread-selection"]');
       selected.setAttribute('data-active-thread-id',new URL(location.href).searchParams.get('threadId')??'initial');
-      document.querySelector('button').onclick=()=>setTimeout(()=>selected.setAttribute('data-active-thread-id',document.querySelector('input').value),50);
-      document.querySelector('textarea').onkeydown=async e=>{if(e.key==='Enter'){e.preventDefault();await fetch('/agent/beautiful-chat/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({threadId:'thread',runId:'run',messages:[{id:'u',role:'user',content:e.target.value}]})});}}</script>`,
+      document.querySelector('[data-testid="open-thread"]').onclick=()=>setTimeout(()=>selected.setAttribute('data-active-thread-id',document.querySelector('input').value),50);
+      // Cold SSR markup is visible before React hydrates. Hydration replaces
+      // pre-hydration input with controlled state, then runtime discovery enables send.
+      setTimeout(()=>{
+        const input=document.querySelector('textarea'),send=document.querySelector('[data-testid="copilot-send-button"]');
+        input.value='';
+        input.oninput=()=>{send.disabled=!input.value.trim()};
+        send.onclick=async()=>{send.disabled=true;await fetch('/agent/beautiful-chat/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({threadId:'thread',runId:'run',messages:[{id:'u',role:'user',content:input.value}]})});};
+      },800);</script>`,
       );
     });
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -149,6 +158,7 @@ for (const framework of ["mastra", "strands-typescript"]) {
         },
         outputDir,
         capture: { read: async () => ({ events }) },
+        signal: AbortSignal.timeout(10_000),
       });
       const thread = await browser.newThread({
         scenarioId: "race-control",
@@ -166,6 +176,7 @@ for (const framework of ["mastra", "strands-typescript"]) {
       await browser.send(thread, "hello");
       const observed = await browser.snapshot(thread);
       assert.equal(posted, true);
+      assert.equal(posts, 1, "Readiness must not retry submission");
       assert.equal(observed.fresh, true);
       assert.equal(observed.threadId, "thread");
       assert.equal(observed.screenshots.length, 1);

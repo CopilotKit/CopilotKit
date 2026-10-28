@@ -166,8 +166,25 @@ export async function createBrowser({
     snapshot,
     async send(thread, prompt) {
       const previous = [...thread.runIds];
-      await thread.page.locator("textarea").fill(prompt);
-      await thread.page.locator("textarea").press("Enter");
+      const input = thread.page.getByTestId("copilot-chat-textarea");
+      const send = thread.page.getByTestId("copilot-send-button");
+      const deadline = Date.now() + 90_000;
+      // SSR exposes the composer before hydration and runtime discovery.
+      // Hydration can erase an early fill; only prepare input until the UI
+      // enables sending. Never repeat the actual submission.
+      while (true) {
+        signal?.throwIfAborted();
+        if (thread.error) throw thread.error;
+        await input.fill(prompt);
+        if (await send.isEnabled()) break;
+        assert.ok(
+          Date.now() < deadline,
+          "Browser composer did not become ready to send within 90s",
+        );
+        await delay(250, undefined, { signal });
+      }
+      await send.click();
+      thread.interactions.push({ kind: "send" });
       return settled(thread, previous);
     },
     async closeThread(thread) {
