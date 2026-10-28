@@ -652,6 +652,8 @@ export interface ThreadMessage {
 
 /** Response from {@link CopilotKitIntelligence.getThreadMessages}. */
 export interface ThreadMessagesResponse {
+  /** Confirms the native replay read passed the accepted-event projection barrier. */
+  consistency?: "runner-accepted";
   messages: ThreadMessage[];
 }
 
@@ -2223,10 +2225,14 @@ export class CopilotKitIntelligence {
   async getThreadMessages(params: {
     threadId: string;
     userId: string;
+    /** Wait for accepted runner events to reach the complete SQL replay view. */
+    consistency?: "runner-accepted";
     /** Internal managed-Channel delivery context for shared Thread access. */
     channelDeliveryId?: string;
   }): Promise<ThreadMessagesResponse> {
-    const qs = new URLSearchParams({ userId: params.userId }).toString();
+    const query = new URLSearchParams({ userId: params.userId });
+    if (params.consistency) query.set("consistency", params.consistency);
+    const qs = query.toString();
     return this.#request<ThreadMessagesResponse>(
       "GET",
       `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,

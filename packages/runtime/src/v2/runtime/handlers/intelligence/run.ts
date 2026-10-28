@@ -303,7 +303,13 @@ export async function handleIntelligenceRun({
         const history = await runtime.intelligence.getThreadMessages({
           threadId: canonicalThreadId,
           userId,
+          consistency: "runner-accepted",
         });
+        if (history.consistency !== "runner-accepted") {
+          throw new Error(
+            "Native history requires a projection-consistent Intelligence API",
+          );
+        }
         persistedInputMessages = nativeHistoryInput(
           input.messages,
           history.messages,
