@@ -167,6 +167,7 @@ export class StateManager {
       }
       existing.unsubscribe();
       this.agentSubscriptions.delete(agentId);
+      this.approvalDecisions.delete(agentId);
     }
 
     // Subscribe to agent events.

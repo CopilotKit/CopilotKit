@@ -146,3 +146,14 @@ it("replays the captured PNI-725 host decision while only B stays actionable", a
   expect(agent.pendingInterrupts.map((i) => i.id)).toEqual(["ficc_call-b"]);
   expect(agent.messages.filter((m) => m.role === "tool")).toEqual([]);
 });
+
+it("does not leak saved decisions when a registry ID is reused by a different agent", async () => {
+  const { agent, core } = setup();
+  await core.connectAgent({ agent });
+  const replacement = new SavedDecisionAgent({
+    agentId: "default",
+    threadId: "original",
+  });
+  core.setAgents__unsafe_dev_only({ default: replacement });
+  expect(core.getApprovalDecisions("default", "original")).toBeUndefined();
+});
