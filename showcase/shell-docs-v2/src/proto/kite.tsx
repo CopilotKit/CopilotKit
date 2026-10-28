@@ -48,15 +48,7 @@ export function KiteHome() {
             <QuickstartPicker />
           </div>
         </div>
-        <div className="mx-auto flex w-full min-w-0 flex-col gap-3">
-          <p className="text-center text-sm leading-relaxed text-muted-foreground">
-            <strong className="font-medium text-foreground">
-              CopilotKit in action.
-            </strong>{" "}
-            Tell Kite what you’re building to find the docs you need.
-          </p>
-          <HomeDocsChat />
-        </div>
+        <HomeDocsChat />
       </section>
     </div>
   );

@@ -90,7 +90,7 @@ export function HomeChatWelcome({ input, suggestionView }: WelcomeProps) {
         Hi, I’m Kite <span aria-hidden="true">🪁</span>
       </h2>
       <p className="mt-2 px-4 text-center text-sm text-muted-foreground">
-        Your guide to CopilotKit. How can I help?
+        CopilotKit in action. Ask me anything about the docs.
       </p>
       <div className="mt-6">{input}</div>
       <div className="mt-3 px-4">{suggestionView}</div>
