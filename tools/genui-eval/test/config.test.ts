@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadCases, parseCases, selectCases } from "../src/cases";
+import { caseContext, loadCases, parseCases, selectCases } from "../src/cases";
 import { defineEvalConfig, resolvePlan } from "../src/config";
 import config from "../eval.config";
 
@@ -77,5 +77,15 @@ describe("cases", () => {
     expect(() => parseCases('{"id":"x"}\n', "bad.jsonl")).toThrow(
       "bad.jsonl:1:",
     );
+  });
+
+  it("reads a case's app context and sends an object value as JSON", () => {
+    const [c] = parseCases(
+      '{"id":"x","message":"m","catalog":"standard","tags":["t"],"expect":{"ui":true},"context":[{"description":"Plans","value":{"team":29}},{"description":"Note","value":"plain"}]}\n',
+    );
+    expect(caseContext(c)).toEqual([
+      { description: "Plans", value: '{"team":29}' },
+      { description: "Note", value: "plain" },
+    ]);
   });
 });

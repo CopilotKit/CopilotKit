@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { generateText } from "ai";
 import type { LanguageModel } from "ai";
 import { z } from "zod";
+import { caseContext } from "./cases";
 import type { EvalCase } from "./cases";
 import { MAX_JUDGE_TOKENS } from "./cost";
 import type { SampleOutput } from "./harness";
@@ -37,6 +38,7 @@ judgement: was UI used exactly where it helps?
 quality: is the reply good for the request?
 - 1: the UI fits the request, is complete, sensibly laid out, and the prose around it is short and useful.
 - 0: the UI misses what was asked, is confusing, or the reply is wrong.
+- When app context is given, a good reply uses its data where it helps and does not contradict it or invent other facts in its place.
 
 Reply with JSON only: {"judgement":{"score":<0..1>,"reason":"<one line>"},"quality":{"score":<0..1>,"reason":"<one line>"}}`;
 
@@ -113,10 +115,18 @@ export function judgePrompt(
   );
   // What the user reads: fences become their lifted prose and surface markers.
   const prose = out.visibleText.trim();
+  // The app context gets a fifth of the room, shared by its entries.
+  const context = caseContext(c);
+  const contextRoom = context.length > 0 ? Math.floor(limit / 5) : 0;
+  const rest = limit - contextRoom;
   const text = [
-    `User request: ${cutToBytes(c.message, Math.floor(limit / 6))}`,
-    `Reply prose:\n${cutToBytes(prose, Math.floor(limit / 3)) || "(none)"}`,
-    `Surfaces:\n${out.surfaces.length > 0 ? cutToBytes(outlineSurfaces(out, limit, reachable), Math.floor(limit / 2)) : "(none)"}`,
+    `User request: ${cutToBytes(c.message, Math.floor(rest / 6))}`,
+    ...context.map(
+      (entry) =>
+        `App context "${entry.description}":\n${cutToBytes(entry.value, Math.floor(contextRoom / context.length))}`,
+    ),
+    `Reply prose:\n${cutToBytes(prose, Math.floor(rest / 3)) || "(none)"}`,
+    `Surfaces:\n${out.surfaces.length > 0 ? cutToBytes(outlineSurfaces(out, limit, reachable), Math.floor(rest / 2)) : "(none)"}`,
   ].join("\n\n");
   return cutToBytes(text, limit);
 }

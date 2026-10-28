@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { execSync } from "node:child_process";
 import type { GenerativeUIPromptSpec } from "@copilotkit/shared";
-import { loadCases, selectCases } from "./cases";
+import { caseContext, loadCases, selectCases } from "./cases";
 import type { EvalCase, Split } from "./cases";
 import type { EvalConfig, ModelEntry, ResolvedPlan, Transport } from "./config";
 import {
@@ -217,6 +217,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
       const conversation = [
         task.case.message,
         ...(task.case.history ?? []).map((h) => h.content),
+        ...caseContext(task.case).map((entry) => entry.value),
       ].join("\n");
       const estimate = worstSampleCost(
         config,

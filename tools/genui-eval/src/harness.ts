@@ -26,7 +26,8 @@ import type {
 import { wrapLanguageModel } from "ai";
 import type { LanguageModel } from "ai";
 import type { LanguageModelV3, LanguageModelV3Prompt } from "@ai-sdk/provider";
-import { Observable } from "rxjs";
+import type { Observable } from "rxjs";
+import { caseContext } from "./cases";
 import type { EvalCase } from "./cases";
 import type { ModelEntry, Transport } from "./config";
 import {
@@ -272,7 +273,7 @@ function buildInput(
   // The descriptions of the spec reach the runtime through the catalog.
   const inline = envelope["v1.0"].inlineCatalogs?.[0];
   if (inline) inline.components = manifest.components;
-  const context =
+  const guide =
     transport === "markdown"
       ? [
           {
@@ -285,6 +286,7 @@ function buildInput(
           },
         ]
       : [];
+  const context = [...guide, ...caseContext(c)];
   const messages: Message[] = [
     ...(c.history ?? []).map(
       (turn) =>

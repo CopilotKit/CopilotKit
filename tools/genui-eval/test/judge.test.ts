@@ -73,6 +73,18 @@ describe("judge", () => {
     expect(prompt).toContain('root: Map {"markers":[]}');
   });
 
+  it("shows the judge the app context the assistant had", () => {
+    const prompt = judgePrompt(
+      {
+        ...c,
+        context: [{ description: "Forecast", value: "Sat 11°C, sunny" }],
+      },
+      out,
+    );
+    expect(prompt).toContain('App context "Forecast":\nSat 11°C, sunny');
+    expect(judgePrompt(c, out)).not.toContain("App context");
+  });
+
   it("outlines the final UI: the last version of a component, no deleted surface", async () => {
     const { outlineSurfaces } = await import("../src/judge");
     const surface = (id: string, ops: unknown[]) => ({

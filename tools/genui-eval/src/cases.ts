@@ -17,6 +17,16 @@ const evalCase = z.object({
     /** Components a good answer uses. */
     components: z.array(z.string()).optional(),
   }),
+  /**
+   * What the app or its tools hand the agent, sent as agent context entries
+   * the way CopilotKit sends them: places from a search, a forecast, the
+   * product's plans. Facts the model cannot know from the request alone
+   * belong here, so a good answer can use them instead of inventing them.
+   * An object value is sent as JSON.
+   */
+  context: z
+    .array(z.object({ description: z.string().min(1), value: z.unknown() }))
+    .optional(),
   /** Earlier turns, oldest first (the format allows multi-turn cases). */
   history: z
     .array(
@@ -26,6 +36,17 @@ const evalCase = z.object({
 });
 
 export type EvalCase = z.infer<typeof evalCase>;
+
+/** The context entries of a case, with every value as text. */
+export function caseContext(c: EvalCase) {
+  return (c.context ?? []).map((entry) => ({
+    description: entry.description,
+    value:
+      typeof entry.value === "string"
+        ? entry.value
+        : JSON.stringify(entry.value),
+  }));
+}
 export type Split = "train" | "heldout";
 
 const CASES_DIR = fileURLToPath(new URL("../cases/", import.meta.url));
@@ -41,7 +62,9 @@ export function parseCases(text: string, file = "cases"): EvalCase[] {
       try {
         json = JSON.parse(line);
       } catch (error) {
-        throw new Error(`${file}:${index + 1}: ${(error as Error).message}`);
+        throw new Error(`${file}:${index + 1}: ${(error as Error).message}`, {
+          cause: error,
+        });
       }
       const parsed = evalCase.safeParse(json);
       if (!parsed.success) {

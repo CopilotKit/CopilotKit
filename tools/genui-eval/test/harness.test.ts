@@ -40,6 +40,28 @@ describe("runSample", () => {
     expect(out.systemPrompt).toContain("Generative UI guide");
   });
 
+  it("sends the case's app context to the agent, on both transports", async () => {
+    const withContext = {
+      ...cases["cafes-map"],
+      context: [
+        {
+          description: "Places near the user",
+          value: { name: "CAFE-UNDER-TEST" },
+        },
+      ],
+    };
+    for (const transport of ["markdown", "tool"] as const) {
+      const out = await runSample({
+        case: withContext,
+        transport,
+        entry,
+        model: model(),
+      });
+      expect(out.systemPrompt).toContain("Places near the user");
+      expect(out.systemPrompt).toContain('{"name":"CAFE-UNDER-TEST"}');
+    }
+  });
+
   it("gives no surface for a prose reply", async () => {
     const out = await runSample({
       case: cases["capital-of-france"],
