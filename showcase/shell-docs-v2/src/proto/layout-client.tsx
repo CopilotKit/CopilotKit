@@ -432,7 +432,7 @@ function liveLocation(
   loc: ReturnType<typeof locationFromPathname>["location"],
   pathname: string | null,
 ) {
-  if (loc || !pathname) return loc;
+  if (loc || !pathname || pathname === "/kite") return loc;
   const path = pathname.split("/").filter(Boolean);
   if (!path.length || path[0] === "reference") return loc;
   const scope = scopeFromPath(path);
