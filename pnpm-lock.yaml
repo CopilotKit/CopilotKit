@@ -4161,6 +4161,9 @@ importers:
       concurrently:
         specifier: ^9.1.0
         version: 9.2.1
+      esbuild:
+        specifier: '>=0.25.4'
+        version: 0.27.3
       semver:
         specifier: ^7.8.5
         version: 7.8.5
