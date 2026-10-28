@@ -360,7 +360,7 @@ describe("scoreCode with real rendering", () => {
       text: "",
       visibleText: "",
       toolCalls: [],
-      surfaces: [{ surfaceId: "hole" } as never],
+      surfaces: [{ surfaceId: "hole", operations: [] } as never],
       rejected: [],
       parseErrors: [],
       promptTokens: 0,
@@ -370,6 +370,59 @@ describe("scoreCode with real rendering", () => {
     expect(
       scoreCode(cases["cafes-map"], out, [check]).validity.reasons[0],
     ).toContain('missing component: "missing"');
+  });
+
+  it("counts a photo in an EntityCard for an Image|EntityCard.image expectation", () => {
+    const withCards = (image?: string) => ({
+      text: "",
+      visibleText: "",
+      toolCalls: [],
+      surfaces: [
+        {
+          surfaceId: "s",
+          operations: [
+            {
+              version: "v1.0",
+              createSurface: {
+                surfaceId: "s",
+                components: [
+                  {
+                    id: "root",
+                    component: "Column",
+                    children: ["map", "card"],
+                  },
+                  { id: "map", component: "Map", markers: [] },
+                  { id: "card", component: "EntityCard", title: "Café", image },
+                ],
+              },
+            },
+          ],
+        } as never,
+      ],
+      rejected: [],
+      parseErrors: [],
+      promptTokens: 0,
+      outputTokens: 0,
+      systemPrompt: "",
+    });
+    const check = {
+      surfaceId: "s",
+      rendered: true,
+      errors: [],
+      rejected: [],
+      components: ["Column", "Map", "EntityCard"],
+      proseOnly: false,
+    };
+    const c = {
+      ...cases["cafes-map"],
+      expect: { ui: true, components: ["Map", "Image|EntityCard.image"] },
+    };
+    expect(
+      scoreCode(c, withCards("https://example.com/cafe.jpg"), [check]).fidelity,
+    ).toEqual({ pass: true, reasons: [] });
+    expect(
+      scoreCode(c, withCards(undefined), [check]).fidelity.reasons,
+    ).toEqual(["expected component not used: Image|EntityCard.image"]);
   });
 
   it("flags a surface made only of text", async () => {

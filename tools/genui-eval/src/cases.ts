@@ -14,7 +14,10 @@ const evalCase = z.object({
   expect: z.object({
     /** True when a good answer shows UI, false when prose alone is right. */
     ui: z.boolean(),
-    /** Components a good answer uses. */
+    /**
+     * Components a good answer uses. An entry can require a prop
+     * ("EntityCard.image") or allow alternatives ("Image|EntityCard.image").
+     */
     components: z.array(z.string()).optional(),
   }),
   /**

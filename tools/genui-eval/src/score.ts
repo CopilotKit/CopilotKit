@@ -18,6 +18,43 @@ export interface CodeScores {
   judgement: TierResult;
 }
 
+/** Every component a reply sent, with its props, across all operations. */
+function sentComponents(out: SampleOutput) {
+  return out.surfaces.flatMap((surface) =>
+    (surface.operations as Array<Record<string, any>>).flatMap(
+      (op) =>
+        (op.createSurface?.components ??
+          op.updateComponents?.components ??
+          []) as Array<Record<string, unknown>>,
+    ),
+  );
+}
+
+/**
+ * Whether the reply meets one expected entry. An entry is a component name
+ * ("Image"), a component with a prop that is set ("EntityCard.image"), or
+ * alternatives of those separated by "|": "Image|EntityCard.image" is a
+ * photo either way.
+ */
+function meetsExpected(
+  entry: string,
+  used: ReadonlySet<string>,
+  sent: ReadonlyArray<Record<string, unknown>>,
+) {
+  return entry.split("|").some((alternative) => {
+    const [name, prop] = alternative.split(".");
+    if (!used.has(name)) return false;
+    if (!prop) return true;
+    return sent.some(
+      (component) =>
+        component.component === name &&
+        component[prop] !== undefined &&
+        component[prop] !== null &&
+        component[prop] !== "",
+    );
+  });
+}
+
 const tier = (reasons: string[]): TierResult => ({
   pass: reasons.length === 0,
   reasons,
@@ -56,9 +93,10 @@ export function scoreCode(
   const used = new Set(checks.flatMap((check) => check.components));
   // With no UI at all, judgement already fails; fidelity grades the UI there is.
   if (c.expect.ui && out.surfaces.length > 0) {
-    for (const name of c.expect.components ?? []) {
-      if (!used.has(name))
-        fidelity.push(`expected component not used: ${name}`);
+    const sent = sentComponents(out);
+    for (const entry of c.expect.components ?? []) {
+      if (!meetsExpected(entry, used, sent))
+        fidelity.push(`expected component not used: ${entry}`);
     }
   }
 

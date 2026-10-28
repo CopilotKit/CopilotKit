@@ -74,7 +74,7 @@ A candidate is accepted only if no model gets worse at validity on the held-out 
 ## Files
 
 - `eval.config.ts`: models, presets, judge, reflection model, prices, budget.
-- `cases/train.jsonl`: training cases. `cases/heldout.jsonl`: the held-out exam, never used to change the prompt. A case can carry `context`: what the app or its tools would hand the agent (places, a forecast, the product's plans), sent as agent context entries and shown to the judge. Facts the model cannot know from the request belong there, and a case expects a component like `Image` only when its context provides what it needs.
+- `cases/train.jsonl`: training cases. `cases/heldout.jsonl`: the held-out exam, never used to change the prompt. A case can carry `context`: what the app or its tools would hand the agent (places, a forecast, the product's plans), sent as agent context entries and shown to the judge. Facts the model cannot know from the request belong there, and a case expects a component like `Image` only when its context provides what it needs. An expected entry can require a prop (`EntityCard.image`) or allow alternatives (`Image|EntityCard.image`: a photo either way).
 - `fixtures/offline/`: replies of the offline fake model.
 - `results/` (git-ignored): `run.json` and `samples.jsonl` per run. Query them with DuckDB if the CLI does not answer a question:
 
