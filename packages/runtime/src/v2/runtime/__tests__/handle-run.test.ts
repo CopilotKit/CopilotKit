@@ -933,6 +933,7 @@ describe("handleRunAgent", () => {
         expect(response.status).toBe(200);
         expect(platform.ɵacquireThreadLock).toHaveBeenCalledWith({
           supportsBackendThreadId: true,
+          supportsNativeHistoryDelta: 1,
           threadId: "thread-1",
           runId: "run-1",
           userId: "user-1",

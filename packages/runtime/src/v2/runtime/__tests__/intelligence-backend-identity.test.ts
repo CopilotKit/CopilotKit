@@ -5,6 +5,7 @@ import { CopilotIntelligenceRuntime } from "../core/runtime";
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { handleIntelligenceRun } from "../handlers/intelligence/run";
+import { mcpAppsOptionsForRequest } from "../handlers/shared/native-history-policy";
 
 class TestAgent extends AbstractAgent {
   run() {
@@ -65,6 +66,7 @@ function setup(
     agent,
     run,
     transport,
+    mcpOptions: mcpAppsOptionsForRequest(agent, { mcpServers: [] }),
     teardown: () => transport.mockRestore(),
   };
 }
@@ -124,6 +126,7 @@ for (const mode of ["imported", "fresh", "stateless"] as const) {
       "getThreadMessages",
     ).mockResolvedValue({ messages: [old], consistency: "runner-accepted" });
     fixture.agent.setMessages([old, next]);
+    expect(fixture.mcpOptions.continuationInput).toBe("full-history");
     try {
       const response = await handleIntelligenceRun({
         runtime: fixture.runtime,
@@ -137,10 +140,16 @@ for (const mode of ["imported", "fresh", "stateless"] as const) {
           tools: [],
           context: [],
           state: { retained: true },
-          forwardedProps: { inputPolicy: "native-history-delta-v1" },
+          forwardedProps: {
+            inputPolicy: "native-history-delta-v1",
+            continuationInput: "tool-results",
+          },
         },
       });
       expect(response.status).toBe(200);
+      expect(fixture.mcpOptions.continuationInput).toBe(
+        mode === "stateless" ? "full-history" : "tool-results",
+      );
       const expected = mode === "stateless" ? [old, next] : [next];
       expect(fixture.run.mock.calls[0][0].input.messages).toEqual(expected);
       expect(fixture.agent.messages).toEqual(expected);
@@ -182,6 +191,7 @@ test("native history lookup failure never executes and releases the lock", async
     });
     expect(response.status).toBe(502);
     expect(fixture.run).not.toHaveBeenCalled();
+    expect(fixture.mcpOptions.continuationInput).toBe("full-history");
     expect(cleanup).toHaveBeenCalledWith({
       threadId: fixture.threadId,
       runId: "run-1",
@@ -313,6 +323,44 @@ test("native history rejects an API that silently ignores the consistency requir
     });
     expect(response.status).toBe(502);
     expect(fixture.run).not.toHaveBeenCalled();
+    expect(fixture.mcpOptions.continuationInput).toBe("full-history");
+  } finally {
+    fixture.teardown();
+  }
+});
+
+test("rejected native input validation never enables MCP result-only continuation", async () => {
+  const fixture = setup("native-history-delta-v1");
+  vi.spyOn(
+    fixture.runtime.intelligence,
+    "ɵcleanupThreadLock",
+  ).mockResolvedValue();
+  vi.spyOn(fixture.runtime.intelligence, "getThreadMessages").mockResolvedValue(
+    { messages: [], consistency: "runner-accepted" },
+  );
+  const message = {
+    id: "duplicate",
+    role: "user" as const,
+    content: "request",
+  };
+  try {
+    const response = await handleIntelligenceRun({
+      runtime: fixture.runtime,
+      request: new Request("https://runtime.example/run"),
+      agentId: "test",
+      agent: fixture.agent,
+      input: {
+        threadId: fixture.threadId,
+        runId: "invalid",
+        messages: [message, message],
+        tools: [],
+        context: [],
+        state: {},
+      },
+    });
+    expect(response.status).toBe(502);
+    expect(fixture.run).not.toHaveBeenCalled();
+    expect(fixture.mcpOptions.continuationInput).toBe("full-history");
   } finally {
     fixture.teardown();
   }
