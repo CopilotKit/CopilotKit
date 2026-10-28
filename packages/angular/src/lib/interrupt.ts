@@ -8,7 +8,11 @@ import type {
   ResumeEntry,
   RunAgentResult,
 } from "@ag-ui/client";
-import { ɵInterruptState } from "@copilotkit/core";
+import {
+  ɵInterruptState,
+  ɵgetAgentInterruptState,
+  ɵclearAgentInterruptState,
+} from "@copilotkit/core";
 import type { ɵInterruptDecision, ɵPendingInterrupt } from "@copilotkit/core";
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
@@ -43,7 +47,9 @@ export interface InjectInterruptOptions<TValue = unknown, TResult = never> {
 /** Actions and normalized protocol data passed to interrupt handlers. */
 export interface InterruptHandlerProps<TValue = unknown> {
   event: InterruptEvent<TValue>;
+  /** First unanswered standard interrupt, or null for legacy events. */
   interrupt: Interrupt | null;
+  /** Full standard interrupt batch, including answered entries. */
   interrupts: readonly Interrupt[];
   resolve: InterruptController<TValue>["resolve"];
   cancel: InterruptController<TValue>["cancel"];
@@ -64,6 +70,7 @@ export type InterruptRunner = (
 
 /** Error surfaced when an application attempts to resume an expired interrupt. */
 export class InterruptExpiredError extends Error {
+  /** Describe the interrupt whose expiry prevents resolution. */
   constructor(readonly interrupt: Interrupt) {
     super(
       `Interrupt ${interrupt.id} expired at ${interrupt.expiresAt ?? "an unknown time"}.`,
@@ -74,11 +81,12 @@ export class InterruptExpiredError extends Error {
 
 function toLegacyEvent<TValue>(
   pending: PendingInterrupt<TValue>,
+  interrupt: Interrupt | null,
 ): InterruptEvent<TValue> {
   if (pending.kind === "legacy") return pending.event;
   return {
     name: INTERRUPT_EVENT_NAME,
-    value: pending.interrupts[0] as TValue,
+    value: interrupt as TValue,
   };
 }
 
@@ -103,23 +111,27 @@ export class InterruptController<TValue = unknown, TResult = never> {
   readonly #accepted = signal(false);
   readonly #result = signal<TResult | null>(null);
   readonly #error = signal<unknown | null>(null);
-  readonly #interruptState = new ɵInterruptState<TValue>();
+  #interruptState = new ɵInterruptState<TValue>();
   readonly #runner: InterruptRunner;
   readonly #options: InjectInterruptOptions<TValue, TResult>;
   #agent?: AbstractAgent;
   #unsubscribe?: () => void;
+  #unsubscribeState?: () => void;
+  readonly #primary = signal<Interrupt | null>(null);
   #threadId?: string;
   #handlerGeneration = 0;
   #resumePromise?: Promise<RunAgentResult | void>;
 
   readonly event = computed<InterruptEvent<TValue> | null>(() => {
     const pending = this.#pending();
-    return pending && this.#accepted() ? toLegacyEvent(pending) : null;
+    return pending && this.#accepted()
+      ? toLegacyEvent(pending, this.#primary())
+      : null;
   });
   readonly interrupt = computed<Interrupt | null>(() => {
     const pending = this.#pending();
     return pending?.kind === "standard" && this.#accepted()
-      ? (pending.interrupts[0] ?? null)
+      ? this.#primary()
       : null;
   });
   readonly interrupts = computed<readonly Interrupt[]>(() => {
@@ -146,6 +158,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     };
   });
 
+  /** Configure the runner and optional interrupt filtering and preprocessing. */
   constructor(
     runner: InterruptRunner,
     options: InjectInterruptOptions<TValue, TResult> = {},
@@ -165,6 +178,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     let legacy: InterruptEvent<TValue> | null = null;
     let standard: Interrupt[] | null = null;
     const subscription = agent.subscribe({
+      onMessagesChanged: () => this.#refreshTarget(),
       onCustomEvent: ({ event }) => {
         if (event.name === INTERRUPT_EVENT_NAME) {
           legacy = {
@@ -178,7 +192,15 @@ export class InterruptController<TValue = unknown, TResult = never> {
           standard = params.interrupts;
         }
       },
-      onRunStartedEvent: () => {
+      onRunStartedEvent: (params) => {
+        // A reconnect replays RUN_STARTED without answering pending interrupts.
+        // Genuine SDK runs either have no pending batch or carry resume entries.
+        if (
+          !agent.pendingInterrupts?.length ||
+          params?.input?.resume !== undefined
+        ) {
+          ɵclearAgentInterruptState(agent);
+        }
         legacy = null;
         standard = null;
         this.#threadId = agent.threadId;
@@ -224,7 +246,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#clear();
   }
 
-  /** Resolve one interrupt, resuming only after the complete set is addressed. */
+  /** Resolve the requested or first unanswered interrupt; resume when all are answered. */
   readonly resolve = async (
     payload?: unknown,
     interruptId?: string,
@@ -251,13 +273,19 @@ export class InterruptController<TValue = unknown, TResult = never> {
 
     const id = this.#targetId(current.interrupts, interruptId);
     if (!id) return;
+    if (this.#interruptState.isCompletedToolCall(id, agent.messages)) {
+      console.warn(
+        "[CopilotKit] injectInterrupt: ignoring an answer for an already completed frontend tool call.",
+      );
+      return;
+    }
     return this.#handleStandardDecision(
       agent,
-      this.#interruptState.resolve(payload, id),
+      this.#interruptState.resolve(payload, id, agent.messages),
     );
   };
 
-  /** Cancel one standard interrupt; legacy interrupts are dismissed locally. */
+  /** Cancel the requested or first unanswered interrupt; dismiss legacy events locally. */
   readonly cancel = async (
     interruptId?: string,
   ): Promise<RunAgentResult | void> => {
@@ -280,7 +308,16 @@ export class InterruptController<TValue = unknown, TResult = never> {
 
     const id = this.#targetId(current.interrupts, interruptId);
     if (!id) return;
-    return this.#handleStandardDecision(agent, this.#interruptState.cancel(id));
+    if (this.#interruptState.isCompletedToolCall(id, agent.messages)) {
+      console.warn(
+        "[CopilotKit] injectInterrupt: ignoring an answer for an already completed frontend tool call.",
+      );
+      return;
+    }
+    return this.#handleStandardDecision(
+      agent,
+      this.#interruptState.cancel(id, agent.messages),
+    );
   };
 
   /** Alias retained for parity with other CopilotKit framework adapters. */
@@ -296,7 +333,9 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#clear();
   }
 
+  /** Adopt the shared batch and prepare the interrupt view for this controller. */
   #setPending(pending: PendingInterrupt<TValue>): void {
+    this.#unsubscribeState?.();
     this.#handlerGeneration += 1;
     const generation = this.#handlerGeneration;
     this.#pending.set(pending);
@@ -304,12 +343,23 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#result.set(null);
     this.#error.set(null);
     if (pending.kind === "standard") {
-      this.#interruptState.setStandard(pending.interrupts);
+      this.#interruptState = ɵgetAgentInterruptState(
+        this.#agent!,
+        pending.interrupts,
+      ) as ɵInterruptState<TValue>;
     } else {
+      this.#interruptState = new ɵInterruptState<TValue>();
       this.#interruptState.setLegacy(pending.event);
     }
 
-    const event = toLegacyEvent(pending);
+    this.#primary.set(
+      this.#interruptState.nextInterrupt(this.#agent?.messages),
+    );
+    this.#unsubscribeState = this.#interruptState.subscribe(() =>
+      this.#refreshTarget(),
+    );
+    if (pending.kind === "standard" && !this.#primary()) return;
+    const event = toLegacyEvent(pending, this.#primary());
     let enabled: boolean | PromiseLike<boolean> = true;
     try {
       enabled = this.#options.enabled?.(event) ?? true;
@@ -345,8 +395,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     try {
       prepared = handler({
         event,
-        interrupt:
-          pending.kind === "standard" ? (pending.interrupts[0] ?? null) : null,
+        interrupt: pending.kind === "standard" ? this.#primary() : null,
         interrupts: pending.kind === "standard" ? pending.interrupts : [],
         resolve: this.resolve,
         cancel: this.cancel,
@@ -364,7 +413,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
         (error: unknown) => this.#handlePreparationFailure(error, generation),
       );
     } else {
-      this.#result.set(prepared);
+      if (generation === this.#handlerGeneration) this.#result.set(prepared);
     }
   }
 
@@ -389,12 +438,10 @@ export class InterruptController<TValue = unknown, TResult = never> {
     interrupts: readonly Interrupt[],
     requestedId: string | undefined,
   ): string | undefined {
-    if (interrupts.length > 1 && requestedId === undefined) {
-      console.warn(
-        `[CopilotKit] injectInterrupt: resolve()/cancel() called without an interruptId while ${interrupts.length} interrupts are open; defaulting to the first.`,
-      );
-    }
-    const id = requestedId ?? interrupts[0]?.id;
+    const id =
+      requestedId ??
+      this.#interruptState.nextInterrupt(this.#agent?.messages)?.id;
+    if (requestedId === undefined && !id) return undefined;
     if (!id || !interrupts.some((interrupt) => interrupt.id === id)) {
       console.warn(
         `[CopilotKit] injectInterrupt: ignored unknown interrupt id ${String(id)}.`,
@@ -402,6 +449,14 @@ export class InterruptController<TValue = unknown, TResult = never> {
       return undefined;
     }
     return id;
+  }
+
+  /** Reprepare only when the actionable prompt changes. */
+  #refreshTarget(): void {
+    const pending = this.#pending();
+    if (pending?.kind !== "standard") return;
+    const next = this.#interruptState.nextInterrupt(this.#agent?.messages);
+    if (next !== this.#primary()) this.#setPending(pending);
   }
 
   async #handleStandardDecision(
@@ -471,13 +526,17 @@ export class InterruptController<TValue = unknown, TResult = never> {
     return false;
   }
 
+  /** Invalidate pending preparation and clear this controller without erasing shared decisions. */
   #clear(error: unknown | null = null): void {
+    this.#unsubscribeState?.();
+    this.#unsubscribeState = undefined;
+    this.#primary.set(null);
     this.#handlerGeneration += 1;
     this.#pending.set(null);
     this.#accepted.set(false);
     this.#result.set(null);
     this.#error.set(error);
     this.#resumePromise = undefined;
-    this.#interruptState.clear();
+    this.#interruptState = new ɵInterruptState<TValue>();
   }
 }

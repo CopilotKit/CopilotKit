@@ -2,6 +2,11 @@ import React from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useInterrupt } from "../use-interrupt";
+import type {
+  InterruptEvent,
+  InterruptHandlerProps,
+  InterruptRenderProps,
+} from "../use-interrupt";
 import { useCopilotKit } from "../../context";
 import { useAgent } from "../use-agent";
 import { AbstractAgent, EventType } from "@ag-ui/client";
@@ -30,6 +35,7 @@ type RunFinishedParams =
     });
 
 type SubscriptionHandlers = {
+  onMessagesChanged?: () => void;
   onCustomEvent?: (payload: {
     event: { name: string; value: unknown };
   }) => void;
@@ -43,10 +49,12 @@ type SubscriptionHandlers = {
 class InterruptingAgent extends AbstractAgent {
   readonly inputs: RunAgentInput[] = [];
 
-  constructor(private readonly kind: "standard" | "legacy") {
+  /** Configure the scripted agent outcome and stable thread identity. */
+  constructor(private readonly kind: "standard" | "legacy" | "mixed") {
     super({ agentId: "test-agent", threadId: "test-thread" });
   }
 
+  /** Capture wire input and emit the configured initial interruption or continuation. */
   run(input: RunAgentInput): Observable<BaseEvent> {
     this.inputs.push(input);
     const events: BaseEvent[] = [
@@ -63,15 +71,44 @@ class InterruptingAgent extends AbstractAgent {
         value: { question: "Proceed?" },
       });
     }
+    if (this.inputs.length === 1 && this.kind === "mixed")
+      events.push({
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [
+          {
+            id: "call",
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              {
+                id: "chart",
+                type: "function",
+                function: { name: "chart", arguments: "{}" },
+              },
+            ],
+          },
+        ],
+      });
     events.push({
       type: EventType.RUN_FINISHED,
       threadId: input.threadId,
       runId: input.runId,
-      ...(this.inputs.length === 1 && this.kind === "standard"
+      ...(this.inputs.length === 1 && this.kind !== "legacy"
         ? {
             outcome: {
               type: "interrupt",
-              interrupts: [{ id: "approve-action", reason: "approval" }],
+              interrupts: [
+                ...(this.kind === "mixed"
+                  ? [
+                      {
+                        id: "chart-i",
+                        reason: "tool_call",
+                        toolCallId: "chart",
+                      },
+                    ]
+                  : []),
+                { id: "approve-action", reason: "approval" },
+              ],
             },
           }
         : {}),
@@ -103,6 +140,7 @@ describe("useInterrupt", () => {
       subscribe: subscribeMock,
       id: "test-agent",
       pendingInterrupts: [] as Interrupt[],
+      messages: [],
       addMessage: vi.fn(),
     };
 
@@ -291,6 +329,81 @@ describe("useInterrupt", () => {
     },
   );
 
+  it.each([
+    ["resolve", "approval-first"],
+    ["cancel", "approval-first"],
+    ["resolve", "frontend-first"],
+    ["cancel", "frontend-first"],
+  ])("%s continues once with %s completion", async (action, order) => {
+    const agent = new InterruptingAgent("mixed");
+    const core = new CopilotKitCore({});
+    let finish!: (value: string) => void;
+    const answer = new Promise<string>((resolve) => {
+      finish = resolve;
+    });
+    const handler = vi.fn(() => answer);
+    core.addTool({ name: "chart", description: "chart", handler });
+    mockUseAgent.mockReturnValue({ agent });
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runAgent: core.runAgent.bind(core),
+        setInterruptElement: setInterruptElementMock,
+      },
+    });
+    let callbacks!: {
+      resolve: (payload: unknown, id: string) => Promise<unknown>;
+      cancel: (id: string) => Promise<unknown>;
+    };
+    /** Render the mixed-batch hook and expose its actions to the integration test. */
+    function MixedHarness() {
+      return useInterrupt({
+        renderInChat: false,
+        render: (props) => {
+          callbacks = props;
+          return <div>Approval</div>;
+        },
+      });
+    }
+    render(<MixedHarness />);
+    let running!: Promise<unknown>;
+    await act(async () => {
+      running = core.runAgent({ agent });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    if (order === "frontend-first")
+      await act(async () => {
+        finish("");
+        await running;
+      });
+    await act(async () => {
+      if (action === "resolve")
+        await callbacks.resolve("allow", "approve-action");
+      else await callbacks.cancel("approve-action");
+    });
+    if (order === "approval-first") {
+      expect(agent.inputs).toHaveLength(1);
+      await act(async () => {
+        finish("");
+        await running;
+      });
+    }
+    expect(agent.inputs).toHaveLength(2);
+    expect(agent.inputs[1]!.resume).toEqual([
+      { interruptId: "chart-i", status: "resolved", payload: "" },
+      action === "resolve"
+        ? {
+            interruptId: "approve-action",
+            status: "resolved",
+            payload: "allow",
+          }
+        : { interruptId: "approve-action", status: "cancelled" },
+    ]);
+    expect(
+      agent.inputs[1]!.messages.filter((m) => m.role === "tool"),
+    ).toHaveLength(1);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
   it("uses a fresh run ID for legacy command.resume", async () => {
     const agent = new InterruptingAgent("legacy");
     const core = new CopilotKitCore({});
@@ -929,8 +1042,8 @@ describe("useInterrupt", () => {
     }) {
       const element = useInterrupt({
         renderInChat: false,
-        render: ({ interrupt, interrupts, resolve, cancel }) => {
-          renderSpy({ interrupt, interrupts, resolve, cancel });
+        render: ({ event, interrupt, interrupts, resolve, cancel }) => {
+          renderSpy({ event, interrupt, interrupts, resolve, cancel });
           return (
             <div>
               <button
@@ -981,6 +1094,81 @@ describe("useInterrupt", () => {
       finalizeStandardRun(runId);
     }
 
+    it.each(["resolve", "cancel"] as const)(
+      "forwards explicit %s for saved failed tools",
+      async (action) => {
+        const saved = {
+          id: "error",
+          role: "tool",
+          toolCallId: "failed-call",
+          content: "failed",
+          error: "failure",
+        };
+        mockAgent.messages = [saved];
+        const renderSpy = vi.fn();
+        render(<StandardHarness renderSpy={renderSpy} />);
+        fireStandardInterrupt([
+          { id: "failed", reason: "tool_call", toolCallId: "failed-call" },
+        ]);
+        const props = renderSpy.mock.calls.at(-1)![0];
+        await act(async () => {
+          if (action === "resolve")
+            await props.resolve("replacement", "failed");
+          else await props.cancel("failed");
+        });
+        expect(runAgentMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            resume: [
+              action === "resolve"
+                ? {
+                    interruptId: "failed",
+                    status: "resolved",
+                    payload: "replacement",
+                  }
+                : { interruptId: "failed", status: "cancelled" },
+            ],
+          }),
+        );
+        expect(mockAgent.addMessage).not.toHaveBeenCalled();
+        expect(mockAgent.messages).toEqual([saved]);
+      },
+    );
+
+    it("forwards cancellation after expiry", async () => {
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      fireStandardInterrupt([{ ...INT, expiresAt: "2000-01-01T00:00:00Z" }]);
+      await act(async () => {
+        await renderSpy.mock.calls.at(-1)![0].cancel(INT.id);
+      });
+      expect(runAgentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resume: [{ interruptId: INT.id, status: "cancelled" }],
+        }),
+      );
+    });
+
+    it("hydrates an interrupt finalized before mounting and resumes it once", async () => {
+      mockAgent.pendingInterrupts = [INT];
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      await waitFor(() => expect(renderSpy).toHaveBeenCalled());
+      const props = renderSpy.mock.calls.at(-1)![0];
+      expect(props.interrupts).toEqual([INT]);
+      await act(async () => {
+        await props.resolve("late answer", INT.id);
+        await props.resolve("duplicate", INT.id);
+      });
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+      expect(runAgentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resume: [
+            { interruptId: INT.id, status: "resolved", payload: "late answer" },
+          ],
+        }),
+      );
+    });
+
     it("surfaces the primary interrupt and full list from outcome:interrupt", () => {
       const renderSpy = vi.fn();
       render(<StandardHarness renderSpy={renderSpy} />);
@@ -989,6 +1177,252 @@ describe("useInterrupt", () => {
       const lastCall = renderSpy.mock.calls.at(-1)![0];
       expect(lastCall.interrupt).toEqual(INT);
       expect(lastCall.interrupts).toEqual([INT]);
+    });
+
+    it.each(["resolve", "cancel"])(
+      "%s preserves saved frontend results when answering the remaining approval",
+      async (action) => {
+        mockAgent.messages = [
+          { id: "saved", role: "tool", toolCallId: "chart", content: "" },
+        ];
+        const renderSpy = vi.fn();
+        render(<StandardHarness renderSpy={renderSpy} />);
+        fireStandardInterrupt([
+          { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
+          { id: "approval", reason: "approval" },
+        ]);
+        const callbacks = renderSpy.mock.calls.at(-1)![0];
+        expect(callbacks.interrupt.id).toBe("approval");
+        expect(callbacks.event.value).toEqual(callbacks.interrupt);
+        expect(callbacks.interrupts).toHaveLength(2);
+        await act(async () => {
+          if (action === "resolve") await callbacks.resolve("allow");
+          else await callbacks.cancel();
+        });
+        expect(mockAgent.addMessage).not.toHaveBeenCalled();
+        expect(runAgentMock).toHaveBeenCalledExactlyOnceWith({
+          agent: mockAgent,
+          resume: [
+            { interruptId: "chart-i", status: "resolved", payload: "" },
+            action === "resolve"
+              ? {
+                  interruptId: "approval",
+                  status: "resolved",
+                  payload: "allow",
+                }
+              : { interruptId: "approval", status: "cancelled" },
+          ],
+        });
+      },
+    );
+
+    it.each(["resolve", "cancel"])(
+      "%s ignores an explicitly targeted completed tool call",
+      async (action) => {
+        mockAgent.messages = [
+          { id: "saved", role: "tool", toolCallId: "chart", content: "" },
+        ];
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const renderSpy = vi.fn();
+        render(<StandardHarness renderSpy={renderSpy} />);
+        fireStandardInterrupt([
+          { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
+          { id: "approval", reason: "approval" },
+        ]);
+        const callbacks = renderSpy.mock.calls.at(-1)![0];
+        await act(async () => {
+          if (action === "resolve")
+            await callbacks.resolve("approve", "chart-i");
+          else await callbacks.cancel("chart-i");
+        });
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining("already completed"),
+        );
+        expect(runAgentMock).not.toHaveBeenCalled();
+        expect(mockAgent.addMessage).not.toHaveBeenCalled();
+        await act(async () => {
+          await callbacks.resolve("allow", "approval");
+        });
+        expect(runAgentMock).toHaveBeenCalledTimes(1);
+        expect(runAgentMock.mock.calls[0]![0].resume).toEqual([
+          { interruptId: "chart-i", status: "resolved", payload: "" },
+          { interruptId: "approval", status: "resolved", payload: "allow" },
+        ]);
+        warn.mockRestore();
+      },
+    );
+
+    it("keeps the prompt and implicit target aligned after partial answers and replay", async () => {
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      const interrupts: Interrupt[] = [
+        { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
+        { id: "a", reason: "approval" },
+        { id: "b", reason: "approval" },
+      ];
+      mockAgent.messages = [
+        { id: "saved", role: "tool", toolCallId: "chart", content: "raw" },
+      ];
+      mockAgent.pendingInterrupts = interrupts;
+      fireStandardInterrupt(interrupts);
+      const actions = renderSpy.mock.calls.at(-1)![0];
+      expect(actions.interrupt.id).toBe("a");
+      await act(async () => {
+        await actions.resolve("yes");
+      });
+      expect(renderSpy.mock.calls.at(-1)![0].interrupt.id).toBe("b");
+      mockAgent.messages = [];
+      fireStandardInterrupt(interrupts);
+      expect(renderSpy.mock.calls.at(-1)![0].event.value).toEqual(
+        interrupts[2],
+      );
+      await act(async () => {
+        await actions.cancel();
+        await actions.resolve("extra");
+      });
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+      expect(runAgentMock.mock.calls[0]![0].resume).toEqual([
+        { interruptId: "chart-i", status: "resolved", payload: "raw" },
+        { interruptId: "a", status: "resolved", payload: "yes" },
+        { interruptId: "b", status: "cancelled" },
+      ]);
+      expect(mockAgent.addMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ content: "raw", toolCallId: "chart" }),
+      );
+    });
+
+    it("updates render, filtering, and preparation when a frontend result arrives", async () => {
+      const renderSpy = vi
+        .fn<
+          (
+            props: InterruptRenderProps<unknown, string | null>,
+          ) => React.ReactElement
+        >()
+        .mockReturnValue(<></>);
+      const enabled = vi
+        .fn<(event: InterruptEvent) => boolean>()
+        .mockReturnValue(true);
+      const handler = vi
+        .fn<(props: InterruptHandlerProps) => string>()
+        .mockReturnValue("prepared");
+      function ResultArrivalHarness() {
+        useInterrupt({ render: renderSpy, enabled, handler });
+        return null;
+      }
+      render(<ResultArrivalHarness />);
+      const interrupts: Interrupt[] = [
+        { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
+        { id: "approval", reason: "approval" },
+      ];
+      fireStandardInterrupt(interrupts);
+      expect(renderSpy.mock.calls.at(-1)![0].interrupt).toEqual(interrupts[0]);
+      await act(async () => {
+        mockAgent.messages = [
+          { id: "saved", role: "tool", toolCallId: "chart", content: "done" },
+        ];
+        handlers.onMessagesChanged?.();
+      });
+      expect(renderSpy.mock.calls.at(-1)![0].interrupt).toEqual(interrupts[1]);
+      expect(enabled.mock.calls.at(-1)![0].value).toEqual(interrupts[1]);
+      expect(handler.mock.calls.at(-1)![0].event.value).toEqual(interrupts[1]);
+    });
+
+    it("advances both mounted adapters through shared decisions with one continuation", async () => {
+      const interrupts: Interrupt[] = [
+        { id: "a", reason: "approval" },
+        { id: "b", reason: "approval" },
+      ];
+      mockAgent.pendingInterrupts = interrupts;
+      const firstRender = vi.fn();
+      const secondRender = vi.fn();
+      render(
+        <>
+          <StandardHarness renderSpy={firstRender} />
+          <StandardHarness renderSpy={secondRender} />
+        </>,
+      );
+      const firstActions = firstRender.mock.calls.at(-1)![0];
+      const secondActions = secondRender.mock.calls.at(-1)![0];
+      expect(firstActions.interrupt).toEqual(interrupts[0]);
+      expect(secondActions.interrupt).toEqual(interrupts[0]);
+      await act(async () => {
+        await firstActions.resolve("yes");
+      });
+      expect(firstRender.mock.calls.at(-1)![0].interrupt).toEqual(
+        interrupts[1],
+      );
+      expect(secondRender.mock.calls.at(-1)![0].event.value).toEqual(
+        interrupts[1],
+      );
+      await act(async () => {
+        await secondActions.cancel();
+        await firstActions.resolve("duplicate");
+      });
+      expect(runAgentMock).toHaveBeenCalledExactlyOnceWith({
+        agent: mockAgent,
+        resume: [
+          { interruptId: "a", status: "resolved", payload: "yes" },
+          { interruptId: "b", status: "cancelled" },
+        ],
+      });
+      expect(screen.queryAllByTestId("resolve")).toHaveLength(0);
+    });
+
+    it("does not show preparation from the previous prompt while the next is pending", async () => {
+      let finish!: (value: string) => void;
+      const prepared = new Promise<string>((resolve) => {
+        finish = resolve;
+      });
+      const renderSpy = vi.fn();
+      function PreparationHarness() {
+        const element = useInterrupt({
+          renderInChat: false,
+          handler: ({ interrupt }) =>
+            interrupt?.id === "a" ? "first result" : prepared,
+          render: (props) => {
+            renderSpy(props);
+            return <></>;
+          },
+        });
+        return element;
+      }
+      render(<PreparationHarness />);
+      fireStandardInterrupt([
+        { id: "a", reason: "approval" },
+        { id: "b", reason: "approval" },
+      ]);
+      expect(renderSpy.mock.calls.at(-1)![0].result).toBe("first result");
+      const callsBefore = renderSpy.mock.calls.length;
+      await act(async () => {
+        await renderSpy.mock.calls.at(-1)![0].resolve("yes");
+      });
+      const newPromptCalls = renderSpy.mock.calls
+        .slice(callsBefore)
+        .map(([props]) => props);
+      expect(newPromptCalls.length).toBeGreaterThan(0);
+      expect(
+        newPromptCalls.every(
+          (props) => props.interrupt.id === "b" && props.result === null,
+        ),
+      ).toBe(true);
+      await act(async () => {
+        finish("second result");
+        await prepared;
+      });
+      expect(renderSpy.mock.calls.at(-1)![0].result).toBe("second result");
+    });
+
+    it("does not render or claim continuation for an all-answered batch", () => {
+      mockAgent.messages = [
+        { id: "saved", role: "tool", toolCallId: "chart", content: "" },
+      ];
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      fireStandardInterrupt([
+        { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
+      ]);
+      expect(renderSpy).not.toHaveBeenCalled();
+      expect(runAgentMock).not.toHaveBeenCalled();
     });
 
     it("resolve() resumes with a resolved ResumeEntry", async () => {
@@ -1263,7 +1697,7 @@ describe("useInterrupt", () => {
       });
     });
 
-    it("warns when resolve is called without interruptId while multiple interrupts are open", async () => {
+    it("advances repeated implicit decisions without warning", async () => {
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const INT2: Interrupt = { id: "int-2", reason: "confirmation" };
       const calls: any[] = [];
@@ -1285,13 +1719,19 @@ describe("useInterrupt", () => {
         await resolve({ a: 1 });
       });
 
-      // Warning must have fired.
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("2 interrupts are open"),
-      );
+      expect(warnSpy).not.toHaveBeenCalled();
       // Only primary addressed — runAgent must NOT have been called yet.
       expect(runAgentMock).not.toHaveBeenCalled();
 
+      await act(async () => {
+        await resolve({ b: 2 });
+        await resolve("extra");
+      });
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+      expect(runAgentMock.mock.calls[0]![0].resume).toEqual([
+        { interruptId: INT.id, status: "resolved", payload: { a: 1 } },
+        { interruptId: INT2.id, status: "resolved", payload: { b: 2 } },
+      ]);
       warnSpy.mockRestore();
     });
 

@@ -15,7 +15,7 @@ export interface InterruptEvent<TValue = unknown> {
  * Resolve the agent with user input for an interrupt.
  *
  * - Standard interrupts: records `{ status: "resolved", payload }` for the target
- *   interrupt (defaults to the primary one). Resumes once every open interrupt is
+ *   interrupt (defaults to the first unanswered one). Resumes once every open interrupt is
  *   addressed; returns the resume run result, or `void` while still awaiting others.
  * - Legacy interrupts: resumes immediately via `command.resume = payload`.
  */
@@ -28,7 +28,7 @@ export type InterruptResolveFn = (
  * Cancel an interrupt.
  *
  * - Standard interrupts: records `{ status: "cancelled" }` for the target interrupt
- *   (defaults to the primary one), then resumes once all are addressed.
+ *   (defaults to the first unanswered one), then resumes once all are addressed.
  * - Legacy interrupts: dismisses the pending interrupt without resuming.
  */
 export type InterruptCancelFn = (
@@ -42,9 +42,9 @@ export interface InterruptHandlerProps<TValue = unknown> {
    * Prefer `interrupt` / `interrupts` for standard interrupts.
    */
   event: InterruptEvent<TValue>;
-  /** Primary standard interrupt (`interrupts[0]`), or `null` for legacy interrupts. */
+  /** First unanswered standard interrupt, or `null` for legacy interrupts. */
   interrupt: Interrupt | null;
-  /** All open standard interrupts (empty array for legacy interrupts). */
+  /** Full standard interrupt batch, including answered entries (empty for legacy). */
   interrupts: Interrupt[];
   resolve: InterruptResolveFn;
   cancel: InterruptCancelFn;
