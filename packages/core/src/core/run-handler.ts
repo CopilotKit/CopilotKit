@@ -140,6 +140,9 @@ export interface CopilotKitCoreCatalogComponent {
   schema: unknown;
 }
 
+/** How many recent runs keep their request ID for a later approval resume. */
+const MAX_REMEMBERED_REQUEST_IDS = 100;
+
 /**
  * Absolute safety cap on the depth of recursive follow-up runs triggered by
  * `processAgentResult`. Without this, any scenario that keeps
@@ -255,6 +258,18 @@ export class RunHandler {
    * overlapping run keeps the intercept after an earlier run finishes.
    */
   private _originalAbortRuns = new WeakMap<AbstractAgent, () => void>();
+
+  /**
+   * The request each agent's in-flight run belongs to. Its follow-up runs
+   * send the same ID, so Intelligence counts the chain as one request.
+   */
+  private _activeRequestIds = new WeakMap<AbstractAgent, string>();
+
+  /**
+   * Request IDs of recent logical runs, so an approval that resumes a paused
+   * run sends the ID of the request that paused. Oldest entries go first.
+   */
+  private _requestIdByRun = new Map<string, string>();
 
   /**
    * Keeps tools that opt in via `webmcp` registered on the page's WebMCP model
@@ -797,6 +812,17 @@ export class RunHandler {
     const depth = this._runDepths.get(agent) ?? 0;
     this._runDepths.set(agent, depth + 1);
 
+    // A follow-up or a resume continues the request that started it. Anything
+    // else is a new request.
+    const continuedRunId =
+      resumedRunId ?? (continuationHandoff ? runId : undefined);
+    const requestId =
+      (continuationHandoff ? this._activeRequestIds.get(agent) : undefined) ??
+      (continuedRunId !== undefined
+        ? this._requestIdByRun.get(continuedRunId)
+        : undefined) ??
+      randomUUID();
+
     if (!isFollowUp) {
       const controllers =
         this._runAbortControllers.get(agent) ?? new Set<AbortController>();
@@ -815,6 +841,9 @@ export class RunHandler {
         originalAbortRun.call(agent);
       };
     }
+
+    const previousRequestId = this._activeRequestIds.get(agent);
+    this._activeRequestIds.set(agent, requestId);
 
     try {
       if (depth === 0) {
@@ -877,6 +906,7 @@ export class RunHandler {
         forwardedProps: {
           ...this._internal.getPropertiesForAgent(agent.agentId),
           ...forwardedProps,
+          __copilotkitRequestId: requestId,
         },
         ...(resume !== undefined ? { resume } : {}),
         ...(pinRunIdOnWire ? { runId } : {}),
@@ -889,6 +919,9 @@ export class RunHandler {
       );
       if (!started) {
         logicalHandoff?.cancel();
+      }
+      if (logicalRunId !== undefined) {
+        this.rememberRequestId(logicalRunId, requestId);
       }
       return await this.processAgentResult({
         runAgentResult,
@@ -929,6 +962,20 @@ export class RunHandler {
           this._originalAbortRuns.delete(agent);
         }
       }
+      if (previousRequestId === undefined) {
+        this._activeRequestIds.delete(agent);
+      } else {
+        this._activeRequestIds.set(agent, previousRequestId);
+      }
+    }
+  }
+
+  private rememberRequestId(runId: string, requestId: string): void {
+    this._requestIdByRun.delete(runId);
+    this._requestIdByRun.set(runId, requestId);
+    if (this._requestIdByRun.size > MAX_REMEMBERED_REQUEST_IDS) {
+      const oldest = this._requestIdByRun.keys().next().value;
+      if (oldest !== undefined) this._requestIdByRun.delete(oldest);
     }
   }
 

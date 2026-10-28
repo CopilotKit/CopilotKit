@@ -7,6 +7,10 @@ import {
   resolveSseKeepAliveIntervalSeconds,
 } from "./sse-keep-alive";
 import { THREAD_ALREADY_RUNNING_ERROR_CODE } from "@copilotkit/shared";
+import {
+  THREAD_ACCESS_DENIED_ERROR_CODE,
+  isThreadAccessDeniedError,
+} from "../../runner/agent-runner";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
 import { createLogger } from "../../../../v1-deprecated/lib/logger";
 import type { CopilotRuntimeLogger } from "../../../../v1-deprecated/lib/logger";
@@ -130,7 +134,13 @@ export function createSseEventResponse({
           message: "Thread already running",
           code: THREAD_ALREADY_RUNNING_ERROR_CODE,
         }
-      : { type: EventType.RUN_ERROR, message: "Agent run failed" };
+      : isThreadAccessDeniedError(error)
+        ? {
+            type: EventType.RUN_ERROR,
+            message: "Thread access denied",
+            code: THREAD_ACCESS_DENIED_ERROR_CODE,
+          }
+        : { type: EventType.RUN_ERROR, message: "Agent run failed" };
     // The inspector sees every streamed event, so it needs this one too or
     // the run it saw start never ends there. A run that never started has
     // no ids to file it under, so it is not sent.
@@ -167,6 +177,15 @@ export function createSseEventResponse({
 
   let subscription: Subscription | undefined;
   let agentErrorReported = false;
+
+  // A refused run is an access decision, not an agent failure: log it as a
+  // warning and keep it out of the error reporter.
+  const logAccessDenied = (error: unknown) => {
+    console.warn(
+      "[CopilotKit] Run refused: the thread belongs to another identity.",
+      error instanceof Error ? error.message : String(error),
+    );
+  };
 
   const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
     if (agentErrorReported) return;
@@ -301,11 +320,19 @@ export function createSseEventResponse({
         }
       },
       error: async (error) => {
+        if (isThreadAccessDeniedError(error)) {
+          logAccessDenied(error);
+          await writeRunError(error);
+          await closeStream();
+          return;
+        }
         reportAgentError(error, "sse.subscription");
         if (captureTelemetry) {
+          // Analytics gets the outcome, not the message: provider and tool
+          // errors can quote prompts, arguments or URLs. Same as Intelligence.
           telemetry.capture("oss.runtime.agent_execution_stream_errored", {
             ...executionInfo,
-            error: error instanceof Error ? error.message : String(error),
+            error: "AGENT_EXECUTION_FAILED",
           });
         }
         if (debug?.lifecycle) {
@@ -341,8 +368,12 @@ export function createSseEventResponse({
       subscription.unsubscribe();
     }
   })().catch(async (error) => {
-    reportAgentError(error, "sse.factory");
-    logError(error);
+    if (isThreadAccessDeniedError(error)) {
+      logAccessDenied(error);
+    } else {
+      reportAgentError(error, "sse.factory");
+      logError(error);
+    }
     await writeRunError(error);
     await closeStream();
   });

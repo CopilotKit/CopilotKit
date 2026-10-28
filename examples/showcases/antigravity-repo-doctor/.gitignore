@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Python agent
+agent/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# env files (keep the example)
+.env*
+!.env.example
+
+# harness workspaces and sessions, if pointed inside the repo
+/workspaces/
+/.data/
+
+# OS / editor
+.DS_Store
+*.log
+
+# e2e output
+e2e/screenshots/

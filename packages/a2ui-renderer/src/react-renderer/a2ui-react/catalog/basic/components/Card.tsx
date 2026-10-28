@@ -22,7 +22,7 @@ import { getBaseContainerStyle } from "../utils";
 export const Card = createReactComponent(CardApi, ({ props, buildChild }) => {
   const style: React.CSSProperties = {
     ...getBaseContainerStyle(),
-    backgroundColor: "#fff",
+    backgroundColor: "var(--a2ui-color-surface, #fff)",
     boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
     width: "100%",
   };

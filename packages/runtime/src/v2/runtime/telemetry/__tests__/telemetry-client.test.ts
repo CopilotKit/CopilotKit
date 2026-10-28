@@ -126,6 +126,22 @@ describe("v2 TelemetryClient sampling metadata", () => {
     expect(lambdaSpy).toHaveBeenCalledTimes(1);
   });
 
+  test("an opt-out set after the client is created still stops events", async () => {
+    // e.g. dotenv.config() placed below the import that creates the client.
+    vi.stubEnv("COPILOTKIT_TELEMETRY_DISABLED", "");
+    vi.stubEnv("DO_NOT_TRACK", "");
+    try {
+      const client = new TelemetryClient();
+      vi.stubEnv("COPILOTKIT_TELEMETRY_DISABLED", "true");
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(lambdaSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   test("a configured rate still gates, and the block reports it", async () => {
     // The lever survives for callers who want less; only the default moved.
     vi.spyOn(Math, "random").mockReturnValue(0.99);
