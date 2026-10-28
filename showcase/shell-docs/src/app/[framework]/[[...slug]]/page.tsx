@@ -84,6 +84,10 @@ import {
   ROOT_FRAMEWORK,
 } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
+import {
+  catalogReferenceNameFromPath,
+  isCatalogReferencePath,
+} from "@/components/standard-catalog/catalog-reference";
 import { RESERVED_ROUTE_SLUGS } from "@/lib/reserved-route-slugs";
 import demoContent from "@/data/demo-content.json";
 import fs from "fs";
@@ -254,7 +258,10 @@ function frameworkMetadata(
       loadDoc(
         `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${unscopedPath}`,
       ) ?? loadDoc(unscopedPath);
-    title = doc?.fm.title ?? humanizeSlug(unscopedPath);
+    title =
+      catalogReferenceNameFromPath(unscopedPath) ??
+      doc?.fm.title ??
+      humanizeSlug(unscopedPath);
     description = doc?.fm.description;
   } else if (slugPath) {
     // Use the SAME frontend-aware order as the body resolver. This
@@ -515,6 +522,14 @@ export default async function FrameworkScopedDocsPage({
   }
 
   const frontendSlugPath = slug?.join("/") ?? "";
+  if (
+    isCatalogReferencePath(frontendSlugPath) &&
+    (getIntegration(framework) ||
+      hasDocsOnlyFrameworkContent(framework) ||
+      isFrontendPageId(framework))
+  ) {
+    redirect(`/${frontendSlugPath}`);
+  }
   if (framework === "frontends") {
     const [frontend, ...tail] = slug ?? [];
     if (isFrontendId(frontend)) {

@@ -9,6 +9,12 @@ export default defineConfig({
     // Link checks load the docs content tree. Keep memory bounded on the
     // four-core CI runner; local and CI runs use the same small suite.
     maxWorkers: 2,
+    server: {
+      deps: {
+        // The published renderer imports CSS; let Vite process it in DOM tests.
+        inline: [/@copilotkit\//],
+      },
+    },
   },
   resolve: {
     alias: [
