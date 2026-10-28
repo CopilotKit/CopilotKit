@@ -44,6 +44,7 @@ import {
 import { sendAnswerFeedback } from "@/lib/feedback";
 import { DocsAgent } from "./docs-agent";
 import { DocsChatProvider, useDocsChatSession } from "./chat-session";
+import { DocsChatWorkspace } from "./docs-chat-workspace";
 
 /**
  * Spacious' DocsLayout with CopilotKit in its `aiChat` slot, following
@@ -283,7 +284,9 @@ function ChatPanel() {
   return (
     <>
       <ResizeHandle />
-      <DocsChat onClose={() => props.aiChat?.onOpenChange(false)} />
+      <DocsChatWorkspace>
+        <DocsChat onClose={() => props.aiChat?.onOpenChange(false)} />
+      </DocsChatWorkspace>
     </>
   );
 }
@@ -345,7 +348,7 @@ export function DocsChat({
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-fd-border bg-fd-background ps-4 pe-2">
         <KiteMark />
         <h2 className="text-sm font-medium">
-          {home ? "Explore the docs" : "Ask CopilotKit"}
+          {started ? "Ask Kite" : "Explore the docs"}
         </h2>
         <div className="ms-auto flex items-center gap-0.5">
           {started ? (
@@ -401,7 +404,7 @@ export function DocsChat({
             if ("error" in event) setError(readableError(event.error));
           }}
           labels={{
-            chatInputPlaceholder: "Ask anything",
+            chatInputPlaceholder: "Ask Kite anything",
             welcomeMessageText: home
               ? "Hi, I’m Kite, your guide to CopilotKit. How can I help?"
               : "How can we help?",

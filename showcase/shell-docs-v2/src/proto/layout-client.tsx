@@ -222,6 +222,7 @@ function MenuRow({
 function DHomeLayout({ children }: { children: ReactNode }) {
   const [framework] = useLastFramework();
   const links: LinkItemType[] = [
+    { text: "Ask Kite", url: "/kite" },
     {
       type: "menu",
       text: "Guides",
@@ -371,7 +372,9 @@ function ProtoLayoutContent({
 
   if (
     variant === "d" &&
-    ((loc?.kind === "docs" && !loc.slug) || loc?.kind === "examples")
+    (pathname === "/kite" ||
+      (loc?.kind === "docs" && !loc.slug) ||
+      loc?.kind === "examples")
   ) {
     return <DHomeLayout>{children}</DHomeLayout>;
   }

@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { frameworkById, frontendById } from "./data";
 import { useFrontend } from "./frontend";
 import { useLastFramework } from "./last-framework";
-import { liveFramework } from "@/lib/live-scope";
-import { getSetupLinks } from "@/lib/home-docs-links";
+import { frameworkHref } from "./routes";
 
 /**
  * copilotkit.ai's "Copy prompt" pill: a setup prompt for a coding agent,
@@ -21,18 +20,10 @@ export function CopyPromptD() {
 
   async function copy() {
     const fe = frontendById(frontend)?.name ?? "React";
-    const selected = liveFramework(framework) ? framework : "built-in-agent";
-    const fw = frameworkById(selected)?.name ?? "CopilotKit";
-    const links = getSetupLinks({ framework: selected, frontend });
-    const guides = links
-      .map((link) => `${link.title}: ${window.location.origin}${link.url}`)
-      .join("\n");
-    const instructions =
-      links.length > 1
-        ? `Use the frontend guide for the UI and the agent guide for backend/runtime wiring. Keep ${fw} as the agent framework and use ${fe} UI code.`
-        : "Follow the quickstart step by step.";
+    const fw = frameworkById(framework)?.name ?? "CopilotKit";
+    const url = `${window.location.origin}${frameworkHref("d", framework, "quickstart")}`;
     await navigator.clipboard.writeText(
-      `Add CopilotKit to this ${fe} project with ${fw}.\n${guides}\n${instructions} Then run the app.`,
+      `Add CopilotKit to this ${fe} project with ${fw}.\nFollow ${url} step by step, then run the app.`,
     );
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);

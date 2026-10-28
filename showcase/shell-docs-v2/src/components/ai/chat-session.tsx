@@ -13,6 +13,7 @@ import {
 } from "@copilotkit/react-core/v2";
 import { DocsGuideTools } from "./guide-tools";
 import { DocsToolStatuses, SIDE_BY_SIDE } from "./docs-agent";
+import { OnboardingGuideContext } from "./onboarding-guide";
 
 const ChatSessionContext = createContext<{
   open: boolean;
@@ -43,6 +44,7 @@ export function DocsChatProvider({ children }: { children: ReactNode }) {
       <ChatSessionContext value={value}>
         <CopilotChatConfigurationProvider>
           <DocsGuideTools />
+          <OnboardingGuideContext />
           <DocsToolStatuses />
           {children}
         </CopilotChatConfigurationProvider>

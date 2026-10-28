@@ -6,8 +6,9 @@ import {
   useCopilotChatConfiguration,
 } from "@copilotkit/react-core/v2";
 import { DocsChat } from "./docs-layout";
+import { DocsChatWorkspace } from "./docs-chat-workspace";
 
-/** The same live docs assistant, embedded directly in the homepage. */
+/** The same live docs assistant, embedded directly on Ask Kite. */
 export function HomeDocsChat() {
   const { agent } = useAgent();
   const configuration = useCopilotChatConfiguration();
@@ -38,10 +39,12 @@ export function HomeDocsChat() {
   );
   return (
     <section
-      aria-label="Explore the docs"
+      aria-label="Ask Kite"
       className="flex h-[32rem] min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-fd-border bg-fd-background shadow-sm max-sm:h-[30rem]"
     >
-      <DocsChat home />
+      <DocsChatWorkspace home>
+        <DocsChat home />
+      </DocsChatWorkspace>
     </section>
   );
 }

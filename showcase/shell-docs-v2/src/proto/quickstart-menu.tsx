@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { Check, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,28 +12,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FrameworkLogo } from "@/components/icons/framework-icons";
-import { FRAMEWORKS, LANGUAGES, frameworkById } from "./data";
+import { useHomepageTelemetry } from "@/lib/telemetry/use-homepage-telemetry";
+import { FRAMEWORKS, LANGUAGES } from "./data";
 import { rememberFramework, useLastFramework } from "./last-framework";
-import { liveFramework } from "@/lib/live-scope";
+import { frameworkHref } from "./routes";
 
 /**
- * The home's primary action: pick your agent framework for the setup links and copied prompt. The last one you used is checked.
+ * The home's primary action: pick your agent framework, land on its
+ * quickstart. The last one you used is checked.
  */
 export function QuickstartMenu() {
+  const router = useRouter();
   const [current] = useLastFramework();
+  const track = useHomepageTelemetry();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="outline" className="group h-11 rounded-full px-5" />
+          <Button className="group h-11 rounded-full bg-foreground px-5 text-background hover:bg-foreground/85 data-popup-open:bg-foreground/85" />
         }
       >
-        Agent:{" "}
-        {
-          frameworkById(liveFramework(current) ? current : "built-in-agent")
-            ?.name
-        }
+        Start the quickstart
         <ChevronDown
           className="transition-transform duration-200 group-data-popup-open:rotate-180 motion-reduce:transition-none"
           aria-hidden="true"
@@ -42,20 +43,19 @@ export function QuickstartMenu() {
         sideOffset={8}
         className="max-h-[min(28rem,var(--available-height))] w-72 rounded-xl p-1.5 ring-frame-rim"
       >
-        {LANGUAGES.filter((lang) =>
-          FRAMEWORKS.some((f) => f.language === lang && liveFramework(f.id)),
-        ).map((lang) => (
+        {LANGUAGES.map((lang) => (
           <DropdownMenuGroup key={lang} className="not-first:mt-1">
             <DropdownMenuLabel className="px-2 pt-1.5">
               {lang}
             </DropdownMenuLabel>
-            {FRAMEWORKS.filter(
-              (f) => f.language === lang && liveFramework(f.id),
-            ).map((f) => (
+            {FRAMEWORKS.filter((f) => f.language === lang).map((f) => (
               <DropdownMenuItem
                 key={f.id}
                 onClick={() => {
+                  const destination = frameworkHref("d", f.id, "quickstart");
+                  track("quickstart_selected", { backend: f.id, destination });
                   rememberFramework(f.id);
+                  router.push(destination);
                 }}
                 className="min-h-9 gap-2.5 rounded-lg px-2"
               >

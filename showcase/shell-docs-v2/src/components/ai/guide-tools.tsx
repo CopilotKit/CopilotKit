@@ -42,7 +42,7 @@ export function DocsGuideTools() {
   const session = useDocsChatSession();
   useAgentContext({
     description:
-      "Current site location and available guide IDs and stack choices. The homepage has no docs sidebar. A choice is not made until the reader supplies it.",
+      "Current site location and available guide IDs and stack choices. Home-layout pages (/ and /kite) have no docs sidebar. A choice is not made until the reader supplies it.",
     value: { pathname, guides: DOCS_CHAT_GUIDES, stackChoices: STACK_CHOICES },
   });
 
