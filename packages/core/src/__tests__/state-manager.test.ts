@@ -1271,7 +1271,7 @@ describe("StateManager - Edge Cases", () => {
       agent: replaced,
     });
     const staleSubscriber = subscribeSpy.mock.calls.find(
-      ([subscriber]) => subscriber.onRunStartedEvent,
+      ([candidate]) => candidate.onRunStartedEvent,
     )?.[0] as AgentSubscriber | undefined;
     if (!staleSubscriber?.onRunStartedEvent) {
       throw new Error("Expected StateManager to subscribe to the agent");
@@ -1322,7 +1322,7 @@ describe("StateManager - Edge Cases", () => {
     const subscribeSpy = vi.spyOn(agent, "subscribe");
     copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent });
     const subscriber = subscribeSpy.mock.calls.find(
-      ([subscriber]) => subscriber.onRunStartedEvent,
+      ([candidate]) => candidate.onRunStartedEvent,
     )?.[0] as AgentSubscriber | undefined;
     if (!subscriber?.onRunStartedEvent) {
       throw new Error("Expected StateManager to subscribe to the agent");

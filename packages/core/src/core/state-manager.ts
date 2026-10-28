@@ -401,7 +401,7 @@ export class StateManager {
         this.handleRunFinished(agent, effective, state);
         return mutation;
       },
-      onCustomEvent: ({ event, input }) => {
+      onCustomEvent: ({ event }) => {
         if (!revoked && event.name === "on_interrupt") legacyInterrupted = true;
       },
       // A run error terminates the run — treat identically to finished for cleanup
