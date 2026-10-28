@@ -15,7 +15,7 @@ const bytes = await readFile(
   "tools/railway-runner-deploy/releases/browser-upgrade.json",
 );
 const intent = JSON.parse(bytes);
-assert.equal(intent.sourceRevision, "6903d804df6857e7e92fd4547a2de573236350b3");
+assert.equal(intent.sourceRevision, "a918ae011663c426a426243bcbc6c183f52f8d97");
 assert.equal(
   intent.baseline.runtimeIdentity.sourceRevision,
   "b6f89b83d4b6dd4efd2a1bc04f999cf38ff7233b",

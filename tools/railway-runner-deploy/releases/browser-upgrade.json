@@ -1,12 +1,12 @@
 {
-  "sourceRevision": "6903d804df6857e7e92fd4547a2de573236350b3",
+  "sourceRevision": "a918ae011663c426a426243bcbc6c183f52f8d97",
   "build": {
-    "runId": 40726621354,
+    "runId": 40732403270,
     "runAttempt": 1,
     "workflowPath": ".github/workflows/intelligence-rich-threads-build.yml",
     "workflowSha256": "4337e0e43f7598ff19171ad3a73a250e404e7a8e138ae149cb30e75bda6224bf",
-    "artifactId": 12833851346,
-    "artifactSha256": "f0bce6316b08305946674541fea422a8085e965858df6ed9f911700c2ecb943b"
+    "artifactId": 12835822185,
+    "artifactSha256": "6ae7f6973c34ab6e2f8b1d1f3f438fff328a972f8cd6195466dcd764d5e350d7"
   },
   "baseline": {
     "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:08990847c406a71dd0424ae6f58e91bcaeee500b7e3a1a9d2d032e08f6d27b6f",
@@ -45,12 +45,12 @@
     }
   ],
   "candidate": {
-    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:47cd498987d24bbbc83b7f6cc27ce7df28e16de92c38f9e8676b8392f34b7ed4",
+    "image": "ghcr.io/copilotkit/rich-thread-runner@sha256:0130216d2378373b0c98f55669ca1c9e0299f0f26e468c39261511e30793b4df",
     "runtimeIdentity": {
       "protocolVersion": 1,
-      "sourceRevision": "6903d804df6857e7e92fd4547a2de573236350b3",
-      "sourceManifestSha256": "1ddead3b529305ab49d4792fb432cdf1420e32429c98be7bd574ec87fa413528",
-      "compatibilitySha256": "bc5afa00f74a6d752a2f9350e9a428a93de776cc4832a66f72bc698984dd0240",
+      "sourceRevision": "a918ae011663c426a426243bcbc6c183f52f8d97",
+      "sourceManifestSha256": "d7f2246d36d19b4fc2c90b1dd2f34abc7c2254519bdf64b0ef7fcb351325e1b0",
+      "compatibilitySha256": "8406f50ec74eae7cf6fe9186bc84b6a2fee77f0ee77106be5999245fa13f3df5",
       "policySha256": "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751"
     }
   },

@@ -6,27 +6,30 @@ after this release is reviewed and merged. Scheduling stays off.
 
 ## Change and evidence
 
-Source `6903d804df6857e7e92fd4547a2de573236350b3` fixes a cold-browser race:
+Source `a918ae011663c426a426243bcbc6c183f52f8d97` fixes a cold-browser race:
 the server-rendered textarea becomes visible before React hydration and runtime
 discovery. The previous driver filled that textarea and pressed Enter immediately.
 Hydration could clear the input without any agent request. The driver now prepares
 the input until the real send control becomes enabled, clicks once, and retains
 the existing captured-terminal-run requirement. It never retries submission.
-All composer actions share one 90-second deadline and forward cancellation to
-Playwright. Request admission checks cancellation before and after the awaited
-pre-request hook, so cancelling a held hook cannot forward a late POST.
+All composer actions and request admission share one 90-second deadline and
+forward cancellation to Playwright. The deadline stays active through the awaited
+pre-request hook; its captured per-send authorization is checked before forwarding
+the request. Expiry or cancellation cannot forward a late POST, while an already
+admitted agent run retains the existing terminal-event timeout.
 
 The exact public `@copilotkit/react-core@1.77.0` UI reproduced the empty composer
 and absent POST with delayed hydration; the fixed driver produced one POST and
 captured its thread and terminal event. Both framework browser regressions fail
 with the previous driver and pass with this change. The source passed 142 smoke
-tests, twelve browser tests, and independent review. Seven new browser regressions
+tests, thirteen browser tests, and independent review. Eight new browser regressions
 cover blocked fill, missing send controls, covered buttons, deadline expiry, caller
-cancellation, and a held pre-request hook; unblocking after rejection produces no
+cancellation, and a held pre-request hook under both cancellation and deadline
+expiry; unblocking after rejection produces no
 late POST. These local checks do not prove
 live model output or Intelligence persistence.
 
-Build [40726621354](https://github.com/CopilotKit/CopilotKit/actions/runs/40726621354)
+Build [40732403270](https://github.com/CopilotKit/CopilotKit/actions/runs/40732403270)
 provides the immutable candidate record. Provenance must verify that its packaged
 source differs from baseline only in `browser/session.mjs` and
 `driver.integration.mjs`. Application, native backend and inspector images,
