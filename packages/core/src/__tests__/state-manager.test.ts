@@ -1270,9 +1270,9 @@ describe("StateManager - Edge Cases", () => {
       id: "agent1",
       agent: replaced,
     });
-    const staleSubscriber = subscribeSpy.mock.calls[0]?.[0] as
-      | AgentSubscriber
-      | undefined;
+    const staleSubscriber = subscribeSpy.mock.calls.find(
+      ([subscriber]) => subscriber.onRunStartedEvent,
+    )?.[0] as AgentSubscriber | undefined;
     if (!staleSubscriber?.onRunStartedEvent) {
       throw new Error("Expected StateManager to subscribe to the agent");
     }
@@ -1321,9 +1321,9 @@ describe("StateManager - Edge Cases", () => {
     const agent = new EventEmittingMockAgent("agent1", "thread1");
     const subscribeSpy = vi.spyOn(agent, "subscribe");
     copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent });
-    const subscriber = subscribeSpy.mock.calls[0]?.[0] as
-      | AgentSubscriber
-      | undefined;
+    const subscriber = subscribeSpy.mock.calls.find(
+      ([subscriber]) => subscriber.onRunStartedEvent,
+    )?.[0] as AgentSubscriber | undefined;
     if (!subscriber?.onRunStartedEvent) {
       throw new Error("Expected StateManager to subscribe to the agent");
     }
@@ -1335,7 +1335,8 @@ describe("StateManager - Edge Cases", () => {
     // unchanged agent routinely — a header change, a transport change, an
     // `/info` re-settle, the mid-session recovery re-sync.
     copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent });
-    expect(subscribeSpy).toHaveBeenCalledTimes(1);
+    // One decision subscription and one lifecycle subscription; neither is replaced.
+    expect(subscribeSpy).toHaveBeenCalledTimes(2);
 
     const input: RunAgentInput = {
       threadId: "thread1",
