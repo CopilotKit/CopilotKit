@@ -1,11 +1,11 @@
 // Held-out cases: the honest exam. Agents and the optimizer must never read this file.
-{"id":"hiking-map","message":"Show three hiking spots near Innsbruck on a map and let me pick one.","catalog":"standard","tags":["map","null-trap","interactive"],"expect":{"ui":true,"components":["Map"]}}
-{"id":"phone-compare","message":"Compare the iPhone 16, Pixel 9 and Galaxy S25 on price, camera and battery.","catalog":"standard","tags":["table","compare"],"expect":{"ui":true,"components":["Table"]}}
-{"id":"savings-goal","message":"Help me see how long it takes to save 10,000 euros if I put away a monthly amount I can change.","catalog":"standard","tags":["calc","chart","interactive"],"expect":{"ui":true,"components":["Slider"]}}
-{"id":"newsletter-signup","message":"Make a newsletter sign-up with email and a checkbox to accept the terms; both are required.","catalog":"standard","tags":["form","validation"],"expect":{"ui":true,"components":["TextField","CheckBox"]}}
+{"id":"hiking-map","message":"I'm in Innsbruck for the weekend. Where can I go hiking?","catalog":"standard","tags":["map","null-trap","interactive"],"expect":{"ui":true,"components":["Map"]}}
+{"id":"phone-compare","message":"iPhone 16, Pixel 9 or Galaxy S24: which one has the best camera?","catalog":"standard","tags":["table","compare"],"expect":{"ui":true,"components":["Table"]}}
+{"id":"savings-goal","message":"I want to save 10,000 euros. How long will it take if I put money aside every month?","catalog":"standard","tags":["calc","chart","interactive"],"expect":{"ui":true,"components":["Slider"]}}
+{"id":"newsletter-signup","message":"Can you sign me up for your newsletter?","catalog":"standard","tags":["form","validation"],"expect":{"ui":true,"components":["TextField","CheckBox"]}}
 {"id":"what-is-http","message":"What does HTTP stand for?","catalog":"standard","tags":["prose-only"],"expect":{"ui":false}}
-{"id":"rainfall-chart","message":"Chart the average monthly rainfall in London over a year, with plausible numbers.","catalog":"standard","tags":["chart"],"expect":{"ui":true,"components":["Chart"]}}
-{"id":"meeting-scheduler","message":"Let me propose a meeting: date, a start time in 30-minute steps during office hours, and attendees.","catalog":"standard","tags":["form","datetime"],"expect":{"ui":true,"components":["DateTimeInput"]}}
-{"id":"photosynthesis","message":"Explain photosynthesis with a simple diagram.","catalog":"standard","tags":["illustrate","svg"],"expect":{"ui":true}}
+{"id":"rainfall-chart","message":"How much does it rain in London over the year?","catalog":"standard","tags":["chart"],"expect":{"ui":true,"components":["Chart"]}}
+{"id":"meeting-scheduler","message":"Set up a 30-minute meeting with my design team next week.","catalog":"standard","tags":["form","datetime"],"expect":{"ui":true,"components":["DateTimeInput"]}}
+{"id":"photosynthesis","message":"Explain photosynthesis to my 12-year-old.","catalog":"standard","tags":["illustrate","svg"],"expect":{"ui":true}}
 {"id":"good-morning","message":"Good morning!","catalog":"standard","tags":["prose-only","conversation"],"expect":{"ui":false}}
-{"id":"quiz","message":"Give me a three-question multiple-choice quiz about World War II with a check-answers button.","catalog":"standard","tags":["form","choices","events"],"expect":{"ui":true,"components":["Button"]}}
+{"id":"quiz","message":"Quiz me on World War II, three questions.","catalog":"standard","tags":["form","choices","events"],"expect":{"ui":true,"components":["Button"]}}

@@ -1,31 +1,31 @@
 // Training cases. The optimizer and agents may read these. One JSON object per line.
 {"id":"team-plan-estimator","message":"Taskloom's Team plan costs $29 per seat per month, with 20% off when you pay yearly. I need to understand how much I'd pay for anywhere from 10 to 100 seats.","catalog":"standard","tags":["smoke","form","calc","interactive"],"expect":{"ui":true,"components":["Slider","SegmentedControl"]}}
 {"id":"cafes-map","message":"I'm at Stephansplatz. Which cafés can I visit?","catalog":"standard","tags":["smoke","map","null-trap","list","images","choices"],"expect":{"ui":true,"components":["Map","Image"]}}
-{"id":"signup-validation","message":"Create a sign-up form with name, email and password, and validate the email before the user can submit.","catalog":"standard","tags":["smoke","form","validation"],"expect":{"ui":true,"components":["Form","TextField","Button"]}}
-{"id":"laptop-compare","message":"Compare the MacBook Air M4, Dell XPS 13 and Framework 13 on price, weight, battery and screen.","catalog":"standard","tags":["table","compare"],"expect":{"ui":true,"components":["Table"]}}
-{"id":"budget-chart","message":"Show my monthly budget as a chart: rent 1200, food 450, transport 120, fun 200, savings 500.","catalog":"standard","tags":["smoke","chart"],"expect":{"ui":true,"components":["Chart"]}}
-{"id":"capital-of-france","message":"What is the capital of France?","catalog":"standard","tags":["smoke","prose-only"],"expect":{"ui":false}}
-{"id":"explain-closures","message":"Explain what a closure is in JavaScript in two sentences.","catalog":"standard","tags":["prose-only"],"expect":{"ui":false}}
-{"id":"thanks","message":"Thanks, that was helpful!","catalog":"standard","tags":["prose-only","conversation"],"expect":{"ui":false}}
-{"id":"engine-strokes","message":"How does a four-stroke engine work? Show me the strokes.","catalog":"standard","tags":["illustrate","svg"],"expect":{"ui":true}}
-{"id":"compound-interest","message":"How does compound interest work? Let me play with the rate and the years.","catalog":"standard","tags":["illustrate","chart","calc","interactive"],"expect":{"ui":true,"components":["Slider","Chart"]}}
-{"id":"spanish-flashcards","message":"Make me five Spanish flashcards for kitchen words.","catalog":"standard","tags":["flashcard","interactive"],"expect":{"ui":true,"components":["FlashcardFlip"]}}
-{"id":"workout-planner","message":"Plan a three-day beginner workout week and let me tick off each exercise.","catalog":"standard","tags":["checklist","interactive"],"expect":{"ui":true,"components":["CheckBox"]}}
-{"id":"table-booking","message":"I want to book a table for dinner: pick a date, a time between 6 and 10 pm, and the number of guests.","catalog":"standard","tags":["form","datetime","validation"],"expect":{"ui":true,"components":["DateTimeInput"]}}
-{"id":"weather-week","message":"Show a seven-day weather forecast for Berlin with highs and lows. Make up plausible numbers.","catalog":"standard","tags":["chart","table"],"expect":{"ui":true}}
-{"id":"recipe-card","message":"Give me a pancake recipe with ingredients, steps and a serving size I can adjust.","catalog":"standard","tags":["calc","interactive","list"],"expect":{"ui":true}}
-{"id":"pricing-tiers","message":"Show three pricing tiers for a SaaS product side by side, each with a button to pick it.","catalog":"standard","tags":["layout","events"],"expect":{"ui":true,"components":["Button"]}}
-{"id":"survey-choices","message":"Make a short survey: favourite programming language (pick one) and the tools I use (pick several).","catalog":"standard","tags":["form","choices"],"expect":{"ui":true,"components":["ChoicePicker"]}}
-{"id":"quadratic-formula","message":"Show the quadratic formula and solve x^2 - 5x + 6 = 0 step by step.","catalog":"standard","tags":["math"],"expect":{"ui":true,"components":["Math"]}}
-{"id":"code-snippet","message":"Give me a Python function that reverses a string.","catalog":"standard","tags":["prose-only","code"],"expect":{"ui":false}}
-{"id":"travel-tabs","message":"Plan a weekend in Lisbon with one tab per day: morning, afternoon, evening.","catalog":"standard","tags":["tabs","layout"],"expect":{"ui":true,"components":["Tabs"]}}
-{"id":"news-sources","message":"Summarise three recent arguments for and against remote work and cite a source for each.","catalog":"standard","tags":["citation","links"],"expect":{"ui":true}}
-{"id":"unit-converter","message":"Build a converter from Celsius to Fahrenheit with a slider.","catalog":"standard","tags":["calc","interactive"],"expect":{"ui":true,"components":["Slider"]}}
-{"id":"project-status","message":"Show the status of five projects with a coloured badge each: on track, at risk or late.","catalog":"standard","tags":["badge","table"],"expect":{"ui":true,"components":["Badge"]}}
-{"id":"loan-calculator","message":"Make a loan calculator: amount, interest rate and term, and show the monthly payment.","catalog":"standard","tags":["form","calc","interactive","null-trap"],"expect":{"ui":true}}
-{"id":"timeline","message":"Show the history of the web in six milestones as a timeline.","catalog":"standard","tags":["layout","list"],"expect":{"ui":true}}
-{"id":"follow-up-questions","message":"Tell me about the solar system briefly and suggest questions I could ask next.","catalog":"standard","tags":["followup"],"expect":{"ui":true,"components":["FollowUp"]}}
-{"id":"contact-form-select","message":"Create a contact form with a topic dropdown (sales, support, other) and a message box.","catalog":"standard","tags":["form","select"],"expect":{"ui":true,"components":["Select","TextArea"]}}
-{"id":"sorting-algorithms","message":"Compare bubble sort, merge sort and quicksort: time complexity, memory and when to use each.","catalog":"standard","tags":["table","compare"],"expect":{"ui":true,"components":["Table"]}}
-{"id":"daily-standup","message":"Write a short daily stand-up update for me: yesterday I fixed the login bug, today I review PRs.","catalog":"standard","tags":["prose-only"],"expect":{"ui":false}}
-{"id":"color-palette","message":"Suggest a calm colour palette of five colours for a meditation app and show the swatches.","catalog":"standard","tags":["illustrate","layout"],"expect":{"ui":true}}
+{"id":"signup-validation","message":"I'd like to try Taskloom with my team. Can you set up a free trial for us?","catalog":"standard","tags":["smoke","form","validation","product"],"expect":{"ui":true,"components":["Form","TextField","Button"]}}
+{"id":"laptop-compare","message":"I'm choosing between the MacBook Air M4, Dell XPS 13 and Framework 13 for university. Which one should I get?","catalog":"standard","tags":["table","compare"],"expect":{"ui":true,"components":["Table"]}}
+{"id":"budget-chart","message":"My monthly spending is rent 1200, food 450, transport 120, fun 200, and I save 500. Where is my money going?","catalog":"standard","tags":["smoke","chart","calc"],"expect":{"ui":true,"components":["Chart"]}}
+{"id":"capital-of-france","message":"What's the capital of France?","catalog":"standard","tags":["smoke","prose-only"],"expect":{"ui":false}}
+{"id":"explain-closures","message":"Can you explain closures in JavaScript in two sentences?","catalog":"standard","tags":["prose-only"],"expect":{"ui":false}}
+{"id":"thanks","message":"Thanks, that's exactly what I needed!","catalog":"standard","tags":["prose-only","conversation"],"expect":{"ui":false}}
+{"id":"engine-strokes","message":"How does a four-stroke car engine actually work?","catalog":"standard","tags":["illustrate","svg","calc","interactive"],"expect":{"ui":true}}
+{"id":"compound-interest","message":"If I put 10,000 euros into an ETF at 7% a year, what will I have after 20 years? I want to see how the rate changes it.","catalog":"standard","tags":["illustrate","chart","calc","interactive"],"expect":{"ui":true,"components":["Slider","Chart"]}}
+{"id":"spanish-flashcards","message":"I'm learning Spanish. Quiz me on kitchen words.","catalog":"standard","tags":["quiz","flashcard","interactive","calc"],"expect":{"ui":true}}
+{"id":"workout-planner","message":"I'm a beginner and want to work out three times a week at home. Give me a plan I can tick off.","catalog":"standard","tags":["checklist","interactive"],"expect":{"ui":true,"components":["CheckBox"]}}
+{"id":"table-booking","message":"Book me a table for two at an Italian restaurant in Vienna on Friday evening.","catalog":"standard","tags":["form","datetime","validation"],"expect":{"ui":true,"components":["DateTimeInput"]}}
+{"id":"weather-week","message":"What's the weather in Berlin this week?","catalog":"standard","tags":["chart","table"],"expect":{"ui":true}}
+{"id":"recipe-card","message":"I want to make pancakes for 6 people. What do I need?","catalog":"standard","tags":["calc","interactive","list"],"expect":{"ui":true}}
+{"id":"pricing-tiers","message":"We're launching a project management SaaS. Help me design three pricing tiers.","catalog":"standard","tags":["layout","events","calc","table"],"expect":{"ui":true,"components":["Button"]}}
+{"id":"survey-choices","message":"I'm running a quick team survey about which programming language and tools we use. Can you make it?","catalog":"standard","tags":["form","choices"],"expect":{"ui":true,"components":["ChoicePicker"]}}
+{"id":"quadratic-formula","message":"Solve x^2 - 5x + 6 = 0 and show me the steps.","catalog":"standard","tags":["math"],"expect":{"ui":true,"components":["Math"]}}
+{"id":"code-snippet","message":"How do I reverse a string in Python?","catalog":"standard","tags":["prose-only","code"],"expect":{"ui":false}}
+{"id":"travel-tabs","message":"Plan a weekend in Lisbon for me, Saturday and Sunday.","catalog":"standard","tags":["tabs","layout","map"],"expect":{"ui":true,"components":["Tabs"]}}
+{"id":"news-sources","message":"Is remote work actually more productive? Show me what the research says.","catalog":"standard","tags":["citation","links","table"],"expect":{"ui":true,"components":["Citation"]}}
+{"id":"unit-converter","message":"It's 20 degrees Celsius here. What's that in Fahrenheit, and how do I convert it myself?","catalog":"standard","tags":["calc","interactive"],"expect":{"ui":true,"components":["Slider"]}}
+{"id":"project-status","message":"Here are my projects: Website relaunch (Anna, due Nov 15, on track), Mobile app (Ben, Dec 1, at risk), Data migration (Chris, Oct 30, late), API v2 (Dana, Jan 10, on track), Onboarding flow (Eli, Nov 20, at risk). Give me a status overview.","catalog":"standard","tags":["badge","table"],"expect":{"ui":true,"components":["Badge"]}}
+{"id":"loan-calculator","message":"I'm thinking of buying a flat for 250,000 with a 30-year mortgage at 6.5%. What would I pay each month?","catalog":"standard","tags":["form","calc","interactive","null-trap"],"expect":{"ui":true}}
+{"id":"timeline","message":"Give me a quick history of the web, from its invention to today.","catalog":"standard","tags":["layout","list"],"expect":{"ui":true}}
+{"id":"follow-up-questions","message":"Tell me about the solar system.","catalog":"standard","tags":["followup"],"expect":{"ui":true,"components":["FollowUp"]}}
+{"id":"contact-form-select","message":"I want to get in touch with your sales team about an enterprise plan.","catalog":"standard","tags":["form","select"],"expect":{"ui":true,"components":["Select","TextArea"]}}
+{"id":"sorting-algorithms","message":"Which sorting algorithm should I use when? Compare the common ones.","catalog":"standard","tags":["table","compare"],"expect":{"ui":true,"components":["Table"]}}
+{"id":"daily-standup","message":"Write my standup update: yesterday I finished the login page, today I'm on the password reset, no blockers.","catalog":"standard","tags":["prose-only"],"expect":{"ui":false}}
+{"id":"color-palette","message":"I need a calm color palette for a meditation app.","catalog":"standard","tags":["illustrate","layout"],"expect":{"ui":true}}
