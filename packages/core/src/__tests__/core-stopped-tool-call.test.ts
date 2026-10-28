@@ -458,4 +458,35 @@ describe("CopilotKitCore - unanswered tool call from stopped run", () => {
       expect(answeredToolCallIds.has(id)).toBe(true);
     }
   });
+
+  it("should answer unanswered tool call even if runAgent throws an error while aborted", async () => {
+    const agent = new MockAgent({ agentId: "test" });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    copilotKitCore.addTool(createTool({ name: "fragile_tool" }));
+
+    const message = createToolCallMessage("fragile_tool");
+    const assistant = getAssistantMessage(message);
+    const toolCallId = assistant.toolCalls![0]!.id;
+    agent.messages.push(message);
+
+    agent.runAgentCallback = () => {
+      copilotKitCore.stopAgent({ agent: agent as any });
+      throw new Error("Network connection aborted");
+    };
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    const toolResult = agent.messages.find(
+      (m) => m.role === "tool" && m.toolCallId === toolCallId,
+    );
+    expect(toolResult).toBeDefined();
+    expect(JSON.parse(toolResult!.content as string)).toMatchObject({
+      status: "stopped",
+      reason: "stop_requested",
+    });
+  });
 });

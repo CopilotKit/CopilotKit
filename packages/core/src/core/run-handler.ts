@@ -816,6 +816,8 @@ export class RunHandler {
       };
     }
 
+    let logicalRunId = resumedRunId ?? runId;
+
     try {
       if (depth === 0) {
         // Notify subscribers (e.g. the inspector) about the agent that is
@@ -834,7 +836,6 @@ export class RunHandler {
         );
       }
 
-      let logicalRunId = resumedRunId ?? runId;
       const agentSubscriber = this.createAgentErrorSubscriber(
         agent,
         controller.signal,
@@ -898,6 +899,14 @@ export class RunHandler {
       });
     } catch (error) {
       logicalHandoff?.cancel();
+      if (controller.signal.aborted) {
+        await this.processAgentResult({
+          runAgentResult: { result: undefined, newMessages: [] },
+          agent,
+          runId: logicalRunId,
+          runController: controller,
+        });
+      }
       const runError =
         error instanceof Error ? error : new Error(String(error));
       const context: Record<string, any> = {};
@@ -966,7 +975,8 @@ export class RunHandler {
     // historical, not permission to resume work. Keep every assistant message
     // in that turn, and snapshot because handlers insert results.
     const messagesToProcess =
-      toolExecutionMode === "restore"
+      toolExecutionMode === "restore" ||
+      (signal?.aborted && newMessages.length === 0)
         ? agent.messages.filter(
             (message) =>
               message.role === "assistant" &&
@@ -1074,48 +1084,18 @@ export class RunHandler {
               toolExecutionMode === "restore" ||
               executableTool?.handler)
           ) {
-            for (let i = newMessages.length - 1; i >= 0; i--) {
-              const m = newMessages[i];
-              if (
-                m?.role === "tool" &&
-                m.toolCallId === toolCall.id &&
-                this.isFrontendPlaceholderResult(m)
-              ) {
-                newMessages.splice(i, 1);
-              }
-            }
-            for (let i = agent.messages.length - 1; i >= 0; i--) {
-              const m = agent.messages[i];
-              if (
-                m?.role === "tool" &&
-                m.toolCallId === toolCall.id &&
-                this.isFrontendPlaceholderResult(m)
-              ) {
-                agent.messages.splice(i, 1);
-              }
-            }
+            this.removeFrontendPlaceholders(
+              toolCall.id,
+              newMessages,
+              agent.messages,
+            );
             existingResult = undefined;
           } else if (existingResult && !isPlaceholder) {
-            for (let i = newMessages.length - 1; i >= 0; i--) {
-              const m = newMessages[i];
-              if (
-                m?.role === "tool" &&
-                m.toolCallId === toolCall.id &&
-                this.isFrontendPlaceholderResult(m)
-              ) {
-                newMessages.splice(i, 1);
-              }
-            }
-            for (let i = agent.messages.length - 1; i >= 0; i--) {
-              const m = agent.messages[i];
-              if (
-                m?.role === "tool" &&
-                m.toolCallId === toolCall.id &&
-                this.isFrontendPlaceholderResult(m)
-              ) {
-                agent.messages.splice(i, 1);
-              }
-            }
+            this.removeFrontendPlaceholders(
+              toolCall.id,
+              newMessages,
+              agent.messages,
+            );
           }
 
           if (!existingResult) {
@@ -1320,6 +1300,25 @@ export class RunHandler {
     return (
       message.role === "tool" && isForwardedToClientPlaceholder(message.content)
     );
+  }
+
+  /** Remove all transport placeholders for a specific toolCallId from the given message lists. */
+  private removeFrontendPlaceholders(
+    toolCallId: string,
+    ...lists: Message[][]
+  ): void {
+    for (const list of lists) {
+      for (let i = list.length - 1; i >= 0; i--) {
+        const m = list[i];
+        if (
+          m?.role === "tool" &&
+          m.toolCallId === toolCallId &&
+          this.isFrontendPlaceholderResult(m)
+        ) {
+          list.splice(i, 1);
+        }
+      }
+    }
   }
 
   /**
