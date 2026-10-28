@@ -145,7 +145,14 @@ export class ɵInterruptState<TValue = unknown> {
     const mutableInterrupts = [...interrupts];
     const resume = buildResumeArray(mutableInterrupts, this.#responses);
     const toolResults = mutableInterrupts.flatMap((interrupt) => {
-      if (!interrupt.toolCallId || interrupt.reason !== "tool_call") return [];
+      // A server approval decision is not the result of executing the tool.
+      // Keep legacy frontend completions unless the producer explicitly owns execution.
+      if (
+        !interrupt.toolCallId ||
+        interrupt.reason !== "tool_call" ||
+        interrupt.metadata?.["ag-ui:tool-execution"] === "server"
+      )
+        return [];
       return [
         {
           toolCallId: interrupt.toolCallId,
