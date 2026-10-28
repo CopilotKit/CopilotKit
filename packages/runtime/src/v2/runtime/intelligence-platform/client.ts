@@ -568,6 +568,8 @@ export interface SubscribeToMemoriesResponse {
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
 
 export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
+  /** Authenticated admission policy for a backend that already stores history. */
+  inputPolicy?: "native-history-delta-v1";
   /** Server-owned native ID for backend execution; public identity remains threadId. */
   backendThreadId?: string;
   /** Canonical platform run identifier for the acquired lock. */
@@ -690,6 +692,8 @@ export type ThreadStateResponse =
 export interface AcquireThreadLockRequest {
   /** Caller can forward a server-owned native ID while retaining public ownership. */
   supportsBackendThreadId?: boolean;
+  /** Version of the native history delta contract implemented by this caller. */
+  supportsNativeHistoryDelta?: 1;
   threadId: string;
   runId: string;
   userId: string;
@@ -2421,6 +2425,9 @@ export class CopilotKitIntelligence {
       {
         runId: params.runId,
         userId: params.userId,
+        ...(params.supportsNativeHistoryDelta === undefined
+          ? {}
+          : { supportsNativeHistoryDelta: params.supportsNativeHistoryDelta }),
         agentId: params.agentId,
         ...(params.supportsBackendThreadId === undefined
           ? {}
