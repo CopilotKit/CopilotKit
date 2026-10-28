@@ -1100,29 +1100,7 @@ export class RunHandler {
 
           if (!existingResult) {
             if (signal?.aborted) {
-              let messageIndex = agent.messages.findIndex(
-                (m) => m.id === message.id,
-              );
-              if (messageIndex === -1) {
-                agent.messages.push(message);
-                messageIndex = agent.messages.length - 1;
-              }
-              const insertAt = this.toolResultInsertionIndex(
-                agent.messages,
-                messageIndex,
-                toolCall.id,
-              );
-              const toolMessage: Message = {
-                id: randomUUID(),
-                role: "tool",
-                toolCallId: toolCall.id,
-                content: JSON.stringify({
-                  status: "stopped",
-                  reason: "stop_requested",
-                  message: "Run stopped by user",
-                }),
-              };
-              agent.messages.splice(insertAt, 0, toolMessage);
+              this.insertStoppedToolResult(message, toolCall.id, agent);
               continue;
             }
             executing.add(executionKey);
@@ -1208,7 +1186,18 @@ export class RunHandler {
                 }
               }
             }
-            if (interactionController?.signal.aborted) return runAgentResult;
+            if (interactionController?.signal.aborted) {
+              const hasResult = agent.messages.some(
+                (m) =>
+                  m.role === "tool" &&
+                  m.toolCallId === toolCall.id &&
+                  !this.isFrontendPlaceholderResult(m),
+              );
+              if (!hasResult) {
+                this.insertStoppedToolResult(message, toolCall.id, agent);
+              }
+              continue;
+            }
           }
         }
       }
@@ -1319,6 +1308,35 @@ export class RunHandler {
         }
       }
     }
+  }
+
+  /** Synthesize and insert a stopped tool result directly behind its parent assistant message. */
+  private insertStoppedToolResult(
+    message: Message,
+    toolCallId: string,
+    agent: AbstractAgent,
+  ): void {
+    let messageIndex = agent.messages.findIndex((m) => m.id === message.id);
+    if (messageIndex === -1) {
+      agent.messages.push(message);
+      messageIndex = agent.messages.length - 1;
+    }
+    const insertAt = this.toolResultInsertionIndex(
+      agent.messages,
+      messageIndex,
+      toolCallId,
+    );
+    const toolMessage: Message = {
+      id: randomUUID(),
+      role: "tool",
+      toolCallId,
+      content: JSON.stringify({
+        status: "stopped",
+        reason: "stop_requested",
+        message: "Run stopped by user",
+      }),
+    };
+    agent.messages.splice(insertAt, 0, toolMessage);
   }
 
   /**

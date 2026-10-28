@@ -489,4 +489,77 @@ describe("CopilotKitCore - unanswered tool call from stopped run", () => {
       reason: "stop_requested",
     });
   });
+
+  it("should answer live human-in-the-loop tool and subsequent tool calls when stopped during HITL execution", async () => {
+    const agent = new MockAgent({ agentId: "test" });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    const hitlTool = createTool({
+      name: "approve_action",
+      type: "human-in-the-loop",
+      handler: vi.fn(async (_args: any, context: any) => {
+        // Wait until aborted
+        await new Promise((resolve) => {
+          context.signal.addEventListener("abort", resolve);
+        });
+        return "approved";
+      }),
+    });
+    copilotKitCore.addTool(hitlTool);
+
+    const nextTool = createTool({
+      name: "followup_tool",
+      handler: vi.fn(async () => "done"),
+    });
+    copilotKitCore.addTool(nextTool);
+
+    const message = {
+      id: "msg-assistant-hitl",
+      role: "assistant" as const,
+      content: "",
+      toolCalls: [
+        {
+          id: "call-hitl-1",
+          type: "function" as const,
+          function: { name: "approve_action", arguments: "{}" },
+        },
+        {
+          id: "call-next-2",
+          type: "function" as const,
+          function: { name: "followup_tool", arguments: "{}" },
+        },
+      ],
+    };
+    agent.setNewMessages([message]);
+
+    // Simulate user pressing stop while HITL tool is waiting
+    setTimeout(() => {
+      copilotKitCore.stopAgent({ agent: agent as any });
+    }, 10);
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    const hitlResult = agent.messages.find(
+      (m) => m.role === "tool" && m.toolCallId === "call-hitl-1",
+    );
+    const nextResult = agent.messages.find(
+      (m) => m.role === "tool" && m.toolCallId === "call-next-2",
+    );
+
+    expect(hitlResult).toBeDefined();
+    expect(nextResult).toBeDefined();
+    expect(JSON.parse(hitlResult!.content as string)).toMatchObject({
+      status: "stopped",
+      reason: "stop_requested",
+    });
+    expect(JSON.parse(nextResult!.content as string)).toMatchObject({
+      status: "stopped",
+      reason: "stop_requested",
+    });
+    // The follow-up tool handler should not have been executed
+    expect(nextTool.handler).not.toHaveBeenCalled();
+  });
 });
