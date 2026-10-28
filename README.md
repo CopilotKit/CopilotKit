@@ -1,8 +1,10 @@
 <div align="center">
 
+<br />
+
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/banner-dark.svg">
-  <img alt="CopilotKit" src="assets/readme/banner-light.svg" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/logo-dark.svg">
+  <img alt="CopilotKit" src="assets/readme/logo-light.svg" width="400">
 </picture>
 
 <br />
@@ -198,24 +200,16 @@ Want to go deeper? The [Generative UI educational repo](https://github.com/Copil
 
 One agent backend. Every frontend.
 
-<div align="center">
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero-dark.svg">
-  <img alt="Connect any agent to any user: React, Angular, Vue, React Native, Slack and Teams on one side, LangGraph, CrewAI, Mastra, Google ADK, Claude Agent SDK, PydanticAI and more on the other, joined by CopilotKit over AG-UI." src="assets/readme/hero-light.svg" width="880">
-</picture>
-
-</div>
-
-| Surface                         | Status                             | Get started                                                                                                               |
-| ------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| ⚛️ React / Next.js              | ✅ GA                              | [Quickstart](https://docs.copilotkit.ai/quickstart?ref=github_readme)                                                     |
-| 🅰️ Angular                      | ✅ Supported                       | [Quickstart](https://docs.copilotkit.ai/angular?ref=github_readme)                                                        |
-| 💚 Vue                          | ✅ Supported                       | [Quickstart](https://docs.copilotkit.ai/vue?ref=github_readme)                                                            |
-| 📱 React Native                 | ✅ Supported                       | [Quickstart](https://docs.copilotkit.ai/react-native?ref=github_readme)                                                   |
-| 💬 Slack / Microsoft Teams      | ✅ GA on cloud-hosted Intelligence | [Slack](https://docs.copilotkit.ai/slack?ref=github_readme) · [Teams](https://docs.copilotkit.ai/teams?ref=github_readme) |
-| 💬 Discord / WhatsApp           | ✅ Channels SDK adapters           | [Channels](https://www.copilotkit.ai/channels?ref=github_readme)                                                          |
-| 🔜 Google Chat / iMessage / SMS | 🟡 On the roadmap                  | [Channels](https://www.copilotkit.ai/channels?ref=github_readme)                                                          |
+| Surface                                | Status                             | Get started                                                                                                               |
+| -------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| ⚛️ React / Next.js                     | ✅ GA                              | [Quickstart](https://docs.copilotkit.ai/quickstart?ref=github_readme)                                                     |
+| 🅰️ Angular                             | ✅ Supported                       | [Quickstart](https://docs.copilotkit.ai/angular?ref=github_readme)                                                        |
+| 💚 Vue                                 | ✅ Supported                       | [Quickstart](https://docs.copilotkit.ai/vue?ref=github_readme)                                                            |
+| 📱 React Native                        | ✅ Supported                       | [Quickstart](https://docs.copilotkit.ai/react-native?ref=github_readme)                                                   |
+| 💬 Slack / Microsoft Teams             | ✅ GA on cloud-hosted Intelligence | [Slack](https://docs.copilotkit.ai/slack?ref=github_readme) · [Teams](https://docs.copilotkit.ai/teams?ref=github_readme) |
+| 💬 Discord / WhatsApp                  | ✅ Channels SDK adapters           | [Channels](https://www.copilotkit.ai/channels?ref=github_readme)                                                          |
+| 🪁 CopilotKit Soar, powered by OpenBot | ✨ Early access                    | [Get early access](https://intelligence.copilotkit.ai/?early_access=soar&ref=github_readme)                               |
+| 🔜 Google Chat / iMessage / SMS        | 🟡 On the roadmap                  | [Channels](https://www.copilotkit.ai/channels?ref=github_readme)                                                          |
 
 **Agent frameworks.** [LangGraph](https://docs.copilotkit.ai/langgraph-python?ref=github_readme) · [Deep Agents](https://docs.copilotkit.ai/deepagents?ref=github_readme) · [CrewAI](https://docs.copilotkit.ai/crewai-crews?ref=github_readme) · [Mastra](https://docs.copilotkit.ai/mastra?ref=github_readme) · [Google ADK](https://docs.copilotkit.ai/google-adk?ref=github_readme) · [PydanticAI](https://docs.copilotkit.ai/pydantic-ai?ref=github_readme) · [Microsoft Agent Framework](https://docs.copilotkit.ai/ms-agent-python?ref=github_readme) · [AWS Strands](https://docs.copilotkit.ai/strands?ref=github_readme) · [Claude Agent SDK](https://docs.copilotkit.ai/claude-sdk-python?ref=github_readme) · [LlamaIndex](https://docs.copilotkit.ai/llamaindex?ref=github_readme) · [Agno](https://docs.copilotkit.ai/agno?ref=github_readme) · [AG2](https://docs.copilotkit.ai/ag2?ref=github_readme) · [A2A](https://docs.copilotkit.ai/a2a?ref=github_readme) · or CopilotKit's [Built-in Agent](https://docs.copilotkit.ai/quickstart?ref=github_readme).
 

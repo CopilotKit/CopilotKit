@@ -1,22 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="880" height="300" viewBox="0 0 880 300" role="img" aria-labelledby="t" fill="none">
-<title id="t">CopilotKit</title>
-<defs>
-<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#16162a"/><stop offset="1" stop-color="#101017"/></linearGradient>
-<radialGradient id="gv" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(330 150) scale(330 190)"><stop stop-color="#8a8cff" stop-opacity=".30"/><stop offset="1" stop-color="#8a8cff" stop-opacity="0"/></radialGradient>
-<radialGradient id="gb" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(600 140) scale(260 170)"><stop stop-color="#3d92e8" stop-opacity=".20"/><stop offset="1" stop-color="#3d92e8" stop-opacity="0"/></radialGradient>
-<pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="11" cy="11" r="1.1" fill="#3a3a55"/></pattern>
-<radialGradient id="fade" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(440 150) scale(460 210)"><stop stop-color="#fff"/><stop offset=".55" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-<mask id="m"><rect width="880" height="300" fill="url(#fade)"/></mask>
-<clipPath id="c"><rect x="1" y="1" width="878" height="298" rx="20"/></clipPath>
-</defs>
-<g clip-path="url(#c)">
-<rect width="880" height="300" fill="url(#bg)"/>
-<rect width="880" height="300" fill="url(#dots)" mask="url(#m)"/>
-<rect width="880" height="300" fill="url(#gv)"/>
-<rect width="880" height="300" fill="url(#gb)"/>
-</g>
-<rect x="0.5" y="0.5" width="879" height="299" rx="20" stroke="#2c2c3a"/>
-<svg x="178.95" y="100.00" width="522.11" height="100.00" viewBox="0 0 1044.21 200" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="1044" height="250" viewBox="0 0 1044.21 250" role="img" aria-labelledby="t" fill="none"><title id="t">CopilotKit</title>
   <g transform="translate(7.74 31.74)">
     <g id="CopilotKit">
       <path d="M111.689 53.5173H78.8802C78.647 50.8028 78.0267 48.3403 77.0185 46.1299C76.0487 43.9195 74.6918 42.0192 72.9466 40.4291C71.2403 38.8006 69.1654 37.5591 66.7223 36.7063C64.2791 35.8143 61.5062 35.3683 58.4038 35.3683C52.9745 35.3683 48.379 36.6867 44.6173 39.3235C40.8943 41.9611 38.0633 45.742 36.1243 50.6669C34.224 55.5919 33.2739 61.5063 33.2739 68.4092C33.2739 75.7001 34.2434 81.8084 36.1825 86.7334C38.1602 91.6199 41.0106 95.3042 44.7336 97.7855C48.4566 100.229 52.9358 101.45 58.1711 101.45C61.1573 101.45 63.8331 101.082 66.1988 100.345C68.5644 99.5695 70.6198 98.4647 72.3649 97.0293C74.11 95.5947 75.5258 93.8687 76.6117 91.8523C77.7362 89.7965 78.4923 87.4895 78.8802 84.9297L111.689 85.1629C111.301 90.2041 109.885 95.3426 107.442 100.578C104.999 105.774 101.528 110.583 97.0293 115.004C92.57 119.386 87.0435 122.916 80.4507 125.591C73.8579 128.267 66.1988 129.605 57.4731 129.605C46.5369 129.605 36.7254 127.259 28.0384 122.567C19.3904 117.874 12.5456 110.971 7.50404 101.858C2.50134 92.7443 0 81.5948 0 68.4092C0 55.1467 2.55952 43.9776 7.6786 34.9026C12.7977 25.7893 19.7006 18.9057 28.3875 14.252C37.0744 9.55957 46.7696 7.2133 57.4731 7.2133C64.9965 7.2133 71.9189 8.24101 78.2403 10.2964C84.5614 12.3518 90.1067 15.3572 94.877 19.3129C99.6472 23.2297 103.486 28.0578 106.395 33.7978C109.303 39.5371 111.068 46.1102 111.689 53.5173Z" fill="#f2f2f6"/>
@@ -61,5 +43,4 @@
       </linearGradient>
     </defs>
   </svg>
-</svg>
 </svg>
