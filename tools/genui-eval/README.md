@@ -19,7 +19,8 @@ Real models go through [OpenRouter](https://openrouter.ai). Set the key, check t
 export OPENROUTER_API_KEY=sk-or-...
 pnpm -s --filter genui-eval eval run --preset smoke --estimate
 pnpm -s --filter genui-eval eval run --preset smoke
-pnpm -s --filter genui-eval eval run --preset full --budget 20     # the baseline
+pnpm -s --filter genui-eval eval run --preset gpt                 # the first baseline: gpt only
+pnpm -s --filter genui-eval eval run --preset full --budget 40     # all five models
 ```
 
 ## How a sample is scored

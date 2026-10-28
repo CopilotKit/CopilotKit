@@ -17,6 +17,8 @@ export default defineEvalConfig({
   ],
   presets: {
     smoke: { models: ["gpt", "claude"], cases: "tag:smoke", samples: 1 },
+    // The first baseline: one model, so we read its failures before paying for all five.
+    gpt: { models: ["gpt"], cases: "all", samples: 3 },
     full: {
       models: ["gpt", "claude", "gemini", "deepseek", "qwen"],
       cases: "all",
