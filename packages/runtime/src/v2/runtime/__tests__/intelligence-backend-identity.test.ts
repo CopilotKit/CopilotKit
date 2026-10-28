@@ -122,7 +122,7 @@ for (const mode of ["imported", "fresh", "stateless"] as const) {
     vi.spyOn(
       fixture.runtime.intelligence,
       "getThreadMessages",
-    ).mockResolvedValue({ messages: [old] });
+    ).mockResolvedValue({ messages: [old], consistency: "runner-accepted" });
     fixture.agent.setMessages([old, next]);
     try {
       const response = await handleIntelligenceRun({
@@ -201,7 +201,7 @@ test("same-ID frontend result update is forwarded and recorded with its resolved
   };
   const resolved = { ...pending, content: '{"approved":false}' };
   vi.spyOn(fixture.runtime.intelligence, "getThreadMessages").mockResolvedValue(
-    { messages: [pending] },
+    { messages: [pending], consistency: "runner-accepted" },
   );
   try {
     const response = await handleIntelligenceRun({
@@ -226,6 +226,93 @@ test("same-ID frontend result update is forwarded and recorded with its resolved
     expect(request.input.forwardedProps).toEqual({
       command: { resume: "native-approval" },
     });
+  } finally {
+    fixture.teardown();
+  }
+});
+
+test("automatic chart resume drops the replayed call only after projection-consistent history", async () => {
+  const fixture = setup(undefined, ["test"]);
+  const assistant = {
+    id: "native-assistant",
+    role: "assistant" as const,
+    toolCalls: [
+      {
+        id: "pie",
+        type: "function" as const,
+        function: { name: "pieChart", arguments: '{"value":30}' },
+      },
+    ],
+  };
+  const result = {
+    id: "frontend-result",
+    role: "tool" as const,
+    toolCallId: "pie",
+    content: "",
+  };
+  const history = vi
+    .spyOn(fixture.runtime.intelligence, "getThreadMessages")
+    .mockResolvedValue({
+      consistency: "runner-accepted",
+      messages: [
+        {
+          id: assistant.id,
+          role: "assistant",
+          toolCalls: [{ id: "pie", name: "pieChart", args: '{"value":30}' }],
+        },
+      ],
+    });
+  try {
+    const response = await handleIntelligenceRun({
+      runtime: fixture.runtime,
+      request: new Request("https://runtime.example/run"),
+      agentId: "test",
+      agent: fixture.agent,
+      input: {
+        threadId: fixture.threadId,
+        runId: "chart-resume",
+        messages: [assistant, result],
+        tools: [],
+        context: [],
+        state: {},
+      },
+    });
+    expect(response.status).toBe(200);
+    expect(history).toHaveBeenCalledWith(
+      expect.objectContaining({ consistency: "runner-accepted" }),
+    );
+    expect(fixture.run.mock.calls[0][0].input.messages).toEqual([result]);
+    expect(fixture.run.mock.calls[0][0].persistedInputMessages).toEqual([
+      result,
+    ]);
+    expect(fixture.agent.messages).toEqual([result]);
+  } finally {
+    fixture.teardown();
+  }
+});
+
+test("native history rejects an API that silently ignores the consistency requirement", async () => {
+  const fixture = setup(undefined, ["test"]);
+  vi.spyOn(fixture.runtime.intelligence, "getThreadMessages").mockResolvedValue(
+    { messages: [] },
+  );
+  try {
+    const response = await handleIntelligenceRun({
+      runtime: fixture.runtime,
+      request: new Request("https://runtime.example/run"),
+      agentId: "test",
+      agent: fixture.agent,
+      input: {
+        threadId: fixture.threadId,
+        runId: "chart-resume",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      },
+    });
+    expect(response.status).toBe(502);
+    expect(fixture.run).not.toHaveBeenCalled();
   } finally {
     fixture.teardown();
   }
