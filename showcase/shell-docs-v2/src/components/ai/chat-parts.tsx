@@ -87,7 +87,7 @@ export function HomeChatWelcome({ input, suggestionView }: WelcomeProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto py-6">
       <h2 className="px-4 text-center text-2xl font-medium tracking-tight">
-        Hi, I’m Kite.
+        Hi, I’m Kite <span aria-hidden="true">🪁</span>
       </h2>
       <p className="mt-2 px-4 text-center text-sm text-muted-foreground">
         Your guide to CopilotKit. How can I help?

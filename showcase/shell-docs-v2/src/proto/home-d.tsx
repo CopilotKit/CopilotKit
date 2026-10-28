@@ -26,7 +26,8 @@ export function DHome() {
       <section className="flex flex-col gap-8 md:gap-10">
         <div className="flex flex-col items-center gap-5 text-center">
           <h1 className="text-[2.5rem] leading-[1.04] font-normal tracking-[-0.03em] text-balance md:text-[3.5rem]">
-            Let agents and users
+            Let agents <span aria-hidden="true">🤝</span>
+            <span className="sr-only">and</span> users
             <br />
             <span className="-mb-[0.2em] inline-block bg-(image:--accent-gradient) bg-clip-text pb-[0.2em] font-medium text-transparent">
               work together
