@@ -303,7 +303,8 @@ jobs:
     needs: [detect-changes, build-angular]
     if: needs.detect-changes.outputs.has_changes == 'true'
     # Depot builds the image remotely; this GitHub-hosted runner loads it
-    # locally and verifies the resulting Node runtime without starting the app.
+    # locally and verifies the resulting Node runtime. Docs also starts the
+    # final image and renders pages to catch runtime packaging failures.
     runs-on: ubuntu-26.04
     timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
     permissions:
@@ -428,3 +429,57 @@ jobs:
           version="$(docker run --rm --network none --entrypoint node "$IMAGE" --version)"
           echo "Final image Node runtime: $version"
           test "$version" = "v22.23.4"
+
+      - name: Verify docs pages from the final image
+        if: matrix.service.dispatch_name == 'shell-docs'
+        timeout-minutes: 2
+        env:
+          IMAGE: showcase-runtime-check:${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          docker run --rm --network none -i --entrypoint node "$IMAGE" --input-type=module <<'JS'
+          import { spawn } from 'node:child_process';
+          import { connect } from 'node:net';
+          import { setTimeout as delay } from 'node:timers/promises';
+
+          const server = spawn(process.execPath, [
+            'node_modules/next/dist/bin/next', 'start',
+            '--hostname', '127.0.0.1', '--port', '10000',
+          ], { stdio: 'inherit' });
+
+          try {
+            const deadline = Date.now() + 30_000;
+            for (;;) {
+              const listening = await new Promise((resolve) => {
+                const socket = connect(10000, '127.0.0.1');
+                socket.once('connect', () => { socket.destroy(); resolve(true); });
+                socket.once('error', () => { socket.destroy(); resolve(false); });
+              });
+              if (listening) break;
+              if (server.exitCode !== null || server.signalCode !== null) {
+                throw new Error('Docs server exited before listening');
+              }
+              if (Date.now() >= deadline) throw new Error('Docs server did not start');
+              await delay(250);
+            }
+
+            for (const [path, marker] of [
+              ['/generative-ui/components', 'Let your agent render your React components'],
+              ['/generative-ui/components/standard-catalog', 'standardUI'],
+              ['/generative-ui/components/standard-catalog/button', 'Button'],
+            ]) {
+              const response = await fetch(`http://127.0.0.1:10000${path}`, {
+                redirect: 'error', signal: AbortSignal.timeout(15_000),
+              });
+              if (response.status !== 200) {
+                throw new Error(`${path}: HTTP ${response.status}`);
+              }
+              if (!(await response.text()).includes(marker)) {
+                throw new Error(`${path}: missing expected content`);
+              }
+              console.log(`${path}: HTTP 200 and expected content`);
+            }
+          } finally {
+            server.kill('SIGTERM');
+          }
+          JS
