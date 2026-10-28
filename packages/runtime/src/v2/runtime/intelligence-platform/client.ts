@@ -786,6 +786,19 @@ interface ThreadEnvelope {
  * });
  * ```
  */
+/**
+ * The thread events and state reads are scoped to one end user. A caller
+ * that omits `userId` (a JS caller, or one built against the earlier
+ * signature) would otherwise send the literal string "undefined" as the user.
+ */
+function requireThreadReadUserId(method: string, userId: unknown): void {
+  if (typeof userId !== "string" || userId === "") {
+    throw new TypeError(
+      `${method} requires a non-empty userId: the id identifyUser returned`,
+    );
+  }
+}
+
 export class CopilotKitIntelligence {
   /** Experimental server-side APIs; their contracts may change before release. */
   readonly experimental: { readonly learning: ExperimentalLearningManagement } =
@@ -2285,10 +2298,14 @@ export class CopilotKitIntelligence {
    */
   async getThreadEvents(params: {
     threadId: string;
+    /** The end user the read is for, as `identifyUser` returned it (not project-prefixed). */
+    userId: string;
   }): Promise<ThreadEventsResponse> {
+    requireThreadReadUserId("getThreadEvents", params.userId);
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadEventsResponse>(
       "GET",
-      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/events`,
+      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/events?${qs}`,
     );
   }
 
@@ -2307,10 +2324,14 @@ export class CopilotKitIntelligence {
    */
   async getThreadState(params: {
     threadId: string;
+    /** The end user the read is for, as `identifyUser` returned it (not project-prefixed). */
+    userId: string;
   }): Promise<ThreadStateResponse> {
+    requireThreadReadUserId("getThreadState", params.userId);
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadStateResponse>(
       "GET",
-      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/state`,
+      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/state?${qs}`,
     );
   }
 
