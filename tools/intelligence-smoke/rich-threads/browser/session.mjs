@@ -11,6 +11,7 @@ export async function createBrowser({
   capture,
   signal,
   instance,
+  composerTimeoutMs = 90_000,
 }) {
   const browser = instance ?? (await chromium.launch({ headless: true }));
   const threads = new Set();
@@ -110,7 +111,9 @@ export async function createBrowser({
     threads.add(thread);
     await page.route(`**/agent/${scope.agentId}/run`, async (route) => {
       try {
+        signal?.throwIfAborted();
         await beforeRun?.(route.request().postDataJSON());
+        signal?.throwIfAborted();
         await route.continue();
       } catch (error) {
         thread.error = error;
@@ -168,22 +171,41 @@ export async function createBrowser({
       const previous = [...thread.runIds];
       const input = thread.page.getByTestId("copilot-chat-textarea");
       const send = thread.page.getByTestId("copilot-send-button");
-      const deadline = Date.now() + 90_000;
-      // SSR exposes the composer before hydration and runtime discovery.
-      // Hydration can erase an early fill; only prepare input until the UI
-      // enables sending. Never repeat the actual submission.
-      while (true) {
-        signal?.throwIfAborted();
-        if (thread.error) throw thread.error;
-        await input.fill(prompt);
-        if (await send.isEnabled()) break;
-        assert.ok(
-          Date.now() < deadline,
-          "Browser composer did not become ready to send within 90s",
-        );
-        await delay(250, undefined, { signal });
+      assert.ok(
+        Number.isSafeInteger(composerTimeoutMs) && composerTimeoutMs > 0,
+      );
+      const deadline = Date.now() + composerTimeoutMs;
+      const timeout = new AbortController();
+      const actionSignal = signal
+        ? AbortSignal.any([signal, timeout.signal])
+        : timeout.signal;
+      const timer = setTimeout(
+        () => timeout.abort(new Error("Browser composer deadline exceeded")),
+        composerTimeoutMs,
+      );
+      const options = () => {
+        actionSignal.throwIfAborted();
+        const remaining = deadline - Date.now();
+        assert.ok(remaining > 0, "Browser composer deadline exceeded");
+        return { timeout: remaining, signal: actionSignal };
+      };
+      try {
+        // SSR exposes the composer before hydration and runtime discovery.
+        // Hydration can erase an early fill; only prepare input until the UI
+        // enables sending. Never repeat the actual submission. Playwright's
+        // native signal cancels pending actions, preventing a late click.
+        while (true) {
+          if (thread.error) throw thread.error;
+          await input.fill(prompt, options());
+          if (await send.isEnabled(options())) break;
+          await delay(Math.min(250, options().timeout), undefined, {
+            signal: actionSignal,
+          });
+        }
+        await send.click(options());
+      } finally {
+        clearTimeout(timer);
       }
-      await send.click();
       thread.interactions.push({ kind: "send" });
       return settled(thread, previous);
     },
