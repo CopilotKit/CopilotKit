@@ -1335,8 +1335,7 @@ describe("StateManager - Edge Cases", () => {
     // unchanged agent routinely — a header change, a transport change, an
     // `/info` re-settle, the mid-session recovery re-sync.
     copilotKitCore.addAgent__unsafe_dev_only({ id: "agent1", agent });
-    // One decision subscription and one lifecycle subscription; neither is replaced.
-    expect(subscribeSpy).toHaveBeenCalledTimes(2);
+    expect(subscribeSpy).toHaveBeenCalledTimes(1);
 
     const input: RunAgentInput = {
       threadId: "thread1",

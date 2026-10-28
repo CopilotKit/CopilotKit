@@ -47,10 +47,6 @@ interface PendingContinuation extends CopilotKitCoreContinuationHandoff {
  * Tracks agent state snapshots and message-to-run associations.
  */
 export class StateManager {
-  private decisionSubscriptions = new Map<
-    string,
-    { agent: AbstractAgent; unsubscribe: () => void }
-  >();
   private approvalDecisions = new Map<string, Map<string, ApprovalDecisions>>();
 
   /** Read a saved decision projection without treating it as a tool result. */
@@ -77,7 +73,11 @@ export class StateManager {
 
   private agentSubscriptions: Map<
     string,
-    { agent: AbstractAgent; unsubscribe: () => void }
+    {
+      agent: AbstractAgent;
+      unsubscribe: () => void;
+      enableTracking: () => void;
+    }
   > = new Map();
 
   // Internal follow-ups are marked in memory so the marker never reaches a
@@ -121,40 +121,8 @@ export class StateManager {
   initialize(): void {
     // Constructor-supplied agents can replay before any registry-change event.
     for (const agent of Object.values(this.core.agents)) {
-      this.subscribeToDecisions(agent);
+      this.subscribeToAgent(agent, false);
     }
-  }
-
-  /** Decision replay starts eagerly; state/message tracking retains registry publication semantics. */
-  private subscribeToDecisions(agent: AbstractAgent): void {
-    const agentId = agent.agentId;
-    if (!agentId) return;
-    const existing = this.decisionSubscriptions.get(agentId);
-    if (existing?.agent === agent) return;
-    if (existing) {
-      existing.unsubscribe();
-      this.approvalDecisions.delete(agentId);
-    }
-    let revoked = false;
-    const { unsubscribe } = agent.subscribe({
-      onCustomEvent: ({ event, input }) => {
-        if (!revoked && event.name === "cpki.approval_decisions") {
-          let threads = this.approvalDecisions.get(agentId);
-          if (!threads) {
-            threads = new Map();
-            this.approvalDecisions.set(agentId, threads);
-          }
-          threads.set(input.threadId, parseApprovalDecisions(event.value));
-        }
-      },
-    });
-    this.decisionSubscriptions.set(agentId, {
-      agent,
-      unsubscribe: () => {
-        revoked = true;
-        unsubscribe();
-      },
-    });
   }
 
   markNextRunAsContinuation(
@@ -189,21 +157,22 @@ export class StateManager {
   /**
    * Subscribe to an agent's events to track state and messages.
    */
-  subscribeToAgent(agent: AbstractAgent): void {
+  subscribeToAgent(agent: AbstractAgent, trackLifecycle = true): void {
     if (!agent.agentId) {
       return; // Skip agents without IDs
     }
 
     const agentId = agent.agentId;
-    this.subscribeToDecisions(agent);
 
     const existing = this.agentSubscriptions.get(agentId);
     if (existing) {
       if (existing.agent === agent) {
+        if (trackLifecycle) existing.enableTracking();
         return;
       }
       existing.unsubscribe();
       this.agentSubscriptions.delete(agentId);
+      this.approvalDecisions.delete(agentId);
     }
 
     // Subscribe to agent events.
@@ -223,6 +192,9 @@ export class StateManager {
     //    continuation, so only an ordinary new run gets a fresh ID after
     //    RUN_FINISHED.
     let revoked = false;
+    // One stable subscriber preserves synchronous callback order. Constructor
+    // agents capture decisions immediately; registry publication enables the rest.
+    let trackingEnabled = trackLifecycle;
     let subRunId: string | undefined; // runId assigned to the current logical run
     let legacyInterrupted = false;
     let runFinished = false; // true after RUN_FINISHED, reset on next RUN_STARTED
@@ -335,7 +307,7 @@ export class StateManager {
 
     const { unsubscribe } = agent.subscribe({
       onRunStartedEvent: ({ event, input, state }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         const pendingForAgent = this.pendingContinuations.get(agent);
         const internalContinuation = [...(pendingForAgent ?? [])].find(
           (pending) => pending.expectedInput === input,
@@ -377,7 +349,7 @@ export class StateManager {
         this.handleRunStarted(agent, effectiveInput(input), state);
       },
       onRunFinishedEvent: ({ event, input, state, messages }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         runFinished = true;
         const effective = effectiveInput(input);
         let interrupted = this.interruptedRuns.get(agent);
@@ -401,12 +373,22 @@ export class StateManager {
         this.handleRunFinished(agent, effective, state);
         return mutation;
       },
-      onCustomEvent: ({ event }) => {
-        if (!revoked && event.name === "on_interrupt") legacyInterrupted = true;
+      onCustomEvent: ({ event, input }) => {
+        if (revoked) return;
+        if (trackingEnabled && event.name === "on_interrupt")
+          legacyInterrupted = true;
+        if (event.name === "cpki.approval_decisions") {
+          let threads = this.approvalDecisions.get(agentId);
+          if (!threads) {
+            threads = new Map();
+            this.approvalDecisions.set(agentId, threads);
+          }
+          threads.set(input.threadId, parseApprovalDecisions(event.value));
+        }
       },
       // A run error terminates the run — treat identically to finished for cleanup
       onRunErrorEvent: ({ input, state, messages }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         runFinished = true;
         const effective = effectiveInput(input);
         const mutation = reconcilePendingResults(messages, input);
@@ -414,15 +396,15 @@ export class StateManager {
         return mutation;
       },
       onRunFailed: ({ input, messages }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         return reconcilePendingResults(messages, input);
       },
       onRunFinalized: ({ input }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         clearPendingResults(input);
       },
       onToolCallResultEvent: ({ event, input }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         let events = pendingResults.get(input);
         if (!events) {
           events = new Map();
@@ -431,19 +413,19 @@ export class StateManager {
         events.set(event.toolCallId, event);
       },
       onStateSnapshotEvent: ({ event, input, state }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         this.handleStateSnapshot(agent, event, effectiveInput(input), state);
       },
       onStateDeltaEvent: ({ event, input, state }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         this.handleStateDelta(agent, event, effectiveInput(input), state);
       },
       onTextMessageStartEvent: ({ event, input }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         this.handleTextMessageStart(agent, event, effectiveInput(input));
       },
       onMessagesSnapshotEvent: ({ event, input, messages }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         this.handleMessagesSnapshot(
           agent,
           event,
@@ -458,7 +440,7 @@ export class StateManager {
         );
       },
       onNewMessage: ({ message, input }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         this.handleNewMessage(
           agent,
           message,
@@ -466,7 +448,7 @@ export class StateManager {
         );
       },
       onMessagesChanged: ({ messages, input }) => {
-        if (revoked) return;
+        if (revoked || !trackingEnabled) return;
         if (!input) {
           this.pruneRawEvents(agent.agentId!, agent.threadId, messages);
         }
@@ -475,6 +457,9 @@ export class StateManager {
 
     this.agentSubscriptions.set(agentId, {
       agent,
+      enableTracking: () => {
+        trackingEnabled = true;
+      },
       unsubscribe: () => {
         revoked = true;
         this.pendingContinuations.delete(agent);
@@ -488,8 +473,6 @@ export class StateManager {
    * Unsubscribe an agent's subscription.
    */
   unsubscribeFromAgent(agentId: string): void {
-    this.decisionSubscriptions.get(agentId)?.unsubscribe();
-    this.decisionSubscriptions.delete(agentId);
     this.approvalDecisions.delete(agentId);
     const existing = this.agentSubscriptions.get(agentId);
     if (existing) {
