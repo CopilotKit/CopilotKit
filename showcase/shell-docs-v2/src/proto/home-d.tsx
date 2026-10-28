@@ -53,12 +53,18 @@ export function DHome() {
             Open-source APIs and components that connect app state, agent
             actions, and user input.
           </p>
-          <a
-            href="#start-building"
-            className={`text-sm font-medium ${textLink}`}
+          <div
+            className="flex flex-wrap items-center gap-x-5 gap-y-3"
+            data-docs-copy-surface="docs_landing_hero"
           >
-            Go to the quickstart ↓
-          </a>
+            <a
+              href="#start-building"
+              className={`inline-flex min-h-11 items-center text-sm font-medium ${textLink}`}
+            >
+              Go to the quickstart ↓
+            </a>
+            <CopyPromptD />
+          </div>
         </div>
         <div className="flex min-w-0 flex-col gap-3">
           <p className="text-sm leading-relaxed text-muted-foreground">
@@ -80,10 +86,7 @@ export function DHome() {
           </p>
         </div>
         <FrontendChips />
-        <div
-          className="flex flex-wrap items-center gap-3"
-          data-docs-copy-surface="docs_landing_hero"
-        >
+        <div className="flex flex-wrap items-center gap-3">
           <QuickstartMenu />
           {setupLinks.map((link) => (
             <Button
@@ -101,7 +104,6 @@ export function DHome() {
               {link.title}
             </Button>
           ))}
-          <CopyPromptD />
         </div>
       </section>
 
