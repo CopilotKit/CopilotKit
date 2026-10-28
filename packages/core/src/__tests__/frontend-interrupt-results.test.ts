@@ -1,6 +1,7 @@
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type {
   BaseEvent,
+  ContentPart,
   Interrupt,
   Message,
   RunAgentInput,
@@ -86,7 +87,7 @@ class FrontendInterruptAgent extends AbstractAgent {
 /** Register the wire agent and chart tool with optional handler replay behavior. */
 function setup(
   agent = new FrontendInterruptAgent(),
-  handler: (() => Promise<string>) | undefined = undefined,
+  handler: (() => Promise<string | ContentPart[]>) | undefined = undefined,
   reconnectBehavior?: "resume-pending",
 ) {
   const core = new CopilotKitCore({});
@@ -211,6 +212,96 @@ function savedHistory(error?: string): Message[] {
 }
 
 describe("review regressions", () => {
+  it.each([
+    { label: "empty text", content: "" },
+    { label: "ordinary text", content: "raw" },
+    {
+      label: "structured content",
+      content: [
+        { type: "text" as const, text: "raw" },
+        {
+          type: "image" as const,
+          source: {
+            type: "url" as const,
+            value: "https://example.com/chart.png",
+          },
+        },
+      ],
+    },
+  ])(
+    "restores adopted $label verbatim after reconnect omits the local result",
+    async ({ content }) => {
+      const interrupts: Interrupt[] = [
+        frontendInterrupts[0]!,
+        { id: "approval", reason: "approval" },
+      ];
+      const history = structuredClone(calls);
+      const assistant = history[0];
+      if (assistant?.role !== "assistant")
+        throw new Error("Missing fixture assistant");
+      assistant.toolCalls = assistant.toolCalls?.slice(0, 1);
+      const handler = vi.fn(async () => content);
+      const { core, agent } = setup(
+        new FrontendInterruptAgent(interrupts, history),
+        handler,
+      );
+      await core.runAgent({ agent });
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(agent.inputs).toHaveLength(1);
+      expect(
+        agent.messages.find((message) => message.role === "tool")?.content,
+      ).toEqual(content);
+      const state = ɵgetAgentInterruptState(agent);
+
+      await core.connectAgent({ agent });
+      await setImmediate();
+      expect(ɵgetAgentInterruptState(agent)).toBe(state);
+      expect(
+        agent.messages.filter((message) => message.role === "tool"),
+      ).toEqual([]);
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(() =>
+        state.resolve({ different: true }, "interrupt-one", agent.messages),
+      ).toThrow(/conflicts/);
+      expect(() => state.cancel("interrupt-one", agent.messages)).toThrow(
+        /conflicts/,
+      );
+      const decision = state.resolve("allow", "approval", agent.messages);
+      expect(decision).toMatchObject({
+        kind: "resume",
+        toolResults: [{ toolCallId: "one", content }],
+        resume: [
+          {
+            interruptId: "interrupt-one",
+            status: "resolved",
+            payload: content,
+          },
+          { interruptId: "approval", status: "resolved", payload: "allow" },
+        ],
+      });
+      if (decision.kind !== "resume")
+        throw new Error("Expected complete batch");
+      for (const result of decision.toolResults)
+        agent.addMessage({ id: "restored", role: "tool", ...result });
+      await core.runAgent({ agent, resume: decision.resume });
+      expect(agent.inputs).toHaveLength(2);
+      expect(
+        agent.inputs[1]!.messages.filter((message) => message.role === "tool"),
+      ).toEqual([{ id: "restored", role: "tool", toolCallId: "one", content }]);
+      expect(agent.inputs[1]!.resume).toEqual(decision.resume);
+      expect(handler).toHaveBeenCalledTimes(1);
+      state.setStandard([frontendInterrupts[0]!]);
+      expect(
+        state.resolve("new explicit answer", "interrupt-one"),
+      ).toMatchObject({
+        kind: "resume",
+        toolResults: [
+          { toolCallId: "one", content: JSON.stringify("new explicit answer") },
+        ],
+      });
+    },
+  );
+
   it.each(["resolve", "cancel"] as const)(
     "retains early %s of a failure until a sibling handler finishes",
     async (action) => {

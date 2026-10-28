@@ -26,7 +26,7 @@ export type ɵPendingInterrupt<TValue = unknown> =
 /** @internal Application authors must not depend on this contract. */
 export interface ɵInterruptToolResult {
   toolCallId: string;
-  content: string;
+  content: Extract<Message, { role: "tool" }>["content"];
 }
 
 /** @internal Application authors must not depend on this contract. */
@@ -63,6 +63,7 @@ function toolResultContent(response: ResumeResponse): string {
  */
 export class ɵInterruptState<TValue = unknown> {
   readonly #responses: Record<string, ResumeResponse> = Object.create(null);
+  #adoptedContent = new Map<string, ɵInterruptToolResult["content"]>();
   #pending: ɵPendingInterrupt<TValue> | null = null;
   #sealed = false;
 
@@ -103,6 +104,7 @@ export class ɵInterruptState<TValue = unknown> {
   clear(): void {
     this.#pending = null;
     this.#sealed = false;
+    this.#adoptedContent.clear();
     for (const id of Object.keys(this.#responses)) delete this.#responses[id];
   }
 
@@ -240,10 +242,13 @@ export class ɵInterruptState<TValue = unknown> {
   ): ɵInterruptDecision {
     this.validateToolCalls(messages);
     const completed = new Set<string>();
+    // Stage adoption until every response validates, so a rejected decision
+    // cannot leave cached content out of sync with accumulated responses.
+    const adoptedContent = new Map(this.#adoptedContent);
     for (const interrupt of interrupts) {
       if (interrupt.reason !== "tool_call" || !interrupt.toolCallId) continue;
       const results = messages.filter(
-        (message) =>
+        (message): message is Extract<Message, { role: "tool" }> =>
           message.role === "tool" &&
           message.toolCallId === interrupt.toolCallId &&
           !isForwardedToClientPlaceholder(message.content),
@@ -251,24 +256,28 @@ export class ɵInterruptState<TValue = unknown> {
       if (results.length > 1)
         throw new Error(`Duplicate tool results for ${interrupt.toolCallId}`);
       const result = results[0];
-      if (!result) continue;
+      if (!result && !adoptedContent.has(interrupt.id)) continue;
       const response = Object.prototype.hasOwnProperty.call(
         responses,
         interrupt.id,
       )
         ? responses[interrupt.id]
         : undefined;
-      if (result.role === "tool" && result.error !== undefined) {
+      if (result?.role === "tool" && result.error !== undefined) {
         // Failure history remains intact; only an explicit decision can recover
         // this call. Do not append a second result for the same call ID.
+        adoptedContent.delete(interrupt.id);
         completed.add(interrupt.id);
         continue;
       }
+      const content = result
+        ? result.content
+        : adoptedContent.get(interrupt.id)!;
       if (
         response &&
         (response.status !== "resolved" ||
-          (!sameValue(response.payload, result.content) &&
-            toolResultContent(response) !== result.content))
+          (!sameValue(response.payload, content) &&
+            toolResultContent(response) !== content))
       ) {
         throw new Error(
           `Interrupt response conflicts with existing tool result for ${interrupt.toolCallId}`,
@@ -276,10 +285,12 @@ export class ɵInterruptState<TValue = unknown> {
       }
       // Preserve actual result bytes, including the empty string. Never create
       // another tool message for a call already answered by a frontend handler.
-      responses[interrupt.id] = { status: "resolved", payload: result.content };
-      completed.add(interrupt.id);
+      responses[interrupt.id] = { status: "resolved", payload: content };
+      adoptedContent.set(interrupt.id, content);
+      if (result) completed.add(interrupt.id);
     }
     Object.assign(this.#responses, responses);
+    this.#adoptedContent = adoptedContent;
     if (
       !interrupts.every((interrupt) =>
         Object.prototype.hasOwnProperty.call(responses, interrupt.id),
@@ -310,7 +321,9 @@ export class ɵInterruptState<TValue = unknown> {
       return [
         {
           toolCallId: interrupt.toolCallId,
-          content: toolResultContent(responses[interrupt.id]!),
+          content: adoptedContent.has(interrupt.id)
+            ? adoptedContent.get(interrupt.id)!
+            : toolResultContent(responses[interrupt.id]!),
         },
       ];
     });
