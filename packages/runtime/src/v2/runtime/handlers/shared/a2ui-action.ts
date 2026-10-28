@@ -36,6 +36,22 @@ export function normalizeA2UIAction(
     .update(JSON.stringify([input.threadId, input.runId]))
     .digest("hex")}`;
   const content = JSON.stringify({ a2uiAction: envelope });
+  const actionName =
+    typeof envelope.userAction.name === "string"
+      ? envelope.userAction.name
+          .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+          .replace(/[_-]+/g, " ")
+          .trim()
+          .slice(0, 120)
+      : "";
+  // Presentation metadata is separate from the canonical, model-visible payload.
+  // Renderers must require this explicit marker, never infer actions from JSON.
+  const display = {
+    version: 1,
+    label: actionName
+      ? (actionName[0].toUpperCase() + actionName.slice(1)).slice(0, 120)
+      : "Selected an action",
+  };
   const existing = input.messages.find((message) => message.id === id);
   if (existing && (existing.role !== "user" || existing.content !== content)) {
     return Response.json(
@@ -50,7 +66,25 @@ export function normalizeA2UIAction(
     ...input,
     forwardedProps,
     messages: existing
-      ? input.messages
-      : [...input.messages, { id, role: "user", content }],
+      ? input.messages.map((message) =>
+          message.id === id
+            ? {
+                ...message,
+                metadata: {
+                  ...message.metadata,
+                  "copilotkit.a2uiAction": display,
+                },
+              }
+            : message,
+        )
+      : [
+          ...input.messages,
+          {
+            id,
+            role: "user",
+            content,
+            metadata: { "copilotkit.a2uiAction": display },
+          },
+        ],
   };
 }

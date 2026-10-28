@@ -22,6 +22,7 @@ import {
   mergeForwardableHeaders,
   resolveForwardHeadersPolicy,
 } from "../header-utils";
+import { mcpAppsOptionsForRequest } from "./native-history-policy";
 import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { grantAllowsMemory, resolveWebMemory } from "./memory-policy";
@@ -151,20 +152,21 @@ export function configureAgentForRequest(params: {
     );
     if (mcpServers.length > 0 || isMcpProxyRequest) {
       agent.use(
-        new MCPAppsMiddleware({
-          mcpServers,
-          discoveryFailureMode: "throw",
-          continuationInput: runtime.nativeHistoryAgents?.includes(agentId)
-            ? "tool-results"
-            : "full-history",
-        }),
+        new MCPAppsMiddleware(
+          mcpAppsOptionsForRequest(agent, {
+            mcpServers,
+            discoveryFailureMode: "throw",
+          }),
+        ),
       );
     }
   } else if (runtime.mcpApps?.servers?.length) {
     const mcpServers = resolveMcpAppsServers(runtime.mcpApps.servers, agentId);
 
     if (mcpServers.length > 0 && typeof agent.use === "function") {
-      agent.use(new MCPAppsMiddleware({ mcpServers }));
+      agent.use(
+        new MCPAppsMiddleware(mcpAppsOptionsForRequest(agent, { mcpServers })),
+      );
     }
   }
 
