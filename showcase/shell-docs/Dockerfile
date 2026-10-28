@@ -50,7 +50,9 @@ RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && cd ../shell-docs && npx next build
 
 FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
-WORKDIR /app
+# Keep the builder's app path. next.config.ts sets turbopack.root to the parent
+# folder, so .next/node_modules links point to ../../../shell-docs/node_modules.
+WORKDIR /app/shell-docs
 ARG COMMIT_SHA=unknown
 ARG BRANCH=unknown
 ENV NODE_ENV=production
@@ -63,6 +65,9 @@ COPY --from=builder /app/shell-docs/node_modules ./node_modules
 COPY --from=builder /app/shell-docs/package.json ./
 COPY --from=builder /app/shell-docs/public ./public
 COPY --from=builder /app/shell-docs/src/content ./src/content
+# Fail the build if a server package link does not resolve. A broken link
+# returns HTTP 500 on every page, and the PR build check never starts the app.
+RUN ! find .next/node_modules -xtype l | grep .
 
 EXPOSE 10000
 CMD ["npx", "next", "start", "-p", "10000"]
