@@ -1,0 +1,12 @@
+data: {"type":"RUN_STARTED","threadId":"thread-original","runId":"run-1","protocolVersion":"1.0"}
+
+data: {"type":"TOOL_CALL_START","toolCallId":"call-b","toolCallName":"protected_tool","rawEvent":{"authorName":"TwoProtectedProbe","role":"assistant","contents":[{"$type":"toolApprovalRequest","toolCall":{"$type":"functionCall","name":"protected_tool","arguments":{"value":"b"},"informationalOnly":false,"callId":"call-b","annotations":null,"additionalProperties":null},"requiresConfirmation":true,"requestId":"ficc_call-b","annotations":null,"additionalProperties":null}],"additionalProperties":null,"responseId":null,"messageId":null,"conversationId":null,"createdAt":null,"finishReason":null,"modelId":null,"continuationToken":null}}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"call-b","delta":"{\"value\":\"b\"}","rawEvent":{"authorName":"TwoProtectedProbe","role":"assistant","contents":[{"$type":"toolApprovalRequest","toolCall":{"$type":"functionCall","name":"protected_tool","arguments":{"value":"b"},"informationalOnly":false,"callId":"call-b","annotations":null,"additionalProperties":null},"requiresConfirmation":true,"requestId":"ficc_call-b","annotations":null,"additionalProperties":null}],"additionalProperties":null,"responseId":null,"messageId":null,"conversationId":null,"createdAt":null,"finishReason":null,"modelId":null,"continuationToken":null}}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"call-b","rawEvent":{"authorName":"TwoProtectedProbe","role":"assistant","contents":[{"$type":"toolApprovalRequest","toolCall":{"$type":"functionCall","name":"protected_tool","arguments":{"value":"b"},"informationalOnly":false,"callId":"call-b","annotations":null,"additionalProperties":null},"requiresConfirmation":true,"requestId":"ficc_call-b","annotations":null,"additionalProperties":null}],"additionalProperties":null,"responseId":null,"messageId":null,"conversationId":null,"createdAt":null,"finishReason":null,"modelId":null,"continuationToken":null}}
+
+data: {"type":"CUSTOM","name":"cpki.approval_decisions","value":{"version":1,"decisions":[{"requestId":"ficc_call-a","toolCallId":"call-a","approved":true,"status":"waiting"}]}}
+
+data: {"type":"RUN_FINISHED","threadId":"thread-original","runId":"run-1","outcome":{"type":"interrupt","interrupts":[{"id":"ficc_call-b","reason":"tool_call","message":"Approval required for tool call: protected_tool","toolCallId":"call-b","responseSchema":{"type":"object","properties":{"approved":{"type":"boolean"}},"required":["approved"]}}]}}
+

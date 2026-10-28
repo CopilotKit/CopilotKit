@@ -13,6 +13,8 @@ import type {
 import { randomUUID, structuredClone_ } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
 import { isForwardedToClientPlaceholder } from "./tool-result-content";
+import { parseApprovalDecisions } from "../approval-decisions";
+import type { ApprovalDecisions } from "../approval-decisions";
 
 const isContinuation = (
   input: Pick<RunAgentInput, "resume" | "forwardedProps">,
@@ -45,6 +47,16 @@ interface PendingContinuation extends CopilotKitCoreContinuationHandoff {
  * Tracks agent state snapshots and message-to-run associations.
  */
 export class StateManager {
+  private approvalDecisions = new Map<string, Map<string, ApprovalDecisions>>();
+
+  /** Read a saved decision projection without treating it as a tool result. */
+  getApprovalDecisions(
+    agentId: string,
+    threadId: string,
+  ): ApprovalDecisions | undefined {
+    const snapshot = this.approvalDecisions.get(agentId)?.get(threadId);
+    return snapshot === undefined ? undefined : structuredClone_(snapshot);
+  }
   // State tracking: agentId -> threadId -> runId -> state
   private stateByRun: Map<string, Map<string, Map<string, State>>> = new Map();
 
@@ -103,7 +115,10 @@ export class StateManager {
    * Initialize state tracking for an agent
    */
   initialize(): void {
-    // Will be called when CopilotKitCore is initialized
+    // Constructor-supplied agents can replay before any registry-change event.
+    for (const agent of Object.values(this.core.agents)) {
+      this.subscribeToAgent(agent);
+    }
   }
 
   markNextRunAsContinuation(
@@ -152,6 +167,7 @@ export class StateManager {
       }
       existing.unsubscribe();
       this.agentSubscriptions.delete(agentId);
+      this.approvalDecisions.delete(agentId);
     }
 
     // Subscribe to agent events.
@@ -349,8 +365,16 @@ export class StateManager {
         this.handleRunFinished(agent, effective, state);
         return mutation;
       },
-      onCustomEvent: ({ event }) => {
+      onCustomEvent: ({ event, input }) => {
         if (!revoked && event.name === "on_interrupt") legacyInterrupted = true;
+        if (!revoked && event.name === "cpki.approval_decisions") {
+          let threads = this.approvalDecisions.get(agentId);
+          if (!threads) {
+            threads = new Map();
+            this.approvalDecisions.set(agentId, threads);
+          }
+          threads.set(input.threadId, parseApprovalDecisions(event.value));
+        }
       },
       // A run error terminates the run — treat identically to finished for cleanup
       onRunErrorEvent: ({ input, state, messages }) => {
@@ -436,6 +460,7 @@ export class StateManager {
    * Unsubscribe an agent's subscription.
    */
   unsubscribeFromAgent(agentId: string): void {
+    this.approvalDecisions.delete(agentId);
     const existing = this.agentSubscriptions.get(agentId);
     if (existing) {
       existing.unsubscribe();
@@ -741,6 +766,7 @@ export class StateManager {
    * Clear all state for an agent
    */
   clearAgentState(agentId: string): void {
+    this.approvalDecisions.delete(agentId);
     const agent = this.agentSubscriptions.get(agentId)?.agent;
     if (agent) this.interruptedRuns.delete(agent);
     this.stateByRun.delete(agentId);
@@ -752,6 +778,7 @@ export class StateManager {
    * Clear all state for a thread
    */
   clearThreadState(agentId: string, threadId: string): void {
+    this.approvalDecisions.get(agentId)?.delete(threadId);
     const agent = this.agentSubscriptions.get(agentId)?.agent;
     if (agent) this.interruptedRuns.get(agent)?.delete(threadId);
     this.stateByRun.get(agentId)?.delete(threadId);
