@@ -51,18 +51,24 @@ function createAbortError(): DOMException {
 
 const installations = new WeakMap<typeof fetch, Promise<void>>();
 
+/**
+ * Checks the installed fetch's response body rather than the global Response
+ * constructor, which Expo can leave unchanged when installing streaming fetch.
+ *
+ * Uses local URLs without an HTTP request. Expo's Android fetch rejects data
+ * URLs but returns a readable 404 for a missing file. Both attempts share a
+ * one-second deadline; a missing reader, rejection, or timeout returns false.
+ */
 function supportsStreamingFetch(
   fetchImplementation: typeof fetch,
 ): Promise<boolean> {
-  // Expo can install a streaming fetch without replacing RN's global Response.
-  // Inspect fetch itself without HTTP traffic. Expo's Android fetch rejects
-  // data URLs, but returns a readable 404 response for a missing local file.
   return new Promise((resolve) => {
     const controller =
       typeof AbortController === "function" ? new AbortController() : undefined;
     let settled = false;
     const timer = setTimeout(() => finish(false), 1_000);
 
+    /** Settles detection once, clears its deadline, and aborts the probe. */
     function finish(supported: boolean) {
       if (settled) return;
       settled = true;
@@ -71,6 +77,7 @@ function supportsStreamingFetch(
       resolve(supported);
     }
 
+    /** Tries a data URL, then a local file only if the data request rejects. */
     async function probe() {
       const init = { signal: controller?.signal };
       let response: Response;
@@ -97,6 +104,16 @@ function supportsStreamingFetch(
   });
 }
 
+/**
+ * Initializes streaming fetch support, preserving a supported original fetch
+ * or selecting the XHR fallback when the local capability check fails.
+ *
+ * Early requests wait for selection and are sent once. Repeated installation
+ * reuses the initialization promise, and an application replacement installed
+ * during detection is left intact.
+ *
+ * @returns A promise that resolves when capability detection and selection finish.
+ */
 export function installStreamingFetch(): Promise<void> {
   const originalFetch = global.fetch;
   const installed = installations.get(originalFetch);
