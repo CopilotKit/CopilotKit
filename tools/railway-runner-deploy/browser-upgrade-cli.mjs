@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
-import { STAGING, RUNNER_URL, sha256 } from "./contract.mjs";
+import { STAGING, sha256 } from "./contract.mjs";
 import { createRailway, createRunner } from "./adapters.mjs";
 import { createGithub, verifyRegistryImage } from "./github.mjs";
 import { verifyBuild } from "./provenance.mjs";
@@ -114,25 +114,11 @@ if (process.argv.includes("--validate")) {
       throw error;
     }
   };
+  const runner = createRunner({ token: env.RICH_RUNNER_TOKEN, deadline });
   const verifyReceipts = async () => {
-    const status = await fetch(`${RUNNER_URL}/status`, {
-      headers: { authorization: `Bearer ${env.RICH_RUNNER_TOKEN}` },
-      redirect: "error",
-      signal: AbortSignal.timeout(30000),
-    });
-    assert.equal(status.status, 200);
-    assert.equal((await status.json()).scheduleEnabled, false);
+    assert.equal((await runner.status()).scheduleEnabled, false);
     for (const expected of [...intent.watches, intent.volumeWatch]) {
-      const response = await fetch(
-        `${RUNNER_URL}/runs/${expected.runnerRunId}`,
-        {
-          headers: { authorization: `Bearer ${env.RICH_RUNNER_TOKEN}` },
-          redirect: "error",
-          signal: AbortSignal.timeout(30000),
-        },
-      );
-      assert.equal(response.status, 200);
-      const value = await response.json();
+      const value = await runner.readRun(expected.runnerRunId);
       assert.equal(value.status, "failed");
       assert.equal(value.cleanup, "retained-watch");
       assert.equal(value.deadlineExceeded, true);
@@ -144,7 +130,7 @@ if (process.argv.includes("--validate")) {
     intent,
     operationId: `github-655515393-${env.GITHUB_RUN_ID}`,
     railway,
-    runner: createRunner({ token: env.RICH_RUNNER_TOKEN, deadline }),
+    runner,
     verifyProvenance,
     verifyReceipts,
     deadline,
