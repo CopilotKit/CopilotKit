@@ -589,4 +589,50 @@ describe("CopilotKitCore - unanswered tool call from stopped run", () => {
     // Thread B's messages must NOT contain thread-A's message or stopped result
     expect(agent.messages).toHaveLength(0);
   });
+
+  it("should not insert stopped result into a switched thread when an aborted run finishes with an empty delta", async () => {
+    const agent = new MockAgent({ agentId: "test", threadId: "thread-A" });
+    (agent as any).detachActiveRun = async () => {};
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    const msgA = createToolCallMessage("some_tool");
+    agent.setMessages([msgA]);
+
+    let startedResolve!: () => void;
+    const started = new Promise<void>((r) => {
+      startedResolve = r;
+    });
+    let finishResolve!: () => void;
+    const finish = new Promise<void>((r) => {
+      finishResolve = r;
+    });
+
+    (agent as any).runAgent = vi.fn(async () => {
+      startedResolve();
+      await finish;
+      return { result: undefined, newMessages: [] };
+    });
+
+    const runPromise = copilotKitCore.runAgent({ agent: agent as any });
+    await started;
+
+    // Abort the run on thread-A
+    copilotKitCore.stopAgent({ agent: agent as any });
+
+    // Switch the agent to thread-B with its own assistant message and open tool call
+    agent.threadId = "thread-B";
+    const msgB = createToolCallMessage("other_tool");
+    agent.setMessages([msgB]);
+
+    // Let the aborted thread-A run finish
+    finishResolve();
+    await runPromise;
+
+    // Thread-B must NOT have received a stopped result from thread-A's aborted run
+    const toolResult = agent.messages.find((m) => m.role === "tool");
+    expect(toolResult).toBeUndefined();
+  });
 });

@@ -743,6 +743,8 @@ export class RunHandler {
      */
     followUpOf?: AbortController,
   ): Promise<RunAgentResult> {
+    const runThreadId = agent.threadId;
+
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
@@ -928,6 +930,7 @@ export class RunHandler {
         agent,
         runId: logicalRunId,
         runController: controller,
+        runThreadId,
       });
     } catch (error) {
       logicalHandoff?.cancel();
@@ -937,6 +940,7 @@ export class RunHandler {
           agent,
           runId: logicalRunId,
           runController: controller,
+          runThreadId,
         });
       }
       const runError =
@@ -996,6 +1000,7 @@ export class RunHandler {
     runId,
     toolExecutionMode = "all",
     runController,
+    runThreadId,
     signal = runController?.signal,
   }: {
     runAgentResult: RunAgentResult;
@@ -1004,6 +1009,8 @@ export class RunHandler {
     toolExecutionMode?: "all" | "restore";
     /** Controller of the run that produced this result; follow-ups share it. */
     runController?: AbortController;
+    /** Thread on which the run started. */
+    runThreadId?: string;
     signal?: AbortSignal;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
@@ -1012,7 +1019,7 @@ export class RunHandler {
 
     let needsFollowUp = false;
 
-    const threadId = agent.threadId;
+    const threadId = runThreadId ?? agent.threadId;
     const executing = this._executingToolCalls.get(agent) ?? new Set<string>();
     this._executingToolCalls.set(agent, executing);
 
@@ -1022,7 +1029,9 @@ export class RunHandler {
     // in that turn, and snapshot because handlers insert results.
     const messagesToProcess =
       toolExecutionMode === "restore" ||
-      (signal?.aborted && newMessages.length === 0)
+      (signal?.aborted &&
+        newMessages.length === 0 &&
+        (runThreadId === undefined || agent.threadId === runThreadId))
         ? agent.messages.filter(
             (message) =>
               message.role === "assistant" &&
