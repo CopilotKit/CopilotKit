@@ -124,9 +124,10 @@ export interface CopilotKitProviderProps {
      *
      * Pass the origin that serves `mcp-apps-sandbox-proxy.html` from
      * `@copilotkit/mcp-apps-renderer` at its root, such as
-     * `https://mcp-sandbox.example.com`, or the page's full URL. Widgets then
+     * `https://example-sandbox.com`, or the page's full URL. Widgets then
      * run with that origin, so their storage works and your page stays out of
-     * reach. It must differ from your page's origin.
+     * reach. It must differ from your page's origin. Use a separate domain,
+     * not a subdomain of your site, which is same-site with your page.
      */
     sandboxOrigin?: string;
   };

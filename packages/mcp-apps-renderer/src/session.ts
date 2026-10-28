@@ -284,15 +284,18 @@ export interface McpAppSessionOptions {
    * Default unset: the proxy is inline (`srcdoc`) and widgets get an opaque
    * origin.
    *
-   * Pass the origin, such as `https://mcp-sandbox.example.com`, that serves
+   * Pass the origin, such as `https://example-sandbox.com`, that serves
    * `mcp-apps-sandbox-proxy.html` (shipped in this package) at its root, or
    * the full URL of that page to serve it from another path. Widgets then run
    * with that origin and keep `allow-same-origin`, so `localStorage`,
    * `IndexedDB` and cookies work while the host page stays out of reach. The
    * host only accepts messages from that origin.
    *
-   * It must differ from the page's origin, or the session fails to start. All
-   * widgets share the sandbox origin, and with it their storage.
+   * It must differ from the page's origin, or the session fails to start. Use
+   * a separate domain, not a subdomain of the app's: a subdomain is same-site
+   * with the page, so it gets the page's `SameSite` cookies and can set cookies
+   * the page reads. All widgets share the sandbox origin, and with it their
+   * storage.
    */
   sandboxOrigin?: string;
 }

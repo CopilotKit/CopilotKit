@@ -144,7 +144,7 @@ separate origin. By default CopilotKit loads the sandbox inline, so it leaves
 ### Serve the sandbox from a separate origin
 
 To give widgets working storage without exposing your page, serve the sandbox
-proxy from an origin of its own, such as `https://mcp-sandbox.example.com`.
+proxy from a separate domain, such as `https://example-sandbox.com`.
 This is the setup the MCP Apps spec describes.
 
 1. Copy `mcp-apps-sandbox-proxy.html` from `@copilotkit/mcp-apps-renderer`
@@ -155,22 +155,25 @@ This is the setup the MCP Apps spec describes.
 ```tsx
 <CopilotKit
   runtimeUrl="/api/copilotkit"
-  mcpApps={{ sandboxOrigin: "https://mcp-sandbox.example.com" }}
+  mcpApps={{ sandboxOrigin: "https://example-sandbox.com" }}
 >
   {children}
 </CopilotKit>
 ```
 
 To serve the file from another path, pass its full URL instead, such as
-`https://mcp-sandbox.example.com/mcp/proxy.html`.
+`https://example-sandbox.com/mcp/proxy.html`.
 
 Widgets then run with the sandbox origin. They can use `localStorage`,
 `IndexedDB` and cookies, but can't reach your page, and CopilotKit only
 accepts messages from that origin. CopilotKit refuses to load a widget if
 `sandboxOrigin` is your page's own origin.
 
-- Use an origin that serves nothing else. A subdomain of your site is fine,
-  but don't put user content or cookies scoped to your main domain on it.
+- Use a separate domain that serves nothing else, such as
+  `example-sandbox.com` for an app on `example.com`. Avoid a subdomain of your
+  site, such as `sandbox.example.com`. It is same-site with your page, so
+  browsers send your `SameSite` cookies on a widget's requests to your APIs,
+  and a widget can set cookies for `example.com` that your app then reads.
 - All widgets share the sandbox origin, so they share its storage too. A
   widget from one MCP server can read what another one stored.
 - To stop other sites from embedding your proxy, send
