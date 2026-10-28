@@ -135,7 +135,7 @@ Already running LangGraph, CrewAI, Mastra, or another framework? Swap the Built-
 
 </details>
 
-https://github.com/user-attachments/assets/7372b27b-8def-40fb-a11d-1f6585f556ad
+https://github.com/user-attachments/assets/4af4c22a-1638-4328-add7-ede088afea64
 
 ## How it works
 
@@ -259,11 +259,8 @@ npx create-ag-ui-app my-agent-app
 
 ## Community
 
-<div align="center">
-
 **[Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)** · **[Docs](https://docs.copilotkit.ai/?ref=github_readme)** · **[X](https://x.com/copilotkit)** · **[LinkedIn](https://www.linkedin.com/company/copilotkit/)** · **[Blog](https://www.copilotkit.ai/blog?ref=github_readme)**
 
-</div>
 
 ## Contributing
 
