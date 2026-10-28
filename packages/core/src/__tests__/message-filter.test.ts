@@ -109,6 +109,24 @@ describe("ɵrepairToolCallPairs", () => {
     expect(repaired.map((m) => m.id)).toEqual([call.id, result.id]);
   });
 
+  it("ignores malformed tool-call entries instead of throwing", () => {
+    // A persisted or hand-built message can carry junk in `toolCalls`; the
+    // repair must degrade to "this entry opens no pair", not fail the run.
+    const call = {
+      id: "a1",
+      role: "assistant",
+      toolCalls: [null, 5, { id: 3 }, { id: "c" }],
+    } as unknown as Message;
+    const result = createToolResultMessage("c", "done");
+    const full = [createMessage({ id: "u1" }), call, result];
+    const kept = [full[0]!, call];
+
+    expect(() => ɵrepairToolCallPairs(kept, full)).not.toThrow();
+    // The malformed entries are ignored, but the valid "c" pair is still
+    // restored from the untrimmed thread.
+    expect(ɵrepairToolCallPairs(kept, full)).toEqual(full);
+  });
+
   it("restores every sibling result when it restores a parallel call", () => {
     const call = createMultipleToolCallsMessage([
       { name: "lookupA" },
