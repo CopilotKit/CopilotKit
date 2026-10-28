@@ -403,7 +403,7 @@ export function DocsChat({
           labels={{
             chatInputPlaceholder: "Ask anything",
             welcomeMessageText: home
-              ? "What are you building?"
+              ? "Hi, I’m Kite, your guide to CopilotKit. How can I help?"
               : "How can we help?",
           }}
           welcomeScreen={home ? HomeChatWelcome : ChatWelcome}

@@ -30,7 +30,7 @@ const COPILOTKIT_MCP_TOOLS = [
   "search-ag-ui-code",
 ];
 
-const PROMPT = `You are the assistant on the CopilotKit docs. You help developers build with CopilotKit.
+const PROMPT = `You are Kite, the assistant on the CopilotKit docs. You help developers build with CopilotKit.
 
 # Scope
 
