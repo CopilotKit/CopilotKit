@@ -743,6 +743,8 @@ export class RunHandler {
      */
     followUpOf?: AbortController,
   ): Promise<RunAgentResult> {
+    const runThreadId = agent.threadId;
+
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
@@ -844,6 +846,7 @@ export class RunHandler {
 
     const previousRequestId = this._activeRequestIds.get(agent);
     this._activeRequestIds.set(agent, requestId);
+    let logicalRunId = resumedRunId ?? runId;
 
     try {
       if (depth === 0) {
@@ -863,7 +866,6 @@ export class RunHandler {
         );
       }
 
-      let logicalRunId = resumedRunId ?? runId;
       const agentSubscriber = this.createAgentErrorSubscriber(
         agent,
         controller.signal,
@@ -928,9 +930,19 @@ export class RunHandler {
         agent,
         runId: logicalRunId,
         runController: controller,
+        runThreadId,
       });
     } catch (error) {
       logicalHandoff?.cancel();
+      if (controller.signal.aborted) {
+        await this.processAgentResult({
+          runAgentResult: { result: undefined, newMessages: [] },
+          agent,
+          runId: logicalRunId,
+          runController: controller,
+          runThreadId,
+        });
+      }
       const runError =
         error instanceof Error ? error : new Error(String(error));
       const context: Record<string, any> = {};
@@ -988,6 +1000,7 @@ export class RunHandler {
     runId,
     toolExecutionMode = "all",
     runController,
+    runThreadId,
     signal = runController?.signal,
   }: {
     runAgentResult: RunAgentResult;
@@ -996,6 +1009,8 @@ export class RunHandler {
     toolExecutionMode?: "all" | "restore";
     /** Controller of the run that produced this result; follow-ups share it. */
     runController?: AbortController;
+    /** Thread on which the run started. */
+    runThreadId?: string;
     signal?: AbortSignal;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
@@ -1004,7 +1019,7 @@ export class RunHandler {
 
     let needsFollowUp = false;
 
-    const threadId = agent.threadId;
+    const threadId = runThreadId ?? agent.threadId;
     const executing = this._executingToolCalls.get(agent) ?? new Set<string>();
     this._executingToolCalls.set(agent, executing);
 
@@ -1013,7 +1028,10 @@ export class RunHandler {
     // historical, not permission to resume work. Keep every assistant message
     // in that turn, and snapshot because handlers insert results.
     const messagesToProcess =
-      toolExecutionMode === "restore"
+      toolExecutionMode === "restore" ||
+      (signal?.aborted &&
+        newMessages.length === 0 &&
+        (runThreadId === undefined || agent.threadId === runThreadId))
         ? agent.messages.filter(
             (message) =>
               message.role === "assistant" &&
@@ -1080,7 +1098,7 @@ export class RunHandler {
           }
           const executionKey = JSON.stringify([threadId, toolCall.id]);
           if (
-            signal?.aborted ||
+            (signal?.aborted && toolExecutionMode === "restore") ||
             agent.threadId !== threadId ||
             (toolExecutionMode === "restore" &&
               !this.isInLatestUserTurn(agent.messages, message.id)) ||
@@ -1096,27 +1114,50 @@ export class RunHandler {
           // earlier handler awaited input; never replace it with stale replay.
           let existingResult =
             agent.messages.find(
+              (m) =>
+                m.role === "tool" &&
+                m.toolCallId === toolCall.id &&
+                !this.isFrontendPlaceholderResult(m),
+            ) ??
+            newMessages.find(
+              (m) =>
+                m.role === "tool" &&
+                m.toolCallId === toolCall.id &&
+                !this.isFrontendPlaceholderResult(m),
+            ) ??
+            agent.messages.find(
               (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            ) ?? newMessages[existingResultIndex];
+            ) ??
+            newMessages[existingResultIndex];
+
+          const isPlaceholder =
+            existingResult && this.isFrontendPlaceholderResult(existingResult);
 
           if (
-            existingResult &&
-            this.isFrontendPlaceholderResult(existingResult) &&
-            (toolExecutionMode === "restore" || executableTool?.handler)
+            isPlaceholder &&
+            (signal?.aborted ||
+              toolExecutionMode === "restore" ||
+              executableTool?.handler)
           ) {
-            if (existingResultIndex !== -1)
-              newMessages.splice(existingResultIndex, 1);
-            existingResult = undefined;
-
-            const agentMsgIdx = agent.messages.findIndex(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+            this.removeFrontendPlaceholders(
+              toolCall.id,
+              newMessages,
+              agent.messages,
             );
-            if (agentMsgIdx !== -1) {
-              agent.messages.splice(agentMsgIdx, 1);
-            }
+            existingResult = undefined;
+          } else if (existingResult && !isPlaceholder) {
+            this.removeFrontendPlaceholders(
+              toolCall.id,
+              newMessages,
+              agent.messages,
+            );
           }
 
           if (!existingResult) {
+            if (signal?.aborted) {
+              this.insertStoppedToolResult(message, toolCall.id, agent);
+              continue;
+            }
             executing.add(executionKey);
             // Live HITL handlers need the same thread-switch cancellation as
             // restored ones, so returning to this thread can open a fresh UI.
@@ -1292,6 +1333,54 @@ export class RunHandler {
     return (
       message.role === "tool" && isForwardedToClientPlaceholder(message.content)
     );
+  }
+
+  /** Remove all transport placeholders for a specific toolCallId from the given message lists. */
+  private removeFrontendPlaceholders(
+    toolCallId: string,
+    ...lists: Message[][]
+  ): void {
+    for (const list of lists) {
+      for (let i = list.length - 1; i >= 0; i--) {
+        const m = list[i];
+        if (
+          m?.role === "tool" &&
+          m.toolCallId === toolCallId &&
+          this.isFrontendPlaceholderResult(m)
+        ) {
+          list.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  /** Synthesize and insert a stopped tool result directly behind its parent assistant message. */
+  private insertStoppedToolResult(
+    message: Message,
+    toolCallId: string,
+    agent: AbstractAgent,
+  ): void {
+    let messageIndex = agent.messages.findIndex((m) => m.id === message.id);
+    if (messageIndex === -1) {
+      agent.messages.push(message);
+      messageIndex = agent.messages.length - 1;
+    }
+    const insertAt = this.toolResultInsertionIndex(
+      agent.messages,
+      messageIndex,
+      toolCallId,
+    );
+    const toolMessage: Message = {
+      id: randomUUID(),
+      role: "tool",
+      toolCallId,
+      content: JSON.stringify({
+        status: "stopped",
+        reason: "stop_requested",
+        message: "Run stopped by user",
+      }),
+    };
+    agent.messages.splice(insertAt, 0, toolMessage);
   }
 
   /**
