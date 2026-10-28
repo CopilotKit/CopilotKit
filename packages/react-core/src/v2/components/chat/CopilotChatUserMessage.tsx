@@ -23,6 +23,20 @@ import type {
 } from "@copilotkit/shared";
 import { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
 
+function getA2UIActionLabel(message: UserMessage): string | undefined {
+  // Set by runtime action normalization. Ordinary user JSON is never inspected.
+  const marker = message.metadata?.["copilotkit.a2uiAction"];
+  if (!marker || typeof marker !== "object" || Array.isArray(marker)) return;
+  const display = marker as { version?: unknown; label?: unknown };
+  if (
+    display.version === 1 &&
+    typeof display.label === "string" &&
+    display.label.trim().length > 0 &&
+    display.label.length <= 120
+  )
+    return display.label;
+}
+
 function flattenUserMessageContent(content?: UserMessage["content"]): string {
   if (!content) {
     return "";
@@ -125,9 +139,10 @@ export function CopilotChatUserMessage({
   className,
   ...props
 }: CopilotChatUserMessageProps) {
+  const actionLabel = getA2UIActionLabel(message);
   const flattenedContent = useMemo(
-    () => flattenUserMessageContent(message.content),
-    [message.content],
+    () => actionLabel ?? flattenUserMessageContent(message.content),
+    [message.content, actionLabel],
   );
 
   const mediaParts = useMemo(
@@ -156,12 +171,12 @@ export function CopilotChatUserMessage({
     },
   );
 
-  const BoundEditButton = renderSlot(
-    editButton,
-    CopilotChatUserMessage.EditButton,
-    {
+  const BoundEditButton = actionLabel ? (
+    <></>
+  ) : (
+    renderSlot(editButton, CopilotChatUserMessage.EditButton, {
       onClick: () => onEditMessage?.({ message }),
-    },
+    })
   );
 
   const BoundBranchNavigation = renderSlot(

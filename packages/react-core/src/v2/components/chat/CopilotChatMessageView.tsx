@@ -203,6 +203,7 @@ const MemoizedUserMessage = React.memo(
     if (prevProps.message.content !== nextProps.message.content) return false;
     if (prevProps.UserMessageComponent !== nextProps.UserMessageComponent)
       return false;
+    if (prevProps.message.metadata !== nextProps.message.metadata) return false;
     // Check if slot props changed
     if (prevProps.slotProps !== nextProps.slotProps) return false;
     return true;

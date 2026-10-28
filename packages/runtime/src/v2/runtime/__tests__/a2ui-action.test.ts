@@ -1,4 +1,4 @@
-import { AbstractAgent, EventType } from "@ag-ui/client";
+import { AbstractAgent, EventType, compactEvents } from "@ag-ui/client";
 import type { RunAgentInput } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { firstValueFrom, of, toArray } from "rxjs";
@@ -32,6 +32,48 @@ function normalized(value = input()) {
 }
 
 describe("A2UI user-message transport", () => {
+  it("bounds display labels after Unicode capitalization expands a character", () => {
+    const value = input();
+    value.forwardedProps.a2uiAction = {
+      ...envelope,
+      userAction: { ...envelope.userAction, name: "ß" + "a".repeat(119) },
+    };
+    const result = normalized(value);
+    expect(result.messages[0].metadata?.["copilotkit.a2uiAction"]).toEqual({
+      version: 1,
+      label: "SS" + "a".repeat(118),
+    });
+    expect(result.messages[0].content).toBe(
+      JSON.stringify({ a2uiAction: value.forwardedProps.a2uiAction }),
+    );
+  });
+  it("retains display metadata and exact canonical content through compacted AG-UI replay", async () => {
+    const value = normalized();
+    const events = compactEvents([
+      {
+        type: EventType.RUN_STARTED,
+        threadId: value.threadId,
+        runId: value.runId,
+        input: value,
+      },
+      {
+        type: EventType.RUN_FINISHED,
+        threadId: value.threadId,
+        runId: value.runId,
+      },
+    ]);
+    class ReplayAgent extends AbstractAgent {
+      run() {
+        return of(...events);
+      }
+    }
+    const replay = new ReplayAgent({ threadId: value.threadId });
+    await replay.runAgent({ runId: value.runId });
+    expect(replay.messages).toEqual(value.messages);
+    expect(replay.messages[0].metadata).toEqual({
+      "copilotkit.a2uiAction": { version: 1, label: "Book flight" },
+    });
+  });
   it("preserves the complete envelope as user input without a tool execution claim", () => {
     const original = input();
     const result = normalized(original);
@@ -40,6 +82,9 @@ describe("A2UI user-message transport", () => {
     expect(result.messages[0].content).toBe(
       JSON.stringify({ a2uiAction: envelope }),
     );
+    expect(result.messages[0].metadata).toEqual({
+      "copilotkit.a2uiAction": { version: 1, label: "Book flight" },
+    });
     expect(result.threadId).toBe(original.threadId);
     expect(result.runId).toBe(original.runId);
     expect(result.forwardedProps).toEqual({ unrelated: "retained" });

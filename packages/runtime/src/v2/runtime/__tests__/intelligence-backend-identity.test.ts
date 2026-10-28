@@ -149,6 +149,9 @@ test("public A2UI user actions enter persistence before middleware without chang
       expect.objectContaining({
         role: "user",
         content: JSON.stringify({ a2uiAction: action }),
+        metadata: {
+          "copilotkit.a2uiAction": { version: 1, label: "Book flight" },
+        },
       }),
     ]);
     expect(request.persistedInputMessages).toEqual(request.input.messages);
