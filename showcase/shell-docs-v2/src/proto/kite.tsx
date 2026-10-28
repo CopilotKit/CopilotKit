@@ -22,7 +22,7 @@ import { KiteFrameworkMenu } from "./kite-framework-menu";
 
 export function KiteHome() {
   return (
-    <div className="mx-auto w-full max-w-[80rem] px-5 pt-6 pb-10 md:px-8">
+    <div className="mx-auto w-full max-w-[72rem] px-5 pt-6 pb-10 md:px-8">
       <section className="flex flex-col gap-5">
         <div className="flex flex-col items-center gap-4 text-center xl:flex-row xl:justify-between xl:gap-8 xl:text-left">
           <div className="flex min-w-0 flex-col gap-3">
