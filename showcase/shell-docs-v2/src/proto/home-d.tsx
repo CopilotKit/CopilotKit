@@ -45,7 +45,7 @@ export function DHome() {
             <QuickstartPicker />
           </div>
         </div>
-        <div className="mx-auto flex w-full min-w-0 max-w-[52rem] flex-col gap-3">
+        <div className="mx-auto flex w-full min-w-0 max-w-[52rem] flex-col gap-3 xl:max-w-[68rem]">
           <p className="text-center text-sm leading-relaxed text-muted-foreground">
             <strong className="font-medium text-foreground">
               CopilotKit in action.
