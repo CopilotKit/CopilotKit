@@ -110,12 +110,23 @@ export async function createBrowser({
     };
     threads.add(thread);
     await page.route(`**/agent/${scope.agentId}/run`, async (route) => {
+      // Capture ownership before awaiting the hook; a later send cannot
+      // replace the deadline authorizing this request.
+      const admission = thread.admission;
       try {
-        signal?.throwIfAborted();
+        assert.ok(
+          admission && !admission.claimed,
+          "Run has no unique send admission",
+        );
+        admission.claimed = true;
+        admission.check();
         await beforeRun?.(route.request().postDataJSON());
-        signal?.throwIfAborted();
-        await route.continue();
+        admission.check();
+        const continued = route.continue();
+        admission.finish();
+        await continued;
       } catch (error) {
+        admission?.finish(error);
         thread.error = error;
         await route.abort();
       }
@@ -168,6 +179,8 @@ export async function createBrowser({
     newThread,
     snapshot,
     async send(thread, prompt) {
+      assert.ok(!thread.admission, "A send is already awaiting admission");
+      if (thread.error) throw thread.error;
       const previous = [...thread.runIds];
       const input = thread.page.getByTestId("copilot-chat-textarea");
       const send = thread.page.getByTestId("copilot-send-button");
@@ -189,6 +202,14 @@ export async function createBrowser({
         assert.ok(remaining > 0, "Browser composer deadline exceeded");
         return { timeout: remaining, signal: actionSignal };
       };
+      let finish;
+      const admitted = new Promise((resolve) => {
+        finish = resolve;
+      });
+      const admission = { check: options, finish, claimed: false };
+      thread.admission = admission;
+      const aborted = () => finish(actionSignal.reason);
+      actionSignal.addEventListener("abort", aborted, { once: true });
       try {
         // SSR exposes the composer before hydration and runtime discovery.
         // Hydration can erase an early fill; only prepare input until the UI
@@ -203,8 +224,16 @@ export async function createBrowser({
           });
         }
         await send.click(options());
+        const error = await admitted;
+        if (error) throw error;
+      } catch (error) {
+        // A failed attempt cannot lend a fresh budget to a delayed request.
+        thread.error = error;
+        throw error;
       } finally {
         clearTimeout(timer);
+        actionSignal.removeEventListener("abort", aborted);
+        if (thread.admission === admission) delete thread.admission;
       }
       thread.interactions.push({ kind: "send" });
       return settled(thread, previous);

@@ -121,9 +121,15 @@ for (const framework of ["mastra", "strands-typescript"]) {
         posted = true;
         posts++;
         for await (const chunk of req) void chunk;
-        events.push(
-          { type: "RUN_STARTED", runId: "run", threadId: "thread" },
-          { type: "RUN_FINISHED", runId: "run", threadId: "thread" },
+        events.push({ type: "RUN_STARTED", runId: "run", threadId: "thread" });
+        setTimeout(
+          () =>
+            events.push({
+              type: "RUN_FINISHED",
+              runId: "run",
+              threadId: "thread",
+            }),
+          framework === "mastra" ? 1700 : 0,
         );
         res.end("done");
         return;
@@ -159,6 +165,7 @@ for (const framework of ["mastra", "strands-typescript"]) {
         outputDir,
         capture: { read: async () => ({ events }) },
         signal: AbortSignal.timeout(10_000),
+        composerTimeoutMs: 1500,
       });
       const thread = await browser.newThread({
         scenarioId: "race-control",
@@ -333,6 +340,74 @@ test("cancellation during beforeRun prevents the deferred POST", async () => {
       "Aborting the absence hook must prevent request admission",
     );
   } finally {
+    releaseHook();
+    await browser?.close();
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("composer deadline during beforeRun prevents the deferred POST", async () => {
+  let posts = 0;
+  const server = createServer((req, res) => {
+    if (req.method === "POST") posts++;
+    res.setHeader("content-type", "text/html");
+    res.end(
+      `<textarea data-testid="copilot-chat-textarea"></textarea><button data-testid="copilot-send-button" onclick="fetch('/agent/beautiful-chat/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({threadId:'thread',runId:'run',messages:[{role:'user',content:'hello'}]})})">Send</button>`,
+    );
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const controller = new AbortController();
+  let releaseHook, enteredHook;
+  const entered = new Promise((resolve) => {
+    enteredHook = resolve;
+  });
+  const held = new Promise((resolve) => {
+    releaseHook = resolve;
+  });
+  let browser;
+  try {
+    browser = await createBrowser({
+      chromium,
+      scope: {
+        agentId: "beautiful-chat",
+        framework: "mastra",
+        applicationUrl: `http://127.0.0.1:${server.address().port}`,
+      },
+      outputDir: tmpdir(),
+      capture: { read: async () => ({ events: [] }) },
+      signal: controller.signal,
+      composerTimeoutMs: 250,
+    });
+    const thread = await browser.newThread({
+      scenarioId: "cancel-hook",
+      beforeRun: async () => {
+        enteredHook();
+        await held;
+      },
+    });
+    const sending = browser.send(thread, "hello");
+    const rejected = assert.rejects(sending, /deadline/i);
+    await entered;
+    await assert.rejects(
+      browser.send(thread, "overlap"),
+      /already awaiting admission/,
+    );
+    await Promise.race([
+      rejected,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("deadline watchdog")), 1000),
+      ),
+    ]);
+    await assert.rejects(browser.send(thread, "retry"), /deadline/i);
+    releaseHook();
+    await thread.page.waitForTimeout(350);
+    assert.equal(
+      posts,
+      0,
+      "Aborting the absence hook must prevent request admission",
+    );
+  } finally {
+    controller.abort(new Error("test cleanup"));
     releaseHook();
     await browser?.close();
     await new Promise((resolve) => server.close(resolve));
