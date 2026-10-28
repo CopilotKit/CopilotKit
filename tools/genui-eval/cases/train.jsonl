@@ -1,6 +1,6 @@
 // Training cases. The optimizer and agents may read these. One JSON object per line.
 {"id":"team-plan-estimator","message":"Taskloom's Team plan costs $29 per seat per month, with 20% off when you pay yearly. I need to understand how much I'd pay for anywhere from 10 to 100 seats.","catalog":"standard","tags":["smoke","form","calc","interactive"],"expect":{"ui":true,"components":["Slider","SegmentedControl"]}}
-{"id":"cafes-map","message":"Show four famous coffee houses in Vienna on a map with markers, and a short list underneath with one line about each.","catalog":"standard","tags":["smoke","map","null-trap"],"expect":{"ui":true,"components":["Map"]}}
+{"id":"cafes-map","message":"I'm at Stephansplatz. Which cafés can I visit?","catalog":"standard","tags":["smoke","map","null-trap","list","images","choices"],"expect":{"ui":true,"components":["Map","Image"]}}
 {"id":"signup-validation","message":"Create a sign-up form with name, email and password, and validate the email before the user can submit.","catalog":"standard","tags":["smoke","form","validation"],"expect":{"ui":true,"components":["Form","TextField","Button"]}}
 {"id":"laptop-compare","message":"Compare the MacBook Air M4, Dell XPS 13 and Framework 13 on price, weight, battery and screen.","catalog":"standard","tags":["table","compare"],"expect":{"ui":true,"components":["Table"]}}
 {"id":"budget-chart","message":"Show my monthly budget as a chart: rent 1200, food 450, transport 120, fun 200, savings 500.","catalog":"standard","tags":["smoke","chart"],"expect":{"ui":true,"components":["Chart"]}}
