@@ -119,6 +119,12 @@ it("opens the keyboard-selected result with Enter", async () => {
   expect(keyboardDestination).toMatch(/^\/(?!\/)/);
 });
 
+it("navigates to the Vue chat guide when the query names Vue", async () => {
+  await search("vue copilotchat");
+  for (const row of resultRows()) fireEvent.click(row);
+  expect(pushed).toContain("/vue/prebuilt-components/chat");
+});
+
 function DismissibleSearch() {
   const [open, setOpen] = React.useState(true);
   return open ? <SearchModal onClose={() => setOpen(false)} /> : null;

@@ -1,4 +1,5 @@
-import { createEditor, Descendant } from "slate";
+import type { Descendant } from "slate";
+import { createEditor } from "slate";
 import { editorToText } from "./editor-to-text";
 import { getFullEditorTextWithNewlines } from "./get-text-around-cursor";
 

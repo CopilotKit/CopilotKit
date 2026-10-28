@@ -1349,6 +1349,28 @@ describe("CopilotKitIntelligence", () => {
       });
     });
 
+    it("sends the request id in the lock body", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ threadId: "t-1", runId: "r-1", joinToken: "jt-lock" }),
+      );
+
+      await client.ɵacquireThreadLock({
+        threadId: "t-1",
+        runId: "r-1",
+        userId: "user-1",
+        agentId: "agent-1",
+        requestId: "request-1",
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body)).toEqual({
+        runId: "r-1",
+        userId: "user-1",
+        agentId: "agent-1",
+        requestId: "request-1",
+      });
+    });
+
     it("throws when lock is denied", async () => {
       fetchMock.mockReturnValue(jsonResponse("Thread is locked", 409));
       await expect(

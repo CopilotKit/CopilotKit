@@ -490,7 +490,7 @@ describe("CopilotKitCore - unanswered tool call from stopped run", () => {
     });
   });
 
-  it("should answer live human-in-the-loop tool and subsequent tool calls when stopped during HITL execution", async () => {
+  it("should preserve live human-in-the-loop tool unanswered on stop so reconnect can restore it", async () => {
     const agent = new MockAgent({ agentId: "test" });
     copilotKitCore.addAgent__unsafe_dev_only({
       id: "test",
@@ -510,12 +510,6 @@ describe("CopilotKitCore - unanswered tool call from stopped run", () => {
     });
     copilotKitCore.addTool(hitlTool);
 
-    const nextTool = createTool({
-      name: "followup_tool",
-      handler: vi.fn(async () => "done"),
-    });
-    copilotKitCore.addTool(nextTool);
-
     const message = {
       id: "msg-assistant-hitl",
       role: "assistant" as const,
@@ -525,11 +519,6 @@ describe("CopilotKitCore - unanswered tool call from stopped run", () => {
           id: "call-hitl-1",
           type: "function" as const,
           function: { name: "approve_action", arguments: "{}" },
-        },
-        {
-          id: "call-next-2",
-          type: "function" as const,
-          function: { name: "followup_tool", arguments: "{}" },
         },
       ],
     };
@@ -545,22 +534,8 @@ describe("CopilotKitCore - unanswered tool call from stopped run", () => {
     const hitlResult = agent.messages.find(
       (m) => m.role === "tool" && m.toolCallId === "call-hitl-1",
     );
-    const nextResult = agent.messages.find(
-      (m) => m.role === "tool" && m.toolCallId === "call-next-2",
-    );
-
-    expect(hitlResult).toBeDefined();
-    expect(nextResult).toBeDefined();
-    expect(JSON.parse(hitlResult!.content as string)).toMatchObject({
-      status: "stopped",
-      reason: "stop_requested",
-    });
-    expect(JSON.parse(nextResult!.content as string)).toMatchObject({
-      status: "stopped",
-      reason: "stop_requested",
-    });
-    // The follow-up tool handler should not have been executed
-    expect(nextTool.handler).not.toHaveBeenCalled();
+    // Preserved for selective replay on reconnect, not prematurely closed
+    expect(hitlResult).toBeUndefined();
   });
 
   it("should not insert stopped result or leak old message when thread switches during live HITL", async () => {
