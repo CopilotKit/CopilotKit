@@ -11,6 +11,7 @@ import { ɵInterruptState } from "@copilotkit/core";
 import type { ɵPendingInterrupt } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useAgent } from "./use-agent";
+import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { INTERRUPT_EVENT_NAME } from "../types/interrupt";
 import type {
   InterruptEvent,
@@ -173,38 +174,72 @@ export function useInterrupt<
   /* eslint-enable @typescript-eslint/no-explicit-any */
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: config.agentId, updates: [] });
-  const [pending, setPending] = useState<PendingInterrupt | null>(null);
+  const chatConfig = useCopilotChatConfiguration();
+  const threadId =
+    !config.agentId || config.agentId === chatConfig?.agentId
+      ? (chatConfig?.threadId ?? agent.threadId)
+      : agent.threadId;
+  const scope = useMemo(
+    () => ({ agent, threadId, interruptState: new ɵInterruptState() }),
+    [agent, threadId],
+  );
+  const activeScopeRef = useRef(scope);
+  activeScopeRef.current = scope;
+  const [pendingSnapshot, setPendingSnapshot] = useState<{
+    scope: typeof scope;
+    pending: PendingInterrupt | null;
+  } | null>(null);
+  // Hide the previous conversation's controls during render, before effects run.
+  const pending =
+    pendingSnapshot?.scope === scope ? pendingSnapshot.pending : null;
+  const setPending = useCallback(
+    (nextPending: PendingInterrupt | null) => {
+      if (activeScopeRef.current === scope)
+        setPendingSnapshot({ scope, pending: nextPending });
+    },
+    [scope],
+  );
   const pendingRef = useRef(pending);
   pendingRef.current = pending;
   const [handlerResult, setHandlerResult] =
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     useState<InterruptResult<any, TResult>>(null);
 
-  const interruptStateRef = useRef(new ɵInterruptState());
-
   useEffect(() => {
-    const interruptState = interruptStateRef.current;
+    const interruptState = scope.interruptState;
+    // Chat reuses the agent when selecting another conversation. Its identity
+    // alone cannot scope the hook's cached approval and accumulated responses.
+    interruptState.clear();
+    pendingRef.current = null;
+    setPending(null);
     let localLegacy: InterruptEvent | null = null;
     let localStandard: Interrupt[] | null = null;
 
+    const belongsToThread = (input?: { threadId: string }) =>
+      activeScopeRef.current === scope &&
+      (!threadId || input?.threadId === threadId);
     const subscription = agent.subscribe({
-      onCustomEvent: ({ event }) => {
+      onCustomEvent: ({ event, input }) => {
+        if (!belongsToThread(input)) return;
         if (event.name === INTERRUPT_EVENT_NAME) {
           localLegacy = { name: event.name, value: event.value };
         }
       },
       onRunFinishedEvent: (params) => {
+        if (!belongsToThread(params.input)) return;
         if (params.outcome === "interrupt") {
           localStandard = params.interrupts;
         }
       },
-      onRunStartedEvent: () => {
+      onRunStartedEvent: (params) => {
+        if (!belongsToThread(params?.input)) return;
         localLegacy = null;
         localStandard = null;
         interruptState.clear();
         setPending(null);
       },
-      onRunFinalized: () => {
+      onRunFinalized: (params) => {
+        if (!belongsToThread(params.input)) return;
         // Standard wins if both somehow appear for one run.
         if (localStandard && localStandard.length > 0) {
           interruptState.setStandard(localStandard);
@@ -216,7 +251,8 @@ export function useInterrupt<
         localLegacy = null;
         localStandard = null;
       },
-      onRunFailed: () => {
+      onRunFailed: (params) => {
+        if (!belongsToThread(params?.input)) return;
         localLegacy = null;
         localStandard = null;
         interruptState.clear();
@@ -228,12 +264,12 @@ export function useInterrupt<
       subscription.unsubscribe();
       interruptState.clear();
     };
-  }, [agent]);
+  }, [agent, scope, setPending, threadId]);
 
   const resolve: InterruptResolveFn = useCallback(
     async (payload, interruptId) => {
       const current = pendingRef.current;
-      if (!current) return;
+      if (activeScopeRef.current !== scope || !current) return;
 
       if (
         current.kind === "standard" &&
@@ -244,7 +280,7 @@ export function useInterrupt<
           `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
         );
       }
-      const decision = interruptStateRef.current.resolve(payload, interruptId);
+      const decision = scope.interruptState.resolve(payload, interruptId);
       if (decision.kind === "legacy-resume") {
         try {
           return await copilotkit.runAgent({
@@ -269,7 +305,7 @@ export function useInterrupt<
         console.error(
           `[CopilotKit] useInterrupt: interrupt ${decision.interrupt.id} expired at ${decision.interrupt.expiresAt}; not resuming.`,
         );
-        interruptStateRef.current.clear();
+        scope.interruptState.clear();
         setPending(null);
         return;
       }
@@ -292,18 +328,18 @@ export function useInterrupt<
           "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
           err,
         );
-        interruptStateRef.current.clear();
+        scope.interruptState.clear();
         setPending(null);
         throw err;
       }
     },
-    [agent, copilotkit],
+    [agent, copilotkit, scope, setPending],
   );
 
   const cancel: InterruptCancelFn = useCallback(
     async (interruptId) => {
       const current = pendingRef.current;
-      if (!current) return;
+      if (activeScopeRef.current !== scope || !current) return;
 
       if (
         current.kind === "standard" &&
@@ -314,13 +350,13 @@ export function useInterrupt<
           `[CopilotKit] useInterrupt: resolve()/cancel() called without an interruptId while ${current.interrupts.length} interrupts are open; defaulting to the first. Pass an interruptId to address a specific interrupt.`,
         );
       }
-      const decision = interruptStateRef.current.cancel(interruptId);
+      const decision = scope.interruptState.cancel(interruptId);
       if (decision.kind === "dismiss") {
         // Legacy interrupts have no cancel semantics; dismiss without resuming.
         console.warn(
           "[CopilotKit] useInterrupt: cancel() is not supported for legacy on_interrupt interrupts; dismissing.",
         );
-        interruptStateRef.current.clear();
+        scope.interruptState.clear();
         setPending(null);
         return;
       }
@@ -328,7 +364,7 @@ export function useInterrupt<
         console.error(
           `[CopilotKit] useInterrupt: interrupt ${decision.interrupt.id} expired at ${decision.interrupt.expiresAt}; not resuming.`,
         );
-        interruptStateRef.current.clear();
+        scope.interruptState.clear();
         setPending(null);
         return;
       }
@@ -351,12 +387,12 @@ export function useInterrupt<
           "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
           err,
         );
-        interruptStateRef.current.clear();
+        scope.interruptState.clear();
         setPending(null);
         throw err;
       }
     },
-    [agent, copilotkit],
+    [agent, copilotkit, scope, setPending],
   );
 
   // Stabilize consumer-supplied callbacks behind refs so inline lambdas do not
