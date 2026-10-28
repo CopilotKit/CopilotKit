@@ -12,9 +12,10 @@ const DEFAULT_DESCRIPTION =
   "Docs, live demos, and integrations for CopilotKit.";
 
 /** shell-docs' home page title and description. */
-export const HOME_TITLE = "CopilotKit: bring your agent into any app";
+export const HOME_TITLE =
+  "CopilotKit: let agents and users work together in your app";
 export const HOME_DESCRIPTION =
-  "CopilotKit is an open-source framework that connects your app to AI agents. Add chat, interactive UI, and human approvals, with your choice of any agent backend.";
+  "Open-source APIs and components that connect app state, agent actions, and user input.";
 
 /** The social card route for a live URL: `/mastra/x` is `/og/mastra/x/og.png`. */
 export function ogImagePath(path: string): string {

@@ -26,6 +26,7 @@ import type { LinkItemType } from "fumadocs-ui/layouts/shared";
 // Spacious' DocsLayout with the CopilotKit "Ask AI" chat in its aiChat slot.
 import { DocsLayout as SpaciousLayout } from "@/components/ai/docs-layout";
 import { ProtoStackAgent } from "@/components/ai/stack-agents";
+import { DocsChatProvider } from "@/components/ai/chat-session";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 import { FullSearchTrigger } from "fumadocs-ui/layouts/shared/slots/search-trigger";
 import { CopilotKitLogo } from "@/components/copilotkit-logo";
@@ -331,6 +332,20 @@ function DHomeLayout({ children }: { children: ReactNode }) {
 }
 
 export function ProtoLayout({
+  ...props
+}: {
+  variant: VariantId;
+  liveNav?: LiveNav;
+  children: ReactNode;
+}) {
+  return (
+    <DocsChatProvider>
+      <ProtoLayoutContent {...props} />
+    </DocsChatProvider>
+  );
+}
+
+function ProtoLayoutContent({
   variant,
   liveNav,
   children,

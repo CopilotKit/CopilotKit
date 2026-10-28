@@ -151,6 +151,11 @@ export function DocsAgent() {
     [sidebarPages, router, setChatOpen],
   );
 
+  return null;
+}
+
+/** Shared by the homepage and the docs panel. */
+export function DocsToolStatuses() {
   // The agent's server and MCP tools: one quiet status line each.
   useRenderTool({
     name: "*",
