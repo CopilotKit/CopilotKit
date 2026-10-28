@@ -54,6 +54,9 @@ import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
+import type { Experimental_DownloadFunction } from "ai";
+import { logModelCallError, resolveUrlDownloadSetting } from "./url-download";
+import type { SafeUrlDownloadOptions } from "./url-download";
 import {
   convertAISDKStream,
   formatToolError,
@@ -68,6 +71,7 @@ import {
 } from "./converters/usage";
 import type { AgentRunFinishedDetails } from "./converters/usage";
 import { createStateEventNormalizer } from "./state-delta";
+import { describeEndpoint } from "../v1-deprecated/lib/runtime/mcp-client-cache";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { randomUUID } from "@copilotkit/shared";
@@ -1053,6 +1057,13 @@ export type BuiltInAgentFactoryContext = AgentFactoryContext;
  * Factory config for AI SDK backend.
  * The factory must return an object with a `fullStream` async iterable
  * (compatible with the result of `streamText()` — only `fullStream` is consumed).
+ *
+ * You own the `streamText()` call, so you also own its URL downloads. Pass
+ * `experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal })`
+ * (imported from `@copilotkit/runtime/v2`) to keep the server from fetching
+ * internal addresses named in request attachments, and to stop the downloads
+ * when the run is aborted. BuiltInAgent's `urlDownload` setting does not apply
+ * here: setting it in factory mode throws when the agent is constructed.
  */
 export interface BuiltInAgentAISDKFactoryConfig {
   /** Opt in to automatic snapshot acquisition before each run, including resumes. */
@@ -1205,6 +1216,36 @@ export interface BuiltInAgentClassicConfig {
    */
   providerOptions?: Record<string, any>;
   /**
+   * How the server downloads URL attachments (image and file parts) that the
+   * model cannot take as a URL. The URL comes from the request, so the server
+   * must not fetch it blindly.
+   *
+   * - Not set or an options object (default): download only from public
+   *   internet addresses. The hostname is resolved and every address must be
+   *   public; the connection uses only the checked addresses; each redirect is
+   *   checked again, and a redirect from https to http is refused; the size
+   *   (default 20 MiB) and the time (default 30 s) of each download, and the
+   *   number of distinct URLs (20) and total size (50 MiB) of the downloads
+   *   for one model call are limited. The AI SDK downloads the attachments
+   *   again for each step of a multi-step run. `allowedHosts` limits
+   *   downloads to the hostnames you list: `cdn.example.com` matches exactly,
+   *   `*.example.com` matches subdomains only. Invalid options, including an
+   *   unknown option name, throw when the agent is constructed.
+   * - `"disabled"`: never download from the network. Any attachment URL other
+   *   than `data:` that the model cannot take directly fails the run.
+   * - A function: your own AI SDK download function. You are responsible for
+   *   what it fetches.
+   *
+   * URLs that the model takes directly are sent to the provider unchanged and
+   * are not downloaded by the server. `data:` URLs are decoded locally by the
+   * AI SDK in every mode. Classic config only: in factory mode, see
+   * {@link BuiltInAgentAISDKFactoryConfig}.
+   */
+  urlDownload?:
+    | "disabled"
+    | SafeUrlDownloadOptions
+    | Experimental_DownloadFunction;
+  /**
    * Explicit agent capabilities. **Shallow-merged** at the category level on
    * top of auto-inferred defaults — providing a category (e.g. `tools`)
    * replaces that entire category, not individual fields within it.
@@ -1254,8 +1295,27 @@ export class BuiltInAgent extends AbstractAgent {
    */
   readonly modelHostClass: ModelHostClass;
 
+  /**
+   * Gives the download function for URL attachments for one run (classic
+   * config only). Resolved in the constructor so a bad setting fails fast.
+   */
+  private readonly urlDownload?: (
+    runSignal: AbortSignal,
+  ) => Experimental_DownloadFunction;
+
   constructor(private config: BuiltInAgentConfiguration) {
     super();
+    if (!isFactoryConfig(config)) {
+      this.urlDownload = resolveUrlDownloadSetting(config.urlDownload);
+    } else if ("urlDownload" in config) {
+      // The factory owns its model call, so the setting could not take effect
+      // and the AI SDK's default downloader would run instead. Fail loudly.
+      throw new Error(
+        "BuiltInAgent: urlDownload has no effect in factory mode. Pass " +
+          "experimental_download: createSafeUrlDownload({ signal: ctx.abortSignal }) " +
+          "(from @copilotkit/runtime/v2) to your own streamText() call instead.",
+      );
+    }
     this.skillRegistry =
       config.learnedSkills === undefined
         ? undefined
@@ -1382,17 +1442,22 @@ export class BuiltInAgent extends AbstractAgent {
         systemPrompt = parts.join("");
       }
 
-      // Convert messages and prepend system message if we have a prompt
-      const messages = convertMessagesToVercelAISDKMessages(input.messages, {
-        forwardSystemMessages: config.forwardSystemMessages,
-        forwardDeveloperMessages: config.forwardDeveloperMessages,
-      });
+      // The agent's own system messages go through streamText's `system`
+      // option rather than `messages`: the AI SDK warns about system messages
+      // in `messages` (prompt-injection risk), and keeping them apart leaves
+      // `messages` with only what the client sent.
+      const systemMessages: SystemModelMessage[] = [];
       if (systemPrompt) {
-        messages.unshift({
+        systemMessages.push({
           role: "system",
           content: systemPrompt,
         });
       }
+
+      const messages = convertMessagesToVercelAISDKMessages(input.messages, {
+        forwardSystemMessages: config.forwardSystemMessages,
+        forwardDeveloperMessages: config.forwardDeveloperMessages,
+      });
 
       // Resume injection: each ResumeEntry maps to the interrupt tool call it
       // addresses (interruptId === toolCallId) and is appended as that call's
@@ -1468,6 +1533,7 @@ export class BuiltInAgent extends AbstractAgent {
         seed: config.seed,
         providerOptions: config.providerOptions,
         maxRetries: config.maxRetries,
+        experimental_download: this.urlDownload?.(abortController.signal),
       };
 
       // Apply forwardedProps overrides (if allowed)
@@ -1610,7 +1676,7 @@ export class BuiltInAgent extends AbstractAgent {
           );
           abortController.signal.throwIfAborted();
           if (learnedSkills.catalog) {
-            messages.unshift({
+            systemMessages.unshift({
               role: "system",
               content: learnedSkills.catalog,
             });
@@ -1734,7 +1800,7 @@ export class BuiltInAgent extends AbstractAgent {
                 } catch (err) {
                   abortController.signal.throwIfAborted();
                   console.error(
-                    `[CopilotKit] MCP server ${serverConfig.url} failed to connect — skipping it for this run:`,
+                    `[CopilotKit] MCP server ${describeEndpoint(serverConfig.url)} failed to connect — skipping it for this run:`,
                     err,
                   );
                   continue;
@@ -1753,7 +1819,7 @@ export class BuiltInAgent extends AbstractAgent {
                 } catch (err) {
                   abortController.signal.throwIfAborted();
                   console.error(
-                    `[CopilotKit] MCP server ${serverConfig.url} tools() failed — skipping its tools for this run:`,
+                    `[CopilotKit] MCP server ${describeEndpoint(serverConfig.url)} tools() failed — skipping its tools for this run:`,
                     err,
                   );
                 }
@@ -1777,10 +1843,22 @@ export class BuiltInAgent extends AbstractAgent {
           }
           abortController.signal.throwIfAborted();
 
-          // Call streamText and process the stream
+          // Call streamText and process the stream. The AI SDK rejects an
+          // empty `messages` even when `system` is set, so a run with no
+          // conversation yet (e.g. started without a user message) sends the
+          // system messages as the conversation instead.
           const response = streamText({
             ...streamTextParams,
+            ...(messages.length > 0
+              ? {
+                  system:
+                    systemMessages.length > 0 ? systemMessages : undefined,
+                }
+              : { messages: systemMessages }),
             abortSignal: abortController.signal,
+            // The default prints the whole error, including a download URL's
+            // query; the error still reaches the client as RUN_ERROR.
+            onError: ({ error }) => logModelCallError(error),
           });
 
           // Names of tools flagged as interrupt tools (classic config only).
@@ -2570,3 +2648,8 @@ export class BasicAgent extends BuiltInAgent {
 export type BasicAgentConfiguration = BuiltInAgentClassicConfig;
 
 export * from "./converters";
+export { createSafeUrlDownload } from "./url-download";
+export type {
+  CreateSafeUrlDownloadOptions,
+  SafeUrlDownloadOptions,
+} from "./url-download";

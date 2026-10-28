@@ -6,6 +6,7 @@ import { ENV_ID_BY_NAME, SERVICES } from "./railway-envs";
 import type { EnvName } from "./railway-envs";
 import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
 import { resolveRailwayTokenFromConfig } from "./lib/railway-token";
+import { IN_PROGRESS_DEPLOY_STATUSES } from "./lib/railway-deployment";
 
 /**
  * Shared baseline implementation for every `verify-deploy` driver. Every
@@ -136,27 +137,6 @@ export interface BaselineOpts {
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-
-/**
- * Railway deployment statuses that are NON-terminal — the rollout is
- * still in flight and the status WILL change to a terminal state on its
- * own. `checkDeploymentSuccess` polls (rather than failing fast) while
- * the latest deployment sits in any of these, because a verify-prod that
- * fires seconds after a promote pins a new digest legitimately observes
- * the new deployment mid-roll. (Empirically: promote run 26966193624's
- * predecessor pinned the docs digest, then verify-prod ran ~17s later and
- * saw status="DEPLOYING" — a transient, not a failure.)
- *
- * Matches Railway's `DeploymentStatus` enum non-terminal members.
- */
-const IN_PROGRESS_DEPLOY_STATUSES: ReadonlySet<string> = new Set([
-  "QUEUED",
-  "BUILDING",
-  "INITIALIZING",
-  "DEPLOYING",
-  "WAITING",
-  "NEEDS_APPROVAL",
-]);
 
 /**
  * Poll budget for waiting out an in-progress deployment. ~150s total at

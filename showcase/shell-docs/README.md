@@ -68,6 +68,19 @@ Slack message. Verify a real provider reply separately before a release.
 
 ## Authoring Recipes
 
+### Standard Component Catalog
+
+The interactive catalog at `/generative-ui/components/standard-catalog` uses the
+published SDK pinned in this app's `package.json`. Its fixtures and surface operations
+live in `showcase/shared/generative-ui-catalog/` and are shared with
+`examples/v2/a2ui-markdown/app/catalog/`. Add examples there when the SDK catalog grows;
+the coverage check compares fixture component names with the pinned SDK manifest.
+The index links to standalone component pages with a focused category sidebar.
+Structural parts are anchored sections on their parent's page; ownership and URLs
+come from `src/components/standard-catalog/catalog-reference.ts`. Shared templates
+reuse the SDK descriptions, prop schemas, and existing examples. Examples load their
+renderer on demand, and their scripted streams and events stay in the browser.
+
 ### Showcase-Driven Framework Docs
 
 Showcase-driven frameworks use `docs_mode: generated`. The docs are assembled from showcase

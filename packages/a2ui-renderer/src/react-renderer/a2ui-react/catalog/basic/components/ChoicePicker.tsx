@@ -100,7 +100,7 @@ export const ChoicePicker = createReactComponent(
                       : STANDARD_BORDER,
                     backgroundColor: isSelected
                       ? "var(--a2ui-primary-color, #007bff)"
-                      : "#fff",
+                      : "var(--a2ui-color-surface, #fff)",
                     color: isSelected ? "#fff" : "inherit",
                     cursor: "pointer",
                     fontSize: "12px",

@@ -16,6 +16,55 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.83.0 - 2026-10-28
+
+### Other Changes
+
+- Merge commit from fork (4693af4)
+
+## 1.82.0 - 2026-10-27
+
+### Features
+
+- feat(runtime): send one request id per user request on the Intelligence lock call (#7936) (d028e14)
+- feat(react-core,vue,angular): translate the chat's remaining hard-coded strings through labels (#7867) (4ca3a23)
+- feat(showcase): add runnable Vue documentation (#6222) (136f515)
+
+### Fixes
+
+- fix(a2ui-renderer,react-core,vue): theme the A2UI basic catalog in dark mode (#7866) (6bc87e7)
+- fix(react-core): treat runs started via runAgent as local in CopilotChat (#7889) (ed78b19)
+- fix(runtime): pass BuiltInAgent's system prompt via streamText `system`, not `messages` (#7881) (8863a2a)
+- fix(react-core): keep a tool call group's look from its first call (#8028) (ef8f126)
+- fix(a2ui): omit component schemas from catalog context when includeSchema is false (React, Vue, Angular) (#7810) (a57920b)
+- fix(react-textarea): join blocks, not text nodes, in editorToText (#7628) (7d1f273)
+- fix(core): reopen MCP Apps while native approvals are pending (#7900) (b1d7e02)
+- fix(runtime): only clone the response when afterRequestMiddleware is set (#8012) (2c74500)
+- fix(runtime): keep error messages out of telemetry and honour a late opt-out (#8016) (063a7a9)
+- fix: keep MCP URL credentials out of logs and validate MCP Apps CSP domains (#8017) (2d3f4ca)
+- fix(react-textarea): fill the cleared block in replaceEditorText (#7626) (b0570a0)
+
+## 1.81.0 - 2026-10-27
+
+### Features
+
+- feat: native generative UI (createGenerativeUI, tool and markdown transports, standard catalog, inspector pane) (#7819) (2aff26d)
+- feat(runtime): add server-side Learning management methods (#7977) (6960c50)
+
+### Fixes
+
+- fix(inspector): accept local dashboards and retry Learning status (#7966) (44247a4)
+- fix(runtime): run v1 service adapters through their own process() again (#7756) (2d7362b)
+- fix(vue): keep CopilotChat full width in a flex row (closes PE-1053) (#8008) (0c7efff)
+- fix(react-native): time out stalled streams, not long ones (#7954) (3b5617b)
+- fix(shared): withhold unterminated numbers in partialJSONParse (#7950) (d01d9c7)
+- fix(react-core): let a custom chat input layout grow its textarea (#7964) (3cc0e69)
+- fix(runtime): handle pre-parsed request bodies in createCopilotNodeHandler (#7970) (37ed094)
+
+### Breaking Changes
+
+None
+
 ## 1.80.0 - 2026-10-24
 
 ### Features

@@ -1073,6 +1073,8 @@ cases.Add(("answer context contains the full merged resulting state without stor
     }
 }));
 
+cases.Add(("actual production HTTP endpoint publishes merged state before its answer", EndpointRegression.RunAsync));
+
 foreach (var test in cases)
 {
     try { await test.Run(); Console.WriteLine($"PASS {test.Name}"); }

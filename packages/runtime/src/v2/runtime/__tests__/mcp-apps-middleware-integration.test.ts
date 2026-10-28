@@ -400,7 +400,9 @@ describe("MCPAppsMiddleware integration", () => {
     });
 
     const mockAgent = new MockNextAgent();
+    const modelRun = vi.spyOn(mockAgent, "run");
     const events = await collectEvents(middleware.run(input, mockAgent));
+    expect(modelRun).not.toHaveBeenCalled();
 
     // Should have RUN_STARTED and RUN_FINISHED
     const types = events.map((e) => e.type);

@@ -98,7 +98,7 @@ if (process.argv.includes("--validate")) {
   const railway = createRailway({ token: env.RAILWAY_TOKEN, deadline });
   let removalSent = false;
   railway.removeDeployment = async (id) => {
-    assert.equal(id, "5816a613-4b0a-425f-ae82-f6a44ed53a42");
+    assert.equal(id, "27f7ec23-6b79-429f-9574-90da478b3985");
     assert.equal(id, intent.removalBaseline.deploymentId);
     assert.equal(removalSent, false);
     const old = await railway.readDeploymentStatus(id);

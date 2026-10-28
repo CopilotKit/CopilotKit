@@ -25,14 +25,23 @@ export type CopilotKitMessageFilter = (
   context: { agentId: string },
 ) => Message[];
 
-interface AssistantToolCall {
-  id: string;
-}
-
+/**
+ * The string ids of a message's tool calls.
+ *
+ * Malformed entries are ignored rather than thrown on, matching
+ * {@link ɵkeepToolResultsWithCalls}: a null or primitive entry, or an entry
+ * without a string `id`, opens no pair instead of failing the repair.
+ */
 function toolCallIdsOf(message: Message): string[] {
-  const calls = (message as { toolCalls?: AssistantToolCall[] }).toolCalls;
+  const calls = (message as { toolCalls?: unknown }).toolCalls;
   if (!Array.isArray(calls)) return [];
-  return calls.map((call) => call.id).filter((id): id is string => Boolean(id));
+  const ids: string[] = [];
+  for (const call of calls) {
+    if (typeof call !== "object" || call === null) continue;
+    const id = (call as { id?: unknown }).id;
+    if (typeof id === "string" && id) ids.push(id);
+  }
+  return ids;
 }
 
 function resultCallIdOf(message: Message): string | undefined {
@@ -78,18 +87,29 @@ export function ɵrepairToolCallPairs(
   kept: Message[],
   full: Message[],
 ): Message[] {
-  // Both maps are built from the untrimmed thread: the repair has to reason
-  // about pairs the filter already broke, so the kept list cannot answer
-  // "did this call have a result".
-  const callIdToIssuer = new Map<string, Message>();
-  const callIdToResult = new Map<string, Message>();
+  // Pair each result with the nearest unmatched call before it. Providers
+  // often reuse call ids across turns, so an id alone cannot identify a pair.
+  // The untrimmed thread supplies the order the filter may have removed.
+  const pendingIssuersByCallId = new Map<string, Message[]>();
+  const issuerIdToResultsByCallId = new Map<string, Map<string, Message[]>>();
+  const resultIdToIssuer = new Map<string, Message>();
   for (const message of full) {
     for (const callId of toolCallIdsOf(message)) {
-      callIdToIssuer.set(callId, message);
+      push(pendingIssuersByCallId, callId, message);
     }
     const resultCallId = resultCallIdOf(message);
     if (resultCallId !== undefined) {
-      callIdToResult.set(resultCallId, message);
+      const pendingIssuers = pendingIssuersByCallId.get(resultCallId);
+      const issuer = pendingIssuers?.pop();
+      if (issuer) {
+        resultIdToIssuer.set(message.id, issuer);
+        let resultsByCallId = issuerIdToResultsByCallId.get(issuer.id);
+        if (!resultsByCallId) {
+          resultsByCallId = new Map();
+          issuerIdToResultsByCallId.set(issuer.id, resultsByCallId);
+        }
+        push(resultsByCallId, resultCallId, message);
+      }
     }
   }
 
@@ -108,9 +128,9 @@ export function ɵrepairToolCallPairs(
     emit(message);
     if (expandedMessages.has(message)) return;
     expandedMessages.add(message);
+    const resultsByCallId = issuerIdToResultsByCallId.get(message.id);
     for (const callId of toolCallIdsOf(message)) {
-      const result = callIdToResult.get(callId);
-      if (result) emit(result);
+      for (const result of resultsByCallId?.get(callId) ?? []) emit(result);
     }
   };
 
@@ -121,7 +141,7 @@ export function ɵrepairToolCallPairs(
       continue;
     }
 
-    const issuer = callIdToIssuer.get(resultCallId);
+    const issuer = resultIdToIssuer.get(message.id);
     if (issuer) {
       // Emits the issuer first, then this result along with its siblings.
       emitWithResults(issuer);
