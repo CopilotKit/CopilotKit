@@ -1,0 +1,37 @@
+---
+title: First fork as buttons
+description: Learned from Stripe. A page splits into its variants at the top, and code blocks carry their own language switch.
+---
+
+## How Stripe does it
+
+<IdeaReference
+  src="/ideas/stripe-variants.webp"
+  app="Stripe"
+  href="https://docs.stripe.com/payments/accept-a-payment"
+>
+  Checkout, Elements, Mobile as buttons, then tabs for the sub-choice.
+</IdeaReference>
+
+<IdeaReference
+  src="/ideas/stripe-codelang.webp"
+  app="Stripe"
+  href="https://docs.stripe.com/api/customers/create"
+>
+  The code panel has its own language menu.
+</IdeaReference>
+
+- The page header also offers "Copy for LLM" and "Set up agent".
+
+## For CopilotKit
+
+<StripeMock />
+
+## Why it fits
+
+- Good for the quickstart, where frontend and new-or-existing app both matter.
+- A language switch on agent code covers Python and TypeScript frameworks.
+
+## Watch out
+
+- Page-level forks reset on the next page unless they share one setting.

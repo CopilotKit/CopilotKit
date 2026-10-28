@@ -1,0 +1,45 @@
+---
+title: Framework in the sidebar
+description: Learned from Sentry. The agent framework scopes the sidebar and the URL, and the page title names it.
+---
+
+## How Sentry does it
+
+<IdeaReference
+  src="/ideas/sentry-sidebar.webp"
+  app="Sentry"
+  href="https://docs.sentry.io/platforms/javascript/guides/nextjs/"
+>
+  A platform dropdown tops the sidebar; the title says "Sentry for Next.js".
+</IdeaReference>
+
+<IdeaReference
+  src="/ideas/sentry-redirect.webp"
+  app="Sentry"
+  href="https://docs.sentry.io/platform-redirect/?next=/configuration/sampling/"
+>
+  A link with no platform asks you to pick one, then takes you there.
+</IdeaReference>
+
+- The whole sidebar belongs to the chosen platform.
+- Switching tries the same page on the new platform first, then its parent.
+- The quickstart opens with an agent setup prompt.
+
+## For CopilotKit
+
+<SentryMock />
+
+Switch the agent framework and watch the URL and title change. Then open the
+unscoped link to see the pick-your-framework page.
+
+## Why it fits
+
+- Every framework gets real URLs, like `/docs/mastra/human-in-the-loop`, which
+  is what co-marketing needs.
+- Titles such as "Human in the loop for Mastra" tell readers and search
+  engines exactly where they are.
+
+## Watch out
+
+- It covers the agent framework only. Pair it with a frontend switch.
+- Shared pages appear under every framework, so each needs a canonical URL.

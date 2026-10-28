@@ -1,0 +1,425 @@
+/*
+ * CopilotKit docs theme: "Daylight, with the kite's colors."
+ *
+ * World: white reading sheets set in the website's lilac-grey room
+ * (--frame, copilotkit.ai's --new-background), with its plum ink type.
+ * Lilac is the voice (actions, selection, wayfinding, inline code); mint is
+ * the second voice (live, success, Intelligence). Grey is only an accent:
+ * hairlines, code wells, quiet fills. No glows; the one gradient is the
+ * website's own protocol-map stage behind the home diagram.
+ * Mood: calm, precise, a little playful. Light display type, nested radii,
+ * solid glyphs, and white trays on the frame, as on the website.
+ *
+ * Structure follows Fumadocs' own presets (see fumadocs-ui/css/vitepress.css):
+ * the shadcn bridge preset maps --color-fd-* to the shadcn variables set
+ * here, plus the documented prose variables, the sidebar, and code figures.
+ * No Fumadocs component is restyled outside that surface.
+ *
+ * Source: CopilotKit/website src/app/globals.css. "Derived" values are tuned
+ * for contrast, not verified brand tokens. See DESIGN.md.
+ */
+
+@theme {
+  /* Fonts are loaded with next/font in layout.tsx. */
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono:
+    var(--font-spline-sans-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Brand radius scale (4 / 8 / 12 / 16 / 24 / 48). */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-3xl: 48px;
+
+  /* copilotkit.ai primitives, under the website's names. */
+  --color-brand-ink: #010507;
+  /* The website's redesign ink: headings, body, and the primary pill. */
+  --color-brand-plum: #141021;
+  --color-brand-lilac: #bec2ff;
+  --color-brand-lilac-soft: #eee6fe;
+  --color-brand-lilac-mid: #757cf2;
+  --color-brand-lilac-deep: #5b62d4;
+  --color-brand-mint: #85ecce;
+  --color-brand-mint-soft: #dafbf1;
+  --color-brand-mint-deep: #189370;
+  --color-brand-orange: #ffac4d;
+  --color-brand-red: #fa5f67;
+  /* The website's Generative UI spectrum bands. Dots beside labels only. */
+  --color-band-controlled: #4caf50;
+  --color-band-declarative: #42a5f5;
+  --color-band-open: #e88d8d;
+}
+
+/* ---------- light ---------- */
+/* `html [data-copilotkit]`: the "Ask AI" chat declares its own shadcn
+ * variables on its root; this hands it the docs palette instead. */
+:root,
+html [data-copilotkit] {
+  --radius: 12px;
+  /* The "Ask AI" chat's type, on the brand fonts. */
+  --cpk-default-font-family: var(--font-sans);
+  --cpk-font-sans: var(--font-sans);
+  --cpk-font-mono: var(--font-mono);
+
+  --background: #ffffff;
+  --foreground: #141021;
+  --card: #ffffff;
+  --card-foreground: #141021;
+  --popover: #ffffff;
+  --popover-foreground: #141021;
+
+  /* Derived: lilac-deep darkened to clear 4.5:1 on white and on lilac-soft. */
+  --primary: #5057cc;
+  --primary-foreground: #ffffff;
+
+  /* Grey, as an accent only: quiet fills and code wells. */
+  --secondary: #f4f4f8;
+  --secondary-foreground: #141021;
+  --muted: #f4f4f8;
+  --muted-foreground: #57575b;
+
+  /* Hovers and highlights on white: the website's container-hovered grey. */
+  --accent: #f0f0f4;
+  --accent-foreground: #141021;
+
+  /* Derived: brand red darkened for 4.5:1 text on white. */
+  --destructive: #c8323b;
+
+  --border: #e9e9ef; /* website grey-300 */
+  --input: #e2e2ea; /* website grey-400 */
+  --ring: #757cf2; /* lilac-mid */
+
+  --chart-1: #5057cc;
+  --chart-2: #189370;
+  --chart-3: #ffac4d;
+  --chart-4: #1b70c4;
+  --chart-5: #fa5f67;
+
+  /* The docs frame: the website's page lilac-grey, around the white page. */
+  --frame: #ededf5;
+  --frame-foreground: #3f3d4a; /* plum-grey: 9:1 on the frame */
+  --frame-rim: #dbdbe5; /* the website's border-container */
+
+  --sidebar: var(--frame);
+  --sidebar-foreground: #141021;
+  /* Derived: lilac-ink deepened so the active row clears 4.5:1 on its tint. */
+  --sidebar-primary: #4a4fc0;
+  --sidebar-primary-foreground: #ffffff;
+  /* Hover rows on the frame are the website's translucent white. */
+  --sidebar-accent: #ffffff;
+  --sidebar-accent-foreground: #141021;
+  --sidebar-border: var(--frame-rim);
+  --sidebar-ring: #757cf2;
+
+  /* Roles beyond shadcn's set. */
+  --tile-lilac: #eee6fe;
+  --tile-lilac-ink: #5057cc;
+  --tile-mint: #dafbf1;
+  /* Derived: mint-deep darkened to clear 4.5:1 on mint-100. */
+  --tile-mint-ink: #11785b;
+  --edge-action: #bec2ff; /* the website's border-action */
+  --code-well: #f7f7f9; /* website grey-100 */
+  /* The pixel matrix: one look everywhere (src/components/brand/pixel-matrix.tsx),
+   * white squares on a stage ground. Change it here and every matrix follows. */
+  --matrix-square: #ffffff;
+  --matrix-strength: 0.5;
+  /* The home's illustration stage: the website's protocol-map ground, verbatim
+   * (train-map/hero-protocol-diagram.module.css). Its only gradient. */
+  --stage:
+    radial-gradient(ellipse at 53% 74%, #6357e5a6, transparent 75%),
+    linear-gradient(145deg, #8dc1f1 4%, #686fdf 103%);
+  /* A live demo's stage (src/components/demo-frame.tsx): the website's use-case
+   * preview ground (use-cases-templates.module.css .visual), verbatim. */
+  --demo-stage: linear-gradient(102.36deg, #d7d8ff 29%, #bec2ff 110%);
+  --stage-tile: rgb(255 255 255 / 0.8);
+  --stage-rim: rgb(255 255 255 / 0.95);
+  --stage-line: rgb(255 255 255 / 0.9);
+  /* White cards in a tray on the frame. */
+  --tray-card: #ffffff;
+  /* The website's headline accent (hero.module.css .emphasis), its stops
+   * deepened just enough to clear 3:1 as large text on white. */
+  --accent-gradient: linear-gradient(90deg, #6f7bef 7%, #17a27b 96%);
+  --lift: 0 1px 2px rgb(20 16 33 / 0.04), 0 4px 10px rgb(20 16 33 / 0.05);
+  --lift-hover:
+    0 2px 4px rgb(20 16 33 / 0.04), 0 14px 30px rgb(117 124 242 / 0.18);
+  /* The website's broad shell shadow, for framed illustrations. */
+  --lift-stage: 12px 24px 29px -6px rgb(0 0 0 / 0.06);
+}
+
+/* ---------- dark: ink, not grey ---------- */
+.dark,
+html.dark [data-copilotkit] {
+  --background: #0b0b10;
+  --foreground: #f4f4f7;
+  --card: #111118;
+  --card-foreground: #f4f4f7;
+  --popover: #15151d;
+  --popover-foreground: #f4f4f7;
+
+  --primary: #bec2ff;
+  --primary-foreground: #010507;
+
+  --secondary: #1b1b25;
+  --secondary-foreground: #f4f4f7;
+  --muted: #1b1b25;
+  --muted-foreground: #a3a3b0;
+
+  --accent: rgb(255 255 255 / 0.07);
+  --accent-foreground: #ffffff;
+
+  --destructive: #fa8a90;
+
+  --border: rgb(255 255 255 / 0.09);
+  --input: rgb(255 255 255 / 0.13);
+  --ring: #bec2ff;
+
+  --chart-1: #bec2ff;
+  --chart-2: #85ecce;
+  --chart-3: #ffac4d;
+  --chart-4: #8cb9f2;
+  --chart-5: #fa8a90;
+
+  /* Night frame: a lilac-tinted ink around the ink page. */
+  --frame: #16161f;
+  --frame-foreground: #c4c4d0;
+  --frame-rim: rgb(255 255 255 / 0.08);
+
+  --sidebar: var(--frame);
+  --sidebar-foreground: #f4f4f7;
+  --sidebar-primary: #bec2ff;
+  --sidebar-primary-foreground: #010507;
+  --sidebar-accent: rgb(255 255 255 / 0.1);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: var(--frame-rim);
+  --sidebar-ring: #bec2ff;
+
+  --tile-lilac: rgb(190 194 255 / 0.14);
+  --tile-lilac-ink: #bec2ff;
+  --tile-mint: rgb(133 236 206 / 0.12);
+  --tile-mint-ink: #85ecce;
+  --edge-action: rgb(190 194 255 / 0.45);
+  --code-well: #111118;
+  --stage:
+    radial-gradient(ellipse at 53% 74%, #241f63a6, transparent 75%),
+    linear-gradient(145deg, #1b3452 4%, #24276a 103%);
+  --demo-stage: linear-gradient(102.36deg, #22234a 29%, #2c2f6c 110%);
+  --stage-tile: rgb(255 255 255 / 0.1);
+  --stage-rim: rgb(255 255 255 / 0.18);
+  --stage-line: rgb(255 255 255 / 0.45);
+  --matrix-square: rgb(190 194 255 / 0.4);
+  --tray-card: #20202c;
+  --accent-gradient: linear-gradient(90deg, #a3aaff 7%, #5fe3bd 96%);
+  --lift: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 10px rgb(0 0 0 / 0.3);
+  --lift-hover: 0 2px 4px rgb(0 0 0 / 0.4), 0 14px 30px rgb(0 0 0 / 0.5);
+  --lift-stage: 12px 24px 29px -6px rgb(0 0 0 / 0.4);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-tile-lilac: var(--tile-lilac);
+  --color-tile-lilac-ink: var(--tile-lilac-ink);
+  --color-tile-mint: var(--tile-mint);
+  --color-tile-mint-ink: var(--tile-mint-ink);
+  --color-edge-action: var(--edge-action);
+  --color-frame: var(--frame);
+  --color-frame-foreground: var(--frame-foreground);
+  --color-frame-rim: var(--frame-rim);
+  --color-stage-tile: var(--stage-tile);
+  --color-stage-rim: var(--stage-rim);
+  --color-stage-line: var(--stage-line);
+  --color-tray-card: var(--tray-card);
+  --shadow-lift: var(--lift);
+  --shadow-lift-hover: var(--lift-hover);
+  --shadow-lift-stage: var(--lift-stage);
+}
+
+/* The stack diagram's traffic and rolling logos (src/proto/stack-diagram.tsx):
+ * a packet runs from just before a wire's start (9 of its 100) to past its end. */
+@keyframes travel {
+  from {
+    stroke-dashoffset: 9;
+  }
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+/* Ask CopilotKit's welcome: each piece rises in, in turn (chat-parts.tsx). */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes roll-in {
+  from {
+    opacity: 0;
+    transform: translateY(70%);
+  }
+}
+
+@keyframes roll-out {
+  to {
+    opacity: 0;
+    transform: translateY(-70%);
+  }
+}
+
+/* Callout states, from the brand palette. */
+@theme static {
+  --color-fd-info: #5057cc;
+  --color-fd-success: #189370;
+  --color-fd-warning: #ffac4d;
+  --color-fd-error: #fa5f67;
+}
+
+/* Prose, through the variables Fumadocs' own presets set. */
+.prose {
+  --tw-prose-links: var(--color-fd-primary);
+  --tw-prose-code: var(--color-fd-primary);
+}
+
+/* Inline code reads as a lilac chip, the way Fumadocs' vitepress preset does. */
+.prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  border: none;
+  background-color: color-mix(
+    in oklab,
+    var(--color-fd-primary) 10%,
+    transparent
+  );
+}
+
+/*
+ * The docs frame: Spacious paints everything around the page panel (the
+ * sidebar, the phone header, the phone TOC bar, the 8px ring) with the card
+ * color, the same way Fumadocs' vitepress preset tints its frame. So inside
+ * the layout the card color is the website's lilac-grey, and inside the page
+ * panel it's white again, so cards in the page stay white.
+ */
+#fd-spacious-layout {
+  --color-fd-card: var(--frame);
+}
+
+#nd-page-panel {
+  --color-fd-card: var(--card);
+}
+
+/*
+ * The navbar's dropdowns: Fumadocs' own rounded popup, in the frame color, so
+ * its white cards sit on a lilac-grey tray that resizes with the popup. The
+ * menus opt in with a hidden [data-menu-tray] item (src/proto/layout-client.tsx);
+ * only variables change, like the scopes above.
+ */
+[data-base-ui-portal] nav:has([data-menu-tray]) {
+  --color-fd-popover: var(--frame);
+  --color-fd-card: var(--tray-card);
+}
+
+/* In the sidebar, the frame's text: plum-grey rows, plum headings, and the
+ * deeper lilac for the active row (see --sidebar-primary). */
+#nd-sidebar {
+  --color-fd-muted-foreground: var(--frame-foreground);
+  --color-fd-primary: var(--sidebar-primary);
+}
+
+@layer utilities {
+  /* Code blocks sit in a quiet grey well: one of grey's accent jobs. */
+  /* Code is a white window (ink in dark mode) on its stage (src/components/brand/stage.tsx). */
+  figure.shiki {
+    background-color: var(--color-fd-background);
+  }
+
+  /*
+   * The sidebar toggles, and on mobile the header's search and menu buttons:
+   * 40px, flat on the frame, white on hover like the sidebar's rows.
+   * Targeted by attribute the way Fumadocs' own vitepress preset targets
+   * button[data-search-full].
+   */
+  button[aria-controls="nd-sidebar"],
+  button[aria-controls="nd-sidebar-mobile"],
+  #nd-subnav button[data-search] {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-lg);
+    color: var(--frame-foreground);
+  }
+
+  button[aria-controls="nd-sidebar"]:hover,
+  button[aria-controls="nd-sidebar-mobile"]:hover,
+  #nd-subnav button[data-search]:hover {
+    background-color: var(--sidebar-accent);
+    color: var(--color-fd-foreground);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    @apply font-sans;
+    accent-color: var(--color-fd-primary);
+    caret-color: var(--color-fd-primary);
+    /* Scrollbars stay neutral: grey is an accent, and this is one of its jobs. */
+    scrollbar-color: var(--input) transparent;
+  }
+
+  /* Tailwind 4 dropped the pointer on buttons; restore it everywhere. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background-color: #bec2ff99;
+    color: #141021;
+  }
+
+  .dark ::selection {
+    background-color: #bec2ff59;
+    color: #ffffff;
+  }
+
+  td,
+  th {
+    font-variant-numeric: tabular-nums;
+  }
+}

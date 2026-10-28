@@ -1,0 +1,20 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+/* Fumadocs' shadcn preset: every --color-fd-* token (and the sidebar's)
+ * reads the shadcn variables, so Fumadocs and shadcn/ui share one palette. */
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/generated/spacious.css";
+@import "fumadocs-ui/css/preset.css";
+@import "./theme.css";
+
+@custom-variant dark (&:is(.dark *));
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}

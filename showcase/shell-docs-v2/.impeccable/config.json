@@ -1,0 +1,10 @@
+{
+  "detector": {
+    "ignoreValues": [
+      { "rule": "design-system-color", "value": "#61DAFB", "files": ["src/components/icons/frontend-logo.tsx"] },
+      { "rule": "design-system-color", "value": "#4FC08D", "files": ["src/components/icons/frontend-logo.tsx"] },
+      { "rule": "design-system-color", "value": "#DD0031", "files": ["src/components/icons/frontend-logo.tsx"] },
+      { "rule": "design-system-color", "value": "#6264A7", "files": ["src/components/icons/frontend-logo.tsx"] }
+    ]
+  }
+}

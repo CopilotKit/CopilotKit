@@ -1,0 +1,15 @@
+{
+  "title": "Picker ideas",
+  "pages": [
+    "index",
+    "sentry",
+    "clerk",
+    "storybook",
+    "prisma",
+    "stripe",
+    "expo",
+    "ai-sdk",
+    "product-tabs",
+    "supabase"
+  ]
+}

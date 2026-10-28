@@ -1,0 +1,33 @@
+---
+title: Frontend chips
+description: Learned from Storybook. A row of frontend buttons under every title switches the page in place.
+---
+
+## How Storybook does it
+
+<IdeaReference
+  src="/ideas/storybook-renderer.webp"
+  app="Storybook"
+  href="https://storybook.js.org/docs/writing-stories"
+>
+  React, Vue, Angular, Web Components, and More, right under the title.
+</IdeaReference>
+
+- The choice is remembered across pages.
+- Markdown for agents takes the same choice: `writing-stories.md?renderer=vue`.
+
+## For CopilotKit
+
+<StorybookMock />
+
+The agent framework stays in the URL; only the frontend switches here.
+
+## Why it fits
+
+- Matches the decision that the frontend switches inside the page.
+- React, Vue, Angular, and React Native fit in one row.
+- Agents can fetch `?frontend=vue` and get one clean version.
+
+## Watch out
+
+- Hide the chips on pages where the frontend makes no difference.

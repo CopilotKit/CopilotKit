@@ -1,0 +1,1277 @@
+/**
+ * SEO redirect table, ported from showcase/shell-docs/src/lib/seo-redirects.ts
+ * (the middleware table behind docs.copilotkit.ai before v2). Applied by
+ * `src/proxy.ts` through `./legacy-redirect.ts` with a 301, after the
+ * next.config redirects (`./next-config-redirects.mjs`) have had their turn,
+ * the same layering shell-docs used.
+ *
+ * Destinations target the live URL surface, which serves at the host root
+ * and uses the registry framework slugs (e.g. `langgraph-python`,
+ * `google-adk`, `strands`, `ms-agent-dotnet`, `crewai-crews`). Legacy
+ * upstream URLs that used the old slugs (`langgraph`, `adk`, `aws-strands`,
+ * `microsoft-agent-framework`, `crewai-flows`, `unselected`) are rewritten
+ * here so the historic SEO surface keeps redirecting to the canonical homes.
+ *
+ * Not ported, because v2 serves these paths itself: every `/docs` and
+ * `/docs/*` source (DOCS-root, DOCS-wild, R2 `/docs/api`, and the
+ * `/docs/integrations/*` DI-* family), R16A `/integrations` and
+ * FI-intelligence `/intelligence`.
+ *
+ * Spec & Inventory: https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb
+ */
+
+export interface RedirectEntry {
+  /** Spec ID (e.g., "L3", "S4×agno", "P1×langgraph") for cross-referencing Notion inventory */
+  id: string;
+  /** Source path pattern. Use :path* for wildcard suffix matching. */
+  source: string;
+  /** Destination path on the showcase. Use :path* to carry over the wildcard. */
+  destination: string;
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+// Historical framework slugs that appear in legacy upstream URLs.
+// These are the slugs the SEO surface SAW pre-cutover — destinations are
+// remapped via SLUG_RENAMES below to the canonical shell-docs slugs.
+const FRAMEWORKS = [
+  "langgraph",
+  "adk",
+  "agno",
+  "crewai-flows",
+  "pydantic-ai",
+  "llamaindex",
+  "mastra",
+  "deepagents",
+  "agent-spec",
+  "ag2",
+  "microsoft-agent-framework",
+  "aws-strands",
+  "a2a",
+  "unselected",
+] as const;
+
+/**
+ * Map from legacy framework slug → canonical shell-docs slug.
+ * Slugs not listed here keep the same value in destinations.
+ */
+const SLUG_RENAMES: Record<string, string> = {
+  langgraph: "langgraph-python",
+  adk: "google-adk",
+  "aws-strands": "strands",
+  "microsoft-agent-framework": "ms-agent-dotnet",
+  "crewai-flows": "crewai-crews",
+  unselected: "built-in-agent",
+};
+
+/** Resolve a legacy framework slug to its canonical shell-docs slug. */
+function canonicalSlug(legacy: string): string {
+  return SLUG_RENAMES[legacy] ?? legacy;
+}
+
+function destinationPrefix(canonicalFramework: string): string {
+  return canonicalFramework === "built-in-agent"
+    ? ""
+    : `/${canonicalFramework}`;
+}
+
+function destinationPath(canonicalFramework: string, pathSuffix = ""): string {
+  const prefix = destinationPrefix(canonicalFramework);
+  if (!pathSuffix) return prefix || "/";
+  return `${prefix}/${pathSuffix}`;
+}
+
+/**
+ * Canonical (post-cutover) framework slugs served by shell-docs. Used for
+ * wildcard rules that match the current URL surface rather than legacy
+ * upstream slugs. Keep in sync with the registry; covers generated,
+ * authored, and hidden buckets.
+ */
+const CANONICAL_FRAMEWORKS = [
+  "built-in-agent",
+  "langgraph-python",
+  "langgraph-typescript",
+  "langgraph-fastapi",
+  "google-adk",
+  "a2a",
+  "agent-spec",
+  "deepagents",
+  "mastra",
+  "crewai-crews",
+  "pydantic-ai",
+  "agno",
+  "ag2",
+  "llamaindex",
+  "strands",
+  "strands-typescript",
+  "ms-agent-python",
+  "ms-agent-dotnet",
+  "claude-sdk-python",
+  "claude-sdk-typescript",
+  "langroid",
+  "spring-ai",
+] as const;
+
+/** Per-framework subpath renames (Category 5 in spec). Applied to ALL 13 frameworks. */
+const SUBPATH_RENAMES: { specId: string; from: string; to: string }[] = [
+  { specId: "S1", from: "agentic-chat-ui", to: "prebuilt-components" },
+  { specId: "S2", from: "use-agent-hook", to: "programmatic-control" },
+  { specId: "S3", from: "frontend-actions", to: "frontend-tools" },
+  { specId: "S4", from: "vibe-coding-mcp", to: "build-with-agents" },
+  {
+    specId: "S5",
+    from: "generative-ui/agentic",
+    to: "generative-ui/your-components/display-only",
+  },
+  {
+    specId: "S6",
+    from: "generative-ui/backend-tools",
+    to: "generative-ui/tool-rendering",
+  },
+  { specId: "S7", from: "generative-ui/frontend-tools", to: "frontend-tools" },
+  {
+    specId: "S8",
+    from: "generative-ui/render-only",
+    to: "generative-ui/your-components/display-only",
+  },
+  {
+    specId: "S10",
+    from: "custom-look-and-feel/bring-your-own-components",
+    to: "custom-look-and-feel/slots",
+  },
+  {
+    specId: "S11",
+    from: "custom-look-and-feel/customize-built-in-ui-components",
+    to: "custom-look-and-feel/slots",
+  },
+  {
+    specId: "S12",
+    from: "custom-look-and-feel/markdown-rendering",
+    to: "custom-look-and-feel/slots",
+  },
+  { specId: "S14", from: "guide", to: "guides" },
+  { specId: "S15", from: "mcp", to: "build-with-agents" },
+  { specId: "S16", from: "coding-agents", to: "build-with-agents" },
+];
+
+// S13 (concepts/:path* -> framework root) handled separately since it's a wildcard-to-single-page
+
+// ---------------------------------------------------------------------------
+// Generated: Per-framework subpath renames (Category 5)
+// Each SUBPATH_RENAME × each FRAMEWORK = one redirect entry
+// ---------------------------------------------------------------------------
+
+function generateFrameworkRenames(): RedirectEntry[] {
+  const entries: RedirectEntry[] = [];
+  for (const fw of FRAMEWORKS) {
+    const fwDest = canonicalSlug(fw);
+    // S13: concepts/* collapses to framework root.
+    //
+    // Originally added to retire legacy `/langgraph/concepts/*` URLs
+    // (LangGraph had authored concept pages pre-cutover that the
+    // shell-docs IA removed). Only emit this when the framework slug
+    // actually renamed (legacy ≠ canonical) — for canonical-slug
+    // frameworks (`mastra`, `ag2`, `agno`, etc.) the legacy docs never
+    // had `/<fw>/concepts/*` pages, AND shell-docs now serves the
+    // agnostic `/concepts/*` content under every framework's scope
+    // (e.g. `/mastra/concepts/architecture`). Leaving the unconditional
+    // rule in place would 301 those valid agnostic-content URLs away.
+    if (fw !== fwDest) {
+      entries.push({
+        id: `S13w×${fw}`,
+        source: `/${fw}/concepts/:path*`,
+        destination: destinationPath(fwDest),
+      });
+      entries.push({
+        id: `S13e×${fw}`,
+        source: `/${fw}/concepts`,
+        destination: destinationPath(fwDest),
+      });
+    }
+
+    for (const rename of SUBPATH_RENAMES) {
+      entries.push({
+        id: `${rename.specId}×${fw}`,
+        source: `/${fw}/${rename.from}`,
+        destination: destinationPath(fwDest, rename.to),
+      });
+    }
+  }
+  return entries;
+}
+
+// ---------------------------------------------------------------------------
+// /coding-agents renamed to /build-with-agents
+// Covers the root page + all canonical framework slugs (exact 301s).
+// S16 in SUBPATH_RENAMES handles the legacy-slug surface; these entries
+// handle the canonical-slug surface (e.g. /langgraph-python/coding-agents).
+// ---------------------------------------------------------------------------
+
+const CODING_AGENTS_RENAMES: RedirectEntry[] = [
+  {
+    id: "CA-root",
+    source: "/coding-agents",
+    destination: "/build-with-agents",
+  },
+  ...[...new Set(FRAMEWORKS.map(canonicalSlug))].map((fw) => ({
+    id: `CA×${fw}`,
+    source: `/${fw}/coding-agents`,
+    destination: destinationPath(fw, "build-with-agents"),
+  })),
+];
+
+// ---------------------------------------------------------------------------
+// Category 3: Deep Coagents Redirects (specific paths)
+// ---------------------------------------------------------------------------
+
+const DEEP_COAGENTS: RedirectEntry[] = [
+  {
+    id: "D1",
+    source: "/coagents/tutorials/ai-travel-app/overview",
+    destination: "/langgraph-python/tutorials/ai-travel-app",
+  },
+  {
+    id: "D2",
+    source: "/coagents/chat-ui/hitl/json-hitl",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+  },
+  {
+    id: "D3",
+    source: "/coagents/react-ui/frontend-functions",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+  },
+  {
+    id: "D4",
+    source: "/coagents/chat-ui/render-agent-state",
+    destination: "/langgraph-python/generative-ui/your-components/display-only",
+  },
+  {
+    id: "D5",
+    source: "/coagents/chat-ui/hitl",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+  },
+  {
+    id: "D6",
+    source: "/coagents/chat-ui/hitl/interrupt-flow",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+  },
+  {
+    id: "D7",
+    source: "/coagents/chat-ui/loading-message-history",
+    destination:
+      "/langgraph-python/advanced/persistence/loading-message-history",
+  },
+  {
+    id: "D8",
+    source: "/coagents/react-ui/in-app-agent-read",
+    destination: "/langgraph-python/shared-state/in-app-agent-read",
+  },
+  {
+    id: "D9",
+    source: "/coagents/react-ui/in-app-agent-write",
+    destination: "/langgraph-python/shared-state/in-app-agent-write",
+  },
+  {
+    id: "D10",
+    source: "/coagents/react-ui/hitl",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+  },
+  {
+    id: "D11",
+    source: "/coagents/advanced/router-mode-agent-lock",
+    destination: "/langgraph-python",
+  },
+  {
+    id: "D12",
+    source: "/coagents/advanced/intermediate-state-streaming",
+    destination: "/langgraph-python/shared-state/predictive-state-updates",
+  },
+  {
+    id: "D13",
+    source: "/coagents/shared-state/intermediate-state-streaming",
+    destination: "/langgraph-python/shared-state/predictive-state-updates",
+  },
+  {
+    id: "D14",
+    source: "/coagents/advanced/manually-emitting-messages",
+    destination: "/langgraph-python/advanced/emit-messages",
+  },
+  {
+    id: "D15",
+    source: "/coagents/advanced/copilotkit-state",
+    destination: "/langgraph-python/frontend-tools",
+  },
+  {
+    id: "D16",
+    source: "/coagents/advanced/message-persistence",
+    destination: "/langgraph-python/advanced/persistence/message-persistence",
+  },
+  {
+    id: "D17",
+    source: "/coagents/advanced/loading-message-history",
+    destination:
+      "/langgraph-python/advanced/persistence/loading-message-history",
+  },
+  {
+    id: "D18",
+    source: "/coagents/advanced/loading-agent-state",
+    destination: "/langgraph-python/advanced/persistence/loading-agent-state",
+  },
+  {
+    id: "D19",
+    source: "/coagents/advanced/state-streaming",
+    destination: "/langgraph-python/shared-state",
+  },
+  {
+    id: "D20",
+    source: "/coagents/concepts/state",
+    destination: "/langgraph-python/shared-state",
+  },
+  {
+    id: "D21",
+    source: "/coagents/concepts/human-in-the-loop",
+    destination: "/langgraph-python/human-in-the-loop",
+  },
+  {
+    id: "D22",
+    source: "/coagents/concepts/multi-agent-flows",
+    destination: "/langgraph-python",
+  },
+  {
+    id: "D23",
+    source: "/coagents/quickstart/langgraph",
+    destination: "/langgraph-python/quickstart",
+  },
+  {
+    id: "D24",
+    source: "/coagents/shared-state/state-inputs-outputs",
+    destination: "/langgraph-python/shared-state/workflow-execution",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Category 6: Specific Framework Redirects (one-off path combinations)
+// ---------------------------------------------------------------------------
+
+const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
+  {
+    id: "CF-mode-parity",
+    source: "/crewai-conversational-flows/feature-parity",
+    destination: "/crewai-flows/conversational-flows",
+  },
+  {
+    id: "CF-mode-parity-canonical",
+    source: "/crewai-crews/feature-parity",
+    destination: "/crewai-flows/conversational-flows",
+  },
+  {
+    id: "CF-mode-root",
+    source: "/crewai-conversational-flows",
+    destination: "/crewai-flows/conversational-flows",
+  },
+  {
+    id: "CF-mode-wild",
+    source: "/crewai-conversational-flows/:path*",
+    destination: "/crewai-flows/:path*",
+  },
+  {
+    id: "F1",
+    source: "/langgraph/quickstart/langgraph",
+    destination: "/langgraph-python/quickstart",
+  },
+  {
+    id: "F2",
+    source: "/crewai-flows/quickstart/crewai",
+    destination: "/crewai-crews/quickstart",
+  },
+  {
+    id: "F3",
+    source: "/mastra/quickstart/mastra",
+    destination: "/mastra/quickstart",
+  },
+  {
+    id: "F4",
+    source: "/ag2/quickstart/ag2",
+    destination: "/ag2/quickstart",
+  },
+  {
+    id: "F5",
+    source: "/agno/quickstart/agno",
+    destination: "/agno/quickstart",
+  },
+  {
+    id: "F6",
+    source: "/pydantic-ai/quickstart/pydantic-ai",
+    destination: "/pydantic-ai/quickstart",
+  },
+  {
+    id: "F7",
+    source: "/adk/quickstart/adk",
+    destination: "/google-adk/quickstart",
+  },
+  {
+    id: "F8",
+    source: "/langgraph/generative-ui/display",
+    destination: "/langgraph-python/generative-ui/your-components/display-only",
+  },
+  {
+    id: "F9",
+    source: "/langgraph/generative-ui/interactive/interrupt-based",
+    destination:
+      "/langgraph-python/generative-ui/your-components/interrupt-based",
+  },
+  {
+    id: "F10",
+    source: "/langgraph/generative-ui/interactive/client-side",
+    destination: "/langgraph-python/generative-ui/your-components/interactive",
+  },
+  {
+    id: "F11",
+    source: "/langgraph/human-in-the-loop/node-flow",
+    destination: "/langgraph-python/human-in-the-loop/interrupt-flow",
+  },
+  {
+    id: "F12",
+    source: "/langgraph/human-in-the-loop/prebuilt-agents",
+    destination: "/langgraph-python/prebuilt-components",
+  },
+  {
+    id: "F13",
+    source: "/aws-strands/human-in-the-loop",
+    destination: "/human-in-the-loop",
+  },
+  {
+    id: "F14",
+    source: "/adk/shared-state/state-inputs-outputs",
+    destination: "/google-adk/shared-state/workflow-execution",
+  },
+  {
+    id: "F15",
+    source: "/langgraph/shared-state/state-inputs-outputs",
+    destination: "/langgraph-python/shared-state/workflow-execution",
+  },
+  {
+    id: "F16",
+    source: "/llamaindex/shared-state/state-inputs-outputs",
+    destination: "/llamaindex/shared-state/workflow-execution",
+  },
+  {
+    id: "F20",
+    source: "/direct-to-llm/guides/mcp",
+    destination: "/build-with-agents",
+  },
+  // `/direct-to-llm/guides/premium/*` pages were deleted in cc8c945893
+  // ("refactor(docs): optimize structure, content and navigability",
+  // 2026-02-23) without redirects. The R16 `/direct-to-llm/:path*` wildcard
+  // strips the prefix and the remainder falls through to the docs home, so
+  // the page is lost rather than 404'd — quieter and harder to notice.
+  // Exact entries land each one on its current equivalent in one hop.
+  {
+    id: "INTEL-d2l-guides-overview",
+    source: "/direct-to-llm/guides/premium/overview",
+    destination: "/intelligence/overview",
+  },
+  {
+    id: "INTEL-d2l-guides-headless-ui",
+    source: "/direct-to-llm/guides/premium/headless-ui",
+    destination: "/intelligence/headless-ui",
+  },
+  {
+    // The observability page is retired; the overview is its standing
+    // destination everywhere else (INTEL-observability-*).
+    id: "INTEL-d2l-guides-observability",
+    source: "/direct-to-llm/guides/premium/observability",
+    destination: "/intelligence/overview",
+  },
+  {
+    // Inspector moved out of the Intelligence folder rather than retiring.
+    id: "INTEL-d2l-guides-inspector",
+    source: "/direct-to-llm/guides/premium/inspector",
+    destination: "/inspector",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Category 4: Root-Level Renames & Moves
+// ---------------------------------------------------------------------------
+
+const ROOT_RENAMES: RedirectEntry[] = [
+  { id: "R1", source: "/api", destination: "/reference/v2" },
+  // R2 (`/docs/api`) not ported: v2 serves `/docs/*`.
+  { id: "R3", source: "/api-reference", destination: "/reference/v2" },
+  { id: "R4", source: "/getting-started", destination: "/" },
+  { id: "R5", source: "/start", destination: "/" },
+  {
+    id: "R6",
+    source: "/frontend-actions",
+    destination: "/frontend-tools",
+  },
+  {
+    id: "R7",
+    source: "/generative-ui",
+    destination: "/generative-ui/your-components/display-only",
+  },
+  {
+    id: "R8",
+    source: "/generative-ui/display",
+    destination: "/generative-ui/your-components/display-only",
+  },
+  {
+    id: "R9",
+    source: "/generative-ui/interactive",
+    destination: "/generative-ui/your-components/interactive",
+  },
+  {
+    id: "R10",
+    source: "/agentic-chat-ui",
+    destination: "/prebuilt-components",
+  },
+  {
+    id: "R11",
+    source: "/headless",
+    destination: "/custom-look-and-feel/headless-ui",
+  },
+  {
+    id: "R12",
+    source: "/coding-agent-setup",
+    destination: "/build-with-agents",
+  },
+  {
+    id: "R13",
+    source: "/copilot-suggestions",
+    destination: "/reference/v2/hooks/useSuggestions",
+  },
+  // /direct-to-llm content is the Built-in Agent docs, which are served
+  // at the root; the retired /integrations/built-in-agent landing route
+  // also goes home.
+  { id: "R14", source: "/direct-to-llm", destination: "/" },
+  {
+    id: "R15",
+    source: "/integrations/built-in-agent",
+    destination: "/",
+  },
+  // R16A (`/integrations` → `/`) not ported: v2 serves `/integrations`.
+  { id: "R18", source: "/mcp", destination: "/build-with-agents" },
+  { id: "R19", source: "/vibe-coding-mcp", destination: "/build-with-agents" },
+  {
+    id: "R21",
+    source: "/ag-ui-protocol",
+    destination: "/agentic-protocols/ag-ui",
+  },
+  {
+    id: "R22",
+    source: "/connect-mcp-servers",
+    destination: "/agentic-protocols/mcp",
+  },
+  {
+    id: "R23",
+    source: "/a2a-protocol",
+    destination: "/agentic-protocols/a2a",
+  },
+  {
+    id: "R24",
+    source: "/architecture",
+    destination: "/concepts/architecture",
+  },
+  // NOTE: the former R25 (`/runtime-server-adapter` →
+  // `/backend/copilot-runtime`) was removed. `runtime-server-adapter.mdx`
+  // is a distinct, current "Deploy to any runtime" page (deploying the
+  // runtime on Express/Hono/Bun/Deno/CF Workers) — not a copilot-runtime
+  // alias — and it's linked from the docs sidebar. The redirect shadowed
+  // the real page, sending the sidebar's "Deploy to any runtime" entry to
+  // the unrelated Copilot Runtime page.
+  // Broken link fixes (B1-B3)
+  {
+    id: "B1",
+    source: "/guides/custom-look-and-feel/bring-your-own-components",
+    destination: "/custom-look-and-feel/slots",
+  },
+  {
+    id: "B2",
+    source: "/guides/self-hosting",
+    destination: "/backend/copilot-runtime",
+  },
+  {
+    id: "B3",
+    source: "/guides/backend-actions/remote-backend-endpoint",
+    destination: "/backend/copilot-runtime",
+  },
+];
+
+// NOTE: the former BIA_DEFAULT_ROOT_REDIRECTS section (`/<bia-page>` →
+// `/built-in-agent/<bia-page>`) was retired when the Built-in Agent
+// docs moved to the root surface: those bare URLs now render the
+// BIA-authored pages directly, and redirecting them would loop against
+// next.config.ts's `/built-in-agent/:path*` → `/:path*` rule.
+
+// ---------------------------------------------------------------------------
+// Moved root pages — topics that used to be addressable at `/<page>` in
+// the legacy docs surface but moved into a new section under shell-docs.
+// These don't fit under "renames" (the slug stays the same) — only the
+// parent folder changed. Each maps to a real on-disk MDX file.
+// ---------------------------------------------------------------------------
+
+const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
+  // /mcp-apps lived at `/generative-ui/mcp-apps` in legacy docs; the
+  // bare `/mcp-apps` URL was used in external references (blog posts,
+  // product copy) and now 404s.
+  {
+    id: "MV-mcp-apps",
+    source: "/mcp-apps",
+    destination: "/generative-ui/mcp-apps",
+  },
+  // /copilot-runtime and /custom-agent moved under /backend/ in
+  // shell-docs; these cover the canonical legacy paths. (Note:
+  // /runtime-server-adapter is NOT redirected — it's a live page; see
+  // the removed-R25 note above.)
+  {
+    id: "MV-copilot-runtime",
+    source: "/copilot-runtime",
+    destination: "/backend/copilot-runtime",
+  },
+  {
+    id: "MV-custom-agent",
+    source: "/custom-agent",
+    destination: "/backend/custom-agent",
+  },
+  // Deep Agents promoted from a langgraph subpath to its own
+  // integration. L12/L13 (in LEGACY_CHAINS_EXACT) cover the
+  // /langgraph/deep-agents and /langgraph-python/deep-agents variants;
+  // this catches the bare /deep-agents URL.
+  {
+    id: "MV-deep-agents",
+    source: "/deep-agents",
+    destination: "/deepagents",
+  },
+  // /multi-agent-flows is a LangGraph-only topic. The bare URL was
+  // never authored agnostically; send legacy hits to the LangGraph
+  // (Python) variant, which is the dominant traffic source.
+  {
+    id: "MV-multi-agent-flows",
+    source: "/multi-agent-flows",
+    destination: "/langgraph-python/multi-agent-flows",
+  },
+  // /generative-ui/specs/* — the "specs" subgroup was retired in
+  // favour of flat /generative-ui/<spec> pages. The /learn/ tree's
+  // legacy variant is already covered upstream; these catch the
+  // /generative-ui/specs/* surface directly.
+  {
+    id: "MV-gs-mcp-apps",
+    source: "/generative-ui/specs/mcp-apps",
+    destination: "/generative-ui/mcp-apps",
+  },
+  {
+    id: "MV-gs-a2ui",
+    source: "/generative-ui/specs/a2ui",
+    destination: "/generative-ui/a2ui",
+  },
+  {
+    id: "MV-gs-open-json-ui",
+    source: "/generative-ui/specs/open-json-ui",
+    destination: "/generative-ui/a2ui",
+  },
+  {
+    id: "MV-gs-root",
+    source: "/generative-ui/specs",
+    destination: "/concepts/generative-ui-overview",
+  },
+  // /custom-look-and-feel folder index — no index.mdx exists, so the
+  // bare folder URL 404s. /slots is the canonical first-page entry
+  // (matches what the sidebar opens by default).
+  {
+    id: "MV-clf-root",
+    source: "/custom-look-and-feel",
+    destination: "/custom-look-and-feel/slots",
+  },
+  // /custom-look-and-feel/customize-built-in-ui-components was a
+  // pre-cutover page that consolidated into /slots. The /unselected/
+  // variant is handled in next.config.ts; this catches the canonical
+  // (non-prefixed) legacy URL.
+  {
+    id: "MV-clf-customize",
+    source: "/custom-look-and-feel/customize-built-in-ui-components",
+    destination: "/custom-look-and-feel/slots",
+  },
+  // /what-is-copilotkit was a landing alias in legacy docs (referenced
+  // from CONTRIBUTING.md). Send to the home page.
+  {
+    id: "MV-what-is",
+    source: "/what-is-copilotkit",
+    destination: "/",
+  },
+  // /getting-started/quickstart-chatbot — legacy quickstart URL used
+  // in older marketing copy. /quickstart already redirects to the BIA
+  // quickstart (handled in next.config.ts).
+  {
+    id: "MV-gs-qs-chatbot",
+    source: "/getting-started/quickstart-chatbot",
+    destination: "/quickstart",
+  },
+  // NOTE: the former MV-telemetry entry (`/telemetry` →
+  // `/built-in-agent/telemetry`) was retired with the root-served BIA
+  // surface — the bare URL renders the BIA telemetry page directly.
+  // /reference/hooks/useCoAgent — useCoAgent (v1) was renamed to
+  // useAgent (v2). External links still point at the old name.
+  {
+    id: "MV-ref-useCoAgent",
+    source: "/reference/hooks/useCoAgent",
+    destination: "/reference/hooks/useAgent",
+  },
+  // /migration-guides → /migrate (MG1-MG4 in MIGRATION_GUIDES cover
+  // most entries; migrate-attachments wasn't in that set).
+  {
+    id: "MV-mg-attachments",
+    source: "/migration-guides/migrate-attachments",
+    destination: "/migrate/v2",
+  },
+  // /migration/* — pre-rename of /migrate/* and /migration-guides/*.
+  // Covers the singular "migration" prefix used by a few older docs.
+  {
+    id: "MV-migration-render-message",
+    source: "/migration/render-message",
+    destination: "/migrate/v2",
+  },
+];
+
+const FRONTEND_PLATFORM_REDIRECTS: RedirectEntry[] = [
+  {
+    id: "FE-frontends",
+    source: "/frontends",
+    destination: "/",
+  },
+  {
+    id: "FE-frontends-react",
+    source: "/frontends/react",
+    destination: "/",
+  },
+  {
+    id: "FE-frontends-react-wild",
+    source: "/frontends/react/:path*",
+    destination: "/:path*",
+  },
+  {
+    id: "FE-frontends-wild",
+    source: "/frontends/:path*",
+    destination: "/:path*",
+  },
+  {
+    id: "FE-teams",
+    source: "/microsoft-teams",
+    destination: "/teams",
+  },
+  {
+    id: "FE-teams-wild",
+    source: "/microsoft-teams/:path*",
+    destination: "/teams/:path*",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Legacy `/integrations/<fw>/*` URL surface — the upstream Fumadocs
+// site rewrote /<fw>/<path> → /integrations/<fw>/<path> internally,
+// and authored external links sometimes leaked the rewritten form. R15
+// + R17 (above) cover the built-in-agent variant; this section covers
+// the remaining frameworks.
+// ---------------------------------------------------------------------------
+
+const INTEGRATIONS_PREFIX_RENAMES: RedirectEntry[] = FRAMEWORKS.filter(
+  (fw) => fw !== "unselected",
+).flatMap((fw) => {
+  const fwDest = canonicalSlug(fw);
+  return [
+    {
+      id: `INT-wild×${fw}`,
+      source: `/integrations/${fw}/:path*`,
+      destination: `/${fwDest}/:path*`,
+    },
+    {
+      id: `INT-root×${fw}`,
+      source: `/integrations/${fw}`,
+      destination: `/${fwDest}`,
+    },
+  ];
+});
+
+// ---------------------------------------------------------------------------
+// Category 2: Legacy Redirect Chains (coagents -> langgraph-python, crewai-crews -> crewai-crews)
+// Specific entries BEFORE the catch-all wildcards
+// ---------------------------------------------------------------------------
+
+const LEGACY_CHAINS_EXACT: RedirectEntry[] = [
+  {
+    id: "L1",
+    source: "/coagents",
+    destination: "/langgraph-python",
+  },
+  {
+    id: "L2",
+    source: "/coagents/quickstart",
+    destination: "/langgraph-python/quickstart",
+  },
+  {
+    id: "L3",
+    source: "/coagents/frontend-actions",
+    destination: "/langgraph-python/frontend-tools",
+  },
+  {
+    id: "L4",
+    source: "/coagents/generative-ui",
+    destination: "/langgraph-python/generative-ui",
+  },
+  {
+    id: "L5",
+    source: "/coagents/human-in-the-loop",
+    destination: "/langgraph-python/human-in-the-loop",
+  },
+  {
+    id: "L6",
+    source: "/coagents/multi-agent-flows",
+    destination: "/langgraph-python/multi-agent-flows",
+  },
+  {
+    id: "L7",
+    source: "/coagents/persistence",
+    destination: "/langgraph-python/advanced/persistence",
+  },
+  {
+    id: "L8",
+    source: "/coagents/shared-state",
+    destination: "/langgraph-python/shared-state",
+  },
+  {
+    id: "L9",
+    source: "/coagents/concepts",
+    destination: "/langgraph-python",
+  },
+  {
+    id: "L10",
+    source: "/coagents/tutorials",
+    destination: "/langgraph-python/tutorials",
+  },
+  {
+    id: "L11",
+    source: "/coagents/videos",
+    destination: "/langgraph-python/videos",
+  },
+  // Deep Agents was promoted from a langgraph subpath to its own
+  // top-level integration. Catch the legacy (langgraph) and the
+  // post-slug-rename (langgraph-python) variants both, pointing them at
+  // the canonical /deepagents placeholder. When the showcase
+  // integration ships, these targets continue to resolve unchanged.
+  {
+    id: "L12",
+    source: "/langgraph/deep-agents",
+    destination: "/deepagents",
+  },
+  {
+    id: "L13",
+    source: "/langgraph-python/deep-agents",
+    destination: "/deepagents",
+  },
+];
+
+// The `/docs/integrations/*` (DI-*) and `/docs` + `/docs/*` (DOCS-root,
+// DOCS-wild) tables are not ported: v2 serves `/docs/*` itself.
+
+// ---------------------------------------------------------------------------
+// /migration-guides/* → /migrate/* (4 URLs)
+// ---------------------------------------------------------------------------
+
+const MIGRATION_GUIDES: RedirectEntry[] = [
+  { id: "MG1", source: "/migration-guides", destination: "/migrate/v2" },
+  { id: "MG2", source: "/migration-guides/v2", destination: "/migrate/v2" },
+  {
+    id: "MG2a",
+    source: "/migration-guides/migrate-to-v2",
+    destination: "/migrate/v2",
+  },
+  {
+    id: "MG3",
+    source: "/migration-guides/1.10.X",
+    destination: "/migrate/1.10.X",
+  },
+  {
+    id: "MG3a",
+    source: "/migration-guides/migrate-to-1.10.X",
+    destination: "/migrate/1.10.X",
+  },
+  {
+    id: "MG4",
+    source: "/migration-guides/1.8.2",
+    destination: "/migrate/1.8.2",
+  },
+  {
+    id: "MG4a",
+    source: "/migration-guides/migrate-to-1.8.2",
+    destination: "/migrate/1.8.2",
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Folder-index redirects for shell-docs folders that lack an index.mdx.
+// These hit when a user navigates to the bare folder URL — without an
+// index page Next.js would 404. Each folder URL 301s to a sensible
+// representative inner page.
+// ---------------------------------------------------------------------------
+
+const FOLDER_INDEX: RedirectEntry[] = [
+  {
+    id: "FI-troubleshooting",
+    source: "/troubleshooting",
+    destination: "/troubleshooting/common-issues",
+  },
+  {
+    id: "FI-migrate",
+    // Mirrors the existing /migrate → /migrate/v2 entry in
+    // showcase/shell-docs/next.config.ts, kept here so the SHELL host's
+    // middleware also covers it during the cutover.
+    source: "/migrate",
+    destination: "/migrate/v2",
+  },
+  // The Intelligence docs folder was renamed `premium/` →
+  // `intelligence/` (OSS-1078). FI-premium keeps its id — the bare
+  // legacy folder URL is unchanged — but now points straight at the
+  // renamed page so the old URL resolves in ONE hop.
+  {
+    id: "FI-premium",
+    source: "/premium",
+    destination: "/intelligence/overview",
+  },
+  // FI-intelligence (`/intelligence`) not ported: v2 serves `/intelligence`.
+  {
+    id: "FI-concepts",
+    source: "/concepts",
+    destination: "/concepts/architecture",
+  },
+  // FI-reference removed: /reference now has a proper index page
+  // (app/reference/page.tsx) that lists components + hooks. The legacy
+  // redirect to /reference/v2 — a path that no longer exists — left the
+  // index broken.
+];
+
+// ---------------------------------------------------------------------------
+// Every framework slug whose `/<fw>/premium/*` URLs were live on the SEO
+// surface: the canonical (post-cutover) slugs AND the legacy upstream
+// ones, deduped. Both the retired-page entries and the
+// `premium/` → `intelligence/` rename below key off this list, so a
+// legacy-slug URL is handled directly instead of chaining through
+// SR-wild×/P1× and picking up a second hop.
+// ---------------------------------------------------------------------------
+
+const PREMIUM_URL_FRAMEWORKS: string[] = [
+  ...new Set<string>([...CANONICAL_FRAMEWORKS, ...FRAMEWORKS]),
+];
+
+// ---------------------------------------------------------------------------
+// Retired Intelligence pages.
+// ---------------------------------------------------------------------------
+
+const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
+  // Agents fetch the `.md`/`.mdx` variant, and released CLI onboarding
+  // prompts (4.14.0 and older) cite `connect-your-runtime.md`. An exact
+  // entry matches only the path it names, so each variant needs its own
+  // entry or it 404s (PE-328).
+  ...["", ".md", ".mdx"].map((suffix) => ({
+    id: `INTEL-connect-runtime${suffix}`,
+    source: `/intelligence/connect-your-runtime${suffix}`,
+    destination: `/intelligence/quickstart${suffix}`,
+  })),
+  // Sources keep the legacy `premium` segment (that is the URL the SEO
+  // surface saw); destinations follow the `premium/` → `intelligence/`
+  // folder rename (OSS-1078). These are EXACT entries, so middleware
+  // step 1a matches them before the `/premium/:path*` wildcard below —
+  // the retired page lands on the overview in one hop instead of being
+  // rewritten to a nonexistent `/intelligence/observability`.
+  {
+    id: "INTEL-observability-root",
+    source: "/premium/observability",
+    destination: "/intelligence/overview",
+  },
+  {
+    id: "INTEL-observability-connectors",
+    source: "/troubleshooting/observability-connectors",
+    destination: "/intelligence/overview",
+  },
+  // Expanded over the LEGACY slugs as well as the canonical ones: the
+  // page is retired, so `/<legacy-fw>/premium/observability` has to be
+  // caught by an exact entry here. Without it the
+  // INTEL-rename-wild×<legacy-fw> wildcard below would rewrite it to a
+  // nonexistent `/<canonical-fw>/intelligence/observability`.
+  ...PREMIUM_URL_FRAMEWORKS.map((framework) => ({
+    id: `INTEL-observability×${framework}`,
+    source: `/${framework}/premium/observability`,
+    destination: destinationPath(
+      canonicalSlug(framework),
+      "intelligence/overview",
+    ),
+  })),
+  // The inspector page MOVED out of the Intelligence folder — it was not
+  // retired. cc8c945893 renamed `(root)/premium/inspector.mdx` to
+  // `(root)/inspector.mdx` (R100, identical content) and added no redirect,
+  // so `/premium/inspector` has 404'd ever since. It needs an exact entry for
+  // the same reason observability does: INTEL-rename-wild would rewrite it to
+  // a nonexistent `/intelligence/inspector`.
+  {
+    id: "INTEL-inspector-root",
+    source: "/premium/inspector",
+    destination: "/inspector",
+  },
+  ...PREMIUM_URL_FRAMEWORKS.map((framework) => ({
+    id: `INTEL-inspector×${framework}`,
+    source: `/${framework}/premium/inspector`,
+    destination: destinationPath(canonicalSlug(framework), "inspector"),
+  })),
+];
+
+// ---------------------------------------------------------------------------
+// `premium/` → `intelligence/` content-folder rename (OSS-1078).
+//
+// Only the parent segment changed — every page slug under the folder
+// (`overview`, `managed-intelligence-platform`, `self-hosting`,
+// `intelligence-platform`, `threads-explained`, `headless-ui`) is unchanged.
+// `connect-your-runtime` is not a live page. `/intelligence/connect-your-runtime`
+// redirects to the quickstart. So this is expressed as WILDCARDS rather
+// than one SUBPATH_RENAMES entry per page: `/premium/:path*` →
+// `/intelligence/:path*` covers today's pages, their `.md`/`.mdx` LLM
+// variants, and any page added under `intelligence/` later without
+// anyone having to touch this table.
+//
+// Two surfaces are covered:
+//   - the root surface (`/premium/...`);
+//   - every framework scope (`/<fw>/premium/...`). Each framework needs
+//     its own entry: middleware step 1b only consults a wildcard for a
+//     framework-scoped request when the wildcard's OWN first segment is
+//     that same framework slug. Legacy slugs are listed alongside the
+//     canonical ones so `/langgraph/premium/x` lands on
+//     `/langgraph-python/intelligence/x` in ONE hop instead of chaining
+//     through SR-wild×langgraph / P1×langgraph.
+//
+// The bare framework-scoped folder URL gets its own exact entry because
+// a wildcard prefix here always ends in `/premium/`, so `/<fw>/premium`
+// on its own never matches one. The bare ROOT folder URL is already
+// covered by FI-premium in FOLDER_INDEX (retargeted with the rename) —
+// no entry is duplicated here, since a duplicate exact source would
+// silently overwrite it in the middleware's exact-match Map.
+//
+// No loop and no chain: no source in this file carries an
+// `/intelligence` segment, and every source here carries the `premium`
+// segment that the destinations drop. The wildcards are spread BEFORE
+// SLUG_RENAME_REDIRECTS / WILDCARD_REDIRECTS so the broad legacy roots
+// — which stay last, per the ordering note above — cannot hijack them.
+// ---------------------------------------------------------------------------
+
+const INTELLIGENCE_FOLDER_RENAMES: RedirectEntry[] = [
+  {
+    id: "INTEL-rename-wild",
+    source: "/premium/:path*",
+    destination: "/intelligence/:path*",
+  },
+  ...PREMIUM_URL_FRAMEWORKS.flatMap((fw): RedirectEntry[] => {
+    const fwDest = canonicalSlug(fw);
+    return [
+      {
+        id: `INTEL-rename-wild×${fw}`,
+        source: `/${fw}/premium/:path*`,
+        destination: destinationPath(fwDest, "intelligence/:path*"),
+      },
+      {
+        id: `INTEL-rename-root×${fw}`,
+        source: `/${fw}/premium`,
+        destination: destinationPath(fwDest, "intelligence/overview"),
+      },
+    ];
+  }),
+];
+
+// ---------------------------------------------------------------------------
+// Slug-rename catch-alls — bare /{old-slug}/* → /{new-slug}/*
+// Covers upstream URLs that hit a renamed framework root or any
+// subpath that isn't already matched by the more specific entries
+// above.
+// ---------------------------------------------------------------------------
+
+const SLUG_RENAME_REDIRECTS: RedirectEntry[] = Object.entries(
+  SLUG_RENAMES,
+).flatMap(([oldSlug, newSlug]) => [
+  {
+    id: `SR-wild×${oldSlug}`,
+    source: `/${oldSlug}/:path*`,
+    destination: `${destinationPrefix(newSlug)}/:path*`,
+  },
+  {
+    id: `SR-root×${oldSlug}`,
+    source: `/${oldSlug}`,
+    destination: destinationPath(newSlug),
+  },
+]);
+
+// ---------------------------------------------------------------------------
+// Wildcard redirects (legacy chains + pattern rules)
+// These MUST come LAST — they are catch-alls
+// ---------------------------------------------------------------------------
+
+const WILDCARD_REDIRECTS: RedirectEntry[] = [
+  // Category 2 wildcards
+  {
+    id: "L12",
+    source: "/coagents/:path*",
+    destination: "/langgraph-python/:path*",
+  },
+  // Category 4 wildcards — direct-to-llm and /integrations/built-in-agent
+  // retire to the root-served BIA surface
+  {
+    id: "R16",
+    source: "/direct-to-llm/:path*",
+    destination: "/:path*",
+  },
+  {
+    id: "R17",
+    source: "/integrations/built-in-agent/:path*",
+    destination: "/:path*",
+  },
+  { id: "R26", source: "/shared/:path*", destination: "/:path*" },
+  // Category 6 wildcards
+  {
+    id: "F17",
+    source: "/generative-ui/direct-to-llm/:path*",
+    destination: "/:path*",
+  },
+  {
+    id: "F18",
+    source: "/generative-ui/langgraph/:path*",
+    destination: "/langgraph-python/:path*",
+  },
+  {
+    id: "F19",
+    source: "/generative-ui-specs/:path*",
+    destination: "/generative-ui/specs/:path*",
+  },
+  // Tutorials deprecation: section retired post-cutover. Framework-scoped
+  // tutorial URLs redirect to that framework's quickstart; unscoped variants
+  // redirect to the docs root. Must precede the per-framework P1×/P2×
+  // catch-alls below.
+  ...CANONICAL_FRAMEWORKS.map((fw) => ({
+    id: `T1×${fw}`,
+    source: `/${fw}/tutorials/:path*`,
+    destination: destinationPath(fw, "quickstart"),
+  })),
+  {
+    id: "T1-unscoped-wild",
+    source: "/tutorials/:path*",
+    destination: "/",
+  },
+  { id: "T1-unscoped-root", source: "/tutorials", destination: "/" },
+  // Category 1: Pattern rules (bulk coverage)
+  // The /guides tree no longer exists anywhere (its old BIA destination
+  // 404'd, and pointing it back at /guides/* would self-loop), so the
+  // retired section sends readers home.
+  {
+    id: "P11",
+    source: "/guides/:path*",
+    destination: "/",
+  },
+  { id: "P3", source: "/learn/:path*", destination: "/concepts/:path*" },
+  // P1 + P2: Per-framework catch-alls (MUST be last — they match any /{framework}/*)
+  // Source is the legacy slug; destination uses canonical slug. Skip
+  // frameworks whose slug is unchanged — those would be self-loops.
+  ...FRAMEWORKS.filter((fw) => canonicalSlug(fw) !== fw).map((fw) => ({
+    id: `P1×${fw}`,
+    source: `/${fw}/:path*`,
+    destination: `${destinationPrefix(canonicalSlug(fw))}/:path*`,
+  })),
+  ...FRAMEWORKS.filter((fw) => canonicalSlug(fw) !== fw).map((fw) => ({
+    id: `P2×${fw}`,
+    source: `/${fw}`,
+    destination: destinationPath(canonicalSlug(fw)),
+  })),
+];
+
+// ---------------------------------------------------------------------------
+// Combined export — ordered most-specific to least-specific
+// Middleware evaluates top-to-bottom, first match wins
+// ---------------------------------------------------------------------------
+
+export const seoRedirects: RedirectEntry[] = [
+  // 1. Most-specific exact paths first
+  ...DEEP_COAGENTS,
+  ...SPECIFIC_FRAMEWORK,
+  ...CODING_AGENTS_RENAMES,
+  ...ROOT_RENAMES,
+  ...MOVED_ROOT_REDIRECTS,
+  ...FRONTEND_PLATFORM_REDIRECTS,
+  ...LEGACY_CHAINS_EXACT,
+  ...INTEGRATIONS_PREFIX_RENAMES.filter((e) => !e.source.includes(":path*")),
+  ...MIGRATION_GUIDES,
+  ...RETIRED_INTELLIGENCE_REDIRECTS,
+  ...INTELLIGENCE_FOLDER_RENAMES.filter((e) => !e.source.includes(":path*")),
+  ...FOLDER_INDEX,
+  // 2. Generated per-framework subpath renames (exact paths)
+  ...generateFrameworkRenames(),
+  // 3. Wildcard catch-alls last — order matters: most-specific wildcard first
+  ...INTEGRATIONS_PREFIX_RENAMES.filter((e) => e.source.includes(":path*")),
+  // premium/ -> intelligence/ wildcards: BEFORE the slug-rename and
+  // legacy-root catch-alls so `/langgraph/premium/x` is rewritten in one
+  // hop instead of being swallowed by SR-wild×langgraph.
+  ...INTELLIGENCE_FOLDER_RENAMES.filter((e) => e.source.includes(":path*")),
+  ...SLUG_RENAME_REDIRECTS,
+  ...WILDCARD_REDIRECTS,
+];
+
+// ---------------------------------------------------------------------------
+// Lookup, built once per process. Same semantics as shell-docs middleware:
+//   1. an exact source always wins, whatever its position in the table
+//      (a duplicated exact source keeps its LAST destination);
+//   2. otherwise the first wildcard whose prefix (the source up to `:path*`)
+//      starts the pathname wins, with the remainder carried into `:path*`.
+// A wildcard never fires for the bare prefix without its trailing slash
+// (`/coagents/:path*` doesn't match `/coagents`); exact entries cover those.
+//
+// shell-docs also skipped wildcards from another framework for
+// framework-scoped requests. Every prefix ends in `/` after its first
+// segment, so a prefix match already implies the same first segment and that
+// guard never changed a result; it isn't ported (nor the registry it read).
+// ---------------------------------------------------------------------------
+
+export interface SeoRedirectMatch {
+  id: string;
+  destination: string;
+}
+
+const exactRedirects = new Map<string, SeoRedirectMatch>();
+const wildcardRedirects: { prefix: string; id: string; destination: string }[] =
+  [];
+
+for (const entry of seoRedirects) {
+  const wildcardIdx = entry.source.indexOf(":path*");
+  if (wildcardIdx === -1) {
+    exactRedirects.set(entry.source, {
+      id: entry.id,
+      destination: entry.destination,
+    });
+  } else {
+    wildcardRedirects.push({
+      prefix: entry.source.slice(0, wildcardIdx),
+      id: entry.id,
+      destination: entry.destination,
+    });
+  }
+}
+
+/** The SEO redirect for `pathname`, or null when none applies. */
+export function findSeoRedirect(pathname: string): SeoRedirectMatch | null {
+  const exact = exactRedirects.get(pathname);
+  if (exact && exact.destination !== pathname) return exact;
+
+  for (const wc of wildcardRedirects) {
+    if (!pathname.startsWith(wc.prefix)) continue;
+    const rest = pathname.slice(wc.prefix.length);
+    const destination = wc.destination.replace(":path*", rest);
+    // Defense-in-depth against a self-loop from table drift.
+    if (destination === pathname) continue;
+    return { id: wc.id, destination };
+  }
+
+  return null;
+}
