@@ -31,6 +31,7 @@ interface MCPAppsConfig {
   hostCapabilities?: Record<string, unknown>;
   hostContext?: Record<string, unknown>;
   allowSameOriginFallback?: boolean;
+  sandboxOrigin?: string;
 }
 ```
 
@@ -40,7 +41,11 @@ wins. It deliberately accepts no MCP server URL. Resource loads, tool calls,
 and follow-up messages travel through the selected AG-UI agent.
 
 Widgets run in a sandbox with an opaque origin, so they can't reach your
-page's cookies, storage or DOM. `allowSameOriginFallback: true` restores
+page's cookies, storage or DOM. `sandboxOrigin` serves the sandbox proxy
+from a separate origin, so widgets get working storage while your page stays
+out of reach. Pass the origin that serves `mcp-apps-sandbox-proxy.html` from
+`@copilotkit/mcp-apps-renderer`, or the page's full URL. If you can't serve a
+separate origin, `allowSameOriginFallback: true` restores
 `allow-same-origin` for trusted widgets that need `localStorage`, `IndexedDB`
 or cookies. It is unsafe: every widget then runs with your page's origin. See
 [Sandbox and widget storage](/generative-ui/mcp-apps#sandbox-and-widget-storage).

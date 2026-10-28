@@ -85,11 +85,57 @@ To avoid CORS entirely, bundle the widget into a single HTML file, as the
 do with `vite-plugin-singlefile`.
 
 The MCP Apps spec pairs `allow-same-origin` with a sandbox served from a
-separate origin. CopilotKit loads the sandbox inline, so it leaves
+separate origin. By default CopilotKit loads the sandbox inline, so it leaves
 `allow-same-origin` off rather than give widgets your page's origin.
 
-If you wrote a widget yourself and it needs storage, you can restore
-`allow-same-origin`:
+### Serve the sandbox from a separate origin
+
+To give widgets working storage without exposing your page, serve the sandbox
+proxy from an origin of its own, such as `https://mcp-sandbox.example.com`.
+This is the setup the MCP Apps spec describes.
+
+1. Copy `mcp-apps-sandbox-proxy.html` from `@copilotkit/mcp-apps-renderer`
+   (`node_modules/@copilotkit/mcp-apps-renderer/dist/`) to the root of the
+   sandbox origin. It's a static file, so any static host works.
+2. Point CopilotKit at that origin:
+
+```vue title="Separate sandbox origin"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotKitProvider
+    runtime-url="/api/copilotkit"
+    :mcp-apps="{ sandboxOrigin: 'https://mcp-sandbox.example.com' }"
+  >
+    <CopilotChat />
+  </CopilotKitProvider>
+</template>
+```
+
+To serve the file from another path, pass its full URL instead, such as
+`https://mcp-sandbox.example.com/mcp/proxy.html`.
+
+Widgets then run with the sandbox origin. They can use `localStorage`,
+`IndexedDB` and cookies, but can't reach your page, and CopilotKit only
+accepts messages from that origin. CopilotKit refuses to load a widget if
+`sandboxOrigin` is your page's own origin.
+
+- Use an origin that serves nothing else. A subdomain of your site is fine,
+  but don't put user content or cookies scoped to your main domain on it.
+- All widgets share the sandbox origin, so they share its storage too. A
+  widget from one MCP server can read what another one stored.
+- To stop other sites from embedding your proxy, send
+  `Content-Security-Policy: frame-ancestors https://app.example.com` with it.
+- The proxy applies each widget's CSP from its `_meta.ui.csp`, the same policy
+  as the inline sandbox. If you add a CSP header to the proxy, keep it at
+  least as permissive, since widgets inherit it as well.
+
+### Restore same-origin access
+
+If you can't serve a separate origin, and you wrote a widget yourself that
+needs storage, you can restore `allow-same-origin` on the inline sandbox:
 
 ```vue title="Trusted widget configuration"
 <script setup lang="ts">
