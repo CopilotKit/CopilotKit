@@ -1,5 +1,5 @@
 # Stage 1: Build Next.js frontend + compile TypeScript agent server
-FROM node:22-slim AS builder
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
@@ -22,7 +22,7 @@ RUN npm prune --omit=dev --legacy-peer-deps \
  && test ! -d node_modules/vitest
 
 # Stage 2: Production image — runtime only (no build tools)
-FROM node:22-slim AS runner
+FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runner
 WORKDIR /app
 
 # Install curl — entrypoint.sh watchdog uses it to probe the liveness endpoint.
@@ -70,3 +70,6 @@ EXPOSE 10000
 ENV PORT=10000
 ENV HOSTNAME=0.0.0.0
 CMD ["./entrypoint.sh"]
+
+# Fail the build if any base or install path regresses the accepted Node runtime.
+RUN test "$(node --version)" = "v22.23.4"

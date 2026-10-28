@@ -1,21 +1,31 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = "==3.12.*"
 
 [[package]]
+name = "ag-ui-a2ui-toolkit"
+version = "0.0.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/dc/96a776fcac704747bf860fbdd7c4e53ca5d98623baf5fc782e278e3e45f1/ag_ui_a2ui_toolkit-0.0.5.tar.gz", hash = "sha256:ee5fc12282e439a83f3d77f11ff22b79f820cb60cec7ac2b5cb86130fc6a0e57", size = 19056, upload-time = "2026-10-16T08:45:01.817Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/92/a3/6da8b2311efadf1a68c476e271bc8f2e81bf83f5ae558ddfe9ac66ec5f81/ag_ui_a2ui_toolkit-0.0.5-py3-none-any.whl", hash = "sha256:26084f9e2bc46fdd9c216caec2482731fe687e1bb8c303754f5027353e981bfd", size = 21361, upload-time = "2026-10-16T08:45:00.839Z" },
+]
+
+[[package]]
 name = "ag-ui-langgraph"
-version = "0.0.22"
+version = "0.0.47"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "ag-ui-a2ui-toolkit" },
     { name = "ag-ui-protocol" },
     { name = "langchain" },
     { name = "langchain-core" },
     { name = "langgraph" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/93/b9/1d5c794cc7bf3b5d86d58821b6db167a8da7669aa7f52cc8b2ebfb052fc8/ag_ui_langgraph-0.0.22.tar.gz", hash = "sha256:92d963e416d3f2784ecaadfb8306217ad7d1bd13b2a07c0c75634a5f0820439d", size = 12963, upload-time = "2025-11-18T16:33:29.372Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d5/df/c21e7c4757c7092a2a5ab97a3c512ba36b6c9034731ffc7a7b927b631b6e/ag_ui_langgraph-0.0.47.tar.gz", hash = "sha256:e19c1b13c909d1fbbf46968c65cb3ab6c681d97a0f6f2b980bb94ee000ca8079", size = 380811, upload-time = "2026-10-08T07:54:45.871Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0e/32/3fa9a8db5ffd5ff489f048227ff00651278a83466db85f57ad5fdc0d0f18/ag_ui_langgraph-0.0.22-py3-none-any.whl", hash = "sha256:7f86f9fc70614c909dbd2452fcdfc9759da53b8cdded163a3cb91f2ae753add2", size = 14697, upload-time = "2025-11-18T16:33:28.22Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/15/25e40bc240c9b92e1cfc1d2a416642b0d7928be24fbaba59e0357e117227/ag_ui_langgraph-0.0.47-py3-none-any.whl", hash = "sha256:481956ec2313987c041feb13cd593fa346b825be62bd0ba248738af48ef7717c", size = 111110, upload-time = "2026-10-08T07:54:44.813Z" },
 ]
 
 [package.optional-dependencies]
@@ -25,14 +35,14 @@ fastapi = [
 
 [[package]]
 name = "ag-ui-protocol"
-version = "0.1.10"
+version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/67/bb/5a5ec893eea5805fb9a3db76a9888c3429710dfb6f24bbb37568f2cf7320/ag_ui_protocol-0.1.10.tar.gz", hash = "sha256:3213991c6b2eb24bb1a8c362ee270c16705a07a4c5962267a083d0959ed894f4", size = 6945, upload-time = "2025-11-06T15:17:17.068Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/57/92/d88fdc7f4648dc38d3d54c595066bb3e63a4c091884ffb2f98272c33eef8/ag_ui_protocol-1.0.0.tar.gz", hash = "sha256:cfebecef2e7bc942cc8a52d908a4ea86a98f631d2ffdc6ec5812bb843eac74fb", size = 30759, upload-time = "2026-09-17T18:31:19.448Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8f/78/eb55fabaab41abc53f52c0918a9a8c0f747807e5306273f51120fd695957/ag_ui_protocol-0.1.10-py3-none-any.whl", hash = "sha256:c81e6981f30aabdf97a7ee312bfd4df0cd38e718d9fc10019c7d438128b93ab5", size = 7889, upload-time = "2025-11-06T15:17:15.325Z" },
+    { url = "https://files.pythonhosted.org/packages/82/b0/850be4576e6443dc575daa54188d8136ae2b2eca3f19e098e7a088fc9ebc/ag_ui_protocol-1.0.0-py3-none-any.whl", hash = "sha256:0058eaf0522201089d444e430fc35180bc8ad0222cae39e8568b313e8105d9e6", size = 36842, upload-time = "2026-09-17T18:31:18.471Z" },
 ]
 
 [[package]]
@@ -260,19 +270,21 @@ wheels = [
 
 [[package]]
 name = "copilotkit"
-version = "0.1.74"
+version = "0.1.96"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ag-ui-langgraph", extra = ["fastapi"] },
+    { name = "ag-ui-protocol" },
     { name = "fastapi" },
     { name = "langchain" },
     { name = "langgraph" },
     { name = "partialjson" },
+    { name = "pydantic-core" },
     { name = "toml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/90/56/a809ce93240a8bdbf42c37e817a9578fbde3a7197a48f8ec4370c7cd10ce/copilotkit-0.1.74.tar.gz", hash = "sha256:7107a139f74d6edaabfe1189bdfa7059546b73674ea7c416991d830bd26235c3", size = 35608, upload-time = "2025-12-18T12:15:31.866Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5f/d4/f842fd48a6a17cf587fdf28add74ae90cc84152e0245dfe659105c716b4e/copilotkit-0.1.96.tar.gz", hash = "sha256:9c3c2450f64caf1bcc435ba0b300fb2b065e60263756db997071d06eaf158116", size = 52100, upload-time = "2026-08-26T22:32:00.113Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/62/ec/7682dda1afa410b6faccc037e50afbf0514542e692823808ad5d1e5bd66c/copilotkit-0.1.74-py3-none-any.whl", hash = "sha256:6a54c916363c1009c8fda8f5b543c378448bc9752ca5de70f66ffd292d3a7544", size = 44636, upload-time = "2025-12-18T12:15:30.882Z" },
+    { url = "https://files.pythonhosted.org/packages/1c/1f/e1cc2399f96484a0501c64810461d68cf14892975f634a36276c515666b3/copilotkit-0.1.96-py3-none-any.whl", hash = "sha256:31cdf4bb581f25fa2b2784adf772d86dd8438456322376774b1d5b92c1228b35", size = 61126, upload-time = "2026-08-26T22:31:59.098Z" },
 ]
 
 [[package]]
@@ -1385,6 +1397,7 @@ name = "research-canvas"
 version = "0.0.1"
 source = { virtual = "." }
 dependencies = [
+    { name = "ag-ui-langgraph" },
     { name = "aiohttp" },
     { name = "aiosqlite" },
     { name = "copilotkit" },
@@ -1407,9 +1420,10 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "ag-ui-langgraph", specifier = ">=0.0.47" },
     { name = "aiohttp", specifier = ">=3.9.3" },
     { name = "aiosqlite", specifier = ">=0.20.0" },
-    { name = "copilotkit", specifier = ">=0.1.74" },
+    { name = "copilotkit", specifier = ">=0.1.96" },
     { name = "html2text", specifier = ">=2024.2.26" },
     { name = "langchain", specifier = ">=0.3.4" },
     { name = "langchain-anthropic", specifier = ">=1.3.0" },

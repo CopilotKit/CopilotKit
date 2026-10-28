@@ -1,0 +1,80 @@
+---
+title: "Transports"
+icon: "lucide/ArrowLeftRight"
+description: "Choose how the agent sends generated UI: with the render_ui tool, or inside its markdown reply."
+---
+
+## What is this?
+
+The agent must send the UI to the browser somehow. Some agents are good at tool calls. Others only stream text, or you build their prompt yourself. A **transport** is the way the UI travels:
+
+- **Tool** (the default): the agent calls a `render_ui` tool.
+- **Markdown**: the agent writes the UI in `a2ui` code blocks inside its reply.
+
+Both transports use the same catalogs, surfaces, and components. Only the path between the agent and the browser changes.
+
+## Which one to use
+
+| | Tool | Markdown |
+| --- | --- | --- |
+| The agent writes UI | as `render_ui` tool calls | in `a2ui` code blocks in its reply |
+| Checked before the browser gets it | yes, by the runtime, and again in the browser | in the browser |
+| Text around the UI | a separate message | the same reply, before and after the UI |
+| Works with | agents that use the run's tools and context | any agent that streams text |
+
+Start with the tool transport. If your agent cannot call client tools, or you want the UI inside the text of the reply, use markdown.
+
+## Tool transport
+
+This is the default, so the provider needs only the catalog:
+
+```tsx
+<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+```
+
+When a run carries the catalog, the runtime adds the `render_ui` tool and a short guide on how to call it. The runtime checks every operation while it streams, and the browser renders the valid ones at once.
+
+The runtime option `generativeUI` controls when the tool is added:
+
+- Left out: for every run that carries a tool-transport catalog.
+- `true`: for every run.
+- `{ agents: ["shop"] }`: for every run of those agents.
+- `false`: never.
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  generativeUI: true,
+});
+```
+
+Your agent must use the tools and the context entries of the run. The built-in agent does this. For a LangGraph Python agent, add `CopilotKitMiddleware`.
+
+## Markdown transport
+
+Set `transport: "markdown"`:
+
+```tsx
+<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
+```
+
+The provider sends the component schemas and a writing guide as context, and the agent writes the UI in its reply. See [Markdown mode](/generative-ui/components/markdown-mode) for what the agent writes, how it streams, and how to build your own prompt.
+
+## Only some agents
+
+By default every agent gets generative UI. To give it only to some of them, list their ids:
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  generativeUI={{ ui: standardUI, agentIds: ["shop"] }}
+>
+```
+
+The other agents get no catalog, no guide, and no `render_ui` tool.
+
+## Cost in tokens
+
+Each run carries the catalog and a guide. The guide has only the rules that your catalog needs, so a small catalog gets a short guide. The full standard catalog is the largest part. To keep runs small, drop the components that you do not need with [`omit`](/generative-ui/components/standard-catalog#drop-components).
+
+Your agent now gets the UI tools it needs, in the transport that fits it.

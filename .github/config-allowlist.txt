@@ -80,6 +80,8 @@ examples/v1/next-pages-router/next.config.mjs
 examples/v1/research-canvas/next.config.mjs
 examples/v1/state-machine/next.config.mjs
 examples/v1/travel/next.config.mjs
+examples/v2/a2ui-markdown/next.config.mjs
+examples/v2/generative-ui-shop/vite.config.ts
 examples/v2/interrupts-langgraph/apps/web/next.config.ts
 examples/v2/next-pages-router/next.config.mjs
 examples/v2/react-router/vite.config.ts
@@ -135,3 +137,4 @@ showcase/shell-dashboard/next.config.ts
 showcase/shell-docs/next.config.ts
 showcase/shell-dojo/next.config.ts
 showcase/shell/next.config.ts
+showcase/vue/vite.config.ts

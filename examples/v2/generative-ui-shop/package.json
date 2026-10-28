@@ -1,0 +1,47 @@
+{
+  "name": "@copilotkit/example-generative-ui-shop",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#app/*": "./app/*"
+  },
+  "scripts": {
+    "example-dev": "prisma generate && react-router dev",
+    "example-build": "prisma generate && react-router build",
+    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
+    "db:seed": "tsx prisma/seed.ts",
+    "typecheck": "prisma generate && react-router typegen && tsc"
+  },
+  "dependencies": {
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "@prisma/adapter-better-sqlite3": "6.19.3",
+    "@prisma/client": "6.19.3",
+    "@react-router/node": "^7.11.0",
+    "@tanstack/ai": "0.42.0",
+    "@tanstack/ai-openai": "0.17.1",
+    "@tanstack/ai-react": "0.18.1",
+    "dotenv": "16.6.1",
+    "isbot": "^5.1.27",
+    "lucide-react": "0.525.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router": "^7.11.0",
+    "zod": "^3.25.75",
+    "zod-to-json-schema": "^3.24.5"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "10.4.0",
+    "@react-router/dev": "^7.11.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "prisma": "6.19.3",
+    "tailwindcss": "^4.0.0",
+    "tsx": "4.21.0",
+    "typescript": "~5.7.0",
+    "vite": "~7.3.2"
+  }
+}

@@ -419,6 +419,7 @@ export type InspectorLeafKey =
   | "frontend-tools"
   | "capabilities"
   | "agent-context"
+  | "generative-ui"
   | "memories";
 export type MetadataActionPlacement = "threads_footer" | "threads_locked";
 export type ExampleTourStep = 1 | 2 | 3;

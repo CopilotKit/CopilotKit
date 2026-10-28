@@ -25,6 +25,39 @@ describe("buildSandboxHTML", () => {
     expect(html).toContain("https://example.com");
   });
 
+  it("keeps CSP host sources the server declares", () => {
+    const domains = [
+      "https://cdn.example.com",
+      "*.example.org",
+      "https://assets.example.net:8443/static",
+      "wss://live.example.com",
+      "https://cdn.example.com/app+v1.js",
+      "https://cdn.example.com/@scope/pkg$1/(x)=y:z!*",
+    ];
+    const html = buildSandboxHTML(domains);
+    for (const domain of domains) expect(html).toContain(` ${domain}`);
+  });
+
+  it("drops server-supplied domains that would break out of the CSP", () => {
+    const html = buildSandboxHTML([
+      'https://cdn.example.com" /><b id="injected">x</b><meta x="',
+      "https://a.example.com; script-src *",
+      "https://a.example.com/a,b",
+      "https://a.example.com/x'y",
+      "https://a.example.com/x&lt;y",
+      "https://ok.example.com",
+    ]);
+    expect(html).not.toContain("injected");
+    expect(html).not.toContain("script-src *");
+    for (const fragment of ["/a,b", "/x'y", "/x&lt;y"]) {
+      expect(html).not.toContain(fragment);
+    }
+    expect(
+      html.match(/<meta http-equiv="Content-Security-Policy"/g),
+    ).toHaveLength(1);
+    expect(html).toContain(" https://ok.example.com");
+  });
+
   it("defaults the widget frame to an opaque origin", () => {
     expect(buildSandboxHTML()).not.toContain("allow-same-origin");
   });

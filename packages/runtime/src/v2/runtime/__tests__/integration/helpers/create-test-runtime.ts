@@ -11,5 +11,7 @@ export function createTestRuntime(
   return new CopilotRuntime({
     agents: { default: createFakeAgent(opts) as any },
     runner: createTestRunner(),
+    // These suites exercise transports, not thread access policy.
+    threads: { access: "open" },
   });
 }
