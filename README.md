@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero-dark.svg">
-  <img alt="CopilotKit: connect any agent to any user. Build rich agentic applications that learn from every interaction." src="assets/readme/hero-light.svg" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/banner-dark.svg">
+  <img alt="CopilotKit" src="assets/readme/banner-light.svg" width="880">
 </picture>
 
 <br />
@@ -15,10 +15,18 @@
 
 <br />
 
+<a href="https://www.copilotkit.ai/talk-to-an-engineer?ref=github_readme"><img src="assets/readme/talk-to-an-engineer.svg" alt="Talk to an engineer" width="232" height="44"></a>
+
+<br />
+
 <a href="https://www.npmjs.com/package/@copilotkit/react-core"><img src="https://img.shields.io/npm/v/%40copilotkit%2Freact-core?logo=npm&logoColor=white&label=npm&color=6666fc" alt="npm version"></a>
 <a href="https://github.com/CopilotKit/CopilotKit/stargazers"><img src="https://img.shields.io/github/stars/CopilotKit/CopilotKit?style=flat&logo=github&logoColor=white&label=stars&color=6666fc" alt="GitHub stars"></a>
 <a href="https://discord.gg/6dffbvGU3D"><img src="https://img.shields.io/discord/1122926057641742418?logo=discord&logoColor=white&label=discord&color=6666fc" alt="Discord"></a>
 <a href="https://github.com/CopilotKit/CopilotKit/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-6666fc" alt="License: MIT"></a>
+
+<br />
+
+<a href="https://trendshift.io/repositories/5730"><img src="https://trendshift.io/api/badge/repositories/5730" alt="CopilotKit/CopilotKit on Trendshift" width="250" height="55"></a>
 
 </div>
 
@@ -26,7 +34,7 @@
 
 **CopilotKit is the open-source stack for putting AI agents in front of real users.** Bring the agent you already built, on any framework, and give it chat, generative UI, shared state, and human-in-the-loop in React, Angular, Vue, React Native, Slack, and Microsoft Teams.
 
-When it goes to production, add **CopilotKit Intelligence** and your agents keep getting better: conversations that pick up where users left off, memory across sessions, and **Automatic Learning** that turns real use into Skills you review and publish.
+When it goes to production, add **CopilotKit Intelligence** and your agents keep getting better: conversations that pick up where users left off, memory across sessions, and **Continual Learning** that turns real use into Skills you review and publish.
 
 We're also the team behind **[AG-UI](https://github.com/ag-ui-protocol/ag-ui)**, the open Agent–User Interaction protocol adopted by Google, Microsoft, AWS, LangChain, Mastra, PydanticAI, and more.
 
@@ -35,7 +43,7 @@ We're also the team behind **[AG-UI](https://github.com/ag-ui-protocol/ag-ui)**,
 |                                                                                                                                                                            |                                                                                                                                                                                       |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 🪁 **[CopilotKit Soar](https://www.copilotkit.ai/soar?ref=github_readme)**                                                                                                 | AI coworkers your company owns, running on your own servers. Powered by OpenBot. **[Now in early access →](https://intelligence.copilotkit.ai/?early_access=soar&ref=github_readme)** |
-| 🔁 **[Continual learning](https://www.copilotkit.ai/clif?ref=github_readme)**                                                                                              | Agents learn from full-stack trajectories (what the agent did _and_ what your users did), captured over AG-UI.                                                                        |
+| 🔁 **[Continual Learning](https://www.copilotkit.ai/clif?ref=github_readme)**                                                                                              | Agents learn from full-stack trajectories (what the agent did _and_ what your users did), captured over AG-UI.                                                                        |
 | 🤖 **[OpenBot](https://github.com/CopilotKit/OpenBot)**                                                                                                                    | Open-source AI coworkers that each get a computer of their own. MIT licensed.                                                                                                         |
 | 🧩 **[AG-UI 1.0](https://docs.copilotkit.ai/agentic-protocols/ag-ui?ref=github_readme)** + **[A2UI 1.0](https://docs.copilotkit.ai/generative-ui/a2ui?ref=github_readme)** | CopilotKit now speaks AG-UI 1.0 and the A2UI 1.0 spec for declarative generative UI.                                                                                                  |
 | 💬 **[Channels](https://docs.copilotkit.ai/slack?ref=github_readme)**                                                                                                      | Write Channels JSX once. Render native Block Kit in Slack and Adaptive Cards in Microsoft Teams.                                                                                      |
@@ -190,6 +198,15 @@ Want to go deeper? The [Generative UI educational repo](https://github.com/Copil
 
 One agent backend. Every frontend.
 
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/readme/hero-dark.svg">
+  <img alt="Connect any agent to any user: React, Angular, Vue, React Native, Slack and Teams on one side, LangGraph, CrewAI, Mastra, Google ADK, Claude Agent SDK, PydanticAI and more on the other, joined by CopilotKit over AG-UI." src="assets/readme/hero-light.svg" width="880">
+</picture>
+
+</div>
+
 | Surface                         | Status                             | Get started                                                                                                               |
 | ------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | ⚛️ React / Next.js              | ✅ GA                              | [Quickstart](https://docs.copilotkit.ai/quickstart?ref=github_readme)                                                     |
@@ -206,12 +223,12 @@ One agent backend. Every frontend.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/readme/learning-loop-dark.svg">
-  <img alt="The Automatic Learning loop: users and agents work together, full-stack trajectories are captured over AG-UI, they become evidence-backed insights, you review and publish Skills, and Skill delivery brings them to the agent on the next task." src="assets/readme/learning-loop-light.svg" width="880">
+  <img alt="The Continual Learning loop: users and agents work together, full-stack trajectories are captured over AG-UI, they become evidence-backed insights, you review and publish Skills, and Skill delivery brings them to the agent on the next task." src="assets/readme/learning-loop-light.svg" width="880">
 </picture>
 
 Most agents plateau at launch quality. **CopilotKit Intelligence** is the production layer that keeps yours improving. It works with the CopilotKit app and agent framework you already run, cloud-hosted or self-hosted on your own infrastructure.
 
-- **[Automatic Learning](https://docs.copilotkit.ai/learning?ref=github_readme)**: real use of your app becomes evidence-backed insights, then Skills you review and publish. Every learned behavior traces back to its source. No fine-tuning pipeline.
+- **[Continual Learning](https://docs.copilotkit.ai/learning?ref=github_readme)**: real use of your app becomes evidence-backed insights, then Skills you review and publish. Every learned behavior traces back to its source. No fine-tuning pipeline.
 - **[AG-UI Streams](https://docs.copilotkit.ai/threads?ref=github_readme)**: conversations pick up where users left off, with messages, generative UI, and live runs restored as they were.
 - **[User Memories](https://docs.copilotkit.ai/intelligence/memories?ref=github_readme)**: durable facts and preferences carried across conversations, recalled semantically.
 - **[Product Analytics](https://docs.copilotkit.ai/intelligence/analytics?ref=github_readme)**: see what users ask for, what agents do, and where people get value.
@@ -259,10 +276,6 @@ npx create-ag-ui-app my-agent-app
 <div align="center">
 
 **[Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)** · **[Docs](https://docs.copilotkit.ai/?ref=github_readme)** · **[X](https://x.com/copilotkit)** · **[LinkedIn](https://www.linkedin.com/company/copilotkit/)** · **[Blog](https://www.copilotkit.ai/blog?ref=github_readme)**
-
-<br />
-
-<a href="https://trendshift.io/repositories/5730"><img src="https://trendshift.io/api/badge/repositories/5730" alt="CopilotKit/CopilotKit on Trendshift" width="250" height="55"></a>
 
 </div>
 

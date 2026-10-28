@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="880" height="646" viewBox="0 0 880 646" role="img" aria-labelledby="t d" fill="none">
 <title id="t">How CopilotKit works</title>
-<desc id="d">Your users reach CopilotKit from apps built with React, Angular, Vue, React Native or Web Components, and from Slack and Microsoft Teams. CopilotKit is open source: Frontend SDKs (chat components, generative UI, shared state, human-in-the-loop, frontend tools) plus the Copilot Runtime. The runtime talks AG-UI, an open protocol of events over SSE, to your agents: LangGraph, CrewAI, Mastra, Google ADK, PydanticAI, LlamaIndex, Microsoft Agent Framework, AWS Strands, Claude Agent SDK, the Built-in Agent, or your own. MCP and A2A are supported for tools and agent-to-agent. Underneath, CopilotKit Intelligence, cloud-hosted or self-hosted, adds AG-UI Streams, User Memories, Automatic Learning, Product Analytics, Channels and Inspector for production.</desc>
+<desc id="d">Your users reach CopilotKit from apps built with React, Angular, Vue or React Native, and from Slack and Microsoft Teams. CopilotKit is open source: Frontend SDKs (chat components, generative UI, shared state, human-in-the-loop, frontend tools) plus the Copilot Runtime. The runtime talks AG-UI, an open protocol of events over SSE, to your agents: LangGraph, Deep Agents, CrewAI, Mastra, Google ADK, PydanticAI, AWS Strands, LlamaIndex, Agno, AG2, Microsoft Agent Framework, Claude Agent SDK, the Built-in Agent, or your own. MCP and A2A are supported for tools and agent-to-agent. Underneath, CopilotKit Intelligence, cloud-hosted or self-hosted, adds AG-UI Streams, User Memories, Continual Learning, Product Analytics, Channels and Inspector for production.</desc>
 <defs>
 <linearGradient id="ck0" x1="171.825" y1="13.8344" x2="135.895" y2="112.635" gradientUnits="userSpaceOnUse"><stop stop-color="#6430AB"/><stop offset="1" stop-color="#AA89D8"/></linearGradient>
 <linearGradient id="ck1" x1="143.981" y1="69.5214" x2="97.7306" y2="158.891" gradientUnits="userSpaceOnUse"><stop stop-color="#005DBB"/><stop offset="1" stop-color="#3D92E8"/></linearGradient>
@@ -14,7 +14,7 @@
 <text class="m" x="368.0" y="44" text-anchor="middle" font-size="12" font-weight="500" fill="#4b4bd6">OPEN SOURCE</text>
 <text class="m" x="628" y="44" font-size="12" font-weight="500" fill="#57575b">YOUR AGENTS</text>
 <ellipse cx="368.0" cy="229.0" rx="214" ry="235" fill="url(#glow)"/>
-<path d="M188 103.0H198Q204 103.0 204 109.0V349.0Q204 355.0 198 355.0H188 M188 141.0H204 M188 179.0H204 M188 217.0H204 M188 255.0H204 M188 317.0H204" stroke="#6666fc" stroke-width="1.5" stroke-linecap="round" stroke-opacity=".45" fill="none"/>
+<path d="M188 122.0H198Q204 122.0 204 128.0V330.0Q204 336.0 198 336.0H188 M188 160.0H204 M188 198.0H204 M188 236.0H204 M188 298.0H204" stroke="#6666fc" stroke-width="1.5" stroke-linecap="round" stroke-opacity=".45" fill="none"/>
 <path d="M205 208.0H240" stroke="#6666fc" stroke-width="1.5" stroke-linecap="round" stroke-opacity=".6" marker-start="url(#ah)" marker-end="url(#ah)"/>
 <path class="flow" d="M213 208.0H232" stroke="#6666fc" stroke-width="1.5" stroke-linecap="round"/>
 <path d="M628 81.0H618Q612 81.0 612 87.0V379.0Q612 385.0 618 385.0H628 M612 119.0H628 M612 157.0H628 M612 195.0H628 M612 233.0H628 M612 271.0H628 M612 309.0H628 M612 347.0H628" stroke="#6666fc" stroke-width="1.5" stroke-linecap="round" stroke-opacity=".45" fill="none"/>
@@ -25,32 +25,40 @@
 <text class="s" x="554.0" y="370.0" text-anchor="middle" font-size="13" font-weight="500" fill="#57575b">events over SSE</text>
 <path d="M368.0 396V478" stroke="#6666fc" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="0.5 6" stroke-opacity=".8"/>
 <circle cx="368.0" cy="482" r="3.5" fill="#6666fc"/>
-<text class="m" x="26" y="78" font-size="12" font-weight="500" fill="#57575b">APPS</text>
-<rect x="24.5" y="88.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="106.0" y="108.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">React</text>
-<rect x="24.5" y="126.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="106.0" y="146.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Angular</text>
-<rect x="24.5" y="164.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="106.0" y="184.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Vue</text>
-<rect x="24.5" y="202.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="106.0" y="222.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">React Native</text>
-<rect x="24.5" y="240.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="106.0" y="260.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Web Components</text>
-<text class="m" x="26" y="292" font-size="12" font-weight="500" fill="#57575b">CHANNELS</text>
-<rect x="24.5" y="302.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="106.0" y="322.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Slack</text>
-<rect x="24.5" y="340.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="106.0" y="360.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Microsoft Teams</text>
-<rect x="628.5" y="66.5" width="227" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="742.0" y="86.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">LangGraph</text>
-<rect x="628.5" y="104.5" width="227" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="742.0" y="124.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">CrewAI</text>
-<rect x="628.5" y="142.5" width="227" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="742.0" y="162.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Mastra</text>
-<rect x="628.5" y="180.5" width="227" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="742.0" y="200.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Google ADK</text>
-<rect x="628.5" y="218.5" width="227" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
-<text class="s" x="742.0" y="238.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">PydanticAI</text>
+<text class="m" x="26" y="97.0" font-size="12" font-weight="500" fill="#57575b">APPS</text>
+<rect x="24.5" y="107.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="106.0" y="127.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">React</text>
+<rect x="24.5" y="145.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="106.0" y="165.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Angular</text>
+<rect x="24.5" y="183.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="106.0" y="203.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Vue</text>
+<rect x="24.5" y="221.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="106.0" y="241.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">React Native</text>
+<text class="m" x="26" y="273.0" font-size="12" font-weight="500" fill="#57575b">CHANNELS</text>
+<rect x="24.5" y="283.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="106.0" y="303.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Slack</text>
+<rect x="24.5" y="321.5" width="163" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="106.0" y="341.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Microsoft Teams</text>
+<rect x="628.5" y="66.5" width="109.0" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="683.0" y="86.0" text-anchor="middle" font-size="14" font-weight="500" fill="#141021">LangGraph</text>
+<rect x="746.5" y="66.5" width="109.0" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="801.0" y="86.0" text-anchor="middle" font-size="14" font-weight="500" fill="#141021">Deep Agents</text>
+<rect x="628.5" y="104.5" width="109.0" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="683.0" y="124.0" text-anchor="middle" font-size="14" font-weight="500" fill="#141021">CrewAI</text>
+<rect x="746.5" y="104.5" width="109.0" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="801.0" y="124.0" text-anchor="middle" font-size="14" font-weight="500" fill="#141021">Mastra</text>
+<rect x="628.5" y="142.5" width="109.0" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="683.0" y="162.0" text-anchor="middle" font-size="14" font-weight="500" fill="#141021">Google ADK</text>
+<rect x="746.5" y="142.5" width="109.0" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="801.0" y="162.0" text-anchor="middle" font-size="14" font-weight="500" fill="#141021">PydanticAI</text>
+<rect x="628.5" y="180.5" width="109.0" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="683.0" y="200.0" text-anchor="middle" font-size="14" font-weight="500" fill="#141021">AWS Strands</text>
+<rect x="746.5" y="180.5" width="109.0" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="801.0" y="200.0" text-anchor="middle" font-size="14" font-weight="500" fill="#141021">LlamaIndex</text>
+<rect x="628.5" y="218.5" width="109.0" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="683.0" y="238.0" text-anchor="middle" font-size="14" font-weight="500" fill="#141021">Agno</text>
+<rect x="746.5" y="218.5" width="109.0" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
+<text class="s" x="801.0" y="238.0" text-anchor="middle" font-size="14" font-weight="500" fill="#141021">AG2</text>
 <rect x="628.5" y="256.5" width="227" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
 <text class="s" x="742.0" y="276.0" text-anchor="middle" font-size="15" font-weight="500" fill="#141021">Microsoft Agent Framework</text>
 <rect x="628.5" y="294.5" width="227" height="29" rx="15.0" fill="#ffffff" stroke="#dbdbe5"/>
@@ -91,7 +99,7 @@
 <text class="s" x="497" y="535.0" font-size="14" font-weight="500" fill="#141021">User Memories</text>
 <rect x="656.5" y="513.5" width="177" height="33" rx="17.0" fill="#ffffff" stroke="#dbdbe5"/>
 <circle cx="673" cy="530.0" r="3.5" fill="#189370"/>
-<text class="s" x="685" y="535.0" font-size="14" font-weight="500" fill="#141021">Automatic Learning</text>
+<text class="s" x="685" y="535.0" font-size="14" font-weight="500" fill="#141021">Continual Learning</text>
 <rect x="280.5" y="557.5" width="177" height="33" rx="17.0" fill="#ffffff" stroke="#dbdbe5"/>
 <circle cx="297" cy="574.0" r="3.5" fill="#6666fc"/>
 <text class="s" x="309" y="579.0" font-size="14" font-weight="500" fill="#141021">Product Analytics</text>

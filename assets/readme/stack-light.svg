@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="880" height="548" viewBox="0 0 880 548" fill="none" role="img" aria-labelledby="t d">
   <title id="t">The agentic product stack</title>
-  <desc id="d">Four layers, each building on the one below. 01 Connect: AG-UI Protocol, the open protocol between agents and users (open protocol). 02 Build: CopilotKit SDKs for React, Angular, Vue, React Native and Channels, with chat, generative UI, shared state and human-in-the-loop (MIT, open source). 03 Improve: CopilotKit Intelligence, with AG-UI Streams, User Memories, Automatic Learning and Product Analytics (cloud-hosted or self-hosted). 04 Deploy to your team: OpenBot, open-source AI coworkers that each get their own computer (MIT), and CopilotKit Soar, AI coworkers your company owns, powered by OpenBot (commercial).</desc>
+  <desc id="d">Four layers, each building on the one below. 01 Connect: AG-UI Protocol, the open protocol between agents and users (open protocol). 02 Build: CopilotKit SDKs for React, Angular, Vue, React Native and Channels, with chat, generative UI, shared state and human-in-the-loop (MIT, open source). 03 Improve: CopilotKit Intelligence, with AG-UI Streams, User Memories, Continual Learning and Product Analytics (cloud-hosted or self-hosted). 04 Deploy to your team: OpenBot, open-source AI coworkers that each get their own computer (MIT), and CopilotKit Soar, AI coworkers your company owns, powered by OpenBot (commercial).</desc>
   <defs>
     <linearGradient id="spine" x1="0" y1="477.0" x2="0" y2="90.0" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#6666fc"/>
@@ -64,7 +64,7 @@
   <rect x="60" y="182" width="796" height="84" rx="14" fill="#bec2ff"/>
   <rect x="60" y="177" width="796" height="84" rx="14" fill="#e4e5ff" stroke="#6666fc" stroke-width="1.5"/>
   <text x="84" y="213" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="23" font-weight="600" letter-spacing="-0.02em" fill="#141021">CopilotKit Intelligence</text>
-  <text x="84" y="240" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#57575b">AG-UI Streams, User Memories, Automatic Learning, Product Analytics</text>
+  <text x="84" y="240" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="16" font-weight="500" fill="#57575b">AG-UI Streams, User Memories, Continual Learning, Product Analytics</text>
   <rect x="600" y="192.0" width="236" height="28" rx="14" fill="#ffffff" fill-opacity="1" stroke="#bec2ff"/><circle cx="615" cy="206" r="3" fill="#4b4bd6"/><text x="626" y="210.5" font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#4b4bd6">Cloud-hosted or self-hosted</text>
   <rect x="60" y="311" width="796" height="84" rx="14" fill="#e6e6ee"/>
   <rect x="60.5" y="306.5" width="795" height="83" rx="14" fill="#ffffff" stroke="#dbdbe5"/>
