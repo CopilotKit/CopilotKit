@@ -65,7 +65,25 @@ it("retains connect replay for late subscribers without creating results or pend
   expect(core.getApprovalDecisions("default", "original")).toBeUndefined();
 });
 it.each([
+  null,
   { version: 99 },
+  { version: 1, decisions: [null] },
+  ...[
+    { requestId: "" },
+    { toolCallId: "" },
+    { approved: "false" },
+    { status: "complete" },
+  ].map((invalid) => ({
+    version: 1,
+    decisions: [{ ...snapshot.decisions[0], ...invalid }],
+  })),
+  {
+    version: 1,
+    decisions: [
+      snapshot.decisions[0],
+      { ...snapshot.decisions[0], requestId: "different" },
+    ],
+  },
   { version: 1, decisions: [...snapshot.decisions, ...snapshot.decisions] },
 ])("marks invalid decision snapshots unavailable", async (invalid) => {
   const { agent, core } = setup();
