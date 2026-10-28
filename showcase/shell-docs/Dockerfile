@@ -71,3 +71,53 @@ CMD ["npx", "next", "start", "-p", "10000"]
 
 # Fail the build if any base or install path regresses the accepted Node runtime.
 RUN test "$(node --version)" = "v22.23.4"
+
+# Exercise the final runtime filesystem, including Turbopack's generated module
+# links. Compilation and a Node-version check cannot catch a broken MDX import.
+# Only loopback is available; this check needs no model, credentials, or backend.
+RUN --network=none node --input-type=module <<'JS'
+import { spawn } from 'node:child_process';
+import { connect } from 'node:net';
+import { setTimeout as delay } from 'node:timers/promises';
+
+const server = spawn(process.execPath, [
+  'node_modules/next/dist/bin/next', 'start',
+  '--hostname', '127.0.0.1', '--port', '10000',
+], { stdio: 'inherit' });
+
+try {
+  const deadline = Date.now() + 30_000;
+  for (;;) {
+    const listening = await new Promise((resolve) => {
+      const socket = connect(10000, '127.0.0.1');
+      socket.once('connect', () => { socket.destroy(); resolve(true); });
+      socket.once('error', () => { socket.destroy(); resolve(false); });
+    });
+    if (listening) break;
+    if (server.exitCode !== null || server.signalCode !== null) {
+      throw new Error('Docs server exited before listening');
+    }
+    if (Date.now() >= deadline) throw new Error('Docs server did not start');
+    await delay(250);
+  }
+
+  for (const [path, marker] of [
+    ['/generative-ui/components', 'Let your agent render your React components'],
+    ['/generative-ui/components/standard-catalog', 'standardUI'],
+    ['/generative-ui/components/standard-catalog/button', 'Button'],
+  ]) {
+    const response = await fetch(`http://127.0.0.1:10000${path}`, {
+      redirect: 'error', signal: AbortSignal.timeout(15_000),
+    });
+    if (response.status !== 200) {
+      throw new Error(`${path}: HTTP ${response.status}`);
+    }
+    if (!(await response.text()).includes(marker)) {
+      throw new Error(`${path}: missing expected content`);
+    }
+    console.log(`${path}: HTTP 200 and expected content`);
+  }
+} finally {
+  server.kill('SIGTERM');
+}
+JS
