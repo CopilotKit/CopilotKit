@@ -9,7 +9,7 @@ export const EXPECTED_JUDGE_TOKENS = { input: 2500, output: 120 };
 /** The most a reply may take: every model call is capped, so a sample's worst case is known. */
 export const MAX_OUTPUT_TOKENS = 8000;
 /** The most a judge reply may take, and the most its prompt may be in bytes (the prompt is cut to fit). */
-export const MAX_JUDGE_TOKENS = { input: 18000, output: 400 };
+export const MAX_JUDGE_TOKENS = { input: 18000, output: 2000 };
 /** Attempts of the judge per sample (one retry). */
 export const JUDGE_ATTEMPTS = 2;
 /**
