@@ -40,6 +40,12 @@ const CHUNK_TRANSPARENT_EVENTS = new Set([
   "SUBAGENT_STARTED",
 ]);
 
+/** Subagent terminals, which close only the lane they name. */
+const SUBAGENT_TERMINAL_EVENTS = new Set([
+  "SUBAGENT_FINISHED",
+  "SUBAGENT_ERROR",
+]);
+
 /**
  * Parse a cloned SSE Response body into structured messages.
  * Returns empty results for non-SSE responses.
@@ -77,6 +83,26 @@ export async function parseSSEResponse(
   // the first delta.
   const openChunks = new Map<string, { kind: "text" | "tool"; id: string }>();
 
+  // The lane a chunk belongs to, decided as in @ag-ui/client. An id continues
+  // the lane that holds it, and otherwise opens in the lane its tag names. A
+  // chunk without an id goes to its tag's lane; untagged, to the parent lane
+  // if the parent has a chunk of that kind open, else to the sole lane that
+  // does. The client throws when several lanes qualify; the parser only
+  // observes the stream, so it uses the parent lane and drops the chunk.
+  const chunkLane = (
+    kind: "text" | "tool",
+    id: string | undefined,
+    tag: string | undefined,
+  ): string => {
+    const lanes = [...openChunks].filter(([, open]) => open.kind === kind);
+    if (id) {
+      return lanes.find(([, open]) => open.id === id)?.[0] ?? tag ?? "";
+    }
+    if (tag) return tag;
+    if (openChunks.get("")?.kind === kind) return "";
+    return lanes.length === 1 ? lanes[0][0] : "";
+  };
+
   // Link a tool call to its assistant message the way @ag-ui/client does. A
   // tool-only turn streams no TEXT_MESSAGE_START, so the parent may not exist
   // yet; create it, keyed by toolCallId when parentMessageId is missing or
@@ -106,11 +132,14 @@ export async function parseSSEResponse(
       continue;
     }
 
-    const lane: string = event.subagentRunId ?? "";
     if (RUN_BOUNDARY_EVENTS.has(event.type)) {
       openChunks.clear();
+    } else if (SUBAGENT_TERMINAL_EVENTS.has(event.type)) {
+      // A terminal without a subagentRunId is malformed, and the client
+      // passes it through without closing the parent lane.
+      if (event.subagentRunId) openChunks.delete(event.subagentRunId);
     } else if (!CHUNK_TRANSPARENT_EVENTS.has(event.type)) {
-      openChunks.delete(lane);
+      openChunks.delete(event.subagentRunId ?? "");
     }
 
     switch (event.type) {
@@ -144,6 +173,11 @@ export async function parseSSEResponse(
       case "TEXT_MESSAGE_CHUNK": {
         // Chunk format: combined start+content. First chunk creates the
         // message, subsequent chunks append delta to content.
+        const lane = chunkLane(
+          "text",
+          event.messageId,
+          event.subagentRunId ?? undefined,
+        );
         const open = openChunks.get(lane);
         const messageId: string | undefined =
           event.messageId ?? (open?.kind === "text" ? open.id : undefined);
@@ -185,6 +219,11 @@ export async function parseSSEResponse(
       case "TOOL_CALL_CHUNK": {
         // Chunk format: combined start+args. First chunk for a given
         // toolCallId creates the tool call, subsequent chunks append delta.
+        const lane = chunkLane(
+          "tool",
+          event.toolCallId,
+          event.subagentRunId ?? undefined,
+        );
         const open = openChunks.get(lane);
         const toolCallId: string | undefined =
           event.toolCallId ?? (open?.kind === "tool" ? open.id : undefined);
