@@ -17,18 +17,14 @@ icon: lucide/Share2
 
 ## What is this?
 
-[Flow based agents](https://docs.pydantic-ai.com/concepts/flows) are stateful agents that can be interrupted and resumed
-to allow for user input.
-
-CopilotKit lets you to add custom UI to take user input and then pass it back to the agent upon completion.
+The agent drafts an essay, then calls a frontend tool to show that draft to the user. The tool waits for the user's decision before the agent continues.
 
 ## Why should I use this?
 
 Human-in-the-loop is a powerful way to implement complex workflows that are production ready. By having a human in the loop,
 you can ensure that the agent is always making the right decisions and ultimately is being steered in the right direction.
 
-Flow based agents are a great way to implement HITL for more complex workflows where you want to ensure the agent is aware
-of everything that has happened during a HITL interaction.
+Use this pattern when the agent must wait for approval before continuing with a draft.
 
 ## Implementation
 
@@ -44,63 +40,47 @@ of everything that has happened during a HITL interaction.
     </Step>
 
     <Step>
-        ### Add a `useFrontendTool` to your Frontend
-        First, we'll create a component that renders the agent's essay draft and waits for user approval.
+        ### Add a human-in-the-loop tool to your frontend
+        Mount this component inside your `CopilotKit` provider alongside your chat UI. The agent passes the complete essay as `draft`. The tool does not return a result until the user chooses a button.
 
-        ```tsx title="ui/app/page.tsx"
+        ```tsx title="ui/app/essay-approval.tsx"
+        "use client";
 
-        function YourMainContent() {
-          // ...
+        import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+        import { z } from "zod";
 
-          useFrontendTool({
+        export function EssayApproval() {
+          useHumanInTheLoop({
             name: "write_essay",
-            available: "frontend",
-            description: "Writes an essay and takes the draft as an argument.",
+            description: "Show an essay draft to the user and wait for approval or a request to revise it.",
             parameters: z.object({
-              draft: z.string().describe("The draft of the essay"),
+              draft: z.string().describe("The complete essay draft for the user to review"),
             }),
-            // [!code highlight:25]
-            renderAndWaitForResponse: ({ args, respond, status }) => {
-              return (
-                <div>
-                  <Markdown content={args.draft || 'Preparing your draft...'} />
-
-                  <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
-                    <button
-                      onClick={() => respond?.("CANCEL")}
-                      disabled={status !== "executing"}
-                      className="border p-2 rounded-xl w-full"
-                    >
+            render: ({ args, respond }) => (
+              <div>
+                <p className="whitespace-pre-wrap">{args.draft || "Preparing your draft..."}</p>
+                {respond && (
+                  <div className="flex gap-4 pt-4">
+                    <button onClick={() => respond("CANCEL")} className="border p-2 rounded-xl w-full">
                       Try Again
                     </button>
-                    <button
-                      onClick={() => respond?.("SEND")}
-                      disabled={status !== "executing"}
-                      className="bg-blue-500 text-white p-2 rounded-xl w-full"
-                    >
+                    <button onClick={() => respond("SEND")} className="bg-blue-500 text-white p-2 rounded-xl w-full">
                       Approve Draft
                     </button>
                   </div>
-                </div>
-              );
-            },
+                )}
+              </div>
+            ),
           });
 
-          // ...
+          return null;
         }
         ```
     </Step>
 
     <Step>
     ### Setup the Pydantic AI Agent
-Now we'll setup the Pydantic AI agent. The flow is hard to understand without a complete example, so below
-    is the complete implementation of the agent with explanations.
-
-    Some main things to note:
-    - The agent's state inherits from `CopilotKitState` to bring in the CopilotKit actions.
-    - CopilotKit's actions are bound to the model as tools.
-    - If the `writeEssay` action is found in the model's response, the agent will pass control back to the frontend
-      to get user feedback.
+    Pydantic AI receives frontend tools through the AG-UI request. Do not declare a backend tool named `write_essay`: the frontend owns that name and waits for the user's response. The agent should draft the essay itself, then call the frontend tool with the draft.
 
     <Tabs groupId="language" items={["Python"]}>
       <Tab value="Python">
@@ -112,14 +92,15 @@ Now we'll setup the Pydantic AI agent. The flow is hard to understand without a 
         from starlette.responses import Response
         from starlette.routing import Route
 
-        agent = Agent('openai:gpt-5.4-mini')
-
-        @agent.tool_plain
-        async def write_essay(topic: str) -> str:
-            """Write an essay on the given topic."""
-            # This would typically generate an essay
-            # The agent will wait for user feedback before proceeding
-            return f"Essay draft on '{topic}' has been generated. Please review."
+        agent = Agent(
+            'openai:gpt-5.4-mini',
+            instructions=(
+                "When asked for an essay, write the complete draft and call the frontend "
+                "write_essay tool with that draft. Wait for its result. If it returns "
+                "CANCEL, revise the draft and ask again. If it returns SEND, confirm "
+                "that the draft was approved."
+            ),
+        )
 
 
         async def run_agent(request: Request) -> Response:
@@ -133,8 +114,7 @@ Now we'll setup the Pydantic AI agent. The flow is hard to understand without a 
     </Step>
     <Step>
         ### Give it a try!
-        Try asking your agent to write an essay about the benefits of AI. You'll see that it will generate an essay,
-        stream the progress and eventually ask you to review it.
+        Try asking your agent to write an essay about the benefits of AI. The draft appears in the approval card. Approve Draft returns `SEND`; Try Again returns `CANCEL` so the agent can revise it.
     </Step>
 
 </Steps>
