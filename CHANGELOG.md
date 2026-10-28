@@ -16,6 +16,12 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.83.0 - 2026-10-28
+
+### Other Changes
+
+- Merge commit from fork (4693af4)
+
 ## 1.82.0 - 2026-10-27
 
 ### Features
