@@ -122,6 +122,12 @@ it("captures decisions from agents supplied at construction", async () => {
   });
   await core.connectAgent({ agent });
   expect(core.getApprovalDecisions("default", "original")).toEqual(snapshot);
+  // Publishing the same constructor instance must preserve its early replay.
+  core.setAgents__unsafe_dev_only({ default: agent });
+  expect(core.getApprovalDecisions("default", "original")).toEqual(snapshot);
+  core.removeAgent__unsafe_dev_only("default");
+  await agent.runAgent();
+  expect(core.getApprovalDecisions("default", "original")).toBeUndefined();
 });
 
 it("replays the captured PNI-725 host decision while only B stays actionable", async () => {
