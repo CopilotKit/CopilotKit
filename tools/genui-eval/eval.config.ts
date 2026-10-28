@@ -8,7 +8,7 @@ import { defineEvalConfig } from "./src/config";
  */
 export default defineEvalConfig({
   models: [
-    { id: "gpt", model: "openai/gpt-6.1-terra" },
+    { id: "gpt", model: "openai/gpt-5.6-luna" },
     { id: "claude", model: "anthropic/claude-sonnet-5.5" },
     { id: "gemini", model: "google/gemini-3.8-flash" },
     { id: "deepseek", model: "deepseek/deepseek-v4.1-flash" },
@@ -38,6 +38,7 @@ export default defineEvalConfig({
   judge: { model: "anthropic/claude-opus-5.5" },
   reflection: { model: "openai/gpt-6.1-terra" },
   prices: {
+    "openai/gpt-5.6-luna": { input: 0.2, output: 1.2 },
     "openai/gpt-6.1-terra": { input: 1, output: 5 },
     "anthropic/claude-sonnet-5.5": { input: 2, output: 10 },
     "google/gemini-3.8-flash": { input: 0.825, output: 4.125 },
