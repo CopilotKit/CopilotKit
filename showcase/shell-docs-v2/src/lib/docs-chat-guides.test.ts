@@ -4,6 +4,7 @@ import {
   guideRequestSchema,
   resolveDocsGuideRequest,
 } from "./docs-chat-guides";
+import type { FrontendId } from "@/proto/data";
 
 test("guide requests reject arbitrary destinations and unavailable frameworks", () => {
   assert.equal(
@@ -82,5 +83,45 @@ test("Angular setup stays integrated and channels use their connect guide", () =
       framework: "mastra",
     }).map((guide) => guide.url),
     ["/slack/mastra/connect"],
+  );
+});
+
+test("Chat cards point to the selected frontend's existing guide", () => {
+  const destinations: Record<FrontendId, string> = {
+    react: "/mastra/agentic-chat-ui",
+    vue: "/vue/mastra/prebuilt-components/chat",
+    angular: "/angular/mastra/guides/chat-ui",
+    "react-native": "/reference/react-native/components/CopilotChat",
+    slack: "/slack/mastra/connect",
+    teams: "/teams/mastra/connect",
+  };
+  for (const [frontend, url] of Object.entries(destinations)) {
+    const request = guideRequestSchema.parse({
+      guides: ["chat"],
+      frontend,
+      framework: "mastra",
+    });
+    assert.deepEqual(
+      resolveDocsGuideRequest(request).map((guide) => guide.url),
+      [url],
+    );
+  }
+});
+
+test("tailored recommendations stay within three cards after setup expands", () => {
+  const request = guideRequestSchema.parse({
+    guides: ["quickstart", "chat", "shared-state"],
+    frontend: "vue",
+    framework: "mastra",
+  });
+  assert.deepEqual(
+    resolveDocsGuideRequest(request).map((guide) => guide.id),
+    ["quickstart", "agent-setup", "chat"],
+  );
+  assert.equal(
+    guideRequestSchema.safeParse({
+      guides: ["chat", "frontend-tools", "streams", "learning"],
+    }).success,
+    false,
   );
 });

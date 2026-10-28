@@ -1,73 +1,52 @@
 "use client";
 
 import Link from "next/link";
-import { SiDiscord, SiGithub, SiX } from "react-icons/si";
 import { HomeDocsChat } from "@/components/ai/home-docs-chat";
-import { CopilotKitLogo } from "@/components/copilotkit-logo";
-import {
-  AskAIGlyph,
-  FrontendToolsGlyph,
-  GenerativeUIGlyph,
-  HumanInTheLoopGlyph,
-  IntelligenceGlyph,
-  LearningGlyph,
-  SharedStateGlyph,
-  ThreadsGlyph,
-} from "@/components/icons/glyphs";
-import { liveFramework } from "@/lib/live-scope";
-import { getSetupLinks, getCapabilityLinks } from "@/lib/home-docs-links";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { liveFramework } from "@/lib/live-scope";
+import { getSetupLinks } from "@/lib/home-docs-links";
 import { useHomepageTelemetry } from "@/lib/telemetry/use-homepage-telemetry";
 import { CopyPromptD } from "./copy-prompt-d";
 import { useFrontend } from "./frontend";
 import { useLastFramework } from "./last-framework";
-import { LinkCard, Tray } from "./link-card";
 import { FrontendChips } from "./pieces";
 import { QuickstartMenu } from "./quickstart-menu";
 
-const sectionTitle = "text-2xl leading-tight font-medium tracking-[-0.03em]";
-const textLink = "underline underline-offset-4 hover:text-primary";
-
 export function DHome() {
-  const [rememberedFramework] = useLastFramework();
-  const framework = liveFramework(rememberedFramework)
-    ? rememberedFramework
-    : "built-in-agent";
-  const { frontend } = useFrontend();
-  const scope = { framework, frontend };
-  const track = useHomepageTelemetry();
-  const setupLinks = getSetupLinks(scope);
-
   return (
-    <div className="mx-auto flex w-full max-w-[72rem] flex-col gap-16 px-5 pt-10 pb-24 md:px-8 md:pt-14">
-      <section className="grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,32rem)] lg:gap-12">
-        <div className="flex flex-col items-start gap-6">
+    <div className="mx-auto w-full max-w-[80rem] px-5 pt-10 pb-16 md:px-8 md:pt-12">
+      <section className="flex flex-col gap-8 md:gap-10">
+        <div className="flex flex-col items-center gap-5 text-center">
           <h1 className="text-[2.5rem] leading-[1.04] font-normal tracking-[-0.03em] text-balance md:text-[3.5rem]">
-            Let agents and users{" "}
+            Let agents and users
+            <br />
             <span className="-mb-[0.2em] inline-block bg-(image:--accent-gradient) bg-clip-text pb-[0.2em] font-medium text-transparent">
               work together
             </span>{" "}
             in your app
           </h1>
-          <p className="max-w-[34rem] text-lg leading-[1.5] text-muted-foreground">
+          <p className="text-lg leading-[1.5] text-muted-foreground">
             Open-source APIs and components that connect app state, agent
             actions, and user input.
           </p>
           <div
-            className="flex flex-wrap items-center gap-x-5 gap-y-3"
+            className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3"
             data-docs-copy-surface="docs_landing_hero"
           >
             <CopyPromptD />
-            <a
-              href="#start-building"
-              className={`inline-flex min-h-11 items-center text-sm font-medium ${textLink}`}
-            >
-              Go to the quickstart ↓
-            </a>
+            <QuickstartPicker />
           </div>
         </div>
-        <div className="flex min-w-0 flex-col gap-3">
-          <p className="text-sm leading-relaxed text-muted-foreground">
+        <div className="mx-auto flex w-full min-w-0 max-w-[52rem] flex-col gap-3">
+          <p className="text-center text-sm leading-relaxed text-muted-foreground">
             <strong className="font-medium text-foreground">
               CopilotKit in action.
             </strong>{" "}
@@ -77,14 +56,36 @@ export function DHome() {
           <HomeDocsChat />
         </div>
       </section>
+    </div>
+  );
+}
 
-      <section id="start-building" className="flex scroll-mt-24 flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <h2 className={sectionTitle}>Start building</h2>
-          <p className="text-muted-foreground">
-            Choose your frontend and agent framework to open your quickstart.
-          </p>
-        </div>
+/** Direct setup stays available without opening the full guide directory. */
+function QuickstartPicker() {
+  const [rememberedFramework] = useLastFramework();
+  const framework = liveFramework(rememberedFramework)
+    ? rememberedFramework
+    : "built-in-agent";
+  const { frontend } = useFrontend();
+  const track = useHomepageTelemetry();
+  const setupLinks = getSetupLinks({ framework, frontend });
+
+  return (
+    <Popover>
+      <PopoverTrigger className="inline-flex min-h-11 items-center text-sm font-medium underline underline-offset-4 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
+        Go to the quickstart ↓
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={12}
+        className="max-h-(--available-height) w-[min(32rem,calc(100vw-2rem))] gap-6 overflow-y-auto rounded-2xl p-5"
+      >
+        <PopoverHeader>
+          <PopoverTitle>Start building</PopoverTitle>
+          <PopoverDescription>
+            Choose your frontend and agent framework.
+          </PopoverDescription>
+        </PopoverHeader>
         <FrontendChips />
         <div className="flex flex-wrap items-center gap-3">
           <QuickstartMenu />
@@ -105,92 +106,7 @@ export function DHome() {
             </Button>
           ))}
         </div>
-      </section>
-
-      <section className="flex flex-col gap-5">
-        <h2 className={sectionTitle}>Explore capabilities</h2>
-        <Tray matrix>
-          {getCapabilityLinks(scope).map(({ id, title, description, url }) => (
-            <LinkCard
-              key={id}
-              href={url}
-              icon={CAPABILITY_ICONS[id]}
-              title={title}
-              description={description}
-            />
-          ))}
-        </Tray>
-      </section>
-
-      <section className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
-          <h2 className={sectionTitle}>CopilotKit Intelligence</h2>
-          <p className="text-muted-foreground">
-            {frontend === "slack" || frontend === "teams"
-              ? "CopilotKit Intelligence powers your channel integration, with event replay and Automatic Learning."
-              : "Add event replay and Automatic Learning with an optional service."}
-          </p>
-        </div>
-        <div className="grid gap-2 rounded-[20px] bg-frame p-2 sm:grid-cols-2">
-          <LinkCard
-            href="/AG-UI-Streams"
-            icon={<IntelligenceGlyph />}
-            title="AG-UI Streams"
-            description="Restore interactive conversations and catch up after reconnecting."
-          />
-          <LinkCard
-            href="/learning"
-            icon={<LearningGlyph />}
-            title="Automatic Learning"
-            description="Turn patterns in real conversations into skills you review and publish."
-          />
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Free and paid options.{" "}
-          <Link href="/intelligence/plans" className={textLink}>
-            Compare plans
-          </Link>
-          {" · "}
-          <Link href="/concepts/oss-vs-enterprise" className={textLink}>
-            What’s included in open source?
-          </Link>
-        </p>
-      </section>
-
-      <footer className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t pt-8 text-sm text-muted-foreground">
-        <CopilotKitLogo className="me-auto h-5 w-auto text-foreground" />
-        {COMMUNITY.map((c) => (
-          <a
-            key={c.label}
-            href={c.url}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex min-h-11 items-center gap-2 transition-colors hover:text-foreground"
-          >
-            <c.Icon className="size-4" aria-hidden="true" />
-            {c.label}
-          </a>
-        ))}
-      </footer>
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }
-
-const CAPABILITY_ICONS = {
-  chat: <AskAIGlyph />,
-  "generative-ui": <GenerativeUIGlyph />,
-  "frontend-tools": <FrontendToolsGlyph />,
-  "shared-state": <SharedStateGlyph />,
-  "human-in-the-loop": <HumanInTheLoopGlyph />,
-  threads: <ThreadsGlyph />,
-};
-
-const COMMUNITY = [
-  { label: "Discord", url: "https://discord.gg/6dffbvGU3D", Icon: SiDiscord },
-  { label: "X", url: "https://x.com/CopilotKit", Icon: SiX },
-  {
-    label: "GitHub",
-    url: "https://github.com/CopilotKit/CopilotKit",
-    Icon: SiGithub,
-  },
-];

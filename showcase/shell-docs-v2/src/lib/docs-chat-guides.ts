@@ -18,6 +18,12 @@ export const DOCS_CHAT_GUIDES = {
     path: "/quickstart",
     scoped: true,
   },
+  chat: {
+    title: "Add a chat interface",
+    description: "Build a chat UI for conversations with your agent.",
+    path: "/agentic-chat-ui",
+    scoped: true,
+  },
   "frontend-tools": {
     title: "Let your agent use your app",
     description: "Expose application actions as tools your agent can call.",
