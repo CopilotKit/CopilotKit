@@ -24,12 +24,12 @@ pnpm -s --filter genui-eval eval run --preset full --budget 20     # the baselin
 
 ## How a sample is scored
 
-| Tier | Question | Scored by |
-| --- | --- | --- |
-| validity | Does it parse, follow A2UI 1.0, and render from a root? | code |
-| fidelity | No rejected operation, no invalid props, the expected components? | code |
-| judgement | UI exactly where it helps, no surface that only holds text? | code + judge |
-| quality | Does the UI fit the request? | judge |
+| Tier      | Question                                                          | Scored by    |
+| --------- | ----------------------------------------------------------------- | ------------ |
+| validity  | Does it parse, follow A2UI 1.0, and render from a root?           | code         |
+| fidelity  | No rejected operation, no invalid props, the expected components? | code         |
+| judgement | UI exactly where it helps, no surface that only holds text?       | code + judge |
+| quality   | Does the UI fit the request?                                      | judge        |
 
 Each tier is reported on its own, with a 95% Wilson interval. Every case runs `samples` times per model and transport, because models are not deterministic.
 
@@ -52,7 +52,7 @@ run        [--preset full] [--models a,b] [--cases all|tag:<t>] [--samples n]
 report     <run|latest> [--base <run>]
 failures   <run|latest> [--model id] [--tier ...] [--case id] [--limit n]
 prompt     [--transport markdown|tool] [--spec file.json] [--export-spec]
-optimize   [--preset full] [--budget usd] [--rounds n] [--batch n] [--from spec.json]
+optimize   disabled for now (see below)
 label      <run|latest> [--n 20]
 calibrate  <labels.jsonl>
 ```
@@ -63,10 +63,10 @@ Every command takes `--json` (for agents) and `--config <file>`. Keep `-s` in `p
 
 The prompts are rendered from a **prompt spec** (`GenerativeUIPromptSpec` in `@copilotkit/shared`): the instruction text of both transports, the conditional rule blocks, how the component schema is written, and replacement component and prop descriptions. Without a spec, the builders render the prompts that ship, byte for byte.
 
-- `optimize` searches automatically (a GEPA-style loop: reflect on failures, keep candidates that are best on some case, merge, exam on held-out cases).
-- A coding agent can run the same loop by hand; see `AGENTS.md`.
+- For now the prompt is improved by hand: run, read the failures, change the wording, run again. See `AGENTS.md`.
+- `optimize` (a GEPA-style search: reflect on failures, keep candidates that are best on some case, merge, exam on held-out cases) is kept in the code but disabled until the prompt is in good shape.
 
-A winner is never written to the repo. `optimize` writes `results/optimize-<id>/winner.spec.json`, `winner.prompt.md` and `winner.diff`. Copy the wording into the builders (`packages/shared/src/generative-ui/prompt-spec.ts`) and the descriptions into the standard catalog, then confirm with a plain `run` that the scores match.
+A winning spec is never written to the repo by the tool. Copy its wording into the builders (`packages/shared/src/generative-ui/prompt-spec.ts`) and the descriptions into the standard catalog, then confirm with a plain `run` that the scores match.
 
 A candidate is accepted only if no model gets worse at validity on the held-out cases, it is clearly better on them (intervals apart), and its guide is at most 10% longer. Between near ties, the shorter prompt wins.
 

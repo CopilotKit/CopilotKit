@@ -40,7 +40,7 @@ async function cli(...argv: string[]) {
 }
 
 describe("the CLI, offline with no key", () => {
-  it("runs, reports, lists failures, prints prompts, labels, calibrates and optimizes", async () => {
+  it("runs, reports, lists failures, prints prompts, labels and calibrates", async () => {
     const report = await cli(
       "run",
       "--preset",
@@ -97,40 +97,17 @@ describe("the CLI, offline with no key", () => {
     const calibration = await cli("calibrate", labelled.file, "--json");
     expect(calibration.judgement.labelled).toBe(lines.length);
     rmSync(labelled.file);
-
-    const optimized = await cli(
-      "optimize",
-      "--preset",
-      "offline",
-      "--cases",
-      "tag:smoke",
-      "--transports",
-      "markdown",
-      "--rounds",
-      "1",
-      "--batch",
-      "3",
-      "--json",
-    );
-    expect(optimized.leaderboard.length).toBeGreaterThanOrEqual(1);
-    expect(optimized.outDir).toContain(root);
   });
 
-  it("only estimates with optimize --estimate", async () => {
-    const result = await cli(
-      "optimize",
-      "--preset",
-      "offline",
-      "--estimate",
-      "--json",
+  it("refuses optimize, which is disabled for now", async () => {
+    await expect(cli("optimize", "--preset", "offline")).rejects.toThrow(
+      "optimize is disabled for now",
     );
-    expect(result).toMatchObject({ rounds: 20 });
-    expect(typeof result.estimatedCostUsd).toBe("number");
   });
 
   it("refuses a budget that is not a number", async () => {
     await expect(
-      cli("optimize", "--preset", "offline", "--budget", "abc"),
+      cli("run", "--preset", "offline", "--budget", "abc"),
     ).rejects.toThrow('--budget must be a number, got "abc"');
   });
 

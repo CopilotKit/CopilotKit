@@ -8,25 +8,21 @@ import { defineEvalConfig } from "./src/config";
  */
 export default defineEvalConfig({
   models: [
-    { id: "gpt", model: "openai/gpt-5-mini" },
-    { id: "claude", model: "anthropic/claude-sonnet-4.5" },
-    { id: "gemini", model: "google/gemini-2.5-flash" },
-    {
-      id: "llama",
-      model: "meta-llama/llama-3.3-70b-instruct",
-      provider: "groq",
-    },
-    { id: "qwen", model: "qwen/qwen3-32b", provider: "cerebras" },
+    { id: "gpt", model: "openai/gpt-5.6-luna" },
+    { id: "claude", model: "anthropic/claude-sonnet-5.5" },
+    { id: "gemini", model: "google/gemini-3.8-flash" },
+    { id: "deepseek", model: "deepseek/deepseek-v4.1-flash" },
+    { id: "qwen", model: "qwen/qwen3.8-27b" },
     { id: "fake", model: "fake:offline" },
   ],
   presets: {
     smoke: { models: ["gpt", "claude"], cases: "tag:smoke", samples: 1 },
     full: {
-      models: ["gpt", "claude", "gemini", "llama", "qwen"],
+      models: ["gpt", "claude", "gemini", "deepseek", "qwen"],
       cases: "all",
       samples: 3,
     },
-    small: { models: ["gemini", "llama", "qwen"], cases: "all", samples: 3 },
+    small: { models: ["gemini", "deepseek", "qwen"], cases: "all", samples: 3 },
     offline: {
       models: ["fake"],
       cases: "all",
@@ -37,16 +33,16 @@ export default defineEvalConfig({
   },
   transports: ["markdown", "tool"],
   budgetUsd: 20,
-  judge: { model: "anthropic/claude-opus-4.1" },
-  reflection: { model: "openai/gpt-5" },
+  judge: { model: "anthropic/claude-opus-5.5" },
+  reflection: { model: "openai/gpt-5.6-terra" },
   prices: {
-    "openai/gpt-5-mini": { input: 0.25, output: 2 },
-    "anthropic/claude-sonnet-4.5": { input: 3, output: 15 },
-    "google/gemini-2.5-flash": { input: 0.3, output: 2.5 },
-    "meta-llama/llama-3.3-70b-instruct": { input: 0.6, output: 0.8 },
-    "qwen/qwen3-32b": { input: 0.4, output: 0.8 },
-    "anthropic/claude-opus-4.1": { input: 15, output: 75 },
-    "openai/gpt-5": { input: 1.25, output: 10 },
+    "openai/gpt-5.6-luna": { input: 0.2, output: 1.2 },
+    "anthropic/claude-sonnet-5.5": { input: 2, output: 10 },
+    "google/gemini-3.8-flash": { input: 0.825, output: 4.125 },
+    "deepseek/deepseek-v4.1-flash": { input: 0.14, output: 0.42 },
+    "qwen/qwen3.8-27b": { input: 0.039, output: 1.25 },
+    "anthropic/claude-opus-5.5": { input: 4, output: 20 },
+    "openai/gpt-5.6-terra": { input: 2, output: 12 },
   },
   concurrency: 4,
 });

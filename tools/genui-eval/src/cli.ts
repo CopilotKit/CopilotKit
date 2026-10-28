@@ -26,8 +26,7 @@ const USAGE = `genui-eval: measure and improve the A2UI output of the generative
   failures   <run|latest> [--model id] [--tier validity|fidelity|judgement|quality]
              [--case id] [--limit n]
   prompt     [--transport markdown|tool] [--spec file.json] [--export-spec]
-  optimize   [--preset full] [--budget usd] [--rounds n] [--batch n] [--models a,b]
-             [--from spec.json]
+  optimize   disabled for now: the prompt is improved by hand (see AGENTS.md)
   label      <run|latest> [--n 20]       write samples to grade by hand
   calibrate  <labels.jsonl>              agreement of the judge with the hand labels
 
@@ -294,10 +293,12 @@ export async function main(argv = process.argv.slice(2)) {
       return commandLabel(values, rest);
     case "calibrate":
       return commandCalibrate(values, rest);
-    case "optimize": {
-      const { commandOptimize } = await import("./optimize-cli");
-      return commandOptimize(config, values, planOf(config, values));
-    }
+    case "optimize":
+      // The search is kept but switched off: for now we improve the prompt by
+      // hand, reading the failures of each run (see AGENTS.md).
+      throw new Error(
+        "optimize is disabled for now: improve the prompt by hand with the loop in AGENTS.md.",
+      );
     default:
       throw new Error(`Unknown command "${command}".\n\n${USAGE}`);
   }
