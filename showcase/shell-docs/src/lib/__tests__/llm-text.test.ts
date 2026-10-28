@@ -3,6 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "vitest";
 import { loadDoc } from "../docs-render";
+import { getVueDocsPageRoutes } from "../frontend-page-content";
+import { resolveFrontendDocPage } from "../frontend-doc-policy";
+import { getEarlyAccessGate } from "../early-access";
 import {
   getAllLlmPages,
   renderPageToLlmText,
@@ -29,6 +32,24 @@ test("omits early-access guides from the public aggregate without removing publi
   expect(urls.has("learning")).toBe(true);
   expect(urls.has("intelligence/memories")).toBe(true);
   expect(urls.has("intelligence/learned-skills")).toBe(true);
+});
+
+test("publishes public Vue guides and reference in the exhaustive corpus", () => {
+  const urls = new Set(getAllLlmPages().map((page) => page.url));
+  expect(urls.has("vue")).toBe(true);
+  expect(urls.has("vue/AG-UI-Streams")).toBe(true);
+  expect(urls.has("vue/threads")).toBe(false);
+  expect(urls.has("reference/vue/hooks/useThreads")).toBe(true);
+  expect(urls.has("reference/vue/components/CopilotThreadsDrawer")).toBe(true);
+  for (const { canonicalSlugPath } of getVueDocsPageRoutes()) {
+    if (!canonicalSlugPath) continue;
+    const resolution = resolveFrontendDocPage("vue", canonicalSlugPath);
+    if (resolution.status !== "found") throw new Error(canonicalSlugPath);
+    const doc = loadDoc(resolution.contentSlugPath);
+    expect(urls.has(`vue/${canonicalSlugPath}`), canonicalSlugPath).toBe(
+      !getEarlyAccessGate(doc?.fm.earlyAccess),
+    );
+  }
 });
 
 test("Hashbrown guide exports each bundled framework's complete source", () => {

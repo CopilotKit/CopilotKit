@@ -76,7 +76,10 @@ only, not during server rendering.
 By default, CopilotKit includes the catalog schema in agent context. Set
 `includeSchema: false` only when the server already supplies equivalent schema
 and generation instructions. Otherwise the agent cannot reliably know which
-components and props are valid.
+components and props are valid. With `includeSchema: false`, the agent context
+lists only the catalog ID and the custom component names, so a LangGraph A2UI
+subagent gets the component names only unless you pass a composition guide
+through the CopilotKit middleware's A2UI guidelines.
 
 ## Style rendered components
 

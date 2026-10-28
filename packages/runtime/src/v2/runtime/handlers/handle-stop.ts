@@ -4,6 +4,7 @@ import { EventType } from "@ag-ui/client";
 import { resolveIntelligenceUser } from "./shared/resolve-intelligence-user";
 import { isHandlerResponse } from "./shared/json-response";
 import { getPlatformErrorStatus } from "./shared/intelligence-utils";
+import { resolveLocalThreadOwner } from "./shared/thread-access";
 
 interface StopAgentParameters {
   request: Request;
@@ -52,7 +53,17 @@ export async function handleStopAgent({
     if (isHandlerResponse(scope)) return scope;
     const { runId } = scope;
     let stopThreadId = threadId;
-    if (isIntelligenceRuntime(runtime)) {
+    let ownerId: string | undefined;
+    if (!isIntelligenceRuntime(runtime)) {
+      // A run on another identity's thread reports "no active run".
+      const owner = await resolveLocalThreadOwner({
+        runtime,
+        request,
+        operation: "stop",
+      });
+      if (isHandlerResponse(owner)) return owner;
+      ownerId = owner;
+    } else {
       const user = await resolveIntelligenceUser({ runtime, request });
       if (isHandlerResponse(user)) return user;
       try {
@@ -99,6 +110,7 @@ export async function handleStopAgent({
     const stopped = await runtime.runner.stop({
       threadId: stopThreadId,
       ...(runId === undefined ? {} : { runId }),
+      ...(ownerId === undefined ? {} : { ownerId }),
     });
 
     if (!stopped) {

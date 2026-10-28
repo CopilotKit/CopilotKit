@@ -1,0 +1,15 @@
+# The environment: the sandbox template every chat thread's session boots
+# from. `ant apply anthropic` sends this file as the Environments API request
+# body and records the environment's ID in claude-lock.json.
+name: copilotkit-sandbox
+metadata:
+  anthropic_quickstart: create-copilotkit
+config:
+  type: cloud
+  networking:
+    # The sandbox itself can reach package registries and nothing else.
+    # web_search and web_fetch run outside the sandbox, so research still
+    # works. Add hosts here when your agent needs to call an API from code.
+    type: limited
+    allow_package_managers: true
+    allowed_hosts: []
