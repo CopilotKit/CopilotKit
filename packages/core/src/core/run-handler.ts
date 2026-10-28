@@ -1187,14 +1187,16 @@ export class RunHandler {
               }
             }
             if (interactionController?.signal.aborted) {
-              const hasResult = agent.messages.some(
-                (m) =>
-                  m.role === "tool" &&
-                  m.toolCallId === toolCall.id &&
-                  !this.isFrontendPlaceholderResult(m),
-              );
-              if (!hasResult) {
-                this.insertStoppedToolResult(message, toolCall.id, agent);
+              if (agent.threadId === threadId) {
+                const hasResult = agent.messages.some(
+                  (m) =>
+                    m.role === "tool" &&
+                    m.toolCallId === toolCall.id &&
+                    !this.isFrontendPlaceholderResult(m),
+                );
+                if (!hasResult) {
+                  this.insertStoppedToolResult(message, toolCall.id, agent);
+                }
               }
               continue;
             }

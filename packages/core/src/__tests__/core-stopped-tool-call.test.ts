@@ -562,4 +562,56 @@ describe("CopilotKitCore - unanswered tool call from stopped run", () => {
     // The follow-up tool handler should not have been executed
     expect(nextTool.handler).not.toHaveBeenCalled();
   });
+
+  it("should not insert stopped result or leak old message when thread switches during live HITL", async () => {
+    const agent = new MockAgent({ agentId: "test", threadId: "thread-A" });
+    (agent as any).detachActiveRun = async () => {};
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    let handlerSignal: AbortSignal | undefined;
+    const hitlTool = createTool({
+      name: "approve_transfer",
+      type: "human-in-the-loop",
+      handler: vi.fn(async (_args: any, context: any) => {
+        handlerSignal = context.signal;
+        await new Promise((resolve) => {
+          context.signal.addEventListener("abort", resolve);
+        });
+        return "approved";
+      }),
+    });
+    copilotKitCore.addTool(hitlTool);
+
+    const message = createToolCallMessage("approve_transfer");
+    agent.setNewMessages([message]);
+
+    // Initial connection on thread-A
+    await copilotKitCore.connectAgent({ agent: agent as any });
+
+    // Start runAgent on thread-A in background
+    const runPromise = copilotKitCore.runAgent({ agent: agent as any });
+
+    // Wait until handler is entered and waiting
+    await vi.waitFor(() => {
+      expect(hitlTool.handler).toHaveBeenCalledOnce();
+    });
+
+    // Simulate switching to thread-B: update threadId and clear messages
+    agent.threadId = "thread-B";
+    agent.setMessages([]);
+    agent.setNewMessages([]);
+
+    // connectAgent with thread-B aborts live HITL controllers from thread-A
+    await copilotKitCore.connectAgent({ agent: agent as any });
+
+    await runPromise;
+
+    expect(handlerSignal?.aborted).toBe(true);
+
+    // Thread B's messages must NOT contain thread-A's message or stopped result
+    expect(agent.messages).toHaveLength(0);
+  });
 });
