@@ -324,6 +324,8 @@ custom hosts, renderers, and protocol testing.
 - `provideMCPApps`
 <!-- public-api:mcp-apps:end -->
 
-The MCP Apps renderer uses the same inline `srcdoc` proxy, sandbox permissions,
-and resource-domain CSP as the React SDK. Widgets get an opaque origin unless
-`allowSameOriginFallback` is set.
+The MCP Apps renderer uses the same sandbox proxy, sandbox permissions, and
+resource-domain CSP as the React SDK. By default the proxy is inline (`srcdoc`)
+and widgets get an opaque origin. `sandboxOrigin` loads the proxy from a
+separate origin instead, where widgets keep `allow-same-origin`.
+`allowSameOriginFallback` restores `allow-same-origin` on the inline proxy.

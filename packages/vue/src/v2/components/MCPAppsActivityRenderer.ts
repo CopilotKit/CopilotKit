@@ -73,6 +73,15 @@ export const MCPAppsActivityRenderer = defineComponent({
       required: false,
       default: false,
     },
+    /**
+     * Serve the sandbox proxy from this separate origin. Set via
+     * `mcpApps.sandboxOrigin` on `CopilotKitProvider`.
+     */
+    sandboxOrigin: {
+      type: String,
+      required: false,
+      default: undefined,
+    },
   },
   setup(props) {
     const { copilotkit } = useCopilotKit();
@@ -115,6 +124,7 @@ export const MCPAppsActivityRenderer = defineComponent({
         () => props.content.serverHash,
         () => props.content.serverId,
         () => props.allowSameOriginFallback,
+        () => props.sandboxOrigin,
       ],
       ([container, agent], _old, onCleanup) => {
         if (!agent) {
@@ -187,6 +197,7 @@ export const MCPAppsActivityRenderer = defineComponent({
               messageId: messageId.value,
               options: {
                 allowSameOriginFallback: props.allowSameOriginFallback,
+                sandboxOrigin: props.sandboxOrigin,
               },
               hooks: {
                 onResource: (resource) => {

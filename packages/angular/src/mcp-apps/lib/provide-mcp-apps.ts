@@ -9,6 +9,7 @@ import {
   MCP_APPS_CONFIG,
   type MCPAppsConfig,
   type MCPAppsHostInfo,
+  type ResolvedMCPAppsConfig,
 } from "./mcp-apps-config";
 
 export type { MCPAppsConfig, MCPAppsHostInfo } from "./mcp-apps-config";
@@ -47,7 +48,7 @@ export function provideMCPApps(
           ...DEFAULT_MCP_APPS_CONFIG.hostContext,
           ...config.hostContext,
         },
-      } satisfies Required<MCPAppsConfig>,
+      } satisfies ResolvedMCPAppsConfig,
     },
     {
       provide: ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,

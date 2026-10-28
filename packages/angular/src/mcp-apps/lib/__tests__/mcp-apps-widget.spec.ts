@@ -102,6 +102,7 @@ function configureTestingModule(
   idleTimeoutMs = 30_000,
   initializationTimeoutMs = 30_000,
   allowSameOriginFallback?: boolean,
+  sandboxOrigin?: string,
 ): void {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
@@ -110,6 +111,7 @@ function configureTestingModule(
         idleTimeoutMs,
         initializationTimeoutMs,
         allowSameOriginFallback,
+        sandboxOrigin,
       }),
       {
         provide: CopilotKit,
@@ -503,9 +505,11 @@ test("matches the React SDK sandbox and resource CSP contract", async () => {
   expect(frame.srcdoc).toContain(
     "script-src 'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:* https://cdn.example.com",
   );
+  // The widget frame defaults to the safe flags when the host sends none.
   expect(frame.srcdoc).toContain(
-    'inner.setAttribute("sandbox","allow-scripts allow-forms")',
+    'typeof sandbox==="string"?sandbox:"allow-scripts allow-forms"',
   );
+  expect(frame.srcdoc).not.toContain("allow-same-origin");
   expect(resourceReady).toEqual({
     jsonrpc: "2.0",
     method: "ui/notifications/sandbox-resource-ready",
@@ -526,6 +530,35 @@ test("restores allow-same-origin with allowSameOriginFallback", async () => {
     }),
     "*",
   );
+});
+
+test("loads the proxy from sandboxOrigin", async () => {
+  configureTestingModule(
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    "https://sandbox.example.com",
+  );
+  const fixture = TestBed.createComponent(CopilotMCPAppsWidget);
+  fixture.componentRef.setInput("data", snapshot);
+  fixture.componentRef.setInput("agent", createAgent());
+  await settle(fixture);
+  const frame = fixture.nativeElement.querySelector<HTMLIFrameElement>(
+    "[data-testid='mcp-app-iframe']",
+  );
+  await waitFor(
+    () => frame?.hasAttribute("src") === true,
+    "sandbox proxy was not loaded",
+  );
+
+  expect(frame!.getAttribute("src")).toBe(
+    "https://sandbox.example.com/mcp-apps-sandbox-proxy.html",
+  );
+  expect(frame!.getAttribute("sandbox")).toBe(
+    "allow-scripts allow-same-origin allow-forms",
+  );
+  expect(frame!.hasAttribute("srcdoc")).toBe(false);
 });
 
 test("shows accessible loading and missing-resource errors", async () => {

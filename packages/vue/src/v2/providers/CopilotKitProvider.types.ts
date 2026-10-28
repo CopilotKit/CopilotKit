@@ -118,6 +118,17 @@ export interface CopilotKitProviderProps {
      * `IndexedDB` or cookies. By default widgets get an opaque origin.
      */
     allowSameOriginFallback?: boolean;
+    /**
+     * Serve the MCP App sandbox proxy from a separate origin, as the MCP Apps
+     * spec requires. Default unset: widgets get an opaque origin.
+     *
+     * Pass the origin that serves `mcp-apps-sandbox-proxy.html` from
+     * `@copilotkit/mcp-apps-renderer` at its root, such as
+     * `https://mcp-sandbox.example.com`, or the page's full URL. Widgets then
+     * run with that origin, so their storage works and your page stays out of
+     * reach. It must differ from your page's origin.
+     */
+    sandboxOrigin?: string;
   };
   /**
    * Enable debug logging for the client-side event pipeline.
