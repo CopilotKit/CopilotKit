@@ -1,3 +1,5 @@
+import { parse } from "codemod:ast-grep";
+import { migrateRuntimeAdapters } from "./runtime-adapters.ts";
 import type { Codemod, Edit, SgNode } from "codemod:ast-grep";
 import type TS from "codemod:ast-grep/langs/typescript";
 import type TSX from "codemod:ast-grep/langs/tsx";
@@ -227,8 +229,12 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  * - `CopilotKitProvider` becomes `CopilotKit`, and the v1-only props of
  *   `<CopilotKit>` are renamed or marked.
  */
-const codemod: Codemod<Lang> = async (root) => {
-  const rootNode = root.root();
+const codemod: Codemod<Lang> = async (root, options) => {
+  const migrated = migrateRuntimeAdapters(root.root());
+  const rootNode =
+    migrated === null
+      ? root.root()
+      : parse<Lang>(options.language, migrated).root();
   const source = rootNode.text();
   const edits: Edit[] = [];
   /** Local names of the v1 `<CopilotKit>` provider. */
@@ -243,6 +249,25 @@ const codemod: Codemod<Lang> = async (root) => {
         { kind: "export_statement", has: { field: "source", kind: "string" } },
       ],
     },
+  });
+
+  // Once a file uses a Fetch/Node factory, CopilotRuntime is already on the
+  // AG-UI API. Do not add a v1-runtime warning on the second codemod run.
+  const hasRuntimeHandler = statements.some((statement) => {
+    const importSource = statement.field("source");
+    return (
+      importSource &&
+      ["@copilotkit/runtime", "@copilotkit/runtime/node"].includes(
+        unquote(importSource),
+      ) &&
+      (specifiersOf(statement) ?? []).some((specifier) =>
+        [
+          "createCopilotRuntimeHandler",
+          "createCopilotNodeListener",
+          "createCopilotNodeHandler",
+        ].includes(specifier.name),
+      )
+    );
   });
 
   for (const statement of statements) {
@@ -336,7 +361,13 @@ const codemod: Codemod<Lang> = async (root) => {
         continue;
       }
       const entry = lookup(from, specifier.name);
-      if (!(isRuntimeRoot && RUNTIME_ADAPTERS.has(specifier.name))) {
+      if (
+        !(
+          isRuntimeRoot &&
+          (RUNTIME_ADAPTERS.has(specifier.name) ||
+            (hasRuntimeHandler && specifier.name === "CopilotRuntime"))
+        )
+      ) {
         todos.push(...todoLines(specifier.name, entry));
       }
       const replacement = entry?.replacement;
@@ -400,7 +431,7 @@ const codemod: Codemod<Lang> = async (root) => {
 
   edits.push(...providerPropEdits(rootNode, providerNames, source));
 
-  if (edits.length === 0) return null;
+  if (edits.length === 0) return migrated;
   return rootNode.commitEdits(edits);
 };
 

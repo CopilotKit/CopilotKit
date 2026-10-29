@@ -10,8 +10,17 @@ as their host framework.
 
 This guide applies to **2.0**. Apps pinned to CopilotKit 1.x can keep their existing
 adapters until they upgrade. Run `npx codemod @copilotkit/v2-migration` before the
-upgrade; adapter imports receive a `TODO(copilotkit-2.0)` because their return
-values and CORS options need manual migration.
+upgrade. The codemod migrates common Express mounts, Hono mounts, and Next.js
+`handle(endpoint)` wrappers automatically. It preserves aliases, single-route
+mode, explicit CORS defaults, and request URLs. Express mounts receive an
+app-owned router around the Node listener so unmatched requests still reach later
+middleware. Hono mounts call the Fetch handler directly.
+
+Cases requiring application knowledge receive a `TODO(copilotkit-2.0)`: router
+customization, exported app objects, dynamic options, and custom CORS callbacks.
+Express CORS configurations that implicitly reflect requested headers also require
+manual migration. The codemod leaves the application's framework dependencies in
+place because other routes may use them.
 
 ## Fetch and Next.js
 
@@ -85,8 +94,8 @@ For `createCopilotEndpointSingleRoute`, use `createCopilotRuntimeHandler` with
 `createCopilotNodeListener` with the same option. Keep the frontend's
 `useSingleEndpoint` setting and the existing endpoint URL.
 
-When mounting a single-route Fetch handler in Hono, register the exact base path
-as well as any desired wildcard route.
+The generated Hono wildcard mount covers the base path and its descendants;
+the Fetch handler validates the endpoint path and single-route envelope.
 
 ## CORS and lifecycle
 
