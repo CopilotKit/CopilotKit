@@ -543,7 +543,11 @@ app.use(
   The Express and single-route handlers each throw at mount time when `basePath`
   is missing — `basePath must be provided for Express endpoint` and `... for
   single-route endpoint` respectively — so the server fails to start rather than
-  serving on the wrong paths. Give it the same path the route is mounted at.
+  serving on the wrong paths. Give it the path the route is mounted at. With
+  Express, that is the path left after any `app.use("/prefix", ...)` mount
+  removes its prefix: `app.use("/api", createCopilotExpressHandler({ runtime,
+  basePath: "/copilotkit" }))` serves `/api/copilotkit`. See [Mounting under a
+  prefix](/runtime-server-adapter#mounting-under-a-prefix).
 </Callout>
 
 <Callout type="warn" title="Keep every runtime import on `/v2`">
