@@ -248,4 +248,110 @@ describe("CopilotKitCore - Frontend Tool Placeholder (remote agent HITL)", () =>
       },
     ]);
   });
+
+  it("reuses a saved result that follows its transport placeholder", async () => {
+    const handler = vi.fn(async () => "Handler result");
+    copilotKitCore.addTool(
+      createTool({ name: "myTool", handler, followUp: false }),
+    );
+
+    const toolCallMsg = createToolCallMessage("myTool");
+    const toolCallId = (toolCallMsg as any).toolCalls![0].id;
+    const placeholder = createToolResultMessage(
+      toolCallId,
+      "Forwarded to client",
+    );
+    const saved = createToolResultMessage(toolCallId, "Saved result");
+
+    const agent = new MockAgent({
+      messages: [toolCallMsg, placeholder, saved],
+      newMessages: [toolCallMsg],
+    });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(
+      agent.messages
+        .filter((m) => m.role === "tool" && m.toolCallId === toolCallId)
+        .some((m) => m.content === "Saved result"),
+    ).toBe(true);
+    expect(
+      agent.messages.filter(
+        (m) =>
+          m.role === "tool" &&
+          m.toolCallId === toolCallId &&
+          m.content === "Forwarded to client",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("prefers the canonical result in new messages over an earlier placeholder", async () => {
+    const handler = vi.fn(async () => "Handler result");
+    copilotKitCore.addTool(
+      createTool({ name: "myTool", handler, followUp: false }),
+    );
+
+    const toolCallMsg = createToolCallMessage("myTool");
+    const toolCallId = (toolCallMsg as any).toolCalls![0].id;
+    const placeholder = createToolResultMessage(
+      toolCallId,
+      "Forwarded to client",
+    );
+    const saved = createToolResultMessage(toolCallId, "Saved result");
+
+    const agent = new MockAgent({
+      newMessages: [toolCallMsg, placeholder, saved],
+    });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(
+      agent.messages
+        .filter((m) => m.role === "tool" && m.toolCallId === toolCallId)
+        .map((m) => m.content),
+    ).toContain("Saved result");
+    expect(
+      agent.messages
+        .filter((m) => m.role === "tool" && m.toolCallId === toolCallId)
+        .map((m) => m.content),
+    ).not.toContain("Forwarded to client");
+  });
+
+  it("treats an empty saved result as a canonical answer", async () => {
+    const handler = vi.fn(async () => "Handler result");
+    copilotKitCore.addTool(
+      createTool({ name: "myTool", handler, followUp: false }),
+    );
+
+    const toolCallMsg = createToolCallMessage("myTool");
+    const toolCallId = (toolCallMsg as any).toolCalls![0].id;
+    const placeholder = createToolResultMessage(
+      toolCallId,
+      "Forwarded to client",
+    );
+    const saved = createToolResultMessage(toolCallId, "");
+
+    const agent = new MockAgent({
+      messages: [toolCallMsg, placeholder, saved],
+      newMessages: [toolCallMsg],
+    });
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
 });
