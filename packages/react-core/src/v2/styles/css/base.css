@@ -31,34 +31,25 @@
   font-variation-settings: normal;
   -webkit-tap-highlight-color: transparent;
 }
-:where([data-copilotkit] hr),
-:where(hr[data-copilotkit]) {
+:where([data-copilotkit] hr) {
   height: 0;
   color: inherit;
   border-top-width: 1px;
 }
-:where([data-copilotkit] abbr:where([title])),
-:where(abbr:where([title])[data-copilotkit]) {
+:where([data-copilotkit] abbr:where([title])) {
   -webkit-text-decoration: underline dotted;
   text-decoration: underline dotted;
 }
 :where([data-copilotkit] h1),
-:where(h1[data-copilotkit]),
 :where([data-copilotkit] h2),
-:where(h2[data-copilotkit]),
 :where([data-copilotkit] h3),
-:where(h3[data-copilotkit]),
 :where([data-copilotkit] h4),
-:where(h4[data-copilotkit]),
 :where([data-copilotkit] h5),
-:where(h5[data-copilotkit]),
-:where([data-copilotkit] h6),
-:where(h6[data-copilotkit]) {
+:where([data-copilotkit] h6) {
   font-size: inherit;
   font-weight: inherit;
 }
-:where([data-copilotkit] a),
-:where(a[data-copilotkit]) {
+:where([data-copilotkit] a) {
   color: inherit;
   -webkit-text-decoration: inherit;
   -webkit-text-decoration: inherit;
@@ -66,19 +57,13 @@
   text-decoration: inherit;
 }
 :where([data-copilotkit] b),
-:where(b[data-copilotkit]),
-:where([data-copilotkit] strong),
-:where(strong[data-copilotkit]) {
+:where([data-copilotkit] strong) {
   font-weight: bolder;
 }
 :where([data-copilotkit] code),
-:where(code[data-copilotkit]),
 :where([data-copilotkit] kbd),
-:where(kbd[data-copilotkit]),
 :where([data-copilotkit] samp),
-:where(samp[data-copilotkit]),
-:where([data-copilotkit] pre),
-:where(pre[data-copilotkit]) {
+:where([data-copilotkit] pre) {
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
@@ -86,29 +71,23 @@
   font-variation-settings: normal;
   font-size: 1em;
 }
-:where([data-copilotkit] small),
-:where(small[data-copilotkit]) {
+:where([data-copilotkit] small) {
   font-size: 80%;
 }
 :where([data-copilotkit] sub),
-:where(sub[data-copilotkit]),
-:where([data-copilotkit] sup),
-:where(sup[data-copilotkit]) {
+:where([data-copilotkit] sup) {
   vertical-align: baseline;
   font-size: 75%;
   line-height: 0;
   position: relative;
 }
-:where([data-copilotkit] sub),
-:where(sub[data-copilotkit]) {
+:where([data-copilotkit] sub) {
   bottom: -0.25em;
 }
-:where([data-copilotkit] sup),
-:where(sup[data-copilotkit]) {
+:where([data-copilotkit] sup) {
   top: -0.5em;
 }
-:where([data-copilotkit] table),
-:where(table[data-copilotkit]) {
+:where([data-copilotkit] table) {
   text-indent: 0;
   border-color: inherit;
   border-collapse: collapse;
@@ -116,58 +95,39 @@
 :where([data-copilotkit] :-moz-focusring) {
   outline: auto;
 }
-:where([data-copilotkit] progress),
-:where(progress[data-copilotkit]) {
+:where([data-copilotkit] progress) {
   vertical-align: baseline;
 }
-:where([data-copilotkit] summary),
-:where(summary[data-copilotkit]) {
+:where([data-copilotkit] summary) {
   display: list-item;
 }
 :where([data-copilotkit] ol),
-:where(ol[data-copilotkit]),
 :where([data-copilotkit] ul),
-:where(ul[data-copilotkit]),
-:where([data-copilotkit] menu),
-:where(menu[data-copilotkit]) {
+:where([data-copilotkit] menu) {
   list-style: none;
 }
 :where([data-copilotkit] img),
-:where(img[data-copilotkit]),
 :where([data-copilotkit] svg),
-:where(svg[data-copilotkit]),
 :where([data-copilotkit] video),
-:where(video[data-copilotkit]),
 :where([data-copilotkit] canvas),
-:where(canvas[data-copilotkit]),
 :where([data-copilotkit] audio),
-:where(audio[data-copilotkit]),
 :where([data-copilotkit] iframe),
-:where(iframe[data-copilotkit]),
 :where([data-copilotkit] embed),
-:where(embed[data-copilotkit]),
-:where([data-copilotkit] object),
-:where(object[data-copilotkit]) {
+:where([data-copilotkit] object) {
   vertical-align: middle;
   display: block;
 }
 :where([data-copilotkit] img),
-:where(img[data-copilotkit]),
-:where([data-copilotkit] video),
-:where(video[data-copilotkit]) {
+:where([data-copilotkit] video) {
   max-width: 100%;
   height: auto;
 }
 :where([data-copilotkit] button),
 :where(button[data-copilotkit]),
 :where([data-copilotkit] input),
-:where(input[data-copilotkit]),
 :where([data-copilotkit] select),
-:where(select[data-copilotkit]),
 :where([data-copilotkit] optgroup),
-:where(optgroup[data-copilotkit]),
-:where([data-copilotkit] textarea),
-:where(textarea[data-copilotkit]) {
+:where([data-copilotkit] textarea) {
   font: inherit;
   font-feature-settings: inherit;
   font-variation-settings: inherit;
@@ -212,8 +172,7 @@
     }
   }
 }
-:where([data-copilotkit] textarea),
-:where(textarea[data-copilotkit]) {
+:where([data-copilotkit] textarea) {
   resize: vertical;
 }
 :where([data-copilotkit]) ::-webkit-search-decoration {
