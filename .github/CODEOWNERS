@@ -1,19 +1,19 @@
-* @tylerslaton @jpr5 @ranst91 @marthakelly @mme
+* @tylerslaton @jpr5 @mme
 
 # CI supply-chain hardening — allowlist changes require core dev review
-.github/config-allowlist.txt @tylerslaton @jpr5 @ranst91 @marthakelly @mme
+.github/config-allowlist.txt @tylerslaton @jpr5 @mme
 
 # Showcases — demo team owns these alongside core dev
-examples/showcases/ @CopilotKit/demo @tylerslaton @jpr5 @ranst91 @marthakelly @mme
+examples/showcases/ @CopilotKit/demo @tylerslaton @jpr5 @mme
 
 # Community packages — lightly supported, community-maintained (see community/README.md).
 # Each package adds its own line BELOW this one naming its maintainer; a later,
 # more specific line wins, so the maintainer owns their folder alongside core dev.
-/community/ @tylerslaton @jpr5 @ranst91 @marthakelly @mme
+/community/ @tylerslaton @jpr5 @mme
 
 # Angular package — Angular contributors own these alongside core dev
-packages/angular/ @wolfmanfx @rainerhahnekamp @tylerslaton @jpr5 @ranst91 @marthakelly @mme
+packages/angular/ @wolfmanfx @rainerhahnekamp @tylerslaton @jpr5 @mme
 
 # Shared runtime contract and gate require independent engineering review.
-/tools/runtime-conformance/ @tylerslaton @jpr5 @ranst91 @marthakelly @mme
-/.github/workflows/intelligence-runtimes.yml @tylerslaton @jpr5 @ranst91 @marthakelly @mme
+/tools/runtime-conformance/ @tylerslaton @jpr5 @mme
+/.github/workflows/intelligence-runtimes.yml @tylerslaton @jpr5 @mme
