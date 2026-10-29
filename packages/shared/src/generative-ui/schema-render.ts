@@ -116,10 +116,130 @@ function signatureSchema(
 }
 
 /**
+ * A compact type with bare enum values and tight unions:
+ * `"sm" | "md" | "lg"` becomes `sm|md|lg`. Values that are not plain words
+ * keep their quotes.
+ */
+function bareType(type: string) {
+  return type.replace(/"([A-Za-z0-9_#%.-]+)"/g, "$1").replace(/ \| /g, "|");
+}
+
+/** A prop or event line that this many components carry verbatim is listed once. */
+const SHARED_LINE_MIN_COMPONENTS = 3;
+
+/** A compact prop (`type // description`) as `name: type - description`. */
+function propLine(key: string, value: string) {
+  const name = key.endsWith("?") ? key.slice(0, -1) : `${key}*`;
+  const cut = value.indexOf(" // ");
+  const type = bareType(cut < 0 ? value : value.slice(0, cut));
+  const text = cut < 0 ? "" : value.slice(cut + 4).trim();
+  const description = text ? ` - ${text}` : "";
+  return ` ${name}: ${type}${description}`;
+}
+
+/**
+ * The whole schema as plain lines: a header line per component and one
+ * indented line per prop, event and slot list. Props are optional unless
+ * marked `*`, enum values are bare, and the props many components share are
+ * listed once. It carries the same names, types and descriptions as
+ * `compact`, in fewer tokens.
+ */
+function linesSchema(
+  manifest: SchemaManifest,
+  settings: GenerativeUISchemaSettings,
+) {
+  const compact = buildCompactGenerativeUISchema(manifest, {
+    propDescriptions: settings.propDescriptions,
+    commonProps: settings.commonProps,
+  });
+  const targets = compact.targets
+    .map((t) => {
+      const limit = t.components ? `, only ${t.components.join(", ")}` : "";
+      return `${t.id} (${t.kind}${limit})${t.description ? `: ${t.description}` : ""}`;
+    })
+    .join("; ");
+  const functions = Object.entries(compact.functions).map(
+    ([name, fn]) =>
+      `${name}${fn.parameters}${"callers" in fn ? ` (${fn.callers})` : ""}${fn.description ? `: ${fn.description}` : ""}`,
+  );
+  const common = compact.commonProps
+    ? Object.entries(compact.commonProps).map(([k, v]) => propLine(k, v))
+    : [];
+  // The prop and event lines of each component, then the lines that three
+  // or more components share verbatim, listed once and named per component.
+  const lineSets = Object.entries(compact.components).map(([name, c]) => {
+    const own = [
+      ...Object.entries(c.props).map(([k, v]) => propLine(k, v)),
+      ...Object.entries(c.events ?? {}).map(([e, d]) => ` ${e}: action - ${d}`),
+    ];
+    return { name, c, own };
+  });
+  const counts = new Map<string, number>();
+  for (const { own } of lineSets) {
+    for (const line of own) counts.set(line, (counts.get(line) ?? 0) + 1);
+  }
+  // A name may be shared with one definition only: the most common one.
+  const sharedByName = new Map<string, string>();
+  for (const [line, n] of [...counts].sort((a, b) => b[1] - a[1])) {
+    const key = line
+      .trim()
+      .split(/[:*]| - /)[0]
+      .trim();
+    if (n >= SHARED_LINE_MIN_COMPONENTS && !sharedByName.has(key)) {
+      sharedByName.set(key, line);
+    }
+  }
+  const sharedLines = new Set(sharedByName.values());
+  const sharedNameOf = new Map(
+    [...sharedByName].map(([key, line]) => [line, key]),
+  );
+  const components = lineSets.flatMap(({ name, c, own }) => {
+    const shared = own.filter((line) => sharedLines.has(line));
+    const lines = [
+      `${name}${c.includesCommonProps ? " +common" : ""}${c.description ? `: ${c.description}` : ""}`,
+      ...own.filter((line) => !sharedLines.has(line)),
+    ];
+    if (shared.length > 0) {
+      lines.push(
+        ` shared: ${shared.map((line) => sharedNameOf.get(line)).join(", ")}`,
+      );
+    }
+    if (c.slots) {
+      lines.push(
+        ` slots: ${Object.entries(c.slots)
+          .map(
+            ([slot, kind]) =>
+              `${slot} (${kind === "single" ? "componentId" : "componentId[]"})`,
+          )
+          .join(", ")}`,
+      );
+    }
+    return lines;
+  });
+  const surfaces = Object.keys(compact.surfaces).length
+    ? JSON.stringify(compact.surfaces)
+    : "none";
+  return [
+    `Catalog ${compact.catalogId}. Targets: ${targets || "none"}.`,
+    'Props are optional unless marked *. a|b|c is one of those strings. A component marked +common also takes every common prop. A prop of type action is an event prop: give it {"event":{...}} or {"functionCall":{...}}.',
+    `Functions:\n${functions.join("\n")}`,
+    ...(common.length ? [`Common props:\n${common.join("\n")}`] : []),
+    ...(sharedLines.size
+      ? [
+          `Shared props (a component lists the ones it takes under "shared"):\n${[...sharedLines].join("\n")}`,
+        ]
+      : []),
+    `Components:\n${components.join("\n")}`,
+    `Surfaces: ${surfaces}`,
+  ].join("\n\n");
+}
+
+/**
  * The component schema of the markdown transport, as the text of its
  * context entry, in the notation of `settings`. `compact` is the schema that
  * ships (`buildCompactGenerativeUISchema`), `json-schema` the manifest parts
- * as JSON, `ts-signature` one line per component.
+ * as JSON, `ts-signature` one line per component, `lines` one line per
+ * prop with bare enums (the fewest tokens).
  *
  * @example
  * ```ts
@@ -157,6 +277,8 @@ export function renderGenerativeUISchema(
     }
     case "ts-signature":
       return signatureSchema(manifest, settings);
+    case "lines":
+      return linesSchema(manifest, settings);
   }
 }
 
@@ -170,7 +292,10 @@ export function renderGenerativeUIComponentList(
 ): string {
   return Object.entries(components)
     .map(([name, c]) => {
-      if (settings.notation === "ts-signature") {
+      if (
+        settings.notation === "ts-signature" ||
+        settings.notation === "lines"
+      ) {
         return signatureLines(name, c, settings).join("\n");
       }
       const props =
@@ -208,9 +333,7 @@ export function applyDescriptionOverrides<
   for (const [key, description] of Object.entries(overrides)) {
     const [name, prop, ...rest] = key.split(".");
     // Own keys only: "__proto__" must never reach Object.prototype.
-    const component = hasOwn(components, name)
-      ? components[name]
-      : undefined;
+    const component = hasOwn(components, name) ? components[name] : undefined;
     if (!component || rest.length > 0) {
       unknown.push(key);
       continue;

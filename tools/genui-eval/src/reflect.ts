@@ -21,7 +21,7 @@ The prompt is given as a JSON "prompt spec". You return a complete, improved spe
 You may change:
 - the wording, order and structure of "intro", "whenToShow", "operations" and "rules", for both transports ("markdown" writes A2UI in \`\`\`a2ui fences, "tool" calls render_ui);
 - the items of the conditional blocks ({"when":[...],"items":[...]}): rewrite, reorder, add or remove items, and move a block, but keep each "when" list exactly as it is, because it decides for which catalogs the block is sent;
-- "schema": how the component schema is written ("notation": "compact" | "json-schema" | "ts-signature", "propDescriptions", "commonProps");
+- "schema": how the component schema is written ("notation": "compact" | "json-schema" | "ts-signature" | "lines", "propDescriptions", "commonProps");
 - "descriptions": replacement descriptions for components ("Name") and props ("Name.prop") of the catalog listed below.
 
 You must not:

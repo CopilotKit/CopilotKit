@@ -58,7 +58,7 @@ describe("renderGenerativeUISchema", () => {
     ).toBe(JSON.stringify(buildCompactGenerativeUISchema(manifest)));
   });
 
-  it.each(["compact", "json-schema", "ts-signature"] as const)(
+  it.each(["compact", "json-schema", "ts-signature", "lines"] as const)(
     "covers every component and prop in %s notation",
     (notation) => {
       const text = renderGenerativeUISchema(manifest, settings(notation));
@@ -75,11 +75,48 @@ describe("renderGenerativeUISchema", () => {
     expect(text).toContain("- formatCurrency{value: number}: Formats money");
   });
 
+  it("writes lines: one line per prop, bare enums, required marked *, events as action props", () => {
+    const text = renderGenerativeUISchema(manifest, settings("lines"));
+    expect(text).toContain(
+      "Text: Shows text\n text*: string - The text\n size: sm|md",
+    );
+    expect(text).toContain(
+      "Button: A button\n label: string\n onClick: action - Action",
+    );
+    expect(text).toContain("formatCurrency{value: number}: Formats money");
+    expect(text).not.toContain('\\"');
+  });
+
+  it("lists a prop line that three or more components share once, in lines notation", () => {
+    const withShared: GenerativeUIManifest = {
+      ...manifest,
+      components: Object.fromEntries(
+        ["A", "B", "C"].map((name) => [
+          name,
+          {
+            props: {
+              type: "object",
+              properties: {
+                weight: { type: "number", description: "flex-grow" },
+                [`own${name}`]: { type: "string" },
+              },
+            },
+          },
+        ]),
+      ),
+    };
+    const text = renderGenerativeUISchema(withShared, settings("lines"));
+    expect(text.match(/weight: number - flex-grow/g)).toHaveLength(1);
+    expect(text).toContain("A\n ownA: string\n shared: weight");
+    expect(schemaCoverage(withShared, text).missing).toEqual([]);
+  });
+
   it("leaves the prop descriptions out on request", () => {
     for (const notation of [
       "compact",
       "json-schema",
       "ts-signature",
+      "lines",
     ] as const) {
       const text = renderGenerativeUISchema(manifest, {
         ...settings(notation),
@@ -97,6 +134,7 @@ describe("renderGenerativeUIComponentList", () => {
       "compact",
       "json-schema",
       "ts-signature",
+      "lines",
     ] as const) {
       const text = renderGenerativeUIComponentList(
         manifest.components,

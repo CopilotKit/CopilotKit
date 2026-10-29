@@ -22,7 +22,7 @@ const section = z.object({
   rules: z.array(item),
 });
 const schemaSettings = z.object({
-  notation: z.enum(["compact", "json-schema", "ts-signature"]),
+  notation: z.enum(["compact", "json-schema", "ts-signature", "lines"]),
   propDescriptions: z.boolean(),
   commonProps: z.boolean(),
 });

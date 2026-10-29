@@ -39,11 +39,15 @@ export interface GenerativeUIPromptSection {
 
 /** How the component schema is written. */
 export interface GenerativeUISchemaSettings {
-  /** `compact` (short types, common props once), `json-schema` (the full props schema), or `ts-signature` (one line per component). */
-  notation: "compact" | "json-schema" | "ts-signature";
+  /**
+   * `compact` (short types, common props once), `json-schema` (the full
+   * props schema), `ts-signature` (one line per component), or `lines`
+   * (one line per prop, bare enums, common props once: the fewest tokens).
+   */
+  notation: "compact" | "json-schema" | "ts-signature" | "lines";
   /** Write the description of each prop. */
   propDescriptions: boolean;
-  /** List the props that many components share once (`commonProps`). Compact notation only. */
+  /** List the props that many components share once (`commonProps`). Compact and lines notations only. */
   commonProps: boolean;
 }
 
