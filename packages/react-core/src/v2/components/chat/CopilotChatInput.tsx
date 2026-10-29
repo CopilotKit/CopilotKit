@@ -602,6 +602,7 @@ export function CopilotChatInput({
       disabled: mode === "transcribe",
       onAddFile,
       toolsMenu,
+      inputRef,
     },
   );
 
@@ -1262,19 +1263,25 @@ export namespace CopilotChatInput {
   /**
    * The "+" button that opens the attachment and tools menu. Its accessible
    * name and tooltip come from `labels.chatInputToolbarAddButtonLabel`.
+   * Picking an item focuses `inputRef`, as the slash-command menu does;
+   * dismissing the menu returns focus to the button.
    */
   export const AddMenuButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement> & {
       toolsMenu?: (ToolsMenuItem | "-")[];
       onAddFile?: () => void;
+      inputRef?: React.RefObject<HTMLTextAreaElement | null>;
     }
-  > = ({ className, toolsMenu, onAddFile, disabled, ...props }) => {
+  > = ({ className, toolsMenu, onAddFile, inputRef, disabled, ...props }) => {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
 
     // Defer Radix UI rendering until after hydration to avoid ID mismatches
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
+
+    // Radix focuses the trigger on close; skip that only after a pick.
+    const itemSelectedRef = useRef(false);
 
     const menuItems = useMemo<(ToolsMenuItem | "-")[]>(() => {
       const items: (ToolsMenuItem | "-")[] = [];
@@ -1329,7 +1336,13 @@ export namespace CopilotChatInput {
           }
 
           return (
-            <DropdownMenuItem key={`item-${index}`} onClick={item.action}>
+            <DropdownMenuItem
+              key={`item-${index}`}
+              onClick={item.action}
+              onSelect={() => {
+                itemSelectedRef.current = true;
+              }}
+            >
               {item.label}
             </DropdownMenuItem>
           );
@@ -1374,7 +1387,16 @@ export namespace CopilotChatInput {
           </TooltipContent>
         </Tooltip>
         {hasMenuItems && (
-          <DropdownMenuContent side="top" align="start">
+          <DropdownMenuContent
+            side="top"
+            align="start"
+            onCloseAutoFocus={(event) => {
+              if (!itemSelectedRef.current) return;
+              itemSelectedRef.current = false;
+              event.preventDefault();
+              inputRef?.current?.focus();
+            }}
+          >
             {renderMenuItems(menuItems)}
           </DropdownMenuContent>
         )}
