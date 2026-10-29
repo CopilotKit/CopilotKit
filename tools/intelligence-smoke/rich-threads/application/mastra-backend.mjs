@@ -8,6 +8,19 @@ export const mastraProfiles = Object.freeze({
   rich: { agent: "beautifulChatAgent", resourceId: "mastra-beautiful-chat" },
 });
 
+/** Resolve validation from the same installed AG-UI package as the adapter. */
+export async function loadRunAgentInputSchema(requireAdapter) {
+  const { RunAgentInputSchema } = await import(
+    pathToFileURL(requireAdapter.resolve("@ag-ui/core/schemas"))
+  );
+  assert.equal(
+    typeof RunAgentInputSchema?.parse,
+    "function",
+    "AG-UI run input schema missing",
+  );
+  return RunAgentInputSchema;
+}
+
 export function createMastraBackend({
   mastra,
   MastraAgent,
@@ -92,12 +105,11 @@ async function main() {
   const requireSource = createRequire(source);
   const adapterEntry = requireSource.resolve("@ag-ui/mastra");
   const requireAdapter = createRequire(adapterEntry);
-  const [{ mastra }, { MastraAgent }, { RunAgentInputSchema }] =
-    await Promise.all([
-      import(pathToFileURL(source)),
-      import(pathToFileURL(adapterEntry)),
-      import(pathToFileURL(requireAdapter.resolve("@ag-ui/core"))),
-    ]);
+  const [{ mastra }, { MastraAgent }, RunAgentInputSchema] = await Promise.all([
+    import(pathToFileURL(source)),
+    import(pathToFileURL(adapterEntry)),
+    loadRunAgentInputSchema(requireAdapter),
+  ]);
   const server = createMastraBackend({
     mastra,
     MastraAgent,

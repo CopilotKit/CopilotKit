@@ -12,6 +12,11 @@ import { Socket as EsmSocket } from "./dependencies/node_modules/phoenix/priv/st
 import { captureFramework, readCapture } from "./capture/runtime-agent.mjs";
 import { loadDriverDependencies } from "./bootstrap.mjs";
 
+import {
+  createMastraBackend,
+  loadRunAgentInputSchema,
+} from "./application/mastra-backend.mjs";
+
 const require = createRequire(
   new URL("./dependencies/package.json", import.meta.url),
 );
@@ -412,4 +417,63 @@ test("composer deadline during beforeRun prevents the deferred POST", async () =
     await browser?.close();
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+test("Mastra backend validates HTTP requests using the pinned AG-UI schema export", async (t) => {
+  assert.equal(require("@ag-ui/core/package.json").version, "1.0.2");
+  const RunAgentInputSchema = await loadRunAgentInputSchema(require);
+  const inputs = [];
+  const server = createMastraBackend({
+    mastra: { getAgent: () => ({}) },
+    MastraAgent: class {
+      run(input) {
+        inputs.push(input);
+        return {
+          subscribe(observer) {
+            observer.next({
+              type: "RUN_STARTED",
+              threadId: input.threadId,
+              runId: input.runId,
+            });
+            observer.next({
+              type: "RUN_FINISHED",
+              threadId: input.threadId,
+              runId: input.runId,
+            });
+            observer.complete();
+            return { unsubscribe() {} };
+          },
+        };
+      }
+    },
+    RunAgentInputSchema,
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const url = `http://127.0.0.1:${server.address().port}/rich`;
+  const input = {
+    threadId: "thread",
+    runId: "run",
+    state: {},
+    messages: [{ id: "user", role: "user", content: "hello" }],
+    tools: [],
+    context: [],
+    forwardedProps: {},
+  };
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  const body = await response.text();
+  assert.equal(response.status, 200, body);
+  assert.match(body, /RUN_FINISHED/);
+  assert.deepEqual(inputs, [input]);
+  const invalid = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...input, messages: "invalid" }),
+  });
+  assert.equal(invalid.status, 400, await invalid.text());
+  assert.equal(inputs.length, 1, "Invalid input must not invoke the adapter");
 });
