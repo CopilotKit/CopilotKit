@@ -28,7 +28,7 @@ pnpm -s --filter genui-eval eval run --preset full --budget 40     # all five mo
 A model string picks the backend:
 
 - `openai/gpt-5.6-luna`, `anthropic/claude-sonnet-5.5`, …: [OpenRouter](https://openrouter.ai), with `OPENROUTER_API_KEY` (or `tools/genui-eval/.env`).
-- `codex:gpt-5.6-luna`, `codex:gpt-6-astra`, …: the local [Codex CLI](https://github.com/openai/codex), signed in with ChatGPT (`codex login`). No key and no per-call cost. `codexConcurrency` in the config (4) or `--codex-concurrency <n>` sets how many calls run at once.
+- `codex:gpt-5.6-luna`, `codex:gpt-6-astra`, …: the local [Codex CLI](https://github.com/openai/codex), signed in with ChatGPT (`codex login`). No key and no per-call cost. `codexConcurrency` in the config (10) or `--codex-concurrency <n>` sets how many calls run at once.
 - `fake:<script>`: the offline fake, for tests.
 
 Pass a model string straight to `--models`, and pick the judge and the reasoning effort the same way:

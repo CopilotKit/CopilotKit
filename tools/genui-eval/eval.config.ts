@@ -49,5 +49,5 @@ export default defineEvalConfig({
   },
   concurrency: 4,
   // codex:<model> calls at once; --codex-concurrency overrides it per run.
-  codexConcurrency: 4,
+  codexConcurrency: 10,
 });
