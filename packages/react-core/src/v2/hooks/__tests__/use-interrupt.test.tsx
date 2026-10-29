@@ -154,6 +154,24 @@ describe("useInterrupt", () => {
     mockUseAgent.mockReturnValue({ agent: mockAgent });
   });
 
+  it("does not rerender an idle host for streamed message updates", () => {
+    const hostRender = vi.fn();
+    function IdleInterruptHarness() {
+      hostRender();
+      useInterrupt({ render: () => <></> });
+      return null;
+    }
+    render(<IdleInterruptHarness />);
+    hostRender.mockClear();
+    // Separate act calls model separate streaming events, avoiding batching.
+    for (let i = 0; i < 100; i++) {
+      act(() => {
+        handlers.onMessagesChanged?.();
+      });
+    }
+    expect(hostRender).not.toHaveBeenCalled();
+  });
+
   afterEach(() => {
     // F21: clean up the test-only global installed by the 2nd-interrupt
     // BugHarness so it cannot leak across tests.

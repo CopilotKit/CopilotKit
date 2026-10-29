@@ -97,12 +97,14 @@ interface UseInterruptConfigBase<TValue = unknown, TResult = never> {
   ) => React.ReactElement;
   /**
    * Optional pre-render handler invoked when an interrupt is received.
+   * Runs again when a standard batch advances to its next unanswered prompt.
    * Return a sync or async value to expose as `result` in `render`.
    * Rejecting/throwing falls back to `result = null`.
    */
   handler?: InterruptHandlerFn<TValue, TResult>;
   /**
    * Optional predicate to filter which interrupts this hook handles.
+   * Re-evaluated when a standard batch advances to its next unanswered prompt.
    * Receives the legacy-compatible event (for standard interrupts, `value` is
    * the primary `Interrupt`). Return `false` to ignore.
    */
@@ -208,7 +210,9 @@ export function useInterrupt<
     let localStandard: Interrupt[] | null = null;
 
     const subscription = agent.subscribe({
-      onMessagesChanged: refresh,
+      onMessagesChanged: () => {
+        if (pendingRef.current?.kind === "standard") refresh();
+      },
       onCustomEvent: ({ event }) => {
         if (event.name === INTERRUPT_EVENT_NAME) {
           localLegacy = { name: event.name, value: event.value };
