@@ -1,0 +1,109 @@
+/* CopilotPopupView: full screen on small viewports, a floating window above
+   the toggle button from 48rem up. */
+:where(.cpk-popup-view) {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: stretch;
+  background-color: transparent;
+}
+@media (width >= 48rem) {
+  :where(.cpk-popup-view) {
+    inset: auto;
+    right: 1.5rem;
+    bottom: 6rem;
+    align-items: flex-end;
+    gap: 1rem;
+  }
+}
+
+/* The dialog. Closed by default; .cpk-popup-view-window-open shows it. Only
+   translate and scale animate: opacity switches at once, as it did before. */
+:where(.cpk-popup-view-window) {
+  pointer-events: none;
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background-color: var(--background);
+  color: var(--foreground);
+  box-shadow: none;
+  opacity: 0;
+  transform: translateZ(0);
+  transform-origin: bottom;
+  translate: 0 1rem;
+  transition-property: translate, scale;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+:where(.cpk-popup-view-window:focus) {
+  outline-style: none;
+}
+@media (width >= 48rem) {
+  :where(.cpk-popup-view-window) {
+    width: var(--copilot-popup-width);
+    height: var(--copilot-popup-height);
+    max-width: var(--copilot-popup-max-width);
+    max-height: var(--copilot-popup-max-height);
+    border-color: var(--border);
+    border-radius: 1rem;
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--border) 40%, transparent),
+      0 20px 25px -5px #0000001a,
+      0 8px 10px -6px #0000001a;
+    transform-origin: 100% 100%;
+    translate: 0 1.25rem;
+    scale: 0.95;
+  }
+}
+:where(.cpk-popup-view-window-open) {
+  pointer-events: auto;
+  opacity: 1;
+  translate: 0 0;
+}
+@media (width >= 48rem) {
+  :where(.cpk-popup-view-window-open) {
+    scale: 1;
+  }
+}
+
+:where(.cpk-popup-view-chat) {
+  flex: 1;
+  overflow: hidden;
+}
+/* Set on the CopilotChatView inside the popup. */
+:where(.cpk-popup-view-chat-view) {
+  height: 100%;
+  min-height: 0;
+}
+:where(div[data-popup-chat] .cpk-chat-view-scroll-content) {
+  padding-inline: 1.5rem;
+}
+
+/* Popup welcome screen: message centered, suggestions and input at the bottom. */
+:where(.cpk-popup-view-welcome-screen) {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+:where(.cpk-popup-view-welcome-screen-message) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 1rem;
+}
+:where(.cpk-popup-view-welcome-screen-suggestions) {
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+  padding-inline: 1rem;
+}

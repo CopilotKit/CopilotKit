@@ -1,10 +1,9 @@
 import { useRef } from "react";
 
-// Tailwind-free reference-stability helpers. Kept in their own leaf module (not
-// in ./slots, which imports `tailwind-merge`) so that DOM/CSS-free consumers —
-// e.g. CopilotChatConfigurationProvider, which is re-exported from the lean
-// `@copilotkit/react-core/v2/headless` entry — can reach them without pulling
-// `tailwind-merge` into the bundle (issue #4893).
+// Reference-stability helpers, kept in their own leaf module (not in ./slots)
+// so that DOM-free consumers — e.g. CopilotChatConfigurationProvider, which is
+// re-exported from the lean `@copilotkit/react-core/v2/headless` entry — reach
+// them without pulling in the slot rendering code (issue #4893).
 
 /**
  * Shallow equality comparison for objects.

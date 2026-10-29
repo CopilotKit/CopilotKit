@@ -140,9 +140,11 @@ export function A2UIRecoveryFailure({
   debugExposure: DebugExposure;
 }) {
   return (
-    <div className="cpk:rounded-lg cpk:border cpk:border-amber-200 cpk:bg-amber-50 cpk:p-3 cpk:text-sm cpk:text-amber-800">
-      <div className="cpk:font-medium">Couldn't generate the UI</div>
-      <div className="cpk:mt-1 cpk:text-xs cpk:text-amber-700">
+    <div className="cpk-a2ui-recovery-failure">
+      <div className="cpk-a2ui-recovery-failure-title">
+        Couldn't generate the UI
+      </div>
+      <div className="cpk-a2ui-recovery-failure-description">
         Something went wrong rendering this. You can keep chatting and try
         again.
       </div>
@@ -330,14 +332,9 @@ export function A2UIDebugDetails({
   payload: unknown;
 }) {
   return (
-    <details open={open} className="cpk:mt-2 cpk:text-xs">
-      <summary className="cpk:cursor-pointer cpk:text-gray-500">
-        {label}
-      </summary>
-      <pre
-        className="cpk:mt-1 cpk:overflow-auto cpk:rounded cpk:bg-gray-100 cpk:p-2 cpk:text-gray-700"
-        style={{ fontSize: 11 }}
-      >
+    <details open={open} className="cpk-a2ui-debug-details">
+      <summary className="cpk-a2ui-debug-details-summary">{label}</summary>
+      <pre className="cpk-a2ui-debug-details-payload" style={{ fontSize: 11 }}>
         {JSON.stringify(payload, null, 2)}
       </pre>
     </details>

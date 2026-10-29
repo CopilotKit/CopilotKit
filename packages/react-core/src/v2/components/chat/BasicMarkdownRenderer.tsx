@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { parseMarkdown, type MarkdownToken } from "@copilotkit/core";
+import { parseMarkdown } from "@copilotkit/core";
+import type { MarkdownToken } from "@copilotkit/core";
 import type { MarkdownRendererProps } from "../../providers/MarkdownRendererContext";
 
 // Allowlist URL schemes to prevent XSS via javascript:/data:/vbscript: URIs in
@@ -57,10 +58,7 @@ function renderInline(tokens: MarkdownToken[] | undefined): React.ReactNode {
         return <del key={i}>{renderInline((token as any).tokens)}</del>;
       case "codespan":
         return (
-          <code
-            key={i}
-            className="cpk:rounded cpk:bg-black/5 cpk:px-1 cpk:py-0.5"
-          >
+          <code key={i} className="cpk-markdown-inline-code">
             {(token as { text: string }).text}
           </code>
         );
@@ -90,7 +88,7 @@ function renderInline(tokens: MarkdownToken[] | undefined): React.ReactNode {
             key={i}
             src={sanitizeImgSrc(img.href)}
             alt={img.text}
-            className="cpk:max-w-full"
+            className="cpk-markdown-image"
           />
         );
       }
@@ -131,7 +129,7 @@ function BlockToken({
     case "code": {
       const c = token as { text: string; lang?: string };
       return (
-        <pre className="cpk:overflow-x-auto cpk:rounded-lg cpk:bg-muted cpk:text-foreground cpk:p-3">
+        <pre className="cpk-markdown-code-block">
           <code data-language={c.lang || undefined}>{c.text}</code>
         </pre>
       );
@@ -165,7 +163,7 @@ function BlockToken({
         rows: Array<Array<{ tokens: MarkdownToken[] }>>;
       };
       return (
-        <div className="cpk:overflow-x-auto">
+        <div className="cpk-markdown-table-container">
           <table>
             <thead>
               <tr>

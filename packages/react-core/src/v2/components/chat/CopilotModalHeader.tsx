@@ -132,24 +132,15 @@ export function CopilotModalHeader({
     <header
       data-testid="copilot-modal-header"
       data-slot="copilot-modal-header"
-      className={cn(
-        "copilotKitHeader",
-        "cpk:flex cpk:items-center cpk:justify-between cpk:border-b cpk:border-border cpk:px-4 cpk:py-4",
-        "cpk:bg-background/95 cpk:backdrop-blur cpk:supports-[backdrop-filter]:bg-background/80",
-        className,
-      )}
+      className={cn("copilotKitHeader cpk-modal-header", className)}
       {...rest}
     >
-      <div className="cpk:flex cpk:w-full cpk:items-center cpk:gap-2">
-        <div className="cpk:flex cpk:flex-1 cpk:justify-start">
+      <div className="cpk-modal-header-content">
+        <div className="cpk-modal-header-start">
           {BoundDrawerLauncher ?? <span aria-hidden="true" />}
         </div>
-        <div className="cpk:flex cpk:flex-1 cpk:justify-center cpk:text-center">
-          {BoundTitle}
-        </div>
-        <div className="cpk:flex cpk:flex-1 cpk:justify-end">
-          {BoundCloseButton}
-        </div>
+        <div className="cpk-modal-header-center">{BoundTitle}</div>
+        <div className="cpk-modal-header-end">{BoundCloseButton}</div>
       </div>
     </header>
   );
@@ -165,10 +156,7 @@ export namespace CopilotModalHeader {
   }) => (
     <div
       data-testid="copilot-header-title"
-      className={cn(
-        "cpk:w-full cpk:text-base cpk:font-medium cpk:leading-none cpk:tracking-tight cpk:text-foreground",
-        className,
-      )}
+      className={cn("cpk-modal-header-title", className)}
       {...props}
     >
       {children}
@@ -188,15 +176,11 @@ export namespace CopilotModalHeader {
       <button
         type="button"
         data-testid="copilot-close-button"
-        className={cn(
-          "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
-          "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",
-          className,
-        )}
+        className={cn("cpk-modal-header-close-button", className)}
         aria-label={labels.modalHeaderCloseButtonLabel}
         {...props}
       >
-        <X className="cpk:h-4 cpk:w-4" aria-hidden="true" />
+        <X className="cpk-modal-header-close-icon" aria-hidden="true" />
       </button>
     );
   };
@@ -216,15 +200,14 @@ export namespace CopilotModalHeader {
       <button
         type="button"
         data-testid="copilot-threads-drawer-launcher"
-        className={cn(
-          "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
-          "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",
-          className,
-        )}
+        className={cn("cpk-modal-header-drawer-launcher", className)}
         aria-label={labels.modalHeaderThreadsButtonLabel}
         {...props}
       >
-        <PanelLeftOpen className="cpk:h-4 cpk:w-4" aria-hidden="true" />
+        <PanelLeftOpen
+          className="cpk-modal-header-drawer-launcher-icon"
+          aria-hidden="true"
+        />
       </button>
     );
   };

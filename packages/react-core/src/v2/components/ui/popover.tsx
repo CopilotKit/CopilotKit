@@ -31,10 +31,7 @@ const PopoverContent = React.forwardRef<
       data-slot="popover-content"
       align={align}
       sideOffset={sideOffset}
-      className={cn(
-        "cpk:z-50 cpk:outline-none cpk:data-[state=open]:animate-in cpk:data-[state=open]:fade-in-0 cpk:data-[state=open]:zoom-in-95 cpk:data-[side=bottom]:slide-in-from-top-1 cpk:data-[side=top]:slide-in-from-bottom-1",
-        className,
-      )}
+      className={cn("cpk-popover", className)}
       {...props}
     />
   </PopoverPrimitive.Portal>

@@ -1,10 +1,10 @@
 import React from "react";
-import { twMerge } from "tailwind-merge";
+import { cn } from "./utils";
 import { shallowEqual, useShallowStableRef } from "./shallow-stable-ref";
 
-// Reference-stability helpers moved to ./shallow-stable-ref (a tailwind-free leaf
-// module) so the lean @copilotkit/react-core/v2/headless entry can reach them
-// without pulling tailwind-merge (issue #4893). Re-exported here to preserve this
+// Reference-stability helpers moved to ./shallow-stable-ref (a leaf module) so
+// the lean @copilotkit/react-core/v2/headless entry can reach them without
+// pulling in this module (issue #4893). Re-exported here to preserve this
 // module's public surface for existing importers (e.g. CopilotChat).
 export { shallowEqual, useShallowStableRef };
 
@@ -61,7 +61,7 @@ function renderSlotElement(
     const existingClassName = props.className as string | undefined;
     return React.createElement(DefaultComponent, {
       ...props,
-      className: twMerge(existingClassName, slot),
+      className: cn(existingClassName, slot),
     });
   }
 

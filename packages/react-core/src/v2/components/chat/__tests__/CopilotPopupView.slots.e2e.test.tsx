@@ -6,6 +6,7 @@ import type { CopilotModalHeader } from "../CopilotModalHeader";
 import type { CopilotChatToggleButtonProps } from "../CopilotChatToggleButton";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
+import { stylesheet } from "../../../styles/stylesheet";
 
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -446,7 +447,8 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
         </TestWrapper>,
       );
       const popup = screen.getByTestId("copilot-popup");
-      const isOpen = () => popup.className.includes("cpk:pointer-events-auto");
+      const isOpen = () =>
+        popup.classList.contains("cpk-popup-view-window-open");
       expect(isOpen()).toBe(true);
 
       fireEvent.pointerDown(screen.getByRole("textbox", { name: "Comment" }));
@@ -489,9 +491,13 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
       const positioningWrapper = popup?.parentElement;
 
       expect(positioningWrapper?.hasAttribute("data-copilotkit")).toBe(true);
-      // jsdom does not load the generated stylesheet; this guards the utility-class contract only.
-      expect(positioningWrapper?.classList.contains("cpk:bg-transparent")).toBe(
+      // jsdom does not load the stylesheet, so check the class and its rule.
+      // The wrapper must override base.css's [data-copilotkit] background.
+      expect(positioningWrapper?.classList.contains("cpk-popup-view")).toBe(
         true,
+      );
+      expect(stylesheet).toMatch(
+        /:where\(\.cpk-popup-view\)\{[^}]*background-color:transparent/,
       );
     });
 

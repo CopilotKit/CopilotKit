@@ -7,6 +7,7 @@ import {
 } from "../use-default-render-tool";
 import type { DefaultRenderProps } from "../use-default-render-tool";
 import { useRenderTool } from "../use-render-tool";
+import { stylesheet } from "../../styles/stylesheet";
 
 vi.mock("../use-render-tool", () => ({
   useRenderTool: vi.fn(),
@@ -247,7 +248,7 @@ describe("useDefaultRenderTool", () => {
     expect(screen.getByText("done")).toBeDefined();
   });
 
-  it("default renderer includes dark-theme-aware classes", () => {
+  it("default renderer uses classes the stylesheet themes for dark mode", () => {
     render(
       <DefaultToolCallRenderer
         name="searchDocs"
@@ -258,18 +259,23 @@ describe("useDefaultRenderTool", () => {
       />,
     );
 
+    // Each themed part carries a class the stylesheet restyles under `.dark`.
+    const hasDarkRule = (className: string) =>
+      expect(stylesheet).toContain(`.dark .${className}`);
+
     const wrapper = screen.getByTestId("copilot-tool-render");
     const card = wrapper.firstElementChild as HTMLElement | null;
     expect(card).not.toBeNull();
-    expect(card!.className).toContain("cpk:dark:border-zinc-800/60");
-    expect(card!.className).toContain("cpk:dark:bg-zinc-900/50");
+    expect(card!.classList).toContain("cpk-default-tool-call-card");
+    hasDarkRule("cpk-default-tool-call-card");
 
     const name = screen.getByTestId("copilot-tool-render-name");
-    expect(name.className).toContain("cpk:dark:text-zinc-100");
+    expect(name.classList).toContain("cpk-default-tool-call-name");
+    hasDarkRule("cpk-default-tool-call-name");
 
     const status = screen.getByTestId("copilot-tool-render-status");
-    expect(status.className).toContain("cpk:dark:bg-emerald-500/15");
-    expect(status.className).toContain("cpk:dark:text-emerald-400");
+    expect(status.classList).toContain("cpk-default-tool-call-badge-done");
+    hasDarkRule("cpk-default-tool-call-badge-done");
 
     const headerButton = name.closest("button");
     expect(headerButton).not.toBeNull();
@@ -278,9 +284,9 @@ describe("useDefaultRenderTool", () => {
     const details = wrapper.querySelectorAll("pre");
     expect(details.length).toBeGreaterThan(0);
     for (const detail of details) {
-      expect(detail.className).toContain("cpk:dark:bg-zinc-800/60");
-      expect(detail.className).toContain("cpk:dark:text-zinc-200");
+      expect(detail.classList).toContain("cpk-default-tool-call-code");
     }
+    hasDarkRule("cpk-default-tool-call-code");
   });
 
   it("default renderer emits stable copilot-tool-render testid and metadata attrs", () => {

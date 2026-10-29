@@ -1,0 +1,88 @@
+/* Every rendered attachment's root also carries .cpk-attachment-renderer. */
+
+/* Image */
+:where(.cpk-attachment-renderer-image) {
+  width: auto;
+  max-width: 80px;
+  height: auto;
+  max-height: 80px;
+  border-radius: calc(var(--radius) + 4px);
+  background-color: var(--muted);
+  object-fit: cover;
+  cursor: pointer;
+}
+:where(.cpk-attachment-renderer-image-error) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  background-color: var(--muted);
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: calc(1.25 / 0.875);
+  color: var(--muted-foreground);
+}
+:where(.cpk-attachment-renderer-lightbox-image) {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: var(--radius);
+}
+
+/* Audio */
+:where(.cpk-attachment-renderer-audio) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+:where(.cpk-attachment-renderer-audio-player) {
+  width: 100%;
+  max-width: 300px;
+  height: 2.5rem;
+}
+:where(.cpk-attachment-renderer-audio-filename) {
+  max-width: 300px;
+  overflow: hidden;
+  font-size: 0.75rem;
+  line-height: calc(1 / 0.75);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+
+/* Video */
+:where(.cpk-attachment-renderer-video) {
+  width: 100%;
+  max-width: 400px;
+  border-radius: var(--radius);
+}
+
+/* Document: a download link. Tailwind's preflight used to reset link color
+   and underline; base.css does not. */
+:where(.cpk-attachment-renderer-document) {
+  color: inherit;
+  text-decoration: inherit;
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--muted);
+  padding: 0.5rem 0.75rem;
+}
+:where(.cpk-attachment-renderer-document-icon) {
+  font-size: 0.75rem;
+  line-height: calc(1 / 0.75);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+:where(.cpk-attachment-renderer-document-name) {
+  overflow: hidden;
+  font-size: 0.875rem;
+  line-height: calc(1.25 / 0.875);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}

@@ -451,13 +451,12 @@ describe("CopilotChatView onClick Handlers - Drill-Down E2E Tests", () => {
           </TestWrapper>,
         );
 
-        // Find toolbar container (usually contains the buttons)
-        const toolbars = container.querySelectorAll('[class*="toolbar"]');
-        const firstToolbar = toolbars[0];
-        if (firstToolbar) {
-          fireEvent.click(firstToolbar);
-          expect(onClick).toHaveBeenCalled();
-        }
+        const toolbar = container.querySelector(
+          ".cpk-assistant-message-toolbar",
+        );
+        expect(toolbar).not.toBeNull();
+        fireEvent.click(toolbar!);
+        expect(onClick).toHaveBeenCalled();
       });
     });
   });

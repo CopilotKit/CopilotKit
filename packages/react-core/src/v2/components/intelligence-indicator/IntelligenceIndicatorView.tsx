@@ -1,5 +1,5 @@
 import React from "react";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../../lib/utils";
 import type { Message } from "@ag-ui/core";
 
 /** Lifecycle state the brain hands the face. */
@@ -60,7 +60,7 @@ export function IntelligenceIndicatorView({
 }: IntelligenceIndicatorViewProps): React.ReactElement {
   return (
     <span
-      className={twMerge("cpk-intelligence-indicator", className)}
+      className={cn("cpk-intelligence-indicator", className)}
       role="status"
       aria-live="polite"
       data-testid={`cpk-intelligence-indicator-${message.id}`}

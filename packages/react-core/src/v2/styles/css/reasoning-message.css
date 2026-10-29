@@ -1,0 +1,119 @@
+:where(.cpk-reasoning-message) {
+  margin-block: 0.25rem;
+}
+
+:where(.cpk-reasoning-message-header) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-block: 0.25rem;
+  font-size: 0.875rem;
+  line-height: calc(1.25 / 0.875);
+  color: var(--muted-foreground);
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+  transition-property: color;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+:where(.cpk-reasoning-message-header-expandable) {
+  cursor: pointer;
+}
+@media (hover: hover) {
+  :where(.cpk-reasoning-message-header-expandable:hover) {
+    color: var(--foreground);
+  }
+}
+:where(.cpk-reasoning-message-label) {
+  font-weight: 500;
+}
+:where(.cpk-reasoning-message-indicator) {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.25rem;
+}
+:where(.cpk-reasoning-message-indicator-dot) {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: calc(infinity * 1px);
+  background-color: var(--muted-foreground);
+  animation: cpk-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+:where(.cpk-reasoning-message-chevron) {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  transition-property: rotate;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+:where(.cpk-reasoning-message-chevron-open) {
+  rotate: 90deg;
+}
+
+/* Opens and closes by animating the grid row from 0fr to 1fr. */
+:where(.cpk-reasoning-message-toggle) {
+  display: grid;
+  transition-property: grid-template-rows;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+:where(.cpk-reasoning-message-toggle-content) {
+  overflow: hidden;
+}
+
+:where(.cpk-reasoning-message-content) {
+  padding-top: 0.25rem;
+  padding-bottom: 0.5rem;
+}
+:where(.cpk-reasoning-message-text) {
+  font-size: 0.875rem;
+  line-height: calc(1.25 / 0.875);
+  color: var(--muted-foreground);
+}
+/* The reasoning markdown has no typography; it looks as Tailwind's preflight
+   left it: headings and links like body text, lists without markers. */
+:where(.cpk-reasoning-message-text :is(h1, h2, h3, h4, h5, h6)) {
+  font-size: inherit;
+  font-weight: inherit;
+}
+:where(.cpk-reasoning-message-text a) {
+  color: inherit;
+  text-decoration: inherit;
+}
+:where(.cpk-reasoning-message-text :is(ol, ul)) {
+  list-style: none;
+}
+:where(.cpk-reasoning-message-text code) {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 1em;
+}
+:where(.cpk-reasoning-message-text img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+:where(.cpk-reasoning-message-text table) {
+  border-collapse: collapse;
+}
+:where(.cpk-reasoning-message-text hr) {
+  height: 0;
+  color: inherit;
+  border-top-width: 1px;
+}
+:where(.cpk-reasoning-message-cursor) {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.25rem;
+  vertical-align: middle;
+}
+:where(.cpk-reasoning-message-cursor-dot) {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: calc(infinity * 1px);
+  background-color: var(--muted-foreground);
+  animation: cpk-pulse-cursor 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}

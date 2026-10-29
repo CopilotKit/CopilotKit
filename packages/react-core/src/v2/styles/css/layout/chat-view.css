@@ -1,0 +1,229 @@
+/* CopilotChatView: the chat container. It is an inline-size container, so
+   its parts adapt to the chat's width rather than the viewport's. */
+:where(.cpk-chat-view) {
+  container-type: inline-size;
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+
+/* Shown while files are dragged over the chat. */
+:where(.cpk-chat-view-drop-overlay) {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  margin: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed color-mix(in oklab, var(--primary) 40%, transparent);
+  border-radius: var(--radius);
+  background-color: color-mix(in oklab, var(--primary) 5%, transparent);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+:where(.cpk-chat-view-drop-overlay-content) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: color-mix(in oklab, var(--primary) 70%, transparent);
+}
+:where(.cpk-chat-view-drop-overlay-icon) {
+  width: 2rem;
+  height: 2rem;
+}
+:where(.cpk-chat-view-drop-overlay-label) {
+  font-size: 0.875rem;
+  line-height: calc(1.25 / 0.875);
+  font-weight: 500;
+}
+
+/* Scroll view. The "pin-to-bottom" root fills the remaining height; the other
+   modes (and the first, pre-mount render) use a full-height scroll area. */
+:where(.cpk-chat-view-scroll-view) {
+  display: flex;
+  max-height: 100%;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+:where(.cpk-chat-view-scroll-area) {
+  position: relative;
+  display: flex;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+:where(.cpk-chat-view-scroll-viewport) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+:where(.cpk-chat-view-scroll-area > .cpk-chat-view-scroll-viewport) {
+  min-height: 0;
+  flex: 1;
+}
+:where(.cpk-chat-view-scroll-content) {
+  padding-inline: 1rem;
+}
+@container (width >= 48rem) {
+  :where(.cpk-chat-view-scroll-content) {
+    padding-inline: 0;
+  }
+}
+
+/* Messages and suggestions, centered. */
+:where(.cpk-chat-view-feed) {
+  max-width: 48rem;
+  margin-inline: auto;
+}
+:where(.cpk-chat-view-suggestions) {
+  margin-top: 1rem;
+  padding-right: 1rem;
+  padding-left: 0;
+}
+@container (width >= 48rem) {
+  :where(.cpk-chat-view-suggestions) {
+    padding-inline: 0;
+  }
+}
+/* Set on the CopilotChatSuggestionView this view renders. */
+:where(.cpk-chat-view-suggestion-view) {
+  margin-right: 0;
+  margin-bottom: 0.75rem;
+  margin-left: 0;
+}
+@media (width >= 64rem) {
+  :where(.cpk-chat-view-suggestion-view) {
+    margin-right: 1rem;
+    margin-left: 1rem;
+  }
+}
+
+/* Scroll-to-bottom button, floating above the input. */
+:where(.cpk-chat-view-scroll-to-bottom) {
+  pointer-events: none;
+  position: absolute;
+  inset-inline: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: center;
+}
+/* Restyles the outline Button it renders. */
+:where(.cpk-chat-view-scroll-to-bottom-button) {
+  pointer-events: auto;
+  display: flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid oklch(92.8% 0.006 264.531);
+  border-radius: calc(infinity * 1px);
+  background-color: #fff;
+  box-shadow:
+    0 10px 15px -3px #0000001a,
+    0 4px 6px -4px #0000001a;
+  cursor: pointer;
+}
+:where(.dark .cpk-chat-view-scroll-to-bottom-button) {
+  border-color: oklch(37.3% 0.034 259.733);
+  background-color: oklch(21% 0.034 264.665);
+}
+@media (hover: hover) {
+  :where(.cpk-chat-view-scroll-to-bottom-button:hover) {
+    background-color: oklch(98.5% 0.002 247.839);
+  }
+  :where(.dark .cpk-chat-view-scroll-to-bottom-button:hover) {
+    background-color: oklch(27.8% 0.033 256.848);
+  }
+}
+/* Keep the Button's focus ring and disabled state over the rules above. */
+:where(.cpk-chat-view-scroll-to-bottom-button:focus-visible) {
+  border-color: var(--ring);
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent),
+    0 10px 15px -3px #0000001a,
+    0 4px 6px -4px #0000001a;
+}
+:where(.cpk-chat-view-scroll-to-bottom-button:disabled) {
+  pointer-events: none;
+}
+:where(.cpk-chat-view-scroll-to-bottom-icon) {
+  width: 1rem;
+  height: 1rem;
+  color: oklch(44.6% 0.03 256.802);
+}
+:where(.dark .cpk-chat-view-scroll-to-bottom-icon) {
+  color: #fff;
+}
+
+/* Input overlay, pinned to the bottom of the chat. */
+:where(.cpk-chat-view-input-overlay) {
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+}
+:where(.cpk-chat-view-attachments) {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 48rem;
+  margin-inline: auto;
+}
+/* Set on the CopilotChatAttachmentQueue above the input. */
+:where(.cpk-chat-view-attachment-queue) {
+  padding-inline: 1rem;
+}
+
+/* Welcome screen. */
+:where(.cpk-chat-view-welcome-input-group) {
+  width: 100%;
+}
+:where(.cpk-chat-view-welcome-attachment-queue) {
+  margin-bottom: 0.5rem;
+}
+:where(.cpk-chat-view-welcome-screen) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 1rem;
+}
+:where(.cpk-chat-view-welcome-screen-content) {
+  display: flex;
+  width: 100%;
+  max-width: 48rem;
+  flex-direction: column;
+  align-items: center;
+}
+:where(.cpk-chat-view-welcome-screen-message) {
+  margin-bottom: 1.5rem;
+}
+:where(.cpk-chat-view-welcome-screen-input) {
+  width: 100%;
+}
+:where(.cpk-chat-view-welcome-screen-suggestions) {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+}
+:where(.cpk-chat-view-welcome-message) {
+  font-size: 1.25rem;
+  line-height: calc(1.75 / 1.25);
+  font-weight: 500;
+  color: var(--foreground);
+  text-align: center;
+}
+@media (width >= 40rem) {
+  :where(.cpk-chat-view-welcome-message) {
+    font-size: 1.5rem;
+    line-height: calc(2 / 1.5);
+  }
+}

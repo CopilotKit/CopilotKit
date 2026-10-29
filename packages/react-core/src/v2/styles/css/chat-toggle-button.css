@@ -1,0 +1,70 @@
+/* CopilotChatToggleButton: the round launcher for the popup and sidebar. */
+:where(.cpk-chat-toggle-button) {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 1100;
+  display: flex;
+  width: 3.5rem;
+  height: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--primary);
+  border-radius: calc(infinity * 1px);
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow:
+    0 1px 3px 0 #0000001a,
+    0 1px 2px -1px #0000001a;
+  cursor: pointer;
+  transition-property: scale, box-shadow, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+}
+@media (hover: hover) {
+  :where(.cpk-chat-toggle-button:hover) {
+    scale: 1.04;
+    box-shadow:
+      0 4px 6px -1px #0000001a,
+      0 2px 4px -2px #0000001a;
+  }
+}
+:where(.cpk-chat-toggle-button:active) {
+  scale: 0.96;
+}
+:where(.cpk-chat-toggle-button:focus-visible) {
+  outline-style: none;
+  box-shadow:
+    0 0 0 2px var(--background),
+    0 0 0 4px color-mix(in oklab, var(--primary) 50%, transparent),
+    0 1px 3px 0 #0000001a,
+    0 1px 2px -1px #0000001a;
+}
+@media (hover: hover) {
+  :where(.cpk-chat-toggle-button:focus-visible:hover) {
+    box-shadow:
+      0 0 0 2px var(--background),
+      0 0 0 4px color-mix(in oklab, var(--primary) 50%, transparent),
+      0 4px 6px -1px #0000001a,
+      0 2px 4px -2px #0000001a;
+  }
+}
+:where(.cpk-chat-toggle-button:disabled) {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* The open and close icons sit on top of each other and cross-fade. */
+:where(.cpk-chat-toggle-button-icon-wrapper) {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+}
+:where(.cpk-chat-toggle-button-icon) {
+  width: 1.5rem;
+  height: 1.5rem;
+}

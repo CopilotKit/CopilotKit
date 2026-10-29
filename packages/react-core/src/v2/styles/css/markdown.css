@@ -1,0 +1,347 @@
+/*
+ * Markdown typography: Tailwind typography's `prose` + `dark:prose-invert`,
+ * kept to the elements the markdown renderers emit. The assistant message
+ * wraps its markdown in `.cpk-markdown`.
+ */
+:where(.cpk-markdown) {
+  --cpk-markdown-body: oklch(37.3% 0.034 259.733);
+  --cpk-markdown-headings: oklch(21% 0.034 264.665);
+  --cpk-markdown-links: oklch(21% 0.034 264.665);
+  --cpk-markdown-bold: oklch(21% 0.034 264.665);
+  --cpk-markdown-counters: oklch(55.1% 0.027 264.364);
+  --cpk-markdown-bullets: oklch(87.2% 0.01 258.338);
+  --cpk-markdown-hr: oklch(92.8% 0.006 264.531);
+  --cpk-markdown-quotes: oklch(21% 0.034 264.665);
+  --cpk-markdown-quote-borders: oklch(92.8% 0.006 264.531);
+  --cpk-markdown-code: oklch(21% 0.034 264.665);
+  --cpk-markdown-pre-code: oklch(92.8% 0.006 264.531);
+  --cpk-markdown-pre-bg: oklch(27.8% 0.033 256.848);
+  --cpk-markdown-th-borders: oklch(87.2% 0.01 258.338);
+  --cpk-markdown-td-borders: oklch(92.8% 0.006 264.531);
+  --cpk-markdown-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  color: var(--cpk-markdown-body);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+:where(.dark .cpk-markdown) {
+  --cpk-markdown-body: oklch(87.2% 0.01 258.338);
+  --cpk-markdown-headings: #fff;
+  --cpk-markdown-links: #fff;
+  --cpk-markdown-bold: #fff;
+  --cpk-markdown-counters: oklch(70.7% 0.022 261.325);
+  --cpk-markdown-bullets: oklch(44.6% 0.03 256.802);
+  --cpk-markdown-hr: oklch(37.3% 0.034 259.733);
+  --cpk-markdown-quotes: oklch(96.7% 0.003 264.542);
+  --cpk-markdown-quote-borders: oklch(37.3% 0.034 259.733);
+  --cpk-markdown-code: #fff;
+  --cpk-markdown-pre-code: oklch(87.2% 0.01 258.338);
+  --cpk-markdown-pre-bg: rgb(0 0 0 / 0.5);
+  --cpk-markdown-th-borders: oklch(44.6% 0.03 256.802);
+  --cpk-markdown-td-borders: oklch(37.3% 0.034 259.733);
+}
+
+/* Text */
+:where(.cpk-markdown p) {
+  margin-block: 1.25em;
+}
+:where(.cpk-markdown a) {
+  color: var(--cpk-markdown-links);
+  font-weight: 500;
+  text-decoration: underline;
+}
+:where(.cpk-markdown strong) {
+  color: var(--cpk-markdown-bold);
+  font-weight: 600;
+}
+:where(.cpk-markdown :is(a, blockquote, thead th) strong) {
+  color: inherit;
+}
+
+/* Lists */
+:where(.cpk-markdown ol) {
+  margin-block: 1.25em;
+  padding-inline-start: 1.625em;
+  list-style-type: decimal;
+}
+:where(.cpk-markdown ul) {
+  margin-block: 1.25em;
+  padding-inline-start: 1.625em;
+  list-style-type: disc;
+}
+:where(.cpk-markdown ol > li)::marker {
+  color: var(--cpk-markdown-counters);
+  font-weight: 400;
+}
+:where(.cpk-markdown ul > li)::marker {
+  color: var(--cpk-markdown-bullets);
+}
+
+/* Rule and quote */
+:where(.cpk-markdown hr) {
+  border-color: var(--cpk-markdown-hr);
+  border-top-width: 1px;
+  margin-block: 3em;
+}
+:where(.cpk-markdown blockquote) {
+  color: var(--cpk-markdown-quotes);
+  border-inline-start-width: 0.25rem;
+  border-inline-start-color: var(--cpk-markdown-quote-borders);
+  quotes: "\201C" "\201D" "\2018" "\2019";
+  margin-block: 1.6em;
+  padding-inline-start: 1em;
+  font-style: italic;
+  font-weight: 500;
+}
+:where(.cpk-markdown blockquote p:first-of-type)::before {
+  content: open-quote;
+}
+:where(.cpk-markdown blockquote p:last-of-type)::after {
+  content: close-quote;
+}
+
+/* Headings */
+:where(.cpk-markdown h1) {
+  color: var(--cpk-markdown-headings);
+  margin-top: 0;
+  margin-bottom: 0.888889em;
+  font-size: 2.25em;
+  font-weight: 800;
+  line-height: 1.11111;
+}
+:where(.cpk-markdown h1 strong) {
+  color: inherit;
+  font-weight: 900;
+}
+:where(.cpk-markdown h2) {
+  color: var(--cpk-markdown-headings);
+  margin-top: 2em;
+  margin-bottom: 1em;
+  font-size: 1.5em;
+  font-weight: 700;
+  line-height: 1.33333;
+}
+:where(.cpk-markdown h2 strong) {
+  color: inherit;
+  font-weight: 800;
+}
+:where(.cpk-markdown h3) {
+  color: var(--cpk-markdown-headings);
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+  font-size: 1.25em;
+  font-weight: 600;
+  line-height: 1.6;
+}
+:where(.cpk-markdown h4) {
+  color: var(--cpk-markdown-headings);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1.5;
+}
+:where(.cpk-markdown :is(h3, h4) strong) {
+  color: inherit;
+  font-weight: 700;
+}
+/* prose leaves h5/h6 alone; Tailwind's preflight made them body text. */
+:where(.cpk-markdown :is(h5, h6)) {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/* Images. display/max-width/height come from Tailwind's preflight. */
+:where(.cpk-markdown img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-block: 2em;
+}
+
+/* Code */
+:where(.cpk-markdown code) {
+  color: var(--cpk-markdown-code);
+  font-family: var(--cpk-markdown-mono);
+  font-size: 0.875em;
+  font-weight: 600;
+}
+:where(.cpk-markdown code)::before,
+:where(.cpk-markdown code)::after {
+  content: "`";
+}
+:where(.cpk-markdown :is(a, h1, h4, blockquote, thead th) code) {
+  color: inherit;
+}
+:where(.cpk-markdown h2 code) {
+  color: inherit;
+  font-size: 0.875em;
+}
+:where(.cpk-markdown h3 code) {
+  color: inherit;
+  font-size: 0.9em;
+}
+:where(.cpk-markdown pre) {
+  color: var(--cpk-markdown-pre-code);
+  background-color: var(--cpk-markdown-pre-bg);
+  padding: 0.857143em 1.14286em;
+  border-radius: 0.375rem;
+  margin-block: 1.71429em;
+  font-family: var(--cpk-markdown-mono);
+  font-size: 0.875em;
+  font-weight: 400;
+  line-height: 1.71429;
+  overflow-x: auto;
+}
+:where(.cpk-markdown pre code) {
+  font-weight: inherit;
+  color: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  line-height: inherit;
+  background-color: transparent;
+  border-width: 0;
+  border-radius: 0;
+  padding: 0;
+}
+:where(.cpk-markdown pre code)::before,
+:where(.cpk-markdown pre code)::after {
+  content: none;
+}
+
+/* Tables. border-collapse comes from Tailwind's preflight; without it the
+   row borders don't draw. */
+:where(.cpk-markdown table) {
+  table-layout: auto;
+  width: 100%;
+  margin-block: 2em;
+  border-collapse: collapse;
+  font-size: 0.875em;
+  line-height: 1.71429;
+}
+:where(.cpk-markdown thead) {
+  border-bottom-width: 1px;
+  border-bottom-color: var(--cpk-markdown-th-borders);
+}
+:where(.cpk-markdown thead th) {
+  color: var(--cpk-markdown-headings);
+  vertical-align: bottom;
+  padding-inline: 0.571429em;
+  padding-bottom: 0.571429em;
+  font-weight: 600;
+}
+:where(.cpk-markdown tbody tr) {
+  border-bottom-width: 1px;
+  border-bottom-color: var(--cpk-markdown-td-borders);
+}
+:where(.cpk-markdown tbody tr:last-child) {
+  border-bottom-width: 0;
+}
+:where(.cpk-markdown tbody td) {
+  vertical-align: baseline;
+  padding: 0.571429em;
+}
+:where(.cpk-markdown :is(th, td)) {
+  text-align: start;
+}
+
+/* Spacing between blocks; these follow the rules above on purpose. */
+:where(.cpk-markdown li) {
+  margin-block: 0.5em;
+}
+:where(.cpk-markdown :is(ol, ul) > li) {
+  padding-inline-start: 0.375em;
+}
+:where(.cpk-markdown :is(ul, ol) :is(ul, ol)) {
+  margin-block: 0.75em;
+}
+:where(.cpk-markdown :is(hr, h2, h3, h4) + *) {
+  margin-top: 0;
+}
+:where(.cpk-markdown thead th:first-child, .cpk-markdown tbody td:first-child) {
+  padding-inline-start: 0;
+}
+:where(.cpk-markdown thead th:last-child, .cpk-markdown tbody td:last-child) {
+  padding-inline-end: 0;
+}
+:where(.cpk-markdown > :first-child) {
+  margin-top: 0;
+}
+:where(.cpk-markdown > :last-child) {
+  margin-bottom: 0;
+}
+
+/* GFM task-list checkboxes (custom renderers emit them). */
+:where(.cpk-markdown input[type="checkbox"]) {
+  appearance: none;
+  background-color: #fff;
+  background-origin: border-box;
+  border-color: #9b9b9b;
+  border-width: 1px;
+  color: #004f99;
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  padding: 0;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  -webkit-user-select: none;
+  user-select: none;
+  vertical-align: middle;
+  border-radius: 2px;
+}
+:where(.cpk-markdown input[type="checkbox"]:checked) {
+  background-color: #004f99;
+  border-color: #004f99;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg viewBox='0 0 16 16' fill='%23fff' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12.207 4.793a1 1 0 0 1 0 1.414l-5 5a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L6.5 9.086l4.293-4.293a1 1 0 0 1 1.414 0z'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+/*
+ * Parts the built-in renderers emit. Not scoped to .cpk-markdown: reasoning
+ * and BasicMarkdownRenderer use them without it. The code font is what
+ * Tailwind's preflight gave `pre`/`code`.
+ */
+:where(.cpk-markdown-code-block) {
+  overflow-x: auto;
+  border-radius: var(--radius);
+  background-color: var(--muted);
+  padding: 0.75rem;
+  color: var(--foreground);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}
+:where(.cpk-markdown-inline-code) {
+  border-radius: 0.25rem;
+  background-color: color-mix(in oklab, #000 5%, transparent);
+  padding: 0.125rem 0.25rem;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}
+:where(.cpk-markdown-image) {
+  max-width: 100%;
+}
+:where(.cpk-markdown-table-container) {
+  overflow-x: auto;
+}
+
+/*
+ * "turn" tool-call display: text in a reply's working phase was narration and
+ * fades to muted in place once a call follows it. Last in the file so it also
+ * mutes bold, links, inline code and code blocks.
+ */
+:where([data-work-text] .cpk-markdown, [data-work-text] .cpk-markdown *) {
+  transition: color 600ms ease;
+}
+:where(
+  [data-work-text="narration"] .cpk-markdown,
+  [data-work-text="narration"] .cpk-markdown *
+) {
+  color: var(--muted-foreground);
+}

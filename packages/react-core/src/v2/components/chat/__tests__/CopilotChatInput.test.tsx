@@ -47,7 +47,9 @@ const mockLayoutMetrics = (
   container: HTMLElement,
   options?: { gridWidth?: number; addWidth?: number; actionsWidth?: number },
 ) => {
-  const grid = container.querySelector("div.cpk\\:grid") as HTMLElement | null;
+  const grid = container.querySelector(
+    "div.cpk-chat-input-grid",
+  ) as HTMLElement | null;
   if (!grid) {
     throw new Error("Grid container not found in CopilotChatInput layout");
   }
@@ -639,9 +641,8 @@ describe("CopilotChatInput", () => {
     const layoutCell = textarea.parentElement as HTMLElement;
     const gridContainer = layoutCell?.parentElement as HTMLElement;
 
-    expect(layoutCell.className).toContain("col-start-2");
-    expect(layoutCell.className).not.toContain("col-span-3");
-    expect(gridContainer.className).toContain("items-center");
+    expect(layoutCell.classList.contains("cpk-chat-input-field")).toBe(true);
+    expect(gridContainer.getAttribute("data-layout")).toBe("compact");
   });
 
   it("toggles textarea padding based on multiline state", async () => {
@@ -652,8 +653,12 @@ describe("CopilotChatInput", () => {
     mockLayoutMetrics(container);
 
     const textarea = screen.getByRole("textbox");
-    expect(textarea.className).toContain("pr-5");
-    expect(textarea.className).not.toContain("px-5");
+    expect(textarea.classList.contains("cpk-chat-input-textarea-compact")).toBe(
+      true,
+    );
+    expect(
+      textarea.classList.contains("cpk-chat-input-textarea-expanded"),
+    ).toBe(false);
 
     fireEvent.change(textarea, {
       target: {
@@ -663,8 +668,12 @@ describe("CopilotChatInput", () => {
     });
 
     await waitFor(() => {
-      expect(textarea.className).toContain("px-5");
-      expect(textarea.className).not.toContain("pr-5");
+      expect(
+        textarea.classList.contains("cpk-chat-input-textarea-expanded"),
+      ).toBe(true);
+      expect(
+        textarea.classList.contains("cpk-chat-input-textarea-compact"),
+      ).toBe(false);
     });
   });
 
@@ -676,7 +685,7 @@ describe("CopilotChatInput", () => {
     mockLayoutMetrics(container);
 
     const textarea = screen.getByRole("textbox");
-    const layoutCell = textarea.parentElement as HTMLElement;
+    const grid = textarea.parentElement?.parentElement as HTMLElement;
 
     fireEvent.change(textarea, {
       target: {
@@ -686,14 +695,13 @@ describe("CopilotChatInput", () => {
     });
 
     await waitFor(() => {
-      expect(layoutCell.className).toContain("col-span-3");
+      expect(grid.getAttribute("data-layout")).toBe("expanded");
     });
 
     fireEvent.change(textarea, { target: { value: "short" } });
 
     await waitFor(() => {
-      expect(layoutCell.className).toContain("col-start-2");
-      expect(layoutCell.className).not.toContain("col-span-3");
+      expect(grid.getAttribute("data-layout")).toBe("compact");
     });
   });
 
@@ -709,9 +717,8 @@ describe("CopilotChatInput", () => {
     });
 
     await waitFor(() => {
-      const layoutCell = textarea.parentElement as HTMLElement;
-      expect(layoutCell.className).toContain("col-span-3");
-      expect(layoutCell.className).not.toContain("col-start-2");
+      const grid = textarea.parentElement?.parentElement as HTMLElement;
+      expect(grid.getAttribute("data-layout")).toBe("expanded");
     });
   });
 
@@ -1325,7 +1332,7 @@ describe("CopilotChatInput", () => {
       } = options ?? {};
 
       const grid = container.querySelector(
-        "div.cpk\\:grid",
+        "div.cpk-chat-input-grid",
       ) as HTMLElement | null;
       const textarea = container.querySelector(
         "textarea",
@@ -1602,7 +1609,7 @@ describe("CopilotChatInput", () => {
       return {
         container,
         textarea,
-        grid: container.querySelector("div.cpk\\:grid") as HTMLElement,
+        grid: container.querySelector("div.cpk-chat-input-grid") as HTMLElement,
       };
     };
 

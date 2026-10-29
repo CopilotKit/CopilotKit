@@ -26,7 +26,7 @@ const ImageAttachment = memo(function ImageAttachment({
     return (
       <div
         className={cn(
-          "cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:rounded-lg cpk:bg-muted cpk:p-4 cpk:text-sm cpk:text-muted-foreground",
+          "cpk-attachment-renderer cpk-attachment-renderer-image-error",
           className,
         )}
       >
@@ -42,7 +42,7 @@ const ImageAttachment = memo(function ImageAttachment({
         src={src}
         alt="Image attachment"
         className={cn(
-          "cpk:max-w-[80px] cpk:max-h-[80px] cpk:w-auto cpk:h-auto cpk:rounded-xl cpk:object-cover cpk:cursor-pointer cpk:bg-muted",
+          "cpk-attachment-renderer cpk-attachment-renderer-image",
           className,
         )}
         onClick={openLightbox}
@@ -54,7 +54,7 @@ const ImageAttachment = memo(function ImageAttachment({
             style={{ viewTransitionName: vtName }}
             src={src}
             alt="Image attachment"
-            className="cpk:max-w-[90vw] cpk:max-h-[90vh] cpk:object-contain cpk:rounded-lg"
+            className="cpk-attachment-renderer-lightbox-image"
           />
         </Lightbox>
       )}
@@ -72,15 +72,20 @@ const AudioAttachment = memo(function AudioAttachment({
   className?: string;
 }) {
   return (
-    <div className={cn("cpk:flex cpk:flex-col cpk:gap-1", className)}>
+    <div
+      className={cn(
+        "cpk-attachment-renderer cpk-attachment-renderer-audio",
+        className,
+      )}
+    >
       <audio
         src={src}
         controls
         preload="metadata"
-        className="cpk:max-w-[300px] cpk:w-full cpk:h-10"
+        className="cpk-attachment-renderer-audio-player"
       />
       {filename && (
-        <span className="cpk:text-xs cpk:text-muted-foreground cpk:truncate cpk:max-w-[300px]">
+        <span className="cpk-attachment-renderer-audio-filename">
           {filename}
         </span>
       )}
@@ -100,7 +105,10 @@ const VideoAttachment = memo(function VideoAttachment({
       src={src}
       controls
       preload="metadata"
-      className={cn("cpk:max-w-[400px] cpk:w-full cpk:rounded-lg", className)}
+      className={cn(
+        "cpk-attachment-renderer cpk-attachment-renderer-video",
+        className,
+      )}
     />
   );
 });
@@ -130,14 +138,14 @@ const DocumentAttachment = memo(function DocumentAttachment({
       rel="noopener noreferrer"
       aria-label={label}
       className={cn(
-        "cpk:inline-flex cpk:max-w-full cpk:items-center cpk:gap-2 cpk:px-3 cpk:py-2 cpk:border cpk:border-border cpk:rounded-lg cpk:bg-muted",
+        "cpk-attachment-renderer cpk-attachment-renderer-document",
         className,
       )}
     >
-      <span className="cpk:text-xs cpk:font-bold cpk:uppercase">
+      <span className="cpk-attachment-renderer-document-icon">
         {getDocumentIcon(source.mimeType ?? "")}
       </span>
-      <span className="cpk:text-sm cpk:text-muted-foreground cpk:truncate">
+      <span className="cpk-attachment-renderer-document-name">
         {filename || source.mimeType || "Unknown type"}
       </span>
     </a>

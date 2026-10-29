@@ -9,7 +9,6 @@ import React, {
   useCallback,
   useMemo,
 } from "react";
-import { twMerge } from "tailwind-merge";
 import { Plus, Mic, ArrowUp, X, Check, Square, Loader2 } from "lucide-react";
 
 import type { CopilotChatLabels } from "../../providers/CopilotChatConfigurationProvider";
@@ -512,10 +511,9 @@ export function CopilotChatInput({
       isComposingRef.current = false;
     },
     autoFocus: autoFocus,
-    className: twMerge(
-      "cpk:w-full cpk:py-3",
-      isExpanded ? "cpk:px-5" : "cpk:pr-5",
-    ),
+    className: isExpanded
+      ? "cpk-chat-input-textarea-expanded"
+      : "cpk-chat-input-textarea-compact",
   });
 
   const isProcessing = mode !== "transcribe" && isRunning;
@@ -550,7 +548,7 @@ export function CopilotChatInput({
       ? labels.chatInputToolbarStopButtonLabel
       : labels.chatInputToolbarSendButtonLabel,
     children: showsStop ? (
-      <Square className="cpk:size-[18px] cpk:fill-current" />
+      <Square className="cpk-chat-input-stop-icon" />
     ) : undefined,
   });
 
@@ -963,13 +961,13 @@ export function CopilotChatInput({
       role="listbox"
       aria-label={labels.chatInputSlashMenuLabel}
       ref={slashMenuRef}
-      className="cpk:absolute cpk:bottom-full cpk:left-0 cpk:right-0 cpk:z-30 cpk:mb-2 cpk:max-h-64 cpk:overflow-y-auto cpk:rounded-lg cpk:border cpk:border-border cpk:bg-white cpk:shadow-lg cpk:dark:border-[#3a3a3a] cpk:dark:bg-[#1f1f1f]"
+      className="cpk-chat-input-slash-menu"
       style={{
         maxHeight: `${SLASH_MENU_MAX_VISIBLE_ITEMS * SLASH_MENU_ITEM_HEIGHT_PX}px`,
       }}
     >
       {filteredCommands.length === 0 ? (
-        <div className="cpk:px-3 cpk:py-2 cpk:text-sm cpk:text-muted-foreground">
+        <div className="cpk-chat-input-slash-menu-empty">
           {labels.chatInputSlashMenuEmptyText}
         </div>
       ) : (
@@ -983,13 +981,7 @@ export function CopilotChatInput({
               aria-selected={isActive}
               data-active={isActive ? "true" : undefined}
               data-slash-index={index}
-              className={twMerge(
-                "cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors",
-                "cpk:hover:bg-muted cpk:dark:hover:bg-[#2f2f2f]",
-                isActive
-                  ? "cpk:bg-muted cpk:dark:bg-[#2f2f2f]"
-                  : "cpk:bg-transparent",
-              )}
+              className="cpk-chat-input-slash-menu-item"
               onMouseEnter={() => setSlashHighlightIndex(index)}
               onMouseDown={(event) => {
                 event.preventDefault();
@@ -1008,56 +1000,25 @@ export function CopilotChatInput({
   const inputPill = (
     <div
       data-testid="copilot-chat-input"
-      className={twMerge(
-        // V1 compatibility class for custom styling
-        "copilotKitInput",
-        // Layout
-        "cpk:flex cpk:w-full cpk:flex-col cpk:items-center cpk:justify-center",
-        // Interaction
-        "cpk:cursor-text",
-        // Overflow and clipping
-        "cpk:overflow-visible cpk:bg-clip-padding cpk:contain-inline-size",
-        // Background
-        "cpk:bg-white cpk:dark:bg-[#303030]",
-        // Visual effects
-        "cpk:shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] cpk:rounded-[28px]",
-      )}
+      // copilotKitInput: V1 compatibility class for custom styling
+      className="copilotKitInput cpk-chat-input-pill"
       onClick={handleContainerClick}
       data-layout={isExpanded ? "expanded" : "compact"}
     >
       <div
         ref={gridRef}
-        className={twMerge(
-          "cpk:grid cpk:w-full cpk:gap-x-3 cpk:gap-y-3 cpk:px-3 cpk:py-2",
-          isExpanded
-            ? "cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:grid-rows-[auto_auto]"
-            : "cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:items-center",
-        )}
+        className="cpk-chat-input-grid"
         data-layout={isExpanded ? "expanded" : "compact"}
       >
-        <div
-          ref={addButtonContainerRef}
-          className={twMerge(
-            "cpk:flex cpk:items-center",
-            isExpanded ? "cpk:row-start-2" : "cpk:row-start-1",
-            "cpk:col-start-1",
-          )}
-        >
+        <div ref={addButtonContainerRef} className="cpk-chat-input-start">
           {BoundAddMenuButton}
         </div>
-        <div
-          className={twMerge(
-            "cpk:relative cpk:flex cpk:min-w-0 cpk:flex-col cpk:min-h-[50px] cpk:justify-center",
-            isExpanded
-              ? "cpk:col-span-3 cpk:row-start-1"
-              : "cpk:col-start-2 cpk:row-start-1",
-          )}
-        >
+        <div className="cpk-chat-input-field">
           {mode === "transcribe" ? (
             BoundAudioRecorder
           ) : mode === "processing" ? (
-            <div className="cpk:flex cpk:w-full cpk:items-center cpk:justify-center cpk:py-3 cpk:px-5">
-              <Loader2 className="cpk:size-[26px] cpk:animate-spin cpk:text-muted-foreground" />
+            <div className="cpk-chat-input-processing">
+              <Loader2 className="cpk-chat-input-processing-spinner" />
             </div>
           ) : (
             <>
@@ -1066,15 +1027,7 @@ export function CopilotChatInput({
             </>
           )}
         </div>
-        <div
-          ref={actionsContainerRef}
-          className={twMerge(
-            "cpk:flex cpk:items-center cpk:justify-end cpk:gap-2",
-            isExpanded
-              ? "cpk:col-start-3 cpk:row-start-2"
-              : "cpk:col-start-3 cpk:row-start-1",
-          )}
-        >
+        <div ref={actionsContainerRef} className="cpk-chat-input-actions">
           {mode === "transcribe" ? (
             <>
               {onCancelTranscribe && BoundCancelTranscribeButton}
@@ -1131,9 +1084,8 @@ export function CopilotChatInput({
       data-copilotkit
       ref={containerRef}
       className={cn(
-        "cpk:pointer-events-none cpk:relative cpk:z-20",
-        positioning === "absolute" &&
-          "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0",
+        "cpk-chat-input",
+        positioning === "absolute" && "cpk-chat-input-absolute",
         className,
       )}
       style={{
@@ -1151,9 +1103,7 @@ export function CopilotChatInput({
       }}
       {...props}
     >
-      <div className="cpk:max-w-3xl cpk:mx-auto cpk:py-0 cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4 cpk:pointer-events-auto">
-        {inputPill}
-      </div>
+      <div className="cpk-chat-input-wrapper">{inputPill}</div>
       {shouldShowDisclaimer && BoundDisclaimer}
     </div>
   );
@@ -1173,17 +1123,17 @@ export namespace CopilotChatInput {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
     return (
-      <div className="cpk:mr-[10px]">
+      <div className="cpk-chat-input-send">
         <Button
           type="button"
           data-testid="copilot-send-button"
           variant="chatInputToolbarPrimary"
           size="chatInputToolbarIcon"
-          className={className}
+          className={cn("cpk-chat-input-send-button", className)}
           aria-label={labels.chatInputToolbarSendButtonLabel}
           {...props}
         >
-          {children ?? <ArrowUp className="cpk:size-[18px]" />}
+          {children ?? <ArrowUp className="cpk-chat-input-send-icon" />}
         </Button>
       </div>
     );
@@ -1209,7 +1159,7 @@ export namespace CopilotChatInput {
             type="button"
             variant="chatInputToolbarSecondary"
             size="chatInputToolbarIcon"
-            className={twMerge(defaultClassName, className)}
+            className={cn(defaultClassName, className)}
             aria-label={labels[labelKey]}
             {...props}
           >
@@ -1228,9 +1178,9 @@ export namespace CopilotChatInput {
   > = (props) => (
     <ToolbarButton
       data-testid="copilot-start-transcribe-button"
-      icon={<Mic className="cpk:size-[18px]" />}
+      icon={<Mic className="cpk-chat-input-toolbar-icon" />}
       labelKey="chatInputToolbarStartTranscribeButtonLabel"
-      defaultClassName="cpk:mr-2"
+      defaultClassName="cpk-chat-input-start-transcribe-button"
       {...props}
     />
   );
@@ -1240,9 +1190,9 @@ export namespace CopilotChatInput {
   > = (props) => (
     <ToolbarButton
       data-testid="copilot-cancel-transcribe-button"
-      icon={<X className="cpk:size-[18px]" />}
+      icon={<X className="cpk-chat-input-toolbar-icon" />}
       labelKey="chatInputToolbarCancelTranscribeButtonLabel"
-      defaultClassName="cpk:mr-2"
+      defaultClassName="cpk-chat-input-cancel-transcribe-button"
       {...props}
     />
   );
@@ -1252,9 +1202,9 @@ export namespace CopilotChatInput {
   > = (props) => (
     <ToolbarButton
       data-testid="copilot-finish-transcribe-button"
-      icon={<Check className="cpk:size-[18px]" />}
+      icon={<Check className="cpk-chat-input-toolbar-icon" />}
       labelKey="chatInputToolbarFinishTranscribeButtonLabel"
-      defaultClassName="cpk:mr-[10px]"
+      defaultClassName="cpk-chat-input-finish-transcribe-button"
       {...props}
     />
   );
@@ -1346,12 +1296,12 @@ export namespace CopilotChatInput {
         data-testid="copilot-add-menu-button"
         variant="chatInputToolbarSecondary"
         size="chatInputToolbarIcon"
-        className={twMerge("cpk:ml-1", className)}
+        className={cn("cpk-chat-input-add-menu-button", className)}
         disabled={isDisabled}
         aria-label={labels.chatInputToolbarAddButtonLabel}
         {...props}
       >
-        <Plus className="cpk:size-[20px]" />
+        <Plus className="cpk-chat-input-add-menu-icon" />
       </Button>
     );
 
@@ -1365,11 +1315,9 @@ export namespace CopilotChatInput {
             <DropdownMenuTrigger asChild>{button}</DropdownMenuTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            <p className="cpk:flex cpk:items-center cpk:gap-1 cpk:text-xs cpk:font-medium">
+            <p className="cpk-chat-input-add-menu-tooltip">
               <span>{labels.chatInputToolbarAddButtonLabel}</span>
-              <code className="cpk:rounded cpk:bg-[#4a4a4a] cpk:px-1 cpk:py-[1px] cpk:font-mono cpk:text-[11px] cpk:text-white cpk:dark:bg-[#e0e0e0] cpk:dark:text-black">
-                /
-              </code>
+              <code className="cpk-chat-input-add-menu-shortcut">/</code>
             </p>
           </TooltipContent>
         </Tooltip>
@@ -1409,10 +1357,7 @@ export namespace CopilotChatInput {
           ref={internalTextareaRef}
           data-testid="copilot-chat-textarea"
           placeholder={placeholder ?? labels.chatInputPlaceholder}
-          className={twMerge(
-            "cpk:bg-transparent cpk:outline-none cpk:antialiased cpk:font-regular cpk:leading-relaxed cpk:text-[16px] cpk:placeholder:text-[#00000077] cpk:dark:placeholder:text-[#fffc]",
-            className,
-          )}
+          className={cn("cpk-chat-input-textarea", className)}
           style={{
             overflow: "auto",
             resize: "none",
@@ -1434,13 +1379,7 @@ export namespace CopilotChatInput {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
     return (
-      <div
-        className={cn(
-          "cpk:text-center cpk:text-xs cpk:text-muted-foreground cpk:py-3 cpk:px-4 cpk:max-w-3xl cpk:mx-auto",
-          className,
-        )}
-        {...props}
-      >
+      <div className={cn("cpk-chat-input-disclaimer", className)} {...props}>
         {labels.chatDisclaimerText}
       </div>
     );

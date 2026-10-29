@@ -776,7 +776,9 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         '[data-testid="input-container"]',
       ) as HTMLElement;
       expect(inputContainer).not.toBeNull();
-      expect(inputContainer.classList.contains("cpk:absolute")).toBe(false);
+      expect(inputContainer.classList.contains("cpk-chat-input-absolute")).toBe(
+        false,
+      );
     });
 
     it("should render absolute positioning when positioning='absolute'", () => {
@@ -793,8 +795,9 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         '[data-testid="absolute-input"]',
       ) as HTMLElement;
       expect(inputContainer).not.toBeNull();
-      expect(inputContainer.classList.contains("cpk:absolute")).toBe(true);
-      expect(inputContainer.classList.contains("cpk:bottom-0")).toBe(true);
+      expect(inputContainer.classList.contains("cpk-chat-input-absolute")).toBe(
+        true,
+      );
     });
 
     it("should apply keyboard height transform", () => {
@@ -848,7 +851,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       // Look for disclaimer text (from labels)
       expect(
         screen.queryByText(/AI-generated responses/i) ||
-          document.querySelector('[class*="text-muted-foreground"]'),
+          document.querySelector(".cpk-chat-input-disclaimer"),
       ).toBeDefined();
     });
 
@@ -860,9 +863,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       );
 
       // Disclaimer should not be rendered
-      const disclaimer = container.querySelector(
-        '[class*="text-center"][class*="text-xs"]',
-      );
+      const disclaimer = container.querySelector(".cpk-chat-input-disclaimer");
       expect(disclaimer).toBeNull();
     });
 
@@ -874,9 +875,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       );
 
       // Disclaimer should be present with absolute positioning (default showDisclaimer=true)
-      const disclaimer = container.querySelector(
-        '[class*="text-center"][class*="text-xs"]',
-      );
+      const disclaimer = container.querySelector(".cpk-chat-input-disclaimer");
       expect(disclaimer).not.toBeNull();
     });
 
@@ -888,9 +887,7 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
       );
 
       // Disclaimer should NOT be present with static positioning (default showDisclaimer=false)
-      const disclaimer = container.querySelector(
-        '[class*="text-center"][class*="text-xs"]',
-      );
+      const disclaimer = container.querySelector(".cpk-chat-input-disclaimer");
       expect(disclaimer).toBeNull();
     });
 

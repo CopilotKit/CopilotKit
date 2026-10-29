@@ -7,6 +7,7 @@ import { CopilotChatView } from "../CopilotChatView";
 import { LastUserMessageContext } from "../last-user-message-context";
 import type { Attachment } from "@copilotkit/shared";
 import type { Message } from "@ag-ui/core";
+import { stylesheet } from "../../../styles/stylesheet";
 
 beforeEach(() => {
   HTMLElement.prototype.scrollTo = vi.fn();
@@ -59,10 +60,14 @@ describe("CopilotChatView input overlay layout", () => {
 
     // getByTestId throws if missing — presence is implicit.
     const overlay = screen.getByTestId("copilot-input-overlay");
-    // Class-level assertion — the cpk: prefix avoids false positives from
-    // consumer classes. Absolute + bottom-0 is the contract we care about.
-    expect(overlay.className).toMatch(/cpk:absolute/);
-    expect(overlay.className).toMatch(/cpk:bottom-0/);
+    // Absolute + bottom-0 is the contract we care about. jsdom loads no CSS,
+    // so check the class and the shipped rule behind it.
+    expect(overlay.classList.contains("cpk-chat-view-input-overlay")).toBe(
+      true,
+    );
+    expect(stylesheet).toMatch(
+      /:where\(\.cpk-chat-view-input-overlay\)\{[^}]*position:absolute;[^}]*bottom:0;/,
+    );
 
     // Input (send button) lives inside the overlay, not outside it.
     const sendButton = screen.getByTestId("copilot-send-button");

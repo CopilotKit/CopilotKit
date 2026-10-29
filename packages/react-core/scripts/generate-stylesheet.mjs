@@ -2,8 +2,14 @@
 // minified into one string that <CopilotKitStyles> renders. Apps get styled UI
 // without importing a stylesheet, and the CSS ships with no runtime dependency.
 //
-// base.css comes first (theme variables and reset), then the other files in
-// name order.
+// Every rule has zero specificity, so when two files style the same element
+// the later one wins. Files load in this order, so a parent overrides the
+// parts it renders:
+//   1. base.css   theme variables, reset, shared keyframes
+//   2. ui/        primitives (button, tooltip, ...)
+//   3. *.css      chat components
+//   4. layout/    containers that render the components (chat view, popup, ...)
+// Within a group, files load in name order.
 //
 // Run: node scripts/generate-stylesheet.mjs [--check]
 // The generated file is committed; `--check` fails when it is out of date.
@@ -19,11 +25,21 @@ const packageDir = path.resolve(
 const cssDir = path.join(packageDir, "src/v2/styles/css");
 const outputFile = path.join(packageDir, "src/v2/styles/stylesheet.ts");
 
-const files = fs
-  .readdirSync(cssDir)
-  .filter((name) => name.endsWith(".css") && name !== "base.css")
-  .sort();
-const source = ["base.css", ...files]
+const cssFilesIn = (dir) =>
+  fs.existsSync(path.join(cssDir, dir))
+    ? fs
+        .readdirSync(path.join(cssDir, dir))
+        .filter((name) => name.endsWith(".css"))
+        .sort()
+        .map((name) => path.join(dir, name))
+    : [];
+const order = [
+  "base.css",
+  ...cssFilesIn("ui"),
+  ...cssFilesIn(".").filter((name) => name !== "base.css"),
+  ...cssFilesIn("layout"),
+];
+const source = order
   .map((name) => fs.readFileSync(path.join(cssDir, name), "utf8"))
   .join("\n");
 
