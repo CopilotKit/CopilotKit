@@ -2153,6 +2153,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/shared/generative-ui",
+          "exportKey": "./generative-ui",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/generative-ui/index.mjs",
+            "require": "./dist/generative-ui/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/shared/package.json",
+            "selector": "exports[\"./generative-ui\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/shared/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",

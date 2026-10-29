@@ -7,7 +7,10 @@ import {
 } from "@copilotkit/shared";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 import { createGenerativeUI } from "../catalog";
-import { argsSchemaFromSignature, exportA2UICatalog } from "../catalog-export";
+import {
+  argsSchemaFromSignature,
+  exportA2UICatalog,
+} from "@copilotkit/shared/generative-ui";
 import { standardUI } from "../standard";
 
 const COMMON = "common_types.json#/$defs/";

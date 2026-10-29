@@ -1,5 +1,5 @@
 import type { GenerativeUIComponentDefinition } from "../catalog";
-import { toJsonSchema } from "../json-schema";
+import { toJsonSchema } from "@copilotkit/shared/generative-ui";
 
 /** CopilotKit catalog design, not an A2UI-mandated list of signatures.
  * Express maps positional arguments using the exported JSON Schema property order:

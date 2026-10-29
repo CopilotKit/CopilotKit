@@ -4,16 +4,16 @@ import {
   GENERATIVE_UI_FUNCTIONS,
   childRefKind,
   functionCallers,
-} from "@copilotkit/shared";
+} from "../base";
 import type {
   A2UIAllowedCallers,
   A2UIFunctionPermissions,
   GenerativeUIComponentManifest,
   GenerativeUIJSONSchema,
-} from "@copilotkit/shared";
+} from "../base";
 import type { GenerativeUI } from "./catalog";
 import { toJsonSchema } from "./json-schema";
-import { isRecord } from "./is-record";
+import { hasOwnKey, isRecord } from "../is-record";
 
 const COMMON = "common_types.json#/$defs/";
 const DATA_BINDING_REF = `${COMMON}DataBinding`;
@@ -190,7 +190,7 @@ function componentDefinition(
       ? fields
       : Object.fromEntries(
           [...new Set([...manifest.parameterOrder, ...Object.keys(fields)])]
-            .filter((key) => Object.hasOwn(fields, key))
+            .filter((key) => hasOwnKey(fields, key))
             .map((key) => [key, fields[key]]),
         );
   const text = manifest.description ?? description;

@@ -15,7 +15,7 @@ import type {
 import type { CopilotKitCoreReact } from "../../lib/react-core";
 import { buildGenerativeUIManifest } from "../manifest";
 import type { GenerativeUIRuntime } from "../runtime-context";
-import { isRecord } from "../is-record";
+import { isRecord } from "@copilotkit/shared/generative-ui";
 
 /** Objects nested deeper than this show as `object`. */
 const MAX_OBJECT_DEPTH = 2;

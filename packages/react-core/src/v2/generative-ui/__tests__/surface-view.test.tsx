@@ -19,7 +19,7 @@ import { createGenerativeUIDispatcher } from "../dispatcher";
 import type {
   GenerativeUIErrorInfo,
   GenerativeUIEventHandler,
-} from "../errors";
+} from "@copilotkit/shared/generative-ui";
 import { useGenerativeUIFunction, useGenerativeUIState } from "../hooks";
 import { GenerativeUIRuntimeContext } from "../runtime-context";
 import type { GenerativeUIRuntime } from "../runtime-context";

@@ -2,15 +2,15 @@ import type {
   GenerativeUIActionBinding,
   GenerativeUIUserEvent,
 } from "@copilotkit/shared";
-import { GenerativeUIError } from "./errors";
+import { GenerativeUIError } from "@copilotkit/shared/generative-ui";
 import { resolveDynamicValue } from "./resolve";
 import type { ResolveContext } from "./resolve";
-import type { GenerativeUIInvokeResult } from "./errors";
+import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui";
 import type { GenerativeUIInvocationOrigin } from "./dispatcher";
 import { reportErrorSafely } from "./runtime-context";
 import type { GenerativeUIRuntime } from "./runtime-context";
-import { formatIssues, validateSchema } from "./schema";
-import type { GenerativeUISchema } from "./schema";
+import { formatIssues, validateSchema } from "@copilotkit/shared/generative-ui";
+import type { GenerativeUISchema } from "@copilotkit/shared/generative-ui";
 import type { ManagedSurface } from "./surface-manager";
 
 /** One call of an event prop by a component. */

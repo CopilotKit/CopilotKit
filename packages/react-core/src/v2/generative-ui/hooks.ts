@@ -8,8 +8,11 @@ import type {
 } from "./catalog";
 import { useRequiredGenerativeUIRuntime } from "./runtime-context";
 import type { GenerativeUIRuntime } from "./runtime-context";
-import { formatIssues, validateSchema } from "./schema";
-import type { SchemaInput, ValidationResult } from "./schema";
+import { formatIssues, validateSchema } from "@copilotkit/shared/generative-ui";
+import type {
+  SchemaInput,
+  ValidationResult,
+} from "@copilotkit/shared/generative-ui";
 
 const noopSubscribe = () => () => {};
 const zero = () => 0;

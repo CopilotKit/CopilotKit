@@ -14,7 +14,7 @@ import type {
   ReactNode,
 } from "react";
 import { z } from "zod";
-import type { GenerativeUIInvokeResult } from "../errors";
+import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui";
 import { child } from "../refs";
 import { Lightbox, openUrl } from "./lightbox";
 import type { LightboxImage } from "./lightbox";

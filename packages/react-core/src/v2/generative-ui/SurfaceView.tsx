@@ -32,7 +32,7 @@ import {
   issueKey,
   validateSchemaSync,
   withoutRejectedNulls,
-} from "./schema";
+} from "@copilotkit/shared/generative-ui";
 import {
   DefaultNodeFallback,
   NodeBoundary,
@@ -45,7 +45,7 @@ import {
   wrapperAria,
 } from "./accessibility";
 import type { GenerativeUIAccessibility } from "./accessibility";
-import type { GenerativeUIInvokeResult } from "./errors";
+import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui";
 import { invokeBoundEvent, invokeMatchedEvent } from "./events";
 import {
   GenerativeUINodeContext,

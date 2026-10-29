@@ -1,0 +1,1153 @@
+import {
+  A2UI_COMPONENT_ENVELOPE_KEYS,
+  collectChildRefs,
+  functionCallers,
+} from "../base";
+import type {
+  A2UIFunctionPermissions,
+  A2UIFunctionReturnType,
+  ChildRef,
+  GenerativeUIComponentManifest,
+  GenerativeUIJSONSchema,
+} from "../base";
+import type { StandardSchemaV1 } from "../../standard-schema";
+import type { GenerativeUIInvokeResult } from "./errors";
+import { hasOwnKey } from "../is-record";
+import { toJsonSchema } from "./json-schema";
+import type { GenerativeUISchema, SchemaInput, SchemaOutput } from "./schema";
+
+export type GenerativeUISlotKind = "single" | "multiple";
+
+/**
+ * The schema of the props of a component: any Standard Schema of an object,
+ * for example `z.object({ ... })` or `v.object({ ... })`. The model gets
+ * the props as JSON Schema, so the schema must give one: Standard JSON
+ * Schema (zod 4.2+, ArkType, Valibot with `toStandardJsonSchema`) or zod 3.
+ * It must validate synchronously, because props are checked while a
+ * surface renders.
+ */
+export type PropsSchema = StandardSchemaV1<
+  Record<string, unknown>,
+  Record<string, unknown>
+>;
+
+/** An event prop of a component. */
+export interface GenerativeUIEventDefinition {
+  description?: string;
+  /**
+   * Arguments the component passes when it calls the event prop. An event
+   * that matches a declared function can leave this out. Then the function
+   * parameters are used.
+   */
+  parameters?: GenerativeUISchema;
+}
+
+/**
+ * A function that generated UI can call. The handler comes from
+ * `useGenerativeUIFunction`.
+ */
+export interface GenerativeUIFunctionDefinition extends A2UIFunctionPermissions {
+  description?: string;
+  parameters: GenerativeUISchema;
+  /**
+   * Who may call it. `"rendererOnly"` (the default, as in A2UI 1.0): event
+   * bindings and prop values. `"agentOnly"`: `callRendererFunction`.
+   * `"rendererOrAgent"`: both. The agent calls only what you allow.
+   */
+  allowedCallers?: A2UIFunctionPermissions["allowedCallers"];
+  /**
+   * True for a function that runs only from a user gesture, like `openUrl`.
+   * It is then for the renderer only.
+   */
+  requiresUserActivation?: boolean;
+  /** What the handler gives back, as A2UI 1.0 names it. */
+  returnType?: A2UIFunctionReturnType;
+}
+
+/**
+ * Gives a bound prop its value. It gets the full state and the model-set
+ * props of the node, before the props schema parses them (no defaults or
+ * transforms). It runs in the browser and must be pure.
+ */
+export type GenerativeUISelector = (
+  state: Record<string, unknown>,
+  props: Record<string, unknown>,
+) => unknown;
+
+/**
+ * Method syntax makes the parameters bivariant. So a selector with typed
+ * parameters fits this runtime type.
+ */
+type RuntimeSelector = {
+  select(
+    state: Record<string, unknown>,
+    props: Record<string, unknown>,
+  ): unknown;
+}["select"];
+
+/**
+ * Any function or class component. Unlike a framework's component type,
+ * checking a value against it does not read the component's props type. So
+ * a component can type its props from `typeof ui` without a circular type
+ * reference. A framework narrows it with the `TComponent` parameter of
+ * `GenerativeUI` and the definition types.
+ */
+export type GenerativeUIAnyComponent =
+  | ((...args: never) => unknown)
+  | (abstract new (...args: never) => unknown);
+
+/** One component of a generative UI, as the renderer reads it. */
+export interface GenerativeUIComponentDefinition<
+  TComponent = GenerativeUIAnyComponent,
+> {
+  component: TComponent;
+  description?: string;
+  /**
+   * Positional prefix across props, slots and events for catalog consumers.
+   * Remaining visible keys follow in declaration order (props, slots, events).
+   * A2UI exports encode this as property order, not a protocol field.
+   */
+  parameterOrder?: readonly string[];
+  /** All data props: the props the model sets and the bound props. */
+  props?: PropsSchema;
+  /** Explicit selectors for bound props. */
+  bind?: Record<string, RuntimeSelector>;
+  /** Callback props. */
+  events?: Record<string, GenerativeUIEventDefinition>;
+  /**
+   * Child props, filled with rendered child components. A "multiple" slot
+   * takes a list of component ids, or a template `{ componentId, path }`
+   * that renders one component for each item of the list at `path`.
+   */
+  slots?: Record<string, GenerativeUISlotKind>;
+  /**
+   * Props that the component can write. Each one gets a setter prop named
+   * `set` + the prop name: `value` gets `setValue`. When the model binds the
+   * prop to `{ "@path" }`, the setter writes the surface data model at that
+   * path, and the agent can no longer change that path. Else the setter
+   * changes local state only.
+   */
+  writable?: readonly string[];
+  /**
+   * Who applies the `accessibility` envelope of the component: by default
+   * the engine, in a wrapper element around the component. `"self"` for a
+   * component that must not be wrapped (a table row or cell) and applies
+   * the attributes itself with `useGenerativeUIAccessibility()`.
+   */
+  accessibility?: "wrapper" | "self";
+}
+
+/** A component after `createGenerativeUI` resolved its bindings. */
+export interface ResolvedGenerativeUIComponent<
+  TComponent = GenerativeUIAnyComponent,
+> extends GenerativeUIComponentDefinition<TComponent> {
+  /**
+   * One selector for each bound prop. A prop with the name of a top-level
+   * state key reads `state[key]`. A `bind` entry wins over the name rule.
+   */
+  selectors: Record<string, GenerativeUISelector>;
+  /** Event name to the name of the declared function it calls. */
+  eventFunctions: Record<string, string>;
+  /** The keys of `props`, read from its JSON Schema. */
+  propKeys: readonly string[];
+  /**
+   * The component references in `props` (`child()`, `childList()`), at any
+   * depth. The renderer replaces each one with the rendered component. The
+   * `slots` of the definition are not in here.
+   */
+  childRefs: readonly ChildRef[];
+  /** Who applies the `accessibility` envelope; see the definition. */
+  accessibility: "wrapper" | "self";
+}
+
+/** Type-level data of one component, kept in `GenerativeUI["definitions"]`. */
+export interface GenerativeUIComponentTypes {
+  /** The `props` schema, or `unknown` when the component has none. */
+  props: unknown;
+  /** The `events` object, or `unknown` when the component has none. */
+  events: unknown;
+  /** The `slots` object, or `unknown` when the component has none. */
+  slots: unknown;
+  /** The `writable` list, or `unknown` when the component has none. */
+  writable: unknown;
+}
+
+/** Type-level data of a generative UI, with the keys of its bases merged in. */
+export interface GenerativeUIDefinitions {
+  state: Record<string, GenerativeUISchema>;
+  functions: Record<string, GenerativeUIFunctionDefinition>;
+  components: Record<string, GenerativeUIComponentTypes>;
+}
+
+/**
+ * Experimental. The result of `createGenerativeUI`: the components the model
+ * can render, the app state they read, and the functions they call. Give it
+ * to the provider (`generativeUI={{ ui }}`) and to the typed hooks.
+ */
+export interface GenerativeUI<
+  Definitions extends GenerativeUIDefinitions = GenerativeUIDefinitions,
+  TComponent = GenerativeUIAnyComponent,
+> {
+  /** Surfaces pin to this id. */
+  readonly id: string;
+  /** State schemas, bases first. */
+  readonly state: ReadonlyMap<string, GenerativeUISchema>;
+  /** Declared functions, bases first. */
+  readonly functions: ReadonlyMap<string, GenerativeUIFunctionDefinition>;
+  /** Components, bases first. */
+  readonly components: ReadonlyMap<
+    string,
+    ResolvedGenerativeUIComponent<TComponent>
+  >;
+  /** What the model sees: model-set props and unmatched events only. */
+  readonly manifestComponents: Record<string, GenerativeUIComponentManifest>;
+  /** Type only, never set at runtime. */
+  readonly definitions?: Definitions;
+  /**
+   * A copy without the named components. The model no longer sees them, so
+   * the prompt gets smaller. State and functions stay. Call it once, at
+   * module level, like `createGenerativeUI`.
+   *
+   * @throws Error when a name is not a component of this UI.
+   *
+   * @example
+   * ```ts
+   * const ui = createGenerativeUI({
+   *   id: "acme/app@1",
+   *   extends: [standardUI.omit(["Map", "Chart"])],
+   *   components: {},
+   * });
+   * ```
+   */
+  omit<Names extends keyof Definitions["components"] & string>(
+    names: readonly Names[],
+  ): GenerativeUI<OmitComponents<Definitions, Names>, TComponent>;
+}
+
+/** Definitions without some components. */
+type OmitComponents<
+  Definitions extends GenerativeUIDefinitions,
+  Names extends PropertyKey,
+> = {
+  state: Definitions["state"];
+  functions: Definitions["functions"];
+  components: Omit<Definitions["components"], Names>;
+};
+
+/** A generative UI of any definitions and any component type. */
+export type AnyGenerativeUI = GenerativeUI<any, any>;
+
+type Simplify<T> = { [Key in keyof T]: T[Key] } & {};
+
+/** `A | B` to `A & B`. */
+export type UnionToIntersection<U> = (
+  U extends unknown ? (value: U) => void : never
+) extends (value: infer I) => void
+  ? I
+  : never;
+
+type OutputOf<Schema> = SchemaOutput<Schema>;
+type InputOf<Schema> = SchemaInput<Schema>;
+/** The prop names. None for a component without `props`. */
+type PropKeys<Props> = Props extends PropsSchema
+  ? keyof OutputOf<Props> & string
+  : never;
+/** The input type of one prop of a props schema. */
+type PropInput<Props, Key> = Key extends keyof InputOf<Props>
+  ? InputOf<Props>[Key]
+  : never;
+
+/** The type-level data of a generative UI. */
+export type GenerativeUIDefinitionsOf<UI extends AnyGenerativeUI> = NonNullable<
+  UI["definitions"]
+>;
+
+type StateValues<State> = Simplify<{
+  [Key in keyof State]: OutputOf<State[Key]>;
+}>;
+
+/**
+ * The state object of a generative UI, bases included. Selectors get it, and
+ * `useGenerativeUIState(ui, key, value)` sets one key of it.
+ */
+export type GenerativeUIStateOf<UI extends AnyGenerativeUI> = StateValues<
+  GenerativeUIDefinitionsOf<UI>["state"]
+>;
+
+/** The declared functions of a generative UI, bases included. */
+export type GenerativeUIFunctionsOf<UI extends AnyGenerativeUI> =
+  GenerativeUIDefinitionsOf<UI>["functions"];
+
+/** The name of a declared function of a generative UI. */
+export type GenerativeUIFunctionName<UI extends AnyGenerativeUI> =
+  keyof GenerativeUIFunctionsOf<UI> & string;
+
+/**
+ * The name of a component of a generative UI, bases included. For
+ * `GenerativeUI<any>`, it is `string`.
+ */
+export type GenerativeUIComponentName<UI extends AnyGenerativeUI> =
+  keyof GenerativeUIDefinitionsOf<UI>["components"] & string;
+
+type FunctionInput<Functions, Name> = Name extends keyof Functions
+  ? Functions[Name] extends GenerativeUIFunctionDefinition
+    ? InputOf<Functions[Name]["parameters"]>
+    : never
+  : never;
+
+/** What a caller passes to a declared function (the schema input). */
+export type GenerativeUIFunctionInput<
+  UI extends AnyGenerativeUI,
+  Name extends GenerativeUIFunctionName<UI>,
+> = FunctionInput<GenerativeUIFunctionsOf<UI>, Name>;
+
+/**
+ * What the handler of a declared function gets: the parsed arguments (the
+ * schema output, with defaults set).
+ */
+export type GenerativeUIFunctionArgs<
+  UI extends AnyGenerativeUI,
+  Name extends GenerativeUIFunctionName<UI>,
+> = OutputOf<GenerativeUIFunctionsOf<UI>[Name]["parameters"]>;
+
+/**
+ * The function an event calls: the function with the same name, else the
+ * name without `on` and with a lowercase first letter. `never` when none.
+ */
+type MatchedFunction<
+  Name extends string,
+  Functions,
+> = Name extends keyof Functions
+  ? Name
+  : Name extends `on${infer Rest}`
+    ? Uncapitalize<Rest> extends keyof Functions
+      ? Uncapitalize<Rest>
+      : never
+    : never;
+
+/**
+ * The argument type of an event prop. The event `parameters` input when it
+ * declares them, else the input of the matched function.
+ */
+export type GenerativeUIEventInput<
+  Name extends string,
+  Event,
+  Functions,
+> = "parameters" extends keyof Event
+  ? InputOf<Event["parameters" & keyof Event]>
+  : FunctionInput<Functions, MatchedFunction<Name, Functions>>;
+
+type DataProps<Props> = Props extends PropsSchema ? OutputOf<Props> : {};
+
+type EventProps<Events, Functions> =
+  Events extends Record<string, unknown>
+    ? {
+        [Name in keyof Events]?: (
+          args: GenerativeUIEventInput<Name & string, Events[Name], Functions>,
+        ) => Promise<GenerativeUIInvokeResult>;
+      }
+    : {};
+
+type SlotProps<Slots, TNode> =
+  Slots extends Record<string, unknown>
+    ? { [Name in keyof Slots]?: TNode }
+    : {};
+
+type WritableKeys<Writable> = Writable extends readonly (infer Key)[]
+  ? Key & string
+  : never;
+
+/** One setter for each writable prop: `value` gets `setValue`. */
+type SetterProps<Props, Writable> = {
+  [Key in WritableKeys<Writable> &
+    PropKeys<Props> as `set${Capitalize<Key>}`]: (
+    value: PropInput<Props, Key>,
+  ) => void;
+};
+
+/**
+ * Props that the renderer passes to a component:
+ * `function CheckoutForm(props: GenerativeUIComponentProps<typeof ui, "CheckoutForm">)`.
+ * Data props are the parsed `props` schema, bound props included. Event and
+ * slot props are present only when they are bound or filled. Each writable
+ * prop gets a setter (`value` gets `setValue`), which is always present.
+ * `TNode` is the type of a rendered child: what a slot prop holds.
+ */
+export type GenerativeUIComponentProps<
+  UI extends AnyGenerativeUI,
+  Name extends keyof GenerativeUIDefinitionsOf<UI>["components"] & string,
+  TNode = unknown,
+> = Simplify<
+  DataProps<GenerativeUIDefinitionsOf<UI>["components"][Name]["props"]> &
+    EventProps<
+      GenerativeUIDefinitionsOf<UI>["components"][Name]["events"],
+      GenerativeUIDefinitionsOf<UI>["functions"]
+    > &
+    SlotProps<
+      GenerativeUIDefinitionsOf<UI>["components"][Name]["slots"],
+      TNode
+    > &
+    SetterProps<
+      GenerativeUIDefinitionsOf<UI>["components"][Name]["props"],
+      GenerativeUIDefinitionsOf<UI>["components"][Name]["writable"]
+    >
+>;
+
+// ---- Config types ----
+
+type BaseDefinitions<Bases extends readonly AnyGenerativeUI[]> =
+  GenerativeUIDefinitionsOf<Bases[number]>;
+
+type MergedState<Bases extends readonly AnyGenerativeUI[], State> = Simplify<
+  UnionToIntersection<BaseDefinitions<Bases>["state"]> & State
+>;
+
+type MergedFunctions<
+  Bases extends readonly AnyGenerativeUI[],
+  Functions,
+> = Simplify<
+  UnionToIntersection<BaseDefinitions<Bases>["functions"]> & Functions
+>;
+
+/** Props keys with the name of a top-level state key. */
+type NameKeys<Props, State> = PropKeys<Props> & keyof State;
+
+type SelectorFor<Props, State, Key extends PropKeys<Props>> = (
+  state: StateValues<State>,
+  // ponytail: the type hides the name-bound keys and the key itself. Other `bind` keys stay in it, because TypeScript cannot read the `bind` keys before it types the selectors.
+  props: Simplify<Omit<InputOf<Props>, NameKeys<Props, State> | Key>>,
+) => PropInput<Props, Key>;
+
+type BindSelectors<Props, State> = {
+  [Key in PropKeys<Props>]?: SelectorFor<Props, State, Key>;
+};
+
+/** Name-bound keys whose state type does not fit the prop schema input. */
+type MismatchedNameKeys<Props, State> = {
+  [Key in NameKeys<Props, State>]: [OutputOf<State[Key]>] extends [
+    PropInput<Props, Key>,
+  ]
+    ? never
+    : Key;
+}[NameKeys<Props, State>];
+
+/**
+ * `bind` is optional. When a prop has the name of a state key but the state
+ * type does not fit, `bind` must give that prop a selector.
+ */
+type BindField<Props, State> = [MismatchedNameKeys<Props, State>] extends [
+  never,
+]
+  ? { bind?: BindSelectors<Props, State> }
+  : {
+      bind: BindSelectors<Props, State> & {
+        [Key in MismatchedNameKeys<Props, State>]-?: SelectorFor<
+          Props,
+          State,
+          Key
+        >;
+      };
+    };
+
+/** `unknown` (no props) or an object schema. Else `props` gets an error. */
+type PropsCheck<Props> = unknown extends Props
+  ? unknown
+  : Props extends PropsSchema
+    ? unknown
+    : { props?: PropsSchema };
+
+type MatchCheck<Name extends string, Event, Functions> = [
+  MatchedFunction<Name, Functions>,
+] extends [never]
+  ? "parameters" extends keyof Event
+    ? unknown
+    : { parameters: GenerativeUISchema }
+  : "parameters" extends keyof Event
+    ? [OutputOf<Event["parameters" & keyof Event]>] extends [
+        FunctionInput<Functions, MatchedFunction<Name, Functions>>,
+      ]
+      ? unknown
+      : {
+          parameters: `The output of these parameters does not fit the input of function "${MatchedFunction<
+            Name,
+            Functions
+          > &
+            string}".`;
+        }
+    : unknown;
+
+/**
+ * `unknown` when the event is valid. Else a type the event does not fit, so
+ * `tsc` reports the error on the event.
+ */
+type EventCheck<
+  Name extends string,
+  Event,
+  Functions,
+> = Event extends GenerativeUIEventDefinition
+  ? MatchCheck<Name, Event, Functions>
+  : GenerativeUIEventDefinition;
+
+type EventsCheck<Events, Functions> = {
+  [Name in keyof Events]: EventCheck<Name & string, Events[Name], Functions>;
+};
+
+/** Props that a component can list in `writable`: not bound by name. */
+type WritableKey<Props, State> = Exclude<
+  PropKeys<Props>,
+  NameKeys<Props, State>
+>;
+
+/**
+ * Each component config is split over four mapped types. Each one infers
+ * one part (props, events, slots, writable) of every component. The checks
+ * are in `NoInfer`, so they do not change what is inferred. They are not
+ * intersected with schema types directly, because two schema class types do
+ * not intersect cleanly.
+ */
+type ComponentsConfig<Props, Events, Slots, Writable, State, Functions> = {
+  [Name in keyof Props]: {
+    component: GenerativeUIAnyComponent;
+    description?: string;
+    parameterOrder?: readonly string[];
+    props?: Props[Name];
+    accessibility?: "wrapper" | "self";
+  } & NoInfer<PropsCheck<Props[Name]> & BindField<Props[Name], State>>;
+} & {
+  [Name in keyof Events]: {
+    events?: Events[Name] & NoInfer<EventsCheck<Events[Name], Functions>>;
+  };
+} & {
+  [Name in keyof Slots]: {
+    slots?: Slots[Name] & Record<string, GenerativeUISlotKind>;
+  };
+} & {
+  [Name in keyof Writable]: {
+    writable?: Writable[Name] &
+      NoInfer<readonly WritableKey<Props[Name & keyof Props], State>[]>;
+  };
+};
+
+/** The config of `createGenerativeUI`. */
+export interface CreateGenerativeUIConfig<
+  Bases extends readonly AnyGenerativeUI[],
+  State extends Record<string, GenerativeUISchema>,
+  Functions extends Record<string, GenerativeUIFunctionDefinition>,
+  Props extends Record<string, unknown>,
+  Events extends Record<string, unknown>,
+  Slots extends Record<string, unknown>,
+  Writable extends Record<string, unknown>,
+  Overrides = GenerativeUIOverridesConfig<Bases>,
+> {
+  /** Surfaces pin to it. Use a versioned id, for example "acme/store@1". */
+  id: string;
+  /** Bases. Their state, functions and components merge in, in order. */
+  extends?: Bases;
+  /** App state schemas, by top-level key. Put it before `components`. */
+  state?: State;
+  /** Functions that components can call. */
+  functions?: Functions;
+  /**
+   * New components for components of the bases, by name. The model
+   * sees the same component: its description, props, events and slots stay.
+   * The new component gets the same props as the one it replaces.
+   */
+  overrides?: NoInfer<Overrides>;
+  /** The components the model can render. */
+  components: ComponentsConfig<
+    Props,
+    Events,
+    Slots,
+    Writable,
+    MergedState<Bases, State>,
+    MergedFunctions<Bases, Functions>
+  >;
+}
+
+/** The definitions of the bases, merged. */
+export type GenerativeUIBasesDefinitions<
+  Bases extends readonly AnyGenerativeUI[],
+> = GenerativeUIResultDefinitions<Bases, {}, {}, {}, {}, {}, {}>;
+
+/**
+ * One new component for each component of the bases that it names. A
+ * framework package narrows `component` to its component type, with the
+ * props of the component it replaces.
+ */
+export type GenerativeUIOverridesConfig<
+  Bases extends readonly AnyGenerativeUI[],
+> = {
+  [Name in keyof GenerativeUIBasesDefinitions<Bases>["components"] & string]?: {
+    component: GenerativeUIAnyComponent;
+  };
+};
+
+type OwnComponents<Props, Events, Slots, Writable> = {
+  [Name in keyof Props]: {
+    props: Props[Name];
+    events: Name extends keyof Events ? Events[Name] : unknown;
+    slots: Name extends keyof Slots ? Slots[Name] : unknown;
+    writable: Name extends keyof Writable ? Writable[Name] : unknown;
+  };
+};
+
+/** The definitions of the result of `createGenerativeUI`. */
+export type GenerativeUIResultDefinitions<
+  Bases extends readonly AnyGenerativeUI[],
+  State,
+  Functions,
+  Props,
+  Events,
+  Slots,
+  Writable,
+> = {
+  state: MergedState<Bases, State>;
+  functions: MergedFunctions<Bases, Functions>;
+  components: Simplify<
+    UnionToIntersection<BaseDefinitions<Bases>["components"]> &
+      OwnComponents<Props, Events, Slots, Writable>
+  >;
+};
+
+// ---- Runtime ----
+
+interface RuntimeComponentDefinition extends Omit<
+  GenerativeUIComponentDefinition,
+  "component"
+> {
+  component: GenerativeUIAnyComponent;
+}
+
+interface RuntimeConfig {
+  id: string;
+  extends?: readonly AnyGenerativeUI[];
+  state?: Record<string, GenerativeUISchema>;
+  functions?: Record<string, GenerativeUIFunctionDefinition>;
+  overrides?: Record<string, { component: GenerativeUIAnyComponent }>;
+  components: Record<string, RuntimeComponentDefinition>;
+}
+
+/** The A2UI component envelope: `id`, `component`, `catalogId`, `accessibility`, `metadata`. */
+const RESERVED_KEYS = new Set([
+  "id",
+  "component",
+  ...A2UI_COMPONENT_ENVELOPE_KEYS,
+]);
+
+/** The id of the catalog that declared each component, for the inspector. */
+const componentCatalogs = new WeakMap<object, ReadonlyMap<string, string>>();
+
+/**
+ * The id of the catalog that declared each component of `ui`. A component
+ * from `extends` keeps the id of its base. Not exported from the package.
+ */
+export function componentCatalogIds(
+  ui: AnyGenerativeUI,
+): ReadonlyMap<string, string> {
+  return componentCatalogs.get(ui) ?? new Map();
+}
+
+/**
+ * The catalogs that an operation can name: the id of `ui`, then the ids of
+ * the catalogs in its `extends` that declared a component. Not exported
+ * from the package.
+ */
+export function catalogIdsOf(ui: Pick<AnyGenerativeUI, "id">): string[] {
+  const declared = componentCatalogs.get(ui)?.values() ?? [];
+  return [...new Set([ui.id, ...declared])];
+}
+
+/**
+ * Experimental. Declares the components the model can render, the app state
+ * they read, and the functions they call.
+ *
+ * - A prop with the name of a top-level state key is bound to that state.
+ * - `bind: { prop: (state, props) => value }` binds a prop to a selector.
+ * - An event binds to the function with its name, else to the name without
+ *   `on` (`onAddToCart` calls `addToCart`).
+ * - `writable: ["value"]` gives the component a `setValue` prop. See
+ *   `GenerativeUIComponentDefinition.writable`.
+ *
+ * The model does not see bound props or matched events.
+ *
+ * @param config - `id`, then optional `extends`, `state`, `functions` and
+ *   `overrides`, then `components`. Put `state` before `components`, so the selectors
+ *   get typed state.
+ * @throws Error when a name comes from two places, an override names no
+ *   component of the bases, `props` is not an object
+ *   schema with a JSON Schema, a key is reserved or used
+ *   twice on a component, an event matches two functions, an unmatched event
+ *   has no `parameters`, a `bind` key is not a prop, a `writable` key is not
+ *   a prop or is a bound prop, or a setter name is already a key of the
+ *   component. Also throws when `parameterOrder` contains duplicate or unknown
+ *   keys, or an ordered component declares integer-index keys whose JSON object
+ *   enumeration order cannot be controlled.
+ *
+ * @example
+ * ```ts
+ * const ui = createGenerativeUI({
+ *   id: "acme/store@1",
+ *   state: { cart: cartSchema },
+ *   functions: { addToCart: { parameters: z.object({ productId: z.string() }) } },
+ *   components: {
+ *     CartSummary: {
+ *       component: CartSummary,
+ *       props: z.object({ count: z.number() }),
+ *       bind: { count: (state) => state.cart.count },
+ *     },
+ *   },
+ * });
+ * ```
+ */
+export function createGenerativeUI<
+  Bases extends readonly AnyGenerativeUI[] = [],
+  State extends Record<string, GenerativeUISchema> = {},
+  Functions extends Record<string, GenerativeUIFunctionDefinition> = {},
+  Props extends Record<string, unknown> = {},
+  Events extends Record<string, unknown> = {},
+  Slots extends Record<string, unknown> = {},
+  Writable extends Record<string, unknown> = {},
+>(
+  config: CreateGenerativeUIConfig<
+    Bases,
+    State,
+    Functions,
+    Props,
+    Events,
+    Slots,
+    Writable
+  >,
+) {
+  // TypeScript cannot relate the generic mapped config type to the runtime
+  // shape. The config type is stricter than `RuntimeConfig`, so this is safe.
+  const ui: GenerativeUI<
+    GenerativeUIResultDefinitions<
+      Bases,
+      State,
+      Functions,
+      Props,
+      Events,
+      Slots,
+      Writable
+    >
+  > = buildGenerativeUI(config as RuntimeConfig) as GenerativeUI<any>;
+  return ui;
+}
+
+function buildGenerativeUI(config: RuntimeConfig) {
+  const where = `generative UI "${config.id}"`;
+  const state = new Map<string, GenerativeUISchema>();
+  const functions = new Map<string, GenerativeUIFunctionDefinition>();
+  const definitions = new Map<string, RuntimeComponentDefinition>();
+  const catalogs = new Map<string, string>();
+
+  function add<Value>(
+    map: Map<string, Value>,
+    kind: string,
+    name: string,
+    value: Value,
+  ) {
+    if (map.has(name)) {
+      throw new Error(
+        `[generativeUI] ${kind} "${name}" is defined more than once in ${where}.`,
+      );
+    }
+    map.set(name, value);
+  }
+
+  const bases = config.extends ?? [];
+  for (const base of bases) {
+    for (const [name, schema] of base.state)
+      add(state, "State key", name, schema);
+    for (const [name, fn] of base.functions)
+      add(functions, "Function", name, fn);
+    const baseCatalogs = componentCatalogIds(base);
+    for (const [name, component] of base.components) {
+      add(definitions, "Component", name, component);
+      catalogs.set(name, baseCatalogs.get(name) ?? base.id);
+    }
+  }
+  for (const [name, override] of Object.entries(config.overrides ?? {})) {
+    const base = definitions.get(name);
+    if (!base) {
+      throw new Error(
+        `[generativeUI] Override "${name}" is not a component of the bases of ${where}.`,
+      );
+    }
+    definitions.set(name, { ...base, component: override.component });
+  }
+  for (const [name, schema] of Object.entries(config.state ?? {}))
+    add(state, "State key", name, schema);
+  for (const [name, fn] of Object.entries(config.functions ?? {}))
+    add(functions, "Function", name, fn);
+  for (const [name, fn] of functions) {
+    const isGestureOnly = fn.requiresUserActivation === true;
+    if (
+      isGestureOnly &&
+      fn.allowedCallers !== undefined &&
+      fn.allowedCallers !== "rendererOnly"
+    ) {
+      throw new Error(
+        `[generativeUI] Function "${name}" in ${where} requires user activation, so its allowedCallers must be "rendererOnly", not "${fn.allowedCallers}".`,
+      );
+    }
+  }
+  for (const [name, component] of Object.entries(config.components)) {
+    add(definitions, "Component", name, component);
+    catalogs.set(name, config.id);
+  }
+
+  const components = new Map<string, ResolvedGenerativeUIComponent>();
+  const manifestComponents: Record<string, GenerativeUIComponentManifest> = {};
+  for (const [name, definition] of definitions) {
+    const { component, manifest } = resolveComponent(name, definition, {
+      state,
+      functions,
+      where,
+    });
+    components.set(name, component);
+    manifestComponents[name] = manifest;
+  }
+  return withOmit(
+    { id: config.id, state, functions, components, manifestComponents },
+    catalogs,
+  );
+}
+
+/** Adds the `omit` method to the data of a generative UI. */
+function withOmit(
+  data: Omit<GenerativeUI, "omit">,
+  catalogs: ReadonlyMap<string, string>,
+): GenerativeUI {
+  // The method is typed on `GenerativeUI`. The runtime works with names only.
+  const omit = (names: readonly string[]): GenerativeUI => {
+    for (const name of names) {
+      if (!data.components.has(name)) {
+        throw new Error(
+          `[generativeUI] Cannot omit "${name}": it is not a component of generative UI "${data.id}".`,
+        );
+      }
+    }
+    const isKept = (name: string) => !names.includes(name);
+    return withOmit(
+      {
+        id: data.id,
+        state: data.state,
+        functions: data.functions,
+        components: new Map(
+          [...data.components].filter(([name]) => isKept(name)),
+        ),
+        manifestComponents: Object.fromEntries(
+          Object.entries(data.manifestComponents).filter(([name]) =>
+            isKept(name),
+          ),
+        ),
+      },
+      catalogs,
+    );
+  };
+  const ui = { ...data, omit: omit as GenerativeUI["omit"] };
+  componentCatalogs.set(ui, catalogs);
+  return ui;
+}
+
+interface ResolveContext {
+  state: ReadonlyMap<string, GenerativeUISchema>;
+  functions: ReadonlyMap<string, GenerativeUIFunctionDefinition>;
+  where: string;
+}
+
+/** Builds the selectors, the event map and the manifest of one component. */
+function resolveComponent(
+  name: string,
+  definition: RuntimeComponentDefinition,
+  context: ResolveContext,
+) {
+  const propsJson = propsJsonSchema(name, definition, context.where);
+  const propKeys = Object.keys(propsJson.properties);
+  assertDisjointKeys(name, definition, propKeys);
+  assertParameterOrder(name, definition, propKeys);
+
+  const selectors: Record<string, GenerativeUISelector> = {};
+  for (const key of propKeys) {
+    if (context.state.has(key)) selectors[key] = (state) => state[key];
+  }
+  const bind = definition.bind ?? {};
+  for (const [key, selector] of Object.entries(bind)) {
+    if (!propKeys.includes(key)) {
+      throw new Error(
+        `[generativeUI] bind key "${key}" is not a prop of component "${name}" in ${context.where}.`,
+      );
+    }
+    selectors[key] = selector;
+  }
+  const eventFunctions: Record<string, string> = {};
+  const modelEvents: NonNullable<GenerativeUIComponentManifest["events"]> = {};
+  const events = definition.events ?? {};
+  for (const [eventName, event] of Object.entries(events)) {
+    const functionName = matchFunction(eventName, name, context);
+    if (functionName !== undefined) {
+      const matched = context.functions.get(functionName);
+      if (matched && !functionCallers(matched).renderer) {
+        throw new Error(
+          `[generativeUI] Event "${eventName}" of component "${name}" matches function "${functionName}", which the UI cannot call (allowedCallers "agentOnly") in ${context.where}.`,
+        );
+      }
+      eventFunctions[eventName] = functionName;
+      continue;
+    }
+    if (!event.parameters) {
+      throw new Error(
+        `[generativeUI] Event "${eventName}" of component "${name}" matches no function in ${context.where}, so it needs "parameters".`,
+      );
+    }
+    modelEvents[eventName] = {
+      ...(event.description ? { description: event.description } : {}),
+      parameters: toJsonSchema(event.parameters),
+    };
+  }
+
+  assertWritable(name, definition, propKeys, selectors, context.where);
+
+  const component: ResolvedGenerativeUIComponent = {
+    component: definition.component,
+    description: definition.description,
+    parameterOrder: definition.parameterOrder?.slice(),
+    props: definition.props,
+    bind: definition.bind,
+    events: definition.events,
+    slots: definition.slots,
+    writable: definition.writable,
+    accessibility: definition.accessibility ?? "wrapper",
+    selectors,
+    eventFunctions,
+    propKeys,
+    childRefs: collectChildRefs(propsJson),
+  };
+  return {
+    component,
+    manifest: toManifest(
+      definition,
+      modelPropsJsonSchema(propsJson, selectors),
+      modelEvents,
+    ),
+  };
+}
+
+type ObjectJsonSchema = GenerativeUIJSONSchema & {
+  properties: Record<string, GenerativeUIJSONSchema>;
+};
+
+/** The JSON Schema of `props`. A component without `props` has none. */
+function propsJsonSchema(
+  name: string,
+  definition: RuntimeComponentDefinition,
+  where: string,
+): ObjectJsonSchema {
+  if (!definition.props) return { type: "object", properties: {} };
+  const json = toJsonSchema(definition.props);
+  const { properties } = json;
+  const isObject =
+    typeof properties === "object" &&
+    properties !== null &&
+    !Array.isArray(properties);
+  if (!isObject) {
+    throw new Error(
+      `[generativeUI] the props of component "${name}" in ${where} must be an object schema.`,
+    );
+  }
+  return json as ObjectJsonSchema;
+}
+
+/**
+ * What the model sees of the props: the JSON Schema without the bound props,
+ * and with no other keys allowed.
+ */
+function modelPropsJsonSchema(
+  json: ObjectJsonSchema,
+  bound: Record<string, unknown>,
+): GenerativeUIJSONSchema {
+  const isModelKey = (key: string) => !hasOwnKey(bound, key);
+  const {
+    properties,
+    required,
+    additionalProperties: _additionalProperties,
+    ...rest
+  } = json;
+  const modelRequired = Array.isArray(required)
+    ? required.filter((key: unknown) => isModelKey(String(key)))
+    : [];
+  return {
+    ...rest,
+    type: "object",
+    properties: Object.fromEntries(
+      Object.entries(properties).filter(([key]) => isModelKey(key)),
+    ),
+    ...(modelRequired.length > 0 ? { required: modelRequired } : {}),
+    additionalProperties: false,
+  };
+}
+
+/** `onAddToCart` to `addToCart`. `undefined` when the name has no `on` prefix. */
+function withoutOnPrefix(eventName: string) {
+  const hasOnPrefix = eventName.length > 2 && eventName.startsWith("on");
+  if (!hasOnPrefix) return undefined;
+  return eventName.charAt(2).toLowerCase() + eventName.slice(3);
+}
+
+/** The declared function an event calls, or `undefined` when none matches. */
+function matchFunction(
+  eventName: string,
+  componentName: string,
+  context: ResolveContext,
+) {
+  const exact = context.functions.has(eventName) ? eventName : undefined;
+  const stripped = withoutOnPrefix(eventName);
+  const fromPrefix =
+    stripped !== undefined && context.functions.has(stripped)
+      ? stripped
+      : undefined;
+  if (exact !== undefined && fromPrefix !== undefined) {
+    throw new Error(
+      `[generativeUI] Event "${eventName}" of component "${componentName}" matches two functions, "${exact}" and "${fromPrefix}", in ${context.where}.`,
+    );
+  }
+  return exact ?? fromPrefix;
+}
+
+/** The setter prop of a writable prop: `value` gives `setValue`. */
+export function setterNameOf(key: string) {
+  return `set${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+}
+
+/** Why a `writable` key is not valid, or `undefined` when it is valid. */
+function writableProblem(
+  key: string,
+  definition: RuntimeComponentDefinition,
+  propKeys: readonly string[],
+  selectors: Record<string, GenerativeUISelector>,
+) {
+  if (hasOwnKey(definition.events ?? {}, key)) return "an event";
+  if (hasOwnKey(definition.slots ?? {}, key)) return "a slot";
+  if (!propKeys.includes(key)) return "not a prop";
+  if (hasOwnKey(selectors, key)) return "a bound prop";
+  return undefined;
+}
+
+function assertWritable(
+  name: string,
+  definition: RuntimeComponentDefinition,
+  propKeys: readonly string[],
+  selectors: Record<string, GenerativeUISelector>,
+  where: string,
+) {
+  const writable = definition.writable ?? [];
+  const keys = new Set([
+    ...propKeys,
+    ...Object.keys(definition.events ?? {}),
+    ...Object.keys(definition.slots ?? {}),
+  ]);
+  for (const key of writable) {
+    const problem = writableProblem(key, definition, propKeys, selectors);
+    if (problem) {
+      throw new Error(
+        `[generativeUI] writable key "${key}" of component "${name}" is ${problem} in ${where}.`,
+      );
+    }
+    const setter = setterNameOf(key);
+    if (keys.has(setter)) {
+      throw new Error(
+        `[generativeUI] the setter "${setter}" of writable key "${key}" is already a key of component "${name}" in ${where}.`,
+      );
+    }
+  }
+}
+
+function assertDisjointKeys(
+  name: string,
+  definition: RuntimeComponentDefinition,
+  propKeys: readonly string[],
+) {
+  const seen = new Set<string>();
+  const keys = [
+    ...propKeys,
+    ...Object.keys(definition.events ?? {}),
+    ...Object.keys(definition.slots ?? {}),
+  ];
+  for (const key of keys) {
+    if (RESERVED_KEYS.has(key)) {
+      throw new Error(
+        `[generativeUI] "${key}" is reserved by A2UI and cannot be a prop, event or slot of component "${name}".`,
+      );
+    }
+    if (seen.has(key)) {
+      throw new Error(
+        `[generativeUI] "${key}" is declared as more than one of prop, event, slot on component "${name}".`,
+      );
+    }
+    seen.add(key);
+  }
+}
+
+function assertParameterOrder(
+  name: string,
+  definition: RuntimeComponentDefinition,
+  propKeys: readonly string[],
+) {
+  const order = definition.parameterOrder;
+  if (order === undefined) return;
+  const keys = new Set([
+    ...propKeys,
+    ...Object.keys(definition.slots ?? {}),
+    ...Object.keys(definition.events ?? {}),
+  ]);
+  if (
+    [...keys].some((key) => {
+      const index = Number(key);
+      return (
+        Number.isInteger(index) &&
+        index >= 0 &&
+        index < 2 ** 32 - 1 &&
+        String(index) === key
+      );
+    })
+  ) {
+    throw new Error(
+      `[generativeUI] Component "${name}" with parameterOrder cannot declare integer-index keys: JSON object enumeration sorts them numerically before other keys, ignoring the requested order.`,
+    );
+  }
+  if (
+    !Array.isArray(order) ||
+    new Set(order).size !== order.length ||
+    order.some((key) => !keys.has(key))
+  ) {
+    throw new Error(
+      `[generativeUI] parameterOrder of component "${name}" must contain unique declared prop, slot or event names.`,
+    );
+  }
+}
+
+function toManifest(
+  definition: RuntimeComponentDefinition,
+  modelProps: GenerativeUIJSONSchema,
+  modelEvents: NonNullable<GenerativeUIComponentManifest["events"]>,
+) {
+  const manifest: GenerativeUIComponentManifest = { props: modelProps };
+  if (definition.description) manifest.description = definition.description;
+  if (Object.keys(modelEvents).length > 0) manifest.events = modelEvents;
+  if (definition.slots) manifest.slots = { ...definition.slots };
+  if (definition.parameterOrder !== undefined) {
+    const visible = new Set([
+      ...Object.keys(modelProps.properties ?? {}),
+      ...Object.keys(definition.slots ?? {}),
+      ...Object.keys(modelEvents),
+    ]);
+    manifest.parameterOrder = [
+      ...new Set([
+        ...definition.parameterOrder.filter((key) => visible.has(key)),
+        ...visible,
+      ]),
+    ];
+  }
+  return manifest;
+}

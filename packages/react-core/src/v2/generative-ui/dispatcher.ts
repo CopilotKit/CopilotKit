@@ -11,10 +11,10 @@ import type {
   GenerativeUIFunctionManifest,
   StandardSchemaV1,
 } from "@copilotkit/shared";
-import { GenerativeUIError } from "./errors";
-import type { GenerativeUIInvokeResult } from "./errors";
+import { GenerativeUIError } from "@copilotkit/shared/generative-ui";
+import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui";
 import { BASIC_FUNCTIONS, ExpressionError } from "./functions";
-import { toJsonSchema } from "./json-schema";
+import { toJsonSchema } from "@copilotkit/shared/generative-ui";
 
 /**
  * A function that generated UI may call, as declared in

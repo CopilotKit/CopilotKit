@@ -28,8 +28,11 @@ import {
 } from "./debug-source";
 import { createGenerativeUIDispatcher } from "./dispatcher";
 import type { GenerativeUIDispatcher } from "./dispatcher";
-import { GenerativeUIError } from "./errors";
-import type { GenerativeUIErrorCode, GenerativeUIErrorInfo } from "./errors";
+import { GenerativeUIError } from "@copilotkit/shared/generative-ui";
+import type {
+  GenerativeUIErrorCode,
+  GenerativeUIErrorInfo,
+} from "@copilotkit/shared/generative-ui";
 import { catalogIdsOf } from "./catalog";
 import { buildGenerativeUIEnvelope } from "./manifest";
 import type { GenerativeUIEnvelopeOptions } from "./manifest";
