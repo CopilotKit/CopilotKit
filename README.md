@@ -40,7 +40,7 @@ We're also the team behind **[AG-UI](https://github.com/ag-ui-protocol/ag-ui)**,
 
 ## What's new
 
-|                                                                                                                                                                            |                                                                                                                                                                                       |
+| What's new                                                                                                                                                                 | What it is                                                                                                                                                                            |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 🪁 **[CopilotKit Soar](https://www.copilotkit.ai/soar?ref=github_readme)**                                                                                                 | AI coworkers your company owns, running on your own servers. Powered by OpenBot. **[Now in early access →](https://intelligence.copilotkit.ai/?early_access=soar&ref=github_readme)** |
 | 🔁 **[Continual Learning](https://www.copilotkit.ai/clif?ref=github_readme)**                                                                                              | Agents learn from full-stack trajectories (what the agent did _and_ what your users did), captured over AG-UI.                                                                        |
@@ -141,7 +141,7 @@ Your agent handles reasoning and execution. CopilotKit turns its work into a pro
 
 https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 
-|                                                                                                                                       |                                                                                            |
+| Feature                                                                                                                               | What it does                                                                               |
 | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | **[Chat components](https://docs.copilotkit.ai/prebuilt-components?ref=github_readme)**                                               | Start with a working chat, replace the parts you need with slots, or go fully Headless UI. |
 | **[Generative UI](https://docs.copilotkit.ai/concepts/generative-ui-overview?ref=github_readme)**                                     | Agents render real UI, from your own components to A2UI specs to sandboxed MCP Apps.       |
