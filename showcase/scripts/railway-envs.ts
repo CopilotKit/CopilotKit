@@ -2902,5 +2902,6 @@ export const DISPOSABLE_LIFECYCLE_POLICY: RailwayLifecyclePolicy = {
     "ghcr.io/copilotkit/rich-thread-inspector@sha256:e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981",
     // Reviewed against build39546386235 (9bd0e47): canonical schedule observations.
     "ghcr.io/copilotkit/rich-thread-inspector@sha256:1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71",
+    "ghcr.io/copilotkit/rich-thread-application@sha256:5ccbaec60d1faf55333dbdebb2a8043bfbbd967d48adb85d3bc618fd4f02a862",
   ],
 };

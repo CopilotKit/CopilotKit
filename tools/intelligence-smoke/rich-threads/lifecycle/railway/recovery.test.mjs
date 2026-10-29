@@ -23,6 +23,7 @@ async function fixture(t, options = {}) {
     await rm(root, { recursive: true, force: true });
   });
   const config = {
+    ...(options.services ? { services: options.services } : {}),
     projectId: recoveryCase.projectId,
     controlDirectory: join(root, "control"),
     permanentRunner: {
@@ -95,7 +96,7 @@ async function fixture(t, options = {}) {
     sourceRevision: recoveryCase.baselineRevision,
     sourceManifestSha256: "a".repeat(64),
     compatibilitySha256: "b".repeat(64),
-    policySha256: "c".repeat(64),
+    policySha256: options.policySha256 ?? "c".repeat(64),
   };
   const runtimeIdentity = {
     ...baselineIdentity,
@@ -1195,4 +1196,241 @@ test("established legacy watch remains readable with its authorization unchanged
   );
   await assert.rejects(f.prepareSecond());
   assert.deepEqual((await f.read("recovery-v2.json")).authorization, original);
+});
+
+test("application/key transition preserves historical recovery and replays every private checkpoint", async (t) => {
+  const { policy } = await import("./contract.mts");
+  const { policyDigest } = await import("./distribution.mjs");
+  const { retainedWatchBinding } = await import("./runner/deployment.mjs");
+  const oldImage =
+    "ghcr.io/copilotkit/rich-thread-application@sha256:6b6d757e8c5c605c384673a4e8418cd7cd275de2b8b068ebb21856a1032fc71d";
+  const newImage =
+    "ghcr.io/copilotkit/rich-thread-application@sha256:5ccbaec60d1faf55333dbdebb2a8043bfbbd967d48adb85d3bc618fd4f02a862";
+  assert.equal(policy.approvedImages.at(-1), newImage);
+  const f = await repeatedFixture(t, {
+    policySha256:
+      "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751",
+    services: [
+      {
+        key: "mastra",
+        roles: ["native-backend"],
+        image: oldImage,
+        env: { OPENAI_API_KEY: "old-mastra" },
+      },
+      {
+        key: "strands",
+        roles: ["native-backend"],
+        image:
+          "ghcr.io/copilotkit/rich-thread-strands@sha256:a24c58ee44b65fe723434027bf9f40e6b77e679db67ba6229f329676ead430b9",
+        env: { OPENAI_API_KEY: "old-strands" },
+      },
+      { key: "runtime", roles: ["application-runtime"], image: oldImage },
+      { key: "app", roles: ["application"], image: oldImage },
+      { key: "inspector", roles: ["inspection-worker"], image: image("1") },
+    ],
+  });
+  await f.prepareSecond();
+  await f.recoverSecond();
+  const historicalBytes = await readFile(join(f.root, "private/template.json"));
+  const recoveryBytes = await readFile(join(f.root, "recovery-v2.json"));
+  const firstRecoveryBytes = await readFile(join(f.root, "recovery.json"));
+  const state = await f.read("recovery-v2.json");
+  const baseline = f.secondRuntime;
+  const template = structuredClone(f.config);
+  for (const service of template.services) {
+    if (service.image === oldImage) service.image = newImage;
+    if (service.env?.OPENAI_API_KEY)
+      service.env.OPENAI_API_KEY = "test-new-key";
+  }
+  const target = {
+    ...baseline,
+    sourceRevision: "2".repeat(40),
+    compatibilitySha256: "3".repeat(64),
+    policySha256: policyDigest(),
+  };
+  const operationId = "reviewed-application-transition";
+  const auth = {
+    operationId,
+    baselineIdentity: baseline,
+    targetIdentity: target,
+    baselineTemplateSha256: templateDigest(f.config),
+    targetTemplateSha256: templateDigest(template),
+    recoveryBindingSha256: retainedWatchBinding(state),
+    templateTransition: {
+      kind: "application-credentials-v1",
+      applicationBefore: oldImage,
+      applicationAfter: newImage,
+    },
+    removalProof: {
+      version: 1,
+      method: "deploymentRemove",
+      status: "REMOVED",
+      deploymentId: "prior-deployment",
+      image: `ghcr.io/copilotkit/rich-thread-runner@sha256:${"1".repeat(64)}`,
+      ...f.config.permanentRunner,
+      volumeInstanceId: f.v2.repeatedCase.volumeInstanceId,
+      mountPath: "/data",
+      observedAt: new Date().toISOString(),
+    },
+  };
+  const drain = {
+    version: 1,
+    operationId,
+    baselineIdentity: baseline,
+    targetIdentity: baseline,
+    templateSha256: auth.baselineTemplateSha256,
+    recoveryBindingSha256: auth.recoveryBindingSha256,
+    status: "drained",
+  };
+  const oldMetadata = {
+    runtimeIdentity: baseline,
+    templateSha256: auth.baselineTemplateSha256,
+  };
+  await durableJson(join(f.root, "deployment.json"), drain);
+  await durableJson(join(f.root, "runtime.json"), oldMetadata);
+  const { volumeCreateFixture } = await import("./volume-create-fixture.mjs");
+  const { reconcileVolumeCreateRecovery, volumeCreateCase } =
+    await import("./volume-create-recovery.mjs");
+  const volume = await volumeCreateFixture(t);
+  const volumeWatch = await reconcileVolumeCreateRecovery(
+    volume.args,
+    volume.dependencies,
+  );
+  assert.equal(volumeWatch.providerFinality, "unknown");
+  const { cp } = await import("node:fs/promises");
+  await cp(
+    join(volume.root, "volume-create-recovery.json"),
+    join(f.root, "volume-create-recovery.json"),
+  );
+  await cp(
+    join(volume.config.controlDirectory, volumeCreateCase.lifecycleRunId),
+    join(f.config.controlDirectory, volumeCreateCase.lifecycleRunId),
+    { recursive: true },
+  );
+  await cp(
+    join(volume.root, "results", volumeCreateCase.runnerRunId),
+    join(f.root, "results", volumeCreateCase.runnerRunId),
+    { recursive: true },
+  );
+  auth.volumeRecovery = volume.operation.volumeRecovery;
+  const volumeBytes = await readFile(
+    join(f.root, "volume-create-recovery.json"),
+  );
+  const volumeJournalBytes = await readFile(
+    join(
+      f.config.controlDirectory,
+      volumeCreateCase.lifecycleRunId,
+      "journal.json",
+    ),
+  );
+  const volumeReceiptBytes = await readFile(
+    join(f.root, "results", volumeCreateCase.runnerRunId, "run.json"),
+  );
+  const args = {
+    root: f.root,
+    template,
+    runtimeIdentity: target,
+    upgradeAuthorization: auth,
+  };
+  for (const mutate of [
+    (v) => {
+      v.projectId = "foreign";
+    },
+    (v) => {
+      v.services[1].env.OPENAI_API_KEY = "different";
+    },
+    (v) => {
+      v.services[4].image = image("2");
+    },
+    (v) => {
+      v.services[0].env.EXTRA = "unexpected";
+    },
+  ]) {
+    const bad = structuredClone(template);
+    mutate(bad);
+    await assert.rejects(
+      checkStartup({
+        ...args,
+        template: bad,
+        upgradeAuthorization: {
+          ...auth,
+          targetTemplateSha256: templateDigest(bad),
+        },
+      }),
+    );
+    assert.deepEqual(await f.read("deployment.json"), drain);
+  }
+  const metadata = await checkStartup(args);
+  const transition = await f.read("deployment.json");
+  const backupPath = `private/application-baseline-${operationId}.json`;
+  assert.deepEqual(await f.read(backupPath), f.config);
+  assert.deepEqual(
+    await readFile(join(f.root, "private/recovery-template.json")),
+    historicalBytes,
+  );
+  // Crash after baseline backup, after checkpoint, after target template, after runtime metadata.
+  for (const [op, current, runtime] of [
+    [drain, f.config, oldMetadata],
+    [transition, f.config, oldMetadata],
+    [transition, template, oldMetadata],
+    [transition, template, metadata],
+    [{ ...transition, status: "resumed" }, template, metadata],
+  ]) {
+    await durableJson(join(f.root, "deployment.json"), op);
+    await durableJson(join(f.root, "private/template.json"), current);
+    await durableJson(join(f.root, "runtime.json"), runtime);
+    await checkStartup(args);
+    if (runtime === metadata) {
+      for (const patch of [
+        { operationId: "different" },
+        { recoveryBindingSha256: "0".repeat(64) },
+        { removalProof: { ...auth.removalProof, deploymentId: "different" } },
+        { templateTransition: undefined },
+      ])
+        await assert.rejects(
+          checkStartup({
+            ...args,
+            upgradeAuthorization: { ...auth, ...patch },
+          }),
+          /authorization changed/,
+        );
+    }
+    assert.deepEqual(
+      await readFile(join(f.root, "recovery-v2.json")),
+      recoveryBytes,
+    );
+    assert.deepEqual(
+      await readFile(join(f.root, "recovery.json")),
+      firstRecoveryBytes,
+    );
+    assert.deepEqual(
+      await readFile(join(f.root, "volume-create-recovery.json")),
+      volumeBytes,
+    );
+    assert.deepEqual(
+      await readFile(
+        join(
+          f.config.controlDirectory,
+          volumeCreateCase.lifecycleRunId,
+          "journal.json",
+        ),
+      ),
+      volumeJournalBytes,
+    );
+    assert.deepEqual(
+      await readFile(
+        join(f.root, "results", volumeCreateCase.runnerRunId, "run.json"),
+      ),
+      volumeReceiptBytes,
+    );
+    assert.deepEqual(
+      await readFile(join(f.root, "private/recovery-template.json")),
+      historicalBytes,
+    );
+    assert.deepEqual(await f.read(backupPath), f.config);
+  }
+  const corrupt = structuredClone(f.config);
+  corrupt.projectId = "foreign";
+  await durableJson(join(f.root, backupPath), corrupt);
+  await assert.rejects(checkStartup(args), /baseline changed/);
 });

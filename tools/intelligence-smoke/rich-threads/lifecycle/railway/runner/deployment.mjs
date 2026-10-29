@@ -3,6 +3,10 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { durableJson } from "../journal.mjs";
+import {
+  prepareApplicationTemplate,
+  validateApplicationPolicy,
+} from "./application-template.mjs";
 
 /** Sort object keys without changing arrays or scalar values. */
 function canonical(item) {
@@ -152,6 +156,67 @@ async function inspectorOnly(previous, next) {
     "Upgrade may change only the inspector image",
   );
 }
+/** Validate a separately reviewed application/key transition against its immediate baseline. */
+async function applicationTransition(root, previous, template, authorization) {
+  const transition = authorization.templateTransition;
+  assert.deepEqual(Object.keys(transition).sort(), [
+    "applicationAfter",
+    "applicationBefore",
+    "kind",
+  ]);
+  assert.equal(transition.kind, "application-credentials-v1");
+  const path = join(
+    root,
+    `private/application-baseline-${authorization.operationId}.json`,
+  );
+  const saved = await optionalMetadata(path);
+  const baseline = saved ?? previous;
+  assert.equal(
+    templateDigest(baseline),
+    authorization.baselineTemplateSha256,
+    "Application transition baseline changed",
+  );
+  const native = template.services?.filter(
+    (service) =>
+      service.roles?.length === 1 &&
+      service.roles[0] === "native-backend" &&
+      service.image === transition.applicationAfter,
+  );
+  assert.equal(
+    native?.length,
+    1,
+    "Exactly one candidate Mastra service required",
+  );
+  const prepared = prepareApplicationTemplate({
+    baseline,
+    baselineSha256: authorization.baselineTemplateSha256,
+    applicationBefore: transition.applicationBefore,
+    applicationAfter: transition.applicationAfter,
+    credential: native[0].env?.OPENAI_API_KEY,
+  });
+  assert.equal(
+    prepared.receipt.targetTemplateSha256,
+    templateDigest(template),
+    "Unexpected application transition field change",
+  );
+  assert.equal(
+    prepared.receipt.targetTemplateSha256,
+    authorization.targetTemplateSha256,
+  );
+  const { policy } = await import("../contract.mts");
+  validateApplicationPolicy(
+    policy,
+    authorization.baselineIdentity.policySha256,
+    transition.applicationBefore,
+    transition.applicationAfter,
+  );
+  assert.equal(
+    createHash("sha256").update(JSON.stringify(policy)).digest("hex"),
+    authorization.targetIdentity.policySha256,
+    "Target policy identity mismatch",
+  );
+  return { path, baseline, saved };
+}
 async function prepareWatchingUpgrade({
   root,
   template,
@@ -194,7 +259,10 @@ async function prepareWatchingUpgrade({
     "Upgrade watch binding changed",
   );
   const historical = await recoveryTemplate(root, retained);
-  await inspectorOnly(historical, template);
+  const application = authorization.templateTransition
+    ? await applicationTransition(root, retained, template, authorization)
+    : null;
+  if (!application) await inspectorOnly(historical, template);
   const proof = authorization.removalProof;
   assert.equal(proof.version, 1);
   assert.equal(proof.method, "deploymentRemove");
@@ -230,6 +298,9 @@ async function prepareWatchingUpgrade({
     recoveryBindingSha256: authorization.recoveryBindingSha256,
     removalProof: proof,
     status: "draining",
+    ...(application
+      ? { templateTransition: authorization.templateTransition }
+      : {}),
     ...(authorization.volumeRecovery
       ? { volumeRecovery: authorization.volumeRecovery }
       : {}),
@@ -311,6 +382,8 @@ async function prepareWatchingUpgrade({
         join(root, "private/recovery-template.json"),
         historical,
       );
+    if (application && !application.saved)
+      await durableJson(application.path, application.baseline);
     await durableJson(join(root, "deployment.json"), next);
   }
   await durableJson(join(root, "private/template.json"), template);
@@ -385,6 +458,35 @@ export async function checkStartup({
       recoveryAuthorization,
     });
     return { runtimeIdentity, templateSha256 };
+  }
+  if (operation?.templateTransition) {
+    assert.equal(operation.kind, "retained-watch-upgrade");
+    if (upgradeAuthorization) {
+      for (const key of [
+        "operationId",
+        "baselineIdentity",
+        "targetIdentity",
+        "baselineTemplateSha256",
+        "recoveryBindingSha256",
+        "removalProof",
+        "templateTransition",
+        "volumeRecovery",
+      ])
+        assert.equal(
+          templateDigest({ value: upgradeAuthorization[key] }),
+          templateDigest({ value: operation[key] }),
+          "Application authorization changed after checkpoint",
+        );
+      assert.equal(
+        upgradeAuthorization.targetTemplateSha256,
+        operation.templateSha256,
+        "Application target authorization changed",
+      );
+    }
+    await applicationTransition(root, retained, template, {
+      ...operation,
+      targetTemplateSha256: operation.templateSha256,
+    });
   }
   if (retained)
     assert.equal(
