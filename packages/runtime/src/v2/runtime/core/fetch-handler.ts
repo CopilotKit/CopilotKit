@@ -692,7 +692,7 @@ function dispatchRoute(
     case "transcribe":
       return handleTranscribe({ runtime, request });
     case "threads/clear":
-      return Promise.resolve(handleClearThreads({ runtime, request }));
+      return handleClearThreads({ runtime, request });
     case "threads/list":
       return handleListThreads({ runtime, request });
     case "memories/list":

@@ -29,6 +29,7 @@ import {
   TailoredContentOption as RealTailoredContentOption,
 } from "@/components/react/tailored-content";
 import { NewLookAndFeelPreview } from "@/components/react/component-previews/new-look-and-feel";
+import { StandardCatalog } from "@/components/standard-catalog/standard-catalog";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import { ChannelsIntegrationPicker } from "@/components/channels-integration-picker";
@@ -715,6 +716,7 @@ export const docsComponents = {
   CustomAgent: stubWithPartial("CustomAgent"),
   DebugMode: stubWithPartial("DebugMode"),
   NewLookAndFeelPreview,
+  StandardCatalog,
   Slots: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
