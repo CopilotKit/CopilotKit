@@ -85,8 +85,11 @@ export interface RunRecord {
   judge: string;
   budgetUsd: number;
   estimatedCostUsd: number;
-  /** Set when the run stopped early. */
-  stopped?: "budget";
+  /**
+   * Set when the run stopped early: before a sample the budget could not
+   * cover, or when the provider refused calls for lack of credit.
+   */
+  stopped?: "budget" | "credits";
   totals: { samples: number; costUsd: number };
 }
 

@@ -77,6 +77,33 @@ describe("runEval", () => {
   });
 });
 
+describe("runEval with a provider out of credit", () => {
+  it("stops the run and scores no sample as a model failure", async () => {
+    const broke = defineEvalConfig({
+      ...config,
+      models: [...config.models, { id: "broke", model: "fake:no-credit" }],
+      presets: {
+        offline: {
+          models: ["broke"],
+          cases: "tag:smoke",
+          samples: 1,
+          judge: "fake:judge",
+          reflection: "fake:reflect",
+        },
+      },
+    });
+    const run = await runEval({
+      config: broke,
+      plan: resolvePlan(broke, "offline"),
+      split: "train",
+      budgetUsd: 1,
+      root,
+    });
+    expect(run.stopped).toBe("credits");
+    expect(readRun(run.id, root).samples).toEqual([]);
+  });
+});
+
 describe("runEval with a failing judge", () => {
   it("leaves judgement ungraded instead of counting it as a pass", async () => {
     const broken = defineEvalConfig({

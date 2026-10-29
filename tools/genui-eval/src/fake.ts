@@ -166,13 +166,24 @@ export function fakeReflect(prompt: string) {
 
 /**
  * The offline model of `fake:<script>`. `fake:judge` and `fake:reflect` are
- * the fake judge and reflection model; any other script replies from
+ * the fake judge and reflection model, `fake:no-credit` fails like a
+ * provider out of credit; any other script replies from
  * `fixtures/<script>/<caseId>.<transport>.txt`.
  */
 export function createFakeModel(model: string, dir?: string): LanguageModel {
   const script = model.slice("fake:".length);
   if (script === "judge") return fakeGenerator(() => FAKE_JUDGE_REPLY);
   if (script === "reflect") return fakeGenerator(fakeReflect);
+  // A provider out of credit, for the runner's stop on it.
+  if (script === "no-credit") {
+    return new MockLanguageModelV3({
+      doStream: async () => {
+        throw new Error(
+          "This request would exceed your available credits given your current in-flight requests.",
+        );
+      },
+    });
+  }
   return new MockLanguageModelV3({
     doStream: async ({ prompt }) => {
       const text = promptText(prompt);

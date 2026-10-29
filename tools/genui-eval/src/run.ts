@@ -123,6 +123,16 @@ export function promptFingerprint(
   return { hashes, sizes, bounds };
 }
 
+/** Whether a run error says the provider is out of credit (OpenRouter's 402). */
+export function isOutOfCredit(reason: string) {
+  return (
+    reason.startsWith("run error:") &&
+    /available credits|insufficient credits|more credits|payment required|\b402\b/i.test(
+      reason,
+    )
+  );
+}
+
 /** The estimated cost of a whole run. */
 export function estimateRun(
   options: Pick<RunOptions, "config" | "plan" | "spec"> & { caseCount: number },
@@ -252,6 +262,12 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
           judgeModel,
           checker,
         });
+        // A provider out of credit says nothing about the model: stop the
+        // run and keep the sample out, instead of scoring it as a failure.
+        if (sample.tiers.validity.reasons.some(isOutOfCredit)) {
+          run.stopped = "credits";
+          return;
+        }
         appendSample(run.id, sample, root);
         run.totals.samples++;
         run.totals.costUsd += sample.costUsd + sample.judgeCostUsd;
