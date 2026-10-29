@@ -17,6 +17,7 @@ import {
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import stagingHarnessImage from "./staging-harness-image.json";
 import type {
   RunRecord,
   RailwayLifecyclePolicy,
@@ -363,6 +364,121 @@ function permanentInventory(): ProjectServicesWithInstances {
     },
   };
 }
+
+describe("reviewed staging harness pin through the real inventory gate", () => {
+  function pinnedInventory() {
+    const data = permanentInventory();
+    const harness = data.project!.services.edges.find(
+      ({ node }) => node.name === "harness",
+    )!.node;
+    const staging = harness.serviceInstances.edges.find(
+      ({ node }) => node.environmentId === ENV_ID_BY_NAME.staging,
+    )!.node;
+    staging.source!.image = stagingHarnessImage.image;
+    return { data, harness, staging };
+  }
+
+  it("binds a built immutable pin to the exact registered service and environment", async () => {
+    expect(stagingHarnessImage.image).toMatch(
+      /^ghcr\.io\/copilotkit\/showcase-harness@sha256:[a-f0-9]{64}$/,
+    );
+    expect(stagingHarnessImage.projectId).toBe(PROJECT_ID);
+    expect(stagingHarnessImage.serviceId).toBe(SERVICES.harness.serviceId);
+    expect(stagingHarnessImage.environmentId).toBe(ENV_ID_BY_NAME.staging);
+    const { data } = pinnedInventory();
+    expect((await withRecords(data, [])).summary.shouldFail).toBe(false);
+  });
+
+  it("retains the existing latest baseline", async () => {
+    expect(
+      (await withRecords(permanentInventory(), [])).summary.shouldFail,
+    ).toBe(false);
+  });
+
+  it("rejects another digest, including a former harness image", async () => {
+    const { data, staging } = pinnedInventory();
+    staging.source!.image =
+      "ghcr.io/copilotkit/showcase-harness@sha256:797a40e2f7d7ae1ef5a55210a2e5de407aa831eae9e9fc708a9964c2f4fe970a";
+    expect((await withRecords(data, [])).violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ service: "harness", env: "staging" }),
+      ]),
+    );
+  });
+
+  it("rejects the same name with a different provider service ID", async () => {
+    const { data, harness } = pinnedInventory();
+    harness.id = "foreign-harness";
+    expect((await withRecords(data, [])).summary.shouldFail).toBe(true);
+  });
+
+  it("does not exempt harness workers sharing the same repository", async () => {
+    const { data } = pinnedInventory();
+    const workers = data.project!.services.edges.find(
+      ({ node }) => node.name === "harness-workers",
+    )!.node;
+    workers.serviceInstances.edges.find(
+      ({ node }) => node.environmentId === ENV_ID_BY_NAME.staging,
+    )!.node.source!.image = stagingHarnessImage.image;
+    expect((await withRecords(data, [])).violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ service: "harness-workers", env: "staging" }),
+      ]),
+    );
+  });
+
+  it("requires observed identity, not just the image repository", () => {
+    const opts = {
+      env: "staging",
+      repoName: "showcase-harness",
+      serviceName: "harness",
+      serviceId: stagingHarnessImage.serviceId,
+      environmentId: stagingHarnessImage.environmentId,
+    };
+    expect(
+      validateImage(stagingHarnessImage.image, {
+        env: "staging",
+        repoName: "showcase-harness",
+      }),
+    ).not.toBeNull();
+    expect(
+      validateImage(stagingHarnessImage.image, {
+        ...opts,
+        environmentId: PRODUCTION_ENV_ID,
+      }),
+    ).not.toBeNull();
+    expect(
+      validateImage(stagingHarnessImage.image, {
+        ...opts,
+        serviceName: "harness-workers",
+      }),
+    ).not.toBeNull();
+    expect(
+      validateImage(stagingHarnessImage.image, {
+        ...opts,
+        serviceId: "foreign",
+      }),
+    ).not.toBeNull();
+    expect(
+      validateImage(stagingHarnessImage.image, {
+        ...opts,
+        repoName: "showcase-mastra",
+      }),
+    ).not.toBeNull();
+  });
+
+  it("preserves production's digest requirement", async () => {
+    const { data, harness } = pinnedInventory();
+    harness.serviceInstances.edges.find(
+      ({ node }) => node.environmentId === PRODUCTION_ENV_ID,
+    )!.node.source!.image = "ghcr.io/copilotkit/showcase-harness:latest";
+    expect((await withRecords(data, [])).violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ service: "harness", env: "prod" }),
+      ]),
+    );
+  });
+});
 
 /** Fictitious exact provider ownership, never a live resource. */
 function runRecord(overrides: Partial<RunRecord> = {}): RunRecord {

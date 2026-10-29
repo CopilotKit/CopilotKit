@@ -33,6 +33,7 @@
  */
 
 import { fileURLToPath } from "url";
+import stagingHarnessImage from "./staging-harness-image.json";
 import {
   ENV_ID_BY_NAME,
   DISPOSABLE_LIFECYCLE_POLICY,
@@ -103,6 +104,10 @@ export interface ValidateOpts {
   env: EnvName;
   /** Expected GHCR repo name. Caller resolves this from SERVICES + env. */
   repoName: string;
+  /** Exact observed provider identity; names or repository alone cannot authorize a pin. */
+  serviceId?: string;
+  serviceName?: string;
+  environmentId?: string;
 }
 
 export interface Violation {
@@ -140,6 +145,25 @@ export function validateImage(
   }
 
   if (env === "staging") {
+    // One reviewed immutable candidate, committed with its exact provider scope.
+    // No environment-variable bypass and no repository-wide digest exemption.
+    // A missing candidate fails closed until the build digest is reviewed.
+    if (
+      stagingHarnessImage.projectId === PROJECT_ID &&
+      opts.environmentId === stagingHarnessImage.environmentId &&
+      opts.environmentId === ENV_ID_BY_NAME.staging &&
+      opts.serviceId === stagingHarnessImage.serviceId &&
+      opts.serviceName === stagingHarnessImage.serviceName &&
+      opts.serviceId === SERVICES.harness.serviceId &&
+      opts.serviceName === "harness" &&
+      repoName === "showcase-harness" &&
+      PROD_SHAPE.test(normalizedImage) &&
+      normalizedImage.startsWith(
+        "ghcr.io/copilotkit/showcase-harness@sha256:",
+      ) &&
+      normalizedImage === stagingHarnessImage.image
+    )
+      return null;
     if (!STAGING_SHAPE.test(normalizedImage)) {
       if (!normalizedImage.startsWith("ghcr.io/copilotkit/")) {
         return {
@@ -580,6 +604,9 @@ export async function runRailwayImageGate(input: {
       const violation = validateImage(instance.image, {
         env,
         repoName: repoNameFor(service.name, env),
+        serviceId: instance.serviceId,
+        serviceName: instance.name,
+        environmentId: instance.environmentId,
       });
       if (violation) violations.push({ ...violation, service: service.name });
     }

@@ -63,6 +63,26 @@ export async function verifyApplicationImage(
 
 export async function verifyApplicationProvenance(intent, github, token) {
   validateApplicationRelease(intent);
+  // The ordinary post-rollout gate must accept this exact candidate without
+  // a dispatch-only environment override. Check before any provider mutation.
+  assert.deepEqual(
+    JSON.parse(
+      await readFile(
+        new URL(
+          "../../showcase/scripts/staging-harness-image.json",
+          import.meta.url,
+        ),
+      ),
+    ),
+    {
+      projectId: "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
+      environmentId: "8edfef02-ea09-4a20-8689-261f21cc2849",
+      serviceId: intent.harness.serviceId,
+      serviceName: "harness",
+      image: intent.harness.image,
+    },
+    "Ordinary image gate is not bound to the reviewed harness candidate",
+  );
   const original = JSON.parse(
     await readFile(new URL("./releases/browser-upgrade.json", import.meta.url)),
   );

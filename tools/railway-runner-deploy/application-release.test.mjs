@@ -10,7 +10,10 @@ import {
   APPLICATION_BUILD,
   HARNESS_SERVICE,
 } from "./application-release.mjs";
-import { verifyApplicationImage } from "./application-provenance.mjs";
+import {
+  verifyApplicationImage,
+  verifyApplicationProvenance,
+} from "./application-provenance.mjs";
 import { sha256 } from "./contract.mjs";
 
 async function release() {
@@ -88,6 +91,23 @@ test("release rejects missing build pins and any unreviewed baseline, policy or 
     mutate(value);
     assert.throws(() => validateApplicationRelease(value));
   }
+});
+test("provenance refuses an image absent from the ordinary gate before external reads", async () => {
+  let calls = 0;
+  const github = new Proxy(
+    {},
+    {
+      get() {
+        calls++;
+        throw new Error("External read attempted");
+      },
+    },
+  );
+  await assert.rejects(
+    verifyApplicationProvenance(await release(), github, "test-only"),
+    /Ordinary image gate is not bound to the reviewed harness candidate/,
+  );
+  assert.equal(calls, 0);
 });
 test("application image verifier refuses foreign repositories before authentication", async () => {
   let calls = 0;

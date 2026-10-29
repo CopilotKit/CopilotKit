@@ -1,0 +1,7 @@
+{
+  "projectId": "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
+  "environmentId": "8edfef02-ea09-4a20-8689-261f21cc2849",
+  "serviceId": "3a14bfed-0537-4d71-897b-7c593dca161d",
+  "serviceName": "harness",
+  "image": "ghcr.io/copilotkit/showcase-harness@sha256:6c15509e3740b96e1a381f029c718985289740ddda5e5f7a04087502608e1250"
+}
