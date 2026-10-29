@@ -39,7 +39,7 @@ permissions:
 
 jobs:
   rc:
-    uses: ./.github/workflows/canary.yml
+    uses: $/.github/workflows/canary.yml
     with:
       scope: monorepo
       rc: ${{ github.ref_name }}
