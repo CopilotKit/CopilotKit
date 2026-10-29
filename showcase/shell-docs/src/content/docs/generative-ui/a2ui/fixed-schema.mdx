@@ -95,8 +95,16 @@ The catalog, definitions and renderers below all import from
 `@copilotkit/react-core`, and the definitions use `zod` for prop schemas:
 
 ```npm
-npm install @copilotkit/a2ui-renderer zod
+npm install @copilotkit/a2ui-renderer zod@^3.25.75
 ```
+
+<Callout type="warn" title="Use Zod 3 for these component definitions">
+  The renderer's A2UI binder reads Zod 3 schema internals to resolve data-model
+  bindings. Zod 4 schemas are not compatible with this binder: static labels
+  may appear while bound values such as airport codes, airline, and price are
+  missing. Keep these definitions on Zod 3; installing unversioned `zod` can
+  select Zod 4 instead.
+</Callout>
 </Step>
 
 <Step>

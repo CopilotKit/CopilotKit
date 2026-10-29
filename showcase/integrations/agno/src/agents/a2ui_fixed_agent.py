@@ -13,6 +13,8 @@ the rendering tool itself — it emits an `a2ui_operations` container
 directly without a secondary LLM call.
 """
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 from __future__ import annotations
 
 import json
@@ -43,6 +45,7 @@ FLIGHT_SCHEMA = _load_schema("flight_schema.json")
 # schema is ready to wire up once the SDK exposes per-button action handlers
 # for fixed-schema surfaces (matching the langgraph-python reference).
 BOOKED_SCHEMA = _load_schema("booked_schema.json")
+# @endregion[backend-schema-json-load]
 
 
 @tool
@@ -88,6 +91,7 @@ def display_flight(origin: str, destination: str, airline: str, price: str):
         },
     ]
     return json.dumps({"a2ui_operations": operations})
+# @endregion[backend-render-operations]
 
 
 SYSTEM_PROMPT = (
