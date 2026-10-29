@@ -1,9 +1,4 @@
-import type {
-  BACKGROUNDS,
-  BORDER_COLORS,
-  RADII,
-  TEXT_COLORS,
-} from "./standard/tokens";
+import type { BACKGROUNDS, BORDER_COLORS, RADII, TEXT_COLORS } from "./tokens";
 
 type TextColor = (typeof TEXT_COLORS)[number];
 type BorderColor = (typeof BORDER_COLORS)[number];

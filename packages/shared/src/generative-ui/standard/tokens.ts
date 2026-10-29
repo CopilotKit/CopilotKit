@@ -1,3 +1,5 @@
+import { hasOwnKey } from "../is-record";
+
 /**
  * Design tokens of the standard components. Each token is a CSS variable
  * with a literal fallback, so a host can restyle a surface with the
@@ -159,7 +161,7 @@ function hasToken<Key extends string>(
   table: Record<Key, string>,
   key: string,
 ): key is Key {
-  return Object.hasOwn(table, key);
+  return hasOwnKey(table, key);
 }
 
 /** A number is a count of 4px steps. A string passes through as CSS. */

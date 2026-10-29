@@ -43,7 +43,7 @@ export type {
   GenerativeUIThemeValues,
   GenerativeUIThemeVariable,
   GenerativeUIThemeVariables,
-} from "./theme";
+} from "@copilotkit/shared/generative-ui";
 export { GenerativeUISurface } from "./GenerativeUISurface";
 export type { GenerativeUISurfaceProps } from "./GenerativeUISurface";
 export { DefaultGenerativeUIChatCard } from "./chat";

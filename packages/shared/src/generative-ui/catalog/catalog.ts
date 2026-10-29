@@ -14,6 +14,7 @@ import type { StandardSchemaV1 } from "../../standard-schema";
 import type { GenerativeUIInvokeResult } from "./errors";
 import { hasOwnKey } from "../is-record";
 import { toJsonSchema } from "./json-schema";
+import type { GenerativeUIChildNode } from "./refs";
 import type { GenerativeUISchema, SchemaInput, SchemaOutput } from "./schema";
 
 export type GenerativeUISlotKind = "single" | "multiple";
@@ -337,7 +338,18 @@ export type GenerativeUIEventInput<
   ? InputOf<Event["parameters" & keyof Event]>
   : FunctionInput<Functions, MatchedFunction<Name, Functions>>;
 
-type DataProps<Props> = Props extends PropsSchema ? OutputOf<Props> : {};
+/** `Value` with each `GenerativeUIChildNode` replaced by `TNode`. */
+type WithNodes<Value, TNode> = Value extends GenerativeUIChildNode
+  ? TNode
+  : Value extends readonly (infer Item)[]
+    ? WithNodes<Item, TNode>[]
+    : Value extends Record<string, unknown>
+      ? { [Key in keyof Value]: WithNodes<Value[Key], TNode> }
+      : Value;
+
+type DataProps<Props, TNode> = Props extends PropsSchema
+  ? WithNodes<OutputOf<Props>, TNode>
+  : {};
 
 type EventProps<Events, Functions> =
   Events extends Record<string, unknown>
@@ -371,14 +383,15 @@ type SetterProps<Props, Writable> = {
  * Data props are the parsed `props` schema, bound props included. Event and
  * slot props are present only when they are bound or filled. Each writable
  * prop gets a setter (`value` gets `setValue`), which is always present.
- * `TNode` is the type of a rendered child: what a slot prop holds.
+ * `TNode` is the type of a rendered child: what a slot prop holds, and what
+ * replaces each `GenerativeUIChildNode` of the data props.
  */
 export type GenerativeUIComponentProps<
   UI extends AnyGenerativeUI,
   Name extends keyof GenerativeUIDefinitionsOf<UI>["components"] & string,
   TNode = unknown,
 > = Simplify<
-  DataProps<GenerativeUIDefinitionsOf<UI>["components"][Name]["props"]> &
+  DataProps<GenerativeUIDefinitionsOf<UI>["components"][Name]["props"], TNode> &
     EventProps<
       GenerativeUIDefinitionsOf<UI>["components"][Name]["events"],
       GenerativeUIDefinitionsOf<UI>["functions"]

@@ -9,7 +9,7 @@ import type {
   GenerativeUIInvokeResult,
 } from "@copilotkit/shared/generative-ui";
 import type { GenerativeUISurfaceManager } from "./surface-manager";
-import type { GenerativeUITheme } from "./theme";
+import type { GenerativeUITheme } from "@copilotkit/shared/generative-ui";
 
 export type { GenerativeUITheme };
 
