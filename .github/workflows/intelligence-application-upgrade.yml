@@ -1,0 +1,95 @@
+name: Intelligence coordinated application and policy upgrade
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_json:
+        description: Reviewed nonsecret release record with built runner and harness pins
+        required: true
+        type: string
+      release_sha256:
+        description: SHA-256 of the exact release JSON bytes
+        required: true
+        type: string
+  pull_request:
+    paths:
+      - tools/railway-runner-deploy/application-*.mjs
+      - tools/railway-runner-deploy/harness-policy-rollout*.mjs
+      - tools/railway-runner-deploy/template-transition*.mjs
+      - showcase/scripts/activate-registry-readers*
+      - .github/workflows/intelligence-application-upgrade.yml
+      - .github/workflows/intelligence-harness-policy-build.yml
+
+permissions:
+  contents: read
+  actions: read
+  packages: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.18.0"
+          package-manager-cache: false
+      - run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
+      - run: pnpm nx run-many -t test,lint --projects=railway-runner-deploy --parallel=1
+      - name: Write exact reviewed nonsecret record
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          RELEASE_JSON: ${{ inputs.release_json }}
+        run: node --input-type=module -e "import{writeFileSync}from'node:fs';writeFileSync(process.env.RUNNER_TEMP+'/application-release.json',process.env.RELEASE_JSON)"
+      - name: Verify build and registry provenance
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RICH_APPLICATION_RELEASE_PATH: ${{ runner.temp }}/application-release.json
+          RICH_APPLICATION_RELEASE_SHA256: ${{ inputs.release_sha256 }}
+        run: node tools/railway-runner-deploy/application-upgrade-cli.mjs --validate
+
+  deploy:
+    needs: validate
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'CopilotKit/CopilotKit' && github.ref == 'refs/heads/main'
+    concurrency:
+      group: intelligence-runner-staging-deploy
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.18.0"
+          package-manager-cache: false
+      - run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
+      - name: Install pinned read-only variable renderer
+        run: npm install --global @railway/cli@5.71.0
+      - name: Write exact reviewed nonsecret record
+        env:
+          RELEASE_JSON: ${{ inputs.release_json }}
+        run: node --input-type=module -e "import{writeFileSync}from'node:fs';writeFileSync(process.env.RUNNER_TEMP+'/application-release.json',process.env.RELEASE_JSON)"
+      - name: Execute one reviewed coordinated transition
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RICH_RUNNER_TOKEN: ${{ secrets.RICH_RUNNER_TOKEN }}
+          RICH_APPLICATION_RELEASE_PATH: ${{ runner.temp }}/application-release.json
+          RICH_APPLICATION_RELEASE_SHA256: ${{ inputs.release_sha256 }}
+        run: node tools/railway-runner-deploy/application-upgrade-cli.mjs --execute
+      - name: Preserve redacted transition receipts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: application-transition-receipts-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/application-transition-receipt
+          if-no-files-found: warn
+          retention-days: 90

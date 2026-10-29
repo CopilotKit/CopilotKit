@@ -1,0 +1,33 @@
+{
+  "source": {
+    "image": "ghcr.io/copilotkit/showcase-harness:latest",
+    "rootDirectory": "/",
+    "autoUpdates": {
+      "type": "disabled"
+    }
+  },
+  "networking": {
+    "serviceDomains": {
+      "harness-staging-2ee4.up.railway.app": {}
+    },
+    "privateNetworkEndpoint": "showcase-ops"
+  },
+  "build": {
+    "builder": "DOCKERFILE",
+    "buildEnvironment": "V3",
+    "dockerfilePath": "showcase/ops/Dockerfile"
+  },
+  "deploy": {
+    "healthcheckPath": "/health",
+    "useLegacyStacker": false,
+    "ipv6EgressEnabled": false,
+    "runtime": "V2",
+    "multiRegionConfig": {
+      "us-west2": {
+        "numReplicas": 1
+      }
+    }
+  },
+  "variablesSha256": "23ed2eace0f77a606a73aca452988ba932cfb554ff095dc112e57b75d51edeb8",
+  "sharedVariablesSha256": "fc4762b4d4fabf84e1d51e0dd49b981e0785b3a6d05fceb0c319a8a6689fe9bb"
+}

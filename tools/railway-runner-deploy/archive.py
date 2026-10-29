@@ -13,6 +13,7 @@ allowed = {
     "application-source.json",
     "strands-source.json",
     "deployment-receipt.json",
+    "harness-policy-candidate.json",
 }
 try:
     result = {}

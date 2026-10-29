@@ -1,0 +1,58 @@
+name: Intelligence harness policy candidate (build only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    if: github.repository == 'CopilotKit/CopilotKit' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.18.0"
+          package-manager-cache: false
+      - name: Verify bundled policy before building
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          const policy=JSON.parse(readFileSync('showcase/scripts/railway-envs.generated.json')).disposableLifecyclePolicy;
+          assert.equal(createHash('sha256').update(JSON.stringify(policy)).digest('hex'),'818e0ac6b3bef851f39c44a109cdc529cc98da104aeedce8ac84f66db543ff22');
+          NODE
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build exact harness with matching policy
+        id: harness
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          file: showcase/harness/Dockerfile
+          push: true
+          tags: ghcr.io/copilotkit/showcase-harness:pni596-policy-${{ github.sha }}
+      - name: Record candidate identity
+        env:
+          HARNESS_DIGEST: ${{ steps.harness.outputs.digest }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {mkdirSync,writeFileSync} from 'node:fs';
+          mkdirSync('harness-policy-candidate');
+          writeFileSync('harness-policy-candidate/harness-policy-candidate.json',JSON.stringify({sourceRevision:process.env.GITHUB_SHA,image:`ghcr.io/copilotkit/showcase-harness@${process.env.HARNESS_DIGEST}`,policySha256:'818e0ac6b3bef851f39c44a109cdc529cc98da104aeedce8ac84f66db543ff22'},null,2));
+          NODE
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: harness-policy-candidate
+          path: harness-policy-candidate
+          if-no-files-found: error

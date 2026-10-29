@@ -16,6 +16,7 @@ export const POLICY =
   "7eb39aa628b77c30efa88a00c4ad0695de89ac2bb919e7e25f550a4ab2f2c765";
 const approvedPolicies = new Set([
   POLICY,
+  "818e0ac6b3bef851f39c44a109cdc529cc98da104aeedce8ac84f66db543ff22",
   "4ded223bb02ea0cdf7ffed4fb8f78b70fbb50c9f74ae82d34addfc94f712c751",
 ]);
 export const REPOSITORY = "CopilotKit/CopilotKit";
