@@ -87,28 +87,19 @@ describe("renderGenerativeUISchema", () => {
     expect(text).not.toContain('\\"');
   });
 
-  it("lists a prop line that three or more components share once, in lines notation", () => {
-    const withShared: GenerativeUIManifest = {
+  it("writes slots as componentId and childList props in lines notation", () => {
+    const withSlots: GenerativeUIManifest = {
       ...manifest,
-      components: Object.fromEntries(
-        ["A", "B", "C"].map((name) => [
-          name,
-          {
-            props: {
-              type: "object",
-              properties: {
-                weight: { type: "number", description: "flex-grow" },
-                [`own${name}`]: { type: "string" },
-              },
-            },
-          },
-        ]),
-      ),
+      components: {
+        Card: {
+          props: { type: "object", properties: {} },
+          slots: { child: "single", children: "multiple" },
+        },
+      },
     };
-    const text = renderGenerativeUISchema(withShared, settings("lines"));
-    expect(text.match(/weight: number - flex-grow/g)).toHaveLength(1);
-    expect(text).toContain("A\n ownA: string\n shared: weight");
-    expect(schemaCoverage(withShared, text).missing).toEqual([]);
+    const text = renderGenerativeUISchema(withSlots, settings("lines"));
+    expect(text).toContain("Card\n child: componentId\n children: childList");
+    expect(text).not.toContain("slots");
   });
 
   it("leaves the prop descriptions out on request", () => {

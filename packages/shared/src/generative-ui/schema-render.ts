@@ -124,9 +124,6 @@ function bareType(type: string) {
   return type.replace(/"([A-Za-z0-9_#%.-]+)"/g, "$1").replace(/ \| /g, "|");
 }
 
-/** A prop or event line that this many components carry verbatim is listed once. */
-const SHARED_LINE_MIN_COMPONENTS = 3;
-
 /** A compact prop (`type // description`) as `name: type - description`. */
 function propLine(key: string, value: string) {
   const name = key.endsWith("?") ? key.slice(0, -1) : `${key}*`;
@@ -139,9 +136,9 @@ function propLine(key: string, value: string) {
 
 /**
  * The whole schema as plain lines: a header line per component and one
- * indented line per prop, event and slot list. Props are optional unless
- * marked `*`, enum values are bare, and the props many components share are
- * listed once. It carries the same names, types and descriptions as
+ * indented line per prop: events are `action` props and slots `componentId`
+ * or `childList` props. Props are optional unless marked `*`, enum values
+ * are bare, and the common props are listed once. It carries the same names, types and descriptions as
  * `compact`, in fewer tokens.
  */
 function linesSchema(
@@ -165,53 +162,23 @@ function linesSchema(
   const common = compact.commonProps
     ? Object.entries(compact.commonProps).map(([k, v]) => propLine(k, v))
     : [];
-  // The prop and event lines of each component, then the lines that three
-  // or more components share verbatim, listed once and named per component.
-  const lineSets = Object.entries(compact.components).map(([name, c]) => {
-    const own = [
+  const lineSets = Object.entries(compact.components).map(([name, c]) => ({
+    name,
+    c,
+    own: [
       ...Object.entries(c.props).map(([k, v]) => propLine(k, v)),
       ...Object.entries(c.events ?? {}).map(([e, d]) => ` ${e}: action - ${d}`),
-    ];
-    return { name, c, own };
-  });
-  const counts = new Map<string, number>();
-  for (const { own } of lineSets) {
-    for (const line of own) counts.set(line, (counts.get(line) ?? 0) + 1);
-  }
-  // A name may be shared with one definition only: the most common one.
-  const sharedByName = new Map<string, string>();
-  for (const [line, n] of [...counts].sort((a, b) => b[1] - a[1])) {
-    const key = line
-      .trim()
-      .split(/[:*]| - /)[0]
-      .trim();
-    if (n >= SHARED_LINE_MIN_COMPONENTS && !sharedByName.has(key)) {
-      sharedByName.set(key, line);
-    }
-  }
-  const sharedLines = new Set(sharedByName.values());
-  const sharedNameOf = new Map(
-    [...sharedByName].map(([key, line]) => [line, key]),
-  );
+    ],
+  }));
   const components = lineSets.flatMap(({ name, c, own }) => {
-    const shared = own.filter((line) => sharedLines.has(line));
     const lines = [
       `${name}${c.includesCommonProps ? " +common" : ""}${c.description ? `: ${c.description}` : ""}`,
-      ...own.filter((line) => !sharedLines.has(line)),
+      ...own,
     ];
-    if (shared.length > 0) {
+    // Slots are props that take component ids.
+    for (const [slot, kind] of Object.entries(c.slots ?? {})) {
       lines.push(
-        ` shared: ${shared.map((line) => sharedNameOf.get(line)).join(", ")}`,
-      );
-    }
-    if (c.slots) {
-      lines.push(
-        ` slots: ${Object.entries(c.slots)
-          .map(
-            ([slot, kind]) =>
-              `${slot} (${kind === "single" ? "componentId" : "componentId[]"})`,
-          )
-          .join(", ")}`,
+        ` ${slot}: ${kind === "single" ? "componentId" : "childList"}`,
       );
     }
     return lines;
@@ -221,14 +188,9 @@ function linesSchema(
     : "none";
   return [
     `Catalog ${compact.catalogId}. Targets: ${targets || "none"}.`,
-    'Props are optional unless marked *. a|b|c is one of those strings. A component marked +common also takes every common prop. A prop of type action is an event prop: give it {"event":{...}} or {"functionCall":{...}}.',
+    'Props are optional unless marked *. a|b|c is one of those strings. A component marked +common also takes every common prop. A prop of type action is an event prop: give it {"event":{...}} or {"functionCall":{...}}. A componentId prop takes one component id; a childList prop takes a list of ids or a template.',
     `Functions:\n${functions.join("\n")}`,
     ...(common.length ? [`Common props:\n${common.join("\n")}`] : []),
-    ...(sharedLines.size
-      ? [
-          `Shared props (a component lists the ones it takes under "shared"):\n${[...sharedLines].join("\n")}`,
-        ]
-      : []),
     `Components:\n${components.join("\n")}`,
     `Surfaces: ${surfaces}`,
   ].join("\n\n");
