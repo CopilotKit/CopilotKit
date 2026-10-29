@@ -101,6 +101,7 @@ test("resume with initiator Memory keeps the original user when Bob clicks", asy
   });
 
   await adapter.getSink().onInteraction({
+    platform: "slack",
     id: actionId,
     conversationKey: "thread-1",
     replyTarget: {},
@@ -180,6 +181,7 @@ test("a managed continuation keeps its initiator across a Runtime restart", asyn
   await restarted.channel.ɵruntime.start();
   activeChannels.push({ stop: () => restarted.channel.ɵruntime.stop() });
   await restarted.adapter.getSink().onInteraction({
+    platform: "slack",
     id: actionId,
     conversationKey: "thread-1",
     replyTarget: {},
@@ -325,6 +327,7 @@ test("resume with actor Memory selects the current interaction user", async () =
   });
 
   await adapter.getSink().onInteraction({
+    platform: "slack",
     id: actionId,
     conversationKey: "thread-1",
     replyTarget: {},
@@ -344,6 +347,7 @@ test("project-only resume needs no personal subject or fabricated user", async (
   });
 
   await adapter.getSink().onInteraction({
+    platform: "slack",
     id: actionId,
     conversationKey: "thread-1",
     replyTarget: {},
@@ -364,6 +368,7 @@ test("personal resume requires an explicit trusted subject selector", async () =
 
   await expect(
     adapter.getSink().onInteraction({
+      platform: "slack",
       id: actionId,
       conversationKey: "thread-1",
       replyTarget: {},
@@ -381,6 +386,7 @@ test("personal resume fails before execution when the selected actor has no appl
 
   await expect(
     adapter.getSink().onInteraction({
+      platform: "slack",
       id: actionId,
       conversationKey: "thread-1",
       replyTarget: {},
@@ -397,6 +403,7 @@ test("a continuation starts only one resumed run", async () => {
   });
   const click = (eventId: string) =>
     adapter.getSink().onInteraction({
+      platform: "slack",
       id: actionId,
       conversationKey: "thread-1",
       replyTarget: {},
@@ -414,18 +421,30 @@ test("a wrong conversation cannot consume another conversation's continuation", 
     project: "read",
   });
 
-  await expect(
-    adapter.getSink().onInteraction({
+  // The action is bound to thread-1, so the click is refused before its
+  // handler (and therefore resume) can run.
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  try {
+    await adapter.getSink().onInteraction({
+      platform: "slack",
       id: actionId,
       conversationKey: "thread-wrong",
       replyTarget: {},
       eventId: "wrong-thread-click",
       actor: { id: "bob", kind: "human", name: "Bob" },
-    }),
-  ).rejects.toMatchObject({ code: "channel_continuation_mismatch" });
-  expect(lifecycleCalls).toHaveLength(1);
+    });
+    expect(lifecycleCalls).toHaveLength(1);
+    expect(
+      warn.mock.calls.some((call) =>
+        String(call[0]).includes("outside its conversation"),
+      ),
+    ).toBe(true);
+  } finally {
+    warn.mockRestore();
+  }
 
   await adapter.getSink().onInteraction({
+    platform: "slack",
     id: actionId,
     conversationKey: "thread-1",
     replyTarget: {},
@@ -511,6 +530,7 @@ test("normal runs write no continuation state and one resume consumes once", asy
 
   const click = (eventId: string) =>
     adapter.getSink().onInteraction({
+      platform: "slack",
       id: actionId,
       conversationKey: "thread-1",
       replyTarget: {},

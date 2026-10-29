@@ -34,6 +34,7 @@ examples/integrations/strands-typescript/next.config.ts
 examples/showcases/a2a-travel/next.config.ts
 examples/showcases/a2ui-pdf-analyst/next.config.ts
 examples/showcases/adk-dashboard/next.config.ts
+examples/showcases/antigravity-repo-doctor/next.config.ts
 examples/showcases/arcade-tools/next.config.ts
 examples/showcases/chatkit-studio/apps/playground/next.config.ts
 examples/showcases/chatkit-studio/apps/studio/next.config.ts
@@ -137,3 +138,4 @@ showcase/shell-dashboard/next.config.ts
 showcase/shell-docs/next.config.ts
 showcase/shell-dojo/next.config.ts
 showcase/shell/next.config.ts
+showcase/vue/vite.config.ts

@@ -55,6 +55,35 @@ describe("frontend-aware Showcase routes", () => {
     });
   });
 
+  it("serves the declared Vue slice from the same existing integration image", () => {
+    expect(
+      resolveShowcaseCell({
+        frontend: "vue",
+        integration: "langgraph-python",
+        feature: "agentic-chat",
+        backendHostPattern: "showcase-{slug}.example.test",
+      }),
+    ).toMatchObject({
+      kind: "runnable",
+      iframeUrl:
+        "https://showcase-langgraph-python.example.test/vue/agentic-chat",
+    });
+  });
+
+  it("fails closed for undeclared Vue features", () => {
+    expect(
+      resolveShowcaseCell({
+        frontend: "vue",
+        integration: "langgraph-python",
+        feature: "frontend-tools",
+        backendHostPattern: "showcase-{slug}.example.test",
+      }),
+    ).toMatchObject({
+      kind: "malformed",
+      reason: expect.stringMatching(/not declared/i),
+    });
+  });
+
   it("shows declared exclusions and unavailable backend fixtures", () => {
     expect(
       resolveShowcaseCell({

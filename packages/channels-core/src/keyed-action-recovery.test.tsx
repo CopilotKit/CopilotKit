@@ -143,7 +143,10 @@ test("cold recovery finds the same keyed handler after async sibling reorder", a
     requireKeys: true,
   });
 
-  const value = await restarted.dispatch(id, interactionContext(id));
+  const value = await restarted.dispatch(id, interactionContext(id), {
+    conversationKey: "conversation-1",
+    platform: "slack",
+  });
 
   expect(value).toEqual({ decision: "approve" });
   expect(handled).toHaveBeenCalledOnce();

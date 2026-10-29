@@ -28,6 +28,8 @@ interface HandleSseConnectParams {
    * merge is forward-looking plumbing rather than active outbound auth today.
    */
   agent?: AgentWithHeaders;
+  /** Caller identity; the runner hides threads owned by anyone else. */
+  ownerId?: string;
 }
 
 export function handleSseConnect({
@@ -36,6 +38,7 @@ export function handleSseConnect({
   agentId,
   threadId,
   agent,
+  ownerId,
 }: HandleSseConnectParams): Response {
   return createSseEventResponse({
     request,
@@ -49,12 +52,13 @@ export function handleSseConnect({
       runtime.runner.connect({
         threadId,
         agentId,
+        ...(ownerId === undefined ? {} : { ownerId }),
         // Forward-looking plumbing: we compute the merged header set (server
         // `agent.headers` win on collision, case-insensitively; non-colliding
         // inbound headers still forward — see `mergeForwardableHeaders`, #5712)
         // and thread it into `runner.connect`. NO shipped runner consumes the
         // `headers` field of `AgentRunnerConnectRequest` today — every runner
-        // (in-memory, intelligence, telemetry, sqlite) reads only `threadId`.
+        // (in-memory, intelligence, telemetry, sqlite) ignores it.
         // The real outbound header forwarding is the /run path, where
         // `cloneAgentForRequest` mutates `agent.headers` directly
         // (agent-utils.ts). This wiring exists so a future outbound-connecting

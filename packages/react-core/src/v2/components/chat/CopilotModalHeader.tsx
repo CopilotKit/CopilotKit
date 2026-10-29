@@ -175,23 +175,31 @@ export namespace CopilotModalHeader {
     </div>
   );
 
+  /**
+   * Closes the popup or sidebar. Its accessible name is
+   * `labels.modalHeaderCloseButtonLabel`.
+   */
   export const CloseButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
-  > = ({ className, ...props }) => (
-    <button
-      type="button"
-      data-testid="copilot-close-button"
-      className={cn(
-        "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
-        "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",
-        className,
-      )}
-      aria-label="Close"
-      {...props}
-    >
-      <X className="cpk:h-4 cpk:w-4" aria-hidden="true" />
-    </button>
-  );
+  > = ({ className, ...props }) => {
+    const config = useCopilotChatConfiguration();
+    const labels = config?.labels ?? CopilotChatDefaultLabels;
+    return (
+      <button
+        type="button"
+        data-testid="copilot-close-button"
+        className={cn(
+          "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
+          "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",
+          className,
+        )}
+        aria-label={labels.modalHeaderCloseButtonLabel}
+        {...props}
+      >
+        <X className="cpk:h-4 cpk:w-4" aria-hidden="true" />
+      </button>
+    );
+  };
 
   /**
    * The thread-list launcher button. Rendered in the header ONLY when a
@@ -201,21 +209,25 @@ export namespace CopilotModalHeader {
    */
   export const DrawerLauncher: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
-  > = ({ className, ...props }) => (
-    <button
-      type="button"
-      data-testid="copilot-threads-drawer-launcher"
-      className={cn(
-        "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
-        "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",
-        className,
-      )}
-      aria-label="Open threads"
-      {...props}
-    >
-      <PanelLeftOpen className="cpk:h-4 cpk:w-4" aria-hidden="true" />
-    </button>
-  );
+  > = ({ className, ...props }) => {
+    const config = useCopilotChatConfiguration();
+    const labels = config?.labels ?? CopilotChatDefaultLabels;
+    return (
+      <button
+        type="button"
+        data-testid="copilot-threads-drawer-launcher"
+        className={cn(
+          "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
+          "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",
+          className,
+        )}
+        aria-label={labels.modalHeaderThreadsButtonLabel}
+        {...props}
+      >
+        <PanelLeftOpen className="cpk:h-4 cpk:w-4" aria-hidden="true" />
+      </button>
+    );
+  };
 }
 
 CopilotModalHeader.Title.displayName = "CopilotModalHeader.Title";

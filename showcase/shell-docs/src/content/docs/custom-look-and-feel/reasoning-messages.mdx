@@ -70,9 +70,10 @@ receives these props:
 | Prop | Type | Description |
 | --- | --- | --- |
 | `isOpen` | `boolean` | Whether the content panel is currently expanded |
-| `label` | `string` | `"Thinking…"` while streaming, `"Thought for X seconds"` after |
+| `label` | `string` | `labels.reasoningMessageThinkingLabel` (`"Thinking…"`) while streaming, `"Thought for X seconds"` after |
 | `hasContent` | `boolean` | Whether any reasoning text has been received |
 | `isStreaming` | `boolean` | Whether reasoning is actively streaming |
+| `elapsedSeconds` | `number` | Seconds spent reasoning, for building a localized label |
 | `onClick` | `() => void` | Toggle handler (only present when `hasContent` is `true`) |
 
 ```tsx

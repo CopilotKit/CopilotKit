@@ -428,6 +428,7 @@ for (const mode of ["multi-route", "single-route"] as const) {
       const runtime = new CopilotRuntime({
         agents: { test: agent },
         runner: fixture.runner,
+        threads: { access: "open" },
       });
       const handler = createCopilotRuntimeHandler({
         runtime,
