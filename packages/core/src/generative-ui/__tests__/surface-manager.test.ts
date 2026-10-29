@@ -5,7 +5,7 @@ import type {
   A2UIOperation,
   GenerativeUISurfaceContent,
 } from "@copilotkit/shared";
-import { createGenerativeUI } from "../catalog";
+import { createGenerativeUI } from "@copilotkit/shared/generative-ui";
 import { GenerativeUISurfaceManager, surfaceKey } from "../surface-manager";
 
 const Noop = () => null;
@@ -141,7 +141,7 @@ describe("GenerativeUISurfaceManager", () => {
 
     expect(manager.getSurface("t1", "recs")).toBeDefined();
     expect(onOperationRejected).toHaveBeenCalledTimes(1);
-    expect(onOperationRejected.mock.calls[0][0]).toMatchObject({
+    expect(onOperationRejected.mock.calls[0]?.[0]).toMatchObject({
       reason: expect.stringContaining('unknown catalog "made/up@1"'),
     });
   });
@@ -207,7 +207,7 @@ describe("GenerativeUISurfaceManager", () => {
     expect(surface.model.componentsModel.get("c1")?.properties).toMatchObject({
       price: 10,
     });
-    expect(surface.clientRejected[0].reason).toMatch(/price/);
+    expect(surface.clientRejected[0]?.reason).toMatch(/price/);
   });
 
   describe("client rejections cover only the latest render_ui call", () => {
@@ -616,7 +616,7 @@ describe("GenerativeUISurfaceManager", () => {
         reason: "x".repeat(600),
       }));
       manager.ingest("t1", "default", content([create], { rejected }));
-      const lines = manager.describeSurfaces("t1").recs.rejected ?? [];
+      const lines = manager.describeSurfaces("t1").recs?.rejected ?? [];
       expect(lines).toHaveLength(20);
       expect(lines[19]).toBe(`operation 19: ${"x".repeat(486)}`);
     });

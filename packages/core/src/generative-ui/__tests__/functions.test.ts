@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GENERATIVE_UI_FUNCTIONS } from "@copilotkit/shared";
 import { BASIC_FUNCTIONS, ExpressionError, openUrlSafely } from "../functions";
@@ -6,7 +7,7 @@ import "../resolve";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const fn = (name: string, args: Record<string, unknown>): any =>
-  BASIC_FUNCTIONS[name](args);
+  BASIC_FUNCTIONS[name]!(args);
 
 describe("basic functions", () => {
   it("implements every built-in function that the shared list names", () => {

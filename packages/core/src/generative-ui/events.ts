@@ -7,15 +7,15 @@ import { resolveDynamicValue } from "./resolve";
 import type { ResolveContext } from "./resolve";
 import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui";
 import type { GenerativeUIInvocationOrigin } from "./dispatcher";
-import { reportErrorSafely } from "./runtime-context";
-import type { GenerativeUIRuntime } from "./runtime-context";
+import { reportErrorSafely } from "./runtime";
+import type { GenerativeUIEngine } from "./runtime";
 import { formatIssues, validateSchema } from "@copilotkit/shared/generative-ui";
 import type { GenerativeUISchema } from "@copilotkit/shared/generative-ui";
 import type { ManagedSurface } from "./surface-manager";
 
 /** One call of an event prop by a component. */
 interface EventCall {
-  runtime: GenerativeUIRuntime;
+  runtime: GenerativeUIEngine;
   surface: ManagedSurface;
   componentId: string;
   /** The event prop name, for error messages. */

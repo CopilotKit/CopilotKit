@@ -2889,6 +2889,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@a2ui/web_core':
+        specifier: 0.10.4
+        version: 0.10.4
       '@ag-ui/client':
         specifier: 1.0.2
         version: 1.0.2
@@ -2907,6 +2910,9 @@ importers:
       rxjs:
         specifier: 7.8.1
         version: 7.8.1
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
       zod-to-json-schema:
         specifier: ^3.24.6
         version: 3.25.1(zod@3.25.76)
@@ -2935,6 +2941,9 @@ importers:
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
+      jsdom:
+        specifier: ^29.1.0
+        version: 29.1.0(@noble/hashes@1.8.0)
       tsdown:
         specifier: ^0.20.3
         version: 0.20.3(@arethetypeswrong/core@0.18.2)(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.3)(oxc-resolver@11.24.2)(publint@0.3.17)(synckit@0.11.12)(typescript@5.8.2)
@@ -2947,9 +2956,6 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.11)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
 
   packages/demo-agents:
     dependencies:

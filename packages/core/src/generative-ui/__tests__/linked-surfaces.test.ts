@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { Message } from "@ag-ui/client";
 import type { A2UIOperation } from "@copilotkit/shared";
-import { createGenerativeUI } from "../catalog";
+import { createGenerativeUI } from "@copilotkit/shared/generative-ui";
 import {
   buildMarkdownSurfaces,
   MarkdownSurfaceSource,
-} from "../markdown/source";
+} from "../markdown-source";
 import { GenerativeUISurfaceManager, surfaceKey } from "../surface-manager";
 
 /**

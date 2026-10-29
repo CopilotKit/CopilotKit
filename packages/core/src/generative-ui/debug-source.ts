@@ -9,18 +9,18 @@ import type {
   ɵGenerativeUIDebugRun,
   ɵGenerativeUIDebugSnapshot,
   ɵGenerativeUIDebugSource,
-} from "@copilotkit/core";
-import { componentCatalogIds } from "./catalog";
+} from "../core/generative-ui-debug";
+import { componentCatalogIds } from "@copilotkit/shared/generative-ui";
 import { toJsonSchema } from "@copilotkit/shared/generative-ui";
 import {
   buildGenerativeUIEnvelope,
   buildGenerativeUIManifest,
 } from "./manifest";
 import type { GenerativeUIEnvelopeOptions } from "./manifest";
-import { buildCompactGenerativeUISchema } from "./markdown/context";
-import type { GenerativeUIRuntime } from "./runtime-context";
+import { buildCompactGenerativeUISchema } from "./compact-schema";
+import type { GenerativeUIEngine } from "./runtime";
 
-type RuntimeParts = Pick<GenerativeUIRuntime, "ui" | "manager" | "dispatcher">;
+type RuntimeParts = Pick<GenerativeUIEngine, "ui" | "manager" | "dispatcher">;
 
 /**
  * What a run of `threadId` sends: its envelope, and the text that goes into

@@ -11,8 +11,8 @@ import type {
   GenerativeUIFunctionManifest,
   GenerativeUIManifest,
 } from "@copilotkit/shared";
-import { catalogIdsOf } from "./catalog";
-import type { GenerativeUIRuntime } from "./runtime-context";
+import { catalogIdsOf } from "@copilotkit/shared/generative-ui";
+import type { GenerativeUIEngine } from "./runtime";
 
 /**
  * The built-in functions (the A2UI basic catalog plus calc and series) as
@@ -47,7 +47,7 @@ export function builtInFunctionManifests(): Record<
  *   with its `description` and its `components` when it has them.
  */
 export function buildGenerativeUIManifest(
-  runtime: Pick<GenerativeUIRuntime, "ui" | "manager" | "dispatcher">,
+  runtime: Pick<GenerativeUIEngine, "ui" | "manager" | "dispatcher">,
   threadId: string | undefined,
 ) {
   const { ui, manager, dispatcher } = runtime;
@@ -123,7 +123,7 @@ export interface GenerativeUIEnvelopeOptions {
  * ```
  */
 export function buildGenerativeUIEnvelope(
-  runtime: Pick<GenerativeUIRuntime, "ui" | "manager" | "dispatcher">,
+  runtime: Pick<GenerativeUIEngine, "ui" | "manager" | "dispatcher">,
   threadId: string | undefined,
   options: GenerativeUIEnvelopeOptions,
 ) {

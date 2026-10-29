@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { Message } from "@ag-ui/client";
-import { createGenerativeUI } from "../catalog";
-import { child } from "../refs";
+import { createGenerativeUI } from "@copilotkit/shared/generative-ui";
+import { child } from "@copilotkit/shared/generative-ui";
 import {
   buildMarkdownSurfaces,
   MarkdownBuildCache,
   MarkdownSurfaceSource,
-} from "../markdown/source";
+} from "../markdown-source";
 import { GenerativeUISurfaceManager } from "../surface-manager";
 
 const Noop = () => null;
@@ -381,7 +381,7 @@ describe("buildMarkdownSurfaces", () => {
     const { surfaces, fences } = build([message]);
 
     expect(surfaces).toHaveLength(1);
-    expect(surfaces[0].operations).toEqual([
+    expect(surfaces[0]!.operations).toEqual([
       create("s1"),
       components("s1", button("root", "Buy")),
       components("s1", button("root", "Buy now")),
@@ -402,7 +402,7 @@ describe("buildMarkdownSurfaces", () => {
     const { surfaces, fences } = build([first, later]);
 
     expect(surfaces.map((s) => s.surfaceId)).toEqual(["s1", "s1@m2"]);
-    expect(surfaces[1].operations).toEqual([
+    expect(surfaces[1]!.operations).toEqual([
       create("s1@m2"),
       components("s1@m2", button("root", "Buy now")),
     ]);
@@ -429,8 +429,8 @@ describe("buildMarkdownSurfaces", () => {
     const { surfaces } = build([first, later]);
 
     expect(surfaces.map((s) => s.surfaceId)).toEqual(["panel"]);
-    expect(surfaces[0].target).toBe("side");
-    expect(surfaces[0].operations).toHaveLength(3);
+    expect(surfaces[0]!.target).toBe("side");
+    expect(surfaces[0]!.operations).toHaveLength(3);
   });
 
   it("shows the new UI when a later reply sends a full createSurface for a page target", () => {
@@ -473,8 +473,8 @@ describe("buildMarkdownSurfaces", () => {
 
       const [surface] = build([message]).surfaces;
 
-      expect(surface.rejected).toEqual([]);
-      expect(surface.operations[0]).toEqual(create("s1"));
+      expect(surface!.rejected).toEqual([]);
+      expect(surface!.operations[0]).toEqual(create("s1"));
     },
   );
 
@@ -501,9 +501,9 @@ describe("buildMarkdownSurfaces", () => {
       running: false,
     }).surfaces;
 
-    expect(surface.rejected).toEqual([]);
-    expect(surface.catalogId).toBe("app");
-    expect(surface.operations[0]).toEqual(create("s1"));
+    expect(surface!.rejected).toEqual([]);
+    expect(surface!.catalogId).toBe("app");
+    expect(surface!.operations[0]).toEqual(create("s1"));
   });
 
   it("leaves out an invalid operation and lists it in rejected", () => {
@@ -518,11 +518,11 @@ describe("buildMarkdownSurfaces", () => {
 
     const [surface] = build([message]).surfaces;
 
-    expect(surface.operations).toEqual([
+    expect(surface!.operations).toEqual([
       create("s1"),
       components("s1", button("root", "Buy")),
     ]);
-    expect(surface.rejected).toEqual([
+    expect(surface!.rejected).toEqual([
       { index: 1, reason: 'component "root": unknown component "Missing"' },
     ]);
   });
@@ -536,8 +536,8 @@ describe("buildMarkdownSurfaces", () => {
 
     const [surface] = build([message], true).surfaces;
 
-    expect(surface.status).toBe("streaming");
-    expect(surface.operations).toEqual([
+    expect(surface!.status).toBe("streaming");
+    expect(surface!.operations).toEqual([
       create("s1"),
       components("s1", button("root", "Buy")),
     ]);
@@ -554,7 +554,7 @@ describe("buildMarkdownSurfaces", () => {
 
     const [surface] = build([message]).surfaces;
 
-    expect(surface.operations).toEqual([
+    expect(surface!.operations).toEqual([
       create("s1"),
       components("s1", button("root", "Buy")),
       components("s1", button("more", "More")),
@@ -584,7 +584,7 @@ describe("buildMarkdownSurfaces", () => {
     }
 
     for (let i = 1; i < steps.length; i++) {
-      expect(steps[i].slice(0, steps[i - 1].length)).toEqual(steps[i - 1]);
+      expect(steps[i]!.slice(0, steps[i - 1]!.length)).toEqual(steps[i - 1]);
     }
     expect(steps.at(-1)).toHaveLength(5);
   });
@@ -668,7 +668,7 @@ describe("buildMarkdownSurfaces", () => {
     }
 
     for (let i = 1; i < steps.length; i++) {
-      expect(steps[i].slice(0, steps[i - 1].length)).toEqual(steps[i - 1]);
+      expect(steps[i]!.slice(0, steps[i - 1]!.length)).toEqual(steps[i - 1]);
     }
     expect(steps.at(-1)?.map((op) => JSON.parse(op))).toEqual([
       create("s1"),

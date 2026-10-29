@@ -954,6 +954,20 @@
           }
         },
         {
+          "importPath": "@copilotkit/core/generative-ui",
+          "exportKey": "./generative-ui",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/generative-ui/index.mjs",
+            "require": "./dist/generative-ui/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/core/package.json",
+            "selector": "exports[\"./generative-ui\"]"
+          }
+        },
+        {
           "importPath": "@copilotkit/core/package.json",
           "exportKey": "./package.json",
           "kind": "metadata",

@@ -3,12 +3,12 @@ import { fireEvent } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createGenerativeUI } from "../catalog";
-import { createGenerativeUIDispatcher } from "../dispatcher";
-import { buildGenerativeUIManifest } from "../manifest";
-import { buildCompactGenerativeUISchema } from "../markdown/context";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
+import { buildGenerativeUIManifest } from "@copilotkit/core/generative-ui";
+import { buildCompactGenerativeUISchema } from "@copilotkit/core/generative-ui";
 import { child, childList } from "../refs";
 import { standardUI } from "../standard";
-import { GenerativeUISurfaceManager } from "../surface-manager";
+import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
 import { renderSurface } from "../standard/__tests__/render";
 
 function Text({ text }: { text: string | number }) {
