@@ -2,7 +2,10 @@ import React from "react";
 import { renderToReadableStream } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CopilotChatSuggestionPill } from "../../components/chat/CopilotChatSuggestionPill";
-import { CopilotStyleNonceProvider } from "../copilot-style";
+import {
+  CopilotKitStyles,
+  CopilotStyleNonceProvider,
+} from "../copilot-kit-styles";
 
 async function renderDocument(
   body: React.ReactNode,
@@ -28,39 +31,28 @@ function headOf(html: string): string {
   return html.slice(html.indexOf("<head>"), html.indexOf("</head>"));
 }
 
-function countMatches(html: string, needle: string): number {
-  return html.split(needle).length - 1;
-}
-
-describe("CopilotStyle on the server", () => {
-  it("puts component styles in the server-rendered <head>, once per component", async () => {
+describe("CopilotKitStyles on the server", () => {
+  it("puts one copy of the stylesheet in the server-rendered <head>", async () => {
     const html = await renderDocument(
       <>
+        <CopilotKitStyles />
+        <CopilotKitStyles />
         <CopilotChatSuggestionPill>One</CopilotChatSuggestionPill>
-        <CopilotChatSuggestionPill>Two</CopilotChatSuggestionPill>
       </>,
     );
-    const head = headOf(html);
 
-    expect(countMatches(html, ".cpk-suggestion-pill-label)")).toBe(1);
-    expect(countMatches(html, "--background:")).toBe(2); // light + dark
-    expect(head).toContain(".cpk-suggestion-pill-label)");
-    expect(head.indexOf("--background:")).toBeLessThan(
-      head.indexOf(".cpk-suggestion-pill)"),
-    );
+    expect(html.match(/<style[^>]*>/g)).toHaveLength(1);
+    expect(headOf(html)).toContain(".cpk-suggestion-pill-label)");
   });
 
-  it("adds the CSP nonce to every style tag when the app passes one", async () => {
-    const html = await renderDocument(
-      <CopilotChatSuggestionPill>One</CopilotChatSuggestionPill>,
-      { nonce: "abc123" },
-    );
+  it("adds the CSP nonce to the style tag when the app passes one", async () => {
+    const html = await renderDocument(<CopilotKitStyles />, {
+      nonce: "abc123",
+    });
     const styleTags = html.match(/<style[^>]*>/g) ?? [];
 
-    expect(styleTags).toHaveLength(2);
-    for (const tag of styleTags) {
-      expect(tag).toContain('nonce="abc123"');
-    }
+    expect(styleTags).toHaveLength(1);
+    expect(styleTags[0]).toContain('nonce="abc123"');
     expect(html).toContain(".cpk-suggestion-pill-label)");
   });
 

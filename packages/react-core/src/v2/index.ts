@@ -13,6 +13,7 @@ export * from "./external-reexports";
 
 // Local V2 react code (absorbed into @copilotkit/react-core)
 export * from "./components";
+export { CopilotKitStyles } from "./styles/copilot-kit-styles";
 export * from "./hooks";
 export * from "./providers";
 export * from "./types";

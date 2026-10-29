@@ -1,9 +1,8 @@
-/**
- * Theme variables, a scoped reset, and shared keyframes. `<CopilotStyle>` adds
- * this before any component's CSS. Every selector sits in `:where()`, so an
- * app's own rules, such as `[data-copilotkit] { --primary: … }`, win.
- */
-export const baseCss = /* css */ `
+/*
+ * Theme variables, a scoped reset, and shared keyframes. Loaded before every
+ * component file. Every selector sits in :where(), so an app rule such as
+ * [data-copilotkit] { --primary: … } wins.
+*/
 :where([data-copilotkit]) {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -40,8 +39,7 @@ export const baseCss = /* css */ `
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-:where(.dark [data-copilotkit],
-[data-copilotkit].dark) {
+:where(.dark [data-copilotkit], [data-copilotkit].dark) {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.145 0 0);
@@ -88,14 +86,24 @@ export const baseCss = /* css */ `
   background-color: var(--background);
 }
 
-:where([data-copilotkit], [data-copilotkit] *, [data-copilotkit] ::before, [data-copilotkit] ::after) {
+:where(
+  [data-copilotkit],
+  [data-copilotkit] *,
+  [data-copilotkit] ::before,
+  [data-copilotkit] ::after
+) {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
   border: 0 solid var(--border);
 }
 
-:where([data-copilotkit] button, [data-copilotkit] input, [data-copilotkit] textarea, [data-copilotkit] select) {
+:where(
+  [data-copilotkit] button,
+  [data-copilotkit] input,
+  [data-copilotkit] textarea,
+  [data-copilotkit] select
+) {
   font: inherit;
   letter-spacing: inherit;
   color: inherit;
@@ -107,4 +115,3 @@ export const baseCss = /* css */ `
     transform: rotate(360deg);
   }
 }
-`;
