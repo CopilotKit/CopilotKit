@@ -12,7 +12,7 @@ allowed-tools:
 codemod-compatibility: skill-package-v1
 codemod-skill-version: 0.1.0
 
-The codemod already did the mechanical part: `/v2` import paths now point at the package roots, `CopilotKitProvider` is `CopilotKit`, `agent=` is `agentId=`, and LangGraph agents import from `@ag-ui/langgraph`. Everything it could not do safely is marked with a `TODO(copilotkit-2.0):` comment next to the code.
+The codemod already did the mechanical part: `/v2` import paths now point at the package roots, `<CopilotKit>` is `<CopilotKitProvider>`, `agent=` is `agentId=`, and LangGraph agents import from `@ag-ui/langgraph`. Everything it could not do safely is marked with a `TODO(copilotkit-2.0):` comment next to the code.
 
 ## Rules
 

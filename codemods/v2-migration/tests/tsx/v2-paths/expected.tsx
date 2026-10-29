@@ -1,17 +1,17 @@
 "use client";
 import {
   CopilotChat,
-  CopilotKit,
-  type CopilotKitProps,
+  CopilotKitProvider,
+  type CopilotKitProviderProps,
 } from "@copilotkit/react-core";
 import { useHeadlessChat } from "@copilotkit/react-core/headless";
 import "@copilotkit/react-core/styles.css";
 
-export function App(props: CopilotKitProps) {
+export function App(props: CopilotKitProviderProps) {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" {...props}>
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" {...props}>
       <CopilotChat />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
 

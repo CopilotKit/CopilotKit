@@ -4,7 +4,7 @@ Every example imports from the 2.0 package roots. There is no `/v2` subpath in 2
 
 ## Provider
 
-`<CopilotKit>` is the 2.0 provider. The codemod already renamed `agent` to `agentId`. For the other v1 props:
+`<CopilotKitProvider>` is the 2.0 provider. The codemod already renamed `<CopilotKit>` to it and `agent` to `agentId`. For the other v1 props:
 
 | v1 prop                                                | 2.0                                                                                                     |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |

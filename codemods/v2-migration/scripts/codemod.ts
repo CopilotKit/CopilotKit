@@ -27,11 +27,18 @@ const PATHS: Record<string, string> = {
   "@copilotkit/runtime/v2/node": "@copilotkit/runtime/node",
 };
 
-/** The v2 provider is called `CopilotKit` in 2.0. */
+/**
+ * The 2.0 provider is `CopilotKitProvider`. `CopilotKit` was the v1 provider,
+ * also re-exported from `/v2`, and it does not exist in 2.0.
+ */
 const PROVIDER_RENAMES: Record<string, string> = {
-  CopilotKitProvider: "CopilotKit",
-  CopilotKitProviderProps: "CopilotKitProps",
+  CopilotKit: "CopilotKitProvider",
+  CopilotKitProps: "CopilotKitProviderProps",
 };
+const PROVIDER_SOURCES = [
+  "@copilotkit/react-core",
+  "@copilotkit/react-core/v2",
+];
 
 const LANGGRAPH_EVENTS_NOTE =
   "`@ag-ui/langgraph` does not handle CopilotKit's LangGraph events (`copilotkit_emit_message`, `copilotkit_emit_state`, `copilotkit_emit_tool_call`, `copilotkit_exit` from the Python SDK). Check that your agent does not rely on them.";
@@ -92,8 +99,18 @@ const V1_ONLY_PROVIDER_PROPS: Record<string, string> = {
   textToSpeechUrl: "`textToSpeechUrl` was removed in 2.0.",
 };
 
+/**
+ * `table[key]` for the table's own keys only. A plain lookup would find
+ * `Object.prototype` members for strings such as "constructor" or "toString".
+ */
+function own<T>(table: Record<string, T> | undefined, key: string) {
+  return table && Object.prototype.hasOwnProperty.call(table, key)
+    ? table[key]
+    : undefined;
+}
+
 function lookup(source: string, name: string): V1Export | undefined {
-  return OVERRIDES[source]?.[name] ?? V1_API[source]?.[name];
+  return own(own(OVERRIDES, source), name) ?? own(own(V1_API, source), name);
 }
 
 /** The text of a string literal without its quotes. */
@@ -225,17 +242,21 @@ const codemod: Codemod<Lang> = async (root) => {
       edits.push(statement.replace([...comments, text].join("\n")));
     };
 
-    if (from in PATHS) {
-      const to = PATHS[from]!;
-      const renamed = (specifiers ?? []).map((specifier) => {
-        const target = from.startsWith("@copilotkit/react-core/v2")
-          ? PROVIDER_RENAMES[specifier.name]
-          : undefined;
-        if (!target) return specifier.text;
-        const aliased = specifier.text.includes(" as ");
-        if (!aliased) renameReferences.set(specifier.name, target);
-        return specifier.text.replace(specifier.name, target);
-      });
+    /** The specifier with the provider renamed, or `undefined` when it is not the provider. */
+    const renameProvider = (specifier: Specifier) => {
+      if (!PROVIDER_SOURCES.includes(from)) return undefined;
+      const target = own(PROVIDER_RENAMES, specifier.name);
+      if (!target) return undefined;
+      const aliased = specifier.text.includes(" as ");
+      if (!aliased) renameReferences.set(specifier.name, target);
+      return specifier.text.replace(specifier.name, target);
+    };
+
+    const to = own(PATHS, from);
+    if (to !== undefined) {
+      const renamed = (specifiers ?? []).map(
+        (specifier) => renameProvider(specifier) ?? specifier.text,
+      );
       collectProviderNames(specifiers, from, providerNames);
       const changedSpecifiers =
         specifiers !== null &&
@@ -256,7 +277,7 @@ const codemod: Codemod<Lang> = async (root) => {
       continue;
     }
 
-    if (!(from in V1_API)) continue;
+    if (own(V1_API, from) === undefined) continue;
     collectProviderNames(specifiers, from, providerNames);
 
     if (specifiers === null) {
@@ -269,7 +290,14 @@ const codemod: Codemod<Lang> = async (root) => {
 
     // Group the specifiers by where they come from in 2.0.
     const groups = new Map<string, string[]>();
+    let providerRenamed = false;
     for (const specifier of specifiers) {
+      const provider = renameProvider(specifier);
+      if (provider !== undefined) {
+        providerRenamed = true;
+        groups.set(from, [...(groups.get(from) ?? []), provider]);
+        continue;
+      }
       const entry = lookup(from, specifier.name);
       todos.push(...todoLines(specifier.name, entry));
       const replacement = entry?.replacement;
@@ -279,7 +307,7 @@ const codemod: Codemod<Lang> = async (root) => {
     }
     const head = statementHead(statement);
     replaceStatement(
-      groups.size === 1 && groups.has(from)
+      groups.size === 1 && groups.has(from) && !providerRenamed
         ? statement.text()
         : [...groups]
             .map(([target, texts]) =>
@@ -299,11 +327,12 @@ const codemod: Codemod<Lang> = async (root) => {
   // `vi.mock()`.
   for (const string of rootNode.findAll({ rule: { kind: "string" } })) {
     const value = unquote(string);
-    if (!(value in PATHS)) continue;
+    const moved = own(PATHS, value);
+    if (moved === undefined) continue;
     const parent = string.parent();
     if (parent?.kind() === "import_statement") continue;
     if (parent?.kind() === "export_statement") continue;
-    edits.push(string.replace(requote(string, PATHS[value]!)));
+    edits.push(string.replace(requote(string, moved)));
   }
 
   for (const [from, to] of renameReferences) {
@@ -371,7 +400,7 @@ function providerPropEdits(
         edits.push(propName.replace("agentId"));
         continue;
       }
-      const message = V1_ONLY_PROVIDER_PROPS[prop];
+      const message = own(V1_ONLY_PROVIDER_PROPS, prop);
       if (!message) continue;
       const comment = `/* ${TODO} ${message} */`;
       const before = source.slice(0, attribute.range().start.index);

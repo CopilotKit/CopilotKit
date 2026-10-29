@@ -1,9 +1,9 @@
-import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core";
 
 export default function Page() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agentId="weather" showDevConsole={false}>
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" agentId="weather" showDevConsole={false}>
       <CopilotSidebar />
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }
