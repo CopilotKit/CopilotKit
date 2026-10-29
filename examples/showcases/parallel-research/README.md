@@ -4,7 +4,7 @@ A runnable Built-in Agent example with Parallel preconfigured for web search. As
 
 ## Run locally
 
-Requires Node.js 22+ and an OpenAI API key for the agent model. Parallel's Search MCP supports free anonymous use at lower rate limits; a Parallel key is optional for exploration.
+Requires Node.js 22+ and an OpenAI API key for the agent model. Parallel's unified MCP server supports free anonymous search and fetch at lower rate limits; a Parallel key is optional for exploration.
 
 ```bash
 cd examples/showcases/parallel-research
@@ -22,11 +22,11 @@ The example uses published CopilotKit packages and its own npm lockfile, so you 
 
 ## Configuration and data flow
 
-- `lib/parallel-config.ts` selects `https://search.parallel.ai/mcp` using Streamable HTTP. Parallel is the only configured web search provider in this example. Other SDK applications retain their own provider choices.
+- `lib/parallel-config.ts` names the server `parallel` and selects the recommended `https://mcp.parallel.ai/mcp` endpoint using Streamable HTTP. Parallel is the only configured web search provider in this example. Other SDK applications retain their own provider choices.
 - `PARALLEL_API_KEY` is optional and stays on the server. When present, it is sent as `Authorization: Bearer …` through the HTTP transport's `options.requestInit.headers`. Use a Parallel account for production usage or higher limits.
 - `OPENAI_API_KEY` is separate: it authenticates the agent's model. Change the server's `model` setting and model-provider credentials if desired.
 - Queries, URLs, and task context included in tool arguments are sent to Parallel. Results return to the agent's model and are shown in chat. Do not include secrets in public-web requests.
-- The prompt asks the agent to reuse a conversation session ID and cite returned sources. The example does not force a source count or fabricate citations. Tools can fail or return incomplete evidence; the UI retains partial sources and the agent is instructed to explain limitations.
+- The prompt asks the agent to omit `session_id` on the first call, reuse the server-returned ID on related calls, and cite returned sources. The example does not force a source count or fabricate citations. Tools can fail or return incomplete evidence; the UI retains partial sources and the agent is instructed to explain limitations.
 - `maxSteps: 6` permits search, follow-up reading and a final answer while bounding the tool loop.
 
 This local showcase uses an in-memory runner and a runtime route without application authentication. Before exposing it publicly, add your application's authentication and rate limits, choose persistent conversation storage, and review provider data handling. No live deployment is included.
@@ -43,4 +43,4 @@ npm run test:live
 
 The live check verifies the real MCP tool catalogue, search, fetch, and source-link parsing without a model key. An end-to-end model/chat check requires `OPENAI_API_KEY`.
 
-See the [cookbook](https://docs.copilotkit.ai/cookbook/parallel), [CopilotKit MCP guide](https://docs.copilotkit.ai/mcp-servers), and [Parallel Search MCP documentation](https://docs.parallel.ai/integrations/mcp/search-mcp).
+See the [cookbook](https://docs.copilotkit.ai/cookbook/parallel), [CopilotKit MCP guide](https://docs.copilotkit.ai/mcp-servers), and [Parallel MCP documentation](https://docs.parallel.ai/integrations/mcp/quickstart).
