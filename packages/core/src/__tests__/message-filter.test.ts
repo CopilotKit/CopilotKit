@@ -278,6 +278,23 @@ describe("ɵrepairToolCallPairs", () => {
     expect(repaired[1]).toBe(copy[2]);
   });
 
+  it("restores the issuer when a structural copy's id is shared", () => {
+    const call = createToolCallMessage("lookup", {}, { id: "dup" });
+    const result = createToolResultMessage(toolCallIdOf(call), "done", {
+      id: "dup",
+    });
+    const full = [createMessage({ id: "u1" }), call, result];
+    const copy = structuredClone(full) as Message[];
+    const copyToOriginal = new Map(
+      copy.map((message, index) => [message, full[index]!] as const),
+    );
+
+    const repaired = ɵrepairToolCallPairs([copy[2]!], full, copyToOriginal);
+
+    expect(repaired[0]).toBe(call);
+    expect(repaired[1]).toBe(copy[2]);
+  });
+
   it("keeps distinct messages that share an id", () => {
     const first = { id: "same", role: "user", content: "first" } as Message;
     const second = { id: "same", role: "user", content: "second" } as Message;
