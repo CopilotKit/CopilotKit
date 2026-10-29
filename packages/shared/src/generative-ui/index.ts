@@ -12,4 +12,5 @@ export { buildCompactGenerativeUISchema } from "./compact-schema";
 export * from "./prompt-spec";
 export * from "./schema-render";
 export * from "./catalog";
+export * from "./standard";
 export { isRecord } from "./is-record";

@@ -1,5 +1,5 @@
-import type { GenerativeUIComponentDefinition } from "../catalog";
-import { toJsonSchema } from "@copilotkit/shared/generative-ui";
+import type { GenerativeUIComponentDeclaration } from "./components";
+import { toJsonSchema } from "../catalog/json-schema";
 
 /** CopilotKit catalog design, not an A2UI-mandated list of signatures.
  * Express maps positional arguments using the exported JSON Schema property order:
@@ -134,7 +134,7 @@ const PRESENTATION_PARAMETERS = new Set([
 /** Put content/actions before presentation, across props, slots and events. */
 export function standardParameterOrder(
   name: keyof typeof STANDARD_ARGUMENT_PREFIXES,
-  definition: GenerativeUIComponentDefinition,
+  definition: GenerativeUIComponentDeclaration,
 ): string[] {
   const keys = [
     ...Object.keys(

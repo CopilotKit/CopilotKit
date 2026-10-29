@@ -53,7 +53,7 @@ import {
   useRequiredGenerativeUIRuntime,
 } from "./runtime-context";
 import type { GenerativeUIRuntime } from "./runtime-context";
-import { themeStyleSheet } from "./theme";
+import { themeStyleSheet } from "@copilotkit/shared/generative-ui";
 import type {
   GenerativeUISurfaceManager,
   ManagedSurface,
