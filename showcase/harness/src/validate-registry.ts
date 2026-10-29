@@ -7,6 +7,7 @@ import { readRailwayLifecycleEvidence } from "./shared/railway-lifecycle-records
 /** One-shot real reader for execution INSIDE the verified deployed harness image. */
 export async function validateHarnessRegistry(
   expectedPolicy: string,
+  expectedDeploymentId: string,
 ): Promise<void> {
   if (!/^[a-f0-9]{64}$/.test(expectedPolicy))
     throw new Error("Expected policy digest required");
@@ -15,6 +16,13 @@ export async function validateHarnessRegistry(
     process.env.SHOWCASE_REGISTRY_CONSUMER !== "harness"
   )
     throw new Error("Deployed harness environment required");
+  if (
+    !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(
+      expectedDeploymentId,
+    ) ||
+    process.env.RAILWAY_DEPLOYMENT_ID !== expectedDeploymentId
+  )
+    throw new Error("Deployed harness identity differs from reviewed target");
   const endpoint = process.env.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE;
   if (!endpoint?.startsWith("https://"))
     throw new Error("HTTPS registry binding required");
@@ -49,13 +57,13 @@ export async function validateHarnessRegistry(
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  if (process.argv.length !== 3) {
+  if (process.argv.length !== 4) {
     console.error(
-      "Usage: node dist/validate-registry.js EXPECTED_POLICY_SHA256",
+      "Usage: node dist/validate-registry.js EXPECTED_POLICY_SHA256 EXPECTED_DEPLOYMENT_ID",
     );
     process.exitCode = 1;
   } else {
-    validateHarnessRegistry(process.argv[2]).then(
+    validateHarnessRegistry(process.argv[2], process.argv[3]).then(
       () => console.log("Deployed harness registry validation passed"),
       () => {
         console.error(

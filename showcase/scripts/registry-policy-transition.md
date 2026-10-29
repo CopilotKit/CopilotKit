@@ -59,11 +59,11 @@ before resume. Supply exact target policy, registry URL, transition time
 The helper uses existing environment-bound credentials, never prints them, and
 executes the real image gate and Ruby registry-only validator. It never runs a
 local process claiming to be the harness. The deployed harness must run its one-shot real reader using its bundled policy:
-`node dist/validate-registry.js EXPECTED_POLICY_SHA256`.
+`node dist/validate-registry.js EXPECTED_POLICY_SHA256 EXPECTED_DEPLOYMENT_ID`.
 Supply `activateHarnessReader({ harnessDeploymentId, harnessImage, policySha256, signal })`
 to execute that command INSIDE the verified deployment, using its existing environment.
-Do not run a local copy or fabricate environment/workflow identities. The command
-loads `/app/data/railway-envs.generated.json`, validates its hash, and invokes the
+Do not run a local copy or fabricate environment/workflow identities. The command requires its `RAILWAY_DEPLOYMENT_ID` to equal the expected deployment
+before reading policy or making any registry request, then loads `/app/data/railway-envs.generated.json`, validates its hash, and invokes the
 same authenticated reader used by normal discovery. It runs no probes or inventory
 queries. Ordinary discovery cron timing does not guarantee activation within120seconds.
 The helper bounds awaited activation to at most 120 seconds (child cancellation
