@@ -9,7 +9,6 @@ import {
   CopilotSidebar,
   useCopilotChatConfiguration,
 } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
 import { useEffect } from "react";
 import type { CSSProperties } from "react";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
