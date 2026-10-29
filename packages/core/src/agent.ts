@@ -194,23 +194,6 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.allowToolResultContinuation =
       config.capabilities?.custom?.["copilotkit.toolResultContinuation"] ===
       true;
-    // Intelligence and multi-run SSE replay use the CPK connect pipeline,
-    // rather than AbstractAgent.connectAgent. Capture the same authoritative
-    // completed-event checkpoint before frontend handlers run.
-    this.subscribe({
-      onRunFinishedEvent: (params) => {
-        const { input, messages, state } = params;
-        this.toolResultCheckpoint =
-          this.allowToolResultContinuation && params.outcome === "interrupt"
-            ? {
-                threadId: input.threadId,
-                messages: structuredClone_(messages),
-                state: structuredClone_(state),
-                interrupts: structuredClone_(params.interrupts),
-              }
-            : undefined;
-      },
-    });
     this._messageFilter = config.messageFilter;
     if (config.debug) {
       this.debug = config.debug;
@@ -560,6 +543,37 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   override async connectAgent(
+    parameters?: RunAgentParameters,
+    subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    // Intelligence and multi-run SSE replay use the CPK connect pipeline,
+    // rather than AbstractAgent.connectAgent. Capture the same authoritative
+    // completed-event checkpoint before frontend handlers run.
+    const checkpointSubscriber: AgentSubscriber = {
+      onRunFinishedEvent: (params) => {
+        const { input, messages, state } = params;
+        this.toolResultCheckpoint =
+          this.allowToolResultContinuation && params.outcome === "interrupt"
+            ? {
+                threadId: input.threadId,
+                messages: structuredClone_(messages),
+                state: structuredClone_(state),
+                interrupts: structuredClone_(params.interrupts),
+              }
+            : undefined;
+      },
+    };
+    this.subscribers.unshift(checkpointSubscriber);
+    try {
+      return await this.connectWithCurrentTransport(parameters, subscriber);
+    } finally {
+      this.subscribers = this.subscribers.filter(
+        (subscriber) => subscriber !== checkpointSubscriber,
+      );
+    }
+  }
+
+  private async connectWithCurrentTransport(
     parameters?: RunAgentParameters,
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
