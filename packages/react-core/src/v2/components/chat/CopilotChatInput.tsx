@@ -1264,7 +1264,8 @@ export namespace CopilotChatInput {
    * The "+" button that opens the attachment and tools menu. Its accessible
    * name and tooltip come from `labels.chatInputToolbarAddButtonLabel`.
    * Picking an item focuses `inputRef`, as the slash-command menu does;
-   * dismissing the menu returns focus to the button.
+   * dismissing the menu, or picking while no textarea is rendered, returns
+   * focus to the button.
    */
   export const AddMenuButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -1393,8 +1394,9 @@ export namespace CopilotChatInput {
             onCloseAutoFocus={(event) => {
               if (!itemSelectedRef.current) return;
               itemSelectedRef.current = false;
+              if (!inputRef?.current) return;
               event.preventDefault();
-              inputRef?.current?.focus();
+              inputRef.current.focus();
             }}
           >
             {renderMenuItems(menuItems)}

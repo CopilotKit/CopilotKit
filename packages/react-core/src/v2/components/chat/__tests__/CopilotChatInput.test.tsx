@@ -813,6 +813,33 @@ describe("CopilotChatInput", () => {
     });
   });
 
+  it("returns focus to the add menu button after a pick when no textarea is rendered", async () => {
+    const { container } = renderWithProvider(
+      <CopilotChatInput
+        mode="processing"
+        onAddFile={vi.fn()}
+        toolsMenu={[{ label: "Custom action", action: vi.fn() }]}
+        onSubmitMessage={mockOnSubmitMessage}
+      />,
+    );
+
+    mockLayoutMetrics(container);
+
+    const addButton = getAddMenuButton(container);
+    const user = userEvent.setup();
+    await user.click(addButton!);
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Custom action" }),
+    );
+
+    await waitFor(() => {
+      expect(addButton?.getAttribute("data-state")).toBe("closed");
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(addButton);
+    });
+  });
+
   it("returns focus to the add menu button when the menu is dismissed", async () => {
     const { container } = renderWithProvider(
       <CopilotChatInput
