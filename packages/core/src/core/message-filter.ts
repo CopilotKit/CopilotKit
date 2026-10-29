@@ -79,6 +79,10 @@ function resultCallIdOf(message: Message): string | undefined {
  * result whose call is nowhere in `full` is left alone too: it was already
  * unpaired before the filter ran, so it is not this function's to fix.
  *
+ * Messages are deduplicated by object identity, not by `id`: distinct objects
+ * that share an id (or have none) are all emitted, and the pair maps are keyed
+ * by the message object so reused ids cannot collide.
+ *
  * The filter's own ordering is preserved. Restorations are the only insertions,
  * and messages the filter synthesized (absent from `full`) pass through
  * untouched.
@@ -86,13 +90,14 @@ function resultCallIdOf(message: Message): string | undefined {
 export function ɵrepairToolCallPairs(
   kept: Message[],
   full: Message[],
+  copyToOriginal?: ReadonlyMap<Message, Message>,
 ): Message[] {
   // Pair each result with the nearest unmatched call before it. Providers
   // often reuse call ids across turns, so an id alone cannot identify a pair.
   // The untrimmed thread supplies the order the filter may have removed.
   const pendingIssuersByCallId = new Map<string, Message[]>();
-  const issuerIdToResultsByCallId = new Map<string, Map<string, Message[]>>();
-  const resultIdToIssuer = new Map<string, Message>();
+  const issuerIdToResultsByCallId = new Map<Message, Map<string, Message[]>>();
+  const resultIdToIssuer = new Map<Message, Message>();
   for (const message of full) {
     for (const callId of toolCallIdsOf(message)) {
       push(pendingIssuersByCallId, callId, message);
@@ -102,46 +107,81 @@ export function ɵrepairToolCallPairs(
       const pendingIssuers = pendingIssuersByCallId.get(resultCallId);
       const issuer = pendingIssuers?.pop();
       if (issuer) {
-        resultIdToIssuer.set(message.id, issuer);
-        let resultsByCallId = issuerIdToResultsByCallId.get(issuer.id);
+        resultIdToIssuer.set(message, issuer);
+        let resultsByCallId = issuerIdToResultsByCallId.get(issuer);
         if (!resultsByCallId) {
           resultsByCallId = new Map();
-          issuerIdToResultsByCallId.set(issuer.id, resultsByCallId);
+          issuerIdToResultsByCallId.set(issuer, resultsByCallId);
         }
         push(resultsByCallId, resultCallId, message);
       }
     }
   }
 
+  // Filters receive a structural copy of `full`, so every entry they keep is a
+  // different object and identity lookups would miss. Fall back to a unique id
+  // for copies the filter made itself; reused ids stay object-identity only.
+  const uniqueFullById = new Map<string, Message>();
+  const duplicateFullIds = new Set<string>();
+  for (const message of full) {
+    const id = message.id;
+    if (typeof id !== "string" || !id) continue;
+    if (uniqueFullById.has(id)) duplicateFullIds.add(id);
+    else uniqueFullById.set(id, message);
+  }
+  const resolveOriginal = (message: Message): Message => {
+    const mapped = copyToOriginal?.get(message);
+    if (mapped) return mapped;
+    const id = message.id;
+    if (typeof id === "string" && id && !duplicateFullIds.has(id)) {
+      const original = uniqueFullById.get(id);
+      if (original) return original;
+    }
+    return message;
+  };
+
+  // Prefer the filter's copy when restoring an original it kept, but still send
+  // distinct kept objects that happen to share an id.
+  const keptByOriginal = new Map<Message, Message>();
+  for (const message of kept) {
+    const original = resolveOriginal(message);
+    if (!keptByOriginal.has(original)) keptByOriginal.set(original, message);
+  }
+
   const repaired: Message[] = [];
-  const emitted = new Set<string>();
+  const emitted = new Set<Message>();
   const expandedMessages = new Set<Message>();
 
   const emit = (message: Message) => {
-    if (emitted.has(message.id)) return;
-    emitted.add(message.id);
-    repaired.push(message);
+    const normalized = copyToOriginal?.has(message)
+      ? message
+      : (keptByOriginal.get(message) ?? message);
+    if (emitted.has(normalized)) return;
+    emitted.add(normalized);
+    repaired.push(normalized);
   };
 
   /** Emit an assistant turn together with every result it is owed. */
   const emitWithResults = (message: Message) => {
+    const original = resolveOriginal(message);
     emit(message);
-    if (expandedMessages.has(message)) return;
-    expandedMessages.add(message);
-    const resultsByCallId = issuerIdToResultsByCallId.get(message.id);
-    for (const callId of toolCallIdsOf(message)) {
+    if (expandedMessages.has(original)) return;
+    expandedMessages.add(original);
+    const resultsByCallId = issuerIdToResultsByCallId.get(original);
+    for (const callId of toolCallIdsOf(original)) {
       for (const result of resultsByCallId?.get(callId) ?? []) emit(result);
     }
   };
 
   for (const message of kept) {
-    const resultCallId = resultCallIdOf(message);
+    const original = resolveOriginal(message);
+    const resultCallId = resultCallIdOf(original);
     if (resultCallId === undefined) {
       emitWithResults(message);
       continue;
     }
 
-    const issuer = resultIdToIssuer.get(message.id);
+    const issuer = resultIdToIssuer.get(original);
     if (issuer) {
       // Emits the issuer first, then this result along with its siblings.
       emitWithResults(issuer);
