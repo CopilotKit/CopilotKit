@@ -19,6 +19,7 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
 - **Never rename a v1 hook to its 2.0 name and stop.** The 2.0 APIs take different arguments. `useCopilotAction` becomes `useFrontendTool` with a Zod schema, not a `Parameter[]` list. Rewrite the call, not just the name.
 - **Read the docs link in the TODO** before you rewrite a call. The link points at the exact 2.0 API.
 - **Delete each TODO comment once its code is fixed.** A TODO left in the file means the work is not done.
+- **Markdown lost features by default.** The built-in renderer does no syntax highlighting, math, or mermaid diagrams. Before you delete a Streamdown prop, read the "Markdown rendering" section of `references/mappings.md`.
 - **Keep behavior the same.** If a v1 feature has no 2.0 equivalent, stop and ask the user before you drop it.
 
 ## Steps
@@ -28,7 +29,8 @@ The codemod already did the mechanical part: `/v2` import paths now point at the
 3. Update `package.json`:
    - set every `@copilotkit/*` dependency to the same 2.x version;
    - remove `@copilotkit/react-ui`, `@copilotkit/react-textarea`, and `@copilotkit/runtime-client-gql`;
-   - add `@ag-ui/langgraph` if the code now imports from it.
+   - add `@ag-ui/langgraph` if the code now imports from it;
+   - remove `streamdown`, `streamdown-vue`, `react-native-streamdown`, and `katex` if the code no longer imports them.
 4. Install, then run the typecheck and the build. Fix what they report.
 5. Report to the user: what changed, each v1 feature that has no 2.0 equivalent, and anything you could not verify.
 

@@ -132,6 +132,66 @@ function App() {
 }
 ```
 
+## Markdown rendering
+
+2.0 renders assistant messages with `@copilotkit/markdown-renderer`, not Streamdown. It does streaming-safe GFM, tables, autolinks, and citations. It does not do syntax highlighting, KaTeX math, or mermaid diagrams. Docs: https://docs.copilotkit.ai/migrate/markdown-renderer
+
+The `markdownRenderer` slot and the provider's `markdownRenderer` prop take one of these:
+
+- a class string, which still works;
+- a config object for the built-in renderer: `className`, `nodeRenderers`, `caret`, `options`, `onLinkClick`, `onCitationClick`;
+- a component that takes `MarkdownRendererProps` (`{ content, isStreaming?, className? }`).
+
+Fix each Streamdown prop that the codemod marked:
+
+| Streamdown prop                                                                                                                                                         | 2.0                                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `components` (keyed by HTML tag)                                                                                                                                        | `nodeRenderers`, keyed by node type: `a` → `link`, `h1`-`h6` → `heading` (`node.level`), `pre`/`code` → `codeBlock`/`inlineCode`, `img` → `image`, `table` → `table`, `li` → `listItem` |
+| `shikiTheme`                                                                                                                                                            | `nodeRenderers.codeBlock` with your highlighter, or a renderer component                                                                                                                |
+| `remarkPlugins`, `rehypePlugins`, `remarkRehypeOptions`                                                                                                                 | A `react-markdown` renderer component (example below)                                                                                                                                   |
+| `mermaid`, `controls`                                                                                                                                                   | A renderer component (Streamdown in the app), or delete the prop                                                                                                                        |
+| `isAnimating`, `parseIncompleteMarkdown`, `mode`, `BlockComponent`, `parseMarkdownIntoBlocksFn`                                                                         | Delete the prop                                                                                                                                                                         |
+| `allowedElements`, `disallowedElements`, `allowElement`, `skipHtml`, `unwrapDisallowed`, `urlTransform`, `allowedLinkPrefixes`, `allowedImagePrefixes`, `defaultOrigin` | Delete the prop. The built-in renderer escapes raw HTML and allows only safe URLs                                                                                                       |
+
+A node renderer gets `node`, `children`, and `defaultNode`. Wrap `defaultNode` to restyle a node and keep the built-in output. If you render `node.url` yourself, it is the raw model output, and the built-in URL check does not run on it.
+
+```tsx
+import type { DefaultMarkdownRendererProps } from "@copilotkit/react-core";
+
+// Module scope, so the value keeps its identity between renders.
+const markdownRenderer: DefaultMarkdownRendererProps = {
+  className: "prose",
+  nodeRenderers: {
+    link: ({ defaultNode }) => <span className="my-link">{defaultNode}</span>,
+    codeBlock: ({ node }) => (
+      <pre className="my-code">
+        <code data-lang={node.info}>{node.text}</code>
+      </pre>
+    ),
+  },
+};
+```
+
+If the app needs highlighting, math, diagrams, or remark/rehype plugins, ask the user first. Then plug in a renderer component, defined at module scope:
+
+```tsx
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import type { MarkdownRendererProps } from "@copilotkit/react-core";
+
+function ReactMarkdownRenderer({ content }: MarkdownRendererProps) {
+  return <Markdown remarkPlugins={[remarkGfm]}>{content}</Markdown>;
+}
+
+<CopilotKitProvider runtimeUrl="/api/copilotkit" markdownRenderer={ReactMarkdownRenderer}>
+```
+
+For Streamdown, install `streamdown` in the app and render `<Streamdown>{content}</Streamdown>` in the same way.
+
+CSS that targets `[data-streamdown]` no longer matches. Search the stylesheets for `data-streamdown` and move those rules to the `nodeRenderers` output or to `className`.
+
+Vue: delete every `useKatexStyles` import and call, including in `.vue` files. The export was removed.
+
 ## Runtime
 
 2.0 has no service adapters (`OpenAIAdapter`, `AnthropicAdapter`, ...) and no GraphQL endpoint. A model runs in a `BuiltInAgent`, and `createCopilotRuntimeHandler` serves the runtime. A v1 Next.js route:

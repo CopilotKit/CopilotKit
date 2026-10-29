@@ -99,6 +99,75 @@ const V1_ONLY_PROVIDER_PROPS: Record<string, string> = {
   textToSpeechUrl: "`textToSpeechUrl` was removed in 2.0.",
 };
 
+const MARKDOWN_GUIDE = "https://docs.copilotkit.ai/migrate/markdown-renderer";
+const OWN_RENDERER = `pass your own renderer component as \`markdownRenderer\`: ${MARKDOWN_GUIDE}`;
+
+/**
+ * Streamdown props that the `markdownRenderer` slot forwarded before 2.0. The
+ * built-in renderer takes `className`, `nodeRenderers`, `caret`, `options`,
+ * `onLinkClick`, and `onCitationClick` only.
+ */
+const STREAMDOWN_PROPS: Record<string, string> = Object.fromEntries(
+  (
+    [
+      [
+        ["components"],
+        `The built-in renderer uses \`nodeRenderers\`, keyed by node type (\`link\`, \`heading\`, \`codeBlock\`, ...) and not by HTML tag: ${MARKDOWN_GUIDE}`,
+      ],
+      [
+        ["remarkPlugins", "rehypePlugins", "remarkRehypeOptions"],
+        `The built-in renderer has no remark or rehype plugins. To keep them, pass a \`react-markdown\` component as \`markdownRenderer\`: ${MARKDOWN_GUIDE}`,
+      ],
+      [
+        ["shikiTheme"],
+        `The built-in renderer does not highlight code. To keep highlighting, set \`nodeRenderers.codeBlock\`, or ${OWN_RENDERER}`,
+      ],
+      [
+        ["mermaid"],
+        `The built-in renderer does not draw mermaid diagrams. To keep them, ${OWN_RENDERER}`,
+      ],
+      [
+        ["controls"],
+        `The built-in renderer has no copy or download buttons. Delete this prop, or ${OWN_RENDERER}`,
+      ],
+      [
+        ["isAnimating"],
+        "Delete this prop. The chat passes `isStreaming` to the renderer.",
+      ],
+      [
+        ["parseIncompleteMarkdown", "mode"],
+        "Delete this prop. The built-in renderer always parses streaming markdown.",
+      ],
+      [
+        ["BlockComponent", "parseMarkdownIntoBlocksFn"],
+        "Delete this prop. The built-in renderer has no block API.",
+      ],
+      [
+        [
+          "allowElement",
+          "allowedElements",
+          "disallowedElements",
+          "skipHtml",
+          "unwrapDisallowed",
+          "urlTransform",
+          "allowedImagePrefixes",
+          "allowedLinkPrefixes",
+          "defaultOrigin",
+        ],
+        `Delete this prop. The built-in renderer escapes raw HTML and allows only safe link and image URLs. To filter more, ${OWN_RENDERER}`,
+      ],
+    ] as const
+  ).flatMap(([props, message]) =>
+    props.map((prop) => [
+      prop,
+      `\`${prop}\` was a Streamdown prop. ${message}`,
+    ]),
+  ),
+);
+
+/** `useKatexStyles` was removed from `@copilotkit/vue` with Streamdown. */
+const VUE_SOURCES = ["@copilotkit/vue", "@copilotkit/vue/v2"];
+
 /**
  * `table[key]` for the table's own keys only. A plain lookup would find
  * `Object.prototype` members for strings such as "constructor" or "toString".
@@ -114,7 +183,7 @@ function lookup(source: string, name: string): V1Export | undefined {
 }
 
 /** The text of a string literal without its quotes. */
-function unquote(node: Node) {
+function unquote(node: Node | SgNode<TSX>) {
   return node.text().slice(1, -1);
 }
 
@@ -203,8 +272,10 @@ function todoLines(name: string, entry: V1Export | undefined): string[] {
  * - `/v2` import paths become the package roots;
  * - imports of v1 APIs move to their 2.0 home when it has the same name and
  *   API, and get a TODO comment otherwise;
- * - `CopilotKitProvider` becomes `CopilotKit`, and the v1-only props of
- *   `<CopilotKit>` are renamed or marked.
+ * - `CopilotKit` becomes `CopilotKitProvider`, and the v1-only props of
+ *   `<CopilotKit>` are renamed or marked;
+ * - Streamdown props on the `markdownRenderer` slot are marked, and calls of
+ *   the removed Vue `useKatexStyles` are deleted.
  */
 const codemod: Codemod<Lang> = async (root) => {
   const rootNode = root.root();
@@ -352,6 +423,10 @@ const codemod: Codemod<Lang> = async (root) => {
   }
 
   edits.push(...providerPropEdits(rootNode, providerNames, source));
+  // `.ts` files use the typescript grammar, which has no JSX node kinds.
+  const jsx = !/\.[mc]?ts$/.test(root.filename());
+  edits.push(...markdownRendererEdits(rootNode, source, jsx));
+  edits.push(...katexEdits(rootNode, source));
 
   if (edits.length === 0) return null;
   return rootNode.commitEdits(edits);
@@ -402,16 +477,164 @@ function providerPropEdits(
       }
       const message = own(V1_ONLY_PROVIDER_PROPS, prop);
       if (!message) continue;
-      const comment = `/* ${TODO} ${message} */`;
-      const before = source.slice(0, attribute.range().start.index);
-      if (before.trimEnd().endsWith(comment)) continue;
-      const start = attribute.range().start.index;
-      edits.push({
-        startPos: start,
-        endPos: start,
-        insertedText: `${comment} `,
-      });
+      const edit = commentBefore(attribute, message, source);
+      if (edit) edits.push(edit);
     }
+  }
+  return edits;
+}
+
+/** Inserts an inline TODO comment before `node`, unless it is already there. */
+function commentBefore(
+  node: Node | SgNode<TSX>,
+  message: string,
+  source: string,
+): Edit | undefined {
+  const comment = `/* ${TODO} ${message} */`;
+  const start = node.range().start.index;
+  if (source.slice(0, start).trimEnd().endsWith(comment)) return undefined;
+  return { startPos: start, endPos: start, insertedText: `${comment} ` };
+}
+
+/** Deletes `node` with its indentation and line break. */
+function deleteLine(node: Node, source: string): Edit {
+  let startPos = node.range().start.index;
+  let endPos = node.range().end.index;
+  while (startPos > 0 && /[ \t]/.test(source[startPos - 1]!)) startPos--;
+  if (source[endPos] === "\n") endPos++;
+  return { startPos, endPos, insertedText: "" };
+}
+
+/** The name of an object key or JSX attribute, without quotes. */
+function keyName(node: Node | SgNode<TSX>): string | undefined {
+  switch (node.kind()) {
+    case "pair":
+    case "method_definition": {
+      const key = node.field("key") ?? node.field("name");
+      if (!key) return undefined;
+      return key.kind() === "string" ? unquote(key) : key.text();
+    }
+    case "shorthand_property_identifier":
+      return node.text();
+    case "jsx_attribute":
+      return node.child(0)?.text();
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Marks the Streamdown props that 2.0 dropped from the `markdownRenderer`
+ * slot: `markdownRenderer={{ ... }}`, `markdownRenderer: { ... }`, and the
+ * props of `<CopilotChatAssistantMessage.MarkdownRenderer>`.
+ */
+function markdownRendererEdits(
+  rootNode: Node,
+  source: string,
+  jsx: boolean,
+): Edit[] {
+  if (!source.includes("@copilotkit/")) return [];
+  const props: (Node | SgNode<TSX>)[] = [];
+
+  // `markdownRenderer: { ... }`
+  const pairs = rootNode.findAll({
+    rule: {
+      kind: "pair",
+      has: { field: "key", regex: "^[\"']?markdownRenderer[\"']?$" },
+    },
+  });
+  for (const pair of pairs) {
+    const value = pair.field("value");
+    if (value?.kind() === "object") props.push(...value.children());
+  }
+
+  if (jsx) {
+    const tsxRoot = rootNode as SgNode<TSX>;
+    // `markdownRenderer={{ ... }}`
+    const attributes = tsxRoot.findAll({
+      rule: {
+        kind: "jsx_attribute",
+        has: { kind: "property_identifier", regex: "^markdownRenderer$" },
+      },
+    });
+    for (const attribute of attributes) {
+      const value = attribute
+        .children()
+        .find((child) => child.kind() === "jsx_expression")
+        ?.child(1);
+      if (value?.kind() === "object") props.push(...value.children());
+    }
+
+    // `<CopilotChatAssistantMessage.MarkdownRenderer ...>`
+    const elements = tsxRoot.findAll({
+      rule: {
+        any: [
+          { kind: "jsx_opening_element" },
+          { kind: "jsx_self_closing_element" },
+        ],
+      },
+    });
+    for (const element of elements) {
+      const name = element.field("name")?.text() ?? "";
+      if (/(^|\.)CopilotChatAssistantMessage\.MarkdownRenderer$/.test(name))
+        props.push(...element.children());
+    }
+  }
+
+  const edits: Edit[] = [];
+  for (const prop of props) {
+    const name = keyName(prop);
+    const message =
+      name === undefined ? undefined : own(STREAMDOWN_PROPS, name);
+    if (!message) continue;
+    const edit = commentBefore(prop, message, source);
+    if (edit) edits.push(edit);
+  }
+  return edits;
+}
+
+/** Deletes the import and the calls of the Vue `useKatexStyles`. */
+function katexEdits(rootNode: Node, source: string): Edit[] {
+  if (!source.includes("useKatexStyles")) return [];
+  const edits: Edit[] = [];
+  const localNames = new Set<string>();
+  const imports = rootNode.findAll({ rule: { kind: "import_statement" } });
+  for (const statement of imports) {
+    const sourceNode = statement.field("source");
+    if (!sourceNode || !VUE_SOURCES.includes(unquote(sourceNode))) continue;
+    const specifiers = specifiersOf(statement);
+    const katex = specifiers?.find((s) => s.name === "useKatexStyles");
+    if (!specifiers || !katex) continue;
+    localNames.add(katex.text.split(/\s+as\s+/)[1]?.trim() ?? katex.name);
+    const rest = specifiers.filter((s) => s !== katex).map((s) => s.text);
+    edits.push(
+      rest.length === 0
+        ? deleteLine(statement, source)
+        : statement.replace(
+            renderStatement(
+              statementHead(statement),
+              rest,
+              unquote(sourceNode),
+              sourceNode.text()[0] ?? '"',
+              statement.text().includes("\n"),
+            ),
+          ),
+    );
+  }
+  if (localNames.size === 0) return edits;
+  const calls = rootNode.findAll({
+    rule: {
+      kind: "expression_statement",
+      has: {
+        kind: "call_expression",
+        has: { field: "function", kind: "identifier" },
+      },
+    },
+  });
+  for (const call of calls) {
+    const callee = call.child(0)?.field("function")?.text();
+    if (callee !== undefined && localNames.has(callee))
+      edits.push(deleteLine(call, source));
   }
   return edits;
 }
