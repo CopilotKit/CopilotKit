@@ -78,6 +78,8 @@ export interface CopilotKitCoreRunAgentParams {
    * previous run. Forwarded to the agent as the standard `resume` array.
    */
   resume?: ResumeEntry[];
+  /** Persist genuine native decisions individually on explicitly capable agents. */
+  nativeApprovalContinuation?: ResumeEntry[];
 }
 
 export interface CopilotKitCoreConnectAgentParams {
@@ -742,7 +744,13 @@ export class RunHandler {
    * Run an agent
    */
   async runAgent(
-    { agent, forwardedProps, resume, runId }: CopilotKitCoreRunAgentParams,
+    {
+      agent,
+      forwardedProps,
+      resume,
+      runId,
+      nativeApprovalContinuation,
+    }: CopilotKitCoreRunAgentParams,
     continuationHandoff?: CopilotKitCoreContinuationHandoff,
     /**
      * Set only by `processAgentResult` for a recursive follow-up: the
@@ -915,6 +923,7 @@ export class RunHandler {
       const pinRunIdOnWire = runId !== undefined && !continuationHandoff;
       const agentRunInput = {
         ...(toolResultContinuation ? { toolResultContinuation } : {}),
+        ...(nativeApprovalContinuation ? { nativeApprovalContinuation } : {}),
         forwardedProps: {
           ...this._internal.getPropertiesForAgent(agent.agentId),
           ...forwardedProps,

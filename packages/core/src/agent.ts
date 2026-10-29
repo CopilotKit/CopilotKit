@@ -194,6 +194,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.allowToolResultContinuation =
       config.capabilities?.custom?.["copilotkit.toolResultContinuation"] ===
       true;
+    this.allowPartialNativeApprovals =
+      config.capabilities?.custom?.["copilotkit.partialNativeApprovals"] ===
+      true;
     this._messageFilter = config.messageFilter;
     if (config.debug) {
       this.debug = config.debug;
@@ -553,7 +556,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       onRunFinishedEvent: (params) => {
         const { input, messages, state } = params;
         this.toolResultCheckpoint =
-          this.allowToolResultContinuation && params.outcome === "interrupt"
+          (this.allowToolResultContinuation ||
+            this.allowPartialNativeApprovals) &&
+          params.outcome === "interrupt"
             ? {
                 threadId: input.threadId,
                 messages: structuredClone_(messages),
@@ -855,6 +860,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     cloned.setMessages(this.messages);
     cloned.pendingInterrupts = structuredClone_(this.pendingInterrupts);
     cloned.allowToolResultContinuation = this.allowToolResultContinuation;
+    cloned.allowPartialNativeApprovals = this.allowPartialNativeApprovals;
     cloned.toolResultCheckpoint = structuredClone_(this.toolResultCheckpoint);
     if (this.delegate) {
       const clonedDelegate: AbstractAgent = this.delegate.clone();
@@ -957,6 +963,10 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         if (this.runtimeInfoPromise !== runtimeInfoPromise) return;
         this.runtimeMode = runtimeInfo.mode ?? RUNTIME_MODE_SSE;
         this.intelligence = runtimeInfo.intelligence;
+        this.allowPartialNativeApprovals =
+          runtimeInfo.agents?.[this.routedAgentId()]?.capabilities?.custom?.[
+            "copilotkit.partialNativeApprovals"
+          ] === true;
         this.allowToolResultContinuation =
           runtimeInfo.agents?.[this.routedAgentId()]?.capabilities?.custom?.[
             "copilotkit.toolResultContinuation"

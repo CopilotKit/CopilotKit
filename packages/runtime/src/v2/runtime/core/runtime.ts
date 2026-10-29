@@ -190,6 +190,8 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    * Omitted by default; configure only when the backend supports this contract.
    */
   toolResultContinuationAgents?: readonly string[];
+  /** Trusted backends that durably collect individual native approval decisions without executing an incomplete batch. Omitted by default. */
+  partialNativeApprovalAgents?: readonly string[];
   /**
    * Map of available agents, or a factory function for per-request agent resolution.
    *
@@ -400,6 +402,8 @@ export type CopilotRuntimeOptions =
 
 export interface CopilotRuntimeLike {
   toolResultContinuationAgents?: readonly string[];
+  /** Trusted backends that durably collect individual native approval decisions without executing an incomplete batch. Omitted by default. */
+  partialNativeApprovalAgents?: readonly string[];
   agents: CopilotRuntimeOptions["agents"];
   transcriptionService: CopilotRuntimeOptions["transcriptionService"];
   beforeRequestMiddleware: CopilotRuntimeOptions["beforeRequestMiddleware"];
@@ -473,6 +477,7 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
 
 abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public readonly toolResultContinuationAgents?: readonly string[];
+  public readonly partialNativeApprovalAgents?: readonly string[];
   public agents: CopilotRuntimeOptions["agents"];
   public transcriptionService: CopilotRuntimeOptions["transcriptionService"];
   public beforeRequestMiddleware: CopilotRuntimeOptions["beforeRequestMiddleware"];
@@ -505,6 +510,9 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   abstract readonly mode: RuntimeMode;
 
   constructor(options: BaseCopilotRuntimeOptions, runner: AgentRunner) {
+    this.partialNativeApprovalAgents = options.partialNativeApprovalAgents
+      ? [...options.partialNativeApprovalAgents]
+      : undefined;
     this.toolResultContinuationAgents = options.toolResultContinuationAgents
       ? [...options.toolResultContinuationAgents]
       : undefined;
@@ -940,6 +948,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get runner(): AgentRunner {
     return this.delegate.runner;
+  }
+
+  get partialNativeApprovalAgents(): readonly string[] | undefined {
+    return this.delegate.partialNativeApprovalAgents;
   }
 
   get toolResultContinuationAgents(): readonly string[] | undefined {

@@ -82,6 +82,84 @@ describe("trusted tool-result continuation capability", () => {
     ).toBeUndefined();
   });
 });
+describe("trusted partial native approval capability", () => {
+  it("copies the explicit list and advertises only selected agents", async () => {
+    const selected = ["enabled"];
+    const runtime = new CopilotRuntime({
+      agents: {
+        enabled: new HttpAgent({ url: "https://example.com" }),
+        ordinary: new HttpAgent({ url: "https://example.com" }),
+      },
+      partialNativeApprovalAgents: selected,
+    });
+    selected.push("ordinary");
+    const info = await (
+      await handleGetRuntimeInfo({ runtime, request: mockRequest })
+    ).json();
+    expect(
+      info.agents.enabled.capabilities.custom[
+        "copilotkit.partialNativeApprovals"
+      ],
+    ).toBe(true);
+    expect(
+      info.agents.ordinary.capabilities?.custom?.[
+        "copilotkit.partialNativeApprovals"
+      ],
+    ).toBeUndefined();
+    expect(
+      info.agents.enabled.capabilities.custom[
+        "copilotkit.toolResultContinuation"
+      ],
+    ).toBeUndefined();
+  });
+  it("strips agent self-report without removing unrelated capabilities", async () => {
+    class ReportingAgent extends HttpAgent {
+      override async getCapabilities() {
+        return {
+          custom: {
+            "copilotkit.partialNativeApprovals": true,
+            "other.feature": true,
+          },
+        };
+      }
+    }
+    const runtime = new CopilotRuntime({
+      agents: { default: new ReportingAgent({ url: "https://example.com" }) },
+      toolResultContinuationAgents: ["default"],
+    });
+    const info = await (
+      await handleGetRuntimeInfo({ runtime, request: mockRequest })
+    ).json();
+    expect(info.agents.default.capabilities.custom).toEqual({
+      "other.feature": true,
+      "copilotkit.toolResultContinuation": true,
+    });
+  });
+  it("trusted configuration overrides false self-report and composes contracts", async () => {
+    class ReportingAgent extends HttpAgent {
+      override async getCapabilities() {
+        return {
+          custom: {
+            "copilotkit.partialNativeApprovals": false,
+            "copilotkit.toolResultContinuation": false,
+          },
+        };
+      }
+    }
+    const runtime = new CopilotRuntime({
+      agents: { default: new ReportingAgent({ url: "https://example.com" }) },
+      partialNativeApprovalAgents: ["default"],
+      toolResultContinuationAgents: ["default"],
+    });
+    const info = await (
+      await handleGetRuntimeInfo({ runtime, request: mockRequest })
+    ).json();
+    expect(info.agents.default.capabilities.custom).toEqual({
+      "copilotkit.partialNativeApprovals": true,
+      "copilotkit.toolResultContinuation": true,
+    });
+  });
+});
 const INVALID_LEGACY_LICENSE_TOKEN = `header.${Buffer.from(
   '{"telemetry_id":"legacy-license-id"}',
 ).toString("base64url")}.signature`;
