@@ -140,6 +140,21 @@ const FORBIDDEN_REGISTRY_APIS: readonly (readonly [
   ],
 ];
 
+// Deliberate exemptions from FORBIDDEN_REGISTRY_APIS: one file, one identifier,
+// and the reason it is not a tool/renderer registry. File paths are relative to
+// src/ and use forward slashes.
+const REGISTRY_API_EXEMPTIONS: readonly (readonly [
+  file: string,
+  identifier: string,
+  why: string,
+])[] = [
+  [
+    "components/MarkdownRendererContext.tsx",
+    "createContext",
+    "holds the provider-level `markdownRenderer` (a component, or config for the built-in markdown renderer). It stores no tools and no tool-call renderers",
+  ],
+];
+
 // Heavy modules that must never appear as a direct import from this package.
 // (Transitive leakage through react-core's own entry is covered separately by
 // packages/react-core/scripts/assert-headless-purity.mjs — this walker cannot
@@ -521,7 +536,13 @@ describe("@copilotkit/react-native/headless entry", () => {
       // modules in it name these APIs in prose to explain why they do NOT call
       // them. A raw text match would fail on the documentation.
       const code = stripComments(fs.readFileSync(file, "utf8"));
+      const relFile = path.relative(srcDir, file).split(path.sep).join("/");
       for (const [identifier, why] of FORBIDDEN_REGISTRY_APIS) {
+        const exempt = REGISTRY_API_EXEMPTIONS.some(
+          ([exemptFile, exemptIdentifier]) =>
+            exemptFile === relFile && exemptIdentifier === identifier,
+        );
+        if (exempt) continue;
         if (new RegExp(`\\b${identifier}\\b`).test(code)) {
           offenders.push(
             `${path.relative(srcDir, file)}: ${identifier} — ${why}`,

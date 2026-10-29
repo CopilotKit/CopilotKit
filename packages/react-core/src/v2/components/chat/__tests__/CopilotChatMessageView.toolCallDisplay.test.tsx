@@ -233,11 +233,15 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
       role: "reasoning",
       content: "Thinking about it.",
     };
+    // The streaming renderer splits words into separate spans, so match the
+    // paragraph that holds the whole text.
+    const reasoningText = (_: string, element: Element | null) =>
+      element?.tagName === "P" && element.textContent === "Thinking about it.";
     const { rerender } = renderView([question, reasoning], {
       toolCallDisplay: "turn",
       isRunning: true,
     });
-    const node = screen.getByText("Thinking about it.");
+    const node = screen.getByText(reasoningText);
 
     rerender(
       view([question, reasoning, callMessage("a")], {
@@ -245,7 +249,7 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
         isRunning: true,
       }),
     );
-    expect(screen.getByText("Thinking about it.")).toBe(node);
+    expect(screen.getByText(reasoningText)).toBe(node);
   });
 
   it("leaves calls drawn by a custom catch-all on their own unless it opts in", () => {

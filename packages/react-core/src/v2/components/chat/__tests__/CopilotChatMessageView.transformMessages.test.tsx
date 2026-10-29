@@ -226,7 +226,9 @@ describe("CopilotChatMessageView transformMessages", () => {
       renderWithCopilotKit({ children: <Harness /> });
 
       // Streaming: the latest assistant message hides its toolbar.
-      expect(screen.getByText("first half second half")).not.toBeNull();
+      // Use textContent because the streaming renderer splits text across
+      // per-segment <span>s, so getByText cannot match the full string.
+      expect(document.body.textContent).toContain("first half second half");
       expect(screen.queryByTestId("copilot-assistant-toolbar")).toBeNull();
 
       // The run ends, and the merged message must re-render to show it.
