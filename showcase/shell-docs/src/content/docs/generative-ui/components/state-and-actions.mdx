@@ -18,37 +18,88 @@ Three tools connect generated UI to your app:
 
 The agent does not know how many items are in the cart, and it must not guess. Declare the state in the catalog, and the library fills the prop:
 
-```tsx title="app/catalog.tsx"
-const cartSchema = z.object({
-  items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
-});
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx title="app/catalog.tsx"
+    const cartSchema = z.object({
+      items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
+    });
 
-export const shopUI = createGenerativeUI({
-  id: "acme/shop@1",
-  state: { cart: cartSchema },
-  components: {
-    ProductCard: {
-      component: ProductCard,
-      props: z.object({ productId: z.string(), name: z.string(), inCart: z.number() }),
-      bind: {
-        inCart: (state, { productId }) =>
-          state.cart.items.find((item) => item.productId === productId)?.quantity ?? 0,
+    export const shopUI = createGenerativeUI({
+      id: "acme/shop@1",
+      state: { cart: cartSchema },
+      components: {
+        ProductCard: {
+          component: ProductCard,
+          props: z.object({ productId: z.string(), name: z.string(), inCart: z.number() }),
+          bind: {
+            inCart: (state, { productId }) =>
+              state.cart.items.find((item) => item.productId === productId)?.quantity ?? 0,
+          },
+        },
       },
-    },
-  },
-});
-```
+    });
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts title="src/app/shop-ui.ts"
+    const cartSchema = z.object({
+      items: z.array(z.object({ productId: z.string(), quantity: z.number() })),
+    });
+
+    export const shopUI = createGenerativeUI({
+      id: "acme/shop@1",
+      state: { cart: cartSchema },
+      components: {
+        ProductCard: {
+          component: ProductCard,
+          props: z.object({ productId: z.string(), name: z.string(), inCart: z.number() }),
+          bind: {
+            inCart: (state, { productId }) =>
+              state.cart.items.find((item) => item.productId === productId)?.quantity ?? 0,
+          },
+        },
+      },
+    });
+    ```
+
+    The component reads the bound prop as a normal input: `readonly inCart = input.required<number>()`.
+  </Tab>
+</Tabs>
 
 Then give the state its value from your app:
 
-```tsx
-import { useGenerativeUIState } from "@copilotkit/react-core/v2/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    import { useGenerativeUIState } from "@copilotkit/react-core/v2/generative-ui";
 
-function CartState({ cart }: { cart: Cart }) {
-  useGenerativeUIState(shopUI, "cart", { items: cart.items });
-  return null;
-}
-```
+    function CartState({ cart }: { cart: Cart }) {
+      useGenerativeUIState(shopUI, "cart", { items: cart.items });
+      return null;
+    }
+    ```
+  </Tab>
+  <Tab value="Angular">
+    `connectGenerativeUIState` takes a signal or a function, keeps the key current, and removes it when the injection context is destroyed:
+
+    ```ts
+    import { Component, inject } from "@angular/core";
+    import { connectGenerativeUIState } from "@copilotkit/angular/generative-ui";
+    import { CartStore } from "./cart.store";
+    import { shopUI } from "./shop-ui";
+
+    @Component({ /* ... */ })
+    export class CartState {
+      readonly #cart = inject(CartStore);
+
+      constructor() {
+        connectGenerativeUIState(shopUI, "cart", () => ({ items: this.#cart.items() }));
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
 
 How props get their values:
 
@@ -56,67 +107,151 @@ How props get their values:
 - `bind` gives a prop a selector. The selector gets the state and the props that the agent set.
 - The agent never sets a bound prop and does not see it.
 
-The agent does not see the state either. To let it answer "what is in my cart?", also give it the data with [`useAgentContext`](/reference/hooks/useAgentContext).
+The agent does not see the state either. To let it answer "what is in my cart?", also give it the data with [`useAgentContext`](/reference/hooks/useAgentContext), or `connectAgentContext` in Angular.
 
 ## Run your code on a click
 
 "Add to cart" must add to the cart, with no message to the agent. Declare a function, give the component an event with a matching name, and mount a handler:
 
-```tsx title="app/catalog.tsx"
-export const shopUI = createGenerativeUI({
-  id: "acme/shop@1",
-  functions: {
-    addToCart: {
-      description: "Add a product to the cart",
-      parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }),
-    },
-  },
-  components: {
-    ProductCard: {
-      component: ProductCard,
-      props: z.object({ productId: z.string(), name: z.string() }),
-      events: { onAddToCart: {} },
-    },
-  },
-});
-```
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx title="app/catalog.tsx"
+    export const shopUI = createGenerativeUI({
+      id: "acme/shop@1",
+      functions: {
+        addToCart: {
+          description: "Add a product to the cart",
+          parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }),
+        },
+      },
+      components: {
+        ProductCard: {
+          component: ProductCard,
+          props: z.object({ productId: z.string(), name: z.string() }),
+          events: { onAddToCart: {} },
+        },
+      },
+    });
+    ```
 
-```tsx
-import { useGenerativeUIFunction } from "@copilotkit/react-core/v2/generative-ui";
+    ```tsx
+    import { useGenerativeUIFunction } from "@copilotkit/react-core/v2/generative-ui";
 
-function CartActions({ cart }: { cart: Cart }) {
-  useGenerativeUIFunction(shopUI, "addToCart", ({ productId, quantity }) => {
-    cart.addItem(productId, quantity);
-    return { added: productId };
-  });
-  return null;
-}
-```
+    function CartActions({ cart }: { cart: Cart }) {
+      useGenerativeUIFunction(shopUI, "addToCart", ({ productId, quantity }) => {
+        cart.addItem(productId, quantity);
+        return { added: productId };
+      });
+      return null;
+    }
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts title="src/app/shop-ui.ts"
+    export const shopUI = createGenerativeUI({
+      id: "acme/shop@1",
+      functions: {
+        addToCart: {
+          description: "Add a product to the cart",
+          parameters: z.object({ productId: z.string(), quantity: z.number().default(1) }),
+        },
+      },
+      components: {
+        ProductCard: {
+          component: ProductCard,
+          props: z.object({ productId: z.string(), name: z.string() }),
+          events: { onAddToCart: {} },
+        },
+      },
+    });
+    ```
 
-In the component, the event is a typed prop. It gives back a result, so you can show progress and errors:
+    `registerGenerativeUIFunction` mounts the handler for as long as the injection context lives:
 
-```tsx
-import { useState } from "react";
-import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2/generative-ui";
+    ```ts
+    import { Component, inject } from "@angular/core";
+    import { registerGenerativeUIFunction } from "@copilotkit/angular/generative-ui";
+    import { CartStore } from "./cart.store";
+    import { shopUI } from "./shop-ui";
 
-function ProductCard({ productId, name, onAddToCart }: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
-  const [error, setError] = useState<string>();
-  return (
-    <article>
-      <h4>{name}</h4>
-      <button
-        onClick={async () => {
-          const result = await onAddToCart?.({ productId });
-          if (result && !result.ok) setError(result.error.message);
-        }}
-      >
-        Add to cart
-      </button>
-      {error ? <p role="alert">{error}</p> : null}
-    </article>
-  );
-}
-```
+    @Component({ /* ... */ })
+    export class CartActions {
+      readonly #cart = inject(CartStore);
+
+      constructor() {
+        registerGenerativeUIFunction(shopUI, "addToCart", ({ productId, quantity }) => {
+          this.#cart.addItem(productId, quantity);
+          return { added: productId };
+        });
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+In the component, the event is a typed prop, or a typed function input in Angular. It gives back a result, so you can show progress and errors:
+
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    import { useState } from "react";
+    import type { GenerativeUIComponentProps } from "@copilotkit/react-core/v2/generative-ui";
+
+    function ProductCard({ productId, name, onAddToCart }: GenerativeUIComponentProps<typeof shopUI, "ProductCard">) {
+      const [error, setError] = useState<string>();
+      return (
+        <article>
+          <h4>{name}</h4>
+          <button
+            onClick={async () => {
+              const result = await onAddToCart?.({ productId });
+              if (result && !result.ok) setError(result.error.message);
+            }}
+          >
+            Add to cart
+          </button>
+          {error ? <p role="alert">{error}</p> : null}
+        </article>
+      );
+    }
+    ```
+  </Tab>
+  <Tab value="Angular">
+    The input holds a function only while the event is bound, so `@if` on it shows the button only then:
+
+    ```ts
+    import { Component, input, signal } from "@angular/core";
+    import type { GenerativeUIEventHandler } from "@copilotkit/angular/generative-ui";
+    import { shopUI } from "./shop-ui";
+
+    @Component({
+      selector: "app-product-card",
+      template: `
+        <article>
+          <h4>{{ name() }}</h4>
+          @if (onAddToCart(); as addToCart) {
+            <button (click)="add(addToCart)">Add to cart</button>
+          }
+          @if (error(); as error) {
+            <p role="alert">{{ error }}</p>
+          }
+        </article>
+      `,
+    })
+    export class ProductCard {
+      readonly productId = input.required<string>();
+      readonly name = input.required<string>();
+      readonly onAddToCart = input<GenerativeUIEventHandler<typeof shopUI, "onAddToCart">>();
+      protected readonly error = signal<string | undefined>(undefined);
+
+      protected async add(addToCart: GenerativeUIEventHandler<typeof shopUI, "onAddToCart">) {
+        const result = await addToCart({ productId: this.productId() });
+        if (!result.ok) this.error.set(result.error.message);
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
 
 An event matches the function with its name, or the name without `on`: `onAddToCart` calls `addToCart`.
 
@@ -161,7 +296,7 @@ A2UI 1.0 has no arithmetic, so CopilotKit adds two catalog functions. `calc` eva
 
 ## Keep what the user types
 
-A checkout form that the agent filled in must keep the user's edits. List the props that the component can change in `writable`. Each one gets a setter:
+A checkout form that the agent filled in must keep the user's edits. List the props that the component can change in `writable`. Each one gets a setter, or a two-way `model()` input in Angular:
 
 ```tsx
 CheckoutForm: {
@@ -171,11 +306,28 @@ CheckoutForm: {
 },
 ```
 
-```tsx
-function CheckoutForm({ email, setEmail }: GenerativeUIComponentProps<typeof shopUI, "CheckoutForm">) {
-  return <input value={email ?? ""} onChange={(event) => setEmail(event.target.value)} />;
-}
-```
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    function CheckoutForm({ email, setEmail }: GenerativeUIComponentProps<typeof shopUI, "CheckoutForm">) {
+      return <input value={email ?? ""} onChange={(event) => setEmail(event.target.value)} />;
+    }
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts
+    import { Component, model } from "@angular/core";
+
+    @Component({
+      selector: "app-checkout-form",
+      template: `<input [value]="email() ?? ''" (input)="email.set($any($event.target).value)" />`,
+    })
+    export class CheckoutForm {
+      readonly email = model<string>();
+    }
+    ```
+  </Tab>
+</Tabs>
 
 When the agent binds `email` to a value of the surface, what the user types is written there. From then on, that value belongs to the user: a later agent update cannot write over it. The agent still sees the value on its next run.
 

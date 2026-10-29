@@ -12,11 +12,25 @@ You want the agent to answer with tables, charts, and forms today, not after you
 
 Use it as it is:
 
-```tsx
-import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
-```
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI }}>
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts title="src/app/app.config.ts"
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    providers: [
+      provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+      provideGenerativeUI({ ui: standardUI }),
+    ],
+    ```
+  </Tab>
+</Tabs>
 
 ## What is in it
 
@@ -38,8 +52,8 @@ A few things to know:
 - **`Video` takes any URL.** A video file plays in the native player, with `captions` as WebVTT tracks; a YouTube link shows a poster until the user presses play, then loads the privacy-enhanced embed. A page on another video site (Vimeo, Loom, TikTok, …) and a file that fails to load show a link card instead of a dead player. YouTube is the only provider that embeds; to embed another one, [replace the component](#replace-a-component). `Tabs` takes `tabs: [{ "title", "child" }]` with the id of each panel.
 - **Inputs keep what users type.** When the agent binds an input to a value, what the user types stays. A later agent update cannot write over it.
 - **`Button` and `Pressable` can act in the browser.** `href` opens a URL, and `Button` with `copy` copies text, with no message to the agent.
-- **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps. Without it, the map shows a list of the places.
-- **`Chart` works out of the box.** It uses `recharts`, which comes with CopilotKit.
+- **`Map` needs one package.** Run `npm install maplibre-gl` if your agent draws maps. Without it, the map shows a list of the places. In Angular, also add `provideGenerativeUIMap()` from `@copilotkit/angular/generative-ui/map` to the root providers.
+- **`Chart` works out of the box.** It uses `recharts`, which comes with CopilotKit. In Angular, `Chart` draws with `chart.js` and `Icon` with `lucide`: install them and add `provideGenerativeUIChart()` and `provideGenerativeUIIcons()` from the `/chart` and `/icons` entries of `@copilotkit/angular/generative-ui`. Without them, a chart shows its data as a table and an icon shows nothing.
 
 Each standalone component has a dedicated page with the existing live examples, copyable surface operations, and API reference. Structural parts are documented on their parent component's page. Previews use local sample data and do not require a model connection.
 
@@ -55,17 +69,34 @@ Compared with the initial experimental style-first catalog, this changes positio
 
 Put your components on top of the standard ones with `extends`:
 
-```ts
-import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```ts
+    import { createGenerativeUI, standardUI } from "@copilotkit/react-core/v2/generative-ui";
 
-export const appUI = createGenerativeUI({
-  id: "acme/app@1",
-  extends: [standardUI],
-  components: {
-    ProductCard: { component: ProductCard, props: productSchema },
-  },
-});
-```
+    export const appUI = createGenerativeUI({
+      id: "acme/app@1",
+      extends: [standardUI],
+      components: {
+        ProductCard: { component: ProductCard, props: productSchema },
+      },
+    });
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts
+    import { createGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    export const appUI = createGenerativeUI({
+      id: "acme/app@1",
+      extends: [standardUI],
+      components: {
+        ProductCard: { component: ProductCard, props: productSchema },
+      },
+    });
+    ```
+  </Tab>
+</Tabs>
 
 See [Catalogs](/generative-ui/components/catalogs) for how to declare a component.
 
@@ -85,26 +116,65 @@ The names are typed, so a typo is a type error. Call `omit` once, at module leve
 
 ## Replace a component
 
-Your app has its own card, with your shadows and spacing. `overrides` swaps the React component of a standard component. The agent sees the same component as before, with the same props:
+Your app has its own card, with your shadows and spacing. `overrides` swaps the component of a standard component. The agent sees the same component as before, with the same props:
 
-```tsx
-import {
-  createGenerativeUI,
-  standardUI,
-  type GenerativeUIComponentProps,
-} from "@copilotkit/react-core/v2/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    import {
+      createGenerativeUI,
+      standardUI,
+      type GenerativeUIComponentProps,
+    } from "@copilotkit/react-core/v2/generative-ui";
 
-function MyCard({ children }: GenerativeUIComponentProps<typeof standardUI, "Card">) {
-  return <div className="rounded-2xl border p-6 shadow-sm">{children}</div>;
-}
+    function MyCard({ children }: GenerativeUIComponentProps<typeof standardUI, "Card">) {
+      return <div className="rounded-2xl border p-6 shadow-sm">{children}</div>;
+    }
 
-export const appUI = createGenerativeUI({
-  id: "acme/app@1",
-  extends: [standardUI],
-  overrides: { Card: { component: MyCard } },
-  components: {},
-});
-```
+    export const appUI = createGenerativeUI({
+      id: "acme/app@1",
+      extends: [standardUI],
+      overrides: { Card: { component: MyCard } },
+      components: {},
+    });
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts
+    import { Component, input } from "@angular/core";
+    import {
+      CopilotGenerativeUIChildren,
+      createGenerativeUI,
+      standardUI,
+      type GenerativeUIChildren,
+    } from "@copilotkit/angular/generative-ui";
+
+    @Component({
+      selector: "app-card",
+      imports: [CopilotGenerativeUIChildren],
+      template: `
+        <div class="rounded-2xl border p-6 shadow-sm">
+          <ng-container *copilotGenerativeUIChildren="child()" />
+          <ng-container *copilotGenerativeUIChildren="children()" />
+        </div>
+      `,
+    })
+    export class MyCard {
+      readonly child = input<GenerativeUIChildren>();
+      readonly children = input<GenerativeUIChildren>();
+    }
+
+    export const appUI = createGenerativeUI({
+      id: "acme/app@1",
+      extends: [standardUI],
+      overrides: { Card: { component: MyCard } },
+      components: {},
+    });
+    ```
+
+    Declare an `input()` for each prop that your component reads. `GenerativeUIComponentInputs<typeof standardUI, "Card">` has their types.
+  </Tab>
+</Tabs>
 
 - Your component gets the props of the component it replaces. The types check this.
 - Only components of the catalogs in `extends` can be overridden. An unknown name is a type error.

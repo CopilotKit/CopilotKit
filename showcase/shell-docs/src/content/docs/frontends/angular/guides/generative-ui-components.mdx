@@ -1,0 +1,280 @@
+---
+title: Native generative UI
+description: Let an agent render native Angular components, in the chat and in areas of your page.
+icon: "lucide/LayoutTemplate"
+doc_type: how-to
+---
+
+An agent that answers only in text has to describe a product, a chart or a
+form. With native generative UI it renders them: it sends A2UI operations for
+a catalog of components, and `@copilotkit/angular/generative-ui` renders them
+with Angular components, in the chat and in named areas of your page. The
+catalog, the engine and the prompts are the same as in React; the components
+are native Angular.
+
+<Callout type="info">
+  Experimental. The API can still change between minor versions.
+</Callout>
+
+## Turn it on
+
+Add `provideGenerativeUI` next to `provideCopilotKit`, at the root. The chat
+resolves its renderers from the root injector, so a provider in a lazy route
+is never seen. `standardUI` is the standard catalog: 69 components for layout,
+text, inputs, feedback, data, media and composites.
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import {
+  provideGenerativeUI,
+  standardUI,
+} from "@copilotkit/angular/generative-ui";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+    provideGenerativeUI({ ui: standardUI }),
+  ],
+};
+```
+
+On the server, set `generativeUI: true` on `CopilotRuntime`. The runtime gives
+the model the `render_ui` tool and streams each surface to the client. See
+[Transports](/generative-ui/components/transports) for the markdown transport,
+which needs nothing on the server.
+
+Three standard components draw with optional libraries. Each has its own
+entry point, so the library stays out of apps that do not use it. Without the
+provider, the component shows a fallback: a data table for Chart, a list of
+places for Map, nothing for Icon.
+
+```ts title="src/app/app.config.ts"
+import { provideGenerativeUIChart } from "@copilotkit/angular/generative-ui/chart"; // chart.js
+import { provideGenerativeUIMap } from "@copilotkit/angular/generative-ui/map"; // maplibre-gl
+import { provideGenerativeUIIcons } from "@copilotkit/angular/generative-ui/icons"; // lucide
+
+providers: [
+  provideGenerativeUI({ ui: standardUI }),
+  provideGenerativeUIChart(),
+  provideGenerativeUIMap(),
+  provideGenerativeUIIcons(),
+];
+```
+
+## Your own components
+
+Declare a catalog with `createGenerativeUI`, once, at module level. A
+component of the catalog is a standalone Angular component whose inputs are
+the keys of its `props` schema. The engine creates it, binds the parsed props
+to the inputs it declares, and keeps them current.
+
+```ts title="src/app/shop-ui.ts"
+import { Component, input, model } from "@angular/core";
+import { z } from "zod";
+import {
+  CopilotGenerativeUIChildren,
+  child,
+  createGenerativeUI,
+  injectGenerativeUIAccessibility,
+  standardUI,
+  type GenerativeUIChildren,
+  type GenerativeUIEventHandler,
+} from "@copilotkit/angular/generative-ui";
+
+@Component({
+  selector: "app-product-card",
+  imports: [CopilotGenerativeUIChildren],
+  host: { "[attr.aria-label]": "aria()['aria-label']" },
+  template: `
+    <article>
+      <h3>{{ name() }}</h3>
+      <p>{{ "$" + price() }}</p>
+      <input type="number" [value]="quantity() ?? 1"
+        (input)="quantity.set(+$any($event.target).value)" />
+      @if (onAddToCart(); as addToCart) {
+        <button (click)="addToCart({ productId: productId(), quantity: quantity() ?? 1 })">
+          Add to cart
+        </button>
+      }
+      <ng-container *copilotGenerativeUIChildren="children()" />
+    </article>
+  `,
+})
+export class ProductCard {
+  readonly productId = input.required<string>();
+  readonly name = input.required<string>();
+  readonly price = input.required<number>();
+  /** A writable prop: a `model()`. The engine binds it two-way. */
+  readonly quantity = model<number>();
+  /** An event: a function input. It is set only when the event is bound. */
+  readonly onAddToCart =
+    input<GenerativeUIEventHandler<typeof shopUI, "onAddToCart">>();
+  /** A slot: the children the agent puts in the card. */
+  readonly children = input<GenerativeUIChildren>();
+  protected readonly aria = injectGenerativeUIAccessibility();
+}
+
+export const shopUI = createGenerativeUI({
+  id: "acme/shop@1",
+  extends: [standardUI],
+  functions: {
+    addToCart: {
+      parameters: z.object({ productId: z.string(), quantity: z.number() }),
+    },
+  },
+  components: {
+    ProductCard: {
+      component: ProductCard,
+      description: "One product with its price and an add-to-cart button.",
+      props: z.object({
+        productId: z.string(),
+        name: z.string(),
+        price: z.number(),
+        quantity: z.number().optional(),
+      }),
+      writable: ["quantity"],
+      slots: { children: "multiple" },
+    },
+  },
+});
+```
+
+How the parts of a definition reach the component:
+
+| In the catalog | In the component |
+| --- | --- |
+| A key of `props` | `input()` with that name. The value is the parsed schema output. |
+| A key in `writable` | `model()` with that name. A write goes to the surface data model when the agent bound the prop with `{ "@path" }`, else it stays local to the node. |
+| An event (`events`, or a function the event name matches, like `onAddToCart` and `addToCart`) | `input<GenerativeUIEventHandler<...>>()` with the event name. It holds a function only when the event is bound, so `@if` on it shows the button only then. |
+| A slot, or a `child()` / `childList()` in `props` | `input<GenerativeUIChildren>()`. Render it with `*copilotGenerativeUIChildren`. A `child()` inside a list arrives inside the parsed value, for example `tabs()[i].child`. |
+| The `accessibility` envelope | `injectGenerativeUIAccessibility()` gives the ARIA attributes to bind on the root element. |
+
+The host element is the one of the selector (`div[copilotGenerativeUIMap]`).
+A component whose tag depends on the node, the way a React component picks
+`h2` or `h3` at render time, declares `static hostTag(props, injector)` and
+returns the tag; the renderer creates that element as the host and creates
+the component again when the tag changes. The standard Title, LinkCard and
+TableCell use it.
+
+`GenerativeUIComponentInputs<typeof shopUI, "ProductCard">` is the type of
+those values, for a component that wants one type for all of them. The rules
+of a catalog (bound props, `bind` selectors, `overrides`, `omit`) are in
+[Catalogs](/generative-ui/components/catalogs); only the component code
+differs from React.
+
+<Callout type="warn">
+  Angular has no per-component error boundary. A component that throws while
+  it is created shows the fallback and reports to `onError`; an error in a
+  later change detection goes to the `ErrorHandler` of the app.
+</Callout>
+
+## Show live app state and run your code
+
+`connectGenerativeUIState` gives one key of the catalog's `state` its value,
+from a signal or a function, and keeps it current. `registerGenerativeUIFunction`
+mounts the handler of a declared function. Both live as long as the injection
+context they are called in.
+
+```ts title="src/app/shop.component.ts"
+import { Component, inject } from "@angular/core";
+import {
+  connectGenerativeUIState,
+  registerGenerativeUIFunction,
+} from "@copilotkit/angular/generative-ui";
+import { CartStore } from "./cart.store";
+import { shopUI } from "./shop-ui";
+
+@Component({ /* ... */ })
+export class ShopComponent {
+  readonly #cart = inject(CartStore);
+
+  constructor() {
+    connectGenerativeUIState(shopUI, "cart", () => ({
+      count: this.#cart.count(),
+      total: this.#cart.total(),
+    }));
+    registerGenerativeUIFunction(shopUI, "addToCart", ({ productId, quantity }) =>
+      this.#cart.add(productId, quantity),
+    );
+  }
+}
+```
+
+The ideas (bound props, who may call a function, events that go to the agent
+as a user message) are in [State and actions](/generative-ui/components/state-and-actions).
+
+## Render in areas of your page
+
+A surface renders in the chat by default. `<copilot-generative-ui-surface>`
+is a named target on the page that the agent can render into. Its content is
+the fallback until a surface arrives.
+
+```html
+<copilot-generative-ui-surface
+  id="recommendations"
+  description="Next to the product list. Use it for product recommendations."
+  [ui]="shopUI"
+  [components]="['ProductCard', 'Row']"
+>
+  <app-featured-products />
+</copilot-generative-ui-surface>
+```
+
+`components` limits what the agent can render there; `autoScroll` (default
+true) scrolls the page to the surface when a generation starts. See
+[Surfaces](/generative-ui/components/surfaces).
+
+## Markdown transport
+
+With `transport: "markdown"`, the agent writes the operations in `a2ui` code
+blocks inside its reply, and the client renders them. No tool, nothing on the
+server. `provideGenerativeUI` then renders each assistant message with the
+blocks replaced by their surfaces, unless the app gives
+`<copilot-chat-assistant-message>` its own markdown renderer.
+
+```ts
+provideGenerativeUI({ ui: standardUI, transport: "markdown" });
+```
+
+See [Markdown mode](/generative-ui/components/markdown-mode) for the prompt
+and the limits.
+
+## Theme, chat card and errors
+
+```ts
+provideGenerativeUI({
+  ui: standardUI,
+  // The `--a2ui-*` variables. A signal makes it reactive.
+  theme: { "--a2ui-color-accent": "#0ea5e9", dark: { "--a2ui-color-accent": "#38bdf8" } },
+  // Replaces the card around a surface in the chat (inputs: surface, surfaceId,
+  // isStreaming, error, rejected). Render the surface with
+  // <copilot-generative-ui-surface-view [surface]>.
+  chatCard: MyChatCard,
+  // Replaces the per-component fallback (inputs: message, componentId).
+  errorFallback: MyFallback,
+  onError: (info) => console.warn(info.kind, info.surfaceId, info.error),
+});
+```
+
+The variables and dark mode are in [Theming](/generative-ui/components/theming).
+
+## Differences from React
+
+- Inputs instead of props: `input()` for a prop, `model()` for a writable prop
+  (`setValue` in React is `value.set()` here), a function input for an event.
+- Slots and `child()` values are `GenerativeUIChildren` handles, rendered with
+  `*copilotGenerativeUIChildren`, not rendered nodes.
+- One `provideGenerativeUI` for the app, at the root, instead of a prop on the
+  provider.
+- `connectGenerativeUIState` and `registerGenerativeUIFunction` instead of the
+  `useGenerativeUIState` and `useGenerativeUIFunction` hooks.
+- No error boundary around each component (see the note above).
+- A component is a host element, so a tag that depends on the node comes from
+  `static hostTag(props, injector)` instead of a `Tag` variable in JSX.
+
+## Next steps
+
+- [Components and surfaces](/generative-ui/components) — the ideas, with the standard catalog, catalogs, state and actions, theming and transports.
+- [Standard catalog](/generative-ui/components/standard-catalog) — the 69 components and how to prompt for them.
+- [A2UI](/angular/guides/a2ui) — the lower-level A2UI renderer for agents that emit A2UI themselves.

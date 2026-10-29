@@ -6,19 +6,33 @@ description: "Move an app from the a2ui renderer (A2UI v0.9) to components and s
 
 ## What is this?
 
-The `a2ui` provider option and `@copilotkit/a2ui-renderer` render A2UI v0.9: you build a catalog with `createCatalog`, and the agent streams a fixed or a generated schema into it. Components and surfaces is the A2UI 1.0 engine. The idea is the same: the agent writes operations, and the browser renders your React components. The engine adds typed catalogs, the [standard catalog](/generative-ui/components/standard-catalog), areas of the page as targets, two transports, dynamic values that compute in the browser, and functions the agent can call. This page maps one to the other.
+The `a2ui` provider option and `@copilotkit/a2ui-renderer` render A2UI v0.9: you build a catalog with `createCatalog`, and the agent streams a fixed or a generated schema into it. Components and surfaces is the A2UI 1.0 engine. The idea is the same: the agent writes operations, and the browser renders your components. The engine adds typed catalogs, the [standard catalog](/generative-ui/components/standard-catalog), areas of the page as targets, two transports, dynamic values that compute in the browser, and functions the agent can call. This page maps one to the other.
 
 ## Before and after
 
 The provider takes a UI instead of a catalog, and the runtime needs no A2UI option:
 
-```tsx title="Before"
-<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
-```
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx title="Before"
+    <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+    ```
 
-```tsx title="After"
-<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: appUI }}>
-```
+    ```tsx title="After"
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: appUI }}>
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts title="Before"
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit", a2ui: { catalog: myCatalog } }),
+    ```
+
+    ```ts title="After"
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+    provideGenerativeUI({ ui: appUI }),
+    ```
+  </Tab>
+</Tabs>
 
 ```ts title="Runtime, before"
 const runtime = new CopilotRuntime({
@@ -33,49 +47,95 @@ const runtime = new CopilotRuntime({
 const runtime = new CopilotRuntime({ agents });
 ```
 
-The chat renders surfaces on its own. For an area of the page, mount [`<GenerativeUISurface id="...">`](/generative-ui/components/surfaces). For an agent that cannot call tools, use the [markdown transport](/generative-ui/components/markdown-mode). The agent keeps writing A2UI operations; see [Bindings and actions](#bindings-and-actions) for what changed in them.
+The chat renders surfaces on its own. For an area of the page, mount [`<GenerativeUISurface id="...">`](/generative-ui/components/surfaces), or `<copilot-generative-ui-surface>` in Angular. For an agent that cannot call tools, use the [markdown transport](/generative-ui/components/markdown-mode). The agent keeps writing A2UI operations; see [Bindings and actions](#bindings-and-actions) for what changed in them.
 
 ## Convert a custom catalog
 
 Before, a catalog was definitions plus renderers, and a bound prop had to be declared as a union with the binding object:
 
-```ts title="Before"
-import { createCatalog, DynamicStringSchema } from "@copilotkit/a2ui-renderer";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```ts title="Before"
+    import { createCatalog, DynamicStringSchema } from "@copilotkit/a2ui-renderer";
 
-const definitions = {
-  Airport: {
-    props: z.object({ code: DynamicStringSchema, city: DynamicStringSchema }),
-  },
-  Arrow: { props: z.object({}) },
-};
-const renderers = { Airport, Arrow };
-export const myCatalog = createCatalog(definitions, renderers, {
-  catalogId: "acme/flights",
-  includeBasicCatalog: true,
-});
-```
+    const definitions = {
+      Airport: {
+        props: z.object({ code: DynamicStringSchema, city: DynamicStringSchema }),
+      },
+      Arrow: { props: z.object({}) },
+    };
+    const renderers = { Airport, Arrow };
+    export const myCatalog = createCatalog(definitions, renderers, {
+      catalogId: "acme/flights",
+      includeBasicCatalog: true,
+    });
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts title="Before"
+    import { createAngularCatalog, DynamicStringSchema } from "@copilotkit/angular/a2ui";
 
-After, each component is one entry, with the React component, a description and plain prop types:
+    const definitions = {
+      Airport: {
+        props: z.object({ code: DynamicStringSchema, city: DynamicStringSchema }),
+      },
+      Arrow: { props: z.object({}) },
+    };
+    const renderers = { Airport, Arrow };
+    export const myCatalog = createAngularCatalog(definitions, renderers, {
+      catalogId: "acme/flights",
+      includeBasicCatalog: true,
+    });
+    ```
+  </Tab>
+</Tabs>
 
-```ts title="After"
-import {
-  createGenerativeUI,
-  standardUI,
-} from "@copilotkit/react-core/v2/generative-ui";
+After, each component is one entry, with the component, a description and plain prop types:
 
-export const appUI = createGenerativeUI({
-  id: "acme/flights@1",
-  extends: [standardUI],
-  components: {
-    Airport: {
-      component: Airport,
-      description: "An airport by IATA code, with its city under it.",
-      props: z.object({ code: z.string(), city: z.string() }),
-    },
-    Arrow: { component: Arrow, description: "An arrow between two airports." },
-  },
-});
-```
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```ts title="After"
+    import {
+      createGenerativeUI,
+      standardUI,
+    } from "@copilotkit/react-core/v2/generative-ui";
+
+    export const appUI = createGenerativeUI({
+      id: "acme/flights@1",
+      extends: [standardUI],
+      components: {
+        Airport: {
+          component: Airport,
+          description: "An airport by IATA code, with its city under it.",
+          props: z.object({ code: z.string(), city: z.string() }),
+        },
+        Arrow: { component: Arrow, description: "An arrow between two airports." },
+      },
+    });
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts title="After"
+    import {
+      createGenerativeUI,
+      standardUI,
+    } from "@copilotkit/angular/generative-ui";
+
+    export const appUI = createGenerativeUI({
+      id: "acme/flights@1",
+      extends: [standardUI],
+      components: {
+        Airport: {
+          component: Airport,
+          description: "An airport by IATA code, with its city under it.",
+          props: z.object({ code: z.string(), city: z.string() }),
+        },
+        Arrow: { component: Arrow, description: "An arrow between two airports." },
+      },
+    });
+    ```
+  </Tab>
+</Tabs>
 
 What to change:
 
@@ -84,9 +144,9 @@ What to change:
 - **Children** are `slots` (`{ children: "multiple" }`, `{ child: "single" }`) or `child()` / `childList()` inside the props schema, for example `tabs: z.array(z.object({ title: z.string(), child: child() }))`. See [Catalogs](/generative-ui/components/catalogs).
 - **The basic catalog** is `extends: [standardUI]`. Drop components with `standardUI.omit([...])` and replace one with `overrides`; see [the standard catalog](/generative-ui/components/standard-catalog#replace-a-component).
 - **The catalog id** is `id`. A surface with no `catalogId` pins to it. The run also lists the ids of the catalogs in `extends`, so an operation or a component can name `copilotkit/standard@1` or the id of any other base. Any other `catalogId` is rejected.
-- **Actions and app state** become `functions` with `useGenerativeUIFunction`, and `state` with `useGenerativeUIState`; see [Connect app state and actions](/generative-ui/components/state-and-actions).
+- **Actions and app state** become `functions` with `useGenerativeUIFunction`, and `state` with `useGenerativeUIState`; in Angular, `registerGenerativeUIFunction` and `connectGenerativeUIState`. See [Connect app state and actions](/generative-ui/components/state-and-actions).
 
-Your renderers stay as they are, apart from the props they read: a bound prop arrives resolved, and a slot or a child reference arrives as a React node.
+Your renderers stay as they are, apart from the props they read: a bound prop arrives resolved, and a slot or a child reference arrives as a React node, or as a `GenerativeUIChildren` handle in Angular.
 
 ## Bindings and actions
 
