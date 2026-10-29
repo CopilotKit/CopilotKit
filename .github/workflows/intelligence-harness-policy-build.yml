@@ -2,6 +2,12 @@ name: Intelligence harness policy candidate (build only)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [fix/pni596-template-transition]
+    paths:
+      - .github/workflows/intelligence-harness-policy-build.yml
+      - showcase/harness/**
+      - showcase/scripts/railway-envs.generated.json
 
 permissions:
   contents: read
@@ -9,7 +15,7 @@ permissions:
 
 jobs:
   build:
-    if: github.repository == 'CopilotKit/CopilotKit' && github.ref == 'refs/heads/main'
+    if: github.repository == 'CopilotKit/CopilotKit' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/fix/pni596-template-transition')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
