@@ -5,7 +5,8 @@
  * mirroring the React renderer's catalog/basic/.
  */
 
-import { h, ref, type CSSProperties, type VNode } from "vue";
+import { h, ref } from "vue";
+import type { CSSProperties, VNode } from "vue";
 import { Catalog } from "@a2ui/web_core/v0_9";
 import {
   TextApi,
@@ -29,7 +30,8 @@ import {
   BASIC_FUNCTIONS,
 } from "@a2ui/web_core/v0_9/basic_catalog";
 
-import { createVueComponent, type VueComponentImplementation } from "./adapter";
+import { createVueComponent } from "./adapter";
+import type { VueComponentImplementation } from "./adapter";
 import {
   LEAF_MARGIN,
   STANDARD_BORDER,
@@ -88,7 +90,13 @@ const Text = createVueComponent(TextApi, ({ props }) => {
     case "caption":
       return h(
         "small",
-        { style: { ...style, color: "#666", textAlign: "left" } },
+        {
+          style: {
+            ...style,
+            color: "var(--a2ui-color-muted, #666)",
+            textAlign: "left",
+          },
+        },
         text,
       );
     case "body":
@@ -175,7 +183,12 @@ const AudioPlayer = createVueComponent(AudioPlayerApi, ({ props }) => {
       props.description
         ? h(
             "span",
-            { style: { fontSize: "12px", color: "#666" } },
+            {
+              style: {
+                fontSize: "12px",
+                color: "var(--a2ui-color-muted, #666)",
+              },
+            },
             props.description,
           )
         : null,
@@ -239,7 +252,7 @@ const List = createVueComponent(ListApi, ({ props, buildChild }) => {
 const Card = createVueComponent(CardApi, ({ props, buildChild }) => {
   const style = {
     ...getBaseContainerStyle(),
-    backgroundColor: "#fff",
+    backgroundColor: "var(--a2ui-color-surface, #fff)",
     boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
     width: "100%",
   };
@@ -268,7 +281,7 @@ const Tabs = createVueComponent(
           {
             style: {
               display: "flex",
-              borderBottom: "1px solid #ccc",
+              borderBottom: STANDARD_BORDER,
               marginBottom: "8px",
             },
           },
@@ -321,7 +334,7 @@ const Divider = createVueComponent(DividerApi, ({ props }) => {
   const style: Record<string, string> = {
     margin: LEAF_MARGIN,
     border: "none",
-    backgroundColor: "#ccc",
+    backgroundColor: "var(--a2ui-color-border, #ccc)",
   };
 
   if (isVertical) {
@@ -374,7 +387,7 @@ const Modal = createVueComponent(
                 "div",
                 {
                   style: {
-                    backgroundColor: "#fff",
+                    backgroundColor: "var(--a2ui-color-surface, #fff)",
                     padding: "24px",
                     borderRadius: "8px",
                     maxWidth: "90%",
@@ -426,13 +439,13 @@ const Button = createVueComponent(ButtonApi, ({ props, buildChild }) => {
     margin: LEAF_MARGIN,
     padding: "8px 16px",
     cursor: "pointer",
-    border: props.variant === "borderless" ? "none" : "1px solid #ccc",
+    border: props.variant === "borderless" ? "none" : STANDARD_BORDER,
     backgroundColor:
       props.variant === "primary"
         ? "var(--a2ui-primary-color, #007bff)"
         : props.variant === "borderless"
           ? "transparent"
-          : "#fff",
+          : "var(--a2ui-color-surface, #fff)",
     color: props.variant === "primary" ? "#fff" : "inherit",
     borderRadius: "4px",
     display: "inline-flex",
@@ -469,7 +482,7 @@ const TextField = createVueComponent(
       width: "100%",
       border:
         props.validationErrors && props.validationErrors.length > 0
-          ? "1px solid red"
+          ? "1px solid var(--a2ui-color-error, red)"
           : STANDARD_BORDER,
       borderRadius: STANDARD_RADIUS,
       boxSizing: "border-box",
@@ -519,7 +532,12 @@ const TextField = createVueComponent(
         hasError
           ? h(
               "span",
-              { style: { fontSize: "12px", color: "red" } },
+              {
+                style: {
+                  fontSize: "12px",
+                  color: "var(--a2ui-color-error, red)",
+                },
+              },
               props.validationErrors![0],
             )
           : null,
@@ -558,7 +576,9 @@ const CheckBox = createVueComponent(
                 props.setValue((e.target as HTMLInputElement).checked),
               style: {
                 cursor: "pointer",
-                outline: hasError ? "1px solid red" : "none",
+                outline: hasError
+                  ? "1px solid var(--a2ui-color-error, red)"
+                  : "none",
               },
             }),
             props.label
@@ -568,7 +588,9 @@ const CheckBox = createVueComponent(
                     for: uniqueId,
                     style: {
                       cursor: "pointer",
-                      color: hasError ? "red" : "inherit",
+                      color: hasError
+                        ? "var(--a2ui-color-error, red)"
+                        : "inherit",
                     },
                   },
                   props.label,
@@ -580,7 +602,11 @@ const CheckBox = createVueComponent(
           ? h(
               "span",
               {
-                style: { fontSize: "12px", color: "red", marginTop: "4px" },
+                style: {
+                  fontSize: "12px",
+                  color: "var(--a2ui-color-error, red)",
+                  marginTop: "4px",
+                },
               },
               props.validationErrors?.[0],
             )
@@ -681,7 +707,7 @@ const ChoicePicker = createVueComponent(
                       : STANDARD_BORDER,
                     backgroundColor: isSelected
                       ? "var(--a2ui-primary-color, #007bff)"
-                      : "#fff",
+                      : "var(--a2ui-color-surface, #fff)",
                     color: isSelected ? "#fff" : "inherit",
                     cursor: "pointer",
                     fontSize: "12px",
@@ -754,7 +780,12 @@ const Slider = createVueComponent(
               : null,
             h(
               "span",
-              { style: { fontSize: "12px", color: "#666" } },
+              {
+                style: {
+                  fontSize: "12px",
+                  color: "var(--a2ui-color-muted, #666)",
+                },
+              },
               String(props.value),
             ),
           ],

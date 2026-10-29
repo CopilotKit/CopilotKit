@@ -165,6 +165,66 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
     expect(group.textContent).toContain("1 done");
   });
 
+  it("draws a lone call in the same card a group uses", () => {
+    const { rerender } = renderView([question, callMessage("a")], {
+      isRunning: true,
+    });
+    const group = screen.getByTestId("copilot-tool-call-group");
+    const toggle = within(group).getAllByRole("button")[0]!;
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.textContent).toContain("Running run_command");
+    // Nothing has finished yet, so there's no count.
+    expect(toggle.textContent).not.toContain("done");
+
+    rerender(view([question, callMessage("a"), result("a")]));
+    expect(toggle.textContent).toContain("Used 1 tool");
+    expect(toggle.textContent).toContain("Done");
+  });
+
+  it("draws a lone call as the top card of a stack", () => {
+    renderView([question, callMessage("a"), result("a")], {
+      toolCallDisplay: "stacked",
+    });
+    const group = screen.getByTestId("copilot-tool-call-group");
+    const toggle = within(group).getAllByRole("button")[0]!;
+    expect(toggle.textContent).toContain("run_command");
+    expect(toggle.textContent).toContain("1 call");
+    // The status icon is decorative; screen readers get the status as text.
+    expect(within(toggle).getByText("Done").className).toContain("sr-only");
+  });
+
+  it("announces a closed stack's status as it changes", () => {
+    const { rerender } = renderView([question, callMessage("a")], {
+      toolCallDisplay: "stacked",
+      isRunning: true,
+    });
+    const group = screen.getByTestId("copilot-tool-call-group");
+    const live = group.querySelector('[aria-live="polite"]')!;
+    expect(live.textContent).toBe("run_command: Running");
+
+    rerender(
+      view([question, callMessage("a"), result("a")], {
+        toolCallDisplay: "stacked",
+      }),
+    );
+    // Same region, new text: that's what gets announced.
+    expect(group.querySelector('[aria-live="polite"]')).toBe(live);
+    expect(live.textContent).toBe("run_command: Done");
+  });
+
+  it("opens a stack into the same compact cards, with Collapse", () => {
+    renderView(burst, { toolCallDisplay: "stacked" });
+    const group = screen.getByTestId("copilot-tool-call-group");
+    fireEvent.click(within(group).getAllByRole("button")[0]!);
+    expect(within(group).getByText("Collapse")).toBeTruthy();
+    const statuses = within(group).getAllByTestId("copilot-tool-render-status");
+    expect(statuses).toHaveLength(2);
+    // Compact rows, not the standalone card with its status badge.
+    for (const status of statuses) {
+      expect(status.className).toContain("sr-only");
+    }
+  });
+
   it.each([
     ["line", "line"],
     ["stacked", "stack"],
@@ -268,6 +328,37 @@ describe("CopilotChatMessageView toolCallDisplay", () => {
       defineToolCallRenderer({ name: "*", render: draw, group: true }),
     ]);
     expect(screen.getByTestId("copilot-tool-call-group")).toBeDefined();
+  });
+
+  it("tucks a single opted-in call into a closed group too", () => {
+    const draw = ({ name }: { name: string }) => (
+      <div data-testid="custom-call">{name}</div>
+    );
+    const grouped = defineToolCallRenderer({
+      name: "*",
+      render: draw,
+      group: true,
+    });
+    const messages = [question, callMessage("a"), result("a")];
+
+    // Grouped: a closed "Used 1 tool" card, like a bigger group.
+    const { unmount } = renderView(messages, {}, [grouped]);
+    const toggle = within(
+      screen.getByTestId("copilot-tool-call-group"),
+    ).getAllByRole("button")[0]!;
+    expect(toggle.textContent).toContain("Used 1 tool");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    unmount();
+
+    // Stacked: the call renders once the stack is opened.
+    renderView(messages, { toolCallDisplay: "stacked" }, [grouped]);
+    expect(screen.queryByTestId("custom-call")).toBeNull();
+    fireEvent.click(
+      within(screen.getByTestId("copilot-tool-call-group")).getAllByRole(
+        "button",
+      )[0]!,
+    );
+    expect(screen.getByTestId("custom-call").textContent).toBe("run_command");
   });
 
   it("shows a group the run left unfinished as stopped, not running", () => {

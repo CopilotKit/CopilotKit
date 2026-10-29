@@ -1,4 +1,5 @@
-import { inject, InjectionToken, Provider } from "@angular/core";
+import type { Provider } from "@angular/core";
+import { inject, InjectionToken } from "@angular/core";
 
 // Type for chat labels
 export interface CopilotChatLabels {
@@ -23,6 +24,8 @@ export interface CopilotChatLabels {
   chatDisclaimerText: string;
   chatScrollToBottomLabel: string;
   welcomeMessageText: string;
+  reasoningMessageThinkingLabel: string;
+  attachmentRemoveButtonLabel: string;
 }
 
 // Default labels constant
@@ -49,6 +52,8 @@ export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
     "AI can make mistakes. Please verify important information.",
   chatScrollToBottomLabel: "Scroll to bottom",
   welcomeMessageText: "How can I help you today?",
+  reasoningMessageThinkingLabel: "Thinking…",
+  attachmentRemoveButtonLabel: "Remove attachment",
 };
 
 export const COPILOT_CHAT_LABELS = new InjectionToken<CopilotChatLabels>(

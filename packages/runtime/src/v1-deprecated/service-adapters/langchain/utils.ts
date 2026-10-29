@@ -1,23 +1,25 @@
+import type { Message } from "../../graphql/types/converted";
 import {
   ActionExecutionMessage,
-  Message,
   ResultMessage,
   TextMessage,
 } from "../../graphql/types/converted";
-import {
-  AIMessage,
+import type {
   AIMessageChunk,
   BaseMessage,
   BaseMessageChunk,
+} from "@langchain/core/messages";
+import {
+  AIMessage,
   HumanMessage,
   SystemMessage,
   ToolMessage,
 } from "@langchain/core/messages";
 import { DynamicStructuredTool } from "@langchain/core/tools";
-import { z } from "zod";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import { LangChainReturnType } from "./types";
-import { RuntimeEventSubject } from "../events";
+import type { z } from "zod";
+import type { ActionInput } from "../../graphql/inputs/action.input";
+import type { LangChainReturnType } from "./types";
+import type { RuntimeEventSubject } from "../events";
 import { randomId, convertJsonSchemaToZodSchema } from "@copilotkit/shared";
 
 export function convertMessageToLangChainMessage(
@@ -46,6 +48,11 @@ export function convertMessageToLangChainMessage(
     return new ToolMessage({
       content: message.result,
       tool_call_id: message.actionExecutionId,
+      // Carry the tool's identity across. `ToolMessage.name` is the field
+      // LangChain consumers route on, and dropping it here left them with
+      // no way to tell which tool a result belongs to short of walking back
+      // to the matching ActionExecutionMessage themselves.
+      name: message.actionName,
     });
   }
 }

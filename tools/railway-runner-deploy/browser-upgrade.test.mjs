@@ -269,3 +269,28 @@ for (const field of [
       assert.equal(f.calls.includes(mutation), false, mutation);
   });
 }
+
+for (const id of [
+  "5816a613-4b0a-425f-ae82-f6a44ed53a42",
+  "another-same-image-redeployment",
+])
+  test(`unreviewed baseline ${id} refuses before drain`, async () => {
+    const f = fixture();
+    const inspect = f.options.railway.inspect;
+    f.options.railway.inspect = async () => {
+      const value = await inspect();
+      value.active.id = id;
+      value.latest.id = id;
+      return value;
+    };
+    await assert.rejects(upgradeBrowser(f.options));
+    for (const mutation of [
+      "drain",
+      "remove",
+      "authorization",
+      "image",
+      "deploy",
+      "resume",
+    ])
+      assert.equal(f.calls.includes(mutation), false, mutation);
+  });

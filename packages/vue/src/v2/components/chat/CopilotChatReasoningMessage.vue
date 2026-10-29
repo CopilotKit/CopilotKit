@@ -3,6 +3,8 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { IconChevronRight } from "../icons";
 import StreamingMarkdownDefault from "./StreamingMarkdownDefault.vue";
+import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
+import { CopilotChatDefaultLabels } from "../../providers/types";
 
 const props = withDefaults(
   defineProps<{
@@ -26,6 +28,7 @@ defineSlots<{
       label: string;
       hasContent: boolean;
       isStreaming: boolean;
+      elapsedSeconds: number;
       onClick?: () => void;
     };
     contentView: {
@@ -47,6 +50,8 @@ defineSlots<{
     label: string;
     hasContent: boolean;
     isStreaming: boolean;
+    /** Seconds spent reasoning so far, for building a localized label. */
+    elapsedSeconds: number;
     onClick?: () => void;
   }) => unknown;
   "content-view"?: (props: {
@@ -128,9 +133,12 @@ onBeforeUnmount(() => {
   clearElapsedInterval();
 });
 
+const config = useCopilotChatConfiguration();
+/** `labels.reasoningMessageThinkingLabel` while streaming, then "Thought for …". */
 const label = computed(() =>
   isStreaming.value
-    ? "Thinking…"
+    ? (config.value?.labels ?? CopilotChatDefaultLabels)
+        .reasoningMessageThinkingLabel
     : `Thought for ${formatDuration(elapsed.value)}`,
 );
 
@@ -153,6 +161,7 @@ function toggleOpen() {
         label,
         hasContent,
         isStreaming,
+        elapsedSeconds: elapsed,
         onClick: hasContent ? toggleOpen : undefined,
       }"
       :content-view="{
@@ -175,6 +184,7 @@ function toggleOpen() {
         :label="label"
         :has-content="hasContent"
         :is-streaming="isStreaming"
+        :elapsed-seconds="elapsed"
         :on-click="hasContent ? toggleOpen : undefined"
       >
         <button

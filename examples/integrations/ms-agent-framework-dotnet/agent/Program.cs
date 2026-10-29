@@ -1,3 +1,5 @@
+using AGUI.Abstractions;
+using AGUI.Server;
 using Microsoft.Agents.AI;
 using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
 using Microsoft.AspNetCore.Http.Json;
@@ -6,12 +8,33 @@ using Microsoft.Extensions.Options;
 using OpenAI;
 using OpenAI.Chat;
 using System.ComponentModel;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.TypeInfoResolverChain.Add(ProverbsAgentSerializerContext.Default));
 builder.Services.AddAGUIServer();
+// The AG-UI converter requires an explicit mapping for the wrapper's JSON
+// DataContent; otherwise its merged state never reaches the client.
+builder.Services.Configure<AGUIStreamOptions>(options => options.MapContent(content =>
+{
+    if (content is not DataContent { MediaType: "application/json" } data) return null;
+    try
+    {
+        using var document = JsonDocument.Parse(data.Data);
+        var state = document.RootElement;
+        if (state.ValueKind != JsonValueKind.Object ||
+            !state.TryGetProperty("proverbs", out var proverbs) ||
+            proverbs.ValueKind != JsonValueKind.Array ||
+            proverbs.EnumerateArray().Any(proverb => proverb.ValueKind != JsonValueKind.String)) return null;
+        return [new StateSnapshotEvent { Snapshot = state.Clone() }];
+    }
+    catch (JsonException)
+    {
+        return null; // Malformed or unrelated data is not a proverbs state snapshot.
+    }
+}));
 
 WebApplication app = builder.Build();
 

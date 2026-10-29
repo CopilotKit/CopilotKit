@@ -76,6 +76,13 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+
+  /* A2UI basic catalog from @copilotkit/a2ui-renderer; light values are its fallbacks. */
+  --a2ui-color-surface: var(--card);
+  /* rgb(64, 64, 64), the Angular stylesheet's dark A2UI border; --border is too faint on --card. */
+  --a2ui-color-border: oklch(0.371 0 0);
+  --a2ui-color-muted: var(--muted-foreground);
+  --a2ui-color-error: #f87171;
 }
 
 @theme inline {
@@ -537,7 +544,7 @@
 
 @keyframes cpk-stack-fan {
   from {
-    transform: translateY(-10px);
+    transform: translateY(-6px) scale(0.985);
     opacity: 0;
   }
 }

@@ -1,0 +1,147 @@
+---
+title: "Adopt from A2UI"
+icon: "lucide/ArrowRightLeft"
+description: "Move an app from the a2ui renderer (A2UI v0.9) to components and surfaces (A2UI 1.0): the provider, the catalog, the operations, and what the agent receives."
+---
+
+## What is this?
+
+The `a2ui` provider option and `@copilotkit/a2ui-renderer` render A2UI v0.9: you build a catalog with `createCatalog`, and the agent streams a fixed or a generated schema into it. Components and surfaces is the A2UI 1.0 engine. The idea is the same: the agent writes operations, and the browser renders your React components. The engine adds typed catalogs, the [standard catalog](/generative-ui/components/standard-catalog), areas of the page as targets, two transports, dynamic values that compute in the browser, and functions the agent can call. This page maps one to the other.
+
+## Before and after
+
+The provider takes a UI instead of a catalog, and the runtime needs no A2UI option:
+
+```tsx title="Before"
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+```
+
+```tsx title="After"
+<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: appUI }}>
+```
+
+```ts title="Runtime, before"
+const runtime = new CopilotRuntime({
+  agents,
+  a2ui: { injectA2UITool: false, agents: ["shop"] },
+});
+```
+
+```ts title="Runtime, after"
+// Nothing: a run that carries a catalog gets the render_ui tool and the guide.
+// To force or limit it: generativeUI: true, or generativeUI: { agents: ["shop"] }.
+const runtime = new CopilotRuntime({ agents });
+```
+
+The chat renders surfaces on its own. For an area of the page, mount [`<GenerativeUISurface id="...">`](/generative-ui/components/surfaces). For an agent that cannot call tools, use the [markdown transport](/generative-ui/components/markdown-mode). The agent keeps writing A2UI operations; see [Bindings and actions](#bindings-and-actions) for what changed in them.
+
+## Convert a custom catalog
+
+Before, a catalog was definitions plus renderers, and a bound prop had to be declared as a union with the binding object:
+
+```ts title="Before"
+import { createCatalog, DynamicStringSchema } from "@copilotkit/a2ui-renderer";
+
+const definitions = {
+  Airport: {
+    props: z.object({ code: DynamicStringSchema, city: DynamicStringSchema }),
+  },
+  Arrow: { props: z.object({}) },
+};
+const renderers = { Airport, Arrow };
+export const myCatalog = createCatalog(definitions, renderers, {
+  catalogId: "acme/flights",
+  includeBasicCatalog: true,
+});
+```
+
+After, each component is one entry, with the React component, a description and plain prop types:
+
+```ts title="After"
+import {
+  createGenerativeUI,
+  standardUI,
+} from "@copilotkit/react-core/v2/generative-ui";
+
+export const appUI = createGenerativeUI({
+  id: "acme/flights@1",
+  extends: [standardUI],
+  components: {
+    Airport: {
+      component: Airport,
+      description: "An airport by IATA code, with its city under it.",
+      props: z.object({ code: z.string(), city: z.string() }),
+    },
+    Arrow: { component: Arrow, description: "An arrow between two airports." },
+  },
+});
+```
+
+What to change:
+
+- **Prop types are plain.** Drop `DynamicStringSchema` and the unions. Any prop takes a literal, a binding `{ "@path": "/x" }` or a function value `{ "@call": ... }`, and the engine resolves it before your component renders. A component never sees a binding object.
+- **Every component gets a `description`.** The agent reads it to pick components.
+- **Children** are `slots` (`{ children: "multiple" }`, `{ child: "single" }`) or `child()` / `childList()` inside the props schema, for example `tabs: z.array(z.object({ title: z.string(), child: child() }))`. See [Catalogs](/generative-ui/components/catalogs).
+- **The basic catalog** is `extends: [standardUI]`. Drop components with `standardUI.omit([...])` and replace one with `overrides`; see [the standard catalog](/generative-ui/components/standard-catalog#replace-a-component).
+- **The catalog id** is `id`. A surface with no `catalogId` pins to it. The run also lists the ids of the catalogs in `extends`, so an operation or a component can name `copilotkit/standard@1` or the id of any other base. Any other `catalogId` is rejected.
+- **Actions and app state** become `functions` with `useGenerativeUIFunction`, and `state` with `useGenerativeUIState`; see [Connect app state and actions](/generative-ui/components/state-and-actions).
+
+Your renderers stay as they are, apart from the props they read: a bound prop arrives resolved, and a slot or a child reference arrives as a React node.
+
+## Bindings and actions
+
+The engine takes A2UI 1.0 operations only. A v0.9 shape is rejected with a reason that names the 1.0 form, and the agent sees the reason in the next run.
+
+| v0.9                                              | 1.0                                                                                                                                                               |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `{ "path": "/total" }`                            | `{ "@path": "/total" }`                                                                                                                                           |
+| A literal only                                    | A literal, `{ "@path" }` or `{ "@call": "formatCurrency", "args": { ... } }`, at any depth                                                                        |
+| `"text": "Hello"` with the value elsewhere        | `{ "@call": "formatString", "args": { "value": "Hello ${/user/name}" } }`                                                                                         |
+| `"action": { "name": "buy", "context": { ... } }` | `"onClick": { "event": { "name": "buy", "userMessage": "Buy it", "context": { ... } } }` or `{ "functionCall": { "@call": "addToCart", "args": { ... } } }`       |
+| `"children": ["a", "b"]`                          | The same, or a template `{ "componentId": "row", "path": "/items" }` with `{ "@call": "@index" }` inside                                                          |
+| Validation in the agent                           | `"checks": [{ "condition": { "@call": "email", "args": { ... } }, "message": "..." }]`                                                                            |
+| An agent tool call per function                   | Not in this version: the agent cannot call renderer functions; see [Who may call a function](/generative-ui/components/state-and-actions#who-may-call-a-function) |
+
+A2UI 1.0 has no arithmetic. CopilotKit adds `calc` and `series` as catalog functions, listed like the others, so a renderer without them rejects the call rather than misrendering. See [Compute values in the browser](/generative-ui/components/state-and-actions#compute-values-in-the-browser).
+
+## What the agent receives
+
+A click on an `{ "event" }` action becomes a visible user message: the `userMessage`, then the context as lines. The run also carries the structured A2UI action message (`name`, `surfaceId`, `sourceComponentId`, `timestamp`, `userMessage`, `context`) in `forwardedProps.copilotkit.ui.metadata.extensions.copilotkit_action`; `envelopeToManifest` from `@copilotkit/shared` gives it back as `action`. A second click while the agent runs is dropped, so a double click does not start two runs.
+
+The agent cannot call renderer functions in this version: a `callRendererFunction` operation is rejected with a reason, and the prompts do not mention it. See [Who may call a function](/generative-ui/components/state-and-actions#who-may-call-a-function).
+
+## What changes in markdown mode
+
+In the tool transport, the browser renders what the agent wrote. In the markdown transport, the chat is a transcript, so the engine reshapes the surface of a fence before it renders:
+
+- **Prose is lifted out.** A `Text` title or paragraph that only explains renders as chat markdown; the surface splits around it into parts that share one data model.
+- **Informational cards lose their box.** A `Card` with no control inside it (no button, input or form) becomes a `variant: "section"`: a heading plus content. A card with a control keeps its box.
+- **A new fence with the same `surfaceId`** in the same reply changes the surface in place; in a later reply it makes a new chat surface.
+
+See [Markdown mode](/generative-ui/components/markdown-mode).
+
+## Map and route
+
+`Map` takes `markers` (a list, or a binding to one), `selected` (writable: bind it to read the user's choice), `zoom`, `center` and `route: true`, which draws a line through the markers in order. It needs `npm install maplibre-gl`; without the package it shows the places as a list.
+
+## Support matrix
+
+The integration is experimental and implements A2UI 1.0 as of spec revision [`cbaa5ee`](https://github.com/a2ui-project/a2ui/tree/cbaa5ee62c737b50d0695c1e5794d0f648b61dca/specification/v1_0) (October 2026); upstream still calls 1.0 a candidate on [a2ui.org](https://a2ui.org/), so this table can change. This table is the supported scope. A 1.0 catalog and a complete 1.0 runtime are different claims: the catalog export is conforming, the runtime covers the rows marked Yes and nothing more.
+
+| A2UI 1.0 | Components and surfaces |
+| --- | --- |
+| `createSurface`, `updateComponents`, `updateDataModel`, `deleteSurface` | Yes |
+| `callRendererFunction` and `rendererFunctionResponse` | Not in this version: rejected, until results can be sent back to the model reliably |
+| `callAgentFunction` and `agentFunctionResponse` | No: a user event starts a new run, with the action message in its envelope |
+| The basic catalog (18 components) | Yes, with their 1.0 names, plus 51 more |
+| The basic functions (14) | Yes; `calc` and `series` are CopilotKit extensions |
+| Dynamic values at any depth, `formatString` with `${}`, `@index` | Yes |
+| `checks` and `ValidationResult` (`code`, `severity`) | Yes |
+| The action event message (`sourceComponentId`, `timestamp`) | Yes, in the envelope of the run, next to the visible user message |
+| Component envelope: `catalogId`, `accessibility`, `metadata` | Yes; `catalogId` must be the id of the UI or of a catalog in its `extends` |
+| Function definitions: `returnType`, `allowedCallers`, `requiresUserActivation` | Yes, written to the manifest and the export; the agent path is off regardless |
+| Catalog definition JSON | Yes, `exportA2UICatalog(ui)` |
+| Several catalogs in one surface | Partly: one UI per provider, and `supportedCatalogIds` lists the UI and every catalog in its `extends`. A component name comes from one catalog only, and a component is not checked against the catalog that the surface names |
+| `allowedParents` and `allowedChildren` | Not enforced |
+| v0.9 operations and `{ "path" }` bindings | No; rejected with a reason that names the 1.0 form |
+| Agent tools built with `@ag-ui/a2ui-toolkit` 0.0.5 | No: the toolkit writes v0.9 operations. Use the `render_ui` tool that the runtime adds |

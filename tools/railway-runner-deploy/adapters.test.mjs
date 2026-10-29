@@ -209,6 +209,68 @@ test("runner waits for its route after Railway reports deployment success", asyn
   assert.equal(await unavailable.probe(), null);
   await assert.rejects(unavailable.resume({ operationId: "owner" }));
 });
+for (const [method, path] of [
+  ["status", "/status"],
+  ["readRun", "/runs/run-retained"],
+]) {
+  test(`${method} retries route readiness without changing the receipt`, async () => {
+    let now = 0;
+    let calls = 0;
+    const receipt = {
+      status: "failed",
+      cleanup: "retained-watch",
+      deadlineExceeded: true,
+    };
+    const runner = createRunner({
+      token: "private",
+      clock: () => now,
+      deadline: 5000,
+      sleep: async (ms) => {
+        now += ms;
+      },
+      fetch: async (url, options) => {
+        assert.equal(url, `${RUNNER_URL}${path}`);
+        assert.equal(options.method, "GET");
+        return ++calls === 1
+          ? new Response("", { status: 404 })
+          : Response.json(receipt);
+      },
+    });
+    assert.deepEqual(await runner[method]("run-retained"), receipt);
+    assert.equal(calls, 2);
+  });
+  test(`${method} refuses auth failures without retry`, async () => {
+    let calls = 0;
+    const runner = createRunner({
+      token: "private",
+      fetch: async () => {
+        calls++;
+        return new Response("", { status: 401 });
+      },
+    });
+    await assert.rejects(runner[method]("run-retained"));
+    assert.equal(calls, 1);
+  });
+  test(`${method} bounds missing receipts by the existing deadline`, async () => {
+    let now = 0;
+    let calls = 0;
+    const runner = createRunner({
+      token: "private",
+      clock: () => now,
+      deadline: 1000,
+      sleep: async (ms) => {
+        now += ms;
+      },
+      fetch: async () => {
+        calls++;
+        return new Response("", { status: 404 });
+      },
+    });
+    await assert.rejects(runner[method]("run-retained"), /drain retained/);
+    assert.equal(now, 1000);
+    assert.equal(calls, 1);
+  });
+}
 test("early failed deployment needs pinned source image but not an unavailable pulled-image digest", async () => {
   const value = data();
   value.serviceInstance.latestDeployment = {

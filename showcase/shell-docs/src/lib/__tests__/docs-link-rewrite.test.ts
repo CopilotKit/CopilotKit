@@ -18,6 +18,18 @@ function listMdxFiles(dir: string): string[] {
 }
 
 describe("resolveDocsHref", () => {
+  it("keeps component reference pages global while preserving scoped generative UI guides", () => {
+    const options = { slugHrefPrefix: "/mastra", frameworkOverride: "mastra" };
+    expect(
+      resolveDocsHref(
+        "/generative-ui/components/standard-catalog/grid#grid-item",
+        options,
+      ),
+    ).toBe("/generative-ui/components/standard-catalog/grid#grid-item");
+    expect(resolveDocsHref("/generative-ui/components/catalogs", options)).toBe(
+      "/mastra/generative-ui/components/catalogs",
+    );
+  });
   it("scopes root-relative links under the active framework", () => {
     expect(
       resolveDocsHref("/quickstart#install", {
@@ -126,6 +138,32 @@ describe("resolveDocsHref", () => {
     expect(resolveDocsHref("/channels/intelligence", options)).toBe(
       "/channels/intelligence",
     );
+  });
+
+  it("uses the matching Vue reference page for root React reference links", () => {
+    const vue = {
+      slugHrefPrefix: "/vue",
+      frontendOverride: "vue" as const,
+    };
+
+    expect(resolveDocsHref("/reference/hooks/useThreads", vue)).toBe(
+      "/reference/vue/hooks/useThreads",
+    );
+    expect(resolveDocsHref("/reference/v2/hooks/useThreads#methods", vue)).toBe(
+      "/reference/vue/hooks/useThreads#methods",
+    );
+    expect(resolveDocsHref("/reference/hooks/not-in-vue", vue)).toBe(
+      "/reference/vue",
+    );
+    expect(resolveDocsHref("/reference/angular/services/runtime", vue)).toBe(
+      "/reference/angular/services/runtime",
+    );
+    expect(
+      resolveDocsHref("/reference/hooks/useThreads", {
+        slugHrefPrefix: "/mastra",
+        frameworkOverride: "mastra",
+      }),
+    ).toBe("/reference/hooks/useThreads");
   });
 
   it("scopes shared Channels guides to the selected Slack or Teams journey", () => {

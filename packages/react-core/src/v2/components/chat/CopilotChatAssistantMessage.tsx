@@ -52,6 +52,8 @@ import {
   useInspectorShortcutsHidden,
 } from "./CopilotChatInspectorButton";
 import type { CopilotKitInspectorOpenRequest } from "../CopilotKitInspectorContext";
+import { useGenerativeUIRuntime } from "../../generative-ui/runtime-context";
+import { MarkdownSurfaces } from "../../generative-ui/markdown/MarkdownSurfaces";
 import {
   Popover,
   PopoverAnchor,
@@ -523,6 +525,7 @@ export function CopilotChatAssistantMessage({
     {
       content: message.content || "",
       isStreaming: !!(isRunning && isLatestAssistantMessage),
+      messageId: message.id,
     },
   );
 
@@ -708,15 +711,35 @@ export function CopilotChatAssistantMessage({
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatAssistantMessage {
   export const MarkdownRenderer: React.FC<
-    MarkdownRendererProps & DefaultMarkdownRendererProps
-  > = ({ content, isStreaming, className, ...config }) => (
-    <StreamingMarkdownDefaultRenderer
-      content={content ?? ""}
-      isStreaming={isStreaming}
-      className={className}
-      {...config}
-    />
-  );
+    MarkdownRendererProps &
+      DefaultMarkdownRendererProps & {
+        /** Id of the rendered message. The markdown transport finds its fences by it. */
+        messageId?: string;
+      }
+  > = ({ content, isStreaming, className, messageId, ...config }) => {
+    // With the markdown transport, ```a2ui fences render as surfaces. The
+    // fences are found by the message id, so without one they stay code.
+    const generativeUI = useGenerativeUIRuntime();
+    if (generativeUI?.transport === "markdown" && messageId !== undefined) {
+      return (
+        <MarkdownSurfaces
+          content={content ?? ""}
+          messageId={messageId}
+          isStreaming={isStreaming}
+          className={className}
+          {...config}
+        />
+      );
+    }
+    return (
+      <StreamingMarkdownDefaultRenderer
+        content={content ?? ""}
+        isStreaming={isStreaming}
+        className={className}
+        {...config}
+      />
+    );
+  };
 
   export const Toolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
     className,
