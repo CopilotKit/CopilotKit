@@ -4,6 +4,10 @@ import { AssistantMessage } from "@ag-ui/client";
 // Context interfaces for slots
 export interface AssistantMessageMarkdownRendererContext {
   content: string;
+  /** The id of the message, for renderers that keep state per message. */
+  messageId?: string;
+  /** True while the message streams. */
+  isStreaming?: boolean;
 }
 
 export interface AssistantMessageToolbarContext {

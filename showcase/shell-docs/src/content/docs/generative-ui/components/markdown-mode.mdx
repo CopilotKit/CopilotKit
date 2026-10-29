@@ -27,14 +27,31 @@ Each line is one [A2UI v1.0](https://a2ui.org) operation. The UI is plain text, 
 
 Set the markdown transport on the provider:
 
-```tsx title="app/providers.tsx"
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx title="app/providers.tsx"
+    import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+    import { standardUI } from "@copilotkit/react-core/v2/generative-ui";
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
-  {children}
-</CopilotKitProvider>;
-```
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" generativeUI={{ ui: standardUI, transport: "markdown" }}>
+      {children}
+    </CopilotKitProvider>;
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts title="src/app/app.config.ts"
+    import { provideCopilotKit } from "@copilotkit/angular";
+    import { provideGenerativeUI, standardUI } from "@copilotkit/angular/generative-ui";
+
+    providers: [
+      provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+      provideGenerativeUI({ ui: standardUI, transport: "markdown" }),
+    ],
+    ```
+
+    `provideGenerativeUI` then renders each assistant message with the blocks replaced by their surfaces, unless the app gives `<copilot-chat-assistant-message>` its own markdown renderer.
+  </Tab>
+</Tabs>
 
 On every run, the provider then sends the agent two context entries:
 
@@ -56,7 +73,7 @@ The UI paints while the reply is still streaming:
 
 - **In the reply.** A code block renders where it is in the text.
 - **In the same surface again.** A later block in the same reply with the same `surfaceId` updates that surface instead of adding a second one.
-- **On the page.** A block with a target, ```` ```a2ui target=featured ````, renders in `<GenerativeUISurface id="featured">`. A later reply can update it. See [Surfaces](/generative-ui/components/surfaces).
+- **On the page.** A block with a target, ```` ```a2ui target=featured ````, renders in `<GenerativeUISurface id="featured">`, or `<copilot-generative-ui-surface id="featured">` in Angular. A later reply can update it. See [Surfaces](/generative-ui/components/surfaces).
 
 If the agent leaves out `createSurface`, CopilotKit adds one.
 
@@ -68,12 +85,21 @@ The agent sometimes puts a title or a paragraph inside a block. That text is lif
 
 Some backends build the prompt themselves. Turn the context entries off, and read the same data from the run instead:
 
-```tsx
-<CopilotKitProvider
-  runtimeUrl="/api/copilotkit"
-  generativeUI={{ ui: standardUI, transport: "markdown", sendContext: false }}
->
-```
+<Tabs groupId="frontend_framework" items={["React", "Angular"]} persist>
+  <Tab value="React">
+    ```tsx
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      generativeUI={{ ui: standardUI, transport: "markdown", sendContext: false }}
+    >
+    ```
+  </Tab>
+  <Tab value="Angular">
+    ```ts
+    provideGenerativeUI({ ui: standardUI, transport: "markdown", sendContext: false }),
+    ```
+  </Tab>
+</Tabs>
 
 Every run carries it at `forwardedProps.copilotkit.ui`, in the A2UI v1.0 renderer capabilities shape:
 
