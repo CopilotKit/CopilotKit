@@ -71,6 +71,7 @@ describe("scoped run properties", () => {
     expect(agent.runs[0]?.forwardedProps).toEqual({
       tenant: "acme",
       flag: true,
+      __copilotkitRequestId: expect.any(String),
     });
   });
 
@@ -87,8 +88,11 @@ describe("scoped run properties", () => {
 
     expect(chat.runs[0]?.forwardedProps).toEqual({
       copilotkit: { ui: { method: "a2ui" } },
+      __copilotkitRequestId: expect.any(String),
     });
-    expect(research.runs[0]?.forwardedProps).toEqual({});
+    expect(research.runs[0]?.forwardedProps).toEqual({
+      __copilotkitRequestId: expect.any(String),
+    });
   });
 
   it("forwards scoped entries when the named agent connects", async () => {
@@ -166,6 +170,9 @@ describe("scoped run properties", () => {
 
     await core.runAgent({ agent, forwardedProps: { flag: false } });
 
-    expect(agent.runs[0]?.forwardedProps).toEqual({ flag: false });
+    expect(agent.runs[0]?.forwardedProps).toEqual({
+      flag: false,
+      __copilotkitRequestId: expect.any(String),
+    });
   });
 });

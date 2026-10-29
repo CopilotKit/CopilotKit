@@ -424,6 +424,11 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
   agents?: AgentsConfig;
 
   intelligence?: CopilotIntelligenceRuntimeOptions["intelligence"];
+  /**
+   * Used only with `intelligence`. Without it, this runtime ignores the
+   * option, and local threads stay reachable by id for every caller, as in
+   * earlier releases. For per-user local threads, use the v2 `CopilotRuntime`.
+   */
   identifyUser?: CopilotIntelligenceRuntimeOptions["identifyUser"];
   memory?: CopilotIntelligenceRuntimeOptions["memory"];
   channels?: CopilotIntelligenceRuntimeOptions["channels"];
@@ -565,6 +570,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       [runtimeErrorReporterOption]: createRuntimeErrorReporter(params?.onError),
       forwardHeaders: params?.forwardHeaders,
       exposeMemoryRoutes: params?.exposeMemoryRoutes,
+      threads: params?.threads,
     };
     if (params?.intelligence !== undefined) {
       // The compatibility constructor keeps Intelligence identity optional at
@@ -586,6 +592,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         lockHeartbeatIntervalSeconds: params.lockHeartbeatIntervalSeconds,
       } as CopilotRuntimeOptions;
     } else {
+      // `identifyUser` is an Intelligence option here and is not forwarded
+      // without Intelligence: on this compatibility runtime, local threads
+      // stay reachable by id as in earlier releases, and a runner that does
+      // not record owners keeps working.
       this.runtimeArgs = {
         ...sharedRuntimeArgs,
         runner,

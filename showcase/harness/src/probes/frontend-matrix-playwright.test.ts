@@ -110,9 +110,19 @@ describe("frontend matrix Playwright execution", () => {
         ) => undefined,
       ),
     };
+    const vuePage = {
+      waitForFunction: vi.fn(
+        async (
+          _expression: string,
+          _argument: undefined,
+          _options: { timeout: number },
+        ) => undefined,
+      ),
+    };
 
     await waitForFrameworkHydration(angularPage, "angular", 1234);
     await waitForFrameworkHydration(reactPage, "react", 5678);
+    await waitForFrameworkHydration(vuePage, "vue", 9012);
 
     expect(angularPage.waitForFunction).toHaveBeenCalledWith(
       expect.stringMatching(/ng-version/),
@@ -126,6 +136,11 @@ describe("frontend matrix Playwright execution", () => {
       expect.stringMatching(/querySelectorAll.*__react/s),
       undefined,
       { timeout: 5678 },
+    );
+    expect(vuePage.waitForFunction).toHaveBeenCalledWith(
+      expect.stringMatching(/#app.*__vue_app__/s),
+      undefined,
+      { timeout: 9012 },
     );
   });
 

@@ -21,7 +21,7 @@ import type {
   ɵThreadStore,
 } from "@copilotkit/core";
 import type { Observable } from "rxjs";
-import { EMPTY, Subscription } from "rxjs";
+import { EMPTY, Subject, Subscription } from "rxjs";
 import { CopilotKitContext, EMPTY_SET } from "../../../context";
 import { CopilotChat } from "../CopilotChat";
 
@@ -77,6 +77,10 @@ type TestCoreOptions = {
   threadEndpoints?: { realtimeMetadata?: boolean; list?: boolean };
   deferInitialConnect?: boolean;
   registeredStore?: RunActivityStore | null;
+  // Delegate `copilotkit.runAgent` to the real `agent.runAgent`, once per leg,
+  // the way core does (a frontend-tool follow-up is a second leg with a fresh
+  // runId). Each leg's stream stays open until the test completes it.
+  delegatedRunLegs?: number;
 };
 
 type RunActivityStore = Pick<ɵThreadStore, "subscribeToRunActivity"> & {
@@ -88,6 +92,8 @@ type RunActivityStore = Pick<ɵThreadStore, "subscribeToRunActivity"> & {
 
 class TestAgent extends AbstractAgent {
   detachActiveRunCalls = 0;
+  controlledRuns = false;
+  runStreams: Array<Subject<BaseEvent>> = [];
 
   connect(_input: RunAgentInput): Observable<BaseEvent> {
     return EMPTY;
@@ -98,7 +104,10 @@ class TestAgent extends AbstractAgent {
   }
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
-    return EMPTY;
+    if (!this.controlledRuns) return EMPTY;
+    const stream = new Subject<BaseEvent>();
+    this.runStreams.push(stream);
+    return stream;
   }
 }
 
@@ -154,11 +163,22 @@ function createTestCore(
     const deferred = connectDeferrals.shift();
     return deferred ? deferred.promise : Promise.resolve();
   });
+  const delegatedRunLegs = options.delegatedRunLegs;
   const runAgent = vi.fn((call: RunCall) => {
     runAgentCalls.push({
       agent: call.agent,
       runId: call.runId,
     });
+    if (delegatedRunLegs !== undefined) {
+      return (async () => {
+        await call.agent.runAgent(
+          call.runId ? { runId: call.runId } : undefined,
+        );
+        for (let leg = 1; leg < delegatedRunLegs; leg += 1) {
+          await call.agent.runAgent();
+        }
+      })();
+    }
     call.agent.isRunning = true;
     const deferred = runDeferrals.shift();
     const promise = deferred ? deferred.promise : Promise.resolve();
@@ -215,6 +235,7 @@ function createTestCore(
 function renderChatWithCore(options: TestCoreOptions = {}) {
   const agent = new TestAgent();
   agent.agentId = DEFAULT_AGENT_ID;
+  agent.controlledRuns = options.delegatedRunLegs !== undefined;
   const store = createRunActivityStore();
   const core = createTestCore(agent, store, options);
   const initialConnect = options.deferInitialConnect
@@ -254,6 +275,44 @@ function emitRunActivity(store: RunActivityStore, threadId = "thread-current") {
       threadId,
       eventType: "run_finished",
     });
+  });
+}
+
+function emitRunEvent(
+  store: RunActivityStore,
+  runId: string | undefined,
+  eventType: string,
+) {
+  act(() => {
+    store.emit({
+      type: "thread_run_activity",
+      threadId: "thread-current",
+      agentId: DEFAULT_AGENT_ID,
+      runId,
+      eventType,
+    });
+  });
+}
+
+function captureRunIds(agent: TestAgent): string[] {
+  const runIds: string[] = [];
+  agent.subscribe({
+    onRunInitialized: ({ input }) => {
+      runIds.push(input.runId);
+    },
+  });
+  return runIds;
+}
+
+async function completeRunLeg(agent: TestAgent, leg: number) {
+  await act(async () => {
+    agent.runStreams[leg]?.complete();
+  });
+}
+
+async function failRunLeg(agent: TestAgent, leg: number) {
+  await act(async () => {
+    agent.runStreams[leg]?.error(new Error("run failed"));
   });
 }
 
@@ -945,4 +1004,218 @@ test("a headers builder's per-resolve object churn does not re-dispatch the run-
   );
   expect(standaloneStore.start.mock.calls.length).toBe(startCallsBefore);
   expect(standaloneStore.stop.mock.calls.length).toBe(stopCallsBefore);
+});
+
+test("thread_run_activity from a run started through copilotkit.runAgent does not reconnect the originating chat (#7859)", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+    delegatedRunLegs: 1,
+  });
+  await settleInitialConnect(rendered);
+  const runIds = captureRunIds(rendered.agent);
+
+  const run = rendered.core.runAgent({ agent: rendered.agent });
+  await waitFor(() => {
+    expect(runIds).toHaveLength(1);
+  });
+  emitRunEvent(rendered.store, runIds[0], "RUN_STARTED");
+
+  await completeRunLeg(rendered.agent, 0);
+  await act(async () => {
+    await run;
+  });
+  emitRunEvent(rendered.store, runIds[0], "RUN_FINISHED");
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+});
+
+test("thread_run_activity from a frontend-tool follow-up of an external run does not reconnect the originating chat", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+    delegatedRunLegs: 2,
+  });
+  await settleInitialConnect(rendered);
+  const runIds = captureRunIds(rendered.agent);
+
+  const run = rendered.core.runAgent({ agent: rendered.agent });
+  await waitFor(() => {
+    expect(runIds).toHaveLength(1);
+  });
+  await completeRunLeg(rendered.agent, 0);
+  await waitFor(() => {
+    expect(runIds).toHaveLength(2);
+  });
+  expect(runIds[1]).not.toBe(runIds[0]);
+  emitRunEvent(rendered.store, runIds[1], "RUN_STARTED");
+
+  await completeRunLeg(rendered.agent, 1);
+  await act(async () => {
+    await run;
+  });
+  emitRunEvent(rendered.store, runIds[1], "RUN_FINISHED");
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+});
+
+test("thread_run_activity from the input's frontend-tool follow-up no longer reconnects the originating chat", async () => {
+  // Before #7859 the input only knew its own pinned runId, so the follow-up's
+  // fresh runId was treated as remote and reconnected once the chain ended.
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+    delegatedRunLegs: 2,
+  });
+  await settleInitialConnect(rendered);
+  const runIds = captureRunIds(rendered.agent);
+
+  fireEvent.click(screen.getByTestId("mock-copilot-chat-submit"));
+  await waitFor(() => {
+    expect(runIds).toHaveLength(1);
+  });
+  expect(runIds[0]).toBe(rendered.runAgentCalls[0]?.runId);
+  await completeRunLeg(rendered.agent, 0);
+  await waitFor(() => {
+    expect(runIds).toHaveLength(2);
+  });
+  emitRunEvent(rendered.store, runIds[1], "RUN_STARTED");
+
+  await completeRunLeg(rendered.agent, 1);
+  emitRunEvent(rendered.store, runIds[1], "RUN_FINISHED");
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+});
+
+test("thread_run_activity from another run during an external copilotkit.runAgent run reconnects once that run finalizes", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+    delegatedRunLegs: 1,
+  });
+  await settleInitialConnect(rendered);
+  const runIds = captureRunIds(rendered.agent);
+
+  const run = rendered.core.runAgent({ agent: rendered.agent });
+  await waitFor(() => {
+    expect(runIds).toHaveLength(1);
+  });
+  emitRunEvent(rendered.store, "run-remote", "RUN_FINISHED");
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+
+  await completeRunLeg(rendered.agent, 0);
+  await act(async () => {
+    await run;
+  });
+
+  await waitFor(() => {
+    expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+});
+
+test("thread_run_activity from an external copilotkit.runAgent run reconnects once it is more than 30 s old", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+    delegatedRunLegs: 1,
+  });
+  await settleInitialConnect(rendered);
+  const runIds = captureRunIds(rendered.agent);
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    const run = rendered.core.runAgent({ agent: rendered.agent });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(runIds).toHaveLength(1);
+    await completeRunLeg(rendered.agent, 0);
+    await act(async () => {
+      await run;
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_001);
+    });
+    emitRunEvent(rendered.store, runIds[0], "RUN_FINISHED");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+
+    expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("unmounting the chat removes its run lifecycle subscriber from the agent", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+    delegatedRunLegs: 1,
+  });
+  await settleInitialConnect(rendered);
+  expect(rendered.agent.subscribers).toHaveLength(1);
+
+  rendered.unmount();
+
+  expect(rendered.agent.subscribers).toHaveLength(0);
+});
+
+test("an external copilotkit.runAgent run in flight across a status round trip stays local", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+    delegatedRunLegs: 1,
+  });
+  await settleInitialConnect(rendered);
+  const runIds = captureRunIds(rendered.agent);
+
+  const run = rendered.core.runAgent({ agent: rendered.agent });
+  await waitFor(() => {
+    expect(runIds).toHaveLength(1);
+  });
+
+  await roundTripTheRuntimeStatus(rendered);
+  emitRunEvent(rendered.store, runIds[0], "RUN_STARTED");
+
+  await completeRunLeg(rendered.agent, 0);
+  await act(async () => {
+    await run;
+  });
+  emitRunEvent(rendered.store, runIds[0], "RUN_FINISHED");
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+});
+
+test("thread_run_activity from an errored copilotkit.runAgent run does not reconnect the originating chat", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+    delegatedRunLegs: 1,
+  });
+  await settleInitialConnect(rendered);
+  const runIds = captureRunIds(rendered.agent);
+
+  const run = rendered.core.runAgent({ agent: rendered.agent });
+  await waitFor(() => {
+    expect(runIds).toHaveLength(1);
+  });
+  emitRunEvent(rendered.store, runIds[0], "RUN_STARTED");
+
+  await failRunLeg(rendered.agent, 0);
+  await act(async () => {
+    await run.catch(() => {});
+  });
+  emitRunEvent(rendered.store, runIds[0], "RUN_ERROR");
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
 });

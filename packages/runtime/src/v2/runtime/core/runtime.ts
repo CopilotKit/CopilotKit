@@ -13,6 +13,19 @@ import { resolveDebugConfig } from "@copilotkit/shared";
 import type { ResolvedDebugConfig, DebugConfig } from "@copilotkit/shared";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { resolveSseKeepAliveIntervalSeconds } from "../handlers/shared/sse-keep-alive";
+import {
+  resolveThreadAccessMode,
+  warnIfThreadListRefused,
+  warnIfThreadOwnershipUnenforced,
+} from "../handlers/shared/thread-access";
+import type {
+  ThreadAccessMode,
+  ThreadsConfig,
+} from "../handlers/shared/thread-access";
+export type {
+  ThreadAccessMode,
+  ThreadsConfig,
+} from "../handlers/shared/thread-access";
 import type {
   ForwardHeadersConfig,
   ResolvedForwardHeadersPolicy,
@@ -256,6 +269,22 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    * policy enables and limits both agent and browser Memory.
    */
   exposeMemoryRoutes?: boolean;
+  /**
+   * How local Threads are shared among callers that `identifyUser` does not
+   * identify, when no Intelligence is configured. Has no effect on an
+   * Intelligence runtime, where the platform scopes Threads per user.
+   *
+   * With `identifyUser`, every Thread operation (list, read, connect, run,
+   * stop, clear) reaches only the caller's own Threads, whatever this says.
+   * Without it, by default (`access: "owner"`), a Thread id works as a
+   * capability: whoever holds it may read, connect to, continue and stop that
+   * Thread, but listing and clearing Threads are refused with HTTP 403.
+   * `access: "open"` also lets every caller list and clear the Threads created
+   * without identity, as in earlier releases. That is insecure for any
+   * deployment that more than one person can reach. A Thread created by an
+   * identified user is never reachable without that identity.
+   */
+  threads?: ThreadsConfig;
 }
 
 export type IdentifyUserCallback = (
@@ -283,6 +312,20 @@ export interface CopilotRuntimeMemoryConfig {
 export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** The runner to use for running agents in SSE mode. */
   runner?: AgentRunner;
+  /**
+   * Resolves the authenticated user for a request. When set, each Thread
+   * belongs to the user whose request created it, and only that user can list,
+   * read, replay, clear, continue or stop it. The runner must enforce owners
+   * (InMemoryAgentRunner and SqliteAgentRunner do); with a runner that does
+   * not, those requests are refused. See `threads`.
+   *
+   * Threads that SqliteAgentRunner stored before it recorded owners belong to
+   * nobody: as before the upgrade, whoever holds such a Thread's id can reach
+   * it, and continuing it does not claim it. The runner logs how many it holds
+   * when it opens the database. Every new Thread is owned. InMemoryAgentRunner
+   * keeps no Threads across a restart, so it holds no such Threads.
+   */
+  identifyUser?: IdentifyUserCallback;
   intelligence?: undefined;
   generateThreadNames?: undefined;
   /** Intelligence Channels require the Intelligence runtime; not available in SSE mode. */
@@ -394,6 +437,12 @@ export interface CopilotRuntimeLike {
    * (`BaseCopilotRuntime`) always resolve and set it.
    */
   exposeMemoryRoutes?: boolean;
+  /**
+   * Resolved local Thread access mode. Optional on the published interface so
+   * an external implementor stays source-compatible; a missing value means
+   * the default (`DEFAULT_THREAD_ACCESS`).
+   */
+  threadAccess?: ThreadAccessMode;
   memory?: CopilotRuntimeMemoryConfig;
   learning?: CopilotRuntimeLearningConfig;
 }
@@ -433,6 +482,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
   public readonly sseKeepAliveIntervalSeconds: number;
   public readonly exposeMemoryRoutes: boolean;
+  public readonly threadAccess: ThreadAccessMode;
   public readonly memory?: CopilotRuntimeMemoryConfig;
 
   /**
@@ -530,6 +580,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.memory = (options as { memory?: CopilotRuntimeMemoryConfig }).memory;
     this.exposeMemoryRoutes =
       this.memory !== undefined || (options.exposeMemoryRoutes ?? false);
+    this.threadAccess = resolveThreadAccessMode(options.threads);
   }
 }
 
@@ -539,6 +590,7 @@ export class CopilotSseRuntime
 {
   readonly intelligence = undefined;
   readonly mode = RUNTIME_MODE_SSE;
+  readonly identifyUser?: IdentifyUserCallback;
 
   constructor(options: CopilotSseRuntimeOptions) {
     // Runtime guard mirroring the discriminated-union type: the SSE runtime has
@@ -559,7 +611,16 @@ export class CopilotSseRuntime
           "Learning Containers are not available in SSE mode.",
       );
     }
+    if (
+      options.identifyUser !== undefined &&
+      typeof options.identifyUser !== "function"
+    ) {
+      throw new Error("`identifyUser` must be a callback");
+    }
     super(options, options.runner ?? new InMemoryAgentRunner());
+    this.identifyUser = options.identifyUser;
+    warnIfThreadOwnershipUnenforced(this);
+    warnIfThreadListRefused(this);
   }
 }
 
@@ -611,6 +672,12 @@ export class CopilotIntelligenceRuntime
       typeof rawOptions.identifyUser !== "function"
     ) {
       throw new Error("Intelligence Runtime `identifyUser` must be a callback");
+    }
+    if (rawOptions.threads !== undefined) {
+      console.warn(
+        "[CopilotKit] `threads` has no effect on an Intelligence runtime: the " +
+          "platform scopes threads per user. Remove the option.",
+      );
     }
     if (
       rawOptions.channels !== undefined &&
@@ -891,9 +958,11 @@ class CopilotRuntimeShim implements CopilotRuntime {
   }
 
   get identifyUser(): IdentifyUserCallback | undefined {
-    return isIntelligenceRuntime(this.delegate)
-      ? this.delegate.identifyUser
-      : undefined;
+    return this.delegate.identifyUser;
+  }
+
+  get threadAccess(): ThreadAccessMode {
+    return this.delegate.threadAccess;
   }
 
   get lockTtlSeconds(): number | undefined {

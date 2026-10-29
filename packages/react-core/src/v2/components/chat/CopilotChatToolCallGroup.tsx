@@ -25,7 +25,7 @@ type CallStatus = "running" | "done" | "failed" | "stopped";
  * @internal
  */
 export const ToolCallGroupContext = createContext<{
-  appearance: "card" | "line";
+  appearance: "card" | "line" | "stack";
   failedIds: ReadonlySet<string>;
   /** The agent may still finish the group's calls; see `isActive`. */
   active: boolean;
@@ -250,7 +250,7 @@ export function ToolCallRow({
   result: string | undefined;
   resultContent?: ToolMessage["content"];
   status: CallStatus;
-  appearance: "card" | "line";
+  appearance: "card" | "line" | "stack";
 } & React.HTMLAttributes<HTMLDivElement>) {
   const [open, setOpen] = useState(false);
   const detailsId = useId();
@@ -262,7 +262,10 @@ export function ToolCallRow({
       data-copilotkit
       // Rows draw their own divider: interaction capture can wrap each call
       // in a `display: contents` element, which a parent's divide-y misses.
-      className={twMerge(!line && "cpk:border-t cpk:border-border", className)}
+      className={twMerge(
+        appearance === "card" && "cpk:border-t cpk:border-border",
+        className,
+      )}
       {...props}
     >
       <button
@@ -274,7 +277,9 @@ export function ToolCallRow({
           "cpk:group/row cpk:m-0 cpk:flex cpk:min-w-0 cpk:cursor-pointer cpk:items-center cpk:gap-2 cpk:border-none cpk:bg-transparent cpk:text-left cpk:text-[13px] cpk:text-inherit cpk:transition-colors cpk:hover:bg-accent/60 cpk:focus-visible:outline-2 cpk:focus-visible:-outline-offset-2 cpk:focus-visible:outline-ring",
           line
             ? "cpk:-mx-1.5 cpk:w-[calc(100%+0.75rem)] cpk:rounded-md cpk:px-1.5 cpk:py-1"
-            : "cpk:w-full cpk:px-3.5 cpk:py-2",
+            : appearance === "stack"
+              ? "cpk:w-full cpk:px-3.5 cpk:py-2.5"
+              : "cpk:w-full cpk:px-3.5 cpk:py-2",
         )}
       >
         <StatusIcon status={status} />
@@ -345,7 +350,8 @@ export interface CopilotChatToolCallGroupProps extends Omit<
  *
  * Each call is drawn by its registered renderer. CopilotKit's built-in card
  * (`useDefaultRenderTool`) draws a compact row inside the card and line
- * appearances; a custom wildcard renderer draws whatever it draws.
+ * appearances and an open stack; a custom wildcard renderer draws whatever it
+ * draws.
  */
 export function CopilotChatToolCallGroup({
   calls,
@@ -458,13 +464,7 @@ export function CopilotChatToolCallGroup({
   }
 
   if (appearance === "stack") {
-    if (calls.length === 1) {
-      return (
-        <div {...groupProps} className={twMerge("cpk:py-1", className)}>
-          {renderCall(latest)}
-        </div>
-      );
-    }
+    // A lone call is the top card of a stack with nothing behind it yet.
     // One toggle in both states, so it keeps keyboard focus when pressed.
     const behind = open ? 0 : Math.min(calls.length - 1, 2);
     const layer =
@@ -498,7 +498,7 @@ export function CopilotChatToolCallGroup({
             className={twMerge(
               "cpk:relative cpk:m-0 cpk:flex cpk:min-w-0 cpk:cursor-pointer cpk:items-center cpk:text-left cpk:transition-colors cpk:focus-visible:outline-2 cpk:focus-visible:outline-ring",
               open
-                ? "cpk:mb-1 cpk:gap-1.5 cpk:rounded-md cpk:border-none cpk:bg-transparent cpk:p-0 cpk:py-0.5 cpk:text-xs cpk:text-muted-foreground cpk:hover:text-foreground"
+                ? "cpk:mb-1.5 cpk:w-full cpk:gap-1.5 cpk:rounded-md cpk:border-none cpk:bg-transparent cpk:p-0 cpk:py-0.5 cpk:text-xs cpk:text-muted-foreground cpk:hover:text-foreground"
                 : twMerge(
                     layer,
                     "cpk:w-full cpk:gap-2 cpk:px-3.5 cpk:py-2.5 cpk:text-[13px] cpk:shadow-[0_1px_2px_rgb(0_0_0/0.04)] cpk:hover:bg-accent",
@@ -509,8 +509,10 @@ export function CopilotChatToolCallGroup({
               <>
                 {pluralize(calls.length, "tool call")}
                 <FailedCount calls={calls} />
-                <Chevron open className="cpk:-rotate-90" />
-                Collapse
+                <span className="cpk:ml-auto cpk:inline-flex cpk:items-center cpk:gap-1">
+                  Collapse
+                  <Chevron open className="cpk:-rotate-90" />
+                </span>
               </>
             ) : (
               <>
@@ -532,6 +534,10 @@ export function CopilotChatToolCallGroup({
                       {latestPreview}
                     </span>
                   )}
+                  {/* The status icon is decorative, so say the status. */}
+                  <span className="cpk:sr-only">
+                    {statusLabels[latestStatus]}
+                  </span>
                 </span>
                 <span className="cpk:ml-2 cpk:inline-flex cpk:shrink-0 cpk:items-center cpk:gap-2 cpk:text-xs cpk:text-muted-foreground">
                   <FailedCount calls={calls} />
@@ -543,31 +549,42 @@ export function CopilotChatToolCallGroup({
               </>
             )}
           </button>
+          {/* Always mounted, so screen readers hear the closed stack's latest
+              call change ("read_file: Running", then "read_file: Done"); the
+              button only names it. */}
+          <span aria-live="polite" className="cpk:sr-only">
+            {open
+              ? ""
+              : `${latest.toolCall.function.name}: ${statusLabels[latestStatus]}`}
+          </span>
         </div>
         {open && (
-          <div
-            id={bodyId}
-            className="cpk:[&>*]:animate-[cpk-stack-fan_300ms_cubic-bezier(0.16,1,0.3,1)_both] cpk:motion-reduce:[&>*]:animate-none"
-          >
-            {calls.map((call) => (
-              <React.Fragment key={call.toolCall.id}>
-                {renderCall(call)}
-              </React.Fragment>
-            ))}
+          // Each call gets the collapsed stack's card, easing out of the stack.
+          <div id={bodyId} className="cpk:grid cpk:gap-1.5">
+            <ToolCallGroupContext.Provider
+              value={{ appearance: "stack", failedIds, active: isActive }}
+            >
+              {calls.map((call, index) => (
+                <div
+                  key={call.toolCall.id}
+                  className={twMerge(
+                    layer,
+                    "cpk:overflow-hidden cpk:shadow-[0_1px_2px_rgb(0_0_0/0.04)] cpk:animate-[cpk-stack-fan_240ms_cubic-bezier(0.16,1,0.3,1)_both] cpk:motion-reduce:animate-none",
+                  )}
+                  style={{ animationDelay: `${index * 30}ms` }}
+                >
+                  {renderCall(call)}
+                </div>
+              ))}
+            </ToolCallGroupContext.Provider>
           </div>
         )}
       </div>
     );
   }
 
-  // card
-  if (calls.length === 1) {
-    return (
-      <div {...groupProps} className={twMerge("cpk:py-1", className)}>
-        {renderCall(latest)}
-      </div>
-    );
-  }
+  // card: one call gets the same card as several, so the card a run starts
+  // with doesn't change style when the next call joins it.
   return (
     <div
       {...groupProps}
@@ -599,7 +616,9 @@ export function CopilotChatToolCallGroup({
             <FailedCount calls={calls} />
           ) : (
             <span className="cpk:tabular-nums">
-              {status === "running" ? `${done} done` : statusLabels[status]}
+              {status !== "running"
+                ? statusLabels[status]
+                : done > 0 && `${done} done`}
             </span>
           )}
           <Chevron open={open} />

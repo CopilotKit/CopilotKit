@@ -21,12 +21,26 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import { DocsPageView } from "@/components/docs-page-view";
+import { CatalogReferencePage } from "@/components/standard-catalog/catalog-reference-page";
+import {
+  CATALOG_REFERENCE_PATH,
+  isCatalogReferencePath,
+  catalogReferenceNameFromPath,
+} from "@/components/standard-catalog/catalog-reference";
 import { onboardingFrameworkFor } from "@/lib/docs-onboarding-framework";
 import { onboardingFrontendFor } from "@/lib/docs-onboarding-frontend";
 import { buildRootSurfaceNav, loadDoc } from "@/lib/docs-render";
 import { getDocsFolder, getDocsMode, ROOT_FRAMEWORK } from "@/lib/registry";
 
 export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
+  if (isCatalogReferencePath(slugPath)) {
+    if (
+      slugPath !== CATALOG_REFERENCE_PATH.slice(1) &&
+      !catalogReferenceNameFromPath(slugPath)
+    )
+      notFound();
+    return <CatalogReferencePage slugPath={slugPath} />;
+  }
   // The legacy `/integrations/<framework>/<slug>` URL scheme is dead.
   // Refuse to render a doc page from `loadDoc("integrations/...")` here
   // so the legacy URL surfaces as a 404 (middleware redirects cover the

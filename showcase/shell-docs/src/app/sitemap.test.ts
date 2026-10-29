@@ -73,6 +73,18 @@ test("publishes every sitemap URL at most once", () => {
   expect(new Set(urls).size).toBe(urls.length);
 });
 
+test("publishes canonical Vue guide and reference URLs", () => {
+  expect(sitemapPaths()).toEqual(
+    expect.arrayContaining([
+      "/vue",
+      "/vue/prebuilt-components/chat",
+      "/vue/AG-UI-Streams",
+      "/reference/vue/hooks/useThreads",
+      "/reference/vue/components/CopilotThreadsDrawer",
+    ]),
+  );
+});
+
 test("excludes every hidden framework from every sitemap surface", () => {
   const paths = sitemapPaths();
 
