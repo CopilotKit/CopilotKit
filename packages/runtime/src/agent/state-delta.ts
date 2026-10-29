@@ -43,6 +43,44 @@ function encodeJsonPointer(segments: string[]): string {
     .join("/")}`;
 }
 
+/**
+ * Pointer segments that must never be applied or forwarded. Assigning
+ * through `__proto__` invokes the prototype setter instead of creating an
+ * own property, silently replacing the tracked state's prototype (invisible
+ * to JSON serialization and own-property lookups, yet readable through the
+ * prototype chain). Strict JSON Patch appliers such as fast-json-patch
+ * reject `__proto__`, `constructor`, and `prototype` segments outright, so
+ * forwarding an operation that uses one would also desynchronize the
+ * tracked state from the client's state.
+ */
+const FORBIDDEN_POINTER_SEGMENTS = new Set([
+  "__proto__",
+  "constructor",
+  "prototype",
+]);
+
+function hasForbiddenPointerSegment(pointer: string): boolean {
+  const segments = parseJsonPointer(pointer);
+  if (segments === undefined) return false;
+  return segments.some((segment) => FORBIDDEN_POINTER_SEGMENTS.has(segment));
+}
+
+function isForbiddenOperation(operation: StateDeltaOperation): boolean {
+  if (
+    typeof operation.path === "string" &&
+    hasForbiddenPointerSegment(operation.path)
+  ) {
+    return true;
+  }
+  if (
+    typeof operation.from === "string" &&
+    hasForbiddenPointerSegment(operation.from)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function getArrayIndex(segment: string, length: number): number | undefined {
   if (segment !== "0" && !/^[1-9]\d*$/.test(segment)) return undefined;
   const index = Number(segment);
@@ -320,6 +358,13 @@ function normalizeStateDelta(
       operation !== null && typeof operation === "object"
         ? (operation as StateDeltaOperation)
         : undefined;
+    // Operations referencing prototype-related pointer segments are
+    // dropped entirely: they are neither applied to the tracked state nor
+    // forwarded in the normalized delta. Like every other invalid
+    // operation in this module, they are skipped without throwing.
+    if (candidate && isForbiddenOperation(candidate)) {
+      continue;
+    }
     if (
       candidate?.op === "add" &&
       typeof candidate.path === "string" &&
@@ -395,3 +440,6 @@ export function createStateEventNormalizer(
     ];
   };
 }
+
+// Exposed for unit tests only; not part of the public API surface.
+export const __internals = { normalizeStateDelta };
