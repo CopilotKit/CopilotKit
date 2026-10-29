@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"next dev --turbopack\" \"cd src/agent && npx @langchain/langgraph-cli@1.2.1 dev --port 8123 --no-browser\"",
+    "dev": "concurrently \"next dev --turbopack\" \"cd src/agent && npx @langchain/langgraph-cli@1.5.3 dev --port 8123 --no-browser\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
