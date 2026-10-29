@@ -91,6 +91,8 @@ def display_flight(origin: str, destination: str, airline: str, price: str):
         },
     ]
     return json.dumps({"a2ui_operations": operations})
+
+
 # @endregion[backend-render-operations]
 
 
