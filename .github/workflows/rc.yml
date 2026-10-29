@@ -1,0 +1,48 @@
+name: release / rc
+
+# Publishes a release candidate whenever a change to packages/ lands on a
+# release-line branch: a branch named for the version it builds toward, such as
+# `2.0.0`. The branch name is the RC base, so merges to `2.0.0` publish the
+# monorepo scope as 2.0.0-rc.0, 2.0.0-rc.1, ... under the `next` dist-tag, and
+# `npm i @copilotkit/react-core@next` always installs the newest candidate.
+#
+# Merges that touch nothing under packages/ (docs, showcase, CI) publish
+# nothing. The RC number is picked in publish-release.yml's build job, one past
+# the highest rc any monorepo package already has on npm, so it needs no state
+# in the repo and never collides.
+#
+# Like canary.yml, this never publishes to npm itself. It calls canary.yml,
+# which dispatches publish-release.yml, the single npm OIDC entry point.
+
+on:
+  push:
+    branches: ["[0-9]+.[0-9]+.[0-9]+"]
+    paths: ["packages/**"]
+  # Retry a failed RC, or dry-run one. Dispatch it on the release-line branch.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run: build + compute the RC version but do NOT publish to npm."
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  # One RC at a time per line. A merge that lands while one is publishing waits,
+  # and a newer merge replaces it in the queue: its RC already includes the
+  # earlier change.
+  group: release-rc-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rc:
+    uses: ./.github/workflows/canary.yml
+    with:
+      scope: monorepo
+      rc: ${{ github.ref_name }}
+      dry_run: ${{ inputs.dry_run == true }}
+    secrets:
+      DEVOPS_BOT_PRIVATE_KEY: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
