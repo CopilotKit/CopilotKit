@@ -101,3 +101,41 @@ test("parallel frontend results do not repeat the native assistant tool calls", 
     results,
   );
 });
+
+test("JSON formatting changes from a native call replay do not edit persisted history", () => {
+  const call = { id: "call", name: "scheduleTime", args: '{"duration":30}' };
+  const previous = {
+    id: "original-owner",
+    role: "assistant",
+    content: "",
+    toolCalls: [call],
+  };
+  const replay = {
+    id: previous.id,
+    role: "assistant" as const,
+    toolCalls: [
+      {
+        id: call.id,
+        type: "function" as const,
+        function: { name: call.name, arguments: '{\n  "duration": 30\n}' },
+      },
+    ],
+  };
+  expect(nativeHistoryInput([replay], [previous])).toEqual([]);
+  expect(() =>
+    nativeHistoryInput(
+      [
+        {
+          ...replay,
+          toolCalls: [
+            {
+              ...replay.toolCalls[0],
+              function: { name: call.name, arguments: '{"duration":60}' },
+            },
+          ],
+        },
+      ],
+      [previous],
+    ),
+  ).toThrow("Cannot edit");
+});

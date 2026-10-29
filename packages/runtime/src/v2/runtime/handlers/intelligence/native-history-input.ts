@@ -32,7 +32,7 @@ export function nativeHistoryInput(
           ? (message.toolCalls ?? []).map((call) => ({
               id: call.id,
               name: call.function.name,
-              args: call.function.arguments,
+              args: nativeToolArguments(call.function.arguments),
             }))
           : [],
       toolCallId: message.role === "tool" ? message.toolCallId : undefined,
@@ -42,7 +42,10 @@ export function nativeHistoryInput(
     const prior = {
       role: previous.role,
       content: previous.content ?? "",
-      toolCalls: previous.toolCalls ?? [],
+      toolCalls: (previous.toolCalls ?? []).map((call) => ({
+        ...call,
+        args: nativeToolArguments(call.args),
+      })),
       toolCallId: previous.toolCallId,
       activityType: previous.activityType,
     };
@@ -57,4 +60,18 @@ export function nativeHistoryInput(
       "Cannot edit persisted native history; submit a new message occurrence",
     );
   });
+}
+
+/** JSON whitespace/key ordering is not a native tool-argument edit. Invalid values retain exact wire comparison. */
+export function nativeToolArguments(value: string): unknown {
+  try {
+    const parsed: unknown = JSON.parse(value || "{}");
+    return parsed !== null &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed)
+      ? parsed
+      : value;
+  } catch {
+    return value;
+  }
 }

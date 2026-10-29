@@ -22,6 +22,7 @@ import {
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 import { startThreadLockHeartbeat } from "../../intelligence-platform/thread-lock-heartbeat";
 import { nativeHistoryInput } from "./native-history-input";
+import { NativeResultRecoveryMiddleware } from "../../middleware/native-result-recovery";
 import type { ThreadSummary } from "../../intelligence-platform";
 
 /**
@@ -316,6 +317,7 @@ export async function handleIntelligenceRun({
         );
         canonicalInput.messages = persistedInputMessages;
         agent.setMessages(persistedInputMessages);
+        agent.use(new NativeResultRecoveryMiddleware(history.messages));
       } else {
         const historicMessageIds = new Set(
           await runtime.intelligence.ɵgetThreadMessageIds({
