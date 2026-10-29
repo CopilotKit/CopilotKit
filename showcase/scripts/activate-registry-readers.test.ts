@@ -19,6 +19,7 @@ function fixture() {
   const recordsFile = "https://runner.example/registry";
   const runReaders = vi.fn(async () => {});
   const input = {
+    activateHarnessReader: vi.fn(async () => {}),
     assertCandidateDrained: vi.fn(async () => {}),
     policySha256: digest,
     recordsFile,
@@ -146,4 +147,15 @@ it("revalidates drain ownership before reporting success", async () => {
   await expect(activateRegistryReaders(input, { runReaders })).rejects.toThrow(
     "Owner changed",
   );
+});
+it("stops if the command in the deployed harness fails", async () => {
+  const { input, runReaders } = fixture();
+  input.activateHarnessReader.mockRejectedValue(
+    new Error("Remote reader failed"),
+  );
+  await expect(activateRegistryReaders(input, { runReaders })).rejects.toThrow(
+    "Remote reader failed",
+  );
+  expect(runReaders).not.toHaveBeenCalled();
+  expect(input.readConsumerReceipt).not.toHaveBeenCalled();
 });

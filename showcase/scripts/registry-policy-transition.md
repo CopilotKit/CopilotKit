@@ -58,8 +58,14 @@ before resume. Supply exact target policy, registry URL, transition time
 
 The helper uses existing environment-bound credentials, never prints them, and
 executes the real image gate and Ruby registry-only validator. It never runs a
-local process claiming to be the harness. The deployed harness's ordinary
-Railway discovery tick must produce that receipt using its bundled policy.
+local process claiming to be the harness. The deployed harness must run its one-shot real reader using its bundled policy:
+`node dist/validate-registry.js EXPECTED_POLICY_SHA256`.
+Supply `activateHarnessReader({ harnessDeploymentId, harnessImage, policySha256, signal })`
+to execute that command INSIDE the verified deployment, using its existing environment.
+Do not run a local copy or fabricate environment/workflow identities. The command
+loads `/app/data/railway-envs.generated.json`, validates its hash, and invokes the
+same authenticated reader used by normal discovery. It runs no probes or inventory
+queries. Ordinary discovery cron timing does not guarantee activation within120seconds.
 The helper bounds awaited activation to at most 120 seconds (child cancellation
 is not a process-tree termination guarantee), requires all three receipts to match
 policy/URL/reader and the activation time boundary, and rechecks deployed harness
@@ -114,3 +120,42 @@ harness. Preserve prior approvals, recovery watches and deletion tracking.
 Validation: focused offline policy, reader, activation and integration tests;
 add exact final test totals and source/image provenance from the combined package.
 No live-model acceptance or credential-validity claim is made by these tests.
+
+## Guarded harness rollout controller (preparation only)
+
+`rollout-harness-policy.mjs` exports `rolloutHarnessPolicy`. It fixes the shared
+staging harness scope and observed immutable baseline, accepts only an immutable
+candidate digest, and requires the full reviewed `baselineConfig` from a live
+read immediately before rollout. Source image is the only permitted change.
+
+Read-only observation October29: no mounted volumes; no staged patch; one us-west2
+replica; healthcheck `/health`; desired image `showcase-harness:latest` with
+`source.autoUpdates.type=disabled`; domain `harness-staging-2ee4.up.railway.app`
+(targetPort null); private endpoint `showcase-ops`; historical build setting
+`dockerfilePath=showcase/ops/Dockerfile`. Preserve these settings; the future
+image itself is built with `showcase/harness/Dockerfile`.
+
+Required provider bindings (integration owner implements exact authenticated API):
+
+- `inspect(scope, signal)` returns exact project/environment/service IDs, LIVE
+  serialized config (not staged merged config), full mounted `volumes`, `staged`
+  patch or null, and `latestDeployment: {id,image,status}` with immutable image
+  from deployment metadata. No variable values are needed.
+- `setImage(scope, targetImage, signal)` changes ONLY `source.image` and returns
+  true only on confirmed acknowledgement. Never automatically retry.
+- `deploy(scope, signal)` sends exactly one deploy and returns its deployment ID.
+  Never automatically retry. An automatic deployment observed after source update
+  prevents the explicit deploy; retain the receipt for reconciliation.
+- `journal.claim(receipt)` must durably and exclusively claim this operation;
+  `journal.save(receipt)` must durably replace its receipt before resolving.
+  Missing durability or exclusivity violates the adapter contract.
+- `assertCandidateDrained(signal)` checks exact runner operation ownership,
+  candidate verification and drained admissions before provider reads/mutations.
+
+The receipt precedes each mutation. Any retained incomplete receipt blocks all
+further mutations on re-entry, including unknown outcomes. A verified receipt
+allows only read-only re-verification. No rollback is automatically attempted.
+Awaited operations are bounded; abort does not imply Railway cancelled a request.
+The controller returns the exact successful deployment ID for reader activation.
+Run it after runner candidate verification/drain, then execute the one-shot reader
+inside that deployed harness; do not rely on startup timing or trigger a probe suite.

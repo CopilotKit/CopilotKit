@@ -68,6 +68,7 @@ export async function activateRegistryReaders(input, dependencies = {}) {
     readHarnessDeployment,
     readConsumerReceipt,
     assertCandidateDrained,
+    activateHarnessReader,
     timeoutMs = 120_000,
     env = process.env,
   } = input;
@@ -75,6 +76,11 @@ export async function activateRegistryReaders(input, dependencies = {}) {
     typeof assertCandidateDrained,
     "function",
     "Candidate/drain guard required",
+  );
+  assert.equal(
+    typeof activateHarnessReader,
+    "function",
+    "Deployed harness reader command required",
   );
   assert.match(policySha256, /^[a-f0-9]{64}$/);
   assert.match(
@@ -155,6 +161,14 @@ export async function activateRegistryReaders(input, dependencies = {}) {
   }
   await bounded(() => assertCandidateDrained(signal));
   await verifyHarness();
+  await bounded(() =>
+    activateHarnessReader({
+      harnessDeploymentId,
+      harnessImage,
+      policySha256,
+      signal,
+    }),
+  );
   await bounded(() => (dependencies.runReaders ?? runReaders)({ env, signal }));
   while (true) {
     await verifyHarness();
