@@ -1,9 +1,9 @@
+import { createCopilotNodeListener } from "../endpoints/node";
 import express from "express";
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { createCopilotEndpointExpress } from "../express";
 import { CopilotRuntime } from "../core/runtime";
 
 const handleRunAgentMock = vi.fn();
@@ -23,7 +23,7 @@ const createRuntime = () =>
     },
   });
 
-describe("createCopilotEndpointExpress with body parsers", () => {
+describe("createCopilotNodeListener with body parsers", () => {
   beforeEach(() => {
     handleRunAgentMock.mockReset();
     handleRunAgentMock.mockImplementation(
@@ -49,7 +49,11 @@ describe("createCopilotEndpointExpress with body parsers", () => {
   it("handles requests when CopilotKit router is registered before express.json()", async () => {
     const app = express();
     app.use(
-      createCopilotEndpointExpress({ runtime: createRuntime(), basePath: "/" }),
+      createCopilotNodeListener({
+        cors: true,
+        runtime: createRuntime(),
+        basePath: "/",
+      }),
     );
     app.use(express.json());
 
@@ -64,7 +68,11 @@ describe("createCopilotEndpointExpress with body parsers", () => {
     const app = express();
     app.use(express.json());
     app.use(
-      createCopilotEndpointExpress({ runtime: createRuntime(), basePath: "/" }),
+      createCopilotNodeListener({
+        cors: true,
+        runtime: createRuntime(),
+        basePath: "/",
+      }),
     );
 
     const response = await sendRunRequest(app);

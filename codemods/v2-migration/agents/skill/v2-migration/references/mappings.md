@@ -172,7 +172,7 @@ export const GET = handler;
 export const POST = handler;
 ```
 
-For Express, use `createCopilotExpressHandler` from `@copilotkit/runtime/express`. For Hono, use `@copilotkit/runtime/hono`.
+For Express, mount `createCopilotNodeListener` from `@copilotkit/runtime/node` under the runtime prefix with `basePath: "/"`. For Hono, pass `c.req.raw` to `createCopilotRuntimeHandler` from `@copilotkit/runtime`. Neither factory returns a framework router. The `/express` and `/hono` subpaths and all `createCopilotEndpoint*` aliases were removed. Set `mode: "single-route"` for former single-route factories and `cors: true` to retain the old permissive default. Replace `handle(app)` and `app.fetch(request)` with direct handler calls. See [runtime HTTP handlers in 2.0](https://docs.copilotkit.ai/migrate/runtime-2.0) for CORS option changes and channel lifecycle.
 
 ## LangGraph
 

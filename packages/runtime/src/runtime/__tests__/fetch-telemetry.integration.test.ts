@@ -1,5 +1,6 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 /**
- * Integration test: Hono adapter + telemetry.
+ * Integration test: Fetch handler + telemetry.
  *
  * Asserts both ends of the path-to-production chain that the v2 refactor
  * previously broke (2ac4a40b5, 2026-03-29):
@@ -12,7 +13,6 @@
 import { expect, test, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { createCopilotHonoHandler } from "../endpoints/hono";
 import { CopilotRuntime } from "../core/runtime";
 
 function makeAgent(): AbstractAgent {
@@ -37,11 +37,11 @@ function setup() {
   };
 }
 
-test("Hono adapter fires instance_created on handler creation (multi-route)", async () => {
+test("Fetch handler fires instance_created on handler creation (multi-route)", async () => {
   const { runtime, captureSpy, teardown } = setup();
 
   try {
-    createCopilotHonoHandler({ runtime, basePath: "/" });
+    createCopilotRuntimeHandler({ cors: true, runtime, basePath: "/" });
 
     await vi.waitFor(() => {
       expect(captureSpy).toHaveBeenCalledWith(
@@ -59,13 +59,17 @@ test("Hono adapter fires instance_created on handler creation (multi-route)", as
   }
 });
 
-test("Hono adapter fires copilot_request_created for a real HTTP request", async () => {
+test("Fetch handler fires copilot_request_created for a real HTTP request", async () => {
   const { runtime, captureSpy, teardown } = setup();
 
   try {
-    const endpoint = createCopilotHonoHandler({ runtime, basePath: "/" });
+    const endpoint = createCopilotRuntimeHandler({
+      cors: true,
+      runtime,
+      basePath: "/",
+    });
 
-    await endpoint.fetch(
+    await endpoint(
       new Request("https://example.com/agent/default/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,13 +89,17 @@ test("Hono adapter fires copilot_request_created for a real HTTP request", async
   }
 });
 
-test("Hono adapter includes cloud.public_api_key when the header is present", async () => {
+test("Fetch handler includes cloud.public_api_key when the header is present", async () => {
   const { runtime, captureSpy, teardown } = setup();
 
   try {
-    const endpoint = createCopilotHonoHandler({ runtime, basePath: "/" });
+    const endpoint = createCopilotRuntimeHandler({
+      cors: true,
+      runtime,
+      basePath: "/",
+    });
 
-    await endpoint.fetch(
+    await endpoint(
       new Request("https://example.com/agent/default/run", {
         method: "POST",
         headers: {

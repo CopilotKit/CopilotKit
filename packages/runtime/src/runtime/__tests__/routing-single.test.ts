@@ -1,7 +1,7 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { createCopilotEndpointSingleRoute } from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
 
 describe("CopilotEndpointSingleRoute routing", () => {
@@ -31,7 +31,9 @@ describe("CopilotEndpointSingleRoute routing", () => {
 
   const callEndpoint = async (body: Record<string, unknown>) => {
     const runtime = createMockRuntime();
-    const endpoint = createCopilotEndpointSingleRoute({
+    const endpoint = createCopilotRuntimeHandler({
+      mode: "single-route",
+      cors: true,
       runtime,
       basePath: "/rpc",
     });
@@ -41,7 +43,7 @@ describe("CopilotEndpointSingleRoute routing", () => {
       body: JSON.stringify(body),
     });
 
-    return endpoint.fetch(request);
+    return endpoint(request);
   };
 
   describe("agent/run method", () => {
@@ -128,7 +130,9 @@ describe("CopilotEndpointSingleRoute routing", () => {
 
     it("handles query parameters", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpointSingleRoute({
+      const endpoint = createCopilotRuntimeHandler({
+        mode: "single-route",
+        cors: true,
         runtime,
         basePath: "/rpc",
       });
@@ -138,7 +142,7 @@ describe("CopilotEndpointSingleRoute routing", () => {
         body: JSON.stringify({ method: "info" }),
       });
 
-      const response = await endpoint.fetch(request);
+      const response = await endpoint(request);
       expect(response.status).toBe(200);
     });
   });
@@ -154,7 +158,9 @@ describe("CopilotEndpointSingleRoute routing", () => {
   describe("invalid inputs", () => {
     it("returns 415 for non-JSON content", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpointSingleRoute({
+      const endpoint = createCopilotRuntimeHandler({
+        mode: "single-route",
+        cors: true,
         runtime,
         basePath: "/rpc",
       });
@@ -164,7 +170,7 @@ describe("CopilotEndpointSingleRoute routing", () => {
         body: "method=info",
       });
 
-      const response = await endpoint.fetch(request);
+      const response = await endpoint(request);
       expect(response.status).toBe(415);
     });
 
@@ -176,7 +182,9 @@ describe("CopilotEndpointSingleRoute routing", () => {
 
     it("returns 404 for unmatched path", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpointSingleRoute({
+      const endpoint = createCopilotRuntimeHandler({
+        mode: "single-route",
+        cors: true,
         runtime,
         basePath: "/rpc",
       });
@@ -186,7 +194,7 @@ describe("CopilotEndpointSingleRoute routing", () => {
         body: JSON.stringify({ method: "info" }),
       });
 
-      const response = await endpoint.fetch(request);
+      const response = await endpoint(request);
       expect(response.status).toBe(404);
     });
   });

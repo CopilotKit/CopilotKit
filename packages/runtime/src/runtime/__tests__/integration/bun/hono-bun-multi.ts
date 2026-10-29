@@ -1,5 +1,6 @@
+import { createCopilotRuntimeHandler } from "../../../core/fetch-handler";
 import { Hono } from "hono";
-import { createCopilotHonoHandler } from "../../../endpoints/hono";
+
 import { createTestRuntime } from "../helpers/create-test-runtime";
 import type { ServerHandle } from "../servers/types";
 
@@ -10,7 +11,12 @@ export async function createHonoBunMultiServer(
 ): Promise<ServerHandle> {
   const runtime = createTestRuntime(opts);
   const app = new Hono();
-  app.route("/", createCopilotHonoHandler({ runtime, basePath: BASE_PATH }));
+  const handler = createCopilotRuntimeHandler({
+    cors: true,
+    runtime,
+    basePath: BASE_PATH,
+  });
+  app.all("*", (c) => handler(c.req.raw));
 
   const server = Bun.serve({ fetch: app.fetch, port: 0 });
   const port = server.port;

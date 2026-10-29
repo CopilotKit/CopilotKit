@@ -1,14 +1,11 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { describe, it, expect, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import {
-  createCopilotEndpoint,
-  createCopilotEndpointSingleRoute,
-} from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
 import type { CopilotSseRuntimeOptions } from "../core/runtime";
 
-describe("Hono adapter with hooks", () => {
+describe("Fetch handler with hooks", () => {
   const createMockAgent = () => {
     const agent: unknown = {
       execute: async () => ({ events: [] }),
@@ -27,13 +24,14 @@ describe("Hono adapter with hooks", () => {
       ...opts,
     });
 
-  describe("createCopilotEndpoint", () => {
+  describe("createCopilotRuntimeHandler", () => {
     const createEndpoint = (
-      hooks?: Parameters<typeof createCopilotEndpoint>[0]["hooks"],
+      hooks?: Parameters<typeof createCopilotRuntimeHandler>[0]["hooks"],
       runtimeOpts?: Partial<CopilotSseRuntimeOptions>,
     ) => {
       const runtime = createMockRuntime(runtimeOpts);
-      const endpoint = createCopilotEndpoint({
+      const endpoint = createCopilotRuntimeHandler({
+        cors: true,
         runtime,
         basePath: "/",
         hooks,
@@ -43,9 +41,7 @@ describe("Hono adapter with hooks", () => {
 
     it("routes GET /info correctly", async () => {
       const { endpoint } = createEndpoint();
-      const response = await endpoint.fetch(
-        new Request("https://example.com/info"),
-      );
+      const response = await endpoint(new Request("https://example.com/info"));
 
       expect(response.status).toBe(200);
       const body = await response.json();
@@ -54,7 +50,7 @@ describe("Hono adapter with hooks", () => {
 
     it("routes POST /agent/:id/run correctly", async () => {
       const { endpoint } = createEndpoint();
-      const response = await endpoint.fetch(
+      const response = await endpoint(
         new Request("https://example.com/agent/myAgent/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -73,7 +69,7 @@ describe("Hono adapter with hooks", () => {
       const onRequest = vi.fn();
       const { endpoint, runtime } = createEndpoint({ onRequest });
 
-      await endpoint.fetch(new Request("https://example.com/info"));
+      await endpoint(new Request("https://example.com/info"));
 
       expect(onRequest).toHaveBeenCalledTimes(1);
       expect(onRequest).toHaveBeenCalledWith(
@@ -97,17 +93,15 @@ describe("Hono adapter with hooks", () => {
         },
       });
 
-      const response = await endpoint.fetch(
-        new Request("https://example.com/info"),
-      );
+      const response = await endpoint(new Request("https://example.com/info"));
 
       expect(response.status).toBe(200);
       expect(response.headers.get("x-custom-header")).toBe("hello-from-hook");
     });
 
-    it("Hono CORS headers are present", async () => {
+    it("Fetch CORS headers are present", async () => {
       const { endpoint } = createEndpoint();
-      const response = await endpoint.fetch(
+      const response = await endpoint(
         new Request("https://example.com/info", {
           method: "OPTIONS",
           headers: {
@@ -121,15 +115,17 @@ describe("Hono adapter with hooks", () => {
     });
   });
 
-  describe("createCopilotEndpointSingleRoute", () => {
+  describe("createCopilotRuntimeHandler", () => {
     it("dispatches single-route with method envelope", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpointSingleRoute({
+      const endpoint = createCopilotRuntimeHandler({
+        mode: "single-route",
+        cors: true,
         runtime,
         basePath: "/rpc",
       });
 
-      const response = await endpoint.fetch(
+      const response = await endpoint(
         new Request("https://example.com/rpc", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

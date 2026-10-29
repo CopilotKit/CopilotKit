@@ -1,7 +1,8 @@
+import { createCopilotRuntimeHandler } from "../../../core/fetch-handler";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import type { AddressInfo } from "node:net";
-import { createCopilotHonoHandler } from "../../../endpoints/hono";
+
 import { createTestRuntime } from "../helpers/create-test-runtime";
 import type { ServerHandle } from "./types";
 
@@ -12,14 +13,13 @@ export async function createHonoSingleServer(
 ): Promise<ServerHandle> {
   const runtime = createTestRuntime(opts);
   const app = new Hono();
-  app.route(
-    "/",
-    createCopilotHonoHandler({
-      runtime,
-      basePath: BASE_PATH,
-      mode: "single-route",
-    }),
-  );
+  const handler = createCopilotRuntimeHandler({
+    cors: true,
+    runtime,
+    basePath: BASE_PATH,
+    mode: "single-route",
+  });
+  app.all("*", (c) => handler(c.req.raw));
 
   return new Promise((resolve) => {
     const server = serve({ fetch: app.fetch, port: 0 }, () => {

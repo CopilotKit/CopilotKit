@@ -26,7 +26,7 @@
     "esModuleInterop": true,
     "paths": {
       "express": ["../../node_modules/@types/express"],
-      "@copilotkit/runtime/express": ["../../dist/express.d.mts"],
+      "@copilotkit/runtime/node": ["../../dist/node.d.mts"],
       "@copilotkit/runtime": ["../../dist/index.d.mts"]
     }
   },

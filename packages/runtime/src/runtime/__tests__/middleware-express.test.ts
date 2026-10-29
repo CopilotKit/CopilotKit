@@ -1,9 +1,9 @@
+import { createCopilotNodeListener } from "../endpoints/node";
 import express from "express";
 import request from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { createCopilotEndpointExpress } from "../express";
 import { CopilotRuntime } from "../core/runtime";
 import type { CopilotSseRuntimeOptions } from "../core/runtime";
 import { logger } from "@copilotkit/shared";
@@ -23,7 +23,7 @@ describe("CopilotEndpointExpress middleware", () => {
 
   const buildApp = (runtime: CopilotRuntime) => {
     const app = express();
-    app.use(createCopilotEndpointExpress({ runtime, basePath: "/" }));
+    app.use(createCopilotNodeListener({ cors: true, runtime, basePath: "/" }));
     return app;
   };
 

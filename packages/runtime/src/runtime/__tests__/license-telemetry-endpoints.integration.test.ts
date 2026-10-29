@@ -1,3 +1,4 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 /**
  * Integration tests proving the license token (the Intelligence/EIP key that
  * carries telemetry_id) rides all the way to the telemetry sink through every
@@ -17,8 +18,6 @@ import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 import { lambdaClient } from "@copilotkit/shared";
 
-import { createCopilotHonoHandler } from "../endpoints/hono";
-import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime, CopilotIntelligenceRuntime } from "../core/runtime";
 import type { AgentRunner } from "../runner/agent-runner";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
@@ -69,15 +68,19 @@ describe("license token → telemetry sink across endpoints/modes (integration)"
     lambdaSpy.mockRestore();
   });
 
-  it("SSE via the Hono adapter forwards the token to the sink", async () => {
+  it("SSE via the Fetch handler forwards the token to the sink", async () => {
     const runtime = new CopilotRuntime({
       agents: { default: makeSseAgent() },
       runner: makeSseRunner(),
       licenseToken: TOKEN,
     });
-    const endpoint = createCopilotHonoHandler({ runtime, basePath: "/" });
+    const endpoint = createCopilotRuntimeHandler({
+      cors: true,
+      runtime,
+      basePath: "/",
+    });
 
-    await endpoint.fetch(runRequest());
+    await endpoint(runRequest());
 
     await vi.waitFor(() => {
       expect(lambdaSpy).toHaveBeenCalledWith(

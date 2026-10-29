@@ -338,9 +338,6 @@ importers:
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      hono:
-        specifier: '>=4.11.7'
-        version: 4.12.15
       next:
         specifier: 16.3.3
         version: 16.3.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(@types/node@20.19.27)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
@@ -1752,9 +1749,6 @@ importers:
       express:
         specifier: '>=4.20.0'
         version: 5.2.1
-      hono:
-        specifier: '>=4.11.7'
-        version: 4.12.15
       next:
         specifier: 15.5.24
         version: 15.5.24(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
@@ -2006,9 +2000,6 @@ importers:
       h3:
         specifier: ^1.15.4
         version: 1.15.11
-      hono:
-        specifier: '>=4.11.7'
-        version: 4.12.15
       nuxt:
         specifier: 3.17.5
         version: 3.17.5(@libsql/client@0.15.15)(@parcel/watcher@2.5.6)(@types/node@22.19.11)(better-sqlite3@12.5.0)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4(@libsql/client@0.15.15)(better-sqlite3@12.5.0))(encoding@0.1.13)(eslint@9.39.2(jiti@2.7.0))(ioredis@5.10.1)(less@4.6.7)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(srvx@0.11.15)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue-tsc@2.2.12(typescript@5.8.2))(xml2js@0.6.2)(yaml@2.9.0)
@@ -3249,9 +3240,6 @@ importers:
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
-      '@hono/node-server':
-        specifier: '>=1.19.13'
-        version: 2.0.0(hono@4.12.15)
       '@modelcontextprotocol/sdk':
         specifier: '>=1.26.0'
         version: 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
@@ -3261,18 +3249,9 @@ importers:
       '@scarf/scarf':
         specifier: ^1.3.0
         version: 1.4.0
-      '@types/cors':
-        specifier: ^2.8.17
-        version: 2.8.19
       ai:
         specifier: '>=5.0.52'
         version: 6.0.156(zod@3.25.76)
-      cors:
-        specifier: ^2.8.5
-        version: 2.8.5
-      hono:
-        specifier: '>=4.11.7'
-        version: 4.12.15
       openai:
         specifier: ^4.85.1 || >=5.0.0
         version: 4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76)
@@ -3304,6 +3283,9 @@ importers:
       '@copilotkit/channels':
         specifier: workspace:*
         version: link:../channels
+      '@hono/node-server':
+        specifier: '>=1.19.13'
+        version: 2.0.0(hono@4.12.15)
       '@swc/core':
         specifier: 1.5.28
         version: 1.5.28(@swc/helpers@0.5.23)
@@ -3346,6 +3328,9 @@ importers:
       express:
         specifier: '>=4.20.0'
         version: 5.2.1
+      hono:
+        specifier: '>=4.11.7'
+        version: 4.12.15
       nodemon:
         specifier: ^3.1.3
         version: 3.1.11
@@ -40328,7 +40313,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.5)(jsdom@26.1.0)(vite@8.1.5(@types/node@20.19.27)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
   '@vitest/expect@3.2.4':
     dependencies:

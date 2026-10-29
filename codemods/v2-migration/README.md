@@ -23,6 +23,13 @@ Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-
 - **Everything else** gets a `// TODO(copilotkit-2.0):` comment that names the 2.0 replacement and links its docs. The codemod does not rewrite a call whose arguments changed: `useCopilotAction` to `useFrontendTool` needs a Zod schema, and only you or an agent can write it.
 - **A skill.** The last step installs an agent skill that resolves the TODOs, updates `package.json`, and runs your build.
 
+## Runtime adapters in 2.0
+
+Express and Hono adapters were removed. Their imports receive a TODO, including
+imports from the former `/v2/express` and `/v2/hono` entry points. Migrate calls
+to the Fetch handler or Node listener using the [runtime migration guide](https://docs.copilotkit.ai/migrate/runtime-2.0). The codemod does not silently replace
+a router or Hono app with a function.
+
 ## Limits
 
 - Run it **before** you upgrade the packages. In v1, `@copilotkit/react-core` and `@copilotkit/runtime` mean the v1 API, so the codemod reads them that way. Running it again on its own output changes nothing.

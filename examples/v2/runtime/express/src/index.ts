@@ -1,6 +1,6 @@
 import express from "express";
 import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
-import { createCopilotExpressHandler } from "@copilotkit/runtime/express";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -10,7 +10,8 @@ const runtime = new CopilotRuntime({
 
 const app = express();
 app.use(
-  createCopilotExpressHandler({
+  createCopilotNodeListener({
+    cors: true,
     runtime,
     basePath: "/api/copilotkit",
   }),

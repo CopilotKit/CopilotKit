@@ -1,15 +1,11 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import { createCopilotNodeListener } from "../endpoints/node";
 import express from "express";
 import request from "supertest";
 import { describe, it, expect, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import {
-  createCopilotEndpoint,
-  createCopilotEndpointSingleRoute,
-} from "../endpoints";
-import { createCopilotEndpointExpress } from "../express";
-import { createCopilotEndpointSingleRouteExpress } from "../endpoints/express-single";
 import { CopilotRuntime } from "../core/runtime";
 import type { CopilotSseRuntimeOptions } from "../core/runtime";
 
@@ -68,23 +64,27 @@ describe("Backward compatibility", () => {
    * -------------------------------------------------------------------------- */
 
   describe("APIs work without hooks parameter", () => {
-    it("createCopilotEndpoint still works without hooks parameter (routes /info)", async () => {
+    it("createCopilotRuntimeHandler still works without hooks parameter (routes /info)", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
+      const endpoint = createCopilotRuntimeHandler({
+        cors: true,
+        runtime,
+        basePath: "/",
+      });
 
-      const response = await endpoint.fetch(
-        new Request("https://example.com/info"),
-      );
+      const response = await endpoint(new Request("https://example.com/info"));
 
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body).toHaveProperty("version");
     });
 
-    it("createCopilotEndpointExpress still works without hooks parameter (routes /info)", async () => {
+    it("createCopilotNodeListener still works without hooks parameter (routes /info)", async () => {
       const runtime = createMockRuntime();
       const app = express();
-      app.use(createCopilotEndpointExpress({ runtime, basePath: "/" }));
+      app.use(
+        createCopilotNodeListener({ cors: true, runtime, basePath: "/" }),
+      );
 
       const response = await request(app).get("/info");
 
@@ -92,14 +92,16 @@ describe("Backward compatibility", () => {
       expect(response.body).toHaveProperty("version");
     });
 
-    it("createCopilotEndpointSingleRoute still works without hooks parameter", async () => {
+    it("createCopilotRuntimeHandler still works without hooks parameter", async () => {
       const runtime = createMockRuntime();
-      const endpoint = createCopilotEndpointSingleRoute({
+      const endpoint = createCopilotRuntimeHandler({
+        mode: "single-route",
+        cors: true,
         runtime,
         basePath: "/rpc",
       });
 
-      const response = await endpoint.fetch(
+      const response = await endpoint(
         new Request("https://example.com/rpc", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -112,11 +114,13 @@ describe("Backward compatibility", () => {
       expect(body).toHaveProperty("version");
     });
 
-    it("createCopilotEndpointSingleRouteExpress still works without hooks parameter", async () => {
+    it("createCopilotNodeListener still works without hooks parameter", async () => {
       const runtime = createMockRuntime();
       const app = express();
       app.use(
-        createCopilotEndpointSingleRouteExpress({
+        createCopilotNodeListener({
+          mode: "single-route",
+          cors: true,
           runtime,
           basePath: "/rpc",
         }),
@@ -137,18 +141,17 @@ describe("Backward compatibility", () => {
    * -------------------------------------------------------------------------- */
 
   describe("adding hooks does not break routing", () => {
-    it("Hono endpoint with hooks still routes /info", async () => {
+    it("Fetch endpoint with hooks still routes /info", async () => {
       const runtime = createMockRuntime();
       const onRequest = vi.fn();
-      const endpoint = createCopilotEndpoint({
+      const endpoint = createCopilotRuntimeHandler({
+        cors: true,
         runtime,
         basePath: "/",
         hooks: { onRequest },
       });
 
-      const response = await endpoint.fetch(
-        new Request("https://example.com/info"),
-      );
+      const response = await endpoint(new Request("https://example.com/info"));
 
       expect(response.status).toBe(200);
       const body = await response.json();
@@ -156,16 +159,17 @@ describe("Backward compatibility", () => {
       expect(onRequest).toHaveBeenCalled();
     });
 
-    it("Hono endpoint with hooks still routes POST /agent/:id/run", async () => {
+    it("Fetch endpoint with hooks still routes POST /agent/:id/run", async () => {
       const runtime = createMockRuntime();
       const onBeforeHandler = vi.fn();
-      const endpoint = createCopilotEndpoint({
+      const endpoint = createCopilotRuntimeHandler({
+        cors: true,
         runtime,
         basePath: "/",
         hooks: { onBeforeHandler },
       });
 
-      const response = await endpoint.fetch(
+      const response = await endpoint(
         new Request("https://example.com/agent/default/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -193,7 +197,8 @@ describe("Backward compatibility", () => {
       const onRequest = vi.fn();
       const app = express();
       app.use(
-        createCopilotEndpointExpress({
+        createCopilotNodeListener({
+          cors: true,
           runtime,
           basePath: "/",
           hooks: { onRequest },
@@ -220,9 +225,13 @@ describe("Backward compatibility", () => {
       });
 
       const runtime = createMockRuntime({ beforeRequestMiddleware });
-      const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
+      const endpoint = createCopilotRuntimeHandler({
+        cors: true,
+        runtime,
+        basePath: "/",
+      });
 
-      await endpoint.fetch(new Request("https://example.com/info"));
+      await endpoint(new Request("https://example.com/info"));
 
       expect(beforeRequestMiddleware).toHaveBeenCalledTimes(1);
       expect(beforeRequestMiddleware).toHaveBeenCalledWith(
@@ -242,9 +251,13 @@ describe("Backward compatibility", () => {
       });
 
       const runtime = createMockRuntime({ afterRequestMiddleware });
-      const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
+      const endpoint = createCopilotRuntimeHandler({
+        cors: true,
+        runtime,
+        basePath: "/",
+      });
 
-      await endpoint.fetch(new Request("https://example.com/info"));
+      await endpoint(new Request("https://example.com/info"));
 
       // afterRequestMiddleware is fire-and-forget; give it a tick
       await new Promise((r) => setTimeout(r, 20));
@@ -265,9 +278,13 @@ describe("Backward compatibility", () => {
       const clone = vi.spyOn(Response.prototype, "clone");
       try {
         const runtime = createMockRuntime();
-        const endpoint = createCopilotEndpoint({ runtime, basePath: "/" });
+        const endpoint = createCopilotRuntimeHandler({
+          cors: true,
+          runtime,
+          basePath: "/",
+        });
 
-        const response = await endpoint.fetch(
+        const response = await endpoint(
           new Request("https://example.com/info"),
         );
 

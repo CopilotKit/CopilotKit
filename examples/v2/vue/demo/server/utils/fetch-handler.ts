@@ -7,11 +7,11 @@ import {
   sendStream,
   setResponseStatus,
 } from "h3";
-import type { Hono } from "hono";
+import type { CopilotRuntimeFetchHandler } from "@copilotkit/runtime";
 
 const NO_BODY_METHODS = new Set(["GET", "HEAD"]);
 
-export function defineHonoEventHandler(app: Hono) {
+export function defineFetchEventHandler(handler: CopilotRuntimeFetchHandler) {
   return defineEventHandler(async (event) => {
     const method = event.method?.toUpperCase() ?? "GET";
     const headers = new Headers();
@@ -42,7 +42,7 @@ export function defineHonoEventHandler(app: Hono) {
       body,
     });
 
-    const response = await app.fetch(request);
+    const response = await handler(request);
 
     setResponseStatus(event, response.status, response.statusText);
     response.headers.forEach((value, key) => {

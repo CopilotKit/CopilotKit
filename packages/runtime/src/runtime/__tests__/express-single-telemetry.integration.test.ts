@@ -1,13 +1,11 @@
+import { createCopilotNodeListener } from "../endpoints/node";
 /**
- * Integration test: Express single-route adapter (deprecated convenience
- * wrapper) + telemetry. This adapter delegates to createCopilotExpressHandler
- * with mode: "single-route".
+ * Integration test: Node single-route listener + telemetry.
  */
 import { expect, test, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import { createCopilotEndpointSingleRouteExpress } from "../endpoints/express-single";
 import { CopilotRuntime } from "../core/runtime";
 
 function makeAgent(): AbstractAgent {
@@ -34,14 +32,16 @@ function makeRuntime() {
   });
 }
 
-test("Express single-route adapter fires instance_created on handler creation", async () => {
+test("Node single-route listener fires instance_created on handler creation", async () => {
   const runtime = makeRuntime();
   const captureSpy = vi
     .spyOn(runtime.telemetry, "capture")
     .mockResolvedValue(undefined);
 
   try {
-    createCopilotEndpointSingleRouteExpress({
+    createCopilotNodeListener({
+      mode: "single-route",
+      cors: true,
       runtime,
       basePath: "/api/copilotkit",
     });

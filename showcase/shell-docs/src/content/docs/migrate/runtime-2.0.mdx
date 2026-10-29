@@ -1,0 +1,111 @@
+---
+title: Runtime HTTP handlers in 2.0
+description: Replace the Express and Hono runtime adapters with Fetch and Node handlers in CopilotKit 2.0.
+---
+
+CopilotKit 2.0 removes the runtime's Express and Hono adapters, their deprecated
+aliases, and the `/express` and `/hono` entry points. The runtime accepts standard
+Fetch requests or Node HTTP requests. Applications can still use Express or Hono
+as their host framework.
+
+This guide applies to **2.0**. Apps pinned to CopilotKit 1.x can keep their existing
+adapters until they upgrade. Run `npx codemod @copilotkit/v2-migration` before the
+upgrade; adapter imports receive a `TODO(copilotkit-2.0)` because their return
+values and CORS options need manual migration.
+
+## Fetch and Next.js
+
+Replace `createCopilotHonoHandler` or `createCopilotEndpoint` with
+`createCopilotRuntimeHandler`. It returns a function, not a Hono app. Remove
+`handle(app)` from `hono/vercel` and calls to `app.fetch(request)`.
+
+```ts
+import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;
+export const OPTIONS = handler;
+```
+
+For Bun, use `Bun.serve({ fetch: handler })`. For an existing Hono application,
+mount a route that passes the raw request to the handler:
+
+```ts
+app.all("/api/copilotkit/*", (c) => handler(c.req.raw));
+```
+
+## Node and Express
+
+Replace `createCopilotExpressHandler` or `createCopilotEndpointExpress` with
+`createCopilotNodeListener` from `@copilotkit/runtime/node`.
+
+```ts
+import { createServer } from "node:http";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
+
+const runtime = new CopilotRuntime({ agents: {} }); // Supply your agents.
+const listener = createCopilotNodeListener({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+createServer(listener).listen(4000);
+```
+
+In an Express app, mount it under the desired prefix and use a base path relative
+to that mount. Express strips the mount prefix from `req.url`:
+
+```ts
+app.use("/api/copilotkit", createCopilotNodeListener({
+  runtime,
+  basePath: "/",
+  cors: true,
+}));
+```
+
+The listener is not an Express router: move `.use()`, `.get()`, and other router
+configuration to the application's own router. Mount it only on the runtime
+path; unmatched requests return a runtime 404 rather than calling `next()`.
+Existing `express.json()` body parsing is supported.
+
+## Single-route endpoints
+
+For `createCopilotEndpointSingleRoute`, use `createCopilotRuntimeHandler` with
+`mode: "single-route"`. For `createCopilotEndpointSingleRouteExpress`, use
+`createCopilotNodeListener` with the same option. Keep the frontend's
+`useSingleEndpoint` setting and the existing endpoint URL.
+
+When mounting a single-route Fetch handler in Hono, register the exact base path
+as well as any desired wildcard route.
+
+## CORS and lifecycle
+
+The generic handlers default to no CORS. Pass `cors: true` to retain the old
+adapters' permissive default, or provide a `CopilotCorsConfig`. Express `cors`
+options are not accepted: `methods`, `allowedHeaders`, and `exposedHeaders` become
+`allowMethods`, `allowHeaders`, and `exposeHeaders`. Origin callbacks return a
+string or `null` synchronously; they do not receive an Express callback or Hono
+context. Use an explicit allowed origin when sending credentials.
+
+The Fetch handler creates its channel controls lazily and opens no connection at
+creation. On a long-running host, call `await handler.channels?.ready()` at startup
+if the runtime declares channels. Do not start persistent channels in a
+serverless route. The Node listener starts declared channels automatically;
+`listener.channels?.ready()` waits for that startup.
+
+## Dependency cleanup
+
+Remove `hono`, `@hono/node-server`, `express`, and `cors` from your app only if your
+own host code no longer uses them. CopilotKit no longer directly depends on these
+framework adapters, but the MCP SDK and MCP middleware can still install Express
+and Hono transitively.

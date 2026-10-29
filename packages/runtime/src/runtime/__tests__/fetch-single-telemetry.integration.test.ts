@@ -1,14 +1,10 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 /**
- * Integration test: Hono single-route adapter (deprecated path) + telemetry.
- *
- * `createCopilotEndpointSingleRoute` is the legacy direct single-route entry
- * point, superseded by `createCopilotHonoHandler({ mode: "single-route" })`
- * but still exported.
+ * Integration test: Fetch single-route handler + telemetry.
  */
 import { expect, test, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { createCopilotEndpointSingleRoute } from "../endpoints/hono-single";
 import { CopilotRuntime } from "../core/runtime";
 
 function makeAgent(): AbstractAgent {
@@ -17,14 +13,19 @@ function makeAgent(): AbstractAgent {
   return a as AbstractAgent;
 }
 
-test("Hono single-route adapter fires instance_created on handler creation", async () => {
+test("Fetch single-route handler fires instance_created on handler creation", async () => {
   const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
   const captureSpy = vi
     .spyOn(runtime.telemetry, "capture")
     .mockResolvedValue(undefined);
 
   try {
-    createCopilotEndpointSingleRoute({ runtime, basePath: "/api/copilotkit" });
+    createCopilotRuntimeHandler({
+      mode: "single-route",
+      cors: true,
+      runtime,
+      basePath: "/api/copilotkit",
+    });
 
     await vi.waitFor(() => {
       expect(captureSpy).toHaveBeenCalledWith(

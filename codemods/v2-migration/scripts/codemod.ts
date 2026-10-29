@@ -22,10 +22,31 @@ const PATHS: Record<string, string> = {
   "@copilotkit/react-ui/v2/styles.css": "@copilotkit/react-core/styles.css",
   "@copilotkit/react-ui/styles.css": "@copilotkit/react-core/styles.css",
   "@copilotkit/runtime/v2": "@copilotkit/runtime",
-  "@copilotkit/runtime/v2/express": "@copilotkit/runtime/express",
-  "@copilotkit/runtime/v2/hono": "@copilotkit/runtime/hono",
   "@copilotkit/runtime/v2/node": "@copilotkit/runtime/node",
 };
+
+/** Framework adapters were removed, not renamed: calls need manual migration. */
+const REMOVED_RUNTIME_PATHS = new Set([
+  "@copilotkit/runtime/express",
+  "@copilotkit/runtime/hono",
+  "@copilotkit/runtime/v2/express",
+  "@copilotkit/runtime/v2/hono",
+]);
+const RUNTIME_ADAPTERS = new Set([
+  "createCopilotExpressHandler",
+  "createCopilotEndpointExpress",
+  "createCopilotEndpointSingleRouteExpress",
+  "CopilotExpressRouter",
+  "CopilotExpressEndpointParams",
+  "createCopilotHonoHandler",
+  "createCopilotEndpoint",
+  "createCopilotEndpointSingleRoute",
+  "CopilotHonoApp",
+  "CopilotEndpointCorsConfig",
+]);
+const ADAPTER_NOTE =
+  'Express/Hono adapters were removed in 2.0. Use createCopilotRuntimeHandler from "@copilotkit/runtime" (Request => Response), or createCopilotNodeListener from "@copilotkit/runtime/node". Remove handle(app)/.fetch wrappers, set mode: "single-route" for single endpoints, and set cors explicitly. Router methods and framework CORS options require manual migration. See ' +
+  "https://docs.copilotkit.ai/migrate/runtime-2.0";
 
 /**
  * The 2.0 provider is `CopilotKitProvider`. `CopilotKit` was the v1 provider,
@@ -252,6 +273,20 @@ const codemod: Codemod<Lang> = async (root) => {
       return specifier.text.replace(specifier.name, target);
     };
 
+    const isRuntimeRoot =
+      from === "@copilotkit/runtime" || from === "@copilotkit/runtime/v2";
+    if (
+      REMOVED_RUNTIME_PATHS.has(from) ||
+      (isRuntimeRoot &&
+        (specifiers ?? []).some(({ name }) => RUNTIME_ADAPTERS.has(name)))
+    ) {
+      todos.push(ADAPTER_NOTE);
+      if (REMOVED_RUNTIME_PATHS.has(from)) {
+        replaceStatement(statement.text());
+        continue;
+      }
+    }
+
     const to = own(PATHS, from);
     if (to !== undefined) {
       const renamed = (specifiers ?? []).map(
@@ -272,7 +307,9 @@ const codemod: Codemod<Lang> = async (root) => {
           ),
         );
       } else {
-        edits.push(sourceNode.replace(requote(sourceNode, to)));
+        replaceStatement(
+          statement.text().replace(sourceNode.text(), requote(sourceNode, to)),
+        );
       }
       continue;
     }
@@ -299,7 +336,9 @@ const codemod: Codemod<Lang> = async (root) => {
         continue;
       }
       const entry = lookup(from, specifier.name);
-      todos.push(...todoLines(specifier.name, entry));
+      if (!(isRuntimeRoot && RUNTIME_ADAPTERS.has(specifier.name))) {
+        todos.push(...todoLines(specifier.name, entry));
+      }
       const replacement = entry?.replacement;
       const target =
         replacement?.name === specifier.name ? replacement.importPath : from;
@@ -328,11 +367,19 @@ const codemod: Codemod<Lang> = async (root) => {
   for (const string of rootNode.findAll({ rule: { kind: "string" } })) {
     const value = unquote(string);
     const moved = own(PATHS, value);
-    if (moved === undefined) continue;
     const parent = string.parent();
     if (parent?.kind() === "import_statement") continue;
     if (parent?.kind() === "export_statement") continue;
-    edits.push(string.replace(requote(string, moved)));
+    if (REMOVED_RUNTIME_PATHS.has(value)) {
+      const comment = `/* ${TODO} ${ADAPTER_NOTE} */`;
+      if (
+        !source.slice(0, string.range().start.index).trimEnd().endsWith(comment)
+      ) {
+        edits.push(string.replace(`${comment} ${string.text()}`));
+      }
+    } else if (moved !== undefined) {
+      edits.push(string.replace(requote(string, moved)));
+    }
   }
 
   for (const [from, to] of renameReferences) {

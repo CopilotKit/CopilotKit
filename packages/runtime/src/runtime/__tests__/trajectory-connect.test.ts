@@ -1,7 +1,8 @@
+import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { lambdaClient, logger } from "@copilotkit/shared";
 import { CopilotIntelligenceRuntime, CopilotRuntime } from "../core/runtime";
-import { createCopilotHonoHandler } from "../endpoints/hono";
+
 import { CopilotKitIntelligence } from "../intelligence-platform/client";
 
 const trajectoryId = "550e8400-e29b-41d4-a716-446655440000";
@@ -72,7 +73,8 @@ function setup(mode: Mode) {
     intelligence,
     identifyUser,
   });
-  const app = createCopilotHonoHandler({
+  const app = createCopilotRuntimeHandler({
+    cors: true,
     runtime,
     mode,
     basePath: "/api/copilotkit",
@@ -103,7 +105,7 @@ describe.each(["single-route", "multi-route"] as const)(
         appUserId: "spoofed-bare-user",
         learningContainerIds: ["browser-container"],
       });
-      const response = await app.fetch(request);
+      const response = await app(request);
 
       expect(response.status).toBe(200);
       expect(response.headers.get("Cache-Control")).toBe("no-store");
@@ -139,7 +141,7 @@ describe.each(["single-route", "multi-route"] as const)(
       "rejects unsafe trajectory ID %s before resolving identity",
       async (id) => {
         const { app, upstream, identifyUser } = setup(mode);
-        const response = await app.fetch(connectRequest(mode, id));
+        const response = await app(connectRequest(mode, id));
         expect(response.status).toBe(400);
         expect(await response.json()).toEqual({
           code: "INVALID_REQUEST",
@@ -155,7 +157,7 @@ describe.each(["single-route", "multi-route"] as const)(
       async (identity) => {
         const { app, upstream, identifyUser } = setup(mode);
         identifyUser.mockResolvedValue(identity);
-        const response = await app.fetch(connectRequest(mode));
+        const response = await app(connectRequest(mode));
         expect(response.status).toBe(401);
         expect(await response.json()).toMatchObject({
           code: "IDENTITY_REQUIRED",
@@ -167,7 +169,7 @@ describe.each(["single-route", "multi-route"] as const)(
     it("does not expose identifyUser failures or contact Intelligence", async () => {
       const { app, upstream, identifyUser } = setup(mode);
       identifyUser.mockRejectedValue(new Error("secret authentication detail"));
-      const response = await app.fetch(connectRequest(mode));
+      const response = await app(connectRequest(mode));
       expect(response.status).toBe(401);
       expect(await response.json()).toEqual({
         code: "IDENTITY_REQUIRED",
@@ -204,7 +206,7 @@ describe.each(["single-route", "multi-route"] as const)(
             { status: Number(status) },
           ),
         );
-        const response = await app.fetch(connectRequest(mode));
+        const response = await app(connectRequest(mode));
         expect(response.status).toBe(status);
         expect(response.headers.get("Cache-Control")).toBe("no-store");
         expect(await response.json()).toEqual({
@@ -232,7 +234,7 @@ describe.each(["single-route", "multi-route"] as const)(
             { status: Number(status) },
           ),
         );
-        const response = await app.fetch(connectRequest(mode));
+        const response = await app(connectRequest(mode));
         expect(response.status).toBe(502);
         expect(response.headers.get("Cache-Control")).toBe("no-store");
         expect(await response.json()).toEqual({
@@ -249,7 +251,7 @@ describe.each(["single-route", "multi-route"] as const)(
     ])("does not forward a non-public backend error (%j)", async (error) => {
       const { app, upstream } = setup(mode);
       upstream.mockResolvedValue(Response.json(error, { status: 503 }));
-      const response = await app.fetch(connectRequest(mode));
+      const response = await app(connectRequest(mode));
       expect(response.status).toBe(503);
       expect(await response.json()).toEqual({
         code: "CONNECTION_FAILED",
@@ -267,7 +269,7 @@ describe.each(["single-route", "multi-route"] as const)(
       const warn = vi.spyOn(logger, "warn").mockImplementation(() => {});
       const { app, upstream } = setup(mode);
       upstream.mockResolvedValue(Response.json(payload));
-      const response = await app.fetch(connectRequest(mode));
+      const response = await app(connectRequest(mode));
       expect(response.status).toBe(502);
       expect(await response.json()).toMatchObject({
         code: "CONNECTION_FAILED",
@@ -287,7 +289,7 @@ describe.each(["single-route", "multi-route"] as const)(
       vi.spyOn(intelligence, "ɵgetClientWsUrl").mockReturnValue(
         "https://gateway.example/client",
       );
-      const response = await app.fetch(connectRequest(mode));
+      const response = await app(connectRequest(mode));
       expect(response.status).toBe(502);
       expect(warn).toHaveBeenCalledWith(
         { trajectoryIdMatches: true },
@@ -302,7 +304,7 @@ describe.each(["single-route", "multi-route"] as const)(
           status: 404,
         }),
       );
-      const response = await app.fetch(connectRequest(mode));
+      const response = await app(connectRequest(mode));
       expect(response.status).toBe(404);
       expect(response.headers.get("Cache-Control")).toBe("no-store");
       expect(await response.json()).toEqual({
@@ -316,7 +318,7 @@ describe.each(["single-route", "multi-route"] as const)(
       upstream.mockRejectedValue(
         new Error(`connection failed using ${apiKey}`),
       );
-      const response = await app.fetch(connectRequest(mode));
+      const response = await app(connectRequest(mode));
       expect(response.status).toBe(502);
       expect(await response.json()).toEqual({
         code: "CONNECTION_FAILED",
@@ -327,12 +329,13 @@ describe.each(["single-route", "multi-route"] as const)(
     it("returns IDENTITY_REQUIRED when identifyUser is missing", async () => {
       const { runtime, upstream } = setup(mode);
       Object.defineProperty(runtime, "identifyUser", { value: undefined });
-      const app = createCopilotHonoHandler({
+      const app = createCopilotRuntimeHandler({
+        cors: true,
         runtime,
         mode,
         basePath: "/api/copilotkit",
       });
-      const response = await app.fetch(connectRequest(mode));
+      const response = await app(connectRequest(mode));
       expect(response.status).toBe(401);
       expect(await response.json()).toMatchObject({
         code: "IDENTITY_REQUIRED",
@@ -341,12 +344,13 @@ describe.each(["single-route", "multi-route"] as const)(
     });
 
     it("requires Intelligence configuration", async () => {
-      const app = createCopilotHonoHandler({
+      const app = createCopilotRuntimeHandler({
+        cors: true,
         runtime: new CopilotRuntime({ agents: {} }),
         mode,
         basePath: "/api/copilotkit",
       });
-      const response = await app.fetch(connectRequest(mode));
+      const response = await app(connectRequest(mode));
       expect(response.status).toBe(503);
       expect(await response.json()).toEqual({
         code: "INTELLIGENCE_RUNTIME_REQUIRED",
@@ -365,7 +369,7 @@ describe.each(["single-route", "multi-route"] as const)(
           { status: 404 },
         ),
       );
-      const response = await app.fetch(connectRequest(mode));
+      const response = await app(connectRequest(mode));
       expect(response.status).toBe(404);
       expect(warn).toHaveBeenCalledWith(
         { status: 404 },
@@ -401,7 +405,7 @@ describe.each(["single-route", "multi-route"] as const)(
             ? new Response(body, { status })
             : Response.json(body, { status }),
         );
-        const response = await app.fetch(connectRequest(mode));
+        const response = await app(connectRequest(mode));
         expect(await response.json()).toMatchObject({
           code: "CONNECTION_FAILED",
         });
@@ -430,7 +434,7 @@ describe.each(["single-route", "multi-route"] as const)(
           },
         ),
       );
-      await app.fetch(connectRequest(mode));
+      await app(connectRequest(mode));
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn.mock.calls[0]![0]).toEqual({
         error: "TypeError",
@@ -450,7 +454,7 @@ describe.each(["single-route", "multi-route"] as const)(
           { status: 403 },
         ),
       );
-      await app.fetch(connectRequest(mode));
+      await app(connectRequest(mode));
       expect(warn).not.toHaveBeenCalled();
     });
   },
@@ -461,7 +465,7 @@ it.each([null, 123, "", ".", ".."])(
   async (id) => {
     const { app, upstream } = setup("single-route");
     const request = connectRequest("single-route", id);
-    const response = await app.fetch(request);
+    const response = await app(request);
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ code: "INVALID_REQUEST" });
     expect(upstream).not.toHaveBeenCalled();

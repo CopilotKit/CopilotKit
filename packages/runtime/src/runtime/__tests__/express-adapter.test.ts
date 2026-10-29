@@ -1,11 +1,10 @@
+import { createCopilotNodeListener } from "../endpoints/node";
 import express from "express";
 import request from "supertest";
 import { describe, it, expect, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import { createCopilotEndpointExpress } from "../express";
-import { createCopilotEndpointSingleRouteExpress } from "../endpoints/express-single";
 import { CopilotRuntime } from "../core/runtime";
 import type { CopilotSseRuntimeOptions } from "../core/runtime";
 
@@ -60,12 +59,12 @@ describe("Express adapter with hooks", () => {
     });
   };
 
-  describe("createCopilotEndpointExpress", () => {
+  describe("createCopilotNodeListener", () => {
     const createApp = (
       runtimeOpts?: Partial<CopilotSseRuntimeOptions>,
       endpointOpts?: Partial<
         Omit<
-          Parameters<typeof createCopilotEndpointExpress>[0],
+          Parameters<typeof createCopilotNodeListener>[0],
           "runtime" | "basePath"
         >
       >,
@@ -73,7 +72,8 @@ describe("Express adapter with hooks", () => {
       const runtime = createMockRuntime(runtimeOpts);
       const app = express();
       app.use(
-        createCopilotEndpointExpress({
+        createCopilotNodeListener({
+          cors: true,
           runtime,
           basePath: "/",
           ...endpointOpts,
@@ -151,16 +151,16 @@ describe("Express adapter with hooks", () => {
     });
   });
 
-  describe("createCopilotEndpointSingleRouteExpress", () => {
+  describe("createCopilotNodeListener", () => {
     const createSingleApp = (
-      hooks?: Parameters<
-        typeof createCopilotEndpointSingleRouteExpress
-      >[0]["hooks"],
+      hooks?: Parameters<typeof createCopilotNodeListener>[0]["hooks"],
     ) => {
       const runtime = createMockRuntime();
       const app = express();
       app.use(
-        createCopilotEndpointSingleRouteExpress({
+        createCopilotNodeListener({
+          mode: "single-route",
+          cors: true,
           runtime,
           basePath: "/rpc",
           hooks,
