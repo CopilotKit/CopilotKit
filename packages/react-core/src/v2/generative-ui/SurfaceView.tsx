@@ -25,7 +25,11 @@ import type {
 import { shallowEqual } from "../lib/shallow-stable-ref";
 import { setterNameOf } from "./catalog";
 import type { ResolvedGenerativeUIComponent } from "./catalog";
-import { joinPath, resolvePath, tryResolveDynamicValue } from "./resolve";
+import {
+  joinPath,
+  resolvePath,
+  tryResolveDynamicValue,
+} from "@copilotkit/core/generative-ui";
 import {
   formatIssues,
   isAsyncIssue,
@@ -46,7 +50,10 @@ import {
 } from "./accessibility";
 import type { GenerativeUIAccessibility } from "./accessibility";
 import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui";
-import { invokeBoundEvent, invokeMatchedEvent } from "./events";
+import {
+  invokeBoundEvent,
+  invokeMatchedEvent,
+} from "@copilotkit/core/generative-ui";
 import {
   GenerativeUINodeContext,
   reportErrorSafely,
@@ -57,7 +64,7 @@ import { themeStyleSheet } from "@copilotkit/shared/generative-ui";
 import type {
   GenerativeUISurfaceManager,
   ManagedSurface,
-} from "./surface-manager";
+} from "@copilotkit/core/generative-ui";
 
 const NO_ANCESTORS: readonly string[] = [];
 const ROOT_STYLE = { display: "contents" } as const;

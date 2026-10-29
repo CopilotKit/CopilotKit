@@ -7,8 +7,8 @@ import {
   prepareSurfaceOperations,
   segmentSurfaceProse,
   splitA2UIMarkdown,
-} from "@copilotkit/core";
-import type { A2UIMarkdownOperation, ChildIdsOf } from "@copilotkit/core";
+} from "../a2ui-markdown";
+import type { A2UIMarkdownOperation, ChildIdsOf } from "../a2ui-markdown";
 import {
   A2UI_VERSION,
   GENERATIVE_UI_CHAT_TARGET,
@@ -26,10 +26,10 @@ import type {
   GenerativeUISurfaceContent,
   ValidateOperationOptions,
 } from "@copilotkit/shared";
-import { catalogIdsOf } from "../catalog";
-import type { GenerativeUI } from "../catalog";
+import { catalogIdsOf } from "@copilotkit/shared/generative-ui";
+import type { GenerativeUI } from "@copilotkit/shared/generative-ui";
 import { toJsonSchema } from "@copilotkit/shared/generative-ui";
-import type { GenerativeUISurfaceManager } from "../surface-manager";
+import type { GenerativeUISurfaceManager } from "./surface-manager";
 import { isRecord } from "@copilotkit/shared/generative-ui";
 
 /** What renders in place of one ```a2ui fence, in order. */

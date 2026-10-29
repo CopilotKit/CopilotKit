@@ -53,7 +53,7 @@ function tokenize(source: string): Token[] {
   const tokens: Token[] = [];
   let i = 0;
   while (i < source.length) {
-    const char = source[i];
+    const char = source.charAt(i);
     if (/\s/.test(char)) {
       i++;
       continue;
@@ -73,7 +73,7 @@ function tokenize(source: string): Token[] {
       i++;
       while (i < source.length && source[i] !== char) {
         if (source[i] === "\\" && i + 1 < source.length) i++;
-        value += source[i++];
+        value += source.charAt(i++);
       }
       if (i >= source.length)
         throw new ExpressionError("calc: unclosed string");
@@ -122,18 +122,18 @@ function describe(value: unknown) {
 const MATH: Record<string, (args: number[]) => number> = {
   min: (args) => Math.min(...args),
   max: (args) => Math.max(...args),
-  abs: ([x]) => Math.abs(x),
-  floor: ([x]) => Math.floor(x),
-  ceil: ([x]) => Math.ceil(x),
-  round: ([x, decimals = 0]) => {
+  abs: ([x = Number.NaN]) => Math.abs(x),
+  floor: ([x = Number.NaN]) => Math.floor(x),
+  ceil: ([x = Number.NaN]) => Math.ceil(x),
+  round: ([x = Number.NaN, decimals = 0]) => {
     const factor = 10 ** Math.trunc(decimals);
     return Math.round(x * factor) / factor;
   },
-  pow: ([x, y]) => x ** y,
-  sqrt: ([x]) => Math.sqrt(x),
-  exp: ([x]) => Math.exp(x),
-  ln: ([x]) => Math.log(x),
-  log10: ([x]) => Math.log10(x),
+  pow: ([x = Number.NaN, y = Number.NaN]) => x ** y,
+  sqrt: ([x = Number.NaN]) => Math.sqrt(x),
+  exp: ([x = Number.NaN]) => Math.exp(x),
+  ln: ([x = Number.NaN]) => Math.log(x),
+  log10: ([x = Number.NaN]) => Math.log10(x),
 };
 
 /** How many args a function takes, at least and at most; min and max take any. */
@@ -154,6 +154,8 @@ const CONSTANTS: Record<string, number> = { pi: Math.PI, e: Math.E };
 
 // ---- Parser ----
 
+const END: Token = { kind: "end" };
+
 class CalcParser {
   private pos = 0;
 
@@ -163,10 +165,15 @@ class CalcParser {
     private readonly source: string,
   ) {}
 
+  /** The current token. The list always ends with an "end" token. */
+  private peek(): Token {
+    return this.tokens[this.pos] ?? END;
+  }
+
   parse(): Value {
     const value = this.ternary();
-    if (this.tokens[this.pos].kind !== "end") {
-      this.fail(`unexpected "${this.text(this.tokens[this.pos])}"`);
+    if (this.peek().kind !== "end") {
+      this.fail(`unexpected "${this.text(this.peek())}"`);
     }
     return value;
   }
@@ -180,7 +187,7 @@ class CalcParser {
   }
 
   private peekOp(...ops: string[]) {
-    const token = this.tokens[this.pos];
+    const token = this.peek();
     return token.kind === "op" && ops.includes(token.value)
       ? token.value
       : undefined;
@@ -188,9 +195,7 @@ class CalcParser {
 
   private expectOp(op: string) {
     if (this.peekOp(op) === undefined) {
-      this.fail(
-        `expected "${op}" but found "${this.text(this.tokens[this.pos])}"`,
-      );
+      this.fail(`expected "${op}" but found "${this.text(this.peek())}"`);
     }
     this.pos++;
   }
@@ -363,7 +368,8 @@ class CalcParser {
   }
 
   private primary(): Value {
-    const token = this.tokens[this.pos++];
+    const token = this.peek();
+    this.pos++;
     switch (token.kind) {
       case "number":
         return token.value;
@@ -414,9 +420,8 @@ class CalcParser {
     }
     if (this.skipDepth > 0) return null;
     if (!Object.prototype.hasOwnProperty.call(this.scope, name)) {
-      if (Object.prototype.hasOwnProperty.call(CONSTANTS, name)) {
-        return CONSTANTS[name];
-      }
+      const constant = CONSTANTS[name];
+      if (constant !== undefined) return constant;
       this.fail(`unknown name ${name}; pass it as an arg`);
     }
     const value = this.scope[name];

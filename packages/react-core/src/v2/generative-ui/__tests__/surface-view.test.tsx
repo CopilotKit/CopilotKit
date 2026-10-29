@@ -15,7 +15,7 @@ import type {
   GenerativeUIFunctionArgs,
   GenerativeUIStateOf,
 } from "../catalog";
-import { createGenerativeUIDispatcher } from "../dispatcher";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
 import type {
   GenerativeUIErrorInfo,
   GenerativeUIEventHandler,
@@ -23,8 +23,8 @@ import type {
 import { useGenerativeUIFunction, useGenerativeUIState } from "../hooks";
 import { GenerativeUIRuntimeContext } from "../runtime-context";
 import type { GenerativeUIRuntime } from "../runtime-context";
-import { invokeBoundEvent } from "../events";
-import { GenerativeUISurfaceManager } from "../surface-manager";
+import { invokeBoundEvent } from "@copilotkit/core/generative-ui";
+import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
 import { SurfaceView } from "../SurfaceView";
 
 const mounts = new Map<string, number>();

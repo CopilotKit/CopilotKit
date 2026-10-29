@@ -91,7 +91,7 @@ describe("resolveDynamicValue: function values", () => {
         monthlyCost: { "@path": "/monthlyCost" },
       },
     };
-    expect(GENERATIVE_UI_FUNCTIONS.series.description).toContain(
+    expect(GENERATIVE_UI_FUNCTIONS.series?.description).toContain(
       JSON.stringify(example),
     );
     const state = { monthlyCost: 75 };

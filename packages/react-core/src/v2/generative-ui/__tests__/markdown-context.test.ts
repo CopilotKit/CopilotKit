@@ -6,16 +6,16 @@ import {
   GENERATIVE_UI_MARKDOWN_GUIDELINES,
   renderGenerativeUISchema,
 } from "@copilotkit/shared";
-import { createGenerativeUIDispatcher } from "../dispatcher";
+import { createGenerativeUIDispatcher } from "@copilotkit/core/generative-ui";
 import { exportA2UICatalog } from "@copilotkit/shared/generative-ui";
-import { buildGenerativeUIManifest } from "../manifest";
+import { buildGenerativeUIManifest } from "@copilotkit/core/generative-ui";
 import { standardUI } from "../standard";
-import { GenerativeUISurfaceManager } from "../surface-manager";
+import { GenerativeUISurfaceManager } from "@copilotkit/core/generative-ui";
 import type {
   GenerativeUIJSONSchema,
   GenerativeUIManifest,
 } from "@copilotkit/shared";
-import { buildCompactGenerativeUISchema } from "../markdown/context";
+import { buildCompactGenerativeUISchema } from "@copilotkit/shared";
 
 function createManifest(
   overrides?: Partial<GenerativeUIManifest>,

@@ -25,8 +25,8 @@ import type {
   GenerativeUISurfaceSummary,
   OperationKind,
 } from "@copilotkit/shared";
-import { catalogIdsOf } from "./catalog";
-import type { GenerativeUI } from "./catalog";
+import { catalogIdsOf } from "@copilotkit/shared/generative-ui";
+import type { GenerativeUI } from "@copilotkit/shared/generative-ui";
 import {
   formatIssues,
   isAsyncIssue,
