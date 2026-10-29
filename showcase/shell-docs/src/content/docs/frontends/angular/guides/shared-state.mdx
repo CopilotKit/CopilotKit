@@ -12,6 +12,114 @@ Shared state and agent context solve two different data flows.
 | Agent and application both read and write the value | `injectAgentStore` and `agent.setState` |
 | The application owns the value and the agent only reads it | `connectAgentContext` or `CopilotKitAgentContext` |
 
+## Prepare the agent backend
+
+Start with a connected agent from the [Angular quickstart](/angular/quickstart).
+The Angular APIs below are the frontend half of shared state; they do not
+create a backend state schema or make every state field visible to the model.
+
+Before using the `WorkspaceState` example, configure your backend to:
+
+1. Accept the same `notes` and `priority` fields in its state schema.
+2. Read those fields in agent code. If the model needs them, expose the
+   relevant values through its prompt, middleware, or a tool. Storing a field
+   in graph state alone does not add it to a model request.
+3. Write agent changes back to that state and return them through the
+   integration's AG-UI state events, so `store().state()` receives them.
+
+The setup depends on your backend:
+
+### LangGraph
+
+Declare custom fields in the backend schema. For a Python `create_agent`
+agent, register that schema and explicitly expose the fields the model
+needs:
+
+```python title="agent.py"
+from typing import Literal
+from langchain.agents import AgentState, create_agent
+from copilotkit import CopilotKitMiddleware
+
+class WorkspaceState(AgentState):
+    notes: list[str]
+    priority: Literal["low", "normal", "high"]
+
+agent = create_agent(
+    model="openai:gpt-5-mini",
+    state_schema=WorkspaceState,
+    middleware=[CopilotKitMiddleware(expose_state=["priority"])],
+)
+```
+
+For a hand-built `StateGraph`, register the custom schema with
+`StateGraph(WorkspaceState)` and read the state in your model-calling node
+when building its prompt. `CopilotKitMiddleware` is for the agent builder;
+adding a schema to a graph does not add middleware to its nodes.
+
+Return state changes from nodes or tools. The
+[read/write agent implementation](https://github.com/CopilotKit/CopilotKit/blob/main/showcase/integrations/langgraph-python/src/agents/shared_state_read_write.py)
+shows a state-writing tool and a custom model-call middleware.
+
+### Deep Agents
+
+For Python Deep Agents, extend `DeepAgentState` to retain its built-in state
+behavior, then pass the schema to `create_deep_agent`:
+
+```python title="agent.py"
+from typing import Literal
+from deepagents import create_deep_agent
+from deepagents.graph import DeepAgentState
+from copilotkit import CopilotKitMiddleware
+
+class WorkspaceState(DeepAgentState):
+    notes: list[str]
+    priority: Literal["low", "normal", "high"]
+
+agent = create_deep_agent(
+    model="openai:gpt-5-mini",
+    state_schema=WorkspaceState,
+    middleware=[CopilotKitMiddleware(expose_state=["priority"])],
+)
+```
+
+In both Python examples, the schema keeps custom fields in graph state;
+`expose_state=["priority"]` separately adds the current priority to the
+model's input. Exposure is off by default. Only allowlist values the model
+needs; `notes` remains shared state without being exposed by this setting.
+Declaring a Python class without registering it does not change the
+agent's schema, and a chat-only schema will not retain these custom fields.
+
+For TypeScript Deep Agents, register a
+`createMiddleware({ stateSchema: ... })` middleware with `createDeepAgent`,
+and use a model-call middleware or tool to read the needed fields. See the
+[Deep Agents state guide](/deepagents/shared-state/in-app-agent-read).
+
+### Mastra
+
+For the local Mastra adapter (`MastraAgent.getLocalAgents`), configure the
+agent with `Memory`, a storage adapter, and
+`workingMemory: { enabled: true, schema: ... }`. Include the shared fields in
+that schema. The adapter maps shared state to Mastra working memory.
+
+Mastra already includes enabled working memory in the model's context.
+Use agent instructions to explain how to use `priority` and update `notes`;
+you do not need to copy the LangGraph prompt-injection middleware. See the
+[Mastra shared-state setup](/mastra/shared-state/in-app-agent-read) for the
+local adapter and memory configuration.
+
+### Treat persistence separately
+
+`agent.setState` updates the client-side state sent with the next agent run.
+It does not start a run or confirm a durable backend write. Send a chat
+message to run the agent with the new state.
+
+To retain state across runs or reconnects, configure the backend's
+checkpointer or storage and use the same thread identity. For Mastra, also
+keep the resource identity and working-memory scope consistent. Use durable
+storage if state must survive a server restart; an in-memory store cannot
+provide that guarantee. Persistence does not, by itself, make custom graph
+state visible to the model.
+
 ## Read agent state
 
 `injectAgentStore` returns a signal that resolves one agent. The store exposes
@@ -69,7 +177,26 @@ The same store gives you:
 - `store().isRunning()` for loading controls
 - `store().agent` for `setState`, `addMessage`, `runAgent`, and `abortRun`
 
+To verify the connection, click **Mark high priority**, then send a chat
+message. Check that the backend receives `priority: "high"` and that the
+model input includes it if the response should use it. Then have your
+backend update `notes` and confirm the list changes in Angular. A local UI
+update alone does not verify either backend acceptance or model visibility.
+
 ## Send read-only application context
+
+The backend must consume the AG-UI context sent with the run. For LangGraph
+and Deep Agents built with the Python agent factories above,
+`CopilotKitMiddleware` adds application context to the model request; this
+is separate from its opt-in `expose_state` setting.
+
+For Mastra, incoming application context is available in
+`requestContext.get("ag-ui").context`, but is not automatically added to the
+model's instructions. Read the relevant entries in the agent's dynamic
+`instructions` callback, as shown in the backend step of
+[Agent App Context](/mastra/agent-app-context). Enabling working memory alone
+does not wire up this separate context channel. Treat client-provided
+context as data, not as authorization or trusted instructions.
 
 Use `connectAgentContext` for values such as the signed-in user's name,
 selected record, timezone, or current screen. Pass an accessor so signal reads
