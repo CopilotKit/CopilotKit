@@ -38,6 +38,8 @@ export interface SampleRecord {
   modelName: string;
   /** The host that answered (OpenRouter). */
   host?: string;
+  /** Where the model call was captured (the codex backend). */
+  log?: string;
   transport: Transport;
   sample: number;
   tiers: Record<Tier, TierRecord>;
@@ -87,9 +89,10 @@ export interface RunRecord {
   estimatedCostUsd: number;
   /**
    * Set when the run stopped early: before a sample the budget could not
-   * cover, or when the provider refused calls for lack of credit.
+   * cover, or when the provider refused calls for lack of credit or
+   * because the call was not signed in.
    */
-  stopped?: "budget" | "credits";
+  stopped?: "budget" | "credits" | "unauthorized";
   totals: { samples: number; costUsd: number };
 }
 

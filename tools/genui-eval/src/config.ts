@@ -8,8 +8,9 @@ const modelEntry = z.object({
   /** The short name used in presets and reports, e.g. "claude". */
   id: z.string().min(1),
   /**
-   * The OpenRouter model, e.g. "anthropic/claude-sonnet-4.5", or
-   * "fake:<script>" for the offline fake (no key, replies from
+   * The OpenRouter model, e.g. "anthropic/claude-sonnet-4.5",
+   * "codex:<model>" for the local Codex CLI (e.g. "codex:gpt-5.6-luna", no
+   * key), or "fake:<script>" for the offline fake (no key, replies from
    * `fixtures/<script>/`).
    */
   model: z.string().min(1),
@@ -19,7 +20,9 @@ const modelEntry = z.object({
     .object({
       temperature: z.number().optional(),
       maxOutputTokens: z.number().int().positive().optional(),
-      reasoningEffort: z.enum(["low", "medium", "high"]).optional(),
+      reasoningEffort: z
+        .enum(["low", "medium", "high", "xhigh", "max"])
+        .optional(),
     })
     .optional(),
 });
@@ -115,6 +118,10 @@ export function defineEvalConfig(config: EvalConfigInput): EvalConfig {
   return parsed.data;
 }
 
+/** A model string rather than a config id: "codex:<model>", "fake:<script>" or an OpenRouter "<vendor>/<model>". */
+export const isModelString = (value: string) =>
+  /^(codex|fake):.+|.+\/.+/.test(value);
+
 /** What a run uses, after the preset and the command-line overrides. */
 export interface ResolvedPlan {
   preset: string;
@@ -140,6 +147,10 @@ export function resolvePlan(
     cases?: Preset["cases"];
     samples?: number;
     transports?: Transport[];
+    /** The judge model, instead of the preset's or the config's. */
+    judge?: string;
+    /** The reasoning effort of every model under test. */
+    reasoningEffort?: NonNullable<ModelEntry["params"]>["reasoningEffort"];
   } = {},
 ): ResolvedPlan {
   const p = config.presets[presetName];
@@ -149,14 +160,23 @@ export function resolvePlan(
     );
   }
   const ids = overrides.models ?? (p.models === "all" ? undefined : p.models);
-  const models = ids
+  const listed = ids
     ? ids.map((id) => {
         const entry = config.models.find((m) => m.id === id);
-        if (!entry) throw new Error(`Unknown model "${id}"`);
-        return entry;
+        if (entry) return entry;
+        // A model string that is not in the config, e.g. "codex:gpt-5.6-luna"
+        // or "openai/gpt-6.1-terra", runs as it is, named after itself.
+        if (isModelString(id)) return { id, model: id };
+        throw new Error(`Unknown model "${id}"`);
       })
     : config.models;
-  const judge = p.judge ?? config.judge.model;
+  const models = overrides.reasoningEffort
+    ? listed.map((entry) => ({
+        ...entry,
+        params: { ...entry.params, reasoningEffort: overrides.reasoningEffort },
+      }))
+    : listed;
+  const judge = overrides.judge ?? p.judge ?? config.judge.model;
   if (models.some((m) => m.model === judge)) {
     throw new Error(
       `The judge "${judge}" is also a model under test; pick another judge or model set.`,

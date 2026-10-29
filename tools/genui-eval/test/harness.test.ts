@@ -1,3 +1,4 @@
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { describe, expect, it } from "vitest";
 import { loadCases } from "../src/cases";
 import { createFakeModel } from "../src/fake";
@@ -201,5 +202,31 @@ describe("applyPatch", () => {
       { op: "remove", path: "/extra" },
     ]);
     expect(target).toEqual({ operations: [1, 2], status: "complete" });
+  });
+});
+
+describe("the markdown transport", () => {
+  it("sends the model the system prompt and the conversation, and no tools", async () => {
+    const { MockLanguageModelV3 } = await import("ai/test");
+    const seen: Array<{ tools?: unknown; roles: string[] }> = [];
+    const spy = new MockLanguageModelV3({
+      doStream: async (options) => {
+        seen.push({
+          tools: options.tools,
+          roles: options.prompt.map((m) => m.role),
+        });
+        return (createFakeModel("fake:offline") as LanguageModelV3).doStream(
+          options,
+        );
+      },
+    });
+    await runSample({
+      case: cases["capital-of-france"],
+      transport: "markdown",
+      entry: { model: "x/y" },
+      model: spy,
+    });
+    expect(seen[0].tools).toBeUndefined();
+    expect(seen[0].roles).toEqual(["system", "user"]);
   });
 });

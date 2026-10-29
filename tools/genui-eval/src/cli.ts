@@ -19,7 +19,8 @@ const TOOL_ROOT = fileURLToPath(new URL("../", import.meta.url));
 
 const USAGE = `genui-eval: measure and improve the A2UI output of the generative UI prompts
 
-  run        [--preset full] [--models a,b] [--cases all|tag:<t>] [--samples n]
+  run        [--preset full] [--models a,b] [--judge model] [--effort low|medium|high|xhigh|max]
+             [--cases all|tag:<t>] [--samples n]
              [--transports markdown,tool] [--split both|train|heldout]
              [--budget usd] [--spec file.json] [--estimate]
   report     <run|latest> [--base <run>]
@@ -31,13 +32,17 @@ const USAGE = `genui-eval: measure and improve the A2UI output of the generative
   calibrate  <labels.jsonl>              agreement of the judge with the hand labels
 
 Every command takes --json and --config <file> (default eval.config.ts).
-Real models need OPENROUTER_API_KEY; --preset offline needs none.`;
+--models takes config ids or model strings: "codex:gpt-5.6-luna" runs through the
+local Codex CLI (signed in with ChatGPT, one call at a time, captured in results/codex/).
+OpenRouter models need OPENROUTER_API_KEY; codex models and --preset offline need none.`;
 
 const options = {
   json: { type: "boolean" },
   config: { type: "string" },
   preset: { type: "string" },
   models: { type: "string" },
+  judge: { type: "string" },
+  effort: { type: "string" },
   cases: { type: "string" },
   samples: { type: "string" },
   transports: { type: "string" },
@@ -92,8 +97,17 @@ function planOf(config: EvalConfig, values: Values) {
   for (const t of transports ?? []) {
     if (!TRANSPORTS.includes(t)) throw new Error(`Unknown transport "${t}"`);
   }
+  const efforts = ["low", "medium", "high", "xhigh", "max"] as const;
+  const effort = values.effort as (typeof efforts)[number] | undefined;
+  if (effort && !efforts.includes(effort)) {
+    throw new Error(
+      `--effort must be one of ${efforts.join(", ")}, got "${effort}"`,
+    );
+  }
   return resolvePlan(config, values.preset ?? "full", {
     models: list(values.models),
+    judge: values.judge,
+    reasoningEffort: effort,
     cases: values.cases as Preset["cases"] | undefined,
     samples: num(values.samples, "samples"),
     transports,

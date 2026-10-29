@@ -123,14 +123,24 @@ export function promptFingerprint(
   return { hashes, sizes, bounds };
 }
 
-/** Whether a run error says the provider is out of credit (OpenRouter's 402). */
-export function isOutOfCredit(reason: string) {
-  return (
-    reason.startsWith("run error:") &&
-    /available credits|insufficient credits|more credits|payment required|\b402\b/i.test(
+/**
+ * Why a run error stops the run, when it says nothing about the model: the
+ * provider is out of credit (OpenRouter's 402, a codex usage limit), or the
+ * call was not signed in (401).
+ */
+export function providerStop(
+  reason: string,
+): "credits" | "unauthorized" | undefined {
+  if (!reason.startsWith("run error:")) return undefined;
+  if (
+    /available credits|insufficient credits|more credits|payment required|\b402\b|usage limit/i.test(
       reason,
     )
-  );
+  ) {
+    return "credits";
+  }
+  if (/\b401\b|unauthorized|not signed in/i.test(reason)) return "unauthorized";
+  return undefined;
 }
 
 /** The estimated cost of a whole run. */
@@ -262,10 +272,14 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
           judgeModel,
           checker,
         });
-        // A provider out of credit says nothing about the model: stop the
-        // run and keep the sample out, instead of scoring it as a failure.
-        if (sample.tiers.validity.reasons.some(isOutOfCredit)) {
-          run.stopped = "credits";
+        // A provider out of credit or not signed in says nothing about the
+        // model: stop the run and keep the sample out, instead of scoring it
+        // as a failure.
+        const stop = sample.tiers.validity.reasons
+          .map(providerStop)
+          .find(Boolean);
+        if (stop) {
+          run.stopped = stop;
           return;
         }
         appendSample(run.id, sample, root);
@@ -336,6 +350,7 @@ async function runTask(
     model: task.entry.id,
     modelName: task.entry.model,
     ...(meta.host ? { host: meta.host } : {}),
+    ...(meta.log ? { log: meta.log } : {}),
     transport: task.transport,
     sample: task.sample,
     tiers: {

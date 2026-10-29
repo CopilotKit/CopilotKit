@@ -1,6 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
 import type { ModelEntry } from "./config";
+import { createCodexModel, isCodexModel } from "./codex";
 import { createFakeModel } from "./fake";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -11,6 +12,8 @@ export interface CallMeta {
   host?: string;
   /** The cost of the call in USD, as OpenRouter bills it. */
   costUsd?: number;
+  /** Where the call was captured (the codex backend). */
+  log?: string;
 }
 
 /** True for the offline fake, which needs no key. */
@@ -18,12 +21,17 @@ export function isFakeModel(model: string) {
   return model.startsWith("fake:");
 }
 
+/** True for a model that costs nothing per call: the fake and the codex backend. */
+export function isFreeModel(model: string) {
+  return isFakeModel(model) || isCodexModel(model);
+}
+
 /**
- * Fails before any call when a real model is in use and
- * `OPENROUTER_API_KEY` is not set. Fake models need no key.
+ * Fails before any call when an OpenRouter model is in use and
+ * `OPENROUTER_API_KEY` is not set. Fake and codex models need no key.
  */
 export function requireKey(models: readonly string[], env = process.env) {
-  const real = models.filter((m) => !isFakeModel(m));
+  const real = models.filter((m) => !isFreeModel(m));
   if (real.length > 0 && !env.OPENROUTER_API_KEY) {
     throw new Error(
       `OPENROUTER_API_KEY is not set (needed for: ${[...new Set(real)].join(", ")}). Use --preset offline to run without a key.`,
@@ -119,8 +127,9 @@ export function openRouterFetch(
 
 /**
  * The AI SDK model of an entry: OpenRouter through its OpenAI-compatible
- * Chat Completions API, or the offline fake for `fake:<script>`.
- * `report` gets the host and cost of each call.
+ * Chat Completions API, the local Codex CLI for `codex:<model>`, or the
+ * offline fake for `fake:<script>`. `report` gets the host and cost of each
+ * call (OpenRouter), or where it was captured (codex).
  */
 export function createLanguageModel(
   entry: Pick<ModelEntry, "model" | "provider" | "params">,
@@ -128,6 +137,7 @@ export function createLanguageModel(
   env = process.env,
 ): LanguageModel {
   if (isFakeModel(entry.model)) return createFakeModel(entry.model);
+  if (isCodexModel(entry.model)) return createCodexModel(entry, report);
   requireKey([entry.model], env);
   const openrouter = createOpenAI({
     baseURL: OPENROUTER_BASE_URL,

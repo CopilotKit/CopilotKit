@@ -23,6 +23,24 @@ pnpm -s --filter genui-eval eval run --preset gpt                 # the first ba
 pnpm -s --filter genui-eval eval run --preset full --budget 40     # all five models
 ```
 
+## Backends
+
+A model string picks the backend:
+
+- `openai/gpt-5.6-luna`, `anthropic/claude-sonnet-5.5`, …: [OpenRouter](https://openrouter.ai), with `OPENROUTER_API_KEY` (or `tools/genui-eval/.env`).
+- `codex:gpt-5.6-luna`, `codex:gpt-6-astra`, …: the local [Codex CLI](https://github.com/openai/codex), signed in with ChatGPT (`codex login`). No key and no per-call cost. Calls run one at a time.
+- `fake:<script>`: the offline fake, for tests.
+
+Pass a model string straight to `--models`, and pick the judge and the reasoning effort the same way:
+
+```sh
+pnpm -s --filter genui-eval eval run --preset smoke --models codex:gpt-5.6-luna --judge codex:gpt-6-astra --effort medium
+```
+
+In the markdown transport every backend gets the same request: the system prompt the agent builds and the conversation, no tools. The codex backend makes `codex exec` as close to a plain model call as the CLI allows: the system prompt replaces Codex's own instructions (`model_instructions_file`), it runs in an empty directory with a Codex home that holds only your sign-in (no user config, skills, hooks or AGENTS.md), with no shell, web search or patch tools, in a read-only sandbox, and with a model catalog entry without code mode or multi-agent. About 2.5k tokens of Codex's own request overhead remain. Each call is captured under `results/codex/<date>/`: `instructions.md`, `prompt.md`, `command.json`, `events.jsonl`, `last-message.md` and `stderr.txt`; a sample's `log` field points at its call. The backend supports the markdown transport only. `GENUI_EVAL_CODEX_BIN` picks the binary; by default it is the first `codex` on the PATH that runs.
+
+A run stops, and scores nothing for it, when the provider is out of credit or the call is not signed in.
+
 ## How a sample is scored
 
 | Tier      | Question                                                          | Scored by    |

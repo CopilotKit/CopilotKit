@@ -95,11 +95,15 @@ function promptToText(prompt: LanguageModelV3Prompt) {
 
 /**
  * Wraps the model so the harness sees the exact prompt and the token
- * counts of the call, whatever the agent does around it.
+ * counts of the call, whatever the agent does around it. With `noTools`
+ * (the markdown transport) the model gets the system prompt and the
+ * conversation only: the agent's own state tools are dropped, so every
+ * backend answers the same request.
  */
 function recordingModel(
   model: LanguageModel,
   record: { system: string; input: number; output: number },
+  noTools = false,
 ) {
   return wrapLanguageModel({
     model: model as LanguageModelV3,
@@ -112,7 +116,9 @@ function recordingModel(
           .join("\n");
         if (!record.input)
           record.input = Math.ceil(promptToText(params.prompt).length / 4);
-        return params;
+        return noTools
+          ? { ...params, tools: undefined, toolChoice: undefined }
+          : params;
       },
       wrapStream: async ({ doStream }) => {
         const result = await doStream();
@@ -423,7 +429,7 @@ export async function runSample(input: {
     : "";
   const record = { system: "", input: 0, output: 0 };
   const agent = new BuiltInAgent({
-    model: recordingModel(input.model, record),
+    model: recordingModel(input.model, record, input.transport === "markdown"),
     maxSteps: 1,
     temperature: input.entry.params?.temperature,
     maxOutputTokens: input.entry.params?.maxOutputTokens ?? MAX_OUTPUT_TOKENS,

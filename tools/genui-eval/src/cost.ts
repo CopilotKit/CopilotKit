@@ -1,5 +1,5 @@
 import type { EvalConfig } from "./config";
-import { isFakeModel } from "./models";
+import { isFreeModel } from "./models";
 
 /** Tokens a reply is expected to take, for the estimate. */
 export const EXPECTED_OUTPUT_TOKENS = 900;
@@ -19,11 +19,11 @@ export const JUDGE_ATTEMPTS = 2;
  */
 export const tokenBound = (text: string) => Buffer.byteLength(text, "utf8");
 
-/** USD per million tokens of a model. Fakes are free unless the config prices them. */
+/** USD per million tokens of a model. Fakes and codex models are free unless the config prices them. */
 export function priceOf(config: EvalConfig, model: string) {
   const listed = config.prices[model];
   if (listed) return listed;
-  return isFakeModel(model) ? { input: 0, output: 0 } : config.defaultPrice;
+  return isFreeModel(model) ? { input: 0, output: 0 } : config.defaultPrice;
 }
 
 /** The cost of a call from its tokens. */
