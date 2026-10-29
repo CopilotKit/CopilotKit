@@ -14,13 +14,17 @@ const hoisted = vi.hoisted(() => {
     snapToIndex,
     close,
     lastOnClose: null as (() => void) | null,
+    lastOnAnimate: null as ((from: number, to: number) => void) | null,
+    lastChatProps: null as Record<string, unknown> | null,
     lastSnapPoints: null as (string | number)[] | null,
     lastIndex: null as number | null,
+    lastBackgroundStyle: null as unknown,
   };
 });
 
 // Mock react-native primitives used in CopilotModal
-vi.mock("react-native", () => ({
+vi.mock("react-native", async () => ({
+  ...(await vi.importActual<any>("../../__mocks__/react-native")),
   StyleSheet: {
     create: (s: Record<string, unknown>) => s,
   },
@@ -42,8 +46,10 @@ vi.mock("@gorhom/bottom-sheet", () => {
     }));
 
     hoisted.lastOnClose = props.onClose ?? null;
+    hoisted.lastOnAnimate = props.onAnimate ?? null;
     hoisted.lastSnapPoints = props.snapPoints ?? null;
     hoisted.lastIndex = props.index ?? null;
+    hoisted.lastBackgroundStyle = props.backgroundStyle ?? null;
 
     return React.createElement(
       "mock-bottom-sheet",
@@ -69,27 +75,34 @@ vi.mock("@gorhom/bottom-sheet", () => {
       props.children,
     );
 
+  const BottomSheetScrollView = (props: any) =>
+    React.createElement("mock-bottom-sheet-scrollview", null, props.children);
+
   return {
     __esModule: true,
     default: BottomSheet,
     BottomSheetView,
     BottomSheetBackdrop,
     BottomSheetFlatList,
+    BottomSheetScrollView,
   };
 });
 
 // Mock CopilotChat (B4's component — may not exist yet in this worktree)
 vi.mock("../CopilotChat", () => {
   const React = require("react");
-  const CopilotChat = (props: any) =>
-    React.createElement("mock-copilot-chat", {
+  const CopilotChat = (props: any) => {
+    hoisted.lastChatProps = props;
+    return React.createElement("mock-copilot-chat", {
       "data-testid": "copilot-chat",
       ...props,
     });
+  };
   return { CopilotChat };
 });
 
 // Import after mocks
+import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { CopilotModal } from "../CopilotModal";
 import type { CopilotModalRef } from "../CopilotModal";
 
@@ -102,8 +115,11 @@ describe("CopilotModal", () => {
     hoisted.snapToIndex.mockClear();
     hoisted.close.mockClear();
     hoisted.lastOnClose = null;
+    hoisted.lastOnAnimate = null;
+    hoisted.lastChatProps = null;
     hoisted.lastSnapPoints = null;
     hoisted.lastIndex = null;
+    hoisted.lastBackgroundStyle = null;
   });
 
   // ── Rendering ───────────────────────────────────────────────────────────
@@ -252,6 +268,63 @@ describe("CopilotModal", () => {
 
       const chat = getByTestId("copilot-chat");
       expect(chat.getAttribute("headerTitle")).toBe("AI Assistant");
+    });
+
+    it("plays the chat's welcome intro each time the sheet opens", () => {
+      render(<CopilotModal />);
+      // Closed: the chat is mounted but hidden, so no intro yet.
+      expect(hoisted.lastChatProps?.introAnimation).toBe(false);
+
+      act(() => hoisted.lastOnAnimate?.(-1, 0));
+      expect(hoisted.lastChatProps?.introAnimation).toBe(true);
+
+      // Moving between snap points keeps it open.
+      act(() => hoisted.lastOnAnimate?.(0, 1));
+      expect(hoisted.lastChatProps?.introAnimation).toBe(true);
+
+      act(() => hoisted.lastOnAnimate?.(1, -1));
+      expect(hoisted.lastChatProps?.introAnimation).toBe(false);
+    });
+
+    it("never plays the intro when introAnimation is false", () => {
+      render(<CopilotModal introAnimation={false} />);
+
+      act(() => hoisted.lastOnAnimate?.(-1, 0));
+      expect(hoisted.lastChatProps?.introAnimation).toBe(false);
+    });
+
+    it("scrolls the welcome screen with the sheet's own scroll view", () => {
+      render(<CopilotModal />);
+
+      expect(hoisted.lastChatProps?.ScrollViewComponent).toBe(
+        BottomSheetScrollView,
+      );
+    });
+
+    it("passes showSuggestions to CopilotChat", () => {
+      render(<CopilotModal showSuggestions={false} />);
+
+      expect(hoisted.lastChatProps?.showSuggestions).toBe(false);
+    });
+  });
+
+  describe("color scheme", () => {
+    const sheetBackground = () =>
+      Object.assign({}, ...(hoisted.lastBackgroundStyle as object[]))
+        .backgroundColor;
+
+    it("is light by default", () => {
+      render(<CopilotModal />);
+
+      expect(sheetBackground()).toBe("#ffffff");
+      expect(hoisted.lastChatProps?.colorScheme).toBeUndefined();
+    });
+
+    it("applies colorScheme to the sheet and the chat", () => {
+      render(<CopilotModal colorScheme="dark" />);
+
+      expect(sheetBackground()).toBe("#0a0a0a");
+      expect(hoisted.lastChatProps?.colorScheme).toBe("dark");
     });
   });
 });

@@ -11,16 +11,20 @@ import React, {
   useImperativeHandle,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { StyleSheet, View } from "react-native";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetFlatList,
+  BottomSheetScrollView,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
 import type { BottomSheetBackdropProps } from "@gorhom/bottom-sheet";
 import { CopilotChat } from "./CopilotChat";
 import type { CopilotChatProps } from "./CopilotChat";
+import { radius, useCopilotTheme, withOpacity } from "./theme";
+import type { CopilotColorScheme } from "./theme";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -68,8 +72,26 @@ export interface CopilotModalProps {
   /** Seed messages shown on first render. */
   initialMessages?: string[];
 
+  /**
+   * Show the agent's suggestions. Defaults to `true`. See `CopilotChat`'s
+   * `showSuggestions`.
+   */
+  showSuggestions?: boolean;
+
   /** Title shown in the CopilotChat header area. */
   headerTitle?: string;
+
+  /**
+   * Ease the welcome screen in each time the sheet opens. Defaults to `true`.
+   * See `CopilotChat`'s `introAnimation`.
+   */
+  introAnimation?: boolean;
+
+  /**
+   * `"light"` (the default), `"dark"`, or `"system"` to follow the device's
+   * setting. Applies to the sheet and the chat inside it.
+   */
+  colorScheme?: CopilotColorScheme;
 }
 
 /** Imperative handle exposed via ref. */
@@ -96,11 +118,18 @@ export const CopilotModal = forwardRef<CopilotModalRef, CopilotModalProps>(
       agentName,
       placeholder,
       initialMessages,
+      showSuggestions,
       headerTitle,
+      introAnimation = true,
+      colorScheme,
     },
     ref,
   ) {
     const bottomSheetRef = useRef<BottomSheet>(null);
+    const theme = useCopilotTheme(colorScheme);
+    // The chat stays mounted while the sheet is closed, so its intro is tied
+    // to the sheet opening rather than to mounting.
+    const [isOpen, setIsOpen] = useState(false);
 
     // Stable snap-points array
     const snapPoints = useMemo(
@@ -146,6 +175,11 @@ export const CopilotModal = forwardRef<CopilotModalRef, CopilotModalProps>(
       [backdropOpacity],
     );
 
+    // ── Open state (set as the sheet starts moving, so the intro plays with it)
+    const handleAnimate = useCallback((_fromIndex: number, toIndex: number) => {
+      setIsOpen(toIndex >= 0);
+    }, []);
+
     // ── Sheet close handler ───────────────────────────────────────────────
     const handleClose = useCallback(() => {
       if (enableDismissOnClose) {
@@ -160,9 +194,19 @@ export const CopilotModal = forwardRef<CopilotModalRef, CopilotModalProps>(
       if (placeholder !== undefined) props.placeholder = placeholder;
       if (initialMessages !== undefined)
         props.initialMessages = initialMessages;
+      if (showSuggestions !== undefined)
+        props.showSuggestions = showSuggestions;
       if (headerTitle !== undefined) props.headerTitle = headerTitle;
+      if (colorScheme !== undefined) props.colorScheme = colorScheme;
       return props;
-    }, [agentName, placeholder, initialMessages, headerTitle]);
+    }, [
+      agentName,
+      placeholder,
+      initialMessages,
+      showSuggestions,
+      headerTitle,
+      colorScheme,
+    ]);
 
     return (
       <BottomSheet
@@ -171,16 +215,25 @@ export const CopilotModal = forwardRef<CopilotModalRef, CopilotModalProps>(
         snapPoints={snapPoints}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
+        onAnimate={handleAnimate}
         onClose={handleClose}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
-        backgroundStyle={styles.sheetBackground}
-        handleIndicatorStyle={styles.handleIndicator}
+        backgroundStyle={[
+          styles.sheetBackground,
+          { backgroundColor: theme.background },
+        ]}
+        handleIndicatorStyle={[
+          styles.handleIndicator,
+          { backgroundColor: withOpacity(theme.mutedForeground, 0.4) },
+        ]}
       >
         <BottomSheetView style={styles.contentContainer}>
           <CopilotChat
             {...chatProps}
+            introAnimation={introAnimation && isOpen}
             FlatListComponent={BottomSheetFlatList}
+            ScrollViewComponent={BottomSheetScrollView}
             disableKeyboardAvoiding
           />
         </BottomSheetView>
@@ -195,14 +248,12 @@ export const CopilotModal = forwardRef<CopilotModalRef, CopilotModalProps>(
 
 const styles = StyleSheet.create({
   sheetBackground: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: radius["2xl"],
+    borderTopRightRadius: radius["2xl"],
   },
   handleIndicator: {
-    width: 40,
+    width: 36,
     height: 4,
-    backgroundColor: "#DDDDDD",
   },
   contentContainer: {
     flex: 1,
