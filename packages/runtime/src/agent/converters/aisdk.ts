@@ -51,10 +51,34 @@ export function getAISDKRunFinishedDetails(
       counts[key] = value;
     }
   }
+  // AI SDK 7 reports these two only in the detail objects (AI SDK 6 also
+  // copies them to the top level), so a factory on `ai@7` would lose them.
+  const reasoningTokens = getTokenCount(
+    getDetail(totalUsage.outputTokenDetails, "reasoningTokens"),
+  );
+  if (counts.reasoningTokens === undefined && reasoningTokens !== undefined) {
+    counts.reasoningTokens = reasoningTokens;
+  }
+  const cachedInputTokens = getTokenCount(
+    getDetail(totalUsage.inputTokenDetails, "cacheReadTokens"),
+  );
+  if (
+    counts.cachedInputTokens === undefined &&
+    cachedInputTokens !== undefined
+  ) {
+    counts.cachedInputTokens = cachedInputTokens;
+  }
 
   aggregateRunUsage(details, [{ ...identity, ...counts }]);
 
   return details;
+}
+
+/** Reads one field of a usage detail object, if the object is there. */
+function getDetail(details: unknown, key: string): unknown {
+  return details !== null && typeof details === "object"
+    ? (details as Record<string, unknown>)[key]
+    : undefined;
 }
 
 export function formatToolError(error: unknown): string {
@@ -520,6 +544,10 @@ export async function* convertAISDKStream(
         case "file":
         case "tool-output-denied":
         case "raw":
+        // Added in AI SDK 7, also metadata only for AG-UI.
+        case "custom":
+        case "reasoning-file":
+        case "tool-approval-response":
           break;
 
         default: {

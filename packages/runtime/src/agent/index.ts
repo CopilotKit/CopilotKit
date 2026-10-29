@@ -363,12 +363,44 @@ function openAIApiFor(baseURL: string | undefined): "responses" | "chat" {
   return "chat";
 }
 
+/**
+ * Model specification versions the bundled `ai@6` `streamText` runs. Anything
+ * else makes it throw at run time, with a message that names the wrong SDK.
+ */
+const SUPPORTED_MODEL_SPECIFICATION_VERSIONS: readonly unknown[] = ["v2", "v3"];
+
+/**
+ * Refuses a model object the bundled AI SDK cannot run, such as an AI SDK 7
+ * ("v4") model, and names the way to use it: factory mode with the app's own
+ * `streamText`.
+ */
+function assertSupportedModelObject(model: object): void {
+  const { specificationVersion, provider, modelId } = model as {
+    specificationVersion?: unknown;
+    provider?: unknown;
+    modelId?: unknown;
+  };
+  if (SUPPORTED_MODEL_SPECIFICATION_VERSIONS.includes(specificationVersion)) {
+    return;
+  }
+  throw new Error(
+    `BuiltInAgent: model "${String(modelId)}" from provider "${String(provider)}" ` +
+      `implements specificationVersion ${JSON.stringify(specificationVersion)}, but ` +
+      `BuiltInAgent runs it with AI SDK 6 (ai@6), which supports only "v2" and "v3" ` +
+      `models. To use a model from another AI SDK major, such as an AI SDK 7 ("v4") ` +
+      `model, use factory mode: new BuiltInAgent({ type: "aisdk", ` +
+      `factory: (ctx) => streamText({ model, abortSignal: ctx.abortSignal, ... }) }), ` +
+      `with streamText imported from your own "ai" package.`,
+  );
+}
+
 export function resolveModel(
   spec: ModelSpecifier,
   apiKey?: string,
 ): LanguageModel {
-  // If already a LanguageModel instance, pass through
+  // If already a LanguageModel instance, pass through when ai@6 can run it
   if (typeof spec !== "string") {
+    assertSupportedModelObject(spec);
     return spec;
   }
 
@@ -1320,6 +1352,10 @@ export class BuiltInAgent extends AbstractAgent {
       config.learnedSkills === undefined
         ? undefined
         : new SkillRegistry(config.learnedSkills);
+    if (!isFactoryConfig(config) && typeof config.model !== "string") {
+      // Fail here, not on the first run.
+      assertSupportedModelObject(config.model);
+    }
     this.modelHostClass = isFactoryConfig(config)
       ? "unknown"
       : classifyModelSpec(config.model);
