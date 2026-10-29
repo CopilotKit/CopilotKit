@@ -76,7 +76,7 @@ export interface IntermediateStateConfig {
 }
 
 export interface OptionsConfig {
-  emitToolCalls?: boolean | string | string[];
+  emitToolCalls?: boolean;
   emitMessages?: boolean;
   emitAll?: boolean;
   emitIntermediateState?: IntermediateStateConfig[];
