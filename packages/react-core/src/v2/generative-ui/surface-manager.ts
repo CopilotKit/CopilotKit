@@ -33,7 +33,7 @@ import {
   issueKey,
   validateSchemaSync,
   withoutRejectedNulls,
-} from "./schema";
+} from "@copilotkit/shared/generative-ui";
 
 export function surfaceKey(threadId: string, surfaceId: string): string {
   return `${threadId}::${surfaceId}`;

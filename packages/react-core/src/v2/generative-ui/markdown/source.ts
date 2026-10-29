@@ -28,9 +28,9 @@ import type {
 } from "@copilotkit/shared";
 import { catalogIdsOf } from "../catalog";
 import type { GenerativeUI } from "../catalog";
-import { toJsonSchema } from "../json-schema";
+import { toJsonSchema } from "@copilotkit/shared/generative-ui";
 import type { GenerativeUISurfaceManager } from "../surface-manager";
-import { isRecord } from "../is-record";
+import { isRecord } from "@copilotkit/shared/generative-ui";
 
 /** What renders in place of one ```a2ui fence, in order. */
 export type MarkdownFenceBlock =

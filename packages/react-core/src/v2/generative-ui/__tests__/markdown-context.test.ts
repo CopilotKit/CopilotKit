@@ -7,7 +7,7 @@ import {
   renderGenerativeUISchema,
 } from "@copilotkit/shared";
 import { createGenerativeUIDispatcher } from "../dispatcher";
-import { exportA2UICatalog } from "../catalog-export";
+import { exportA2UICatalog } from "@copilotkit/shared/generative-ui";
 import { buildGenerativeUIManifest } from "../manifest";
 import { standardUI } from "../standard";
 import { GenerativeUISurfaceManager } from "../surface-manager";

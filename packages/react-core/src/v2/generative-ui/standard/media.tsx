@@ -7,7 +7,7 @@ import {
   useGenerativeUIAccessibility,
   wrapperAria,
 } from "../accessibility";
-import type { GenerativeUIInvokeResult } from "../errors";
+import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui";
 import { radiusStyle, radiusValue, sizeValue, weightProp } from "./layout";
 import { Lightbox, openUrl } from "./lightbox";
 import {

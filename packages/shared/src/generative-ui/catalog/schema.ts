@@ -1,4 +1,4 @@
-import type { StandardSchemaV1 } from "@copilotkit/shared";
+import type { StandardSchemaV1 } from "../../standard-schema";
 
 /** Any Standard Schema: zod, Valibot, ArkType, and more. */
 export type GenerativeUISchema = StandardSchemaV1;

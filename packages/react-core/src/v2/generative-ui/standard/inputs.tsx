@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import { z } from "zod";
-import type { GenerativeUIInvokeResult } from "../errors";
+import type { GenerativeUIInvokeResult } from "@copilotkit/shared/generative-ui";
 import {
   FONT_WEIGHT,
   ON_ACCENT,

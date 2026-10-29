@@ -13,7 +13,7 @@ import type {
   ɵGenerativeUIDebugSource,
 } from "@copilotkit/core";
 import { componentCatalogIds } from "./catalog";
-import { toJsonSchema } from "./json-schema";
+import { toJsonSchema } from "@copilotkit/shared/generative-ui";
 import {
   buildGenerativeUIEnvelope,
   buildGenerativeUIManifest,

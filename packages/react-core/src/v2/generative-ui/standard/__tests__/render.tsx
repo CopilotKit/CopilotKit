@@ -10,7 +10,7 @@ import type {
 } from "@copilotkit/shared";
 import type { GenerativeUI } from "../../catalog";
 import { createGenerativeUIDispatcher } from "../../dispatcher";
-import type { GenerativeUIErrorInfo } from "../../errors";
+import type { GenerativeUIErrorInfo } from "@copilotkit/shared/generative-ui";
 import { GenerativeUIRuntimeContext } from "../../runtime-context";
 import type { GenerativeUIRuntime } from "../../runtime-context";
 import { GenerativeUISurfaceManager } from "../../surface-manager";

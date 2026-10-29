@@ -12,7 +12,7 @@ import {
   givesValidationResult,
   requiresUserActivation,
 } from "./functions";
-import { isRecord } from "./is-record";
+import { isRecord } from "@copilotkit/shared/generative-ui";
 
 // The CopilotKit value functions join the registry here, because calc.ts
 // uses the error type and truthOf of functions.ts.

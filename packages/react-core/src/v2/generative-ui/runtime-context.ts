@@ -4,7 +4,10 @@ import type { GenerativeUIUserEvent } from "@copilotkit/shared";
 import type { GenerativeUIAccessibility } from "./accessibility";
 import type { GenerativeUI } from "./catalog";
 import type { GenerativeUIDispatcher } from "./dispatcher";
-import type { GenerativeUIErrorInfo, GenerativeUIInvokeResult } from "./errors";
+import type {
+  GenerativeUIErrorInfo,
+  GenerativeUIInvokeResult,
+} from "@copilotkit/shared/generative-ui";
 import type { GenerativeUISurfaceManager } from "./surface-manager";
 import type { GenerativeUITheme } from "./theme";
 
