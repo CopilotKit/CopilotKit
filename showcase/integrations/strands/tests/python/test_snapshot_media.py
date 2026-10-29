@@ -1,17 +1,24 @@
-"""The showcase snapshot wrapper must preserve AG-UI attachment content."""
+"""The state-context wrapper must preserve adapter-owned attachment snapshots."""
 
 import asyncio
 
 import pytest
-from ag_ui.core import RunAgentInput, RunStartedEvent, StateSnapshotEvent, UserMessage
+from ag_ui.core import (
+    MessagesSnapshotEvent,
+    RunAgentInput,
+    RunStartedEvent,
+    StateSnapshotEvent,
+    UserMessage,
+)
 
-from agents.agent import _MessagesSnapshotWrapper
+from agents.agent import _StateContextWrapper
 
 
 class _SnapshotDelegate:
     async def run(self, input_data):
         yield RunStartedEvent(thread_id=input_data.thread_id, run_id=input_data.run_id)
         yield StateSnapshotEvent(snapshot={})
+        yield MessagesSnapshotEvent(messages=input_data.messages)
 
 
 @pytest.mark.parametrize(
@@ -54,12 +61,15 @@ def test_snapshot_preserves_attachment_structure(kind, mime, source_type):
     async def collect():
         return [
             event
-            async for event in _MessagesSnapshotWrapper(_SnapshotDelegate()).run(
-                request
-            )
+            async for event in _StateContextWrapper(_SnapshotDelegate()).run(request)
         ]
 
     events = asyncio.run(collect())
+    assert [event.type for event in events] == [
+        "RUN_STARTED",
+        "STATE_SNAPSHOT",
+        "MESSAGES_SNAPSHOT",
+    ]
     snapshot = events[-1].model_dump(mode="json", by_alias=True)
     assert snapshot["type"] == "MESSAGES_SNAPSHOT"
     assert snapshot["messages"] == [message.model_dump(mode="json", by_alias=True)]

@@ -1,6 +1,7 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   CopilotKitCoreErrorCode,
+  CopilotKitHeadersSource,
   CopilotKitMessageFilter,
 } from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
@@ -18,7 +19,12 @@ import type { MarkdownRendererValue } from "./markdown-renderer";
 
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  /**
+   * Headers sent with every request. A record, or a sync or async builder
+   * that runs when each request is sent. An inline arrow is fine. The builder
+   * should be cheap; cache tokens in it.
+   */
+  headers?: CopilotKitHeadersSource;
   credentials?: RequestCredentials;
   /**
    * Rewrites the message list sent to runtime agents on every run.
@@ -86,6 +92,18 @@ export interface CopilotKitProviderProps {
     catalog?: any;
     loadingComponent?: Component;
     includeSchema?: boolean;
+  };
+  /** Configuration for the built-in MCP Apps renderer. */
+  mcpApps?: {
+    /**
+     * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
+     *
+     * **Unsafe.** The widget then runs with your page's origin: it can read
+     * your cookies, storage and DOM, and call your APIs as the signed-in user.
+     * Only set it for widgets you wrote and trust that need `localStorage`,
+     * `IndexedDB` or cookies. By default widgets get an opaque origin.
+     */
+    allowSameOriginFallback?: boolean;
   };
   /**
    * Global markdown renderer for assistant/reasoning messages. Either a Vue

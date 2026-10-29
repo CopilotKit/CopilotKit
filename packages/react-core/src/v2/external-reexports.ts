@@ -14,6 +14,7 @@ export {
   CopilotKitCore,
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
+  CopilotKitHeaderResolutionError,
   INSPECTOR_THREAD_BRIDGE_PLUGIN_ID,
   IntelligenceAgent,
   MEMORY_ERROR_REGISTRY,
@@ -88,6 +89,7 @@ export {
   ɵselectThreadsError,
   ɵselectThreadsIsLoading,
   ɵthreadAdapterEvents,
+  ɵwithHeaderDefaults,
 } from "@copilotkit/core";
 
 export type {
@@ -114,6 +116,7 @@ export type {
   CopilotKitCoreStopAgentParams,
   CopilotKitCoreSubscriber,
   CopilotKitCoreSubscription,
+  CopilotKitHeadersSource,
   CopilotKitMessageFilter,
   CopilotRuntimeTransport,
   DispatchingEffect,

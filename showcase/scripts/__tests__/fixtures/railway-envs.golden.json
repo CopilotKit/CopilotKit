@@ -325,6 +325,15 @@
       "repoName": "showcase-intelligence-redis"
     }
   },
+  "showcase-intelligence-test-runner": {
+    "staging": {
+      "instanceId": "f96bf2d4-f4f0-41b6-a7e9-547f33c38961",
+      "domain": null,
+      "probe": false,
+      "driver": "shell",
+      "repoName": "showcase-intelligence-test-runner"
+    }
+  },
   "showcase-langgraph-fastapi": {
     "prod": {
       "instanceId": "105b7e01-acd0-48e2-9a09-541e2103e8d2",

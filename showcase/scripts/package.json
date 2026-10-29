@@ -22,6 +22,22 @@
     "test:watch": "vitest",
     "probe-backend-tool-history": "node probe-backend-tool-history.mjs"
   },
+  "nx": {
+    "targets": {
+      "test": {
+        "inputs": [
+          "test",
+          "{workspaceRoot}/showcase/*/Dockerfile",
+          "{workspaceRoot}/showcase/integrations/*/Dockerfile",
+          "!{workspaceRoot}/showcase/pocketbase/Dockerfile",
+          "{workspaceRoot}/examples/integrations/*/Dockerfile",
+          "{workspaceRoot}/.github/workflows/showcase_build.yml",
+          "{workspaceRoot}/.github/workflows/showcase_build_check.yml",
+          "{workspaceRoot}/.github/workflows/showcase_eval-webhook_build.yml"
+        ]
+      }
+    }
+  },
   "dependencies": {
     "@copilotkit/aimock": "1.37.4",
     "@playwright/test": "^1.59.1",

@@ -5,6 +5,22 @@ import type {
   RunAgentInput,
 } from "@ag-ui/client";
 import type { Observable } from "rxjs";
+import { THREAD_ALREADY_RUNNING_ERROR_CODE } from "@copilotkit/shared";
+
+/**
+ * Thrown by a runner when the thread already has a run in flight. The SSE
+ * handler sends it to the client as a `RUN_ERROR` with
+ * {@link THREAD_ALREADY_RUNNING_ERROR_CODE}, matched on `code` so a copy of
+ * this class from another package version still counts.
+ */
+export class ThreadAlreadyRunningError extends Error {
+  readonly code = THREAD_ALREADY_RUNNING_ERROR_CODE;
+
+  constructor() {
+    super("Thread already running");
+    this.name = "ThreadAlreadyRunningError";
+  }
+}
 
 export interface AgentRunnerRunRequest {
   threadId: string;

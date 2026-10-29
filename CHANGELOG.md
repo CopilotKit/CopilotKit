@@ -16,6 +16,131 @@ releases have no changelog: the per-package files from the changesets era stoppe
 at `1.55.2` while the lane shipped `1.69.3`, and they are recoverable from git
 history (for example `git show v1.69.3:packages/core/CHANGELOG.md`).
 
+## 1.80.0 - 2026-10-24
+
+### Features
+
+- feat(react-core): collect reply ratings with comments for Automatic Learning (#7828) (4930320)
+- feat(react-core): collapse tool calls made in a row (#7938) (f0a2490)
+
+### Fixes
+
+- fix(mcp-apps)!: give MCP App widgets an opaque origin by default (#7896) (b0c1736)
+- fix(core): scope stopAgent and run aborts to one agent (#7920) (dd9f04b)
+- fix(release): release @copilotkit/learning with the monorepo packages (#7949) (56c1056)
+- fix(a2ui-renderer): return the onAction promise so dispatchAction waits for it (#7911) (6429c79)
+- fix(mcp-apps-renderer): refuse open-links that resolve off-origin (#7635) (4177870)
+- fix(a2ui-renderer)!: type createCatalog renderer props as the binder resolves them (#7815) (0ea6f28)
+- fix(runtime): send RUN_ERROR when an SSE run fails instead of an empty stream (#7917) (3f73c87)
+- fix(runtime): expose nested LangGraph tool metadata on copilotkit.actions (#7870) (08f41c8)
+- fix(core): keep the error on tool calls that throw without a message (b4cb0ef)
+- fix(core): set error on the tool message when a tool handler throws (59ba1aa)
+- fix(core): don't move a tool result in front of reasoning stored before it (#7901) (7e8e10b)
+- fix(core): always re-pair tool results with their calls before sending a run (#7877) (4225da2)
+- fix(core): restore missing frontend tool results on reopen (#7847) (99f29ee)
+- fix(react-core): preserve chat scroll after hidden host (#7425) (49c7f17)
+- fix(react-core): accept a render-only useCopilotAction, and name the action in its config error (closes PE-921) (#7875) (d65c046)
+- fix(react-core,vue,angular): name the chat's icon-only buttons from labels (#7865) (8c6620b)
+- fix(runtime): keep tool-only assistant turns in afterRequestMiddleware messages (#7861) (a1f9a2f)
+- fix(runtime-client-gql): declare the packages its published types import (#7818) (f46dcbb)
+- fix(web-inspector): show Trajectory evidence on Learning Insights (#7812) (7b446f8)
+- fix(react-core): don't stringify tool-hook deps (closes PE-848) (#7830) (d8a2ccb)
+
+### Other Changes
+
+- perf(core): avoid repeated tool-call repair (#7748) (2c19c57)
+- docs(runtime): mark BuiltInAgentModel ids as suggestions, list current GPT-5 ids (#7957) (25bdfe6)
+- refactor: remove unreachable modules from react-core, runtime and shared (#7918) (03198b0)
+- perf(runtime): request only message ids for the run-start history lookup (#7796) (e29aa9f)
+
+### Breaking Changes
+
+- fix(mcp-apps)!: give MCP App widgets an opaque origin by default (#7896) (b0c1736)
+  MCP App widgets now run in a sandbox without
+  allow-same-origin, so they get an opaque origin and cannot use
+  localStorage, sessionStorage, IndexedDB or cookies.
+  Requests from a widget that need CORS, such as module scripts and fetch,
+  are now sent with Origin: null. Serve public widget assets with
+- fix(a2ui-renderer)!: type createCatalog renderer props as the binder resolves them (#7815) (0ea6f28)
+  `createCatalog` renderers (and the deprecated
+  `createA2UICatalog` `render`) now get props typed as the A2UI binder
+  resolves them, so code written against the raw schema types can stop
+  compiling.
+  Call Action props as functions, for example `props.onPress()`, instead
+  of reading them as action objects.
+  Use bound props as plain values (`props.level` is a `number`) and drop
+  handling of the `{ path }` and `{ call }` shapes, which renderers never
+  receive at runtime.
+  A plain `z.array(z.string())` prop now resolves to `any` like a child
+  list, so annotate callback parameters, for example
+  `props.children.map((id: string) => …)`.
+
+## 1.79.1 - 2026-10-15
+
+### Features
+
+- feat(runtime): assign Trajectories to Learning Spaces on the server (#7601) (81ca993)
+
+### Fixes
+
+- fix(web-inspector): coalesce streaming transcript refreshes (#7832) (16a1b46)
+- fix(a2ui-renderer): type RendererProps.children as (id, basePath?) (#7801) (5bdb483)
+- fix(release): stop one scope's version line freezing another's (refs OSS-1107) (#6856) (93b2ecd)
+
+## 1.79.0 - 2026-10-12
+
+### Features
+
+- feat(learning): name clicked controls with a privacy-safe label (refs PE-712) (#7769) (6b593cb)
+- feat: evaluate request headers when each request is sent (sync and async builders) (#7510) (b7f0b96)
+
+### Fixes
+
+- fix(sdk-js): fold app context into the leading system message (refs PE-728) (#7759) (7e97c05)
+- fix(react-core): keep CopilotChat visible beside the threads drawer in a flex row (closes PE-788) (#7780) (8de118e)
+- fix(learning): debounce text edits and retire failed capture sockets (#7692) (04bc56a)
+
+### Breaking Changes
+
+- feat: evaluate request headers when each request is sent (sync and async builders) (#7510) (b7f0b96)
+  A `headers` builder now runs when each request is sent,
+  not on each provider render (React, Vue and Angular). A new token from the
+  builder no longer reloads the thread list or rejoins realtime, so an app
+  that switches users must remount the provider (for example
+  `key={userId}`) or call `setHeaders`. Otherwise the new user keeps seeing
+  the previous user's threads.
+
+## 1.78.0 - 2026-10-09
+
+### Features
+
+- feat(react-core)!: start Trajectory capture for every learning object (#7747) (d38d016)
+
+### Fixes
+
+- fix(runtime): let COPILOTKIT_OPENAI_API choose the OpenAI API, and log the Chat Completions switch (refs PE-706) (#7754) (9158409)
+- fix(runtime): keep slash model ids intact and use chat completions on OpenAI-compatible endpoints (refs PE-706) (#7726) (d1bdd92)
+- fix(react-core,vue,angular): keep features enabled when the entitlement lookup times out (refs PE-533) (#7652) (be3a15c)
+- fix(runtime): log a not-yet-created thread lookup at debug, not error (refs PE-678) (#7728) (c88c376)
+- fix(runtime): default GoogleGenerativeAIAdapter to gemini-3.5-flash (#7716) (6b550dc)
+
+### Other Changes
+
+- docs: recommend Gemini 3.x model ids new API keys can call (refs PE-690) (#7715) (4dc033a)
+
+### Breaking Changes
+
+- fix(runtime): let COPILOTKIT_OPENAI_API choose the OpenAI API, and log the Chat Completions switch (refs PE-706) (#7754) (9158409)
+  With `OPENAI_BASE_URL` set to a host other than OpenAI or Azure,
+  `"openai/..."` model strings now use the Chat Completions API (#7726).
+  Through a proxy in front of OpenAI (LiteLLM, Portkey, Helicone), models and
+  options that only the Responses API supports, such as reasoning summaries,
+  stop working. Set `COPILOTKIT_OPENAI_API=responses` to keep the Responses API.
+- feat(react-core)!: start Trajectory capture for every learning object (#7747) (d38d016)
+  A `learning` object without `trajectoryId` now starts capture after mount.
+  To keep starting capture yourself with `startTrajectory()`, add
+  `autoStart: false`, for example `learning={{ onError, autoStart: false }}`.
+
 ## 1.77.2 - 2026-10-08
 
 ### Features

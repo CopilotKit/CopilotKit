@@ -44,7 +44,11 @@ import type {
   RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
-import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type {
+  CopilotKitCoreErrorCode,
+  CopilotKitHeadersSource,
+} from "@copilotkit/core";
+import { ɵwithHeaderDefaults } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
   MCPAppsActivityRenderer,
@@ -122,10 +126,20 @@ const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follo
 - Keep the UI focused and dense — avoid excessive padding. Use compact spacing (8–12px gaps, 10–14px padding in controls).`;
 
 // Provider props interface
+/** The MCP Apps renderer with `mcpApps.allowSameOriginFallback` applied. */
+const SameOriginMCPAppsActivityRenderer: typeof MCPAppsActivityRenderer = (
+  props,
+) => <MCPAppsActivityRenderer {...props} allowSameOriginFallback />;
+
 export interface CopilotKitProviderProps {
   children: ReactNode;
   runtimeUrl?: string;
-  headers?: Record<string, string> | (() => Record<string, string>);
+  /**
+   * Headers sent with every request. A record, or a sync or async builder
+   * that runs when each request is sent. An inline arrow is fine. The builder
+   * should be cheap; cache tokens in it (Clerk's `getToken()` already does).
+   */
+  headers?: CopilotKitHeadersSource;
   /**
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
@@ -297,6 +311,27 @@ export interface CopilotKitProviderProps {
     recovery?: A2UIRecoveryRendererOptions;
   };
   /**
+   * Configuration for the built-in MCP Apps renderer.
+   *
+   * @example
+   * ```tsx
+   * <CopilotKit runtimeUrl="/api/copilotkit" mcpApps={{ allowSameOriginFallback: true }}>
+   *   {children}
+   * </CopilotKit>
+   * ```
+   */
+  mcpApps?: {
+    /**
+     * Restore `allow-same-origin` on the MCP App sandbox. Default `false`.
+     *
+     * **Unsafe.** The widget then runs with your page's origin: it can read
+     * your cookies, storage and DOM, and call your APIs as the signed-in user.
+     * Only set it for widgets you wrote and trust that need `localStorage`,
+     * `IndexedDB` or cookies. By default widgets get an opaque origin.
+     */
+    allowSameOriginFallback?: boolean;
+  };
+  /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
    * triggered by `OnMessagesChanged` notifications. This value is used as
    * a fallback when neither the `useAgent()` hook nor `<CopilotChat>` /
@@ -342,7 +377,8 @@ type LearningProp = LearningConfig & {
   trajectoryId?: string;
   /**
    * Used only by explicit custom sinks. Authenticated capture warns and ignores
-   * this option; it does not assign Learning Containers.
+   * this option; assign Learning Spaces on the server with
+   * `getTrajectoryLearningContainerIds` on `CopilotKitIntelligence`.
    */
   learningContainerIds?: string[];
 };
@@ -384,7 +420,7 @@ function useStableArrayProp<T>(
   return value;
 }
 
-// Provider component
+/** Provide a shared core instance and synchronize runtime, tool, and UI configuration. */
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,
@@ -410,6 +446,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   useSingleEndpoint,
   onError,
   a2ui,
+  mcpApps,
   defaultThrottleMs,
   debug,
   learning,
@@ -535,6 +572,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawCatalog, catalogToggleVersion]);
 
+  const mcpAppsAllowSameOrigin = mcpApps?.allowSameOriginFallback === true;
+
   // Built-in activity renderers that are always included
   const builtInActivityRenderers = useMemo<
     ReactActivityMessageRenderer<any>[]
@@ -543,7 +582,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       {
         activityType: MCPAppsActivityType,
         content: MCPAppsActivityContentSchema,
-        render: MCPAppsActivityRenderer,
+        render: mcpAppsAllowSameOrigin
+          ? SameOriginMCPAppsActivityRenderer
+          : MCPAppsActivityRenderer,
       },
     ];
 
@@ -571,7 +612,13 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     return renderers;
-  }, [a2uiActive, openGenUIActive, a2ui, filteredCatalog]);
+  }, [
+    a2uiActive,
+    openGenUIActive,
+    a2ui,
+    filteredCatalog,
+    mcpAppsAllowSameOrigin,
+  ]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
@@ -602,19 +649,33 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
   }, [hasSelfManagedAgents, resolvedPublicKey]);
 
-  // Resolve headers from function or static object
-  const headers =
-    typeof headersProp === "function" ? headersProp() : headersProp;
-
-  // Merge a provided publicApiKey into headers (without overwriting an explicit header).
-  const mergedHeaders = useMemo(() => {
-    if (!resolvedPublicKey) return headers;
-    if (headers[HEADER_NAME]) return headers;
-    return {
-      ...headers,
-      [HEADER_NAME]: resolvedPublicKey,
-    };
-  }, [headers, resolvedPublicKey]);
+  // The latest builder, read when a request is sent (never during render).
+  // Assigned during render itself (not in a `useEffect`) so a child effect
+  // that fires in the SAME commit as a new builder closure — e.g. a run
+  // kicked off from an effect right after a token changed — reads the new
+  // closure rather than the previous commit's.
+  const headersRef = useRef(headersProp);
+  headersRef.current = headersProp;
+  const isHeadersBuilder = typeof headersProp === "function";
+  // The read below can return a sync record or an async promise depending on
+  // what `headersRef.current` happens to be at call time, which
+  // `CopilotKitHeadersSource`'s shape can't express in one function
+  // signature (sync-only OR async-only) — same rationale as the cast inside
+  // `ɵwithHeaderDefaults`.
+  const stableHeadersBuilder = useCallback(() => {
+    const current = headersRef.current;
+    return typeof current === "function" ? current() : current;
+  }, []) as () => Record<string, string>;
+  // A record keeps today's identity semantics; a builder is stable.
+  const headersInput = isHeadersBuilder ? stableHeadersBuilder : headersProp;
+  const headersSource = useMemo(
+    () =>
+      ɵwithHeaderDefaults(
+        headersInput,
+        resolvedPublicKey ? { [HEADER_NAME]: resolvedPublicKey } : {},
+      ),
+    [headersInput, resolvedPublicKey],
+  );
 
   if (!runtimeUrl && !resolvedPublicKey && !hasLocalAgents) {
     const message =
@@ -756,6 +817,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         description: GENERATE_SANDBOXED_UI_DESCRIPTION,
         parameters: GenerateSandboxedUiArgsSchema,
         handler: async () => "UI generated",
+        // This acknowledgement has no side effects and is safe to reconstruct.
+        reconnectBehavior: "resume-pending",
         followUp: true,
         render: OpenGenerativeUIToolRenderer,
       },
@@ -825,7 +888,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           : useSingleEndpoint === false
             ? "rest"
             : "auto",
-      headers: mergedHeaders,
+      headers: headersSource,
       credentials,
       messageFilter,
       properties,
@@ -1000,7 +1063,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
           ? "rest"
           : "auto",
     );
-    copilotkit.setHeaders(mergedHeaders);
+    copilotkit.setHeaders(headersSource);
     copilotkit.setCredentials(credentials);
     // Forward a per-run signal when the provider has an A2UI catalog so the
     // runtime can turn A2UI on (and inject the render tool) without a separate
@@ -1022,7 +1085,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [
     copilotkit,
     chatApiEndpoint,
-    mergedHeaders,
+    headersSource,
     credentials,
     properties,
     a2uiCatalogProvided,
@@ -1058,7 +1121,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       learningConfig?.learningContainerIds !== undefined
     ) {
       console.warn(
-        "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture does not assign Learning Containers; remove learningContainerIds from the capture options.",
+        "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture ignores it; assign Learning Spaces on the server with getTrajectoryLearningContainerIds on CopilotKitIntelligence, and remove learningContainerIds from the capture options.",
       );
     }
   }, [copilotkit, learningConfig, autoStart]);

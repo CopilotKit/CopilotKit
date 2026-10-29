@@ -10,7 +10,7 @@ import InspectorPaneLearning from "@/snippets/shared/inspector/open-inspector-pa
 
 ## Overview
 
-Automatic Learning turns patterns from real agent runs into skills you can publish. It reads completed conversations in [AG-UI Streams](/threads), writes insights, and proposes instructions you review before you publish them.
+Automatic Learning turns patterns from real agent runs into skills you can publish. It reads completed conversations in [AG-UI Streams](/AG-UI-Streams), writes insights, and proposes instructions you review before you publish them.
 
 <div className="not-prose shell-docs-radius-surface aspect-[7/4] w-full overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)]">
   <iframe
@@ -47,11 +47,30 @@ The learning loop has two connections. Run ingestion collects evidence in a Lear
 | Connection | Configuration | Result |
 | --- | --- | --- |
 | Runtime to Automatic Learning | `CopilotKitIntelligence.getLearningContainerId` | Assigns selected Threads to a container for analysis. |
+| Browser activity to Automatic Learning | `CopilotKitIntelligence.getTrajectoryLearningContainerIds` | Assigns captured Trajectories to existing Learning Spaces. |
 | Learning to agent | An Intelligence SDK adapter for your framework | Makes published Skills available during agent invocations. |
 
 When an agent must learn from its own workflow, use the same project and container for both connections. The SDK adapters also work with native agents outside a CopilotKit frontend, but they do not collect those agents' runs automatically.
 
 For agent setup, use the [Mastra](/intelligence/learned-skills#mastra), [LangGraph TypeScript](/intelligence/learned-skills#langgraph-typescript), or [LangGraph Python](/intelligence/learned-skills#langgraph-python) example. The delivery guide also covers [Google ADK](/intelligence/learned-skills#google-adk), [BuiltInAgent](/intelligence/learned-skills#builtinagent), and [Microsoft Agent Framework](/intelligence/learned-skills#microsoft-agent-framework).
+
+## Assign browser activity to a Learning Space
+
+For capture connected to Intelligence, select existing Learning Spaces in your Runtime's server configuration:
+
+```ts
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+  getTrajectoryLearningContainerIds: ({ trajectoryId, user }) =>
+    ["expense-review"],
+});
+```
+
+Create the Space before capture starts. The callback receives the Trajectory ID chosen by the browser and the application user verified by your Runtime. It does not require a Thread or an agent conversation. Browser-supplied Space IDs are ignored. A linked Thread's Space does not add the Trajectory; to show a Trajectory's chat during analysis, also assign its Threads to the same Space with `getLearningContainerId`.
+
+Return `[]` to request no new assignments explicitly. Return `null` or `undefined` to omit assignments from the connect request. Each connect adds memberships and never removes existing ones, so keep the selection stable across reconnects. A membership removed in Intelligence stays removed.
+
+Assignment problems never stop capture. If a selected Space does not exist in the project, the Runtime logs a warning with the Trajectory and Space IDs and connects the Trajectory without any assignments, including the Spaces that exist. The callback has a five-second deadline. Its optional second argument is an `AbortSignal` that cancels when the request ends or the deadline expires. If the callback throws, returns invalid IDs, or exceeds its deadline, the Runtime logs the error and connects the Trajectory without assignments. Check your Runtime logs when Trajectories do not appear in a Space. Your Intelligence backend must support Trajectory inputs for Automatic Learning. Assignment alone does not start an analysis or guarantee an insight.
 
 ## Set up Automatic Learning manually
 
@@ -61,7 +80,7 @@ When you are done, your Runtime will send selected Threads to a Learning contain
   <Step>
     ### Connect CopilotKit Intelligence
 
-    Complete the [Intelligence quickstart](/intelligence/quickstart). That page signs you in with the CLI and selects the project. Then send a message and make sure that it appears in [AG-UI Streams](/threads). Open your project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and make sure that Learning is available.
+    Complete the [Intelligence quickstart](/intelligence/quickstart). That page signs you in with the CLI and selects the project. Then send a message and make sure that it appears in [AG-UI Streams](/AG-UI-Streams). Open your project in [CopilotKit Intelligence](https://dashboard.operations.copilotkit.ai/) and make sure that Learning is available.
 
   </Step>
 
@@ -71,6 +90,28 @@ When you are done, your Runtime will send selected Threads to a Learning contain
     In your Intelligence project, open **Learning** and choose **Create Learning container**. Give the container a stable ID, a descriptive name, and optional guidance about what good work looks like.
 
     Keep each container focused on one kind of work, such as expense review, support quality, or customer onboarding. Stable IDs contain 1–64 lowercase letters, numbers, or single hyphens; for example, `expense-review`.
+
+    You can also use the CLI. Run these commands in the folder where you selected the project. First, list the containers that already exist:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest learning containers list
+    ```
+
+    If a container for this kind of work exists, reuse its ID. Do not create a second container for the same work.
+
+    If no container fits, print the default container ID for your project. The CLI makes this ID from your project slug. It does not check whether the container exists.
+
+    ```bash title="Terminal"
+    npx copilotkit@latest learning containers default-id
+    ```
+
+    Then create the container with that ID and a name:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest learning containers create --id <container-id> --name "<container name>"
+    ```
+
+    To give guidance about what good work looks like, you can also add `--prompt-context` with a text value, for example `--prompt-context "Use approved answers."`.
 
   </Step>
 
@@ -217,6 +258,6 @@ The output contains a directory and `SKILL.md` for each published Skill. Configu
 
 - [CopilotKit Intelligence overview](/intelligence/overview)
 - [Connect CopilotKit Intelligence](/intelligence/quickstart)
-- [AG-UI Streams](/threads)
+- [AG-UI Streams](/AG-UI-Streams)
 - [AG-UI Streams & Framework Threads](/intelligence/threads-explained)
 - [CopilotKit CLI](/cli)

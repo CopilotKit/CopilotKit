@@ -14,10 +14,12 @@ dotenv.load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 dotenv.load_dotenv()
 
 from src.agent import agent  # noqa: E402
+from src.page_context import capture_page_context  # noqa: E402
 
 # Build AgentOS and extract the app for serving
 agent_os = AgentOS(agents=[agent], interfaces=[AGUI(agent=agent)])
 app = agent_os.get_app()
+capture_page_context(app)
 
 
 @app.get("/health")

@@ -65,9 +65,37 @@ The [`<CopilotKit>`](/reference/components/CopilotKit) export is the v1 compatib
   mount.
 </PropertyReference>
 
-<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)" default="{}">
-  Request headers forwarded with runtime calls. Pass a function to resolve
-  headers from current authentication state when the provider renders.
+<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>) | (() => Promise<Record<string, string>>)" default="{}">
+  Request headers forwarded with runtime calls. Pass an object for static
+  headers, or a function (sync or async) to build them fresh. A builder runs
+  when each request is sent, so a refreshed token is always used. An inline
+  arrow is fine.
+
+  Cache inside the builder. Clerk's and Auth0's `getToken()` already cache. A
+  builder that calls the network every time adds one call per request.
+
+  If the builder throws or rejects, that request is not sent and `onError`
+  gets `header_resolution_failed`.
+
+  Re-passing the same builder function is a no-op. On a user switch, remount
+  the provider (e.g. `key={userId}`), so Inspector metadata and thread lists
+  reload for the new user. This does not refetch the runtime's `/info`.
+
+  `copilotkit.headers` is the last resolved value. Use
+  `await copilotkit.resolveHeaders()` for your own requests.
+
+  Core headers are also sent to any `selfManagedAgents` /
+  `agents__unsafe_dev_only` agent, including ones on other origins. Don't put
+  a bearer token in core headers if those agents point at a third party.
+
+  ```tsx
+  const { getToken } = useAuth();
+
+  <CopilotKitProvider
+    runtimeUrl="/api/copilotkit"
+    headers={async () => ({ Authorization: `Bearer ${await getToken()}` })}
+  >
+  ```
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">

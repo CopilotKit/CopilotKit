@@ -108,10 +108,15 @@ export type OverridableProperty =
   | "providerOptions";
 
 /**
- * Supported model identifiers for BuiltInAgent
+ * Model identifiers for BuiltInAgent. The named entries are editor
+ * suggestions, not an allowlist: any provider model id is sent through
+ * unchanged.
  */
 export type BuiltInAgentModel =
   // OpenAI models
+  | "openai/gpt-5.5"
+  | "openai/gpt-5.4"
+  | "openai/gpt-5.4-mini"
   | "openai/gpt-5"
   | "openai/gpt-5-mini"
   | "openai/gpt-4.1"
@@ -320,6 +325,40 @@ function usesChatCompletions(baseURL: string | undefined): boolean {
   return host !== "openai" && host !== "azure";
 }
 
+/** Whether the Chat Completions notice below was already logged. */
+let loggedChatCompletionsRoute = false;
+
+/**
+ * Which OpenAI API an `openai/...` model string targets.
+ *
+ * `COPILOTKIT_OPENAI_API` (`responses` or `chat`) wins when set, so a proxy in
+ * front of OpenAI can keep the Responses API, and an OpenAI host can use Chat
+ * Completions. Unset or blank, `usesChatCompletions` decides from
+ * `OPENAI_BASE_URL`.
+ *
+ * When that rule picks Chat Completions, this logs once per process. Through a
+ * proxy, Chat Completions drops Responses-only features (such as reasoning
+ * summaries) without an error, and the notice names the way back.
+ */
+function openAIApiFor(baseURL: string | undefined): "responses" | "chat" {
+  const raw = process.env.COPILOTKIT_OPENAI_API;
+  const override = raw?.trim().toLowerCase();
+  if (override === "responses" || override === "chat") return override;
+  if (override) {
+    throw new Error(
+      `Invalid COPILOTKIT_OPENAI_API "${raw}". Use "responses" or "chat", or leave it unset.`,
+    );
+  }
+  if (!usesChatCompletions(baseURL)) return "responses";
+  if (!loggedChatCompletionsRoute) {
+    loggedChatCompletionsRoute = true;
+    console.info(
+      '[CopilotKit] OPENAI_BASE_URL is not an OpenAI or Azure host, so "openai/..." models use the Chat Completions API. To use the Responses API instead, set COPILOTKIT_OPENAI_API=responses.',
+    );
+  }
+  return "chat";
+}
+
 export function resolveModel(
   spec: ModelSpecifier,
   apiKey?: string,
@@ -358,8 +397,9 @@ export function resolveModel(
       // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini".
       // `openai(model)` targets the Responses API (`{base}/responses`), which
       // most OpenAI-compatible hosts do not serve. Off OpenAI and Azure hosts,
-      // use Chat Completions (`{base}/chat/completions`) instead.
-      return usesChatCompletions(process.env.OPENAI_BASE_URL)
+      // use Chat Completions (`{base}/chat/completions`) instead, unless
+      // COPILOTKIT_OPENAI_API says otherwise.
+      return openAIApiFor(process.env.OPENAI_BASE_URL) === "chat"
         ? openai.chat(model)
         : openai(model);
     }

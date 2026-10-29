@@ -16,6 +16,7 @@ describe("resolveModel — model string parsing and OpenAI API route", () => {
     process.env.GOOGLE_API_KEY = "test-google-key";
     process.env.MINIMAX_API_KEY = "test-minimax-key";
     delete process.env.OPENAI_BASE_URL;
+    delete process.env.COPILOTKIT_OPENAI_API;
     delete process.env.ANTHROPIC_BASE_URL;
     delete process.env.GOOGLE_GENERATIVE_AI_BASE_URL;
     delete process.env.MINIMAX_BASE_URL;
@@ -142,6 +143,105 @@ describe("resolveModel — model string parsing and OpenAI API route", () => {
     expect(resolved("openai/gpt-5")).toEqual({
       provider: "openai.responses",
       modelId: "gpt-5",
+    });
+  });
+  it.each([
+    // A proxy in front of OpenAI keeps the Responses API.
+    ["https://my-gateway.example.com/v1", "responses", "openai.responses"],
+    ["https://openrouter.ai/api/v1", "responses", "openai.responses"],
+    // An OpenAI host, or no base URL, can opt into Chat Completions.
+    ["https://api.openai.com/v1", "chat", "openai.chat"],
+    [undefined, "chat", "openai.chat"],
+    // Case and padding do not matter.
+    ["https://my-gateway.example.com/v1", "  Responses ", "openai.responses"],
+    [undefined, "CHAT", "openai.chat"],
+    // Blank means unset: the host rule decides.
+    ["https://my-gateway.example.com/v1", "  ", "openai.chat"],
+    ["https://api.openai.com/v1", "", "openai.responses"],
+  ])(
+    "with OPENAI_BASE_URL=%s and COPILOTKIT_OPENAI_API=%j builds %s",
+    (baseURL, api, provider) => {
+      if (baseURL !== undefined) process.env.OPENAI_BASE_URL = baseURL;
+      process.env.COPILOTKIT_OPENAI_API = api;
+      expect(resolved("openai/gpt-5")).toEqual({ provider, modelId: "gpt-5" });
+    },
+  );
+
+  it("rejects an unknown COPILOTKIT_OPENAI_API value", () => {
+    process.env.COPILOTKIT_OPENAI_API = "completions";
+    expect(() => resolveModel("openai/gpt-5")).toThrow(
+      'Invalid COPILOTKIT_OPENAI_API "completions". Use "responses" or "chat", or leave it unset.',
+    );
+  });
+
+  it("COPILOTKIT_OPENAI_API=responses posts to /responses on a proxy", async () => {
+    process.env.OPENAI_BASE_URL = "https://my-gateway.example.com/v1";
+    process.env.COPILOTKIT_OPENAI_API = "responses";
+    const requested: string[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL) => {
+      requested.push(String(input instanceof Request ? input.url : input));
+      throw new Error("stop after recording the request");
+    });
+    try {
+      const model = resolveModel("openai/gpt-5") as unknown as Generates;
+      await expect(
+        model.doGenerate({
+          prompt: [{ role: "user", content: [{ type: "text", text: "hi" }] }],
+        }),
+      ).rejects.toThrow();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(requested).toEqual(["https://my-gateway.example.com/v1/responses"]);
+  });
+
+  describe("Chat Completions notice", () => {
+    // The notice logs once per process, so each test loads a fresh module.
+    async function freshResolveModel() {
+      vi.resetModules();
+      return (await import("../index")).resolveModel;
+    }
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("logs once when the host rule picks Chat Completions", async () => {
+      const info = vi.spyOn(console, "info").mockImplementation(() => {});
+      const resolve = await freshResolveModel();
+      process.env.OPENAI_BASE_URL = "https://my-gateway.example.com/v1";
+
+      resolve("openai/gpt-5");
+      resolve("openai/gpt-5-mini");
+
+      expect(info).toHaveBeenCalledTimes(1);
+      expect(info.mock.calls[0]?.[0]).toContain(
+        "set COPILOTKIT_OPENAI_API=responses",
+      );
+    });
+
+    it.each([
+      ["an OpenAI host", "https://api.openai.com/v1", undefined],
+      ["no base URL", undefined, undefined],
+      [
+        "an explicit chat override",
+        "https://my-gateway.example.com/v1",
+        "chat",
+      ],
+      [
+        "an explicit responses override",
+        "https://my-gateway.example.com/v1",
+        "responses",
+      ],
+    ])("does not log for %s", async (_label, baseURL, api) => {
+      const info = vi.spyOn(console, "info").mockImplementation(() => {});
+      const resolve = await freshResolveModel();
+      if (baseURL !== undefined) process.env.OPENAI_BASE_URL = baseURL;
+      if (api !== undefined) process.env.COPILOTKIT_OPENAI_API = api;
+
+      resolve("openai/gpt-5");
+
+      expect(info).not.toHaveBeenCalled();
     });
   });
 });

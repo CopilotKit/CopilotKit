@@ -1,27 +1,23 @@
-import {
-  createElement,
-  useId,
-  type HTMLAttributes,
-  type ReactNode,
-} from 'react';
-import { cx } from '../primitives/class-name';
-import styles from './layout.module.css';
+import { createElement, useId } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
+import { cx } from "../primitives/class-name";
+import styles from "./layout.module.css";
 
-export type LayoutGap = 'lg' | 'md' | 'none' | 'sm' | 'xl' | 'xs';
-export type LayoutAlign = 'center' | 'end' | 'start' | 'stretch';
+export type LayoutGap = "lg" | "md" | "none" | "sm" | "xl" | "xs";
+export type LayoutAlign = "center" | "end" | "start" | "stretch";
 export type LayoutElement =
-  | 'article'
-  | 'aside'
-  | 'div'
-  | 'footer'
-  | 'header'
-  | 'main'
-  | 'nav'
-  | 'ol'
-  | 'section'
-  | 'ul';
+  | "article"
+  | "aside"
+  | "div"
+  | "footer"
+  | "header"
+  | "main"
+  | "nav"
+  | "ol"
+  | "section"
+  | "ul";
 
-export interface PanelProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
+export interface PanelProps extends Omit<HTMLAttributes<HTMLElement>, "title"> {
   readonly description?: ReactNode;
   readonly headingLevel?: 2 | 3 | 4 | 5 | 6;
   readonly title?: ReactNode;
@@ -39,7 +35,7 @@ export interface FlexibleLayoutProps extends HTMLAttributes<HTMLElement> {
 }
 
 export interface SeparatorProps extends HTMLAttributes<HTMLHRElement> {
-  readonly orientation?: 'horizontal' | 'vertical';
+  readonly orientation?: "horizontal" | "vertical";
 }
 
 /**
@@ -55,7 +51,7 @@ export function Panel({
 }: PanelProps): ReactNode {
   const generatedTitleId = useId();
   const titleId =
-    props['aria-labelledby'] ?? (title ? generatedTitleId : undefined);
+    props["aria-labelledby"] ?? (title ? generatedTitleId : undefined);
   const headingTag = `h${headingLevel}`;
 
   return (
@@ -107,21 +103,21 @@ export function Toolbar({
  */
 export function Stack({
   align,
-  as = 'div',
+  as = "div",
   children,
   className,
-  gap = 'md',
+  gap = "md",
   label,
   ...props
 }: FlexibleLayoutProps): ReactNode {
   return createElement(
     as,
     {
-      'aria-label': label,
+      "aria-label": label,
       className: cx(styles.stack, className),
-      'data-align': align,
-      'data-gap': gap,
-      role: label ? 'group' : props.role,
+      "data-align": align,
+      "data-gap": gap,
+      role: label ? "group" : props.role,
       ...props,
     },
     children,
@@ -132,22 +128,22 @@ export function Stack({
  * Renders a single-line inline layout for short metadata or control rows.
  */
 export function Inline({
-  align = 'center',
-  as = 'div',
+  align = "center",
+  as = "div",
   children,
   className,
-  gap = 'sm',
+  gap = "sm",
   label,
   ...props
 }: FlexibleLayoutProps): ReactNode {
   return createElement(
     as,
     {
-      'aria-label': label,
+      "aria-label": label,
       className: cx(styles.inline, className),
-      'data-align': align,
-      'data-gap': gap,
-      role: label ? 'group' : props.role,
+      "data-align": align,
+      "data-gap": gap,
+      role: label ? "group" : props.role,
       ...props,
     },
     children,
@@ -158,22 +154,22 @@ export function Inline({
  * Renders a wrapping inline layout for command clusters and responsive chips.
  */
 export function Cluster({
-  align = 'center',
-  as = 'div',
+  align = "center",
+  as = "div",
   children,
   className,
-  gap = 'sm',
+  gap = "sm",
   label,
   ...props
 }: FlexibleLayoutProps): ReactNode {
   return createElement(
     as,
     {
-      'aria-label': label,
+      "aria-label": label,
       className: cx(styles.cluster, className),
-      'data-align': align,
-      'data-gap': gap,
-      role: label ? 'group' : props.role,
+      "data-align": align,
+      "data-gap": gap,
+      role: label ? "group" : props.role,
       ...props,
     },
     children,
@@ -185,7 +181,7 @@ export function Cluster({
  */
 export function Separator({
   className,
-  orientation = 'horizontal',
+  orientation = "horizontal",
   ...props
 }: SeparatorProps): ReactNode {
   return (

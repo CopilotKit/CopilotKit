@@ -404,9 +404,13 @@ jobs:
           node-version: 22.x
       - run: pnpm install --frozen-lockfile --ignore-scripts
 
+  # Live deployment eligibility must not block immutable image publication.
+  # Check both lanes, including pushes that change only starters.
   verify-image-refs:
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.has_changes == 'true'
+    needs: [detect-changes, detect-starter-changes]
+    if: >-
+      needs.detect-changes.outputs.has_changes == 'true'
+      || needs.detect-starter-changes.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
@@ -421,7 +425,19 @@ jobs:
       - name: Verify Railway image refs
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-        run: npx tsx showcase/scripts/verify-railway-image-refs.ts
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE: ${{ vars.SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE }}
+          SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN: ${{ secrets.SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN }}
+          SHOWCASE_REGISTRY_CONSUMER: image-gate
+        run: |
+          # An unset deployment binding preserves the existing static-fleet mode.
+          # Once configured, reader/auth/policy failures must fail the gate.
+          if [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] && [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            unset SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE
+          elif [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_FILE" ] || [ -z "$SHOWCASE_DISPOSABLE_RUN_RECORDS_TOKEN" ]; then
+            echo "::error::Configure both registry URL and token, or neither."
+            exit 1
+          fi
+          npx tsx showcase/scripts/verify-railway-image-refs.ts
 
   # Build one browser bundle for every selected integration image. Staging
   # redeploys these GHCR images directly; production promotion pins the same
@@ -469,7 +485,7 @@ jobs:
           retention-days: 1
 
   build:
-    needs: [detect-changes, check-lockfile, verify-image-refs, build-angular]
+    needs: [detect-changes, check-lockfile, build-angular]
     if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
@@ -968,7 +984,7 @@ jobs:
 
   redeploy-staging:
     name: Trigger Railway staging redeploy
-    needs: [detect-changes, build, aggregate-build-results]
+    needs: [detect-changes, build, aggregate-build-results, verify-image-refs]
     # Run if the WORKFLOW RUN was not cancelled, at least one service was
     # scheduled, AND at least one slot actually built
     # (aggregate-build-results.outputs.any_success). any_success is the
@@ -991,10 +1007,20 @@ jobs:
     # function) still overrides GH's default "skip when a needed job did not
     # succeed", so this job runs even when the build rollup is cancelled/
     # failure — as long as the RUN itself was not cancelled.
+    #
+    # The live image-policy check must succeed before this job can advance
+    # :latest or redeploy. !cancelled() overrides implicit dependency-success
+    # gating, so the explicit result check below is required to fail closed.
+    #
+    # Operator kill switch: the repo variable SHOWCASE_AUTO_REDEPLOY='false'
+    # skips this job (no :latest advance, no Railway redeploy) and the
+    # starters job below, for a controlled rollout. Unset = redeploy as usual.
     if: >-
       ${{ !cancelled()
           && needs.detect-changes.outputs.has_changes == 'true'
-          && needs.aggregate-build-results.outputs.any_success == 'true' }}
+          && needs.aggregate-build-results.outputs.any_success == 'true'
+          && needs.verify-image-refs.result == 'success'
+          && vars.SHOWCASE_AUTO_REDEPLOY != 'false' }}
     runs-on: ubuntu-latest
     # 20, not the historical 5. This job no longer just POSTs to Railway: the
     # "Advance :latest" guard below walks EVERY successfully-built slot
@@ -1208,7 +1234,7 @@ jobs:
 
   redeploy-staging-starters:
     name: Trigger Railway staging redeploy (starters)
-    needs: [detect-starter-changes, build-starters]
+    needs: [detect-starter-changes, build-starters, verify-image-refs]
     # Starter analogue of `redeploy-staging`. The starter lane
     # (detect-starter-changes → build-starters) previously ENDED at the GHCR
     # push: a starter-only change (examples/integrations/<slug>/**) built a
@@ -1221,7 +1247,8 @@ jobs:
     # gap by redeploying — in STAGING only — exactly the starters that built
     # successfully.
     #
-    # Gate mirrors redeploy-staging:
+    # Gate mirrors redeploy-staging: successful live image policy and the
+    # operator kill switch are required before any :latest advance or deploy.
     #   - !cancelled()                               → don't fire when the
     #                                                   whole RUN was cancelled.
     #   - detect-starter-changes.has_changes=='true' → at least one starter in
@@ -1249,7 +1276,9 @@ jobs:
     # one level down to avoid standing up a second aggregator job.
     if: >-
       ${{ !cancelled()
-          && needs.detect-starter-changes.outputs.has_changes == 'true' }}
+          && needs.detect-starter-changes.outputs.has_changes == 'true'
+          && needs.verify-image-refs.result == 'success'
+          && vars.SHOWCASE_AUTO_REDEPLOY != 'false' }}
     runs-on: ubuntu-latest
     # 20, not the historical 5 — same reasoning as the sibling
     # `redeploy-staging` job: the "Advance starter :latest" guard adds up to
@@ -1431,7 +1460,7 @@ jobs:
     # NO alert fired. `any_success == 'false'` (the artifact-derived signal the
     # redeploy fix uses) is the authoritative "nothing built" check, so we fire
     # on it directly. The `!= 'skipped'` clause still guards the case where the
-    # build job was SKIPPED (e.g. verify-image-refs failed upstream, so the
+    # build job was SKIPPED (e.g. check-lockfile failed upstream, so the
     # matrix never executed) — the aggregator is also skipped in that case,
     # and the sibling `notify` job already covers that
     # upstream red, so firing here too would be a misleading "all builds
@@ -1554,7 +1583,7 @@ jobs:
     # Cover the whole detect→build→aggregate→redeploy pipeline. `needs: [build]`
     # alone meant a failure in aggregate-build-results or redeploy-staging
     # produced ZERO Slack signal (verify just never ran). Likewise, a red
-    # in detect-changes, check-lockfile, or verify-image-refs would skip
+    # in detect-changes or check-lockfile would skip
     # `build` (skipped != failure) so the original `needs: [build]` form
     # also missed those pre-build red paths. Adding the early-stage jobs
     # to `needs` extends the alert surface to the full workflow, matching

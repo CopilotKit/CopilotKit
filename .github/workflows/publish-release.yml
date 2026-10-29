@@ -48,17 +48,15 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "What to release (all and learning-preview are prerelease-only compositions)"
+        description: "What to release ('all' is prerelease-only: every scope under one shared canary id)"
         required: true
         type: choice
         options:
           - monorepo
-          - learning
           - angular
           - channels
           - intelligence-langgraph
           - intelligence-mastra
-          - learning-preview
           # Sentinel, not a scope (see ALL_SCOPES in scripts/release/lib/config.ts).
           # PRERELEASE ONLY — rejected for mode=stable by the "Determine scope and
           # mode" guard below, since a stable release derives its tag, release
@@ -142,8 +140,8 @@ jobs:
           # A stable release cannot be multi-scope — the tag (`<scope>/v<version>`),
           # the release branch, and the notify job's npm URL each assume ONE scope,
           # and the scopes carry independent version lines.
-          if { [ "$SCOPE" = "all" ] || [ "$SCOPE" = "learning-preview" ]; } && [ "$MODE" != "prerelease" ]; then
-            echo "::error::scope=$SCOPE is only valid with mode=prerelease (canary). Release each scope separately via the 'release / create-pr' workflow."
+          if [ "$SCOPE" = "all" ] && [ "$MODE" != "prerelease" ]; then
+            echo "::error::scope=all is only valid with mode=prerelease (canary). Release each scope separately via the 'release / create-pr' workflow."
             exit 1
           fi
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
@@ -329,8 +327,8 @@ jobs:
           # Same guard as the build job (this job re-derives scope/mode from the
           # event rather than inheriting them). Defense in depth: nothing may reach
           # the tag/GH-Release/notify path with the multi-scope sentinel.
-          if { [ "$SCOPE" = "all" ] || [ "$SCOPE" = "learning-preview" ]; } && [ "$MODE" != "prerelease" ]; then
-            echo "::error::scope=$SCOPE is only valid with mode=prerelease (canary)."
+          if [ "$SCOPE" = "all" ] && [ "$MODE" != "prerelease" ]; then
+            echo "::error::scope=all is only valid with mode=prerelease (canary)."
             exit 1
           fi
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
@@ -431,6 +429,22 @@ jobs:
             echo ""
             echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # The last line of defence for OSS-1107: a stable release of one scope
+      # must not ship a version another scope's PUBLISHED manifest has stopped
+      # admitting. `@copilotkit/angular@0.4.0` pinned `@copilotkit/core@1.69.3`
+      # and the monorepo scope released `1.70.0` four days later, so every
+      # Angular application on the new floor resolved two copies of core.
+      #
+      # This runs before every publish step, the Channels dependency phase
+      # included. Running it after that phase made it a gate on the umbrella
+      # alone: a rejection would leave the foundation and adapter packages
+      # already on `latest`, a partial release no retry can take back.
+      - name: Verify no published scope is left behind
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode == 'stable' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm run verify:cross-scope-pins:registry -- --scope "$SCOPE"
 
       # The family must exist on npm before the umbrella is allowed to ship:
       # the registry verifier installs the packed umbrella against those exact
@@ -593,7 +607,7 @@ jobs:
             echo ""
             echo "**Scope:** ${{ steps.meta.outputs.scope }}"
             # `versions` lists every published scope (`<scope>@<version>`), which is
-            # the whole story for compositions; `version` alone names only the first.
+            # the whole story for scope=all; `version` alone names only the first.
             echo "**Versions:** ${{ steps.publish.outputs.versions || steps.publish.outputs.version }}"
             echo "**Tag:** (prerelease — no tag created)"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -753,7 +767,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: ">=0.8.0"
 
@@ -889,7 +903,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.9.7"
           enable-cache: false
@@ -934,7 +948,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.9.7"
           enable-cache: false
@@ -964,7 +978,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.9.7"
           enable-cache: false
@@ -994,7 +1008,7 @@ jobs:
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.9.7"
           enable-cache: false
@@ -1196,9 +1210,6 @@ jobs:
         run: |
           set -euo pipefail
           case "$SCOPE" in
-            learning)
-              NPM_URL="https://www.npmjs.com/package/@copilotkit/learning"
-              ;;
             angular)
               NPM_URL="https://www.npmjs.com/package/@copilotkit/angular"
               ;;

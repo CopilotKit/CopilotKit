@@ -129,7 +129,7 @@ debugging question:
 | Which events crossed the AG-UI connection?    | **AG-UI Events**                                                    | [AG-UI protocol](/agentic-protocols/ag-ui)                 |
 | Which browser-side tools are registered?      | **Frontend Tools**                                                  | [Frontend Tools](/frontend-tools)                          |
 | What readable or document context was shared? | **Context**                                                         | [Agent read-only context](/shared-state/agent-readonly)    |
-| What did a saved conversation contain?        | **Rich Threads** → **Conversation**, **AG-UI Events**, or **State** | [AG-UI Streams](/threads) and [Shared State](/shared-state) |
+| What did a saved conversation contain?        | **Rich Threads** → **Conversation**, **AG-UI Events**, or **State** | [AG-UI Streams](/AG-UI-Streams) and [Shared State](/shared-state) |
 
 In an official React `CopilotChat`, open an assistant message's toolbar and
 choose **View in Inspector** to jump directly to that message in its Thread.
@@ -150,7 +150,7 @@ icons. **Talk to an Engineer** remains in the sidebar footer.
 
 Use **Playground** when you have already observed a problem and want to vary the
 prompt, state, or next message without touching the original [Rich
-Thread](/threads). Its messages and state stay separate from your application
+Thread](/AG-UI-Streams). Its messages and state stay separate from your application
 chat and stored Threads, so you can run, stop, retry, and continue an experiment
 safely.
 

@@ -57,7 +57,7 @@
       "title": "AG-UI Streams",
       "defaultOpen": true,
       "pages": [
-        "threads",
+        "AG-UI-Streams",
         "intelligence/bring-your-own-thread-system",
         "threads-import",
         "threads-lifecycle",
@@ -67,9 +67,17 @@
     "intelligence/memories",
     "learning",
     "intelligence/learned-skills",
-    "intelligence/capture-interactions",
+    {
+      "title": "Trajectories",
+      "pages": [
+        "intelligence/trajectories",
+        "intelligence/trajectories-quickstart",
+        "intelligence/capture-interactions",
+        "intelligence/captured-data",
+        "intelligence/trajectories-reference"
+      ]
+    },
     "intelligence/standalone-collector",
-    "intelligence/captured-data",
     "intelligence/analytics",
     "intelligence/channels",
     "intelligence/managed-intelligence-platform",

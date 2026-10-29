@@ -1,8 +1,8 @@
 // Dedicated runtime for the Beautiful Chat flagship showcase cell (Strands).
 //
 // Beautiful Chat exercises A2UI (dynamic + fixed schema) and Open
-// Generative UI. The shared Strands backend (agent_server.py) hosts a
-// single Strands Agent instance on "/", so the cell routes there; the
+// Generative UI. The Strands TypeScript server hosts a Responses-backed
+// agent on "/beautiful-chat" to preserve parallel tool history; the
 // flagship behavior comes from the runtime flags below plus the frontend's
 // per-cell registrations.
 //
@@ -24,7 +24,7 @@ import { HttpAgent } from "@ag-ui/client";
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+  return new HttpAgent({ url: `${AGENT_URL}/beautiful-chat` });
 }
 
 // The beautiful-chat page resolves <CopilotKit agent="beautiful-chat">

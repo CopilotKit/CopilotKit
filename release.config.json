@@ -6,6 +6,7 @@
         "@copilotkit/a2ui-renderer",
         "@copilotkit/agentcore-runner",
         "@copilotkit/core",
+        "@copilotkit/learning",
         "@copilotkit/markdown-renderer",
         "@copilotkit/mcp-apps-renderer",
         "@copilotkit/react-core",
@@ -25,11 +26,6 @@
       "versionSource": "@copilotkit/react-core",
       "sharedVersion": true
     },
-    "learning": {
-      "packages": ["@copilotkit/learning"],
-      "versionSource": "@copilotkit/learning",
-      "sharedVersion": false
-    },
     "angular": {
       "packages": ["@copilotkit/angular"],
       "versionSource": "@copilotkit/angular",
@@ -43,7 +39,6 @@
         "@copilotkit/channels-teams",
         "@copilotkit/channels-intelligence",
         "@copilotkit/channels-discord",
-        "@copilotkit/channels-telegram",
         "@copilotkit/channels-whatsapp",
         "@copilotkit/channels"
       ],

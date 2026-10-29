@@ -258,6 +258,13 @@ jobs:
       - name: Run release script tests
         run: npx vitest run --config scripts/release/vitest.config.mts
 
+      # A scope may not pin another scope's package at one exact version: the
+      # two release separately, so the pin freezes at whatever shipped last and
+      # a consumer on a newer version resolves two copies (OSS-1107). Static, so
+      # it runs on every push rather than only at release time.
+      - name: Verify cross-scope dependency ranges
+        run: pnpm run verify:cross-scope-pins
+
       - name: Verify packed Channels umbrella contract
         if: matrix.node-version == '20.x'
         run: pnpm run verify:channels-umbrella
@@ -278,6 +285,10 @@ jobs:
       - name: Run Open Generative UI browser tests
         if: ${{ matrix.node-version == '22.x' && matrix.react-version == '19' && contains(steps.select.outputs.projects, '@copilotkit/react-core') }}
         run: pnpm nx run @copilotkit/react-core:test:browser
+
+      - name: Run chat scroll browser tests
+        if: ${{ matrix.node-version == '22.x' && matrix.react-version == '19' && contains(steps.select.outputs.projects, '@copilotkit/react-core') }}
+        run: pnpm nx run @copilotkit/react-core:test:browser-scroll
 
       - name: Run Web Inspector browser tests
         if: ${{ matrix.node-version == '22.x' && matrix.react-version == '19' && contains(steps.select.outputs.projects, '@copilotkit/web-inspector') }}

@@ -228,6 +228,19 @@ export type InspectorOpenOptions = {
   messageId?: string;
 };
 
+/**
+ * Resolve the attached core's request headers at send time. A core released
+ * before `resolveHeaders()` existed has only the static `headers` map, so an
+ * inspector attached to it falls back to a copy of that map.
+ */
+function resolveAttachedCoreHeaders(
+  core: CopilotKitCore,
+): Record<string, string> | Promise<Record<string, string>> {
+  return typeof core.resolveHeaders === "function"
+    ? core.resolveHeaders()
+    : { ...core.headers };
+}
+
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
@@ -2330,6 +2343,8 @@ export class CpkThreadInspector extends PortableLitElement {
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
+    resolveHeaders: { attribute: false },
+    headersGeneration: { attribute: false },
     threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
@@ -2372,7 +2387,27 @@ export class CpkThreadInspector extends PortableLitElement {
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
+  /**
+   * @deprecated Set `resolveHeaders` instead — it resolves fresh headers at
+   * send time (#1937), so a rotated token is never stale. This is a
+   * fallback used only when `resolveHeaders` is left unset (its default
+   * no-op); when both are set, `resolveHeaders` wins. Never part of the
+   * load key — see `headersGeneration`.
+   */
   headers: Record<string, string> = {};
+  // Resolved at send time (#1937): a builder can return a fresh token on every
+  // call, so this must be invoked per-request rather than snapshotted once.
+  // The default value is a sentinel: `ɵresolveInspectorHeaders` compares
+  // against it to know whether a host actually set `resolveHeaders`, so it
+  // can fall back to the deprecated `headers` field when not.
+  resolveHeaders: () =>
+    | Record<string, string>
+    | Promise<Record<string, string>> =
+    CpkThreadInspector.ɵdefaultResolveHeaders;
+  // Bumped only by an actual header-source change (never by a builder
+  // returning a new value). Never key the load signature on header VALUES —
+  // that would reload thread inspection on every token rotation.
+  headersGeneration = 0;
   threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
@@ -2384,8 +2419,8 @@ export class CpkThreadInspector extends PortableLitElement {
   /**
    * Monotonic per-thread counter the parent inspector ticks every time the
    * agent currently running on this thread emits a message change. When this
-   * prop changes for the same `threadId`, we re-fetch `/threads/:id/messages`
-   * so the conversation view reflects live streaming output.
+   * prop changes for the same `threadId`, we queue a bounded refresh of
+   * `/threads/:id/messages` so the conversation reflects streaming output.
    */
   liveMessageVersion = 0;
   viewInAppMode: "hidden" | "view" | "stop" = "hidden";
@@ -2479,6 +2514,9 @@ export class CpkThreadInspector extends PortableLitElement {
   private _lastSeenLiveMessageVersion = 0;
   private _metadataAbort: AbortController | null = null;
   private _messagesAbort: AbortController | null = null;
+  private _messagesRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private _messagesRefreshPending = false;
+  private _lastMessagesFetchAt = 0;
   private _eventsAbort: AbortController | null = null;
   private _stateAbort: AbortController | null = null;
   private _hasConnectedOnce = false;
@@ -2488,8 +2526,14 @@ export class CpkThreadInspector extends PortableLitElement {
   private _dividerStartWidth = 0;
   private static nextDomId = 1;
   private readonly domIdPrefix = `cpk-thread-detail-${CpkThreadInspector.nextDomId++}`;
+  /** Sentinel identity for `resolveHeaders`'s default value; see its field doc. */
+  private static readonly ɵdefaultResolveHeaders = (): Record<
+    string,
+    string
+  > => ({});
 
   static readonly COLLAPSE_THRESHOLD = 800;
+  private static readonly MESSAGE_REFRESH_INTERVAL_MS = 1_000;
   static readonly TAB_LIST: ReadonlyArray<{
     id: ThreadDetailsTab;
     label: string;
@@ -2519,19 +2563,6 @@ export class CpkThreadInspector extends PortableLitElement {
       provider.getEvents ? "events:1" : "events:0",
       provider.getState ? "state:1" : "state:0",
     ].join("|");
-  }
-
-  /**
-   * Build a deterministic signature for runtime fetch headers so auth/CSRF
-   * changes invalidate cached thread data even when the selected thread is
-   * otherwise unchanged.
-   */
-  private static headersLoadKey(headers: Record<string, string>): string {
-    return JSON.stringify(
-      Object.entries(headers).sort(([leftKey], [rightKey]) =>
-        leftKey.localeCompare(rightKey),
-      ),
-    );
   }
 
   private renderConversationActions() {
@@ -4039,17 +4070,12 @@ export class CpkThreadInspector extends PortableLitElement {
       this.threadId &&
       this.liveMessageVersion !== this._lastSeenLiveMessageVersion
     ) {
-      // Same thread, but the parent inspector signalled new agent-emitted
-      // messages on this thread (via `liveMessageVersion`). Re-fetch the
-      // canonical conversation from the runtime so streaming output flows
-      // into the view without us reimplementing AG-UI → ConversationItem
-      // mapping in the parent. `silent: true` so the loading-state indicator
-      // doesn't flash between every streaming chunk and we keep the
-      // last-good view on transient fetch errors.
+      // Streaming chunks can arrive faster than a transcript can load.
+      // Keep one pending refresh instead of aborting and replacing every
+      // request: browser aborts need not cancel work already on the server.
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
-      this._messagesAbort?.abort();
-      this._messagesAbort = null;
-      void this.fetchMessages(this.threadId, true);
+      this._messagesRefreshPending = true;
+      this.scheduleMessagesRefresh();
     }
 
     const focusedContentChanged =
@@ -4137,12 +4163,18 @@ export class CpkThreadInspector extends PortableLitElement {
       this.threadId ?? "thread:none",
       CpkThreadInspector.providerLoadKey(this.provider),
       `runtime:${this.runtimeUrl}`,
-      `headers:${CpkThreadInspector.headersLoadKey(this.headers)}`,
+      `headersGen:${this.headersGeneration}`,
       `inspect:${this.threadInspectionAvailable ? "1" : "0"}`,
     ].join("||");
   }
 
   private resetLoadedThreadData(): void {
+    if (this._messagesRefreshTimer !== null) {
+      clearTimeout(this._messagesRefreshTimer);
+      this._messagesRefreshTimer = null;
+    }
+    this._messagesRefreshPending = false;
+    this._lastMessagesFetchAt = 0;
     this._tab = "timeline";
     this._activatedTabs = new Set(["timeline"]);
     this._panelTplCache = new Map();
@@ -4198,6 +4230,40 @@ export class CpkThreadInspector extends PortableLitElement {
     }
   }
 
+  /** Coalesces live updates without overlapping requests or starving the final update. */
+  private scheduleMessagesRefresh(): void {
+    if (
+      !this._messagesRefreshPending ||
+      this._messagesRefreshTimer !== null ||
+      this._messagesAbort ||
+      !this.isConnected ||
+      !this.threadId ||
+      !this.canFetchMessages()
+    ) {
+      return;
+    }
+    const threadId = this.threadId;
+    const loadKey = this.currentLoadKey();
+    if (loadKey !== this._lastLoadKey) return;
+    const delay = Math.max(
+      0,
+      CpkThreadInspector.MESSAGE_REFRESH_INTERVAL_MS -
+        (Date.now() - this._lastMessagesFetchAt),
+    );
+    this._messagesRefreshTimer = setTimeout(() => {
+      this._messagesRefreshTimer = null;
+      if (
+        !this.isConnected ||
+        this.currentLoadKey() !== loadKey ||
+        this._lastLoadKey !== loadKey ||
+        this._messagesAbort
+      ) {
+        return;
+      }
+      void this.fetchMessages(threadId, true);
+    }, delay);
+  }
+
   /**
    * Fetch the canonical conversation for `threadId` from the runtime.
    *
@@ -4216,8 +4282,15 @@ export class CpkThreadInspector extends PortableLitElement {
       if (!silent) this._conversation = [];
       return;
     }
+    if (this._messagesRefreshTimer !== null) {
+      clearTimeout(this._messagesRefreshTimer);
+      this._messagesRefreshTimer = null;
+    }
+    this._messagesRefreshPending = false;
+    this._lastMessagesFetchAt = Date.now();
     this._messagesAbort?.abort();
     const controller = new AbortController();
+    const loadKey = this.currentLoadKey();
     this._messagesAbort = controller;
     if (!silent) {
       this._loadingMessages = true;
@@ -4230,12 +4303,14 @@ export class CpkThreadInspector extends PortableLitElement {
             signal: controller.signal,
           })
         : await this.fetchRuntimeMessages(threadId, controller.signal);
-      if (controller.signal.aborted || this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.currentLoadKey() !== loadKey)
+        return;
       this._conversation = this.mapMessages(messages);
       this._messagesError = null;
       this._messageRefreshError = null;
     } catch (err) {
-      if (controller.signal.aborted || this.threadId !== threadId) return;
+      if (controller.signal.aborted || this.currentLoadKey() !== loadKey)
+        return;
       if (err instanceof Error && err.name === "AbortError") return;
       if (!silent || this._conversation.length === 0) {
         this._messagesError =
@@ -4246,9 +4321,13 @@ export class CpkThreadInspector extends PortableLitElement {
           "Could not refresh messages. Showing the last loaded conversation.";
       }
     } finally {
-      // A live refresh can replace the initial request before it finishes.
-      if (!controller.signal.aborted && this.threadId === threadId) {
-        this._loadingMessages = false;
+      // A stale provider may ignore abort and settle after a new source loads.
+      if (this._messagesAbort === controller) {
+        this._messagesAbort = null;
+        if (!controller.signal.aborted && this.currentLoadKey() === loadKey) {
+          this._loadingMessages = false;
+          this.scheduleMessagesRefresh();
+        }
       }
     }
   }
@@ -4336,12 +4415,24 @@ export class CpkThreadInspector extends PortableLitElement {
     }
   }
 
+  /**
+   * `resolveHeaders` when a host actually set it; otherwise the deprecated
+   * `headers` fallback. Never both — see the `headers` field's doc.
+   */
+  private ɵresolveInspectorHeaders():
+    | Record<string, string>
+    | Promise<Record<string, string>> {
+    return this.resolveHeaders === CpkThreadInspector.ɵdefaultResolveHeaders
+      ? this.headers
+      : this.resolveHeaders();
+  }
+
   private async fetchRuntimeMessages(
     threadId: string,
     signal: AbortSignal,
   ): Promise<ThreadDebuggerMessage[]> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "messages"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -4354,7 +4445,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeEventsFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "events"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (res.status === 501) {
@@ -4372,7 +4463,7 @@ export class CpkThreadInspector extends PortableLitElement {
     signal: AbortSignal,
   ): Promise<RuntimeStateFetchResult> {
     const res = await fetch(this.getThreadInspectionUrl(threadId, "state"), {
-      headers: { ...this.headers },
+      headers: { ...(await this.ɵresolveInspectorHeaders()) },
       signal,
     });
     if (res.status === 501) {
@@ -6798,6 +6889,17 @@ export class WebInspectorElement extends LitElement {
   } as const;
 
   private _core: CopilotKitCore | null = null;
+  // Memoized so `<cpk-thread-details>`'s `.resolveHeaders=` binding gets a
+  // STABLE function reference across renders. A fresh closure every render
+  // (e.g. an inline arrow in the template) would look like a changed
+  // reactive property on every host update and force a full
+  // `CpkThreadInspector` update cycle each time, regardless of whether
+  // headers actually changed. Reads `this._core` at CALL time, so it always
+  // resolves against whichever core is currently attached.
+  private readonly resolveCoreHeaders = ():
+    | Record<string, string>
+    | Promise<Record<string, string>> =>
+    this._core ? resolveAttachedCoreHeaders(this._core) : {};
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
   private _memories: Memory[] = [];
@@ -7774,15 +7876,19 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
-    const runtimeFetch =
-      typeof core.ɵruntimeFetch === "function"
-        ? core.ɵruntimeFetch
-        : globalThis.fetch;
-    const store = ɵcreateThreadStore({ fetch: runtimeFetch });
+    // `ɵruntimeFetch` already resolves and overlays the current core headers
+    // at send time (#1937), so the context below must NOT also carry a
+    // `headers` snapshot — that would let a header the source no longer
+    // returns keep riding along. Only the defensive fallback for a core
+    // without `ɵruntimeFetch` needs a static snapshot here.
+    const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
+    const store = ɵcreateThreadStore({
+      fetch: hasRuntimeFetch ? core.ɵruntimeFetch : globalThis.fetch,
+    });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: { ...core.headers },
+      ...(hasRuntimeFetch ? {} : { headers: { ...core.headers } }),
       wsUrl: core.intelligence?.wsUrl,
       agentId,
     });
@@ -7838,18 +7944,24 @@ export class WebInspectorElement extends LitElement {
 
   // Keep inspector-owned thread stores in sync when the host updates headers
   // at runtime (e.g. a refreshed auth/CSRF token via core.setHeaders). Mirrors
-  // useThreads(), which re-dispatches the context whenever core.headers change,
-  // so the owned stores' /threads requests stay authorized.
+  // useThreads(), which re-dispatches the context whenever `onHeadersChanged`
+  // fires, so the owned stores' /threads requests stay authorized. The
+  // re-dispatched context omits `headers` (see `ensureOwnedThreadStore`) —
+  // `ɵruntimeFetch` resolves the current headers at send time, so this only
+  // needs to trigger the store's refetch, not carry a snapshot. A token
+  // rotation alone doesn't call `onHeadersChanged`/this method, so it doesn't
+  // trigger a refetch either.
   private updateOwnedThreadStoreHeaders(
     headers: Readonly<Record<string, string>>,
   ): void {
     if (!this.areThreadEndpointsAvailable()) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
+    const hasRuntimeFetch = typeof core.ɵruntimeFetch === "function";
     for (const [agentId, store] of this._ownedThreadStores) {
       store.setContext({
         runtimeUrl: core.runtimeUrl,
-        headers: { ...headers },
+        ...(hasRuntimeFetch ? {} : { headers: { ...headers } }),
         wsUrl: core.intelligence?.wsUrl,
         agentId,
       });
@@ -8377,8 +8489,11 @@ export class WebInspectorElement extends LitElement {
             this.learningSnapshot?.insightsPage.page ??
             1,
         },
+        // `ɵruntimeFetch` already resolves and overlays the current core
+        // headers at send time (#1937). Passing a separately resolved
+        // `headers` snapshot here would call the builder twice per request
+        // and could let a header the source no longer returns ride along.
         fetch: core.ɵruntimeFetch,
-        headers: core.headers,
         credentials: core.credentials,
         signal: controller.signal,
       });
@@ -16571,12 +16686,13 @@ export class WebInspectorElement extends LitElement {
     }
     const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
     const encodedThreadId = encodeURIComponent(thread.id);
+    const headers = { ...(await resolveAttachedCoreHeaders(core)) };
     const [messagesResponse, stateResponse] = await Promise.all([
       fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
-        headers: { ...core.headers },
+        headers,
       }),
       fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
-        headers: { ...core.headers },
+        headers,
       }),
     ]);
     if (!messagesResponse.ok) {
@@ -18933,7 +19049,7 @@ export class WebInspectorElement extends LitElement {
         }}
         @learning-web-link=${(
           event: CustomEvent<{
-            category: "learning" | "runs" | "candidates";
+            category: "learning" | "runs" | "candidates" | "trajectory";
           }>,
         ) => {
           if (!this.core?.telemetryDisabled) {
@@ -19440,7 +19556,10 @@ export class WebInspectorElement extends LitElement {
                             ? ""
                             : (this._core?.runtimeUrl ?? "")
                         }
-                        .headers=${this._core?.headers ?? {}}
+                        .resolveHeaders=${this.resolveCoreHeaders}
+                        .headersGeneration=${
+                          this._core?.ɵheadersGeneration ?? 0
+                        }
                         .threadInspectionAvailable=${
                           selectedThreadIsLocalExample ||
                           (this.areThreadEndpointsAvailable() &&

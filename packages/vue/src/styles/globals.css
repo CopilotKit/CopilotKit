@@ -143,6 +143,15 @@
     background-color: var(--background);
   }
 
+  /* CopilotChat's root is an inline-size container (`cpk:@container`), so its
+     content contributes no width. As a flex item in a row, its auto width
+     collapsed to a narrow column. Fill the container instead. This sits in the
+     base layer so a width the app sets (utility class, stylesheet, inline
+     style) still wins. Same rule as React (PE-788). */
+  .copilotKitChat[data-copilotkit] {
+    width: 100%;
+  }
+
   /* Mobile viewport support */
   @supports (height: 100dvh) {
     [data-copilot-sidebar] {
