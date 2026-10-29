@@ -2,9 +2,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { StorybookConfig } from "@storybook/react-vite";
 import tailwindcss from "@tailwindcss/vite";
-import type { Plugin } from "vite";
-// @ts-expect-error -- untyped .mjs build script shared with react-core's build:css
-import { scopePreflight } from "../../../../../packages/react-core/scripts/scope-preflight.mjs";
 
 // Forward slashes, like the module ids Vite passes to `transform`, so the
 // prefix check below also matches on Windows.
@@ -16,17 +13,8 @@ const reactCoreSrc = path
   .split(path.sep)
   .join("/");
 
-// Stories render react-core from source so component and CSS edits hot-reload.
-// The published CSS scopes Tailwind's preflight under [data-copilotkit] after
-// compilation; apply the same step here so Storybook shows what ships.
-const scopeReactCorePreflight: Plugin = {
-  name: "copilotkit:scope-preflight",
-  transform(code, id) {
-    const [file = ""] = id.split("?");
-    if (!file.startsWith(reactCoreSrc) || !file.endsWith(".css")) return;
-    return { code: scopePreflight(code), map: null };
-  },
-};
+// Stories render react-core from source so component edits hot-reload. CSS
+// edits in react-core's styles/css need `node scripts/generate-stylesheet.mjs`.
 
 const config: StorybookConfig = {
   framework: {
@@ -36,18 +24,10 @@ const config: StorybookConfig = {
   stories: ["../stories/**/*.stories.tsx"],
   addons: ["@storybook/addon-docs", "@storybook/addon-themes"],
   viteFinal: async (viteConfig) => {
-    viteConfig.plugins = [
-      ...(viteConfig.plugins ?? []),
-      tailwindcss(),
-      scopeReactCorePreflight,
-    ];
+    viteConfig.plugins = [...(viteConfig.plugins ?? []), tailwindcss()];
     viteConfig.resolve = {
       ...viteConfig.resolve,
       alias: [
-        {
-          find: /^@copilotkit\/react-core\/v2\/styles\.css$/,
-          replacement: `${reactCoreSrc}/index.css`,
-        },
         {
           find: /^@copilotkit\/react-core\/v2\/(context|headless)$/,
           replacement: `${reactCoreSrc}/$1.ts`,

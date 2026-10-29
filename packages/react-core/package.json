@@ -25,9 +25,7 @@
     "dist"
   ],
   "type": "module",
-  "sideEffects": [
-    "**/*.css"
-  ],
+  "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
@@ -54,15 +52,13 @@
     "./v2/headless": {
       "import": "./dist/v2/headless.mjs",
       "require": "./dist/v2/headless.cjs"
-    },
-    "./v2/styles.css": "./dist/v2/index.css"
+    }
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build:css": "tailwindcss -i ./src/v2/styles/globals.css -o ./dist/v2/index.css -m && node scripts/scope-preflight.mjs ./dist/v2/index.css",
-    "build": "node scripts/generate-external-reexports.mjs --check && node scripts/generate-stylesheet.mjs --check && tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-core && pnpm run build:css && node scripts/context-singleton-preflight.mjs",
+    "build": "node scripts/generate-external-reexports.mjs --check && node scripts/generate-stylesheet.mjs --check && tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-core && node scripts/context-singleton-preflight.mjs",
     "size": "size-limit",
     "size:headline": "node scripts/measure-copilotchat.mjs",
     "size:assert-headless": "node scripts/assert-headless-purity.mjs",
@@ -99,23 +95,16 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@scarf/scarf": "^1.3.0",
     "@tanstack/react-virtual": "^3.14.13",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "lit": "^3.3.2",
     "lucide-react": "^0.525.0",
     "recharts": "^3.1.0",
     "rxjs": "7.8.1",
-    "tailwind-merge": "^3.3.1",
-    "tw-animate-css": "^1.3.5",
     "untruncate-json": "^0.0.1",
     "use-stick-to-bottom": "^1.1.1",
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "^4.1.11",
     "esbuild": "^0.27.0",
-    "@tailwindcss/postcss": "^4.1.11",
-    "@tailwindcss/typography": "^0.5.16",
     "@tanstack/intent": "^0.0.29",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.3.0",
@@ -125,17 +114,14 @@
     "@types/react-dom": "^19.0.2",
     "@valibot/to-json-schema": "^1.5.0",
     "arktype": "^2.1.29",
-    "autoprefixer": "^10.4.20",
     "concurrently": "^9.1.0",
     "eslint": "^8.56.0",
     "jsdom": "^26.1.0",
     "maplibre-gl": "^5.0.0",
     "phoenix": "^1.8.4",
     "playwright": "1.59.1",
-    "postcss": "^8.5.6",
     "react": "^19.1.0",
     "react-dom": "^19.2.0",
-    "tailwindcss": "^4.0.8",
     "tsconfig": "workspace:*",
     "tsdown": "^0.20.3",
     "typescript": "^5.2.3",

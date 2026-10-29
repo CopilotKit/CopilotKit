@@ -38,15 +38,28 @@ const pkgRoot = path.resolve(__dirname, "../../..");
 const distEntry = path.join(pkgRoot, "dist/v2/index.mjs");
 const distContext = path.join(pkgRoot, "dist/v2/context.mjs");
 const distGenerativeUI = path.join(pkgRoot, "dist/v2/generative-ui.mjs");
-// dist/v2/index.mjs has a side-effect `import "./index.css"`, emitted by
-// `build:css`. Without it the import fails for a reason unrelated to this test.
-const distCss = path.join(pkgRoot, "dist/v2/index.css");
 
-const distReady =
-  fs.existsSync(distEntry) &&
-  fs.existsSync(distContext) &&
-  fs.existsSync(distCss);
-const generativeUIReady = distReady && fs.existsSync(distGenerativeUI);
+/**
+ * True when `file` and every chunk it imports, recursively, are on disk. Nx can
+ * run this test while the same package's `build` is rewriting dist (publint and
+ * attw depend on it), so an entry can exist before the chunks it loads.
+ */
+function builtWithChunks(file: string, seen = new Set<string>()): boolean {
+  if (seen.has(file)) return true;
+  seen.add(file);
+  if (!fs.existsSync(file)) return false;
+  const code = fs.readFileSync(file, "utf8");
+  for (const [, specifier] of code.matchAll(
+    /(?:from|import)\s*\(?\s*["'](\.{1,2}\/[^"']+)["']/g,
+  )) {
+    const chunk = path.resolve(path.dirname(file), specifier!);
+    if (!builtWithChunks(chunk, seen)) return false;
+  }
+  return true;
+}
+
+const distReady = builtWithChunks(distEntry) && builtWithChunks(distContext);
+const generativeUIReady = distReady && builtWithChunks(distGenerativeUI);
 
 if (!generativeUIReady) {
   console.warn(

@@ -1,8 +1,9 @@
 /*
  * The Storybook preview plays the part of a host app: its own unprefixed
  * Tailwind build (like most CopilotKit users have), with shadcn-style tokens.
- * CopilotKit's components bring their own `cpk:`-prefixed CSS scoped under
- * [data-copilotkit], so anything that looks right here looks right in an app.
+ * CopilotKit's components bring their own CSS (<CopilotKitStyles />), scoped
+ * under [data-copilotkit], so anything that looks right here looks right in an
+ * app.
  *
  * The token values mirror CopilotKit's defaults so the canvas matches the
  * component surfaces in both themes.

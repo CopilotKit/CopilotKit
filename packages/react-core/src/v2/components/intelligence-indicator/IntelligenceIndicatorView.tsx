@@ -28,7 +28,7 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
  * checkmark — whose geometry lives in each path's `d` ATTRIBUTE so it
  * renders in every browser (the CSS `d:` property is Chrome-only).
  *
- * Two states, driven by the `data-status` attribute (see globals.css
+ * Two states, driven by the `data-status` attribute (see styles/css/intelligence-indicator.css
  * for the exact timing):
  *  1. **In-progress.** The arc spins (CSS rotation) inside the pill and
  *     the checkmark is hidden. Label + icon are a saturated purple.
@@ -42,7 +42,7 @@ export interface IntelligenceIndicatorViewProps extends React.HTMLAttributes<HTM
  *     — the static check plus the color/slant shift carry the "done"
  *     meaning, so no wording change is needed.
  *
- * All motion is gated behind `prefers-reduced-motion` (globals.css):
+ * All motion is gated behind `prefers-reduced-motion` (styles/css/intelligence-indicator.css):
  * when reduced motion is requested the arc does not spin and the two
  * states swap instantly, without transitions.
  *
@@ -91,7 +91,7 @@ export function IntelligenceIndicatorView({
               shape. The arc is a full circle shown as a partial ring by
               its dash pattern; it spins while in-progress (CSS) and on
               the status flip fades out mid-spin while the checkmark
-              draws itself in (see globals.css). */}
+              draws itself in (see styles/css/intelligence-indicator.css). */}
           <path
             className="cpk-intelligence-indicator__icon-arc"
             pathLength={1}

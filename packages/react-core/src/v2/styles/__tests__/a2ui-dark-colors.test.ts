@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const globalsCss = readFileSync("src/v2/styles/globals.css", {
+const baseCss = readFileSync("src/v2/styles/css/base.css", {
   encoding: "utf8",
 });
 
@@ -11,8 +11,8 @@ const globalsCss = readFileSync("src/v2/styles/globals.css", {
 // card's light text doesn't land on a white background.
 describe("A2UI colours in dark mode", () => {
   const darkBlock =
-    globalsCss.match(
-      /\.dark \[data-copilotkit\],\s*\[data-copilotkit\]\.dark \{([^}]*)\}/,
+    baseCss.match(
+      /:where\(\s*\.dark \[data-copilotkit\],\s*\[data-copilotkit\]\.dark\s*\) \{([^}]*)\}/,
     )?.[1] ?? "";
 
   it("sets the A2UI surface, border, muted and error colours from the dark theme", () => {
@@ -24,7 +24,7 @@ describe("A2UI colours in dark mode", () => {
 
   it("leaves the light theme to the catalog's fallbacks", () => {
     const lightBlock =
-      globalsCss.match(/^\[data-copilotkit\] \{([^}]*)\}/m)?.[1] ?? "";
+      baseCss.match(/^:where\(\[data-copilotkit\]\) \{([^}]*)\}/m)?.[1] ?? "";
     expect(lightBlock).not.toContain("--a2ui-color-");
   });
 });
