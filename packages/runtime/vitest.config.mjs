@@ -6,7 +6,7 @@ const { version } = JSON.parse(
 );
 
 export default defineConfig({
-  // Mirrors the tsdown `define`; see src/v2/runtime/core/package-info.ts.
+  // Mirrors the tsdown `define`; see src/runtime/core/package-info.ts.
   define: {
     __COPILOTKIT_RUNTIME_VERSION__: JSON.stringify(version),
   },

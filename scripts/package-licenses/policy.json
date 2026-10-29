@@ -108,26 +108,8 @@
     "notice": "LICENSE"
   },
   {
-    "directory": "packages/react-textarea",
-    "names": ["@copilotkit/react-textarea"],
-    "license": "MIT",
-    "notice": "LICENSE"
-  },
-  {
-    "directory": "packages/react-ui",
-    "names": ["@copilotkit/react-ui"],
-    "license": "MIT",
-    "notice": "LICENSE"
-  },
-  {
     "directory": "packages/runtime",
     "names": ["@copilotkit/runtime"],
-    "license": "MIT",
-    "notice": "LICENSE"
-  },
-  {
-    "directory": "packages/runtime-client-gql",
-    "names": ["@copilotkit/runtime-client-gql"],
     "license": "MIT",
     "notice": "LICENSE"
   },

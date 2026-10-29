@@ -7,7 +7,7 @@ import {
   CopilotChat,
   useAgent,
   useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { useEffect } from "react";
 import type { CSSProperties } from "react";
 

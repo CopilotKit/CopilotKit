@@ -12,7 +12,7 @@ import {
   useAgent,
   useCopilotKit,
   useCopilotChatConfiguration,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import { randomUUID, DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 export function useSendMessage() {

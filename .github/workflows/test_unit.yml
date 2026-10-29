@@ -186,9 +186,6 @@ jobs:
           echo "NX_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "Affected range: ${BASE:-<full>}...$(git rev-parse HEAD)"
 
-      - name: Generate GraphQL codegen files
-        run: npx nx run @copilotkit/runtime-client-gql:graphql-codegen
-
       - name: Select test projects
         id: select
         # PR/push → only packages affected since the base. workflow_dispatch

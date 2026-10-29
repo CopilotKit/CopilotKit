@@ -1,4 +1,4 @@
-import type { StaticSuggestionsConfig } from "@copilotkit/react-core/v2";
+import type { StaticSuggestionsConfig } from "@copilotkit/react-core";
 
 /** Offers an opening prompt without running the domain graph as a suggestion agent. */
 export const initialSuggestions: StaticSuggestionsConfig = {

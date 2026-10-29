@@ -92,7 +92,7 @@ The native commands require Python, Go, Ruby, and .NET. The five-language CI wor
 ## Source references
 
 The initial reference is TypeScript commit `862ff3c180`.
-Browser route contracts live in `packages/runtime/src/v2/runtime/core/fetch-router.ts` and `handlers/intelligence/`.
+Browser route contracts live in `packages/runtime/src/runtime/core/fetch-router.ts` and `handlers/intelligence/`.
 Platform requests live in `intelligence-platform/client.ts`.
 Phoenix delivery lives in `runner/intelligence.ts`.
 Analytics contracts live in `telemetry/` and `packages/shared/src/telemetry/lambda-client.ts`.
@@ -101,7 +101,7 @@ The fixture makes one deliberate security requirement stronger than a route stub
 all runtimes must verify app-user ownership before exposing thread inspection data.
 Account display metadata remains public and uses server credentials with private no-store responses.
 Its source contract is `packages/shared/src/utils/inspector-metadata.ts` and the TypeScript SDK's `getInspectorMetadata` method.
-The public route follows `packages/runtime/src/v2/runtime/handlers/handle-inspector-metadata.ts`.
+The public route follows `packages/runtime/src/runtime/handlers/handle-inspector-metadata.ts`.
 The suite also requires trusted MCP HTTP headers, explicit session deletion, and blocked-method rejection before a connection.
 These MCP requirements improve the pinned TypeScript middleware and must apply to TypeScript too.
 Future case changes must cite their reference behavior or explain an intentional correction.

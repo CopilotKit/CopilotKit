@@ -69,8 +69,8 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@microsoft/agents-hosting'
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels-teams";
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
-import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import { createCopilotNodeListener } from "@copilotkit/runtime/node";
 
 const bot = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name

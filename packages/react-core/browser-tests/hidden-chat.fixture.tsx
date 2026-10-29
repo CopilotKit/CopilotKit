@@ -4,8 +4,8 @@ import {
   CopilotChatConfigurationProvider,
   CopilotChatView,
   CopilotKitProvider,
-} from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+} from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 
 const params = new URLSearchParams(window.location.search);
 const count = Number(params.get("count") ?? "80");

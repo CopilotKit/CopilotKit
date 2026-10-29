@@ -68,10 +68,10 @@ jobs:
           # branch) so compressed-size-action can build both sides for comparison.
           # The `pattern` below restricts measurement to the 11 in-scope packages.
           build-script: build
-          pattern: "packages/{core,shared,react-core,react-ui,react-textarea,runtime-client-gql,web-inspector,voice,a2ui-renderer,react-native,mcp-apps-renderer}/dist/**/*.{mjs,js,cjs}"
+          pattern: "packages/{core,shared,react-core,web-inspector,voice,a2ui-renderer,react-native,mcp-apps-renderer}/dist/**/*.{mjs,js,cjs}"
 
   # Measures what an app importing { CopilotChat } from
-  # @copilotkit/react-core/v2 bundles, by driving esbuild over a synthetic entry
+  # @copilotkit/react-core bundles, by driving esbuild over a synthetic entry
   # and summing the gzipped output. Writes the total to the GitHub job summary
   # for per-PR visibility. It is a relative regression signal across PRs, not a
   # production Vite/Next figure — see dev-docs/bundle-size.md.

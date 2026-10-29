@@ -3,8 +3,8 @@ import type { Decorator } from "@storybook/react-vite";
 import {
   CopilotKitProvider,
   useDefaultRenderTool,
-} from "@copilotkit/react-core/v2";
-import { LicenseContext } from "@copilotkit/react-core/v2/context";
+} from "@copilotkit/react-core";
+import { LicenseContext } from "@copilotkit/react-core/context";
 import { StoryAgent } from "./story-agent";
 import type { StoryAgentOptions } from "./story-agent";
 

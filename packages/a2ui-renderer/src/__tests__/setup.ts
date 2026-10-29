@@ -21,8 +21,8 @@ afterEach(() => {
   cleanup();
 });
 
-// Mock @copilotkit/react-core/v2
-vi.mock("@copilotkit/react-core/v2", () => ({
+// Mock @copilotkit/react-core
+vi.mock("@copilotkit/react-core", () => ({
   useCopilotKit: vi.fn(() => ({
     copilotkit: {
       properties: {},

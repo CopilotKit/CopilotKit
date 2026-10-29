@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AnimatedCard } from "@/components/animated-card";
 import { motion, AnimatePresence } from "motion/react";
 
-import { ToolCallStatus } from "@copilotkit/react-core/v2";
+import { ToolCallStatus } from "@copilotkit/react-core";
 
 interface ContactInfoProps {
   onSubmit: (name: string, email: string, phone: string) => void;

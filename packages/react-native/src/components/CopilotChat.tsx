@@ -11,11 +11,8 @@ import {
   View,
 } from "react-native";
 import type { ListRenderItemInfo, ViewStyle } from "react-native";
-import {
-  useAgent,
-  useRenderToolCall,
-} from "@copilotkit/react-core/v2/headless";
-import { useCopilotKit } from "@copilotkit/react-core/v2/context";
+import { useAgent, useRenderToolCall } from "@copilotkit/react-core/headless";
+import { useCopilotKit } from "@copilotkit/react-core/context";
 import { AssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage } from "./messages/UserMessage";
 import type { Message } from "@copilotkit/shared";

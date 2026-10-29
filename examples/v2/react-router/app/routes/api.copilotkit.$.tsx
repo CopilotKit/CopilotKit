@@ -7,7 +7,7 @@ import {
   convertInputToTanStackAI,
   convertMessagesToVercelAISDKMessages,
   convertToolsToVercelAITools,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { streamText, tool } from "ai";

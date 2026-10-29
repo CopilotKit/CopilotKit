@@ -7,7 +7,7 @@ import path from "node:path";
 import type * as HeadlessEntry from "../headless";
 // Same reason, and additionally: the identity assertion below needs the module
 // this entry re-exports FROM, to compare bindings rather than merely count them.
-import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
+import type * as CoreHeadlessEntry from "@copilotkit/react-core/headless";
 
 /**
  * Guards the `@copilotkit/react-native/headless` entry (src/headless.ts).
@@ -21,7 +21,7 @@ import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
  * (nothing in a normal typecheck/test catches it, because those are optional
  * peers). This walks the relative-import graph and fails if that happens.
  *
- * Mirrors the export-surface guard added for @copilotkit/react-core/v2/headless
+ * Mirrors the export-surface guard added for @copilotkit/react-core/headless
  * (PR #5883).
  *
  * ─── Why the walker looks the way it does ──────────────────────────────────
@@ -31,7 +31,7 @@ import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
  * to close them and each is covered by a test:
  *
  *  1. It only saw `import … from "x"`. A lazy optional-peer
- *     `require("@copilotkit/react-core/v2")` or `await import(…)` — which Metro
+ *     `require("@copilotkit/react-core")` or `await import(…)` — which Metro
  *     follows and bundles just the same — was invisible. Now static, bare
  *     side-effect, dynamic `import()` and `require()` are all extracted, and a
  *     loader whose argument is NOT a literal is reported as unanalyzable rather
@@ -41,7 +41,7 @@ import type * as CoreHeadlessEntry from "@copilotkit/react-core/v2/headless";
  *     `…/headless`, `…/polyfills` and its five subpaths) that NO source file
  *     imports (half the reported bare-specifier set), purely from JSDoc
  *     examples. In the other direction, a "don't do this: import from
- *     @copilotkit/react-core/v2" counter-example written in a doc comment failed
+ *     @copilotkit/react-core" counter-example written in a doc comment failed
  *     the build. Comments are stripped before matching now.
  *  3. `resolveLocal` returned null for an edge it could not resolve and the
  *     caller dropped it, so an unresolvable specifier read as "clean" while
@@ -85,10 +85,10 @@ const FORBIDDEN_LOCAL = [
 ];
 
 // The one react-core entry this package's hooks come from.
-const CORE_HEADLESS = "@copilotkit/react-core/v2/headless";
+const CORE_HEADLESS = "@copilotkit/react-core/headless";
 
 // ─── #4893 bundle guard ──────────────────────────────────────────────────────
-// @copilotkit/react-core/v2 (the "fat" entry) re-exports from a monolithic chunk
+// @copilotkit/react-core (the "fat" entry) re-exports from a monolithic chunk
 // that pulls the chat-message rendering stack: streamdown -> shiki (~5.5 MB of
 // grammars + themes), plus mermaid, cytoscape and katex. Metro does not
 // tree-shake, so ONE import of that specifier from anywhere in this package puts
@@ -96,7 +96,7 @@ const CORE_HEADLESS = "@copilotkit/react-core/v2/headless";
 // hooks into /v2/headless precisely so this package never needs the fat entry.
 const ALLOWED_REACT_CORE_ENTRIES = [
   CORE_HEADLESS,
-  "@copilotkit/react-core/v2/context",
+  "@copilotkit/react-core/context",
 ];
 
 /**
@@ -185,7 +185,7 @@ const REQUIRED_HEADLESS_MODULES = [
   "CopilotKitProvider.tsx",
   "polyfills.ts",
 ];
-const REQUIRED_HEADLESS_BARE = ["@copilotkit/react-core/v2/headless"];
+const REQUIRED_HEADLESS_BARE = ["@copilotkit/react-core/headless"];
 
 interface PkgManifest {
   dependencies?: Record<string, string>;
@@ -211,7 +211,7 @@ interface PkgManifest {
  *
  * What this set does NOT police is WHICH ENTRY of an allowed package is imported:
  * `@copilotkit/react-core` is a legitimate dependency, so the fat
- * `@copilotkit/react-core/v2` passes here and is caught by the dedicated
+ * `@copilotkit/react-core` passes here and is caught by the dedicated
  * ALLOWED_REACT_CORE_ENTRIES test (which is package-wide, i.e. stricter). Keep
  * both — this one is the catch-all for UNENUMERATED packages, that one is the
  * #4893 entry ban.
@@ -605,7 +605,7 @@ describe("@copilotkit/react-native/headless entry", () => {
       // hit rather than a second traversal.
       [mod, coreHeadless] = await Promise.all([
         import("../headless"),
-        import("@copilotkit/react-core/v2/headless"),
+        import("@copilotkit/react-core/headless"),
       ]);
     }, IMPORT_BUDGET_MS);
 
@@ -661,7 +661,7 @@ describe("@copilotkit/react-native/headless entry", () => {
       expect(
         mod.useFrontendTool,
         "`useFrontendTool` on the RN headless entry is NOT the binding from " +
-          "@copilotkit/react-core/v2/headless. RN must own no implementation of " +
+          "@copilotkit/react-core/headless. RN must own no implementation of " +
           "it: re-export core's, or a local one will drift from it silently " +
           "under a name consumers already trust.",
       ).toBe(coreHeadless.useFrontendTool);
@@ -748,7 +748,7 @@ describe("@copilotkit/react-native/headless entry", () => {
       expect(
         offenders,
         `must import only ${ALLOWED_REACT_CORE_ENTRIES.join(" or ")} — found: ${offenders.join(", ")}. ` +
-          `Importing @copilotkit/react-core/v2 drags the shiki/mermaid/katex render stack into every RN bundle (#4893).`,
+          `Importing @copilotkit/react-core drags the shiki/mermaid/katex render stack into every RN bundle (#4893).`,
       ).toEqual([]);
     },
   );

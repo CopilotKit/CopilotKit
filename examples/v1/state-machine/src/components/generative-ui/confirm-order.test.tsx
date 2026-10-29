@@ -6,7 +6,7 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { ToolCallStatus } from "@copilotkit/react-core/v2";
+import { ToolCallStatus } from "@copilotkit/react-core";
 import { cars } from "../../lib/types/cars";
 import type { ContactInfo } from "../../lib/types/contact-info";
 import type { FinancingInfo } from "../../lib/types/financing-info";
@@ -18,7 +18,7 @@ vi.mock("@/components/animated-card", () => ({
   ),
 }));
 
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   ToolCallStatus: {
     Complete: "complete",
     Executing: "executing",

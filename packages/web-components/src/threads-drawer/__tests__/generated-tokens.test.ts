@@ -24,7 +24,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(dirname, "../../../../../");
 const GLOBALS_CSS = path.join(
   repoRoot,
-  "packages/react-core/src/v2/styles/globals.css",
+  "packages/react-core/src/styles/globals.css",
 );
 
 /** Maps drawer token keys back to the react-core custom property they derive from. */

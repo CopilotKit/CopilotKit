@@ -1,6 +1,6 @@
 import { it, expectTypeOf } from "vitest";
 import type { ToolSet } from "ai";
-import type { AgentFactoryContext, BuiltInAgentFactoryContext } from "../../v2";
+import type { AgentFactoryContext, BuiltInAgentFactoryContext } from "../..";
 import type { BuiltInAgentLearnedSkills } from "../learned-skills";
 
 it("exports distinct runtime and BuiltInAgent contexts", () => {
@@ -24,7 +24,7 @@ void immutableTools;
 import type {
   GetLearnedSkillsSnapshotsRequest,
   LearnedSkillsBatchResult,
-} from "../../v2";
+} from "../..";
 const batchRequest: GetLearnedSkillsSnapshotsRequest = {
   containers: [{ containerId: "support" }],
 };

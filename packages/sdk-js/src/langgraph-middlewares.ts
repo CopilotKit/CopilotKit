@@ -2,10 +2,10 @@
  * V1 SDK DEPRECATED. USE V2 INSTEAD
  *
  * This is the deprecated v1 entrypoint `@copilotkit/sdk-js/langgraph-middlewares`. Use v2 instead.
- * Migrate to `@copilotkit/runtime/v2` and follow each export's specific
+ * Migrate to `@copilotkit/runtime` and follow each export's specific
  * IDE deprecation warning below; renamed APIs are not safe search-and-replaces.
  * This entrypoint currently exposes 3 deprecated public exports.
- * V2 source entrypoint: packages/runtime/src/v2/index.ts
+ * V2 source entrypoint: packages/runtime/src/index.ts
  * V2 docs: https://docs.copilotkit.ai/
  * V2 reference docs: https://docs.copilotkit.ai/reference/v2
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
@@ -24,7 +24,7 @@ export {
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
    * Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
-   * Start with `@copilotkit/runtime/v2`.
+   * Start with `@copilotkit/runtime`.
    * V2 docs: https://docs.copilotkit.ai/
    * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
@@ -34,7 +34,7 @@ export {
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
    * Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
-   * Start with `@copilotkit/runtime/v2`.
+   * Start with `@copilotkit/runtime`.
    * V2 docs: https://docs.copilotkit.ai/
    * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
@@ -44,7 +44,7 @@ export {
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
    * Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
-   * Start with `@copilotkit/runtime/v2`.
+   * Start with `@copilotkit/runtime`.
    * V2 docs: https://docs.copilotkit.ai/
    * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2

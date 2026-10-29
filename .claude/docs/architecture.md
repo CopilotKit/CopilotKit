@@ -16,12 +16,9 @@ All packages live flat under `packages/` using the `@copilotkit/` scope. There i
 
 - **shared**: Common utilities, types, and constants used across all other packages.
 - **core**: The `CopilotKitCore` orchestrator — the central brain on the frontend. Manages the agent registry, tool registry, context store, and event subscriptions. All framework packages (React, Angular, Vanilla) wrap this.
-- **react-core**: The public `<CopilotKit>` provider and hooks. Wraps core for React.
-- **react-ui**: Chat UI components — `CopilotChat`, `CopilotPopup`, `CopilotSidebar`, `CopilotPanel`.
-- **react-textarea**: The `CopilotTextarea` component for AI-assisted text editing.
+- **react-core**: The public `<CopilotKit>` provider, hooks, and chat UI (`CopilotChat`, `CopilotPopup`, `CopilotSidebar`). Wraps core for React. Subpaths: `/headless` (hooks without the UI, used by React Native), `/context`, `/generative-ui`, `/styles.css`.
 - **angular**: Angular DI tokens, services, and signal-based state. Same concepts as React but using Angular patterns (`inject()`, signals, `AgentStore`).
-- **runtime**: The server-side `CopilotRuntime` class that receives HTTP requests and delegates to agents. Provides Express and Hono adapters. Contains the `AgentRunner` abstraction for managing thread/conversation state. Also includes GraphQL server and LLM adapters.
-- **runtime-client-gql**: urql-based GraphQL client for frontend-to-runtime communication.
+- **runtime**: The server-side `CopilotRuntime` class that receives HTTP requests and delegates to agents. Provides Express and Hono adapters. Contains the `AgentRunner` abstraction for managing thread/conversation state. Subpaths: `/express`, `/hono`, `/node`.
 - **agent**: The `BuiltInAgent` — a default agent implementation powered by the Vercel AI SDK. Used when developers don't bring their own agent framework.
 - **voice**: Voice input and transcription support.
 - **web-inspector**: A debug console (Lit web component) for inspecting agent communication in development.

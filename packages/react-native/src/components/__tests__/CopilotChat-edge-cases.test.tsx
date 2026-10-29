@@ -22,12 +22,12 @@ const hoisted = vi.hoisted(() => {
 // rendering against a REAL useRenderToolCall lives in
 // CopilotChatToolCalls.test.tsx; here useRenderToolCall resolves no renderer so
 // tool calls fall through to the "Called: <name>" placeholder.
-vi.mock("@copilotkit/react-core/v2/headless", () => ({
+vi.mock("@copilotkit/react-core/headless", () => ({
   useAgent: vi.fn(() => ({ agent: hoisted.mockAgent })),
   useRenderToolCall: vi.fn(() => () => null),
 }));
 
-vi.mock("@copilotkit/react-core/v2/context", () => ({
+vi.mock("@copilotkit/react-core/context", () => ({
   useCopilotKit: vi.fn(() => ({
     copilotkit: { runAgent: hoisted.mockRunAgent },
     executingToolCallIds: hoisted.mockExecutingToolCallIds,

@@ -3,7 +3,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { prompt } from "../../../../lib/prompt";
 
 const agent = new BuiltInAgent({

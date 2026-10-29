@@ -1,6 +1,6 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { CopilotPopup } from "@copilotkit/react-core/v2";
+import { CopilotPopup } from "@copilotkit/react-core";
 import { reactHooksConversation } from "./support/fixtures";
 import { HostPage } from "./support/HostPage";
 import { withStandaloneCopilotKit } from "./support/providers";

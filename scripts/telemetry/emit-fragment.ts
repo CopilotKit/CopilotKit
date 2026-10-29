@@ -91,7 +91,7 @@ function runtimeFragment(): {
   events: FragmentEvent[];
 } {
   const v1Rel = "packages/shared/src/telemetry/events.ts";
-  const v2Rel = "packages/runtime/src/v2/runtime/telemetry/events.ts";
+  const v2Rel = "packages/runtime/src/runtime/telemetry/events.ts";
   const read = (rel: string) => ({
     path: rel,
     content: fs.readFileSync(path.join(REPO_ROOT, rel), "utf8"),

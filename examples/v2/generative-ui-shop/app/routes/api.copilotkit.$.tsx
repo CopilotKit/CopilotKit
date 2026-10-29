@@ -6,7 +6,7 @@ import {
   InMemoryAgentRunner,
   convertInputToTanStackAI,
   createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { SHOP_ASSISTANT_PROMPT } from "#app/prompts/system.ts";
 import { getCareInstructions } from "#app/tools/care-instructions.ts";
 import {

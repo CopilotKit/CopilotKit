@@ -2,7 +2,6 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import { pilotMappings } from "./v1-source-mappings.mjs";
 
 export const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -23,37 +22,22 @@ export const V2_REFERENCE = "https://docs.copilotkit.ai/reference/v2";
 // set it to `null`. For those the lookup could not run at all, so their rows
 // reported "no replacement" by construction rather than by looking. Listing the
 // modules per entrypoint makes every row a real answer.
-const reactV2Modules = [
-  {
-    file: "packages/react-core/src/v2/index.ts",
-    importPath: "@copilotkit/react-core/v2",
-  },
-  {
-    file: "packages/react-core/src/v2/headless.ts",
-    importPath: "@copilotkit/react-core/v2/headless",
-  },
-  {
-    file: "packages/react-core/src/v2/context.ts",
-    importPath: "@copilotkit/react-core/v2/context",
-  },
-];
-
 const runtimeV2Modules = [
   {
-    file: "packages/runtime/src/v2/index.ts",
-    importPath: "@copilotkit/runtime/v2",
+    file: "packages/runtime/src/index.ts",
+    importPath: "@copilotkit/runtime",
   },
   {
-    file: "packages/runtime/src/v2/node.ts",
-    importPath: "@copilotkit/runtime/v2/node",
+    file: "packages/runtime/src/node.ts",
+    importPath: "@copilotkit/runtime/node",
   },
   {
-    file: "packages/runtime/src/v2/express.ts",
-    importPath: "@copilotkit/runtime/v2/express",
+    file: "packages/runtime/src/express.ts",
+    importPath: "@copilotkit/runtime/express",
   },
   {
-    file: "packages/runtime/src/v2/hono.ts",
-    importPath: "@copilotkit/runtime/v2/hono",
+    file: "packages/runtime/src/hono.ts",
+    importPath: "@copilotkit/runtime/hono",
   },
 ];
 
@@ -70,88 +54,13 @@ export const supportedEntrypoints = [
 
 export const v1Entrypoints = [
   {
-    id: "react-core",
-    file: "packages/react-core/src/v1-deprecated-compatibility.ts",
-    packageRoot: "packages/react-core",
-    importPath: "@copilotkit/react-core",
-    v2Modules: reactV2Modules,
-    v2ImportPath: "@copilotkit/react-core/v2",
-    v2Source: "packages/react-core/src/v2/index.ts",
-    docsKind: "react",
-    version: "1.68.2",
-    distFiles: [
-      "packages/react-core/dist/index.d.mts",
-      "packages/react-core/dist/index.d.cts",
-    ],
-  },
-  {
-    id: "react-ui",
-    file: "packages/react-ui/src/index.tsx",
-    packageRoot: "packages/react-ui",
-    importPath: "@copilotkit/react-ui",
-    v2Modules: reactV2Modules,
-    v2ImportPath: "@copilotkit/react-core/v2",
-    v2Source: "packages/react-core/src/v2/index.ts",
-    docsKind: "react",
-    version: "1.68.2",
-    distFiles: [
-      "packages/react-ui/dist/index.d.mts",
-      "packages/react-ui/dist/index.d.cts",
-    ],
-  },
-  {
-    id: "react-textarea",
-    file: "packages/react-textarea/src/index.tsx",
-    packageRoot: "packages/react-textarea",
-    importPath: "@copilotkit/react-textarea",
-    v2Modules: reactV2Modules,
-    v2ImportPath: "@copilotkit/react-core/v2",
-    v2Source: "packages/react-core/src/v2/index.ts",
-    docsKind: "react",
-    version: "1.68.2",
-    distFiles: [
-      "packages/react-textarea/dist/index.d.mts",
-      "packages/react-textarea/dist/index.d.cts",
-    ],
-  },
-  {
-    id: "runtime",
-    file: "packages/runtime/src/v1-deprecated-compatibility.ts",
-    packageRoot: "packages/runtime",
-    importPath: "@copilotkit/runtime",
-    v2Modules: runtimeV2Modules,
-    v2ImportPath: "@copilotkit/runtime/v2",
-    v2Source: "packages/runtime/src/v2/index.ts",
-    docsKind: "runtime",
-    version: "1.68.2",
-    distFiles: [
-      "packages/runtime/dist/index.d.mts",
-      "packages/runtime/dist/index.d.cts",
-    ],
-  },
-  {
-    id: "runtime-langgraph",
-    file: "packages/runtime/src/v1-deprecated/langgraph.ts",
-    packageRoot: "packages/runtime",
-    importPath: "@copilotkit/runtime/langgraph",
-    v2Modules: runtimeV2Modules,
-    v2ImportPath: "@copilotkit/runtime/v2",
-    v2Source: "packages/runtime/src/v2/index.ts",
-    docsKind: "runtime",
-    version: "1.68.2",
-    distFiles: [
-      "packages/runtime/dist/langgraph.d.mts",
-      "packages/runtime/dist/langgraph.d.cts",
-    ],
-  },
-  {
     id: "sdk-js",
     file: "packages/sdk-js/src/index.ts",
     packageRoot: "packages/sdk-js",
     importPath: "@copilotkit/sdk-js",
     v2Modules: runtimeV2Modules,
-    v2ImportPath: "@copilotkit/runtime/v2",
-    v2Source: "packages/runtime/src/v2/index.ts",
+    v2ImportPath: "@copilotkit/runtime",
+    v2Source: "packages/runtime/src/index.ts",
     docsKind: "runtime",
     version: "1.68.2",
     distFiles: [
@@ -165,8 +74,8 @@ export const v1Entrypoints = [
     packageRoot: "packages/sdk-js",
     importPath: "@copilotkit/sdk-js/langchain",
     v2Modules: runtimeV2Modules,
-    v2ImportPath: "@copilotkit/runtime/v2",
-    v2Source: "packages/runtime/src/v2/index.ts",
+    v2ImportPath: "@copilotkit/runtime",
+    v2Source: "packages/runtime/src/index.ts",
     docsKind: "runtime",
     version: "1.68.2",
     distFiles: [
@@ -180,8 +89,8 @@ export const v1Entrypoints = [
     packageRoot: "packages/sdk-js",
     importPath: "@copilotkit/sdk-js/langgraph-middlewares",
     v2Modules: runtimeV2Modules,
-    v2ImportPath: "@copilotkit/runtime/v2",
-    v2Source: "packages/runtime/src/v2/index.ts",
+    v2ImportPath: "@copilotkit/runtime",
+    v2Source: "packages/runtime/src/index.ts",
     docsKind: "runtime",
     version: "1.68.2",
     forcedDirectSource: "@ag-ui/langgraph/middlewares",
@@ -192,16 +101,7 @@ export const v1Entrypoints = [
   },
 ];
 
-const overrides = new Map(
-  [
-    ["react-core:useCopilotAction", "useFrontendTool"],
-    ["react-core:useCopilotAdditionalInstructions", "useAgentContext"],
-    ["react-core:useCoAgent", "useAgent"],
-    ["react-core:useCopilotChat", "useAgent"],
-    ["react-core:useCopilotChatSuggestions", "useConfigureSuggestions"],
-    ["react-core:useDefaultTool", "useDefaultRenderTool"],
-  ].map(([key, replacementName]) => [key, { replacementName }]),
-);
+const overrides = new Map();
 
 const relatedConcepts = {
   agentContext: {
@@ -261,230 +161,6 @@ function addRelatedConcept(entrypointId, names, relatedDocs) {
   }
 }
 
-addRelatedConcept(
-  "react-core",
-  [
-    "CoagentInChatRenderFunction",
-    "CoAgentStateRendersContext",
-    "CoAgentStateRendersContextValue",
-    "CoAgentStateRendersProvider",
-    "useCoAgentStateRenders",
-  ],
-  relatedConcepts.stateRendering,
-);
-addRelatedConcept(
-  "react-core",
-  [
-    "ActionRenderProps",
-    "ActionRenderPropsNoArgs",
-    "ActionRenderPropsNoArgsWait",
-    "ActionRenderPropsWait",
-    "CatchAllActionRenderProps",
-    "RenderFunctionStatus",
-    "useLazyToolRenderer",
-  ],
-  relatedConcepts.toolRendering,
-);
-addRelatedConcept(
-  "react-core",
-  [
-    "CatchAllFrontendAction",
-    "FrontendAction",
-    "FrontendActionAvailability",
-    "CopilotTask",
-    "CopilotTaskConfig",
-  ],
-  relatedConcepts.toolBasedUi,
-);
-addRelatedConcept(
-  "react-core",
-  [
-    "LangGraphInterruptAction",
-    "LangGraphInterruptActionSetter",
-    "LangGraphInterruptActionSetterArgs",
-    "LangGraphInterruptRender",
-    "LangGraphInterruptRenderHandlerProps",
-    "LangGraphInterruptRenderProps",
-    "QueuedInterruptEvent",
-  ],
-  relatedConcepts.humanInTheLoop,
-);
-addRelatedConcept(
-  "react-core",
-  [
-    "defaultCopilotContextCategories",
-    "DocumentPointer",
-    "Tree",
-    "TreeNode",
-    "useMakeCopilotDocumentReadable",
-  ],
-  relatedConcepts.agentContext,
-);
-addRelatedConcept(
-  "react-core",
-  ["CopilotContext", "CopilotContextParams", "useCopilotContext"],
-  relatedConcepts.provider,
-);
-addRelatedConcept(
-  "react-core",
-  ["CopilotApiConfig", "useCopilotRuntimeClient"],
-  relatedConcepts.runtime,
-);
-addRelatedConcept(
-  "react-core",
-  [
-    "ChatSuggestions",
-    "CopilotChatSuggestionConfiguration",
-    "SUGGESTION_RETRY_CONFIG",
-    "UseCopilotChatSuggestionsConfiguration",
-  ],
-  relatedConcepts.suggestions,
-);
-addRelatedConcept(
-  "react-core",
-  [
-    "CopilotMessagesContext",
-    "CopilotMessagesContextParams",
-    "OnReloadMessages",
-    "OnStopGeneration",
-    "useCopilotChatHeadless_c",
-    "useCopilotChatInternal",
-    "UseCopilotChatOptions",
-    "UseCopilotChatOptions_c",
-    "UseCopilotChatReturn",
-    "UseCopilotChatReturn_c",
-    "useCopilotMessagesContext",
-  ],
-  relatedConcepts.chat,
-);
-addRelatedConcept(
-  "react-core",
-  [
-    "ThreadsContext",
-    "ThreadsContextValue",
-    "ThreadsProvider",
-    "ThreadsProviderProps",
-  ],
-  relatedConcepts.threads,
-);
-addRelatedConcept(
-  "react-ui",
-  [
-    "AssistantMessageProps",
-    "ButtonProps",
-    "ChatError",
-    "ComponentsMap",
-    "CopilotKitCSSProperties",
-    "CopilotModal",
-    "CopilotModalProps",
-    "CopilotObservabilityHooks",
-    "ErrorMessageProps",
-    "HeaderProps",
-    "ImageRenderer",
-    "ImageRendererProps",
-    "InputProps",
-    "Markdown",
-    "MessagesProps",
-    "Renderer",
-    "RenderMessageProps",
-    "useChatContext",
-    "UserMessageProps",
-    "WindowProps",
-  ],
-  relatedConcepts.chat,
-);
-addRelatedConcept(
-  "react-ui",
-  [
-    "CopilotChatSuggestion",
-    "RenderSuggestion",
-    "RenderSuggestionsList",
-    "RenderSuggestionsListProps",
-    "SuggestionsProps",
-  ],
-  relatedConcepts.suggestions,
-);
-
-const runtimeMigrationExports = [
-  "AnthropicAdapter",
-  "AnthropicAdapterParams",
-  "AnthropicPromptCachingConfig",
-  "BedrockAdapter",
-  "BedrockAdapterParams",
-  "buildSchema",
-  "CommonConfig",
-  "config",
-  "convertServiceAdapterError",
-  "copilotKitEndpoint",
-  "CopilotRequestContextProperties",
-  "CopilotRuntimeChatCompletionRequest",
-  "CopilotRuntimeChatCompletionResponse",
-  "CopilotRuntimeConstructorParams_BASE",
-  "copilotRuntimeNestEndpoint",
-  "copilotRuntimeNextJSAppRouterEndpoint",
-  "copilotRuntimeNextJSPagesRouterEndpoint",
-  "copilotRuntimeNodeExpressEndpoint",
-  "copilotRuntimeNodeHttpEndpoint",
-  "CopilotServiceAdapter",
-  "CreateCopilotRuntimeServerOptions",
-  "EmptyAdapter",
-  "ExperimentalEmptyAdapter",
-  "ExperimentalOllamaAdapter",
-  "getCommonConfig",
-  "getSdkClientOptions",
-  "GoogleGenerativeAIAdapter",
-  "GraphQLContext",
-  "GroqAdapter",
-  "GroqAdapterParams",
-  "LangChainAdapter",
-  "OpenAIAdapter",
-  "OpenAIAdapterParams",
-  "OpenAIAssistantAdapter",
-  "OpenAIAssistantAdapterParams",
-  "RemoteChain",
-  "RemoteChainParameters",
-  "resolveEndpointType",
-  "UnifyAdapter",
-  "UnifyAdapterParams",
-];
-addRelatedConcept("runtime", runtimeMigrationExports, relatedConcepts.runtime);
-addRelatedConcept(
-  "runtime",
-  [
-    "convertMCPToolsToActions",
-    "extractParametersFromSchema",
-    "generateMcpToolInstructions",
-    "MCPEndpointConfig",
-    "MCPTool",
-  ],
-  relatedConcepts.mcp,
-);
-addRelatedConcept(
-  "runtime",
-  [
-    "CustomEventNames",
-    "LangGraphAgent",
-    "LangGraphHttpAgent",
-    "langGraphPlatformEndpoint",
-    "PredictStateTool",
-    "TextMessageEvents",
-    "ToolCallEvents",
-  ],
-  relatedConcepts.langGraph,
-);
-addRelatedConcept(
-  "runtime-langgraph",
-  [
-    "CustomEventNames",
-    "LangGraphAgent",
-    "LangGraphHttpAgent",
-    "PredictStateTool",
-    "TextMessageEvents",
-    "ToolCallEvents",
-  ],
-  relatedConcepts.langGraph,
-);
-
 const sdkLangGraphMigrationExports = [
   "convertActionsToDynamicStructuredTools",
   "convertActionToDynamicStructuredTool",
@@ -530,127 +206,6 @@ addRelatedConcept(
 // compatibility modules. The replacement still points to v2, but routing the
 // v1 export itself through v2 (or directly through a dependency) changes the
 // generated declaration graph and can alter runtime side effects.
-overrides.set("runtime:AgentFactoryContext", {
-  directSource: "./v1-deprecated/lib/runtime/copilot-runtime",
-});
-overrides.set("runtime:AgentsConfig", {
-  directSource: "./v1-deprecated/lib/runtime/copilot-runtime",
-});
-overrides.set("runtime:AgentsFactory", {
-  directSource: "./v1-deprecated/lib/runtime/copilot-runtime",
-});
-overrides.set("runtime-langgraph:LangGraphHttpAgent", {
-  ...overrides.get("runtime-langgraph:LangGraphHttpAgent"),
-  directSource: "./lib/runtime/agent-integrations/langgraph/agent",
-});
-
-// `LangGraphHttpAgent` is not re-exported by `@copilotkit/runtime/v2`, so the
-// name-matching pass above cannot find a replacement for it. It has one anyway:
-// it is a subclass of `HttpAgent` from `@ag-ui/client`, which the v2
-// `CopilotRuntime` accepts directly, and that is the pattern every LangGraph and
-// DeepAgents docs page now uses. State the one behavioural difference rather
-// than the exact shape of the subclass, which is version-specific: as of
-// `@ag-ui/langgraph@0.0.43` the subclass carries a back-compat bridge for
-// clients resuming interrupts through the deprecated
-// `forwardedProps.command.resume` channel (v1's `useLangGraphInterrupt`).
-// `LangGraphAgent` is deliberately NOT given this note: it genuinely has no
-// one-to-one replacement.
-const langGraphHttpAgentReplacementNote = [
-  "Use `HttpAgent` from `@ag-ui/client`, passed to the v2 `CopilotRuntime`.",
-  "Exception: a v1 client still resuming interrupts through" +
-    " `forwardedProps.command.resume` — `LangGraphHttpAgent` keeps a" +
-    " back-compat bridge for that channel.",
-];
-for (const key of [
-  "runtime:LangGraphHttpAgent",
-  "runtime-langgraph:LangGraphHttpAgent",
-]) {
-  overrides.set(key, {
-    ...overrides.get(key),
-    replacementNote: langGraphHttpAgentReplacementNote,
-    replacementNoteSource: "@ag-ui/client",
-  });
-}
-
-// The v1 endpoint factories were renamed in v2, so the name-matching pass above
-// cannot find them either. Both replacements are real exports of
-// `@copilotkit/runtime/v2`, and the mapping is stated as a table in
-// showcase/shell-docs/src/content/docs/backend/copilot-runtime.mdx.
-// `copilotRuntimeNextJSPagesRouterEndpoint` and `copilotRuntimeNestEndpoint` are
-// deliberately left alone: the docs group them under the same single-route mode
-// but never name a v2 counterpart for them, so a mapping here would be a guess.
-overrides.set("runtime:copilotRuntimeNextJSAppRouterEndpoint", {
-  ...overrides.get("runtime:copilotRuntimeNextJSAppRouterEndpoint"),
-  replacementName: "createCopilotRuntimeHandler",
-});
-overrides.set("runtime:copilotRuntimeNodeHttpEndpoint", {
-  ...overrides.get("runtime:copilotRuntimeNodeHttpEndpoint"),
-  replacementName: "createCopilotRuntimeHandler",
-});
-overrides.set("runtime:copilotRuntimeNodeExpressEndpoint", {
-  ...overrides.get("runtime:copilotRuntimeNodeExpressEndpoint"),
-  replacementName: "createCopilotExpressHandler",
-  importPath: "@copilotkit/runtime/v2/express",
-});
-
-for (const mapping of pilotMappings) {
-  const entrypointId = mapping.file.startsWith("packages/react-core/")
-    ? "react-core"
-    : mapping.file.startsWith("packages/react-ui/")
-      ? "react-ui"
-      : "runtime";
-  const replacementName = mapping.v2.match(/\{\s*([^\s}]+)\s*\}/)?.[1];
-  if (!replacementName) throw new Error(`Invalid v2 import: ${mapping.v2}`);
-  overrides.set(`${entrypointId}:${mapping.deprecatedExport}`, {
-    replacementName,
-    docs: mapping.docs,
-    source: mapping.source,
-    notes: mapping.notes,
-    exampleLines: mapping.deprecationExample,
-  });
-}
-
-const suggestionsExample = pilotMappings.find(
-  (mapping) => mapping.deprecatedExport === "useCopilotChatSuggestions",
-)?.deprecationExample;
-if (!suggestionsExample) {
-  throw new Error("Missing audited useConfigureSuggestions migration example");
-}
-overrides.set("react-core:useCopilotChatSuggestions", {
-  replacementName: "useConfigureSuggestions",
-  docs: "https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions",
-  source: "packages/react-core/src/v2/hooks/use-configure-suggestions.tsx",
-  exampleLines: suggestionsExample,
-});
-
-overrides.set("react-core:useCoAgentStateRender", {
-  replacementName: "useAgent",
-  docs: relatedConcepts.stateRendering.url,
-  source: "packages/react-core/src/v2/hooks/use-agent.tsx",
-  exampleLines: [
-    'import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";',
-    "",
-    "function AgentStateView() {",
-    "  const { agent } = useAgent({",
-    '    agentId: "basic_agent",',
-    "    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],",
-    "  });",
-    "  const state = agent.state;",
-    "",
-    "  return (",
-    "    <YourComponent",
-    "      agentStateProperty={state.agent_state_property}",
-    "      isRunning={agent.isRunning}",
-    "    />",
-    "  );",
-    "}",
-  ],
-  notes: [
-    "Use useAgent to subscribe to agent state and run-status changes, then render agent.state directly.",
-    "V2 uses ordinary React rendering instead of registering a chat-specific state renderer.",
-  ],
-});
-
 const compilerOptions = {
   allowArbitraryExtensions: true,
   jsx: ts.JsxEmit.ReactJSX,
@@ -888,8 +443,8 @@ export function getV1PublicApi() {
         // root one, so a row names the module the lookup actually found it in.
         // An explicit override still wins, because a symbol can be reachable
         // from the root barrel and still be better imported from a subpath: the
-        // Express handler is re-exported by `@copilotkit/runtime/v2`, but the
-        // docs import it from `@copilotkit/runtime/v2/express`, the path that
+        // Express handler is re-exported by `@copilotkit/runtime`, but the
+        // docs import it from `@copilotkit/runtime/express`, the path that
         // does not pull the rest of the barrel in.
         const replacementImportPath =
           override?.importPath ??

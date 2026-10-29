@@ -96,7 +96,7 @@ try {
   const require = createRequire(join(consumer, "package.json"));
   const runtimeEntry = join(
     consumer,
-    "node_modules/@copilotkit/runtime/dist/v2/index.mjs",
+    "node_modules/@copilotkit/runtime/dist/index.mjs",
   );
   const hash = async (file) =>
     createHash("sha256")
@@ -104,7 +104,7 @@ try {
       .digest("hex");
   assert.equal(
     await hash(runtimeEntry),
-    await hash(join(root, "packages/runtime/dist/v2/index.mjs")),
+    await hash(join(root, "packages/runtime/dist/index.mjs")),
     "Loaded runtime differs from candidate build",
   );
   evidence.sdkPackages = await Promise.all(

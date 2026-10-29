@@ -8,7 +8,7 @@ import type {
   Message,
   Suggestion,
   ToolMessage,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 
 /** Builds an assistant tool call entry. */
 export const toolCall = (

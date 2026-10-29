@@ -1,6 +1,6 @@
 import express from "express";
-import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
-import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/express";
 
 const runtime = new CopilotRuntime({
   agents: {

@@ -1,13 +1,13 @@
 import express from "express";
 import dotenv from "dotenv";
 import { z } from "zod";
+import type { ToolDefinition } from "@copilotkit/runtime";
 import {
   CopilotRuntime,
   createCopilotEndpointSingleRouteExpress,
   BuiltInAgent,
   defineTool,
-  ToolDefinition,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 
 dotenv.config();
 

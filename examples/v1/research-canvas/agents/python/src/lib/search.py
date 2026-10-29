@@ -6,13 +6,13 @@ import asyncio
 import os
 from typing import Any, Dict, List, cast
 
-from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_state
 from langchain.tools import tool
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
 from tavily import TavilyClient
 
+from src.lib.agui_events import emit_state, with_predicted_state
 from src.lib.model import get_model
 from src.lib.state import AgentState
 
@@ -68,7 +68,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
     for query in queries:
         state["logs"].append({"message": f"Search for {query}", "done": False})
 
-    await copilotkit_emit_state(config, state)
+    await emit_state(config, state)
 
     search_results = []
 
@@ -84,11 +84,11 @@ async def search_node(state: AgentState, config: RunnableConfig):
             search_results.append(result)
 
         state["logs"][i]["done"] = True
-        await copilotkit_emit_state(config, state)
+        await emit_state(config, state)
 
-    config = copilotkit_customize_config(
+    config = with_predicted_state(
         config,
-        emit_intermediate_state=[
+        [
             {
                 "state_key": "resources",
                 "tool": "ExtractResources",
@@ -122,7 +122,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
     )
 
     state["logs"] = []
-    await copilotkit_emit_state(config, state)
+    await emit_state(config, state)
 
     ai_message_response = cast(AIMessage, response)
     resources = ai_message_response.tool_calls[0]["args"]["resources"]

@@ -4,11 +4,11 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Resolved path to src/v2/context.ts — used to redirect the headless build's
-// relative ../context imports to the external @copilotkit/react-core/v2/context
+// Resolved path to src/context.ts — used to redirect the headless build's
+// relative ../context imports to the external @copilotkit/react-core/context
 // package path, ensuring a shared React context instance at runtime.
 const configDir = path.dirname(fileURLToPath(import.meta.url));
-const contextModulePath = path.resolve(configDir, "src/v2/context");
+const contextModulePath = path.resolve(configDir, "src/context");
 
 // Post-process the emitted declaration files. tsdown/rolldown-plugin-dts leaves
 // two artifacts in the .d.ts/.d.cts/.d.mts output that break `attw` type
@@ -36,7 +36,7 @@ const postProcessDeclarations = (dir: string) => {
         const code = fs.readFileSync(full, "utf8");
         const next = code
           .replace(cssImport, "")
-          .replace(contextImport, 'from "@copilotkit/react-core/v2/context"');
+          .replace(contextImport, 'from "@copilotkit/react-core/context"');
         if (next !== code) fs.writeFileSync(full, next);
       }
     }
@@ -45,14 +45,14 @@ const postProcessDeclarations = (dir: string) => {
 };
 
 // Redirects any relative `../context` / `./context` import that resolves to
-// src/v2/context.ts onto the external `@copilotkit/react-core/v2/context`
+// src/context.ts onto the external `@copilotkit/react-core/context`
 // package path.
 //
-// src/v2/context.ts is emitted as its own entry (dist/v2/context.*) so React
+// src/context.ts is emitted as its own entry (dist/context.*) so React
 // Native can consume it without dragging in the web bundle. Any build that ALSO
 // inlines it ends up running `createContext()` a second time, producing a
 // distinct context instance: `CopilotKitProvider` would publish to its inlined
-// copy while consumers importing from `@copilotkit/react-core/v2/context` read
+// copy while consumers importing from `@copilotkit/react-core/context` read
 // the orphaned one and only ever see the defaults (e.g. `useLicenseContext()`
 // stuck at `status: null`). Externalizing keeps exactly one instance at runtime.
 //
@@ -69,7 +69,7 @@ const externalizeContext = {
         resolved === contextModulePath + ".ts"
       ) {
         return {
-          id: "@copilotkit/react-core/v2/context",
+          id: "@copilotkit/react-core/context",
           external: true,
         };
       }
@@ -80,16 +80,15 @@ const externalizeContext = {
 
 export default defineConfig([
   {
-    // `v2/generative-ui` is built here, next to `v2/index`, and not as its
+    // `generative-ui` is built here, next to `index`, and not as its
     // own build. One build puts the modules that both entries use (for
     // example `generative-ui/runtime-context.ts`) in one shared chunk. A
     // separate build would inline a second copy, and its `createContext()`
     // would give a second context: `GenerativeUISurface` from the subpath
-    // would not see the runtime that `CopilotKitProvider` from `/v2` sets.
+    // would not see the runtime that `CopilotKit` from the root sets.
     entry: {
-      index: "src/v1-deprecated-compatibility.ts",
-      "v2/index": "src/v2/index.ts",
-      "v2/generative-ui": "src/v2/generative-ui/index.ts",
+      index: "src/index.ts",
+      "generative-ui": "src/generative-ui/index.ts",
     },
     format: ["esm", "cjs"],
     dts: true,
@@ -105,7 +104,7 @@ export default defineConfig([
       "react-dom",
       "@copilotkit/core",
       "@copilotkit/shared",
-      "@copilotkit/react-core/v2/context",
+      "@copilotkit/react-core/context",
       "@copilotkit/web-inspector",
       "@copilotkit/a2ui-renderer",
       // Keep @copilotkit/web-components (the Lit drawer element) + its subpaths
@@ -121,45 +120,45 @@ export default defineConfig([
     exports: {
       customExports: (exports) => ({
         ...exports,
-        "./v2/context": {
-          import: "./dist/v2/context.mjs",
-          require: "./dist/v2/context.cjs",
+        "./context": {
+          import: "./dist/context.mjs",
+          require: "./dist/context.cjs",
         },
-        "./v2/headless": {
-          import: "./dist/v2/headless.mjs",
-          require: "./dist/v2/headless.cjs",
+        "./headless": {
+          import: "./dist/headless.mjs",
+          require: "./dist/headless.cjs",
         },
-        "./v2/styles.css": "./dist/v2/index.css",
+        "./styles.css": "./dist/index.css",
       }),
     },
   },
-  // v2/context is built separately into dist/v2/ so it produces a standalone
+  // context is built separately into dist/ so it produces a standalone
   // file instead of being absorbed into shared chunks.
   {
     entry: {
-      context: "src/v2/context.ts",
+      context: "src/context.ts",
     },
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
     target: "es2022",
-    outDir: "dist/v2",
+    outDir: "dist",
     external: ["react", "@copilotkit/core", "@copilotkit/shared"],
   },
-  // v2/headless: platform-agnostic hooks + CopilotKitCoreReact, used by
+  // headless: platform-agnostic hooks + CopilotKitCoreReact, used by
   // @copilotkit/react-native. All @copilotkit/* deps are external — they
   // contain no Node-only code that would break Metro. Keeping them external
   // (rather than inlining) ensures the CopilotKitCoreReact class is the same
-  // nominal type as the one in v2/context, avoiding unsafe `as unknown as` casts.
+  // nominal type as the one in context, avoiding unsafe `as unknown as` casts.
   {
     entry: {
-      headless: "src/v2/headless.ts",
+      headless: "src/headless.ts",
     },
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
     target: "es2022",
-    outDir: "dist/v2",
+    outDir: "dist",
     plugins: [externalizeContext],
     external: [
       "react",
@@ -167,7 +166,7 @@ export default defineConfig([
       "@ag-ui/core",
       "@copilotkit/core",
       "@copilotkit/shared",
-      "@copilotkit/react-core/v2/context",
+      "@copilotkit/react-core/context",
       "uuid",
       "zod",
       "rxjs",
@@ -181,9 +180,7 @@ export default defineConfig([
   // (see that package's README). The ext-apps bridge itself is NOT here; it is
   // loaded lazily via dynamic import() only when an MCP App renders.
   {
-    entry: {
-      index: "src/v1-deprecated-compatibility.ts",
-    },
+    entry: ["src/index.ts"],
     format: ["umd"],
     globalName: "CopilotKitReactCore",
     sourcemap: true,
@@ -194,46 +191,6 @@ export default defineConfig([
       "react-dom",
       "@copilotkit/core",
       "@copilotkit/shared",
-      "@copilotkit/runtime-client-gql",
-      "@copilotkit/web-inspector",
-      "@copilotkit/a2ui-renderer",
-      "@copilotkit/mcp-apps-renderer/activity",
-      "@ag-ui/client",
-      "zod",
-      /\.css$/,
-    ],
-    outputOptions(options) {
-      options.entryFileNames = "[name].umd.js";
-      options.globals = {
-        react: "React",
-        "react-dom": "ReactDOM",
-        "react/jsx-runtime": "ReactJsxRuntime",
-        "@copilotkit/core": "CopilotKitCore",
-        "@copilotkit/shared": "CopilotKitShared",
-        "@copilotkit/runtime-client-gql": "CopilotKitRuntimeClientGQL",
-        "@copilotkit/web-inspector": "CopilotKitWebInspector",
-        "@copilotkit/a2ui-renderer": "CopilotKitA2UIRenderer",
-        "@copilotkit/mcp-apps-renderer/activity":
-          "CopilotKitMcpAppsRendererActivity",
-        "@ag-ui/client": "AgUIClient",
-        zod: "Zod",
-      };
-      return options;
-    },
-  },
-  {
-    entry: ["src/v2/index.ts"],
-    format: ["umd"],
-    globalName: "CopilotKitReactCoreV2",
-    sourcemap: true,
-    target: "es2020",
-    outDir: "dist/v2",
-    external: [
-      "react",
-      "react-dom",
-      "@copilotkit/core",
-      "@copilotkit/shared",
-      "@copilotkit/runtime-client-gql",
       "@copilotkit/web-inspector",
       "@copilotkit/a2ui-renderer",
       "@copilotkit/mcp-apps-renderer/activity",
@@ -250,7 +207,6 @@ export default defineConfig([
         "react/jsx-runtime": "ReactJsxRuntime",
         "@copilotkit/core": "CopilotKitCore",
         "@copilotkit/shared": "CopilotKitShared",
-        "@copilotkit/runtime-client-gql": "CopilotKitRuntimeClientGQL",
         "@copilotkit/web-inspector": "CopilotKitWebInspector",
         "@copilotkit/a2ui-renderer": "CopilotKitA2UIRenderer",
         "@copilotkit/mcp-apps-renderer/activity":

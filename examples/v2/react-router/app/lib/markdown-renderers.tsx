@@ -1,5 +1,5 @@
 import { Streamdown } from "streamdown";
-import type { DefaultMarkdownRendererProps } from "@copilotkit/react-core/v2";
+import type { DefaultMarkdownRendererProps } from "@copilotkit/react-core";
 
 /**
  * A streamdown-backed markdown renderer for the pluggable-renderer demo.

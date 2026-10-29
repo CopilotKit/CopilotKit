@@ -5,9 +5,9 @@ import React from "react";
 import {
   CopilotChatConfigurationProvider,
   CopilotChatToggleButton,
-  type CopilotChatToggleButtonProps,
   useCopilotChatConfiguration,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
+import type { CopilotChatToggleButtonProps } from "@copilotkit/react-core";
 
 const StatePreview: React.FC<CopilotChatToggleButtonProps> = (args) => {
   const configuration = useCopilotChatConfiguration();

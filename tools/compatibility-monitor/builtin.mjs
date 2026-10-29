@@ -18,7 +18,7 @@ export function prepareBuiltinConsumer(source, work) {
     join(tests, "learned-skills-native.test.ts"),
     "utf8",
   )
-    .replace('from "../index"', 'from "@copilotkit/runtime/v2"')
+    .replace('from "../index"', 'from "@copilotkit/runtime"')
     .replace(
       '"../../../../intelligence-delivery-core/conformance/snapshots.v1.json"',
       '"./snapshots.v1.json"',
@@ -28,8 +28,8 @@ export function prepareBuiltinConsumer(source, work) {
     join(tests, "learned-skills-types.test.ts"),
     "utf8",
   )
-    .replaceAll('from "../../v2"', 'from "@copilotkit/runtime/v2"')
-    .replaceAll('from "../learned-skills"', 'from "@copilotkit/runtime/v2"');
+    .replaceAll('from "../.."', 'from "@copilotkit/runtime"')
+    .replaceAll('from "../learned-skills"', 'from "@copilotkit/runtime"');
   writeFileSync(join(work, "learned-skills-types.test.ts"), types);
   cpSync(join(tests, "test-helpers.ts"), join(work, "test-helpers.ts"));
   // Only these two pure helpers are used by the native suite. Runtime execution

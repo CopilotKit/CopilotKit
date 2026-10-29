@@ -7,9 +7,9 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
+import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime";
 import { createOpenAI } from "@ai-sdk/openai";
 import { SlowToolCallStreamingAgent } from "@copilotkit/demo-agents";
 import { A2UIDashboardAgent } from "./agents/a2ui-dashboard.js";

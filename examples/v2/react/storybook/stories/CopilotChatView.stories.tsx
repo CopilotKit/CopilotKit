@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
-import { CopilotChatView } from "@copilotkit/react-core/v2";
+import { CopilotChatView } from "@copilotkit/react-core";
 import { withFullHeight } from "./support/layouts";
 import {
   manySuggestions,

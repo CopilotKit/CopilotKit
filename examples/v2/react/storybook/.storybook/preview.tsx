@@ -4,9 +4,9 @@ import { withThemeByClassName } from "@storybook/addon-themes";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
-} from "@copilotkit/react-core/v2";
-import type { CopilotKitProviderProps } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+} from "@copilotkit/react-core";
+import type { CopilotKitProviderProps } from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 import "./preview.css";
 import { StoryAgent } from "../stories/support/story-agent";
 import type { StoryAgentOptions } from "../stories/support/story-agent";

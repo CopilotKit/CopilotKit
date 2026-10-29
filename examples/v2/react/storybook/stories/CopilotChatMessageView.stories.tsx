@@ -3,7 +3,7 @@ import { fn } from "storybook/test";
 import {
   CopilotChatMessageView,
   WildcardToolCallRender,
-} from "@copilotkit/react-core/v2";
+} from "@copilotkit/react-core";
 import {
   defaultRendererConversation,
   pendingQuestion,

@@ -3,7 +3,7 @@ import {
   createCopilotEndpoint,
   VERSION,
   BasicAgent,
-} from "@copilotkit/runtime/v2";
+} from "@copilotkit/runtime";
 import { serve } from "@hono/node-server";
 
 // Example: Creating a runtime instance

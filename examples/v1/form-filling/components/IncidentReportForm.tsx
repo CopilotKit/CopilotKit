@@ -36,7 +36,7 @@ import {
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useAgentContext, useFrontendTool } from "@copilotkit/react-core/v2";
+import { useAgentContext, useFrontendTool } from "@copilotkit/react-core";
 import {
   isIncidentDateAllowed,
   parseIncidentDate,

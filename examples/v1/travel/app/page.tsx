@@ -5,11 +5,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { TripsProvider } from "@/lib/hooks/use-trips";
 import {
   CopilotChatConfigurationProvider,
-  CopilotKit,
+  CopilotKitProvider,
   CopilotSidebar,
   useCopilotChatConfiguration,
-} from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
+} from "@copilotkit/react-core";
+import "@copilotkit/react-core/styles.css";
 import { useEffect } from "react";
 import type { CSSProperties } from "react";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
@@ -56,7 +56,7 @@ export default function Home() {
   const publicApiKey = process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY;
 
   return (
-    <CopilotKit
+    <CopilotKitProvider
       runtimeUrl={publicApiKey ? undefined : "/api/copilotkit"}
       publicApiKey={publicApiKey}
     >
@@ -81,6 +81,6 @@ export default function Home() {
           }}
         />
       </CopilotChatConfigurationProvider>
-    </CopilotKit>
+    </CopilotKitProvider>
   );
 }

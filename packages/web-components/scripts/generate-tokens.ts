@@ -1,7 +1,7 @@
 /**
  * Build-time token sync (anti-drift).
  *
- * `packages/react-core/src/v2/styles/globals.css` is the canonical source of
+ * `packages/react-core/src/styles/globals.css` is the canonical source of
  * truth for CopilotKit's visual design tokens. This script reads the light-mode
  * `[data-copilotkit] { ... }` token block from that file and DERIVES a small,
  * curated subset of bundled default values that the drawer's shadow-DOM CSS
@@ -30,7 +30,7 @@ const repoRoot = path.resolve(packageDir, "../../");
 
 const GLOBALS_CSS = path.join(
   repoRoot,
-  "packages/react-core/src/v2/styles/globals.css",
+  "packages/react-core/src/styles/globals.css",
 );
 
 const OUTPUT = path.join(packageDir, "src/threads-drawer/generated-tokens.ts");
@@ -86,7 +86,7 @@ function main(): void {
  * GENERATED FILE — DO NOT EDIT BY HAND.
  *
  * Bundled default values for the drawer's design tokens, derived at build time
- * from the canonical react-core theme (\`packages/react-core/src/v2/styles/globals.css\`)
+ * from the canonical react-core theme (\`packages/react-core/src/styles/globals.css\`)
  * by \`scripts/generate-tokens.ts\`. Run \`pnpm run gen:tokens\` to regenerate.
  *
  * The drawer's shadow-DOM CSS references these as fallbacks, e.g.

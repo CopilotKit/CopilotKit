@@ -3,8 +3,8 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime/v2";
-import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+} from "@copilotkit/runtime";
+import { LangGraphHttpAgent } from "@ag-ui/langgraph";
 
 if (!process.env.OPENAI_API_KEY) {
   console.warn(

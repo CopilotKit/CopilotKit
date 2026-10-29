@@ -37,7 +37,7 @@ Use the wrapped agent's `invoke`, `stream`, or `streamEvents`, including native 
 
 ## Configuration and errors
 
-Pass an existing `CopilotKitIntelligence` client from `@copilotkit/runtime/v2` as `new SkillRegistry({ client, containerId })` to reuse its credentials and transport. Your application retains ownership of that client. Explicit options override environment values; an injected client is authoritative for connection configuration.
+Pass an existing `CopilotKitIntelligence` client from `@copilotkit/runtime` as `new SkillRegistry({ client, containerId })` to reuse its credentials and transport. Your application retains ownership of that client. Explicit options override environment values; an injected client is authoritative for connection configuration.
 
 `freshnessWindowMs` and `requestTimeoutMs` default to 5000; `debug` defaults to false. Set `revision` or `CPK_INTELLIGENCE_SKILLS_REVISION` for an exact whole-container pin. Startup initialization is optional: the first wrapped invocation initializes automatically. Initialization and invocation errors are catchable as `SkillDeliveryError`.
 

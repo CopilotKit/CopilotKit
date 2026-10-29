@@ -1,4 +1,5 @@
-import { computed, defineComponent, h, type PropType } from "vue";
+import { computed, defineComponent, h } from "vue";
+import type { PropType } from "vue";
 import { z } from "zod";
 import type { VueActivityMessageRenderer } from "../types";
 import type { A2UITheme } from "../types";
@@ -15,7 +16,7 @@ export type A2UIMessageRendererOptions = {
 /**
  * Default loading component shown while an A2UI surface is generating.
  * Mirrors React's `DefaultA2UILoading` in
- * `packages/react-core/src/v2/a2ui/A2UIMessageRenderer.tsx`:
+ * `packages/react-core/src/a2ui/A2UIMessageRenderer.tsx`:
  * an animated dot + "Generating UI..." label + three shimmer bars
  * (80% / 60% / 40% widths) with staggered `cpk-a2ui-pulse` opacity animation.
  */

@@ -1,4 +1,4 @@
-import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { CopilotKitIntelligence } from "@copilotkit/runtime";
 import fixtures from "../../../intelligence-delivery-core/conformance/snapshots.v1.json";
 import { randomUUID } from "node:crypto";
 import { Agent } from "@mastra/core/agent";

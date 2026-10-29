@@ -3,8 +3,8 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   BuiltInAgent,
-} from "@copilotkit/runtime/v2";
-import { createCopilotNodeHandler } from "@copilotkit/runtime/v2/node";
+} from "@copilotkit/runtime";
+import { createCopilotNodeHandler } from "@copilotkit/runtime/node";
 
 const runtime = new CopilotRuntime({
   agents: {

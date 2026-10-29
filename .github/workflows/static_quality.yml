@@ -340,9 +340,6 @@ jobs:
             echo "NX_NO_CLOUD=true"
           } >> "$GITHUB_ENV"
 
-      - name: Generate GraphQL codegen files
-        run: npx nx run @copilotkit/runtime-client-gql:graphql-codegen
-
       - name: Run check-types
         # Invoke nx directly: `pnpm run check-types -- --parallel=1` makes
         # nx forward --parallel=1 to each package's tsc command instead of

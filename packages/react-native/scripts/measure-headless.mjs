@@ -3,7 +3,7 @@
 // esbuild over a synthetic entry, sum the gzipped output, print to the job
 // summary. This is NOT a production Metro figure — it is comparable across PRs.
 //
-// Why this exists: a single import of @copilotkit/react-core/v2 (instead of
+// Why this exists: a single import of @copilotkit/react-core (instead of
 // /v2/headless) would multiply this number, because Metro does not tree-shake
 // (issue #4893). The structural guards fail first; this makes the magnitude
 // visible if one is ever weakened.
@@ -26,7 +26,7 @@
 //
 // The symbols below are the lean headless API a custom-UI consumer imports.
 // `useRenderToolCall` is included: RN's `src/headless.ts` re-exports it (from
-// `@copilotkit/react-core/v2/headless`) as of the render-tool convergence, so
+// `@copilotkit/react-core/headless`) as of the render-tool convergence, so
 // it belongs in the measured surface a custom-UI consumer pulls in.
 //
 // `platform: "browser"` + `target: "es2022"` mirror measure-copilotchat.mjs.

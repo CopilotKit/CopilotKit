@@ -14,6 +14,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@ag-ui/langgraph": "0.0.44",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@radix-ui/react-accordion": "^1.2.1",

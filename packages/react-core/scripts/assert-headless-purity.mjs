@@ -1,9 +1,9 @@
 // Fails if a React-Native-reachable chunk references the chat-message rendering
-// stack. @copilotkit/react-native imports two react-core entries — /v2/headless
-// and /v2/context — and neither may drag the ~5.5 MB shiki grammars/themes plus
+// stack. @copilotkit/react-native imports two react-core entries — /headless
+// and /context — and neither may drag the ~5.5 MB shiki grammars/themes plus
 // mermaid, cytoscape and katex (issue #4893). This script guards both built
-// entries: the /v2/headless entry exists so consumers with a custom UI can import
-// hooks without that weight, and /v2/context carries CopilotKitCoreReact, so its
+// entries: the /headless entry exists so consumers with a custom UI can import
+// hooks without that weight, and /context carries CopilotKitCoreReact, so its
 // transitive subtree must stay clean too. (The RN import-graph guard in
 // packages/react-native/src/__tests__/headless-entry-surface.test.ts allows these
 // same two entries but only walks that package's own source; this script walks
@@ -21,8 +21,8 @@
 //
 //  1. It only inspected those four files, so any violation reached through an
 //     edge OUT of them was invisible. Proven: re-exporting one hook from the fat
-//     `@copilotkit/react-core/v2` entry (which links the whole render stack) left
-//     `dist/v2/headless.mjs` with an unresolved bare import of that entry — and
+//     `@copilotkit/react-core` entry (which links the whole render stack) left
+//     `dist/headless.mjs` with an unresolved bare import of that entry — and
 //     the guard printed "clean" for all four files. Same for a heavy dep reached
 //     through `@copilotkit/core`, which is external to this build: the entry says
 //     only `from "@copilotkit/core"`, and grepping that string finds nothing.
@@ -31,9 +31,9 @@
 //     follow anything — not node_modules, not even a relative sibling chunk.
 //  3. `code.includes(dep)` is unanchored, so it matched comments, strings and
 //     identifiers. Not hypothetical: the five banned tokens sit in
-//     `src/v2/headless.ts`'s own file banner, and the built artifact IS
+//     `src/headless.ts`'s own file banner, and the built artifact IS
 //     comment-preserving (233 lines of block comments survive in
-//     dist/v2/headless.mjs). They are absent only because that module is a
+//     dist/headless.mjs). They are absent only because that module is a
 //     re-export shell whose banner attaches to no retained code. Moving the same
 //     sentence into any module that ships code hard-failed CI on all five tokens
 //     while linking none of them.
@@ -79,7 +79,7 @@ const FORBIDDEN = ["shiki", "mermaid", "cytoscape", "katex", "streamdown"];
 // the root package.json still declares. Same idiom as scripts/measure-copilotchat.mjs.
 const dist = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "../dist/v2",
+  "../dist",
 );
 const targets = ["headless.mjs", "headless.cjs", "context.mjs", "context.cjs"];
 
@@ -857,9 +857,9 @@ if (isMain) {
 
   if (failed) {
     console.error(
-      "\nThe React-Native-reachable entries (/v2/headless, /v2/context) must not link\n" +
+      "\nThe React-Native-reachable entries (/headless, /context) must not link\n" +
         "the chat-message rendering stack (#4893).\n" +
-        "If a hook you added needs it, it belongs in the main /v2 entry instead.",
+        "If a hook you added needs it, it belongs in the main entry instead.",
     );
     process.exit(1);
   }

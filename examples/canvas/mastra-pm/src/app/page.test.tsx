@@ -20,7 +20,7 @@ const sdk = vi.hoisted(() => ({
     }
   >(),
 }));
-vi.mock("@copilotkit/react-core/v2", () => ({
+vi.mock("@copilotkit/react-core", () => ({
   useAgent: () => ({ agent: sdk.agent }),
   useFrontendTool: (tool: { name: string }) => sdk.tools.set(tool.name, tool),
   CopilotChatConfigurationProvider: ({ children }: { children: ReactNode }) =>
