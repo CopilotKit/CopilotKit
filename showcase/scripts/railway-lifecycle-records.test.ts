@@ -166,3 +166,45 @@ it("does not reuse a prior successful read during a network failure", async () =
     ),
   ).resolves.toMatchObject({ status: "invalid" });
 });
+
+// A policy transition must require a fresh real reader acknowledgement for every role.
+it.each(["image-gate", "ruby-promotion", "harness"])(
+  "%s refuses the previous policy and acknowledges only the matching additive policy",
+  async (consumer) => {
+    vi.stubEnv("SHOWCASE_REGISTRY_CONSUMER", consumer);
+    const previousPolicy = {
+      ...DISPOSABLE_LIFECYCLE_POLICY,
+      approvedImages: DISPOSABLE_LIFECYCLE_POLICY.approvedImages.slice(0, -1),
+    };
+    const fetcher = vi.fn(async (_url: unknown, options?: RequestInit) =>
+      options?.method === "POST"
+        ? new Response("{}")
+        : new Response(bytes, { headers }),
+    );
+    vi.stubGlobal("fetch", fetcher);
+    await expect(
+      readRailwayLifecycleEvidence(endpoint, previousPolicy, new Date()),
+    ).resolves.toMatchObject({ status: "invalid" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    await expect(
+      readRailwayLifecycleEvidence(
+        endpoint,
+        DISPOSABLE_LIFECYCLE_POLICY,
+        new Date(),
+      ),
+    ).resolves.toMatchObject({ status: "valid" });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(fetcher).toHaveBeenLastCalledWith(
+      new URL(`/consumers/${consumer}`, endpoint),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          reader: "railway-lifecycle-records-v1",
+          recordsFile: endpoint,
+          sha256: headers["x-snapshot-sha256"],
+          policySha256: headers["x-policy-sha256"],
+        }),
+      }),
+    );
+  },
+);

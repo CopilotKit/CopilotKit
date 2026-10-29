@@ -1513,6 +1513,7 @@ describe("static gate and disposable approval policy", () => {
         "ghcr.io/copilotkit/rich-thread-strands@sha256:a24c58ee44b65fe723434027bf9f40e6b77e679db67ba6229f329676ead430b9",
         "ghcr.io/copilotkit/rich-thread-inspector@sha256:e9404c9c986b73d0d980495f4bf0a63b174591770abeff80b9a4cb30c680d981",
         "ghcr.io/copilotkit/rich-thread-inspector@sha256:1c5249083985cde25d8422ebc6a7ca7007d8eb92477daa5b854fe10c7ed2dd71",
+        "ghcr.io/copilotkit/rich-thread-application@sha256:5ccbaec60d1faf55333dbdebb2a8043bfbbd967d48adb85d3bc618fd4f02a862",
       ],
     });
     const independent = Object.entries(SERVICES).filter(([name]) =>
