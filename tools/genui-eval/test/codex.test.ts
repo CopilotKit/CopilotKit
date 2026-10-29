@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { generateText } from "ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadCases } from "../src/cases";
-import { codexArgs, parseCodexEvents, splitPrompt } from "../src/codex";
+import {
+  codexArgs,
+  parseCodexEvents,
+  runCodex,
+  setCodexConcurrency,
+  splitPrompt,
+} from "../src/codex";
 import { defineEvalConfig, resolvePlan } from "../src/config";
 import { runSample } from "../src/harness";
 import { createLanguageModel, requireKey } from "../src/models";
@@ -64,6 +70,43 @@ describe("the codex backend", () => {
     expect(out.error).toBeUndefined();
     expect(out.text).toContain(`PROMPT:${c.message}`);
     expect(out.text).not.toContain("[case:");
+  });
+
+  it("runs at most codexConcurrency calls at once", async () => {
+    const trace = `${mkdtempSync(`${tmpdir()}/codex-trace-`)}/trace.txt`;
+    process.env.FAKE_CODEX_TRACE = trace;
+    process.env.FAKE_CODEX_DELAY_MS = "300";
+    try {
+      setCodexConcurrency(2);
+      await Promise.all(
+        [1, 2, 3, 4, 5].map((n) =>
+          runCodex({
+            slug: "gpt-5.6-luna",
+            instructions: "i",
+            prompt: `p${n}`,
+          }),
+        ),
+      );
+    } finally {
+      setCodexConcurrency(1);
+      delete process.env.FAKE_CODEX_TRACE;
+      delete process.env.FAKE_CODEX_DELAY_MS;
+    }
+    // Replay the starts and ends in time order: never more than 2 at once.
+    const events = readFileSync(trace, "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => line.split(" "))
+      .map(([kind, at]) => ({ kind, at: Number(at) }))
+      .sort((a, b) => a.at - b.at || (a.kind === "end" ? -1 : 1));
+    let running = 0;
+    let most = 0;
+    for (const e of events) {
+      running += e.kind === "start" ? 1 : -1;
+      most = Math.max(most, running);
+    }
+    expect(events.filter((e) => e.kind === "start")).toHaveLength(5);
+    expect(most).toBe(2);
   });
 
   it("needs no OpenRouter key", () => {

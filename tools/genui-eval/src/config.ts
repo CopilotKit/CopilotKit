@@ -64,6 +64,12 @@ const evalConfig = z
     defaultPrice: price.default({ input: 3, output: 15 }),
     /** Parallel samples. */
     concurrency: z.number().int().positive().default(4),
+    /**
+     * Codex CLI calls at a time (models and judge together). Each call is
+     * its own `codex exec` process on the user's ChatGPT plan, so keep it
+     * low enough for the plan's rate limits.
+     */
+    codexConcurrency: z.number().int().positive().default(1),
   })
   .superRefine((config, ctx) => {
     const ids = new Set(config.models.map((m) => m.id));

@@ -48,4 +48,6 @@ export default defineEvalConfig({
     "anthropic/claude-opus-5.5": { input: 4, output: 20 },
   },
   concurrency: 4,
+  // codex:<model> calls at once; --codex-concurrency overrides it per run.
+  codexConcurrency: 4,
 });

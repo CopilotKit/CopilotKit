@@ -20,7 +20,7 @@ const TOOL_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const USAGE = `genui-eval: measure and improve the A2UI output of the generative UI prompts
 
   run        [--preset full] [--models a,b] [--judge model] [--effort low|medium|high|xhigh|max]
-             [--cases all|tag:<t>] [--samples n]
+             [--codex-concurrency n] [--cases all|tag:<t>] [--samples n]
              [--transports markdown,tool] [--split both|train|heldout]
              [--budget usd] [--spec file.json] [--estimate]
   report     <run|latest> [--base <run>]
@@ -33,7 +33,8 @@ const USAGE = `genui-eval: measure and improve the A2UI output of the generative
 
 Every command takes --json and --config <file> (default eval.config.ts).
 --models takes config ids or model strings: "codex:gpt-5.6-luna" runs through the
-local Codex CLI (signed in with ChatGPT, one call at a time, captured in results/codex/).
+local Codex CLI (signed in with ChatGPT, captured in results/codex/); --codex-concurrency
+sets how many codex calls run at once (default: codexConcurrency in the config, 1).
 OpenRouter models need OPENROUTER_API_KEY; codex models and --preset offline need none.`;
 
 const options = {
@@ -43,6 +44,7 @@ const options = {
   models: { type: "string" },
   judge: { type: "string" },
   effort: { type: "string" },
+  "codex-concurrency": { type: "string" },
   cases: { type: "string" },
   samples: { type: "string" },
   transports: { type: "string" },
@@ -293,7 +295,18 @@ export async function main(argv = process.argv.slice(2)) {
     process.stdout.write(`${USAGE}\n`);
     return;
   }
-  const config = await loadConfig(values.config);
+  const loaded = await loadConfig(values.config);
+  const codexConcurrency = num(
+    values["codex-concurrency"],
+    "codex-concurrency",
+  );
+  if (
+    codexConcurrency !== undefined &&
+    (!Number.isInteger(codexConcurrency) || codexConcurrency < 1)
+  ) {
+    throw new Error("--codex-concurrency must be a whole number of at least 1");
+  }
+  const config = codexConcurrency ? { ...loaded, codexConcurrency } : loaded;
   switch (command) {
     case "run":
       return commandRun(config, values);

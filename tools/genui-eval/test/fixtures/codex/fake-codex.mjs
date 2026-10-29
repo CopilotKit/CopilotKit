@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Stands in for `codex exec --json`: replies with what it was given, so a
 // test can see the instructions file, the prompt on stdin and the options.
-import { readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
 if (args[0] === "--version") {
   console.log("codex-cli 0.0.0-test");
@@ -17,6 +17,13 @@ const instructions = readFileSync(
   "utf8",
 );
 const prompt = readFileSync(0, "utf8");
+// For the pool test: record when this call runs, and take a while.
+const trace = process.env.FAKE_CODEX_TRACE;
+if (trace) appendFileSync(trace, `start ${Date.now()}\n`);
+await new Promise((r) =>
+  setTimeout(r, Number(process.env.FAKE_CODEX_DELAY_MS ?? 0)),
+);
+if (trace) appendFileSync(trace, `end ${Date.now()}\n`);
 const reply = `INSTRUCTIONS:${instructions.split("\n")[0]}\nPROMPT:${prompt}\nMODEL:${args[args.indexOf("--model") + 1]}\nEFFORT:${config.model_reasoning_effort ?? "-"}\nHOME:${process.env.CODEX_HOME}`;
 writeFileSync(args[args.indexOf("--output-last-message") + 1], reply);
 for (const event of [

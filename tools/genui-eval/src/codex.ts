@@ -20,7 +20,7 @@ import { RESULTS_DIR } from "./results";
 /**
  * The Codex backend: `codex:<model>` runs the model through the local Codex
  * CLI (`codex exec`), signed in with ChatGPT, so a run needs no OpenRouter
- * credit. Calls run one at a time. Every call is captured under
+ * credit. At most `codexConcurrency` calls run at once (default 1). Every call is captured under
  * `results/codex/`: the instructions, the prompt, the JSONL events, the
  * final message and stderr.
  *
@@ -293,10 +293,35 @@ export function findCodex(env = process.env) {
   );
 }
 
-let queue: Promise<unknown> = Promise.resolve();
+let limit = 1;
+let active = 0;
+const waiting: Array<() => void> = [];
+
+/** How many `codex exec` calls may run at once (the config's `codexConcurrency`). */
+export function setCodexConcurrency(n: number) {
+  limit = Math.max(1, Math.floor(n));
+  while (active < limit && waiting.length > 0) {
+    active++;
+    waiting.shift()!();
+  }
+}
+
+async function withSlot<T>(run: () => Promise<T>): Promise<T> {
+  if (active < limit) active++;
+  else await new Promise<void>((resolve) => waiting.push(resolve));
+  try {
+    return await run();
+  } finally {
+    const next = waiting.shift();
+    // The slot passes straight to the next waiting call, or frees up.
+    if (next) next();
+    else active--;
+  }
+}
+
 let calls = 0;
 
-/** Runs one `codex exec` after the previous one finished, and captures it. */
+/** Runs one `codex exec` when a slot is free (see `setCodexConcurrency`), and captures it. */
 export function runCodex(options: {
   slug: string;
   instructions: string;
@@ -306,9 +331,7 @@ export function runCodex(options: {
   logDir?: string;
   timeoutMs?: number;
 }): Promise<CodexResult & { logDir: string }> {
-  const next = queue.then(() => runCodexNow(options));
-  queue = next.catch(() => {});
-  return next;
+  return withSlot(() => runCodexNow(options));
 }
 
 async function runCodexNow(options: Parameters<typeof runCodex>[0]) {

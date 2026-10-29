@@ -13,6 +13,7 @@ import {
 } from "./cost";
 import { catalogFor, renderedPrompts, runSample } from "./harness";
 import { JUDGE_PASS, judgeSample } from "./judge";
+import { isCodexModel, setCodexConcurrency } from "./codex";
 import { referenceOutput } from "./reference";
 import { createLanguageModel, requireKey } from "./models";
 import type { CallMeta } from "./models";
@@ -231,7 +232,15 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
   let settled: () => void = () => {};
   let nextSettle = new Promise<void>((resolve) => (settled = resolve));
   try {
-    await pool(tasks, config.concurrency, async (task) => {
+    setCodexConcurrency(config.codexConcurrency);
+    // Enough samples in flight to keep every codex slot busy.
+    const usesCodex = [...plan.models.map((m) => m.model), plan.judge].some(
+      isCodexModel,
+    );
+    const parallel = usesCodex
+      ? Math.max(config.concurrency, config.codexConcurrency)
+      : config.concurrency;
+    await pool(tasks, parallel, async (task) => {
       // Reserve the worst case, not the typical one: the guide plus the
       // whole conversation (with a margin), the capped reply and every
       // judge attempt. Replies and judge calls are capped, so this holds.
