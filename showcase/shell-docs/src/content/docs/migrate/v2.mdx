@@ -22,7 +22,7 @@ call site.
 | -------------------------------------- | ----------------------------------------- |
 | v1 hooks from `@copilotkit/react-core` | v2 hooks from `@copilotkit/react-core/v2` |
 | `@copilotkit/react-ui`                 | `@copilotkit/react-core/v2`               |
-| `@copilotkit/react-ui/styles.css`      | `@copilotkit/react-core/v2/styles.css`    |
+| `@copilotkit/react-ui/styles.css`      | No stylesheet import                      |
 | `@copilotkit/runtime`                  | `@copilotkit/runtime/v2`                  |
 | `@copilotkit/vue`                      | `@copilotkit/vue/v2`                      |
 
@@ -152,18 +152,22 @@ import { CopilotKitProvider, useFrontendTool } from "@copilotkit/vue/v2";
 
 </Step>
 <Step>
-### Update your styles import
+### Remove the stylesheet import
 
-#### Before
+V2 components include their own styles, so you don't import a stylesheet.
+Remove this line when no v1 `@copilotkit/react-ui` components are left in your app:
 
 ```tsx
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-ui/styles.css"; // [!code --]
 ```
 
-#### After
+If your app imports the v2 stylesheet, `@copilotkit/react-core/v2/styles.css`,
+this codemod removes the import from your JS, TS, and CSS files:
 
-```tsx
-import "@copilotkit/react-core/v2/styles.css";
+```bash
+npx jscodeshift --parser=tsx --extensions=tsx,ts,jsx,js,css,scss \
+  -t https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/codemods/remove-stylesheet-import.ts \
+  ./src
 ```
 
 </Step>
@@ -221,7 +225,6 @@ export function App() {
 
 ```tsx
 import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
 
 export function App() {
   return (

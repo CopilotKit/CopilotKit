@@ -220,11 +220,11 @@ The headless entry exports the provider context, chat configuration provider, `u
 
 ## Styling
 
-When using v2 UI components, import the stylesheet once at your app boundary:
+The v2 UI components include their own styles. You don't import a stylesheet. `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` add one `<style>` tag to the page, and it is included in server-rendered HTML.
 
-```tsx
-import "@copilotkit/react-core/v2/styles.css";
-```
+If you render other v2 components without a chat surface, add `<CopilotKitStyles />` once, inside `CopilotKitProvider`. If your Content-Security-Policy limits `style-src` to a nonce, pass it as `<CopilotKitProvider nonce={nonce}>`.
+
+To update an app that still imports `@copilotkit/react-core/v2/styles.css`, run the codemod in [Migrate to v2](/migrate/v2#remove-the-stylesheet-import).
 
 ## API Reference
 

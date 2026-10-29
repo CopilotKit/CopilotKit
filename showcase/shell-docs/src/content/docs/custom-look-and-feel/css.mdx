@@ -74,20 +74,18 @@ import { CopilotKitCSSProperties } from "@copilotkit/react-ui";
 <Callout type="info" title="Two token systems">
   The `--copilot-kit-*` variables above style the **v1** component CSS
   (`@copilotkit/react-ui`). The newer **v2** components
-  (`@copilotkit/react-core/v2`) are Tailwind + shadcn-based and use a
-  separate set of design tokens. See [v2 design
-  tokens](#v2-design-tokens-shadcn) below.
+  (`@copilotkit/react-core/v2`) use a separate set of design tokens, based on
+  shadcn/ui. See [v2 design tokens](#v2-design-tokens-shadcn) below.
 </Callout>
 
 ## v2 Design Tokens (shadcn)
 
-The v2 components (`@copilotkit/react-core/v2`) ship a Tailwind v4 theme built
-on the standard shadcn/ui token set. Instead of the `--copilot-kit-*`
-variables, they read [oklch](https://oklch.com) color tokens that are scoped to
-the `[data-copilotkit]` root and wired into Tailwind utilities through an
-`@theme inline` block. This means you can re-skin the entire v2 UI by
-overriding a handful of CSS custom properties. Every component picks the
-change up automatically.
+The v2 components (`@copilotkit/react-core/v2`) include their own CSS, so you
+don't import a stylesheet and you don't need Tailwind. The CSS uses the standard
+shadcn/ui token set. Instead of the `--copilot-kit-*` variables, it reads
+[oklch](https://oklch.com) color tokens that are set on the `[data-copilotkit]`
+root. You can change the look of the entire v2 UI when you override a small
+number of CSS custom properties. Every component uses the new values.
 
 Override them on the `[data-copilotkit]` element (or any ancestor) the same way
 you would in a shadcn project:
@@ -115,8 +113,8 @@ you would in a shadcn project:
 
 These are the most commonly overridden v2 tokens. Each light value has a
 matching dark-mode value under `.dark [data-copilotkit]`. The full set
-(popover, accent, destructive, chart, and sidebar variants) lives in
-`@copilotkit/react-core/v2/styles.css`.
+(popover, accent, destructive, chart, and sidebar variants) is in
+[`base.css`](https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-core/src/v2/styles/css/base.css).
 
 | Token | Description |
 |-------|-------------|
@@ -129,7 +127,14 @@ matching dark-mode value under `.dark [data-copilotkit]`. The full set
 | `--destructive` / `--destructive-foreground` | Error/danger color and its text |
 | `--card` / `--popover` (+ `-foreground`) | Elevated surface backgrounds and their text |
 | `--sidebar-*` | The sidebar's own background/foreground/border/ring set |
-| `--radius` | Base corner radius; `--radius-sm/md/lg/xl` derive from it |
+| `--radius` | Base corner radius. The other corner radii are calculated from it |
+
+<Callout type="info" title="Your styles always win">
+  The v2 CSS is in the `base` and `utilities` cascade layers, and its
+  selectors have zero specificity. So your own CSS overrides it in any load
+  order: rules outside a layer always win, and so do Tailwind utility classes.
+  You don't need `!important`.
+</Callout>
 
 <Callout type="info" title="oklch values">
   v2 tokens use the `oklch()` color space, which keeps perceived lightness
