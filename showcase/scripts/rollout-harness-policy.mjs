@@ -149,11 +149,12 @@ export async function rolloutHarnessPolicy({
       deploymentId,
       "Different harness deployment became latest",
     );
-    assert.equal(
-      deployed.image,
-      targetImage,
-      "Harness deployment image differs",
-    );
+    if (deployed.status === "SUCCESS" || deployed.image != null)
+      assert.equal(
+        deployed.image,
+        targetImage,
+        "Harness deployment image differs",
+      );
     if (deployed.status === "SUCCESS") {
       await guard();
       const result = { ...binding, phase: "verified", deploymentId };

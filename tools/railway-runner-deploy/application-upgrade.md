@@ -79,6 +79,17 @@ The separate application controller preserves the existing browser-only release.
 The dedicated workflow permits execution only on main, attempt 1, under the
 existing staging deployment concurrency lock.
 
+Execution also requires repository secrets `RAILWAY_SSH_PRIVATE_KEY` (an existing,
+registered Railway SSH private key usable noninteractively) and
+`RAILWAY_SSH_KNOWN_HOSTS` (verified host-key entries for the Railway SSH relay).
+Their presence/access has not been verified by this preparation. The workflow
+requires both, writes them only to private ephemeral files, and enables batch
+mode, explicit identity selection and strict host-key checking. It never scans
+other key locations or registers a key. Both the journal and deployed reader use
+that identity. A read-only SSH, exact-baseline and mount/claim preflight must pass
+before draining; an unavailable credential/host trust or existing claim stops
+before any live mutation. Do not substitute API-token authentication for SSH keys.
+
 1. Verify runner/application/harness build provenance, all watch/receipt bindings,
    schedule OFF, idle admission, current provider inventory and volume attachment.
    Verify the full reviewed harness baseline configuration, no staged patch and
@@ -90,11 +101,23 @@ existing staging deployment concurrency lock.
    proof before installing the target template/authorization with deploys skipped.
 4. Set and deploy the exact runner candidate once. Require its target identity,
    template, operation owner, drained phase and unchanged historical evidence.
-5. Exclusively persist the harness rollout claim before source mutation. Change
+5. Exclusively persist the harness rollout claim on the retained runner volume
+   before source mutation. The authoritative directory is
+   `/data/private/harness-policy-rollout`, independent of the GitHub workflow ID.
+   Immutable checkpoints are created exclusively, chained by SHA-256, and fsynced
+   with their directory before acknowledgment. Each record binds the release,
+   operation, runner deployment/runtime/template, retained volume/attachment,
+   harness baseline/configuration, target image and policy. SSH checks the exact
+   in-container deployment/project/environment/service and the `/data` mount;
+   provider checks confirm the candidate and retained attachment before and after.
+   Change
    only harness `source.image`, then verify no unexpected automatic deployment.
    Persist the deploy intent and deploy once. Preserve its networking, replica,
    build, healthcheck and variable configuration. Verify the exact resulting
    deployment and immutable image while the runner remains drained.
+   Recognized pending deployments may temporarily omit image metadata; they remain
+   bound to the acknowledged deployment ID. Success requires the exact observed
+   image digest and a sole active deployment. Missing success metadata fails.
 6. Invoke the real registry command inside that harness. It verifies its own
    `RAILWAY_DEPLOYMENT_ID` before any registry read/acknowledgment. Run the real
    image-gate and Ruby validation paths. Require all three fresh, matching-policy
@@ -127,6 +150,16 @@ be approved. Preserve the failed operation for an operation-specific recovery pl
 - Preserve both failed environment watches and the failed volume-create watch,
   original deadlines/journals/receipts, durable runner volume and attachment, and
   all pending provider-deletion records. Empty inventory does not prove finality.
+- The fixed retained-volume journal survives loss of the GitHub worker. A fresh
+  worker reads that authority, never `RUNNER_TEMP`, before harness mutations.
+  Incomplete, empty, torn, conflicting or unreadable checkpoints block execution;
+  a verified prior record allows only read-only verification. A new workflow ID
+  cannot evade the claim. Lost SSH acknowledgment is an unknown write outcome:
+  inspect the retained records without repeating writes or provider mutations.
+  `RUNNER_TEMP/application-transition-receipt` and uploaded artifacts are copies;
+  their absence is not evidence that a mutation did not occur. Never delete the
+  retained claim to retry. Recovery must inspect the exact provider deployment and
+  retained operation; a missing/unavailable volume is a blocker, not an empty journal.
 - A failed harness rollout or reader activation leaves the new runner drained.
   Do not fabricate a receipt, restore `:latest`, delete the journal, or manually
   clear the fence to make the workflow pass.

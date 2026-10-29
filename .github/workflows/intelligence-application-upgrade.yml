@@ -15,6 +15,7 @@ on:
     paths:
       - tools/railway-runner-deploy/application-*.mjs
       - tools/railway-runner-deploy/harness-policy-rollout*.mjs
+      - tools/railway-runner-deploy/harness-journal*.mjs
       - tools/railway-runner-deploy/template-transition*.mjs
       - showcase/scripts/activate-registry-readers*
       - .github/workflows/intelligence-application-upgrade.yml
@@ -73,6 +74,23 @@ jobs:
       - run: pnpm install --filter CopilotKit --frozen-lockfile --ignore-scripts
       - name: Install pinned read-only variable renderer
         run: npm install --global @railway/cli@5.71.0
+      - name: Prepare explicit registered SSH identity and trusted host keys
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.RAILWAY_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.RAILWAY_SSH_KNOWN_HOSTS }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {mkdir,writeFile} from 'node:fs/promises';
+          import {homedir} from 'node:os';
+          import {join} from 'node:path';
+          assert.ok(process.env.SSH_PRIVATE_KEY?.trim() && process.env.SSH_KNOWN_HOSTS?.trim(), 'Configure registered Railway SSH identity and verified host keys before execution');
+          const ssh=join(homedir(),'.ssh');
+          await mkdir(ssh,{recursive:true,mode:0o700});
+          await writeFile(join(process.env.RUNNER_TEMP,'railway-identity'),process.env.SSH_PRIVATE_KEY+'\n',{flag:'wx',mode:0o600});
+          await writeFile(join(ssh,'known_hosts'),process.env.SSH_KNOWN_HOSTS+'\n',{flag:'wx',mode:0o600});
+          await writeFile(join(ssh,'config'),'Host *\n  BatchMode yes\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n',{flag:'wx',mode:0o600});
+          NODE
       - name: Write exact reviewed nonsecret record
         env:
           RELEASE_JSON: ${{ inputs.release_json }}
@@ -82,10 +100,13 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RICH_RUNNER_TOKEN: ${{ secrets.RICH_RUNNER_TOKEN }}
+          RAILWAY_SSH_IDENTITY_FILE: ${{ runner.temp }}/railway-identity
           RICH_APPLICATION_RELEASE_PATH: ${{ runner.temp }}/application-release.json
           RICH_APPLICATION_RELEASE_SHA256: ${{ inputs.release_sha256 }}
         run: node tools/railway-runner-deploy/application-upgrade-cli.mjs --execute
-      - name: Preserve redacted transition receipts
+      # These are review copies. Mutation intents are acknowledged on the
+      # retained runner volume before each request, independent of this worker.
+      - name: Preserve redacted transition receipt copies
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

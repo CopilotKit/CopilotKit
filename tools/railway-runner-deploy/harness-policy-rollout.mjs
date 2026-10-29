@@ -29,22 +29,51 @@ export function projectHarnessConfig(environmentConfig) {
     ),
   };
 }
-function deployment(value) {
+function deployment(value, targetImage) {
   assert.ok(value, "Harness deployment missing");
   for (const [key, expected] of Object.entries(HARNESS_SCOPE))
     assert.equal(value[key], expected, "Harness deployment scope changed");
-  assert.match(value.id, /^[a-f0-9-]{36}$/);
-  const digest = value.meta?.imageDigest;
-  assert.match(digest, /^sha256:[a-f0-9]{64}$/);
-  assert.ok(
-    value.meta.image === `ghcr.io/copilotkit/showcase-harness@${digest}` ||
-      value.meta.image === "ghcr.io/copilotkit/showcase-harness:latest",
-    "Unexpected harness image repository",
+  assert.match(
+    value.id,
+    /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/,
   );
+  const pending = [
+    "WAITING",
+    "QUEUED",
+    "INITIALIZING",
+    "BUILDING",
+    "DEPLOYING",
+  ].includes(value.status);
+  assert.ok(
+    pending || value.status === "SUCCESS",
+    "Harness deployment failed or requires intervention",
+  );
+  const expectedImage =
+    value.id === HARNESS_BASELINE.id ? HARNESS_BASELINE.image : targetImage;
+  const digest = value.meta?.imageDigest;
+  const image = value.meta?.image;
+  if (!pending || digest != null) {
+    assert.match(digest, /^sha256:[a-f0-9]{64}$/);
+    assert.equal(
+      `ghcr.io/copilotkit/showcase-harness@${digest}`,
+      expectedImage,
+      "Harness deployment digest differs",
+    );
+  }
+  if (!pending || image != null) {
+    assert.ok(
+      image === expectedImage ||
+        (value.id === HARNESS_BASELINE.id &&
+          image === "ghcr.io/copilotkit/showcase-harness:latest"),
+      "Harness deployment image differs",
+    );
+  }
   return {
     id: value.id,
     status: value.status,
-    image: `ghcr.io/copilotkit/showcase-harness@${digest}`,
+    // Source metadata alone is not evidence that the provider pulled an image.
+    image:
+      digest == null ? null : `ghcr.io/copilotkit/showcase-harness@${digest}`,
   };
 }
 
@@ -53,6 +82,7 @@ export function createHarnessPolicyRollout({
   intent,
   deadline,
   save,
+  durableJournal,
   journalPath,
   operationId,
   env = process.env,
@@ -89,8 +119,13 @@ export function createHarnessPolicyRollout({
       false,
       "Incomplete harness volume inventory",
     );
-    const latest = deployment(value.serviceInstance.latestDeployment);
-    const active = value.serviceInstance.activeDeployments.map(deployment);
+    const latest = deployment(
+      value.serviceInstance.latestDeployment,
+      intent.image,
+    );
+    const active = value.serviceInstance.activeDeployments.map((row) =>
+      deployment(row, intent.image),
+    );
     assert.ok(
       active.every(
         (row) => row.id === HARNESS_BASELINE.id || row.id === latest.id,
@@ -145,6 +180,9 @@ export function createHarnessPolicyRollout({
     },
   };
   async function persist(value, exclusive) {
+    // Authoritative checkpoint lives on the retained runner volume. Only after
+    // its acknowledgment may this worker mirror it or send a provider mutation.
+    await durableJournal[exclusive ? "claim" : "save"](value);
     const path = exclusive ? journalPath : `${journalPath}.tmp`;
     const file = await open(path, exclusive ? "wx" : "w", 0o600);
     try {
@@ -199,12 +237,13 @@ export function createHarnessPolicyRollout({
     },
     async rollout({ assertCandidateDrained }) {
       const baselineConfig = structuredClone(await loadBaseline());
-      let previousReceipt;
-      try {
-        previousReceipt = JSON.parse(await readFile(journalPath));
-      } catch (error) {
-        if (error.code !== "ENOENT") throw error;
-      }
+      for (const method of ["load", "claim", "save"])
+        assert.equal(
+          typeof durableJournal?.[method],
+          "function",
+          "Retained-volume journal required",
+        );
+      const previousReceipt = (await durableJournal.load()) ?? undefined;
       return rolloutHarnessPolicy({
         operationId,
         targetImage: intent.image,
@@ -220,6 +259,10 @@ export function createHarnessPolicyRollout({
       });
     },
     async invokeReader({ deploymentId, policySha256, signal }) {
+      assert.ok(
+        env.RAILWAY_SSH_IDENTITY_FILE,
+        "Explicit registered Railway SSH identity required",
+      );
       assert.match(deploymentId, /^[a-f0-9-]{36}$/);
       assert.match(policySha256, /^[a-f0-9]{64}$/);
       assert.deepEqual(await this.read(signal), {
@@ -233,6 +276,8 @@ export function createHarnessPolicyRollout({
           "railway",
           [
             "ssh",
+            "--identity-file",
+            env.RAILWAY_SSH_IDENTITY_FILE,
             "--project",
             HARNESS_SCOPE.projectId,
             "--environment",

@@ -1,13 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import {
   createHarnessPolicyRollout,
   projectHarnessConfig,
 } from "./harness-policy-rollout.mjs";
 import { templateSha256 } from "./template-transition.mjs";
+import { retainedHarnessJournal } from "./harness-journal.mjs";
+import { STAGING } from "./contract.mjs";
 import {
   HARNESS_SCOPE,
   HARNESS_BASELINE,
@@ -73,18 +75,18 @@ async function fixture(t) {
     if (query.includes("serviceInstanceUpdate")) {
       state.calls.push("source");
       assert.deepEqual(vars.input, { source: { image: targetImage } });
-      if (state.failSource) throw Error("lost source response");
       state.config.source.image = targetImage;
+      if (state.failSource) throw Error("lost source response");
       return { serviceInstanceUpdate: true };
     }
     assert.ok(query.includes("serviceInstanceDeployV2"));
     state.calls.push("deploy");
-    if (state.failDeploy) throw Error("lost deploy response");
     state.latest = {
       id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
       image: targetImage,
       status: "SUCCESS",
     };
+    if (state.failDeploy) throw Error("lost deploy response");
     return { serviceInstanceDeployV2: state.latest.id };
   };
   const options = {
@@ -101,8 +103,39 @@ async function fixture(t) {
     execute: async (_command, args) => {
       state.calls.push(args);
     },
-    env: { RAILWAY_TOKEN: "test-provider-secret" },
+    env: {
+      RAILWAY_TOKEN: "test-provider-secret",
+      RAILWAY_SSH_IDENTITY_FILE: "/fixture/identity",
+    },
   };
+  const durableRoot = await realpath(
+    await mkdtemp(join(tmpdir(), "retained-volume-")),
+  );
+  t.after(() => rm(durableRoot, { recursive: true, force: true }));
+  const context = {
+    runner: STAGING,
+    deploymentId: "runner-candidate",
+    releaseSha256: "f".repeat(64),
+    operationId: options.operationId,
+    harnessImage: targetImage,
+  };
+  const journalOptions = {
+    root: durableRoot,
+    env: {
+      RAILWAY_PROJECT_ID: STAGING.projectId,
+      RAILWAY_ENVIRONMENT_ID: STAGING.environmentId,
+      RAILWAY_SERVICE_ID: STAGING.serviceId,
+      RAILWAY_DEPLOYMENT_ID: context.deploymentId,
+    },
+    mountInfo: "1 2 0:1 / /data rw - ext4 volume rw",
+  };
+  options.durableJournal = Object.fromEntries(
+    ["load", "claim", "save"].map((action) => [
+      action,
+      (receipt) =>
+        retainedHarnessJournal({ action, context, receipt }, journalOptions),
+    ]),
+  );
   return { state, options, adapter: createHarnessPolicyRollout(options) };
 }
 test("adapter preserves configuration and writes durable ownership before exact source/deploy mutations", async (t) => {
@@ -131,6 +164,18 @@ test("adapter preserves configuration and writes durable ownership before exact 
     image: f.options.intent.image,
     status: "SUCCESS",
   });
+  const count = f.state.calls.length;
+  await rm(dirname(f.options.journalPath), { recursive: true, force: true });
+  const replacement = createHarnessPolicyRollout(f.options);
+  assert.deepEqual(
+    await replacement.rollout({ assertCandidateDrained: async () => {} }),
+    result,
+  );
+  assert.equal(
+    f.state.calls.length,
+    count,
+    "Verified remote receipt permits no repeated mutation",
+  );
 });
 test("unknown source/deploy outcomes keep the durable blocker and never resend", async (t) => {
   for (const failure of ["failSource", "failDeploy"]) {
@@ -140,12 +185,40 @@ test("unknown source/deploy outcomes keep the durable blocker and never resend",
       f.adapter.rollout({ assertCandidateDrained: async () => {} }),
     );
     const count = f.state.calls.length;
+    // Simulate total loss of GitHub RUNNER_TEMP and create a fresh controller.
+    // The authoritative volume is independent and must block the fresh worker.
+    await rm(dirname(f.options.journalPath), { recursive: true, force: true });
+    const replacement = createHarnessPolicyRollout({
+      ...f.options,
+      journalPath: `${f.options.journalPath}-new-worker`,
+    });
     await assert.rejects(
-      f.adapter.rollout({ assertCandidateDrained: async () => {} }),
+      replacement.rollout({ assertCandidateDrained: async () => {} }),
       /Incomplete harness mutation receipt/,
     );
     assert.equal(f.state.calls.length, count);
   }
+});
+test("a lost durable checkpoint response prevents provider mutation and blocks a fresh worker", async (t) => {
+  const f = await fixture(t);
+  const durableJournal = {
+    ...f.options.durableJournal,
+    claim: async (value) => {
+      await f.options.durableJournal.claim(value);
+      throw Error("SSH response lost after fsync");
+    },
+  };
+  await assert.rejects(
+    createHarnessPolicyRollout({ ...f.options, durableJournal }).rollout({
+      assertCandidateDrained: async () => {},
+    }),
+  );
+  assert.deepEqual(f.state.calls, []);
+  await assert.rejects(
+    f.adapter.rollout({ assertCandidateDrained: async () => {} }),
+    /Incomplete harness mutation receipt/,
+  );
+  assert.deepEqual(f.state.calls, []);
 });
 test("staged changes, secret-variable drift and mounts fail before source mutation", async (t) => {
   for (const change of [

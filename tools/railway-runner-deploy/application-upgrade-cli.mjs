@@ -14,6 +14,7 @@ import {
 } from "./application-release.mjs";
 import { verifyApplicationProvenance } from "./application-provenance.mjs";
 import { activateRegistryReaders } from "../../showcase/scripts/activate-registry-readers.mjs";
+import { createRetainedHarnessJournal } from "./harness-journal.mjs";
 
 async function main() {
   const env = process.env;
@@ -158,11 +159,28 @@ async function main() {
   // The separate adapter is bound to the one reviewed staging harness and preserves its config.
   const { createHarnessPolicyRollout } =
     await import("./harness-policy-rollout.mjs");
+  const journalContext = {
+    operationId,
+    releaseSha256: env.RICH_APPLICATION_RELEASE_SHA256,
+    runtimeIdentity: intent.candidate.runtimeIdentity,
+    templateSha256: intent.targetTemplateSha256,
+    runnerImage: intent.candidate.image,
+    harnessImage: intent.harness.image,
+    harnessPolicySha256: intent.harness.policySha256,
+    harnessBaseline: intent.harness.baseline,
+    harnessBaselineConfigSha256: intent.harness.baselineConfigSha256,
+  };
   const harness = createHarnessPolicyRollout({
     graphql,
     intent: intent.harness,
     deadline,
     operationId,
+    durableJournal: createRetainedHarnessJournal({
+      context: journalContext,
+      inspectRunner: () => railway.inspect(),
+      assertCandidateDrained,
+      env,
+    }),
     journalPath: join(directory, "harness-journal.json"),
     env,
     save: (receipt) =>
@@ -180,6 +198,37 @@ async function main() {
     verifyProvenance: async () => {
       await verifyProvenance();
       await harness.preflight();
+      // Read-only SSH/mount/claim check before draining the baseline runner.
+      const baselineJournal = createRetainedHarnessJournal({
+        context: {
+          ...journalContext,
+          runnerImage: intent.baseline.image,
+          runtimeIdentity: intent.baseline.runtimeIdentity,
+          templateSha256: intent.baselineTemplateSha256,
+        },
+        inspectRunner: () => railway.inspect(),
+        assertCandidateDrained: async () => {
+          const live = await runner.get();
+          assert.deepEqual(
+            live.runtimeIdentity,
+            intent.baseline.runtimeIdentity,
+          );
+          assert.equal(live.templateSha256, intent.baselineTemplateSha256);
+          assert.equal(live.phase, "running");
+          assert.equal(live.busy, false);
+          assert.equal(live.active, null);
+          assert.equal(live.blocked, false);
+          assert.equal(live.operation.operationId, intent.baselineOperationId);
+          assert.equal((await runner.status()).scheduleEnabled, false);
+          verifyWatches(live, intent);
+        },
+        env,
+      });
+      assert.equal(
+        await baselineJournal.load(),
+        null,
+        "Retained harness claim already exists; recovery required",
+      );
     },
     verifyTemplate: async () => frozen.verify(await readVariables()),
     verifyReceipts: async () => {
