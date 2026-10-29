@@ -115,8 +115,11 @@ template and reader rollback is unsafe because the candidate image would cease t
 be approved. Preserve the failed operation for an operation-specific recovery plan.
 
 - Failure before drain leaves services unchanged.
-- Failure after drain keeps admission closed. Unknown source/deploy outcomes are
-  recorded before the request; neither the helper nor a rerun may resend them.
+- Before resume, failures retain the drain. After a resume request, admission may
+  already be running or its state may be unknown if the response is lost or final
+  verification fails. Inspect the exact operation; do not assume admission is
+  fenced or retry. Unknown source/deploy outcomes are recorded before the request;
+  neither the helper nor a rerun may resend them.
 - Candidate startup preserves the original `private/recovery-template.json` and
   separately stores the immediate baseline under the operation ID. Replay checks
   survive writes of the checkpoint, current template and runtime metadata. Changed
