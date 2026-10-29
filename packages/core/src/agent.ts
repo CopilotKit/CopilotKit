@@ -191,6 +191,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.runtimeMode = config.runtimeMode ?? RUNTIME_MODE_SSE;
     this.intelligence = config.intelligence;
     this._capabilities = config.capabilities;
+    this.allowToolResultContinuation =
+      config.capabilities?.custom?.["copilotkit.toolResultContinuation"] ===
+      true;
     this._messageFilter = config.messageFilter;
     if (config.debug) {
       this.debug = config.debug;
@@ -820,6 +823,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     cloned.setState(this.state);
     cloned.setMessages(this.messages);
     cloned.pendingInterrupts = structuredClone_(this.pendingInterrupts);
+    cloned.allowToolResultContinuation = this.allowToolResultContinuation;
+    cloned.toolResultCheckpoint = structuredClone_(this.toolResultCheckpoint);
     if (this.delegate) {
       const clonedDelegate: AbstractAgent = this.delegate.clone();
       cloned.delegate = clonedDelegate;
@@ -921,6 +926,10 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         if (this.runtimeInfoPromise !== runtimeInfoPromise) return;
         this.runtimeMode = runtimeInfo.mode ?? RUNTIME_MODE_SSE;
         this.intelligence = runtimeInfo.intelligence;
+        this.allowToolResultContinuation =
+          runtimeInfo.agents?.[this.routedAgentId()]?.capabilities?.custom?.[
+            "copilotkit.toolResultContinuation"
+          ] === true;
       });
     this.runtimeInfoPromise = runtimeInfoPromise;
 
