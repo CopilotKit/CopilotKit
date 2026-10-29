@@ -87,6 +87,7 @@ import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
 import { MarkdownRendererProvider } from "./MarkdownRendererContext";
 import type { MarkdownRenderer } from "./MarkdownRendererContext";
+import { CopilotStyleNonceProvider } from "../styles/copilot-style";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
@@ -152,6 +153,11 @@ export interface CopilotKitProviderProps {
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
   credentials?: RequestCredentials;
+  /**
+   * CSP nonce for the `<style>` tags CopilotKit adds. Set it when your
+   * Content-Security-Policy limits `style-src` to a nonce.
+   */
+  nonce?: string;
   /**
    * Rewrites the message list sent to runtime agents on every run.
    *
@@ -451,6 +457,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   runtimeUrl,
   headers: headersProp = EMPTY_HEADERS,
   credentials,
+  nonce,
   messageFilter,
   publicApiKey,
   publicLicenseKey,
@@ -1350,58 +1357,60 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     : (licenseContextValue.status ?? undefined);
 
   return (
-    <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
-      <CopilotKitContext.Provider value={contextValue}>
-        <LicenseContext.Provider value={licenseContextValue}>
-          {a2uiActive && <A2UIBuiltInToolCallRenderer />}
-          {generativeUIActive && <GenerativeUIToolCallRenderer />}
-          {a2uiActive && (
-            <A2UICatalogContext
-              catalog={filteredCatalog}
-              includeSchema={a2ui?.includeSchema}
-            />
-          )}
-          <MarkdownRendererProvider renderer={markdownRenderer}>
-            <CopilotKitInspectorContextProvider value={inspectorContextValue}>
-              {/*
+    <CopilotStyleNonceProvider value={nonce}>
+      <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
+        <CopilotKitContext.Provider value={contextValue}>
+          <LicenseContext.Provider value={licenseContextValue}>
+            {a2uiActive && <A2UIBuiltInToolCallRenderer />}
+            {generativeUIActive && <GenerativeUIToolCallRenderer />}
+            {a2uiActive && (
+              <A2UICatalogContext
+                catalog={filteredCatalog}
+                includeSchema={a2ui?.includeSchema}
+              />
+            )}
+            <MarkdownRendererProvider renderer={markdownRenderer}>
+              <CopilotKitInspectorContextProvider value={inspectorContextValue}>
+                {/*
                 Publish the provider-level agent default. This is a bare string
                 context, NOT a `CopilotChatConfigurationProvider`: that provider
                 also owns a thread, so wrapping the application in one would give
                 every descendant chat the same inherited threadId. See the
                 `CopilotKitAgentIdContext` comment in `../context`.
               */}
-              <CopilotKitAgentIdContext.Provider value={agentId}>
-                <GenerativeUIRuntimeContext.Provider
-                  value={generativeUIRuntime}
-                >
-                  {children}
-                </GenerativeUIRuntimeContext.Provider>
-              </CopilotKitAgentIdContext.Provider>
-              {shouldRenderInspector ? (
-                <CopilotKitInspector
-                  core={copilotkit}
-                  openRequest={inspectorOpenRequest}
-                  onVisibilityChange={setInspectorVisible}
-                />
-              ) : null}
-            </CopilotKitInspectorContextProvider>
-          </MarkdownRendererProvider>
-          {/* License warnings — driven by server-reported status */}
-          {runtimeLicenseWarningStatus === "none" && !resolvedPublicKey && (
-            <LicenseWarningBanner type="no_license" />
-          )}
-          {runtimeLicenseWarningStatus === "expired" && (
-            <LicenseWarningBanner type="expired" />
-          )}
-          {runtimeLicenseWarningStatus === "invalid" && (
-            <LicenseWarningBanner type="invalid" />
-          )}
-          {runtimeLicenseWarningStatus === "expiring" && (
-            <LicenseWarningBanner type="expiring" />
-          )}
-        </LicenseContext.Provider>
-      </CopilotKitContext.Provider>
-    </SandboxFunctionsContext.Provider>
+                <CopilotKitAgentIdContext.Provider value={agentId}>
+                  <GenerativeUIRuntimeContext.Provider
+                    value={generativeUIRuntime}
+                  >
+                    {children}
+                  </GenerativeUIRuntimeContext.Provider>
+                </CopilotKitAgentIdContext.Provider>
+                {shouldRenderInspector ? (
+                  <CopilotKitInspector
+                    core={copilotkit}
+                    openRequest={inspectorOpenRequest}
+                    onVisibilityChange={setInspectorVisible}
+                  />
+                ) : null}
+              </CopilotKitInspectorContextProvider>
+            </MarkdownRendererProvider>
+            {/* License warnings — driven by server-reported status */}
+            {runtimeLicenseWarningStatus === "none" && !resolvedPublicKey && (
+              <LicenseWarningBanner type="no_license" />
+            )}
+            {runtimeLicenseWarningStatus === "expired" && (
+              <LicenseWarningBanner type="expired" />
+            )}
+            {runtimeLicenseWarningStatus === "invalid" && (
+              <LicenseWarningBanner type="invalid" />
+            )}
+            {runtimeLicenseWarningStatus === "expiring" && (
+              <LicenseWarningBanner type="expiring" />
+            )}
+          </LicenseContext.Provider>
+        </CopilotKitContext.Provider>
+      </SandboxFunctionsContext.Provider>
+    </CopilotStyleNonceProvider>
   );
 };
 
