@@ -173,8 +173,7 @@ def build_agent():
         raise RuntimeError("Missing OPENAI_API_KEY")
 
     llm = ChatOpenAI(
-        model=os.environ.get("OPENAI_MODEL", "gpt-4-turbo"),
-        temperature=0.7,
+        model=os.environ.get("OPENAI_MODEL", "gpt-5.6-sol"),
         api_key=api_key,
     )
 
