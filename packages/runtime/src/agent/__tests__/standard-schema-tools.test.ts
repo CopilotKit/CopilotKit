@@ -250,6 +250,40 @@ describe("Standard Schema support in agent tools", () => {
       expect(result.steps[0].toolResults).toHaveLength(0);
     });
 
+    it("prefixes Valibot validation errors with the issue path", async () => {
+      const execute = vi.fn().mockResolvedValue({ ok: true });
+      const tools = convertToolDefinitionsToVercelAITools([
+        defineTool({
+          name: "nestedValibotTool",
+          description: "Nested Valibot test",
+          parameters: toStandardJsonSchema(
+            v.object({ user: v.object({ name: v.string() }) }),
+          ),
+          execute,
+        }),
+      ]);
+
+      const validation = await inputSchemaOf(
+        tools,
+        "nestedValibotTool",
+      ).validate?.({
+        user: { name: 12345 },
+      });
+      expect(validation?.success).toBe(false);
+      // This package compiles with strict: false, so the ValidationResult
+      // union does not narrow on `success`; assert the failure shape.
+      const failure = validation as
+        | { success: false; error: Error }
+        | undefined;
+      expect(failure?.error).toBeInstanceOf(Error);
+      // The path prefix tells the model which argument to fix; the bare
+      // library message ("Invalid type: Expected string but received
+      // 12345") does not name the field.
+      expect(failure?.error.message).toContain(
+        "Invalid arguments for tool nestedValibotTool: user.name: ",
+      );
+    });
+
     it("executes Valibot tools with valid arguments", async () => {
       const execute = vi.fn().mockResolvedValue({ ok: true });
       const tools = convertToolDefinitionsToVercelAITools([

@@ -1034,7 +1034,23 @@ export function convertToolDefinitionsToVercelAITools(
                 success: false,
                 error: new Error(
                   `Invalid arguments for tool ${tool.name}: ${validation.issues
-                    .map((issue) => issue.message)
+                    .map((issue) => {
+                      // Prefix the field path when the schema library
+                      // reports one: Valibot/ArkType messages alone do not
+                      // name the offending argument, and this error is
+                      // returned to the model as the tool error. Path
+                      // segments are PropertyKeys (possibly wrapped in
+                      // `{ key }` objects), so stringify each segment —
+                      // a bare join would throw on symbol keys.
+                      const path = issue.path
+                        ?.map((segment) =>
+                          String(
+                            typeof segment === "object" ? segment.key : segment,
+                          ),
+                        )
+                        .join(".");
+                      return path ? `${path}: ${issue.message}` : issue.message;
+                    })
                     .join("; ")}`,
                 ),
               };
