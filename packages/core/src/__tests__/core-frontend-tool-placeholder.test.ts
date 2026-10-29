@@ -353,5 +353,10 @@ describe("CopilotKitCore - Frontend Tool Placeholder (remote agent HITL)", () =>
     await copilotKitCore.runAgent({ agent: agent as any });
 
     expect(handler).not.toHaveBeenCalled();
+    expect(
+      agent.messages
+        .filter((m) => m.role === "tool" && m.toolCallId === toolCallId)
+        .map((m) => m.content),
+    ).toEqual([""]);
   });
 });
