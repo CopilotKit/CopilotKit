@@ -42,6 +42,12 @@ export interface RunOptions {
   spec?: GenerativeUIPromptSpec;
   /** The file the spec came from, for the record. */
   specFile?: string;
+  /**
+   * Repair broken fence lines with jsonrepair before the client parses them
+   * (an experiment: the client does not do this). Each sample counts its
+   * repaired lines, so validity without repair stays readable.
+   */
+  repair?: boolean;
   kind?: RunRecord["kind"];
   /** The results root; tests use a temporary one. */
   root?: string;
@@ -194,6 +200,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
     promptHashes: hashes,
     promptSizes: sizes,
     ...(options.specFile ? { spec: options.specFile } : {}),
+    ...(options.repair ? { repair: true } : {}),
     ...(unknownDescriptions.length > 0 ? { unknownDescriptions } : {}),
     preset: plan.preset,
     models: plan.models.map(({ id, model, provider }) => ({
@@ -278,6 +285,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
           config,
           plan,
           spec,
+          repair: options.repair,
           judgeModel,
           checker,
         });
@@ -319,6 +327,7 @@ async function runTask(
     config: EvalConfig;
     plan: ResolvedPlan;
     spec?: GenerativeUIPromptSpec;
+    repair?: boolean;
     judgeModel: ReturnType<typeof createLanguageModel>;
     checker: RenderChecker;
   },
@@ -331,6 +340,7 @@ async function runTask(
     entry: task.entry,
     model,
     spec: ctx.spec,
+    repair: ctx.repair,
   });
   let checks: Awaited<ReturnType<RenderChecker["check"]>> = [];
   try {
@@ -360,6 +370,9 @@ async function runTask(
     modelName: task.entry.model,
     ...(meta.host ? { host: meta.host } : {}),
     ...(meta.log ? { log: meta.log } : {}),
+    ...(out.repairedLines?.length
+      ? { repairedLines: out.repairedLines.length }
+      : {}),
     transport: task.transport,
     sample: task.sample,
     tiers: {

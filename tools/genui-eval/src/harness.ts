@@ -28,6 +28,7 @@ import type { LanguageModel } from "ai";
 import type { LanguageModelV3, LanguageModelV3Prompt } from "@ai-sdk/provider";
 import type { Observable } from "rxjs";
 import { caseContext } from "./cases";
+import { repairFences } from "./repair";
 import type { EvalCase } from "./cases";
 import type { ModelEntry, Transport } from "./config";
 import {
@@ -60,6 +61,8 @@ export interface SampleOutput {
   rejected: GenerativeUIRejectedOperation[];
   /** Fence lines or tool arguments that are not valid JSON. */
   parseErrors: string[];
+  /** Fence lines that were not valid JSON and were repaired (with `repair`). */
+  repairedLines?: string[];
   /** A run error, when the run failed. */
   error?: string;
   /** Prompt tokens of the model call (the model's own count when it gives one). */
@@ -420,6 +423,8 @@ export async function runSample(input: {
   entry: Pick<ModelEntry, "model" | "params">;
   model: LanguageModel;
   spec?: GenerativeUIPromptSpec;
+  /** Repair broken fence lines with jsonrepair before the client parses them. */
+  repair?: boolean;
 }): Promise<SampleOutput> {
   const spec = input.spec ?? defaultGenerativeUIPromptSpec();
   const catalog = catalogFor(spec);
@@ -446,6 +451,12 @@ export async function runSample(input: {
     new SpecAgent(agent, input.spec),
   );
   const collected = await collect(events);
+  const repairedLines: string[] = [];
+  if (input.repair && input.transport === "markdown") {
+    const result = repairFences(collected.text);
+    collected.text = result.text;
+    repairedLines.push(...result.repaired);
+  }
 
   const parseErrors: string[] = [];
   const toolCalls: unknown[] = [];
@@ -517,6 +528,7 @@ export async function runSample(input: {
       ...surfaces.flatMap((s) => s.rejected ?? []),
     ]),
     parseErrors,
+    repairedLines,
     error: collected.error,
     promptTokens: record.input,
     // A stream that ends before its usage chunk reports no output tokens;

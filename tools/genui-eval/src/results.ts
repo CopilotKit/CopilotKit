@@ -40,6 +40,8 @@ export interface SampleRecord {
   host?: string;
   /** Where the model call was captured (the codex backend). */
   log?: string;
+  /** Fence lines that were repaired before parsing (a run with `repair`). */
+  repairedLines?: number;
   transport: Transport;
   sample: number;
   tiers: Record<Tier, TierRecord>;
@@ -77,6 +79,8 @@ export interface RunRecord {
   promptSizes: Partial<Record<Transport, number>>;
   /** A spec file, when the run used one. */
   spec?: string;
+  /** True when broken fence lines were repaired before parsing. */
+  repair?: boolean;
   /** Description overrides that name no component or prop. */
   unknownDescriptions?: string[];
   preset: string;

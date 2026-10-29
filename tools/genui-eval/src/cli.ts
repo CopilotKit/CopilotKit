@@ -20,7 +20,7 @@ const TOOL_ROOT = fileURLToPath(new URL("../", import.meta.url));
 const USAGE = `genui-eval: measure and improve the A2UI output of the generative UI prompts
 
   run        [--preset full] [--models a,b] [--judge model] [--effort low|medium|high|xhigh|max]
-             [--codex-concurrency n] [--cases all|tag:<t>] [--samples n]
+             [--codex-concurrency n] [--repair] [--cases all|tag:<t>] [--samples n]
              [--transports markdown,tool] [--split both|train|heldout]
              [--budget usd] [--spec file.json] [--estimate]
   report     <run|latest> [--base <run>]
@@ -45,6 +45,7 @@ const options = {
   judge: { type: "string" },
   effort: { type: "string" },
   "codex-concurrency": { type: "string" },
+  repair: { type: "boolean" },
   cases: { type: "string" },
   samples: { type: "string" },
   transports: { type: "string" },
@@ -154,6 +155,7 @@ async function commandRun(config: EvalConfig, values: Values) {
     budgetUsd,
     spec,
     specFile: values.spec,
+    repair: values.repair,
     onProgress: values.json
       ? undefined
       : (done, total, s) =>
