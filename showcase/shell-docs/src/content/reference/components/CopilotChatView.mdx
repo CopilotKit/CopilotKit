@@ -159,6 +159,16 @@ The welcome screen component receives `input` and `suggestionView` as React elem
 
 </PropertyReference>
 
+<PropertyReference name="connectingIndicator" type='SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>> | boolean'>
+  Controls the loading indicator shown while a thread's history is being restored (`isConnecting` is `true` and `messages` is still empty).
+
+- `true` (default) -- show the default spinner
+- `false` -- disable the indicator
+- **`className` string** -- style the default indicator
+- **Component** -- replace the indicator entirely
+
+</PropertyReference>
+
 ## Static Sub-Components
 
 `CopilotChatView` exposes its default slot implementations as static properties for use in custom compositions:
@@ -168,6 +178,7 @@ The welcome screen component receives `input` and `suggestionView` as React elem
 - `CopilotChatView.Feather` -- default gradient overlay
 - `CopilotChatView.InputContainer` -- default input container
 - `CopilotChatView.Disclaimer` -- default disclaimer text
+- `CopilotChatView.ConnectingIndicator` -- default loading indicator shown while a thread connects
 - `CopilotChatView.WelcomeMessage` -- default welcome message
 - `CopilotChatView.WelcomeScreen` -- default welcome screen layout
 
@@ -252,6 +263,7 @@ function Chat({ messages, isRunning }) {
 
 - **Auto-scroll**: When `autoScroll` is `true`, the view uses a stick-to-bottom strategy that keeps the latest message visible. A scroll-to-bottom button appears when the user scrolls up.
 - **Welcome screen**: When `messages` is empty and `welcomeScreen` is not `false`, a welcome screen is rendered in place of the transcript. The welcome screen receives the `input` and `suggestionView` elements so they can be placed within the welcome layout.
+- **Connecting state**: While a thread's initial connect is in flight and no messages have arrived, the `connectingIndicator` is rendered in the transcript area. The root element exposes `data-copilot-connecting="true"` for the duration of the connect, so apps can style their own loading state with CSS.
 - **Input container positioning**: The input container is absolutely positioned at the bottom of the chat, and the scroll area pads its content to avoid overlap.
 - **Resize handling**: The scroll view monitors input container height changes to keep padding in sync and hides the scroll-to-bottom button during resize transitions.
 

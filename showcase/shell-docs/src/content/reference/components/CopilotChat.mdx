@@ -103,6 +103,16 @@ This means you can pass slot overrides such as `messageView`, `input`, `scrollVi
   replacement component.
 </PropertyReference>
 
+<PropertyReference
+  name="connectingIndicator"
+  type="SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>> | boolean"
+>
+  Loading indicator shown while the chat restores an existing thread's history
+  from the agent (only for an explicitly chosen thread, via the `threadId` prop
+  or a wrapping `CopilotChatConfigurationProvider`). Pass `false` to disable, a
+  `className` to style the default spinner, or a replacement component.
+</PropertyReference>
+
 ## Slot System
 
 All slot props inherited from `CopilotChatView` follow the same override pattern. Each slot accepts one of three value types:
