@@ -82,6 +82,11 @@ npx copilotkit@latest skills install
 npm install @copilotkit/react-core @copilotkit/runtime
 ```
 
+```bash
+# .env.local
+OPENAI_API_KEY=your_openai_api_key
+```
+
 ```ts
 // app/api/copilotkit/[[...slug]]/route.ts
 import {
@@ -102,31 +107,19 @@ export { handler as GET, handler as POST, handler as PATCH, handler as DELETE };
 ```
 
 ```tsx
-// app/providers.tsx
-"use client";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
-
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
-      {children}
-    </CopilotKitProvider>
-  );
-}
-```
-
-```tsx
 // app/page.tsx
 "use client";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
 
 export default function Page() {
   return (
-    <main>
-      <h1>Your App</h1>
-      <CopilotSidebar />
-    </main>
+    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+      <main>
+        <h1>Your App</h1>
+        <CopilotSidebar />
+      </main>
+    </CopilotKitProvider>
   );
 }
 ```
