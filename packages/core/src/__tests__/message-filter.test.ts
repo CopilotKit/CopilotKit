@@ -310,6 +310,7 @@ describe("ɵrepairToolCallPairs", () => {
 
     expect(repaired[0]).toBe(copy[1]);
     expect(repaired[1]).toBe(result);
+    expect(repaired).toHaveLength(2);
   });
 
   it("keeps distinct messages that share an id", () => {
