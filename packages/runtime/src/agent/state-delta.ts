@@ -44,25 +44,36 @@ function encodeJsonPointer(segments: string[]): string {
 }
 
 /**
- * Pointer segments that must never be applied or forwarded. Assigning
- * through `__proto__` invokes the prototype setter instead of creating an
- * own property, silently replacing the tracked state's prototype (invisible
- * to JSON serialization and own-property lookups, yet readable through the
- * prototype chain). Strict JSON Patch appliers such as fast-json-patch
- * reject `__proto__`, `constructor`, and `prototype` segments outright, so
- * forwarding an operation that uses one would also desynchronize the
- * tracked state from the client's state.
+ * Whether a pointer can reach a prototype, following the rule
+ * fast-json-patch's `banPrototypeModifications` applies: a `__proto__`
+ * segment anywhere (assigning through it invokes the prototype setter
+ * instead of creating an own property, silently replacing the tracked
+ * state's prototype — invisible to JSON serialization and own-property
+ * lookups, yet readable through the prototype chain), or a `constructor`
+ * segment immediately followed by a `prototype` segment (which writes onto
+ * a constructor function's prototype). A lone `constructor` or `prototype`
+ * segment is an ordinary own property on plain-object state and is left
+ * alone. Strict JSON Patch appliers reject the forbidden forms, so
+ * forwarding such an operation would also desynchronize the tracked state
+ * from the client's state.
  */
-const FORBIDDEN_POINTER_SEGMENTS = new Set([
-  "__proto__",
-  "constructor",
-  "prototype",
-]);
-
 function hasForbiddenPointerSegment(pointer: string): boolean {
-  const segments = parseJsonPointer(pointer);
-  if (segments === undefined) return false;
-  return segments.some((segment) => FORBIDDEN_POINTER_SEGMENTS.has(segment));
+  const parsed = parseJsonPointer(pointer);
+  // A malformed pointer (e.g. containing an invalid escape such as `~2`)
+  // is not applied to the tracked state, but it is still forwarded, so the
+  // check must not fail open when parsing fails: fall back to a lenient
+  // split-and-unescape and judge the segments that are there. This decode
+  // serves the check only; it does not change how operations are applied.
+  const segments =
+    parsed ??
+    (pointer.startsWith("/") ? pointer.slice(1) : pointer)
+      .split("/")
+      .map((segment) => segment.replace(/~1/g, "/").replace(/~0/g, "~"));
+  return segments.some(
+    (segment, index) =>
+      segment === "__proto__" ||
+      (segment === "constructor" && segments[index + 1] === "prototype"),
+  );
 }
 
 function isForbiddenOperation(operation: StateDeltaOperation): boolean {

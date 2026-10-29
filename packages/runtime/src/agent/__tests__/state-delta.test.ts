@@ -1,10 +1,13 @@
 /**
  * Unit tests for the STATE_DELTA normalizer's handling of
  * prototype-related JSON Pointer segments. Delta operations are generated
- * by the model (untrusted input): an operation whose path or `from`
- * references `__proto__`, `constructor`, or `prototype` must be dropped
- * entirely — neither applied to the tracked state nor forwarded in the
- * normalized delta.
+ * by the model (untrusted input). Following the rule fast-json-patch's
+ * banPrototypeModifications applies, an operation whose path or `from`
+ * contains a `__proto__` segment, or a `constructor` segment immediately
+ * followed by a `prototype` segment, must be dropped entirely — neither
+ * applied to the tracked state nor forwarded in the normalized delta. A
+ * lone `constructor` or `prototype` segment is an ordinary own property
+ * and passes through.
  */
 import { describe, expect, it } from "vitest";
 import { EventType, type BaseEvent, type StateDeltaEvent } from "@ag-ui/client";
@@ -86,11 +89,8 @@ describe("state-delta prototype segment guard", () => {
     expect(asRecord(state)).toEqual({ a: 1 });
   });
 
-  it("drops operations with constructor or prototype segments anywhere in the path", () => {
+  it("drops replace and remove operations targeting __proto__", () => {
     const attempts: unknown[] = [
-      { op: "add", path: "/constructor", value: { polluted: "yes" } },
-      { op: "add", path: "/a/prototype", value: { polluted: "yes" } },
-      { op: "add", path: "/config/constructor/name", value: "x" },
       { op: "replace", path: "/a/__proto__", value: { polluted: "yes" } },
       { op: "remove", path: "/__proto__" },
     ];
@@ -98,12 +98,82 @@ describe("state-delta prototype segment guard", () => {
     for (const operation of attempts) {
       const { delta, state } = normalizeStateDelta([operation], {
         a: { x: 1 },
-        config: {},
+      });
+      expect(delta).toEqual([]);
+      expect(Object.getPrototypeOf(state)).toBe(Object.prototype);
+      expect(asRecord(state)).toEqual({ a: { x: 1 } });
+    }
+  });
+
+  it("drops operations with a constructor segment immediately followed by prototype", () => {
+    const attempts: unknown[] = [
+      {
+        op: "add",
+        path: "/constructor/prototype",
+        value: { polluted: "yes" },
+      },
+      {
+        op: "add",
+        path: "/a/constructor/prototype",
+        value: { polluted: "yes" },
+      },
+      {
+        op: "add",
+        path: "/a/constructor/prototype/polluted",
+        value: "yes",
+      },
+    ];
+
+    for (const operation of attempts) {
+      const { delta, state } = normalizeStateDelta([operation], {
+        a: { x: 1 },
       });
       expect(delta).toEqual([]);
       expect(Object.getPrototypeOf(state)).toBe(Object.prototype);
       expect(asRecord(state).polluted).toBeUndefined();
+      expect(asRecord({}).polluted).toBeUndefined();
     }
+  });
+
+  it("applies and forwards operations with a lone constructor or prototype segment", () => {
+    const operations = [
+      { op: "add", path: "/constructor", value: { field: true } },
+      { op: "add", path: "/a/prototype", value: 1 },
+      { op: "add", path: "/config/constructor/name", value: "x" },
+    ];
+    const { delta, state } = normalizeStateDelta(operations, {
+      a: { x: 1 },
+      config: { constructor: {} },
+    });
+
+    expect(delta).toEqual(operations);
+    expect(Object.getPrototypeOf(state)).toBe(Object.prototype);
+    expect(Object.prototype.hasOwnProperty.call(state, "constructor")).toBe(
+      true,
+    );
+    expect(asRecord(state)).toEqual({
+      a: { x: 1, prototype: 1 },
+      config: { constructor: { name: "x" } },
+      constructor: { field: true },
+    });
+  });
+
+  it("drops malformed pointers that contain a __proto__ segment", () => {
+    const added = normalizeStateDelta(
+      [{ op: "add", path: "/__proto__/~2", value: { polluted: "yes" } }],
+      { user: { name: "a" } },
+    );
+    expect(added.delta).toEqual([]);
+    expect(Object.getPrototypeOf(added.state)).toBe(Object.prototype);
+    expect(asRecord(added.state)).toEqual({ user: { name: "a" } });
+    expect(asRecord({}).polluted).toBeUndefined();
+
+    const copied = normalizeStateDelta(
+      [{ op: "copy", from: "/x/__proto__/~9", path: "/copied" }],
+      { x: { a: 1 } },
+    );
+    expect(copied.delta).toEqual([]);
+    expect(asRecord(copied.state)).toEqual({ x: { a: 1 } });
   });
 
   it("still forwards and applies legitimate operations alongside a dropped one", () => {
