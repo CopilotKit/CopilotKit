@@ -136,8 +136,10 @@ describe("Content Bundler", () => {
 
   it("bundles the FastAPI shared-state setup and streaming backend", () => {
     const { demos } = runBundlerAndRead();
-    const setup = demos["langgraph-fastapi::shared-state-read-write"]
-      .regions["shared-state-setup"];
+    const setup =
+      demos["langgraph-fastapi::shared-state-read-write"].regions[
+        "shared-state-setup"
+      ];
     expect(setup.language).toBe("python");
     expect(setup.code).toContain("from copilotkit import CopilotKitMiddleware");
     expect(setup.code).toContain("class AgentState(BaseAgentState)");
@@ -145,8 +147,10 @@ describe("Content Bundler", () => {
     expect(setup.code).toContain("class PreferencesInjectorMiddleware(");
     expect(setup.code).toContain("graph = create_agent(");
 
-    const streaming = demos["langgraph-fastapi::shared-state-streaming"]
-      .regions["state-streaming-middleware"];
+    const streaming =
+      demos["langgraph-fastapi::shared-state-streaming"].regions[
+        "state-streaming-middleware"
+      ];
     expect(streaming.file).toBe("src/agents/src/shared_state_streaming.py");
     expect(streaming.language).toBe("python");
     expect(streaming.code).toContain("StateStreamingMiddleware(");
