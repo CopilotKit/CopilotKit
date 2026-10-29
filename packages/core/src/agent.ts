@@ -194,6 +194,23 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.allowToolResultContinuation =
       config.capabilities?.custom?.["copilotkit.toolResultContinuation"] ===
       true;
+    // Intelligence and multi-run SSE replay use the CPK connect pipeline,
+    // rather than AbstractAgent.connectAgent. Capture the same authoritative
+    // completed-event checkpoint before frontend handlers run.
+    this.subscribe({
+      onRunFinishedEvent: (params) => {
+        const { input, messages, state } = params;
+        this.toolResultCheckpoint =
+          this.allowToolResultContinuation && params.outcome === "interrupt"
+            ? {
+                threadId: input.threadId,
+                messages: structuredClone_(messages),
+                state: structuredClone_(state),
+                interrupts: structuredClone_(params.interrupts),
+              }
+            : undefined;
+      },
+    });
     this._messageFilter = config.messageFilter;
     if (config.debug) {
       this.debug = config.debug;
