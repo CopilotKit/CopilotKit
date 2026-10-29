@@ -197,6 +197,18 @@ importers:
         specifier: ^4.1.3
         version: 4.1.3(@opentelemetry/api@1.9.0)(@types/node@18.19.130)(@vitest/coverage-v8@3.2.4)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@8.1.5(@types/node@18.19.130)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
+  codemods/v2-migration:
+    devDependencies:
+      '@codemod.com/jssg-types':
+        specifier: 1.6.3
+        version: 1.6.3
+      codemod:
+        specifier: 1.18.6
+        version: 1.18.6
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   examples/canvas/mastra-pm:
     dependencies:
       '@ag-ui/client':
@@ -7528,6 +7540,55 @@ packages:
 
   '@cloudflare/workers-types@4.20260405.1':
     resolution: {integrity: sha512-PokTmySa+D6MY01R1UfYH48korsN462NK/fl3aw47Hg7XuLuSo/RTpjT0vtWaJhJoFY5tHGOBBIbDcIc8wltLg==}
+
+  '@codemod.com/cli-darwin-arm64@1.18.6':
+    resolution: {integrity: sha512-uI1rnUMWDPNSJqJWLd8Ny/QIRgu/eOUBi0WhQLYtghHwMtWBcHi/Tj2DVS06MV3oBkgnvDQ5bAjk1jAC/lj08Q==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@codemod.com/cli-darwin-x64@1.18.6':
+    resolution: {integrity: sha512-fk4O3MHRzBsO9NoSEyTsAQnAqsD9+H+9hzXkDvH/aF3ty+woHD7nODy66LfkKIgpGz9xK9VfyU2vrPrFC3jehg==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@codemod.com/cli-linux-arm64-gnu@1.18.6':
+    resolution: {integrity: sha512-dCmspZYPDVBX8EW93AR5ZHlllxF0bSBHCdkOib9i9Z1Xj8lBXuPZNfutL/BdRzoO37L618Hror9pNbXyYoqCvg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@codemod.com/cli-linux-arm64-musl@1.18.6':
+    resolution: {integrity: sha512-OnKJpNEFp2MeF4zJRb8CwE1baalr16PNJHGSCsMhYY/HNRP5RLS+/w05e7nx0RMm4FMA5hFCBhHBA2D+9vk0Zg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@codemod.com/cli-linux-x64-gnu@1.18.6':
+    resolution: {integrity: sha512-vKlGc40CBePeweGtstNt2wmMmhUT4D1as4sPV9IKKitchG5CEFI5HIizvVC1PkPmME7edGr9gT5huHex6Y5zLQ==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@codemod.com/cli-linux-x64-musl@1.18.6':
+    resolution: {integrity: sha512-4fFToEd8p5FJ27CWVJzGFWp9ys/bwAHTLrlAh7ms6sXcHFnq17s1YmuKbmCfTbfpjkKtpkwrExhNMq0RRqJPvw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@codemod.com/cli-win32-x64-msvc@1.18.6':
+    resolution: {integrity: sha512-/l/na7Vg7BaJn0m6QzbnfLZKjHrdDWacE9YVvfx2gG3v7wWCNiBxLcGX1ZqldlrxSJ2yayNa3ZpHdeyJupGV+A==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+
+  '@codemod.com/jssg-types@1.6.3':
+    resolution: {integrity: sha512-b5829ixO5TdGL5xg5YcL9YfiLC3WwFZU+8Zx78NpsHlJ1iySbqfA0g0psqNXv8ss/r7hdpy2KiBXm3GE6bN5bQ==}
 
   '@colordx/core@5.4.3':
     resolution: {integrity: sha512-kIxYSfA5T8HXjav55UaaH/o/cKivF6jCCGIb8eqtcsfI46wsvlSiT8jMDyrl779qLec3c2c2oHBZo4oAhvbjrQ==}
@@ -17769,6 +17830,11 @@ packages:
   code-excerpt@4.0.0:
     resolution: {integrity: sha512-xxodCmBen3iy2i0WtAK8FlFNrRzjUqjRsMfho58xT/wvZU1YTM3fCnRjcy1gJPMepaRlgm/0e6w8SpWHpn3/cA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
+  codemod@1.18.6:
+    resolution: {integrity: sha512-1ZgVgBuzXGVH/G/6rupovWGCbYCZyl+BZJ6LZdpG9vMILucCtZORtqqoELwDmVbJ5Zb9De+3remZjjG8v2q0nA==}
+    engines: {node: '>= 16.0.0'}
+    hasBin: true
 
   collapse-white-space@2.1.0:
     resolution: {integrity: sha512-loKTxY1zCOuG4j9f6EPnuyyYkf58RnhhWTvRoZEokgB+WbdXehfjFviyOVYkqzEWz1Q5kRiZdBYS5SwxbQYwzw==}
@@ -33902,6 +33968,29 @@ snapshots:
 
   '@cloudflare/workers-types@4.20260405.1': {}
 
+  '@codemod.com/cli-darwin-arm64@1.18.6':
+    optional: true
+
+  '@codemod.com/cli-darwin-x64@1.18.6':
+    optional: true
+
+  '@codemod.com/cli-linux-arm64-gnu@1.18.6':
+    optional: true
+
+  '@codemod.com/cli-linux-arm64-musl@1.18.6':
+    optional: true
+
+  '@codemod.com/cli-linux-x64-gnu@1.18.6':
+    optional: true
+
+  '@codemod.com/cli-linux-x64-musl@1.18.6':
+    optional: true
+
+  '@codemod.com/cli-win32-x64-msvc@1.18.6':
+    optional: true
+
+  '@codemod.com/jssg-types@1.6.3': {}
+
   '@colordx/core@5.4.3': {}
 
   '@colors/colors@1.5.0':
@@ -46664,6 +46753,18 @@ snapshots:
   code-excerpt@4.0.0:
     dependencies:
       convert-to-spaces: 2.0.1
+
+  codemod@1.18.6:
+    dependencies:
+      detect-libc: 2.1.2
+    optionalDependencies:
+      '@codemod.com/cli-darwin-arm64': 1.18.6
+      '@codemod.com/cli-darwin-x64': 1.18.6
+      '@codemod.com/cli-linux-arm64-gnu': 1.18.6
+      '@codemod.com/cli-linux-arm64-musl': 1.18.6
+      '@codemod.com/cli-linux-x64-gnu': 1.18.6
+      '@codemod.com/cli-linux-x64-musl': 1.18.6
+      '@codemod.com/cli-win32-x64-msvc': 1.18.6
 
   collapse-white-space@2.1.0: {}
 

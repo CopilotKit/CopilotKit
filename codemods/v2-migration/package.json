@@ -1,0 +1,17 @@
+{
+  "name": "@copilotkit/v2-migration",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Codemod that migrates a CopilotKit app from v1 to 2.0. Published to the Codemod registry, not npm.",
+  "type": "module",
+  "scripts": {
+    "test": "codemod jssg test -l tsx ./scripts/codemod.ts ./tests/tsx && codemod jssg test -l typescript ./scripts/codemod.ts ./tests/ts",
+    "check-types": "tsc --noEmit",
+    "validate": "codemod workflow validate -w workflow.yaml"
+  },
+  "devDependencies": {
+    "@codemod.com/jssg-types": "1.6.3",
+    "codemod": "1.18.6",
+    "typescript": "^5.9.3"
+  }
+}
