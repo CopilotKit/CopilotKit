@@ -80,8 +80,8 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
     // without it the agent conflates this with beat 6 and starts offering to
     // record a procedure it already has.
     kind: "operational",
-    // `user`, NOT `project`. Banking scopes its equivalent procedure to
-    // `project`, and that is the wrong model here: verified against the running
+    // `user`, NOT `project`. Banking used to scope its equivalent procedure to
+    // `project`, and that was the wrong model: verified against the running
     // Intelligence stack, a project-scoped memory is returned for EVERY user id
     // in the instance rather than for some project. EVERY skin in this app
     // points at one instance, so a project-scoped procedure is effectively

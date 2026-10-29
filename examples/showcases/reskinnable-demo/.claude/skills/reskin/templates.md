@@ -963,8 +963,8 @@ them, and it returns the whole roster, including the skins with no teach loop
 (seeding arms beats 4 and 5 on its own; beat 6 is a separate mechanism).
 `src/skins/commerce/intelligence/seed-memories.ts` is the one with tests beside
 it. Every set of comments is worth reading in full, and they do not all say the
-same thing: banking scopes its procedure `project` and the rest scope it `user`,
-for a reason each file states. Server-safe plain `.ts`.
+same thing, but every one scopes its procedure `user`, for a reason each file
+states. Server-safe plain `.ts`.
 Called by your `dev/reset` route immediately after wiping memories, so the demo
 is re-armed before the presenter says a word.
 
