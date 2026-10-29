@@ -121,7 +121,7 @@
 :where(.cpk-chat-input-textarea) {
   background-color: transparent;
   font-size: 16px;
-  line-height: 1.625;
+  line-height: 1.5;
   outline-style: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

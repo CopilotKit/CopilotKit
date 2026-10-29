@@ -73,7 +73,7 @@
     "publint": "publint .",
     "attw": "attw --pack . --profile node16",
     "generate:external-reexports": "node scripts/generate-external-reexports.mjs",
-    "test:browser-scroll": "node --test browser-tests/hidden-chat-scroll.test.mjs",
+    "test:browser-scroll": "node --test browser-tests/hidden-chat-scroll.test.mjs browser-tests/stylesheet-layers.test.mjs",
     "test:browser": "playwright test --config browser/playwright.config.ts"
   },
   "dependencies": {

@@ -2,10 +2,16 @@
 // minified into one string that <CopilotKitStyles> renders. Apps get styled UI
 // without importing a stylesheet, and the CSS ships with no runtime dependency.
 //
+// The CSS uses Tailwind v4's cascade layers, as the Tailwind build it replaces
+// did. theme.css loads in `base`, everything else in `utilities`. So the app's
+// own CSS wins: unlayered rules beat every layer, and a Tailwind utility such
+// as `p-4` beats a zero-specificity rule in the same layer. Our rules also beat
+// a reset in the app's `base` layer, such as Tailwind's preflight.
+//
 // Every rule has zero specificity, so when two files style the same element
 // the later one wins. Files load in this order, so a parent overrides the
 // parts it renders:
-//   1. base.css   theme variables, reset, shared keyframes
+//   1. base.css   reset, base element styles, shared keyframes
 //   2. ui/        primitives (button, tooltip, ...)
 //   3. *.css      chat components
 //   4. layout/    containers that render the components (chat view, popup, ...)
@@ -33,15 +39,24 @@ const cssFilesIn = (dir) =>
         .sort()
         .map((name) => path.join(dir, name))
     : [];
+const read = (name) => fs.readFileSync(path.join(cssDir, name), "utf8");
 const order = [
   "base.css",
   ...cssFilesIn("ui"),
-  ...cssFilesIn(".").filter((name) => name !== "base.css"),
+  ...cssFilesIn(".").filter(
+    (name) => !["base.css", "theme.css"].includes(name),
+  ),
   ...cssFilesIn("layout"),
 ];
-const source = order
-  .map((name) => fs.readFileSync(path.join(cssDir, name), "utf8"))
-  .join("\n");
+// Declaring the order first keeps `base` before `utilities` when this
+// stylesheet loads before the app's.
+const source = `@layer theme, base, components, utilities;
+@layer base {
+${read("theme.css")}
+}
+@layer utilities {
+${order.map(read).join("\n")}
+}`;
 
 const { code: css } = await transform(source, { loader: "css", minify: true });
 

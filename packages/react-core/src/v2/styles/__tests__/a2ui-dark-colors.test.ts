@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const baseCss = readFileSync("src/v2/styles/css/base.css", {
+const themeCss = readFileSync("src/v2/styles/css/theme.css", {
   encoding: "utf8",
 });
 
@@ -11,7 +11,7 @@ const baseCss = readFileSync("src/v2/styles/css/base.css", {
 // card's light text doesn't land on a white background.
 describe("A2UI colours in dark mode", () => {
   const darkBlock =
-    baseCss.match(
+    themeCss.match(
       /:where\(\s*\.dark \[data-copilotkit\],\s*\[data-copilotkit\]\.dark\s*\) \{([^}]*)\}/,
     )?.[1] ?? "";
 
@@ -24,7 +24,7 @@ describe("A2UI colours in dark mode", () => {
 
   it("leaves the light theme to the catalog's fallbacks", () => {
     const lightBlock =
-      baseCss.match(/^:where\(\[data-copilotkit\]\) \{([^}]*)\}/m)?.[1] ?? "";
+      themeCss.match(/^:where\(\[data-copilotkit\]\) \{([^}]*)\}/m)?.[1] ?? "";
     expect(lightBlock).not.toContain("--a2ui-color-");
   });
 });
