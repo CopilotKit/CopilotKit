@@ -1,0 +1,122 @@
+[
+  {
+    "threadId": "8fe2dce5-23af-45d6-8ae9-65a3733473a8",
+    "history": [
+      {
+        "id": "d49e0c9a-7733-4126-ad59-1a64646b0f33",
+        "role": "user",
+        "content": "Use scheduleTime to offer one demo meeting for the fresh pending restart check; wait for my choice."
+      },
+      {
+        "id": "chatcmpl-EeLJJWIjy0SgVI2LMgO6hB1aCDVkT",
+        "role": "assistant",
+        "toolCalls": [
+          {
+            "id": "call_6rIkProTTApGwcBfcZ60GBiQ",
+            "name": "scheduleTime",
+            "args": "{\n  \"reasonForScheduling\": \"Demo pending restart check meeting\",\n  \"meetingDuration\": 30\n}"
+          }
+        ]
+      },
+      {
+        "id": "d1bafec9-8abe-4424-b204-bb77817ba48e",
+        "role": "tool",
+        "content": "Meeting scheduled for Friday at 10:00 AM (30 min).",
+        "toolCallId": "call_6rIkProTTApGwcBfcZ60GBiQ"
+      },
+      {
+        "id": "7ee43aed-9060-42c9-90b7-9579e3faf490",
+        "role": "user",
+        "content": "Without calling any new tools, confirm the meeting choice I already submitted."
+      },
+      {
+        "id": "assistant-call_6rIkProTTApGwcBfcZ60GBiQ",
+        "role": "assistant",
+        "toolCalls": [
+          {
+            "id": "call_6rIkProTTApGwcBfcZ60GBiQ",
+            "name": "scheduleTime",
+            "args": "{\n  \"reasonForScheduling\": \"Demo pending restart check meeting\",\n  \"meetingDuration\": 30\n}"
+          }
+        ]
+      },
+      {
+        "id": "cef76666-17ca-4e11-b11f-5ba5b0e9d6cd",
+        "role": "user",
+        "content": "Please confirm my saved meeting choice. Do not create any new meeting or call new tools."
+      }
+    ]
+  },
+  {
+    "threadId": "6aaa160e-7ee2-468b-b500-a86bcab56a8b",
+    "history": [
+      {
+        "id": "80942a10-73ac-4097-b408-df3fec7b47c3:occurrence:0:block:0",
+        "role": "user",
+        "content": "Call record_synthetic_decision once with marker completed-before-import-20261029 and wait for my native approval. Do not call any other tools."
+      },
+      {
+        "id": "chatcmpl-EeLJJI8zNENZoGHfOfyDB6ssTafcs:occurrence:1:block:0",
+        "role": "assistant",
+        "content": "",
+        "toolCalls": [
+          {
+            "id": "call_cgbmrSZ6MOLlYG0hYIIulj54",
+            "name": "record_synthetic_decision",
+            "args": "{\"marker\":\"completed-before-import-20261029\"}"
+          }
+        ]
+      },
+      {
+        "id": "0c532adb8bc14dab905afc16f2f9ac7f:occurrence:4:block:0",
+        "role": "tool",
+        "toolCallId": "call_cgbmrSZ6MOLlYG0hYIIulj54",
+        "content": "{\"status\":\"approved\",\"marker\":\"completed-before-import-20261029\",\"value\":707,\"state\":{\"completed\":true,\"marker\":\"completed-before-import-20261029\"}}"
+      },
+      {
+        "id": "chatcmpl-EeLK8W3xGp4NkZBDBzjWbVeXN50Hp:occurrence:5:block:0",
+        "role": "assistant",
+        "content": "Done. I called record_synthetic_decision with marker \"completed-before-import-20261029\".\n\nResult from native system:\n- status: approved\n- marker: completed-before-import-20261029\n- value: 707\n- state: { completed: true, marker: \"completed-before-import-20261029\" }\n\nNo other tools were invoked. What would you like me to do next?"
+      },
+      {
+        "id": "c4a9003f-d162-4f4d-821d-8962a667f8af:occurrence:6:block:0",
+        "role": "user",
+        "content": "Now use scheduleTime to offer a separate demo meeting for the imported pending restart check. Wait for my choice; keep the completed native decision unchanged."
+      },
+      {
+        "id": "chatcmpl-EeLL5llaeE4Z6ylaPp8VSTXBOIpJG:occurrence:7:block:0",
+        "role": "assistant",
+        "content": "",
+        "toolCalls": [
+          {
+            "id": "call_uI0N6gtihXSLzbrbX1boaxAj",
+            "name": "scheduleTime",
+            "args": "{\"reasonForScheduling\":\"Demo imported pending restart check\",\"meetingDuration\":30}"
+          }
+        ]
+      },
+      {
+        "id": "2b044152-3d7a-4b88-8e0b-2073064eaaf6",
+        "role": "tool",
+        "content": "The user declined all proposed meeting times. Please suggest alternative times or ask for their availability.",
+        "toolCallId": "call_uI0N6gtihXSLzbrbX1boaxAj"
+      },
+      {
+        "id": "a3a67134-99d1-44b2-971c-deb7fe8c4637",
+        "role": "user",
+        "content": "Without calling any new tools, confirm the meeting choice I already submitted and the completed native decision."
+      },
+      {
+        "id": "assistant-call_uI0N6gtihXSLzbrbX1boaxAj",
+        "role": "assistant",
+        "toolCalls": [
+          {
+            "id": "call_uI0N6gtihXSLzbrbX1boaxAj",
+            "name": "scheduleTime",
+            "args": "{\n  \"reasonForScheduling\": \"Demo imported pending restart check\",\n  \"meetingDuration\": 30\n}"
+          }
+        ]
+      }
+    ]
+  }
+]

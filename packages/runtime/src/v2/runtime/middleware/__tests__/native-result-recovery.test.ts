@@ -1,3 +1,5 @@
+import capturedHistories from "./fixtures/native-result-recovery-history.json";
+import { nativeHistoryInput } from "../../handlers/intelligence/native-history-input";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { firstValueFrom, from, of, toArray } from "rxjs";
@@ -186,7 +188,10 @@ test.each(
 test.each(
   [
     [...history, result],
-    [...history, history[0]],
+    [
+      ...history,
+      { ...history[0], toolCalls: [{ id: "call", name: "other", args: "{}" }] },
+    ],
     [
       {
         ...history[0],
@@ -248,3 +253,107 @@ test("does not duplicate a real canonical result already emitted by the backend"
     events.filter((event) => event.type === EventType.TOOL_CALL_RESULT),
   ).toHaveLength(1);
 });
+
+test("recovers saved results when native replay added an identical assistant alias", async () => {
+  const saved = [
+    ...history,
+    {
+      id: "assistant-call",
+      role: "assistant",
+      toolCalls: [
+        { id: "call", name: "scheduleTime", args: '{ "duration": 30 }' },
+      ],
+    },
+  ];
+  const backend = new Backend([snapshot(), snapshot([])]);
+  await firstValueFrom(
+    new NativeResultRecoveryMiddleware(saved)
+      .run(input, backend)
+      .pipe(toArray()),
+  );
+  expect(backend.inputs).toHaveLength(2);
+  expect(backend.inputs[1].messages).toEqual([result]);
+});
+
+test.each(capturedHistories)(
+  "recovers the actual $threadId replay aliases without rewriting results",
+  async (fixture) => {
+    const call = fixture.history
+      .flatMap((message) =>
+        "toolCalls" in message ? (message.toolCalls ?? []) : [],
+      )
+      .find((item) => item.name === "scheduleTime")!;
+    const saved = fixture.history.find(
+      (message) => "toolCallId" in message && message.toolCallId === call.id,
+    )!;
+    const backend = new Backend([
+      snapshot([
+        {
+          toolCallId: call.id,
+          toolName: call.name,
+          arguments: JSON.parse(call.args),
+        },
+      ]),
+      snapshot([]),
+    ]);
+    await firstValueFrom(
+      new NativeResultRecoveryMiddleware(fixture.history)
+        .run(input, backend)
+        .pipe(toArray()),
+    );
+    expect(backend.inputs).toHaveLength(2);
+    expect(backend.inputs[1].messages).toEqual([saved]);
+    const aliases = fixture.history.filter(
+      (message) =>
+        "toolCalls" in message &&
+        message.toolCalls?.some((item) => item.id === call.id),
+    );
+    const original = aliases[0];
+    const latest = aliases
+      .flatMap((message) =>
+        "toolCalls" in message ? (message.toolCalls ?? []) : [],
+      )
+      .filter((item) => item.id === call.id)
+      .at(-1)!;
+    expect(() =>
+      nativeHistoryInput(
+        [
+          {
+            id: original.id,
+            role: "assistant",
+            content: "content" in original ? original.content : undefined,
+            toolCalls: [
+              {
+                id: call.id,
+                type: "function",
+                function: { name: call.name, arguments: latest.args },
+              },
+            ],
+          },
+        ],
+        fixture.history,
+      ),
+    ).not.toThrow();
+  },
+);
+
+test.each(["null", "[]", "22", '"value"', '{"duration":60}'])(
+  "rejects a contradictory or nonobject argument alias %s",
+  async (args) => {
+    const backend = new Backend([snapshot()]);
+    const saved = [
+      ...history,
+      {
+        id: "alias",
+        role: "assistant",
+        toolCalls: [{ id: "call", name: "scheduleTime", args }],
+      },
+    ];
+    await firstValueFrom(
+      new NativeResultRecoveryMiddleware(saved)
+        .run(input, backend)
+        .pipe(toArray()),
+    );
+    expect(backend.inputs).toHaveLength(1);
+  },
+);

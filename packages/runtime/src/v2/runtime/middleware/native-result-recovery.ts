@@ -8,6 +8,7 @@ import type {
 import { isDeepStrictEqual } from "node:util";
 import { Observable, Subscription } from "rxjs";
 import { z } from "zod";
+import { nativeToolArguments } from "../handlers/intelligence/native-history-input";
 import type { ThreadMessage } from "../intelligence-platform/client";
 
 const eventName = "ag-ui:pending-frontend-results";
@@ -49,19 +50,25 @@ export class NativeResultRecoveryMiddleware extends Middleware {
           message.role === "tool" && message.toolCallId === pending.toolCallId,
       );
       if (
-        calls.length !== 1 ||
+        calls.length === 0 ||
         results.length !== 1 ||
         calls[0].name !== pending.toolName ||
         typeof results[0].content !== "string"
       )
         return [];
-      let args: unknown;
-      try {
-        args = JSON.parse(calls[0].args || "{}");
-      } catch {
+      // A replay can add a new assistant envelope for the same native call.
+      // Every alias must agree; a conflicting definition cannot authorize retry.
+      if (
+        !calls.every(
+          (call) =>
+            call.name === pending.toolName &&
+            isDeepStrictEqual(
+              nativeToolArguments(call.args),
+              pending.arguments,
+            ),
+        )
+      )
         return [];
-      }
-      if (!isDeepStrictEqual(args, pending.arguments)) return [];
       return [
         {
           id: results[0].id,
