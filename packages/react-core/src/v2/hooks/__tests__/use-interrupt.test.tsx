@@ -43,10 +43,12 @@ type SubscriptionHandlers = {
 class InterruptingAgent extends AbstractAgent {
   readonly inputs: RunAgentInput[] = [];
 
-  constructor(private readonly kind: "standard" | "legacy") {
+  /** Configure the scripted agent outcome and stable thread identity. */
+  constructor(private readonly kind: "standard" | "legacy" | "mixed") {
     super({ agentId: "test-agent", threadId: "test-thread" });
   }
 
+  /** Capture wire input and emit the configured initial interruption or continuation. */
   run(input: RunAgentInput): Observable<BaseEvent> {
     this.inputs.push(input);
     const events: BaseEvent[] = [
@@ -63,15 +65,44 @@ class InterruptingAgent extends AbstractAgent {
         value: { question: "Proceed?" },
       });
     }
+    if (this.inputs.length === 1 && this.kind === "mixed")
+      events.push({
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [
+          {
+            id: "call",
+            role: "assistant",
+            content: "",
+            toolCalls: [
+              {
+                id: "chart",
+                type: "function",
+                function: { name: "chart", arguments: "{}" },
+              },
+            ],
+          },
+        ],
+      });
     events.push({
       type: EventType.RUN_FINISHED,
       threadId: input.threadId,
       runId: input.runId,
-      ...(this.inputs.length === 1 && this.kind === "standard"
+      ...(this.inputs.length === 1 && this.kind !== "legacy"
         ? {
             outcome: {
               type: "interrupt",
-              interrupts: [{ id: "approve-action", reason: "approval" }],
+              interrupts: [
+                ...(this.kind === "mixed"
+                  ? [
+                      {
+                        id: "chart-i",
+                        reason: "tool_call",
+                        toolCallId: "chart",
+                      },
+                    ]
+                  : []),
+                { id: "approve-action", reason: "approval" },
+              ],
             },
           }
         : {}),
@@ -103,6 +134,7 @@ describe("useInterrupt", () => {
       subscribe: subscribeMock,
       id: "test-agent",
       pendingInterrupts: [] as Interrupt[],
+      messages: [],
       addMessage: vi.fn(),
     };
 
@@ -291,6 +323,81 @@ describe("useInterrupt", () => {
     },
   );
 
+  it.each([
+    ["resolve", "approval-first"],
+    ["cancel", "approval-first"],
+    ["resolve", "frontend-first"],
+    ["cancel", "frontend-first"],
+  ])("%s continues once with %s completion", async (action, order) => {
+    const agent = new InterruptingAgent("mixed");
+    const core = new CopilotKitCore({});
+    let finish!: (value: string) => void;
+    const answer = new Promise<string>((resolve) => {
+      finish = resolve;
+    });
+    const handler = vi.fn(() => answer);
+    core.addTool({ name: "chart", description: "chart", handler });
+    mockUseAgent.mockReturnValue({ agent });
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runAgent: core.runAgent.bind(core),
+        setInterruptElement: setInterruptElementMock,
+      },
+    });
+    let callbacks!: {
+      resolve: (payload: unknown, id: string) => Promise<unknown>;
+      cancel: (id: string) => Promise<unknown>;
+    };
+    /** Render the mixed-batch hook and expose its actions to the integration test. */
+    function MixedHarness() {
+      return useInterrupt({
+        renderInChat: false,
+        render: (props) => {
+          callbacks = props;
+          return <div>Approval</div>;
+        },
+      });
+    }
+    render(<MixedHarness />);
+    let running!: Promise<unknown>;
+    await act(async () => {
+      running = core.runAgent({ agent });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+    if (order === "frontend-first")
+      await act(async () => {
+        finish("");
+        await running;
+      });
+    await act(async () => {
+      if (action === "resolve")
+        await callbacks.resolve("allow", "approve-action");
+      else await callbacks.cancel("approve-action");
+    });
+    if (order === "approval-first") {
+      expect(agent.inputs).toHaveLength(1);
+      await act(async () => {
+        finish("");
+        await running;
+      });
+    }
+    expect(agent.inputs).toHaveLength(2);
+    expect(agent.inputs[1]!.resume).toEqual([
+      { interruptId: "chart-i", status: "resolved", payload: "" },
+      action === "resolve"
+        ? {
+            interruptId: "approve-action",
+            status: "resolved",
+            payload: "allow",
+          }
+        : { interruptId: "approve-action", status: "cancelled" },
+    ]);
+    expect(
+      agent.inputs[1]!.messages.filter((m) => m.role === "tool"),
+    ).toHaveLength(1);
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
   it("uses a fresh run ID for legacy command.resume", async () => {
     const agent = new InterruptingAgent("legacy");
     const core = new CopilotKitCore({});
@@ -981,6 +1088,81 @@ describe("useInterrupt", () => {
       finalizeStandardRun(runId);
     }
 
+    it.each(["resolve", "cancel"] as const)(
+      "forwards explicit %s for saved failed tools",
+      async (action) => {
+        const saved = {
+          id: "error",
+          role: "tool",
+          toolCallId: "failed-call",
+          content: "failed",
+          error: "failure",
+        };
+        mockAgent.messages = [saved];
+        const renderSpy = vi.fn();
+        render(<StandardHarness renderSpy={renderSpy} />);
+        fireStandardInterrupt([
+          { id: "failed", reason: "tool_call", toolCallId: "failed-call" },
+        ]);
+        const props = renderSpy.mock.calls.at(-1)![0];
+        await act(async () => {
+          if (action === "resolve")
+            await props.resolve("replacement", "failed");
+          else await props.cancel("failed");
+        });
+        expect(runAgentMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            resume: [
+              action === "resolve"
+                ? {
+                    interruptId: "failed",
+                    status: "resolved",
+                    payload: "replacement",
+                  }
+                : { interruptId: "failed", status: "cancelled" },
+            ],
+          }),
+        );
+        expect(mockAgent.addMessage).not.toHaveBeenCalled();
+        expect(mockAgent.messages).toEqual([saved]);
+      },
+    );
+
+    it("forwards cancellation after expiry", async () => {
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      fireStandardInterrupt([{ ...INT, expiresAt: "2000-01-01T00:00:00Z" }]);
+      await act(async () => {
+        await renderSpy.mock.calls.at(-1)![0].cancel(INT.id);
+      });
+      expect(runAgentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resume: [{ interruptId: INT.id, status: "cancelled" }],
+        }),
+      );
+    });
+
+    it("hydrates an interrupt finalized before mounting and resumes it once", async () => {
+      mockAgent.pendingInterrupts = [INT];
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      await waitFor(() => expect(renderSpy).toHaveBeenCalled());
+      const props = renderSpy.mock.calls.at(-1)![0];
+      expect(props.interrupts).toEqual([INT]);
+      await act(async () => {
+        await props.resolve("late answer", INT.id);
+        await props.resolve("duplicate", INT.id);
+      });
+      expect(runAgentMock).toHaveBeenCalledTimes(1);
+      expect(runAgentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resume: [
+            { interruptId: INT.id, status: "resolved", payload: "late answer" },
+          ],
+        }),
+      );
+    });
+
     it("surfaces the primary interrupt and full list from outcome:interrupt", () => {
       const renderSpy = vi.fn();
       render(<StandardHarness renderSpy={renderSpy} />);
@@ -990,6 +1172,76 @@ describe("useInterrupt", () => {
       expect(lastCall.interrupt).toEqual(INT);
       expect(lastCall.interrupts).toEqual([INT]);
     });
+
+    it.each(["resolve", "cancel"])(
+      "%s preserves saved frontend results when answering the remaining approval",
+      async (action) => {
+        mockAgent.messages = [
+          { id: "saved", role: "tool", toolCallId: "chart", content: "" },
+        ];
+        const renderSpy = vi.fn();
+        render(<StandardHarness renderSpy={renderSpy} />);
+        fireStandardInterrupt([
+          { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
+          { id: "approval", reason: "approval" },
+        ]);
+        const callbacks = renderSpy.mock.calls.at(-1)![0];
+        await act(async () => {
+          if (action === "resolve")
+            await callbacks.resolve("allow", "approval");
+          else await callbacks.cancel("approval");
+        });
+        expect(mockAgent.addMessage).not.toHaveBeenCalled();
+        expect(runAgentMock).toHaveBeenCalledExactlyOnceWith({
+          agent: mockAgent,
+          resume: [
+            { interruptId: "chart-i", status: "resolved", payload: "" },
+            action === "resolve"
+              ? {
+                  interruptId: "approval",
+                  status: "resolved",
+                  payload: "allow",
+                }
+              : { interruptId: "approval", status: "cancelled" },
+          ],
+        });
+      },
+    );
+
+    it.each(["resolve", "cancel"])(
+      "%s ignores a completed first tool call without an unhandled rejection",
+      async (action) => {
+        mockAgent.messages = [
+          { id: "saved", role: "tool", toolCallId: "chart", content: "" },
+        ];
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const renderSpy = vi.fn();
+        render(<StandardHarness renderSpy={renderSpy} />);
+        fireStandardInterrupt([
+          { id: "chart-i", reason: "tool_call", toolCallId: "chart" },
+          { id: "approval", reason: "approval" },
+        ]);
+        const callbacks = renderSpy.mock.calls.at(-1)![0];
+        await act(async () => {
+          if (action === "resolve") await callbacks.resolve("approve");
+          else await callbacks.cancel();
+        });
+        expect(warn).toHaveBeenCalledWith(
+          expect.stringContaining("already completed"),
+        );
+        expect(runAgentMock).not.toHaveBeenCalled();
+        expect(mockAgent.addMessage).not.toHaveBeenCalled();
+        await act(async () => {
+          await callbacks.resolve("allow", "approval");
+        });
+        expect(runAgentMock).toHaveBeenCalledTimes(1);
+        expect(runAgentMock.mock.calls[0]![0].resume).toEqual([
+          { interruptId: "chart-i", status: "resolved", payload: "" },
+          { interruptId: "approval", status: "resolved", payload: "allow" },
+        ]);
+        warn.mockRestore();
+      },
+    );
 
     it("resolve() resumes with a resolved ResumeEntry", async () => {
       runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
