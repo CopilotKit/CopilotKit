@@ -30,8 +30,10 @@ on:
 concurrency:
   # One RC at a time per line. A merge that lands while one is publishing waits,
   # and a newer merge replaces it in the queue: its RC already includes the
-  # earlier change.
-  group: release-rc-${{ github.ref }}
+  # earlier change. Dry runs queue in their own group: GitHub keeps one pending
+  # run per group, so a shared group would let a dry run replace a queued
+  # publish and that merge would get no RC.
+  group: release-rc-${{ github.ref }}${{ inputs.dry_run == true && '-dry-run' || '' }}
   cancel-in-progress: false
 
 permissions:

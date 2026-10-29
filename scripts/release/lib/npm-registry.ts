@@ -20,5 +20,10 @@ export async function fetchPublishedVersions(name: string): Promise<string[]> {
   const { versions } = (await response.json()) as {
     versions?: Record<string, unknown>;
   };
-  return Object.keys(versions ?? {});
+  if (!versions || typeof versions !== "object") {
+    throw new Error(
+      `npm registry response for ${name} has no versions; cannot tell which versions are taken.`,
+    );
+  }
+  return Object.keys(versions);
 }

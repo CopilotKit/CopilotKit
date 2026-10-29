@@ -85,7 +85,9 @@ concurrency:
   # The scope is folded into the key so canaries for different scopes (e.g.
   # `monorepo` vs `angular`) on the same branch run in independent lanes instead
   # of queuing behind each other (cancel-in-progress: false).
-  group: canary-publish-${{ inputs.scope }}-${{ github.ref }}
+  # Dry runs get their own lane too: GitHub keeps one pending run per group, so
+  # a dry run sharing the group could replace a queued publish.
+  group: canary-publish-${{ inputs.scope }}-${{ github.ref }}${{ inputs.dry_run == true && '-dry-run' || '' }}
   cancel-in-progress: false
 
 permissions:

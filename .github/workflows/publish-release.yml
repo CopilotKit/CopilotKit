@@ -104,8 +104,9 @@ permissions:
 
 concurrency:
   # Serialize automatic and manual Intelligence Python releases against each
-  # other. Other lanes continue to use the selected scope or PR branch.
-  group: publish-release-${{ (github.event_name == 'push' || inputs.intelligence_python_publish == true) && 'intelligence-python' || inputs.scope || github.head_ref || github.ref }}
+  # other. Other lanes continue to use the selected scope or PR branch. Dry runs
+  # queue apart, so one cannot replace a pending publish of the same scope.
+  group: publish-release-${{ (github.event_name == 'push' || inputs.intelligence_python_publish == true) && 'intelligence-python' || inputs.scope || github.head_ref || github.ref }}${{ inputs['dry-run'] == true && '-dry-run' || '' }}
   cancel-in-progress: false
 
 env:
@@ -134,6 +135,7 @@ jobs:
           INPUT_SCOPE: ${{ inputs.scope }}
           INPUT_MODE: ${{ inputs.mode }}
           INPUT_RC: ${{ inputs.rc }}
+          INPUT_SUFFIX: ${{ inputs.suffix }}
         run: |
           set -euo pipefail
           if [ -n "$INPUT_SCOPE" ]; then
@@ -155,6 +157,12 @@ jobs:
           fi
           if [ -n "$INPUT_RC" ] && [ "$MODE" != "prerelease" ]; then
             echo "::error::rc is only valid with mode=prerelease."
+            exit 1
+          fi
+          # The bump step takes the rc branch first, so a suffix would be
+          # dropped and the run would publish an RC instead of the canary.
+          if [ -n "$INPUT_RC" ] && [ -n "$INPUT_SUFFIX" ]; then
+            echo "::error::rc and suffix are mutually exclusive: rc publishes a release candidate, suffix names a canary."
             exit 1
           fi
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
@@ -258,7 +266,8 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "$INPUT_RC" ]; then
-            # bump-prerelease.ts validates the base and rejects a suffix or scope=all.
+            # bump-prerelease.ts validates the base and rejects scope=all; the
+            # meta step above already rejected a suffix.
             pnpm tsx scripts/release/bump-prerelease.ts --scope "$INPUT_SCOPE" --rc "$INPUT_RC"
           elif [ -n "$INPUT_SUFFIX" ]; then
             if ! [[ "$INPUT_SUFFIX" =~ ^[a-zA-Z0-9._-]+$ ]]; then

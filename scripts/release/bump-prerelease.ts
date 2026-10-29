@@ -20,6 +20,7 @@ import {
   getPackagesForScope,
   computePrereleaseVersion,
   computeNextRcVersion,
+  assertRcBaseAhead,
   resolvePrereleaseId,
   bumpPackages,
   findCrossScopePins,
@@ -116,6 +117,7 @@ async function main() {
       process.exit(1);
     }
     const [scope] = scopes;
+    assertRcBaseAhead(rcBase, getCurrentVersion(scope));
     const version = await resolveNextRcVersion(scope, rcBase);
     console.log(`[${scope}] release candidate: ${version}`);
     const updated = bumpPackages(scope, version);

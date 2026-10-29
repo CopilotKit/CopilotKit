@@ -7,6 +7,7 @@ import {
   computeNextStableVersion,
   computePrereleaseVersion,
   computeNextRcVersion,
+  assertRcBaseAhead,
   prereleaseDistTag,
   resolvePrereleaseId,
   bumpPackages,
@@ -197,6 +198,25 @@ describe("computeNextRcVersion", () => {
         "2.0.0-rc.1.hotfix",
       ]),
     ).toBe("2.0.0-rc.0");
+  });
+});
+
+describe("assertRcBaseAhead", () => {
+  it("accepts a base ahead of the current version", () => {
+    expect(() => assertRcBaseAhead("2.0.0", "1.83.0")).not.toThrow();
+    expect(() => assertRcBaseAhead("1.84.0", "1.83.9")).not.toThrow();
+  });
+
+  it("accepts the base while the current version is a prerelease of it", () => {
+    expect(() => assertRcBaseAhead("2.0.0", "2.0.0-rc.3")).not.toThrow();
+  });
+
+  it("refuses a base behind or equal to a stable current version", () => {
+    expect(() => assertRcBaseAhead("1.0.0", "1.83.0")).toThrow(/not ahead/);
+    expect(() => assertRcBaseAhead("1.83.0", "1.83.0")).toThrow(/not ahead/);
+    expect(() => assertRcBaseAhead("1.82.9", "1.83.0-canary.1")).toThrow(
+      /not ahead/,
+    );
   });
 });
 

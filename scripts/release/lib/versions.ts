@@ -179,6 +179,23 @@ export function computeNextRcVersion(
 }
 
 /**
+ * Throws unless `base` is ahead of the scope's `current` version.
+ *
+ * `next` must point at the upcoming release, so a release candidate of an
+ * older line (say a branch named `1.0.0` on a 1.83 checkout) must not publish.
+ * `base` may equal `current` only while `current` is itself a prerelease of it.
+ */
+export function assertRcBaseAhead(base: string, current: string): void {
+  const b = parseSemver(base);
+  const c = parseSemver(current);
+  const order = b.major - c.major || b.minor - c.minor || b.patch - c.patch;
+  if (order > 0 || (order === 0 && c.prerelease)) return;
+  throw new Error(
+    `--rc ${base} is not ahead of the current version ${current}; release candidates must target an upcoming version.`,
+  );
+}
+
+/**
  * The dist-tag a prerelease publishes under. Release candidates go to
  * `RC_DIST_TAG` (`2.0.0-rc.3` → `next`); every other prerelease goes to its
  * prerelease identifier (`1.80.1-canary.123` → `canary`).
