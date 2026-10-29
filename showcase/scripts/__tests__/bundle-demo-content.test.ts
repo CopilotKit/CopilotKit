@@ -134,6 +134,24 @@ describe("Content Bundler", () => {
     expect(context.content).toContain("export function systemPromptFrom");
   });
 
+  it("bundles the FastAPI shared-state setup and streaming backend", () => {
+    const { demos } = runBundlerAndRead();
+    const setup = demos["langgraph-fastapi::shared-state-read-write"]
+      .regions["shared-state-setup"];
+    expect(setup.language).toBe("python");
+    expect(setup.code).toContain("from copilotkit import CopilotKitMiddleware");
+    expect(setup.code).toContain("class AgentState(BaseAgentState)");
+    expect(setup.code).toContain("def set_notes(");
+    expect(setup.code).toContain("class PreferencesInjectorMiddleware(");
+    expect(setup.code).toContain("graph = create_agent(");
+
+    const streaming = demos["langgraph-fastapi::shared-state-streaming"]
+      .regions["state-streaming-middleware"];
+    expect(streaming.file).toBe("src/agents/src/shared_state_streaming.py");
+    expect(streaming.language).toBe("python");
+    expect(streaming.code).toContain("StateStreamingMiddleware(");
+  });
+
   it("includes core langgraph-python demos", () => {
     const content = runBundlerAndRead();
 
