@@ -8,9 +8,11 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import type { CopilotRuntimeHandlerOptions } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotRuntimeLike } from "../core/runtime";
 import { createCopilotNodeHandler } from "../endpoints/node-fetch-handler";
 import { createCopilotExpressHandler } from "../endpoints/express";
 import { createCopilotHonoHandler } from "../endpoints/hono";
+import { createCopilotNodeListener } from "../endpoints/node";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 
 class FakeTranscription extends TranscriptionService {
@@ -310,6 +312,60 @@ describe("request body limit", () => {
       );
       expect(response.status).toBe(413);
     });
+
+    describe("with a Request replaced in onBeforeHandler", () => {
+      const threadUpdate = () =>
+        post(
+          "/api",
+          JSON.stringify({
+            method: "resource/request",
+            params: { path: "/threads/thread-1", httpMethod: "PATCH" },
+            body: { agentId: "default", name: "before" },
+          }),
+        );
+
+      const update = async (replacementSize: number) => {
+        const updateThread = vi.fn().mockResolvedValue({ id: "thread-1" });
+        const runtime = {
+          agents: Promise.resolve({}),
+          mode: "intelligence",
+          identifyUser: vi
+            .fn()
+            .mockResolvedValue({ id: "user-1", name: "User One" }),
+          intelligence: { updateThread },
+        } as unknown as CopilotRuntimeLike;
+        const response = await createHandler({
+          runtime,
+          mode: "single-route",
+          activateChannels: false,
+          hooks: {
+            onBeforeHandler: ({ request }) =>
+              new Request(request.url, {
+                method: request.method,
+                headers: request.headers,
+                body: JSON.stringify({
+                  agentId: "default",
+                  name: "a".repeat(replacementSize),
+                }),
+              }),
+          },
+        })(threadUpdate());
+        return { response, updateThread };
+      };
+
+      it("rejects a body over the method's limit", async () => {
+        // Between the JSON limit and the larger limit the envelope is read to.
+        const { response, updateThread } = await update(2048);
+        expect(response.status).toBe(413);
+        expect(updateThread).not.toHaveBeenCalled();
+      });
+
+      it("passes a body under the method's limit to the handler", async () => {
+        const { response, updateThread } = await update(16);
+        expect(response.status).toBe(200);
+        expect(updateThread).toHaveBeenCalledOnce();
+      });
+    });
   });
 
   it("is removable with Infinity", async () => {
@@ -318,6 +374,43 @@ describe("request body limit", () => {
     );
     expect(response.status).toBe(404);
   });
+
+  describe.each(["maxBodyBytes", "maxTranscriptionBodyBytes"] as const)(
+    "%s validation",
+    (option) => {
+      const runtime = new CopilotRuntime({
+        agents: { default: createAgent() },
+      });
+      const mounts = {
+        fetch: (value: number) =>
+          createCopilotRuntimeHandler({ runtime, [option]: value }),
+        node: (value: number) =>
+          createCopilotNodeListener({ runtime, [option]: value }),
+        express: (value: number) =>
+          createCopilotExpressHandler({
+            runtime,
+            basePath: "/api",
+            [option]: value,
+          }),
+        hono: (value: number) =>
+          createCopilotHonoHandler({
+            runtime,
+            basePath: "/api",
+            [option]: value,
+          }),
+      };
+
+      describe.each(Object.entries(mounts))("on the %s mount", (_, create) => {
+        it.each([NaN, -1, "1024", null])("refuses %s", (value) => {
+          expect(() => create(value as number)).toThrow(option);
+        });
+
+        it.each([0, 1024, Infinity])("accepts %s", (value) => {
+          expect(() => create(value)).not.toThrow();
+        });
+      });
+    },
+  );
 
   it("is configurable through the Hono mount", async () => {
     const app = createCopilotHonoHandler({

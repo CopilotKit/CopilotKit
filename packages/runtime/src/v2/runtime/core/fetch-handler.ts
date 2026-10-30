@@ -187,13 +187,14 @@ export interface CopilotRuntimeHandlerOptions {
   /**
    * Largest request body, in bytes, the handler reads. Anything larger is
    * answered with 413, including bodies that omit or understate Content-Length.
-   * Defaults to 64 MiB. Set `Infinity` to remove the limit.
+   * Defaults to 64 MiB. Set `Infinity` to remove the limit. Anything other than
+   * a non-negative number throws when the handler is created.
    */
   maxBodyBytes?: number;
 
   /**
    * Same as {@link maxBodyBytes}, for transcription requests, which carry audio.
-   * Defaults to 128 MiB.
+   * Defaults to 128 MiB, and is checked the same way.
    */
   maxTranscriptionBodyBytes?: number;
 
@@ -359,6 +360,9 @@ export function createCopilotRuntimeHandler(
     maxTranscriptionBodyBytes = DEFAULT_MAX_TRANSCRIPTION_BODY_BYTES,
   } = options;
 
+  assertBodyLimit("maxBodyBytes", maxBodyBytes);
+  assertBodyLimit("maxTranscriptionBodyBytes", maxTranscriptionBodyBytes);
+
   fireInstanceCreatedTelemetry({ runtime });
 
   const corsConfig = resolveCorsConfig(cors);
@@ -454,6 +458,8 @@ export function createCopilotRuntimeHandler(
           runtime,
           route,
         });
+        limitRequestBody(request, methodLimit, bodyCount);
+        await bufferRequestBody(request);
         // 6. Wrap body for methods that need it, then dispatch
         if (
           route.method === "agent/run" ||
@@ -1042,6 +1048,15 @@ function maybeAddCors(
 ): Response {
   if (!config) return response;
   return addCorsHeaders(response, config, requestOrigin);
+}
+
+/** A NaN limit would make every comparison false and switch the limit off. */
+function assertBodyLimit(name: string, value: number): void {
+  if (typeof value !== "number" || !(value >= 0)) {
+    throw new Error(
+      `${name} must be a non-negative number or Infinity, got ${String(value)}`,
+    );
+  }
 }
 
 function payloadTooLarge(maxBytes: number): Response {
