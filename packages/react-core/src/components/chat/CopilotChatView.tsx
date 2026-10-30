@@ -110,13 +110,6 @@ export type CopilotChatViewProps = WithSlots<
      */
     hasExplicitThreadId?: boolean;
     /**
-     * @deprecated Use the `input` slot's `disclaimer` prop instead:
-     * ```tsx
-     * <CopilotChat input={{ disclaimer: MyDisclaimer }} />
-     * ```
-     */
-    disclaimer?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
-    /**
      * Slot for the "Using CopilotKit Intelligence" indicator. Pass-through
      * to `CopilotChatMessageView`'s `intelligenceIndicator` slot — accepts a
      * className string, a props object, or a replacement component.
@@ -170,8 +163,6 @@ export function CopilotChatView({
   onDrop,
   isConnecting = false,
   hasExplicitThreadId = false,
-  // Deprecated — forwarded to input slot
-  disclaimer,
   // Pass-through to CopilotChatMessageView's intelligenceIndicator slot
   intelligenceIndicator,
   children,
@@ -288,7 +279,6 @@ export function CopilotChatView({
     // inside CopilotChatInput. The welcome-screen input (below) intentionally
     // omits this flag.
     bottomAnchored: true,
-    ...(disclaimer !== undefined ? { disclaimer } : {}),
   } as CopilotChatInputProps);
 
   // Hide suggestions while a thread is connecting or a run is in flight.
@@ -361,7 +351,6 @@ export function CopilotChatView({
       onAddFile,
       positioning: "static",
       showDisclaimer: true,
-      ...(disclaimer !== undefined ? { disclaimer } : {}),
     } as CopilotChatInputProps);
 
     // Convert boolean `true` to undefined (use default), and exclude `false` since we've checked for it

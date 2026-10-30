@@ -304,7 +304,7 @@ API key in a `NEXT_PUBLIC_` environment variable.
 Vue uses the template prop `:enable-inspector="false"`. Angular uses
 `provideCopilotKit({ enableInspector: false })`. An explicit `true` keeps
 Inspector enabled in development but cannot override production or
-server-rendering guards. Legacy `showDevConsole` props no longer control it.
+server-rendering guards. 2.0 removed the `showDevConsole` prop.
 
 See the [`CopilotKitProvider` reference](/reference/components/CopilotKit) for
 the complete React provider API.

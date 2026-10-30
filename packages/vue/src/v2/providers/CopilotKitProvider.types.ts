@@ -85,11 +85,6 @@ export interface CopilotKitProviderProps {
     designSkill?: string;
   };
   /**
-   * @deprecated This prop no longer controls the Inspector. Use
-   * `enableInspector` instead.
-   */
-  showDevConsole?: boolean | "auto";
-  /**
    * Disable the CopilotKit Inspector in development.
    * The Inspector is enabled by default in development browser builds and is
    * always disabled in production and during server rendering.

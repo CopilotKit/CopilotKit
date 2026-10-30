@@ -23,7 +23,6 @@ function Home() {
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      showDevConsole={false}
       agentId={agent}
       useSingleEndpoint={false}
     >

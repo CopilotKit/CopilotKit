@@ -886,39 +886,6 @@ describe("CopilotKitProvider", () => {
       view.unmount();
     });
 
-    it("does not let legacy showDevConsole disable the development Inspector", async () => {
-      const view = render(CopilotKitProvider, {
-        props: {
-          runtimeUrl: "/api/copilotkit",
-          showDevConsole: false,
-        },
-        slots: { default: "child" },
-      });
-
-      await waitFor(() => {
-        expect(
-          view.container.querySelector("cpk-web-inspector"),
-        ).not.toBeNull();
-      });
-      view.unmount();
-    });
-
-    it("does not let legacy showDevConsole enable the production Inspector", async () => {
-      vi.stubEnv("NODE_ENV", "production");
-      const view = render(CopilotKitProvider, {
-        props: {
-          runtimeUrl: "/api/copilotkit",
-          showDevConsole: "auto",
-        },
-        slots: { default: "child" },
-      });
-
-      await settleInspectorLoad();
-      expect(view.container.querySelector("cpk-web-inspector")).toBeNull();
-      expect(defineWebInspector).not.toHaveBeenCalled();
-      view.unmount();
-    });
-
     it("does not render or load the inspector during SSR", async () => {
       vi.stubGlobal("window", undefined);
       const html = await renderToString(

@@ -132,27 +132,6 @@ describe("CopilotKitProvider", () => {
       expect(defineWebInspector).not.toHaveBeenCalled();
     });
 
-    it("does not let legacy showDevConsole disable the development Inspector", async () => {
-      render(
-        <CopilotKitProvider showDevConsole={false}>child</CopilotKitProvider>,
-      );
-      await waitFor(() => {
-        expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
-      });
-    });
-
-    it("does not let legacy showDevConsole enable the production Inspector", async () => {
-      vi.stubEnv("NODE_ENV", "production");
-      render(
-        <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
-          child
-        </CopilotKitProvider>,
-      );
-      await settleInspectorLoad();
-      expect(document.querySelector("cpk-web-inspector")).toBeNull();
-      expect(defineWebInspector).not.toHaveBeenCalled();
-    });
-
     it("does not render or load the inspector during SSR", async () => {
       vi.stubEnv("NODE_ENV", "development");
       vi.stubGlobal("window", undefined);
