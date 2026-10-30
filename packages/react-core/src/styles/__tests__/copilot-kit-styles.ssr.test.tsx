@@ -1,5 +1,6 @@
 import React from "react";
-import { renderToReadableStream } from "react-dom/server";
+import * as ReactDOMServer from "react-dom/server";
+import { stylesheet } from "@copilotkit/core/styles";
 import { describe, expect, it } from "vitest";
 import { CopilotChatSuggestionPill } from "../../components/chat/CopilotChatSuggestionPill";
 import {
@@ -7,11 +8,13 @@ import {
   CopilotStyleOptionsProvider,
 } from "../copilot-kit-styles";
 
+const isReact19 = Number.parseInt(React.version, 10) >= 19;
+
 async function renderDocument(
   body: React.ReactNode,
   options: { nonce?: string; inject?: boolean } = {},
 ): Promise<string> {
-  const stream = await renderToReadableStream(
+  const document = (
     <html>
       <head />
       <body>
@@ -21,7 +24,14 @@ async function renderDocument(
           {body}
         </CopilotStyleOptionsProvider>
       </body>
-    </html>,
+    </html>
+  );
+  // React 18's Node build has no renderToReadableStream.
+  if (!isReact19) {
+    return ReactDOMServer.renderToString(document);
+  }
+  const stream = await ReactDOMServer.renderToReadableStream(
+    document,
     // A string nonce, the way Next.js passes the one from the CSP header.
     options.nonce ? { nonce: options.nonce } : undefined,
   );
@@ -34,17 +44,42 @@ function headOf(html: string): string {
 }
 
 describe("CopilotKitStyles on the server", () => {
-  it("puts one copy of the stylesheet in the server-rendered <head>", async () => {
-    const html = await renderDocument(
-      <>
-        <CopilotKitStyles />
-        <CopilotKitStyles />
-        <CopilotChatSuggestionPill>One</CopilotChatSuggestionPill>
-      </>,
-    );
+  it.runIf(isReact19)(
+    "puts one copy of the stylesheet in the server-rendered <head>",
+    async () => {
+      const html = await renderDocument(
+        <>
+          <CopilotKitStyles />
+          <CopilotKitStyles />
+          <CopilotChatSuggestionPill>One</CopilotChatSuggestionPill>
+        </>,
+      );
 
-    expect(html.match(/<style[^>]*>/g)).toHaveLength(1);
-    expect(headOf(html)).toContain(".cpk-suggestion-pill-label)");
+      expect(html.match(/<style[^>]*>/g)).toHaveLength(1);
+      expect(headOf(html)).toContain(".cpk-suggestion-pill-label)");
+    },
+  );
+
+  it.skipIf(isReact19)(
+    "renders the stylesheet in place on React 18",
+    async () => {
+      const html = await renderDocument(
+        <>
+          <CopilotKitStyles />
+          <CopilotChatSuggestionPill>One</CopilotChatSuggestionPill>
+        </>,
+      );
+
+      expect(html.match(/<style[^>]*>/g)).toEqual(["<style>"]);
+      expect(headOf(html)).not.toContain("<style");
+    },
+  );
+
+  it("writes the CSS unescaped, so selectors with > and quotes work", async () => {
+    const html = await renderDocument(<CopilotKitStyles />);
+
+    expect(stylesheet).toContain(">");
+    expect(html).toContain(stylesheet);
   });
 
   it("adds the CSP nonce to the style tag when the app passes one", async () => {
@@ -55,7 +90,7 @@ describe("CopilotKitStyles on the server", () => {
 
     expect(styleTags).toHaveLength(1);
     expect(styleTags[0]).toContain('nonce="abc123"');
-    expect(html).toContain(".cpk-suggestion-pill-label)");
+    expect(html).toContain(stylesheet);
   });
 
   it("adds no style tag when the app loads styles.css itself", async () => {
