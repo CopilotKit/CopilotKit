@@ -1,0 +1,6 @@
+# This app is its own pnpm root. It is not a member of the repo's pnpm
+# workspace: it ships its own lockfile and installs published @copilotkit/*
+# packages from npm. Without this file, pnpm walks up from here, finds the
+# repo's workspace and installs that instead.
+packages:
+  - "."

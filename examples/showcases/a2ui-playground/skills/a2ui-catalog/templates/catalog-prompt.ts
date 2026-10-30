@@ -1,0 +1,132 @@
+/**
+ * Serializes the catalog the browser sent (the A2UI 1.0 inline catalog of the
+ * generative UI envelope) into a compact, token-cheap signature list for the
+ * composing sub-agent. Full JSON Schema for ~120 components is far too long;
+ * this form is a few thousand tokens and the model composes just as well.
+ *
+ *   Stat(label:S, value:S|N, delta?:S, trend?:up|down|flat): One KPI ...
+ *
+ * `S`/`N`/`B` are string/number/boolean. `#id` is a component id, `#ids` a
+ * list of ids or a `{componentId,path}` template. Every value may also be a
+ * `{"@path"}` binding or a `{"@call"}` function call (A2UI 1.0).
+ */
+import { A2UI_CHILD_LIST_MARK, A2UI_COMPONENT_ID_MARK, type GenerativeUIManifest } from "@copilotkit/shared";
+import { definitions } from "@/a2ui/catalog/definitions"; // your React-free definitions index (for categories)
+import type { Category } from "@/a2ui/catalog/definitions/shared"; // definitions-shared.ts
+
+type Schema = Record<string, unknown>;
+
+/** Internal stand-ins the agent emits itself; the model never writes them. */
+const HIDDEN = new Set(["Blueprint"]);
+
+/**
+ * Styling knobs of the standard components. The composer lays out with gap,
+ * align and justify and lets the theme do the rest, so these stay out of the
+ * prompt (the browser still accepts them).
+ */
+const STYLE_PROPS = new Set([
+  "background", "border", "borderColor", "radius", "width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight",
+  "flex", "weight", "aspectRatio", "scrollable", "clip", "shadow", "shadowStyle", "inline", "role", "flush", "minSize", "maxSize",
+  "disableAutoSpacing", "rowGap", "columnGap", "checks", "name", "fontSize", "lineHeight", "minLines", "maxLines", "truncate",
+  "preserveWhitespace", "italic", "underline", "lineThrough", "highlight", "position", "hoverZoom", "frame", "fit", "fallback",
+  "hideOnFailure", "uniform", "pill", "autoSelect", "mask", "padding",
+]);
+
+/** The first sentence: the standard components' longer usage notes are written for a chat that writes markdown too. */
+const firstSentence = (text: string) => text.replace(/\s+/g, " ").trim().match(/^.*?[.!?](?=\s|$)/)?.[0] ?? text;
+
+function refMark(s: Schema) {
+  const d = typeof s.description === "string" ? s.description : "";
+  if (d.startsWith(A2UI_COMPONENT_ID_MARK)) return "#id";
+  if (d.startsWith(A2UI_CHILD_LIST_MARK)) return "#ids";
+  return undefined;
+}
+
+function sig(s: unknown, depth = 0): string {
+  if (!s || typeof s !== "object") return "any";
+  const schema = s as Schema;
+  const ref = refMark(schema);
+  if (ref) return ref;
+  if (Array.isArray(schema.enum)) return schema.enum.map(String).join("|");
+  if ("const" in schema) return JSON.stringify(schema.const);
+  const union = (schema.anyOf ?? schema.oneOf) as unknown[] | undefined;
+  if (Array.isArray(union)) return union.map((o) => sig(o, depth + 1)).join("|");
+  const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
+  switch (type) {
+    case "string":
+      return "S";
+    case "number":
+    case "integer":
+      return "N";
+    case "boolean":
+      return "B";
+    case "array":
+      return `[${sig(schema.items, depth + 1)}]`;
+    case "object": {
+      const props = schema.properties as Record<string, unknown> | undefined;
+      if (!props) return "{..}";
+      if (depth > 3) return "{..}";
+      return `{${fields(schema, depth + 1)}}`;
+    }
+    default:
+      return "any";
+  }
+}
+
+function fields(schema: Schema, depth = 0, skip?: Set<string>) {
+  const props = (schema.properties ?? {}) as Record<string, unknown>;
+  const required = new Set(Array.isArray(schema.required) ? (schema.required as string[]) : []);
+  return Object.entries(props)
+    .filter(([k]) => required.has(k) || !skip?.has(k))
+    .map(([k, v]) => `${k}${required.has(k) ? "" : "?"}:${sig(v, depth)}`)
+    .join(", ");
+}
+
+function componentLine(name: string, c: GenerativeUIManifest["components"][string], standard: boolean) {
+  const parts = [fields(c.props, 0, standard ? STYLE_PROPS : undefined)];
+  for (const [slot, kind] of Object.entries(c.slots ?? {})) parts.push(`${slot}?:${kind === "single" ? "#id" : "#ids"}`);
+  for (const event of Object.keys(c.events ?? {})) parts.push(`${event}?:Action`);
+  const params = parts.filter(Boolean).join(", ");
+  const text = c.description ? (standard ? firstSentence(c.description) : c.description.replace(/\s+/g, " ").trim()) : "";
+  const description = text ? `: ${text}` : "";
+  return `${name}(${params})${description}`;
+}
+
+function functionLine(name: string, f: GenerativeUIManifest["functions"][string]) {
+  // A built-in function carries its short signature in the description of its parameters.
+  const params = f.parameters as Schema;
+  const signature = typeof params.description === "string" ? params.description : `${name}(${fields(params)})`;
+  return `${signature}${f.description ? `: ${f.description.replace(/\s+/g, " ").trim()}` : ""}`;
+}
+
+const cache = new Map<string, string>();
+
+/**
+ * The COMPONENTS and FUNCTIONS sections of the composer prompt. Identical for
+ * the same catalog, so OpenAI prompt caching applies across requests.
+ */
+export function catalogPrompt(manifest: GenerativeUIManifest): string {
+  const key = `${manifest.catalogId}:${Object.keys(manifest.components).length}:${Object.keys(manifest.functions).length}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+
+  const own = definitions as Record<string, { category: Category }>;
+  const groups = new Map<string, string[]>();
+  for (const [name, c] of Object.entries(manifest.components)) {
+    if (HIDDEN.has(name)) continue;
+    const group = own[name] ? `This app: ${own[name].category}` : "Gen UI 2.0 standard";
+    const lines = groups.get(group) ?? [];
+    lines.push(componentLine(name, c, !own[name]));
+    groups.set(group, lines);
+  }
+  const components = Array.from(groups.entries())
+    .map(([group, lines]) => `### ${group}\n${lines.join("\n")}`)
+    .join("\n\n");
+  const functions = Object.entries(manifest.functions)
+    .filter(([, f]) => !f.allowedCallers || f.allowedCallers !== "agentOnly")
+    .map(([name, f]) => functionLine(name, f))
+    .join("\n");
+  const prompt = `COMPONENTS\n${components}\n\nFUNCTIONS (use as {"@call":"name","args":{...}} in any prop value)\n${functions}`;
+  cache.set(key, prompt);
+  return prompt;
+}

@@ -1,0 +1,61 @@
+/* MapLibre chrome restyled for the dark A2UI surface. Scoped to .a2-map. */
+.a2-map .maplibregl-canvas { outline: none; }
+.a2-map .maplibregl-ctrl-attrib {
+  background: oklch(0.12 0.004 285 / 72%) !important;
+  color: oklch(0.62 0.01 285);
+  font-size: 9.5px;
+  line-height: 1.5;
+  border-radius: 6px 0 0 0;
+  backdrop-filter: blur(6px);
+}
+.a2-map .maplibregl-ctrl-attrib a { color: inherit; }
+.a2-map .maplibregl-ctrl-attrib a:hover { color: oklch(0.85 0.01 285); }
+.a2-map .maplibregl-ctrl-attrib.maplibregl-compact {
+  margin: 0 6px 6px 0;
+  border-radius: 999px;
+  min-height: 20px;
+  padding: 0 22px 0 0;
+}
+.a2-map .maplibregl-ctrl-attrib.maplibregl-compact-show { border-radius: 10px; padding: 2px 26px 2px 8px; }
+.a2-map .maplibregl-ctrl-attrib-button {
+  width: 20px;
+  height: 20px;
+  filter: invert(1) opacity(0.55);
+  background-color: transparent !important;
+}
+.a2-map .maplibregl-ctrl-group {
+  background: oklch(0.19 0.006 285 / 88%);
+  border: 1px solid oklch(1 0 0 / 9%);
+  border-radius: 9px;
+  box-shadow: 0 4px 14px oklch(0 0 0 / 35%);
+  backdrop-filter: blur(6px);
+  overflow: hidden;
+}
+.a2-map .maplibregl-ctrl-group button { width: 26px; height: 26px; }
+.a2-map .maplibregl-ctrl-group button + button { border-top: 1px solid oklch(1 0 0 / 8%); }
+.a2-map .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: invert(1) opacity(0.7); }
+.a2-map .maplibregl-ctrl-group button:hover { background: oklch(1 0 0 / 6%); }
+.a2-map .maplibregl-ctrl-bottom-right,
+.a2-map .maplibregl-ctrl-top-right { z-index: 3; }
+
+@keyframes a2-pin-pulse {
+  0% { transform: translate(-50%, 50%) scale(0.6); opacity: 0.7; }
+  100% { transform: translate(-50%, 50%) scale(2.4); opacity: 0; }
+}
+.a2-pin-pulse { animation: a2-pin-pulse 1.6s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+@keyframes a2-pin-drop {
+  from { transform: translateY(-6px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.a2-pin-drop { animation: a2-pin-drop 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .a2-pin-pulse, .a2-pin-drop { animation: none; }
+}
+
+/* Light street basemap: light chrome so the controls read on the map. */
+.a2-map[data-basemap="streets"] .maplibregl-ctrl-group { background: oklch(1 0 0 / 92%); border-color: oklch(0 0 0 / 10%); box-shadow: 0 4px 14px oklch(0 0 0 / 18%); }
+.a2-map[data-basemap="streets"] .maplibregl-ctrl-group button + button { border-top-color: oklch(0 0 0 / 8%); }
+.a2-map[data-basemap="streets"] .maplibregl-ctrl-group button .maplibregl-ctrl-icon { filter: none; opacity: 0.75; }
+.a2-map[data-basemap="streets"] .maplibregl-ctrl-group button:hover { background: oklch(0 0 0 / 5%); }
+.a2-map[data-basemap="streets"] .maplibregl-ctrl-attrib { background: oklch(1 0 0 / 80%) !important; color: oklch(0.4 0.01 285); }
+.a2-map[data-basemap="streets"] .maplibregl-ctrl-attrib-button { filter: opacity(0.6); }

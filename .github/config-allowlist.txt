@@ -33,6 +33,7 @@ examples/integrations/strands-python/next.config.ts
 examples/integrations/strands-typescript/next.config.ts
 examples/showcases/a2a-travel/next.config.ts
 examples/showcases/a2ui-pdf-analyst/next.config.ts
+examples/showcases/a2ui-playground/next.config.ts
 examples/showcases/adk-dashboard/next.config.ts
 examples/showcases/antigravity-repo-doctor/next.config.ts
 examples/showcases/arcade-tools/next.config.ts

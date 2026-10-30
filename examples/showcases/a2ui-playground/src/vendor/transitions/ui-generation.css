@@ -1,0 +1,61 @@
+/* Vendored from transitions.dev (skills/transitions-ui-generation), Copyright (c) 2026 Jakub Antalik / Transitions.dev.
+   Used under its license (see LICENSE.txt in this folder): free use in commercial products, no redistribution
+   of the library itself. Unmodified. */
+/* transitions.dev / UI generation: the overlay ui-generation.js draws over an element while it "generates".
+   Tune it with the variables below; everything else reads from them. */
+:root {
+  --gen-line: #9a9a9a;              /* dotted lines: outline, parts, guides */
+  --gen-strong: #6c6c6c;            /* moving dot heads, handles, reticle, lit dots, labels */
+  --gen-ink: rgba(13, 13, 13, 0.32);/* the resting dot field */
+  --gen-surface: #ffffff;           /* fill of the corner handles */
+  --gen-text: #0d0d0d;              /* panel headings */
+  --gen-muted: #8b8b8b;             /* panel copy */
+  --gen-dot: 2.1px;                 /* dot size on the traced lines */
+  --gen-font: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --gen-line: #6f6f6f; --gen-strong: #a3a3a3; --gen-ink: rgba(245, 245, 245, 0.3); --gen-surface: #181818; --gen-text: #f2f2f2; --gen-muted: #8f8f8f; }
+}
+[data-theme="dark"] { --gen-line: #6f6f6f; --gen-strong: #a3a3a3; --gen-ink: rgba(245, 245, 245, 0.3); --gen-surface: #181818; --gen-text: #f2f2f2; --gen-muted: #8f8f8f; }
+
+/* the overlay sits exactly over the element, above the page, and never takes input */
+.t-gen { position: absolute; z-index: 2147483000; pointer-events: none; }
+.t-gen-svg { position: absolute; left: 0; top: 0; overflow: visible; }
+
+.t-gen-dot { fill: var(--gen-ink); }
+.t-gen-dot.is-lit { fill: var(--gen-strong); }
+.t-gen-wireframe { stroke-width: var(--gen-dot); }
+.t-gen-wire { fill: none; stroke: var(--gen-line); stroke-linecap: round; stroke-linejoin: round; } /* drawn as round dots */
+.t-gen-guide { fill: none; stroke: var(--gen-line); stroke-width: 1.6; stroke-linecap: round; }
+.t-gen-guide--dashed, .t-gen-guide--scan { stroke-dasharray: 0 5; }
+.t-gen-head { fill: var(--gen-strong); }
+.t-gen-flyer { fill: var(--gen-strong); }
+.t-gen-handle { fill: var(--gen-surface); stroke: var(--gen-strong); stroke-width: 1; }
+.t-gen-reticle { fill: none; stroke: var(--gen-strong); stroke-width: 1.2; stroke-linecap: round; }
+.t-gen-glow-stop { stop-color: var(--gen-line); }
+.t-gen-label { font-family: var(--gen-font); font-size: 9px; fill: var(--gen-line); letter-spacing: 0.02em; }
+.t-gen-label--small { font-size: 7.5px; fill: var(--gen-strong); }
+.t-gen-label--tag { font-size: 7.5px; fill: var(--gen-strong); letter-spacing: 0.05em; text-transform: uppercase; }
+
+/* skeleton-texts: the agent log (left), the motion CSS being written (right), the step line (under) */
+.t-gen-panel { position: absolute; top: 0; font-family: var(--gen-font); font-size: 7.5px; line-height: 11px; color: var(--gen-muted);
+  letter-spacing: 0.03em; white-space: pre; overflow: hidden; opacity: 0; }
+.t-gen-panel--log { text-align: right; }
+.t-gen-panel--below { top: calc(100% + 56px); left: 0; right: 0; text-align: center; }
+.t-gen-panel-head { color: var(--gen-text); letter-spacing: 0.08em; padding-bottom: 4px; margin-bottom: 4px;
+  background: radial-gradient(circle, var(--gen-line) 0.6px, transparent 0.9px) 0 100% / 4px 2px repeat-x; }
+.t-gen-panel-foot { margin-top: 6px; color: var(--gen-text); opacity: 0.6; letter-spacing: 0.08em; }
+.t-gen-panel b { font-weight: inherit; color: var(--gen-text); opacity: 0.75; }
+.t-gen-panel em { font-style: normal; opacity: 0.6; }
+.t-gen-panel .is-comment { color: var(--gen-text); opacity: 0.9; letter-spacing: 0.06em; }
+.t-gen-panel .is-selector { color: var(--gen-text); opacity: 0.75; }
+.t-gen-steps { position: absolute; left: 50%; top: calc(100% + 28px); height: 18px; }
+.t-gen-step { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 8px; white-space: nowrap; opacity: 0;
+  font-family: var(--gen-font); font-size: 11px; line-height: 18px; color: var(--gen-muted); }
+.t-gen-step i { width: 6px; height: 6px; border-radius: 50%; background: var(--gen-line); animation: t-gen-pulse 560ms ease-in-out infinite alternate; }
+.t-gen-step.is-done i { animation: none; }
+@keyframes t-gen-pulse { from { transform: scale(0.6); } to { transform: scale(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .t-gen { display: none; } /* ui-generation.js also skips the drawing and fades the element in instead */
+}

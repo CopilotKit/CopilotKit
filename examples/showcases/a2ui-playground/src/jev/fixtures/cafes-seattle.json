@@ -1,0 +1,252 @@
+{
+  "model": "jev-1.13.0",
+  "ms": 418,
+  "recordedAt": "2026-10-21T14:25:11.498Z",
+  "mock": false,
+  "answers": {
+    "layout": {
+      "type": "choice",
+      "choice": "map_list",
+      "confidence": 0.88,
+      "probabilities": {
+        "map_list": 0.92,
+        "compare": 0,
+        "single": 0.08
+      }
+    },
+    "fit_5805097250": {
+      "type": "score",
+      "score": 1.26,
+      "confidence": 0.69,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.02,
+        "1": 0.7,
+        "2": 0.27,
+        "3": 0.01
+      }
+    },
+    "fit_2354350262": {
+      "type": "score",
+      "score": 1.44,
+      "confidence": 0.54,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.01,
+        "1": 0.55,
+        "2": 0.43,
+        "3": 0.01
+      }
+    },
+    "fit_4029234289": {
+      "type": "score",
+      "score": 1,
+      "confidence": 0.82,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.09,
+        "1": 0.8200000000000001,
+        "2": 0.09,
+        "3": 0
+      }
+    },
+    "fit_12859930919": {
+      "type": "score",
+      "score": 0.9,
+      "confidence": 0.84,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.13,
+        "1": 0.84,
+        "2": 0.03,
+        "3": 0
+      }
+    },
+    "fit_2561809378": {
+      "type": "score",
+      "score": 0.95,
+      "confidence": 0.87,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.09,
+        "1": 0.87,
+        "2": 0.04,
+        "3": 0
+      }
+    },
+    "fit_2397493590": {
+      "type": "score",
+      "score": 0.58,
+      "confidence": 0.57,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.43,
+        "1": 0.57,
+        "2": 0,
+        "3": 0
+      }
+    },
+    "fit_1999268650": {
+      "type": "score",
+      "score": 1.47,
+      "confidence": 0.44,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.04,
+        "1": 0.48,
+        "2": 0.44,
+        "3": 0.04
+      }
+    },
+    "fit_2351730682": {
+      "type": "score",
+      "score": 0.2,
+      "confidence": 0.81,
+      "legend": {
+        "0": "Poor fit",
+        "1": "Weak fit",
+        "2": "Good fit",
+        "3": "Strong fit"
+      },
+      "probabilities": {
+        "0": 0.81,
+        "1": 0.19,
+        "2": 0,
+        "3": 0
+      }
+    }
+  },
+  "places": {
+    "city": "Seattle",
+    "source": "OpenStreetMap Nominatim",
+    "ms": 1788,
+    "items": [
+      {
+        "id": "5805097250",
+        "name": "Caffe Migliore",
+        "lat": 47.607779,
+        "lon": -122.33475,
+        "address": "4th Avenue Cycletrack, Belltown",
+        "distanceKm": 0.3,
+        "tags": {
+          "opening_hours": "Mo-Fr 06:00-17:00; Sa,Su off",
+          "cuisine": "coffee_shop"
+        }
+      },
+      {
+        "id": "2354350262",
+        "name": "Cherry Street Coffee House",
+        "lat": 47.6027182,
+        "lon": -122.334204,
+        "address": "1st Avenue 700, First Hill",
+        "distanceKm": 0.4,
+        "tags": {
+          "opening_hours": "Mo-Fr 07:00-15:00; Sa-Su 08:00-15:00",
+          "cuisine": "coffee_shop"
+        }
+      },
+      {
+        "id": "4029234289",
+        "name": "Walla Walla Farms",
+        "lat": 47.6099437,
+        "lon": -122.3325277,
+        "address": "Union Street 601, First Hill",
+        "distanceKm": 0.4,
+        "tags": {
+          "opening_hours": "Mo-Su 08:00-14:00"
+        }
+      },
+      {
+        "id": "12859930919",
+        "name": "The Rho Cafe",
+        "lat": 47.6098736,
+        "lon": -122.3266553,
+        "address": "Spring Street 1006, First Hill",
+        "distanceKm": 0.6,
+        "tags": {
+          "outdoor_seating": "yes"
+        }
+      },
+      {
+        "id": "2561809378",
+        "name": "The Crumpet Shop",
+        "lat": 47.6089676,
+        "lon": -122.3403898,
+        "address": "1st Avenue 1503, Belltown",
+        "distanceKm": 0.7,
+        "tags": {
+          "opening_hours": "Mo,We,Th 07:00-15:00; Fr-Su 07:00-16:00; PH off",
+          "cuisine": "crumpet"
+        }
+      },
+      {
+        "id": "2397493590",
+        "name": "Mr Waffle",
+        "lat": 47.6096516,
+        "lon": -122.3404808,
+        "address": "1st Avenue 1526, Belltown",
+        "distanceKm": 0.7
+      },
+      {
+        "id": "1999268650",
+        "name": "Moore Coffee",
+        "lat": 47.6116348,
+        "lon": -122.341267,
+        "address": "2nd Avenue 1930, Belltown",
+        "distanceKm": 0.9,
+        "tags": {
+          "internet_access": "wlan",
+          "opening_hours": "Th-Sa 08:00-15:30; Su 08:00-15:00",
+          "cuisine": "coffee_shop"
+        }
+      },
+      {
+        "id": "2351730682",
+        "name": "Friend Museum",
+        "lat": 47.5981435,
+        "lon": -122.334501,
+        "address": "South King Street 83, First Hill",
+        "distanceKm": 0.9
+      }
+    ],
+    "cached": false
+  },
+  "usage": {
+    "inputTokens": 2095
+  }
+}

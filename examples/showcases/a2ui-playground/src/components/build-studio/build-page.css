@@ -1,0 +1,116 @@
+/* /watch page layout: parts log / canvas / motion CSS. Motion recipes live in build-motion.css. */
+
+
+.bs-root {
+  --bs-ink: oklch(0.86 0.005 285);
+  --bs-mid: oklch(0.66 0.008 285);
+  --bs-faint-c: oklch(0.5 0.008 285);
+  --bs-dot: oklch(1 0 0 / 9%);
+  --bs-ok-c: oklch(0.8 0.13 165);
+  --bs-hi: oklch(1 0 0 / 5%);
+  background: var(--background);
+  color: var(--bs-mid);
+}
+
+.bs-head {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--bs-ink);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px dotted var(--bs-faint-c);
+  white-space: nowrap;
+}
+.bs-faint { color: var(--bs-faint-c); }
+.bs-ok { color: var(--bs-ok-c); }
+
+.bs-log { scrollbar-width: none; }
+.bs-row {
+  display: grid;
+  grid-template-columns: 7ch 7ch 8ch 7ch 8ch;
+  column-gap: 1ch;
+  font-size: 11px;
+  line-height: 20px;
+  color: var(--bs-mid);
+  animation: bs-row-in var(--duration-fast, 250ms) var(--ease-smooth-out, ease-out) both;
+}
+.bs-row[data-state="filled"] { color: var(--bs-ink); }
+.bs-row[data-state="pending"] { color: var(--bs-faint-c); }
+@keyframes bs-row-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+.bs-foot {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dotted var(--bs-faint-c);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--bs-mid);
+  white-space: nowrap;
+}
+
+/* The canvas: a dotted grid that stays put while the surface scrolls over it. */
+.bs-canvas {
+  background-image: radial-gradient(var(--bs-dot) 1px, transparent 1.3px);
+  background-size: 16px 16px;
+  background-position: 8px 8px;
+  background-attachment: local;
+  scrollbar-width: thin;
+}
+/* Controls */
+.bs-controls { color: var(--bs-mid); background: var(--background); }
+.bs-progress {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--bs-ink);
+  transform-origin: left;
+  opacity: 0.7;
+}
+.bs-select {
+  appearance: none;
+  background: transparent;
+  color: var(--bs-ink);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font: inherit;
+}
+.bs-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  color: var(--bs-ink);
+  transition: background-color var(--duration-quick, 150ms) var(--ease-smooth-out, ease-out);
+}
+.bs-btn:hover { background: var(--bs-hi); }
+.bs-btn:active { transform: scale(0.96); }
+.bs-speed { padding: 4px 8px; border-radius: 6px; color: var(--bs-faint-c); transition: color var(--duration-quick, 150ms) ease, background-color var(--duration-quick, 150ms) ease; }
+.bs-speed:hover { color: var(--bs-ink); }
+.bs-speed[data-on="true"] { color: var(--bs-ink); background: var(--bs-hi); }
+
+@media (prefers-reduced-motion: reduce) {
+  .bs-row, .bs-recipe { animation: none; transition: none; }
+}
+
+/* The runtime's generation texts (skeleton-texts, only used here): a readable size for the side panels. */
+.t-gen--texts .t-gen-panel { font-size: 10px; line-height: 15px; max-width: 300px !important; }
+.t-gen--texts .t-gen-step { font-size: 12px; }
+
+/* The runtime's panel headings and footers are internal labels ("AGENT.LOG // PARTS 40/40", "MOTION.CSS // 0645 TOKENS",
+   "TOK/S"), and its part count disagrees with the controls bar. Hidden here, with plain captions in their place. */
+.t-gen--texts .t-gen-panel-head,
+.t-gen--texts .t-gen-panel-foot { display: none; }
+.t-gen--texts .t-gen-panel::before {
+  display: block;
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  color: var(--gen-text);
+  letter-spacing: 0.04em;
+}
+.t-gen--texts .t-gen-panel--log::before,
+.t-gen--texts .t-gen-panel--below::before { content: "Parts being drawn"; }
+.t-gen--texts .t-gen-panel--code::before { content: "The motion CSS they play"; }
