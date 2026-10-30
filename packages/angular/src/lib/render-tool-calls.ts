@@ -23,13 +23,12 @@ import type {
   AngularToolCall,
   RenderToolCallConfig,
 } from "./tools";
-import { partialJSONParse } from "@copilotkit/shared";
+import { DEFAULT_AGENT_ID, partialJSONParse } from "@copilotkit/shared";
+import { ɵresolveToolCallRenderer } from "@copilotkit/core";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { CopilotDefaultToolRenderer } from "./components/tools/default-tool-renderer";
-import {
-  TOOL_CALL_RENDER_CONTEXT,
-  type ToolCallRenderContext,
-} from "./components/tools/tool-call-render-context";
+import { TOOL_CALL_RENDER_CONTEXT } from "./components/tools/tool-call-render-context";
+import type { ToolCallRenderContext } from "./components/tools/tool-call-render-context";
 
 type RendererToolCallHandler = {
   type: "renderer";
@@ -87,62 +86,80 @@ interface PickToolCallHandlerOptions {
   builtInFallback: boolean;
 }
 
-function namedForAgent<T extends { name: string; agentId?: string }>(
-  entries: readonly T[],
-  name: string,
-  agentId: string | undefined,
-): T | undefined {
-  const scoped =
-    agentId === undefined
-      ? undefined
-      : entries.find(
-          (entry) => entry.name === name && entry.agentId === agentId,
-        );
-  return (
-    scoped ?? entries.find((entry) => entry.name === name && !entry.agentId)
-  );
+/** One entry of the flat list that core's renderer lookup walks. */
+interface ToolCallCandidate {
+  name: string;
+  agentId?: string;
+  handler: ToolCallHandler;
 }
 
-/** Resolve the documented application/frontend/wildcard/fallback precedence. */
+/**
+ * Pick what draws a tool call. This follows the same rules as React and Vue.
+ *
+ * The first rule that matches wins:
+ *
+ * 1. A renderer for `name` with `agentId` equal to the current agent.
+ * 2. A renderer for `name` with no `agentId`.
+ * 3. The first renderer for `name` from any other agent.
+ * 4. The first `"*"` renderer, from any agent.
+ * 5. The built-in card, when `builtInFallback` is `true`.
+ *
+ * Inside rules 1 to 4, `application` renderers come first, then `frontend`
+ * tools that have a `component`, then `humanInTheLoop` tools. Inside each
+ * group, the earlier entry in its list wins.
+ *
+ * @param options - The tool name, the current agent, the three renderer
+ *   lists, and whether the built-in card may draw unknown tools.
+ * @returns The handler to draw with, or `undefined` to draw nothing.
+ *
+ * @example
+ * ```ts
+ * const handler = pickToolCallHandler({
+ *   name: toolCall.function.name,
+ *   agentId: "weather-agent",
+ *   application: copilotKit.toolCallRenderConfigs(),
+ *   frontend: copilotKit.clientToolCallRenderConfigs(),
+ *   humanInTheLoop: copilotKit.humanInTheLoopToolRenderConfigs(),
+ *   builtInFallback: copilotKit.defaultToolRenderingEnabled,
+ * });
+ * ```
+ */
 export function pickToolCallHandler(
   options: PickToolCallHandlerOptions,
 ): ToolCallHandler | undefined {
-  const application = namedForAgent(
-    options.application.filter((entry) => entry.name !== "*"),
+  const frontendWithComponent = options.frontend.filter(
+    (config) => config.component !== undefined,
+  );
+  const candidates: ToolCallCandidate[] = [
+    ...options.application.map((config) => ({
+      name: config.name,
+      agentId: config.agentId,
+      handler: { type: "renderer", config } satisfies ToolCallHandler,
+    })),
+    ...frontendWithComponent.map((config) => ({
+      name: config.name,
+      agentId: config.agentId,
+      handler: { type: "clientTool", config } satisfies ToolCallHandler,
+    })),
+    ...options.humanInTheLoop.map((config) => ({
+      name: config.name,
+      agentId: config.agentId,
+      handler: { type: "humanInTheLoopTool", config } satisfies ToolCallHandler,
+    })),
+  ];
+
+  const match = ɵresolveToolCallRenderer(
+    candidates,
     options.name,
     options.agentId,
   );
-  if (application) return { type: "renderer", config: application };
+  if (match) return match.handler;
+  if (!options.builtInFallback) return undefined;
 
-  const frontend = namedForAgent(
-    options.frontend.filter((entry) => entry.component !== undefined),
-    options.name,
-    options.agentId,
-  );
-  if (frontend) return { type: "clientTool", config: frontend };
-
-  const humanInTheLoop = namedForAgent(
-    options.humanInTheLoop,
-    options.name,
-    options.agentId,
-  );
-  if (humanInTheLoop) {
-    return { type: "humanInTheLoopTool", config: humanInTheLoop };
-  }
-
-  const wildcard = namedForAgent(
-    options.application.filter((entry) => entry.name === "*"),
-    "*",
-    options.agentId,
-  );
-  if (wildcard) return { type: "renderer", config: wildcard };
-  if (options.builtInFallback) {
-    return {
-      type: "builtIn",
-      config: { component: CopilotDefaultToolRenderer },
-    };
-  }
-  return undefined;
+  return {
+    type: "builtIn",
+    config: { component: CopilotDefaultToolRenderer },
+  };
 }
 
 /**
@@ -218,7 +235,9 @@ export class RenderToolCall {
   protected pickRenderer(name: string): ToolCallHandler | undefined {
     return pickToolCallHandler({
       name,
-      agentId: this.agentId() ?? this.#messageAgentId(),
+      // React and Vue look up renderers for the default agent when the chat
+      // names none, so a renderer scoped to it wins over a global one.
+      agentId: this.agentId() ?? this.#messageAgentId() ?? DEFAULT_AGENT_ID,
       application: this.#copilotKit.toolCallRenderConfigs(),
       frontend: this.#copilotKit.clientToolCallRenderConfigs(),
       humanInTheLoop: this.#copilotKit.humanInTheLoopToolRenderConfigs(),

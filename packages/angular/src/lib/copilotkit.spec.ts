@@ -1,4 +1,10 @@
-import { Component, Injector, signal } from "@angular/core";
+import {
+  Component,
+  EnvironmentInjector,
+  Injector,
+  createEnvironmentInjector,
+  signal,
+} from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -35,6 +41,7 @@ const testCatalog: A2UICatalog = Object.assign(
 const mockSubscribe = vi.fn();
 const mockAddTool = vi.fn();
 const mockRemoveTool = vi.fn();
+const mockDispose = vi.fn();
 const mockSetRuntimeUrl = vi.fn();
 const mockSetRuntimeTransport = vi.fn();
 const mockSetHeaders = vi.fn();
@@ -83,6 +90,7 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     readonly getTool = mockGetTool;
     readonly addContext = mockAddContext;
     readonly removeContext = mockRemoveContext;
+    readonly dispose = mockDispose;
     agents: Record<string, any> = {};
     runtimeUrl = undefined;
     runtimeTransport = "auto";
@@ -118,6 +126,8 @@ describe("CopilotKit", () => {
   beforeEach(() => {
     TestBed.resetTestingModule();
     vi.clearAllMocks();
+    // Core returns an unregister function from every `addTool` call.
+    mockAddTool.mockImplementation(() => vi.fn());
     document.getElementById("copilotkit-license-watermark")?.remove();
     (globalThis as any).__copilotkitAngularLicenseWatermarkLogged = undefined;
   });
@@ -565,6 +575,39 @@ describe("CopilotKit", () => {
       a2uiCatalogAvailable: true,
     });
     expect(updatedProperties).toEqual({ locale: "en" });
+  });
+
+  it("removes the built-in Open Generative UI tool when the runtime turns it off", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = copilotKit.core as any;
+    core.openGenerativeUIEnabled = true;
+    core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
+    const unregister = mockAddTool.mock.results.at(-1)!.value;
+
+    core.openGenerativeUIEnabled = false;
+    core.listener!.onRuntimeConnectionStatusChanged({ status: "connected" });
+
+    expect(unregister).toHaveBeenCalledTimes(1);
+    expect(mockRemoveTool).not.toHaveBeenCalled();
+    expect(copilotKit.clientToolCallRenderConfigs()).toEqual([]);
+  });
+
+  it("disposes the core it created when its injector is destroyed", () => {
+    const injector = createEnvironmentInjector(
+      [provideCopilotKit({ licenseKey }), CopilotKit],
+      TestBed.inject(EnvironmentInjector),
+    );
+    injector.get(CopilotKit);
+
+    expect(mockDispose).not.toHaveBeenCalled();
+
+    injector.destroy();
+
+    expect(mockDispose).toHaveBeenCalledTimes(1);
   });
 
   it("removes tools and renderer configs", () => {

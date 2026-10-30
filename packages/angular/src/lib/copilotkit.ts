@@ -17,6 +17,7 @@ import {
 } from "@copilotkit/core";
 import type { Signal, WritableSignal } from "@angular/core";
 import {
+  DestroyRef,
   Injectable,
   Injector,
   computed,
@@ -277,12 +278,15 @@ export class CopilotKit {
       ...this.#builtInActivityMessageRenderConfigs(),
     ]);
 
-  #openGenerativeUIToolRegistered = false;
+  /** Removes the built-in Open Generative UI tool, while it is registered. */
+  #unregisterOpenGenerativeUITool: (() => void) | undefined;
   #openGenerativeUIContextIds: string[] = [];
   #warnedMissingA2UICatalog = false;
   #a2UIContextIds: string[] = [];
 
   constructor() {
+    // This service creates `core`, so it owns it and stops it on destroy.
+    inject(DestroyRef).onDestroy(() => this.core.dispose());
     void this.#inspector.isInspectorEnabled;
     // A builder is only evaluated at send time, so it can't be read here.
     // The record branch below already has its own key-header fallback.
@@ -434,23 +438,67 @@ export class CopilotKit {
     };
   }
 
+  /**
+   * Register a frontend tool, and the component that draws its calls when it
+   * has one.
+   *
+   * A tool with the same name and `agentId` as an existing tool (from the
+   * `tools` config or an earlier registration) hides that tool. The latest
+   * registration runs. Among frontend tools with that name, its component
+   * draws the calls.
+   *
+   * @param clientToolWithInjector - The tool, plus the injector its handler
+   *   runs in.
+   * @returns A function that removes only this registration. The tool it hid
+   *   becomes active again. Calling it more than once does nothing.
+   *
+   * @example
+   * ```ts
+   * const unregister = copilotKit.addFrontendTool({ ...tool, injector });
+   * // later
+   * unregister();
+   * ```
+   */
   addFrontendTool(
     clientToolWithInjector: FrontendToolConfig & {
       injector: Injector;
     },
-  ): void {
+  ) {
     const tool = this.#bindClientTool(clientToolWithInjector);
+    const unregisterTool = this.core.addTool(tool);
 
-    this.core.addTool(tool);
-
+    // Newest first, so the drawn component belongs to the tool core runs.
     this.#clientToolCallRenderConfigs.update((current) => [
-      ...current,
       clientToolWithInjector,
+      ...current,
     ]);
+
+    return () => {
+      unregisterTool();
+      this.#clientToolCallRenderConfigs.update((current) =>
+        current.filter((candidate) => candidate !== clientToolWithInjector),
+      );
+    };
   }
 
-  addRenderToolCall(renderConfig: RenderToolCallConfig): void {
+  /**
+   * Register a component that draws calls of a tool the agent already has.
+   *
+   * When two renderers match the same call, the one registered first wins.
+   *
+   * @param renderConfig - The tool name, its argument schema, and the
+   *   component.
+   * @returns A function that removes only this renderer. Calling it more than
+   *   once does nothing.
+   */
+  addRenderToolCall(renderConfig: RenderToolCallConfig) {
     this.#toolCallRenderConfigs.update((current) => [...current, renderConfig]);
+
+    return () => {
+      this.#toolCallRenderConfigs.update((current) =>
+        current.filter((candidate) => candidate !== renderConfig),
+      );
+    };
   }
 
   addRenderActivityMessage(renderConfig: RenderActivityMessageConfig): void {
@@ -606,22 +654,21 @@ export class CopilotKit {
     if (!active) {
       this.#builtInClientToolCallRenderConfigs.set([]);
       this.#removeOpenGenerativeUIContexts();
-      if (this.#openGenerativeUIToolRegistered) {
-        this.core.removeTool(GENERATE_SANDBOXED_UI_TOOL_NAME);
-        this.#openGenerativeUIToolRegistered = false;
-      }
+      this.#unregisterOpenGenerativeUITool?.();
+      this.#unregisterOpenGenerativeUITool = undefined;
       return;
     }
 
     const builtInTool = this.#createOpenGenerativeUITool();
     this.#builtInClientToolCallRenderConfigs.set([builtInTool]);
 
-    if (
-      !this.#openGenerativeUIToolRegistered &&
-      !this.core.getTool({ toolName: GENERATE_SANDBOXED_UI_TOOL_NAME })
-    ) {
-      this.core.addTool(this.#bindClientTool(builtInTool));
-      this.#openGenerativeUIToolRegistered = true;
+    const needsBuiltInTool =
+      this.#unregisterOpenGenerativeUITool === undefined &&
+      !this.core.getTool({ toolName: GENERATE_SANDBOXED_UI_TOOL_NAME });
+    if (needsBuiltInTool) {
+      this.#unregisterOpenGenerativeUITool = this.core.addTool(
+        this.#bindClientTool(builtInTool),
+      );
     }
 
     this.#syncOpenGenerativeUIContexts();
@@ -687,15 +734,33 @@ export class CopilotKit {
     };
   }
 
-  addHumanInTheLoop(humanInTheLoopTool: HumanInTheLoopConfig): void {
+  /**
+   * Register a human-in-the-loop tool and the component that asks the user.
+   *
+   * A tool with the same name and `agentId` as an existing tool hides that
+   * tool. The latest registration runs. Among human-in-the-loop tools with
+   * that name, its component draws the calls.
+   *
+   * @param humanInTheLoopTool - The tool and its component.
+   * @returns A function that removes only this registration. The tool it hid
+   *   becomes active again. Calling it more than once does nothing.
+   */
+  addHumanInTheLoop(humanInTheLoopTool: HumanInTheLoopConfig) {
+    // Newest first, so the drawn component belongs to the tool core runs.
     this.#humanInTheLoopToolRenderConfigs.update((current) => [
-      ...current,
       humanInTheLoopTool,
+      ...current,
     ]);
 
     const tool = this.#bindHumanInTheLoopTool(humanInTheLoopTool);
+    const unregisterTool = this.core.addTool(tool);
 
-    this.core.addTool(tool);
+    return () => {
+      unregisterTool();
+      this.#humanInTheLoopToolRenderConfigs.update((current) =>
+        current.filter((candidate) => candidate !== humanInTheLoopTool),
+      );
+    };
   }
 
   addSuggestionsConfig(config: SuggestionsConfig): string {
@@ -731,6 +796,19 @@ export class CopilotKit {
     return true;
   }
 
+  /**
+   * Remove every tool and renderer with this name.
+   *
+   * With an `agentId`, only entries for that agent go. Without one, only
+   * global entries go. This also removes a tool from the `tools` config with
+   * that name. To remove one registration and bring back the tool it hid,
+   * call the function that `addFrontendTool`, `addHumanInTheLoop`, or
+   * `addRenderToolCall` returned.
+   *
+   * @param toolName - The tool name.
+   * @param agentId - The agent the entries belong to. Omit it for global
+   *   entries.
+   */
   removeTool(toolName: string, agentId?: string): void {
     this.core.removeTool(toolName, agentId);
     const keep = (config: { name: string; agentId?: string }) =>
