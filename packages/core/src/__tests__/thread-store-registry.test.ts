@@ -83,6 +83,73 @@ describe("ThreadStoreRegistry", () => {
     registry = new ThreadStoreRegistry(core);
   });
 
+  const inheritedIds = [
+    "constructor",
+    "toString",
+    "hasOwnProperty",
+    "__proto__",
+  ];
+
+  it.each(inheritedIds)("treats unregistered %s as absent", (agentId) => {
+    const onUnregistered = vi.fn();
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe({ onThreadStoreUnregistered: onUnregistered });
+    const snapshot = registry.getAll();
+
+    expect(registry.get(agentId)).toBeUndefined();
+    registry.unregister(agentId);
+
+    expect(onUnregistered).not.toHaveBeenCalled();
+    expect(registry.getAll()).toBe(snapshot);
+  });
+
+  it.each(inheritedIds)(
+    "registers, replaces and removes %s normally",
+    (agentId) => {
+      const events: unknown[] = [];
+      (
+        core as unknown as {
+          subscribe: (s: CopilotKitCoreSubscriber) => unknown;
+        }
+      ).subscribe({
+        onThreadStoreRegistered: ({ store }) => {
+          events.push(["registered", store]);
+        },
+        onThreadStoreUnregistered: ({ prevStore }) => {
+          events.push(["unregistered", prevStore]);
+        },
+      });
+      const first = makeStore("first");
+      const second = makeStore("second");
+
+      registry.register(agentId, first);
+      expect(events).toEqual([["registered", first]]);
+      expect(registry.get(agentId)).toBe(first);
+      expect(Object.keys(registry.getAll())).toEqual([agentId]);
+      expect(registry.getAll()[agentId]).toBe(first);
+      expect(Object.isFrozen(registry.getAll())).toBe(true);
+
+      registry.register(agentId, second);
+      expect(events).toEqual([
+        ["registered", first],
+        ["unregistered", first],
+        ["registered", second],
+      ]);
+      expect(registry.get(agentId)).toBe(second);
+      expect(registry.getAll()[agentId]).toBe(second);
+
+      registry.unregister(agentId);
+      expect(events.at(-1)).toEqual(["unregistered", second]);
+      expect(registry.get(agentId)).toBeUndefined();
+      expect(Object.keys(registry.getAll())).toEqual([]);
+      const snapshot = registry.getAll();
+      registry.unregister(agentId);
+      expect(events).toHaveLength(4);
+      expect(registry.getAll()).toBe(snapshot);
+    },
+  );
+
   it("register then get returns the same store", () => {
     const store = makeStore();
     registry.register("agent-1", store);

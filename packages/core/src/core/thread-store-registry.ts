@@ -1,9 +1,12 @@
-import { type ɵThreadStore } from "../threads";
+import type { ɵThreadStore } from "../threads";
 import type { CopilotKitCore } from "./core";
-import { CopilotKitCoreFriendsAccess, CopilotKitCoreSubscriber } from "./core";
+import type {
+  CopilotKitCoreFriendsAccess,
+  CopilotKitCoreSubscriber,
+} from "./core";
 
 export class ThreadStoreRegistry {
-  private _stores: Record<string, ɵThreadStore> = {};
+  private _stores: Record<string, ɵThreadStore> = Object.create(null);
   // Cached frozen snapshot of `_stores`. Invalidated to `null` on every
   // `register`/`unregister` so the next `getAll()` rebuilds it. Stable
   // references between mutations matter for `useSyncExternalStore` consumers
