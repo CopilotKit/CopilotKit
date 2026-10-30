@@ -84,9 +84,9 @@ export const KUMO_COVERAGE = {
   AudioPlayer: "standard",
   HtmlView: "standard",
   // Composites
-  LinkCard: "standard",
-  Citation: "standard",
-  FollowUp: "standard",
-  EntityCard: "standard",
-  ImageGrid: "standard",
+  LinkCard: "composed",
+  Citation: "composed",
+  FollowUp: "composed",
+  EntityCard: "composed",
+  ImageGrid: "composed",
 } as const satisfies Record<StandardComponentName, KumoCoverage>;

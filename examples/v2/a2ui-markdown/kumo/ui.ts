@@ -4,6 +4,7 @@ import {
 } from "@copilotkit/react-core/v2/generative-ui";
 import { chartOverrides } from "./chart";
 import { choiceOverrides } from "./choices";
+import { compositeOverrides } from "./composites";
 import { feedbackOverrides } from "./feedback";
 import { iconOverrides } from "./icons";
 import { inputOverrides } from "./inputs";
@@ -32,6 +33,7 @@ export const kumoUI = createGenerativeUI({
     ...feedbackOverrides,
     ...tableOverrides,
     ...chartOverrides,
+    ...compositeOverrides,
     ...iconOverrides,
   },
   components: {},
