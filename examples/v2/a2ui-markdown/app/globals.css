@@ -466,6 +466,39 @@ a {
   background: #f0f0f4;
 }
 
+/* ---- Kumo coverage tags (/kumo/catalog) ----------------------------- */
+
+.ex-cat-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ex-cat-coverage {
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #189370;
+  background: #85ecce33;
+}
+
+.ex-cat-coverage[data-coverage="composed"],
+.ex-cat-coverage[data-coverage="primitive"] {
+  color: #3f46c8;
+  background: #bec2ff40;
+}
+
+.ex-cat-coverage[data-coverage="standard"] {
+  color: #8a5300;
+  background: #ffac4d33;
+}
+
+.ex-cat-index a[data-coverage="standard"] {
+  text-decoration: underline dotted #ffac4d;
+}
+
 .ex-cat-card-body {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);

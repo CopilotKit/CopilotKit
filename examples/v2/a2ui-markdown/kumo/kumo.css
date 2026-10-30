@@ -1,0 +1,29 @@
+/*
+ * The standard components inject a few element rules without a cascade
+ * layer: heading sizes on a surface, and `font: inherit; color: inherit` on
+ * every control inside a standard container. Kumo's classes are Tailwind
+ * utilities in a layer, and an unlayered rule beats any layered one, so a
+ * Kumo heading would take the standard size and a primary Kumo button would
+ * lose its white text. `revert-layer` hands these properties back to the
+ * layers: Kumo's classes, or Tailwind's preflight for the standard
+ * controls, which sets the same `inherit` values.
+ */
+.a2ui-surface [data-a2ui-std] :is(button, input, select, textarea) {
+  font: revert-layer;
+  color: revert-layer;
+}
+
+/*
+ * Kumo's popovers, menus and dialogs render in Base UI portals at the end
+ * of <body>, with no z-index. The example shell (.ex-shell) has z-index 1,
+ * so it would cover them.
+ */
+body > [data-base-ui-portal] > * {
+  z-index: 50;
+}
+
+.a2ui-surface :is(h2, h3, h4):not(.a2ui-markdown *) {
+  font-size: revert-layer;
+  font-weight: revert-layer;
+  line-height: revert-layer;
+}
