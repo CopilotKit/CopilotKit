@@ -2,7 +2,7 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig([
   {
-    entry: ["src/index.ts"],
+    entry: { index: "src/index.ts", styles: "src/styles/index.ts" },
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
@@ -10,7 +10,12 @@ export default defineConfig([
     outDir: "dist",
     external: ["rxjs"],
     checks: { pluginTimings: false },
-    exports: true,
+    exports: {
+      customExports: (exports) => ({
+        ...exports,
+        "./styles.css": "./dist/styles.css",
+      }),
+    },
   },
   {
     entry: ["src/index.ts"],

@@ -61,6 +61,13 @@ function registerRenderToolCall<Args extends Record<string, unknown>>(
     with the agent instance that emitted the tool call. Leave it `false` (the
     default) if your renderer does not need the agent.
   </PropertyReference>
+
+  <PropertyReference name="group" type="boolean" default="false">
+    When `true`, the chat can put this renderer's calls in a group with other
+    calls made in a row, like the built-in card. See `toolCallDisplay` on
+    [`CopilotChatMessageView`](/reference/angular/components/CopilotChatMessageView).
+    It is off by default, because a custom renderer can draw anything.
+  </PropertyReference>
 </PropertyReference>
 
 ## Return Value

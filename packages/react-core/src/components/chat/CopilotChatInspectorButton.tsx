@@ -8,7 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { EyeOff, Wrench } from "lucide-react";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../ui/tooltip";
 import {
@@ -57,7 +57,7 @@ function InspectorKiteIcon({
     <svg
       {...props}
       aria-hidden="true"
-      className={twMerge("cpk:size-4", className)}
+      className={cn("cpk-inspector-button-kite-icon", className)}
       viewBox="4.57 3.36 17.8 17.8"
       fill="none"
     >
@@ -203,7 +203,7 @@ export function CopilotChatInspectorButton({
           size="icon"
           data-testid="copilot-inspector-button"
           aria-label={`${labels.assistantMessageToolbarInspectorTitle} (${labels.assistantMessageToolbarInspectorLocalOnlyLabel.toLowerCase()})`}
-          className={twMerge("cpk:size-8 cpk:p-1.5", className)}
+          className={cn("cpk-inspector-button", className)}
           onPointerEnter={(event) => {
             onPointerEnter?.(event);
             if (!disabled && event.pointerType !== "touch") {
@@ -238,7 +238,7 @@ export function CopilotChatInspectorButton({
         >
           <Wrench
             aria-hidden="true"
-            className="cpk:size-4"
+            className="cpk-inspector-button-icon"
             data-testid="copilot-inspector-icon"
           />
         </Button>
@@ -247,7 +247,7 @@ export function CopilotChatInspectorButton({
         align="start"
         side="top"
         sideOffset={6}
-        className={twMerge("cpk:w-64 cpk:p-1 cpk:text-sm", dark && "dark")}
+        className={cn("cpk-inspector-button-menu", dark && "dark")}
         onPointerEnter={cancelClose}
         onPointerLeave={scheduleClose}
         onKeyDown={() => {
@@ -261,23 +261,23 @@ export function CopilotChatInspectorButton({
         }}
         onFocusOutside={() => changeOpen(false)}
       >
-        <DropdownMenuLabel className="cpk:flex cpk:items-center cpk:justify-between cpk:gap-3 cpk:px-2 cpk:py-2">
-          <span className="cpk:text-xs cpk:font-medium">
+        <DropdownMenuLabel className="cpk-inspector-button-menu-header">
+          <span className="cpk-inspector-button-menu-title">
             {labels.assistantMessageToolbarInspectorTitle}
           </span>
           <Tooltip delayDuration={1000}>
             <TooltipTrigger asChild>
-              <span
-                tabIndex={0}
-                className="cpk:cursor-help cpk:rounded cpk:bg-muted cpk:px-1.5 cpk:py-0.5 cpk:text-[10px] cpk:font-normal cpk:text-muted-foreground"
-              >
+              <span tabIndex={0} className="cpk-inspector-button-local-badge">
                 {labels.assistantMessageToolbarInspectorLocalOnlyLabel}
               </span>
             </TooltipTrigger>
             <TooltipContent
               side="top"
               sideOffset={6}
-              className={twMerge("cpk:max-w-48 cpk:text-wrap", dark && "dark")}
+              className={cn(
+                "cpk-inspector-button-local-tooltip",
+                dark && "dark",
+              )}
               onPointerEnter={cancelClose}
               onPointerLeave={scheduleClose}
             >
@@ -290,12 +290,14 @@ export function CopilotChatInspectorButton({
           <button
             type="button"
             onClick={onClick}
-            className="cpk:w-full cpk:cursor-pointer cpk:items-start cpk:text-left"
+            className="cpk-inspector-button-menu-item cpk-inspector-button-inspect-item"
           >
-            <InspectorKiteIcon className="cpk:mt-0.5" />
+            <InspectorKiteIcon className="cpk-inspector-button-menu-item-icon" />
             <span>
-              <span className="cpk:block">{primaryLabel}</span>
-              <span className="cpk:block cpk:text-xs cpk:text-muted-foreground">
+              <span className="cpk-inspector-button-menu-item-label">
+                {primaryLabel}
+              </span>
+              <span className="cpk-inspector-button-menu-item-description">
                 {labels.assistantMessageToolbarInspectorDescription}
               </span>
             </span>
@@ -303,14 +305,17 @@ export function CopilotChatInspectorButton({
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={hideShortcuts}
-          className="cpk:cursor-pointer cpk:items-start"
+          className="cpk-inspector-button-menu-item cpk-inspector-button-hide-item"
         >
-          <EyeOff aria-hidden="true" className="cpk:mt-0.5" />
+          <EyeOff
+            aria-hidden="true"
+            className="cpk-inspector-button-menu-item-icon"
+          />
           <span>
-            <span className="cpk:block">
+            <span className="cpk-inspector-button-menu-item-label">
               {labels.assistantMessageToolbarInspectorHideLabel}
             </span>
-            <span className="cpk:block cpk:text-xs cpk:text-muted-foreground">
+            <span className="cpk-inspector-button-menu-item-description">
               {labels.assistantMessageToolbarInspectorHideDescription}
             </span>
           </span>

@@ -16,7 +16,8 @@ Then finish with the skill it installs, or by hand: search for `TODO(copilotkit-
 
 ## What it does
 
-- **Import paths.** `@copilotkit/react-core/v2` and `@copilotkit/runtime/v2` (and their subpaths) become the package roots. `@copilotkit/react-ui/styles.css` becomes `@copilotkit/react-core/styles.css`. Paths in `import()`, `require()`, and `vi.mock()` move too.
+- **Import paths.** `@copilotkit/react-core/v2` and `@copilotkit/runtime/v2` (and their subpaths) become the package roots. Paths in `import()`, `require()`, and `vi.mock()` move too.
+- **Stylesheets.** The 2.0 components add their own styles, so imports of `@copilotkit/react-ui/styles.css`, `@copilotkit/react-core/v2/styles.css`, and `@copilotkit/react-core/styles.css` are deleted. This codemod reads JavaScript and TypeScript only. For `@import` in CSS files, run [`remove-stylesheet-import`](../remove-stylesheet-import.ts).
 - **The provider.** The v1 `<CopilotKit>` (also re-exported from `/v2`) becomes `<CopilotKitProvider>`, and `CopilotKitProps` becomes `CopilotKitProviderProps`. On the provider, `agent` becomes `agentId`.
 - **v1 APIs with the same 2.0 API.** The import moves to the 2.0 package, for example `CopilotChat` from `@copilotkit/react-ui` to `@copilotkit/react-core`.
 - **LangGraph.** `LangGraphAgent` and `LangGraphHttpAgent` import from `@ag-ui/langgraph`.

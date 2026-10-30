@@ -17,7 +17,7 @@ import type {
 // node.info holds the language/info string (e.g. "ts" from ```ts).
 const defaultNodeRenderers = createStreamingMarkdownNodeRenderers({
   codeBlock: ({ node }) => (
-    <pre className="cpk:overflow-x-auto cpk:rounded-lg cpk:bg-muted cpk:text-foreground cpk:p-3">
+    <pre className="cpk-markdown-code-block">
       <code data-code-info={node.info ?? undefined}>{node.text}</code>
     </pre>
   ),

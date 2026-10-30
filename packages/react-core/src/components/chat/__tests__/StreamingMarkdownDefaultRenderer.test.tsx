@@ -23,8 +23,7 @@ describe("StreamingMarkdownDefaultRenderer", () => {
     );
     const pre = container.querySelector("pre");
     expect(pre).toBeTruthy();
-    expect(pre?.className).toContain("cpk:bg-muted");
-    expect(pre?.className).toContain("cpk:text-foreground");
+    expect(pre).toHaveClass("cpk-markdown-code-block");
     expect(pre?.textContent).toContain("codeblock");
   });
 

@@ -1,0 +1,386 @@
+/*
+ * A scoped reset, base element styles, and shared keyframes. Loaded before
+ * every component file.
+ */
+/* Tailwind's preflight, scoped to [data-copilotkit] (what scope-preflight.mjs
+   used to produce), so components render the same without Tailwind. */
+:where([data-copilotkit]),
+:where([data-copilotkit] *),
+:where([data-copilotkit] :after),
+:where([data-copilotkit] :before) {
+  box-sizing: border-box;
+  border: 0 solid;
+  margin: 0;
+  padding: 0;
+}
+:where([data-copilotkit]) ::file-selector-button {
+  box-sizing: border-box;
+  border: 0 solid;
+  margin: 0;
+  padding: 0;
+}
+:where([data-copilotkit]),
+:where([data-copilotkit]) {
+  -webkit-text-size-adjust: 100%;
+  tab-size: 4;
+  line-height: 1.5;
+  font-family:
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
+  font-feature-settings: normal;
+  font-variation-settings: normal;
+  -webkit-tap-highlight-color: transparent;
+}
+:where([data-copilotkit] hr) {
+  height: 0;
+  color: inherit;
+  border-top-width: 1px;
+}
+:where([data-copilotkit] abbr:where([title])) {
+  -webkit-text-decoration: underline dotted;
+  text-decoration: underline dotted;
+}
+:where([data-copilotkit] h1),
+:where([data-copilotkit] h2),
+:where([data-copilotkit] h3),
+:where([data-copilotkit] h4),
+:where([data-copilotkit] h5),
+:where([data-copilotkit] h6) {
+  font-size: inherit;
+  font-weight: inherit;
+}
+:where([data-copilotkit] a) {
+  color: inherit;
+  -webkit-text-decoration: inherit;
+  -webkit-text-decoration: inherit;
+  -webkit-text-decoration: inherit;
+  text-decoration: inherit;
+}
+:where([data-copilotkit] b),
+:where([data-copilotkit] strong) {
+  font-weight: bolder;
+}
+:where([data-copilotkit] code),
+:where([data-copilotkit] kbd),
+:where([data-copilotkit] samp),
+:where([data-copilotkit] pre) {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-feature-settings: normal;
+  font-variation-settings: normal;
+  font-size: 1em;
+}
+:where([data-copilotkit] small) {
+  font-size: 80%;
+}
+:where([data-copilotkit] sub),
+:where([data-copilotkit] sup) {
+  vertical-align: baseline;
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+}
+:where([data-copilotkit] sub) {
+  bottom: -0.25em;
+}
+:where([data-copilotkit] sup) {
+  top: -0.5em;
+}
+:where([data-copilotkit] table) {
+  text-indent: 0;
+  border-color: inherit;
+  border-collapse: collapse;
+}
+:where([data-copilotkit] :-moz-focusring) {
+  outline: auto;
+}
+:where([data-copilotkit] progress) {
+  vertical-align: baseline;
+}
+:where([data-copilotkit] summary) {
+  display: list-item;
+}
+:where([data-copilotkit] ol),
+:where([data-copilotkit] ul),
+:where([data-copilotkit] menu) {
+  list-style: none;
+}
+:where([data-copilotkit] img),
+:where([data-copilotkit] svg),
+:where([data-copilotkit] video),
+:where([data-copilotkit] canvas),
+:where([data-copilotkit] audio),
+:where([data-copilotkit] iframe),
+:where([data-copilotkit] embed),
+:where([data-copilotkit] object) {
+  vertical-align: middle;
+  display: block;
+}
+:where([data-copilotkit] img),
+:where([data-copilotkit] video) {
+  max-width: 100%;
+  height: auto;
+}
+:where([data-copilotkit] button),
+:where(button[data-copilotkit]),
+:where([data-copilotkit] input),
+:where([data-copilotkit] select),
+:where([data-copilotkit] optgroup),
+:where([data-copilotkit] textarea) {
+  font: inherit;
+  font-feature-settings: inherit;
+  font-variation-settings: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  opacity: 1;
+  background-color: #0000;
+  border-radius: 0;
+}
+:where([data-copilotkit]) ::file-selector-button {
+  font: inherit;
+  font-feature-settings: inherit;
+  font-variation-settings: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  opacity: 1;
+  background-color: #0000;
+  border-radius: 0;
+}
+:where([data-copilotkit] :where(select:is([multiple], [size])) optgroup) {
+  font-weight: bolder;
+}
+:where(
+  [data-copilotkit] :where(select:is([multiple], [size])) optgroup option
+) {
+  padding-inline-start: 20px;
+}
+:where([data-copilotkit]) ::file-selector-button {
+  margin-inline-end: 4px;
+}
+:where([data-copilotkit]) ::placeholder {
+  opacity: 1;
+}
+@supports (not ((-webkit-appearance: -apple-pay-button))) or
+  (contain-intrinsic-size: 1px) {
+  :where([data-copilotkit]) ::placeholder {
+    color: currentColor;
+  }
+  @supports (color: color-mix(in lab, red, red)) {
+    :where([data-copilotkit]) ::placeholder {
+      color: color-mix(in oklab, currentcolor 50%, transparent);
+    }
+  }
+}
+:where([data-copilotkit] textarea) {
+  resize: vertical;
+}
+:where([data-copilotkit]) ::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+:where([data-copilotkit]) ::-webkit-date-and-time-value {
+  min-height: 1lh;
+  text-align: inherit;
+}
+:where([data-copilotkit]) ::-webkit-datetime-edit {
+  display: inline-flex;
+}
+:where([data-copilotkit]) ::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+:where([data-copilotkit]) ::-webkit-datetime-edit {
+  padding-block: 0;
+}
+:where([data-copilotkit]) ::-webkit-datetime-edit-year-field {
+  padding-block: 0;
+}
+:where([data-copilotkit]) ::-webkit-datetime-edit-month-field {
+  padding-block: 0;
+}
+:where([data-copilotkit]) ::-webkit-datetime-edit-day-field {
+  padding-block: 0;
+}
+:where([data-copilotkit]) ::-webkit-datetime-edit-hour-field {
+  padding-block: 0;
+}
+:where([data-copilotkit]) ::-webkit-datetime-edit-minute-field {
+  padding-block: 0;
+}
+:where([data-copilotkit]) ::-webkit-datetime-edit-second-field {
+  padding-block: 0;
+}
+:where([data-copilotkit]) ::-webkit-datetime-edit-millisecond-field {
+  padding-block: 0;
+}
+:where([data-copilotkit]) ::-webkit-datetime-edit-meridiem-field {
+  padding-block: 0;
+}
+:where([data-copilotkit]) ::-webkit-calendar-picker-indicator {
+  line-height: 1;
+}
+:where([data-copilotkit] :-moz-ui-invalid) {
+  box-shadow: none;
+}
+:where([data-copilotkit] button),
+:where(button[data-copilotkit]),
+:where(
+  [data-copilotkit]
+    input:where([type="button"], [type="reset"], [type="submit"])
+),
+:where(
+  input:where([type="button"], [type="reset"], [type="submit"])[data-copilotkit]
+) {
+  appearance: button;
+}
+:where([data-copilotkit]) ::file-selector-button {
+  appearance: button;
+}
+:where([data-copilotkit]) ::-webkit-inner-spin-button {
+  height: auto;
+}
+:where([data-copilotkit]) ::-webkit-outer-spin-button {
+  height: auto;
+}
+:where([data-copilotkit] [hidden]:where(:not([hidden="until-found"]))),
+:where([hidden]:where(:not([hidden="until-found"]))[data-copilotkit]) {
+  display: none !important;
+}
+
+:where([data-copilotkit], [data-copilotkit] *) {
+  border-color: var(--border);
+  outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+:where([data-copilotkit]) {
+  color: var(--foreground);
+  background-color: var(--background);
+}
+
+/* CopilotChat's root is an inline-size container, so its content gives it no
+   width. As a flex item in a row (beside <CopilotThreadsDrawer>) its auto width
+   resolved to 0px and the chat disappeared. Fill the container instead. */
+:where(.copilotKitChat[data-copilotkit]) {
+  width: 100%;
+}
+
+@supports (height: 100dvh) {
+  :where([data-copilot-sidebar]) {
+    height: 100dvh;
+  }
+}
+
+@media (min-width: 768px) {
+  :where([data-copilot-sidebar]) {
+    width: var(--sidebar-width, 480px) !important;
+  }
+}
+
+@media (max-width: 767px) {
+  :where([data-copilot-sidebar]) {
+    width: 100% !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :where([data-sidebar-chat]) {
+    touch-action: pan-y;
+  }
+}
+
+/* Minimal scrollbars: WebKit, then Firefox. */
+:where([data-copilotkit]) ::-webkit-scrollbar {
+  width: 6px;
+}
+:where([data-copilotkit]) ::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where([data-copilotkit]) ::-webkit-scrollbar-thumb {
+  background: oklch(0.5 0 0);
+  border-radius: 9999px;
+}
+:where([data-copilotkit]) ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.4 0 0);
+}
+:where([data-copilotkit] *) {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.5 0 0) transparent;
+}
+
+/* Text shimmer for in-progress labels, such as a running tool call. The base
+   is pulled toward the background so the sweep reads on light and dark. */
+:where([data-copilotkit] .cpk-shimmer) {
+  --cpk-shimmer-base: color-mix(
+    in oklab,
+    var(--foreground) 38%,
+    var(--background)
+  );
+  background-image: linear-gradient(
+    90deg,
+    var(--cpk-shimmer-base) 0%,
+    var(--cpk-shimmer-base) 32%,
+    var(--foreground) 50%,
+    var(--cpk-shimmer-base) 68%,
+    var(--cpk-shimmer-base) 100%
+  );
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: cpk-shimmer 1.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where([data-copilotkit] .cpk-shimmer) {
+    animation: none;
+    color: var(--muted-foreground);
+    background: none;
+  }
+}
+
+@keyframes cpk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes cpk-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes cpk-pulse-cursor {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.8;
+  }
+}
+
+@keyframes cpk-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+/* "stacked" tool-call display: the newest call drops onto the stack, and the
+   stack fans out into its cards when opened. */
+@keyframes cpk-stack-drop {
+  from {
+    transform: translateY(-6px);
+    opacity: 0.2;
+  }
+}
+
+@keyframes cpk-stack-fan {
+  from {
+    transform: translateY(-6px) scale(0.985);
+    opacity: 0;
+  }
+}

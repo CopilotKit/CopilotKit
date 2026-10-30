@@ -19,7 +19,6 @@ import { OpenGenUICard } from "./components/protocol-cards/OpenGenUICard";
 import { ComparisonTable } from "./components/ComparisonTable";
 import { PromptPill } from "./components/PromptPill";
 import { useSendMessage } from "./hooks/useSendMessage";
-import "@copilotkit/react-core/styles.css";
 
 // Shared page content component - rendered inside either provider
 function PageContent({

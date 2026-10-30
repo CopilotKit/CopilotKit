@@ -992,7 +992,9 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         "[data-testid='input-container']",
       ) as HTMLElement;
       expect(inputContainer).not.toBeNull();
-      expect(inputContainer.classList.contains("cpk:absolute")).toBe(false);
+      expect(inputContainer.classList.contains("cpk-chat-input-absolute")).toBe(
+        false,
+      );
     });
 
     it("should render absolute positioning when positioning='absolute'", () => {
@@ -1008,8 +1010,9 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
         "[data-testid='absolute-input']",
       ) as HTMLElement;
       expect(inputContainer).not.toBeNull();
-      expect(inputContainer.classList.contains("cpk:absolute")).toBe(true);
-      expect(inputContainer.classList.contains("cpk:bottom-0")).toBe(true);
+      expect(inputContainer.classList.contains("cpk-chat-input-absolute")).toBe(
+        true,
+      );
     });
 
     it("should apply keyboard height transform", () => {

@@ -8,7 +8,6 @@ import {
 } from "react-router";
 import { CopilotKitProvider } from "@copilotkit/react-core";
 import type { GenerativeUIConfig } from "@copilotkit/react-core/generative-ui";
-import "@copilotkit/react-core/styles.css";
 import { CartProvider } from "#app/contexts/cart.js";
 import { CompareProvider } from "#app/contexts/compare.tsx";
 import type { Route } from "./+types/root";

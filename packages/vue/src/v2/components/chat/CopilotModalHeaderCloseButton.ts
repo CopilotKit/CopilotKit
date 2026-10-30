@@ -32,16 +32,17 @@ export default defineComponent({
         {
           ...rest,
           type: typeof type === "string" ? type : "button",
-          class: [
-            "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
-            "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",
-            className,
-          ],
+          class: ["cpk-modal-header-close-button", className],
           "aria-label": ariaLabel.value,
         },
         slots.default
           ? slots.default()
-          : [h(IconX, { class: "cpk:h-4 cpk:w-4", "aria-hidden": true })],
+          : [
+              h(IconX, {
+                class: "cpk-modal-header-close-icon",
+                "aria-hidden": true,
+              }),
+            ],
       );
     };
   },

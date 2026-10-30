@@ -22,7 +22,7 @@ call site.
 | -------------------------------------- | ----------------------------------------- |
 | v1 hooks from `@copilotkit/react-core` | v2 hooks from `@copilotkit/react-core/v2` |
 | `@copilotkit/react-ui`                 | `@copilotkit/react-core/v2`               |
-| `@copilotkit/react-ui/styles.css`      | `@copilotkit/react-core/v2/styles.css`    |
+| `@copilotkit/react-ui/styles.css`      | No stylesheet import                      |
 | `@copilotkit/runtime`                  | `@copilotkit/runtime/v2`                  |
 | `@copilotkit/vue`                      | `@copilotkit/vue/v2`                      |
 
@@ -152,19 +152,26 @@ import { CopilotKitProvider, useFrontendTool } from "@copilotkit/vue/v2";
 
 </Step>
 <Step>
-### Update your styles import
+### Remove the stylesheet import
 
-#### Before
-
-```tsx
-import "@copilotkit/react-ui/styles.css";
-```
-
-#### After
+V2 components include their own styles, so you don't import a stylesheet.
+Remove this line when no v1 `@copilotkit/react-ui` components are left in your app:
 
 ```tsx
-import "@copilotkit/react-core/v2/styles.css";
+import "@copilotkit/react-ui/styles.css"; // [!code --]
 ```
+
+If your app imports a v2 stylesheet (`@copilotkit/react-core/v2/styles.css`,
+`@copilotkit/vue/styles.css`, or `@copilotkit/angular/styles.css`), this codemod
+removes the import from your JS, TS, CSS, and Vue files and from `angular.json`:
+
+```bash
+npx jscodeshift --parser=tsx --extensions=tsx,ts,jsx,js,css,scss,vue,json \
+  -t https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/codemods/remove-stylesheet-import.ts \
+  ./src
+```
+
+In an Angular app, add `angular.json` after `./src` so the codemod also updates its `styles` arrays.
 
 </Step>
 <Step>
@@ -221,7 +228,6 @@ export function App() {
 
 ```tsx
 import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
 
 export function App() {
   return (

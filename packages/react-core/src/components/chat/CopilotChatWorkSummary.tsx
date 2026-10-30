@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../../lib/utils";
 import type { ToolCallEntry } from "./tool-call-layout";
 import { pluralize } from "./CopilotChatToolCallGroup";
 
@@ -75,43 +75,40 @@ export function CopilotChatWorkSummary({
       data-testid="copilot-work-summary"
       data-state={isWorking ? "working" : "done"}
       aria-expanded={isOpen}
-      className={twMerge(
-        "cpk:m-0 cpk:inline-flex cpk:max-w-full cpk:cursor-pointer cpk:items-center cpk:gap-1.5 cpk:rounded-md cpk:border-none cpk:bg-transparent cpk:p-0 cpk:py-0.5 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:hover:text-foreground cpk:focus-visible:outline-2 cpk:focus-visible:outline-ring",
-        className,
-      )}
+      className={cn("cpk-work-summary", className)}
       {...props}
     >
       {isWorking ? (
         <>
-          <span className="cpk:font-medium cpk-shimmer">Working</span>
+          <span className="cpk-work-summary-label cpk-shimmer">Working</span>
           {liveMs !== undefined && (
-            <span className="cpk:text-xs cpk:tabular-nums cpk:opacity-70">
+            <span className="cpk-work-summary-detail cpk-work-summary-timer">
               {formatDuration(liveMs)}
             </span>
           )}
         </>
       ) : (
         <>
-          <span className="cpk:font-medium">
+          <span className="cpk-work-summary-label">
             {duration
               ? `Worked for ${duration}`
               : `Used ${pluralize(calls.length, "tool")}`}
           </span>
           {duration && (
-            <span className="cpk:text-xs cpk:opacity-70">
+            <span className="cpk-work-summary-detail">
               {pluralize(calls.length, "tool")}
             </span>
           )}
           {failed > 0 && (
-            <span className="cpk:text-destructive">{failed} failed</span>
+            <span className="cpk-work-summary-failed">{failed} failed</span>
           )}
         </>
       )}
       <ChevronRight
         aria-hidden="true"
-        className={twMerge(
-          "cpk:size-3.5 cpk:shrink-0 cpk:transition-transform cpk:duration-200",
-          isOpen && "cpk:rotate-90",
+        className={cn(
+          "cpk-work-summary-chevron",
+          isOpen && "cpk-work-summary-chevron-open",
         )}
       />
     </button>

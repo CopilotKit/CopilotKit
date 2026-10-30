@@ -8,7 +8,10 @@
 import type { CopilotKitProps } from "./types";
 import CopilotKitProvider from "../../v2/providers/CopilotKitProvider.vue";
 
-const props = defineProps<CopilotKitProps>();
+// Vue casts an absent boolean prop to `false`, so keep the provider's default.
+const props = withDefaults(defineProps<CopilotKitProps>(), {
+  injectStyles: true,
+});
 </script>
 
 <template>

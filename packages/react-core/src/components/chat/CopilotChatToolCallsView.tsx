@@ -152,9 +152,9 @@ export function CopilotChatToolCallsView({
             <Collapsible
               key={segment.id}
               open={workOpen ?? true}
-              className="cpk:-mx-2"
+              className="cpk-tool-calls-view-turn"
             >
-              <div className="cpk:px-2 cpk:py-1.5">
+              <div className="cpk-tool-calls-view-turn-rows">
                 <ToolCallGroupContext.Provider
                   value={{
                     appearance: "line",

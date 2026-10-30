@@ -28,7 +28,8 @@ export default defineConfig({
         "@a2ui/web_core/v0_9/basic_catalog",
         "@ag-ui/client",
         "@ag-ui/core",
-        "@copilotkit/core",
+        // Core and its `/styles` subpath, so the stylesheet isn't bundled here.
+        /^@copilotkit\/core(\/.*)?$/,
         // Keep the shared MCP Apps host + its subpaths external. The root entry
         // carries the ext-apps AppBridge and is loaded through a dynamic
         // import() in the renderer, so it must stay a real runtime import (not

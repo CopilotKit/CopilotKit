@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { GENERATE_SANDBOXED_UI_DESCRIPTION } from "@copilotkit/shared";
+import {
+  GENERATE_SANDBOXED_UI_DESCRIPTION,
+  randomUUID,
+} from "@copilotkit/shared";
 import {
   computed,
   h,
@@ -43,7 +46,12 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
-import { CopilotKitKey, InspectorKey, SandboxFunctionsKey } from "./keys";
+import {
+  CopilotKitKey,
+  CopilotStyleOptionsKey,
+  InspectorKey,
+  SandboxFunctionsKey,
+} from "./keys";
 import type { VueInspectorOpenRequest } from "./keys";
 import { MARKDOWN_RENDERER_KEY } from "./markdown-renderer";
 import {
@@ -53,7 +61,10 @@ import {
 import type { LicenseContextValue } from "./license-context";
 import CopilotKitInspector from "../components/CopilotKitInspector.vue";
 import LicenseWarningBanner from "../components/LicenseWarningBanner.vue";
-import type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
+import type {
+  CopilotKitLearningOptions,
+  CopilotKitProviderProps,
+} from "./CopilotKitProvider.types";
 import type {
   SandboxFunction,
   VueActivityMessageRenderer,
@@ -114,7 +125,16 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   a2ui: undefined,
   mcpApps: undefined,
   enableInspector: undefined,
+  nonce: undefined,
+  injectStyles: true,
+  // A missing boolean prop would otherwise read as `false`.
+  learning: undefined,
 });
+
+provide(
+  CopilotStyleOptionsKey,
+  computed(() => ({ nonce: props.nonce, inject: props.injectStyles })),
+);
 
 const shouldRenderInspector = ref(false);
 
@@ -471,6 +491,7 @@ const builtInActivityRenderers = computed<
         theme: props.a2ui?.theme ?? viewerTheme,
         catalog: props.a2ui?.catalog,
         loadingComponent: props.a2ui?.loadingComponent,
+        recovery: props.a2ui?.recovery,
       }),
     );
   }
@@ -495,6 +516,19 @@ const applyDefaultThrottleMs = (core: CopilotKitCoreVue) => {
   core.setDefaultThrottleMs(props.defaultThrottleMs);
 };
 
+function toLearningConfig(
+  learning: boolean | CopilotKitLearningOptions | undefined,
+): CopilotKitLearningOptions | undefined {
+  // `true` uses the default authenticated capture options.
+  if (learning === true) return {};
+  if (learning === false || learning === undefined) return undefined;
+  // `autoStart` only controls the provider; Core never receives it.
+  const { autoStart: _autoStart, ...config } = learning;
+  return config;
+}
+
+const learningConfig = computed(() => toLearningConfig(props.learning));
+
 const createCopilotKit = () => {
   const core = new CopilotKitCoreVue({
     runtimeUrl: chatApiEndpoint.value,
@@ -514,6 +548,7 @@ const createCopilotKit = () => {
     renderActivityMessages: allRenderActivityMessages.value,
     renderCustomMessages: allRenderCustomMessages.value,
     debug: props.debug,
+    learning: learningConfig.value,
   });
   // Initialize synchronously so child hooks can read the value on first render.
   applyDefaultThrottleMs(core);
@@ -696,7 +731,94 @@ onMounted(() => {
   runtimeEntitlementRetryPending.value =
     copilotkit.value.runtimeEntitlementRetryPending;
   didMountRef.value = true;
+  // After the runtime URL is set, so CopilotKit's own runtime traffic is never
+  // captured. Created here, the watchers stop (and stop capture) on unmount.
+  watchLearning();
 });
+
+const learningEnabled = computed(() => learningConfig.value !== undefined);
+// `true` is the options-free form, so only an object can opt out.
+const learningAutoStart = computed(
+  () =>
+    learningEnabled.value &&
+    (typeof props.learning !== "object" || props.learning.autoStart !== false),
+);
+const suppliedTrajectoryId = computed(() =>
+  learningAutoStart.value ? learningConfig.value?.trajectoryId : undefined,
+);
+const generatesTrajectoryId = computed(
+  () => learningAutoStart.value && suppliedTrajectoryId.value === undefined,
+);
+
+function watchLearning() {
+  let learningContainerIds = learningConfig.value?.learningContainerIds;
+
+  watch(
+    [learningConfig, learningAutoStart],
+    ([config, autoStart]) => {
+      copilotkit.value.setLearningConfig(config);
+      learningContainerIds = config?.learningContainerIds;
+      // Automatic starts report unsupported options in Core. With manual
+      // starts, the provider's container option is not part of
+      // startTrajectory() options.
+      if (
+        config?.sink === undefined &&
+        !autoStart &&
+        config?.learningContainerIds !== undefined
+      ) {
+        console.warn(
+          "[CopilotKit] learningContainerIds is supported only with a custom sink. Authenticated Trajectory capture ignores it; assign Learning Spaces on the server with getTrajectoryLearningContainerIds on CopilotKitIntelligence, and remove learningContainerIds from the capture options.",
+        );
+      }
+    },
+    { immediate: true },
+  );
+
+  // Watched as a boolean so a new inline `learning` object warns once.
+  watch(
+    () =>
+      !learningAutoStart.value &&
+      learningConfig.value?.trajectoryId !== undefined,
+    (ignoresTrajectoryId) => {
+      if (!ignoresTrajectoryId) return;
+      console.warn(
+        "[CopilotKit] learning.trajectoryId is ignored when autoStart is false; pass the ID to startTrajectory() instead.",
+      );
+    },
+    { immediate: true },
+  );
+
+  // Runs only when these change, so option changes that keep generating keep
+  // the generated Trajectory; generating again starts one with a new ID.
+  watch(
+    [learningEnabled, generatesTrajectoryId, suppliedTrajectoryId],
+    ([enabled, generates, supplied], _previous, onCleanup) => {
+      if (!enabled) return;
+      let disposed = false;
+      const core = copilotkit.value;
+      const trajectoryId = generates ? randomUUID() : supplied;
+      if (trajectoryId !== undefined) {
+        void core
+          .startTrajectory({ trajectoryId, learningContainerIds })
+          .catch(() => {
+            // Expected authentication/connection failures resolve with an
+            // error result; Core reports them to LearningConfig.onError or
+            // warns once. Consume unexpected rejections without logging
+            // credentials or errors from a previous start after a new
+            // Trajectory has already started.
+            if (!disposed) {
+              console.warn("[CopilotKit] Failed to start interaction capture.");
+            }
+          });
+      }
+      onCleanup(() => {
+        disposed = true;
+        core.stopTrajectory();
+      });
+    },
+    { immediate: true },
+  );
+}
 
 const a2uiTheme = computed(() => props.a2ui?.theme);
 const a2uiCatalog = computed(() => props.a2ui?.catalog);

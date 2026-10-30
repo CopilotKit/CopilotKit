@@ -1,0 +1,13 @@
+:where(.cpk-generative-ui-chat-card) {
+  width: 100%;
+  margin-block: 0.5rem;
+  border: 1px solid oklch(92.8% 0.006 264.531);
+  border-radius: calc(var(--radius) + 4px);
+  padding: 0.75rem;
+}
+:where(.cpk-generative-ui-chat-card-error) {
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  line-height: calc(1 / 0.75);
+  color: oklch(57.7% 0.245 27.325);
+}

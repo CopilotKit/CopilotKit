@@ -9,6 +9,10 @@ description: "Angular standalone component that renders a single assistant messa
 
 The toolbar appears only when the message has non-empty text content. The copy button always renders; the thumbs up and thumbs down buttons render when you provide a custom slot for them or when a thumbs handler is available from a surrounding [`CopilotChatView`](/reference/angular/components/CopilotChatView). The read-aloud and regenerate buttons render only when you provide a custom slot for them.
 
+In development, when the CopilotKit Inspector is enabled, the toolbar also shows an Inspector button. A click opens the message in the Inspector. When you move the pointer over the button, or press the down arrow key on it, a menu opens. The menu can hide the button until the page reloads.
+
+Code blocks in the message use the same markup as React: `<pre class="cpk-markdown-code-block">` around a `<code>` element. The language from the code fence is in the `data-code-info` attribute. As in React, code is not highlighted and has no copy button.
+
 The component is standalone and uses `OnPush` change detection. Reactive inputs are Angular [signals](https://angular.dev/guide/signals).
 
 ## Usage

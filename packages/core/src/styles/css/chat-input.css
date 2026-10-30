@@ -1,0 +1,273 @@
+/* <CopilotChatInput>. The pill's grid has data-layout="compact" (one row:
+   add button, textarea, actions) or "expanded" (textarea on its own row). */
+
+:where(.cpk-chat-input) {
+  pointer-events: none;
+  position: relative;
+  z-index: 20;
+}
+:where(.cpk-chat-input-absolute) {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+:where(.cpk-chat-input-wrapper) {
+  pointer-events: auto;
+  margin-inline: auto;
+  max-width: 48rem;
+  padding-inline: 1rem;
+  padding-block: 0;
+}
+@container (width >= 48rem) {
+  :where(.cpk-chat-input-wrapper) {
+    padding-inline: 0;
+  }
+}
+:where(div[data-popup-chat] .cpk-chat-input-wrapper) {
+  padding-inline: 1rem;
+}
+:where(div[data-sidebar-chat] .cpk-chat-input-wrapper) {
+  padding-inline: 2rem;
+}
+
+:where(.cpk-chat-input-pill) {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  border-radius: 28px;
+  background-color: #fff;
+  background-clip: padding-box;
+  box-shadow:
+    0 4px 4px 0 #0000000a,
+    0 0 1px 0 #0000009e;
+  contain: inline-size;
+  cursor: text;
+}
+:where(.dark .cpk-chat-input-pill) {
+  background-color: #303030;
+}
+
+:where(.cpk-chat-input-grid) {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.75rem;
+  padding-inline: 0.75rem;
+  padding-block: 0.5rem;
+}
+:where(.cpk-chat-input-grid[data-layout="expanded"]) {
+  grid-template-rows: auto auto;
+  align-items: normal;
+}
+
+:where(.cpk-chat-input-start) {
+  display: flex;
+  align-items: center;
+  grid-column-start: 1;
+  grid-row-start: 1;
+}
+:where(.cpk-chat-input-field) {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 50px;
+  flex-direction: column;
+  justify-content: center;
+  grid-column-start: 2;
+  grid-row-start: 1;
+}
+:where(.cpk-chat-input-actions) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  grid-column-start: 3;
+  grid-row-start: 1;
+}
+/* Expanded: the textarea spans the first row, the buttons share the second. */
+:where(.cpk-chat-input-grid[data-layout="expanded"] > .cpk-chat-input-start) {
+  grid-row-start: 2;
+}
+:where(.cpk-chat-input-grid[data-layout="expanded"] > .cpk-chat-input-field) {
+  grid-column: span 3 / span 3;
+}
+:where(.cpk-chat-input-grid[data-layout="expanded"] > .cpk-chat-input-actions) {
+  grid-row-start: 2;
+}
+
+:where(.cpk-chat-input-processing) {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 1.25rem;
+  padding-block: 0.75rem;
+}
+:where(.cpk-chat-input-processing-spinner) {
+  width: 26px;
+  height: 26px;
+  color: var(--muted-foreground);
+  animation: cpk-spin 1s linear infinite;
+}
+
+/* <CopilotChatInput.TextArea>. The input adds -compact or -expanded. */
+:where(.cpk-chat-input-textarea) {
+  background-color: transparent;
+  font-size: 16px;
+  line-height: 1.5;
+  outline-style: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+:where(.cpk-chat-input-textarea)::placeholder {
+  color: #0007;
+}
+:where(.dark .cpk-chat-input-textarea)::placeholder {
+  color: #fffc;
+}
+:where(.cpk-chat-input-textarea-compact) {
+  width: 100%;
+  padding-block: 0.75rem;
+  padding-right: 1.25rem;
+}
+:where(.cpk-chat-input-textarea-expanded) {
+  width: 100%;
+  padding-block: 0.75rem;
+  padding-inline: 1.25rem;
+}
+
+/* Slash-command menu above the textarea. */
+:where(.cpk-chat-input-slash-menu) {
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  z-index: 30;
+  margin-bottom: 0.5rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  border-width: 1px;
+  border-style: solid;
+  border-color: var(--border);
+  border-radius: var(--radius);
+  background-color: #fff;
+  box-shadow:
+    0 10px 15px -3px #0000001a,
+    0 4px 6px -4px #0000001a;
+}
+:where(.dark .cpk-chat-input-slash-menu) {
+  border-color: #3a3a3a;
+  background-color: #1f1f1f;
+}
+:where(.cpk-chat-input-slash-menu-empty) {
+  padding-inline: 0.75rem;
+  padding-block: 0.5rem;
+  font-size: 0.875rem;
+  line-height: calc(1.25 / 0.875);
+  color: var(--muted-foreground);
+}
+:where(.cpk-chat-input-slash-menu-item) {
+  width: 100%;
+  background-color: transparent;
+  padding-inline: 0.75rem;
+  padding-block: 0.5rem;
+  text-align: left;
+  font-size: 0.875rem;
+  line-height: calc(1.25 / 0.875);
+  transition-property: color, background-color, border-color;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+:where(.cpk-chat-input-slash-menu-item[data-active="true"]) {
+  background-color: var(--muted);
+}
+@media (hover: hover) {
+  :where(.cpk-chat-input-slash-menu-item:hover) {
+    background-color: var(--muted);
+  }
+}
+:where(.dark .cpk-chat-input-slash-menu-item[data-active="true"]) {
+  background-color: #2f2f2f;
+}
+@media (hover: hover) {
+  :where(.dark .cpk-chat-input-slash-menu-item:hover) {
+    background-color: #2f2f2f;
+  }
+}
+
+/* Toolbar buttons. Their shape comes from <Button>'s chatInputToolbar*
+   variants (ui/button.css); these add spacing and icon sizes. */
+:where(.cpk-chat-input-send) {
+  margin-right: 10px;
+}
+:where(.cpk-chat-input-send-icon) {
+  width: 18px;
+  height: 18px;
+}
+:where(.cpk-chat-input-stop-icon) {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+:where(
+  .cpk-chat-input-start-transcribe-button,
+  .cpk-chat-input-cancel-transcribe-button
+) {
+  margin-right: 0.5rem;
+}
+:where(.cpk-chat-input-finish-transcribe-button) {
+  margin-right: 10px;
+}
+:where(.cpk-chat-input-toolbar-icon) {
+  width: 18px;
+  height: 18px;
+}
+:where(.cpk-chat-input-add-menu-button) {
+  margin-left: 0.25rem;
+}
+:where(.cpk-chat-input-add-menu-icon) {
+  width: 20px;
+  height: 20px;
+}
+:where(.cpk-chat-input-add-menu-tooltip) {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  line-height: calc(1 / 0.75);
+  font-weight: 500;
+}
+:where(.cpk-chat-input-add-menu-shortcut) {
+  border-radius: 0.25rem;
+  background-color: #4a4a4a;
+  padding-inline: 0.25rem;
+  padding-block: 1px;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 11px;
+  color: #fff;
+}
+:where(.dark .cpk-chat-input-add-menu-shortcut) {
+  background-color: #e0e0e0;
+  color: #000;
+}
+
+/* <CopilotChatInput.Disclaimer> */
+:where(.cpk-chat-input-disclaimer) {
+  margin-inline: auto;
+  max-width: 48rem;
+  padding-inline: 1rem;
+  padding-block: 0.75rem;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: calc(1 / 0.75);
+  color: var(--muted-foreground);
+}

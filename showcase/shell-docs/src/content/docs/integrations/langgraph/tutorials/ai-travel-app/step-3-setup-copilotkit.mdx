@@ -13,8 +13,8 @@ See the [v1 to v2 migration guide](/migrate/v2) for the full import map.
 
 ## Configure the React app
 
-`app/page.tsx` imports the provider, chat configuration, sidebar, and styles
-from the v2 React entry point:
+`app/page.tsx` imports the provider, chat configuration, and sidebar from the
+v2 React entry point:
 
 ```tsx title="examples/v1/travel/app/page.tsx"
 import {
@@ -22,7 +22,6 @@ import {
   CopilotKit,
   CopilotSidebar,
 } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-core/v2/styles.css";
 ```
 
 The provider uses the local runtime by default. If

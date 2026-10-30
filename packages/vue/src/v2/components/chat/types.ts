@@ -6,24 +6,73 @@ import type {
   ToolMessage,
   UserMessage,
 } from "@ag-ui/core";
+import type { VNode } from "vue";
 import type { CopilotKitCoreErrorCode, ToolCallStatus } from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import type {
   Attachment,
   AttachmentsConfig,
   AttachmentModality,
+  InputContentSource,
 } from "@copilotkit/shared";
 import type { CopilotChatLabels } from "../../providers/types";
 import type { InterruptEvent } from "../../types";
 import type { AutoScrollMode } from "./normalize-auto-scroll";
+import type {
+  CopilotChatToolCallDisplay,
+  ToolCallEntry,
+} from "./tool-call-layout";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";
 export type { Attachment, AttachmentsConfig, AttachmentModality };
 export type { AutoScrollMode };
+export type { CopilotChatToolCallDisplay, ToolCallEntry };
+
+/** How a `CopilotChatToolCallGroup` draws its calls. */
+export type CopilotChatToolCallGroupAppearance = "card" | "line" | "stack";
+
+/** Props of the `#tool-calls-group` slot, which replaces a group of calls. */
+export interface CopilotChatToolCallsGroupSlotProps {
+  /** The calls in the group, in order. */
+  calls: ToolCallEntry[];
+  /** The appearance the view's `toolCallDisplay` asks for. */
+  appearance: CopilotChatToolCallGroupAppearance;
+  /** The agent is running and nothing follows the group, so more calls may join it. */
+  isActive: boolean;
+  /**
+   * Draws one call through the registered renderers and tool-call slots.
+   * Render the VNode with `<component :is="renderCall(call)" />`.
+   */
+  renderCall: (call: ToolCallEntry) => VNode;
+}
+
+/**
+ * Props of `CopilotChatWorkSummary` and of the `#work-summary` slot, which
+ * replaces the "Working… / Worked for 9s" line of the `"turn"` display.
+ */
+export interface CopilotChatWorkSummarySlotProps {
+  /** The agent is still working on this reply. */
+  isWorking: boolean;
+  /** Whether the work (narration and tool calls) is showing. */
+  isOpen: boolean;
+  /** The tool calls the reply made. */
+  calls: ToolCallEntry[];
+  /**
+   * How long the agent has worked on the reply, in ms, summed over its runs
+   * so time spent waiting between them doesn't count. Only known for replies
+   * this client watched start; without it the summary shows the tool count.
+   */
+  elapsedMs?: number;
+  /** When the current run started (epoch ms), while the agent is working. */
+  workingSince?: number;
+  /** Opens or closes the reply's work. */
+  onClick: () => void;
+}
 
 export interface CopilotChatAttachmentRendererProps {
   type: AttachmentModality;
-  source: Attachment["source"];
+  /** Any AG-UI content source, as in React; a `file` handle shows no preview. */
+  source: InputContentSource;
   filename?: string;
   className?: string;
 }
@@ -94,6 +143,20 @@ export interface CopilotChatViewProps {
   onDragLeave?: (event: DragEvent) => void;
   onDrop?: (event: DragEvent) => void;
   onFinishTranscribeWithAudio?: (audioBlob: Blob) => void | Promise<void>;
+  /**
+   * How tool calls show. Defaults to `"grouped"`: calls made in a row share
+   * one card that opens to a row per call. `"line"` and `"stacked"` group
+   * them too; `"separate"` gives every call its own card. Calls drawn by a
+   * renderer that does not set `group: true`, or by a tool-call slot, always
+   * show on their own.
+   */
+  toolCallDisplay?: CopilotChatToolCallDisplay;
+  /**
+   * Whether reply thumbs record ratings for Automatic Learning once a
+   * Trajectory has started. Defaults to `true`; set `false` to keep the
+   * thumbs to your own `thumbs-up` / `thumbs-down` handlers and slots.
+   */
+  messageFeedback?: boolean;
 }
 
 export interface CopilotChatProps extends Omit<
@@ -319,13 +382,56 @@ export interface CopilotChatAssistantMessageCopyButtonSlotProps {
   label: string;
 }
 
+/**
+ * Attributes and listeners that let a thumb record a Learning rating and open
+ * its comment popover. Bind them on the thumb's `<button>` with `v-bind`;
+ * they are empty while the chat records no ratings.
+ */
+export type CopilotChatAssistantMessageThumbProps = Record<string, unknown>;
+
 export interface CopilotChatAssistantMessageThumbsUpButtonSlotProps {
-  onThumbsUp: () => void;
+  /**
+   * Rates the reply. Pass the click event, so the comment points at the
+   * clicked thumb and a keyboard click moves focus into it.
+   */
+  onThumbsUp: (event?: MouseEvent) => void;
   label: string;
+  /** This rating is the chosen one (Learning only). */
+  pressed: boolean;
+  thumbProps: CopilotChatAssistantMessageThumbProps;
 }
 
 export interface CopilotChatAssistantMessageThumbsDownButtonSlotProps {
-  onThumbsDown: () => void;
+  /** See {@link CopilotChatAssistantMessageThumbsUpButtonSlotProps.onThumbsUp}. */
+  onThumbsDown: (event?: MouseEvent) => void;
+  label: string;
+  /** This rating is the chosen one (Learning only). */
+  pressed: boolean;
+  thumbProps: CopilotChatAssistantMessageThumbProps;
+}
+
+/** Props of the `feedback-comment` slot: the comment field of a rating. */
+export interface CopilotChatAssistantMessageFeedbackCommentSlotProps {
+  value: string;
+  /** The comment already saved. */
+  savedComment: string;
+  /** Bind as `:ref` on the text field, so a keyboard rating can focus it. */
+  inputRef: (element: unknown) => void;
+  onChange: (value: string) => void;
+  /** Saves the comment, closes the popover and returns focus to the thumb. */
+  onSubmit: () => void;
+  onEditingChange: (editing: boolean) => void;
+  /**
+   * Focus left the form for `next`, or for no focusable element when null.
+   * Not called when the window loses focus.
+   */
+  onLeave: (next: Element | null) => void;
+}
+
+/** Props of the `inspector-button` slot. */
+export interface CopilotChatAssistantMessageInspectorButtonSlotProps {
+  /** Opens this message in the Inspector. */
+  onInspect: () => void;
   label: string;
 }
 
@@ -498,6 +604,8 @@ export interface CopilotSidebarViewToggleButtonSlotProps {
 export interface CopilotSidebarViewProps extends CopilotChatViewProps {
   width?: number | string;
   defaultOpen?: boolean;
+  /** The edge the sidebar docks to. Defaults to `"right"`. */
+  position?: "left" | "right";
 }
 
 export type CopilotPopupViewHeaderSlotProps = CopilotSidebarViewHeaderSlotProps;
@@ -533,4 +641,6 @@ export interface CopilotPopupProps extends CopilotChatProps {
 export interface CopilotSidebarProps extends CopilotChatProps {
   width?: number | string;
   defaultOpen?: boolean;
+  /** The edge the sidebar docks to. Defaults to `"right"`. */
+  position?: CopilotSidebarViewProps["position"];
 }

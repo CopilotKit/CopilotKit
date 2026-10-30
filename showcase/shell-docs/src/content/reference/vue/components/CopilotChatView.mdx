@@ -57,6 +57,14 @@ function handleSubmit(value: string) {
   yourself.
 </PropertyReference>
 
+<PropertyReference name="toolCallDisplay" type='"grouped" | "line" | "stacked" | "turn" | "separate"' default='"grouped"'>
+  How tool calls show. Passed to the message view. See [`CopilotChatMessageView`](/reference/vue/components/CopilotChatMessageView#toolcalldisplay).
+</PropertyReference>
+
+<PropertyReference name="messageFeedback" type="boolean" default="true">
+  Whether reply thumbs record ratings for Automatic Learning once a Trajectory has started. Passed to the message view.
+</PropertyReference>
+
 <PropertyReference name="autoScroll" type='AutoScrollMode | boolean' default="true">
   Controls how the view scrolls as new messages stream in. Accepts the modern
   `AutoScrollMode` strings or the legacy boolean shorthand:

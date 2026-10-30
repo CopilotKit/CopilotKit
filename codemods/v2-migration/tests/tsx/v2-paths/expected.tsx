@@ -5,7 +5,6 @@ import {
   type CopilotKitProviderProps,
 } from "@copilotkit/react-core";
 import { useHeadlessChat } from "@copilotkit/react-core/headless";
-import "@copilotkit/react-core/styles.css";
 
 export function App(props: CopilotKitProviderProps) {
   return (

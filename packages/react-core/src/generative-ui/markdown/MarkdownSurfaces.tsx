@@ -69,11 +69,11 @@ export function DefaultMarkdownChatSurface({
     <div
       data-generative-ui-chat-surface={surfaceId}
       data-a2ui-markdown-surface={surfaceId}
-      className="cpk:relative cpk:my-4 cpk:flex cpk:w-full cpk:min-w-0 cpk:max-w-full cpk:flex-col"
+      className="cpk-markdown-chat-surface"
     >
       {children}
       {error && (
-        <div role="alert" className="cpk:mt-2 cpk:text-xs cpk:text-red-600">
+        <div role="alert" className="cpk-markdown-chat-surface-error">
           Part of this UI couldn't be shown.
         </div>
       )}

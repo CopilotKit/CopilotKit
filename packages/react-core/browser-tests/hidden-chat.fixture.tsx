@@ -4,8 +4,8 @@ import {
   CopilotChatConfigurationProvider,
   CopilotChatView,
   CopilotKitProvider,
+  CopilotKitStyles,
 } from "@copilotkit/react-core";
-import "@copilotkit/react-core/styles.css";
 
 const params = new URLSearchParams(window.location.search);
 const count = Number(params.get("count") ?? "80");
@@ -76,6 +76,8 @@ function App() {
         style={{ display: hidden ? "none" : "block", height: 500, width: 700 }}
       >
         <CopilotKitProvider>
+          {/* CopilotChatView without CopilotChat needs the styles itself. */}
+          <CopilotKitStyles />
           {standalone ? (
             chat
           ) : (

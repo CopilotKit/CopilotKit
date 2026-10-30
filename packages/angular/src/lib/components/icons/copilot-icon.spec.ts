@@ -32,3 +32,17 @@ test("renders rectangle attributes without unsafe HTML injection", () => {
   expect(rect.getAttribute("width")).toBe("14");
   expect(rect.getAttribute("rx")).toBe("2");
 });
+
+test("puts iconClass on the svg, so shared CSS can size it", () => {
+  TestBed.configureTestingModule({
+    imports: [CopilotIcon],
+    providers: [provideZonelessChangeDetection()],
+  });
+  const fixture = TestBed.createComponent(CopilotIcon);
+  fixture.componentRef.setInput("img", Check);
+  fixture.componentRef.setInput("iconClass", "cpk-chat-input-send-icon");
+  fixture.detectChanges();
+
+  const svg = fixture.nativeElement.querySelector("svg") as SVGElement;
+  expect(svg.getAttribute("class")).toBe("cpk-chat-input-send-icon");
+});

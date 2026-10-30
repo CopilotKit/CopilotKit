@@ -6,7 +6,9 @@ import {
   linkedSignal,
   signal,
   untracked,
+  ViewEncapsulation,
 } from "@angular/core";
+import { hostStyles } from "../host-styles";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { cn } from "../../utils";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
@@ -17,6 +19,8 @@ import { injectChatLabels } from "../../chat-config";
   selector: "copilot-chat-reasoning-message",
   imports: [CopilotChatAssistantMessageRenderer],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.None,
+  styles: [hostStyles],
   template: `
     <div
       [class]="computedClass()"
@@ -31,12 +35,10 @@ import { injectChatLabels } from "../../chat-config";
         [attr.aria-expanded]="hasContent() ? open() : null"
         (click)="toggle()"
       >
-        <span class="cpk:font-medium">{{ label() }}</span>
+        <span class="cpk-reasoning-message-label">{{ label() }}</span>
         @if (isStreaming() && !hasContent()) {
-          <span class="cpk:inline-flex cpk:items-center cpk:ml-1">
-            <span
-              class="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse"
-            ></span>
+          <span class="cpk-reasoning-message-indicator">
+            <span class="cpk-reasoning-message-indicator-dot"></span>
           </span>
         }
         @if (hasContent()) {
@@ -58,23 +60,18 @@ import { injectChatLabels } from "../../chat-config";
 
       @if (hasContent() || isStreaming()) {
         <div
-          class="cpk:grid cpk:transition-[grid-template-rows] cpk:duration-200 cpk:ease-in-out"
+          class="cpk-reasoning-message-toggle"
           [style.grid-template-rows]="open() ? '1fr' : '0fr'"
         >
-          <div class="cpk:overflow-hidden">
-            <div class="cpk:pb-2 cpk:pt-1">
-              <div class="cpk:text-sm cpk:text-muted-foreground">
+          <div class="cpk-reasoning-message-toggle-content">
+            <div class="cpk-reasoning-message-content">
+              <div class="cpk-reasoning-message-text">
                 <copilot-chat-assistant-message-renderer
                   [content]="reasoningContent()"
-                  inputClass="cpk:text-sm cpk:text-muted-foreground cpk:leading-relaxed cpk:[&_p]:m-0 cpk:[&_p+p]:mt-2 cpk:[&_strong]:font-semibold cpk:[&_strong]:text-foreground cpk:[&_ul]:my-1 cpk:[&_ol]:my-1 cpk:[&_li]:ml-4"
                 ></copilot-chat-assistant-message-renderer>
                 @if (isStreaming() && hasContent()) {
-                  <span
-                    class="cpk:inline-flex cpk:items-center cpk:ml-1 cpk:align-middle"
-                  >
-                    <span
-                      class="cpk:w-2 cpk:h-2 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse-cursor"
-                    ></span>
+                  <span class="cpk-reasoning-message-cursor">
+                    <span class="cpk-reasoning-message-cursor-dot"></span>
                   </span>
                 }
               </div>
@@ -142,22 +139,20 @@ export class CopilotChatReasoningMessage {
   });
 
   protected readonly computedClass = computed(() =>
-    cn("cpk:my-1", this.inputClass()),
+    cn("cpk-reasoning-message", this.inputClass()),
   );
 
   protected readonly headerClass = computed(() =>
     cn(
-      "cpk:inline-flex cpk:items-center cpk:gap-1 cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none",
-      this.hasContent()
-        ? "cpk:hover:text-foreground cpk:cursor-pointer"
-        : "cpk:cursor-default",
+      "cpk-reasoning-message-header",
+      this.hasContent() && "cpk-reasoning-message-header-expandable",
     ),
   );
 
   protected readonly chevronClass = computed(() =>
     cn(
-      "cpk:size-3.5 cpk:shrink-0 cpk:transition-transform cpk:duration-200",
-      this.open() && "cpk:rotate-90",
+      "cpk-reasoning-message-chevron",
+      this.open() && "cpk-reasoning-message-chevron-open",
     ),
   );
 

@@ -20,6 +20,7 @@ defineOptions({ inheritAttrs: false });
 const props = withDefaults(defineProps<CopilotPopupViewProps>(), {
   messages: () => [],
   autoScroll: true,
+  messageFeedback: true,
   isRunning: false,
   suggestions: () => [],
   suggestionLoadingIndexes: () => [],

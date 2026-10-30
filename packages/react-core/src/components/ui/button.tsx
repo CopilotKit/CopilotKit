@@ -1,109 +1,67 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
-import { cva } from "class-variance-authority";
-import type { VariantProps } from "class-variance-authority";
 
 import { cn } from "../../lib/utils";
+import type { ClassValue } from "../../lib/utils";
 
-const buttonVariants = cva(
-  "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2 cpk:whitespace-nowrap cpk:rounded-md cpk:text-sm cpk:font-medium cpk:transition-all cpk:disabled:pointer-events-none cpk:disabled:opacity-50 cpk:[&_svg]:pointer-events-none cpk:[&_svg:not([class*='size-'])]:size-4 cpk:shrink-0 cpk:[&_svg]:shrink-0 cpk:outline-none cpk:focus-visible:border-ring cpk:focus-visible:ring-ring/50 cpk:focus-visible:ring-[3px] cpk:aria-invalid:ring-destructive/20 cpk:dark:aria-invalid:ring-destructive/40 cpk:aria-invalid:border-destructive",
-  {
-    variants: {
-      variant: {
-        default:
-          "cpk:bg-primary cpk:text-primary-foreground cpk:shadow-xs cpk:hover:bg-primary/90",
-        destructive:
-          "cpk:bg-destructive cpk:text-white cpk:shadow-xs cpk:hover:bg-destructive/90 cpk:focus-visible:ring-destructive/20 cpk:dark:focus-visible:ring-destructive/40 cpk:dark:bg-destructive/60",
-        outline:
-          "cpk:border cpk:bg-background cpk:shadow-xs cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:dark:bg-input/30 cpk:dark:border-input cpk:dark:hover:bg-input/50",
-        secondary:
-          "cpk:bg-secondary cpk:text-secondary-foreground cpk:shadow-xs cpk:hover:bg-secondary/80",
-        ghost:
-          "cpk:hover:bg-accent cpk:hover:text-accent-foreground cpk:dark:hover:bg-accent/50 cpk:cursor-pointer",
-        link: "cpk:text-primary cpk:underline-offset-4 cpk:hover:underline",
-        assistantMessageToolbarButton: [
-          "cpk:cursor-pointer",
-          // Background and text
-          "cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8]",
-          // Dark mode - lighter gray for better contrast
-          "cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-          // Shape and sizing
-          "cpk:h-8 cpk:w-8",
-          // Interactions
-          "cpk:transition-colors",
-          // Hover states
-          "cpk:hover:text-[rgb(93,93,93)]",
-          "cpk:dark:hover:text-[rgb(243,243,243)]",
-        ],
-        chatInputToolbarPrimary: [
-          "cpk:cursor-pointer",
-          // Background and text
-          "cpk:bg-black cpk:text-white",
-          // Dark mode
-          "cpk:dark:bg-white cpk:dark:text-black cpk:dark:focus-visible:outline-white",
-          // Shape and sizing
-          "cpk:rounded-full",
-          // Interactions
-          "cpk:transition-colors",
-          // Focus states
-          "cpk:focus:outline-none",
-          // Hover states
-          "cpk:hover:opacity-70 cpk:disabled:hover:opacity-100",
-          // Disabled states
-          "cpk:disabled:cursor-not-allowed cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)]",
-          "cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white ",
-        ],
-        chatInputToolbarSecondary: [
-          "cpk:cursor-pointer",
-          // Background and text
-          "cpk:bg-transparent cpk:text-[#444444]",
-          // Dark mode
-          "cpk:dark:text-white cpk:dark:border-[#404040]",
-          // Shape and sizing
-          "cpk:rounded-full",
-          // Interactions
-          "cpk:transition-colors",
-          // Focus states
-          "cpk:focus:outline-none",
-          // Hover states
-          "cpk:hover:bg-[#f8f8f8] cpk:hover:text-[#333333]",
-          "cpk:dark:hover:bg-[#404040] cpk:dark:hover:text-[#FFFFFF]",
-          // Disabled states
-          "cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50",
-          "cpk:disabled:hover:bg-transparent cpk:disabled:hover:text-[#444444]",
-          "cpk:dark:disabled:hover:bg-transparent cpk:dark:disabled:hover:text-[#CCCCCC]",
-        ],
-      },
-      size: {
-        default: "cpk:h-9 cpk:px-4 cpk:py-2 cpk:has-[>svg]:px-3",
-        sm: "cpk:h-8 cpk:rounded-md cpk:gap-1.5 cpk:px-3 cpk:has-[>svg]:px-2.5",
-        lg: "cpk:h-10 cpk:rounded-md cpk:px-6 cpk:has-[>svg]:px-4",
-        icon: "cpk:size-9",
-        chatInputToolbarIcon: [
-          // Shape and sizing
-          "cpk:h-9 cpk:w-9 cpk:rounded-full",
-        ],
-        chatInputToolbarIconLabel: [
-          // Shape and sizing
-          "cpk:h-9 cpk:px-3 cpk:rounded-full",
-          // Layout
-          "cpk:gap-2",
-          // Typography
-          "cpk:font-normal",
-        ],
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
-  },
-);
+// Styles live in styles/css/ui/button.css.
+const variantClasses = {
+  default: "cpk-button-default",
+  destructive: "cpk-button-destructive",
+  outline: "cpk-button-outline",
+  secondary: "cpk-button-secondary",
+  ghost: "cpk-button-ghost",
+  link: "cpk-button-link",
+  assistantMessageToolbarButton: "cpk-button-assistant-message-toolbar",
+  chatInputToolbarPrimary: "cpk-button-chat-input-toolbar-primary",
+  chatInputToolbarSecondary: "cpk-button-chat-input-toolbar-secondary",
+} as const;
+
+const sizeClasses = {
+  default: "cpk-button-size-default",
+  sm: "cpk-button-size-sm",
+  lg: "cpk-button-size-lg",
+  icon: "cpk-button-size-icon",
+  chatInputToolbarIcon: "cpk-button-size-chat-input-toolbar-icon",
+  chatInputToolbarIconLabel: "cpk-button-size-chat-input-toolbar-icon-label",
+} as const;
+
+type ButtonVariant = keyof typeof variantClasses;
+type ButtonSize = keyof typeof sizeClasses;
+
+interface ButtonVariantProps {
+  /** Defaults to `"default"`. `null` applies no variant class. */
+  variant?: ButtonVariant | null;
+  /** Defaults to `"default"`. `null` applies no size class. */
+  size?: ButtonSize | null;
+}
+
+/**
+ * Returns the class names for a button with the given variant and size,
+ * followed by `className`.
+ */
+function buttonVariants({
+  variant,
+  size,
+  className,
+  class: classProp,
+}: ButtonVariantProps & {
+  className?: ClassValue;
+  class?: ClassValue;
+} = {}): string {
+  return cn(
+    "cpk-button",
+    variant !== null && variantClasses[variant ?? "default"],
+    size !== null && sizeClasses[size ?? "default"],
+    classProp,
+    className,
+  );
+}
 
 const Button = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<"button"> &
-    VariantProps<typeof buttonVariants> & {
+    ButtonVariantProps & {
       asChild?: boolean;
     }
 >(function Button(
@@ -116,7 +74,7 @@ const Button = React.forwardRef<
     <Comp
       ref={ref}
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      className={buttonVariants({ variant, size, className })}
       {...props}
     />
   );

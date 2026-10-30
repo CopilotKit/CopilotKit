@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import {
+  computed,
+  inject,
+  onBeforeUnmount,
+  onUpdated,
+  ref,
+  shallowRef,
+  toRef,
+  watch,
+} from "vue";
 import type { Component } from "vue";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
@@ -18,8 +27,18 @@ import {
   isVueComponentRenderer,
 } from "../../providers/markdown-renderer";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView.vue";
+import { CopilotChatWorkText } from "./turn-work";
+import CopilotChatAssistantToolbarButton from "./CopilotChatAssistantToolbarButton.vue";
+import CopilotChatFeedbackCommentPopover from "./CopilotChatFeedbackCommentPopover.vue";
+import CopilotChatInspectorButton from "./CopilotChatInspectorButton.vue";
+import { useInspectorShortcutsHidden } from "./inspector-shortcuts";
+import { InspectorKey } from "../../providers/keys";
+import { useFeedbackComment, useMessageFeedback } from "./message-feedback";
+import type { MessageFeedbackRating } from "../../lib/message-feedback";
 import type {
   CopilotChatAssistantMessageCopyButtonSlotProps,
+  CopilotChatAssistantMessageFeedbackCommentSlotProps,
+  CopilotChatAssistantMessageInspectorButtonSlotProps,
   CopilotChatAssistantMessageLayoutSlotProps,
   CopilotChatAssistantMessageMessageRendererSlotProps,
   CopilotChatAssistantMessageReadAloudButtonSlotProps,
@@ -71,6 +90,12 @@ defineSlots<{
   "tool-calls-view"?: (
     props: CopilotChatAssistantMessageToolCallsViewSlotProps,
   ) => unknown;
+  "inspector-button"?: (
+    props: CopilotChatAssistantMessageInspectorButtonSlotProps,
+  ) => unknown;
+  "feedback-comment"?: (
+    props: CopilotChatAssistantMessageFeedbackCommentSlotProps,
+  ) => unknown;
   "toolbar-items"?: () => unknown;
   [key: string]: ((props: any) => unknown) | undefined;
 }>();
@@ -86,13 +111,6 @@ const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const copied = ref(false);
 let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
-
-const toolbarButtonClass = [
-  "cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0",
-  "cpk:cursor-pointer cpk:text-[rgb(93,93,93)] cpk:transition-colors cpk:hover:bg-[#E8E8E8]",
-  "cpk:hover:text-[rgb(93,93,93)] cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
-  "cpk:dark:hover:text-[rgb(243,243,243)] cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
-].join(" ");
 
 function normalizeContent(content: unknown): string {
   if (!content) {
@@ -145,8 +163,28 @@ const activeMarkdownConfig = computed(() =>
     : (providerMarkdownRenderer as Record<string, unknown>),
 );
 
-const hasThumbsUp = computed(() => typeof props.onThumbsUp === "function");
-const hasThumbsDown = computed(() => typeof props.onThumbsDown === "function");
+const inspector = inject(InspectorKey, null);
+const shortcutsHidden = useInspectorShortcutsHidden();
+const showInspectorShortcut = computed(
+  () => !!inspector?.isInspectorEnabled.value && !shortcutsHidden.value,
+);
+
+// Set while this chat collects ratings for Learning: the thumbs record them.
+const feedback = useMessageFeedback(toRef(props, "message"));
+const comment = useFeedbackComment(feedback);
+const rating = computed(() => feedback.value?.feedback?.rating);
+const root = ref<HTMLElement | null>(null);
+// The chosen thumb the comment popover points at, and the rating the open
+// comment answers.
+const commentAnchor = shallowRef<HTMLElement | null>(null);
+let commentRating = rating.value;
+
+const hasThumbsUp = computed(
+  () => typeof props.onThumbsUp === "function" || !!feedback.value,
+);
+const hasThumbsDown = computed(
+  () => typeof props.onThumbsDown === "function" || !!feedback.value,
+);
 const hasReadAloud = computed(() => typeof props.onReadAloud === "function");
 const hasRegenerate = computed(() => typeof props.onRegenerate === "function");
 const isLatestAssistantMessage = computed(
@@ -155,9 +193,137 @@ const isLatestAssistantMessage = computed(
 const shouldShowToolbar = computed(
   () =>
     props.toolbarVisible &&
-    hasContent.value &&
+    (hasContent.value || showInspectorShortcut.value) &&
     !(props.isRunning && isLatestAssistantMessage.value),
 );
+
+// A custom thumb that calls its handler without an event gives no element:
+// point at the chosen thumb once it renders, before the popover reads it.
+function findCommentAnchor() {
+  if (
+    comment.open.value &&
+    !commentAnchor.value?.isConnected &&
+    rating.value &&
+    root.value
+  ) {
+    commentAnchor.value =
+      root.value.querySelector<HTMLElement>(
+        `[data-copilotkit-rating="${rating.value}"]`,
+      ) ??
+      // A custom thumb that binds only `aria-pressed`.
+      root.value.querySelector<HTMLElement>('button[aria-pressed="true"]') ??
+      null;
+  }
+}
+onUpdated(findCommentAnchor);
+watch(() => comment.open.value, findCommentAnchor, { flush: "post" });
+
+/** Whether focus came from the keyboard; a pointer click also focuses buttons. */
+function isFocusVisible(element: Element): boolean {
+  try {
+    return element.matches(":focus-visible");
+  } catch {
+    return false;
+  }
+}
+
+// Checks `visibility: hidden` too, which a detached popover uses.
+const HIDDEN_TOO = { checkVisibilityCSS: true, visibilityProperty: true };
+
+/**
+ * Thumbs are toggles: a new rating is saved and opens its comment, and
+ * clicking the chosen thumb again removes the rating. A keyboard click
+ * (`detail` 0) moves focus into the comment, as there is no pointer. Custom
+ * thumb slots may call the handler without an event.
+ *
+ * @returns Whether the app's handler should run: true for a new rating and
+ * whenever this chat does not record ratings, false when one is removed.
+ */
+function rate(value: MessageFeedbackRating, event?: MouseEvent): boolean {
+  const controls = feedback.value;
+  if (!controls) return true;
+  if (rating.value === value) {
+    comment.close({ save: false });
+    controls.clear();
+    return false;
+  }
+  controls.rate(value);
+  commentRating = value;
+  commentAnchor.value =
+    event?.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+  comment.show({ comment: "", focus: event?.detail === 0 });
+  return true;
+}
+
+/** Attributes that let the chosen thumb open and point at its comment. */
+function thumbFeedbackProps(
+  value: MessageFeedbackRating,
+): Record<string, unknown> {
+  if (!feedback.value) return {};
+  const thumb = { "data-copilotkit-rating": value };
+  if (rating.value !== value) return { ...thumb, "aria-pressed": false };
+  const enter = (target: HTMLElement, via: "pointer" | "focus") => {
+    if (!comment.open.value) commentRating = value;
+    commentAnchor.value = target;
+    comment.enter(via);
+  };
+  return {
+    ...thumb,
+    "aria-pressed": true,
+    "aria-haspopup": "dialog",
+    "aria-expanded": comment.open.value,
+    onPointerenter: (event: PointerEvent) => {
+      if (event.pointerType !== "touch")
+        enter(event.currentTarget as HTMLElement, "pointer");
+    },
+    onPointerleave: (event: PointerEvent) => {
+      if (event.pointerType !== "touch") comment.leave("pointer");
+    },
+    // Keyboard focus opens the comment; Tab moves on into its field.
+    onFocus: (event: FocusEvent) => {
+      const target = event.currentTarget as HTMLElement;
+      if (isFocusVisible(target)) enter(target, "focus");
+    },
+    onBlur: () => comment.leave(),
+    onKeydown: (event: KeyboardEvent) => {
+      const input = comment.input.value;
+      // Not while the popover hides because its thumb scrolled away.
+      if (
+        event.key === "Tab" &&
+        !event.shiftKey &&
+        comment.open.value &&
+        input &&
+        input.checkVisibility?.(HIDDEN_TOO) !== false
+      ) {
+        event.preventDefault();
+        input.focus();
+      }
+    },
+  };
+}
+
+const thumbsUpProps = computed(() => thumbFeedbackProps("up"));
+const thumbsDownProps = computed(() => thumbFeedbackProps("down"));
+
+// The popover shows only with the toolbar and a rating. Hiding the toolbar
+// keeps the edit; a rating removed elsewhere or Learning turned off ends it.
+watch(
+  [() => comment.open.value, shouldShowToolbar, rating],
+  ([open, showToolbar, currentRating]) => {
+    if (!open) return;
+    // Changed or removed elsewhere: the draft answered the old rating.
+    if (currentRating !== commentRating) comment.close({ save: false });
+    else if (!showToolbar) comment.close();
+  },
+);
+
+function handleInspect() {
+  inspector?.openInspector({
+    messageId: props.message.id,
+    threadId: config.value?.threadId,
+    agentId: config.value?.agentId,
+  });
+}
 
 function resetCopiedStateWithDelay() {
   if (copiedResetTimeout) {
@@ -189,12 +355,13 @@ async function handleCopyMessage() {
   }
 }
 
-function handleThumbsUp() {
-  emit("thumbs-up", props.message);
+function handleThumbsUp(event?: MouseEvent) {
+  // The app hears about a rating given, not about one removed.
+  if (rate("up", event)) emit("thumbs-up", props.message);
 }
 
-function handleThumbsDown() {
-  emit("thumbs-down", props.message);
+function handleThumbsDown(event?: MouseEvent) {
+  if (rate("down", event)) emit("thumbs-down", props.message);
 }
 
 function handleReadAloud() {
@@ -235,25 +402,30 @@ onBeforeUnmount(() => {
     :on-regenerate="handleRegenerate"
   >
     <div
+      ref="root"
       data-copilotkit
       data-testid="copilot-assistant-message"
-      class="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert"
+      class="copilotKitMessage copilotKitAssistantMessage"
       :data-message-id="message.id"
       v-bind="$attrs"
     >
-      <slot
-        name="message-renderer"
-        :message="message"
-        :content="normalizedContent"
-      >
-        <component
-          :is="ActiveMarkdownRenderer"
-          v-if="hasContent"
-          v-bind="activeMarkdownConfig"
-          :content="normalizedContent"
-          :is-streaming="isRunning && isLatestAssistantMessage"
-        />
-      </slot>
+      <CopilotChatWorkText :message-id="message.id">
+        <div class="cpk-markdown cpk-assistant-message-markdown">
+          <slot
+            name="message-renderer"
+            :message="message"
+            :content="normalizedContent"
+          >
+            <component
+              :is="ActiveMarkdownRenderer"
+              v-if="hasContent"
+              v-bind="activeMarkdownConfig"
+              :content="normalizedContent"
+              :is-streaming="isRunning && isLatestAssistantMessage"
+            />
+          </slot>
+        </div>
+      </CopilotChatWorkText>
 
       <slot name="tool-calls-view" :message="message" :messages="messages">
         <CopilotChatToolCallsView :message="message" :messages="messages">
@@ -274,26 +446,27 @@ onBeforeUnmount(() => {
         :should-show-toolbar="shouldShowToolbar"
       >
         <div
-          class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:-ml-[5px] cpk:-mt-[0px]"
+          data-testid="copilot-assistant-toolbar"
+          class="cpk-assistant-message-toolbar"
         >
-          <div class="cpk:flex cpk:items-center cpk:gap-1">
+          <div class="cpk-assistant-message-toolbar-items">
             <slot
               name="copy-button"
               :on-copy="handleCopyMessage"
               :copied="copied"
               :label="labels.assistantMessageToolbarCopyMessageLabel"
             >
-              <button
+              <CopilotChatAssistantToolbarButton
                 data-testid="copilot-copy-button"
-                type="button"
-                :class="toolbarButtonClass"
-                :aria-label="labels.assistantMessageToolbarCopyMessageLabel"
-                :title="labels.assistantMessageToolbarCopyMessageLabel"
+                :label="labels.assistantMessageToolbarCopyMessageLabel"
                 @click="handleCopyMessage"
               >
-                <IconCheck v-if="copied" class="cpk:size-[18px]" />
-                <IconCopy v-else class="cpk:size-[18px]" />
-              </button>
+                <IconCheck
+                  v-if="copied"
+                  class="cpk-assistant-message-toolbar-icon"
+                />
+                <IconCopy v-else class="cpk-assistant-message-toolbar-icon" />
+              </CopilotChatAssistantToolbarButton>
             </slot>
 
             <slot
@@ -301,16 +474,20 @@ onBeforeUnmount(() => {
               name="thumbs-up-button"
               :on-thumbs-up="handleThumbsUp"
               :label="labels.assistantMessageToolbarThumbsUpLabel"
+              :pressed="rating === 'up'"
+              :thumb-props="thumbsUpProps"
             >
-              <button
-                type="button"
-                :class="toolbarButtonClass"
-                :aria-label="labels.assistantMessageToolbarThumbsUpLabel"
-                :title="labels.assistantMessageToolbarThumbsUpLabel"
+              <CopilotChatAssistantToolbarButton
+                data-testid="copilot-thumbs-up-button"
+                :label="labels.assistantMessageToolbarThumbsUpLabel"
+                v-bind="thumbsUpProps"
                 @click="handleThumbsUp"
               >
-                <IconThumbsUp class="cpk:size-[18px]" />
-              </button>
+                <IconThumbsUp
+                  class="cpk-assistant-message-toolbar-icon"
+                  :fill="rating === 'up' ? 'currentColor' : 'none'"
+                />
+              </CopilotChatAssistantToolbarButton>
             </slot>
 
             <slot
@@ -318,16 +495,20 @@ onBeforeUnmount(() => {
               name="thumbs-down-button"
               :on-thumbs-down="handleThumbsDown"
               :label="labels.assistantMessageToolbarThumbsDownLabel"
+              :pressed="rating === 'down'"
+              :thumb-props="thumbsDownProps"
             >
-              <button
-                type="button"
-                :class="toolbarButtonClass"
-                :aria-label="labels.assistantMessageToolbarThumbsDownLabel"
-                :title="labels.assistantMessageToolbarThumbsDownLabel"
+              <CopilotChatAssistantToolbarButton
+                data-testid="copilot-thumbs-down-button"
+                :label="labels.assistantMessageToolbarThumbsDownLabel"
+                v-bind="thumbsDownProps"
                 @click="handleThumbsDown"
               >
-                <IconThumbsDown class="cpk:size-[18px]" />
-              </button>
+                <IconThumbsDown
+                  class="cpk-assistant-message-toolbar-icon"
+                  :fill="rating === 'down' ? 'currentColor' : 'none'"
+                />
+              </CopilotChatAssistantToolbarButton>
             </slot>
 
             <slot
@@ -336,15 +517,13 @@ onBeforeUnmount(() => {
               :on-read-aloud="handleReadAloud"
               :label="labels.assistantMessageToolbarReadAloudLabel"
             >
-              <button
-                type="button"
-                :class="toolbarButtonClass"
-                :aria-label="labels.assistantMessageToolbarReadAloudLabel"
-                :title="labels.assistantMessageToolbarReadAloudLabel"
+              <CopilotChatAssistantToolbarButton
+                data-testid="copilot-read-aloud-button"
+                :label="labels.assistantMessageToolbarReadAloudLabel"
                 @click="handleReadAloud"
               >
-                <IconVolume2 class="cpk:size-[20px]" />
-              </button>
+                <IconVolume2 class="cpk-assistant-message-read-aloud-icon" />
+              </CopilotChatAssistantToolbarButton>
             </slot>
 
             <slot
@@ -353,21 +532,42 @@ onBeforeUnmount(() => {
               :on-regenerate="handleRegenerate"
               :label="labels.assistantMessageToolbarRegenerateLabel"
             >
-              <button
-                type="button"
-                :class="toolbarButtonClass"
-                :aria-label="labels.assistantMessageToolbarRegenerateLabel"
-                :title="labels.assistantMessageToolbarRegenerateLabel"
+              <CopilotChatAssistantToolbarButton
+                data-testid="copilot-regenerate-button"
+                :label="labels.assistantMessageToolbarRegenerateLabel"
                 @click="handleRegenerate"
               >
-                <IconRefreshCw class="cpk:size-[18px]" />
-              </button>
+                <IconRefreshCw class="cpk-assistant-message-toolbar-icon" />
+              </CopilotChatAssistantToolbarButton>
             </slot>
 
             <slot name="toolbar-items" />
+
+            <slot
+              v-if="showInspectorShortcut"
+              name="inspector-button"
+              :on-inspect="handleInspect"
+              :label="labels.assistantMessageToolbarInspectorLabel"
+            >
+              <CopilotChatInspectorButton @click="handleInspect" />
+            </slot>
           </div>
         </div>
       </slot>
     </div>
   </slot>
+
+  <!-- Floats in a portal next to the chosen thumb, so it never moves the chat. -->
+  <CopilotChatFeedbackCommentPopover
+    v-if="feedback?.feedback && shouldShowToolbar"
+    :comment="comment"
+    :saved-comment="feedback.feedback.comment ?? ''"
+    :rating="feedback.feedback.rating"
+    :anchor="commentAnchor"
+    :message-id="message.id"
+  >
+    <template v-if="$slots['feedback-comment']" #feedback-comment="slotProps">
+      <slot name="feedback-comment" v-bind="slotProps" />
+    </template>
+  </CopilotChatFeedbackCommentPopover>
 </template>

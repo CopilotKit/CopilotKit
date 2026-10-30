@@ -375,7 +375,7 @@ export function createA2UIMessageRenderer(
       }
 
       const surfaces = (
-        <div className="cpk:flex cpk:min-h-0 cpk:flex-1 cpk:flex-col cpk:gap-6 cpk:overflow-auto cpk:py-6">
+        <div className="cpk-a2ui-message-surfaces">
           {Array.from(groupedOperations.entries()).map(([surfaceId, ops]) => (
             <ReactSurfaceHost
               key={surfaceId}
@@ -518,7 +518,7 @@ function ReactSurfaceHost({
   );
 
   return (
-    <div className="cpk:flex cpk:w-full cpk:flex-none cpk:flex-col cpk:gap-4">
+    <div className="cpk-a2ui-message-surface-host">
       <A2UIProvider onAction={handleAction} theme={theme} catalog={catalog}>
         <SurfaceMessageProcessor
           surfaceId={surfaceId}
@@ -539,12 +539,12 @@ function A2UISurfaceOrError({ surfaceId }: { surfaceId: string }) {
   const error = useA2UIError();
   if (error) {
     return (
-      <div className="cpk:rounded-lg cpk:border cpk:border-red-200 cpk:bg-red-50 cpk:p-3 cpk:text-sm cpk:text-red-700">
-        A2UI render error: {error}
-      </div>
+      <div className="cpk-a2ui-message-error">A2UI render error: {error}</div>
     );
   }
-  return <A2UIRenderer surfaceId={surfaceId} className="cpk:flex cpk:flex-1" />;
+  return (
+    <A2UIRenderer surfaceId={surfaceId} className="cpk-a2ui-message-surface" />
+  );
 }
 
 /**

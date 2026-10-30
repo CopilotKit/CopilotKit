@@ -41,7 +41,7 @@ import type {
   ToolMessage,
   UserMessage,
 } from "@ag-ui/core";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../../lib/utils";
 import { useRenderActivityMessage, useRenderCustomMessages } from "../../hooks";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
@@ -770,7 +770,7 @@ export function CopilotChatMessageView({
         key={`work-summary-${turnKey}`}
         open={working || calls.length > 0}
       >
-        <div className="cpk:pt-1 cpk:pb-2">
+        <div className="cpk-message-view-work-summary">
           {renderSlot(workSummary, CopilotChatWorkSummary, {
             isWorking: working,
             isOpen: open,
@@ -1469,10 +1469,7 @@ export function CopilotChatMessageView({
         <div
           data-copilotkit
           data-testid="copilot-message-list"
-          className={twMerge(
-            "copilotKitMessages cpk:flex cpk:flex-col",
-            className,
-          )}
+          className={cn("copilotKitMessages cpk-message-view", className)}
           {...props}
         >
           {shouldVirtualize ? (
@@ -1511,7 +1508,7 @@ export function CopilotChatMessageView({
           {interruptElement}
           {pendingWorkSummary && renderWorkSummary(latestTurnKey, [])}
           {showCursor && (
-            <div className="cpk:mt-2">
+            <div className="cpk-message-view-cursor-container">
               {renderSlot(cursor, CopilotChatMessageView.Cursor, {})}
             </div>
           )}
@@ -1528,10 +1525,7 @@ CopilotChatMessageView.Cursor = function Cursor({
   return (
     <div
       data-testid="copilot-loading-cursor"
-      className={twMerge(
-        "cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse-cursor cpk:ml-1",
-        className,
-      )}
+      className={cn("cpk-message-view-cursor", className)}
       {...props}
     />
   );

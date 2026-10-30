@@ -15,7 +15,7 @@
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "assets": [{ "glob": "**/*", "input": "public" }],
-            "styles": [".staged-angular-package/styles.css", "src/styles.css"],
+            "styles": ["src/styles.css"],
             "baseHref": "/angular/"
           },
           "configurations": {
@@ -35,8 +35,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "28kB",
-                  "maximumError": "32kB"
+                  "maximumWarning": "90kB",
+                  "maximumError": "96kB"
                 }
               ]
             }

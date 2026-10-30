@@ -907,7 +907,7 @@ describe("CopilotChatAssistantMessage", () => {
             <CopilotChatConfigurationProvider :thread-id="TEST_THREAD_ID">
               <CopilotChatAssistantMessage :message="basicMessage" :toolbar-visible="false">
                 <template #layout="{ toolbar, toolbarVisible, message }">
-                  <span class="cpk:hidden">{{ childrenSpy(toolbar, toolbarVisible, message) }}</span>
+                  <span hidden>{{ childrenSpy(toolbar, toolbarVisible, message) }}</span>
                   <div data-testid="children-render" />
                 </template>
               </CopilotChatAssistantMessage>
@@ -941,7 +941,7 @@ describe("CopilotChatAssistantMessage", () => {
             <CopilotChatConfigurationProvider :thread-id="TEST_THREAD_ID">
               <CopilotChatAssistantMessage :message="basicMessage">
                 <template #layout="{ toolbar, toolbarVisible, message }">
-                  <span class="cpk:hidden">{{ childrenSpy(toolbar, toolbarVisible, message) }}</span>
+                  <span hidden>{{ childrenSpy(toolbar, toolbarVisible, message) }}</span>
                   <div />
                 </template>
               </CopilotChatAssistantMessage>

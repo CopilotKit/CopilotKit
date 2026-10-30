@@ -1,12 +1,24 @@
-import { Component } from "@angular/core";
+import { Component, inject } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { describe, expect, it } from "vitest";
 
 import { CopilotPopup } from "../copilot-popup";
+import { COPILOT_CHAT_WELCOME_LAYOUT } from "../../chat/copilot-chat-welcome-layout";
 
 @Component({ selector: "test-chat", template: "{{ label }}", standalone: true })
 class TestChat {
   protected readonly label = "Chat";
+}
+
+@Component({
+  selector: "test-layout-chat",
+  template: "{{ layout }}",
+  standalone: true,
+})
+class LayoutReportingChat {
+  protected readonly layout = inject(COPILOT_CHAT_WELCOME_LAYOUT, {
+    optional: true,
+  });
 }
 
 describe("CopilotPopup", () => {
@@ -85,5 +97,13 @@ describe("CopilotPopup", () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector("[role=dialog]")).not.toBeNull();
+  });
+
+  it("gives its chat React's popup welcome layout", async () => {
+    const fixture = await render({ chatComponent: LayoutReportingChat });
+    const dialog: HTMLElement =
+      fixture.nativeElement.querySelector("[role=dialog]");
+
+    expect(dialog.textContent?.trim()).toContain("popup");
   });
 });

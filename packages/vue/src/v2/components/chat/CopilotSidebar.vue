@@ -36,12 +36,14 @@ function sidebarViewEventBindings(slotProps: CopilotChatViewOverrideSlotProps) {
 
 const props = withDefaults(defineProps<CopilotSidebarProps>(), {
   autoScroll: true,
+  messageFeedback: true,
   welcomeScreen: true,
   inputValue: undefined,
   inputMode: "input",
   inputToolsMenu: () => [],
   width: undefined,
   defaultOpen: true,
+  position: "right",
   onFinishTranscribeWithAudio: undefined,
 });
 
@@ -114,7 +116,10 @@ watch(
         :input-mode="slotProps.inputMode"
         :input-tools-menu="slotProps.inputToolsMenu"
         :width="width"
+        :tool-call-display="slotProps.toolCallDisplay"
+        :message-feedback="slotProps.messageFeedback"
         :default-open="defaultOpen"
+        :position="position"
         :on-finish-transcribe-with-audio="slotProps.onFinishTranscribeWithAudio"
         v-bind="sidebarViewEventBindings(slotProps)"
       >

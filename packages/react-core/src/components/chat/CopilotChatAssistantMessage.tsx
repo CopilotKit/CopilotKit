@@ -22,7 +22,7 @@ import {
   useCopilotChatConfiguration,
   CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
-import { twMerge } from "tailwind-merge";
+import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
 import {
   Tooltip,
@@ -153,9 +153,12 @@ function WorkText({
   if (context?.display !== "turn") return children;
   const open = context.workTextOpen.get(messageId);
   return (
-    <Collapsible open={open ?? true} className="cpk:-mx-2">
+    <Collapsible
+      open={open ?? true}
+      className="cpk-assistant-message-work-text"
+    >
       <div
-        className="cpk:px-2"
+        className="cpk-assistant-message-work-text-content"
         data-work-text={open === undefined ? "reply" : "narration"}
       >
         {children}
@@ -342,7 +345,7 @@ function FeedbackCommentPopover({
         }}
         onPointerEnter={() => comment.enter("pointer")}
         onPointerLeave={() => comment.leave("pointer")}
-        className="cpk:z-[1300]"
+        className="cpk-assistant-message-feedback-popover"
       >
         {/* Keyed on the rating, so a new rating starts with a fresh field. */}
         <Fragment key={rating}>
@@ -602,7 +605,7 @@ export function CopilotChatAssistantMessage({
     CopilotChatAssistantMessage.Toolbar,
     {
       children: (
-        <div className="cpk:flex cpk:w-full cpk:items-center cpk:gap-1">
+        <div className="cpk-assistant-message-toolbar-items">
           {boundCopyButton}
           {(onThumbsUp || thumbsUpButton || feedback) && boundThumbsUpButton}
           {(onThumbsDown || thumbsDownButton || feedback) &&
@@ -689,15 +692,12 @@ export function CopilotChatAssistantMessage({
       ref={root}
       data-copilotkit
       data-testid="copilot-assistant-message"
-      className={twMerge(
-        "copilotKitMessage copilotKitAssistantMessage",
-        className,
-      )}
+      className={cn("copilotKitMessage copilotKitAssistantMessage", className)}
       {...props}
       data-message-id={message.id}
     >
       <WorkText messageId={message.id}>
-        <div className="cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert">
+        <div className="cpk-markdown cpk-assistant-message-markdown">
           {boundMarkdownRenderer}
         </div>
       </WorkText>
@@ -747,10 +747,7 @@ export namespace CopilotChatAssistantMessage {
   }) => (
     <div
       data-testid="copilot-assistant-toolbar"
-      className={twMerge(
-        "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:-ml-[5px] cpk:-mt-[0px]",
-        className,
-      )}
+      className={cn("cpk-assistant-message-toolbar", className)}
       {...props}
     />
   );
@@ -837,9 +834,9 @@ export namespace CopilotChatAssistantMessage {
         {...props}
       >
         {copied ? (
-          <Check className="cpk:size-[18px]" />
+          <Check className="cpk-assistant-message-toolbar-icon" />
         ) : (
-          <Copy className="cpk:size-[18px]" />
+          <Copy className="cpk-assistant-message-toolbar-icon" />
         )}
       </ToolbarButton>
     );
@@ -861,7 +858,7 @@ export namespace CopilotChatAssistantMessage {
         {...props}
       >
         <ThumbsUp
-          className="cpk:size-[18px]"
+          className="cpk-assistant-message-toolbar-icon"
           fill={props["aria-pressed"] === true ? "currentColor" : "none"}
         />
       </ToolbarButton>
@@ -880,7 +877,7 @@ export namespace CopilotChatAssistantMessage {
         {...props}
       >
         <ThumbsDown
-          className="cpk:size-[18px]"
+          className="cpk-assistant-message-toolbar-icon"
           fill={props["aria-pressed"] === true ? "currentColor" : "none"}
         />
       </ToolbarButton>
@@ -925,10 +922,7 @@ export namespace CopilotChatAssistantMessage {
     return (
       <form
         data-testid="copilot-feedback-comment"
-        className={twMerge(
-          "cpk:flex cpk:w-80 cpk:max-w-[calc(100vw-1rem)] cpk:items-center cpk:gap-1 cpk:rounded-full cpk:border cpk:border-border cpk:bg-background cpk:py-0.5 cpk:pl-3 cpk:pr-0.5 cpk:text-sm cpk:shadow-md",
-          className,
-        )}
+        className={cn("cpk-assistant-message-feedback-comment", className)}
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit();
@@ -951,7 +945,7 @@ export namespace CopilotChatAssistantMessage {
           onChange={(event) => onChange(event.target.value)}
           placeholder={labels.assistantMessageFeedbackCommentPlaceholder}
           aria-label={labels.assistantMessageFeedbackCommentPlaceholder}
-          className="cpk:min-w-0 cpk:flex-1 cpk:bg-transparent cpk:py-1 cpk:text-foreground cpk:outline-none cpk:placeholder:text-muted-foreground"
+          className="cpk-assistant-message-feedback-comment-input"
         />
         {changed && (
           <Button
@@ -960,7 +954,7 @@ export namespace CopilotChatAssistantMessage {
             aria-label={labels.assistantMessageFeedbackCommentSubmitLabel}
             title={labels.assistantMessageFeedbackCommentSubmitLabel}
           >
-            <ArrowUp className="cpk:size-[16px]" />
+            <ArrowUp className="cpk-assistant-message-feedback-comment-submit-icon" />
           </Button>
         )}
       </form>
@@ -978,7 +972,7 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarReadAloudLabel}
         {...props}
       >
-        <Volume2 className="cpk:size-[20px]" />
+        <Volume2 className="cpk-assistant-message-read-aloud-icon" />
       </ToolbarButton>
     );
   };
@@ -994,7 +988,7 @@ export namespace CopilotChatAssistantMessage {
         title={title || labels.assistantMessageToolbarRegenerateLabel}
         {...props}
       >
-        <RefreshCw className="cpk:size-[18px]" />
+        <RefreshCw className="cpk-assistant-message-toolbar-icon" />
       </ToolbarButton>
     );
   };

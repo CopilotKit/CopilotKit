@@ -121,11 +121,10 @@ function Suggestions() {
 
 ## Components
 
-`CopilotChat`, `CopilotPopup`, and `CopilotSidebar` moved from `@copilotkit/react-ui` to `@copilotkit/react-core`, and their props changed. Check each prop against the component's docs page. The stylesheet is `@copilotkit/react-core/styles.css`.
+`CopilotChat`, `CopilotPopup`, and `CopilotSidebar` moved from `@copilotkit/react-ui` to `@copilotkit/react-core`, and their props changed. Check each prop against the component's docs page. The components add their own styles. Delete every CopilotKit stylesheet import, in JavaScript and in CSS.
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-core";
-import "@copilotkit/react-core/styles.css";
 
 function App() {
   return <CopilotChat agentId="my-agent" />;
