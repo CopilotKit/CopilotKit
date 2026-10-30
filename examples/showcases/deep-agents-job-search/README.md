@@ -82,7 +82,7 @@ Create the `agent/.env` and set your keys:
 ```dotenv
 OPENAI_API_KEY=sk-proj-...
 TAVILY_API_KEY=tvly-dev-...
-OPENAI_MODEL=gpt-4-turbo
+OPENAI_MODEL=gpt-5.6-sol
 ```
 
 ## Setup & Installation
