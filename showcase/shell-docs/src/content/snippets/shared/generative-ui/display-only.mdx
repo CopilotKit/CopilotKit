@@ -71,6 +71,26 @@ useComponent({
 });
 ```
 
+## Handle streaming arguments
+
+CopilotKit renders your component while the agent is still streaming the tool call. Until the call completes, the props are partial: any field, nested ones included, can be missing. Your component also gets a `toolCallStatus` prop (`"inProgress"`, `"executing"` or `"complete"`). Check it before you read nested fields:
+
+```tsx
+import type { ComponentToolCallProps } from "@copilotkit/react-core/v2";
+
+function OrderCard({
+  order,
+  toolCallStatus,
+}: Partial<{ order: { customer: { name: string } } }> & ComponentToolCallProps) {
+  if (toolCallStatus !== "complete") {
+    return <div className="rounded border p-3">Loading order…</div>;
+  }
+  return <div className="rounded border p-3">{order?.customer.name}</div>;
+}
+```
+
+If the component throws, CopilotKit renders nothing in its place instead of crashing the app, and tries again when more arguments arrive.
+
 ## Scoping to an agent
 
 In multi-agent setups, scope a component to a specific agent:

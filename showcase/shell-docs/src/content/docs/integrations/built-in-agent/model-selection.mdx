@@ -157,6 +157,40 @@ npm install @ai-sdk/openai@ai-v6
   `npm install @ai-sdk/azure@ai-v6`.
 </Callout>
 
+### AI SDK 7 models: use factory mode
+
+The `model` option accepts only AI SDK 6 models. An AI SDK 7 provider
+(`@ai-sdk/*` 4.x) builds a model with `specificationVersion: "v4"`, and AI SDK 6
+cannot run it. The Built-in Agent refuses such a model when you create the agent,
+with an error that names the model and its version.
+
+If your app already uses `ai@7`, keep your own model and call `streamText` from
+your own `ai` package in factory mode. The Built-in Agent reads the `fullStream`
+of the result, including the token usage of the run:
+
+```typescript
+import {
+  BuiltInAgent,
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/v2";
+import { streamText } from "ai"; // your ai@7
+import { myModel } from "./my-model"; // your AI SDK 7 model
+
+const agent = new BuiltInAgent({
+  type: "aisdk", // [!code highlight]
+  factory: ({ input, abortSignal }) => // [!code highlight]
+    streamText({
+      model: myModel,
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      abortSignal,
+    }),
+});
+```
+
+In factory mode you own the `streamText` call, so you also pass the tools, the
+system prompt, and the other options yourself. See
+[Custom Agent](/backend/custom-agent).
+
 ```typescript
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]

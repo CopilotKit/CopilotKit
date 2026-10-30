@@ -55,7 +55,7 @@ function getBuiltInAgentModel(agent: BuiltInAgent): unknown {
 describe("CopilotRuntime#handleServiceAdapter (#3217)", () => {
   it("uses the adapter's pre-configured LanguageModel when getLanguageModel() returns one", async () => {
     const fakeLanguageModel = {
-      specificationVersion: "v1",
+      specificationVersion: "v3",
     } as unknown as LanguageModel;
     const runtime = new CopilotRuntime();
 

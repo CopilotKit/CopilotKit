@@ -79,6 +79,7 @@ describe("Property Overrides - Edge Cases", () => {
       );
 
       const customModel = {
+        specificationVersion: "v3",
         modelId: "custom-model",
         provider: "custom",
       };

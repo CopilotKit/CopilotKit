@@ -281,6 +281,8 @@ Use this prompt to set up CopilotKit in your React Native app, configure Metro a
         npx tsx server.ts
         ```
 
+        `tsx` does not load a `.env` file by itself. To keep the key in a `.env` file next to `server.ts`, start the server with `npx tsx --env-file=.env server.ts` instead.
+
         Run the React Native app in another terminal:
 
         <Tabs groupId="platform" items={['iOS', 'Android']}>
@@ -381,6 +383,8 @@ With package exports enabled, a release bundle can fail with `Unable to resolve 
 
 The fix is to resolve **`jose` specifically** against its `browser` condition, using `resolveRequest`:
 
+<Tabs groupId="rn-project" items={["React Native CLI", "Expo"]}>
+<Tab value="React Native CLI">
 ```js title="metro.config.js"
 const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
 
@@ -403,8 +407,32 @@ const config = {
 
 module.exports = mergeConfig(getDefaultConfig(__dirname), config);
 ```
+</Tab>
+<Tab value="Expo">
+```js title="metro.config.js"
+const { getDefaultConfig } = require("expo/metro-config");
 
-On Expo, swap in `getDefaultConfig` from `expo/metro-config`; the `resolver` block is identical.
+const config = getDefaultConfig(__dirname);
+
+config.resolver.resolveRequest = (context, moduleImport, platform) => {
+  // jose reaches the bundle via @copilotkit/shared -> @segment/analytics-node.
+  // Its Node build imports node:* modules that Hermes can't bundle.
+  if (moduleImport === "jose" || moduleImport.startsWith("jose/")) {
+    return context.resolveRequest(
+      { ...context, unstable_conditionNames: ["browser"] }, // [!code highlight]
+      moduleImport,
+      platform,
+    );
+  }
+  return context.resolveRequest(context, moduleImport, platform);
+};
+
+module.exports = config;
+```
+</Tab>
+</Tabs>
+
+On Expo, import only `getDefaultConfig` from `expo/metro-config`. That module does not export `mergeConfig`, so `mergeConfig(getDefaultConfig(__dirname), config)` fails there. Change the default config in place and export it, as the Expo tab shows. The `resolveRequest` function is the same in both tabs.
 
 <Callout type="warn" title="Don't assert `browser` globally">
   It's tempting to set `resolver.unstable_conditionNames = ["browser", ...]` instead. Avoid it:
