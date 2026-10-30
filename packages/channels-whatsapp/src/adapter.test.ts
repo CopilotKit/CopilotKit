@@ -16,6 +16,18 @@ describe("whatsapp() adapter", () => {
     expect(post).toHaveBeenCalledWith(target, []);
   });
 
+  it.each([
+    ["number", "222"],
+    ["actor", { id: "222", kind: "human" as const }],
+  ])("declines to reach another %s", async (_label, user) => {
+    const a = whatsapp(opts);
+    const post = vi.spyOn(a, "post");
+    await expect(
+      a.postEphemeral({ to: "111", phoneNumberId: "PNID" }, user, []),
+    ).resolves.toBeNull();
+    expect(post).not.toHaveBeenCalled();
+  });
+
   const opts = {
     accessToken: "TOK",
     phoneNumberId: "PNID",

@@ -1227,7 +1227,47 @@ export function createChannel<
       }
     }
 
-    return {
+    /**
+     * Drop a duplicate delivery of `event` within the TTL window. The id is
+     * recorded before `handle` runs, so a redelivery of an in-flight event
+     * does not run twice; a `handle` that throws gives the id back, so a later
+     * redelivery can retry it.
+     */
+    async function oncePerEvent(
+      event: { eventId?: string; platform?: string },
+      handle: () => void | Promise<void>,
+    ): Promise<void> {
+      if (!event.eventId || adapter.skipIngressDedup) return handle();
+      const platform = ingressPlatform(adapter, event);
+      const dupKey = `evt:${platform}:${event.eventId}`;
+      let recorded = false;
+      try {
+        if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
+        recorded = true;
+      } catch (err) {
+        console.warn(
+          `[channel] dedup check failed for ${platform}; processing without dedup`,
+          err,
+        );
+      }
+      try {
+        await handle();
+      } catch (err) {
+        if (recorded) {
+          try {
+            await store.dedup.forget?.(dupKey);
+          } catch (forgetErr) {
+            console.warn(
+              `[channel] could not release ${platform} event ${event.eventId} after a failure`,
+              forgetErr,
+            );
+          }
+        }
+        throw err;
+      }
+    }
+
+    const sink: IngressSink = {
       async onTurn(turn: IncomingTurn) {
         const mode = resolveChannelConcurrency(cfg);
         if (mode === "parallel") {
@@ -1245,19 +1285,6 @@ export function createChannel<
       },
       async onInteraction(evt: InteractionEvent) {
         const platform = ingressPlatform(adapter, evt);
-        // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
-        if (evt.eventId && !adapter.skipIngressDedup) {
-          const dupKey = `evt:${platform}:${evt.eventId}`;
-          try {
-            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
-          } catch (err) {
-            console.warn(
-              `[channel] dedup check failed for ${platform}; processing without dedup`,
-              err,
-            );
-          }
-        }
-
         const identityContext = identityContextFromIngress(
           platform,
           evt,
@@ -1458,19 +1485,6 @@ export function createChannel<
       },
       async onCommand(cmd: IncomingCommand) {
         const platform = ingressPlatform(adapter, cmd);
-        // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
-        if (cmd.eventId && !adapter.skipIngressDedup) {
-          const dupKey = `evt:${platform}:${cmd.eventId}`;
-          try {
-            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
-          } catch (err) {
-            console.warn(
-              `[channel] dedup check failed for ${platform}; processing without dedup`,
-              err,
-            );
-          }
-        }
-
         const command = commandHandlers.get(normalizeCommandName(cmd.command));
         if (!command) return; // unregistered command → skip
         const identityContext = identityContextFromIngress(
@@ -1519,17 +1533,6 @@ export function createChannel<
       },
       async onWelcome(evt: IncomingWelcome) {
         const platform = ingressPlatform(adapter, evt);
-        if (evt.eventId && !adapter.skipIngressDedup) {
-          const dupKey = `evt:${platform}:${evt.eventId}`;
-          try {
-            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
-          } catch (err) {
-            console.warn(
-              `[channel] dedup check failed for ${platform}; processing welcome without dedup`,
-              err,
-            );
-          }
-        }
         const identityContext = identityContextFromIngress(
           platform,
           evt,
@@ -1705,6 +1708,13 @@ export function createChannel<
           raw: evt.raw,
         });
       },
+    };
+
+    return {
+      ...sink,
+      onInteraction: (evt) => oncePerEvent(evt, () => sink.onInteraction(evt)),
+      onCommand: (cmd) => oncePerEvent(cmd, () => sink.onCommand(cmd)),
+      onWelcome: (evt) => oncePerEvent(evt, () => sink.onWelcome(evt)),
     };
   }
 

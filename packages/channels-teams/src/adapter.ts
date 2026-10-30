@@ -501,15 +501,18 @@ export class TeamsAdapter implements PlatformAdapter {
   /**
    * A personal chat has one person in it, so an ordinary reply is private.
    * `Action.Submit` clicks arrive as Message activities with no invoke to
-   * answer, so a group chat or channel has no reply limited to the clicker.
+   * answer, so a group chat or channel has no reply limited to the clicker,
+   * and a personal chat reaches only its own participant.
    */
   async postEphemeral(
     target: ReplyTarget,
-    _user: ProviderActor | string,
+    user: ProviderActor | string,
     ir: ChannelNode[],
   ): Promise<EphemeralResult | null> {
     const t = target as TeamsReplyTarget;
     if (t.reference.conversation?.conversationType !== "personal") return null;
+    const userId = typeof user === "string" ? user : user.id;
+    if (t.reference.user?.id !== userId) return null;
     return { ok: true, usedFallback: false, ref: await this.post(t, ir) };
   }
 

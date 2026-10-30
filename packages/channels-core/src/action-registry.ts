@@ -165,9 +165,12 @@ export class ActionRegistry {
   // cannot write the action back (see `rescopeActions`).
   private retired: BoundedCache<string, true>;
 
-  // When each in-process continuation's gate was opened; kept off the
-  // continuation so it never reaches a stored snapshot.
-  private resumeGateOpenedAt = new WeakMap<ActionContinuationContext, number>();
+  // Each in-process continuation's gate: when it was opened, and the write
+  // every bind of that leg waits on, so binds running together share one gate.
+  private resumeGates = new WeakMap<
+    ActionContinuationContext,
+    { openedAt: number; opened: Promise<void> }
+  >();
 
   /** TTL of every stored snapshot and of every in-process cache entry. */
   private readonly retentionMs: number;
@@ -702,8 +705,9 @@ export class ActionRegistry {
    * click will carry (see `PlatformAdapter.postedConversationKey`). A
    * continuation's binding moves with it (to `threadId` too, when given), so
    * `Thread.resume()` from that click matches it. The stored snapshot and the
-   * in-process entry both get a fresh retention window. An action revoked or
-   * consumed while it was being re-scoped stays gone.
+   * in-process entry both get a fresh retention window, up to the deadline of
+   * any gate the action shares. An action revoked or consumed while it was
+   * being re-scoped stays gone.
    */
   async rescopeActions(
     root: readonly ChannelNode[],
@@ -730,7 +734,7 @@ export class ActionRegistry {
               }
             : {}),
         },
-        this.retentionMs,
+        this.renewalTtl(snap),
       );
       // The read and the write above are not atomic: an action revoked or
       // claimed in between must not come back.
@@ -753,7 +757,7 @@ export class ActionRegistry {
         await this.store.put(
           id,
           { ...snap, ownerActorId: actorId },
-          this.retentionMs,
+          this.renewalTtl(snap),
         );
       }
     }
@@ -809,25 +813,54 @@ export class ActionRegistry {
   /**
    * Open the one-shot gate shared by every action a run leg renders, once, on
    * the first of them. `ActionStore.consume` is the only atomic step every
-   * store has, so the gate is an entry to take rather than a marker to set. It
-   * outlives the actions (re-scoping renews their window), so a live action
-   * always finds it. A leg rendering past `retentionMs` gets a new gate rather
-   * than a renewed one: a `put` could bring back a consumed gate.
+   * store has, so the gate is an entry to take rather than a marker to set.
+   * Actions bind within `retentionMs` of the gate opening and renew only up to
+   * `resumeGateDeadline`, which the gate outlives, so a live action always
+   * finds it. A leg rendering past `retentionMs` gets a new gate rather than a
+   * renewed one: a `put` could bring back a consumed gate. A failed write
+   * leaves the continuation untouched: the bind rejects, so nothing is
+   * published, and the next bind opens the gate again.
    */
-  private async ensureResumeGate(
+  private ensureResumeGate(
     continuation: ActionContinuationContext,
   ): Promise<void> {
-    const openedAt = this.resumeGateOpenedAt.get(continuation);
-    if (openedAt !== undefined && Date.now() - openedAt < this.retentionMs) {
-      return;
+    const current = this.resumeGates.get(continuation);
+    if (current && Date.now() - current.openedAt < this.retentionMs) {
+      return current.opened;
     }
-    this.resumeGateOpenedAt.set(continuation, Date.now());
-    continuation.resumeGateId = mintActionId();
-    await this.store.put(
-      resumeGateKey(continuation.resumeGateId),
-      { path: [], conversationKey: "" },
-      this.retentionMs * 2,
-    );
+    const openedAt = Date.now();
+    const id = mintActionId();
+    const opened = this.store
+      .put(
+        resumeGateKey(id),
+        { path: [], conversationKey: "" },
+        this.resumeGateTtl(),
+      )
+      .then(() => {
+        continuation.resumeGateId = id;
+        continuation.resumeGateDeadline = openedAt + this.retentionMs * 2;
+      });
+    const gate = { openedAt, opened };
+    this.resumeGates.set(continuation, gate);
+    opened.catch(() => {
+      if (this.resumeGates.get(continuation) === gate) {
+        this.resumeGates.delete(continuation);
+      }
+    });
+    return opened;
+  }
+
+  /** A full `retentionMs` past `resumeGateDeadline`, whatever the store's latency. */
+  private resumeGateTtl(): number {
+    return this.retentionMs * 3;
+  }
+
+  /** The window for renewing `snap`: never past its gate's deadline. */
+  private renewalTtl(snap: ActionSnapshot): number {
+    const deadline = snap.continuation?.resumeGateDeadline;
+    if (deadline === undefined) return this.retentionMs;
+    // A zero TTL would mean no expiry at all.
+    return Math.max(1, Math.min(this.retentionMs, deadline - Date.now()));
   }
 
   /** Why an id with no snapshot is gone: spent by a resume, or expired. */
@@ -846,14 +879,38 @@ export class ActionRegistry {
     id: string,
     expected: ActionContinuationBinding,
   ): Promise<ActionContinuationSnapshot> {
-    const { resumeGateId } = await this.getContinuation(id, expected);
+    const available = await this.getContinuation(id, expected);
+    const { resumeGateId } = available;
 
-    // The action goes first: if this fails nothing is spent and the click can
-    // retry, while a failed gate step below costs only this one action.
-    const claimed = await this.store.consume(id);
+    // The gate goes first and alone decides the claim: if taking it fails,
+    // nothing is spent and any control can retry, and once it is taken no
+    // other click can start a run, so a failure removing the action is logged
+    // rather than costing the run it just won.
+    const gateKey = resumeGateId ? resumeGateKey(resumeGateId) : undefined;
+    const gate = gateKey ? await this.store.consume(gateKey) : undefined;
+    if (gateKey && !gate) throw new ActionAlreadyClaimedError();
+    const claimed = await this.store.consume(id).catch((err: unknown) => {
+      if (!gate) throw err;
+      console.warn("[channel] could not remove a resumed action", err);
+      const fallback: ActionSnapshot = {
+        path: [],
+        conversationKey: available.conversationKey,
+        continuation: available,
+      };
+      return fallback;
+    });
     if (!claimed?.continuation) {
-      if (resumeGateId) throw new ActionAlreadyClaimedError();
-      throw new ActionExpiredError(id);
+      // The action went while this click held the gate, and no run has
+      // started: only this holder can put the gate back, so the leg's other
+      // controls stay usable.
+      if (gateKey && gate) {
+        await this.store
+          .put(gateKey, gate, this.resumeGateTtl())
+          .catch((err: unknown) => {
+            console.warn("[channel] could not restore a resume gate", err);
+          });
+      }
+      throw await this.goneError(id);
     }
     this.retired.set(id, true);
     assertContinuationBinding(claimed.continuation, id, expected);
@@ -872,12 +929,6 @@ export class ActionRegistry {
       .catch((err: unknown) => {
         console.warn("[channel] could not record a resumed action", err);
       });
-    if (
-      resumeGateId &&
-      !(await this.store.consume(resumeGateKey(resumeGateId)))
-    ) {
-      throw new ActionAlreadyClaimedError();
-    }
     return claimed.continuation;
   }
 }

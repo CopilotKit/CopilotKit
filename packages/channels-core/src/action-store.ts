@@ -19,6 +19,11 @@ export interface ActionContinuationContext {
    * snapshots stored before this field existed; those are limited per action.
    */
   resumeGateId?: string;
+  /**
+   * Epoch ms past which no action sharing the gate may live: renewing an
+   * action stops here, and the gate outlives this moment.
+   */
+  resumeGateDeadline?: number;
 }
 
 /** Server-derived delivery facts used to validate a presented continuation. */

@@ -128,12 +128,16 @@ export class WhatsAppAdapter implements PlatformAdapter {
     return last;
   }
 
-  /** Every conversation here is one-to-one, so a reply is already private. */
+  /**
+   * Every conversation here is one-to-one, so a reply is already private, and
+   * it reaches only the other party.
+   */
   async postEphemeral(
     target: ReplyTarget,
-    _user: ProviderActor | string,
+    user: ProviderActor | string,
     ir: ChannelNode[],
-  ): Promise<EphemeralResult> {
+  ): Promise<EphemeralResult | null> {
+    if ((typeof user === "string" ? user : user.id) !== target.to) return null;
     return { ok: true, usedFallback: false, ref: await this.post(target, ir) };
   }
 

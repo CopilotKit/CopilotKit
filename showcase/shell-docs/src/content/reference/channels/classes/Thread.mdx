@@ -115,9 +115,11 @@ progress. Cards posted before this limit existed are one-use per control.
 
 `assertCanResume(options?)` takes the same options and throws what `resume`
 would throw, consuming nothing. Call it before updating a card, then call
-`resume`. Let either error propagate: the SDK refuses the click, and the action
-stays usable by anyone still allowed to use it. The person who clicked is told
-why on Slack, including managed Slack, on WhatsApp, and in a Teams personal
+`resume`. Let either error propagate: the SDK refuses the click. After
+`channel_action_not_initiator` the action stays usable by anyone still allowed
+to use it. After `channel_action_already_claimed` the leg has already been
+resumed, so no control from it can resume it again, for anyone. The person who
+clicked is told why on Slack, including managed Slack, on WhatsApp, and in a Teams personal
 chat; elsewhere the refusal is only logged. See
 [Choose who can approve](/channels/interactive#choose-who-can-approve) and the
 migration notes there.

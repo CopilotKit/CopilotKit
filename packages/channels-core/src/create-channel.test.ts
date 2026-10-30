@@ -1815,6 +1815,45 @@ describe("createChannel lock and dedup edge cases", () => {
     expect(runs).toBe(1);
   });
 
+  describe("a handler that throws gives its eventId back", () => {
+    const base = {
+      eventId: "E1",
+      conversationKey: "c1",
+      replyTarget: {},
+      platform: "fake",
+    };
+
+    it.each([
+      ["command", "onCommand", { ...base, command: "go", text: "" }],
+      ["interaction", "onInteraction", { ...base, id: "go" }],
+      ["welcome", "onWelcome", base],
+    ] as const)("retries a redelivered %s", async (_label, method, event) => {
+      const fake = new FakeAdapter();
+      const channel = createChannel({
+        identifyUser: "platform",
+        adapters: [fake],
+        store: { adapter: new MemoryStore() },
+      });
+      const handler = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("handler failed"))
+        .mockResolvedValue(undefined);
+      channel.onCommand("go", handler);
+      channel.onInteraction("go", handler);
+      channel.onWelcome(handler);
+      await channel.ɵruntime.start();
+      const sink = fake.getSink();
+      const deliver = () =>
+        (sink[method] as (evt: typeof event) => Promise<void>)(event);
+
+      await expect(deliver()).rejects.toThrow("handler failed");
+      await deliver();
+      await deliver();
+
+      expect(handler).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("a turn dropped on lock-conflict does not burn its eventId — a redelivery is processed", async () => {
     const state = new MemoryStore();
     let runs = 0;
