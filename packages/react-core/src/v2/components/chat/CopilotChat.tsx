@@ -1,5 +1,6 @@
 import { useAgent } from "../../hooks/use-agent";
 import { useAttachments } from "../../hooks/use-attachments";
+import { attachmentAcceptFromCapabilities } from "../../lib/attachment-capabilities";
 import { useSuggestions } from "../../hooks/use-suggestions";
 import type { CopilotChatViewProps } from "./CopilotChatView";
 import { CopilotChatView } from "./CopilotChatView";
@@ -15,11 +16,16 @@ import {
   randomUUID,
   TranscriptionErrorCode,
 } from "@copilotkit/shared";
-import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
+import type {
+  AttachmentUploadError,
+  AttachmentsConfig,
+  InputContent,
+} from "@copilotkit/shared";
 import type { Suggestion } from "@copilotkit/core";
 import {
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
+  ProxiedCopilotRuntimeAgent,
   isRunCompletionAware,
   ɵcreateThreadStore,
   ɵisHttpAgent,
@@ -83,7 +89,12 @@ export type CopilotChatProps = Omit<
   /** Accepts a className, partial props, or any component with CopilotChatView props — static namespace members are not required. */
   chatView?: SlotValue<React.ComponentType<CopilotChatViewProps>>;
   isModalDefaultOpen?: boolean;
-  /** Enable multimodal file attachments (images, audio, video, documents). */
+  /**
+   * Enable multimodal file attachments. When `accept` is omitted, a runtime
+   * agent's complete multimodal input capability profile supplies the default
+   * filter. Missing/partial profiles preserve unrestricted acceptance.
+   * Upload failures are shown in the chat and forwarded to `onUploadFailed`.
+   */
   attachments?: AttachmentsConfig;
   /**
    * Error handler scoped to this chat's agent. Fires in addition to the
@@ -247,6 +258,35 @@ export function CopilotChat({
   const [isTranscribing, setIsTranscribing] = useState(false);
 
   // Attachments
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const capabilityAccept = attachmentAcceptFromCapabilities(
+    agent instanceof ProxiedCopilotRuntimeAgent
+      ? agent.capabilities
+      : undefined,
+  );
+  const attachmentAccept = attachmentsConfig?.accept ?? capabilityAccept;
+  const onUploadFailed = attachmentsConfig?.onUploadFailed;
+  const onAttachmentUploadFailed = useCallback(
+    (error: AttachmentUploadError) => {
+      setAttachmentError(error.message);
+      onUploadFailed?.(error);
+    },
+    [onUploadFailed],
+  );
+  useEffect(() => {
+    setAttachmentError(null);
+  }, [resolvedAgentId, resolvedThreadId]);
+  const resolvedAttachmentsConfig = attachmentsConfig && {
+    ...attachmentsConfig,
+    // An explicitly empty capability profile disables uploads. Missing or
+    // partial profiles preserve the application's existing behavior.
+    enabled:
+      attachmentsConfig.enabled &&
+      isReady &&
+      (attachmentsConfig.accept !== undefined || capabilityAccept !== ""),
+    accept: attachmentAccept,
+    onUploadFailed: onAttachmentUploadFailed,
+  };
   const {
     attachments: selectedAttachments,
     enabled: attachmentsEnabled,
@@ -259,7 +299,7 @@ export function CopilotChat({
     handleDrop,
     removeAttachment,
     consumeAttachments,
-  } = useAttachments({ config: attachmentsConfig });
+  } = useAttachments({ config: resolvedAttachmentsConfig });
 
   // onSubmitInput awaits an in-flight run before sending the new message, so
   // it must re-check the "uploading" guard against FRESH state AFTER the await
@@ -1386,11 +1426,26 @@ export function CopilotChat({
             multiple
             ref={fileInputRef}
             onChange={handleFileUpload}
-            accept={attachmentsConfig?.accept ?? "*/*"}
+            accept={attachmentAccept ?? "*/*"}
             style={{ display: "none" }}
           />
         )}
         {!isChatLicensed && <InlineFeatureWarning featureName="Chat" />}
+        {attachmentsEnabled && attachmentError && (
+          <div
+            role="alert"
+            className="cpk:fixed cpk:bottom-4 cpk:left-1/2 cpk:z-50 cpk:w-max cpk:max-w-[calc(100%-2rem)] cpk:-translate-x-1/2 cpk:rounded-md cpk:border cpk:border-red-300 cpk:bg-red-50 cpk:p-3 cpk:text-sm cpk:text-red-900"
+          >
+            {attachmentError}
+            <button
+              type="button"
+              onClick={() => setAttachmentError(null)}
+              className="cpk:ml-3 cpk:underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         {transcriptionError && (
           <div
             style={{

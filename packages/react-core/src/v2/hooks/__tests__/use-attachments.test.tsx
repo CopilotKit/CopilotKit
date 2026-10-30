@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from "react";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { randomUUID } from "@copilotkit/shared";
 import { useAttachments } from "../use-attachments";
@@ -430,4 +430,109 @@ describe("useAttachments", () => {
       expect(result.current.attachments).toEqual([]);
     });
   });
+});
+
+describe("attachment validation across input paths", () => {
+  beforeEach(() => {
+    let nextId = 0;
+    vi.mocked(randomUUID).mockImplementation(() => `validation-${nextId++}`);
+  });
+  afterEach(() => {
+    vi.mocked(randomUUID).mockReturnValue("mock-thread-id");
+  });
+  it.each(["picker", "drop", "paste"])(
+    "rejects unsupported %s files and preserves accepted bytes",
+    async (path) => {
+      const onUploadFailed = vi.fn();
+      const { result, unmount } = renderHook(() =>
+        useAttachments({
+          config: {
+            enabled: true,
+            accept: "image/*,application/pdf",
+            onUploadFailed,
+          },
+        }),
+      );
+      const target = document.createElement("div");
+      document.body.appendChild(target);
+      result.current.containerRef.current = target;
+      const files = [
+        new File(["png-bytes"], "photo.png", { type: "image/png" }),
+        new File(["pdf-bytes"], "document.pdf", { type: "application/pdf" }),
+        new File(["text"], "notes.txt", { type: "text/plain" }),
+        new File(["wav"], "audio.wav", { type: "audio/wav" }),
+        new File(["mp4"], "video.mp4", { type: "video/mp4" }),
+      ];
+      try {
+        await act(async () => {
+          if (path === "picker") {
+            await result.current.handleFileUpload({
+              target: { files, value: "" },
+            } as unknown as React.ChangeEvent<HTMLInputElement>);
+          } else if (path === "drop") {
+            await result.current.handleDrop({
+              preventDefault() {},
+              stopPropagation() {},
+              dataTransfer: { files },
+            } as unknown as React.DragEvent);
+          } else {
+            const event = new Event("paste", {
+              bubbles: true,
+              cancelable: true,
+            });
+            Object.defineProperty(event, "clipboardData", {
+              value: {
+                items: files.map((file) => ({
+                  kind: "file",
+                  getAsFile: () => file,
+                })),
+              },
+            });
+            target.dispatchEvent(event);
+          }
+        });
+        await waitFor(() =>
+          expect(
+            result.current.attachments.every((a) => a.status === "ready"),
+          ).toBe(true),
+        );
+        expect(
+          onUploadFailed.mock.calls.map(([error]) => [
+            error.file.name,
+            error.reason,
+          ]),
+        ).toEqual([
+          ["notes.txt", "invalid-type"],
+          ["audio.wav", "invalid-type"],
+          ["video.mp4", "invalid-type"],
+        ]);
+        expect(
+          result.current.attachments.map((a) => ({
+            filename: a.filename,
+            source: a.source,
+          })),
+        ).toEqual([
+          {
+            filename: "photo.png",
+            source: {
+              type: "data",
+              value: btoa("png-bytes"),
+              mimeType: "image/png",
+            },
+          },
+          {
+            filename: "document.pdf",
+            source: {
+              type: "data",
+              value: btoa("pdf-bytes"),
+              mimeType: "application/pdf",
+            },
+          },
+        ]);
+      } finally {
+        unmount();
+        target.remove();
+      }
+    },
+  );
 });
