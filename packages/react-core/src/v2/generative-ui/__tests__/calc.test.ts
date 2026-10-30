@@ -109,6 +109,16 @@ describe("calc powers, roots, logs and constants", () => {
     expect(evaluateCalc("e * 2", { e: 5 })).toBe(10);
   });
 
+  it("has no ambiguous log, and rejects a wrong number of args", () => {
+    expect(() => evaluateCalc("log(1000)", {})).toThrow(/unknown function log/);
+    expect(() => evaluateCalc("ln(8, 2)", {})).toThrow(/ln takes 1 argument/);
+    expect(() => evaluateCalc("pow(2)", {})).toThrow(/pow takes 2 arguments/);
+    expect(() => evaluateCalc("round(1.234, 2, 3)", {})).toThrow(
+      /round takes 1 or 2 arguments/,
+    );
+    expect(evaluateCalc("max(1, 5, 3)", {})).toBe(5);
+  });
+
   it("fails clearly instead of returning NaN or Infinity", () => {
     expect(() => evaluateCalc("sqrt(-1)", {})).toThrow(ExpressionError);
     expect(() => evaluateCalc("ln(0)", {})).toThrow(/no finite result/);

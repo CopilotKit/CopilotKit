@@ -133,8 +133,20 @@ const MATH: Record<string, (args: number[]) => number> = {
   sqrt: ([x]) => Math.sqrt(x),
   exp: ([x]) => Math.exp(x),
   ln: ([x]) => Math.log(x),
-  log: ([x]) => Math.log(x),
   log10: ([x]) => Math.log10(x),
+};
+
+/** How many args a function takes, at least and at most; min and max take any. */
+const ARITY: Record<string, [number, number]> = {
+  abs: [1, 1],
+  floor: [1, 1],
+  ceil: [1, 1],
+  round: [1, 2],
+  pow: [2, 2],
+  sqrt: [1, 1],
+  exp: [1, 1],
+  ln: [1, 1],
+  log10: [1, 1],
 };
 
 /** Named constants, when no arg of the same name is passed. */
@@ -392,6 +404,12 @@ class CalcParser {
         : undefined;
       if (!fn) this.fail(`unknown function ${name}`);
       if (args.length === 0) this.fail(`${name} needs an argument`);
+      const [least, most] = ARITY[name] ?? [1, Infinity];
+      if (args.length < least || args.length > most) {
+        this.fail(
+          `${name} takes ${least === most ? least : `${least} or ${most}`} argument${most === 1 ? "" : "s"}`,
+        );
+      }
       return this.finite(fn(args), name);
     }
     if (this.skipDepth > 0) return null;
