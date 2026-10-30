@@ -15,7 +15,7 @@
  */
 
 import React from "react";
-import { createReactComponent } from "../../../adapter";
+import { createReactComponent } from "../../../../a2ui-react/adapter";
 import { z } from "zod";
 import { CommonSchemas } from "@a2ui/web_core/v0_9";
 

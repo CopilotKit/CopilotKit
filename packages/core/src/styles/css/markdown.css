@@ -303,8 +303,8 @@
 
 /*
  * Parts the built-in renderers emit. Not scoped to .cpk-markdown: reasoning
- * and BasicMarkdownRenderer use them without it. The code font is what
- * Tailwind's preflight gave `pre`/`code`.
+ * messages use them without it. The code font is what Tailwind's preflight
+ * gave `pre`/`code`.
  */
 :where(.cpk-markdown-code-block) {
   overflow-x: auto;

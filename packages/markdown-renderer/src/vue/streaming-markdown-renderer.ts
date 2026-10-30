@@ -13,7 +13,7 @@ import type {
 } from "@copilotkit/markdown-renderer";
 
 // ---------------------------------------------------------------------------
-// URL sanitization (mirrors BasicMarkdown.vue allowlists)
+// URL sanitization (allowlisted href and image src schemes)
 // ---------------------------------------------------------------------------
 
 const SAFE_HREF = /^(https?:|mailto:|tel:|#|\/|\.\/|\.\.\/)/i;

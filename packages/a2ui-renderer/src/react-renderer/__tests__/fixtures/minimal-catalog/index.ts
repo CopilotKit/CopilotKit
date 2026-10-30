@@ -20,7 +20,7 @@ import { Button } from "./components/Button";
 import { Row } from "./components/Row";
 import { Column } from "./components/Column";
 import { TextField } from "./components/TextField";
-import type { ReactComponentImplementation } from "../../adapter";
+import type { ReactComponentImplementation } from "../../../a2ui-react/adapter";
 import { z } from "zod";
 
 const minimalComponents: ReactComponentImplementation[] = [

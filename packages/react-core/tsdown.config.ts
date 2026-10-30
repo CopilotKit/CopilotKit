@@ -109,7 +109,6 @@ export default defineConfig([
       // already been declared") and risks double custom-element registration.
       // (The self-contained UMD builds below intentionally keep it inlined.)
       /^@copilotkit\/web-components(\/.*)?$/,
-      "rxjs",
       /\.css$/,
     ],
     exports: {
@@ -163,7 +162,6 @@ export default defineConfig([
       "@copilotkit/react-core/context",
       "uuid",
       "zod",
-      "rxjs",
     ],
   },
   // UMD builds. Each externalized @copilotkit/* dep must be loaded as a global
@@ -210,7 +208,6 @@ export default defineConfig([
         zod: "Zod",
         "tailwind-merge": "tailwindMerge",
         "lucide-react": "lucideReact",
-        "@radix-ui/react-slot": "RadixReactSlot",
         "class-variance-authority": "classVarianceAuthority",
         clsx: "clsx",
         "@radix-ui/react-tooltip": "RadixReactTooltip",

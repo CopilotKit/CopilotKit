@@ -2626,9 +2626,6 @@ importers:
       '@tanstack/pacer':
         specifier: ^0.20.1
         version: 0.20.1
-      marked:
-        specifier: ^16.2.0
-        version: 16.4.2
       phoenix:
         specifier: ^1.8.4
         version: 1.8.4
@@ -2941,9 +2938,6 @@ importers:
       '@radix-ui/react-popover':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-slot':
-        specifier: ^1.2.3
-        version: 1.2.4(@types/react@19.1.8)(react@19.2.3)
       '@radix-ui/react-tooltip':
         specifier: ^1.2.7
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
