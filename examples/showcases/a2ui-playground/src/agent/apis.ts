@@ -55,6 +55,7 @@ export async function geocode(
           >(
             `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=jsonv2&limit=1&addressdetails=1&accept-language=en`,
             5000,
+            signal,
           ),
         signal,
       );
@@ -84,6 +85,8 @@ export async function geocode(
     }>;
   }>(
     `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`,
+    8000,
+    signal,
   );
   const r = j.results?.[0];
   if (!r) throw new Error(`Could not find a place called "${query}"`);
@@ -173,6 +176,8 @@ export async function getWeather(
       `&hourly=temperature_2m,precipitation_probability,weather_code` +
       `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
       `&timezone=auto&forecast_days=7`,
+    8000,
+    signal,
   );
   const now = j.current.time as string;
   const startIdx = Math.max(
@@ -302,6 +307,7 @@ async function nominatim(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=jsonv2&addressdetails=1&extratags=1&accept-language=en&limit=${limit + 4}` +
           `&viewbox=${box.w},${box.n},${box.e},${box.s}&bounded=1`,
         4500,
+        signal,
       ),
     signal,
   );
@@ -445,6 +451,7 @@ export async function getRoute(
   const j = await getJson<any>(
     `https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=simplified&geometries=geojson`,
     9000,
+    signal,
   );
   const r = j.routes?.[0];
   if (!r) throw new Error(`No route between ${a.name} and ${b.name}`);
@@ -474,6 +481,7 @@ export async function getFx(
   base: string,
   symbols: string[],
   days = 30,
+  signal?: AbortSignal,
 ): Promise<Fx> {
   const B = base.toUpperCase();
   const S = symbols
@@ -487,6 +495,7 @@ export async function getFx(
     const j = await getJson<any>(
       `https://api.frankfurter.dev/v1/${iso(start)}..${iso(end)}?base=${B}&symbols=${S.join(",")}`,
       3500,
+      signal,
     );
     const dates = Object.keys(j.rates).sort();
     const last = dates[dates.length - 1];
@@ -500,9 +509,11 @@ export async function getFx(
       source: "Frankfurter (European Central Bank)",
     };
   } catch {
+    signal?.throwIfAborted();
     const j = await getJson<any>(
       `https://open.er-api.com/v6/latest/${B}`,
       6000,
+      signal,
     );
     return {
       base: B,

@@ -23,8 +23,8 @@ export function CopyButton({
       onClick={() => {
         // When neither copy path works, no check mark, so the button reads as not copied.
         void copyText(text).then((ok) => {
+          setCopied(ok);
           if (!ok) return;
-          setCopied(true);
           setTimeout(() => setCopied(false), 1400);
         });
       }}

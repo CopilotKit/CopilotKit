@@ -104,9 +104,14 @@ export const FIXED_TOOLS: ToolSpec[] = [
       },
       ["base", "symbols"],
     ),
-    run: async (a) =>
+    run: async (a, signal) =>
       fxSurface(
-        await getFx(String(a.base), (a.symbols as string[]) ?? ["EUR"]),
+        await getFx(
+          String(a.base),
+          (a.symbols as string[]) ?? ["EUR"],
+          undefined,
+          signal,
+        ),
       ),
   },
   {
@@ -310,7 +315,12 @@ export const DATA_TOOLS: ToolSpec[] = [
       },
       ["base", "symbols"],
     ),
-    fetch: async (a) =>
-      getFx(String(a.base), (a.symbols as string[]) ?? ["EUR"]),
+    fetch: async (a, signal) =>
+      getFx(
+        String(a.base),
+        (a.symbols as string[]) ?? ["EUR"],
+        undefined,
+        signal,
+      ),
   },
 ];
