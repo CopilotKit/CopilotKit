@@ -67,6 +67,54 @@ const options = {
   help: { type: "boolean", short: "h" },
 } as const;
 
+type Flag = keyof typeof options;
+
+/** The flags each command reads, besides --json, --config and --help. */
+const COMMAND_FLAGS: Record<string, readonly Flag[]> = {
+  run: [
+    "preset",
+    "models",
+    "judge",
+    "effort",
+    "codex-concurrency",
+    "repair",
+    "cases",
+    "samples",
+    "transports",
+    "split",
+    "budget",
+    "spec",
+    "estimate",
+  ],
+  report: ["base"],
+  failures: ["model", "tier", "case", "limit"],
+  prompt: ["transport", "spec", "export-spec"],
+  // optimize is left out: it is disabled and refuses any call.
+  label: ["n"],
+  calibrate: [],
+};
+
+/**
+ * Throws on a flag the command does not read: the commands share one flag
+ * table, so `run --case x` would otherwise run everything.
+ */
+export function checkFlags(command: string, values: Partial<Values>) {
+  const allowed = COMMAND_FLAGS[command];
+  if (!allowed) return;
+  for (const flag of Object.keys(values) as Flag[]) {
+    if (["json", "config", "help"].includes(flag) || allowed.includes(flag))
+      continue;
+    if (command === "run" && flag === "transport") {
+      throw new Error(
+        "run does not take --transport: it measures markdown only for now; --transports markdown,tool adds the tool transport",
+      );
+    }
+    throw new Error(
+      `${command} does not take --${flag} (it takes ${allowed.map((f) => `--${f}`).join(", ") || "no flags"})`,
+    );
+  }
+}
+
 type Values = ReturnType<
   typeof parseArgs<{ options: typeof options; allowPositionals: true }>
 >["values"];
@@ -308,6 +356,7 @@ export async function main(argv = process.argv.slice(2)) {
     process.stdout.write(`${USAGE}\n`);
     return;
   }
+  checkFlags(command, values);
   const loaded = await loadConfig(values.config);
   const codexConcurrency = num(
     values["codex-concurrency"],

@@ -94,6 +94,21 @@ function casesOf(options: RunOptions) {
   );
 }
 
+/**
+ * The cases with the splits taken in turn (train, held-out, train, …), so a
+ * run stopped by its budget does not lose the held-out cases first.
+ */
+export function interleaveSplits<T extends { split: Split }>(cases: T[]): T[] {
+  const train = cases.filter((c) => c.split === "train");
+  const heldout = cases.filter((c) => c.split === "heldout");
+  const out: T[] = [];
+  for (let i = 0; i < Math.max(train.length, heldout.length); i++) {
+    if (i < train.length) out.push(train[i]);
+    if (i < heldout.length) out.push(heldout[i]);
+  }
+  return out;
+}
+
 /** Runs `tasks` with at most `limit` at a time. */
 async function pool<T>(
   items: T[],
@@ -219,7 +234,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
   writeRun(run, root);
 
   const tasks: Task[] = [];
-  for (const { case: c, split } of cases) {
+  for (const { case: c, split } of interleaveSplits(cases)) {
     for (const entry of plan.models) {
       for (const transport of plan.transports) {
         for (let sample = 0; sample < plan.samples; sample++) {
@@ -281,7 +296,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
       reserved += estimate;
       inFlight++;
       try {
-        const sample = await runTask(task, {
+        const { sample, stop } = await runTask(task, {
           config,
           plan,
           spec,
@@ -289,12 +304,9 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
           judgeModel,
           checker,
         });
-        // A provider out of credit or not signed in says nothing about the
-        // model: stop the run and keep the sample out, instead of scoring it
-        // as a failure.
-        const stop = sample.tiers.validity.reasons
-          .map(providerStop)
-          .find(Boolean);
+        // A provider (the model's or the judge's) out of credit or not signed
+        // in says nothing about the model: stop the run and keep the sample
+        // out, instead of scoring it as a failure.
         if (stop) {
           run.stopped = stop;
           return;
@@ -320,7 +332,7 @@ export async function runEval(options: RunOptions): Promise<RunRecord> {
   return run;
 }
 
-/** Runs, checks, scores and judges one sample. */
+/** Runs, checks, scores and judges one sample, and says whether its provider stops the run. */
 async function runTask(
   task: Task,
   ctx: {
@@ -331,7 +343,10 @@ async function runTask(
     judgeModel: ReturnType<typeof createLanguageModel>;
     checker: RenderChecker;
   },
-): Promise<SampleRecord> {
+): Promise<{
+  sample: SampleRecord;
+  stop?: ReturnType<typeof providerStop>;
+}> {
   const meta: CallMeta = {};
   const model = createLanguageModel(task.entry, (m) => Object.assign(meta, m));
   const out = await runSample({
@@ -362,7 +377,18 @@ async function runTask(
   if (judgeScore !== null && judgeScore < JUDGE_PASS) {
     judgementReasons.push(`judge: ${verdict.judgement.reason}`);
   }
-  return {
+  const stop = [
+    ...code.validity.reasons,
+    ...(verdict.error ? [`run error: judge: ${verdict.error}`] : []),
+  ]
+    .map(providerStop)
+    .find(Boolean);
+  // A reply cut at the token cap says how long the model ran, not whether it
+  // writes valid A2UI: validity is ungraded, like a failed judge.
+  const validityReasons = out.cut
+    ? ["cut at the output token cap", ...code.validity.reasons]
+    : code.validity.reasons;
+  const sample: SampleRecord = {
     case: task.case.id,
     split: task.split,
     tags: task.case.tags,
@@ -373,20 +399,21 @@ async function runTask(
     ...(out.repairedLines?.length
       ? { repairedLines: out.repairedLines.length }
       : {}),
+    ...(out.cut ? { cut: true } : {}),
     transport: task.transport,
     sample: task.sample,
     tiers: {
-      validity: code.validity,
+      validity: {
+        pass: out.cut ? null : code.validity.pass,
+        reasons: validityReasons,
+      },
       fidelity: code.fidelity,
       judgement: {
-        // The code part decides a fail; a pass also needs the judge, so a
-        // failed judge leaves it ungraded instead of counting as a pass.
-        pass:
-          judgementReasons.length > 0
-            ? false
-            : judgeScore === null
-              ? null
-              : true,
+        // Graded only when the judge graded: a failed judge leaves it
+        // ungraded whatever the code part says, so a judge outage does not
+        // keep the code fails and drop the passes. Otherwise the code part
+        // decides a fail and a pass also needs the judge.
+        pass: judgeScore === null ? null : judgementReasons.length === 0,
         reasons: judgementReasons,
         score: judgeScore,
       },
@@ -420,4 +447,5 @@ async function runTask(
       ...(out.error ? { error: out.error } : {}),
     },
   };
+  return { sample, ...(stop ? { stop } : {}) };
 }

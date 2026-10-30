@@ -105,6 +105,18 @@ describe("the CLI, offline with no key", () => {
     );
   });
 
+  it("refuses a flag the command does not take", async () => {
+    await expect(
+      cli("run", "--preset", "offline", "--case", "cafes-map"),
+    ).rejects.toThrow("run does not take --case");
+    await expect(
+      cli("run", "--preset", "offline", "--transport", "tool"),
+    ).rejects.toThrow("run does not take --transport");
+    await expect(cli("report", "latest", "--limit", "3")).rejects.toThrow(
+      "report does not take --limit",
+    );
+  });
+
   it("refuses a budget that is not a number", async () => {
     await expect(
       cli("run", "--preset", "offline", "--budget", "abc"),

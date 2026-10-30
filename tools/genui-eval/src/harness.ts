@@ -65,6 +65,8 @@ export interface SampleOutput {
   repairedLines?: string[];
   /** A run error, when the run failed. */
   error?: string;
+  /** True when the model stopped at the output token cap (finish reason "length"). */
+  cut?: boolean;
   /** Prompt tokens of the model call (the model's own count when it gives one). */
   promptTokens: number;
   outputTokens: number;
@@ -105,7 +107,7 @@ function promptToText(prompt: LanguageModelV3Prompt) {
  */
 function recordingModel(
   model: LanguageModel,
-  record: { system: string; input: number; output: number },
+  record: { system: string; input: number; output: number; cut?: boolean },
   noTools = false,
 ) {
   return wrapLanguageModel({
@@ -130,6 +132,7 @@ function recordingModel(
             if (chunk.type === "finish") {
               record.input = chunk.usage.inputTokens.total ?? record.input;
               record.output = chunk.usage.outputTokens.total ?? record.output;
+              if (chunk.finishReason.unified === "length") record.cut = true;
             }
             controller.enqueue(chunk);
           },
@@ -438,7 +441,11 @@ export async function runSample(input: {
   const marker = isFakeModel(input.entry.model)
     ? ` [case:${input.case.id}] [transport:${input.transport}]`
     : "";
-  const record = { system: "", input: 0, output: 0 };
+  const record: Parameters<typeof recordingModel>[1] = {
+    system: "",
+    input: 0,
+    output: 0,
+  };
   const agent = new BuiltInAgent({
     model: recordingModel(input.model, record, input.transport === "markdown"),
     maxSteps: 1,
@@ -540,6 +547,7 @@ export async function runSample(input: {
     parseErrors,
     repairedLines,
     error: collected.error,
+    ...(record.cut ? { cut: true } : {}),
     promptTokens: record.input,
     // A stream that ends before its usage chunk reports no output tokens;
     // then bound them by the bytes received, so the cost is never undercounted.

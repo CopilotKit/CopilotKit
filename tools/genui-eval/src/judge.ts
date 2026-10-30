@@ -170,7 +170,8 @@ export function parseVerdict(text: string): JudgeResult | undefined {
 /**
  * Grades one sample with the fixed judge. One retry on a reply that is not
  * the expected JSON; after that the scores are `null` with the reason
- * "judge failed", so a broken judge never looks like a bad reply.
+ * "judge failed", so a broken judge never looks like a bad reply. `error`
+ * is the last call error, so the run can stop on a judge out of credit.
  */
 export async function judgeSample(
   model: LanguageModel,
@@ -178,10 +179,16 @@ export async function judgeSample(
   out: SampleOutput,
   checks: ReadonlyArray<{ surfaceId: string; reachable?: string[] }> = [],
   reference?: SampleOutput,
-): Promise<JudgeResult & { costTokens: { input: number; output: number } }> {
+): Promise<
+  JudgeResult & {
+    costTokens: { input: number; output: number };
+    error?: string;
+  }
+> {
   const prompt = judgePrompt(c, out, checks, reference);
   let input = 0;
   let output = 0;
+  let error: string | undefined;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const result = await generateText({
@@ -195,12 +202,20 @@ export async function judgeSample(
       output += result.usage.outputTokens ?? 0;
       const parsed = parseVerdict(result.text);
       if (parsed) return { ...parsed, costTokens: { input, output } };
-    } catch {
+    } catch (e) {
       // Retry once, then give up below.
+      // With the status, so a 401 or 402 is recognised whatever the message.
+      const status = (e as { statusCode?: number })?.statusCode;
+      error = `${status ? `${status} ` : ""}${String((e as Error)?.message ?? e)}`;
     }
   }
   const failed = { score: null, reason: "judge failed" };
-  return { judgement: failed, quality: failed, costTokens: { input, output } };
+  return {
+    judgement: failed,
+    quality: failed,
+    costTokens: { input, output },
+    ...(error ? { error } : {}),
+  };
 }
 
 /** One sample to label by hand. */

@@ -176,13 +176,13 @@ export function createFakeModel(model: string, dir?: string): LanguageModel {
   if (script === "reflect") return fakeGenerator(fakeReflect);
   // A provider out of credit, for the runner's stop on it.
   if (script === "no-credit") {
-    return new MockLanguageModelV3({
-      doStream: async () => {
-        throw new Error(
-          "This request would exceed your available credits given your current in-flight requests.",
-        );
-      },
-    });
+    const fail = async (): Promise<never> => {
+      throw new Error(
+        "This request would exceed your available credits given your current in-flight requests.",
+      );
+    };
+    // Both calls: a model streams, the judge generates.
+    return new MockLanguageModelV3({ doStream: fail, doGenerate: fail });
   }
   return new MockLanguageModelV3({
     doStream: async ({ prompt }) => {

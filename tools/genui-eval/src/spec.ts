@@ -13,7 +13,7 @@ const feature = z.enum([
 ]);
 const item = z.union([
   z.string(),
-  z.object({ when: z.array(feature), items: z.array(z.string()) }),
+  z.object({ when: z.array(feature), items: z.array(z.string()) }).strict(),
 ]);
 const section = z.object({
   intro: z.string(),
@@ -27,17 +27,22 @@ const schemaSettings = z.object({
   commonProps: z.boolean(),
 });
 
-/** A prompt spec as a file may hold it: every key optional, filled from the default. */
+/**
+ * A prompt spec as a file may hold it: every key optional, filled from the
+ * default. Strict at every level, so a typo ("whenToShw") is an error, not
+ * a key that is silently dropped.
+ */
 const specFile = z
   .object({
-    markdown: section.partial(),
-    tool: section.partial(),
+    markdown: section.partial().strict(),
+    tool: section.partial().strict(),
     schema: z
       .object({
-        markdown: schemaSettings.partial(),
-        tool: schemaSettings.partial(),
+        markdown: schemaSettings.partial().strict(),
+        tool: schemaSettings.partial().strict(),
       })
-      .partial(),
+      .partial()
+      .strict(),
     descriptions: z.record(z.string()),
   })
   .partial()

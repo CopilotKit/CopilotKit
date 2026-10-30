@@ -242,3 +242,43 @@ describe("the markdown transport", () => {
     expect(seen[0].roles).toEqual(["system", "user"]);
   });
 });
+
+describe("a reply cut at the token cap", () => {
+  it("is marked cut, from the finish reason", async () => {
+    const { MockLanguageModelV3 } = await import("ai/test");
+    const cutAt = new MockLanguageModelV3({
+      doStream: async (options) => {
+        const { stream } = await (
+          createFakeModel("fake:offline") as LanguageModelV3
+        ).doStream(options);
+        const toLength = new TransformStream({
+          transform(chunk, controller) {
+            controller.enqueue(
+              chunk.type === "finish"
+                ? {
+                    ...chunk,
+                    finishReason: { unified: "length", raw: "length" },
+                  }
+                : chunk,
+            );
+          },
+        });
+        return { stream: stream.pipeThrough(toLength) };
+      },
+    });
+    const cut = await runSample({
+      case: cases["cafes-map"],
+      transport: "markdown",
+      entry: { model: "x/y" },
+      model: cutAt,
+    });
+    expect(cut.cut).toBe(true);
+    const whole = await runSample({
+      case: cases["cafes-map"],
+      transport: "markdown",
+      entry,
+      model: model(),
+    });
+    expect(whole.cut).toBeUndefined();
+  });
+});

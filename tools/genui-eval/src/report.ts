@@ -1,7 +1,7 @@
 import type { Transport } from "./config";
 import { TIERS } from "./results";
 import type { RunRecord, SampleRecord, Tier } from "./results";
-import { wilson } from "./stats";
+import { clearlyDifferent, wilson } from "./stats";
 import type { Rate } from "./stats";
 
 export type TierRates = Record<Tier, Rate>;
@@ -19,9 +19,16 @@ export function tierRates(samples: readonly SampleRecord[]): TierRates {
   ) as TierRates;
 }
 
-/** One number for a set of samples: the mean pass rate of validity, fidelity and judgement. */
+/**
+ * One number for a set of samples: the mean pass rate of validity, fidelity
+ * and judgement. A tier with no graded sample is left out; `null` when none
+ * has one.
+ */
 export function overallScore(rates: TierRates) {
-  return (rates.validity.rate + rates.fidelity.rate + rates.judgement.rate) / 3;
+  const graded = [rates.validity, rates.fidelity, rates.judgement]
+    .map((r) => r.rate)
+    .filter((r): r is number => r !== null);
+  return graded.length ? mean(graded) : null;
 }
 
 /** A reason without the parts that differ per sample, so the same problem groups together. */
@@ -45,6 +52,8 @@ export interface ModelReport {
   /** The most common failure reasons (training samples only). */
   topFailures: Array<{ reason: string; count: number }>;
   promptTokens: Partial<Record<Transport, number>>;
+  /** Samples cut at the output token cap: their validity is ungraded. */
+  cut: number;
   costUsd: number;
   costPerValidSurfaceUsd: number | null;
 }
@@ -60,6 +69,7 @@ export interface Report {
     | "promptSizes"
     | "stopped"
     | "spec"
+    | "judge"
   >;
   models: ModelReport[];
   /** The weakest tags (training samples), by overall score. */
@@ -67,7 +77,7 @@ export interface Report {
   totals: {
     samples: number;
     costUsd: number;
-    overall: number;
+    overall: number | null;
     heldoutOverall: number | null;
   };
   base?: {
@@ -81,6 +91,8 @@ export interface Report {
       clear: boolean;
     }>;
     promptSizes: RunRecord["promptSizes"];
+    /** Why the two runs may not compare like for like. */
+    warnings: string[];
   };
 }
 
@@ -97,6 +109,8 @@ function modelReport(
   const counts = new Map<string, number>();
   for (const s of train) {
     for (const tier of TIERS) {
+      // An ungraded tier (judge failed, reply cut) keeps its reasons for the record only.
+      if (s.tiers[tier].pass !== false) continue;
       for (const reason of s.tiers[tier].reasons) {
         const key = `${tier}: ${reasonKey(reason)}`;
         counts.set(key, (counts.get(key) ?? 0) + 1);
@@ -134,6 +148,7 @@ function modelReport(
         ),
       ]),
     ),
+    cut: samples.filter((s) => s.cut).length,
     costUsd: cost,
     costPerValidSurfaceUsd: validSurfaces > 0 ? cost / validSurfaces : null,
   };
@@ -170,16 +185,14 @@ export function buildReport(
       promptSizes: run.promptSizes,
       ...(run.stopped ? { stopped: run.stopped } : {}),
       ...(run.spec ? { spec: run.spec } : {}),
+      judge: run.judge,
     },
     models,
     weakestTags: tags
-      .map((tag) => {
+      .flatMap((tag) => {
         const tagged = train.filter((s) => s.tags.includes(tag));
-        return {
-          tag,
-          score: overallScore(tierRates(tagged)),
-          samples: tagged.length,
-        };
+        const score = overallScore(tierRates(tagged));
+        return score === null ? [] : [{ tag, score, samples: tagged.length }];
       })
       .sort((a, b) => a.score - b.score)
       .slice(0, 5),
@@ -187,39 +200,78 @@ export function buildReport(
       samples: samples.length,
       costUsd: samples.reduce((sum, s) => sum + s.costUsd + s.judgeCostUsd, 0),
       overall: overallScore(tierRates(train)),
-      heldoutOverall:
-        heldout.length > 0 ? overallScore(tierRates(heldout)) : null,
+      heldoutOverall: overallScore(tierRates(heldout)),
     },
   };
   if (base) {
+    // Only the (model, split, case, transport) groups both runs have, so a
+    // stopped run or another case selection does not change the mix.
+    const group = (s: SampleRecord) =>
+      `${s.model}|${s.split}|${s.case}|${s.transport}`;
+    const theirGroups = new Set(base.samples.map(group));
+    const shared = new Set(
+      samples.map(group).filter((g) => theirGroups.has(g)),
+    );
+    const caseSet = (xs: readonly SampleRecord[]) =>
+      new Set(xs.map((s) => `${s.split}|${s.case}`));
+    const myCases = caseSet(samples);
+    const theirCases = caseSet(base.samples);
+    const warnings: string[] = [];
+    for (const r of [run, base.run]) {
+      if (r.stopped) warnings.push(`run ${r.id} stopped early (${r.stopped})`);
+    }
+    if (run.judge !== base.run.judge) {
+      warnings.push(
+        `the runs used different judges (${run.judge} vs ${base.run.judge})`,
+      );
+    }
+    const bothCases = [...myCases].filter((c) => theirCases.has(c));
+    if (
+      bothCases.length !== myCases.size ||
+      bothCases.length !== theirCases.size
+    ) {
+      warnings.push(
+        `the runs cover different cases: compared on the ${bothCases.length} both have`,
+      );
+    }
     const delta: NonNullable<Report["base"]>["delta"] = [];
     for (const id of ids) {
       for (const split of ["train", "heldout"] as const) {
-        const mine = samples.filter((s) => s.model === id && s.split === split);
-        const theirs = base.samples.filter(
-          (s) => s.model === id && s.split === split,
-        );
+        const pick = (xs: readonly SampleRecord[]) =>
+          xs.filter(
+            (s) => s.model === id && s.split === split && shared.has(group(s)),
+          );
+        const mine = pick(samples);
+        const theirs = pick(base.samples);
         if (mine.length === 0 || theirs.length === 0) continue;
         const a = tierRates(mine);
         const b = tierRates(theirs);
         for (const tier of TIERS) {
+          const [ra, rb] = [a[tier].rate, b[tier].rate];
+          // An empty tier on either side has nothing to compare.
+          if (ra === null || rb === null) continue;
           delta.push({
             model: id,
             split,
             tier,
-            delta: a[tier].rate - b[tier].rate,
-            clear: a[tier].low > b[tier].high || b[tier].low > a[tier].high,
+            delta: ra - rb,
+            clear: clearlyDifferent(a[tier], b[tier]),
           });
         }
       }
     }
-    report.base = { id: base.run.id, delta, promptSizes: base.run.promptSizes };
+    report.base = {
+      id: base.run.id,
+      delta,
+      promptSizes: base.run.promptSizes,
+      warnings,
+    };
   }
   return report;
 }
 
 const pct = (r: Rate) =>
-  r.total === 0
+  r.rate === null
     ? "   –      "
     : `${(r.rate * 100).toFixed(0).padStart(3)}% ±${(((r.high - r.low) / 2) * 100).toFixed(0).padStart(2)}`;
 
@@ -263,9 +315,18 @@ export function formatReport(report: Report): string {
     }
   }
   lines.push("");
+  const share = (x: number | null) =>
+    x === null ? "–" : `${(x * 100).toFixed(1)}%`;
   lines.push(
-    `overall (train) ${(report.totals.overall * 100).toFixed(1)}%${report.totals.heldoutOverall === null ? "" : `   held-out ${(report.totals.heldoutOverall * 100).toFixed(1)}%`}   samples ${report.totals.samples}   cost $${report.totals.costUsd.toFixed(2)}`,
+    `overall (train) ${share(report.totals.overall)}${report.totals.heldoutOverall === null ? "" : `   held-out ${share(report.totals.heldoutOverall)}`}   samples ${report.totals.samples}   cost $${report.totals.costUsd.toFixed(2)}`,
   );
+  for (const m of report.models) {
+    if (m.cut > 0) {
+      lines.push(
+        `${m.model}: ${m.cut} replies cut at the output token cap (validity ungraded)`,
+      );
+    }
+  }
   for (const m of report.models) {
     if (m.topFailures.length === 0) continue;
     lines.push("");
@@ -287,6 +348,7 @@ export function formatReport(report: Report): string {
     lines.push(
       `vs base ${report.base.id}${changed.length === 0 ? ": no change" : ":"}`,
     );
+    for (const w of report.base.warnings) lines.push(`  warning: ${w}`);
     for (const d of changed) {
       lines.push(
         `  ${d.model.padEnd(10)}${d.split.padEnd(9)}${d.tier.padEnd(11)}${d.delta > 0 ? "+" : ""}${(d.delta * 100).toFixed(1)} pts${d.clear ? "  (clear)" : ""}`,

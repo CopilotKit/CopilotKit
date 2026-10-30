@@ -159,14 +159,17 @@ export function accept(
   for (const [model, rates] of Object.entries(baseline.heldout.perModel)) {
     const mine = candidate.heldout.perModel[model];
     if (!mine) continue;
-    if (mine.validity.rate < rates.validity.rate) {
+    // A tier with nothing graded counts as 0, like an ungraded sample.
+    const [was, now] = [rates.validity.rate ?? 0, mine.validity.rate ?? 0];
+    if (now < was) {
       reasons.push(
-        `validity got worse on ${model} (${(rates.validity.rate * 100).toFixed(0)}% -> ${(mine.validity.rate * 100).toFixed(0)}%)`,
+        `validity got worse on ${model} (${(was * 100).toFixed(0)}% -> ${(now * 100).toFixed(0)}%)`,
       );
     }
   }
   const better =
-    candidate.heldout.overall.rate > baseline.heldout.overall.rate &&
+    (candidate.heldout.overall.rate ?? 0) >
+      (baseline.heldout.overall.rate ?? 0) &&
     clearlyDifferent(candidate.heldout.overall, baseline.heldout.overall);
   if (!better) reasons.push("not clearly better on the held-out cases");
   for (const [transport, tokens] of Object.entries(
@@ -463,7 +466,7 @@ export async function optimize(options: OptimizeOptions) {
     trainOverall: overallScore(tierRates(c.samples)),
     promptTokens: c.promptTokens,
     heldout: c.heldout && {
-      overall: c.heldout.overall.rate,
+      overall: c.heldout.overall.rate ?? 0,
       low: c.heldout.overall.low,
       high: c.heldout.overall.high,
     },

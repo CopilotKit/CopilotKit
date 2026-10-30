@@ -36,7 +36,7 @@ export default defineEvalConfig({
   },
   // Markdown only for now; add "tool" (or pass --transports markdown,tool) to test the render_ui tool too.
   transports: ["markdown"],
-  budgetUsd: 20,
+  budgetUsd: 30,
   judge: { model: "anthropic/claude-opus-5.5" },
   reflection: { model: "openai/gpt-6.1-terra" },
   prices: {

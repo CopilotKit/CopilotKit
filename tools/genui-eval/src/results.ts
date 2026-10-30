@@ -42,6 +42,8 @@ export interface SampleRecord {
   log?: string;
   /** Fence lines that were repaired before parsing (a run with `repair`). */
   repairedLines?: number;
+  /** True when the reply was cut at the output token cap: validity is then ungraded. */
+  cut?: boolean;
   transport: Transport;
   sample: number;
   tiers: Record<Tier, TierRecord>;

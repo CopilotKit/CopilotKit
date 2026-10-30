@@ -75,6 +75,36 @@ describe("stats", () => {
     expect(rates.quality.total).toBe(0);
     expect(rates.validity).toMatchObject({ passes: 1, total: 1 });
   });
+
+  it("gives an empty tier no rate instead of 0%", () => {
+    expect(wilson(0, 0).rate).toBeNull();
+  });
+});
+
+describe("empty tiers", () => {
+  const ungraded = { pass: null, reasons: [], score: null };
+  const judgeless = (s: SampleRecord): SampleRecord => ({
+    ...s,
+    tiers: { ...s.tiers, judgement: ungraded, quality: ungraded },
+  });
+
+  it("leaves an empty tier out of the overall score, the deltas and the table", () => {
+    const mine = [judgeless(sample({}))];
+    const theirs = [sample({ pass: false })];
+    const report = buildReport(
+      { run: run("r2"), samples: mine },
+      { run: run("r1"), samples: theirs },
+    );
+    // validity 100%, fidelity 100%; judgement has no rate.
+    expect(report.totals.overall).toBe(1);
+    expect(report.base!.delta.map((d) => d.tier)).toEqual([
+      "validity",
+      "fidelity",
+    ]);
+    const text = formatReport(report);
+    expect(text).not.toContain("judgement -");
+    expect(text).toContain("–");
+  });
 });
 
 describe("buildReport", () => {
@@ -114,6 +144,40 @@ describe("buildReport", () => {
     );
     expect(delta?.delta).toBeCloseTo(2 / 3, 5);
     expect(formatReport(report)).toContain("(base: markdown 9000)");
+    expect(report.base!.warnings).toEqual([]);
+  });
+
+  it("compares only the groups both runs cover, and warns when they differ", () => {
+    const mine = [sample({}), sample({ case: "c2", pass: false })];
+    const theirs = [sample({ pass: false })];
+    const report = buildReport(
+      { run: { ...run("r2"), stopped: "budget" }, samples: mine },
+      { run: { ...run("r1"), judge: "other/judge" }, samples: theirs },
+    );
+    // c2 is only in this run, so fidelity is c1 against c1: 100% vs 0%.
+    const delta = report.base!.delta.find((d) => d.tier === "fidelity");
+    expect(delta?.delta).toBe(1);
+    expect(report.base!.warnings).toEqual([
+      "run r2 stopped early (budget)",
+      "the runs used different judges (fake:judge vs other/judge)",
+      "the runs cover different cases: compared on the 1 both have",
+    ]);
+    expect(formatReport(report)).toContain(
+      "warning: the runs used different judges",
+    );
+  });
+});
+
+describe("cut replies", () => {
+  it("counts replies cut at the token cap per model", () => {
+    const report = buildReport({
+      run: run("r4"),
+      samples: [sample({ cut: true }), sample({ sample: 1 })],
+    });
+    expect(report.models[0].cut).toBe(1);
+    expect(formatReport(report)).toContain(
+      "m: 1 replies cut at the output token cap",
+    );
   });
 });
 

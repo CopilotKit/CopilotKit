@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { defineEvalConfig, resolvePlan } from "../src/config";
 import { readRun } from "../src/results";
-import { runEval } from "../src/run";
+import { interleaveSplits, runEval } from "../src/run";
 
 const root = `${mkdtempSync(join(tmpdir(), "genui-eval-"))}/`;
 afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -131,10 +131,56 @@ describe("runEval with a failing judge", () => {
       (s) => s.case === "cafes-map" && s.transport === "markdown",
     );
     expect(map?.tiers.judgement).toMatchObject({ pass: null, score: null });
+    // A code-check fail is ungraded too, so the outage does not bias judgement down.
     const prose = samples.find(
       (s) => s.case === "team-plan-estimator" && s.transport === "markdown",
     );
-    expect(prose?.tiers.judgement.pass).toBe(false);
+    expect(prose?.tiers.judgement.pass).toBeNull();
+    expect(samples.every((s) => s.tiers.judgement.pass === null)).toBe(true);
+  });
+});
+
+describe("runEval with a judge out of credit", () => {
+  it("stops the run like a model out of credit", async () => {
+    const broke = defineEvalConfig({
+      ...config,
+      presets: {
+        offline: {
+          models: ["fake"],
+          cases: "tag:smoke",
+          samples: 1,
+          judge: "fake:no-credit",
+          reflection: "fake:reflect",
+        },
+      },
+      judge: { model: "fake:no-credit" },
+    });
+    const run = await runEval({
+      config: broke,
+      plan: resolvePlan(broke, "offline"),
+      split: "train",
+      budgetUsd: 1,
+      root,
+    });
+    expect(run.stopped).toBe("credits");
+    expect(readRun(run.id, root).samples).toEqual([]);
+  });
+});
+
+describe("interleaveSplits", () => {
+  it("takes the splits in turn, so a budget stop does not cut held-out first", () => {
+    const cases = [
+      { id: "t1", split: "train" as const },
+      { id: "t2", split: "train" as const },
+      { id: "t3", split: "train" as const },
+      { id: "h1", split: "heldout" as const },
+    ];
+    expect(interleaveSplits(cases).map((c) => c.id)).toEqual([
+      "t1",
+      "h1",
+      "t2",
+      "t3",
+    ]);
   });
 });
 

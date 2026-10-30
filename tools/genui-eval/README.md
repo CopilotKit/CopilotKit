@@ -20,7 +20,7 @@ echo 'OPENROUTER_API_KEY=sk-or-...' > tools/genui-eval/.env   # git-ignored; win
 pnpm -s --filter genui-eval eval run --preset smoke --estimate
 pnpm -s --filter genui-eval eval run --preset smoke
 pnpm -s --filter genui-eval eval run --preset gpt                 # the first baseline: gpt only
-pnpm -s --filter genui-eval eval run --preset full --budget 40     # all five models
+pnpm -s --filter genui-eval eval run --preset full --budget 40     # all four models
 ```
 
 ## Backends
@@ -39,7 +39,7 @@ pnpm -s --filter genui-eval eval run --preset smoke --models codex:gpt-5.6-luna 
 
 In the markdown transport every backend gets the same request: the system prompt the agent builds and the conversation, no tools. The codex backend makes `codex exec` as close to a plain model call as the CLI allows: the system prompt replaces Codex's own instructions (`model_instructions_file`), it runs in an empty directory with a Codex home that holds only your sign-in (no user config, skills, hooks or AGENTS.md), with no shell, web search or patch tools, in a read-only sandbox, and with a model catalog entry without code mode or multi-agent. About 2.5k tokens of Codex's own request overhead remain. Each call is captured under `results/codex/<date>/`: `instructions.md`, `prompt.md`, `command.json`, `events.jsonl`, `last-message.md` and `stderr.txt`; a sample's `log` field points at its call. The backend supports the markdown transport only. `GENUI_EVAL_CODEX_BIN` picks the binary; by default it is the first `codex` on the PATH that runs.
 
-A run stops, and scores nothing for it, when the provider is out of credit or the call is not signed in.
+A run stops, and scores nothing for it, when the provider of the model or of the judge is out of credit or the call is not signed in. A reply cut at the output token cap has its validity left ungraded (the report counts them), and a sample the judge could not grade has judgement and quality ungraded.
 
 `--repair` (an experiment) runs each broken fence line through [jsonrepair](https://github.com/josdejong/jsonrepair) before the client parses it, and keeps the repair only when it is shaped like an A2UI operation. The client itself repairs a complete line that is off by one closing brace; `--repair` also fixes worse breaks. Either way each sample records `repairedLines`, so validity as the model wrote it stays readable.
 
@@ -78,7 +78,7 @@ label      <run|latest> [--n 20]
 calibrate  <labels.jsonl>
 ```
 
-Every command takes `--json` (for agents) and `--config <file>`. Keep `-s` in `pnpm -s --filter genui-eval eval`: without it pnpm prints the script line on stdout, so `--json` output and `prompt --export-spec > spec.json` are no longer valid JSON.
+Every command takes `--json` (for agents) and `--config <file>`, and refuses a flag it does not read. Keep `-s` in `pnpm -s --filter genui-eval eval`: without it pnpm prints the script line on stdout, so `--json` output and `prompt --export-spec > spec.json` are no longer valid JSON.
 
 ## Improving the prompt
 
