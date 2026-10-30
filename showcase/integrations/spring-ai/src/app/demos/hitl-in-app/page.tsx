@@ -9,7 +9,8 @@ import {
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { ApprovalDialog, PendingApproval } from "./approval-dialog";
+import type { PendingApproval } from "./approval-dialog";
+import { ApprovalDialog } from "./approval-dialog";
 import { TicketsPanel } from "./tickets-panel";
 import { useHitlInAppSuggestions } from "./suggestions";
 
@@ -86,7 +87,7 @@ function Layout() {
   };
 
   return (
-    <div className="h-screen bg-gray-50">
+    <div className="h-screen bg-gray-50 dark:bg-background">
       <TicketsPanel />
       <CopilotPopup
         agentId="hitl-in-app"

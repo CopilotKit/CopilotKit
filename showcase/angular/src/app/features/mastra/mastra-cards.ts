@@ -67,12 +67,12 @@ export type BackgroundTaskContent = z.infer<typeof backgroundTaskContentSchema>;
         margin: 0.5rem 0;
       }
       .activity-card {
-        border: 1px solid #dbe1ea;
+        border: 1px solid light-dark(#dbe1ea, #303136);
         border-radius: 1rem;
         padding: 1rem;
-        background: #fff;
+        background: light-dark(#fff, #191a1e);
         box-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
-        color: #0f172a;
+        color: light-dark(#0f172a, #fafafa);
       }
       .activity-heading {
         display: flex;
@@ -86,7 +86,7 @@ export type BackgroundTaskContent = z.infer<typeof backgroundTaskContentSchema>;
       }
       .activity-copy small,
       p {
-        color: #64748b;
+        color: light-dark(#64748b, #adadb2);
       }
       .activity-copy small {
         overflow-wrap: anywhere;
@@ -104,11 +104,11 @@ export type BackgroundTaskContent = z.infer<typeof backgroundTaskContentSchema>;
       .status-pill {
         margin-left: auto;
         border-radius: 999px;
-        background: #f1f5f9;
+        background: light-dark(#f1f5f9, #242529);
         padding: 0.2rem 0.55rem;
         font-size: 0.75rem;
         font-weight: 600;
-        color: #475569;
+        color: light-dark(#475569, #adadb2);
       }
       p {
         margin: 0.75rem 0 0;
@@ -232,11 +232,11 @@ const STATUS_LABELS: Readonly<Record<string, string>> = {
         margin: 0.5rem 0;
       }
       .om-card {
-        border: 1px solid #dbe1ea;
+        border: 1px solid light-dark(#dbe1ea, #303136);
         border-radius: 0.75rem;
         padding: 0.75rem 0.875rem;
-        background: #f8fafc;
-        color: #0f172a;
+        background: light-dark(#f8fafc, #242529);
+        color: light-dark(#0f172a, #fafafa);
         font-size: 0.8125rem;
       }
       header {
@@ -258,7 +258,7 @@ const STATUS_LABELS: Readonly<Record<string, string>> = {
       }
       .om-status,
       small {
-        color: #64748b;
+        color: light-dark(#64748b, #adadb2);
       }
       p {
         margin: 0.4rem 0 0;
@@ -269,7 +269,7 @@ const STATUS_LABELS: Readonly<Record<string, string>> = {
         margin-top: 0.4rem;
       }
       .error {
-        color: #b91c1c;
+        color: light-dark(#b91c1c, #f87171);
       }
     `,
   ],
@@ -364,11 +364,11 @@ interface BrowseWebResult {
     `
       .browse-card {
         margin: 0.75rem 0;
-        border: 1px solid #dbe1ea;
+        border: 1px solid light-dark(#dbe1ea, #303136);
         border-radius: 1rem;
         padding: 1rem;
-        background: #fff;
-        color: #0f172a;
+        background: light-dark(#fff, #191a1e);
+        color: light-dark(#0f172a, #fafafa);
         box-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
       }
       header,
@@ -383,9 +383,9 @@ interface BrowseWebResult {
       .badge {
         margin-left: auto;
         border-radius: 999px;
-        background: #f1f5f9;
+        background: light-dark(#f1f5f9, #242529);
         padding: 0.2rem 0.55rem;
-        color: #475569;
+        color: light-dark(#475569, #adadb2);
         font-size: 0.7rem;
         text-transform: uppercase;
       }
@@ -398,31 +398,31 @@ interface BrowseWebResult {
       }
       li {
         justify-content: space-between;
-        border: 1px solid #e5e7eb;
+        border: 1px solid light-dark(#e5e7eb, #303136);
         border-radius: 0.75rem;
         padding: 0.65rem 0.75rem;
-        background: #f8fafc;
+        background: light-dark(#f8fafc, #242529);
       }
       li > span {
         min-width: 0;
       }
       a {
-        color: #0f172a;
+        color: light-dark(#0f172a, #fafafa);
         font-weight: 600;
         overflow-wrap: anywhere;
       }
       small {
         display: block;
-        color: #64748b;
+        color: light-dark(#64748b, #adadb2);
       }
       p {
-        color: #64748b;
+        color: light-dark(#64748b, #adadb2);
       }
       .error {
-        color: #b91c1c;
+        color: light-dark(#b91c1c, #f87171);
       }
       .summary {
-        border-top: 1px solid #e5e7eb;
+        border-top: 1px solid light-dark(#e5e7eb, #303136);
         padding-top: 0.75rem;
         line-height: 1.45;
       }

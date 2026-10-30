@@ -8,8 +8,19 @@
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
-  color: #14213d;
-  background: #f8fafc;
+  color: light-dark(#14213d, #fafafa);
+  background: light-dark(#f8fafc, #0a0a0a);
+}
+
+/* Dark mode: the theme script in index.html puts class="dark" on <html>.
+   CopilotKit's own components follow that class. Here it switches
+   color-scheme, so every light-dark(<light>, <dark>) in this file and in the
+   feature components picks its dark color; light colors are unchanged. Dark
+   colors use the palette of the React showcase demos: background #0a0a0a,
+   foreground #fafafa, card #191a1e, muted #242529, muted-foreground #adadb2,
+   accent and border #303136, primary #fafafa, primary-foreground #1a1a18. */
+:root.dark {
+  color-scheme: dark;
 }
 
 * {
@@ -29,7 +40,7 @@ showcase-root {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 100%;
-  background: #f8fafc;
+  background: light-dark(#f8fafc, #0a0a0a);
 }
 
 .feature-header {
@@ -39,31 +50,31 @@ showcase-root {
   gap: 1rem;
   min-height: 4rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #dbe3eb;
-  background: #fff;
+  border-bottom: 1px solid light-dark(#dbe3eb, #303136);
+  background: light-dark(#fff, #191a1e);
 }
 
 .feature-header h1,
 .status-panel h1 {
   margin: 0;
-  color: #14213d;
+  color: light-dark(#14213d, #fafafa);
   font-size: 1rem;
   font-weight: 600;
 }
 
 .feature-header p {
   margin: 0.2rem 0 0;
-  color: #52637a;
+  color: light-dark(#52637a, #adadb2);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.75rem;
 }
 
 .framework-badge {
   padding: 0.3rem 0.5rem;
-  border: 1px solid #9fb3c8;
+  border: 1px solid light-dark(#9fb3c8, #303136);
   border-radius: 2px;
-  color: #31465e;
-  background: #f2f7f9;
+  color: light-dark(#31465e, #fafafa);
+  background: light-dark(#f2f7f9, #242529);
   font-size: 0.75rem;
   font-weight: 600;
 }
@@ -72,9 +83,9 @@ showcase-root {
   min-height: 0;
   margin: 1rem;
   overflow: hidden;
-  border: 1px solid #dbe3eb;
+  border: 1px solid light-dark(#dbe3eb, #303136);
   border-radius: 2px;
-  background: #fff;
+  background: light-dark(#fff, #191a1e);
 }
 
 .shell-demo-content,
@@ -86,29 +97,29 @@ showcase-root {
 .shell-demo-content {
   display: grid;
   place-items: center;
-  color: #31465e;
+  color: light-dark(#31465e, #fafafa);
   background:
     radial-gradient(circle at 85% 15%, rgb(37 99 235 / 8%), transparent 30%),
-    #f8fafc;
+    light-dark(#f8fafc, #0a0a0a);
 }
 
 .shell-demo-content section {
   width: min(36rem, 100%);
   padding: clamp(1.5rem, 4vw, 3rem);
-  border: 1px solid #dbe3eb;
-  background: #fff;
+  border: 1px solid light-dark(#dbe3eb, #303136);
+  background: light-dark(#fff, #191a1e);
 }
 
 .shell-demo-content h2,
 .headless-panel h2 {
   margin: 0.25rem 0 0.75rem;
-  color: #14213d;
+  color: light-dark(#14213d, #fafafa);
   font-size: clamp(1.5rem, 4vw, 2.5rem);
 }
 
 .feature-eyebrow {
   margin: 0;
-  color: #52637a;
+  color: light-dark(#52637a, #adadb2);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -117,7 +128,7 @@ showcase-root {
 
 .headless-page {
   overflow: auto;
-  background: #eef3f7;
+  background: light-dark(#eef3f7, #0a0a0a);
 }
 
 .headless-panel {
@@ -127,8 +138,8 @@ showcase-root {
   margin: 0 auto;
   gap: 1rem;
   padding: clamp(1rem, 3vw, 2rem);
-  border: 1px solid #dbe3eb;
-  background: #fff;
+  border: 1px solid light-dark(#dbe3eb, #303136);
+  background: light-dark(#fff, #191a1e);
 }
 
 .headless-messages {
@@ -137,13 +148,13 @@ showcase-root {
   flex-direction: column;
   gap: 0.75rem;
   padding: 1rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid light-dark(#e2e8f0, #303136);
   overflow-y: auto;
 }
 
 .headless-empty,
 .headless-status {
-  color: #64748b;
+  color: light-dark(#64748b, #adadb2);
 }
 
 .headless-user-message,
@@ -162,7 +173,7 @@ showcase-root {
 
 .headless-assistant-message {
   align-self: flex-start;
-  background: #eef2f7;
+  background: light-dark(#eef2f7, #242529);
 }
 
 .headless-suggestions,
@@ -175,10 +186,10 @@ showcase-root {
 .headless-suggestions button,
 .headless-composer button {
   padding: 0.55rem 0.85rem;
-  border: 1px solid #9fb3c8;
+  border: 1px solid light-dark(#9fb3c8, #303136);
   border-radius: 999px;
-  color: #1e3a5f;
-  background: #fff;
+  color: light-dark(#1e3a5f, #fafafa);
+  background: light-dark(#fff, #191a1e);
   cursor: pointer;
 }
 
@@ -187,7 +198,7 @@ showcase-root {
   flex: 1;
   resize: vertical;
   padding: 0.75rem;
-  border: 1px solid #9fb3c8;
+  border: 1px solid light-dark(#9fb3c8, #303136);
   border-radius: 0.5rem;
   font: inherit;
 }
@@ -207,9 +218,9 @@ showcase-root {
 
 .headless-error {
   padding: 0.75rem;
-  border: 1px solid #dc9b9b;
-  color: #7f1d1d;
-  background: #fff5f5;
+  border: 1px solid light-dark(#dc9b9b, #7f1d1d);
+  color: light-dark(#7f1d1d, #fca5a5);
+  background: light-dark(#fff5f5, rgb(69 10 10 / 40%));
 }
 
 .headless-tool-card {
@@ -218,13 +229,13 @@ showcase-root {
   gap: 0.35rem;
   margin-top: 0.75rem;
   padding: 0.9rem;
-  border: 1px solid #cbd5e1;
+  border: 1px solid light-dark(#cbd5e1, #303136);
   border-radius: 0.6rem;
-  background: #fff;
+  background: light-dark(#fff, #191a1e);
 }
 
 .headless-tool-card > span {
-  color: #64748b;
+  color: light-dark(#64748b, #adadb2);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -236,8 +247,8 @@ showcase-root {
 }
 
 .headless-tool-card.highlight {
-  border-color: #f0c94a;
-  background: #fff8cf;
+  border-color: light-dark(#f0c94a, #92400e);
+  background: light-dark(#fff8cf, rgb(69 26 3 / 40%));
 }
 
 .mini-bars {
@@ -258,7 +269,7 @@ showcase-root {
   margin: 0.5rem 0;
   padding: 1rem;
   border-left: 3px solid #2563eb;
-  background: #eff6ff;
+  background: light-dark(#eff6ff, rgb(23 37 84 / 40%));
 }
 
 .showcase-chat-host {
@@ -278,7 +289,7 @@ showcase-root {
   grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   flex: 1;
-  background: #fafafc;
+  background: light-dark(#fafafc, #0a0a0a);
 }
 
 .interrupt-layout-headless {
@@ -295,12 +306,12 @@ showcase-root {
 .interrupt-app-surface > header {
   padding: 1.25rem 2rem;
   border-bottom: 1px solid var(--line);
-  background: white;
+  background: light-dark(white, #191a1e);
 }
 
 .interrupt-app-surface > header span,
 .interrupt-picker > span {
-  color: var(--muted);
+  color: light-dark(var(--muted), #adadb2);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -322,7 +333,7 @@ showcase-root {
   padding: 1.5rem;
   border: 1px solid var(--line);
   border-radius: 1rem;
-  background: white;
+  background: light-dark(white, #191a1e);
   box-shadow: 0 20px 40px -28px rgb(15 23 42 / 0.35);
 }
 
@@ -341,7 +352,7 @@ showcase-root {
   min-height: 2.75rem;
   border: 1px solid var(--line);
   border-radius: 0.75rem;
-  background: white;
+  background: light-dark(white, #191a1e);
   color: var(--ink);
   font: inherit;
   cursor: pointer;
@@ -367,8 +378,8 @@ showcase-root {
 .interrupt-error {
   margin: 0;
   padding: 0.75rem 1rem;
-  color: #991b1b;
-  background: #fef2f2;
+  color: light-dark(#991b1b, #fca5a5);
+  background: light-dark(#fef2f2, rgb(69 10 10 / 40%));
 }
 
 @media (max-width: 760px) {
@@ -387,7 +398,7 @@ showcase-root {
   display: grid;
   min-height: 0;
   flex: 1;
-  background: #fafafc;
+  background: light-dark(#fafafc, #0a0a0a);
 }
 
 .a2ui-feature-page copilot-a2ui-surface {
@@ -416,7 +427,7 @@ showcase-root {
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: 0.9rem;
-  background: white;
+  background: light-dark(white, #191a1e);
   box-shadow: 0 8px 22px -18px rgb(15 23 42 / 0.4);
 }
 
@@ -428,7 +439,7 @@ showcase-root {
 
 .a2ui-metric > span,
 .a2ui-metric > small {
-  color: var(--muted);
+  color: light-dark(var(--muted), #adadb2);
   font-size: 0.75rem;
 }
 
@@ -442,22 +453,22 @@ showcase-root {
   width: fit-content;
   padding: 0.25rem 0.55rem;
   border-radius: 999px;
-  background: #eef2ff;
+  background: light-dark(#eef2ff, rgb(30 27 75 / 40%));
   font-size: 0.75rem;
   font-weight: 700;
 }
 
 .a2ui-status-success {
-  background: #dcfce7;
-  color: #166534;
+  background: light-dark(#dcfce7, rgb(5 46 22 / 40%));
+  color: light-dark(#166534, #86efac);
 }
 .a2ui-status-warning {
-  background: #fef3c7;
-  color: #92400e;
+  background: light-dark(#fef3c7, rgb(69 26 3 / 40%));
+  color: light-dark(#92400e, #fcd34d);
 }
 .a2ui-status-error {
-  background: #fee2e2;
-  color: #991b1b;
+  background: light-dark(#fee2e2, rgb(69 10 10 / 40%));
+  color: light-dark(#991b1b, #fca5a5);
 }
 /* @endregion[a2ui-styling] */
 
@@ -479,31 +490,34 @@ showcase-root {
   padding: 0.5rem 1rem;
   border: 0;
   border-radius: 0.375rem;
-  background: #171717;
-  color: #fafafa;
+  background: light-dark(#171717, #fafafa);
+  color: light-dark(#fafafa, #1a1a18);
   font-size: 0.875rem;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
 .a2ui-button:hover {
-  background: #262626;
+  background: light-dark(#262626, #e5e5e5);
 }
 
 /* Matches the React beautiful-chat ActionButton. */
 .a2ui-action-button {
   padding: 10px 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid light-dark(#e2e8f0, #303136);
   border-radius: 10px;
-  background: color-mix(in srgb, #f1f5f9 40%, white);
+  background: light-dark(color-mix(in srgb, #f1f5f9 40%, white), #242529);
   color: inherit;
   font-size: 0.85rem;
   transition: all 0.2s ease;
 }
 
 .a2ui-action-button.done {
-  border-color: #bbf7d0;
-  background: color-mix(in srgb, #22c55e 10%, white);
-  color: #059669;
+  border-color: light-dark(#bbf7d0, #166534);
+  background: light-dark(
+    color-mix(in srgb, #22c55e 10%, white),
+    color-mix(in srgb, #22c55e 15%, transparent)
+  );
+  color: light-dark(#059669, #34d399);
   cursor: default;
 }
 
@@ -527,9 +541,9 @@ showcase-root {
 .beautiful-card,
 .beautiful-flight {
   padding: 1rem;
-  border: 1px solid #d8e0ea;
-  background: #fff;
-  color: #14213d;
+  border: 1px solid light-dark(#d8e0ea, #303136);
+  background: light-dark(#fff, #191a1e);
+  color: light-dark(#14213d, #fafafa);
 }
 .beautiful-card {
   border-radius: 0.9rem;
@@ -595,7 +609,7 @@ showcase-root {
   gap: 1rem;
 }
 .beautiful-flight-meta {
-  color: #66758a;
+  color: light-dark(#66758a, #adadb2);
 }
 .beautiful-flight-times {
   font-weight: 700;
@@ -634,7 +648,7 @@ showcase-root {
     #14b8a6 68% 87%,
     #f59e0b 87%
   );
-  box-shadow: inset 0 0 0 1.4rem white;
+  box-shadow: inset 0 0 0 1.4rem light-dark(white, #191a1e);
 }
 
 .a2ui-chart-card ul {
@@ -680,7 +694,7 @@ showcase-root {
 }
 .a2ui-arrow {
   padding: 0 0.75rem;
-  color: var(--muted);
+  color: light-dark(var(--muted), #adadb2);
 }
 .a2ui-price {
   font-size: 1.2rem;
@@ -696,15 +710,15 @@ showcase-root {
   gap: 0.35rem;
   margin: 0.5rem 0;
   padding: 0.9rem;
-  border: 1px solid #cbd5e1;
+  border: 1px solid light-dark(#cbd5e1, #303136);
   border-radius: 0.65rem;
-  color: #14213d;
-  background: #fff;
+  color: light-dark(#14213d, #fafafa);
+  background: light-dark(#fff, #191a1e);
   box-shadow: 0 0.25rem 0.75rem rgb(20 33 61 / 6%);
 }
 
 .showcase-tool-card > span {
-  color: #52637a;
+  color: light-dark(#52637a, #adadb2);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -735,9 +749,9 @@ showcase-root {
 .time-picker-options button,
 .approval-dialog button {
   padding: 0.55rem 0.8rem;
-  border: 1px solid #9fb3c8;
+  border: 1px solid light-dark(#9fb3c8, #303136);
   border-radius: 0.4rem;
-  background: #fff;
+  background: light-dark(#fff, #191a1e);
   cursor: pointer;
 }
 
@@ -761,12 +775,12 @@ showcase-root {
   width: min(28rem, 100%);
   padding: 1.25rem;
   border-radius: 0.75rem;
-  background: #fff;
+  background: light-dark(#fff, #191a1e);
   box-shadow: 0 1.5rem 4rem rgb(15 23 42 / 25%);
 }
 
 .approval-dialog > span {
-  color: #52637a;
+  color: light-dark(#52637a, #adadb2);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -793,19 +807,19 @@ showcase-root {
 .status-panel {
   width: min(34rem, 100%);
   padding: 1.5rem;
-  border: 1px solid #dbe3eb;
+  border: 1px solid light-dark(#dbe3eb, #303136);
   border-radius: 2px;
-  background: #fff;
+  background: light-dark(#fff, #191a1e);
 }
 
 .status-panel p {
-  color: #52637a;
+  color: light-dark(#52637a, #adadb2);
   line-height: 1.5;
 }
 
 .status-panel code {
   overflow-wrap: anywhere;
-  color: #31465e;
+  color: light-dark(#31465e, #fafafa);
   font-size: 0.75rem;
 }
 
@@ -824,5 +838,5 @@ showcase-root {
   display: grid;
   min-height: 0;
   flex: 1;
-  background: #fafafc;
+  background: light-dark(#fafafc, #0a0a0a);
 }

@@ -12,7 +12,7 @@ interface DemoLayoutProps {
 
 export function DemoLayout({ document, isStreaming }: DemoLayoutProps) {
   return (
-    <div className="h-screen w-full bg-gray-50">
+    <div className="h-screen w-full bg-gray-50 dark:bg-background">
       <main className="flex h-full min-h-0 flex-col p-4">
         <DocumentView content={document} isStreaming={isStreaming} />
       </main>

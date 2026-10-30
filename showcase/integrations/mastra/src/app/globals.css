@@ -1,6 +1,36 @@
 @import "tailwindcss";
 @import "@copilotkit/react-core/v2/styles.css";
 
+/* Map the CSS variables declared on :root below into Tailwind v4 theme tokens
+ * so utilities like `bg-background`, `text-foreground`, `bg-muted`,
+ * `border-border`, etc. actually generate CSS. Without this block the
+ * shadcn / AI Elements / prompt-kit primitives fall back to no styling. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
@@ -25,6 +55,16 @@
   --input: #dbdbe5;
   --ring: #bec2ff;
   --radius: 0.75rem;
+}
+
+/* Native controls, scrollbars and `light-dark()` follow the theme. The
+ * root layout's theme script toggles `.dark` on <html>. */
+:root {
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
 }
 
 :root.dark,

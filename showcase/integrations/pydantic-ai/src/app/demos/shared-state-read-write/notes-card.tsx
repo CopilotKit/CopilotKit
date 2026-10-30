@@ -39,7 +39,7 @@ export function NotesCard({ notes, onClear }: NotesCardProps) {
             <CardTitle>Agent Scratch pad</CardTitle>
             <CardDescription>
               The agent writes here via its{" "}
-              <code className="font-mono text-[11px] text-[#010507]">
+              <code className="font-mono text-[11px] text-[#010507] dark:text-foreground">
                 set_notes
               </code>{" "}
               tool. The UI re-renders from shared state.
@@ -64,22 +64,22 @@ export function NotesCard({ notes, onClear }: NotesCardProps) {
         {notes.length === 0 ? (
           <div
             data-testid="notes-empty"
-            className="text-sm text-[#838389] italic min-h-[160px] flex items-center justify-center text-center px-4 border border-dashed border-[#E9E9EF] rounded-xl bg-[#FAFAFC]"
+            className="text-sm text-[#838389] italic min-h-[160px] flex items-center justify-center text-center px-4 border border-dashed border-[#E9E9EF] rounded-xl bg-[#FAFAFC] dark:text-muted-foreground dark:border-border dark:bg-muted"
           >
             the agent will make observations about you and note them here!
           </div>
         ) : (
           <ul
             data-testid="notes-list"
-            className="space-y-2 text-sm text-[#010507]"
+            className="space-y-2 text-sm text-[#010507] dark:text-foreground"
           >
             {notes.map((note, i) => (
               <li
                 key={i}
                 data-testid="note-item"
-                className="flex gap-2 rounded-lg border border-[#E9E9EF] bg-[#FAFAFC] px-3 py-2"
+                className="flex gap-2 rounded-lg border border-[#E9E9EF] bg-[#FAFAFC] px-3 py-2 dark:border-border dark:bg-muted"
               >
-                <span className="text-[#838389] font-mono text-xs leading-5 select-none">
+                <span className="text-[#838389] font-mono text-xs leading-5 select-none dark:text-muted-foreground">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <span className="flex-1">{note}</span>

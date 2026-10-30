@@ -95,20 +95,20 @@ const INTERESTS = [
       gap: 0.8rem;
       height: 100%;
       padding: 1.25rem;
-      border: 1px solid #dbe3eb;
-      background: #fff;
+      border: 1px solid light-dark(#dbe3eb, #303136);
+      background: light-dark(#fff, #191a1e);
     }
     h2,
     p {
       margin: 0;
     }
     p {
-      color: #52637a;
+      color: light-dark(#52637a, #adadb2);
       font-size: 0.9rem;
     }
     label,
     legend {
-      color: #31465e;
+      color: light-dark(#31465e, #fafafa);
       font-size: 0.78rem;
       font-weight: 700;
     }
@@ -117,9 +117,9 @@ const INTERESTS = [
       width: 100%;
       min-height: 2.6rem;
       padding: 0.55rem 0.7rem;
-      border: 1px solid #9fb3c8;
+      border: 1px solid light-dark(#9fb3c8, #303136);
       border-radius: 0.35rem;
-      background: #fff;
+      background: light-dark(#fff, #191a1e);
       font: inherit;
     }
     .field-grid {
@@ -144,10 +144,10 @@ const INTERESTS = [
     }
     button {
       padding: 0.4rem 0.65rem;
-      border: 1px solid #9fb3c8;
+      border: 1px solid light-dark(#9fb3c8, #303136);
       border-radius: 999px;
-      color: #31465e;
-      background: #fff;
+      color: light-dark(#31465e, #fafafa);
+      background: light-dark(#fff, #191a1e);
       cursor: pointer;
     }
     button.selected {
@@ -160,7 +160,7 @@ const INTERESTS = [
       outline-offset: 2px;
     }
     .state-label {
-      color: #64748b;
+      color: light-dark(#64748b, #adadb2);
       font-size: 0.67rem;
       font-weight: 700;
       letter-spacing: 0.12em;
@@ -171,8 +171,8 @@ const INTERESTS = [
       margin: 0;
       padding: 0.75rem;
       overflow: auto;
-      border: 1px solid #e2e8f0;
-      background: #f8fafc;
+      border: 1px solid light-dark(#e2e8f0, #303136);
+      background: light-dark(#f8fafc, #242529);
       font-size: 0.72rem;
     }
     @media (max-width: 38rem) {

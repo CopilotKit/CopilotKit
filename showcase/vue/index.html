@@ -4,6 +4,48 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CopilotKit Vue Showcase</title>
+    <!--
+      Puts class="dark" on <html> before first paint. Same script as the
+      React demos (showcase/integrations/*/src/app/theme-script.ts): the theme
+      comes from the embedding page's `copilotkit:theme` message, then a
+      `?theme=light|dark` query parameter, then the system preference.
+    -->
+    <script>
+      (function () {
+        try {
+          var root = document.documentElement;
+          var media = window.matchMedia("(prefers-color-scheme: dark)");
+          var param = new URLSearchParams(window.location.search).get("theme");
+          var chosen = param === "light" || param === "dark" ? param : null;
+          var apply = function () {
+            root.classList.toggle(
+              "dark",
+              chosen ? chosen === "dark" : media.matches,
+            );
+          };
+          apply();
+          media.addEventListener("change", apply);
+          window.addEventListener("message", function (event) {
+            var data = event.data;
+            if (
+              event.source !== window.parent ||
+              !data ||
+              data.type !== "copilotkit:theme"
+            )
+              return;
+            if (data.theme !== "light" && data.theme !== "dark") return;
+            chosen = data.theme;
+            apply();
+          });
+          if (window.parent !== window) {
+            window.parent.postMessage(
+              { type: "copilotkit:theme-request" },
+              "*",
+            );
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

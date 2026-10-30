@@ -35,14 +35,14 @@ export function ShadcnCatchallRenderer({
       data-status={status}
       className="my-3 overflow-hidden"
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-neutral-200 bg-neutral-50/60 py-3">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-neutral-200 dark:border-border bg-neutral-50/60 dark:bg-muted/60 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-neutral-500 dark:text-muted-foreground">
             Tool
           </span>
           <CardTitle
             data-testid="shadcn-catchall-tool-name"
-            className="font-mono text-sm text-neutral-900"
+            className="font-mono text-sm text-neutral-900 dark:text-foreground"
           >
             {name}
           </CardTitle>
@@ -54,7 +54,7 @@ export function ShadcnCatchallRenderer({
         <Section label="Arguments">
           <pre
             data-testid="shadcn-catchall-args"
-            className="overflow-x-auto rounded-md border border-neutral-200 bg-neutral-50 p-2.5 font-mono text-xs text-neutral-900"
+            className="overflow-x-auto rounded-md border border-neutral-200 dark:border-border bg-neutral-50 dark:bg-muted p-2.5 font-mono text-xs text-neutral-900 dark:text-foreground"
           >
             {safeStringify(parameters)}
           </pre>
@@ -64,14 +64,14 @@ export function ShadcnCatchallRenderer({
           {done ? (
             <pre
               data-testid="shadcn-catchall-result"
-              className="overflow-x-auto rounded-md border border-emerald-200 bg-emerald-50 p-2.5 font-mono text-xs text-neutral-900"
+              className="overflow-x-auto rounded-md border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-2.5 font-mono text-xs text-neutral-900 dark:text-foreground"
             >
               {parsedResult !== undefined
                 ? safeStringify(parsedResult)
                 : "(empty)"}
             </pre>
           ) : (
-            <p className="text-xs italic text-neutral-500">
+            <p className="text-xs italic text-neutral-500 dark:text-muted-foreground">
               waiting for tool to finish…
             </p>
           )}
@@ -90,7 +90,7 @@ function Section({
 }) {
   return (
     <div>
-      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-neutral-500 dark:text-muted-foreground">
         {label}
       </div>
       {children}

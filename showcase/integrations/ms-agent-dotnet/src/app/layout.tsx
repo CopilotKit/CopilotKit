@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@copilotkit/react-core/v2/styles.css";
 import "./globals.css";
+import { themeScript } from "./theme-script";
 
 export const metadata: Metadata = {
   title: "CopilotKit Showcase — Microsoft Agent Framework (.NET)",
@@ -13,7 +14,10 @@ export default function RootLayout({
 }) {
   const isProd = process.env.NODE_ENV === "production";
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body>
         {isProd && (
           <script

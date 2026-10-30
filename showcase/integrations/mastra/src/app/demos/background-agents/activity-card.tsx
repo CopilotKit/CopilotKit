@@ -70,7 +70,7 @@ function BackgroundTaskCard({ content }: { content: BackgroundTaskContent }) {
       data-testid="background-task-activity"
       data-status={content.status ?? "running"}
     >
-      <div className="w-full max-w-md rounded-2xl border bg-card p-4 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border dark:border-border bg-card p-4 shadow-sm">
         <div className="flex items-center gap-3">
           {working ? (
             <span

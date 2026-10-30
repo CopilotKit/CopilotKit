@@ -20,7 +20,7 @@ export function D20Card({ loading, value }: D20CardProps) {
     <div
       data-testid="d20-card"
       data-d20-result={display === undefined ? "" : String(display)}
-      className={`my-3 inline-flex items-center gap-3 rounded-2xl border border-[#DBDBE5] bg-white p-4 shadow-sm ${
+      className={`my-3 inline-flex items-center gap-3 rounded-2xl border border-[#DBDBE5] dark:border-border bg-white dark:bg-card p-4 shadow-sm ${
         isCrit ? "ring-2 ring-[#85ECCE]" : ""
       }`}
     >
@@ -31,18 +31,18 @@ export function D20Card({ loading, value }: D20CardProps) {
         d20
       </span>
       <div>
-        <div className="text-[10px] uppercase tracking-[0.14em] text-[#57575B]">
+        <div className="text-[10px] uppercase tracking-[0.14em] text-[#57575B] dark:text-muted-foreground">
           Roll
         </div>
         <div
           data-testid="d20-value"
-          className="font-mono text-2xl font-semibold text-[#010507]"
+          className="font-mono text-2xl font-semibold text-[#010507] dark:text-foreground"
         >
           {loading ? "…" : (display ?? "—")}
         </div>
       </div>
       {isCrit ? (
-        <span className="rounded-full border border-[#85ECCE4D] bg-[#85ECCE]/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#189370]">
+        <span className="rounded-full border border-[#85ECCE4D] bg-[#85ECCE]/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#189370] dark:text-[#85ECCE]">
           critical!
         </span>
       ) : null}

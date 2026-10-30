@@ -9,7 +9,7 @@ export const Input = React.forwardRef<
   return (
     <input
       ref={ref}
-      className={`flex h-10 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-sm text-[#010507] placeholder:text-[#838389] focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33] disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`flex h-10 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-sm text-[#010507] placeholder:text-[#838389] focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33] disabled:cursor-not-allowed disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:placeholder:text-muted-foreground dark:focus:border-[#BEC2FF] ${className}`}
       {...props}
     />
   );
@@ -22,7 +22,7 @@ export const Select = React.forwardRef<
   return (
     <select
       ref={ref}
-      className={`flex h-10 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-sm text-[#010507] focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33] disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`flex h-10 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-sm text-[#010507] focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33] disabled:cursor-not-allowed disabled:opacity-50 dark:border-border dark:bg-card dark:text-foreground dark:focus:border-[#BEC2FF] ${className}`}
       {...props}
     >
       {children}
@@ -37,7 +37,7 @@ export const Label = React.forwardRef<
   return (
     <label
       ref={ref}
-      className={`text-sm font-medium text-[#57575B] ${className}`}
+      className={`text-sm font-medium text-[#57575B] dark:text-muted-foreground ${className}`}
       {...props}
     />
   );

@@ -10,9 +10,12 @@ import React from "react";
 export type BadgeVariant = "success" | "warning" | "error" | "info";
 
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  success: "border-transparent bg-emerald-100 text-emerald-800",
-  warning: "border-transparent bg-amber-100 text-amber-800",
-  error: "border-transparent bg-rose-100 text-rose-800",
+  success:
+    "border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
+  warning:
+    "border-transparent bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+  error:
+    "border-transparent bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300",
   info: "border-[var(--border)] bg-[var(--muted)] text-[var(--foreground)]",
 };
 

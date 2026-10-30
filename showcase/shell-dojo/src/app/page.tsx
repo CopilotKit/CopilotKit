@@ -333,7 +333,8 @@ export default function DojoPage() {
           left: 1040,
           top: 11,
           borderRadius: "50%",
-          background: "rgba(255, 172, 77, 0.2)",
+          background:
+            "light-dark(rgba(255, 172, 77, 0.2), rgba(255, 172, 77, 0.06))",
           filter: "blur(103px)",
           zIndex: 0,
         }}
@@ -346,7 +347,7 @@ export default function DojoPage() {
           left: 1339,
           top: 625,
           borderRadius: "50%",
-          background: "#C9C9DA",
+          background: "light-dark(#C9C9DA, #1b1c24)",
           filter: "blur(103px)",
           zIndex: 0,
         }}
@@ -359,7 +360,7 @@ export default function DojoPage() {
           left: 670,
           top: -365,
           borderRadius: "50%",
-          background: "#C9C9DA",
+          background: "light-dark(#C9C9DA, #1b1c24)",
           filter: "blur(103px)",
           zIndex: 0,
         }}
@@ -372,7 +373,7 @@ export default function DojoPage() {
           left: 508,
           top: 702,
           borderRadius: "50%",
-          background: "#F3F3FC",
+          background: "light-dark(#F3F3FC, #141519)",
           filter: "blur(103px)",
           zIndex: 0,
         }}
@@ -385,7 +386,8 @@ export default function DojoPage() {
           left: 128,
           top: 331,
           borderRadius: "50%",
-          background: "rgba(255, 243, 136, 0.3)",
+          background:
+            "light-dark(rgba(255, 243, 136, 0.3), rgba(255, 243, 136, 0.04))",
           filter: "blur(103px)",
           zIndex: 0,
         }}
@@ -398,7 +400,8 @@ export default function DojoPage() {
           left: -205,
           top: 803,
           borderRadius: "50%",
-          background: "rgba(255, 172, 77, 0.2)",
+          background:
+            "light-dark(rgba(255, 172, 77, 0.2), rgba(255, 172, 77, 0.06))",
           filter: "blur(103px)",
           zIndex: 0,
         }}
@@ -413,26 +416,28 @@ export default function DojoPage() {
           flexDirection: "column",
           overflow: "hidden",
           borderRadius: 8,
-          background: "rgba(255, 255, 255, 0.5)",
+          background:
+            "light-dark(rgba(255, 255, 255, 0.5), rgba(36, 37, 41, 0.5))",
           border: "2px solid var(--border-default)",
           flexShrink: 0,
           zIndex: 1,
         }}
       >
         {/* Header — dojo: p-4, ml-1 */}
-        <div style={{ padding: 16 }}>
+        <div style={{ padding: 16, position: "relative" }}>
           <div style={{ marginLeft: 4 }}>
             <div
               style={{
                 fontWeight: 300,
                 fontSize: 18,
                 lineHeight: "20px",
-                color: "#111827",
+                color: "light-dark(#111827, var(--text-primary))",
               }}
             >
               CopilotKit Interactive Dojo
             </div>
           </div>
+          <ThemeToggle />
         </div>
 
         {/* Controls section — dojo: p-4 border-b */}
@@ -458,10 +463,14 @@ export default function DojoPage() {
                 padding: "0 12px",
                 cursor: "pointer",
                 transition: "background 0.15s",
-                background: dropdownOpen ? "rgba(0,0,0,0.03)" : "transparent",
+                background: dropdownOpen
+                  ? "light-dark(rgba(0,0,0,0.03), rgba(255,255,255,0.06))"
+                  : "transparent",
               }}
               onMouseEnter={(e) => {
-                if (!dropdownOpen) e.currentTarget.style.background = "#fafcfa";
+                if (!dropdownOpen)
+                  e.currentTarget.style.background =
+                    "light-dark(#fafcfa, rgba(255,255,255,0.06))";
               }}
               onMouseLeave={(e) => {
                 if (!dropdownOpen)
@@ -525,16 +534,17 @@ export default function DojoPage() {
                       color: "var(--text-primary)",
                       background:
                         i.slug === selectedSlug
-                          ? "rgba(0,0,0,0.03)"
+                          ? "light-dark(rgba(0,0,0,0.03), rgba(255,255,255,0.06))"
                           : "transparent",
                     }}
                     onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "#f0f0f4")
+                      (e.currentTarget.style.background =
+                        "light-dark(#f0f0f4, rgba(255,255,255,0.08))")
                     }
                     onMouseLeave={(e) =>
                       (e.currentTarget.style.background =
                         i.slug === selectedSlug
-                          ? "rgba(0,0,0,0.03)"
+                          ? "light-dark(rgba(0,0,0,0.03), rgba(255,255,255,0.06))"
                           : "transparent")
                     }
                   >
@@ -571,7 +581,9 @@ export default function DojoPage() {
                       border: "none",
                       borderRadius: 8,
                       cursor: "pointer",
-                      background: isActive ? "#ffffff" : "transparent",
+                      background: isActive
+                        ? "light-dark(#ffffff, rgba(255, 255, 255, 0.1))"
+                        : "transparent",
                       color: "var(--text-primary)",
                       boxShadow: "none",
                       display: "flex",
@@ -650,7 +662,7 @@ export default function DojoPage() {
                         border: "none",
                         cursor: "pointer",
                         background: isSelected
-                          ? "rgba(255, 255, 255, 0.7)"
+                          ? "light-dark(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.08))"
                           : "transparent",
                         borderRadius: 4,
                         transition: "background 0.15s",
@@ -658,7 +670,7 @@ export default function DojoPage() {
                       onMouseEnter={(e) => {
                         if (!isSelected)
                           e.currentTarget.style.background =
-                            "rgba(255, 255, 255, 0.5)";
+                            "light-dark(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.05))";
                       }}
                       onMouseLeave={(e) => {
                         if (!isSelected)
@@ -709,7 +721,7 @@ export default function DojoPage() {
                                 borderRadius: 9999,
                                 background: isSelected
                                   ? "var(--text-primary)"
-                                  : "rgba(255, 255, 255, 0.65)",
+                                  : "light-dark(rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0.08))",
                                 color: isSelected
                                   ? "var(--text-invert)"
                                   : "var(--text-primary)",
@@ -762,7 +774,7 @@ export default function DojoPage() {
               height: "100%",
               border: "none",
               borderRadius: 8,
-              background: "#ffffff",
+              background: "var(--surface-container)",
             }}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           />
@@ -774,7 +786,7 @@ export default function DojoPage() {
               height: "100%",
               borderRadius: 8,
               overflow: "hidden",
-              background: "#ffffff",
+              background: "var(--surface-container)",
               border: "2px solid var(--border-default)",
             }}
           >
@@ -800,7 +812,7 @@ export default function DojoPage() {
                 width: 248,
                 flexShrink: 0,
                 borderLeft: "1px solid var(--border-container)",
-                background: "#fafbfd",
+                background: "light-dark(#fafbfd, #141519)",
                 overflow: "auto",
                 padding: "12px 8px",
               }}
@@ -961,7 +973,7 @@ function FileTree({
                 borderRadius: 999,
                 background: showAll
                   ? "var(--text-primary)"
-                  : "rgba(0,0,0,0.15)",
+                  : "light-dark(rgba(0,0,0,0.15), rgba(255,255,255,0.2))",
                 transition: "background 0.15s",
               }}
             >
@@ -973,7 +985,8 @@ function FileTree({
                   width: 10,
                   height: 10,
                   borderRadius: "50%",
-                  background: "#ffffff",
+                  // On, the knob sits on a --text-primary track.
+                  background: showAll ? "var(--text-invert)" : "#ffffff",
                   transform: showAll ? "translateX(10px)" : "translateX(0)",
                   transition: "transform 0.15s",
                   boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
@@ -1055,7 +1068,9 @@ function FileTreeRow({
         width: "100%",
         padding: `2px 6px 2px ${padLeft + 14}px`,
         border: "none",
-        background: isSelected ? "rgba(0, 0, 0, 0.05)" : "transparent",
+        background: isSelected
+          ? "light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.08))"
+          : "transparent",
         color:
           isSelected || isHighlighted
             ? "var(--text-primary)"
@@ -1071,7 +1086,8 @@ function FileTreeRow({
       }}
       onMouseEnter={(e) => {
         if (!isSelected)
-          e.currentTarget.style.background = "rgba(0, 0, 0, 0.03)";
+          e.currentTarget.style.background =
+            "light-dark(rgba(0, 0, 0, 0.03), rgba(255, 255, 255, 0.05))";
       }}
       onMouseLeave={(e) => {
         if (!isSelected) e.currentTarget.style.background = "transparent";
@@ -1134,5 +1150,71 @@ function SectionTitle({ title }: { title: string }) {
         }}
       />
     </div>
+  );
+}
+
+/**
+ * Light/dark switch. Shows the current theme and stores the opposite one on
+ * click. The head script in layout.tsx owns the theme; this only asks it to
+ * change and follows the `dark` class it sets on <html>.
+ */
+function ThemeToggle() {
+  const [isDark, setIsDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setIsDark(root.classList.contains("dark"));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  const label = isDark ? "Switch to light theme" : "Switch to dark theme";
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={() => window.__dojoSetTheme?.(isDark ? "light" : "dark")}
+      style={{
+        // Out of flow, in the space right of the title, so the header
+        // layout is unchanged.
+        position: "absolute",
+        top: 14,
+        right: 8,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 24,
+        height: 24,
+        padding: 0,
+        border: "none",
+        borderRadius: 4,
+        background: "transparent",
+        color: "var(--text-secondary)",
+        cursor: "pointer",
+      }}
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        {isDark ? (
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        ) : (
+          <>
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+          </>
+        )}
+      </svg>
+    </button>
   );
 }

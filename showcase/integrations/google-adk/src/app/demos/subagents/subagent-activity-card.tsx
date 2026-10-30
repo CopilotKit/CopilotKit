@@ -30,21 +30,21 @@ const SUB_AGENT_META: Record<
     role: "gathering facts",
     emoji: "🔎",
     accent: "border-[#BEC2FF] bg-[#BEC2FF]/15",
-    chip: "border-[#BEC2FF] bg-[#BEC2FF1A] text-[#010507]",
+    chip: "border-[#BEC2FF] bg-[#BEC2FF1A] text-[#010507] dark:text-foreground",
   },
   writing_agent: {
     label: "Writer",
     role: "drafting prose",
     emoji: "✍️",
     accent: "border-[#85ECCE4D] bg-[#85ECCE]/10",
-    chip: "border-[#85ECCE4D] bg-[#85ECCE]/20 text-[#189370]",
+    chip: "border-[#85ECCE4D] bg-[#85ECCE]/20 text-[#189370] dark:text-[#85ECCE]",
   },
   critique_agent: {
     label: "Critic",
     role: "reviewing the draft",
     emoji: "🧐",
     accent: "border-[#FFAC4D33] bg-[#FFAC4D]/10",
-    chip: "border-[#FFAC4D33] bg-[#FFAC4D]/15 text-[#57575B]",
+    chip: "border-[#FFAC4D33] bg-[#FFAC4D]/15 text-[#57575B] dark:text-muted-foreground",
   },
 };
 
@@ -82,17 +82,17 @@ export function SubAgentActivityCard({
       data-subagent-card={ROLE_TESTID[subAgent]}
       data-sub-agent={subAgent}
       data-status={status}
-      className={`my-3 overflow-hidden rounded-2xl border bg-white shadow-sm ${meta.accent}`}
+      className={`my-3 overflow-hidden rounded-2xl border bg-white shadow-sm dark:bg-card ${meta.accent}`}
     >
-      <div className="flex items-center justify-between border-b border-[#E9E9EF] bg-[#FAFAFC] px-4 py-2.5">
+      <div className="flex items-center justify-between border-b border-[#E9E9EF] bg-[#FAFAFC] px-4 py-2.5 dark:border-border dark:bg-muted">
         <div className="flex items-center gap-2">
           <span aria-hidden className="text-base leading-none">
             {meta.emoji}
           </span>
-          <span className="text-sm font-semibold text-[#010507]">
+          <span className="text-sm font-semibold text-[#010507] dark:text-foreground">
             {meta.label}
           </span>
-          <span className="text-[11px] text-[#838389]">
+          <span className="text-[11px] text-[#838389] dark:text-muted-foreground">
             {running ? `is ${meta.role}…` : `finished ${meta.role}`}
           </span>
         </div>
@@ -104,12 +104,12 @@ export function SubAgentActivityCard({
           {task ? (
             <p
               data-testid="subagent-activity-task"
-              className="rounded-lg border border-[#E9E9EF] bg-[#FAFAFC] p-2.5 text-xs text-[#010507] whitespace-pre-wrap"
+              className="rounded-lg border border-[#E9E9EF] bg-[#FAFAFC] p-2.5 text-xs text-[#010507] whitespace-pre-wrap dark:border-border dark:bg-muted dark:text-foreground"
             >
               {task}
             </p>
           ) : (
-            <p className="text-xs italic text-[#838389]">
+            <p className="text-xs italic text-[#838389] dark:text-muted-foreground">
               waiting for the supervisor to spell out the task…
             </p>
           )}
@@ -120,13 +120,13 @@ export function SubAgentActivityCard({
             <div
               data-testid="subagent-result"
               data-subagent-result-role={ROLE_TESTID[subAgent]}
-              className="rounded-lg border border-[#E9E9EF] bg-white p-2.5 text-xs text-[#010507] whitespace-pre-wrap"
+              className="rounded-lg border border-[#E9E9EF] bg-white p-2.5 text-xs text-[#010507] whitespace-pre-wrap dark:border-border dark:bg-card dark:text-foreground"
             >
               {result?.trim() ? result : "(empty)"}
             </div>
           ) : (
-            <p className="inline-flex items-center gap-2 text-xs italic text-[#57575B]">
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#010507]" />
+            <p className="inline-flex items-center gap-2 text-xs italic text-[#57575B] dark:text-muted-foreground">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#010507] dark:bg-foreground" />
               {meta.label} is working…
             </p>
           )}
@@ -145,7 +145,7 @@ function Section({
 }) {
   return (
     <div>
-      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#838389]">
+      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#838389] dark:text-muted-foreground">
         {label}
       </div>
       {children}

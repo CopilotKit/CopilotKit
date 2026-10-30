@@ -1,7 +1,22 @@
 @import "tailwindcss";
 
+/* Tailwind's `dark:` follows the dashboard theme (`data-theme` on <html>,
+   see theme-toggle.tsx), not just the OS: explicit "dark", or "system"
+   while the OS prefers dark. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where([data-theme="system"], [data-theme="system"] *) {
+      @slot;
+    }
+  }
+}
+
 /* ── Light theme (default) ────────────────────────────────────────── */
 :root {
+  color-scheme: light;
   --bg: #ffffff;
   --bg-surface: #ffffff;
   --bg-muted: #f7f8fa;
@@ -23,6 +38,7 @@
 
 /* ── Dark theme ───────────────────────────────────────────────────── */
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg: #0f1117;
   --bg-surface: #1a1d27;
   --bg-muted: #22252f;
@@ -45,6 +61,7 @@
 /* ── System-auto: dark when no explicit theme set ─────────────────── */
 @media (prefers-color-scheme: dark) {
   [data-theme="system"] {
+    color-scheme: dark;
     --bg: #0f1117;
     --bg-surface: #1a1d27;
     --bg-muted: #22252f;
